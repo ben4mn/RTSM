@@ -25,6 +25,7 @@ var dropoff_target: Node2D = null
 # Building state
 var build_target: Node2D = null
 var build_timer: float = 0.0
+var _gather_offset: Vector2 = Vector2.ZERO  # Small random offset to prevent villager stacking
 
 # Saved gather state (restored after building completes)
 var _saved_gather_target: Node2D = null
@@ -52,10 +53,11 @@ func _process_gathering(delta: float) -> void:
 			set_state(State.IDLE)
 		return
 
-	var dist: float = global_position.distance_to(gather_target.global_position)
+	var approach_pos: Vector2 = gather_target.global_position + _gather_offset
+	var dist: float = global_position.distance_to(approach_pos)
 	if dist > 28.0:
-		# Walk to resource
-		var direction: Vector2 = (gather_target.global_position - global_position).normalized()
+		# Walk to resource (with offset to spread villagers)
+		var direction: Vector2 = (approach_pos - global_position).normalized()
 		global_position += direction * speed * delta
 		return
 
@@ -105,10 +107,10 @@ func _find_and_go_to_dropoff() -> void:
 			best_any_dist = dist
 			best_any = building
 	# Prefer specific drop-off (lumber camp for wood, mining camp for gold)
-	# But use any drop-off if it's significantly closer (within 50% distance)
+	# But use any drop-off if it's much closer (within 30% distance)
 	var best_building: Node2D = null
 	if best_specific != null:
-		if best_any != null and best_any_dist < best_specific_dist * 0.5:
+		if best_any != null and best_any_dist < best_specific_dist * 0.3:
 			best_building = best_any
 		else:
 			best_building = best_specific
@@ -190,6 +192,8 @@ func command_gather(resource_node: Node2D) -> void:
 		return
 	gather_target = resource_node
 	gather_timer = 0.0
+	# Small random offset so multiple villagers don't stack on the exact same pixel
+	_gather_offset = Vector2(randf_range(-10.0, 10.0), randf_range(-6.0, 6.0))
 
 	# Determine resource type from the target
 	if resource_node.has_method("get_resource_type"):

@@ -391,25 +391,39 @@ func set_production_queue(queue: Node) -> void:
 
 
 func _tower_try_attack() -> void:
-	# Find nearest enemy unit in range
-	var enemy_group: String = "player_%d" % (1 - player_owner)
-	var best_target: Node2D = null
-	var best_dist: float = INF
+	# Find nearest enemy unit in range (priority), fall back to enemy buildings
+	var best_unit: UnitBase = null
+	var best_unit_dist: float = INF
 	for node in get_tree().get_nodes_in_group("units"):
-		if not is_instance_valid(node):
-			continue
-		if not (node is UnitBase):
+		if not is_instance_valid(node) or not (node is UnitBase):
 			continue
 		var u: UnitBase = node as UnitBase
 		if u.player_owner == player_owner or u.current_state == UnitBase.State.DEAD:
 			continue
 		var dist: float = global_position.distance_to(u.global_position)
-		if dist <= tower_attack_range and dist < best_dist:
-			best_dist = dist
-			best_target = u
-	if best_target != null:
-		var target_unit: UnitBase = best_target as UnitBase
-		target_unit.take_damage(tower_attack_damage)
-		# VFX: arrow-like hit burst
+		if dist <= tower_attack_range and dist < best_unit_dist:
+			best_unit_dist = dist
+			best_unit = u
+	if best_unit != null:
+		best_unit.take_damage(tower_attack_damage)
 		if get_tree() and get_tree().current_scene:
-			VFX.hit_burst(get_tree(), target_unit.global_position, Color(0.8, 0.6, 0.2))
+			VFX.hit_burst(get_tree(), best_unit.global_position, Color(0.8, 0.6, 0.2))
+		return
+
+	# No enemy units in range — try enemy buildings
+	var best_building: BuildingBase = null
+	var best_bld_dist: float = INF
+	for node in get_tree().get_nodes_in_group("buildings"):
+		if not is_instance_valid(node) or not (node is BuildingBase):
+			continue
+		var b: BuildingBase = node as BuildingBase
+		if b.player_owner == player_owner or b.state == State.DESTROYED:
+			continue
+		var dist: float = global_position.distance_to(b.global_position)
+		if dist <= tower_attack_range and dist < best_bld_dist:
+			best_bld_dist = dist
+			best_building = b
+	if best_building != null:
+		best_building.take_damage(tower_attack_damage)
+		if get_tree() and get_tree().current_scene:
+			VFX.hit_burst(get_tree(), best_building.global_position, Color(0.8, 0.6, 0.2))
