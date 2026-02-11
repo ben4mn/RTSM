@@ -80,6 +80,9 @@ var _research_container: VBoxContainer = null
 # Hotkey reference panel
 var _hotkey_panel: PanelContainer = null
 
+# Sacred site timer label
+var _sacred_site_label: Label = null
+
 
 func _ready() -> void:
 	layer = 10
@@ -101,6 +104,7 @@ func _ready() -> void:
 	_create_military_buttons()
 	_create_notification_feed()
 	_create_hotkey_panel()
+	_create_sacred_site_label()
 
 	# Connect to autoloads if available
 	if Engine.has_singleton("GameManager") or has_node("/root/GameManager"):
@@ -859,6 +863,54 @@ func _create_hotkey_panel() -> void:
 func _toggle_hotkey_panel() -> void:
 	if _hotkey_panel:
 		_hotkey_panel.visible = not _hotkey_panel.visible
+
+
+# --- Sacred Site Timer ---
+
+func _create_sacred_site_label() -> void:
+	var root_ctrl: Control = $Root
+	_sacred_site_label = Label.new()
+	_sacred_site_label.set_anchors_preset(Control.PRESET_TOP_CENTER)
+	_sacred_site_label.offset_top = 32
+	_sacred_site_label.offset_left = -120
+	_sacred_site_label.offset_right = 120
+	_sacred_site_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_sacred_site_label.add_theme_font_size_override("font_size", 15)
+	_sacred_site_label.visible = false
+	_sacred_site_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root_ctrl.add_child(_sacred_site_label)
+
+
+func update_sacred_site_timer(player_id: int, remaining: float, total: float) -> void:
+	if _sacred_site_label == null:
+		return
+	if player_id < 0 or remaining <= 0.0:
+		_sacred_site_label.visible = false
+		return
+	_sacred_site_label.visible = true
+	@warning_ignore("integer_division")
+	var mins: int = int(remaining) / 60
+	@warning_ignore("integer_division")
+	var secs: int = int(remaining) % 60
+	var owner_name: String = "You" if player_id == 0 else "Enemy"
+	_sacred_site_label.text = "Sacred Site: %s (%d:%02d)" % [owner_name, mins, secs]
+	if player_id == 0:
+		_sacred_site_label.add_theme_color_override("font_color", Color(0.3, 0.7, 1.0))
+	else:
+		_sacred_site_label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.3))
+	# Flash warning when under 60s
+	if remaining < 60.0 and player_id != 0:
+		var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.01)
+		_sacred_site_label.add_theme_color_override("font_color", Color(1.0, lerpf(0.2, 0.5, pulse), 0.2))
+
+
+# --- Military Count ---
+
+func update_military_count(count: int) -> void:
+	if _select_military_button:
+		_select_military_button.text = "Military: %d [M]" % count
+	if _find_army_button:
+		_find_army_button.text = "Find Army: %d [F]" % count
 
 
 # --- Helpers ---

@@ -72,6 +72,9 @@ var _control_groups: Array = [[], [], [], [], [], [], [], [], [], []]
 var _last_group_tap: Array[float] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 const GROUP_DOUBLE_TAP_TIME: float = 0.35
 
+# --- Sacred site victory tracking ---
+var _sacred_site_victory_notified: bool = false
+
 # --- Early game hints ---
 var _hint_timer: float = 0.0
 var _hints_shown: int = 0
@@ -112,6 +115,12 @@ func _on_map_ready(map_gen: MapGenerator) -> void:
 	selection_mgr.build_command.connect(_on_build_command)
 	selection_mgr.selection_changed.connect(_on_selection_changed)
 
+	# Connect sacred site signals.
+	if game_map.sacred_site:
+		game_map.sacred_site.captured.connect(_on_sacred_site_captured)
+		game_map.sacred_site.neutralized.connect(_on_sacred_site_neutralized)
+		game_map.sacred_site.victory_timer_tick.connect(_on_sacred_site_timer_tick)
+
 	# Wire up HUD.
 	_setup_hud()
 
@@ -128,6 +137,44 @@ func _on_map_ready(map_gen: MapGenerator) -> void:
 	# Update initial HUD state.
 	_refresh_hud_resources(0)
 	_update_population_display()
+
+
+# =========================================================================
+#  SACRED SITE
+# =========================================================================
+
+func _on_sacred_site_captured(player_id: int) -> void:
+	if player_id == 0:
+		hud.show_notification("Sacred Site captured! Hold for 3:00 to win!", Color(0.9, 0.8, 0.2))
+	else:
+		hud.show_notification("Enemy captured the Sacred Site!", Color(1.0, 0.4, 0.2))
+
+
+func _on_sacred_site_neutralized() -> void:
+	hud.show_notification("Sacred Site neutralized", Color(0.7, 0.7, 0.7))
+	_sacred_site_victory_notified = false
+	hud.update_sacred_site_timer(-1, 0.0, 0.0)
+
+
+func _on_sacred_site_timer_tick(player_id: int, remaining: float, total: float) -> void:
+	hud.update_sacred_site_timer(player_id, remaining, total)
+	# Check for victory
+	if remaining <= 0.0:
+		if player_id == 0:
+			# Player wins via sacred site
+			GameManager.defeat_player(1)
+			_show_game_over()
+		else:
+			# AI wins via sacred site
+			GameManager.defeat_player(0)
+			_show_game_over()
+	# Warn at 60 seconds remaining
+	elif remaining <= 60.0 and not _sacred_site_victory_notified:
+		_sacred_site_victory_notified = true
+		if player_id == 0:
+			hud.show_notification("Sacred Site victory in 1 minute!", Color(0.9, 0.8, 0.2))
+		else:
+			hud.show_notification("Enemy Sacred Site victory in 1 minute!", Color(1.0, 0.3, 0.2))
 
 
 # =========================================================================
@@ -456,11 +503,17 @@ func _auto_explore_idle_scouts() -> void:
 
 
 func _update_idle_villager_count() -> void:
-	var count: int = 0
+	var idle_count: int = 0
+	var military_count: int = 0
 	for unit in _player_units[0]:
-		if is_instance_valid(unit) and unit is Villager and unit.current_state == UnitBase.State.IDLE:
-			count += 1
-	hud.update_idle_villager_count(count)
+		if not is_instance_valid(unit) or unit.current_state == UnitBase.State.DEAD:
+			continue
+		if unit is Villager and unit.current_state == UnitBase.State.IDLE:
+			idle_count += 1
+		elif not (unit is Villager):
+			military_count += 1
+	hud.update_idle_villager_count(idle_count)
+	hud.update_military_count(military_count)
 
 
 # =========================================================================

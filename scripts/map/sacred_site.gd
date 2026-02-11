@@ -6,6 +6,7 @@ extends Node2D
 signal captured(player_id: int)
 signal contested()
 signal neutralized()
+signal victory_timer_tick(player_id: int, remaining: float, total: float)
 
 enum SiteState {
 	NEUTRAL,
@@ -31,6 +32,12 @@ var capture_progress: float = 0.0
 
 ## Radius in tiles to detect nearby units.
 @export var capture_radius: int = 3
+
+## Time to hold sacred site for a victory (seconds).
+@export var victory_hold_time: float = 180.0  # 3 minutes
+
+## Accumulated hold time for the current owner.
+var victory_timer: float = 0.0
 
 ## Tile position on the map grid.
 var tile_position: Vector2i = Vector2i.ZERO
@@ -68,10 +75,12 @@ func _handle_neutral(p1: int, p2: int, _delta: float) -> void:
 		state = SiteState.CAPTURING
 		owning_player = 0
 		capture_progress = 0.0
+		victory_timer = 0.0
 	elif p2 > 0 and p1 == 0:
 		state = SiteState.CAPTURING
 		owning_player = 1
 		capture_progress = 0.0
+		victory_timer = 0.0
 
 
 func _handle_capturing(p1: int, p2: int, delta: float) -> void:
@@ -119,11 +128,16 @@ func _handle_captured(p1: int, p2: int, delta: float) -> void:
 			state = SiteState.NEUTRAL
 			var _old_owner := owning_player
 			owning_player = -1
+			victory_timer = 0.0
 			neutralized.emit()
 		return
 
 	# Generate gold for the owning player.
 	_generate_gold(delta)
+
+	# Tick victory timer.
+	victory_timer += delta
+	victory_timer_tick.emit(owning_player, victory_hold_time - victory_timer, victory_hold_time)
 
 
 func _handle_contested(p1: int, p2: int, delta: float) -> void:
@@ -166,7 +180,7 @@ func _generate_gold(delta: float) -> void:
 func _count_nearby_players() -> Array[int]:
 	var counts: Array[int] = [0, 0]
 	for unit in get_tree().get_nodes_in_group("units"):
-		if not unit is Node2D:
+		if not is_instance_valid(unit) or not unit is Node2D:
 			continue
 		var unit_node := unit as Node2D
 		var dist := global_position.distance_to(unit_node.global_position)
