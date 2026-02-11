@@ -46,6 +46,7 @@ var _retreat_threshold: float = 0.3  # Pull back if army drops below 30%
 var _game_time: float = 0.0  # Track elapsed time for timed aggression
 var _last_harass_time: float = 0.0  # Cooldown for harassment raids
 var _scout_trained: bool = false  # Track if we've trained a scout
+var _income_accumulator: Dictionary = { "food": 0.0, "wood": 0.0, "gold": 0.0 }
 
 # Build-order tracking (what we have built so far)
 var _house_count: int = 0
@@ -84,6 +85,21 @@ const RESOURCE_RATIO: Dictionary = {
 	"gold": 0.3,
 }
 
+## Passive resource income per second by difficulty (food, wood, gold).
+## Simulates the AI's faster macro and fewer micro mistakes.
+const DIFFICULTY_INCOME: Dictionary = {
+	Difficulty.EASY: 0.0,
+	Difficulty.MEDIUM: 1.0,
+	Difficulty.HARD: 2.5,
+}
+
+## Bonus starting resources by difficulty.
+const DIFFICULTY_START_BONUS: Dictionary = {
+	Difficulty.EASY: 0,
+	Difficulty.MEDIUM: 50,
+	Difficulty.HARD: 150,
+}
+
 # Build priority order: building_type, min_age, max_count_per_age
 # Initialized in _ready() because Godot 4 const cannot reference external class enums.
 var _build_priority: Array = []
@@ -113,6 +129,19 @@ func _init_build_priority() -> void:
 func _process(delta: float) -> void:
 	if GameManager.current_state == GameManager.GameState.PLAYING:
 		_game_time += delta
+		# Passive resource income for Medium/Hard difficulty
+		var income: float = DIFFICULTY_INCOME.get(difficulty, 0.0)
+		if income > 0.0:
+			_income_accumulator["food"] += income * delta * 2.0
+			_income_accumulator["wood"] += income * delta * 1.5
+			_income_accumulator["gold"] += income * delta
+			var rm: Node = get_node_or_null("/root/ResourceManager")
+			if rm:
+				for res_type in _income_accumulator:
+					var whole: int = int(_income_accumulator[res_type])
+					if whole >= 1:
+						rm.add_resource(player_id, res_type, whole)
+						_income_accumulator[res_type] -= float(whole)
 
 
 func _setup_timer() -> void:
@@ -134,6 +163,14 @@ func start_ai(base_tile: Vector2i, base_world_pos: Vector2) -> void:
 	)
 	_staging_point = _base_position.lerp(center, 0.25)
 	_decision_timer.start()
+	# Apply difficulty starting bonus
+	var bonus: int = DIFFICULTY_START_BONUS.get(difficulty, 0)
+	if bonus > 0:
+		var rm: Node = get_node_or_null("/root/ResourceManager")
+		if rm:
+			rm.add_resource(player_id, "food", bonus)
+			rm.add_resource(player_id, "wood", bonus)
+			rm.add_resource(player_id, "gold", int(bonus * 0.5))
 
 
 ## Register a building the AI owns (called by main scene when build completes).
