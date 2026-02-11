@@ -197,6 +197,15 @@ func _on_speed_pressed() -> void:
 	_speed_button.text = SPEED_LABELS[_game_speed_index]
 
 
+func sync_speed_display(speed: float) -> void:
+	for i in GAME_SPEEDS.size():
+		if absf(GAME_SPEEDS[i] - speed) < 0.01:
+			_game_speed_index = i
+			if _speed_button:
+				_speed_button.text = SPEED_LABELS[i]
+			return
+
+
 func set_pause_display(is_paused: bool) -> void:
 	if _pause_button:
 		_pause_button.text = ">" if is_paused else "||"

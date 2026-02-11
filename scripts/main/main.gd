@@ -260,6 +260,7 @@ func _cycle_game_speed(direction: int) -> void:
 			break
 	var new_idx: int = clampi(current_idx + direction, 0, GAME_SPEEDS.size() - 1)
 	Engine.time_scale = GAME_SPEEDS[new_idx]
+	hud.sync_speed_display(GAME_SPEEDS[new_idx])
 	hud.show_notification("Speed: %.1fx" % GAME_SPEEDS[new_idx], Color(0.8, 0.8, 0.8))
 
 
@@ -603,6 +604,14 @@ func _on_unit_trained(unit_type: int, spawn_pos: Vector2, player_id: int) -> voi
 		# Auto-assign new villagers to gather the most needed resource
 		if unit and unit_type == UnitData.UnitType.VILLAGER:
 			_auto_assign_new_villager(unit)
+		# Warn when population is near cap
+		var player_data: Dictionary = GameManager.players.get(0, {})
+		var pop: int = player_data.get("population", 0)
+		var cap: int = player_data.get("population_cap", 5)
+		if pop >= cap:
+			hud.show_notification("Population cap reached! Build more Houses.", Color(1.0, 0.5, 0.2))
+		elif pop >= cap - 2:
+			hud.show_notification("Population almost full (%d/%d)" % [pop, cap], Color(1.0, 0.7, 0.3))
 
 
 func _on_unit_died(unit: UnitBase, player_id: int) -> void:
