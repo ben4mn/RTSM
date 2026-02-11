@@ -288,16 +288,53 @@ func _update_age_display() -> void:
 	if gm:
 		var age: int = gm.get_player_age(0)
 		age_label.text = gm.get_age_name(age)
-		# Update age-up button text with cost
+		# Update age-up button text with cost and preview
 		if age == 1:
 			age_up_button.text = "Age Up (400F 200G)"
+			age_up_button.tooltip_text = _get_age_up_preview(age + 1)
+			age_up_button.disabled = false
 		elif age == 2:
 			age_up_button.text = "Age Up (1200F 600G)"
+			age_up_button.tooltip_text = _get_age_up_preview(age + 1)
+			age_up_button.disabled = false
 		else:
 			age_up_button.text = "Max Age"
+			age_up_button.tooltip_text = "You have reached the highest age"
 			age_up_button.disabled = true
 	else:
 		age_label.text = "Dark Age"
+
+
+func _get_age_up_preview(next_age: int) -> String:
+	var gm: Node = _get_game_manager()
+	var age_name: String = gm.get_age_name(next_age) if gm else "Age %d" % next_age
+	var lines: PackedStringArray = PackedStringArray()
+	lines.append("Advance to %s" % age_name)
+	lines.append("")
+	# Find buildings that unlock at this age
+	var new_buildings: PackedStringArray = PackedStringArray()
+	for key in BuildingData.BUILDINGS:
+		var data: Dictionary = BuildingData.BUILDINGS[key]
+		if data["age_required"] == next_age:
+			new_buildings.append(data["name"])
+	if new_buildings.size() > 0:
+		lines.append("Unlocks buildings:")
+		for b_name in new_buildings:
+			lines.append("  + %s" % b_name)
+	# Find units that become available via new buildings
+	var new_units: PackedStringArray = PackedStringArray()
+	for key in BuildingData.BUILDINGS:
+		var data: Dictionary = BuildingData.BUILDINGS[key]
+		if data["age_required"] == next_age:
+			for ut in data["can_train"]:
+				var u_name: String = UnitData.get_unit_name(ut)
+				if u_name not in new_units:
+					new_units.append(u_name)
+	if new_units.size() > 0:
+		lines.append("Unlocks units:")
+		for u_name in new_units:
+			lines.append("  + %s" % u_name)
+	return "\n".join(lines)
 
 
 func _on_game_state_changed(_new_state: int) -> void:
@@ -340,7 +377,21 @@ func show_building_selection(building_name: String, current_hp: int, max_hp: int
 	selection_name.text = building_name
 	selection_hp_bar.max_value = max_hp
 	selection_hp_bar.value = current_hp
-	selection_details.text = ""
+	# Show building details
+	var detail_parts: PackedStringArray = PackedStringArray()
+	if building_ref and is_instance_valid(building_ref) and building_ref is BuildingBase:
+		var b: BuildingBase = building_ref as BuildingBase
+		var stats: Dictionary = BuildingData.BUILDINGS.get(b.building_type, {})
+		if stats.get("pop_provided", 0) > 0:
+			detail_parts.append("+%d pop" % stats["pop_provided"])
+		var drop_off: Array = stats.get("drop_off", [])
+		if drop_off.size() > 0:
+			detail_parts.append("Drop-off: %s" % ", ".join(PackedStringArray(drop_off)))
+		if stats.get("attack_damage", 0) > 0:
+			detail_parts.append("Atk:%d Rng:%d" % [stats["attack_damage"], stats.get("attack_range", 0)])
+		if b.state == BuildingBase.State.CONSTRUCTING:
+			detail_parts.append("Under construction...")
+	selection_details.text = " | ".join(detail_parts) if detail_parts.size() > 0 else ""
 	_selected_building_ref = building_ref
 	_update_queue_display(queue_items)
 	_update_train_buttons(trainable_units)
@@ -386,14 +437,19 @@ func _update_queue_display(queue_items: Array) -> void:
 		if item is Dictionary:
 			var name_str: String = item.get("name", "?")
 			if item.get("is_training", false):
-				var pct: int = int(item.get("progress", 0.0) * 100)
-				btn.text = "%s (%d%%)" % [name_str, pct]
+				var progress: float = item.get("progress", 0.0)
+				var pct: int = int(progress * 100)
+				# Show remaining time estimate
+				var unit_type: int = item.get("unit_type", -1)
+				var train_time: float = UnitData.UNITS.get(unit_type, {}).get("build_time", 15.0)
+				var remaining: float = maxf(0.0, train_time * (1.0 - progress))
+				btn.text = "%s %d%% (%ds)" % [name_str, pct, int(remaining)]
 			else:
 				btn.text = name_str
 		else:
 			btn.text = str(item)
 		btn.add_theme_font_size_override("font_size", 14)
-		btn.custom_minimum_size = Vector2(80, 24)
+		btn.custom_minimum_size = Vector2(100, 24)
 		btn.tooltip_text = "Click to cancel"
 		btn.pressed.connect(_on_cancel_queue_pressed.bind(i))
 		queue_container.add_child(btn)
@@ -426,6 +482,8 @@ func _update_train_buttons(trainable_units: Array) -> void:
 	for ut in trainable_units:
 		var unit_name: String = UnitData.get_unit_name(ut)
 		var cost: Dictionary = UnitData.get_unit_cost(ut)
+		var stats: Dictionary = UnitData.UNITS.get(ut, {})
+		var train_time: float = stats.get("build_time", 15.0)
 		var cost_str := ""
 		if cost.get("food", 0) > 0:
 			cost_str += "F:%d " % cost["food"]
@@ -434,9 +492,17 @@ func _update_train_buttons(trainable_units: Array) -> void:
 		if cost.get("gold", 0) > 0:
 			cost_str += "G:%d " % cost["gold"]
 		var btn := Button.new()
-		btn.text = "Train %s (%s)" % [unit_name, cost_str.strip_edges()]
-		btn.custom_minimum_size = Vector2(120, 30)
-		btn.tooltip_text = "Train %s [Q]" % unit_name
+		btn.text = "Train %s (%s) %ds" % [unit_name, cost_str.strip_edges(), int(train_time)]
+		btn.custom_minimum_size = Vector2(140, 30)
+		# Build detailed tooltip with unit stats
+		var tip_lines: PackedStringArray = PackedStringArray()
+		tip_lines.append("%s [Q]" % unit_name)
+		tip_lines.append("HP: %d  Atk: %d  Arm: %d" % [stats.get("hp", 0), stats.get("damage", 0), stats.get("armor", 0)])
+		if stats.get("attack_range", 1) > 1:
+			tip_lines.append("Range: %d" % stats["attack_range"])
+		tip_lines.append("Speed: %d  Pop: %d" % [int(stats.get("speed", 50)), stats.get("pop_cost", 1)])
+		tip_lines.append("Train time: %ds" % int(train_time))
+		btn.tooltip_text = "\n".join(tip_lines)
 		btn.pressed.connect(_on_train_button_pressed.bind(ut))
 		_train_buttons_container.add_child(btn)
 

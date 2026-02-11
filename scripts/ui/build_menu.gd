@@ -68,6 +68,7 @@ func _rebuild_grid() -> void:
 		btn.custom_minimum_size = Vector2(140, 80)
 		btn.text = _format_button_text(stats)
 		btn.add_theme_font_size_override("font_size", 13)
+		btn.tooltip_text = _format_tooltip(stats, building_type)
 
 		# Add building icon to button
 		var tex_path: String = BuildingBase.BUILDING_SPRITES.get(building_type, "")
@@ -94,7 +95,39 @@ func _format_button_text(stats: Dictionary) -> String:
 		parts.append("W:%d" % cost["wood"])
 	if cost.get("gold", 0) > 0:
 		parts.append("G:%d" % cost["gold"])
-	return "%s\n%s" % [stats["name"], " ".join(parts)]
+	# Add pop info if provides housing
+	var extra := ""
+	if stats.get("pop_provided", 0) > 0:
+		extra = " +%d pop" % stats["pop_provided"]
+	return "%s%s\n%s" % [stats["name"], extra, " ".join(parts)]
+
+
+func _format_tooltip(stats: Dictionary, building_type: int) -> String:
+	var lines: PackedStringArray = PackedStringArray()
+	lines.append(stats["name"])
+	lines.append("HP: %d" % stats.get("hp", 0))
+	lines.append("Build time: %ds" % int(stats.get("build_time", 30.0)))
+	if stats.get("pop_provided", 0) > 0:
+		lines.append("Provides: +%d population" % stats["pop_provided"])
+	var drop_off: Array = stats.get("drop_off", [])
+	if drop_off.size() > 0:
+		lines.append("Drop-off: %s" % ", ".join(PackedStringArray(drop_off)))
+	var can_train: Array = stats.get("can_train", [])
+	if can_train.size() > 0:
+		var unit_names: PackedStringArray = PackedStringArray()
+		for ut in can_train:
+			unit_names.append(UnitData.get_unit_name(ut))
+		lines.append("Trains: %s" % ", ".join(unit_names))
+	if stats.get("has_research", false):
+		lines.append("Research: Weapon & Armor upgrades")
+	if stats.get("attack_damage", 0) > 0:
+		lines.append("Attack: %d (Range: %d)" % [stats["attack_damage"], stats.get("attack_range", 0)])
+	var age_req: int = stats.get("age_required", 0)
+	if age_req > 0:
+		var gm: Node = get_node_or_null("/root/GameManager")
+		if gm:
+			lines.append("Requires: %s" % gm.get_age_name(age_req))
+	return "\n".join(lines)
 
 
 # --- Affordability ---
