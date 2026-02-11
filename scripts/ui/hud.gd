@@ -524,7 +524,7 @@ func show_age_up_button(is_shown: bool) -> void:
 
 # --- Minimap ---
 
-func update_minimap(grid: Array, player_units: Array, enemy_units: Array, player_buildings: Array = [], enemy_buildings: Array = [], camera_rect: Rect2 = Rect2()) -> void:
+func update_minimap(grid: Array, player_units: Array, enemy_units: Array, player_buildings: Array = [], enemy_buildings: Array = [], camera_rect: Rect2 = Rect2(), fog: Node = null) -> void:
 	if grid.is_empty():
 		return
 
@@ -533,19 +533,31 @@ func update_minimap(grid: Array, player_units: Array, enemy_units: Array, player
 	if map_w == 0:
 		return
 
+	# Get fog grid if available
+	var fog_grid: Array = []
+	if fog and fog.has_method("is_tile_visible"):
+		fog_grid = fog.fog_grid
+
 	# Create image on first call
 	if _minimap_image == null or _minimap_image.get_width() != map_w:
 		_minimap_image = Image.create(map_w, map_h, false, Image.FORMAT_RGB8)
 		_minimap_texture = ImageTexture.create_from_image(_minimap_image)
 
-	# Draw terrain
+	# Draw terrain with fog awareness
 	for y in range(map_h):
 		for x in range(map_w):
 			var tile_type: int = grid[y][x]
 			var color: Color = MapData.TILE_COLORS.get(tile_type, Color(0.35, 0.65, 0.25))
+			# Apply fog darkening
+			if fog_grid.size() > 0:
+				var fog_state: int = fog_grid[y][x]
+				if fog_state == MapData.FogState.UNEXPLORED:
+					color = Color(0.05, 0.05, 0.05)
+				elif fog_state == MapData.FogState.EXPLORED:
+					color = color.darkened(0.5)
 			_minimap_image.set_pixel(x, y, color)
 
-	# Draw player units (blue dots)
+	# Draw player units (blue dots) — always visible (own units)
 	for unit in player_units:
 		if not is_instance_valid(unit):
 			continue
@@ -553,7 +565,7 @@ func update_minimap(grid: Array, player_units: Array, enemy_units: Array, player
 		if tile_pos.x >= 0 and tile_pos.x < map_w and tile_pos.y >= 0 and tile_pos.y < map_h:
 			_minimap_image.set_pixel(tile_pos.x, tile_pos.y, Color(0.2, 0.5, 1.0))
 
-	# Draw player buildings (bright blue squares)
+	# Draw player buildings (bright blue squares) — always visible (own buildings)
 	for building in player_buildings:
 		if not is_instance_valid(building):
 			continue
@@ -565,25 +577,33 @@ func update_minimap(grid: Array, player_units: Array, enemy_units: Array, player
 				if px >= 0 and px < map_w and py >= 0 and py < map_h:
 					_minimap_image.set_pixel(px, py, Color(0.3, 0.6, 1.0))
 
-	# Draw enemy buildings (bright red squares)
+	# Draw enemy buildings (bright red squares) — only if tile is visible
 	for building in enemy_buildings:
 		if not is_instance_valid(building):
 			continue
 		var tile_pos: Vector2i = _world_to_tile_minimap(building.global_position)
-		for dy in range(-1, 2):
-			for dx in range(-1, 2):
-				var px: int = tile_pos.x + dx
-				var py: int = tile_pos.y + dy
-				if px >= 0 and px < map_w and py >= 0 and py < map_h:
-					_minimap_image.set_pixel(px, py, Color(1.0, 0.3, 0.3))
+		var show: bool = fog_grid.is_empty()  # Show all if no fog
+		if not show and tile_pos.y >= 0 and tile_pos.y < map_h and tile_pos.x >= 0 and tile_pos.x < map_w:
+			show = fog_grid[tile_pos.y][tile_pos.x] == MapData.FogState.VISIBLE
+		if show:
+			for dy in range(-1, 2):
+				for dx in range(-1, 2):
+					var px: int = tile_pos.x + dx
+					var py: int = tile_pos.y + dy
+					if px >= 0 and px < map_w and py >= 0 and py < map_h:
+						_minimap_image.set_pixel(px, py, Color(1.0, 0.3, 0.3))
 
-	# Draw enemy units (red dots)
+	# Draw enemy units (red dots) — only if tile is visible
 	for unit in enemy_units:
 		if not is_instance_valid(unit):
 			continue
 		var tile_pos: Vector2i = _world_to_tile_minimap(unit.global_position)
 		if tile_pos.x >= 0 and tile_pos.x < map_w and tile_pos.y >= 0 and tile_pos.y < map_h:
-			_minimap_image.set_pixel(tile_pos.x, tile_pos.y, Color(1.0, 0.25, 0.2))
+			var show: bool = fog_grid.is_empty()
+			if not show:
+				show = fog_grid[tile_pos.y][tile_pos.x] == MapData.FogState.VISIBLE
+			if show:
+				_minimap_image.set_pixel(tile_pos.x, tile_pos.y, Color(1.0, 0.25, 0.2))
 
 	# Draw camera rectangle (white outline)
 	if camera_rect.size.x > 0 and camera_rect.size.y > 0:

@@ -67,6 +67,11 @@ var _stats: Dictionary = {
 	"resources_gathered": 0,
 }
 
+# --- Control groups (Ctrl+1-9 save, 1-9 recall) ---
+var _control_groups: Array = [[], [], [], [], [], [], [], [], [], []]
+var _last_group_tap: Array[float] = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+const GROUP_DOUBLE_TAP_TIME: float = 0.35
+
 # --- Early game hints ---
 var _hint_timer: float = 0.0
 var _hints_shown: int = 0
@@ -173,6 +178,14 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif key_event.keycode == KEY_MINUS or key_event.keycode == KEY_KP_SUBTRACT:
 			_cycle_game_speed(-1)
 			get_viewport().set_input_as_handled()
+		# Control groups: Ctrl+0-9 save, 0-9 recall
+		elif key_event.keycode >= KEY_0 and key_event.keycode <= KEY_9:
+			var group_idx: int = key_event.keycode - KEY_0
+			if key_event.ctrl_pressed:
+				_save_control_group(group_idx)
+			else:
+				_recall_control_group(group_idx)
+			get_viewport().set_input_as_handled()
 
 
 const GAME_SPEEDS: Array[float] = [0.5, 1.0, 2.0, 3.0]
@@ -240,6 +253,54 @@ func _find_army() -> void:
 		count += 1
 	if count > 0:
 		game_map.camera.position = center / float(count)
+		game_map._clamp_camera()
+
+
+# =========================================================================
+#  CONTROL GROUPS
+# =========================================================================
+
+func _save_control_group(index: int) -> void:
+	var selected: Array = game_map.selection_mgr.selected.duplicate()
+	_control_groups[index] = selected
+	if selected.size() > 0:
+		hud.show_notification("Group %d: %d units" % [index, selected.size()], Color(0.7, 0.8, 0.7))
+
+
+func _recall_control_group(index: int) -> void:
+	var group: Array = _control_groups[index]
+	# Filter out dead/freed nodes
+	var valid: Array[Node2D] = []
+	for node in group:
+		if not is_instance_valid(node):
+			continue
+		if node is UnitBase and (node as UnitBase).current_state == UnitBase.State.DEAD:
+			continue
+		if node is BuildingBase and (node as BuildingBase).state == BuildingBase.State.DESTROYED:
+			continue
+		valid.append(node as Node2D)
+	_control_groups[index] = valid
+
+	if valid.is_empty():
+		return
+
+	# Double-tap detection: center camera on group
+	var now: float = Time.get_ticks_msec() / 1000.0
+	var is_double: bool = now - _last_group_tap[index] < GROUP_DOUBLE_TAP_TIME
+	_last_group_tap[index] = now
+
+	# Select the group
+	game_map.selection_mgr.deselect_all()
+	for node in valid:
+		game_map.selection_mgr._add_to_selection(node)
+
+	# Center camera on double-tap
+	if is_double:
+		var center := Vector2.ZERO
+		for node in valid:
+			center += node.global_position
+		center /= float(valid.size())
+		game_map.camera.position = center
 		game_map._clamp_camera()
 
 
@@ -1047,7 +1108,7 @@ func _update_minimap() -> void:
 	var cam_pos: Vector2 = game_map.camera.position
 	var viewport_size: Vector2 = get_viewport().get_visible_rect().size / game_map.camera.zoom
 	var cam_rect := Rect2(cam_pos - viewport_size * 0.5, viewport_size)
-	hud.update_minimap(game_map.map_generator.grid, _player_units[0], _player_units[1], _player_buildings[0], _player_buildings[1], cam_rect)
+	hud.update_minimap(game_map.map_generator.grid, _player_units[0], _player_units[1], _player_buildings[0], _player_buildings[1], cam_rect, game_map.fog_of_war)
 
 
 # =========================================================================
