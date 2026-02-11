@@ -263,11 +263,8 @@ func _handle_production_hotkey() -> void:
 	var building: BuildingBase = first as BuildingBase
 	if not building.can_train():
 		return
-	var pq: Node = building.get_production_queue()
-	if pq == null:
-		return
 	if building.trainable_units.size() > 0:
-		pq.enqueue_unit(building.trainable_units[0])
+		_on_train_unit_requested(building, building.trainable_units[0])
 
 
 # =========================================================================
@@ -703,9 +700,19 @@ func _on_train_unit_requested(building: Node2D, unit_type: int) -> void:
 	var b: BuildingBase = building as BuildingBase
 	if not b.can_train():
 		return
+	# Check population room
+	var pop_cost: int = UnitData.UNITS.get(unit_type, {}).get("pop_cost", 1)
+	var player_data: Dictionary = GameManager.players.get(0, {})
+	var pop: int = player_data.get("population", 0)
+	var cap: int = player_data.get("population_cap", 5)
+	if pop + pop_cost > cap:
+		hud.show_notification("Need more houses! (Pop %d/%d)" % [pop, cap], Color(1.0, 0.6, 0.2))
+		return
 	var pq: Node = b.get_production_queue()
 	if pq:
-		pq.enqueue_unit(unit_type)
+		var success: bool = pq.enqueue_unit(unit_type)
+		if not success:
+			hud.show_notification("Cannot train — not enough resources or queue full", Color(1.0, 0.4, 0.3))
 		# Refresh selection display to show updated queue
 		_on_selection_changed(game_map.selection_mgr.selected)
 
