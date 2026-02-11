@@ -1,0 +1,84 @@
+[gd_scene load_steps=2 format=3 uid="uid://gameover001"]
+
+[ext_resource type="Script" path="res://scripts/ui/game_over_screen.gd" id="1"]
+
+[node name="GameOverScreen" type="CanvasLayer"]
+layer = 20
+process_mode = 3
+script = ExtResource("1")
+
+[node name="Background" type="ColorRect" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.7)
+
+[node name="GameOverPanel" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -200.0
+offset_top = -180.0
+offset_right = 200.0
+offset_bottom = 180.0
+grow_horizontal = 2
+grow_vertical = 2
+custom_minimum_size = Vector2(400, 360)
+
+[node name="Margin" type="MarginContainer" parent="GameOverPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 24
+theme_override_constants/margin_right = 24
+theme_override_constants/margin_top = 24
+theme_override_constants/margin_bottom = 24
+
+[node name="VBox" type="VBoxContainer" parent="GameOverPanel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="ResultLabel" type="Label" parent="GameOverPanel/Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "VICTORY"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 36
+
+[node name="Separator" type="HSeparator" parent="GameOverPanel/Margin/VBox"]
+layout_mode = 2
+
+[node name="StatsLabel" type="Label" parent="GameOverPanel/Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Game Time: 00:00
+Units Trained: 0
+Units Killed: 0
+Resources Gathered: 0
+Buildings Built: 0"
+theme_override_font_sizes/font_size = 16
+
+[node name="Spacer" type="Control" parent="GameOverPanel/Margin/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="ButtonRow" type="VBoxContainer" parent="GameOverPanel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="PlayAgainButton" type="Button" parent="GameOverPanel/Margin/VBox/ButtonRow"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(0, 48)
+text = "Play Again"
+theme_override_font_sizes/font_size = 18
+
+[node name="MainMenuButton" type="Button" parent="GameOverPanel/Margin/VBox/ButtonRow"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(0, 48)
+text = "Main Menu"
+theme_override_font_sizes/font_size = 18

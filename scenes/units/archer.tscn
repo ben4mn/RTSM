@@ -1,0 +1,18 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/units/unit_base.gd" id="1"]
+
+[node name="Archer" type="Area2D"]
+collision_layer = 2
+collision_mask = 2
+script = ExtResource("1")
+unit_type = 2
+max_hp = 50.0
+hp = 50.0
+damage = 8.0
+speed = 70.0
+attack_range = 120.0
+vision_radius = 6.0
+is_ranged = true
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]

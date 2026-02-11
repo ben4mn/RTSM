@@ -1,0 +1,176 @@
+[gd_scene load_steps=2 format=3 uid="uid://hud001"]
+
+[ext_resource type="Script" path="res://scripts/ui/hud.gd" id="1"]
+
+[node name="HUD" type="CanvasLayer"]
+layer = 10
+script = ExtResource("1")
+
+[node name="Root" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="TopBar" type="PanelContainer" parent="Root"]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+grow_horizontal = 2
+custom_minimum_size = Vector2(0, 48)
+
+[node name="TopBarMargin" type="MarginContainer" parent="Root/TopBar"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_top = 4
+theme_override_constants/margin_bottom = 4
+
+[node name="HBox" type="HBoxContainer" parent="Root/TopBar/TopBarMargin"]
+layout_mode = 2
+theme_override_constants/separation = 20
+
+[node name="FoodLabel" type="Label" parent="Root/TopBar/TopBarMargin/HBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Food: 200"
+theme_override_colors/font_color = Color(0.9, 0.35, 0.25, 1)
+theme_override_font_sizes/font_size = 16
+
+[node name="WoodLabel" type="Label" parent="Root/TopBar/TopBarMargin/HBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Wood: 200"
+theme_override_colors/font_color = Color(0.45, 0.7, 0.3, 1)
+theme_override_font_sizes/font_size = 16
+
+[node name="GoldLabel" type="Label" parent="Root/TopBar/TopBarMargin/HBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Gold: 100"
+theme_override_colors/font_color = Color(0.95, 0.85, 0.2, 1)
+theme_override_font_sizes/font_size = 16
+
+[node name="Separator" type="VSeparator" parent="Root/TopBar/TopBarMargin/HBox"]
+layout_mode = 2
+
+[node name="PopLabel" type="Label" parent="Root/TopBar/TopBarMargin/HBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Pop: 0/5"
+theme_override_font_sizes/font_size = 16
+
+[node name="Separator2" type="VSeparator" parent="Root/TopBar/TopBarMargin/HBox"]
+layout_mode = 2
+
+[node name="AgeLabel" type="Label" parent="Root/TopBar/TopBarMargin/HBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Dark Age"
+theme_override_font_sizes/font_size = 16
+
+[node name="Spacer" type="Control" parent="Root/TopBar/TopBarMargin/HBox"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="GameTimeLabel" type="Label" parent="Root/TopBar/TopBarMargin/HBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "00:00"
+theme_override_font_sizes/font_size = 16
+
+[node name="MinimapRect" type="ColorRect" parent="Root"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 8.0
+offset_top = -168.0
+offset_right = 168.0
+offset_bottom = -8.0
+grow_vertical = 0
+color = Color(0.1, 0.1, 0.1, 0.8)
+
+[node name="SelectionPanel" type="PanelContainer" parent="Root"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -180.0
+offset_top = -110.0
+offset_right = 180.0
+grow_horizontal = 2
+grow_vertical = 0
+custom_minimum_size = Vector2(360, 100)
+
+[node name="SelectionMargin" type="MarginContainer" parent="Root/SelectionPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_bottom = 8
+
+[node name="VBox" type="VBoxContainer" parent="Root/SelectionPanel/SelectionMargin"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="SelectionName" type="Label" parent="Root/SelectionPanel/SelectionMargin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Unit Name"
+theme_override_font_sizes/font_size = 18
+
+[node name="SelectionHPBar" type="ProgressBar" parent="Root/SelectionPanel/SelectionMargin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(0, 20)
+max_value = 100.0
+value = 75.0
+show_percentage = false
+
+[node name="SelectionDetails" type="Label" parent="Root/SelectionPanel/SelectionMargin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = ""
+theme_override_font_sizes/font_size = 14
+
+[node name="QueueContainer" type="HBoxContainer" parent="Root/SelectionPanel/SelectionMargin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="BottomRight" type="VBoxContainer" parent="Root"]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -160.0
+offset_top = -120.0
+offset_right = -8.0
+offset_bottom = -8.0
+grow_horizontal = 0
+grow_vertical = 0
+theme_override_constants/separation = 8
+
+[node name="AgeUpButton" type="Button" parent="Root/BottomRight"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(140, 48)
+text = "Age Up"
+theme_override_font_sizes/font_size = 16
+
+[node name="BuildMenuButton" type="Button" parent="Root/BottomRight"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(140, 48)
+text = "Build"
+theme_override_font_sizes/font_size = 16

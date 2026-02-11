@@ -1,0 +1,18 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/units/unit_base.gd" id="1"]
+
+[node name="Siege" type="Area2D"]
+collision_layer = 2
+collision_mask = 2
+script = ExtResource("1")
+unit_type = 5
+max_hp = 200.0
+hp = 200.0
+damage = 40.0
+speed = 40.0
+attack_range = 150.0
+vision_radius = 3.0
+is_ranged = true
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]

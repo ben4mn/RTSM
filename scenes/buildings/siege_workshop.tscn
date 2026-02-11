@@ -1,0 +1,10 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/buildings/building_base.tscn" id="1_base"]
+[ext_resource type="Script" path="res://scripts/buildings/production_queue.gd" id="2_queue"]
+
+[node name="SiegeWorkshop" instance=ExtResource("1_base")]
+building_type = 8
+
+[node name="ProductionQueue" type="Node" parent="."]
+script = ExtResource("2_queue")

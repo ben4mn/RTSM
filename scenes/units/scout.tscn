@@ -1,0 +1,17 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/units/unit_base.gd" id="1"]
+
+[node name="Scout" type="Area2D"]
+collision_layer = 2
+collision_mask = 2
+script = ExtResource("1")
+unit_type = 4
+max_hp = 40.0
+hp = 40.0
+damage = 0.0
+speed = 160.0
+attack_range = 0.0
+vision_radius = 10.0
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]

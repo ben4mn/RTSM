@@ -1,0 +1,47 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; but it can also be manually edited if needed.
+
+config_version=5
+
+[application]
+
+config/name="AOEM"
+config/description="Age of Empires Mobile - Isometric RTS"
+run/main_scene="res://scenes/main/main.tscn"
+config/features=PackedStringArray("4.2", "Mobile")
+config/icon="res://icon.svg"
+
+[autoload]
+
+GameManager="*res://scripts/managers/game_manager.gd"
+ResourceManager="*res://scripts/managers/resource_manager.gd"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+window/handheld/orientation=1
+
+[input]
+
+touch={
+"deadzone": 0.5,
+"events": []
+}
+
+[input_devices]
+
+pointing/emulate_touch_from_mouse=true
+
+[rendering]
+
+renderer/rendering_method="mobile"
+textures/vram_compression/import_etc2_astc=true
+environment/defaults/default_clear_color=Color(0.2, 0.4, 0.2, 1)
+
+[gui]
+
+theme/default_font_size=18

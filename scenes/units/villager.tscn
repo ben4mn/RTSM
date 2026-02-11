@@ -1,0 +1,19 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/units/villager.gd" id="1"]
+
+[node name="Villager" type="Area2D"]
+collision_layer = 2
+collision_mask = 2
+script = ExtResource("1")
+unit_type = 0
+max_hp = 25.0
+hp = 25.0
+damage = 3.0
+speed = 60.0
+attack_range = 10.0
+vision_radius = 4.0
+gather_rate = 1.0
+carry_capacity = 10
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
