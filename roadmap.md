@@ -47,38 +47,38 @@ Working prototype with: isometric tilemap, 6 unit types, 9 building types, resou
 ## Phase 2: Gameplay Polish
 
 ### 2.1 Formation & Movement
-- [ ] Group formation when moving multiple units (not all stacking on one point)
-- [ ] Spread units in arc/line at destination
+- [x] Group formation when moving multiple units (spiral offsets)
+- [x] Spread units in arc/line at destination
 - [ ] Collision avoidance between friendly units (steering behaviors)
-- [ ] Attack-move command (move but engage enemies along path)
+- [x] Attack-move command (move but engage enemies along path)
 - [ ] Patrol command
 
 ### 2.2 Gathering Improvements
-- [ ] Farms as renewable food (build, villager auto-farms, reseeds)
-- [ ] Villager auto-retarget when resource depletes (find nearest same-type)
-- [ ] Drop-off building auto-detection by resource type (lumber camp for wood)
+- [x] Farms as renewable food (build, villager auto-farms, reseeds)
+- [x] Villager auto-retarget when resource depletes (find nearest same-type)
+- [x] Drop-off building auto-detection by resource type (lumber camp for wood)
 - [ ] Villagers show carry animation (hold bundle of wood, basket of food)
-- [ ] Gather rate upgrades per age
+- [x] Gather rate upgrades per age (Wheelbarrow research)
 
 ### 2.3 Building System
 - [ ] Building queue: queue multiple buildings for placement
-- [ ] Multi-villager construction (faster with more villagers)
+- [x] Multi-villager construction (faster with more villagers)
 - [ ] Building upgrades (Town Center → Castle in Age 3)
 - [ ] Gates and walls (Age 2+)
-- [ ] Watch towers with garrison (units inside shoot arrows)
+- [x] Watch towers with garrison (tower auto-attacks enemies)
 
 ### 2.4 Combat Depth
-- [ ] Projectile system (arrows travel through air, can miss)
+- [x] Projectile system (arrow VFX for ranged attacks)
 - [ ] Garrison mechanic (units enter buildings for protection + arrow fire)
 - [ ] Healing: monks/healers unit type
-- [ ] Unit upgrades (blacksmith: +1 attack, +1 armor per age)
-- [ ] Stance system: aggressive / defensive / stand ground / no attack
+- [x] Unit upgrades (blacksmith: +2 attack, +1 armor, +gather, +villager HP)
+- [x] Stance system: aggressive / stand ground
 
 ### 2.5 Economy
 - [ ] Trade routes between markets (gold income over distance)
 - [ ] Relics on sacred sites (monks carry to monastery for gold trickle)
 - [ ] Tribute resources to ally (for multiplayer)
-- [ ] Population cap increase via houses (currently 10 per house — tune this)
+- [x] Population cap increase via houses (10 per house)
 
 ---
 
@@ -282,3 +282,10 @@ Additional completed features:
 - Counter bonus floating text ("x1.5!" on type advantage)
 - Critical HP pulsing red ring (< 25% HP warning)
 - Pause menu overlay (Resume / Quit to Main Menu)
+- Villager flee to safety when attacked (prefer Town Center)
+- Speed button sync (keyboard +/- updates HUD button text)
+- Population cap approaching/reached warnings
+- Larger minimap (200px for better readability)
+- Villager task breakdown on HUD (F:2 W:1 G:1 B:0)
+- Wheelbarrow research (+25% gather rate) and Loom (+15 villager HP)
+- New units inherit researched attack/armor upgrades on spawn
