@@ -182,6 +182,20 @@ func _draw() -> void:
 		])
 		draw_colored_polygon(pts, Color(1, 1, 1, 0.7))
 
+	# Stance indicator: shield icon for Stand Ground
+	if stance == Stance.STAND_GROUND:
+		var sx := size + 4.0
+		var sy := -2.0
+		var shield_pts := PackedVector2Array([
+			Vector2(sx - 3, sy - 4),
+			Vector2(sx + 3, sy - 4),
+			Vector2(sx + 3, sy + 1),
+			Vector2(sx, sy + 4),
+			Vector2(sx - 3, sy + 1),
+		])
+		draw_colored_polygon(shield_pts, Color(0.9, 0.75, 0.2, 0.85))
+		draw_polyline(shield_pts, Color(0.6, 0.45, 0.1, 0.9), 1.0)
+
 
 # --- State Machine ---
 

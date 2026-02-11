@@ -178,6 +178,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif key_event.keycode == KEY_MINUS or key_event.keycode == KEY_KP_SUBTRACT:
 			_cycle_game_speed(-1)
 			get_viewport().set_input_as_handled()
+		# S key: toggle stance (Aggressive / Stand Ground)
+		elif key_event.keycode == KEY_S and not key_event.ctrl_pressed:
+			_toggle_stance()
+			get_viewport().set_input_as_handled()
 		# Control groups: Ctrl+0-9 save, 0-9 recall
 		elif key_event.keycode >= KEY_0 and key_event.keycode <= KEY_9:
 			var group_idx: int = key_event.keycode - KEY_0
@@ -302,6 +306,31 @@ func _recall_control_group(index: int) -> void:
 		center /= float(valid.size())
 		game_map.camera.position = center
 		game_map._clamp_camera()
+
+
+func _toggle_stance() -> void:
+	var selected: Array = game_map.selection_mgr.selected
+	if selected.is_empty():
+		return
+	var toggled: int = 0
+	for node in selected:
+		if node is UnitBase and node.player_owner == 0:
+			var u: UnitBase = node as UnitBase
+			if u.stance == UnitBase.Stance.AGGRESSIVE:
+				u.stance = UnitBase.Stance.STAND_GROUND
+			else:
+				u.stance = UnitBase.Stance.AGGRESSIVE
+			u.queue_redraw()
+			toggled += 1
+	if toggled > 0:
+		var first_unit: UnitBase = null
+		for node in selected:
+			if node is UnitBase:
+				first_unit = node as UnitBase
+				break
+		if first_unit:
+			var stance_name: String = "Stand Ground" if first_unit.stance == UnitBase.Stance.STAND_GROUND else "Aggressive"
+			hud.show_notification("Stance: %s" % stance_name, Color(0.8, 0.7, 0.5))
 
 
 func _select_town_center() -> void:
@@ -603,6 +632,12 @@ func _on_selection_changed(selected_units: Array[Node2D]) -> void:
 		return
 
 	var first: Node2D = selected_units[0]
+	if first is ResourceNode:
+		var r: ResourceNode = first as ResourceNode
+		var type_name: String = r.resource_type.capitalize()
+		var pct: int = int(float(r.remaining) / float(r.total_amount) * 100.0)
+		hud.show_resource_info(type_name, r.remaining, r.total_amount, pct)
+		return
 	if first is UnitBase:
 		var u: UnitBase = first as UnitBase
 		var action_text: String = UnitBase.State.keys()[u.current_state]

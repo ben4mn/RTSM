@@ -341,6 +341,20 @@ func show_building_selection(building_name: String, current_hp: int, max_hp: int
 	_update_research_buttons(building_ref)
 
 
+func show_resource_info(type_name: String, remaining: int, total: int, pct: int) -> void:
+	selection_panel.visible = true
+	selection_name.text = "%s Resource" % type_name
+	selection_hp_bar.max_value = total
+	selection_hp_bar.value = remaining
+	selection_details.text = "%d / %d remaining (%d%%)" % [remaining, total, pct]
+	queue_container.visible = false
+	_selected_building_ref = null
+	if _train_buttons_container:
+		_train_buttons_container.visible = false
+	if _research_container:
+		_research_container.visible = false
+
+
 func clear_selection() -> void:
 	selection_panel.visible = false
 	_selected_building_ref = null

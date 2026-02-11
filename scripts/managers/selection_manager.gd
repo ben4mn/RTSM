@@ -141,8 +141,13 @@ func _handle_tap(screen_pos: Vector2) -> void:
 			_clear_selection()
 			_add_to_selection(tapped_node)
 	else:
-		# Empty ground — left-click always deselects (movement is via right-click)
-		if not shift_held:
+		# Check for resource node click (informational selection)
+		var resource_node: Node2D = _get_resource_at(world_pos)
+		if resource_node != null and selected.is_empty():
+			_clear_selection()
+			_add_to_selection(resource_node)
+		elif not shift_held:
+			# Empty ground — left-click always deselects (movement is via right-click)
 			_clear_selection()
 
 

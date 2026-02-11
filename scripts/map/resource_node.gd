@@ -54,6 +54,11 @@ func _ready() -> void:
 	queue_redraw()
 
 
+func _process(_delta: float) -> void:
+	if is_selected:
+		queue_redraw()
+
+
 func _setup_collision() -> void:
 	var shape := CollisionShape2D.new()
 	var circle := CircleShape2D.new()
@@ -107,7 +112,26 @@ func harvest(amount: int) -> int:
 	return actual
 
 
+var is_selected: bool = false
+
+
+func select() -> void:
+	is_selected = true
+	queue_redraw()
+
+
+func deselect() -> void:
+	is_selected = false
+	queue_redraw()
+
+
 func _draw() -> void:
+	# Selection ring
+	if is_selected:
+		var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.005)
+		var sel_alpha := lerpf(0.3, 0.8, pulse)
+		draw_arc(Vector2.ZERO, 18.0, 0, TAU, 32, Color(1.0, 1.0, 1.0, sel_alpha), 2.0)
+
 	# Subtle colored glow circle behind resource
 	if remaining > 0:
 		var glow_color: Color
