@@ -67,7 +67,17 @@ func _rebuild_grid() -> void:
 		var btn := Button.new()
 		btn.custom_minimum_size = Vector2(140, 80)
 		btn.text = _format_button_text(stats)
-		btn.add_theme_font_size_override("font_size", 14)
+		btn.add_theme_font_size_override("font_size", 13)
+
+		# Add building icon to button
+		var tex_path: String = BuildingBase.BUILDING_SPRITES.get(building_type, "")
+		if tex_path != "" and ResourceLoader.exists(tex_path):
+			btn.icon = load(tex_path)
+			btn.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
+			btn.expand_icon = true
+			# Scale icon down within button
+			btn.add_theme_constant_override("icon_max_width", 40)
+
 		btn.pressed.connect(_on_building_button_pressed.bind(building_type))
 		grid.add_child(btn)
 		_button_map[building_type] = btn

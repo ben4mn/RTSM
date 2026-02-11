@@ -1,0 +1,5 @@
+Art assets from Kenney.nl (CC0 1.0 - Public Domain)
+Packs used:
+- Medieval RTS: https://kenney.nl/assets/medieval-rts
+- Isometric Landscape: https://kenney.nl/assets/isometric-landscape
+- Kenney Fonts: https://kenney.nl/assets/kenney-fonts

@@ -1,16 +1,16 @@
-[gd_scene load_steps=5 format=3 uid="uid://cmain001"]
+[gd_scene format=3 uid="uid://cmain001"]
 
-[ext_resource type="Script" path="res://scripts/main/main.gd" id="1"]
+[ext_resource type="Script" uid="uid://dhik2hic15o4f" path="res://scripts/main/main.gd" id="1"]
 [ext_resource type="PackedScene" uid="uid://cmap001" path="res://scenes/map/game_map.tscn" id="2"]
-[ext_resource type="PackedScene" path="res://scenes/ui/hud.tscn" id="3"]
-[ext_resource type="Script" path="res://scripts/ai/ai_controller.gd" id="4"]
+[ext_resource type="PackedScene" uid="uid://hud001" path="res://scenes/ui/hud.tscn" id="3"]
+[ext_resource type="Script" uid="uid://bmchbccsxhcuw" path="res://scripts/ai/ai_controller.gd" id="4"]
 
-[node name="Main" type="Node2D"]
+[node name="Main" type="Node2D" unique_id=414955835]
 script = ExtResource("1")
 
-[node name="GameMap" parent="." instance=ExtResource("2")]
+[node name="GameMap" parent="." unique_id=179746487 instance=ExtResource("2")]
 
-[node name="HUD" parent="." instance=ExtResource("3")]
+[node name="HUD" parent="." unique_id=2140830305 instance=ExtResource("3")]
 
-[node name="AIController" type="Node" parent="."]
+[node name="AIController" type="Node" parent="." unique_id=1578796419]
 script = ExtResource("4")

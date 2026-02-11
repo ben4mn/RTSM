@@ -1,0 +1,8 @@
+# Godot 4.x generated
+.godot/
+
+# Godot MCP plugin runtime
+.godot-mcp/
+
+# OS files
+.DS_Store

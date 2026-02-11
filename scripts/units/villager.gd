@@ -10,9 +10,9 @@ signal building_completed(building: Node2D)
 enum GatherType { NONE, FOOD, WOOD, GOLD }
 
 # Gathering stats
-@export var gather_rate: float = 1.0  # resources per gather tick
-@export var carry_capacity: int = 10
-@export var gather_tick_time: float = 2.0  # seconds between gather ticks
+@export var gather_rate: float = 2.0  # resources per gather tick
+@export var carry_capacity: int = 15
+@export var gather_tick_time: float = 1.5  # seconds between gather ticks
 
 # Gathering state
 var gather_target: Node2D = null
@@ -26,11 +26,21 @@ var dropoff_target: Node2D = null
 var build_target: Node2D = null
 var build_timer: float = 0.0
 
+# Saved gather state (restored after building completes)
+var _saved_gather_target: Node2D = null
+var _saved_gather_type: int = GatherType.NONE
+var _saved_carried_resource_type: String = ""
+
 
 func _ready() -> void:
 	unit_type = UnitData.UnitType.VILLAGER
 	super._ready()
 	add_to_group("villagers")
+
+
+## Villagers don't auto-attack; they stay focused on economic tasks.
+func _try_auto_attack() -> void:
+	pass
 
 
 func _process_gathering(delta: float) -> void:
@@ -43,7 +53,7 @@ func _process_gathering(delta: float) -> void:
 		return
 
 	var dist: float = global_position.distance_to(gather_target.global_position)
-	if dist > 20.0:
+	if dist > 28.0:
 		# Walk to resource
 		var direction: Vector2 = (gather_target.global_position - global_position).normalized()
 		global_position += direction * speed * delta
@@ -64,6 +74,8 @@ func _harvest_from_target() -> int:
 	# Try calling harvest on the resource node if it has the method
 	if gather_target.has_method("harvest"):
 		var amount: int = gather_target.harvest(int(gather_rate))
+		if amount > 0 and is_instance_valid(gather_target) and get_tree() and get_tree().current_scene:
+			VFX.gather_particles(get_tree(), gather_target.global_position, carried_resource_type)
 		if amount <= 0:
 			# Resource exhausted
 			gather_target = null
@@ -89,7 +101,9 @@ func _find_and_go_to_dropoff() -> void:
 		dropoff_target = best_building
 		move_target = best_building.global_position
 		set_state(State.MOVING)
-		# When we arrive, we will deposit
+		# Disconnect any stale one-shot before reconnecting
+		if arrived_at_destination.is_connected(_on_arrived_for_dropoff):
+			arrived_at_destination.disconnect(_on_arrived_for_dropoff)
 		arrived_at_destination.connect(_on_arrived_for_dropoff, CONNECT_ONE_SHOT)
 	else:
 		# No dropoff available, go idle
@@ -117,11 +131,11 @@ func _deposit_resources() -> void:
 
 func _process_building(delta: float) -> void:
 	if build_target == null or not is_instance_valid(build_target):
-		set_state(State.IDLE)
+		_resume_or_idle()
 		return
 
 	var dist: float = global_position.distance_to(build_target.global_position)
-	if dist > 24.0:
+	if dist > 32.0:
 		# Walk to building site
 		var direction: Vector2 = (build_target.global_position - global_position).normalized()
 		global_position += direction * speed * delta
@@ -131,10 +145,14 @@ func _process_building(delta: float) -> void:
 	build_timer += delta
 	if build_target.has_method("add_build_progress"):
 		build_target.add_build_progress(delta)
+		if not is_instance_valid(build_target):
+			build_target = null
+			_resume_or_idle()
+			return
 		if build_target.has_method("is_construction_complete") and build_target.is_construction_complete():
 			building_completed.emit(build_target)
 			build_target = null
-			set_state(State.IDLE)
+			_resume_or_idle()
 
 
 # --- Commands ---
@@ -175,18 +193,37 @@ func command_gather(resource_node: Node2D) -> void:
 func command_build(building_site: Node2D) -> void:
 	if current_state == State.DEAD:
 		return
+	# Save current gather state so we can resume after building.
+	if current_state == State.GATHERING:
+		_saved_gather_target = gather_target
+		_saved_gather_type = gather_type
+		_saved_carried_resource_type = carried_resource_type
+	else:
+		_saved_gather_target = null
+		_saved_gather_type = GatherType.NONE
+		_saved_carried_resource_type = ""
 	build_target = building_site
 	build_timer = 0.0
 	building_started.emit(building_site)
 	set_state(State.BUILDING)
 
 
+func _resume_or_idle() -> void:
+	if _saved_gather_target != null and is_instance_valid(_saved_gather_target):
+		command_gather(_saved_gather_target)
+	else:
+		set_state(State.IDLE)
+	_saved_gather_target = null
+	_saved_gather_type = GatherType.NONE
+	_saved_carried_resource_type = ""
+
+
 # --- Override draw for carried resource indicator ---
 
 func _draw() -> void:
 	super._draw()
-	# Show a small colored dot for carried resources
-	if carried_amount > 0:
+	# Show resource indicator when gathering or carrying resources
+	if current_state == State.GATHERING or carried_amount > 0:
 		var res_color: Color
 		match carried_resource_type:
 			"food":
@@ -198,4 +235,8 @@ func _draw() -> void:
 			_:
 				res_color = Color.WHITE
 		var size: float = UNIT_SIZES.get(unit_type, 8.0)
-		draw_circle(Vector2(size + 3.0, 0), 3.0, res_color)
+		var dot_pos := Vector2(size + 4.0, 0)
+		# Black outline
+		draw_circle(dot_pos, 6.0, Color(0, 0, 0, 0.6))
+		# Colored dot (larger)
+		draw_circle(dot_pos, 5.0, res_color)

@@ -31,6 +31,7 @@ var _ai_state: AIState = AIState.EARLY_GAME
 # ── References set from main scene ───────────────────────────────────────
 var map_generator: MapGenerator = null
 var pathfinding: Pathfinding = null
+var game_map: Node2D = null
 
 # ── Tracking ─────────────────────────────────────────────────────────────
 var _my_buildings: Array = []  # BuildingBase references
@@ -268,9 +269,9 @@ func _assign_idle_villagers() -> void:
 	for villager in idle:
 		var assigned: bool = false
 		for res_type in priority:
-			var target_pos: Vector2 = _find_nearest_resource(res_type, villager.global_position)
-			if target_pos != Vector2(-1, -1):
-				_assign_villager_to_resource(villager, res_type, target_pos)
+			var resource_node: Node2D = _find_nearest_resource_node(res_type, villager.global_position)
+			if resource_node != null:
+				_assign_villager_to_resource(villager, resource_node)
 				assigned = true
 				break
 		# If no resource found, move toward base
@@ -627,52 +628,19 @@ func _find_building_of_type(building_type: int) -> Node:
 	return null
 
 
-func _find_nearest_resource(resource_type: String, from_pos: Vector2) -> Vector2:
-	## Searches the map grid for the nearest tile matching the resource type.
-	if map_generator == null:
-		return Vector2(-1, -1)
-
-	var target_tile: MapData.TileType
-	match resource_type:
-		"food":
-			target_tile = MapData.TileType.BERRY_BUSH
-		"wood":
-			target_tile = MapData.TileType.FOREST
-		"gold":
-			target_tile = MapData.TileType.GOLD_MINE
-		_:
-			return Vector2(-1, -1)
-
-	var from_tile := Vector2i(
-		int(from_pos.x / MapData.TILE_WIDTH),
-		int(from_pos.y / MapData.TILE_HEIGHT)
-	)
-
-	var best_pos := Vector2i(-1, -1)
-	var best_dist: float = INF
-
-	for y in range(MapData.MAP_HEIGHT):
-		for x in range(MapData.MAP_WIDTH):
-			if map_generator.grid[y][x] == target_tile:
-				var tile_pos := Vector2i(x, y)
-				var dist: float = from_tile.distance_to(tile_pos)
-				if dist < best_dist:
-					best_dist = dist
-					best_pos = tile_pos
-
-	if best_pos == Vector2i(-1, -1):
-		return Vector2(-1, -1)
-
-	return Vector2(
-		best_pos.x * MapData.TILE_WIDTH + MapData.TILE_WIDTH / 2.0,
-		best_pos.y * MapData.TILE_HEIGHT + MapData.TILE_HEIGHT / 2.0
-	)
+func _find_nearest_resource_node(resource_type: String, from_pos: Vector2) -> Node2D:
+	## Finds the nearest resource node of the given type using the game_map lookup.
+	if game_map and game_map.has_method("get_nearest_resource_node"):
+		return game_map.get_nearest_resource_node(resource_type, from_pos)
+	return null
 
 
-func _assign_villager_to_resource(villager: UnitBase, _resource_type: String, target_pos: Vector2) -> void:
-	## Sends a villager to gather at target_pos.
-	## The actual gathering behavior is handled by the unit's GATHERING state.
-	villager.command_move(target_pos)
+func _assign_villager_to_resource(villager: UnitBase, resource_node: Node2D) -> void:
+	## Sends a villager to gather from a resource node.
+	if villager.has_method("command_gather"):
+		villager.command_gather(resource_node)
+	else:
+		villager.command_move(resource_node.global_position)
 
 
 func _find_build_location(building_type: int) -> Vector2i:

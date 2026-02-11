@@ -36,15 +36,15 @@ const DEFAULT_VISION_RADIUS := 5
 ## Scout vision radius (in tiles).
 const SCOUT_VISION_RADIUS := 8
 
-## Tile color palette used by the procedural tileset.
+## Tile color palette — used as fallback for procedural tiles and minimap.
 const TILE_COLORS: Dictionary = {
-	TileType.GRASS: Color(0.35, 0.65, 0.25),
-	TileType.WATER: Color(0.2, 0.45, 0.85),
-	TileType.FOREST: Color(0.15, 0.40, 0.15),
-	TileType.GOLD_MINE: Color(0.85, 0.75, 0.15),
-	TileType.BERRY_BUSH: Color(0.80, 0.30, 0.45),
-	TileType.STONE: Color(0.55, 0.55, 0.55),
-	TileType.SACRED_SITE: Color(0.75, 0.65, 0.85),
+	TileType.GRASS: Color(0.45, 0.68, 0.32),
+	TileType.WATER: Color(0.25, 0.50, 0.88),
+	TileType.FOREST: Color(0.20, 0.45, 0.18),
+	TileType.GOLD_MINE: Color(0.75, 0.60, 0.25),
+	TileType.BERRY_BUSH: Color(0.55, 0.70, 0.35),
+	TileType.STONE: Color(0.70, 0.68, 0.55),
+	TileType.SACRED_SITE: Color(0.65, 0.55, 0.45),
 }
 
 ## Whether a tile blocks ground movement.

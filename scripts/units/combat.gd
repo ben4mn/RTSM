@@ -32,6 +32,11 @@ static func deal_damage(attacker: UnitBase, defender: UnitBase) -> void:
 	var final_damage: float = calculate_damage(attacker, defender)
 	defender.take_damage(final_damage)
 
+	# Hit particles at impact
+	var tree := attacker.get_tree()
+	if tree and tree.current_scene:
+		VFX.hit_burst(tree, defender.global_position)
+
 	# If the defender isn't already attacking something, make it fight back
 	if defender.current_state != UnitBase.State.DEAD and defender.attack_target == null:
 		if defender.damage > 0.0:

@@ -46,6 +46,12 @@ var _placement_type: int = -1
 var _player_buildings: Array[Array] = [[], []]  # [player_0_buildings, player_1_buildings]
 var _player_units: Array[Array] = [[], []]
 
+# --- Debug panel ---
+var _debug_panel: DebugPanel = null
+
+# --- Idle villager cycling ---
+var _idle_villager_index: int = 0
+
 
 func _ready() -> void:
 	# Wait for map generation to finish.
@@ -69,6 +75,8 @@ func _on_map_ready(map_gen: MapGenerator) -> void:
 	var selection_mgr: Node = game_map.selection_mgr
 	selection_mgr.move_command.connect(_on_move_command)
 	selection_mgr.attack_command.connect(_on_attack_command)
+	selection_mgr.gather_command.connect(_on_gather_command)
+	selection_mgr.build_command.connect(_on_build_command)
 	selection_mgr.selection_changed.connect(_on_selection_changed)
 
 	# Wire up HUD.
@@ -76,6 +84,9 @@ func _on_map_ready(map_gen: MapGenerator) -> void:
 
 	# Wire up AI.
 	_setup_ai(map_gen)
+
+	# Set up debug panel.
+	_setup_debug_panel()
 
 	# Center camera on player's starting base.
 	var player_spawn: Vector2 = game_map.tile_to_world(map_gen.spawn_positions[0])
@@ -87,6 +98,131 @@ func _on_map_ready(map_gen: MapGenerator) -> void:
 
 
 # =========================================================================
+#  KEYBOARD INPUT
+# =========================================================================
+
+func _unhandled_input(event: InputEvent) -> void:
+	# Handle input-action-based gameplay shortcuts
+	if not event.is_pressed() or event.is_echo():
+		return
+	if GameManager.current_state != GameManager.GameState.PLAYING:
+		return
+
+	if event.is_action("cancel"):
+		_handle_escape()
+		get_viewport().set_input_as_handled()
+	elif event.is_action("center_selection"):
+		_center_camera_on_selection()
+		get_viewport().set_input_as_handled()
+	elif event.is_action("idle_villager"):
+		_on_idle_villager_pressed()
+		get_viewport().set_input_as_handled()
+	elif event.is_action("train_unit"):
+		_handle_production_hotkey()
+		get_viewport().set_input_as_handled()
+	elif event.is_action("toggle_build_menu"):
+		_on_build_menu_pressed_hotkey()
+		get_viewport().set_input_as_handled()
+
+
+func _handle_escape() -> void:
+	if _placement_active:
+		_cancel_placement()
+		return
+	if hud.is_build_menu_open():
+		hud.close_build_menu()
+		return
+	game_map.selection_mgr.deselect_all()
+
+
+func _center_camera_on_selection() -> void:
+	var selected: Array = game_map.selection_mgr.selected
+	if selected.is_empty():
+		return
+	var center := Vector2.ZERO
+	var count: int = 0
+	for node in selected:
+		if is_instance_valid(node):
+			center += node.global_position
+			count += 1
+	if count > 0:
+		game_map.camera.position = center / float(count)
+		game_map._clamp_camera()
+
+
+func _on_build_menu_pressed_hotkey() -> void:
+	hud._on_build_menu_pressed()
+
+
+func _handle_production_hotkey() -> void:
+	var selected: Array = game_map.selection_mgr.selected
+	if selected.is_empty():
+		return
+	var first: Node2D = selected[0]
+	if not (first is BuildingBase):
+		return
+	var building: BuildingBase = first as BuildingBase
+	if not building.can_train():
+		return
+	var pq: Node = building.get_production_queue()
+	if pq == null:
+		return
+	if building.trainable_units.size() > 0:
+		pq.enqueue_unit(building.trainable_units[0])
+
+
+# =========================================================================
+#  DEBUG PANEL
+# =========================================================================
+
+func _setup_debug_panel() -> void:
+	_debug_panel = DebugPanel.new()
+	_debug_panel.initialize(
+		ai_controller._decision_timer,
+		game_map.fog_of_war,
+		game_map.get_node_or_null("FogLayer")
+	)
+	_debug_panel.spawn_units_requested.connect(_on_debug_spawn_units)
+	hud.get_node("Root").add_child(_debug_panel)
+	hud.set_debug_panel(_debug_panel)
+
+
+func _on_debug_spawn_units(unit_type: int, count: int) -> void:
+	var cam_pos: Vector2 = game_map.camera.position
+	for i in count:
+		var offset := Vector2(randf_range(-50, 50), randf_range(-50, 50))
+		_spawn_unit(unit_type, 0, cam_pos + offset)
+	_update_population_display()
+
+
+# =========================================================================
+#  IDLE VILLAGER CYCLING
+# =========================================================================
+
+func _on_idle_villager_pressed() -> void:
+	var idle_villagers: Array = []
+	for unit in _player_units[0]:
+		if is_instance_valid(unit) and unit is Villager and unit.current_state == UnitBase.State.IDLE:
+			idle_villagers.append(unit)
+	if idle_villagers.is_empty():
+		return
+	_idle_villager_index = _idle_villager_index % idle_villagers.size()
+	var target: UnitBase = idle_villagers[_idle_villager_index]
+	_idle_villager_index = (_idle_villager_index + 1) % idle_villagers.size()
+	game_map.selection_mgr.deselect_all()
+	game_map.selection_mgr._add_to_selection(target)
+	game_map.camera.position = target.global_position
+
+
+func _update_idle_villager_count() -> void:
+	var count: int = 0
+	for unit in _player_units[0]:
+		if is_instance_valid(unit) and unit is Villager and unit.current_state == UnitBase.State.IDLE:
+			count += 1
+	hud.update_idle_villager_count(count)
+
+
+# =========================================================================
 #  PLAYER START SETUP
 # =========================================================================
 
@@ -94,16 +230,39 @@ func _setup_player_start(player_id: int, spawn_tile: Vector2i) -> void:
 	# Place Town Center.
 	var tc := _spawn_building(BuildingData.BuildingType.TOWN_CENTER, player_id, spawn_tile)
 	tc.complete_instantly()
-	GameManager.increase_population_cap(player_id, tc.pop_provided)
+	# Note: pop cap is already handled by _on_building_constructed via complete_instantly()
 
 	# Note: TC production queue is already connected in _spawn_building().
 
-	# Place 3 starting villagers nearby.
+	# Place 3 starting villagers nearby and auto-assign to gather.
 	var offsets: Array[Vector2i] = [Vector2i(1, 2), Vector2i(-1, 2), Vector2i(0, 3)]
+	var villagers: Array[UnitBase] = []
 	for offset in offsets:
 		var vill_tile: Vector2i = spawn_tile + offset
 		var vill_pos: Vector2 = game_map.tile_to_world(vill_tile)
-		_spawn_unit(UnitData.UnitType.VILLAGER, player_id, vill_pos)
+		var v := _spawn_unit(UnitData.UnitType.VILLAGER, player_id, vill_pos)
+		if v:
+			villagers.append(v)
+
+	# Auto-assign: 2 villagers to food, 1 to wood.
+	# Use call_deferred so resource nodes are spawned first.
+	call_deferred("_auto_assign_starting_villagers", villagers)
+
+
+func _auto_assign_starting_villagers(villagers: Array) -> void:
+	for i in villagers.size():
+		var v: UnitBase = villagers[i] as UnitBase
+		if not is_instance_valid(v):
+			continue
+		# Villager 0→food, 1→wood, 2→gold
+		var res_type: String
+		match i:
+			0: res_type = "food"
+			1: res_type = "wood"
+			_: res_type = "gold"
+		var resource_node: Node2D = game_map.get_nearest_resource_node(res_type, v.global_position)
+		if resource_node and v.has_method("command_gather"):
+			v.command_gather(resource_node)
 
 
 # =========================================================================
@@ -224,6 +383,12 @@ func _on_selection_changed(selected_units: Array[Node2D]) -> void:
 	if first is UnitBase:
 		var u: UnitBase = first as UnitBase
 		var action_text: String = UnitBase.State.keys()[u.current_state]
+		# Show gather details for villagers
+		if u is Villager:
+			var v: Villager = u as Villager
+			if v.current_state == UnitBase.State.GATHERING or v.carried_amount > 0:
+				var res_name: String = v.carried_resource_type.capitalize() if v.carried_resource_type != "" else "?"
+				action_text = "Gathering %s (%d/%d)" % [res_name, v.carried_amount, v.carry_capacity]
 		hud.show_unit_selection(UnitData.get_unit_name(u.unit_type), int(u.hp), int(u.max_hp), action_text)
 	elif first is BuildingBase:
 		var b: BuildingBase = first as BuildingBase
@@ -231,24 +396,69 @@ func _on_selection_changed(selected_units: Array[Node2D]) -> void:
 		var pq: Node = b.get_production_queue()
 		if pq:
 			queue_info = pq.get_queue_info()
-		hud.show_building_selection(b.building_name, b.hp, b.max_hp, queue_info)
+		hud.show_building_selection(b.building_name, b.hp, b.max_hp, queue_info, b.trainable_units, b)
 
 
 func _on_move_command(target_tile: Vector2i) -> void:
 	var selected: Array = game_map.selection_mgr.selected
+	# Collect moveable units
+	var moveable: Array[UnitBase] = []
 	for node in selected:
 		if node is UnitBase and node.player_owner == 0:
-			var world_pos: Vector2 = game_map.tile_to_world(target_tile)
-			# Get pathfinding path.
-			var unit_tile: Vector2i = game_map.world_to_tile(node.global_position)
-			var tile_path: Array[Vector2i] = game_map.get_movement_path(unit_tile, target_tile)
-			if tile_path.size() > 1:
-				var world_path := PackedVector2Array()
-				for tp in tile_path:
-					world_path.append(game_map.tile_to_world(tp))
-				node.command_move_path(world_path)
-			else:
-				node.command_move(world_pos)
+			moveable.append(node as UnitBase)
+	if moveable.is_empty():
+		return
+
+	# Generate formation offsets so units spread out around the target
+	var offsets := _get_formation_offsets(moveable.size())
+
+	for i in moveable.size():
+		var unit: UnitBase = moveable[i]
+		var dest_tile: Vector2i = target_tile + offsets[i]
+		# Clamp to map bounds
+		dest_tile.x = clampi(dest_tile.x, 0, MapData.MAP_WIDTH - 1)
+		dest_tile.y = clampi(dest_tile.y, 0, MapData.MAP_HEIGHT - 1)
+		var world_pos: Vector2 = game_map.tile_to_world(dest_tile)
+		var unit_tile: Vector2i = game_map.world_to_tile(unit.global_position)
+		var tile_path: Array[Vector2i] = game_map.get_movement_path(unit_tile, dest_tile)
+		if tile_path.size() > 1:
+			var world_path := PackedVector2Array()
+			for tp in tile_path:
+				world_path.append(game_map.tile_to_world(tp))
+			unit.command_move_path(world_path)
+		else:
+			unit.command_move(world_pos)
+
+	VFX.move_indicator(get_tree(), game_map.tile_to_world(target_tile))
+
+
+## Generate spiral offsets around (0,0) for formation spreading.
+func _get_formation_offsets(count: int) -> Array[Vector2i]:
+	var offsets: Array[Vector2i] = [Vector2i(0, 0)]
+	if count <= 1:
+		return offsets
+	# Spiral outward: right, down, left, up with increasing ring size
+	var directions: Array[Vector2i] = [Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0), Vector2i(0, -1)]
+	var pos := Vector2i(1, 0)
+	var ring := 1
+	var dir_idx := 0
+	var steps_in_dir := 0
+	var side_length := 1
+	var sides_done := 0
+	# Start at (1,0) and spiral
+	offsets.append(pos)
+	while offsets.size() < count:
+		steps_in_dir += 1
+		if steps_in_dir >= side_length:
+			steps_in_dir = 0
+			dir_idx = (dir_idx + 1) % 4
+			sides_done += 1
+			if sides_done >= 2:
+				sides_done = 0
+				side_length += 1
+		pos += directions[dir_idx]
+		offsets.append(pos)
+	return offsets
 
 
 func _on_attack_command(target: Node2D) -> void:
@@ -258,8 +468,34 @@ func _on_attack_command(target: Node2D) -> void:
 			if target is UnitBase:
 				node.command_attack(target as UnitBase)
 			elif target is BuildingBase:
-				# Move to attack building.
-				node.command_move(target.global_position)
+				node.command_attack_building(target as BuildingBase)
+
+
+func _on_gather_command(resource_node: Node2D) -> void:
+	var selected: Array = game_map.selection_mgr.selected
+	for node in selected:
+		if node is UnitBase and node.player_owner == 0 and node.has_method("command_gather"):
+			node.command_gather(resource_node)
+
+
+func _on_build_command(building: Node2D) -> void:
+	var selected: Array = game_map.selection_mgr.selected
+	for node in selected:
+		if node is Villager and node.player_owner == 0:
+			node.command_build(building)
+
+
+func _on_train_unit_requested(building: Node2D, unit_type: int) -> void:
+	if not is_instance_valid(building) or not (building is BuildingBase):
+		return
+	var b: BuildingBase = building as BuildingBase
+	if not b.can_train():
+		return
+	var pq: Node = b.get_production_queue()
+	if pq:
+		pq.enqueue_unit(unit_type)
+		# Refresh selection display to show updated queue
+		_on_selection_changed(game_map.selection_mgr.selected)
 
 
 # =========================================================================
@@ -277,6 +513,8 @@ func _setup_hud() -> void:
 
 	hud.build_menu_toggled.connect(_on_build_menu_toggled)
 	hud.age_up_requested.connect(_on_age_up_requested)
+	hud.idle_villager_pressed.connect(_on_idle_villager_pressed)
+	hud.train_unit_requested.connect(_on_train_unit_requested)
 	_build_menu.building_selected.connect(_on_building_selected_for_placement)
 	_build_menu.cancel_placement.connect(_on_cancel_placement)
 
@@ -349,16 +587,26 @@ func _on_placement_confirmed(building_type: int, world_pos: Vector2) -> void:
 
 
 func _send_villager_to_build(building: BuildingBase) -> void:
-	var closest_villager: Villager = null
-	var closest_dist: float = INF
+	# Prefer IDLE villagers, fall back to GATHERING ones.
+	var best_idle: Villager = null
+	var best_idle_dist: float = INF
+	var best_gathering: Villager = null
+	var best_gathering_dist: float = INF
 	for unit in _player_units[0]:
-		if unit is Villager and is_instance_valid(unit) and unit.current_state == UnitBase.State.IDLE:
-			var dist: float = unit.global_position.distance_to(building.global_position)
-			if dist < closest_dist:
-				closest_dist = dist
-				closest_villager = unit as Villager
-	if closest_villager:
-		closest_villager.command_build(building)
+		if not (unit is Villager) or not is_instance_valid(unit):
+			continue
+		var dist: float = unit.global_position.distance_to(building.global_position)
+		if unit.current_state == UnitBase.State.IDLE:
+			if dist < best_idle_dist:
+				best_idle_dist = dist
+				best_idle = unit as Villager
+		elif unit.current_state == UnitBase.State.GATHERING:
+			if dist < best_gathering_dist:
+				best_gathering_dist = dist
+				best_gathering = unit as Villager
+	var chosen: Villager = best_idle if best_idle else best_gathering
+	if chosen:
+		chosen.command_build(building)
 
 
 func _screen_to_world(screen_pos: Vector2) -> Vector2:
@@ -373,6 +621,7 @@ func _screen_to_world(screen_pos: Vector2) -> Vector2:
 func _setup_ai(map_gen: MapGenerator) -> void:
 	ai_controller.map_generator = map_gen
 	ai_controller.pathfinding = game_map.pathfinding
+	ai_controller.game_map = game_map
 
 	# Connect AI signals.
 	ai_controller.ai_wants_to_build.connect(_on_ai_wants_to_build)
@@ -427,11 +676,27 @@ func _on_ai_wants_to_age_up() -> void:
 #  FOG OF WAR UPDATE
 # =========================================================================
 
-func _process(_delta: float) -> void:
+var _minimap_timer: float = 0.0
+var _selection_refresh_timer: float = 0.0
+
+func _process(delta: float) -> void:
 	if GameManager.current_state != GameManager.GameState.PLAYING:
 		return
 	_update_fog_of_war()
+	_update_fog_entity_visibility()
 	_update_population_display()
+	# Update minimap and idle count once per second
+	_minimap_timer += delta
+	if _minimap_timer >= 1.0:
+		_minimap_timer = 0.0
+		_update_minimap()
+		_update_idle_villager_count()
+	# Refresh selection display every 0.5s to keep gather progress / queue current
+	_selection_refresh_timer += delta
+	if _selection_refresh_timer >= 0.5:
+		_selection_refresh_timer = 0.0
+		if not game_map.selection_mgr.selected.is_empty():
+			_on_selection_changed(game_map.selection_mgr.selected)
 
 
 func _update_fog_of_war() -> void:
@@ -456,6 +721,40 @@ func _update_fog_of_war() -> void:
 			continue
 		var tile_pos: Vector2i = game_map.world_to_tile(building.global_position)
 		fog.register_vision_source(tile_pos, 3, false)
+
+
+func _update_fog_entity_visibility() -> void:
+	var fog: FogManager = game_map.fog_of_war
+	if fog == null:
+		return
+
+	# Hide/show enemy units based on fog visibility.
+	for unit in _player_units[1]:
+		if not is_instance_valid(unit) or unit.current_state == UnitBase.State.DEAD:
+			continue
+		var tile_pos: Vector2i = game_map.world_to_tile(unit.global_position)
+		unit.visible = fog.is_tile_visible(tile_pos)
+
+	# Hide/show enemy buildings — visible if ANY tile in footprint is visible.
+	for building in _player_buildings[1]:
+		if not is_instance_valid(building):
+			continue
+		var origin_tile: Vector2i = game_map.world_to_tile(building.global_position)
+		var any_visible := false
+		for dy in range(building.footprint.y):
+			for dx in range(building.footprint.x):
+				if fog.is_tile_visible(origin_tile + Vector2i(dx, dy)):
+					any_visible = true
+					break
+			if any_visible:
+				break
+		building.visible = any_visible
+
+
+func _update_minimap() -> void:
+	if game_map.map_generator == null:
+		return
+	hud.update_minimap(game_map.map_generator.grid, _player_units[0], _player_units[1], _player_buildings[0], _player_buildings[1])
 
 
 # =========================================================================
@@ -516,4 +815,5 @@ func _show_game_over() -> void:
 
 
 func _on_restart() -> void:
+	Engine.time_scale = 1.0
 	get_tree().reload_current_scene()

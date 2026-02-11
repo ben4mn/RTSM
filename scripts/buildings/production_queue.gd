@@ -30,10 +30,14 @@ func _process(delta: float) -> void:
 		return
 	if _building and _building.state != BuildingBase.State.ACTIVE:
 		return
+	if not is_instance_valid(_building):
+		is_training = false
+		return
 
 	current_progress += delta
 	var progress_ratio := current_progress / current_train_time if current_train_time > 0 else 1.0
-	unit_training_progress.emit(queue[0], clampf(progress_ratio, 0.0, 1.0))
+	if not queue.is_empty():
+		unit_training_progress.emit(queue[0], clampf(progress_ratio, 0.0, 1.0))
 
 	if current_progress >= current_train_time:
 		_complete_current_unit()

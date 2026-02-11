@@ -116,11 +116,11 @@ func _place_spawn_positions() -> void:
 	spawn_positions.append(Vector2i(MapData.MAP_WIDTH - 4, 3))
 
 
-## Clear a 5x5 area around each spawn so the Town Center can be placed.
+## Clear a 7x7 area around each spawn so the Town Center has a visible clearing.
 func _ensure_spawn_clearance() -> void:
 	for spawn in spawn_positions:
-		for dy in range(-2, 3):
-			for dx in range(-2, 3):
+		for dy in range(-3, 4):
+			for dx in range(-3, 4):
 				var tx := spawn.x + dx
 				var ty := spawn.y + dy
 				if _in_bounds(tx, ty):

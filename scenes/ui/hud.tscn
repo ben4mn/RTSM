@@ -82,8 +82,7 @@ layout_mode = 2
 text = "00:00"
 theme_override_font_sizes/font_size = 16
 
-[node name="MinimapRect" type="ColorRect" parent="Root"]
-unique_name_in_owner = true
+[node name="MinimapBG" type="ColorRect" parent="Root"]
 layout_mode = 1
 anchors_preset = 2
 anchor_top = 1.0
@@ -94,6 +93,16 @@ offset_right = 168.0
 offset_bottom = -8.0
 grow_vertical = 0
 color = Color(0.1, 0.1, 0.1, 0.8)
+
+[node name="MinimapRect" type="TextureRect" parent="Root/MinimapBG"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+stretch_mode = 5
 
 [node name="SelectionPanel" type="PanelContainer" parent="Root"]
 unique_name_in_owner = true

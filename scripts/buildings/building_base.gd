@@ -1,7 +1,7 @@
 class_name BuildingBase
 extends Area2D
 ## Base building for all structures in AOEM.
-## Handles construction progress, health, selection, and placeholder rendering.
+## Handles construction progress, health, selection, and sprite-based rendering.
 
 signal construction_complete(building: BuildingBase)
 signal building_destroyed(building: BuildingBase)
@@ -30,11 +30,40 @@ var provides_food: bool = false
 var rally_point: Vector2 = Vector2.ZERO
 var is_selected: bool = false
 var _production_queue: Node = null
+var _sprite: Sprite2D = null
+var _construction_dust_timer: float = 0.0
+
+## Sprite texture paths per building type from Kenney Medieval RTS pack.
+const BUILDING_SPRITES: Dictionary = {
+	BuildingData.BuildingType.TOWN_CENTER: "res://assets/buildings/town_center.png",
+	BuildingData.BuildingType.HOUSE: "res://assets/buildings/house.png",
+	BuildingData.BuildingType.BARRACKS: "res://assets/buildings/barracks.png",
+	BuildingData.BuildingType.ARCHERY_RANGE: "res://assets/buildings/archery_range.png",
+	BuildingData.BuildingType.STABLE: "res://assets/buildings/stable.png",
+	BuildingData.BuildingType.FARM: "res://assets/buildings/market_stall.png",
+	BuildingData.BuildingType.LUMBER_CAMP: "res://assets/buildings/lumber_camp.png",
+	BuildingData.BuildingType.MINING_CAMP: "res://assets/buildings/monument.png",
+	BuildingData.BuildingType.SIEGE_WORKSHOP: "res://assets/buildings/blacksmith.png",
+}
+
+## Scale per building type — larger footprint buildings get larger sprites.
+const BUILDING_SCALES: Dictionary = {
+	BuildingData.BuildingType.TOWN_CENTER: Vector2(0.85, 0.85),
+	BuildingData.BuildingType.HOUSE: Vector2(0.45, 0.45),
+	BuildingData.BuildingType.BARRACKS: Vector2(0.60, 0.60),
+	BuildingData.BuildingType.ARCHERY_RANGE: Vector2(0.55, 0.55),
+	BuildingData.BuildingType.STABLE: Vector2(0.55, 0.55),
+	BuildingData.BuildingType.FARM: Vector2(0.40, 0.40),
+	BuildingData.BuildingType.LUMBER_CAMP: Vector2(0.45, 0.45),
+	BuildingData.BuildingType.MINING_CAMP: Vector2(0.40, 0.40),
+	BuildingData.BuildingType.SIEGE_WORKSHOP: Vector2(0.60, 0.60),
+}
 
 
 func _ready() -> void:
 	_load_stats()
 	_setup_collision()
+	_setup_sprite()
 	rally_point = global_position + Vector2(footprint.x * MapData.TILE_WIDTH, 0)
 	add_to_group("buildings")
 	add_to_group("player_%d_buildings" % player_owner)
@@ -72,31 +101,64 @@ func _setup_collision() -> void:
 	add_child(shape)
 
 
+func _setup_sprite() -> void:
+	_sprite = Sprite2D.new()
+	_sprite.name = "BuildingSprite"
+	var tex_path: String = BUILDING_SPRITES.get(building_type, "")
+	if tex_path != "" and ResourceLoader.exists(tex_path):
+		_sprite.texture = load(tex_path)
+	_sprite.scale = BUILDING_SCALES.get(building_type, Vector2(0.4, 0.4))
+	# Offset sprite upward so the base sits at the building position
+	var sprite_y_offset := -footprint.y * MapData.TILE_HEIGHT * 0.3
+	_sprite.offset = Vector2(0, sprite_y_offset)
+	add_child(_sprite)
+	_update_sprite_appearance()
+
+
+func _update_sprite_appearance() -> void:
+	if _sprite == null:
+		return
+	match state:
+		State.CONSTRUCTING:
+			# Darken and make semi-transparent during construction, lerp to full
+			var progress_alpha := lerpf(0.4, 1.0, build_progress)
+			var progress_dark := lerpf(0.4, 0.0, 1.0 - build_progress)
+			_sprite.modulate = Color(1.0 - progress_dark, 1.0 - progress_dark, 1.0 - progress_dark, progress_alpha)
+		State.DESTROYED:
+			_sprite.modulate = Color(0.3, 0.3, 0.3, 0.5)
+		State.ACTIVE:
+			_sprite.modulate = Color.WHITE
+		_:
+			_sprite.modulate = Color.WHITE
+
+
 func _draw() -> void:
 	var pixel_w: float = footprint.x * MapData.TILE_WIDTH
 	var pixel_h: float = footprint.y * MapData.TILE_HEIGHT
-	# Draw isometric diamond shape
-	var points := PackedVector2Array([
-		Vector2(0, -pixel_h * 0.5),       # top
-		Vector2(pixel_w * 0.5, 0),         # right
-		Vector2(0, pixel_h * 0.5),         # bottom
-		Vector2(-pixel_w * 0.5, 0),        # left
-	])
 
-	var color := building_color
-	if state == State.CONSTRUCTING:
-		color = color.darkened(0.3 * (1.0 - build_progress))
-	elif state == State.DESTROYED:
-		color = Color(0.2, 0.2, 0.2, 0.5)
+	# Selection outline (pulsing isometric diamond border)
+	if is_selected:
+		var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.005)
+		var sel_alpha := lerpf(0.4, 0.9, pulse)
+		var sel_width := lerpf(1.5, 3.0, pulse)
+		var points := PackedVector2Array([
+			Vector2(0, -pixel_h * 0.5),
+			Vector2(pixel_w * 0.5, 0),
+			Vector2(0, pixel_h * 0.5),
+			Vector2(-pixel_w * 0.5, 0),
+		])
+		for i in points.size():
+			var next_i := (i + 1) % points.size()
+			draw_line(points[i], points[next_i], Color(1, 1, 1, sel_alpha), sel_width)
 
-	draw_colored_polygon(points, color)
-
-	# Outline
-	var outline_color := Color.WHITE if is_selected else Color(0.1, 0.1, 0.1, 0.6)
-	var outline_width := 2.0 if is_selected else 1.0
-	for i in points.size():
-		var next_i := (i + 1) % points.size()
-		draw_line(points[i], points[next_i], outline_color, outline_width)
+	# Shadow ellipse under building
+	var shadow_w := pixel_w * 0.35
+	var shadow_h := pixel_h * 0.25
+	var shadow_pts := PackedVector2Array()
+	for a in range(32):
+		var angle := float(a) / 32.0 * TAU
+		shadow_pts.append(Vector2(cos(angle) * shadow_w, sin(angle) * shadow_h + 2.0))
+	draw_colored_polygon(shadow_pts, Color(0, 0, 0, 0.12))
 
 	# Construction progress bar
 	if state == State.CONSTRUCTING:
@@ -122,8 +184,17 @@ func _draw() -> void:
 		draw_circle(rp_local, 4.0, Color(0.2, 0.6, 1.0, 0.7))
 
 
-func _process(_delta: float) -> void:
-	if state == State.CONSTRUCTING or (state == State.ACTIVE and hp < max_hp) or is_selected:
+func _process(delta: float) -> void:
+	if state == State.CONSTRUCTING:
+		_update_sprite_appearance()
+		# Periodic construction dust particles
+		_construction_dust_timer += delta
+		if _construction_dust_timer >= 0.8:
+			_construction_dust_timer = 0.0
+			if get_tree() and get_tree().current_scene:
+				VFX.construction_dust(get_tree(), global_position)
+		queue_redraw()
+	elif (state == State.ACTIVE and hp < max_hp) or is_selected:
 		queue_redraw()
 
 
@@ -142,6 +213,7 @@ func start_construction() -> void:
 	state = State.CONSTRUCTING
 	build_progress = 0.0
 	hp = 1
+	_update_sprite_appearance()
 	queue_redraw()
 
 
@@ -150,6 +222,7 @@ func complete_instantly() -> void:
 	state = State.ACTIVE
 	build_progress = 1.0
 	hp = max_hp
+	_update_sprite_appearance()
 	construction_complete.emit(self)
 	queue_redraw()
 
@@ -158,6 +231,9 @@ func _complete_construction() -> void:
 	state = State.ACTIVE
 	hp = max_hp
 	build_progress = 1.0
+	_update_sprite_appearance()
+	if get_tree() and get_tree().current_scene:
+		VFX.building_complete(get_tree(), global_position)
 	construction_complete.emit(self)
 	queue_redraw()
 
@@ -167,14 +243,28 @@ func take_damage(amount: int) -> void:
 		return
 	hp = maxi(hp - amount, 0)
 	health_changed.emit(hp, max_hp)
+	_flash_damage()
 	if hp <= 0:
 		_destroy()
 	queue_redraw()
 
 
+func _flash_damage() -> void:
+	if _sprite == null:
+		return
+	var original: Color = _sprite.modulate
+	_sprite.modulate = Color(1, 0.3, 0.3)
+	var tween := create_tween()
+	tween.tween_property(_sprite, "modulate", original, 0.15)
+
+
 func _destroy() -> void:
 	state = State.DESTROYED
+	_update_sprite_appearance()
 	building_destroyed.emit(self)
+	# Destruction smoke puff
+	if get_tree() and get_tree().current_scene:
+		VFX.death_puff(get_tree(), global_position)
 	queue_redraw()
 	# Fade out and remove
 	var tween := create_tween()
@@ -197,6 +287,10 @@ func deselect() -> void:
 func set_rally_point(pos: Vector2) -> void:
 	rally_point = pos
 	queue_redraw()
+
+
+func is_construction_complete() -> bool:
+	return state == State.ACTIVE
 
 
 func is_drop_off_point(resource: String) -> bool:

@@ -28,6 +28,8 @@ zoom = Vector2(1.5, 1.5)
 position_smoothing_enabled = true
 position_smoothing_speed = 8.0
 
+[node name="ResourcesContainer" type="Node2D" parent="."]
+
 [node name="SacredSiteContainer" type="Node2D" parent="."]
 
 [node name="UnitsContainer" type="Node2D" parent="."]

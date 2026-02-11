@@ -29,10 +29,15 @@ var _touch_points: Dictionary = {}  # index -> position
 const ZOOM_MIN := 0.5
 const ZOOM_MAX := 2.5
 const ZOOM_SPEED := 0.1
+const CAMERA_PAN_SPEED := 400.0
 
 
-## Preloaded sacred site scene.
+## Preloaded scenes.
 var _sacred_site_scene: PackedScene = preload("res://scenes/map/sacred_site.tscn")
+var _resource_node_scene: PackedScene = preload("res://scenes/map/resource_node.tscn")
+
+## Maps tile position (Vector2i) to the ResourceNode at that tile.
+var resource_nodes: Dictionary = {}
 
 ## Reference to the spawned sacred site instance.
 var sacred_site: Node2D = null
@@ -62,6 +67,9 @@ func _ready() -> void:
 
 	# Spawn sacred site at map center.
 	_spawn_sacred_site()
+
+	# Spawn harvestable resource nodes on resource tiles.
+	_spawn_resource_nodes()
 
 	# Set up camera bounds.
 	_configure_camera()
@@ -102,14 +110,42 @@ func _configure_camera() -> void:
 	@warning_ignore("integer_division")
 	var map_pixel_height := (MapData.MAP_WIDTH + MapData.MAP_HEIGHT) * MapData.TILE_HEIGHT / 2
 	@warning_ignore("integer_division")
-	camera.limit_left = -map_pixel_width / 2 - 100
+	camera.limit_left = -map_pixel_width / 2
 	@warning_ignore("integer_division")
-	camera.limit_right = map_pixel_width / 2 + 100
-	camera.limit_top = -100
-	camera.limit_bottom = map_pixel_height + 100
+	camera.limit_right = map_pixel_width / 2
+	camera.limit_top = 0
+	camera.limit_bottom = map_pixel_height
 	# Start camera at center.
 	@warning_ignore("integer_division")
 	camera.position = Vector2(0, map_pixel_height / 2)
+
+
+func _process(delta: float) -> void:
+	_update_camera_pan(delta)
+
+
+func _update_camera_pan(delta: float) -> void:
+	if camera == null:
+		return
+	var pan := Vector2.ZERO
+	if Input.is_action_pressed("camera_up"):
+		pan.y -= 1.0
+	if Input.is_action_pressed("camera_down"):
+		pan.y += 1.0
+	if Input.is_action_pressed("camera_left"):
+		pan.x -= 1.0
+	if Input.is_action_pressed("camera_right"):
+		pan.x += 1.0
+	if pan != Vector2.ZERO:
+		camera.position += pan.normalized() * CAMERA_PAN_SPEED * delta / camera.zoom.x
+		_clamp_camera()
+
+
+func _clamp_camera() -> void:
+	if camera == null:
+		return
+	camera.position.x = clampf(camera.position.x, camera.limit_left, camera.limit_right)
+	camera.position.y = clampf(camera.position.y, camera.limit_top, camera.limit_bottom)
 
 
 ## Handle camera pan and pinch-zoom.
@@ -147,6 +183,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif _touch_points.size() == 1:
 			# Single-finger pan — only if selection manager isn't handling it.
 			camera.position -= drag.relative / camera.zoom
+			_clamp_camera()
 
 	# --- Mouse wheel zoom (desktop) ---
 	elif event is InputEventMouseButton:
@@ -164,6 +201,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventMouseMotion and _camera_drag_active:
 		var motion := event as InputEventMouseMotion
 		camera.position -= motion.relative / camera.zoom
+		_clamp_camera()
 
 
 func _apply_zoom(factor: float) -> void:
@@ -223,6 +261,35 @@ func remove_building_obstacle(origin: Vector2i, size: Vector2i) -> void:
 	pathfinding.set_area_solid(origin, size, false)
 
 
+## Spawn ResourceNode instances on every resource tile.
+func _spawn_resource_nodes() -> void:
+	var type_map: Dictionary = {
+		MapData.TileType.BERRY_BUSH: { "type": "food", "amount": 200 },
+		MapData.TileType.FOREST: { "type": "wood", "amount": 250 },
+		MapData.TileType.GOLD_MINE: { "type": "gold", "amount": 400 },
+		MapData.TileType.STONE: { "type": "gold", "amount": 300 },
+	}
+	for y in range(MapData.MAP_HEIGHT):
+		for x in range(MapData.MAP_WIDTH):
+			var tile_type: MapData.TileType = map_generator.grid[y][x] as MapData.TileType
+			if not type_map.has(tile_type):
+				continue
+			var info: Dictionary = type_map[tile_type]
+			var node = _resource_node_scene.instantiate()
+			node.resource_type = info["type"]
+			node.total_amount = info["amount"]
+			var tile_pos := Vector2i(x, y)
+			node.tile_position = tile_pos
+			node.global_position = tile_to_world(tile_pos)
+			$ResourcesContainer.add_child(node)
+			resource_nodes[tile_pos] = node
+			node.depleted.connect(_on_resource_depleted.bind(tile_pos))
+
+
+func _on_resource_depleted(_node: Node2D, tile_pos: Vector2i) -> void:
+	resource_nodes.erase(tile_pos)
+
+
 ## Spawn the sacred site at the center of the map.
 func _spawn_sacred_site() -> void:
 	sacred_site = _sacred_site_scene.instantiate()
@@ -231,3 +298,27 @@ func _spawn_sacred_site() -> void:
 	sacred_site.tile_position = center
 	sacred_site.global_position = tile_to_world(center)
 	$SacredSiteContainer.add_child(sacred_site)
+
+
+## Get the resource node at a specific tile, or null.
+func get_resource_node_at(tile: Vector2i) -> Node2D:
+	return resource_nodes.get(tile, null)
+
+
+## Find the nearest resource node of a given type ("food", "wood", "gold") from a world position.
+func get_nearest_resource_node(type: String, from: Vector2) -> Node2D:
+	var best_node: Node2D = null
+	var best_dist: float = INF
+	for tile_pos: Vector2i in resource_nodes:
+		var node = resource_nodes[tile_pos]
+		if not is_instance_valid(node):
+			continue
+		if node.resource_type != type:
+			continue
+		if node.remaining <= 0:
+			continue
+		var dist: float = from.distance_to(node.global_position)
+		if dist < best_dist:
+			best_dist = dist
+			best_node = node
+	return best_node

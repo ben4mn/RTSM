@@ -9,6 +9,10 @@ signal selection_changed(selected_units: Array[Node2D])
 signal move_command(target_tile: Vector2i)
 ## Emitted when an attack command is issued against a target.
 signal attack_command(target: Node2D)
+## Emitted when a gather command is issued on a resource node.
+signal gather_command(resource_node: Node2D)
+## Emitted when a build command is issued on a construction site.
+signal build_command(building: Node2D)
 
 ## Currently selected units/buildings.
 var selected: Array[Node2D] = []
@@ -73,6 +77,10 @@ func _handle_drag(event: InputEventScreenDrag) -> void:
 ## --- Mouse input (desktop / testing) ---
 
 func _handle_mouse_button(event: InputEventMouseButton) -> void:
+	if event.button_index == MOUSE_BUTTON_RIGHT:
+		if not event.pressed and selected.size() > 0:
+			_handle_right_click(event.position)
+		return
 	if event.button_index != MOUSE_BUTTON_LEFT:
 		return
 	if event.pressed:
@@ -117,17 +125,16 @@ func _handle_tap(screen_pos: Vector2) -> void:
 		if selected.size() > 0 and _is_enemy(tapped_node):
 			# Attack command.
 			attack_command.emit(tapped_node)
+		elif _has_selected_villagers() and _is_under_construction(tapped_node):
+			# Send selected villagers to build.
+			build_command.emit(tapped_node)
 		else:
 			# Select the tapped unit/building.
 			_clear_selection()
 			_add_to_selection(tapped_node)
 	else:
-		if selected.size() > 0:
-			# Move command to the tapped tile.
-			var tile_pos := _world_to_tile(world_pos)
-			move_command.emit(tile_pos)
-		else:
-			_clear_selection()
+		# Empty ground — left-click always deselects (movement is via right-click)
+		_clear_selection()
 
 
 func _handle_double_tap(screen_pos: Vector2) -> void:
@@ -167,7 +174,7 @@ func _finish_drag_select() -> void:
 	_clear_selection()
 
 	for node in get_tree().get_nodes_in_group("units"):
-		if not node is Node2D:
+		if not is_instance_valid(node) or not node is Node2D:
 			continue
 		var screen_pos := _world_to_screen((node as Node2D).global_position)
 		if _drag_rect.has_point(screen_pos):
@@ -221,19 +228,45 @@ func _world_to_tile(world_pos: Vector2) -> Vector2i:
 	return Vector2i(tile_x, tile_y)
 
 
-## Find a node2D at a world position (checks units then buildings groups).
+## Find a node2D at a world position (checks units first with tighter radius, then buildings).
 func _get_node_at(world_pos: Vector2) -> Node2D:
-	var best_node: Node2D = null
-	var best_dist := 32.0  # Max click distance in pixels.
+	# Check units first with a tight radius so clicking near units registers ground clicks.
+	var best_unit: Node2D = null
+	var best_unit_dist := 20.0
+	for node in get_tree().get_nodes_in_group("units"):
+		if not is_instance_valid(node) or not node is Node2D:
+			continue
+		var dist := (node as Node2D).global_position.distance_to(world_pos)
+		if dist < best_unit_dist:
+			best_unit_dist = dist
+			best_unit = node as Node2D
+	if best_unit != null:
+		return best_unit
 
-	for group_name in ["units", "buildings"]:
-		for node in get_tree().get_nodes_in_group(group_name):
-			if not node is Node2D:
-				continue
-			var dist := (node as Node2D).global_position.distance_to(world_pos)
-			if dist < best_dist:
-				best_dist = dist
-				best_node = node as Node2D
+	# Then check buildings with a wider radius.
+	var best_building: Node2D = null
+	var best_building_dist := 36.0
+	for node in get_tree().get_nodes_in_group("buildings"):
+		if not is_instance_valid(node) or not node is Node2D:
+			continue
+		var dist := (node as Node2D).global_position.distance_to(world_pos)
+		if dist < best_building_dist:
+			best_building_dist = dist
+			best_building = node as Node2D
+	return best_building
+
+
+## Find a resource node at a world position (checks "resources" group).
+func _get_resource_at(world_pos: Vector2) -> Node2D:
+	var best_node: Node2D = null
+	var best_dist := 28.0  # Max click distance for resources.
+	for node in get_tree().get_nodes_in_group("resources"):
+		if not is_instance_valid(node) or not node is Node2D:
+			continue
+		var dist := (node as Node2D).global_position.distance_to(world_pos)
+		if dist < best_dist:
+			best_dist = dist
+			best_node = node as Node2D
 	return best_node
 
 
@@ -252,6 +285,49 @@ func _is_on_screen(node: Node2D) -> bool:
 	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
 	return screen_pos.x >= 0 and screen_pos.x <= viewport_size.x \
 		and screen_pos.y >= 0 and screen_pos.y <= viewport_size.y
+
+
+## --- Right-click command ---
+
+func _handle_right_click(screen_pos: Vector2) -> void:
+	var world_pos := _screen_to_world(screen_pos)
+
+	# Check for enemy target → attack
+	var tapped_node: Node2D = _get_node_at(world_pos)
+	if tapped_node != null and _is_enemy(tapped_node):
+		attack_command.emit(tapped_node)
+		return
+
+	# Check for construction site + villagers → build command
+	if tapped_node != null and _has_selected_villagers() and _is_under_construction(tapped_node):
+		build_command.emit(tapped_node)
+		return
+
+	# Check for resource node → gather command
+	var resource_node: Node2D = _get_resource_at(world_pos)
+	if resource_node != null:
+		gather_command.emit(resource_node)
+		return
+
+	# Empty ground → move command
+	var tile_pos := _world_to_tile(world_pos)
+	move_command.emit(tile_pos)
+
+
+## --- Selection helpers ---
+
+func _has_selected_villagers() -> bool:
+	for node in selected:
+		if node is Villager:
+			return true
+	return false
+
+
+func _is_under_construction(node: Node2D) -> bool:
+	if node is BuildingBase:
+		var b := node as BuildingBase
+		return b.state == BuildingBase.State.CONSTRUCTING and not _is_enemy(node)
+	return false
 
 
 ## --- Draw drag-box ---
