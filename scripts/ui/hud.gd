@@ -53,6 +53,7 @@ var _game_speed_index: int = 1  # 0=0.5x, 1=1x, 2=2x
 
 # Idle villager button
 var _idle_villager_button: Button = null
+var _villager_task_label: Label = null
 
 # Train buttons
 var _train_buttons_container: HBoxContainer = null
@@ -277,6 +278,14 @@ func _create_idle_villager_button() -> void:
 	_idle_villager_button.tooltip_text = "Cycle idle villagers [.]"
 	bottom_right.add_child(_idle_villager_button)
 	bottom_right.move_child(_idle_villager_button, 0)
+	# Villager task breakdown label
+	_villager_task_label = Label.new()
+	_villager_task_label.text = ""
+	_villager_task_label.add_theme_font_size_override("font_size", 11)
+	_villager_task_label.add_theme_color_override("font_color", Color(0.75, 0.75, 0.65))
+	_villager_task_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	bottom_right.add_child(_villager_task_label)
+	bottom_right.move_child(_villager_task_label, 1)
 
 
 func _on_idle_villager_pressed() -> void:
@@ -1023,6 +1032,20 @@ func update_military_count(count: int) -> void:
 		_select_military_button.text = "Military: %d [M]" % count
 	if _find_army_button:
 		_find_army_button.text = "Find Army: %d [F]" % count
+
+
+func update_villager_tasks(food: int, wood: int, gold: int, building: int) -> void:
+	if _villager_task_label:
+		var parts: PackedStringArray = PackedStringArray()
+		if food > 0:
+			parts.append("F:%d" % food)
+		if wood > 0:
+			parts.append("W:%d" % wood)
+		if gold > 0:
+			parts.append("G:%d" % gold)
+		if building > 0:
+			parts.append("B:%d" % building)
+		_villager_task_label.text = " ".join(parts) if parts.size() > 0 else ""
 
 
 # --- Helpers ---

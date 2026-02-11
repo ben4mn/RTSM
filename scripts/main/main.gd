@@ -507,15 +507,35 @@ func _auto_explore_idle_scouts() -> void:
 func _update_idle_villager_count() -> void:
 	var idle_count: int = 0
 	var military_count: int = 0
+	var vill_food: int = 0
+	var vill_wood: int = 0
+	var vill_gold: int = 0
+	var vill_build: int = 0
 	for unit in _player_units[0]:
 		if not is_instance_valid(unit) or unit.current_state == UnitBase.State.DEAD:
 			continue
-		if unit is Villager and unit.current_state == UnitBase.State.IDLE:
-			idle_count += 1
-		elif not (unit is Villager):
+		if unit is Villager:
+			var v: Villager = unit as Villager
+			if v.current_state == UnitBase.State.IDLE:
+				idle_count += 1
+			elif v.current_state == UnitBase.State.GATHERING:
+				match v.carried_resource_type:
+					"food": vill_food += 1
+					"wood": vill_wood += 1
+					"gold": vill_gold += 1
+			elif v.current_state == UnitBase.State.BUILDING:
+				vill_build += 1
+			elif v.current_state == UnitBase.State.MOVING and v.carried_resource_type != "":
+				# Moving to dropoff or back to resource — count as gathering
+				match v.carried_resource_type:
+					"food": vill_food += 1
+					"wood": vill_wood += 1
+					"gold": vill_gold += 1
+		else:
 			military_count += 1
 	hud.update_idle_villager_count(idle_count)
 	hud.update_military_count(military_count)
+	hud.update_villager_tasks(vill_food, vill_wood, vill_gold, vill_build)
 
 
 # =========================================================================
