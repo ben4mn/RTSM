@@ -43,6 +43,9 @@ var _base_tile: Vector2i = Vector2i.ZERO    # TC tile coord
 var _staging_point: Vector2 = Vector2.ZERO
 var _attack_in_progress: bool = false
 var _retreat_threshold: float = 0.3  # Pull back if army drops below 30%
+var _game_time: float = 0.0  # Track elapsed time for timed aggression
+var _last_harass_time: float = 0.0  # Cooldown for harassment raids
+var _scout_trained: bool = false  # Track if we've trained a scout
 
 # Build-order tracking (what we have built so far)
 var _house_count: int = 0
@@ -70,9 +73,9 @@ const VILLAGER_TARGETS: Dictionary = {
 }
 
 const ARMY_ATTACK_THRESHOLDS: Dictionary = {
-	Difficulty.EASY: 10,
-	Difficulty.MEDIUM: 15,
-	Difficulty.HARD: 8,
+	Difficulty.EASY: 6,
+	Difficulty.MEDIUM: 8,
+	Difficulty.HARD: 5,
 }
 
 const RESOURCE_RATIO: Dictionary = {
@@ -105,6 +108,11 @@ func _init_build_priority() -> void:
 		{ "type": BuildingData.BuildingType.WATCH_TOWER, "age": 2, "max": 3 },
 		{ "type": BuildingData.BuildingType.SIEGE_WORKSHOP, "age": 3, "max": 1 },
 	]
+
+
+func _process(delta: float) -> void:
+	if GameManager.current_state == GameManager.GameState.PLAYING:
+		_game_time += delta
 
 
 func _setup_timer() -> void:
@@ -321,8 +329,18 @@ func _check_building_construction() -> void:
 # ═════════════════════════════════════════════════════════════════════════
 
 func _check_military_production() -> void:
-	if _ai_state == AIState.EARLY_GAME and _get_military_units().size() >= 3:
+	if _ai_state == AIState.EARLY_GAME and _get_military_units().size() >= 5:
 		return  # In early game, cap military production
+
+	# Train a scout early for scouting
+	if not _scout_trained:
+		var tc: Node = _find_building_of_type(BuildingData.BuildingType.TOWN_CENTER)
+		if tc:
+			var cost: Dictionary = UnitData.get_unit_cost(UnitData.UnitType.SCOUT)
+			if ResourceManager.can_afford(player_id, cost):
+				ai_wants_to_train.emit(tc, UnitData.UnitType.SCOUT)
+				_scout_trained = true
+				return
 
 	_try_train_from_building(BuildingData.BuildingType.BARRACKS, UnitData.UnitType.INFANTRY)
 
@@ -447,11 +465,11 @@ func _check_attack_or_defend() -> void:
 
 	# Evaluate army strength
 	var military: Array = _get_military_units()
-	var threshold: int = ARMY_ATTACK_THRESHOLDS.get(difficulty, 15)
+	var threshold: int = ARMY_ATTACK_THRESHOLDS.get(difficulty, 8)
 
 	if _attack_in_progress:
 		# Check if we should retreat
-		if military.size() < int(threshold * _retreat_threshold):
+		if military.size() < maxi(2, int(threshold * _retreat_threshold)):
 			_retreat_army()
 			_attack_in_progress = false
 		return
@@ -462,12 +480,36 @@ func _check_attack_or_defend() -> void:
 		if unit.global_position.distance_to(_staging_point) > 64.0:
 			unit.command_move(_staging_point)
 
-	# Launch attack if army is strong enough
-	if military.size() >= threshold:
+	# Timed aggression: force attack after 3 minutes even with small army
+	var force_attack_time: float = 180.0
+	match difficulty:
+		Difficulty.EASY: force_attack_time = 300.0
+		Difficulty.MEDIUM: force_attack_time = 180.0
+		Difficulty.HARD: force_attack_time = 120.0
+
+	var force_attack: bool = _game_time >= force_attack_time and military.size() >= 3
+
+	# Launch full attack if army is strong enough or timed threshold reached
+	if military.size() >= threshold or force_attack:
 		var target: Vector2 = _find_enemy_target()
 		if target != Vector2(-1, -1):
 			_send_attack(military, target)
 			_attack_in_progress = true
+		return
+
+	# Harassment raids: send small groups to pressure the enemy
+	var harass_cooldown: float = 60.0 if difficulty == Difficulty.HARD else 90.0
+	if military.size() >= 3 and _game_time - _last_harass_time > harass_cooldown:
+		# Send 2-3 units as a raiding party
+		var raid_size: int = mini(3, military.size())
+		var raiders: Array = idle_military.slice(0, raid_size)
+		if raiders.size() >= 2:
+			var target: Vector2 = _find_enemy_target()
+			if target != Vector2(-1, -1):
+				for unit in raiders:
+					if unit.has_method("command_attack_move"):
+						unit.command_attack_move(target)
+				_last_harass_time = _game_time
 
 
 func _is_base_under_attack() -> bool:
