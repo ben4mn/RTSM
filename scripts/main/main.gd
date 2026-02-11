@@ -876,7 +876,7 @@ func _on_move_command(target_tile: Vector2i) -> void:
 			has_military = true
 			break
 	if has_military:
-		VFX.hit_burst(get_tree(), game_map.tile_to_world(target_tile), Color(1.0, 0.5, 0.2))
+		VFX.attack_move_indicator(get_tree(), game_map.tile_to_world(target_tile))
 	else:
 		VFX.move_indicator(get_tree(), game_map.tile_to_world(target_tile))
 
@@ -1236,7 +1236,7 @@ func _process(delta: float) -> void:
 		_update_minimap()
 		_update_idle_villager_count()
 		_auto_explore_idle_scouts()
-		hud.update_score(_calculate_score())
+		hud.update_score(_calculate_score(0), _calculate_score(1))
 	# Refresh selection display every 0.5s to keep gather progress / queue current
 	_selection_refresh_timer += delta
 	if _selection_refresh_timer >= 0.5:
@@ -1368,28 +1368,30 @@ func _show_game_over() -> void:
 		game_over.main_menu_requested.connect(_on_main_menu)
 
 
-func _calculate_score() -> int:
+func _calculate_score(player_id: int = 0) -> int:
 	var score: int = 0
-	# Military score: 20 per kill, 10 per living military unit
-	score += _stats["units_killed"] * 20
-	for unit in _player_units[0]:
+	# Military score: 10 per living military unit
+	for unit in _player_units[player_id]:
 		if is_instance_valid(unit) and unit.current_state != UnitBase.State.DEAD:
 			if not (unit is Villager):
 				score += 10
-	# Economy score: 1 per 10 resources gathered, 5 per living villager
-	@warning_ignore("integer_division")
-	score += _stats["resources_gathered"] / 10
-	for unit in _player_units[0]:
+	# Player-only stats (AI doesn't track kills/gathered)
+	if player_id == 0:
+		score += _stats["units_killed"] * 20
+		@warning_ignore("integer_division")
+		score += _stats["resources_gathered"] / 10
+	# Economy: 5 per living villager
+	for unit in _player_units[player_id]:
 		if is_instance_valid(unit) and unit is Villager and unit.current_state != UnitBase.State.DEAD:
 			score += 5
 	# Buildings: 15 per standing building
-	for b in _player_buildings[0]:
+	for b in _player_buildings[player_id]:
 		if is_instance_valid(b) and b.state == BuildingBase.State.ACTIVE:
 			score += 15
 	# Technology: 25 per age beyond Dark Age, 20 per research
-	var age: int = GameManager.get_player_age(0)
+	var age: int = GameManager.get_player_age(player_id)
 	score += (age - 1) * 25
-	var researched: Array = GameManager.researched_upgrades.get(0, [])
+	var researched: Array = GameManager.researched_upgrades.get(player_id, [])
 	score += researched.size() * 20
 	return score
 

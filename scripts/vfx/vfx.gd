@@ -128,6 +128,30 @@ static func move_indicator(tree: SceneTree, pos: Vector2) -> void:
 	p.emitting = true
 
 
+static func attack_move_indicator(tree: SceneTree, pos: Vector2) -> void:
+	var p := CPUParticles2D.new()
+	p.emitting = false
+	p.one_shot = true
+	p.amount = 12
+	p.lifetime = 0.4
+	p.explosiveness = 0.95
+	p.direction = Vector2.UP
+	p.spread = 180.0
+	p.initial_velocity_min = 15.0
+	p.initial_velocity_max = 35.0
+	p.gravity = Vector2(0, -15)
+	p.scale_amount_min = 1.0
+	p.scale_amount_max = 2.0
+	var grad := Gradient.new()
+	grad.set_color(0, Color(1.0, 0.4, 0.2, 0.8))
+	grad.set_color(1, Color(1.0, 0.2, 0.0, 0.0))
+	p.color_ramp = grad
+	p.global_position = pos
+	tree.current_scene.add_child(p)
+	p.finished.connect(p.queue_free)
+	p.emitting = true
+
+
 static func resource_float(tree: SceneTree, pos: Vector2, text: String, color: Color) -> void:
 	var lbl := Label.new()
 	lbl.text = text

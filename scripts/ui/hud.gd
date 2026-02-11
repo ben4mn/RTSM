@@ -1027,7 +1027,7 @@ func _create_score_label() -> void:
 	var root_ctrl: Control = $Root
 	_score_label = Label.new()
 	_score_label.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	_score_label.offset_left = -260
+	_score_label.offset_left = -280
 	_score_label.offset_right = -170
 	_score_label.offset_top = 8
 	_score_label.offset_bottom = 28
@@ -1039,9 +1039,9 @@ func _create_score_label() -> void:
 	root_ctrl.add_child(_score_label)
 
 
-func update_score(score: int) -> void:
+func update_score(score: int, enemy_score: int = 0) -> void:
 	if _score_label:
-		_score_label.text = "Score: %d" % score
+		_score_label.text = "Score: %d / %d" % [score, enemy_score]
 
 
 # --- Military Count ---
