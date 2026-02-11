@@ -263,3 +263,22 @@ Additional completed features:
 - Keyboard shortcut tooltips on all buttons
 - Terrain visual distinction (forest/berry/gold tile textures + minimap colors)
 - Resource node glow effects and increased sizes
+- Grass tile variety (3 variants for visual interest)
+- Fog of war delta-based updates (only changed cells, not full grid)
+- Auto-attack throttle (0.3s cooldown on O(n²) enemy scanning)
+- Building placement invalid reason text (Out of bounds, Blocked, Overlaps)
+- AI difficulty resource bonus (passive income + starting bonus on Medium/Hard)
+- Minimap sacred site indicator (purple dot, fog-aware)
+- Sacred site hints at 3min game time
+- Unit stuck detection (fallback to direct move after 1.5s)
+- Damage flash changed to white (visible on both ally and enemy units)
+- Villager gather spread (random offset prevents stacking)
+- Tighter specialty dropoff preference (lumber camp/mining camp)
+- Towers target enemy buildings when no enemy units in range
+- Enemy building red tint for team identification
+- AI age-up notification ("Enemy advancing to Feudal Age!")
+- Stance display in unit selection panel ([Aggressive]/[Stand Ground])
+- Arrow projectile VFX for ranged attacks (arced trajectory)
+- Counter bonus floating text ("x1.5!" on type advantage)
+- Critical HP pulsing red ring (< 25% HP warning)
+- Pause menu overlay (Resume / Quit to Main Menu)
