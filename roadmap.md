@@ -231,17 +231,35 @@ Multiplayer and distribution turn it into a live game.
 
 ---
 
-## Quick Wins (Can Do Now)
+## Quick Wins — COMPLETED (Iterations 11-17)
 
-These are small improvements that make the current prototype feel much better:
+All quick wins have been implemented:
 
-1. **Formation spreading** — offset unit destinations so they don't stack
-2. **Idle villager indicator** — flash a UI button when villagers have nothing to do
-3. **Auto-queue toggle** — checkbox on production buildings to repeat training
-4. **Event notifications** — text feed for "Under attack!", "Building complete", etc.
-5. **Unit count badges** — show "x5" on selection panel when multiple units selected
-6. **Villager auto-retarget** — when a resource depletes, find the nearest same-type
-7. **Camera bounds** — prevent scrolling off the edge of the map
-8. **Better minimap click** — click minimap to jump camera to that location
-9. **Rally point visual** — draw a flag/line from building to rally point
-10. **Speed controls** — 1x, 2x, 3x game speed buttons for single player
+1. ~~Formation spreading~~ — spiral offsets for unit destinations
+2. ~~Idle villager indicator~~ — gold flashing button when villagers idle
+3. ~~Auto-queue toggle~~ — checkbox on production buildings
+4. ~~Event notifications~~ — scrolling feed: under attack, building complete, unit trained, etc.
+5. ~~Unit count badges~~ — "5x Infantry" / "Mixed (8 units)" in selection panel
+6. ~~Villager auto-retarget~~ — finds nearest same-type resource on depletion
+7. ~~Camera bounds~~ — clamped to map edges
+8. ~~Better minimap click~~ — click/drag minimap to jump camera
+9. ~~Rally point visual~~ — dashed line + circle from building to rally point
+10. ~~Speed controls~~ — 0.5x/1x/2x game speed toggle
+
+Additional completed features:
+- Resource float numbers (+10 Food on deposit)
+- Combat damage float numbers (-5 on hit)
+- Building damage smoke/fire effects (<50% / <25% HP)
+- Attack-move command for units
+- Stand ground stance (no chase)
+- Kill tracking and full game-over stats (units killed/lost/trained, resources gathered, buildings built)
+- Main menu with difficulty selector
+- Game over → main menu flow
+- AI attack-move, distributed defense, scouting
+- Minimap camera viewport rectangle
+- Smart drop-off building selection (lumber camp for wood, etc.)
+- Farms as renewable food sources
+- Cancel queue buttons
+- Keyboard shortcut tooltips on all buttons
+- Terrain visual distinction (forest/berry/gold tile textures + minimap colors)
+- Resource node glow effects and increased sizes

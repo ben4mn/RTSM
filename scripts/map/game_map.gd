@@ -281,7 +281,7 @@ func _spawn_resource_nodes() -> void:
 		MapData.TileType.BERRY_BUSH: { "type": "food", "amount": 200 },
 		MapData.TileType.FOREST: { "type": "wood", "amount": 250 },
 		MapData.TileType.GOLD_MINE: { "type": "gold", "amount": 400 },
-		MapData.TileType.STONE: { "type": "gold", "amount": 300 },
+		MapData.TileType.STONE: { "type": "stone", "amount": 300 },
 	}
 	for y in range(MapData.MAP_HEIGHT):
 		for x in range(MapData.MAP_WIDTH):

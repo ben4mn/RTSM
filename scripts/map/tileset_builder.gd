@@ -14,6 +14,8 @@ const TILE_TEXTURES: Dictionary = {
 	MapData.TileType.BERRY_BUSH: "res://assets/terrain/tile_farmland.png",
 	MapData.TileType.STONE: "res://assets/terrain/tile_sand.png",
 	MapData.TileType.SACRED_SITE: "res://assets/terrain/tile_farmland2.png",
+	MapData.TileType.GRASS_ALT: "res://assets/terrain/tile_grass_alt.png",
+	MapData.TileType.GRASS_DARK: "res://assets/terrain/tile_grass_dark.png",
 }
 
 

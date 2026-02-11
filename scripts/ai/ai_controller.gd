@@ -804,7 +804,7 @@ func _is_valid_build_spot(origin: Vector2i, footprint: Vector2i) -> bool:
 			var ty: int = origin.y + dy
 			if tx < 0 or tx >= MapData.MAP_WIDTH or ty < 0 or ty >= MapData.MAP_HEIGHT:
 				return false
-			if map_generator and map_generator.grid[ty][tx] != MapData.TileType.GRASS:
+			if map_generator and not MapData.is_grass(map_generator.grid[ty][tx] as MapData.TileType):
 				return false
 			if pathfinding and not pathfinding.is_walkable(Vector2i(tx, ty)):
 				return false

@@ -19,8 +19,8 @@ const RESOURCE_COLORS: Dictionary = {
 	"gold": Color(0.95, 0.85, 0.2),
 }
 
-const GAME_SPEEDS: Array[float] = [0.5, 1.0, 2.0]
-const SPEED_LABELS: Array[String] = ["0.5x", "1x", "2x"]
+const GAME_SPEEDS: Array[float] = [0.5, 1.0, 2.0, 3.0]
+const SPEED_LABELS: Array[String] = ["0.5x", "1x", "2x", "3x"]
 
 @onready var food_label: Label = %FoodLabel
 @onready var wood_label: Label = %WoodLabel

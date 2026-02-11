@@ -32,6 +32,7 @@ func generate() -> Array:
 	_place_spawn_positions()
 	_ensure_spawn_clearance()
 	_place_guaranteed_near_spawn_resources()
+	_add_grass_variety()
 	return grid
 
 
@@ -189,6 +190,19 @@ func _place_forest_near_spawn(spawn: Vector2i) -> void:
 		if _in_bounds(fx, fy) and grid[fy][fx] == MapData.TileType.GRASS:
 			_place_blob(fx, fy, 6, MapData.TileType.FOREST)
 			break
+
+
+## Randomly swap some GRASS tiles to visual variants for map variety.
+func _add_grass_variety() -> void:
+	for y in range(MapData.MAP_HEIGHT):
+		for x in range(MapData.MAP_WIDTH):
+			if grid[y][x] != MapData.TileType.GRASS:
+				continue
+			var roll := _rng.randf()
+			if roll < 0.25:
+				grid[y][x] = MapData.TileType.GRASS_ALT
+			elif roll < 0.35:
+				grid[y][x] = MapData.TileType.GRASS_DARK
 
 
 func _set_tile(x: int, y: int, tile_type: MapData.TileType) -> void:

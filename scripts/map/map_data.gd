@@ -10,6 +10,8 @@ enum TileType {
 	BERRY_BUSH,
 	STONE,
 	SACRED_SITE,
+	GRASS_ALT,    ## Visual variant — plain grass.
+	GRASS_DARK,   ## Visual variant — darker grass.
 }
 
 ## Fog-of-war visibility states.
@@ -45,6 +47,8 @@ const TILE_COLORS: Dictionary = {
 	TileType.BERRY_BUSH: Color(0.75, 0.30, 0.35),
 	TileType.STONE: Color(0.70, 0.68, 0.55),
 	TileType.SACRED_SITE: Color(0.65, 0.55, 0.45),
+	TileType.GRASS_ALT: Color(0.45, 0.68, 0.30),
+	TileType.GRASS_DARK: Color(0.35, 0.55, 0.25),
 }
 
 ## Whether a tile blocks ground movement.
@@ -58,3 +62,7 @@ static func is_resource(tile_type: TileType) -> bool:
 ## Whether a tile provides stealth cover (only scouts reveal units here).
 static func is_stealth(tile_type: TileType) -> bool:
 	return tile_type == TileType.FOREST
+
+## Whether a tile is walkable open ground (grass or grass variant).
+static func is_grass(tile_type: TileType) -> bool:
+	return tile_type in [TileType.GRASS, TileType.GRASS_ALT, TileType.GRASS_DARK]
