@@ -44,6 +44,16 @@ func _try_auto_attack() -> void:
 	pass
 
 
+## Villagers flee toward nearest friendly building when attacked.
+func take_damage(amount: float) -> void:
+	super.take_damage(amount)
+	if current_state == State.DEAD:
+		return
+	# Only flee if gathering or idle (not if player explicitly commanded an attack)
+	if current_state == State.GATHERING or current_state == State.IDLE:
+		_flee_to_safety()
+
+
 func _process_gathering(delta: float) -> void:
 	if gather_target == null or not is_instance_valid(gather_target):
 		# Resource depleted or removed
@@ -248,6 +258,28 @@ func _resume_or_idle() -> void:
 	_saved_gather_target = null
 	_saved_gather_type = GatherType.NONE
 	_saved_carried_resource_type = ""
+
+
+func _flee_to_safety() -> void:
+	## Run to the nearest friendly building (preferably Town Center).
+	var best_building: Node2D = null
+	var best_dist: float = INF
+	for building in get_tree().get_nodes_in_group("buildings"):
+		if not is_instance_valid(building) or not (building is BuildingBase):
+			continue
+		if (building as BuildingBase).player_owner != player_owner:
+			continue
+		if (building as BuildingBase).state == BuildingBase.State.DESTROYED:
+			continue
+		var dist: float = global_position.distance_to(building.global_position)
+		# Prefer Town Center (halve effective distance)
+		if (building as BuildingBase).building_type == BuildingData.BuildingType.TOWN_CENTER:
+			dist *= 0.5
+		if dist < best_dist:
+			best_dist = dist
+			best_building = building
+	if best_building != null:
+		command_move(best_building.global_position)
 
 
 func _try_retarget_resource() -> bool:
