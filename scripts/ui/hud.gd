@@ -86,6 +86,9 @@ var _sacred_site_label: Label = null
 # Score label
 var _score_label: Label = null
 
+# Pause menu overlay
+var _pause_overlay: ColorRect = null
+
 
 func _ready() -> void:
 	layer = 10
@@ -184,6 +187,7 @@ func _on_pause_pressed() -> void:
 		gm.toggle_pause()
 		var is_paused: bool = gm.current_state == gm.GameState.PAUSED
 		_pause_button.text = ">" if is_paused else "||"
+		_toggle_pause_overlay(is_paused)
 
 
 func _on_speed_pressed() -> void:
@@ -196,6 +200,61 @@ func _on_speed_pressed() -> void:
 func set_pause_display(is_paused: bool) -> void:
 	if _pause_button:
 		_pause_button.text = ">" if is_paused else "||"
+	_toggle_pause_overlay(is_paused)
+
+
+func _toggle_pause_overlay(show: bool) -> void:
+	if show:
+		if _pause_overlay == null:
+			_create_pause_overlay()
+		_pause_overlay.visible = true
+	elif _pause_overlay != null:
+		_pause_overlay.visible = false
+
+
+func _create_pause_overlay() -> void:
+	_pause_overlay = ColorRect.new()
+	_pause_overlay.color = Color(0, 0, 0, 0.6)
+	_pause_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_pause_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+
+	var vbox := VBoxContainer.new()
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.set_anchors_preset(Control.PRESET_CENTER)
+	vbox.custom_minimum_size = Vector2(250, 220)
+	vbox.position = Vector2(-125, -110)
+	vbox.add_theme_constant_override("separation", 12)
+
+	var title := Label.new()
+	title.text = "PAUSED"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 28)
+	title.add_theme_color_override("font_color", Color(1.0, 0.9, 0.5))
+	vbox.add_child(title)
+
+	var sep := HSeparator.new()
+	vbox.add_child(sep)
+
+	var resume_btn := Button.new()
+	resume_btn.text = "Resume"
+	resume_btn.custom_minimum_size = Vector2(200, 40)
+	resume_btn.pressed.connect(_on_pause_pressed)
+	vbox.add_child(resume_btn)
+
+	var quit_btn := Button.new()
+	quit_btn.text = "Quit to Main Menu"
+	quit_btn.custom_minimum_size = Vector2(200, 40)
+	quit_btn.pressed.connect(_on_quit_to_menu)
+	vbox.add_child(quit_btn)
+
+	_pause_overlay.add_child(vbox)
+	get_node("Root").add_child(_pause_overlay)
+
+
+func _on_quit_to_menu() -> void:
+	Engine.time_scale = 1.0
+	get_tree().paused = false
+	get_tree().change_scene_to_file("res://scenes/ui/main_menu.tscn")
 
 
 # --- Idle villager button ---
