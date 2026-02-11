@@ -216,6 +216,44 @@ static func building_fire(tree: SceneTree, pos: Vector2) -> void:
 	p.emitting = true
 
 
+static func arrow_projectile(tree: SceneTree, from_pos: Vector2, to_pos: Vector2) -> void:
+	## Simple arrow: a small yellow-brown dot that flies from attacker to target.
+	var arrow := Sprite2D.new()
+	arrow.texture = PlaceholderTexture2D.new()
+	(arrow.texture as PlaceholderTexture2D).size = Vector2(4, 4)
+	arrow.modulate = Color(0.85, 0.65, 0.2)
+	arrow.global_position = from_pos
+	arrow.z_index = 90
+	tree.current_scene.add_child(arrow)
+	var fly_time: float = clampf(from_pos.distance_to(to_pos) / 300.0, 0.1, 0.5)
+	var tween := tree.create_tween()
+	# Arc upward slightly for a natural arrow trajectory
+	var mid := (from_pos + to_pos) * 0.5 + Vector2(0, -20)
+	tween.tween_property(arrow, "global_position", mid, fly_time * 0.5)
+	tween.tween_property(arrow, "global_position", to_pos, fly_time * 0.5)
+	tween.tween_callback(arrow.queue_free)
+
+
+static func counter_bonus_float(tree: SceneTree, pos: Vector2, text: String) -> void:
+	## Show counter bonus text (e.g., "x1.5!") floating above a unit.
+	var lbl := Label.new()
+	lbl.text = text
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.add_theme_font_size_override("font_size", 11)
+	lbl.add_theme_color_override("font_color", Color(1.0, 0.9, 0.3))
+	lbl.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
+	lbl.add_theme_constant_override("shadow_offset_x", 1)
+	lbl.add_theme_constant_override("shadow_offset_y", 1)
+	lbl.global_position = pos + Vector2(-20, -35)
+	lbl.z_index = 100
+	tree.current_scene.add_child(lbl)
+	var tween := tree.create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(lbl, "global_position:y", pos.y - 60.0, 0.9)
+	tween.tween_property(lbl, "modulate:a", 0.0, 0.9)
+	tween.chain().tween_callback(lbl.queue_free)
+
+
 static func building_complete(tree: SceneTree, pos: Vector2) -> void:
 	var p := CPUParticles2D.new()
 	p.emitting = false

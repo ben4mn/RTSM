@@ -40,10 +40,17 @@ static func deal_damage(attacker: UnitBase, defender: UnitBase) -> void:
 	var was_alive: bool = defender.hp > 0.0
 	defender.take_damage(final_damage)
 
-	# Hit particles at impact
 	var tree := attacker.get_tree()
 	if tree and tree.current_scene:
-		VFX.hit_burst(tree, defender.global_position)
+		# Ranged units show arrow projectile; melee show hit burst
+		if attacker.is_ranged:
+			VFX.arrow_projectile(tree, attacker.global_position, defender.global_position)
+		else:
+			VFX.hit_burst(tree, defender.global_position)
+		# Show counter bonus text when type advantage applies
+		var bonus: float = get_counter_bonus(attacker.unit_type, defender.unit_type)
+		if bonus > 1.0:
+			VFX.counter_bonus_float(tree, defender.global_position, "x%.1f!" % bonus)
 
 	# Track kill
 	if was_alive and defender.hp <= 0.0:

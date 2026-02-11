@@ -164,11 +164,17 @@ func _draw() -> void:
 	# Team color ring
 	draw_arc(Vector2.ZERO, size + 1.0, 0, TAU, 32, team_color, 3.0)
 
+	# Critical HP pulsing red ring (< 25% HP)
+	var hp_ratio: float = hp / max_hp if max_hp > 0 else 0.0
+	if hp_ratio > 0.0 and hp_ratio < 0.25:
+		var crit_pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.01)
+		draw_arc(Vector2.ZERO, size + 3.0, 0, TAU, 24, Color(1.0, 0.2, 0.1, crit_pulse * 0.6), 2.0)
+		queue_redraw()
+
 	# Health bar (above unit)
 	var bar_width: float = size * 2.5
 	var bar_height: float = 3.0
 	var bar_y: float = -(size + 12.0)
-	var hp_ratio: float = hp / max_hp if max_hp > 0 else 0.0
 
 	# Background
 	draw_rect(Rect2(-bar_width / 2.0, bar_y, bar_width, bar_height), Color(0.15, 0.0, 0.0, 0.8))
