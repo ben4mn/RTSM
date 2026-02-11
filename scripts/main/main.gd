@@ -597,6 +597,22 @@ func _spawn_unit(unit_type: int, player_id: int, world_pos: Vector2) -> UnitBase
 	_player_units[player_id].append(unit)
 	GameManager.add_population(player_id, UnitData.UNITS.get(unit_type, {}).get("pop_cost", 1))
 
+	# Apply researched upgrades to new units
+	var atk_bonus: int = GameManager.get_attack_bonus(player_id)
+	var arm_bonus: int = GameManager.get_armor_bonus(player_id)
+	if atk_bonus > 0:
+		unit.damage += atk_bonus
+	if arm_bonus > 0:
+		unit.armor += arm_bonus
+	if unit is Villager:
+		var gather_bonus: float = GameManager.get_gather_bonus(player_id)
+		var hp_bonus: int = GameManager.get_villager_hp_bonus(player_id)
+		if gather_bonus > 0.0:
+			(unit as Villager).gather_rate += gather_bonus
+		if hp_bonus > 0:
+			unit.max_hp += hp_bonus
+			unit.hp += hp_bonus
+
 	# Track unit death.
 	unit.unit_died.connect(_on_unit_died.bind(player_id))
 
@@ -986,6 +1002,19 @@ func _on_research_requested(building: Node2D, research_id: String) -> void:
 		gm.apply_attack_upgrade(b.player_owner, 2)
 	elif research_id == "scale_mail":
 		gm.apply_armor_upgrade(b.player_owner, 1)
+	elif research_id == "wheelbarrow":
+		gm.apply_gather_upgrade(b.player_owner, 0.5)
+		# Apply to existing villagers
+		for unit in _player_units[b.player_owner]:
+			if is_instance_valid(unit) and unit is Villager:
+				(unit as Villager).gather_rate += 0.5
+	elif research_id == "loom":
+		gm.apply_villager_hp_upgrade(b.player_owner, 15)
+		# Apply to existing villagers
+		for unit in _player_units[b.player_owner]:
+			if is_instance_valid(unit) and unit is Villager:
+				unit.max_hp += 15
+				unit.hp += 15
 
 	hud.show_notification("Research complete: %s" % effect_text, Color(0.5, 0.8, 1.0))
 

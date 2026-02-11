@@ -54,7 +54,7 @@ func initialize_game(num_players: int = 2) -> void:
 
 	for i in range(num_players):
 		players[i] = _create_player_data(i)
-		player_upgrades[i] = {"attack_bonus": 0, "armor_bonus": 0}
+		player_upgrades[i] = {"attack_bonus": 0, "armor_bonus": 0, "gather_bonus": 0.0, "villager_hp_bonus": 0}
 		researched_upgrades[i] = []
 
 	set_state(GameState.PLAYING)
@@ -184,6 +184,28 @@ func apply_attack_upgrade(player_id: int, amount: int) -> void:
 func apply_armor_upgrade(player_id: int, amount: int) -> void:
 	if player_upgrades.has(player_id):
 		player_upgrades[player_id]["armor_bonus"] += amount
+
+
+func apply_gather_upgrade(player_id: int, amount: float) -> void:
+	if player_upgrades.has(player_id):
+		player_upgrades[player_id]["gather_bonus"] += amount
+
+
+func get_gather_bonus(player_id: int) -> float:
+	if player_upgrades.has(player_id):
+		return player_upgrades[player_id].get("gather_bonus", 0.0)
+	return 0.0
+
+
+func apply_villager_hp_upgrade(player_id: int, amount: int) -> void:
+	if player_upgrades.has(player_id):
+		player_upgrades[player_id]["villager_hp_bonus"] += amount
+
+
+func get_villager_hp_bonus(player_id: int) -> int:
+	if player_upgrades.has(player_id):
+		return player_upgrades[player_id].get("villager_hp_bonus", 0)
+	return 0
 
 
 func has_research(player_id: int, research_id: String) -> bool:

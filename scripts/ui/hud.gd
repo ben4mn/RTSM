@@ -621,6 +621,8 @@ func _on_auto_queue_toggled(pressed: bool) -> void:
 const RESEARCH_DEFS: Array = [
 	{"id": "forging", "name": "Forge Weapons", "desc": "+2 Attack", "cost": {"food": 100, "gold": 50}},
 	{"id": "scale_mail", "name": "Scale Mail", "desc": "+1 Armor", "cost": {"food": 100, "gold": 50}},
+	{"id": "wheelbarrow", "name": "Wheelbarrow", "desc": "+25% Gather", "cost": {"food": 175, "wood": 50}},
+	{"id": "loom", "name": "Loom", "desc": "+15 Villager HP", "cost": {"gold": 50}},
 ]
 
 
@@ -657,6 +659,8 @@ func _update_research_buttons(building_ref: Node2D) -> void:
 		var cost_str := ""
 		if rd["cost"].get("food", 0) > 0:
 			cost_str += "F:%d " % rd["cost"]["food"]
+		if rd["cost"].get("wood", 0) > 0:
+			cost_str += "W:%d " % rd["cost"]["wood"]
 		if rd["cost"].get("gold", 0) > 0:
 			cost_str += "G:%d" % rd["cost"]["gold"]
 		btn.text = "%s: %s (%s)" % [rd["name"], rd["desc"], cost_str.strip_edges()]
