@@ -18,6 +18,10 @@ var current_train_time: float = 0.0
 var is_training: bool = false
 var _building: BuildingBase = null
 
+# Auto-queue
+var auto_queue_enabled: bool = false
+var auto_queue_unit_type: int = -1
+
 
 func _ready() -> void:
 	_building = get_parent() as BuildingBase
@@ -58,6 +62,7 @@ func enqueue_unit(unit_type: int) -> bool:
 	_deduct_resources(cost)
 
 	queue.append(unit_type)
+	auto_queue_unit_type = unit_type
 	unit_queued.emit(unit_type)
 	queue_changed.emit()
 
@@ -144,7 +149,11 @@ func _complete_current_unit() -> void:
 	unit_trained.emit(unit_type, spawn_pos)
 	queue_changed.emit()
 
-	if not queue.is_empty():
+	# Auto-queue: re-enqueue the same unit type
+	if auto_queue_enabled and auto_queue_unit_type >= 0:
+		enqueue_unit(auto_queue_unit_type)
+
+	if not queue.is_empty() and not is_training:
 		_start_next_unit()
 
 

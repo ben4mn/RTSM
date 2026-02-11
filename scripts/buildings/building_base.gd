@@ -32,6 +32,7 @@ var is_selected: bool = false
 var _production_queue: Node = null
 var _sprite: Sprite2D = null
 var _construction_dust_timer: float = 0.0
+var _damage_smoke_timer: float = 0.0
 
 ## Sprite texture paths per building type from Kenney Medieval RTS pack.
 const BUILDING_SPRITES: Dictionary = {
@@ -178,9 +179,23 @@ func _draw() -> void:
 		draw_rect(Rect2(-bar_w * 0.5, bar_y, bar_w, bar_h), Color(0.2, 0.2, 0.2))
 		draw_rect(Rect2(-bar_w * 0.5, bar_y, bar_w * hp_ratio, bar_h), hp_color)
 
-	# Rally point indicator
+	# Rally point indicator with line
 	if is_selected and state == State.ACTIVE and trainable_units.size() > 0:
 		var rp_local := rally_point - global_position
+		# Dashed line from building to rally point
+		var line_color := Color(0.2, 0.6, 1.0, 0.4)
+		var dash_len := 6.0
+		var gap_len := 4.0
+		var total_dist := rp_local.length()
+		if total_dist > 1.0:
+			var dir := rp_local.normalized()
+			var d := 0.0
+			while d < total_dist:
+				var start := dir * d
+				var end_d := minf(d + dash_len, total_dist)
+				var end := dir * end_d
+				draw_line(start, end, line_color, 1.5)
+				d = end_d + gap_len
 		draw_circle(rp_local, 4.0, Color(0.2, 0.6, 1.0, 0.7))
 
 
@@ -194,7 +209,19 @@ func _process(delta: float) -> void:
 			if get_tree() and get_tree().current_scene:
 				VFX.construction_dust(get_tree(), global_position)
 		queue_redraw()
-	elif (state == State.ACTIVE and hp < max_hp) or is_selected:
+	elif state == State.ACTIVE and hp < max_hp:
+		# Damage smoke/fire effects
+		var hp_ratio := float(hp) / float(max_hp) if max_hp > 0 else 1.0
+		if hp_ratio < 0.5 and get_tree() and get_tree().current_scene:
+			_damage_smoke_timer += delta
+			var interval := 1.2 if hp_ratio > 0.25 else 0.6
+			if _damage_smoke_timer >= interval:
+				_damage_smoke_timer = 0.0
+				VFX.building_smoke(get_tree(), global_position)
+				if hp_ratio < 0.25:
+					VFX.building_fire(get_tree(), global_position)
+		queue_redraw()
+	elif is_selected:
 		queue_redraw()
 
 
@@ -313,6 +340,28 @@ func deposit_resource(resource_type: String, amount: int) -> void:
 
 func can_train() -> bool:
 	return state == State.ACTIVE and trainable_units.size() > 0
+
+
+# --- Farm support: farms act as renewable food sources ---
+var farm_remaining: int = 300
+
+func get_resource_type() -> String:
+	if provides_food:
+		return "food"
+	return ""
+
+
+func harvest(amount: int) -> int:
+	if not provides_food or state != State.ACTIVE:
+		return 0
+	if farm_remaining <= 0:
+		return 0
+	var actual := mini(amount, farm_remaining)
+	farm_remaining -= actual
+	if farm_remaining <= 0:
+		# Farm exhausted - destroy it
+		_destroy()
+	return actual
 
 
 func get_production_queue() -> Node:

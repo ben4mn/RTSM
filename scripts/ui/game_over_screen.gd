@@ -34,6 +34,7 @@ func _show_result(text: String, color: Color, stats: Dictionary) -> void:
 	lines.append("Game Time: %s" % stats.get("game_time", "00:00"))
 	lines.append("Units Trained: %d" % stats.get("units_trained", 0))
 	lines.append("Units Killed: %d" % stats.get("units_killed", 0))
+	lines.append("Units Lost: %d" % stats.get("units_lost", 0))
 	lines.append("Resources Gathered: %d" % stats.get("resources_gathered", 0))
 	lines.append("Buildings Built: %d" % stats.get("buildings_built", 0))
 	stats_label.text = "\n".join(lines)

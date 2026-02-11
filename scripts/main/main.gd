@@ -52,6 +52,19 @@ var _debug_panel: DebugPanel = null
 # --- Idle villager cycling ---
 var _idle_villager_index: int = 0
 
+# --- Under-attack notification cooldown ---
+var _under_attack_cooldown: float = 0.0
+const UNDER_ATTACK_COOLDOWN_TIME: float = 10.0
+
+# --- Game stats ---
+var _stats: Dictionary = {
+	"units_trained": 0,
+	"units_killed": 0,
+	"units_lost": 0,
+	"buildings_built": 0,
+	"resources_gathered": 0,
+}
+
 
 func _ready() -> void:
 	# Wait for map generation to finish.
@@ -288,6 +301,14 @@ func _spawn_unit(unit_type: int, player_id: int, world_pos: Vector2) -> UnitBase
 	# Track unit death.
 	unit.unit_died.connect(_on_unit_died.bind(player_id))
 
+	# Under-attack detection for player units.
+	if player_id == 0 and unit.has_signal("health_changed"):
+		unit.health_changed.connect(_on_player_unit_damaged)
+
+	# Track resource deposits for stats.
+	if player_id == 0 and unit.has_signal("resource_deposited"):
+		unit.resource_deposited.connect(_on_resource_deposited)
+
 	# Register with AI if it's the AI's unit.
 	if player_id == ai_controller.player_id:
 		ai_controller.register_unit(unit)
@@ -298,6 +319,9 @@ func _spawn_unit(unit_type: int, player_id: int, world_pos: Vector2) -> UnitBase
 func _on_unit_trained(unit_type: int, spawn_pos: Vector2, player_id: int) -> void:
 	_spawn_unit(unit_type, player_id, spawn_pos)
 	_update_population_display()
+	if player_id == 0:
+		_stats["units_trained"] += 1
+		hud.show_notification("Unit trained: %s" % UnitData.get_unit_name(unit_type), Color(0.4, 0.7, 1.0))
 
 
 func _on_unit_died(unit: UnitBase, player_id: int) -> void:
@@ -305,6 +329,21 @@ func _on_unit_died(unit: UnitBase, player_id: int) -> void:
 	var pop_cost: int = UnitData.UNITS.get(unit.unit_type, {}).get("pop_cost", 1)
 	GameManager.remove_population(player_id, pop_cost)
 	_update_population_display()
+	if player_id == 0:
+		_stats["units_lost"] += 1
+		hud.show_notification("Unit lost!", Color(1.0, 0.3, 0.3))
+	else:
+		_stats["units_killed"] += 1
+
+
+func _on_resource_deposited(_resource_type: String, amount: int) -> void:
+	_stats["resources_gathered"] += amount
+
+
+func _on_player_unit_damaged(_unit: UnitBase, _new_hp: float, _max_hp: float) -> void:
+	if _under_attack_cooldown <= 0.0:
+		_under_attack_cooldown = UNDER_ATTACK_COOLDOWN_TIME
+		hud.show_notification("Under attack!", Color(1.0, 0.4, 0.2))
 
 
 # =========================================================================
@@ -348,11 +387,16 @@ func _on_building_constructed(building: BuildingBase, player_id: int) -> void:
 	if building.pop_provided > 0:
 		GameManager.increase_population_cap(player_id, building.pop_provided)
 		_update_population_display()
+	if player_id == 0:
+		_stats["buildings_built"] += 1
+		hud.show_notification("Building complete: %s" % building.building_name, Color(0.3, 0.85, 0.3))
 
 
 func _on_building_destroyed(building: BuildingBase, player_id: int, tile_pos: Vector2i) -> void:
 	_player_buildings[player_id].erase(building)
 	game_map.remove_building_obstacle(tile_pos, building.footprint)
+	if player_id == 0:
+		hud.show_notification("Building destroyed!", Color(1.0, 0.3, 0.3))
 
 	if building.pop_provided > 0:
 		# Don't reduce cap below current population (units don't instantly die).
@@ -389,7 +433,26 @@ func _on_selection_changed(selected_units: Array[Node2D]) -> void:
 			if v.current_state == UnitBase.State.GATHERING or v.carried_amount > 0:
 				var res_name: String = v.carried_resource_type.capitalize() if v.carried_resource_type != "" else "?"
 				action_text = "Gathering %s (%d/%d)" % [res_name, v.carried_amount, v.carry_capacity]
-		hud.show_unit_selection(UnitData.get_unit_name(u.unit_type), int(u.hp), int(u.max_hp), action_text)
+		# Count selected units of same type
+		var count: int = 0
+		var total_hp: int = 0
+		var total_max_hp: int = 0
+		for node in selected_units:
+			if node is UnitBase and (node as UnitBase).unit_type == u.unit_type:
+				count += 1
+				total_hp += int((node as UnitBase).hp)
+				total_max_hp += int((node as UnitBase).max_hp)
+		# For mixed selections, count all
+		if count < selected_units.size():
+			count = selected_units.size()
+			total_hp = 0
+			total_max_hp = 0
+			for node in selected_units:
+				if node is UnitBase:
+					total_hp += int((node as UnitBase).hp)
+					total_max_hp += int((node as UnitBase).max_hp)
+			action_text = "Mixed (%d units)" % count
+		hud.show_unit_selection(UnitData.get_unit_name(u.unit_type), total_hp, total_max_hp, action_text, count)
 	elif first is BuildingBase:
 		var b: BuildingBase = first as BuildingBase
 		var queue_info: Array = []
@@ -498,6 +561,20 @@ func _on_train_unit_requested(building: Node2D, unit_type: int) -> void:
 		_on_selection_changed(game_map.selection_mgr.selected)
 
 
+func _on_minimap_clicked(world_pos: Vector2) -> void:
+	game_map.camera.position = world_pos
+	game_map._clamp_camera()
+
+
+func _on_cancel_queue_requested(building: Node2D, index: int) -> void:
+	if not is_instance_valid(building) or not (building is BuildingBase):
+		return
+	var pq: Node = (building as BuildingBase).get_production_queue()
+	if pq:
+		pq.cancel_unit(index)
+		_on_selection_changed(game_map.selection_mgr.selected)
+
+
 # =========================================================================
 #  HUD + BUILD MENU WIRING
 # =========================================================================
@@ -515,6 +592,8 @@ func _setup_hud() -> void:
 	hud.age_up_requested.connect(_on_age_up_requested)
 	hud.idle_villager_pressed.connect(_on_idle_villager_pressed)
 	hud.train_unit_requested.connect(_on_train_unit_requested)
+	hud.minimap_clicked.connect(_on_minimap_clicked)
+	hud.cancel_queue_requested.connect(_on_cancel_queue_requested)
 	_build_menu.building_selected.connect(_on_building_selected_for_placement)
 	_build_menu.cancel_placement.connect(_on_cancel_placement)
 
@@ -565,6 +644,9 @@ func _on_age_up_requested() -> void:
 	if ResourceManager.try_spend(0, cost):
 		GameManager.advance_age(0)
 		_update_population_display()
+		var new_age: int = GameManager.get_player_age(0)
+		var age_name: String = GameManager.get_age_name(new_age)
+		hud.show_notification("Advancing to %s!" % age_name, Color(1.0, 0.85, 0.2))
 
 
 # =========================================================================
@@ -619,6 +701,7 @@ func _screen_to_world(screen_pos: Vector2) -> Vector2:
 # =========================================================================
 
 func _setup_ai(map_gen: MapGenerator) -> void:
+	ai_controller.difficulty = GameManager.selected_difficulty
 	ai_controller.map_generator = map_gen
 	ai_controller.pathfinding = game_map.pathfinding
 	ai_controller.game_map = game_map
@@ -684,7 +767,9 @@ func _process(delta: float) -> void:
 		return
 	_update_fog_of_war()
 	_update_fog_entity_visibility()
-	_update_population_display()
+	# Tick under-attack cooldown
+	if _under_attack_cooldown > 0.0:
+		_under_attack_cooldown -= delta
 	# Update minimap and idle count once per second
 	_minimap_timer += delta
 	if _minimap_timer >= 1.0:
@@ -754,7 +839,11 @@ func _update_fog_entity_visibility() -> void:
 func _update_minimap() -> void:
 	if game_map.map_generator == null:
 		return
-	hud.update_minimap(game_map.map_generator.grid, _player_units[0], _player_units[1], _player_buildings[0], _player_buildings[1])
+	# Calculate camera viewport rect in world space
+	var cam_pos: Vector2 = game_map.camera.position
+	var viewport_size: Vector2 = get_viewport().get_visible_rect().size / game_map.camera.zoom
+	var cam_rect := Rect2(cam_pos - viewport_size * 0.5, viewport_size)
+	hud.update_minimap(game_map.map_generator.grid, _player_units[0], _player_units[1], _player_buildings[0], _player_buildings[1], cam_rect)
 
 
 # =========================================================================
@@ -799,21 +888,28 @@ func _show_game_over() -> void:
 
 	var stats: Dictionary = {
 		"game_time": GameManager.get_formatted_time(),
-		"units_killed": 0,
-		"units_trained": 0,
-		"resources_gathered": 0,
-		"buildings_built": _player_buildings[0].size() if is_victory else _player_buildings[1].size(),
+		"units_killed": _stats["units_killed"],
+		"units_lost": _stats["units_lost"],
+		"units_trained": _stats["units_trained"],
+		"buildings_built": _stats["buildings_built"],
 	}
 	if is_victory:
 		game_over.show_victory(stats)
 	else:
 		game_over.show_defeat(stats)
 
-	# Connect restart.
+	# Connect restart and main menu.
 	if game_over.has_signal("restart_requested"):
 		game_over.restart_requested.connect(_on_restart)
+	if game_over.has_signal("main_menu_requested"):
+		game_over.main_menu_requested.connect(_on_main_menu)
 
 
 func _on_restart() -> void:
 	Engine.time_scale = 1.0
 	get_tree().reload_current_scene()
+
+
+func _on_main_menu() -> void:
+	Engine.time_scale = 1.0
+	get_tree().change_scene_to_file("res://scenes/ui/main_menu.tscn")

@@ -28,10 +28,10 @@ const RESOURCE_SPRITES: Dictionary = {
 
 ## Sprite scale per resource type (sprites are 128x128, need to fit ~30px game size).
 const RESOURCE_SCALES: Dictionary = {
-	"food": Vector2(0.35, 0.35),
-	"wood": Vector2(0.40, 0.40),
-	"gold": Vector2(0.38, 0.38),
-	"stone": Vector2(0.35, 0.35),
+	"food": Vector2(0.45, 0.45),
+	"wood": Vector2(0.50, 0.50),
+	"gold": Vector2(0.48, 0.48),
+	"stone": Vector2(0.45, 0.45),
 }
 
 ## Sprite offset to center the visual on the tile.
@@ -108,7 +108,16 @@ func harvest(amount: int) -> int:
 
 
 func _draw() -> void:
-	# Only draw the depletion bar overlay — sprite handles the visual
+	# Subtle colored glow circle behind resource
+	if remaining > 0:
+		var glow_color: Color
+		match resource_type:
+			"food": glow_color = Color(0.85, 0.25, 0.40, 0.15)
+			"wood": glow_color = Color(0.3, 0.65, 0.2, 0.15)
+			"gold": glow_color = Color(0.95, 0.85, 0.15, 0.15)
+			_: glow_color = Color(0.6, 0.6, 0.6, 0.15)
+		draw_circle(Vector2.ZERO, 14.0, glow_color)
+	# Depletion bar overlay — sprite handles the visual
 	if remaining < total_amount and remaining > 0:
 		var bar_w := 18.0
 		var bar_h := 2.0

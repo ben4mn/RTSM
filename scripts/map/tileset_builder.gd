@@ -9,11 +9,11 @@ extends RefCounted
 const TILE_TEXTURES: Dictionary = {
 	MapData.TileType.GRASS: "res://assets/terrain/tile_grass_flowers.png",
 	MapData.TileType.WATER: "",  # Water stays procedural (blue diamond)
-	MapData.TileType.FOREST: "res://assets/terrain/tile_grass_dark.png",
+	MapData.TileType.FOREST: "res://assets/terrain/tile_grass_tree.png",
 	MapData.TileType.GOLD_MINE: "res://assets/terrain/tile_dirt.png",
-	MapData.TileType.BERRY_BUSH: "res://assets/terrain/tile_grass_alt.png",
+	MapData.TileType.BERRY_BUSH: "res://assets/terrain/tile_farmland.png",
 	MapData.TileType.STONE: "res://assets/terrain/tile_sand.png",
-	MapData.TileType.SACRED_SITE: "res://assets/terrain/tile_farmland.png",
+	MapData.TileType.SACRED_SITE: "res://assets/terrain/tile_farmland2.png",
 }
 
 

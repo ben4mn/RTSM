@@ -48,7 +48,7 @@ func _process_gathering(delta: float) -> void:
 		# Resource depleted or removed
 		if carried_amount > 0:
 			_find_and_go_to_dropoff()
-		else:
+		elif not _try_retarget_resource():
 			set_state(State.IDLE)
 		return
 
@@ -85,18 +85,35 @@ func _harvest_from_target() -> int:
 
 
 func _find_and_go_to_dropoff() -> void:
-	# Find nearest building in player's group that accepts resource drops
-	var best_building: Node2D = null
-	var best_dist: float = INF
+	# Find nearest building that accepts this specific resource type, fall back to any dropoff
+	var best_specific: Node2D = null
+	var best_specific_dist: float = INF
+	var best_any: Node2D = null
+	var best_any_dist: float = INF
 	for building in get_tree().get_nodes_in_group("dropoff_buildings"):
 		if not is_instance_valid(building):
 			continue
 		if building.has_method("get_player_owner") and building.get_player_owner() != player_owner:
 			continue
 		var dist: float = global_position.distance_to(building.global_position)
-		if dist < best_dist:
-			best_dist = dist
-			best_building = building
+		# Check if this building specifically accepts our resource type
+		if building.has_method("is_drop_off_point") and building.is_drop_off_point(carried_resource_type):
+			if dist < best_specific_dist:
+				best_specific_dist = dist
+				best_specific = building
+		if dist < best_any_dist:
+			best_any_dist = dist
+			best_any = building
+	# Prefer specific drop-off (lumber camp for wood, mining camp for gold)
+	# But use any drop-off if it's significantly closer (within 50% distance)
+	var best_building: Node2D = null
+	if best_specific != null:
+		if best_any != null and best_any_dist < best_specific_dist * 0.5:
+			best_building = best_any
+		else:
+			best_building = best_specific
+	else:
+		best_building = best_any
 	if best_building != null:
 		dropoff_target = best_building
 		move_target = best_building.global_position
@@ -115,18 +132,29 @@ func _on_arrived_for_dropoff(_unit: UnitBase) -> void:
 	# Go back to the resource
 	if gather_target != null and is_instance_valid(gather_target):
 		command_gather(gather_target)
-	else:
+	elif not _try_retarget_resource():
 		set_state(State.IDLE)
 
 
 func _deposit_resources() -> void:
 	if carried_amount <= 0:
 		return
+	var deposited_amount: int = carried_amount
+	var deposited_type: String = carried_resource_type
 	if dropoff_target != null and is_instance_valid(dropoff_target):
 		if dropoff_target.has_method("deposit_resource"):
 			dropoff_target.deposit_resource(carried_resource_type, carried_amount)
 	resource_deposited.emit(carried_resource_type, carried_amount)
 	carried_amount = 0
+	# Floating resource text
+	if get_tree():
+		var float_color: Color
+		match deposited_type:
+			"food": float_color = Color(0.95, 0.4, 0.3)
+			"wood": float_color = Color(0.45, 0.8, 0.3)
+			"gold": float_color = Color(0.95, 0.85, 0.2)
+			_: float_color = Color.WHITE
+		VFX.resource_float(get_tree(), global_position, "+%d %s" % [deposited_amount, deposited_type.capitalize()], float_color)
 
 
 func _process_building(delta: float) -> void:
@@ -211,11 +239,31 @@ func command_build(building_site: Node2D) -> void:
 func _resume_or_idle() -> void:
 	if _saved_gather_target != null and is_instance_valid(_saved_gather_target):
 		command_gather(_saved_gather_target)
-	else:
+	elif not _try_retarget_resource():
 		set_state(State.IDLE)
 	_saved_gather_target = null
 	_saved_gather_type = GatherType.NONE
 	_saved_carried_resource_type = ""
+
+
+func _try_retarget_resource() -> bool:
+	if carried_resource_type == "":
+		return false
+	# Walk up the tree to find GameMap which has get_nearest_resource_node()
+	var game_map: Node2D = null
+	var parent: Node = get_parent()
+	while parent != null:
+		if parent.has_method("get_nearest_resource_node"):
+			game_map = parent as Node2D
+			break
+		parent = parent.get_parent()
+	if game_map == null:
+		return false
+	var new_target: Node2D = game_map.get_nearest_resource_node(carried_resource_type, global_position)
+	if new_target != null and is_instance_valid(new_target):
+		command_gather(new_target)
+		return true
+	return false
 
 
 # --- Override draw for carried resource indicator ---

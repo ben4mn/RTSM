@@ -38,11 +38,11 @@ const SCOUT_VISION_RADIUS := 8
 
 ## Tile color palette — used as fallback for procedural tiles and minimap.
 const TILE_COLORS: Dictionary = {
-	TileType.GRASS: Color(0.45, 0.68, 0.32),
+	TileType.GRASS: Color(0.50, 0.72, 0.35),
 	TileType.WATER: Color(0.25, 0.50, 0.88),
-	TileType.FOREST: Color(0.20, 0.45, 0.18),
-	TileType.GOLD_MINE: Color(0.75, 0.60, 0.25),
-	TileType.BERRY_BUSH: Color(0.55, 0.70, 0.35),
+	TileType.FOREST: Color(0.12, 0.35, 0.10),
+	TileType.GOLD_MINE: Color(0.85, 0.70, 0.20),
+	TileType.BERRY_BUSH: Color(0.75, 0.30, 0.35),
 	TileType.STONE: Color(0.70, 0.68, 0.55),
 	TileType.SACRED_SITE: Color(0.65, 0.55, 0.45),
 }

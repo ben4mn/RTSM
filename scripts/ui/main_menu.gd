@@ -35,4 +35,5 @@ func _on_difficulty_changed(index: int) -> void:
 
 
 func _on_start_pressed() -> void:
-	start_game.emit(_selected_difficulty)
+	GameManager.selected_difficulty = _selected_difficulty
+	get_tree().change_scene_to_file("res://scenes/main/main.tscn")

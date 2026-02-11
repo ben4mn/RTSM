@@ -169,6 +169,7 @@ func _on_decision_tick() -> void:
 	_check_building_construction()
 	_check_military_production()
 	_check_age_up()
+	_check_scouting()
 	_check_attack_or_defend()
 
 
@@ -382,6 +383,27 @@ func _check_age_up() -> void:
 
 
 # ═════════════════════════════════════════════════════════════════════════
+#  SCOUTING
+# ═════════════════════════════════════════════════════════════════════════
+
+func _check_scouting() -> void:
+	# Find idle scouts and send them to explore
+	for unit in _my_units:
+		if not is_instance_valid(unit) or not (unit is UnitBase):
+			continue
+		if unit.unit_type != UnitData.UnitType.SCOUT:
+			continue
+		if unit.current_state != UnitBase.State.IDLE:
+			continue
+		# Send to a random point biased toward enemy half of map
+		var target := Vector2(
+			randf_range(0.0, MapData.MAP_WIDTH * MapData.TILE_WIDTH),
+			randf_range(0.0, MapData.MAP_HEIGHT * MapData.TILE_HEIGHT)
+		)
+		unit.command_move(target)
+
+
+# ═════════════════════════════════════════════════════════════════════════
 #  ATTACK / DEFENSE
 # ═════════════════════════════════════════════════════════════════════════
 
@@ -430,22 +452,20 @@ func _rally_defense() -> void:
 	if enemies.is_empty():
 		return
 
-	# Find closest enemy to base
-	var closest_enemy: Node = null
-	var closest_dist: float = INF
-	for enemy in enemies:
-		var dist: float = enemy.global_position.distance_to(_base_position)
-		if dist < closest_dist:
-			closest_dist = dist
-			closest_enemy = enemy
+	# Sort enemies by distance to base
+	enemies.sort_custom(func(a: Node, b: Node) -> bool:
+		return a.global_position.distance_to(_base_position) < b.global_position.distance_to(_base_position)
+	)
 
-	if closest_enemy == null:
-		return
-
-	# Send all military to intercept
-	for unit in military:
-		if unit is UnitBase and closest_enemy is UnitBase:
-			unit.command_attack(closest_enemy)
+	# Distribute military units across enemies (focus fire but not all on one)
+	for i in military.size():
+		var unit: UnitBase = military[i]
+		var enemy_idx: int = i % enemies.size()
+		var target_enemy: Node = enemies[enemy_idx]
+		if target_enemy is UnitBase:
+			unit.command_attack(target_enemy)
+		elif target_enemy is BuildingBase:
+			unit.command_attack_building(target_enemy)
 
 	# Pull idle villagers back to TC
 	for villager in _get_idle_villagers():
@@ -460,7 +480,10 @@ func _retreat_army() -> void:
 
 func _send_attack(units: Array, target: Vector2) -> void:
 	for unit in units:
-		unit.command_move(target)
+		if unit.has_method("command_attack_move"):
+			unit.command_attack_move(target)
+		else:
+			unit.command_move(target)
 	ai_attack_launched.emit(units, target)
 
 

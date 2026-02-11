@@ -128,6 +128,94 @@ static func move_indicator(tree: SceneTree, pos: Vector2) -> void:
 	p.emitting = true
 
 
+static func resource_float(tree: SceneTree, pos: Vector2, text: String, color: Color) -> void:
+	var lbl := Label.new()
+	lbl.text = text
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.add_theme_font_size_override("font_size", 14)
+	lbl.add_theme_color_override("font_color", color)
+	lbl.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.8))
+	lbl.add_theme_constant_override("shadow_offset_x", 1)
+	lbl.add_theme_constant_override("shadow_offset_y", 1)
+	lbl.global_position = pos - Vector2(30, 10)
+	lbl.z_index = 100
+	tree.current_scene.add_child(lbl)
+	var tween := tree.create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(lbl, "global_position:y", pos.y - 40.0, 1.0)
+	tween.tween_property(lbl, "modulate:a", 0.0, 1.0)
+	tween.chain().tween_callback(lbl.queue_free)
+
+
+static func damage_float(tree: SceneTree, pos: Vector2, amount: float) -> void:
+	var lbl := Label.new()
+	lbl.text = "-%d" % int(amount)
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.add_theme_font_size_override("font_size", 12)
+	lbl.add_theme_color_override("font_color", Color(1.0, 0.3, 0.2))
+	lbl.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
+	lbl.add_theme_constant_override("shadow_offset_x", 1)
+	lbl.add_theme_constant_override("shadow_offset_y", 1)
+	# Randomize x offset slightly so overlapping hits don't stack
+	var x_off := randf_range(-12, 12)
+	lbl.global_position = pos + Vector2(x_off - 15, -20)
+	lbl.z_index = 100
+	tree.current_scene.add_child(lbl)
+	var tween := tree.create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(lbl, "global_position:y", pos.y - 50.0, 0.8)
+	tween.tween_property(lbl, "modulate:a", 0.0, 0.8)
+	tween.chain().tween_callback(lbl.queue_free)
+
+
+static func building_smoke(tree: SceneTree, pos: Vector2) -> void:
+	var p := CPUParticles2D.new()
+	p.emitting = false
+	p.one_shot = true
+	p.amount = 4
+	p.lifetime = 0.8
+	p.explosiveness = 0.6
+	p.direction = Vector2.UP
+	p.spread = 40.0
+	p.initial_velocity_min = 5.0
+	p.initial_velocity_max = 15.0
+	p.gravity = Vector2(0, -20)
+	p.scale_amount_min = 2.0
+	p.scale_amount_max = 4.0
+	var grad := Gradient.new()
+	grad.set_color(0, Color(0.4, 0.4, 0.4, 0.5))
+	grad.set_color(1, Color(0.3, 0.3, 0.3, 0.0))
+	p.color_ramp = grad
+	p.global_position = pos + Vector2(randf_range(-10, 10), randf_range(-5, 5))
+	tree.current_scene.add_child(p)
+	p.finished.connect(p.queue_free)
+	p.emitting = true
+
+
+static func building_fire(tree: SceneTree, pos: Vector2) -> void:
+	var p := CPUParticles2D.new()
+	p.emitting = false
+	p.one_shot = true
+	p.amount = 6
+	p.lifetime = 0.5
+	p.explosiveness = 0.7
+	p.direction = Vector2.UP
+	p.spread = 30.0
+	p.initial_velocity_min = 10.0
+	p.initial_velocity_max = 25.0
+	p.gravity = Vector2(0, -30)
+	p.scale_amount_min = 1.5
+	p.scale_amount_max = 3.0
+	var grad := Gradient.new()
+	grad.set_color(0, Color(1.0, 0.6, 0.1, 0.8))
+	grad.set_color(1, Color(1.0, 0.2, 0.0, 0.0))
+	p.color_ramp = grad
+	p.global_position = pos + Vector2(randf_range(-8, 8), randf_range(-10, 0))
+	tree.current_scene.add_child(p)
+	p.finished.connect(p.queue_free)
+	p.emitting = true
+
+
 static func building_complete(tree: SceneTree, pos: Vector2) -> void:
 	var p := CPUParticles2D.new()
 	p.emitting = false

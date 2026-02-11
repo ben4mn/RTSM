@@ -11,6 +11,7 @@ signal state_changed(unit: UnitBase, new_state: int)
 signal arrived_at_destination(unit: UnitBase)
 
 enum State { IDLE, MOVING, ATTACKING, GATHERING, BUILDING, DEAD }
+enum Stance { AGGRESSIVE, STAND_GROUND }
 
 # --- Stats (overridden per unit type) ---
 @export var unit_type: int = UnitData.UnitType.VILLAGER
@@ -27,6 +28,7 @@ enum State { IDLE, MOVING, ATTACKING, GATHERING, BUILDING, DEAD }
 
 # --- Runtime state ---
 var current_state: int = State.IDLE
+var stance: int = Stance.AGGRESSIVE
 var move_target: Vector2 = Vector2.ZERO
 var attack_target: UnitBase = null
 var attack_building_target: BuildingBase = null
@@ -35,6 +37,8 @@ var attack_cooldown: float = 0.0
 var path: PackedVector2Array = PackedVector2Array()
 var path_index: int = 0
 var team_color: Color = Color.BLUE
+var attack_move: bool = false
+var kills: int = 0
 
 # --- Node references ---
 @onready var collision_shape: CollisionShape2D = $CollisionShape2D
@@ -192,7 +196,7 @@ func set_state(new_state: int) -> void:
 
 
 func _process_idle(_delta: float) -> void:
-	# Look for nearby enemies to auto-attack
+	# Look for nearby enemies to auto-attack (stand ground uses shorter range)
 	_try_auto_attack()
 
 
@@ -215,8 +219,9 @@ func _process_moving(delta: float) -> void:
 				return
 		global_position += direction.normalized() * speed * delta
 
-	# While moving, check for enemies in range (auto-attack)
-	if attack_target == null:
+	# While moving, check for enemies in range
+	# Attack-move: always look for enemies; normal move: only auto-attack if aggressive
+	if attack_target == null and (attack_move or stance == Stance.AGGRESSIVE):
 		_try_auto_attack()
 
 
@@ -250,6 +255,11 @@ func _process_attacking(delta: float) -> void:
 
 	var dist: float = global_position.distance_to(attack_target.global_position)
 	if dist > attack_range + 8.0:
+		# Stand ground units won't chase beyond their attack range
+		if stance == Stance.STAND_GROUND:
+			attack_target = null
+			set_state(State.IDLE)
+			return
 		# Move towards target
 		var direction: Vector2 = (attack_target.global_position - global_position).normalized()
 		global_position += direction * speed * delta
@@ -274,9 +284,11 @@ func _process_building(_delta: float) -> void:
 func _try_auto_attack() -> void:
 	if damage <= 0.0:
 		return  # Non-combat units (scouts with 0 damage)
+	# Stand ground: only engage within attack range, not full vision
+	var search_radius: float = attack_range + 16.0 if stance == Stance.STAND_GROUND else vision_radius
 	# Check for enemy units first (priority over buildings)
 	var closest_enemy: UnitBase = null
-	var closest_dist: float = vision_radius
+	var closest_dist: float = search_radius
 	for unit in get_tree().get_nodes_in_group("units"):
 		if not is_instance_valid(unit) or unit == self or unit.current_state == State.DEAD:
 			continue
@@ -292,7 +304,7 @@ func _try_auto_attack() -> void:
 
 	# Check for enemy buildings nearby
 	var closest_building: BuildingBase = null
-	var closest_b_dist: float = vision_radius * 0.5  # shorter range for building auto-attack
+	var closest_b_dist: float = search_radius * 0.5  # shorter range for building auto-attack
 	for building in get_tree().get_nodes_in_group("buildings"):
 		if not is_instance_valid(building) or not (building is BuildingBase):
 			continue
@@ -348,6 +360,7 @@ func command_move(target_pos: Vector2) -> void:
 	move_target = target_pos
 	attack_target = null
 	attack_building_target = null
+	attack_move = false
 	path = PackedVector2Array()
 	path_index = 0
 	set_state(State.MOVING)
@@ -385,11 +398,24 @@ func command_attack_building(target: BuildingBase) -> void:
 	set_state(State.ATTACKING)
 
 
+func command_attack_move(target_pos: Vector2) -> void:
+	if current_state == State.DEAD:
+		return
+	attack_move = true
+	move_target = target_pos
+	attack_target = null
+	attack_building_target = null
+	path = PackedVector2Array()
+	path_index = 0
+	set_state(State.MOVING)
+
+
 func command_stop() -> void:
 	if current_state == State.DEAD:
 		return
 	attack_target = null
 	attack_building_target = null
+	attack_move = false
 	path = PackedVector2Array()
 	path_index = 0
 	set_state(State.IDLE)
@@ -404,6 +430,9 @@ func take_damage(amount: float) -> void:
 	hp = maxf(0.0, hp - actual_damage)
 	health_changed.emit(self, hp, max_hp)
 	_flash_damage()
+	# Floating damage number
+	if get_tree() and get_tree().current_scene:
+		VFX.damage_float(get_tree(), global_position, actual_damage)
 	queue_redraw()
 	if hp <= 0.0:
 		die()

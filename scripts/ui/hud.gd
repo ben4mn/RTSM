@@ -7,6 +7,8 @@ signal build_menu_toggled(is_open: bool)
 signal age_up_requested()
 signal idle_villager_pressed()
 signal train_unit_requested(building: Node2D, unit_type: int)
+signal minimap_clicked(world_pos: Vector2)
+signal cancel_queue_requested(building: Node2D, index: int)
 
 const RESOURCE_COLORS: Dictionary = {
 	"food": Color(0.9, 0.35, 0.25),
@@ -52,9 +54,18 @@ var _idle_villager_button: Button = null
 # Train buttons
 var _train_buttons_container: HBoxContainer = null
 var _selected_building_ref: Node2D = null
+var _auto_queue_button: CheckButton = null
 
 # Debug panel reference (set from main.gd)
 var _debug_panel: Node = null
+
+# Notification feed
+var _notification_container: VBoxContainer = null
+const MAX_NOTIFICATIONS: int = 6
+const NOTIFICATION_DURATION: float = 5.0
+
+# Idle villager flash tween
+var _idle_flash_tween: Tween = null
 
 
 func _ready() -> void:
@@ -63,8 +74,10 @@ func _ready() -> void:
 	selection_panel.visible = false
 
 	build_menu_button.pressed.connect(_on_build_menu_pressed)
+	build_menu_button.tooltip_text = "Toggle Build Menu [B]"
 	age_up_button.pressed.connect(_on_age_up_pressed)
 	age_up_button.visible = true
+	age_up_button.tooltip_text = "Advance to next age"
 
 	# Apply custom theme
 	_apply_game_theme()
@@ -72,6 +85,7 @@ func _ready() -> void:
 	# Create new UI elements
 	_create_game_control_buttons()
 	_create_idle_villager_button()
+	_create_notification_feed()
 
 	# Connect to autoloads if available
 	if Engine.has_singleton("GameManager") or has_node("/root/GameManager"):
@@ -84,6 +98,10 @@ func _ready() -> void:
 		var rm: Node = _get_resource_manager()
 		if rm and rm.has_signal("resources_changed"):
 			rm.resources_changed.connect(_on_resources_changed)
+
+	# Connect minimap click
+	minimap_rect.gui_input.connect(_on_minimap_input)
+	minimap_rect.mouse_filter = Control.MOUSE_FILTER_STOP
 
 	_update_age_display()
 	_update_resource_display({"food": 200, "wood": 200, "gold": 100})
@@ -122,12 +140,14 @@ func _create_game_control_buttons() -> void:
 	_pause_button.text = "||"
 	_pause_button.custom_minimum_size = Vector2(40, 30)
 	_pause_button.pressed.connect(_on_pause_pressed)
+	_pause_button.tooltip_text = "Pause/Resume [P]"
 	hbox.add_child(_pause_button)
 
 	_speed_button = Button.new()
 	_speed_button.text = "1x"
 	_speed_button.custom_minimum_size = Vector2(50, 30)
 	_speed_button.pressed.connect(_on_speed_pressed)
+	_speed_button.tooltip_text = "Cycle game speed"
 	hbox.add_child(_speed_button)
 
 	root_ctrl.add_child(hbox)
@@ -168,6 +188,7 @@ func _create_idle_villager_button() -> void:
 	_idle_villager_button.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	_idle_villager_button.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	_idle_villager_button.pressed.connect(_on_idle_villager_pressed)
+	_idle_villager_button.tooltip_text = "Cycle idle villagers [.]"
 	root_ctrl.add_child(_idle_villager_button)
 
 
@@ -178,6 +199,16 @@ func _on_idle_villager_pressed() -> void:
 func update_idle_villager_count(count: int) -> void:
 	if _idle_villager_button:
 		_idle_villager_button.text = "Idle: %d" % count
+		if count > 0:
+			if _idle_flash_tween == null or not _idle_flash_tween.is_valid():
+				_idle_flash_tween = create_tween().set_loops()
+				_idle_flash_tween.tween_property(_idle_villager_button, "modulate", Color(1.0, 0.85, 0.2), 0.5)
+				_idle_flash_tween.tween_property(_idle_villager_button, "modulate", Color.WHITE, 0.5)
+		else:
+			if _idle_flash_tween and _idle_flash_tween.is_valid():
+				_idle_flash_tween.kill()
+				_idle_flash_tween = null
+			_idle_villager_button.modulate = Color.WHITE
 
 
 # --- Build menu ---
@@ -244,9 +275,12 @@ func _on_game_state_changed(_new_state: int) -> void:
 
 # --- Selection panel ---
 
-func show_unit_selection(unit_name: String, current_hp: int, max_hp: int, action_text: String) -> void:
+func show_unit_selection(unit_name: String, current_hp: int, max_hp: int, action_text: String, count: int = 1) -> void:
 	selection_panel.visible = true
-	selection_name.text = unit_name
+	if count > 1:
+		selection_name.text = "%dx %s" % [count, unit_name]
+	else:
+		selection_name.text = unit_name
 	selection_hp_bar.max_value = max_hp
 	selection_hp_bar.value = current_hp
 	selection_details.text = action_text
@@ -284,19 +318,28 @@ func _update_queue_display(queue_items: Array) -> void:
 		return
 
 	queue_container.visible = true
-	for item in queue_items:
-		var lbl := Label.new()
+	for i in queue_items.size():
+		var item = queue_items[i]
+		var btn := Button.new()
 		if item is Dictionary:
 			var name_str: String = item.get("name", "?")
 			if item.get("is_training", false):
 				var pct: int = int(item.get("progress", 0.0) * 100)
-				lbl.text = "%s (%d%%)" % [name_str, pct]
+				btn.text = "%s (%d%%)" % [name_str, pct]
 			else:
-				lbl.text = name_str
+				btn.text = name_str
 		else:
-			lbl.text = str(item)
-		lbl.add_theme_font_size_override("font_size", 14)
-		queue_container.add_child(lbl)
+			btn.text = str(item)
+		btn.add_theme_font_size_override("font_size", 14)
+		btn.custom_minimum_size = Vector2(80, 24)
+		btn.tooltip_text = "Click to cancel"
+		btn.pressed.connect(_on_cancel_queue_pressed.bind(i))
+		queue_container.add_child(btn)
+
+
+func _on_cancel_queue_pressed(index: int) -> void:
+	if _selected_building_ref and is_instance_valid(_selected_building_ref):
+		cancel_queue_requested.emit(_selected_building_ref, index)
 
 
 func _update_train_buttons(trainable_units: Array) -> void:
@@ -331,13 +374,31 @@ func _update_train_buttons(trainable_units: Array) -> void:
 		var btn := Button.new()
 		btn.text = "Train %s (%s)" % [unit_name, cost_str.strip_edges()]
 		btn.custom_minimum_size = Vector2(120, 30)
+		btn.tooltip_text = "Train %s [Q]" % unit_name
 		btn.pressed.connect(_on_train_button_pressed.bind(ut))
 		_train_buttons_container.add_child(btn)
+
+	# Auto-queue checkbox
+	if _selected_building_ref and is_instance_valid(_selected_building_ref):
+		var pq: Node = _selected_building_ref.get_production_queue() if _selected_building_ref.has_method("get_production_queue") else null
+		if pq:
+			_auto_queue_button = CheckButton.new()
+			_auto_queue_button.text = "Auto"
+			_auto_queue_button.button_pressed = pq.auto_queue_enabled
+			_auto_queue_button.toggled.connect(_on_auto_queue_toggled)
+			_train_buttons_container.add_child(_auto_queue_button)
 
 
 func _on_train_button_pressed(unit_type: int) -> void:
 	if _selected_building_ref and is_instance_valid(_selected_building_ref):
 		train_unit_requested.emit(_selected_building_ref, unit_type)
+
+
+func _on_auto_queue_toggled(pressed: bool) -> void:
+	if _selected_building_ref and is_instance_valid(_selected_building_ref):
+		var pq: Node = _selected_building_ref.get_production_queue() if _selected_building_ref.has_method("get_production_queue") else null
+		if pq:
+			pq.auto_queue_enabled = pressed
 
 
 # --- Build menu toggle ---
@@ -360,7 +421,7 @@ func show_age_up_button(is_shown: bool) -> void:
 
 # --- Minimap ---
 
-func update_minimap(grid: Array, player_units: Array, enemy_units: Array, player_buildings: Array = [], enemy_buildings: Array = []) -> void:
+func update_minimap(grid: Array, player_units: Array, enemy_units: Array, player_buildings: Array = [], enemy_buildings: Array = [], camera_rect: Rect2 = Rect2()) -> void:
 	if grid.is_empty():
 		return
 
@@ -421,8 +482,51 @@ func update_minimap(grid: Array, player_units: Array, enemy_units: Array, player
 		if tile_pos.x >= 0 and tile_pos.x < map_w and tile_pos.y >= 0 and tile_pos.y < map_h:
 			_minimap_image.set_pixel(tile_pos.x, tile_pos.y, Color(1.0, 0.25, 0.2))
 
+	# Draw camera rectangle (white outline)
+	if camera_rect.size.x > 0 and camera_rect.size.y > 0:
+		var tl: Vector2i = _world_to_tile_minimap(camera_rect.position)
+		var br: Vector2i = _world_to_tile_minimap(camera_rect.position + camera_rect.size)
+		var cam_color := Color(1.0, 1.0, 1.0, 0.9)
+		# Draw top and bottom edges
+		for tx in range(maxi(0, tl.x), mini(map_w, br.x + 1)):
+			if tl.y >= 0 and tl.y < map_h:
+				_minimap_image.set_pixel(tx, tl.y, cam_color)
+			if br.y >= 0 and br.y < map_h:
+				_minimap_image.set_pixel(tx, br.y, cam_color)
+		# Draw left and right edges
+		for ty in range(maxi(0, tl.y), mini(map_h, br.y + 1)):
+			if tl.x >= 0 and tl.x < map_w:
+				_minimap_image.set_pixel(tl.x, ty, cam_color)
+			if br.x >= 0 and br.x < map_w:
+				_minimap_image.set_pixel(br.x, ty, cam_color)
+
 	_minimap_texture.update(_minimap_image)
 	minimap_rect.texture = _minimap_texture
+
+
+func _on_minimap_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		_handle_minimap_click(event.position)
+	elif event is InputEventMouseMotion and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+		_handle_minimap_click(event.position)
+
+
+func _handle_minimap_click(local_pos: Vector2) -> void:
+	var rect_size: Vector2 = minimap_rect.size
+	if rect_size.x <= 0 or rect_size.y <= 0:
+		return
+	# Normalize click position to 0-1 range
+	var nx: float = clampf(local_pos.x / rect_size.x, 0.0, 1.0)
+	var ny: float = clampf(local_pos.y / rect_size.y, 0.0, 1.0)
+	# Convert to tile coordinates
+	var tile_x: int = int(nx * MapData.MAP_WIDTH)
+	var tile_y: int = int(ny * MapData.MAP_HEIGHT)
+	# Convert tile to world using isometric formula
+	var half_w := float(MapData.TILE_WIDTH) / 2.0
+	var half_h := float(MapData.TILE_HEIGHT) / 2.0
+	var wx: float = (tile_x - tile_y) * half_w
+	var wy: float = (tile_x + tile_y) * half_h
+	minimap_clicked.emit(Vector2(wx, wy))
 
 
 func _world_to_tile_minimap(world_pos: Vector2) -> Vector2i:
@@ -431,6 +535,57 @@ func _world_to_tile_minimap(world_pos: Vector2) -> Vector2i:
 	var tile_x := int((world_pos.x / half_w + world_pos.y / half_h) / 2.0)
 	var tile_y := int((world_pos.y / half_h - world_pos.x / half_w) / 2.0)
 	return Vector2i(tile_x, tile_y)
+
+
+# --- Notification feed ---
+
+func _create_notification_feed() -> void:
+	var root_ctrl: Control = $Root
+	_notification_container = VBoxContainer.new()
+	_notification_container.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_notification_container.offset_left = 8
+	_notification_container.offset_top = 48
+	_notification_container.offset_right = 260
+	_notification_container.offset_bottom = 280
+	_notification_container.add_theme_constant_override("separation", 2)
+	_notification_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root_ctrl.add_child(_notification_container)
+
+
+func show_notification(text: String, color: Color = Color.WHITE) -> void:
+	if _notification_container == null:
+		return
+	# Cap at max visible
+	while _notification_container.get_child_count() >= MAX_NOTIFICATIONS:
+		var oldest: Node = _notification_container.get_child(0)
+		oldest.queue_free()
+		_notification_container.remove_child(oldest)
+
+	var panel := PanelContainer.new()
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.05, 0.05, 0.05, 0.75)
+	style.border_color = color
+	style.border_width_left = 3
+	style.set_content_margin_all(4)
+	style.content_margin_left = 8
+	style.set_corner_radius_all(2)
+	panel.add_theme_stylebox_override("panel", style)
+
+	var lbl := Label.new()
+	lbl.text = text
+	lbl.add_theme_font_size_override("font_size", 13)
+	lbl.add_theme_color_override("font_color", color)
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(lbl)
+
+	_notification_container.add_child(panel)
+
+	# Auto-fade and remove after duration
+	var tween := create_tween()
+	tween.tween_interval(NOTIFICATION_DURATION)
+	tween.tween_property(panel, "modulate:a", 0.0, 0.5)
+	tween.tween_callback(panel.queue_free)
 
 
 # --- Helpers ---

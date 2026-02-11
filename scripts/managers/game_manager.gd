@@ -30,6 +30,7 @@ var current_state: GameState = GameState.MENU
 var players: Dictionary = {}  # player_id -> PlayerData dict
 var game_time: float = 0.0
 var game_speed: float = 1.0
+var selected_difficulty: int = 1  # 0=Easy, 1=Medium, 2=Hard
 
 
 func _ready() -> void:
