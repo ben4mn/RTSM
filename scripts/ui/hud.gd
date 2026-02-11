@@ -77,6 +77,9 @@ var _idle_flash_tween: Tween = null
 # Research buttons
 var _research_container: VBoxContainer = null
 
+# Hotkey reference panel
+var _hotkey_panel: PanelContainer = null
+
 
 func _ready() -> void:
 	layer = 10
@@ -97,6 +100,7 @@ func _ready() -> void:
 	_create_idle_villager_button()
 	_create_military_buttons()
 	_create_notification_feed()
+	_create_hotkey_panel()
 
 	# Connect to autoloads if available
 	if Engine.has_singleton("GameManager") or has_node("/root/GameManager"):
@@ -132,6 +136,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventKey and (event.keycode == KEY_F1 or event.keycode == KEY_QUOTELEFT):
 		if _debug_panel and _debug_panel.has_method("toggle"):
 			_debug_panel.toggle()
+	elif event is InputEventKey and event.keycode == KEY_F2:
+		_toggle_hotkey_panel()
 
 
 # --- Pause / Speed controls ---
@@ -723,6 +729,70 @@ func show_notification(text: String, color: Color = Color.WHITE) -> void:
 	tween.tween_interval(NOTIFICATION_DURATION)
 	tween.tween_property(panel, "modulate:a", 0.0, 0.5)
 	tween.tween_callback(panel.queue_free)
+
+
+# --- Hotkey Reference Panel ---
+
+func _create_hotkey_panel() -> void:
+	var root_ctrl: Control = $Root
+	_hotkey_panel = PanelContainer.new()
+	_hotkey_panel.set_anchors_preset(Control.PRESET_CENTER)
+	_hotkey_panel.offset_left = -180
+	_hotkey_panel.offset_right = 180
+	_hotkey_panel.offset_top = -200
+	_hotkey_panel.offset_bottom = 200
+	_hotkey_panel.visible = false
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 2)
+
+	var title := Label.new()
+	title.text = "Hotkeys [F2]"
+	title.add_theme_font_size_override("font_size", 18)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(title)
+
+	var hotkeys: Array = [
+		["Q", "Train unit (from selected building)"],
+		["B", "Toggle build menu"],
+		["H", "Select Town Center"],
+		["M", "Select all military"],
+		["F", "Find/center on army"],
+		[".", "Cycle idle villagers"],
+		["S", "Toggle stance (Aggr/Stand)"],
+		["T", "Stop selected units"],
+		["Del", "Demolish selected building"],
+		["Ctrl+A", "Select all own units"],
+		["Ctrl+1-9", "Save control group"],
+		["1-9", "Recall control group"],
+		["+/-", "Game speed (0.5x-3x)"],
+		["P", "Pause / Resume"],
+		["Esc", "Cancel / Deselect"],
+		["F1/`", "Debug panel"],
+	]
+
+	for pair in hotkeys:
+		var hbox := HBoxContainer.new()
+		hbox.add_theme_constant_override("separation", 8)
+		var key_lbl := Label.new()
+		key_lbl.text = pair[0]
+		key_lbl.custom_minimum_size = Vector2(80, 0)
+		key_lbl.add_theme_font_size_override("font_size", 13)
+		key_lbl.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
+		hbox.add_child(key_lbl)
+		var desc_lbl := Label.new()
+		desc_lbl.text = pair[1]
+		desc_lbl.add_theme_font_size_override("font_size", 13)
+		hbox.add_child(desc_lbl)
+		vbox.add_child(hbox)
+
+	_hotkey_panel.add_child(vbox)
+	root_ctrl.add_child(_hotkey_panel)
+
+
+func _toggle_hotkey_panel() -> void:
+	if _hotkey_panel:
+		_hotkey_panel.visible = not _hotkey_panel.visible
 
 
 # --- Helpers ---

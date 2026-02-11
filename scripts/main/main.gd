@@ -178,6 +178,14 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif key_event.keycode == KEY_MINUS or key_event.keycode == KEY_KP_SUBTRACT:
 			_cycle_game_speed(-1)
 			get_viewport().set_input_as_handled()
+		# T key: stop selected units
+		elif key_event.keycode == KEY_T:
+			_stop_selected_units()
+			get_viewport().set_input_as_handled()
+		# Delete key: destroy own selected building
+		elif key_event.keycode == KEY_DELETE:
+			_delete_selected_building()
+			get_viewport().set_input_as_handled()
 		# S key: toggle stance (Aggressive / Stand Ground)
 		elif key_event.keycode == KEY_S and not key_event.ctrl_pressed:
 			_toggle_stance()
@@ -306,6 +314,40 @@ func _recall_control_group(index: int) -> void:
 		center /= float(valid.size())
 		game_map.camera.position = center
 		game_map._clamp_camera()
+
+
+func _stop_selected_units() -> void:
+	var selected: Array = game_map.selection_mgr.selected
+	var stopped: int = 0
+	for node in selected:
+		if node is UnitBase and node.player_owner == 0:
+			node.command_stop()
+			stopped += 1
+	if stopped > 0:
+		hud.show_notification("Units stopped", Color(0.7, 0.7, 0.7))
+
+
+func _delete_selected_building() -> void:
+	var selected: Array = game_map.selection_mgr.selected
+	if selected.size() != 1:
+		return
+	var first: Node2D = selected[0]
+	if not (first is BuildingBase):
+		return
+	var b: BuildingBase = first as BuildingBase
+	if b.player_owner != 0:
+		return
+	# Don't allow deleting the Town Center
+	if b.building_type == BuildingData.BuildingType.TOWN_CENTER:
+		hud.show_notification("Cannot delete Town Center!", Color(1.0, 0.4, 0.3))
+		return
+	# Refund 50% of building cost
+	var cost: Dictionary = BuildingData.get_building_cost(b.building_type)
+	for res_type in cost:
+		ResourceManager.add_resource(0, res_type, int(cost[res_type] * 0.5))
+	hud.show_notification("Building demolished (50%% refund)", Color(0.8, 0.7, 0.5))
+	game_map.selection_mgr.deselect_all()
+	b.take_damage(b.max_hp + 1)  # Destroy it
 
 
 func _toggle_stance() -> void:
