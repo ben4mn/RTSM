@@ -53,7 +53,7 @@ var _game_speed_index: int = 1  # 0=0.5x, 1=1x, 2=2x
 
 # Idle villager button
 var _idle_villager_button: Button = null
-var _villager_task_label: Label = null
+var _villager_task_hbox: HBoxContainer = null
 
 # Train buttons
 var _train_buttons_container: HBoxContainer = null
@@ -278,14 +278,12 @@ func _create_idle_villager_button() -> void:
 	_idle_villager_button.tooltip_text = "Cycle idle villagers [.]"
 	bottom_right.add_child(_idle_villager_button)
 	bottom_right.move_child(_idle_villager_button, 0)
-	# Villager task breakdown label
-	_villager_task_label = Label.new()
-	_villager_task_label.text = ""
-	_villager_task_label.add_theme_font_size_override("font_size", 11)
-	_villager_task_label.add_theme_color_override("font_color", Color(0.75, 0.75, 0.65))
-	_villager_task_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	bottom_right.add_child(_villager_task_label)
-	bottom_right.move_child(_villager_task_label, 1)
+	# Villager task breakdown — use HBox with colored labels per resource
+	_villager_task_hbox = HBoxContainer.new()
+	_villager_task_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	_villager_task_hbox.add_theme_constant_override("separation", 6)
+	bottom_right.add_child(_villager_task_hbox)
+	bottom_right.move_child(_villager_task_hbox, 1)
 
 
 func _on_idle_villager_pressed() -> void:
@@ -436,6 +434,7 @@ func show_unit_selection(unit_name: String, current_hp: int, max_hp: int, action
 		selection_name.text = unit_name
 	selection_hp_bar.max_value = max_hp
 	selection_hp_bar.value = current_hp
+	_update_hp_bar_color(current_hp, max_hp)
 	# Show stats line + action text
 	var stats_line := ""
 	if not unit_stats.is_empty():
@@ -464,6 +463,7 @@ func show_building_selection(building_name: String, current_hp: int, max_hp: int
 	selection_name.text = building_name
 	selection_hp_bar.max_value = max_hp
 	selection_hp_bar.value = current_hp
+	_update_hp_bar_color(current_hp, max_hp)
 	# Show building details
 	var detail_parts: PackedStringArray = PackedStringArray()
 	if building_ref and is_instance_valid(building_ref) and building_ref is BuildingBase:
@@ -490,6 +490,7 @@ func show_resource_info(type_name: String, remaining: int, total: int, pct: int)
 	selection_name.text = "%s Resource" % type_name
 	selection_hp_bar.max_value = total
 	selection_hp_bar.value = remaining
+	_update_hp_bar_color(remaining, total)
 	selection_details.text = "%d / %d remaining (%d%%)" % [remaining, total, pct]
 	queue_container.visible = false
 	_selected_building_ref = null
@@ -497,6 +498,20 @@ func show_resource_info(type_name: String, remaining: int, total: int, pct: int)
 		_train_buttons_container.visible = false
 	if _research_container:
 		_research_container.visible = false
+
+
+func _update_hp_bar_color(current: int, maximum: int) -> void:
+	if maximum <= 0:
+		return
+	var pct: float = float(current) / float(maximum)
+	var fill_style: StyleBoxFlat = selection_hp_bar.get_theme_stylebox("fill").duplicate() as StyleBoxFlat
+	if pct > 0.6:
+		fill_style.bg_color = Color(0.35, 0.70, 0.25, 0.9)  # Green
+	elif pct > 0.3:
+		fill_style.bg_color = Color(0.85, 0.70, 0.15, 0.9)  # Yellow
+	else:
+		fill_style.bg_color = Color(0.85, 0.20, 0.15, 0.9)  # Red
+	selection_hp_bar.add_theme_stylebox_override("fill", fill_style)
 
 
 func clear_selection() -> void:
@@ -1039,17 +1054,25 @@ func update_military_count(count: int) -> void:
 
 
 func update_villager_tasks(food: int, wood: int, gold: int, building: int) -> void:
-	if _villager_task_label:
-		var parts: PackedStringArray = PackedStringArray()
-		if food > 0:
-			parts.append("F:%d" % food)
-		if wood > 0:
-			parts.append("W:%d" % wood)
-		if gold > 0:
-			parts.append("G:%d" % gold)
-		if building > 0:
-			parts.append("B:%d" % building)
-		_villager_task_label.text = " ".join(parts) if parts.size() > 0 else ""
+	if _villager_task_hbox == null:
+		return
+	# Clear existing labels
+	for child in _villager_task_hbox.get_children():
+		child.queue_free()
+	# Create colored label for each task type
+	var entries: Array = [
+		["F:%d" % food, Color(0.95, 0.40, 0.30), food],
+		["W:%d" % wood, Color(0.50, 0.78, 0.35), wood],
+		["G:%d" % gold, Color(0.98, 0.88, 0.25), gold],
+		["B:%d" % building, Color(0.70, 0.70, 0.85), building],
+	]
+	for entry in entries:
+		if entry[2] > 0:
+			var lbl := Label.new()
+			lbl.text = entry[0]
+			lbl.add_theme_font_size_override("font_size", 13)
+			lbl.add_theme_color_override("font_color", entry[1])
+			_villager_task_hbox.add_child(lbl)
 
 
 # --- Helpers ---
