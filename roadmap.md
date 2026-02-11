@@ -289,3 +289,35 @@ Additional completed features:
 - Villager task breakdown on HUD (F:2 W:1 G:1 B:0)
 - Wheelbarrow research (+25% gather rate) and Loom (+15 villager HP)
 - New units inherit researched attack/armor upgrades on spawn
+- HP bar color coding (green >60%, yellow 30-60%, red <30%)
+- Colored villager task labels (resource-matched colors: red F, green W, gold G)
+- Enemy score comparison display (Score: X / Y)
+- Dedicated attack-move VFX indicator (orange/red, distinct from green move)
+
+---
+
+## What's Done vs What's Left (as of Iteration 47)
+
+### Prototype Status: ~90% Complete for Skirmish Mode
+
+The single-player skirmish experience is very close to "basically done." All core systems work: gathering, building, training, combat, aging up, fog of war, AI opponent, win conditions (landmark + sacred site), research upgrades, and comprehensive HUD/UI.
+
+### Remaining Phase 2 Items (Nice-to-Have for Prototype)
+- [ ] Collision avoidance between friendly units (steering behaviors)
+- [ ] Patrol command
+- [ ] Villagers show carry animation
+- [ ] Building queue (queue multiple buildings for placement)
+- [ ] Building upgrades (Town Center → Castle in Age 3)
+- [ ] Gates and walls (Age 2+)
+- [ ] Garrison mechanic (units enter buildings)
+- [ ] Healing: monks/healers unit type
+- [ ] Trade routes between markets
+- [ ] Relics on sacred sites
+
+### Suggested Next Iterations (Priority Order)
+1. **Patrol command** — simple to implement, standard RTS feature
+2. **Collision avoidance** — units stack on each other, most visible remaining issue
+3. **Building upgrades** — TC → Castle makes age progression feel complete
+4. **Garrison mechanic** — adds defensive depth
+5. **Balance pass** — playtest a full game start-to-finish, tune gather rates / AI timing / unit costs
+6. **Touch controls polish** — pinch-to-zoom, long-press context menu for mobile
