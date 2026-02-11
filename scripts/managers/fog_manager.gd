@@ -1,7 +1,7 @@
 class_name FogManager
 extends Node2D
 ## Manages fog of war with three states: unexplored, explored (dimmed), visible.
-## Updates visibility based on unit positions each frame.
+## Uses delta-based updates — only changed cells are pushed to the TileMapLayer.
 
 ## The fog grid — Array[Array] of MapData.FogState (row-major).
 var fog_grid: Array = []
@@ -19,11 +19,16 @@ var _previously_visible: Array[Vector2i] = []
 ## Each entry: { "position": Vector2i, "vision_radius": int, "is_scout": bool }
 var _vision_sources: Array[Dictionary] = []
 
+## Cells whose fog state changed this frame (need layer update).
+var _dirty_cells: Array[Vector2i] = []
+
 ## Fog overlay atlas coordinates for each state.
-## These map to the fog tileset source created in game_map.gd.
 const FOG_UNEXPLORED_ATLAS := Vector2i(0, 0)
 const FOG_EXPLORED_ATLAS := Vector2i(1, 0)
 # VISIBLE = no fog tile (cell cleared).
+
+## Whether initial full-apply has happened.
+var _initial_apply_done: bool = false
 
 
 func _ready() -> void:
@@ -40,8 +45,9 @@ func _init_fog_grid() -> void:
 
 
 func _process(_delta: float) -> void:
+	_dirty_cells.clear()
 	_update_visibility()
-	_apply_fog_to_layer()
+	_apply_fog_delta()
 
 
 ## Register a vision source (unit). Call this when a unit spawns or moves.
@@ -65,10 +71,11 @@ func set_vision_sources(sources: Array[Dictionary]) -> void:
 
 ## Core visibility update — runs each frame.
 func _update_visibility() -> void:
-	# Transition all currently VISIBLE tiles to EXPLORED.
+	# Transition all currently VISIBLE tiles to EXPLORED — mark as dirty.
 	for pos in _previously_visible:
 		if _in_bounds(pos) and fog_grid[pos.y][pos.x] == MapData.FogState.VISIBLE:
 			fog_grid[pos.y][pos.x] = MapData.FogState.EXPLORED
+			_dirty_cells.append(pos)
 	_previously_visible.clear()
 
 	# Compute visible tiles from all vision sources.
@@ -85,25 +92,39 @@ func _reveal_circle(center: Vector2i, radius: int) -> void:
 			if dx * dx + dy * dy <= radius * radius:
 				var pos := center + Vector2i(dx, dy)
 				if _in_bounds(pos):
+					if fog_grid[pos.y][pos.x] != MapData.FogState.VISIBLE:
+						_dirty_cells.append(pos)
 					fog_grid[pos.y][pos.x] = MapData.FogState.VISIBLE
 					_previously_visible.append(pos)
 
 
-## Apply the fog grid state to the visual TileMapLayer.
-func _apply_fog_to_layer() -> void:
+## Apply only changed fog cells to the visual TileMapLayer.
+func _apply_fog_delta() -> void:
 	if fog_layer == null:
 		return
-	for y in range(MapData.MAP_HEIGHT):
-		for x in range(MapData.MAP_WIDTH):
-			var pos := Vector2i(x, y)
-			var state: MapData.FogState = fog_grid[y][x] as MapData.FogState
-			match state:
-				MapData.FogState.UNEXPLORED:
-					fog_layer.set_cell(pos, 0, FOG_UNEXPLORED_ATLAS)
-				MapData.FogState.EXPLORED:
-					fog_layer.set_cell(pos, 0, FOG_EXPLORED_ATLAS)
-				MapData.FogState.VISIBLE:
-					fog_layer.erase_cell(pos)
+
+	# First frame: apply all cells to initialise the layer.
+	if not _initial_apply_done:
+		_initial_apply_done = true
+		for y in range(MapData.MAP_HEIGHT):
+			for x in range(MapData.MAP_WIDTH):
+				_apply_cell(Vector2i(x, y), fog_grid[y][x] as MapData.FogState)
+		return
+
+	# Delta: only update cells that changed.
+	for pos in _dirty_cells:
+		_apply_cell(pos, fog_grid[pos.y][pos.x] as MapData.FogState)
+
+
+## Apply a single cell's fog state to the TileMapLayer.
+func _apply_cell(pos: Vector2i, state: MapData.FogState) -> void:
+	match state:
+		MapData.FogState.UNEXPLORED:
+			fog_layer.set_cell(pos, 0, FOG_UNEXPLORED_ATLAS)
+		MapData.FogState.EXPLORED:
+			fog_layer.set_cell(pos, 0, FOG_EXPLORED_ATLAS)
+		MapData.FogState.VISIBLE:
+			fog_layer.erase_cell(pos)
 
 
 ## Check if a tile is currently visible to this player.

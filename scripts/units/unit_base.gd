@@ -39,6 +39,7 @@ var path_index: int = 0
 var team_color: Color = Color.BLUE
 var attack_move: bool = false
 var kills: int = 0
+var _auto_attack_timer: float = 0.0  # Throttles enemy scanning (seconds until next scan)
 
 # --- Node references ---
 @onready var collision_shape: CollisionShape2D = $CollisionShape2D
@@ -124,6 +125,7 @@ func _process(delta: float) -> void:
 		return
 
 	attack_cooldown = maxf(0.0, attack_cooldown - delta)
+	_auto_attack_timer = maxf(0.0, _auto_attack_timer - delta)
 
 	match current_state:
 		State.IDLE:
@@ -298,6 +300,9 @@ func _process_building(_delta: float) -> void:
 func _try_auto_attack() -> void:
 	if damage <= 0.0:
 		return  # Non-combat units (scouts with 0 damage)
+	if _auto_attack_timer > 0.0:
+		return  # Throttle: only scan every 0.3s to reduce O(n²) group queries
+	_auto_attack_timer = 0.3
 	# Stand ground: only engage within attack range, not full vision
 	var search_radius: float = attack_range + 16.0 if stance == Stance.STAND_GROUND else vision_radius
 	# Check for enemy units first (priority over buildings)

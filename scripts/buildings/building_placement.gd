@@ -13,6 +13,7 @@ var current_footprint: Vector2i = Vector2i(2, 2)
 var current_color: Color = Color.WHITE
 var ghost_position: Vector2 = Vector2.ZERO
 var is_valid_placement: bool = false
+var _invalid_reason: String = ""
 var _player_owner: int = 0
 var _ghost_sprite: Sprite2D = null
 var _terrain_layer: TileMapLayer = null
@@ -158,6 +159,7 @@ func _get_ghost_tile() -> Vector2i:
 
 
 func _check_validity() -> bool:
+	_invalid_reason = ""
 	var tile_origin := _get_ghost_tile()
 
 	# Check tile bounds for entire footprint
@@ -166,6 +168,7 @@ func _check_validity() -> bool:
 			var cx := tile_origin.x + dx
 			var cy := tile_origin.y + dy
 			if cx < 0 or cx >= MapData.MAP_WIDTH or cy < 0 or cy >= MapData.MAP_HEIGHT:
+				_invalid_reason = "Out of bounds"
 				return false
 
 	# Check walkability via GameMap pathfinding if available
@@ -174,6 +177,7 @@ func _check_validity() -> bool:
 		for dx in current_footprint.x:
 			for dy in current_footprint.y:
 				if not game_map.is_tile_walkable(Vector2i(tile_origin.x + dx, tile_origin.y + dy)):
+					_invalid_reason = "Blocked terrain"
 					return false
 
 	# Check for overlapping buildings using physics
@@ -187,6 +191,7 @@ func _check_validity() -> bool:
 		for result in results:
 			var collider: Variant = result.get("collider")
 			if collider is BuildingBase and collider != self:
+				_invalid_reason = "Overlaps building"
 				return false
 
 	return true
@@ -228,9 +233,13 @@ func _draw() -> void:
 
 	# Building name label
 	var bname := BuildingData.get_building_name(current_building_type)
-	if bname != "Unknown":
-		var font := ThemeDB.fallback_font
-		var fsize := ThemeDB.fallback_font_size
-		if font:
+	var font := ThemeDB.fallback_font
+	var fsize := ThemeDB.fallback_font_size
+	if font:
+		if bname != "Unknown":
 			var text_pos := Vector2(-pixel_w * 0.25, -pixel_h * 0.5 - 20)
 			draw_string(font, text_pos, bname, HORIZONTAL_ALIGNMENT_CENTER, pixel_w, fsize, Color.WHITE)
+		# Show reason when placement is invalid
+		if not is_valid_placement and _invalid_reason != "":
+			var reason_pos := Vector2(-pixel_w * 0.25, pixel_h * 0.5 + 14)
+			draw_string(font, reason_pos, _invalid_reason, HORIZONTAL_ALIGNMENT_CENTER, pixel_w, fsize, Color(1.0, 0.4, 0.3))
