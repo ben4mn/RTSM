@@ -30,6 +30,7 @@ const ZOOM_MIN := 0.5
 const ZOOM_MAX := 2.5
 const ZOOM_SPEED := 0.1
 const CAMERA_PAN_SPEED := 400.0
+const EDGE_SCROLL_MARGIN := 8.0  # Pixels from screen edge to trigger scroll
 
 
 ## Preloaded scenes.
@@ -136,6 +137,19 @@ func _update_camera_pan(delta: float) -> void:
 		pan.x -= 1.0
 	if Input.is_action_pressed("camera_right"):
 		pan.x += 1.0
+
+	# Edge scrolling: pan when mouse is near screen edges
+	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+	var mouse_pos: Vector2 = get_viewport().get_mouse_position()
+	if mouse_pos.x < EDGE_SCROLL_MARGIN:
+		pan.x -= 1.0
+	elif mouse_pos.x > viewport_size.x - EDGE_SCROLL_MARGIN:
+		pan.x += 1.0
+	if mouse_pos.y < EDGE_SCROLL_MARGIN:
+		pan.y -= 1.0
+	elif mouse_pos.y > viewport_size.y - EDGE_SCROLL_MARGIN:
+		pan.y += 1.0
+
 	if pan != Vector2.ZERO:
 		camera.position += pan.normalized() * CAMERA_PAN_SPEED * delta / camera.zoom.x
 		_clamp_camera()
