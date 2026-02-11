@@ -131,18 +131,19 @@ func _setup_sprite() -> void:
 func _update_sprite_appearance() -> void:
 	if _sprite == null:
 		return
+	var base_color: Color = Color(1.0, 0.55, 0.55) if player_owner != 0 else Color.WHITE
 	match state:
 		State.CONSTRUCTING:
 			# Darken and make semi-transparent during construction, lerp to full
 			var progress_alpha := lerpf(0.4, 1.0, build_progress)
 			var progress_dark := lerpf(0.4, 0.0, 1.0 - build_progress)
-			_sprite.modulate = Color(1.0 - progress_dark, 1.0 - progress_dark, 1.0 - progress_dark, progress_alpha)
+			_sprite.modulate = Color(base_color.r - progress_dark, base_color.g - progress_dark, base_color.b - progress_dark, progress_alpha)
 		State.DESTROYED:
 			_sprite.modulate = Color(0.3, 0.3, 0.3, 0.5)
 		State.ACTIVE:
-			_sprite.modulate = Color.WHITE
+			_sprite.modulate = base_color
 		_:
-			_sprite.modulate = Color.WHITE
+			_sprite.modulate = base_color
 
 
 func _draw() -> void:
@@ -298,7 +299,7 @@ func _flash_damage() -> void:
 	if _sprite == null:
 		return
 	var original: Color = _sprite.modulate
-	_sprite.modulate = Color(1, 0.3, 0.3)
+	_sprite.modulate = Color(1.0, 1.0, 1.0)  # White flash — visible on both player and enemy buildings
 	var tween := create_tween()
 	tween.tween_property(_sprite, "modulate", original, 0.15)
 

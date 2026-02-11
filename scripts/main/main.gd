@@ -766,6 +766,8 @@ func _on_selection_changed(selected_units: Array[Node2D]) -> void:
 		var stats: Dictionary = {}
 		if not (u is Villager):
 			stats = {"damage": int(u.damage), "armor": int(u.armor), "range": int(u.attack_range / 16.0)}
+			var stance_name: String = "Stand Ground" if u.stance == UnitBase.Stance.STAND_GROUND else "Aggressive"
+			stats["stance"] = stance_name
 		hud.show_unit_selection(UnitData.get_unit_name(u.unit_type), total_hp, total_max_hp, action_text, count, stats)
 	elif first is BuildingBase:
 		var b: BuildingBase = first as BuildingBase
@@ -1143,6 +1145,9 @@ func _on_ai_wants_to_age_up() -> void:
 		return
 	if ResourceManager.try_spend(ai_controller.player_id, cost):
 		GameManager.advance_age(ai_controller.player_id)
+		var new_age: int = GameManager.get_player_age(ai_controller.player_id)
+		var age_name: String = GameManager.get_age_name(new_age)
+		hud.show_notification("Enemy advancing to %s!" % age_name, Color(1.0, 0.4, 0.2))
 
 
 # =========================================================================

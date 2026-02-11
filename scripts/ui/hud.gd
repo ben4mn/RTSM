@@ -369,6 +369,8 @@ func show_unit_selection(unit_name: String, current_hp: int, max_hp: int, action
 			parts.append("Arm:%d" % unit_stats["armor"])
 		if unit_stats.has("range") and unit_stats["range"] > 1:
 			parts.append("Rng:%d" % unit_stats["range"])
+		if unit_stats.has("stance"):
+			parts.append("[%s]" % unit_stats["stance"])
 		if parts.size() > 0:
 			stats_line = " | ".join(parts) + "\n"
 	selection_details.text = stats_line + action_text
