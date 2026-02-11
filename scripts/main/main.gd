@@ -159,6 +159,34 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action("find_army"):
 		_find_army()
 		get_viewport().set_input_as_handled()
+	elif event is InputEventKey:
+		var key_event: InputEventKey = event as InputEventKey
+		# Ctrl+A: select all own units
+		if key_event.keycode == KEY_A and key_event.ctrl_pressed:
+			game_map.selection_mgr.select_all_own_units()
+			get_viewport().set_input_as_handled()
+		# +/= key: increase game speed
+		elif key_event.keycode == KEY_EQUAL or key_event.keycode == KEY_KP_ADD:
+			_cycle_game_speed(1)
+			get_viewport().set_input_as_handled()
+		# - key: decrease game speed
+		elif key_event.keycode == KEY_MINUS or key_event.keycode == KEY_KP_SUBTRACT:
+			_cycle_game_speed(-1)
+			get_viewport().set_input_as_handled()
+
+
+const GAME_SPEEDS: Array[float] = [0.5, 1.0, 2.0, 3.0]
+
+func _cycle_game_speed(direction: int) -> void:
+	var current_speed: float = Engine.time_scale
+	var current_idx: int = 1  # default to 1x
+	for i in GAME_SPEEDS.size():
+		if absf(GAME_SPEEDS[i] - current_speed) < 0.01:
+			current_idx = i
+			break
+	var new_idx: int = clampi(current_idx + direction, 0, GAME_SPEEDS.size() - 1)
+	Engine.time_scale = GAME_SPEEDS[new_idx]
+	hud.show_notification("Speed: %.1fx" % GAME_SPEEDS[new_idx], Color(0.8, 0.8, 0.8))
 
 
 func _handle_escape() -> void:
@@ -560,6 +588,15 @@ func _on_selection_changed(selected_units: Array[Node2D]) -> void:
 
 func _on_move_command(target_tile: Vector2i) -> void:
 	var selected: Array = game_map.selection_mgr.selected
+
+	# Check if a production building is selected — set rally point
+	if selected.size() == 1 and selected[0] is BuildingBase:
+		var b: BuildingBase = selected[0] as BuildingBase
+		if b.player_owner == 0 and b.trainable_units.size() > 0:
+			b.set_rally_point(game_map.tile_to_world(target_tile))
+			VFX.move_indicator(get_tree(), game_map.tile_to_world(target_tile))
+			return
+
 	# Collect moveable units
 	var moveable: Array[UnitBase] = []
 	for node in selected:
@@ -580,15 +617,31 @@ func _on_move_command(target_tile: Vector2i) -> void:
 		var world_pos: Vector2 = game_map.tile_to_world(dest_tile)
 		var unit_tile: Vector2i = game_map.world_to_tile(unit.global_position)
 		var tile_path: Array[Vector2i] = game_map.get_movement_path(unit_tile, dest_tile)
+		# Military units use attack-move by default, villagers use regular move
+		var is_military: bool = unit.unit_type != UnitData.UnitType.VILLAGER
 		if tile_path.size() > 1:
 			var world_path := PackedVector2Array()
 			for tp in tile_path:
 				world_path.append(game_map.tile_to_world(tp))
 			unit.command_move_path(world_path)
+			if is_military:
+				unit.attack_move = true
 		else:
-			unit.command_move(world_pos)
+			if is_military:
+				unit.command_attack_move(world_pos)
+			else:
+				unit.command_move(world_pos)
 
-	VFX.move_indicator(get_tree(), game_map.tile_to_world(target_tile))
+	# Show green indicator for regular move, red for attack-move
+	var has_military: bool = false
+	for u in moveable:
+		if u.unit_type != UnitData.UnitType.VILLAGER:
+			has_military = true
+			break
+	if has_military:
+		VFX.hit_burst(get_tree(), game_map.tile_to_world(target_tile), Color(1.0, 0.5, 0.2))
+	else:
+		VFX.move_indicator(get_tree(), game_map.tile_to_world(target_tile))
 
 
 ## Generate spiral offsets around (0,0) for formation spreading.

@@ -121,6 +121,8 @@ func _handle_tap(screen_pos: Vector2) -> void:
 	# Check if we tapped on a unit or building.
 	var tapped_node: Node2D = _get_node_at(world_pos)
 
+	var shift_held: bool = Input.is_key_pressed(KEY_SHIFT)
+
 	if tapped_node != null:
 		if selected.size() > 0 and _is_enemy(tapped_node):
 			# Attack command.
@@ -128,13 +130,20 @@ func _handle_tap(screen_pos: Vector2) -> void:
 		elif _has_selected_villagers() and _is_under_construction(tapped_node):
 			# Send selected villagers to build.
 			build_command.emit(tapped_node)
+		elif shift_held and not _is_enemy(tapped_node):
+			# Shift+click: add/remove from selection
+			if tapped_node in selected:
+				_remove_from_selection(tapped_node)
+			else:
+				_add_to_selection(tapped_node)
 		else:
 			# Select the tapped unit/building.
 			_clear_selection()
 			_add_to_selection(tapped_node)
 	else:
 		# Empty ground — left-click always deselects (movement is via right-click)
-		_clear_selection()
+		if not shift_held:
+			_clear_selection()
 
 
 func _handle_double_tap(screen_pos: Vector2) -> void:
@@ -143,7 +152,7 @@ func _handle_double_tap(screen_pos: Vector2) -> void:
 	if tapped_node == null:
 		return
 
-	# Select all units of the same type that are visible on screen.
+	# Select all own units of the same type that are visible on screen.
 	var unit_type: String = ""
 	if tapped_node.has_method("get_unit_type"):
 		unit_type = tapped_node.get_unit_type()
@@ -154,9 +163,10 @@ func _handle_double_tap(screen_pos: Vector2) -> void:
 
 	_clear_selection()
 
-	# Find all units in the "units" group of the same type.
 	for node in get_tree().get_nodes_in_group("units"):
-		if not node is Node2D:
+		if not is_instance_valid(node) or not node is Node2D:
+			continue
+		if _is_enemy(node as Node2D):
 			continue
 		var n_type := ""
 		if node.has_method("get_unit_type"):
@@ -200,6 +210,23 @@ func _add_to_selection(node: Node2D) -> void:
 		if node.has_method("select"):
 			node.select()
 	selection_changed.emit(selected)
+
+
+func _remove_from_selection(node: Node2D) -> void:
+	if node in selected:
+		selected.erase(node)
+		if node.has_method("deselect"):
+			node.deselect()
+		selection_changed.emit(selected)
+
+
+func select_all_own_units() -> void:
+	_clear_selection()
+	for node in get_tree().get_nodes_in_group("units"):
+		if not is_instance_valid(node) or not node is Node2D:
+			continue
+		if not _is_enemy(node as Node2D):
+			_add_to_selection(node as Node2D)
 
 
 func deselect_all() -> void:
