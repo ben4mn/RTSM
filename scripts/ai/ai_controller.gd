@@ -53,6 +53,8 @@ var _lumber_camp_count: int = 0
 var _mining_camp_count: int = 0
 var _farm_count: int = 0
 var _siege_workshop_count: int = 0
+var _blacksmith_count: int = 0
+var _watch_tower_count: int = 0
 
 # ── Difficulty tuning tables ─────────────────────────────────────────────
 const DECISION_INTERVALS: Dictionary = {
@@ -99,6 +101,8 @@ func _init_build_priority() -> void:
 		{ "type": BuildingData.BuildingType.MINING_CAMP, "age": 1, "max": 2 },
 		{ "type": BuildingData.BuildingType.ARCHERY_RANGE, "age": 2, "max": 2 },
 		{ "type": BuildingData.BuildingType.STABLE, "age": 2, "max": 1 },
+		{ "type": BuildingData.BuildingType.BLACKSMITH, "age": 1, "max": 1 },
+		{ "type": BuildingData.BuildingType.WATCH_TOWER, "age": 2, "max": 3 },
 		{ "type": BuildingData.BuildingType.SIEGE_WORKSHOP, "age": 3, "max": 1 },
 	]
 
@@ -168,6 +172,7 @@ func _on_decision_tick() -> void:
 	_assign_idle_villagers()
 	_check_building_construction()
 	_check_military_production()
+	_check_research()
 	_check_age_up()
 	_check_scouting()
 	_check_attack_or_defend()
@@ -383,6 +388,33 @@ func _check_age_up() -> void:
 
 
 # ═════════════════════════════════════════════════════════════════════════
+#  RESEARCH (Blacksmith upgrades)
+# ═════════════════════════════════════════════════════════════════════════
+
+func _check_research() -> void:
+	if _blacksmith_count == 0:
+		return
+
+	# Research forging first, then scale mail
+	var research_order: Array = [
+		{"id": "forging", "cost": {"food": 100, "gold": 50}, "type": "attack", "amount": 2},
+		{"id": "scale_mail", "cost": {"food": 100, "gold": 50}, "type": "armor", "amount": 1},
+	]
+
+	for r in research_order:
+		if GameManager.has_research(player_id, r["id"]):
+			continue
+		if ResourceManager.can_afford(player_id, r["cost"]):
+			ResourceManager.try_spend(player_id, r["cost"])
+			GameManager.complete_research(player_id, r["id"])
+			if r["type"] == "attack":
+				GameManager.apply_attack_upgrade(player_id, r["amount"])
+			elif r["type"] == "armor":
+				GameManager.apply_armor_upgrade(player_id, r["amount"])
+			return  # One research per tick
+
+
+# ═════════════════════════════════════════════════════════════════════════
 #  SCOUTING
 # ═════════════════════════════════════════════════════════════════════════
 
@@ -535,6 +567,8 @@ func _update_building_counts() -> void:
 	_mining_camp_count = 0
 	_farm_count = 0
 	_siege_workshop_count = 0
+	_blacksmith_count = 0
+	_watch_tower_count = 0
 
 	for b in _my_buildings:
 		if not is_instance_valid(b):
@@ -551,6 +585,8 @@ func _update_building_counts() -> void:
 			BuildingData.BuildingType.MINING_CAMP: _mining_camp_count += 1
 			BuildingData.BuildingType.FARM: _farm_count += 1
 			BuildingData.BuildingType.SIEGE_WORKSHOP: _siege_workshop_count += 1
+			BuildingData.BuildingType.BLACKSMITH: _blacksmith_count += 1
+			BuildingData.BuildingType.WATCH_TOWER: _watch_tower_count += 1
 
 
 func _get_building_count(building_type: int) -> int:
@@ -563,6 +599,8 @@ func _get_building_count(building_type: int) -> int:
 		BuildingData.BuildingType.MINING_CAMP: return _mining_camp_count
 		BuildingData.BuildingType.FARM: return _farm_count
 		BuildingData.BuildingType.SIEGE_WORKSHOP: return _siege_workshop_count
+		BuildingData.BuildingType.BLACKSMITH: return _blacksmith_count
+		BuildingData.BuildingType.WATCH_TOWER: return _watch_tower_count
 	return 0
 
 

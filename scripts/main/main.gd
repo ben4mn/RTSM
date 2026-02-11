@@ -383,11 +383,14 @@ func _spawn_unit(unit_type: int, player_id: int, world_pos: Vector2) -> UnitBase
 
 
 func _on_unit_trained(unit_type: int, spawn_pos: Vector2, player_id: int) -> void:
-	_spawn_unit(unit_type, player_id, spawn_pos)
+	var unit: UnitBase = _spawn_unit(unit_type, player_id, spawn_pos)
 	_update_population_display()
 	if player_id == 0:
 		_stats["units_trained"] += 1
 		hud.show_notification("Unit trained: %s" % UnitData.get_unit_name(unit_type), Color(0.4, 0.7, 1.0))
+		# Auto-assign new villagers to gather the most needed resource
+		if unit and unit_type == UnitData.UnitType.VILLAGER:
+			_auto_assign_new_villager(unit)
 
 
 func _on_unit_died(unit: UnitBase, player_id: int) -> void:
@@ -404,6 +407,30 @@ func _on_unit_died(unit: UnitBase, player_id: int) -> void:
 
 func _on_resource_deposited(_resource_type: String, amount: int) -> void:
 	_stats["resources_gathered"] += amount
+
+
+func _auto_assign_new_villager(villager: UnitBase) -> void:
+	## Automatically assign a newly trained villager to the most needed resource.
+	var resources: Dictionary = ResourceManager.get_all_resources(0)
+	var food: int = resources.get("food", 0)
+	var wood: int = resources.get("wood", 0)
+	var gold: int = resources.get("gold", 0)
+
+	# Determine which resource is lowest relative to need
+	var priority: Array[String] = []
+	if food <= wood and food <= gold:
+		priority = ["food", "wood", "gold"]
+	elif wood <= food and wood <= gold:
+		priority = ["wood", "food", "gold"]
+	else:
+		priority = ["gold", "food", "wood"]
+
+	# Try to find a resource node for the most needed type
+	for res_type in priority:
+		var node: Node2D = game_map.get_nearest_resource_node(res_type, villager.global_position)
+		if node != null and villager.has_method("command_gather"):
+			villager.command_gather(node)
+			return
 
 
 func _on_player_unit_damaged(_unit: UnitBase, _new_hp: float, _max_hp: float) -> void:
