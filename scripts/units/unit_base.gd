@@ -40,6 +40,8 @@ var team_color: Color = Color.BLUE
 var attack_move: bool = false
 var kills: int = 0
 var _auto_attack_timer: float = 0.0  # Throttles enemy scanning (seconds until next scan)
+var _stuck_timer: float = 0.0        # Detects stuck units during movement
+var _last_move_pos: Vector2 = Vector2.ZERO
 
 # --- Node references ---
 @onready var collision_shape: CollisionShape2D = $CollisionShape2D
@@ -207,6 +209,10 @@ func set_state(new_state: int) -> void:
 	if current_state == new_state:
 		return
 	current_state = new_state
+	# Reset stuck detection when entering MOVING state
+	if new_state == State.MOVING:
+		_stuck_timer = 0.0
+		_last_move_pos = global_position
 	state_changed.emit(self, new_state)
 	queue_redraw()
 
@@ -234,6 +240,23 @@ func _process_moving(delta: float) -> void:
 				_on_reached_destination()
 				return
 		global_position += direction.normalized() * speed * delta
+
+	# Stuck detection: if unit hasn't moved significantly in 1.5s, stop or re-path
+	if global_position.distance_to(_last_move_pos) > 2.0:
+		_stuck_timer = 0.0
+		_last_move_pos = global_position
+	else:
+		_stuck_timer += delta
+		if _stuck_timer > 1.5:
+			_stuck_timer = 0.0
+			# Try direct move as fallback; if already doing direct move, just stop
+			if path.is_empty():
+				_on_reached_destination()
+				return
+			else:
+				# Abandon path, try direct move to final destination
+				path = PackedVector2Array()
+				path_index = 0
 
 	# While moving, check for enemies in range
 	# Attack-move: always look for enemies; normal move: only auto-attack if aggressive
@@ -461,7 +484,7 @@ func _flash_damage() -> void:
 	if _sprite == null:
 		return
 	var original: Color = _sprite.modulate
-	_sprite.modulate = Color(1, 0.3, 0.3)
+	_sprite.modulate = Color(1.0, 1.0, 1.0)  # White flash — visible on both friendly and enemy units
 	var tween := create_tween()
 	tween.tween_property(_sprite, "modulate", original, 0.15)
 
