@@ -63,7 +63,7 @@ func _process(delta: float) -> void:
 	_update_visuals()
 
 
-func _handle_neutral(p1: int, p2: int, delta: float) -> void:
+func _handle_neutral(p1: int, p2: int, _delta: float) -> void:
 	if p1 > 0 and p2 == 0:
 		state = SiteState.CAPTURING
 		owning_player = 0
@@ -117,7 +117,7 @@ func _handle_captured(p1: int, p2: int, delta: float) -> void:
 		if capture_progress <= 0.0:
 			capture_progress = 0.0
 			state = SiteState.NEUTRAL
-			var old_owner := owning_player
+			var _old_owner := owning_player
 			owning_player = -1
 			neutralized.emit()
 		return
@@ -157,7 +157,7 @@ func _handle_contested(p1: int, p2: int, delta: float) -> void:
 func _generate_gold(delta: float) -> void:
 	# Add gold to the owning player via the ResourceManager autoload.
 	if Engine.has_singleton("ResourceManager") or get_node_or_null("/root/ResourceManager"):
-		var rm := get_node_or_null("/root/ResourceManager")
+		var rm: Node = get_node_or_null("/root/ResourceManager")
 		if rm and rm.has_method("add_resource"):
 			rm.add_resource(owning_player, "gold", gold_per_second * delta)
 

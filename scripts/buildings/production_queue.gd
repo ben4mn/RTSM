@@ -48,7 +48,7 @@ func enqueue_unit(unit_type: int) -> bool:
 		return false
 
 	# Check and deduct resources
-	var cost := UnitData.get_unit_cost(unit_type)
+	var cost: Dictionary = UnitData.get_unit_cost(unit_type)
 	if not _can_afford(cost):
 		return false
 	_deduct_resources(cost)
@@ -67,7 +67,7 @@ func cancel_unit(index: int) -> bool:
 		return false
 
 	var unit_type: int = queue[index]
-	var cost := UnitData.get_unit_cost(unit_type)
+	var cost: Dictionary = UnitData.get_unit_cost(unit_type)
 
 	# Refund resources
 	_refund_resources(cost)
@@ -120,7 +120,7 @@ func _start_next_unit() -> void:
 		is_training = false
 		return
 	var unit_type: int = queue[0]
-	var stats := UnitData.get_unit_stats(unit_type)
+	var stats: Dictionary = UnitData.get_unit_stats(unit_type)
 	current_train_time = stats.get("build_time", 15.0)
 	current_progress = 0.0
 	is_training = true
@@ -131,7 +131,7 @@ func _complete_current_unit() -> void:
 	if queue.is_empty():
 		return
 	var unit_type: int = queue[0]
-	var spawn_pos := _building.rally_point if _building else global_position
+	var spawn_pos := _building.rally_point if _building else Vector2.ZERO
 	queue.remove_at(0)
 	is_training = false
 	current_progress = 0.0
@@ -145,7 +145,7 @@ func _complete_current_unit() -> void:
 
 
 func _can_afford(cost: Dictionary) -> bool:
-	var rm := _get_resource_manager()
+	var rm: Node = _get_resource_manager()
 	if rm == null:
 		return true  # Allow for testing without ResourceManager
 	var player_id: int = _building.player_owner if _building else 0
@@ -153,7 +153,7 @@ func _can_afford(cost: Dictionary) -> bool:
 
 
 func _deduct_resources(cost: Dictionary) -> void:
-	var rm := _get_resource_manager()
+	var rm: Node = _get_resource_manager()
 	if rm == null:
 		return
 	var player_id: int = _building.player_owner if _building else 0
@@ -161,7 +161,7 @@ func _deduct_resources(cost: Dictionary) -> void:
 
 
 func _refund_resources(cost: Dictionary) -> void:
-	var rm := _get_resource_manager()
+	var rm: Node = _get_resource_manager()
 	if rm == null:
 		return
 	var player_id: int = _building.player_owner if _building else 0

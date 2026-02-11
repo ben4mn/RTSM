@@ -148,7 +148,9 @@ func check_landmark_victory(player_id: int) -> void:
 
 
 func get_formatted_time() -> String:
+	@warning_ignore("integer_division")
 	var minutes: int = int(game_time) / 60
+	@warning_ignore("integer_division")
 	var seconds: int = int(game_time) % 60
 	return "%02d:%02d" % [minutes, seconds]
 

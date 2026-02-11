@@ -48,7 +48,7 @@ func _ready() -> void:
 
 
 func _load_stats() -> void:
-	var stats := BuildingData.get_building_stats(building_type)
+	var stats: Dictionary = BuildingData.get_building_stats(building_type)
 	if stats.is_empty():
 		return
 	max_hp = stats.get("hp", 500)
@@ -75,8 +75,6 @@ func _setup_collision() -> void:
 func _draw() -> void:
 	var pixel_w: float = footprint.x * MapData.TILE_WIDTH
 	var pixel_h: float = footprint.y * MapData.TILE_HEIGHT
-	var rect := Rect2(-pixel_w * 0.5, -pixel_h * 0.5, pixel_w, pixel_h)
-
 	# Draw isometric diamond shape
 	var points := PackedVector2Array([
 		Vector2(0, -pixel_h * 0.5),       # top
@@ -214,7 +212,7 @@ func get_player_id() -> int:
 
 
 func deposit_resource(resource_type: String, amount: int) -> void:
-	var rm := get_node_or_null("/root/ResourceManager")
+	var rm: Node = get_node_or_null("/root/ResourceManager")
 	if rm:
 		rm.add_resource(player_owner, resource_type, amount)
 

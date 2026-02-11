@@ -367,9 +367,16 @@ func _check_age_up() -> void:
 	if _get_villagers().size() < min_villagers_to_age:
 		return
 
-	# The Landmark building triggers age-up. Check if we can afford it.
-	var landmark_cost: Dictionary = BuildingData.get_building_cost(BuildingData.BuildingType.LANDMARK)
-	if ResourceManager.can_afford(player_id, landmark_cost):
+	# Age-up costs (must match age_up_dialog.gd).
+	var age_up_costs: Dictionary = {
+		2: {"food": 400, "gold": 200},
+		3: {"food": 1200, "gold": 600},
+	}
+	var target_age: int = age + 1
+	var cost: Dictionary = age_up_costs.get(target_age, {})
+	if cost.is_empty():
+		return
+	if ResourceManager.can_afford(player_id, cost):
 		ai_wants_to_age_up.emit()
 
 
@@ -707,7 +714,7 @@ func _find_build_near_resource(resource_tile: MapData.TileType, footprint: Vecto
 				continue
 			# Try spots adjacent to this resource
 			for offset in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
-				var candidate := Vector2i(x, y) + offset
+				var candidate: Vector2i = Vector2i(x, y) + offset
 				if _is_valid_build_spot(candidate, footprint):
 					var dist: float = _base_tile.distance_to(candidate)
 					if dist < best_dist:

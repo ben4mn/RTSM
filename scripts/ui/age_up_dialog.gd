@@ -58,7 +58,7 @@ func show_dialog(current_age: int) -> void:
 	if _target_age > 3:
 		return  # Max age reached
 
-	var gm := get_node_or_null("/root/GameManager")
+	var gm: Node = get_node_or_null("/root/GameManager")
 	var age_name: String = "Age %d" % _target_age
 	if gm:
 		age_name = gm.get_age_name(_target_age)

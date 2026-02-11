@@ -23,7 +23,7 @@ func _ready() -> void:
 
 
 func start_placement(building_type: int, player_owner: int = 0) -> void:
-	var stats := BuildingData.get_building_stats(building_type)
+	var stats: Dictionary = BuildingData.get_building_stats(building_type)
 	if stats.is_empty():
 		return
 	current_building_type = building_type
@@ -75,7 +75,7 @@ func _input(event: InputEvent) -> void:
 
 func _update_ghost_position(screen_pos: Vector2) -> void:
 	# Convert screen position to world position via the camera/canvas
-	var canvas_transform := get_canvas_transform()
+	var canvas_transform: Transform2D = get_canvas_transform()
 	var world_pos := canvas_transform.affine_inverse() * screen_pos
 
 	# Snap to tile grid
@@ -106,15 +106,15 @@ func _check_validity() -> bool:
 				return false
 
 	# Check for overlapping buildings using physics
-	var space := get_world_2d().direct_space_state
+	var space: PhysicsDirectSpaceState2D = get_world_2d().direct_space_state
 	if space:
 		var query := PhysicsPointQueryParameters2D.new()
 		query.position = ghost_position
 		query.collide_with_areas = true
 		query.collision_mask = 0xFFFFFFFF
-		var results := space.intersect_point(query, 8)
+		var results: Array[Dictionary] = space.intersect_point(query, 8)
 		for result in results:
-			var collider := result.get("collider")
+			var collider: Variant = result.get("collider")
 			if collider is BuildingBase and collider != self:
 				return false
 

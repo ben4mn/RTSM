@@ -111,7 +111,7 @@ func _handle_tap(screen_pos: Vector2) -> void:
 	var world_pos := _screen_to_world(screen_pos)
 
 	# Check if we tapped on a unit or building.
-	var tapped_node := _get_node_at(world_pos)
+	var tapped_node: Node2D = _get_node_at(world_pos)
 
 	if tapped_node != null:
 		if selected.size() > 0 and _is_enemy(tapped_node):
@@ -132,7 +132,7 @@ func _handle_tap(screen_pos: Vector2) -> void:
 
 func _handle_double_tap(screen_pos: Vector2) -> void:
 	var world_pos := _screen_to_world(screen_pos)
-	var tapped_node := _get_node_at(world_pos)
+	var tapped_node: Node2D = _get_node_at(world_pos)
 	if tapped_node == null:
 		return
 
@@ -202,12 +202,12 @@ func deselect_all() -> void:
 ## --- Coordinate helpers ---
 
 func _screen_to_world(screen_pos: Vector2) -> Vector2:
-	var canvas_transform := get_viewport().get_canvas_transform()
+	var canvas_transform: Transform2D = get_viewport().get_canvas_transform()
 	return canvas_transform.affine_inverse() * screen_pos
 
 
 func _world_to_screen(world_pos: Vector2) -> Vector2:
-	var canvas_transform := get_viewport().get_canvas_transform()
+	var canvas_transform: Transform2D = get_viewport().get_canvas_transform()
 	return canvas_transform * world_pos
 
 
@@ -249,7 +249,7 @@ func _is_enemy(node: Node2D) -> bool:
 ## Check if a node2D is visible on the current screen.
 func _is_on_screen(node: Node2D) -> bool:
 	var screen_pos := _world_to_screen(node.global_position)
-	var viewport_size := get_viewport().get_visible_rect().size
+	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
 	return screen_pos.x >= 0 and screen_pos.x <= viewport_size.x \
 		and screen_pos.y >= 0 and screen_pos.y <= viewport_size.y
 
@@ -260,7 +260,7 @@ func _draw() -> void:
 	if _is_dragging:
 		var rect := Rect2(_drag_start, _drag_end - _drag_start).abs()
 		# Convert screen rect to local coords for drawing.
-		var canvas_inv := get_viewport().get_canvas_transform().affine_inverse()
+		var canvas_inv: Transform2D = get_viewport().get_canvas_transform().affine_inverse()
 		var local_start := canvas_inv * rect.position
 		var local_end := canvas_inv * rect.end
 		var local_rect := Rect2(local_start, local_end - local_start)

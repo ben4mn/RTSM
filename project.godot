@@ -1,15 +1,23 @@
 ; Engine configuration file.
 ; It's best edited using the editor UI and not directly,
-; but it can also be manually edited if needed.
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
 
 config_version=5
+
+[animation]
+
+compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 
 [application]
 
 config/name="AOEM"
 config/description="Age of Empires Mobile - Isometric RTS"
 run/main_scene="res://scenes/main/main.tscn"
-config/features=PackedStringArray("4.2", "Mobile")
+config/features=PackedStringArray("4.6", "Mobile")
 config/icon="res://icon.svg"
 
 [autoload]
@@ -24,6 +32,10 @@ window/size/viewport_height=720
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/handheld/orientation=1
+
+[gui]
+
+theme/default_font_size=18
 
 [input]
 
@@ -41,7 +53,3 @@ pointing/emulate_touch_from_mouse=true
 renderer/rendering_method="mobile"
 textures/vram_compression/import_etc2_astc=true
 environment/defaults/default_clear_color=Color(0.2, 0.4, 0.2, 1)
-
-[gui]
-
-theme/default_font_size=18

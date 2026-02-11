@@ -93,13 +93,18 @@ func _configure_camera() -> void:
 	if camera == null:
 		return
 	# Isometric map pixel bounds (approximate).
+	@warning_ignore("integer_division")
 	var map_pixel_width := (MapData.MAP_WIDTH + MapData.MAP_HEIGHT) * MapData.TILE_WIDTH / 2
+	@warning_ignore("integer_division")
 	var map_pixel_height := (MapData.MAP_WIDTH + MapData.MAP_HEIGHT) * MapData.TILE_HEIGHT / 2
+	@warning_ignore("integer_division")
 	camera.limit_left = -map_pixel_width / 2 - 100
+	@warning_ignore("integer_division")
 	camera.limit_right = map_pixel_width / 2 + 100
 	camera.limit_top = -100
 	camera.limit_bottom = map_pixel_height + 100
 	# Start camera at center.
+	@warning_ignore("integer_division")
 	camera.position = Vector2(0, map_pixel_height / 2)
 
 
@@ -122,7 +127,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 		if _touch_points.size() == 2:
 			# Pinch zoom.
-			var keys := _touch_points.keys()
+			var keys: Array = _touch_points.keys()
 			var p0_new: Vector2 = _touch_points[keys[0]]
 			var p1_new: Vector2 = _touch_points[keys[1]]
 			var new_dist := p0_new.distance_to(p1_new)
@@ -169,7 +174,9 @@ func tile_to_world(tile_pos: Vector2i) -> Vector2:
 	if terrain_layer:
 		return terrain_layer.map_to_local(tile_pos)
 	# Fallback isometric formula.
+	@warning_ignore("integer_division")
 	var wx := (tile_pos.x - tile_pos.y) * MapData.TILE_WIDTH / 2
+	@warning_ignore("integer_division")
 	var wy := (tile_pos.x + tile_pos.y) * MapData.TILE_HEIGHT / 2
 	return Vector2(wx, wy)
 
@@ -215,6 +222,7 @@ func remove_building_obstacle(origin: Vector2i, size: Vector2i) -> void:
 ## Spawn the sacred site at the center of the map.
 func _spawn_sacred_site() -> void:
 	sacred_site = _sacred_site_scene.instantiate()
+	@warning_ignore("integer_division")
 	var center := Vector2i(MapData.MAP_WIDTH / 2, MapData.MAP_HEIGHT / 2)
 	sacred_site.tile_position = center
 	sacred_site.global_position = tile_to_world(center)

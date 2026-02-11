@@ -107,7 +107,7 @@ func _apply_fog_to_layer() -> void:
 
 
 ## Check if a tile is currently visible to this player.
-func is_visible(pos: Vector2i) -> bool:
+func is_tile_visible(pos: Vector2i) -> bool:
 	if not _in_bounds(pos):
 		return false
 	return fog_grid[pos.y][pos.x] == MapData.FogState.VISIBLE

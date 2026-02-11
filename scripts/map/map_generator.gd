@@ -46,7 +46,9 @@ func _init_grid() -> void:
 
 ## Place the sacred site at the center of the map.
 func _place_sacred_site() -> void:
+	@warning_ignore("integer_division")
 	var cx := MapData.MAP_WIDTH / 2
+	@warning_ignore("integer_division")
 	var cy := MapData.MAP_HEIGHT / 2
 	# 2x2 sacred site centered at (cx-1,cy-1) to (cx,cy)
 	for dy in range(-1, 1):
@@ -58,6 +60,7 @@ func _place_sacred_site() -> void:
 func _place_water_features() -> void:
 	var num_lakes := _rng.randi_range(2, 4)
 	for i in range(num_lakes):
+		@warning_ignore("integer_division")
 		var lx := _rng.randi_range(4, MapData.MAP_WIDTH / 2 - 3)
 		var ly := _rng.randi_range(4, MapData.MAP_HEIGHT - 5)
 		var lake_size := _rng.randi_range(3, 6)
@@ -71,6 +74,7 @@ func _place_water_features() -> void:
 func _place_forest_clusters() -> void:
 	var num_clusters := _rng.randi_range(4, 7)
 	for i in range(num_clusters):
+		@warning_ignore("integer_division")
 		var fx := _rng.randi_range(2, MapData.MAP_WIDTH / 2 - 2)
 		var fy := _rng.randi_range(2, MapData.MAP_HEIGHT - 3)
 		var cluster_size := _rng.randi_range(4, 8)
@@ -93,6 +97,7 @@ func _place_resources() -> void:
 func _place_resource_pair(tile_type: MapData.TileType, count: int) -> void:
 	for i in range(count):
 		for _attempt in range(50):
+			@warning_ignore("integer_division")
 			var rx := _rng.randi_range(2, MapData.MAP_WIDTH / 2 - 2)
 			var ry := _rng.randi_range(2, MapData.MAP_HEIGHT - 3)
 			if grid[ry][rx] == MapData.TileType.GRASS:

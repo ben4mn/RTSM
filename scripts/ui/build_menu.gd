@@ -21,11 +21,11 @@ func _ready() -> void:
 	cancel_button.pressed.connect(_on_cancel_pressed)
 	cancel_button.visible = false
 
-	var gm := get_node_or_null("/root/GameManager")
+	var gm: Node = get_node_or_null("/root/GameManager")
 	if gm:
 		gm.age_advanced.connect(_on_age_advanced)
 
-	var rm := get_node_or_null("/root/ResourceManager")
+	var rm: Node = get_node_or_null("/root/ResourceManager")
 	if rm and rm.has_signal("resources_changed"):
 		rm.resources_changed.connect(_on_resources_changed)
 

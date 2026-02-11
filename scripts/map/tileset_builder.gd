@@ -84,7 +84,9 @@ static func _create_fog_atlas() -> Image:
 
 ## Draw a filled isometric diamond on an image.
 static func _draw_iso_diamond(img: Image, ox: int, oy: int, tw: int, th: int, color: Color) -> void:
+	@warning_ignore("integer_division")
 	var cx := ox + tw / 2
+	@warning_ignore("integer_division")
 	var cy := oy + th / 2
 	var half_w := tw / 2.0
 	var half_h := th / 2.0

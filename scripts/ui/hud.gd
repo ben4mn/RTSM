@@ -43,13 +43,13 @@ func _ready() -> void:
 
 	# Connect to autoloads if available
 	if Engine.has_singleton("GameManager") or has_node("/root/GameManager"):
-		var gm := _get_game_manager()
+		var gm: Node = _get_game_manager()
 		if gm:
 			gm.age_advanced.connect(_on_age_advanced)
 			gm.game_state_changed.connect(_on_game_state_changed)
 
 	if has_node("/root/ResourceManager"):
-		var rm := _get_resource_manager()
+		var rm: Node = _get_resource_manager()
 		if rm and rm.has_signal("resources_changed"):
 			rm.resources_changed.connect(_on_resources_changed)
 
@@ -58,7 +58,7 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
-	var gm := _get_game_manager()
+	var gm: Node = _get_game_manager()
 	if gm and gm.current_state == gm.GameState.PLAYING:
 		game_time_label.text = gm.get_formatted_time()
 
@@ -86,7 +86,7 @@ func _on_age_advanced(_player_id: int, _new_age: int) -> void:
 
 
 func _update_age_display() -> void:
-	var gm := _get_game_manager()
+	var gm: Node = _get_game_manager()
 	if gm:
 		var age: int = gm.get_player_age(0)
 		age_label.text = gm.get_age_name(age)
@@ -153,8 +153,8 @@ func _on_age_up_pressed() -> void:
 	age_up_requested.emit()
 
 
-func show_age_up_button(show: bool) -> void:
-	age_up_button.visible = show
+func show_age_up_button(is_shown: bool) -> void:
+	age_up_button.visible = is_shown
 
 
 # --- Minimap ---

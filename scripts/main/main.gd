@@ -93,15 +93,15 @@ func _setup_player_start(player_id: int, spawn_tile: Vector2i) -> void:
 	GameManager.increase_population_cap(player_id, tc.pop_provided)
 
 	# Connect the TC's production queue.
-	var pq := tc.get_production_queue()
+	var pq: Node = tc.get_production_queue()
 	if pq:
 		pq.unit_trained.connect(_on_unit_trained.bind(player_id))
 
 	# Place 3 starting villagers nearby.
 	var offsets: Array[Vector2i] = [Vector2i(1, 2), Vector2i(-1, 2), Vector2i(0, 3)]
 	for offset in offsets:
-		var vill_tile := spawn_tile + offset
-		var vill_pos := game_map.tile_to_world(vill_tile)
+		var vill_tile: Vector2i = spawn_tile + offset
+		var vill_pos: Vector2 = game_map.tile_to_world(vill_tile)
 		_spawn_unit(UnitData.UnitType.VILLAGER, player_id, vill_pos)
 
 
@@ -173,7 +173,7 @@ func _spawn_building(building_type: int, player_id: int, tile_pos: Vector2i) -> 
 	building.building_destroyed.connect(_on_building_destroyed.bind(player_id, tile_pos))
 
 	# Connect production queue if it has one.
-	var pq := building.get_production_queue()
+	var pq: Node = building.get_production_queue()
 	if pq:
 		pq.unit_trained.connect(_on_unit_trained.bind(player_id))
 
@@ -222,12 +222,12 @@ func _on_selection_changed(selected_units: Array[Node2D]) -> void:
 	var first: Node2D = selected_units[0]
 	if first is UnitBase:
 		var u: UnitBase = first as UnitBase
-		var action_text := UnitBase.State.keys()[u.current_state]
+		var action_text: String = UnitBase.State.keys()[u.current_state]
 		hud.show_unit_selection(UnitData.get_unit_name(u.unit_type), int(u.hp), int(u.max_hp), action_text)
 	elif first is BuildingBase:
 		var b: BuildingBase = first as BuildingBase
 		var queue_info: Array = []
-		var pq := b.get_production_queue()
+		var pq: Node = b.get_production_queue()
 		if pq:
 			queue_info = pq.get_queue_info()
 		hud.show_building_selection(b.building_name, b.hp, b.max_hp, queue_info)
@@ -237,9 +237,9 @@ func _on_move_command(target_tile: Vector2i) -> void:
 	var selected: Array = game_map.selection_mgr.selected
 	for node in selected:
 		if node is UnitBase and node.player_owner == 0:
-			var world_pos := game_map.tile_to_world(target_tile)
+			var world_pos: Vector2 = game_map.tile_to_world(target_tile)
 			# Get pathfinding path.
-			var unit_tile := game_map.world_to_tile(node.global_position)
+			var unit_tile: Vector2i = game_map.world_to_tile(node.global_position)
 			var tile_path: Array[Vector2i] = game_map.get_movement_path(unit_tile, target_tile)
 			if tile_path.size() > 1:
 				var world_path := PackedVector2Array()
@@ -333,7 +333,7 @@ func _on_age_up_requested() -> void:
 # =========================================================================
 
 func _on_placement_confirmed(building_type: int, world_pos: Vector2) -> void:
-	var tile_pos := game_map.world_to_tile(world_pos)
+	var tile_pos: Vector2i = game_map.world_to_tile(world_pos)
 
 	var cost: Dictionary = BuildingData.get_building_cost(building_type)
 	if not ResourceManager.try_spend(0, cost):
@@ -361,7 +361,7 @@ func _send_villager_to_build(building: BuildingBase) -> void:
 
 
 func _screen_to_world(screen_pos: Vector2) -> Vector2:
-	var canvas_transform := get_viewport().get_canvas_transform()
+	var canvas_transform: Transform2D = get_viewport().get_canvas_transform()
 	return canvas_transform.affine_inverse() * screen_pos
 
 
@@ -444,7 +444,7 @@ func _update_fog_of_war() -> void:
 	for unit in _player_units[0]:
 		if not is_instance_valid(unit) or unit.current_state == UnitBase.State.DEAD:
 			continue
-		var tile_pos := game_map.world_to_tile(unit.global_position)
+		var tile_pos: Vector2i = game_map.world_to_tile(unit.global_position)
 		var vision_tiles: int = int(unit.vision_radius / 16.0)  # Convert pixel radius back to tiles
 		var is_scout: bool = unit.unit_type == UnitData.UnitType.SCOUT
 		fog.register_vision_source(tile_pos, vision_tiles, is_scout)
@@ -453,7 +453,7 @@ func _update_fog_of_war() -> void:
 	for building in _player_buildings[0]:
 		if not is_instance_valid(building):
 			continue
-		var tile_pos := game_map.world_to_tile(building.global_position)
+		var tile_pos: Vector2i = game_map.world_to_tile(building.global_position)
 		fog.register_vision_source(tile_pos, 3, false)
 
 
