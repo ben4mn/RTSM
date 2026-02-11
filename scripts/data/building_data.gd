@@ -25,7 +25,7 @@ const BUILDINGS: Dictionary = {
 		"build_time": 60.0,
 		"pop_provided": 5,
 		"footprint": Vector2i(4, 4),
-		"can_train": [UnitData.UnitType.VILLAGER],
+		"can_train": [UnitData.UnitType.VILLAGER, UnitData.UnitType.SCOUT],
 		"age_required": 3,  # Extra TCs available in Castle Age
 		"drop_off": ["food", "wood", "gold"],
 		"color": Color(0.85, 0.75, 0.35),

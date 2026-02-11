@@ -296,7 +296,7 @@ func _on_game_state_changed(_new_state: int) -> void:
 
 # --- Selection panel ---
 
-func show_unit_selection(unit_name: String, current_hp: int, max_hp: int, action_text: String, count: int = 1) -> void:
+func show_unit_selection(unit_name: String, current_hp: int, max_hp: int, action_text: String, count: int = 1, unit_stats: Dictionary = {}) -> void:
 	selection_panel.visible = true
 	if count > 1:
 		selection_name.text = "%dx %s" % [count, unit_name]
@@ -304,7 +304,19 @@ func show_unit_selection(unit_name: String, current_hp: int, max_hp: int, action
 		selection_name.text = unit_name
 	selection_hp_bar.max_value = max_hp
 	selection_hp_bar.value = current_hp
-	selection_details.text = action_text
+	# Show stats line + action text
+	var stats_line := ""
+	if not unit_stats.is_empty():
+		var parts: PackedStringArray = PackedStringArray()
+		if unit_stats.has("damage"):
+			parts.append("Atk:%d" % unit_stats["damage"])
+		if unit_stats.has("armor"):
+			parts.append("Arm:%d" % unit_stats["armor"])
+		if unit_stats.has("range") and unit_stats["range"] > 1:
+			parts.append("Rng:%d" % unit_stats["range"])
+		if parts.size() > 0:
+			stats_line = " | ".join(parts) + "\n"
+	selection_details.text = stats_line + action_text
 	queue_container.visible = false
 	_selected_building_ref = null
 	if _train_buttons_container:

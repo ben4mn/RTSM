@@ -69,10 +69,12 @@ var _stats: Dictionary = {
 var _hint_timer: float = 0.0
 var _hints_shown: int = 0
 const HINTS: Array = [
-	{"time": 5.0, "text": "Press H to select your Town Center", "color": Color(0.7, 0.8, 1.0)},
-	{"time": 20.0, "text": "Train more Villagers for faster gathering [Q]", "color": Color(0.7, 0.8, 1.0)},
-	{"time": 40.0, "text": "Build Houses to increase population cap [B]", "color": Color(0.7, 0.8, 1.0)},
-	{"time": 70.0, "text": "Build a Barracks to train military units", "color": Color(0.7, 0.8, 1.0)},
+	{"time": 3.0, "text": "Destroy the enemy Town Center to win!", "color": Color(1.0, 0.9, 0.5)},
+	{"time": 8.0, "text": "Press H to select your Town Center", "color": Color(0.7, 0.8, 1.0)},
+	{"time": 25.0, "text": "Train more Villagers for faster gathering [Q]", "color": Color(0.7, 0.8, 1.0)},
+	{"time": 45.0, "text": "Build Houses to increase population cap [B]", "color": Color(0.7, 0.8, 1.0)},
+	{"time": 75.0, "text": "Build a Barracks to train military units", "color": Color(0.7, 0.8, 1.0)},
+	{"time": 120.0, "text": "Train a Scout from your TC to explore the map", "color": Color(0.7, 0.8, 1.0)},
 ]
 
 
@@ -279,6 +281,18 @@ func _on_idle_villager_pressed() -> void:
 	game_map.selection_mgr.deselect_all()
 	game_map.selection_mgr._add_to_selection(target)
 	game_map.camera.position = target.global_position
+
+
+func _auto_explore_idle_scouts() -> void:
+	for unit in _player_units[0]:
+		if not is_instance_valid(unit) or unit.current_state != UnitBase.State.IDLE:
+			continue
+		if unit.unit_type != UnitData.UnitType.SCOUT:
+			continue
+		# Send to a random map position
+		var random_tile := Vector2i(randi_range(2, MapData.MAP_WIDTH - 3), randi_range(2, MapData.MAP_HEIGHT - 3))
+		var world_pos: Vector2 = game_map.tile_to_world(random_tile)
+		unit.command_move(world_pos)
 
 
 func _update_idle_villager_count() -> void:
@@ -502,7 +516,10 @@ func _on_selection_changed(selected_units: Array[Node2D]) -> void:
 					total_hp += int((node as UnitBase).hp)
 					total_max_hp += int((node as UnitBase).max_hp)
 			action_text = "Mixed (%d units)" % count
-		hud.show_unit_selection(UnitData.get_unit_name(u.unit_type), total_hp, total_max_hp, action_text, count)
+		var stats: Dictionary = {}
+		if not (u is Villager):
+			stats = {"damage": int(u.damage), "armor": int(u.armor), "range": int(u.attack_range / 16.0)}
+		hud.show_unit_selection(UnitData.get_unit_name(u.unit_type), total_hp, total_max_hp, action_text, count, stats)
 	elif first is BuildingBase:
 		var b: BuildingBase = first as BuildingBase
 		var queue_info: Array = []
@@ -834,6 +851,7 @@ func _process(delta: float) -> void:
 		_minimap_timer = 0.0
 		_update_minimap()
 		_update_idle_villager_count()
+		_auto_explore_idle_scouts()
 	# Refresh selection display every 0.5s to keep gather progress / queue current
 	_selection_refresh_timer += delta
 	if _selection_refresh_timer >= 0.5:
