@@ -74,10 +74,10 @@ static func _create_fog_atlas() -> Image:
 	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
 
-	# Unexplored = fully black.
-	_draw_iso_diamond(img, 0, 0, MapData.TILE_WIDTH, MapData.TILE_HEIGHT, Color(0, 0, 0, 0.95))
-	# Explored = semi-transparent dark grey.
-	_draw_iso_diamond(img, MapData.TILE_WIDTH, 0, MapData.TILE_WIDTH, MapData.TILE_HEIGHT, Color(0, 0, 0, 0.55))
+	# Unexplored = dark but not completely opaque so you can faintly see terrain shape.
+	_draw_iso_diamond(img, 0, 0, MapData.TILE_WIDTH, MapData.TILE_HEIGHT, Color(0, 0, 0, 0.85))
+	# Explored = light dim so previously-seen terrain is clearly visible.
+	_draw_iso_diamond(img, MapData.TILE_WIDTH, 0, MapData.TILE_WIDTH, MapData.TILE_HEIGHT, Color(0, 0, 0, 0.35))
 
 	return img
 

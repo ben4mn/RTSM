@@ -77,6 +77,10 @@ func _on_map_ready(map_gen: MapGenerator) -> void:
 	# Wire up AI.
 	_setup_ai(map_gen)
 
+	# Center camera on player's starting base.
+	var player_spawn: Vector2 = game_map.tile_to_world(map_gen.spawn_positions[0])
+	game_map.camera.position = player_spawn
+
 	# Update initial HUD state.
 	_refresh_hud_resources(0)
 	_update_population_display()
