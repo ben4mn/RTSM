@@ -11,6 +11,7 @@ signal minimap_clicked(world_pos: Vector2)
 signal cancel_queue_requested(building: Node2D, index: int)
 signal select_all_military_pressed()
 signal find_army_pressed()
+signal research_requested(building: Node2D, research_id: String)
 
 const RESOURCE_COLORS: Dictionary = {
 	"food": Color(0.9, 0.35, 0.25),
@@ -72,6 +73,9 @@ var _find_army_button: Button = null
 
 # Idle villager flash tween
 var _idle_flash_tween: Tween = null
+
+# Research buttons
+var _research_container: VBoxContainer = null
 
 
 func _ready() -> void:
@@ -321,6 +325,8 @@ func show_unit_selection(unit_name: String, current_hp: int, max_hp: int, action
 	_selected_building_ref = null
 	if _train_buttons_container:
 		_train_buttons_container.visible = false
+	if _research_container:
+		_research_container.visible = false
 
 
 func show_building_selection(building_name: String, current_hp: int, max_hp: int, queue_items: Array, trainable_units: Array = [], building_ref: Node2D = null) -> void:
@@ -332,6 +338,7 @@ func show_building_selection(building_name: String, current_hp: int, max_hp: int
 	_selected_building_ref = building_ref
 	_update_queue_display(queue_items)
 	_update_train_buttons(trainable_units)
+	_update_research_buttons(building_ref)
 
 
 func clear_selection() -> void:
@@ -339,6 +346,8 @@ func clear_selection() -> void:
 	_selected_building_ref = null
 	if _train_buttons_container:
 		_train_buttons_container.visible = false
+	if _research_container:
+		_research_container.visible = false
 
 
 func _update_queue_display(queue_items: Array) -> void:
@@ -432,6 +441,67 @@ func _on_auto_queue_toggled(pressed: bool) -> void:
 		var pq: Node = _selected_building_ref.get_production_queue() if _selected_building_ref.has_method("get_production_queue") else null
 		if pq:
 			pq.auto_queue_enabled = pressed
+
+
+# --- Research buttons (Blacksmith) ---
+
+const RESEARCH_DEFS: Array = [
+	{"id": "forging", "name": "Forge Weapons", "desc": "+2 Attack", "cost": {"food": 100, "gold": 50}},
+	{"id": "scale_mail", "name": "Scale Mail", "desc": "+1 Armor", "cost": {"food": 100, "gold": 50}},
+]
+
+
+func _update_research_buttons(building_ref: Node2D) -> void:
+	# Create container on first use
+	if _research_container == null:
+		_research_container = VBoxContainer.new()
+		_research_container.add_theme_constant_override("separation", 4)
+		var parent_vbox: Control = queue_container.get_parent()
+		if parent_vbox:
+			parent_vbox.add_child(_research_container)
+
+	# Clear old buttons
+	for child in _research_container.get_children():
+		child.queue_free()
+
+	# Only show for Blacksmith
+	if building_ref == null or not is_instance_valid(building_ref):
+		_research_container.visible = false
+		return
+	if not (building_ref is BuildingBase):
+		_research_container.visible = false
+		return
+	var b: BuildingBase = building_ref as BuildingBase
+	if b.building_type != BuildingData.BuildingType.BLACKSMITH or b.state != BuildingBase.State.ACTIVE:
+		_research_container.visible = false
+		return
+
+	_research_container.visible = true
+	var gm: Node = _get_game_manager()
+
+	for rd in RESEARCH_DEFS:
+		var btn := Button.new()
+		var cost_str := ""
+		if rd["cost"].get("food", 0) > 0:
+			cost_str += "F:%d " % rd["cost"]["food"]
+		if rd["cost"].get("gold", 0) > 0:
+			cost_str += "G:%d" % rd["cost"]["gold"]
+		btn.text = "%s: %s (%s)" % [rd["name"], rd["desc"], cost_str.strip_edges()]
+		btn.custom_minimum_size = Vector2(200, 32)
+		var already_done: bool = false
+		if gm and gm.has_method("has_research"):
+			already_done = gm.has_research(b.player_owner, rd["id"])
+		if already_done:
+			btn.text += " [DONE]"
+			btn.disabled = true
+		else:
+			btn.pressed.connect(_on_research_pressed.bind(rd["id"]))
+		_research_container.add_child(btn)
+
+
+func _on_research_pressed(research_id: String) -> void:
+	if _selected_building_ref and is_instance_valid(_selected_building_ref):
+		research_requested.emit(_selected_building_ref, research_id)
 
 
 # --- Build menu toggle ---

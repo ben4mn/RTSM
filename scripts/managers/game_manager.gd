@@ -33,6 +33,12 @@ var game_speed: float = 1.0
 var selected_difficulty: int = 1  # 0=Easy, 1=Medium, 2=Hard
 
 
+# --- Upgrade tracking per player ---
+# Keys: "attack_bonus", "armor_bonus" — global military buffs
+var player_upgrades: Dictionary = {}  # player_id -> { "attack_bonus": int, "armor_bonus": int }
+var researched_upgrades: Dictionary = {}  # player_id -> Array of completed research IDs
+
+
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 
@@ -48,6 +54,8 @@ func initialize_game(num_players: int = 2) -> void:
 
 	for i in range(num_players):
 		players[i] = _create_player_data(i)
+		player_upgrades[i] = {"attack_bonus": 0, "armor_bonus": 0}
+		researched_upgrades[i] = []
 
 	set_state(GameState.PLAYING)
 
@@ -154,6 +162,41 @@ func get_formatted_time() -> String:
 	@warning_ignore("integer_division")
 	var seconds: int = int(game_time) % 60
 	return "%02d:%02d" % [minutes, seconds]
+
+
+func get_attack_bonus(player_id: int) -> int:
+	if player_upgrades.has(player_id):
+		return player_upgrades[player_id].get("attack_bonus", 0)
+	return 0
+
+
+func get_armor_bonus(player_id: int) -> int:
+	if player_upgrades.has(player_id):
+		return player_upgrades[player_id].get("armor_bonus", 0)
+	return 0
+
+
+func apply_attack_upgrade(player_id: int, amount: int) -> void:
+	if player_upgrades.has(player_id):
+		player_upgrades[player_id]["attack_bonus"] += amount
+
+
+func apply_armor_upgrade(player_id: int, amount: int) -> void:
+	if player_upgrades.has(player_id):
+		player_upgrades[player_id]["armor_bonus"] += amount
+
+
+func has_research(player_id: int, research_id: String) -> bool:
+	if researched_upgrades.has(player_id):
+		return research_id in researched_upgrades[player_id]
+	return false
+
+
+func complete_research(player_id: int, research_id: String) -> void:
+	if not researched_upgrades.has(player_id):
+		researched_upgrades[player_id] = []
+	if research_id not in researched_upgrades[player_id]:
+		researched_upgrades[player_id].append(research_id)
 
 
 func toggle_pause() -> void:

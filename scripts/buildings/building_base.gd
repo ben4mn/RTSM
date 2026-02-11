@@ -34,6 +34,12 @@ var _sprite: Sprite2D = null
 var _construction_dust_timer: float = 0.0
 var _damage_smoke_timer: float = 0.0
 
+# Tower auto-attack
+var tower_attack_damage: int = 0
+var tower_attack_range: float = 0.0
+var _tower_attack_cooldown: float = 0.0
+const TOWER_ATTACK_INTERVAL: float = 1.5
+
 ## Sprite texture paths per building type from Kenney Medieval RTS pack.
 const BUILDING_SPRITES: Dictionary = {
 	BuildingData.BuildingType.TOWN_CENTER: "res://assets/buildings/town_center.png",
@@ -43,8 +49,10 @@ const BUILDING_SPRITES: Dictionary = {
 	BuildingData.BuildingType.STABLE: "res://assets/buildings/stable.png",
 	BuildingData.BuildingType.FARM: "res://assets/buildings/market_stall.png",
 	BuildingData.BuildingType.LUMBER_CAMP: "res://assets/buildings/lumber_camp.png",
-	BuildingData.BuildingType.MINING_CAMP: "res://assets/buildings/monument.png",
-	BuildingData.BuildingType.SIEGE_WORKSHOP: "res://assets/buildings/blacksmith.png",
+	BuildingData.BuildingType.MINING_CAMP: "res://assets/buildings/market.png",
+	BuildingData.BuildingType.SIEGE_WORKSHOP: "res://assets/buildings/monument.png",
+	BuildingData.BuildingType.BLACKSMITH: "res://assets/buildings/blacksmith.png",
+	BuildingData.BuildingType.WATCH_TOWER: "res://assets/buildings/tower.png",
 }
 
 ## Scale per building type — larger footprint buildings get larger sprites.
@@ -58,6 +66,8 @@ const BUILDING_SCALES: Dictionary = {
 	BuildingData.BuildingType.LUMBER_CAMP: Vector2(0.45, 0.45),
 	BuildingData.BuildingType.MINING_CAMP: Vector2(0.40, 0.40),
 	BuildingData.BuildingType.SIEGE_WORKSHOP: Vector2(0.60, 0.60),
+	BuildingData.BuildingType.BLACKSMITH: Vector2(0.50, 0.50),
+	BuildingData.BuildingType.WATCH_TOWER: Vector2(0.50, 0.50),
 }
 
 
@@ -90,6 +100,8 @@ func _load_stats() -> void:
 	trainable_units = stats.get("can_train", [])
 	building_color = stats.get("color", Color(0.6, 0.45, 0.3))
 	provides_food = stats.get("provides_food", false)
+	tower_attack_damage = stats.get("attack_damage", 0)
+	tower_attack_range = stats.get("attack_range", 0) * MapData.TILE_WIDTH
 
 
 func _setup_collision() -> void:
@@ -221,6 +233,12 @@ func _process(delta: float) -> void:
 				if hp_ratio < 0.25:
 					VFX.building_fire(get_tree(), global_position)
 		queue_redraw()
+	# Tower auto-attack
+	if state == State.ACTIVE and tower_attack_damage > 0:
+		_tower_attack_cooldown -= delta
+		if _tower_attack_cooldown <= 0.0:
+			_tower_attack_cooldown = TOWER_ATTACK_INTERVAL
+			_tower_try_attack()
 	elif is_selected:
 		queue_redraw()
 
@@ -370,3 +388,28 @@ func get_production_queue() -> Node:
 
 func set_production_queue(queue: Node) -> void:
 	_production_queue = queue
+
+
+func _tower_try_attack() -> void:
+	# Find nearest enemy unit in range
+	var enemy_group: String = "player_%d" % (1 - player_owner)
+	var best_target: Node2D = null
+	var best_dist: float = INF
+	for node in get_tree().get_nodes_in_group("units"):
+		if not is_instance_valid(node):
+			continue
+		if not (node is UnitBase):
+			continue
+		var u: UnitBase = node as UnitBase
+		if u.player_owner == player_owner or u.current_state == UnitBase.State.DEAD:
+			continue
+		var dist: float = global_position.distance_to(u.global_position)
+		if dist <= tower_attack_range and dist < best_dist:
+			best_dist = dist
+			best_target = u
+	if best_target != null:
+		var target_unit: UnitBase = best_target as UnitBase
+		target_unit.take_damage(tower_attack_damage)
+		# VFX: arrow-like hit burst
+		if get_tree() and get_tree().current_scene:
+			VFX.hit_burst(get_tree(), target_unit.global_position, Color(0.8, 0.6, 0.2))

@@ -23,6 +23,8 @@ var _building_scenes: Dictionary = {
 	BuildingData.BuildingType.LUMBER_CAMP: preload("res://scenes/buildings/lumber_camp.tscn"),
 	BuildingData.BuildingType.MINING_CAMP: preload("res://scenes/buildings/mining_camp.tscn"),
 	BuildingData.BuildingType.SIEGE_WORKSHOP: preload("res://scenes/buildings/siege_workshop.tscn"),
+	BuildingData.BuildingType.BLACKSMITH: preload("res://scenes/buildings/blacksmith.tscn"),
+	BuildingData.BuildingType.WATCH_TOWER: preload("res://scenes/buildings/watch_tower.tscn"),
 }
 
 # --- Team colors ---
@@ -642,6 +644,44 @@ func _on_cancel_queue_requested(building: Node2D, index: int) -> void:
 		_on_selection_changed(game_map.selection_mgr.selected)
 
 
+func _on_research_requested(building: Node2D, research_id: String) -> void:
+	if not is_instance_valid(building) or not (building is BuildingBase):
+		return
+	var b: BuildingBase = building as BuildingBase
+	var gm: Node = GameManager
+	if gm.has_research(b.player_owner, research_id):
+		return
+
+	# Look up cost and effect from HUD's research defs
+	var cost: Dictionary = {}
+	var effect_text := ""
+	for rd in hud.RESEARCH_DEFS:
+		if rd["id"] == research_id:
+			cost = rd["cost"]
+			effect_text = rd["desc"]
+			break
+	if cost.is_empty():
+		return
+
+	# Try to spend resources
+	var rm: Node = ResourceManager
+	if not rm.try_spend(b.player_owner, cost):
+		hud.show_notification("Not enough resources!", Color(1.0, 0.4, 0.3))
+		return
+
+	# Apply upgrade
+	gm.complete_research(b.player_owner, research_id)
+	if research_id == "forging":
+		gm.apply_attack_upgrade(b.player_owner, 2)
+	elif research_id == "scale_mail":
+		gm.apply_armor_upgrade(b.player_owner, 1)
+
+	hud.show_notification("Research complete: %s" % effect_text, Color(0.5, 0.8, 1.0))
+
+	# Refresh selection panel to show [DONE] status
+	_on_selection_changed(game_map.selection_mgr.selected)
+
+
 # =========================================================================
 #  HUD + BUILD MENU WIRING
 # =========================================================================
@@ -663,6 +703,7 @@ func _setup_hud() -> void:
 	hud.cancel_queue_requested.connect(_on_cancel_queue_requested)
 	hud.select_all_military_pressed.connect(_select_all_military)
 	hud.find_army_pressed.connect(_find_army)
+	hud.research_requested.connect(_on_research_requested)
 	_build_menu.building_selected.connect(_on_building_selected_for_placement)
 	_build_menu.cancel_placement.connect(_on_cancel_placement)
 

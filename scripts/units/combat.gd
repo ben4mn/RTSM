@@ -24,8 +24,15 @@ static func get_counter_bonus(attacker_type: int, defender_type: int) -> float:
 
 static func calculate_damage(attacker: UnitBase, defender: UnitBase) -> float:
 	var base_damage: float = attacker.damage
+	# Apply global attack upgrade
+	var gm: Node = attacker.get_node_or_null("/root/GameManager")
+	if gm:
+		base_damage += gm.get_attack_bonus(attacker.player_owner)
 	var bonus: float = get_counter_bonus(attacker.unit_type, defender.unit_type)
-	return base_damage * bonus
+	var armor: float = defender.armor
+	if gm:
+		armor += gm.get_armor_bonus(defender.player_owner)
+	return maxf(1.0, base_damage * bonus - armor)
 
 
 static func deal_damage(attacker: UnitBase, defender: UnitBase) -> void:

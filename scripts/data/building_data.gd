@@ -12,6 +12,8 @@ enum BuildingType {
 	LUMBER_CAMP,
 	MINING_CAMP,
 	SIEGE_WORKSHOP,
+	BLACKSMITH,
+	WATCH_TOWER,
 }
 
 # Cost format: { "food": int, "wood": int, "gold": int }
@@ -126,6 +128,33 @@ const BUILDINGS: Dictionary = {
 		"age_required": 3,
 		"drop_off": [],
 		"color": Color(0.4, 0.4, 0.45),
+	},
+	BuildingType.BLACKSMITH: {
+		"name": "Blacksmith",
+		"hp": 1200,
+		"cost": { "food": 0, "wood": 150, "gold": 0 },
+		"build_time": 25.0,
+		"pop_provided": 0,
+		"footprint": Vector2i(2, 2),
+		"can_train": [],
+		"age_required": 1,
+		"drop_off": [],
+		"color": Color(0.45, 0.35, 0.35),
+		"has_research": true,
+	},
+	BuildingType.WATCH_TOWER: {
+		"name": "Watch Tower",
+		"hp": 800,
+		"cost": { "food": 0, "wood": 100, "gold": 25 },
+		"build_time": 30.0,
+		"pop_provided": 0,
+		"footprint": Vector2i(1, 1),
+		"can_train": [],
+		"age_required": 2,
+		"drop_off": [],
+		"color": Color(0.55, 0.45, 0.35),
+		"attack_damage": 6,
+		"attack_range": 6,
 	},
 }
 
