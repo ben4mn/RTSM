@@ -31,6 +31,7 @@ func generate() -> Array:
 	_place_resources()
 	_place_spawn_positions()
 	_ensure_spawn_clearance()
+	_place_guaranteed_near_spawn_resources()
 	return grid
 
 
@@ -116,11 +117,11 @@ func _place_spawn_positions() -> void:
 	spawn_positions.append(Vector2i(MapData.MAP_WIDTH - 4, 3))
 
 
-## Clear a 7x7 area around each spawn so the Town Center has a visible clearing.
+## Clear an 11x11 area around each spawn so the Town Center has a visible clearing.
 func _ensure_spawn_clearance() -> void:
 	for spawn in spawn_positions:
-		for dy in range(-3, 4):
-			for dx in range(-3, 4):
+		for dy in range(-5, 6):
+			for dx in range(-5, 6):
 				var tx := spawn.x + dx
 				var ty := spawn.y + dy
 				if _in_bounds(tx, ty):
@@ -145,6 +146,49 @@ func _place_blob(cx: int, cy: int, size: int, tile_type: MapData.TileType) -> vo
 			3: y -= 1
 		x = clampi(x, 0, MapData.MAP_WIDTH - 1)
 		y = clampi(y, 0, MapData.MAP_HEIGHT - 1)
+
+
+## Place guaranteed resources near each spawn so players always have nearby food, gold, and wood.
+## Called AFTER _ensure_spawn_clearance so resources won't be overwritten.
+func _place_guaranteed_near_spawn_resources() -> void:
+	for spawn in spawn_positions:
+		# 3 berry bushes just outside clearance (food access)
+		_place_near_spawn(spawn, MapData.TileType.BERRY_BUSH, 3, 6, 8)
+		# 2 gold mines nearby
+		_place_near_spawn(spawn, MapData.TileType.GOLD_MINE, 2, 7, 10)
+		# Forest cluster for easy wood
+		_place_forest_near_spawn(spawn)
+
+
+func _place_near_spawn(spawn: Vector2i, tile_type: MapData.TileType, count: int, min_dist: int, max_dist: int) -> void:
+	var placed := 0
+	for _attempt in range(200):
+		if placed >= count:
+			break
+		var dx := _rng.randi_range(-max_dist, max_dist)
+		var dy := _rng.randi_range(-max_dist, max_dist)
+		var dist := maxi(absi(dx), absi(dy))  # Chebyshev distance
+		if dist < min_dist or dist > max_dist:
+			continue
+		var tx := spawn.x + dx
+		var ty := spawn.y + dy
+		if _in_bounds(tx, ty) and grid[ty][tx] == MapData.TileType.GRASS:
+			_set_tile(tx, ty, tile_type)
+			placed += 1
+
+
+func _place_forest_near_spawn(spawn: Vector2i) -> void:
+	for _attempt in range(30):
+		var dx := _rng.randi_range(-11, 11)
+		var dy := _rng.randi_range(-11, 11)
+		var dist := maxi(absi(dx), absi(dy))
+		if dist < 6 or dist > 11:
+			continue
+		var fx := spawn.x + dx
+		var fy := spawn.y + dy
+		if _in_bounds(fx, fy) and grid[fy][fx] == MapData.TileType.GRASS:
+			_place_blob(fx, fy, 6, MapData.TileType.FOREST)
+			break
 
 
 func _set_tile(x: int, y: int, tile_type: MapData.TileType) -> void:

@@ -9,6 +9,8 @@ signal idle_villager_pressed()
 signal train_unit_requested(building: Node2D, unit_type: int)
 signal minimap_clicked(world_pos: Vector2)
 signal cancel_queue_requested(building: Node2D, index: int)
+signal select_all_military_pressed()
+signal find_army_pressed()
 
 const RESOURCE_COLORS: Dictionary = {
 	"food": Color(0.9, 0.35, 0.25),
@@ -64,6 +66,10 @@ var _notification_container: VBoxContainer = null
 const MAX_NOTIFICATIONS: int = 6
 const NOTIFICATION_DURATION: float = 5.0
 
+# Military buttons
+var _select_military_button: Button = null
+var _find_army_button: Button = null
+
 # Idle villager flash tween
 var _idle_flash_tween: Tween = null
 
@@ -85,6 +91,7 @@ func _ready() -> void:
 	# Create new UI elements
 	_create_game_control_buttons()
 	_create_idle_villager_button()
+	_create_military_buttons()
 	_create_notification_feed()
 
 	# Connect to autoloads if available
@@ -176,24 +183,38 @@ func set_pause_display(is_paused: bool) -> void:
 # --- Idle villager button ---
 
 func _create_idle_villager_button() -> void:
-	var root_ctrl: Control = $Root
+	var bottom_right: VBoxContainer = %BottomRight
 	_idle_villager_button = Button.new()
 	_idle_villager_button.text = "Idle: 0"
-	_idle_villager_button.custom_minimum_size = Vector2(90, 30)
-	_idle_villager_button.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	_idle_villager_button.offset_left = -100
-	_idle_villager_button.offset_right = -8
-	_idle_villager_button.offset_top = -180
-	_idle_villager_button.offset_bottom = -148
-	_idle_villager_button.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	_idle_villager_button.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_idle_villager_button.custom_minimum_size = Vector2(140, 36)
 	_idle_villager_button.pressed.connect(_on_idle_villager_pressed)
 	_idle_villager_button.tooltip_text = "Cycle idle villagers [.]"
-	root_ctrl.add_child(_idle_villager_button)
+	bottom_right.add_child(_idle_villager_button)
+	bottom_right.move_child(_idle_villager_button, 0)
 
 
 func _on_idle_villager_pressed() -> void:
 	idle_villager_pressed.emit()
+
+
+func _create_military_buttons() -> void:
+	var bottom_right: VBoxContainer = %BottomRight
+
+	_select_military_button = Button.new()
+	_select_military_button.text = "Military [M]"
+	_select_military_button.custom_minimum_size = Vector2(140, 36)
+	_select_military_button.pressed.connect(func(): select_all_military_pressed.emit())
+	_select_military_button.tooltip_text = "Select all military units [M]"
+	bottom_right.add_child(_select_military_button)
+	bottom_right.move_child(_select_military_button, 1)
+
+	_find_army_button = Button.new()
+	_find_army_button.text = "Find Army [F]"
+	_find_army_button.custom_minimum_size = Vector2(140, 36)
+	_find_army_button.pressed.connect(func(): find_army_pressed.emit())
+	_find_army_button.tooltip_text = "Center camera on your army [F]"
+	bottom_right.add_child(_find_army_button)
+	bottom_right.move_child(_find_army_button, 2)
 
 
 func update_idle_villager_count(count: int) -> void:

@@ -65,6 +65,16 @@ var _stats: Dictionary = {
 	"resources_gathered": 0,
 }
 
+# --- Early game hints ---
+var _hint_timer: float = 0.0
+var _hints_shown: int = 0
+const HINTS: Array = [
+	{"time": 5.0, "text": "Press H to select your Town Center", "color": Color(0.7, 0.8, 1.0)},
+	{"time": 20.0, "text": "Train more Villagers for faster gathering [Q]", "color": Color(0.7, 0.8, 1.0)},
+	{"time": 40.0, "text": "Build Houses to increase population cap [B]", "color": Color(0.7, 0.8, 1.0)},
+	{"time": 70.0, "text": "Build a Barracks to train military units", "color": Color(0.7, 0.8, 1.0)},
+]
+
 
 func _ready() -> void:
 	# Wait for map generation to finish.
@@ -136,6 +146,15 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action("toggle_build_menu"):
 		_on_build_menu_pressed_hotkey()
 		get_viewport().set_input_as_handled()
+	elif event.is_action("select_tc"):
+		_select_town_center()
+		get_viewport().set_input_as_handled()
+	elif event.is_action("select_all_military"):
+		_select_all_military()
+		get_viewport().set_input_as_handled()
+	elif event.is_action("find_army"):
+		_find_army()
+		get_viewport().set_input_as_handled()
 
 
 func _handle_escape() -> void:
@@ -165,6 +184,41 @@ func _center_camera_on_selection() -> void:
 
 func _on_build_menu_pressed_hotkey() -> void:
 	hud._on_build_menu_pressed()
+
+
+func _select_all_military() -> void:
+	game_map.selection_mgr.deselect_all()
+	for unit in _player_units[0]:
+		if not is_instance_valid(unit) or unit.current_state == UnitBase.State.DEAD:
+			continue
+		if unit is Villager:
+			continue
+		game_map.selection_mgr._add_to_selection(unit)
+
+
+func _find_army() -> void:
+	var center := Vector2.ZERO
+	var count: int = 0
+	for unit in _player_units[0]:
+		if not is_instance_valid(unit) or unit.current_state == UnitBase.State.DEAD:
+			continue
+		if unit is Villager:
+			continue
+		center += unit.global_position
+		count += 1
+	if count > 0:
+		game_map.camera.position = center / float(count)
+		game_map._clamp_camera()
+
+
+func _select_town_center() -> void:
+	for building in _player_buildings[0]:
+		if is_instance_valid(building) and building.building_type == BuildingData.BuildingType.TOWN_CENTER:
+			game_map.selection_mgr.deselect_all()
+			game_map.selection_mgr._add_to_selection(building)
+			game_map.camera.position = building.global_position
+			game_map._clamp_camera()
+			return
 
 
 func _handle_production_hotkey() -> void:
@@ -247,8 +301,8 @@ func _setup_player_start(player_id: int, spawn_tile: Vector2i) -> void:
 
 	# Note: TC production queue is already connected in _spawn_building().
 
-	# Place 3 starting villagers nearby and auto-assign to gather.
-	var offsets: Array[Vector2i] = [Vector2i(1, 2), Vector2i(-1, 2), Vector2i(0, 3)]
+	# Place 4 starting villagers nearby and auto-assign to gather.
+	var offsets: Array[Vector2i] = [Vector2i(1, 2), Vector2i(-1, 2), Vector2i(0, 3), Vector2i(2, 1)]
 	var villagers: Array[UnitBase] = []
 	for offset in offsets:
 		var vill_tile: Vector2i = spawn_tile + offset
@@ -257,22 +311,18 @@ func _setup_player_start(player_id: int, spawn_tile: Vector2i) -> void:
 		if v:
 			villagers.append(v)
 
-	# Auto-assign: 2 villagers to food, 1 to wood.
+	# Auto-assign: food, wood, gold, food (4 villagers).
 	# Use call_deferred so resource nodes are spawned first.
 	call_deferred("_auto_assign_starting_villagers", villagers)
 
 
 func _auto_assign_starting_villagers(villagers: Array) -> void:
+	var assignments: Array[String] = ["food", "wood", "gold", "food"]
 	for i in villagers.size():
 		var v: UnitBase = villagers[i] as UnitBase
 		if not is_instance_valid(v):
 			continue
-		# Villager 0→food, 1→wood, 2→gold
-		var res_type: String
-		match i:
-			0: res_type = "food"
-			1: res_type = "wood"
-			_: res_type = "gold"
+		var res_type: String = assignments[i] if i < assignments.size() else "food"
 		var resource_node: Node2D = game_map.get_nearest_resource_node(res_type, v.global_position)
 		if resource_node and v.has_method("command_gather"):
 			v.command_gather(resource_node)
@@ -594,6 +644,8 @@ func _setup_hud() -> void:
 	hud.train_unit_requested.connect(_on_train_unit_requested)
 	hud.minimap_clicked.connect(_on_minimap_clicked)
 	hud.cancel_queue_requested.connect(_on_cancel_queue_requested)
+	hud.select_all_military_pressed.connect(_select_all_military)
+	hud.find_army_pressed.connect(_find_army)
 	_build_menu.building_selected.connect(_on_building_selected_for_placement)
 	_build_menu.cancel_placement.connect(_on_cancel_placement)
 
@@ -770,6 +822,12 @@ func _process(delta: float) -> void:
 	# Tick under-attack cooldown
 	if _under_attack_cooldown > 0.0:
 		_under_attack_cooldown -= delta
+	# Early game hints
+	if _hints_shown < HINTS.size():
+		_hint_timer += delta
+		while _hints_shown < HINTS.size() and _hint_timer >= HINTS[_hints_shown]["time"]:
+			hud.show_notification(HINTS[_hints_shown]["text"], HINTS[_hints_shown]["color"])
+			_hints_shown += 1
 	# Update minimap and idle count once per second
 	_minimap_timer += delta
 	if _minimap_timer >= 1.0:
