@@ -717,6 +717,21 @@ func update_minimap(grid: Array, player_units: Array, enemy_units: Array, player
 			if br.x >= 0 and br.x < map_w:
 				_minimap_image.set_pixel(br.x, ty, cam_color)
 
+	# Draw sacred site (bright purple dot at map center, always visible)
+	@warning_ignore("integer_division")
+	var sacred_x: int = map_w / 2
+	@warning_ignore("integer_division")
+	var sacred_y: int = map_h / 2
+	var sacred_color := Color(0.85, 0.55, 1.0)
+	for dy in range(-1, 2):
+		for dx in range(-1, 2):
+			var px: int = sacred_x + dx
+			var py: int = sacred_y + dy
+			if px >= 0 and px < map_w and py >= 0 and py < map_h:
+				# Only show if explored
+				if fog_grid.is_empty() or fog_grid[py][px] != MapData.FogState.UNEXPLORED:
+					_minimap_image.set_pixel(px, py, sacred_color)
+
 	_minimap_texture.update(_minimap_image)
 	minimap_rect.texture = _minimap_texture
 

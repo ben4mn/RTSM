@@ -79,13 +79,14 @@ var _sacred_site_victory_notified: bool = false
 var _hint_timer: float = 0.0
 var _hints_shown: int = 0
 const HINTS: Array = [
-	{"time": 3.0, "text": "Destroy the enemy Town Center to win!", "color": Color(1.0, 0.9, 0.5)},
+	{"time": 3.0, "text": "Destroy the enemy Town Center or hold the Sacred Site to win!", "color": Color(1.0, 0.9, 0.5)},
 	{"time": 6.0, "text": "Press F2 for all keyboard shortcuts", "color": Color(0.6, 0.7, 0.6)},
 	{"time": 12.0, "text": "Press H to select your Town Center", "color": Color(0.7, 0.8, 1.0)},
 	{"time": 25.0, "text": "Train more Villagers for faster gathering [Q]", "color": Color(0.7, 0.8, 1.0)},
 	{"time": 45.0, "text": "Build Houses to increase population cap [B]", "color": Color(0.7, 0.8, 1.0)},
 	{"time": 75.0, "text": "Build a Barracks to train military units", "color": Color(0.7, 0.8, 1.0)},
 	{"time": 120.0, "text": "Train a Scout from your TC to explore the map", "color": Color(0.7, 0.8, 1.0)},
+	{"time": 180.0, "text": "Hold the Sacred Site (map center) for 3 min to win!", "color": Color(0.85, 0.7, 1.0)},
 ]
 
 
