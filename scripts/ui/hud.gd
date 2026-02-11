@@ -83,6 +83,9 @@ var _hotkey_panel: PanelContainer = null
 # Sacred site timer label
 var _sacred_site_label: Label = null
 
+# Score label
+var _score_label: Label = null
+
 
 func _ready() -> void:
 	layer = 10
@@ -105,6 +108,7 @@ func _ready() -> void:
 	_create_notification_feed()
 	_create_hotkey_panel()
 	_create_sacred_site_label()
+	_create_score_label()
 
 	# Connect to autoloads if available
 	if Engine.has_singleton("GameManager") or has_node("/root/GameManager"):
@@ -870,7 +874,7 @@ func _toggle_hotkey_panel() -> void:
 func _create_sacred_site_label() -> void:
 	var root_ctrl: Control = $Root
 	_sacred_site_label = Label.new()
-	_sacred_site_label.set_anchors_preset(Control.PRESET_TOP_CENTER)
+	_sacred_site_label.set_anchors_preset(Control.PRESET_CENTER_TOP)
 	_sacred_site_label.offset_top = 32
 	_sacred_site_label.offset_left = -120
 	_sacred_site_label.offset_right = 120
@@ -902,6 +906,29 @@ func update_sacred_site_timer(player_id: int, remaining: float, total: float) ->
 	if remaining < 60.0 and player_id != 0:
 		var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.01)
 		_sacred_site_label.add_theme_color_override("font_color", Color(1.0, lerpf(0.2, 0.5, pulse), 0.2))
+
+
+# --- Score Display ---
+
+func _create_score_label() -> void:
+	var root_ctrl: Control = $Root
+	_score_label = Label.new()
+	_score_label.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_score_label.offset_left = -260
+	_score_label.offset_right = -170
+	_score_label.offset_top = 8
+	_score_label.offset_bottom = 28
+	_score_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_score_label.add_theme_font_size_override("font_size", 13)
+	_score_label.add_theme_color_override("font_color", Color(0.8, 0.75, 0.6))
+	_score_label.text = "Score: 0"
+	_score_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root_ctrl.add_child(_score_label)
+
+
+func update_score(score: int) -> void:
+	if _score_label:
+		_score_label.text = "Score: %d" % score
 
 
 # --- Military Count ---

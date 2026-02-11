@@ -1165,13 +1165,14 @@ func _process(delta: float) -> void:
 		while _hints_shown < HINTS.size() and _hint_timer >= HINTS[_hints_shown]["time"]:
 			hud.show_notification(HINTS[_hints_shown]["text"], HINTS[_hints_shown]["color"])
 			_hints_shown += 1
-	# Update minimap and idle count once per second
+	# Update minimap, idle count, and score once per second
 	_minimap_timer += delta
 	if _minimap_timer >= 1.0:
 		_minimap_timer = 0.0
 		_update_minimap()
 		_update_idle_villager_count()
 		_auto_explore_idle_scouts()
+		hud.update_score(_calculate_score())
 	# Refresh selection display every 0.5s to keep gather progress / queue current
 	_selection_refresh_timer += delta
 	if _selection_refresh_timer >= 0.5:
@@ -1288,6 +1289,8 @@ func _show_game_over() -> void:
 		"units_lost": _stats["units_lost"],
 		"units_trained": _stats["units_trained"],
 		"buildings_built": _stats["buildings_built"],
+		"resources_gathered": _stats["resources_gathered"],
+		"score": _calculate_score(),
 	}
 	if is_victory:
 		game_over.show_victory(stats)
@@ -1299,6 +1302,32 @@ func _show_game_over() -> void:
 		game_over.restart_requested.connect(_on_restart)
 	if game_over.has_signal("main_menu_requested"):
 		game_over.main_menu_requested.connect(_on_main_menu)
+
+
+func _calculate_score() -> int:
+	var score: int = 0
+	# Military score: 20 per kill, 10 per living military unit
+	score += _stats["units_killed"] * 20
+	for unit in _player_units[0]:
+		if is_instance_valid(unit) and unit.current_state != UnitBase.State.DEAD:
+			if not (unit is Villager):
+				score += 10
+	# Economy score: 1 per 10 resources gathered, 5 per living villager
+	@warning_ignore("integer_division")
+	score += _stats["resources_gathered"] / 10
+	for unit in _player_units[0]:
+		if is_instance_valid(unit) and unit is Villager and unit.current_state != UnitBase.State.DEAD:
+			score += 5
+	# Buildings: 15 per standing building
+	for b in _player_buildings[0]:
+		if is_instance_valid(b) and b.state == BuildingBase.State.ACTIVE:
+			score += 15
+	# Technology: 25 per age beyond Dark Age, 20 per research
+	var age: int = GameManager.get_player_age(0)
+	score += (age - 1) * 25
+	var researched: Array = GameManager.researched_upgrades.get(0, [])
+	score += researched.size() * 20
+	return score
 
 
 func _on_restart() -> void:

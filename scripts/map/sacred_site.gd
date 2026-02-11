@@ -212,9 +212,52 @@ func _update_visuals() -> void:
 		SiteState.CONTESTED:
 			sprite.modulate = Color(1.0, 0.85, 0.2)  # Yellow when contested.
 
-	# Update progress indicator.
-	if progress_bar and progress_bar.has_method("set_progress"):
-		progress_bar.set_progress(capture_progress)
+	# Update progress indicator bar.
+	var fill_node: Node = get_node_or_null("ProgressIndicator/ProgressFill")
+	if fill_node and fill_node is Polygon2D:
+		var bar_w: float = 40.0 * capture_progress
+		(fill_node as Polygon2D).polygon = PackedVector2Array([
+			Vector2(0, 0), Vector2(bar_w, 0), Vector2(bar_w, 4), Vector2(0, 4)
+		])
+		# Color the fill bar based on owner
+		if owning_player == 0:
+			(fill_node as Polygon2D).color = Color(0.3, 0.6, 1.0, 0.9)
+		elif owning_player == 1:
+			(fill_node as Polygon2D).color = Color(1.0, 0.3, 0.3, 0.9)
+
+	queue_redraw()
+
+
+func _draw() -> void:
+	# Pulsing glow aura
+	var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.003)
+	var aura_radius := 50.0 + pulse * 10.0
+
+	# Base aura (always visible, purple neutral)
+	var aura_color: Color
+	match state:
+		SiteState.NEUTRAL:
+			aura_color = Color(0.6, 0.4, 0.8, 0.06 + pulse * 0.04)
+		SiteState.CAPTURING:
+			var base_col := Color(0.3, 0.5, 1.0) if owning_player == 0 else Color(1.0, 0.3, 0.3)
+			aura_color = Color(base_col.r, base_col.g, base_col.b, 0.08 + pulse * 0.05)
+		SiteState.CAPTURED:
+			var base_col := Color(0.3, 0.5, 1.0) if owning_player == 0 else Color(1.0, 0.3, 0.3)
+			aura_color = Color(base_col.r, base_col.g, base_col.b, 0.10 + pulse * 0.06)
+		SiteState.CONTESTED:
+			aura_color = Color(1.0, 0.85, 0.2, 0.08 + pulse * 0.05)
+		_:
+			aura_color = Color(0.6, 0.4, 0.8, 0.06)
+
+	draw_circle(Vector2.ZERO, aura_radius, aura_color)
+	draw_arc(Vector2.ZERO, aura_radius, 0, TAU, 48, Color(aura_color.r, aura_color.g, aura_color.b, aura_color.a * 2.0), 1.5)
+
+	# Victory timer ring (when captured, shows progress toward victory)
+	if state == SiteState.CAPTURED and victory_timer > 0.0:
+		var timer_ratio := clampf(victory_timer / victory_hold_time, 0.0, 1.0)
+		var ring_color := Color(0.3, 0.7, 1.0, 0.6) if owning_player == 0 else Color(1.0, 0.4, 0.3, 0.6)
+		var arc_end := TAU * timer_ratio - PI * 0.5
+		draw_arc(Vector2.ZERO, 35.0, -PI * 0.5, arc_end, 48, ring_color, 3.0)
 
 
 ## API for external systems.
