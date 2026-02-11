@@ -92,10 +92,7 @@ func _setup_player_start(player_id: int, spawn_tile: Vector2i) -> void:
 	tc.complete_instantly()
 	GameManager.increase_population_cap(player_id, tc.pop_provided)
 
-	# Connect the TC's production queue.
-	var pq: Node = tc.get_production_queue()
-	if pq:
-		pq.unit_trained.connect(_on_unit_trained.bind(player_id))
+	# Note: TC production queue is already connected in _spawn_building().
 
 	# Place 3 starting villagers nearby.
 	var offsets: Array[Vector2i] = [Vector2i(1, 2), Vector2i(-1, 2), Vector2i(0, 3)]

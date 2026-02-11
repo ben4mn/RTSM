@@ -125,9 +125,13 @@ func _on_age_advanced(_player_id: int, new_age: int) -> void:
 	_rebuild_grid()
 
 
-func _on_resources_changed(resources: Dictionary) -> void:
-	_current_resources = resources
-	_refresh_affordability()
+func _on_resources_changed(player_id: int, _resource_type: String, _new_amount: int) -> void:
+	if player_id != 0:
+		return
+	var rm: Node = get_node_or_null("/root/ResourceManager")
+	if rm:
+		_current_resources = rm.get_all_resources(player_id)
+		_refresh_affordability()
 
 
 func update_resources(resources: Dictionary) -> void:

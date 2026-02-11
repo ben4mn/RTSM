@@ -66,7 +66,11 @@ func _ready() -> void:
 	# Set up camera bounds.
 	_configure_camera()
 
-	# Notify others.
+	# Notify others (deferred so parent nodes have connected signals in _ready).
+	call_deferred("_emit_map_ready")
+
+
+func _emit_map_ready() -> void:
 	map_ready.emit(map_generator)
 
 

@@ -65,8 +65,12 @@ func _process(_delta: float) -> void:
 
 # --- Resource display ---
 
-func _on_resources_changed(resources: Dictionary) -> void:
-	_update_resource_display(resources)
+func _on_resources_changed(player_id: int, _resource_type: String, _new_amount: int) -> void:
+	if player_id != 0:
+		return
+	var rm: Node = _get_resource_manager()
+	if rm:
+		_update_resource_display(rm.get_all_resources(player_id))
 
 
 func _update_resource_display(resources: Dictionary) -> void:
