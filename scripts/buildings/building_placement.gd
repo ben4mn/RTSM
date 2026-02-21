@@ -6,6 +6,7 @@ extends Node2D
 
 signal placement_confirmed(building_type: int, position: Vector2)
 signal placement_cancelled()
+signal placement_invalid(reason: String)
 
 var active: bool = false
 var current_building_type: int = -1
@@ -14,9 +15,11 @@ var current_color: Color = Color.WHITE
 var ghost_position: Vector2 = Vector2.ZERO
 var is_valid_placement: bool = false
 var _invalid_reason: String = ""
+var _invalid_tiles: Array[Vector2i] = []
 var _player_owner: int = 0
 var _ghost_sprite: Sprite2D = null
 var _terrain_layer: TileMapLayer = null
+var _last_invalid_feedback_msec: int = -10000
 
 
 func _ready() -> void:
@@ -94,14 +97,19 @@ func _input(event: InputEvent) -> void:
 		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
 			if is_valid_placement:
 				_confirm_placement()
+			else:
+				_emit_invalid_feedback()
 			get_viewport().set_input_as_handled()
 			return
 
 	if event is InputEventScreenTouch:
 		var touch := event as InputEventScreenTouch
 		if touch.pressed:
+			_update_ghost_position(touch.position)
 			if is_valid_placement:
 				_confirm_placement()
+			else:
+				_emit_invalid_feedback()
 			get_viewport().set_input_as_handled()
 			return
 
@@ -160,41 +168,70 @@ func _get_ghost_tile() -> Vector2i:
 
 func _check_validity() -> bool:
 	_invalid_reason = ""
+	_invalid_tiles.clear()
 	var tile_origin := _get_ghost_tile()
+	var has_walkable_check: bool = false
+	var game_map := get_parent()
+	if game_map and game_map.has_method("is_tile_walkable"):
+		has_walkable_check = true
 
 	# Check tile bounds for entire footprint
 	for dx in current_footprint.x:
 		for dy in current_footprint.y:
 			var cx := tile_origin.x + dx
 			var cy := tile_origin.y + dy
+			var check_tile := Vector2i(cx, cy)
+			var tile_invalid := false
 			if cx < 0 or cx >= MapData.MAP_WIDTH or cy < 0 or cy >= MapData.MAP_HEIGHT:
-				_invalid_reason = "Out of bounds"
-				return false
-
-	# Check walkability via GameMap pathfinding if available
-	var game_map := get_parent()
-	if game_map and game_map.has_method("is_tile_walkable"):
-		for dx in current_footprint.x:
-			for dy in current_footprint.y:
-				if not game_map.is_tile_walkable(Vector2i(tile_origin.x + dx, tile_origin.y + dy)):
+				if _invalid_reason == "":
+					_invalid_reason = "Out of bounds"
+				tile_invalid = true
+			elif has_walkable_check and not game_map.is_tile_walkable(check_tile):
+				if _invalid_reason == "":
 					_invalid_reason = "Blocked terrain"
-					return false
+				tile_invalid = true
+			elif _has_building_at_tile(check_tile):
+				if _invalid_reason == "":
+					_invalid_reason = "Overlaps building"
+				tile_invalid = true
+			if tile_invalid:
+				_invalid_tiles.append(check_tile)
 
-	# Check for overlapping buildings using physics
+	return _invalid_tiles.is_empty()
+
+
+func _has_building_at_tile(tile_pos: Vector2i) -> bool:
 	var space: PhysicsDirectSpaceState2D = get_world_2d().direct_space_state
-	if space:
-		var query := PhysicsPointQueryParameters2D.new()
-		query.position = ghost_position
-		query.collide_with_areas = true
-		query.collision_mask = 0xFFFFFFFF
-		var results: Array[Dictionary] = space.intersect_point(query, 8)
-		for result in results:
-			var collider: Variant = result.get("collider")
-			if collider is BuildingBase and collider != self:
-				_invalid_reason = "Overlaps building"
-				return false
+	if space == null:
+		return false
+	var query := PhysicsPointQueryParameters2D.new()
+	query.position = _tile_to_world(tile_pos)
+	query.collide_with_areas = true
+	query.collide_with_bodies = true
+	query.collision_mask = 0xFFFFFFFF
+	var results: Array[Dictionary] = space.intersect_point(query, 8)
+	for result in results:
+		var collider: Variant = result.get("collider")
+		if collider is BuildingBase and collider != self:
+			return true
+	return false
 
-	return true
+
+func _tile_to_world(tile_pos: Vector2i) -> Vector2:
+	if _terrain_layer:
+		return _terrain_layer.map_to_local(tile_pos)
+	var half_w := float(MapData.TILE_WIDTH) / 2.0
+	var half_h := float(MapData.TILE_HEIGHT) / 2.0
+	return Vector2((tile_pos.x - tile_pos.y) * half_w, (tile_pos.x + tile_pos.y) * half_h)
+
+
+func _emit_invalid_feedback() -> void:
+	var now: int = Time.get_ticks_msec()
+	if now - _last_invalid_feedback_msec < 300:
+		return
+	_last_invalid_feedback_msec = now
+	var reason: String = _invalid_reason if _invalid_reason != "" else "Invalid placement"
+	placement_invalid.emit(reason)
 
 
 func _confirm_placement() -> void:
@@ -214,6 +251,32 @@ func _confirm_placement() -> void:
 func _draw() -> void:
 	if not active:
 		return
+
+	var origin_tile := _get_ghost_tile()
+	var half_w: float = float(MapData.TILE_WIDTH) * 0.5
+	var half_h: float = float(MapData.TILE_HEIGHT) * 0.5
+
+	# Per-tile footprint overlay makes blocked cells clear on touch devices.
+	for dx in current_footprint.x:
+		for dy in current_footprint.y:
+			var tile_pos := origin_tile + Vector2i(dx, dy)
+			var local_center := to_local(_tile_to_world(tile_pos))
+			var tile_points := PackedVector2Array([
+				local_center + Vector2(0, -half_h),
+				local_center + Vector2(half_w, 0),
+				local_center + Vector2(0, half_h),
+				local_center + Vector2(-half_w, 0),
+			])
+			var tile_invalid: bool = tile_pos in _invalid_tiles
+			var fill := Color(0.30, 0.85, 0.45, 0.14)
+			var stroke := Color(0.45, 1.0, 0.65, 0.45)
+			if tile_invalid:
+				fill = Color(1.0, 0.20, 0.20, 0.24)
+				stroke = Color(1.0, 0.45, 0.35, 0.85)
+			draw_colored_polygon(tile_points, fill)
+			for i in tile_points.size():
+				var next_i := (i + 1) % tile_points.size()
+				draw_line(tile_points[i], tile_points[next_i], stroke, 1.2)
 
 	var pixel_w: float = current_footprint.x * MapData.TILE_WIDTH
 	var pixel_h: float = current_footprint.y * MapData.TILE_HEIGHT

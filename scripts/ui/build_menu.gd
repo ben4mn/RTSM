@@ -10,16 +10,21 @@ signal cancel_placement()
 @onready var grid: GridContainer = %BuildingGrid
 @onready var cancel_button: Button = %CancelButton
 @onready var title_label: Label = %BuildMenuTitle
+@onready var header: HBoxContainer = $Margin/VBox/Header
 
 var _current_age: int = 1
 var _current_resources: Dictionary = {"food": 0, "wood": 0, "gold": 0}
 var _button_map: Dictionary = {}  # building_type -> Button
+var _placement_mode_active: bool = false
+var _last_selected_building_type: int = -1
+var _resource_legend_row: HBoxContainer = null
 
 
 func _ready() -> void:
 	visible = false
 	cancel_button.pressed.connect(_on_cancel_pressed)
 	cancel_button.visible = false
+	_create_resource_legend()
 
 	var gm: Node = get_node_or_null("/root/GameManager")
 	if gm:
@@ -32,10 +37,32 @@ func _ready() -> void:
 	_rebuild_grid()
 
 
+func _create_resource_legend() -> void:
+	if _resource_legend_row != null:
+		return
+	_resource_legend_row = HBoxContainer.new()
+	_resource_legend_row.add_theme_constant_override("separation", 6)
+	_resource_legend_row.size_flags_horizontal = Control.SIZE_SHRINK_END
+	header.add_child(_resource_legend_row)
+	header.move_child(_resource_legend_row, 1)
+
+	for item in [
+		{"label": "F", "name": "Food", "color": Color(0.95, 0.40, 0.30)},
+		{"label": "W", "name": "Wood", "color": Color(0.50, 0.78, 0.35)},
+		{"label": "G", "name": "Gold", "color": Color(0.98, 0.88, 0.25)},
+	]:
+		var chip := Label.new()
+		chip.text = item["label"]
+		chip.tooltip_text = "%s resource" % item["name"]
+		chip.add_theme_font_size_override("font_size", 13)
+		chip.add_theme_color_override("font_color", item["color"])
+		_resource_legend_row.add_child(chip)
+
+
 func open_menu() -> void:
 	visible = true
-	cancel_button.visible = false
 	_refresh_affordability()
+	_update_aux_button()
 
 
 func close_menu() -> void:
@@ -43,10 +70,9 @@ func close_menu() -> void:
 
 
 func set_placement_mode(active: bool) -> void:
-	cancel_button.visible = active
-	# Disable building buttons while placing
-	for btn_type in _button_map:
-		_button_map[btn_type].disabled = active
+	_placement_mode_active = active
+	_refresh_affordability()
+	_update_aux_button()
 
 
 # --- Grid population ---
@@ -137,11 +163,12 @@ func _refresh_affordability() -> void:
 		var cost: Dictionary = BuildingData.get_building_cost(building_type)
 		var can_afford: bool = _can_afford(cost)
 		var btn: Button = _button_map[building_type]
-		btn.disabled = !can_afford
+		btn.disabled = _placement_mode_active or not can_afford
 		if can_afford:
 			btn.modulate = Color.WHITE
 		else:
 			btn.modulate = Color(0.5, 0.5, 0.5, 0.8)
+	_update_aux_button()
 
 
 func _can_afford(cost: Dictionary) -> bool:
@@ -154,13 +181,19 @@ func _can_afford(cost: Dictionary) -> bool:
 # --- Signal handlers ---
 
 func _on_building_button_pressed(building_type: int) -> void:
+	_last_selected_building_type = building_type
 	building_selected.emit(building_type)
 	set_placement_mode(true)
 
 
 func _on_cancel_pressed() -> void:
-	cancel_placement.emit()
-	set_placement_mode(false)
+	if _placement_mode_active:
+		cancel_placement.emit()
+		set_placement_mode(false)
+		return
+	if _last_selected_building_type >= 0:
+		building_selected.emit(_last_selected_building_type)
+		set_placement_mode(true)
 
 
 func _on_age_advanced(_player_id: int, new_age: int) -> void:
@@ -185,3 +218,23 @@ func update_resources(resources: Dictionary) -> void:
 func update_age(age: int) -> void:
 	_current_age = age
 	_rebuild_grid()
+
+
+func _update_aux_button() -> void:
+	if _placement_mode_active:
+		cancel_button.visible = true
+		cancel_button.disabled = false
+		cancel_button.text = "Cancel"
+		cancel_button.tooltip_text = "Cancel current placement"
+		return
+
+	if _last_selected_building_type < 0:
+		cancel_button.visible = false
+		return
+
+	cancel_button.visible = true
+	var building_name: String = BuildingData.get_building_name(_last_selected_building_type)
+	cancel_button.text = "Repeat: %s" % building_name
+	cancel_button.tooltip_text = "One-tap reselect of last building type"
+	var cost: Dictionary = BuildingData.get_building_cost(_last_selected_building_type)
+	cancel_button.disabled = not _can_afford(cost)

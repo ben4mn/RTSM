@@ -48,6 +48,7 @@ const BUILDING_SPRITES: Dictionary = {
 	BuildingData.BuildingType.ARCHERY_RANGE: "res://assets/buildings/archery_range.png",
 	BuildingData.BuildingType.STABLE: "res://assets/buildings/stable.png",
 	BuildingData.BuildingType.FARM: "res://assets/buildings/market_stall.png",
+	BuildingData.BuildingType.MILL: "res://assets/buildings/market.png",
 	BuildingData.BuildingType.LUMBER_CAMP: "res://assets/buildings/lumber_camp.png",
 	BuildingData.BuildingType.MINING_CAMP: "res://assets/buildings/market.png",
 	BuildingData.BuildingType.SIEGE_WORKSHOP: "res://assets/buildings/monument.png",
@@ -63,11 +64,18 @@ const BUILDING_SCALES: Dictionary = {
 	BuildingData.BuildingType.ARCHERY_RANGE: Vector2(0.55, 0.55),
 	BuildingData.BuildingType.STABLE: Vector2(0.55, 0.55),
 	BuildingData.BuildingType.FARM: Vector2(0.40, 0.40),
+	BuildingData.BuildingType.MILL: Vector2(0.45, 0.45),
 	BuildingData.BuildingType.LUMBER_CAMP: Vector2(0.45, 0.45),
 	BuildingData.BuildingType.MINING_CAMP: Vector2(0.40, 0.40),
 	BuildingData.BuildingType.SIEGE_WORKSHOP: Vector2(0.60, 0.60),
 	BuildingData.BuildingType.BLACKSMITH: Vector2(0.50, 0.50),
 	BuildingData.BuildingType.WATCH_TOWER: Vector2(0.50, 0.50),
+}
+
+const DROP_OFF_BADGE_COLORS: Dictionary = {
+	"food": Color(0.92, 0.34, 0.30),
+	"wood": Color(0.46, 0.76, 0.34),
+	"gold": Color(0.96, 0.86, 0.22),
 }
 
 
@@ -192,6 +200,8 @@ func _draw() -> void:
 		draw_rect(Rect2(-bar_w * 0.5, bar_y, bar_w, bar_h), Color(0.2, 0.2, 0.2))
 		draw_rect(Rect2(-bar_w * 0.5, bar_y, bar_w * hp_ratio, bar_h), hp_color)
 
+	_draw_drop_off_badges(pixel_w, pixel_h)
+
 	# Rally point indicator with line
 	if is_selected and state == State.ACTIVE and trainable_units.size() > 0:
 		var rp_local := rally_point - global_position
@@ -210,6 +220,40 @@ func _draw() -> void:
 				draw_line(start, end, line_color, 1.5)
 				d = end_d + gap_len
 		draw_circle(rp_local, 4.0, Color(0.2, 0.6, 1.0, 0.7))
+
+
+func _draw_drop_off_badges(pixel_w: float, pixel_h: float) -> void:
+	if drop_off_resources.is_empty():
+		return
+	var font := ThemeDB.fallback_font
+	if font == null:
+		return
+	var fsize: int = maxi(10, ThemeDB.fallback_font_size - 3)
+	var start_x: float = -pixel_w * 0.28
+	var y: float = -pixel_h * 0.54
+	var spacing: float = 16.0
+	for i in range(drop_off_resources.size()):
+		var resource_type: String = String(drop_off_resources[i])
+		var x: float = start_x + i * spacing
+		draw_circle(Vector2(x, y), 6.0, Color(0.05, 0.05, 0.05, 0.78))
+		draw_circle(Vector2(x, y), 4.9, DROP_OFF_BADGE_COLORS.get(resource_type, Color(0.62, 0.62, 0.62)))
+		var text: String = "?"
+		match resource_type:
+			"food":
+				text = "F"
+			"wood":
+				text = "W"
+			"gold":
+				text = "G"
+		draw_string(
+			font,
+			Vector2(x - 4.5, y + 3.0),
+			text,
+			HORIZONTAL_ALIGNMENT_CENTER,
+			9.0,
+			fsize,
+			Color(0.95, 0.95, 0.95, 0.98)
+		)
 
 
 func _process(delta: float) -> void:

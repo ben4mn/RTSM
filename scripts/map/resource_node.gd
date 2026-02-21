@@ -42,6 +42,20 @@ const RESOURCE_OFFSETS: Dictionary = {
 	"stone": Vector2(0, -6),
 }
 
+const RESOURCE_COLORS: Dictionary = {
+	"food": Color(0.90, 0.30, 0.35),
+	"wood": Color(0.35, 0.75, 0.30),
+	"gold": Color(0.95, 0.85, 0.20),
+	"stone": Color(0.65, 0.68, 0.72),
+}
+
+const RESOURCE_BADGES: Dictionary = {
+	"food": "F",
+	"wood": "W",
+	"gold": "G",
+	"stone": "S",
+}
+
 var _sprite: Sprite2D = null
 
 
@@ -134,13 +148,9 @@ func _draw() -> void:
 
 	# Subtle colored glow circle behind resource
 	if remaining > 0:
-		var glow_color: Color
-		match resource_type:
-			"food": glow_color = Color(0.85, 0.25, 0.40, 0.15)
-			"wood": glow_color = Color(0.3, 0.65, 0.2, 0.15)
-			"gold": glow_color = Color(0.95, 0.85, 0.15, 0.15)
-			_: glow_color = Color(0.6, 0.6, 0.6, 0.15)
+		var glow_color: Color = _get_resource_color(0.22)
 		draw_circle(Vector2.ZERO, 14.0, glow_color)
+		_draw_resource_badge()
 	# Depletion bar overlay — sprite handles the visual
 	if remaining < total_amount and remaining > 0:
 		var bar_w := 18.0
@@ -150,10 +160,24 @@ func _draw() -> void:
 		# Background
 		draw_rect(Rect2(-bar_w * 0.5, bar_y, bar_w, bar_h), Color(0.15, 0.15, 0.15, 0.8))
 		# Fill
-		var bar_color: Color
-		match resource_type:
-			"food": bar_color = Color(0.85, 0.25, 0.40)
-			"wood": bar_color = Color(0.3, 0.65, 0.2)
-			"gold": bar_color = Color(0.95, 0.85, 0.15)
-			_: bar_color = Color(0.6, 0.6, 0.6)
+		var bar_color: Color = _get_resource_color()
 		draw_rect(Rect2(-bar_w * 0.5, bar_y, bar_w * ratio, bar_h), bar_color)
+
+
+func _get_resource_color(alpha: float = 1.0) -> Color:
+	var base: Color = RESOURCE_COLORS.get(resource_type, Color(0.65, 0.68, 0.72))
+	base.a = alpha
+	return base
+
+
+func _draw_resource_badge() -> void:
+	var badge_pos := Vector2(0.0, -22.0)
+	draw_circle(badge_pos, 7.0, Color(0.02, 0.02, 0.02, 0.75))
+	draw_circle(badge_pos, 5.8, _get_resource_color(0.95))
+	var font := ThemeDB.fallback_font
+	if font == null:
+		return
+	var text: String = RESOURCE_BADGES.get(resource_type, "?")
+	var fsize: int = maxi(10, ThemeDB.fallback_font_size - 2)
+	var text_pos := badge_pos + Vector2(-5.0, 3.5)
+	draw_string(font, text_pos, text, HORIZONTAL_ALIGNMENT_CENTER, 10.0, fsize, Color(0.95, 0.95, 0.95, 0.98))

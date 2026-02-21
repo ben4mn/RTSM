@@ -28,10 +28,14 @@ func capture_game_screenshot(params: Dictionary) -> Dictionary:
 
 	if not debugger_plugin.has_active_session():
 		return _error("NO_SESSION", "No active debug session. Game may not have MCPGameBridge autoload.")
+	if _screenshot_pending:
+		return _error("BUSY", "A screenshot request is already in progress")
 
 	_screenshot_pending = true
 	_screenshot_result = {}
 
+	if debugger_plugin.screenshot_received.is_connected(_on_screenshot_received):
+		debugger_plugin.screenshot_received.disconnect(_on_screenshot_received)
 	debugger_plugin.screenshot_received.connect(_on_screenshot_received, CONNECT_ONE_SHOT)
 	debugger_plugin.request_screenshot(max_width)
 
@@ -75,7 +79,10 @@ func capture_editor_screenshot(params: Dictionary) -> Dictionary:
 	if viewport == null:
 		return _error("NO_VIEWPORT", "Could not find editor viewport")
 
-	var image := viewport.get_texture().get_image()
+	var texture := viewport.get_texture()
+	if texture == null:
+		return _error("CAPTURE_FAILED", "Viewport texture is unavailable")
+	var image := texture.get_image()
 	return _process_and_encode_image(image, max_width)
 
 

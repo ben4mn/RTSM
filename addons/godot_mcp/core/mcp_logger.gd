@@ -32,11 +32,23 @@ func _log_error(function: String, file: String, line: int, code: String,
 
 	var frames: Array[Dictionary] = []
 	for backtrace in script_backtraces:
-		for i in backtrace.get_frame_count():
+		var frame_count: int = backtrace.get_frame_count() if backtrace and backtrace.has_method("get_frame_count") else 0
+		for i in range(frame_count):
+			var frame_file: String = ""
+			if backtrace.has_method("get_frame_source"):
+				frame_file = str(backtrace.get_frame_source(i))
+			elif backtrace.has_method("get_frame_file"):
+				frame_file = str(backtrace.get_frame_file(i))
+			var frame_line: int = backtrace.get_frame_line(i) if backtrace.has_method("get_frame_line") else 0
+			var frame_function: String = ""
+			if backtrace.has_method("get_frame_function"):
+				frame_function = str(backtrace.get_frame_function(i))
+			elif backtrace.has_method("get_frame_func"):
+				frame_function = str(backtrace.get_frame_func(i))
 			frames.append({
-				"file": backtrace.get_frame_source(i),
-				"line": backtrace.get_frame_line(i),
-				"function": backtrace.get_frame_function(i),
+				"file": frame_file,
+				"line": frame_line,
+				"function": frame_function,
 			})
 
 	var error_entry := {

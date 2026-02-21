@@ -14,6 +14,7 @@ enum BuildingType {
 	SIEGE_WORKSHOP,
 	BLACKSMITH,
 	WATCH_TOWER,
+	MILL,
 }
 
 # Cost format: { "food": int, "wood": int, "gold": int }
@@ -92,6 +93,18 @@ const BUILDINGS: Dictionary = {
 		"drop_off": [],
 		"provides_food": true,
 		"color": Color(0.75, 0.7, 0.3),
+	},
+	BuildingType.MILL: {
+		"name": "Mill",
+		"hp": 650,
+		"cost": { "food": 0, "wood": 100, "gold": 0 },
+		"build_time": 18.0,
+		"pop_provided": 0,
+		"footprint": Vector2i(2, 2),
+		"can_train": [],
+		"age_required": 0,
+		"drop_off": ["food"],
+		"color": Color(0.78, 0.62, 0.35),
 	},
 	BuildingType.LUMBER_CAMP: {
 		"name": "Lumber Camp",

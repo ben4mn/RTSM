@@ -42,6 +42,13 @@ var kills: int = 0
 var _auto_attack_timer: float = 0.0  # Throttles enemy scanning (seconds until next scan)
 var _stuck_timer: float = 0.0        # Detects stuck units during movement
 var _last_move_pos: Vector2 = Vector2.ZERO
+var _forced_attack: bool = false      # True when explicit player/AI attack command should override stance chase limits.
+var _patrol_active: bool = false
+var _patrol_point_a: Vector2 = Vector2.ZERO
+var _patrol_point_b: Vector2 = Vector2.ZERO
+var _patrol_to_b: bool = true
+var _separation_timer: float = 0.0
+var _separation_vector: Vector2 = Vector2.ZERO
 
 # --- Node references ---
 @onready var collision_shape: CollisionShape2D = $CollisionShape2D
@@ -77,6 +84,10 @@ const UNIT_SPRITE_SCALES: Dictionary = {
 }
 
 var _sprite: Sprite2D = null
+
+const FRIENDLY_SEPARATION_RADIUS: float = 26.0
+const FRIENDLY_SEPARATION_WEIGHT: float = 0.9
+const FRIENDLY_SEPARATION_REFRESH: float = 0.08
 
 
 func _ready() -> void:
@@ -128,6 +139,7 @@ func _process(delta: float) -> void:
 
 	attack_cooldown = maxf(0.0, attack_cooldown - delta)
 	_auto_attack_timer = maxf(0.0, _auto_attack_timer - delta)
+	_separation_timer = maxf(0.0, _separation_timer - delta)
 
 	match current_state:
 		State.IDLE:
@@ -229,23 +241,32 @@ func _process_idle(_delta: float) -> void:
 
 
 func _process_moving(delta: float) -> void:
+	var direction := Vector2.ZERO
 	if path.is_empty() or path_index >= path.size():
 		# Direct movement to target
-		var direction: Vector2 = (move_target - global_position)
+		direction = move_target - global_position
 		if direction.length() < 4.0:
 			_on_reached_destination()
 			return
-		global_position += direction.normalized() * speed * delta
 	else:
 		# Follow path
 		var next_point: Vector2 = path[path_index]
-		var direction: Vector2 = next_point - global_position
+		direction = next_point - global_position
 		if direction.length() < 4.0:
 			path_index += 1
 			if path_index >= path.size():
 				_on_reached_destination()
 				return
-		global_position += direction.normalized() * speed * delta
+			next_point = path[path_index]
+			direction = next_point - global_position
+
+	if direction.length() >= 0.001:
+		var desired_dir: Vector2 = direction.normalized()
+		_update_friendly_separation()
+		var move_dir: Vector2 = desired_dir
+		if direction.length() > 10.0 and _separation_vector.length() > 0.0:
+			move_dir = (desired_dir + _separation_vector).normalized()
+		global_position += move_dir * speed * delta
 
 	# Stuck detection: if unit hasn't moved significantly in 1.5s, stop or re-path
 	if global_position.distance_to(_last_move_pos) > 2.0:
@@ -273,6 +294,11 @@ func _process_moving(delta: float) -> void:
 func _on_reached_destination() -> void:
 	path = PackedVector2Array()
 	path_index = 0
+	if _patrol_active and _patrol_point_a.distance_to(_patrol_point_b) > 8.0:
+		_patrol_to_b = not _patrol_to_b
+		move_target = _patrol_point_b if _patrol_to_b else _patrol_point_a
+		set_state(State.MOVING)
+		return
 	set_state(State.IDLE)
 	arrived_at_destination.emit(self)
 
@@ -282,7 +308,9 @@ func _process_attacking(delta: float) -> void:
 	if attack_building_target != null:
 		if not is_instance_valid(attack_building_target) or attack_building_target.state == BuildingBase.State.DESTROYED:
 			attack_building_target = null
-			set_state(State.IDLE)
+			_forced_attack = false
+			if not _resume_post_combat_movement():
+				set_state(State.IDLE)
 			return
 		var dist: float = global_position.distance_to(attack_building_target.global_position)
 		if dist > attack_range + 24.0:
@@ -295,15 +323,19 @@ func _process_attacking(delta: float) -> void:
 
 	if not _is_valid_target(attack_target):
 		attack_target = null
-		set_state(State.IDLE)
+		_forced_attack = false
+		if not _resume_post_combat_movement():
+			set_state(State.IDLE)
 		return
 
 	var dist: float = global_position.distance_to(attack_target.global_position)
 	if dist > attack_range + 8.0:
-		# Stand ground units won't chase beyond their attack range
-		if stance == Stance.STAND_GROUND:
+		# Stand ground only blocks chase for passive auto-targets.
+		if stance == Stance.STAND_GROUND and not attack_move and not _forced_attack:
 			attack_target = null
-			set_state(State.IDLE)
+			_forced_attack = false
+			if not _resume_post_combat_movement():
+				set_state(State.IDLE)
 			return
 		# Move towards target
 		var direction: Vector2 = (attack_target.global_position - global_position).normalized()
@@ -347,7 +379,7 @@ func _try_auto_attack() -> void:
 			closest_dist = dist
 			closest_enemy = unit
 	if closest_enemy != null:
-		command_attack(closest_enemy)
+		command_attack(closest_enemy, false, false)
 		return
 
 	# Check for enemy buildings nearby
@@ -365,7 +397,7 @@ func _try_auto_attack() -> void:
 			closest_b_dist = dist
 			closest_building = building
 	if closest_building != null:
-		command_attack_building(closest_building)
+		command_attack_building(closest_building, false, false)
 
 
 func _perform_attack() -> void:
@@ -405,10 +437,12 @@ func _is_valid_target(target: UnitBase) -> bool:
 func command_move(target_pos: Vector2) -> void:
 	if current_state == State.DEAD:
 		return
+	_clear_patrol()
 	move_target = target_pos
 	attack_target = null
 	attack_building_target = null
 	attack_move = false
+	_forced_attack = false
 	path = PackedVector2Array()
 	path_index = 0
 	set_state(State.MOVING)
@@ -419,37 +453,85 @@ func command_move_path(nav_path: PackedVector2Array) -> void:
 		return
 	if nav_path.is_empty():
 		return
+	_clear_patrol()
 	path = nav_path
 	path_index = 0
 	move_target = nav_path[nav_path.size() - 1]
 	attack_target = null
+	attack_building_target = null
+	attack_move = false
+	_forced_attack = false
 	set_state(State.MOVING)
 
 
-func command_attack(target: UnitBase) -> void:
+func command_attack(target: UnitBase, force_chase: bool = true, clear_patrol: bool = true) -> void:
 	if current_state == State.DEAD:
 		return
 	if not _is_valid_target(target):
 		return
+	if clear_patrol:
+		_clear_patrol()
 	attack_target = target
 	attack_building_target = null
+	_forced_attack = force_chase
 	set_state(State.ATTACKING)
 
 
-func command_attack_building(target: BuildingBase) -> void:
+func command_attack_building(target: BuildingBase, force_chase: bool = true, clear_patrol: bool = true) -> void:
 	if current_state == State.DEAD:
 		return
 	if not is_instance_valid(target) or target.state == BuildingBase.State.DESTROYED:
 		return
+	if clear_patrol:
+		_clear_patrol()
 	attack_building_target = target
 	attack_target = null
+	_forced_attack = force_chase
 	set_state(State.ATTACKING)
 
 
 func command_attack_move(target_pos: Vector2) -> void:
 	if current_state == State.DEAD:
 		return
+	_clear_patrol()
 	attack_move = true
+	_forced_attack = false
+	move_target = target_pos
+	attack_target = null
+	attack_building_target = null
+	path = PackedVector2Array()
+	path_index = 0
+	set_state(State.MOVING)
+
+
+func command_attack_move_path(nav_path: PackedVector2Array) -> void:
+	if current_state == State.DEAD:
+		return
+	if nav_path.is_empty():
+		return
+	_clear_patrol()
+	attack_move = true
+	_forced_attack = false
+	path = nav_path
+	path_index = 0
+	move_target = nav_path[nav_path.size() - 1]
+	attack_target = null
+	attack_building_target = null
+	set_state(State.MOVING)
+
+
+func command_patrol(target_pos: Vector2) -> void:
+	if current_state == State.DEAD:
+		return
+	var distance: float = global_position.distance_to(target_pos)
+	if distance < 8.0:
+		return
+	_patrol_active = true
+	_patrol_point_a = global_position
+	_patrol_point_b = target_pos
+	_patrol_to_b = true
+	attack_move = true
+	_forced_attack = false
 	move_target = target_pos
 	attack_target = null
 	attack_building_target = null
@@ -461,12 +543,64 @@ func command_attack_move(target_pos: Vector2) -> void:
 func command_stop() -> void:
 	if current_state == State.DEAD:
 		return
+	_clear_patrol()
 	attack_target = null
 	attack_building_target = null
 	attack_move = false
+	_forced_attack = false
 	path = PackedVector2Array()
 	path_index = 0
 	set_state(State.IDLE)
+
+
+func _clear_patrol() -> void:
+	_patrol_active = false
+	_patrol_point_a = Vector2.ZERO
+	_patrol_point_b = Vector2.ZERO
+	_patrol_to_b = true
+
+
+func _resume_post_combat_movement() -> bool:
+	if _patrol_active:
+		var patrol_target: Vector2 = _patrol_point_b if _patrol_to_b else _patrol_point_a
+		if global_position.distance_to(patrol_target) > 5.0:
+			move_target = patrol_target
+			path = PackedVector2Array()
+			path_index = 0
+			set_state(State.MOVING)
+			return true
+	if attack_move and not path.is_empty() and path_index < path.size():
+		set_state(State.MOVING)
+		return true
+	if attack_move and global_position.distance_to(move_target) > 5.0:
+		set_state(State.MOVING)
+		return true
+	return false
+
+
+func _update_friendly_separation() -> void:
+	if _separation_timer > 0.0:
+		return
+	_separation_timer = FRIENDLY_SEPARATION_REFRESH
+	var repel := Vector2.ZERO
+	for node in get_tree().get_nodes_in_group("units"):
+		if node == self or not (node is UnitBase):
+			continue
+		var other: UnitBase = node as UnitBase
+		if not is_instance_valid(other) or other.current_state == State.DEAD:
+			continue
+		if other.player_owner != player_owner:
+			continue
+		var offset: Vector2 = global_position - other.global_position
+		var dist: float = offset.length()
+		if dist <= 0.001 or dist > FRIENDLY_SEPARATION_RADIUS:
+			continue
+		var strength: float = (FRIENDLY_SEPARATION_RADIUS - dist) / FRIENDLY_SEPARATION_RADIUS
+		repel += offset.normalized() * strength
+	if repel.length() > 0.0:
+		_separation_vector = repel.normalized() * FRIENDLY_SEPARATION_WEIGHT
+	else:
+		_separation_vector = Vector2.ZERO
 
 
 # --- Health ---

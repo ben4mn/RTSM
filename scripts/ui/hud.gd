@@ -12,6 +12,7 @@ signal cancel_queue_requested(building: Node2D, index: int)
 signal select_all_military_pressed()
 signal find_army_pressed()
 signal research_requested(building: Node2D, research_id: String)
+signal placement_cancel_requested()
 
 const RESOURCE_COLORS: Dictionary = {
 	"food": Color(0.9, 0.35, 0.25),
@@ -28,6 +29,7 @@ const SPEED_LABELS: Array[String] = ["0.5x", "1x", "2x", "3x"]
 @onready var pop_label: Label = %PopLabel
 @onready var age_label: Label = %AgeLabel
 @onready var game_time_label: Label = %GameTimeLabel
+@onready var top_bar_hbox: HBoxContainer = $Root/TopBar/TopBarMargin/HBox
 
 @onready var selection_panel: PanelContainer = %SelectionPanel
 @onready var selection_name: Label = %SelectionName
@@ -54,6 +56,14 @@ var _game_speed_index: int = 1  # 0=0.5x, 1=1x, 2=2x
 # Idle villager button
 var _idle_villager_button: Button = null
 var _villager_task_hbox: HBoxContainer = null
+
+# Mobile action strip
+var _mobile_action_panel: PanelContainer = null
+var _mobile_action_strip: HBoxContainer = null
+var _placement_cancel_button: Button = null
+var _mobile_compact_labels: bool = false
+var _last_idle_villager_count: int = 0
+var _last_military_count: int = 0
 
 # Train buttons
 var _train_buttons_container: HBoxContainer = null
@@ -89,6 +99,10 @@ var _score_label: Label = null
 
 # Pause menu overlay
 var _pause_overlay: ColorRect = null
+var _resource_node_legend: HBoxContainer = null
+var _progression_hint_panel: PanelContainer = null
+var _progression_hint_label: Label = null
+var _minimap_touch_index: int = -1
 
 
 func _ready() -> void:
@@ -104,15 +118,18 @@ func _ready() -> void:
 
 	# Apply custom theme
 	_apply_game_theme()
+	_create_resource_node_legend()
 
 	# Create new UI elements
 	_create_game_control_buttons()
+	_ensure_mobile_action_strip()
 	_create_idle_villager_button()
 	_create_military_buttons()
 	_create_notification_feed()
 	_create_hotkey_panel()
 	_create_sacred_site_label()
 	_create_score_label()
+	_create_progression_hint()
 
 	# Connect to autoloads if available
 	if Engine.has_singleton("GameManager") or has_node("/root/GameManager"):
@@ -132,6 +149,55 @@ func _ready() -> void:
 
 	_update_age_display()
 	_update_resource_display({"food": 200, "wood": 200, "gold": 100})
+	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+	apply_mobile_layout(viewport_size, _get_safe_area_rect(viewport_size))
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_SIZE_CHANGED:
+		var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+		apply_mobile_layout(viewport_size, _get_safe_area_rect(viewport_size))
+
+
+func _get_safe_area_rect(viewport_size: Vector2) -> Rect2:
+	var safe_rect_i: Rect2i = DisplayServer.get_display_safe_area()
+	if safe_rect_i.size.x <= 0 or safe_rect_i.size.y <= 0:
+		return Rect2(Vector2.ZERO, viewport_size)
+	return Rect2(Vector2(safe_rect_i.position), Vector2(safe_rect_i.size))
+
+
+func _create_resource_node_legend() -> void:
+	if _resource_node_legend != null:
+		return
+	_resource_node_legend = HBoxContainer.new()
+	_resource_node_legend.add_theme_constant_override("separation", 6)
+
+	var title := Label.new()
+	title.text = "Nodes:"
+	title.add_theme_font_size_override("font_size", 12)
+	title.add_theme_color_override("font_color", Color(0.88, 0.85, 0.78))
+	_resource_node_legend.add_child(title)
+
+	for item in [
+		{"label": "F", "name": "Food", "color": RESOURCE_COLORS["food"]},
+		{"label": "W", "name": "Wood", "color": RESOURCE_COLORS["wood"]},
+		{"label": "G", "name": "Gold", "color": RESOURCE_COLORS["gold"]},
+	]:
+		var chip := Label.new()
+		chip.text = item["label"]
+		chip.tooltip_text = "%s node marker" % item["name"]
+		chip.add_theme_font_size_override("font_size", 12)
+		chip.add_theme_color_override("font_color", item["color"])
+		_resource_node_legend.add_child(chip)
+
+	var spacer := Control.new()
+	spacer.custom_minimum_size = Vector2(8, 1)
+	_resource_node_legend.add_child(spacer)
+	top_bar_hbox.add_child(_resource_node_legend)
+	var top_spacer: Node = top_bar_hbox.get_node_or_null("Spacer")
+	if top_spacer != null:
+		var spacer_index: int = top_spacer.get_index()
+		top_bar_hbox.move_child(_resource_node_legend, spacer_index)
 
 
 func _process(_delta: float) -> void:
@@ -269,21 +335,61 @@ func _on_quit_to_menu() -> void:
 
 # --- Idle villager button ---
 
+func _ensure_mobile_action_strip() -> void:
+	if _mobile_action_strip != null:
+		return
+
+	var root_ctrl: Control = $Root
+	_mobile_action_panel = PanelContainer.new()
+	_mobile_action_panel.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_mobile_action_panel.offset_left = -300
+	_mobile_action_panel.offset_right = 300
+	_mobile_action_panel.offset_top = -74
+	_mobile_action_panel.offset_bottom = -8
+	_mobile_action_panel.grow_horizontal = Control.GROW_DIRECTION_BOTH
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 8)
+	margin.add_theme_constant_override("margin_right", 8)
+	margin.add_theme_constant_override("margin_top", 6)
+	margin.add_theme_constant_override("margin_bottom", 6)
+	_mobile_action_panel.add_child(margin)
+
+	_mobile_action_strip = HBoxContainer.new()
+	_mobile_action_strip.alignment = BoxContainer.ALIGNMENT_CENTER
+	_mobile_action_strip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_mobile_action_strip.add_theme_constant_override("separation", 8)
+	margin.add_child(_mobile_action_strip)
+
+	_placement_cancel_button = Button.new()
+	_placement_cancel_button.text = "Cancel Build"
+	_placement_cancel_button.custom_minimum_size = Vector2(170, 52)
+	_placement_cancel_button.tooltip_text = "Cancel current building placement [Esc]"
+	_placement_cancel_button.pressed.connect(func(): placement_cancel_requested.emit())
+	_placement_cancel_button.visible = false
+	_mobile_action_strip.add_child(_placement_cancel_button)
+
+	root_ctrl.add_child(_mobile_action_panel)
+
+
 func _create_idle_villager_button() -> void:
-	var bottom_right: VBoxContainer = %BottomRight
+	_ensure_mobile_action_strip()
+
 	_idle_villager_button = Button.new()
-	_idle_villager_button.text = "Idle: 0"
-	_idle_villager_button.custom_minimum_size = Vector2(140, 36)
+	_idle_villager_button.text = "Idle: 0 [.]"
+	_idle_villager_button.custom_minimum_size = Vector2(170, 52)
 	_idle_villager_button.pressed.connect(_on_idle_villager_pressed)
 	_idle_villager_button.tooltip_text = "Cycle idle villagers [.]"
-	bottom_right.add_child(_idle_villager_button)
-	bottom_right.move_child(_idle_villager_button, 0)
+	_idle_villager_button.disabled = true
+	_mobile_action_strip.add_child(_idle_villager_button)
+
 	# Villager task breakdown — use HBox with colored labels per resource
+	var bottom_right: VBoxContainer = %BottomRight
 	_villager_task_hbox = HBoxContainer.new()
 	_villager_task_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	_villager_task_hbox.add_theme_constant_override("separation", 6)
 	bottom_right.add_child(_villager_task_hbox)
-	bottom_right.move_child(_villager_task_hbox, 1)
+	bottom_right.move_child(_villager_task_hbox, 0)
 
 
 func _on_idle_villager_pressed() -> void:
@@ -291,28 +397,33 @@ func _on_idle_villager_pressed() -> void:
 
 
 func _create_military_buttons() -> void:
-	var bottom_right: VBoxContainer = %BottomRight
+	_ensure_mobile_action_strip()
 
 	_select_military_button = Button.new()
-	_select_military_button.text = "Military [M]"
-	_select_military_button.custom_minimum_size = Vector2(140, 36)
+	_select_military_button.text = "Military: 0 [M]"
+	_select_military_button.custom_minimum_size = Vector2(170, 52)
 	_select_military_button.pressed.connect(func(): select_all_military_pressed.emit())
 	_select_military_button.tooltip_text = "Select all military units [M]"
-	bottom_right.add_child(_select_military_button)
-	bottom_right.move_child(_select_military_button, 1)
+	_select_military_button.disabled = true
+	_mobile_action_strip.add_child(_select_military_button)
 
 	_find_army_button = Button.new()
-	_find_army_button.text = "Find Army [F]"
-	_find_army_button.custom_minimum_size = Vector2(140, 36)
+	_find_army_button.text = "Find Army: 0 [F]"
+	_find_army_button.custom_minimum_size = Vector2(170, 52)
 	_find_army_button.pressed.connect(func(): find_army_pressed.emit())
 	_find_army_button.tooltip_text = "Center camera on your army [F]"
-	bottom_right.add_child(_find_army_button)
-	bottom_right.move_child(_find_army_button, 2)
+	_find_army_button.disabled = true
+	_mobile_action_strip.add_child(_find_army_button)
 
 
 func update_idle_villager_count(count: int) -> void:
+	_last_idle_villager_count = count
 	if _idle_villager_button:
-		_idle_villager_button.text = "Idle: %d" % count
+		if _mobile_compact_labels:
+			_idle_villager_button.text = "Idle %d" % count
+		else:
+			_idle_villager_button.text = "Idle: %d [.]" % count
+		_idle_villager_button.disabled = count <= 0
 		if count > 0:
 			if _idle_flash_tween == null or not _idle_flash_tween.is_valid():
 				_idle_flash_tween = create_tween().set_loops()
@@ -323,6 +434,80 @@ func update_idle_villager_count(count: int) -> void:
 				_idle_flash_tween.kill()
 				_idle_flash_tween = null
 			_idle_villager_button.modulate = Color.WHITE
+
+
+func set_placement_mode(active: bool, building_name: String = "") -> void:
+	if _placement_cancel_button == null:
+		return
+	_placement_cancel_button.visible = active
+	if active and building_name != "":
+		_placement_cancel_button.text = "Cancel %s" % building_name
+	else:
+		_placement_cancel_button.text = "Cancel Build"
+
+
+func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
+	if _mobile_action_panel == null:
+		return
+
+	var safe_pos: Vector2 = safe_area.position
+	var safe_end: Vector2 = safe_area.position + safe_area.size
+	var left_inset: float = maxf(0.0, safe_pos.x)
+	var right_inset: float = maxf(0.0, viewport_size.x - safe_end.x)
+	var bottom_inset: float = maxf(0.0, viewport_size.y - safe_end.y)
+
+	_mobile_action_panel.anchor_left = 0.0
+	_mobile_action_panel.anchor_right = 1.0
+	_mobile_action_panel.anchor_top = 1.0
+	_mobile_action_panel.anchor_bottom = 1.0
+	_mobile_action_panel.offset_left = left_inset + 8.0
+	_mobile_action_panel.offset_right = -right_inset - 8.0
+	_mobile_action_panel.offset_bottom = -bottom_inset - 8.0
+	_mobile_action_panel.offset_top = _mobile_action_panel.offset_bottom - 64.0
+
+	var content_width: float = maxf(220.0, safe_area.size.x - 16.0)
+	var button_slots: float = 4.0
+	var gap: float = 8.0
+	var button_width: float = clampf((content_width - gap * (button_slots - 1.0) - 20.0) / button_slots, 86.0, 180.0)
+	for button in [_placement_cancel_button, _idle_villager_button, _select_military_button, _find_army_button]:
+		if button:
+			button.custom_minimum_size = Vector2(button_width, 52)
+
+	var compact_labels: bool = content_width < 620.0
+	if compact_labels != _mobile_compact_labels:
+		_mobile_compact_labels = compact_labels
+		update_idle_villager_count(_last_idle_villager_count)
+		update_military_count(_last_military_count)
+
+	var minimap_bg: Control = get_node_or_null("Root/MinimapBG")
+	if minimap_bg:
+		minimap_bg.offset_left = left_inset + 8.0
+		minimap_bg.offset_bottom = -bottom_inset - 8.0
+		minimap_bg.offset_top = minimap_bg.offset_bottom - 200.0
+		minimap_bg.offset_right = minimap_bg.offset_left + 200.0
+
+	var bottom_right: Control = get_node_or_null("Root/BottomRight")
+	if bottom_right:
+		bottom_right.offset_right = -8.0 - right_inset
+		bottom_right.offset_bottom = -80.0 - bottom_inset
+
+	if _progression_hint_panel:
+		_progression_hint_panel.offset_top = safe_pos.y + 54.0
+		_progression_hint_panel.offset_bottom = _progression_hint_panel.offset_top + 36.0
+
+
+func set_progression_hint(text: String, emphasis: bool = false) -> void:
+	if _progression_hint_label == null or _progression_hint_panel == null:
+		return
+	var trimmed: String = text.strip_edges()
+	_progression_hint_panel.visible = trimmed != ""
+	if trimmed == "":
+		return
+	_progression_hint_label.text = trimmed
+	var color: Color = Color(0.93, 0.89, 0.75)
+	if emphasis:
+		color = Color(1.0, 0.86, 0.38)
+	_progression_hint_label.add_theme_color_override("font_color", color)
 
 
 # --- Build menu ---
@@ -839,6 +1024,24 @@ func _on_minimap_input(event: InputEvent) -> void:
 		_handle_minimap_click(event.position)
 	elif event is InputEventMouseMotion and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
 		_handle_minimap_click(event.position)
+	elif event is InputEventScreenTouch:
+		var touch: InputEventScreenTouch = event as InputEventScreenTouch
+		if touch.pressed:
+			_minimap_touch_index = touch.index
+			_handle_minimap_click(_screen_to_minimap_local(touch.position))
+		elif touch.index == _minimap_touch_index:
+			_minimap_touch_index = -1
+	elif event is InputEventScreenDrag:
+		var drag: InputEventScreenDrag = event as InputEventScreenDrag
+		if drag.index == _minimap_touch_index:
+			_handle_minimap_click(_screen_to_minimap_local(drag.position))
+
+
+func _screen_to_minimap_local(screen_pos: Vector2) -> Vector2:
+	if screen_pos.x >= 0.0 and screen_pos.y >= 0.0 and screen_pos.x <= minimap_rect.size.x and screen_pos.y <= minimap_rect.size.y:
+		return screen_pos
+	var xform: Transform2D = minimap_rect.get_global_transform_with_canvas().affine_inverse()
+	return xform * screen_pos
 
 
 func _handle_minimap_click(local_pos: Vector2) -> void:
@@ -946,7 +1149,8 @@ func _create_hotkey_panel() -> void:
 		["M", "Select all military"],
 		["F", "Find/center on army"],
 		[".", "Cycle idle villagers"],
-		["S", "Toggle stance (Aggr/Stand)"],
+		["R", "Arm patrol command"],
+		["G", "Toggle stance (Aggr/Stand)"],
 		["T", "Stop selected units"],
 		["Del", "Demolish selected building"],
 		["Ctrl+A", "Select all own units"],
@@ -1039,6 +1243,40 @@ func _create_score_label() -> void:
 	root_ctrl.add_child(_score_label)
 
 
+func _create_progression_hint() -> void:
+	if _progression_hint_panel != null:
+		return
+	var root_ctrl: Control = $Root
+	_progression_hint_panel = PanelContainer.new()
+	_progression_hint_panel.name = "ProgressionHintPanel"
+	_progression_hint_panel.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_progression_hint_panel.offset_left = -240
+	_progression_hint_panel.offset_right = 240
+	_progression_hint_panel.offset_top = 54
+	_progression_hint_panel.offset_bottom = 90
+	_progression_hint_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_progression_hint_panel.visible = false
+
+	var hint_style := StyleBoxFlat.new()
+	hint_style.bg_color = Color(0.08, 0.06, 0.04, 0.78)
+	hint_style.border_color = Color(0.64, 0.52, 0.28, 0.85)
+	hint_style.set_border_width_all(1)
+	hint_style.set_corner_radius_all(4)
+	hint_style.set_content_margin_all(6)
+	_progression_hint_panel.add_theme_stylebox_override("panel", hint_style)
+
+	_progression_hint_label = Label.new()
+	_progression_hint_label.name = "ProgressionHintLabel"
+	_progression_hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_progression_hint_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_progression_hint_label.add_theme_font_size_override("font_size", 14)
+	_progression_hint_label.add_theme_color_override("font_color", Color(0.93, 0.89, 0.75))
+	_progression_hint_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_progression_hint_panel.add_child(_progression_hint_label)
+
+	root_ctrl.add_child(_progression_hint_panel)
+
+
 func update_score(score: int, enemy_score: int = 0) -> void:
 	if _score_label:
 		_score_label.text = "Score: %d / %d" % [score, enemy_score]
@@ -1047,10 +1285,19 @@ func update_score(score: int, enemy_score: int = 0) -> void:
 # --- Military Count ---
 
 func update_military_count(count: int) -> void:
+	_last_military_count = count
 	if _select_military_button:
-		_select_military_button.text = "Military: %d [M]" % count
+		if _mobile_compact_labels:
+			_select_military_button.text = "Army %d" % count
+		else:
+			_select_military_button.text = "Military: %d [M]" % count
+		_select_military_button.disabled = count <= 0
 	if _find_army_button:
-		_find_army_button.text = "Find Army: %d [F]" % count
+		if _mobile_compact_labels:
+			_find_army_button.text = "Find %d" % count
+		else:
+			_find_army_button.text = "Find Army: %d [F]" % count
+		_find_army_button.disabled = count <= 0
 
 
 func update_villager_tasks(food: int, wood: int, gold: int, building: int) -> void:

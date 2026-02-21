@@ -49,16 +49,21 @@ var _scout_trained: bool = false  # Track if we've trained a scout
 var _income_accumulator: Dictionary = { "food": 0.0, "wood": 0.0, "gold": 0.0 }
 
 # Build-order tracking (what we have built so far)
+var _town_center_count: int = 0
 var _house_count: int = 0
 var _barracks_count: int = 0
 var _archery_range_count: int = 0
 var _stable_count: int = 0
 var _lumber_camp_count: int = 0
 var _mining_camp_count: int = 0
+var _mill_count: int = 0
 var _farm_count: int = 0
 var _siege_workshop_count: int = 0
 var _blacksmith_count: int = 0
 var _watch_tower_count: int = 0
+var _is_under_pressure: bool = false
+var _pressure_memory: float = 0.0
+var _saving_for_age_up: bool = false
 
 # ── Difficulty tuning tables ─────────────────────────────────────────────
 const DECISION_INTERVALS: Dictionary = {
@@ -79,12 +84,6 @@ const ARMY_ATTACK_THRESHOLDS: Dictionary = {
 	Difficulty.HARD: 5,
 }
 
-const RESOURCE_RATIO: Dictionary = {
-	"food": 0.4,
-	"wood": 0.3,
-	"gold": 0.3,
-}
-
 ## Passive resource income per second by difficulty (food, wood, gold).
 ## Simulates the AI's faster macro and fewer micro mistakes.
 const DIFFICULTY_INCOME: Dictionary = {
@@ -100,30 +99,41 @@ const DIFFICULTY_START_BONUS: Dictionary = {
 	Difficulty.HARD: 150,
 }
 
-# Build priority order: building_type, min_age, max_count_per_age
-# Initialized in _ready() because Godot 4 const cannot reference external class enums.
-var _build_priority: Array = []
+const PRESSURE_MEMORY_SECONDS: float = 8.0
+
+const AGE_UP_COSTS: Dictionary = {
+	2: {"food": 400, "gold": 200},
+	3: {"food": 1200, "gold": 600},
+}
+
+const AGE_UP_TARGET_TIMES: Dictionary = {
+	Difficulty.EASY: 285.0,
+	Difficulty.MEDIUM: 225.0,
+	Difficulty.HARD: 170.0,
+}
+
+const AGE_UP_RESERVE_THRESHOLDS: Dictionary = {
+	Difficulty.EASY: 0.72,
+	Difficulty.MEDIUM: 0.62,
+	Difficulty.HARD: 0.52,
+}
+
+const AGE_UP_MIN_VILLAGERS: Dictionary = {
+	Difficulty.EASY: {2: 11, 3: 18},
+	Difficulty.MEDIUM: {2: 9, 3: 16},
+	Difficulty.HARD: {2: 7, 3: 14},
+}
+
+const AGE_UP_MIN_MILITARY: Dictionary = {
+	Difficulty.EASY: {2: 1, 3: 4},
+	Difficulty.MEDIUM: {2: 1, 3: 5},
+	Difficulty.HARD: {2: 0, 3: 5},
+}
 
 
 func _ready() -> void:
 	_decision_interval = DECISION_INTERVALS.get(difficulty, 1.5)
-	_init_build_priority()
 	_setup_timer()
-
-
-func _init_build_priority() -> void:
-	_build_priority = [
-		{ "type": BuildingData.BuildingType.HOUSE, "age": 1, "max": 8 },
-		{ "type": BuildingData.BuildingType.LUMBER_CAMP, "age": 1, "max": 2 },
-		{ "type": BuildingData.BuildingType.FARM, "age": 1, "max": 6 },
-		{ "type": BuildingData.BuildingType.BARRACKS, "age": 1, "max": 2 },
-		{ "type": BuildingData.BuildingType.MINING_CAMP, "age": 1, "max": 2 },
-		{ "type": BuildingData.BuildingType.ARCHERY_RANGE, "age": 2, "max": 2 },
-		{ "type": BuildingData.BuildingType.STABLE, "age": 2, "max": 1 },
-		{ "type": BuildingData.BuildingType.BLACKSMITH, "age": 1, "max": 1 },
-		{ "type": BuildingData.BuildingType.WATCH_TOWER, "age": 2, "max": 3 },
-		{ "type": BuildingData.BuildingType.SIEGE_WORKSHOP, "age": 3, "max": 1 },
-	]
 
 
 func _process(delta: float) -> void:
@@ -210,15 +220,17 @@ func _on_decision_tick() -> void:
 
 	# Update game phase
 	_update_ai_state()
+	_update_pressure_state()
+	_update_age_up_reserve()
 
 	# Run decision tree in priority order
 	_check_villager_production()
 	_check_house_need()
 	_assign_idle_villagers()
+	_check_age_up()
 	_check_building_construction()
 	_check_military_production()
 	_check_research()
-	_check_age_up()
 	_check_scouting()
 	_check_attack_or_defend()
 
@@ -239,13 +251,62 @@ func _update_ai_state() -> void:
 		_ai_state = AIState.EARLY_GAME
 
 
+func _update_pressure_state() -> void:
+	var enemy_pressure_strength: float = 0.0
+	var enemy_nearby_count: int = 0
+	for enemy in _get_visible_enemies():
+		if enemy.global_position.distance_to(_base_position) > 240.0:
+			continue
+		enemy_nearby_count += 1
+		if enemy is UnitBase:
+			enemy_pressure_strength += enemy.hp * enemy.damage
+
+	var own_strength: float = maxf(1.0, _evaluate_army_strength())
+	var pressure_now: bool = enemy_nearby_count >= 2 or enemy_pressure_strength > own_strength * 0.65
+	if pressure_now:
+		_pressure_memory = PRESSURE_MEMORY_SECONDS
+	else:
+		_pressure_memory = maxf(0.0, _pressure_memory - _decision_interval)
+	_is_under_pressure = _pressure_memory > 0.0
+
+
+func _update_age_up_reserve() -> void:
+	var age: int = GameManager.get_player_age(player_id)
+	if age >= GameManager.MAX_AGE:
+		_saving_for_age_up = false
+		return
+
+	var target_age: int = age + 1
+	var cost: Dictionary = AGE_UP_COSTS.get(target_age, {})
+	if cost.is_empty():
+		_saving_for_age_up = false
+		return
+
+	var resources: Dictionary = ResourceManager.get_all_resources(player_id)
+	var completion: float = _resource_completion_ratio(resources, cost)
+	var reserve_threshold: float = AGE_UP_RESERVE_THRESHOLDS.get(difficulty, 0.62)
+	var target_time: float = _get_age_up_target_time(target_age)
+	if target_age == 2 and _game_time >= target_time - 45.0:
+		reserve_threshold = maxf(0.45, reserve_threshold - 0.18)
+	if _is_under_pressure:
+		reserve_threshold += 0.08
+
+	var military_count: int = _get_military_units().size()
+	var military_gate: int = _get_min_military_for_age_up(target_age)
+	if _is_under_pressure:
+		military_gate += 1
+	if target_age == 2 and _game_time >= target_time:
+		military_gate = maxi(0, military_gate - 1)
+	_saving_for_age_up = completion >= reserve_threshold and military_count >= military_gate
+
+
 # ═════════════════════════════════════════════════════════════════════════
 #  VILLAGER PRODUCTION
 # ═════════════════════════════════════════════════════════════════════════
 
 func _check_villager_production() -> void:
 	var villagers: Array = _get_villagers()
-	var target: int = VILLAGER_TARGETS.get(difficulty, 18)
+	var target: int = _get_target_villager_count()
 
 	if villagers.size() >= target:
 		return
@@ -257,8 +318,8 @@ func _check_villager_production() -> void:
 	if pop >= cap:
 		return  # Need houses first
 
-	# Find a Town Center to train from
-	var tc: Node = _find_building_of_type(BuildingData.BuildingType.TOWN_CENTER)
+	# Find the least busy Town Center to train from.
+	var tc: Node = _find_trainable_building_of_type(BuildingData.BuildingType.TOWN_CENTER)
 	if tc == null:
 		return
 
@@ -303,12 +364,13 @@ func _assign_idle_villagers() -> void:
 	var total: float = float(resources.get("food", 0) + resources.get("wood", 0) + resources.get("gold", 0))
 	if total < 1.0:
 		total = 1.0
+	var target_ratio: Dictionary = _get_target_resource_ratio()
 
 	# Determine which resource is most below target ratio
 	var deficits: Dictionary = {}
-	for res_type in RESOURCE_RATIO:
+	for res_type in target_ratio:
 		var current_ratio: float = float(resources.get(res_type, 0)) / total
-		deficits[res_type] = RESOURCE_RATIO[res_type] - current_ratio
+		deficits[res_type] = target_ratio[res_type] - current_ratio
 
 	# Sort by largest deficit
 	var priority: Array = ["food", "wood", "gold"]
@@ -336,17 +398,24 @@ func _assign_idle_villagers() -> void:
 
 func _check_building_construction() -> void:
 	var age: int = GameManager.get_player_age(player_id)
+	var target_counts: Dictionary = _get_target_building_counts(age)
+	var build_order: Array = _get_build_order(age)
 
-	for entry in _build_priority:
-		var b_type: int = entry["type"]
-		var req_age: int = entry["age"]
-		var max_count: int = entry["max"]
-
+	for b_type in build_order:
+		var b_stats: Dictionary = BuildingData.get_building_stats(b_type)
+		var req_age: int = b_stats.get("age_required", 0)
 		if age < req_age:
+			continue
+
+		var max_count: int = target_counts.get(b_type, 0)
+		if max_count <= 0:
 			continue
 
 		var current_count: int = _get_building_count(b_type)
 		if current_count >= max_count:
+			continue
+
+		if _saving_for_age_up and not _is_essential_building_while_saving(b_type):
 			continue
 
 		var cost: Dictionary = BuildingData.get_building_cost(b_type)
@@ -366,12 +435,16 @@ func _check_building_construction() -> void:
 # ═════════════════════════════════════════════════════════════════════════
 
 func _check_military_production() -> void:
-	if _ai_state == AIState.EARLY_GAME and _get_military_units().size() >= 5:
+	var military_count: int = _get_military_units().size()
+	if _ai_state == AIState.EARLY_GAME and not _is_under_pressure and military_count >= 5:
 		return  # In early game, cap military production
+
+	if _saving_for_age_up and not _is_under_pressure and military_count >= 4:
+		return
 
 	# Train a scout early for scouting
 	if not _scout_trained:
-		var tc: Node = _find_building_of_type(BuildingData.BuildingType.TOWN_CENTER)
+		var tc: Node = _find_trainable_building_of_type(BuildingData.BuildingType.TOWN_CENTER)
 		if tc:
 			var cost: Dictionary = UnitData.get_unit_cost(UnitData.UnitType.SCOUT)
 			if ResourceManager.can_afford(player_id, cost):
@@ -379,20 +452,25 @@ func _check_military_production() -> void:
 				_scout_trained = true
 				return
 
-	_try_train_from_building(BuildingData.BuildingType.BARRACKS, UnitData.UnitType.INFANTRY)
+	var resources: Dictionary = ResourceManager.get_all_resources(player_id)
+	var training_plan: Array = _get_military_training_plan(resources)
+	var trains_allowed: int = 2 if _is_under_pressure else 1
+	var trains_done: int = 0
 
-	if _ai_state != AIState.EARLY_GAME:
-		_try_train_from_building(BuildingData.BuildingType.ARCHERY_RANGE, UnitData.UnitType.ARCHER)
-		_try_train_from_building(BuildingData.BuildingType.STABLE, UnitData.UnitType.CAVALRY)
+	for unit_type in training_plan:
+		var building_type: int = _get_training_building_type_for_unit(unit_type)
+		if building_type < 0:
+			continue
+		if _try_train_from_building(building_type, unit_type):
+			trains_done += 1
+			if trains_done >= trains_allowed:
+				break
 
-	if _ai_state == AIState.LATE_GAME:
-		_try_train_from_building(BuildingData.BuildingType.SIEGE_WORKSHOP, UnitData.UnitType.SIEGE)
 
-
-func _try_train_from_building(building_type: int, unit_type: int) -> void:
-	var building: Node = _find_building_of_type(building_type)
+func _try_train_from_building(building_type: int, unit_type: int) -> bool:
+	var building: Node = _find_trainable_building_of_type(building_type)
 	if building == null:
-		return
+		return false
 
 	# Check pop room
 	var player_data: Dictionary = GameManager.players.get(player_id, {})
@@ -400,11 +478,13 @@ func _try_train_from_building(building_type: int, unit_type: int) -> void:
 	var cap: int = player_data.get("population_cap", 5)
 	var pop_cost: int = UnitData.UNITS.get(unit_type, {}).get("pop_cost", 1)
 	if pop + pop_cost > cap:
-		return
+		return false
 
 	var cost: Dictionary = UnitData.get_unit_cost(unit_type)
 	if ResourceManager.can_afford(player_id, cost):
 		ai_wants_to_train.emit(building, unit_type)
+		return true
+	return false
 
 
 # ═════════════════════════════════════════════════════════════════════════
@@ -414,32 +494,257 @@ func _try_train_from_building(building_type: int, unit_type: int) -> void:
 func _check_age_up() -> void:
 	var age: int = GameManager.get_player_age(player_id)
 	if age >= GameManager.MAX_AGE:
+		_saving_for_age_up = false
 		return
 
-	# On HARD, age up sooner; on EASY, wait longer
-	var min_villagers_to_age: int = 8
-	match difficulty:
-		Difficulty.EASY:
-			min_villagers_to_age = 12
-		Difficulty.MEDIUM:
-			min_villagers_to_age = 10
-		Difficulty.HARD:
-			min_villagers_to_age = 6
+	var target_age: int = age + 1
+	var cost: Dictionary = AGE_UP_COSTS.get(target_age, {})
+	if cost.is_empty():
+		_saving_for_age_up = false
+		return
+
+	var resources: Dictionary = ResourceManager.get_all_resources(player_id)
+	var completion: float = _resource_completion_ratio(resources, cost)
+	var timing_target: float = _get_age_up_target_time(target_age)
+	var min_villagers_to_age: int = _get_min_villagers_for_age_up(target_age)
+	var min_military: int = _get_min_military_for_age_up(target_age)
+	if _is_under_pressure:
+		min_villagers_to_age += 1
+		min_military += 1
+
+	if target_age == 2 and _game_time >= timing_target:
+		min_villagers_to_age = maxi(8, min_villagers_to_age - 2)
+		min_military = maxi(0, min_military - 1)
 
 	if _get_villagers().size() < min_villagers_to_age:
+		_saving_for_age_up = false
 		return
 
-	# Age-up costs (must match age_up_dialog.gd).
-	var age_up_costs: Dictionary = {
-		2: {"food": 400, "gold": 200},
-		3: {"food": 1200, "gold": 600},
-	}
-	var target_age: int = age + 1
-	var cost: Dictionary = age_up_costs.get(target_age, {})
-	if cost.is_empty():
-		return
+	var military_count: int = _get_military_units().size()
+	if military_count < min_military:
+		var allow_feudal_fallback: bool = (
+			target_age == 2
+			and completion >= 0.95
+			and _game_time >= timing_target - 20.0
+		)
+		if not allow_feudal_fallback:
+			return
+
 	if ResourceManager.can_afford(player_id, cost):
+		_saving_for_age_up = false
 		ai_wants_to_age_up.emit()
+
+
+func _get_age_up_target_time(target_age: int) -> float:
+	if target_age != 2:
+		return INF
+	return AGE_UP_TARGET_TIMES.get(difficulty, 225.0)
+
+
+func _get_min_villagers_for_age_up(target_age: int) -> int:
+	var by_age: Dictionary = AGE_UP_MIN_VILLAGERS.get(difficulty, {})
+	var fallback: int = 10 if target_age == 2 else 16
+	return int(by_age.get(target_age, fallback))
+
+
+func _get_min_military_for_age_up(target_age: int) -> int:
+	var by_age: Dictionary = AGE_UP_MIN_MILITARY.get(difficulty, {})
+	var fallback: int = 1 if target_age == 2 else 5
+	return int(by_age.get(target_age, fallback))
+
+
+func _resource_completion_ratio(resources: Dictionary, cost: Dictionary) -> float:
+	var total: float = 0.0
+	var achieved: float = 0.0
+	for res_type in cost:
+		var needed: float = float(cost[res_type])
+		if needed <= 0.0:
+			continue
+		total += needed
+		achieved += minf(needed, float(resources.get(res_type, 0)))
+	if total <= 0.0:
+		return 1.0
+	return achieved / total
+
+
+func _get_target_villager_count() -> int:
+	var base_target: int = VILLAGER_TARGETS.get(difficulty, 18)
+	var age: int = GameManager.get_player_age(player_id)
+	if age >= 2:
+		base_target += 2
+	if age >= 3:
+		base_target += 4
+	if _is_under_pressure:
+		base_target = maxi(10, base_target - 3)
+	return base_target
+
+
+func _get_target_resource_ratio() -> Dictionary:
+	var age: int = GameManager.get_player_age(player_id)
+	if _is_under_pressure:
+		return {"food": 0.45, "wood": 0.35, "gold": 0.20}
+	if _saving_for_age_up and age == 1:
+		match difficulty:
+			Difficulty.EASY:
+				return {"food": 0.62, "wood": 0.22, "gold": 0.16}
+			Difficulty.MEDIUM:
+				return {"food": 0.58, "wood": 0.20, "gold": 0.22}
+			Difficulty.HARD:
+				return {"food": 0.54, "wood": 0.18, "gold": 0.28}
+	if _saving_for_age_up and age == 2:
+		return {"food": 0.56, "wood": 0.14, "gold": 0.30}
+	if age <= 1:
+		return {"food": 0.5, "wood": 0.35, "gold": 0.15}
+	if age == 2:
+		return {"food": 0.4, "wood": 0.3, "gold": 0.3}
+	return {"food": 0.35, "wood": 0.3, "gold": 0.35}
+
+
+func _get_target_building_counts(age: int) -> Dictionary:
+	var villagers: int = _get_villagers().size()
+	var farm_target: int = clampi(villagers / 4, 2, 12)
+	if age <= 1:
+		farm_target = clampi(villagers / 6, 1, 4)
+	if _saving_for_age_up and age <= 1:
+		farm_target = clampi(villagers / 8, 0, 2)
+	if _is_under_pressure:
+		farm_target = maxi(1, farm_target)
+
+	var targets: Dictionary = {
+		BuildingData.BuildingType.HOUSE: 12,
+		BuildingData.BuildingType.MILL: 1 if age <= 2 else 2,
+		BuildingData.BuildingType.LUMBER_CAMP: 1 if age <= 1 else 2,
+		BuildingData.BuildingType.MINING_CAMP: 1 if age <= 2 else 2,
+		BuildingData.BuildingType.FARM: farm_target,
+		BuildingData.BuildingType.BARRACKS: 1 if age <= 1 else 2,
+		BuildingData.BuildingType.ARCHERY_RANGE: 0 if age < 2 else 1,
+		BuildingData.BuildingType.STABLE: 0 if age < 2 else 1,
+		BuildingData.BuildingType.BLACKSMITH: 1 if age >= 2 else 0,
+		BuildingData.BuildingType.WATCH_TOWER: 0 if age < 2 else 1,
+		BuildingData.BuildingType.SIEGE_WORKSHOP: 0 if age < 3 else 1,
+		BuildingData.BuildingType.TOWN_CENTER: 1,
+	}
+
+	if age >= 3 and villagers >= 18 and not _is_under_pressure:
+		targets[BuildingData.BuildingType.TOWN_CENTER] = 2
+	if difficulty == Difficulty.HARD and age >= 3:
+		targets[BuildingData.BuildingType.ARCHERY_RANGE] = maxi(targets[BuildingData.BuildingType.ARCHERY_RANGE], 2)
+		targets[BuildingData.BuildingType.STABLE] = maxi(targets[BuildingData.BuildingType.STABLE], 2)
+	if _is_under_pressure:
+		targets[BuildingData.BuildingType.BARRACKS] = maxi(targets[BuildingData.BuildingType.BARRACKS], 2)
+		if age >= 2:
+			targets[BuildingData.BuildingType.WATCH_TOWER] = 2
+			targets[BuildingData.BuildingType.ARCHERY_RANGE] = maxi(targets[BuildingData.BuildingType.ARCHERY_RANGE], 1)
+		targets[BuildingData.BuildingType.MILL] = 1
+		targets[BuildingData.BuildingType.TOWN_CENTER] = 1
+	return targets
+
+
+func _get_build_order(age: int) -> Array:
+	if _is_under_pressure:
+		return [
+			BuildingData.BuildingType.HOUSE,
+			BuildingData.BuildingType.MILL,
+			BuildingData.BuildingType.BARRACKS,
+			BuildingData.BuildingType.WATCH_TOWER,
+			BuildingData.BuildingType.LUMBER_CAMP,
+			BuildingData.BuildingType.MINING_CAMP,
+			BuildingData.BuildingType.FARM,
+			BuildingData.BuildingType.ARCHERY_RANGE,
+			BuildingData.BuildingType.STABLE,
+			BuildingData.BuildingType.BLACKSMITH,
+			BuildingData.BuildingType.SIEGE_WORKSHOP,
+			BuildingData.BuildingType.TOWN_CENTER,
+		]
+	if age >= 3:
+		return [
+			BuildingData.BuildingType.HOUSE,
+			BuildingData.BuildingType.MILL,
+			BuildingData.BuildingType.LUMBER_CAMP,
+			BuildingData.BuildingType.MINING_CAMP,
+			BuildingData.BuildingType.FARM,
+			BuildingData.BuildingType.BARRACKS,
+			BuildingData.BuildingType.ARCHERY_RANGE,
+			BuildingData.BuildingType.STABLE,
+			BuildingData.BuildingType.BLACKSMITH,
+			BuildingData.BuildingType.SIEGE_WORKSHOP,
+			BuildingData.BuildingType.TOWN_CENTER,
+			BuildingData.BuildingType.WATCH_TOWER,
+		]
+	return [
+		BuildingData.BuildingType.HOUSE,
+		BuildingData.BuildingType.MILL,
+		BuildingData.BuildingType.LUMBER_CAMP,
+		BuildingData.BuildingType.MINING_CAMP,
+		BuildingData.BuildingType.FARM,
+		BuildingData.BuildingType.BARRACKS,
+		BuildingData.BuildingType.BLACKSMITH,
+		BuildingData.BuildingType.ARCHERY_RANGE,
+		BuildingData.BuildingType.STABLE,
+		BuildingData.BuildingType.WATCH_TOWER,
+	]
+
+
+func _is_essential_building_while_saving(building_type: int) -> bool:
+	if building_type == BuildingData.BuildingType.HOUSE:
+		return true
+	if building_type == BuildingData.BuildingType.LUMBER_CAMP:
+		return true
+	if building_type == BuildingData.BuildingType.MINING_CAMP:
+		return true
+	if building_type == BuildingData.BuildingType.MILL:
+		return true
+	if building_type == BuildingData.BuildingType.FARM:
+		return true
+	return _is_under_pressure and building_type == BuildingData.BuildingType.WATCH_TOWER
+
+
+func _get_military_training_plan(resources: Dictionary) -> Array:
+	var plan: Array = []
+	if _is_under_pressure:
+		plan = [
+			UnitData.UnitType.INFANTRY,
+			UnitData.UnitType.INFANTRY,
+			UnitData.UnitType.ARCHER,
+			UnitData.UnitType.CAVALRY,
+		]
+	elif _ai_state == AIState.EARLY_GAME:
+		plan = [UnitData.UnitType.INFANTRY, UnitData.UnitType.INFANTRY]
+	elif _ai_state == AIState.MID_GAME:
+		plan = [UnitData.UnitType.INFANTRY, UnitData.UnitType.ARCHER, UnitData.UnitType.CAVALRY]
+	else:
+		plan = [UnitData.UnitType.INFANTRY, UnitData.UnitType.ARCHER, UnitData.UnitType.CAVALRY, UnitData.UnitType.SIEGE]
+
+	var food: int = resources.get("food", 0)
+	var wood: int = resources.get("wood", 0)
+	var gold: int = resources.get("gold", 0)
+	var filtered: Array = []
+	for unit_type in plan:
+		if unit_type == UnitData.UnitType.ARCHER and wood < 45:
+			continue
+		if unit_type == UnitData.UnitType.CAVALRY and gold < 40:
+			continue
+		if unit_type == UnitData.UnitType.SIEGE and (wood < 150 or gold < 100):
+			continue
+		filtered.append(unit_type)
+	if filtered.is_empty():
+		filtered.append(UnitData.UnitType.INFANTRY)
+	if _ai_state == AIState.LATE_GAME and wood >= 220 and gold >= 130:
+		filtered.append(UnitData.UnitType.SIEGE)
+	return filtered
+
+
+func _get_training_building_type_for_unit(unit_type: int) -> int:
+	match unit_type:
+		UnitData.UnitType.INFANTRY:
+			return BuildingData.BuildingType.BARRACKS
+		UnitData.UnitType.ARCHER:
+			return BuildingData.BuildingType.ARCHERY_RANGE
+		UnitData.UnitType.CAVALRY:
+			return BuildingData.BuildingType.STABLE
+		UnitData.UnitType.SIEGE:
+			return BuildingData.BuildingType.SIEGE_WORKSHOP
+	return -1
 
 
 # ═════════════════════════════════════════════════════════════════════════
@@ -448,6 +753,8 @@ func _check_age_up() -> void:
 
 func _check_research() -> void:
 	if _blacksmith_count == 0:
+		return
+	if _saving_for_age_up and not _is_under_pressure:
 		return
 
 	# Research forging first, then scale mail
@@ -638,12 +945,14 @@ func _cleanup_references() -> void:
 
 
 func _update_building_counts() -> void:
+	_town_center_count = 0
 	_house_count = 0
 	_barracks_count = 0
 	_archery_range_count = 0
 	_stable_count = 0
 	_lumber_camp_count = 0
 	_mining_camp_count = 0
+	_mill_count = 0
 	_farm_count = 0
 	_siege_workshop_count = 0
 	_blacksmith_count = 0
@@ -656,12 +965,14 @@ func _update_building_counts() -> void:
 			continue
 		var btype: int = b.building_type if "building_type" in b else -1
 		match btype:
+			BuildingData.BuildingType.TOWN_CENTER: _town_center_count += 1
 			BuildingData.BuildingType.HOUSE: _house_count += 1
 			BuildingData.BuildingType.BARRACKS: _barracks_count += 1
 			BuildingData.BuildingType.ARCHERY_RANGE: _archery_range_count += 1
 			BuildingData.BuildingType.STABLE: _stable_count += 1
 			BuildingData.BuildingType.LUMBER_CAMP: _lumber_camp_count += 1
 			BuildingData.BuildingType.MINING_CAMP: _mining_camp_count += 1
+			BuildingData.BuildingType.MILL: _mill_count += 1
 			BuildingData.BuildingType.FARM: _farm_count += 1
 			BuildingData.BuildingType.SIEGE_WORKSHOP: _siege_workshop_count += 1
 			BuildingData.BuildingType.BLACKSMITH: _blacksmith_count += 1
@@ -670,12 +981,14 @@ func _update_building_counts() -> void:
 
 func _get_building_count(building_type: int) -> int:
 	match building_type:
+		BuildingData.BuildingType.TOWN_CENTER: return _town_center_count
 		BuildingData.BuildingType.HOUSE: return _house_count
 		BuildingData.BuildingType.BARRACKS: return _barracks_count
 		BuildingData.BuildingType.ARCHERY_RANGE: return _archery_range_count
 		BuildingData.BuildingType.STABLE: return _stable_count
 		BuildingData.BuildingType.LUMBER_CAMP: return _lumber_camp_count
 		BuildingData.BuildingType.MINING_CAMP: return _mining_camp_count
+		BuildingData.BuildingType.MILL: return _mill_count
 		BuildingData.BuildingType.FARM: return _farm_count
 		BuildingData.BuildingType.SIEGE_WORKSHOP: return _siege_workshop_count
 		BuildingData.BuildingType.BLACKSMITH: return _blacksmith_count
@@ -759,13 +1072,48 @@ func _evaluate_enemy_visible_strength() -> float:
 	return strength
 
 
-func _find_building_of_type(building_type: int) -> Node:
+func _get_buildings_of_type(building_type: int) -> Array:
+	var result: Array = []
 	for b in _my_buildings:
 		if not is_instance_valid(b):
 			continue
 		if "building_type" in b and b.building_type == building_type:
-			return b
-	return null
+			result.append(b)
+	return result
+
+
+func _find_building_of_type(building_type: int) -> Node:
+	var buildings: Array = _get_buildings_of_type(building_type)
+	if buildings.is_empty():
+		return null
+	return buildings[0]
+
+
+func _find_trainable_building_of_type(building_type: int) -> Node:
+	var buildings: Array = _get_buildings_of_type(building_type)
+	if buildings.is_empty():
+		return null
+
+	var best: Node = null
+	var best_queue: int = 999
+	for b in buildings:
+		if not is_instance_valid(b):
+			continue
+		if "state" in b and b.state != BuildingBase.State.ACTIVE:
+			continue
+		var q_size: int = 0
+		if b.has_method("get_production_queue"):
+			var pq: Node = b.get_production_queue()
+			if pq and pq.has_method("get_queue_size"):
+				q_size = int(pq.get_queue_size())
+		if q_size >= 5:
+			continue
+		if q_size < best_queue:
+			best_queue = q_size
+			best = b
+	if best != null:
+		return best
+	return _find_building_of_type(building_type)
 
 
 func _find_nearest_resource_node(resource_type: String, from_pos: Vector2) -> Node2D:
@@ -790,6 +1138,8 @@ func _find_build_location(building_type: int) -> Vector2i:
 	var footprint: Vector2i = stats.get("footprint", Vector2i(2, 2))
 
 	# Special placement for resource-gathering buildings
+	if building_type == BuildingData.BuildingType.MILL:
+		return _find_build_near_resource(MapData.TileType.BERRY_BUSH, footprint)
 	if building_type == BuildingData.BuildingType.LUMBER_CAMP:
 		return _find_build_near_resource(MapData.TileType.FOREST, footprint)
 	if building_type == BuildingData.BuildingType.MINING_CAMP:

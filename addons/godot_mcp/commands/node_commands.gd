@@ -3,9 +3,12 @@ extends MCPBaseCommand
 class_name MCPNodeCommands
 
 const FIND_NODES_TIMEOUT := 5.0
+const NODE_PROPERTIES_TIMEOUT := 5.0
 
 var _find_nodes_pending := false
 var _find_nodes_result: Dictionary = {}
+var _node_properties_pending := false
+var _node_properties_result: Dictionary = {}
 
 
 func get_commands() -> Dictionary:
@@ -25,6 +28,10 @@ func get_node_properties(params: Dictionary) -> Dictionary:
 	if node_path.is_empty():
 		return _error("INVALID_PARAMS", "node_path is required")
 
+	var debugger := _plugin.get_debugger_plugin() as MCPDebuggerPlugin
+	if debugger and EditorInterface.is_playing_scene() and debugger.has_active_session():
+		return await _get_node_properties_via_game(debugger, node_path)
+
 	var node := _get_node(node_path)
 	if not node:
 		return _error("NODE_NOT_FOUND", "Node not found: %s" % node_path)
@@ -40,6 +47,35 @@ func get_node_properties(params: Dictionary) -> Dictionary:
 		properties[name] = _serialize_value(value)
 
 	return _success({"properties": properties})
+
+
+func _get_node_properties_via_game(debugger: MCPDebuggerPlugin, node_path: String) -> Dictionary:
+	_node_properties_pending = true
+	_node_properties_result = {}
+
+	if debugger.node_properties_received.is_connected(_on_node_properties_received):
+		debugger.node_properties_received.disconnect(_on_node_properties_received)
+	debugger.node_properties_received.connect(_on_node_properties_received, CONNECT_ONE_SHOT)
+	debugger.request_node_properties(node_path)
+
+	var start_time := Time.get_ticks_msec()
+	while _node_properties_pending:
+		await Engine.get_main_loop().process_frame
+		if (Time.get_ticks_msec() - start_time) / 1000.0 > NODE_PROPERTIES_TIMEOUT:
+			_node_properties_pending = false
+			if debugger.node_properties_received.is_connected(_on_node_properties_received):
+				debugger.node_properties_received.disconnect(_on_node_properties_received)
+			return _error("TIMEOUT", "Game did not respond within %d seconds" % int(NODE_PROPERTIES_TIMEOUT))
+
+	return _node_properties_result
+
+
+func _on_node_properties_received(properties: Dictionary, error: String) -> void:
+	_node_properties_pending = false
+	if not error.is_empty():
+		_node_properties_result = _error("GAME_ERROR", error)
+	else:
+		_node_properties_result = _success({"properties": properties})
 
 
 func find_nodes(params: Dictionary) -> Dictionary:
@@ -298,5 +334,4 @@ func connect_signal(params: Dictionary) -> Dictionary:
 	EditorInterface.mark_scene_as_unsaved()
 
 	return _success({})
-
 

@@ -6,6 +6,7 @@ signal screenshot_received(success: bool, image_base64: String, width: int, heig
 signal debug_output_received(output: PackedStringArray)
 signal performance_metrics_received(metrics: Dictionary)
 signal find_nodes_received(matches: Array, count: int, error: String)
+signal node_properties_received(properties: Dictionary, error: String)
 signal input_map_received(actions: Array, error: String)
 signal input_sequence_completed(result: Dictionary)
 signal type_text_completed(result: Dictionary)
@@ -15,6 +16,7 @@ var _pending_screenshot: bool = false
 var _pending_debug_output: bool = false
 var _pending_performance_metrics: bool = false
 var _pending_find_nodes: bool = false
+var _pending_node_properties: bool = false
 var _pending_input_map: bool = false
 var _pending_input_sequence: bool = false
 var _pending_type_text: bool = false
@@ -37,6 +39,9 @@ func _capture(message: String, data: Array, session_id: int) -> bool:
 			return true
 		"godot_mcp:find_nodes_result":
 			_handle_find_nodes_result(data)
+			return true
+		"godot_mcp:node_properties_result":
+			_handle_node_properties_result(data)
 			return true
 		"godot_mcp:input_map_result":
 			_handle_input_map_result(data)
@@ -68,6 +73,9 @@ func _session_stopped() -> void:
 	if _pending_find_nodes:
 		_pending_find_nodes = false
 		find_nodes_received.emit([], 0, "Game session ended")
+	if _pending_node_properties:
+		_pending_node_properties = false
+		node_properties_received.emit({}, "Game session ended")
 	if _pending_input_map:
 		_pending_input_map = false
 		input_map_received.emit([], "Game session ended")
@@ -171,6 +179,26 @@ func _handle_find_nodes_result(data: Array) -> void:
 	var count: int = data[1] if data.size() > 1 else 0
 	var error: String = data[2] if data.size() > 2 else ""
 	find_nodes_received.emit(matches, count, error)
+
+
+func request_node_properties(node_path: String) -> void:
+	if _active_session_id < 0:
+		node_properties_received.emit({}, "No active game session")
+		return
+	_pending_node_properties = true
+	var session := get_session(_active_session_id)
+	if session:
+		session.send_message("godot_mcp:get_node_properties", [node_path])
+	else:
+		_pending_node_properties = false
+		node_properties_received.emit({}, "Could not get debugger session")
+
+
+func _handle_node_properties_result(data: Array) -> void:
+	_pending_node_properties = false
+	var properties: Dictionary = data[0] if data.size() > 0 else {}
+	var error: String = data[1] if data.size() > 1 else ""
+	node_properties_received.emit(properties, error)
 
 
 func request_input_map() -> void:

@@ -21,6 +21,10 @@ var carried_resource_type: String = ""
 var carried_amount: int = 0
 var gather_timer: float = 0.0
 var dropoff_target: Node2D = null
+var _dropoff_retry_timer: float = 0.0
+
+const DROP_OFF_RETRY_INTERVAL: float = 1.0
+const DROP_OFF_ANY_ADVANTAGE_RATIO: float = 0.7
 
 # Building state
 var build_target: Node2D = null
@@ -55,6 +59,15 @@ func take_damage(amount: float) -> void:
 
 
 func _process_gathering(delta: float) -> void:
+	if carried_amount >= carry_capacity:
+		if dropoff_target != null and is_instance_valid(dropoff_target):
+			return
+		_dropoff_retry_timer -= delta
+		if _dropoff_retry_timer <= 0.0:
+			_dropoff_retry_timer = DROP_OFF_RETRY_INTERVAL
+			_find_and_go_to_dropoff()
+		return
+
 	if gather_target == null or not is_instance_valid(gather_target):
 		# Resource depleted or removed
 		if carried_amount > 0:
@@ -117,10 +130,10 @@ func _find_and_go_to_dropoff() -> void:
 			best_any_dist = dist
 			best_any = building
 	# Prefer specific drop-off (lumber camp for wood, mining camp for gold)
-	# But use any drop-off if it's much closer (within 30% distance)
+	# But use any drop-off if it's much closer (at least 30% closer)
 	var best_building: Node2D = null
 	if best_specific != null:
-		if best_any != null and best_any_dist < best_specific_dist * 0.3:
+		if best_any != null and best_any_dist < best_specific_dist * DROP_OFF_ANY_ADVANTAGE_RATIO:
 			best_building = best_any
 		else:
 			best_building = best_specific
@@ -128,6 +141,7 @@ func _find_and_go_to_dropoff() -> void:
 		best_building = best_any
 	if best_building != null:
 		dropoff_target = best_building
+		_dropoff_retry_timer = 0.0
 		move_target = best_building.global_position
 		set_state(State.MOVING)
 		# Disconnect any stale one-shot before reconnecting
@@ -135,12 +149,17 @@ func _find_and_go_to_dropoff() -> void:
 			arrived_at_destination.disconnect(_on_arrived_for_dropoff)
 		arrived_at_destination.connect(_on_arrived_for_dropoff, CONNECT_ONE_SHOT)
 	else:
-		# No dropoff available, go idle
-		set_state(State.IDLE)
+		# No dropoff available yet - stay in gather state and retry.
+		dropoff_target = null
+		_dropoff_retry_timer = DROP_OFF_RETRY_INTERVAL
+		set_state(State.GATHERING)
 
 
 func _on_arrived_for_dropoff(_unit: UnitBase) -> void:
-	_deposit_resources()
+	var deposited: bool = _deposit_resources()
+	if not deposited and carried_amount > 0:
+		_find_and_go_to_dropoff()
+		return
 	# Go back to the resource
 	if gather_target != null and is_instance_valid(gather_target):
 		command_gather(gather_target)
@@ -148,16 +167,19 @@ func _on_arrived_for_dropoff(_unit: UnitBase) -> void:
 		set_state(State.IDLE)
 
 
-func _deposit_resources() -> void:
+func _deposit_resources() -> bool:
 	if carried_amount <= 0:
-		return
+		return true
 	var deposited_amount: int = carried_amount
 	var deposited_type: String = carried_resource_type
-	if dropoff_target != null and is_instance_valid(dropoff_target):
-		if dropoff_target.has_method("deposit_resource"):
-			dropoff_target.deposit_resource(carried_resource_type, carried_amount)
+	if dropoff_target == null or not is_instance_valid(dropoff_target):
+		return false
+	if not dropoff_target.has_method("deposit_resource"):
+		return false
+	dropoff_target.deposit_resource(carried_resource_type, carried_amount)
 	resource_deposited.emit(carried_resource_type, carried_amount)
 	carried_amount = 0
+	dropoff_target = null
 	# Floating resource text
 	if get_tree():
 		var float_color: Color
@@ -167,6 +189,7 @@ func _deposit_resources() -> void:
 			"gold": float_color = Color(0.95, 0.85, 0.2)
 			_: float_color = Color.WHITE
 		VFX.resource_float(get_tree(), global_position, "+%d %s" % [deposited_amount, deposited_type.capitalize()], float_color)
+	return true
 
 
 func _process_building(delta: float) -> void:

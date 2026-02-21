@@ -20,6 +20,7 @@ var _building_scenes: Dictionary = {
 	BuildingData.BuildingType.ARCHERY_RANGE: preload("res://scenes/buildings/archery_range.tscn"),
 	BuildingData.BuildingType.STABLE: preload("res://scenes/buildings/stable.tscn"),
 	BuildingData.BuildingType.FARM: preload("res://scenes/buildings/farm.tscn"),
+	BuildingData.BuildingType.MILL: preload("res://scenes/buildings/mill.tscn"),
 	BuildingData.BuildingType.LUMBER_CAMP: preload("res://scenes/buildings/lumber_camp.tscn"),
 	BuildingData.BuildingType.MINING_CAMP: preload("res://scenes/buildings/mining_camp.tscn"),
 	BuildingData.BuildingType.SIEGE_WORKSHOP: preload("res://scenes/buildings/siege_workshop.tscn"),
@@ -53,6 +54,7 @@ var _debug_panel: DebugPanel = null
 
 # --- Idle villager cycling ---
 var _idle_villager_index: int = 0
+var _patrol_command_armed: bool = false
 
 # --- Under-attack notification cooldown ---
 var _under_attack_cooldown: float = 0.0
@@ -88,11 +90,130 @@ const HINTS: Array = [
 	{"time": 120.0, "text": "Train a Scout from your TC to explore the map", "color": Color(0.7, 0.8, 1.0)},
 	{"time": 180.0, "text": "Hold the Sacred Site (map center) for 3 min to win!", "color": Color(0.85, 0.7, 1.0)},
 ]
+var _milestone_first_house: bool = false
+var _milestone_first_military_building: bool = false
+var _milestone_first_age_up: bool = false
+
+# --- Balance telemetry (read via MCP node.get_properties on /root/Main) ---
+@export var balance_ai_difficulty: int = 1
+@export var balance_elapsed_seconds: float = 0.0
+@export var balance_ai_age: int = 1
+@export var balance_ai_feudal_time: float = -1.0
+@export var balance_ai_castle_time: float = -1.0
+@export var balance_ai_imperial_time: float = -1.0
+@export var balance_ai_food: int = 0
+@export var balance_ai_wood: int = 0
+@export var balance_ai_gold: int = 0
+@export var balance_ai_population: int = 0
+@export var balance_ai_population_cap: int = 0
+@export var balance_ai_villagers: int = 0
+@export var balance_ai_military: int = 0
+@export var balance_ai_buildings: int = 0
+@export var balance_ai_town_centers: int = 0
+@export var balance_ai_barracks: int = 0
+@export var balance_ai_archery_ranges: int = 0
+@export var balance_ai_stables: int = 0
+@export var balance_ai_siege_workshops: int = 0
+@export var balance_ai_under_pressure: bool = false
+@export var balance_ai_saving_for_age_up: bool = false
+@export var balance_ai_state: int = -1
+var _balance_snapshot_timer: float = 0.0
+const BALANCE_SNAPSHOT_INTERVAL: float = 1.0
 
 
 func _ready() -> void:
 	# Wait for map generation to finish.
 	game_map.map_ready.connect(_on_map_ready)
+
+
+func _resolve_ai_difficulty() -> int:
+	var env_override: String = OS.get_environment("AOEM_AI_DIFFICULTY").strip_edges()
+	if env_override != "" and env_override.is_valid_int():
+		return clampi(int(env_override), AIController.Difficulty.EASY, AIController.Difficulty.HARD)
+	return clampi(GameManager.selected_difficulty, AIController.Difficulty.EASY, AIController.Difficulty.HARD)
+
+
+func _reset_balance_snapshot() -> void:
+	balance_elapsed_seconds = 0.0
+	balance_ai_age = 1
+	balance_ai_feudal_time = -1.0
+	balance_ai_castle_time = -1.0
+	balance_ai_imperial_time = -1.0
+	balance_ai_food = 0
+	balance_ai_wood = 0
+	balance_ai_gold = 0
+	balance_ai_population = 0
+	balance_ai_population_cap = 0
+	balance_ai_villagers = 0
+	balance_ai_military = 0
+	balance_ai_buildings = 0
+	balance_ai_town_centers = 0
+	balance_ai_barracks = 0
+	balance_ai_archery_ranges = 0
+	balance_ai_stables = 0
+	balance_ai_siege_workshops = 0
+	balance_ai_under_pressure = false
+	balance_ai_saving_for_age_up = false
+	balance_ai_state = -1
+	_balance_snapshot_timer = 0.0
+
+
+func _update_balance_snapshot() -> void:
+	var ai_id: int = ai_controller.player_id
+	balance_elapsed_seconds = GameManager.game_time
+	balance_ai_difficulty = ai_controller.difficulty
+	balance_ai_age = GameManager.get_player_age(ai_id)
+	if balance_ai_age >= 2 and balance_ai_feudal_time < 0.0:
+		balance_ai_feudal_time = balance_elapsed_seconds
+	if balance_ai_age >= 3 and balance_ai_castle_time < 0.0:
+		balance_ai_castle_time = balance_elapsed_seconds
+	if balance_ai_age >= 4 and balance_ai_imperial_time < 0.0:
+		balance_ai_imperial_time = balance_elapsed_seconds
+
+	var ai_resources: Dictionary = ResourceManager.get_all_resources(ai_id)
+	balance_ai_food = ai_resources.get("food", 0)
+	balance_ai_wood = ai_resources.get("wood", 0)
+	balance_ai_gold = ai_resources.get("gold", 0)
+
+	var ai_player: Dictionary = GameManager.players.get(ai_id, {})
+	balance_ai_population = ai_player.get("population", 0)
+	balance_ai_population_cap = ai_player.get("population_cap", 0)
+
+	balance_ai_villagers = 0
+	balance_ai_military = 0
+	for unit in _player_units[ai_id]:
+		if not is_instance_valid(unit) or unit.current_state == UnitBase.State.DEAD:
+			continue
+		if unit is Villager:
+			balance_ai_villagers += 1
+		else:
+			balance_ai_military += 1
+
+	balance_ai_buildings = 0
+	balance_ai_town_centers = 0
+	balance_ai_barracks = 0
+	balance_ai_archery_ranges = 0
+	balance_ai_stables = 0
+	balance_ai_siege_workshops = 0
+	for building in _player_buildings[ai_id]:
+		if not is_instance_valid(building) or building.state == BuildingBase.State.DESTROYED:
+			continue
+		balance_ai_buildings += 1
+		match building.building_type:
+			BuildingData.BuildingType.TOWN_CENTER:
+				balance_ai_town_centers += 1
+			BuildingData.BuildingType.BARRACKS:
+				balance_ai_barracks += 1
+			BuildingData.BuildingType.ARCHERY_RANGE:
+				balance_ai_archery_ranges += 1
+			BuildingData.BuildingType.STABLE:
+				balance_ai_stables += 1
+			BuildingData.BuildingType.SIEGE_WORKSHOP:
+				balance_ai_siege_workshops += 1
+
+	balance_ai_under_pressure = bool(ai_controller.get("_is_under_pressure"))
+	balance_ai_saving_for_age_up = bool(ai_controller.get("_saving_for_age_up"))
+	balance_ai_state = int(ai_controller.get("_ai_state"))
 
 
 func _on_map_ready(map_gen: MapGenerator) -> void:
@@ -127,6 +248,8 @@ func _on_map_ready(map_gen: MapGenerator) -> void:
 
 	# Wire up AI.
 	_setup_ai(map_gen)
+	_reset_balance_snapshot()
+	_update_balance_snapshot()
 
 	# Set up debug panel.
 	_setup_debug_panel()
@@ -138,6 +261,10 @@ func _on_map_ready(map_gen: MapGenerator) -> void:
 	# Update initial HUD state.
 	_refresh_hud_resources(0)
 	_update_population_display()
+	_milestone_first_house = false
+	_milestone_first_military_building = false
+	_milestone_first_age_up = false
+	hud.set_progression_hint("Open with villagers, houses, and a barracks before aging up.", false)
 
 
 # =========================================================================
@@ -213,6 +340,12 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action("find_army"):
 		_find_army()
 		get_viewport().set_input_as_handled()
+	elif event.is_action("toggle_stance"):
+		_toggle_stance()
+		get_viewport().set_input_as_handled()
+	elif event.is_action("patrol_command"):
+		_arm_patrol_command()
+		get_viewport().set_input_as_handled()
 	elif event is InputEventKey:
 		var key_event: InputEventKey = event as InputEventKey
 		# Ctrl+A: select all own units
@@ -234,10 +367,6 @@ func _unhandled_input(event: InputEvent) -> void:
 		# Delete key: destroy own selected building
 		elif key_event.keycode == KEY_DELETE:
 			_delete_selected_building()
-			get_viewport().set_input_as_handled()
-		# S key: toggle stance (Aggressive / Stand Ground)
-		elif key_event.keycode == KEY_S and not key_event.ctrl_pressed:
-			_toggle_stance()
 			get_viewport().set_input_as_handled()
 		# Control groups: Ctrl+0-9 save, 0-9 recall
 		elif key_event.keycode >= KEY_0 and key_event.keycode <= KEY_9:
@@ -270,6 +399,10 @@ func _handle_escape() -> void:
 		return
 	if hud.is_build_menu_open():
 		hud.close_build_menu()
+		return
+	if _patrol_command_armed:
+		_patrol_command_armed = false
+		hud.show_notification("Patrol canceled", Color(0.75, 0.7, 0.55))
 		return
 	game_map.selection_mgr.deselect_all()
 
@@ -423,6 +556,22 @@ func _toggle_stance() -> void:
 		if first_unit:
 			var stance_name: String = "Stand Ground" if first_unit.stance == UnitBase.Stance.STAND_GROUND else "Aggressive"
 			hud.show_notification("Stance: %s" % stance_name, Color(0.8, 0.7, 0.5))
+
+
+func _arm_patrol_command() -> void:
+	var selected: Array = game_map.selection_mgr.selected
+	if selected.is_empty():
+		return
+	var has_military: bool = false
+	for node in selected:
+		if node is UnitBase and node.player_owner == 0 and node.unit_type != UnitData.UnitType.VILLAGER:
+			has_military = true
+			break
+	if not has_military:
+		hud.show_notification("Patrol requires military units", Color(1.0, 0.55, 0.35))
+		return
+	_patrol_command_armed = true
+	hud.show_notification("Patrol armed: issue move command", Color(0.9, 0.75, 0.35))
 
 
 func _select_town_center() -> void:
@@ -740,6 +889,16 @@ func _on_building_constructed(building: BuildingBase, player_id: int) -> void:
 	if player_id == 0:
 		_stats["buildings_built"] += 1
 		hud.show_notification("Building complete: %s" % building.building_name, Color(0.3, 0.85, 0.3))
+		if building.building_type == BuildingData.BuildingType.HOUSE and not _milestone_first_house:
+			_milestone_first_house = true
+			hud.show_notification("Milestone: First House complete.", Color(0.92, 0.84, 0.38))
+		if building.building_type in [
+			BuildingData.BuildingType.BARRACKS,
+			BuildingData.BuildingType.ARCHERY_RANGE,
+			BuildingData.BuildingType.STABLE,
+		] and not _milestone_first_military_building:
+			_milestone_first_military_building = true
+			hud.show_notification("Milestone: Military production unlocked.", Color(0.82, 0.72, 1.0))
 
 
 func _on_building_destroyed(building: BuildingBase, player_id: int, tile_pos: Vector2i) -> void:
@@ -770,6 +929,7 @@ func _on_building_destroyed(building: BuildingBase, player_id: int, tile_pos: Ve
 
 func _on_selection_changed(selected_units: Array[Node2D]) -> void:
 	if selected_units.is_empty():
+		_patrol_command_armed = false
 		hud.clear_selection()
 		return
 
@@ -825,6 +985,8 @@ func _on_selection_changed(selected_units: Array[Node2D]) -> void:
 
 func _on_move_command(target_tile: Vector2i) -> void:
 	var selected: Array = game_map.selection_mgr.selected
+	var issue_patrol: bool = _patrol_command_armed
+	_patrol_command_armed = false
 
 	# Check if a production building is selected — set rally point
 	if selected.size() == 1 and selected[0] is BuildingBase:
@@ -836,11 +998,17 @@ func _on_move_command(target_tile: Vector2i) -> void:
 
 	# Collect moveable units
 	var moveable: Array[UnitBase] = []
+	var has_military: bool = false
 	for node in selected:
 		if node is UnitBase and node.player_owner == 0:
-			moveable.append(node as UnitBase)
+			var unit: UnitBase = node as UnitBase
+			moveable.append(unit)
+			if unit.unit_type != UnitData.UnitType.VILLAGER:
+				has_military = true
 	if moveable.is_empty():
 		return
+	if issue_patrol and not has_military:
+		issue_patrol = false
 
 	# Generate formation offsets so units spread out around the target
 	var offsets := _get_formation_offsets(moveable.size())
@@ -860,22 +1028,27 @@ func _on_move_command(target_tile: Vector2i) -> void:
 			var world_path := PackedVector2Array()
 			for tp in tile_path:
 				world_path.append(game_map.tile_to_world(tp))
-			unit.command_move_path(world_path)
 			if is_military:
-				unit.attack_move = true
+				if issue_patrol:
+					unit.command_patrol(world_pos)
+				else:
+					unit.command_attack_move_path(world_path)
+			else:
+				unit.command_move_path(world_path)
 		else:
 			if is_military:
-				unit.command_attack_move(world_pos)
+				if issue_patrol:
+					unit.command_patrol(world_pos)
+				else:
+					unit.command_attack_move(world_pos)
 			else:
 				unit.command_move(world_pos)
 
+	if issue_patrol:
+		VFX.move_indicator(get_tree(), game_map.tile_to_world(target_tile))
+		hud.show_notification("Patrol route set", Color(0.95, 0.8, 0.4))
 	# Show green indicator for regular move, red for attack-move
-	var has_military: bool = false
-	for u in moveable:
-		if u.unit_type != UnitData.UnitType.VILLAGER:
-			has_military = true
-			break
-	if has_military:
+	elif has_military:
 		VFX.attack_move_indicator(get_tree(), game_map.tile_to_world(target_tile))
 	else:
 		VFX.move_indicator(get_tree(), game_map.tile_to_world(target_tile))
@@ -911,6 +1084,7 @@ func _get_formation_offsets(count: int) -> Array[Vector2i]:
 
 
 func _on_attack_command(target: Node2D) -> void:
+	_patrol_command_armed = false
 	var selected: Array = game_map.selection_mgr.selected
 	for node in selected:
 		if node is UnitBase and node.player_owner == 0:
@@ -921,6 +1095,7 @@ func _on_attack_command(target: Node2D) -> void:
 
 
 func _on_gather_command(resource_node: Node2D) -> void:
+	_patrol_command_armed = false
 	var selected: Array = game_map.selection_mgr.selected
 	for node in selected:
 		if node is UnitBase and node.player_owner == 0 and node.has_method("command_gather"):
@@ -928,6 +1103,7 @@ func _on_gather_command(resource_node: Node2D) -> void:
 
 
 func _on_build_command(building: Node2D) -> void:
+	_patrol_command_armed = false
 	var selected: Array = game_map.selection_mgr.selected
 	for node in selected:
 		if node is Villager and node.player_owner == 0:
@@ -1044,6 +1220,7 @@ func _setup_hud() -> void:
 	hud.select_all_military_pressed.connect(_select_all_military)
 	hud.find_army_pressed.connect(_find_army)
 	hud.research_requested.connect(_on_research_requested)
+	hud.placement_cancel_requested.connect(_on_cancel_placement)
 	_build_menu.building_selected.connect(_on_building_selected_for_placement)
 	_build_menu.cancel_placement.connect(_on_cancel_placement)
 
@@ -1052,6 +1229,7 @@ func _setup_hud() -> void:
 	game_map.add_child(_building_placement)
 	_building_placement.placement_confirmed.connect(_on_placement_confirmed)
 	_building_placement.placement_cancelled.connect(_on_cancel_placement)
+	_building_placement.placement_invalid.connect(_on_placement_invalid)
 
 
 func _on_build_menu_toggled(is_open: bool) -> void:
@@ -1066,6 +1244,7 @@ func _on_building_selected_for_placement(building_type: int) -> void:
 	_placement_active = true
 	_placement_type = building_type
 	_building_placement.start_placement(building_type, 0)
+	hud.set_placement_mode(true, BuildingData.get_building_name(building_type))
 
 
 func _on_cancel_placement() -> void:
@@ -1079,6 +1258,11 @@ func _cancel_placement() -> void:
 		_building_placement.cancel_placement()
 	if _build_menu:
 		_build_menu.set_placement_mode(false)
+	hud.set_placement_mode(false)
+
+
+func _on_placement_invalid(reason: String) -> void:
+	hud.show_notification("Cannot place: %s" % reason, Color(1.0, 0.45, 0.35))
 
 
 func _on_age_up_requested() -> void:
@@ -1097,6 +1281,14 @@ func _on_age_up_requested() -> void:
 		var new_age: int = GameManager.get_player_age(0)
 		var age_name: String = GameManager.get_age_name(new_age)
 		hud.show_notification("Advancing to %s!" % age_name, Color(1.0, 0.85, 0.2))
+		if new_age >= 2 and not _milestone_first_age_up:
+			_milestone_first_age_up = true
+			hud.show_notification("Milestone: First Age Up reached.", Color(1.0, 0.9, 0.45))
+	else:
+		var resources: Dictionary = ResourceManager.get_all_resources(0)
+		var need_food: int = maxi(0, cost.get("food", 0) - int(resources.get("food", 0)))
+		var need_gold: int = maxi(0, cost.get("gold", 0) - int(resources.get("gold", 0)))
+		hud.show_notification("Need +%d food and +%d gold to age up." % [need_food, need_gold], Color(1.0, 0.5, 0.35))
 
 
 # =========================================================================
@@ -1108,6 +1300,8 @@ func _on_placement_confirmed(building_type: int, world_pos: Vector2) -> void:
 
 	var cost: Dictionary = BuildingData.get_building_cost(building_type)
 	if not ResourceManager.try_spend(0, cost):
+		hud.show_notification("Not enough resources!", Color(1.0, 0.4, 0.3))
+		_cancel_placement()
 		return
 
 	var building := _spawn_building(building_type, 0, tile_pos)
@@ -1151,7 +1345,8 @@ func _screen_to_world(screen_pos: Vector2) -> Vector2:
 # =========================================================================
 
 func _setup_ai(map_gen: MapGenerator) -> void:
-	ai_controller.difficulty = GameManager.selected_difficulty
+	ai_controller.difficulty = _resolve_ai_difficulty()
+	GameManager.selected_difficulty = ai_controller.difficulty
 	ai_controller.map_generator = map_gen
 	ai_controller.pathfinding = game_map.pathfinding
 	ai_controller.game_map = game_map
@@ -1237,6 +1432,12 @@ func _process(delta: float) -> void:
 		_update_idle_villager_count()
 		_auto_explore_idle_scouts()
 		hud.update_score(_calculate_score(0), _calculate_score(1))
+		_update_progression_hint()
+	# Keep exported balance telemetry fresh for MCP polling.
+	_balance_snapshot_timer += delta
+	if _balance_snapshot_timer >= BALANCE_SNAPSHOT_INTERVAL:
+		_balance_snapshot_timer = 0.0
+		_update_balance_snapshot()
 	# Refresh selection display every 0.5s to keep gather progress / queue current
 	_selection_refresh_timer += delta
 	if _selection_refresh_timer >= 0.5:
@@ -1331,11 +1532,105 @@ func _update_population_display() -> void:
 	hud.update_population(pop, cap)
 
 
+func _count_player_buildings_of_type(player_id: int, building_type: int) -> int:
+	var count: int = 0
+	for building in _player_buildings[player_id]:
+		if not is_instance_valid(building):
+			continue
+		if building.state == BuildingBase.State.DESTROYED:
+			continue
+		if building.building_type == building_type:
+			count += 1
+	return count
+
+
+func _has_player_building_of_types(player_id: int, building_types: Array[int]) -> bool:
+	for building in _player_buildings[player_id]:
+		if not is_instance_valid(building):
+			continue
+		if building.state == BuildingBase.State.DESTROYED:
+			continue
+		if building.building_type in building_types:
+			return true
+	return false
+
+
+func _update_progression_hint() -> void:
+	if hud == null:
+		return
+	if GameManager.current_state != GameManager.GameState.PLAYING:
+		hud.set_progression_hint("")
+		return
+
+	var age: int = GameManager.get_player_age(0)
+	var resources: Dictionary = ResourceManager.get_all_resources(0)
+	var player_data: Dictionary = GameManager.players.get(0, {})
+	var pop: int = player_data.get("population", 0)
+	var cap: int = player_data.get("population_cap", 5)
+
+	var villagers: int = 0
+	var military: int = 0
+	for unit in _player_units[0]:
+		if not is_instance_valid(unit) or unit.current_state == UnitBase.State.DEAD:
+			continue
+		if unit is Villager:
+			villagers += 1
+		else:
+			military += 1
+
+	if pop >= cap:
+		hud.set_progression_hint("Population blocked. Build a House now.", true)
+		return
+
+	if age == 1:
+		var house_count: int = _count_player_buildings_of_type(0, BuildingData.BuildingType.HOUSE)
+		var has_military_prod: bool = _has_player_building_of_types(0, [
+			BuildingData.BuildingType.BARRACKS,
+			BuildingData.BuildingType.ARCHERY_RANGE,
+			BuildingData.BuildingType.STABLE,
+		])
+		if house_count < 2:
+			hud.set_progression_hint("Build a House to stabilize population growth.", false)
+			return
+		if villagers < 8:
+			hud.set_progression_hint("Train villagers to speed up economy and aging.", false)
+			return
+		if not has_military_prod:
+			hud.set_progression_hint("Build a Barracks to unlock military control.", false)
+			return
+		var need_food: int = maxi(0, 400 - int(resources.get("food", 0)))
+		var need_gold: int = maxi(0, 200 - int(resources.get("gold", 0)))
+		if need_food == 0 and need_gold == 0:
+			hud.set_progression_hint("Age Up ready. Tap Age Up now.", true)
+		else:
+			hud.set_progression_hint("Age Up needs +%dF and +%dG." % [need_food, need_gold], false)
+		return
+
+	if age == 2:
+		if military < 4:
+			hud.set_progression_hint("Expand military to secure map control before Castle Age.", false)
+			return
+		var need_food2: int = maxi(0, 1200 - int(resources.get("food", 0)))
+		var need_gold2: int = maxi(0, 600 - int(resources.get("gold", 0)))
+		if need_food2 == 0 and need_gold2 == 0:
+			hud.set_progression_hint("Castle Age ready. Advance when safe.", true)
+		else:
+			hud.set_progression_hint("Castle Age needs +%dF and +%dG." % [need_food2, need_gold2], false)
+		return
+
+	if age >= 3:
+		if military < 8:
+			hud.set_progression_hint("Grow your army before pushing enemy landmarks.", false)
+		else:
+			hud.set_progression_hint("Pressure enemy Town Center or hold Sacred Site.", false)
+
+
 # =========================================================================
 #  GAME OVER
 # =========================================================================
 
 func _show_game_over() -> void:
+	hud.set_progression_hint("")
 	var winner_id: int = -1
 	for pid in GameManager.players:
 		if not GameManager.players[pid]["is_defeated"]:

@@ -30,10 +30,14 @@ func get_input_map(_params: Dictionary) -> Dictionary:
 	var debugger_plugin = _plugin.get_debugger_plugin() if _plugin else null
 	if debugger_plugin == null or not debugger_plugin.has_active_session():
 		return _get_editor_input_map()
+	if _input_map_pending:
+		return _error("BUSY", "A get_input_map request is already in progress")
 
 	_input_map_pending = true
 	_input_map_result = {}
 
+	if debugger_plugin.input_map_received.is_connected(_on_input_map_received):
+		debugger_plugin.input_map_received.disconnect(_on_input_map_received)
 	debugger_plugin.input_map_received.connect(_on_input_map_received, CONNECT_ONE_SHOT)
 	debugger_plugin.request_input_map()
 
@@ -115,6 +119,8 @@ func execute_input_sequence(params: Dictionary) -> Dictionary:
 	var debugger_plugin = _plugin.get_debugger_plugin() if _plugin else null
 	if debugger_plugin == null or not debugger_plugin.has_active_session():
 		return _error("NO_SESSION", "No active debug session")
+	if _sequence_pending:
+		return _error("BUSY", "An input sequence is already in progress")
 
 	var max_end_time: float = 0.0
 	for input in inputs:
@@ -127,6 +133,8 @@ func execute_input_sequence(params: Dictionary) -> Dictionary:
 	_sequence_pending = true
 	_sequence_result = {}
 
+	if debugger_plugin.input_sequence_completed.is_connected(_on_sequence_completed):
+		debugger_plugin.input_sequence_completed.disconnect(_on_sequence_completed)
 	debugger_plugin.input_sequence_completed.connect(_on_sequence_completed, CONNECT_ONE_SHOT)
 	debugger_plugin.request_input_sequence(inputs)
 
@@ -164,12 +172,16 @@ func type_text(params: Dictionary) -> Dictionary:
 	var debugger_plugin = _plugin.get_debugger_plugin() if _plugin else null
 	if debugger_plugin == null or not debugger_plugin.has_active_session():
 		return _error("NO_SESSION", "No active debug session")
+	if _type_text_pending:
+		return _error("BUSY", "A type_text request is already in progress")
 
 	var timeout := max(INPUT_TIMEOUT, (text.length() * delay_ms / 1000.0) + 5.0)
 
 	_type_text_pending = true
 	_type_text_result = {}
 
+	if debugger_plugin.type_text_completed.is_connected(_on_type_text_completed):
+		debugger_plugin.type_text_completed.disconnect(_on_type_text_completed)
 	debugger_plugin.type_text_completed.connect(_on_type_text_completed, CONNECT_ONE_SHOT)
 	debugger_plugin.request_type_text(text, delay_ms, submit)
 

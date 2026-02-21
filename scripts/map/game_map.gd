@@ -24,6 +24,8 @@ var _camera_drag_active := false
 var _camera_drag_start := Vector2.ZERO
 var _camera_origin := Vector2.ZERO
 var _touch_points: Dictionary = {}  # index -> position
+var _touch_start_points: Dictionary = {}  # index -> initial press position
+var _touch_pan_active: Dictionary = {}  # index -> bool
 
 ## Camera zoom limits.
 const ZOOM_MIN := 0.5
@@ -31,6 +33,7 @@ const ZOOM_MAX := 2.5
 const ZOOM_SPEED := 0.1
 const CAMERA_PAN_SPEED := 400.0
 const EDGE_SCROLL_MARGIN := 8.0  # Pixels from screen edge to trigger scroll
+const TOUCH_PAN_DEADZONE := 20.0  # Pixels before one-finger pan starts
 
 
 ## Preloaded scenes.
@@ -138,17 +141,18 @@ func _update_camera_pan(delta: float) -> void:
 	if Input.is_action_pressed("camera_right"):
 		pan.x += 1.0
 
-	# Edge scrolling: pan when mouse is near screen edges
-	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
-	var mouse_pos: Vector2 = get_viewport().get_mouse_position()
-	if mouse_pos.x < EDGE_SCROLL_MARGIN:
-		pan.x -= 1.0
-	elif mouse_pos.x > viewport_size.x - EDGE_SCROLL_MARGIN:
-		pan.x += 1.0
-	if mouse_pos.y < EDGE_SCROLL_MARGIN:
-		pan.y -= 1.0
-	elif mouse_pos.y > viewport_size.y - EDGE_SCROLL_MARGIN:
-		pan.y += 1.0
+	# Edge scrolling should only run on pointer-based desktop controls.
+	if not DisplayServer.is_touchscreen_available():
+		var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+		var mouse_pos: Vector2 = get_viewport().get_mouse_position()
+		if mouse_pos.x < EDGE_SCROLL_MARGIN:
+			pan.x -= 1.0
+		elif mouse_pos.x > viewport_size.x - EDGE_SCROLL_MARGIN:
+			pan.x += 1.0
+		if mouse_pos.y < EDGE_SCROLL_MARGIN:
+			pan.y -= 1.0
+		elif mouse_pos.y > viewport_size.y - EDGE_SCROLL_MARGIN:
+			pan.y += 1.0
 
 	if pan != Vector2.ZERO:
 		camera.position += pan.normalized() * CAMERA_PAN_SPEED * delta / camera.zoom.x
@@ -169,10 +173,21 @@ func _unhandled_input(event: InputEvent) -> void:
 		var touch := event as InputEventScreenTouch
 		if touch.pressed:
 			_touch_points[touch.index] = touch.position
+			_touch_start_points[touch.index] = touch.position
+			_touch_pan_active[touch.index] = false
 		else:
 			_touch_points.erase(touch.index)
+			_touch_start_points.erase(touch.index)
+			_touch_pan_active.erase(touch.index)
 			if _touch_points.size() < 2:
 				_camera_drag_active = false
+			# When returning from pinch to one finger, reset drag origin to avoid camera jump.
+			if _touch_points.size() == 1:
+				var keys: Array = _touch_points.keys()
+				var remaining_idx: int = int(keys[0])
+				var remaining_pos: Vector2 = _touch_points[remaining_idx]
+				_touch_start_points[remaining_idx] = remaining_pos
+				_touch_pan_active[remaining_idx] = false
 
 	elif event is InputEventScreenDrag:
 		var drag := event as InputEventScreenDrag
@@ -195,9 +210,16 @@ func _unhandled_input(event: InputEvent) -> void:
 				var zoom_factor := new_dist / old_dist
 				_apply_zoom(zoom_factor)
 		elif _touch_points.size() == 1:
-			# Single-finger pan — only if selection manager isn't handling it.
-			camera.position -= drag.relative / camera.zoom
-			_clamp_camera()
+			# Single-finger pan starts only after crossing a drag deadzone.
+			var start_pos: Vector2 = _touch_start_points.get(drag.index, drag.position)
+			var moved_distance: float = start_pos.distance_to(drag.position)
+			var pan_active: bool = _touch_pan_active.get(drag.index, false)
+			if not pan_active and moved_distance >= TOUCH_PAN_DEADZONE:
+				pan_active = true
+				_touch_pan_active[drag.index] = true
+			if pan_active:
+				camera.position -= drag.relative / camera.zoom
+				_clamp_camera()
 
 	# --- Mouse wheel zoom (desktop) ---
 	elif event is InputEventMouseButton:
@@ -281,7 +303,7 @@ func _spawn_resource_nodes() -> void:
 		MapData.TileType.BERRY_BUSH: { "type": "food", "amount": 200 },
 		MapData.TileType.FOREST: { "type": "wood", "amount": 250 },
 		MapData.TileType.GOLD_MINE: { "type": "gold", "amount": 400 },
-		MapData.TileType.STONE: { "type": "stone", "amount": 300 },
+		# Stone is intentionally excluded until a usable stone economy is implemented.
 	}
 	for y in range(MapData.MAP_HEIGHT):
 		for x in range(MapData.MAP_WIDTH):
