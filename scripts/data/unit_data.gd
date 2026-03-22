@@ -22,7 +22,7 @@ const UNITS: Dictionary = {
 		"armor": 0,
 		"speed": 60.0,
 		"cost": { "food": 50, "wood": 0, "gold": 0 },
-		"build_time": 20.0,
+		"build_time": 16.0,
 		"vision_radius": 4,
 		"attack_range": 1,
 		"pop_cost": 1,
@@ -78,7 +78,7 @@ const UNITS: Dictionary = {
 		"armor": 0,
 		"speed": 100.0,
 		"cost": { "food": 40, "wood": 0, "gold": 10 },
-		"build_time": 12.0,
+		"build_time": 8.0,
 		"vision_radius": 8,
 		"attack_range": 1,
 		"pop_cost": 1,
@@ -102,6 +102,15 @@ const UNITS: Dictionary = {
 	},
 }
 
+const UNIT_ICONS: Dictionary = {
+	UnitType.VILLAGER: "res://assets/units/unit_01.png",
+	UnitType.INFANTRY: "res://assets/units/unit_06.png",
+	UnitType.ARCHER: "res://assets/units/unit_12.png",
+	UnitType.CAVALRY: "res://assets/units/unit_16.png",
+	UnitType.SCOUT: "res://assets/units/unit_07.png",
+	UnitType.SIEGE: "res://assets/units/unit_24.png",
+}
+
 
 static func get_unit_stats(unit_type: int) -> Dictionary:
 	if UNITS.has(unit_type):
@@ -119,3 +128,9 @@ static func get_unit_name(unit_type: int) -> String:
 	if UNITS.has(unit_type):
 		return UNITS[unit_type]["name"]
 	return "Unknown"
+
+
+static func get_unit_icon_path(unit_type: int) -> String:
+	if UNIT_ICONS.has(unit_type):
+		return UNIT_ICONS[unit_type]
+	return ""

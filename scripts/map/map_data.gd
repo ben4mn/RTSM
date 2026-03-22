@@ -21,9 +21,10 @@ enum FogState {
 	VISIBLE,     ## Currently in a unit's line of sight.
 }
 
-## Map dimensions (tiles).
-const MAP_WIDTH := 32
-const MAP_HEIGHT := 32
+## Map dimensions (tiles). Tuned for 2-player mobile matches that need a
+## readable early base area plus enough mid-map distance for a 4-10 minute arc.
+const MAP_WIDTH := 40
+const MAP_HEIGHT := 40
 
 ## Isometric tile size in pixels.
 const TILE_WIDTH := 64

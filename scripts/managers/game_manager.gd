@@ -31,6 +31,8 @@ var players: Dictionary = {}  # player_id -> PlayerData dict
 var game_time: float = 0.0
 var game_speed: float = 1.0
 var selected_difficulty: int = 1  # 0=Easy, 1=Medium, 2=Hard
+var selected_map_seed: int = -1
+var guided_opening_enabled: bool = true
 
 
 # --- Upgrade tracking per player ---
@@ -223,6 +225,15 @@ func complete_research(player_id: int, research_id: String) -> void:
 
 func toggle_pause() -> void:
 	if current_state == GameState.PLAYING:
-		set_state(GameState.PAUSED)
+		set_paused(true)
 	elif current_state == GameState.PAUSED:
+		set_paused(false)
+
+
+func set_paused(paused: bool) -> void:
+	if paused:
+		if current_state == GameState.PLAYING:
+			set_state(GameState.PAUSED)
+		return
+	if current_state == GameState.PAUSED:
 		set_state(GameState.PLAYING)

@@ -2,6 +2,15 @@
 
 This plan is intended for iterative Codex execution with MCP-based test loops after each phase.
 
+## Current Validation Snapshot (2026-03-07)
+
+- MCP smoke harness: `PASS (18/18)`
+- MCP phone playability audit: `PASS (36/36)` on the pre-tightening contract
+- Active implementation focus after the March 7, 2026 pass:
+  - tighten MCP acceptance so build-menu visibility, long-press, pinch zoom, and touch military flow are hard gates
+  - keep the next cycle centered on mobile skirmish polish, army readability, and AI midgame quality
+  - treat the MCP scripts as the source of truth for regression-covered behavior
+
 ## Phase 0 (Completed): MCP Reliability + Project Agent Docs
 
 ### Delivered
@@ -84,6 +93,15 @@ This plan is intended for iterative Codex execution with MCP-based test loops af
 - Hardened MCP smoke harness for reliable baseline runs:
   - `tools/mcp_smoke_test.py`
 
+### Validation Note (2026-03-07)
+
+- Core touch paths are live in the current build and were revalidated via MCP on March 7, 2026.
+- Remaining work is no longer baseline enablement; it is contract hardening and quality polish:
+  - strict build-menu visibility/audit enforcement
+  - long-press context verification
+  - pinch-zoom verification
+  - touch-only build -> place -> resume-economy regression coverage
+
 ## Phase 3: Unit Movement + Combat Depth
 
 ### Goals
@@ -115,6 +133,11 @@ This plan is intended for iterative Codex execution with MCP-based test loops af
 - Extended regression scenarios:
   - `tools/mcp_smoke_test.py`
 
+### Validation Note (2026-03-07)
+
+- Patrol, stance toggling, attack-move, and formation spreading remain live and regression-covered.
+- The next movement/combat pass should focus on higher-quality separation under larger army counts, not on reintroducing command basics.
+
 ## Phase 4: Economy + AI Midgame
 
 ### Goals
@@ -143,6 +166,15 @@ This plan is intended for iterative Codex execution with MCP-based test loops af
   - `scripts/ai/ai_controller.gd`
 - Extended deterministic regression scenarios with long-run Phase 4 gates:
   - `tools/mcp_smoke_test.py`
+
+### Validation Note (2026-03-07)
+
+- The AI/economy loop remains stable under current MCP simulation coverage.
+- Next work should prioritize richer AI behavior and telemetry:
+  - scouting quality
+  - damaged-unit retreat / pressure response
+  - higher-value target selection
+  - exported economy telemetry for long-run tuning
 
 ## Phase 5: Visual Overhaul Foundations
 

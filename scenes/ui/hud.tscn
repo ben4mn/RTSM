@@ -20,7 +20,7 @@ layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
 grow_horizontal = 2
-custom_minimum_size = Vector2(0, 48)
+custom_minimum_size = Vector2(0, 52)
 
 [node name="TopBarMargin" type="MarginContainer" parent="Root/TopBar"]
 layout_mode = 2
@@ -38,21 +38,21 @@ unique_name_in_owner = true
 layout_mode = 2
 text = "Food: 200"
 theme_override_colors/font_color = Color(0.9, 0.35, 0.25, 1)
-theme_override_font_sizes/font_size = 16
+theme_override_font_sizes/font_size = 17
 
 [node name="WoodLabel" type="Label" parent="Root/TopBar/TopBarMargin/HBox"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Wood: 200"
 theme_override_colors/font_color = Color(0.45, 0.7, 0.3, 1)
-theme_override_font_sizes/font_size = 16
+theme_override_font_sizes/font_size = 17
 
 [node name="GoldLabel" type="Label" parent="Root/TopBar/TopBarMargin/HBox"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Gold: 100"
 theme_override_colors/font_color = Color(0.95, 0.85, 0.2, 1)
-theme_override_font_sizes/font_size = 16
+theme_override_font_sizes/font_size = 17
 
 [node name="Separator" type="VSeparator" parent="Root/TopBar/TopBarMargin/HBox"]
 layout_mode = 2
@@ -61,7 +61,8 @@ layout_mode = 2
 unique_name_in_owner = true
 layout_mode = 2
 text = "Pop: 0/5"
-theme_override_font_sizes/font_size = 16
+theme_override_colors/font_color = Color(0.97, 0.95, 0.9, 1)
+theme_override_font_sizes/font_size = 17
 
 [node name="Separator2" type="VSeparator" parent="Root/TopBar/TopBarMargin/HBox"]
 layout_mode = 2
@@ -70,7 +71,8 @@ layout_mode = 2
 unique_name_in_owner = true
 layout_mode = 2
 text = "Dark Age"
-theme_override_font_sizes/font_size = 16
+theme_override_colors/font_color = Color(0.97, 0.95, 0.9, 1)
+theme_override_font_sizes/font_size = 17
 
 [node name="Spacer" type="Control" parent="Root/TopBar/TopBarMargin/HBox"]
 layout_mode = 2
@@ -80,7 +82,8 @@ size_flags_horizontal = 3
 unique_name_in_owner = true
 layout_mode = 2
 text = "00:00"
-theme_override_font_sizes/font_size = 16
+theme_override_colors/font_color = Color(0.97, 0.95, 0.9, 1)
+theme_override_font_sizes/font_size = 17
 
 [node name="MinimapBG" type="ColorRect" parent="Root"]
 layout_mode = 1
@@ -92,7 +95,7 @@ offset_top = -208.0
 offset_right = 208.0
 offset_bottom = -8.0
 grow_vertical = 0
-color = Color(0.1, 0.1, 0.1, 0.8)
+color = Color(0.05, 0.07, 0.1, 0.9)
 
 [node name="MinimapRect" type="TextureRect" parent="Root/MinimapBG"]
 unique_name_in_owner = true
@@ -117,7 +120,7 @@ offset_top = -110.0
 offset_right = 180.0
 grow_horizontal = 2
 grow_vertical = 0
-custom_minimum_size = Vector2(360, 100)
+custom_minimum_size = Vector2(380, 112)
 
 [node name="SelectionMargin" type="MarginContainer" parent="Root/SelectionPanel"]
 layout_mode = 2
@@ -174,13 +177,13 @@ theme_override_constants/separation = 6
 [node name="AgeUpButton" type="Button" parent="Root/BottomRight"]
 unique_name_in_owner = true
 layout_mode = 2
-custom_minimum_size = Vector2(140, 48)
+custom_minimum_size = Vector2(152, 52)
 text = "Age Up"
 theme_override_font_sizes/font_size = 16
 
 [node name="BuildMenuButton" type="Button" parent="Root/BottomRight"]
 unique_name_in_owner = true
 layout_mode = 2
-custom_minimum_size = Vector2(140, 48)
+custom_minimum_size = Vector2(152, 52)
 text = "Build"
 theme_override_font_sizes/font_size = 16

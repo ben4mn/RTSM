@@ -143,13 +143,13 @@ func _draw() -> void:
 	# Selection ring
 	if is_selected:
 		var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.005)
-		var sel_alpha := lerpf(0.3, 0.8, pulse)
-		draw_arc(Vector2.ZERO, 18.0, 0, TAU, 32, Color(1.0, 1.0, 1.0, sel_alpha), 2.0)
+		var sel_alpha := lerpf(0.45, 0.9, pulse)
+		draw_arc(Vector2.ZERO, 20.0, 0, TAU, 32, Color(1.0, 0.92, 0.55, sel_alpha), 3.0)
 
-	# Subtle colored glow circle behind resource
+	# Colored glow circle behind resource to keep nearby economy readable.
 	if remaining > 0:
-		var glow_color: Color = _get_resource_color(0.22)
-		draw_circle(Vector2.ZERO, 14.0, glow_color)
+		var glow_color: Color = _get_resource_color(0.30)
+		draw_circle(Vector2.ZERO, 18.0, glow_color)
 		_draw_resource_badge()
 	# Depletion bar overlay — sprite handles the visual
 	if remaining < total_amount and remaining > 0:
@@ -171,13 +171,13 @@ func _get_resource_color(alpha: float = 1.0) -> Color:
 
 
 func _draw_resource_badge() -> void:
-	var badge_pos := Vector2(0.0, -22.0)
-	draw_circle(badge_pos, 7.0, Color(0.02, 0.02, 0.02, 0.75))
-	draw_circle(badge_pos, 5.8, _get_resource_color(0.95))
+	var badge_pos := Vector2(0.0, -24.0)
+	draw_circle(badge_pos, 8.0, Color(0.02, 0.02, 0.02, 0.82))
+	draw_circle(badge_pos, 6.6, _get_resource_color(0.98))
 	var font := ThemeDB.fallback_font
 	if font == null:
 		return
 	var text: String = RESOURCE_BADGES.get(resource_type, "?")
-	var fsize: int = maxi(10, ThemeDB.fallback_font_size - 2)
-	var text_pos := badge_pos + Vector2(-5.0, 3.5)
+	var fsize: int = maxi(11, ThemeDB.fallback_font_size - 1)
+	var text_pos := badge_pos + Vector2(-5.5, 4.0)
 	draw_string(font, text_pos, text, HORIZONTAL_ALIGNMENT_CENTER, 10.0, fsize, Color(0.95, 0.95, 0.95, 0.98))

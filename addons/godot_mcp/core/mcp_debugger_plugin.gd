@@ -96,6 +96,18 @@ func has_active_session() -> bool:
 	return true
 
 
+func is_input_sequence_pending() -> bool:
+	return _pending_input_sequence
+
+
+func is_input_map_pending() -> bool:
+	return _pending_input_map
+
+
+func is_type_text_pending() -> bool:
+	return _pending_type_text
+
+
 func request_screenshot(max_width: int = 1920) -> void:
 	if _active_session_id < 0:
 		screenshot_received.emit(false, "", 0, 0, "No active game session")

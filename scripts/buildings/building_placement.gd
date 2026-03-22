@@ -268,15 +268,15 @@ func _draw() -> void:
 				local_center + Vector2(-half_w, 0),
 			])
 			var tile_invalid: bool = tile_pos in _invalid_tiles
-			var fill := Color(0.30, 0.85, 0.45, 0.14)
-			var stroke := Color(0.45, 1.0, 0.65, 0.45)
+			var fill := Color(0.30, 0.90, 0.45, 0.22)
+			var stroke := Color(0.90, 1.0, 0.68, 0.92)
 			if tile_invalid:
-				fill = Color(1.0, 0.20, 0.20, 0.24)
-				stroke = Color(1.0, 0.45, 0.35, 0.85)
+				fill = Color(1.0, 0.20, 0.20, 0.34)
+				stroke = Color(1.0, 0.45, 0.35, 0.96)
 			draw_colored_polygon(tile_points, fill)
 			for i in tile_points.size():
 				var next_i := (i + 1) % tile_points.size()
-				draw_line(tile_points[i], tile_points[next_i], stroke, 1.2)
+				draw_line(tile_points[i], tile_points[next_i], stroke, 2.0)
 
 	var pixel_w: float = current_footprint.x * MapData.TILE_WIDTH
 	var pixel_h: float = current_footprint.y * MapData.TILE_HEIGHT
@@ -289,10 +289,10 @@ func _draw() -> void:
 		Vector2(-pixel_w * 0.5, 0),
 	])
 
-	var outline := Color(1, 1, 1, 0.5) if is_valid_placement else Color(1, 0.3, 0.3, 0.5)
+	var outline := Color(1.0, 0.94, 0.70, 0.85) if is_valid_placement else Color(1.0, 0.3, 0.3, 0.75)
 	for i in points.size():
 		var next_i := (i + 1) % points.size()
-		draw_line(points[i], points[next_i], outline, 1.5)
+		draw_line(points[i], points[next_i], outline, 2.2)
 
 	# Building name label
 	var bname := BuildingData.get_building_name(current_building_type)

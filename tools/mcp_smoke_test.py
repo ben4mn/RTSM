@@ -20,6 +20,8 @@ from typing import Any
 
 
 PROTOCOL_VERSION = "2024-11-05"
+TOOL_TIMEOUT_FLOOR_S = 30.0
+TOOL_TIMEOUT_GRACE_S = 5.0
 
 
 class MCPError(RuntimeError):
@@ -158,10 +160,11 @@ class MCPClient:
         return result.get("tools", [])
 
     def call_tool(self, name: str, arguments: dict[str, Any], timeout: float | None = None) -> list[dict[str, Any]]:
+        request_timeout = None if timeout is None else max(timeout, TOOL_TIMEOUT_FLOOR_S) + TOOL_TIMEOUT_GRACE_S
         response = self.request(
             "tools/call",
             {"name": name, "arguments": arguments},
-            timeout=timeout,
+            timeout=request_timeout,
         )
         if "error" in response:
             raise MCPError(f"tools/call {name} failed: {response['error']}")

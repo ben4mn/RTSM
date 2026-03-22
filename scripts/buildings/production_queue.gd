@@ -28,8 +28,7 @@ func _ready() -> void:
 	if _building:
 		_building.set_production_queue(self)
 
-
-func _process(delta: float) -> void:
+func advance(delta: float) -> void:
 	if not is_training or queue.is_empty():
 		return
 	if _building and _building.state != BuildingBase.State.ACTIVE:

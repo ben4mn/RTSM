@@ -161,8 +161,8 @@ func _draw() -> void:
 	# Selection outline (pulsing isometric diamond border)
 	if is_selected:
 		var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.005)
-		var sel_alpha := lerpf(0.4, 0.9, pulse)
-		var sel_width := lerpf(1.5, 3.0, pulse)
+		var sel_alpha := lerpf(0.55, 0.95, pulse)
+		var sel_width := lerpf(2.0, 3.6, pulse)
 		var points := PackedVector2Array([
 			Vector2(0, -pixel_h * 0.5),
 			Vector2(pixel_w * 0.5, 0),
@@ -171,7 +171,7 @@ func _draw() -> void:
 		])
 		for i in points.size():
 			var next_i := (i + 1) % points.size()
-			draw_line(points[i], points[next_i], Color(1, 1, 1, sel_alpha), sel_width)
+			draw_line(points[i], points[next_i], Color(1.0, 0.92, 0.55, sel_alpha), sel_width)
 
 	# Shadow ellipse under building
 	var shadow_w := pixel_w * 0.35

@@ -7,6 +7,7 @@ var _logger: _MCPGameLogger
 
 
 func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	if not EngineDebugger.is_active():
 		return
 	_logger = _MCPGameLogger.new()
@@ -21,30 +22,7 @@ func _exit_tree() -> void:
 
 
 func _process(_delta: float) -> void:
-	if not _sequence_running or _sequence_events.is_empty():
-		return
-
-	var elapsed := Time.get_ticks_msec() - _sequence_start_time
-
-	while _sequence_events.size() > 0 and _sequence_events[0].time <= elapsed:
-		var seq_event: Dictionary = _sequence_events.pop_front()
-		var dispatch_error: String = _dispatch_sequence_event(seq_event)
-		if not dispatch_error.is_empty():
-			_sequence_events.clear()
-			_sequence_running = false
-			set_process(false)
-			EngineDebugger.send_message("godot_mcp:input_sequence_result", [{
-				"error": dispatch_error,
-			}])
-			return
-
-	if _sequence_events.is_empty():
-		_sequence_running = false
-		set_process(false)
-		EngineDebugger.send_message("godot_mcp:input_sequence_result", [{
-			"completed": true,
-			"actions_executed": _actions_completed,
-		}])
+	pass
 
 
 var _sequence_events: Array = []
@@ -52,6 +30,7 @@ var _sequence_start_time: int = 0
 var _sequence_running: bool = false
 var _actions_completed: int = 0
 var _actions_total: int = 0
+var _sequence_run_token: int = 0
 
 
 func _dispatch_sequence_event(seq_event: Dictionary) -> String:
@@ -116,6 +95,44 @@ func _dispatch_sequence_event(seq_event: Dictionary) -> String:
 		return ""
 
 	return "Unknown sequence event kind: %s" % kind
+
+
+func _finish_input_sequence_error(dispatch_error: String) -> void:
+	_sequence_events.clear()
+	_sequence_running = false
+	EngineDebugger.send_message("godot_mcp:input_sequence_result", [{
+		"error": dispatch_error,
+	}])
+
+
+func _finish_input_sequence_success() -> void:
+	_sequence_events.clear()
+	_sequence_running = false
+	EngineDebugger.send_message("godot_mcp:input_sequence_result", [{
+		"completed": true,
+		"actions_executed": _actions_completed,
+	}])
+
+
+func _run_input_sequence_async(run_token: int) -> void:
+	var previous_time_ms: int = 0
+	while _sequence_running and run_token == _sequence_run_token and _sequence_events.size() > 0:
+		var seq_event: Dictionary = _sequence_events.pop_front()
+		var scheduled_time_ms: int = int(seq_event.get("time", previous_time_ms))
+		var wait_ms: int = maxi(0, scheduled_time_ms - previous_time_ms)
+		if wait_ms > 0:
+			await get_tree().create_timer(wait_ms / 1000.0).timeout
+		if not _sequence_running or run_token != _sequence_run_token:
+			return
+		var dispatch_error: String = _dispatch_sequence_event(seq_event)
+		if not dispatch_error.is_empty():
+			_finish_input_sequence_error(dispatch_error)
+			return
+		previous_time_ms = scheduled_time_ms
+
+	if not _sequence_running or run_token != _sequence_run_token:
+		return
+	_finish_input_sequence_success()
 
 
 func _variant_to_vec2(value: Variant, fallback: Vector2) -> Vector2:
@@ -574,7 +591,11 @@ func _handle_execute_input_sequence(data: Array) -> void:
 
 	_sequence_start_time = Time.get_ticks_msec()
 	_sequence_running = true
-	set_process(true)
+	_sequence_run_token += 1
+	if _sequence_events.is_empty():
+		_finish_input_sequence_success()
+		return
+	_run_input_sequence_async.call_deferred(_sequence_run_token)
 
 
 func _handle_type_text(data: Array) -> void:

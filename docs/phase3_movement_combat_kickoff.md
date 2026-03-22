@@ -2,6 +2,8 @@
 
 Date: 2026-02-16
 
+Validation update: Revalidated by MCP on 2026-03-07. Patrol, stance, and attack-move remain live; the remaining work is movement quality under denser army counts.
+
 ## Objective
 
 Improve army control quality under multi-unit movement and make combat command flow more tactical and predictable.
@@ -15,7 +17,7 @@ Improve army control quality under multi-unit movement and make combat command f
 
 ## Work Planned
 
-1. Add local friendly separation steering during movement ticks to reduce over-stacking.
+1. Tune local friendly separation steering during movement ticks to reduce over-stacking in 20+ unit groups.
 2. Add patrol arming flow:
    - Press patrol hotkey
    - Issue move command

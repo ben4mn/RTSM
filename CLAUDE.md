@@ -1,17 +1,16 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code when working in this repository.
 
-## Project Overview
-
-AOEM is a Godot 4.6 isometric RTS prototype inspired by Age of Empires mobile gameplay.
+## Project Snapshot
 
 - Engine: Godot `4.6`
-- Main menu scene: `res://scenes/ui/main_menu.tscn`
-- Main gameplay scene: `res://scenes/main/main.tscn`
-- Players: `0` = human, `1` = AI
+- Genre: isometric RTS prototype inspired by Age of Empires with mobile-first controls
+- Main entry scene: `res://scenes/ui/main_menu.tscn`
+- Core gameplay scene: `res://scenes/main/main.tscn`
+- Player IDs: `0` = human, `1` = AI
 
-## Core Architecture
+## Core Runtime Topology
 
 ### Autoloads
 
@@ -19,83 +18,74 @@ AOEM is a Godot 4.6 isometric RTS prototype inspired by Age of Empires mobile ga
 - `ResourceManager` -> `res://scripts/managers/resource_manager.gd`
 - `MCPGameBridge` -> `res://addons/godot_mcp/game_bridge/mcp_game_bridge.gd`
 
-### Main Runtime Wiring
+### Main scene orchestration
 
-`res://scripts/main/main.gd` is the gameplay orchestrator and is the first file to inspect for behavior changes.
+`res://scripts/main/main.gd` is the main runtime entry point for match setup and gameplay wiring. It:
 
-It wires:
+- waits for `GameMap.map_ready`
+- initializes players and starting resources
+- spawns the starting town center and villagers
+- wires HUD, selection, AI, fog of war, and sacred-site victory flow
 
-- map generation + pathfinding (`GameMap`)
-- unit/building spawning and tracking
-- selection and command routing
-- HUD events/actions
-- AI controller integration
-- fog of war and minimap updates
-- sacred-site victory + game-over flow
+## Key Files By Domain
 
-### Important Files By Area
-
-- Global game state: `scripts/managers/game_manager.gd`
-- Economy/resources: `scripts/managers/resource_manager.gd`
-- AI: `scripts/ai/ai_controller.gd`
-- Map generation and navigation:
-  - `scripts/map/map_data.gd`
+- Match flow and scene wiring: `scripts/main/main.gd`
+- Global state and win conditions: `scripts/managers/game_manager.gd`
+- Economy and resources: `scripts/managers/resource_manager.gd`
+- Map generation, pathfinding, and fog:
   - `scripts/map/map_generator.gd`
   - `scripts/map/game_map.gd`
   - `scripts/map/pathfinding.gd`
-- Units:
+  - `scripts/managers/fog_manager.gd`
+- Units and villager behavior:
   - `scripts/units/unit_base.gd`
   - `scripts/units/villager.gd`
-- Buildings:
+- Buildings and production:
   - `scripts/buildings/building_base.gd`
   - `scripts/buildings/production_queue.gd`
   - `scripts/buildings/building_placement.gd`
-- UI:
+- UI and menus:
   - `scripts/ui/hud.gd`
   - `scripts/ui/build_menu.gd`
   - `scripts/ui/main_menu.gd`
-- Data definitions:
+- AI opponent:
+  - `scripts/ai/ai_controller.gd`
+- Data-driven balance:
   - `scripts/data/unit_data.gd`
   - `scripts/data/building_data.gd`
+  - `scripts/map/map_data.gd`
 
-## Local Commands
+## Local Run / Sanity Commands
 
 ```bash
-# Godot version
 /Applications/Godot.app/Contents/MacOS/Godot --version
-
-# Fast boot sanity check (headless)
 /Applications/Godot.app/Contents/MacOS/Godot --headless --path . --quit-after 1
-
-# Open editor
 /Applications/Godot.app/Contents/MacOS/Godot --path .
 ```
 
-## MCP Setup And Usage
+## MCP Setup For Test / Play Loops
 
-### Current project setup
+This project already has MCP wiring:
 
-- `.mcp.json` already uses `@satelliteoflove/godot-mcp`
-- Godot addon exists in `addons/godot_mcp/`
-- Plugin is enabled in `project.godot`
+- `.mcp.json` uses `@satelliteoflove/godot-mcp`
+- Godot addon code lives in `addons/godot_mcp/`
+- The addon is enabled in `project.godot` under `[editor_plugins]`
 
-### Reinstall addon (if needed)
+If the addon needs reinstalling:
 
 ```bash
 npx @satelliteoflove/godot-mcp --install-addon /Users/ben/Documents/1_Projects/aoem
 ```
 
-### High-value MCP tools for this project
+Useful MCP commands:
 
 - `run_project`
-- `stop_project`
-- `get_debug_output`
-- `capture_game_screenshot`
-- `get_performance_metrics`
 - `get_input_map`
 - `execute_input_sequence`
-
-Use these for tight edit -> run -> inspect loops instead of manual relay.
+- `capture_game_screenshot`
+- `get_debug_output`
+- `get_performance_metrics`
+- `stop_project`
 
 ## Input Actions
 
@@ -109,24 +99,24 @@ From `project.godot`:
 - `idle_villager` (`.`)
 - `pause` (`P`)
 - `center_selection` (`Space`)
-- `camera_up/down/left/right` (`WASD` or arrow keys)
+- `camera_up`, `camera_down`, `camera_left`, `camera_right` (`WASD` or arrows)
 - `select_all_military` (`M`)
 - `find_army` (`F`)
 - `select_tc` (`H`)
 
-## Coding Conventions
+## Working Conventions
 
-- Keep tunable balance in `scripts/data/*.gd`.
-- Preserve typed GDScript style and explicit signal wiring.
-- Prefer existing manager APIs/signals over adding new global state.
-- Reuse `GameMap.tile_to_world()` and `GameMap.world_to_tile()` for coordinate conversions.
+- Keep gameplay tuning and balance changes in `scripts/data/*.gd` when possible.
+- Preserve the typed GDScript style used across the codebase.
+- Prefer existing signals and manager APIs over hard-coded node dependencies.
+- Respect player IDs: `0` is the human player, `1` is the AI.
+- Use `GameMap.tile_to_world()` and `GameMap.world_to_tile()` for coordinate conversion.
 
-## Validation Checklist Before Finishing Changes
+## Validation Checklist
 
-- Main menu starts and launches match.
-- Unit selection + move/attack/gather still works.
-- Villager gather/drop-off loop still works.
-- Build placement and construction still works.
-- AI still trains/constructs/attacks.
-- Sacred-site timer and victory flow still work.
-- No new errors in debug output.
+- Main menu starts and launches a match.
+- Villager training and build placement still work.
+- Resource gathering and drop-off still work.
+- AI still builds, trains, and attacks.
+- Sacred-site timer and game-over flows still trigger.
+- No new runtime errors appear in debug output.

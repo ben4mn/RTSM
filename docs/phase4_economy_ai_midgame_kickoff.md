@@ -2,6 +2,8 @@
 
 Date: 2026-02-16
 
+Validation update: Revalidated by MCP on 2026-03-07. The loop is stable enough to move from “no stalls” toward “better decisions and better telemetry.”
+
 ## Objective
 
 Stabilize the economy loop and AI progression so matches reliably move from early game into midgame without frequent stalls.
@@ -21,6 +23,11 @@ Stabilize the economy loop and AI progression so matches reliably move from earl
 4. Improve training building selection to avoid queue/busy-building stalls.
 5. Add age-up reserve logic to reduce repeated midgame timing stalls.
 6. Add Phase 4 smoke checks that keep the simulation running long enough to validate stability.
+7. Export long-run economy telemetry for MCP-driven tuning:
+   - idle villagers
+   - idle production buildings
+   - resource float
+   - peak villagers / military
 
 ## Definition of Done
 

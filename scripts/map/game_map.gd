@@ -19,6 +19,13 @@ var pathfinding: Pathfinding
 ## Seed for deterministic map generation (-1 = random).
 @export var map_seed: int = -1
 
+## Mobile-first camera tuning.
+@export var mobile_default_zoom: float = 1.02
+@export var mobile_zoom_min: float = 0.78
+@export var mobile_zoom_max: float = 1.9
+@export var desktop_default_zoom: float = 1.35
+@export var mobile_disable_camera_smoothing: bool = true
+
 ## Camera drag/zoom state.
 var _camera_drag_active := false
 var _camera_drag_start := Vector2.ZERO
@@ -28,12 +35,24 @@ var _touch_start_points: Dictionary = {}  # index -> initial press position
 var _touch_pan_active: Dictionary = {}  # index -> bool
 
 ## Camera zoom limits.
-const ZOOM_MIN := 0.5
-const ZOOM_MAX := 2.5
+const DESKTOP_ZOOM_MIN := 0.5
+const DESKTOP_ZOOM_MAX := 2.5
 const ZOOM_SPEED := 0.1
 const CAMERA_PAN_SPEED := 400.0
 const EDGE_SCROLL_MARGIN := 8.0  # Pixels from screen edge to trigger scroll
-const TOUCH_PAN_DEADZONE := 20.0  # Pixels before one-finger pan starts
+const TOUCH_PAN_DEADZONE := 16.0  # Pixels before one-finger pan starts
+const MOBILE_SHORT_SIDE_REFERENCE := 430.0
+const MOBILE_SHORT_SIDE_MIN_SCALE := 0.90
+const MOBILE_SHORT_SIDE_MAX_SCALE := 1.08
+const MOBILE_SHORT_SIDE_PROFILE_MAX := 460.0  # Landscape phone short side cap.
+const MOBILE_SHORT_SIDE_MIN := 360.0
+const MOBILE_SHORT_SIDE_MAX := 520.0
+
+var _camera_zoom_min: float = DESKTOP_ZOOM_MIN
+var _camera_zoom_max: float = DESKTOP_ZOOM_MAX
+var _camera_world_bounds: Rect2 = Rect2()
+var _mobile_profile_active: bool = false
+var _user_zoom_override: bool = false
 
 
 ## Preloaded scenes.
@@ -49,7 +68,12 @@ var sacred_site: Node2D = null
 
 func _ready() -> void:
 	# Generate map.
-	map_generator = MapGenerator.new(map_seed)
+	var resolved_seed: int = map_seed
+	var gm: Node = get_node_or_null("/root/GameManager")
+	if gm and gm.get("selected_map_seed") != null:
+		resolved_seed = int(gm.get("selected_map_seed"))
+	map_seed = resolved_seed
+	map_generator = MapGenerator.new(resolved_seed)
 	map_generator.generate()
 
 	# Create and assign procedural tilesets.
@@ -109,19 +133,81 @@ func _configure_camera() -> void:
 	if camera == null:
 		return
 	# Isometric map pixel bounds (approximate).
-	@warning_ignore("integer_division")
-	var map_pixel_width := (MapData.MAP_WIDTH + MapData.MAP_HEIGHT) * MapData.TILE_WIDTH / 2
-	@warning_ignore("integer_division")
-	var map_pixel_height := (MapData.MAP_WIDTH + MapData.MAP_HEIGHT) * MapData.TILE_HEIGHT / 2
-	@warning_ignore("integer_division")
-	camera.limit_left = -map_pixel_width / 2
-	@warning_ignore("integer_division")
-	camera.limit_right = map_pixel_width / 2
-	camera.limit_top = 0
-	camera.limit_bottom = map_pixel_height
+	var map_pixel_width: float = float(MapData.MAP_WIDTH + MapData.MAP_HEIGHT) * float(MapData.TILE_WIDTH) * 0.5
+	var map_pixel_height: float = float(MapData.MAP_WIDTH + MapData.MAP_HEIGHT) * float(MapData.TILE_HEIGHT) * 0.5
+	var left_bound: float = -map_pixel_width * 0.5
+	var right_bound: float = map_pixel_width * 0.5
+	var top_bound: float = 0.0
+	var bottom_bound: float = map_pixel_height
+	_camera_world_bounds = Rect2(
+		Vector2(left_bound, top_bound),
+		Vector2(right_bound - left_bound, bottom_bound - top_bound)
+	)
+	camera.limit_left = int(floor(left_bound))
+	camera.limit_right = int(ceil(right_bound))
+	camera.limit_top = int(floor(top_bound))
+	camera.limit_bottom = int(ceil(bottom_bound))
+
+	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+	_apply_camera_profile(viewport_size, false)
+
 	# Start camera at center.
-	@warning_ignore("integer_division")
-	camera.position = Vector2(0, map_pixel_height / 2)
+	camera.position = Vector2(0.0, map_pixel_height * 0.5)
+	_clamp_camera()
+
+
+func _notification(what: int) -> void:
+	if what != NOTIFICATION_WM_SIZE_CHANGED:
+		return
+	if camera == null:
+		return
+	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+	_apply_camera_profile(viewport_size, true)
+
+
+func _is_mobile_camera_profile(viewport_size: Vector2) -> bool:
+	if DisplayServer.is_touchscreen_available() or OS.has_feature("mobile"):
+		return true
+	var short_side: float = minf(viewport_size.x, viewport_size.y)
+	return short_side <= MOBILE_SHORT_SIDE_PROFILE_MAX
+
+
+func _get_mobile_short_side_scale(viewport_size: Vector2) -> float:
+	var short_side: float = maxf(1.0, minf(viewport_size.x, viewport_size.y))
+	var normalized: float = clampf(inverse_lerp(MOBILE_SHORT_SIDE_MIN, MOBILE_SHORT_SIDE_MAX, short_side), 0.0, 1.0)
+	var ratio: float = lerpf(MOBILE_SHORT_SIDE_MIN_SCALE, MOBILE_SHORT_SIDE_MAX_SCALE, normalized)
+	ratio = minf(ratio, short_side / MOBILE_SHORT_SIDE_REFERENCE * 1.03)
+	return clampf(ratio, MOBILE_SHORT_SIDE_MIN_SCALE, MOBILE_SHORT_SIDE_MAX_SCALE)
+
+
+func _apply_camera_profile(viewport_size: Vector2, preserve_zoom_if_user_override: bool) -> void:
+	_mobile_profile_active = _is_mobile_camera_profile(viewport_size)
+	if _mobile_profile_active:
+		_camera_zoom_min = mobile_zoom_min
+		_camera_zoom_max = mobile_zoom_max
+		if mobile_disable_camera_smoothing:
+			camera.position_smoothing_enabled = false
+		if not (preserve_zoom_if_user_override and _user_zoom_override):
+			var zoom_scale: float = _get_mobile_short_side_scale(viewport_size)
+			var mobile_zoom: float = mobile_default_zoom * zoom_scale
+			mobile_zoom = clampf(mobile_zoom, _camera_zoom_min, _camera_zoom_max)
+			camera.zoom = Vector2(mobile_zoom, mobile_zoom)
+	else:
+		_camera_zoom_min = DESKTOP_ZOOM_MIN
+		_camera_zoom_max = DESKTOP_ZOOM_MAX
+		camera.position_smoothing_enabled = true
+		if not (preserve_zoom_if_user_override and _user_zoom_override):
+			var desktop_zoom: float = clampf(desktop_default_zoom, _camera_zoom_min, _camera_zoom_max)
+			camera.zoom = Vector2(desktop_zoom, desktop_zoom)
+	_clamp_camera()
+
+
+func _get_camera_half_view_world() -> Vector2:
+	if camera == null:
+		return Vector2.ZERO
+	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+	var zoom: float = maxf(0.001, camera.zoom.x)
+	return Vector2(viewport_size.x * 0.5 / zoom, viewport_size.y * 0.5 / zoom)
 
 
 func _process(delta: float) -> void:
@@ -162,8 +248,23 @@ func _update_camera_pan(delta: float) -> void:
 func _clamp_camera() -> void:
 	if camera == null:
 		return
-	camera.position.x = clampf(camera.position.x, camera.limit_left, camera.limit_right)
-	camera.position.y = clampf(camera.position.y, camera.limit_top, camera.limit_bottom)
+	var bounds_pos: Vector2 = _camera_world_bounds.position
+	var bounds_end: Vector2 = _camera_world_bounds.position + _camera_world_bounds.size
+	var half_view: Vector2 = _get_camera_half_view_world()
+
+	var min_x: float = bounds_pos.x + half_view.x
+	var max_x: float = bounds_end.x - half_view.x
+	if min_x > max_x:
+		camera.position.x = (bounds_pos.x + bounds_end.x) * 0.5
+	else:
+		camera.position.x = clampf(camera.position.x, min_x, max_x)
+
+	var min_y: float = bounds_pos.y + half_view.y
+	var max_y: float = bounds_end.y - half_view.y
+	if min_y > max_y:
+		camera.position.y = (bounds_pos.y + bounds_end.y) * 0.5
+	else:
+		camera.position.y = clampf(camera.position.y, min_y, max_y)
 
 
 ## Handle camera pan and pinch-zoom.
@@ -191,6 +292,13 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	elif event is InputEventScreenDrag:
 		var drag := event as InputEventScreenDrag
+		if not _touch_points.has(drag.index):
+			# If touch press was consumed by UI before reaching map input, infer a drag origin
+			# so one-finger panning still works on the first drag event.
+			var inferred_prev: Vector2 = drag.position - drag.relative
+			_touch_points[drag.index] = inferred_prev
+			_touch_start_points[drag.index] = inferred_prev
+			_touch_pan_active[drag.index] = drag.relative.length() >= TOUCH_PAN_DEADZONE
 		var old_pos: Vector2 = _touch_points.get(drag.index, drag.position)
 		_touch_points[drag.index] = drag.position
 
@@ -208,7 +316,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 			if old_dist > 10.0:
 				var zoom_factor := new_dist / old_dist
-				_apply_zoom(zoom_factor)
+				_apply_zoom(zoom_factor, true)
 		elif _touch_points.size() == 1:
 			# Single-finger pan starts only after crossing a drag deadzone.
 			var start_pos: Vector2 = _touch_start_points.get(drag.index, drag.position)
@@ -225,9 +333,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
 		if mb.button_index == MOUSE_BUTTON_WHEEL_UP:
-			_apply_zoom(1.0 + ZOOM_SPEED)
+			_apply_zoom(1.0 + ZOOM_SPEED, true)
 		elif mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			_apply_zoom(1.0 - ZOOM_SPEED)
+			_apply_zoom(1.0 - ZOOM_SPEED, true)
 		# Middle-mouse drag for pan.
 		elif mb.button_index == MOUSE_BUTTON_MIDDLE:
 			_camera_drag_active = mb.pressed
@@ -240,9 +348,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		_clamp_camera()
 
 
-func _apply_zoom(factor: float) -> void:
-	var new_zoom := clampf(camera.zoom.x * factor, ZOOM_MIN, ZOOM_MAX)
+func _apply_zoom(factor: float, from_user: bool = false) -> void:
+	var new_zoom := clampf(camera.zoom.x * factor, _camera_zoom_min, _camera_zoom_max)
 	camera.zoom = Vector2(new_zoom, new_zoom)
+	if from_user:
+		_user_zoom_override = true
+	_clamp_camera()
 
 
 ## --- Public API ---

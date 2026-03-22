@@ -48,6 +48,11 @@ class DifficultyResult:
     villagers: int
     military: int
     buildings: int
+    idle_villagers: int
+    idle_production_buildings: int
+    resource_float: int
+    peak_villagers: int
+    peak_military: int
     pressure_samples: int
     saving_samples: int
     stall_seconds: float
@@ -253,6 +258,11 @@ class BalanceRunner:
                 villagers=int(final.get("balance_ai_villagers", 0)),
                 military=int(final.get("balance_ai_military", 0)),
                 buildings=int(final.get("balance_ai_buildings", 0)),
+                idle_villagers=int(final.get("balance_ai_idle_villagers", 0)),
+                idle_production_buildings=int(final.get("balance_ai_idle_production_buildings", 0)),
+                resource_float=int(final.get("balance_ai_resource_float", 0)),
+                peak_villagers=int(final.get("balance_ai_peak_villagers", 0)),
+                peak_military=int(final.get("balance_ai_peak_military", 0)),
                 pressure_samples=pressure_samples,
                 saving_samples=saving_samples,
                 stall_seconds=stall_seconds,
@@ -279,6 +289,11 @@ class BalanceRunner:
                 villagers=0,
                 military=0,
                 buildings=0,
+                idle_villagers=0,
+                idle_production_buildings=0,
+                resource_float=0,
+                peak_villagers=0,
+                peak_military=0,
                 pressure_samples=pressure_samples,
                 saving_samples=saving_samples,
                 stall_seconds=0.0,
@@ -347,6 +362,8 @@ def main() -> int:
             f"[{name}] ok={result.ok} age={result.age} "
             f"feudal={result.feudal_time:.1f}s castle={result.castle_time:.1f}s imperial={result.imperial_time:.1f}s "
             f"res=({result.food}/{result.wood}/{result.gold}) pop(v/m/b)=({result.villagers}/{result.military}/{result.buildings}) "
+            f"idle(v/p)={result.idle_villagers}/{result.idle_production_buildings} "
+            f"peak(v/m)={result.peak_villagers}/{result.peak_military} float={result.resource_float} "
             f"stall={result.stall_seconds:.1f}s runtime_errors={result.runtime_errors}"
         )
         if not result.ok:

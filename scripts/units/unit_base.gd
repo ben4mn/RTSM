@@ -85,9 +85,9 @@ const UNIT_SPRITE_SCALES: Dictionary = {
 
 var _sprite: Sprite2D = null
 
-const FRIENDLY_SEPARATION_RADIUS: float = 26.0
-const FRIENDLY_SEPARATION_WEIGHT: float = 0.9
-const FRIENDLY_SEPARATION_REFRESH: float = 0.08
+const FRIENDLY_SEPARATION_RADIUS: float = 34.0
+const FRIENDLY_SEPARATION_WEIGHT: float = 1.15
+const FRIENDLY_SEPARATION_REFRESH: float = 0.06
 
 
 func _ready() -> void:
@@ -167,14 +167,14 @@ func _draw() -> void:
 	# Selection indicator (pulsing circle under unit)
 	if is_selected:
 		var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.005)
-		var sel_alpha := lerpf(0.3, 0.8, pulse)
+		var sel_alpha := lerpf(0.45, 0.95, pulse)
 		var sel_radius := lerpf(size + 2.0, size + 5.0, pulse)
-		draw_arc(Vector2.ZERO, sel_radius, 0, TAU, 32, Color(0.2, 1.0, 0.2, sel_alpha), 2.0)
+		draw_arc(Vector2.ZERO, sel_radius, 0, TAU, 32, Color(1.0, 0.92, 0.55, sel_alpha), 3.0)
 
 	# Team color filled circle under unit (semi-transparent)
-	draw_circle(Vector2.ZERO, size * 0.7, Color(team_color.r, team_color.g, team_color.b, 0.35))
+	draw_circle(Vector2.ZERO, size * 0.72, Color(team_color.r, team_color.g, team_color.b, 0.48))
 	# Team color ring
-	draw_arc(Vector2.ZERO, size + 1.0, 0, TAU, 32, team_color, 3.0)
+	draw_arc(Vector2.ZERO, size + 1.0, 0, TAU, 32, team_color.lightened(0.15), 3.5)
 
 	# Critical HP pulsing red ring (< 25% HP)
 	var hp_ratio: float = hp / max_hp if max_hp > 0 else 0.0
@@ -266,7 +266,8 @@ func _process_moving(delta: float) -> void:
 		var move_dir: Vector2 = desired_dir
 		if direction.length() > 10.0 and _separation_vector.length() > 0.0:
 			move_dir = (desired_dir + _separation_vector).normalized()
-		global_position += move_dir * speed * delta
+		var separation_drag: float = clampf(_separation_vector.length() * 0.16, 0.0, 0.18)
+		global_position += move_dir * speed * (1.0 - separation_drag) * delta
 
 	# Stuck detection: if unit hasn't moved significantly in 1.5s, stop or re-path
 	if global_position.distance_to(_last_move_pos) > 2.0:
@@ -593,10 +594,15 @@ func _update_friendly_separation() -> void:
 			continue
 		var offset: Vector2 = global_position - other.global_position
 		var dist: float = offset.length()
-		if dist <= 0.001 or dist > FRIENDLY_SEPARATION_RADIUS:
+		var desired_spacing: float = UNIT_SIZES.get(unit_type, 12.0) + UNIT_SIZES.get(other.unit_type, 12.0) + 8.0
+		var separation_radius: float = maxf(FRIENDLY_SEPARATION_RADIUS, desired_spacing)
+		if dist <= 0.001 or dist > separation_radius:
 			continue
-		var strength: float = (FRIENDLY_SEPARATION_RADIUS - dist) / FRIENDLY_SEPARATION_RADIUS
-		repel += offset.normalized() * strength
+		var strength: float = (separation_radius - dist) / separation_radius
+		var moving_bias: float = 1.0
+		if other.current_state == State.MOVING:
+			moving_bias = 1.2
+		repel += offset.normalized() * strength * moving_bias
 	if repel.length() > 0.0:
 		_separation_vector = repel.normalized() * FRIENDLY_SEPARATION_WEIGHT
 	else:

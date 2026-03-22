@@ -24,7 +24,7 @@ var game_map: Node2D = null
 var _is_dragging := false
 var _drag_start := Vector2.ZERO
 var _drag_end := Vector2.ZERO
-var _drag_threshold := 10.0  # Minimum pixels to count as a drag, not a tap.
+var _mouse_drag_threshold := 10.0  # Desktop mouse threshold.
 
 ## --- Double-tap detection ---
 var _last_tap_time := 0.0
@@ -39,10 +39,17 @@ var _drag_rect: Rect2 = Rect2()
 enum TouchContextAction { MOVE = 100, ATTACK = 101, GATHER = 102, BUILD = 103, SELECT = 104, CLEAR = 105 }
 var _touch_hold_active := false
 var _touch_hold_elapsed := 0.0
+var _touch_hold_started_at_msec: int = 0
 @export var touch_context_enabled: bool = true
 @export var long_press_threshold: float = 0.35
-@export var touch_pan_threshold: float = 18.0
-var _long_press_move_tolerance := 16.0  # pixels
+@export var touch_tap_slop_px: float = 12.0
+@export var touch_pan_threshold: float = 16.0
+@export var touch_unit_hit_radius_px: float = 24.0
+@export var touch_building_hit_radius_px: float = 34.0
+@export var touch_resource_hit_radius_px: float = 28.0
+@export var touch_context_diagnostics: Dictionary = {}
+@export var touch_input_diagnostics: Dictionary = {}
+var _long_press_move_tolerance := 12.0  # pixels
 var _touch_pan_gesture := false
 var _touch_context_open := false
 var _touch_context_menu: PopupMenu = null
@@ -50,13 +57,24 @@ var _context_world_pos := Vector2.ZERO
 var _context_target: Node2D = null
 var _context_resource: Node2D = null
 var _active_touch_indices: Dictionary = {}
+var _last_touch_input_msec: int = 0
+
+const DESKTOP_UNIT_HIT_RADIUS_WORLD := 20.0
+const DESKTOP_BUILDING_HIT_RADIUS_WORLD := 36.0
+const DESKTOP_RESOURCE_HIT_RADIUS_WORLD := 28.0
+const MOUSE_AFTER_TOUCH_IGNORE_MS: int = 1500
 
 
 func _ready() -> void:
 	set_process_unhandled_input(true)
 	set_process(true)
+	touch_tap_slop_px = maxf(4.0, touch_tap_slop_px)
+	touch_pan_threshold = maxf(touch_pan_threshold, touch_tap_slop_px + 2.0)
+	_long_press_move_tolerance = minf(_long_press_move_tolerance, touch_pan_threshold - 1.0)
+	_long_press_move_tolerance = maxf(4.0, _long_press_move_tolerance)
 	if touch_context_enabled:
 		_ensure_touch_context_menu()
+	_refresh_touch_context_diagnostics()
 
 
 func _process(delta: float) -> void:
@@ -88,6 +106,7 @@ func _unhandled_input(event: InputEvent) -> void:
 ## --- Touch input (mobile) ---
 
 func _handle_touch(event: InputEventScreenTouch) -> void:
+	_last_touch_input_msec = Time.get_ticks_msec()
 	if event.pressed:
 		_active_touch_indices[event.index] = true
 		if _active_touch_indices.size() > 1:
@@ -102,6 +121,7 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 		_touch_pan_gesture = false
 		_touch_hold_active = touch_context_enabled
 		_touch_hold_elapsed = 0.0
+		_touch_hold_started_at_msec = Time.get_ticks_msec()
 	else:
 		_active_touch_indices.erase(event.index)
 		if event.index != 0:
@@ -112,13 +132,23 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 			queue_redraw()
 			return
 		var drag_distance := _drag_start.distance_to(event.position)
-		if _active_touch_indices.is_empty() and not _touch_pan_gesture and drag_distance < _drag_threshold:
+		var held_long_enough: bool = false
+		if _touch_hold_started_at_msec > 0:
+			held_long_enough = (Time.get_ticks_msec() - _touch_hold_started_at_msec) >= int(round(long_press_threshold * 1000.0))
+		_touch_hold_started_at_msec = 0
+		if _active_touch_indices.is_empty() and not _touch_pan_gesture and drag_distance < touch_tap_slop_px and held_long_enough and touch_context_enabled:
+			_open_touch_context(event.position)
+			queue_redraw()
+			get_viewport().set_input_as_handled()
+			return
+		if _active_touch_indices.is_empty() and not _touch_pan_gesture and drag_distance < touch_tap_slop_px:
 			_handle_tap(event.position, true)
 		_touch_pan_gesture = false
 		queue_redraw()
 
 
 func _handle_drag(event: InputEventScreenDrag) -> void:
+	_last_touch_input_msec = Time.get_ticks_msec()
 	if _touch_context_open:
 		return
 	if event.index != 0:
@@ -142,6 +172,8 @@ func _handle_drag(event: InputEventScreenDrag) -> void:
 ## --- Mouse input (desktop / testing) ---
 
 func _handle_mouse_button(event: InputEventMouseButton) -> void:
+	if _should_ignore_mouse_input():
+		return
 	if event.button_index == MOUSE_BUTTON_RIGHT:
 		if not event.pressed and selected.size() > 0:
 			_handle_right_click(event.position)
@@ -156,7 +188,7 @@ func _handle_mouse_button(event: InputEventMouseButton) -> void:
 	else:
 		_is_dragging = false
 		var drag_distance := _drag_start.distance_to(event.position)
-		if drag_distance < _drag_threshold:
+		if drag_distance < _mouse_drag_threshold:
 			_handle_tap(event.position, false)
 		else:
 			_drag_end = event.position
@@ -165,6 +197,8 @@ func _handle_mouse_button(event: InputEventMouseButton) -> void:
 
 
 func _handle_mouse_motion(event: InputEventMouseMotion) -> void:
+	if _should_ignore_mouse_input():
+		return
 	_drag_end = event.position
 	queue_redraw()
 
@@ -177,7 +211,7 @@ func _handle_tap(screen_pos: Vector2, is_touch_input: bool) -> void:
 	var now := Time.get_ticks_msec() / 1000.0
 	if now - _last_tap_time < _double_tap_interval \
 			and screen_pos.distance_to(_last_tap_position) < _double_tap_radius:
-		_handle_double_tap(screen_pos)
+		_handle_double_tap(screen_pos, is_touch_input)
 		_last_tap_time = 0.0
 		if is_touch_input:
 			get_viewport().set_input_as_handled()
@@ -188,19 +222,39 @@ func _handle_tap(screen_pos: Vector2, is_touch_input: bool) -> void:
 	var world_pos := _screen_to_world(screen_pos)
 
 	# Check if we tapped on a unit or building.
-	var tapped_node: Node2D = _get_node_at(world_pos)
-	var resource_node: Node2D = _get_resource_at(world_pos)
+	var tapped_node: Node2D = _get_node_at(world_pos, is_touch_input)
+	var resource_node: Node2D = _get_resource_at(world_pos, is_touch_input)
 
 	var shift_held: bool = Input.is_key_pressed(KEY_SHIFT)
+	var has_selected_villagers: bool = _has_selected_villagers()
+	var has_selected_units: bool = _has_selected_units()
+	_record_touch_input(screen_pos, world_pos, "pending", tapped_node, resource_node)
+
+	if is_touch_input and has_selected_villagers and resource_node != null:
+		# On touch, resource intent should win over nearby friendly-unit hitboxes.
+		_record_touch_input(screen_pos, world_pos, "gather", tapped_node, resource_node)
+		gather_command.emit(resource_node)
+		get_viewport().set_input_as_handled()
+		return
 
 	if tapped_node != null:
 		if selected.size() > 0 and _is_enemy(tapped_node):
 			# Attack command.
+			_record_touch_input(screen_pos, world_pos, "attack", tapped_node, resource_node)
 			attack_command.emit(tapped_node)
 			consumed = true
-		elif _has_selected_villagers() and _is_under_construction(tapped_node):
+		elif has_selected_villagers and _is_under_construction(tapped_node):
 			# Send selected villagers to build.
+			_record_touch_input(screen_pos, world_pos, "build", tapped_node, resource_node)
 			build_command.emit(tapped_node)
+			consumed = true
+		elif is_touch_input and has_selected_units:
+			# Mobile command mode: when units are already selected, touching a
+			# friendly world target should still issue a move instead of silently
+			# replacing the selection.
+			var touched_tile_pos := _world_to_tile(world_pos)
+			_record_touch_input(screen_pos, world_pos, "move", tapped_node, resource_node, touched_tile_pos)
+			move_command.emit(touched_tile_pos)
 			consumed = true
 		elif shift_held and not _is_enemy(tapped_node):
 			# Shift+click: add/remove from selection
@@ -208,24 +262,35 @@ func _handle_tap(screen_pos: Vector2, is_touch_input: bool) -> void:
 				_remove_from_selection(tapped_node)
 			else:
 				_add_to_selection(tapped_node)
+			_record_touch_input(screen_pos, world_pos, "multi_select", tapped_node, resource_node)
 			consumed = true
 		else:
 			# Select the tapped unit/building.
 			_clear_selection()
 			_add_to_selection(tapped_node)
+			_record_touch_input(screen_pos, world_pos, "select", tapped_node, resource_node)
 			consumed = true
 		if consumed and is_touch_input:
 			get_viewport().set_input_as_handled()
 		return
 
 	if resource_node != null:
-		if _has_selected_villagers():
+		if has_selected_villagers:
 			# Touch parity: villagers can gather by tapping a resource target.
+			_record_touch_input(screen_pos, world_pos, "gather", tapped_node, resource_node)
 			gather_command.emit(resource_node)
+			consumed = true
+		elif is_touch_input and has_selected_units:
+			# When units are already selected, a touch on a resource should still issue
+			# a ground command instead of becoming a no-op.
+			var resource_tile_pos := _world_to_tile(world_pos)
+			_record_touch_input(screen_pos, world_pos, "move", tapped_node, resource_node, resource_tile_pos)
+			move_command.emit(resource_tile_pos)
 			consumed = true
 		elif selected.is_empty():
 			_clear_selection()
 			_add_to_selection(resource_node)
+			_record_touch_input(screen_pos, world_pos, "select_resource", tapped_node, resource_node)
 			consumed = true
 		if consumed and is_touch_input:
 			get_viewport().set_input_as_handled()
@@ -234,20 +299,24 @@ func _handle_tap(screen_pos: Vector2, is_touch_input: bool) -> void:
 	if is_touch_input and selected.size() > 0:
 		# Touch parity: tapping empty ground while selected issues a move command.
 		var tile_pos := _world_to_tile(world_pos)
+		_record_touch_input(screen_pos, world_pos, "move", tapped_node, resource_node, tile_pos)
 		move_command.emit(tile_pos)
 		consumed = true
 	elif not shift_held:
 		# Desktop left click keeps deselect behavior.
 		if not is_touch_input:
+			_record_touch_input(screen_pos, world_pos, "clear", tapped_node, resource_node)
 			_clear_selection()
 			consumed = true
+	if not consumed:
+		_record_touch_input(screen_pos, world_pos, "ignored", tapped_node, resource_node)
 	if consumed and is_touch_input:
 		get_viewport().set_input_as_handled()
 
 
-func _handle_double_tap(screen_pos: Vector2) -> void:
+func _handle_double_tap(screen_pos: Vector2, is_touch_input: bool) -> void:
 	var world_pos := _screen_to_world(screen_pos)
-	var tapped_node: Node2D = _get_node_at(world_pos)
+	var tapped_node: Node2D = _get_node_at(world_pos, is_touch_input)
 	if tapped_node == null:
 		return
 
@@ -328,6 +397,21 @@ func select_all_own_units() -> void:
 			_add_to_selection(node as Node2D)
 
 
+func select_single(node: Node2D) -> void:
+	if node == null or not is_instance_valid(node):
+		return
+	_clear_selection()
+	_add_to_selection(node)
+
+
+func select_many(nodes: Array[Node2D]) -> void:
+	_clear_selection()
+	for node in nodes:
+		if node == null or not is_instance_valid(node):
+			continue
+		_add_to_selection(node)
+
+
 func deselect_all() -> void:
 	_clear_selection()
 
@@ -357,10 +441,12 @@ func _world_to_tile(world_pos: Vector2) -> Vector2i:
 
 
 ## Find a node2D at a world position (checks units first with tighter radius, then buildings).
-func _get_node_at(world_pos: Vector2) -> Node2D:
+func _get_node_at(world_pos: Vector2, use_touch_radius: bool = false) -> Node2D:
 	# Check units first with a tight radius so clicking near units registers ground clicks.
 	var best_unit: Node2D = null
-	var best_unit_dist := 20.0
+	var best_unit_dist := DESKTOP_UNIT_HIT_RADIUS_WORLD
+	if use_touch_radius:
+		best_unit_dist = _screen_px_to_world_radius(touch_unit_hit_radius_px)
 	for node in get_tree().get_nodes_in_group("units"):
 		if not is_instance_valid(node) or not node is Node2D:
 			continue
@@ -373,7 +459,9 @@ func _get_node_at(world_pos: Vector2) -> Node2D:
 
 	# Then check buildings with a wider radius.
 	var best_building: Node2D = null
-	var best_building_dist := 36.0
+	var best_building_dist := DESKTOP_BUILDING_HIT_RADIUS_WORLD
+	if use_touch_radius:
+		best_building_dist = _screen_px_to_world_radius(touch_building_hit_radius_px)
 	for node in get_tree().get_nodes_in_group("buildings"):
 		if not is_instance_valid(node) or not node is Node2D:
 			continue
@@ -385,9 +473,11 @@ func _get_node_at(world_pos: Vector2) -> Node2D:
 
 
 ## Find a resource node at a world position (checks "resources" group).
-func _get_resource_at(world_pos: Vector2) -> Node2D:
+func _get_resource_at(world_pos: Vector2, use_touch_radius: bool = false) -> Node2D:
 	var best_node: Node2D = null
-	var best_dist := 28.0  # Max click distance for resources.
+	var best_dist := DESKTOP_RESOURCE_HIT_RADIUS_WORLD
+	if use_touch_radius:
+		best_dist = _screen_px_to_world_radius(touch_resource_hit_radius_px)
 	for node in get_tree().get_nodes_in_group("resources"):
 		if not is_instance_valid(node) or not node is Node2D:
 			continue
@@ -421,7 +511,7 @@ func _handle_right_click(screen_pos: Vector2) -> void:
 	var world_pos := _screen_to_world(screen_pos)
 
 	# Check for enemy target → attack
-	var tapped_node: Node2D = _get_node_at(world_pos)
+	var tapped_node: Node2D = _get_node_at(world_pos, false)
 	if tapped_node != null and _is_enemy(tapped_node):
 		attack_command.emit(tapped_node)
 		return
@@ -432,7 +522,7 @@ func _handle_right_click(screen_pos: Vector2) -> void:
 		return
 
 	# Check for resource node → gather command
-	var resource_node: Node2D = _get_resource_at(world_pos)
+	var resource_node: Node2D = _get_resource_at(world_pos, false)
 	if resource_node != null:
 		gather_command.emit(resource_node)
 		return
@@ -447,6 +537,13 @@ func _handle_right_click(screen_pos: Vector2) -> void:
 func _has_selected_villagers() -> bool:
 	for node in selected:
 		if node is Villager:
+			return true
+	return false
+
+
+func _has_selected_units() -> bool:
+	for node in selected:
+		if node is UnitBase:
 			return true
 	return false
 
@@ -474,10 +571,11 @@ func _ensure_touch_context_menu() -> void:
 func _open_touch_context(screen_pos: Vector2) -> void:
 	_ensure_touch_context_menu()
 	var world_pos := _screen_to_world(screen_pos)
-	var tapped_node: Node2D = _get_node_at(world_pos)
-	var resource_node: Node2D = _get_resource_at(world_pos)
+	var tapped_node: Node2D = _get_node_at(world_pos, true)
+	var resource_node: Node2D = _get_resource_at(world_pos, true)
 	var actions := _build_touch_context_actions(tapped_node, resource_node)
 	if actions.size() <= 1:
+		_refresh_touch_context_diagnostics(actions, false, screen_pos)
 		if actions.size() == 1:
 			_context_world_pos = world_pos
 			_context_target = tapped_node
@@ -500,6 +598,7 @@ func _open_touch_context(screen_pos: Vector2) -> void:
 
 	_touch_context_menu.popup(Rect2i(Vector2i(popup_pos), Vector2i(180, 1)))
 	_touch_context_open = true
+	_refresh_touch_context_diagnostics(actions, true, popup_pos)
 
 
 func _build_touch_context_actions(tapped_node: Node2D, resource_node: Node2D) -> Array[Dictionary]:
@@ -533,6 +632,7 @@ func _on_touch_context_pressed(action_id: int) -> void:
 
 func _on_touch_context_hidden() -> void:
 	_touch_context_open = false
+	_refresh_touch_context_diagnostics()
 
 
 func _execute_touch_context_action(action_id: int) -> void:
@@ -559,12 +659,73 @@ func _execute_touch_context_action(action_id: int) -> void:
 		TouchContextAction.CLEAR:
 			_clear_selection()
 	get_viewport().set_input_as_handled()
+	_refresh_touch_context_diagnostics()
 
 
 func _hide_touch_context() -> void:
 	if _touch_context_menu != null and _touch_context_menu.visible:
 		_touch_context_menu.hide()
 	_touch_context_open = false
+	_refresh_touch_context_diagnostics()
+
+
+func _refresh_touch_context_diagnostics(actions: Array[Dictionary] = [], visible_override: bool = false, popup_pos: Vector2 = Vector2.ZERO) -> void:
+	var labels: PackedStringArray = PackedStringArray()
+	var ids: Array[int] = []
+	for action in actions:
+		labels.append(String(action.get("label", "")))
+		ids.append(int(action.get("id", -1)))
+	touch_context_diagnostics = {
+		"visible": visible_override,
+		"actions": labels,
+		"action_ids": ids,
+		"selection_count": selected.size(),
+		"popup_x": popup_pos.x,
+		"popup_y": popup_pos.y,
+	}
+
+
+func _record_touch_input(
+	screen_pos: Vector2,
+	world_pos: Vector2,
+	action: String,
+	tapped_node: Node2D,
+	resource_node: Node2D,
+	target_tile: Vector2i = Vector2i.ZERO,
+) -> void:
+	touch_input_diagnostics = {
+		"action": action,
+		"screen_x": screen_pos.x,
+		"screen_y": screen_pos.y,
+		"world_x": world_pos.x,
+		"world_y": world_pos.y,
+		"selected_count": selected.size(),
+		"has_selected_units": _has_selected_units(),
+		"has_selected_villagers": _has_selected_villagers(),
+		"tapped_node_path": str(tapped_node.get_path()) if tapped_node != null else "",
+		"resource_node_path": str(resource_node.get_path()) if resource_node != null else "",
+		"target_tile_x": target_tile.x,
+		"target_tile_y": target_tile.y,
+	}
+
+
+func _screen_px_to_world_radius(radius_px: float) -> float:
+	var zoom: float = _get_camera_zoom_scalar()
+	return maxf(8.0, radius_px * zoom)
+
+
+func _should_ignore_mouse_input() -> bool:
+	if _last_touch_input_msec <= 0:
+		return false
+	return (Time.get_ticks_msec() - _last_touch_input_msec) <= MOUSE_AFTER_TOUCH_IGNORE_MS
+
+
+func _get_camera_zoom_scalar() -> float:
+	if game_map != null:
+		var camera_node: Node = game_map.get_node_or_null("Camera2D")
+		if camera_node is Camera2D:
+			return maxf(0.25, (camera_node as Camera2D).zoom.x)
+	return 1.0
 
 
 ## --- Draw drag-box ---

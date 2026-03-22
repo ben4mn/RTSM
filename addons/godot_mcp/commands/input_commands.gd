@@ -30,6 +30,9 @@ func get_input_map(_params: Dictionary) -> Dictionary:
 	var debugger_plugin = _plugin.get_debugger_plugin() if _plugin else null
 	if debugger_plugin == null or not debugger_plugin.has_active_session():
 		return _get_editor_input_map()
+	if _input_map_pending and not debugger_plugin.is_input_map_pending():
+		_input_map_pending = false
+		_input_map_result = {}
 	if _input_map_pending:
 		return _error("BUSY", "A get_input_map request is already in progress")
 
@@ -119,6 +122,9 @@ func execute_input_sequence(params: Dictionary) -> Dictionary:
 	var debugger_plugin = _plugin.get_debugger_plugin() if _plugin else null
 	if debugger_plugin == null or not debugger_plugin.has_active_session():
 		return _error("NO_SESSION", "No active debug session")
+	if _sequence_pending and not debugger_plugin.is_input_sequence_pending():
+		_sequence_pending = false
+		_sequence_result = {}
 	if _sequence_pending:
 		return _error("BUSY", "An input sequence is already in progress")
 
@@ -172,6 +178,9 @@ func type_text(params: Dictionary) -> Dictionary:
 	var debugger_plugin = _plugin.get_debugger_plugin() if _plugin else null
 	if debugger_plugin == null or not debugger_plugin.has_active_session():
 		return _error("NO_SESSION", "No active debug session")
+	if _type_text_pending and not debugger_plugin.is_type_text_pending():
+		_type_text_pending = false
+		_type_text_result = {}
 	if _type_text_pending:
 		return _error("BUSY", "A type_text request is already in progress")
 

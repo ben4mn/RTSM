@@ -2,6 +2,8 @@
 
 Date: 2026-02-16
 
+Validation update: Revalidated by MCP on 2026-03-07. The baseline touch loop is live; the current Phase 2 work is about stricter acceptance and feel polish, not initial enablement.
+
 ## Objective
 
 Ship touch-first controls that let players complete core RTS loops without keyboard or right-click dependency.
@@ -13,12 +15,12 @@ Ship touch-first controls that let players complete core RTS loops without keybo
 3. Build placement feedback (`scripts/buildings/building_placement.gd`, `scripts/ui/build_menu.gd`)
 4. Regression checks (`tools/mcp_smoke_test.py`)
 
-## Current Gaps (from code + baseline playtest)
+## Current Gaps (updated after 2026-03-07 MCP pass)
 
-1. Ground taps currently clear selection; they do not issue move commands for touch input.
-2. No long-press context path exists for touch-specific action choices.
-3. HUD shortcut buttons exist, but mobile action density and thumb-reach layout are not finalized.
-4. Invalid placement reasons are present near the ghost footprint, but there is no HUD-level error feedback path.
+1. MCP coverage still allowed build-menu visibility to pass without proving real visible controls in the open state.
+2. Long-press context exists in code, but the audit did not yet require it as a hard regression gate.
+3. The touch-only military loop could still pass with timing ambiguity instead of a hard failure.
+4. Mobile controls work, but the next pass should improve command feedback and repeatability around build placement.
 
 ## Task Breakdown
 
@@ -61,6 +63,10 @@ Ship touch-first controls that let players complete core RTS loops without keybo
    - Touch villager -> touch resource gather
    - HUD idle villager / military shortcuts
    - Invalid placement feedback
+   - Strict build-menu visibility
+   - Touch-only build -> place -> resume economy
+   - Long-press context
+   - Pinch zoom
 2. Capture one screenshot per scenario and verify runtime log cleanliness.
 3. Keep performance guardrail (`fps >= 15`, `frame_time_ms <= 120`) as minimum gate.
 

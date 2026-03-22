@@ -48,6 +48,7 @@ var _placement_type: int = -1
 # --- Player buildings/units tracking ---
 var _player_buildings: Array[Array] = [[], []]  # [player_0_buildings, player_1_buildings]
 var _player_units: Array[Array] = [[], []]
+var _player_town_center: BuildingBase = null
 
 # --- Debug panel ---
 var _debug_panel: DebugPanel = null
@@ -78,21 +79,44 @@ const GROUP_DOUBLE_TAP_TIME: float = 0.35
 var _sacred_site_victory_notified: bool = false
 
 # --- Early game hints ---
+enum GuidedOpeningStage {
+	GATHER_FOOD,
+	BUILD_HOUSE,
+	TRAIN_SCOUT,
+	MOVE_MILITARY,
+	FREE_PLAY,
+}
+
 var _hint_timer: float = 0.0
 var _hints_shown: int = 0
+var _guided_opening_active: bool = true
+var _guided_stage: GuidedOpeningStage = GuidedOpeningStage.GATHER_FOOD
 const HINTS: Array = [
-	{"time": 3.0, "text": "Destroy the enemy Town Center or hold the Sacred Site to win!", "color": Color(1.0, 0.9, 0.5)},
-	{"time": 6.0, "text": "Press F2 for all keyboard shortcuts", "color": Color(0.6, 0.7, 0.6)},
-	{"time": 12.0, "text": "Press H to select your Town Center", "color": Color(0.7, 0.8, 1.0)},
-	{"time": 25.0, "text": "Train more Villagers for faster gathering [Q]", "color": Color(0.7, 0.8, 1.0)},
-	{"time": 45.0, "text": "Build Houses to increase population cap [B]", "color": Color(0.7, 0.8, 1.0)},
-	{"time": 75.0, "text": "Build a Barracks to train military units", "color": Color(0.7, 0.8, 1.0)},
-	{"time": 120.0, "text": "Train a Scout from your TC to explore the map", "color": Color(0.7, 0.8, 1.0)},
-	{"time": 180.0, "text": "Hold the Sacred Site (map center) for 3 min to win!", "color": Color(0.85, 0.7, 1.0)},
+	{"time": 14.0, "text": "Pause any time from the top-right button if you need to stop and reorient.", "color": Color(0.95, 0.86, 0.56)},
+	{"time": 42.0, "text": "Drag on open terrain to pan camera. Tap the minimap to jump view.", "color": Color(0.7, 0.8, 1.0)},
+	{"time": 75.0, "text": "Need keyboard shortcuts? Open the optional F2 panel.", "color": Color(0.6, 0.7, 0.6)},
+	{"time": 105.0, "text": "Train a scout from your Town Center to reveal more map quickly.", "color": Color(0.7, 0.8, 1.0)},
+	{"time": 180.0, "text": "Sacred Site is at map center. Hold it for 3:00 to win.", "color": Color(0.85, 0.7, 1.0)},
 ]
 var _milestone_first_house: bool = false
 var _milestone_first_military_building: bool = false
 var _milestone_first_age_up: bool = false
+var _opening_gather_complete: bool = false
+var _opening_house_complete: bool = false
+var _opening_scout_queued: bool = false
+var _opening_military_move_complete: bool = false
+var _pause_open_count: int = 0
+var _last_invalid_placement_reason: String = ""
+var _invalid_placement_count: int = 0
+var _first_session_hint_text: String = ""
+var _first_session_focus_target: String = ""
+var _first_session_hint_emphasis: bool = false
+var _production_tick_counter: int = 0
+var _production_active_queue_count: int = 0
+var _production_latest_progress: float = 0.0
+
+# --- First-session telemetry (read via MCP node.get_properties on /root/Main) ---
+@export var first_session_diagnostics: Dictionary = {}
 
 # --- Balance telemetry (read via MCP node.get_properties on /root/Main) ---
 @export var balance_ai_difficulty: int = 1
@@ -117,11 +141,17 @@ var _milestone_first_age_up: bool = false
 @export var balance_ai_under_pressure: bool = false
 @export var balance_ai_saving_for_age_up: bool = false
 @export var balance_ai_state: int = -1
+@export var balance_ai_idle_villagers: int = 0
+@export var balance_ai_idle_production_buildings: int = 0
+@export var balance_ai_resource_float: int = 0
+@export var balance_ai_peak_military: int = 0
+@export var balance_ai_peak_villagers: int = 0
 var _balance_snapshot_timer: float = 0.0
 const BALANCE_SNAPSHOT_INTERVAL: float = 1.0
 
 
 func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	# Wait for map generation to finish.
 	game_map.map_ready.connect(_on_map_ready)
 
@@ -155,6 +185,11 @@ func _reset_balance_snapshot() -> void:
 	balance_ai_under_pressure = false
 	balance_ai_saving_for_age_up = false
 	balance_ai_state = -1
+	balance_ai_idle_villagers = 0
+	balance_ai_idle_production_buildings = 0
+	balance_ai_resource_float = 0
+	balance_ai_peak_military = 0
+	balance_ai_peak_villagers = 0
 	_balance_snapshot_timer = 0.0
 
 
@@ -174,6 +209,7 @@ func _update_balance_snapshot() -> void:
 	balance_ai_food = ai_resources.get("food", 0)
 	balance_ai_wood = ai_resources.get("wood", 0)
 	balance_ai_gold = ai_resources.get("gold", 0)
+	balance_ai_resource_float = balance_ai_food + balance_ai_wood + balance_ai_gold
 
 	var ai_player: Dictionary = GameManager.players.get(ai_id, {})
 	balance_ai_population = ai_player.get("population", 0)
@@ -181,13 +217,18 @@ func _update_balance_snapshot() -> void:
 
 	balance_ai_villagers = 0
 	balance_ai_military = 0
+	balance_ai_idle_villagers = 0
 	for unit in _player_units[ai_id]:
 		if not is_instance_valid(unit) or unit.current_state == UnitBase.State.DEAD:
 			continue
 		if unit is Villager:
 			balance_ai_villagers += 1
+			if unit.current_state == UnitBase.State.IDLE:
+				balance_ai_idle_villagers += 1
 		else:
 			balance_ai_military += 1
+	balance_ai_peak_villagers = maxi(balance_ai_peak_villagers, balance_ai_villagers)
+	balance_ai_peak_military = maxi(balance_ai_peak_military, balance_ai_military)
 
 	balance_ai_buildings = 0
 	balance_ai_town_centers = 0
@@ -195,10 +236,15 @@ func _update_balance_snapshot() -> void:
 	balance_ai_archery_ranges = 0
 	balance_ai_stables = 0
 	balance_ai_siege_workshops = 0
+	balance_ai_idle_production_buildings = 0
 	for building in _player_buildings[ai_id]:
 		if not is_instance_valid(building) or building.state == BuildingBase.State.DESTROYED:
 			continue
 		balance_ai_buildings += 1
+		if building.trainable_units.size() > 0 and building.state == BuildingBase.State.ACTIVE:
+			var pq: Node = building.get_production_queue()
+			if pq and pq.has_method("get_queue_size") and int(pq.get_queue_size()) == 0:
+				balance_ai_idle_production_buildings += 1
 		match building.building_type:
 			BuildingData.BuildingType.TOWN_CENTER:
 				balance_ai_town_centers += 1
@@ -216,11 +262,109 @@ func _update_balance_snapshot() -> void:
 	balance_ai_state = int(ai_controller.get("_ai_state"))
 
 
+func _guided_stage_name(stage: int = -1) -> String:
+	var stage_value: int = _guided_stage if stage < 0 else stage
+	match stage_value:
+		GuidedOpeningStage.GATHER_FOOD:
+			return "gather_food"
+		GuidedOpeningStage.BUILD_HOUSE:
+			return "build_house"
+		GuidedOpeningStage.TRAIN_SCOUT:
+			return "train_scout"
+		GuidedOpeningStage.MOVE_MILITARY:
+			return "move_military"
+		GuidedOpeningStage.FREE_PLAY:
+			return "free_play"
+	return "unknown"
+
+
+func _apply_primary_guidance(
+	text: String,
+	focus_target: String = "",
+	unit_type: int = -1,
+	building_type: int = -1,
+	emphasis: bool = true
+) -> void:
+	_first_session_hint_text = text.strip_edges()
+	_first_session_focus_target = focus_target
+	_first_session_hint_emphasis = emphasis
+	hud.set_primary_action(text, focus_target, unit_type, building_type, emphasis)
+	_refresh_first_session_diagnostics()
+
+
+func _apply_progression_guidance(text: String, emphasis: bool = false) -> void:
+	_first_session_hint_text = text.strip_edges()
+	_first_session_focus_target = ""
+	_first_session_hint_emphasis = emphasis
+	hud.clear_primary_action()
+	hud.set_progression_hint(text, emphasis)
+	_refresh_first_session_diagnostics()
+
+
+func _clear_guidance_state(clear_hint_text: bool = false) -> void:
+	_first_session_hint_text = ""
+	_first_session_focus_target = ""
+	_first_session_hint_emphasis = false
+	hud.clear_primary_action()
+	if clear_hint_text:
+		hud.set_progression_hint("")
+	_refresh_first_session_diagnostics()
+
+
+func _refresh_first_session_diagnostics() -> void:
+	var military_count: int = 0
+	for unit in _player_units[0]:
+		if not is_instance_valid(unit) or unit.current_state == UnitBase.State.DEAD:
+			continue
+		if unit.unit_type != UnitData.UnitType.VILLAGER:
+			military_count += 1
+	first_session_diagnostics = {
+		"guided_opening_enabled": bool(GameManager.guided_opening_enabled),
+		"guided_opening_active": _guided_opening_active,
+		"guided_stage": _guided_stage,
+		"guided_stage_name": _guided_stage_name(),
+		"gather_complete": _opening_gather_complete,
+		"house_complete": _opening_house_complete,
+		"scout_queued": _opening_scout_queued,
+		"military_move_complete": _opening_military_move_complete,
+		"opening_loop_complete": _opening_gather_complete and _opening_house_complete and _opening_scout_queued and _opening_military_move_complete,
+		"military_count": military_count,
+		"pause_open_count": _pause_open_count,
+		"placement_active": _placement_active,
+		"placement_type": _placement_type,
+		"build_menu_open": hud != null and hud.is_build_menu_open(),
+		"placement_cancel_visible": hud != null and hud.is_placement_cancel_visible(),
+		"last_invalid_placement_reason": _last_invalid_placement_reason,
+		"invalid_placement_count": _invalid_placement_count,
+		"guidance_hint_text": _first_session_hint_text,
+		"guidance_focus_target": _first_session_focus_target,
+		"guidance_emphasis": _first_session_hint_emphasis,
+		"production_tick_counter": _production_tick_counter,
+		"production_active_queue_count": _production_active_queue_count,
+		"production_latest_progress": _production_latest_progress,
+	}
+
+
 func _on_map_ready(map_gen: MapGenerator) -> void:
 	# Initialize game state for 2 players.
 	GameManager.initialize_game(2)
 	ResourceManager.initialize_player(0)
 	ResourceManager.initialize_player(1)
+	_guided_opening_active = bool(GameManager.guided_opening_enabled)
+	_guided_stage = GuidedOpeningStage.GATHER_FOOD
+	_opening_gather_complete = false
+	_opening_house_complete = false
+	_opening_scout_queued = false
+	_opening_military_move_complete = false
+	_pause_open_count = 0
+	_last_invalid_placement_reason = ""
+	_invalid_placement_count = 0
+	_first_session_hint_text = ""
+	_first_session_focus_target = ""
+	_first_session_hint_emphasis = false
+	_production_tick_counter = 0
+	_production_active_queue_count = 0
+	_production_latest_progress = 0.0
 
 	# Connect resource changes to HUD.
 	ResourceManager.resources_changed.connect(_on_resource_changed)
@@ -256,7 +400,8 @@ func _on_map_ready(map_gen: MapGenerator) -> void:
 
 	# Center camera on player's starting base.
 	var player_spawn: Vector2 = game_map.tile_to_world(map_gen.spawn_positions[0])
-	game_map.camera.position = player_spawn
+	game_map.camera.position = _get_initial_camera_focus(player_spawn)
+	game_map._clamp_camera()
 
 	# Update initial HUD state.
 	_refresh_hud_resources(0)
@@ -264,7 +409,92 @@ func _on_map_ready(map_gen: MapGenerator) -> void:
 	_milestone_first_house = false
 	_milestone_first_military_building = false
 	_milestone_first_age_up = false
-	hud.set_progression_hint("Open with villagers, houses, and a barracks before aging up.", false)
+	_refresh_first_session_diagnostics()
+	_bootstrap_opening_guidance()
+
+
+func _bootstrap_opening_guidance() -> void:
+	hud.set_early_game_ui_state(_guided_opening_active)
+	hud.set_guided_military_shortcuts_visible(false)
+	hud.set_pending_military_shortcut(false)
+	hud.set_minimap_hint("Tap map to jump")
+	if _guided_opening_active:
+		call_deferred("_update_progression_hint")
+	else:
+		hud.clear_primary_action()
+		_update_progression_hint()
+
+
+func _set_guided_stage(new_stage: GuidedOpeningStage) -> void:
+	if _guided_stage == new_stage:
+		return
+	_guided_stage = new_stage
+	hud.set_guided_military_shortcuts_visible(new_stage == GuidedOpeningStage.MOVE_MILITARY)
+	hud.set_pending_military_shortcut(false)
+	match new_stage:
+		GuidedOpeningStage.BUILD_HOUSE:
+			hud.show_notification("Objective complete: Villagers are gathering. Next: place a House.", Color(0.95, 0.86, 0.42))
+		GuidedOpeningStage.TRAIN_SCOUT:
+			hud.show_notification("Objective complete: House placed. Next: train a Scout.", Color(0.95, 0.86, 0.42))
+			call_deferred("_select_town_center")
+		GuidedOpeningStage.MOVE_MILITARY:
+			hud.show_notification("Objective complete: Scout queued. Next: move it onto the map.", Color(0.95, 0.86, 0.42))
+		GuidedOpeningStage.FREE_PLAY:
+			_guided_opening_active = false
+			hud.set_early_game_ui_state(false)
+			hud.set_guided_military_shortcuts_visible(false)
+			hud.set_pending_military_shortcut(false)
+			hud.show_notification("Opening complete. Grow, age up, and contest the Sacred Site.", Color(0.68, 0.86, 1.0))
+	_refresh_first_session_diagnostics()
+	_update_progression_hint()
+
+
+func _has_player_building_started(player_id: int, building_type: int) -> bool:
+	for building in _player_buildings[player_id]:
+		if not is_instance_valid(building):
+			continue
+		if building.state == BuildingBase.State.DESTROYED:
+			continue
+		if building.building_type == building_type:
+			return true
+	return false
+
+
+func _has_queued_unit(building_type: int, unit_type: int) -> bool:
+	for building in _player_buildings[0]:
+		if not is_instance_valid(building):
+			continue
+		if building.building_type != building_type:
+			continue
+		var pq: Node = building.get_production_queue()
+		if pq == null or not pq.has_method("get_queue_info"):
+			continue
+		for item in pq.get_queue_info():
+			if item is Dictionary and int(item.get("unit_type", -1)) == unit_type:
+				return true
+	return false
+
+
+func _refresh_guided_opening_stage() -> void:
+	if not _guided_opening_active:
+		_refresh_first_session_diagnostics()
+		return
+	match _guided_stage:
+		GuidedOpeningStage.GATHER_FOOD:
+			if _opening_gather_complete:
+				_set_guided_stage(GuidedOpeningStage.BUILD_HOUSE)
+		GuidedOpeningStage.BUILD_HOUSE:
+			if _opening_house_complete or _has_player_building_started(0, BuildingData.BuildingType.HOUSE):
+				_opening_house_complete = true
+				_set_guided_stage(GuidedOpeningStage.TRAIN_SCOUT)
+		GuidedOpeningStage.TRAIN_SCOUT:
+			if _opening_scout_queued or _has_queued_unit(BuildingData.BuildingType.TOWN_CENTER, UnitData.UnitType.SCOUT):
+				_opening_scout_queued = true
+				_set_guided_stage(GuidedOpeningStage.MOVE_MILITARY)
+		GuidedOpeningStage.MOVE_MILITARY:
+			if _opening_military_move_complete:
+				_set_guided_stage(GuidedOpeningStage.FREE_PLAY)
+	_refresh_first_session_diagnostics()
 
 
 # =========================================================================
@@ -426,14 +656,44 @@ func _on_build_menu_pressed_hotkey() -> void:
 	hud._on_build_menu_pressed()
 
 
+func _on_pause_requested() -> void:
+	if GameManager.current_state == GameManager.GameState.PAUSED:
+		return
+	if hud.is_build_menu_open():
+		hud.close_build_menu()
+	_cancel_placement()
+	_pause_open_count += 1
+	GameManager.set_paused(true)
+	_sync_hud_modal_state()
+	_refresh_first_session_diagnostics()
+
+
+func _on_resume_requested() -> void:
+	if GameManager.current_state != GameManager.GameState.PAUSED:
+		return
+	GameManager.set_paused(false)
+	_sync_hud_modal_state()
+	_refresh_first_session_diagnostics()
+
+
+func _on_quit_to_menu_requested() -> void:
+	Engine.time_scale = 1.0
+	GameManager.set_paused(false)
+	get_tree().change_scene_to_file("res://scenes/ui/main_menu.tscn")
+
+
 func _select_all_military() -> void:
-	game_map.selection_mgr.deselect_all()
+	for node in game_map.selection_mgr.selected:
+		if node is UnitBase and node.player_owner == 0 and node.unit_type != UnitData.UnitType.VILLAGER:
+			return
+	var military_units: Array[Node2D] = []
 	for unit in _player_units[0]:
 		if not is_instance_valid(unit) or unit.current_state == UnitBase.State.DEAD:
 			continue
 		if unit is Villager:
 			continue
-		game_map.selection_mgr._add_to_selection(unit)
+		military_units.append(unit)
+	game_map.selection_mgr.select_many(military_units)
 
 
 func _find_army() -> void:
@@ -575,12 +835,25 @@ func _arm_patrol_command() -> void:
 
 
 func _select_town_center() -> void:
+	if is_instance_valid(_player_town_center):
+		game_map.selection_mgr.select_single(_player_town_center)
+		if _guided_opening_active and _guided_stage <= GuidedOpeningStage.TRAIN_SCOUT:
+			game_map.camera.position = _get_initial_camera_focus(_player_town_center.global_position)
+		else:
+			game_map.camera.position = _player_town_center.global_position
+		game_map._clamp_camera()
+		_update_progression_hint()
+		return
 	for building in _player_buildings[0]:
 		if is_instance_valid(building) and building.building_type == BuildingData.BuildingType.TOWN_CENTER:
-			game_map.selection_mgr.deselect_all()
-			game_map.selection_mgr._add_to_selection(building)
-			game_map.camera.position = building.global_position
+			_player_town_center = building
+			game_map.selection_mgr.select_single(building)
+			if _guided_opening_active and _guided_stage <= GuidedOpeningStage.TRAIN_SCOUT:
+				game_map.camera.position = _get_initial_camera_focus(building.global_position)
+			else:
+				game_map.camera.position = building.global_position
 			game_map._clamp_camera()
+			_update_progression_hint()
 			return
 
 
@@ -641,18 +914,6 @@ func _on_idle_villager_pressed() -> void:
 	game_map.camera.position = target.global_position
 
 
-func _auto_explore_idle_scouts() -> void:
-	for unit in _player_units[0]:
-		if not is_instance_valid(unit) or unit.current_state != UnitBase.State.IDLE:
-			continue
-		if unit.unit_type != UnitData.UnitType.SCOUT:
-			continue
-		# Send to a random map position
-		var random_tile := Vector2i(randi_range(2, MapData.MAP_WIDTH - 3), randi_range(2, MapData.MAP_HEIGHT - 3))
-		var world_pos: Vector2 = game_map.tile_to_world(random_tile)
-		unit.command_move(world_pos)
-
-
 func _update_idle_villager_count() -> void:
 	var idle_count: int = 0
 	var military_count: int = 0
@@ -695,6 +956,8 @@ func _setup_player_start(player_id: int, spawn_tile: Vector2i) -> void:
 	# Place Town Center.
 	var tc := _spawn_building(BuildingData.BuildingType.TOWN_CENTER, player_id, spawn_tile)
 	tc.complete_instantly()
+	if player_id == 0:
+		_player_town_center = tc
 	# Note: pop cap is already handled by _on_building_constructed via complete_instantly()
 
 	# Note: TC production queue is already connected in _spawn_building().
@@ -784,8 +1047,21 @@ func _on_unit_trained(unit_type: int, spawn_pos: Vector2, player_id: int) -> voi
 	var unit: UnitBase = _spawn_unit(unit_type, player_id, spawn_pos)
 	_update_population_display()
 	if player_id == 0:
+		_update_idle_villager_count()
+		_on_selection_changed(game_map.selection_mgr.selected)
 		_stats["units_trained"] += 1
 		hud.show_notification("Unit trained: %s" % UnitData.get_unit_name(unit_type), Color(0.4, 0.7, 1.0))
+		if (
+			unit != null
+			and unit_type == UnitData.UnitType.SCOUT
+			and _guided_opening_active
+			and _guided_stage == GuidedOpeningStage.MOVE_MILITARY
+		):
+			game_map.selection_mgr.select_single(unit)
+			game_map.camera.position = unit.global_position
+			game_map._clamp_camera()
+			hud.show_notification("Scout ready: tap Military, then tap open ground.", Color(0.95, 0.86, 0.42))
+			_update_progression_hint()
 		# Auto-assign new villagers to gather the most needed resource
 		if unit and unit_type == UnitData.UnitType.VILLAGER:
 			_auto_assign_new_villager(unit)
@@ -872,8 +1148,14 @@ func _spawn_building(building_type: int, player_id: int, tile_pos: Vector2i) -> 
 
 	# Connect production queue if it has one.
 	var pq: Node = building.get_production_queue()
+	if pq == null:
+		pq = building.get_node_or_null("ProductionQueue")
+		if pq != null:
+			building.set_production_queue(pq)
 	if pq:
-		pq.unit_trained.connect(_on_unit_trained.bind(player_id))
+		var unit_trained_callback := Callable(self, "_on_unit_trained").bind(player_id)
+		if not pq.is_connected("unit_trained", unit_trained_callback):
+			pq.connect("unit_trained", unit_trained_callback)
 
 	# Register with AI.
 	if player_id == ai_controller.player_id:
@@ -899,6 +1181,8 @@ func _on_building_constructed(building: BuildingBase, player_id: int) -> void:
 		] and not _milestone_first_military_building:
 			_milestone_first_military_building = true
 			hud.show_notification("Milestone: Military production unlocked.", Color(0.82, 0.72, 1.0))
+		_refresh_guided_opening_stage()
+		_update_progression_hint()
 
 
 func _on_building_destroyed(building: BuildingBase, player_id: int, tile_pos: Vector2i) -> void:
@@ -931,6 +1215,7 @@ func _on_selection_changed(selected_units: Array[Node2D]) -> void:
 	if selected_units.is_empty():
 		_patrol_command_armed = false
 		hud.clear_selection()
+		_update_progression_hint()
 		return
 
 	var first: Node2D = selected_units[0]
@@ -939,6 +1224,7 @@ func _on_selection_changed(selected_units: Array[Node2D]) -> void:
 		var type_name: String = r.resource_type.capitalize()
 		var pct: int = int(float(r.remaining) / float(r.total_amount) * 100.0)
 		hud.show_resource_info(type_name, r.remaining, r.total_amount, pct)
+		_update_progression_hint()
 		return
 	if first is UnitBase:
 		var u: UnitBase = first as UnitBase
@@ -981,6 +1267,7 @@ func _on_selection_changed(selected_units: Array[Node2D]) -> void:
 		if pq:
 			queue_info = pq.get_queue_info()
 		hud.show_building_selection(b.building_name, b.hp, b.max_hp, queue_info, b.trainable_units, b)
+	_update_progression_hint()
 
 
 func _on_move_command(target_tile: Vector2i) -> void:
@@ -994,6 +1281,7 @@ func _on_move_command(target_tile: Vector2i) -> void:
 		if b.player_owner == 0 and b.trainable_units.size() > 0:
 			b.set_rally_point(game_map.tile_to_world(target_tile))
 			VFX.move_indicator(get_tree(), game_map.tile_to_world(target_tile))
+			hud.show_notification("Rally point set: %s" % b.building_name, Color(0.58, 0.82, 1.0))
 			return
 
 	# Collect moveable units
@@ -1009,6 +1297,9 @@ func _on_move_command(target_tile: Vector2i) -> void:
 		return
 	if issue_patrol and not has_military:
 		issue_patrol = false
+	if has_military and _guided_opening_active and _guided_stage == GuidedOpeningStage.MOVE_MILITARY:
+		_opening_military_move_complete = true
+		_refresh_guided_opening_stage()
 
 	# Generate formation offsets so units spread out around the target
 	var offsets := _get_formation_offsets(moveable.size())
@@ -1100,6 +1391,8 @@ func _on_gather_command(resource_node: Node2D) -> void:
 	for node in selected:
 		if node is UnitBase and node.player_owner == 0 and node.has_method("command_gather"):
 			node.command_gather(resource_node)
+			_opening_gather_complete = true
+	_refresh_guided_opening_stage()
 
 
 func _on_build_command(building: Node2D) -> void:
@@ -1129,13 +1422,58 @@ func _on_train_unit_requested(building: Node2D, unit_type: int) -> void:
 		var success: bool = pq.enqueue_unit(unit_type)
 		if not success:
 			hud.show_notification("Cannot train — not enough resources or queue full", Color(1.0, 0.4, 0.3))
+		else:
+			var guided_scout_fast_track: bool = (
+				b.player_owner == 0
+				and unit_type == UnitData.UnitType.SCOUT
+				and _guided_opening_active
+				and _guided_stage == GuidedOpeningStage.TRAIN_SCOUT
+			)
+			hud.show_notification("Queued: %s" % UnitData.get_unit_name(unit_type), Color(0.48, 0.78, 1.0))
+			if unit_type == UnitData.UnitType.SCOUT:
+				_opening_scout_queued = true
+			_refresh_guided_opening_stage()
+			if guided_scout_fast_track and pq is ProductionQueue:
+				var scout_queue: ProductionQueue = pq as ProductionQueue
+				if scout_queue.is_training and not scout_queue.queue.is_empty() and int(scout_queue.queue[0]) == unit_type:
+					scout_queue._complete_current_unit()
 		# Refresh selection display to show updated queue
 		_on_selection_changed(game_map.selection_mgr.selected)
+		_update_progression_hint()
 
 
 func _on_minimap_clicked(world_pos: Vector2) -> void:
-	game_map.camera.position = world_pos
+	var target_tile: Vector2i = game_map.world_to_tile(world_pos)
+	var snapped_world: Vector2 = game_map.tile_to_world(target_tile)
+	var was_smoothing_enabled: bool = game_map.camera.position_smoothing_enabled
+	if was_smoothing_enabled:
+		game_map.camera.position_smoothing_enabled = false
+	game_map.camera.position = snapped_world
 	game_map._clamp_camera()
+	game_map.camera.reset_smoothing()
+	if was_smoothing_enabled:
+		game_map.camera.position_smoothing_enabled = true
+
+
+func _get_initial_camera_focus(player_spawn: Vector2) -> Vector2:
+	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+	var short_side: float = minf(viewport_size.x, viewport_size.y)
+	var phone_like: bool = DisplayServer.is_touchscreen_available() or OS.has_feature("mobile") or short_side <= 460.0
+	var samples: Array[Vector2] = [player_spawn]
+	for resource_type in ["food", "wood", "gold"]:
+		var node: Node2D = game_map.get_nearest_resource_node(resource_type, player_spawn)
+		if node != null:
+			samples.append(node.global_position)
+	var weighted_center := Vector2.ZERO
+	for sample in samples:
+		weighted_center += sample
+	weighted_center /= float(maxi(1, samples.size()))
+	if not phone_like:
+		return weighted_center.lerp(player_spawn, 0.3)
+	var center_tile := Vector2i(MapData.MAP_WIDTH / 2, MapData.MAP_HEIGHT / 2)
+	var center_world: Vector2 = game_map.tile_to_world(center_tile)
+	# Bias inward so the Town Center, nearby economy, and open ground all fit on screen.
+	return weighted_center.lerp(center_world, 0.18)
 
 
 func _on_cancel_queue_requested(building: Node2D, index: int) -> void:
@@ -1221,8 +1559,13 @@ func _setup_hud() -> void:
 	hud.find_army_pressed.connect(_find_army)
 	hud.research_requested.connect(_on_research_requested)
 	hud.placement_cancel_requested.connect(_on_cancel_placement)
+	hud.pause_requested.connect(_on_pause_requested)
+	hud.resume_requested.connect(_on_resume_requested)
+	hud.quit_to_menu_requested.connect(_on_quit_to_menu_requested)
 	_build_menu.building_selected.connect(_on_building_selected_for_placement)
 	_build_menu.cancel_placement.connect(_on_cancel_placement)
+	if _build_menu.has_signal("close_requested"):
+		_build_menu.close_requested.connect(_on_build_menu_close_requested)
 
 	# Set up building placement ghost.
 	_building_placement = BuildingPlacement.new()
@@ -1230,21 +1573,47 @@ func _setup_hud() -> void:
 	_building_placement.placement_confirmed.connect(_on_placement_confirmed)
 	_building_placement.placement_cancelled.connect(_on_cancel_placement)
 	_building_placement.placement_invalid.connect(_on_placement_invalid)
+	_sync_hud_modal_state()
 
 
 func _on_build_menu_toggled(is_open: bool) -> void:
+	if GameManager.current_state == GameManager.GameState.PAUSED:
+		if is_open:
+			hud.close_build_menu()
+		else:
+			_build_menu.close_menu()
+			_cancel_placement()
+		_sync_hud_modal_state()
+		_update_progression_hint()
+		return
 	if is_open:
 		_build_menu.open_menu()
 	else:
 		_build_menu.close_menu()
 		_cancel_placement()
+	_sync_hud_modal_state()
+	_update_progression_hint()
+
+
+func _on_build_menu_close_requested() -> void:
+	if hud.is_build_menu_open():
+		hud.close_build_menu()
+	else:
+		_build_menu.close_menu()
+		_sync_hud_modal_state()
+	_update_progression_hint()
 
 
 func _on_building_selected_for_placement(building_type: int) -> void:
 	_placement_active = true
 	_placement_type = building_type
+	_last_invalid_placement_reason = ""
 	_building_placement.start_placement(building_type, 0)
 	hud.set_placement_mode(true, BuildingData.get_building_name(building_type))
+	if _guided_opening_active and _guided_stage == GuidedOpeningStage.BUILD_HOUSE and building_type == BuildingData.BuildingType.HOUSE:
+		hud.show_notification("House placement active: green tiles are valid. Cancel House stays in the bottom bar.", Color(0.95, 0.86, 0.42))
+	_refresh_first_session_diagnostics()
+	_update_progression_hint()
 
 
 func _on_cancel_placement() -> void:
@@ -1254,15 +1623,38 @@ func _on_cancel_placement() -> void:
 func _cancel_placement() -> void:
 	_placement_active = false
 	_placement_type = -1
+	_last_invalid_placement_reason = ""
 	if _building_placement.active:
 		_building_placement.cancel_placement()
 	if _build_menu:
 		_build_menu.set_placement_mode(false)
 	hud.set_placement_mode(false)
+	_refresh_first_session_diagnostics()
+	_update_progression_hint()
+
+
+func _sync_hud_modal_state() -> void:
+	if hud == null:
+		return
+	if GameManager.current_state == GameManager.GameState.PAUSED:
+		hud.set_ui_modal_state(hud.UIModalState.PAUSE_MENU)
+	elif hud.is_build_menu_open():
+		hud.set_ui_modal_state(hud.UIModalState.BUILD_MENU)
+	else:
+		hud.set_ui_modal_state(hud.UIModalState.NONE)
 
 
 func _on_placement_invalid(reason: String) -> void:
-	hud.show_notification("Cannot place: %s" % reason, Color(1.0, 0.45, 0.35))
+	_last_invalid_placement_reason = reason
+	_invalid_placement_count += 1
+	var message: String = "Cannot place here: %s." % reason
+	if _guided_opening_active and _guided_stage == GuidedOpeningStage.BUILD_HOUSE:
+		message += " Try open ground near your Town Center, or tap Cancel House."
+	elif _placement_active:
+		message += " Try open ground, or tap Cancel Build."
+	hud.show_notification(message, Color(1.0, 0.45, 0.35))
+	_refresh_first_session_diagnostics()
+	_update_progression_hint()
 
 
 func _on_age_up_requested() -> void:
@@ -1289,6 +1681,7 @@ func _on_age_up_requested() -> void:
 		var need_food: int = maxi(0, cost.get("food", 0) - int(resources.get("food", 0)))
 		var need_gold: int = maxi(0, cost.get("gold", 0) - int(resources.get("gold", 0)))
 		hud.show_notification("Need +%d food and +%d gold to age up." % [need_food, need_gold], Color(1.0, 0.5, 0.35))
+	_update_progression_hint()
 
 
 # =========================================================================
@@ -1306,10 +1699,16 @@ func _on_placement_confirmed(building_type: int, world_pos: Vector2) -> void:
 
 	var building := _spawn_building(building_type, 0, tile_pos)
 	building.start_construction()
+	hud.show_notification("Placed: %s" % BuildingData.get_building_name(building_type), Color(0.48, 0.86, 0.52))
+	if building_type == BuildingData.BuildingType.HOUSE:
+		_opening_house_complete = true
+	_last_invalid_placement_reason = ""
+	_refresh_guided_opening_stage()
 
 	# Send nearest idle villager to build it.
 	_send_villager_to_build(building)
 	_cancel_placement()
+	_update_progression_hint()
 
 
 func _send_villager_to_build(building: BuildingBase) -> void:
@@ -1413,6 +1812,7 @@ var _selection_refresh_timer: float = 0.0
 func _process(delta: float) -> void:
 	if GameManager.current_state != GameManager.GameState.PLAYING:
 		return
+	_advance_production_queues(delta)
 	_update_fog_of_war()
 	_update_fog_entity_visibility()
 	# Tick under-attack cooldown
@@ -1430,9 +1830,9 @@ func _process(delta: float) -> void:
 		_minimap_timer = 0.0
 		_update_minimap()
 		_update_idle_villager_count()
-		_auto_explore_idle_scouts()
 		hud.update_score(_calculate_score(0), _calculate_score(1))
 		_update_progression_hint()
+		_refresh_first_session_diagnostics()
 	# Keep exported balance telemetry fresh for MCP polling.
 	_balance_snapshot_timer += delta
 	if _balance_snapshot_timer >= BALANCE_SNAPSHOT_INTERVAL:
@@ -1444,6 +1844,32 @@ func _process(delta: float) -> void:
 		_selection_refresh_timer = 0.0
 		if not game_map.selection_mgr.selected.is_empty():
 			_on_selection_changed(game_map.selection_mgr.selected)
+
+
+func _advance_production_queues(delta: float) -> void:
+	_production_active_queue_count = 0
+	_production_latest_progress = 0.0
+	for player_buildings in _player_buildings:
+		for building in player_buildings:
+			if not is_instance_valid(building):
+				continue
+			if building.state != BuildingBase.State.ACTIVE:
+				continue
+			var pq: ProductionQueue = building.get_production_queue() as ProductionQueue
+			if pq == null:
+				pq = building.get_node_or_null("ProductionQueue") as ProductionQueue
+				if pq != null:
+					building.set_production_queue(pq)
+			if pq == null or not pq.is_training or pq.queue.is_empty():
+				continue
+			_production_active_queue_count += 1
+			pq.current_progress += delta
+			_production_tick_counter += 1
+			_production_latest_progress = pq.current_progress
+			var progress_ratio: float = pq.current_progress / pq.current_train_time if pq.current_train_time > 0.0 else 1.0
+			pq.unit_training_progress.emit(pq.queue[0], clampf(progress_ratio, 0.0, 1.0))
+			if pq.current_progress >= pq.current_train_time:
+				pq._complete_current_unit()
 
 
 func _update_fog_of_war() -> void:
@@ -1555,12 +1981,26 @@ func _has_player_building_of_types(player_id: int, building_types: Array[int]) -
 	return false
 
 
+func _objective_mark(done: bool) -> String:
+	return "[x]" if done else "[ ]"
+
+
+func _age1_objective_strip(house_count: int, villagers: int, has_military_prod: bool) -> String:
+	return "Next: %s House x1  %s Villager x8  %s Barracks" % [
+		_objective_mark(house_count >= 1),
+		_objective_mark(villagers >= 8),
+		_objective_mark(has_military_prod),
+	]
+
+
 func _update_progression_hint() -> void:
 	if hud == null:
 		return
 	if GameManager.current_state != GameManager.GameState.PLAYING:
-		hud.set_progression_hint("")
+		_clear_guidance_state(true)
 		return
+	_refresh_guided_opening_stage()
+	hud.set_minimap_hint("Tap map to jump" if GameManager.game_time < 75.0 else "")
 
 	var age: int = GameManager.get_player_age(0)
 	var resources: Dictionary = ResourceManager.get_all_resources(0)
@@ -1570,6 +2010,20 @@ func _update_progression_hint() -> void:
 
 	var villagers: int = 0
 	var military: int = 0
+	var has_tc_selected: bool = false
+	var has_villager_selected: bool = false
+	var has_selected_military: bool = false
+	var selected: Array = game_map.selection_mgr.selected
+	if selected.size() == 1 and selected[0] is BuildingBase:
+		var selected_building: BuildingBase = selected[0] as BuildingBase
+		has_tc_selected = selected_building.player_owner == 0 and selected_building.building_type == BuildingData.BuildingType.TOWN_CENTER
+	for node in selected:
+		if not is_instance_valid(node):
+			continue
+		if node is Villager and node.player_owner == 0:
+			has_villager_selected = true
+		elif node is UnitBase and node.player_owner == 0 and node.unit_type != UnitData.UnitType.VILLAGER:
+			has_selected_military = true
 	for unit in _player_units[0]:
 		if not is_instance_valid(unit) or unit.current_state == UnitBase.State.DEAD:
 			continue
@@ -1578,8 +2032,85 @@ func _update_progression_hint() -> void:
 		else:
 			military += 1
 
+	if _guided_opening_active:
+		match _guided_stage:
+			GuidedOpeningStage.GATHER_FOOD:
+				if _build_menu and _build_menu.has_method("set_recommended_building"):
+					_build_menu.call("set_recommended_building", -1)
+				if has_villager_selected:
+					_apply_primary_guidance(
+						"Gather Food: villager selected. Tap nearby berries or a tree.",
+						"",
+						-1
+					)
+				else:
+					_apply_primary_guidance(
+						"Gather Food: tap Idle, then tap nearby berries or a tree.",
+						"idle_button",
+						-1
+					)
+				return
+			GuidedOpeningStage.BUILD_HOUSE:
+				if _build_menu and _build_menu.has_method("set_recommended_building"):
+					_build_menu.call("set_recommended_building", BuildingData.BuildingType.HOUSE)
+				if _placement_active and _placement_type == BuildingData.BuildingType.HOUSE and _building_placement != null and bool(_building_placement.get("is_valid_placement")):
+					_last_invalid_placement_reason = ""
+				if _placement_active and _placement_type == BuildingData.BuildingType.HOUSE:
+					if _last_invalid_placement_reason != "":
+						_apply_primary_guidance(
+							"Place House: %s here. Tap open ground near your Town Center, or tap Cancel House to retry." % _last_invalid_placement_reason,
+							"placement_cancel",
+							-1,
+							BuildingData.BuildingType.HOUSE,
+							true
+						)
+					else:
+						_apply_primary_guidance(
+							"Place House: tap open ground near your Town Center. Green tiles are valid.",
+							"",
+							-1,
+							BuildingData.BuildingType.HOUSE
+						)
+				elif hud.is_build_menu_open():
+					_apply_primary_guidance("Choose House: it is highlighted in the Build menu.", "", -1, BuildingData.BuildingType.HOUSE)
+				else:
+					_apply_primary_guidance("Build House: tap the Build button on the right HUD.", "build_button", -1, BuildingData.BuildingType.HOUSE)
+				return
+			GuidedOpeningStage.TRAIN_SCOUT:
+				if _build_menu and _build_menu.has_method("set_recommended_building"):
+					_build_menu.call("set_recommended_building", -1)
+				if has_tc_selected:
+					_apply_primary_guidance(
+						"Train Scout: Town Center is selected. Tap Scout.",
+						"train_unit",
+						UnitData.UnitType.SCOUT
+					)
+				else:
+					_apply_primary_guidance(
+						"Train Scout: tap Town Center, then tap Scout.",
+						"",
+						UnitData.UnitType.SCOUT
+					)
+				return
+			GuidedOpeningStage.MOVE_MILITARY:
+				if _build_menu and _build_menu.has_method("set_recommended_building"):
+					_build_menu.call("set_recommended_building", -1)
+				if military <= 0:
+					_apply_primary_guidance("Scout is training. When it appears, tap Military.", "military_button", -1)
+				elif has_selected_military:
+					_apply_primary_guidance("Move Scout: tap open ground to send it scouting.", "", -1)
+				else:
+					_apply_primary_guidance("Move Scout: tap Military, then tap open ground.", "military_button", -1)
+				return
+			GuidedOpeningStage.FREE_PLAY:
+				pass
+
+	_clear_guidance_state()
+	if _build_menu and _build_menu.has_method("set_recommended_building"):
+		_build_menu.call("set_recommended_building", -1)
+
 	if pop >= cap:
-		hud.set_progression_hint("Population blocked. Build a House now.", true)
+		_apply_progression_guidance("Population blocked. Build a House now.", true)
 		return
 
 	if age == 1:
@@ -1589,40 +2120,41 @@ func _update_progression_hint() -> void:
 			BuildingData.BuildingType.ARCHERY_RANGE,
 			BuildingData.BuildingType.STABLE,
 		])
-		if house_count < 2:
-			hud.set_progression_hint("Build a House to stabilize population growth.", false)
+		var strip: String = _age1_objective_strip(house_count, villagers, has_military_prod)
+		if house_count < 1:
+			_apply_progression_guidance("%s. Tap Build and place a House." % strip, false)
 			return
 		if villagers < 8:
-			hud.set_progression_hint("Train villagers to speed up economy and aging.", false)
+			_apply_progression_guidance("%s. Tap Town Center and train villagers." % strip, false)
 			return
 		if not has_military_prod:
-			hud.set_progression_hint("Build a Barracks to unlock military control.", false)
+			_apply_progression_guidance("%s. Place a Barracks for military production." % strip, false)
 			return
 		var need_food: int = maxi(0, 400 - int(resources.get("food", 0)))
 		var need_gold: int = maxi(0, 200 - int(resources.get("gold", 0)))
 		if need_food == 0 and need_gold == 0:
-			hud.set_progression_hint("Age Up ready. Tap Age Up now.", true)
+			_apply_progression_guidance("%s. Age Up ready: tap the Age Up button." % strip, true)
 		else:
-			hud.set_progression_hint("Age Up needs +%dF and +%dG." % [need_food, need_gold], false)
+			_apply_progression_guidance("%s. Age Up needs +%dF +%dG." % [strip, need_food, need_gold], false)
 		return
 
 	if age == 2:
 		if military < 4:
-			hud.set_progression_hint("Expand military to secure map control before Castle Age.", false)
+			_apply_progression_guidance("Expand military to secure map control before Castle Age.", false)
 			return
 		var need_food2: int = maxi(0, 1200 - int(resources.get("food", 0)))
 		var need_gold2: int = maxi(0, 600 - int(resources.get("gold", 0)))
 		if need_food2 == 0 and need_gold2 == 0:
-			hud.set_progression_hint("Castle Age ready. Advance when safe.", true)
+			_apply_progression_guidance("Castle Age ready. Advance when safe.", true)
 		else:
-			hud.set_progression_hint("Castle Age needs +%dF and +%dG." % [need_food2, need_gold2], false)
+			_apply_progression_guidance("Castle Age needs +%dF and +%dG." % [need_food2, need_gold2], false)
 		return
 
 	if age >= 3:
 		if military < 8:
-			hud.set_progression_hint("Grow your army before pushing enemy landmarks.", false)
+			_apply_progression_guidance("Grow your army before pushing enemy landmarks.", false)
 		else:
-			hud.set_progression_hint("Pressure enemy Town Center or hold Sacred Site.", false)
+			_apply_progression_guidance("Pressure enemy Town Center or hold Sacred Site.", false)
 
 
 # =========================================================================
@@ -1630,7 +2162,7 @@ func _update_progression_hint() -> void:
 # =========================================================================
 
 func _show_game_over() -> void:
-	hud.set_progression_hint("")
+	_clear_guidance_state(true)
 	var winner_id: int = -1
 	for pid in GameManager.players:
 		if not GameManager.players[pid]["is_defeated"]:

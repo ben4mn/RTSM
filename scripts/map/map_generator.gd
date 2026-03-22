@@ -1,12 +1,18 @@
 class_name MapGenerator
 extends RefCounted
-## Generates a symmetric 32x32 map with resources, water, forests,
-## a central sacred site, and player spawn positions.
+## Generates a symmetric 40x40 duel map with readable spawn pockets,
+## central contest space, and mobile-friendly lanes between bases.
 
 ## Emitted after map generation with the resulting tile grid.
 ## grid is Array[Array] of MapData.TileType values (row-major).
 
 var _rng := RandomNumberGenerator.new()
+const SPAWN_EDGE_PADDING := 6
+const SPAWN_CLEAR_RADIUS := 6
+const CENTER_CLEAR_RADIUS := 5
+const FEATURE_SPAWN_BUFFER := 8
+const FEATURE_CENTER_BUFFER := 6
+const CORRIDOR_HALF_WIDTH := 2
 
 ## The generated tile grid — Array of rows, each row is Array of MapData.TileType.
 var grid: Array = []
@@ -26,12 +32,14 @@ func _init(seed_value: int = -1) -> void:
 func generate() -> Array:
 	_init_grid()
 	_place_sacred_site()
+	_place_spawn_positions()
 	_place_water_features()
 	_place_forest_clusters()
 	_place_resources()
-	_place_spawn_positions()
 	_ensure_spawn_clearance()
+	_ensure_center_lane()
 	_place_guaranteed_near_spawn_resources()
+	_place_contested_mid_resources()
 	_add_grass_variety()
 	return grid
 
@@ -60,73 +68,89 @@ func _place_sacred_site() -> void:
 
 ## Place small symmetric water features (lakes).
 func _place_water_features() -> void:
-	var num_lakes := _rng.randi_range(2, 4)
+	var num_lakes := _rng.randi_range(2, 3)
 	for i in range(num_lakes):
-		@warning_ignore("integer_division")
-		var lx := _rng.randi_range(4, MapData.MAP_WIDTH / 2 - 3)
-		var ly := _rng.randi_range(4, MapData.MAP_HEIGHT - 5)
 		var lake_size := _rng.randi_range(3, 6)
-		_place_blob(lx, ly, lake_size, MapData.TileType.WATER)
-		# Mirror horizontally for symmetry
-		var mx := MapData.MAP_WIDTH - 1 - lx
-		_place_blob(mx, ly, lake_size, MapData.TileType.WATER)
+		for _attempt in range(80):
+			@warning_ignore("integer_division")
+			var lx := _rng.randi_range(SPAWN_EDGE_PADDING + 2, MapData.MAP_WIDTH / 2 - FEATURE_CENTER_BUFFER - 1)
+			var ly := _rng.randi_range(SPAWN_EDGE_PADDING + 1, MapData.MAP_HEIGHT - SPAWN_EDGE_PADDING - 2)
+			if not _can_place_symmetric_seed(Vector2i(lx, ly), FEATURE_SPAWN_BUFFER, FEATURE_CENTER_BUFFER):
+				continue
+			_place_blob(lx, ly, lake_size, MapData.TileType.WATER)
+			_place_blob(_mirror_x(lx), ly, lake_size, MapData.TileType.WATER)
+			break
 
 
 ## Place stealth forest clusters symmetrically.
 func _place_forest_clusters() -> void:
-	var num_clusters := _rng.randi_range(4, 7)
+	var num_clusters := _rng.randi_range(6, 8)
 	for i in range(num_clusters):
-		@warning_ignore("integer_division")
-		var fx := _rng.randi_range(2, MapData.MAP_WIDTH / 2 - 2)
-		var fy := _rng.randi_range(2, MapData.MAP_HEIGHT - 3)
-		var cluster_size := _rng.randi_range(4, 8)
-		_place_blob(fx, fy, cluster_size, MapData.TileType.FOREST)
-		# Mirror
-		var mx := MapData.MAP_WIDTH - 1 - fx
-		_place_blob(mx, fy, cluster_size, MapData.TileType.FOREST)
+		var cluster_size := _rng.randi_range(5, 9)
+		for _attempt in range(80):
+			@warning_ignore("integer_division")
+			var fx := _rng.randi_range(3, MapData.MAP_WIDTH / 2 - 3)
+			var fy := _rng.randi_range(3, MapData.MAP_HEIGHT - 4)
+			if not _can_place_symmetric_seed(Vector2i(fx, fy), FEATURE_SPAWN_BUFFER, FEATURE_CENTER_BUFFER):
+				continue
+			_place_blob(fx, fy, cluster_size, MapData.TileType.FOREST)
+			_place_blob(_mirror_x(fx), fy, cluster_size, MapData.TileType.FOREST)
+			break
 
 
 ## Place gold mines, berry bushes, and stone deposits symmetrically.
 func _place_resources() -> void:
-	# Gold mines — 3 pairs
-	_place_resource_pair(MapData.TileType.GOLD_MINE, 3)
-	# Berry bushes — 4 pairs
-	_place_resource_pair(MapData.TileType.BERRY_BUSH, 4)
-	# Stone deposits — 3 pairs
-	_place_resource_pair(MapData.TileType.STONE, 3)
+	# Forward expansion resources.
+	_place_resource_pair(MapData.TileType.GOLD_MINE, 4)
+	_place_resource_pair(MapData.TileType.BERRY_BUSH, 5)
+	_place_resource_pair(MapData.TileType.STONE, 4)
 
 
 func _place_resource_pair(tile_type: MapData.TileType, count: int) -> void:
 	for i in range(count):
-		for _attempt in range(50):
+		for _attempt in range(80):
 			@warning_ignore("integer_division")
-			var rx := _rng.randi_range(2, MapData.MAP_WIDTH / 2 - 2)
-			var ry := _rng.randi_range(2, MapData.MAP_HEIGHT - 3)
+			var rx := _rng.randi_range(3, MapData.MAP_WIDTH / 2 - 3)
+			var ry := _rng.randi_range(3, MapData.MAP_HEIGHT - 4)
+			if not _can_place_symmetric_seed(Vector2i(rx, ry), SPAWN_CLEAR_RADIUS + 1, CENTER_CLEAR_RADIUS + 1):
+				continue
 			if grid[ry][rx] == MapData.TileType.GRASS:
 				_set_tile(rx, ry, tile_type)
-				var mx := MapData.MAP_WIDTH - 1 - rx
+				var mx := _mirror_x(rx)
 				_set_tile(mx, ry, tile_type)
 				break
 
 
-## Set player spawn positions at opposite corners.
+## Set player spawn positions inward from the corners to improve mobile camera room.
 func _place_spawn_positions() -> void:
 	spawn_positions.clear()
-	# Player 1 — bottom-left area
-	spawn_positions.append(Vector2i(3, MapData.MAP_HEIGHT - 4))
-	# Player 2 — top-right area
-	spawn_positions.append(Vector2i(MapData.MAP_WIDTH - 4, 3))
+	spawn_positions.append(Vector2i(SPAWN_EDGE_PADDING, MapData.MAP_HEIGHT - 1 - SPAWN_EDGE_PADDING))
+	spawn_positions.append(Vector2i(MapData.MAP_WIDTH - 1 - SPAWN_EDGE_PADDING, SPAWN_EDGE_PADDING))
 
 
-## Clear an 11x11 area around each spawn so the Town Center has a visible clearing.
+## Clear a large area around each spawn so early touch interactions stay readable.
 func _ensure_spawn_clearance() -> void:
 	for spawn in spawn_positions:
-		for dy in range(-5, 6):
-			for dx in range(-5, 6):
+		for dy in range(-SPAWN_CLEAR_RADIUS, SPAWN_CLEAR_RADIUS + 1):
+			for dx in range(-SPAWN_CLEAR_RADIUS, SPAWN_CLEAR_RADIUS + 1):
 				var tx := spawn.x + dx
 				var ty := spawn.y + dy
 				if _in_bounds(tx, ty):
 					_set_tile(tx, ty, MapData.TileType.GRASS)
+
+
+## Keep the center readable and carve a shallow lane from each base toward mid-map.
+func _ensure_center_lane() -> void:
+	var center := Vector2i(MapData.MAP_WIDTH / 2, MapData.MAP_HEIGHT / 2)
+	for y in range(center.y - CENTER_CLEAR_RADIUS, center.y + CENTER_CLEAR_RADIUS + 1):
+		for x in range(center.x - CENTER_CLEAR_RADIUS, center.x + CENTER_CLEAR_RADIUS + 1):
+			if not _in_bounds(x, y):
+				continue
+			if grid[y][x] == MapData.TileType.SACRED_SITE:
+				continue
+			_set_tile(x, y, MapData.TileType.GRASS)
+	for spawn in spawn_positions:
+		_carve_grass_corridor(spawn, center, CORRIDOR_HALF_WIDTH)
 
 
 ## Place an organic blob of tiles using a random walk.
@@ -153,11 +177,10 @@ func _place_blob(cx: int, cy: int, size: int, tile_type: MapData.TileType) -> vo
 ## Called AFTER _ensure_spawn_clearance so resources won't be overwritten.
 func _place_guaranteed_near_spawn_resources() -> void:
 	for spawn in spawn_positions:
-		# 3 berry bushes just outside clearance (food access)
-		_place_near_spawn(spawn, MapData.TileType.BERRY_BUSH, 3, 6, 8)
-		# 2 gold mines nearby
-		_place_near_spawn(spawn, MapData.TileType.GOLD_MINE, 2, 7, 10)
-		# Forest cluster for easy wood
+		# Fast-start economy tuned for short duel matches.
+		_place_near_spawn(spawn, MapData.TileType.BERRY_BUSH, 4, SPAWN_CLEAR_RADIUS + 1, SPAWN_CLEAR_RADIUS + 3)
+		_place_near_spawn(spawn, MapData.TileType.GOLD_MINE, 2, SPAWN_CLEAR_RADIUS + 2, SPAWN_CLEAR_RADIUS + 5)
+		_place_near_spawn(spawn, MapData.TileType.STONE, 1, SPAWN_CLEAR_RADIUS + 3, SPAWN_CLEAR_RADIUS + 6)
 		_place_forest_near_spawn(spawn)
 
 
@@ -179,16 +202,46 @@ func _place_near_spawn(spawn: Vector2i, tile_type: MapData.TileType, count: int,
 
 
 func _place_forest_near_spawn(spawn: Vector2i) -> void:
+	var center := Vector2i(MapData.MAP_WIDTH / 2, MapData.MAP_HEIGHT / 2)
+	var dir_x := signi(center.x - spawn.x)
+	var dir_y := signi(center.y - spawn.y)
 	for _attempt in range(30):
-		var dx := _rng.randi_range(-11, 11)
-		var dy := _rng.randi_range(-11, 11)
+		var dx := dir_x * _rng.randi_range(SPAWN_CLEAR_RADIUS + 1, SPAWN_CLEAR_RADIUS + 5) + _rng.randi_range(-2, 2)
+		var dy := dir_y * _rng.randi_range(SPAWN_CLEAR_RADIUS + 1, SPAWN_CLEAR_RADIUS + 5) + _rng.randi_range(-2, 2)
 		var dist := maxi(absi(dx), absi(dy))
-		if dist < 6 or dist > 11:
+		if dist < SPAWN_CLEAR_RADIUS + 1 or dist > SPAWN_CLEAR_RADIUS + 5:
 			continue
 		var fx := spawn.x + dx
 		var fy := spawn.y + dy
 		if _in_bounds(fx, fy) and grid[fy][fx] == MapData.TileType.GRASS:
-			_place_blob(fx, fy, 6, MapData.TileType.FOREST)
+			_place_blob(fx, fy, 8, MapData.TileType.FOREST)
+			break
+
+
+func _place_contested_mid_resources() -> void:
+	_place_center_resource_pair(MapData.TileType.GOLD_MINE, 2, 4, 7)
+	_place_center_resource_pair(MapData.TileType.STONE, 1, 5, 8)
+	_place_center_resource_pair(MapData.TileType.BERRY_BUSH, 1, 4, 6)
+
+
+func _place_center_resource_pair(tile_type: MapData.TileType, count: int, min_x_offset: int, max_x_offset: int) -> void:
+	for _i in range(count):
+		for _attempt in range(80):
+			var center := Vector2i(MapData.MAP_WIDTH / 2, MapData.MAP_HEIGHT / 2)
+			var x := center.x - _rng.randi_range(min_x_offset, max_x_offset)
+			var y_offset := _rng.randi_range(-7, 7)
+			if absi(y_offset) <= CENTER_CLEAR_RADIUS:
+				y_offset = CENTER_CLEAR_RADIUS + 1 if y_offset >= 0 else -CENTER_CLEAR_RADIUS - 1
+			var y := center.y + y_offset
+			if not _in_bounds(x, y):
+				continue
+			var mx := _mirror_x(x)
+			if not _in_bounds(mx, y):
+				continue
+			if grid[y][x] != MapData.TileType.GRASS or grid[y][mx] != MapData.TileType.GRASS:
+				continue
+			_set_tile(x, y, tile_type)
+			_set_tile(mx, y, tile_type)
 			break
 
 
@@ -212,6 +265,56 @@ func _set_tile(x: int, y: int, tile_type: MapData.TileType) -> void:
 
 func _in_bounds(x: int, y: int) -> bool:
 	return x >= 0 and x < MapData.MAP_WIDTH and y >= 0 and y < MapData.MAP_HEIGHT
+
+
+func _mirror_x(x: int) -> int:
+	return MapData.MAP_WIDTH - 1 - x
+
+
+func _is_near_spawn(tile: Vector2i, buffer: int) -> bool:
+	for spawn in spawn_positions:
+		if maxi(absi(tile.x - spawn.x), absi(tile.y - spawn.y)) <= buffer:
+			return true
+	return false
+
+
+func _is_near_center(tile: Vector2i, buffer: int) -> bool:
+	var center := Vector2i(MapData.MAP_WIDTH / 2, MapData.MAP_HEIGHT / 2)
+	return maxi(absi(tile.x - center.x), absi(tile.y - center.y)) <= buffer
+
+
+func _can_place_symmetric_seed(tile: Vector2i, spawn_buffer: int, center_buffer: int) -> bool:
+	if not _in_bounds(tile.x, tile.y):
+		return false
+	var mirrored := Vector2i(_mirror_x(tile.x), tile.y)
+	if not _in_bounds(mirrored.x, mirrored.y):
+		return false
+	if grid[tile.y][tile.x] != MapData.TileType.GRASS or grid[mirrored.y][mirrored.x] != MapData.TileType.GRASS:
+		return false
+	if _is_near_spawn(tile, spawn_buffer) or _is_near_spawn(mirrored, spawn_buffer):
+		return false
+	if _is_near_center(tile, center_buffer) or _is_near_center(mirrored, center_buffer):
+		return false
+	return true
+
+
+func _carve_grass_corridor(from_tile: Vector2i, to_tile: Vector2i, half_width: int) -> void:
+	var steps := maxi(absi(to_tile.x - from_tile.x), absi(to_tile.y - from_tile.y))
+	if steps <= 0:
+		return
+	for step in range(steps + 1):
+		var t := float(step) / float(steps)
+		var x := int(round(lerpf(from_tile.x, to_tile.x, t)))
+		var y := int(round(lerpf(from_tile.y, to_tile.y, t)))
+		for dy in range(-half_width, half_width + 1):
+			for dx in range(-half_width, half_width + 1):
+				var tx := x + dx
+				var ty := y + dy
+				if not _in_bounds(tx, ty):
+					continue
+				if grid[ty][tx] == MapData.TileType.SACRED_SITE:
+					continue
+				_set_tile(tx, ty, MapData.TileType.GRASS)
 
 
 ## Get the tile type at a position.

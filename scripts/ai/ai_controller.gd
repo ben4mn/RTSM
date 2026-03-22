@@ -47,6 +47,8 @@ var _game_time: float = 0.0  # Track elapsed time for timed aggression
 var _last_harass_time: float = 0.0  # Cooldown for harassment raids
 var _scout_trained: bool = false  # Track if we've trained a scout
 var _income_accumulator: Dictionary = { "food": 0.0, "wood": 0.0, "gold": 0.0 }
+var _scout_waypoints: Array[Vector2] = []
+var _next_scout_waypoint_index: int = 0
 
 # Build-order tracking (what we have built so far)
 var _town_center_count: int = 0
@@ -172,6 +174,7 @@ func start_ai(base_tile: Vector2i, base_world_pos: Vector2) -> void:
 		MapData.MAP_HEIGHT / 2.0 * MapData.TILE_HEIGHT
 	)
 	_staging_point = _base_position.lerp(center, 0.25)
+	_build_scout_waypoints(center)
 	_decision_timer.start()
 	# Apply difficulty starting bonus
 	var bonus: int = DIFFICULTY_START_BONUS.get(difficulty, 0)
@@ -232,7 +235,28 @@ func _on_decision_tick() -> void:
 	_check_military_production()
 	_check_research()
 	_check_scouting()
+	_micro_damaged_units()
 	_check_attack_or_defend()
+
+
+func _build_scout_waypoints(map_center: Vector2) -> void:
+	_scout_waypoints.clear()
+	var enemy_spawn_world: Vector2 = map_center
+	if map_generator and map_generator.spawn_positions.size() > enemy_id:
+		var spawn_tile: Vector2i = map_generator.spawn_positions[enemy_id]
+		enemy_spawn_world = Vector2(
+			spawn_tile.x * MapData.TILE_WIDTH + MapData.TILE_WIDTH * 0.5,
+			spawn_tile.y * MapData.TILE_HEIGHT + MapData.TILE_HEIGHT * 0.5
+		)
+	var flank_a: Vector2 = enemy_spawn_world.lerp(map_center, 0.38) + Vector2(-160.0, 90.0)
+	var flank_b: Vector2 = enemy_spawn_world.lerp(map_center, 0.38) + Vector2(160.0, -90.0)
+	_scout_waypoints = [
+		map_center,
+		flank_a,
+		enemy_spawn_world,
+		flank_b,
+	]
+	_next_scout_waypoint_index = 0
 
 
 # ═════════════════════════════════════════════════════════════════════════
@@ -781,7 +805,13 @@ func _check_research() -> void:
 # ═════════════════════════════════════════════════════════════════════════
 
 func _check_scouting() -> void:
-	# Find idle scouts and send them to explore
+	# Send scouts through a stable route that repeatedly crosses the enemy half.
+	if _scout_waypoints.is_empty():
+		var center := Vector2(
+			MapData.MAP_WIDTH / 2.0 * MapData.TILE_WIDTH,
+			MapData.MAP_HEIGHT / 2.0 * MapData.TILE_HEIGHT
+		)
+		_build_scout_waypoints(center)
 	for unit in _my_units:
 		if not is_instance_valid(unit) or not (unit is UnitBase):
 			continue
@@ -789,12 +819,24 @@ func _check_scouting() -> void:
 			continue
 		if unit.current_state != UnitBase.State.IDLE:
 			continue
-		# Send to a random point biased toward enemy half of map
-		var target := Vector2(
-			randf_range(0.0, MapData.MAP_WIDTH * MapData.TILE_WIDTH),
-			randf_range(0.0, MapData.MAP_HEIGHT * MapData.TILE_HEIGHT)
-		)
+		var target: Vector2 = _scout_waypoints[_next_scout_waypoint_index % _scout_waypoints.size()]
+		_next_scout_waypoint_index = (_next_scout_waypoint_index + 1) % _scout_waypoints.size()
 		unit.command_move(target)
+
+
+func _micro_damaged_units() -> void:
+	var fallback_point: Vector2 = _base_position.lerp(_staging_point, 0.55)
+	for unit in _get_military_units():
+		if not is_instance_valid(unit):
+			continue
+		if unit.unit_type == UnitData.UnitType.SIEGE:
+			continue
+		var hp_ratio: float = unit.hp / maxf(1.0, unit.max_hp)
+		if hp_ratio > 0.35:
+			continue
+		if unit.global_position.distance_to(fallback_point) < 48.0:
+			continue
+		unit.command_move(fallback_point)
 
 
 # ═════════════════════════════════════════════════════════════════════════
@@ -810,10 +852,13 @@ func _check_attack_or_defend() -> void:
 	# Evaluate army strength
 	var military: Array = _get_military_units()
 	var threshold: int = ARMY_ATTACK_THRESHOLDS.get(difficulty, 8)
+	var own_strength: float = maxf(1.0, _evaluate_army_strength())
+	var visible_enemy_strength: float = _evaluate_enemy_visible_strength()
 
 	if _attack_in_progress:
 		# Check if we should retreat
-		if military.size() < maxi(2, int(threshold * _retreat_threshold)):
+		var outmatched: bool = visible_enemy_strength > own_strength * 1.2 and visible_enemy_strength > 180.0
+		if military.size() < maxi(2, int(threshold * _retreat_threshold)) or outmatched:
 			_retreat_army()
 			_attack_in_progress = false
 		return
@@ -906,18 +951,25 @@ func _send_attack(units: Array, target: Vector2) -> void:
 
 
 func _find_enemy_target() -> Vector2:
-	## Try to find an enemy building or unit to attack.
-	## Target priority: military > production buildings > town center.
-	## Uses only visible information (units the AI has seen).
-
-	# Look for visible enemy units first
 	var enemies: Array = _get_visible_enemies()
-	if not enemies.is_empty():
-		# Target the cluster center
-		var avg_pos := Vector2.ZERO
-		for e in enemies:
-			avg_pos += e.global_position
-		return avg_pos / float(enemies.size())
+	var visible_enemy_buildings: Array = _get_visible_enemy_buildings()
+	var best_score: float = -INF
+	var best_target := Vector2(-1, -1)
+
+	for enemy in enemies:
+		var score: float = _score_enemy_node(enemy)
+		if score > best_score:
+			best_score = score
+			best_target = enemy.global_position
+
+	for building in visible_enemy_buildings:
+		var score: float = _score_enemy_node(building)
+		if score > best_score:
+			best_score = score
+			best_target = building.global_position
+
+	if best_target != Vector2(-1, -1):
+		return best_target
 
 	# Fall back to enemy spawn position (known from map symmetry)
 	if map_generator and map_generator.spawn_positions.size() > enemy_id:
@@ -928,6 +980,36 @@ func _find_enemy_target() -> Vector2:
 		)
 
 	return Vector2(-1, -1)
+
+
+func _score_enemy_node(node: Node) -> float:
+	if node == null or not is_instance_valid(node):
+		return -INF
+	var dist_to_base: float = _base_position.distance_to(node.global_position)
+	var score: float = 2000.0 - dist_to_base
+	if node is UnitBase:
+		var unit: UnitBase = node as UnitBase
+		if unit.unit_type == UnitData.UnitType.VILLAGER:
+			score += 500.0
+		elif unit.unit_type == UnitData.UnitType.SIEGE:
+			score += 420.0
+		elif unit.unit_type == UnitData.UnitType.ARCHER:
+			score += 240.0
+		elif unit.unit_type == UnitData.UnitType.CAVALRY:
+			score += 220.0
+		score += (1.0 - (unit.hp / maxf(1.0, unit.max_hp))) * 180.0
+	elif node is BuildingBase:
+		var building: BuildingBase = node as BuildingBase
+		match building.building_type:
+			BuildingData.BuildingType.SIEGE_WORKSHOP:
+				score += 420.0
+			BuildingData.BuildingType.ARCHERY_RANGE, BuildingData.BuildingType.STABLE, BuildingData.BuildingType.BARRACKS:
+				score += 360.0
+			BuildingData.BuildingType.BLACKSMITH, BuildingData.BuildingType.WATCH_TOWER:
+				score += 240.0
+			BuildingData.BuildingType.TOWN_CENTER:
+				score += 180.0
+	return score
 
 
 # ═════════════════════════════════════════════════════════════════════════
@@ -1052,6 +1134,25 @@ func _get_visible_enemies() -> Array:
 				continue
 			if my_unit.global_position.distance_to(unit.global_position) <= my_unit.vision_radius:
 				result.append(unit)
+				break
+	return result
+
+
+func _get_visible_enemy_buildings() -> Array:
+	var result: Array = []
+	var all_buildings: Array = get_tree().get_nodes_in_group("buildings")
+	for building in all_buildings:
+		if not (building is BuildingBase):
+			continue
+		if building.player_owner == player_id:
+			continue
+		if building.state == BuildingBase.State.DESTROYED:
+			continue
+		for my_unit in _my_units:
+			if not is_instance_valid(my_unit):
+				continue
+			if my_unit.global_position.distance_to(building.global_position) <= my_unit.vision_radius:
+				result.append(building)
 				break
 	return result
 
