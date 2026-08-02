@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-08-02T00:27:04.424751+00:00",
+  "generated_at_utc": "2026-08-02T01:02:02.259818+00:00",
   "status": "FAIL",
   "settings": {
     "menu_scene": "res://scenes/ui/main_menu.tscn",
@@ -89,12 +89,12 @@
     {
       "name": "touch_select_villager_for_gather",
       "passed": true,
-      "detail": "attempt1=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:558:238:1, pointer:screen_touch:0:558:238:0] over 70ms action=select path=/root/Main/GameMap/UnitsContainer/@Area2D@379 @(558,238)"
+      "detail": "attempt1=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:564:240:1, pointer:screen_touch:0:564:240:0] over 70ms action=select path=/root/Main/GameMap/UnitsContainer/@Area2D@379 @(564,240)"
     },
     {
       "name": "touch_select_villager_target",
       "passed": true,
-      "detail": "Tapped villager /root/Main/GameMap/UnitsContainer/@Area2D@379 at (540,251)"
+      "detail": "Tapped villager /root/Main/GameMap/UnitsContainer/@Area2D@379 at (546,252)"
     },
     {
       "name": "touch_select_villager_assertion",
@@ -204,7 +204,7 @@
     {
       "name": "touch_build_place_resume_economy_smoke",
       "passed": true,
-      "detail": "placed at 768,460; attempt1=placed@768,460; resume_select=attempt1=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:-572:360:1, pointer:screen_touch:0:-572:360:0] over 70ms selected=1 @(-572,360) | resume_gather=attempt1=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:631:247:1, pointer:screen_touch:0:631:247:0] over 70ms action=gather path=/root/Main/GameMap/ResourcesContainer/@Area2D@44 @(631,247)"
+      "detail": "placed at 768,460; attempt1=placed@768,460; resume_select=attempt1=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:-574:359:1, pointer:screen_touch:0:-574:359:0] over 70ms selected=1 @(-574,359) | resume_gather=attempt1=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:631:247:1, pointer:screen_touch:0:631:247:0] over 70ms action=gather path=/root/Main/GameMap/ResourcesContainer/@Area2D@44 @(631,247)"
     },
     {
       "name": "guided_opener_after_house",
@@ -269,7 +269,7 @@
     {
       "name": "touch_select_military_move_target",
       "passed": true,
-      "detail": "Moving /root/Main/GameMap/UnitsContainer/@Area2D@1214 toward (482,290) [clearance=144.0 nearest=/root/Main/GameMap/UnitsContainer/Villager]"
+      "detail": "Moving /root/Main/GameMap/UnitsContainer/@Area2D@1218 toward (482,290) [clearance=113.0 nearest=/root/Main/GameMap/UnitsContainer/@Area2D@379]"
     },
     {
       "name": "touch_select_military_button",

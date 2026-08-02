@@ -1530,24 +1530,27 @@ def main() -> int:
             [difficulty_diag, seed_diag, start_diag],
         )
 
-        _ = tool_text(
-            "input",
-            {"action": "sequence", "inputs": tap_control(seed_diag, 0, "map_seed")},
-            timeout=20.0,
-        )
-        _ = tool_text(
-            "input",
-            {"action": "type_text", "text": str(args.map_seed), "delay_ms": 10, "submit": False},
-            timeout=20.0,
-        )
-        seed_deadline = time.monotonic() + 3.0
         observed_seed = ""
-        while time.monotonic() < seed_deadline:
-            menu_diag = node_properties("/root/MainMenu").get("main_menu_diagnostics", {})
-            observed_seed = str(menu_diag.get("seed_text", "")) if isinstance(menu_diag, dict) else ""
+        for _seed_attempt in range(3):
+            _ = tool_text(
+                "input",
+                {"action": "sequence", "inputs": tap_control(seed_diag, 0, "map_seed")},
+                timeout=20.0,
+            )
+            _ = tool_text(
+                "input",
+                {"action": "type_text", "text": str(args.map_seed), "delay_ms": 10, "submit": False},
+                timeout=20.0,
+            )
+            seed_deadline = time.monotonic() + 1.0
+            while time.monotonic() < seed_deadline:
+                menu_diag = node_properties("/root/MainMenu").get("main_menu_diagnostics", {})
+                observed_seed = str(menu_diag.get("seed_text", "")) if isinstance(menu_diag, dict) else ""
+                if observed_seed == str(args.map_seed):
+                    break
+                time.sleep(0.15)
             if observed_seed == str(args.map_seed):
                 break
-            time.sleep(0.15)
         if observed_seed != str(args.map_seed):
             record("main_menu_seed_entry", False, "Expected seed %s, observed `%s`" % (args.map_seed, observed_seed))
             raise MCPError("deterministic map seed entry failed")

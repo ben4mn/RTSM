@@ -6,6 +6,8 @@ Last validated: August 1, 2026
 
 Completed on August 1, 2026:
 
+- Re-audited the strict phone gate from a clean Godot editor session: it still reaches `54/55`, and the post-Scout input sequence times out without updating the runtime touch-action diagnostic.
+- Added bounded seed-field focus retries after reproducing an intermittent empty seed entry on fresh editor connections; the deterministic `424242` menu flow now recovers without bypassing touch/text input.
 - Pinned the MCP server to `@satelliteoflove/godot-mcp@2.16.1` so it matches the customized in-repo addon and no longer changes underneath the test suite.
 - Added MCP tool-discovery retries to remove the startup race between stdio initialization and the Godot WebSocket connection.
 - Restored AOEM's runtime node diagnostics and touch/pointer bridge after they were removed by an addon upgrade.
