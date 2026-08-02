@@ -114,6 +114,8 @@ var _production_active_queue_count: int = 0
 var _production_latest_progress: float = 0.0
 var _last_train_request_result: String = "none"
 var _last_train_request_unit_type: int = -1
+var _last_train_feedback: String = ""
+var _last_placement_feedback: String = ""
 
 # --- First-session telemetry (read via MCP node.get_properties on /root/Main) ---
 @export var first_session_diagnostics: Dictionary = {}
@@ -345,6 +347,8 @@ func _refresh_first_session_diagnostics() -> void:
 		"production_latest_progress": _production_latest_progress,
 		"last_train_request_result": _last_train_request_result,
 		"last_train_request_unit_type": _last_train_request_unit_type,
+		"last_train_feedback": _last_train_feedback,
+		"last_placement_feedback": _last_placement_feedback,
 	}
 
 
@@ -1413,13 +1417,28 @@ func _on_build_command(building: Node2D) -> void:
 
 func _on_train_unit_requested(building: Node2D, unit_type: int) -> void:
 	_last_train_request_unit_type = unit_type
+	_last_train_feedback = ""
 	if not is_instance_valid(building) or not (building is BuildingBase):
 		_last_train_request_result = "invalid_building"
+		_last_train_feedback = "Select a production building before training a unit."
+		hud.show_notification(_last_train_feedback, Color(1.0, 0.4, 0.3))
 		_refresh_first_session_diagnostics()
 		return
 	var b: BuildingBase = building as BuildingBase
 	if not b.can_train():
-		_last_train_request_result = "building_cannot_train"
+		if b.state != BuildingBase.State.ACTIVE:
+			_last_train_request_result = "building_inactive"
+			_last_train_feedback = "%s must finish construction before it can train units." % b.building_name
+		else:
+			_last_train_request_result = "unit_unavailable"
+			_last_train_feedback = "%s cannot train %s. Select a compatible production building." % [b.building_name, UnitData.get_unit_name(unit_type)]
+		hud.show_notification(_last_train_feedback, Color(1.0, 0.4, 0.3))
+		_refresh_first_session_diagnostics()
+		return
+	if unit_type not in b.trainable_units:
+		_last_train_request_result = "unit_unavailable"
+		_last_train_feedback = "%s cannot train %s. Select a compatible production building." % [b.building_name, UnitData.get_unit_name(unit_type)]
+		hud.show_notification(_last_train_feedback, Color(1.0, 0.4, 0.3))
 		_refresh_first_session_diagnostics()
 		return
 	# Check population room
@@ -1429,15 +1448,31 @@ func _on_train_unit_requested(building: Node2D, unit_type: int) -> void:
 	var cap: int = player_data.get("population_cap", 5)
 	if pop + pop_cost > cap:
 		_last_train_request_result = "population_blocked"
-		hud.show_notification("Need more houses! (Pop %d/%d)" % [pop, cap], Color(1.0, 0.6, 0.2))
+		_last_train_feedback = "Population full (%d/%d). Build a House before training %s." % [pop, cap, UnitData.get_unit_name(unit_type)]
+		hud.show_notification(_last_train_feedback, Color(1.0, 0.6, 0.2))
 		_refresh_first_session_diagnostics()
 		return
 	var pq: Node = b.get_production_queue()
 	if pq:
+		if pq is ProductionQueue and (pq as ProductionQueue).get_queue_size() >= ProductionQueue.MAX_QUEUE_SIZE:
+			_last_train_request_result = "queue_full"
+			_last_train_feedback = "%s queue full (%d/%d). Wait or cancel a queued unit." % [b.building_name, (pq as ProductionQueue).get_queue_size(), ProductionQueue.MAX_QUEUE_SIZE]
+			hud.show_notification(_last_train_feedback, Color(1.0, 0.6, 0.2))
+			_refresh_first_session_diagnostics()
+			return
+		var cost: Dictionary = UnitData.get_unit_cost(unit_type)
+		var missing: Dictionary = ResourceManager.get_missing_resources(0, cost)
+		if not missing.is_empty():
+			_last_train_request_result = "resources_missing"
+			_last_train_feedback = "Need %s to train %s." % [_format_missing_resources(missing), UnitData.get_unit_name(unit_type)]
+			hud.show_notification(_last_train_feedback, Color(1.0, 0.4, 0.3))
+			_refresh_first_session_diagnostics()
+			return
 		var success: bool = pq.enqueue_unit(unit_type)
 		if not success:
 			_last_train_request_result = "queue_rejected"
-			hud.show_notification("Cannot train — not enough resources or queue full", Color(1.0, 0.4, 0.3))
+			_last_train_feedback = "%s cannot train %s right now. Check its construction and available units." % [b.building_name, UnitData.get_unit_name(unit_type)]
+			hud.show_notification(_last_train_feedback, Color(1.0, 0.4, 0.3))
 		else:
 			_last_train_request_result = "queued"
 			var guided_scout_fast_track: bool = (
@@ -1470,7 +1505,18 @@ func _on_train_unit_requested(building: Node2D, unit_type: int) -> void:
 		_refresh_first_session_diagnostics()
 	else:
 		_last_train_request_result = "missing_queue"
+		_last_train_feedback = "%s has no production queue. Select another production building." % b.building_name
+		hud.show_notification(_last_train_feedback, Color(1.0, 0.4, 0.3))
 		_refresh_first_session_diagnostics()
+
+
+func _format_missing_resources(missing: Dictionary) -> String:
+	var parts: Array[String] = []
+	for resource_type in ResourceManager.RESOURCE_NAMES:
+		var amount: int = int(missing.get(resource_type, 0))
+		if amount > 0:
+			parts.append("%d more %s" % [amount, resource_type])
+	return " and ".join(parts)
 
 
 func _on_minimap_clicked(world_pos: Vector2) -> void:
@@ -1699,6 +1745,7 @@ func _on_placement_invalid(reason: String) -> void:
 		message += " Try open ground near your Town Center, or tap Cancel House."
 	elif _placement_active:
 		message += " Try open ground, or tap Cancel Build."
+	_last_placement_feedback = message
 	hud.show_notification(message, Color(1.0, 0.45, 0.35))
 	_refresh_first_session_diagnostics()
 	_update_progression_hint()
@@ -1740,13 +1787,17 @@ func _on_placement_confirmed(building_type: int, world_pos: Vector2) -> void:
 
 	var cost: Dictionary = BuildingData.get_building_cost(building_type)
 	if not ResourceManager.try_spend(0, cost):
-		hud.show_notification("Not enough resources!", Color(1.0, 0.4, 0.3))
+		var missing: Dictionary = ResourceManager.get_missing_resources(0, cost)
+		_last_placement_feedback = "Need %s to place %s. Gather resources, then reopen Build." % [_format_missing_resources(missing), BuildingData.get_building_name(building_type)]
+		hud.show_notification(_last_placement_feedback, Color(1.0, 0.4, 0.3))
+		_refresh_first_session_diagnostics()
 		_cancel_placement()
 		return
 
 	var building := _spawn_building(building_type, 0, tile_pos)
 	building.start_construction()
 	hud.show_notification("Placed: %s" % BuildingData.get_building_name(building_type), Color(0.48, 0.86, 0.52))
+	_last_placement_feedback = ""
 	if building_type == BuildingData.BuildingType.HOUSE:
 		_opening_house_complete = true
 	_last_invalid_placement_reason = ""

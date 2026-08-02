@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-08-02T02:52:07.571972+00:00",
+  "generated_at_utc": "2026-08-02T02:58:18.132706+00:00",
   "status": "PASS",
   "settings": {
     "menu_scene": "res://scenes/ui/main_menu.tscn",
@@ -104,12 +104,12 @@
     {
       "name": "touch_select_villager_for_gather",
       "passed": true,
-      "detail": "attempt1=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:507:275:1, pointer:screen_touch:0:507:275:0] over 70ms action=select path=/root/Main/GameMap/UnitsContainer/@Area2D@395 tapped_dist=10.5609645843506 resource= resource_dist=-1 radii=(26.438401222229,30.8448014259338) zoom=1.10160005092621 @(507,275)"
+      "detail": "attempt1=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:495:285:1, pointer:screen_touch:0:495:285:0] over 70ms action=select path=/root/Main/GameMap/UnitsContainer/@Area2D@395 tapped_dist=20.0572776794434 resource= resource_dist=-1 radii=(26.438401222229,30.8448014259338) zoom=1.10160005092621 @(495,285)"
     },
     {
       "name": "touch_select_villager_target",
       "passed": true,
-      "detail": "Tapped villager /root/Main/GameMap/UnitsContainer/@Area2D@395 at (494,285)"
+      "detail": "Tapped villager /root/Main/GameMap/UnitsContainer/@Area2D@395 at (495,285)"
     },
     {
       "name": "touch_select_villager_assertion",
@@ -219,7 +219,7 @@
     {
       "name": "touch_build_place_resume_economy_smoke",
       "passed": true,
-      "detail": "placed at 768,460; attempt1=placed@768,460; minimap_relocate=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:16:554:1, pointer:screen_touch:0:16:554:0] over 70ms | resume_select_after_relocate=attempt1=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:510:385:1, pointer:screen_touch:0:510:385:0] over 70ms selected=1 @(510,385) | resume_gather=attempt1=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:746:441:1, pointer:screen_touch:0:746:441:0] over 70ms action=gather path=/root/Main/GameMap/ResourcesContainer/@Area2D@228 tapped_dist=-1 resource=/root/Main/GameMap/ResourcesContainer/@Area2D@228 resource_dist=0.195649489760399 radii=(24.3199996948242,28.3733329772949) zoom=1.01333332061768 @(746,441)"
+      "detail": "placed at 768,460; attempt1=placed@768,460; minimap_relocate=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:16:554:1, pointer:screen_touch:0:16:554:0] over 70ms | resume_select_after_relocate=attempt1=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:511:385:1, pointer:screen_touch:0:511:385:0] over 70ms selected=1 @(511,385) | resume_gather=attempt1=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:746:441:1, pointer:screen_touch:0:746:441:0] over 70ms action=gather path=/root/Main/GameMap/ResourcesContainer/@Area2D@228 tapped_dist=-1 resource=/root/Main/GameMap/ResourcesContainer/@Area2D@228 resource_dist=0.195649489760399 radii=(24.3199996948242,28.3733329772949) zoom=1.01333332061768 @(746,441)"
     },
     {
       "name": "guided_opener_after_house",
@@ -272,6 +272,11 @@
       "detail": "Queued `Scout` from Town Center"
     },
     {
+      "name": "train_feedback_success_contract",
+      "passed": true,
+      "detail": "result=fast_track_completed feedback=''"
+    },
+    {
       "name": "guided_opener_after_scout_queue",
       "passed": true,
       "detail": "enabled=True, active=True, stage=move_military, gather=True, house=True, scout=True, move=False, loop=False"
@@ -284,7 +289,7 @@
     {
       "name": "touch_select_military_move_target",
       "passed": true,
-      "detail": "Moving /root/Main/GameMap/UnitsContainer/Scout toward (500,240) [clearance=112.0 nearest=/root/Main/GameMap/UnitsContainer/Villager]"
+      "detail": "Moving /root/Main/GameMap/UnitsContainer/Scout toward (500,240) [clearance=131.0 nearest=/root/Main/GameMap/UnitsContainer/Villager]"
     },
     {
       "name": "touch_select_military_button",
@@ -319,7 +324,7 @@
     {
       "name": "performance_guardrail",
       "passed": true,
-      "detail": "fps=120.00, frame_time_ms=9.56"
+      "detail": "fps=120.00, frame_time_ms=9.46"
     },
     {
       "name": "runtime_errors",

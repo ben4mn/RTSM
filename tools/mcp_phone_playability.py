@@ -2407,6 +2407,15 @@ def main() -> int:
         if not unit_flow_ready:
             raise MCPError("touch train-unit flow did not complete successfully")
 
+        train_outcome_diag = first_session_diag()
+        train_outcome_result = str(train_outcome_diag.get("last_train_request_result", "unknown"))
+        train_outcome_feedback = str(train_outcome_diag.get("last_train_feedback", "missing"))
+        record(
+            "train_feedback_success_contract",
+            train_outcome_result in {"queued", "fast_track_completed"} and train_outcome_feedback == "",
+            "result=%s feedback=%r" % (train_outcome_result, train_outcome_feedback),
+        )
+
         require_first_session_state(
             "guided_opener_after_scout_queue",
             "move_military",
