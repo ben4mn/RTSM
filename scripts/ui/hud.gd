@@ -143,6 +143,7 @@ var _early_game_ui_active: bool = false
 var _guided_military_shortcuts_visible: bool = false
 var _pending_military_shortcut: bool = false
 var _focus_pulse_time: float = 0.0
+var _next_touch_diagnostics_refresh_msec: int = 0
 
 # MCP-readable diagnostics for phone layout checks.
 @export var mobile_layout_diagnostics: Dictionary = {}
@@ -257,6 +258,10 @@ func _process(_delta: float) -> void:
 		game_time_label.text = gm.get_formatted_time()
 	_focus_pulse_time += _delta
 	_refresh_primary_action_visuals()
+	var now_msec: int = Time.get_ticks_msec()
+	if now_msec >= _next_touch_diagnostics_refresh_msec:
+		_next_touch_diagnostics_refresh_msec = now_msec + 250
+		_refresh_touch_target_diagnostics()
 
 
 func _unhandled_input(event: InputEvent) -> void:

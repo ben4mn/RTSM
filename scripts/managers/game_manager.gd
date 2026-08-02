@@ -25,6 +25,7 @@ enum WinCondition {
 const MAX_PLAYERS: int = 2
 const MAX_AGE: int = 4
 const AGE_NAMES: Array[String] = ["Dark Age", "Feudal Age", "Castle Age", "Imperial Age"]
+const PREFERENCES_PATH: String = "user://preferences.cfg"
 
 var current_state: GameState = GameState.MENU
 var players: Dictionary = {}  # player_id -> PlayerData dict
@@ -43,6 +44,22 @@ var researched_upgrades: Dictionary = {}  # player_id -> Array of completed rese
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	_load_preferences()
+
+
+func _load_preferences() -> void:
+	var config := ConfigFile.new()
+	if config.load(PREFERENCES_PATH) != OK:
+		return
+	selected_difficulty = clampi(int(config.get_value("skirmish", "difficulty", selected_difficulty)), 0, 2)
+	guided_opening_enabled = bool(config.get_value("onboarding", "guided_opening", guided_opening_enabled))
+
+
+func save_preferences() -> bool:
+	var config := ConfigFile.new()
+	config.set_value("skirmish", "difficulty", clampi(selected_difficulty, 0, 2))
+	config.set_value("onboarding", "guided_opening", guided_opening_enabled)
+	return config.save(PREFERENCES_PATH) == OK
 
 
 func _process(delta: float) -> void:

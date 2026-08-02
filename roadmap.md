@@ -75,6 +75,8 @@ Exit gate:
 
 ## Gate 1 — First Two Minutes On A Phone (P0, 3–5 days)
 
+Status: **IN PROGRESS.** The displayed working title is now `Pocket Kingdoms` instead of a protected franchise name. Difficulty and guided-opener preferences persist through `user://preferences.cfg`. HUD/world target diagnostics now refresh from settled layout on wall-clock intervals, eliminating another intermittent stale train-button coordinate. Latest regression evidence remains phone `60/60` and smoke `18/18`.
+
 Goal: a new tester can finish the opener without prior RTS knowledge.
 
 Work:

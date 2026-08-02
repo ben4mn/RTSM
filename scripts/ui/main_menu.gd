@@ -30,7 +30,7 @@ var _selected_difficulty: int = Difficulty.MEDIUM
 
 
 func _ready() -> void:
-	title_label.text = "Age of Empires Mobile"
+	title_label.text = "Pocket Kingdoms"
 	promise_label.text = "Fast 1v1 skirmish. You begin with a Town Center, four villagers, and a guided opener."
 	map_summary_label.text = "Pocket Duel (40x40)\nGuaranteed nearby food, wood, and gold with a central sacred-site fight."
 	start_button.pressed.connect(_on_start_pressed)
@@ -42,6 +42,7 @@ func _ready() -> void:
 	difficulty_option.clear()
 	for i in range(DIFFICULTY_NAMES.size()):
 		difficulty_option.add_item(DIFFICULTY_NAMES[i], i)
+	_selected_difficulty = clampi(GameManager.selected_difficulty, Difficulty.EASY, Difficulty.HARD)
 	difficulty_option.selected = _selected_difficulty
 	difficulty_option.item_selected.connect(_on_difficulty_changed)
 	_apply_difficulty_description()
@@ -61,6 +62,8 @@ func _notification(what: int) -> void:
 
 func _on_difficulty_changed(index: int) -> void:
 	_selected_difficulty = index
+	GameManager.selected_difficulty = _selected_difficulty
+	GameManager.save_preferences()
 	_apply_difficulty_description()
 	_refresh_main_menu_diagnostics()
 
@@ -76,7 +79,9 @@ func _on_random_seed_pressed() -> void:
 	_refresh_main_menu_diagnostics()
 
 
-func _on_guided_opening_toggled(_pressed: bool) -> void:
+func _on_guided_opening_toggled(pressed: bool) -> void:
+	GameManager.guided_opening_enabled = pressed
+	GameManager.save_preferences()
 	_refresh_main_menu_diagnostics()
 
 
@@ -87,6 +92,7 @@ func _on_seed_text_changed(_new_text: String) -> void:
 func _on_start_pressed() -> void:
 	GameManager.selected_difficulty = _selected_difficulty
 	GameManager.guided_opening_enabled = guided_opening_toggle.button_pressed
+	GameManager.save_preferences()
 	var seed_text: String = seed_input.text.strip_edges()
 	GameManager.selected_map_seed = int(seed_text) if seed_text != "" and seed_text.is_valid_int() else -1
 	get_tree().change_scene_to_file("res://scenes/main/main.tscn")

@@ -59,7 +59,7 @@ var _context_target: Node2D = null
 var _context_resource: Node2D = null
 var _active_touch_indices: Dictionary = {}
 var _last_touch_input_msec: int = 0
-var _touch_target_refresh_elapsed: float = 0.0
+var _next_touch_target_refresh_msec: int = 0
 
 const DESKTOP_UNIT_HIT_RADIUS_WORLD := 20.0
 const DESKTOP_BUILDING_HIT_RADIUS_WORLD := 36.0
@@ -80,9 +80,9 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	_touch_target_refresh_elapsed += delta
-	if _touch_target_refresh_elapsed >= 0.25:
-		_touch_target_refresh_elapsed = 0.0
+	var now_msec: int = Time.get_ticks_msec()
+	if now_msec >= _next_touch_target_refresh_msec:
+		_next_touch_target_refresh_msec = now_msec + 250
 		_refresh_touch_target_diagnostics()
 	if not touch_context_enabled or not _touch_hold_active:
 		return
