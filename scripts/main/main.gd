@@ -555,15 +555,7 @@ func _on_sacred_site_timer_tick(player_id: int, remaining: float, total: float) 
 	hud.update_sacred_site_timer(player_id, remaining, total)
 	# Check for victory
 	if remaining <= 0.0:
-		_victory_reason = "Sacred Site held for %s" % _format_duration_seconds(total)
-		if player_id == 0:
-			# Player wins via sacred site
-			GameManager.defeat_player(1)
-			_show_game_over()
-		else:
-			# AI wins via sacred site
-			GameManager.defeat_player(0)
-			_show_game_over()
+		_conclude_match(player_id, "Sacred Site held for %s" % _format_duration_seconds(total))
 	# Warn at 60 seconds remaining
 	elif remaining <= 60.0 and not _sacred_site_victory_notified:
 		_sacred_site_victory_notified = true
@@ -1248,9 +1240,8 @@ func _on_building_destroyed(building: BuildingBase, player_id: int, tile_pos: Ve
 				has_tc = true
 				break
 		if not has_tc:
-			_victory_reason = "%s destroyed" % building.building_name
-			GameManager.defeat_player(player_id)
-			_show_game_over()
+			var winner_id: int = 1 if player_id == 0 else 0
+			_conclude_match(winner_id, "%s destroyed" % building.building_name)
 
 
 # =========================================================================
@@ -2293,6 +2284,17 @@ func _update_progression_hint() -> void:
 # =========================================================================
 #  GAME OVER
 # =========================================================================
+
+func _conclude_match(winner_id: int, reason: String) -> void:
+	if _game_over_shown or not GameManager.players.has(winner_id):
+		return
+	var loser_id: int = 1 if winner_id == 0 else 0
+	if not GameManager.players.has(loser_id):
+		return
+	_victory_reason = reason
+	if not bool(GameManager.players[loser_id].get("is_defeated", false)):
+		GameManager.defeat_player(loser_id)
+	_show_game_over()
 
 func _show_game_over() -> void:
 	if _game_over_shown:
