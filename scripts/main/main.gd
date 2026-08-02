@@ -61,14 +61,11 @@ var _patrol_command_armed: bool = false
 var _under_attack_cooldown: float = 0.0
 const UNDER_ATTACK_COOLDOWN_TIME: float = 10.0
 
-# --- Game stats ---
-var _stats: Dictionary = {
-	"units_trained": 0,
-	"units_killed": 0,
-	"units_lost": 0,
-	"buildings_built": 0,
-	"resources_gathered": 0,
-}
+# --- Game stats (indexed by player_id) ---
+var _stats: Array[Dictionary] = [
+	{"units_trained": 0, "units_killed": 0, "units_lost": 0, "buildings_built": 0, "resources_gathered": 0},
+	{"units_trained": 0, "units_killed": 0, "units_lost": 0, "buildings_built": 0, "resources_gathered": 0},
+]
 
 # --- Control groups (Ctrl+1-9 save, 1-9 recall) ---
 var _control_groups: Array = [[], [], [], [], [], [], [], [], [], []]
@@ -1033,8 +1030,8 @@ func _spawn_unit(unit_type: int, player_id: int, world_pos: Vector2) -> UnitBase
 		unit.health_changed.connect(_on_player_unit_damaged)
 
 	# Track resource deposits for stats.
-	if player_id == 0 and unit.has_signal("resource_deposited"):
-		unit.resource_deposited.connect(_on_resource_deposited)
+	if unit.has_signal("resource_deposited"):
+		unit.resource_deposited.connect(_on_resource_deposited.bind(player_id))
 
 	# Register with AI if it's the AI's unit.
 	if player_id == ai_controller.player_id:
@@ -1046,10 +1043,11 @@ func _spawn_unit(unit_type: int, player_id: int, world_pos: Vector2) -> UnitBase
 func _on_unit_trained(unit_type: int, spawn_pos: Vector2, player_id: int) -> void:
 	var unit: UnitBase = _spawn_unit(unit_type, player_id, spawn_pos)
 	_update_population_display()
+	_stats[player_id]["units_trained"] += 1
 	if player_id == 0:
 		_update_idle_villager_count()
 		_on_selection_changed(game_map.selection_mgr.selected)
-		_stats["units_trained"] += 1
+		AudioManager.play_sfx("unit_trained")
 		hud.show_notification("Unit trained: %s" % UnitData.get_unit_name(unit_type), Color(0.4, 0.7, 1.0))
 		if (
 			unit != null
@@ -1080,15 +1078,16 @@ func _on_unit_died(unit: UnitBase, player_id: int) -> void:
 	var pop_cost: int = UnitData.UNITS.get(unit.unit_type, {}).get("pop_cost", 1)
 	GameManager.remove_population(player_id, pop_cost)
 	_update_population_display()
+	_stats[player_id]["units_lost"] += 1
+	# The opposing player gets a kill credit
+	var enemy_id: int = 1 if player_id == 0 else 0
+	_stats[enemy_id]["units_killed"] += 1
 	if player_id == 0:
-		_stats["units_lost"] += 1
 		hud.show_notification("Unit lost!", Color(1.0, 0.3, 0.3))
-	else:
-		_stats["units_killed"] += 1
 
 
-func _on_resource_deposited(_resource_type: String, amount: int) -> void:
-	_stats["resources_gathered"] += amount
+func _on_resource_deposited(_resource_type: String, amount: int, player_id: int = 0) -> void:
+	_stats[player_id]["resources_gathered"] += amount
 
 
 func _auto_assign_new_villager(villager: UnitBase) -> void:
@@ -1119,6 +1118,7 @@ func _on_player_unit_damaged(_unit: UnitBase, _new_hp: float, _max_hp: float) ->
 	if _under_attack_cooldown <= 0.0:
 		_under_attack_cooldown = UNDER_ATTACK_COOLDOWN_TIME
 		hud.show_notification("Under attack!", Color(1.0, 0.4, 0.2))
+		AudioManager.play_sfx("under_attack")
 
 
 # =========================================================================
@@ -1168,8 +1168,9 @@ func _on_building_constructed(building: BuildingBase, player_id: int) -> void:
 	if building.pop_provided > 0:
 		GameManager.increase_population_cap(player_id, building.pop_provided)
 		_update_population_display()
+	_stats[player_id]["buildings_built"] += 1
 	if player_id == 0:
-		_stats["buildings_built"] += 1
+		AudioManager.play_sfx("building_complete")
 		hud.show_notification("Building complete: %s" % building.building_name, Color(0.3, 0.85, 0.3))
 		if building.building_type == BuildingData.BuildingType.HOUSE and not _milestone_first_house:
 			_milestone_first_house = true
@@ -1343,6 +1344,7 @@ func _on_move_command(target_tile: Vector2i) -> void:
 		VFX.attack_move_indicator(get_tree(), game_map.tile_to_world(target_tile))
 	else:
 		VFX.move_indicator(get_tree(), game_map.tile_to_world(target_tile))
+	AudioManager.play_sfx("command_move")
 
 
 ## Generate spiral offsets around (0,0) for formation spreading.
@@ -2176,12 +2178,20 @@ func _show_game_over() -> void:
 
 	var stats: Dictionary = {
 		"game_time": GameManager.get_formatted_time(),
-		"units_killed": _stats["units_killed"],
-		"units_lost": _stats["units_lost"],
-		"units_trained": _stats["units_trained"],
-		"buildings_built": _stats["buildings_built"],
-		"resources_gathered": _stats["resources_gathered"],
-		"score": _calculate_score(),
+		"units_killed": _stats[0]["units_killed"],
+		"units_lost": _stats[0]["units_lost"],
+		"units_trained": _stats[0]["units_trained"],
+		"buildings_built": _stats[0]["buildings_built"],
+		"resources_gathered": _stats[0]["resources_gathered"],
+		"score": _calculate_score(0),
+		"ai_score": _calculate_score(1),
+		"ai_units_killed": _stats[1]["units_killed"],
+		"ai_units_lost": _stats[1]["units_lost"],
+		"ai_units_trained": _stats[1]["units_trained"],
+		"ai_buildings_built": _stats[1]["buildings_built"],
+		"ai_resources_gathered": _stats[1]["resources_gathered"],
+		"player_age": GameManager.get_player_age(0),
+		"ai_age": GameManager.get_player_age(1),
 	}
 	if is_victory:
 		game_over.show_victory(stats)
@@ -2202,11 +2212,9 @@ func _calculate_score(player_id: int = 0) -> int:
 		if is_instance_valid(unit) and unit.current_state != UnitBase.State.DEAD:
 			if not (unit is Villager):
 				score += 10
-	# Player-only stats (AI doesn't track kills/gathered)
-	if player_id == 0:
-		score += _stats["units_killed"] * 20
-		@warning_ignore("integer_division")
-		score += _stats["resources_gathered"] / 10
+	score += _stats[player_id]["units_killed"] * 20
+	@warning_ignore("integer_division")
+	score += _stats[player_id]["resources_gathered"] / 10
 	# Economy: 5 per living villager
 	for unit in _player_units[player_id]:
 		if is_instance_valid(unit) and unit is Villager and unit.current_state != UnitBase.State.DEAD:

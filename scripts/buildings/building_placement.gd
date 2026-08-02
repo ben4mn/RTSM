@@ -232,6 +232,7 @@ func _emit_invalid_feedback() -> void:
 	_last_invalid_feedback_msec = now
 	var reason: String = _invalid_reason if _invalid_reason != "" else "Invalid placement"
 	placement_invalid.emit(reason)
+	AudioManager.play_sfx("building_invalid")
 
 
 func _confirm_placement() -> void:
@@ -244,6 +245,7 @@ func _confirm_placement() -> void:
 		_ghost_sprite.queue_free()
 		_ghost_sprite = null
 	placement_confirmed.emit(current_building_type, pos)
+	AudioManager.play_sfx("building_place")
 	current_building_type = -1
 	queue_redraw()
 

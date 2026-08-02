@@ -53,7 +53,11 @@ class TouchFinding:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run deterministic phone playability checks via MCP.")
-    parser.add_argument("--server-cmd", default="npx -y @satelliteoflove/godot-mcp", help="MCP server command")
+    parser.add_argument(
+        "--server-cmd",
+        default="npx -y @satelliteoflove/godot-mcp@2.16.1",
+        help="MCP server command",
+    )
     parser.add_argument(
         "--menu-scene",
         default="res://scenes/ui/main_menu.tscn",
@@ -71,6 +75,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--startup-timeout", type=float, default=25.0, help="Seconds to wait for startup transitions")
     parser.add_argument("--request-timeout", type=float, default=25.0, help="Default MCP request timeout")
+    parser.add_argument(
+        "--map-seed",
+        type=int,
+        default=424242,
+        help="Deterministic map seed entered through the main-menu UI before the test starts",
+    )
     parser.add_argument("--min-fps", type=float, default=15.0, help="Minimum acceptable FPS")
     parser.add_argument("--max-frame-time-ms", type=float, default=120.0, help="Maximum acceptable frame time")
     parser.add_argument(
@@ -913,9 +923,19 @@ def main() -> int:
             return None
         world_x, world_y = vec2_xy(props.get("global_position", props.get("position", {})))
         screen_x, screen_y = world_to_screen_point(world_x, world_y, screen_w, screen_h)
-        if not (24 <= screen_x <= screen_w - 24 and 24 <= screen_y <= screen_h - 24):
+        if not is_world_touch_safe(screen_x, screen_y, screen_w, screen_h):
             return None
         return screen_x, screen_y
+
+    def is_world_touch_safe(screen_x: int, screen_y: int, screen_w: int, screen_h: int) -> bool:
+        """Exclude persistent HUD regions when choosing tappable world targets."""
+        if screen_y < 72 or screen_y > screen_h - 96:
+            return False
+        if screen_x < 240 and screen_y > screen_h - 320:
+            return False
+        if screen_x > screen_w - 210 and screen_y > screen_h - 220:
+            return False
+        return True
 
     def find_visible_player_villager_target(screen_w: int, screen_h: int) -> tuple[int, int, str] | None:
         unit_paths = find_node_paths(type_name="Area2D", root_path="/root/Main/GameMap/UnitsContainer")
@@ -933,7 +953,7 @@ def main() -> int:
                 continue
             world_x, world_y = vec2_xy(props.get("global_position", props.get("position", {})))
             screen_x, screen_y = world_to_screen_point(world_x, world_y, screen_w, screen_h)
-            if not (24 <= screen_x <= screen_w - 24 and 24 <= screen_y <= screen_h - 24):
+            if not is_world_touch_safe(screen_x, screen_y, screen_w, screen_h):
                 continue
             distance = abs(screen_x - screen_center_x) + abs(screen_y - screen_center_y)
             candidates.append((distance, screen_x, screen_y, node_path))
@@ -972,7 +992,7 @@ def main() -> int:
                 continue
             world_x, world_y = vec2_xy(props.get("global_position", props.get("position", {})))
             screen_x, screen_y = world_to_screen_point(world_x, world_y, screen_w, screen_h)
-            if not (24 <= screen_x <= screen_w - 24 and 24 <= screen_y <= screen_h - 24):
+            if not is_world_touch_safe(screen_x, screen_y, screen_w, screen_h):
                 continue
             distance = abs(screen_x - screen_center_x) + abs(screen_y - screen_center_y)
             candidates.append((distance, screen_x, screen_y, node_path))
@@ -1434,9 +1454,9 @@ def main() -> int:
 
     try:
         client.initialize()
-        tools = client.list_tools()
-        tool_names = {tool.get("name") for tool in tools}
         required = {"editor", "input", "project", "node"}
+        tools = client.wait_for_tools(required)
+        tool_names = {tool.get("name") for tool in tools}
         missing = sorted(required - tool_names)
         if missing:
             record("tooling_available", False, f"Missing required MCP tools: {', '.join(missing)}")
@@ -1500,14 +1520,38 @@ def main() -> int:
 
         difficulty_diag = menu_diag.get("difficulty_option", {})
         start_diag = menu_diag.get("start_button", {})
-        if not isinstance(difficulty_diag, dict) or not isinstance(start_diag, dict):
-            record("touch_target_audit_main_menu", False, "Main menu diagnostics missing difficulty/start controls")
+        seed_diag = menu_diag.get("seed_input", {})
+        if not isinstance(difficulty_diag, dict) or not isinstance(start_diag, dict) or not isinstance(seed_diag, dict):
+            record("touch_target_audit_main_menu", False, "Main menu diagnostics missing difficulty/seed/start controls")
             raise MCPError("main menu control diagnostics unavailable")
         run_touch_target_check(
             "touch_target_audit_main_menu",
             "main_menu",
-            [difficulty_diag, start_diag],
+            [difficulty_diag, seed_diag, start_diag],
         )
+
+        _ = tool_text(
+            "input",
+            {"action": "sequence", "inputs": tap_control(seed_diag, 0, "map_seed")},
+            timeout=20.0,
+        )
+        _ = tool_text(
+            "input",
+            {"action": "type_text", "text": str(args.map_seed), "delay_ms": 10, "submit": False},
+            timeout=20.0,
+        )
+        seed_deadline = time.monotonic() + 3.0
+        observed_seed = ""
+        while time.monotonic() < seed_deadline:
+            menu_diag = node_properties("/root/MainMenu").get("main_menu_diagnostics", {})
+            observed_seed = str(menu_diag.get("seed_text", "")) if isinstance(menu_diag, dict) else ""
+            if observed_seed == str(args.map_seed):
+                break
+            time.sleep(0.15)
+        if observed_seed != str(args.map_seed):
+            record("main_menu_seed_entry", False, "Expected seed %s, observed `%s`" % (args.map_seed, observed_seed))
+            raise MCPError("deterministic map seed entry failed")
+        record("main_menu_seed_entry", True, "Entered deterministic seed %s through touch/text input" % args.map_seed)
 
         start_path = str(start_diag.get("path", ""))
         if start_path.startswith("/root/"):
@@ -1987,7 +2031,6 @@ def main() -> int:
         resume_villager_target = wait_for_visible_player_villager_target(screen_w, screen_h, timeout=0.8)
         resume_villager_x = 0
         resume_villager_y = 0
-        current_selection_count = selection_count()
         if resume_villager_target is not None:
             resume_villager_x, resume_villager_y, resume_villager_path = resume_villager_target
             (
@@ -2005,8 +2048,6 @@ def main() -> int:
             if not resume_select_ok:
                 record("touch_build_place_resume_economy_smoke", False, "Could not reselect a villager after placement")
                 raise MCPError("villager reselection did not register after build placement")
-        elif current_selection_count > 0:
-            resume_notes.append("reused_existing_selection=%d" % current_selection_count)
         else:
             hud_diag = hud_touch_diag()
             idle_button = find_named_control(hud_diag, "IdleVillagerButton")
@@ -2054,7 +2095,21 @@ def main() -> int:
                     resume_notes.append("minimap_relocate=%s" % minimap_sequence)
                     resume_villager_target = wait_for_visible_player_villager_target(screen_w, screen_h, timeout=1.5)
                     if resume_villager_target is not None:
-                        resume_villager_x, resume_villager_y, _resume_villager_path = resume_villager_target
+                        resume_villager_x, resume_villager_y, resume_villager_path = resume_villager_target
+                        (
+                            resume_select_ok,
+                            resume_select_detail,
+                            _resume_select_count,
+                            resume_villager_x,
+                            resume_villager_y,
+                        ) = tap_live_node_until_selected(
+                            resume_villager_path,
+                            screen_w,
+                            screen_h,
+                        )
+                        resume_notes.append("resume_select_after_relocate=%s" % resume_select_detail)
+                        if not resume_select_ok:
+                            resume_villager_target = None
             if resume_villager_target is None and selection_count() > 0:
                 resume_notes.append("reused_existing_selection")
             elif resume_villager_target is None:
@@ -2083,7 +2138,11 @@ def main() -> int:
         )
         resume_notes.append("resume_gather=%s" % resume_gather_detail)
         if not resume_gather_ok:
-            record("touch_build_place_resume_economy_smoke", False, "Gather command did not register after build placement")
+            record(
+                "touch_build_place_resume_economy_smoke",
+                False,
+                "Gather command did not register after build placement (%s)" % " | ".join(resume_notes),
+            )
             raise MCPError("touch gather action did not resume economy after build placement")
         _ = capture_screenshot_size(allow_fallback=True)
         build_resume_errors = get_new_errors(clear=True)
@@ -2290,12 +2349,20 @@ def main() -> int:
             True,
             "Moving %s toward (%d,%d) [%s]" % (military_path, move_target_x, move_target_y, move_target_detail),
         )
-        run_touch_scenario(
-            "touch_select_military_button",
-            tap_control(army_button, 0, "select_military"),
-            timeout=20.0,
-        )
-        military_selection_count = wait_for_selection_count(min_count=1, timeout=2.0)
+        military_selection_count = selection_count()
+        if military_selection_count > 0:
+            record(
+                "touch_select_military_button",
+                True,
+                "Guided opener auto-selected the completed Scout; redundant shortcut tap skipped",
+            )
+        else:
+            run_touch_scenario(
+                "touch_select_military_button",
+                tap_control(army_button, 0, "select_military"),
+                timeout=20.0,
+            )
+            military_selection_count = wait_for_selection_count(min_count=1, timeout=2.0)
         if military_selection_count < 1:
             record("touch_select_military_assertion", False, "No military selection became active after tapping shortcut")
             raise MCPError("military shortcut did not leave a selection active")

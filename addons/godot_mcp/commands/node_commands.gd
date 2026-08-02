@@ -334,4 +334,3 @@ func connect_signal(params: Dictionary) -> Dictionary:
 	EditorInterface.mark_scene_as_unsaved()
 
 	return _success({})
-

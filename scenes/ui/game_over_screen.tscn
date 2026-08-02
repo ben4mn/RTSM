@@ -22,24 +22,24 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -200.0
-offset_top = -180.0
-offset_right = 200.0
-offset_bottom = 180.0
+offset_left = -240.0
+offset_top = -220.0
+offset_right = 240.0
+offset_bottom = 220.0
 grow_horizontal = 2
 grow_vertical = 2
-custom_minimum_size = Vector2(400, 360)
+custom_minimum_size = Vector2(480, 440)
 
 [node name="Margin" type="MarginContainer" parent="GameOverPanel"]
 layout_mode = 2
 theme_override_constants/margin_left = 24
 theme_override_constants/margin_right = 24
-theme_override_constants/margin_top = 24
-theme_override_constants/margin_bottom = 24
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_bottom = 20
 
 [node name="VBox" type="VBoxContainer" parent="GameOverPanel/Margin"]
 layout_mode = 2
-theme_override_constants/separation = 16
+theme_override_constants/separation = 12
 
 [node name="ResultLabel" type="Label" parent="GameOverPanel/Margin/VBox"]
 unique_name_in_owner = true
@@ -48,18 +48,79 @@ text = "VICTORY"
 horizontal_alignment = 1
 theme_override_font_sizes/font_size = 36
 
+[node name="TimeLabel" type="Label" parent="GameOverPanel/Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "00:00"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 14
+theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)
+
 [node name="Separator" type="HSeparator" parent="GameOverPanel/Margin/VBox"]
 layout_mode = 2
 
-[node name="StatsLabel" type="Label" parent="GameOverPanel/Margin/VBox"]
+[node name="ScoreBar" type="HBoxContainer" parent="GameOverPanel/Margin/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
-text = "Game Time: 00:00
-Units Trained: 0
-Units Killed: 0
-Resources Gathered: 0
-Buildings Built: 0"
-theme_override_font_sizes/font_size = 16
+theme_override_constants/separation = 8
+
+[node name="PlayerScoreLabel" type="Label" parent="GameOverPanel/Margin/VBox/ScoreBar"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "You: 0"
+horizontal_alignment = 0
+theme_override_font_sizes/font_size = 20
+
+[node name="VSLabel" type="Label" parent="GameOverPanel/Margin/VBox/ScoreBar"]
+layout_mode = 2
+text = "vs"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 14
+theme_override_colors/font_color = Color(0.6, 0.6, 0.6, 1)
+
+[node name="AIScoreLabel" type="Label" parent="GameOverPanel/Margin/VBox/ScoreBar"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "AI: 0"
+horizontal_alignment = 2
+theme_override_font_sizes/font_size = 20
+
+[node name="Separator2" type="HSeparator" parent="GameOverPanel/Margin/VBox"]
+layout_mode = 2
+
+[node name="StatsHeader" type="HBoxContainer" parent="GameOverPanel/Margin/VBox"]
+layout_mode = 2
+
+[node name="Left" type="Label" parent="GameOverPanel/Margin/VBox/StatsHeader"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "You"
+horizontal_alignment = 0
+theme_override_font_sizes/font_size = 14
+theme_override_colors/font_color = Color(0.5, 0.7, 1, 1)
+
+[node name="Center" type="Label" parent="GameOverPanel/Margin/VBox/StatsHeader"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = ""
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 14
+theme_override_colors/font_color = Color(0.7, 0.7, 0.7, 1)
+
+[node name="Right" type="Label" parent="GameOverPanel/Margin/VBox/StatsHeader"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "AI"
+horizontal_alignment = 2
+theme_override_font_sizes/font_size = 14
+theme_override_colors/font_color = Color(1, 0.5, 0.5, 1)
+
+[node name="StatsContainer" type="VBoxContainer" parent="GameOverPanel/Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 4
 
 [node name="Spacer" type="Control" parent="GameOverPanel/Margin/VBox"]
 layout_mode = 2

@@ -1,6 +1,27 @@
 # AOEM Beta Launch Roadmap
 
-Last validated: March 8, 2026
+Last validated: August 1, 2026
+
+## Current Improvement Run
+
+Completed on August 1, 2026:
+
+- Pinned the MCP server to `@satelliteoflove/godot-mcp@2.16.1` so it matches the customized in-repo addon and no longer changes underneath the test suite.
+- Added MCP tool-discovery retries to remove the startup race between stdio initialization and the Godot WebSocket connection.
+- Restored AOEM's runtime node diagnostics and touch/pointer bridge after they were removed by an addon upgrade.
+- Made the phone gate enter map seed `424242` through the real menu touch/text flow.
+- Raised the seed field to the 48 px mobile touch minimum.
+- Hardened world-target selection so automation avoids the top bar, minimap, selection panel, and action strip.
+- Fixed the post-build recovery path so it relocates to and explicitly reselects a villager before resuming gathering.
+- General MCP smoke gate: `PASS (18/18)`, including clean runtime logs and 60 FPS.
+- Phone gate: reaches `54/55`; the full opener succeeds through House placement, economy resume, Scout training, and Scout auto-selection.
+
+Remaining blocker, in priority order:
+
+1. Fix the MCP game bridge completion response for the first pointer sequence issued after the guided Scout spawns. The touch action currently times out at 30 seconds even though all preceding pointer scenarios complete.
+2. Rerun the phone gate twice with seed `424242` and require two consecutive full passes before calling Phase 1 green.
+3. Run one manual phone-sized play session to verify that the remaining failure is automation-only and not a real post-Scout input lock.
+4. After the gate is green, continue Phase 2 with AI pressure pacing and post-match summary playtesting.
 
 ## Validated Current State
 

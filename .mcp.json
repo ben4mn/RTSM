@@ -2,7 +2,7 @@
   "mcpServers": {
     "godot-mcp": {
       "command": "npx",
-      "args": ["-y", "@satelliteoflove/godot-mcp"]
+      "args": ["-y", "@satelliteoflove/godot-mcp@2.16.1"]
     }
   }
 }

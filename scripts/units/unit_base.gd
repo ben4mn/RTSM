@@ -621,6 +621,7 @@ func take_damage(amount: float) -> void:
 	# Floating damage number
 	if get_tree() and get_tree().current_scene:
 		VFX.damage_float(get_tree(), global_position, actual_damage)
+	AudioManager.play_sfx("attack_hit")
 	queue_redraw()
 	if hp <= 0.0:
 		die()
@@ -649,6 +650,7 @@ func die() -> void:
 	# Death puff particles
 	if get_tree() and get_tree().current_scene:
 		VFX.death_puff(get_tree(), global_position)
+	AudioManager.play_sfx("unit_death")
 	# Brief delay before removal for death animation opportunity
 	var tween := create_tween()
 	tween.tween_property(self, "modulate:a", 0.0, 0.3)
@@ -660,6 +662,7 @@ func die() -> void:
 func select() -> void:
 	is_selected = true
 	unit_selected.emit(self)
+	AudioManager.play_sfx("select_unit")
 	queue_redraw()
 
 

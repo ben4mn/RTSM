@@ -24,6 +24,7 @@ config/icon="res://icon.svg"
 
 GameManager="*res://scripts/managers/game_manager.gd"
 ResourceManager="*res://scripts/managers/resource_manager.gd"
+AudioManager="*res://scripts/managers/audio_manager.gd"
 MCPGameBridge="res://addons/godot_mcp/game_bridge/mcp_game_bridge.gd"
 
 [display]

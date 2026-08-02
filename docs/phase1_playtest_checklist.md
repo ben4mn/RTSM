@@ -8,6 +8,7 @@ This checklist defines the fixed smoke path for AOEM regression checks.
 - `godot_mcp` editor plugin is enabled
 - MCP addon/server versions match (`project -> addon_status`)
 - Node 20+ and `npx` available
+- MCP server pinned to `@satelliteoflove/godot-mcp@2.16.1` to match the in-repo addon
 
 ## One-command smoke run
 
@@ -75,4 +76,3 @@ Exit code:
 
 - `0` when all checks pass
 - `1` when any check fails
-

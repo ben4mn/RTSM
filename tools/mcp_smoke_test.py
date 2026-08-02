@@ -159,6 +159,21 @@ class MCPClient:
         result = response.get("result", {})
         return result.get("tools", [])
 
+    def wait_for_tools(self, required: set[str], timeout: float = 10.0) -> list[dict[str, Any]]:
+        """Wait for Godot-backed tools to appear after MCP initialization.
+
+        The stdio server establishes its WebSocket connection asynchronously,
+        so an immediate tools/list call can observe only the static tool set.
+        """
+        deadline = time.monotonic() + timeout
+        tools: list[dict[str, Any]] = []
+        while True:
+            tools = self.list_tools()
+            tool_names = {tool.get("name") for tool in tools}
+            if required <= tool_names or time.monotonic() >= deadline:
+                return tools
+            time.sleep(0.2)
+
     def call_tool(self, name: str, arguments: dict[str, Any], timeout: float | None = None) -> list[dict[str, Any]]:
         request_timeout = None if timeout is None else max(timeout, TOOL_TIMEOUT_FLOOR_S) + TOOL_TIMEOUT_GRACE_S
         response = self.request(
@@ -204,7 +219,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run deterministic AOEM MCP smoke checks.")
     parser.add_argument(
         "--server-cmd",
-        default="npx -y @satelliteoflove/godot-mcp",
+        default="npx -y @satelliteoflove/godot-mcp@2.16.1",
         help="Command used to start the MCP server.",
     )
     parser.add_argument(
@@ -349,9 +364,9 @@ def main() -> int:
     try:
         client.initialize()
 
-        tools = client.list_tools()
-        tool_names = {tool.get("name") for tool in tools}
         required = {"editor", "input", "project"}
+        tools = client.wait_for_tools(required)
+        tool_names = {tool.get("name") for tool in tools}
         missing = sorted(required - tool_names)
         if missing:
             record("tooling_available", False, f"Missing required MCP tools: {', '.join(missing)}")

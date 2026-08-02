@@ -304,6 +304,7 @@ func _create_game_control_buttons() -> void:
 
 
 func _on_pause_pressed() -> void:
+	AudioManager.play_ui("button_click")
 	var gm: Node = _get_game_manager()
 	if gm and gm.current_state == gm.GameState.PAUSED:
 		resume_requested.emit()
@@ -312,6 +313,7 @@ func _on_pause_pressed() -> void:
 
 
 func _on_speed_pressed() -> void:
+	AudioManager.play_ui("button_click")
 	_game_speed_index = (_game_speed_index + 1) % GAME_SPEEDS.size()
 	var new_speed: float = GAME_SPEEDS[_game_speed_index]
 	Engine.time_scale = new_speed
@@ -390,6 +392,20 @@ func _create_pause_overlay() -> void:
 	pause_help.add_theme_font_size_override("font_size", 13)
 	pause_help.add_theme_color_override("font_color", Color(0.92, 0.88, 0.74))
 	vbox.add_child(pause_help)
+
+	var sound_btn := Button.new()
+	sound_btn.name = "SoundToggleButton"
+	sound_btn.text = "Sound: ON" if AudioManager.sfx_enabled else "Sound: OFF"
+	sound_btn.custom_minimum_size = Vector2(200, 48)
+	sound_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	sound_btn.process_mode = Node.PROCESS_MODE_ALWAYS
+	sound_btn.pressed.connect(func() -> void:
+		var enabled: bool = not AudioManager.sfx_enabled
+		AudioManager.set_all_enabled(enabled)
+		sound_btn.text = "Sound: ON" if enabled else "Sound: OFF"
+		AudioManager.play_ui("button_click")
+	)
+	vbox.add_child(sound_btn)
 
 	var quit_btn := Button.new()
 	quit_btn.name = "QuitButton"
@@ -550,6 +566,7 @@ func _create_idle_villager_button() -> void:
 
 
 func _on_idle_villager_pressed() -> void:
+	AudioManager.play_ui("button_click")
 	idle_villager_pressed.emit()
 
 
@@ -1462,6 +1479,7 @@ func _update_train_buttons(trainable_units: Array) -> void:
 
 
 func _on_train_button_pressed(unit_type: int) -> void:
+	AudioManager.play_ui("button_click")
 	if _selected_building_ref and is_instance_valid(_selected_building_ref):
 		train_unit_requested.emit(_selected_building_ref, unit_type)
 
@@ -1556,6 +1574,7 @@ func _on_research_pressed(research_id: String) -> void:
 func _on_build_menu_pressed() -> void:
 	if _ui_modal_state == UIModalState.PAUSE_MENU:
 		return
+	AudioManager.play_ui("button_click")
 	_build_menu_open = !_build_menu_open
 	build_menu_toggled.emit(_build_menu_open)
 	build_menu_button.text = "X" if _build_menu_open else "Build"
@@ -1564,6 +1583,7 @@ func _on_build_menu_pressed() -> void:
 # --- Age up ---
 
 func _on_age_up_pressed() -> void:
+	AudioManager.play_ui("age_up")
 	age_up_requested.emit()
 
 
