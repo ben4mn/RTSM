@@ -28,6 +28,9 @@ func _ready() -> void:
 	_ui_player.bus = "Master"
 	add_child(_ui_player)
 	_generate_all_sounds()
+	var game_manager: Node = get_node_or_null("/root/GameManager")
+	if game_manager != null:
+		set_all_enabled(bool(game_manager.get("audio_enabled")))
 
 
 func play_sfx(sound_name: String) -> void:

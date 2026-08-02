@@ -242,7 +242,11 @@ func _update_camera_pan(delta: float) -> void:
 			pan.y += 1.0
 
 	if pan != Vector2.ZERO:
-		camera.position += pan.normalized() * CAMERA_PAN_SPEED * delta / camera.zoom.x
+		var camera_speed_scale: float = 1.0
+		var game_manager: Node = get_node_or_null("/root/GameManager")
+		if game_manager != null:
+			camera_speed_scale = clampf(float(game_manager.get("camera_speed_scale")), 0.75, 1.25)
+		camera.position += pan.normalized() * CAMERA_PAN_SPEED * camera_speed_scale * delta / camera.zoom.x
 		_clamp_camera()
 
 

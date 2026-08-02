@@ -156,10 +156,109 @@ theme_override_font_sizes/font_size = 15
 layout_mode = 2
 custom_minimum_size = Vector2(0, 12)
 
-[node name="StartButton" type="Button" parent="CenterContainer/VBox"]
+[node name="ActionsRow" type="HBoxContainer" parent="CenterContainer/VBox"]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 12
+
+[node name="StartButton" type="Button" parent="CenterContainer/VBox/ActionsRow"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 4
 custom_minimum_size = Vector2(232, 60)
 text = "Start Skirmish"
 theme_override_font_sizes/font_size = 22
+
+[node name="SettingsButton" type="Button" parent="CenterContainer/VBox/ActionsRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 4
+custom_minimum_size = Vector2(180, 52)
+text = "Help & Settings"
+theme_override_font_sizes/font_size = 17
+
+[node name="SettingsOverlay" type="ColorRect" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+color = Color(0.02, 0.025, 0.02, 0.88)
+
+[node name="Center" type="CenterContainer" parent="SettingsOverlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Panel" type="PanelContainer" parent="SettingsOverlay/Center"]
+layout_mode = 2
+custom_minimum_size = Vector2(560, 0)
+
+[node name="Margin" type="MarginContainer" parent="SettingsOverlay/Center/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 22
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 22
+theme_override_constants/margin_bottom = 18
+
+[node name="VBox" type="VBoxContainer" parent="SettingsOverlay/Center/Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Title" type="Label" parent="SettingsOverlay/Center/Panel/Margin/VBox"]
+layout_mode = 2
+text = "Help & Settings"
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 24
+
+[node name="Controls" type="Label" parent="SettingsOverlay/Center/Panel/Margin/VBox"]
+layout_mode = 2
+text = "Touch: tap to select or command • drag to pan • pinch to zoom\nLong-press for context actions • minimap drag repositions the camera"
+horizontal_alignment = 1
+autowrap_mode = 3
+theme_override_font_sizes/font_size = 14
+
+[node name="AudioToggle" type="CheckButton" parent="SettingsOverlay/Center/Panel/Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(0, 48)
+text = "Audio enabled"
+
+[node name="CameraSpeedLabel" type="Label" parent="SettingsOverlay/Center/Panel/Margin/VBox"]
+layout_mode = 2
+text = "Keyboard/edge camera speed"
+
+[node name="CameraSpeedOption" type="OptionButton" parent="SettingsOverlay/Center/Panel/Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(0, 48)
+
+[node name="UIScaleLabel" type="Label" parent="SettingsOverlay/Center/Panel/Margin/VBox"]
+layout_mode = 2
+text = "Text and UI scale"
+
+[node name="UIScaleOption" type="OptionButton" parent="SettingsOverlay/Center/Panel/Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(0, 48)
+
+[node name="GuidanceNote" type="Label" parent="SettingsOverlay/Center/Panel/Margin/VBox"]
+layout_mode = 2
+text = "Guided opener can be changed on the skirmish setup screen. Preferences are saved automatically."
+autowrap_mode = 3
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 13
+
+[node name="SettingsCloseButton" type="Button" parent="SettingsOverlay/Center/Panel/Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(0, 52)
+text = "Done"
+theme_override_font_sizes/font_size = 18

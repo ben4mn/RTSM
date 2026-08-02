@@ -75,7 +75,7 @@ Exit gate:
 
 ## Gate 1 — First Two Minutes On A Phone (P0, 3–5 days)
 
-Status: **IN PROGRESS.** The displayed working title is now `Pocket Kingdoms` instead of a protected franchise name. Difficulty and guided-opener preferences persist through `user://preferences.cfg`. HUD/world target diagnostics now refresh from settled layout on wall-clock intervals, eliminating another intermittent stale train-button coordinate. Latest regression evidence remains phone `60/60` and smoke `18/18`.
+Status: **IN PROGRESS.** The displayed working title is now `Pocket Kingdoms` instead of a protected franchise name. A touch-tested Help & Settings overlay documents core gestures and persists difficulty, guided opener, audio, camera speed, and text/UI scale through `user://preferences.cfg`; audio, camera movement, and window scaling consume those settings at runtime. HUD/world target diagnostics refresh from settled layout on wall-clock intervals. Latest regression evidence is phone **PASS (63/63)** and smoke **PASS (18/18)** with clean logs.
 
 Goal: a new tester can finish the opener without prior RTS knowledge.
 

@@ -1566,6 +1566,51 @@ def main() -> int:
             [difficulty_diag, seed_diag, start_diag],
         )
 
+        settings_diag = menu_diag.get("settings_button", {})
+        if not isinstance(settings_diag, dict):
+            record("main_menu_settings_open", False, "Settings button diagnostics missing")
+            raise MCPError("main menu settings diagnostics unavailable")
+        settings_sequence = tool_text(
+            "input",
+            {"action": "sequence", "inputs": tap_control(settings_diag, 0, "settings")},
+            timeout=20.0,
+        )
+        settings_deadline = time.monotonic() + 2.0
+        while time.monotonic() < settings_deadline:
+            menu_diag = node_properties("/root/MainMenu").get("main_menu_diagnostics", {})
+            if isinstance(menu_diag, dict) and as_bool(menu_diag.get("settings_open", False), False):
+                break
+            time.sleep(0.1)
+        settings_open = isinstance(menu_diag, dict) and as_bool(menu_diag.get("settings_open", False), False)
+        record("main_menu_settings_open", settings_open, settings_sequence)
+        if not settings_open:
+            raise MCPError("main menu settings did not open through touch")
+        settings_controls = [
+            menu_diag.get("audio_toggle", {}),
+            menu_diag.get("camera_speed_option", {}),
+            menu_diag.get("ui_scale_option", {}),
+            menu_diag.get("settings_close_button", {}),
+        ]
+        run_touch_target_check("touch_target_audit_main_menu_settings", "main_menu_settings", settings_controls)
+        close_diag = menu_diag.get("settings_close_button", {})
+        close_sequence = tool_text(
+            "input",
+            {"action": "sequence", "inputs": tap_control(close_diag, 0, "settings_close")},
+            timeout=20.0,
+        )
+        settings_close_deadline = time.monotonic() + 2.0
+        while time.monotonic() < settings_close_deadline:
+            menu_diag = node_properties("/root/MainMenu").get("main_menu_diagnostics", {})
+            if isinstance(menu_diag, dict) and not as_bool(menu_diag.get("settings_open", True), True):
+                break
+            time.sleep(0.1)
+        settings_closed = isinstance(menu_diag, dict) and not as_bool(menu_diag.get("settings_open", True), True)
+        record("main_menu_settings_close", settings_closed, close_sequence)
+        if not settings_closed:
+            raise MCPError("main menu settings did not close through touch")
+        seed_diag = menu_diag.get("seed_input", seed_diag)
+        start_diag = menu_diag.get("start_button", start_diag)
+
         observed_seed = ""
         for _seed_attempt in range(3):
             _ = tool_text(

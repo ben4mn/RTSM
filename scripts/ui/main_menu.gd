@@ -13,6 +13,8 @@ const DIFFICULTY_DESCRIPTIONS: Array[String] = [
 	"Medium: the intended first skirmish pace with steady raiding pressure.",
 	"Hard: faster macro, earlier attacks, and little room for idle time.",
 ]
+const CAMERA_SPEED_VALUES: Array[float] = [0.75, 1.0, 1.25]
+const UI_SCALE_VALUES: Array[float] = [0.9, 1.0, 1.15]
 
 @onready var title_label: Label = %TitleLabel
 @onready var promise_label: Label = %PromiseLabel
@@ -23,6 +25,12 @@ const DIFFICULTY_DESCRIPTIONS: Array[String] = [
 @onready var seed_input: LineEdit = %SeedInput
 @onready var random_seed_button: Button = %RandomSeedButton
 @onready var guided_opening_toggle: CheckButton = %GuidedOpeningToggle
+@onready var settings_button: Button = %SettingsButton
+@onready var settings_overlay: ColorRect = %SettingsOverlay
+@onready var settings_close_button: Button = %SettingsCloseButton
+@onready var audio_toggle: CheckButton = %AudioToggle
+@onready var camera_speed_option: OptionButton = %CameraSpeedOption
+@onready var ui_scale_option: OptionButton = %UIScaleOption
 
 @export var main_menu_diagnostics: Dictionary = {}
 
@@ -36,6 +44,11 @@ func _ready() -> void:
 	start_button.pressed.connect(_on_start_pressed)
 	random_seed_button.pressed.connect(_on_random_seed_pressed)
 	guided_opening_toggle.toggled.connect(_on_guided_opening_toggled)
+	settings_button.pressed.connect(_on_settings_pressed)
+	settings_close_button.pressed.connect(_on_settings_close_pressed)
+	audio_toggle.toggled.connect(_on_audio_toggled)
+	camera_speed_option.item_selected.connect(_on_camera_speed_selected)
+	ui_scale_option.item_selected.connect(_on_ui_scale_selected)
 	seed_input.text_changed.connect(_on_seed_text_changed)
 
 	# Populate difficulty dropdown
@@ -52,7 +65,31 @@ func _ready() -> void:
 	else:
 		seed_input.placeholder_text = "Random each match"
 	guided_opening_toggle.button_pressed = bool(GameManager.guided_opening_enabled)
+	_setup_settings_controls()
 	_refresh_main_menu_diagnostics()
+
+
+func _setup_settings_controls() -> void:
+	audio_toggle.button_pressed = GameManager.audio_enabled
+	camera_speed_option.clear()
+	for label in ["Relaxed", "Standard", "Fast"]:
+		camera_speed_option.add_item(label)
+	camera_speed_option.selected = _nearest_value_index(CAMERA_SPEED_VALUES, GameManager.camera_speed_scale)
+	ui_scale_option.clear()
+	for label in ["Compact", "Standard", "Large"]:
+		ui_scale_option.add_item(label)
+	ui_scale_option.selected = _nearest_value_index(UI_SCALE_VALUES, GameManager.ui_scale)
+
+
+func _nearest_value_index(values: Array[float], target: float) -> int:
+	var best_index: int = 0
+	var best_distance: float = INF
+	for i in values.size():
+		var distance: float = absf(values[i] - target)
+		if distance < best_distance:
+			best_distance = distance
+			best_index = i
+	return best_index
 
 
 func _notification(what: int) -> void:
@@ -85,6 +122,33 @@ func _on_guided_opening_toggled(pressed: bool) -> void:
 	_refresh_main_menu_diagnostics()
 
 
+func _on_settings_pressed() -> void:
+	settings_overlay.visible = true
+	_refresh_main_menu_diagnostics()
+
+
+func _on_settings_close_pressed() -> void:
+	settings_overlay.visible = false
+	_refresh_main_menu_diagnostics()
+
+
+func _on_audio_toggled(pressed: bool) -> void:
+	GameManager.audio_enabled = pressed
+	GameManager.apply_preferences()
+	GameManager.save_preferences()
+
+
+func _on_camera_speed_selected(index: int) -> void:
+	GameManager.camera_speed_scale = CAMERA_SPEED_VALUES[clampi(index, 0, CAMERA_SPEED_VALUES.size() - 1)]
+	GameManager.save_preferences()
+
+
+func _on_ui_scale_selected(index: int) -> void:
+	GameManager.ui_scale = UI_SCALE_VALUES[clampi(index, 0, UI_SCALE_VALUES.size() - 1)]
+	GameManager.apply_preferences()
+	GameManager.save_preferences()
+
+
 func _on_seed_text_changed(_new_text: String) -> void:
 	_refresh_main_menu_diagnostics()
 
@@ -114,6 +178,15 @@ func _refresh_main_menu_diagnostics() -> void:
 		"random_seed_button": _control_diag(random_seed_button, "main_menu_random_seed"),
 		"guided_opening_toggle": _control_diag(guided_opening_toggle, "main_menu_guided_opening"),
 		"seed_input": _control_diag(seed_input, "main_menu_seed_input"),
+		"settings_open": settings_overlay.visible,
+		"settings_button": _control_diag(settings_button, "main_menu_settings"),
+		"settings_close_button": _control_diag(settings_close_button, "main_menu_settings_close"),
+		"audio_toggle": _control_diag(audio_toggle, "main_menu_audio_toggle"),
+		"camera_speed_option": _control_diag(camera_speed_option, "main_menu_camera_speed"),
+		"ui_scale_option": _control_diag(ui_scale_option, "main_menu_ui_scale"),
+		"audio_enabled": audio_toggle.button_pressed,
+		"camera_speed_scale": GameManager.camera_speed_scale,
+		"ui_scale": GameManager.ui_scale,
 	}
 
 

@@ -34,6 +34,9 @@ var game_speed: float = 1.0
 var selected_difficulty: int = 1  # 0=Easy, 1=Medium, 2=Hard
 var selected_map_seed: int = -1
 var guided_opening_enabled: bool = true
+var audio_enabled: bool = true
+var camera_speed_scale: float = 1.0
+var ui_scale: float = 1.0
 
 
 # --- Upgrade tracking per player ---
@@ -53,13 +56,33 @@ func _load_preferences() -> void:
 		return
 	selected_difficulty = clampi(int(config.get_value("skirmish", "difficulty", selected_difficulty)), 0, 2)
 	guided_opening_enabled = bool(config.get_value("onboarding", "guided_opening", guided_opening_enabled))
+	audio_enabled = bool(config.get_value("accessibility", "audio_enabled", audio_enabled))
+	camera_speed_scale = clampf(float(config.get_value("controls", "camera_speed_scale", camera_speed_scale)), 0.75, 1.25)
+	ui_scale = clampf(float(config.get_value("accessibility", "ui_scale", ui_scale)), 0.9, 1.15)
+	_apply_display_preferences()
 
 
 func save_preferences() -> bool:
 	var config := ConfigFile.new()
 	config.set_value("skirmish", "difficulty", clampi(selected_difficulty, 0, 2))
 	config.set_value("onboarding", "guided_opening", guided_opening_enabled)
+	config.set_value("accessibility", "audio_enabled", audio_enabled)
+	config.set_value("controls", "camera_speed_scale", camera_speed_scale)
+	config.set_value("accessibility", "ui_scale", ui_scale)
 	return config.save(PREFERENCES_PATH) == OK
+
+
+func apply_preferences() -> void:
+	_apply_display_preferences()
+	var audio_manager: Node = get_node_or_null("/root/AudioManager")
+	if audio_manager != null and audio_manager.has_method("set_all_enabled"):
+		audio_manager.set_all_enabled(audio_enabled)
+
+
+func _apply_display_preferences() -> void:
+	var window: Window = get_window()
+	if window != null:
+		window.content_scale_factor = ui_scale
 
 
 func _process(delta: float) -> void:
