@@ -70,6 +70,10 @@ var _stats: Array[Dictionary] = [
 # --- Match conclusion evidence ---
 var _victory_reason: String = "Landmark destroyed"
 var _game_over_shown: bool = false
+var _age_reached_at: Array[Dictionary] = [{1: 0.0}, {1: 0.0}]
+var _sacred_control_seconds: Array[float] = [0.0, 0.0]
+var _sacred_control_owner: int = -1
+var _sacred_last_remaining: float = -1.0
 @export var match_summary_diagnostics: Dictionary = {}
 
 # --- Control groups (Ctrl+1-9 save, 1-9 recall) ---
@@ -362,6 +366,12 @@ func _on_map_ready(map_gen: MapGenerator) -> void:
 	GameManager.initialize_game(2)
 	ResourceManager.initialize_player(0)
 	ResourceManager.initialize_player(1)
+	if not GameManager.age_advanced.is_connected(_on_age_advanced_for_summary):
+		GameManager.age_advanced.connect(_on_age_advanced_for_summary)
+	_age_reached_at = [{1: 0.0}, {1: 0.0}]
+	_sacred_control_seconds = [0.0, 0.0]
+	_sacred_control_owner = -1
+	_sacred_last_remaining = -1.0
 	_guided_opening_active = bool(GameManager.guided_opening_enabled)
 	_guided_stage = GuidedOpeningStage.GATHER_FOOD
 	_opening_gather_complete = false
@@ -461,6 +471,13 @@ func _set_guided_stage(new_stage: GuidedOpeningStage) -> void:
 	_update_progression_hint()
 
 
+func _on_age_advanced_for_summary(player_id: int, new_age: int) -> void:
+	if player_id < 0 or player_id >= _age_reached_at.size():
+		return
+	if not _age_reached_at[player_id].has(new_age):
+		_age_reached_at[player_id][new_age] = GameManager.game_time
+
+
 func _has_player_building_started(player_id: int, building_type: int) -> bool:
 	for building in _player_buildings[player_id]:
 		if not is_instance_valid(building):
@@ -514,6 +531,8 @@ func _refresh_guided_opening_stage() -> void:
 # =========================================================================
 
 func _on_sacred_site_captured(player_id: int) -> void:
+	_sacred_control_owner = player_id
+	_sacred_last_remaining = game_map.sacred_site.victory_hold_time if game_map.sacred_site else -1.0
 	if player_id == 0:
 		hud.show_notification("Sacred Site captured! Hold for 3:00 to win!", Color(0.9, 0.8, 0.2))
 	else:
@@ -521,12 +540,18 @@ func _on_sacred_site_captured(player_id: int) -> void:
 
 
 func _on_sacred_site_neutralized() -> void:
+	_sacred_control_owner = -1
+	_sacred_last_remaining = -1.0
 	hud.show_notification("Sacred Site neutralized", Color(0.7, 0.7, 0.7))
 	_sacred_site_victory_notified = false
 	hud.update_sacred_site_timer(-1, 0.0, 0.0)
 
 
 func _on_sacred_site_timer_tick(player_id: int, remaining: float, total: float) -> void:
+	if player_id == _sacred_control_owner and _sacred_last_remaining >= remaining:
+		_sacred_control_seconds[player_id] += _sacred_last_remaining - remaining
+	_sacred_control_owner = player_id
+	_sacred_last_remaining = remaining
 	hud.update_sacred_site_timer(player_id, remaining, total)
 	# Check for victory
 	if remaining <= 0.0:
@@ -2306,6 +2331,12 @@ func _show_game_over() -> void:
 		"ai_resources_gathered": _stats[1]["resources_gathered"],
 		"player_age": GameManager.get_player_age(0),
 		"ai_age": GameManager.get_player_age(1),
+		"player_feudal_seconds": float(_age_reached_at[0].get(2, -1.0)),
+		"ai_feudal_seconds": float(_age_reached_at[1].get(2, -1.0)),
+		"player_castle_seconds": float(_age_reached_at[0].get(3, -1.0)),
+		"ai_castle_seconds": float(_age_reached_at[1].get(3, -1.0)),
+		"sacred_control_seconds": int(round(_sacred_control_seconds[0])),
+		"ai_sacred_control_seconds": int(round(_sacred_control_seconds[1])),
 	}
 	match_summary_diagnostics = stats.duplicate(true)
 	match_summary_diagnostics["winner_id"] = winner_id
