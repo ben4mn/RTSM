@@ -49,6 +49,7 @@ var _touch_hold_started_at_msec: int = 0
 @export var touch_resource_hit_radius_px: float = 28.0
 @export var touch_context_diagnostics: Dictionary = {}
 @export var touch_input_diagnostics: Dictionary = {}
+@export var touch_target_diagnostics: Dictionary = {}
 var _long_press_move_tolerance := 12.0  # pixels
 var _touch_pan_gesture := false
 var _touch_context_open := false
@@ -58,6 +59,7 @@ var _context_target: Node2D = null
 var _context_resource: Node2D = null
 var _active_touch_indices: Dictionary = {}
 var _last_touch_input_msec: int = 0
+var _touch_target_refresh_elapsed: float = 0.0
 
 const DESKTOP_UNIT_HIT_RADIUS_WORLD := 20.0
 const DESKTOP_BUILDING_HIT_RADIUS_WORLD := 36.0
@@ -78,6 +80,10 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	_touch_target_refresh_elapsed += delta
+	if _touch_target_refresh_elapsed >= 0.25:
+		_touch_target_refresh_elapsed = 0.0
+		_refresh_touch_target_diagnostics()
 	if not touch_context_enabled or not _touch_hold_active:
 		return
 	if _drag_start.distance_to(_drag_end) > _long_press_move_tolerance:
@@ -693,6 +699,13 @@ func _record_touch_input(
 	resource_node: Node2D,
 	target_tile: Vector2i = Vector2i.ZERO,
 ) -> void:
+	var tapped_node_distance: float = -1.0
+	if tapped_node != null:
+		tapped_node_distance = tapped_node.global_position.distance_to(world_pos)
+	var resource_node_distance: float = -1.0
+	if resource_node != null:
+		resource_node_distance = resource_node.global_position.distance_to(world_pos)
+	var camera_zoom: float = _get_camera_zoom_scalar()
 	touch_input_diagnostics = {
 		"action": action,
 		"screen_x": screen_pos.x,
@@ -703,10 +716,57 @@ func _record_touch_input(
 		"has_selected_units": _has_selected_units(),
 		"has_selected_villagers": _has_selected_villagers(),
 		"tapped_node_path": str(tapped_node.get_path()) if tapped_node != null else "",
+		"tapped_node_distance_world": tapped_node_distance,
 		"resource_node_path": str(resource_node.get_path()) if resource_node != null else "",
+		"resource_node_distance_world": resource_node_distance,
+		"unit_hit_radius_world": _screen_px_to_world_radius(touch_unit_hit_radius_px),
+		"building_hit_radius_world": _screen_px_to_world_radius(touch_building_hit_radius_px),
+		"resource_hit_radius_world": _screen_px_to_world_radius(touch_resource_hit_radius_px),
+		"camera_zoom": camera_zoom,
 		"target_tile_x": target_tile.x,
 		"target_tile_y": target_tile.y,
 	}
+
+
+func _refresh_touch_target_diagnostics() -> void:
+	touch_target_diagnostics = {
+		"units": _collect_touch_targets("units"),
+		"buildings": _collect_touch_targets("buildings"),
+		"resources": _collect_touch_targets("resources"),
+	}
+
+
+func _collect_touch_targets(group_name: String) -> Array[Dictionary]:
+	var targets: Array[Dictionary] = []
+	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+	for node in get_tree().get_nodes_in_group(group_name):
+		if not is_instance_valid(node) or not node is Node2D:
+			continue
+		var node_2d: Node2D = node as Node2D
+		var screen_pos: Vector2 = _world_to_screen(node_2d.global_position)
+		if screen_pos.x < -64.0 or screen_pos.x > viewport_size.x + 64.0:
+			continue
+		if screen_pos.y < -64.0 or screen_pos.y > viewport_size.y + 64.0:
+			continue
+		var target: Dictionary = {
+			"path": str(node_2d.get_path()),
+			"screen_x": screen_pos.x,
+			"screen_y": screen_pos.y,
+			"world_x": node_2d.global_position.x,
+			"world_y": node_2d.global_position.y,
+		}
+		if node_2d is UnitBase:
+			var unit: UnitBase = node_2d as UnitBase
+			target["player_owner"] = unit.player_owner
+			target["unit_type"] = unit.unit_type
+		elif node_2d is BuildingBase:
+			var building: BuildingBase = node_2d as BuildingBase
+			target["player_owner"] = building.player_owner
+		elif node_2d is ResourceNode:
+			var resource: ResourceNode = node_2d as ResourceNode
+			target["resource_type"] = resource.resource_type
+		targets.append(target)
+	return targets
 
 
 func _screen_px_to_world_radius(radius_px: float) -> float:

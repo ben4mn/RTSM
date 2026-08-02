@@ -1,143 +1,226 @@
-# AOEM Beta Launch Roadmap
+# AOEM Closed-Beta Roadmap
 
-Last validated: August 1, 2026
+Last audited: August 1, 2026
 
-## Current Improvement Run
+## Executive Status
 
-Completed on August 1, 2026:
+AOEM is a playable 1v1 mobile-first RTS with a deterministic automated opening loop. Gate 0 is green; the project is not yet beta-ready because first-session manual evidence, full-match quality, real-device performance, and packaging remain incomplete.
 
-- Re-audited the strict phone gate from a clean Godot editor session: it still reaches `54/55`, and the post-Scout input sequence times out without updating the runtime touch-action diagnostic.
-- Added bounded seed-field focus retries after reproducing an intermittent empty seed entry on fresh editor connections; the deterministic `424242` menu flow now recovers without bypassing touch/text input.
-- Pinned the MCP server to `@satelliteoflove/godot-mcp@2.16.1` so it matches the customized in-repo addon and no longer changes underneath the test suite.
-- Added MCP tool-discovery retries to remove the startup race between stdio initialization and the Godot WebSocket connection.
-- Restored AOEM's runtime node diagnostics and touch/pointer bridge after they were removed by an addon upgrade.
-- Made the phone gate enter map seed `424242` through the real menu touch/text flow.
-- Raised the seed field to the 48 px mobile touch minimum.
-- Hardened world-target selection so automation avoids the top bar, minimap, selection panel, and action strip.
-- Fixed the post-build recovery path so it relocates to and explicitly reselects a villager before resuming gathering.
-- General MCP smoke gate: `PASS (18/18)`, including clean runtime logs and 60 FPS.
-- Phone gate: reaches `54/55`; the full opener succeeds through House placement, economy resume, Scout training, and Scout auto-selection.
+Current evidence:
 
-Remaining blocker, in priority order:
+- Godot `4.6.stable` headless boot: clean.
+- `python3 tools/mcp_smoke_test.py`: **PASS (18/18) twice consecutively** on August 1, 2026, including the 75-second simulation, production, touch, patrol, attack-move, clean runtime logs, and 60 FPS checks.
+- `python3 tools/mcp_phone_playability.py`: **PASS (60/60) twice consecutively** on August 1, 2026 with seed `424242`, including gather -> House -> Scout -> touch move -> free play.
+- Gate 0 fixes now use engine-side target snapshots, detailed hit/action/queue diagnostics, immediate removal of stale build-menu controls, safe deferred deletion of rebuilt train controls, explicit military-count readiness, guided Scout focus, and sticky touch camera mode that disables desktop edge-scroll conflicts after touch input.
+- The current worktree was clean before this audit. The latest checkpoint was `f4681de` (`Harden deterministic phone gate seed entry`).
 
-1. Fix the MCP game bridge completion response for the first pointer sequence issued after the guided Scout spawns. The touch action currently times out at 30 seconds even though all preceding pointer scenarios complete.
-2. Rerun the phone gate twice with seed `424242` and require two consecutive full passes before calling Phase 1 green.
-3. Run one manual phone-sized play session to verify that the remaining failure is automation-only and not a real post-Scout input lock.
-4. After the gate is green, continue Phase 2 with AI pressure pacing and post-match summary playtesting.
+Release posture: **Gate 0 passed; Gate 1 first-session UX and manual phone evidence are next.**
 
-## Validated Current State
+## What The Reference Target Teaches
 
-AOEM is already a functional RTS prototype with one complete 1v1 skirmish loop:
+Age of Empires II screenshots were used as composition and readability references, not as assets or a UI template. The useful transferable principles are:
 
-- Main menu -> skirmish -> game over -> return to menu
-- Touch-capable unit selection, movement, gathering, build placement, and military shortcuts
-- Economy, production queues, fog of war, sacred-site win condition, and AI opponent
-- Mobile-focused 40x40 duel map with guided opener support and difficulty selection
+- Keep the battlefield dominant; persistent chrome should be compact and predictable.
+- Put economy state in one quickly scannable band and contextual actions in one stable command surface.
+- Make selection unmistakable through team color, silhouettes, health/state feedback, and a context panel.
+- Use the minimap as a strategic instrument: ownership, explored space, threats, and objectives should read at a glance.
+- Build maps from recognizable resource clusters, landmarks, roads/clearings, and defensible spaces so terrain communicates strategic choices.
+- Layer feedback: immediate click/tap acknowledgement, visible command destination, unit response, alerts, and concise event history.
 
-Validation baseline from March 7-8, 2026:
+AOEM should preserve its own mobile layout, art direction, names, assets, and interaction model. The goal is comparable strategic clarity, not visual imitation.
 
-- `python3 tools/mcp_smoke_test.py`: `PASS (18/18)`
-- `python3 tools/mcp_phone_playability.py`: `PASS (60/60)` on March 8, 2026 with guided-opener stage checks still sourced from `/root/Main.first_session_diagnostics`
-- Current observed result: the stricter phone audit no longer drifts on HUD inference and the touch-only opener loop now clears `gather -> House -> Scout -> move military` end to end
+Reference pages reviewed:
 
-## Beta Definition And Launch Bar
+- [Age of Empires II: Definitive Edition — official franchise page](https://www.ageofempires.com/games/aoeiide/)
+- [Age of Empires II: Definitive Edition — Steam screenshots](https://store.steampowered.com/app/813780/Age_of_Empires_II_Definitive_Edition/)
 
-Target: closed mobile beta for a polished single-mode skirmish experience.
+## Beta Scope
 
-The beta is ready when all of the following are true:
+Ship one polished offline skirmish experience:
 
-1. A first-time player can start a match from the main menu and complete the opening economy loop using touch only.
-2. The first two minutes of play are reliable and legible on phone-sized layouts.
-3. MCP smoke and phone-playability gates both pass against the current UI and gameplay contracts.
-4. Runtime logs stay free of new recurring errors during startup, opening-loop play, and longer AI simulation.
-5. The current AI, map, and onboarding flow produce a stable, understandable first-session experience.
+- Human player `0` versus AI player `1` on the current mobile duel map.
+- Gather -> population growth -> construction -> age advancement -> mixed army -> exploration -> combat/objective -> victory or defeat.
+- Touch-first controls, with mouse/keyboard retained as secondary input.
+- Easy, Medium, and Hard AI that differ in pressure and forgiveness without obvious unfairness.
+- Main menu, pause/restart, match summary, settings/preferences, and tester-ready Web package.
 
-## Non-Goals For Beta
+Explicitly out of scope for this beta:
 
-These remain explicitly out of beta scope unless they block core usability:
+- Multiplayer, campaigns, civilizations/factions, ranked/social systems, monetization, cloud save, replays, and broad content expansion.
+- A wholesale art replacement. Targeted readability and feedback improvements are in scope.
 
-- Full visual overhaul or final art pass
-- Broad content expansion beyond the current skirmish roster
-- Additional civilizations, campaigns, or extra game modes
-- Multiplayer, replay systems, ranked/social features
-- Monetization or live-ops systems
-- Store-launch scale work beyond what is needed for a closed tester build
+## Gate 0 — Make Validation Trustworthy (P0, 1–3 days)
 
-## Phase 1: Beta Foundation
+Status: **PASSED on August 1, 2026.** Both authoritative gates passed twice consecutively from clean test runs. The latest generated phone report is `60/60` with clean runtime logs and the complete guided opener.
 
-Goal: remove blockers between the current prototype and a trustworthy closed mobile beta.
+Goal: make the test result describe the game reliably instead of cursor/bridge luck.
 
-### Workstream A: Validation Truth
+Work:
 
-- Replace brittle menu-node assumptions in the phone audit with stable diagnostics exported by runtime UI scripts
-- Harden regression gates for main-menu touch start, build-menu visibility, long-press context, pinch zoom, and touch-only opening flow
-- Keep screenshot-backed reports as the source of truth for beta blockers
+1. Reproduce both current phone failures independently:
+   - intended villager tap resolves as `select_resource`;
+   - first guided Scout move pointer sequence times out after Scout selection.
+2. Separate game defects from MCP bridge defects with runtime diagnostics for pointer receipt, hit candidates, chosen target, selection result, command issue, and command acknowledgement.
+3. Make target discovery stable after camera/minimap movement. Reject stale/offscreen coordinates and require that the chosen point resolves to the expected node before issuing the next step.
+4. Remove hidden test coupling to scene timing. Await explicit map-ready, selection-changed, building-completed, production-completed, and command-issued state.
+5. Add a small deterministic regression for overlapping unit/resource hit areas; gameplay must prefer a directly tapped selectable unit when the audit requests that unit.
+6. Ensure every failure writes its seed, camera transform, target paths/rects, last runtime action, screenshot, and debug output.
 
-### Workstream B: First-Session UX
+Exit gate:
 
-- Tighten main-menu setup clarity around difficulty, seed, and guided opener
-- Improve guided-opener messaging so the first match teaches gather -> build -> train -> move
-- Make pause/resume and failure feedback more obvious on touch devices
+- Smoke gate passes twice consecutively.
+- Phone gate passes twice consecutively from clean editor sessions with seed `424242`.
+- No timeout is treated as a pass or “automation only” without a manual reproduction result.
+- Reports contain enough evidence to diagnose a future failure without rerunning blindly.
 
-### Workstream C: Touch-Command Reliability
+## Gate 1 — First Two Minutes On A Phone (P0, 3–5 days)
 
-- Reduce ambiguity in touch selection and command feedback
-- Ensure build-placement cancel and invalid-placement recovery are always reachable
-- Resolve minimap and command-surface conflicts that can interrupt touch-only play
+Goal: a new tester can finish the opener without prior RTS knowledge.
 
-### Workstream D: Stability And Telemetry
+Work:
 
-- Keep runtime logs clean under startup, short-loop, and long-simulation tests
-- Extend AI/economy telemetry so beta blockers can be diagnosed from automated runs
-- Preserve current minimum guardrails for FPS and frame time
+1. Test at `844x390` and `932x430`, including safe areas and display scaling.
+2. Turn the guided opener into four short, state-driven beats: gather food, place a House, train a Scout, move the Scout.
+3. Highlight the next valid target/action without covering the battlefield; let players dismiss guidance and never trap them behind it.
+4. Improve invalid tap, insufficient resource, population cap, blocked placement, unreachable target, and queue-full feedback.
+5. Verify one-finger pan, pinch zoom, long press, minimap reposition, selection, command, build cancel, pause/resume, and restart do not compete for the same gesture.
+6. Keep primary touch targets at least 48 px and prevent the resource bar, minimap, selection panel, and action strip from stealing world commands.
+7. Add a small help/settings surface for controls, audio, guidance toggle, camera speed, and text/UI scale; persist preferences.
 
-### Phase 1 Deliverable
+Exit gate:
 
-A touch-complete, regression-covered opening loop that survives automated testing and is credible for external closed-beta testers.
+- Five manual clean-start opener completions: at least two by someone who did not build the feature.
+- Zero dead ends or unexplained taps in the four guided beats.
+- Both automated gates remain green twice consecutively.
 
-## Phase 2: Match Quality And Retention
+## Gate 2 — Complete And Satisfying Match Loop (P1, 1–2 weeks)
 
-Goal: make the current skirmish mode worth replaying after the first successful session.
+Goal: every match supports meaningful economic and military decisions through a clear ending.
 
-- Improve AI pressure pacing, scouting quality, and difficulty differentiation
-- Tighten army readability, command feedback, and larger-group movement quality
-- Refine onboarding prompts, alerts, event feed, and post-match summary usefulness
-- Add higher-signal telemetry for balance tuning and tester issue triage
+Economy and progression:
 
-Phase 2 should improve match quality without widening feature scope.
+- Verify reliable gather/drop-off for food, wood, gold, and stone under depletion, retargeting, construction interruption, and path obstruction.
+- Surface idle villagers, task distribution, population pressure, production queues, age requirements, and upgrade effects without dense phone chrome.
+- Tune the first 10 minutes around explicit pacing targets: first House, first military unit, age-up windows, first pressure, and expected match duration.
+- Ensure farms, camps, houses, military production, defenses, and upgrades each have an understandable strategic role.
 
-## Phase 3: Beta Packaging And External Test Readiness
+Combat and control:
 
-Goal: prepare the game and process for closed external distribution.
+- Validate mixed-group movement at 1, 8, 20, and population-cap scale; prevent clumping, oscillation, and unreachable-target stalls.
+- Make move, attack-move, focus attack, patrol, stance change, damage, death, and objective capture visually distinct.
+- Confirm melee, ranged, cavalry, siege, villagers, buildings, and towers acquire and lose targets correctly through fog and range changes.
+- Add concise under-attack, production-complete, age-up, objective, and population alerts with minimap pings and spam control.
 
-- Finalize tester checklist and go/no-go criteria
-- Package a stable mobile-first build with known-device layout validation
-- Document known issues, tester instructions, and bug-report expectations
-- Triage remaining blockers from Phase 1-2 and convert non-blockers into post-beta backlog
+Victory and summary:
 
-## Wave 1 Inside Phase 1
+- Test sacred-site victory, enemy elimination, player defeat, pause, restart, and return-to-menu paths.
+- Expand the summary to answer: why the match ended, duration, economy totals, units/buildings lost, army produced, age timing, and objective control.
 
-Wave 1 is blocker-first and should land before broader polish work:
+Exit gate:
 
-1. Repair the stale phone audit and align it to the current menu/HUD structure.
-2. Guarantee that the first two minutes of play are touch-completable under MCP.
-3. Publish a short blocker list tied directly to automated gates.
-4. Use that blocker list to drive the next implementation batch instead of adding new feature scope.
+- Ten seeded full-match simulations finish without hangs or recurring runtime errors.
+- Three manual phone-sized matches reach three different endings.
+- Median Medium match duration and key timing targets are documented from telemetry, then judged acceptable for the intended compact RTS session.
 
-## Post-Beta Backlog
+## Gate 3 — AI That Is Legible And Replayable (P1, 4–7 days)
 
-These are valid roadmap items, but they are deferred until after the closed beta is stable:
+Goal: Easy teaches, Medium contests, and Hard pressures without merely receiving opaque bonuses.
 
-- Full art, animation, VFX, and audio overhaul
-- Larger map/content variety and additional civilizations
-- New modes beyond the core skirmish loop
-- Multiplayer architecture and social systems
-- Monetization, cloud save, and public launch platform work
+Work:
+
+1. Run the existing balance harness on all difficulties across at least five seeds each.
+2. Track age times, villager count, idle economy time, building mix, army composition, first pressure, retreat/defense behavior, objective control, and match result.
+3. Fix AI stalls: blocked construction, exhausted resources, population cap, production prerequisites, stranded attackers, and undefended base/objective states.
+4. Differentiate difficulty primarily through decision cadence, scouting, composition, aggression, and recovery; clearly document any resource bonuses.
+5. Add pressure windows and cooldowns so attacks feel intentional rather than a trickle or a single irreversible snowball.
+
+Exit gate:
+
+- No AI deadlocks across the seed matrix.
+- Easy allows recovery, Medium contests the map, Hard creates earlier sustained pressure.
+- AI can win by combat and can contest or win through the sacred objective.
+
+## Gate 4 — Visual, Audio, And Accessibility Polish (P1/P2, 1 week)
+
+Goal: improve strategic readability and perceived responsiveness without copying another game's art or UI.
+
+Work in this order:
+
+1. Battlefield readability: ownership/team color, selection rings, silhouettes, building footprints, resource identity, construction state, and health thresholds.
+2. Command feedback: tap acknowledgement, destination/attack markers, rally/patrol visualization, placement validity, and minimap pings.
+3. Hierarchy: keep battlefield dominant; consolidate economy, contextual selection, and actions into stable regions that survive phone aspect changes.
+4. World composition: recognizable resource clusters and landmarks, readable paths/clearings, less repetitive terrain, and clear sacred-site prominence.
+5. Audio: distinct selection/command/alert/combat/objective cues, sensible mixing, cooldowns, mute controls, and persistence.
+6. Accessibility: UI scale, text contrast, color-plus-shape ownership cues, reduced camera motion option, independent music/SFX controls, and guidance toggle.
+
+Exit gate:
+
+- Every critical state remains understandable with audio muted.
+- Team ownership and resource types remain distinguishable without relying on hue alone.
+- No critical text truncation or overlap at both target phone profiles.
+- A 20-minute session produces no alert/audio spam or persistent visual clutter.
+
+## Gate 5 — Performance, Package, And External Test (P0 before invite, 3–5 days)
+
+Goal: produce a reproducible tester build and a disciplined feedback loop.
+
+Work:
+
+1. Define performance budgets for target hardware: frame rate, frame time, memory, startup, and worst-case unit/building counts.
+2. Profile fog updates, pathfinding, AI decisions, minimap drawing, VFX, and large battles on representative low/mid hardware or equivalent throttled profiles.
+3. Validate Web export from a clean checkout; record Godot version, export template requirements, build command, output, and checksum/version label.
+4. Add a beta README: installation/launch, controls, known issues, log location, screenshot/report steps, and reset/preferences instructions.
+5. Create a 30-minute tester script covering menu, opener, age-up, construction, mixed army, objective, pause/restart, and game over.
+6. Run a small internal alpha before broadening access; triage issues by crash/data loss, input blocker, progression blocker, major confusion, balance, and polish.
+
+Exit gate:
+
+- Clean package produced twice from documented steps.
+- Manual checks pass on at least two phone-sized environments, including one constrained target.
+- No P0/P1 known issues; remaining issues are documented with workarounds where relevant.
+- Smoke and phone gates pass twice on the release candidate.
+- One complete manual release-candidate match has clean logs and acceptable performance.
+
+## Recommended Execution Order
+
+| Order | Deliverable | Why now |
+| --- | --- | --- |
+| 1 | Deterministic touch gate | Current results cannot reliably distinguish game failures from automation failures. |
+| 2 | First-session phone UX | The opener is the beta's acquisition funnel and current release blocker. |
+| 3 | Full-match telemetry and pacing | Passing a two-minute opener does not prove the RTS loop is satisfying. |
+| 4 | AI seed matrix | Replayability depends on pressure, recovery, and difficulty differentiation. |
+| 5 | Readability/accessibility polish | Apply polish to stable mechanics and measured confusion points. |
+| 6 | Packaging and internal alpha | Validate the exact build before inviting external testers. |
+
+## Beta Go/No-Go Checklist
+
+A beta invitation is allowed only when every item is true:
+
+- [ ] Clean menu -> match -> game over -> menu loop.
+- [ ] Guided touch opener completes gather -> House -> Scout -> Scout move.
+- [ ] All resources gather/drop off; construction and production recover from interruptions.
+- [ ] Mixed units can be selected, moved, attack-moved, focused, patrolled, and fought at scale.
+- [ ] Easy/Medium/Hard AI build, expand, defend, pressure, attack, and contest objectives.
+- [ ] Fog, minimap, alerts, sacred site, elimination, defeat, pause, restart, and summary are manually verified.
+- [ ] No recurring runtime errors or known P0/P1 issues.
+- [ ] Both MCP gates pass twice consecutively on the release candidate.
+- [ ] Performance budgets pass in phone-sized and constrained testing.
+- [ ] Export steps, tester instructions, known issues, and reporting workflow are complete.
+
+## Next Coherent Implementation Cycle
+
+1. Instrument pointer hit resolution and selection/command acknowledgement.
+2. Reproduce and fix the `select_resource` result when the gate targets a villager.
+3. Reproduce and fix the post-Scout pointer timeout.
+4. Run smoke + phone twice from clean sessions.
+5. Update the generated phone report and this status section with the exact results.
+6. Commit only after the validation contract is deterministic and both gates are green.
 
 ## Source Of Truth
 
-- [roadmap.md](/Users/ben/Documents/1_Projects/aoem/roadmap.md) is the beta sequencing source of truth.
-- Existing phase docs under `docs/` and [PHASED_CHANGES.md](/Users/ben/Documents/1_Projects/aoem/PHASED_CHANGES.md) remain useful historical references, but they no longer define beta order.
-- The authoritative automated gates are:
+- This file defines beta sequence and exit criteria.
+- `docs/mobile_ux_touch_report_2026-02-22.md` and its JSON companion contain the latest strict phone evidence (the legacy filename is retained by the test tool).
+- Historical phase reports under `docs/` and `PHASED_CHANGES.md` provide context but do not override current gate results.
+- Authoritative automated commands:
   - `python3 tools/mcp_smoke_test.py`
   - `python3 tools/mcp_phone_playability.py`

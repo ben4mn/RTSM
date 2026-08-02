@@ -103,7 +103,9 @@ func set_placement_mode(active: bool) -> void:
 func _rebuild_grid() -> void:
 	# Clear existing buttons
 	for child in grid.get_children():
-		child.queue_free()
+		# This menu is rebuilt and diagnosed in the same frame. Immediate removal
+		# prevents stale buttons from overlapping the new controls until idle time.
+		child.free()
 	_button_map.clear()
 
 	var all_types: Array = BuildingData.BUILDINGS.keys()

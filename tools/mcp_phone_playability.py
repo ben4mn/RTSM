@@ -847,6 +847,13 @@ def main() -> int:
             return diag
         return {}
 
+    def hud_train_action_diag() -> dict[str, Any]:
+        props = node_properties("/root/Main/HUD", retries=2)
+        diag = props.get("train_action_diagnostics", {})
+        if isinstance(diag, dict):
+            return diag
+        return {}
+
     def build_menu_touch_diag() -> dict[str, Any]:
         build_props = node_properties("/root/Main/HUD/BuildMenu")
         diag = build_props.get("touch_target_diagnostics", {})
@@ -878,6 +885,13 @@ def main() -> int:
     def selection_manager_touch_input_diag() -> dict[str, Any]:
         props = node_properties("/root/Main/GameMap/SelectionManager")
         diag = props.get("touch_input_diagnostics", {})
+        if isinstance(diag, dict):
+            return diag
+        return {}
+
+    def selection_manager_touch_target_diag() -> dict[str, Any]:
+        props = node_properties("/root/Main/GameMap/SelectionManager", retries=2)
+        diag = props.get("touch_target_diagnostics", {})
         if isinstance(diag, dict):
             return diag
         return {}
@@ -917,6 +931,16 @@ def main() -> int:
         return screen_x, screen_y
 
     def live_screen_point_for_node(node_path: str, screen_w: int, screen_h: int) -> tuple[int, int] | None:
+        target_diag = selection_manager_touch_target_diag()
+        for bucket_name in ("units", "buildings", "resources"):
+            for target in target_diag.get(bucket_name, []):
+                if not isinstance(target, dict) or str(target.get("path", "")) != node_path:
+                    continue
+                screen_x = int(round(as_float(target.get("screen_x", 0.0))))
+                screen_y = int(round(as_float(target.get("screen_y", 0.0))))
+                if not is_world_touch_safe(screen_x, screen_y, screen_w, screen_h):
+                    return None
+                return screen_x, screen_y
         try:
             props = node_properties(node_path, retries=2)
         except Exception:  # noqa: BLE001
@@ -938,25 +962,22 @@ def main() -> int:
         return True
 
     def find_visible_player_villager_target(screen_w: int, screen_h: int) -> tuple[int, int, str] | None:
-        unit_paths = find_node_paths(type_name="Area2D", root_path="/root/Main/GameMap/UnitsContainer")
-        if not unit_paths:
-            return None
-
         screen_center_x = screen_w * 0.5
         screen_center_y = screen_h * 0.5
         candidates: list[tuple[float, int, int, str]] = []
-        for node_path in unit_paths:
-            props = node_properties(node_path, retries=2)
-            if int(as_float(props.get("player_owner", -1), -1.0)) != 0:
+        for target in selection_manager_touch_target_diag().get("units", []):
+            if not isinstance(target, dict):
                 continue
-            if int(as_float(props.get("unit_type", -1), -1.0)) != 0:
+            if int(as_float(target.get("player_owner", -1), -1.0)) != 0:
                 continue
-            world_x, world_y = vec2_xy(props.get("global_position", props.get("position", {})))
-            screen_x, screen_y = world_to_screen_point(world_x, world_y, screen_w, screen_h)
+            if int(as_float(target.get("unit_type", -1), -1.0)) != 0:
+                continue
+            screen_x = int(round(as_float(target.get("screen_x", 0.0))))
+            screen_y = int(round(as_float(target.get("screen_y", 0.0))))
             if not is_world_touch_safe(screen_x, screen_y, screen_w, screen_h):
                 continue
             distance = abs(screen_x - screen_center_x) + abs(screen_y - screen_center_y)
-            candidates.append((distance, screen_x, screen_y, node_path))
+            candidates.append((distance, screen_x, screen_y, str(target.get("path", ""))))
         if candidates:
             _, screen_x, screen_y, node_path = min(candidates, key=lambda item: item[0])
             return screen_x, screen_y, node_path
@@ -976,29 +997,39 @@ def main() -> int:
         return None
 
     def find_visible_player_military_target(screen_w: int, screen_h: int) -> tuple[int, int, str] | None:
-        unit_paths = find_node_paths(type_name="Area2D", root_path="/root/Main/GameMap/UnitsContainer")
-        if not unit_paths:
-            return None
-
         screen_center_x = screen_w * 0.5
         screen_center_y = screen_h * 0.5
         candidates: list[tuple[float, int, int, str]] = []
-        for node_path in unit_paths:
-            props = node_properties(node_path, retries=2)
-            if int(as_float(props.get("player_owner", -1), -1.0)) != 0:
+        for target in selection_manager_touch_target_diag().get("units", []):
+            if not isinstance(target, dict):
                 continue
-            unit_type = int(as_float(props.get("unit_type", -1), -1.0))
+            if int(as_float(target.get("player_owner", -1), -1.0)) != 0:
+                continue
+            unit_type = int(as_float(target.get("unit_type", -1), -1.0))
             if unit_type < 0 or unit_type == 0:
                 continue
-            world_x, world_y = vec2_xy(props.get("global_position", props.get("position", {})))
-            screen_x, screen_y = world_to_screen_point(world_x, world_y, screen_w, screen_h)
+            screen_x = int(round(as_float(target.get("screen_x", 0.0))))
+            screen_y = int(round(as_float(target.get("screen_y", 0.0))))
             if not is_world_touch_safe(screen_x, screen_y, screen_w, screen_h):
                 continue
             distance = abs(screen_x - screen_center_x) + abs(screen_y - screen_center_y)
-            candidates.append((distance, screen_x, screen_y, node_path))
+            candidates.append((distance, screen_x, screen_y, str(target.get("path", ""))))
         if candidates:
             _, screen_x, screen_y, node_path = min(candidates, key=lambda item: item[0])
             return screen_x, screen_y, node_path
+        return None
+
+    def wait_for_visible_player_military_target(
+        screen_w: int,
+        screen_h: int,
+        timeout: float = 3.0,
+    ) -> tuple[int, int, str] | None:
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            target = find_visible_player_military_target(screen_w, screen_h)
+            if target is not None:
+                return target
+            time.sleep(0.15)
         return None
 
     def find_any_player_villager_path() -> str | None:
@@ -1037,20 +1068,17 @@ def main() -> int:
         avoid_point: tuple[int, int] | None = None,
         min_separation: float = 72.0,
     ) -> tuple[int, int, str] | None:
-        resource_paths = find_node_paths(type_name="Area2D", root_path="/root/Main/GameMap/ResourcesContainer")
-        if not resource_paths:
-            return None
-
         screen_center_x = screen_w * 0.5
         screen_center_y = screen_h * 0.5
         candidates: list[tuple[int, int, float, int, int, str]] = []
-        for node_path in resource_paths:
-            screen_point = live_screen_point_for_node(node_path, screen_w, screen_h)
-            if screen_point is None:
+        for target in selection_manager_touch_target_diag().get("resources", []):
+            if not isinstance(target, dict):
                 continue
-            screen_x, screen_y = screen_point
-            props = node_properties(node_path, retries=2)
-            resource_type = str(props.get("resource_type", "")).strip().lower()
+            screen_x = int(round(as_float(target.get("screen_x", 0.0))))
+            screen_y = int(round(as_float(target.get("screen_y", 0.0))))
+            if not is_world_touch_safe(screen_x, screen_y, screen_w, screen_h):
+                continue
+            resource_type = str(target.get("resource_type", "")).strip().lower()
             center_distance = abs(screen_x - screen_center_x) + abs(screen_y - screen_center_y)
             avoid_distance = float("inf")
             if avoid_point is not None:
@@ -1059,7 +1087,7 @@ def main() -> int:
                     continue
             type_penalty = 0 if preferred_type and resource_type == preferred_type.lower() else 1
             avoid_penalty = 0 if avoid_distance >= max(min_separation, 96.0) else 1
-            candidates.append((type_penalty, avoid_penalty, center_distance, screen_x, screen_y, node_path))
+            candidates.append((type_penalty, avoid_penalty, center_distance, screen_x, screen_y, str(target.get("path", ""))))
         if candidates:
             offset_candidates = [candidate for candidate in candidates if candidate[2] >= 96.0]
             chosen_candidates = offset_candidates if offset_candidates else candidates
@@ -1139,12 +1167,18 @@ def main() -> int:
                     break
                 time.sleep(0.1)
             attempt_details.append(
-                "attempt%d=%s action=%s path=%s @(%d,%d)"
+                "attempt%d=%s action=%s path=%s tapped_dist=%s resource=%s resource_dist=%s radii=(%s,%s) zoom=%s @(%d,%d)"
                 % (
                     attempt + 1,
                     sequence_text,
                     diag.get("action", "unknown"),
                     diag.get(path_key, ""),
+                    diag.get("tapped_node_distance_world", "?"),
+                    diag.get("resource_node_path", ""),
+                    diag.get("resource_node_distance_world", "?"),
+                    diag.get("unit_hit_radius_world", "?"),
+                    diag.get("resource_hit_radius_world", "?"),
+                    diag.get("camera_zoom", "?"),
                     screen_x,
                     screen_y,
                 )
@@ -1382,11 +1416,13 @@ def main() -> int:
     def wait_for_military_available(timeout: float = 50.0) -> bool:
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
+            session_diag = first_session_diag()
+            military_count = int(as_float(session_diag.get("military_count", 0), 0.0))
             diag = hud_touch_diag()
             army_button = find_named_control(diag, "SelectMilitaryButton")
             if isinstance(army_button, dict):
                 disabled = as_bool(army_button.get("disabled", True), True)
-                if not disabled:
+                if military_count > 0 and not disabled:
                     return True
             time.sleep(0.5)
         return False
@@ -2296,9 +2332,20 @@ def main() -> int:
                         if scout_queued:
                             break
                         time.sleep(0.1)
+                    train_diag = hud_train_action_diag()
+                    request_result = str(diag.get("last_train_request_result", "unknown"))
                     train_attempt_details.append(
-                        "attempt%d=%s offset=(%d,%d) scout=%s"
-                        % (attempt + 1, sequence_text, tap_dx, tap_dy, scout_queued)
+                        "attempt%d=%s offset=(%d,%d) scout=%s hud_unit=%s emitted=%s result=%s"
+                        % (
+                            attempt + 1,
+                            sequence_text,
+                            tap_dx,
+                            tap_dy,
+                            scout_queued,
+                            train_diag.get("unit_type", "?"),
+                            train_diag.get("request_emitted", "?"),
+                            request_result,
+                        )
                     )
                     if scout_queued:
                         break
@@ -2331,10 +2378,18 @@ def main() -> int:
         if wait_for_military_available(timeout=50.0):
             record("touch_train_wait_for_military", True, "Military action button enabled")
         else:
+            military_wait_diag = first_session_diag()
             record(
                 "touch_train_wait_for_military",
                 False,
-                "Military action button did not become available within timing window",
+                "Military unit did not become available; count=%s train_result=%s production_ticks=%s active_queues=%s progress=%s"
+                % (
+                    military_wait_diag.get("military_count", "?"),
+                    military_wait_diag.get("last_train_request_result", "?"),
+                    military_wait_diag.get("production_tick_counter", "?"),
+                    military_wait_diag.get("production_active_queue_count", "?"),
+                    military_wait_diag.get("production_latest_progress", "?"),
+                ),
             )
             raise MCPError("military action button unavailable for touch move validation")
 
@@ -2346,9 +2401,28 @@ def main() -> int:
         if as_bool(army_button.get("disabled", True), True):
             record("touch_select_military_move_smoke", False, "SelectMilitaryButton remained disabled after military spawn")
             raise MCPError("SelectMilitaryButton remained disabled after scout training")
-        military_target = find_visible_player_military_target(screen_w, screen_h)
+        military_target = wait_for_visible_player_military_target(screen_w, screen_h)
         if military_target is None:
-            record("touch_select_military_move_smoke", False, "No visible player military unit found for move command")
+            target_diag = selection_manager_touch_target_diag()
+            unit_summaries: list[str] = []
+            for entry in target_diag.get("units", []):
+                if not isinstance(entry, dict):
+                    continue
+                unit_summaries.append(
+                    "%s(owner=%s,type=%s,screen=%s,%s)"
+                    % (
+                        entry.get("path", ""),
+                        entry.get("player_owner", "?"),
+                        entry.get("unit_type", "?"),
+                        entry.get("screen_x", "?"),
+                        entry.get("screen_y", "?"),
+                    )
+                )
+            record(
+                "touch_select_military_move_smoke",
+                False,
+                "No visible player military unit found; target snapshot units: %s" % " | ".join(unit_summaries),
+            )
             raise MCPError("no visible player military unit found for move command")
         military_x, military_y, military_path = military_target
         empty_ground_target = find_visible_empty_ground_target(screen_w, screen_h, military_x, military_y)

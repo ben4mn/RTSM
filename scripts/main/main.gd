@@ -111,6 +111,8 @@ var _first_session_hint_emphasis: bool = false
 var _production_tick_counter: int = 0
 var _production_active_queue_count: int = 0
 var _production_latest_progress: float = 0.0
+var _last_train_request_result: String = "none"
+var _last_train_request_unit_type: int = -1
 
 # --- First-session telemetry (read via MCP node.get_properties on /root/Main) ---
 @export var first_session_diagnostics: Dictionary = {}
@@ -339,6 +341,8 @@ func _refresh_first_session_diagnostics() -> void:
 		"production_tick_counter": _production_tick_counter,
 		"production_active_queue_count": _production_active_queue_count,
 		"production_latest_progress": _production_latest_progress,
+		"last_train_request_result": _last_train_request_result,
+		"last_train_request_unit_type": _last_train_request_unit_type,
 	}
 
 
@@ -1057,7 +1061,7 @@ func _on_unit_trained(unit_type: int, spawn_pos: Vector2, player_id: int) -> voi
 		):
 			game_map.selection_mgr.select_single(unit)
 			game_map.camera.position = unit.global_position
-			game_map._clamp_camera()
+			game_map.camera.reset_smoothing()
 			hud.show_notification("Scout ready: tap Military, then tap open ground.", Color(0.95, 0.86, 0.42))
 			_update_progression_hint()
 		# Auto-assign new villagers to gather the most needed resource
@@ -1406,10 +1410,15 @@ func _on_build_command(building: Node2D) -> void:
 
 
 func _on_train_unit_requested(building: Node2D, unit_type: int) -> void:
+	_last_train_request_unit_type = unit_type
 	if not is_instance_valid(building) or not (building is BuildingBase):
+		_last_train_request_result = "invalid_building"
+		_refresh_first_session_diagnostics()
 		return
 	var b: BuildingBase = building as BuildingBase
 	if not b.can_train():
+		_last_train_request_result = "building_cannot_train"
+		_refresh_first_session_diagnostics()
 		return
 	# Check population room
 	var pop_cost: int = UnitData.UNITS.get(unit_type, {}).get("pop_cost", 1)
@@ -1417,14 +1426,18 @@ func _on_train_unit_requested(building: Node2D, unit_type: int) -> void:
 	var pop: int = player_data.get("population", 0)
 	var cap: int = player_data.get("population_cap", 5)
 	if pop + pop_cost > cap:
+		_last_train_request_result = "population_blocked"
 		hud.show_notification("Need more houses! (Pop %d/%d)" % [pop, cap], Color(1.0, 0.6, 0.2))
+		_refresh_first_session_diagnostics()
 		return
 	var pq: Node = b.get_production_queue()
 	if pq:
 		var success: bool = pq.enqueue_unit(unit_type)
 		if not success:
+			_last_train_request_result = "queue_rejected"
 			hud.show_notification("Cannot train — not enough resources or queue full", Color(1.0, 0.4, 0.3))
 		else:
+			_last_train_request_result = "queued"
 			var guided_scout_fast_track: bool = (
 				b.player_owner == 0
 				and unit_type == UnitData.UnitType.SCOUT
@@ -1435,13 +1448,27 @@ func _on_train_unit_requested(building: Node2D, unit_type: int) -> void:
 			if unit_type == UnitData.UnitType.SCOUT:
 				_opening_scout_queued = true
 			_refresh_guided_opening_stage()
-			if guided_scout_fast_track and pq is ProductionQueue:
-				var scout_queue: ProductionQueue = pq as ProductionQueue
-				if scout_queue.is_training and not scout_queue.queue.is_empty() and int(scout_queue.queue[0]) == unit_type:
-					scout_queue._complete_current_unit()
+			if guided_scout_fast_track:
+				if not pq is ProductionQueue:
+					_last_train_request_result = "fast_track_invalid_queue_type"
+				else:
+					var scout_queue: ProductionQueue = pq as ProductionQueue
+					if not scout_queue.is_training:
+						_last_train_request_result = "fast_track_not_training"
+					elif scout_queue.queue.is_empty():
+						_last_train_request_result = "fast_track_empty_queue"
+					elif int(scout_queue.queue[0]) != unit_type:
+						_last_train_request_result = "fast_track_queue_mismatch"
+					else:
+						scout_queue._complete_current_unit()
+						_last_train_request_result = "fast_track_completed"
 		# Refresh selection display to show updated queue
 		_on_selection_changed(game_map.selection_mgr.selected)
 		_update_progression_hint()
+		_refresh_first_session_diagnostics()
+	else:
+		_last_train_request_result = "missing_queue"
+		_refresh_first_session_diagnostics()
 
 
 func _on_minimap_clicked(world_pos: Vector2) -> void:

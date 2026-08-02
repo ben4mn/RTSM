@@ -33,6 +33,7 @@ var _camera_origin := Vector2.ZERO
 var _touch_points: Dictionary = {}  # index -> position
 var _touch_start_points: Dictionary = {}  # index -> initial press position
 var _touch_pan_active: Dictionary = {}  # index -> bool
+var _touch_input_detected: bool = false
 
 ## Camera zoom limits.
 const DESKTOP_ZOOM_MIN := 0.5
@@ -228,7 +229,7 @@ func _update_camera_pan(delta: float) -> void:
 		pan.x += 1.0
 
 	# Edge scrolling should only run on pointer-based desktop controls.
-	if not DisplayServer.is_touchscreen_available():
+	if not DisplayServer.is_touchscreen_available() and not _touch_input_detected:
 		var viewport_size: Vector2 = get_viewport().get_visible_rect().size
 		var mouse_pos: Vector2 = get_viewport().get_mouse_position()
 		if mouse_pos.x < EDGE_SCROLL_MARGIN:
@@ -271,6 +272,7 @@ func _clamp_camera() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	# --- Multi-touch pinch zoom (mobile) ---
 	if event is InputEventScreenTouch:
+		_touch_input_detected = true
 		var touch := event as InputEventScreenTouch
 		if touch.pressed:
 			_touch_points[touch.index] = touch.position
@@ -291,6 +293,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				_touch_pan_active[remaining_idx] = false
 
 	elif event is InputEventScreenDrag:
+		_touch_input_detected = true
 		var drag := event as InputEventScreenDrag
 		if not _touch_points.has(drag.index):
 			# If touch press was consumed by UI before reaching map input, infer a drag origin

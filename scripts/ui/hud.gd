@@ -148,6 +148,7 @@ var _focus_pulse_time: float = 0.0
 @export var mobile_layout_diagnostics: Dictionary = {}
 @export var mobile_layout_profiles: Dictionary = {}
 @export var touch_target_diagnostics: Dictionary = {}
+@export var train_action_diagnostics: Dictionary = {}
 
 
 func _ready() -> void:
@@ -1408,7 +1409,10 @@ func _update_train_buttons(trainable_units: Array) -> void:
 
 	# Clear old buttons
 	for child in _train_buttons_container.get_children():
-		child.free()
+		if child is Control:
+			(child as Control).visible = false
+			(child as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+		child.queue_free()
 
 	if trainable_units.is_empty():
 		_train_buttons_container.visible = false
@@ -1480,7 +1484,14 @@ func _update_train_buttons(trainable_units: Array) -> void:
 
 func _on_train_button_pressed(unit_type: int) -> void:
 	AudioManager.play_ui("button_click")
+	train_action_diagnostics = {
+		"timestamp_ms": Time.get_ticks_msec(),
+		"unit_type": unit_type,
+		"building_path": str(_selected_building_ref.get_path()) if _selected_building_ref and is_instance_valid(_selected_building_ref) else "",
+		"request_emitted": false,
+	}
 	if _selected_building_ref and is_instance_valid(_selected_building_ref):
+		train_action_diagnostics["request_emitted"] = true
 		train_unit_requested.emit(_selected_building_ref, unit_type)
 
 
