@@ -10,6 +10,7 @@ import argparse
 import json
 import os
 import shlex
+import statistics
 import subprocess
 import sys
 import time
@@ -394,6 +395,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--seeds", default="-1", help="Comma-separated deterministic map seeds")
     parser.add_argument("--time-scale", type=float, default=1.0, help="Simulation time scale (clamped by runtime to 1x-3x)")
     parser.add_argument("--require-completion", action="store_true", help="Fail a case unless it reaches a production game-over state")
+    parser.add_argument("--append", action="store_true", help="Merge cases into an existing compatible output report")
     parser.add_argument("--out", type=Path, default=Path("docs") / "phase4_balance_pass_latest.json", help="Output JSON report path")
     parser.add_argument("--verbose", action="store_true", help="Verbose telemetry prints")
     return parser.parse_args()
@@ -439,19 +441,53 @@ def main() -> int:
             if not result.ok:
                 print(f"[{name} seed={seed}] reason: {result.reason}")
 
+    report_results: list[dict[str, Any]] = [result.__dict__ for result in results]
+    if args.append and args.out.exists():
+        existing = json.loads(args.out.read_text(encoding="utf-8"))
+        for key, expected in {
+            "sim_seconds": args.sim_seconds,
+            "sample_seconds": args.sample_seconds,
+            "time_scale": args.time_scale,
+            "require_completion": args.require_completion,
+        }.items():
+            if existing.get(key) != expected:
+                raise SystemExit(f"Cannot append: existing {key}={existing.get(key)!r}, requested {expected!r}")
+        merged: dict[tuple[int, int], dict[str, Any]] = {}
+        for entry in existing.get("results", []):
+            merged[(int(entry["difficulty"]), int(entry["seed"]))] = entry
+        for entry in report_results:
+            merged[(int(entry["difficulty"]), int(entry["seed"]))] = entry
+        report_results = [merged[key] for key in sorted(merged)]
+
+    completed_results = [entry for entry in report_results if bool(entry.get("match_completed", False))]
+    match_times = [float(entry["elapsed"]) for entry in completed_results]
+    first_attack_times = [float(entry["first_attack_time"]) for entry in completed_results if float(entry.get("first_attack_time", -1.0)) >= 0.0]
+    winner_counts: dict[str, int] = {}
+    for entry in completed_results:
+        winner_key = str(int(entry.get("winner_id", -1)))
+        winner_counts[winner_key] = winner_counts.get(winner_key, 0) + 1
     output = {
         "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "sim_seconds": args.sim_seconds,
         "sample_seconds": args.sample_seconds,
         "time_scale": args.time_scale,
         "require_completion": args.require_completion,
-        "results": [result.__dict__ for result in results],
+        "summary": {
+            "cases": len(report_results),
+            "passed": sum(1 for entry in report_results if bool(entry.get("ok", False))),
+            "completed": len(completed_results),
+            "runtime_errors": sum(int(entry.get("runtime_errors", 0)) for entry in report_results),
+            "median_match_seconds": statistics.median(match_times) if match_times else -1.0,
+            "median_first_attack_seconds": statistics.median(first_attack_times) if first_attack_times else -1.0,
+            "winner_counts": winner_counts,
+        },
+        "results": report_results,
     }
     args.out.write_text(json.dumps(output, indent=2), encoding="utf-8")
 
     print(f"\\nSaved report: {args.out}")
 
-    return 0 if all(result.ok for result in results) else 1
+    return 0 if all(bool(entry.get("ok", False)) for entry in report_results) else 1
 
 
 if __name__ == "__main__":

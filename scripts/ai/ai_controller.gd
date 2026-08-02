@@ -169,10 +169,7 @@ func start_ai(base_tile: Vector2i, base_world_pos: Vector2) -> void:
 	_base_tile = base_tile
 	_base_position = base_world_pos
 	# Staging point is a short distance in front of our base toward map center
-	var center := Vector2(
-		MapData.MAP_WIDTH / 2.0 * MapData.TILE_WIDTH,
-		MapData.MAP_HEIGHT / 2.0 * MapData.TILE_HEIGHT
-	)
+	var center: Vector2 = _tile_to_world(Vector2i(MapData.MAP_WIDTH / 2, MapData.MAP_HEIGHT / 2))
 	_staging_point = _base_position.lerp(center, 0.25)
 	_build_scout_waypoints(center)
 	_decision_timer.start()
@@ -244,10 +241,7 @@ func _build_scout_waypoints(map_center: Vector2) -> void:
 	var enemy_spawn_world: Vector2 = map_center
 	if map_generator and map_generator.spawn_positions.size() > enemy_id:
 		var spawn_tile: Vector2i = map_generator.spawn_positions[enemy_id]
-		enemy_spawn_world = Vector2(
-			spawn_tile.x * MapData.TILE_WIDTH + MapData.TILE_WIDTH * 0.5,
-			spawn_tile.y * MapData.TILE_HEIGHT + MapData.TILE_HEIGHT * 0.5
-		)
+		enemy_spawn_world = _tile_to_world(spawn_tile)
 	var flank_a: Vector2 = enemy_spawn_world.lerp(map_center, 0.38) + Vector2(-160.0, 90.0)
 	var flank_b: Vector2 = enemy_spawn_world.lerp(map_center, 0.38) + Vector2(160.0, -90.0)
 	_scout_waypoints = [
@@ -809,10 +803,7 @@ func _check_research() -> void:
 func _check_scouting() -> void:
 	# Send scouts through a stable route that repeatedly crosses the enemy half.
 	if _scout_waypoints.is_empty():
-		var center := Vector2(
-			MapData.MAP_WIDTH / 2.0 * MapData.TILE_WIDTH,
-			MapData.MAP_HEIGHT / 2.0 * MapData.TILE_HEIGHT
-		)
+		var center: Vector2 = _tile_to_world(Vector2i(MapData.MAP_WIDTH / 2, MapData.MAP_HEIGHT / 2))
 		_build_scout_waypoints(center)
 	for unit in _my_units:
 		if not is_instance_valid(unit) or not (unit is UnitBase):
@@ -977,10 +968,7 @@ func _find_enemy_target() -> Vector2:
 	# Fall back to enemy spawn position (known from map symmetry)
 	if map_generator and map_generator.spawn_positions.size() > enemy_id:
 		var spawn: Vector2i = map_generator.spawn_positions[enemy_id]
-		return Vector2(
-			spawn.x * MapData.TILE_WIDTH + MapData.TILE_WIDTH / 2.0,
-			spawn.y * MapData.TILE_HEIGHT + MapData.TILE_HEIGHT / 2.0
-		)
+		return _tile_to_world(spawn)
 
 	return Vector2(-1, -1)
 
@@ -1018,6 +1006,12 @@ func _score_enemy_node(node: Node) -> float:
 # ═════════════════════════════════════════════════════════════════════════
 #  HELPER FUNCTIONS
 # ═════════════════════════════════════════════════════════════════════════
+
+func _tile_to_world(tile: Vector2i) -> Vector2:
+	if game_map != null and game_map.has_method("tile_to_world"):
+		return game_map.call("tile_to_world", tile)
+	push_error("AIController requires GameMap.tile_to_world() before starting")
+	return _base_position
 
 func _cleanup_references() -> void:
 	_my_units = _my_units.filter(func(u: Node) -> bool:
