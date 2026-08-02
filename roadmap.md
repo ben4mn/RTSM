@@ -1,6 +1,6 @@
 # AOEM Closed-Beta Roadmap
 
-Last audited: August 1, 2026
+Last audited: August 2, 2026
 
 ## Executive Status
 
@@ -10,11 +10,11 @@ Current evidence:
 
 - Godot `4.6.stable` headless boot: clean.
 - `python3 tools/mcp_smoke_test.py`: **PASS (18/18) twice consecutively** on August 1, 2026, including the 75-second simulation, production, touch, patrol, attack-move, clean runtime logs, and 60 FPS checks.
-- `python3 tools/mcp_phone_playability.py`: **PASS (60/60) twice consecutively** on August 1, 2026 with seed `424242`, including gather -> House -> Scout -> touch move -> free play.
+- `python3 tools/mcp_phone_playability.py`: latest verified **PASS (64/64)** with seed `424242`, including gather -> House -> Scout -> touch move -> free play.
 - Gate 0 fixes now use engine-side target snapshots, detailed hit/action/queue diagnostics, immediate removal of stale build-menu controls, safe deferred deletion of rebuilt train controls, explicit military-count readiness, guided Scout focus, and sticky touch camera mode that disables desktop edge-scroll conflicts after touch input.
-- The current worktree was clean before this audit. The latest checkpoint was `f4681de` (`Harden deterministic phone gate seed entry`).
+- The latest committed checkpoint is `fe94b8a` (`Validate five-seed Medium match matrix`). The current evidence artifact extends that matrix to ten completed Medium seeds and remains to be committed with this roadmap update.
 
-Release posture: **Gate 0 passed; Gate 1 first-session UX and manual phone evidence are next.**
+Release posture: **Gate 0 passed; Gate 1 still needs external/manual opener evidence; Gate 2's automated ten-match completion criterion is met, while manual match and pacing-judgment criteria remain open.**
 
 ## What The Reference Target Teaches
 
@@ -97,7 +97,7 @@ Exit gate:
 
 ## Gate 2 — Complete And Satisfying Match Loop (P1, 1–2 weeks)
 
-Status: **IN PROGRESS.** Match conclusions now preserve and display the victory cause, duration, Feudal timing, final ages, army produced (separate from villagers), units/buildings lost, total gathered resources, cumulative sacred-site control, and comparative score. The summary publishes structured diagnostics, guards against duplicate overlays, retains 48 px restart/menu actions, and has a focused 844×390 safe-bounds regression. A real-scene headless suite passes sacred-site victory → menu, enemy Town Center elimination → menu, and player Town Center loss/defeat → restart into a fresh `PLAYING` match, including duplicate-ending stability. The strict seeded harness pins MCP `2.16.1`, appends compatible seed/difficulty matrices, supports 1×–3× simulation, records attacks and authoritative game-over summaries, and requires completion instead of treating elapsed time as success. AI macro no longer prebuilds 12 Houses or overqueues villagers, prioritizes its first Barracks, and uses `GameMap.tile_to_world()` for staging/scouting/attack targets. Medium seeds `101`, `202`, `303`, `404`, and `424242` are **5/5 completed, 0 runtime errors**, with median match **9:01**, median first attack **3:00**, four Town Center endings and one sacred-site ending (`docs/seeded_match_probe_latest.json`): **5/10 required seeded completions**. All winners are AI because this stability harness intentionally leaves the human side idle; that is not evidence of balanced human win rates. Latest integration evidence remains phone **PASS (64/64)**, smoke **PASS (18/18)**, focused summary **PASS**, and all three ending scenarios **PASS**. One earlier phone run had a non-emitting Scout-button tap before later clean runs, so touch reliability remains under observation. Five more seeded simulations, three manual phone matches, and pacing judgment remain open.
+Status: **IN PROGRESS.** Match conclusions now preserve and display the victory cause, duration, Feudal timing, final ages, army produced (separate from villagers), units/buildings lost, total gathered resources, cumulative sacred-site control, and comparative score. The summary publishes structured diagnostics, guards against duplicate overlays, retains 48 px restart/menu actions, and has a focused 844×390 safe-bounds regression. A real-scene headless suite passes sacred-site victory → menu, enemy Town Center elimination → menu, and player Town Center loss/defeat → restart into a fresh `PLAYING` match, including duplicate-ending stability. The strict seeded harness pins MCP `2.16.1`, appends compatible seed/difficulty matrices, supports 1×–3× simulation, records attacks and authoritative game-over summaries, and requires completion instead of treating elapsed time as success. AI macro no longer prebuilds 12 Houses or overqueues villagers, prioritizes its first Barracks, and uses `GameMap.tile_to_world()` for staging/scouting/attack targets. Medium seeds `101`, `202`, `303`, `404`, `505`, `606`, `707`, `808`, `909`, and `424242` are **10/10 completed with 0 runtime errors** (`docs/seeded_match_probe_latest.json`). Median match duration is **8:44** and median first attack is **3:00**; nine matches ended through Town Center destruction and one through a three-minute sacred-site hold. This satisfies the automated ten-seed completion criterion. All winners are AI because the stability harness intentionally leaves the human side idle; this is not evidence of fair human win rates or acceptable difficulty. Latest integration evidence remains phone **PASS (64/64)**, smoke **PASS (18/18)**, focused summary **PASS**, and all three ending scenarios **PASS**. One earlier phone run had a non-emitting Scout-button tap before later clean runs, so touch reliability remains under observation. Three manual phone matches with three endings and an explicit pacing judgment remain open.
 
 Goal: every match supports meaningful economic and military decisions through a clear ending.
 
@@ -213,12 +213,11 @@ A beta invitation is allowed only when every item is true:
 
 ## Next Coherent Implementation Cycle
 
-1. Instrument pointer hit resolution and selection/command acknowledgement.
-2. Reproduce and fix the `select_resource` result when the gate targets a villager.
-3. Reproduce and fix the post-Scout pointer timeout.
-4. Run smoke + phone twice from clean sessions.
-5. Update the generated phone report and this status section with the exact results.
-6. Commit only after the validation contract is deterministic and both gates are green.
+1. Validate and commit the completed ten-seed Medium matrix plus this roadmap checkpoint after running focused regressions.
+2. Conduct three manual phone-sized full matches that reach three different endings, recording confusion, dead ends, pacing, and clean-log evidence.
+3. Judge the measured Medium timings against the intended compact RTS session; document acceptable ranges or tune from evidence.
+4. Begin Gate 3 with five seeds each on Easy, Medium, and Hard, comparing pressure, recovery, objective behavior, and stalls rather than treating idle-human win rate as balance evidence.
+5. Keep the phone and smoke gates green after every coherent gameplay or AI checkpoint.
 
 ## Source Of Truth
 
