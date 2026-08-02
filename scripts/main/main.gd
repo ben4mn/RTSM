@@ -63,9 +63,14 @@ const UNDER_ATTACK_COOLDOWN_TIME: float = 10.0
 
 # --- Game stats (indexed by player_id) ---
 var _stats: Array[Dictionary] = [
-	{"units_trained": 0, "units_killed": 0, "units_lost": 0, "buildings_built": 0, "resources_gathered": 0},
-	{"units_trained": 0, "units_killed": 0, "units_lost": 0, "buildings_built": 0, "resources_gathered": 0},
+	{"units_trained": 0, "army_trained": 0, "units_killed": 0, "units_lost": 0, "buildings_built": 0, "buildings_lost": 0, "resources_gathered": 0},
+	{"units_trained": 0, "army_trained": 0, "units_killed": 0, "units_lost": 0, "buildings_built": 0, "buildings_lost": 0, "resources_gathered": 0},
 ]
+
+# --- Match conclusion evidence ---
+var _victory_reason: String = "Landmark destroyed"
+var _game_over_shown: bool = false
+@export var match_summary_diagnostics: Dictionary = {}
 
 # --- Control groups (Ctrl+1-9 save, 1-9 recall) ---
 var _control_groups: Array = [[], [], [], [], [], [], [], [], [], []]
@@ -525,6 +530,7 @@ func _on_sacred_site_timer_tick(player_id: int, remaining: float, total: float) 
 	hud.update_sacred_site_timer(player_id, remaining, total)
 	# Check for victory
 	if remaining <= 0.0:
+		_victory_reason = "Sacred Site held for %s" % _format_duration_seconds(total)
 		if player_id == 0:
 			# Player wins via sacred site
 			GameManager.defeat_player(1)
@@ -1054,6 +1060,8 @@ func _on_unit_trained(unit_type: int, spawn_pos: Vector2, player_id: int) -> voi
 	var unit: UnitBase = _spawn_unit(unit_type, player_id, spawn_pos)
 	_update_population_display()
 	_stats[player_id]["units_trained"] += 1
+	if unit_type != UnitData.UnitType.VILLAGER:
+		_stats[player_id]["army_trained"] += 1
 	if player_id == 0:
 		_update_idle_villager_count()
 		_on_selection_changed(game_map.selection_mgr.selected)
@@ -1198,6 +1206,7 @@ func _on_building_constructed(building: BuildingBase, player_id: int) -> void:
 
 func _on_building_destroyed(building: BuildingBase, player_id: int, tile_pos: Vector2i) -> void:
 	_player_buildings[player_id].erase(building)
+	_stats[player_id]["buildings_lost"] += 1
 	game_map.remove_building_obstacle(tile_pos, building.footprint)
 	if player_id == 0:
 		hud.show_notification("Building destroyed!", Color(1.0, 0.3, 0.3))
@@ -1214,6 +1223,7 @@ func _on_building_destroyed(building: BuildingBase, player_id: int, tile_pos: Ve
 				has_tc = true
 				break
 		if not has_tc:
+			_victory_reason = "%s destroyed" % building.building_name
 			GameManager.defeat_player(player_id)
 			_show_game_over()
 
@@ -2260,6 +2270,9 @@ func _update_progression_hint() -> void:
 # =========================================================================
 
 func _show_game_over() -> void:
+	if _game_over_shown:
+		return
+	_game_over_shown = true
 	_clear_guidance_state(true)
 	var winner_id: int = -1
 	for pid in GameManager.players:
@@ -2273,22 +2286,30 @@ func _show_game_over() -> void:
 	add_child(game_over)
 
 	var stats: Dictionary = {
+		"victory_reason": _victory_reason,
 		"game_time": GameManager.get_formatted_time(),
 		"units_killed": _stats[0]["units_killed"],
 		"units_lost": _stats[0]["units_lost"],
 		"units_trained": _stats[0]["units_trained"],
+		"army_trained": _stats[0]["army_trained"],
 		"buildings_built": _stats[0]["buildings_built"],
+		"buildings_lost": _stats[0]["buildings_lost"],
 		"resources_gathered": _stats[0]["resources_gathered"],
 		"score": _calculate_score(0),
 		"ai_score": _calculate_score(1),
 		"ai_units_killed": _stats[1]["units_killed"],
 		"ai_units_lost": _stats[1]["units_lost"],
 		"ai_units_trained": _stats[1]["units_trained"],
+		"ai_army_trained": _stats[1]["army_trained"],
 		"ai_buildings_built": _stats[1]["buildings_built"],
+		"ai_buildings_lost": _stats[1]["buildings_lost"],
 		"ai_resources_gathered": _stats[1]["resources_gathered"],
 		"player_age": GameManager.get_player_age(0),
 		"ai_age": GameManager.get_player_age(1),
 	}
+	match_summary_diagnostics = stats.duplicate(true)
+	match_summary_diagnostics["winner_id"] = winner_id
+	match_summary_diagnostics["is_victory"] = is_victory
 	if is_victory:
 		game_over.show_victory(stats)
 	else:
@@ -2299,6 +2320,14 @@ func _show_game_over() -> void:
 		game_over.restart_requested.connect(_on_restart)
 	if game_over.has_signal("main_menu_requested"):
 		game_over.main_menu_requested.connect(_on_main_menu)
+
+
+func _format_duration_seconds(duration: float) -> String:
+	var total_seconds: int = maxi(0, int(round(duration)))
+	@warning_ignore("integer_division")
+	var minutes: int = total_seconds / 60
+	var seconds: int = total_seconds % 60
+	return "%d:%02d" % [minutes, seconds]
 
 
 func _calculate_score(player_id: int = 0) -> int:

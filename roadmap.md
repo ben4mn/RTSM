@@ -97,6 +97,8 @@ Exit gate:
 
 ## Gate 2 — Complete And Satisfying Match Loop (P1, 1–2 weeks)
 
+Status: **IN PROGRESS.** Match conclusions now preserve and display the victory cause, duration, final ages, army produced (separate from villagers), units killed/lost, buildings lost, total gathered resources, and comparative score. The summary publishes structured diagnostics, guards against duplicate overlays, retains 48 px restart/menu actions, and has a focused 844×390 safe-bounds regression. Sacred-site and Town Center endings populate distinct reasons. Latest integration evidence is phone **PASS (64/64)**, smoke **PASS (18/18)** with a clean 75-second simulation, and focused game-over summary **PASS**. Age timings, cumulative objective control, full ending-path automation, and the required seeded/manual match samples remain open.
+
 Goal: every match supports meaningful economic and military decisions through a clear ending.
 
 Economy and progression:
