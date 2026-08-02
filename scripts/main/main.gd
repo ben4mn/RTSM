@@ -157,6 +157,8 @@ var _last_placement_feedback: String = ""
 @export var balance_ai_resource_float: int = 0
 @export var balance_ai_peak_military: int = 0
 @export var balance_ai_peak_villagers: int = 0
+@export var balance_ai_attack_count: int = 0
+@export var balance_ai_first_attack_time: float = -1.0
 var _balance_snapshot_timer: float = 0.0
 const BALANCE_SNAPSHOT_INTERVAL: float = 1.0
 
@@ -201,6 +203,8 @@ func _reset_balance_snapshot() -> void:
 	balance_ai_resource_float = 0
 	balance_ai_peak_military = 0
 	balance_ai_peak_villagers = 0
+	balance_ai_attack_count = 0
+	balance_ai_first_attack_time = -1.0
 	_balance_snapshot_timer = 0.0
 
 
@@ -363,6 +367,8 @@ func _refresh_first_session_diagnostics() -> void:
 
 func _on_map_ready(map_gen: MapGenerator) -> void:
 	# Initialize game state for 2 players.
+	var simulation_speed: String = OS.get_environment("AOEM_SIM_TIME_SCALE").strip_edges()
+	Engine.time_scale = clampf(float(simulation_speed), 1.0, 3.0) if simulation_speed.is_valid_float() else 1.0
 	GameManager.initialize_game(2)
 	ResourceManager.initialize_player(0)
 	ResourceManager.initialize_player(1)
@@ -1878,6 +1884,7 @@ func _setup_ai(map_gen: MapGenerator) -> void:
 	ai_controller.ai_wants_to_build.connect(_on_ai_wants_to_build)
 	ai_controller.ai_wants_to_train.connect(_on_ai_wants_to_train)
 	ai_controller.ai_wants_to_age_up.connect(_on_ai_wants_to_age_up)
+	ai_controller.ai_attack_launched.connect(_on_ai_attack_launched)
 
 	# Start AI with its base position.
 	var ai_spawn: Vector2i = map_gen.spawn_positions[1]
@@ -1924,6 +1931,12 @@ func _on_ai_wants_to_age_up() -> void:
 		var new_age: int = GameManager.get_player_age(ai_controller.player_id)
 		var age_name: String = GameManager.get_age_name(new_age)
 		hud.show_notification("Enemy advancing to %s!" % age_name, Color(1.0, 0.4, 0.2))
+
+
+func _on_ai_attack_launched(_units: Array, _target_pos: Vector2) -> void:
+	balance_ai_attack_count += 1
+	if balance_ai_first_attack_time < 0.0:
+		balance_ai_first_attack_time = GameManager.game_time
 
 
 # =========================================================================

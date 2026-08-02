@@ -34,8 +34,12 @@ DIFFICULTIES: list[tuple[int, str]] = [
 class DifficultyResult:
     difficulty: int
     name: str
+    seed: int
     ok: bool
     reason: str
+    match_completed: bool
+    winner_id: int
+    victory_reason: str
     runtime_errors: int
     elapsed: float
     age: int
@@ -53,6 +57,8 @@ class DifficultyResult:
     resource_float: int
     peak_villagers: int
     peak_military: int
+    attack_count: int
+    first_attack_time: float
     pressure_samples: int
     saving_samples: int
     stall_seconds: float
@@ -88,9 +94,11 @@ class BalanceRunner:
             raise last_error
         raise MCPError("failed to read main snapshot")
 
-    def _start_editor(self, difficulty: int, log_path: Path) -> subprocess.Popen[str]:
+    def _start_editor(self, difficulty: int, seed: int, log_path: Path) -> subprocess.Popen[str]:
         env = os.environ.copy()
         env["AOEM_AI_DIFFICULTY"] = str(difficulty)
+        env["AOEM_MAP_SEED"] = str(seed)
+        env["AOEM_SIM_TIME_SCALE"] = str(self.args.time_scale)
         cmd = [
             "/Applications/Godot.app/Contents/MacOS/Godot",
             "--headless",
@@ -120,17 +128,20 @@ class BalanceRunner:
             except Exception:
                 pass
 
-    def run_difficulty(self, difficulty: int, name: str) -> DifficultyResult:
+    def run_difficulty(self, difficulty: int, name: str, seed: int = -1) -> DifficultyResult:
         editor_proc: subprocess.Popen[str] | None = None
         client: MCPClient | None = None
         runtime_errors = 0
         snapshots: list[dict[str, Any]] = []
         pressure_samples = 0
         saving_samples = 0
+        match_completed = False
+        winner_id = -1
+        victory_reason = ""
 
         try:
-            log_path = self.args.out_dir / f"balance_editor_{difficulty}_{name.lower()}.log"
-            editor_proc = self._start_editor(difficulty, log_path)
+            log_path = self.args.out_dir / f"balance_editor_{difficulty}_{name.lower()}_seed_{seed}.log"
+            editor_proc = self._start_editor(difficulty, seed, log_path)
             time.sleep(self.args.editor_boot_seconds)
 
             client = MCPClient(self.args.server_cmd, request_timeout=self.args.request_timeout, verbose=self.args.verbose)
@@ -190,6 +201,13 @@ class BalanceRunner:
                     new_errors = self._get_errors(client, clear=True)
                     runtime_errors += len(new_errors)
 
+                    summary = snap.get("match_summary_diagnostics", {})
+                    if isinstance(summary, dict) and "winner_id" in summary:
+                        match_completed = True
+                        winner_id = int(summary.get("winner_id", -1))
+                        victory_reason = str(summary.get("victory_reason", ""))
+                        break
+
                     if self.args.verbose:
                         print(
                             f"[{name}] t={snap.get('balance_elapsed_seconds', 0):.1f}s "
@@ -238,16 +256,31 @@ class BalanceRunner:
             castle = float(final.get("balance_ai_castle_time", -1.0))
             imperial = float(final.get("balance_ai_imperial_time", -1.0))
 
-            ok = runtime_errors == 0 and fps >= self.args.min_fps and frame_time_ms <= self.args.max_frame_time_ms and not scene_stopped_early
-            reason = "ok" if ok else ("scene_stopped_early" if scene_stopped_early else "runtime/perf issues")
+            completion_ok = match_completed or not self.args.require_completion
+            ok = runtime_errors == 0 and fps >= self.args.min_fps and frame_time_ms <= self.args.max_frame_time_ms and not scene_stopped_early and completion_ok
+            if ok:
+                reason = "ok"
+            elif scene_stopped_early:
+                reason = "scene_stopped_early"
+            elif not completion_ok:
+                reason = "match_did_not_complete"
+            else:
+                reason = "runtime/perf issues"
+
+            summary = final.get("match_summary_diagnostics", {})
+            elapsed_seconds = self._parse_match_time(str(summary.get("game_time", ""))) if match_completed and isinstance(summary, dict) else float(final.get("balance_elapsed_seconds", self.args.sim_seconds))
 
             return DifficultyResult(
                 difficulty=difficulty,
                 name=name,
+                seed=seed,
                 ok=ok,
                 reason=reason,
+                match_completed=match_completed,
+                winner_id=winner_id,
+                victory_reason=victory_reason,
                 runtime_errors=runtime_errors,
-                elapsed=float(final.get("balance_elapsed_seconds", self.args.sim_seconds)),
+                elapsed=elapsed_seconds,
                 age=age,
                 feudal_time=feudal,
                 castle_time=castle,
@@ -263,6 +296,8 @@ class BalanceRunner:
                 resource_float=int(final.get("balance_ai_resource_float", 0)),
                 peak_villagers=int(final.get("balance_ai_peak_villagers", 0)),
                 peak_military=int(final.get("balance_ai_peak_military", 0)),
+                attack_count=int(final.get("balance_ai_attack_count", 0)),
+                first_attack_time=float(final.get("balance_ai_first_attack_time", -1.0)),
                 pressure_samples=pressure_samples,
                 saving_samples=saving_samples,
                 stall_seconds=stall_seconds,
@@ -275,8 +310,12 @@ class BalanceRunner:
             return DifficultyResult(
                 difficulty=difficulty,
                 name=name,
+                seed=seed,
                 ok=False,
                 reason=reason,
+                match_completed=match_completed,
+                winner_id=winner_id,
+                victory_reason=victory_reason,
                 runtime_errors=runtime_errors,
                 elapsed=0.0,
                 age=1,
@@ -294,6 +333,8 @@ class BalanceRunner:
                 resource_float=0,
                 peak_villagers=0,
                 peak_military=0,
+                attack_count=0,
+                first_attack_time=-1.0,
                 pressure_samples=pressure_samples,
                 saving_samples=saving_samples,
                 stall_seconds=0.0,
@@ -307,6 +348,16 @@ class BalanceRunner:
                 except Exception:
                     pass
             self._stop_editor(editor_proc)
+
+    @staticmethod
+    def _parse_match_time(value: str) -> float:
+        parts = value.split(":")
+        if len(parts) != 2:
+            return 0.0
+        try:
+            return float(int(parts[0]) * 60 + int(parts[1]))
+        except ValueError:
+            return 0.0
 
     @staticmethod
     def _estimate_stall_seconds(snapshots: list[dict[str, Any]], sample_seconds: float) -> float:
@@ -331,7 +382,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run focused MCP AI balance pass for Easy/Medium/Hard.")
     parser.add_argument("--project-path", type=Path, default=Path("."), help="Project root path")
     parser.add_argument("--scene", default="res://scenes/main/main.tscn", help="Scene to run")
-    parser.add_argument("--server-cmd", default="npx -y @satelliteoflove/godot-mcp", help="MCP server command")
+    parser.add_argument("--server-cmd", default="npx -y @satelliteoflove/godot-mcp@2.16.1", help="MCP server command")
     parser.add_argument("--sim-seconds", type=float, default=300.0, help="Simulation duration per difficulty")
     parser.add_argument("--sample-seconds", type=float, default=5.0, help="Telemetry sample interval")
     parser.add_argument("--startup-timeout", type=float, default=25.0, help="Wait for scene playing state")
@@ -339,6 +390,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--editor-boot-seconds", type=float, default=6.0, help="Wait after launching Godot editor")
     parser.add_argument("--min-fps", type=float, default=15.0, help="Minimum acceptable FPS")
     parser.add_argument("--max-frame-time-ms", type=float, default=120.0, help="Maximum acceptable frame time")
+    parser.add_argument("--difficulties", default="0,1,2", help="Comma-separated difficulty IDs (0=Easy, 1=Medium, 2=Hard)")
+    parser.add_argument("--seeds", default="-1", help="Comma-separated deterministic map seeds")
+    parser.add_argument("--time-scale", type=float, default=1.0, help="Simulation time scale (clamped by runtime to 1x-3x)")
+    parser.add_argument("--require-completion", action="store_true", help="Fail a case unless it reaches a production game-over state")
     parser.add_argument("--out", type=Path, default=Path("docs") / "phase4_balance_pass_latest.json", help="Output JSON report path")
     parser.add_argument("--verbose", action="store_true", help="Verbose telemetry prints")
     return parser.parse_args()
@@ -354,25 +409,42 @@ def main() -> int:
     runner = BalanceRunner(args)
     results: list[DifficultyResult] = []
 
-    for difficulty, name in DIFFICULTIES:
-        print(f"\\n=== Running {name} (difficulty={difficulty}) ===")
-        result = runner.run_difficulty(difficulty, name)
-        results.append(result)
-        print(
-            f"[{name}] ok={result.ok} age={result.age} "
-            f"feudal={result.feudal_time:.1f}s castle={result.castle_time:.1f}s imperial={result.imperial_time:.1f}s "
-            f"res=({result.food}/{result.wood}/{result.gold}) pop(v/m/b)=({result.villagers}/{result.military}/{result.buildings}) "
-            f"idle(v/p)={result.idle_villagers}/{result.idle_production_buildings} "
-            f"peak(v/m)={result.peak_villagers}/{result.peak_military} float={result.resource_float} "
-            f"stall={result.stall_seconds:.1f}s runtime_errors={result.runtime_errors}"
-        )
-        if not result.ok:
-            print(f"[{name}] reason: {result.reason}")
+    difficulty_names = dict(DIFFICULTIES)
+    try:
+        selected_difficulties = [int(value.strip()) for value in args.difficulties.split(",") if value.strip()]
+        selected_seeds = [int(value.strip()) for value in args.seeds.split(",") if value.strip()]
+    except ValueError as exc:
+        raise SystemExit(f"Invalid difficulty/seed list: {exc}") from exc
+    if not selected_difficulties or any(value not in difficulty_names for value in selected_difficulties):
+        raise SystemExit("Difficulties must contain one or more of 0,1,2")
+    if not selected_seeds:
+        raise SystemExit("At least one seed is required")
+
+    for difficulty in selected_difficulties:
+        name = difficulty_names[difficulty]
+        for seed in selected_seeds:
+            print(f"\\n=== Running {name} (difficulty={difficulty}, seed={seed}) ===")
+            result = runner.run_difficulty(difficulty, name, seed)
+            results.append(result)
+            print(
+                f"[{name} seed={seed}] ok={result.ok} completed={result.match_completed} "
+                f"winner={result.winner_id} reason={result.victory_reason or '-'} age={result.age} "
+                f"feudal={result.feudal_time:.1f}s castle={result.castle_time:.1f}s imperial={result.imperial_time:.1f}s "
+                f"res=({result.food}/{result.wood}/{result.gold}) pop(v/m/b)=({result.villagers}/{result.military}/{result.buildings}) "
+                f"idle(v/p)={result.idle_villagers}/{result.idle_production_buildings} "
+                f"peak(v/m)={result.peak_villagers}/{result.peak_military} float={result.resource_float} "
+                f"attacks={result.attack_count} first_attack={result.first_attack_time:.1f}s "
+                f"stall={result.stall_seconds:.1f}s runtime_errors={result.runtime_errors}"
+            )
+            if not result.ok:
+                print(f"[{name} seed={seed}] reason: {result.reason}")
 
     output = {
         "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "sim_seconds": args.sim_seconds,
         "sample_seconds": args.sample_seconds,
+        "time_scale": args.time_scale,
+        "require_completion": args.require_completion,
         "results": [result.__dict__ for result in results],
     }
     args.out.write_text(json.dumps(output, indent=2), encoding="utf-8")

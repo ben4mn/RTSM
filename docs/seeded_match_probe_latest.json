@@ -1,0 +1,43 @@
+{
+  "generated_at": "2026-08-02T03:45:59Z",
+  "sim_seconds": 240.0,
+  "sample_seconds": 5.0,
+  "time_scale": 3.0,
+  "require_completion": true,
+  "results": [
+    {
+      "difficulty": 1,
+      "name": "Medium",
+      "seed": 424242,
+      "ok": true,
+      "reason": "ok",
+      "match_completed": true,
+      "winner_id": 1,
+      "victory_reason": "Sacred Site held for 3:00",
+      "runtime_errors": 0,
+      "elapsed": 611.0,
+      "age": 2,
+      "feudal_time": 255.535974333371,
+      "castle_time": -1.0,
+      "imperial_time": -1.0,
+      "food": 152,
+      "wood": 32,
+      "gold": 41,
+      "villagers": 20,
+      "military": 29,
+      "buildings": 18,
+      "idle_villagers": 0,
+      "idle_production_buildings": 1,
+      "resource_float": 225,
+      "peak_villagers": 20,
+      "peak_military": 29,
+      "attack_count": 2,
+      "first_attack_time": 174.014316333353,
+      "pressure_samples": 0,
+      "saving_samples": 4,
+      "stall_seconds": 10.0,
+      "fps": 120.0,
+      "frame_time_ms": 9.601
+    }
+  ]
+}

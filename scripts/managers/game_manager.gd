@@ -48,6 +48,9 @@ var researched_upgrades: Dictionary = {}  # player_id -> Array of completed rese
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_load_preferences()
+	var seed_override: String = OS.get_environment("AOEM_MAP_SEED").strip_edges()
+	if seed_override.is_valid_int():
+		selected_map_seed = int(seed_override)
 
 
 func _load_preferences() -> void:

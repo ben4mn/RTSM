@@ -4,5 +4,8 @@
 # Godot MCP plugin runtime
 .godot-mcp/
 
+# Generated balance-harness editor logs
+docs/balance_editor_*.log
+
 # OS files
 .DS_Store

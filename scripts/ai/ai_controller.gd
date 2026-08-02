@@ -331,15 +331,16 @@ func _update_age_up_reserve() -> void:
 func _check_villager_production() -> void:
 	var villagers: Array = _get_villagers()
 	var target: int = _get_target_villager_count()
+	var queued_villagers: int = _count_queued_unit(UnitData.UnitType.VILLAGER)
 
-	if villagers.size() >= target:
+	if villagers.size() + queued_villagers >= target:
 		return
 
 	# Check pop room
 	var player_data: Dictionary = GameManager.players.get(player_id, {})
 	var pop: int = player_data.get("population", 0)
 	var cap: int = player_data.get("population_cap", 5)
-	if pop >= cap:
+	if pop + queued_villagers >= cap:
 		return  # Need houses first
 
 	# Find the least busy Town Center to train from.
@@ -635,7 +636,8 @@ func _get_target_building_counts(age: int) -> Dictionary:
 		farm_target = maxi(1, farm_target)
 
 	var targets: Dictionary = {
-		BuildingData.BuildingType.HOUSE: 12,
+		# Houses are exclusively demand-driven by _check_house_need().
+		BuildingData.BuildingType.HOUSE: 0,
 		BuildingData.BuildingType.MILL: 1 if age <= 2 else 2,
 		BuildingData.BuildingType.LUMBER_CAMP: 1 if age <= 1 else 2,
 		BuildingData.BuildingType.MINING_CAMP: 1 if age <= 2 else 2,
@@ -698,10 +700,10 @@ func _get_build_order(age: int) -> Array:
 	return [
 		BuildingData.BuildingType.HOUSE,
 		BuildingData.BuildingType.MILL,
+		BuildingData.BuildingType.BARRACKS,
 		BuildingData.BuildingType.LUMBER_CAMP,
 		BuildingData.BuildingType.MINING_CAMP,
 		BuildingData.BuildingType.FARM,
-		BuildingData.BuildingType.BARRACKS,
 		BuildingData.BuildingType.BLACKSMITH,
 		BuildingData.BuildingType.ARCHERY_RANGE,
 		BuildingData.BuildingType.STABLE,
@@ -899,6 +901,7 @@ func _check_attack_or_defend() -> void:
 					if unit.has_method("command_attack_move"):
 						unit.command_attack_move(target)
 				_last_harass_time = _game_time
+				ai_attack_launched.emit(raiders, target)
 
 
 func _is_base_under_attack() -> bool:
@@ -1076,6 +1079,20 @@ func _get_building_count(building_type: int) -> int:
 		BuildingData.BuildingType.BLACKSMITH: return _blacksmith_count
 		BuildingData.BuildingType.WATCH_TOWER: return _watch_tower_count
 	return 0
+
+
+func _count_queued_unit(unit_type: int) -> int:
+	var count: int = 0
+	for building in _my_buildings:
+		if not is_instance_valid(building) or not building.has_method("get_production_queue"):
+			continue
+		var queue: Node = building.get_production_queue()
+		if queue == null or not queue.has_method("get_queue_info"):
+			continue
+		for entry in queue.get_queue_info():
+			if int(entry.get("unit_type", -1)) == unit_type:
+				count += 1
+	return count
 
 
 func _get_villagers() -> Array:
