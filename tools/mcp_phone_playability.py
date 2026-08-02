@@ -1735,6 +1735,7 @@ def main() -> int:
                 hud_diag.get("age_up_button", {}),
                 hud_diag.get("pause_button", {}),
                 hud_diag.get("speed_button", {}),
+                hud_diag.get("guidance_dismiss_button", {}),
             ],
         )
         run_touch_target_check(

@@ -16,6 +16,7 @@ signal placement_cancel_requested()
 signal pause_requested()
 signal resume_requested()
 signal quit_to_menu_requested()
+signal guidance_dismissed()
 
 const RESOURCE_COLORS: Dictionary = {
 	"food": Color(0.9, 0.35, 0.25),
@@ -129,6 +130,7 @@ var _pause_overlay: ColorRect = null
 var _resource_node_legend: HBoxContainer = null
 var _progression_hint_panel: PanelContainer = null
 var _progression_hint_label: Label = null
+var _guidance_dismiss_button: Button = null
 var _minimap_hint_label: Label = null
 var _minimap_touch_index: int = -1
 var _resource_values: Dictionary = {"food": 0, "wood": 0, "gold": 0}
@@ -920,6 +922,7 @@ func _refresh_touch_target_diagnostics() -> void:
 	diag["age_up_button"] = _control_touch_diag(age_up_button, "age_up_button")
 	diag["pause_button"] = _control_touch_diag(_pause_button, "pause_button")
 	diag["speed_button"] = _control_touch_diag(_speed_button, "speed_button")
+	diag["guidance_dismiss_button"] = _control_touch_diag(_guidance_dismiss_button, "guidance_dismiss")
 	diag["mobile_action_panel"] = _control_touch_diag(_mobile_action_panel, "mobile_action_panel")
 	diag["placement_cancel_button"] = _control_touch_diag(_placement_cancel_button, "placement_cancel_button")
 	diag["mobile_action_buttons"] = _collect_button_diags(_mobile_action_strip, "mobile_action")
@@ -978,6 +981,8 @@ func set_early_game_ui_state(active: bool) -> void:
 		_score_label.visible = not active
 	if _speed_button:
 		_speed_button.modulate = Color(0.72, 0.72, 0.72, 0.8) if active else Color.WHITE
+	if _guidance_dismiss_button:
+		_guidance_dismiss_button.visible = active
 	update_idle_villager_count(_last_idle_villager_count)
 	update_military_count(_last_military_count)
 	_refresh_primary_action_visuals()
@@ -2012,13 +2017,12 @@ func _create_progression_hint() -> void:
 	hint_style.set_corner_radius_all(4)
 	hint_style.set_content_margin_all(8)
 	_progression_hint_panel.add_theme_stylebox_override("panel", hint_style)
-
 	_progression_hint_label = Label.new()
 	_progression_hint_label.name = "ProgressionHintLabel"
 	_progression_hint_label.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_progression_hint_label.offset_left = 6
 	_progression_hint_label.offset_top = 4
-	_progression_hint_label.offset_right = -6
+	_progression_hint_label.offset_right = -84
 	_progression_hint_label.offset_bottom = -4
 	_progression_hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_progression_hint_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -2028,7 +2032,31 @@ func _create_progression_hint() -> void:
 	_progression_hint_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_progression_hint_panel.add_child(_progression_hint_label)
 
+	var hint_actions_overlay := Control.new()
+	hint_actions_overlay.name = "HintActionsOverlay"
+	hint_actions_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_progression_hint_panel.add_child(hint_actions_overlay)
+
+	_guidance_dismiss_button = Button.new()
+	_guidance_dismiss_button.name = "DismissGuidanceButton"
+	_guidance_dismiss_button.text = "Skip"
+	_guidance_dismiss_button.set_anchors_preset(Control.PRESET_CENTER_RIGHT)
+	_guidance_dismiss_button.offset_left = -76
+	_guidance_dismiss_button.offset_top = -24
+	_guidance_dismiss_button.offset_right = -8
+	_guidance_dismiss_button.offset_bottom = 24
+	_guidance_dismiss_button.custom_minimum_size = Vector2(68, 48)
+	_guidance_dismiss_button.tooltip_text = "End guided opener"
+	_guidance_dismiss_button.visible = false
+	_guidance_dismiss_button.pressed.connect(_on_guidance_dismiss_pressed)
+	hint_actions_overlay.add_child(_guidance_dismiss_button)
+
 	root_ctrl.add_child(_progression_hint_panel)
+
+
+func _on_guidance_dismiss_pressed() -> void:
+	AudioManager.play_ui("button_click")
+	guidance_dismissed.emit()
 
 
 func update_score(score: int, enemy_score: int = 0) -> void:

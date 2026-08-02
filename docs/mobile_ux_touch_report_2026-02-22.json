@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-08-02T02:45:40.182561+00:00",
+  "generated_at_utc": "2026-08-02T02:52:07.571972+00:00",
   "status": "PASS",
   "settings": {
     "menu_scene": "res://scenes/ui/main_menu.tscn",
@@ -79,7 +79,7 @@
     {
       "name": "touch_target_audit_hud_core",
       "passed": true,
-      "detail": "3 controls meet target/aspect constraints"
+      "detail": "4 controls meet target/aspect constraints"
     },
     {
       "name": "touch_target_audit_minimap_region",
@@ -104,12 +104,12 @@
     {
       "name": "touch_select_villager_for_gather",
       "passed": true,
-      "detail": "attempt1=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:492:283:1, pointer:screen_touch:0:492:283:0] over 70ms action=select path=/root/Main/GameMap/UnitsContainer/@Area2D@395 tapped_dist=14.2195014953613 resource= resource_dist=-1 radii=(26.438401222229,30.8448014259338) zoom=1.10160005092621 @(492,283)"
+      "detail": "attempt1=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:507:275:1, pointer:screen_touch:0:507:275:0] over 70ms action=select path=/root/Main/GameMap/UnitsContainer/@Area2D@395 tapped_dist=10.5609645843506 resource= resource_dist=-1 radii=(26.438401222229,30.8448014259338) zoom=1.10160005092621 @(507,275)"
     },
     {
       "name": "touch_select_villager_target",
       "passed": true,
-      "detail": "Tapped villager /root/Main/GameMap/UnitsContainer/@Area2D@395 at (492,283)"
+      "detail": "Tapped villager /root/Main/GameMap/UnitsContainer/@Area2D@395 at (494,285)"
     },
     {
       "name": "touch_select_villager_assertion",
@@ -219,7 +219,7 @@
     {
       "name": "touch_build_place_resume_economy_smoke",
       "passed": true,
-      "detail": "placed at 768,460; attempt1=placed@768,460; minimap_relocate=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:16:554:1, pointer:screen_touch:0:16:554:0] over 70ms | resume_select_after_relocate=attempt1=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:512:383:1, pointer:screen_touch:0:512:383:0] over 70ms selected=1 @(512,383) | resume_gather=attempt1=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:746:441:1, pointer:screen_touch:0:746:441:0] over 70ms action=gather path=/root/Main/GameMap/ResourcesContainer/@Area2D@228 tapped_dist=-1 resource=/root/Main/GameMap/ResourcesContainer/@Area2D@228 resource_dist=0.195649489760399 radii=(24.3199996948242,28.3733329772949) zoom=1.01333332061768 @(746,441)"
+      "detail": "placed at 768,460; attempt1=placed@768,460; minimap_relocate=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:16:554:1, pointer:screen_touch:0:16:554:0] over 70ms | resume_select_after_relocate=attempt1=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:510:385:1, pointer:screen_touch:0:510:385:0] over 70ms selected=1 @(510,385) | resume_gather=attempt1=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:746:441:1, pointer:screen_touch:0:746:441:0] over 70ms action=gather path=/root/Main/GameMap/ResourcesContainer/@Area2D@228 tapped_dist=-1 resource=/root/Main/GameMap/ResourcesContainer/@Area2D@228 resource_dist=0.195649489760399 radii=(24.3199996948242,28.3733329772949) zoom=1.01333332061768 @(746,441)"
     },
     {
       "name": "guided_opener_after_house",
@@ -319,7 +319,7 @@
     {
       "name": "performance_guardrail",
       "passed": true,
-      "detail": "fps=120.00, frame_time_ms=9.70"
+      "detail": "fps=120.00, frame_time_ms=9.56"
     },
     {
       "name": "runtime_errors",

@@ -102,6 +102,7 @@ var _opening_gather_complete: bool = false
 var _opening_house_complete: bool = false
 var _opening_scout_queued: bool = false
 var _opening_military_move_complete: bool = false
+var _guidance_dismissed_in_match: bool = false
 var _pause_open_count: int = 0
 var _last_invalid_placement_reason: String = ""
 var _invalid_placement_count: int = 0
@@ -327,6 +328,7 @@ func _refresh_first_session_diagnostics() -> void:
 		"scout_queued": _opening_scout_queued,
 		"military_move_complete": _opening_military_move_complete,
 		"opening_loop_complete": _opening_gather_complete and _opening_house_complete and _opening_scout_queued and _opening_military_move_complete,
+		"guidance_dismissed": _guidance_dismissed_in_match,
 		"military_count": military_count,
 		"pause_open_count": _pause_open_count,
 		"placement_active": _placement_active,
@@ -1591,6 +1593,7 @@ func _setup_hud() -> void:
 	hud.pause_requested.connect(_on_pause_requested)
 	hud.resume_requested.connect(_on_resume_requested)
 	hud.quit_to_menu_requested.connect(_on_quit_to_menu_requested)
+	hud.guidance_dismissed.connect(_on_guidance_dismissed)
 	_build_menu.building_selected.connect(_on_building_selected_for_placement)
 	_build_menu.cancel_placement.connect(_on_cancel_placement)
 	if _build_menu.has_signal("close_requested"):
@@ -1604,6 +1607,21 @@ func _setup_hud() -> void:
 	_building_placement.placement_invalid.connect(_on_placement_invalid)
 	_sync_hud_modal_state()
 
+
+func _on_guidance_dismissed() -> void:
+	if not _guided_opening_active:
+		return
+	_guided_opening_active = false
+	_guidance_dismissed_in_match = true
+	GameManager.guided_opening_enabled = false
+	GameManager.save_preferences()
+	hud.set_early_game_ui_state(false)
+	hud.set_guided_military_shortcuts_visible(false)
+	hud.set_pending_military_shortcut(false)
+	hud.clear_primary_action()
+	hud.show_notification("Guided opener dismissed. All controls are available.", Color(0.68, 0.86, 1.0))
+	_refresh_first_session_diagnostics()
+	_update_progression_hint()
 
 func _on_build_menu_toggled(is_open: bool) -> void:
 	if GameManager.current_state == GameManager.GameState.PAUSED:

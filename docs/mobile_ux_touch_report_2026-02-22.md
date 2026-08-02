@@ -1,6 +1,6 @@
 # Mobile UX Touch Audit Report
 
-Date (UTC): 2026-08-02T02:45:40.182561+00:00
+Date (UTC): 2026-08-02T02:52:07.571972+00:00
 Status: **PASS**
 
 ## Settings
@@ -25,13 +25,13 @@ Status: **PASS**
 - [PASS] `startup_to_gameplay`: screen=1280x720, transitioned via touch
 - [PASS] `camera_mobile_framing`: zoom=1.102 (mobile_min=0.78 mobile_max=1.90 desktop_default=1.35)
 - [PASS] `hud_phone_layout_profiles`: 844x390[w=180.0,h=56.0,cols=4], 932x430[w=180.0,h=56.0,cols=4]
-- [PASS] `touch_target_audit_hud_core`: 3 controls meet target/aspect constraints
+- [PASS] `touch_target_audit_hud_core`: 4 controls meet target/aspect constraints
 - [PASS] `touch_target_audit_minimap_region`: 2 controls meet target/aspect constraints
 - [PASS] `touch_select_move_smoke`: Input sequence completed: 4 action(s) executed [pointer:screen_touch:0:640:360:1, pointer:screen_touch:0:640:360:0, pointer:screen_touch:0:819:417:1, pointer:screen_touch:0:819:417:0] over 330ms
 - [PASS] `touch_long_press_context_smoke`: runtime actions unavailable under MCP timing; config enabled (threshold=0.35)
 - [PASS] `guided_opener_initial_stage`: enabled=True, active=True, stage=gather_food, gather=False, house=False, scout=False, move=False, loop=False
-- [PASS] `touch_select_villager_for_gather`: attempt1=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:492:283:1, pointer:screen_touch:0:492:283:0] over 70ms action=select path=/root/Main/GameMap/UnitsContainer/@Area2D@395 tapped_dist=14.2195014953613 resource= resource_dist=-1 radii=(26.438401222229,30.8448014259338) zoom=1.10160005092621 @(492,283)
-- [PASS] `touch_select_villager_target`: Tapped villager /root/Main/GameMap/UnitsContainer/@Area2D@395 at (492,283)
+- [PASS] `touch_select_villager_for_gather`: attempt1=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:507:275:1, pointer:screen_touch:0:507:275:0] over 70ms action=select path=/root/Main/GameMap/UnitsContainer/@Area2D@395 tapped_dist=10.5609645843506 resource= resource_dist=-1 radii=(26.438401222229,30.8448014259338) zoom=1.10160005092621 @(507,275)
+- [PASS] `touch_select_villager_target`: Tapped villager /root/Main/GameMap/UnitsContainer/@Area2D@395 at (494,285)
 - [PASS] `touch_select_villager_assertion`: selected=1
 - [PASS] `touch_villager_gather_smoke`: attempt1=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:656:256:1, pointer:screen_touch:0:656:256:0] over 70ms action=gather path=/root/Main/GameMap/ResourcesContainer/@Area2D@228 tapped_dist=-1 resource=/root/Main/GameMap/ResourcesContainer/@Area2D@228 resource_dist=0.124654248356819 radii=(26.438401222229,30.8448014259338) zoom=1.10160005092621 @(656,256)
 - [PASS] `touch_villager_gather_target`: Tapped resource node /root/Main/GameMap/ResourcesContainer/@Area2D@228 at (656,256)
@@ -53,7 +53,7 @@ Status: **PASS**
 - [PASS] `progression_hint_validation`: Train Scout: tap Town Center, then tap Scout.
 - [PASS] `touch_build_option_arm_placement`: Placement mode activated
 - [PASS] `touch_build_menu_close_after_place`: Build menu closed after placement
-- [PASS] `touch_build_place_resume_economy_smoke`: placed at 768,460; attempt1=placed@768,460; minimap_relocate=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:16:554:1, pointer:screen_touch:0:16:554:0] over 70ms | resume_select_after_relocate=attempt1=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:512:383:1, pointer:screen_touch:0:512:383:0] over 70ms selected=1 @(512,383) | resume_gather=attempt1=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:746:441:1, pointer:screen_touch:0:746:441:0] over 70ms action=gather path=/root/Main/GameMap/ResourcesContainer/@Area2D@228 tapped_dist=-1 resource=/root/Main/GameMap/ResourcesContainer/@Area2D@228 resource_dist=0.195649489760399 radii=(24.3199996948242,28.3733329772949) zoom=1.01333332061768 @(746,441)
+- [PASS] `touch_build_place_resume_economy_smoke`: placed at 768,460; attempt1=placed@768,460; minimap_relocate=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:16:554:1, pointer:screen_touch:0:16:554:0] over 70ms | resume_select_after_relocate=attempt1=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:510:385:1, pointer:screen_touch:0:510:385:0] over 70ms selected=1 @(510,385) | resume_gather=attempt1=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:746:441:1, pointer:screen_touch:0:746:441:0] over 70ms action=gather path=/root/Main/GameMap/ResourcesContainer/@Area2D@228 tapped_dist=-1 resource=/root/Main/GameMap/ResourcesContainer/@Area2D@228 resource_dist=0.195649489760399 radii=(24.3199996948242,28.3733329772949) zoom=1.01333332061768 @(746,441)
 - [PASS] `guided_opener_after_house`: enabled=True, active=True, stage=train_scout, gather=True, house=True, scout=False, move=False, loop=False
 - [PASS] `touch_pause_open_for_audit`: Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:1116:36:1, pointer:screen_touch:0:1116:36:0] over 70ms
 - [PASS] `touch_target_audit_pause_controls`: 4 controls meet target/aspect constraints
@@ -73,7 +73,7 @@ Status: **PASS**
 - [PASS] `touch_select_military_move_diag`: action=move selected=1 tapped= resource= tile=(4,27)
 - [PASS] `guided_opener_after_military_move`: enabled=True, active=False, stage=free_play, gather=True, house=True, scout=True, move=True, loop=True
 - [PASS] `touch_target_audit_selection_actions`: No visible controls to audit in this state
-- [PASS] `performance_guardrail`: fps=120.00, frame_time_ms=9.70
+- [PASS] `performance_guardrail`: fps=120.00, frame_time_ms=9.56
 - [PASS] `runtime_errors`: none
 
 ## Findings
