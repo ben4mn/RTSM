@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-08-01T23:37:04.206418+00:00",
+  "generated_at_utc": "2026-08-02T00:27:04.424751+00:00",
   "status": "FAIL",
   "settings": {
     "menu_scene": "res://scenes/ui/main_menu.tscn",
@@ -89,17 +89,17 @@
     {
       "name": "touch_select_villager_for_gather",
       "passed": true,
-      "detail": "attempt1=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:567:239:1, pointer:screen_touch:0:567:239:0] over 70ms action=select path=/root/Main/GameMap/UnitsContainer/@Area2D@379 @(567,239)"
+      "detail": "attempt1=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:558:238:1, pointer:screen_touch:0:558:238:0] over 70ms action=select path=/root/Main/GameMap/UnitsContainer/@Area2D@379 @(558,238)"
     },
     {
       "name": "touch_select_villager_target",
       "passed": true,
-      "detail": "Tapped villager /root/Main/GameMap/UnitsContainer/@Area2D@379 at (567,239)"
+      "detail": "Tapped villager /root/Main/GameMap/UnitsContainer/@Area2D@379 at (540,251)"
     },
     {
       "name": "touch_select_villager_assertion",
       "passed": true,
-      "detail": "selected=4"
+      "detail": "selected=1"
     },
     {
       "name": "touch_villager_gather_smoke",
@@ -124,7 +124,7 @@
     {
       "name": "touch_target_audit_build_menu",
       "passed": true,
-      "detail": "25 controls meet target/aspect constraints"
+      "detail": "13 controls meet target/aspect constraints"
     },
     {
       "name": "touch_build_menu_house_option",
@@ -134,7 +134,7 @@
     {
       "name": "touch_build_place_cancel_smoke",
       "passed": true,
-      "detail": "Input sequence completed: 6 action(s) executed [pointer:screen_touch:0:448:376:1, pointer:screen_touch:0:448:376:0, pointer:screen_touch:0:640:360:1, pointer:screen_touch:0:640:360:0, pointer:screen_touch:0:98:672:1, pointer:screen_touch:0:98:672:0] over 630ms"
+      "detail": "Input sequence completed: 6 action(s) executed [pointer:screen_touch:0:626:444:1, pointer:screen_touch:0:626:444:0, pointer:screen_touch:0:640:360:1, pointer:screen_touch:0:640:360:0, pointer:screen_touch:0:98:672:1, pointer:screen_touch:0:98:672:0] over 630ms"
     },
     {
       "name": "touch_build_menu_close_after_cancel",
@@ -189,7 +189,7 @@
     {
       "name": "progression_hint_validation",
       "passed": true,
-      "detail": "Build House: tap the Build button on the right HUD."
+      "detail": "Train Scout: tap Town Center, then tap Scout."
     },
     {
       "name": "touch_build_option_arm_placement",
@@ -204,7 +204,7 @@
     {
       "name": "touch_build_place_resume_economy_smoke",
       "passed": true,
-      "detail": "placed at 768,460; attempt1=placed@768,460; minimap_relocate=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:55:631:1, pointer:screen_touch:0:55:631:0] over 70ms | resume_select_after_relocate=attempt1=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:328:580:1, pointer:screen_touch:0:328:580:0] over 70ms selected=1 @(328,580) | resume_gather=attempt1=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:713:409:1, pointer:screen_touch:0:713:409:0] over 70ms action=gather path=/root/Main/GameMap/ResourcesContainer/@Area2D@298 @(713,409)"
+      "detail": "placed at 768,460; attempt1=placed@768,460; resume_select=attempt1=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:-572:360:1, pointer:screen_touch:0:-572:360:0] over 70ms selected=1 @(-572,360) | resume_gather=attempt1=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:631:247:1, pointer:screen_touch:0:631:247:0] over 70ms action=gather path=/root/Main/GameMap/ResourcesContainer/@Area2D@44 @(631,247)"
     },
     {
       "name": "guided_opener_after_house",
@@ -244,12 +244,12 @@
     {
       "name": "touch_train_unit_smoke",
       "passed": true,
-      "detail": "Input sequence completed: 1 action(s) executed [select_tc] over 0ms"
+      "detail": "Town Center selection retained for touch training"
     },
     {
       "name": "touch_train_unit_button_press",
       "passed": true,
-      "detail": "attempt1=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:632:583:1, pointer:screen_touch:0:632:583:0] over 70ms scout=True"
+      "detail": "attempt1=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:632:583:1, pointer:screen_touch:0:632:583:0] over 70ms offset=(0,0) scout=True"
     },
     {
       "name": "touch_train_unit_button_target",
@@ -269,7 +269,7 @@
     {
       "name": "touch_select_military_move_target",
       "passed": true,
-      "detail": "Moving /root/Main/GameMap/UnitsContainer/@Area2D@1073 toward (482,290) [clearance=161.0 nearest=/root/Main/GameMap/ResourcesContainer/@Area2D@222]"
+      "detail": "Moving /root/Main/GameMap/UnitsContainer/@Area2D@1214 toward (482,290) [clearance=144.0 nearest=/root/Main/GameMap/UnitsContainer/Villager]"
     },
     {
       "name": "touch_select_military_button",

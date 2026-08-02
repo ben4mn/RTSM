@@ -42,10 +42,12 @@ func get_path(from: Vector2i, to: Vector2i) -> PackedVector2Array:
 
 ## Get a path as tile coordinates (Vector2i array).
 func get_tile_path(from: Vector2i, to: Vector2i) -> Array[Vector2i]:
-	var raw_path := get_path(from, to)
+	if _is_solid(from) or _is_solid(to):
+		return []
+	var raw_path: Array[Vector2i] = _astar.get_id_path(from, to)
 	var tile_path: Array[Vector2i] = []
-	for point in raw_path:
-		tile_path.append(Vector2i(roundi(point.x), roundi(point.y)))
+	for tile_id in raw_path:
+		tile_path.append(tile_id)
 	return tile_path
 
 

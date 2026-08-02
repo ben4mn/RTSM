@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
-import select
+import queue
 import shlex
 import subprocess
 import sys
@@ -43,6 +43,7 @@ class MCPClient:
         self._next_id = 1
         self._stderr_lines: deque[str] = deque(maxlen=200)
         self._stderr_lock = threading.Lock()
+        self._stdout_messages: queue.Queue[dict[str, Any] | BaseException | None] = queue.Queue()
         self.process = subprocess.Popen(
             shlex.split(server_cmd),
             stdin=subprocess.PIPE,
@@ -53,6 +54,27 @@ class MCPClient:
         )
         self._stderr_thread = threading.Thread(target=self._drain_stderr, daemon=True)
         self._stderr_thread.start()
+        self._stdout_thread = threading.Thread(target=self._drain_stdout, daemon=True)
+        self._stdout_thread.start()
+
+    def _drain_stdout(self) -> None:
+        assert self.process.stdout is not None
+        try:
+            for line in self.process.stdout:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    message = json.loads(line)
+                except json.JSONDecodeError:
+                    if self.verbose:
+                        print(f"[mcp-stdout] Non-JSON line ignored: {line}")
+                    continue
+                self._stdout_messages.put(message)
+        except BaseException as exc:  # noqa: BLE001
+            self._stdout_messages.put(exc)
+        finally:
+            self._stdout_messages.put(None)
 
     def _drain_stderr(self) -> None:
         assert self.process.stderr is not None
@@ -72,38 +94,18 @@ class MCPClient:
         self.process.stdin.flush()
 
     def _read_message(self, timeout: float) -> dict[str, Any]:
-        if self.process.stdout is None:
-            raise MCPError("MCP stdout is unavailable")
-
-        deadline = time.monotonic() + timeout
-        while True:
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                raise MCPError("Timed out waiting for MCP response")
-
-            ready, _, _ = select.select([self.process.stdout.fileno()], [], [], min(0.2, remaining))
-            if not ready:
-                continue
-
-            line = self.process.stdout.readline()
-            if line == "":
-                code = self.process.poll()
-                raise MCPError(f"MCP server exited unexpectedly (code={code})")
-
-            line = line.strip()
-            if not line:
-                continue
-
-            try:
-                message = json.loads(line)
-            except json.JSONDecodeError:
-                if self.verbose:
-                    print(f"[mcp-stdout] Non-JSON line ignored: {line}")
-                continue
-
-            if self.verbose and "id" not in message:
-                print(f"[mcp-notify] {line}")
-            return message
+        try:
+            item = self._stdout_messages.get(timeout=timeout)
+        except queue.Empty as exc:
+            raise MCPError("Timed out waiting for MCP response") from exc
+        if item is None:
+            code = self.process.poll()
+            raise MCPError(f"MCP server exited unexpectedly (code={code})")
+        if isinstance(item, BaseException):
+            raise MCPError(f"Failed reading MCP output: {item}") from item
+        if self.verbose and "id" not in item:
+            print(f"[mcp-notify] {json.dumps(item)}")
+        return item
 
     def request(self, method: str, params: dict[str, Any] | None = None, timeout: float | None = None) -> dict[str, Any]:
         request_id = self._next_id

@@ -1300,7 +1300,7 @@ func _on_move_command(target_tile: Vector2i) -> void:
 		issue_patrol = false
 	if has_military and _guided_opening_active and _guided_stage == GuidedOpeningStage.MOVE_MILITARY:
 		_opening_military_move_complete = true
-		_refresh_guided_opening_stage()
+		call_deferred("_refresh_guided_opening_stage")
 
 	# Generate formation offsets so units spread out around the target
 	var offsets := _get_formation_offsets(moveable.size())

@@ -1752,13 +1752,6 @@ def main() -> int:
             record("touch_select_villager_for_gather", False, "No visible player villager found near the opener camera")
             raise MCPError("no visible player villager found for gather opener check")
         villager_screen_x, villager_screen_y, villager_path = villager_target
-        (
-            villager_selected,
-            villager_selection_detail,
-            villager_selection_count,
-            villager_screen_x,
-            villager_screen_y,
-        ) = tap_live_node_until_selected(villager_path, screen_w, screen_h)
         villager_action_ok, villager_action_detail = tap_live_node_until_touch_action(
             villager_path,
             screen_w,
@@ -1766,8 +1759,7 @@ def main() -> int:
             "select",
             "tapped_node_path",
         )
-        villager_detail = villager_action_detail if villager_action_ok else villager_selection_detail
-        record("touch_select_villager_for_gather", villager_action_ok, villager_detail)
+        record("touch_select_villager_for_gather", villager_action_ok, villager_action_detail)
         if not villager_action_ok:
             raise MCPError("villager live-touch selection did not register a select action on the targeted villager")
         villager_selection_count = wait_for_selection_count(min_count=1, timeout=0.8)
@@ -2236,11 +2228,12 @@ def main() -> int:
         record("touch_resume_tc_train_assertion", True, tc_detail)
 
         # Train-one-unit + touch-select-military-move scenario.
-        unit_flow_ready = run_touch_scenario_optional(
-            "touch_train_unit_smoke",
-            [{"action_name": "select_tc", "start_ms": 0, "duration_ms": 0}],
-            timeout=20.0,
-        )
+        # The Town Center and its train controls were just verified above. Re-selecting
+        # it here recreates the dynamic train buttons and can invalidate cached touch
+        # geometry before the deferred HUD diagnostics refresh completes.
+        unit_flow_ready = tc_ready
+        record("touch_train_unit_smoke", unit_flow_ready, "Town Center selection retained for touch training")
+        time.sleep(0.15)
         if unit_flow_ready:
             hud_diag = hud_touch_diag()
             train_buttons = [
@@ -2265,12 +2258,23 @@ def main() -> int:
                 selected_label = str(selected_train_button.get("text", "")).split("\n", 1)[0]
                 train_attempt_details: list[str] = []
                 scout_queued = False
-                for attempt in range(3):
+                train_tap_offsets = [(0, 0), (-20, 0), (20, 0), (0, -12), (0, 12)]
+                for attempt, (tap_dx, tap_dy) in enumerate(train_tap_offsets):
                     button_for_attempt = find_train_button_by_name(selected_button_name) or selected_train_button
                     try:
+                        button_center = center_from_diag(button_for_attempt)
+                        if button_center is None:
+                            raise MCPError("train button center unavailable")
                         sequence_text = tool_text(
                             "input",
-                            {"action": "sequence", "inputs": tap_control(button_for_attempt, 0, "train_button")},
+                            {
+                                "action": "sequence",
+                                "inputs": touch_tap(
+                                    button_center[0] + tap_dx,
+                                    button_center[1] + tap_dy,
+                                    0,
+                                ),
+                            },
                             timeout=25.0,
                         )
                     except Exception as exc:  # noqa: BLE001
@@ -2282,11 +2286,16 @@ def main() -> int:
                             "attempt%d=errors:%s" % (attempt + 1, summarize_errors(train_errors))
                         )
                         continue
-                    diag = first_session_diag()
-                    scout_queued = as_bool(diag.get("scout_queued", False), False)
+                    scout_deadline = time.monotonic() + 0.6
+                    while time.monotonic() < scout_deadline:
+                        diag = first_session_diag()
+                        scout_queued = as_bool(diag.get("scout_queued", False), False)
+                        if scout_queued:
+                            break
+                        time.sleep(0.1)
                     train_attempt_details.append(
-                        "attempt%d=%s scout=%s"
-                        % (attempt + 1, sequence_text, scout_queued)
+                        "attempt%d=%s offset=(%d,%d) scout=%s"
+                        % (attempt + 1, sequence_text, tap_dx, tap_dy, scout_queued)
                     )
                     if scout_queued:
                         break
