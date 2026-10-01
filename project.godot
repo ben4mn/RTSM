@@ -14,8 +14,9 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 
 [application]
 
-config/name="AOEM"
-config/description="Age of Empires Mobile - Isometric RTS"
+config/name="Pocket Kingdoms"
+config/description="A touch-first landscape isometric strategy skirmish"
+config/version="0.1.0-beta.1"
 run/main_scene="res://scenes/ui/main_menu.tscn"
 config/features=PackedStringArray("4.6", "Mobile")
 config/icon="res://icon.svg"
@@ -25,12 +26,16 @@ config/icon="res://icon.svg"
 GameManager="*res://scripts/managers/game_manager.gd"
 ResourceManager="*res://scripts/managers/resource_manager.gd"
 AudioManager="*res://scripts/managers/audio_manager.gd"
-MCPGameBridge="res://addons/godot_mcp/game_bridge/mcp_game_bridge.gd"
+DebugTools.debug="res://scripts/ui/debug_bootstrap.gd"
+MCPGameBridge.debug="res://addons/godot_mcp/game_bridge/mcp_game_bridge.gd"
+MCPGameBridge="res://scripts/managers/runtime_game_bridge.gd"
 
 [display]
 
-window/size/viewport_width=1280
-window/size/viewport_height=720
+window/size/viewport_width=844
+window/size/viewport_height=390
+window/size/window_width_override=1280
+window/size/window_height_override=720
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/handheld/orientation=4
@@ -154,4 +159,4 @@ pointing/emulate_touch_from_mouse=true
 
 renderer/rendering_method="mobile"
 textures/vram_compression/import_etc2_astc=true
-environment/defaults/default_clear_color=Color(0.2, 0.4, 0.2, 1)
+environment/defaults/default_clear_color=Color(0.094, 0.165, 0.188, 1)

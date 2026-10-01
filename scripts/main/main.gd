@@ -2,6 +2,8 @@ extends Node2D
 ## Main game scene controller.
 ## Wires together the map, units, buildings, HUD, build menu, fog of war, and AI.
 
+const WEB_SHELL_BRIDGE := preload("res://scripts/ui/web_shell_bridge.gd")
+
 # --- Unit scenes ---
 var _unit_scenes: Dictionary = {
 	UnitData.UnitType.VILLAGER: preload("res://scenes/units/villager.tscn"),
@@ -50,16 +52,27 @@ var _player_buildings: Array[Array] = [[], []]  # [player_0_buildings, player_1_
 var _player_units: Array[Array] = [[], []]
 var _player_town_center: BuildingBase = null
 
-# --- Debug panel ---
-var _debug_panel: DebugPanel = null
-
 # --- Idle villager cycling ---
 var _idle_villager_index: int = 0
 var _patrol_command_armed: bool = false
+var _move_command_armed: bool = false
+var _attack_move_command_armed: bool = false
 
 # --- Under-attack notification cooldown ---
 var _under_attack_cooldown: float = 0.0
 const UNDER_ATTACK_COOLDOWN_TIME: float = 10.0
+const PRODUCTION_EGRESS_MAX_RING_TILES: int = 3
+const PRODUCTION_EGRESS_MAX_CANDIDATES: int = 48
+const PRODUCTION_RALLY_ARRIVAL_RADIUS: float = 4.0
+const PRODUCTION_RALLY_SLOT_RADIUS_TILES: int = 2
+const PRODUCTION_RALLY_SLOT_CLEARANCE_WORLD: float = 30.0
+const AI_CONSTRUCTION_APPROACH_RADIUS: float = 40.0
+const AI_CONSTRUCTION_RECOVERY_INTERVAL: float = 0.5
+const AI_CONSTRUCTION_MAX_ROUTE_CANDIDATES: int = 12
+const AI_CONSTRUCTION_MAX_FAILED_RECOVERY_TICKS: int = 4
+const AI_CONSTRUCTION_MAX_REASSIGNMENTS: int = 3
+var _ai_construction_jobs: Dictionary = {}
+var _ai_construction_recovery_elapsed: float = 0.0
 
 # --- Game stats (indexed by player_id) ---
 var _stats: Array[Dictionary] = [
@@ -100,9 +113,9 @@ var _guided_stage: GuidedOpeningStage = GuidedOpeningStage.GATHER_FOOD
 const HINTS: Array = [
 	{"time": 14.0, "text": "Pause any time from the top-right button if you need to stop and reorient.", "color": Color(0.95, 0.86, 0.56)},
 	{"time": 42.0, "text": "Drag on open terrain to pan camera. Tap the minimap to jump view.", "color": Color(0.7, 0.8, 1.0)},
-	{"time": 75.0, "text": "Need keyboard shortcuts? Open the optional F2 panel.", "color": Color(0.6, 0.7, 0.6)},
+	{"time": 75.0, "text": "Tap a unit to switch selection. Tap ground to move; More opens battle orders.", "color": Color(0.65, 0.82, 1.0)},
 	{"time": 105.0, "text": "Train a scout from your Town Center to reveal more map quickly.", "color": Color(0.7, 0.8, 1.0)},
-	{"time": 180.0, "text": "Sacred Site is at map center. Hold it for 3:00 to win.", "color": Color(0.85, 0.7, 1.0)},
+	{"time": 180.0, "text": "Sacred Site is at map center. Hold it for 10:00 to win, or destroy the enemy Town Center.", "color": Color(0.85, 0.7, 1.0)},
 ]
 var _milestone_first_house: bool = false
 var _milestone_first_military_building: bool = false
@@ -125,6 +138,10 @@ var _last_train_request_result: String = "none"
 var _last_train_request_unit_type: int = -1
 var _last_train_feedback: String = ""
 var _last_placement_feedback: String = ""
+var _military_shortcut_invocation_count: int = 0
+var _military_shortcut_last_timestamp_ms: int = 0
+var _military_shortcut_selected_count: int = 0
+var _military_shortcut_selected_paths: Array[String] = []
 
 # --- First-session telemetry (read via MCP node.get_properties on /root/Main) ---
 @export var first_session_diagnostics: Dictionary = {}
@@ -155,24 +172,49 @@ var _last_placement_feedback: String = ""
 @export var balance_ai_idle_villagers: int = 0
 @export var balance_ai_idle_production_buildings: int = 0
 @export var balance_ai_resource_float: int = 0
+@export var balance_ai_resources_gathered: int = 0
 @export var balance_ai_peak_military: int = 0
 @export var balance_ai_peak_villagers: int = 0
 @export var balance_ai_attack_count: int = 0
 @export var balance_ai_first_attack_time: float = -1.0
+@export var balance_ai_objective_mode: String = "none"
+@export var balance_ai_objective_unit_count: int = 0
+@export var balance_ai_enemy_memory_count: int = 0
+@export var balance_ai_rebuild_request_count: int = 0
+@export var balance_ai_last_decision: String = ""
+@export var balance_ai_economic_bonus_active: bool = false
+@export var balance_ai_sacred_control_seconds: float = 0.0
 var _balance_snapshot_timer: float = 0.0
 const BALANCE_SNAPSHOT_INTERVAL: float = 1.0
 
 
 func _ready() -> void:
-	process_mode = Node.PROCESS_MODE_ALWAYS
+	# The match root is the process boundary for every gameplay descendant.
+	# HUD and GameOverScreen opt into ALWAYS independently so their paused-state
+	# controls remain actionable while units, buildings, AI, and the map freeze.
+	process_mode = Node.PROCESS_MODE_PAUSABLE
+	WEB_SHELL_BRIDGE.set_controls_visible(false)
+	GameManager.game_state_changed.connect(_on_game_state_changed)
 	# Wait for map generation to finish.
 	game_map.map_ready.connect(_on_map_ready)
 
 
+func _on_game_state_changed(state: int) -> void:
+	var is_modal: bool = state == GameManager.GameState.PAUSED or state == GameManager.GameState.GAME_OVER or state == GameManager.GameState.MENU
+	WEB_SHELL_BRIDGE.set_controls_visible(is_modal)
+	if is_modal:
+		game_map.cancel_camera_touch_gesture()
+		if game_map.selection_mgr != null:
+			game_map.selection_mgr.cancel_touch_gesture()
+		if _building_placement != null:
+			_building_placement.cancel_touch_gesture()
+
+
 func _resolve_ai_difficulty() -> int:
-	var env_override: String = OS.get_environment("AOEM_AI_DIFFICULTY").strip_edges()
-	if env_override != "" and env_override.is_valid_int():
-		return clampi(int(env_override), AIController.Difficulty.EASY, AIController.Difficulty.HARD)
+	if not OS.has_feature("production"):
+		var env_override: String = OS.get_environment("AOEM_AI_DIFFICULTY").strip_edges()
+		if env_override != "" and env_override.is_valid_int():
+			return clampi(int(env_override), AIController.Difficulty.EASY, AIController.Difficulty.HARD)
 	return clampi(GameManager.selected_difficulty, AIController.Difficulty.EASY, AIController.Difficulty.HARD)
 
 
@@ -201,10 +243,18 @@ func _reset_balance_snapshot() -> void:
 	balance_ai_idle_villagers = 0
 	balance_ai_idle_production_buildings = 0
 	balance_ai_resource_float = 0
+	balance_ai_resources_gathered = 0
 	balance_ai_peak_military = 0
 	balance_ai_peak_villagers = 0
 	balance_ai_attack_count = 0
 	balance_ai_first_attack_time = -1.0
+	balance_ai_objective_mode = "none"
+	balance_ai_objective_unit_count = 0
+	balance_ai_enemy_memory_count = 0
+	balance_ai_rebuild_request_count = 0
+	balance_ai_last_decision = ""
+	balance_ai_economic_bonus_active = false
+	balance_ai_sacred_control_seconds = 0.0
 	_balance_snapshot_timer = 0.0
 
 
@@ -225,6 +275,7 @@ func _update_balance_snapshot() -> void:
 	balance_ai_wood = ai_resources.get("wood", 0)
 	balance_ai_gold = ai_resources.get("gold", 0)
 	balance_ai_resource_float = balance_ai_food + balance_ai_wood + balance_ai_gold
+	balance_ai_resources_gathered = int(_stats[ai_id].get("resources_gathered", 0))
 
 	var ai_player: Dictionary = GameManager.players.get(ai_id, {})
 	balance_ai_population = ai_player.get("population", 0)
@@ -275,6 +326,17 @@ func _update_balance_snapshot() -> void:
 	balance_ai_under_pressure = bool(ai_controller.get("_is_under_pressure"))
 	balance_ai_saving_for_age_up = bool(ai_controller.get("_saving_for_age_up"))
 	balance_ai_state = int(ai_controller.get("_ai_state"))
+	var strategy: Dictionary = ai_controller.get_strategy_snapshot()
+	balance_ai_objective_mode = str(strategy.get("objective_mode", "none"))
+	balance_ai_objective_unit_count = int(strategy.get("objective_unit_count", 0))
+	balance_ai_enemy_memory_count = int(strategy.get("enemy_memory_count", 0))
+	balance_ai_rebuild_request_count = strategy.get("rebuild_requests", []).size()
+	balance_ai_last_decision = str(strategy.get("last_decision", ""))
+	var economic_modifiers: Dictionary = strategy.get("economic_modifiers", {})
+	balance_ai_economic_bonus_active = economic_modifiers.values().any(func(value: Variant) -> bool:
+		return not is_zero_approx(float(value))
+	)
+	balance_ai_sacred_control_seconds = _sacred_control_seconds[ai_id]
 
 
 func _guided_stage_name(stage: int = -1) -> String:
@@ -327,6 +389,10 @@ func _clear_guidance_state(clear_hint_text: bool = false) -> void:
 
 
 func _refresh_first_session_diagnostics() -> void:
+	# MCP/editor evidence only. Keep the production build's hot paths free of
+	# diagnostic collection and path-string allocation.
+	if OS.has_feature("production"):
+		return
 	var military_count: int = 0
 	for unit in _player_units[0]:
 		if not is_instance_valid(unit) or unit.current_state == UnitBase.State.DEAD:
@@ -358,17 +424,25 @@ func _refresh_first_session_diagnostics() -> void:
 		"production_tick_counter": _production_tick_counter,
 		"production_active_queue_count": _production_active_queue_count,
 		"production_latest_progress": _production_latest_progress,
+		"player_building_count": _player_buildings[0].size(),
 		"last_train_request_result": _last_train_request_result,
 		"last_train_request_unit_type": _last_train_request_unit_type,
 		"last_train_feedback": _last_train_feedback,
 		"last_placement_feedback": _last_placement_feedback,
+		"military_shortcut_invocation_count": _military_shortcut_invocation_count,
+		"military_shortcut_last_timestamp_ms": _military_shortcut_last_timestamp_ms,
+		"military_shortcut_selected_count": _military_shortcut_selected_count,
+		"military_shortcut_selected_paths": _military_shortcut_selected_paths.duplicate(),
 	}
 
 
 func _on_map_ready(map_gen: MapGenerator) -> void:
 	# Initialize game state for 2 players.
-	var simulation_speed: String = OS.get_environment("AOEM_SIM_TIME_SCALE").strip_edges()
-	Engine.time_scale = clampf(float(simulation_speed), 1.0, 3.0) if simulation_speed.is_valid_float() else 1.0
+	Engine.time_scale = 1.0
+	if not OS.has_feature("production"):
+		var simulation_speed: String = OS.get_environment("AOEM_SIM_TIME_SCALE").strip_edges()
+		if simulation_speed.is_valid_float():
+			Engine.time_scale = clampf(float(simulation_speed), 1.0, 3.0)
 	GameManager.initialize_game(2)
 	ResourceManager.initialize_player(0)
 	ResourceManager.initialize_player(1)
@@ -400,6 +474,14 @@ func _on_map_ready(map_gen: MapGenerator) -> void:
 	# Place starting Town Centers and Villagers.
 	_setup_player_start(0, map_gen.spawn_positions[0])
 	_setup_player_start(1, map_gen.spawn_positions[1])
+	# Establish real current vision before camera framing and deferred economy
+	# assignment query fog-aware resource discovery for the first time.
+	if game_map.fog_of_war != null:
+		# Main owns the update order during a match: sources, fog grid, then entity
+		# visibility in one frame, without a one-frame hidden-state exposure.
+		game_map.fog_of_war.set_process(false)
+	_update_fog_of_war()
+	_update_fog_entity_visibility()
 
 	# Connect selection manager signals.
 	var selection_mgr: Node = game_map.selection_mgr
@@ -411,6 +493,9 @@ func _on_map_ready(map_gen: MapGenerator) -> void:
 
 	# Connect sacred site signals.
 	if game_map.sacred_site:
+		# The economy must have time to turn into armies and reinforcements.
+		# Keep the small standalone site fixture independent of match pacing.
+		game_map.sacred_site.victory_hold_time = SkirmishData.SACRED_VICTORY_HOLD_SECONDS
 		game_map.sacred_site.captured.connect(_on_sacred_site_captured)
 		game_map.sacred_site.neutralized.connect(_on_sacred_site_neutralized)
 		game_map.sacred_site.victory_timer_tick.connect(_on_sacred_site_timer_tick)
@@ -420,11 +505,9 @@ func _on_map_ready(map_gen: MapGenerator) -> void:
 
 	# Wire up AI.
 	_setup_ai(map_gen)
-	_reset_balance_snapshot()
-	_update_balance_snapshot()
-
-	# Set up debug panel.
-	_setup_debug_panel()
+	if not OS.has_feature("production"):
+		_reset_balance_snapshot()
+		_update_balance_snapshot()
 
 	# Center camera on player's starting base.
 	var player_spawn: Vector2 = game_map.tile_to_world(map_gen.spawn_positions[0])
@@ -445,7 +528,8 @@ func _bootstrap_opening_guidance() -> void:
 	hud.set_early_game_ui_state(_guided_opening_active)
 	hud.set_guided_military_shortcuts_visible(false)
 	hud.set_pending_military_shortcut(false)
-	hud.set_minimap_hint("Tap map to jump")
+	# The camera outline needs a visible explanation outside the map drawing.
+	hud.set_minimap_hint("Map · tap to view")
 	if _guided_opening_active:
 		call_deferred("_update_progression_hint")
 	else:
@@ -512,7 +596,8 @@ func _has_queued_unit(building_type: int, unit_type: int) -> bool:
 
 func _refresh_guided_opening_stage() -> void:
 	if not _guided_opening_active:
-		_refresh_first_session_diagnostics()
+		if not OS.has_feature("production"):
+			_refresh_first_session_diagnostics()
 		return
 	match _guided_stage:
 		GuidedOpeningStage.GATHER_FOOD:
@@ -538,9 +623,20 @@ func _refresh_guided_opening_stage() -> void:
 
 func _on_sacred_site_captured(player_id: int) -> void:
 	_sacred_control_owner = player_id
-	_sacred_last_remaining = game_map.sacred_site.victory_hold_time if game_map.sacred_site else -1.0
+	# A same-owner recapture after a contested interval resumes the site's
+	# existing victory timer.  Use that authoritative timer as the telemetry
+	# baseline so elapsed control time recorded before the contest is not counted
+	# again on the next tick.
+	if game_map.sacred_site:
+		var hold_time: float = float(game_map.sacred_site.victory_hold_time)
+		var elapsed_time: float = float(game_map.sacred_site.victory_timer)
+		_sacred_last_remaining = clampf(hold_time - elapsed_time, 0.0, hold_time)
+	else:
+		_sacred_last_remaining = -1.0
 	if player_id == 0:
-		hud.show_notification("Sacred Site captured! Hold for 3:00 to win!", Color(0.9, 0.8, 0.2))
+		var remaining_seconds: int = ceili(_sacred_last_remaining if _sacred_last_remaining >= 0.0 else SkirmishData.SACRED_VICTORY_HOLD_SECONDS)
+		var remaining_text: String = "%d:%02d" % [int(remaining_seconds / 60.0), remaining_seconds % 60]
+		hud.show_notification("Sacred Site secured! Hold %s more to win." % remaining_text, Color(0.9, 0.8, 0.2))
 	else:
 		hud.show_notification("Enemy captured the Sacred Site!", Color(1.0, 0.4, 0.2))
 
@@ -667,8 +763,12 @@ func _handle_escape() -> void:
 		hud.close_build_menu()
 		return
 	if _patrol_command_armed:
-		_patrol_command_armed = false
-		hud.show_notification("Patrol canceled", Color(0.75, 0.7, 0.55))
+		_clear_armed_unit_commands()
+		hud.show_notification("Command mode canceled", Color(0.75, 0.7, 0.55))
+		return
+	if _move_command_armed or _attack_move_command_armed:
+		_clear_armed_unit_commands()
+		hud.show_notification("Command mode canceled", Color(0.75, 0.7, 0.55))
 		return
 	game_map.selection_mgr.deselect_all()
 
@@ -715,13 +815,13 @@ func _on_resume_requested() -> void:
 func _on_quit_to_menu_requested() -> void:
 	Engine.time_scale = 1.0
 	GameManager.set_paused(false)
-	get_tree().change_scene_to_file("res://scenes/ui/main_menu.tscn")
+	GameManager.set_state(GameManager.GameState.MENU)
+	# Touch Buttons finish release dispatch after their pressed signal returns.
+	# Keep the current scene alive until that dispatch has fully unwound.
+	get_tree().call_deferred("change_scene_to_file", "res://scenes/ui/main_menu.tscn")
 
 
 func _select_all_military() -> void:
-	for node in game_map.selection_mgr.selected:
-		if node is UnitBase and node.player_owner == 0 and node.unit_type != UnitData.UnitType.VILLAGER:
-			return
 	var military_units: Array[Node2D] = []
 	for unit in _player_units[0]:
 		if not is_instance_valid(unit) or unit.current_state == UnitBase.State.DEAD:
@@ -730,6 +830,16 @@ func _select_all_military() -> void:
 			continue
 		military_units.append(unit)
 	game_map.selection_mgr.select_many(military_units)
+	_military_shortcut_invocation_count += 1
+	_military_shortcut_last_timestamp_ms = maxi(
+		Time.get_ticks_msec(),
+		_military_shortcut_last_timestamp_ms + 1
+	)
+	_military_shortcut_selected_count = game_map.selection_mgr.selected.size()
+	_military_shortcut_selected_paths.clear()
+	for unit in game_map.selection_mgr.selected:
+		_military_shortcut_selected_paths.append(str(unit.get_path()))
+	_refresh_first_session_diagnostics()
 
 
 func _find_army() -> void:
@@ -752,50 +862,72 @@ func _find_army() -> void:
 # =========================================================================
 
 func _save_control_group(index: int) -> void:
-	var selected: Array = game_map.selection_mgr.selected.duplicate()
-	_control_groups[index] = selected
-	if selected.size() > 0:
-		hud.show_notification("Group %d: %d units" % [index, selected.size()], Color(0.7, 0.8, 0.7))
+	var owned: Array[Node2D] = []
+	for entry: Variant in game_map.selection_mgr.selected:
+		if not _is_own_control_group_entry(entry):
+			continue
+		var node := entry as Node2D
+		if not bool(game_map.selection_mgr.call("_is_current_selection_entry", node)):
+			continue
+		owned.append(node)
+	_control_groups[index] = owned
+	if owned.size() > 0:
+		hud.show_notification("Group %d: %d units" % [index, owned.size()], Color(0.7, 0.8, 0.7))
 
 
 func _recall_control_group(index: int) -> void:
 	var group: Array = _control_groups[index]
-	# Filter out dead/freed nodes
+	# Control groups are ownership-only. Reject enemy/neutral entries before any
+	# mutable state or position read so a stale or injected group cannot become a
+	# live fog-of-war tracker.
 	var valid: Array[Node2D] = []
-	for node in group:
-		if not is_instance_valid(node):
+	for entry: Variant in group:
+		if not _is_own_control_group_entry(entry):
 			continue
-		if node is UnitBase and (node as UnitBase).current_state == UnitBase.State.DEAD:
+		var node := entry as Node2D
+		if not bool(game_map.selection_mgr.call("_is_current_selection_entry", node)):
 			continue
-		if node is BuildingBase and (node as BuildingBase).state == BuildingBase.State.DESTROYED:
-			continue
-		valid.append(node as Node2D)
-	_control_groups[index] = valid
+		valid.append(node)
 
-	if valid.is_empty():
+	# SelectionManager performs the final canonical validation. Persist and use
+	# only what it actually accepted, rather than the pre-validation candidates.
+	game_map.selection_mgr.select_many(valid)
+	var recalled: Array[Node2D] = game_map.selection_mgr.selected.duplicate()
+	_control_groups[index] = recalled
+
+	if recalled.is_empty():
 		return
 
 	# Double-tap detection: center camera on group
 	var now: float = Time.get_ticks_msec() / 1000.0
-	var is_double: bool = now - _last_group_tap[index] < GROUP_DOUBLE_TAP_TIME
+	var is_double: bool = (
+		_last_group_tap[index] > 0.0
+		and now - _last_group_tap[index] < GROUP_DOUBLE_TAP_TIME
+	)
 	_last_group_tap[index] = now
-
-	# Select the group
-	game_map.selection_mgr.deselect_all()
-	for node in valid:
-		game_map.selection_mgr._add_to_selection(node)
 
 	# Center camera on double-tap
 	if is_double:
 		var center := Vector2.ZERO
-		for node in valid:
+		for node in recalled:
 			center += node.global_position
-		center /= float(valid.size())
+		center /= float(recalled.size())
 		game_map.camera.position = center
 		game_map._clamp_camera()
 
 
+func _is_own_control_group_entry(entry: Variant) -> bool:
+	if not is_instance_valid(entry) or not entry is Node2D:
+		return false
+	if entry is UnitBase:
+		return (entry as UnitBase).player_owner == 0
+	if entry is BuildingBase:
+		return (entry as BuildingBase).player_owner == 0
+	return false
+
+
 func _stop_selected_units() -> void:
+	_clear_armed_unit_commands(false)
 	var selected: Array = game_map.selection_mgr.selected
 	var stopped: int = 0
 	for node in selected:
@@ -804,6 +936,7 @@ func _stop_selected_units() -> void:
 			stopped += 1
 	if stopped > 0:
 		hud.show_notification("Units stopped", Color(0.7, 0.7, 0.7))
+	_refresh_unit_command_hud()
 
 
 func _delete_selected_building() -> void:
@@ -852,6 +985,92 @@ func _toggle_stance() -> void:
 		if first_unit:
 			var stance_name: String = "Stand Ground" if first_unit.stance == UnitBase.Stance.STAND_GROUND else "Aggressive"
 			hud.show_notification("Stance: %s" % stance_name, Color(0.8, 0.7, 0.5))
+	_refresh_unit_command_hud()
+
+
+func _arm_move_command() -> void:
+	if not _has_selected_owned_units():
+		hud.show_notification("Select your units first", Color(1.0, 0.55, 0.35))
+		return
+	_move_command_armed = true
+	_attack_move_command_armed = false
+	_patrol_command_armed = false
+	_sync_selection_command_mode()
+	hud.show_notification("Move armed: tap a destination", Color(0.55, 0.82, 1.0))
+	_refresh_unit_command_hud()
+
+
+func _arm_attack_move_command() -> void:
+	if not _has_selected_owned_units():
+		hud.show_notification("Select your units first", Color(1.0, 0.55, 0.35))
+		return
+	_move_command_armed = false
+	_attack_move_command_armed = true
+	_patrol_command_armed = false
+	_sync_selection_command_mode()
+	hud.show_notification("Attack-move armed: tap ground or a target", Color(1.0, 0.58, 0.36))
+	_refresh_unit_command_hud()
+
+
+func _has_selected_owned_units() -> bool:
+	for node in game_map.selection_mgr.selected:
+		if is_instance_valid(node) and node is UnitBase and (node as UnitBase).player_owner == 0:
+			return true
+	return false
+
+
+func _clear_armed_unit_commands(refresh_hud: bool = true) -> void:
+	_move_command_armed = false
+	_attack_move_command_armed = false
+	_patrol_command_armed = false
+	_sync_selection_command_mode()
+	if refresh_hud:
+		_refresh_unit_command_hud()
+
+
+func _sync_selection_command_mode() -> void:
+	if game_map == null or game_map.selection_mgr == null:
+		return
+	game_map.selection_mgr.set_unit_command_armed(
+		_move_command_armed or _attack_move_command_armed or _patrol_command_armed
+	)
+
+
+func _current_unit_command_mode() -> String:
+	if _move_command_armed:
+		return "move"
+	if _attack_move_command_armed:
+		return "attack_move"
+	if _patrol_command_armed:
+		return "patrol"
+	return "smart"
+
+
+func _refresh_unit_command_hud() -> void:
+	if hud == null or game_map == null or game_map.selection_mgr == null:
+		return
+	var authorized: bool = false
+	var has_military: bool = false
+	var stance_name: String = "Aggressive"
+	var stance_set: bool = false
+	for node in game_map.selection_mgr.selected:
+		if not is_instance_valid(node) or not node is UnitBase:
+			continue
+		var unit := node as UnitBase
+		if unit.player_owner != 0:
+			continue
+		authorized = true
+		if unit.unit_type != UnitData.UnitType.VILLAGER:
+			has_military = true
+		if not stance_set:
+			stance_name = "Stand Ground" if unit.stance == UnitBase.Stance.STAND_GROUND else "Aggressive"
+			stance_set = true
+	hud.configure_unit_commands(authorized, has_military, stance_name, _current_unit_command_mode())
+
+
+func _deselect_from_hud() -> void:
+	_clear_armed_unit_commands(false)
+	game_map.selection_mgr.deselect_all()
 
 
 func _arm_patrol_command() -> void:
@@ -866,8 +1085,12 @@ func _arm_patrol_command() -> void:
 	if not has_military:
 		hud.show_notification("Patrol requires military units", Color(1.0, 0.55, 0.35))
 		return
+	_move_command_armed = false
+	_attack_move_command_armed = false
 	_patrol_command_armed = true
+	_sync_selection_command_mode()
 	hud.show_notification("Patrol armed: issue move command", Color(0.9, 0.75, 0.35))
+	_refresh_unit_command_hud()
 
 
 func _select_town_center() -> void:
@@ -908,30 +1131,6 @@ func _handle_production_hotkey() -> void:
 
 
 # =========================================================================
-#  DEBUG PANEL
-# =========================================================================
-
-func _setup_debug_panel() -> void:
-	_debug_panel = DebugPanel.new()
-	_debug_panel.initialize(
-		ai_controller._decision_timer,
-		game_map.fog_of_war,
-		game_map.get_node_or_null("FogLayer")
-	)
-	_debug_panel.spawn_units_requested.connect(_on_debug_spawn_units)
-	hud.get_node("Root").add_child(_debug_panel)
-	hud.set_debug_panel(_debug_panel)
-
-
-func _on_debug_spawn_units(unit_type: int, count: int) -> void:
-	var cam_pos: Vector2 = game_map.camera.position
-	for i in count:
-		var offset := Vector2(randf_range(-50, 50), randf_range(-50, 50))
-		_spawn_unit(unit_type, 0, cam_pos + offset)
-	_update_population_display()
-
-
-# =========================================================================
 #  IDLE VILLAGER CYCLING
 # =========================================================================
 
@@ -964,19 +1163,12 @@ func _update_idle_villager_count() -> void:
 			var v: Villager = unit as Villager
 			if v.current_state == UnitBase.State.IDLE:
 				idle_count += 1
-			elif v.current_state == UnitBase.State.GATHERING:
-				match v.carried_resource_type:
-					"food": vill_food += 1
-					"wood": vill_wood += 1
-					"gold": vill_gold += 1
-			elif v.current_state == UnitBase.State.BUILDING:
-				vill_build += 1
-			elif v.current_state == UnitBase.State.MOVING and v.carried_resource_type != "":
-				# Moving to dropoff or back to resource — count as gathering
-				match v.carried_resource_type:
-					"food": vill_food += 1
-					"wood": vill_wood += 1
-					"gold": vill_gold += 1
+			# A carried resource type is cargo, not evidence of an active job.
+			match v.get_economy_task():
+				"food": vill_food += 1
+				"wood": vill_wood += 1
+				"gold": vill_gold += 1
+				"build": vill_build += 1
 		else:
 			military_count += 1
 	hud.update_idle_villager_count(idle_count)
@@ -1020,7 +1212,7 @@ func _auto_assign_starting_villagers(villagers: Array) -> void:
 		if not is_instance_valid(v):
 			continue
 		var res_type: String = assignments[i] if i < assignments.size() else "food"
-		var resource_node: Node2D = game_map.get_nearest_resource_node(res_type, v.global_position)
+		var resource_node: Node2D = game_map.get_nearest_resource_node(res_type, v.global_position, v.player_owner)
 		if resource_node and v.has_method("command_gather"):
 			v.command_gather(resource_node)
 
@@ -1029,29 +1221,54 @@ func _auto_assign_starting_villagers(villagers: Array) -> void:
 #  UNIT SPAWNING
 # =========================================================================
 
-func _spawn_unit(unit_type: int, player_id: int, world_pos: Vector2) -> UnitBase:
+func _spawn_unit(
+	unit_type: int,
+	player_id: int,
+	world_pos: Vector2,
+	source_queue: ProductionQueue = null
+) -> UnitBase:
+	var pop_cost: int = int(UnitData.UNITS.get(unit_type, {}).get("pop_cost", 1))
 	var scene: PackedScene = _unit_scenes.get(unit_type)
 	if scene == null:
 		push_warning("No scene for unit type %d" % unit_type)
 		return null
 
-	var unit: UnitBase = scene.instantiate()
+	var instance: Node = scene.instantiate()
+	if instance == null or not instance is UnitBase:
+		if instance != null:
+			instance.free()
+		push_warning("Unit scene for type %d did not instantiate UnitBase" % unit_type)
+		return null
+	var unit: UnitBase = instance as UnitBase
+	var population_committed: bool = false
+	if source_queue == null:
+		if not GameManager.add_population(player_id, pop_cost):
+			unit.free()
+			push_warning("No population room to spawn unit type %d for player %d" % [unit_type, player_id])
+			return null
+		population_committed = true
+	var units_container: Node = game_map.get_node_or_null("UnitsContainer") if game_map != null else null
+	if units_container == null:
+		if population_committed:
+			GameManager.remove_population(player_id, pop_cost)
+		unit.free()
+		push_warning("Cannot spawn unit type %d without UnitsContainer" % unit_type)
+		return null
+	if source_queue != null:
+		if not source_queue.consume_completed_population_reservation():
+			unit.free()
+			push_warning("Cannot spawn unit type %d without its population reservation" % unit_type)
+			return null
 	unit.player_owner = player_id
 	unit.unit_type = unit_type
 	unit.global_position = world_pos
 	unit.set_team_color(TEAM_COLORS[player_id])
 
-	game_map.get_node("UnitsContainer").add_child(unit)
+	units_container.add_child(unit)
 	_player_units[player_id].append(unit)
-	GameManager.add_population(player_id, UnitData.UNITS.get(unit_type, {}).get("pop_cost", 1))
 
-	# Apply researched upgrades to new units
-	var atk_bonus: int = GameManager.get_attack_bonus(player_id)
-	var arm_bonus: int = GameManager.get_armor_bonus(player_id)
-	if atk_bonus > 0:
-		unit.damage += atk_bonus
-	if arm_bonus > 0:
-		unit.armor += arm_bonus
+	# Economic/villager upgrades alter the live unit. Combat attack and armor
+	# upgrades remain dynamic base-stat modifiers in Combat for every unit.
 	if unit is Villager:
 		var gather_bonus: float = GameManager.get_gather_bonus(player_id)
 		var hp_bonus: int = GameManager.get_villager_hp_bonus(player_id)
@@ -1079,12 +1296,32 @@ func _spawn_unit(unit_type: int, player_id: int, world_pos: Vector2) -> UnitBase
 	return unit
 
 
-func _on_unit_trained(unit_type: int, spawn_pos: Vector2, player_id: int) -> void:
-	var unit: UnitBase = _spawn_unit(unit_type, player_id, spawn_pos)
+func _on_unit_trained(unit_type: int, player_id: int, source_queue: ProductionQueue) -> void:
+	var producer: BuildingBase = source_queue.get_producing_building()
+	var spawn_result: Dictionary = _resolve_production_egress(producer)
+	if not bool(spawn_result.get("valid", false)):
+		source_queue.reject_completed_unit()
+		_update_population_display()
+		push_warning("Training completed but no bounded walkable egress exists for unit type %d (player %d)" % [unit_type, player_id])
+		return
+	var spawn_pos: Vector2 = spawn_result.get("world_position", Vector2.ZERO)
+	var unit: UnitBase = _spawn_unit(unit_type, player_id, spawn_pos, source_queue)
+	if unit == null:
+		source_queue.reject_completed_unit()
+		_update_population_display()
+		push_warning("Training completed but unit type %d could not spawn for player %d" % [unit_type, player_id])
+		return
 	_update_population_display()
 	_stats[player_id]["units_trained"] += 1
 	if unit_type != UnitData.UnitType.VILLAGER:
 		_stats[player_id]["army_trained"] += 1
+	var use_default_villager_assignment: bool = (
+		player_id == 0
+		and unit is Villager
+		and not producer.has_custom_rally_point()
+	)
+	if not use_default_villager_assignment:
+		_issue_production_rally(unit, producer.rally_point)
 	if player_id == 0:
 		_update_idle_villager_count()
 		_on_selection_changed(game_map.selection_mgr.selected)
@@ -1102,16 +1339,129 @@ func _on_unit_trained(unit_type: int, spawn_pos: Vector2, player_id: int) -> voi
 			hud.show_notification("Scout ready: tap Military, then tap open ground.", Color(0.95, 0.86, 0.42))
 			_update_progression_hint()
 		# Auto-assign new villagers to gather the most needed resource
-		if unit and unit_type == UnitData.UnitType.VILLAGER:
+		if unit and unit_type == UnitData.UnitType.VILLAGER and use_default_villager_assignment:
 			_auto_assign_new_villager(unit)
 		# Warn when population is near cap
 		var player_data: Dictionary = GameManager.players.get(0, {})
 		var pop: int = player_data.get("population", 0)
 		var cap: int = player_data.get("population_cap", 5)
 		if pop >= cap:
-			hud.show_notification("Population cap reached! Build more Houses.", Color(1.0, 0.5, 0.2))
+			var message: String = "Population cap reached! Build more Houses."
+			if cap >= GameManager.get_player_population_limit(0):
+				message = "Maximum population reached (%d). Workers and troops share this limit." % cap
+			hud.show_notification(message, Color(1.0, 0.5, 0.2))
 		elif pop >= cap - 2:
 			hud.show_notification("Population almost full (%d/%d)" % [pop, cap], Color(1.0, 0.7, 0.3))
+
+
+func _resolve_production_egress(producer: BuildingBase) -> Dictionary:
+	## Select the nearest legal perimeter ring and stop after a hard three-tile
+	## fallback. A sealed producer fails safely instead of spawning at its rally.
+	if not is_instance_valid(producer) or game_map == null:
+		return {"valid": false}
+	var origin: Vector2i = game_map.world_to_tile(producer.global_position)
+	for ring: int in range(1, PRODUCTION_EGRESS_MAX_RING_TILES + 1):
+		var candidates: Array[Vector2i] = []
+		var min_x: int = origin.x - ring
+		var max_x: int = origin.x + producer.footprint.x - 1 + ring
+		var min_y: int = origin.y - ring
+		var max_y: int = origin.y + producer.footprint.y - 1 + ring
+		for y: int in range(min_y, max_y + 1):
+			for x: int in range(min_x, max_x + 1):
+				if x != min_x and x != max_x and y != min_y and y != max_y:
+					continue
+				var tile := Vector2i(x, y)
+				if game_map.is_tile_walkable(tile):
+					candidates.append(tile)
+		if candidates.is_empty():
+			continue
+		candidates.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+			var a_world: Vector2 = game_map.tile_to_world(a)
+			var b_world: Vector2 = game_map.tile_to_world(b)
+			var a_rally_distance: float = a_world.distance_squared_to(producer.rally_point)
+			var b_rally_distance: float = b_world.distance_squared_to(producer.rally_point)
+			if not is_equal_approx(a_rally_distance, b_rally_distance):
+				return a_rally_distance < b_rally_distance
+			if a.y != b.y:
+				return a.y < b.y
+			return a.x < b.x
+		)
+		if candidates.size() > PRODUCTION_EGRESS_MAX_CANDIDATES:
+			candidates.resize(PRODUCTION_EGRESS_MAX_CANDIDATES)
+		var chosen_tile: Vector2i = candidates[0]
+		return {
+			"valid": true,
+			"tile": chosen_tile,
+			"world_position": game_map.tile_to_world(chosen_tile),
+			"ring": ring,
+		}
+	return {"valid": false}
+
+
+func _issue_production_rally(unit: UnitBase, requested_rally: Vector2) -> bool:
+	if not is_instance_valid(unit) or game_map == null:
+		return false
+	var route: PackedVector2Array = game_map.get_navigation_world_path(
+		unit.global_position,
+		requested_rally,
+		PRODUCTION_RALLY_ARRIVAL_RADIUS
+	)
+	if route.is_empty():
+		return false
+	if unit.unit_type != UnitData.UnitType.VILLAGER:
+		route = _get_unoccupied_production_rally_path(unit, route)
+	var valid_destination: Vector2 = route[route.size() - 1]
+	if unit.global_position.distance_to(valid_destination) <= PRODUCTION_RALLY_ARRIVAL_RADIUS:
+		return false
+	unit.command_move_path(route)
+	return true
+
+
+func _get_unoccupied_production_rally_path(unit: UnitBase, original_route: PackedVector2Array) -> PackedVector2Array:
+	# Repeated births must not finish on the same idle sprite. Keep the public
+	# marker intact and spread only military arrivals over a bounded nearby area.
+	var rally_tile: Vector2i = game_map.world_to_tile(original_route[original_route.size() - 1])
+	var candidates: Array[Vector2i] = []
+	for dy: int in range(-PRODUCTION_RALLY_SLOT_RADIUS_TILES, PRODUCTION_RALLY_SLOT_RADIUS_TILES + 1):
+		for dx: int in range(-PRODUCTION_RALLY_SLOT_RADIUS_TILES, PRODUCTION_RALLY_SLOT_RADIUS_TILES + 1):
+			var tile := rally_tile + Vector2i(dx, dy)
+			if game_map.is_tile_walkable(tile):
+				candidates.append(tile)
+	var rally_world: Vector2 = game_map.tile_to_world(rally_tile)
+	candidates.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+		var a_distance: float = game_map.tile_to_world(a).distance_squared_to(rally_world)
+		var b_distance: float = game_map.tile_to_world(b).distance_squared_to(rally_world)
+		if not is_equal_approx(a_distance, b_distance):
+			return a_distance < b_distance
+		return a.y < b.y if a.y != b.y else a.x < b.x
+	)
+	for candidate: Vector2i in candidates:
+		var destination: Vector2 = game_map.tile_to_world(candidate)
+		if not _is_production_rally_slot_free(unit, destination):
+			continue
+		var route: PackedVector2Array = original_route
+		if destination.distance_to(original_route[original_route.size() - 1]) > PRODUCTION_RALLY_ARRIVAL_RADIUS:
+			route = game_map.get_navigation_world_path(unit.global_position, destination, PRODUCTION_RALLY_ARRIVAL_RADIUS)
+		if not route.is_empty() and route[route.size() - 1].distance_to(destination) <= PRODUCTION_RALLY_ARRIVAL_RADIUS:
+			return route
+	# A crowded or sealed local area must not reject an already paid birth.
+	return original_route
+
+
+func _is_production_rally_slot_free(unit: UnitBase, destination: Vector2) -> bool:
+	# Own positions and own issued movement destinations are public knowledge.
+	# Hostile units, fog state, and hostile orders never influence slot choice.
+	for entry: Variant in _player_units[unit.player_owner]:
+		if not is_instance_valid(entry) or not entry is UnitBase or entry == unit:
+			continue
+		var other := entry as UnitBase
+		if other.current_state == UnitBase.State.DEAD:
+			continue
+		if other.global_position.distance_to(destination) < PRODUCTION_RALLY_SLOT_CLEARANCE_WORLD:
+			return false
+		if other.current_state == UnitBase.State.MOVING and other.move_target.distance_to(destination) < PRODUCTION_RALLY_SLOT_CLEARANCE_WORLD:
+			return false
+	return true
 
 
 func _on_unit_died(unit: UnitBase, player_id: int) -> void:
@@ -1132,26 +1482,29 @@ func _on_resource_deposited(_resource_type: String, amount: int, player_id: int 
 
 
 func _auto_assign_new_villager(villager: UnitBase) -> void:
-	## Automatically assign a newly trained villager to the most needed resource.
-	var resources: Dictionary = ResourceManager.get_all_resources(0)
-	var food: int = resources.get("food", 0)
-	var wood: int = resources.get("wood", 0)
-	var gold: int = resources.get("gold", 0)
-
-	# Determine which resource is lowest relative to need
-	var priority: Array[String] = []
-	if food <= wood and food <= gold:
-		priority = ["food", "wood", "gold"]
-	elif wood <= food and wood <= gold:
-		priority = ["wood", "food", "gold"]
-	else:
-		priority = ["gold", "food", "wood"]
-
-	# Try to find a resource node for the most needed type
+	# A purchase can empty the wood bank without changing long-term labor
+	# needs. Assign only the newborn; preserve every existing player order.
+	var counts: Dictionary = {"food": 0, "wood": 0, "gold": 0}
+	var total_workers: int = 1
+	for unit: Node in _player_units[0]:
+		if not is_instance_valid(unit) or not unit is Villager or unit == villager or unit.current_state == UnitBase.State.DEAD:
+			continue
+		total_workers += 1
+		match (unit as Villager).gather_type:
+			Villager.GatherType.FOOD: counts["food"] += 1
+			Villager.GatherType.WOOD: counts["wood"] += 1
+			Villager.GatherType.GOLD: counts["gold"] += 1
+	var weights: Dictionary = SkirmishData.get_new_worker_weights(GameManager.get_player_age(0))
+	var priority: Array[String] = ["food", "wood", "gold"]
+	var ranks: Dictionary = {"food": 0, "wood": 1, "gold": 2}
+	priority.sort_custom(func(a: String, b: String) -> bool:
+		var deficit_a: float = float(weights[a]) * total_workers - int(counts[a])
+		var deficit_b: float = float(weights[b]) * total_workers - int(counts[b])
+		return int(ranks[a]) < int(ranks[b]) if is_equal_approx(deficit_a, deficit_b) else deficit_a > deficit_b
+	)
 	for res_type in priority:
-		var node: Node2D = game_map.get_nearest_resource_node(res_type, villager.global_position)
-		if node != null and villager.has_method("command_gather"):
-			villager.command_gather(node)
+		var node: Node2D = game_map.get_nearest_reachable_resource_node(res_type, villager.global_position, villager.player_owner)
+		if node != null and bool(villager.call("command_gather", node)):
 			return
 
 
@@ -1179,6 +1532,8 @@ func _spawn_building(building_type: int, player_id: int, tile_pos: Vector2i) -> 
 
 	game_map.get_node("BuildingsContainer").add_child(building)
 	_player_buildings[player_id].append(building)
+	if building.provides_food:
+		game_map.register_harvestable(building)
 
 	# Mark pathfinding obstacle.
 	game_map.place_building_obstacle(tile_pos, building.footprint)
@@ -1194,9 +1549,11 @@ func _spawn_building(building_type: int, player_id: int, tile_pos: Vector2i) -> 
 		if pq != null:
 			building.set_production_queue(pq)
 	if pq:
-		var unit_trained_callback := Callable(self, "_on_unit_trained").bind(player_id)
+		var unit_trained_callback := Callable(self, "_on_unit_trained").bind(player_id, pq)
 		if not pq.is_connected("unit_trained", unit_trained_callback):
 			pq.connect("unit_trained", unit_trained_callback)
+		if player_id == 0 and not pq.is_connected("queue_changed", _update_population_display):
+			pq.connect("queue_changed", _update_population_display)
 
 	# Register with AI.
 	if player_id == ai_controller.player_id:
@@ -1206,8 +1563,10 @@ func _spawn_building(building_type: int, player_id: int, tile_pos: Vector2i) -> 
 
 
 func _on_building_constructed(building: BuildingBase, player_id: int) -> void:
+	if player_id == ai_controller.player_id:
+		_ai_construction_jobs.erase(building.get_instance_id())
 	if building.pop_provided > 0:
-		GameManager.increase_population_cap(player_id, building.pop_provided)
+		GameManager.grant_population_cap(player_id, building.get_instance_id(), building.pop_provided)
 		_update_population_display()
 	_stats[player_id]["buildings_built"] += 1
 	if player_id == 0:
@@ -1228,15 +1587,23 @@ func _on_building_constructed(building: BuildingBase, player_id: int) -> void:
 
 
 func _on_building_destroyed(building: BuildingBase, player_id: int, tile_pos: Vector2i) -> void:
+	if player_id == ai_controller.player_id:
+		# Combat destruction is a real loss (and AIController records a rebuild),
+		# so stop recovery without refunding this construction transaction.
+		_ai_construction_jobs.erase(building.get_instance_id())
 	_player_buildings[player_id].erase(building)
+	if building.provides_food:
+		game_map.unregister_harvestable(building)
 	_stats[player_id]["buildings_lost"] += 1
 	game_map.remove_building_obstacle(tile_pos, building.footprint)
 	if player_id == 0:
 		hud.show_notification("Building destroyed!", Color(1.0, 0.3, 0.3))
 
 	if building.pop_provided > 0:
-		# Don't reduce cap below current population (units don't instantly die).
-		pass
+		# Existing units and reservations survive an over-cap state. The cap ledger
+		# removes this provider's nominal contribution and rebalances every survivor.
+		GameManager.revoke_population_cap(building.get_instance_id())
+		_update_population_display()
 
 	# Check win condition: Town Center destroyed.
 	if building.building_type == BuildingData.BuildingType.TOWN_CENTER:
@@ -1256,13 +1623,14 @@ func _on_building_destroyed(building: BuildingBase, player_id: int, tile_pos: Ve
 
 func _on_selection_changed(selected_units: Array[Node2D]) -> void:
 	if selected_units.is_empty():
-		_patrol_command_armed = false
+		_clear_armed_unit_commands(false)
 		hud.clear_selection()
 		_update_progression_hint()
 		return
 
 	var first: Node2D = selected_units[0]
 	if first is ResourceNode:
+		_clear_armed_unit_commands(false)
 		var r: ResourceNode = first as ResourceNode
 		var type_name: String = r.resource_type.capitalize()
 		var pct: int = int(float(r.remaining) / float(r.total_amount) * 100.0)
@@ -1272,12 +1640,10 @@ func _on_selection_changed(selected_units: Array[Node2D]) -> void:
 	if first is UnitBase:
 		var u: UnitBase = first as UnitBase
 		var action_text: String = UnitBase.State.keys()[u.current_state]
-		# Show gather details for villagers
+		# The worker owns its work intent; cargo never substitutes for status.
 		if u is Villager:
 			var v: Villager = u as Villager
-			if v.current_state == UnitBase.State.GATHERING or v.carried_amount > 0:
-				var res_name: String = v.carried_resource_type.capitalize() if v.carried_resource_type != "" else "?"
-				action_text = "Gathering %s (%d/%d)" % [res_name, v.carried_amount, v.carry_capacity]
+			action_text = v.get_work_status()
 		# Count selected units of same type
 		var count: int = 0
 		var total_hp: int = 0
@@ -1287,43 +1653,108 @@ func _on_selection_changed(selected_units: Array[Node2D]) -> void:
 				count += 1
 				total_hp += int((node as UnitBase).hp)
 				total_max_hp += int((node as UnitBase).max_hp)
-		# For mixed selections, count all
-		if count < selected_units.size():
+		# A mixed army must describe the whole selection rather than claiming
+		# every soldier has the first unit's type, damage and armor.
+		var mixed_selection: bool = count < selected_units.size()
+		var selection_title: String = UnitData.get_unit_name(u.unit_type)
+		if mixed_selection:
 			count = selected_units.size()
 			total_hp = 0
 			total_max_hp = 0
+			var includes_workers: bool = false
 			for node in selected_units:
 				if node is UnitBase:
 					total_hp += int((node as UnitBase).hp)
 					total_max_hp += int((node as UnitBase).max_hp)
+					includes_workers = includes_workers or node is Villager
+			selection_title = "Units" if includes_workers else "Army"
 			action_text = "Mixed (%d units)" % count
-		var stats: Dictionary = {}
-		if not (u is Villager):
-			stats = {"damage": int(u.damage), "armor": int(u.armor), "range": int(u.attack_range / 16.0)}
+		var stats: Dictionary = {"unit_type": u.unit_type}
+		if not mixed_selection and u is Villager:
+			var worker_statuses: Dictionary = {}
+			var cargo_types: Dictionary = {}
+			var cargo_amount: int = 0
+			var cargo_capacity: int = 0
+			for node in selected_units:
+				if node is Villager:
+					var worker: Villager = node as Villager
+					var status: String = worker.get_work_status()
+					worker_statuses[status] = int(worker_statuses.get(status, 0)) + 1
+					cargo_amount += worker.carried_amount
+					cargo_capacity += worker.carry_capacity
+					if worker.carried_amount > 0:
+						cargo_types[worker.carried_resource_type] = true
+			if worker_statuses.size() > 1:
+				action_text = "Mixed tasks"
+			stats["cargo_amount"] = cargo_amount
+			stats["cargo_capacity"] = cargo_capacity
+			stats["cargo_resource"] = str(cargo_types.keys()[0]) if cargo_types.size() == 1 else "mixed"
+		if mixed_selection:
+			var role_counts: Dictionary = {}
+			for node in selected_units:
+				if node is UnitBase:
+					var role_type: int = (node as UnitBase).unit_type
+					role_counts[role_type] = int(role_counts.get(role_type, 0)) + 1
+			stats["role_counts"] = role_counts
+		if not mixed_selection and not (u is Villager):
+			stats = {
+				"unit_type": u.unit_type,
+				"damage": int(Combat.get_effective_attack(u)),
+				"armor": int(Combat.get_effective_armor(u)),
+				"range": int(round(MapData.world_to_range_tiles(u.attack_range))),
+			}
 			var stance_name: String = "Stand Ground" if u.stance == UnitBase.Stance.STAND_GROUND else "Aggressive"
 			stats["stance"] = stance_name
-		hud.show_unit_selection(UnitData.get_unit_name(u.unit_type), total_hp, total_max_hp, action_text, count, stats)
+		hud.show_unit_selection(selection_title, total_hp, total_max_hp, action_text, count, stats)
+		_refresh_unit_command_hud()
 	elif first is BuildingBase:
+		_clear_armed_unit_commands(false)
 		var b: BuildingBase = first as BuildingBase
 		var queue_info: Array = []
-		var pq: Node = b.get_production_queue()
-		if pq:
-			queue_info = pq.get_queue_info()
-		hud.show_building_selection(b.building_name, b.hp, b.max_hp, queue_info, b.trainable_units, b)
+		var trainable_units: Array = []
+		# Enemy structures remain inspectable, but their production state and
+		# command surface are private to their owner.
+		if b.player_owner == 0:
+			var pq: Node = b.get_production_queue()
+			if pq:
+				queue_info = pq.get_queue_info()
+			trainable_units = b.trainable_units
+		hud.show_building_selection(b.building_name, b.hp, b.max_hp, queue_info, trainable_units, b)
 	_update_progression_hint()
 
 
 func _on_move_command(target_tile: Vector2i) -> void:
 	var selected: Array = game_map.selection_mgr.selected
 	var issue_patrol: bool = _patrol_command_armed
-	_patrol_command_armed = false
+	var issue_force_move: bool = _move_command_armed
+	var issue_attack_move: bool = _attack_move_command_armed
+	_clear_armed_unit_commands(false)
 
 	# Check if a production building is selected — set rally point
 	if selected.size() == 1 and selected[0] is BuildingBase:
 		var b: BuildingBase = selected[0] as BuildingBase
 		if b.player_owner == 0 and b.trainable_units.size() > 0:
-			b.set_rally_point(game_map.tile_to_world(target_tile))
-			VFX.move_indicator(get_tree(), game_map.tile_to_world(target_tile))
+			var target_in_bounds: bool = (
+				target_tile.x >= 0
+				and target_tile.x < MapData.MAP_WIDTH
+				and target_tile.y >= 0
+				and target_tile.y < MapData.MAP_HEIGHT
+			)
+			if not target_in_bounds:
+				hud.show_notification("Rally point unavailable. Choose another location.", Color(1.0, 0.62, 0.32))
+				return
+			# Only reject a blocker the player can currently see. Hidden tiles accept
+			# the same rally interaction regardless of their private walkability, and
+			# produced units later resolve a legal endpoint through normal navigation.
+			if (
+				game_map.is_tile_visible_to_player(target_tile, 0)
+				and not game_map.is_tile_walkable(target_tile)
+			):
+				hud.show_notification("Rally point unavailable. Choose another location.", Color(1.0, 0.62, 0.32))
+				return
+			var rally_world: Vector2 = game_map.tile_to_world(target_tile)
+			b.set_rally_point(rally_world)
+			VFX.move_indicator(get_tree(), rally_world)
 			hud.show_notification("Rally point set: %s" % b.building_name, Color(0.58, 0.82, 1.0))
 			return
 
@@ -1356,25 +1787,29 @@ func _on_move_command(target_tile: Vector2i) -> void:
 		var world_pos: Vector2 = game_map.tile_to_world(dest_tile)
 		var unit_tile: Vector2i = game_map.world_to_tile(unit.global_position)
 		var tile_path: Array[Vector2i] = game_map.get_movement_path(unit_tile, dest_tile)
-		# Military units use attack-move by default, villagers use regular move
+		# Military units use smart attack-move by default. Explicit Move suppresses
+		# engagement for every selected unit; A-Move makes the intent visible and
+		# available to villagers as well.
 		var is_military: bool = unit.unit_type != UnitData.UnitType.VILLAGER
 		if tile_path.size() > 1:
 			var world_path := PackedVector2Array()
 			for tp in tile_path:
 				world_path.append(game_map.tile_to_world(tp))
-			if is_military:
-				if issue_patrol:
-					unit.command_patrol(world_pos)
-				else:
-					unit.command_attack_move_path(world_path)
+			if issue_patrol and is_military:
+				unit.command_patrol(world_pos)
+			elif issue_force_move:
+				unit.command_move_path(world_path)
+			elif is_military or issue_attack_move:
+				unit.command_attack_move_path(world_path)
 			else:
 				unit.command_move_path(world_path)
 		else:
-			if is_military:
-				if issue_patrol:
-					unit.command_patrol(world_pos)
-				else:
-					unit.command_attack_move(world_pos)
+			if issue_patrol and is_military:
+				unit.command_patrol(world_pos)
+			elif issue_force_move:
+				unit.command_move(world_pos)
+			elif is_military or issue_attack_move:
+				unit.command_attack_move(world_pos)
 			else:
 				unit.command_move(world_pos)
 
@@ -1382,11 +1817,12 @@ func _on_move_command(target_tile: Vector2i) -> void:
 		VFX.move_indicator(get_tree(), game_map.tile_to_world(target_tile))
 		hud.show_notification("Patrol route set", Color(0.95, 0.8, 0.4))
 	# Show green indicator for regular move, red for attack-move
-	elif has_military:
+	elif not issue_force_move and (has_military or issue_attack_move):
 		VFX.attack_move_indicator(get_tree(), game_map.tile_to_world(target_tile))
 	else:
 		VFX.move_indicator(get_tree(), game_map.tile_to_world(target_tile))
 	AudioManager.play_sfx("command_move")
+	_refresh_unit_command_hud()
 
 
 ## Generate spiral offsets around (0,0) for formation spreading.
@@ -1419,7 +1855,9 @@ func _get_formation_offsets(count: int) -> Array[Vector2i]:
 
 
 func _on_attack_command(target: Node2D) -> void:
-	_patrol_command_armed = false
+	if _route_armed_unit_command_to_target(target):
+		return
+	_clear_armed_unit_commands(false)
 	var selected: Array = game_map.selection_mgr.selected
 	for node in selected:
 		if node is UnitBase and node.player_owner == 0:
@@ -1427,24 +1865,47 @@ func _on_attack_command(target: Node2D) -> void:
 				node.command_attack(target as UnitBase)
 			elif target is BuildingBase:
 				node.command_attack_building(target as BuildingBase)
+	_refresh_unit_command_hud()
 
 
 func _on_gather_command(resource_node: Node2D) -> void:
-	_patrol_command_armed = false
+	if _route_armed_unit_command_to_target(resource_node):
+		return
+	_clear_armed_unit_commands(false)
+	if not game_map.is_resource_target_visible_to_player(resource_node, 0):
+		return
+	if not game_map.is_resource_target_valid(resource_node, "", 0):
+		return
 	var selected: Array = game_map.selection_mgr.selected
+	var assigned_any: bool = false
 	for node in selected:
 		if node is UnitBase and node.player_owner == 0 and node.has_method("command_gather"):
-			node.command_gather(resource_node)
-			_opening_gather_complete = true
+			assigned_any = bool(node.call("command_gather", resource_node)) or assigned_any
+	if assigned_any and resource_node.get_resource_type() == "food":
+		_opening_gather_complete = true
 	_refresh_guided_opening_stage()
+	_refresh_unit_command_hud()
 
 
 func _on_build_command(building: Node2D) -> void:
-	_patrol_command_armed = false
+	if _route_armed_unit_command_to_target(building):
+		return
+	_clear_armed_unit_commands(false)
 	var selected: Array = game_map.selection_mgr.selected
 	for node in selected:
 		if node is Villager and node.player_owner == 0:
 			node.command_build(building)
+	_refresh_unit_command_hud()
+
+
+func _route_armed_unit_command_to_target(target: Node2D) -> bool:
+	if not (_move_command_armed or _attack_move_command_armed or _patrol_command_armed):
+		return false
+	if target == null or not is_instance_valid(target):
+		_clear_armed_unit_commands()
+		return true
+	_on_move_command(game_map.world_to_tile(target.global_position))
+	return true
 
 
 func _on_train_unit_requested(building: Node2D, unit_type: int) -> void:
@@ -1457,6 +1918,12 @@ func _on_train_unit_requested(building: Node2D, unit_type: int) -> void:
 		_refresh_first_session_diagnostics()
 		return
 	var b: BuildingBase = building as BuildingBase
+	if b.player_owner != 0:
+		_last_train_request_result = "not_owned"
+		_last_train_feedback = "Enemy buildings can only be inspected."
+		hud.show_notification(_last_train_feedback, Color(1.0, 0.55, 0.35))
+		_refresh_first_session_diagnostics()
+		return
 	if not b.can_train():
 		if b.state != BuildingBase.State.ACTIVE:
 			_last_train_request_result = "building_inactive"
@@ -1476,11 +1943,14 @@ func _on_train_unit_requested(building: Node2D, unit_type: int) -> void:
 	# Check population room
 	var pop_cost: int = UnitData.UNITS.get(unit_type, {}).get("pop_cost", 1)
 	var player_data: Dictionary = GameManager.players.get(0, {})
-	var pop: int = player_data.get("population", 0)
+	var pop: int = GameManager.get_committed_population(0)
 	var cap: int = player_data.get("population_cap", 5)
 	if pop + pop_cost > cap:
 		_last_train_request_result = "population_blocked"
-		_last_train_feedback = "Population full (%d/%d). Build a House before training %s." % [pop, cap, UnitData.get_unit_name(unit_type)]
+		if cap >= GameManager.get_player_population_limit(0):
+			_last_train_feedback = "Not enough population space (%d/%d). %s needs %d slots." % [pop, cap, UnitData.get_unit_name(unit_type), pop_cost]
+		else:
+			_last_train_feedback = "Population full (%d/%d). Build a House before training %s." % [pop, cap, UnitData.get_unit_name(unit_type)]
 		hud.show_notification(_last_train_feedback, Color(1.0, 0.6, 0.2))
 		_refresh_first_session_diagnostics()
 		return
@@ -1517,20 +1987,18 @@ func _on_train_unit_requested(building: Node2D, unit_type: int) -> void:
 			if unit_type == UnitData.UnitType.SCOUT:
 				_opening_scout_queued = true
 			_refresh_guided_opening_stage()
-			if guided_scout_fast_track:
-				if not pq is ProductionQueue:
-					_last_train_request_result = "fast_track_invalid_queue_type"
-				else:
-					var scout_queue: ProductionQueue = pq as ProductionQueue
-					if not scout_queue.is_training:
-						_last_train_request_result = "fast_track_not_training"
-					elif scout_queue.queue.is_empty():
-						_last_train_request_result = "fast_track_empty_queue"
-					elif int(scout_queue.queue[0]) != unit_type:
-						_last_train_request_result = "fast_track_queue_mismatch"
-					else:
-						scout_queue._complete_current_unit()
-						_last_train_request_result = "fast_track_completed"
+			# Guided fast-track is a best-effort onboarding convenience. A unit was
+			# still queued successfully when another item is already at the head, so
+			# retain the truthful `queued` result unless this Scout completes now.
+			if guided_scout_fast_track and pq is ProductionQueue:
+				var scout_queue: ProductionQueue = pq as ProductionQueue
+				if (
+					scout_queue.is_training
+					and not scout_queue.queue.is_empty()
+					and int(scout_queue.queue[0]) == unit_type
+				):
+					scout_queue._complete_current_unit()
+					_last_train_request_result = "fast_track_completed"
 		# Refresh selection display to show updated queue
 		_on_selection_changed(game_map.selection_mgr.selected)
 		_update_progression_hint()
@@ -1570,25 +2038,27 @@ func _get_initial_camera_focus(player_spawn: Vector2) -> Vector2:
 	var phone_like: bool = DisplayServer.is_touchscreen_available() or OS.has_feature("mobile") or short_side <= 460.0
 	var samples: Array[Vector2] = [player_spawn]
 	for resource_type in ["food", "wood", "gold"]:
-		var node: Node2D = game_map.get_nearest_resource_node(resource_type, player_spawn)
+		var node: Node2D = game_map.get_nearest_resource_node(resource_type, player_spawn, 0)
 		if node != null:
 			samples.append(node.global_position)
 	var weighted_center := Vector2.ZERO
 	for sample in samples:
 		weighted_center += sample
 	weighted_center /= float(maxi(1, samples.size()))
-	if not phone_like:
-		return weighted_center.lerp(player_spawn, 0.3)
-	var center_tile := Vector2i(MapData.MAP_WIDTH / 2, MapData.MAP_HEIGHT / 2)
-	var center_world: Vector2 = game_map.tile_to_world(center_tile)
-	# Bias inward so the Town Center, nearby economy, and open ground all fit on screen.
-	return weighted_center.lerp(center_world, 0.18)
+	# Anchor the landmark in the playable middle of the phone screen.
+	var focus: Vector2 = player_spawn.lerp(weighted_center, 0.28)
+	if phone_like:
+		focus.y += 14.0 / maxf(0.1, game_map.camera.zoom.y)
+	return focus
 
 
 func _on_cancel_queue_requested(building: Node2D, index: int) -> void:
 	if not is_instance_valid(building) or not (building is BuildingBase):
 		return
-	var pq: Node = (building as BuildingBase).get_production_queue()
+	var b: BuildingBase = building as BuildingBase
+	if b.player_owner != 0:
+		return
+	var pq: Node = b.get_production_queue()
 	if pq:
 		pq.cancel_unit(index)
 		_on_selection_changed(game_map.selection_mgr.selected)
@@ -1598,6 +2068,12 @@ func _on_research_requested(building: Node2D, research_id: String) -> void:
 	if not is_instance_valid(building) or not (building is BuildingBase):
 		return
 	var b: BuildingBase = building as BuildingBase
+	if (
+		b.player_owner != 0
+		or b.building_type != BuildingData.BuildingType.BLACKSMITH
+		or b.state != BuildingBase.State.ACTIVE
+	):
+		return
 	var gm: Node = GameManager
 	if gm.has_research(b.player_owner, research_id):
 		return
@@ -1650,6 +2126,7 @@ func _on_research_requested(building: Node2D, research_id: String) -> void:
 # =========================================================================
 
 func _setup_hud() -> void:
+	hud.set_match_population_limit(GameManager.get_player_population_limit(0))
 	# Find the build menu inside the HUD (if nested) or create reference.
 	_build_menu = hud.get_node_or_null("BuildMenu")
 	if _build_menu == null:
@@ -1666,8 +2143,21 @@ func _setup_hud() -> void:
 	hud.cancel_queue_requested.connect(_on_cancel_queue_requested)
 	hud.select_all_military_pressed.connect(_select_all_military)
 	hud.find_army_pressed.connect(_find_army)
+	hud.unit_move_requested.connect(_arm_move_command)
+	hud.unit_attack_move_requested.connect(_arm_attack_move_command)
+	hud.unit_patrol_requested.connect(_arm_patrol_command)
+	hud.unit_stop_requested.connect(_stop_selected_units)
+	hud.unit_stance_requested.connect(_toggle_stance)
+	hud.deselect_requested.connect(_deselect_from_hud)
 	hud.research_requested.connect(_on_research_requested)
 	hud.placement_cancel_requested.connect(_on_cancel_placement)
+	hud.placement_confirm_requested.connect(_on_confirm_placement)
+	hud.town_center_pressed.connect(_select_town_center)
+	hud.camera_zoom_requested.connect(_on_camera_zoom_requested)
+	hud.camera_zoom_reset_requested.connect(game_map.reset_zoom)
+	game_map.zoom_changed.connect(hud.update_camera_zoom)
+	var zoom_state: Dictionary = game_map.get_zoom_state()
+	hud.update_camera_zoom(float(zoom_state["zoom"]), float(zoom_state["min"]), float(zoom_state["max"]))
 	hud.pause_requested.connect(_on_pause_requested)
 	hud.resume_requested.connect(_on_resume_requested)
 	hud.quit_to_menu_requested.connect(_on_quit_to_menu_requested)
@@ -1683,6 +2173,7 @@ func _setup_hud() -> void:
 	_building_placement.placement_confirmed.connect(_on_placement_confirmed)
 	_building_placement.placement_cancelled.connect(_on_cancel_placement)
 	_building_placement.placement_invalid.connect(_on_placement_invalid)
+	_building_placement.preview_changed.connect(_on_placement_preview_changed)
 	_sync_hud_modal_state()
 
 
@@ -1712,6 +2203,10 @@ func _on_build_menu_toggled(is_open: bool) -> void:
 		_update_progression_hint()
 		return
 	if is_open:
+		# Reopening Build while a ghost is active is an explicit mode switch:
+		# cancel the ghost first so the freshly opened menu is fully interactive.
+		if _placement_active:
+			_cancel_placement()
 		_build_menu.open_menu()
 	else:
 		_build_menu.close_menu()
@@ -1734,15 +2229,39 @@ func _on_building_selected_for_placement(building_type: int) -> void:
 	_placement_type = building_type
 	_last_invalid_placement_reason = ""
 	_building_placement.start_placement(building_type, 0)
+	# The build grid is modal and covers most of a phone viewport.  Move to a
+	# world-placement UI state without taking the normal close path, which would
+	# immediately cancel the placement we just started.
+	_build_menu.close_for_world_placement()
+	hud.dismiss_build_menu_for_placement()
 	hud.set_placement_mode(true, BuildingData.get_building_name(building_type))
+	_on_placement_preview_changed(_building_placement.is_valid_placement, _building_placement.get_invalid_reason())
+	_sync_hud_modal_state()
 	if _guided_opening_active and _guided_stage == GuidedOpeningStage.BUILD_HOUSE and building_type == BuildingData.BuildingType.HOUSE:
-		hud.show_notification("House placement active: green tiles are valid. Cancel House stays in the bottom bar.", Color(0.95, 0.86, 0.42))
+		hud.show_notification("Position your House, then tap Place. Two fingers pan and zoom.", Color(0.95, 0.86, 0.42))
 	_refresh_first_session_diagnostics()
 	_update_progression_hint()
 
 
 func _on_cancel_placement() -> void:
 	_cancel_placement()
+
+
+func _on_camera_zoom_requested(direction: int) -> void:
+	if direction > 0:
+		game_map.zoom_in()
+	elif direction < 0:
+		game_map.zoom_out()
+
+
+func _on_confirm_placement() -> void:
+	if _placement_active and _building_placement != null:
+		_building_placement.confirm_preview()
+
+
+func _on_placement_preview_changed(valid: bool, reason: String) -> void:
+	if hud != null:
+		hud.update_placement_preview(valid, reason)
 
 
 func _cancel_placement() -> void:
@@ -1764,6 +2283,9 @@ func _sync_hud_modal_state() -> void:
 	if GameManager.current_state == GameManager.GameState.PAUSED:
 		hud.set_ui_modal_state(hud.UIModalState.PAUSE_MENU)
 	elif hud.is_build_menu_open():
+		game_map.cancel_camera_touch_gesture()
+		if game_map.selection_mgr != null:
+			game_map.selection_mgr.cancel_touch_gesture()
 		hud.set_ui_modal_state(hud.UIModalState.BUILD_MENU)
 	else:
 		hud.set_ui_modal_state(hud.UIModalState.NONE)
@@ -1785,12 +2307,8 @@ func _on_placement_invalid(reason: String) -> void:
 
 func _on_age_up_requested() -> void:
 	var age: int = GameManager.get_player_age(0)
-	var cost: Dictionary
-	if age == 1:
-		cost = {"food": 400, "gold": 200}
-	elif age == 2:
-		cost = {"food": 1200, "gold": 600}
-	else:
+	var cost: Dictionary = GameManager.get_age_up_cost(0, age + 1)
+	if cost.is_empty():
 		return
 
 	if ResourceManager.try_spend(0, cost):
@@ -1816,8 +2334,15 @@ func _on_age_up_requested() -> void:
 
 func _on_placement_confirmed(building_type: int, world_pos: Vector2) -> void:
 	var tile_pos: Vector2i = game_map.world_to_tile(world_pos)
-
 	var cost: Dictionary = BuildingData.get_building_cost(building_type)
+	# The preview owns the first confirmation check, but fog/occupancy can change
+	# before this synchronous gameplay transaction begins. Revalidate against the
+	# authoritative map immediately before spending or spawning.
+	if not _building_placement.revalidate_confirmation(building_type, world_pos, 0):
+		var invalid_reason: String = _building_placement.get_invalid_reason()
+		_cancel_placement()
+		_on_placement_invalid(invalid_reason)
+		return
 	if not ResourceManager.try_spend(0, cost):
 		var missing: Dictionary = ResourceManager.get_missing_resources(0, cost)
 		_last_placement_feedback = "Need %s to place %s. Gather resources, then reopen Build." % [_format_missing_resources(missing), BuildingData.get_building_name(building_type)]
@@ -1828,40 +2353,56 @@ func _on_placement_confirmed(building_type: int, world_pos: Vector2) -> void:
 
 	var building := _spawn_building(building_type, 0, tile_pos)
 	building.start_construction()
-	hud.show_notification("Placed: %s" % BuildingData.get_building_name(building_type), Color(0.48, 0.86, 0.52))
 	_last_placement_feedback = ""
 	if building_type == BuildingData.BuildingType.HOUSE:
 		_opening_house_complete = true
 	_last_invalid_placement_reason = ""
 	_refresh_guided_opening_stage()
 
-	# Send nearest idle villager to build it.
-	_send_villager_to_build(building)
+	if _send_villager_to_build(building):
+		hud.show_notification("Placed: %s" % BuildingData.get_building_name(building_type), Color(0.48, 0.86, 0.52))
+	else:
+		_last_placement_feedback = "Placed %s. Select a free villager, then tap the foundation to build it." % BuildingData.get_building_name(building_type)
+		hud.show_notification(_last_placement_feedback, Color(1.0, 0.75, 0.3))
 	_cancel_placement()
 	_update_progression_hint()
 
 
-func _send_villager_to_build(building: BuildingBase) -> void:
-	# Prefer IDLE villagers, fall back to GATHERING ones.
-	var best_idle: Villager = null
-	var best_idle_dist: float = INF
-	var best_gathering: Villager = null
-	var best_gathering_dist: float = INF
+func _send_villager_to_build(building: BuildingBase) -> bool:
+	# Opening workers often all walk to resources at once. Prefer idle labor,
+	# then gathering labor, then a walking worker rather than leaving a paid
+	# foundation unstaffed. Existing construction orders keep their workers.
+	var idle_candidates: Array[Villager] = []
+	var gathering_candidates: Array[Villager] = []
+	var moving_candidates: Array[Villager] = []
 	for unit in _player_units[0]:
-		if not (unit is Villager) or not is_instance_valid(unit):
+		if not is_instance_valid(unit) or not (unit is Villager):
 			continue
-		var dist: float = unit.global_position.distance_to(building.global_position)
-		if unit.current_state == UnitBase.State.IDLE:
-			if dist < best_idle_dist:
-				best_idle_dist = dist
-				best_idle = unit as Villager
-		elif unit.current_state == UnitBase.State.GATHERING:
-			if dist < best_gathering_dist:
-				best_gathering_dist = dist
-				best_gathering = unit as Villager
-	var chosen: Villager = best_idle if best_idle else best_gathering
-	if chosen:
-		chosen.command_build(building)
+		var villager: Villager = unit as Villager
+		if villager.is_auto_recovering():
+			continue
+		if is_instance_valid(villager.build_target) and villager._is_build_target_valid(villager.build_target):
+			continue
+		match villager.current_state:
+			UnitBase.State.IDLE:
+				idle_candidates.append(villager)
+			UnitBase.State.GATHERING:
+				gathering_candidates.append(villager)
+			UnitBase.State.MOVING:
+				moving_candidates.append(villager)
+	for candidates: Array[Villager] in [idle_candidates, gathering_candidates, moving_candidates]:
+		candidates.sort_custom(func(a: Villager, b: Villager) -> bool:
+			return a.global_position.distance_squared_to(building.global_position) < b.global_position.distance_squared_to(building.global_position)
+		)
+		for candidate: Villager in candidates:
+			# The same construction-distance route check used by AI transactions
+			# applies after the human foundation becomes an obstacle too.
+			if not _can_ai_builder_reach(candidate, building.global_position, building.footprint):
+				continue
+			candidate.command_build(building)
+			if candidate.current_state == UnitBase.State.BUILDING and candidate.build_target == building:
+				return true
+	return false
 
 
 func _screen_to_world(screen_pos: Vector2) -> Vector2:
@@ -1892,21 +2433,262 @@ func _setup_ai(map_gen: MapGenerator) -> void:
 	ai_controller.start_ai(ai_spawn, ai_world_pos)
 
 
-func _on_ai_wants_to_build(building_type: int, tile_pos: Vector2i) -> void:
+func _on_ai_wants_to_build(building_type: int, tile_pos: Vector2i, is_rebuild: bool) -> void:
 	var cost: Dictionary = BuildingData.get_building_cost(building_type)
-	if not ResourceManager.try_spend(ai_controller.player_id, cost):
+	# Revalidate the AI's proposal at the transaction boundary. Bounds and the
+	# complete current-vision footprint are checked before walkability, keeping
+	# stale or synthetic signals from probing hidden terrain or spending.
+	if not _is_ai_build_site_currently_valid(building_type, tile_pos):
+		_restore_ai_rebuild_request(building_type, is_rebuild)
 		return
-	var building := _spawn_building(building_type, ai_controller.player_id, tile_pos)
-	# AI buildings construct faster (simulated — instant for prototype).
+	var build_position: Vector2 = game_map.tile_to_world(tile_pos)
+	var footprint: Vector2i = BuildingData.get_building_stats(building_type).get("footprint", Vector2i.ONE)
+	# Preflight before spending or spawning. This is repeated after the
+	# foundation becomes a pathfinding obstacle so an optimistic route through
+	# the future footprint cannot silently consume resources.
+	if _find_available_ai_builder(build_position, {}, footprint) == null:
+		_restore_ai_rebuild_request(building_type, is_rebuild)
+		return
+	if not ResourceManager.try_spend(ai_controller.player_id, cost):
+		_restore_ai_rebuild_request(building_type, is_rebuild)
+		return
+	var building: BuildingBase = _spawn_building(building_type, ai_controller.player_id, tile_pos)
+	if building == null:
+		ResourceManager.refund(ai_controller.player_id, cost)
+		_restore_ai_rebuild_request(building_type, is_rebuild)
+		return
 	building.start_construction()
-	# Simulate villager building by adding progress over time.
-	_auto_construct(building)
+
+	var builder: Villager = _find_available_ai_builder(building.global_position, {}, building.footprint)
+	if builder == null:
+		_cancel_ai_foundation(building, tile_pos, cost, building_type, is_rebuild)
+		return
+	builder.command_build(building)
+	if not _is_ai_builder_working_on(builder, building):
+		_cancel_ai_foundation(building, tile_pos, cost, building_type, is_rebuild)
+		return
+
+	_ai_construction_jobs[building.get_instance_id()] = {
+		"building_ref": weakref(building),
+		"builder_ref": weakref(builder),
+		"tile_pos": tile_pos,
+		"cost": cost.duplicate(),
+		"building_type": building_type,
+		"is_rebuild": is_rebuild,
+		"failed_builder_ids": {},
+		"failed_recovery_ticks": 0,
+		"reassignments": 0,
+	}
 
 
-func _auto_construct(building: BuildingBase) -> void:
-	# For AI buildings, auto-advance construction over build_time using a tween.
-	var tween := create_tween()
-	tween.tween_method(building.add_build_progress, 0.0, building.build_time, building.build_time)
+func _is_ai_build_site_currently_valid(building_type: int, tile_pos: Vector2i) -> bool:
+	if game_map == null or not game_map.has_method("is_tile_visible_to_player"):
+		return false
+	var stats: Dictionary = BuildingData.get_building_stats(building_type)
+	if stats.is_empty():
+		return false
+	var footprint: Vector2i = stats.get("footprint", Vector2i(2, 2))
+	for dy in range(footprint.y):
+		for dx in range(footprint.x):
+			var check_tile := tile_pos + Vector2i(dx, dy)
+			if (
+				check_tile.x < 0
+				or check_tile.x >= MapData.MAP_WIDTH
+				or check_tile.y < 0
+				or check_tile.y >= MapData.MAP_HEIGHT
+			):
+				return false
+			if not bool(game_map.call("is_tile_visible_to_player", check_tile, ai_controller.player_id)):
+				return false
+	if not game_map.has_method("is_tile_buildable"):
+		return false
+	for dy in range(footprint.y):
+		for dx in range(footprint.x):
+			if not bool(game_map.call("is_tile_buildable", tile_pos + Vector2i(dx, dy))):
+				return false
+	return true
+
+
+func _find_available_ai_builder(build_position: Vector2, excluded_ids: Dictionary = {}, footprint: Vector2i = Vector2i.ONE) -> Villager:
+	var idle_candidates: Array[Villager] = []
+	var gathering_candidates: Array[Villager] = []
+	for unit in _player_units[ai_controller.player_id]:
+		if not is_instance_valid(unit) or not (unit is Villager):
+			continue
+		var villager := unit as Villager
+		if villager.current_state == UnitBase.State.DEAD:
+			continue
+		if excluded_ids.has(villager.get_instance_id()) or _is_ai_builder_reserved(villager):
+			continue
+		if villager.current_state == UnitBase.State.IDLE:
+			idle_candidates.append(villager)
+		elif villager.current_state == UnitBase.State.GATHERING:
+			gathering_candidates.append(villager)
+
+	for candidates: Array[Villager] in [idle_candidates, gathering_candidates]:
+		candidates.sort_custom(func(a: Villager, b: Villager) -> bool:
+			return a.global_position.distance_squared_to(build_position) < b.global_position.distance_squared_to(build_position)
+		)
+		var checked: int = 0
+		for candidate: Villager in candidates:
+			if checked >= AI_CONSTRUCTION_MAX_ROUTE_CANDIDATES:
+				break
+			checked += 1
+			if _can_ai_builder_reach(candidate, build_position, footprint):
+				return candidate
+	return null
+
+
+func _can_ai_builder_reach(builder: Villager, build_position: Vector2, footprint: Vector2i = Vector2i.ONE) -> bool:
+	if not is_instance_valid(builder) or game_map == null:
+		return false
+	if game_map.has_method("get_building_work_world_path"):
+		if float(game_map.call("get_building_work_distance", builder.global_position, build_position, footprint)) <= AI_CONSTRUCTION_APPROACH_RADIUS:
+			return true
+		var work_route: PackedVector2Array = game_map.call(
+			"get_building_work_world_path", builder.global_position, build_position, footprint, AI_CONSTRUCTION_APPROACH_RADIUS
+		)
+		return not work_route.is_empty()
+	if builder.global_position.distance_to(build_position) <= AI_CONSTRUCTION_APPROACH_RADIUS:
+		return true
+	if not game_map.has_method("get_navigation_world_path"):
+		return false
+	var route: PackedVector2Array = game_map.call(
+		"get_navigation_world_path",
+		builder.global_position,
+		build_position,
+		AI_CONSTRUCTION_APPROACH_RADIUS
+	)
+	if route.is_empty():
+		return false
+	# GameMap may expose a nearby fallback endpoint outside the interaction
+	# radius. Such a path is useful for movement, but cannot start construction.
+	return route[route.size() - 1].distance_to(build_position) <= AI_CONSTRUCTION_APPROACH_RADIUS + 0.5
+
+
+func _is_ai_builder_reserved(builder: Villager) -> bool:
+	for job_value in _ai_construction_jobs.values():
+		var job: Dictionary = job_value
+		var builder_ref: WeakRef = job.get("builder_ref")
+		if builder_ref != null and builder_ref.get_ref() == builder:
+			return true
+	return false
+
+
+func _is_ai_builder_working_on(builder: Villager, building: BuildingBase) -> bool:
+	return (
+		is_instance_valid(builder)
+		and is_instance_valid(building)
+		and builder.has_active_build_order()
+		and builder.build_target == building
+	)
+
+
+func _restore_ai_rebuild_request(building_type: int, is_rebuild: bool) -> void:
+	if is_rebuild and is_instance_valid(ai_controller):
+		ai_controller.restore_rebuild_request(building_type)
+
+
+func _cancel_ai_foundation(
+	building: BuildingBase,
+	tile_pos: Vector2i,
+	cost: Dictionary,
+	building_type: int,
+	is_rebuild: bool
+) -> void:
+	if is_instance_valid(building):
+		_ai_construction_jobs.erase(building.get_instance_id())
+		for unit in _player_units[ai_controller.player_id]:
+			if not is_instance_valid(unit) or not (unit is Villager):
+				continue
+			var builder := unit as Villager
+			if builder.build_target != building:
+				continue
+			builder.build_target = null
+			if builder.current_state == UnitBase.State.BUILDING:
+				builder.command_stop()
+		_player_buildings[ai_controller.player_id].erase(building)
+		if building.provides_food:
+			game_map.unregister_harvestable(building)
+		game_map.remove_building_obstacle(tile_pos, building.footprint)
+		ai_controller.unregister_building(building)
+		building.queue_free()
+	ResourceManager.refund(ai_controller.player_id, cost)
+	_restore_ai_rebuild_request(building_type, is_rebuild)
+
+
+func _process_ai_construction_recovery(delta: float) -> void:
+	_ai_construction_recovery_elapsed += delta
+	if _ai_construction_recovery_elapsed < AI_CONSTRUCTION_RECOVERY_INTERVAL:
+		return
+	_ai_construction_recovery_elapsed = 0.0
+	for job_key in _ai_construction_jobs.keys():
+		var job_id: int = int(job_key)
+		if not _ai_construction_jobs.has(job_id):
+			continue
+		var job: Dictionary = _ai_construction_jobs[job_id]
+		var building_ref: WeakRef = job.get("building_ref")
+		var building: BuildingBase = building_ref.get_ref() as BuildingBase if building_ref != null else null
+		if building == null:
+			_ai_construction_jobs.erase(job_id)
+			ResourceManager.refund(ai_controller.player_id, job.get("cost", {}))
+			_restore_ai_rebuild_request(int(job.get("building_type", -1)), bool(job.get("is_rebuild", false)))
+			continue
+		if building.state == BuildingBase.State.ACTIVE or building.state == BuildingBase.State.DESTROYED:
+			_ai_construction_jobs.erase(job_id)
+			continue
+		if building.state != BuildingBase.State.CONSTRUCTING:
+			_cancel_ai_foundation(
+				building,
+				job.get("tile_pos", Vector2i.ZERO),
+				job.get("cost", {}),
+				int(job.get("building_type", -1)),
+				bool(job.get("is_rebuild", false))
+			)
+			continue
+
+		var builder_ref: WeakRef = job.get("builder_ref")
+		var builder: Villager = builder_ref.get_ref() as Villager if builder_ref != null else null
+		if _is_ai_builder_working_on(builder, building):
+			job["failed_recovery_ticks"] = 0
+			_ai_construction_jobs[job_id] = job
+			continue
+
+		var failed_builder_ids: Dictionary = job.get("failed_builder_ids", {})
+		if builder != null and is_instance_valid(builder):
+			failed_builder_ids[builder.get_instance_id()] = true
+		job["failed_builder_ids"] = failed_builder_ids
+		if int(job.get("reassignments", 0)) >= AI_CONSTRUCTION_MAX_REASSIGNMENTS:
+			_cancel_ai_foundation(
+				building,
+				job.get("tile_pos", Vector2i.ZERO),
+				job.get("cost", {}),
+				int(job.get("building_type", -1)),
+				bool(job.get("is_rebuild", false))
+			)
+			continue
+
+		var replacement: Villager = _find_available_ai_builder(building.global_position, failed_builder_ids, building.footprint)
+		if replacement != null:
+			replacement.command_build(building)
+			if _is_ai_builder_working_on(replacement, building):
+				job["builder_ref"] = weakref(replacement)
+				job["failed_recovery_ticks"] = 0
+				job["reassignments"] = int(job.get("reassignments", 0)) + 1
+				_ai_construction_jobs[job_id] = job
+				continue
+
+		job["failed_recovery_ticks"] = int(job.get("failed_recovery_ticks", 0)) + 1
+		if int(job["failed_recovery_ticks"]) >= AI_CONSTRUCTION_MAX_FAILED_RECOVERY_TICKS:
+			_cancel_ai_foundation(
+				building,
+				job.get("tile_pos", Vector2i.ZERO),
+				job.get("cost", {}),
+				int(job.get("building_type", -1)),
+				bool(job.get("is_rebuild", false))
+			)
+		else:
+			_ai_construction_jobs[job_id] = job
 
 
 func _on_ai_wants_to_train(building: Node, unit_type: int) -> void:
@@ -1919,12 +2701,8 @@ func _on_ai_wants_to_train(building: Node, unit_type: int) -> void:
 
 func _on_ai_wants_to_age_up() -> void:
 	var age: int = GameManager.get_player_age(ai_controller.player_id)
-	var cost: Dictionary
-	if age == 1:
-		cost = {"food": 400, "gold": 200}
-	elif age == 2:
-		cost = {"food": 1200, "gold": 600}
-	else:
+	var cost: Dictionary = GameManager.get_age_up_cost(ai_controller.player_id, age + 1)
+	if cost.is_empty():
 		return
 	if ResourceManager.try_spend(ai_controller.player_id, cost):
 		GameManager.advance_age(ai_controller.player_id)
@@ -1934,6 +2712,8 @@ func _on_ai_wants_to_age_up() -> void:
 
 
 func _on_ai_attack_launched(_units: Array, _target_pos: Vector2) -> void:
+	if OS.has_feature("production"):
+		return
 	balance_ai_attack_count += 1
 	if balance_ai_first_attack_time < 0.0:
 		balance_ai_first_attack_time = GameManager.game_time
@@ -1950,8 +2730,12 @@ func _process(delta: float) -> void:
 	if GameManager.current_state != GameManager.GameState.PLAYING:
 		return
 	_advance_production_queues(delta)
+	_process_ai_construction_recovery(delta)
 	_update_fog_of_war()
 	_update_fog_entity_visibility()
+	# Main refreshes fog before the child SelectionManager processes. Prune now
+	# so the later HUD refresh cannot read a just-hidden enemy or resource.
+	game_map.selection_mgr.call("_prune_stale_selection")
 	# Tick under-attack cooldown
 	if _under_attack_cooldown > 0.0:
 		_under_attack_cooldown -= delta
@@ -1969,12 +2753,15 @@ func _process(delta: float) -> void:
 		_update_idle_villager_count()
 		hud.update_score(_calculate_score(0), _calculate_score(1))
 		_update_progression_hint()
-		_refresh_first_session_diagnostics()
-	# Keep exported balance telemetry fresh for MCP polling.
-	_balance_snapshot_timer += delta
-	if _balance_snapshot_timer >= BALANCE_SNAPSHOT_INTERVAL:
-		_balance_snapshot_timer = 0.0
-		_update_balance_snapshot()
+		if not OS.has_feature("production"):
+			_refresh_first_session_diagnostics()
+	# Keep editor-only balance telemetry fresh for MCP polling without making
+	# the production Web build scan AI collections every second.
+	if not OS.has_feature("production"):
+		_balance_snapshot_timer += delta
+		if _balance_snapshot_timer >= BALANCE_SNAPSHOT_INTERVAL:
+			_balance_snapshot_timer = 0.0
+			_update_balance_snapshot()
 	# Refresh selection display every 0.5s to keep gather progress / queue current
 	_selection_refresh_timer += delta
 	if _selection_refresh_timer >= 0.5:
@@ -1997,7 +2784,10 @@ func _advance_production_queues(delta: float) -> void:
 				pq = building.get_node_or_null("ProductionQueue") as ProductionQueue
 				if pq != null:
 					building.set_production_queue(pq)
-			if pq == null or not pq.is_training or pq.queue.is_empty():
+			if pq == null:
+				continue
+			pq.retry_auto_queue(delta)
+			if not pq.is_training or pq.queue.is_empty():
 				continue
 			_production_active_queue_count += 1
 			pq.current_progress += delta
@@ -2021,22 +2811,28 @@ func _update_fog_of_war() -> void:
 		if not is_instance_valid(unit) or unit.current_state == UnitBase.State.DEAD:
 			continue
 		var tile_pos: Vector2i = game_map.world_to_tile(unit.global_position)
-		var vision_tiles: int = int(unit.vision_radius / 16.0)  # Convert pixel radius back to tiles
+		var vision_tiles: int = int(round(MapData.world_to_range_tiles(unit.vision_radius)))
 		var is_scout: bool = unit.unit_type == UnitData.UnitType.SCOUT
 		fog.register_vision_source(tile_pos, vision_tiles, is_scout)
 
 	# Also register buildings as vision sources.
 	for building in _player_buildings[0]:
-		if not is_instance_valid(building):
+		if not is_instance_valid(building) or building.state == BuildingBase.State.DESTROYED:
 			continue
 		var tile_pos: Vector2i = game_map.world_to_tile(building.global_position)
-		fog.register_vision_source(tile_pos, 3, false)
+		var building_stats: Dictionary = BuildingData.get_building_stats(building.building_type)
+		var vision_radius: int = int(building_stats.get("vision_radius", 3))
+		fog.register_vision_source(tile_pos, vision_radius, false)
+
+	# Visibility consumers below must observe the sources from this same frame.
+	fog.refresh_visibility_now()
 
 
 func _update_fog_entity_visibility() -> void:
 	var fog: FogManager = game_map.fog_of_war
 	if fog == null:
 		return
+	game_map.update_resource_visibility_for_player(0)
 
 	# Hide/show enemy units based on fog visibility.
 	for unit in _player_units[1]:
@@ -2068,7 +2864,10 @@ func _update_minimap() -> void:
 	var cam_pos: Vector2 = game_map.camera.position
 	var viewport_size: Vector2 = get_viewport().get_visible_rect().size / game_map.camera.zoom
 	var cam_rect := Rect2(cam_pos - viewport_size * 0.5, viewport_size)
-	hud.update_minimap(game_map.map_generator.grid, _player_units[0], _player_units[1], _player_buildings[0], _player_buildings[1], cam_rect, game_map.fog_of_war)
+	var minimap_grid: Array = game_map.map_generator.grid
+	if game_map.has_method("get_minimap_grid_for_player"):
+		minimap_grid = game_map.call("get_minimap_grid_for_player", 0) as Array
+	hud.update_minimap(minimap_grid, _player_units[0], _player_units[1], _player_buildings[0], _player_buildings[1], cam_rect, game_map.fog_of_war)
 
 
 # =========================================================================
@@ -2090,7 +2889,7 @@ func _refresh_hud_resources(player_id: int) -> void:
 func _update_population_display() -> void:
 	if not GameManager.players.has(0):
 		return
-	var pop: int = GameManager.players[0].get("population", 0)
+	var pop: int = GameManager.get_committed_population(0)
 	var cap: int = GameManager.players[0].get("population_cap", 5)
 	hud.update_population(pop, cap)
 
@@ -2118,18 +2917,6 @@ func _has_player_building_of_types(player_id: int, building_types: Array[int]) -
 	return false
 
 
-func _objective_mark(done: bool) -> String:
-	return "[x]" if done else "[ ]"
-
-
-func _age1_objective_strip(house_count: int, villagers: int, has_military_prod: bool) -> String:
-	return "Next: %s House x1  %s Villager x8  %s Barracks" % [
-		_objective_mark(house_count >= 1),
-		_objective_mark(villagers >= 8),
-		_objective_mark(has_military_prod),
-	]
-
-
 func _update_progression_hint() -> void:
 	if hud == null:
 		return
@@ -2137,15 +2924,8 @@ func _update_progression_hint() -> void:
 		_clear_guidance_state(true)
 		return
 	_refresh_guided_opening_stage()
-	hud.set_minimap_hint("Tap map to jump" if GameManager.game_time < 75.0 else "")
+	hud.set_minimap_hint("Map · tap to view")
 
-	var age: int = GameManager.get_player_age(0)
-	var resources: Dictionary = ResourceManager.get_all_resources(0)
-	var player_data: Dictionary = GameManager.players.get(0, {})
-	var pop: int = player_data.get("population", 0)
-	var cap: int = player_data.get("population_cap", 5)
-
-	var villagers: int = 0
 	var military: int = 0
 	var has_tc_selected: bool = false
 	var has_villager_selected: bool = false
@@ -2164,9 +2944,7 @@ func _update_progression_hint() -> void:
 	for unit in _player_units[0]:
 		if not is_instance_valid(unit) or unit.current_state == UnitBase.State.DEAD:
 			continue
-		if unit is Villager:
-			villagers += 1
-		else:
+		if not unit is Villager:
 			military += 1
 
 	if _guided_opening_active:
@@ -2176,13 +2954,13 @@ func _update_progression_hint() -> void:
 					_build_menu.call("set_recommended_building", -1)
 				if has_villager_selected:
 					_apply_primary_guidance(
-						"Gather Food: villager selected. Tap nearby berries or a tree.",
+						"1 / 4 · Tap a berry bush to gather food.",
 						"",
 						-1
 					)
 				else:
 					_apply_primary_guidance(
-						"Gather Food: tap Idle, then tap nearby berries or a tree.",
+						"1 / 4 · Tap a villager, then a berry bush.",
 						"idle_button",
 						-1
 					)
@@ -2195,7 +2973,7 @@ func _update_progression_hint() -> void:
 				if _placement_active and _placement_type == BuildingData.BuildingType.HOUSE:
 					if _last_invalid_placement_reason != "":
 						_apply_primary_guidance(
-							"Place House: %s here. Tap open ground near your Town Center, or tap Cancel House to retry." % _last_invalid_placement_reason,
+							"2 / 4 · Move the House onto clear ground.",
 							"placement_cancel",
 							-1,
 							BuildingData.BuildingType.HOUSE,
@@ -2203,28 +2981,28 @@ func _update_progression_hint() -> void:
 						)
 					else:
 						_apply_primary_guidance(
-							"Place House: tap open ground near your Town Center. Green tiles are valid.",
+							"2 / 4 · Position your House, then Place.",
 							"",
 							-1,
 							BuildingData.BuildingType.HOUSE
 						)
 				elif hud.is_build_menu_open():
-					_apply_primary_guidance("Choose House: it is highlighted in the Build menu.", "", -1, BuildingData.BuildingType.HOUSE)
+					_apply_primary_guidance("2 / 4 · Choose the House in Economy.", "", -1, BuildingData.BuildingType.HOUSE)
 				else:
-					_apply_primary_guidance("Build House: tap the Build button on the right HUD.", "build_button", -1, BuildingData.BuildingType.HOUSE)
+					_apply_primary_guidance("2 / 4 · Build a House for room to grow.", "build_button", -1, BuildingData.BuildingType.HOUSE)
 				return
 			GuidedOpeningStage.TRAIN_SCOUT:
 				if _build_menu and _build_menu.has_method("set_recommended_building"):
 					_build_menu.call("set_recommended_building", -1)
 				if has_tc_selected:
 					_apply_primary_guidance(
-						"Train Scout: Town Center is selected. Tap Scout.",
+						"3 / 4 · Recruit a Scout to explore.",
 						"train_unit",
 						UnitData.UnitType.SCOUT
 					)
 				else:
 					_apply_primary_guidance(
-						"Train Scout: tap Town Center, then tap Scout.",
+						"3 / 4 · Tap Home, then recruit a Scout.",
 						"",
 						UnitData.UnitType.SCOUT
 					)
@@ -2233,11 +3011,11 @@ func _update_progression_hint() -> void:
 				if _build_menu and _build_menu.has_method("set_recommended_building"):
 					_build_menu.call("set_recommended_building", -1)
 				if military <= 0:
-					_apply_primary_guidance("Scout is training. When it appears, tap Military.", "military_button", -1)
+					_apply_primary_guidance("4 / 4 · Your Scout is training…", "military_button", -1)
 				elif has_selected_military:
-					_apply_primary_guidance("Move Scout: tap open ground to send it scouting.", "", -1)
+					_apply_primary_guidance("4 / 4 · Tap open ground to explore.", "", -1)
 				else:
-					_apply_primary_guidance("Move Scout: tap Military, then tap open ground.", "military_button", -1)
+					_apply_primary_guidance("4 / 4 · Tap Army, then open ground.", "military_button", -1)
 				return
 			GuidedOpeningStage.FREE_PLAY:
 				pass
@@ -2246,52 +3024,9 @@ func _update_progression_hint() -> void:
 	if _build_menu and _build_menu.has_method("set_recommended_building"):
 		_build_menu.call("set_recommended_building", -1)
 
-	if pop >= cap:
-		_apply_progression_guidance("Population blocked. Build a House now.", true)
-		return
-
-	if age == 1:
-		var house_count: int = _count_player_buildings_of_type(0, BuildingData.BuildingType.HOUSE)
-		var has_military_prod: bool = _has_player_building_of_types(0, [
-			BuildingData.BuildingType.BARRACKS,
-			BuildingData.BuildingType.ARCHERY_RANGE,
-			BuildingData.BuildingType.STABLE,
-		])
-		var strip: String = _age1_objective_strip(house_count, villagers, has_military_prod)
-		if house_count < 1:
-			_apply_progression_guidance("%s. Tap Build and place a House." % strip, false)
-			return
-		if villagers < 8:
-			_apply_progression_guidance("%s. Tap Town Center and train villagers." % strip, false)
-			return
-		if not has_military_prod:
-			_apply_progression_guidance("%s. Place a Barracks for military production." % strip, false)
-			return
-		var need_food: int = maxi(0, 400 - int(resources.get("food", 0)))
-		var need_gold: int = maxi(0, 200 - int(resources.get("gold", 0)))
-		if need_food == 0 and need_gold == 0:
-			_apply_progression_guidance("%s. Age Up ready: tap the Age Up button." % strip, true)
-		else:
-			_apply_progression_guidance("%s. Age Up needs +%dF +%dG." % [strip, need_food, need_gold], false)
-		return
-
-	if age == 2:
-		if military < 4:
-			_apply_progression_guidance("Expand military to secure map control before Castle Age.", false)
-			return
-		var need_food2: int = maxi(0, 1200 - int(resources.get("food", 0)))
-		var need_gold2: int = maxi(0, 600 - int(resources.get("gold", 0)))
-		if need_food2 == 0 and need_gold2 == 0:
-			_apply_progression_guidance("Castle Age ready. Advance when safe.", true)
-		else:
-			_apply_progression_guidance("Castle Age needs +%dF and +%dG." % [need_food2, need_gold2], false)
-		return
-
-	if age >= 3:
-		if military < 8:
-			_apply_progression_guidance("Grow your army before pushing enemy landmarks.", false)
-		else:
-			_apply_progression_guidance("Pressure enemy Town Center or hold Sacred Site.", false)
+	# Opening help ends with the optional tutorial. Persistent economy/age
+	# reminders used to cover the battle and repeat after every casualty.
+	# Training and construction already report actionable shortages locally.
 
 
 # =========================================================================
@@ -2404,9 +3139,10 @@ func _calculate_score(player_id: int = 0) -> int:
 
 func _on_restart() -> void:
 	Engine.time_scale = 1.0
-	get_tree().reload_current_scene()
+	get_tree().call_deferred("reload_current_scene")
 
 
 func _on_main_menu() -> void:
 	Engine.time_scale = 1.0
-	get_tree().change_scene_to_file("res://scenes/ui/main_menu.tscn")
+	GameManager.set_state(GameManager.GameState.MENU)
+	get_tree().call_deferred("change_scene_to_file", "res://scenes/ui/main_menu.tscn")

@@ -28,7 +28,7 @@ const RESOURCE_SPRITES: Dictionary = {
 
 ## Sprite scale per resource type (sprites are 128x128, need to fit ~30px game size).
 const RESOURCE_SCALES: Dictionary = {
-	"food": Vector2(0.45, 0.45),
+	"food": Vector2(0.64, 0.64),
 	"wood": Vector2(0.50, 0.50),
 	"gold": Vector2(0.48, 0.48),
 	"stone": Vector2(0.45, 0.45),
@@ -91,7 +91,15 @@ func _setup_sprite() -> void:
 	_sprite.offset = RESOURCE_OFFSETS.get(resource_type, Vector2(0, -8))
 	# Sort by Y position so trees overlap correctly
 	_sprite.z_as_relative = true
+	# Keep badges, selection rings and resource feedback above the artwork.
+	_sprite.show_behind_parent = true
 	add_child(_sprite)
+
+
+func is_sprite_body_hit(world_position: Vector2) -> bool:
+	# A tree's canopy sits well above its ground anchor. Only opaque artwork
+	# counts, so transparent texture padding does not swallow nearby targets.
+	return resource_type == "wood" and _sprite != null and _sprite.is_pixel_opaque(_sprite.to_local(world_position))
 
 
 func _assign_group() -> void:
@@ -107,6 +115,11 @@ func _assign_group() -> void:
 ## Returns the resource type string.
 func get_resource_type() -> String:
 	return resource_type
+
+
+## Natural resources are neutral, so any player may harvest them while stock remains.
+func is_harvestable_by(_gathering_player_id: int = -1) -> bool:
+	return remaining > 0
 
 
 ## Harvest up to `amount` from this node. Returns actual amount harvested.
@@ -148,9 +161,15 @@ func _draw() -> void:
 
 	# Colored glow circle behind resource to keep nearby economy readable.
 	if remaining > 0:
-		var glow_color: Color = _get_resource_color(0.30)
+		var glow_color: Color = _get_resource_color(0.12)
 		draw_circle(Vector2.ZERO, 18.0, glow_color)
 		_draw_resource_badge()
+		if resource_type == "food":
+			# The original bush has no fruit; visible berries make the food
+			# instruction match the thing the player sees and taps.
+			for berry: Vector2 in [Vector2(-7, -6), Vector2(0, -10), Vector2(7, -4), Vector2(-1, -1)]:
+				draw_circle(berry, 2.6, Color("d87975"))
+				draw_circle(berry + Vector2(-0.6, -0.6), 0.7, Color("f3c5a0"))
 	# Depletion bar overlay — sprite handles the visual
 	if remaining < total_amount and remaining > 0:
 		var bar_w := 18.0

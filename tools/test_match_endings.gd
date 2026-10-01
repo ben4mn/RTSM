@@ -4,6 +4,7 @@ extends SceneTree
 const MAIN_SCENE := "res://scenes/main/main.tscn"
 const MENU_SCENE := "res://scenes/ui/main_menu.tscn"
 const READY_FRAME_LIMIT := 900
+const GAME_STATE_MENU := 0
 const GAME_STATE_PLAYING := 2
 const GAME_STATE_GAME_OVER := 4
 
@@ -19,7 +20,7 @@ func _initialize() -> void:
 
 
 func _run() -> void:
-	if _scenario not in ["victory_menu", "elimination_menu", "defeat_restart"]:
+	if _scenario not in ["victory_menu", "elimination_menu", "defeat_restart", "pause_quit"]:
 		_fail("unknown scenario %s" % _scenario)
 		_finish()
 		return
@@ -33,6 +34,23 @@ func _run() -> void:
 	current_scene = match_scene
 	if not await _wait_for(func() -> bool: return int(game_manager.get("current_state")) == GAME_STATE_PLAYING and not (game_manager.get("players") as Dictionary).is_empty()):
 		_fail("match did not reach PLAYING")
+		_finish()
+		return
+	if _scenario == "pause_quit":
+		match_scene.call("_on_pause_requested")
+		await process_frame
+		var hud: CanvasLayer = match_scene.get_node("HUD") as CanvasLayer
+		var quit_button: Button = hud.get_node("Root/PauseOverlay/PauseMenu/QuitButton") as Button
+		quit_button.pressed.emit()
+		if current_scene != match_scene or not match_scene.is_inside_tree():
+			_fail("Pause Quit removed the focused match synchronously")
+		if not quit_button.disabled:
+			_fail("Pause Quit remained enabled during the deferred transition")
+		if not await _wait_for(func() -> bool: return current_scene != null and current_scene.scene_file_path == MENU_SCENE):
+			_fail("Pause Quit did not load %s" % MENU_SCENE)
+		elif int(game_manager.get("current_state")) != GAME_STATE_MENU:
+			_fail("Pause Quit left GameManager outside MENU")
+		await process_frame
 		_finish()
 		return
 
@@ -91,11 +109,21 @@ func _run() -> void:
 	if _scenario != "defeat_restart":
 		var menu_button: Button = game_over.get_node("GameOverPanel/Margin/VBox/ButtonRow/MainMenuButton")
 		menu_button.pressed.emit()
+		if current_scene != match_scene or not match_scene.is_inside_tree():
+			_fail("game-over Main Menu removed the focused match synchronously")
+		if not menu_button.disabled:
+			_fail("game-over Main Menu remained enabled during the deferred transition")
 		if not await _wait_for(func() -> bool: return current_scene != null and current_scene.scene_file_path == MENU_SCENE):
 			_fail("Main Menu action did not load %s" % MENU_SCENE)
+		elif int(game_manager.get("current_state")) != GAME_STATE_MENU:
+			_fail("Main Menu action left GameManager outside MENU")
 	else:
 		var restart_button: Button = game_over.get_node("GameOverPanel/Margin/VBox/ButtonRow/PlayAgainButton")
 		restart_button.pressed.emit()
+		if current_scene != match_scene or not match_scene.is_inside_tree():
+			_fail("Play Again removed the focused match synchronously")
+		if not restart_button.disabled:
+			_fail("Play Again remained enabled during the deferred transition")
 		if not await _wait_for(func() -> bool: return current_scene != null and current_scene.scene_file_path == MAIN_SCENE and current_scene.get_instance_id() != old_match_id):
 			_fail("Play Again did not reload a new match scene")
 		elif not await _wait_for(func() -> bool: return int(game_manager.get("current_state")) == GAME_STATE_PLAYING and not (game_manager.get("players") as Dictionary).is_empty()):

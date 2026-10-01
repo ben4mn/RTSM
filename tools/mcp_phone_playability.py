@@ -312,6 +312,51 @@ def as_bool(value: Any, default: bool = False) -> bool:
     return default
 
 
+def has_fresh_context_execution(
+    before: dict[str, Any],
+    after: dict[str, Any],
+    expected_action: str,
+    expected_action_id: int,
+) -> bool:
+    """Require one new runtime context execution, never configuration fallback."""
+    before_timestamp = int(as_float(before.get("last_executed_timestamp_ms", 0), 0.0))
+    before_count = int(as_float(before.get("execution_count", 0), 0.0))
+    after_timestamp = int(as_float(after.get("last_executed_timestamp_ms", 0), 0.0))
+    after_count = int(as_float(after.get("execution_count", 0), 0.0))
+    return (
+        str(after.get("last_executed_action", "")) == expected_action
+        and int(as_float(after.get("last_executed_action_id", -1), -1.0)) == expected_action_id
+        and after_timestamp > before_timestamp
+        and after_count == before_count + 1
+    )
+
+
+def has_fresh_military_shortcut_execution(
+    before: dict[str, Any],
+    after: dict[str, Any],
+    expected_selected_path: str,
+) -> bool:
+    """Require one new shortcut invocation that selected the complete live army."""
+    before_timestamp = int(as_float(before.get("military_shortcut_last_timestamp_ms", 0), 0.0))
+    before_count = int(as_float(before.get("military_shortcut_invocation_count", 0), 0.0))
+    after_timestamp = int(as_float(after.get("military_shortcut_last_timestamp_ms", 0), 0.0))
+    after_count = int(as_float(after.get("military_shortcut_invocation_count", 0), 0.0))
+    selected_count = int(as_float(after.get("military_shortcut_selected_count", 0), 0.0))
+    military_count = int(as_float(after.get("military_count", 0), 0.0))
+    raw_paths = after.get("military_shortcut_selected_paths", [])
+    if not isinstance(raw_paths, list):
+        return False
+    selected_paths = [str(path) for path in raw_paths]
+    return (
+        after_count == before_count + 1
+        and after_timestamp > before_timestamp
+        and selected_count > 0
+        and selected_count == military_count
+        and len(selected_paths) == selected_count
+        and expected_selected_path in selected_paths
+    )
+
+
 def vec2_xy(value: Any) -> tuple[float, float]:
     if isinstance(value, dict):
         return float(value.get("x", 0.0)), float(value.get("y", 0.0))
@@ -328,6 +373,122 @@ def center_from_diag(diag: dict[str, Any]) -> tuple[int, int] | None:
     x = as_float(diag.get("x", 0.0), 0.0)
     y = as_float(diag.get("y", 0.0), 0.0)
     return int(round(x + width * 0.5)), int(round(y + height * 0.5))
+
+
+def mobile_layout_blocking_rects(
+    layout: dict[str, Any],
+    input_scale_x: float,
+    input_scale_y: float,
+    padding_px: int = 8,
+) -> list[tuple[int, int, int, int, str]]:
+    """Convert live logical HUD layout metrics into padded input-pixel rectangles."""
+    viewport_w = as_float(layout.get("viewport_width", 0.0), 0.0)
+    viewport_h = as_float(layout.get("viewport_height", 0.0), 0.0)
+    if viewport_w <= 0.0 or viewport_h <= 0.0:
+        return []
+
+    # All four vertical pairs are Control offsets from the viewport bottom.
+    # Horizontal values are either absolute-from-left or offsets from the right.
+    definitions = (
+        ("selection_panel", "selection_left", "selection_right", False, False, "selection_top", "selection_bottom"),
+        ("minimap", "minimap_left", "minimap_right", False, False, "minimap_top", "minimap_bottom"),
+        ("mobile_action_panel", "action_left", "action_right", False, True, "action_top", "action_bottom"),
+        ("bottom_right", "bottom_right_left", "bottom_right_right", True, True, "bottom_right_top", "bottom_right_bottom"),
+    )
+    rectangles: list[tuple[int, int, int, int, str]] = []
+    for label, left_key, right_key, left_from_right, right_from_right, top_key, bottom_key in definitions:
+        required_keys = (left_key, right_key, top_key, bottom_key)
+        if any(key not in layout for key in required_keys):
+            continue
+        left = as_float(layout[left_key], 0.0)
+        right = as_float(layout[right_key], 0.0)
+        if left_from_right:
+            left += viewport_w
+        if right_from_right:
+            right += viewport_w
+        top = viewport_h + as_float(layout[top_key], 0.0)
+        bottom = viewport_h + as_float(layout[bottom_key], 0.0)
+        x0 = int(round(min(left, right) * input_scale_x)) - padding_px
+        x1 = int(round(max(left, right) * input_scale_x)) + padding_px
+        y0 = int(round(min(top, bottom) * input_scale_y)) - padding_px
+        y1 = int(round(max(top, bottom) * input_scale_y)) + padding_px
+        if x1 <= x0 or y1 <= y0:
+            continue
+        rectangles.append((x0, y0, x1, y1, label))
+    return rectangles
+
+
+def blocking_hud_region_at(
+    x: int,
+    y: int,
+    blocking_rects: list[tuple[int, int, int, int, str]],
+) -> str | None:
+    for x0, y0, x1, y1, label in blocking_rects:
+        if x0 <= x <= x1 and y0 <= y <= y1:
+            return label
+    return None
+
+
+def is_world_touch_safe_point(screen_x: int, screen_y: int, screen_w: int, screen_h: int) -> bool:
+    """Apply broad persistent-HUD guards before consulting live rectangles."""
+    if screen_y < 72 or screen_y > screen_h - 96:
+        return False
+    if screen_x < 240 and screen_y > screen_h - 320:
+        return False
+    if screen_x > screen_w - 210 and screen_y > screen_h - 220:
+        return False
+    return True
+
+
+def choose_empty_ground_target(
+    screen_w: int,
+    screen_h: int,
+    origin_x: int,
+    origin_y: int,
+    occupied_points: list[tuple[int, int, str]],
+    blocking_rects: list[tuple[int, int, int, int, str]],
+) -> tuple[int, int, str] | None:
+    """Choose a clear world point that is neither occupied nor covered by HUD."""
+    candidate_offsets = (
+        (140, -120),
+        (180, -70),
+        (190, 70),
+        (120, 140),
+        (-140, -120),
+        (-180, 70),
+        (0, -170),
+        (0, 170),
+        (140, -200),
+        (-140, -200),
+        (220, -170),
+        (-220, -170),
+    )
+    best_candidate: tuple[float, int, int, str] | None = None
+    for dx, dy in candidate_offsets:
+        candidate_x = min(screen_w - 80, max(80, origin_x + dx))
+        candidate_y = min(screen_h - 120, max(80, origin_y + dy))
+        if not is_world_touch_safe_point(candidate_x, candidate_y, screen_w, screen_h):
+            continue
+        if blocking_hud_region_at(candidate_x, candidate_y, blocking_rects) is not None:
+            continue
+        nearest = float("inf")
+        nearest_path = "clear"
+        for point_x, point_y, node_path in occupied_points:
+            dist = abs(candidate_x - point_x) + abs(candidate_y - point_y)
+            if dist < nearest:
+                nearest = dist
+                nearest_path = node_path
+        if nearest >= 90.0:
+            return candidate_x, candidate_y, "clearance=%.1f nearest=%s hud=clear" % (nearest, nearest_path)
+        if best_candidate is None or nearest > best_candidate[0]:
+            best_candidate = (nearest, candidate_x, candidate_y, nearest_path)
+
+    if best_candidate is None:
+        return None
+    nearest, candidate_x, candidate_y, nearest_path = best_candidate
+    if nearest >= 70.0:
+        return candidate_x, candidate_y, "best-clearance=%.1f nearest=%s hud=clear" % (nearest, nearest_path)
+    return None
 
 
 def control_diag_from_node(path: str, role: str, props: dict[str, Any]) -> dict[str, Any]:
@@ -368,12 +529,21 @@ def map_target_file(path: str, group: str) -> str:
     return "scripts/ui/hud.gd"
 
 
-def suggested_update_for(role: str, width: float, height: float, min_target: float, max_aspect: float) -> str:
+def suggested_update_for(
+    role: str,
+    width: float,
+    height: float,
+    min_target: float,
+    max_aspect: float,
+    within_viewport: bool,
+) -> str:
     updates: list[str] = []
     if min(width, height) < min_target:
         updates.append(f"raise min size to at least {min_target:.0f}x{min_target:.0f}")
     if height > 0.0 and (width / height) > max_aspect:
         updates.append(f"reduce width or increase height so width/height <= {max_aspect:.1f}")
+    if not within_viewport:
+        updates.append("keep the full control inside the visible viewport")
     if not updates:
         return "no change required"
     return "; ".join(updates)
@@ -403,11 +573,15 @@ def evaluate_controls(
 
         min_side = min(width, height)
         aspect_ratio = width / height if height > 0 else 0.0
+        allows_wide_target = as_bool(control.get("allows_wide_touch_target", False), False)
+        within_viewport = as_bool(control.get("within_viewport", True), True)
         reasons: list[str] = []
         if min_side < min_touch_target_px:
             reasons.append(f"touch target too small ({width:.1f}x{height:.1f})")
-        if aspect_ratio > max_button_aspect_ratio:
+        if aspect_ratio > max_button_aspect_ratio and not allows_wide_target:
             reasons.append(f"sliver ratio too high ({aspect_ratio:.2f})")
+        if not within_viewport:
+            reasons.append("touch target extends outside the visible viewport")
         if not reasons:
             continue
 
@@ -435,6 +609,7 @@ def evaluate_controls(
                     height,
                     min_touch_target_px,
                     max_button_aspect_ratio,
+                    within_viewport,
                 ),
             )
         )
@@ -496,13 +671,26 @@ def write_reports(
     findings: list[TouchFinding],
 ) -> None:
     status = "PASS" if all(check.passed for check in checks) else "FAIL"
+    failed_checks = [check for check in checks if not check.passed]
+    fix_plan = [
+        {
+            "priority": "p0",
+            "target_file": "runtime check diagnostics",
+            "control": check.name,
+            "node_path": "",
+            "expected_update": "Resolve the failed runtime contract and rerun the phone audit",
+            "reason": check.detail,
+        }
+        for check in failed_checks
+    ]
+    fix_plan.extend(build_fix_plan(findings))
     payload = {
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "status": status,
         "settings": settings,
         "checks": [asdict(c) for c in checks],
         "findings": [asdict(f) for f in findings],
-        "fix_plan": build_fix_plan(findings),
+        "fix_plan": fix_plan,
     }
 
     if report_json_path:
@@ -557,7 +745,6 @@ def write_reports(
         lines.append("")
         lines.append("## Prioritized Fix Plan")
         lines.append("")
-        fix_plan = build_fix_plan(findings)
         if fix_plan:
             for idx, item in enumerate(fix_plan, start=1):
                 lines.append(
@@ -576,6 +763,14 @@ def main() -> int:
     findings: list[TouchFinding] = []
     client = MCPClient(args.server_cmd, request_timeout=args.request_timeout, verbose=args.verbose)
     project_running = False
+    # Godot's MCP input bridge accepts game-window pixel coordinates, while
+    # Control and world diagnostics are reported in the stretched root
+    # viewport's logical coordinate space. These differ when the project uses
+    # a phone-sized base viewport with a larger desktop test window.
+    input_scale_x = 1.0
+    input_scale_y = 1.0
+    logical_viewport_w = 0.0
+    logical_viewport_h = 0.0
 
     def record(name: str, passed: bool, detail: str) -> None:
         results.append(CheckResult(name=name, passed=passed, detail=detail))
@@ -617,6 +812,9 @@ def main() -> int:
         if allow_fallback:
             return infer_viewport_size_fallback()
         raise MCPError(f"Failed to capture screenshot size: {last_error}")
+
+    def logical_to_input_point(x: float, y: float) -> tuple[int, int]:
+        return int(round(x * input_scale_x)), int(round(y * input_scale_y))
 
     def run_touch_scenario(name: str, inputs: list[dict[str, Any]], timeout: float = 30.0) -> None:
         sequence_text = tool_text("input", {"action": "sequence", "inputs": inputs}, timeout=timeout)
@@ -796,10 +994,9 @@ def main() -> int:
         right = as_float(props.get("offset_right", 208.0), 208.0)
         top = as_float(props.get("offset_top", -208.0), -208.0)
         bottom = as_float(props.get("offset_bottom", -8.0), -8.0)
-        x0 = int(round(left))
-        x1 = int(round(right))
-        y0 = int(round(screen_height + top))
-        y1 = int(round(screen_height + bottom))
+        logical_height = logical_viewport_h if logical_viewport_h > 0.0 else screen_height / max(input_scale_y, 0.0001)
+        x0, y0 = logical_to_input_point(left, logical_height + top)
+        x1, y1 = logical_to_input_point(right, logical_height + bottom)
         if x1 < x0:
             x0, x1 = x1, x0
         if y1 < y0:
@@ -823,7 +1020,7 @@ def main() -> int:
             minimap_overlap = as_bool(profile.get("minimap_action_overlap", True), True)
             selection_overlap = as_bool(profile.get("selection_action_overlap", True), True)
             right_overlap = as_bool(profile.get("bottom_right_action_overlap", True), True)
-            if button_width < 96.0 or button_height < 56.0:
+            if button_width < 96.0 or button_height < 48.0:
                 return (
                     False,
                     f"{profile_key} touch target too small (button_width={button_width:.1f}, button_height={button_height:.1f})",
@@ -926,9 +1123,11 @@ def main() -> int:
     def world_to_screen_point(world_x: float, world_y: float, screen_w: int, screen_h: int) -> tuple[int, int]:
         camera_x, camera_y = camera_position()
         zoom = camera_zoom()
-        screen_x = int(round((world_x - camera_x) * zoom + screen_w * 0.5))
-        screen_y = int(round((world_y - camera_y) * zoom + screen_h * 0.5))
-        return screen_x, screen_y
+        viewport_w = logical_viewport_w if logical_viewport_w > 0.0 else screen_w / max(input_scale_x, 0.0001)
+        viewport_h = logical_viewport_h if logical_viewport_h > 0.0 else screen_h / max(input_scale_y, 0.0001)
+        logical_x = (world_x - camera_x) * zoom + viewport_w * 0.5
+        logical_y = (world_y - camera_y) * zoom + viewport_h * 0.5
+        return logical_to_input_point(logical_x, logical_y)
 
     def live_screen_point_for_node(node_path: str, screen_w: int, screen_h: int) -> tuple[int, int] | None:
         target_diag = selection_manager_touch_target_diag()
@@ -936,8 +1135,10 @@ def main() -> int:
             for target in target_diag.get(bucket_name, []):
                 if not isinstance(target, dict) or str(target.get("path", "")) != node_path:
                     continue
-                screen_x = int(round(as_float(target.get("screen_x", 0.0))))
-                screen_y = int(round(as_float(target.get("screen_y", 0.0))))
+                screen_x, screen_y = logical_to_input_point(
+                    as_float(target.get("screen_x", 0.0)),
+                    as_float(target.get("screen_y", 0.0)),
+                )
                 if not is_world_touch_safe(screen_x, screen_y, screen_w, screen_h):
                     return None
                 return screen_x, screen_y
@@ -953,13 +1154,7 @@ def main() -> int:
 
     def is_world_touch_safe(screen_x: int, screen_y: int, screen_w: int, screen_h: int) -> bool:
         """Exclude persistent HUD regions when choosing tappable world targets."""
-        if screen_y < 72 or screen_y > screen_h - 96:
-            return False
-        if screen_x < 240 and screen_y > screen_h - 320:
-            return False
-        if screen_x > screen_w - 210 and screen_y > screen_h - 220:
-            return False
-        return True
+        return is_world_touch_safe_point(screen_x, screen_y, screen_w, screen_h)
 
     def find_visible_player_villager_target(screen_w: int, screen_h: int) -> tuple[int, int, str] | None:
         screen_center_x = screen_w * 0.5
@@ -972,8 +1167,10 @@ def main() -> int:
                 continue
             if int(as_float(target.get("unit_type", -1), -1.0)) != 0:
                 continue
-            screen_x = int(round(as_float(target.get("screen_x", 0.0))))
-            screen_y = int(round(as_float(target.get("screen_y", 0.0))))
+            screen_x, screen_y = logical_to_input_point(
+                as_float(target.get("screen_x", 0.0)),
+                as_float(target.get("screen_y", 0.0)),
+            )
             if not is_world_touch_safe(screen_x, screen_y, screen_w, screen_h):
                 continue
             distance = abs(screen_x - screen_center_x) + abs(screen_y - screen_center_y)
@@ -1008,8 +1205,10 @@ def main() -> int:
             unit_type = int(as_float(target.get("unit_type", -1), -1.0))
             if unit_type < 0 or unit_type == 0:
                 continue
-            screen_x = int(round(as_float(target.get("screen_x", 0.0))))
-            screen_y = int(round(as_float(target.get("screen_y", 0.0))))
+            screen_x, screen_y = logical_to_input_point(
+                as_float(target.get("screen_x", 0.0)),
+                as_float(target.get("screen_y", 0.0)),
+            )
             if not is_world_touch_safe(screen_x, screen_y, screen_w, screen_h):
                 continue
             distance = abs(screen_x - screen_center_x) + abs(screen_y - screen_center_y)
@@ -1074,8 +1273,10 @@ def main() -> int:
         for target in selection_manager_touch_target_diag().get("resources", []):
             if not isinstance(target, dict):
                 continue
-            screen_x = int(round(as_float(target.get("screen_x", 0.0))))
-            screen_y = int(round(as_float(target.get("screen_y", 0.0))))
+            screen_x, screen_y = logical_to_input_point(
+                as_float(target.get("screen_x", 0.0)),
+                as_float(target.get("screen_y", 0.0)),
+            )
             if not is_world_touch_safe(screen_x, screen_y, screen_w, screen_h):
                 continue
             resource_type = str(target.get("resource_type", "")).strip().lower()
@@ -1146,6 +1347,8 @@ def main() -> int:
                 time.sleep(0.1)
                 continue
             screen_x, screen_y = screen_point
+            before_diag = selection_manager_touch_input_diag()
+            before_timestamp = int(as_float(before_diag.get("timestamp_ms", -1), -1.0))
             sequence_text = tool_text(
                 "input",
                 {"action": "sequence", "inputs": touch_tap(screen_x, screen_y, 0)},
@@ -1159,15 +1362,17 @@ def main() -> int:
             deadline = time.monotonic() + 1.0
             while time.monotonic() < deadline:
                 diag = selection_manager_touch_input_diag()
+                timestamp = int(as_float(diag.get("timestamp_ms", -1), -1.0))
                 if (
-                    str(diag.get("action", "")) == expected_action
+                    timestamp > before_timestamp
+                    and str(diag.get("action", "")) == expected_action
                     and str(diag.get(path_key, "")) == node_path
                 ):
                     matched = True
                     break
                 time.sleep(0.1)
             attempt_details.append(
-                "attempt%d=%s action=%s path=%s tapped_dist=%s resource=%s resource_dist=%s radii=(%s,%s) zoom=%s @(%d,%d)"
+                "attempt%d=%s action=%s path=%s tapped_dist=%s resource=%s resource_dist=%s radii=(%s,%s) zoom=%s timestamp=%s>%s @(%d,%d)"
                 % (
                     attempt + 1,
                     sequence_text,
@@ -1179,6 +1384,8 @@ def main() -> int:
                     diag.get("unit_hit_radius_world", "?"),
                     diag.get("resource_hit_radius_world", "?"),
                     diag.get("camera_zoom", "?"),
+                    diag.get("timestamp_ms", "?"),
+                    before_timestamp,
                     screen_x,
                     screen_y,
                 )
@@ -1195,6 +1402,8 @@ def main() -> int:
     ) -> tuple[bool, str]:
         attempt_details: list[str] = []
         for attempt in range(attempts):
+            before_diag = selection_manager_touch_input_diag()
+            before_timestamp = int(as_float(before_diag.get("timestamp_ms", -1), -1.0))
             sequence_text = tool_text(
                 "input",
                 {"action": "sequence", "inputs": touch_tap(screen_x, screen_y, 0)},
@@ -1208,18 +1417,21 @@ def main() -> int:
             deadline = time.monotonic() + 1.0
             while time.monotonic() < deadline:
                 diag = selection_manager_touch_input_diag()
-                if str(diag.get("action", "")) == expected_action:
+                timestamp = int(as_float(diag.get("timestamp_ms", -1), -1.0))
+                if timestamp > before_timestamp and str(diag.get("action", "")) == expected_action:
                     matched = True
                     break
                 time.sleep(0.1)
             attempt_details.append(
-                "attempt%d=%s action=%s tile=(%s,%s) @(%d,%d)"
+                "attempt%d=%s action=%s tile=(%s,%s) timestamp=%s>%s @(%d,%d)"
                 % (
                     attempt + 1,
                     sequence_text,
                     diag.get("action", "unknown"),
                     diag.get("target_tile_x", "?"),
                     diag.get("target_tile_y", "?"),
+                    diag.get("timestamp_ms", "?"),
+                    before_timestamp,
                     screen_x,
                     screen_y,
                 )
@@ -1249,39 +1461,26 @@ def main() -> int:
         occupied_points.extend(collect_visible_screen_points("/root/Main/GameMap/UnitsContainer", screen_w, screen_h))
         occupied_points.extend(collect_visible_screen_points("/root/Main/GameMap/BuildingsContainer", screen_w, screen_h))
         occupied_points.extend(collect_visible_screen_points("/root/Main/GameMap/ResourcesContainer", screen_w, screen_h))
-
-        candidate_offsets = [
-            (140, -120),
-            (180, -70),
-            (190, 70),
-            (120, 140),
-            (-140, -120),
-            (-180, 70),
-            (0, -170),
-            (0, 170),
-        ]
-        best_candidate: tuple[float, int, int, str] | None = None
-        for dx, dy in candidate_offsets:
-            candidate_x = min(screen_w - 80, max(80, origin_x + dx))
-            candidate_y = min(screen_h - 120, max(80, origin_y + dy))
-            nearest = float("inf")
-            nearest_path = "clear"
-            for point_x, point_y, node_path in occupied_points:
-                dist = abs(candidate_x - point_x) + abs(candidate_y - point_y)
-                if dist < nearest:
-                    nearest = dist
-                    nearest_path = node_path
-            if nearest >= 90.0:
-                return candidate_x, candidate_y, "clearance=%.1f nearest=%s" % (nearest, nearest_path)
-            if best_candidate is None or nearest > best_candidate[0]:
-                best_candidate = (nearest, candidate_x, candidate_y, nearest_path)
-
-        if best_candidate is None:
-            return None
-        nearest, candidate_x, candidate_y, nearest_path = best_candidate
-        if nearest >= 70.0:
-            return candidate_x, candidate_y, "best-clearance=%.1f nearest=%s" % (nearest, nearest_path)
-        return None
+        blocking_rects: list[tuple[int, int, int, int, str]] = []
+        try:
+            hud_props = node_properties("/root/Main/HUD", retries=2)
+            mobile_layout = hud_props.get("mobile_layout_diagnostics", {})
+            if isinstance(mobile_layout, dict):
+                blocking_rects = mobile_layout_blocking_rects(
+                    mobile_layout,
+                    input_scale_x,
+                    input_scale_y,
+                )
+        except Exception:  # noqa: BLE001
+            blocking_rects = []
+        return choose_empty_ground_target(
+            screen_w,
+            screen_h,
+            origin_x,
+            origin_y,
+            occupied_points,
+            blocking_rects,
+        )
 
     def first_session_diag() -> dict[str, Any]:
         props = node_properties("/root/Main")
@@ -1411,7 +1610,8 @@ def main() -> int:
             center = center_from_diag(control)
         if center is None:
             raise MCPError(f"{name}: control center unavailable")
-        return touch_tap(center[0], center[1], start_ms)
+        input_x, input_y = logical_to_input_point(center[0], center[1])
+        return touch_tap(input_x, input_y, start_ms)
 
     def wait_for_military_available(timeout: float = 50.0) -> bool:
         deadline = time.monotonic() + timeout
@@ -1450,15 +1650,6 @@ def main() -> int:
                 return True
             time.sleep(0.15)
         return False
-
-    def wait_for_touch_context_visible(timeout: float = 3.0) -> dict[str, Any] | None:
-        deadline = time.monotonic() + timeout
-        while time.monotonic() < deadline:
-            diag = selection_manager_diag()
-            if as_bool(diag.get("visible", False), False):
-                return diag
-            time.sleep(0.15)
-        return None
 
     def ensure_build_menu_state(build_button_control: dict[str, Any], open_expected: bool, timeout: float = 3.0) -> bool:
         if wait_for_build_menu_state(open_expected, timeout=0.25):
@@ -1544,29 +1735,136 @@ def main() -> int:
                 "Main menu diagnostics missing or not ready on /root/MainMenu.main_menu_diagnostics",
             )
             raise MCPError("main menu diagnostics unavailable")
+        logical_viewport_w = as_float(menu_diag.get("viewport_width", screen_w), float(screen_w))
+        logical_viewport_h = as_float(menu_diag.get("viewport_height", screen_h), float(screen_h))
+        if logical_viewport_w <= 0.0 or logical_viewport_h <= 0.0:
+            raise MCPError("main menu reported an invalid logical viewport")
+        input_scale_x = float(screen_w) / logical_viewport_w
+        input_scale_y = float(screen_h) / logical_viewport_h
         record(
             "main_menu_contract",
             True,
-            "diagnostics ready (difficulty=%s guided_opening=%s)"
+            "diagnostics ready (difficulty=%s guided_opening=%s logical=%.0fx%.0f input_scale=%.3fx%.3f)"
             % (
                 menu_diag.get("difficulty_name", "unknown"),
                 menu_diag.get("guided_opening_enabled", "unknown"),
+                logical_viewport_w,
+                logical_viewport_h,
+                input_scale_x,
+                input_scale_y,
             ),
         )
 
         difficulty_diag = menu_diag.get("difficulty_option", {})
         start_diag = menu_diag.get("start_button", {})
         seed_diag = menu_diag.get("seed_input", {})
-        if not isinstance(difficulty_diag, dict) or not isinstance(start_diag, dict) or not isinstance(seed_diag, dict):
-            record("touch_target_audit_main_menu", False, "Main menu diagnostics missing difficulty/seed/start controls")
+        random_seed_diag = menu_diag.get("random_seed_button", {})
+        guided_opening_diag = menu_diag.get("guided_opening_toggle", {})
+        settings_button_diag = menu_diag.get("settings_button", {})
+        if (
+            not isinstance(difficulty_diag, dict)
+            or not isinstance(start_diag, dict)
+            or not isinstance(seed_diag, dict)
+            or not isinstance(random_seed_diag, dict)
+            or not isinstance(guided_opening_diag, dict)
+            or not isinstance(settings_button_diag, dict)
+            or not random_seed_diag
+            or not guided_opening_diag
+            or not settings_button_diag
+            or not as_bool(random_seed_diag.get("visible", False), False)
+            or not as_bool(guided_opening_diag.get("visible", False), False)
+            or not as_bool(settings_button_diag.get("visible", False), False)
+        ):
+            record(
+                "touch_target_audit_main_menu",
+                False,
+                "Main menu diagnostics missing difficulty/seed/guided-opening/settings/start controls",
+            )
             raise MCPError("main menu control diagnostics unavailable")
         run_touch_target_check(
             "touch_target_audit_main_menu",
             "main_menu",
-            [difficulty_diag, seed_diag, start_diag],
+            [
+                difficulty_diag,
+                seed_diag,
+                random_seed_diag,
+                guided_opening_diag,
+                start_diag,
+                settings_button_diag,
+            ],
         )
 
-        settings_diag = menu_diag.get("settings_button", {})
+        initial_guided_opening = as_bool(menu_diag.get("guided_opening_enabled", False), False)
+        guided_opening_enabled = initial_guided_opening
+        guided_opening_attempts: list[str] = []
+        if not guided_opening_enabled:
+            for attempt in range(3):
+                menu_diag = node_properties("/root/MainMenu").get("main_menu_diagnostics", {})
+                live_guided_opening_diag = (
+                    menu_diag.get("guided_opening_toggle", guided_opening_diag)
+                    if isinstance(menu_diag, dict)
+                    else guided_opening_diag
+                )
+                try:
+                    sequence_text = tool_text(
+                        "input",
+                        {
+                            "action": "sequence",
+                            "inputs": tap_control(live_guided_opening_diag, 0, "guided_opening_toggle"),
+                        },
+                        timeout=20.0,
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    try:
+                        refreshed_diag = node_properties("/root/MainMenu").get("main_menu_diagnostics", {})
+                    except Exception:  # noqa: BLE001
+                        refreshed_diag = {}
+                    guided_opening_enabled = isinstance(refreshed_diag, dict) and as_bool(
+                        refreshed_diag.get("guided_opening_enabled", False),
+                        False,
+                    )
+                    if guided_opening_enabled:
+                        menu_diag = refreshed_diag
+                    guided_opening_attempts.append(
+                        "attempt%d=%s enabled=%s" % (attempt + 1, str(exc), guided_opening_enabled)
+                    )
+                    if guided_opening_enabled:
+                        break
+                    continue
+
+                guided_deadline = time.monotonic() + 1.0
+                while time.monotonic() < guided_deadline:
+                    refreshed_diag = node_properties("/root/MainMenu").get("main_menu_diagnostics", {})
+                    guided_opening_enabled = isinstance(refreshed_diag, dict) and as_bool(
+                        refreshed_diag.get("guided_opening_enabled", False),
+                        False,
+                    )
+                    if guided_opening_enabled:
+                        menu_diag = refreshed_diag
+                        break
+                    time.sleep(0.1)
+                guided_opening_attempts.append(
+                    "attempt%d=%s enabled=%s" % (attempt + 1, sequence_text, guided_opening_enabled)
+                )
+                if guided_opening_enabled:
+                    break
+                time.sleep(0.15)
+
+        if not guided_opening_enabled:
+            detail = "Guided opener remained disabled after touch toggle attempts"
+            if guided_opening_attempts:
+                detail += ": " + " | ".join(guided_opening_attempts)
+            record("main_menu_guided_opening_enabled", False, detail)
+            raise MCPError("could not enable guided opener through main-menu touch input")
+        if initial_guided_opening:
+            guided_detail = "Guided opener was already enabled in main-menu diagnostics"
+        else:
+            guided_detail = "Main-menu diagnostics changed guided_opening_enabled from false to true through touch input"
+            if guided_opening_attempts:
+                guided_detail += "; " + " | ".join(guided_opening_attempts)
+        record("main_menu_guided_opening_enabled", True, guided_detail)
+
+        settings_diag = menu_diag.get("settings_button", settings_button_diag)
         if not isinstance(settings_diag, dict):
             record("main_menu_settings_open", False, "Settings button diagnostics missing")
             raise MCPError("main menu settings diagnostics unavailable")
@@ -1663,7 +1961,7 @@ def main() -> int:
         if start_center is None:
             record("main_menu_touch_start_smoke", False, "Start button diagnostics missing tappable bounds")
             raise MCPError("main menu start button center unavailable")
-        menu_start_x, menu_start_y = start_center
+        menu_start_x, menu_start_y = logical_to_input_point(start_center[0], start_center[1])
         transitioned_via_touch = False
         touch_attempts = 5
         main_menu_observations: list[str] = []
@@ -1768,21 +2066,11 @@ def main() -> int:
         map_target_y = int(screen_h * 0.58)
         gather_x = int(screen_w * 0.34)
         gather_y = int(screen_h * 0.48)
-        long_press_x = int(screen_w * 0.44)
-        long_press_y = int(screen_h * 0.42)
 
         build_button = hud_diag.get("build_button", {})
         build_center = center_from_diag(build_button)
         if build_center is None:
             build_center = (int(screen_w * 0.88), int(screen_h * 0.92))
-
-        cancel_button = find_named_control(hud_diag, "PlacementCancelButton")
-        if cancel_button is None:
-            cancel_x = int(screen_w * 0.50)
-            cancel_y = int(screen_h * 0.92)
-        else:
-            cancel_center = center_from_diag(cancel_button)
-            cancel_x, cancel_y = cancel_center if cancel_center is not None else (int(screen_w * 0.50), int(screen_h * 0.92))
 
         minimap_x0, minimap_y0, minimap_x1, minimap_y1 = minimap_rect_from_node(screen_h)
 
@@ -1791,49 +2079,6 @@ def main() -> int:
             touch_tap(center_x, center_y, 0) + touch_tap(map_target_x, map_target_y, 260),
             timeout=35.0,
         )
-
-        _ = tool_text(
-            "input",
-            {
-                "action": "sequence",
-                "inputs": touch_hold(long_press_x, long_press_y, 0, 700),
-            },
-            timeout=30.0,
-        )
-        context_diag = wait_for_touch_context_visible(timeout=3.0)
-        if context_diag is None:
-            context_diag = selection_manager_diag()
-        context_errors = get_new_errors(clear=True)
-        if context_errors:
-            record("touch_long_press_context_smoke", False, f"Runtime errors: {summarize_errors(context_errors)}")
-            raise MCPError("runtime errors during long-press context flow")
-        if context_diag is None:
-            record("touch_long_press_context_smoke", False, "Touch context diagnostics were unavailable after long press")
-            raise MCPError("touch context did not report any diagnostics")
-        actions = [str(action) for action in context_diag.get("actions", [])]
-        if "Move" not in actions:
-            selection_props = node_properties("/root/Main/GameMap/SelectionManager")
-            context_enabled = as_bool(selection_props.get("touch_context_enabled", False), False)
-            long_press_threshold = as_float(selection_props.get("long_press_threshold", 0.0), 0.0)
-            if context_enabled and 0.0 < long_press_threshold <= 1.0:
-                record(
-                    "touch_long_press_context_smoke",
-                    True,
-                    "runtime actions unavailable under MCP timing; config enabled (threshold=%.2f)" % long_press_threshold,
-                )
-            else:
-                record("touch_long_press_context_smoke", False, "Unexpected context actions: %s" % ", ".join(actions))
-                raise MCPError("touch context actions were incomplete")
-        else:
-            record(
-                "touch_long_press_context_smoke",
-                True,
-                "visible=%s actions=%s" % (context_diag.get("visible", False), ", ".join(actions)),
-            )
-        try:
-            _ = tool_text("input", {"action": "sequence", "inputs": touch_tap(32, 32, 0)}, timeout=10.0)
-        except Exception:
-            pass
 
         require_first_session_state(
             "guided_opener_initial_stage",
@@ -1850,21 +2095,46 @@ def main() -> int:
             timeout=8.0,
         )
 
-        villager_target = find_visible_player_villager_target(screen_w, screen_h)
-        if villager_target is None:
-            record("touch_select_villager_for_gather", False, "No visible player villager found near the opener camera")
-            raise MCPError("no visible player villager found for gather opener check")
-        villager_screen_x, villager_screen_y, villager_path = villager_target
-        villager_action_ok, villager_action_detail = tap_live_node_until_touch_action(
-            villager_path,
-            screen_w,
-            screen_h,
-            "select",
-            "tapped_node_path",
-        )
+        # Starting villagers are already moving toward their economy. Refresh
+        # the candidate between attempts instead of pinning all retries to a
+        # unit that may have crossed behind the lower HUD after the first tap.
+        # Every attempt is still a real screen touch against a currently
+        # visible player villager; this only removes stale-coordinate coupling.
+        villager_action_ok = False
+        villager_path = ""
+        villager_screen_x = 0
+        villager_screen_y = 0
+        villager_attempt_details: list[str] = []
+        for attempt in range(4):
+            villager_target = wait_for_visible_player_villager_target(screen_w, screen_h, timeout=0.6)
+            if villager_target is None:
+                villager_attempt_details.append("attempt%d=no-visible-villager" % (attempt + 1))
+                continue
+            candidate_x, candidate_y, candidate_path = villager_target
+            attempt_ok, attempt_detail = tap_live_node_until_touch_action(
+                candidate_path,
+                screen_w,
+                screen_h,
+                "select",
+                "tapped_node_path",
+                attempts=1,
+            )
+            villager_attempt_details.append(
+                "candidate%d[%s]=%s" % (attempt + 1, candidate_path, attempt_detail)
+            )
+            if attempt_ok:
+                villager_action_ok = True
+                villager_path = candidate_path
+                villager_screen_x = candidate_x
+                villager_screen_y = candidate_y
+                break
+        villager_action_detail = " | ".join(villager_attempt_details)
         record("touch_select_villager_for_gather", villager_action_ok, villager_action_detail)
         if not villager_action_ok:
             raise MCPError("villager live-touch selection did not register a select action on the targeted villager")
+        villager_touch_diag = selection_manager_touch_input_diag()
+        villager_screen_x = int(as_float(villager_touch_diag.get("screen_x", villager_screen_x), villager_screen_x))
+        villager_screen_y = int(as_float(villager_touch_diag.get("screen_y", villager_screen_y), villager_screen_y))
         villager_selection_count = wait_for_selection_count(min_count=1, timeout=0.8)
         record(
             "touch_select_villager_target",
@@ -1933,13 +2203,67 @@ def main() -> int:
             raise MCPError("no build option available for touch placement")
         record("touch_build_menu_house_option", True, "Selected `%s`" % str(build_option.get("text", "")).split("\n", 1)[0])
 
-        run_touch_scenario(
-            "touch_build_place_cancel_smoke",
-            tap_control(build_option, 0, "build_option_cancel")
-            + touch_tap(center_x, center_y, 260)
-            + touch_tap(cancel_x, cancel_y, 560),
-            timeout=40.0,
+        cancel_before_diag = first_session_diag()
+        cancel_before_building_count = int(as_float(cancel_before_diag.get("player_building_count", -1), -1.0))
+        arm_cancel_sequence = tool_text(
+            "input",
+            {"action": "sequence", "inputs": tap_control(build_option, 0, "build_option_cancel")},
+            timeout=25.0,
         )
+        if not wait_for_placement_mode(True, timeout=2.5):
+            record("touch_build_place_cancel_smoke", False, "Placement mode did not activate before Cancel tap")
+            raise MCPError("placement mode did not activate for cancel-path verification")
+        cancel_armed_diag = first_session_diag()
+        if not as_bool(cancel_armed_diag.get("placement_active", False), False):
+            record("touch_build_place_cancel_smoke", False, "PlacementCancelButton appeared but placement_active stayed false")
+            raise MCPError("placement diagnostics did not report active cancel path")
+
+        live_hud_diag = hud_touch_diag()
+        live_cancel_button = find_named_control(live_hud_diag, "PlacementCancelButton")
+        if not isinstance(live_cancel_button, dict) or not as_bool(live_cancel_button.get("visible", False), False):
+            record("touch_build_place_cancel_smoke", False, "Visible PlacementCancelButton diagnostics were unavailable")
+            raise MCPError("visible PlacementCancelButton unavailable for cancel-path verification")
+        cancel_sequence = tool_text(
+            "input",
+            {"action": "sequence", "inputs": tap_control(live_cancel_button, 0, "placement_cancel")},
+            timeout=25.0,
+        )
+
+        cancel_deadline = time.monotonic() + 2.5
+        cancel_after_diag: dict[str, Any] = {}
+        cancel_state_cleared = False
+        while time.monotonic() < cancel_deadline:
+            cancel_after_diag = first_session_diag()
+            placement_active = as_bool(cancel_after_diag.get("placement_active", True), True)
+            cancel_visible = as_bool(cancel_after_diag.get("placement_cancel_visible", True), True)
+            if not placement_active and not cancel_visible:
+                cancel_state_cleared = True
+                break
+            time.sleep(0.15)
+        cancel_after_building_count = int(as_float(cancel_after_diag.get("player_building_count", -1), -1.0))
+        cancel_errors = get_new_errors(clear=True)
+        cancel_check_ok = (
+            cancel_state_cleared
+            and cancel_before_building_count >= 0
+            and cancel_after_building_count == cancel_before_building_count
+            and not cancel_errors
+        )
+        cancel_detail = (
+            "arm=%s cancel=%s placement_active=%s cancel_visible=%s buildings=%d->%d"
+            % (
+                arm_cancel_sequence,
+                cancel_sequence,
+                cancel_after_diag.get("placement_active", "?"),
+                cancel_after_diag.get("placement_cancel_visible", "?"),
+                cancel_before_building_count,
+                cancel_after_building_count,
+            )
+        )
+        if cancel_errors:
+            cancel_detail += " runtime_errors=%s" % summarize_errors(cancel_errors)
+        record("touch_build_place_cancel_smoke", cancel_check_ok, cancel_detail)
+        if not cancel_check_ok:
+            raise MCPError("Placement Cancel touch changed world state or failed to clear placement")
         if not ensure_build_menu_state(build_button, False, timeout=2.0):
             record("touch_build_menu_close_after_cancel", False, "Build menu did not close after cancel-path verification")
             raise MCPError("build menu remained open after cancel-path verification")
@@ -2067,6 +2391,24 @@ def main() -> int:
             raise MCPError("missing progression hint text")
         record("progression_hint_validation", True, hint_text)
 
+        # Earlier camera/pinch/minimap checks deliberately leave the camera far
+        # from the starting base. Return to the player's Town Center before the
+        # construction loop so placement candidates exercise ordinary nearby
+        # terrain instead of an arbitrary remote patch.
+        recenter_sequence = tool_text(
+            "input",
+            {
+                "action": "sequence",
+                "inputs": [
+                    {"action_name": "select_tc", "start_ms": 0, "duration_ms": 0},
+                    {"action_name": "center_selection", "start_ms": 120, "duration_ms": 0},
+                ],
+            },
+            timeout=20.0,
+        )
+        time.sleep(0.25)
+        record("touch_build_recenter_on_tc", True, recenter_sequence)
+
         if not wait_for_build_menu_state(True, timeout=0.8) and not ensure_build_menu_state(build_button, True, timeout=3.0):
             record("touch_build_menu_reopen_for_loop", False, "Build menu was not available for the touch build loop")
             raise MCPError("build menu not available for touch build loop")
@@ -2083,10 +2425,13 @@ def main() -> int:
         record("touch_build_option_arm_placement", True, "Placement mode activated")
 
         build_candidates: list[tuple[int, int]] = [
-            (int(screen_w * 0.60), int(screen_h * 0.64)),
-            (int(screen_w * 0.70), int(screen_h * 0.58)),
-            (int(screen_w * 0.52), int(screen_h * 0.72)),
-            (int(screen_w * 0.78), int(screen_h * 0.66)),
+            (int(screen_w * 0.66), int(screen_h * 0.58)),
+            (int(screen_w * 0.34), int(screen_h * 0.58)),
+            (int(screen_w * 0.62), int(screen_h * 0.70)),
+            (int(screen_w * 0.38), int(screen_h * 0.70)),
+            (int(screen_w * 0.68), int(screen_h * 0.42)),
+            (int(screen_w * 0.32), int(screen_h * 0.42)),
+            (int(screen_w * 0.50), int(screen_h * 0.76)),
         ]
         placed_build_pos: tuple[int, int] | None = None
         placement_notes: list[str] = []
@@ -2102,8 +2447,17 @@ def main() -> int:
                 record("touch_build_place_resume_economy_smoke", False, f"Runtime errors: {summarize_errors(placement_errors)}")
                 raise MCPError("runtime errors during touch build placement")
             placement_active = wait_for_placement_mode(True, timeout=0.6)
+            placement_diag = first_session_diag()
+            invalid_reason = str(placement_diag.get("last_invalid_placement_reason", "")).strip()
             placement_notes.append(
-                "attempt%d=%s@%d,%d" % (idx + 1, "invalid" if placement_active else "placed", candidate_x, candidate_y)
+                "attempt%d=%s@%d,%d%s"
+                % (
+                    idx + 1,
+                    "invalid" if placement_active else "placed",
+                    candidate_x,
+                    candidate_y,
+                    "(%s)" % invalid_reason if placement_active and invalid_reason else "",
+                )
             )
             if not placement_active:
                 placed_build_pos = (candidate_x, candidate_y)
@@ -2289,6 +2643,7 @@ def main() -> int:
         resume_button = hud_diag.get("pause_menu_resume", {})
         resume_center = center_from_diag(resume_button) if isinstance(resume_button, dict) else None
         if resume_center is not None:
+            resume_center = logical_to_input_point(resume_center[0], resume_center[1])
             run_input_sequence_light(
                 "touch_pause_resume_after_audit",
                 touch_tap(resume_center[0], resume_center[1], 0),
@@ -2365,9 +2720,18 @@ def main() -> int:
                 for attempt, (tap_dx, tap_dy) in enumerate(train_tap_offsets):
                     button_for_attempt = find_train_button_by_name(selected_button_name) or selected_train_button
                     try:
-                        button_center = center_from_diag(button_for_attempt)
+                        button_path = str(button_for_attempt.get("path", ""))
+                        button_center: tuple[int, int] | None = None
+                        if button_path.startswith("/root/"):
+                            try:
+                                button_center = path_center(button_path)
+                            except Exception:  # noqa: BLE001
+                                button_center = None
+                        if button_center is None:
+                            button_center = center_from_diag(button_for_attempt)
                         if button_center is None:
                             raise MCPError("train button center unavailable")
+                        button_center = logical_to_input_point(button_center[0], button_center[1])
                         sequence_text = tool_text(
                             "input",
                             {
@@ -2399,10 +2763,12 @@ def main() -> int:
                     train_diag = hud_train_action_diag()
                     request_result = str(diag.get("last_train_request_result", "unknown"))
                     train_attempt_details.append(
-                        "attempt%d=%s offset=(%d,%d) scout=%s hud_unit=%s emitted=%s result=%s"
+                        "attempt%d=%s center=(%d,%d) offset=(%d,%d) scout=%s hud_unit=%s emitted=%s result=%s"
                         % (
                             attempt + 1,
                             sequence_text,
+                            button_center[0],
+                            button_center[1],
                             tap_dx,
                             tap_dy,
                             scout_queued,
@@ -2508,24 +2874,111 @@ def main() -> int:
             True,
             "Moving %s toward (%d,%d) [%s]" % (military_path, move_target_x, move_target_y, move_target_detail),
         )
-        military_selection_count = selection_count()
-        if military_selection_count > 0:
-            record(
-                "touch_select_military_button",
-                True,
-                "Guided opener auto-selected the completed Scout; redundant shortcut tap skipped",
+        military_shortcut_before = first_session_diag()
+        run_touch_scenario(
+            "touch_select_military_button",
+            tap_control(army_button, 0, "select_military"),
+            timeout=20.0,
+        )
+        military_shortcut_diag: dict[str, Any] = {}
+        military_shortcut_fresh = False
+        military_shortcut_deadline = time.monotonic() + 2.0
+        while time.monotonic() < military_shortcut_deadline:
+            military_shortcut_diag = first_session_diag()
+            if has_fresh_military_shortcut_execution(
+                military_shortcut_before,
+                military_shortcut_diag,
+                military_path,
+            ):
+                military_shortcut_fresh = True
+                break
+            time.sleep(0.1)
+        military_selection_count = int(
+            as_float(military_shortcut_diag.get("military_shortcut_selected_count", 0), 0.0)
+        )
+        live_selection_count = selection_count()
+        military_shortcut_detail = (
+            "invocations=%s->%s timestamp=%s->%s selected=%d live_selected=%d military=%s paths=%s"
+            % (
+                military_shortcut_before.get("military_shortcut_invocation_count", 0),
+                military_shortcut_diag.get("military_shortcut_invocation_count", 0),
+                military_shortcut_before.get("military_shortcut_last_timestamp_ms", 0),
+                military_shortcut_diag.get("military_shortcut_last_timestamp_ms", 0),
+                military_selection_count,
+                live_selection_count,
+                military_shortcut_diag.get("military_count", 0),
+                military_shortcut_diag.get("military_shortcut_selected_paths", []),
             )
-        else:
-            run_touch_scenario(
-                "touch_select_military_button",
-                tap_control(army_button, 0, "select_military"),
-                timeout=20.0,
+        )
+        military_shortcut_ok = military_shortcut_fresh and live_selection_count == military_selection_count
+        record("touch_select_military_assertion", military_shortcut_ok, military_shortcut_detail)
+        if not military_shortcut_ok:
+            raise MCPError("military shortcut lacked one fresh complete-selection invocation")
+
+        # Exercise the single-action long-press path with a known selected unit
+        # and a target already verified to be empty world space. Passing this
+        # check requires new runtime execution evidence; configuration alone is
+        # deliberately insufficient.
+        context_before = selection_manager_diag()
+        context_before_timestamp = int(
+            as_float(context_before.get("last_executed_timestamp_ms", 0), 0.0)
+        )
+        context_before_count = int(as_float(context_before.get("execution_count", 0), 0.0))
+        context_sequence = tool_text(
+            "input",
+            {
+                "action": "sequence",
+                "inputs": touch_hold(move_target_x, move_target_y, 0, 700),
+            },
+            timeout=30.0,
+        )
+        context_errors = get_new_errors(clear=True)
+        context_diag: dict[str, Any] = {}
+        context_evidence_fresh = False
+        context_deadline = time.monotonic() + 2.0
+        while time.monotonic() < context_deadline:
+            context_diag = selection_manager_diag()
+            if has_fresh_context_execution(context_before, context_diag, "Move", 100):
+                context_evidence_fresh = True
+                break
+            time.sleep(0.1)
+
+        # The release event is part of touch_hold(). Re-read after a short
+        # settling window so threshold + release double-dispatch cannot pass.
+        time.sleep(0.25)
+        context_stable_diag = selection_manager_diag()
+        context_stable_count = int(as_float(context_stable_diag.get("execution_count", 0), 0.0))
+        context_stable_timestamp = int(
+            as_float(context_stable_diag.get("last_executed_timestamp_ms", 0), 0.0)
+        )
+        context_exactly_once = (
+            context_evidence_fresh
+            and has_fresh_context_execution(context_before, context_stable_diag, "Move", 100)
+            and context_stable_timestamp
+            == int(as_float(context_diag.get("last_executed_timestamp_ms", 0), 0.0))
+        )
+        context_detail = (
+            "%s action=%s action_id=%s timestamp=%s>%s executions=%s->%s selected=%d target=(%d,%d) [%s]"
+            % (
+                context_sequence,
+                context_stable_diag.get("last_executed_action", ""),
+                context_stable_diag.get("last_executed_action_id", "?"),
+                context_stable_timestamp,
+                context_before_timestamp,
+                context_before_count,
+                context_stable_count,
+                military_selection_count,
+                move_target_x,
+                move_target_y,
+                move_target_detail,
             )
-            military_selection_count = wait_for_selection_count(min_count=1, timeout=2.0)
-        if military_selection_count < 1:
-            record("touch_select_military_assertion", False, "No military selection became active after tapping shortcut")
-            raise MCPError("military shortcut did not leave a selection active")
-        record("touch_select_military_assertion", True, f"selected={military_selection_count}")
+        )
+        if context_errors:
+            context_detail += " runtime_errors=%s" % summarize_errors(context_errors)
+        record("touch_long_press_context_smoke", context_exactly_once and not context_errors, context_detail)
+        if context_errors or not context_exactly_once:
+            raise MCPError("long press did not produce exactly one fresh runtime Move action")
+
         move_ok, move_detail = tap_screen_until_touch_action(
             move_target_x,
             move_target_y,

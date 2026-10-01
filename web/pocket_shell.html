@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, viewport-fit=cover">
+		<meta name="apple-mobile-web-app-capable" content="yes">
+		<meta name="apple-mobile-web-app-title" content="Pocket Kingdoms">
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+		<title>$GODOT_PROJECT_NAME</title>
+		<style>
+html, body, #canvas {
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+body {
+	color: white;
+	background-color: black;
+	overflow: hidden;
+	touch-action: none;
+}
+
+#canvas {
+	display: block;
+}
+
+#canvas:focus {
+	outline: none;
+}
+
+#status, #status-splash, #status-progress {
+	position: absolute;
+	left: 0;
+	right: 0;
+}
+
+#status, #status-splash {
+	top: 0;
+	bottom: 0;
+}
+
+#status {
+	background-color: $GODOT_SPLASH_COLOR;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	visibility: hidden;
+}
+
+#status-splash {
+	max-height: 100%;
+	max-width: 100%;
+	margin: auto;
+}
+
+#status-splash.show-image--false {
+	display: none;
+}
+
+#status-splash.fullsize--true {
+	height: 100%;
+	width: 100%;
+	object-fit: contain;
+}
+
+#status-splash.use-filter--false {
+	image-rendering: pixelated;
+}
+
+#status-progress, #status-notice {
+	display: none;
+}
+
+#status-progress {
+	bottom: 10%;
+	width: 50%;
+	margin: 0 auto;
+}
+
+#status-notice {
+	background-color: #5b3943;
+	border-radius: 0.5rem;
+	border: 1px solid #9b3943;
+	color: #e0e0e0;
+	font-family: 'Noto Sans', 'Droid Sans', Arial, sans-serif;
+	line-height: 1.3;
+	margin: 0 2rem;
+	overflow: hidden;
+	padding: 1rem;
+	text-align: center;
+	z-index: 1;
+}
+/* Policy 0 sizes the backing buffer to the same visible safe-area rect. */
+html, body { width: 100%; height: 100%; background: #13222c; overscroll-behavior: none; }
+#pocket-app {
+	position: fixed;
+	left: var(--pocket-viewport-left, 0px);
+	top: var(--pocket-viewport-top, 0px);
+	width: var(--pocket-viewport-width, 100vw);
+	height: var(--pocket-viewport-height, 100%);
+	height: var(--pocket-viewport-height, 100dvh);
+}
+#pocket-game {
+	position: absolute;
+	left: env(safe-area-inset-left, 0px); top: env(safe-area-inset-top, 0px);
+	right: env(safe-area-inset-right, 0px); bottom: env(safe-area-inset-bottom, 0px);
+	overflow: hidden;
+}
+#canvas { width: 100%; height: 100%; touch-action: none; }
+#status { pointer-events: none; }
+[hidden] { display: none !important; }
+.pocket-button {
+	box-sizing: border-box; min-height: 44px;
+	border: 1px solid #667e89; border-radius: 10px; padding: 8px 14px;
+	background: #213b4d; color: #f2ead8;
+	font: 600 15px/1.2 system-ui, -apple-system, sans-serif;
+	touch-action: manipulation; cursor: pointer;
+}
+.pocket-button:focus-visible { outline: 3px solid #efbc63; outline-offset: 3px; }
+#pocket-screen-control {
+	position: absolute; z-index: 10;
+	right: calc(env(safe-area-inset-right, 0px) + 12px);
+	top: calc(env(safe-area-inset-top, 0px) + 12px);
+}
+#pocket-screen-help {
+	position: absolute; inset: 0; z-index: 20;
+	display: grid; place-items: center; box-sizing: border-box;
+	padding: calc(env(safe-area-inset-top, 0px) + 12px)
+		calc(env(safe-area-inset-right, 0px) + 12px)
+		calc(env(safe-area-inset-bottom, 0px) + 12px)
+		calc(env(safe-area-inset-left, 0px) + 12px);
+	background: #09151be0; touch-action: manipulation;
+}
+.pocket-help-card {
+	box-sizing: border-box; width: min(420px, 100%); max-height: 100%; overflow: auto;
+	border: 1px solid #667e89; border-radius: 14px; padding: 20px;
+	background: #13222c; color: #f2ead8;
+	font: 16px/1.45 system-ui, -apple-system, sans-serif;
+}
+.pocket-help-card h1 { margin: 0 0 12px; font-size: 22px; line-height: 1.2; }
+.pocket-help-card p { margin: 0 0 16px; }
+#pocket-help-close { width: 100%; background: #efbc63; color: #13222c; }
+#pocket-landscape-prompt {
+	display: none; position: absolute; inset: 0; z-index: 30;
+	box-sizing: border-box; padding: 24px; place-items: center;
+	background: #13222c; color: #f2ead8; text-align: center;
+	font: 18px/1.4 system-ui, -apple-system, sans-serif;
+}
+#pocket-landscape-prompt h1 { margin: 0 0 12px; font-size: 28px; }
+#pocket-landscape-prompt p { margin: 0; }
+@media (orientation: portrait) and (max-width: 700px) {
+	#pocket-landscape-prompt { display: grid; }
+}
+		</style>
+		$GODOT_HEAD_INCLUDE
+	</head>
+	<body>
+		<div id="pocket-app">
+		<div id="pocket-game">
+		<canvas id="canvas">
+			Your browser does not support the canvas tag.
+		</canvas>
+
+		<noscript>
+			Your browser does not support JavaScript.
+		</noscript>
+
+		<div id="status">
+			<img id="status-splash" class="$GODOT_SPLASH_CLASSES" src="$GODOT_SPLASH" alt="">
+			<progress id="status-progress"></progress>
+			<div id="status-notice"></div>
+		</div>
+
+		</div>
+		<button id="pocket-screen-control" class="pocket-button" type="button" hidden>Full screen</button>
+		<div id="pocket-screen-help" role="dialog" aria-modal="true" aria-labelledby="pocket-help-title" hidden>
+			<div class="pocket-help-card">
+				<h1 id="pocket-help-title">Play without browser bars</h1>
+				<p id="pocket-help-copy"></p>
+				<button id="pocket-help-close" class="pocket-button" type="button">Got it</button>
+			</div>
+		</div>
+		<div id="pocket-landscape-prompt" role="status">
+			<div><h1>Turn your phone to play</h1><p>Pocket Kingdoms plays in landscape.</p></div>
+		</div>
+		</div>
+		<script id="pocket-web-shell-script">
+(function () {
+	'use strict';
+	const app = document.getElementById('pocket-app');
+	const game = document.getElementById('pocket-game');
+	const canvas = document.getElementById('canvas');
+	const screenButton = document.getElementById('pocket-screen-control');
+	const help = document.getElementById('pocket-screen-help');
+	const helpTitle = document.getElementById('pocket-help-title');
+	const helpCopy = document.getElementById('pocket-help-copy');
+	const closeButton = document.getElementById('pocket-help-close');
+	const standaloneQuery = window.matchMedia('(display-mode: standalone)');
+	const fullscreenQuery = window.matchMedia('(display-mode: fullscreen)');
+	let controlsAllowed = false;
+	let engineReady = false;
+	let resizeFrame = 0;
+
+	function isStandalone() {
+		return navigator.standalone === true || standaloneQuery.matches || fullscreenQuery.matches;
+	}
+	function fullscreenElement() {
+		return document.fullscreenElement || document.webkitFullscreenElement;
+	}
+	function fullscreenSupported() {
+		return !!((document.fullscreenEnabled && document.documentElement.requestFullscreen)
+			|| (document.webkitFullscreenEnabled && document.documentElement.webkitRequestFullscreen));
+	}
+	function closeHelp(returnFocus = true) {
+		help.hidden = true;
+		if (returnFocus && !screenButton.hidden) screenButton.focus();
+	}
+	function updateControl() {
+		// Entered fullscreen can match display-mode:fullscreen; retain its Exit button.
+		screenButton.hidden = !engineReady || !controlsAllowed || (isStandalone() && !fullscreenElement());
+		screenButton.textContent = fullscreenElement() ? 'Exit full screen' : 'Full screen';
+		if (screenButton.hidden) closeHelp(false);
+	}
+	function showHelp(declined = false) {
+		// A rejected fullscreen promise can settle after the match has started.
+		if (!engineReady || !controlsAllowed || screenButton.hidden) return;
+		const appleMobile = /iPhone|iPad|iPod/.test(navigator.userAgent)
+			|| (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+		helpTitle.textContent = declined ? 'Full screen unavailable' : 'Play without browser bars';
+		helpCopy.textContent = appleMobile
+			? 'Open this page in Safari. Tap Share, then Add to Home Screen. Turn on Open as Web App if shown, tap Add, and launch Pocket Kingdoms from its Home Screen icon.'
+			: (declined ? 'Your browser declined full screen. ' : 'Full screen is unavailable in this browser. ')
+				+ 'Use its Install app or Add to Home Screen option, if available, then launch the game from that icon.';
+		help.hidden = false;
+		closeButton.focus();
+	}
+	function resizeCanvas() {
+		resizeFrame = 0;
+		const viewport = window.visualViewport;
+		const width = viewport ? viewport.width : window.innerWidth;
+		const height = viewport ? viewport.height : window.innerHeight;
+		app.style.setProperty('--pocket-viewport-width', `${width}px`);
+		app.style.setProperty('--pocket-viewport-height', `${height}px`);
+		app.style.setProperty('--pocket-viewport-left', `${viewport ? viewport.offsetLeft : 0}px`);
+		app.style.setProperty('--pocket-viewport-top', `${viewport ? viewport.offsetTop : 0}px`);
+		const rect = game.getBoundingClientRect();
+		const ratio = window.devicePixelRatio || 1;
+		const backingWidth = Math.max(1, Math.round(rect.width * ratio));
+		const backingHeight = Math.max(1, Math.round(rect.height * ratio));
+		if (canvas.width !== backingWidth) canvas.width = backingWidth;
+		if (canvas.height !== backingHeight) canvas.height = backingHeight;
+	}
+	function scheduleResize() {
+		if (!resizeFrame) resizeFrame = window.requestAnimationFrame(resizeCanvas);
+	}
+	// MainMenu/GameManager call this hook; live play hides every shell control.
+	window.PocketWebShell = Object.freeze({
+		setControlsVisible: function (visible) {
+			controlsAllowed = visible === true;
+			updateControl();
+		},
+		engineStarted: function () {
+			engineReady = true;
+			updateControl();
+			scheduleResize();
+		},
+	});
+	// Only this actual button click requests fullscreen. Never from startup/timers.
+	screenButton.addEventListener('click', function (event) {
+		event.stopPropagation();
+		if (fullscreenElement()) {
+			try {
+				const result = document.exitFullscreen ? document.exitFullscreen() : document.webkitExitFullscreen();
+				Promise.resolve(result).catch(() => showHelp(true));
+			} catch (_) { showHelp(true); }
+		} else if (fullscreenSupported()) {
+			try {
+				const element = document.documentElement;
+				const result = element.requestFullscreen
+					? element.requestFullscreen({ navigationUI: 'hide' }) : element.webkitRequestFullscreen();
+				Promise.resolve(result).catch(() => showHelp(true));
+			} catch (_) { showHelp(true); }
+		} else {
+			showHelp();
+		}
+	});
+	closeButton.addEventListener('click', function (event) { event.stopPropagation(); closeHelp(); });
+	help.addEventListener('click', function (event) { event.stopPropagation(); if (event.target === help) closeHelp(); });
+	help.addEventListener('keydown', function (event) {
+		if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); closeHelp(); }
+		if (event.key === 'Tab') { event.preventDefault(); closeButton.focus(); }
+	});
+	// Consume only control gestures, preserving touches everywhere on the canvas.
+	for (const element of [screenButton, help]) {
+		for (const eventName of ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'touchstart', 'touchend']) {
+			element.addEventListener(eventName, (event) => event.stopPropagation());
+		}
+	}
+	for (const eventName of ['fullscreenchange', 'webkitfullscreenchange']) {
+		document.addEventListener(eventName, function () { updateControl(); scheduleResize(); });
+	}
+	window.addEventListener('resize', scheduleResize);
+	window.addEventListener('orientationchange', scheduleResize);
+	if (window.visualViewport) {
+		window.visualViewport.addEventListener('resize', scheduleResize);
+		window.visualViewport.addEventListener('scroll', scheduleResize);
+	}
+	for (const query of [standaloneQuery, fullscreenQuery]) {
+		if (query.addEventListener) query.addEventListener('change', updateControl);
+		else if (query.addListener) query.addListener(updateControl);
+	}
+	if (window.ResizeObserver) new ResizeObserver(scheduleResize).observe(game);
+	resizeCanvas();
+}());
+		</script>
+		<script src="$GODOT_URL"></script>
+		<script>
+const GODOT_CONFIG = $GODOT_CONFIG;
+const GODOT_THREADS_ENABLED = $GODOT_THREADS_ENABLED;
+const engine = new Engine(GODOT_CONFIG);
+
+(function () {
+	const statusOverlay = document.getElementById('status');
+	const statusProgress = document.getElementById('status-progress');
+	const statusNotice = document.getElementById('status-notice');
+
+	let initializing = true;
+	let statusMode = '';
+
+	function setStatusMode(mode) {
+		if (statusMode === mode || !initializing) {
+			return;
+		}
+		if (mode === 'hidden') {
+			statusOverlay.remove();
+			initializing = false;
+			return;
+		}
+		statusOverlay.style.visibility = 'visible';
+		statusProgress.style.display = mode === 'progress' ? 'block' : 'none';
+		statusNotice.style.display = mode === 'notice' ? 'block' : 'none';
+		statusMode = mode;
+	}
+
+	function setStatusNotice(text) {
+		while (statusNotice.lastChild) {
+			statusNotice.removeChild(statusNotice.lastChild);
+		}
+		const lines = text.split('\n');
+		lines.forEach((line) => {
+			statusNotice.appendChild(document.createTextNode(line));
+			statusNotice.appendChild(document.createElement('br'));
+		});
+	}
+
+	function displayFailureNotice(err) {
+		console.error(err);
+		if (err instanceof Error) {
+			setStatusNotice(err.message);
+		} else if (typeof err === 'string') {
+			setStatusNotice(err);
+		} else {
+			setStatusNotice('An unknown error occurred.');
+		}
+		setStatusMode('notice');
+		initializing = false;
+	}
+
+	const missing = Engine.getMissingFeatures({
+		threads: GODOT_THREADS_ENABLED,
+	});
+
+	if (missing.length !== 0) {
+		if (GODOT_CONFIG['serviceWorker'] && GODOT_CONFIG['ensureCrossOriginIsolationHeaders'] && 'serviceWorker' in navigator) {
+			let serviceWorkerRegistrationPromise;
+			try {
+				serviceWorkerRegistrationPromise = navigator.serviceWorker.getRegistration();
+			} catch (err) {
+				serviceWorkerRegistrationPromise = Promise.reject(new Error('Service worker registration failed.'));
+			}
+			// There's a chance that installing the service worker would fix the issue
+			Promise.race([
+				serviceWorkerRegistrationPromise.then((registration) => {
+					if (registration != null) {
+						return Promise.reject(new Error('Service worker already exists.'));
+					}
+					return registration;
+				}).then(() => engine.installServiceWorker()),
+				// For some reason, `getRegistration()` can stall
+				new Promise((resolve) => {
+					setTimeout(() => resolve(), 2000);
+				}),
+			]).then(() => {
+				// Reload if there was no error.
+				window.location.reload();
+			}).catch((err) => {
+				console.error('Error while registering service worker:', err);
+			});
+		} else {
+			// Display the message as usual
+			const missingMsg = 'Error\nThe following features required to run Godot projects on the Web are missing:\n';
+			displayFailureNotice(missingMsg + missing.join('\n'));
+		}
+	} else {
+		setStatusMode('progress');
+		engine.startGame({
+			'onProgress': function (current, total) {
+				if (current > 0 && total > 0) {
+					statusProgress.value = current;
+					statusProgress.max = total;
+				} else {
+					statusProgress.removeAttribute('value');
+					statusProgress.removeAttribute('max');
+				}
+			},
+		}).then(() => {
+			setStatusMode('hidden');
+			window.PocketWebShell.engineStarted();
+		}, displayFailureNotice);
+	}
+}());
+		</script>
+	</body>
+</html>

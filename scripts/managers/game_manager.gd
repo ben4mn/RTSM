@@ -31,12 +31,26 @@ var current_state: GameState = GameState.MENU
 var players: Dictionary = {}  # player_id -> PlayerData dict
 var game_time: float = 0.0
 var game_speed: float = 1.0
-var selected_difficulty: int = 1  # 0=Easy, 1=Medium, 2=Hard
+var selected_difficulty: int = 0  # Fresh beta installs start on the onboarding-safe Easy profile.
 var selected_map_seed: int = -1
+var selected_population_limit: int = SkirmishData.DEFAULT_POPULATION_LIMIT
 var guided_opening_enabled: bool = true
 var audio_enabled: bool = true
 var camera_speed_scale: float = 1.0
 var ui_scale: float = 1.0
+var _match_population_limit: int = SkirmishData.DEFAULT_POPULATION_LIMIT
+
+# Population committed to production queues. Reservations are tracked by an
+# opaque id so a cancelled/destroyed queue can only release its own slots.
+var _population_reservations: Dictionary = {}  # reservation_id -> {player_id, amount}
+var _next_population_reservation_id: int = 1
+# Unowned/base capacity is tracked separately from buildings so the effective
+# cap can always be derived from the complete set of active providers.
+var _base_population_caps: Dictionary = {}  # player_id -> nominal amount
+# Providers (currently Town Centers and Houses) retain their nominal amount,
+# even while the effective cap is clamped. This lets a provider completed at
+# max population fill headroom later when another provider is destroyed.
+var _population_cap_grants: Dictionary = {}  # provider_id -> {player_id, nominal_amount}
 
 
 # --- Upgrade tracking per player ---
@@ -51,6 +65,9 @@ func _ready() -> void:
 	var seed_override: String = OS.get_environment("AOEM_MAP_SEED").strip_edges()
 	if seed_override.is_valid_int():
 		selected_map_seed = int(seed_override)
+	var population_override: String = OS.get_environment("AOEM_POPULATION_LIMIT").strip_edges()
+	if population_override.is_valid_int():
+		selected_population_limit = SkirmishData.normalize_population_limit(int(population_override))
 
 
 func _load_preferences() -> void:
@@ -58,20 +75,24 @@ func _load_preferences() -> void:
 	if config.load(PREFERENCES_PATH) != OK:
 		return
 	selected_difficulty = clampi(int(config.get_value("skirmish", "difficulty", selected_difficulty)), 0, 2)
+	selected_population_limit = SkirmishData.normalize_population_limit(int(config.get_value("skirmish", "population_limit", selected_population_limit)))
 	guided_opening_enabled = bool(config.get_value("onboarding", "guided_opening", guided_opening_enabled))
 	audio_enabled = bool(config.get_value("accessibility", "audio_enabled", audio_enabled))
 	camera_speed_scale = clampf(float(config.get_value("controls", "camera_speed_scale", camera_speed_scale)), 0.75, 1.25)
-	ui_scale = clampf(float(config.get_value("accessibility", "ui_scale", ui_scale)), 0.9, 1.15)
+	# Mobile controls are authored at a 48px minimum. Scaling below 100% made
+	# those targets physically smaller than the interaction contract.
+	ui_scale = clampf(float(config.get_value("accessibility", "ui_scale", ui_scale)), 1.0, 1.15)
 	_apply_display_preferences()
 
 
 func save_preferences() -> bool:
 	var config := ConfigFile.new()
 	config.set_value("skirmish", "difficulty", clampi(selected_difficulty, 0, 2))
+	config.set_value("skirmish", "population_limit", SkirmishData.normalize_population_limit(selected_population_limit))
 	config.set_value("onboarding", "guided_opening", guided_opening_enabled)
 	config.set_value("accessibility", "audio_enabled", audio_enabled)
 	config.set_value("controls", "camera_speed_scale", camera_speed_scale)
-	config.set_value("accessibility", "ui_scale", ui_scale)
+	config.set_value("accessibility", "ui_scale", clampf(ui_scale, 1.0, 1.15))
 	return config.save(PREFERENCES_PATH) == OK
 
 
@@ -85,6 +106,7 @@ func apply_preferences() -> void:
 func _apply_display_preferences() -> void:
 	var window: Window = get_window()
 	if window != null:
+		ui_scale = clampf(ui_scale, 1.0, 1.15)
 		window.content_scale_factor = ui_scale
 
 
@@ -94,11 +116,17 @@ func _process(delta: float) -> void:
 
 
 func initialize_game(num_players: int = 2) -> void:
+	_match_population_limit = SkirmishData.normalize_population_limit(selected_population_limit)
+	_population_reservations.clear()
+	_base_population_caps.clear()
+	_population_cap_grants.clear()
 	players.clear()
 	game_time = 0.0
 
 	for i in range(num_players):
-		players[i] = _create_player_data(i)
+		var player_data: Dictionary = _create_player_data(i)
+		players[i] = player_data
+		_base_population_caps[i] = int(player_data.get("population_cap", 0))
 		player_upgrades[i] = {"attack_bonus": 0, "armor_bonus": 0, "gather_bonus": 0.0, "villager_hp_bonus": 0}
 		researched_upgrades[i] = []
 
@@ -110,8 +138,9 @@ func _create_player_data(player_id: int) -> Dictionary:
 		"id": player_id,
 		"age": 1,
 		"population": 0,
+		"population_reserved": 0,
 		"population_cap": 5,
-		"max_population": 200,
+		"max_population": _match_population_limit,
 		"is_defeated": false,
 		"landmarks_alive": 0,
 		"buildings": [],
@@ -119,14 +148,29 @@ func _create_player_data(player_id: int) -> Dictionary:
 	}
 
 
+func get_match_population_limit() -> int:
+	if current_state in [GameState.PLAYING, GameState.PAUSED, GameState.GAME_OVER]:
+		return _match_population_limit
+	return SkirmishData.normalize_population_limit(selected_population_limit)
+
+
+func get_player_population_limit(player_id: int) -> int:
+	if players.has(player_id):
+		return maxi(0, int(players[player_id].get("max_population", _match_population_limit)))
+	return get_match_population_limit()
+
+
+func get_age_up_cost(player_id: int, target_age: int) -> Dictionary:
+	return SkirmishData.get_age_up_cost(target_age, get_player_population_limit(player_id))
+
+
 func set_state(new_state: GameState) -> void:
 	current_state = new_state
 	game_state_changed.emit(new_state)
 
-	if new_state == GameState.PAUSED:
-		get_tree().paused = true
-	elif new_state == GameState.PLAYING:
-		get_tree().paused = false
+	# MENU/LOADING/GAME_OVER must never inherit a paused SceneTree from the
+	# previous match. Treat PAUSED as the sole state that freezes processing.
+	get_tree().paused = new_state == GameState.PAUSED
 
 
 func advance_age(player_id: int) -> bool:
@@ -157,10 +201,82 @@ func get_age_name(age: int) -> String:
 func add_population(player_id: int, amount: int) -> bool:
 	if not players.has(player_id):
 		return false
-	var player: Dictionary = players[player_id]
-	if player["population"] + amount > player["population_cap"]:
+	if amount < 0:
 		return false
-	player["population"] += amount
+	var player: Dictionary = players[player_id]
+	var committed: int = int(player.get("population", 0)) + int(player.get("population_reserved", 0))
+	if committed + amount > int(player.get("population_cap", 0)):
+		return false
+	player["population"] = int(player.get("population", 0)) + amount
+	return true
+
+
+func get_reserved_population(player_id: int) -> int:
+	if not players.has(player_id):
+		return 0
+	return int(players[player_id].get("population_reserved", 0))
+
+
+func get_committed_population(player_id: int) -> int:
+	if not players.has(player_id):
+		return 0
+	var player: Dictionary = players[player_id]
+	return int(player.get("population", 0)) + int(player.get("population_reserved", 0))
+
+
+func can_reserve_population(player_id: int, amount: int) -> bool:
+	if not players.has(player_id) or amount < 0:
+		return false
+	var player: Dictionary = players[player_id]
+	return get_committed_population(player_id) + amount <= int(player.get("population_cap", 0))
+
+
+func reserve_population(player_id: int, amount: int) -> int:
+	## Atomically reserves queue capacity. Returns an opaque id, or -1 on failure.
+	if amount <= 0 or not can_reserve_population(player_id, amount):
+		return -1
+	var reservation_id := _next_population_reservation_id
+	_next_population_reservation_id += 1
+	_population_reservations[reservation_id] = {
+		"player_id": player_id,
+		"amount": amount,
+	}
+	var player: Dictionary = players[player_id]
+	player["population_reserved"] = int(player.get("population_reserved", 0)) + amount
+	return reservation_id
+
+
+func release_population_reservation(reservation_id: int) -> bool:
+	## Releases a specific queue reservation without changing live population.
+	if not _population_reservations.has(reservation_id):
+		return false
+	var reservation: Dictionary = _population_reservations[reservation_id]
+	_population_reservations.erase(reservation_id)
+	var player_id: int = int(reservation.get("player_id", -1))
+	var amount: int = int(reservation.get("amount", 0))
+	if players.has(player_id):
+		var player: Dictionary = players[player_id]
+		player["population_reserved"] = maxi(0, int(player.get("population_reserved", 0)) - amount)
+	return true
+
+
+func consume_population_reservation(reservation_id: int) -> bool:
+	## Converts a queue reservation into live population exactly once.
+	if not _population_reservations.has(reservation_id):
+		return false
+	var reservation: Dictionary = _population_reservations[reservation_id]
+	_population_reservations.erase(reservation_id)
+	var player_id: int = int(reservation.get("player_id", -1))
+	var amount: int = int(reservation.get("amount", 0))
+	if not players.has(player_id) or amount <= 0:
+		return false
+	var player: Dictionary = players[player_id]
+	var reserved: int = int(player.get("population_reserved", 0))
+	if reserved < amount:
+		player["population_reserved"] = maxi(0, reserved)
+		return false
+	player["population_reserved"] = reserved - amount
+	player["population"] = int(player.get("population", 0)) + amount
 	return true
 
 
@@ -169,10 +285,78 @@ func remove_population(player_id: int, amount: int) -> void:
 		players[player_id]["population"] = max(0, players[player_id]["population"] - amount)
 
 
-func increase_population_cap(player_id: int, amount: int) -> void:
-	if players.has(player_id):
-		var player: Dictionary = players[player_id]
-		player["population_cap"] = min(player["population_cap"] + amount, player["max_population"])
+func increase_population_cap(player_id: int, amount: int) -> int:
+	## Adds nominal unowned capacity and returns the visible effective increase.
+	if not players.has(player_id) or amount <= 0:
+		return 0
+	var player: Dictionary = players[player_id]
+	var previous_cap: int = int(player.get("population_cap", 0))
+	var base_cap: int = int(_base_population_caps.get(player_id, previous_cap))
+	_base_population_caps[player_id] = base_cap + amount
+	var effective_cap: int = _recalculate_population_cap(player_id)
+	return maxi(0, effective_cap - previous_cap)
+
+
+func decrease_population_cap(player_id: int, amount: int) -> int:
+	## Removes nominal unowned capacity and returns the visible effective decrease.
+	## Existing units/reservations remain valid if this leaves the player over cap.
+	if not players.has(player_id) or amount <= 0:
+		return 0
+	var player: Dictionary = players[player_id]
+	var previous_cap: int = int(player.get("population_cap", 0))
+	var base_cap: int = int(_base_population_caps.get(player_id, previous_cap))
+	_base_population_caps[player_id] = maxi(0, base_cap - amount)
+	var effective_cap: int = _recalculate_population_cap(player_id)
+	return maxi(0, previous_cap - effective_cap)
+
+
+func grant_population_cap(player_id: int, provider_id: int, requested_amount: int) -> int:
+	## Registers a building/provider's full nominal capacity exactly once.
+	## Returns only the immediate visible increase after max-population clamping;
+	## the full nominal amount remains active and may fill future headroom.
+	if not players.has(player_id) or provider_id <= 0 or requested_amount <= 0:
+		return 0
+	if _population_cap_grants.has(provider_id):
+		return 0
+	var previous_cap: int = int(players[player_id].get("population_cap", 0))
+	_population_cap_grants[provider_id] = {
+		"player_id": player_id,
+		"nominal_amount": requested_amount,
+	}
+	var effective_cap: int = _recalculate_population_cap(player_id)
+	return maxi(0, effective_cap - previous_cap)
+
+
+func revoke_population_cap(provider_id: int) -> int:
+	## Removes a provider exactly once and returns the visible effective decrease.
+	## Other active providers are rebalanced before max-population clamping.
+	if not _population_cap_grants.has(provider_id):
+		return 0
+	var grant: Dictionary = _population_cap_grants[provider_id]
+	_population_cap_grants.erase(provider_id)
+	var player_id: int = int(grant.get("player_id", -1))
+	if not players.has(player_id):
+		return 0
+	var previous_cap: int = int(players[player_id].get("population_cap", 0))
+	var effective_cap: int = _recalculate_population_cap(player_id)
+	return maxi(0, previous_cap - effective_cap)
+
+
+func _recalculate_population_cap(player_id: int) -> int:
+	if not players.has(player_id):
+		return 0
+	var player: Dictionary = players[player_id]
+	var base_cap: int = maxi(0, int(_base_population_caps.get(player_id, 0)))
+	var provider_cap: int = 0
+	for grant_value in _population_cap_grants.values():
+		var grant: Dictionary = grant_value as Dictionary
+		if int(grant.get("player_id", -1)) != player_id:
+			continue
+		provider_cap += maxi(0, int(grant.get("nominal_amount", 0)))
+	var max_population: int = maxi(0, int(player.get("max_population", 0)))
+	var effective_cap: int = mini(max_population, base_cap + provider_cap)
+	player["population_cap"] = effective_cap
+	return effective_cap
 
 
 func defeat_player(player_id: int) -> void:

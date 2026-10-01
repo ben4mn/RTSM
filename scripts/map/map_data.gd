@@ -21,14 +21,31 @@ enum FogState {
 	VISIBLE,     ## Currently in a unit's line of sight.
 }
 
-## Map dimensions (tiles). Tuned for 2-player mobile matches that need a
-## readable early base area plus enough mid-map distance for a 4-10 minute arc.
-const MAP_WIDTH := 40
-const MAP_HEIGHT := 40
+## Duel map dimensions. Open center and side approaches leave room for
+## cavalry flanks and a retreat beyond the opponent's firing line.
+const MAP_WIDTH := 48
+const MAP_HEIGHT := 48
 
 ## Isometric tile size in pixels.
 const TILE_WIDTH := 64
 const TILE_HEIGHT := 32
+
+## Canonical conversion for gameplay ranges. UnitData and BuildingData express
+## attack/vision ranges in range tiles; runtime distance checks use world units.
+## A range tile is half an isometric tile's screen height (16 world units).
+const WORLD_UNITS_PER_RANGE_TILE := float(TILE_HEIGHT) * 0.5
+
+## Exact natural-resource interaction radius shared by route preflight and
+## Villager arrival checks. An adjacent isometric tile center is ~35.78px away.
+const RESOURCE_GATHER_INTERACTION_RADIUS_WORLD: float = 36.0
+
+
+static func range_tiles_to_world(range_tiles: float) -> float:
+	return range_tiles * WORLD_UNITS_PER_RANGE_TILE
+
+
+static func world_to_range_tiles(world_units: float) -> float:
+	return world_units / WORLD_UNITS_PER_RANGE_TILE
 
 ## Movement cost multiplier for forest tiles (slows movement).
 const FOREST_MOVE_COST := 2.5

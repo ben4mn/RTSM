@@ -1,0 +1,7 @@
+tunnel: a81df93e-953f-4e38-9e7f-a5d208f1af1d
+credentials-file: /etc/cloudflared/credentials.json
+
+ingress:
+  - hostname: game.4mn.org
+    service: http://aoem:80
+  - service: http_status:404

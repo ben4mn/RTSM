@@ -1,6 +1,6 @@
 class_name MapGenerator
 extends RefCounted
-## Generates a symmetric 40x40 duel map with readable spawn pockets,
+## Generates a symmetric duel map with readable spawn pockets,
 ## central contest space, and mobile-friendly lanes between bases.
 
 ## Emitted after map generation with the resulting tile grid.
@@ -9,10 +9,10 @@ extends RefCounted
 var _rng := RandomNumberGenerator.new()
 const SPAWN_EDGE_PADDING := 6
 const SPAWN_CLEAR_RADIUS := 6
-const CENTER_CLEAR_RADIUS := 5
+const CENTER_CLEAR_RADIUS := 7
 const FEATURE_SPAWN_BUFFER := 8
-const FEATURE_CENTER_BUFFER := 6
-const CORRIDOR_HALF_WIDTH := 2
+const FEATURE_CENTER_BUFFER := 8
+const CORRIDOR_HALF_WIDTH := 3
 
 ## The generated tile grid — Array of rows, each row is Array of MapData.TileType.
 var grid: Array = []
@@ -159,7 +159,7 @@ func _place_blob(cx: int, cy: int, size: int, tile_type: MapData.TileType) -> vo
 	var x := cx
 	var y := cy
 	while placed < size:
-		if _in_bounds(x, y) and grid[y][x] == MapData.TileType.GRASS:
+		if _in_bounds(x, y) and grid[y][x] == MapData.TileType.GRASS and not _is_near_center(Vector2i(x, y), CENTER_CLEAR_RADIUS):
 			_set_tile(x, y, tile_type)
 			placed += 1
 		# Random walk step
@@ -196,6 +196,8 @@ func _place_near_spawn(spawn: Vector2i, tile_type: MapData.TileType, count: int,
 			continue
 		var tx := spawn.x + dx
 		var ty := spawn.y + dy
+		if _is_near_center(Vector2i(tx, ty), CENTER_CLEAR_RADIUS):
+			continue
 		if _in_bounds(tx, ty) and grid[ty][tx] == MapData.TileType.GRASS:
 			_set_tile(tx, ty, tile_type)
 			placed += 1

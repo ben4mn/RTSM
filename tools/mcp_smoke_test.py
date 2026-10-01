@@ -609,7 +609,11 @@ def main() -> int:
 
         phase4_wait_ms = int(max(30.0, args.phase4_sim_seconds) * 1000.0)
         remaining_ms = phase4_wait_ms
-        phase4_segment_ms = 22000
+        # The MCP input tool has its own fixed 30-second command ceiling in
+        # addition to this client's timeout. Keep ample headroom for editor and
+        # screenshot/log traffic so a healthy simulation cannot false-fail on
+        # bridge overhead.
+        phase4_segment_ms = 12000
         segment_count = 0
         while remaining_ms > 0:
             segment_count += 1

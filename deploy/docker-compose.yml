@@ -1,0 +1,28 @@
+name: aoem
+
+services:
+  aoem:
+    image: nginx:alpine@sha256:1d13701a5f9f3fb01aaa88cef2344d65b6b5bf6b7d9fa4cf0dca557a8d7702ba
+    container_name: aoem-game
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3062:80"
+    volumes:
+      - ./site:/srv/game:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    security_opt:
+      - no-new-privileges:true
+
+  cloudflared:
+    image: cloudflare/cloudflared:2026.9.1@sha256:b269e8abd07a5bf6f3f4be65d5050b2174eca89c56a0241a8ff32a16aec454e4
+    container_name: aoem-game-tunnel
+    user: "0:0"
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --config /etc/cloudflared/config.yml run
+    depends_on:
+      - aoem
+    volumes:
+      - ./cloudflared.yml:/etc/cloudflared/config.yml:ro
+      - /home/ben/.cloudflared/a81df93e-953f-4e38-9e7f-a5d208f1af1d.json:/etc/cloudflared/credentials.json:ro
+    security_opt:
+      - no-new-privileges:true

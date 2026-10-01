@@ -19,11 +19,14 @@ signal main_menu_requested()
 const COLOR_WIN := Color(0.3, 0.85, 0.3)
 const COLOR_LOSE := Color(1.0, 0.35, 0.35)
 const COLOR_TIE := Color(0.7, 0.7, 0.7)
+const HUD_LAYOUT_SCRIPT := preload("res://scripts/ui/hud.gd")
 
 
 func _ready() -> void:
 	layer = 20
 	visible = false
+	panel.theme = KingdomTheme.create_theme()
+	KingdomTheme.apply_primary(play_again_button)
 	play_again_button.pressed.connect(_on_play_again)
 	main_menu_button.pressed.connect(_on_main_menu)
 	get_viewport().size_changed.connect(_fit_panel_to_viewport)
@@ -31,23 +34,30 @@ func _ready() -> void:
 
 
 func _fit_panel_to_viewport() -> void:
-	_fit_panel_to_size(get_viewport().get_visible_rect().size)
+	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+	_fit_panel_to_size(viewport_size, _get_safe_area_rect(viewport_size))
 
 
-func _fit_panel_to_size(viewport_size: Vector2) -> void:
+func _fit_panel_to_size(viewport_size: Vector2, safe_area: Rect2 = Rect2()) -> void:
+	var viewport_rect := Rect2(Vector2.ZERO, viewport_size)
+	var safe_bounds: Rect2 = safe_area.intersection(viewport_rect) if safe_area.has_area() else viewport_rect
+	if not safe_bounds.has_area():
+		safe_bounds = viewport_rect
 	var compact: bool = viewport_size.y <= 500.0
 	var target_size := Vector2(
-		minf(480.0, viewport_size.x - 16.0),
-		minf(440.0, viewport_size.y - 16.0)
+		minf(480.0, safe_bounds.size.x - 16.0),
+		minf(440.0, safe_bounds.size.y - 16.0)
 	)
+	var panel_center: Vector2 = safe_bounds.position + safe_bounds.size * 0.5
+	var center_offset: Vector2 = panel_center - viewport_size * 0.5
 	panel.custom_minimum_size = target_size
-	panel.offset_left = -target_size.x * 0.5
-	panel.offset_right = target_size.x * 0.5
-	panel.offset_top = -target_size.y * 0.5
-	panel.offset_bottom = target_size.y * 0.5
+	panel.offset_left = center_offset.x - target_size.x * 0.5
+	panel.offset_right = center_offset.x + target_size.x * 0.5
+	panel.offset_top = center_offset.y - target_size.y * 0.5
+	panel.offset_bottom = center_offset.y + target_size.y * 0.5
 	var margin: MarginContainer = panel.get_node("Margin")
 	var vbox: VBoxContainer = margin.get_node("VBox")
-	var button_row: VBoxContainer = vbox.get_node("ButtonRow")
+	var button_row: BoxContainer = vbox.get_node("ButtonRow")
 	margin.add_theme_constant_override("margin_left", 14 if compact else 24)
 	margin.add_theme_constant_override("margin_right", 14 if compact else 24)
 	margin.add_theme_constant_override("margin_top", 5 if compact else 20)
@@ -62,6 +72,27 @@ func _fit_panel_to_size(viewport_size: Vector2) -> void:
 	main_menu_button.add_theme_font_size_override("font_size", 16 if compact else 18)
 
 
+func _get_safe_area_rect(viewport_size: Vector2) -> Rect2:
+	var viewport_rect := Rect2(Vector2.ZERO, viewport_size)
+	if OS.has_feature("web"):
+		return viewport_rect
+	if not OS.has_feature("mobile") and not OS.has_feature("web"):
+		return viewport_rect
+	var safe_rect_i: Rect2i = DisplayServer.get_display_safe_area()
+	if safe_rect_i.size.x <= 0 or safe_rect_i.size.y <= 0:
+		return viewport_rect
+	var screen_id: int = DisplayServer.SCREEN_OF_MAIN_WINDOW
+	var display_rect := Rect2(
+		Vector2(DisplayServer.screen_get_position(screen_id)),
+		Vector2(DisplayServer.screen_get_size(screen_id))
+	)
+	return HUD_LAYOUT_SCRIPT.map_display_safe_area_to_viewport(
+		Rect2(Vector2(safe_rect_i.position), Vector2(safe_rect_i.size)),
+		display_rect,
+		viewport_size
+	)
+
+
 func show_victory(stats: Dictionary) -> void:
 	_show_result("VICTORY", Color(1.0, 0.85, 0.2), stats)
 
@@ -71,6 +102,8 @@ func show_defeat(stats: Dictionary) -> void:
 
 
 func _show_result(text: String, color: Color, stats: Dictionary) -> void:
+	play_again_button.disabled = false
+	main_menu_button.disabled = false
 	summary_diagnostics = stats.duplicate(true)
 	summary_diagnostics["result"] = text
 	result_label.text = text
@@ -111,6 +144,7 @@ func _show_result(text: String, color: Color, stats: Dictionary) -> void:
 	_add_stat_row("Resources Gathered", stats.get("resources_gathered", 0), stats.get("ai_resources_gathered", 0))
 	_add_stat_row("Sacred Control", stats.get("sacred_control_seconds", 0), stats.get("ai_sacred_control_seconds", 0))
 
+	_fit_panel_to_viewport()
 	visible = true
 	get_tree().paused = true
 	_animate_in()
@@ -168,21 +202,27 @@ func _add_stat_row(label_text: String, player_val: int, ai_val: int, lower_is_be
 
 
 func _animate_in() -> void:
-	# Start everything transparent/offset
+	# Fade and scale within the safe bounds; a downward slide can put the panel
+	# under a landscape home indicator during its first animation frames.
 	panel.modulate = Color(1, 1, 1, 0)
-	panel.position.y += 30.0
+	panel.pivot_offset = panel.size * 0.5
+	panel.scale = Vector2(0.96, 0.96)
 
 	var tween := create_tween()
 	tween.set_parallel(true)
 	tween.set_ease(Tween.EASE_OUT)
 	tween.set_trans(Tween.TRANS_CUBIC)
 
-	# Panel fades in and slides up
+	# Panel fades and settles without leaving its fitted rectangle.
 	tween.tween_property(panel, "modulate", Color(1, 1, 1, 1), 0.4)
-	tween.tween_property(panel, "position:y", panel.position.y - 30.0, 0.4)
+	tween.tween_property(panel, "scale", Vector2.ONE, 0.4)
 
 
 func _on_play_again() -> void:
+	if play_again_button.disabled:
+		return
+	play_again_button.disabled = true
+	main_menu_button.disabled = true
 	AudioManager.play_ui("button_click")
 	get_tree().paused = false
 	visible = false
@@ -190,6 +230,10 @@ func _on_play_again() -> void:
 
 
 func _on_main_menu() -> void:
+	if main_menu_button.disabled:
+		return
+	play_again_button.disabled = true
+	main_menu_button.disabled = true
 	AudioManager.play_ui("button_click")
 	get_tree().paused = false
 	visible = false

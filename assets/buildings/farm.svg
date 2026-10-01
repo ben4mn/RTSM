@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- An isometric crop patch with neat rows of ripe grain and a small store. -->
+  <path d="M15 77 63 52 114 77 65 105Z" fill="#604b35" stroke="#6b5639" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M15 70 63 45 114 70 65 97Z" fill="#ab8d51" stroke="#795e3b" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M24 71 65 91 M35 64 76 85 M47 58 89 78 M59 52 100 72" fill="none" stroke="#79623c" stroke-width="4"/>
+  <path d="M30 72 30 59 M42 78 42 64 M55 84 55 70 M48 63 48 50 M61 70 61 56 M74 76 74 62 M65 54 65 42 M79 61 79 48 M92 67 92 55" fill="none" stroke="#e4c363" stroke-width="3"/>
+  <path d="M30 62 25 58 M30 66 35 62 M42 67 37 63 M42 71 47 67 M55 74 50 70 M55 78 60 74 M48 53 43 49 M48 57 53 53 M61 59 56 55 M61 63 66 59 M74 65 69 61 M74 69 79 65 M65 45 60 41 M65 49 70 45 M79 51 74 47 M79 55 84 51 M92 58 87 54 M92 62 97 58" fill="none" stroke="#f0d885" stroke-width="3"/>
+  <path d="M19 48 33 42 46 49 33 57Z" fill="#e1c78c" stroke="#886b3e" stroke-width="2"/>
+  <path d="M19 48 19 63 33 70 33 57Z" fill="#c9aa70" stroke="#886b3e" stroke-width="2"/>
+  <path d="M33 57 46 49 46 64 33 70Z" fill="#a78854" stroke="#886b3e" stroke-width="2"/>
+  <path d="M17 48 33 32 48 49 33 56Z" fill="#799658" stroke="#4e754b" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M22 61 28 64 28 55 22 52Z" fill="#806a45"/>
+</svg>

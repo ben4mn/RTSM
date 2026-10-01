@@ -7,5 +7,11 @@
 # Generated balance-harness editor logs
 docs/balance_editor_*.log
 
+# Local browser visual-QA artifacts (never ship inside the Godot export)
+.playwright-cli/
+output/*
+!output/.gdignore
+build/
+
 # OS files
 .DS_Store

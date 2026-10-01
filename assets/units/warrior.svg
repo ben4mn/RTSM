@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- A long spear, upright shield and steel helmet define the anti-horse role. -->
+  <path d="M49 81 46 103 56 103 62 82 M66 82 72 103 83 103 77 78" fill="#6c6855" stroke="#454f49" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M44 55 54 47 70 48 81 60 78 84 45 84Z" fill="#b7c3ae" stroke="#68857d" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M56 51 65 51 70 82 58 83Z" fill="#3d9fb5"/>
+  <path d="M72 53 85 66 97 61" fill="none" stroke="#c7d0b7" stroke-width="7" stroke-linecap="round"/>
+  <path d="M95 24 95 104" stroke="#775d3b" stroke-width="5"/>
+  <path d="M95 10 88 27 95 32 102 27Z" fill="#d9e3ce" stroke="#75948b" stroke-width="3"/>
+  <path d="M46 37 51 28 65 28 73 36 70 50 50 50Z" fill="#d0d8c0" stroke="#76968b" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M48 38 69 38 69 44 50 44Z" fill="#435f5c"/>
+  <path d="M57 28 57 22 65 22 68 29" fill="#3d9fb5"/>
+  <path d="M35 59 48 57 60 65 57 83 47 96 34 85 30 67Z" fill="#398ca4" stroke="#d2b577" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M44 63 46 87 M34 74 55 72" stroke="#f0d597" stroke-width="3"/>
+</svg>

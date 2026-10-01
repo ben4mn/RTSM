@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- A light rider, a warm chestnut horse and a small scouting pennant. -->
+  <ellipse cx="66" cy="105" rx="33" ry="6" fill="#14252b" opacity=".22"/>
+  <path d="M42 76 33 77 29 86 36 87 42 81" fill="#705137"/>
+  <path d="M46 85 46 102 54 102 56 85 M79 84 82 103 89 103 88 83" fill="#a57a48" stroke="#765538" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M39 73 48 67 82 69 91 79 85 91 47 90 38 82Z" fill="#bc945a" stroke="#86633e" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M81 75 87 57 97 51 105 58 103 66 93 68 91 83" fill="#c49d62" stroke="#86633e" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M91 57 89 48 94 50 97 55 M86 67 84 59 87 55" fill="#705137"/>
+  <path d="M97 62 104 62" stroke="#86633e" stroke-width="3"/>
+  <rect x="97" y="56" width="3" height="3" fill="#273d3e"/>
+  <path d="M48 73 50 90 72 91 78 75" fill="#399789" stroke="#28665f" stroke-width="2"/>
+  <path d="M54 67 73 67 78 74 51 77Z" fill="#705137"/>
+  <path d="M51 48 61 45 71 52 68 69 52 68Z" fill="#54b5a7" stroke="#327c74" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M53 50 47 62 44 69 50 71 57 60" fill="#ead2a1"/>
+  <path d="M64 49 75 60 88 65" fill="none" stroke="#ead2a1" stroke-width="6" stroke-linejoin="round"/>
+  <path d="M62 66 66 86 75 87 75 82 71 80 71 64" fill="#736044" stroke="#534631" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M52 39 56 34 65 34 69 40 66 48 56 48 52 44Z" fill="#ecd6a6" stroke="#b58d55" stroke-width="2"/>
+  <path d="M53 39 53 34 58 31 66 33 69 38 62 37 56 41Z" fill="#93713d"/>
+  <path d="M84 38 84 79" stroke="#715a3d" stroke-width="3"/>
+  <path d="M85 37 103 42 85 48Z" fill="#74c8bc" stroke="#3b9389" stroke-width="2"/>
+</svg>

@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- A shield, steel helm and lance give cavalry a distinct battle silhouette. -->
+  <ellipse cx="65" cy="105" rx="35" ry="6" fill="#14252b" opacity=".24"/>
+  <path d="M40 78 31 79 28 89 35 87 43 82" fill="#404744"/>
+  <path d="M45 84 44 103 53 103 56 84 M80 83 82 104 91 104 87 83" fill="#746e57" stroke="#494e45" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M39 73 48 66 82 68 92 78 85 91 46 90 37 82Z" fill="#92907b" stroke="#5b6358" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M80 76 85 58 96 51 104 57 103 66 94 69 91 83" fill="#a5a58e" stroke="#5b6358" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M90 57 89 48 94 50 97 55 M85 68 82 61 86 56" fill="#404744"/>
+  <rect x="97" y="56" width="3" height="3" fill="#273d3e"/>
+  <path d="M43 76 48 92 75 94 81 76 70 71Z" fill="#378eb0" stroke="#26647d" stroke-width="3"/>
+  <path d="M49 78 50 88 69 91 74 80" fill="none" stroke="#dbbe77" stroke-width="3"/>
+  <path d="M55 66 72 65 77 73 51 76Z" fill="#62513a"/>
+  <path d="M49 49 59 43 70 48 72 68 51 70Z" fill="#bbc7bb" stroke="#788f88" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M57 48 63 47 66 69 58 69Z" fill="#42a5be"/>
+  <path d="M66 66 68 84 76 85 77 79 73 76 73 64" fill="#a8b6aa" stroke="#657d75" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M65 51 78 60 83 53" fill="none" stroke="#b9c4b7" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M74 68 100 35" stroke="#957647" stroke-width="4"/>
+  <path d="M96 36 104 29 103 39Z" fill="#d9dfc8" stroke="#81948b" stroke-width="2"/>
+  <path d="M53 37 57 32 67 32 72 39 69 48 55 48Z" fill="#d2d8c5" stroke="#7c948b" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M54 40 69 40 68 45 55 45Z" fill="#55746f"/>
+  <path d="M58 31 60 26 68 27 68 32" fill="#45a2b7"/>
+  <path d="M39 51 52 51 56 57 53 71 46 78 38 70 36 58Z" fill="#3d99b3" stroke="#d5b572" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M46 55 46 71 M40 62 52 62" stroke="#ebd29a" stroke-width="3"/>
+</svg>

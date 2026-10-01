@@ -39,6 +39,11 @@ var capture_progress: float = 0.0
 ## Accumulated hold time for the current owner.
 var victory_timer: float = 0.0
 
+## ResourceManager stores whole resources. Preserve sub-resource income between
+## frames so a normal 60 FPS update does not truncate every award to zero.
+var _gold_accumulator: float = 0.0
+var _gold_accumulator_owner: int = -1
+
 ## Tile position on the map grid.
 var tile_position: Vector2i = Vector2i.ZERO
 
@@ -66,6 +71,8 @@ func _process(delta: float) -> void:
 			_handle_captured(p1_count, p2_count, delta)
 		SiteState.CONTESTED:
 			_handle_contested(p1_count, p2_count, delta)
+	if state != SiteState.CAPTURED:
+		_reset_gold_accumulator()
 
 	_update_visuals()
 
@@ -153,6 +160,7 @@ func _handle_contested(p1: int, p2: int, delta: float) -> void:
 			if capture_progress <= 0.0:
 				owning_player = 0
 				capture_progress = 0.0
+				victory_timer = 0.0
 				state = SiteState.CAPTURING
 		return
 	if p2 > 0 and p1 == 0:
@@ -163,6 +171,7 @@ func _handle_contested(p1: int, p2: int, delta: float) -> void:
 			if capture_progress <= 0.0:
 				owning_player = 1
 				capture_progress = 0.0
+				victory_timer = 0.0
 				state = SiteState.CAPTURING
 		return
 	# Both players present — no progress.
@@ -170,10 +179,25 @@ func _handle_contested(p1: int, p2: int, delta: float) -> void:
 
 func _generate_gold(delta: float) -> void:
 	# Add gold to the owning player via the ResourceManager autoload.
-	if Engine.has_singleton("ResourceManager") or get_node_or_null("/root/ResourceManager"):
-		var rm: Node = get_node_or_null("/root/ResourceManager")
-		if rm and rm.has_method("add_resource"):
-			rm.add_resource(owning_player, "gold", gold_per_second * delta)
+	if owning_player < 0 or delta <= 0.0:
+		return
+	if _gold_accumulator_owner != owning_player:
+		_gold_accumulator = 0.0
+		_gold_accumulator_owner = owning_player
+	_gold_accumulator += gold_per_second * delta
+	var whole_gold: int = floori(_gold_accumulator + 0.000001)
+	if whole_gold <= 0:
+		return
+	var rm: Node = get_node_or_null("/root/ResourceManager")
+	if rm == null or not rm.has_method("add_resource"):
+		return
+	_gold_accumulator -= float(whole_gold)
+	rm.add_resource(owning_player, "gold", whole_gold)
+
+
+func _reset_gold_accumulator() -> void:
+	_gold_accumulator = 0.0
+	_gold_accumulator_owner = -1
 
 
 ## Count how many units each player has within the capture radius.
@@ -181,6 +205,10 @@ func _count_nearby_players() -> Array[int]:
 	var counts: Array[int] = [0, 0]
 	for unit in get_tree().get_nodes_in_group("units"):
 		if not is_instance_valid(unit) or not unit is Node2D:
+			continue
+		# Unit death fades for a short time before queue_free. The visual remnant
+		# must not capture, contest, or cross a victory boundary during that fade.
+		if unit is UnitBase and (unit as UnitBase).current_state == UnitBase.State.DEAD:
 			continue
 		var unit_node := unit as Node2D
 		var dist := global_position.distance_to(unit_node.global_position)

@@ -6,6 +6,9 @@ extends RefCounted
 var _astar := AStarGrid2D.new()
 var _map_generator: MapGenerator
 
+const DEFAULT_MAX_PATH_CHECKS := 32
+const DEFAULT_START_RECOVERY_RADIUS := 4
+
 
 func _init(map_gen: MapGenerator) -> void:
 	_map_generator = map_gen
@@ -49,6 +52,66 @@ func get_tile_path(from: Vector2i, to: Vector2i) -> Array[Vector2i]:
 	for tile_id in raw_path:
 		tile_path.append(tile_id)
 	return tile_path
+
+
+## Find a path to the first reachable candidate, with hard bounds on both the
+## number of A* calls and how far we search for an egress tile. The latter is
+## important when a building footprint becomes solid underneath a unit (the
+## starting Town Center currently does this for some villagers).
+func get_tile_path_to_any(
+	from: Vector2i,
+	destinations: Array[Vector2i],
+	max_path_checks: int = DEFAULT_MAX_PATH_CHECKS,
+	start_recovery_radius: int = DEFAULT_START_RECOVERY_RADIUS
+) -> Array[Vector2i]:
+	if destinations.is_empty() or max_path_checks <= 0:
+		return []
+
+	var starts: Array[Vector2i] = []
+	if is_walkable(from):
+		starts.append(from)
+	else:
+		starts = get_walkable_tiles_near(from, start_recovery_radius, 12)
+	if starts.is_empty():
+		return []
+
+	var checks: int = 0
+	for destination: Vector2i in destinations:
+		if not is_walkable(destination):
+			continue
+		var destination_best: Array[Vector2i] = []
+		for start: Vector2i in starts:
+			if checks >= max_path_checks:
+				return destination_best
+			checks += 1
+			var candidate: Array[Vector2i] = _astar.get_id_path(start, destination)
+			if candidate.is_empty():
+				continue
+			if destination_best.is_empty() or candidate.size() < destination_best.size():
+				destination_best = candidate
+		# Destinations are ordered by desirability, so return the best recovered
+		# start route to the first destination that can actually be reached.
+		if not destination_best.is_empty():
+			return destination_best
+	return []
+
+
+## Return walkable tiles around `center`, nearest first. Search and output are
+## both bounded so callers cannot accidentally turn recovery into a map scan.
+func get_walkable_tiles_near(center: Vector2i, radius: int, max_results: int = 32) -> Array[Vector2i]:
+	var candidates: Array[Vector2i] = []
+	var bounded_radius: int = clampi(radius, 0, maxi(MapData.MAP_WIDTH, MapData.MAP_HEIGHT))
+	for dy in range(-bounded_radius, bounded_radius + 1):
+		for dx in range(-bounded_radius, bounded_radius + 1):
+			var candidate := center + Vector2i(dx, dy)
+			if is_walkable(candidate):
+				candidates.append(candidate)
+	candidates.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+		return center.distance_squared_to(a) < center.distance_squared_to(b)
+	)
+	if max_results >= 0 and candidates.size() > max_results:
+		candidates.resize(max_results)
+	return candidates
 
 
 ## Check if a tile position is walkable.

@@ -1,31 +1,36 @@
-# AOEM Beta Roadmap Session Handoff
+# AOEM beta roadmap session handoff
 
-Updated: August 2, 2026
+Latest phone follow-up: 2026-10-01. Read [phone_input_2026-10-01.md](phone_input_2026-10-01.md) for the physical-phone feedback, arbitrary touch-ID selection/movement fix, placement multitouch ownership, modal cleanup, and browser fullscreen/standalone shell. The new export is `build/phone-input-2026-10-01/`. Both local test servers (8782/8783) are stopped on request; this handoff is not a live preview link. Physical-phone retesting remains open.
 
-## Verified progress
+The earlier October mechanics checkpoint is described by [mechanics_polish_2026-10-01.md](mechanics_polish_2026-10-01.md): worker recovery/cargo feedback, Town Center arrows, AI recovery/composition, paid-play evidence, and its separate frozen export at `build/mechanics-polish-2026-10-01/`. Both October passes preserve the incoming dirty tree and do not close the separate human/hosting/native release gates below.
 
-- Latest committed checkpoint: `fe94b8a` (`Validate five-seed Medium match matrix`).
-- The current `docs/seeded_match_probe_latest.json` extends the strict Medium matrix to **10/10 completed matches with 0 runtime errors** for seeds `101`, `202`, `303`, `404`, `505`, `606`, `707`, `808`, `909`, and `424242`.
-- Matrix telemetry: median match `524s` (`8:44`), median first attack approximately `180s` (`3:00`), nine Town Center destruction endings, and one sacred-site ending.
-- All ten winners are AI because the human side is intentionally idle. This proves autonomous match completion, not difficulty fairness or player win rate.
-- Last verified integration evidence is phone playability **64/64 PASS** and smoke **18/18 PASS**, plus focused summary and three ending-navigation scenarios passing.
-- Gate 2's automated ten-seed completion criterion is met. Gate 2 remains open because three manual phone-sized matches with three endings and an explicit pacing judgment are still required.
+The remainder is the historical September release handoff, refreshed 2026-09-13. Its canonical build and source binding describe that checkpoint, not the October mechanics export.
 
-## Resume here
+## Superseded historical note
 
-1. Inspect `git status --short`, the diff, and `docs/seeded_match_probe_latest.json`; preserve unrelated work.
-2. Run a Godot headless boot and the relevant focused seeded-probe checks.
-3. Run `python3 tools/mcp_phone_playability.py` and `python3 tools/mcp_smoke_test.py`.
-4. If those checks pass, commit the ten-seed JSON evidence, roadmap update, and this handoff as one coherent checkpoint.
-5. Next, gather the three manual phone-match endings and pacing judgment. Do not substitute automated idle-human simulations for this manual gate.
-6. After Gate 2 manual evidence, begin the Gate 3 Easy/Medium/Hard five-seed matrices and investigate AI stalls, recovery, pressure cadence, and objective behavior.
+The earlier contents of this file described an August 2026 checkpoint, a then-current seeded probe, and older phone/smoke totals. Those values are retained only in repository history. They are **not current release evidence** and must not be used to fill the 2026-09-13 closeout placeholders.
 
-## Useful commands
+Files named `latest`, 2026-09-12 artifacts, earlier candidate builds, and earlier browser screenshot directories are historical unless the final validation record explicitly binds them to the frozen source. The final record now binds only the canonical `build/mobile-web-beta/` artifact and its `build/mobile-web-beta-repro-b/` witness. In particular, `build/mobile-web-beta-repro-a/` is unbound, not a closed payload, and must not be distributed.
 
-```bash
-/Applications/Godot.app/Contents/MacOS/Godot --headless --path . --quit-after 1
-python3 tools/mcp_phone_playability.py
-python3 tools/mcp_smoke_test.py
-```
+## Current authority
 
-This handoff is a navigation aid; the current worktree and generated artifacts remain authoritative.
+Use these documents for current status and required evidence:
+
+- `roadmap.md` — claim boundaries and gate order;
+- `docs/mobile_beta_validation_2026-09-13.md` — canonical final validation record;
+- `docs/mobile_beta_release_checklist.md` — operational closeout checklist;
+- `docs/one_v_one_readiness_2026-09-12.md` — refreshed 1v1 acceptance contract despite its historical filename;
+- `docs/mobile_platform_export_readiness_2026-09-12.md` — refreshed Web/native boundary despite its historical filename.
+
+The source-binding artifact is `docs/mobile_beta_evidence_manifest_2026-09-13.json`. It records revision `89567778b26e`, dirty-state disclosure, staged-source SHA-256 `54ada2e25cdb3c0690ef37580039b78fbe3198be2f21597fccc703b4e6458fa5`, canonical/repro artifact identity, and the primary final report path, SHA-256, invocation, exit/result, and generation time. Its binding status is `PASS`; the independent closeout audit is performed against it afterward to avoid a circular self-attestation.
+
+## Resume rule
+
+1. Inspect the worktree and preserve unrelated changes.
+2. Read the final validation record before interpreting generated reports.
+3. Do not mix artifacts from different source states.
+4. Treat the strict Medium / seed 202 probe as completion-authoritative.
+5. Treat the multi-difficulty/seed matrix as liveness/policy evidence; its completion count is descriptive.
+6. Keep external human/physical-phone validation, balance approval, private hosting/owners, and native/store work explicitly open until their real owners supply evidence.
+
+All required local execution, package, exact-size browser, and independent closeout gates pass with P0 `0` and P1 `0`. Internal phone-tester handoff remains `NOT_YET_READY` until an authorized human supplies the private HTTPS URL/access method, host owner, tester-intake owner, test window, and rollback contact/location. This file remains only a navigation aid; the final validation record and independent audit own the detailed claims.

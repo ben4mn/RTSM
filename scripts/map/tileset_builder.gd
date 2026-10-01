@@ -1,7 +1,6 @@
 class_name TilesetBuilder
 extends RefCounted
-## Creates TileSet resources using sprite-based terrain textures from asset packs.
-## Falls back to procedural generation if textures are missing.
+## Quiet ground surfaces keep the harvestable sprites and units legible.
 ## Call build_terrain_tileset() / build_fog_tileset() and assign the result
 ## to a TileMapLayer.tile_set.
 
@@ -75,20 +74,9 @@ static func _create_terrain_atlas(tile_count: int) -> Image:
 	for i in range(tile_count):
 		var tile_type: MapData.TileType = i as MapData.TileType
 		var offset_x := i * tw
-		var tex_path: String = TILE_TEXTURES.get(tile_type, "")
-
-		# Try to load the sprite texture
-		var source_img: Image = null
-		if tex_path != "" and ResourceLoader.exists(tex_path):
-			var tex: Texture2D = load(tex_path)
-			if tex:
-				source_img = tex.get_image()
-				# Resize source to tile size if needed
-				if source_img.get_width() != tw or source_img.get_height() != th:
-					source_img.resize(tw, th, Image.INTERPOLATE_BILINEAR)
-
-		# Fill the isometric diamond shape
-		_fill_iso_diamond(img, offset_x, 0, tw, th, tile_type, source_img)
+		# The pack's terrain images contain vegetation, not just ground. Drawing
+		# those beneath real trees made every open tile look like a forest.
+		_fill_iso_diamond(img, offset_x, 0, tw, th, tile_type, null)
 
 	return img
 
@@ -102,13 +90,24 @@ static func _fill_iso_diamond(img: Image, ox: int, oy: int, tw: int, th: int, ti
 	var cy := oy + th / 2
 	var half_w := tw / 2.0
 	var half_h := th / 2.0
-	var fallback_color: Color = MapData.TILE_COLORS.get(tile_type, Color.MAGENTA)
+	var surface_colors: Dictionary = {
+		MapData.TileType.GRASS: Color("84966c"),
+		MapData.TileType.GRASS_ALT: Color("88996f"),
+		MapData.TileType.GRASS_DARK: Color("809268"),
+		MapData.TileType.FOREST: Color("748962"),
+		MapData.TileType.WATER: Color("4c8991"),
+		MapData.TileType.GOLD_MINE: Color("a39870"),
+		MapData.TileType.BERRY_BUSH: Color("83916a"),
+		MapData.TileType.STONE: Color("9b9b85"),
+		MapData.TileType.SACRED_SITE: Color("b2a580"),
+	}
+	var fallback_color: Color = surface_colors.get(tile_type, Color.MAGENTA)
 
 	for py in range(oy, oy + th):
 		for px in range(ox, ox + tw):
 			var dx := absf(float(px - cx)) / half_w
 			var dy := absf(float(py - cy)) / half_h
-			if dx + dy <= 1.0:
+			if dx + dy <= 1.06:
 				if source_img != null:
 					# Sample from the source texture
 					var src_x := px - ox
@@ -118,7 +117,12 @@ static func _fill_iso_diamond(img: Image, ox: int, oy: int, tw: int, th: int, ti
 					color.a = 1.0
 					img.set_pixel(px, py, color)
 				else:
-					img.set_pixel(px, py, fallback_color)
+					# Subpixel grain gives the meadow texture without a tile grid.
+					var grain: float = float(posmod((px - ox) * 17 + py * 31, 7) - 3) * 0.0014
+					var color := Color(fallback_color.r + grain, fallback_color.g + grain, fallback_color.b + grain)
+					if tile_type == MapData.TileType.WATER and posmod(py * 3 + px, 23) < 2:
+						color = color.lightened(0.045)
+					img.set_pixel(px, py, color)
 
 
 ## Create a 2-tile atlas for fog states.
@@ -128,8 +132,8 @@ static func _create_fog_atlas() -> Image:
 	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
 
-	_draw_iso_diamond(img, 0, 0, MapData.TILE_WIDTH, MapData.TILE_HEIGHT, Color(0, 0, 0, 0.85))
-	_draw_iso_diamond(img, MapData.TILE_WIDTH, 0, MapData.TILE_WIDTH, MapData.TILE_HEIGHT, Color(0, 0, 0, 0.7))
+	_draw_iso_diamond(img, 0, 0, MapData.TILE_WIDTH, MapData.TILE_HEIGHT, Color("182a30"))
+	_draw_iso_diamond(img, MapData.TILE_WIDTH, 0, MapData.TILE_WIDTH, MapData.TILE_HEIGHT, Color(0.06, 0.12, 0.16, 0.64))
 
 	return img
 

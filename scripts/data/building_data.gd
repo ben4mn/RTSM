@@ -1,6 +1,7 @@
 class_name BuildingData
 extends RefCounted
 ## Static data definitions for all building types in AOEM.
+## `attack_range` values are range tiles and use MapData's shared conversion.
 
 enum BuildingType {
 	TOWN_CENTER,
@@ -31,6 +32,17 @@ const BUILDINGS: Dictionary = {
 		"can_train": [UnitData.UnitType.VILLAGER, UnitData.UnitType.SCOUT],
 		"age_required": 3,  # Extra TCs available in Castle Age
 		"drop_off": ["food", "wood", "gold"],
+		# One short-range arrow buys retreat time; it does not shelter workers
+		# across the whole resource pocket or replace a defending army.
+		"attack_damage": 6,
+		"attack_range": 8,
+		"attack_interval": 2.0,
+		"attack_projectile_speed": 300.0,
+		"attack_buildings": false,
+		# Guaranteed spawn resources are placed up to nine Chebyshev tiles
+		# away. A 13-tile reveal covers that full starting pocket without
+		# exposing the central objective roughly nineteen tiles away.
+		"vision_radius": 13,
 		"color": Color(0.85, 0.75, 0.35),
 	},
 	BuildingType.HOUSE: {
@@ -60,7 +72,7 @@ const BUILDINGS: Dictionary = {
 	BuildingType.ARCHERY_RANGE: {
 		"name": "Archery Range",
 		"hp": 1200,
-		"cost": { "food": 0, "wood": 200, "gold": 0 },
+		"cost": { "food": 0, "wood": 150, "gold": 0 },
 		"build_time": 30.0,
 		"pop_provided": 0,
 		"footprint": Vector2i(3, 3),
@@ -72,7 +84,7 @@ const BUILDINGS: Dictionary = {
 	BuildingType.STABLE: {
 		"name": "Stable",
 		"hp": 1200,
-		"cost": { "food": 0, "wood": 200, "gold": 50 },
+		"cost": { "food": 0, "wood": 150, "gold": 0 },
 		"build_time": 30.0,
 		"pop_provided": 0,
 		"footprint": Vector2i(3, 3),
@@ -168,6 +180,8 @@ const BUILDINGS: Dictionary = {
 		"color": Color(0.55, 0.45, 0.35),
 		"attack_damage": 6,
 		"attack_range": 6,
+		"attack_interval": 1.5,
+		"vision_radius": 8,
 	},
 }
 
