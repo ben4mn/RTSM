@@ -34,6 +34,7 @@ URL: https://game.4mn.org. The owner explicitly authorized pushing and publishin
 - An offline direct navigation to bare `/` misses the stock worker's cached HTML key. Online canonicalization to `/index.html` aligns normal visits with the tested installed entry. Old root-only bookmarks remain a bounded offline limitation.
 - The isolated Chromium test uses the live Cloudflare edge address for hostname resolution because of the local Mac's cached NXDOMAIN; it does not intercept responses or bypass TLS. Service workers and the network are enabled normally until the explicit offline step.
 - A fresh regular persistent Chrome profile reports `Page.getInstallabilityErrors=[]`. The live 192px and 512px icons decode correctly; the standalone/landscape manifest parses without errors. This verifies browser installation eligibility; it does not claim a physical OS installation.
+- Final fresh-root navigation follows HTTPS 302 directly to HTTPS `/index.html` 200 and renders the menu with no console/page errors. One generic `net::ERR_FAILED` during the first persistent-profile reload remains unclassified and did not recur in the bounded next load. The browser's deprecated Apple-meta warning and cleanup-time canceled WASM/PCK requests are documented separately; no runtime page or worklet errors occurred.
 
 ## Operations and evidence
 
@@ -42,5 +43,7 @@ Live origin: `/home/ben/aoem/site/releases/8229a2093669-20261001/`, selected by 
 Detailed local evidence is under `output/pwa-publish-2026-10-01/`: release/repro export logs, artifact verifier, `release-payload.json`, and `public-payload-verification.json`. Historical October exports and local server shutdowns are preserved.
 
 Independent public smoke: `output/phone-input-2026-10-01/publish-independent-smoke-final.json`, nine passing checks before the subsequent root-to-index canonicalization.
+
+Final browser report: `output/playwright/pwa-publish/report.md`; its `evidence-manifest.json` binds machine-readable observations and 14 PNG captures, including explicitly labeled diagnostic failures and superseded captures. `canonical-entry-verification.json` confirms both schemes and query preservation land on trusted HTTPS `/index.html`; `deployment-config-hashes.json` confirms all three server configuration files match local source. Both owned headless browser processes are closed.
 
 Physical-phone retesting, human balance approval, and native/store readiness remain open. This deployment is a public rough preview, independent of September's separate private tester process.
