@@ -9,6 +9,7 @@ Public rough preview: https://game.4mn.org. The owner authorized public deployme
 - Active relative symlink: `/home/ben/aoem/site/current`.
 - Origin smoke endpoint: `http://127.0.0.1:3062/` on Debian, bound to loopback.
 - Containers: `aoem-game` and `aoem-game-tunnel`, both restart automatically.
+- Isolated Compose network: `10.33.0.0/24`, selected after checking existing Docker networks and host routes; the server's automatic pools are exhausted.
 - Tunnel: `aoem-game`, UUID `a81df93e-953f-4e38-9e7f-a5d208f1af1d`.
 - Tunnel credential: `/home/ben/.cloudflared/a81df93e-953f-4e38-9e7f-a5d208f1af1d.json`, mode `0400`; mounted read-only. Never copy it into the repository, artifact, or static directory.
 
@@ -35,10 +36,16 @@ docker compose up -d
 The initial DNS route is created once using the existing authenticated Cloudflare CLI:
 
 ```sh
-cloudflared tunnel route dns aoem-game game.4mn.org
+cloudflared tunnel --config /home/ben/aoem/cloudflared.yml route dns a81df93e-953f-4e38-9e7f-a5d208f1af1d game.4mn.org
 ```
 
 Check trusted public HTTPS, correct WASM/JS/PCK MIME types, compression, `version.json`, all payload hashes, and actual browser startup. Complete an online reload with a controlling service worker before testing an offline reload. Keep at least the previous verified release for rollback.
+
+Nginx sends `Cache-Control: no-store, max-age=0, must-revalidate` and `CDN-Cache-Control: no-store`. The zone's browser TTL replaced a plain `no-cache` header with four hours on JavaScript/icons, so verify the actual public response after changes. Explicit service-worker CacheStorage provides offline caching separately.
+
+Online visits to `/` redirect to `/index.html`, matching the manifest's installed start URL and the stock worker's cached HTML entry. After a controlling online reload caches the engine and pack, that installed entry boots offline. A direct offline navigation to an old bare-root bookmark can still miss the stock worker's cache; launch the installed icon or use `/index.html`.
+
+Always pass the game config and UUID for DNS commands. The server CLI otherwise reads its shared system tunnel config, which can override the positional tunnel name. If correcting a record created for the wrong tunnel, insert `--overwrite-dns` after `dns` and verify the logged tunnel UUID.
 
 ## Rollback and stop
 
@@ -54,6 +61,6 @@ To stop this game only, run `docker compose down` from `/home/ben/aoem`. Existin
 
 ## Phone installation
 
-On iPhone, open the URL in Safari and use Share → Add to Home Screen; launch the new icon for standalone display. On Android, use the browser's Install/Add to Home Screen action. Landscape is the intended orientation. Browser fullscreen availability varies; the installed standalone app removes the normal browser address bar.
+On iPhone, open the URL in Safari and use Share → Add to Home Screen. Enable **Open as Web App** if shown, then add it and launch the new icon for standalone display. See [Apple's instructions](https://support.apple.com/guide/iphone/open-as-web-app-iphea86e5236/ios). On Android, use the browser's Install/Add to Home Screen action. Landscape is the intended orientation. Browser fullscreen availability varies; the installed standalone app removes the normal browser address bar.
 
 This is a rough public preview. Desktop browser automation does not certify physical-phone touch behavior, safe areas, audio, or prolonged performance.

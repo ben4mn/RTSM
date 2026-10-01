@@ -1,8 +1,12 @@
 # AOEM beta roadmap session handoff
 
-Latest phone follow-up: 2026-10-01. Read [phone_input_2026-10-01.md](phone_input_2026-10-01.md) for the physical-phone feedback, arbitrary touch-ID selection/movement fix, placement multitouch ownership, modal cleanup, and browser fullscreen/standalone shell. The new export is `build/phone-input-2026-10-01/`. Both local test servers (8782/8783) are stopped on request; this handoff is not a live preview link. Physical-phone retesting remains open.
+Latest deployment: 2026-10-01. The owner authorized a public rough preview at **https://game.4mn.org** on Debian. Runtime/packaging revision `8229a2093669` is pushed to `main`; the live canonical export is `build/game-web-2026-10-01/`, with a reproducibility witness at `build/game-web-repro-2026-10-01/`. The source manifest SHA remains `0b4193ffe40073504f2b336ec356d8d76a5852e912d9b145b86fdce7a1509f89`. See [debian_game_deployment.md](debian_game_deployment.md) for infrastructure, updates, rollback, stop, and phone installation. Local ports 8782/8783 remain stopped; the public deployment is independent. Physical-phone retesting and human balance approval remain open.
 
-The earlier October mechanics checkpoint is described by [mechanics_polish_2026-10-01.md](mechanics_polish_2026-10-01.md): worker recovery/cargo feedback, Town Center arrows, AI recovery/composition, paid-play evidence, and its separate frozen export at `build/mechanics-polish-2026-10-01/`. Both October passes preserve the incoming dirty tree and do not close the separate human/hosting/native release gates below.
+The current public release evidence is summarized in [public_game_preview_2026-10-01.md](public_game_preview_2026-10-01.md); it includes reproducible packaging, trusted public byte/MIME/cache checks, and real HTTPS/offline browser coverage.
+
+Latest phone follow-up: 2026-10-01. Read [phone_input_2026-10-01.md](phone_input_2026-10-01.md) for the physical-phone feedback, arbitrary touch-ID selection/movement fix, placement multitouch ownership, modal cleanup, and browser fullscreen/standalone shell. Its earlier frozen export is `build/phone-input-2026-10-01/`. Both local test servers (8782/8783) are stopped on request; the public deployment above provides the current preview. Physical-phone retesting remains open.
+
+The earlier October mechanics checkpoint is described by [mechanics_polish_2026-10-01.md](mechanics_polish_2026-10-01.md): worker recovery/cargo feedback, Town Center arrows, AI recovery/composition, paid-play evidence, and its separate frozen export at `build/mechanics-polish-2026-10-01/`. The October deployment resolves hosting for this public rough preview; the separate human/private-beta/native gates below remain historical or open as indicated.
 
 The remainder is the historical September release handoff, refreshed 2026-09-13. Its canonical build and source binding describe that checkpoint, not the October mechanics export.
 

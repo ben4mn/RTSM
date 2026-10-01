@@ -6,6 +6,8 @@ Status date: 2026-10-01
 
 The owner authorized publishing the current rough prototype at `https://game.4mn.org` on the existing Debian Docker/Nginx infrastructure. Deployment configuration is in `deploy/`; operational steps are in `docs/debian_game_deployment.md`. Phone selection, movement, placement multitouch, and standalone/fullscreen support include the October follow-up. Physical-phone retesting and balance approval remain open.
 
+The public rough preview is deployed from runtime revision `8229a2093669`; see [the deployment verification record](docs/public_game_preview_2026-10-01.md). Installation launches `/index.html`, with the game engine cached after a controlling online reload. The separate September private-tester/native gates below do not describe this public preview's hosting state.
+
 The September status and evidence below describe their historical checkpoint and private-beta process. Its earlier prohibition on public deployment is superseded by the October authorization.
 
 ## Historical September checkpoint
