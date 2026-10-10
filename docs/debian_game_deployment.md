@@ -33,6 +33,14 @@ docker compose run --rm --no-deps aoem nginx -t
 docker compose up -d
 ```
 
+For an update that should also restart the existing game services, run:
+
+```sh
+docker compose restart aoem cloudflared
+```
+
+This restarts `aoem-game` and `aoem-game-tunnel`. Both use `unless-stopped`; Docker is enabled at host boot.
+
 The initial DNS route is created once using the existing authenticated Cloudflare CLI:
 
 ```sh
@@ -64,3 +72,7 @@ To stop this game only, run `docker compose down` from `/home/ben/aoem`. Existin
 On iPhone, open the URL in Safari and use Share → Add to Home Screen. Enable **Open as Web App** if shown, then add it and launch the new icon for standalone display. See [Apple's instructions](https://support.apple.com/guide/iphone/open-as-web-app-iphea86e5236/ios). On Android, use the browser's Install/Add to Home Screen action. Landscape is the intended orientation. Browser fullscreen availability varies; the installed standalone app removes the normal browser address bar.
 
 This is a rough public preview. Desktop browser automation does not certify physical-phone touch behavior, safe areas, audio, or prolonged performance.
+
+## Latest release — 2026-10-10
+
+The critical gameplay and mobile density update uses runtime revision `3e1e3519be2b`, canonical `build/critical-mobile-final-2026-10-10/`, witness `build/critical-mobile-final-repro-2026-10-10/`, and staged source SHA-256 `86d5dad7dcf6d6c3a34451b59434f9672b2023615260d3dce8a968c75a166244`. Active release: `releases/3e1e3519be2b-20261010`. The previous `releases/d87e54c41995-20261010` remains available for rollback. Configuration is unchanged. Both dedicated services were restarted, origin metadata matches, and all 20 public payload files pass exact hashes, trusted HTTPS, MIME, compression and no-store checks. See [critical_playtest_2026-10-10.md](critical_playtest_2026-10-10.md) for gameplay and validation evidence.
