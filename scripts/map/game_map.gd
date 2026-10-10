@@ -57,6 +57,7 @@ var _camera_zoom_max: float = DESKTOP_ZOOM_MAX
 var _camera_world_bounds: Rect2 = Rect2()
 var _mobile_profile_active: bool = false
 var _user_zoom_override: bool = false
+var _camera_interaction_revision: int = 0
 
 
 ## Preloaded scenes.
@@ -244,6 +245,8 @@ func _update_camera_pan(delta: float) -> void:
 		pan.x -= 1.0
 	if Input.is_action_pressed("camera_right"):
 		pan.x += 1.0
+	if pan != Vector2.ZERO:
+		note_camera_interaction()
 
 	# Edge scrolling should only run on pointer-based desktop controls.
 	if not DisplayServer.is_touchscreen_available() and not _touch_input_detected:
@@ -332,6 +335,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		_touch_input_detected = true
 		var touch := event as InputEventScreenTouch
 		if touch.pressed:
+			note_camera_interaction()
 			_touch_points[touch.index] = touch.position
 			_touch_start_points[touch.index] = touch.position
 			_touch_pan_active[touch.index] = false
@@ -396,11 +400,14 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 		# Middle-mouse drag for pan.
 		elif mb.button_index == MOUSE_BUTTON_MIDDLE:
+			if mb.pressed:
+				note_camera_interaction()
 			_camera_drag_active = mb.pressed
 			_camera_drag_start = mb.position
 			_camera_origin = camera.position
 
 	elif event is InputEventMouseMotion and _camera_drag_active:
+		note_camera_interaction()
 		var motion := event as InputEventMouseMotion
 		camera.position -= motion.relative / camera.zoom
 		_clamp_camera()
@@ -426,6 +433,7 @@ func _set_zoom_anchored(level: float, previous_anchor: Vector2, next_anchor: Vec
 	camera.position = anchor_world + (viewport_center - after) / next_zoom
 	if from_user:
 		_user_zoom_override = true
+		note_camera_interaction()
 	_clamp_camera()
 	# A zoom is immediate; smoothing remains enabled for ordinary desktop pan.
 	camera.reset_smoothing()
@@ -456,6 +464,14 @@ func fit_opening_zoom(maximum: float) -> void:
 	if _user_zoom_override:
 		return
 	_set_zoom_anchored(minf(_get_default_zoom(), maximum), NO_ZOOM_ANCHOR, NO_ZOOM_ANCHOR, false)
+
+
+func note_camera_interaction() -> void:
+	_camera_interaction_revision += 1
+
+
+func get_camera_interaction_revision() -> int:
+	return _camera_interaction_revision
 
 
 func show_overview() -> void:

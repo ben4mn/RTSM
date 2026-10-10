@@ -41,6 +41,9 @@ func _profile(phone: Vector2i,scale_factor: float) -> void:
 		if main.get("_building_placement")!=null and GameManager.current_state==GameManager.GameState.PLAYING:
 			break
 		await get_tree().process_frame
+	# Let the production opening frame and Window layout finish before this
+	# input fixture deliberately positions its synthetic producer in view.
+	await _settle()
 	var map: Node2D = main.get_node("GameMap")
 	var selection: SelectionManager = map.get_node("SelectionManager")
 	var hud: CanvasLayer = main.get_node("HUD")
@@ -58,6 +61,7 @@ func _profile(phone: Vector2i,scale_factor: float) -> void:
 	_expect(map.is_tile_walkable(target_tile),profile+" target fixture is blocked")
 	var select_screen: Vector2 = selection.call("_world_to_screen",producer.global_position)
 	var target_screen: Vector2 = selection.call("_world_to_screen",map.tile_to_world(target_tile))
+	_expect(get_viewport().get_visible_rect().has_point(select_screen),profile+" producer is outside Window")
 	_expect(get_viewport().get_visible_rect().has_point(target_screen),profile+" target is outside Window")
 	_events.clear()
 	var before: int = _world_orders

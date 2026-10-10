@@ -526,13 +526,22 @@ func _on_map_ready(map_gen: MapGenerator) -> void:
 	_milestone_first_age_up = false
 	_refresh_first_session_diagnostics()
 	_bootstrap_opening_guidance()
-	call_deferred("_frame_starting_economy", player_spawn)
+	# A bound signal automatically disconnects when this match is freed; no
+	# coroutine survives scene teardown. Run after the next frame's HUD layout.
+	get_tree().process_frame.connect(
+		_frame_starting_economy.bind(player_spawn, game_map.get_camera_interaction_revision()),
+		CONNECT_ONE_SHOT | CONNECT_DEFERRED
+	)
 
 
-func _frame_starting_economy(player_spawn: Vector2) -> void:
-	# Guidance and containers finish laying out before the final opening pan.
-	await get_tree().process_frame
-	if not is_instance_valid(game_map) or bool(game_map.get("_user_zoom_override")):
+func _frame_starting_economy(player_spawn: Vector2, camera_revision: int) -> void:
+	if (
+		not is_inside_tree()
+		or is_queued_for_deletion()
+		or not is_instance_valid(game_map)
+		or bool(game_map.get("_user_zoom_override"))
+		or game_map.get_camera_interaction_revision() != camera_revision
+	):
 		return
 	game_map.camera.position = _get_initial_camera_focus(player_spawn)
 	game_map._clamp_camera()
@@ -820,6 +829,7 @@ func _center_camera_on_selection() -> void:
 			center += node.global_position
 			count += 1
 	if count > 0:
+		game_map.note_camera_interaction()
 		game_map.camera.position = center / float(count)
 		game_map._clamp_camera()
 
@@ -889,6 +899,7 @@ func _find_army() -> void:
 		center += unit.global_position
 		count += 1
 	if count > 0:
+		game_map.note_camera_interaction()
 		game_map.camera.position = center / float(count)
 		game_map._clamp_camera()
 
@@ -948,6 +959,7 @@ func _recall_control_group(index: int) -> void:
 		for node in recalled:
 			center += node.global_position
 		center /= float(recalled.size())
+		game_map.note_camera_interaction()
 		game_map.camera.position = center
 		game_map._clamp_camera()
 
@@ -1131,6 +1143,7 @@ func _arm_patrol_command() -> void:
 
 func _select_town_center() -> void:
 	if is_instance_valid(_player_town_center):
+		game_map.note_camera_interaction()
 		game_map.selection_mgr.select_single(_player_town_center)
 		game_map.camera.position = _get_initial_camera_focus(_player_town_center.global_position)
 		game_map._clamp_camera()
@@ -1139,6 +1152,7 @@ func _select_town_center() -> void:
 	for building in _player_buildings[0]:
 		if is_instance_valid(building) and building.building_type == BuildingData.BuildingType.TOWN_CENTER:
 			_player_town_center = building
+			game_map.note_camera_interaction()
 			game_map.selection_mgr.select_single(building)
 			game_map.camera.position = _get_initial_camera_focus(building.global_position)
 			game_map._clamp_camera()
@@ -1176,6 +1190,7 @@ func _on_idle_villager_pressed() -> void:
 	_idle_villager_index = (_idle_villager_index + 1) % idle_villagers.size()
 	game_map.selection_mgr.deselect_all()
 	game_map.selection_mgr._add_to_selection(target)
+	game_map.note_camera_interaction()
 	game_map.camera.position = target.global_position
 
 
@@ -1364,6 +1379,7 @@ func _on_unit_trained(unit_type: int, player_id: int, source_queue: ProductionQu
 			and _guided_stage == GuidedOpeningStage.MOVE_MILITARY
 		):
 			game_map.selection_mgr.select_single(unit)
+			game_map.note_camera_interaction()
 			game_map.camera.position = unit.global_position
 			game_map.camera.reset_smoothing()
 			hud.show_notification("Scout ready: tap Military, then tap open ground.", Color(0.95, 0.86, 0.42))
@@ -2092,6 +2108,7 @@ func _format_missing_resources(missing: Dictionary) -> String:
 
 
 func _on_minimap_clicked(world_pos: Vector2) -> void:
+	game_map.note_camera_interaction()
 	var target_tile: Vector2i = game_map.world_to_tile(world_pos)
 	var snapped_world: Vector2 = game_map.tile_to_world(target_tile)
 	var was_smoothing_enabled: bool = game_map.camera.position_smoothing_enabled

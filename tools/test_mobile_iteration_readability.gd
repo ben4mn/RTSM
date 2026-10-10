@@ -24,7 +24,7 @@ func _run() -> void:
     for failure: String in _failures:
         push_error("[FAIL] mobile_iteration_readability: "+failure)
     if _failures.is_empty():
-        print("[PASS] mobile_iteration_readability: 12 profiles, all six production names/costs/roles/max queue badges, full essential text, large banks, safe labels, projected minimap and viewport canceled/orphan/HUD/pinch ownership")
+        print("[PASS] mobile_iteration_readability: 12 profiles, all six production names/costs/roles/max queue badges, worker/army/foundation density, full essential text, large banks, safe labels, projected minimap and viewport canceled/orphan/HUD/pinch ownership")
     get_tree().quit(0 if _failures.is_empty() else 1)
 
 func _profile(phone: Vector2i, scale_factor: float, notched: bool) -> void:
@@ -115,6 +115,7 @@ func _profile(phone: Vector2i, scale_factor: float, notched: bool) -> void:
     queue_navigation.pressed.emit()
     _expect(scroll.scroll_horizontal == 0,"%s queue navigation does not return to training" % label)
     var production_units: Array[Dictionary] = await _all_production_unit_text(hud,logical,safe,label)
+    var context_shelves: Array[Dictionary] = await _non_production_shelf_density(hud,logical,safe,label)
     for role: int in [UnitData.UnitType.INFANTRY,UnitData.UnitType.ARCHER,UnitData.UnitType.CAVALRY]:
         hud.call("show_unit_selection",UnitData.get_unit_name(role),100,100,"ATTACKING",4,{"unit_type":role})
         hud.call("configure_unit_commands",true,true,"Aggressive","smart")
@@ -168,7 +169,7 @@ func _profile(phone: Vector2i, scale_factor: float, notched: bool) -> void:
     var caption: Label = hud.get("_minimap_hint_label")
     _text_fits(caption,label+" minimap caption")
     _expect(not caption.get_global_rect().intersects((hud.get("_camera_controls") as Control).get_global_rect()),"%s map caption overlaps zoom" % label)
-    _profiles.append({"profile":label,"logical_viewport":str(logical),"safe":str(safe),"details":(hud.get("selection_details") as Label).text,"shelf":str((hud.get("selection_panel") as Control).get_global_rect()),"production_units":production_units,"hit_targets":hud.get("touch_target_diagnostics"),"render_to_css_ratio":Vector2(phone)/Vector2(logical)})
+    _profiles.append({"profile":label,"logical_viewport":str(logical),"safe":str(safe),"details":(hud.get("selection_details") as Label).text,"shelf":str((hud.get("selection_panel") as Control).get_global_rect()),"production_units":production_units,"context_shelves":context_shelves,"hit_targets":hud.get("touch_target_diagnostics"),"render_to_css_ratio":Vector2(phone)/Vector2(logical)})
     tc.free()
     viewport.free()
     await get_tree().process_frame
@@ -252,6 +253,65 @@ func _all_production_unit_text(hud: Node,logical: Vector2i,safe: Rect2,profile: 
         evidence.append({"unit":UnitData.get_unit_name(unit_type),"recruit_text":recruit.text,"recruit_size":str(recruit.size),"queue_text":group.text,"queue_size":str(group.size),"queue_shelf":str(scroll.get_global_rect())})
         hud.call("clear_selection")
         building.free()
+    return evidence
+
+func _non_production_shelf_density(hud: Node,logical: Vector2i,safe: Rect2,profile: String) -> Array[Dictionary]:
+    var evidence: Array[Dictionary] = []
+    var panel: Control = hud.get("selection_panel")
+    var scroll: ScrollContainer = hud.get("command_scroll")
+    for context: String in ["worker","army","foundation"]:
+        var context_profile: String = profile+" "+context+" shelf"
+        var foundation: BuildingBase = null
+        if context == "foundation":
+            foundation = BuildingBase.new()
+            foundation.building_type = BuildingData.BuildingType.HOUSE
+            foundation.player_owner = 0
+            foundation.state = BuildingBase.State.CONSTRUCTING
+            hud.call("show_building_selection","House",10,1000,[],[],foundation)
+        else:
+            var unit_type: int = UnitData.UnitType.VILLAGER if context == "worker" else UnitData.UnitType.INFANTRY
+            hud.call("show_unit_selection",UnitData.get_unit_name(unit_type),50,50,"Seeking Food" if context == "worker" else "Attacking",1,{"unit_type":unit_type})
+            hud.call("configure_unit_commands",true,context == "army","Aggressive","smart")
+        await _settle(hud,logical,safe)
+        _expect(panel.size.y <= 72.5,context_profile+" grows above72px")
+        _expect(safe.encloses(panel.get_global_rect()),context_profile+" is outside safe area")
+        _expect(not panel.get_global_rect().intersects((hud.get("minimap_bg") as Control).get_global_rect()),context_profile+" overlaps minimap")
+        _text_fits(hud.get("selection_name"),context_profile)
+        _text_fits(hud.get("selection_details"),context_profile)
+        _expect((hud.get("selection_name") as Label).get_theme_font_size("font_size") == 14 and (hud.get("selection_details") as Label).get_theme_font_size("font_size") == 11,context_profile+" changes info typography")
+        _expect((hud.get("selection_info_column") as Control).custom_minimum_size.x == (148.0 if context == "foundation" else 120.0),context_profile+" changes info width")
+        if context == "foundation":
+            _expect(not scroll.visible,context_profile+" retains an empty command viewport")
+            _expect(panel.size.x <= 168.0,context_profile+" retains empty width")
+            _expect((hud.get("_selection_back_button") as Button).visible,context_profile+" loses Back")
+        else:
+            var commands: HBoxContainer = hud.get("_unit_command_container")
+            _expect(commands.get_child_count() == 4,context_profile+" loses an action")
+            var last_action: Button = commands.get_child(commands.get_child_count()-1)
+            # On the narrowest notched worker corridor Clear already needs a short
+            # scroll. Every whole target must remain reachable at the final offset.
+            for button: Button in commands.get_children():
+                _expect(button.visible and button.size.x >= 64.0 and button.size.y >= 48.0,context_profile+" shrinks/hides "+String(button.name))
+                _button_text_fits(button,context_profile)
+                if not scroll.get_global_rect().encloses(button.get_global_rect()):
+                    scroll.scroll_horizontal = int(scroll.get_h_scroll_bar().max_value-scroll.get_h_scroll_bar().page)
+                    await get_tree().process_frame
+                    await get_tree().process_frame
+                _expect(scroll.get_global_rect().encloses(button.get_global_rect()),context_profile+" cannot reach full "+String(button.name))
+            var empty_tail: float = panel.get_global_rect().end.x-last_action.get_global_rect().end.x
+            _expect(empty_tail >= 0.0 and empty_tail <= 12.0,context_profile+" leaves %.1fpx after Clear" % empty_tail)
+            (hud.get("_unit_more_button") as Button).pressed.emit()
+            await _settle(hud,logical,safe)
+            var advanced: Control = hud.get("_advanced_command_panel")
+            _expect(advanced.visible and safe.encloses(advanced.get_global_rect()),context_profile+" loses safe More controls")
+            for button: Button in (hud.get("_advanced_command_container") as HBoxContainer).get_children():
+                _expect(advanced.get_global_rect().encloses(button.get_global_rect()) and button.size.x >= 48.0 and button.size.y >= 48.0,context_profile+" clips advanced "+String(button.name))
+                _button_text_fits(button,context_profile+" More")
+            (hud.get("_unit_more_button") as Button).pressed.emit()
+        evidence.append({"context":context,"shelf":str(panel.get_global_rect()),"info_width":(hud.get("selection_info_column") as Control).custom_minimum_size.x,"details":(hud.get("selection_details") as Label).text})
+        hud.call("clear_selection")
+        if foundation:
+            foundation.free()
     return evidence
 
 func _touch_ownership() -> void:

@@ -1616,6 +1616,12 @@ func _calculate_mobile_layout_metrics(viewport_size: Vector2, safe_area: Rect2, 
 		var row_gaps: float = 16.0 if _is_town_center_production_context() else 24.0
 		var separator_width: float = 0.0 if _is_town_center_production_context() else 4.0
 		selection_width = minf(selection_zone_width, ceilf(producer_info_width + page_width + 48.0 + row_gaps + separator_width + 16.0) + 2.0)
+	elif short_side <= MOBILE_TOP_BAR_COMPACT_SHORT_SIDE and unit_commands_visible:
+		# Ordinary commands use their content width instead of filling the corridor.
+		# Keep the existing information column, target sizes and horizontal scrolling.
+		selection_width = minf(selection_zone_width, ceilf(120.0 + _production_row_width(_unit_command_container) + 20.0 + 16.0) + 2.0)
+	elif short_side <= MOBILE_TOP_BAR_COMPACT_SHORT_SIDE and _selection_context_active and not selection_has_commands and _selection_kind in ["unit", "building"]:
+		selection_width = minf(selection_zone_width, 148.0 + 16.0 + 2.0)
 	var selection_height: float = MOBILE_SELECTION_HEIGHT
 	var selection_bottom: float = -bottom_inset - MOBILE_ACTION_MARGIN
 	var selection_top: float = selection_bottom - selection_height

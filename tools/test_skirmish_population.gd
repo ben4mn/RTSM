@@ -59,7 +59,9 @@ func _run() -> void:
 		var game_map: Node = match_scene.get("game_map")
 		for frame: int in range(4):
 			await get_tree().process_frame
-		var initial_zoom: float = float(game_map.call("get_zoom_state")["zoom"])
+		var zoom_state: Dictionary = game_map.call("get_zoom_state")
+		var initial_zoom: float = float(zoom_state["zoom"])
+		var configured_default: float = float(zoom_state["default"])
 		var view: Button = hud.get("_camera_view_button") as Button
 		if view.is_visible_in_tree() and not (hud.get("_camera_zoom_in_button") as Button).is_visible_in_tree():
 			await _click(view.get_global_rect().get_center())
@@ -70,7 +72,9 @@ func _run() -> void:
 		_expect(float(game_map.call("get_zoom_state")["zoom"]) > initial_zoom, "%d: real HUD + click did not zoom" % limit)
 		var reset: Button = hud.get("_camera_zoom_reset_button") as Button
 		await _click(reset.get_global_rect().get_center())
-		_expect(is_equal_approx(float(game_map.call("get_zoom_state")["zoom"]), initial_zoom), "%d: real HUD reset did not restore camera" % limit)
+		# Opening framing may fit below the default to reveal the local economy.
+		# The HUD Reset action still explicitly restores the configured 1x zoom.
+		_expect(is_equal_approx(float(game_map.call("get_zoom_state")["zoom"]), configured_default), "%d: real HUD reset did not restore configured default" % limit)
 		match_scene.free()
 		GameManager.set_state(GameManager.GameState.MENU)
 		await get_tree().process_frame
