@@ -53,7 +53,9 @@ func _run() -> void:
 	var repeat_button: Button = hud.get("_auto_queue_button") as Button
 	_assert_initial_training_row(scroll, [villager_button, scout_button, repeat_button])
 	await _capture("tc-initial-844x390")
-	_expect(scout_button.text.contains("food") and scout_button.text.contains("gold"), "Scout training cost does not spell out both resources: %s" % scout_button.text)
+	var scout_cost: Dictionary = UnitData.get_unit_cost(UnitData.UnitType.SCOUT)
+	_expect(scout_button.text.contains("%dF" % int(scout_cost.get("food", 0))) and scout_button.text.contains("%dG" % int(scout_cost.get("gold", 0))), "Scout compact training cost omits a resource: %s" % scout_button.text)
+	_expect(scout_button.text.contains("Recon"), "Scout compact role is missing")
 	var before_food: int = int(ResourceManager.get_all_resources(0).get("food", 0))
 	var position: Vector2 = villager_button.get_global_rect().get_center()
 	await _hover(position)

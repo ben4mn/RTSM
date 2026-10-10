@@ -34,12 +34,11 @@ var _active_category: String = "Economy"
 @export var touch_target_diagnostics: Dictionary = {}
 
 const SHEET_MAX_WIDTH := 700.0
-const SHEET_HEIGHT := 174.0
-const SHEET_MIN_HEIGHT := 174.0
 const SHEET_VIEWPORT_MARGIN := 38.0
 const SHEET_BOTTOM_MARGIN := 8.0
 const CARD_COLUMNS_VISIBLE := 3
-const CARD_HEIGHT := 96.0
+const HEADER_HEIGHT := 48.0
+const CARD_HEIGHT := 80.0
 const CARD_GAP := 8.0
 const BUILDING_CATEGORIES: Dictionary = {
 	"Economy": [BuildingData.BuildingType.HOUSE, BuildingData.BuildingType.FARM, BuildingData.BuildingType.MILL, BuildingData.BuildingType.LUMBER_CAMP, BuildingData.BuildingType.MINING_CAMP, BuildingData.BuildingType.TOWN_CENTER],
@@ -106,8 +105,21 @@ func _apply_compact_layout() -> void:
 		safe_area = viewport_rect
 	var safe_end: Vector2 = safe_area.position + safe_area.size
 	var bottom_inset: float = maxf(0.0, viewport_size.y - safe_end.y)
-	var sheet_width: float = minf(SHEET_MAX_WIDTH, maxf(320.0, safe_area.size.x - SHEET_VIEWPORT_MARGIN * 2.0))
-	_sheet_height = clampf(viewport_size.y * 0.45, SHEET_MIN_HEIGHT, SHEET_HEIGHT)
+	var maximum_width: float = minf(SHEET_MAX_WIDTH, maxf(320.0, safe_area.size.x - SHEET_VIEWPORT_MARGIN * 2.0))
+	var visible_count: int = _visible_card_count()
+	title_label.visible = viewport_size.y > 520.0 and maximum_width >= 590.0 and visible_count > 1
+	title_label.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	var panel_padding: Vector2 = get_theme_stylebox("panel").get_minimum_size()
+	var margin: MarginContainer = $Margin
+	var horizontal_padding: float = panel_padding.x + float(margin.get_theme_constant("margin_left") + margin.get_theme_constant("margin_right"))
+	var vertical_padding: float = panel_padding.y + float(margin.get_theme_constant("margin_top") + margin.get_theme_constant("margin_bottom"))
+	var sheet_width: float = maximum_width
+	if visible_count == 1:
+		# A one-card category needs only its tabs and one full-width card, rather
+		# than the empty space reserved for three cards in the larger categories.
+		sheet_width = minf(maximum_width, _header_minimum_width() + horizontal_padding)
+	var scroll_height: float = scroll_container.get_h_scroll_bar().get_combined_minimum_size().y if visible_count > 1 else 0.0
+	_sheet_height = vertical_padding + HEADER_HEIGHT + float(($Margin/VBox as VBoxContainer).get_theme_constant("separation")) + CARD_HEIGHT + scroll_height
 	var sheet_center_x: float = safe_area.position.x + safe_area.size.x * 0.5
 	anchor_left = 0.5
 	anchor_top = 1.0
@@ -119,13 +131,29 @@ func _apply_compact_layout() -> void:
 	offset_top = offset_bottom - _sheet_height
 	custom_minimum_size = Vector2(sheet_width, _sheet_height)
 
-	var content_width: float = sheet_width - 20.0
-	_card_width = floorf((content_width - CARD_GAP * float(CARD_COLUMNS_VISIBLE - 1)) / 3.2)
-	_card_width = clampf(_card_width, 174.0, 206.0)
-	title_label.visible = sheet_width >= 590.0
+	var content_width: float = sheet_width - horizontal_padding
+	_card_width = content_width if visible_count == 1 else clampf(floorf((content_width - CARD_GAP * float(CARD_COLUMNS_VISIBLE - 1)) / 3.2), 174.0, 206.0)
 	for button: Button in _button_map.values():
 		button.custom_minimum_size = Vector2(_card_width, CARD_HEIGHT)
 	_refresh_touch_target_diagnostics()
+
+
+func _visible_card_count() -> int:
+	var visible_count: int = 0
+	for building_type: int in _button_map:
+		if building_type in BUILDING_CATEGORIES.get(_active_category, []):
+			visible_count += 1
+	return maxi(1, visible_count)
+
+
+func _header_minimum_width() -> float:
+	var width: float = 0.0
+	var control_count: int = 0
+	for child: Node in header.get_children():
+		if child is Control and (child as Control).visible:
+			width += (child as Control).get_combined_minimum_size().x
+			control_count += 1
+	return width + float(header.get_theme_constant("separation") * maxi(0, control_count - 1))
 
 
 func set_safe_area_rect(safe_area: Rect2) -> void:
@@ -180,7 +208,9 @@ func _create_category_buttons() -> void:
 		var button := Button.new()
 		button.name = "%sCategoryButton" % category
 		button.text = category
-		button.custom_minimum_size = Vector2(96.0 if category == "Economy" else 88.0, 48.0)
+		var category_width: float = {"Economy": 84.0, "Army": 64.0, "Defence": 80.0}[category]
+		button.custom_minimum_size = Vector2(category_width, HEADER_HEIGHT)
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.add_theme_font_size_override("font_size", 14)
 		button.toggle_mode = true
 		button.focus_mode = Control.FOCUS_NONE
@@ -213,6 +243,7 @@ func _refresh_categories() -> void:
 		if button.visible:
 			visible_count += 1
 	grid.columns = maxi(1, visible_count)
+	_queue_layout_refresh()
 
 
 func _create_repeat_button() -> void:
@@ -239,10 +270,10 @@ func open_menu() -> void:
 			_active_category = category
 			break
 	visible = true
-	_apply_compact_layout()
 	_rebuild_grid()
 	_refresh_affordability()
 	_update_aux_button()
+	_apply_compact_layout()
 	scroll_container.scroll_horizontal = 0
 	_refresh_touch_target_diagnostics()
 
@@ -484,6 +515,7 @@ func _update_aux_button() -> void:
 		cancel_button.disabled = false
 		cancel_button.text = "Cancel"
 		cancel_button.tooltip_text = "Cancel current placement"
+		_queue_layout_refresh()
 		_refresh_touch_target_diagnostics()
 		return
 
@@ -492,6 +524,7 @@ func _update_aux_button() -> void:
 	cancel_button.tooltip_text = "Close build menu"
 	cancel_button.disabled = false
 	_update_repeat_button()
+	_queue_layout_refresh()
 	_refresh_touch_target_diagnostics()
 
 
@@ -574,7 +607,7 @@ func _refresh_touch_target_diagnostics() -> void:
 		"grid_buttons": buttons,
 		"category_buttons": _category_diagnostics(),
 		"active_category": _active_category,
-		"visible_card_columns": CARD_COLUMNS_VISIBLE,
+		"visible_card_columns": mini(CARD_COLUMNS_VISIBLE, _visible_card_count()),
 		"grid_columns": grid.columns,
 		"card_width": _card_width,
 		"card_height": CARD_HEIGHT,

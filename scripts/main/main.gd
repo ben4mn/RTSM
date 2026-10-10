@@ -526,6 +526,18 @@ func _on_map_ready(map_gen: MapGenerator) -> void:
 	_milestone_first_age_up = false
 	_refresh_first_session_diagnostics()
 	_bootstrap_opening_guidance()
+	call_deferred("_frame_starting_economy", player_spawn)
+
+
+func _frame_starting_economy(player_spawn: Vector2) -> void:
+	# Guidance and containers finish laying out before the final opening pan.
+	await get_tree().process_frame
+	if not is_instance_valid(game_map) or bool(game_map.get("_user_zoom_override")):
+		return
+	game_map.camera.position = _get_initial_camera_focus(player_spawn)
+	game_map._clamp_camera()
+	game_map.camera.reset_smoothing()
+	game_map.camera.force_update_scroll()
 
 
 func _bootstrap_opening_guidance() -> void:
@@ -1120,10 +1132,7 @@ func _arm_patrol_command() -> void:
 func _select_town_center() -> void:
 	if is_instance_valid(_player_town_center):
 		game_map.selection_mgr.select_single(_player_town_center)
-		if _guided_opening_active and _guided_stage <= GuidedOpeningStage.TRAIN_SCOUT:
-			game_map.camera.position = _get_initial_camera_focus(_player_town_center.global_position)
-		else:
-			game_map.camera.position = _player_town_center.global_position
+		game_map.camera.position = _get_initial_camera_focus(_player_town_center.global_position)
 		game_map._clamp_camera()
 		_update_progression_hint()
 		return
@@ -1131,10 +1140,7 @@ func _select_town_center() -> void:
 		if is_instance_valid(building) and building.building_type == BuildingData.BuildingType.TOWN_CENTER:
 			_player_town_center = building
 			game_map.selection_mgr.select_single(building)
-			if _guided_opening_active and _guided_stage <= GuidedOpeningStage.TRAIN_SCOUT:
-				game_map.camera.position = _get_initial_camera_focus(building.global_position)
-			else:
-				game_map.camera.position = building.global_position
+			game_map.camera.position = _get_initial_camera_focus(building.global_position)
 			game_map._clamp_camera()
 			_update_progression_hint()
 			return
@@ -2098,10 +2104,90 @@ func _on_minimap_clicked(world_pos: Vector2) -> void:
 		game_map.camera.position_smoothing_enabled = true
 
 
-func _get_initial_camera_focus(player_spawn: Vector2) -> Vector2:
+func _get_initial_camera_focus(player_spawn: Vector2, safe_area: Rect2 = Rect2()) -> Vector2:
 	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
-	var short_side: float = minf(viewport_size.x, viewport_size.y)
-	var phone_like: bool = DisplayServer.is_touchscreen_available() or OS.has_feature("mobile") or short_side <= 460.0
+	if game_map._is_mobile_camera_profile(viewport_size):
+		if not safe_area.has_area():
+			safe_area = hud._get_safe_area_rect(viewport_size)
+		var field := Rect2(safe_area.position + Vector2(16.0, 48.0), safe_area.size - Vector2(32.0, 136.0))
+		var subjects := Rect2(player_spawn - Vector2(14.0, 14.0), Vector2(28.0, 28.0))
+		var landmarks: Array[Node2D] = []
+		if is_instance_valid(_player_town_center):
+			subjects = subjects.merge(_get_camera_subject_bounds(_player_town_center))
+			landmarks.append(_player_town_center)
+		var food: Node2D = game_map.get_nearest_resource_node("food", player_spawn, 0)
+		# After berries deplete, a remote owned Farm can be the only known food.
+		# Home should still locate the base rather than span the explored map.
+		if food != null and player_spawn.distance_to(food.global_position) <= 512.0:
+			subjects = subjects.merge(_get_camera_subject_bounds(food))
+			landmarks.append(food)
+		var nearest_worker: Villager = null
+		var local_workers: Array[Node2D] = []
+		var nearest_distance: float = 256.0
+		for candidate: Node in _player_units[0]:
+			if not is_instance_valid(candidate) or not candidate is Villager or candidate.current_state == UnitBase.State.DEAD:
+				continue
+			var distance: float = player_spawn.distance_to(candidate.global_position)
+			if distance <= 256.0 and local_workers.size() < 4:
+				local_workers.append(candidate as Node2D)
+			if distance < nearest_distance:
+				nearest_distance = distance
+				nearest_worker = candidate as Villager
+		var base_subjects: Rect2 = subjects
+		var base_landmarks: Array[Node2D] = landmarks.duplicate()
+		if nearest_worker != null:
+			subjects = subjects.merge(_get_camera_subject_bounds(nearest_worker))
+			landmarks.append(nearest_worker)
+		var obstacles: Array[Rect2] = []
+		var sacred_panel: Control = hud.get("_sacred_site_panel") as Control
+		var guidance_panel: Control = hud.get("_progression_hint_panel") as Control
+		if sacred_panel != null and sacred_panel.visible:
+			var sacred_rect: Rect2 = sacred_panel.get_global_rect()
+			# Initial guidance is populated just after the opening camera. Reserve
+			# its already-laid-out card and the locator's resulting lower position.
+			if _guided_opening_active and guidance_panel != null:
+				var guidance_rect: Rect2 = guidance_panel.get_global_rect()
+				obstacles.append(guidance_rect.grow(6.0))
+				sacred_rect.position.y = guidance_rect.end.y + 8.0
+			obstacles.append(sacred_rect.grow(6.0))
+		for control_name: String in ["_camera_controls", "_minimap_frame", "_minimap_hint_label", "_town_center_button", "build_menu_button"]:
+			var control: Control = hud.get(control_name) as Control
+			if control != null and control.is_visible_in_tree():
+				obstacles.append(control.get_global_rect().grow(6.0))
+		if not bool(game_map.get("_user_zoom_override")):
+			# A seed can put berries far above the landmark. Fit the opening only
+			# until the player deliberately chooses a zoom; keep the configured
+			# close default whenever these essential subjects already fit.
+			var fitting_zoom: float = minf(field.size.x / maxf(1.0, subjects.size.x), field.size.y / maxf(1.0, subjects.size.y))
+			game_map.fit_opening_zoom(fitting_zoom)
+		# A center-top objective can obscure the roof or berries even when both
+		# fit the field. First pan into available space at the same zoom.
+		# Fit farther out only if no such pan can keep all the opening context.
+		for attempt: int in 25:
+			var zoom: Vector2 = game_map.camera.zoom
+			var focus: Vector2 = game_map.get_clamped_camera_focus(subjects.get_center() + (viewport_size * 0.5 - field.get_center()) / zoom)
+			var pan: Vector2 = _get_opening_camera_pan(subjects, landmarks, field, obstacles, focus, viewport_size, zoom)
+			if pan.is_finite():
+				return focus - pan / zoom
+			# Four local workers can stand on different sides of the landmark.
+			# Keep one accessible at this zoom before considering a wider view.
+			for worker: Node2D in local_workers:
+				if worker == nearest_worker:
+					continue
+				var alternative_subjects: Rect2 = base_subjects.merge(_get_camera_subject_bounds(worker))
+				var alternative_landmarks: Array[Node2D] = base_landmarks.duplicate()
+				alternative_landmarks.append(worker)
+				var alternative_focus: Vector2 = game_map.get_clamped_camera_focus(alternative_subjects.get_center() + (viewport_size * 0.5 - field.get_center()) / zoom)
+				var alternative_pan: Vector2 = _get_opening_camera_pan(alternative_subjects, alternative_landmarks, field, obstacles, alternative_focus, viewport_size, zoom)
+				if alternative_pan.is_finite():
+					return alternative_focus - alternative_pan / zoom
+			if bool(game_map.get("_user_zoom_override")):
+				return _get_town_center_camera_focus(player_spawn, field, obstacles, viewport_size)
+			game_map.fit_opening_zoom(zoom.x * 0.97)
+			if is_equal_approx(game_map.camera.zoom.x, zoom.x):
+				return _get_town_center_camera_focus(player_spawn, field, obstacles, viewport_size)
+		return _get_town_center_camera_focus(player_spawn, field, obstacles, viewport_size)
+
 	var samples: Array[Vector2] = [player_spawn]
 	for resource_type in ["food", "wood", "gold"]:
 		var node: Node2D = game_map.get_nearest_resource_node(resource_type, player_spawn, 0)
@@ -2111,11 +2197,98 @@ func _get_initial_camera_focus(player_spawn: Vector2) -> Vector2:
 	for sample in samples:
 		weighted_center += sample
 	weighted_center /= float(maxi(1, samples.size()))
-	# Anchor the landmark in the playable middle of the phone screen.
-	var focus: Vector2 = player_spawn.lerp(weighted_center, 0.28)
-	if phone_like:
-		focus.y += 14.0 / maxf(0.1, game_map.camera.zoom.y)
-	return focus
+	return player_spawn.lerp(weighted_center, 0.28)
+
+
+func _get_town_center_camera_focus(player_spawn: Vector2, field: Rect2, obstacles: Array[Rect2], viewport_size: Vector2) -> Vector2:
+	# At a deliberate close zoom, berries, workers, outline and flag may not
+	# fit together. Keep the selected producer's roof/body and ground usable.
+	var body := Rect2(player_spawn - Vector2(14.0, 14.0), Vector2(28.0, 28.0))
+	var landmarks: Array[Node2D] = []
+	if is_instance_valid(_player_town_center):
+		body = _get_camera_subject_bounds(_player_town_center, false, false)
+		landmarks.append(_player_town_center)
+	var zoom: Vector2 = game_map.camera.zoom
+	var focus: Vector2 = game_map.get_clamped_camera_focus(body.get_center() + (viewport_size * 0.5 - field.get_center()) / zoom)
+	var pan: Vector2 = _get_opening_camera_pan(body, landmarks, field, obstacles, focus, viewport_size, zoom, false, true)
+	return focus - pan / zoom if pan.is_finite() else focus
+
+
+func _get_opening_camera_pan(subjects: Rect2, landmarks: Array[Node2D], field: Rect2, obstacles: Array[Rect2], focus: Vector2, viewport_size: Vector2, zoom: Vector2, include_flag: bool = true, allow_partial: bool = false) -> Vector2:
+	var projection := Transform2D(0.0, zoom, 0.0, viewport_size * 0.5 - focus * zoom)
+	var projected: Rect2 = projection * subjects
+	var horizontal: Array[float] = [0.0, field.position.x - projected.position.x, field.end.x - projected.end.x]
+	var vertical: Array[float] = [0.0, field.position.y - projected.position.y, field.end.y - projected.end.y]
+	var art_bounds: Array[Rect2] = []
+	for landmark: Node2D in landmarks:
+		# Ground selection diamonds may extend behind a small top overlay; the
+		# visible building, flag, unit and resource target must stay unobscured.
+		var art: Rect2 = projection * _get_camera_subject_bounds(landmark, false, include_flag)
+		art_bounds.append(art)
+		for obstacle: Rect2 in obstacles:
+			horizontal.append(obstacle.position.x - art.end.x)
+			horizontal.append(obstacle.end.x - art.position.x)
+			vertical.append(obstacle.position.y - art.end.y)
+			vertical.append(obstacle.end.y - art.position.y)
+	var candidates: Array[Vector2] = []
+	for horizontal_pan: float in horizontal:
+		for vertical_pan: float in vertical:
+			candidates.append(Vector2(horizontal_pan, vertical_pan))
+	candidates.sort_custom(func(a: Vector2, b: Vector2) -> bool: return a.length_squared() < b.length_squared())
+	var least_overlap: float = INF
+	var best_partial := Vector2(INF, INF)
+	for pan: Vector2 in candidates:
+		var proposed_focus: Vector2 = focus - pan / zoom
+		if game_map.get_clamped_camera_focus(proposed_focus).distance_to(proposed_focus) > 0.1:
+			continue
+		var shifted := Rect2(projected.position + pan, projected.size)
+		if not field.grow(0.1).encloses(shifted):
+			continue
+		var clear: bool = true
+		var overlap: float = 0.0
+		for art: Rect2 in art_bounds:
+			var shifted_art := Rect2(art.position + pan, art.size)
+			for obstacle: Rect2 in obstacles:
+				if shifted_art.intersects(obstacle):
+					clear = false
+					overlap += shifted_art.intersection(obstacle).get_area()
+		if clear:
+			return pan
+		if allow_partial and overlap < least_overlap:
+			least_overlap = overlap
+			best_partial = pan
+	if allow_partial:
+		# A wide Guide card and maximum manual detail can leave no corridor
+		# for the complete roof. Keep its body in the field with least overlap.
+		return best_partial
+	return Vector2(INF, INF)
+
+
+func _get_camera_subject_bounds(subject: Node2D, include_ground: bool = true, include_flag: bool = true) -> Rect2:
+	var bounds := Rect2(subject.global_position - Vector2(14.0, 14.0), Vector2(28.0, 28.0))
+	if subject is BuildingBase:
+		var building: BuildingBase = subject as BuildingBase
+		if include_ground and building.is_selected:
+			var footprint_size := Vector2(building.footprint.x * MapData.TILE_WIDTH, building.footprint.y * MapData.TILE_HEIGHT)
+			bounds = bounds.merge(Rect2(subject.global_position - footprint_size * 0.5, footprint_size))
+		if include_flag and building.building_type == BuildingData.BuildingType.TOWN_CENTER:
+			bounds = bounds.merge(subject.get_global_transform() * Rect2(47.0, -79.0, 26.0, 45.0))
+	elif subject is ResourceNode:
+		# Include the resource's visible badge above the sprite and its ground ring.
+		bounds = bounds.merge(Rect2(subject.global_position + Vector2(-20.0, -34.0), Vector2(40.0, 54.0)))
+	for child: Node in subject.get_children():
+		if not child is Sprite2D:
+			continue
+		var sprite: Sprite2D = child as Sprite2D
+		if sprite.texture == null:
+			continue
+		var image: Image = sprite.texture.get_image()
+		if image == null:
+			continue
+		var art: Rect2i = image.get_used_rect()
+		var local_bounds := Rect2(sprite.get_rect().position + Vector2(art.position), Vector2(art.size))
+		bounds = bounds.merge(sprite.get_global_transform() * local_bounds)
+	return bounds
 
 
 func _on_cancel_queue_requested(building: Node2D, index: int) -> void:

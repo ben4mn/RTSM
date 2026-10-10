@@ -70,15 +70,18 @@ func _profile(phone: Vector2i, scale_factor: float) -> void:
 	_expect(navigation.visible and not navigation.disabled and navigation.text.contains("3"), profile + " Queue count/control missing")
 	_expect(navigation.size.x >= 48.0 and navigation.size.y >= 48.0, profile + " Queue touch target under48px")
 	_expect(safe.encloses(navigation.get_global_rect()), profile + " Queue outside safe area")
+	_expect((hud.get("selection_panel") as Control).get_global_rect().encloses(navigation.get_global_rect()), profile + " Queue does not share production shelf")
+	for recruit: Button in (hud.get("_train_buttons_container") as HBoxContainer).get_children():
+		_expect(shelf.get_global_rect().encloses(recruit.get_global_rect()), profile + " inline pager clips " + String(recruit.name))
 	await _tap(viewport, navigation.get_global_rect().get_center())
 	_expect(shelf.scroll_horizontal > 0 and navigation.text.contains("Train"), profile + " Queue touch does not open cancellation page")
 	var undo: Button = (hud.get("queue_container") as HBoxContainer).get_node("QueueClearLastButton")
 	var clear: Button = (hud.get("queue_container") as HBoxContainer).get_node("QueueClearAllButton")
-	_expect(shelf.get_global_rect().encloses(undo.get_global_rect()) and shelf.get_global_rect().encloses(clear.get_global_rect()), profile + " Queue page hides Undo/Clear")
+	_expect(shelf.get_global_rect().encloses(undo.get_global_rect()) and shelf.get_global_rect().encloses(clear.get_global_rect()), profile + " Queue page hides Undo/Clear: shelf %s Undo %s Clear %s" % [shelf.get_global_rect(), undo.get_global_rect(), clear.get_global_rect()])
 	var inspected_scroll: int = shelf.scroll_horizontal
 	_show(hud, tc)
 	await _settle(hud, logical, safe)
-	_expect(shelf.scroll_horizontal == inspected_scroll, profile + " same producer refresh loses queue inspection: %d -> %d (queue begins %.0f)" % [inspected_scroll, shelf.scroll_horizontal, (hud.get("queue_container") as Control).position.x])
+	_expect(shelf.scroll_horizontal > 0 and navigation.text.contains("Train") and absf(float(shelf.scroll_horizontal) - (hud.get("queue_container") as Control).position.x) <= 1.0, profile + " same producer refresh loses queue inspection: %d -> %d (queue begins %.0f)" % [inspected_scroll, shelf.scroll_horizontal, (hud.get("queue_container") as Control).position.x])
 	_show(hud, tc)
 	await _tap(viewport, navigation.get_global_rect().get_center(), 0)
 	await _settle(hud, logical, safe)
@@ -100,6 +103,25 @@ func _profile(phone: Vector2i, scale_factor: float) -> void:
 	_show(hud, second)
 	await _settle(hud, logical, safe)
 	_expect(shelf.scroll_horizontal == 0, profile + " new producer inherits queue scroll")
+	for recruit: Button in (hud.get("_train_buttons_container") as HBoxContainer).get_children():
+		_expect(shelf.get_global_rect().encloses(recruit.get_global_rect()), profile + " Barracks clips " + String(recruit.name))
+		_expect(recruit.size.x >= 48.0 and recruit.size.y >= 48.0, profile + " Barracks target under48px")
+		var available_width: float = recruit.size.x - recruit.get_theme_stylebox("normal").get_minimum_size().x
+		for line: String in recruit.text.split("\n"):
+			var text_width: float = recruit.get_theme_font("font").get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, recruit.get_theme_font_size("font_size")).x
+			_expect(text_width <= available_width + 0.5, profile + " Barracks hides text: " + line)
+	var saved_resources: Dictionary = ResourceManager.get_all_resources(0).duplicate()
+	ResourceManager.initialize_player(0, {"food": 0, "wood": 0, "gold": 0})
+	var second_producer: ProductionQueue = second.get_production_queue()
+	second_producer.auto_queue_unit_type = UnitData.UnitType.INFANTRY
+	second_producer.auto_queue_enabled = true
+	_show(hud, second)
+	await _settle(hud, logical, safe)
+	var military_repeat: Button = hud.get("_auto_queue_button")
+	_expect(military_repeat.text.contains("Need 50F · 20W"), profile + " military Repeat loses a missing resource")
+	_expect(shelf.get_global_rect().encloses(military_repeat.get_global_rect()), profile + " military resource wait clips Repeat")
+	second_producer.auto_queue_enabled = false
+	ResourceManager.initialize_player(0, saved_resources)
 	_show(hud, tc)
 	await _settle(hud, logical, safe)
 	await _tap(viewport, navigation.get_global_rect().get_center())

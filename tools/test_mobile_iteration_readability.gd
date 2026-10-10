@@ -24,7 +24,7 @@ func _run() -> void:
     for failure: String in _failures:
         push_error("[FAIL] mobile_iteration_readability: "+failure)
     if _failures.is_empty():
-        print("[PASS] mobile_iteration_readability: 12 profiles, full essential text, large banks, safe labels, three counter cards, projected minimap and viewport canceled/orphan/HUD/pinch ownership")
+        print("[PASS] mobile_iteration_readability: 12 profiles, all six production names/costs/roles/max queue badges, full essential text, large banks, safe labels, projected minimap and viewport canceled/orphan/HUD/pinch ownership")
     get_tree().quit(0 if _failures.is_empty() else 1)
 
 func _profile(phone: Vector2i, scale_factor: float, notched: bool) -> void:
@@ -87,9 +87,16 @@ func _profile(phone: Vector2i, scale_factor: float, notched: bool) -> void:
     _button_text_fits(queue_navigation,label+" queue navigation")
     _expect(queue_navigation.visible and not queue_navigation.disabled,"%s queue navigation missing or disabled" % label)
     _expect(queue_navigation.size.x >= 48.0 and queue_navigation.size.y >= 48.0,"%s queue navigation target under48px" % label)
+    _expect((hud.get("selection_panel") as Control).get_global_rect().encloses(queue_navigation.get_global_rect()),"%s queue navigation floats outside shelf" % label)
+    _expect((hud.get("selection_panel") as Control).size.y <= 72.5,"%s production shelf grows beyond72px" % label)
+    _expect((hud.get("selection_panel") as Control).size.x <= 420.0,"%s TC recruitment shelf retains empty width: %.1f" % [label,(hud.get("selection_panel") as Control).size.x])
     _expect(safe.encloses(queue_navigation.get_global_rect()),"%s queue navigation outside safe area" % label)
     _expect(not queue_navigation.get_global_rect().intersects((hud.get("selection_info_column") as Control).get_global_rect()),"%s queue navigation overlaps selection details" % label)
     _expect(queue_navigation.text.contains("1"),"%s initial queue count missing" % label)
+    _expect((hud.get("selection_details") as Label).text.to_lower().contains("rally") and (hud.get("selection_details") as Label).text.contains("40%"),"%s compact production loses rally cue or training progress: %s" % [label,(hud.get("selection_details") as Label).text])
+    var production_details: Label = hud.get("selection_details")
+    var details_height: float = production_details.get_theme_font("font").get_height(production_details.get_theme_font_size("font_size")) * float(production_details.text.split("\n").size())
+    _expect(production_details.size.y >= details_height,"%s compact production hides rally/progress lines: %.1f needs %.1f" % [label,production_details.size.y,details_height])
     var queue_items: Array=[{"unit_type":UnitData.UnitType.VILLAGER,"name":"Villager","is_training":true,"progress":0.42}]
     for type: int in [UnitData.UnitType.VILLAGER,UnitData.UnitType.SCOUT]:
         for index: int in 14:
@@ -104,8 +111,10 @@ func _profile(phone: Vector2i, scale_factor: float, notched: bool) -> void:
             _expect(scroll.get_global_rect().encloses(action.get_global_rect()),"%s queue-page name/action clipped: %s %s inside %s" % [label,(action as Button).text,action.get_global_rect(),scroll.get_global_rect()])
             _button_text_fits(action as Button,label+" queue page")
     _expect(queue_navigation.text.contains("Train"),"%s queue navigation does not offer return to training" % label)
+    _expect((hud.get("selection_panel") as Control).get_global_rect().encloses(queue_navigation.get_global_rect()),"%s Train return floats outside queue shelf" % label)
     queue_navigation.pressed.emit()
     _expect(scroll.scroll_horizontal == 0,"%s queue navigation does not return to training" % label)
+    var production_units: Array[Dictionary] = await _all_production_unit_text(hud,logical,safe,label)
     for role: int in [UnitData.UnitType.INFANTRY,UnitData.UnitType.ARCHER,UnitData.UnitType.CAVALRY]:
         hud.call("show_unit_selection",UnitData.get_unit_name(role),100,100,"ATTACKING",4,{"unit_type":role})
         hud.call("configure_unit_commands",true,true,"Aggressive","smart")
@@ -159,7 +168,7 @@ func _profile(phone: Vector2i, scale_factor: float, notched: bool) -> void:
     var caption: Label = hud.get("_minimap_hint_label")
     _text_fits(caption,label+" minimap caption")
     _expect(not caption.get_global_rect().intersects((hud.get("_camera_controls") as Control).get_global_rect()),"%s map caption overlaps zoom" % label)
-    _profiles.append({"profile":label,"logical_viewport":str(logical),"safe":str(safe),"details":(hud.get("selection_details") as Label).text,"shelf":str((hud.get("selection_panel") as Control).get_global_rect()),"hit_targets":hud.get("touch_target_diagnostics"),"render_to_css_ratio":Vector2(phone)/Vector2(logical)})
+    _profiles.append({"profile":label,"logical_viewport":str(logical),"safe":str(safe),"details":(hud.get("selection_details") as Label).text,"shelf":str((hud.get("selection_panel") as Control).get_global_rect()),"production_units":production_units,"hit_targets":hud.get("touch_target_diagnostics"),"render_to_css_ratio":Vector2(phone)/Vector2(logical)})
     tc.free()
     viewport.free()
     await get_tree().process_frame
@@ -184,6 +193,66 @@ func _button_text_fits(button: Button,profile: String) -> void:
     for line: String in button.text.split("\n"):
         var width: float = button.get_theme_font("font").get_string_size(line,HORIZONTAL_ALIGNMENT_LEFT,-1,button.get_theme_font_size("font_size")).x
         _expect(width <= available+0.5,"%s card '%s' hides words (%.1f/%.1f)" % [profile,line,width,available])
+    var line_count: int = button.text.split("\n").size()
+    var text_height: float = button.get_theme_font("font").get_height(button.get_theme_font_size("font_size")) * float(line_count) + float(button.get_theme_constant("line_spacing") * maxi(0,line_count-1))
+    _expect(text_height <= button.size.y-style.get_minimum_size().y+0.5,"%s card '%s' hides text vertically" % [profile,button.text])
+
+func _all_production_unit_text(hud: Node,logical: Vector2i,safe: Rect2,profile: String) -> Array[Dictionary]:
+    var evidence: Array[Dictionary] = []
+    var producer_types: Dictionary = {
+        UnitData.UnitType.VILLAGER:BuildingData.BuildingType.TOWN_CENTER,
+        UnitData.UnitType.SCOUT:BuildingData.BuildingType.TOWN_CENTER,
+        UnitData.UnitType.INFANTRY:BuildingData.BuildingType.BARRACKS,
+        UnitData.UnitType.ARCHER:BuildingData.BuildingType.ARCHERY_RANGE,
+        UnitData.UnitType.CAVALRY:BuildingData.BuildingType.STABLE,
+        UnitData.UnitType.SIEGE:BuildingData.BuildingType.SIEGE_WORKSHOP,
+    }
+    var scroll: ScrollContainer = hud.get("command_scroll")
+    for unit_type: int in UnitData.UNITS:
+        var building := BuildingBase.new()
+        building.building_type = producer_types[unit_type]
+        building.player_owner = 0
+        building.state = BuildingBase.State.ACTIVE
+        var queue := ProductionQueue.new()
+        building.add_child(queue)
+        building.set_production_queue(queue)
+        queue.auto_queue_unit_type = unit_type
+        var pending: Array = []
+        for index: int in ProductionQueue.MAX_QUEUE_SIZE:
+            pending.append({"unit_type":unit_type,"name":UnitData.get_unit_name(unit_type),"is_training":false})
+        var trainable: Array = [unit_type]
+        if building.building_type == BuildingData.BuildingType.TOWN_CENTER:
+            trainable = [UnitData.UnitType.VILLAGER,UnitData.UnitType.SCOUT]
+        hud.call("show_building_selection",BuildingData.get_building_name(building.building_type),5000,5000,pending,trainable,building)
+        await _settle(hud,logical,safe)
+        var unit_profile: String = "%s %s max queue" % [profile,UnitData.get_unit_name(unit_type)]
+        var recruit: Button = (hud.get("_train_buttons_container") as HBoxContainer).get_node("TrainButton_%d" % unit_type)
+        _expect(recruit.text.contains("%s x%d" % [UnitData.get_unit_name(unit_type),ProductionQueue.MAX_QUEUE_SIZE]),unit_profile+" recruitment loses maximum queue badge")
+        for resource: String in ["food","wood","gold"]:
+            var cost: int = int(UnitData.get_unit_cost(unit_type).get(resource,0))
+            if cost > 0:
+                _expect(recruit.text.contains("%d%s" % [cost,resource.left(1).to_upper()]),unit_profile+" recruitment loses "+resource+" cost")
+        var role: String = "Recon" if unit_type == UnitData.UnitType.SCOUT else UnitData.get_unit_counter_description(unit_type)
+        if not role.is_empty():
+            _expect(recruit.text.contains(role),unit_profile+" recruitment loses role")
+        for button: Button in (hud.get("_train_buttons_container") as HBoxContainer).get_children():
+            if button.visible and not button.is_queued_for_deletion():
+                _expect(scroll.get_global_rect().encloses(button.get_global_rect()),unit_profile+" recruitment/Repeat clipped: "+String(button.name))
+                _expect(button.size.x>=48.0 and button.size.y>=48.0,unit_profile+" recruitment target under48px")
+                _button_text_fits(button,unit_profile)
+        (hud.get("_queue_navigation_button") as Button).pressed.emit()
+        await _settle(hud,logical,safe)
+        var group: Button = (hud.get("queue_container") as HBoxContainer).get_node("QueueUnit_%d" % unit_type)
+        _expect(group.text.contains(UnitData.get_unit_name(unit_type)) and group.text.contains("x%d" % ProductionQueue.MAX_QUEUE_SIZE),unit_profile+" queue group loses name/count")
+        for button: Control in (hud.get("queue_container") as HBoxContainer).get_children():
+            if button.visible and not button.is_queued_for_deletion() and button is Button:
+                _expect(scroll.get_global_rect().encloses(button.get_global_rect()),unit_profile+" queue action clipped: "+String(button.name))
+                _expect(button.size.x>=48.0 and button.size.y>=48.0,unit_profile+" queue target under48px")
+                _button_text_fits(button as Button,unit_profile)
+        evidence.append({"unit":UnitData.get_unit_name(unit_type),"recruit_text":recruit.text,"recruit_size":str(recruit.size),"queue_text":group.text,"queue_size":str(group.size),"queue_shelf":str(scroll.get_global_rect())})
+        hud.call("clear_selection")
+        building.free()
+    return evidence
 
 func _touch_ownership() -> void:
     var viewport := SubViewport.new()

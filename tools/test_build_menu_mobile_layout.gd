@@ -17,6 +17,10 @@ func _ready() -> void:
 func _run() -> void:
 	AudioManager.set_all_enabled(false)
 	await _check_large_scale_geometry(Vector2i(844, 390), 1.15, true)
+	for phone: Vector2i in [Vector2i(844, 390), Vector2i(932, 430)]:
+		for ui_scale: float in [1.0, 1.075, 1.15]:
+			for notched: bool in [false, true]:
+				await _check_category_density(phone, ui_scale, notched)
 	var phone_viewport := SubViewport.new()
 	phone_viewport.size = PHONE_SIZE
 	add_child(phone_viewport)
@@ -115,7 +119,7 @@ func _run() -> void:
 	build_menu.free()
 	phone_viewport.free()
 	if _failures.is_empty():
-		print("[PASS] build_menu_mobile_layout: grouped readable-card sheet preserves battlefield at Standard/Large scale")
+		print("[PASS] build_menu_mobile_layout: 12 phone profiles, content-sized Defence, full touch targets and multi-card scrolling")
 		get_tree().quit(0)
 		return
 	for failure: String in _failures:
@@ -168,6 +172,84 @@ func _check_large_scale_geometry(physical_size: Vector2i, ui_scale: float, notch
 	build_menu.free()
 	phone_viewport.free()
 	await get_tree().process_frame
+
+
+func _check_category_density(phone_size: Vector2i, ui_scale: float, notched: bool) -> void:
+	var logical_size := Vector2i(floori(float(phone_size.x) / ui_scale), floori(float(phone_size.y) / ui_scale))
+	var viewport := SubViewport.new()
+	viewport.size = logical_size
+	add_child(viewport)
+	var host := Control.new()
+	host.size = Vector2(logical_size)
+	viewport.add_child(host)
+	var menu: PanelContainer = load("res://scenes/ui/build_menu.tscn").instantiate() as PanelContainer
+	host.add_child(menu)
+	await get_tree().process_frame
+	var side_inset: float = 44.0 / ui_scale if notched else 0.0
+	var bottom_inset: float = 18.0 / ui_scale if notched else 0.0
+	var safe_area := Rect2(Vector2(side_inset, 0.0), Vector2(logical_size) - Vector2(side_inset * 2.0, bottom_inset))
+	menu.call("set_safe_area_rect", safe_area)
+	menu.call("open_menu")
+	var profile: String = "%s scale %.3f notch %s" % [phone_size, ui_scale, notched]
+	for repeat_available: bool in [false, true]:
+		menu.set("_last_selected_building_type", BuildingData.BuildingType.HOUSE if repeat_available else -1)
+		menu.call("set_placement_mode", false)
+		for category: String in ["Economy", "Army", "Defence"]:
+			menu.call("_on_category_pressed", category)
+			for frame: int in 3:
+				await get_tree().process_frame
+			var panel: Rect2 = menu.get_global_rect()
+			var scroll: ScrollContainer = menu.get("scroll_container")
+			var grid: GridContainer = menu.get("grid")
+			_expect(safe_area.encloses(panel), "%s %s sheet outside safe area" % [profile, category])
+			_expect(panel.size.y <= 166.5, "%s %s sheet keeps excess height %.1f" % [profile, category, panel.size.y])
+			_expect(not (menu.get("title_label") as Label).visible, "%s retains redundant Build title" % profile)
+			var header: HBoxContainer = menu.get("header")
+			for control: Control in header.get_children():
+				if control.visible and control is Button:
+					_expect(control.size.x >= MIN_TOUCH_TARGET and control.size.y >= MIN_TOUCH_TARGET, "%s header target too small" % profile)
+					_expect(header.get_global_rect().encloses(control.get_global_rect()), "%s header action overflows" % profile)
+					_expect_button_text_fits(control as Button, profile)
+			if category == "Defence":
+				_expect(panel.size.x <= (410.0 if repeat_available else 340.0), "%s one-card Defence leaves blank width %.1f" % [profile, panel.size.x])
+				_expect(panel.size.y <= 150.5, "%s one-card Defence leaves blank height %.1f" % [profile, panel.size.y])
+				_expect(not scroll.get_h_scroll_bar().visible, "%s Defence shows an unnecessary scrollbar" % profile)
+				var tower: Button = (menu.get("_button_map") as Dictionary)[BuildingData.BuildingType.WATCH_TOWER]
+				_expect(absf(tower.size.x - scroll.size.x) <= 0.5, "%s Defence card does not fill its compact row" % profile)
+				_expect_button_text_fits(tower, profile)
+				# Locked and unaffordable cards explain their requirement on screen.
+				_expect(tower.text.contains("Unlocks in Age 2"), "%s locked tower loses age explanation" % profile)
+				menu.call("update_age", 2)
+				menu.call("update_resources", {"food": 0, "wood": 15, "gold": 0})
+				for frame: int in 3:
+					await get_tree().process_frame
+				var available_tower: Button = (menu.get("_button_map") as Dictionary)[BuildingData.BuildingType.WATCH_TOWER]
+				_expect(available_tower.disabled and available_tower.text.contains("Need +85W · +25G"), "%s tower loses visible shortage" % profile)
+				_expect_button_text_fits(available_tower, profile)
+				menu.call("update_age", 1)
+			else:
+				_expect(grid.size.x > scroll.size.x + 1.0, "%s %s loses horizontal navigation" % [profile, category])
+				var first: Button = null
+				for card: Button in grid.get_children():
+					if card.visible:
+						first = card
+						break
+				var card_gap: float = float(grid.get_theme_constant("h_separation"))
+				var visible_columns: float = (scroll.size.x + card_gap) / (first.size.x + card_gap)
+				_expect(visible_columns > 3.0 and visible_columns < 3.4, "%s %s loses next-card discovery %.2f" % [profile, category, visible_columns])
+	menu.free()
+	viewport.free()
+	await get_tree().process_frame
+
+
+func _expect_button_text_fits(button: Button, profile: String) -> void:
+	var available_width: float = button.size.x - button.get_theme_stylebox("normal").get_minimum_size().x
+	if button.icon != null:
+		available_width -= float(button.get_theme_constant("icon_max_width") + button.get_theme_constant("h_separation"))
+	for line: String in button.text.split("\n"):
+		var line_width: float = button.get_theme_font("font").get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, button.get_theme_font_size("font_size")).x
+		_expect(line_width <= available_width + 0.5, "%s '%s' clips words %.1f/%.1f" % [profile, line, line_width, available_width])
+	_expect(button.get_minimum_size().y <= button.size.y + 0.5, "%s card clips text vertically" % profile)
 
 
 func _expect(condition: bool, message: String) -> void:

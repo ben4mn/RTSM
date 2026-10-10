@@ -22,7 +22,7 @@ var pathfinding: Pathfinding
 @export var map_seed: int = -1
 
 ## Mobile-first camera tuning.
-@export var mobile_default_zoom: float = 1.02
+@export var mobile_default_zoom: float = 1.25
 @export var mobile_zoom_min: float = 0.62
 @export var mobile_zoom_max: float = 2.2
 @export var desktop_default_zoom: float = 1.35
@@ -270,6 +270,10 @@ func _update_camera_pan(delta: float) -> void:
 func _clamp_camera() -> void:
 	if camera == null:
 		return
+	camera.position = get_clamped_camera_focus(camera.position)
+
+
+func get_clamped_camera_focus(focus: Vector2) -> Vector2:
 	var bounds_pos: Vector2 = _camera_world_bounds.position
 	var bounds_end: Vector2 = _camera_world_bounds.position + _camera_world_bounds.size
 	var half_view: Vector2 = _get_camera_half_view_world()
@@ -277,16 +281,17 @@ func _clamp_camera() -> void:
 	var min_x: float = bounds_pos.x + half_view.x
 	var max_x: float = bounds_end.x - half_view.x
 	if min_x > max_x:
-		camera.position.x = (bounds_pos.x + bounds_end.x) * 0.5
+		focus.x = (bounds_pos.x + bounds_end.x) * 0.5
 	else:
-		camera.position.x = clampf(camera.position.x, min_x, max_x)
+		focus.x = clampf(focus.x, min_x, max_x)
 
 	var min_y: float = bounds_pos.y + half_view.y
 	var max_y: float = bounds_end.y - half_view.y
 	if min_y > max_y:
-		camera.position.y = (bounds_pos.y + bounds_end.y) * 0.5
+		focus.y = (bounds_pos.y + bounds_end.y) * 0.5
 	else:
-		camera.position.y = clampf(camera.position.y, min_y, max_y)
+		focus.y = clampf(focus.y, min_y, max_y)
+	return focus
 
 
 func _input(event: InputEvent) -> void:
@@ -445,6 +450,12 @@ func zoom_out(anchor_screen: Vector2 = NO_ZOOM_ANCHOR) -> void:
 
 func reset_zoom(anchor_screen: Vector2 = NO_ZOOM_ANCHOR) -> void:
 	_set_zoom_anchored(_get_default_zoom(), anchor_screen, anchor_screen, true)
+
+
+func fit_opening_zoom(maximum: float) -> void:
+	if _user_zoom_override:
+		return
+	_set_zoom_anchored(minf(_get_default_zoom(), maximum), NO_ZOOM_ANCHOR, NO_ZOOM_ANCHOR, false)
 
 
 func show_overview() -> void:
