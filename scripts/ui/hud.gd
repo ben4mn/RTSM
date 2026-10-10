@@ -8,6 +8,7 @@ signal age_up_requested()
 signal idle_villager_pressed()
 signal train_unit_requested(building: Node2D, unit_type: int)
 signal minimap_clicked(world_pos: Vector2)
+signal sacred_site_pressed()
 signal cancel_queue_requested(building: Node2D, index: int)
 signal select_all_military_pressed()
 signal find_army_pressed()
@@ -145,7 +146,10 @@ var _train_buttons_container: HBoxContainer = null
 var _selected_building_ref: Node2D = null
 var _auto_queue_button: Button = null
 var _queue_page_spacer: Control = null
-var _queue_hint_label: Label = null
+var _queue_navigation_button: Button = null
+var _queue_view_requested: bool = false
+var _queue_view_offset: int = 0
+var _queue_navigation_revision: int = 0
 
 # Notification feed
 var _notification_container: VBoxContainer = null
@@ -187,6 +191,8 @@ var _hotkey_panel: PanelContainer = null
 # Sacred site timer label
 var _sacred_site_label: Label = null
 var _sacred_site_panel: PanelContainer = null
+var _sacred_site_button: Button = null
+var _sacred_site_status: Dictionary = {}
 
 # Score label
 var _score_label: Label = null
@@ -1385,11 +1391,6 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 	selection_separator.visible = selection_has_commands and not (bool(metrics["top_bar_compact"]) and _is_town_center_production_context())
 	command_scroll.visible = selection_has_commands
 	_layout_queue_page()
-	if _queue_hint_label:
-		_queue_hint_label.offset_left = metrics["selection_left"] + metrics["selection_info_width"] + 12.0 - viewport_size.x * 0.5
-		_queue_hint_label.offset_right = _queue_hint_label.offset_left + 150.0
-		_queue_hint_label.offset_bottom = metrics["selection_top"] - 2.0
-		_queue_hint_label.offset_top = _queue_hint_label.offset_bottom - 16.0
 	if _advanced_command_panel:
 		var advanced_width: float = minf(344.0, metrics["selection_width"])
 		_advanced_command_panel.offset_left = metrics["selection_right"] - advanced_width - viewport_size.x * 0.5
@@ -1453,10 +1454,27 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 			_fit_notification_feed()
 
 	if _sacred_site_panel:
+		_sacred_site_panel.visible = not _sacred_site_status.is_empty() and standard_field_chrome_visible
+		var sacred_width: float = minf(236.0, safe_area.size.x - 16.0)
+		var sacred_left: float = safe_pos.x + (safe_area.size.x - sacred_width) * 0.5
+		_sacred_site_panel.offset_left = sacred_left - viewport_size.x * 0.5
+		_sacred_site_panel.offset_right = _sacred_site_panel.offset_left + sacred_width
 		_sacred_site_panel.offset_top = metrics["safe_top"] + (110.0 if _progression_hint_panel and _progression_hint_panel.visible else 58.0)
-		_sacred_site_panel.offset_bottom = _sacred_site_panel.offset_top + 28.0
+		_sacred_site_panel.offset_bottom = _sacred_site_panel.offset_top + MOBILE_ACTION_BUTTON_HEIGHT
+		if _sacred_site_button:
+			_sacred_site_button.disabled = _ui_modal_state == UIModalState.PAUSE_MENU
 		metrics["sacred_top"] = _sacred_site_panel.offset_top
 		metrics["sacred_bottom"] = _sacred_site_panel.offset_bottom
+		if _notification_container and _sacred_site_panel.visible:
+			# A Large UI phone can place the centered objective over the last
+			# few pixels of the toast lane. Keep both complete and separate.
+			if sacred_left - _notification_container.offset_left >= 120.0:
+				_notification_container.offset_right = minf(_notification_container.offset_right, sacred_left - 8.0)
+			else:
+				_notification_container.offset_top = maxf(_notification_container.offset_top, _sacred_site_panel.offset_bottom + 8.0)
+			metrics["notification_right"] = _notification_container.offset_right
+			metrics["notification_top"] = _notification_container.offset_top
+			_fit_notification_feed()
 
 	if not OS.has_feature("production"):
 		metrics["safe_area_source"] = _safe_area_diagnostics.duplicate(true)
@@ -1834,9 +1852,12 @@ func _refresh_touch_target_diagnostics() -> void:
 	diag["mobile_action_buttons"] = _collect_button_diags(_mobile_action_strip, "mobile_action")
 	diag["unit_command_buttons"] = _collect_button_diags(_unit_command_container, "unit_command")
 	diag["queue_cancel_buttons"] = _collect_button_diags(queue_container, "queue_cancel")
+	diag["queue_navigation"] = _control_touch_diag(_queue_navigation_button, "queue_navigation")
 	diag["train_buttons"] = _collect_button_diags(_train_buttons_container, "train")
 	diag["repeat_training_button"] = _control_touch_diag(_auto_queue_button, "repeat_training")
 	diag["repeat_training_enabled"] = _auto_queue_button.button_pressed if _auto_queue_button else false
+	diag["sacred_site_button"] = _control_touch_diag(_sacred_site_button, "sacred_site")
+	diag["sacred_site_status"] = _sacred_site_label.text if _sacred_site_label else ""
 	diag["research_buttons"] = _collect_button_diags(_research_container, "research")
 	diag["minimap_bg"] = _control_touch_diag(minimap_bg, "minimap_bg")
 	diag["minimap_rect"] = _control_touch_diag(minimap_rect, "minimap_rect")
@@ -2242,6 +2263,10 @@ func show_unit_selection(unit_name: String, current_hp: int, max_hp: int, action
 
 
 func show_building_selection(building_name: String, current_hp: int, max_hp: int, queue_items: Array, trainable_units: Array = [], building_ref: Node2D = null) -> void:
+	var restore_queue_view: bool = _selected_building_ref == building_ref and command_scroll.scroll_horizontal > maxi(1, int(queue_container.position.x * 0.5))
+	var queue_view_offset: int = maxi(0, command_scroll.scroll_horizontal - int(queue_container.position.x))
+	_queue_view_requested = restore_queue_view
+	_queue_view_offset = queue_view_offset if restore_queue_view else 0
 	_close_advanced_commands()
 	if _ui_modal_state == UIModalState.PAUSE_MENU:
 		return
@@ -2269,9 +2294,20 @@ func show_building_selection(building_name: String, current_hp: int, max_hp: int
 			detail_parts.append("Atk:%d Rng:%d" % [stats["attack_damage"], stats.get("attack_range", 0)])
 		if b.state == BuildingBase.State.CONSTRUCTING:
 			detail_parts.append("Under construction...")
+		if b.provides_food:
+			detail_parts.append("%d food remaining" % b.farm_remaining)
+		if b.rally_resource_instance_id > 0:
+			detail_parts.append("Villager rally: gather %s" % b.rally_resource_type)
 	selection_name.tooltip_text = "%s\n%s" % [building_name, " | ".join(detail_parts)]
 	selection_details.tooltip_text = " | ".join(detail_parts)
 	selection_details.text = _building_purpose(building_ref)
+	# A new producer always starts at recruitment. Live updates of the same
+	# producer preserve the player's queue inspection position.
+	if _selected_building_ref != building_ref:
+		_queue_view_requested = false
+		_queue_view_offset = 0
+		_queue_navigation_revision += 1
+		command_scroll.scroll_horizontal = 0
 	_selected_building_ref = building_ref
 	var has_command_authority: bool = _is_human_owned_building(building_ref)
 	var visible_queue: Array = queue_items if has_command_authority else []
@@ -2280,12 +2316,15 @@ func show_building_selection(building_name: String, current_hp: int, max_hp: int
 	if building_ref is BuildingBase and (building_ref as BuildingBase).building_type == BuildingData.BuildingType.TOWN_CENTER:
 		for item: Dictionary in visible_queue:
 			if bool(item.get("is_training", false)):
-				selection_details.text += "\n%s %d%%" % [str(item.get("name", "Training")), int(float(item.get("progress", 0.0)) * 100.0)]
+				# Keep the rally cue/state and live training inside two mobile lines.
+				selection_details.text = "%s\n%s %d%%" % [selection_details.text.get_slice("\n", 0), str(item.get("name", "Training")), int(float(item.get("progress", 0.0)) * 100.0)]
 				break
 	_update_queue_display(visible_queue)
 	_update_train_buttons(visible_trainable)
 	_update_research_buttons(building_ref if has_command_authority else null)
 	_queue_mobile_layout_refresh()
+	if restore_queue_view:
+		call_deferred("_restore_producer_queue_view", building_ref, queue_view_offset, _queue_navigation_revision)
 
 
 func _is_human_owned_building(building_ref: Node2D) -> bool:
@@ -2367,12 +2406,19 @@ func _building_purpose(building_ref: Node2D) -> String:
 			return "Needs builder"
 		return "Building %d%%" % int(building.build_progress * 100.0)
 	match building.building_type:
-		BuildingData.BuildingType.TOWN_CENTER: return "Arrows + depot" if building.tower_attack_damage > 0 else "All drop-off"
+		BuildingData.BuildingType.TOWN_CENTER:
+			if building.player_owner != 0:
+				return "Arrows + depot" if building.tower_attack_damage > 0 else "All drop-off"
+			if building.rally_resource_instance_id > 0:
+				return "Rally: %s" % building.rally_resource_type.capitalize()
+			if building.has_custom_rally_point():
+				return "Ground rally"
+			return "Tap resource\nfor rally"
 		BuildingData.BuildingType.HOUSE: return "+%d housing" % int(BuildingData.BUILDINGS[building.building_type].get("pop_provided", 0))
 		BuildingData.BuildingType.MILL: return "Food drop-off"
 		BuildingData.BuildingType.LUMBER_CAMP: return "Wood drop-off"
 		BuildingData.BuildingType.MINING_CAMP: return "Gold drop-off"
-		BuildingData.BuildingType.FARM: return "Produces food"
+		BuildingData.BuildingType.FARM: return "Food: %d remaining" % building.farm_remaining
 		BuildingData.BuildingType.BARRACKS: return "Trains Warriors"
 		BuildingData.BuildingType.ARCHERY_RANGE: return "Trains Archers"
 		BuildingData.BuildingType.STABLE: return "Trains Horsemen"
@@ -2459,7 +2505,13 @@ func _update_queue_display(queue_items: Array) -> void:
 		desired_names["QueueTrainingChip"] = true
 	for unit_type: int in queue_units:
 		desired_names["QueueUnit_%s" % str(unit_type)] = true
-	if not queue_items.is_empty():
+	var repeat_waiting: bool = false
+	if _is_human_owned_building(_selected_building_ref):
+		var producer_queue: Node = _selected_building_ref.get_production_queue()
+		repeat_waiting = producer_queue != null and bool(producer_queue.get("auto_queue_enabled")) and queue_items.is_empty()
+	if repeat_waiting:
+		desired_names["QueueWaitingLabel"] = true
+	if not queue_items.is_empty() or repeat_waiting:
 		desired_names["QueueClearLastButton"] = true
 		desired_names["QueueClearAllButton"] = true
 	# Keep matching controls alive across Main's 0.5-second selection refresh.
@@ -2471,13 +2523,28 @@ func _update_queue_display(queue_items: Array) -> void:
 		if not desired_names.has(String(child.name)):
 			_retire_dynamic_control(child)
 
-	if queue_items.is_empty():
+	if queue_items.is_empty() and not repeat_waiting:
 		queue_container.visible = false
+		_queue_view_requested = false
+		command_scroll.scroll_horizontal = 0
 		_refresh_touch_target_diagnostics()
 		return
 
 	queue_container.visible = true
 	var child_index := 0
+	if repeat_waiting:
+		var waiting_label: Label = queue_container.get_node_or_null("QueueWaitingLabel") as Label
+		if waiting_label == null:
+			waiting_label = Label.new()
+			waiting_label.name = "QueueWaitingLabel"
+			waiting_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			waiting_label.custom_minimum_size = Vector2(148, 48)
+			waiting_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			waiting_label.add_theme_font_size_override("font_size", 12)
+			queue_container.add_child(waiting_label)
+		waiting_label.text = "Repeat waiting\n%s" % _get_repeat_wait_reason()
+		queue_container.move_child(waiting_label, child_index)
+		child_index += 1
 
 	if training_label != "" and not compact_training:
 		var training_chip: Label = queue_container.get_node_or_null("QueueTrainingChip") as Label
@@ -2527,7 +2594,7 @@ func _update_queue_display(queue_items: Array) -> void:
 		clear_last.name = "QueueClearLastButton"
 		clear_last.pressed.connect(_on_clear_last_queue_pressed)
 		queue_container.add_child(clear_last)
-	clear_last.visible = true
+	clear_last.visible = not queue_items.is_empty()
 	clear_last.mouse_filter = Control.MOUSE_FILTER_STOP
 	clear_last.text = "Undo"
 	clear_last.tooltip_text = "Cancel last queued unit; keep the Repeat setting"
@@ -2612,13 +2679,16 @@ func _update_train_buttons(trainable_units: Array) -> void:
 			_queue_page_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			parent_vbox.add_child(_queue_page_spacer)
 			parent_vbox.move_child(_queue_page_spacer, 1)
-			_queue_hint_label = Label.new()
-			_queue_hint_label.name = "QueueSwipeHint"
-			_queue_hint_label.text = "Swipe for queue"
-			_queue_hint_label.add_theme_font_size_override("font_size", 11)
-			_queue_hint_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			get_node("Root").add_child(_queue_hint_label)
-			_queue_hint_label.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+			_queue_navigation_button = Button.new()
+			_queue_navigation_button.name = "QueueNavigationButton"
+			_queue_navigation_button.custom_minimum_size = Vector2(96, 48)
+			_queue_navigation_button.focus_mode = Control.FOCUS_NONE
+			_queue_navigation_button.add_theme_font_size_override("font_size", 13)
+			KingdomTheme.apply_secondary(_queue_navigation_button)
+			_queue_navigation_button.pressed.connect(_on_queue_navigation_pressed)
+			get_node("Root").add_child(_queue_navigation_button)
+			_queue_navigation_button.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+			command_scroll.get_h_scroll_bar().value_changed.connect(_refresh_queue_navigation)
 
 	# Reconcile by stable names instead of rebuilding the row on every selection
 	# refresh. Main refreshes a selected production building every 0.5 seconds;
@@ -2751,12 +2821,49 @@ func _layout_queue_page() -> void:
 		return
 	var has_queue_page: bool = _train_buttons_container.visible and queue_container.visible and selection_panel.visible
 	_queue_page_spacer.visible = has_queue_page
-	_queue_hint_label.visible = has_queue_page
+	_queue_navigation_button.visible = _train_buttons_container.visible and selection_panel.visible and _auto_queue_button != null
+	_queue_navigation_button.disabled = not has_queue_page or _ui_modal_state != UIModalState.NONE
+	queue_container.custom_minimum_size.x = command_scroll.size.x if has_queue_page else 0.0
+	_queue_navigation_button.offset_right = selection_panel.offset_right
+	_queue_navigation_button.offset_left = _queue_navigation_button.offset_right - 96.0
+	_queue_navigation_button.offset_bottom = selection_panel.offset_top - 8.0
+	_queue_navigation_button.offset_top = _queue_navigation_button.offset_bottom - 48.0
 	if has_queue_page:
 		# The queue begins on the next scroll page, so the initial shelf never
 		# displays half a TRAIN label or half a cancellation button.
 		var gap_width: float = maxf(0.0, command_scroll.size.x - _train_buttons_container.get_combined_minimum_size().x - 12.0)
 		_queue_page_spacer.custom_minimum_size.x = gap_width
+		if _queue_view_requested:
+			call_deferred("_restore_producer_queue_view", _selected_building_ref, _queue_view_offset, _queue_navigation_revision)
+	_refresh_queue_navigation()
+
+
+func _refresh_queue_navigation(_value: float = 0.0) -> void:
+	if _queue_navigation_button == null:
+		return
+	var queue_in_view: bool = queue_container.visible and command_scroll.scroll_horizontal > maxi(1, int(queue_container.position.x * 0.5))
+	_queue_navigation_button.text = "‹ Train" if queue_in_view else "Queue (%d) ›" % _last_queue_items.size()
+	_queue_navigation_button.tooltip_text = "Return to recruitment" if queue_in_view else "Inspect production and cancel queued units"
+
+
+func _restore_producer_queue_view(building_ref: Node2D, offset: int, revision: int) -> void:
+	# Control reconciliation briefly changes content minima; restore after the
+	# containers have sorted so their transient scrollbar clamp cannot hide work.
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if revision == _queue_navigation_revision and _queue_view_requested and _selected_building_ref == building_ref and queue_container.visible and selection_panel.visible:
+		command_scroll.scroll_horizontal = int(queue_container.position.x) + offset
+
+
+func _on_queue_navigation_pressed() -> void:
+	if not queue_container.visible:
+		return
+	var queue_in_view: bool = command_scroll.scroll_horizontal > maxi(1, int(queue_container.position.x * 0.5))
+	_queue_navigation_revision += 1
+	_queue_view_requested = not queue_in_view
+	_queue_view_offset = 0
+	command_scroll.scroll_horizontal = 0 if queue_in_view else int(queue_container.position.x)
+	_refresh_queue_navigation()
 
 
 func _on_train_button_pressed(unit_type: int) -> void:
@@ -2777,6 +2884,7 @@ func _on_train_button_pressed(unit_type: int) -> void:
 func _refresh_auto_queue_button(production_queue: Node) -> void:
 	if _auto_queue_button == null or production_queue == null:
 		return
+	_auto_queue_button.add_theme_font_size_override("font_size", 13 if _is_town_center_production_context() and _is_phone_context() else 14)
 	var unit_type: int = int(production_queue.get("auto_queue_unit_type"))
 	var enabled: bool = bool(production_queue.get("auto_queue_enabled"))
 	_auto_queue_button.set_pressed_no_signal(enabled)
@@ -2791,6 +2899,9 @@ func _refresh_auto_queue_button(production_queue: Node) -> void:
 		_auto_queue_button.text = "%s\nRepeat · %s" % [unit_name, "ON" if enabled else "OFF"]
 		_auto_queue_button.tooltip_text = "Keep training %s after each completion while resources and population room allow. The last unit you queue is the one repeated." % unit_name
 		_auto_queue_button.icon = null
+		if enabled and int(production_queue.call("get_queue_size")) == 0:
+			_auto_queue_button.text += "\n" + _get_repeat_wait_reason()
+			_auto_queue_button.add_theme_font_size_override("font_size", 11)
 	if enabled:
 		KingdomTheme.apply_primary(_auto_queue_button)
 	else:
@@ -2800,12 +2911,43 @@ func _refresh_auto_queue_button(production_queue: Node) -> void:
 	_refresh_touch_target_diagnostics()
 
 
+func _get_repeat_wait_reason() -> String:
+	if not _is_human_owned_building(_selected_building_ref):
+		return "Unavailable"
+	var building := _selected_building_ref as BuildingBase
+	if building.state != BuildingBase.State.ACTIVE:
+		return "Building…" if building.state == BuildingBase.State.CONSTRUCTING else "Unavailable"
+	var producer: Node = building.get_production_queue()
+	var unit_type: int = int(producer.get("auto_queue_unit_type")) if producer != null else -1
+	if unit_type < 0 or unit_type not in building.trainable_units:
+		return "Train first"
+	var gm: Node = _get_game_manager()
+	if gm:
+		var committed: int = gm.get_committed_population(building.player_owner)
+		var cap: int = int(gm.players.get(building.player_owner, {}).get("population_cap", 0))
+		var unit_pop: int = int(UnitData.UNITS.get(unit_type, {}).get("pop_cost", 1))
+		if committed + unit_pop > cap:
+			return "Pop %d/%d" % [committed, cap]
+	var rm: Node = _get_resource_manager()
+	if rm:
+		var missing: Dictionary = rm.get_missing_resources(building.player_owner, UnitData.get_unit_cost(unit_type))
+		var shortages: PackedStringArray = []
+		for resource: String in ["food", "wood", "gold"]:
+			if int(missing.get(resource, 0)) > 0:
+				shortages.append("%d%s" % [int(missing[resource]), resource.left(1).to_upper()])
+		if not shortages.is_empty():
+			return "Need " + " · ".join(shortages)
+	return "Resuming…"
+
+
 func _on_auto_queue_toggled(pressed: bool) -> void:
 	if _is_human_owned_building(_selected_building_ref):
 		var pq: Node = _selected_building_ref.get_production_queue() if _selected_building_ref.has_method("get_production_queue") else null
 		if pq:
 			pq.auto_queue_enabled = pressed
 			_refresh_auto_queue_button(pq)
+			_update_queue_display(pq.get_queue_info())
+			_layout_queue_page()
 			var unit_type: int = int(pq.get("auto_queue_unit_type"))
 			var unit_name: String = UnitData.get_unit_name(unit_type) if unit_type >= 0 else "unit"
 			show_notification(
@@ -3033,6 +3175,13 @@ func update_minimap(grid: Array, player_units: Array, enemy_units: Array, player
 	@warning_ignore("integer_division")
 	var sacred_y: int = map_h / 2
 	var sacred_color := Color(0.85, 0.55, 1.0)
+	var sacred_phase: String = str(_sacred_site_status.get("phase", "neutral"))
+	if sacred_phase in ["contested", "neutralizing"]:
+		sacred_color = Color(1.0, 0.85, 0.2)
+	elif int(_sacred_site_status.get("owner", -1)) == 0:
+		sacred_color = Color(0.3, 0.6, 1.0)
+	elif int(_sacred_site_status.get("owner", -1)) == 1:
+		sacred_color = Color(1.0, 0.3, 0.3)
 	for dy in range(-1, 2):
 		for dx in range(-1, 2):
 			var px: int = sacred_x + dx
@@ -3145,7 +3294,7 @@ func _create_notification_feed() -> void:
 	root_ctrl.add_child(_notification_container)
 
 
-func show_notification(text: String, color: Color = Color.WHITE, duration: float = NOTIFICATION_DURATION) -> void:
+func show_notification(text: String, color: Color = Color.WHITE, duration: float = NOTIFICATION_DURATION, action: Callable = Callable()) -> void:
 	if _notification_container == null:
 		return
 	# Cap at max visible
@@ -3155,6 +3304,16 @@ func show_notification(text: String, color: Color = Color.WHITE, duration: float
 
 	var panel := PanelContainer.new()
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if action.is_valid():
+		panel.mouse_filter = Control.MOUSE_FILTER_STOP
+		panel.custom_minimum_size.y = MOBILE_ACTION_BUTTON_HEIGHT
+		panel.gui_input.connect(func(event: InputEvent) -> void:
+			if (event is InputEventScreenTouch and event.pressed) or (
+				event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed
+			):
+				action.call()
+				panel.accept_event()
+		)
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.025, 0.045, 0.04, 0.82)
 	style.border_color = color
@@ -3205,10 +3364,10 @@ func _fit_notification_feed() -> void:
 		# the actual message at its lane width so VBox never collapses the text.
 		label.custom_minimum_size.y = ceilf(font.get_multiline_string_size(label.text, HORIZONTAL_ALIGNMENT_LEFT, width, font_size, -1, TextServer.BREAK_MANDATORY | TextServer.BREAK_WORD_BOUND | TextServer.BREAK_ADAPTIVE).y)
 		active_panels.append(panel)
-		total_height += label.custom_minimum_size.y + 6.0 + 2.0
+		total_height += maxf(panel.custom_minimum_size.y, label.custom_minimum_size.y + 6.0) + 2.0
 	while active_panels.size() > 1 and total_height - 2.0 > lane_height:
 		var oldest: Control = active_panels.pop_front()
-		total_height -= (oldest.get_child(0) as Label).custom_minimum_size.y + 8.0
+		total_height -= maxf(oldest.custom_minimum_size.y, (oldest.get_child(0) as Label).custom_minimum_size.y + 6.0) + 2.0
 		_retire_dynamic_control(oldest)
 
 
@@ -3284,49 +3443,115 @@ func _create_sacred_site_label() -> void:
 	_sacred_site_panel.name = "SacredSiteChip"
 	_sacred_site_panel.set_anchors_preset(Control.PRESET_CENTER_TOP)
 	_sacred_site_panel.offset_top = 110
-	_sacred_site_panel.offset_bottom = 138
-	_sacred_site_panel.offset_left = -110
-	_sacred_site_panel.offset_right = 110
-	_sacred_site_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_sacred_site_panel.offset_bottom = 158
+	_sacred_site_panel.offset_left = -118
+	_sacred_site_panel.offset_right = 118
+	_sacred_site_panel.mouse_filter = Control.MOUSE_FILTER_PASS
 	_sacred_site_panel.visible = false
 	var chip_style := StyleBoxFlat.new()
 	chip_style.bg_color = Color(0.025, 0.045, 0.04, 0.88)
 	chip_style.border_color = Color(0.72, 0.58, 0.28, 0.82)
 	chip_style.set_border_width_all(1)
 	chip_style.set_corner_radius_all(7)
-	chip_style.set_content_margin_all(4)
+	chip_style.set_content_margin_all(0)
 	_sacred_site_panel.add_theme_stylebox_override("panel", chip_style)
+	_sacred_site_button = Button.new()
+	_sacred_site_button.name = "SacredSiteButton"
+	_sacred_site_button.flat = true
+	_sacred_site_button.focus_mode = Control.FOCUS_NONE
+	_sacred_site_button.custom_minimum_size = Vector2(0.0, MOBILE_ACTION_BUTTON_HEIGHT)
+	_sacred_site_button.pressed.connect(func() -> void: sacred_site_pressed.emit())
+	_sacred_site_panel.add_child(_sacred_site_button)
 	_sacred_site_label = Label.new()
 	_sacred_site_label.name = "SacredSiteLabel"
 	_sacred_site_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_sacred_site_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_sacred_site_label.add_theme_font_size_override("font_size", 13)
 	_sacred_site_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_sacred_site_panel.add_child(_sacred_site_label)
+	_sacred_site_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_sacred_site_button.add_child(_sacred_site_label)
 	root_ctrl.add_child(_sacred_site_panel)
 
 
 func update_sacred_site_timer(player_id: int, remaining: float, total: float) -> void:
+	# Keep this API for HUD-only previews. Runtime feedback uses the site's
+	# authoritative phase, including holds paused by a contest or takeover.
+	update_sacred_site_status({
+		"phase": "holding" if player_id >= 0 else "neutral",
+		"owner": player_id,
+		"remaining": remaining,
+		"total": total,
+		"capture_progress": 1.0 if player_id >= 0 else 0.0,
+	})
+
+
+func update_sacred_site_status(status: Dictionary) -> void:
 	if _sacred_site_label == null:
 		return
-	if player_id < 0 or remaining <= 0.0:
-		_sacred_site_panel.visible = false
+	var first_status: bool = _sacred_site_status.is_empty()
+	_sacred_site_status = status.duplicate()
+	_sacred_site_label.text = "Sacred Site · tap to view\n" + _sacred_site_status_line(status)
+	_sacred_site_button.tooltip_text = _sacred_site_instructions(status)
+	var phase: String = str(status.get("phase", "neutral"))
+	var owner: int = int(status.get("owner", -1))
+	var color := Color(0.85, 0.7, 1.0)
+	if phase in ["contested", "neutralizing"]:
+		color = Color(1.0, 0.85, 0.3)
+	elif owner == 0:
+		color = Color(0.3, 0.7, 1.0)
+	elif owner == 1:
+		color = Color(1.0, 0.4, 0.3)
+	_sacred_site_label.add_theme_color_override("font_color", color)
+	if _selection_kind == "sacred":
+		show_sacred_site_selection(status)
+	if first_status:
+		_queue_mobile_layout_refresh()
+
+
+func _sacred_site_status_line(status: Dictionary) -> String:
+	var owner_name: String = "You" if int(status.get("owner", -1)) == 0 else "Enemy"
+	var remaining: int = maxi(0, ceili(float(status.get("remaining", 0.0))))
+	var remaining_text: String = "%d:%02d" % [int(remaining / 60.0), remaining % 60]
+	match str(status.get("phase", "neutral")):
+		"capturing": return "%s capturing · %d%%" % [owner_name, floori(float(status.get("capture_progress", 0.0)) * 100.0)]
+		"holding": return "%s win in %s" % [owner_name, remaining_text]
+		"contested": return "Contested · %s %s paused" % [owner_name, remaining_text]
+		"neutralizing": return "Disrupted · %s %s paused" % [owner_name, remaining_text]
+	return "Neutral · enter the ring"
+
+
+func _sacred_site_instructions(status: Dictionary) -> String:
+	var total_seconds: int = maxi(0, ceili(float(status.get("total", 0.0))))
+	var total_text: String = "%d:%02d" % [int(total_seconds / 60.0), total_seconds % 60]
+	return "Any living unit, including Scouts and villagers, can capture. Keep units inside the ring with no enemies. Send units into an enemy-held ring to pause its clock; clear the defenders to neutralize it. An uncontested hold of %s wins, or destroy the enemy Town Center." % total_text
+
+
+func show_sacred_site_selection(status: Dictionary) -> void:
+	if _ui_modal_state == UIModalState.PAUSE_MENU:
 		return
-	_sacred_site_panel.visible = true
-	@warning_ignore("integer_division")
-	var mins: int = int(remaining) / 60
-	@warning_ignore("integer_division")
-	var secs: int = int(remaining) % 60
-	var owner_name: String = "You" if player_id == 0 else "Enemy"
-	_sacred_site_label.text = "Sacred Site: %s (%d:%02d)" % [owner_name, mins, secs]
-	if player_id == 0:
-		_sacred_site_label.add_theme_color_override("font_color", Color(0.3, 0.7, 1.0))
-	else:
-		_sacred_site_label.add_theme_color_override("font_color", Color(1.0, 0.4, 0.3))
-	# Flash warning when under 60s
-	if remaining < 60.0 and player_id != 0:
-		var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.01)
-		_sacred_site_label.add_theme_color_override("font_color", Color(1.0, lerpf(0.2, 0.5, pulse), 0.2))
+	var first_selection: bool = _selection_kind != "sacred"
+	if first_selection:
+		clear_selection()
+		_selection_context_active = true
+		_selection_kind = "sacred"
+		_selection_full_name = "Sacred Site"
+		selection_name.text = _selection_full_name
+	selection_name.tooltip_text = _sacred_site_instructions(status)
+	selection_hp_bar.max_value = 100.0
+	selection_hp_bar.value = float(status.get("capture_progress", 0.0)) * 100.0
+	var phase: String = str(status.get("phase", "neutral"))
+	var owner_name: String = "You" if int(status.get("owner", -1)) == 0 else "Enemy"
+	var remaining: int = maxi(0, ceili(float(status.get("remaining", 0.0))))
+	var clock: String = "%d:%02d" % [int(remaining / 60.0), remaining % 60]
+	match phase:
+		"capturing": selection_details.text = "%s %d%%\n%s" % [owner_name, floori(float(status.get("capture_progress", 0.0)) * 100.0), "Stay in ring" if int(status.get("owner", -1)) == 0 else "Enter to contest"]
+		"holding": selection_details.text = "%s · %s\n%s" % [owner_name, clock, "Hold to win" if int(status.get("owner", -1)) == 0 else "Enter to pause"]
+		"contested": selection_details.text = "Contested\nClear enemies"
+		"neutralizing": selection_details.text = "Disrupted\nStay in ring"
+		_: selection_details.text = "Neutral\nEnter ring"
+	selection_details.tooltip_text = _sacred_site_instructions(status)
+	if first_selection:
+		_queue_mobile_layout_refresh()
 
 
 # --- Score Display ---

@@ -500,6 +500,8 @@ func _on_map_ready(map_gen: MapGenerator) -> void:
 		game_map.sacred_site.captured.connect(_on_sacred_site_captured)
 		game_map.sacred_site.neutralized.connect(_on_sacred_site_neutralized)
 		game_map.sacred_site.victory_timer_tick.connect(_on_sacred_site_timer_tick)
+		game_map.sacred_site.status_changed.connect(_refresh_sacred_site_status)
+		_refresh_sacred_site_status()
 
 	# Wire up HUD.
 	_setup_hud()
@@ -629,6 +631,8 @@ func _refresh_guided_opening_stage() -> void:
 # =========================================================================
 
 func _on_sacred_site_captured(player_id: int) -> void:
+	if _sacred_control_owner != player_id:
+		_sacred_site_victory_notified = false
 	_sacred_control_owner = player_id
 	# A same-owner recapture after a contested interval resumes the site's
 	# existing victory timer.  Use that authoritative timer as the telemetry
@@ -645,7 +649,8 @@ func _on_sacred_site_captured(player_id: int) -> void:
 		var remaining_text: String = "%d:%02d" % [int(remaining_seconds / 60.0), remaining_seconds % 60]
 		hud.show_notification("Sacred Site secured! Hold %s more to win." % remaining_text, Color(0.9, 0.8, 0.2))
 	else:
-		hud.show_notification("Enemy captured the Sacred Site!", Color(1.0, 0.4, 0.2))
+		hud.show_notification("Enemy holds Sacred Site. Enter its ring to pause victory. Tap to view.", Color(1.0, 0.4, 0.2), 8.0, Callable(self, "_on_sacred_site_pressed"))
+	_refresh_sacred_site_status()
 
 
 func _on_sacred_site_neutralized() -> void:
@@ -653,7 +658,7 @@ func _on_sacred_site_neutralized() -> void:
 	_sacred_last_remaining = -1.0
 	hud.show_notification("Sacred Site neutralized", Color(0.7, 0.7, 0.7))
 	_sacred_site_victory_notified = false
-	hud.update_sacred_site_timer(-1, 0.0, 0.0)
+	_refresh_sacred_site_status()
 
 
 func _on_sacred_site_timer_tick(player_id: int, remaining: float, total: float) -> void:
@@ -661,7 +666,6 @@ func _on_sacred_site_timer_tick(player_id: int, remaining: float, total: float) 
 		_sacred_control_seconds[player_id] += _sacred_last_remaining - remaining
 	_sacred_control_owner = player_id
 	_sacred_last_remaining = remaining
-	hud.update_sacred_site_timer(player_id, remaining, total)
 	# Check for victory
 	if remaining <= 0.0:
 		_conclude_match(player_id, "Sacred Site held for %s" % _format_duration_seconds(total))
@@ -671,7 +675,20 @@ func _on_sacred_site_timer_tick(player_id: int, remaining: float, total: float) 
 		if player_id == 0:
 			hud.show_notification("Sacred Site victory in 1 minute!", Color(0.9, 0.8, 0.2))
 		else:
-			hud.show_notification("Enemy Sacred Site victory in 1 minute!", Color(1.0, 0.3, 0.2))
+			hud.show_notification("Enemy victory in 1:00! Enter Sacred ring to pause. Tap to view.", Color(1.0, 0.3, 0.2), 8.0, Callable(self, "_on_sacred_site_pressed"))
+
+
+func _refresh_sacred_site_status() -> void:
+	if hud != null and is_instance_valid(game_map.sacred_site):
+		hud.update_sacred_site_status(game_map.sacred_site.get_status())
+
+
+func _on_sacred_site_pressed() -> void:
+	if not is_instance_valid(game_map.sacred_site):
+		return
+	# Locating the public objective preserves an army selection for the next
+	# move order. Inspection by tapping the site itself still follows fog rules.
+	_on_minimap_clicked(game_map.sacred_site.global_position)
 
 
 # =========================================================================
@@ -1289,8 +1306,8 @@ func _spawn_unit(
 	unit.unit_died.connect(_on_unit_died.bind(player_id))
 
 	# Under-attack detection for player units.
-	if player_id == 0 and unit.has_signal("health_changed"):
-		unit.health_changed.connect(_on_player_unit_damaged)
+	if player_id == 0:
+		unit.damage_received.connect(_on_player_unit_damaged)
 
 	# Track resource deposits for stats.
 	if unit.has_signal("resource_deposited"):
@@ -1328,7 +1345,7 @@ func _on_unit_trained(unit_type: int, player_id: int, source_queue: ProductionQu
 		and not producer.has_custom_rally_point()
 	)
 	if not use_default_villager_assignment:
-		_issue_production_rally(unit, producer.rally_point)
+		_issue_production_rally(unit, producer.rally_point, producer)
 	if player_id == 0:
 		_update_idle_villager_count()
 		_on_selection_changed(game_map.selection_mgr.selected)
@@ -1405,9 +1422,14 @@ func _resolve_production_egress(producer: BuildingBase) -> Dictionary:
 	return {"valid": false}
 
 
-func _issue_production_rally(unit: UnitBase, requested_rally: Vector2) -> bool:
+func _issue_production_rally(unit: UnitBase, requested_rally: Vector2, producer: BuildingBase = null) -> bool:
 	if not is_instance_valid(unit) or game_map == null:
 		return false
+	if unit is Villager and is_instance_valid(producer) and producer.rally_resource_instance_id > 0:
+		return (unit as Villager).command_gather_last_observed(
+			producer.rally_resource_type, requested_rally,
+			producer.rally_resource_instance_id, producer.rally_resource_is_building
+		)
 	var route: PackedVector2Array = game_map.get_navigation_world_path(
 		unit.global_position,
 		requested_rally,
@@ -1420,7 +1442,12 @@ func _issue_production_rally(unit: UnitBase, requested_rally: Vector2) -> bool:
 	var valid_destination: Vector2 = route[route.size() - 1]
 	if unit.global_position.distance_to(valid_destination) <= PRODUCTION_RALLY_ARRIVAL_RADIUS:
 		return false
-	unit.command_move_path(route)
+	if unit.unit_type == UnitData.UnitType.VILLAGER or unit.damage <= 0.0:
+		unit.command_move_path(route)
+	else:
+		# Reinforcements should defend themselves and resume this rally after
+		# nearby combat, matching the ordinary smart military ground command.
+		unit.command_attack_move_path(route)
 	return true
 
 
@@ -1515,10 +1542,23 @@ func _auto_assign_new_villager(villager: UnitBase) -> void:
 			return
 
 
-func _on_player_unit_damaged(_unit: UnitBase, _new_hp: float, _max_hp: float) -> void:
+func _on_player_unit_damaged(unit: UnitBase, _hp_loss: float) -> void:
+	_show_under_attack_alert(UnitData.get_unit_name(unit.unit_type), unit.global_position)
+
+
+func _on_player_building_damaged(building: BuildingBase, _hp_loss: int) -> void:
+	_show_under_attack_alert(building.building_name, building.global_position)
+
+
+func _show_under_attack_alert(target_name: String, world_position: Vector2) -> void:
 	if _under_attack_cooldown <= 0.0:
 		_under_attack_cooldown = UNDER_ATTACK_COOLDOWN_TIME
-		hud.show_notification("Under attack!", Color(1.0, 0.4, 0.2))
+		hud.show_notification(
+			"%s under attack! Tap to view." % target_name,
+			Color(1.0, 0.4, 0.2),
+			6.0,
+			_on_minimap_clicked.bind(world_position)
+		)
 		AudioManager.play_sfx("under_attack")
 
 
@@ -1548,6 +1588,8 @@ func _spawn_building(building_type: int, player_id: int, tile_pos: Vector2i) -> 
 	# Connect building signals.
 	building.construction_complete.connect(_on_building_constructed.bind(player_id))
 	building.building_destroyed.connect(_on_building_destroyed.bind(player_id, tile_pos))
+	if player_id == 0:
+		building.damage_received.connect(_on_player_building_damaged)
 
 	# Connect production queue if it has one.
 	var pq: Node = building.get_production_queue()
@@ -1601,10 +1643,14 @@ func _on_building_destroyed(building: BuildingBase, player_id: int, tile_pos: Ve
 	_player_buildings[player_id].erase(building)
 	if building.provides_food:
 		game_map.unregister_harvestable(building)
-	_stats[player_id]["buildings_lost"] += 1
+	if not building.depleted_naturally:
+		_stats[player_id]["buildings_lost"] += 1
 	game_map.remove_building_obstacle(tile_pos, building.footprint)
 	if player_id == 0:
-		hud.show_notification("Building destroyed!", Color(1.0, 0.3, 0.3))
+		if building.depleted_naturally:
+			hud.show_notification("Farm exhausted. Build another for more food.", Color(0.95, 0.80, 0.40))
+		else:
+			hud.show_notification("Building destroyed!", Color(1.0, 0.3, 0.3))
 
 	if building.pop_provided > 0:
 		# Existing units and reservations survive an over-cap state. The cap ledger
@@ -1636,6 +1682,11 @@ func _on_selection_changed(selected_units: Array[Node2D]) -> void:
 		return
 
 	var first: Node2D = selected_units[0]
+	if first.is_in_group("sacred_sites"):
+		_clear_armed_unit_commands(false)
+		hud.show_sacred_site_selection(first.get_status())
+		_update_progression_hint()
+		return
 	if first is ResourceNode:
 		_clear_armed_unit_commands(false)
 		var r: ResourceNode = first as ResourceNode
@@ -1884,6 +1935,14 @@ func _on_gather_command(resource_node: Node2D) -> void:
 	if not game_map.is_resource_target_valid(resource_node, "", 0):
 		return
 	var selected: Array = game_map.selection_mgr.selected
+	if selected.size() == 1 and selected[0] is BuildingBase:
+		var producer: BuildingBase = selected[0] as BuildingBase
+		if producer.player_owner == 0 and UnitData.UnitType.VILLAGER in producer.trainable_units:
+			producer.set_resource_rally(resource_node)
+			VFX.move_indicator(get_tree(), resource_node.global_position)
+			hud.show_notification("Villager rally: gather %s" % resource_node.get_resource_type(), Color(0.58, 0.82, 1.0))
+			_on_selection_changed(game_map.selection_mgr.selected)
+		return
 	var assigned_any: bool = false
 	for node in selected:
 		if node is UnitBase and node.player_owner == 0 and node.has_method("command_gather"):
@@ -2150,6 +2209,7 @@ func _setup_hud() -> void:
 	hud.idle_villager_pressed.connect(_on_idle_villager_pressed)
 	hud.train_unit_requested.connect(_on_train_unit_requested)
 	hud.minimap_clicked.connect(_on_minimap_clicked)
+	hud.sacred_site_pressed.connect(_on_sacred_site_pressed)
 	hud.cancel_queue_requested.connect(_on_cancel_queue_requested)
 	hud.select_all_military_pressed.connect(_select_all_military)
 	hud.find_army_pressed.connect(_find_army)

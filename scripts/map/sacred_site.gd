@@ -7,6 +7,7 @@ signal captured(player_id: int)
 signal contested()
 signal neutralized()
 signal victory_timer_tick(player_id: int, remaining: float, total: float)
+signal status_changed()
 
 enum SiteState {
 	NEUTRAL,
@@ -46,6 +47,8 @@ var _gold_accumulator_owner: int = -1
 
 ## Tile position on the map grid.
 var tile_position: Vector2i = Vector2i.ZERO
+var _last_status_key: String = ""
+var _being_neutralized: bool = false
 
 ## Visual indicator node.
 @onready var progress_bar: Node2D = $ProgressIndicator if has_node("ProgressIndicator") else null
@@ -58,6 +61,7 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	_being_neutralized = false
 	var nearby := _count_nearby_players()
 	var p1_count: int = nearby[0]
 	var p2_count: int = nearby[1]
@@ -75,6 +79,7 @@ func _process(delta: float) -> void:
 		_reset_gold_accumulator()
 
 	_update_visuals()
+	_publish_status()
 
 
 func _handle_neutral(p1: int, p2: int, _delta: float) -> void:
@@ -119,6 +124,7 @@ func _handle_capturing(p1: int, p2: int, delta: float) -> void:
 
 
 func _handle_captured(p1: int, p2: int, delta: float) -> void:
+	_being_neutralized = false
 	var enemy := p2 if owning_player == 0 else p1
 	var friendly := p1 if owning_player == 0 else p2
 
@@ -129,6 +135,7 @@ func _handle_captured(p1: int, p2: int, delta: float) -> void:
 
 	if enemy > 0 and friendly == 0:
 		# Enemy is de-capturing.
+		_being_neutralized = true
 		capture_progress -= (delta / capture_time) * (minf(enemy, 5) * 0.5 + 0.5)
 		if capture_progress <= 0.0:
 			capture_progress = 0.0
@@ -213,8 +220,7 @@ func _count_nearby_players() -> Array[int]:
 		var unit_node := unit as Node2D
 		var dist := global_position.distance_to(unit_node.global_position)
 		# Convert pixel distance to approximate tile distance.
-		var tile_dist := dist / float(MapData.TILE_WIDTH)
-		if tile_dist <= capture_radius:
+		if dist <= get_capture_radius_world():
 			var pid := 0
 			if unit_node.has_method("get_player_id"):
 				pid = unit_node.get_player_id()
@@ -279,6 +285,10 @@ func _draw() -> void:
 
 	draw_circle(Vector2.ZERO, aura_radius, aura_color)
 	draw_arc(Vector2.ZERO, aura_radius, 0, TAU, 48, Color(aura_color.r, aura_color.g, aura_color.b, aura_color.a * 2.0), 1.5)
+	# The small glow is decorative. This boundary is the actual distance at
+	# which troops capture or pause a hold, using the same radius as detection.
+	var boundary_color := Color(aura_color.r, aura_color.g, aura_color.b, 0.24)
+	draw_arc(Vector2.ZERO, get_capture_radius_world(), 0, TAU, 96, boundary_color, 1.2, true)
 
 	# Victory timer ring (when captured, shows progress toward victory)
 	if state == SiteState.CAPTURED and victory_timer > 0.0:
@@ -297,3 +307,34 @@ func get_state() -> SiteState:
 
 func get_capture_progress() -> float:
 	return capture_progress
+
+
+func get_capture_radius_world() -> float:
+	return float(capture_radius * MapData.TILE_WIDTH)
+
+
+func get_status() -> Dictionary:
+	var phase: String = "neutral"
+	match state:
+		SiteState.CAPTURING: phase = "capturing"
+		SiteState.CAPTURED: phase = "neutralizing" if _being_neutralized else "holding"
+		SiteState.CONTESTED: phase = "contested"
+	return {
+		"phase": phase,
+		"owner": owning_player,
+		"capture_progress": clampf(capture_progress, 0.0, 1.0),
+		"remaining": maxf(0.0, victory_hold_time - victory_timer),
+		"total": victory_hold_time,
+		"gold_per_second": gold_per_second,
+	}
+
+
+func _publish_status() -> void:
+	# Refresh immediately when the phase/owner changes, and only on visible
+	# second/percentage boundaries while a timer advances.
+	var status: Dictionary = get_status()
+	var key: String = "%s:%d:%d:%d" % [status["phase"], owning_player, floori(capture_progress * 100.0), ceili(float(status["remaining"]))]
+	if key == _last_status_key:
+		return
+	_last_status_key = key
+	status_changed.emit()

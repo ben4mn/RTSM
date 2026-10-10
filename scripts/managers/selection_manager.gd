@@ -396,6 +396,14 @@ func _handle_tap(screen_pos: Vector2, is_touch_input: bool) -> void:
 			get_viewport().set_input_as_handled()
 		return
 
+	if is_touch_input and resource_node != null and _has_selected_villager_producer() \
+			and (tapped_node == null or tapped_node == resource_node):
+		_record_touch_input(screen_pos, world_pos, "resource_rally", tapped_node, resource_node)
+		gather_command.emit(resource_node)
+		_last_tap_time = 0.0
+		get_viewport().set_input_as_handled()
+		return
+
 	if is_touch_input and has_selected_units and _is_direct_friendly_unit_reselection(tapped_node, screen_pos):
 		_clear_selection()
 		_add_to_selection(tapped_node)
@@ -426,6 +434,22 @@ func _handle_tap(screen_pos: Vector2, is_touch_input: bool) -> void:
 		_record_touch_input(screen_pos, world_pos, "gather", tapped_node, resource_node)
 		gather_command.emit(resource_node)
 		get_viewport().set_input_as_handled()
+		return
+
+	if tapped_node != null and tapped_node.is_in_group("sacred_sites"):
+		# The objective cannot take attack damage. A troop tap means enter its
+		# capture ring; other selections can inspect the visible site normally.
+		if is_touch_input and has_selected_units:
+			var sacred_tile: Vector2i = _world_to_tile(tapped_node.global_position)
+			_record_touch_input(screen_pos, world_pos, "move", tapped_node, resource_node, sacred_tile)
+			move_command.emit(sacred_tile)
+		else:
+			_clear_selection()
+			_add_to_selection(tapped_node)
+			_record_touch_input(screen_pos, world_pos, "select", tapped_node, resource_node)
+		_last_tap_time = 0.0
+		if is_touch_input:
+			get_viewport().set_input_as_handled()
 		return
 
 	if tapped_node != null:
@@ -839,6 +863,9 @@ func _handle_right_click(screen_pos: Vector2) -> void:
 
 	# Check for enemy target → attack
 	var tapped_node: Node2D = _get_node_at(world_pos, false)
+	if tapped_node != null and tapped_node.is_in_group("sacred_sites"):
+		move_command.emit(_world_to_tile(tapped_node.global_position))
+		return
 	if tapped_node != null and _is_enemy(tapped_node):
 		attack_command.emit(tapped_node)
 		return
@@ -867,6 +894,13 @@ func _has_selected_villagers() -> bool:
 		if _is_current_selection_entry(entry) and entry is Villager:
 			return true
 	return false
+
+
+func _has_selected_villager_producer() -> bool:
+	if selected.size() != 1 or not selected[0] is BuildingBase:
+		return false
+	var producer: BuildingBase = selected[0] as BuildingBase
+	return producer.player_owner == 0 and UnitData.UnitType.VILLAGER in producer.trainable_units
 
 
 func _has_selected_units() -> bool:
@@ -1007,10 +1041,17 @@ func _build_touch_context_actions(tapped_node: Node2D, resource_node: Node2D) ->
 	var has_selection: bool = selected.size() > 0
 
 	if has_selection:
+		if tapped_node != null and tapped_node.is_in_group("sacred_sites"):
+			if _has_selected_units():
+				actions.append({"id": TouchContextAction.MOVE, "label": "Move to Sacred Site"})
+			else:
+				actions.append({"id": TouchContextAction.SELECT, "label": "Inspect Sacred Site"})
+			return actions
 		if tapped_node != null and _is_enemy(tapped_node):
 			actions.append({"id": TouchContextAction.ATTACK, "label": "Attack"})
-		if resource_node != null and _has_selected_villagers():
-			actions.append({"id": TouchContextAction.GATHER, "label": "Gather"})
+		if resource_node != null and (_has_selected_villagers() or _has_selected_villager_producer()):
+			var gather_label: String = "Rally to gather" if _has_selected_villager_producer() else "Gather"
+			actions.append({"id": TouchContextAction.GATHER, "label": gather_label})
 		if tapped_node != null and _has_selected_villagers() and _is_under_construction(tapped_node):
 			actions.append({"id": TouchContextAction.BUILD, "label": "Build"})
 		if tapped_node == null:
@@ -1047,7 +1088,7 @@ func _execute_touch_context_action(action_id: int) -> void:
 		TouchContextAction.GATHER:
 			if (
 				_context_resource != null
-				and _has_selected_villagers()
+				and (_has_selected_villagers() or _has_selected_villager_producer())
 				and _is_resource_target_valid_for_local_player(_context_resource)
 			):
 				gather_command.emit(_context_resource)

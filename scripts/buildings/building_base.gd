@@ -8,6 +8,7 @@ signal building_destroyed(building: BuildingBase)
 signal building_selected(building: BuildingBase)
 signal building_deselected(building: BuildingBase)
 signal health_changed(current: int, maximum: int)
+signal damage_received(building: BuildingBase, hp_loss: int)
 signal defensive_attack_fired(target: Node2D)
 
 enum State { PLACING, CONSTRUCTING, ACTIVE, DESTROYED }
@@ -30,6 +31,10 @@ var provides_food: bool = false
 
 var rally_point: Vector2 = Vector2.ZERO
 var rally_point_is_custom: bool = false
+var rally_resource_type: String = ""
+var rally_resource_instance_id: int = 0
+var rally_resource_is_building: bool = false
+var depleted_naturally: bool = false
 var is_selected: bool = false
 var _production_queue: Node = null
 var _sprite: Sprite2D = null
@@ -420,8 +425,11 @@ func take_damage(amount: int) -> void:
 	## `amount` is final HP loss. Buildings have no armor in the current ruleset.
 	if state == State.DESTROYED:
 		return
-	hp = maxi(hp - amount, 0)
+	var previous_hp: int = hp
+	hp = maxi(hp - maxi(amount, 0), 0)
 	health_changed.emit(hp, max_hp)
+	if hp < previous_hp:
+		damage_received.emit(self, previous_hp - hp)
 	_flash_damage()
 	if hp <= 0:
 		_destroy()
@@ -466,7 +474,19 @@ func deselect() -> void:
 func set_rally_point(pos: Vector2) -> void:
 	rally_point = pos
 	rally_point_is_custom = true
+	rally_resource_type = ""
+	rally_resource_instance_id = 0
+	rally_resource_is_building = false
 	queue_redraw()
+
+
+## Main validates current visibility and ownership before recording this order.
+## Keep observed identity and position only; future births must reveal the target.
+func set_resource_rally(resource_node: Node2D) -> void:
+	set_rally_point(resource_node.global_position)
+	rally_resource_type = str(resource_node.call("get_resource_type"))
+	rally_resource_instance_id = resource_node.get_instance_id()
+	rally_resource_is_building = resource_node is BuildingBase
 
 
 func has_custom_rally_point() -> bool:
@@ -499,7 +519,7 @@ func can_train() -> bool:
 	return state == State.ACTIVE and trainable_units.size() > 0
 
 
-# --- Farm support: farms act as renewable food sources ---
+# --- Farm support: finite food sources ---
 var farm_remaining: int = 300
 
 func get_resource_type() -> String:
@@ -526,7 +546,9 @@ func harvest(amount: int) -> int:
 	var actual := mini(amount, farm_remaining)
 	farm_remaining -= actual
 	if farm_remaining <= 0:
-		# Farm exhausted - destroy it
+		# Depletion uses the normal obstacle/registry cleanup without claiming a
+		# combat loss or warning that an enemy destroyed the field.
+		depleted_naturally = true
 		_destroy()
 	return actual
 

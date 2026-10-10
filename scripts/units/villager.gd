@@ -611,6 +611,28 @@ func command_gather(resource_node: Node2D) -> bool:
 	return true
 
 
+## Production can inherit a resource seen when its rally was set. Approach the
+## saved position without dereferencing that resource while it is in fog.
+func command_gather_last_observed(resource_type: String, observed_position: Vector2, observed_instance_id: int, is_building: bool) -> bool:
+	if current_state == State.DEAD or resource_type not in ["food", "wood", "gold"] or observed_instance_id <= 0:
+		return false
+	_before_new_command()
+	_clear_patrol()
+	attack_target = null
+	attack_building_target = null
+	attack_move = false
+	_forced_attack = false
+	_reset_navigation()
+	_pending_gather_resource_type = resource_type
+	_pending_gather_last_known_position = observed_position
+	_pending_gather_last_known_is_building = is_building
+	_pending_gather_last_known_instance_id = observed_instance_id
+	if carried_amount > 0:
+		_find_and_go_to_dropoff()
+		return true
+	return _activate_pending_gather_order()
+
+
 func _get_deterministic_gather_offset(resource_node: Node2D) -> Vector2:
 	# get_index() is stable for the unit's spawn order. Mix in the observed target
 	# position so the same worker does not always approach every resource from the

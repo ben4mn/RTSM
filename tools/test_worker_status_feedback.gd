@@ -82,7 +82,18 @@ func _profile(phone: Vector2i, scale_factor: float) -> void:
 	_selection.select_single(town_center)
 	_main.call("_refresh_unit_command_hud")
 	await _refresh()
-	_expect(_details() == "Arrows + depot", "Town Center inherited loaded worker status/cargo")
+	_expect(_details() == "Tap resource\nfor rally", "Town Center explains resource rallies without inheriting worker status/cargo")
+	_text_fits(_hud.get("selection_details"), "%s/%.3f default rally cue" % [phone, scale_factor])
+	_main.call("_on_gather_command", wood)
+	await _refresh()
+	_expect(_details() == "Rally: Wood", "Town Center visibly names its accepted resource rally")
+	_text_fits(_hud.get("selection_details"), "%s/%.3f resource rally state" % [phone, scale_factor])
+	var production: ProductionQueue = town_center.get_production_queue() as ProductionQueue
+	_expect(production.enqueue_unit(UnitData.UnitType.VILLAGER), "normal Food purchases the rally training fixture")
+	await _refresh()
+	_expect(_details().begins_with("Rally: Wood\nVillager ") and _details().split("\n").size() == 2, "rally state keeps live Villager progress within two lines")
+	_text_fits(_hud.get("selection_details"), "%s/%.3f resource rally training" % [phone, scale_factor])
+	production.cancel_all()
 	_selection.select_single(wood)
 	_main.call("_refresh_unit_command_hud")
 	await _refresh()
@@ -153,9 +164,14 @@ func _tap(position: Vector2) -> void:
 func _text_fits(label: Label, context: String) -> void:
 	var font: Font = label.get_theme_font("font")
 	var font_size: int = label.get_theme_font_size("font_size")
+	var widest_line: float = 0.0
 	for line: String in label.text.split("\n"):
-		_expect(font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x <= label.size.x + 1.0, context + " line clipped: " + line)
+		var width: float = font.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
+		widest_line = maxf(widest_line, width)
+		_expect(width <= label.size.x + 1.0, context + " line clipped: " + line)
 	_expect(label.get_line_count() == label.get_visible_line_count(), context + " hides cargo/status line")
+	if context.contains("rally"):
+		print("RALLY_TEXT_METRIC ", JSON.stringify({"profile": context, "text": label.text, "widest_line": widest_line, "available_width": label.size.x, "visible_lines": label.get_visible_line_count()}))
 
 
 func _expect(condition: bool, message: String) -> void:

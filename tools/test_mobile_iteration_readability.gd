@@ -83,25 +83,29 @@ func _profile(phone: Vector2i, scale_factor: float, notched: bool) -> void:
     _text_fits(hud.get("selection_details"),label)
     _expect(not (hud.get("build_menu_button") as Button).visible and not (hud.get("_town_center_button") as Button).visible and not (hud.get("_select_military_button") as Button).visible,"%s TC retains irrelevant kingdom controls" % label)
     _expect((hud.get("age_up_button") as Button).visible and (hud.get("_selection_back_button") as Button).visible,"%s TC loses Age or Back" % label)
-    var queue_hint: Label = hud.get("_queue_hint_label")
-    _text_fits(queue_hint,label+" queue caption")
-    _expect(queue_hint.visible,"%s queue caption missing" % label)
-    _expect(safe.encloses(queue_hint.get_global_rect()),"%s queue caption outside safe area" % label)
-    _expect(not queue_hint.get_global_rect().intersects((hud.get("selection_info_column") as Control).get_global_rect()),"%s queue caption overlaps selection details" % label)
+    var queue_navigation: Button = hud.get("_queue_navigation_button")
+    _button_text_fits(queue_navigation,label+" queue navigation")
+    _expect(queue_navigation.visible and not queue_navigation.disabled,"%s queue navigation missing or disabled" % label)
+    _expect(queue_navigation.size.x >= 48.0 and queue_navigation.size.y >= 48.0,"%s queue navigation target under48px" % label)
+    _expect(safe.encloses(queue_navigation.get_global_rect()),"%s queue navigation outside safe area" % label)
+    _expect(not queue_navigation.get_global_rect().intersects((hud.get("selection_info_column") as Control).get_global_rect()),"%s queue navigation overlaps selection details" % label)
+    _expect(queue_navigation.text.contains("1"),"%s initial queue count missing" % label)
     var queue_items: Array=[{"unit_type":UnitData.UnitType.VILLAGER,"name":"Villager","is_training":true,"progress":0.42}]
     for type: int in [UnitData.UnitType.VILLAGER,UnitData.UnitType.SCOUT]:
         for index: int in 14:
             queue_items.append({"unit_type":type,"name":UnitData.get_unit_name(type),"is_training":false})
     hud.call("show_building_selection","Town Center",5000,5000,queue_items,[UnitData.UnitType.VILLAGER,UnitData.UnitType.SCOUT],tc)
     await _settle(hud,logical,safe)
-    scroll.scroll_horizontal=int(scroll.get_h_scroll_bar().max_value)
+    queue_navigation.pressed.emit()
     await get_tree().process_frame
     await get_tree().process_frame
     for action: Control in (hud.get("queue_container") as Control).get_children():
         if action.visible and not action.is_queued_for_deletion() and action is Button:
             _expect(scroll.get_global_rect().encloses(action.get_global_rect()),"%s queue-page name/action clipped: %s %s inside %s" % [label,(action as Button).text,action.get_global_rect(),scroll.get_global_rect()])
             _button_text_fits(action as Button,label+" queue page")
-    scroll.scroll_horizontal=0
+    _expect(queue_navigation.text.contains("Train"),"%s queue navigation does not offer return to training" % label)
+    queue_navigation.pressed.emit()
+    _expect(scroll.scroll_horizontal == 0,"%s queue navigation does not return to training" % label)
     for role: int in [UnitData.UnitType.INFANTRY,UnitData.UnitType.ARCHER,UnitData.UnitType.CAVALRY]:
         hud.call("show_unit_selection",UnitData.get_unit_name(role),100,100,"ATTACKING",4,{"unit_type":role})
         hud.call("configure_unit_commands",true,true,"Aggressive","smart")

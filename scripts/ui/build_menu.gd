@@ -378,6 +378,12 @@ func _refresh_affordability() -> void:
 		var can_afford: bool = _can_afford(cost)
 		var btn: Button = _button_map[building_type]
 		var age_locked: bool = bool(btn.get_meta("age_locked", false))
+		var stats: Dictionary = BuildingData.get_building_stats(building_type)
+		btn.text = _format_button_text(stats, age_locked, building_type)
+		if not age_locked and not can_afford:
+			var lines: PackedStringArray = btn.text.split("\n")
+			lines[1] = _missing_resource_text(cost)
+			btn.text = "\n".join(lines)
 		_apply_card_style(btn)
 		btn.disabled = _placement_mode_active or age_locked or not can_afford
 		if age_locked:
@@ -390,6 +396,21 @@ func _refresh_affordability() -> void:
 			KingdomTheme.apply_primary(btn)
 	_update_aux_button()
 	_refresh_touch_target_diagnostics()
+
+
+func _missing_resource_text(cost: Dictionary) -> String:
+	var parts: PackedStringArray = []
+	for resource: String in ["food", "wood", "gold"]:
+		var shortage: int = maxi(0, int(cost.get(resource, 0)) - int(_current_resources.get(resource, 0)))
+		if shortage > 0:
+			parts.append("+%d %s" % [shortage, resource])
+	if parts.size() > 1:
+		parts.clear()
+		for resource: String in ["food", "wood", "gold"]:
+			var shortage: int = maxi(0, int(cost.get(resource, 0)) - int(_current_resources.get(resource, 0)))
+			if shortage > 0:
+				parts.append("+%d%s" % [shortage, resource.left(1).to_upper()])
+	return "Need " + " · ".join(parts)
 
 
 func _can_afford(cost: Dictionary) -> bool:

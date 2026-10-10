@@ -7,6 +7,7 @@ signal unit_died(unit: UnitBase)
 signal unit_selected(unit: UnitBase)
 signal unit_deselected(unit: UnitBase)
 signal health_changed(unit: UnitBase, new_hp: float, max_hp: float)
+signal damage_received(unit: UnitBase, hp_loss: float)
 signal attack_landed(attacker: UnitBase, defender: UnitBase, hp_loss: float, counter_bonus: float)
 signal state_changed(unit: UnitBase, new_state: int)
 signal arrived_at_destination(unit: UnitBase)
@@ -990,8 +991,11 @@ func take_damage(amount: float) -> void:
 	if current_state == State.DEAD:
 		return
 	var actual_damage: float = maxf(1.0, amount)
+	var previous_hp: float = hp
 	hp = maxf(0.0, hp - actual_damage)
 	health_changed.emit(self, hp, max_hp)
+	if hp < previous_hp:
+		damage_received.emit(self, previous_hp - hp)
 	_flash_damage()
 	# Floating damage number
 	if get_tree() and get_tree().current_scene:

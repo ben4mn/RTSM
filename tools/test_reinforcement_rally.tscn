@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://tools/test_reinforcement_rally.gd" id="1"]
+
+[node name="ReinforcementRallyTest" type="Node"]
+script = ExtResource("1")
