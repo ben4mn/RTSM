@@ -9,6 +9,7 @@ signal placement_confirmed(building_type: int, position: Vector2)
 signal placement_cancelled()
 signal placement_invalid(reason: String)
 signal preview_changed(valid: bool, reason: String)
+signal input_mode_changed(uses_touch: bool)
 
 var active: bool = false
 var current_building_type: int = -1
@@ -26,16 +27,18 @@ var _suspended_world_inputs: Array[Dictionary] = []
 var _touch_points: Dictionary = {}
 var _released_touch_inputs: Dictionary = {}
 var _touch_camera_gesture: bool = false
-var _last_touch_input_msec: int = -10000
+var _uses_touch_input: bool = false
 var _preview_refresh_elapsed: float = 0.0
 
 const GENERIC_INVALID_REASON := "Invalid placement"
-const MOUSE_AFTER_TOUCH_IGNORE_MS := 1500
 
 
 func _ready() -> void:
 	set_process(false)
-	set_process_input(false)
+	# Observe real input before GUI routing, including the Build card that
+	# starts placement. Viewport size does not identify the active input device.
+	_uses_touch_input = DisplayServer.is_touchscreen_available()
+	set_process_input(true)
 	set_process_unhandled_input(false)
 	visible = false
 	_try_find_terrain_layer()
@@ -134,7 +137,6 @@ func cancel_placement() -> void:
 	visible = false
 	current_building_type = -1
 	set_process(false)
-	set_process_input(false)
 	set_process_unhandled_input(false)
 	cancel_touch_gesture()
 	_restore_conflicting_world_input()
@@ -152,12 +154,12 @@ func cancel_touch_gesture() -> void:
 
 
 func _input(event: InputEvent) -> void:
+	_observe_input_mode(event)
 	# A world finger can lift over a HUD Control, which owns the release before
 	# unhandled input. Only clear ownership here: never move or confirm a ghost.
-	if active and event is InputEventScreenTouch:
+	if active and event is InputEventScreenTouch and event.device != InputEvent.DEVICE_ID_EMULATION:
 		var touch := event as InputEventScreenTouch
 		if not touch.pressed:
-			_last_touch_input_msec = Time.get_ticks_msec()
 			if _touch_points.has(touch.index):
 				_released_touch_inputs[touch.index] = _touch_camera_gesture
 				# This record belongs only to this input dispatch. A GUI-consumed
@@ -168,6 +170,28 @@ func _input(event: InputEvent) -> void:
 				_touch_camera_gesture = false
 
 
+func uses_touch_input() -> bool:
+	return _uses_touch_input
+
+
+func _observe_input_mode(event: InputEvent) -> void:
+	# Both touch-to-mouse and mouse-to-touch emulation are enabled. Synthesized
+	# events must never change the instructions or confirmation workflow.
+	if event.device == InputEvent.DEVICE_ID_EMULATION:
+		return
+	var uses_touch: bool = _uses_touch_input
+	if event is InputEventScreenTouch or event is InputEventScreenDrag:
+		uses_touch = true
+	elif event is InputEventMouseButton and event.pressed:
+		uses_touch = false
+	elif event is InputEventMouseMotion and (event as InputEventMouseMotion).relative != Vector2.ZERO:
+		uses_touch = false
+	if uses_touch == _uses_touch_input:
+		return
+	_uses_touch_input = uses_touch
+	input_mode_changed.emit(uses_touch)
+
+
 func _clear_released_touch_inputs() -> void:
 	_released_touch_inputs.clear()
 
@@ -175,6 +199,7 @@ func _clear_released_touch_inputs() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not active:
 		return
+	_observe_input_mode(event)
 
 	if event is InputEventMouseButton:
 		# Godot dispatches the mouse event synthesized from a touch before the
@@ -195,8 +220,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 
 	if event is InputEventScreenTouch:
+		if event.device == InputEvent.DEVICE_ID_EMULATION:
+			return
 		var touch := event as InputEventScreenTouch
-		_last_touch_input_msec = Time.get_ticks_msec()
 		if touch.pressed:
 			_released_touch_inputs.erase(touch.index)
 			_touch_points[touch.index] = touch.position
@@ -216,8 +242,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 
 	if event is InputEventScreenDrag:
+		if event.device == InputEvent.DEVICE_ID_EMULATION:
+			return
 		var drag := event as InputEventScreenDrag
-		_last_touch_input_msec = Time.get_ticks_msec()
 		# A finger that began on GUI belongs to GUI until it lifts. Receiving a
 		# drag outside that Control does not grant placement or camera ownership.
 		if not _touch_points.has(drag.index):
@@ -237,8 +264,6 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	if event is InputEventMouseMotion:
 		if event.device == InputEvent.DEVICE_ID_EMULATION:
-			return
-		if Time.get_ticks_msec() - _last_touch_input_msec < MOUSE_AFTER_TOUCH_IGNORE_MS:
 			return
 		var motion := event as InputEventMouseMotion
 		if Input.is_mouse_button_pressed(MOUSE_BUTTON_MIDDLE):
@@ -525,7 +550,6 @@ func _confirm_placement() -> void:
 	active = false
 	visible = false
 	set_process(false)
-	set_process_input(false)
 	set_process_unhandled_input(false)
 	cancel_touch_gesture()
 	_restore_conflicting_world_input()

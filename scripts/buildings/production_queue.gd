@@ -12,6 +12,7 @@ signal queue_changed()
 
 const MAX_QUEUE_SIZE := 5
 const AUTO_QUEUE_RETRY_INTERVAL := 0.5
+const CANCEL_ALL_INDEX := -1
 
 var queue: Array[int] = []  # Array of UnitData.UnitType values
 var current_progress: float = 0.0
@@ -111,6 +112,7 @@ func enqueue_unit(unit_type: int) -> bool:
 
 
 func cancel_unit(index: int) -> bool:
+	## Undoing one entry preserves the player's Repeat setting; Clear stops it.
 	if index < 0 or index >= queue.size():
 		return false
 
@@ -144,6 +146,29 @@ func cancel_last() -> bool:
 	if queue.is_empty():
 		return false
 	return cancel_unit(queue.size() - 1)
+
+
+func cancel_all() -> void:
+	## Clear is also a stop command, including when repeat is waiting on resources.
+	## Disable retries and remove every entry before refund/population signals run;
+	## observers must never see cleared work with repeat still enabled.
+	auto_queue_enabled = false
+	_auto_queue_retry_elapsed = 0.0
+	var cancelled_units: Array[int] = queue.duplicate()
+	var reservation_ids: Array[int] = _population_reservation_ids.duplicate()
+	queue.clear()
+	_population_reservation_ids.clear()
+	is_training = false
+	current_progress = 0.0
+	current_train_time = 0.0
+	for reservation_id: int in reservation_ids:
+		GameManager.release_population_reservation(reservation_id)
+	for unit_type: int in cancelled_units:
+		# Match individual cancellation: even the active unit receives its full cost.
+		_refund_resources(UnitData.get_unit_cost(unit_type))
+		unit_cancelled.emit(unit_type)
+	# Keep auto_queue_unit_type so a deliberate Repeat ON can resume that unit.
+	queue_changed.emit()
 
 
 func get_queue_size() -> int:

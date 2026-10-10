@@ -184,6 +184,7 @@ func _run() -> void:
 			_clear_button_survived_signal = clear_button.is_inside_tree()
 		, CONNECT_ONE_SHOT)
 		await _tap(viewport, clear_button.get_global_rect().get_center())
+		_expect_eq(_cancelled_queue_index, ProductionQueue.CANCEL_ALL_INDEX, "Clear touch emits one whole-producer stop request")
 		_expect(_clear_button_survived_signal, "Clear queue button left the SceneTree during its pressed signal")
 		_expect(not is_instance_valid(clear_button), "retired Clear queue button was not freed after input dispatch")
 

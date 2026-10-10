@@ -96,7 +96,6 @@ func _run() -> void:
 
 	# Real desktop clicks keep the existing immediate placement workflow.
 	placement.start_placement(BuildingData.BuildingType.HOUSE)
-	placement.set("_last_touch_input_msec", -10000)
 	var click := InputEventMouseButton.new()
 	click.button_index = MOUSE_BUTTON_LEFT
 	click.pressed = true

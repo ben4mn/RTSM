@@ -177,6 +177,7 @@ func _exercise_phone_size(phone_size: Vector2i) -> void:
 
 	# Placement is intentionally sparse, then restores the selected context when
 	# the user cancels or completes the ghost placement.
+	hud.call("set_placement_input_mode", true)
 	hud.call("set_placement_mode", true, "House")
 	await get_tree().process_frame
 	metrics = hud.get("mobile_layout_diagnostics")

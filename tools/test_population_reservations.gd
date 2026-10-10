@@ -31,6 +31,7 @@ func _run() -> void:
 	_test_overflow_and_cross_building_reservations()
 	_test_multi_slot_reservations()
 	_test_cancellation_releases_exact_reservations()
+	_test_whole_clear_preserves_other_producer()
 	_test_completion_consumes_once()
 	_test_building_and_queue_destruction_release_reservations()
 	_test_stale_queue_cannot_release_a_new_match_reservation()
@@ -122,6 +123,36 @@ func _test_cancellation_releases_exact_reservations() -> void:
 	_expect(not bool(production_queue.call("cancel_unit", 0)), "repeated cancellation of an empty queue is rejected")
 	_expect_eq(_reserved(), 0, "invalid cancellation cannot underflow reservations")
 	building.free()
+
+
+func _test_whole_clear_preserves_other_producer() -> void:
+	_reset_state(2, 20)
+	var siege_fixture: Dictionary = _make_fixture(SIEGE_WORKSHOP_SCENE_PATH)
+	var barracks_fixture: Dictionary = _make_fixture(BARRACKS_SCENE_PATH)
+	var siege_queue: Node = siege_fixture["queue"]
+	var barracks_queue: Node = barracks_fixture["queue"]
+	var bank_before: Dictionary = _resource_bank()
+	for entry in 2:
+		_expect(bool(siege_queue.call("enqueue_unit", UNIT_SIEGE)), "whole-clear fixture queues multi-slot Siege %d" % entry)
+	_expect(bool(barracks_queue.call("enqueue_unit", UNIT_INFANTRY)), "whole-clear fixture gives another producer its own paid reservation")
+	siege_queue.set("auto_queue_enabled", true)
+	siege_queue.set("current_progress", float(siege_queue.get("current_train_time")) * 0.5)
+	_expect_eq(_reserved(), 2 * _pop_cost(UNIT_SIEGE) + _pop_cost(UNIT_INFANTRY), "whole-clear setup reserves all data-defined slots across both producers")
+	siege_queue.call("cancel_all")
+	_expect_eq(siege_queue.call("get_queue_size"), 0, "whole Clear empties its producer")
+	_expect(not bool(siege_queue.get("auto_queue_enabled")) and not bool(siege_queue.get("is_training")), "whole Clear stops Repeat and active partial training")
+	_expect_eq(_population(), 2, "whole Clear preserves live population")
+	_expect_eq(_reserved(), _pop_cost(UNIT_INFANTRY), "whole Clear releases every Siege slot while retaining the other producer's reservation")
+	_expect_eq(barracks_queue.call("get_queue_size"), 1, "whole Clear preserves the other producer's queue")
+	_expect_spending(bank_before, UNIT_INFANTRY, 1, "whole Clear refunds both Siege entries including partial training, preserving the other producer's payment")
+	siege_queue.call("cancel_all")
+	_expect_spending(bank_before, UNIT_INFANTRY, 1, "second whole Clear cannot double-refund")
+	_expect_eq(_reserved(), _pop_cost(UNIT_INFANTRY), "second whole Clear cannot release another producer's slot")
+	barracks_queue.call("cancel_all")
+	_expect_eq(_reserved(), 0, "other producer Clear releases its own final slot")
+	_expect_spending(bank_before, UNIT_INFANTRY, 0, "both producers' Clear operations fully refund the original bank")
+	(siege_fixture["building"] as Node).free()
+	(barracks_fixture["building"] as Node).free()
 
 
 func _test_completion_consumes_once() -> void:
@@ -379,7 +410,7 @@ func _expect_eq(actual: Variant, expected: Variant, message: String) -> void:
 
 func _finish() -> void:
 	if _failures.is_empty():
-		print("[PASS] population_reservations: overflow, cancellation, completion, destruction, restart isolation, spawn failure, and real main spawn")
+		print("[PASS] population_reservations: overflow, individual cancellation, whole Clear refunds/reservation isolation, completion, destruction, restart isolation, spawn failure, and real main spawn")
 		quit(0)
 	else:
 		quit(1)

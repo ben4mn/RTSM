@@ -29,15 +29,10 @@ func _run() -> void:
     await _tap((hud.get("_town_center_button") as Button).get_global_rect().get_center())
     await _tap((hud.get("age_up_button") as Button).get_global_rect().get_center())
     _expect(GameManager.get_player_age(0)==age_before,"Age Up advanced despite insufficient starting resources")
-    var rejection: Label=null
-    for toast: Control in (hud.get("_notification_container") as Control).get_children():
-        if not toast.is_queued_for_deletion() and toast.visible and (toast.get_child(0) as Label).text.begins_with("Need +"):
-            rejection=toast.get_child(0)
-    _expect(rejection!=null,"actual Age Up touch did not produce resource rejection feedback")
-    if rejection:
-        _expect(rejection.size.y>=rejection.get_theme_font("font").get_height(rejection.get_theme_font_size("font_size")),"actual Age Up rejection text collapsed")
-        _expect(rejection.get_line_count()==rejection.get_visible_line_count(),"actual Age Up rejection hides resource costs")
-        print("Age Up rejection: ",rejection.text," label_rect=",rejection.get_global_rect()," lines=",rejection.get_line_count()," visible_lines=",rejection.get_visible_line_count())
+    var age_button: Button=hud.get("age_up_button")
+    _expect(age_button.disabled,"unaffordable Age Up must remain disabled after touch")
+    _expect(age_button.text.contains("300F") and age_button.text.contains("150G"),"Age Up does not show the initial costs before purchase")
+    _expect(age_button.tooltip_text.contains("Need"),"Age Up does not expose its affordability shortfall")
     await _tap((hud.get("_selection_back_button") as Button).get_global_rect().get_center())
     await _tap((hud.get("build_menu_button") as Button).get_global_rect().get_center())
     _expect(bool(palette.get("visible")),"real touch did not open Build")
@@ -65,7 +60,6 @@ func _run() -> void:
     _expect(main.get("_player_buildings")[0].size()==buildings_before+1,"explicit Place did not create one foundation")
     # A real desktop mouse remains a supported direct placement mechanism.
     main.call("_on_building_selected_for_placement",BuildingData.BuildingType.HOUSE)
-    placement.set("_last_touch_input_msec",-10000)
     valid_world=placement.call("_find_initial_preview_position",valid_world+Vector2(96,48))
     var mouse:=InputEventMouseButton.new()
     mouse.device=0
@@ -80,7 +74,7 @@ func _run() -> void:
     for failure: String in _failures:
         push_error("[FAIL] touch_explicit_placement_dispatch: "+failure)
     if _failures.is_empty():
-        print("[PASS] touch_explicit_placement_dispatch: actual Age Up rejection is readable; touch/card/world dispatch spends zero before Place; explicit Place spends once; physical mouse still places")
+        print("[PASS] touch_explicit_placement_dispatch: Age Up costs/shortfall visible before purchase; touch/card/world dispatch spends zero before Place; explicit Place spends once; genuine mouse still places")
     get_tree().quit(0 if _failures.is_empty() else 1)
 
 func _tap(position: Vector2) -> void:

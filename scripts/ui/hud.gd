@@ -127,6 +127,8 @@ var _placement_status_panel: PanelContainer = null
 var _placement_status_label: Label = null
 var _placement_preview_valid: bool = false
 var _placement_building_name: String = ""
+var _placement_uses_touch: bool = false
+var _placement_preview_reason: String = ""
 var _mobile_compact_labels: bool = false
 var _last_idle_villager_count: int = 0
 var _last_military_count: int = 0
@@ -276,8 +278,7 @@ func _ready() -> void:
 	if not viewport.size_changed.is_connected(_queue_mobile_layout_refresh):
 		viewport.size_changed.connect(_queue_mobile_layout_refresh)
 
-	_update_age_display()
-	_update_resource_display({"food": 200, "wood": 200, "gold": 100})
+	refresh_match_state()
 	_apply_mobile_layout_for_current_viewport()
 	_refresh_touch_target_diagnostics()
 
@@ -1186,14 +1187,14 @@ func set_placement_mode(active: bool, building_name: String = "") -> void:
 	var was_active: bool = _placement_mode_active
 	_placement_mode_active = active
 	_placement_cancel_button.visible = active
-	_placement_confirm_button.visible = active
+	_placement_confirm_button.visible = active and _placement_uses_touch
 	_placement_status_panel.visible = active
 	if _town_center_button:
 		_town_center_button.visible = not active
 	_placement_building_name = building_name
 	if active and not was_active:
 		_placement_preview_valid = false
-		update_placement_preview(false, "Drag onto clear ground")
+		update_placement_preview(false, "Choose clear ground")
 	_close_advanced_commands()
 	var bottom_right: Control = get_node_or_null("Root/BottomRight")
 	if bottom_right:
@@ -1201,7 +1202,7 @@ func set_placement_mode(active: bool, building_name: String = "") -> void:
 	minimap_bg.visible = not active
 	if active:
 		# Placement is a direct-manipulation mode: leave the world, ghost, top
-		# resources, and explicit Place / Cancel actions while hiding the prior
+		# resources, and input-appropriate placement actions while hiding the prior
 		# selection/building chrome over the placement surface.
 		selection_panel.visible = false
 	elif was_active:
@@ -1228,6 +1229,7 @@ func set_placement_mode(active: bool, building_name: String = "") -> void:
 
 func update_placement_preview(valid: bool, reason: String = "") -> void:
 	_placement_preview_valid = valid
+	_placement_preview_reason = reason
 	if _placement_confirm_button:
 		_placement_confirm_button.disabled = not valid or _ui_modal_state == UIModalState.PAUSE_MENU
 		_placement_confirm_button.text = "Place %s" % _placement_building_name if _placement_building_name != "" else "Place building"
@@ -1235,10 +1237,20 @@ func update_placement_preview(valid: bool, reason: String = "") -> void:
 		if _placement_confirm_button.text.length() > 20:
 			_placement_confirm_button.text = "Place building"
 	if _placement_status_label:
-		var status: String = "Ready to build" if valid else (reason if reason != "" else "Choose clear ground")
+		var status: String = ("Tap Place to build" if _placement_uses_touch else "Click ground to build") if valid else (reason if reason != "" else "Choose clear ground")
 		_placement_status_label.text = "%s · %s" % [_placement_building_name, status] if _placement_building_name != "" else status
 		_placement_status_label.add_theme_color_override("font_color", KingdomTheme.PARCHMENT if valid else Color(1.0, 0.75, 0.55))
 	_refresh_touch_target_diagnostics()
+
+
+func set_placement_input_mode(uses_touch: bool) -> void:
+	_placement_uses_touch = uses_touch
+	if _placement_confirm_button:
+		_placement_confirm_button.visible = _placement_mode_active and uses_touch
+	update_placement_preview(_placement_preview_valid, _placement_preview_reason)
+	if _placement_mode_active:
+		var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+		apply_mobile_layout(viewport_size, _get_safe_area_rect(viewport_size))
 
 
 func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
@@ -1529,10 +1541,10 @@ func _calculate_mobile_layout_metrics(viewport_size: Vector2, safe_area: Rect2, 
 	var action_bottom: float = bottom_right_top - 8.0
 	var action_top: float = action_bottom - action_height
 	if _placement_mode_active:
-		action_columns = 2
+		action_columns = maxi(1, action_button_count)
 		action_rows = 1
 		action_height = MOBILE_ACTION_BUTTON_HEIGHT
-		action_width = 148.0 * 2.0 + MOBILE_ACTION_GAP + MOBILE_ACTION_INNER_PADDING * 2.0
+		action_width = 148.0 * float(action_columns) + MOBILE_ACTION_GAP * float(action_columns - 1) + MOBILE_ACTION_INNER_PADDING * 2.0
 		action_left = safe_pos.x + (safe_area.size.x - action_width) * 0.5
 		action_right = action_left + action_width - viewport_size.x
 		action_bottom = -bottom_inset - MOBILE_ACTION_MARGIN
@@ -1806,6 +1818,7 @@ func _refresh_touch_target_diagnostics() -> void:
 	diag["mobile_action_panel"] = _control_touch_diag(_mobile_action_panel, "mobile_action_panel")
 	diag["placement_confirm_button"] = _control_touch_diag(_placement_confirm_button, "placement_confirm_button")
 	diag["placement_preview_valid"] = _placement_preview_valid
+	diag["placement_input_mode"] = "touch" if _placement_uses_touch else "mouse"
 	diag["home_button"] = _control_touch_diag(_town_center_button, "home_button")
 	diag["camera_zoom_buttons"] = _collect_button_diags(_camera_controls, "camera_zoom")
 	diag["camera_zoom_controls"] = _control_touch_diag(_camera_controls, "camera_zoom_controls")
@@ -1909,8 +1922,6 @@ func set_progression_hint(text: String, emphasis: bool = false) -> void:
 	_progression_hint_panel.visible = trimmed != ""
 	if visibility_changed:
 		_queue_mobile_layout_refresh()
-	if trimmed == "":
-		return
 	_progression_hint_label.text = trimmed
 	var color: Color = Color(0.95, 0.92, 0.82)
 	if emphasis:
@@ -2038,6 +2049,7 @@ func _update_resource_display(resources: Dictionary) -> void:
 		for index: int in 3:
 			labels[index].text = "%s %s" % [names[index].left(1), _compact_resource_amount(values[index])]
 	update_population(_population_current, _population_cap)
+	_update_age_display()
 
 
 func _compact_resource_amount(value: int) -> String:
@@ -2061,6 +2073,22 @@ func update_population(current: int, cap: int) -> void:
 
 # --- Age display ---
 
+func refresh_match_state() -> void:
+	# Children become ready before Main resets the previous match's players.
+	# Main calls this again after initialization and starting population setup.
+	_update_age_display()
+	var gm: Node = _get_game_manager()
+	if gm:
+		set_match_population_limit(gm.get_player_population_limit(0))
+		var player: Dictionary = gm.players.get(0, {})
+		update_population(gm.get_committed_population(0), int(player.get("population_cap", 0)))
+		game_time_label.text = gm.get_formatted_time()
+	var rm: Node = _get_resource_manager()
+	if rm:
+		_update_resource_display(rm.get_all_resources(0))
+	_queue_mobile_layout_refresh()
+
+
 func _on_age_advanced(_player_id: int, _new_age: int) -> void:
 	_update_age_display()
 
@@ -2070,17 +2098,17 @@ func _update_age_display() -> void:
 	if gm:
 		var age: int = gm.get_player_age(0)
 		age_label.text = gm.get_age_name(age)
-		# Update age-up button text with cost and preview
-		if age == 1:
-			var cost: Dictionary = gm.get_age_up_cost(0, age + 1)
-			age_up_button.text = "Age Up" if _top_bar_compact else "Age Up (%dF %dG)" % [int(cost.get("food", 0)), int(cost.get("gold", 0))]
+		var cost: Dictionary = gm.get_age_up_cost(0, age + 1)
+		# Keep costs visible on phones, where hover tooltips are unavailable.
+		age_up_button.icon = null
+		age_up_button.add_theme_font_size_override("font_size", 13)
+		age_up_button.add_theme_color_override("font_disabled_color", KingdomTheme.MUTED)
+		if not cost.is_empty():
+			var rm: Node = _get_resource_manager()
+			var affordable: bool = rm != null and rm.can_afford(0, cost)
+			age_up_button.text = "Age Up\n%dF · %dG" % [int(cost.get("food", 0)), int(cost.get("gold", 0))]
 			age_up_button.tooltip_text = _get_age_up_preview(age + 1)
-			age_up_button.disabled = false
-		elif age == 2:
-			var cost: Dictionary = gm.get_age_up_cost(0, age + 1)
-			age_up_button.text = "Age Up" if _top_bar_compact else "Age Up (%dF %dG)" % [int(cost.get("food", 0)), int(cost.get("gold", 0))]
-			age_up_button.tooltip_text = _get_age_up_preview(age + 1)
-			age_up_button.disabled = false
+			age_up_button.disabled = not affordable or _ui_modal_state != UIModalState.NONE
 		else:
 			age_up_button.text = "Max Age"
 			age_up_button.tooltip_text = "You have reached the highest age"
@@ -2099,6 +2127,13 @@ func _get_age_up_preview(next_age: int) -> String:
 	if gm:
 		var cost: Dictionary = gm.get_age_up_cost(0, next_age)
 		lines.append("%d food · %d gold" % [int(cost.get("food", 0)), int(cost.get("gold", 0))])
+		var rm: Node = _get_resource_manager()
+		if rm:
+			var missing: Dictionary = rm.get_missing_resources(0, cost)
+			if missing.is_empty():
+				lines.append("Ready to advance")
+			else:
+				lines.append("Need +%d food · +%d gold" % [int(missing.get("food", 0)), int(missing.get("gold", 0))])
 	lines.append("")
 	# Find buildings that unlock at this age
 	var new_buildings: PackedStringArray = PackedStringArray()
@@ -2475,7 +2510,7 @@ func _update_queue_display(queue_items: Array) -> void:
 		btn.visible = true
 		btn.mouse_filter = Control.MOUSE_FILTER_STOP
 		btn.text = "%s x%d" % [UnitData.get_unit_name(unit_type), queue_count]
-		btn.tooltip_text = "Cancel first queued %s" % UnitData.get_unit_name(unit_type)
+		btn.tooltip_text = "Cancel first queued %s; keep the Repeat setting" % UnitData.get_unit_name(unit_type)
 		btn.custom_minimum_size = Vector2(80 if compact_training else 104, 48)
 		btn.add_theme_font_size_override("font_size", 12)
 		for style_name: String in ["normal", "hover", "pressed", "disabled"]:
@@ -2495,7 +2530,7 @@ func _update_queue_display(queue_items: Array) -> void:
 	clear_last.visible = true
 	clear_last.mouse_filter = Control.MOUSE_FILTER_STOP
 	clear_last.text = "Undo"
-	clear_last.tooltip_text = "Cancel last queued unit"
+	clear_last.tooltip_text = "Cancel last queued unit; keep the Repeat setting"
 	clear_last.custom_minimum_size = Vector2(60 if compact_training else 64, 48)
 	clear_last.add_theme_font_size_override("font_size", 14 if compact_training else 16)
 	queue_container.move_child(clear_last, child_index)
@@ -2510,7 +2545,7 @@ func _update_queue_display(queue_items: Array) -> void:
 	clear_all.visible = true
 	clear_all.mouse_filter = Control.MOUSE_FILTER_STOP
 	clear_all.text = "Clear"
-	clear_all.tooltip_text = "Cancel all queued units"
+	clear_all.tooltip_text = "Stop repeat training and cancel all queued units"
 	clear_all.custom_minimum_size = Vector2(60 if compact_training else 64, 48)
 	clear_all.add_theme_font_size_override("font_size", 14 if compact_training else 16)
 	queue_container.move_child(clear_all, child_index)
@@ -2544,10 +2579,9 @@ func _on_clear_last_queue_pressed() -> void:
 
 
 func _on_clear_all_queue_pressed() -> void:
-	if _last_queue_items.is_empty():
-		return
-	for i in range(_last_queue_items.size() - 1, -1, -1):
-		_on_cancel_queue_pressed(i)
+	# One request lets the producer stop Repeat before any cancellation refunds.
+	# Do not depend on the HUD snapshot: repeat may now be waiting on an empty queue.
+	_on_cancel_queue_pressed(ProductionQueue.CANCEL_ALL_INDEX)
 
 
 func _is_town_center_production_context() -> bool:
@@ -3111,7 +3145,7 @@ func _create_notification_feed() -> void:
 	root_ctrl.add_child(_notification_container)
 
 
-func show_notification(text: String, color: Color = Color.WHITE) -> void:
+func show_notification(text: String, color: Color = Color.WHITE, duration: float = NOTIFICATION_DURATION) -> void:
 	if _notification_container == null:
 		return
 	# Cap at max visible
@@ -3147,7 +3181,7 @@ func show_notification(text: String, color: Color = Color.WHITE) -> void:
 
 	# Auto-fade and remove after duration
 	var tween := create_tween()
-	tween.tween_interval(NOTIFICATION_DURATION)
+	tween.tween_interval(duration)
 	tween.tween_property(panel, "modulate:a", 0.0, 0.5)
 	tween.tween_callback(panel.queue_free)
 

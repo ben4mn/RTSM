@@ -378,13 +378,14 @@ func _apply_progression_guidance(text: String, emphasis: bool = false) -> void:
 	_refresh_first_session_diagnostics()
 
 
-func _clear_guidance_state(clear_hint_text: bool = false) -> void:
+func _clear_guidance_state() -> void:
 	_first_session_hint_text = ""
 	_first_session_focus_target = ""
 	_first_session_hint_emphasis = false
 	hud.clear_primary_action()
-	if clear_hint_text:
-		hud.set_progression_hint("")
+	hud.set_progression_hint("")
+	if _build_menu and _build_menu.has_method("set_recommended_building"):
+		_build_menu.call("set_recommended_building", -1)
 	_refresh_first_session_diagnostics()
 
 
@@ -515,6 +516,7 @@ func _on_map_ready(map_gen: MapGenerator) -> void:
 	game_map._clamp_camera()
 
 	# Update initial HUD state.
+	hud.refresh_match_state()
 	_refresh_hud_resources(0)
 	_update_population_display()
 	_milestone_first_house = false
@@ -533,7 +535,7 @@ func _bootstrap_opening_guidance() -> void:
 	if _guided_opening_active:
 		call_deferred("_update_progression_hint")
 	else:
-		hud.clear_primary_action()
+		_clear_guidance_state()
 		_update_progression_hint()
 
 
@@ -556,7 +558,12 @@ func _set_guided_stage(new_stage: GuidedOpeningStage) -> void:
 			hud.set_early_game_ui_state(false)
 			hud.set_guided_military_shortcuts_visible(false)
 			hud.set_pending_military_shortcut(false)
-			hud.show_notification("Opening complete. Grow, age up, and contest the Sacred Site.", Color(0.68, 0.86, 1.0))
+			_clear_guidance_state()
+			hud.show_notification(
+				"Opening complete. Next: gather food + wood, build a Barracks, train %ss, then contest the central Sacred Site." % UnitData.get_unit_name(UnitData.UnitType.INFANTRY),
+				Color(0.68, 0.86, 1.0),
+				8.0
+			)
 	_refresh_first_session_diagnostics()
 	_update_progression_hint()
 
@@ -2060,7 +2067,10 @@ func _on_cancel_queue_requested(building: Node2D, index: int) -> void:
 		return
 	var pq: Node = b.get_production_queue()
 	if pq:
-		pq.cancel_unit(index)
+		if index == ProductionQueue.CANCEL_ALL_INDEX:
+			pq.cancel_all()
+		else:
+			pq.cancel_unit(index)
 		_on_selection_changed(game_map.selection_mgr.selected)
 
 
@@ -2174,6 +2184,7 @@ func _setup_hud() -> void:
 	_building_placement.placement_cancelled.connect(_on_cancel_placement)
 	_building_placement.placement_invalid.connect(_on_placement_invalid)
 	_building_placement.preview_changed.connect(_on_placement_preview_changed)
+	_building_placement.input_mode_changed.connect(_on_placement_input_mode_changed)
 	_sync_hud_modal_state()
 
 
@@ -2187,7 +2198,7 @@ func _on_guidance_dismissed() -> void:
 	hud.set_early_game_ui_state(false)
 	hud.set_guided_military_shortcuts_visible(false)
 	hud.set_pending_military_shortcut(false)
-	hud.clear_primary_action()
+	_clear_guidance_state()
 	hud.show_notification("Guided opener dismissed. All controls are available.", Color(0.68, 0.86, 1.0))
 	_refresh_first_session_diagnostics()
 	_update_progression_hint()
@@ -2234,11 +2245,12 @@ func _on_building_selected_for_placement(building_type: int) -> void:
 	# immediately cancel the placement we just started.
 	_build_menu.close_for_world_placement()
 	hud.dismiss_build_menu_for_placement()
+	hud.set_placement_input_mode(_building_placement.uses_touch_input())
 	hud.set_placement_mode(true, BuildingData.get_building_name(building_type))
 	_on_placement_preview_changed(_building_placement.is_valid_placement, _building_placement.get_invalid_reason())
 	_sync_hud_modal_state()
 	if _guided_opening_active and _guided_stage == GuidedOpeningStage.BUILD_HOUSE and building_type == BuildingData.BuildingType.HOUSE:
-		hud.show_notification("Position your House, then tap Place. Two fingers pan and zoom.", Color(0.95, 0.86, 0.42))
+		hud.show_notification("House preview ready. Green ground is clear to build.", Color(0.95, 0.86, 0.42))
 	_refresh_first_session_diagnostics()
 	_update_progression_hint()
 
@@ -2262,6 +2274,20 @@ func _on_confirm_placement() -> void:
 func _on_placement_preview_changed(valid: bool, reason: String) -> void:
 	if hud != null:
 		hud.update_placement_preview(valid, reason)
+
+
+func _on_placement_input_mode_changed(uses_touch: bool) -> void:
+	# Finish routing the current event before exposing a newly visible Place
+	# button. A first touch cannot confirm an action invisible at touch-down.
+	if hud != null:
+		hud.call_deferred("set_placement_input_mode", uses_touch)
+	call_deferred("_update_progression_hint")
+
+
+func _house_placement_instruction() -> String:
+	if _building_placement != null and _building_placement.uses_touch_input():
+		return "2 / 4 · Position your House, then tap Place."
+	return "2 / 4 · Click clear ground to place your House."
 
 
 func _cancel_placement() -> void:
@@ -2296,9 +2322,9 @@ func _on_placement_invalid(reason: String) -> void:
 	_invalid_placement_count += 1
 	var message: String = "Cannot place here: %s." % reason
 	if _guided_opening_active and _guided_stage == GuidedOpeningStage.BUILD_HOUSE:
-		message += " Try open ground near your Town Center, or tap Cancel House."
+		message += " Try open ground near your Town Center, or choose Cancel."
 	elif _placement_active:
-		message += " Try open ground, or tap Cancel Build."
+		message += " Try open ground, or choose Cancel."
 	_last_placement_feedback = message
 	hud.show_notification(message, Color(1.0, 0.45, 0.35))
 	_refresh_first_session_diagnostics()
@@ -2362,7 +2388,8 @@ func _on_placement_confirmed(building_type: int, world_pos: Vector2) -> void:
 	if _send_villager_to_build(building):
 		hud.show_notification("Placed: %s" % BuildingData.get_building_name(building_type), Color(0.48, 0.86, 0.52))
 	else:
-		_last_placement_feedback = "Placed %s. Select a free villager, then tap the foundation to build it." % BuildingData.get_building_name(building_type)
+		var command_action: String = "tap" if _building_placement.uses_touch_input() else "right-click"
+		_last_placement_feedback = "Placed %s. Select a free villager, then %s the foundation to build it." % [BuildingData.get_building_name(building_type), command_action]
 		hud.show_notification(_last_placement_feedback, Color(1.0, 0.75, 0.3))
 	_cancel_placement()
 	_update_progression_hint()
@@ -2921,7 +2948,7 @@ func _update_progression_hint() -> void:
 	if hud == null:
 		return
 	if GameManager.current_state != GameManager.GameState.PLAYING:
-		_clear_guidance_state(true)
+		_clear_guidance_state()
 		return
 	_refresh_guided_opening_stage()
 	hud.set_minimap_hint("Map · tap to view")
@@ -2981,7 +3008,7 @@ func _update_progression_hint() -> void:
 						)
 					else:
 						_apply_primary_guidance(
-							"2 / 4 · Position your House, then Place.",
+							_house_placement_instruction(),
 							"",
 							-1,
 							BuildingData.BuildingType.HOUSE
@@ -3048,7 +3075,7 @@ func _show_game_over() -> void:
 	if _game_over_shown:
 		return
 	_game_over_shown = true
-	_clear_guidance_state(true)
+	_clear_guidance_state()
 	var winner_id: int = -1
 	for pid in GameManager.players:
 		if not GameManager.players[pid]["is_defeated"]:
