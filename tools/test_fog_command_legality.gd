@@ -12,6 +12,13 @@ class FakeVisibilityMap extends Node2D:
 	var selection_mgr: SelectionManager = null
 	var camera: Camera2D = null
 	var clamp_count: int = 0
+	var camera_interaction_revision: int = 0
+
+	func note_camera_interaction() -> void:
+		camera_interaction_revision += 1
+
+	func get_camera_interaction_revision() -> int:
+		return camera_interaction_revision
 
 	func set_entity_visible(entity: Node2D, is_visible: bool) -> void:
 		visible_entities[entity.get_instance_id()] = is_visible
@@ -231,11 +238,13 @@ func _test_control_groups_reject_hidden_enemy_tracking(
 	visibility_map.camera.position = Vector2(17.0, 23.0)
 	var camera_before := visibility_map.camera.position
 	var clamps_before := visibility_map.clamp_count
+	var interactions_before := visibility_map.get_camera_interaction_revision()
 	main_controller.call("_recall_control_group", 1)
 	main_controller.call("_recall_control_group", 1)
 	_expect(selection.selected.is_empty(), "hidden enemy group recall yields an empty selection")
 	_expect_vector_approx(visibility_map.camera.position, camera_before, "hidden enemy double recall cannot track its live position")
 	_expect_eq(visibility_map.clamp_count, clamps_before, "hidden enemy double recall never enters camera centering")
+	_expect_eq(visibility_map.get_camera_interaction_revision(), interactions_before, "hidden enemy double recall never records a camera interaction")
 	groups = main_controller.get("_control_groups") as Array
 	_expect((groups[1] as Array).is_empty(), "rejected enemy entries are purged from the control group")
 
@@ -247,10 +256,12 @@ func _test_control_groups_reject_hidden_enemy_tracking(
 	main_controller.call("_save_control_group", 2)
 	selection.deselect_all()
 	main_controller.call("_recall_control_group", 2)
+	_expect_eq(visibility_map.get_camera_interaction_revision(), interactions_before, "owned single recall selects without recording a camera interaction")
 	main_controller.call("_recall_control_group", 2)
 	_expect_eq(selection.selected.size(), 2, "owned unit and building still recall from a control group")
 	_expect_vector_approx(visibility_map.camera.position, Vector2(120.0, 60.0), "owned group double recall centers on accepted selection")
 	_expect_eq(visibility_map.clamp_count, clamps_before + 1, "owned group double recall clamps the camera once")
+	_expect_eq(visibility_map.get_camera_interaction_revision(), interactions_before + 1, "owned group double recall records exactly one camera interaction")
 	_expect_eq(fake_hud.notification_count, 1, "saving the owned group still acknowledges it once")
 
 	main_controller.free()
