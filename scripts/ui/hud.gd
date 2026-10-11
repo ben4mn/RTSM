@@ -177,6 +177,7 @@ var _auto_queue_button: Button = null
 var _queue_page_spacer: Control = null
 var _queue_navigation_button: Button = null
 var _queue_view_requested: bool = false
+var _queue_navigation_intent: int = -1  # -1: no native press; -2: canceled native press.
 var _queue_view_offset: int = 0
 var _queue_navigation_revision: int = 0
 
@@ -2841,6 +2842,7 @@ func _update_train_buttons(trainable_units: Array) -> void:
 			_queue_navigation_button.focus_mode = Control.FOCUS_NONE
 			_queue_navigation_button.add_theme_font_size_override("font_size", 11)
 			KingdomTheme.apply_secondary(_queue_navigation_button)
+			_queue_navigation_button.button_down.connect(_on_queue_navigation_button_down)
 			_queue_navigation_button.pressed.connect(_on_queue_navigation_pressed)
 			selection_info_column.get_parent().add_child(_queue_navigation_button)
 			command_scroll.get_h_scroll_bar().value_changed.connect(_refresh_queue_navigation)
@@ -3016,13 +3018,31 @@ func _restore_producer_queue_view(building_ref: Node2D, offset: int, revision: i
 	await get_tree().process_frame
 	if revision == _queue_navigation_revision and _queue_view_requested and _selected_building_ref == building_ref and queue_container.visible and selection_panel.visible:
 		command_scroll.scroll_horizontal = int(queue_container.position.x) + offset
+		_queue_view_requested = false
+
+
+func _on_queue_navigation_button_down() -> void:
+	var queue_in_view: bool = queue_container.visible and command_scroll.scroll_horizontal > maxi(1, int(queue_container.position.x * 0.5))
+	_queue_navigation_intent = SecondarySurface.NONE if queue_in_view else SecondarySurface.QUEUE
+	# A delayed reconciliation must not change the page chosen by this press.
+	_queue_navigation_revision += 1
+	_queue_view_requested = false
+
+
+func _cancel_queue_navigation_press() -> void:
+	if _queue_navigation_intent >= 0:
+		_queue_navigation_intent = -2
 
 
 func _on_queue_navigation_pressed() -> void:
-	if not queue_container.visible:
+	var intended_surface: int = _queue_navigation_intent
+	_queue_navigation_intent = -1
+	if intended_surface == -2 or not queue_container.visible:
 		return
 	var queue_in_view: bool = command_scroll.scroll_horizontal > maxi(1, int(queue_container.position.x * 0.5))
-	_set_secondary_surface(SecondarySurface.NONE if queue_in_view else SecondarySurface.QUEUE)
+	if intended_surface < 0:
+		intended_surface = SecondarySurface.NONE if queue_in_view else SecondarySurface.QUEUE
+	_set_secondary_surface(intended_surface as SecondarySurface)
 
 
 func _on_train_button_pressed(unit_type: int) -> void:
@@ -3905,7 +3925,8 @@ func get_secondary_surface_name() -> String:
 
 func close_secondary_surface() -> bool:
 	_prune_hold_components()
-	var had_surface: bool = _secondary_surface != SecondarySurface.NONE
+	var had_surface: bool = _secondary_surface != SecondarySurface.NONE or _queue_navigation_intent >= 0
+	_cancel_queue_navigation_press()
 	for component: Node in _hold_components:
 		if is_instance_valid(component) and bool(component.call("is_gesture_active")):
 			had_surface = true
@@ -3923,6 +3944,7 @@ func set_selection_context_revision(revision: int) -> void:
 
 
 func notify_world_gesture_started() -> bool:
+	_cancel_queue_navigation_press()
 	# Called only after actual world admission; GUI contacts cannot collapse a
 	# reading surface. Blocking outside contacts belong to the dismissal shield.
 	if _secondary_surface in [SecondarySurface.VIEW, SecondarySurface.MORE, SecondarySurface.QUEUE]:
@@ -3957,6 +3979,8 @@ func _set_secondary_surface(surface: SecondarySurface, preserve_queue_scroll: bo
 	if surface == SecondarySurface.QUEUE and (not queue_container.visible or not is_instance_valid(_selected_building_ref)):
 		return
 	var previous: SecondarySurface = _secondary_surface
+	if surface in [SecondarySurface.VIEW, SecondarySurface.MORE, SecondarySurface.INFO, SecondarySurface.HELP, SecondarySurface.WORLD_CONTEXT]:
+		_cancel_queue_navigation_press()
 	_secondary_surface = surface
 	if surface != SecondarySurface.INFO:
 		_info_from_build_menu = false

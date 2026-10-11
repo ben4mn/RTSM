@@ -69,6 +69,7 @@ func _profile(phone: Vector2i, scale_factor: float) -> void:
 	await _settle(hud, logical, safe)
 	var navigation: Button = hud.get("_queue_navigation_button")
 	var shelf: ScrollContainer = hud.get("command_scroll")
+	await _queue_selection_cancel(hud,tc,second,viewport,navigation,logical,safe,profile)
 	_expect(navigation.visible and not navigation.disabled and navigation.text.contains("3"), profile + " Queue count/control missing")
 	_expect(navigation.size.x >= 48.0 and navigation.size.y >= 48.0, profile + " Queue touch target under48px")
 	_expect(safe.encloses(navigation.get_global_rect()), profile + " Queue outside safe area")
@@ -83,14 +84,15 @@ func _profile(phone: Vector2i, scale_factor: float) -> void:
 	var inspected_scroll: int = shelf.scroll_horizontal
 	_show(hud, tc)
 	await _settle(hud, logical, safe)
-	_expect(shelf.scroll_horizontal > 0 and navigation.text.contains("Train") and absf(float(shelf.scroll_horizontal) - (hud.get("queue_container") as Control).position.x) <= 1.0, profile + " same producer refresh loses queue inspection: %d -> %d (queue begins %.0f)" % [inspected_scroll, shelf.scroll_horizontal, (hud.get("queue_container") as Control).position.x])
+	_expect(shelf.scroll_horizontal > 0 and navigation.text.contains("Train") and _queue_actions_visible(hud), profile + " same producer refresh loses queue inspection: %d -> %d (queue begins %.0f)" % [inspected_scroll, shelf.scroll_horizontal, (hud.get("queue_container") as Control).position.x])
 	_show(hud, tc)
 	await _tap(viewport, navigation.get_global_rect().get_center(), 0)
 	await _settle(hud, logical, safe)
 	_expect(shelf.scroll_horizontal == 0, profile + " pending producer refresh overrides deliberate Train return")
 	await _tap(viewport, navigation.get_global_rect().get_center())
+	var old_restore_revision: int = hud.get("_queue_navigation_revision")
 	shelf.scroll_horizontal = 0
-	await _tap(viewport, navigation.get_global_rect().get_center())
+	await _queue_press_race(hud, tc, viewport, navigation, logical, safe, old_restore_revision, profile)
 	_expect(navigation.text.contains("Train") and shelf.get_global_rect().encloses(undo.get_global_rect()) and shelf.get_global_rect().encloses(clear.get_global_rect()), profile + " immediate Queue reopen before producer refresh clips refund actions")
 	shelf.scroll_horizontal = 0
 	_show(hud, tc)
@@ -204,8 +206,55 @@ func _tap(viewport: Viewport, position: Vector2, wait_frames: int = 3) -> void:
 		event.position = viewport.get_final_transform() * position
 		event.pressed = pressed
 		Input.parse_input_event(event)
+		Input.flush_buffered_events()
 		for frame: int in wait_frames:
 			await get_tree().process_frame
+
+
+func _queue_actions_visible(hud: Node) -> bool:
+	var shelf: ScrollContainer = hud.get("command_scroll")
+	for child: Control in (hud.get("queue_container") as Control).get_children():
+		if child is Button and child.is_visible_in_tree() and not child.is_queued_for_deletion() and not shelf.get_global_rect().encloses(child.get_global_rect()):
+			return false
+	return true
+
+
+func _queue_touch(viewport: Viewport, position: Vector2, pressed: bool) -> void:
+	var event := InputEventScreenTouch.new()
+	event.index = 7
+	event.position = viewport.get_final_transform() * position
+	event.pressed = pressed
+	Input.parse_input_event(event)
+	Input.flush_buffered_events()
+
+
+func _queue_press_race(hud: Node, building: BuildingBase, viewport: Viewport, navigation: Button, logical: Vector2i, safe: Rect2, old_revision: int, profile: String) -> void:
+	var resources_before: Dictionary = ResourceManager.get_all_resources(0).duplicate()
+	var population_before: int = GameManager.get_committed_population(0)
+	var size_before: int = building.get_production_queue().get_queue_size()
+	_queue_touch(viewport,navigation.get_global_rect().get_center(),true)
+	hud.call_deferred("_restore_producer_queue_view",building,0,old_revision)
+	_show(hud,building)
+	await _settle(hud,logical,safe)
+	_expect((hud.get("command_scroll") as ScrollContainer).scroll_horizontal == 0,profile+" stale restoration moves recruitment during Queue press")
+	_queue_touch(viewport,navigation.get_global_rect().get_center(),false)
+	await _settle(hud,logical,safe)
+	_expect(hud.call("get_secondary_surface_name") == "queue",profile+" same-producer refresh/old restore inverts press-time Queue intent")
+	_expect(ResourceManager.get_all_resources(0) == resources_before and GameManager.get_committed_population(0) == population_before and building.get_production_queue().get_queue_size() == size_before,profile+" navigation race spends/refunds/trains")
+
+
+func _queue_selection_cancel(hud: Node, previous: BuildingBase, next: BuildingBase, viewport: Viewport, navigation: Button, logical: Vector2i, safe: Rect2, profile: String) -> void:
+	var resources_before: Dictionary = ResourceManager.get_all_resources(0).duplicate()
+	var population_before: int = GameManager.get_committed_population(0)
+	_queue_touch(viewport,navigation.get_global_rect().get_center(),true)
+	_show(hud,next)
+	await _settle(hud,logical,safe)
+	_queue_touch(viewport,navigation.get_global_rect().get_center(),false)
+	await _settle(hud,logical,safe)
+	_expect(hud.call("get_secondary_surface_name") == "none" and (hud.get("command_scroll") as ScrollContainer).scroll_horizontal == 0,profile+" stale Queue release opens replacement producer")
+	_expect(ResourceManager.get_all_resources(0) == resources_before and GameManager.get_committed_population(0) == population_before and previous.get_production_queue().get_queue_size() == 3 and next.get_production_queue().get_queue_size() == 0,profile+" canceled Queue press mutates production")
+	_show(hud,previous)
+	await _settle(hud,logical,safe)
 
 
 func _expect(condition: bool, message: String) -> void:
