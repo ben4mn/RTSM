@@ -6,7 +6,17 @@ extends RefCounted
 const POPULATION_OPTIONS: Array[int] = [20, 30, 40]
 const DEFAULT_POPULATION_LIMIT: int = 30
 const REFERENCE_POPULATION_LIMIT: int = 40
+## Castle unlocks the siege endgame. Imperial has no skirmish content yet.
+const MAX_AGE: int = 3
+const AGE_NAMES: Array[String] = ["Dark Age", "Feudal Age", "Castle Age"]
 const SACRED_VICTORY_HOLD_SECONDS: float = 600.0
+# Both players fund their first House and nearby drop-off from this bank, then
+# must gather wood before opening military production.
+const STARTING_RESOURCES: Dictionary = {"food": 200, "wood": 150, "gold": 100}
+# Difficulty changes planning time, never costs, income or unit strength.
+# Defense and a live Sacred contest remain immediate during these raid delays.
+const AI_RAID_START_SECONDS: Dictionary = {0: 360.0, 1: 240.0, 2: 0.0}
+const AI_RAID_COOLDOWN_SECONDS: Dictionary = {0: 120.0, 1: 75.0, 2: 0.0}
 const DARK_AGE_WORKER_WEIGHTS: Dictionary = {"food": 0.55, "wood": 0.35, "gold": 0.10}
 const FEUDAL_WORKER_WEIGHTS: Dictionary = {"food": 0.55, "wood": 0.40, "gold": 0.05}
 const AGE_UP_COSTS: Dictionary = {

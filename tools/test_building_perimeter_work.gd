@@ -76,7 +76,13 @@ func _corner_farm_case(range_y: int) -> void:
 		var resource: Node2D = _map.get_nearest_reachable_resource_node(kind, _workers[index].global_position, 0)
 		_expect(resource != null and _workers[index].command_gather(resource), "paid Range setup needs normal %s labor" % kind)
 	var age_cost: Dictionary = GameManager.get_age_up_cost(0, 2)
-	await _until(func() -> bool: return ResourceManager.can_afford(0, age_cost) and ResourceManager.get_resource(0, "wood") >= 150, 350.0)
+	# Finance every planned paid placement before redirecting the sole wood
+	# worker to construction. Fairer map routes no longer supply an accidental
+	# extra delivery during the Range's build that this fixture relied on.
+	var planned_wood: int = int(BuildingData.get_building_cost(BuildingData.BuildingType.ARCHERY_RANGE)["wood"])
+	if range_y == 44:
+		planned_wood += int(BuildingData.get_building_cost(BuildingData.BuildingType.HOUSE)["wood"])
+	await _until(func() -> bool: return ResourceManager.can_afford(0, age_cost) and ResourceManager.get_resource(0, "wood") >= planned_wood, 350.0)
 	_expect(ResourceManager.can_afford(0, age_cost), "natural labor did not finance Feudal")
 	_main.call("_on_age_up_requested")
 	_expect(GameManager.get_player_age(0) == 2, "Feudal must be purchased normally")

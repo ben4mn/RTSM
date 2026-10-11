@@ -11,6 +11,14 @@ enum UnitType {
 	SIEGE
 }
 
+# At a source, food funds paid worker/army queues 20% faster. Travel and real
+# drop-offs still determine deposited income; both sides use these same rates.
+const VILLAGER_GATHER_AMOUNT: float = 1.0
+const WHEELBARROW_GATHER_BONUS: float = VILLAGER_GATHER_AMOUNT * 0.25
+const VILLAGER_CARRY_CAPACITY: int = 10
+const VILLAGER_GATHER_TICK_SECONDS: float = 1.5
+const RESOURCE_GATHER_SPEEDS: Dictionary = {"food": 1.2, "wood": 1.0, "gold": 1.0}
+
 # Cost format: { "food": int, "wood": int, "gold": int }
 # All units defined with base stats for Age 1. Upgrades scale from here.
 # `attack_range` and `vision_radius` are range tiles, converted through
@@ -103,6 +111,9 @@ const UNITS: Dictionary = {
 	},
 	UnitType.SIEGE: {
 		"name": "Siege Engine",
+		"role": "Siege artillery",
+		"counter_name": "Buildings",
+		"auto_target_buildings_first": true,
 		"hp": 100,
 		"damage": 30,
 		"armor": 3,
@@ -127,7 +138,7 @@ const COUNTER_BONUSES: Dictionary = {
 }
 
 const UNIT_ICONS: Dictionary = {
-	UnitType.VILLAGER: "res://assets/units/unit_01.png",
+	UnitType.VILLAGER: "res://assets/units/worker.svg",
 	UnitType.INFANTRY: "res://assets/units/warrior.svg",
 	UnitType.ARCHER: "res://assets/units/archer.svg",
 	UnitType.CAVALRY: "res://assets/units/cavalry.svg",

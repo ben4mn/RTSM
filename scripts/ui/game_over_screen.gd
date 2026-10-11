@@ -19,6 +19,9 @@ signal main_menu_requested()
 const COLOR_WIN := Color(0.3, 0.85, 0.3)
 const COLOR_LOSE := Color(1.0, 0.35, 0.35)
 const COLOR_TIE := Color(0.7, 0.7, 0.7)
+var _debrief_label: Label = null
+const MATCH_DEBRIEF := preload("res://scripts/main/match_debrief.gd")
+
 const HUD_LAYOUT_SCRIPT := preload("res://scripts/ui/hud.gd")
 
 
@@ -29,6 +32,16 @@ func _ready() -> void:
 	KingdomTheme.apply_primary(play_again_button)
 	play_again_button.pressed.connect(_on_play_again)
 	main_menu_button.pressed.connect(_on_main_menu)
+	_debrief_label = Label.new()
+	_debrief_label.name = "MatchDebriefLabel"
+	_debrief_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_debrief_label.max_lines_visible = 3
+	_debrief_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_debrief_label.add_theme_color_override("font_color", KingdomTheme.PARCHMENT)
+	var vbox: VBoxContainer = panel.get_node("Margin/VBox")
+	vbox.add_child(_debrief_label)
+	vbox.move_child(_debrief_label, vbox.get_node("Spacer").get_index())
+	_debrief_label.visible = false
 	get_viewport().size_changed.connect(_fit_panel_to_viewport)
 	_fit_panel_to_viewport()
 
@@ -58,6 +71,11 @@ func _fit_panel_to_size(viewport_size: Vector2, safe_area: Rect2 = Rect2()) -> v
 	var margin: MarginContainer = panel.get_node("Margin")
 	var vbox: VBoxContainer = margin.get_node("VBox")
 	var button_row: BoxContainer = vbox.get_node("ButtonRow")
+	# On the shortest phone corridor, actual match advice takes the score row's
+	# space; the measured comparisons and both 48px actions remain readable.
+	var show_scores: bool = not compact or _debrief_label == null or not _debrief_label.visible
+	score_bar.visible = show_scores
+	vbox.get_node("Separator2").visible = show_scores
 	margin.add_theme_constant_override("margin_left", 14 if compact else 24)
 	margin.add_theme_constant_override("margin_right", 14 if compact else 24)
 	margin.add_theme_constant_override("margin_top", 5 if compact else 20)
@@ -65,6 +83,8 @@ func _fit_panel_to_size(viewport_size: Vector2, safe_area: Rect2 = Rect2()) -> v
 	vbox.add_theme_constant_override("separation", 2 if compact else 12)
 	button_row.add_theme_constant_override("separation", 4 if compact else 10)
 	result_label.add_theme_font_size_override("font_size", 24 if compact else 36)
+	if _debrief_label:
+		_debrief_label.add_theme_font_size_override("font_size", 12 if compact else 14)
 	time_label.add_theme_font_size_override("font_size", 12 if compact else 14)
 	player_score_label.add_theme_font_size_override("font_size", 16 if compact else 20)
 	ai_score_label.add_theme_font_size_override("font_size", 16 if compact else 20)
@@ -113,9 +133,9 @@ func _show_result(text: String, color: Color, stats: Dictionary) -> void:
 	var time_str: String = stats.get("game_time", "00:00")
 	var player_age: int = stats.get("player_age", 1)
 	var ai_age: int = stats.get("ai_age", 1)
-	var age_names: Array = ["", "Dark Age", "Feudal Age", "Castle Age", "Imperial Age"]
-	var p_age_name: String = age_names[clampi(player_age, 1, 4)]
-	var a_age_name: String = age_names[clampi(ai_age, 1, 4)]
+	var age_names: Array = ["", "Dark Age", "Feudal Age", "Castle Age"]
+	var p_age_name: String = age_names[clampi(player_age, 1, 3)]
+	var a_age_name: String = age_names[clampi(ai_age, 1, 3)]
 	var reason: String = str(stats.get("victory_reason", "Match concluded"))
 	var player_feudal: String = _format_timing(float(stats.get("player_feudal_seconds", -1.0)))
 	var ai_feudal: String = _format_timing(float(stats.get("ai_feudal_seconds", -1.0)))
@@ -144,6 +164,9 @@ func _show_result(text: String, color: Color, stats: Dictionary) -> void:
 	_add_stat_row("Resources Gathered", stats.get("resources_gathered", 0), stats.get("ai_resources_gathered", 0))
 	_add_stat_row("Sacred Control", stats.get("sacred_control_seconds", 0), stats.get("ai_sacred_control_seconds", 0))
 
+	_debrief_label.text = MATCH_DEBRIEF.describe(stats)
+	_debrief_label.visible = not _debrief_label.text.is_empty()
+	summary_diagnostics["debrief"] = _debrief_label.text
 	_fit_panel_to_viewport()
 	visible = true
 	get_tree().paused = true

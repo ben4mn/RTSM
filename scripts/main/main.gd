@@ -3,6 +3,7 @@ extends Node2D
 ## Wires together the map, units, buildings, HUD, build menu, fog of war, and AI.
 
 const WEB_SHELL_BRIDGE := preload("res://scripts/ui/web_shell_bridge.gd")
+const GROUP_ORDER_PLANNER := preload("res://scripts/main/group_order_planner.gd")
 
 # --- Unit scenes ---
 var _unit_scenes: Dictionary = {
@@ -113,7 +114,7 @@ var _guided_stage: GuidedOpeningStage = GuidedOpeningStage.GATHER_FOOD
 const HINTS: Array = [
 	{"time": 14.0, "text": "Pause any time from the top-right button if you need to stop and reorient.", "color": Color(0.95, 0.86, 0.56)},
 	{"time": 42.0, "text": "Drag on open terrain to pan camera. Tap the minimap to jump view.", "color": Color(0.7, 0.8, 1.0)},
-	{"time": 75.0, "text": "Tap a unit to switch selection. Tap ground to move; More opens battle orders.", "color": Color(0.65, 0.82, 1.0)},
+	{"time": 75.0, "text": "Tap ground to move. Attack fights on the way. Double-tap ground to clear selection.", "color": Color(0.65, 0.82, 1.0)},
 	{"time": 105.0, "text": "Train a scout from your Town Center to reveal more map quickly.", "color": Color(0.7, 0.8, 1.0)},
 	{"time": 180.0, "text": "Sacred Site is at map center. Hold it for 10:00 to win, or destroy the enemy Town Center.", "color": Color(0.85, 0.7, 1.0)},
 ]
@@ -142,6 +143,10 @@ var _military_shortcut_invocation_count: int = 0
 var _military_shortcut_last_timestamp_ms: int = 0
 var _military_shortcut_selected_count: int = 0
 var _military_shortcut_selected_paths: Array[String] = []
+
+const MATCH_LEARNING_SCRIPT := preload("res://scripts/main/match_learning.gd")
+var _match_learning: RefCounted = MATCH_LEARNING_SCRIPT.new()
+@export var match_learning_diagnostics: Dictionary = {}
 
 # --- First-session telemetry (read via MCP node.get_properties on /root/Main) ---
 @export var first_session_diagnostics: Dictionary = {}
@@ -449,10 +454,14 @@ func _on_map_ready(map_gen: MapGenerator) -> void:
 	ResourceManager.initialize_player(1)
 	if not GameManager.age_advanced.is_connected(_on_age_advanced_for_summary):
 		GameManager.age_advanced.connect(_on_age_advanced_for_summary)
+	if not GameManager.research_completed.is_connected(_on_research_completed):
+		GameManager.research_completed.connect(_on_research_completed)
 	_age_reached_at = [{1: 0.0}, {1: 0.0}]
 	_sacred_control_seconds = [0.0, 0.0]
 	_sacred_control_owner = -1
 	_sacred_last_remaining = -1.0
+	_match_learning = MATCH_LEARNING_SCRIPT.new()
+	match_learning_diagnostics = {}
 	_guided_opening_active = bool(GameManager.guided_opening_enabled)
 	_guided_stage = GuidedOpeningStage.GATHER_FOOD
 	_opening_gather_complete = false
@@ -583,9 +592,10 @@ func _set_guided_stage(new_stage: GuidedOpeningStage) -> void:
 			hud.set_pending_military_shortcut(false)
 			_clear_guidance_state()
 			hud.show_notification(
-				"Opening complete. Next: gather food + wood, build a Barracks, train %ss, then contest the central Sacred Site." % UnitData.get_unit_name(UnitData.UnitType.INFANTRY),
+				"Opening complete. Tap for optional army, counter, recovery and Sacred lessons. Also available in Pause.",
 				Color(0.68, 0.86, 1.0),
-				8.0
+				12.0,
+				_start_match_learning
 			)
 	_refresh_first_session_diagnostics()
 	_update_progression_hint()
@@ -652,6 +662,7 @@ func _refresh_guided_opening_stage() -> void:
 # =========================================================================
 
 func _on_sacred_site_captured(player_id: int) -> void:
+	_match_learning.observe_capture(player_id)
 	if _sacred_control_owner != player_id:
 		_sacred_site_victory_notified = false
 	_sacred_control_owner = player_id
@@ -815,23 +826,21 @@ func _handle_escape() -> void:
 		_clear_armed_unit_commands()
 		hud.show_notification("Command mode canceled", Color(0.75, 0.7, 0.55))
 		return
+	if game_map.selection_mgr.touch_area_selection_armed:
+		game_map.selection_mgr.set_touch_area_selection_armed(false)
+		return
 	game_map.selection_mgr.deselect_all()
 
 
 func _center_camera_on_selection() -> void:
 	var selected: Array = game_map.selection_mgr.selected
-	if selected.is_empty():
+	var subjects: Array[Rect2] = []
+	for node: Node2D in selected:
+		if is_instance_valid(node) and node.is_visible_in_tree():
+			subjects.append(_get_camera_subject_bounds(node))
+	if subjects.is_empty():
 		return
-	var center := Vector2.ZERO
-	var count: int = 0
-	for node in selected:
-		if is_instance_valid(node):
-			center += node.global_position
-			count += 1
-	if count > 0:
-		game_map.note_camera_interaction()
-		game_map.camera.position = center / float(count)
-		game_map._clamp_camera()
+	game_map.frame_world_bounds(subjects, hud.get_world_safe_rect(), hud.get_world_occlusion_rects())
 
 
 func _on_build_menu_pressed_hotkey() -> void:
@@ -1040,11 +1049,13 @@ func _arm_move_command() -> void:
 	if not _has_selected_owned_units():
 		hud.show_notification("Select your units first", Color(1.0, 0.55, 0.35))
 		return
+	if _move_command_armed:
+		_clear_armed_unit_commands()
+		return
 	_move_command_armed = true
 	_attack_move_command_armed = false
 	_patrol_command_armed = false
 	_sync_selection_command_mode()
-	hud.show_notification("Move armed: tap a destination", Color(0.55, 0.82, 1.0))
 	_refresh_unit_command_hud()
 
 
@@ -1052,11 +1063,13 @@ func _arm_attack_move_command() -> void:
 	if not _has_selected_owned_units():
 		hud.show_notification("Select your units first", Color(1.0, 0.55, 0.35))
 		return
+	if _attack_move_command_armed:
+		_clear_armed_unit_commands()
+		return
 	_move_command_armed = false
 	_attack_move_command_armed = true
 	_patrol_command_armed = false
 	_sync_selection_command_mode()
-	hud.show_notification("Attack-move armed: tap ground or a target", Color(1.0, 0.58, 0.36))
 	_refresh_unit_command_hud()
 
 
@@ -1118,7 +1131,19 @@ func _refresh_unit_command_hud() -> void:
 
 func _deselect_from_hud() -> void:
 	_clear_armed_unit_commands(false)
+	game_map.selection_mgr.cancel_touch_gesture()
 	game_map.selection_mgr.deselect_all()
+
+
+func _toggle_touch_area_selection() -> void:
+	if _placement_active or GameManager.current_state != GameManager.GameState.PLAYING or hud.is_build_menu_open():
+		return
+	var selection: SelectionManager = game_map.selection_mgr
+	var arm: bool = not selection.touch_area_selection_armed
+	_clear_armed_unit_commands(false)
+	game_map.cancel_camera_touch_gesture()
+	selection.set_touch_area_selection_armed(arm)
+	_refresh_unit_command_hud()
 
 
 func _arm_patrol_command() -> void:
@@ -1137,7 +1162,6 @@ func _arm_patrol_command() -> void:
 	_attack_move_command_armed = false
 	_patrol_command_armed = true
 	_sync_selection_command_mode()
-	hud.show_notification("Patrol armed: issue move command", Color(0.9, 0.75, 0.35))
 	_refresh_unit_command_hud()
 
 
@@ -1236,7 +1260,7 @@ func _setup_player_start(player_id: int, spawn_tile: Vector2i) -> void:
 	# Note: TC production queue is already connected in _spawn_building().
 
 	# Place 4 starting villagers nearby and auto-assign to gather.
-	var offsets: Array[Vector2i] = [Vector2i(1, 2), Vector2i(-1, 2), Vector2i(0, 3), Vector2i(2, 1)]
+	var offsets: Array[Vector2i] = game_map.map_generator.get_starting_villager_offsets(player_id)
 	var villagers: Array[UnitBase] = []
 	for offset in offsets:
 		var vill_tile: Vector2i = spawn_tile + offset
@@ -1357,6 +1381,8 @@ func _on_unit_trained(unit_type: int, player_id: int, source_queue: ProductionQu
 		push_warning("Training completed but unit type %d could not spawn for player %d" % [unit_type, player_id])
 		return
 	_update_population_display()
+	if player_id == 0:
+		_match_learning.observe_training(unit, GameManager.game_time)
 	_stats[player_id]["units_trained"] += 1
 	if unit_type != UnitData.UnitType.VILLAGER:
 		_stats[player_id]["army_trained"] += 1
@@ -1521,6 +1547,8 @@ func _is_production_rally_slot_free(unit: UnitBase, destination: Vector2) -> boo
 
 
 func _on_unit_died(unit: UnitBase, player_id: int) -> void:
+	if player_id == 0:
+		_match_learning.observe_loss(unit)
 	_player_units[player_id].erase(unit)
 	var pop_cost: int = UnitData.UNITS.get(unit.unit_type, {}).get("pop_cost", 1)
 	GameManager.remove_population(player_id, pop_cost)
@@ -1535,6 +1563,8 @@ func _on_unit_died(unit: UnitBase, player_id: int) -> void:
 
 func _on_resource_deposited(_resource_type: String, amount: int, player_id: int = 0) -> void:
 	_stats[player_id]["resources_gathered"] += amount
+	if player_id == 0:
+		_match_learning.observe_deposit(_resource_type, amount)
 
 
 func _auto_assign_new_villager(villager: UnitBase) -> void:
@@ -1565,6 +1595,7 @@ func _auto_assign_new_villager(villager: UnitBase) -> void:
 
 
 func _on_player_unit_damaged(unit: UnitBase, _hp_loss: float) -> void:
+	_match_learning.observe_damage(unit, GameManager.game_time)
 	_show_under_attack_alert(UnitData.get_unit_name(unit.unit_type), unit.global_position)
 
 
@@ -1842,7 +1873,7 @@ func _on_move_command(target_tile: Vector2i) -> void:
 	var moveable: Array[UnitBase] = []
 	var has_military: bool = false
 	for node in selected:
-		if node is UnitBase and node.player_owner == 0:
+		if is_instance_valid(node) and node is UnitBase and node.player_owner == 0 and not node.is_queued_for_deletion() and node.current_state != UnitBase.State.DEAD:
 			var unit: UnitBase = node as UnitBase
 			moveable.append(unit)
 			if unit.unit_type != UnitData.UnitType.VILLAGER:
@@ -1855,26 +1886,18 @@ func _on_move_command(target_tile: Vector2i) -> void:
 		_opening_military_move_complete = true
 		call_deferred("_refresh_guided_opening_stage")
 
-	# Generate formation offsets so units spread out around the target
-	var offsets := _get_formation_offsets(moveable.size())
-
-	for i in moveable.size():
-		var unit: UnitBase = moveable[i]
-		var dest_tile: Vector2i = target_tile + offsets[i]
-		# Clamp to map bounds
-		dest_tile.x = clampi(dest_tile.x, 0, MapData.MAP_WIDTH - 1)
-		dest_tile.y = clampi(dest_tile.y, 0, MapData.MAP_HEIGHT - 1)
-		var world_pos: Vector2 = game_map.tile_to_world(dest_tile)
-		var unit_tile: Vector2i = game_map.world_to_tile(unit.global_position)
-		var tile_path: Array[Vector2i] = game_map.get_movement_path(unit_tile, dest_tile)
+	var orders: Array[Dictionary] = GROUP_ORDER_PLANNER.plan(game_map, moveable, target_tile, _player_units[0])
+	for order: Dictionary in orders:
+		var unit: UnitBase = order["unit"]
+		var world_pos: Vector2 = order["destination"]
+		var world_path: PackedVector2Array = order["path"]
+		if issue_force_move:
+			_match_learning.observe_retreat_order(unit, world_pos, GameManager.game_time, _get_visible_learning_enemies())
 		# Military units use smart attack-move by default. Explicit Move suppresses
 		# engagement for every selected unit; A-Move makes the intent visible and
 		# available to villagers as well.
 		var is_military: bool = unit.unit_type != UnitData.UnitType.VILLAGER
-		if tile_path.size() > 1:
-			var world_path := PackedVector2Array()
-			for tp in tile_path:
-				world_path.append(game_map.tile_to_world(tp))
+		if world_path.size() > 1:
 			if issue_patrol and is_military:
 				unit.command_patrol(world_pos)
 			elif issue_force_move:
@@ -1903,35 +1926,6 @@ func _on_move_command(target_tile: Vector2i) -> void:
 		VFX.move_indicator(get_tree(), game_map.tile_to_world(target_tile))
 	AudioManager.play_sfx("command_move")
 	_refresh_unit_command_hud()
-
-
-## Generate spiral offsets around (0,0) for formation spreading.
-func _get_formation_offsets(count: int) -> Array[Vector2i]:
-	var offsets: Array[Vector2i] = [Vector2i(0, 0)]
-	if count <= 1:
-		return offsets
-	# Spiral outward: right, down, left, up with increasing ring size
-	var directions: Array[Vector2i] = [Vector2i(1, 0), Vector2i(0, 1), Vector2i(-1, 0), Vector2i(0, -1)]
-	var pos := Vector2i(1, 0)
-	var ring := 1
-	var dir_idx := 0
-	var steps_in_dir := 0
-	var side_length := 1
-	var sides_done := 0
-	# Start at (1,0) and spiral
-	offsets.append(pos)
-	while offsets.size() < count:
-		steps_in_dir += 1
-		if steps_in_dir >= side_length:
-			steps_in_dir = 0
-			dir_idx = (dir_idx + 1) % 4
-			sides_done += 1
-			if sides_done >= 2:
-				sides_done = 0
-				side_length += 1
-		pos += directions[dir_idx]
-		offsets.append(pos)
-	return offsets
 
 
 func _on_attack_command(target: Node2D) -> void:
@@ -2126,7 +2120,8 @@ func _get_initial_camera_focus(player_spawn: Vector2, safe_area: Rect2 = Rect2()
 	if game_map._is_mobile_camera_profile(viewport_size):
 		if not safe_area.has_area():
 			safe_area = hud._get_safe_area_rect(viewport_size)
-		var field := Rect2(safe_area.position + Vector2(16.0, 48.0), safe_area.size - Vector2(32.0, 136.0))
+		var field_top: float = maxf(safe_area.position.y + 16.0, hud.top_bar.get_global_rect().end.y + 8.0)
+		var field := Rect2(Vector2(safe_area.position.x + 16.0, field_top), Vector2(safe_area.size.x - 32.0, safe_area.end.y - 88.0 - field_top))
 		var subjects := Rect2(player_spawn - Vector2(14.0, 14.0), Vector2(28.0, 28.0))
 		var landmarks: Array[Node2D] = []
 		if is_instance_valid(_player_town_center):
@@ -2156,21 +2151,13 @@ func _get_initial_camera_focus(player_spawn: Vector2, safe_area: Rect2 = Rect2()
 			subjects = subjects.merge(_get_camera_subject_bounds(nearest_worker))
 			landmarks.append(nearest_worker)
 		var obstacles: Array[Rect2] = []
-		var sacred_panel: Control = hud.get("_sacred_site_panel") as Control
+		for obstacle: Rect2 in hud.get_world_occlusion_rects():
+			obstacles.append(obstacle.grow(6.0))
 		var guidance_panel: Control = hud.get("_progression_hint_panel") as Control
-		if sacred_panel != null and sacred_panel.visible:
-			var sacred_rect: Rect2 = sacred_panel.get_global_rect()
-			# Initial guidance is populated just after the opening camera. Reserve
-			# its already-laid-out card and the locator's resulting lower position.
-			if _guided_opening_active and guidance_panel != null:
-				var guidance_rect: Rect2 = guidance_panel.get_global_rect()
-				obstacles.append(guidance_rect.grow(6.0))
-				sacred_rect.position.y = guidance_rect.end.y + 8.0
-			obstacles.append(sacred_rect.grow(6.0))
-		for control_name: String in ["_camera_controls", "_minimap_frame", "_minimap_hint_label", "_town_center_button", "build_menu_button"]:
-			var control: Control = hud.get(control_name) as Control
-			if control != null and control.is_visible_in_tree():
-				obstacles.append(control.get_global_rect().grow(6.0))
+		# The first instruction is populated after initial framing. Reserve its
+		# actual card without pretending the integrated objective moves below it.
+		if _guided_opening_active and guidance_panel != null and not guidance_panel.is_visible_in_tree() and guidance_panel.size.x > 0.0:
+			obstacles.append(guidance_panel.get_global_rect().grow(6.0))
 		if not bool(game_map.get("_user_zoom_override")):
 			# A seed can put berries far above the landmark. Fit the opening only
 			# until the player deliberately chooses a zoom; keep the configured
@@ -2282,12 +2269,18 @@ func _get_opening_camera_pan(subjects: Rect2, landmarks: Array[Node2D], field: R
 
 
 func _get_camera_subject_bounds(subject: Node2D, include_ground: bool = true, include_flag: bool = true) -> Rect2:
+	if subject is UnitBase and subject.has_method("get_visual_bounds"):
+		# Unit bounds include the entire gait excursion as well as the ring.
+		return subject.call("get_visual_bounds") as Rect2
 	var bounds := Rect2(subject.global_position - Vector2(14.0, 14.0), Vector2(28.0, 28.0))
 	if subject is BuildingBase:
 		var building: BuildingBase = subject as BuildingBase
 		if include_ground and building.is_selected:
 			var footprint_size := Vector2(building.footprint.x * MapData.TILE_WIDTH, building.footprint.y * MapData.TILE_HEIGHT)
-			bounds = bounds.merge(Rect2(subject.global_position - footprint_size * 0.5, footprint_size))
+			bounds = bounds.merge(subject.get_global_transform() * Rect2(-footprint_size * 0.5, footprint_size).grow(2.0))
+		if building.state == BuildingBase.State.CONSTRUCTING or building.hp < building.max_hp:
+			var pixel_size := Vector2(building.footprint.x * MapData.TILE_WIDTH, building.footprint.y * MapData.TILE_HEIGHT)
+			bounds = bounds.merge(subject.get_global_transform() * Rect2(-pixel_size.x * 0.3, -pixel_size.y * 0.5 - 8.0, pixel_size.x * 0.6, 6.0))
 		if include_flag and building.building_type == BuildingData.BuildingType.TOWN_CENTER:
 			bounds = bounds.merge(subject.get_global_transform() * Rect2(47.0, -79.0, 26.0, 45.0))
 	elif subject is ResourceNode:
@@ -2324,60 +2317,29 @@ func _on_cancel_queue_requested(building: Node2D, index: int) -> void:
 
 
 func _on_research_requested(building: Node2D, research_id: String) -> void:
-	if not is_instance_valid(building) or not (building is BuildingBase):
+	if GameManager.current_state != GameManager.GameState.PLAYING:
 		return
-	var b: BuildingBase = building as BuildingBase
-	if (
-		b.player_owner != 0
-		or b.building_type != BuildingData.BuildingType.BLACKSMITH
-		or b.state != BuildingBase.State.ACTIVE
-	):
+	if not is_instance_valid(building) or not building is BuildingBase or building.player_owner != 0:
 		return
-	var gm: Node = GameManager
-	if gm.has_research(b.player_owner, research_id):
+	if not GameManager.try_research(0, building, research_id):
+		hud.show_notification(GameManager.get_research_failure_reason(0, building, research_id), Color(1.0, 0.4, 0.3))
 		return
-
-	# Look up cost and effect from HUD's research defs
-	var cost: Dictionary = {}
-	var effect_text := ""
-	for rd in hud.RESEARCH_DEFS:
-		if rd["id"] == research_id:
-			cost = rd["cost"]
-			effect_text = rd["desc"]
-			break
-	if cost.is_empty():
-		return
-
-	# Try to spend resources
-	var rm: Node = ResourceManager
-	if not rm.try_spend(b.player_owner, cost):
-		hud.show_notification("Not enough resources!", Color(1.0, 0.4, 0.3))
-		return
-
-	# Apply upgrade
-	gm.complete_research(b.player_owner, research_id)
-	if research_id == "forging":
-		gm.apply_attack_upgrade(b.player_owner, 2)
-	elif research_id == "scale_mail":
-		gm.apply_armor_upgrade(b.player_owner, 1)
-	elif research_id == "wheelbarrow":
-		gm.apply_gather_upgrade(b.player_owner, 0.5)
-		# Apply to existing villagers
-		for unit in _player_units[b.player_owner]:
-			if is_instance_valid(unit) and unit is Villager:
-				(unit as Villager).gather_rate += 0.5
-	elif research_id == "loom":
-		gm.apply_villager_hp_upgrade(b.player_owner, 15)
-		# Apply to existing villagers
-		for unit in _player_units[b.player_owner]:
-			if is_instance_valid(unit) and unit is Villager:
-				unit.max_hp += 15
-				unit.hp += 15
-
-	hud.show_notification("Research complete: %s" % effect_text, Color(0.5, 0.8, 1.0))
-
-	# Refresh selection panel to show [DONE] status
+	var definition: Dictionary = TechData.get_research_definition(research_id)
+	hud.show_notification("Research complete: %s" % str(definition.get("desc", research_id)), Color(0.5, 0.8, 1.0))
 	_on_selection_changed(game_map.selection_mgr.selected)
+
+
+func _on_research_completed(player_id: int, research_id: String) -> void:
+	if player_id < 0 or player_id >= _player_units.size():
+		return
+	var definition: Dictionary = TechData.get_research_definition(research_id)
+	var gather_bonus: float = float(definition.get("gather_bonus", 0.0))
+	var hp_bonus: int = int(definition.get("villager_hp_bonus", 0))
+	for unit in _player_units[player_id]:
+		if is_instance_valid(unit) and unit is Villager and unit.current_state != UnitBase.State.DEAD:
+			(unit as Villager).gather_rate += gather_bonus
+			unit.max_hp += hp_bonus
+			unit.hp += hp_bonus
 
 
 # =========================================================================
@@ -2409,12 +2371,15 @@ func _setup_hud() -> void:
 	hud.unit_stop_requested.connect(_stop_selected_units)
 	hud.unit_stance_requested.connect(_toggle_stance)
 	hud.deselect_requested.connect(_deselect_from_hud)
+	hud.select_area_requested.connect(_toggle_touch_area_selection)
+	game_map.selection_mgr.touch_area_selection_changed.connect(hud.set_area_selection_armed)
 	hud.research_requested.connect(_on_research_requested)
 	hud.placement_cancel_requested.connect(_on_cancel_placement)
 	hud.placement_confirm_requested.connect(_on_confirm_placement)
 	hud.town_center_pressed.connect(_select_town_center)
 	hud.camera_zoom_requested.connect(_on_camera_zoom_requested)
 	hud.camera_zoom_reset_requested.connect(game_map.reset_zoom)
+	hud.center_selection_requested.connect(_center_camera_on_selection)
 	game_map.zoom_changed.connect(hud.update_camera_zoom)
 	var zoom_state: Dictionary = game_map.get_zoom_state()
 	hud.update_camera_zoom(float(zoom_state["zoom"]), float(zoom_state["min"]), float(zoom_state["max"]))
@@ -2422,6 +2387,7 @@ func _setup_hud() -> void:
 	hud.resume_requested.connect(_on_resume_requested)
 	hud.quit_to_menu_requested.connect(_on_quit_to_menu_requested)
 	hud.guidance_dismissed.connect(_on_guidance_dismissed)
+	hud.match_learning_requested.connect(_toggle_match_learning)
 	_build_menu.building_selected.connect(_on_building_selected_for_placement)
 	_build_menu.cancel_placement.connect(_on_cancel_placement)
 	if _build_menu.has_signal("close_requested"):
@@ -2438,7 +2404,50 @@ func _setup_hud() -> void:
 	_sync_hud_modal_state()
 
 
+func _get_visible_learning_enemies() -> Array:
+	var visible: Array = []
+	for unit in _player_units[1]:
+		if is_instance_valid(unit) and unit.current_state != UnitBase.State.DEAD and game_map.is_tile_visible_to_player(game_map.world_to_tile(unit.global_position), 0):
+			visible.append(unit)
+	return visible
+
+
+func _refresh_match_learning() -> Dictionary:
+	var guidance: Dictionary = _match_learning.observe_state(_player_units[0], _get_visible_learning_enemies(), _player_buildings[0], game_map.sacred_site, GameManager.game_time)
+	if not OS.has_feature("production"):
+		match_learning_diagnostics = _match_learning.get_summary()
+	return guidance
+
+
+func _start_match_learning() -> void:
+	if _game_over_shown or GameManager.current_state == GameManager.GameState.GAME_OVER:
+		return
+	_guided_opening_active = false
+	_guided_stage = GuidedOpeningStage.FREE_PLAY
+	hud.set_early_game_ui_state(false)
+	hud.set_guided_military_shortcuts_visible(false)
+	hud.set_pending_military_shortcut(false)
+	_match_learning.start()
+	hud.set_match_learning_active(true)
+	if GameManager.current_state == GameManager.GameState.PAUSED:
+		_on_resume_requested()
+	_update_progression_hint()
+
+
+func _toggle_match_learning() -> void:
+	if _match_learning.active:
+		_on_guidance_dismissed()
+	else:
+		_start_match_learning()
+
+
 func _on_guidance_dismissed() -> void:
+	if _match_learning.active:
+		_match_learning.stop()
+		hud.set_match_learning_active(false)
+		_clear_guidance_state()
+		_refresh_match_learning()
+		return
 	if not _guided_opening_active:
 		return
 	_guided_opening_active = false
@@ -2582,17 +2591,19 @@ func _on_placement_invalid(reason: String) -> void:
 
 
 func _on_age_up_requested() -> void:
+	if GameManager.current_state != GameManager.GameState.PLAYING:
+		return
 	var age: int = GameManager.get_player_age(0)
 	var cost: Dictionary = GameManager.get_age_up_cost(0, age + 1)
 	if cost.is_empty():
 		return
 
-	if ResourceManager.try_spend(0, cost):
-		GameManager.advance_age(0)
+	if GameManager.try_advance_age(0):
 		_update_population_display()
 		var new_age: int = GameManager.get_player_age(0)
 		var age_name: String = GameManager.get_age_name(new_age)
-		hud.show_notification("Advancing to %s!" % age_name, Color(1.0, 0.85, 0.2))
+		var age_message: String = "%s is the final age. Siege breaks bases; holding Sacred wins." % age_name if new_age == GameManager.MAX_AGE else "Advancing to %s!" % age_name
+		hud.show_notification(age_message, Color(1.0, 0.85, 0.2), 8.0 if new_age == GameManager.MAX_AGE else 3.0)
 		if new_age >= 2 and not _milestone_first_age_up:
 			_milestone_first_age_up = true
 			hud.show_notification("Milestone: First Age Up reached.", Color(1.0, 0.9, 0.45))
@@ -2977,12 +2988,13 @@ func _on_ai_wants_to_train(building: Node, unit_type: int) -> void:
 
 
 func _on_ai_wants_to_age_up() -> void:
+	if GameManager.current_state != GameManager.GameState.PLAYING:
+		return
 	var age: int = GameManager.get_player_age(ai_controller.player_id)
 	var cost: Dictionary = GameManager.get_age_up_cost(ai_controller.player_id, age + 1)
 	if cost.is_empty():
 		return
-	if ResourceManager.try_spend(ai_controller.player_id, cost):
-		GameManager.advance_age(ai_controller.player_id)
+	if GameManager.try_advance_age(ai_controller.player_id):
 		var new_age: int = GameManager.get_player_age(ai_controller.player_id)
 		var age_name: String = GameManager.get_age_name(new_age)
 		hud.show_notification("Enemy advancing to %s!" % age_name, Color(1.0, 0.4, 0.2))
@@ -3027,6 +3039,7 @@ func _process(delta: float) -> void:
 	if _minimap_timer >= 1.0:
 		_minimap_timer = 0.0
 		_update_minimap()
+		_refresh_match_learning()
 		_update_idle_villager_count()
 		hud.update_score(_calculate_score(0), _calculate_score(1))
 		_update_progression_hint()
@@ -3297,6 +3310,12 @@ func _update_progression_hint() -> void:
 			GuidedOpeningStage.FREE_PLAY:
 				pass
 
+	if _match_learning.active:
+		var guidance: Dictionary = _refresh_match_learning()
+		_apply_primary_guidance(guidance["text"], guidance["focus"], guidance["unit_type"], guidance["building_type"], false)
+		if _build_menu and _build_menu.has_method("set_recommended_building"):
+			_build_menu.call("set_recommended_building", guidance["building_type"])
+		return
 	_clear_guidance_state()
 	if _build_menu and _build_menu.has_method("set_recommended_building"):
 		_build_menu.call("set_recommended_building", -1)
@@ -3325,6 +3344,8 @@ func _show_game_over() -> void:
 	if _game_over_shown:
 		return
 	_game_over_shown = true
+	_match_learning.stop()
+	hud.set_match_learning_active(false)
 	_clear_guidance_state()
 	var winner_id: int = -1
 	for pid in GameManager.players:
@@ -3364,6 +3385,7 @@ func _show_game_over() -> void:
 		"ai_castle_seconds": float(_age_reached_at[1].get(3, -1.0)),
 		"sacred_control_seconds": int(round(_sacred_control_seconds[0])),
 		"ai_sacred_control_seconds": int(round(_sacred_control_seconds[1])),
+		"learning": _match_learning.get_summary(),
 	}
 	match_summary_diagnostics = stats.duplicate(true)
 	match_summary_diagnostics["winner_id"] = winner_id

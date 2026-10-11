@@ -54,6 +54,7 @@ var _attack_wave_last_progress_time: float = 0.0
 var _retreat_threshold: float = 0.3  # Pull back if army drops below 30%
 var _game_time: float = 0.0  # Track elapsed time for timed aggression
 var _last_harass_time: float = 0.0  # Cooldown for harassment raids
+var _last_field_attack_time: float = -INF
 var _scout_waypoints: Array[Vector2] = []
 var _next_scout_waypoint_index: int = 0
 var _objective_scout_sent: bool = false
@@ -82,6 +83,8 @@ var _economy_exploration_waypoints: Array[Vector2] = []
 var _next_economy_exploration_waypoint: int = 0
 var _economy_exploration_orders_issued: int = 0
 var _economy_memory_revisit_orders_issued: int = 0
+var _economy_wood_search_orders_issued: int = 0
+var _economy_wood_search_worker: WeakRef = null
 var _economy_resource_assignments: int = 0
 var _economy_rebalance_orders_issued: int = 0
 var _next_economy_rebalance_time: float = 0.0
@@ -290,6 +293,7 @@ func start_ai(base_tile: Vector2i, base_world_pos: Vector2) -> void:
 	for unit: UnitBase in _get_fighting_units():
 		_military_role_last_fielded[unit.unit_type] = 0.0
 	_last_harass_time = 0.0
+	_last_field_attack_time = -INF
 	_has_launched_field_attack = false
 	_last_defense_threat_time = -INF
 	_objective_scout_sent = false
@@ -788,6 +792,10 @@ func _check_house_need() -> void:
 # ═════════════════════════════════════════════════════════════════════════
 
 func _assign_idle_villagers() -> void:
+	# Release invalid search ownership at the policy boundary. Snapshot queries
+	# only observe the reference and cannot change the next allocation decision.
+	if _get_active_wood_search_worker() == null:
+		_economy_wood_search_worker = null
 	var idle: Array = _get_idle_villagers()
 	if idle.is_empty():
 		return
@@ -795,6 +803,11 @@ func _assign_idle_villagers() -> void:
 	# Figure out current resource ratios vs desired.
 	var resources: Dictionary = ResourceManager.get_all_resources(player_id)
 	var counts: Dictionary = _get_economy_work_counts()
+	# One worker may look for missing Wood while the rest retain productive jobs.
+	# Count that moving worker as committed labor so an idle batch cannot turn
+	# every spare worker into an explorer for the same deficit.
+	if _get_active_wood_search_worker() != null:
+		counts["wood"] = int(counts["wood"]) + 1
 	var assignable_workers: int = int(counts["food"]) + int(counts["wood"]) + int(counts["gold"])
 	for villager in idle:
 		if not _is_worker_retreating(villager) and int(villager.get("carried_amount")) == 0:
@@ -838,27 +851,85 @@ func _assign_idle_villagers() -> void:
 				counts[res_type] = int(counts.get(res_type, 0)) + 1
 				assigned = true
 				break
+			if (
+				res_type == "wood"
+				and _uses_compact_population_policy()
+				and int(counts["wood"]) < int(targets.get("wood", 0))
+				and _get_active_wood_search_worker() == null
+				and _try_order_economy_search(villager, ["wood"])
+			):
+				_economy_wood_search_worker = weakref(villager)
+				_economy_wood_search_orders_issued += 1
+				counts["wood"] = int(counts["wood"]) + 1
+				assigned = true
+				break
 		if assigned:
 			continue
 
-		var memory_target: Dictionary = _find_resource_memory_target(priority, villager.global_position)
-		if not memory_target.is_empty():
-			villager.command_move(memory_target.get("position", _base_position) as Vector2)
-			_economy_memory_revisit_orders_issued += 1
-			_last_economy_action = "revisit_%s" % str(memory_target.get("resource_type", "resource"))
-			continue
-
-		var exploration_target: Dictionary = _take_next_economy_exploration_target()
-		if not exploration_target.is_empty():
-			villager.command_move(exploration_target.get("position", _base_position) as Vector2)
-			_economy_exploration_orders_issued += 1
-			_last_economy_action = "explore"
+		if _try_order_economy_search(villager, priority):
 			continue
 
 		# A complete sweep is deliberately bounded. With no remaining legal lead,
 		# keeping the worker safe at home is preferable to unbounded order churn.
 		villager.command_move(_base_position)
 		_last_economy_action = "sweep_complete"
+
+
+func _get_active_wood_search_worker() -> UnitBase:
+	if _economy_wood_search_worker == null:
+		return null
+	var worker: UnitBase = _economy_wood_search_worker.get_ref() as UnitBase
+	if (
+		worker == null
+		or worker.current_state != UnitBase.State.MOVING
+		or int(worker.get("carried_amount")) > 0
+		or _is_worker_retreating(worker)
+	):
+		return null
+	return worker
+
+
+func _try_order_economy_search(villager: UnitBase, priority: Array) -> bool:
+	if (
+		villager.current_state != UnitBase.State.IDLE
+		or int(villager.get("carried_amount")) > 0
+		or _is_worker_retreating(villager)
+	):
+		return false
+	var threats: Array = _get_visible_worker_threats()
+	var memory_target: Dictionary = _find_resource_memory_target(priority, villager.global_position)
+	if not memory_target.is_empty():
+		var remembered_position: Vector2 = memory_target.get("position", _base_position) as Vector2
+		if not _is_worker_position_exposed(remembered_position, threats):
+			villager.command_move(remembered_position)
+			if villager.current_state != UnitBase.State.MOVING:
+				return false
+			# One accepted attempt consumes this position-only lead. Route failure
+			# need not reveal the hidden tile, so visibility alone cannot retire it.
+			# Another legal resource sighting may remember the position again.
+			var resource_type: String = str(memory_target["resource_type"])
+			var tile: Vector2i = memory_target["tile"] as Vector2i
+			var memories: Array = _resource_memory.get(resource_type, []) as Array
+			for index: int in range(memories.size() - 1, -1, -1):
+				if ((memories[index] as Dictionary).get("tile", Vector2i(-1, -1)) as Vector2i) == tile:
+					memories.remove_at(index)
+			_economy_memory_revisit_orders_issued += 1
+			_last_economy_action = "revisit_%s" % resource_type
+			return true
+	# Each waypoint is consumed once, including unsafe or failed destinations.
+	# This loop is bounded by the public geometry sweep, never hidden stock.
+	var exploration_target: Dictionary = _take_next_economy_exploration_target()
+	while not exploration_target.is_empty():
+		var position: Vector2 = exploration_target.get("position", _base_position) as Vector2
+		if not _is_worker_position_exposed(position, threats):
+			villager.command_move(position)
+			if villager.current_state != UnitBase.State.MOVING:
+				return false
+			_economy_exploration_orders_issued += 1
+			_last_economy_action = "explore"
+			return true
+		exploration_target = _take_next_economy_exploration_target()
+	return false
 
 
 func _get_economy_resource_priority(resources: Dictionary) -> Array:
@@ -1033,6 +1104,10 @@ func _get_economy_worker_targets(worker_count: int, resources: Dictionary) -> Di
 			wood_workers = 1
 		var gold_workers: int = maxi(1, roundi(float(worker_count) * 0.15))
 		var gold_bank_target: int = GameManager.get_player_population_limit(player_id) * 4
+		if _needs_compact_siege_purchase():
+			# A 20-pop gold buffer of 80 cannot fund the shared 100-gold siege
+			# cost. Bank the workshop plus one engine, then return labor to food.
+			gold_bank_target = maxi(gold_bank_target, 100 + (100 if _siege_workshop_count == 0 else 0))
 		if int(resources.get("gold", 0)) >= gold_bank_target:
 			gold_workers = 0
 		return {"food": maxi(0, worker_count - wood_workers - gold_workers), "wood": wood_workers, "gold": gold_workers}
@@ -1333,7 +1408,7 @@ func _check_military_production() -> void:
 				ai_wants_to_train.emit(tc, UnitData.UnitType.SCOUT)
 				return
 
-	if not _has_easy_compact_fighter_room():
+	if not _has_easy_compact_fighter_room() and not _needs_compact_siege_purchase():
 		return
 
 	if _uses_compact_population_policy() and GameManager.get_player_age(player_id) <= 1 and not _is_under_pressure:
@@ -1366,7 +1441,7 @@ func _check_military_production() -> void:
 
 
 func _try_train_from_building(building_type: int, unit_type: int) -> bool:
-	if unit_type != UnitData.UnitType.SCOUT and not _has_easy_compact_fighter_room():
+	if unit_type not in [UnitData.UnitType.SCOUT, UnitData.UnitType.SIEGE] and not _has_easy_compact_fighter_room():
 		return false
 	var building: Node = _find_trainable_building_of_type(building_type)
 	if building == null:
@@ -1378,6 +1453,16 @@ func _try_train_from_building(building_type: int, unit_type: int) -> bool:
 		return false
 
 	var cost: Dictionary = UnitData.get_unit_cost(unit_type)
+	if unit_type != UnitData.UnitType.SIEGE and _needs_compact_siege_purchase():
+		var available_slots: int = int(GameManager.players[player_id]["population_cap"]) - GameManager.get_committed_population(player_id)
+		if available_slots - pop_cost < int(UnitData.UNITS[UnitData.UnitType.SIEGE]["pop_cost"]):
+			return false
+		# Keep paid escorts, but stop optional replacements from spending every
+		# wood deposit before the Castle finishing tool can be purchased.
+		var reserve_cost: Dictionary = BuildingData.get_building_cost(BuildingData.BuildingType.SIEGE_WORKSHOP) if _siege_workshop_count == 0 else UnitData.get_unit_cost(UnitData.UnitType.SIEGE)
+		for resource_type: String in ["wood", "gold"]:
+			if int(cost.get(resource_type, 0)) > 0 and ResourceManager.get_resource(player_id, resource_type) - int(cost.get(resource_type, 0)) < int(reserve_cost.get(resource_type, 0)):
+				return false
 	var role_unlock: int = _get_compact_missing_role_building()
 	var committed_fighters: int = _get_fighting_units().size() + _count_queued_military_units() - _count_queued_unit(UnitData.UnitType.SCOUT)
 	if role_unlock >= 0 and committed_fighters >= _get_attack_threshold():
@@ -1624,7 +1709,7 @@ func _get_target_building_counts(age: int) -> Dictionary:
 		# to twenty worker economy and small replacement queues. Spend on troops.
 		for building_type in [BuildingData.BuildingType.TOWN_CENTER, BuildingData.BuildingType.BARRACKS, BuildingData.BuildingType.ARCHERY_RANGE, BuildingData.BuildingType.STABLE, BuildingData.BuildingType.MILL, BuildingData.BuildingType.LUMBER_CAMP, BuildingData.BuildingType.MINING_CAMP]:
 			targets[building_type] = mini(int(targets[building_type]), 1)
-		targets[BuildingData.BuildingType.SIEGE_WORKSHOP] = 0
+		targets[BuildingData.BuildingType.SIEGE_WORKSHOP] = 1 if age >= 3 and _get_fighting_units().size() >= _get_attack_threshold() and not _needs_compact_worker_recovery() else 0
 	return targets
 
 
@@ -1634,9 +1719,13 @@ func _get_build_order(age: int) -> Array:
 		# support. Under attack, currently visible Archers can put Stable first.
 		var ranged_role: int = BuildingData.BuildingType.ARCHERY_RANGE
 		var mounted_role: int = BuildingData.BuildingType.STABLE
-		if _get_compact_missing_role_building() == mounted_role:
-			return [BuildingData.BuildingType.FARM, BuildingData.BuildingType.BARRACKS, BuildingData.BuildingType.LUMBER_CAMP, BuildingData.BuildingType.MILL, mounted_role, ranged_role, BuildingData.BuildingType.MINING_CAMP, BuildingData.BuildingType.WATCH_TOWER, BuildingData.BuildingType.BLACKSMITH]
-		return [BuildingData.BuildingType.FARM, BuildingData.BuildingType.BARRACKS, BuildingData.BuildingType.LUMBER_CAMP, BuildingData.BuildingType.MILL, ranged_role, mounted_role, BuildingData.BuildingType.MINING_CAMP, BuildingData.BuildingType.WATCH_TOWER, BuildingData.BuildingType.BLACKSMITH]
+		var first_role: int = mounted_role if _get_compact_missing_role_building() == mounted_role else ranged_role
+		var second_role: int = ranged_role if first_role == mounted_role else mounted_role
+		var order: Array = [BuildingData.BuildingType.FARM, BuildingData.BuildingType.BARRACKS, BuildingData.BuildingType.LUMBER_CAMP, BuildingData.BuildingType.MILL, first_role, second_role, BuildingData.BuildingType.MINING_CAMP]
+		if age >= 3:
+			order.append(BuildingData.BuildingType.SIEGE_WORKSHOP)
+		order.append_array([BuildingData.BuildingType.WATCH_TOWER, BuildingData.BuildingType.BLACKSMITH])
+		return order
 	if _is_under_pressure:
 		return [
 			BuildingData.BuildingType.HOUSE,
@@ -1738,7 +1827,24 @@ func _get_military_training_plan(resources: Dictionary) -> Array:
 		filtered.append(UnitData.UnitType.SIEGE)
 	if _uses_compact_population_policy():
 		filtered = _rank_compact_military_plan(filtered)
+		if _needs_compact_siege_purchase() and _find_trainable_building_of_type(BuildingData.BuildingType.SIEGE_WORKSHOP) != null and GameManager.can_reserve_population(player_id, 3):
+			filtered.push_front(UnitData.UnitType.SIEGE)
 	return filtered
+
+
+func _needs_compact_siege_purchase() -> bool:
+	if not _uses_compact_population_policy() or GameManager.get_player_age(player_id) < 3:
+		return false
+	if _is_under_pressure or _needs_compact_worker_recovery() or _get_compact_missing_role_building() >= 0:
+		return false
+	if _get_fighting_units().size() < _get_attack_threshold():
+		return false
+	if _count_queued_unit(UnitData.UnitType.SIEGE) > 0:
+		return false
+	for unit: UnitBase in _get_fighting_units():
+		if unit.unit_type == UnitData.UnitType.SIEGE:
+			return false
+	return true
 
 
 func _rank_compact_military_plan(plan: Array) -> Array:
@@ -1810,28 +1916,17 @@ func _get_training_building_type_for_unit(unit_type: int) -> int:
 func _check_research() -> void:
 	if _needs_compact_worker_recovery():
 		return
-	if _blacksmith_count == 0:
+	var blacksmith: Node = _find_trainable_building_of_type(BuildingData.BuildingType.BLACKSMITH)
+	if blacksmith == null:
 		return
 	if _saving_for_age_up and not _is_under_pressure:
 		return
 
-	# Research forging first, then scale mail
-	var research_order: Array = [
-		{"id": "forging", "cost": {"food": 100, "gold": 50}, "type": "attack", "amount": 2},
-		{"id": "scale_mail", "cost": {"food": 100, "gold": 50}, "type": "armor", "amount": 1},
-	]
-
-	for r in research_order:
-		if GameManager.has_research(player_id, r["id"]):
-			continue
-		if ResourceManager.can_afford(player_id, r["cost"]):
-			ResourceManager.try_spend(player_id, r["cost"])
-			GameManager.complete_research(player_id, r["id"])
-			if r["type"] == "attack":
-				GameManager.apply_attack_upgrade(player_id, r["amount"])
-			elif r["type"] == "armor":
-				GameManager.apply_armor_upgrade(player_id, r["amount"])
-			return  # One research per tick
+	# The human and opponent share completed-building legality, payment and
+	# once-only upgrade effects. Foundations never grant technology.
+	for research_id: String in ["forging", "scale_mail"]:
+		if GameManager.try_research(player_id, blacksmith, research_id):
+			return  # One paid research per decision.
 
 
 # ═════════════════════════════════════════════════════════════════════════
@@ -2127,6 +2222,18 @@ func _issue_objective_orders(
 		var unit: UnitBase = _objective_units[index] as UnitBase
 		if not is_instance_valid(unit):
 			continue
+		var angle: float = TAU * float(index) / float(maxi(1, _objective_units.size()))
+		var slot_position: Vector2 = sacred_site.global_position + Vector2.from_angle(angle) * 38.0
+		# A Sacred contest authorizes fighting around the site, not chasing a
+		# retreating defender into its home during the opening raid grace period.
+		var current_target: Node2D = unit.attack_target if is_instance_valid(unit.attack_target) else unit.attack_building_target
+		if is_instance_valid(current_target) and (
+			not _is_enemy_currently_visible(current_target)
+			or current_target.global_position.distance_to(sacred_site.global_position) > SACRED_SITE_THREAT_RADIUS
+		):
+			unit.command_attack_move(slot_position)
+			issued_order = true
+			continue
 		if _objective_mode == ObjectiveMode.CONTEST and not site_threats.is_empty() and unit.damage > 0.0:
 			var threat: UnitBase = _choose_counter_target(unit, site_threats, target_allocations)
 			if threat == null:
@@ -2137,8 +2244,6 @@ func _issue_objective_orders(
 				issued_order = true
 			continue
 
-		var angle: float = TAU * float(index) / float(maxi(1, _objective_units.size()))
-		var slot_position: Vector2 = sacred_site.global_position + Vector2.from_angle(angle) * 38.0
 		var outside_hold_area: bool = unit.global_position.distance_to(sacred_site.global_position) > SACRED_SITE_HOLD_RADIUS
 		var heading_elsewhere: bool = (
 			unit.current_state == UnitBase.State.MOVING
@@ -2244,12 +2349,18 @@ func _check_attack_or_defend() -> void:
 		if unit.global_position.distance_to(_staging_point) > 64.0:
 			unit.command_move(_staging_point)
 
-	# Easy gives a compact opening time to reach Feudal and unlock counters.
+	# Easy/Medium give mobile players time to build a paid economy and defenders.
 	# Visible home defense and active Sacred contests were handled above, so
 	# this pacing gate only delays ordinary raids while production/recon continue.
-	if _uses_compact_population_policy() and difficulty == Difficulty.EASY and _game_time < 300.0:
-		_last_strategy_decision = "opening_staging"
-		return
+	if _uses_compact_population_policy():
+		var raid_start: float = float(SkirmishData.AI_RAID_START_SECONDS.get(difficulty, 240.0))
+		if _game_time < raid_start:
+			_last_strategy_decision = "opening_staging"
+			return
+		var raid_cooldown: float = float(SkirmishData.AI_RAID_COOLDOWN_SECONDS.get(difficulty, 75.0))
+		if raid_cooldown > 0.0 and _game_time - _last_field_attack_time < raid_cooldown:
+			_last_strategy_decision = "regrouping"
+			return
 
 	# Difficulty-specific timed aggression can launch even with a small army.
 	var force_attack_time: float = 180.0
@@ -2274,22 +2385,24 @@ func _check_attack_or_defend() -> void:
 	# Harassment raids: send small groups to pressure the enemy
 	var harass_cooldown: float = 60.0 if difficulty == Difficulty.HARD else 90.0
 	if military.size() >= 3 and _game_time - _last_harass_time > harass_cooldown:
-		# Send 2-3 units as a raiding party
+		# Keep even harassment together as a three-fighter packet.
 		var raid_size: int = mini(3, military.size())
 		var raiders: Array = idle_military.slice(0, raid_size)
-		if raiders.size() >= 2:
+		if raiders.size() >= 3:
 			var target: Vector2 = _find_enemy_target()
 			if target != Vector2(-1, -1):
 				for unit in raiders:
 					if unit.has_method("command_attack_move"):
 						unit.command_attack_move(target)
 				_last_harass_time = _game_time
+				_last_field_attack_time = _game_time
 				ai_attack_launched.emit(raiders, target)
 				_last_strategy_decision = "harass"
 
 
 func _begin_attack_wave(units: Array, target_position: Vector2, target_node: Node = null) -> void:
 	_attack_in_progress = true
+	_last_field_attack_time = _game_time
 	_has_launched_field_attack = true
 	_attack_wave_units.clear()
 	for candidate in units:
@@ -2822,6 +2935,9 @@ func get_strategy_snapshot() -> Dictionary:
 		"pending_role_building": _get_compact_missing_role_building(),
 		"attack_threshold": _get_attack_threshold(),
 		"has_launched_field_attack": _has_launched_field_attack,
+		"raid_start_seconds": float(SkirmishData.AI_RAID_START_SECONDS.get(difficulty, 240.0)) if _uses_compact_population_policy() else 0.0,
+		"raid_cooldown_seconds": float(SkirmishData.AI_RAID_COOLDOWN_SECONDS.get(difficulty, 75.0)) if _uses_compact_population_policy() else 0.0,
+		"last_field_attack_time": _last_field_attack_time if is_finite(_last_field_attack_time) else -1.0,
 		"decision_interval": _decision_interval,
 		"economic_modifiers": {
 			"starting_food": 0,
@@ -2842,6 +2958,8 @@ func get_strategy_snapshot() -> Dictionary:
 		),
 		"economy_exploration_orders": _economy_exploration_orders_issued,
 		"economy_memory_revisit_orders": _economy_memory_revisit_orders_issued,
+		"economy_wood_search_orders": _economy_wood_search_orders_issued,
+		"economy_wood_search_active": _get_active_wood_search_worker() != null,
 		"economy_resource_assignments": _economy_resource_assignments,
 		"economy_rebalance_orders": _economy_rebalance_orders_issued,
 		"economy_rebalance_pending": _pending_economy_rebalance_type,
@@ -3239,6 +3357,8 @@ func _reset_economy_recovery() -> void:
 	_next_economy_exploration_waypoint = 0
 	_economy_exploration_orders_issued = 0
 	_economy_memory_revisit_orders_issued = 0
+	_economy_wood_search_orders_issued = 0
+	_economy_wood_search_worker = null
 	_economy_resource_assignments = 0
 	_economy_rebalance_orders_issued = 0
 	_next_economy_rebalance_time = float(ECONOMY_REBALANCE_INTERVALS.get(difficulty, 28.0))
@@ -3326,6 +3446,7 @@ func _find_resource_memory_target(priority: Array, from_position: Vector2) -> Di
 				best_distance = distance
 				best = {
 					"resource_type": resource_type,
+					"tile": tile,
 					"position": position,
 				}
 		_resource_memory[resource_type] = retained

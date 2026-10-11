@@ -13,12 +13,16 @@ signal attack_command(target: Node2D)
 signal gather_command(resource_node: Node2D)
 ## Emitted when a build command is issued on a construction site.
 signal build_command(building: Node2D)
+## A phone box gesture is explicit and ends after one selection or cancellation.
+signal touch_area_selection_changed(armed: bool)
 
 ## Currently selected units/buildings.
 var selected: Array[Node2D] = []
 ## Main mirrors its one-shot Move/A-Move/Patrol state here so a world tap cannot
 ## be reinterpreted as gather, construction, attack, or building reselection.
 var unit_command_armed: bool = false
+var touch_area_selection_armed: bool = false
+var _touch_area_gesture: bool = false
 
 ## Reference to the game_map node (set externally by GameMap).
 var game_map: Node2D = null
@@ -32,6 +36,7 @@ var _mouse_drag_threshold := 10.0  # Desktop mouse threshold.
 ## --- Double-tap detection ---
 var _last_tap_time := 0.0
 var _last_tap_position := Vector2.ZERO
+var _last_tap_was_ground_move := false
 var _double_tap_interval := 0.35  # seconds
 var _double_tap_radius := 30.0  # pixels
 
@@ -92,14 +97,29 @@ const MOUSE_AFTER_TOUCH_IGNORE_MS: int = 1500
 func set_unit_command_armed(armed: bool) -> void:
 	unit_command_armed = armed
 	if armed:
+		set_touch_area_selection_armed(false)
 		# The destination tap starts a new one-shot gesture; it must not combine
 		# with the selection tap that preceded the HUD button press.
 		_last_tap_time = 0.0
 
 
+func set_touch_area_selection_armed(armed: bool) -> void:
+	if touch_area_selection_armed == armed:
+		return
+	cancel_touch_gesture()
+	if armed:
+		touch_area_selection_armed = true
+		touch_area_selection_changed.emit(true)
+	queue_redraw()
+
+
 ## A modal world interaction owns any fingers already down. Cancel its prior
 ## gesture so a delayed long press cannot issue an order during placement.
 func cancel_touch_gesture() -> void:
+	if touch_area_selection_armed:
+		touch_area_selection_armed = false
+		touch_area_selection_changed.emit(false)
+	_touch_area_gesture = false
 	_touch_hold_active = false
 	_touch_hold_elapsed = 0.0
 	_touch_hold_started_at_msec = 0
@@ -177,6 +197,12 @@ func _finish_released_touch(index: int) -> void:
 		return
 	_released_world_touch_indices.erase(index)
 	if _active_touch_indices.is_empty():
+		# A release consumed by GUI cancels the box instead of leaving a mode
+		# or rectangle attached to a finger that is no longer down.
+		if _touch_area_gesture and touch_area_selection_armed:
+			touch_area_selection_armed = false
+			touch_area_selection_changed.emit(false)
+		_touch_area_gesture = false
 		_primary_touch_index = -1
 		_touch_hold_active = false
 		_touch_hold_elapsed = 0.0
@@ -184,6 +210,7 @@ func _finish_released_touch(index: int) -> void:
 		_touch_long_press_consumed = false
 		_touch_pan_gesture = false
 		_is_dragging = false
+		queue_redraw()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -211,6 +238,13 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 			_touch_pan_gesture = true
 			_touch_hold_active = false
 			_is_dragging = false
+			if touch_area_selection_armed:
+				# Pinch intent cancels selection. Keep both contact identities
+				# admitted until release so neither can become a stray command.
+				touch_area_selection_armed = false
+				touch_area_selection_changed.emit(false)
+				get_viewport().set_input_as_handled()
+				queue_redraw()
 		if event.index != _primary_touch_index:
 			return
 		_hide_touch_context()
@@ -219,10 +253,15 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 		# Once a second contact arrives, camera ownership stays latched even
 		# if one finger lifts or its release is consumed by a GUI control.
 		_touch_pan_gesture = _touch_pan_gesture or _active_touch_indices.size() > 1
-		_touch_hold_active = touch_context_enabled and not _touch_pan_gesture
+		_touch_area_gesture = touch_area_selection_armed and not _touch_pan_gesture
+		_is_dragging = _touch_area_gesture
+		_touch_hold_active = touch_context_enabled and not _touch_pan_gesture and not _touch_area_gesture
 		_touch_hold_elapsed = 0.0
 		_touch_hold_started_at_msec = Time.get_ticks_msec()
 		_touch_long_press_consumed = false
+		if _touch_area_gesture:
+			get_viewport().set_input_as_handled()
+			queue_redraw()
 	else:
 		# A GUI-owned press or an OS-canceled contact is never a world tap.
 		# _input may already have removed the contact before GUI routing.
@@ -230,6 +269,9 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 		_released_world_touch_indices.erase(event.index)
 		_active_touch_indices.erase(event.index)
 		if event.canceled or not owned_world_press:
+			if _touch_area_gesture and touch_area_selection_armed:
+				touch_area_selection_armed = false
+				touch_area_selection_changed.emit(false)
 			if event.index == _primary_touch_index:
 				_touch_hold_active = false
 				_touch_hold_started_at_msec = 0
@@ -242,6 +284,25 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 				_finish_released_touch(event.index)
 			return
 		_touch_hold_active = false
+		if _touch_area_gesture and touch_area_selection_armed:
+			_drag_end = event.position
+			_is_dragging = false
+			_touch_area_gesture = false
+			touch_area_selection_armed = false
+			touch_area_selection_changed.emit(false)
+			if _drag_start.distance_to(_drag_end) >= touch_tap_slop_px:
+				_finish_drag_select()
+			else:
+				# Select-mode taps never gather, build, move, or attack.
+				var node: Node2D = _get_node_at(_screen_to_world(event.position), true)
+				_clear_selection()
+				if node != null and node.is_in_group("units") and not _is_enemy(node):
+					_add_to_selection(node)
+			_last_tap_time = 0.0
+			get_viewport().set_input_as_handled()
+			_finish_released_touch(event.index)
+			queue_redraw()
+			return
 		if _touch_context_open:
 			_touch_hold_started_at_msec = 0
 			_touch_long_press_consumed = false
@@ -292,6 +353,12 @@ func _handle_drag(event: InputEventScreenDrag) -> void:
 		_touch_hold_active = false
 		return
 	_drag_end = event.position
+	if _touch_area_gesture and touch_area_selection_armed:
+		# The visible box owns this one-finger drag; camera pan and the
+		# long-press action must not interpret the same movement.
+		get_viewport().set_input_as_handled()
+		queue_redraw()
+		return
 	if _active_touch_indices.size() > 1:
 		_touch_pan_gesture = true
 		_touch_hold_active = false
@@ -357,6 +424,17 @@ func _handle_tap(screen_pos: Vector2, is_touch_input: bool) -> void:
 	var tap_target_id: int = tapped_node.get_instance_id() if tapped_node != null else 0
 	# Check double-tap.
 	var now := Time.get_ticks_msec() / 1000.0
+	if is_touch_input and not unit_command_armed and _has_selected_units() \
+			and tapped_node == null and resource_node == null and _last_tap_was_ground_move \
+			and _last_tap_time > 0.0 and now - _last_tap_time < _double_tap_interval \
+			and screen_pos.distance_to(_last_tap_position) < _double_tap_radius:
+		# The first ground tap issues the normal mobile order. A second tap
+		# dismisses the selection without stopping or replacing that order.
+		_last_tap_time = 0.0
+		_record_touch_input(screen_pos, world_pos, "clear", tapped_node, resource_node)
+		_clear_selection()
+		get_viewport().set_input_as_handled()
+		return
 	if not unit_command_armed and tap_target_id != 0 and tap_target_id == _last_tap_target_id \
 			and _last_tap_time > 0.0 \
 			and now - _last_tap_time < _double_tap_interval \
@@ -369,6 +447,7 @@ func _handle_tap(screen_pos: Vector2, is_touch_input: bool) -> void:
 	_last_tap_time = now
 	_last_tap_position = screen_pos
 	_last_tap_target_id = tap_target_id
+	_last_tap_was_ground_move = false
 
 	var shift_held: bool = Input.is_key_pressed(KEY_SHIFT)
 	var has_selected_villagers: bool = _has_selected_villagers()
@@ -518,18 +597,19 @@ func _handle_tap(screen_pos: Vector2, is_touch_input: bool) -> void:
 			get_viewport().set_input_as_handled()
 		return
 
-	if is_touch_input and selected.size() > 0:
+	if is_touch_input and has_selected_units:
 		# Touch parity: tapping empty ground while selected issues a move command.
+		_last_tap_was_ground_move = true
 		var tile_pos := _world_to_tile(world_pos)
 		_record_touch_input(screen_pos, world_pos, "move", tapped_node, resource_node, tile_pos)
 		move_command.emit(tile_pos)
 		consumed = true
 	elif not shift_held:
-		# Desktop left click keeps deselect behavior.
-		if not is_touch_input:
-			_record_touch_input(screen_pos, world_pos, "clear", tapped_node, resource_node)
-			_clear_selection()
-			consumed = true
+		# An inspected building, resource, or objective needs no ground order.
+		# Tapping away dismisses its card on phones as well as on desktop.
+		_record_touch_input(screen_pos, world_pos, "clear", tapped_node, resource_node)
+		_clear_selection()
+		consumed = true
 	if not consumed:
 		_record_touch_input(screen_pos, world_pos, "ignored", tapped_node, resource_node)
 	if consumed and is_touch_input:
@@ -622,6 +702,8 @@ func _remove_from_selection(node: Node2D) -> void:
 
 
 func select_all_own_units() -> void:
+	set_touch_area_selection_armed(false)
+	_last_tap_time = 0.0
 	_clear_selection()
 	for node in get_tree().get_nodes_in_group("units"):
 		if not _is_current_selection_entry(node):
@@ -633,11 +715,15 @@ func select_all_own_units() -> void:
 func select_single(node: Node2D) -> void:
 	if not _is_current_selection_entry(node):
 		return
+	set_touch_area_selection_armed(false)
+	_last_tap_time = 0.0
 	_clear_selection()
 	_add_to_selection(node)
 
 
 func select_many(nodes: Array[Node2D]) -> void:
+	set_touch_area_selection_armed(false)
+	_last_tap_time = 0.0
 	_clear_selection()
 	for node in nodes:
 		if not _is_current_selection_entry(node):
@@ -646,6 +732,8 @@ func select_many(nodes: Array[Node2D]) -> void:
 
 
 func deselect_all() -> void:
+	set_touch_area_selection_armed(false)
+	_last_tap_time = 0.0
 	_clear_selection()
 
 
@@ -1055,7 +1143,12 @@ func _build_touch_context_actions(tapped_node: Node2D, resource_node: Node2D) ->
 		if tapped_node != null and _has_selected_villagers() and _is_under_construction(tapped_node):
 			actions.append({"id": TouchContextAction.BUILD, "label": "Build"})
 		if tapped_node == null:
-			actions.append({"id": TouchContextAction.MOVE, "label": "Move"})
+			var ground_action: String = "Move"
+			if selected.size() == 1 and selected[0] is BuildingBase:
+				var producer := selected[0] as BuildingBase
+				if producer.player_owner == 0 and producer.can_train():
+					ground_action = "Set rally point"
+			actions.append({"id": TouchContextAction.MOVE, "label": ground_action})
 		elif not _is_enemy(tapped_node):
 			actions.append({"id": TouchContextAction.SELECT, "label": "Select"})
 		return actions

@@ -1,16 +1,28 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <!-- Hood, quiver and a full-height curved bow remain visible at phone scale. -->
-  <path d="M37 50 48 48 52 75 42 78Z" fill="#6b5039" stroke="#453d31" stroke-width="3"/>
-  <path d="M40 52 33 34 M44 52 39 31 M47 51 44 29" stroke="#c7b582" stroke-width="3"/>
-  <path d="M49 79 47 103 57 103 62 80 M66 80 72 103 81 103 77 77" fill="#736446" stroke="#514e3c" stroke-width="3" stroke-linejoin="round"/>
-  <path d="M44 52 55 46 69 47 77 56 75 85 46 85Z" fill="#478f86" stroke="#315f5d" stroke-width="3" stroke-linejoin="round"/>
-  <path d="M53 49 65 51 66 81 55 80Z" fill="#78b8a6"/>
-  <path d="M57 34 68 34 72 41 67 51 57 48 52 43Z" fill="#ebd2a0" stroke="#b18b57" stroke-width="2"/>
-  <path d="M49 40 53 27 62 23 73 29 77 44 68 37 58 37 56 48Z" fill="#43897f" stroke="#315f5d" stroke-width="3" stroke-linejoin="round"/>
-  <path d="M69 54 82 64 98 64" fill="none" stroke="#edd1a0" stroke-width="7" stroke-linecap="round"/>
-  <path d="M51 57 67 64 81 61" fill="none" stroke="#e6c798" stroke-width="6" stroke-linecap="round"/>
-  <path d="M98 34 Q120 63 98 92" fill="none" stroke="#a77b40" stroke-width="5" stroke-linecap="round"/>
-  <path d="M98 34 83 64 98 92" fill="none" stroke="#e6d8b6" stroke-width="2"/>
-  <path d="M77 64 109 64" stroke="#bba16b" stroke-width="3"/>
-  <path d="M114 64 105 60 105 68Z" fill="#d6dfcb"/>
+  <!-- Pocket Kingdoms archer: peaked hood, warm leather quiver and oversized curved bow. Feet at y104. -->
+  <g stroke="#3d4945" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M35 48 43 45 50 55 48 76 35 77 30 67Z" fill="#986a43"/>
+    <path d="M35 51 29 30 M40 50 36 27 M45 51 43 30" fill="none" stroke="#685439" stroke-width="3"/>
+    <path d="M29 31 27 24 31 24 32 31 M36 29 34 22 38 22 39 28 M43 31 41 24 45 24 46 30" fill="#f0dec0" stroke-width="1.5"/>
+    <path d="M45 80 44 96 40 101 41 104 56 104 61 82 M65 81 70 97 69 104 86 104 86 100 78 96 76 79" fill="#6b5d43"/>
+    <path d="M44 97 54 97 53 102 42 102 M70 97 80 98 83 102 71 102" fill="#453e32" stroke-width="2.5"/>
+    <path d="M40 53 51 46 68 46 78 54 78 82 63 89 44 82Z" fill="#438f87"/>
+    <path d="M52 49 60 53 70 49 71 81 56 84Z" fill="#79c0ae" stroke-width="2.5"/>
+    <path d="M43 77 76 77" stroke="#785537" stroke-width="5"/>
+    <rect x="59" y="74" width="8" height="7" rx="1" fill="#e5c17d" stroke-width="2"/>
+    <path d="M53 30 71 28 78 39 74 49 64 55 52 49 47 39Z" fill="#f1d0a0"/>
+    <path d="M45 39 48 25 58 18 71 22 80 36 77 45 70 34 60 32 51 37 52 49 45 46Z" fill="#3c857d"/>
+    <path d="M52 28 60 23 69 26" fill="none" stroke="#82c6b2" stroke-width="3"/>
+    <path d="M70 39 70 41" stroke-width="3"/>
+    <path d="M63 48 68 49" stroke="#b58153" stroke-width="2.5"/>
+    <path d="M74 55 85 61 98 60" fill="none" stroke="#3d4945" stroke-width="11"/>
+    <path d="M74 54 85 59 98 58" fill="none" stroke="#efcc98" stroke-width="6.5"/>
+    <path d="M49 58 64 68 80 61" fill="none" stroke="#3d4945" stroke-width="10"/>
+    <path d="M49 57 64 66 80 59" fill="none" stroke="#efcc98" stroke-width="6"/>
+    <path d="M100 31 Q122 60 100 91" fill="none" stroke="#3d4945" stroke-width="7"/>
+    <path d="M100 31 Q119 60 100 91" fill="none" stroke="#d5a15c" stroke-width="4"/>
+    <path d="M100 32 81 60 100 90" fill="none" stroke="#efe2bc" stroke-width="2"/>
+    <path d="M77 60 111 60" stroke="#b79159" stroke-width="3"/>
+    <path d="M118 60 109 55 109 65Z" fill="#d7e0cf" stroke-width="2"/>
+  </g>
 </svg>

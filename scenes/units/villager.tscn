@@ -13,7 +13,5 @@ damage = 3.0
 speed = 60.0
 attack_range = 10.0
 vision_radius = 4.0
-gather_rate = 1.0
-carry_capacity = 10
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]

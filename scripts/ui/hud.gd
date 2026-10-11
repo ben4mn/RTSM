@@ -21,6 +21,8 @@ signal unit_patrol_requested()
 signal unit_stop_requested()
 signal unit_stance_requested()
 signal deselect_requested()
+signal select_area_requested()
+signal center_selection_requested()
 signal research_requested(building: Node2D, research_id: String)
 signal placement_cancel_requested()
 signal placement_confirm_requested()
@@ -28,6 +30,7 @@ signal pause_requested()
 signal resume_requested()
 signal quit_to_menu_requested()
 signal guidance_dismissed()
+signal match_learning_requested()
 
 const RESOURCE_COLORS: Dictionary = {
 	"food": Color(0.9, 0.35, 0.25),
@@ -51,6 +54,8 @@ const MOBILE_TOP_BAR_COMPACT_SHORT_SIDE := 520.0
 const MOBILE_TOP_BAR_COMPACT_WIDTH := 780.0
 const MOBILE_SELECTION_COMMAND_WIDTH := 520.0
 const MOBILE_SELECTION_HEIGHT := 72.0
+const MOBILE_DOCK_CAPTION_HEIGHT := 24.0
+const MOBILE_TOP_RAIL_HEIGHT := 56.0
 const MOBILE_UNIT_COMMAND_WIDTH := 64.0
 const MOBILE_GUIDANCE_WIDTH := 360.0
 const MOBILE_GUIDANCE_HEIGHT := 54.0
@@ -101,12 +106,15 @@ var _camera_controls: HBoxContainer = null
 var _camera_view_button: Button = null
 var _camera_controls_expanded: bool = false
 var _selection_back_button: Button = null
+var _select_area_button: Button = null
+var _area_selection_armed: bool = false
 var _selection_kind: String = "none"
 var _selection_is_worker: bool = false
 var _age_action_primary: bool = false
 var _camera_zoom_in_button: Button = null
 var _camera_zoom_out_button: Button = null
 var _camera_zoom_reset_button: Button = null
+var _camera_center_button: Button = null
 var _camera_zoom_current: float = 1.0
 var _camera_zoom_min: float = 0.5
 var _camera_zoom_max: float = 2.5
@@ -215,6 +223,8 @@ var _primary_action_unit_type: int = -1
 var _primary_action_building_type: int = -1
 var _early_game_ui_active: bool = false
 var _guided_military_shortcuts_visible: bool = false
+var _match_learning_active: bool = false
+var _match_learning_button: Button = null
 var _pending_military_shortcut: bool = false
 var _focus_pulse_time: float = 0.0
 var _next_touch_diagnostics_refresh_msec: int = 0
@@ -223,6 +233,10 @@ var _mobile_layout_refresh_queued: bool = false
 var _placement_mode_active: bool = false
 var _selection_context_active: bool = false
 var _minimap_frame: Panel = null
+var _command_dock: Panel = null
+var _navigation_controls: HBoxContainer = null
+var _worker_idle_button: Button = null
+var _world_safe_rect := Rect2()
 
 # MCP-readable diagnostics for phone layout checks.
 @export var mobile_layout_diagnostics: Dictionary = {}
@@ -251,6 +265,7 @@ func _ready() -> void:
 	_create_camera_controls()
 	_create_match_population_label()
 	_ensure_mobile_action_strip()
+	_create_command_dock()
 	_create_idle_villager_button()
 	_create_military_buttons()
 	_create_unit_command_buttons()
@@ -442,6 +457,7 @@ func _create_game_control_buttons() -> void:
 	var root_ctrl: Control = $Root
 	var hbox := HBoxContainer.new()
 	hbox.name = "GameControlButtons"
+	hbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hbox.add_theme_constant_override("separation", 4)
 	hbox.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	hbox.offset_left = -112
@@ -452,10 +468,14 @@ func _create_game_control_buttons() -> void:
 
 	_pause_button = Button.new()
 	_pause_button.name = "PauseButton"
-	_pause_button.text = "II"
+	_pause_button.text = "Pause"
+	_pause_button.add_theme_font_size_override("font_size", 11)
 	_pause_button.custom_minimum_size = Vector2(48, 48)
 	_pause_button.pressed.connect(_on_pause_pressed)
 	_pause_button.tooltip_text = "Pause/Resume [P]"
+	game_time_label.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	game_time_label.reparent(hbox)
+	game_time_label.add_theme_font_size_override("font_size", 13)
 	hbox.add_child(_pause_button)
 
 	_speed_button = Button.new()
@@ -490,6 +510,8 @@ func _create_camera_controls() -> void:
 		_camera_view_button.add_theme_stylebox_override(style_name, view_style)
 	_camera_view_button.pressed.connect(func() -> void:
 		_camera_controls_expanded = not _camera_controls_expanded
+		if _camera_controls_expanded:
+			_close_advanced_commands()
 		_queue_mobile_layout_refresh()
 	)
 	_camera_controls.add_child(_camera_view_button)
@@ -517,16 +539,55 @@ func _create_camera_controls() -> void:
 	_camera_zoom_reset_button.tooltip_text = "Return to the starting view scale"
 	_camera_zoom_reset_button.pressed.connect(func(): camera_zoom_reset_requested.emit())
 	_camera_controls.add_child(_camera_zoom_reset_button)
+	_camera_center_button = Button.new()
+	_camera_center_button.name = "CenterSelectionButton"
+	_camera_center_button.text = "Center"
+	_camera_center_button.custom_minimum_size = Vector2(64, 48)
+	_camera_center_button.add_theme_font_size_override("font_size", 12)
+	_camera_center_button.tooltip_text = "Center the selected units in the visible battlefield [Space]"
+	_camera_center_button.pressed.connect(func() -> void: center_selection_requested.emit())
+	_camera_controls.add_child(_camera_center_button)
 	$Root.add_child(_camera_controls)
 	_selection_back_button = Button.new()
 	_selection_back_button.name = "SelectionBackButton"
 	_selection_back_button.text = "Back"
-	_selection_back_button.custom_minimum_size = Vector2(64, 48)
+	_selection_back_button.custom_minimum_size = Vector2(48, 48)
 	_selection_back_button.add_theme_font_size_override("font_size", 14)
 	_selection_back_button.tooltip_text = "Clear selection and return to kingdom controls"
 	_selection_back_button.pressed.connect(func() -> void: deselect_requested.emit())
 	$Root/BottomRight.add_child(_selection_back_button)
 	_selection_back_button.visible = false
+	_select_area_button = Button.new()
+	_select_area_button.name = "SelectAreaButton"
+	_select_area_button.text = "Select area"
+	_select_area_button.custom_minimum_size = Vector2(104, 48)
+	_select_area_button.add_theme_font_size_override("font_size", 12)
+	_select_area_button.toggle_mode = true
+	_select_area_button.focus_mode = Control.FOCUS_NONE
+	_select_area_button.tooltip_text = "Select area, then drag around your units. Tap again to cancel."
+	_select_area_button.pressed.connect(func() -> void: select_area_requested.emit())
+	_navigation_controls = HBoxContainer.new()
+	_navigation_controls.name = "MapNavigation"
+	_navigation_controls.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_navigation_controls.add_theme_constant_override("separation", 6)
+	_navigation_controls.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	$Root.add_child(_navigation_controls)
+	_navigation_controls.add_child(_select_area_button)
+	_selection_back_button.reparent(_navigation_controls)
+	_selection_back_button.text = "Clear"
+	_selection_back_button.add_theme_font_size_override("font_size", 12)
+	_camera_controls.reparent(_navigation_controls)
+	_camera_controls.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_select_area_button.text = "Select area"
+	KingdomTheme.apply_secondary(_select_area_button)
+
+
+func set_area_selection_armed(armed: bool) -> void:
+	_area_selection_armed = armed
+	if _select_area_button:
+		_select_area_button.set_pressed_no_signal(armed)
+		_select_area_button.text = "Cancel area\nDrag to select" if armed else "Select area"
+	_queue_mobile_layout_refresh()
 
 
 func update_camera_zoom(current: float, minimum: float, maximum: float) -> void:
@@ -588,7 +649,7 @@ func _configure_mobile_visuals() -> void:
 		_minimap_frame.z_index = 2
 		var frame_style := StyleBoxFlat.new()
 		frame_style.bg_color = Color(0.0, 0.0, 0.0, 0.0)
-		frame_style.border_color = Color(0.82, 0.67, 0.34, 0.82)
+		frame_style.border_color = KingdomTheme.BORDER
 		frame_style.set_border_width_all(2)
 		frame_style.set_corner_radius_all(6)
 		_minimap_frame.add_theme_stylebox_override("panel", frame_style)
@@ -707,6 +768,14 @@ func _create_pause_overlay() -> void:
 		AudioManager.play_ui("button_click")
 	)
 	vbox.add_child(sound_btn)
+	_match_learning_button = Button.new()
+	_match_learning_button.name = "MatchLearningButton"
+	_match_learning_button.text = "Battle lessons: ON" if _match_learning_active else "Learn full match"
+	_match_learning_button.custom_minimum_size = Vector2(192, 48)
+	_match_learning_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_match_learning_button.process_mode = Node.PROCESS_MODE_ALWAYS
+	_match_learning_button.pressed.connect(func() -> void: match_learning_requested.emit())
+	vbox.add_child(_match_learning_button)
 
 	var quit_btn := Button.new()
 	quit_btn.name = "QuitButton"
@@ -767,6 +836,8 @@ func _set_gameplay_ui_interactable(interactable: bool) -> void:
 		_town_center_button.disabled = not interactable
 	if _selection_back_button:
 		_selection_back_button.disabled = not interactable
+	if _select_area_button:
+		_select_area_button.disabled = not interactable
 	if _placement_cancel_button:
 		_placement_cancel_button.disabled = not interactable
 	if _placement_confirm_button:
@@ -778,7 +849,7 @@ func _set_gameplay_ui_interactable(interactable: bool) -> void:
 			if child is BaseButton:
 				var command_button := child as BaseButton
 				command_button.disabled = not interactable or not _unit_commands_authorized
-		for button in [_unit_attack_move_button, _unit_patrol_button, _unit_stance_button]:
+		for button in [_unit_stop_button, _unit_patrol_button, _unit_stance_button]:
 			button.disabled = not interactable or not _unit_commands_authorized
 		if _unit_patrol_button:
 			_unit_patrol_button.disabled = not interactable or not _unit_commands_authorized or not _unit_commands_have_military
@@ -854,6 +925,41 @@ func set_ui_modal_state(state: int) -> void:
 
 
 # --- Idle villager button ---
+
+func _create_command_dock() -> void:
+	_command_dock = Panel.new()
+	_command_dock.name = "CommandDock"
+	_command_dock.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_command_dock.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_command_dock.add_theme_stylebox_override("panel", KingdomTheme.panel_style(KingdomTheme.INK_PANEL, KingdomTheme.BORDER, 12))
+	$Root.add_child(_command_dock)
+	$Root.move_child(_command_dock, 0)
+	selection_panel.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+	build_menu_button.icon = null
+	KingdomTheme.apply_primary(build_menu_button)
+
+
+func get_world_safe_rect() -> Rect2:
+	return _world_safe_rect if _world_safe_rect.has_area() else get_viewport().get_visible_rect()
+
+
+func get_world_occlusion_rects() -> Array[Rect2]:
+	# Camera framing consumes actual rendered cards, never transparent containers.
+	var obstacles: Array[Rect2] = []
+	var build_menu_panel: Control = get_node_or_null("BuildMenu") as Control
+	for control: Control in [top_bar, minimap_bg, _command_dock, _navigation_controls,
+		_progression_hint_panel, _sacred_site_panel, _advanced_command_panel, _placement_status_panel,
+		_hotkey_panel, build_menu_panel]:
+		if control != null and control.is_visible_in_tree() and control.size.x > 0.0 and control.size.y > 0.0:
+			obstacles.append(control.get_global_rect())
+	if _placement_mode_active and _mobile_action_panel.is_visible_in_tree():
+		obstacles.append(_mobile_action_panel.get_global_rect())
+	if _notification_container != null:
+		for child: Control in _notification_container.get_children():
+			if child.is_visible_in_tree() and not child.is_queued_for_deletion():
+				obstacles.append(child.get_global_rect())
+	return obstacles
+
 
 func _ensure_mobile_action_strip() -> void:
 	if _mobile_action_strip != null:
@@ -936,12 +1042,12 @@ func _create_idle_villager_button() -> void:
 	_mobile_action_strip.add_child(_idle_villager_button)
 
 	# Villager task breakdown — use HBox with colored labels per resource
-	var bottom_right: VBoxContainer = %BottomRight
+	var bottom_right: BoxContainer = %BottomRight
 	_villager_task_hbox = HBoxContainer.new()
 	_villager_task_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	_villager_task_hbox.add_theme_constant_override("separation", 6)
 	# Keep contextual worker counts readable over grass without adding layout or input area.
-	var task_backplate := KingdomTheme.panel_style(KingdomTheme.INK, KingdomTheme.INK, 4)
+	var task_backplate := KingdomTheme.panel_style(Color.TRANSPARENT, Color.TRANSPARENT, 4)
 	task_backplate.set_content_margin_all(0.0)
 	task_backplate.set_border_width_all(0)
 	_villager_task_hbox.draw.connect(func():
@@ -1009,10 +1115,11 @@ func _create_unit_command_buttons() -> void:
 	_unit_move_button.toggle_mode = true
 	_unit_move_button.pressed.connect(_on_unit_move_pressed)
 	_unit_command_container.add_child(_unit_move_button)
-	_unit_stop_button = _make_unit_command_button("UnitStopButton", "Stop", "Stop the selected units")
-	_unit_stop_button.pressed.connect(_on_unit_stop_pressed)
-	_unit_command_container.add_child(_unit_stop_button)
-	_unit_more_button = _make_unit_command_button("UnitMoreButton", "More", "Attack-move, Patrol and Stance")
+	_unit_attack_move_button = _make_unit_command_button("UnitAttackMoveButton", "Attack", "Attack-move: tap a destination and fight enemies on the way")
+	_unit_attack_move_button.toggle_mode = true
+	_unit_attack_move_button.pressed.connect(_on_unit_attack_move_pressed)
+	_unit_command_container.add_child(_unit_attack_move_button)
+	_unit_more_button = _make_unit_command_button("UnitMoreButton", "More", "Stop, Patrol and Stance")
 	_unit_more_button.toggle_mode = true
 	_unit_more_button.pressed.connect(_on_unit_more_pressed)
 	_unit_command_container.add_child(_unit_more_button)
@@ -1029,10 +1136,9 @@ func _create_unit_command_buttons() -> void:
 	_advanced_command_container = HBoxContainer.new()
 	_advanced_command_container.add_theme_constant_override("separation", 6)
 	_advanced_command_panel.add_child(_advanced_command_container)
-	_unit_attack_move_button = _make_unit_command_button("UnitAttackMoveButton", "Attack-move", "Engage enemies on the way to a destination")
-	_unit_attack_move_button.toggle_mode = true
-	_unit_attack_move_button.pressed.connect(_on_unit_attack_move_pressed)
-	_advanced_command_container.add_child(_unit_attack_move_button)
+	_unit_stop_button = _make_unit_command_button("UnitStopButton", "Stop", "Stop the selected units")
+	_unit_stop_button.pressed.connect(_on_unit_stop_pressed)
+	_advanced_command_container.add_child(_unit_stop_button)
 	_unit_patrol_button = _make_unit_command_button("UnitPatrolButton", "Patrol", "Patrol between here and a destination")
 	_unit_patrol_button.toggle_mode = true
 	_unit_patrol_button.pressed.connect(_on_unit_patrol_pressed)
@@ -1041,10 +1147,16 @@ func _create_unit_command_buttons() -> void:
 	_unit_stance_button.toggle_mode = true
 	_unit_stance_button.pressed.connect(_on_unit_stance_pressed)
 	_advanced_command_container.add_child(_unit_stance_button)
+	_worker_idle_button = _make_unit_command_button("WorkerIdleButton", "Idle workers", "Cycle idle workers")
+	_worker_idle_button.pressed.connect(_on_idle_villager_pressed)
+	_advanced_command_container.add_child(_worker_idle_button)
+	_worker_idle_button.visible = false
 
 
 func _on_unit_more_pressed() -> void:
 	_advanced_commands_open = not _advanced_commands_open
+	if _advanced_commands_open:
+		_camera_controls_expanded = false
 	_unit_more_button.set_pressed_no_signal(_advanced_commands_open)
 	_advanced_command_panel.visible = _advanced_commands_open and _unit_commands_authorized
 	_queue_mobile_layout_refresh()
@@ -1064,7 +1176,7 @@ func _make_unit_command_button(button_name: String, label: String, tooltip: Stri
 	button.text = label
 	button.custom_minimum_size = Vector2(MOBILE_UNIT_COMMAND_WIDTH, MOBILE_ACTION_BUTTON_HEIGHT)
 	button.add_theme_font_size_override("font_size", 14)
-	var compact_style: StyleBoxFlat = button.get_theme_stylebox("normal").duplicate()
+	var compact_style: StyleBoxFlat = KingdomTheme.panel_style(KingdomTheme.INK_LIGHT, KingdomTheme.BORDER, 9)
 	compact_style.set_content_margin(SIDE_LEFT, 8.0)
 	compact_style.set_content_margin(SIDE_RIGHT, 8.0)
 	button.add_theme_stylebox_override("normal", compact_style)
@@ -1133,16 +1245,25 @@ func configure_unit_commands(
 		_unit_patrol_button.disabled = not authorized or not has_military
 	if _unit_move_button:
 		_unit_move_button.set_pressed_no_signal(armed_mode == "move")
+		_unit_move_button.text = "Move\nArmed" if armed_mode == "move" else "Move"
 	if _unit_attack_move_button:
 		_unit_attack_move_button.set_pressed_no_signal(armed_mode == "attack_move")
+		_unit_attack_move_button.text = "Attack\nArmed" if armed_mode == "attack_move" else "Attack"
 	if _unit_patrol_button:
 		_unit_patrol_button.set_pressed_no_signal(armed_mode == "patrol")
+		_unit_patrol_button.text = "Patrol\nArmed" if armed_mode == "patrol" else "Patrol"
 	if _unit_stance_button:
 		_unit_stance_button.text = "Stance"
 		_unit_stance_button.set_pressed_no_signal(stance_name == "Stand Ground")
 		_unit_stance_button.tooltip_text = "Current stance: %s. Tap to toggle." % stance_name
+	if _worker_idle_button:
+		_worker_idle_button.visible = not has_military and _selection_is_worker
+		_worker_idle_button.disabled = _last_idle_villager_count <= 0
+		_worker_idle_button.text = "Idle %d" % _last_idle_villager_count
+	_unit_patrol_button.visible = has_military
+	_unit_stance_button.visible = authorized
 	if _unit_more_button:
-		_unit_more_button.text = "More •" if armed_mode in ["attack_move", "patrol"] else "More"
+		_unit_more_button.text = "More •" if armed_mode == "patrol" else "More"
 	if _advanced_command_panel:
 		_advanced_command_panel.visible = _advanced_commands_open and _unit_command_container.visible
 	_queue_mobile_layout_refresh()
@@ -1264,6 +1385,7 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 		return
 
 	var safe_pos: Vector2 = safe_area.position
+	_world_safe_rect = safe_area
 	_apply_context_actions(viewport_size)
 	var action_count: int = _count_visible_mobile_action_buttons()
 	var metrics: Dictionary = _calculate_mobile_layout_metrics(viewport_size, safe_area, action_count)
@@ -1309,11 +1431,10 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 	_apply_top_bar_compact(metrics["top_bar_compact"])
 	_update_resource_display(_resource_values)
 	if _villager_task_hbox:
-		var phone_tasks: bool = bool(metrics["top_bar_compact"])
-		var task_parent: Node = $Root if phone_tasks else $Root/BottomRight
+		var task_parent: Node = _command_dock
 		if _villager_task_hbox.get_parent() != task_parent:
 			_villager_task_hbox.reparent(task_parent)
-		_villager_task_hbox.visible = not phone_tasks or (_selection_kind == "unit" and _selection_is_worker and _unit_commands_authorized and not _unit_commands_have_military and not _advanced_commands_open and not _placement_mode_active and _ui_modal_state == UIModalState.NONE)
+		_villager_task_hbox.visible = (_selection_kind == "unit" and _selection_is_worker and _unit_commands_authorized and not _unit_commands_have_military and not _advanced_commands_open and not _placement_mode_active and _ui_modal_state == UIModalState.NONE)
 	var safe_top: float = metrics["safe_top"]
 	var safe_left: float = metrics["safe_left"]
 	var safe_right: float = metrics["safe_right"]
@@ -1324,14 +1445,14 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 		top_bar_margin.add_theme_constant_override("margin_left", int(round(safe_left + 10.0)))
 		# Reserve the top-right utility buttons instead of rendering the timer
 		# underneath them at narrow phone widths.
-		top_bar_margin.add_theme_constant_override("margin_right", int(round(safe_right + 116.0)))
+		top_bar_margin.add_theme_constant_override("margin_right", int(round(safe_right + 368.0)))
 
 	var game_controls: Control = get_node_or_null("Root/GameControlButtons")
 	if game_controls:
 		game_controls.offset_right = -safe_right - 8.0
-		game_controls.offset_left = game_controls.offset_right - 104.0
-		game_controls.offset_top = safe_top + 2.0
-		game_controls.offset_bottom = safe_top + 50.0
+		game_controls.offset_left = game_controls.offset_right - 158.0
+		game_controls.offset_top = safe_top + 4.0
+		game_controls.offset_bottom = safe_top + 52.0
 	if _score_label:
 		_refresh_score_visibility(viewport_size)
 		_score_label.offset_left = -safe_right - 290.0
@@ -1347,25 +1468,28 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 		minimap_bg.offset_right = metrics["minimap_right"]
 
 	if _camera_controls:
-		_camera_controls.visible = _ui_modal_state == UIModalState.NONE
+		_navigation_controls.visible = standard_field_chrome_visible and _ui_modal_state == UIModalState.NONE
+		_camera_controls.visible = _navigation_controls.visible
 		var phone_camera: bool = minf(viewport_size.x, viewport_size.y) <= 520.0
 		_camera_view_button.visible = phone_camera
 		_camera_view_button.set_pressed_no_signal(_camera_controls_expanded)
-		for zoom_button: Button in [_camera_zoom_out_button, _camera_zoom_in_button, _camera_zoom_reset_button]:
+		for zoom_button: Button in [_camera_zoom_out_button, _camera_zoom_in_button, _camera_zoom_reset_button, _camera_center_button]:
 			zoom_button.visible = not phone_camera or _camera_controls_expanded
-		_camera_controls.offset_left = metrics["minimap_left"]
-		var camera_width: float = 220.0 if phone_camera and _camera_controls_expanded else (48.0 if phone_camera else 168.0)
-		_camera_controls.offset_right = metrics["minimap_left"] + camera_width
-		_camera_controls.offset_bottom = metrics["minimap_top"] - 24.0
-		_camera_controls.offset_top = _camera_controls.offset_bottom - 48.0
+		_navigation_controls.offset_left = metrics["minimap_left"]
+		var camera_width: float = 290.0 if phone_camera and _camera_controls_expanded else (48.0 if phone_camera else 238.0)
+		_camera_center_button.disabled = not _selection_context_active or _ui_modal_state != UIModalState.NONE
+		var nav_width: float = camera_width + (110.0 if _select_area_button.visible else 0.0) + (54.0 if _selection_back_button.visible else 0.0)
+		_navigation_controls.offset_right = metrics["minimap_left"] + nav_width
+		_navigation_controls.offset_bottom = metrics["minimap_top"] - 8.0
+		_navigation_controls.offset_top = _navigation_controls.offset_bottom - 48.0
 		metrics["camera_zoom_left"] = metrics["minimap_left"]
-		metrics["camera_zoom_right"] = metrics["minimap_left"] + camera_width
-		metrics["camera_zoom_top"] = viewport_size.y + _camera_controls.offset_top
-		metrics["camera_zoom_bottom"] = viewport_size.y + _camera_controls.offset_bottom
-		_mobile_notification_limit = clampi(int((metrics["camera_zoom_top"] - metrics["safe_top"] - 56.0) / 40.0), 1, MAX_NOTIFICATIONS)
+		metrics["camera_zoom_right"] = metrics["minimap_left"] + nav_width
+		metrics["camera_zoom_top"] = viewport_size.y + _navigation_controls.offset_top
+		metrics["camera_zoom_bottom"] = viewport_size.y + _navigation_controls.offset_bottom
+		_mobile_notification_limit = 1 if phone_camera else MAX_NOTIFICATIONS
 	var bottom_right: Control = get_node_or_null("Root/BottomRight")
 	if bottom_right:
-		bottom_right.visible = standard_field_chrome_visible and (age_up_button.visible or build_menu_button.visible or _selection_back_button.visible)
+		bottom_right.visible = standard_field_chrome_visible and (age_up_button.visible or build_menu_button.visible)
 		bottom_right.offset_left = metrics["bottom_right_left"]
 		bottom_right.offset_right = metrics["bottom_right_right"]
 		bottom_right.offset_bottom = metrics["bottom_right_bottom"]
@@ -1378,7 +1502,7 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 	selection_panel.custom_minimum_size = Vector2(metrics["selection_width"], metrics["selection_height"])
 	selection_info_column.custom_minimum_size.x = metrics["selection_info_width"]
 	var compact_tc_info: bool = bool(metrics["top_bar_compact"]) and _is_town_center_production_context()
-	selection_name.add_theme_font_size_override("font_size", 11 if compact_tc_info else 14)
+	selection_name.add_theme_font_size_override("font_size", 12 if compact_tc_info else 14)
 	selection_details.add_theme_font_size_override("font_size", 10 if compact_tc_info else 11)
 	if compact_tc_info:
 		selection_details.add_theme_constant_override("line_spacing", 0)
@@ -1388,12 +1512,21 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 	selection_info_column.add_theme_constant_override("separation", 0)
 	_update_selection_name_layout(float(metrics["selection_info_width"]))
 	selection_panel.visible = _selection_context_active and standard_field_chrome_visible
-	if _villager_task_hbox and _villager_task_hbox.get_parent() == $Root:
-		_villager_task_hbox.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-		_villager_task_hbox.offset_left = metrics["selection_left"] - viewport_size.x * 0.5
-		_villager_task_hbox.offset_right = _villager_task_hbox.offset_left + 300.0
-		_villager_task_hbox.offset_bottom = metrics["selection_top"] - 2.0
-		_villager_task_hbox.offset_top = _villager_task_hbox.offset_bottom - 18.0
+	if _command_dock:
+		var caption_height: float = MOBILE_DOCK_CAPTION_HEIGHT if _villager_task_hbox and _villager_task_hbox.visible else 0.0
+		var dock_left: float = metrics["selection_left"] if _selection_context_active else metrics["action_left"]
+		if not _selection_context_active and action_count == 0:
+			dock_left = viewport_size.x + metrics["bottom_right_left"]
+		var dock_right: float = maxf(metrics["selection_right"] if _selection_context_active else viewport_size.x + metrics["action_right"], viewport_size.x + metrics["bottom_right_right"] if bottom_right.visible else 0.0)
+		_command_dock.position = Vector2(dock_left - 4.0, viewport_size.y + metrics["selection_top"] - caption_height)
+		_command_dock.size = Vector2(dock_right - dock_left + 8.0, MOBILE_SELECTION_HEIGHT + caption_height)
+		_command_dock.visible = standard_field_chrome_visible and (_selection_context_active or action_count > 0 or bottom_right.visible)
+	if _villager_task_hbox and _villager_task_hbox.get_parent() == _command_dock:
+		_villager_task_hbox.set_anchors_preset(Control.PRESET_TOP_LEFT)
+		_villager_task_hbox.offset_left = 12.0
+		_villager_task_hbox.offset_right = minf(_command_dock.size.x - 12.0, 320.0)
+		_villager_task_hbox.offset_top = 3.0
+		_villager_task_hbox.offset_bottom = 21.0
 	var selection_has_commands: bool = _selection_has_commands()
 	selection_separator.visible = selection_has_commands and not (bool(metrics["top_bar_compact"]) and _is_town_center_production_context())
 	command_scroll.visible = selection_has_commands
@@ -1419,12 +1552,12 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 	build_menu_button.custom_minimum_size = side_button_size
 
 	if _progression_hint_panel:
-		var hint_width: float = minf(MOBILE_GUIDANCE_WIDTH, safe_area.size.x - 140.0)
-		var hint_left: float = safe_pos.x + (safe_area.size.x - hint_width) * 0.5
+		var hint_width: float = minf(444.0 if _match_learning_active else MOBILE_GUIDANCE_WIDTH, safe_area.size.x - 140.0)
+		var hint_left: float = safe_area.end.x - 8.0 - hint_width
 		var hint_right: float = hint_left + hint_width
 		_progression_hint_panel.offset_left = hint_left - viewport_size.x * 0.5
 		_progression_hint_panel.offset_right = hint_right - viewport_size.x * 0.5
-		_progression_hint_panel.offset_top = metrics["safe_top"] + 48.0
+		_progression_hint_panel.offset_top = metrics["safe_top"] + MOBILE_TOP_RAIL_HEIGHT + 8.0
 		_progression_hint_panel.offset_bottom = _progression_hint_panel.offset_top + MOBILE_GUIDANCE_HEIGHT
 		metrics["guidance_left"] = hint_left
 		metrics["guidance_right"] = hint_right
@@ -1439,7 +1572,7 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 				notification_right = minf(notification_right, hint_left - 8.0)
 			_notification_container.offset_left = notification_left
 			_notification_container.offset_right = maxf(notification_left, notification_right)
-			_notification_container.offset_top = metrics["safe_top"] + 48.0
+			_notification_container.offset_top = metrics["safe_top"] + MOBILE_TOP_RAIL_HEIGHT + 8.0
 			_notification_container.offset_bottom = minf(viewport_size.y - 96.0, metrics["safe_top"] + 188.0)
 			if _camera_controls and _camera_controls.visible:
 				_notification_container.offset_bottom = minf(_notification_container.offset_bottom, metrics["camera_zoom_top"] - 8.0)
@@ -1462,26 +1595,15 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 
 	if _sacred_site_panel:
 		_sacred_site_panel.visible = not _sacred_site_status.is_empty() and standard_field_chrome_visible
-		var sacred_width: float = minf(236.0, safe_area.size.x - 16.0)
-		var sacred_left: float = safe_pos.x + (safe_area.size.x - sacred_width) * 0.5
+		var sacred_width: float = 188.0
+		var sacred_left: float = safe_area.end.x - 360.0
 		_sacred_site_panel.offset_left = sacred_left - viewport_size.x * 0.5
 		_sacred_site_panel.offset_right = _sacred_site_panel.offset_left + sacred_width
-		_sacred_site_panel.offset_top = metrics["safe_top"] + (110.0 if _progression_hint_panel and _progression_hint_panel.visible else 58.0)
+		_sacred_site_panel.offset_top = metrics["safe_top"] + 4.0
 		_sacred_site_panel.offset_bottom = _sacred_site_panel.offset_top + MOBILE_ACTION_BUTTON_HEIGHT
-		if _sacred_site_button:
-			_sacred_site_button.disabled = _ui_modal_state == UIModalState.PAUSE_MENU
+		_sacred_site_button.disabled = _ui_modal_state == UIModalState.PAUSE_MENU
 		metrics["sacred_top"] = _sacred_site_panel.offset_top
 		metrics["sacred_bottom"] = _sacred_site_panel.offset_bottom
-		if _notification_container and _sacred_site_panel.visible:
-			# A Large UI phone can place the centered objective over the last
-			# few pixels of the toast lane. Keep both complete and separate.
-			if sacred_left - _notification_container.offset_left >= 120.0:
-				_notification_container.offset_right = minf(_notification_container.offset_right, sacred_left - 8.0)
-			else:
-				_notification_container.offset_top = maxf(_notification_container.offset_top, _sacred_site_panel.offset_bottom + 8.0)
-			metrics["notification_right"] = _notification_container.offset_right
-			metrics["notification_top"] = _notification_container.offset_top
-			_fit_notification_feed()
 
 	if not OS.has_feature("production"):
 		metrics["safe_area_source"] = _safe_area_diagnostics.duplicate(true)
@@ -1510,17 +1632,20 @@ func _apply_context_actions(viewport_size: Vector2) -> void:
 	var human_building: bool = is_instance_valid(_selected_building_ref) and _is_human_owned_building(_selected_building_ref)
 	var town_center: bool = human_building and (_selected_building_ref as BuildingBase).building_type == BuildingData.BuildingType.TOWN_CENTER
 	var worker: bool = _selection_kind == "unit" and _selection_is_worker and _unit_commands_authorized and not _unit_commands_have_military
-	build_menu_button.visible = field_mode and (not phone or unselected or worker)
+	build_menu_button.visible = field_mode and (unselected or worker)
 	var gm: Node = _get_game_manager()
 	var can_advance: bool = gm == null or not gm.get_age_up_cost(0, gm.get_player_age(0) + 1).is_empty()
-	age_up_button.visible = field_mode and not _early_game_ui_active and can_advance and (not phone or town_center)
-	_selection_back_button.visible = phone and field_mode and _selection_context_active and not _unit_commands_authorized
-	_town_center_button.visible = field_mode and (not phone or unselected)
-	_idle_villager_button.visible = field_mode and _last_idle_villager_count > 0 and (not phone or unselected or worker)
+	age_up_button.visible = field_mode and not _early_game_ui_active and can_advance and town_center
+	_selection_back_button.visible = field_mode and _selection_context_active and _selection_kind != "unit"
+	_selection_back_button.text = "Back"
+	_select_area_button.visible = field_mode
+	_select_area_button.disabled = _ui_modal_state != UIModalState.NONE
+	_town_center_button.visible = field_mode and unselected
+	_idle_villager_button.visible = field_mode and _last_idle_villager_count > 0 and unselected
 	var military_allowed: bool = not _early_game_ui_active or _guided_military_shortcuts_visible
-	_select_military_button.visible = field_mode and military_allowed and (_last_military_count > 0 or _pending_military_shortcut) and (not phone or unselected)
-	_find_army_button.visible = field_mode and not phone and military_allowed and _last_military_count > 0
-	var primary_age: bool = phone and town_center
+	_select_military_button.visible = field_mode and military_allowed and (_last_military_count > 0 or _pending_military_shortcut) and unselected
+	_find_army_button.visible = field_mode and not phone and military_allowed and _last_military_count > 0 and unselected
+	var primary_age: bool = town_center
 	if primary_age != _age_action_primary:
 		_age_action_primary = primary_age
 		if primary_age:
@@ -1531,198 +1656,93 @@ func _apply_context_actions(viewport_size: Vector2) -> void:
 
 func _calculate_mobile_layout_metrics(viewport_size: Vector2, safe_area: Rect2, action_button_count: int) -> Dictionary:
 	var safe_pos: Vector2 = safe_area.position
-	var safe_end: Vector2 = safe_area.position + safe_area.size
-	var left_inset: float = maxf(0.0, safe_pos.x)
+	var safe_end: Vector2 = safe_area.end
 	var right_inset: float = maxf(0.0, viewport_size.x - safe_end.x)
 	var bottom_inset: float = maxf(0.0, viewport_size.y - safe_end.y)
-	var content_width: float = maxf(220.0, safe_area.size.x - MOBILE_ACTION_MARGIN * 2.0)
 	var short_side: float = minf(safe_area.size.x, safe_area.size.y)
-	var side_button_width: float = clampf(safe_area.size.x * 0.13, 104.0, 116.0)
-	var side_button_height: float = 48.0
-
-	# Build and Age form the permanent bottom-right thumb rail. Two or more
-	# utility actions use a compact single row (up to three buttons) so Large UI
-	# on a short, notched phone cannot grow into top controls or status chips.
-	var bottom_right_right: float = -MOBILE_ACTION_MARGIN - right_inset
-	var side_count: int = int(age_up_button.visible) + int(build_menu_button.visible) + int(_selection_back_button != null and _selection_back_button.visible)
-	var bottom_right_left: float = bottom_right_right - (side_button_width if side_count > 0 else 0.0)
-	var bottom_right_bottom: float = -bottom_inset - MOBILE_ACTION_MARGIN
-	var bottom_right_height: float = side_button_height * float(side_count) + 6.0 * float(maxi(0, side_count - 1))
-	var bottom_right_top: float = bottom_right_bottom - bottom_right_height
-
-	var action_columns: int = clampi(action_button_count, 1, 3)
-	var action_rows: int = ceili(float(action_button_count) / float(action_columns))
-	var button_width: float = side_button_width
-	var action_height: float = 0.0
-	if action_rows > 0:
-		action_height = MOBILE_ACTION_VERTICAL_PADDING * 2.0 + MOBILE_ACTION_BUTTON_HEIGHT * float(action_rows) + MOBILE_ACTION_GAP * float(maxi(0, action_rows - 1))
-	var action_right: float = bottom_right_right
-	var action_width: float = (
-		MOBILE_ACTION_INNER_PADDING * 2.0
-		+ side_button_width * float(action_columns)
-		+ MOBILE_ACTION_GAP * float(maxi(0, action_columns - 1))
-	)
+	var phone: bool = short_side <= MOBILE_TOP_BAR_COMPACT_SHORT_SIDE
+	var side_button_width: float = 104.0
+	var side_count: int = int(age_up_button.visible) + int(build_menu_button.visible)
+	var side_width: float = side_button_width * float(side_count) + 6.0 * float(maxi(0, side_count - 1))
+	var bottom_right_right: float = -right_inset - MOBILE_ACTION_MARGIN
+	var bottom_right_left: float = bottom_right_right - side_width
+	var bottom_right_bottom: float = -bottom_inset - MOBILE_ACTION_MARGIN - 12.0
+	var bottom_right_top: float = bottom_right_bottom - MOBILE_ACTION_BUTTON_HEIGHT
+	var action_columns: int = maxi(1, action_button_count)
+	var button_width: float = 104.0
+	var action_width: float = MOBILE_ACTION_INNER_PADDING * 2.0 + button_width * float(action_button_count) + MOBILE_ACTION_GAP * float(maxi(0, action_button_count - 1))
+	var action_right: float = bottom_right_left - (8.0 if side_count > 0 else 0.0)
 	var action_left: float = viewport_size.x + action_right - action_width
-	var action_bottom: float = bottom_right_top - 8.0
-	var action_top: float = action_bottom - action_height
+	var action_bottom: float = bottom_right_bottom
+	var action_top: float = action_bottom - MOBILE_ACTION_BUTTON_HEIGHT
 	if _placement_mode_active:
-		action_columns = maxi(1, action_button_count)
-		action_rows = 1
-		action_height = MOBILE_ACTION_BUTTON_HEIGHT
-		action_width = 148.0 * float(action_columns) + MOBILE_ACTION_GAP * float(action_columns - 1) + MOBILE_ACTION_INNER_PADDING * 2.0
+		action_width = 148.0 * float(action_button_count) + MOBILE_ACTION_GAP * float(maxi(0, action_button_count - 1)) + MOBILE_ACTION_INNER_PADDING * 2.0
 		action_left = safe_pos.x + (safe_area.size.x - action_width) * 0.5
 		action_right = action_left + action_width - viewport_size.x
 		action_bottom = -bottom_inset - MOBILE_ACTION_MARGIN
-		action_top = action_bottom - action_height
-
-	var minimap_size: float = clampf(
-		minf(safe_area.size.y * MOBILE_MINIMAP_SHORT_SIDE_RATIO, safe_area.size.x * 0.15),
-		MOBILE_MINIMAP_MIN_SIZE,
-		MOBILE_MINIMAP_MAX_SIZE
-	)
-	var minimap_left: float = left_inset + MOBILE_ACTION_MARGIN
+		action_top = action_bottom - MOBILE_ACTION_BUTTON_HEIGHT
+	var minimap_size: float = clampf(minf(safe_area.size.y * 0.26, safe_area.size.x * 0.15), MOBILE_MINIMAP_MIN_SIZE, MOBILE_MINIMAP_MAX_SIZE)
+	var minimap_left: float = safe_pos.x + MOBILE_ACTION_MARGIN
 	var minimap_bottom: float = -bottom_inset - MOBILE_ACTION_MARGIN
 	var minimap_top: float = minimap_bottom - minimap_size
 	var minimap_right: float = minimap_left + minimap_size
-
 	var selection_has_commands: bool = _selection_has_commands()
 	var unit_commands_visible: bool = _unit_command_container != null and _unit_command_container.visible
-	# Center the context shelf inside the actual corridor between the minimap
-	# and thumb rail. This remains collision-free when Large UI scale reduces
-	# the logical viewport or when a phone has asymmetric safe-area insets.
-	var selection_zone_left: float = minimap_right + 8.0
-	var selection_zone_right: float = viewport_size.x + bottom_right_left - 8.0
+	var selection_zone_left: float = minimap_right + 12.0
+	var selection_zone_right: float = viewport_size.x + bottom_right_left - (8.0 if side_count > 0 else 0.0)
 	var selection_zone_width: float = maxf(220.0, selection_zone_right - selection_zone_left)
-	var selection_max_width: float = minf(
-		MOBILE_SELECTION_COMMAND_WIDTH if selection_has_commands else 320.0,
-		selection_zone_width
-	)
-	var selection_min_width: float = minf(
-		360.0 if selection_has_commands else 240.0,
-		selection_max_width
-	)
-	var selection_width: float = selection_max_width if unit_commands_visible else clampf(
-		safe_area.size.x * (0.62 if selection_has_commands else 0.34),
-		selection_min_width,
-		selection_max_width
-	)
-	var compact_producer: bool = short_side <= MOBILE_TOP_BAR_COMPACT_SHORT_SIDE and _auto_queue_button != null and _train_buttons_container != null and _train_buttons_container.visible
-	if compact_producer:
-		# Production follows the current page's actual controls. The pinned pager
-		# shares this shelf rather than consuming another row above the battlefield.
+	var info_width: float = 120.0 if unit_commands_visible else (108.0 if selection_has_commands else 148.0)
+	var selection_width: float = 166.0
+	if selection_has_commands:
+		selection_width = minf(selection_zone_width, MOBILE_SELECTION_COMMAND_WIDTH)
+	if phone and _auto_queue_button != null and _train_buttons_container != null and _train_buttons_container.visible:
 		var showing_queue: bool = _queue_view_requested or (queue_container.visible and command_scroll.scroll_horizontal > maxi(1, int(queue_container.position.x * 0.5)))
 		var page_width: float = _production_row_width(queue_container) if showing_queue else _production_row_width(_train_buttons_container)
-		var producer_info_width: float = 88.0 if _is_town_center_production_context() else 108.0
-		var row_gaps: float = 16.0 if _is_town_center_production_context() else 24.0
-		var separator_width: float = 0.0 if _is_town_center_production_context() else 4.0
-		selection_width = minf(selection_zone_width, ceilf(producer_info_width + page_width + 48.0 + row_gaps + separator_width + 16.0) + 2.0)
-	elif short_side <= MOBILE_TOP_BAR_COMPACT_SHORT_SIDE and unit_commands_visible:
-		# Ordinary commands use their content width instead of filling the corridor.
-		# Keep the existing information column, target sizes and horizontal scrolling.
-		selection_width = minf(selection_zone_width, ceilf(120.0 + _production_row_width(_unit_command_container) + 20.0 + 16.0) + 2.0)
-	elif short_side <= MOBILE_TOP_BAR_COMPACT_SHORT_SIDE and _selection_context_active and not selection_has_commands and _selection_kind in ["unit", "building"]:
-		selection_width = minf(selection_zone_width, 148.0 + 16.0 + 2.0)
-	var selection_height: float = MOBILE_SELECTION_HEIGHT
+		info_width = 88.0 if _is_town_center_production_context() else 108.0
+		selection_width = minf(selection_zone_width, ceilf(info_width + page_width + 48.0 + (16.0 if _is_town_center_production_context() else 28.0) + 16.0) + 2.0)
+	elif phone and unit_commands_visible:
+		var command_width: float = _production_row_width(_unit_command_container)
+		# Keep every frequent action fully visible at scroll0, including Clear.
+		# The identity column gives up spare width before any touch target does.
+		info_width = clampf(floorf(selection_zone_width - command_width - 38.0), 96.0, 120.0)
+		selection_width = minf(selection_zone_width, ceilf(info_width + command_width + 38.0))
+	var selection_right: float = selection_zone_right
+	var selection_left: float = selection_right - selection_width
 	var selection_bottom: float = -bottom_inset - MOBILE_ACTION_MARGIN
-	var selection_top: float = selection_bottom - selection_height
-	var selection_center_x: float = (selection_zone_left + selection_zone_right) * 0.5
-	var selection_left: float = selection_center_x - selection_width * 0.5
-	var selection_right: float = selection_left + selection_width
-
-	var top_bar_compact: bool = short_side <= MOBILE_TOP_BAR_COMPACT_SHORT_SIDE or safe_area.size.x <= MOBILE_TOP_BAR_COMPACT_WIDTH
-	var compact_labels: bool = content_width < 640.0 or top_bar_compact
-
-	var action_rect := Rect2(
-		Vector2(action_left, viewport_size.y + action_top),
-		Vector2(viewport_size.x + action_right - action_left, action_height)
-	)
-	var minimap_rect_calc := Rect2(
-		Vector2(minimap_left, viewport_size.y + minimap_top),
-		Vector2(minimap_right - minimap_left, minimap_bottom - minimap_top)
-	)
-	var selection_rect := Rect2(
-		Vector2(selection_left, viewport_size.y + selection_top),
-		Vector2(selection_right - selection_left, selection_height)
-	)
-	var bottom_right_rect := Rect2(
-		Vector2(viewport_size.x + bottom_right_left, viewport_size.y + bottom_right_top),
-		Vector2((viewport_size.x + bottom_right_right) - (viewport_size.x + bottom_right_left), bottom_right_bottom - bottom_right_top)
-	)
-	var game_controls_rect := Rect2(
-		Vector2(viewport_size.x - right_inset - 112.0, safe_pos.y + 2.0),
-		Vector2(104.0, 48.0)
-	)
-
-	var minimap_action_overlap: bool = minimap_rect_calc.intersects(action_rect, true)
-	var selection_action_overlap: bool = selection_rect.intersects(action_rect, true)
-	var bottom_right_action_overlap: bool = bottom_right_rect.intersects(action_rect, true)
-	var selection_minimap_overlap: bool = selection_rect.intersects(minimap_rect_calc, true)
-	var selection_bottom_right_overlap: bool = selection_rect.intersects(bottom_right_rect, true)
-	var action_game_controls_overlap: bool = action_rect.intersects(game_controls_rect, true)
-	var central_world_left: float = minimap_right + 12.0
-	var central_world_right: float = viewport_size.x + bottom_right_left - 12.0
-	var central_world_top: float = safe_pos.y + 48.0
-	var central_world_bottom: float = viewport_size.y + selection_top - 8.0
-	var central_world_width: float = maxf(0.0, central_world_right - central_world_left)
-	var central_world_height: float = maxf(0.0, central_world_bottom - central_world_top)
-
+	var selection_top: float = selection_bottom - MOBILE_SELECTION_HEIGHT
+	var selection_rect := Rect2(Vector2(selection_left, viewport_size.y + selection_top), Vector2(selection_width, MOBILE_SELECTION_HEIGHT))
+	var minimap_calc := Rect2(Vector2(minimap_left, viewport_size.y + minimap_top), Vector2(minimap_size, minimap_size))
+	var action_rect := Rect2(Vector2(action_left, viewport_size.y + action_top), Vector2(action_width, MOBILE_ACTION_BUTTON_HEIGHT))
+	var side_rect := Rect2(Vector2(viewport_size.x + bottom_right_left, viewport_size.y + bottom_right_top), Vector2(side_width, MOBILE_ACTION_BUTTON_HEIGHT))
+	var action_visible: bool = action_button_count > 0
+	var selection_visible: bool = _selection_context_active and not _placement_mode_active
+	var minimap_action_overlap: bool = action_visible and not _placement_mode_active and minimap_calc.intersects(action_rect, true)
+	var selection_action_overlap: bool = selection_visible and action_visible and selection_rect.intersects(action_rect, true)
+	var selection_minimap_overlap: bool = selection_visible and minimap_calc.intersects(selection_rect, true)
+	var selection_side_overlap: bool = selection_visible and side_count > 0 and side_rect.intersects(selection_rect, true)
+	var side_action_overlap: bool = action_visible and side_count > 0 and not _placement_mode_active and side_rect.intersects(action_rect, true)
 	return {
-		"viewport_width": viewport_size.x,
-		"viewport_height": viewport_size.y,
-		"safe_top": safe_pos.y,
-		"safe_left": safe_pos.x,
-		"safe_right": right_inset,
-		"safe_bottom": bottom_inset,
-		"safe_width": safe_area.size.x,
-		"safe_height": safe_area.size.y,
-		"action_columns": action_columns,
-		"action_rows": action_rows,
-		"button_width": button_width,
-		"button_height": MOBILE_ACTION_BUTTON_HEIGHT,
-		"action_left": action_left,
-		"action_right": action_right,
-		"action_top": action_top,
-		"action_bottom": action_bottom,
-		"minimap_left": minimap_left,
-		"minimap_top": minimap_top,
-		"minimap_right": minimap_right,
-		"minimap_bottom": minimap_bottom,
-		"selection_width": selection_width,
-		"selection_height": selection_height,
-		"selection_info_width": 88.0 if top_bar_compact and _is_town_center_production_context() else (120.0 if unit_commands_visible else (108.0 if selection_has_commands else 148.0)),
-		"selection_left": selection_left,
-		"selection_right": selection_right,
-		"selection_top": selection_top,
-		"selection_bottom": selection_bottom,
-		"side_button_width": side_button_width,
-		"side_button_height": side_button_height,
-		"bottom_right_top": bottom_right_top,
-		"bottom_right_bottom": bottom_right_bottom,
-		"bottom_right_left": bottom_right_left,
-		"bottom_right_right": bottom_right_right,
-		"central_world_left": central_world_left,
-		"central_world_right": central_world_right,
-		"central_world_top": central_world_top,
-		"central_world_bottom": central_world_bottom,
-		"central_world_width": central_world_width,
-		"central_world_height": central_world_height,
-		"compact_labels": compact_labels,
-		"top_bar_compact": top_bar_compact,
-		"minimap_action_overlap": minimap_action_overlap,
-		"selection_action_overlap": selection_action_overlap,
-		"selection_minimap_overlap": selection_minimap_overlap,
-		"selection_bottom_right_overlap": selection_bottom_right_overlap,
-		"bottom_right_action_overlap": bottom_right_action_overlap,
-		"action_game_controls_overlap": action_game_controls_overlap,
-		"layout_pass": _layout_metrics_pass(
-			button_width,
-			minimap_action_overlap,
-			selection_action_overlap,
-			bottom_right_action_overlap,
-			selection_minimap_overlap,
-			selection_bottom_right_overlap,
-			action_game_controls_overlap
-		),
+		"viewport_width": viewport_size.x, "viewport_height": viewport_size.y,
+		"safe_top": safe_pos.y, "safe_left": safe_pos.x, "safe_right": right_inset, "safe_bottom": bottom_inset,
+		"safe_width": safe_area.size.x, "safe_height": safe_area.size.y,
+		"action_columns": action_columns, "action_rows": 1 if action_visible else 0,
+		"button_width": button_width, "button_height": MOBILE_ACTION_BUTTON_HEIGHT,
+		"action_left": action_left, "action_right": action_right, "action_top": action_top, "action_bottom": action_bottom,
+		"minimap_left": minimap_left, "minimap_right": minimap_right, "minimap_top": minimap_top, "minimap_bottom": minimap_bottom,
+		"selection_width": selection_width, "selection_height": MOBILE_SELECTION_HEIGHT, "selection_info_width": info_width,
+		"selection_left": selection_left, "selection_right": selection_right, "selection_top": selection_top, "selection_bottom": selection_bottom,
+		"side_button_width": side_button_width, "side_button_height": MOBILE_ACTION_BUTTON_HEIGHT,
+		"bottom_right_top": bottom_right_top, "bottom_right_bottom": bottom_right_bottom, "bottom_right_left": bottom_right_left, "bottom_right_right": bottom_right_right,
+		"central_world_left": selection_zone_left, "central_world_right": safe_end.x - 8.0,
+		"central_world_top": safe_pos.y + MOBILE_TOP_RAIL_HEIGHT,
+		"central_world_bottom": viewport_size.y + selection_top - 8.0,
+		"central_world_width": safe_end.x - selection_zone_left - 8.0,
+		"central_world_height": viewport_size.y + selection_top - 8.0 - safe_pos.y - MOBILE_TOP_RAIL_HEIGHT,
+		"compact_labels": phone, "top_bar_compact": phone,
+		"minimap_action_overlap": minimap_action_overlap, "selection_action_overlap": selection_action_overlap,
+		"selection_minimap_overlap": selection_minimap_overlap, "selection_bottom_right_overlap": selection_side_overlap,
+		"bottom_right_action_overlap": side_action_overlap, "action_game_controls_overlap": false,
+		"layout_pass": _layout_metrics_pass(button_width, minimap_action_overlap, selection_action_overlap, side_action_overlap, selection_minimap_overlap, selection_side_overlap, false),
 	}
 
 
@@ -1903,20 +1923,22 @@ func _refresh_touch_target_diagnostics() -> void:
 		var quit_btn: Control = _pause_overlay.get_node_or_null("PauseMenu/QuitButton")
 		diag["pause_menu_resume"] = _control_touch_diag(resume_btn, "pause_menu_resume")
 		diag["pause_menu_quit"] = _control_touch_diag(quit_btn, "pause_menu_quit")
+		diag["pause_menu_learning"] = _control_touch_diag(_match_learning_button, "pause_menu_learning")
 	touch_target_diagnostics = diag
 
 
 func _apply_top_bar_compact(compact: bool) -> void:
 	if _match_population_label:
 		_match_population_label.visible = not compact
+	top_bar.custom_minimum_size = Vector2(0, MOBILE_TOP_RAIL_HEIGHT)
 	if compact == _top_bar_compact:
 		return
 	_top_bar_compact = compact
-	top_bar.custom_minimum_size = Vector2(0, 40) if compact else Vector2(0, 48)
 	top_bar_hbox.add_theme_constant_override("separation", 8 if compact else 14)
 	if _resource_node_legend:
 		_resource_node_legend.visible = not compact
-	var font_size: int = 16 if compact else 17
+	age_label.visible = not compact
+	var font_size: int = 14 if compact else 16
 	for label in [food_label, wood_label, gold_label, pop_label, age_label, game_time_label]:
 		label.add_theme_font_size_override("font_size", font_size)
 	pop_label.add_theme_color_override("font_color", Color(0.97, 0.95, 0.9))
@@ -1949,11 +1971,21 @@ func set_early_game_ui_state(active: bool) -> void:
 	if _speed_button:
 		_speed_button.modulate = Color(0.72, 0.72, 0.72, 0.8) if active else Color.WHITE
 	if _guidance_dismiss_button:
-		_guidance_dismiss_button.visible = active
+		_guidance_dismiss_button.visible = active or _match_learning_active
 	update_idle_villager_count(_last_idle_villager_count)
 	update_military_count(_last_military_count)
 	_refresh_primary_action_visuals()
 	_refresh_touch_target_diagnostics()
+
+
+func set_match_learning_active(active: bool) -> void:
+	_match_learning_active = active
+	if _guidance_dismiss_button:
+		_guidance_dismiss_button.visible = active or _early_game_ui_active
+		_guidance_dismiss_button.tooltip_text = "Stop battle lessons" if active else "End guided opener"
+	if _match_learning_button:
+		_match_learning_button.text = "Battle lessons: ON" if active else "Learn full match"
+	_queue_mobile_layout_refresh()
 
 
 func set_guided_military_shortcuts_visible(visible: bool) -> void:
@@ -2098,9 +2130,10 @@ func _update_resource_display(resources: Dictionary) -> void:
 	if _match_population_label and _match_population_label.visible:
 		visible_labels.append(_match_population_label)
 	for label: Label in visible_labels:
-		required_width += label.get_theme_font("font").get_string_size(label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, label.get_theme_font_size("font_size")).x
+		if label.visible and label.get_parent() == top_bar_hbox:
+			required_width += label.get_theme_font("font").get_string_size(label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, label.get_theme_font_size("font_size")).x
 	required_width += float(visible_labels.size() - 1) * float(top_bar_hbox.get_theme_constant("separation"))
-	_resource_labels_abbreviated = required_width > _top_bar_safe_width - 136.0
+	_resource_labels_abbreviated = required_width > _top_bar_safe_width - 378.0
 	if _resource_labels_abbreviated:
 		for index: int in 3:
 			labels[index].text = "%s %s" % [names[index].left(1), _compact_resource_amount(values[index])]
@@ -2125,6 +2158,10 @@ func update_population(current: int, cap: int) -> void:
 		pop_label.text = "P %d/%d" % [current, cap]
 	else:
 		pop_label.text = "Pop: %d/%d" % [current, cap]
+	if _top_bar_compact:
+		var gm: Node = _get_game_manager()
+		var current_age: String = gm.get_age_name(gm.get_player_age(0)) if gm else "Dark Age"
+		pop_label.text += "\n" + current_age
 
 
 # --- Age display ---
@@ -2147,6 +2184,7 @@ func refresh_match_state() -> void:
 
 func _on_age_advanced(_player_id: int, _new_age: int) -> void:
 	_update_age_display()
+	update_population(_population_current, _population_cap)
 
 
 func _update_age_display() -> void:
@@ -2339,6 +2377,8 @@ func show_building_selection(building_name: String, current_hp: int, max_hp: int
 	# A new producer always starts at recruitment. Live updates of the same
 	# producer preserve the player's queue inspection position.
 	if _selected_building_ref != building_ref:
+		if _is_phone_context() and _is_human_owned_building(building_ref) and (building_ref as BuildingBase).can_train():
+			show_notification("Hold ground to set a rally. Tap ground to close.", Color(0.65, 0.82, 1.0))
 		_queue_view_requested = false
 		_queue_view_offset = 0
 		_queue_navigation_revision += 1
@@ -3018,12 +3058,7 @@ func _retire_dynamic_control(child: Node) -> void:
 
 # --- Research buttons (Blacksmith) ---
 
-const RESEARCH_DEFS: Array = [
-	{"id": "forging", "name": "Forge Weapons", "desc": "+2 Attack", "cost": {"food": 100, "gold": 50}},
-	{"id": "scale_mail", "name": "Scale Mail", "desc": "+1 Armor", "cost": {"food": 100, "gold": 50}},
-	{"id": "wheelbarrow", "name": "Wheelbarrow", "desc": "+25% Gather", "cost": {"food": 175, "wood": 50}},
-	{"id": "loom", "name": "Loom", "desc": "+15 Villager HP", "cost": {"gold": 50}},
-]
+const RESEARCH_DEFS: Array = TechData.RESEARCH_DEFS
 
 
 func _update_research_buttons(building_ref: Node2D) -> void:
@@ -3090,7 +3125,7 @@ func _update_research_buttons(building_ref: Node2D) -> void:
 			already_done = gm.has_research(b.player_owner, research_id)
 		if already_done:
 			btn.text += " [DONE]"
-		btn.disabled = already_done
+		btn.disabled = already_done or gm == null or not gm.can_research(b.player_owner, b, research_id)
 		_research_container.move_child(btn, child_index)
 		child_index += 1
 	_queue_mobile_layout_refresh()
@@ -3494,8 +3529,8 @@ func _create_sacred_site_label() -> void:
 	_sacred_site_panel.mouse_filter = Control.MOUSE_FILTER_PASS
 	_sacred_site_panel.visible = false
 	var chip_style := StyleBoxFlat.new()
-	chip_style.bg_color = Color(0.025, 0.045, 0.04, 0.88)
-	chip_style.border_color = Color(0.72, 0.58, 0.28, 0.82)
+	chip_style.bg_color = KingdomTheme.INK_LIGHT
+	chip_style.border_color = KingdomTheme.BORDER
 	chip_style.set_border_width_all(1)
 	chip_style.set_corner_radius_all(7)
 	chip_style.set_content_margin_all(0)
@@ -3511,7 +3546,7 @@ func _create_sacred_site_label() -> void:
 	_sacred_site_label.name = "SacredSiteLabel"
 	_sacred_site_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_sacred_site_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_sacred_site_label.add_theme_font_size_override("font_size", 13)
+	_sacred_site_label.add_theme_font_size_override("font_size", 12)
 	_sacred_site_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_sacred_site_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_sacred_site_button.add_child(_sacred_site_label)
@@ -3535,9 +3570,14 @@ func update_sacred_site_status(status: Dictionary) -> void:
 		return
 	var first_status: bool = _sacred_site_status.is_empty()
 	_sacred_site_status = status.duplicate()
-	_sacred_site_label.text = "Sacred Site · tap to view\n" + _sacred_site_status_line(status)
-	_sacred_site_button.tooltip_text = _sacred_site_instructions(status)
 	var phase: String = str(status.get("phase", "neutral"))
+	var objective_title: String = "Sacred Site · tap to view"
+	if phase == "contested":
+		objective_title = "Sacred Site · Contested"
+	elif phase == "neutralizing":
+		objective_title = "Sacred Site · Disrupted"
+	_sacred_site_label.text = objective_title + "\n" + _sacred_site_status_line(status)
+	_sacred_site_button.tooltip_text = _sacred_site_instructions(status)
 	var owner: int = int(status.get("owner", -1))
 	var color := Color(0.85, 0.7, 1.0)
 	if phase in ["contested", "neutralizing"]:
@@ -3560,8 +3600,8 @@ func _sacred_site_status_line(status: Dictionary) -> String:
 	match str(status.get("phase", "neutral")):
 		"capturing": return "%s capturing · %d%%" % [owner_name, floori(float(status.get("capture_progress", 0.0)) * 100.0)]
 		"holding": return "%s win in %s" % [owner_name, remaining_text]
-		"contested": return "Contested · %s %s paused" % [owner_name, remaining_text]
-		"neutralizing": return "Disrupted · %s %s paused" % [owner_name, remaining_text]
+		"contested": return "%s %s paused" % [owner_name, remaining_text]
+		"neutralizing": return "%s %s paused" % [owner_name, remaining_text]
 	return "Neutral · enter the ring"
 
 
@@ -3633,16 +3673,16 @@ func _create_minimap_hint() -> void:
 	_minimap_hint_label.name = "MinimapHintLabel"
 	_minimap_hint_label.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 	_minimap_hint_label.offset_left = 0
-	_minimap_hint_label.offset_right = 40
-	_minimap_hint_label.offset_top = -16
-	_minimap_hint_label.offset_bottom = 0
+	_minimap_hint_label.offset_right = 0
+	_minimap_hint_label.offset_top = 2
+	_minimap_hint_label.offset_bottom = 18
 	_minimap_hint_label.anchor_top = 0.0
 	_minimap_hint_label.anchor_bottom = 0.0
 	_minimap_hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_minimap_hint_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_minimap_hint_label.add_theme_font_size_override("font_size", 11)
 	_minimap_hint_label.add_theme_color_override("font_color", Color(0.98, 0.94, 0.8))
-	_minimap_hint_label.text = "Map · tap to view"
+	_minimap_hint_label.text = "MAP · tap to view"
 	_minimap_hint_label.visible = true
 	_minimap_hint_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	minimap_bg.add_child(_minimap_hint_label)

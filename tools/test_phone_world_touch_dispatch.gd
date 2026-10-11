@@ -93,7 +93,7 @@ func _scenario(phone: Vector2i, interface_scale: float, mouse_emulation: bool) -
 	_worker.command_stop()
 	_worker.set_process(false)
 	var move_button: Button=(_hud.get("_unit_command_container") as HBoxContainer).get_node("UnitMoveButton") as Button
-	var stop_button: Button=(_hud.get("_unit_command_container") as HBoxContainer).get_node("UnitStopButton") as Button
+	var more_button: Button=(_hud.get("_unit_command_container") as HBoxContainer).get_node("UnitMoreButton") as Button
 	if mouse_emulation:
 		var before_hud: int=_orders
 		await _tap(23,move_button.get_global_rect().get_center())
@@ -115,7 +115,7 @@ func _scenario(phone: Vector2i, interface_scale: float, mouse_emulation: bool) -
 		_expect_clean("pinch")
 	# Real GUI-origin press/drag/release must remain GUI-owned, even off GUI.
 	var before_gui: int=_orders
-	await _contact(57,stop_button.get_global_rect().get_center(),true)
+	await _contact(57,more_button.get_global_rect().get_center(),true)
 	await _drag(57,ground,Vector2(-80,-80))
 	await _contact(57,ground,false)
 	await _drag(58,ground,Vector2(20,0))

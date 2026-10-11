@@ -9,6 +9,8 @@ var _failures: Array[String] = []
 var _emitted_unit_type: int = -1
 var _cancelled_queue_index: int = -1
 var _emitted_research_id: String = ""
+var _research_requests: int = 0
+var _research_accepted: bool = false
 var _clear_button_survived_signal: bool = false
 
 
@@ -18,6 +20,10 @@ func _ready() -> void:
 
 func _run() -> void:
 	AudioManager.set_all_enabled(false)
+	# Research controls follow live shared legality, including match state and
+	# available resources. This is an isolated HUD fixture, not a Main match.
+	GameManager.initialize_game(2)
+	ResourceManager.initialize_player(0, {"food": 200, "wood": 200, "gold": 100})
 	var viewport := SubViewport.new()
 	viewport.size = PHONE_SIZE
 	viewport.handle_input_locally = true
@@ -43,8 +49,10 @@ func _run() -> void:
 	hud.cancel_queue_requested.connect(func(_building: Node2D, queue_index: int) -> void:
 		_cancelled_queue_index = queue_index
 	)
-	hud.research_requested.connect(func(_building: Node2D, research_id: String) -> void:
+	hud.research_requested.connect(func(building: Node2D, research_id: String) -> void:
 		_emitted_research_id = research_id
+		_research_requests += 1
+		_research_accepted = GameManager.try_research(0, building, research_id)
 	)
 	hud.call(
 		"show_building_selection",
@@ -202,9 +210,11 @@ func _run() -> void:
 	var forging_button: Button = research_container.get_node_or_null("ResearchButton_forging") as Button
 	_expect(forging_button != null, "Forging research button is missing")
 	if forging_button != null:
+		_expect(not forging_button.disabled and GameManager.can_research(0, blacksmith, "forging"), "funded completed Blacksmith must enable Forging")
 		command_scroll.ensure_control_visible(forging_button)
 		await get_tree().process_frame
 		var forging_button_id: int = forging_button.get_instance_id()
+		var research_bank_before: Dictionary = ResourceManager.get_all_resources(0)
 		await _tap(viewport, forging_button.get_global_rect().get_center(), func() -> void:
 			hud.call("show_building_selection", "Blacksmith", 1200, 1200, [], [], blacksmith)
 		)
@@ -214,8 +224,13 @@ func _run() -> void:
 			"Forging research button instance changed during refresh"
 		)
 		_expect_eq(_emitted_research_id, "forging", "research touch after mid-gesture refresh")
+		_expect_eq(_research_requests, 1, "one research touch submits exactly one request")
+		_expect(_research_accepted and GameManager.has_research(0, "forging"), "preserved research gesture must complete the shared transaction")
+		_expect(ResourceManager.get_resource(0, "food") == int(research_bank_before["food"]) - 100 and ResourceManager.get_resource(0, "gold") == int(research_bank_before["gold"]) - 50 and ResourceManager.get_resource(0, "wood") == int(research_bank_before["wood"]), "research gesture must pay Forging once without spending Wood")
+		_expect_eq(GameManager.get_attack_bonus(0), 2, "research gesture applies the Forging effect once")
 
 	viewport.free()
+	GameManager.set_state(GameManager.GameState.MENU)
 	await get_tree().process_frame
 	if _failures.is_empty():
 		print("[PASS] touch_train_button_input: train, queue, clear, and research controls survive synchronous HUD refresh")

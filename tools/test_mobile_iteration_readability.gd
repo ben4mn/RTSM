@@ -18,7 +18,10 @@ func _run() -> void:
             for notched: bool in [false,true]:
                 await _profile(phone,scale_factor,notched)
     await _touch_ownership()
-    var evidence := FileAccess.open("res://output/aoe-iteration/mobile-readability.json",FileAccess.WRITE)
+    var evidence_path: String = OS.get_environment("AOEM_READABILITY_EVIDENCE")
+    if evidence_path.is_empty():
+        evidence_path = "res://output/aoe-iteration/mobile-readability.json"
+    var evidence := FileAccess.open(evidence_path,FileAccess.WRITE)
     if evidence:
         evidence.store_string(JSON.stringify({"profiles":_profiles,"failures":_failures,"units":"Settled logical Control bounds. CSS-equivalent sizes use actual phone/logical viewport ratios; no physical phone or native density claim."},"  "))
     for failure: String in _failures:
@@ -59,9 +62,11 @@ func _profile(phone: Vector2i, scale_factor: float, notched: bool) -> void:
         hud.call("_update_resource_display",{"food":amount,"wood":amount,"gold":amount})
         hud.call("update_population",40,40)
         await _settle(hud,logical,safe)
-        var utility: Control = hud.get_node("Root/GameControlButtons")
+        var utility: Control = hud.get("_pause_button")
         for key: String in ["food_label","wood_label","gold_label","pop_label","age_label","game_time_label"]:
             var item: Label = hud.get(key)
+            if not item.is_visible_in_tree():
+                continue
             _expect(safe.encloses(item.get_global_rect()),"%s bank%d %s outside safe area: %s" % [label,amount,key,item.get_global_rect()])
             _expect(not item.get_global_rect().intersects(utility.get_global_rect()),"%s bank%d %s overlaps Pause" % [label,amount,key])
             _text_fits(item,label+" "+key)
@@ -130,7 +135,13 @@ func _profile(phone: Vector2i, scale_factor: float, notched: bool) -> void:
     await _settle(hud,logical,safe)
     _text_fits(hud.get("selection_details"),label)
     _expect((hud.get("build_menu_button") as Button).visible and not (hud.get("age_up_button") as Button).visible,"%s worker context loses Build or retains Age" % label)
-    _expect((hud.get("_idle_villager_button") as Button).visible,"%s worker loses meaningful Idle shortcut" % label)
+    (hud.get("_unit_more_button") as Button).pressed.emit()
+    await _settle(hud,logical,safe)
+    var worker_idle: Button = hud.get("_worker_idle_button")
+    _expect(worker_idle.is_visible_in_tree() and worker_idle.text.contains("2"),"%s worker More loses Idle shortcut/count" % label)
+    _expect(worker_idle.size.x >= 48 and worker_idle.size.y >= 48,"%s worker Idle target under48" % label)
+    (hud.get("_unit_more_button") as Button).pressed.emit()
+    await _settle(hud,logical,safe)
     var task_caption: HBoxContainer=hud.get("_villager_task_hbox")
     _expect(task_caption.visible,"%s worker distribution missing" % label)
     for task_text: Label in task_caption.get_children():
@@ -168,6 +179,7 @@ func _profile(phone: Vector2i, scale_factor: float, notched: bool) -> void:
     _expect(ymax-ymin >= 15,"%s camera minimap outline collapsed into stripe" % label)
     var caption: Label = hud.get("_minimap_hint_label")
     _text_fits(caption,label+" minimap caption")
+    _expect((hud.get("minimap_bg") as Control).get_global_rect().encloses(caption.get_global_rect()),"%s caption extends beyond minimap" % label)
     _expect(not caption.get_global_rect().intersects((hud.get("_camera_controls") as Control).get_global_rect()),"%s map caption overlaps zoom" % label)
     _profiles.append({"profile":label,"logical_viewport":str(logical),"safe":str(safe),"details":(hud.get("selection_details") as Label).text,"shelf":str((hud.get("selection_panel") as Control).get_global_rect()),"production_units":production_units,"context_shelves":context_shelves,"hit_targets":hud.get("touch_target_diagnostics"),"render_to_css_ratio":Vector2(phone)/Vector2(logical)})
     tc.free()
@@ -279,7 +291,8 @@ func _non_production_shelf_density(hud: Node,logical: Vector2i,safe: Rect2,profi
         _text_fits(hud.get("selection_name"),context_profile)
         _text_fits(hud.get("selection_details"),context_profile)
         _expect((hud.get("selection_name") as Label).get_theme_font_size("font_size") == 14 and (hud.get("selection_details") as Label).get_theme_font_size("font_size") == 11,context_profile+" changes info typography")
-        _expect((hud.get("selection_info_column") as Control).custom_minimum_size.x == (148.0 if context == "foundation" else 120.0),context_profile+" changes info width")
+        var info_width: float = (hud.get("selection_info_column") as Control).custom_minimum_size.x
+        _expect(info_width == 148.0 if context == "foundation" else (info_width >= 96.0 and info_width <= 120.0),context_profile+" information column width leaves intended range")
         if context == "foundation":
             _expect(not scroll.visible,context_profile+" retains an empty command viewport")
             _expect(panel.size.x <= 168.0,context_profile+" retains empty width")

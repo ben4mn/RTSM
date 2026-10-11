@@ -153,10 +153,46 @@ func _run() -> void:
 	_expect((_placement.get("_touch_points") as Dictionary).is_empty(), "GUI release retained a phantom placement pinch")
 	_expect_pending(wood_before, buildings_before, "HUD-consumed pinch release")
 	await _touch(180, p0, true)
+	_expect((_placement.get("_touch_points") as Dictionary).has(180), "fresh preview press was not admitted after the consumed release")
+	_expect(not bool(_placement.get("_touch_camera_gesture")), "fresh preview press retained the pinch navigation latch")
 	ghost_before = _placement.ghost_position
-	await _drag(180, p0 + Vector2(40.0, 0.0), Vector2(40.0, 0.0))
+	camera_before = _camera.position
+	# A fixed 40px drag can snap onto the previous ghost tile after zooming.
+	# Project a distinct neighboring tile through the current canvas so this
+	# assertion measures preview ownership independently of zoom and rounding.
+	var preview_tile_before: Vector2i = _map.call("world_to_tile", ghost_before)
+	var preview_target_tile: Vector2i = preview_tile_before
+	var preview_target_screen := Vector2.ZERO
+	var canvas: Transform2D = _placement.get_canvas_transform()
+	var world_screen_rect: Rect2 = get_viewport().get_visible_rect().grow(-1.0)
+	var hud_obstacles: Array[Rect2] = hud.call("get_world_occlusion_rects")
+	for neighbor: Vector2i in [Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT, Vector2i.UP]:
+		var candidate_tile: Vector2i = preview_tile_before + neighbor
+		if candidate_tile.x < 0 or candidate_tile.y < 0 or candidate_tile.x >= MapData.MAP_WIDTH or candidate_tile.y >= MapData.MAP_HEIGHT:
+			continue
+		var candidate_world: Vector2 = _map.call("tile_to_world", candidate_tile)
+		var candidate_screen: Vector2 = canvas * candidate_world
+		if not world_screen_rect.has_point(candidate_screen) or gui_guard.get_global_rect().has_point(candidate_screen):
+			continue
+		var blocked_by_hud := false
+		for obstacle: Rect2 in hud_obstacles:
+			if obstacle.has_point(candidate_screen):
+				blocked_by_hud = true
+				break
+		if blocked_by_hud:
+			continue
+		preview_target_tile = candidate_tile
+		preview_target_screen = candidate_screen
+		break
+	_expect(preview_target_tile != preview_tile_before, "could not project a distinct on-screen world tile outside the HUD")
+	var predicted_target_tile: Vector2i = _map.call("world_to_tile", canvas.affine_inverse() * preview_target_screen)
+	_expect(predicted_target_tile == preview_target_tile and predicted_target_tile != preview_tile_before, "fresh drag target did not predict a distinct tile at the current zoom")
+	await _drag(180, preview_target_screen, preview_target_screen - p0)
 	_expect(_placement.ghost_position != ghost_before, "phantom pinch prevented the next preview gesture")
-	await _touch(180, p0 + Vector2(40.0, 0.0), false, true)
+	_expect(_map.call("world_to_tile", _placement.ghost_position) == preview_target_tile, "fresh admitted drag did not move the preview to its predicted tile")
+	_expect((_placement.get("_touch_points") as Dictionary).has(180), "fresh drag lost its admitted preview finger")
+	_expect(_camera.position == camera_before and not bool(_placement.get("_touch_camera_gesture")), "fresh preview drag navigated the camera after the consumed release")
+	await _touch(180, preview_target_screen, false, true)
 	_expect_pending(wood_before, buildings_before, "OS-canceled contact")
 
 	# Reverse the release order: the original preview finger lifts first and

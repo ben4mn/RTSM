@@ -78,7 +78,6 @@ func _place_water_features() -> void:
 			if not _can_place_symmetric_seed(Vector2i(lx, ly), FEATURE_SPAWN_BUFFER, FEATURE_CENTER_BUFFER):
 				continue
 			_place_blob(lx, ly, lake_size, MapData.TileType.WATER)
-			_place_blob(_mirror_x(lx), ly, lake_size, MapData.TileType.WATER)
 			break
 
 
@@ -94,7 +93,6 @@ func _place_forest_clusters() -> void:
 			if not _can_place_symmetric_seed(Vector2i(fx, fy), FEATURE_SPAWN_BUFFER, FEATURE_CENTER_BUFFER):
 				continue
 			_place_blob(fx, fy, cluster_size, MapData.TileType.FOREST)
-			_place_blob(_mirror_x(fx), fy, cluster_size, MapData.TileType.FOREST)
 			break
 
 
@@ -115,9 +113,7 @@ func _place_resource_pair(tile_type: MapData.TileType, count: int) -> void:
 			if not _can_place_symmetric_seed(Vector2i(rx, ry), SPAWN_CLEAR_RADIUS + 1, CENTER_CLEAR_RADIUS + 1):
 				continue
 			if grid[ry][rx] == MapData.TileType.GRASS:
-				_set_tile(rx, ry, tile_type)
-				var mx := _mirror_x(rx)
-				_set_tile(mx, ry, tile_type)
+				_set_symmetric_tile(Vector2i(rx, ry), tile_type)
 				break
 
 
@@ -126,6 +122,19 @@ func _place_spawn_positions() -> void:
 	spawn_positions.clear()
 	spawn_positions.append(Vector2i(SPAWN_EDGE_PADDING, MapData.MAP_HEIGHT - 1 - SPAWN_EDGE_PADDING))
 	spawn_positions.append(Vector2i(MapData.MAP_WIDTH - 1 - SPAWN_EDGE_PADDING, SPAWN_EDGE_PADDING))
+
+
+## Preserve each worker's assigned resource approach under the map reflection.
+## Resolve orientation from the actual spawn so swapped-start probes stay fair.
+func get_starting_villager_offsets(player_id: int) -> Array[Vector2i]:
+	var offsets: Array[Vector2i] = [Vector2i(1, 2), Vector2i(-1, 2), Vector2i(0, 3), Vector2i(2, 1)]
+	if player_id < 0 or player_id >= spawn_positions.size():
+		return offsets
+	var spawn: Vector2i = spawn_positions[player_id]
+	if spawn.x > spawn.y:
+		for index: int in range(offsets.size()):
+			offsets[index] = _mirror_tile(offsets[index])
+	return offsets
 
 
 ## Clear a large area around each spawn so early touch interactions stay readable.
@@ -153,14 +162,23 @@ func _ensure_center_lane() -> void:
 		_carve_grass_corridor(spawn, center, CORRIDOR_HALF_WIDTH)
 
 
-## Place an organic blob of tiles using a random walk.
+## One random walk places both halves of a feature. Independent walks can
+## create unequal obstacles and forest approach costs even with equal counts.
 func _place_blob(cx: int, cy: int, size: int, tile_type: MapData.TileType) -> void:
 	var placed := 0
 	var x := cx
 	var y := cy
-	while placed < size:
-		if _in_bounds(x, y) and grid[y][x] == MapData.TileType.GRASS and not _is_near_center(Vector2i(x, y), CENTER_CLEAR_RADIUS):
-			_set_tile(x, y, tile_type)
+	var attempts: int = 0
+	while placed < size and attempts < size * 100:
+		attempts += 1
+		var tile := Vector2i(x, y)
+		var mirrored: Vector2i = _mirror_tile(tile)
+		if (
+			_in_bounds(x, y) and grid[y][x] == MapData.TileType.GRASS
+			and grid[mirrored.y][mirrored.x] == MapData.TileType.GRASS
+			and not _is_near_center(tile, CENTER_CLEAR_RADIUS)
+		):
+			_set_symmetric_tile(tile, tile_type)
 			placed += 1
 		# Random walk step
 		var dir := _rng.randi_range(0, 3)
@@ -176,12 +194,13 @@ func _place_blob(cx: int, cy: int, size: int, tile_type: MapData.TileType) -> vo
 ## Place guaranteed resources near each spawn so players always have nearby food, gold, and wood.
 ## Called AFTER _ensure_spawn_clearance so resources won't be overwritten.
 func _place_guaranteed_near_spawn_resources() -> void:
-	for spawn in spawn_positions:
-		# Fast-start economy tuned for short duel matches.
-		_place_near_spawn(spawn, MapData.TileType.BERRY_BUSH, 4, SPAWN_CLEAR_RADIUS + 1, SPAWN_CLEAR_RADIUS + 3)
-		_place_near_spawn(spawn, MapData.TileType.GOLD_MINE, 2, SPAWN_CLEAR_RADIUS + 2, SPAWN_CLEAR_RADIUS + 5)
-		_place_near_spawn(spawn, MapData.TileType.STONE, 1, SPAWN_CLEAR_RADIUS + 3, SPAWN_CLEAR_RADIUS + 6)
-		_place_forest_near_spawn(spawn)
+	# Draw one opening pocket and reflect it to the other spawn. The reflection
+	# preserves isometric world distances and the anchored 4x4 TC footprint.
+	var spawn: Vector2i = spawn_positions[0]
+	_place_near_spawn(spawn, MapData.TileType.BERRY_BUSH, 4, SPAWN_CLEAR_RADIUS + 1, SPAWN_CLEAR_RADIUS + 3)
+	_place_near_spawn(spawn, MapData.TileType.GOLD_MINE, 2, SPAWN_CLEAR_RADIUS + 2, SPAWN_CLEAR_RADIUS + 5)
+	_place_near_spawn(spawn, MapData.TileType.STONE, 1, SPAWN_CLEAR_RADIUS + 3, SPAWN_CLEAR_RADIUS + 6)
+	_place_forest_near_spawn(spawn)
 
 
 func _place_near_spawn(spawn: Vector2i, tile_type: MapData.TileType, count: int, min_dist: int, max_dist: int) -> void:
@@ -196,28 +215,94 @@ func _place_near_spawn(spawn: Vector2i, tile_type: MapData.TileType, count: int,
 			continue
 		var tx := spawn.x + dx
 		var ty := spawn.y + dy
+		if not _is_in_starting_resource_reveal(spawn, Vector2i(tx, ty)):
+			continue
 		if _is_near_center(Vector2i(tx, ty), CENTER_CLEAR_RADIUS):
 			continue
 		if _in_bounds(tx, ty) and grid[ty][tx] == MapData.TileType.GRASS:
-			_set_tile(tx, ty, tile_type)
+			_set_symmetric_tile(Vector2i(tx, ty), tile_type)
 			placed += 1
+	# Random draws provide variety, but a crowded seed must still receive its
+	# promised opening stock after the finite attempt budget is exhausted.
+	for dy: int in range(-max_dist, max_dist + 1):
+		for dx: int in range(-max_dist, max_dist + 1):
+			if placed >= count:
+				return
+			var distance: int = maxi(absi(dx), absi(dy))
+			var tile: Vector2i = spawn + Vector2i(dx, dy)
+			if distance < min_dist or not _in_bounds(tile.x, tile.y):
+				continue
+			if not _is_in_starting_resource_reveal(spawn, tile) or _is_near_center(tile, CENTER_CLEAR_RADIUS):
+				continue
+			var mirrored: Vector2i = _mirror_tile(tile)
+			if grid[tile.y][tile.x] == MapData.TileType.GRASS and grid[mirrored.y][mirrored.x] == MapData.TileType.GRASS:
+				_set_symmetric_tile(tile, tile_type)
+				placed += 1
 
 
 func _place_forest_near_spawn(spawn: Vector2i) -> void:
-	var center := Vector2i(MapData.MAP_WIDTH / 2, MapData.MAP_HEIGHT / 2)
-	var dir_x := signi(center.x - spawn.x)
-	var dir_y := signi(center.y - spawn.y)
-	for _attempt in range(30):
-		var dx := dir_x * _rng.randi_range(SPAWN_CLEAR_RADIUS + 1, SPAWN_CLEAR_RADIUS + 5) + _rng.randi_range(-2, 2)
-		var dy := dir_y * _rng.randi_range(SPAWN_CLEAR_RADIUS + 1, SPAWN_CLEAR_RADIUS + 5) + _rng.randi_range(-2, 2)
-		var dist := maxi(absi(dx), absi(dy))
-		if dist < SPAWN_CLEAR_RADIUS + 1 or dist > SPAWN_CLEAR_RADIUS + 5:
+	var candidates: Array[Vector2i] = []
+	var forward_candidates: Array[Vector2i] = []
+	var radius: int = SPAWN_CLEAR_RADIUS + 5
+	for dy: int in range(-radius, radius + 1):
+		for dx: int in range(-radius, radius + 1):
+			var tile: Vector2i = spawn + Vector2i(dx, dy)
+			if not _can_place_starting_tree(spawn, tile):
+				continue
+			candidates.append(tile)
+			if dx > 0 and dy < 0:
+				forward_candidates.append(tile)
+	if candidates.is_empty():
+		return
+	# Grow a connected patch inside the real circular starting reveal. The old
+	# random walk could move every tree out of vision, idling the wood worker.
+	var starts: Array[Vector2i] = forward_candidates if not forward_candidates.is_empty() else candidates
+	var frontier: Array[Vector2i] = [starts[_rng.randi_range(0, starts.size() - 1)]]
+	var visited: Dictionary = {}
+	var placed: int = 0
+	while placed < 8:
+		if frontier.is_empty():
+			# A crowded patch may be enclosed by pre-existing resources. Continue
+			# from another legal pocket tile rather than losing guaranteed stock.
+			while not candidates.is_empty():
+				var next: Vector2i = candidates.pop_back()
+				if _can_place_starting_tree(spawn, next):
+					frontier.append(next)
+					break
+			if frontier.is_empty():
+				break
+		var index: int = _rng.randi_range(0, frontier.size() - 1)
+		var tile: Vector2i = frontier[index]
+		frontier.remove_at(index)
+		if visited.has(tile) or not _can_place_starting_tree(spawn, tile):
 			continue
-		var fx := spawn.x + dx
-		var fy := spawn.y + dy
-		if _in_bounds(fx, fy) and grid[fy][fx] == MapData.TileType.GRASS:
-			_place_blob(fx, fy, 8, MapData.TileType.FOREST)
-			break
+		visited[tile] = true
+		_set_symmetric_tile(tile, MapData.TileType.FOREST)
+		placed += 1
+		for offset: Vector2i in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
+			var adjacent: Vector2i = tile + offset
+			if not visited.has(adjacent) and _can_place_starting_tree(spawn, adjacent):
+				frontier.append(adjacent)
+
+
+func _can_place_starting_tree(spawn: Vector2i, tile: Vector2i) -> bool:
+	if not _in_bounds(tile.x, tile.y):
+		return false
+	var distance: int = maxi(absi(tile.x - spawn.x), absi(tile.y - spawn.y))
+	if distance <= SPAWN_CLEAR_RADIUS or distance > SPAWN_CLEAR_RADIUS + 5:
+		return false
+	if not _is_in_starting_resource_reveal(spawn, tile) or _is_near_center(tile, CENTER_CLEAR_RADIUS):
+		return false
+	var mirrored: Vector2i = _mirror_tile(tile)
+	return grid[tile.y][tile.x] == MapData.TileType.GRASS and grid[mirrored.y][mirrored.x] == MapData.TileType.GRASS
+
+
+func _is_in_starting_resource_reveal(spawn: Vector2i, tile: Vector2i) -> bool:
+	# Read the authoritative building vision instead of assuming a Chebyshev
+	# ring fits a circular reveal. AI and human commands share this same circle.
+	var stats: Dictionary = BuildingData.get_building_stats(BuildingData.BuildingType.TOWN_CENTER)
+	var vision: int = int(stats.get("vision_radius", 3))
+	return spawn.distance_squared_to(tile) <= float(vision * vision)
 
 
 func _place_contested_mid_resources() -> void:
@@ -237,13 +322,12 @@ func _place_center_resource_pair(tile_type: MapData.TileType, count: int, min_x_
 			var y := center.y + y_offset
 			if not _in_bounds(x, y):
 				continue
-			var mx := _mirror_x(x)
-			if not _in_bounds(mx, y):
+			var mirrored: Vector2i = _mirror_tile(Vector2i(x, y))
+			if not _in_bounds(mirrored.x, mirrored.y):
 				continue
-			if grid[y][x] != MapData.TileType.GRASS or grid[y][mx] != MapData.TileType.GRASS:
+			if grid[y][x] != MapData.TileType.GRASS or grid[mirrored.y][mirrored.x] != MapData.TileType.GRASS:
 				continue
-			_set_tile(x, y, tile_type)
-			_set_tile(mx, y, tile_type)
+			_set_symmetric_tile(Vector2i(x, y), tile_type)
 			break
 
 
@@ -251,13 +335,15 @@ func _place_center_resource_pair(tile_type: MapData.TileType, count: int, min_x_
 func _add_grass_variety() -> void:
 	for y in range(MapData.MAP_HEIGHT):
 		for x in range(MapData.MAP_WIDTH):
+			if x > y:
+				continue
 			if grid[y][x] != MapData.TileType.GRASS:
 				continue
 			var roll := _rng.randf()
 			if roll < 0.25:
-				grid[y][x] = MapData.TileType.GRASS_ALT
+				_set_symmetric_tile(Vector2i(x, y), MapData.TileType.GRASS_ALT)
 			elif roll < 0.35:
-				grid[y][x] = MapData.TileType.GRASS_DARK
+				_set_symmetric_tile(Vector2i(x, y), MapData.TileType.GRASS_DARK)
 
 
 func _set_tile(x: int, y: int, tile_type: MapData.TileType) -> void:
@@ -269,8 +355,17 @@ func _in_bounds(x: int, y: int) -> bool:
 	return x >= 0 and x < MapData.MAP_WIDTH and y >= 0 and y < MapData.MAP_HEIGHT
 
 
-func _mirror_x(x: int) -> int:
-	return MapData.MAP_WIDTH - 1 - x
+## Reflect across the map's x=y diagonal, mapping (6,41) to (41,6).
+## In isometric world space this flips horizontal position and preserves
+## vertical position. An x-only tile reflection does not map these spawns.
+func _mirror_tile(tile: Vector2i) -> Vector2i:
+	return Vector2i(tile.y, tile.x)
+
+
+func _set_symmetric_tile(tile: Vector2i, tile_type: MapData.TileType) -> void:
+	_set_tile(tile.x, tile.y, tile_type)
+	var mirrored: Vector2i = _mirror_tile(tile)
+	_set_tile(mirrored.x, mirrored.y, tile_type)
 
 
 func _is_near_spawn(tile: Vector2i, buffer: int) -> bool:
@@ -288,7 +383,7 @@ func _is_near_center(tile: Vector2i, buffer: int) -> bool:
 func _can_place_symmetric_seed(tile: Vector2i, spawn_buffer: int, center_buffer: int) -> bool:
 	if not _in_bounds(tile.x, tile.y):
 		return false
-	var mirrored := Vector2i(_mirror_x(tile.x), tile.y)
+	var mirrored: Vector2i = _mirror_tile(tile)
 	if not _in_bounds(mirrored.x, mirrored.y):
 		return false
 	if grid[tile.y][tile.x] != MapData.TileType.GRASS or grid[mirrored.y][mirrored.x] != MapData.TileType.GRASS:

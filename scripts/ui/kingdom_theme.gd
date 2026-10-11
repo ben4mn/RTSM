@@ -2,14 +2,14 @@ class_name KingdomTheme
 extends RefCounted
 ## Shared visual language for the kingdom, its menus and thumb controls.
 
-const INK := Color("101c2a")
-const INK_PANEL := Color("182838")
-const INK_LIGHT := Color("24394b")
+const INK := Color("172522")
+const INK_PANEL := Color("213530")
+const INK_LIGHT := Color("2d443c")
 const PARCHMENT := Color("f2ead8")
-const MUTED := Color("a0b2b7")
-const AMBER := Color("efbc63")
-const TEAL := Color("77c3b8")
-const BORDER := Color("38515d")
+const MUTED := Color("b3c1ad")
+const AMBER := Color("edbd70")
+const TEAL := Color("8cc7b2")
+const BORDER := Color("496052")
 
 
 static func panel_style(background: Color = INK_PANEL, border: Color = BORDER, radius: int = 12) -> StyleBoxFlat:
@@ -34,9 +34,9 @@ static func create_theme() -> Theme:
 	var normal: StyleBoxFlat = panel_style(INK_LIGHT, BORDER, 9)
 	normal.set_content_margin(SIDE_LEFT, 12.0)
 	normal.set_content_margin(SIDE_RIGHT, 12.0)
-	var hover: StyleBoxFlat = panel_style(Color("30495a"), TEAL, 9)
+	var hover: StyleBoxFlat = panel_style(Color("385246"), TEAL, 9)
 	var pressed: StyleBoxFlat = panel_style(AMBER, AMBER, 9)
-	var disabled: StyleBoxFlat = panel_style(Color("14212d"), Color("2a3c47"), 9)
+	var disabled: StyleBoxFlat = panel_style(Color("1c2b27"), Color("35463a"), 9)
 	var focus: StyleBoxFlat = panel_style(Color(0, 0, 0, 0), AMBER, 9)
 	focus.set_border_width_all(2)
 	for control_type: String in ["Button", "OptionButton", "CheckButton"]:
@@ -80,7 +80,7 @@ static func apply_primary(button: Button) -> void:
 
 static func apply_secondary(button: Button) -> void:
 	button.add_theme_stylebox_override("normal", panel_style(INK_LIGHT, BORDER, 9))
-	button.add_theme_stylebox_override("hover", panel_style(Color("30495a"), TEAL, 9))
+	button.add_theme_stylebox_override("hover", panel_style(Color("385246"), TEAL, 9))
 	button.add_theme_stylebox_override("pressed", panel_style(TEAL, TEAL, 9))
 	button.add_theme_color_override("font_color", PARCHMENT)
 	button.add_theme_color_override("font_pressed_color", INK)

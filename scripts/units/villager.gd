@@ -10,9 +10,9 @@ signal building_completed(building: Node2D)
 enum GatherType { NONE, FOOD, WOOD, GOLD }
 
 # Gathering stats
-@export var gather_rate: float = 2.0  # resources per gather tick
-@export var carry_capacity: int = 15
-@export var gather_tick_time: float = 1.5  # seconds between gather ticks
+@export var gather_rate: float = UnitData.VILLAGER_GATHER_AMOUNT  # resources per gather tick
+@export var carry_capacity: int = UnitData.VILLAGER_CARRY_CAPACITY
+@export var gather_tick_time: float = UnitData.VILLAGER_GATHER_TICK_SECONDS
 
 # Gathering state
 var gather_target: Node2D = null
@@ -20,6 +20,7 @@ var gather_type: int = GatherType.NONE
 var carried_resource_type: String = ""
 var carried_amount: int = 0
 var gather_timer: float = 0.0
+var _fractional_harvest: float = 0.0
 var dropoff_target: Node2D = null
 var _dropoff_retry_timer: float = 0.0
 var _dropoff_route_active: bool = false
@@ -36,7 +37,7 @@ const DROP_OFF_ANY_ADVANTAGE_RATIO: float = 0.7
 const GATHER_APPROACH_DISTANCE: float = MapData.RESOURCE_GATHER_INTERACTION_RADIUS_WORLD
 const BUILD_APPROACH_DISTANCE: float = 40.0
 const BUILDING_APPROACH_DISTANCE: float = 48.0
-const UNREACHABLE_TARGET_IGNORE_MSEC: int = 5000
+const UNREACHABLE_TARGET_IGNORE_SECONDS: float = 5.0
 const MAX_DROPOFF_PATH_CHECKS: int = 8
 
 # Building state
@@ -115,6 +116,10 @@ func _process(delta: float) -> void:
 	if _auto_recovering and current_state != State.DEAD:
 		_process_recovery(delta)
 	super._process(delta)
+	# AI also reads these exclusions while a worker is idle. Expire them from
+	# the inherited simulation clock even when no gather/drop-off retry runs.
+	_prune_expired_unreachable_targets(_unreachable_resource_ids_until)
+	_prune_expired_unreachable_targets(_unreachable_dropoff_ids_until)
 
 
 ## Economic work flees without forgetting its job. Explicit combat and manual
@@ -327,8 +332,9 @@ func _process_gathering(delta: float) -> void:
 
 	# We are at the resource, gather
 	gather_timer += delta
-	if gather_timer >= gather_tick_time:
-		gather_timer = 0.0
+	var tick_seconds: float = gather_tick_time / float(UnitData.RESOURCE_GATHER_SPEEDS.get(carried_resource_type, 1.0))
+	if gather_timer >= tick_seconds:
+		gather_timer -= tick_seconds
 		var gathered: int = _harvest_from_target()
 		carried_amount += gathered
 
@@ -337,9 +343,20 @@ func _process_gathering(delta: float) -> void:
 
 
 func _harvest_from_target() -> int:
+	# Upgrades add fractional resources per tick. Carry that work into the next
+	# tick so Wheelbarrow's +25% is earned instead of truncated away.
+	var remaining_capacity: int = maxi(0, carry_capacity - carried_amount)
+	if remaining_capacity <= 0:
+		return 0
+	_fractional_harvest += maxf(0.0, gather_rate)
+	var whole_work: int = floori(_fractional_harvest)
+	_fractional_harvest -= float(whole_work)
+	var amount_requested: int = mini(whole_work, remaining_capacity)
+	if amount_requested <= 0:
+		return 0
 	# Try calling harvest on the resource node if it has the method
 	if gather_target.has_method("harvest"):
-		var amount: int = gather_target.harvest(int(gather_rate))
+		var amount: int = gather_target.harvest(amount_requested)
 		if amount > 0 and is_instance_valid(gather_target) and get_tree() and get_tree().current_scene:
 			VFX.gather_particles(get_tree(), gather_target.global_position, carried_resource_type)
 			var sfx_name: String = "gather_" + carried_resource_type if carried_resource_type != "" else "gather_food"
@@ -349,7 +366,7 @@ func _harvest_from_target() -> int:
 			_clear_gather_target_knowledge()
 		return amount
 	# Fallback: just produce resources
-	return int(gather_rate)
+	return amount_requested
 
 
 func _find_and_go_to_dropoff() -> void:
@@ -583,6 +600,8 @@ func command_gather(resource_node: Node2D) -> bool:
 			_find_and_go_to_dropoff()
 			return true
 	_clear_pending_gather_order()
+	if carried_resource_type != requested_resource_type:
+		_fractional_harvest = 0.0
 	gather_target = resource_node
 	_gather_last_known_position = resource_node.global_position
 	_has_gather_last_known_position = true
@@ -1117,6 +1136,8 @@ func _activate_pending_gather_order() -> bool:
 	# vision resource of the requested type. Otherwise approach only the legally
 	# observed position and resolve after the worker reveals it.
 	gather_target = null
+	if carried_resource_type != pending_type:
+		_fractional_harvest = 0.0
 	carried_resource_type = pending_type
 	gather_type = _gather_type_for_resource(pending_type)
 	_gather_last_known_position = pending_position
@@ -1355,13 +1376,13 @@ func _on_navigation_unreachable(target_position: Vector2) -> void:
 
 func _remember_unreachable_target(target: Node2D, cache: Dictionary) -> void:
 	if target != null and is_instance_valid(target):
-		cache[target.get_instance_id()] = Time.get_ticks_msec() + UNREACHABLE_TARGET_IGNORE_MSEC
+		cache[target.get_instance_id()] = _simulation_elapsed_seconds + UNREACHABLE_TARGET_IGNORE_SECONDS
 
 
 func _prune_expired_unreachable_targets(cache: Dictionary) -> void:
-	var now: int = Time.get_ticks_msec()
+	var now: float = _simulation_elapsed_seconds
 	for instance_id: Variant in cache.keys():
-		if now >= int(cache[instance_id]):
+		if now >= float(cache[instance_id]):
 			cache.erase(instance_id)
 
 
@@ -1389,6 +1410,14 @@ func _is_build_target_valid(building_site: Variant) -> bool:
 
 
 # --- Override draw for carried resource indicator ---
+
+func get_visual_bounds() -> Rect2:
+	var bounds: Rect2 = super.get_visual_bounds()
+	if current_state == State.GATHERING or carried_amount > 0:
+		var size: float = UNIT_SIZES.get(unit_type, 8.0)
+		bounds = bounds.merge(global_transform * Rect2(size - 2.0, -6.0, 12.0, 12.0))
+	return bounds
+
 
 func _draw() -> void:
 	super._draw()

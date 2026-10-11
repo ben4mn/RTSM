@@ -14,6 +14,9 @@ var fog_layer: TileMapLayer
 
 ## Tracks tiles that were visible last frame so we can transition to EXPLORED.
 var _previously_visible: Array[Vector2i] = []
+var _next_visible: Dictionary = {}
+var _last_visibility_sources: Dictionary = {}
+var _visibility_cache_valid: bool = false
 
 ## Cache of registered units for vision computation.
 ## Each entry: { "position": Vector2i, "vision_radius": int, "is_scout": bool }
@@ -37,6 +40,9 @@ func _ready() -> void:
 
 func _init_fog_grid() -> void:
 	fog_grid.clear()
+	_previously_visible.clear()
+	_visibility_cache_valid = false
+	_initial_apply_done = false
 	for y in range(MapData.MAP_HEIGHT):
 		var row: Array = []
 		row.resize(MapData.MAP_WIDTH)
@@ -78,18 +84,34 @@ func set_vision_sources(sources: Array[Dictionary]) -> void:
 
 ## Core visibility update — runs each frame.
 func _update_visibility() -> void:
-	# Transition all currently VISIBLE tiles to EXPLORED — mark as dirty.
-	for pos in _previously_visible:
-		if _in_bounds(pos) and fog_grid[pos.y][pos.x] == MapData.FogState.VISIBLE:
-			fog_grid[pos.y][pos.x] = MapData.FogState.EXPLORED
-			_dirty_cells.append(pos)
-	_previously_visible.clear()
-
-	# Compute visible tiles from all vision sources.
+	_dirty_cells.clear()
+	# Tile vision changes only when a source crosses a tile, changes radius or
+	# enters/leaves the world. Scout identity is queried from live sources below.
+	# Deduplicate overlapping sources without relying on registration order.
+	var signature: Dictionary = {}
 	for source in _vision_sources:
 		var origin: Vector2i = source["position"]
 		var radius: int = source["vision_radius"]
-		_reveal_circle(origin, radius)
+		signature[Vector3i(origin.x, origin.y, radius)] = true
+	if _visibility_cache_valid and signature == _last_visibility_sources:
+		return
+	_last_visibility_sources = signature
+	_visibility_cache_valid = true
+	_next_visible.clear()
+	for key: Vector3i in signature:
+		_reveal_circle(Vector2i(key.x, key.y), key.z)
+
+	# Compare final states. Persistent visible cells never flicker through
+	# EXPLORED and never incur redundant TileMap updates.
+	for pos: Vector2i in _previously_visible:
+		if not _next_visible.has(pos):
+			fog_grid[pos.y][pos.x] = MapData.FogState.EXPLORED
+			_dirty_cells.append(pos)
+	for pos: Vector2i in _next_visible:
+		if fog_grid[pos.y][pos.x] != MapData.FogState.VISIBLE:
+			fog_grid[pos.y][pos.x] = MapData.FogState.VISIBLE
+			_dirty_cells.append(pos)
+	_previously_visible.assign(_next_visible.keys())
 
 
 ## Reveal a circle of tiles around a position.
@@ -99,10 +121,7 @@ func _reveal_circle(center: Vector2i, radius: int) -> void:
 			if dx * dx + dy * dy <= radius * radius:
 				var pos := center + Vector2i(dx, dy)
 				if _in_bounds(pos):
-					if fog_grid[pos.y][pos.x] != MapData.FogState.VISIBLE:
-						_dirty_cells.append(pos)
-					fog_grid[pos.y][pos.x] = MapData.FogState.VISIBLE
-					_previously_visible.append(pos)
+					_next_visible[pos] = true
 
 
 ## Apply only changed fog cells to the visual TileMapLayer.
@@ -162,6 +181,8 @@ func is_revealed_by_scout(pos: Vector2i) -> bool:
 
 ## Reveal the entire map (cheat / debug).
 func reveal_all() -> void:
+	_visibility_cache_valid = false
+	_previously_visible.clear()
 	for y in range(MapData.MAP_HEIGHT):
 		for x in range(MapData.MAP_WIDTH):
 			fog_grid[y][x] = MapData.FogState.VISIBLE

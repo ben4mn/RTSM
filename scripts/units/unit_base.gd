@@ -62,6 +62,7 @@ var _navigation_failed_repaths: int = 0
 var _navigation_stall_repaths: int = 0
 var _navigation_map: Node2D = null
 var _ignored_auto_targets_until: Dictionary = {}
+var _simulation_elapsed_seconds: float = 0.0
 var _attack_windup_remaining: float = -1.0
 var _attack_windup_target: Node2D = null
 var _attack_windup_building: bool = false
@@ -74,9 +75,9 @@ var _last_visual_position: Vector2 = Vector2.ZERO
 # --- Node references ---
 @onready var collision_shape: CollisionShape2D = $CollisionShape2D
 
-# --- Sprite mapping per unit type from Kenney Medieval RTS pack ---
+# --- Pocket Kingdoms miniature role artwork ---
 const UNIT_SPRITES: Dictionary = {
-	UnitData.UnitType.VILLAGER: "res://assets/units/unit_01.png",
+	UnitData.UnitType.VILLAGER: "res://assets/units/worker.svg",
 	UnitData.UnitType.INFANTRY: "res://assets/units/warrior.svg",
 	UnitData.UnitType.ARCHER: "res://assets/units/archer.svg",
 	UnitData.UnitType.CAVALRY: "res://assets/units/cavalry.svg",
@@ -105,6 +106,17 @@ const UNIT_SPRITE_SCALES: Dictionary = {
 }
 
 var _sprite: Sprite2D = null
+var _sprite_team_modulate: Color = Color.WHITE
+var _damage_flash_tween: Tween = null
+var _sprite_opaque_rect: Rect2 = Rect2()
+var _health_bar_y: float = -43.0
+static var _sprite_opaque_rect_cache: Dictionary = {}
+
+# Artwork shares a y104 foot baseline in a 128px canvas. Movement/attack
+# excursion is included in framing, so a moving miniature stays in the field.
+const UNIT_FOOT_OFFSET: Vector2 = Vector2(0.0, -40.0)
+const UNIT_VISUAL_GAIT_MARGIN: float = 4.0
+const UNIT_VISUAL_ATTACK_MARGIN: float = 10.0
 
 const FRIENDLY_SEPARATION_RADIUS: float = 34.0
 const FRIENDLY_SEPARATION_WEIGHT: float = 1.15
@@ -117,7 +129,7 @@ const NAVIGATION_DYNAMIC_REPATH_DISTANCE: float = 20.0
 const NAVIGATION_STUCK_TIMEOUT: float = 1.25
 const NAVIGATION_MAX_FAILED_REPATHS: int = 4
 const NAVIGATION_MAX_STALL_REPATHS: int = 3
-const AUTO_TARGET_IGNORE_MSEC: int = 3000
+const AUTO_TARGET_IGNORE_SECONDS: float = 3.0
 
 
 func _ready() -> void:
@@ -158,19 +170,51 @@ func _setup_sprite() -> void:
 	if tex_path != "" and ResourceLoader.exists(tex_path):
 		_sprite.texture = load(tex_path)
 	_sprite.scale = UNIT_SPRITE_SCALES.get(unit_type, Vector2(0.20, 0.20))
-	_sprite.offset = Vector2(0, -18)  # Put the feet on the ground marker.
-	if unit_type != UnitData.UnitType.VILLAGER:
-		_sprite.offset.y = -40.0
+	_sprite.offset = UNIT_FOOT_OFFSET
 	add_child(_sprite)
+	if _sprite.texture != null:
+		if not _sprite_opaque_rect_cache.has(tex_path):
+			var image: Image = _sprite.texture.get_image()
+			_sprite_opaque_rect_cache[tex_path] = Rect2(image.get_used_rect()) if image != null else Rect2(Vector2.ZERO, _sprite.texture.get_size())
+		_sprite_opaque_rect = _sprite_opaque_rect_cache[tex_path]
+		_health_bar_y = floorf(_sprite.scale.y * (_sprite_opaque_rect.position.y - _sprite.texture.get_height() * 0.5 + _sprite.offset.y) - 6.0)
 	# Apply team color tint to enemy units
 	if player_owner != 0:
 		_sprite.modulate = Color(1.0, 0.4, 0.4)  # Bold red tint for enemies
+	_sprite_team_modulate = _sprite.modulate
 	_last_visual_position = global_position
+
+
+func get_visual_bounds() -> Rect2:
+	## World bounds of visible artwork and markers, including the maximum
+	## small pose excursion. Opaque texture bounds are cached at sprite setup.
+	var size: float = UNIT_SIZES.get(unit_type, 10.0)
+	var local_bounds := Rect2(-size - 2.5, 3.0 - size * 0.48 - 1.5, (size + 2.5) * 2.0, size * 0.96 + 3.0)
+	if _sprite != null and _sprite.texture != null:
+		var sprite_rect := Rect2(_sprite_opaque_rect.position - _sprite.texture.get_size() * 0.5 + _sprite.offset, _sprite_opaque_rect.size)
+		if _sprite.flip_h:
+			sprite_rect.position.x = -sprite_rect.end.x
+		# Walking/work retain a compact four-unit pose envelope. Attacking needs
+		# the five-unit lunge plus up to four units of head movement from its
+		# foot-pivot rotation; current-pose-only padding could miss that stroke.
+		var resting_sprite_rect := Rect2(sprite_rect.position * _sprite.scale, sprite_rect.size * _sprite.scale)
+		var pose_margin: float = UNIT_VISUAL_ATTACK_MARGIN if current_state == State.ATTACKING or _attack_animation_remaining > 0.0 else UNIT_VISUAL_GAIT_MARGIN
+		local_bounds = local_bounds.merge(resting_sprite_rect.grow(pose_margin))
+		local_bounds = local_bounds.merge((_sprite.transform * sprite_rect).grow(0.1))
+	if is_selected or hp < max_hp:
+		local_bounds = local_bounds.merge(Rect2(-size * 1.25, _health_bar_y, size * 2.5, 3.0))
+	if stance == Stance.STAND_GROUND:
+		local_bounds = local_bounds.merge(Rect2(size, -6.5, 8.0, 9.0))
+	return global_transform * local_bounds
 
 
 func _process(delta: float) -> void:
 	if current_state == State.DEAD:
 		return
+	# Exclusion retries use the same elapsed simulation as movement/combat.
+	# The explicit guard also keeps manually stepped units frozen while paused.
+	if not is_inside_tree() or not get_tree().paused:
+		_simulation_elapsed_seconds += maxf(0.0, delta)
 
 	attack_cooldown = maxf(0.0, attack_cooldown - delta)
 	_auto_attack_timer = maxf(0.0, _auto_attack_timer - delta)
@@ -204,42 +248,36 @@ func _draw() -> void:
 	for i in range(33):
 		var angle: float = float(i) / 32.0 * TAU
 		ground_ring.append(Vector2(cos(angle) * (size + 1.0), sin(angle) * size * 0.48 + 3.0))
-	draw_colored_polygon(ground_ring, Color(0.04, 0.09, 0.10, 0.28))
-	draw_polyline(ground_ring, team_color.lightened(0.18), 1.6, true)
+	draw_colored_polygon(ground_ring, Color(0.04, 0.09, 0.10, 0.18))
+	var contact_shadow := PackedVector2Array()
+	for point: Vector2 in ground_ring:
+		contact_shadow.append(Vector2(point.x * 0.64, (point.y - 3.0) * 0.62 + 2.0))
+	draw_colored_polygon(contact_shadow, Color(0.03, 0.07, 0.08, 0.19))
+	draw_polyline(ground_ring, Color(team_color.lightened(0.18), 0.85), 1.4, true)
 
 	# Selection indicator (pulsing circle under unit)
 	if is_selected:
 		var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.005)
-		var sel_alpha := lerpf(0.45, 0.95, pulse)
+		var sel_alpha := lerpf(0.75, 1.0, pulse)
 		draw_polyline(ground_ring, Color(1.0, 0.86, 0.49, sel_alpha), 3.0, true)
 
 	# Critical HP pulsing red ring (< 25% HP)
 	var hp_ratio: float = hp / max_hp if max_hp > 0 else 0.0
 	if hp_ratio > 0.0 and hp_ratio < 0.25:
 		var crit_pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.01)
-		draw_arc(Vector2.ZERO, size + 3.0, 0, TAU, 24, Color(1.0, 0.2, 0.1, crit_pulse * 0.6), 2.0)
+		draw_polyline(ground_ring, Color(1.0, 0.2, 0.1, crit_pulse * 0.8), 2.0, true)
 		queue_redraw()
 
 	# Health bar (above unit)
 	var bar_width: float = size * 2.5
 	var bar_height: float = 3.0
-	var bar_y: float = -(size + 12.0) if unit_type == UnitData.UnitType.VILLAGER else -43.0
+	var bar_y: float = _health_bar_y
 
 	# Healthy unselected villagers need no floating meter clutter.
 	if is_selected or hp < max_hp:
 		draw_rect(Rect2(-bar_width / 2.0, bar_y, bar_width, bar_height), Color(0.06, 0.12, 0.14, 0.9))
 		var hp_color := Color("9dcd81") if hp_ratio > 0.5 else (Color("e2bd67") if hp_ratio > 0.25 else Color("e97865"))
 		draw_rect(Rect2(-bar_width / 2.0, bar_y, bar_width * hp_ratio, bar_height), hp_color)
-
-	# Ranged indicator (small diamond on top)
-	if is_ranged:
-		var pts := PackedVector2Array([
-			Vector2(0, -size - 6),
-			Vector2(3, -size - 3),
-			Vector2(0, -size),
-			Vector2(-3, -size - 3),
-		])
-		draw_colored_polygon(pts, Color(1, 1, 1, 0.7))
 
 	# Stance indicator: shield icon for Stand Ground
 	if stance == Stance.STAND_GROUND:
@@ -592,43 +630,17 @@ func _try_auto_attack() -> void:
 	if _auto_attack_timer > 0.0:
 		return  # Throttle: only scan every 0.3s to reduce O(n²) group queries
 	_auto_attack_timer = 0.3
-	# Stand ground: only engage within attack range, not full vision
-	var search_radius: float = attack_range + 16.0 if stance == Stance.STAND_GROUND else vision_radius
-	# Check for enemy units first (priority over buildings)
-	var closest_enemy: UnitBase = null
-	var closest_dist: float = search_radius
-	for unit in get_tree().get_nodes_in_group("units"):
-		if not is_instance_valid(unit) or unit == self or not (unit is UnitBase):
-			continue
-		var candidate_unit := unit as UnitBase
-		if candidate_unit.player_owner == player_owner:
-			continue
-		if not _is_valid_target(candidate_unit) or _is_auto_target_temporarily_ignored(candidate_unit):
-			continue
-		var dist: float = global_position.distance_to(candidate_unit.global_position)
-		if dist < closest_dist:
-			closest_dist = dist
-			closest_enemy = candidate_unit
-	if closest_enemy != null:
-		command_attack(closest_enemy, false, false)
-		return
-
-	# Check for enemy buildings nearby
-	var closest_building: BuildingBase = null
-	var closest_b_dist: float = search_radius * 0.5  # shorter range for building auto-attack
-	for building in get_tree().get_nodes_in_group("buildings"):
-		if not is_instance_valid(building) or not (building is BuildingBase):
-			continue
-		if building.player_owner == player_owner:
-			continue
-		if not _is_valid_building_target(building as BuildingBase) or _is_auto_target_temporarily_ignored(building as Node2D):
-			continue
-		var dist: float = global_position.distance_to(building.global_position)
-		if dist < closest_b_dist:
-			closest_b_dist = dist
-			closest_building = building
-	if closest_building != null:
-		command_attack_building(closest_building, false, false)
+	# A spotter may reveal a target beyond this unit's own sight. Acquisition
+	# must include usable weapon reach; the canonical visibility check still
+	# rejects hidden targets. Stand ground retains its bounded engagement.
+	var search_radius: float = attack_range + 16.0 if stance == Stance.STAND_GROUND else maxf(vision_radius, attack_range + 8.0)
+	var building_radius: float = maxf(search_radius * 0.5, attack_range + 24.0)
+	var buildings_first: bool = bool(UnitData.UNITS.get(unit_type, {}).get("auto_target_buildings_first", false))
+	var target: Node2D = UnitAutoTargeting.find_target(self, search_radius, building_radius, buildings_first)
+	if target is UnitBase:
+		command_attack(target as UnitBase, false, false)
+	elif target is BuildingBase:
+		command_attack_building(target as BuildingBase, false, false)
 
 
 func can_auto_retaliate() -> bool:
@@ -711,15 +723,23 @@ func _update_sprite_motion(delta: float) -> void:
 	if displacement.length_squared() > 0.001:
 		if absf(displacement.x) > 0.01:
 			_sprite.flip_h = displacement.x < 0.0
-		var gait_rate: float = 17.0 if unit_type in [UnitData.UnitType.CAVALRY, UnitData.UnitType.SCOUT] else 12.0
-		sprite_offset.y = -absf(sin(_animation_clock * gait_rate)) * 2.5
-		_sprite.rotation = sin(_animation_clock * gait_rate) * 0.025
+		var mounted: bool = unit_type in [UnitData.UnitType.CAVALRY, UnitData.UnitType.SCOUT]
+		var gait_rate: float = 17.0 if mounted else 12.0
+		var stride: float = sin(_animation_clock * gait_rate)
+		sprite_offset.y = -absf(stride) * (1.6 if mounted else 2.0)
+		_sprite.rotation = stride * (0.014 if mounted else 0.025)
+	elif current_state in [State.GATHERING, State.BUILDING]:
+		var work_stroke: float = sin(_animation_clock * 7.5)
+		_sprite.rotation = work_stroke * 0.04
+		sprite_offset.y = -absf(work_stroke) * 0.6
 	else:
 		_sprite.rotation = 0.0
 	if _attack_animation_remaining > 0.0:
 		var phase: float = 1.0 - _attack_animation_remaining / _attack_animation_duration
-		var thrust: float = sin(phase * PI)
-		sprite_offset += _attack_animation_direction * thrust * (2.0 if is_ranged else 5.0)
+		# Brief anticipation then a clear stroke/recoil, around the ground foot
+		# anchor. This reads from the existing windup without changing hit timing.
+		var thrust: float = -sin(phase / 0.3 * PI) * 0.25 if phase < 0.3 else sin((phase - 0.3) / 0.7 * PI)
+		sprite_offset += _attack_animation_direction * thrust * (-2.0 if is_ranged else 5.0)
 		_sprite.rotation += thrust * (0.035 if is_ranged else 0.06) * (-1.0 if _sprite.flip_h else 1.0)
 	_sprite.position = sprite_offset
 
@@ -752,7 +772,7 @@ func _can_track_entity(entity: Node2D) -> bool:
 func _temporarily_ignore_auto_target(target: Node2D) -> void:
 	if target == null or not is_instance_valid(target):
 		return
-	_ignored_auto_targets_until[target.get_instance_id()] = Time.get_ticks_msec() + AUTO_TARGET_IGNORE_MSEC
+	_ignored_auto_targets_until[target.get_instance_id()] = _simulation_elapsed_seconds + AUTO_TARGET_IGNORE_SECONDS
 
 
 func _is_auto_target_temporarily_ignored(target: Node2D) -> bool:
@@ -761,14 +781,29 @@ func _is_auto_target_temporarily_ignored(target: Node2D) -> bool:
 	var instance_id: int = target.get_instance_id()
 	if not _ignored_auto_targets_until.has(instance_id):
 		return false
-	var expires_at: int = int(_ignored_auto_targets_until[instance_id])
-	if Time.get_ticks_msec() >= expires_at:
+	var expires_at: float = float(_ignored_auto_targets_until[instance_id])
+	if _simulation_elapsed_seconds >= expires_at:
 		_ignored_auto_targets_until.erase(instance_id)
 		return false
 	return true
 
 
 # --- Commands (called by selection/AI systems) ---
+
+## Read-only route feedback follows navigation's live waypoints, including
+## repaths and combat detours. Never invent a straight route through blockers.
+func get_remaining_navigation_path() -> PackedVector2Array:
+	var remaining := PackedVector2Array()
+	if current_state in [State.IDLE, State.DEAD] or path_index >= path.size():
+		return remaining
+	remaining.append(global_position)
+	for index: int in range(maxi(0, path_index), path.size()):
+		if remaining[remaining.size() - 1].distance_squared_to(path[index]) > 1.0:
+			remaining.append(path[index])
+	if remaining.size() < 2:
+		remaining.clear()
+	return remaining
+
 
 func command_move(target_pos: Vector2) -> void:
 	if current_state == State.DEAD:
@@ -818,6 +853,10 @@ func command_attack(target: UnitBase, force_chase: bool = true, clear_patrol: bo
 	_attack_animation_remaining = 0.0
 	if clear_patrol:
 		_clear_patrol()
+	if force_chase:
+		# A fresh explicit attack replaces a previous attack-move destination;
+		# auto-acquisition keeps that destination so movement resumes after combat.
+		attack_move = false
 	_reset_navigation()
 	attack_target = target
 	attack_building_target = null
@@ -836,6 +875,8 @@ func command_attack_building(target: BuildingBase, force_chase: bool = true, cle
 	_attack_animation_remaining = 0.0
 	if clear_patrol:
 		_clear_patrol()
+	if force_chase:
+		attack_move = false
 	_reset_navigation()
 	attack_building_target = target
 	attack_target = null
@@ -1009,10 +1050,14 @@ func take_damage(amount: float) -> void:
 func _flash_damage() -> void:
 	if _sprite == null:
 		return
-	var original: Color = _sprite.modulate
+	# Bursts may land while the previous flash is still white. Always restore
+	# the stable team tint and replace the old tween instead of capturing its
+	# transient color, which permanently bleached enemies after focus fire.
+	if _damage_flash_tween != null and _damage_flash_tween.is_valid():
+		_damage_flash_tween.kill()
 	_sprite.modulate = Color(1.0, 1.0, 1.0)  # White flash — visible on both friendly and enemy units
-	var tween := create_tween()
-	tween.tween_property(_sprite, "modulate", original, 0.15)
+	_damage_flash_tween = create_tween()
+	_damage_flash_tween.tween_property(_sprite, "modulate", _sprite_team_modulate, 0.15)
 
 
 func heal(amount: float) -> void:

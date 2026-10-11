@@ -53,7 +53,7 @@ func _run() -> void:
 
 	(command_container.get_node("UnitMoreButton") as Button).pressed.emit()
 	_expect((hud.get("_advanced_command_panel") as PanelContainer).visible, "More does not reveal advanced orders")
-	(advanced_container.get_node("UnitAttackMoveButton") as Button).pressed.emit()
+	(command_container.get_node("UnitAttackMoveButton") as Button).pressed.emit()
 	_expect(bool(match_scene.get("_attack_move_command_armed")), "A-Move button does not arm attack-move")
 	match_scene.call("_on_move_command", game_map.call("world_to_tile", villager.global_position) + Vector2i(0, 2))
 	_expect(not bool(match_scene.get("_attack_move_command_armed")), "A-Move mode is not one-shot")
@@ -61,7 +61,7 @@ func _run() -> void:
 	var initial_stance: int = villager.stance
 	(advanced_container.get_node("UnitStanceButton") as Button).pressed.emit()
 	_expect(villager.stance != initial_stance, "Stance button does not toggle selected unit stance")
-	(command_container.get_node("UnitStopButton") as Button).pressed.emit()
+	(advanced_container.get_node("UnitStopButton") as Button).pressed.emit()
 	_expect_eq(villager.current_state, UnitBase.State.IDLE, "Stop button does not stop the selected unit")
 
 	var scout: UnitBase = match_scene.call("_spawn_unit", UnitData.UnitType.SCOUT, 0, villager.global_position + Vector2(24.0, 0.0)) as UnitBase
@@ -76,7 +76,7 @@ func _run() -> void:
 		var mixed_selection: Array[Node2D] = [villager, scout]
 		selection_manager.select_many(mixed_selection)
 		await get_tree().process_frame
-		(advanced_container.get_node("UnitAttackMoveButton") as Button).pressed.emit()
+		(command_container.get_node("UnitAttackMoveButton") as Button).pressed.emit()
 		_expect(bool(match_scene.get("_attack_move_command_armed")), "mixed selection did not arm A-Move")
 		match_scene.call("_on_build_command", foundation)
 		_expect(not bool(match_scene.get("_attack_move_command_armed")), "A-Move-on-foundation is not one-shot")

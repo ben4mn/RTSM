@@ -72,6 +72,7 @@ func _run() -> void:
 	_record_sample()
 	var stats: Array = _main.get("_stats")
 	var summary: Dictionary = {
+		"runtime_source_hashes": _get_runtime_source_hashes(),
 		"population_limit": _limit, "difficulty": _difficulty, "seed": _seed,
 		"elapsed": float(gm.get("game_time")), "game_over": int(gm.get("current_state")) == 4,
 		"winner": _winner, "victory_reason": str(_main.get("_victory_reason")), "human_policy": "normal opening gathering; no commands",
@@ -101,6 +102,19 @@ func _run() -> void:
 	current_scene = null
 	await process_frame
 	quit(0 if initial_limits == [_limit, _limit] and not bool(summary["economic_bonus_active"]) else 1)
+
+
+func _get_runtime_source_hashes() -> Dictionary:
+	# Cached scripts retain the source used by this run even if collaborators
+	# edit workspace files while the long paid simulation is still running.
+	var hashes: Dictionary = {}
+	for path: String in ["scripts/ai/ai_controller.gd", "scripts/data/unit_data.gd", "scripts/data/building_data.gd", "scripts/data/skirmish_data.gd", "scripts/managers/resource_manager.gd", "scripts/managers/game_manager.gd", "scripts/units/unit_base.gd", "scripts/units/villager.gd", "scripts/main/main.gd", "scripts/ui/hud.gd", "scripts/managers/selection_manager.gd", "scripts/map/game_map.gd", "tools/probe_compact_ai_match.gd"]:
+		var script: Script = load("res://" + path) as Script
+		hashes[path] = script.get_source_code().sha256_text()
+	for path: String in ["scripts/data/tech_data.gd", "scripts/main/match_learning.gd", "scripts/main/match_debrief.gd", "scripts/units/auto_targeting.gd"]:
+		var script: Script = load("res://" + path) as Script
+		hashes[path] = script.get_source_code().sha256_text()
+	return hashes
 
 
 func _record_sample() -> void:

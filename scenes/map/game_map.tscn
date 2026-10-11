@@ -1,8 +1,9 @@
-[gd_scene load_steps=4 format=3 uid="uid://cmap001"]
+[gd_scene load_steps=5 format=3 uid="uid://cmap001"]
 
 [ext_resource type="Script" path="res://scripts/map/game_map.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/managers/fog_manager.gd" id="2"]
 [ext_resource type="Script" path="res://scripts/managers/selection_manager.gd" id="3"]
+[ext_resource type="Script" path="res://scripts/ui/command_path_overlay.gd" id="4"]
 
 [node name="GameMap" type="Node2D"]
 script = ExtResource("1")
@@ -22,6 +23,10 @@ script = ExtResource("2")
 [node name="SelectionManager" type="Node2D" parent="."]
 script = ExtResource("3")
 z_index = 20
+
+[node name="CommandPaths" type="Node2D" parent="."]
+script = ExtResource("4")
+z_index = 15
 
 [node name="Camera2D" type="Camera2D" parent="."]
 zoom = Vector2(1.5, 1.5)

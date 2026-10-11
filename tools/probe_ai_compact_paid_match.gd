@@ -23,6 +23,13 @@ var landed_hits_by_role: Array[Dictionary] = [{}, {}]
 var counter_hits_by_role: Array[Dictionary] = [{}, {}]
 var first_landed_role_hit_at: Array[Dictionary] = [{}, {}]
 var landed_hit_examples: Array[Dictionary] = []
+var swap_starts: bool = false
+var human_difficulty: int = AIController.Difficulty.MEDIUM
+var last_economy_measure: float = 0.0
+var deposited_by_resource: Array[Dictionary] = [{"food": 0, "wood": 0, "gold": 0}, {"food": 0, "wood": 0, "gold": 0}]
+var military_producer_idle_seconds: Array[float] = [0.0, 0.0]
+var housing_blocked_seconds: Array[float] = [0.0, 0.0]
+var match_cap_seconds: Array[float] = [0.0, 0.0]
 
 func _ready() -> void:
 	call_deferred("_run")
@@ -50,8 +57,16 @@ func _run() -> void:
 			worker_survivors = maxi(1, int(argument.trim_prefix("--worker-survivors=")))
 		elif argument.begins_with("--output="):
 			result_path = argument.trim_prefix("--output=")
+		elif argument == "--swap-starts":
+			swap_starts = true
+		elif argument.begins_with("--human-difficulty="):
+			human_difficulty = clampi(int(argument.trim_prefix("--human-difficulty=")), 0, 2)
 	match_scene = load("res://scenes/main/main.tscn").instantiate()
 	add_child(match_scene)
+	# GameMap generates synchronously, then emits map_ready deferred. Swap only
+	# player start ownership before Main creates either paid economy.
+	if swap_starts:
+		match_scene.game_map.map_generator.spawn_positions.reverse()
 	stats["runtime_source_hashes"] = _get_runtime_source_hashes()
 	for frame: int in range(900):
 		if match_scene.get("_building_placement") != null:
@@ -60,7 +75,7 @@ func _run() -> void:
 	human_bot = AIController.new()
 	human_bot.player_id = 0
 	human_bot.enemy_id = 1
-	human_bot.difficulty = AIController.Difficulty.MEDIUM
+	human_bot.difficulty = human_difficulty
 	human_bot.game_map = match_scene.game_map
 	human_bot.map_generator = match_scene.game_map.map_generator
 	human_bot.pathfinding = match_scene.game_map.pathfinding
@@ -112,7 +127,13 @@ func _run() -> void:
 	stats["counter_hits_by_role"] = counter_hits_by_role
 	stats["first_landed_role_hit_at"] = first_landed_role_hit_at
 	stats["landed_hit_examples"] = landed_hit_examples
-	stats["human_policy"] = "Medium AI using normal human construction/training/age transactions; automated, not hands-on"
+	stats["deposited_by_resource"] = deposited_by_resource
+	stats["military_producer_idle_seconds"] = military_producer_idle_seconds
+	stats["housing_blocked_seconds"] = housing_blocked_seconds
+	stats["match_cap_seconds"] = match_cap_seconds
+	stats["swap_starts"] = swap_starts
+	stats["human_difficulty"] = human_difficulty
+	stats["human_policy"] = "AI difficulty %d using normal human construction/training/age transactions; automated, not hands-on" % human_difficulty
 	stats["simulation"] = {"physics_ticks_per_second": Engine.physics_ticks_per_second, "time_scale": Engine.time_scale, "map_width": MapData.MAP_WIDTH, "map_height": MapData.MAP_HEIGHT}
 
 	var file := FileAccess.open(result_path, FileAccess.WRITE)
@@ -143,6 +164,12 @@ func _register_combat_observers() -> void:
 				continue
 			registered_combat_units[unit.get_instance_id()] = true
 			unit.attack_landed.connect(_on_attack_landed)
+			if unit is Villager:
+				(unit as Villager).resource_deposited.connect(_on_paid_deposit.bind(pid))
+
+
+func _on_paid_deposit(resource_type: String, amount: int, player_id: int) -> void:
+	deposited_by_resource[player_id][resource_type] = int(deposited_by_resource[player_id].get(resource_type, 0)) + amount
 
 
 func _on_attack_landed(attacker: UnitBase, defender: UnitBase, hp_loss: float, counter_bonus: float) -> void:
@@ -161,9 +188,30 @@ func _on_attack_landed(attacker: UnitBase, defender: UnitBase, hp_loss: float, c
 		landed_hit_examples.append({"time": GameManager.game_time, "player": pid, "role": attacker.unit_type, "target_role": defender.unit_type, "hp_loss": hp_loss, "counter_bonus": counter_bonus, "target_remaining_hp": maxf(0.0, defender.hp)})
 
 func _measure() -> void:
+	var measured_delta: float = maxf(0.0, GameManager.game_time - last_economy_measure)
+	last_economy_measure = GameManager.game_time
+	for pid: int in [0, 1]:
+		var player: Dictionary = GameManager.players[pid]
+		var committed: int = GameManager.get_committed_population(pid)
+		if committed >= int(player["population_cap"]):
+			if int(player["population_cap"]) < GameManager.get_player_population_limit(pid):
+				housing_blocked_seconds[pid] += measured_delta
+			else:
+				match_cap_seconds[pid] += measured_delta
+		for building: BuildingBase in match_scene._player_buildings[pid]:
+			if not is_instance_valid(building) or building.state != BuildingBase.State.ACTIVE:
+				continue
+			if building.building_type == BuildingData.BuildingType.TOWN_CENTER or building.trainable_units.is_empty():
+				continue
+			var queue: Node = building.get_production_queue()
+			if queue != null and int(queue.get_queue_size()) == 0:
+				military_producer_idle_seconds[pid] += measured_delta
 	if GameManager.game_time - last_snapshot_time >= 20.0:
 		last_snapshot_time = GameManager.game_time
-		var sample: Dictionary = {"time": GameManager.game_time, "players": []}
+		var site: Node2D = match_scene.game_map.sacred_site
+		var sample: Dictionary = {"time": GameManager.game_time, "players": [], "sacred": {"owner": site.owning_player, "state": site.state, "hold_elapsed": site.victory_timer}}
+		if int(GameManager.game_time) % 120 < 20:
+			print("[PROGRESS] ", int(GameManager.game_time), "s deposits=", deposited_by_resource, " sacred=", sample["sacred"])
 		for pid: int in [0, 1]:
 			var unit_states: Dictionary = {}
 			var worker_resources: Dictionary = {}
@@ -227,7 +275,9 @@ func _measure() -> void:
 		stats.peak_committed_workers[player_id] = maxi(stats.peak_committed_workers[player_id], committed_workers)
 		stats.peak_committed_fighters[player_id] = maxi(stats.peak_committed_fighters[player_id], committed_fighters)
 		stats.peak_population[player_id] = maxi(stats.peak_population[player_id], GameManager.get_committed_population(player_id))
-		stats.kills[player_id] = maxi(stats.kills[player_id], kills)
+		# Per-unit kills disappear when a paid fighter dies. Use Main's lifetime
+		# casualty ledger for match totals, including building defenses.
+		stats.kills[player_id] = int(player_stats["units_killed"])
 
 func _attack(_units: Array, _target: Vector2, player_id: int) -> void:
 	stats.attacks[player_id] += 1
@@ -264,4 +314,21 @@ func _get_runtime_source_hashes() -> Dictionary:
 	for path: String in ["scripts/ai/ai_controller.gd", "scripts/data/unit_data.gd", "scripts/data/building_data.gd", "scripts/data/skirmish_data.gd", "scripts/buildings/building_base.gd", "scripts/units/unit_base.gd", "scripts/units/combat.gd", "scripts/units/villager.gd", "scripts/main/main.gd", "scripts/ui/hud.gd", "scripts/map/map_data.gd", "scripts/map/map_generator.gd", "scripts/map/game_map.gd", "scripts/map/resource_node.gd", "scripts/map/pathfinding.gd", "scripts/managers/fog_manager.gd", "scripts/managers/selection_manager.gd", "scripts/managers/game_manager.gd", "scripts/managers/resource_manager.gd", "tools/probe_ai_compact_paid_match.gd"]:
 		var script: Script = load("res://" + path) as Script
 		hashes[path] = script.get_source_code().sha256_text()
+	for path: String in ["scripts/data/tech_data.gd", "scripts/main/match_learning.gd", "scripts/main/match_debrief.gd", "scripts/units/auto_targeting.gd"]:
+		var script: Script = load("res://" + path) as Script
+		hashes[path] = script.get_source_code().sha256_text()
+	# Focused components introduced by later cycles must be bound too. Read only
+	# already-cached scripts, so observation does not load unrelated gameplay code.
+	_add_cached_script_hashes("res://scripts", hashes)
 	return hashes
+
+
+func _add_cached_script_hashes(folder: String, hashes: Dictionary) -> void:
+	for filename: String in DirAccess.get_files_at(folder):
+		var path: String = folder.path_join(filename)
+		if filename.ends_with(".gd") and ResourceLoader.has_cached(path):
+			var script: Script = load(path) as Script
+			if script != null:
+				hashes[path.trim_prefix("res://")] = script.get_source_code().sha256_text()
+	for dirname: String in DirAccess.get_directories_at(folder):
+		_add_cached_script_hashes(folder.path_join(dirname), hashes)

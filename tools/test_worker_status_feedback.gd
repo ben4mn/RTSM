@@ -73,7 +73,18 @@ func _profile(phone: Vector2i, scale_factor: float) -> void:
 	await _refresh()
 	_expect(_details().begins_with("Moving\nCargo Wood"), "loaded manual Move must show Moving, not Gathering")
 	_expect(_task("Wood") == "Wood 0", "loaded manual Move must not count as active Wood labor")
-	await _tap((_hud.get("_unit_stop_button") as Button).get_global_rect().get_center())
+	# Stop is in the advanced More panel. Exercise the visible touch path before
+	# dispatching Stop; a hidden button's old coordinates do not issue a command.
+	var more_button: Button = _hud.get("_unit_more_button") as Button
+	var stop_button: Button = _hud.get("_unit_stop_button") as Button
+	var stop_visible_before: bool = stop_button.is_visible_in_tree()
+	_expect(more_button.is_visible_in_tree() and not more_button.disabled, "More command is touchable for the selected worker")
+	await _tap(more_button.get_global_rect().get_center())
+	for frame: int in range(4):
+		await get_tree().process_frame
+	_expect(stop_button.is_visible_in_tree() and not stop_button.disabled, "real More touch reveals an enabled Stop command")
+	print("STOP_TOUCH_PATH ", phone, " scale=", scale_factor, " stop_before=", stop_visible_before, " stop_after_more=", stop_button.is_visible_in_tree())
+	await _tap(stop_button.get_global_rect().get_center())
 	await _refresh()
 	_expect(_worker.current_state == UnitBase.State.IDLE and _details().begins_with("Idle\nCargo Wood"), "real Stop must show Idle plus intact cargo")
 	_expect(_task("Wood") == "Wood 0" and _worker.carried_amount == cargo_before, "Stop preserves cargo without claiming employment")

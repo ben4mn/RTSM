@@ -67,6 +67,11 @@ func _start_match() -> bool:
 	# Isolate human construction from enemy strategy; every worker, map, resource
 	# and building still uses its normal runtime process.
 	(_main.get("ai_controller") as Node).set_process(false)
+	# This scheduling fixture pays for a House plus Barracks, and the multi-
+	# builder scenario pays for four Houses. Fund their explicit 200-wood test
+	# budget separately from the lower opening bank tested by economy_balance.
+	var construction_budget: int = int(BuildingData.get_building_cost(BuildingData.BuildingType.HOUSE).get("wood", 0)) + int(BuildingData.get_building_cost(BuildingData.BuildingType.BARRACKS).get("wood", 0))
+	ResourceManager.add_resource(0, "wood", maxi(0, construction_budget - ResourceManager.get_resource(0, "wood")))
 	_workers.clear()
 	for unit: Node in _main.get("_player_units")[0]:
 		if unit is Villager:

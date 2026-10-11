@@ -71,9 +71,37 @@ func _run() -> void:
 	_expect_eq(_gather_count, 0, "armed Villager resource tap cannot emit gather")
 	_expect_eq(String(diagnostics.get("action", "")), "armed_command", "diagnostics preserve explicit command precedence")
 
+	# A resource tap and nearby ground tap are distinct intents even when
+	# their discovery-ring boundary is within the double-tap pixel radius.
+	selection_manager.set_unit_command_armed(false)
+	selection_manager.select_single(villager)
+	var resource_edge: Vector2 = screen_position
+	var nearby_ground: Vector2 = Vector2.ZERO
+	for offset: int in range(2, 122, 2):
+		var candidate: Vector2 = screen_position + Vector2(offset, 0)
+		var world: Vector2 = selection_manager.call("_screen_to_world", candidate)
+		if selection_manager.call("_get_resource_at", world, true) == resource:
+			resource_edge = candidate
+		else:
+			nearby_ground = candidate
+			break
+	_expect(nearby_ground != Vector2.ZERO and resource_edge.distance_to(nearby_ground) < 30.0, "resource discovery boundary provides adjacent gather/ground taps")
+	_move_count = 0
+	_gather_count = 0
+	selection_manager.call("_handle_tap", resource_edge, true)
+	selection_manager.call("_handle_tap", nearby_ground, true)
+	_expect_eq(_gather_count, 1, "unarmed edge tap gathers the resource")
+	_expect_eq(_move_count, 1, "ground tap after Gather moves instead of clearing")
+	_expect(selection_manager.selected == [villager], "Gather then nearby ground accidentally clears selection")
+	selection_manager.call("_handle_tap", nearby_ground, true)
+	_expect(selection_manager.selected.is_empty() and _move_count == 1, "a second ground tap clears without duplicating movement")
+	selection_manager.select_single(villager)
+	selection_manager.call("_handle_tap", nearby_ground, true)
+	_expect(selection_manager.selected == [villager] and _move_count == 2, "HUD/programmatic selection resets the ground-clear tap history")
+
 	game_map.free()
 	if _failures.is_empty():
-		print("[PASS] touch_military_resource_routing: smart Scout and armed Villager resource taps route correctly")
+		print("[PASS] touch_military_resource_routing: smart Scout and armed Villager routing; Gather/ground boundary; double-ground clear and fresh selection history")
 		get_tree().quit(0)
 		return
 	for failure: String in _failures:

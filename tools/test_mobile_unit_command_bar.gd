@@ -6,7 +6,7 @@ const PHONE_SIZES: Array[Vector2i] = [Vector2i(844, 390), Vector2i(932, 430)]
 const UI_SCALES: Array[float] = [1.0, 1.15]
 const EXPECTED_ORDER: Array[String] = [
 	"UnitMoveButton",
-	"UnitStopButton",
+	"UnitAttackMoveButton",
 	"UnitMoreButton",
 	"UnitClearButton",
 ]
@@ -26,7 +26,7 @@ func _run() -> void:
 			await _exercise_profile(phone_size, ui_scale, false)
 			await _exercise_profile(phone_size, ui_scale, true)
 	if _failures.is_empty():
-		print("[PASS] mobile_unit_command_bar: 8 phone profiles expose 48px Move/Stop/More/Clear and expandable advanced commands")
+		print("[PASS] mobile_unit_command_bar: 8 phone profiles expose 48px Move/Attack/More/Clear and expandable advanced commands")
 		get_tree().quit(0)
 		return
 	for failure: String in _failures:
@@ -72,7 +72,7 @@ func _exercise_profile(phone_size: Vector2i, ui_scale: float, notched: bool) -> 
 	_expect(selection.size.y <= 72.5, "%s command rail grows above 72px: %s (min=%s)" % [suffix, selection.size, selection.get_combined_minimum_size()])
 	_expect(selection.size.x <= 520.5, "%s command rail exceeds the field corridor" % suffix)
 	_expect(not selection.get_global_rect().intersects(minimap.get_global_rect(), true), "%s command rail %s min=%s commands=%s scroll=%s overlaps minimap %s" % [suffix, selection.get_global_rect(), selection.get_combined_minimum_size(), container.get_combined_minimum_size(), command_scroll.get_combined_minimum_size(), minimap.get_global_rect()])
-	_expect(not selection.get_global_rect().intersects(side_rail.get_global_rect(), true), "%s command rail %s overlaps thumb controls %s" % [suffix, selection.get_global_rect(), side_rail.get_global_rect()])
+	_expect(not side_rail.visible or not selection.get_global_rect().intersects(side_rail.get_global_rect(), true), "%s command rail %s overlaps thumb controls %s" % [suffix, selection.get_global_rect(), side_rail.get_global_rect()])
 	_expect_eq(container.get_child_count(), EXPECTED_ORDER.size(), "%s command count" % suffix)
 	for index in mini(container.get_child_count(), EXPECTED_ORDER.size()):
 		var button := container.get_child(index) as Button
@@ -87,14 +87,22 @@ func _exercise_profile(phone_size: Vector2i, ui_scale: float, notched: bool) -> 
 	hud.call("apply_mobile_layout", logical_size, safe_area)
 	await get_tree().process_frame
 	_expect(popup.visible, "%s More did not reveal advanced commands" % suffix)
-	_expect_eq(advanced.get_child_count(), 3, "%s advanced command count" % suffix)
+	_expect_eq(advanced.get_child_count(), 4, "%s advanced command count" % suffix)
 	_expect(not popup.get_global_rect().intersects(selection.get_global_rect(), true), "%s advanced commands overlap selection" % suffix)
 	_expect(not popup.get_global_rect().intersects((hud.get("_camera_controls") as Control).get_global_rect(), true), "%s advanced commands overlap zoom controls" % suffix)
 	_expect(popup.get_global_rect().position.x >= safe_area.position.x and popup.get_global_rect().end.x <= safe_area.end.x, "%s advanced commands leave safe area" % suffix)
 	for child: Button in advanced.get_children():
+		if not child.visible:
+			continue
 		_expect(child.size.x * ui_scale >= 47.5 and child.size.y * ui_scale >= 47.5, "%s advanced %s is under48px" % [suffix, child.name])
-	var attack_button := advanced.get_node("UnitAttackMoveButton") as Button
+	var attack_button := container.get_node("UnitAttackMoveButton") as Button
 	_expect(attack_button.button_pressed, "%s armed A-Move state is not visible" % suffix)
+	var area_button := hud.get("_select_area_button") as Button
+	_expect(area_button.is_visible_in_tree(), "%s Select area is unavailable with units selected" % suffix)
+	_expect(area_button.size.x * ui_scale >= 47.5 and area_button.size.y * ui_scale >= 47.5, "%s Select area is below 48 physical pixels" % suffix)
+	hud.call("set_area_selection_armed", true)
+	_expect(area_button.button_pressed and area_button.text.contains("Cancel"), "%s area selection lacks its persistent cancellation cue" % suffix)
+	hud.call("set_area_selection_armed", false)
 	var patrol_button := advanced.get_node("UnitPatrolButton") as Button
 	hud.call("configure_unit_commands", true, false, "Stand Ground", "smart")
 	_expect(patrol_button.disabled, "%s Patrol remains active for villager-only selection" % suffix)

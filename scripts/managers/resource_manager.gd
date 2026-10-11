@@ -14,11 +14,7 @@ enum ResourceType {
 
 const RESOURCE_NAMES: Array[String] = ["food", "wood", "gold"]
 
-const STARTING_RESOURCES: Dictionary = {
-	"food": 200,
-	"wood": 200,
-	"gold": 100,
-}
+const STARTING_RESOURCES: Dictionary = SkirmishData.STARTING_RESOURCES
 
 # player_id -> { "food": int, "wood": int, "gold": int }
 var _player_resources: Dictionary = {}
@@ -78,10 +74,16 @@ func try_spend(player_id: int, cost: Dictionary) -> bool:
 		resources_insufficient.emit(player_id, missing)
 		return false
 
+	# Commit the complete bank change before publishing any notifications.
+	# Signal listeners can synchronously buy another unit or technology; they
+	# must see the remaining bank rather than one half of this purchase.
+	var changed_resources: Array[String] = []
 	for resource_type in cost:
 		if cost[resource_type] <= 0:
 			continue
 		_player_resources[player_id][resource_type] -= cost[resource_type]
+		changed_resources.append(resource_type)
+	for resource_type: String in changed_resources:
 		resources_changed.emit(player_id, resource_type, _player_resources[player_id][resource_type])
 
 	return true

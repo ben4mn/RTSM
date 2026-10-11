@@ -107,12 +107,10 @@ func _run() -> void:
 	camera.reset_smoothing()
 	camera.force_update_scroll()
 	game_map.call("zoom_out", Vector2(0.0, 0.0))
+	_expect(bounds.grow(0.01).has_point(camera.position), "edge zoom moved focus beyond the legal map rectangle")
 	var half_view: Vector2 = game_map.call("_get_camera_half_view_world")
-	_expect(camera.position.x >= bounds.position.x + half_view.x - 0.01, "edge zoom moved beyond the map's horizontal bound")
-	if half_view.y * 2.0 <= bounds.size.y:
-		_expect(camera.position.y >= bounds.position.y + half_view.y - 0.01, "edge zoom moved beyond the map's vertical bound")
-	else:
-		_expect_float(camera.position.y, bounds.get_center().y, "overview did not center a viewport taller than the map")
+	_expect(camera.limit_left <= floori(bounds.position.x - half_view.x), "physical horizontal limit must let a map-edge focus center")
+	_expect(camera.limit_top <= floori(bounds.position.y - half_view.y), "physical vertical limit must let a map-edge focus center")
 	_expect(_zoom_notifications > 10, "HUD did not receive zoom/limit updates")
 
 	game_map.free()

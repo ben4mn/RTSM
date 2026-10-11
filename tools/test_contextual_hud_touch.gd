@@ -13,7 +13,7 @@ func _run() -> void:
     for failure: String in _failures:
         push_error("[FAIL] contextual_hud_touch: "+failure)
     if _failures.is_empty():
-        print("[PASS] contextual_hud_touch: four actual phone/scale dispatch profiles; View/More/Clear/Back own touches; hidden Home area reaches world; worker/army/TC controls restore")
+        print("[PASS] contextual_hud_touch: four actual phone/scale dispatch profiles; View/More/Clear/Back own touches; reused Home corridor stays GUI-owned and adjacent field reaches world; worker/army/TC controls restore")
     get_tree().quit(0 if _failures.is_empty() else 1)
 func _profile(phone: Vector2i,scale_factor: float) -> void:
     get_window().size=phone
@@ -52,7 +52,12 @@ func _profile(phone: Vector2i,scale_factor: float) -> void:
     _expect(_orders==before,profile+" visible HUD touch issued world order")
     await _tap((hud.get("_unit_more_button") as Button).get_global_rect().get_center())
     await _tap(former_home)
-    _expect(_orders>before,profile+" hidden Home area consumes world touch")
+    _expect(_orders==before,profile+" context dock reusing Home corridor leaks world touch")
+    var context_rect: Rect2=(hud.get("selection_panel") as Control).get_global_rect()
+    var exposed_field:=Vector2(context_rect.position.x-20.0,former_home.y)
+    _expect(not context_rect.has_point(exposed_field),profile+" field fixture remains inside command dock")
+    await _tap(exposed_field)
+    _expect(_orders>before,profile+" transparent area beside context dock consumes world touch")
     var hidden_area_orders: int=_orders-before
     selection.select_single(soldier)
     await _settle()

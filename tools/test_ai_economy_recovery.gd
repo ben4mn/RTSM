@@ -247,7 +247,7 @@ func _run() -> void:
 	recovery_map.add_child(farther_resource)
 	recovery_map.reachable_resource_override = farther_resource
 	var unreachable_until: Dictionary = villager.get("_unreachable_resource_ids_until") as Dictionary
-	unreachable_until[resource.get_instance_id()] = Time.get_ticks_msec() + 5000
+	villager.call("_remember_unreachable_target", resource, unreachable_until)
 	var reachable_choice: Node2D = ai.call("_find_resource_for_villager", "food", villager) as Node2D
 	_expect(reachable_choice == farther_resource, "AI chooses the farther reachable resource over a cached unreachable nearest target")
 	_expect(

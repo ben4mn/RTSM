@@ -1,0 +1,71 @@
+extends SceneTree
+## Honest measured explanations plus 12 phone-safe result layouts.
+
+const DEBRIEF := preload("res://scripts/main/match_debrief.gd")
+var failures: Array[String] = []
+var records: Array[Dictionary] = []
+
+
+func _initialize() -> void:
+	call_deferred("_run")
+
+
+func _run() -> void:
+	var examples: Array[Dictionary] = [
+		{"victory_reason": "Sacred Site held for 10:00", "learning": {"paid_army": 0}, "expect": "No fighting troops"},
+		{"learning": {"paid_army": 3, "worker_losses": 2, "worker_replacements": 1}, "expect": "Workers lost 2; paid replacements 1"},
+		{"victory_reason": "Sacred Site held for 10:00", "ai_sacred_control_seconds": 600, "learning": {"paid_army": 3}, "expect": "No Sacred capture or contest"},
+		{"learning": {"paid_army": 3, "army_losses": 2, "army_replacements": 1}, "expect": "Fighting troops lost 2; paid replacements 1"},
+		{"learning": {"paid_army": 3, "counter_demonstrated": false}, "expect": "No counter preparation"},
+		{"learning": {"paid_army": 8, "army_losses": 3, "army_replacements": 3, "first_army_seconds": 144, "objective_contests": 2, "counter_demonstrated": true}, "expect": "First fighting troop 2:24; paid replacements 3; Sacred contests 2"},
+	]
+	_expect(DEBRIEF.describe({}).is_empty(), "Absent telemetry produces no invented facts")
+	for example: Dictionary in examples:
+		var text: String = DEBRIEF.describe(example)
+		_expect(str(example["expect"]) in text, "Debrief uses observed fact: " + str(example["expect"]))
+	var packed: PackedScene = load("res://scenes/ui/game_over_screen.tscn")
+	for physical: Vector2 in [Vector2(844, 390), Vector2(932, 430)]:
+		for scale_value: float in [1.0, 1.075, 1.15]:
+			for notched: bool in [false, true]:
+				var logical := Vector2(floorf(physical.x / scale_value), floorf(physical.y / scale_value))
+				var inset: float = 44.0 / scale_value if notched else 0.0
+				var safe := Rect2(Vector2(inset, 0), logical - Vector2(inset * 2, 18.0 / scale_value if notched else 0.0))
+				var viewport := SubViewport.new()
+				viewport.size = Vector2i(logical)
+				viewport.process_mode = Node.PROCESS_MODE_ALWAYS
+				root.add_child(viewport)
+				var screen: CanvasLayer = packed.instantiate()
+				viewport.add_child(screen)
+				await process_frame
+				var max_lines: int = 0
+				var panel: Control = screen.get_node("GameOverPanel")
+				for example: Dictionary in examples:
+					screen.show_defeat(example)
+					screen.call("_fit_panel_to_size", logical, safe)
+					await process_frame
+					await process_frame
+					var label: Label = screen.get("_debrief_label")
+					max_lines = maxi(max_lines, label.get_line_count())
+					_expect(label.get_line_count() <= 3, "%s %.3f notch%s debrief text fits three lines" % [physical, scale_value, notched])
+					var rect: Rect2 = panel.get_global_rect()
+					_expect(rect.position.x >= safe.position.x - 0.5 and rect.position.y >= safe.position.y - 0.5 and rect.end.x <= safe.end.x + 0.5 and rect.end.y <= safe.end.y + 0.5, "%s %.3f notch%s result fits safe bounds" % [physical, scale_value, notched])
+					for name: String in ["PlayAgainButton", "MainMenuButton"]:
+						var button: Button = screen.get_node("GameOverPanel/Margin/VBox/ButtonRow/" + name)
+						_expect(button.size.y * scale_value >= 48.0, "Result action preserves 48 physical px")
+					paused = false
+				records.append({"physical": str(physical), "scale": scale_value, "notched": notched, "panel": str(panel.get_global_rect()), "max_lines": max_lines})
+				viewport.free()
+				await process_frame
+	var output := FileAccess.open("res://output/evolution/learning-20261010-battle-lessons/debrief-phone.json", FileAccess.WRITE)
+	output.store_string(JSON.stringify({"scope": "Synthetic telemetry decision fixtures and headless Control/font measurements, no human/device claim", "profiles": records, "failures": failures}, "\t"))
+	if failures.is_empty():
+		print("[PASS] match_debrief: receipt-based suggestions, no invented empty telemetry, six explanations across 12 phone profiles")
+		quit(0)
+	else:
+		quit(1)
+
+
+func _expect(condition: bool, message: String) -> void:
+	if not condition:
+		failures.append(message)
+		push_error("[FAIL] match_debrief: " + message)

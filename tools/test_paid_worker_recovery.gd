@@ -152,6 +152,35 @@ func _raid(damage_only: bool = false, resource_type: String = "wood", raider_cou
 	print("PAID_NATURAL_WORKER_RAID ", JSON.stringify(_last_raid_result))
 
 func _train_paid_raider(raider_count: int = 1) -> UnitBase:
+	# Finance the complete plan before construction takes a starting worker away
+	# from its normal opening economy. Starting Wood150 pays only the Barracks;
+	# every requested Warrior also needs its actual20 Wood, even a single raider.
+	var required_resources: Dictionary = UnitData.get_unit_cost(UnitData.UnitType.INFANTRY)
+	for kind: String in required_resources:
+		required_resources[kind] = int(required_resources[kind]) * raider_count
+	var barracks_cost: Dictionary = BuildingData.get_building_cost(BuildingData.BuildingType.BARRACKS)
+	for kind: String in barracks_cost:
+		required_resources[kind] = int(required_resources.get(kind, 0)) + int(barracks_cost[kind])
+	var bank_before_funding: Dictionary = ResourceManager.get_all_resources(1)
+	var funding_deposits: Dictionary = {"food": 0, "wood": 0, "gold": 0}
+	var funding_workers: Array[Villager] = []
+	var record_delivery: Callable = func(kind: String, amount: int) -> void:
+		funding_deposits[kind] = int(funding_deposits.get(kind, 0)) + amount
+	for unit: Node in _main.get("_player_units")[1]:
+		if unit is Villager:
+			funding_workers.append(unit as Villager)
+			(unit as Villager).resource_deposited.connect(record_delivery)
+	var funding_started: float = GameManager.game_time
+	await _until(func() -> bool: return ResourceManager.can_afford(1, required_resources), 350.0)
+	for funding_worker: Villager in funding_workers:
+		funding_worker.resource_deposited.disconnect(record_delivery)
+	var bank_ready: Dictionary = ResourceManager.get_all_resources(1)
+	for kind: String in bank_ready:
+		_expect(int(bank_ready[kind]) == int(bank_before_funding[kind]) + int(funding_deposits[kind]), "raid financing bank must credit only real opening-worker deposits")
+	_expect(ResourceManager.can_afford(1, required_resources), "actual labor must finance the entire Barracks and requested raid before placement")
+	print("PAID_RAID_FINANCE ", JSON.stringify({"seed": _probe_seed, "raider_count": raider_count, "normal_required_including_barracks": required_resources, "bank_before_funding": bank_before_funding, "opening_worker_deposits": funding_deposits, "bank_ready": bank_ready, "elapsed_seconds": GameManager.game_time - funding_started, "can_afford": ResourceManager.can_afford(1, required_resources)}))
+	if not ResourceManager.can_afford(1, required_resources):
+		return null
 	var home: Vector2i = _map.map_generator.spawn_positions[1]
 	var barracks: BuildingBase = null
 	var wood_before: int = ResourceManager.get_resource(1, "wood")
@@ -194,21 +223,6 @@ func _train_paid_raider(raider_count: int = 1) -> UnitBase:
 		print("PAID_AI_BUILDER_RETREAT ", JSON.stringify({"recovering":builder.is_auto_recovering(),"reassignments":job.get("reassignments",-1),"progress":barracks.build_progress,"elapsed":GameManager.game_time-interruption_time}))
 	await _until(func() -> bool: return barracks.state == BuildingBase.State.ACTIVE, 80.0)
 	var queue: ProductionQueue = barracks.get_production_queue() as ProductionQueue
-	if raider_count > 1 and not ResourceManager.can_afford(1, {"food":50 * raider_count, "wood":20 * raider_count}):
-		# Three Warriors plus the Barracks need210 Wood, exceeding the initial200.
-		# With strategy paused, explicitly employ a free AI worker to fund the
-		# remainder by ordinary visible-resource harvesting and actual delivery.
-		var funding_worker: Villager = null
-		for unit: Node in _main.get("_player_units")[1]:
-			if not unit is Villager or (unit as Villager).has_active_build_order():
-				continue
-			var candidate: Villager = unit as Villager
-			var funding_wood: Node2D = _map.get_nearest_reachable_resource_node("wood", candidate.global_position, 1)
-			if funding_wood != null and candidate.command_gather(funding_wood):
-				funding_worker = candidate
-				break
-		_expect(funding_worker != null, "three paid Warriors need a real visible Wood funding job")
-		await _until(func() -> bool: return ResourceManager.can_afford(1, {"food":50 * raider_count, "wood":20 * raider_count}), 90.0)
 	var food_before: int = ResourceManager.get_resource(1, "food")
 	wood_before = ResourceManager.get_resource(1, "wood")
 	for index: int in range(raider_count):

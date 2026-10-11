@@ -127,6 +127,7 @@ func _ready() -> void:
 
 	# Set up camera bounds.
 	_configure_camera()
+	get_viewport().size_changed.connect(_on_camera_viewport_size_changed)
 
 	# Notify others (deferred so parent nodes have connected signals in _ready).
 	call_deferred("_emit_map_ready")
@@ -154,7 +155,8 @@ func _tile_type_to_atlas(tile_type: MapData.TileType) -> Vector2i:
 	return Vector2i(tile_type, 0)
 
 
-## Configure camera with reasonable limits for a 32x32 isometric map.
+## Keep the map rectangle as legal camera focus positions. Physical Camera2D
+## limits also include half the current view so edge units can be centered.
 func _configure_camera() -> void:
 	if camera == null:
 		return
@@ -169,11 +171,6 @@ func _configure_camera() -> void:
 		Vector2(left_bound, top_bound),
 		Vector2(right_bound - left_bound, bottom_bound - top_bound)
 	)
-	camera.limit_left = int(floor(left_bound))
-	camera.limit_right = int(ceil(right_bound))
-	camera.limit_top = int(floor(top_bound))
-	camera.limit_bottom = int(ceil(bottom_bound))
-
 	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
 	_apply_camera_profile(viewport_size, false)
 
@@ -182,13 +179,19 @@ func _configure_camera() -> void:
 	_clamp_camera()
 
 
-func _notification(what: int) -> void:
-	if what != NOTIFICATION_WM_SIZE_CHANGED:
-		return
+func _on_camera_viewport_size_changed() -> void:
 	if camera == null:
 		return
+	var previous_focus: Vector2 = camera.position
 	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
 	_apply_camera_profile(viewport_size, true)
+	# Resize and interface scaling change the logical view without a zoom
+	# gesture. Preserve the existing focus instead of anchoring to old canvas
+	# coordinates while the viewport is resizing.
+	camera.position = previous_focus
+	_clamp_camera()
+	camera.reset_smoothing()
+	camera.force_update_scroll()
 
 
 func _is_mobile_camera_profile(viewport_size: Vector2) -> bool:
@@ -273,27 +276,29 @@ func _update_camera_pan(delta: float) -> void:
 func _clamp_camera() -> void:
 	if camera == null:
 		return
+	_refresh_camera_limits()
 	camera.position = get_clamped_camera_focus(camera.position)
 
 
+func _refresh_camera_limits() -> void:
+	if camera == null or not _camera_world_bounds.has_area():
+		return
+	var half_view: Vector2 = _get_camera_half_view_world()
+	var bounds_pos: Vector2 = _camera_world_bounds.position - half_view
+	var bounds_end: Vector2 = _camera_world_bounds.end + half_view
+	camera.limit_left = int(floor(bounds_pos.x))
+	camera.limit_top = int(floor(bounds_pos.y))
+	camera.limit_right = int(ceil(bounds_end.x))
+	camera.limit_bottom = int(ceil(bounds_end.y))
+
+
 func get_clamped_camera_focus(focus: Vector2) -> Vector2:
+	if not _camera_world_bounds.has_area():
+		return focus
 	var bounds_pos: Vector2 = _camera_world_bounds.position
 	var bounds_end: Vector2 = _camera_world_bounds.position + _camera_world_bounds.size
-	var half_view: Vector2 = _get_camera_half_view_world()
-
-	var min_x: float = bounds_pos.x + half_view.x
-	var max_x: float = bounds_end.x - half_view.x
-	if min_x > max_x:
-		focus.x = (bounds_pos.x + bounds_end.x) * 0.5
-	else:
-		focus.x = clampf(focus.x, min_x, max_x)
-
-	var min_y: float = bounds_pos.y + half_view.y
-	var max_y: float = bounds_end.y - half_view.y
-	if min_y > max_y:
-		focus.y = (bounds_pos.y + bounds_end.y) * 0.5
-	else:
-		focus.y = clampf(focus.y, min_y, max_y)
+	focus.x = clampf(focus.x, bounds_pos.x, bounds_end.x)
+	focus.y = clampf(focus.y, bounds_pos.y, bounds_end.y)
 	return focus
 
 
@@ -330,6 +335,11 @@ func cancel_camera_touch_gesture() -> void:
 
 ## Handle camera pan and anchored pinch/wheel zoom.
 func _unhandled_input(event: InputEvent) -> void:
+	# Explicit one-shot box selection owns the finger until it lifts. The
+	# SelectionManager draws the rectangle; camera pan must not move its units.
+	if selection_mgr != null and selection_mgr.touch_area_selection_armed \
+			and (event is InputEventScreenTouch or event is InputEventScreenDrag):
+		return
 	# --- Multi-touch pinch zoom (mobile) ---
 	if event is InputEventScreenTouch:
 		_touch_input_detected = true
@@ -488,6 +498,133 @@ func get_zoom_state() -> Dictionary:
 		"default": default_zoom,
 		"ratio": current_zoom / maxf(0.001, default_zoom),
 	}
+
+
+## Center the complete selected silhouettes in visible terrain. Screen-space
+## exclusions come from the current HUD layout, including its open disclosures.
+## A deliberate zoom survives whenever a translation can fit every subject.
+func frame_world_bounds(subjects: Array[Rect2], safe_area: Rect2, obstacles: Array[Rect2]) -> Dictionary:
+	if camera == null or subjects.is_empty():
+		return {"fit": false, "zoom_changed": false}
+	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+	var field: Rect2 = safe_area.intersection(Rect2(Vector2.ZERO, viewport_size)).grow(-8.0)
+	if not field.has_area():
+		field = Rect2(Vector2.ZERO, viewport_size).grow(-8.0)
+	var exclusions: Array[Rect2] = []
+	for obstacle: Rect2 in obstacles:
+		if obstacle.has_area():
+			exclusions.append(obstacle.grow(6.0))
+	var previous_zoom: float = camera.zoom.x
+	var chosen_zoom: float = previous_zoom
+	var focus: Vector2 = _find_unoccluded_focus(subjects, field, exclusions, chosen_zoom)
+	var fitted: bool = focus.is_finite()
+	if not fitted:
+		# Center is also a useful way to recover a spread army. Reduce detail
+		# only as much as needed, bounded by the ordinary overview limit.
+		var overview_focus: Vector2 = _find_unoccluded_focus(subjects, field, exclusions, _camera_zoom_min)
+		chosen_zoom = _camera_zoom_min
+		focus = overview_focus
+		if overview_focus.is_finite():
+			var lower: float = _camera_zoom_min
+			var upper: float = previous_zoom
+			for step: int in range(12):
+				var trial_zoom: float = (lower + upper) * 0.5
+				var trial_focus: Vector2 = _find_unoccluded_focus(subjects, field, exclusions, trial_zoom)
+				if trial_focus.is_finite():
+					lower = trial_zoom
+					focus = trial_focus
+				else:
+					upper = trial_zoom
+			chosen_zoom = lower
+			fitted = true
+		else:
+			# A selection larger than the maximum overview remains centered on
+			# its extent. No legal zoom can promise that every member is visible.
+			var envelope: Rect2 = subjects[0]
+			for subject: Rect2 in subjects:
+				envelope = envelope.merge(subject)
+			focus = get_clamped_camera_focus(envelope.get_center() + (viewport_size * 0.5 - field.get_center()) / chosen_zoom)
+	note_camera_interaction()
+	var changed_zoom: bool = not is_equal_approx(previous_zoom, chosen_zoom)
+	if changed_zoom:
+		camera.zoom = Vector2(chosen_zoom, chosen_zoom)
+		_user_zoom_override = true
+		zoom_changed.emit(chosen_zoom, _camera_zoom_min, _camera_zoom_max)
+	camera.position = focus
+	_clamp_camera()
+	camera.reset_smoothing()
+	camera.force_update_scroll()
+	return {"fit": fitted, "zoom_changed": changed_zoom, "zoom": chosen_zoom, "focus": camera.position}
+
+
+func _find_unoccluded_focus(subjects: Array[Rect2], field: Rect2, obstacles: Array[Rect2], zoom: float) -> Vector2:
+	var envelope: Rect2 = subjects[0]
+	for subject: Rect2 in subjects:
+		envelope = envelope.merge(subject)
+	var viewport_center: Vector2 = get_viewport().get_visible_rect().size * 0.5
+	var origin: Vector2 = envelope.get_center() + (viewport_center - field.get_center()) / zoom
+	var projection := Transform2D(0.0, Vector2(zoom, zoom), 0.0, viewport_center - origin * zoom)
+	var projected: Rect2 = projection * envelope
+	var minimum: Vector2 = field.position - projected.position
+	var maximum: Vector2 = field.end - projected.end
+	# A screen translation moves the camera in the opposite direction.
+	if _camera_world_bounds.has_area():
+		minimum = minimum.max((origin - _camera_world_bounds.end) * zoom)
+		maximum = maximum.min((origin - _camera_world_bounds.position) * zoom)
+	if minimum.x > maximum.x or minimum.y > maximum.y:
+		return Vector2(INF, INF)
+	var projected_subjects: Array[Rect2] = []
+	var horizontal: Array[float] = [clampf(0.0, minimum.x, maximum.x), minimum.x, maximum.x]
+	for subject: Rect2 in subjects:
+		var art: Rect2 = projection * subject
+		projected_subjects.append(art)
+		for obstacle: Rect2 in obstacles:
+			for boundary: float in [obstacle.position.x - art.end.x, obstacle.end.x - art.position.x]:
+				if boundary >= minimum.x and boundary <= maximum.x:
+					horizontal.append(boundary)
+	horizontal.sort()
+	var best_pan := Vector2(INF, INF)
+	var best_distance: float = INF
+	var previous_horizontal: float = INF
+	for pan_x: float in horizontal:
+		if absf(pan_x - previous_horizontal) < 0.001:
+			continue
+		previous_horizontal = pan_x
+		if pan_x * pan_x > best_distance:
+			continue
+		# Sweep forbidden vertical intervals at each relevant horizontal edge.
+		# This avoids a Cartesian search through every unit/overlay boundary.
+		var intervals: Array[Vector2] = []
+		for art: Rect2 in projected_subjects:
+			for obstacle: Rect2 in obstacles:
+				if art.position.x + pan_x < obstacle.end.x - 0.001 and art.end.x + pan_x > obstacle.position.x + 0.001:
+					intervals.append(Vector2(obstacle.position.y - art.end.y, obstacle.end.y - art.position.y))
+		intervals.sort_custom(func(a: Vector2, b: Vector2) -> bool: return a.x < b.x)
+		var cursor: float = minimum.y
+		var pan_y: float = INF
+		for interval: Vector2 in intervals:
+			if interval.y <= cursor:
+				continue
+			if interval.x > maximum.y:
+				break
+			if interval.x >= cursor:
+				var candidate_y: float = clampf(0.0, cursor, minf(interval.x, maximum.y))
+				if absf(candidate_y) < absf(pan_y):
+					pan_y = candidate_y
+			cursor = maxf(cursor, interval.y)
+			if cursor > maximum.y:
+				break
+		if cursor <= maximum.y:
+			var candidate_y: float = clampf(0.0, cursor, maximum.y)
+			if absf(candidate_y) < absf(pan_y):
+				pan_y = candidate_y
+		if not is_finite(pan_y):
+			continue
+		var pan := Vector2(pan_x, pan_y)
+		if pan.length_squared() < best_distance:
+			best_distance = pan.length_squared()
+			best_pan = pan
+	return origin - best_pan / zoom if best_pan.is_finite() else Vector2(INF, INF)
 
 
 ## --- Public API ---

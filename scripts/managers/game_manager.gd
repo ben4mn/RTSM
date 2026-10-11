@@ -7,6 +7,7 @@ signal game_state_changed(new_state: int)
 signal age_advanced(player_id: int, new_age: int)
 signal player_defeated(player_id: int)
 signal game_over(winner_id: int)
+signal research_completed(player_id: int, research_id: String)
 
 enum GameState {
 	MENU,
@@ -23,8 +24,8 @@ enum WinCondition {
 }
 
 const MAX_PLAYERS: int = 2
-const MAX_AGE: int = 4
-const AGE_NAMES: Array[String] = ["Dark Age", "Feudal Age", "Castle Age", "Imperial Age"]
+const MAX_AGE: int = SkirmishData.MAX_AGE
+const AGE_NAMES: Array[String] = SkirmishData.AGE_NAMES
 const PREFERENCES_PATH: String = "user://preferences.cfg"
 
 var current_state: GameState = GameState.MENU
@@ -57,6 +58,8 @@ var _population_cap_grants: Dictionary = {}  # provider_id -> {player_id, nomina
 # Keys: "attack_bonus", "armor_bonus" — global military buffs
 var player_upgrades: Dictionary = {}  # player_id -> { "attack_bonus": int, "armor_bonus": int }
 var researched_upgrades: Dictionary = {}  # player_id -> Array of completed research IDs
+var _research_transactions: Dictionary = {}  # player_id -> in-flight purchase
+var _age_transactions: Dictionary = {}  # player_id -> in-flight purchase
 
 
 func _ready() -> void:
@@ -121,6 +124,10 @@ func initialize_game(num_players: int = 2) -> void:
 	_base_population_caps.clear()
 	_population_cap_grants.clear()
 	players.clear()
+	player_upgrades.clear()
+	researched_upgrades.clear()
+	_research_transactions.clear()
+	_age_transactions.clear()
 	game_time = 0.0
 
 	for i in range(num_players):
@@ -174,16 +181,42 @@ func set_state(new_state: GameState) -> void:
 
 
 func advance_age(player_id: int) -> bool:
-	if not players.has(player_id):
+	## Completion primitive; normal player requests use the paid transaction.
+	if current_state != GameState.PLAYING or not players.has(player_id):
 		return false
 
 	var player: Dictionary = players[player_id]
-	if player["age"] >= MAX_AGE:
+	if bool(player.get("is_defeated", false)) or player["age"] >= MAX_AGE:
+		return false
+	if get_age_up_cost(player_id, int(player["age"]) + 1).is_empty():
 		return false
 
 	player["age"] += 1
 	age_advanced.emit(player_id, player["age"])
 	return true
+
+
+func try_advance_age(player_id: int) -> bool:
+	## Shared human/AI purchase. A signal emitted during spending cannot buy twice.
+	if current_state != GameState.PLAYING or not players.has(player_id):
+		return false
+	if bool(players[player_id].get("is_defeated", false)) or _age_transactions.has(player_id) or _research_transactions.has(player_id):
+		return false
+	var cost: Dictionary = get_age_up_cost(player_id, get_player_age(player_id) + 1)
+	if get_player_age(player_id) >= MAX_AGE or cost.is_empty():
+		return false
+	var resource_manager: Node = get_node_or_null("/root/ResourceManager")
+	if resource_manager == null:
+		return false
+	_age_transactions[player_id] = true
+	if not bool(resource_manager.call("try_spend", player_id, cost)):
+		_age_transactions.erase(player_id)
+		return false
+	var advanced: bool = advance_age(player_id)
+	if not advanced:
+		resource_manager.call("refund", player_id, cost)
+	_age_transactions.erase(player_id)
+	return advanced
 
 
 func get_player_age(player_id: int) -> int:
@@ -441,6 +474,77 @@ func has_research(player_id: int, research_id: String) -> bool:
 	if researched_upgrades.has(player_id):
 		return research_id in researched_upgrades[player_id]
 	return false
+
+
+func get_research_failure_reason(player_id: int, building: Node2D, research_id: String) -> String:
+	var requirement_failure: String = _get_research_requirement_failure_reason(player_id, building, research_id)
+	if not requirement_failure.is_empty():
+		return requirement_failure
+	if _research_transactions.has(player_id) or _age_transactions.has(player_id):
+		return "purchase_in_progress"
+	var definition: Dictionary = TechData.get_research_definition(research_id)
+	var resource_manager: Node = get_node_or_null("/root/ResourceManager")
+	if resource_manager == null or not bool(resource_manager.call("can_afford", player_id, definition["cost"])):
+		return "unaffordable"
+	return ""
+
+
+func _get_research_requirement_failure_reason(player_id: int, building: Node2D, research_id: String) -> String:
+	if current_state != GameState.PLAYING:
+		return "match_inactive"
+	if not players.has(player_id) or bool(players[player_id].get("is_defeated", false)):
+		return "invalid_player"
+	if not is_instance_valid(building) or building.is_queued_for_deletion() or not building.is_inside_tree():
+		return "invalid_building"
+	# Load at request time, after every autoload exists. A BuildingBase type on
+	# this first autoload would compile combat's AudioManager dependency early.
+	var building_script: Script = load("res://scripts/buildings/building_base.gd")
+	if not is_instance_of(building, building_script):
+		return "invalid_building"
+	if int(building.get("player_owner")) != player_id:
+		return "not_owned"
+	if int(building.get("state")) != int(building_script.State.ACTIVE) or int(building.get("hp")) <= 0:
+		return "building_incomplete"
+	var definition: Dictionary = TechData.get_research_definition(research_id)
+	if definition.is_empty():
+		return "unknown_research"
+	if int(building.get("building_type")) != int(definition["building_type"]):
+		return "wrong_building"
+	if get_player_age(player_id) < int(definition["age_required"]):
+		return "age_required"
+	if has_research(player_id, research_id):
+		return "already_researched"
+	return ""
+
+
+func can_research(player_id: int, building: Node2D, research_id: String) -> bool:
+	return get_research_failure_reason(player_id, building, research_id).is_empty()
+
+
+func try_research(player_id: int, building: Node2D, research_id: String) -> bool:
+	## Validate, pay and apply one technology through the same owner transaction.
+	if not can_research(player_id, building, research_id):
+		return false
+	var definition: Dictionary = TechData.get_research_definition(research_id)
+	var resource_manager: Node = get_node_or_null("/root/ResourceManager")
+	_research_transactions[player_id] = true
+	if not bool(resource_manager.call("try_spend", player_id, definition["cost"])):
+		_research_transactions.erase(player_id)
+		return false
+	# Resource notifications may synchronously end the match or destroy the
+	# building. Such a cancelled purchase returns its full payment.
+	if not _get_research_requirement_failure_reason(player_id, building, research_id).is_empty():
+		resource_manager.call("refund", player_id, definition["cost"])
+		_research_transactions.erase(player_id)
+		return false
+	complete_research(player_id, research_id)
+	apply_attack_upgrade(player_id, int(definition.get("attack_bonus", 0)))
+	apply_armor_upgrade(player_id, int(definition.get("armor_bonus", 0)))
+	apply_gather_upgrade(player_id, float(definition.get("gather_bonus", 0.0)))
+	apply_villager_hp_upgrade(player_id, int(definition.get("villager_hp_bonus", 0)))
+	_research_transactions.erase(player_id)
+	research_completed.emit(player_id, research_id)
+	return true
 
 
 func complete_research(player_id: int, research_id: String) -> void:
