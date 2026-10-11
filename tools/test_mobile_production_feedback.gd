@@ -2,6 +2,8 @@ extends Node
 ## Touch queue navigation, paid cancellation and recovery feedback at phone sizes.
 
 var _failures: Array[String] = []
+var _selection_revision: int = 0
+var _selected_producer_id: int = 0
 
 
 func _ready() -> void:
@@ -88,10 +90,16 @@ func _profile(phone: Vector2i, scale_factor: float) -> void:
 	_expect(shelf.scroll_horizontal == 0, profile + " pending producer refresh overrides deliberate Train return")
 	await _tap(viewport, navigation.get_global_rect().get_center())
 	shelf.scroll_horizontal = 0
+	await _tap(viewport, navigation.get_global_rect().get_center())
+	_expect(navigation.text.contains("Train") and shelf.get_global_rect().encloses(undo.get_global_rect()) and shelf.get_global_rect().encloses(clear.get_global_rect()), profile + " immediate Queue reopen before producer refresh clips refund actions")
+	shelf.scroll_horizontal = 0
 	_show(hud, tc)
 	await _settle(hud, logical, safe)
 	_expect(shelf.scroll_horizontal == 0, profile + " producer refresh overrides manual scroll back to Train")
+	_expect(hud.call("get_secondary_surface_name") == "none", profile + " manual Train return retains Queue ownership")
 	await _tap(viewport, navigation.get_global_rect().get_center())
+	_expect(hud.call("get_secondary_surface_name") == "queue" and navigation.text.contains("Train"), profile + " Queue does not reopen after manual Train return")
+	_expect(shelf.get_global_rect().encloses(undo.get_global_rect()) and shelf.get_global_rect().encloses(clear.get_global_rect()), profile + " reopened Queue clips refund actions")
 	var food_before: int = ResourceManager.get_resource(0, "food")
 	var population_before: int = GameManager.get_committed_population(0)
 	await _tap(viewport, undo.get_global_rect().get_center())
@@ -166,11 +174,17 @@ func _profile(phone: Vector2i, scale_factor: float) -> void:
 	_expect(stable.disabled and stable.text.contains("Unlocks in Age 2") and not stable.text.contains("Need"), profile + " shortage hides age lock")
 	build_menu.call("update_resources", {"food": 10000, "wood": 10000, "gold": 10000})
 	_expect(not house.disabled and house.text.contains("population") and not house.text.contains("Need"), profile + " affordability does not restore purpose")
+	for frame: int in 3:
+		await get_tree().process_frame
 	fixture.free()
 	await get_tree().process_frame
 
 
 func _show(hud: Node, building: BuildingBase) -> void:
+	if building.get_instance_id() != _selected_producer_id:
+		_selected_producer_id = building.get_instance_id()
+		_selection_revision += 1
+		hud.call("set_selection_context_revision", _selection_revision)
 	var producer: ProductionQueue = building.get_production_queue()
 	hud.call("show_building_selection", building.building_name, building.hp, building.max_hp, producer.get_queue_info(), building.trainable_units, building)
 

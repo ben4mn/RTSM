@@ -18,6 +18,7 @@ func _ready() -> void:
 
 func _run() -> void:
 	AudioManager.set_all_enabled(false)
+	DirAccess.make_dir_recursive_absolute(OUTPUT)
 	_render = "--render" in OS.get_cmdline_user_args()
 	if _render and DisplayServer.get_name() == "headless":
 		push_error("Native group captures require a renderer; omit --headless")

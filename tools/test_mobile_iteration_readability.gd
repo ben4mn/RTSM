@@ -3,6 +3,7 @@ extends Node
 var _failures: Array[String] = []
 var _moves: int = 0
 var _profiles: Array[Dictionary] = []
+var _selection_revision: int = 0
 
 class FakeMap extends Node2D:
     func world_to_tile(world: Vector2) -> Vector2i:
@@ -78,13 +79,14 @@ func _profile(phone: Vector2i, scale_factor: float, notched: bool) -> void:
     var queue := ProductionQueue.new()
     tc.add_child(queue)
     tc.set_production_queue(queue)
+    _publish_selection_change(hud)
     hud.call("show_building_selection","Town Center",5000,5000,[{"unit_type":UnitData.UnitType.VILLAGER,"name":"Villager","is_training":true,"progress":0.4}],[UnitData.UnitType.VILLAGER,UnitData.UnitType.SCOUT],tc)
     await _settle(hud,logical,safe)
     var scroll: ScrollContainer = hud.get("command_scroll")
     for button: Button in (hud.get("_train_buttons_container") as HBoxContainer).get_children():
         _expect(scroll.get_global_rect().encloses(button.get_global_rect()),"%s initial TC action clipped: %s" % [label,button.name])
         _button_text_fits(button,label)
-    _text_fits(hud.get("selection_name"),label)
+    await _selection_name_readable(hud,logical,safe,label)
     _text_fits(hud.get("selection_details"),label)
     _expect(not (hud.get("build_menu_button") as Button).visible and not (hud.get("_town_center_button") as Button).visible and not (hud.get("_select_military_button") as Button).visible,"%s TC retains irrelevant kingdom controls" % label)
     _expect((hud.get("age_up_button") as Button).visible and (hud.get("_selection_back_button") as Button).visible,"%s TC loses Age or Back" % label)
@@ -108,28 +110,29 @@ func _profile(phone: Vector2i, scale_factor: float, notched: bool) -> void:
             queue_items.append({"unit_type":type,"name":UnitData.get_unit_name(type),"is_training":false})
     hud.call("show_building_selection","Town Center",5000,5000,queue_items,[UnitData.UnitType.VILLAGER,UnitData.UnitType.SCOUT],tc)
     await _settle(hud,logical,safe)
-    queue_navigation.pressed.emit()
-    await get_tree().process_frame
-    await get_tree().process_frame
+    await _tap_control(hud,queue_navigation)
+    await _settle(hud,logical,safe)
     for action: Control in (hud.get("queue_container") as Control).get_children():
         if action.visible and not action.is_queued_for_deletion() and action is Button:
             _expect(scroll.get_global_rect().encloses(action.get_global_rect()),"%s queue-page name/action clipped: %s %s inside %s" % [label,(action as Button).text,action.get_global_rect(),scroll.get_global_rect()])
             _button_text_fits(action as Button,label+" queue page")
     _expect(queue_navigation.text.contains("Train"),"%s queue navigation does not offer return to training" % label)
     _expect((hud.get("selection_panel") as Control).get_global_rect().encloses(queue_navigation.get_global_rect()),"%s Train return floats outside queue shelf" % label)
-    queue_navigation.pressed.emit()
+    await _tap_control(hud,queue_navigation)
     _expect(scroll.scroll_horizontal == 0,"%s queue navigation does not return to training" % label)
     var production_units: Array[Dictionary] = await _all_production_unit_text(hud,logical,safe,label)
     var context_shelves: Array[Dictionary] = await _non_production_shelf_density(hud,logical,safe,label)
     for role: int in [UnitData.UnitType.INFANTRY,UnitData.UnitType.ARCHER,UnitData.UnitType.CAVALRY]:
+        _publish_selection_change(hud)
         hud.call("show_unit_selection",UnitData.get_unit_name(role),100,100,"ATTACKING",4,{"unit_type":role})
         hud.call("configure_unit_commands",true,true,"Aggressive","smart")
         await _settle(hud,logical,safe)
-        _text_fits(hud.get("selection_name"),label)
+        await _selection_name_readable(hud,logical,safe,label)
         _text_fits(hud.get("selection_details"),label)
         _expect((hud.get("selection_panel") as Control).size.y <= 72.5,"%s counter details expand shelf" % label)
         _expect((hud.get("selection_details") as Label).text.contains(UnitData.get_unit_counter_description(role)),"%s missing visible counter" % label)
         _expect(not (hud.get("build_menu_button") as Button).visible and not (hud.get("age_up_button") as Button).visible and not (hud.get("_mobile_action_panel") as Control).visible,"%s army retains irrelevant controls" % label)
+    _publish_selection_change(hud)
     hud.call("show_unit_selection","Villager",50,50,"Gathering Food (19/20)",1,{"unit_type":UnitData.UnitType.VILLAGER})
     hud.call("configure_unit_commands",true,false,"Aggressive","smart")
     await _settle(hud,logical,safe)
@@ -148,6 +151,7 @@ func _profile(phone: Vector2i, scale_factor: float, notched: bool) -> void:
         if task_text.visible:
             _text_fits(task_text,label+" worker counts")
     _expect(safe.encloses(task_caption.get_global_rect()),"%s worker counts outside safe area" % label)
+    _publish_selection_change(hud)
     hud.call("clear_selection")
     await _settle(hud,logical,safe)
     _expect((hud.get("_town_center_button") as Button).visible and (hud.get("_select_military_button") as Button).visible and (hud.get("build_menu_button") as Button).visible,"%s unselected kingdom controls do not restore" % label)
@@ -193,6 +197,50 @@ func _settle(hud: Node,logical: Vector2i,safe: Rect2) -> void:
     await get_tree().process_frame
     await get_tree().process_frame
 
+func _publish_selection_change(hud: Node) -> void:
+    _selection_revision += 1
+    hud.call("set_selection_context_revision",_selection_revision)
+
+func _tap_control(hud: Node,control: Control) -> void:
+    var viewport: SubViewport = hud.get_viewport() as SubViewport
+    for pressed: bool in [true,false]:
+        var event := InputEventMouseButton.new()
+        event.position = control.get_global_rect().get_center()
+        event.global_position = event.position
+        event.button_index = MOUSE_BUTTON_LEFT
+        event.pressed = pressed
+        viewport.push_input(event,true)
+        await get_tree().process_frame
+    await get_tree().process_frame
+
+func _selection_name_readable(hud: Node,logical: Vector2i,safe: Rect2,profile: String) -> void:
+    var name_label: Label = hud.get("selection_name")
+    var font: Font = name_label.get_theme_font("font")
+    var overflows: bool = false
+    for line: String in name_label.text.split("\n"):
+        overflows = overflows or font.get_string_size(line,HORIZONTAL_ALIGNMENT_LEFT,-1,name_label.get_theme_font_size("font_size")).x > name_label.size.x+0.5
+    if not overflows:
+        _text_fits(name_label,profile)
+        return
+    _expect(name_label.text_overrun_behavior == TextServer.OVERRUN_TRIM_ELLIPSIS,profile+" long selection name loses visible ellipsis")
+    _expect(name_label.get_minimum_size().y <= name_label.size.y+0.5,profile+" selection identity clips vertically")
+    var full_name: String = hud.get("_selection_full_name")
+    var info: Button = hud.get("_selection_info_button")
+    _expect(info.is_visible_in_tree() and info.size.x >= 48.0 and info.size.y >= 48.0 and safe.encloses(info.get_global_rect()),profile+" truncated name lacks safe48px tap Info")
+    await _tap_control(hud,info)
+    await _settle(hud,logical,safe)
+    var panel: Control = hud.get("_info_panel")
+    var title: Label = hud.get("_info_title")
+    _expect(hud.call("get_secondary_surface_name") == "info" and panel.is_visible_in_tree(),profile+" tap Info does not disclose full identity")
+    _expect(title.text == full_name,profile+" tap Info loses complete selection identity")
+    _text_fits(title,profile+" full Info identity")
+    _expect((hud.call("get_hold_safe_rect") as Rect2).encloses(panel.get_global_rect()),profile+" identity Info escapes rail-reserved safe area")
+    var close: Button = panel.find_child("InfoCloseButton",true,false) as Button
+    _expect(close.size.x >= 48.0 and close.size.y >= 48.0 and panel.get_global_rect().encloses(close.get_global_rect()),profile+" identity Info Close is inaccessible")
+    await _tap_control(hud,close)
+    await _settle(hud,logical,safe)
+    _expect(hud.call("get_secondary_surface_name") == "none",profile+" identity Info does not close by actual tap")
+
 func _text_fits(label: Label,profile: String) -> void:
     var font: Font = label.get_theme_font("font")
     for line: String in label.text.split("\n"):
@@ -236,6 +284,7 @@ func _all_production_unit_text(hud: Node,logical: Vector2i,safe: Rect2,profile: 
         var trainable: Array = [unit_type]
         if building.building_type == BuildingData.BuildingType.TOWN_CENTER:
             trainable = [UnitData.UnitType.VILLAGER,UnitData.UnitType.SCOUT]
+        _publish_selection_change(hud)
         hud.call("show_building_selection",BuildingData.get_building_name(building.building_type),5000,5000,pending,trainable,building)
         await _settle(hud,logical,safe)
         var unit_profile: String = "%s %s max queue" % [profile,UnitData.get_unit_name(unit_type)]
@@ -253,8 +302,9 @@ func _all_production_unit_text(hud: Node,logical: Vector2i,safe: Rect2,profile: 
                 _expect(scroll.get_global_rect().encloses(button.get_global_rect()),unit_profile+" recruitment/Repeat clipped: "+String(button.name))
                 _expect(button.size.x>=48.0 and button.size.y>=48.0,unit_profile+" recruitment target under48px")
                 _button_text_fits(button,unit_profile)
-        (hud.get("_queue_navigation_button") as Button).pressed.emit()
+        await _tap_control(hud,hud.get("_queue_navigation_button"))
         await _settle(hud,logical,safe)
+        _expect(hud.call("get_secondary_surface_name") == "queue",unit_profile+" actual Queue tap does not disclose cancellation")
         var group: Button = (hud.get("queue_container") as HBoxContainer).get_node("QueueUnit_%d" % unit_type)
         _expect(group.text.contains(UnitData.get_unit_name(unit_type)) and group.text.contains("x%d" % ProductionQueue.MAX_QUEUE_SIZE),unit_profile+" queue group loses name/count")
         for button: Control in (hud.get("queue_container") as HBoxContainer).get_children():
@@ -263,6 +313,7 @@ func _all_production_unit_text(hud: Node,logical: Vector2i,safe: Rect2,profile: 
                 _expect(button.size.x>=48.0 and button.size.y>=48.0,unit_profile+" queue target under48px")
                 _button_text_fits(button as Button,unit_profile)
         evidence.append({"unit":UnitData.get_unit_name(unit_type),"recruit_text":recruit.text,"recruit_size":str(recruit.size),"queue_text":group.text,"queue_size":str(group.size),"queue_shelf":str(scroll.get_global_rect())})
+        _publish_selection_change(hud)
         hud.call("clear_selection")
         building.free()
     return evidence
@@ -274,6 +325,7 @@ func _non_production_shelf_density(hud: Node,logical: Vector2i,safe: Rect2,profi
     for context: String in ["worker","army","foundation"]:
         var context_profile: String = profile+" "+context+" shelf"
         var foundation: BuildingBase = null
+        _publish_selection_change(hud)
         if context == "foundation":
             foundation = BuildingBase.new()
             foundation.building_type = BuildingData.BuildingType.HOUSE
@@ -288,7 +340,7 @@ func _non_production_shelf_density(hud: Node,logical: Vector2i,safe: Rect2,profi
         _expect(panel.size.y <= 72.5,context_profile+" grows above72px")
         _expect(safe.encloses(panel.get_global_rect()),context_profile+" is outside safe area")
         _expect(not panel.get_global_rect().intersects((hud.get("minimap_bg") as Control).get_global_rect()),context_profile+" overlaps minimap")
-        _text_fits(hud.get("selection_name"),context_profile)
+        await _selection_name_readable(hud,logical,safe,context_profile)
         _text_fits(hud.get("selection_details"),context_profile)
         _expect((hud.get("selection_name") as Label).get_theme_font_size("font_size") == 14 and (hud.get("selection_details") as Label).get_theme_font_size("font_size") == 11,context_profile+" changes info typography")
         var info_width: float = (hud.get("selection_info_column") as Control).custom_minimum_size.x
@@ -322,6 +374,7 @@ func _non_production_shelf_density(hud: Node,logical: Vector2i,safe: Rect2,profi
                 _button_text_fits(button,context_profile+" More")
             (hud.get("_unit_more_button") as Button).pressed.emit()
         evidence.append({"context":context,"shelf":str(panel.get_global_rect()),"info_width":(hud.get("selection_info_column") as Control).custom_minimum_size.x,"details":(hud.get("selection_details") as Label).text})
+        _publish_selection_change(hud)
         hud.call("clear_selection")
         if foundation:
             foundation.free()

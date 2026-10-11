@@ -35,6 +35,9 @@ func _run() -> void:
 	game_map.add_child(selected_unit)
 	selection_manager.call("select_single", selected_unit)
 	await process_frame
+	# This focused test drives the threshold callback explicitly. Keep normal
+	# frame processing from executing it during the real-time boundary wait.
+	selection_manager.set_process(false)
 
 	var move_tiles: Array[Vector2i] = []
 	selection_manager.connect("move_command", func(tile: Vector2i) -> void:
@@ -45,7 +48,17 @@ func _run() -> void:
 	var before_count: int = int(before.get("execution_count", 0))
 	var empty_ground := Vector2(400.0, 200.0)
 	selection_manager.call("_handle_touch", _touch_event(empty_ground, true))
-	selection_manager.call("_process", 0.36)
+	selection_manager.call("_process", 100.0)
+	_expect_eq(move_tiles.size(), 0, "simulation delta cannot activate a hold before real time elapses")
+	var started_at: int = int(selection_manager.get("_touch_hold_started_at_msec"))
+	_expect(not bool(selection_manager.call("_touch_hold_has_elapsed", started_at + 349)), "349ms is below the world hold threshold")
+	_expect(bool(selection_manager.call("_touch_hold_has_elapsed", started_at + 350)), "350ms reaches the world hold threshold")
+	_expect(bool(selection_manager.call("_touch_hold_has_elapsed", started_at + 351)), "351ms remains above the world hold threshold")
+	# A clean, fast boot may have less than 350ms of uptime; subtracting 350
+	# would invent a negative timestamp rather than a valid elapsed contact.
+	while Time.get_ticks_msec() - started_at < 350:
+		await process_frame
+	selection_manager.call("_process", 0.0)
 
 	var after_threshold: Dictionary = selection_manager.get("touch_context_diagnostics") as Dictionary
 	_expect_eq(move_tiles.size(), 1, "threshold crossing executes the single Move action once")
@@ -106,7 +119,7 @@ func _expect_eq(actual: Variant, expected: Variant, message: String) -> void:
 
 func _finish() -> void:
 	if _failures.is_empty():
-		print("[PASS] touch_long_press_context: single dispatch, release fallback, durable runtime evidence")
+		print("[PASS] touch_long_press_context: monotonic threshold boundaries, single dispatch, release fallback, durable runtime evidence")
 		quit(0)
 	else:
 		quit(1)

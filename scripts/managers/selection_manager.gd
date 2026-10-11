@@ -15,6 +15,11 @@ signal gather_command(resource_node: Node2D)
 signal build_command(building: Node2D)
 ## A phone box gesture is explicit and ends after one selection or cancellation.
 signal touch_area_selection_changed(armed: bool)
+## Emitted only after a fresh contact is admitted by the world dispatcher.
+## Physical left mouse presses use index -1; GUI bookkeeping never emits this.
+signal world_gesture_started(index: int, screen_position: Vector2)
+signal touch_context_opened()
+signal touch_context_closed()
 
 ## Currently selected units/buildings.
 var selected: Array[Node2D] = []
@@ -49,6 +54,8 @@ var _touch_hold_active := false
 var _touch_hold_elapsed := 0.0
 var _touch_hold_started_at_msec: int = 0
 var _touch_long_press_consumed := false
+var _touch_hold_canceled := false
+var _touch_max_displacement_px := 0.0
 @export var touch_context_enabled: bool = true
 @export var long_press_threshold: float = 0.35
 @export var touch_tap_slop_px: float = 12.0
@@ -115,7 +122,18 @@ func set_touch_area_selection_armed(armed: bool) -> void:
 
 ## A modal world interaction owns any fingers already down. Cancel its prior
 ## gesture so a delayed long press cannot issue an order during placement.
-func cancel_touch_gesture() -> void:
+func cancel_touch_gesture(preserve_completed_tap: bool = false) -> void:
+	# Selection signals can run synchronously inside a successful tap release.
+	# Keep that completed tap available for double-tap selection while still
+	# discarding history whenever a live contact or another cancellation owns it.
+	var keep_completed_tap: bool = (
+		preserve_completed_tap
+		and _active_touch_indices.is_empty()
+		and _released_world_touch_indices.is_empty()
+		and not _touch_hold_active
+		and _touch_hold_started_at_msec == 0
+		and not _is_dragging
+	)
 	if touch_area_selection_armed:
 		touch_area_selection_armed = false
 		touch_area_selection_changed.emit(false)
@@ -124,12 +142,15 @@ func cancel_touch_gesture() -> void:
 	_touch_hold_elapsed = 0.0
 	_touch_hold_started_at_msec = 0
 	_touch_long_press_consumed = false
+	_touch_hold_canceled = false
+	_touch_max_displacement_px = 0.0
 	_touch_pan_gesture = false
 	_active_touch_indices.clear()
 	_released_world_touch_indices.clear()
 	_primary_touch_index = -1
 	_is_dragging = false
-	_last_tap_time = 0.0
+	if not keep_completed_tap:
+		_last_tap_time = 0.0
 	_hide_touch_context()
 	queue_redraw()
 
@@ -144,9 +165,15 @@ func _ready() -> void:
 	if touch_context_enabled:
 		_ensure_touch_context_menu()
 	_refresh_touch_context_diagnostics()
+	get_viewport().size_changed.connect(cancel_touch_gesture)
 
 
-func _process(delta: float) -> void:
+func _notification(what: int) -> void:
+	if is_node_ready() and (what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_APPLICATION_PAUSED):
+		cancel_touch_gesture()
+
+
+func _process(_delta: float) -> void:
 	# Selected world objects can disappear independently of input (death,
 	# destruction, depletion, or queue_free). Prune them before any per-frame
 	# selection consumer can observe a stale Object reference.
@@ -157,11 +184,12 @@ func _process(delta: float) -> void:
 		_refresh_touch_target_diagnostics()
 	if not touch_context_enabled or not _touch_hold_active:
 		return
-	if _drag_start.distance_to(_drag_end) > _long_press_move_tolerance:
-		_touch_hold_active = false
+	_record_touch_displacement(_drag_end)
+	if _touch_hold_canceled:
 		return
-	_touch_hold_elapsed += delta
-	if _touch_hold_elapsed >= long_press_threshold:
+	# Gesture time is real time, independent of the skirmish simulation speed.
+	_touch_hold_elapsed = maxf(0.0, float(now_msec - _touch_hold_started_at_msec) / 1000.0)
+	if _touch_hold_has_elapsed(now_msec):
 		_touch_hold_active = false
 		_touch_hold_started_at_msec = 0
 		_touch_long_press_consumed = true
@@ -208,6 +236,8 @@ func _finish_released_touch(index: int) -> void:
 		_touch_hold_elapsed = 0.0
 		_touch_hold_started_at_msec = 0
 		_touch_long_press_consumed = false
+		_touch_hold_canceled = false
+		_touch_max_displacement_px = 0.0
 		_touch_pan_gesture = false
 		_is_dragging = false
 		queue_redraw()
@@ -231,12 +261,13 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 	if event.pressed:
 		_released_world_touch_indices.erase(event.index)
 		if _active_touch_indices.is_empty():
+			world_gesture_started.emit(event.index, event.position)
 			_primary_touch_index = event.index
 			_touch_pan_gesture = false
 		_active_touch_indices[event.index] = true
 		if _active_touch_indices.size() > 1:
 			_touch_pan_gesture = true
-			_touch_hold_active = false
+			_cancel_pending_touch_hold()
 			_is_dragging = false
 			if touch_area_selection_armed:
 				# Pinch intent cancels selection. Keep both contact identities
@@ -259,6 +290,8 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 		_touch_hold_elapsed = 0.0
 		_touch_hold_started_at_msec = Time.get_ticks_msec()
 		_touch_long_press_consumed = false
+		_touch_hold_canceled = _touch_pan_gesture or _touch_area_gesture
+		_touch_max_displacement_px = 0.0
 		if _touch_area_gesture:
 			get_viewport().set_input_as_handled()
 			queue_redraw()
@@ -321,12 +354,10 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 			get_viewport().set_input_as_handled()
 			_finish_released_touch(event.index)
 			return
-		var drag_distance := _drag_start.distance_to(event.position)
-		var held_long_enough: bool = false
-		if _touch_hold_started_at_msec > 0:
-			held_long_enough = (Time.get_ticks_msec() - _touch_hold_started_at_msec) >= int(round(long_press_threshold * 1000.0))
+		_record_touch_displacement(event.position)
+		var held_long_enough: bool = _touch_hold_has_elapsed(Time.get_ticks_msec())
 		_touch_hold_started_at_msec = 0
-		if _active_touch_indices.is_empty() and not _touch_pan_gesture and drag_distance < touch_tap_slop_px and held_long_enough and touch_context_enabled:
+		if _active_touch_indices.is_empty() and not _touch_pan_gesture and not _touch_hold_canceled and held_long_enough and touch_context_enabled:
 			_touch_long_press_consumed = true
 			_open_touch_context(event.position)
 			_touch_long_press_consumed = false
@@ -334,7 +365,7 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 			get_viewport().set_input_as_handled()
 			_finish_released_touch(event.index)
 			return
-		if _active_touch_indices.is_empty() and not _touch_pan_gesture and drag_distance < touch_tap_slop_px:
+		if _active_touch_indices.is_empty() and not _touch_pan_gesture and _touch_max_displacement_px < touch_tap_slop_px:
 			_handle_tap(event.position, true)
 		if _active_touch_indices.is_empty():
 			_finish_released_touch(event.index)
@@ -350,7 +381,7 @@ func _handle_drag(event: InputEventScreenDrag) -> void:
 		return
 	if event.index != _primary_touch_index:
 		_touch_pan_gesture = true
-		_touch_hold_active = false
+		_cancel_pending_touch_hold()
 		return
 	_drag_end = event.position
 	if _touch_area_gesture and touch_area_selection_armed:
@@ -361,15 +392,31 @@ func _handle_drag(event: InputEventScreenDrag) -> void:
 		return
 	if _active_touch_indices.size() > 1:
 		_touch_pan_gesture = true
-		_touch_hold_active = false
+		_cancel_pending_touch_hold()
 		queue_redraw()
 		return
 	var drag_distance := _drag_start.distance_to(_drag_end)
 	if drag_distance > touch_pan_threshold:
 		_touch_pan_gesture = true
-	if _touch_hold_active and drag_distance > _long_press_move_tolerance:
-		_touch_hold_active = false
+	_record_touch_displacement(_drag_end)
 	queue_redraw()
+
+
+func _touch_hold_has_elapsed(now_msec: int) -> bool:
+	return not _touch_hold_canceled and _touch_hold_started_at_msec > 0 \
+		and now_msec - _touch_hold_started_at_msec >= int(round(long_press_threshold * 1000.0))
+
+
+func _cancel_pending_touch_hold() -> void:
+	_touch_hold_active = false
+	_touch_hold_canceled = true
+	_touch_hold_started_at_msec = 0
+
+
+func _record_touch_displacement(screen_pos: Vector2) -> void:
+	_touch_max_displacement_px = maxf(_touch_max_displacement_px, _drag_start.distance_to(screen_pos))
+	if _touch_max_displacement_px > _long_press_move_tolerance:
+		_cancel_pending_touch_hold()
 
 
 ## --- Mouse input (desktop / testing) ---
@@ -391,6 +438,7 @@ func _handle_mouse_button(event: InputEventMouseButton) -> void:
 	if event.button_index != MOUSE_BUTTON_LEFT:
 		return
 	if event.pressed:
+		world_gesture_started.emit(-1, event.position)
 		_hide_touch_context()
 		_drag_start = event.position
 		_drag_end = event.position
@@ -1121,12 +1169,18 @@ func _open_touch_context(screen_pos: Vector2) -> void:
 	_touch_context_menu.popup(Rect2i(Vector2i(popup_pos), Vector2i(180, 1)))
 	_touch_context_open = true
 	_refresh_touch_context_diagnostics(actions, true, popup_pos)
+	touch_context_opened.emit()
 
 
 func _build_touch_context_actions(tapped_node: Node2D, resource_node: Node2D) -> Array[Dictionary]:
 	_prune_stale_selection()
 	var actions: Array[Dictionary] = []
 	var has_selection: bool = selected.size() > 0
+	if unit_command_armed and _has_selected_units():
+		# Main owns the armed Move/A-Move/Patrol meaning, just as for a short tap.
+		# Do not offer Gather/Build labels whose execution would be rerouted there.
+		actions.append({"id": TouchContextAction.MOVE, "label": "Command destination"})
+		return actions
 
 	if has_selection:
 		if tapped_node != null and tapped_node.is_in_group("sacred_sites"):
@@ -1161,12 +1215,12 @@ func _build_touch_context_actions(tapped_node: Node2D, resource_node: Node2D) ->
 
 
 func _on_touch_context_pressed(action_id: int) -> void:
-	_touch_context_open = false
+	_set_touch_context_closed()
 	_execute_touch_context_action(action_id)
 
 
 func _on_touch_context_hidden() -> void:
-	_touch_context_open = false
+	_set_touch_context_closed()
 	_refresh_touch_context_diagnostics()
 
 
@@ -1219,8 +1273,29 @@ func _execute_touch_context_action(action_id: int) -> void:
 func _hide_touch_context() -> void:
 	if _touch_context_menu != null and _touch_context_menu.visible:
 		_touch_context_menu.hide()
-	_touch_context_open = false
+	_set_touch_context_closed()
 	_refresh_touch_context_diagnostics()
+
+
+func _set_touch_context_closed() -> void:
+	if not _touch_context_open:
+		return
+	_touch_context_open = false
+	touch_context_closed.emit()
+
+
+func close_touch_context() -> void:
+	_hide_touch_context()
+
+
+func is_touch_context_open() -> bool:
+	return _touch_context_open
+
+
+func get_touch_context_rect() -> Rect2:
+	if not _touch_context_open or _touch_context_menu == null or not _touch_context_menu.visible:
+		return Rect2()
+	return Rect2(Vector2(_touch_context_menu.position), Vector2(_touch_context_menu.size))
 
 
 func _refresh_touch_context_diagnostics(actions: Array[Dictionary] = [], visible_override: bool = false, popup_pos: Vector2 = Vector2.ZERO) -> void:

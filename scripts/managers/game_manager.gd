@@ -39,6 +39,7 @@ var guided_opening_enabled: bool = true
 var audio_enabled: bool = true
 var camera_speed_scale: float = 1.0
 var ui_scale: float = 1.0
+var hold_shortcuts_enabled: bool = true
 var _match_population_limit: int = SkirmishData.DEFAULT_POPULATION_LIMIT
 
 # Population committed to production queues. Reservations are tracked by an
@@ -82,6 +83,7 @@ func _load_preferences() -> void:
 	guided_opening_enabled = bool(config.get_value("onboarding", "guided_opening", guided_opening_enabled))
 	audio_enabled = bool(config.get_value("accessibility", "audio_enabled", audio_enabled))
 	camera_speed_scale = clampf(float(config.get_value("controls", "camera_speed_scale", camera_speed_scale)), 0.75, 1.25)
+	hold_shortcuts_enabled = bool(config.get_value("controls", "hold_shortcuts_enabled", hold_shortcuts_enabled))
 	# Mobile controls are authored at a 48px minimum. Scaling below 100% made
 	# those targets physically smaller than the interaction contract.
 	ui_scale = clampf(float(config.get_value("accessibility", "ui_scale", ui_scale)), 1.0, 1.15)
@@ -95,6 +97,7 @@ func save_preferences() -> bool:
 	config.set_value("onboarding", "guided_opening", guided_opening_enabled)
 	config.set_value("accessibility", "audio_enabled", audio_enabled)
 	config.set_value("controls", "camera_speed_scale", camera_speed_scale)
+	config.set_value("controls", "hold_shortcuts_enabled", hold_shortcuts_enabled)
 	config.set_value("accessibility", "ui_scale", clampf(ui_scale, 1.0, 1.15))
 	return config.save(PREFERENCES_PATH) == OK
 

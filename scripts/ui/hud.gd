@@ -31,6 +31,8 @@ signal resume_requested()
 signal quit_to_menu_requested()
 signal guidance_dismissed()
 signal match_learning_requested()
+signal world_context_close_requested()
+signal secondary_surface_changed(surface: String)
 
 const RESOURCE_COLORS: Dictionary = {
 	"food": Color(0.9, 0.35, 0.25),
@@ -67,6 +69,25 @@ enum UIModalState {
 	PAUSE_MENU,
 	AGE_UP,
 }
+
+enum SecondarySurface { NONE, VIEW, MORE, QUEUE, INFO, HELP, WORLD_CONTEXT }
+const HUD_HOLD_SCRIPT := preload("res://scripts/ui/hud_hold_control.gd")
+const DISMISS_SHIELD_SCRIPT := preload("res://scripts/ui/modal_dismiss_shield.gd")
+
+var _secondary_surface: SecondarySurface = SecondarySurface.NONE
+var _selection_context_revision: int = 0
+var _world_context_rect := Rect2()
+var _hold_components: Array[Node] = []
+var _active_hold_component: Node = null
+var _hold_hints_shown: Dictionary = {}
+var _hold_chooser_active: bool = false
+var _selection_info_button: Button = null
+var _selection_name_header: HBoxContainer = null
+var _info_panel: PanelContainer = null
+var _info_title: Label = null
+var _info_body: Label = null
+var _info_from_build_menu: bool = false
+var _secondary_dismissal_shield: Control = null
 
 @onready var food_label: Label = %FoodLabel
 @onready var wood_label: Label = %WoodLabel
@@ -271,6 +292,7 @@ func _ready() -> void:
 	_create_unit_command_buttons()
 	_create_notification_feed()
 	_create_hotkey_panel()
+	_create_secondary_surface_controls()
 	_create_sacred_site_label()
 	_create_score_label()
 	_create_progression_hint()
@@ -306,7 +328,13 @@ func _ready() -> void:
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_SIZE_CHANGED and is_node_ready():
+		close_secondary_surface()
+		_cancel_hud_holds("resize")
 		_queue_mobile_layout_refresh()
+	elif what == NOTIFICATION_APPLICATION_FOCUS_OUT and is_node_ready():
+		close_secondary_surface()
+		_cancel_hud_holds("focus loss")
+		_refresh_dismissal_shield()
 
 
 func _queue_mobile_layout_refresh() -> void:
@@ -509,10 +537,7 @@ func _create_camera_controls() -> void:
 		view_style.set_content_margin(SIDE_RIGHT, 4.0)
 		_camera_view_button.add_theme_stylebox_override(style_name, view_style)
 	_camera_view_button.pressed.connect(func() -> void:
-		_camera_controls_expanded = not _camera_controls_expanded
-		if _camera_controls_expanded:
-			_close_advanced_commands()
-		_queue_mobile_layout_refresh()
+		_set_secondary_surface(SecondarySurface.NONE if _secondary_surface == SecondarySurface.VIEW else SecondarySurface.VIEW)
 	)
 	_camera_controls.add_child(_camera_view_button)
 	_camera_zoom_out_button = Button.new()
@@ -537,7 +562,10 @@ func _create_camera_controls() -> void:
 	_camera_zoom_reset_button.custom_minimum_size = Vector2(64, 48)
 	_camera_zoom_reset_button.add_theme_font_size_override("font_size", 14)
 	_camera_zoom_reset_button.tooltip_text = "Return to the starting view scale"
-	_camera_zoom_reset_button.pressed.connect(func(): camera_zoom_reset_requested.emit())
+	_camera_zoom_reset_button.pressed.connect(func() -> void:
+		close_secondary_surface()
+		camera_zoom_reset_requested.emit()
+	)
 	_camera_controls.add_child(_camera_zoom_reset_button)
 	_camera_center_button = Button.new()
 	_camera_center_button.name = "CenterSelectionButton"
@@ -545,7 +573,10 @@ func _create_camera_controls() -> void:
 	_camera_center_button.custom_minimum_size = Vector2(64, 48)
 	_camera_center_button.add_theme_font_size_override("font_size", 12)
 	_camera_center_button.tooltip_text = "Center the selected units in the visible battlefield [Space]"
-	_camera_center_button.pressed.connect(func() -> void: center_selection_requested.emit())
+	_camera_center_button.pressed.connect(func() -> void:
+		close_secondary_surface()
+		center_selection_requested.emit()
+	)
 	_camera_controls.add_child(_camera_center_button)
 	$Root.add_child(_camera_controls)
 	_selection_back_button = Button.new()
@@ -875,9 +906,8 @@ func set_ui_modal_state(state: int) -> void:
 	if clamped_state == _ui_modal_state:
 		return
 	_ui_modal_state = clamped_state
-	if _ui_modal_state != UIModalState.NONE:
-		_close_advanced_commands()
-		_camera_controls_expanded = false
+	close_secondary_surface()
+	_cancel_hud_holds("modal transition")
 	var paused: bool = _ui_modal_state == UIModalState.PAUSE_MENU
 	if paused and _build_menu_open:
 		_build_menu_open = false
@@ -943,13 +973,23 @@ func get_world_safe_rect() -> Rect2:
 	return _world_safe_rect if _world_safe_rect.has_area() else get_viewport().get_visible_rect()
 
 
+func get_hold_safe_rect() -> Rect2:
+	var safe: Rect2 = get_world_safe_rect()
+	var card_top: float = safe.position.y
+	if is_instance_valid(top_bar) and top_bar.is_visible_in_tree():
+		card_top = maxf(card_top, top_bar.get_global_rect().end.y + 8.0)
+	card_top = minf(card_top, safe.end.y)
+	return Rect2(Vector2(safe.position.x, card_top), Vector2(safe.size.x, safe.end.y - card_top))
+
+
 func get_world_occlusion_rects() -> Array[Rect2]:
 	# Camera framing consumes actual rendered cards, never transparent containers.
 	var obstacles: Array[Rect2] = []
+	_prune_hold_components()
 	var build_menu_panel: Control = get_node_or_null("BuildMenu") as Control
 	for control: Control in [top_bar, minimap_bg, _command_dock, _navigation_controls,
 		_progression_hint_panel, _sacred_site_panel, _advanced_command_panel, _placement_status_panel,
-		_hotkey_panel, build_menu_panel]:
+		_hotkey_panel, _info_panel, build_menu_panel]:
 		if control != null and control.is_visible_in_tree() and control.size.x > 0.0 and control.size.y > 0.0:
 			obstacles.append(control.get_global_rect())
 	if _placement_mode_active and _mobile_action_panel.is_visible_in_tree():
@@ -958,6 +998,17 @@ func get_world_occlusion_rects() -> Array[Rect2]:
 		for child: Control in _notification_container.get_children():
 			if child.is_visible_in_tree() and not child.is_queued_for_deletion():
 				obstacles.append(child.get_global_rect())
+	for component: Node in _hold_components:
+		if is_instance_valid(component):
+			for bounds: Rect2 in component.call("get_visible_bounds"):
+				if bounds.has_area() and not obstacles.has(bounds):
+					obstacles.append(bounds)
+	if _secondary_surface == SecondarySurface.WORLD_CONTEXT and _world_context_rect.has_area():
+		obstacles.append(_world_context_rect)
+	if build_menu_panel != null and build_menu_panel.has_method("get_hold_occlusion_rects"):
+		for bounds: Rect2 in build_menu_panel.call("get_hold_occlusion_rects"):
+			if bounds.has_area() and not obstacles.has(bounds):
+				obstacles.append(bounds)
 	return obstacles
 
 
@@ -1058,6 +1109,7 @@ func _create_idle_villager_button() -> void:
 
 
 func _on_idle_villager_pressed() -> void:
+	close_secondary_surface()
 	AudioManager.play_ui("button_click")
 	idle_villager_pressed.emit()
 
@@ -1154,15 +1206,12 @@ func _create_unit_command_buttons() -> void:
 
 
 func _on_unit_more_pressed() -> void:
-	_advanced_commands_open = not _advanced_commands_open
-	if _advanced_commands_open:
-		_camera_controls_expanded = false
-	_unit_more_button.set_pressed_no_signal(_advanced_commands_open)
-	_advanced_command_panel.visible = _advanced_commands_open and _unit_commands_authorized
-	_queue_mobile_layout_refresh()
+	_set_secondary_surface(SecondarySurface.NONE if _secondary_surface == SecondarySurface.MORE else SecondarySurface.MORE)
 
 
 func _close_advanced_commands() -> void:
+	if _secondary_surface == SecondarySurface.MORE:
+		_set_secondary_surface(SecondarySurface.NONE)
 	_advanced_commands_open = false
 	if _unit_more_button:
 		_unit_more_button.set_pressed_no_signal(false)
@@ -1186,37 +1235,37 @@ func _make_unit_command_button(button_name: String, label: String, tooltip: Stri
 
 
 func _on_unit_move_pressed() -> void:
-	_close_advanced_commands()
+	close_secondary_surface()
 	AudioManager.play_ui("button_click")
 	unit_move_requested.emit()
 
 
 func _on_unit_attack_move_pressed() -> void:
-	_close_advanced_commands()
+	close_secondary_surface()
 	AudioManager.play_ui("button_click")
 	unit_attack_move_requested.emit()
 
 
 func _on_unit_patrol_pressed() -> void:
-	_close_advanced_commands()
+	close_secondary_surface()
 	AudioManager.play_ui("button_click")
 	unit_patrol_requested.emit()
 
 
 func _on_unit_stop_pressed() -> void:
-	_close_advanced_commands()
+	close_secondary_surface()
 	AudioManager.play_ui("button_click")
 	unit_stop_requested.emit()
 
 
 func _on_unit_stance_pressed() -> void:
-	_close_advanced_commands()
+	close_secondary_surface()
 	AudioManager.play_ui("button_click")
 	unit_stance_requested.emit()
 
 
 func _on_unit_clear_pressed() -> void:
-	_close_advanced_commands()
+	close_secondary_surface()
 	AudioManager.play_ui("button_click")
 	deselect_requested.emit()
 
@@ -1312,6 +1361,9 @@ func set_placement_mode(active: bool, building_name: String = "") -> void:
 	if _placement_cancel_button == null:
 		return
 	var was_active: bool = _placement_mode_active
+	if active and not was_active:
+		close_secondary_surface()
+		_cancel_hud_holds("placement")
 	_placement_mode_active = active
 	_placement_cancel_button.visible = active
 	_placement_confirm_button.visible = active and _placement_uses_touch
@@ -1440,6 +1492,7 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 	var safe_right: float = metrics["safe_right"]
 	top_bar.offset_top = safe_top
 	top_bar.offset_bottom = safe_top + top_bar.custom_minimum_size.y
+	_layout_secondary_cards()
 	var top_bar_margin: MarginContainer = top_bar.get_node_or_null("TopBarMargin")
 	if top_bar_margin:
 		top_bar_margin.add_theme_constant_override("margin_left", int(round(safe_left + 10.0)))
@@ -1510,7 +1563,12 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 		selection_details.remove_theme_constant_override("line_spacing")
 	selection_hp_bar.custom_minimum_size.y = 8.0 if compact_tc_info else 10.0
 	selection_info_column.add_theme_constant_override("separation", 0)
-	_update_selection_name_layout(float(metrics["selection_info_width"]))
+	_update_selection_name_layout(float(metrics["selection_info_width"]) - 26.0)
+	if _selection_info_button:
+		_selection_info_button.visible = _selection_context_active and standard_field_chrome_visible
+		_selection_info_button.position = selection_info_column.get_global_rect().position
+		_selection_info_button.size = Vector2(float(metrics["selection_info_width"]), maxf(48.0, selection_info_column.size.y))
+		call_deferred("_layout_summary_info_target")
 	selection_panel.visible = _selection_context_active and standard_field_chrome_visible
 	if _command_dock:
 		var caption_height: float = MOBILE_DOCK_CAPTION_HEIGHT if _villager_task_hbox and _villager_task_hbox.visible else 0.0
@@ -1537,7 +1595,7 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 		_advanced_command_panel.offset_right = _advanced_command_panel.offset_left + advanced_width
 		_advanced_command_panel.offset_bottom = metrics["selection_top"] - 8.0
 		_advanced_command_panel.offset_top = _advanced_command_panel.offset_bottom - 60.0
-		_advanced_command_panel.visible = _advanced_commands_open and _unit_command_container.visible and standard_field_chrome_visible
+		_advanced_command_panel.visible = _advanced_commands_open and not _hold_chooser_active and _unit_command_container.visible and standard_field_chrome_visible
 		for child in _advanced_command_container.get_children():
 			if child is Button:
 				(child as Button).custom_minimum_size = Vector2(104.0, MOBILE_ACTION_BUTTON_HEIGHT)
@@ -2257,6 +2315,10 @@ func _get_age_up_preview(next_age: int) -> String:
 
 func _on_game_state_changed(new_state: int) -> void:
 	var gm: Node = _get_game_manager()
+	if gm and new_state in [gm.GameState.GAME_OVER, gm.GameState.MENU]:
+		close_secondary_surface()
+		_cancel_hud_holds("match ended")
+		return
 	if gm and new_state == gm.GameState.PAUSED:
 		set_ui_modal_state(UIModalState.PAUSE_MENU)
 	elif _ui_modal_state == UIModalState.PAUSE_MENU:
@@ -2441,6 +2503,9 @@ func _update_selection_name_layout(available_width: float) -> void:
 	if _selection_full_name.is_empty():
 		return
 	selection_name.text = _selection_full_name
+	if _selection_info_button != null:
+		# Full names remain available through the labeled summary Info target.
+		return
 	var font: Font = selection_name.get_theme_font("font")
 	var font_size: int = selection_name.get_theme_font_size("font_size")
 	if font.get_string_size(selection_name.text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x > available_width:
@@ -2599,6 +2664,8 @@ func _update_queue_display(queue_items: Array) -> void:
 			_retire_dynamic_control(child)
 
 	if queue_items.is_empty() and not repeat_waiting:
+		if _secondary_surface == SecondarySurface.QUEUE:
+			_set_secondary_surface(SecondarySurface.NONE)
 		queue_container.visible = false
 		_queue_view_requested = false
 		command_scroll.scroll_horizontal = 0
@@ -2649,6 +2716,7 @@ func _update_queue_display(queue_items: Array) -> void:
 			btn.set_meta("unit_type", unit_type)
 			btn.pressed.connect(_on_cancel_queued_unit_pressed.bind(unit_type))
 			queue_container.add_child(btn)
+		_attach_hud_hold(btn, _refund_information.bind(unit_type))
 		btn.visible = true
 		btn.mouse_filter = Control.MOUSE_FILTER_STOP
 		btn.text = ("%s\nx%d" if compact_training else "%s x%d") % [UnitData.get_unit_name(unit_type), queue_count]
@@ -2670,6 +2738,7 @@ func _update_queue_display(queue_items: Array) -> void:
 		clear_last.pressed.connect(_on_clear_last_queue_pressed)
 		queue_container.add_child(clear_last)
 	clear_last.visible = not queue_items.is_empty()
+	_attach_hud_hold(clear_last, _refund_information.bind(-1))
 	clear_last.mouse_filter = Control.MOUSE_FILTER_STOP
 	clear_last.text = "Undo"
 	clear_last.tooltip_text = "Cancel last queued unit; keep the Repeat setting"
@@ -2686,6 +2755,7 @@ func _update_queue_display(queue_items: Array) -> void:
 		clear_all.pressed.connect(_on_clear_all_queue_pressed)
 		queue_container.add_child(clear_all)
 	clear_all.visible = true
+	_attach_hud_hold(clear_all, _refund_information.bind(-2))
 	clear_all.mouse_filter = Control.MOUSE_FILTER_STOP
 	clear_all.text = "Clear"
 	clear_all.tooltip_text = "Stop repeat training and cancel all queued units"
@@ -2834,6 +2904,7 @@ func _update_train_buttons(trainable_units: Array) -> void:
 			btn.set_meta("unit_type", ut)
 			btn.pressed.connect(_on_train_button_pressed.bind(ut))
 			_train_buttons_container.add_child(btn)
+		_attach_hud_hold(btn, _train_information.bind(ut))
 		btn.visible = true
 		btn.mouse_filter = Control.MOUSE_FILTER_STOP
 		var role_text: String = UnitData.get_unit_counter_description(ut) if ut != UnitData.UnitType.VILLAGER else ""
@@ -2884,6 +2955,7 @@ func _update_train_buttons(trainable_units: Array) -> void:
 			_auto_queue_button.toggled.connect(_on_auto_queue_toggled)
 			_train_buttons_container.add_child(_auto_queue_button)
 		_auto_queue_button.visible = true
+		_attach_hud_hold(_auto_queue_button, _repeat_information)
 		_auto_queue_button.mouse_filter = Control.MOUSE_FILTER_STOP
 		_auto_queue_button.custom_minimum_size = Vector2(74 if compact_town_center else 88, 48) if compact_producer else Vector2(104, 48)
 		_auto_queue_button.add_theme_font_size_override("font_size", 11 if compact_producer else 14)
@@ -2926,6 +2998,13 @@ func _refresh_queue_navigation(_value: float = 0.0) -> void:
 	if _queue_navigation_button == null:
 		return
 	var queue_in_view: bool = queue_container.visible and command_scroll.scroll_horizontal > maxi(1, int(queue_container.position.x * 0.5))
+	if queue_in_view and _secondary_surface != SecondarySurface.QUEUE and _ui_modal_state == UIModalState.NONE:
+		_set_secondary_surface(SecondarySurface.QUEUE, true)
+	elif not queue_in_view and _secondary_surface == SecondarySurface.QUEUE and not _queue_view_requested:
+		# A deliberate return to recruitment must retire Queue ownership too.
+		# A pending reconciliation can briefly clamp its scrollbar; keep that
+		# requested page alive until its deferred restoration has completed.
+		_set_secondary_surface(SecondarySurface.NONE)
 	_queue_navigation_button.text = "Train\n‹" if queue_in_view else "Queue\n(%d)" % _last_queue_items.size()
 	_queue_navigation_button.tooltip_text = "Return to recruitment" if queue_in_view else "Inspect production and cancel queued units"
 
@@ -2943,12 +3022,7 @@ func _on_queue_navigation_pressed() -> void:
 	if not queue_container.visible:
 		return
 	var queue_in_view: bool = command_scroll.scroll_horizontal > maxi(1, int(queue_container.position.x * 0.5))
-	_queue_navigation_revision += 1
-	_queue_view_requested = not queue_in_view
-	_queue_view_offset = 0
-	command_scroll.scroll_horizontal = 0 if queue_in_view else int(queue_container.position.x)
-	_refresh_queue_navigation()
-	_queue_mobile_layout_refresh()
+	_set_secondary_surface(SecondarySurface.NONE if queue_in_view else SecondarySurface.QUEUE)
 
 
 func _on_train_button_pressed(unit_type: int) -> void:
@@ -3047,6 +3121,10 @@ func _retire_dynamic_control(child: Node) -> void:
 	# it immediately makes BaseButton call can_process() on an orphaned node.
 	if child == null or child.is_queued_for_deletion():
 		return
+	if child.has_meta("hud_hold_control"):
+		var hold_component: Node = child.get_meta("hud_hold_control") as Node
+		if is_instance_valid(hold_component):
+			hold_component.call("detach")
 	if child is Control:
 		(child as Control).visible = false
 		(child as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -3108,6 +3186,7 @@ func _update_research_buttons(building_ref: Node2D) -> void:
 			btn.set_meta("research_id", research_id)
 			btn.pressed.connect(_on_research_pressed.bind(research_id))
 			_research_container.add_child(btn)
+		_attach_hud_hold(btn, _research_information.bind(research_id))
 		btn.visible = true
 		btn.mouse_filter = Control.MOUSE_FILTER_STOP
 		var cost_str := ""
@@ -3506,13 +3585,28 @@ func _create_hotkey_panel() -> void:
 		hbox.add_child(desc_lbl)
 		vbox.add_child(hbox)
 
-	_hotkey_panel.add_child(vbox)
+	var outer := VBoxContainer.new()
+	var close_button := Button.new()
+	close_button.text = "Close Help"
+	close_button.custom_minimum_size = Vector2(104, 48)
+	close_button.pressed.connect(close_secondary_surface)
+	outer.add_child(close_button)
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	outer.add_child(scroll)
+	var hold_help := Label.new()
+	hold_help.text = "Hold action buttons to inspect.\nHold More, slide to preview, release to choose.\nReturn to the center or outside to cancel.\nInfo opens these explanations by tapping.\nDisable hold shortcuts in Settings."
+	hold_help.add_theme_font_size_override("font_size", 12)
+	vbox.add_child(hold_help)
+	scroll.add_child(vbox)
+	_hotkey_panel.add_child(outer)
 	root_ctrl.add_child(_hotkey_panel)
 
 
 func _toggle_hotkey_panel() -> void:
 	if _hotkey_panel:
-		_hotkey_panel.visible = not _hotkey_panel.visible
+		_set_secondary_surface(SecondarySurface.NONE if _secondary_surface == SecondarySurface.HELP else SecondarySurface.HELP)
 
 
 # --- Sacred Site Timer ---
@@ -3801,6 +3895,402 @@ func update_villager_tasks(food: int, wood: int, gold: int, building: int) -> vo
 		lbl.visible = int(entry[3]) > 0
 		lbl.add_theme_color_override("font_color", entry[2])
 	_queue_mobile_layout_refresh()
+
+
+# --- Secondary disclosure and HUD hold coordination ---
+
+func get_secondary_surface_name() -> String:
+	return SecondarySurface.keys()[_secondary_surface].to_lower()
+
+
+func close_secondary_surface() -> bool:
+	_prune_hold_components()
+	var had_surface: bool = _secondary_surface != SecondarySurface.NONE
+	for component: Node in _hold_components:
+		if is_instance_valid(component) and bool(component.call("is_gesture_active")):
+			had_surface = true
+	_set_secondary_surface(SecondarySurface.NONE)
+	_cancel_hud_holds("surface dismissed")
+	return had_surface
+
+
+func set_selection_context_revision(revision: int) -> void:
+	if revision == _selection_context_revision:
+		return
+	_selection_context_revision = revision
+	close_secondary_surface()
+	_cancel_hud_holds("selection changed")
+
+
+func notify_world_gesture_started() -> bool:
+	# Called only after actual world admission; GUI contacts cannot collapse a
+	# reading surface. Blocking outside contacts belong to the dismissal shield.
+	if _secondary_surface in [SecondarySurface.VIEW, SecondarySurface.MORE, SecondarySurface.QUEUE]:
+		close_secondary_surface()
+	return false
+
+
+func begin_world_context() -> bool:
+	if _ui_modal_state != UIModalState.NONE or _placement_mode_active:
+		world_context_close_requested.emit()
+		return false
+	_set_secondary_surface(SecondarySurface.WORLD_CONTEXT)
+	return true
+
+
+func end_world_context() -> void:
+	_world_context_rect = Rect2()
+	if _secondary_surface == SecondarySurface.WORLD_CONTEXT:
+		_set_secondary_surface(SecondarySurface.NONE)
+
+
+func set_world_context_rect(bounds: Rect2) -> void:
+	_world_context_rect = bounds
+
+
+func _set_secondary_surface(surface: SecondarySurface, preserve_queue_scroll: bool = false, keep_hold: bool = false) -> void:
+	var modal_inspection: bool = surface == SecondarySurface.INFO and (_active_hold_component != null or _info_from_build_menu) and _ui_modal_state == UIModalState.BUILD_MENU
+	if surface != SecondarySurface.NONE and (_placement_mode_active or (_ui_modal_state != UIModalState.NONE and not modal_inspection)):
+		return
+	if surface == SecondarySurface.MORE and not _unit_commands_authorized:
+		return
+	if surface == SecondarySurface.QUEUE and (not queue_container.visible or not is_instance_valid(_selected_building_ref)):
+		return
+	var previous: SecondarySurface = _secondary_surface
+	_secondary_surface = surface
+	if surface != SecondarySurface.INFO:
+		_info_from_build_menu = false
+	if not keep_hold:
+		_cancel_hud_holds("replacement surface")
+	# Assign first: synchronous popup-close callbacks must not replace the next
+	# requested surface with NONE while the old presentation is being retired.
+	if previous == SecondarySurface.WORLD_CONTEXT and surface != previous:
+		_world_context_rect = Rect2()
+		world_context_close_requested.emit()
+	if surface != SecondarySurface.QUEUE:
+		_queue_navigation_revision += 1
+		_queue_view_requested = false
+		_queue_view_offset = 0
+		if previous == SecondarySurface.QUEUE:
+			command_scroll.scroll_horizontal = 0
+	elif previous != SecondarySurface.QUEUE or not preserve_queue_scroll:
+		_queue_navigation_revision += 1
+		_queue_view_requested = true
+		_queue_view_offset = maxi(0, command_scroll.scroll_horizontal - int(queue_container.position.x)) if preserve_queue_scroll else 0
+		if not preserve_queue_scroll:
+			command_scroll.scroll_horizontal = int(queue_container.position.x)
+	_camera_controls_expanded = surface == SecondarySurface.VIEW
+	_advanced_commands_open = surface == SecondarySurface.MORE
+	if _unit_more_button:
+		_unit_more_button.set_pressed_no_signal(_advanced_commands_open)
+	if _advanced_command_panel:
+		_advanced_command_panel.visible = _advanced_commands_open and not _hold_chooser_active and _unit_commands_authorized
+	if _hotkey_panel:
+		_hotkey_panel.visible = surface == SecondarySurface.HELP
+	if _info_panel:
+		_info_panel.visible = surface == SecondarySurface.INFO and _active_hold_component == null
+	if surface != SecondarySurface.MORE:
+		_hold_chooser_active = false
+	_refresh_dismissal_shield()
+	_queue_mobile_layout_refresh()
+	if previous != surface:
+		secondary_surface_changed.emit(get_secondary_surface_name())
+
+
+func _create_secondary_surface_controls() -> void:
+	_secondary_dismissal_shield = DISMISS_SHIELD_SCRIPT.new()
+	_secondary_dismissal_shield.name = "SecondaryDismissalShield"
+	_secondary_dismissal_shield.z_index = 50
+	add_child(_secondary_dismissal_shield)
+	_secondary_dismissal_shield.connect("dismiss_requested", close_secondary_surface)
+	_info_panel = PanelContainer.new()
+	_info_panel.name = "SelectionInfoPanel"
+	_info_panel.z_index = 60
+	_info_panel.visible = false
+	_info_panel.add_theme_stylebox_override("panel", KingdomTheme.panel_style())
+	add_child(_info_panel)
+	var content := VBoxContainer.new()
+	content.add_theme_constant_override("separation", 8)
+	_info_panel.add_child(content)
+	var header := HBoxContainer.new()
+	content.add_child(header)
+	_info_title = Label.new()
+	_info_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_info_title.add_theme_font_size_override("font_size", 16)
+	_info_title.clip_text = true
+	header.add_child(_info_title)
+	var close_button := Button.new()
+	close_button.name = "InfoCloseButton"
+	close_button.text = "Close"
+	close_button.custom_minimum_size = Vector2(64, 48)
+	close_button.pressed.connect(close_secondary_surface)
+	header.add_child(close_button)
+	var scroll := ScrollContainer.new()
+	scroll.name = "InfoScroll"
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	content.add_child(scroll)
+	_info_body = Label.new()
+	_info_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_info_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_info_body.add_theme_font_size_override("font_size", 13)
+	scroll.add_child(_info_body)
+	# The whole existing summary is the 48px Info target, with a small visible
+	# header handle. It consumes no additional command-row width or dock height.
+	_selection_name_header = HBoxContainer.new()
+	_selection_name_header.name = "SelectionNameHeader"
+	_selection_name_header.add_theme_constant_override("separation", 6)
+	selection_info_column.add_child(_selection_name_header)
+	selection_info_column.move_child(_selection_name_header, 0)
+	selection_name.reparent(_selection_name_header)
+	selection_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	selection_name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	var info_handle := Label.new()
+	info_handle.text = "Info ›"
+	info_handle.add_theme_font_size_override("font_size", 10)
+	info_handle.add_theme_color_override("font_color", KingdomTheme.AMBER)
+	_selection_name_header.add_child(info_handle)
+	_selection_info_button = Button.new()
+	_selection_info_button.name = "SelectionInfoButton"
+	_selection_info_button.flat = true
+	_selection_info_button.focus_mode = Control.FOCUS_NONE
+	_selection_info_button.z_index = 1
+	_selection_info_button.tooltip_text = "Info: names, costs, roles and current orders"
+	for style_name: String in ["normal", "hover", "pressed", "focus"]:
+		_selection_info_button.add_theme_stylebox_override(style_name, StyleBoxEmpty.new())
+	_selection_info_button.pressed.connect(_show_selection_information)
+	$Root.add_child(_selection_info_button)
+	_hotkey_panel.z_index = 60
+	_attach_hud_hold(_unit_more_button, _selection_information, _more_hold_choices)
+
+
+func _layout_summary_info_target() -> void:
+	if _selection_info_button == null:
+		return
+	_selection_info_button.position = selection_info_column.get_global_rect().position
+	_selection_info_button.size = Vector2(selection_info_column.size.x, maxf(48.0, selection_info_column.size.y))
+
+
+func _layout_secondary_cards() -> void:
+	var card_area: Rect2 = get_hold_safe_rect()
+	var card_size := Vector2(minf(440.0, card_area.size.x - 24.0), minf(300.0, card_area.size.y - 16.0))
+	var card_position: Vector2 = card_area.position + (card_area.size - card_size) * 0.5
+	if _info_panel:
+		_info_panel.position = card_position
+		_info_panel.size = card_size
+	if _hotkey_panel:
+		_hotkey_panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
+		_hotkey_panel.position = card_position
+		_hotkey_panel.size = card_size
+
+
+func _refresh_dismissal_shield() -> void:
+	if _secondary_dismissal_shield:
+		var protected: Array[Rect2] = []
+		if is_instance_valid(_pause_button) and _pause_button.is_visible_in_tree() and not _pause_button.disabled:
+			protected.append(_pause_button.get_global_rect())
+		_secondary_dismissal_shield.set("protected_rects", protected)
+		_secondary_dismissal_shield.call("set_active", _secondary_surface in [SecondarySurface.HELP, SecondarySurface.WORLD_CONTEXT] or (_secondary_surface == SecondarySurface.INFO and _active_hold_component == null))
+
+
+func _show_selection_information() -> void:
+	if not _selection_context_active:
+		return
+	show_card_information(_selection_information())
+
+
+func show_card_information(info: Dictionary) -> void:
+	# Build's tap-inspection mode uses the same persistent card while retaining
+	# its modal palette. The shield owns an outside dismissal through release.
+	if _placement_mode_active or _ui_modal_state not in [UIModalState.NONE, UIModalState.BUILD_MENU]:
+		return
+	_cancel_hud_holds("tap information")
+	_info_from_build_menu = _ui_modal_state == UIModalState.BUILD_MENU
+	_info_title.text = str(info.get("title", "Info"))
+	_info_body.text = str(info.get("body", ""))
+	(_info_panel.find_child("InfoScroll", true, false) as ScrollContainer).scroll_vertical = 0
+	# Native GUI hit testing traverses sibling order. Build is added after HUD
+	# ready, so raise both direct CanvasLayer children whenever Info is opened.
+	move_child(_secondary_dismissal_shield, get_child_count() - 1)
+	move_child(_info_panel, get_child_count() - 1)
+	_set_secondary_surface(SecondarySurface.INFO)
+
+
+func _selection_information() -> Dictionary:
+	var lines: PackedStringArray = []
+	lines.append("HP %d / %d" % [int(selection_hp_bar.value), int(selection_hp_bar.max_value)])
+	if not selection_details.text.is_empty():
+		lines.append(selection_details.text)
+	if _selection_kind == "unit":
+		lines.append("Move: choose a destination. Attack: move and fight on the way. Tap the armed command again to cancel.")
+		lines.append("More: Stop, Stance and %s. Hold More, slide to preview, release to choose; return to the center to cancel." % ("Patrol" if _unit_commands_have_military else "Idle workers"))
+	elif is_instance_valid(_selected_building_ref):
+		for container: Control in [_train_buttons_container, _research_container, queue_container]:
+			if container:
+				for child: Node in container.get_children():
+					if child is Button and child.has_meta("hud_hold_control"):
+						var component: Node = child.get_meta("hud_hold_control") as Node
+						if is_instance_valid(component):
+							_append_information(lines, component.call("get_info"))
+		# Refund rules remain inspectable when no queue has been purchased yet.
+		if _last_queue_items.is_empty():
+			_append_information(lines, _refund_information(-1))
+			_append_information(lines, _refund_information(-2))
+	lines.append("Hold action buttons to inspect. Short taps keep their normal action. Hold shortcuts can be disabled in Settings.")
+	return {"title": _selection_full_name, "body": "\n\n".join(lines)}
+
+
+func _append_information(lines: PackedStringArray, info: Dictionary) -> void:
+	var title: String = str(info.get("title", ""))
+	var body: String = str(info.get("body", ""))
+	if not body.is_empty():
+		lines.append((title + "\n" if not title.is_empty() else "") + body)
+
+
+func _more_hold_choices() -> Array[Dictionary]:
+	var choices: Array[Dictionary] = [
+		{"id": "stop", "label": "Stop", "description": "Stop the selected units.", "enabled": _unit_commands_authorized},
+	]
+	if _unit_commands_have_military:
+		choices.append({"id": "patrol", "label": "Patrol", "description": "Arm Patrol, then tap a world destination.", "enabled": true})
+	choices.append({"id": "stance", "label": "Stance", "description": _unit_stance_button.tooltip_text, "enabled": _unit_commands_authorized})
+	if _selection_is_worker and not _unit_commands_have_military:
+		choices.append({"id": "idle", "label": "Idle workers", "description": "Select the next idle worker.", "enabled": _last_idle_villager_count > 0})
+	return choices
+
+
+func _attach_hud_hold(button: Button, info_provider: Callable, choices_provider: Callable = Callable()) -> void:
+	if button == null or button.has_meta("hud_hold_control"):
+		return
+	var component: Node = HUD_HOLD_SCRIPT.attach_to(button, self, info_provider, _hud_hold_context.bind(button), get_hold_safe_rect, choices_provider)
+	component.set("admission_provider", func() -> bool:
+		var gm: Node = _get_game_manager()
+		return (gm == null or gm.current_state == gm.GameState.PLAYING) and _ui_modal_state == UIModalState.NONE and not _placement_mode_active and _secondary_surface not in [SecondarySurface.INFO, SecondarySurface.HELP, SecondarySurface.WORLD_CONTEXT]
+	)
+	register_hold_component(component)
+
+
+func register_hold_component(component: Node) -> void:
+	_prune_hold_components()
+	if component == null or _hold_components.has(component):
+		return
+	_hold_components.append(component)
+	component.connect("surface_opened", _on_hold_surface_opened.bind(component))
+	component.connect("surface_closed", _on_hold_surface_closed.bind(component))
+	component.connect("choice_selected", _on_hold_choice_selected)
+
+
+func _on_hold_surface_opened(kind: String, component: Node) -> void:
+	_cancel_hud_holds("replacement hold", component)
+	_active_hold_component = component
+	_hold_chooser_active = kind == "chooser"
+	_set_secondary_surface(SecondarySurface.MORE if _hold_chooser_active else SecondarySurface.INFO, false, true)
+	if _secondary_surface not in [SecondarySurface.MORE, SecondarySurface.INFO]:
+		_cancel_hud_holds("modal priority")
+	elif not _hold_hints_shown.has(kind):
+		_hold_hints_shown[kind] = true
+		show_notification("Slide to preview. Return to center to cancel." if kind == "chooser" else "Holding only inspects. Release to close.", KingdomTheme.MUTED, 2.5)
+
+
+func _on_hold_surface_closed(component: Node) -> void:
+	if _active_hold_component != component:
+		return
+	_active_hold_component = null
+	_hold_chooser_active = false
+	if _secondary_surface in [SecondarySurface.MORE, SecondarySurface.INFO]:
+		_set_secondary_surface(SecondarySurface.NONE)
+
+
+func _on_hold_choice_selected(action_id: Variant) -> void:
+	match str(action_id):
+		"stop": _on_unit_stop_pressed()
+		"patrol": _on_unit_patrol_pressed()
+		"stance": _on_unit_stance_pressed()
+		"idle":
+			close_secondary_surface()
+			_on_idle_villager_pressed()
+
+
+func _cancel_hud_holds(reason: String, except_component: Node = null) -> void:
+	_prune_hold_components()
+	if _active_hold_component != except_component:
+		_active_hold_component = null
+		_hold_chooser_active = false
+	for component: Node in _hold_components:
+		if is_instance_valid(component) and component != except_component:
+			component.call("cancel_gesture", reason)
+
+
+func _prune_hold_components() -> void:
+	for index: int in range(_hold_components.size() - 1, -1, -1):
+		if not is_instance_valid(_hold_components[index]):
+			_hold_components.remove_at(index)
+
+
+func _hud_hold_context(button: Button) -> Dictionary:
+	var context: Dictionary = {"revision": _selection_context_revision}
+	if not is_instance_valid(button):
+		return context
+	if String(button.name).begins_with("Queue"):
+		if button.has_meta("unit_type"):
+			var unit_type: int = int(button.get_meta("unit_type"))
+			context["waiting_count"] = int(_queue_counts_by_unit.get(unit_type, 0))
+		else:
+			context["size"] = _last_queue_items.size()
+			if String(button.name) == "QueueClearLastButton" and not _last_queue_items.is_empty():
+				context["last_type"] = int((_last_queue_items.back() as Dictionary).get("unit_type", -1))
+	return context
+
+
+func _full_cost_text(cost: Dictionary) -> String:
+	var parts: PackedStringArray = []
+	for resource: String in ["food", "wood", "gold"]:
+		if int(cost.get(resource, 0)) > 0:
+			parts.append("%d %s" % [int(cost[resource]), resource])
+	return " · ".join(parts)
+
+
+func _train_information(unit_type: int) -> Dictionary:
+	var stats: Dictionary = UnitData.UNITS.get(unit_type, {})
+	var body: String = "Cost: %s\nPopulation: %d · Training: %ds\nHP %d · Attack %d · Armor %d" % [_full_cost_text(UnitData.get_unit_cost(unit_type)), int(stats.get("pop_cost", 1)), int(stats.get("build_time", 15)), int(stats.get("hp", 0)), int(stats.get("damage", 0)), int(stats.get("armor", 0))]
+	var role: String = UnitData.get_unit_counter_description(unit_type)
+	if not role.is_empty():
+		body += "\n" + role
+	body += "\nRequires an active producer, enough resources and free committed population.\nTap to train one. Holding only inspects."
+	return {"title": UnitData.get_unit_name(unit_type), "body": body}
+
+
+func _repeat_information() -> Dictionary:
+	var unit_type: int = -1
+	var enabled := false
+	if _is_human_owned_building(_selected_building_ref):
+		var queue: Node = _selected_building_ref.get_production_queue()
+		if queue:
+			unit_type = int(queue.get("auto_queue_unit_type"))
+			enabled = bool(queue.get("auto_queue_enabled"))
+	var unit_name: String = UnitData.get_unit_name(unit_type) if unit_type >= 0 else "the last unit trained"
+	var body: String = "Repeat is %s.\nRepeats %s through the normal paid training queue.\nEach unit costs %s.\nWaits for resources or population space.\nCurrent status: %s\nTap to toggle. Holding only inspects." % ["ON" if enabled else "OFF", unit_name, _full_cost_text(UnitData.get_unit_cost(unit_type)) if unit_type >= 0 else "its normal resource cost", _get_repeat_wait_reason()]
+	return {"title": "Repeat training", "body": body}
+
+
+func _research_information(research_id: String) -> Dictionary:
+	for research: Dictionary in RESEARCH_DEFS:
+		if str(research.get("id", "")) == research_id:
+			return {"title": research.get("name", "Research"), "body": "%s\nCost: %s\nRequires your active Blacksmith and sufficient resources. Completed research cannot be bought again.\nTap to research. Holding only inspects." % [research.get("desc", ""), _full_cost_text(research.get("cost", {}))]}
+	return {"title": "Research", "body": "Unavailable in this context."}
+
+
+func _refund_information(unit_type: int) -> Dictionary:
+	var title: String = "Cancel queued %s" % UnitData.get_unit_name(unit_type) if unit_type >= 0 else ("Clear production" if unit_type == -2 else "Undo last queued unit")
+	var body: String = "Refunds the full paid resource cost and releases reserved population.\n"
+	if unit_type == -2:
+		body += "Stops Repeat and cancels all current and queued training. Even the active unit receives its full cost."
+	elif unit_type == -1:
+		body += "Cancels the last queue item. Repeat stays at its current setting."
+	else:
+		body += "Cancels the first waiting unit of this type; current training continues. Repeat stays at its current setting.\nRefund: " + _full_cost_text(UnitData.get_unit_cost(unit_type))
+	body += "\nTap to cancel. Holding only inspects and refunds nothing."
+	return {"title": title, "body": body}
 
 
 # --- Helpers ---

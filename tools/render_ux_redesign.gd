@@ -176,6 +176,9 @@ func _profile(phone: Vector2i,interface_scale: float,notched: bool) -> void:
                 results.call("show_defeat",{"victory_reason":"Town Center destroyed","game_time":"12:18","player_age":2,"ai_age":3,"score":1024,"ai_score":2408,"army_trained":19,"ai_army_trained":31,"units_lost":15,"ai_units_lost":11,"resources_gathered":199999,"ai_resources_gathered":299999,"sacred_control_seconds":492,"ai_sacred_control_seconds":591})
                 results.call("_fit_panel_to_size",Vector2(logical),safe)
                 await get_tree().create_timer(0.45,true,false,true).timeout
+            if state=="view_expanded" and hud.has_method("get_secondary_surface_name"):
+                (hud.get("_camera_view_button") as Button).pressed.emit()
+                assert(bool(hud.get("_camera_controls_expanded")),"View fixture must show coordinated expanded controls")
             await get_tree().process_frame
             await get_tree().process_frame
             hud.call("apply_mobile_layout",Vector2(logical),safe)
@@ -195,6 +198,8 @@ func _profile(phone: Vector2i,interface_scale: float,notched: bool) -> void:
                     for item_index: int in 14:
                         crowded_queue.append({"unit_type":queued_type,"name":UnitData.get_unit_name(queued_type),"is_training":false})
                 hud.call("show_building_selection","Town Center",5000,5000,crowded_queue,[UnitData.UnitType.VILLAGER,UnitData.UnitType.SCOUT],tc)
+                if hud.has_method("get_secondary_surface_name"):
+                    hud.call("_on_queue_navigation_pressed")
                 for settle_frame: int in 4:
                     hud.call("apply_mobile_layout",logical,safe)
                     await get_tree().process_frame

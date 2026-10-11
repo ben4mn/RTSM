@@ -205,13 +205,19 @@ func _check_category_density(phone_size: Vector2i, ui_scale: float, notched: boo
 			_expect(panel.size.y <= 166.5, "%s %s sheet keeps excess height %.1f" % [profile, category, panel.size.y])
 			_expect(not (menu.get("title_label") as Label).visible, "%s retains redundant Build title" % profile)
 			var header: HBoxContainer = menu.get("header")
+			_expect(panel.encloses(header.get_global_rect()), "%s header escapes Build sheet" % profile)
+			var info_button: Button = menu.get("_info_button") as Button
+			_expect(info_button != null and info_button.visible and not info_button.disabled and info_button.size.x >= MIN_TOUCH_TARGET and info_button.size.y >= MIN_TOUCH_TARGET, "%s Build Info lacks reachable48px target" % profile)
 			for control: Control in header.get_children():
 				if control.visible and control is Button:
 					_expect(control.size.x >= MIN_TOUCH_TARGET and control.size.y >= MIN_TOUCH_TARGET, "%s header target too small" % profile)
 					_expect(header.get_global_rect().encloses(control.get_global_rect()), "%s header action overflows" % profile)
 					_expect_button_text_fits(control as Button, profile)
 			if category == "Defence":
-				_expect(panel.size.x <= (410.0 if repeat_available else 340.0), "%s one-card Defence leaves blank width %.1f" % [profile, panel.size.x])
+				var margin: MarginContainer = menu.get_node("Margin")
+				var horizontal_padding: float = menu.get_theme_stylebox("panel").get_minimum_size().x + margin.get_theme_constant("margin_left") + margin.get_theme_constant("margin_right")
+				var content_width: float = header.get_combined_minimum_size().x + horizontal_padding
+				_expect(absf(panel.size.x - content_width) <= 0.5, "%s one-card Defence exceeds header content width %.1f/%.1f" % [profile, panel.size.x, content_width])
 				_expect(panel.size.y <= 150.5, "%s one-card Defence leaves blank height %.1f" % [profile, panel.size.y])
 				_expect(not scroll.get_h_scroll_bar().visible, "%s Defence shows an unnecessary scrollbar" % profile)
 				var tower: Button = (menu.get("_button_map") as Dictionary)[BuildingData.BuildingType.WATCH_TOWER]
@@ -219,12 +225,28 @@ func _check_category_density(phone_size: Vector2i, ui_scale: float, notched: boo
 				_expect_button_text_fits(tower, profile)
 				# Locked and unaffordable cards explain their requirement on screen.
 				_expect(tower.text.contains("Unlocks in Age 2"), "%s locked tower loses age explanation" % profile)
+				_expect(tower.disabled, "%s normal Build exposes locked purchase" % profile)
+				info_button.button_pressed = true
+				_expect(bool(menu.get("_info_mode")) and not tower.disabled, "%s Info mode cannot tap-inspect locked card" % profile)
+				var info: Dictionary = menu.call("_build_info", BuildingData.BuildingType.WATCH_TOWER)
+				var tower_stats: Dictionary = BuildingData.get_building_stats(BuildingData.BuildingType.WATCH_TOWER)
+				_expect(str(info.title) == BuildingData.get_building_name(BuildingData.BuildingType.WATCH_TOWER), "%s Build Info loses full building name" % profile)
+				for resource: String in tower_stats.get("cost", {}):
+					if int(tower_stats.cost[resource]) > 0:
+						_expect(str(info.body).contains("%d %s" % [int(tower_stats.cost[resource]), resource]), "%s Build Info loses %s cost" % [profile, resource])
+				_expect(str(info.body).contains(GameManager.get_age_name(int(tower_stats.age_required))) and str(info.body).contains("Attack: %d" % int(tower_stats.attack_damage)), "%s Build Info loses effect/age" % profile)
+				info_button.button_pressed = false
+				_expect(not bool(menu.get("_info_mode")) and tower.disabled, "%s exiting Info enables locked purchase" % profile)
 				menu.call("update_age", 2)
 				menu.call("update_resources", {"food": 0, "wood": 15, "gold": 0})
 				for frame: int in 3:
 					await get_tree().process_frame
 				var available_tower: Button = (menu.get("_button_map") as Dictionary)[BuildingData.BuildingType.WATCH_TOWER]
 				_expect(available_tower.disabled and available_tower.text.contains("Need +85W · +25G"), "%s tower loses visible shortage" % profile)
+				info_button.button_pressed = true
+				_expect(not available_tower.disabled, "%s Info mode cannot tap-inspect unaffordable card" % profile)
+				info_button.button_pressed = false
+				_expect(available_tower.disabled, "%s exiting Info enables unaffordable purchase" % profile)
 				_expect_button_text_fits(available_tower, profile)
 				menu.call("update_age", 1)
 			else:

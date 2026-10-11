@@ -73,8 +73,18 @@ func _run() -> void:
 	_expect(not bool((_hud.get("_select_area_button") as Button).button_pressed), "area button remained armed after selection")
 	_expect_clean("completed area")
 	await _tap(21, points[0])
+	_expect(_selection.selected == [worker] and _orders == 0, "first unit tap did not switch area selection to one worker")
 	await _tap(23, points[0])
 	_expect(_selection.selected.size() == points.size() and _orders == 0, "same-type double-tap selection was broken by ground-clear gesture")
+	_expect_clean("same-type double tap after area")
+	# A first unit tap also changes identity from no selection; its synchronous
+	# HUD revision must leave the completed tap available for the second tap.
+	_selection.deselect_all()
+	await _tap(25, points[0])
+	_expect(_selection.selected == [worker] and _orders == 0, "first unit tap from empty selection did not select one worker")
+	await _tap(27, points[0])
+	_expect(_selection.selected.size() == points.size() and _orders == 0, "same-type double tap from empty selection lost its first tap")
+	_expect_clean("same-type double tap from empty selection")
 
 	# A second contact aborts the box; neither finger may command on release.
 	var selected_before: Array[Node2D] = _selection.selected.duplicate()

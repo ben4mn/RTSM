@@ -36,6 +36,9 @@ func _run() -> void:
 	await _click((hud.get("_camera_zoom_in_button") as Button).get_global_rect().get_center())
 	await _click((hud.get("_camera_zoom_reset_button") as Button).get_global_rect().get_center())
 	_expect(absf(float(map.call("get_zoom_state")["zoom"]) - float(map.call("get_zoom_state")["default"])) < 0.001, "Reset pointer click does not restore default zoom")
+	_expect(not (hud.get("_camera_zoom_in_button") as Button).is_visible_in_tree() and hud.call("get_secondary_surface_name") == "none", "Reset did not collapse View")
+	await _click((hud.get("_camera_view_button") as Button).get_global_rect().get_center())
+	_expect((hud.get("_camera_zoom_in_button") as Button).is_visible_in_tree() and hud.call("get_secondary_surface_name") == "view", "View did not reopen after Reset")
 	await _click((hud.get("_camera_view_button") as Button).get_global_rect().get_center())
 	_expect(not (hud.get("_camera_zoom_in_button") as Button).is_visible_in_tree(), "View did not collapse zoom controls")
 	var home_button: Button = hud.get("_town_center_button") as Button

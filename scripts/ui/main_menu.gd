@@ -77,6 +77,7 @@ var _advanced_title: Label
 var _population_buttons: Array[Button] = []
 var _population_choices: HBoxContainer = null
 var _settings_header: HBoxContainer = null
+var _hold_shortcuts_toggle: CheckButton = null
 var _selected_population_limit: int = SkirmishData.DEFAULT_POPULATION_LIMIT
 
 
@@ -201,6 +202,13 @@ func _build_quick_start_presentation() -> void:
 	_settings_columns.add_child(_preferences_column)
 	for control: Control in [audio_toggle, camera_speed_label, camera_speed_option, ui_scale_label, ui_scale_option]:
 		control.reparent(_preferences_column)
+	_hold_shortcuts_toggle = CheckButton.new()
+	_hold_shortcuts_toggle.name = "HoldShortcutsToggle"
+	_hold_shortcuts_toggle.text = "Hold shortcuts"
+	_hold_shortcuts_toggle.tooltip_text = "Hold to inspect cards or slide to a More command. Tap controls remain available."
+	_hold_shortcuts_toggle.custom_minimum_size = Vector2(0, 48)
+	_hold_shortcuts_toggle.add_theme_font_size_override("font_size", 14)
+	_hold_shortcuts_toggle.toggled.connect(_on_hold_shortcuts_toggled)
 	_advanced_column = VBoxContainer.new()
 	_advanced_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_advanced_column.add_theme_constant_override("separation", 5)
@@ -210,6 +218,8 @@ func _build_quick_start_presentation() -> void:
 	_advanced_title.add_theme_font_size_override("font_size", 12)
 	_advanced_title.add_theme_color_override("font_color", THEME.AMBER)
 	_advanced_column.add_child(_advanced_title)
+	_advanced_title.hide()
+	_advanced_column.add_child(_hold_shortcuts_toggle)
 	seed_label.text = "Map seed (optional)"
 	seed_label.reparent(_advanced_column)
 	seed_input.reparent(_advanced_column)
@@ -279,6 +289,7 @@ func _refresh_population_choices() -> void:
 
 func _setup_settings_controls() -> void:
 	audio_toggle.button_pressed = GameManager.audio_enabled
+	_hold_shortcuts_toggle.set_pressed_no_signal(GameManager.hold_shortcuts_enabled)
 	camera_speed_option.clear()
 	for label in ["Relaxed", "Standard", "Fast"]:
 		camera_speed_option.add_item(label)
@@ -414,7 +425,7 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 	settings_vbox.add_theme_constant_override("separation", 6)
 	settings_title.add_theme_font_size_override("font_size", 20 if compact else 24)
 	settings_controls.add_theme_font_size_override("font_size", 12 if compact else 14)
-	settings_controls.text = "Tap to select & order.\nDrag to pan. + / − zooms."
+	settings_controls.text = "Tap, drag or hold controls."
 	camera_speed_label.add_theme_font_size_override("font_size", 13)
 	ui_scale_label.add_theme_font_size_override("font_size", 13)
 	seed_label.add_theme_font_size_override("font_size", 13)
@@ -537,6 +548,11 @@ func _on_audio_toggled(pressed: bool) -> void:
 	GameManager.save_preferences()
 
 
+func _on_hold_shortcuts_toggled(enabled: bool) -> void:
+	GameManager.hold_shortcuts_enabled = enabled
+	GameManager.save_preferences()
+
+
 func _on_camera_speed_selected(index: int) -> void:
 	GameManager.camera_speed_scale = CAMERA_SPEED_VALUES[clampi(index, 0, CAMERA_SPEED_VALUES.size() - 1)]
 	GameManager.save_preferences()
@@ -606,6 +622,7 @@ func _refresh_main_menu_diagnostics() -> void:
 		"settings_controls": _control_diag(settings_controls, "main_menu_settings_controls"),
 		"settings_close_button": _control_diag(settings_close_button, "main_menu_settings_close"),
 		"audio_toggle": _control_diag(audio_toggle, "main_menu_audio_toggle"),
+		"hold_shortcuts_toggle": _control_diag(_hold_shortcuts_toggle, "main_menu_hold_shortcuts"),
 		"camera_speed_label": _control_diag(camera_speed_label, "main_menu_camera_speed_label"),
 		"camera_speed_option": _control_diag(camera_speed_option, "main_menu_camera_speed"),
 		"ui_scale_label": _control_diag(ui_scale_label, "main_menu_ui_scale_label"),

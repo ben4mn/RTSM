@@ -58,6 +58,8 @@ var _idle_villager_index: int = 0
 var _patrol_command_armed: bool = false
 var _move_command_armed: bool = false
 var _attack_move_command_armed: bool = false
+var _selection_context_key: String = ""
+var _selection_context_revision: int = 0
 
 # --- Under-attack notification cooldown ---
 var _under_attack_cooldown: float = 0.0
@@ -500,6 +502,10 @@ func _on_map_ready(map_gen: MapGenerator) -> void:
 	selection_mgr.gather_command.connect(_on_gather_command)
 	selection_mgr.build_command.connect(_on_build_command)
 	selection_mgr.selection_changed.connect(_on_selection_changed)
+	selection_mgr.world_gesture_started.connect(_on_world_gesture_started)
+	selection_mgr.touch_context_opened.connect(_on_world_context_opened)
+	selection_mgr.touch_context_closed.connect(hud.end_world_context)
+	hud.world_context_close_requested.connect(selection_mgr.close_touch_context)
 
 	# Connect sacred site signals.
 	if game_map.sacred_site:
@@ -812,6 +818,8 @@ func _cycle_game_speed(direction: int) -> void:
 
 
 func _handle_escape() -> void:
+	if hud.close_secondary_surface():
+		return
 	if _placement_active:
 		_cancel_placement()
 		return
@@ -840,6 +848,8 @@ func _center_camera_on_selection() -> void:
 			subjects.append(_get_camera_subject_bounds(node))
 	if subjects.is_empty():
 		return
+	if hud.get_secondary_surface_name() == "view":
+		hud.close_secondary_surface()
 	game_map.frame_world_bounds(subjects, hud.get_world_safe_rect(), hud.get_world_occlusion_rects())
 
 
@@ -1727,7 +1737,30 @@ func _on_building_destroyed(building: BuildingBase, player_id: int, tile_pos: Ve
 #  SELECTION + COMMANDS
 # =========================================================================
 
+func _on_world_gesture_started(_contact_id: int, _screen_position: Vector2) -> void:
+	hud.notify_world_gesture_started()
+
+
+func _on_world_context_opened() -> void:
+	if hud.begin_world_context():
+		hud.set_world_context_rect(game_map.selection_mgr.get_touch_context_rect())
+	else:
+		game_map.selection_mgr.close_touch_context()
+
+
 func _on_selection_changed(selected_units: Array[Node2D]) -> void:
+	# Identity and authority change independently of the half-second status refresh.
+	var identities: PackedStringArray = []
+	for node: Node2D in selected_units:
+		if is_instance_valid(node):
+			identities.append("%d:%s" % [node.get_instance_id(), str(node.get("player_owner"))])
+	identities.sort()
+	var context_key: String = "|".join(identities)
+	if context_key != _selection_context_key:
+		_selection_context_key = context_key
+		_selection_context_revision += 1
+		game_map.selection_mgr.cancel_touch_gesture(true)
+		hud.set_selection_context_revision(_selection_context_revision)
 	if selected_units.is_empty():
 		_clear_armed_unit_commands(false)
 		hud.clear_selection()
@@ -2388,6 +2421,10 @@ func _setup_hud() -> void:
 	hud.quit_to_menu_requested.connect(_on_quit_to_menu_requested)
 	hud.guidance_dismissed.connect(_on_guidance_dismissed)
 	hud.match_learning_requested.connect(_toggle_match_learning)
+	_build_menu.hold_component_created.connect(hud.register_hold_component)
+	_build_menu.information_requested.connect(hud.show_card_information)
+	for component: Node in _build_menu.get("_hold_components"):
+		hud.register_hold_component(component)
 	_build_menu.building_selected.connect(_on_building_selected_for_placement)
 	_build_menu.cancel_placement.connect(_on_cancel_placement)
 	if _build_menu.has_signal("close_requested"):

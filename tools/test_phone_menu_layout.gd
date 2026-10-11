@@ -109,7 +109,7 @@ func _exercise_layout(ui_scale: float, notched: bool) -> void:
 		_check_surface_bounds(diagnostics, key, "%s settings overlay" % suffix)
 	_check_action_controls(
 		diagnostics,
-		["audio_toggle", "camera_speed_option", "ui_scale_option", "seed_input", "random_seed_button", "settings_close_button"],
+		["audio_toggle", "hold_shortcuts_toggle", "camera_speed_option", "ui_scale_option", "seed_input", "random_seed_button", "settings_close_button"],
 		"%s settings overlay" % suffix,
 		ui_scale
 	)

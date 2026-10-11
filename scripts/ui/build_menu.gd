@@ -7,6 +7,8 @@ extends PanelContainer
 signal building_selected(building_type: int)
 signal cancel_placement()
 signal close_requested()
+signal hold_component_created(component: Node)
+signal information_requested(info: Dictionary)
 
 @export var player_owner: int = 0
 
@@ -23,6 +25,8 @@ var _placement_mode_active: bool = false
 var _last_selected_building_type: int = -1
 var _resource_legend_row: HBoxContainer = null
 var _repeat_button: Button = null
+var _info_button: Button = null
+var _info_mode: bool = false
 var _recommended_building_type: int = -1
 var _card_width: float = 206.0
 var _sheet_height: float = 174.0
@@ -31,6 +35,8 @@ var _safe_area_rect: Rect2 = Rect2()
 var _has_safe_area_override: bool = false
 var _category_buttons: Dictionary = {}
 var _active_category: String = "Economy"
+var _dismiss_shield: Control = null
+var _hold_components: Array[Node] = []
 @export var touch_target_diagnostics: Dictionary = {}
 
 const SHEET_MAX_WIDTH := 700.0
@@ -70,6 +76,7 @@ func _ready() -> void:
 	cancel_button.visible = false
 	_create_category_buttons()
 	_create_repeat_button()
+	_create_info_button()
 
 	var gm: Node = get_node_or_null("/root/GameManager")
 	if gm:
@@ -83,6 +90,7 @@ func _ready() -> void:
 	if not viewport.size_changed.is_connected(_queue_layout_refresh):
 		viewport.size_changed.connect(_queue_layout_refresh)
 
+	_create_dismiss_shield()
 	_rebuild_grid()
 	_refresh_touch_target_diagnostics()
 
@@ -135,6 +143,10 @@ func _apply_compact_layout() -> void:
 	_card_width = content_width if visible_count == 1 else clampf(floorf((content_width - CARD_GAP * float(CARD_COLUMNS_VISIBLE - 1)) / 3.2), 174.0, 206.0)
 	for button: Button in _button_map.values():
 		button.custom_minimum_size = Vector2(_card_width, CARD_HEIGHT)
+	if _dismiss_shield != null:
+		var hud_layer: Node = get_parent()
+		var top: Control = hud_layer.get("top_bar") as Control
+		_dismiss_shield.set("protected_rects", [top.get_global_rect()] as Array[Rect2] if top != null else [] as Array[Rect2])
 	_refresh_touch_target_diagnostics()
 
 
@@ -261,6 +273,66 @@ func _create_repeat_button() -> void:
 	header.move_child(_repeat_button, header.get_child_count() - 2)
 
 
+func _create_dismiss_shield() -> void:
+	_dismiss_shield = preload("res://scripts/ui/modal_dismiss_shield.gd").new()
+	_dismiss_shield.name = "BuildOutsideDismissShield"
+	get_parent().add_child.call_deferred(_dismiss_shield)
+	call_deferred("_position_dismiss_shield")
+	_dismiss_shield.dismiss_requested.connect(func() -> void: close_requested.emit())
+
+
+func _create_info_button() -> void:
+	_info_button = Button.new()
+	_info_button.name = "BuildInfoButton"
+	_info_button.text = "Info"
+	_info_button.custom_minimum_size = Vector2(56, 48)
+	_info_button.toggle_mode = true
+	_info_button.focus_mode = Control.FOCUS_NONE
+	_info_button.tooltip_text = "Inspect building costs and requirements; tap Info again to build"
+	_info_button.toggled.connect(_on_info_toggled)
+	header.add_child(_info_button)
+	header.move_child(_info_button, header.get_child_count() - 2)
+	KingdomTheme.apply_secondary(_info_button)
+
+
+func _on_info_toggled(enabled: bool) -> void:
+	_info_mode = enabled
+	for component: Node in _hold_components:
+		if is_instance_valid(component):
+			component.cancel_gesture("build_info_mode_changed")
+	if enabled:
+		KingdomTheme.apply_primary(_info_button)
+	else:
+		KingdomTheme.apply_secondary(_info_button)
+	_refresh_affordability()
+
+
+func _position_dismiss_shield() -> void:
+	if is_instance_valid(_dismiss_shield) and _dismiss_shield.is_inside_tree():
+		get_parent().move_child(_dismiss_shield, get_index())
+
+
+func _build_info(building_type: int) -> Dictionary:
+	var lines: PackedStringArray = _format_tooltip(BuildingData.get_building_stats(building_type), building_type).split("\n")
+	lines.remove_at(0)
+	lines.append("Tap to preview. Place spends the cost; Cancel spends nothing.")
+	return {"title": BuildingData.get_building_name(building_type), "body": "\n".join(lines)}
+
+
+func _hold_safe_area() -> Rect2:
+	if get_parent().has_method("get_hold_safe_rect"):
+		return get_parent().get_hold_safe_rect()
+	return _safe_area_rect if _has_safe_area_override else get_viewport().get_visible_rect()
+
+
+func get_hold_occlusion_rects() -> Array[Rect2]:
+	var bounds: Array[Rect2] = []
+	for component: Node in _hold_components:
+		if is_instance_valid(component):
+			bounds.append_array(component.get_visible_bounds())
+	return bounds
+
+
 func open_menu() -> void:
 	var gm: Node = get_node_or_null("/root/GameManager")
 	if gm:
@@ -270,6 +342,8 @@ func open_menu() -> void:
 			_active_category = category
 			break
 	visible = true
+	if _dismiss_shield != null:
+		_dismiss_shield.set_active(true)
 	_rebuild_grid()
 	_refresh_affordability()
 	_update_aux_button()
@@ -280,6 +354,15 @@ func open_menu() -> void:
 
 func close_menu() -> void:
 	visible = false
+	_info_mode = false
+	if _info_button != null:
+		_info_button.set_pressed_no_signal(false)
+		KingdomTheme.apply_secondary(_info_button)
+	if _dismiss_shield != null:
+		_dismiss_shield.set_active(false)
+	for component: Node in _hold_components:
+		if is_instance_valid(component):
+			component.cancel_gesture("build_closed")
 	_refresh_touch_target_diagnostics()
 
 
@@ -299,6 +382,11 @@ func set_placement_mode(active: bool) -> void:
 # --- Grid population ---
 
 func _rebuild_grid() -> void:
+	for component: Node in _hold_components:
+		if is_instance_valid(component):
+			component.cancel_gesture("cards_rebuilt")
+			component.detach()
+	_hold_components.clear()
 	# Clear existing buttons
 	for child in grid.get_children():
 		# This menu is rebuilt and diagnosed in the same frame. Immediate removal
@@ -348,6 +436,12 @@ func _rebuild_grid() -> void:
 		btn.pressed.connect(_on_building_button_pressed.bind(building_type))
 		grid.add_child(btn)
 		_button_map[building_type] = btn
+		var hold: Node = preload("res://scripts/ui/hud_hold_control.gd").attach_to(btn, get_parent(), _build_info.bind(building_type), func() -> Variant: return building_type, _hold_safe_area)
+		hold.set("admission_provider", func() -> bool:
+			var hud_layer: Node = get_parent()
+			return visible and not _placement_mode_active and (not hud_layer.has_method("get_secondary_surface_name") or hud_layer.get_secondary_surface_name() not in ["info", "help", "world_context"]))
+		_hold_components.append(hold)
+		hold_component_created.emit(hold)
 
 	_refresh_categories()
 	_refresh_affordability()
@@ -376,8 +470,17 @@ func _compact_building_name(building_name: String) -> String:
 func _format_tooltip(stats: Dictionary, building_type: int) -> String:
 	var lines: PackedStringArray = PackedStringArray()
 	lines.append(stats["name"])
-	lines.append("HP: %d" % stats.get("hp", 0))
-	lines.append("Build time: %ds" % int(stats.get("build_time", 30.0)))
+	lines.append(BUILDING_PURPOSES.get(building_type, "Expand your settlement"))
+	var costs: PackedStringArray = []
+	for resource: String in ["food", "wood", "gold"]:
+		var amount: int = int(stats.get("cost", {}).get(resource, 0))
+		if amount > 0:
+			costs.append("%d %s" % [amount, resource])
+	lines.append("Cost: " + (" · ".join(costs) if not costs.is_empty() else "No cost"))
+	var age_req: int = stats.get("age_required", 0)
+	if age_req > 0:
+		lines.append(_get_age_requirement_text(age_req))
+	lines.append("HP %d · Build %ds" % [stats.get("hp", 0), int(stats.get("build_time", 30.0))])
 	if stats.get("pop_provided", 0) > 0:
 		lines.append("Provides: +%d population" % stats["pop_provided"])
 	var drop_off: Array = stats.get("drop_off", [])
@@ -393,11 +496,6 @@ func _format_tooltip(stats: Dictionary, building_type: int) -> String:
 		lines.append("Research: Weapon & Armor upgrades")
 	if stats.get("attack_damage", 0) > 0:
 		lines.append("Attack: %d (Range: %d)" % [stats["attack_damage"], stats.get("attack_range", 0)])
-	var age_req: int = stats.get("age_required", 0)
-	if age_req > 0:
-		var gm: Node = get_node_or_null("/root/GameManager")
-		if gm:
-			lines.append("Requires: %s" % gm.get_age_name(age_req))
 	return "\n".join(lines)
 
 
@@ -416,7 +514,7 @@ func _refresh_affordability() -> void:
 			lines[1] = _missing_resource_text(cost)
 			btn.text = "\n".join(lines)
 		_apply_card_style(btn)
-		btn.disabled = _placement_mode_active or age_locked or not can_afford
+		btn.disabled = _placement_mode_active or (not _info_mode and (age_locked or not can_afford))
 		if age_locked:
 			btn.modulate = Color(0.82, 0.85, 0.9, 1.0)
 		elif can_afford:
@@ -454,6 +552,9 @@ func _can_afford(cost: Dictionary) -> bool:
 # --- Signal handlers ---
 
 func _on_building_button_pressed(building_type: int) -> void:
+	if _info_mode:
+		information_requested.emit(_build_info(building_type))
+		return
 	_last_selected_building_type = building_type
 	_update_repeat_button()
 	set_placement_mode(true)
@@ -510,6 +611,8 @@ func set_recommended_building(building_type: int) -> void:
 
 
 func _update_aux_button() -> void:
+	if _info_button != null:
+		_info_button.disabled = _placement_mode_active
 	if _placement_mode_active:
 		cancel_button.visible = true
 		cancel_button.disabled = false
@@ -604,6 +707,8 @@ func _refresh_touch_target_diagnostics() -> void:
 		"panel": _control_touch_diag(self, "build_menu_panel"),
 		"cancel_button": _control_touch_diag(cancel_button, "build_menu_cancel"),
 		"repeat_button": _control_touch_diag(_repeat_button, "build_menu_repeat"),
+		"info_button": _control_touch_diag(_info_button, "build_menu_info"),
+		"info_mode": _info_mode,
 		"grid_buttons": buttons,
 		"category_buttons": _category_diagnostics(),
 		"active_category": _active_category,

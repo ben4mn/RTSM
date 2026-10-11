@@ -29,6 +29,7 @@ func _ready() -> void:
 
 func _run() -> void:
 	AudioManager.set_all_enabled(false)
+	DirAccess.make_dir_recursive_absolute(OUTPUT)
 	GameManager.guided_opening_enabled = false
 	GameManager.selected_map_seed = 202
 	GameManager.selected_population_limit = 40
