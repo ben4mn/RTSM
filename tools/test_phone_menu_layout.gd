@@ -99,20 +99,29 @@ func _exercise_layout(ui_scale: float, notched: bool) -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	menu.call("_refresh_main_menu_diagnostics")
-	_check_settings_choices(menu, suffix)
-	_check_population_choices(menu, suffix, ui_scale)
-	diagnostics = menu.get("main_menu_diagnostics")
-	if not bool(diagnostics.get("settings_open", false)):
-		_failures.append("%s settings overlay did not open" % suffix)
-	_check_surface_bounds(diagnostics, "settings_bounds", "%s settings overlay" % suffix)
-	for key in ["settings_title", "settings_controls", "camera_speed_label", "ui_scale_label"]:
-		_check_surface_bounds(diagnostics, key, "%s settings overlay" % suffix)
-	_check_action_controls(
-		diagnostics,
-		["audio_toggle", "hold_shortcuts_toggle", "camera_speed_option", "ui_scale_option", "seed_input", "random_seed_button", "settings_close_button"],
-		"%s settings overlay" % suffix,
-		ui_scale
-	)
+	var settings: Control = menu.get("_shared_settings")
+	if settings == null:
+		_failures.append("%s shared settings did not open" % suffix)
+	else:
+		for section: int in 4:
+			settings.call("_show_section", section)
+			await get_tree().process_frame
+			await get_tree().process_frame
+			var card: Control = settings.get("_panel")
+			if not safe_area.grow(0.5).encloses(card.get_global_rect()):
+				_failures.append("%s shared settings card leaves safe area" % suffix)
+			for node: Node in settings.find_children("*", "BaseButton", true, false):
+				var control := node as Control
+				if control.is_visible_in_tree() and control.size.y < 47.5:
+					_failures.append("%s setting %s shorter than 48 logical px" % [suffix, control.name])
+			if section == 2:
+				var scale_option: OptionButton = settings.find_child("UiScaleOption", true, false)
+				if scale_option == null or scale_option.item_count != 3 or scale_option.get_item_text(0) != "Standard":
+					_failures.append("%s display settings do not expose supported scales" % suffix)
+			if section == 3:
+				var population: OptionButton = settings.find_child("SelectedPopulationLimitOption", true, false)
+				if population == null or population.item_count != 3:
+					_failures.append("%s match settings do not expose 20/30/40 population" % suffix)
 
 	menu.free()
 	phone_viewport.free()

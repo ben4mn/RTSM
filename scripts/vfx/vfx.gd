@@ -5,6 +5,8 @@ extends RefCounted
 
 
 static func hit_burst(tree: SceneTree, pos: Vector2, color: Color = Color(1.0, 0.9, 0.6)) -> void:
+	if GameManager.reduced_motion:
+		return
 	var p := CPUParticles2D.new()
 	p.emitting = false
 	p.one_shot = true
@@ -26,6 +28,8 @@ static func hit_burst(tree: SceneTree, pos: Vector2, color: Color = Color(1.0, 0
 
 
 static func death_puff(tree: SceneTree, pos: Vector2) -> void:
+	if GameManager.reduced_motion:
+		return
 	var p := CPUParticles2D.new()
 	p.emitting = false
 	p.one_shot = true
@@ -50,6 +54,8 @@ static func death_puff(tree: SceneTree, pos: Vector2) -> void:
 
 
 static func gather_particles(tree: SceneTree, pos: Vector2, resource_type: String) -> void:
+	if GameManager.reduced_motion:
+		return
 	var color: Color
 	match resource_type:
 		"wood":
@@ -81,6 +87,8 @@ static func gather_particles(tree: SceneTree, pos: Vector2, resource_type: Strin
 
 
 static func construction_dust(tree: SceneTree, pos: Vector2) -> void:
+	if GameManager.reduced_motion:
+		return
 	var p := CPUParticles2D.new()
 	p.emitting = false
 	p.one_shot = true
@@ -105,6 +113,8 @@ static func construction_dust(tree: SceneTree, pos: Vector2) -> void:
 
 
 static func move_indicator(tree: SceneTree, pos: Vector2) -> void:
+	if GameManager.reduced_motion:
+		return
 	var p := CPUParticles2D.new()
 	p.emitting = false
 	p.one_shot = true
@@ -129,6 +139,8 @@ static func move_indicator(tree: SceneTree, pos: Vector2) -> void:
 
 
 static func attack_move_indicator(tree: SceneTree, pos: Vector2) -> void:
+	if GameManager.reduced_motion:
+		return
 	var p := CPUParticles2D.new()
 	p.emitting = false
 	p.one_shot = true
@@ -166,7 +178,8 @@ static func resource_float(tree: SceneTree, pos: Vector2, text: String, color: C
 	tree.current_scene.add_child(lbl)
 	var tween := tree.create_tween()
 	tween.set_parallel(true)
-	tween.tween_property(lbl, "global_position:y", pos.y - 40.0, 1.0)
+	if not GameManager.reduced_motion:
+		tween.tween_property(lbl, "global_position:y", pos.y - 40.0, 1.0)
 	tween.tween_property(lbl, "modulate:a", 0.0, 1.0)
 	tween.chain().tween_callback(lbl.queue_free)
 
@@ -187,12 +200,15 @@ static func damage_float(tree: SceneTree, pos: Vector2, amount: float) -> void:
 	tree.current_scene.add_child(lbl)
 	var tween := tree.create_tween()
 	tween.set_parallel(true)
-	tween.tween_property(lbl, "global_position:y", pos.y - 50.0, 0.8)
+	if not GameManager.reduced_motion:
+		tween.tween_property(lbl, "global_position:y", pos.y - 50.0, 0.8)
 	tween.tween_property(lbl, "modulate:a", 0.0, 0.8)
 	tween.chain().tween_callback(lbl.queue_free)
 
 
 static func building_smoke(tree: SceneTree, pos: Vector2) -> void:
+	if GameManager.reduced_motion:
+		return
 	var p := CPUParticles2D.new()
 	p.emitting = false
 	p.one_shot = true
@@ -217,6 +233,8 @@ static func building_smoke(tree: SceneTree, pos: Vector2) -> void:
 
 
 static func building_fire(tree: SceneTree, pos: Vector2) -> void:
+	if GameManager.reduced_motion:
+		return
 	var p := CPUParticles2D.new()
 	p.emitting = false
 	p.one_shot = true
@@ -273,12 +291,15 @@ static func counter_bonus_float(tree: SceneTree, pos: Vector2, text: String) -> 
 	tree.current_scene.add_child(lbl)
 	var tween := tree.create_tween()
 	tween.set_parallel(true)
-	tween.tween_property(lbl, "global_position:y", pos.y - 60.0, 0.9)
+	if not GameManager.reduced_motion:
+		tween.tween_property(lbl, "global_position:y", pos.y - 60.0, 0.9)
 	tween.tween_property(lbl, "modulate:a", 0.0, 0.9)
 	tween.chain().tween_callback(lbl.queue_free)
 
 
 static func building_complete(tree: SceneTree, pos: Vector2) -> void:
+	if GameManager.reduced_motion:
+		return
 	var p := CPUParticles2D.new()
 	p.emitting = false
 	p.one_shot = true

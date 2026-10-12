@@ -53,7 +53,8 @@ func _run() -> void:
 	damaged_farm.take_damage(damaged_farm.hp)
 	_expect(not damaged_farm.depleted_naturally and damaged_farm.farm_remaining == 300, "combat destruction retains its true cause")
 	_expect(int((_match.get("_stats") as Array)[0]["buildings_lost"]) == losses_before + 1, "combat destruction still counts exactly one building loss")
-	_expect(_latest_notice(hud) == "Building destroyed!", "combat destruction still warns the player")
+	var fronts: Array = _match.get("_battlefield_feedback").get("fronts")
+	_expect(not fronts.is_empty() and int(fronts.back().get("losses", 0)) == 1 and str(fronts.back().get("last_loss", "")) == "Farm", "combat destruction remains in persistent loss warning")
 	_finish()
 
 

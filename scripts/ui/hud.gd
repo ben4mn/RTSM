@@ -34,6 +34,7 @@ signal match_learning_requested()
 signal problem_report_requested()
 signal world_context_close_requested()
 signal secondary_surface_changed(surface: String)
+signal world_gesture_cancel_requested()
 
 const RESOURCE_COLORS: Dictionary = {
 	"food": Color(0.9, 0.35, 0.25),
@@ -71,7 +72,8 @@ enum UIModalState {
 	AGE_UP,
 }
 
-enum SecondarySurface { NONE, VIEW, MORE, QUEUE, INFO, HELP, WORLD_CONTEXT }
+enum SecondarySurface { NONE, VIEW, MORE, QUEUE, INFO, HELP, WORLD_CONTEXT, ECONOMY, ARMY }
+var _strategy_overview: StrategyOverview = null
 const HUD_HOLD_SCRIPT := preload("res://scripts/ui/hud_hold_control.gd")
 const DISMISS_SHIELD_SCRIPT := preload("res://scripts/ui/modal_dismiss_shield.gd")
 
@@ -476,6 +478,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not event.is_pressed() or event.is_echo():
 		return
 	if event.is_action("pause"):
+		if is_instance_valid(_pause_overlay) and _pause_overlay.has_node("SettingsPanel"):
+			get_viewport().set_input_as_handled()
+			return
 		_on_pause_pressed()
 	elif event is InputEventKey and event.keycode == KEY_F2:
 		_toggle_hotkey_panel()
@@ -795,17 +800,14 @@ func _create_pause_overlay() -> void:
 	utility_row.add_theme_constant_override("separation", 8)
 	vbox.add_child(utility_row)
 	var sound_btn := Button.new()
-	sound_btn.name = "SoundToggleButton"
-	sound_btn.text = "Sound: ON" if AudioManager.sfx_enabled else "Sound: OFF"
+	sound_btn.name = "SettingsButton"
+	sound_btn.text = "Settings"
 	sound_btn.custom_minimum_size = Vector2(128, 48)
 	sound_btn.add_theme_font_size_override("font_size", 15)
 	sound_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	sound_btn.process_mode = Node.PROCESS_MODE_ALWAYS
 	sound_btn.pressed.connect(func() -> void:
-		var enabled: bool = not AudioManager.sfx_enabled
-		AudioManager.set_all_enabled(enabled)
-		sound_btn.text = "Sound: ON" if enabled else "Sound: OFF"
-		AudioManager.play_ui("button_click")
+		load("res://scripts/ui/settings_panel.gd").open(_pause_overlay, true)
 	)
 	utility_row.add_child(sound_btn)
 	var report_btn := Button.new()
@@ -1026,6 +1028,11 @@ func get_world_occlusion_rects() -> Array[Rect2]:
 		for bounds: Rect2 in build_menu_panel.call("get_hold_occlusion_rects"):
 			if bounds.has_area() and not obstacles.has(bounds):
 				obstacles.append(bounds)
+	if _strategy_overview:
+		obstacles.append_array(_strategy_overview.get_visible_bounds())
+	var battlefield: Node = get_node_or_null("Root/BattlefieldFeedback")
+	if battlefield and battlefield.has_method("get_visible_bounds"):
+		obstacles.append_array(battlefield.call("get_visible_bounds"))
 	return obstacles
 
 
@@ -1351,14 +1358,14 @@ func update_idle_villager_count(count: int) -> void:
 	var layout_changed: bool = false
 	if _idle_villager_button:
 		var was_visible: bool = _idle_villager_button.visible
-		_idle_villager_button.visible = count > 0 and not _placement_mode_active and (not _is_phone_context() or not _selection_context_active or (_selection_kind == "unit" and _selection_is_worker and not _unit_commands_have_military))
+		_idle_villager_button.visible = _strategy_overview == null and count > 0 and not _placement_mode_active and (not _is_phone_context() or not _selection_context_active or (_selection_kind == "unit" and _selection_is_worker and not _unit_commands_have_military))
 		layout_changed = was_visible != _idle_villager_button.visible
 		if _mobile_compact_labels:
 			_idle_villager_button.text = "Idle %d" % count
 		else:
 			_idle_villager_button.text = "Idle: %d [.]" % count
 		_idle_villager_button.disabled = count <= 0
-		if count > 0:
+		if count > 0 and not bool(GameManager.get("reduced_motion")) and not bool(GameManager.get("reduced_flashes")):
 			if _idle_flash_tween == null or not _idle_flash_tween.is_valid():
 				_idle_flash_tween = create_tween().set_loops()
 				_idle_flash_tween.tween_property(_idle_villager_button, "modulate", Color(1.0, 0.85, 0.2), 0.5)
@@ -1510,6 +1517,8 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 	top_bar.offset_top = safe_top
 	top_bar.offset_bottom = safe_top + top_bar.custom_minimum_size.y
 	_layout_secondary_cards()
+	if _strategy_overview:
+		_strategy_overview.apply_layout(safe_area, standard_field_chrome_visible and _ui_modal_state == UIModalState.NONE, get_hold_safe_rect())
 	var top_bar_margin: MarginContainer = top_bar.get_node_or_null("TopBarMargin")
 	if top_bar_margin:
 		top_bar_margin.add_theme_constant_override("margin_left", int(round(safe_left + 10.0)))
@@ -1610,7 +1619,7 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 		var advanced_width: float = minf(344.0, metrics["selection_width"])
 		_advanced_command_panel.offset_left = metrics["selection_right"] - advanced_width - viewport_size.x * 0.5
 		_advanced_command_panel.offset_right = _advanced_command_panel.offset_left + advanced_width
-		_advanced_command_panel.offset_bottom = metrics["selection_top"] - 8.0
+		_advanced_command_panel.offset_bottom = metrics["selection_top"] - (64.0 if _strategy_overview else 8.0)
 		_advanced_command_panel.offset_top = _advanced_command_panel.offset_bottom - 60.0
 		_advanced_command_panel.visible = _advanced_commands_open and not _hold_chooser_active and _unit_command_container.visible and standard_field_chrome_visible
 		for child in _advanced_command_container.get_children():
@@ -1711,15 +1720,15 @@ func _apply_context_actions(viewport_size: Vector2) -> void:
 	var gm: Node = _get_game_manager()
 	var can_advance: bool = gm == null or not gm.get_age_up_cost(0, gm.get_player_age(0) + 1).is_empty()
 	age_up_button.visible = field_mode and not _early_game_ui_active and can_advance and town_center
-	_selection_back_button.visible = field_mode and _selection_context_active and _selection_kind != "unit"
+	_selection_back_button.visible = field_mode and _selection_context_active and _selection_kind != "unit" and (not _camera_controls_expanded or _strategy_overview == null)
 	_selection_back_button.text = "Back"
 	_select_area_button.visible = field_mode
 	_select_area_button.disabled = _ui_modal_state != UIModalState.NONE
-	_town_center_button.visible = field_mode and unselected
-	_idle_villager_button.visible = field_mode and _last_idle_villager_count > 0 and unselected
+	_town_center_button.visible = _strategy_overview == null and field_mode and unselected
+	_idle_villager_button.visible = _strategy_overview == null and field_mode and _last_idle_villager_count > 0 and unselected
 	var military_allowed: bool = not _early_game_ui_active or _guided_military_shortcuts_visible
-	_select_military_button.visible = field_mode and military_allowed and (_last_military_count > 0 or _pending_military_shortcut) and unselected
-	_find_army_button.visible = field_mode and not phone and military_allowed and _last_military_count > 0 and unselected
+	_select_military_button.visible = _strategy_overview == null and field_mode and military_allowed and (_last_military_count > 0 or _pending_military_shortcut) and unselected
+	_find_army_button.visible = _strategy_overview == null and field_mode and not phone and military_allowed and _last_military_count > 0 and unselected
 	var primary_age: bool = town_center
 	if primary_age != _age_action_primary:
 		_age_action_primary = primary_age
@@ -1967,7 +1976,10 @@ func _refresh_touch_target_diagnostics() -> void:
 	diag["placement_confirm_button"] = _control_touch_diag(_placement_confirm_button, "placement_confirm_button")
 	diag["placement_preview_valid"] = _placement_preview_valid
 	diag["placement_input_mode"] = "touch" if _placement_uses_touch else "mouse"
-	diag["home_button"] = _control_touch_diag(_town_center_button, "home_button")
+	diag["home_button"] = _control_touch_diag(get_base_navigation_button(), "home_button")
+	if _strategy_overview:
+		diag["strategy_rail"] = _collect_button_diags(_strategy_overview.rail, "strategy_rail")
+		diag["strategy_surface"] = get_secondary_surface_name()
 	diag["camera_zoom_buttons"] = _collect_button_diags(_camera_controls, "camera_zoom")
 	diag["camera_zoom_controls"] = _control_touch_diag(_camera_controls, "camera_zoom_controls")
 	diag["camera_view_button"] = _control_touch_diag(_camera_view_button, "camera_view")
@@ -2106,7 +2118,7 @@ func set_minimap_hint(text: String) -> void:
 
 
 func _refresh_primary_action_visuals() -> void:
-	var pulse: float = 0.88 + 0.12 * (0.5 + 0.5 * sin(_focus_pulse_time * 4.0))
+	var pulse: float = 1.0 if bool(GameManager.get("reduced_motion")) or bool(GameManager.get("reduced_flashes")) else 0.88 + 0.12 * (0.5 + 0.5 * sin(_focus_pulse_time * 4.0))
 	build_menu_button.modulate = Color.WHITE
 	age_up_button.modulate = Color.WHITE
 	if _pause_button:
@@ -2120,8 +2132,10 @@ func _refresh_primary_action_visuals() -> void:
 	if _placement_cancel_button:
 		_placement_cancel_button.modulate = Color.WHITE
 	if _minimap_hint_label:
-		_minimap_hint_label.modulate = Color(1.0, 1.0, 1.0, 0.82 + 0.18 * sin(_focus_pulse_time * 4.0))
+		_minimap_hint_label.modulate = Color(1.0, 1.0, 1.0, 1.0 if bool(GameManager.get("reduced_motion")) or bool(GameManager.get("reduced_flashes")) else 0.82 + 0.18 * sin(_focus_pulse_time * 4.0))
 	minimap_bg.color = KingdomTheme.INK_PANEL
+	if _strategy_overview:
+		_strategy_overview.set_attention(_primary_action_focus, pulse)
 
 	if _primary_action_focus == "build_button":
 		build_menu_button.modulate = Color(1.0, pulse, 0.62, 1.0)
@@ -3266,7 +3280,6 @@ func _on_build_menu_pressed() -> void:
 # --- Age up ---
 
 func _on_age_up_pressed() -> void:
-	AudioManager.play_ui("age_up")
 	age_up_requested.emit()
 
 
@@ -3382,9 +3395,8 @@ func update_minimap(grid: Array, player_units: Array, enemy_units: Array, player
 			var px: int = sacred_x + dx
 			var py: int = sacred_y + dy
 			if px >= 0 and px < map_w and py >= 0 and py < map_h:
-				# Only show if explored
-				if fog_grid.is_empty() or fog_grid[py][px] != MapData.FogState.UNEXPLORED:
-					_minimap_image.set_pixel(px, py, sacred_color)
+				# Objective location is public; terrain and enemies remain fogged.
+				_minimap_image.set_pixel(px, py, sacred_color)
 
 	_minimap_texture.update(_minimap_image)
 	minimap_rect.texture = _minimap_texture
@@ -3879,6 +3891,7 @@ func update_military_count(count: int) -> void:
 	var can_show_guided_shortcuts: bool = not _early_game_ui_active or _guided_military_shortcuts_visible
 	var show_shortcuts: bool = (
 		can_show_guided_shortcuts
+		and _strategy_overview == null
 		and not _placement_mode_active
 		and (count > 0 or _pending_military_shortcut)
 		and (not _is_phone_context() or not _selection_context_active)
@@ -4029,6 +4042,8 @@ func _set_secondary_surface(surface: SecondarySurface, preserve_queue_scroll: bo
 		_hotkey_panel.visible = surface == SecondarySurface.HELP
 	if _info_panel:
 		_info_panel.visible = surface == SecondarySurface.INFO and _active_hold_component == null
+	if _strategy_overview:
+		_strategy_overview.set_surface(get_secondary_surface_name())
 	if surface != SecondarySurface.MORE:
 		_hold_chooser_active = false
 	_refresh_dismissal_shield()
@@ -4129,8 +4144,10 @@ func _refresh_dismissal_shield() -> void:
 		var protected: Array[Rect2] = []
 		if is_instance_valid(_pause_button) and _pause_button.is_visible_in_tree() and not _pause_button.disabled:
 			protected.append(_pause_button.get_global_rect())
+		if _strategy_overview and _strategy_overview.rail.is_visible_in_tree():
+			protected.append(_strategy_overview.rail.get_global_rect())
 		_secondary_dismissal_shield.set("protected_rects", protected)
-		_secondary_dismissal_shield.call("set_active", _secondary_surface in [SecondarySurface.HELP, SecondarySurface.WORLD_CONTEXT] or (_secondary_surface == SecondarySurface.INFO and _active_hold_component == null))
+		_secondary_dismissal_shield.call("set_active", _secondary_surface in [SecondarySurface.HELP, SecondarySurface.WORLD_CONTEXT, SecondarySurface.ECONOMY, SecondarySurface.ARMY] or (_secondary_surface == SecondarySurface.INFO and _active_hold_component == null))
 
 
 func _show_selection_information() -> void:
@@ -4215,6 +4232,8 @@ func register_hold_component(component: Node) -> void:
 	if component == null or _hold_components.has(component):
 		return
 	_hold_components.append(component)
+	if component.has_signal("ownership_started"):
+		component.connect("ownership_started", func(_contact_id: int) -> void: world_gesture_cancel_requested.emit())
 	component.connect("surface_opened", _on_hold_surface_opened.bind(component))
 	component.connect("surface_closed", _on_hold_surface_closed.bind(component))
 	component.connect("choice_selected", _on_hold_choice_selected)
@@ -4353,3 +4372,41 @@ func _apply_game_theme() -> void:
 	food_label.add_theme_color_override("font_color", Color(0.95, 0.54, 0.39))
 	wood_label.add_theme_color_override("font_color", Color(0.62, 0.78, 0.55))
 	gold_label.add_theme_color_override("font_color", KingdomTheme.AMBER)
+
+
+func setup_strategy_overview() -> StrategyOverview:
+	if _strategy_overview:
+		return _strategy_overview
+	_strategy_overview = preload("res://scripts/ui/strategy_overview.gd").new()
+	_strategy_overview.name = "StrategyOverview"
+	add_child(_strategy_overview)
+	_strategy_overview.surface_requested.connect(_on_strategy_surface_requested)
+	_strategy_overview.world_gesture_cancel_requested.connect(func() -> void: world_gesture_cancel_requested.emit())
+	_strategy_overview.base_requested.connect(func() -> void:
+		close_secondary_surface()
+		town_center_pressed.emit())
+	_strategy_overview.army_requested.connect(func() -> void:
+		close_secondary_surface()
+		select_all_military_pressed.emit())
+	_strategy_overview.army_focus_requested.connect(func() -> void:
+		close_secondary_surface()
+		find_army_pressed.emit())
+	_strategy_overview.idle_requested.connect(_on_idle_villager_pressed)
+	_queue_mobile_layout_refresh()
+	return _strategy_overview
+
+
+func _on_strategy_surface_requested(surface: String) -> void:
+	# Native GUI uses sibling order as well as z-index. Raise the shield then
+	# the sheet so later BuildMenu children cannot receive management contacts.
+	move_child(_secondary_dismissal_shield, get_child_count() - 1)
+	move_child(_strategy_overview, get_child_count() - 1)
+	_set_secondary_surface(SecondarySurface.ECONOMY if surface == "economy" else (SecondarySurface.ARMY if surface == "army" else SecondarySurface.NONE))
+
+
+func get_strategy_overview_bounds() -> Array[Rect2]:
+	return _strategy_overview.get_visible_bounds() if _strategy_overview else []
+
+
+func get_base_navigation_button() -> Button:
+	return _strategy_overview.rail.get_node("BaseButton") as Button if _strategy_overview else _town_center_button

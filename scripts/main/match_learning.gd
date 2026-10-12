@@ -145,7 +145,7 @@ func _choose_lesson(buildings: Array, site_status: Dictionary) -> Dictionary:
 	var text: String = ""
 	if worker_losses > worker_replacements:
 		lesson = "recovery"
-		text = "Recover · Tap Home, then Villager. Food restores your gathering economy."
+		text = "Recover · Open Economy and train a Villager. Keep food staffed."
 		unit_type = UnitData.UnitType.VILLAGER
 	elif _injured_army and retreats_completed == 0:
 		lesson = "retreat"

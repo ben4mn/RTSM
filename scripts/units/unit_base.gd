@@ -255,16 +255,29 @@ func _draw() -> void:
 	draw_colored_polygon(contact_shadow, Color(0.03, 0.07, 0.08, 0.19))
 	draw_polyline(ground_ring, Color(team_color.lightened(0.18), 0.85), 1.4, true)
 
+	if GameManager.clearer_player_markers:
+		var camera: Camera2D = get_viewport().get_camera_2d()
+		var inverse_zoom: float = 1.0 / maxf(0.5, camera.zoom.x) if camera != null else 1.0
+		var marker_size: float = 3.5 * inverse_zoom
+		var center := Vector2(0, 7.0)
+		if player_owner == 0:
+			draw_circle(center, marker_size + inverse_zoom, Color(0.02, 0.06, 0.08, 0.95))
+			draw_circle(center, marker_size, Color("81e0e0"))
+		else:
+			var diamond := PackedVector2Array([center + Vector2(0, -marker_size * 1.3), center + Vector2(marker_size * 1.3, 0), center + Vector2(0, marker_size * 1.3), center + Vector2(-marker_size * 1.3, 0), center + Vector2(0, -marker_size * 1.3)])
+			draw_colored_polygon(diamond, Color("ff937a"))
+			draw_polyline(diamond, Color(0.12, 0.03, 0.02, 0.95), inverse_zoom, true)
+
 	# Selection indicator (pulsing circle under unit)
 	if is_selected:
-		var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.005)
+		var pulse: float = 1.0 if GameManager.reduced_flashes or GameManager.reduced_motion else 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.005)
 		var sel_alpha := lerpf(0.75, 1.0, pulse)
 		draw_polyline(ground_ring, Color(1.0, 0.86, 0.49, sel_alpha), 3.0, true)
 
 	# Critical HP pulsing red ring (< 25% HP)
 	var hp_ratio: float = hp / max_hp if max_hp > 0 else 0.0
 	if hp_ratio > 0.0 and hp_ratio < 0.25:
-		var crit_pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.01)
+		var crit_pulse: float = 0.8 if GameManager.reduced_flashes else 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.01)
 		draw_polyline(ground_ring, Color(1.0, 0.2, 0.1, crit_pulse * 0.8), 2.0, true)
 		queue_redraw()
 
@@ -1039,16 +1052,16 @@ func take_damage(amount: float) -> void:
 		damage_received.emit(self, previous_hp - hp)
 	_flash_damage()
 	# Floating damage number
-	if get_tree() and get_tree().current_scene:
+	if get_tree() and get_tree().current_scene and AudioManager.is_source_visible(self):
 		VFX.damage_float(get_tree(), global_position, actual_damage)
-	AudioManager.play_sfx("attack_hit")
+	AudioManager.play_world("attack_hit", self)
 	queue_redraw()
 	if hp <= 0.0:
 		die()
 
 
 func _flash_damage() -> void:
-	if _sprite == null:
+	if _sprite == null or GameManager.reduced_flashes:
 		return
 	# Bursts may land while the previous flash is still white. Always restore
 	# the stable team tint and replace the old tween instead of capturing its
@@ -1073,9 +1086,9 @@ func die() -> void:
 	set_state(State.DEAD)
 	unit_died.emit(self)
 	# Death puff particles
-	if get_tree() and get_tree().current_scene:
+	if get_tree() and get_tree().current_scene and AudioManager.is_source_visible(self):
 		VFX.death_puff(get_tree(), global_position)
-	AudioManager.play_sfx("unit_death")
+	AudioManager.play_world("unit_death", self)
 	# Brief delay before removal for death animation opportunity
 	var tween := create_tween()
 	tween.tween_property(self, "modulate:a", 0.0, 0.3)

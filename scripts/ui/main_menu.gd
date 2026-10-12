@@ -61,6 +61,7 @@ const FULL_SETTINGS_CONTROLS_TEXT: String = "Touch: tap to select or command •
 
 @export var main_menu_diagnostics: Dictionary = {}
 
+var _shared_settings: Control
 var _selected_difficulty: int = Difficulty.EASY
 var _compact_layout: bool = false
 var _active_safe_area: Rect2 = Rect2()
@@ -360,6 +361,8 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 	if not normalized_safe_area.has_area():
 		normalized_safe_area = viewport_rect
 	_active_safe_area = normalized_safe_area
+	if is_instance_valid(_shared_settings):
+		_shared_settings.apply_mobile_layout(viewport_size, normalized_safe_area)
 	_compact_layout = normalized_safe_area.size.y <= COMPACT_LAYOUT_MAX_HEIGHT
 	var compact: bool = _compact_layout
 	var landscape: bool = normalized_safe_area.size.x >= 620.0
@@ -531,9 +534,22 @@ func _on_guided_opening_toggled(pressed: bool) -> void:
 
 
 func _on_settings_pressed() -> void:
-	settings_overlay.visible = true
+	_shared_settings = preload("res://scripts/ui/settings_panel.gd").open(self)
+	_shared_settings.closed.connect(_on_shared_settings_closed)
+	settings_overlay.visible = false
 	# The formerly hidden overlay needs one layout frame before its child bounds
 	# are meaningful to touch automation and accessibility diagnostics.
+	call_deferred("_refresh_responsive_layout")
+
+
+func _on_shared_settings_closed() -> void:
+	_selected_difficulty = GameManager.selected_difficulty
+	_selected_population_limit = GameManager.selected_population_limit
+	difficulty_option.select(_selected_difficulty)
+	guided_opening_toggle.set_pressed_no_signal(GameManager.guided_opening_enabled)
+	seed_input.text = str(GameManager.selected_map_seed) if GameManager.selected_map_seed >= 0 else ""
+	_apply_difficulty_description()
+	_refresh_population_choices()
 	call_deferred("_refresh_responsive_layout")
 
 
@@ -571,9 +587,9 @@ func _on_seed_text_changed(_new_text: String) -> void:
 func _on_start_pressed() -> void:
 	GameManager.selected_difficulty = _selected_difficulty
 	GameManager.guided_opening_enabled = guided_opening_toggle.button_pressed
-	GameManager.save_preferences()
 	var seed_text: String = seed_input.text.strip_edges()
 	GameManager.selected_map_seed = int(seed_text) if seed_text != "" and seed_text.is_valid_int() else -1
+	GameManager.save_preferences()
 	# A touch-generated Button press is still being dispatched by Viewport while
 	# this callback runs. Removing the focused menu immediately leaves Web's
 	# emulated mouse/touch focus pointing at a detached Control for the remainder
@@ -615,7 +631,7 @@ func _refresh_main_menu_diagnostics() -> void:
 		"random_seed_button": _control_diag(random_seed_button, "main_menu_random_seed"),
 		"guided_opening_toggle": _control_diag(guided_opening_toggle, "main_menu_guided_opening"),
 		"seed_input": _control_diag(seed_input, "main_menu_seed_input"),
-		"settings_open": settings_overlay.visible,
+		"settings_open": is_instance_valid(_shared_settings) or settings_overlay.visible,
 		"settings_button": _control_diag(settings_button, "main_menu_settings"),
 		"settings_bounds": _control_diag(settings_panel, "main_menu_settings_bounds"),
 		"settings_title": _control_diag(settings_title, "main_menu_settings_title"),

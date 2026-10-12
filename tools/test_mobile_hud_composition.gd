@@ -183,7 +183,7 @@ func _exercise_profile(phone: Vector2i, ui_scale: float, notched: bool) -> void:
 	await _settle(hud, logical, safe)
 	var pause_menu: Control = hud.get("_pause_overlay").get_node("PauseMenu")
 	_expect(safe.encloses(pause_menu.get_global_rect()), profile + " pause leaves safe area")
-	for name: String in ["ResumeButton", "UtilityRow/SoundToggleButton", "UtilityRow/ReportProblemButton", "QuitButton", "MatchLearningButton"]:
+	for name: String in ["ResumeButton", "UtilityRow/SettingsButton", "UtilityRow/ReportProblemButton", "QuitButton", "MatchLearningButton"]:
 		_target(pause_menu.get_node(name), safe, profile)
 	hud.call("set_ui_modal_state", 0)
 	_profiles_checked += 1

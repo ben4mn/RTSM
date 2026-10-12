@@ -240,12 +240,12 @@ func _draw() -> void:
 		for segment: int in range(32):
 			var angle: float = float(segment) * TAU / 32.0
 			draw_arc(Vector2.ZERO, tower_attack_range, angle, angle + TAU / 48.0, 4, range_color, 1.6, true)
-	if _defensive_shot_flash_remaining > 0.0:
+	if _defensive_shot_flash_remaining > 0.0 and not GameManager.reduced_flashes:
 		draw_circle(Vector2(0.0, -52.0), 4.0, Color(1.0, 0.88, 0.48, 0.7))
 
 	# Selection outline (pulsing isometric diamond border)
 	if is_selected:
-		var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.005)
+		var pulse: float = 1.0 if GameManager.reduced_motion or GameManager.reduced_flashes else 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.005)
 		var sel_alpha := lerpf(0.55, 0.95, pulse)
 		var sel_width := lerpf(2.0, 3.6, pulse)
 		var points := PackedVector2Array([
@@ -385,6 +385,8 @@ func _process(delta: float) -> void:
 func add_build_progress(amount: float) -> void:
 	if state != State.CONSTRUCTING:
 		return
+	if amount > 0.0:
+		AudioManager.play_world("construction_work", self)
 	build_progress = clampf(build_progress + amount / build_time, 0.0, 1.0)
 	hp = int(max_hp * build_progress)
 	if build_progress >= 1.0:
@@ -437,7 +439,7 @@ func take_damage(amount: int) -> void:
 
 
 func _flash_damage() -> void:
-	if _sprite == null:
+	if _sprite == null or GameManager.reduced_flashes:
 		return
 	var original: Color = _sprite.modulate
 	_sprite.modulate = Color(1.0, 1.0, 1.0)  # White flash — visible on both player and enemy buildings
@@ -462,6 +464,7 @@ func _destroy() -> void:
 func select() -> void:
 	is_selected = true
 	building_selected.emit(self)
+	AudioManager.play_ui("select_unit")
 	queue_redraw()
 
 

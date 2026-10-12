@@ -1,6 +1,6 @@
 extends Node
-## Direct friendly reselection preserves nearby ground commands and explicit
-## Move / Attack-move destinations on touch.
+## Discovery and reselection share stable targets, while nearby ground and
+## explicit Move / Attack-move destinations remain available on touch.
 
 var _failures: Array[String] = []
 var _move_count: int = 0
@@ -55,7 +55,7 @@ func _run() -> void:
 	selection_manager.select_single(scout)
 	# Wait past the double-tap interval so this remains an independent ground tap.
 	await get_tree().create_timer(0.36).timeout
-	selection_manager.call("_handle_tap", building_screen_position + Vector2(31.0, 0.0), true)
+	selection_manager.call("_handle_tap", building_screen_position + Vector2(36.0, 0.0), true)
 	_expect(selection_manager.selected.size() == 1 and selection_manager.selected[0] == scout, "nearby ground tap retains the unit selection")
 	_expect_eq(_move_count, 1, "nearby ground tap emits exactly one move")
 	_expect_eq(String(selection_manager.touch_input_diagnostics.get("action", "")), "move", "nearby tap remains a move command")
@@ -91,14 +91,14 @@ func _run() -> void:
 	selection_manager.select_single(scout)
 	selection_manager.set("_last_tap_time", 0.0)
 	selection_manager.call("_handle_tap", unit_screen_position + Vector2(21.0, 0.0), true)
-	_expect(selection_manager.selected.size() == 1 and selection_manager.selected[0] == scout, "outer unit hit ring retains selected units")
-	_expect_eq(_move_count, 2, "outer unit hit ring emits a ground move")
+	_expect(selection_manager.selected.size() == 1 and selection_manager.selected[0] == second_scout, "discovery ring consistently selects the unit during reselection")
+	_expect_eq(_move_count, 1, "discovery ring does not unexpectedly move the prior selection")
 
 	selection_manager.select_single(scout)
 	selection_manager.set_unit_command_armed(true)
 	selection_manager.call("_handle_tap", unit_screen_position, true)
 	_expect(selection_manager.selected.size() == 1 and selection_manager.selected[0] == scout, "armed destination on a friendly unit keeps the previous selection")
-	_expect_eq(_move_count, 3, "armed destination on a friendly unit still emits a move")
+	_expect_eq(_move_count, 2, "armed destination on a friendly unit still emits a move")
 	_expect_eq(String(selection_manager.touch_input_diagnostics.get("action", "")), "armed_command", "armed mode wins over reselection")
 
 	game_map.free()

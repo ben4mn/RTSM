@@ -26,7 +26,7 @@ func _run() -> void:
     var wood_before: int=ResourceManager.get_all_resources(0).get("wood",0)
     var buildings_before: int=main.get("_player_buildings")[0].size()
     var age_before: int=GameManager.get_player_age(0)
-    await _tap((hud.get("_town_center_button") as Button).get_global_rect().get_center())
+    await _tap((hud.call("get_base_navigation_button") as Button).get_global_rect().get_center())
     await _tap((hud.get("age_up_button") as Button).get_global_rect().get_center())
     _expect(GameManager.get_player_age(0)==age_before,"Age Up advanced despite insufficient starting resources")
     var age_button: Button=hud.get("age_up_button")

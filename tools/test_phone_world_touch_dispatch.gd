@@ -69,7 +69,7 @@ func _scenario(phone: Vector2i, interface_scale: float, mouse_emulation: bool) -
 	_events.clear()
 	_selection.move_command.connect(func(_tile: Vector2i) -> void: _orders+=1)
 	# An earlier menu/HUD gesture used another ID; web contacts need not be0.
-	await _tap(7,(_hud.get("_town_center_button") as Button).get_global_rect().get_center())
+	await _tap(7,(_hud.call("get_base_navigation_button") as Button).get_global_rect().get_center())
 	if mouse_emulation:
 		_expect(_selection.selected.size()==1 and _selection.selected[0] is BuildingBase,"nonzero Home touch must select TC through GUI")
 	_expect(_orders==0 and _selection.get("_active_touch_indices").is_empty(),"GUI touch leaked a world order or owned contact")

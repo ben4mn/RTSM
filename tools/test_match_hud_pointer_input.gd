@@ -41,7 +41,7 @@ func _run() -> void:
 	_expect((hud.get("_camera_zoom_in_button") as Button).is_visible_in_tree() and hud.call("get_secondary_surface_name") == "view", "View did not reopen after Reset")
 	await _click((hud.get("_camera_view_button") as Button).get_global_rect().get_center())
 	_expect(not (hud.get("_camera_zoom_in_button") as Button).is_visible_in_tree(), "View did not collapse zoom controls")
-	var home_button: Button = hud.get("_town_center_button") as Button
+	var home_button: Button = hud.call("get_base_navigation_button") as Button
 	await _click(home_button.get_global_rect().get_center())
 	var selected_building: Node2D = hud.get("_selected_building_ref") as Node2D
 	_expect(selected_building != null, "Home pointer click did not select the Town Center")

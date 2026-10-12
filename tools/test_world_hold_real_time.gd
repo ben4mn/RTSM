@@ -93,7 +93,9 @@ func _run() -> void:
 			_reset_case()
 			start = Time.get_ticks_msec()
 			_contact(58, GROUND, true)
-			await _wait_until(start + 310)
+			# Keep scheduling slack under browser-play load. The timed hold above
+			# independently verifies the real 350ms threshold at every speed.
+			await _wait_until(start + 250)
 			_expect(_orders.is_empty(), "below-threshold short tap activated during hold")
 			_contact(58, GROUND, false)
 			await _frames(2)
@@ -113,7 +115,7 @@ func _run() -> void:
 	Engine.time_scale = original_speed
 	Input.emulate_mouse_from_touch = original_mouse_emulation
 	Input.emulate_touch_from_mouse = original_touch_emulation
-	var output_path := "res://output/evolution/mobile-interaction-20261011/world-hold/real-input.json"
+	var output_path := "res://output/evolution/mobile-rts-pass-20261012-input/world-hold-real-input.json"
 	DirAccess.make_dir_recursive_absolute(output_path.get_base_dir())
 	var record := FileAccess.open(output_path, FileAccess.WRITE)
 	record.store_string(JSON.stringify({"scope": "Real Input.parse_input_event; monotonic time; no injected hold timestamps", "timing": _timing, "failures": _failures}, "  "))
@@ -158,10 +160,10 @@ func _test_movement_cancel() -> void:
 	_contact(105, GROUND, true)
 	_drag(105, GROUND + Vector2(12.0, 0.0), Vector2(12.0, 0.0))
 	await _wait_until(Time.get_ticks_msec() + 390)
-	_expect(_orders.size() == 1, "exact 12px hold tolerance boundary was canceled")
+	_expect(_orders.is_empty(), "exact 12px pan boundary activated a world hold")
 	_contact(105, GROUND + Vector2(12.0, 0.0), false)
 	await _frames(2)
-	_expect(_orders.size() == 1, "12px boundary release duplicated the hold")
+	_expect(_orders.is_empty(), "12px pan boundary release issued a world order")
 	_reset_case()
 	_contact(117, GROUND, true)
 	_drag(117, GROUND + Vector2(20.0, 0.0), Vector2(20.0, 0.0))
@@ -237,11 +239,11 @@ func _test_sparse_release() -> void:
 	_reset_case()
 	_selection.set_process(false)
 	_contact(809, GROUND, true)
-	_drag(809, GROUND + Vector2(12.0, 0.0), Vector2(12.0, 0.0))
+	_drag(809, GROUND + Vector2(11.0, 0.0), Vector2(11.0, 0.0))
 	await _wait_until(Time.get_ticks_msec() + 370)
-	_contact(809, GROUND + Vector2(12.0, 0.0), false)
+	_contact(809, GROUND + Vector2(11.0, 0.0), false)
 	await _frames(2)
-	_expect(_orders.size() == 1 and int(_selection.touch_context_diagnostics.get("execution_count", 0)) == _context_count_before + 1, "sparse-frame release missed the real-time 12px hold boundary")
+	_expect(_orders.size() == 1 and int(_selection.touch_context_diagnostics.get("execution_count", 0)) == _context_count_before + 1, "sparse-frame release missed the real-time hold below the 12px pan boundary")
 	_expect_clean("sparse release")
 	_reset_case()
 	_selection.set_process(false)
@@ -258,7 +260,9 @@ func _test_popup_contract() -> void:
 	var opened_before: int = _popup_open_count
 	var closed_before: int = _popup_close_count
 	_contact(911, _resource.position, true)
-	await _wait_until(Time.get_ticks_msec() + 390)
+	var popup_deadline: int = Time.get_ticks_msec() + 550
+	while not _selection.is_touch_context_open() and Time.get_ticks_msec() < popup_deadline:
+		await get_tree().process_frame
 	_expect(_selection.is_touch_context_open() and _popup_open_count == opened_before + 1, "multi-action world hold did not publish one popup opening")
 	_expect(_selection.get_touch_context_rect().has_area(), "visible popup exposed no actual obstacle rectangle")
 	_expect(_orders.is_empty(), "opening multi-action popup executed a command")

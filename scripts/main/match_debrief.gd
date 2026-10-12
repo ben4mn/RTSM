@@ -14,12 +14,19 @@ static func describe(stats: Dictionary) -> String:
 	var worker_replacements: int = int(learning.get("worker_replacements", 0))
 	var contests: int = int(learning.get("objective_contests", 0))
 	var captures: int = int(learning.get("objective_captures", 0))
+	# Authoritative defeat reason takes precedence over incidental worker losses.
+	var reason: String = str(stats.get("victory_reason", ""))
+	var lost: bool = not bool(stats.get("is_victory", false))
+	if lost and "Sacred" in reason and int(stats.get("ai_sacred_control_seconds", 0)) > 0:
+		if contests == 0 and captures == 0:
+			return "Lost to the enemy Sacred hold. No Sacred capture or contest recorded. Next match: use Site, then send troops into its ring to pause the clock."
+		return "Lost to the enemy Sacred hold despite %d contests. Next match: rally paid reinforcements to the ring and keep troops there to pause their clock." % contests
+	if lost and ("Town Center" in reason or "Landmark" in reason):
+		return "Your Town Center fell. Next match: tap raid warnings to respond, pull workers behind its arrows and rally reinforcements home."
 	if paid_army == 0:
 		return "No fighting troops finished training. Next match: gather Food + Wood, build a Barracks and recruit Warriors."
 	if worker_losses > worker_replacements:
 		return "Workers lost %d; paid replacements %d. Next match: pull gatherers away from raids, then recruit Villagers at Home." % [worker_losses, worker_replacements]
-	if "Sacred" in str(stats.get("victory_reason", "")) and int(stats.get("ai_sacred_control_seconds", 0)) > int(stats.get("sacred_control_seconds", 0)) and contests == 0 and captures == 0:
-		return "No Sacred capture or contest recorded. Next match: use the Site locator and enter its ring to pause the enemy clock."
 	if army_losses > army_replacements:
 		return "Fighting troops lost %d; paid replacements %d. Keep Food + Wood workers gathering and rally replacements near your army." % [army_losses, army_replacements]
 	if not bool(learning.get("counter_demonstrated", false)):

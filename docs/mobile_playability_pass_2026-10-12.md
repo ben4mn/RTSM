@@ -1,0 +1,72 @@
+# Mobile playability pass — 2026-10-12
+
+Baseline checked: local `ad47c58` on `codex/mobile-hold-menus`; public `version.json` reports runtime `def645382dbd`, source fingerprint `0e1766b333ade806ee801d259fd69853f9fba8fce921ff1f90d7dc80be8132e7`. Initial live 844×390 browser play reproduced the blank-fog objective jump and loss of Base/Army access with a worker selected. This was desktop browser contact through Godot touch emulation, not a physical-phone trial. The prior private report was read through the dedicated collector, never from a public endpoint.
+
+## Phases
+
+1. Repair selection/pan/hold arbitration using actual dispatched contact tests. Use one movement boundary, stable hit radii and cancellation that survives GUI and additional contacts. Add persistent Base/Economy/Army access and two visible save/recall groups.
+2. Expose staffing, shortages, worker recovery, population reservations and paid producer queues without replacing battlefield selection. Separate recent attack locations from ordinary toasts. Annotate the known Sacred location through fog and put the authoritative defeat cause first in the debrief.
+3. Route and bound world sounds, distinguish alerts, and share persistent Audio, Controls, Display/Accessibility and Match Setup settings between menu and Pause. Verify real behavior, modal isolation and browser lifecycle; distinguish signal/recording checks from audible listening.
+4. Freeze source into isolated validation/export stages. Exercise both phone sizes, all scales and simulated notches; play seeded paid matches and evaluate a shorter pacing candidate. Publish only after relevant checks, verify the public pack and a private report, and state remaining limitations.
+
+## Git consolidation
+
+Only one worktree and two branches existed; no stash or divergent branch commits. The 49 pre-existing local report/document changes were preserved in a separate commit (`eff9ee5`). `main` was fast-forwarded and pushed; the fully merged local/remote `codex/mobile-hold-menus` branch was removed. New implementation work continues on `main` as requested. New receipts belong under `output/evolution/mobile-playability-pass-20261012/` and `output/playwright/mobile-playability-pass-20261012/`.
+
+## Evidence boundaries
+
+No attached physical phone was found (only shutdown iPhone simulators). Automated phone dimensions, safe-area fixtures and contact events do not certify thumb comfort or physical-device performance. One legacy hold-test run wrote its hardcoded old output path before isolation was corrected; its prior successful evidence was recovered from the latest frozen validation copy, with the new failed receipt retained separately. Subsequent whole-suite runs use isolated source/output stages.
+
+## Pacing experiment
+
+An isolated candidate moved both mirrored starts four tiles closer to center on each axis, brought paid raid planning forward (Easy 210 seconds, Medium 150), and used a five-minute Sacred hold. Costs, unit strength, gathering and starting banks were unchanged. Automated player 0 used the existing human paid construction/training transactions against the real AI, seed 424242 and 30 population, with a fixed 60 Hz simulation. These are policy probes, not hands-on balance measurements.
+
+The candidate ended Easy at 19:11 and did not end Medium by 20:00; both standard-policy comparisons also reached the 20-minute probe limit. Scouts, raids, paid replacements and landed counter hits occurred, but repeated contests prevented an 8–12 minute outcome. The candidate is not included in the published rules; presenting it as a quick mode would be misleading. Receipts: `pacing-comparison.json` and the four paid traces in the new pass evidence directory.
+
+## Input
+
+The previous implementation rejected taps at 12 logical pixels but started camera pan only at 16 pixels (and SelectionManager latched it only above 16). It now partitions a contact at one shared 12-pixel boundary: below it can tap/hold; at or above it belongs to pan. Maximum displacement stays latched when the finger returns to its origin. Unit discovery and reselection both use 24-pixel radii; building discovery/reselection both use 34 pixels plus their visible facades. Explicit Move/Attack-move still overrides friendly-target selection.
+
+A fresh HUD contact cancels existing world/camera intent through `world_gesture_cancel_requested`, including hold controls that consume input before the world dispatcher sees a second finger. Native mouse releases now require an admitted press, honor cancellation, and retain maximum drag distance. Pan speed changes touch and middle-button motion; zoom sensitivity changes pinch/wheel/magnify; the optional hold preference also disables world holds while preserving ordinary taps.
+
+`test_touch_arbitration_boundaries` passes actual `Input.parse_input_event` dispatch in 12 profiles: 844×390 and 932×430, scales 1.0/1.075/1.15, ordinary and simulated notched safe areas. It exercises 0/11/12/13/14/15.9/16/24-pixel contacts; out-and-back motion; GUI-origin and unknown releases; consumed and OS-canceled releases; both two-contact release orders; a second GUI contact during a pending world hold; native mouse ownership and canceled/right-drag paths; disabled holds; and real pan/wheel sensitivity. Routed target checks at zoom 0.62 and 2.2 confirm the same 21-pixel unit and 31-pixel building taps discover and reselect targets. Paid gameplay transactions are not simulated by this input fixture.
+
+Existing camera zoom, camera modal lifecycle, touch hit radius, building reselection, area selection and real-time world hold regressions pass. The hold test now expects exact 12 pixels to pan and verifies sparse-frame holds below that boundary. New receipts: `output/evolution/mobile-rts-pass-20261012-input/contact-boundaries.json` and `world-hold-real-input.json`. The retained pre-bridge failure demonstrates the second-GUI-contact leak in all 12 profiles before the cancellation signal was connected.
+
+`test_battlefield_feedback_phone` also passes all 12 native rendered profiles. Its screenshots show the public flag and capture ring over a canonically fogged site, two persistent raid cards, and suppressed ordinary toasts. It found a 4.52-pixel overlap between the second raid card and navigation at Large UI with a notch; compact spacing fixes that overlap while retaining 48-pixel targets. Screenshots and bounds are in `output/evolution/mobile-rts-pass-20261012-input/battlefield/`. The feedback code reads no enemy objects and does not change fog.
+
+Device discovery used `xcrun devicectl list devices`: six shutdown simulated iPhones, no physical device. `adb` is unavailable. These are native-window/browser and synthetic-contact observations, not physical-thumb or device-performance certification.
+
+## Economy, production and groups
+
+Base, Economy and Army now remain available with workers, military, producers, enemies or the objective selected. The Economy button continuously shows Food/Wood/Gold staffing and highlights an unstaffed resource. Its scrollable overview shows idle/recovering/building workers, population and paid reserved slots, idle producers, current progress, paid queues and the exact resource/population reason a repeat queue is waiting. More and expanded View fit alongside this persistent navigation at both phone sizes and all interface scales; actionable controls are at least 48 logical pixels.
+
+Reallocation explicitly chooses Idle/Food/Wood/Gold as the source and moves one worker to Food, Wood or Gold. The controller excludes builders and recovering workers, discovers only visible reachable resource nodes or friendly farms, and calls the existing `Villager.command_gather` transaction. Cross-resource cargo is delivered under its original type before the new job begins. Producer actions reuse paid training, committed population reservations, cancellation/refunds and existing Repeat semantics. Undo preserves Repeat; Clear stops it and refunds the entire queue. Rally to army uses the existing fog-legal rally setter and stores the selected army's current location for future recruits; it is a fixed location until deliberately changed. None of these actions replaces selection or moves the camera.
+
+Army opens two numbered groups with visible Save selection and Recall buttons, plus Select all army and Find army. Group membership uses the existing ownership and stale-entry guards. The guidance text and private touch diagnostics now refer to the controls actually shown.
+
+`test_strategy_overview` passes actual touch dispatch across all 12 size/scale/notch profiles, including paid queue/refund/reservation/repeat, rally to selected army, explicit worker reallocation, both group slots, scrolling, outside dismissal, retained battlefield selection/camera, zero world-order signals from GUI contacts, and More/View overlap checks. Its Scout and House fixtures use ordinary starting resources and paid transactions, with construction/training time advanced for determinism. `test_strategy_cargo` separately follows natural wood harvest through reallocation, exact real drop-off and subsequent gold delivery, then verifies recovery protection and a single idle-worker reassignment. Existing repeat production, contextual HUD touch and the 12-profile HUD composition regressions also pass. These focused engine checks supplement the browser playthroughs; they are not physical-phone claims.
+
+## Battlefield feedback and debrief
+
+Two independently refreshed 48px raid cards retain recent attack locations and losses for 20 game seconds. Damage at one front does not throttle a new front; ordinary production messages cannot replace the cards. Viewing a front retains selection. The public Sacred location, capture ring and authoritative holding/contested state render above fog without reading hidden participants or revealing terrain. The minimap also marks the public location. Sacred defeat advice now precedes worker-loss advice and explicitly recommends paid reinforcements and keeping troops in the ring. Town Center loss also takes precedence.
+
+Native rendered checks cover 844×390 and 932×430, all three UI scales and ordinary/notched safe areas, including both raid cards and the public objective. Actual browser screenshots show the fogged objective with a selected Scout, paid production with battlefield selection retained, and worker reallocation feedback. The randomized exploratory Medium ended at 26:42 to the enemy Sacred hold; its debrief correctly reported 20 contests and recommended reinforcing the ring (`PK-EA9E2BF0C803`, local private collector).
+
+## Paid browser evidence notes
+
+Early automation typed the seed before the canvas LineEdit had focus, leaving Random selected. Those first complete Easy/Medium matches remain exploratory random-seed evidence rather than repeatable-seed acceptance. Waiting after focus and inspecting the digits fixes the automation; both subsequent runs verify `424242` in the visible Match tab and actual report context. No product seed parser defect was found.
+
+The first verified-seed Medium run used 1× until about 2:57, then 3×. It paid for villagers, a Scout, House, Barracks, Farm and repeated Warriors; saved/recalled the Scout group, scouted/contested Sacred, rallied reinforcements and performed three explicit worker reallocations. Concurrent browser load delayed a command for roughly a minute, allowing a base raid to finish; the queued click then left the result screen before it was captured. `PK-9DD20D207519` preserves the trace and limitation, and this run is not used as complete outcome evidence. A fresh public-build run is required for the final result below.
+
+## Remaining validation boundaries
+
+There is no physical-phone acceptance claim. No installed Pocket Kingdoms PWA was present; a locked Mac prevented a real native minimize/restore test. Actual Web samples establish audio unlock/output, gain changes, zero output while muted, pause/scene cleanup and reload persistence, but not subjective audio quality or real background/foreground behavior. The playable recording and measured details are in [the audio/settings report](audio_settings_playability_2026-10-12.md). The 8–12-minute pacing candidate was rejected as described above. A visible Report entry on the end-of-match screen remains a discoverability follow-up; test reports there used the existing public diagnostic overlay API without mutating gameplay.
+
+## Final automated validation
+
+The isolated full focused suite completed **120/121** cases. Its sole failure was `test_world_hold_real_time`: browser-play load made a 310ms short-tap wait overrun the 350ms hold threshold and made a popup assertion run before the next process callback. The unchanged test passed on an immediate sequential rerun. The fixture now leaves 100ms scheduling slack for its short tap and waits for the positive popup condition up to 550ms; its independent real 350ms timing assertions at four game speeds and both mouse-emulation settings remain unchanged. No gameplay change was made to resolve this failure.
+
+Two passing fixtures emitted intermittent audio teardown warnings. Verbose inspection identified one `AudioStreamWAV` and one `AudioStreamPlaybackWAV` awaiting mixer release at immediate process exit, with no retained player nodes. Their test teardown now stops playback and waits 150ms. The final verbose targeted rerun passed **10/10**, with **zero engine errors or warnings**: Center, group destinations, real-time world holds, audio/settings, the 12-profile contact boundary suite, building reselection, placement, force-move, actual HUD pointer dispatch and the 12-profile strategy overview. All discovered cases are resolved across the broad run and these reruns; this is not represented as a single clean 121-case run.
+
+Python regressions passed **47/47**. The actual-factory Web diagnostic client regressions and JavaScript syntax check passed. Runtime sources in `scripts/`, `scenes/`, `tools/`, `web/` and `deploy/` byte-match the final isolated stage; the stage adds only a separate user-settings directory to `project.godot`. `git diff --check` was clean. Detailed receipts, original failures, verbose diagnoses, final reruns and source hashes are under `output/evolution/mobile-playability-pass-20261012/`, summarized by `final-validation-summary.json`. Historical output directories were not overwritten by these runs.

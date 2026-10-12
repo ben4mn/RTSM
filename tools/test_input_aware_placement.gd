@@ -62,7 +62,7 @@ func _exercise(viewport_size: Vector2i) -> void:
 	_main.set("_opening_gather_complete", true)
 	_main.call("_update_progression_hint")
 	await _frames()
-	await _mouse_click((_hud.get("_town_center_button") as Button).get_global_rect().get_center())
+	await _mouse_click((_hud.call("get_base_navigation_button") as Button).get_global_rect().get_center())
 	_map.get("selection_mgr").deselect_all()
 	await _frames()
 	var town_center: BuildingBase = _main.get("_player_buildings")[0][0] as BuildingBase

@@ -44,7 +44,7 @@ const ZOOM_STEP_FACTOR := 1.16
 const NO_ZOOM_ANCHOR := Vector2(-1.0, -1.0)
 const CAMERA_PAN_SPEED := 400.0
 const EDGE_SCROLL_MARGIN := 8.0  # Pixels from screen edge to trigger scroll
-const TOUCH_PAN_DEADZONE := 16.0  # Pixels before one-finger pan starts
+const TOUCH_PAN_DEADZONE := 12.0  # Fallback; SelectionManager owns the shared boundary.
 const MOBILE_SHORT_SIDE_REFERENCE := 430.0
 const MOBILE_SHORT_SIDE_MIN_SCALE := 0.90
 const MOBILE_SHORT_SIDE_MAX_SCALE := 1.08
@@ -412,7 +412,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			var old_dist := p0_old.distance_to(p1_old)
 
 			if old_dist > 10.0 and new_dist > 10.0:
-				var zoom_factor := new_dist / old_dist
+				var zoom_factor := pow(new_dist / old_dist, _zoom_sensitivity())
 				var old_midpoint: Vector2 = (p0_old + p1_old) * 0.5
 				var new_midpoint: Vector2 = (p0_new + p1_new) * 0.5
 				_set_zoom_anchored(camera.zoom.x * zoom_factor, old_midpoint, new_midpoint, true)
@@ -421,13 +421,14 @@ func _unhandled_input(event: InputEvent) -> void:
 			var start_pos: Vector2 = _touch_start_points.get(drag.index, drag.position)
 			var moved_distance: float = start_pos.distance_to(drag.position)
 			var pan_active: bool = _touch_pan_active.get(drag.index, false)
-			if not pan_active and moved_distance >= TOUCH_PAN_DEADZONE:
+			var pan_threshold: float = selection_mgr.get_touch_pan_threshold() if selection_mgr != null else TOUCH_PAN_DEADZONE
+			if not pan_active and moved_distance >= pan_threshold:
 				_playtest_camera_record("camera_pan_begin", {
 					"finger_id": drag.index,
 					"screen_start": [start_pos.x, start_pos.y],
 					"screen": [drag.position.x, drag.position.y],
 					"distance_px": moved_distance,
-					"deadzone_px": TOUCH_PAN_DEADZONE,
+					"deadzone_px": selection_mgr.get_touch_pan_threshold() if selection_mgr != null else TOUCH_PAN_DEADZONE,
 					"zoom": camera.zoom.x,
 				})
 				if _playtest_camera_contacts.has(drag.index):
@@ -436,13 +437,13 @@ func _unhandled_input(event: InputEvent) -> void:
 				_touch_pan_active[drag.index] = true
 			if pan_active:
 				var before: Vector2 = camera.position
-				camera.position -= drag.relative / camera.zoom
+				camera.position -= drag.relative * _pan_sensitivity() / camera.zoom
 				_clamp_camera()
 				_playtest_camera_motion_sample(drag.index, "camera_pan_sample", {
 					"screen": [drag.position.x, drag.position.y],
 					"relative_px": [drag.relative.x, drag.relative.y],
 					"camera_delta": [camera.position.x - before.x, camera.position.y - before.y],
-					"clamped": not camera.position.is_equal_approx(before - drag.relative / camera.zoom),
+					"clamped": not camera.position.is_equal_approx(before - drag.relative * _pan_sensitivity() / camera.zoom),
 				})
 
 	elif event is InputEventMagnifyGesture:
@@ -475,14 +476,23 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventMouseMotion and _camera_drag_active:
 		note_camera_interaction()
 		var motion := event as InputEventMouseMotion
-		camera.position -= motion.relative / camera.zoom
+		camera.position -= motion.relative * _pan_sensitivity() / camera.zoom
 		_clamp_camera()
+
+
+func _pan_sensitivity() -> float:
+	return clampf(float(GameManager.camera_speed_scale), 0.75, 1.25)
+
+
+func _zoom_sensitivity() -> float:
+	var preference: Variant = GameManager.get("zoom_sensitivity_scale")
+	return clampf(float(preference), 0.75, 1.25) if preference != null else 1.0
 
 
 func _apply_zoom(factor: float, from_user: bool = false, anchor_screen: Vector2 = NO_ZOOM_ANCHOR) -> void:
 	if camera == null or factor <= 0.0 or not is_finite(factor):
 		return
-	_set_zoom_anchored(camera.zoom.x * factor, anchor_screen, anchor_screen, from_user)
+	_set_zoom_anchored(camera.zoom.x * pow(factor, _zoom_sensitivity() if from_user else 1.0), anchor_screen, anchor_screen, from_user)
 
 
 func _set_zoom_anchored(level: float, previous_anchor: Vector2, next_anchor: Vector2, from_user: bool) -> void:
@@ -606,7 +616,7 @@ func _playtest_start_camera_contact(index: int, position: Vector2) -> void:
 		"camera": [camera.position.x, camera.position.y],
 		"zoom": camera.zoom.x,
 		"other_world_contacts": _touch_points.size(),
-		"deadzone_px": TOUCH_PAN_DEADZONE,
+		"deadzone_px": selection_mgr.get_touch_pan_threshold() if selection_mgr != null else TOUCH_PAN_DEADZONE,
 	})
 
 
@@ -654,7 +664,7 @@ func _playtest_finish_camera_contact(index: int, position: Vector2, reason: Stri
 		"camera_delta": [camera.position.x - float(start_camera[0]), camera.position.y - float(start_camera[1])],
 		"zoom_start": contact.get("zoom_start", camera.zoom.x),
 		"zoom_end": camera.zoom.x,
-		"deadzone_px": TOUCH_PAN_DEADZONE,
+		"deadzone_px": selection_mgr.get_touch_pan_threshold() if selection_mgr != null else TOUCH_PAN_DEADZONE,
 	})
 	_playtest_camera_contacts.erase(index)
 

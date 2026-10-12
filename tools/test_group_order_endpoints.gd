@@ -148,6 +148,9 @@ func _run() -> void:
 		push_error("[FAIL] group_order_endpoints: " + failure)
 	if _failures.is_empty():
 		print("[PASS] group_order_endpoints: actual phone group Move assigns distinct reachable endpoints and every starting worker arrives with readable spacing")
+	AudioManager.stop_all()
+	# Let the mixer release stopped playback before process teardown.
+	await get_tree().create_timer(0.15, true, false, true).timeout
 	get_tree().quit(0 if _failures.is_empty() else 1)
 
 func _expect(condition: bool, message: String) -> void:

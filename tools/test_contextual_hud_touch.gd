@@ -38,10 +38,10 @@ func _profile(phone: Vector2i,scale_factor: float) -> void:
     selection.move_command.connect(func(_tile: Vector2i) -> void: _orders+=1)
     await _settle()
     var profile: String="%s scale%.3f" % [phone,scale_factor]
-    var former_home: Vector2=(hud.get("_town_center_button") as Button).get_global_rect().get_center()
+    var former_home: Vector2=(hud.call("get_base_navigation_button") as Button).get_global_rect().get_center()
     selection.select_single(soldier)
     await _settle()
-    _expect(not (hud.get("build_menu_button") as Button).is_visible_in_tree() and not (hud.get("age_up_button") as Button).is_visible_in_tree() and not (hud.get("_town_center_button") as Button).is_visible_in_tree(),profile+" army retains kingdom controls")
+    _expect(not (hud.get("build_menu_button") as Button).is_visible_in_tree() and not (hud.get("age_up_button") as Button).is_visible_in_tree() and (hud.call("get_base_navigation_button") as Button).is_visible_in_tree(),profile+" army loses persistent Base or exposes construction controls")
     var before: int=_orders
     await _tap((hud.get("_camera_view_button") as Button).get_global_rect().get_center())
     _expect((hud.get("_camera_zoom_in_button") as Button).is_visible_in_tree(),profile+" View touch does not open zoom")
@@ -53,9 +53,10 @@ func _profile(phone: Vector2i,scale_factor: float) -> void:
     await _tap((hud.get("_unit_more_button") as Button).get_global_rect().get_center())
     await _tap(former_home)
     _expect(_orders==before,profile+" context dock reusing Home corridor leaks world touch")
-    var context_rect: Rect2=(hud.get("selection_panel") as Control).get_global_rect()
-    var exposed_field:=Vector2(context_rect.position.x-20.0,former_home.y)
-    _expect(not context_rect.has_point(exposed_field),profile+" field fixture remains inside command dock")
+    selection.select_single(soldier)
+    await _settle()
+    var exposed_field:=_free_field_point(hud,selection)
+    _expect(exposed_field!=Vector2.ZERO,profile+" no exposed world field fixture")
     await _tap(exposed_field)
     _expect(_orders>before,profile+" transparent area beside context dock consumes world touch")
     var hidden_area_orders: int=_orders-before
@@ -65,7 +66,7 @@ func _profile(phone: Vector2i,scale_factor: float) -> void:
     var clear: Button=hud.get("_unit_clear_button")
     await _tap(clear.get_global_rect().get_center(),0.55)
     _expect(selection.selected.is_empty() and not bool(hud.get("_selection_context_active")),profile+" Clear touch does not restore unselected state")
-    _expect((hud.get("_town_center_button") as Button).is_visible_in_tree() and (hud.get("build_menu_button") as Button).is_visible_in_tree(),profile+" kingdom controls do not return after Clear")
+    _expect((hud.call("get_base_navigation_button") as Button).is_visible_in_tree() and (hud.get("build_menu_button") as Button).is_visible_in_tree(),profile+" kingdom controls do not return after Clear")
     _expect(_orders==before,profile+" Clear leaks world order")
     selection.select_single(villager)
     await _settle()
@@ -76,7 +77,7 @@ func _profile(phone: Vector2i,scale_factor: float) -> void:
     _expect((hud.get("age_up_button") as Button).is_visible_in_tree() and not (hud.get("build_menu_button") as Button).is_visible_in_tree(),profile+" Town Center context is wrong")
     before=_orders
     await _tap((hud.get("_selection_back_button") as Button).get_global_rect().get_center())
-    _expect(not bool(hud.get("_selection_context_active")) and (hud.get("_town_center_button") as Button).is_visible_in_tree(),profile+" Back does not restore kingdom controls")
+    _expect(not bool(hud.get("_selection_context_active")) and (hud.call("get_base_navigation_button") as Button).is_visible_in_tree(),profile+" Back does not restore kingdom controls")
     _expect(_orders==before,profile+" Back leaks world order")
     print("Context dispatch: ",profile," logical viewport=",get_viewport().get_visible_rect().size," former hidden Home world orders=",hidden_area_orders)
     main.free()
@@ -97,3 +98,21 @@ func _tap(position: Vector2,hold_seconds: float=0.0) -> void:
 func _expect(condition: bool,message: String) -> void:
     if not condition:
         _failures.append(message)
+
+func _free_field_point(hud: CanvasLayer, selection: SelectionManager) -> Vector2:
+    var safe: Rect2=hud.call("get_world_safe_rect")
+    var obstacles: Array=hud.call("get_world_occlusion_rects")
+    for y: int in range(int(safe.position.y)+76,int(safe.end.y)-90,16):
+        for x: int in range(int(safe.position.x)+160,int(safe.end.x)-24,16):
+            var point:=Vector2(x,y)
+            var blocked: bool=false
+            for bounds: Rect2 in obstacles:
+                if bounds.grow(4).has_point(point):
+                    blocked=true
+                    break
+            if blocked:
+                continue
+            var world: Vector2=selection.call("_screen_to_world",point)
+            if selection.call("_get_node_at",world,true)==null:
+                return point
+    return Vector2.ZERO

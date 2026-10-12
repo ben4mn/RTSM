@@ -14,7 +14,8 @@ func _run() -> void:
 	var examples: Array[Dictionary] = [
 		{"victory_reason": "Sacred Site held for 10:00", "learning": {"paid_army": 0}, "expect": "No fighting troops"},
 		{"learning": {"paid_army": 3, "worker_losses": 2, "worker_replacements": 1}, "expect": "Workers lost 2; paid replacements 1"},
-		{"victory_reason": "Sacred Site held for 10:00", "ai_sacred_control_seconds": 600, "learning": {"paid_army": 3}, "expect": "No Sacred capture or contest"},
+		{"victory_reason": "Sacred Site held for 10:00", "ai_sacred_control_seconds": 600, "learning": {"paid_army": 3, "worker_losses": 8, "worker_replacements": 0}, "expect": "No Sacred capture or contest"},
+		{"victory_reason": "Town Center destroyed", "learning": {"paid_army": 5, "worker_losses": 2}, "expect": "Your Town Center fell"},
 		{"learning": {"paid_army": 3, "army_losses": 2, "army_replacements": 1}, "expect": "Fighting troops lost 2; paid replacements 1"},
 		{"learning": {"paid_army": 3, "counter_demonstrated": false}, "expect": "No counter preparation"},
 		{"learning": {"paid_army": 8, "army_losses": 3, "army_replacements": 3, "first_army_seconds": 144, "objective_contests": 2, "counter_demonstrated": true}, "expect": "First fighting troop 2:24; paid replacements 3; Sacred contests 2"},
@@ -56,7 +57,7 @@ func _run() -> void:
 				records.append({"physical": str(physical), "scale": scale_value, "notched": notched, "panel": str(panel.get_global_rect()), "max_lines": max_lines})
 				viewport.free()
 				await process_frame
-	var output := FileAccess.open("res://output/evolution/learning-20261010-battle-lessons/debrief-phone.json", FileAccess.WRITE)
+	var output := FileAccess.open("res://output/evolution/mobile-playability-pass-20261012/debrief-phone.json", FileAccess.WRITE)
 	output.store_string(JSON.stringify({"scope": "Synthetic telemetry decision fixtures and headless Control/font measurements, no human/device claim", "profiles": records, "failures": failures}, "\t"))
 	if failures.is_empty():
 		print("[PASS] match_debrief: receipt-based suggestions, no invented empty telemetry, six explanations across 12 phone profiles")

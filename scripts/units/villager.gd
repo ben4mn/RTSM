@@ -358,9 +358,10 @@ func _harvest_from_target() -> int:
 	if gather_target.has_method("harvest"):
 		var amount: int = gather_target.harvest(amount_requested)
 		if amount > 0 and is_instance_valid(gather_target) and get_tree() and get_tree().current_scene:
-			VFX.gather_particles(get_tree(), gather_target.global_position, carried_resource_type)
+			if AudioManager.is_source_visible(self):
+				VFX.gather_particles(get_tree(), gather_target.global_position, carried_resource_type)
 			var sfx_name: String = "gather_" + carried_resource_type if carried_resource_type != "" else "gather_food"
-			AudioManager.play_sfx(sfx_name)
+			AudioManager.play_world(sfx_name, self)
 		if amount <= 0:
 			# Resource exhausted
 			_clear_gather_target_knowledge()

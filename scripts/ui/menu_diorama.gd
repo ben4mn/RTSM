@@ -18,7 +18,8 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	_elapsed += delta
+	if not GameManager.reduced_motion:
+		_elapsed += delta
 	queue_redraw()
 
 

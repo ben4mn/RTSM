@@ -8,6 +8,7 @@ signal age_advanced(player_id: int, new_age: int)
 signal player_defeated(player_id: int)
 signal game_over(winner_id: int)
 signal research_completed(player_id: int, research_id: String)
+signal preferences_changed()
 
 enum GameState {
 	MENU,
@@ -37,6 +38,15 @@ var selected_map_seed: int = -1
 var selected_population_limit: int = SkirmishData.DEFAULT_POPULATION_LIMIT
 var guided_opening_enabled: bool = true
 var audio_enabled: bool = true
+var master_volume: float = 0.8
+var sfx_volume: float = 0.75
+var sfx_muted: bool = false
+var ui_alert_muted: bool = false
+var ui_alert_volume: float = 0.9
+var zoom_sensitivity_scale: float = 1.0
+var reduced_motion: bool = false
+var reduced_flashes: bool = false
+var clearer_player_markers: bool = true
 var camera_speed_scale: float = 1.0
 var ui_scale: float = 1.0
 var hold_shortcuts_enabled: bool = true
@@ -78,6 +88,7 @@ func _load_preferences() -> void:
 	var config := ConfigFile.new()
 	if config.load(PREFERENCES_PATH) != OK:
 		return
+	selected_map_seed = maxi(-1, int(config.get_value("skirmish", "map_seed", selected_map_seed)))
 	selected_difficulty = clampi(int(config.get_value("skirmish", "difficulty", selected_difficulty)), 0, 2)
 	selected_population_limit = SkirmishData.normalize_population_limit(int(config.get_value("skirmish", "population_limit", selected_population_limit)))
 	guided_opening_enabled = bool(config.get_value("onboarding", "guided_opening", guided_opening_enabled))
@@ -87,11 +98,21 @@ func _load_preferences() -> void:
 	# Mobile controls are authored at a 48px minimum. Scaling below 100% made
 	# those targets physically smaller than the interaction contract.
 	ui_scale = clampf(float(config.get_value("accessibility", "ui_scale", ui_scale)), 1.0, 1.15)
+	master_volume = clampf(float(config.get_value("audio", "master_volume", master_volume)), 0.0, 1.0)
+	sfx_volume = clampf(float(config.get_value("audio", "sfx_volume", sfx_volume)), 0.0, 1.0)
+	sfx_muted = bool(config.get_value("audio", "sfx_muted", sfx_muted))
+	ui_alert_muted = bool(config.get_value("audio", "ui_alert_muted", ui_alert_muted))
+	ui_alert_volume = clampf(float(config.get_value("audio", "ui_alert_volume", ui_alert_volume)), 0.0, 1.0)
+	zoom_sensitivity_scale = clampf(float(config.get_value("controls", "zoom_sensitivity_scale", zoom_sensitivity_scale)), 0.75, 1.25)
+	reduced_motion = bool(config.get_value("accessibility", "reduced_motion", reduced_motion))
+	reduced_flashes = bool(config.get_value("accessibility", "reduced_flashes", reduced_flashes))
+	clearer_player_markers = bool(config.get_value("accessibility", "clearer_player_markers", clearer_player_markers))
 	_apply_display_preferences()
 
 
 func save_preferences() -> bool:
 	var config := ConfigFile.new()
+	config.set_value("skirmish", "map_seed", selected_map_seed)
 	config.set_value("skirmish", "difficulty", clampi(selected_difficulty, 0, 2))
 	config.set_value("skirmish", "population_limit", SkirmishData.normalize_population_limit(selected_population_limit))
 	config.set_value("onboarding", "guided_opening", guided_opening_enabled)
@@ -99,14 +120,47 @@ func save_preferences() -> bool:
 	config.set_value("controls", "camera_speed_scale", camera_speed_scale)
 	config.set_value("controls", "hold_shortcuts_enabled", hold_shortcuts_enabled)
 	config.set_value("accessibility", "ui_scale", clampf(ui_scale, 1.0, 1.15))
+	config.set_value("audio", "master_volume", master_volume)
+	config.set_value("audio", "sfx_volume", sfx_volume)
+	config.set_value("audio", "sfx_muted", sfx_muted)
+	config.set_value("audio", "ui_alert_muted", ui_alert_muted)
+	config.set_value("audio", "ui_alert_volume", ui_alert_volume)
+	config.set_value("controls", "zoom_sensitivity_scale", zoom_sensitivity_scale)
+	config.set_value("accessibility", "reduced_motion", reduced_motion)
+	config.set_value("accessibility", "reduced_flashes", reduced_flashes)
+	config.set_value("accessibility", "clearer_player_markers", clearer_player_markers)
 	return config.save(PREFERENCES_PATH) == OK
 
 
 func apply_preferences() -> void:
 	_apply_display_preferences()
 	var audio_manager: Node = get_node_or_null("/root/AudioManager")
-	if audio_manager != null and audio_manager.has_method("set_all_enabled"):
-		audio_manager.set_all_enabled(audio_enabled)
+	if audio_manager != null and audio_manager.has_method("apply_preferences"):
+		audio_manager.apply_preferences()
+	preferences_changed.emit()
+
+
+func reset_preferences() -> void:
+	# Preferences and next-match setup only: never mutate a running match.
+	audio_enabled = true
+	master_volume = 0.8
+	sfx_volume = 0.75
+	sfx_muted = false
+	ui_alert_muted = false
+	ui_alert_volume = 0.9
+	camera_speed_scale = 1.0
+	zoom_sensitivity_scale = 1.0
+	ui_scale = 1.0
+	hold_shortcuts_enabled = true
+	reduced_motion = false
+	reduced_flashes = false
+	clearer_player_markers = true
+	guided_opening_enabled = true
+	selected_difficulty = 0
+	selected_map_seed = -1
+	selected_population_limit = SkirmishData.DEFAULT_POPULATION_LIMIT
+	apply_preferences()
+	save_preferences()
 
 
 func _apply_display_preferences() -> void:

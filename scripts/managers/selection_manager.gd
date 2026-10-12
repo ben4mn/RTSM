@@ -37,6 +37,13 @@ var _is_dragging := false
 var _drag_start := Vector2.ZERO
 var _drag_end := Vector2.ZERO
 var _mouse_drag_threshold := 10.0  # Desktop mouse threshold.
+## Only an admitted world press can release into a desktop action. Tokens keep
+## deferred GUI-release cleanup from retiring a newer physical contact.
+var _mouse_contact_tokens: Dictionary = {}
+var _mouse_contact_sequence: int = 0
+var _left_mouse_max_displacement := 0.0
+var _right_mouse_start := Vector2.ZERO
+var _right_mouse_max_displacement := 0.0
 
 ## --- Double-tap detection ---
 var _last_tap_time := 0.0
@@ -59,21 +66,18 @@ var _touch_max_displacement_px := 0.0
 @export var touch_context_enabled: bool = true
 @export var long_press_threshold: float = 0.35
 @export var touch_tap_slop_px: float = 12.0
-@export var touch_pan_threshold: float = 16.0
+@export var touch_pan_threshold: float = 12.0
 @export var touch_unit_hit_radius_px: float = 24.0
-## A deliberate tap on a friendly unit switches selection even while another
-## unit is selected. The outer discovery ring remains available for movement.
-@export var touch_unit_reselect_radius_px: float = 18.0
+## Selection targets stay the same size after selecting another unit. Explicit
+## Move/A-Move still owns any destination, including one beside a friendly unit.
+@export var touch_unit_reselect_radius_px: float = 24.0
 @export var touch_building_hit_radius_px: float = 34.0
-## Friendly buildings use a deliberately tighter center hit while units are
-## selected. This makes direct production-building reselection reliable without
-## turning nearby ground taps into accidental selection changes.
-@export var touch_building_reselect_radius_px: float = 26.0
+## Discovery and reselection use the same target; visible facades also count.
+@export var touch_building_reselect_radius_px: float = 34.0
 @export var touch_resource_hit_radius_px: float = 28.0
 @export var touch_context_diagnostics: Dictionary = {}
 @export var touch_input_diagnostics: Dictionary = {}
 @export var touch_target_diagnostics: Dictionary = {}
-var _long_press_move_tolerance := 12.0  # pixels
 var _touch_pan_gesture := false
 var _touch_context_open := false
 var _touch_context_menu: PopupMenu = null
@@ -157,6 +161,9 @@ func cancel_touch_gesture(preserve_completed_tap: bool = false) -> void:
 	_released_world_touch_indices.clear()
 	_primary_touch_index = -1
 	_is_dragging = false
+	_mouse_contact_tokens.clear()
+	_left_mouse_max_displacement = 0.0
+	_right_mouse_max_displacement = 0.0
 	if not keep_completed_tap:
 		_last_tap_time = 0.0
 	_hide_touch_context()
@@ -167,9 +174,11 @@ func _ready() -> void:
 	set_process_unhandled_input(true)
 	set_process(true)
 	touch_tap_slop_px = maxf(4.0, touch_tap_slop_px)
-	touch_pan_threshold = maxf(touch_pan_threshold, touch_tap_slop_px + 2.0)
-	_long_press_move_tolerance = minf(_long_press_move_tolerance, touch_pan_threshold - 1.0)
-	_long_press_move_tolerance = maxf(4.0, _long_press_move_tolerance)
+	# A single boundary partitions tap and pan; no movement range is discarded.
+	# Keep the exported diagnostic names compatible with saved playtest reports.
+	touch_pan_threshold = touch_tap_slop_px
+	touch_unit_reselect_radius_px = touch_unit_hit_radius_px
+	touch_building_reselect_radius_px = touch_building_hit_radius_px
 	if touch_context_enabled:
 		_ensure_touch_context_menu()
 	_refresh_touch_context_diagnostics()
@@ -191,7 +200,7 @@ func _process(_delta: float) -> void:
 	if not OS.has_feature("production") and now_msec >= _next_touch_target_refresh_msec:
 		_next_touch_target_refresh_msec = now_msec + 250
 		_refresh_touch_target_diagnostics()
-	if not touch_context_enabled or not _touch_hold_active:
+	if not _holds_allowed() or not _touch_hold_active:
 		return
 	_record_touch_displacement(_drag_end)
 	if _touch_hold_canceled:
@@ -211,6 +220,17 @@ func _process(_delta: float) -> void:
 
 func _input(event: InputEvent) -> void:
 	_playtest_observe_input(event)
+	if event is InputEventMouseButton:
+		var mouse := event as InputEventMouseButton
+		if not mouse.pressed and mouse.device != InputEvent.DEVICE_ID_EMULATION:
+			call_deferred("_finish_mouse_release", mouse.button_index, int(_mouse_contact_tokens.get(mouse.button_index, 0)))
+	if event is InputEventScreenTouch and (event as InputEventScreenTouch).pressed:
+		var new_touch := event as InputEventScreenTouch
+		# This only cancels existing world intent. It never admits a GUI finger
+		# into world selection or camera ownership.
+		if not _active_touch_indices.is_empty() and not _active_touch_indices.has(new_touch.index):
+			_touch_pan_gesture = true
+			_cancel_pending_touch_hold()
 	# HUD controls can consume a finger release before unhandled input. Keep
 	# only gesture bookkeeping here so that release never selects the world,
 	# leaves a stale pinch finger, or triggers a delayed long press.
@@ -227,6 +247,19 @@ func _input(event: InputEvent) -> void:
 		# GUI may consume this release before _unhandled_input. Defer cleanup
 		# until that dispatch ends so world ownership remains available there.
 		call_deferred("_finish_released_touch", touch.index)
+
+
+func _finish_mouse_release(button: int, token: int) -> void:
+	if token == 0 or int(_mouse_contact_tokens.get(button, 0)) != token:
+		return
+	_mouse_contact_tokens.erase(button)
+	if button == MOUSE_BUTTON_LEFT:
+		_is_dragging = false
+		queue_redraw()
+
+
+func get_touch_pan_threshold() -> float:
+	return touch_tap_slop_px
 
 
 func _finish_released_touch(index: int) -> void:
@@ -261,7 +294,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		_handle_drag(event as InputEventScreenDrag)
 	elif event is InputEventMouseButton:
 		_handle_mouse_button(event as InputEventMouseButton)
-	elif event is InputEventMouseMotion and _is_dragging:
+	elif event is InputEventMouseMotion and (_is_dragging or _mouse_contact_tokens.has(MOUSE_BUTTON_RIGHT)):
 		_handle_mouse_motion(event as InputEventMouseMotion)
 
 
@@ -299,7 +332,7 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 		_touch_pan_gesture = _touch_pan_gesture or _active_touch_indices.size() > 1
 		_touch_area_gesture = touch_area_selection_armed and not _touch_pan_gesture
 		_is_dragging = _touch_area_gesture
-		_touch_hold_active = touch_context_enabled and not _touch_pan_gesture and not _touch_area_gesture
+		_touch_hold_active = _holds_allowed() and not _touch_pan_gesture and not _touch_area_gesture
 		_touch_hold_elapsed = 0.0
 		_touch_hold_started_at_msec = Time.get_ticks_msec()
 		_touch_long_press_consumed = false
@@ -375,7 +408,7 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 		_record_touch_displacement(event.position)
 		var held_long_enough: bool = _touch_hold_has_elapsed(Time.get_ticks_msec())
 		_touch_hold_started_at_msec = 0
-		if _active_touch_indices.is_empty() and not _touch_pan_gesture and not _touch_hold_canceled and held_long_enough and touch_context_enabled:
+		if _active_touch_indices.is_empty() and not _touch_pan_gesture and not _touch_hold_canceled and held_long_enough and _holds_allowed():
 			_playtest_classify_contact(event.index, "hold", "release_threshold")
 			_touch_long_press_consumed = true
 			_open_touch_context(event.position)
@@ -390,7 +423,7 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 		elif _touch_pan_gesture:
 			_playtest_classify_contact(event.index, "pan" if _active_touch_indices.is_empty() else "pinch", "camera_owned_movement")
 		else:
-			_playtest_classify_contact(event.index, "suppressed", "movement_between_tap_and_pan_thresholds")
+			_playtest_classify_contact(event.index, "cancel", "contact_no_longer_actionable")
 		if _active_touch_indices.is_empty():
 			_finish_released_touch(event.index)
 		queue_redraw()
@@ -422,11 +455,15 @@ func _handle_drag(event: InputEventScreenDrag) -> void:
 		queue_redraw()
 		return
 	var drag_distance := _drag_start.distance_to(_drag_end)
-	if drag_distance > touch_pan_threshold:
+	if drag_distance >= get_touch_pan_threshold():
 		_playtest_classify_contact(event.index, "pan", "pan_threshold_crossed")
 		_touch_pan_gesture = true
 	_record_touch_displacement(_drag_end)
 	queue_redraw()
+
+
+func _holds_allowed() -> bool:
+	return touch_context_enabled and GameManager.hold_shortcuts_enabled
 
 
 func _touch_hold_has_elapsed(now_msec: int) -> bool:
@@ -442,7 +479,8 @@ func _cancel_pending_touch_hold() -> void:
 
 func _record_touch_displacement(screen_pos: Vector2) -> void:
 	_touch_max_displacement_px = maxf(_touch_max_displacement_px, _drag_start.distance_to(screen_pos))
-	if _touch_max_displacement_px > _long_press_move_tolerance:
+	if _touch_max_displacement_px >= get_touch_pan_threshold():
+		_touch_pan_gesture = true
 		_cancel_pending_touch_hold()
 
 
@@ -458,34 +496,49 @@ func _handle_mouse_button(event: InputEventMouseButton) -> void:
 	elif _should_ignore_mouse_input():
 		return
 	_prune_stale_selection()
-	if event.button_index == MOUSE_BUTTON_RIGHT:
-		if not event.pressed and selected.size() > 0:
-			_handle_right_click(event.position)
-		return
-	if event.button_index != MOUSE_BUTTON_LEFT:
+	if event.button_index not in [MOUSE_BUTTON_LEFT, MOUSE_BUTTON_RIGHT]:
 		return
 	if event.pressed:
+		_mouse_contact_sequence += 1
+		_mouse_contact_tokens[event.button_index] = _mouse_contact_sequence
+		if event.button_index == MOUSE_BUTTON_RIGHT:
+			_right_mouse_start = event.position
+			_right_mouse_max_displacement = 0.0
+			return
 		world_gesture_started.emit(-1, event.position)
 		_hide_touch_context()
 		_drag_start = event.position
 		_drag_end = event.position
+		_left_mouse_max_displacement = 0.0
 		_is_dragging = true
-	else:
-		_is_dragging = false
-		var drag_distance := _drag_start.distance_to(event.position)
+		return
+	var owned_world_press: bool = _mouse_contact_tokens.has(event.button_index)
+	_mouse_contact_tokens.erase(event.button_index)
+	if event.button_index == MOUSE_BUTTON_RIGHT:
+		_right_mouse_max_displacement = maxf(_right_mouse_max_displacement, _right_mouse_start.distance_to(event.position))
+		if owned_world_press and not event.canceled and _right_mouse_max_displacement < _mouse_drag_threshold and not selected.is_empty():
+			_handle_right_click(event.position)
+		return
+	_is_dragging = false
+	if owned_world_press and not event.canceled:
+		var drag_distance := maxf(_left_mouse_max_displacement, _drag_start.distance_to(event.position))
 		if drag_distance < _mouse_drag_threshold:
 			_handle_tap(event.position, false)
 		else:
 			_drag_end = event.position
 			_finish_drag_select()
-		queue_redraw()
+	queue_redraw()
 
 
 func _handle_mouse_motion(event: InputEventMouseMotion) -> void:
+	if _mouse_contact_tokens.has(MOUSE_BUTTON_RIGHT) and event.device != InputEvent.DEVICE_ID_EMULATION:
+		_right_mouse_max_displacement = maxf(_right_mouse_max_displacement, _right_mouse_start.distance_to(event.position))
 	if _should_ignore_mouse_input():
 		return
-	_drag_end = event.position
-	queue_redraw()
+	if _is_dragging:
+		_drag_end = event.position
+		_left_mouse_max_displacement = maxf(_left_mouse_max_displacement, _drag_start.distance_to(event.position))
+		queue_redraw()
 
 
 ## --- Tap / click logic ---
@@ -620,15 +673,13 @@ func _handle_tap(screen_pos: Vector2, is_touch_input: bool) -> void:
 			consumed = true
 		elif is_touch_input and has_selected_units and _is_direct_friendly_building_reselection(tapped_node, screen_pos):
 			# A deliberate tap near the center of an owned building changes context
-			# immediately. The tighter radius is important: the broader discovery
-			# radius still treats near-building taps as ground commands.
+			# immediately with the same target as initial discovery.
 			_clear_selection()
 			_add_to_selection(tapped_node)
 			_record_touch_input(screen_pos, world_pos, "select_building", tapped_node, resource_node)
 			consumed = true
 		elif is_touch_input and has_selected_units:
-			# The outer hit ring around a friendly target still counts as a ground
-			# destination; selection requires a deliberate tap on its center.
+			# Neutral/unselectable objects keep their ground destination meaning.
 			var touched_tile_pos := _world_to_tile(world_pos)
 			_record_touch_input(screen_pos, world_pos, "move", tapped_node, resource_node, touched_tile_pos)
 			move_command.emit(touched_tile_pos)
@@ -1102,7 +1153,7 @@ func _is_direct_friendly_building_reselection(entry: Variant, screen_pos: Vector
 		return false
 	var building_screen_pos: Vector2 = _world_to_screen(building.global_position)
 	return (
-		building_screen_pos.distance_to(screen_pos) <= maxf(12.0, touch_building_reselect_radius_px)
+		building_screen_pos.distance_to(screen_pos) <= maxf(12.0, touch_building_hit_radius_px)
 		or _is_touch_on_building_facade(building, _screen_to_world(screen_pos))
 	)
 
@@ -1143,7 +1194,7 @@ func _is_direct_friendly_unit_reselection(entry: Variant, screen_pos: Vector2) -
 	if _is_enemy(unit):
 		return false
 	return (
-		_world_to_screen(unit.global_position).distance_to(screen_pos) <= maxf(12.0, touch_unit_reselect_radius_px)
+		_world_to_screen(unit.global_position).distance_to(screen_pos) <= maxf(12.0, touch_unit_hit_radius_px)
 		or _is_touch_on_unit_body(unit, _screen_to_world(screen_pos))
 	)
 

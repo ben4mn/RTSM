@@ -64,6 +64,7 @@ var _last_playtest_sample_msec: int = 0
 
 # --- Under-attack notification cooldown ---
 var _under_attack_cooldown: float = 0.0
+var _battlefield_feedback: Control = null
 const UNDER_ATTACK_COOLDOWN_TIME: float = 10.0
 const PRODUCTION_EGRESS_MAX_RING_TILES: int = 3
 const PRODUCTION_EGRESS_MAX_CANDIDATES: int = 48
@@ -530,6 +531,10 @@ func _on_map_ready(map_gen: MapGenerator) -> void:
 
 	# Wire up HUD.
 	_setup_hud()
+	_battlefield_feedback = preload("res://scripts/ui/battlefield_feedback.gd").new()
+	hud.get_node("Root").add_child(_battlefield_feedback)
+	hud.get_node("Root").move_child(_battlefield_feedback, 0)
+	_battlefield_feedback.call("setup", hud, game_map, _on_minimap_clicked)
 
 	# Wire up AI.
 	_setup_ai(map_gen)
@@ -1455,7 +1460,7 @@ func _on_unit_trained(unit_type: int, player_id: int, source_queue: ProductionQu
 			game_map.note_camera_interaction()
 			game_map.camera.position = unit.global_position
 			game_map.camera.reset_smoothing()
-			hud.show_notification("Scout ready: tap Military, then tap open ground.", Color(0.95, 0.86, 0.42))
+			hud.show_notification("Scout ready: tap Army, Select all army, then open ground.", Color(0.95, 0.86, 0.42))
 			_update_progression_hint()
 		# Auto-assign new villagers to gather the most needed resource
 		if unit and unit_type == UnitData.UnitType.VILLAGER and use_default_villager_assignment:
@@ -1605,7 +1610,8 @@ func _on_unit_died(unit: UnitBase, player_id: int) -> void:
 	var enemy_id: int = 1 if player_id == 0 else 0
 	_stats[enemy_id]["units_killed"] += 1
 	if player_id == 0:
-		hud.show_notification("Unit lost!", Color(1.0, 0.3, 0.3))
+		if is_instance_valid(_battlefield_feedback):
+			_battlefield_feedback.call("report_loss", UnitData.get_unit_name(unit.unit_type), unit.global_position)
 
 
 func _on_resource_deposited(_resource_type: String, amount: int, player_id: int = 0) -> void:
@@ -1651,15 +1657,10 @@ func _on_player_building_damaged(building: BuildingBase, _hp_loss: int) -> void:
 
 
 func _show_under_attack_alert(target_name: String, world_position: Vector2) -> void:
-	if _under_attack_cooldown <= 0.0:
-		_under_attack_cooldown = UNDER_ATTACK_COOLDOWN_TIME
-		hud.show_notification(
-			"%s under attack! Tap to view." % target_name,
-			Color(1.0, 0.4, 0.2),
-			6.0,
-			_on_minimap_clicked.bind(world_position)
-		)
-		AudioManager.play_sfx("under_attack")
+	if is_instance_valid(_battlefield_feedback):
+		if bool(_battlefield_feedback.call("report_attack", target_name, world_position)):
+			AudioManager.play_sfx("under_attack")
+
 
 
 # =========================================================================
@@ -1750,7 +1751,8 @@ func _on_building_destroyed(building: BuildingBase, player_id: int, tile_pos: Ve
 		if building.depleted_naturally:
 			hud.show_notification("Farm exhausted. Build another for more food.", Color(0.95, 0.80, 0.40))
 		else:
-			hud.show_notification("Building destroyed!", Color(1.0, 0.3, 0.3))
+			if is_instance_valid(_battlefield_feedback):
+				_battlefield_feedback.call("report_loss", building.building_name, building.global_position)
 
 	if building.pop_provided > 0:
 		# Existing units and reservations survive an over-cap state. The cap ledger
@@ -1904,6 +1906,22 @@ func _on_selection_changed(selected_units: Array[Node2D]) -> void:
 	_update_progression_hint()
 
 
+func _set_production_rally(building: BuildingBase, target_tile: Vector2i) -> bool:
+	if GameManager.current_state != GameManager.GameState.PLAYING or not is_instance_valid(building) or building.player_owner != 0 or building.state != BuildingBase.State.ACTIVE or building.trainable_units.is_empty():
+		return false
+	var in_bounds: bool = target_tile.x >= 0 and target_tile.y >= 0 and target_tile.x < MapData.MAP_WIDTH and target_tile.y < MapData.MAP_HEIGHT
+	# Hidden terrain never changes acceptance. The normal paid birth and rally
+	# path later resolve its legal endpoint without exposing unseen blockers.
+	if not in_bounds or (game_map.is_tile_visible_to_player(target_tile, 0) and not game_map.is_tile_walkable(target_tile)):
+		hud.show_notification("Rally point unavailable. Choose another location.", Color(1.0, 0.62, 0.32))
+		return false
+	var world: Vector2 = game_map.tile_to_world(target_tile)
+	building.set_rally_point(world)
+	VFX.move_indicator(get_tree(), world)
+	hud.show_notification("Rally point set: %s" % building.building_name, Color(0.58, 0.82, 1.0))
+	return true
+
+
 func _on_move_command(target_tile: Vector2i) -> void:
 	var selected: Array = game_map.selection_mgr.selected
 	var issue_patrol: bool = _patrol_command_armed
@@ -1915,28 +1933,7 @@ func _on_move_command(target_tile: Vector2i) -> void:
 	if selected.size() == 1 and selected[0] is BuildingBase:
 		var b: BuildingBase = selected[0] as BuildingBase
 		if b.player_owner == 0 and b.trainable_units.size() > 0:
-			var target_in_bounds: bool = (
-				target_tile.x >= 0
-				and target_tile.x < MapData.MAP_WIDTH
-				and target_tile.y >= 0
-				and target_tile.y < MapData.MAP_HEIGHT
-			)
-			if not target_in_bounds:
-				hud.show_notification("Rally point unavailable. Choose another location.", Color(1.0, 0.62, 0.32))
-				return
-			# Only reject a blocker the player can currently see. Hidden tiles accept
-			# the same rally interaction regardless of their private walkability, and
-			# produced units later resolve a legal endpoint through normal navigation.
-			if (
-				game_map.is_tile_visible_to_player(target_tile, 0)
-				and not game_map.is_tile_walkable(target_tile)
-			):
-				hud.show_notification("Rally point unavailable. Choose another location.", Color(1.0, 0.62, 0.32))
-				return
-			var rally_world: Vector2 = game_map.tile_to_world(target_tile)
-			b.set_rally_point(rally_world)
-			VFX.move_indicator(get_tree(), rally_world)
-			hud.show_notification("Rally point set: %s" % b.building_name, Color(0.58, 0.82, 1.0))
+			_set_production_rally(b, target_tile)
 			return
 
 	# Collect moveable units
@@ -1994,7 +1991,8 @@ func _on_move_command(target_tile: Vector2i) -> void:
 		VFX.attack_move_indicator(get_tree(), game_map.tile_to_world(target_tile))
 	else:
 		VFX.move_indicator(get_tree(), game_map.tile_to_world(target_tile))
-	AudioManager.play_sfx("command_move")
+	if not orders.is_empty():
+		AudioManager.play_ui("command_attack" if not issue_force_move and not issue_patrol and (has_military or issue_attack_move) else "command_move")
 	_refresh_unit_command_hud()
 
 
@@ -2003,14 +2001,18 @@ func _on_attack_command(target: Node2D) -> void:
 		return
 	_clear_armed_unit_commands(false)
 	var selected: Array = game_map.selection_mgr.selected
+	var accepted: bool = false
 	for node in selected:
 		if node is UnitBase and node.player_owner == 0:
 			if target is UnitBase:
 				node.command_attack(target as UnitBase)
+				accepted = accepted or (node.current_state == UnitBase.State.ATTACKING and node.attack_target == target and node.damage > 0.0 and target.hp > 0.0)
 			elif target is BuildingBase:
 				node.command_attack_building(target as BuildingBase)
+				accepted = accepted or (node.current_state == UnitBase.State.ATTACKING and node.attack_building_target == target and node.damage > 0.0 and target.hp > 0)
+	if accepted:
+		AudioManager.play_ui("command_attack")
 	_refresh_unit_command_hud()
-
 
 func _on_gather_command(resource_node: Node2D) -> void:
 	if _route_armed_unit_command_to_target(resource_node):
@@ -2459,6 +2461,9 @@ func _setup_hud() -> void:
 	hud.guidance_dismissed.connect(_on_guidance_dismissed)
 	hud.match_learning_requested.connect(_toggle_match_learning)
 	hud.problem_report_requested.connect(_on_problem_report_requested)
+	hud.world_gesture_cancel_requested.connect(func() -> void:
+		game_map.selection_mgr.cancel_touch_gesture()
+		game_map.cancel_camera_touch_gesture())
 	_build_menu.hold_component_created.connect(hud.register_hold_component)
 	_build_menu.information_requested.connect(hud.show_card_information)
 	for component: Node in _build_menu.get("_hold_components"):
@@ -2477,6 +2482,10 @@ func _setup_hud() -> void:
 	_building_placement.preview_changed.connect(_on_placement_preview_changed)
 	_building_placement.input_mode_changed.connect(_on_placement_input_mode_changed)
 	_sync_hud_modal_state()
+	var strategy := preload("res://scripts/managers/strategy_controller.gd").new()
+	strategy.name = "StrategyController"
+	add_child(strategy)
+	strategy.setup(self, hud, game_map)
 
 
 func _get_visible_learning_enemies() -> Array:
@@ -3380,7 +3389,7 @@ func _update_progression_hint() -> void:
 					)
 				else:
 					_apply_primary_guidance(
-						"3 / 4 · Tap Home, then recruit a Scout.",
+						"3 / 4 · Tap Base, then recruit a Scout.",
 						"",
 						UnitData.UnitType.SCOUT
 					)
@@ -3448,6 +3457,8 @@ func _show_game_over() -> void:
 
 	var stats: Dictionary = {
 		"victory_reason": _victory_reason,
+		"is_victory": is_victory,
+		"winner_id": winner_id,
 		"game_time": GameManager.get_formatted_time(),
 		"units_killed": _stats[0]["units_killed"],
 		"units_lost": _stats[0]["units_lost"],

@@ -32,6 +32,9 @@ func _run() -> void:
 		push_error("[FAIL] center_selection_occlusion: " + failure)
 	if _failures.is_empty():
 		print("[PASS] center_selection_occlusion: %d actual Center cases, complete moving/arrival rings, visible HUD obstacles, zoom preservation/fallback and live resize" % _records.size())
+	AudioManager.stop_all()
+	# Let the mixer release stopped playback before process teardown.
+	await get_tree().create_timer(0.15, true, false, true).timeout
 	get_tree().quit(0 if _failures.is_empty() else 1)
 
 
