@@ -199,7 +199,15 @@ static func get_building_stats(building_type: int) -> Dictionary:
 static func get_building_cost(building_type: int) -> Dictionary:
 	if BUILDINGS.has(building_type):
 		var cost: Dictionary = BUILDINGS[building_type]["cost"].duplicate()
-		if GameManager.get_match_mode() != SkirmishData.MatchMode.STANDARD and building_type in [BuildingType.BARRACKS, BuildingType.ARCHERY_RANGE, BuildingType.STABLE]:
+		# SceneTree --script fixtures can compile data before autoload symbols exist.
+		# Resolve the live singleton at call time so its latched match mode still owns costs.
+		var match_mode: int = SkirmishData.MatchMode.STANDARD
+		var scene_tree: SceneTree = Engine.get_main_loop() as SceneTree
+		if scene_tree != null and scene_tree.root != null:
+			var game_manager: Node = scene_tree.root.get_node_or_null("GameManager")
+			if game_manager != null and game_manager.has_method("get_match_mode"):
+				match_mode = int(game_manager.call("get_match_mode"))
+		if match_mode != SkirmishData.MatchMode.STANDARD and building_type in [BuildingType.BARRACKS, BuildingType.ARCHERY_RANGE, BuildingType.STABLE]:
 			cost["wood"] = 100
 		return cost
 	return { "food": 0, "wood": 0, "gold": 0 }
