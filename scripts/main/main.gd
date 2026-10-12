@@ -1819,7 +1819,7 @@ func _on_selection_changed(selected_units: Array[Node2D]) -> void:
 		_selection_context_key = context_key
 		_selection_context_revision += 1
 		game_map.selection_mgr.cancel_touch_gesture(true)
-		hud.set_selection_context_revision(_selection_context_revision)
+		hud.set_selection_context_revision(_selection_context_revision, game_map.selection_mgr.is_selection_cleanup())
 	if selected_units.is_empty():
 		_clear_armed_unit_commands(false)
 		hud.clear_selection()

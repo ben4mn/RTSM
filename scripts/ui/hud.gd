@@ -3987,11 +3987,16 @@ func close_secondary_surface() -> bool:
 	return had_surface
 
 
-func set_selection_context_revision(revision: int) -> void:
+func set_selection_context_revision(revision: int, automatic_cleanup: bool = false) -> void:
 	if revision == _selection_context_revision:
 		return
 	_selection_context_revision = revision
-	close_secondary_surface()
+	# Economy and Army manage the whole player, so casualties must not remove
+	# the sheet from beneath the next contact or reset its production scroll.
+	if automatic_cleanup and _secondary_surface in [SecondarySurface.ECONOMY, SecondarySurface.ARMY]:
+		_cancel_queue_navigation_press()
+	else:
+		close_secondary_surface()
 	_cancel_hud_holds("selection changed")
 
 

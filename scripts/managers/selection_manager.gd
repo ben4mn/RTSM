@@ -23,6 +23,7 @@ signal touch_context_closed()
 
 ## Currently selected units/buildings.
 var selected: Array[Node2D] = []
+var _emitting_selection_cleanup: bool = false
 ## Main mirrors its one-shot Move/A-Move/Patrol state here so a world tap cannot
 ## be reinterpreted as gather, construction, attack, or building reselection.
 var unit_command_armed: bool = false
@@ -799,6 +800,19 @@ func _finish_drag_select() -> void:
 
 ## --- Selection management ---
 
+## Only meaningful during selection_changed dispatch. Stale world objects can
+## disappear without the player choosing to leave a management surface.
+func is_selection_cleanup() -> bool:
+	return _emitting_selection_cleanup
+
+
+func _emit_selection_changed(automatic_cleanup: bool = false) -> void:
+	var previous_cleanup: bool = _emitting_selection_cleanup
+	_emitting_selection_cleanup = automatic_cleanup
+	selection_changed.emit(selected)
+	_emitting_selection_cleanup = previous_cleanup
+
+
 func _clear_selection() -> void:
 	var changed := not selected.is_empty()
 	# A typed Object array may retain a Variant that points to an already-freed
@@ -808,7 +822,7 @@ func _clear_selection() -> void:
 		_deselect_entry_if_valid(entry)
 		selected.remove_at(index)
 	if changed:
-		selection_changed.emit(selected)
+		_emit_selection_changed()
 		_refresh_touch_context_diagnostics()
 
 
@@ -820,7 +834,7 @@ func _add_to_selection(node: Node2D) -> void:
 		selected.append(node)
 		if node.has_method("select"):
 			node.select()
-	selection_changed.emit(selected)
+	_emit_selection_changed()
 
 
 func _remove_from_selection(node: Node2D) -> void:
@@ -831,7 +845,7 @@ func _remove_from_selection(node: Node2D) -> void:
 		selected.erase(node)
 		if node.has_method("deselect"):
 			node.deselect()
-		selection_changed.emit(selected)
+		_emit_selection_changed()
 
 
 func select_all_own_units() -> void:
@@ -882,7 +896,7 @@ func _prune_stale_selection() -> bool:
 		selected.remove_at(index)
 		changed = true
 	if changed:
-		selection_changed.emit(selected)
+		_emit_selection_changed(true)
 		_refresh_touch_context_diagnostics()
 	return changed
 

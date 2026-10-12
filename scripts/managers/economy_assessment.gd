@@ -16,7 +16,7 @@ static func describe(facts: Dictionary) -> Dictionary:
 	var worked_food: int = int(facts.get("worked_food", 0))
 	var food_workers: int = int(facts.get("food_workers", 0))
 	var stock: String = "Known food: %d visible berries + %d in your Farms, still to gather." % [int(facts.get("berry_food", 0)), int(facts.get("farm_food", 0))]
-	var farm: String = "Farm: %d wood → %d finite food. A worker builds and gathers; rebuild when exhausted." % [farm_wood, BuildingData.FARM_FOOD_AMOUNT]
+	var farm: String = "Farm: %d wood for %d finite food. A worker builds and gathers; rebuild when exhausted." % [farm_wood, BuildingData.FARM_FOOD_AMOUNT]
 	var result: Dictionary = {"title": "Economy", "detail": "", "stock": stock, "farm": farm, "attention": "", "severity": 0}
 	if workers == 0:
 		result["severity"] = 2
@@ -26,11 +26,11 @@ static func describe(facts: Dictionary) -> Dictionary:
 			result["attention"] = "Worker paid"
 		elif not bool(facts.get("active_worker_producer", false)):
 			result["title"] = "Economy cannot restart"
-			result["detail"] = "No workers or active Town Center to train one. Your army can still fight. Pause → Quit to Main Menu to start again."
+			result["detail"] = "No workers or active Town Center to train one. Your army can still fight. Pause, then Quit to Main Menu to start again."
 			result["attention"] = "No workers"
 		elif food + refund_food < worker_cost:
 			result["title"] = "Economy cannot restart"
-			result["detail"] = "No workers or paid replacements. A Villager costs %d food; bank %d + refundable food %d is insufficient. Your army can still fight. Pause → Quit to Main Menu to start again." % [worker_cost, food, refund_food]
+			result["detail"] = "No workers or paid replacements. A Villager costs %d food; bank %d + refundable food %d is insufficient. Your army can still fight. Pause, then Quit to Main Menu to start again." % [worker_cost, food, refund_food]
 			result["attention"] = "Lost economy"
 		elif food < worker_cost:
 			result["title"] = "Recover through a paid refund"

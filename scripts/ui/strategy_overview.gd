@@ -172,7 +172,7 @@ func _build_economy() -> void:
 	var farm_row := HBoxContainer.new()
 	farm_row.add_theme_constant_override("separation", 8)
 	_economy.add_child(farm_row)
-	_farm_button = _button("Plan Farm\n75W → 300F", "PlanFarm", 152)
+	_farm_button = _button("Plan Farm\n75W / 300F", "PlanFarm", 152)
 	_farm_button.pressed.connect(func() -> void: farm_requested.emit())
 	farm_row.add_child(_farm_button)
 	_farm_blocker = _label("", 12)
@@ -248,7 +248,7 @@ func update_snapshot(snapshot: Dictionary) -> void:
 	_food_stock.text = str(economy.get("stock", ""))
 	_farm_description.text = str(economy.get("farm", ""))
 	_farm_blocker.text = str(snapshot.get("farm_blocker", ""))
-	_farm_button.text = "Plan Farm\n%dW → %dF" % [int(BuildingData.get_building_cost(BuildingData.BuildingType.FARM).get("wood", 75)), BuildingData.FARM_FOOD_AMOUNT]
+	_farm_button.text = "Plan Farm\n%dW / %dF" % [int(BuildingData.get_building_cost(BuildingData.BuildingType.FARM).get("wood", 75)), BuildingData.FARM_FOOD_AMOUNT]
 	_farm_button.disabled = not bool(snapshot.get("can_plan_farm", false))
 	_population.text = str(snapshot.get("population_text", ""))
 	_idle_button.text = "Find idle %d" % idle
