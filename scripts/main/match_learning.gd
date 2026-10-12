@@ -180,7 +180,10 @@ func _choose_lesson(buildings: Array, site_status: Dictionary) -> Dictionary:
 		if str(site_status.get("phase", "")) == "contested":
 			text = "Sacred · Both sides are in the ring. The victory clock is paused; reinforce."
 		elif int(site_status.get("owner", -1)) == 0:
-			text = "Sacred · Hold for 10:00. Rally replacements nearby and protect your workers."
+			if int(site_status.get("match_mode", SkirmishData.MatchMode.STANDARD)) != SkirmishData.MatchMode.STANDARD:
+				text = "Sacred · Bank control across captures. Rally paid replacements and protect your workers."
+			else:
+				text = "Sacred · Hold for 10:00. Rally replacements nearby and protect your workers."
 		else:
 			text = "Sacred · Tap the Site locator; send your army into its ring to capture or contest."
 	return {"text": text, "focus": focus, "building_type": building_type, "unit_type": unit_type, "lesson": lesson}

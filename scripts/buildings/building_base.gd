@@ -523,7 +523,7 @@ func can_train() -> bool:
 
 
 # --- Farm support: finite food sources ---
-var farm_remaining: int = 300
+var farm_remaining: int = BuildingData.FARM_FOOD_AMOUNT
 
 func get_resource_type() -> String:
 	if provides_food:

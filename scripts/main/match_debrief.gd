@@ -18,6 +18,10 @@ static func describe(stats: Dictionary) -> String:
 	var reason: String = str(stats.get("victory_reason", ""))
 	var lost: bool = not bool(stats.get("is_victory", false))
 	if lost and "Sacred" in reason and int(stats.get("ai_sacred_control_seconds", 0)) > 0:
+		var mode: int = int(stats.get("match_mode", SkirmishData.MatchMode.STANDARD))
+		if mode != SkirmishData.MatchMode.STANDARD:
+			var contest_action: String = "contest to pause their clock"
+			return "Lost to banked Sacred control. Both sides keep earned time. Rally paid counters; %s, then clear the ring to earn control." % contest_action
 		if contests == 0 and captures == 0:
 			return "Lost to the enemy Sacred hold. No Sacred capture or contest recorded. Next match: use Site, then send troops into its ring to pause the clock."
 		return "Lost to the enemy Sacred hold despite %d contests. Next match: rally paid reinforcements to the ring and keep troops there to pause their clock." % contests

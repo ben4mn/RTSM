@@ -36,6 +36,8 @@ var game_speed: float = 1.0
 var selected_difficulty: int = 0  # Fresh beta installs start on the onboarding-safe Easy profile.
 var selected_map_seed: int = -1
 var selected_population_limit: int = SkirmishData.DEFAULT_POPULATION_LIMIT
+var selected_match_mode: int = SkirmishData.MatchMode.STANDARD
+var _match_mode: int = SkirmishData.MatchMode.STANDARD
 var guided_opening_enabled: bool = true
 var audio_enabled: bool = true
 var master_volume: float = 0.8
@@ -88,6 +90,7 @@ func _load_preferences() -> void:
 	var config := ConfigFile.new()
 	if config.load(PREFERENCES_PATH) != OK:
 		return
+	selected_match_mode = SkirmishData.normalize_match_mode(int(config.get_value("skirmish", "match_mode", selected_match_mode)))
 	selected_map_seed = maxi(-1, int(config.get_value("skirmish", "map_seed", selected_map_seed)))
 	selected_difficulty = clampi(int(config.get_value("skirmish", "difficulty", selected_difficulty)), 0, 2)
 	selected_population_limit = SkirmishData.normalize_population_limit(int(config.get_value("skirmish", "population_limit", selected_population_limit)))
@@ -112,6 +115,7 @@ func _load_preferences() -> void:
 
 func save_preferences() -> bool:
 	var config := ConfigFile.new()
+	config.set_value("skirmish", "match_mode", SkirmishData.normalize_match_mode(selected_match_mode))
 	config.set_value("skirmish", "map_seed", selected_map_seed)
 	config.set_value("skirmish", "difficulty", clampi(selected_difficulty, 0, 2))
 	config.set_value("skirmish", "population_limit", SkirmishData.normalize_population_limit(selected_population_limit))
@@ -157,6 +161,7 @@ func reset_preferences() -> void:
 	clearer_player_markers = true
 	guided_opening_enabled = true
 	selected_difficulty = 0
+	selected_match_mode = SkirmishData.MatchMode.STANDARD
 	selected_map_seed = -1
 	selected_population_limit = SkirmishData.DEFAULT_POPULATION_LIMIT
 	apply_preferences()
@@ -176,6 +181,7 @@ func _process(delta: float) -> void:
 
 
 func initialize_game(num_players: int = 2) -> void:
+	_match_mode = SkirmishData.normalize_match_mode(selected_match_mode)
 	_match_population_limit = SkirmishData.normalize_population_limit(selected_population_limit)
 	_population_reservations.clear()
 	_base_population_caps.clear()
@@ -212,6 +218,14 @@ func _create_player_data(player_id: int) -> Dictionary:
 	}
 
 
+func get_match_mode() -> int:
+	# Match setup can be changed while paused; paid transactions keep the rules
+	# latched at initialization through the result screen.
+	if current_state in [GameState.PLAYING, GameState.PAUSED, GameState.GAME_OVER]:
+		return _match_mode
+	return SkirmishData.normalize_match_mode(selected_match_mode)
+
+
 func get_match_population_limit() -> int:
 	if current_state in [GameState.PLAYING, GameState.PAUSED, GameState.GAME_OVER]:
 		return _match_population_limit
@@ -225,7 +239,7 @@ func get_player_population_limit(player_id: int) -> int:
 
 
 func get_age_up_cost(player_id: int, target_age: int) -> Dictionary:
-	return SkirmishData.get_age_up_cost(target_age, get_player_population_limit(player_id))
+	return SkirmishData.get_age_up_cost(target_age, get_player_population_limit(player_id), get_match_mode())
 
 
 func set_state(new_state: GameState) -> void:

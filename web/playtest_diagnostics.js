@@ -12,7 +12,7 @@
     let serial = 0, events = [], counters = Object.create(null), context = {}, runtime = {}, served = {};
     let session = randomId(), started = new Date().toISOString(), problem = null;
     let pending = [], inFlight = false, dirty = false, activeReport = null;
-    let overlay = null, status = null, code = null, note = null;
+    let overlay = null, status = null, code = null, note = null, returnButton = null;
     let lastPersist = 0, nextAttempt = 0, failures = 0;
     const contacts = new Map();
 
@@ -193,10 +193,16 @@
                     {godot_sequence: packet.event.sequence, godot_elapsed_ms: packet.event.elapsed_ms}), {utc_ms: packet.event.utc_ms});
             } else if (packet.type === 'report' && packet.report) {
                 const report = packet.report;
-                append('problem_marked', {origin: 'pause'});
+                append('problem_marked', {origin: reportEntryPoint(report)});
                 openReport(report);
             }
         } catch (_) {} // A diagnostic failure cannot affect a game handler.
+    }
+    function reportEntryPoint(report) {
+        const reportContext = (report && Array.isArray(report.events) ? report.events : [])
+            .slice().reverse().find(event => event && event.kind === 'report_context');
+        const entryPoint = reportContext && reportContext.fields && reportContext.fields.entry_point;
+        return entryPoint === 'result' ? 'result' : 'pause';
     }
     function openReport(report) {
         if (activeReport) queue(snapshot('problem', activeReport.report_id));
@@ -207,7 +213,7 @@
         if (report && report.problem) {
             context = Object.assign({}, context, clean(report.problem.context || {}));
         }
-        activeReport = {report_id: reportId, note: ''};
+        activeReport = {report_id: reportId, note: '', entry_point: reportEntryPoint(report)};
         showDialog();
         queue(snapshot('problem', reportId)); nextAttempt = 0; flush('problem');
         return reportId;
@@ -256,8 +262,8 @@
                 link.href = url; link.download = activeReport.report_id + '.json'; link.click(); link.remove();
                 w.setTimeout(() => w.URL.revokeObjectURL(url), 1000);
             });
-            const close = element('button', 'Back to Pause', actions); close.className = 'pocket-button'; close.type = 'button';
-            close.addEventListener('click', closeDialog);
+            returnButton = element('button', '', actions); returnButton.className = 'pocket-button'; returnButton.type = 'button';
+            returnButton.addEventListener('click', closeDialog);
             overlay.addEventListener('keydown', event => {
                 event.stopPropagation();
                 if (event.key === 'Escape') { event.preventDefault(); closeDialog(); }
@@ -266,6 +272,7 @@
                 overlay.addEventListener(name, event => event.stopPropagation());
         }
         overlay.hidden = false; code.value = activeReport.report_id; note.value = '';
+        returnButton.textContent = activeReport.entry_point === 'result' ? 'Back to result' : 'Back to Pause';
         status.textContent = w.navigator.onLine === false
             ? 'Saved on this device. It will upload when online; you can download the log now.'
             : 'Saved on this device. Uploading…';

@@ -184,6 +184,8 @@ func _build_display() -> void:
 
 func _build_match() -> void:
 	_note("Match setup · applies to your NEXT skirmish." if from_match else "Match setup · applies when you start a skirmish.")
+	_match_rules()
+	_note("Control race: bank 4 minutes of Sacred control across captures; contests pause scoring. Barracks, Range and Stable cost 100 wood; Feudal costs 250 food / 125 gold.")
 	_choice("Difficulty", "selected_difficulty", ["Easy · breathing room", "Medium · steady raids", "Hard · early attacks"], [0, 1, 2])
 	_choice("Population / player", "selected_population_limit", ["20 · compact", "30 · standard", "40 · larger armies"], [20, 30, 40])
 	_toggle("Guide my opening", "guided_opening_enabled")
@@ -272,6 +274,26 @@ func _volume(label: String, property: String) -> void:
 			_save()
 		)
 		row.add_child(mute)
+
+
+func _match_rules() -> void:
+	var row := _row("Rules")
+	var group := ButtonGroup.new()
+	for mode: int in [SkirmishData.MatchMode.STANDARD, SkirmishData.MatchMode.QUICK_CONTROL]:
+		var choice := Button.new()
+		choice.name = "StandardRulesButton" if mode == SkirmishData.MatchMode.STANDARD else "QuickRulesButton"
+		choice.text = SkirmishData.get_mode_name(mode)
+		choice.toggle_mode = true
+		choice.button_group = group
+		choice.custom_minimum_size = Vector2(120, 48)
+		choice.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		choice.add_theme_font_size_override("font_size", 14)
+		choice.set_pressed_no_signal(GameManager.selected_match_mode == mode)
+		choice.pressed.connect(func() -> void:
+			GameManager.selected_match_mode = mode
+			_save()
+		)
+		row.add_child(choice)
 
 
 func _choice(label: String, property: String, labels: Array, values: Array) -> void:

@@ -1,5 +1,7 @@
 class_name BuildingData
 extends RefCounted
+
+const FARM_FOOD_AMOUNT: int = 300
 ## Static data definitions for all building types in AOEM.
 ## `attack_range` values are range tiles and use MapData's shared conversion.
 
@@ -188,13 +190,18 @@ const BUILDINGS: Dictionary = {
 
 static func get_building_stats(building_type: int) -> Dictionary:
 	if BUILDINGS.has(building_type):
-		return BUILDINGS[building_type].duplicate(true)
+		var stats: Dictionary = BUILDINGS[building_type].duplicate(true)
+		stats["cost"] = get_building_cost(building_type)
+		return stats
 	return {}
 
 
 static func get_building_cost(building_type: int) -> Dictionary:
 	if BUILDINGS.has(building_type):
-		return BUILDINGS[building_type]["cost"].duplicate()
+		var cost: Dictionary = BUILDINGS[building_type]["cost"].duplicate()
+		if GameManager.get_match_mode() != SkirmishData.MatchMode.STANDARD and building_type in [BuildingType.BARRACKS, BuildingType.ARCHERY_RANGE, BuildingType.STABLE]:
+			cost["wood"] = 100
+		return cost
 	return { "food": 0, "wood": 0, "gold": 0 }
 
 

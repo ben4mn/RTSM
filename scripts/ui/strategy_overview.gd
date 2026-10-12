@@ -14,6 +14,8 @@ signal training_requested(building: Node2D, unit_type: int)
 signal cancellation_requested(building: Node2D, index: int)
 signal repeat_requested(building: Node2D, enabled: bool)
 signal rally_requested(building: Node2D)
+signal sacred_rally_requested(building: Node2D)
+signal farm_requested()
 signal save_group_requested(index: int)
 signal recall_group_requested(index: int)
 
@@ -26,6 +28,11 @@ var _scroll: ScrollContainer
 var _economy: VBoxContainer
 var _army: VBoxContainer
 var _summary: Label
+var _economy_health: Label
+var _food_stock: Label
+var _farm_description: Label
+var _farm_blocker: Label
+var _farm_button: Button
 var _population: Label
 var _feedback: Label
 var _source_buttons: Dictionary = {}
@@ -130,8 +137,12 @@ func _label(text: String, font_size: int = 13) -> Label:
 func _build_economy() -> void:
 	_summary = _label("Workers: Food 0 · Wood 0 · Gold 0")
 	_economy.add_child(_summary)
-	_population = _label("")
-	_economy.add_child(_population)
+	_economy_health = _label("", 13)
+	_economy_health.name = "EconomyHealth"
+	_economy.add_child(_economy_health)
+	_food_stock = _label("", 12)
+	_food_stock.name = "FoodStock"
+	_economy.add_child(_food_stock)
 	_economy.add_child(_label("Move one worker: choose their current job, then a destination."))
 	var sources := HBoxContainer.new()
 	sources.add_theme_constant_override("separation", 6)
@@ -156,6 +167,19 @@ func _build_economy() -> void:
 	_feedback = _label("Cargo is delivered before switching resources. Builders and recovering workers keep their orders.", 12)
 	_feedback.add_theme_color_override("font_color", KingdomTheme.MUTED)
 	_economy.add_child(_feedback)
+	_farm_description = _label("", 12)
+	_economy.add_child(_farm_description)
+	var farm_row := HBoxContainer.new()
+	farm_row.add_theme_constant_override("separation", 8)
+	_economy.add_child(farm_row)
+	_farm_button = _button("Plan Farm\n75W → 300F", "PlanFarm", 152)
+	_farm_button.pressed.connect(func() -> void: farm_requested.emit())
+	farm_row.add_child(_farm_button)
+	_farm_blocker = _label("", 12)
+	_farm_blocker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	farm_row.add_child(_farm_blocker)
+	_population = _label("")
+	_economy.add_child(_population)
 	_economy.add_child(_label("Production · each training order is paid", 15))
 	_producer_list = VBoxContainer.new()
 	_producer_list.add_theme_constant_override("separation", 8)
@@ -202,17 +226,30 @@ func update_snapshot(snapshot: Dictionary) -> void:
 			warnings.append("No " + resource)
 	var idle: int = int(workers.get("idle", 0))
 	var military: int = int(snapshot.get("military", 0))
+	var economy: Dictionary = snapshot.get("economy", {})
+	var attention: String = str(economy.get("attention", ""))
 	_economy_button.text = "Economy\nF%d W%d G%d" % [int(workers.get("food", 0)), int(workers.get("wood", 0)), int(workers.get("gold", 0))] if warnings.is_empty() else "Economy\n" + warnings[0] + "!"
+	if not attention.is_empty():
+		_economy_button.text = "Economy\n" + attention
+	_economy_button.add_theme_font_size_override("font_size", 11 if not attention.is_empty() else 13)
 	_economy_button.tooltip_text = "; ".join(warnings) if not warnings.is_empty() else "Manage workers and paid production"
-	if warnings.is_empty():
+	if warnings.is_empty() and attention.is_empty():
 		KingdomTheme.apply_secondary(_economy_button)
 	else:
 		KingdomTheme.apply_primary(_economy_button)
 	_army_button.text = "Army %d" % military
 	_summary.text = "Food %d · Wood %d · Gold %d · Idle %d · Recovering %d · Building %d" % [int(workers.get("food", 0)), int(workers.get("wood", 0)), int(workers.get("gold", 0)), idle, int(workers.get("recovering", 0)), int(workers.get("build", 0))]
-	if not warnings.is_empty():
-		_summary.text += "\n" + " · ".join(warnings) + " workers — reassign below."
 	_summary.add_theme_color_override("font_color", KingdomTheme.PARCHMENT if warnings.is_empty() else KingdomTheme.AMBER)
+	_economy_health.text = str(economy.get("title", ""))
+	_economy_health.visible = int(economy.get("severity", 0)) > 0
+	if int(economy.get("severity", 0)) > 0:
+		_economy_health.text += "\n" + str(economy.get("detail", ""))
+	_economy_health.add_theme_color_override("font_color", KingdomTheme.AMBER if int(economy.get("severity", 0)) > 0 else KingdomTheme.PARCHMENT)
+	_food_stock.text = str(economy.get("stock", ""))
+	_farm_description.text = str(economy.get("farm", ""))
+	_farm_blocker.text = str(snapshot.get("farm_blocker", ""))
+	_farm_button.text = "Plan Farm\n%dW → %dF" % [int(BuildingData.get_building_cost(BuildingData.BuildingType.FARM).get("wood", 75)), BuildingData.FARM_FOOD_AMOUNT]
+	_farm_button.disabled = not bool(snapshot.get("can_plan_farm", false))
 	_population.text = str(snapshot.get("population_text", ""))
 	_idle_button.text = "Find idle %d" % idle
 	_idle_button.disabled = idle <= 0
@@ -224,7 +261,8 @@ func update_snapshot(snapshot: Dictionary) -> void:
 	for index: int in [1, 2]:
 		var row: Dictionary = _group_rows[index]
 		var count: int = int(counts.get(index, 0))
-		(row.label as Label).text = "Group %d · %s" % [index, "%d selected members" % count if count > 0 else "empty"]
+		var member_name: String = "members" if bool((snapshot.get("group_has_buildings", {}) as Dictionary).get(index, false)) else "units"
+		(row.label as Label).text = "Group %d · %s" % [index, "%d %s" % [count, member_name] if count > 0 else "empty"]
 		(row.save as Button).disabled = int(snapshot.get("selection_count", 0)) <= 0
 		(row.recall as Button).disabled = count <= 0
 
@@ -265,11 +303,17 @@ func _refresh_producers(producers: Array) -> void:
 		(row.undo as Button).disabled = queue.is_empty()
 		(row.clear as Button).disabled = queue.is_empty() and not bool(producer.get("repeat_enabled", false))
 		(row.rally as Button).disabled = int(_snapshot.get("selected_military", 0)) <= 0 or not bool(producer.get("active", false))
+		(row.sacred as Button).disabled = not bool(producer.get("sacred_available", false)) or not bool(producer.get("active", false))
+		(row.rally_status as Label).text = str(producer.get("rally_status", ""))
 		row["queue_size"] = queue.size()
 		for unit_type: int in row.train:
 			var button: Button = row.train[unit_type]
 			button.disabled = not bool(producer.get("active", false))
 			button.tooltip_text = str((producer.get("unit_status", {}) as Dictionary).get(unit_type, ""))
+			var blocker: String = button.tooltip_text
+			var status_label: Label = row.train_status[unit_type]
+			status_label.text = blocker.capitalize()
+			status_label.add_theme_color_override("font_color", KingdomTheme.MUTED if blocker == "ready" else KingdomTheme.AMBER)
 	for id: int in _producer_rows.keys():
 		if id not in live_ids:
 			var card: Control = _producer_rows[id].card
@@ -296,18 +340,31 @@ func _create_producer(producer: Dictionary) -> void:
 	training.add_theme_constant_override("separation", 6)
 	content.add_child(training)
 	var train_buttons: Dictionary = {}
+	var train_status: Dictionary = {}
 	for unit_type: int in producer.get("trainable", []):
 		var cost: Dictionary = UnitData.get_unit_cost(unit_type)
 		var costs: PackedStringArray = []
 		for resource: String in RESOURCES:
 			if int(cost.get(resource, 0)) > 0:
 				costs.append("%d%s" % [int(cost[resource]), resource.left(1).to_upper()])
-		var button := _button("+ %s\n%s" % [UnitData.get_unit_name(unit_type), " ".join(costs)], "Train_%d" % unit_type, 104)
+		var unit_card := VBoxContainer.new()
+		unit_card.custom_minimum_size.x = 168
+		unit_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		training.add_child(unit_card)
+		var counter: String = UnitData.get_unit_counter_description(unit_type)
+		if unit_type == UnitData.UnitType.VILLAGER:
+			counter = "Gather & build"
+		var button := _button("+ %s\n%s%s" % [UnitData.get_unit_name(unit_type), " ".join(costs), "\n" + counter if not counter.is_empty() else ""], "Train_%d" % unit_type, 168)
+		button.add_theme_font_size_override("font_size", 12)
 		button.pressed.connect(func() -> void:
 			if is_instance_valid(building):
 				training_requested.emit(building, unit_type))
-		training.add_child(button)
+		unit_card.add_child(button)
 		train_buttons[unit_type] = button
+		var unit_status := _label("", 12)
+		unit_status.name = "TrainingStatus_%d" % unit_type
+		unit_card.add_child(unit_status)
+		train_status[unit_type] = unit_status
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 6)
 	content.add_child(actions)
@@ -329,13 +386,25 @@ func _create_producer(producer: Dictionary) -> void:
 		if is_instance_valid(building):
 			cancellation_requested.emit(building, ProductionQueue.CANCEL_ALL_INDEX))
 	actions.add_child(clear)
-	var rally := _button("Rally to army", "RallyToArmy", 120)
+	var rally_status := _label("", 12)
+	rally_status.name = "RallyStatus"
+	content.add_child(rally_status)
+	var rallies := HBoxContainer.new()
+	rallies.add_theme_constant_override("separation", 6)
+	content.add_child(rallies)
+	var rally := _button("Rally to army", "RallyToArmy", 152)
 	rally.tooltip_text = "Send future trained units to the selected army’s current location. Existing units keep their orders."
 	rally.pressed.connect(func() -> void:
 		if is_instance_valid(building):
 			rally_requested.emit(building))
-	actions.add_child(rally)
-	_producer_rows[id] = {"card": card, "status": status, "paid": paid, "repeat": repeat_button, "undo": undo, "clear": clear, "rally": rally, "train": train_buttons, "queue_size": 0}
+	rallies.add_child(rally)
+	var sacred := _button("Rally to Sacred", "RallyToSacred", 152)
+	sacred.tooltip_text = "All future recruits go to the public Sacred location. Existing units keep their orders."
+	sacred.pressed.connect(func() -> void:
+		if is_instance_valid(building):
+			sacred_rally_requested.emit(building))
+	rallies.add_child(sacred)
+	_producer_rows[id] = {"card": card, "status": status, "paid": paid, "repeat": repeat_button, "undo": undo, "clear": clear, "rally": rally, "sacred": sacred, "rally_status": rally_status, "train": train_buttons, "train_status": train_status, "queue_size": 0}
 
 
 func show_feedback(message: String, success: bool = true) -> void:

@@ -3,6 +3,7 @@ extends CanvasLayer
 
 signal restart_requested()
 signal main_menu_requested()
+signal problem_report_requested()
 
 @onready var panel: PanelContainer = %GameOverPanel
 @onready var result_label: Label = %ResultLabel
@@ -13,6 +14,7 @@ signal main_menu_requested()
 @onready var stats_container: VBoxContainer = %StatsContainer
 @onready var play_again_button: Button = %PlayAgainButton
 @onready var main_menu_button: Button = %MainMenuButton
+@onready var report_button: Button = %ReportButton
 
 @export var summary_diagnostics: Dictionary = {}
 
@@ -32,6 +34,7 @@ func _ready() -> void:
 	KingdomTheme.apply_primary(play_again_button)
 	play_again_button.pressed.connect(_on_play_again)
 	main_menu_button.pressed.connect(_on_main_menu)
+	report_button.pressed.connect(_on_report)
 	_debrief_label = Label.new()
 	_debrief_label.name = "MatchDebriefLabel"
 	_debrief_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -72,7 +75,7 @@ func _fit_panel_to_size(viewport_size: Vector2, safe_area: Rect2 = Rect2()) -> v
 	var vbox: VBoxContainer = margin.get_node("VBox")
 	var button_row: BoxContainer = vbox.get_node("ButtonRow")
 	# On the shortest phone corridor, actual match advice takes the score row's
-	# space; the measured comparisons and both 48px actions remain readable.
+	# space; the measured comparisons and all three 48px actions remain readable.
 	var show_scores: bool = not compact or _debrief_label == null or not _debrief_label.visible
 	score_bar.visible = show_scores
 	vbox.get_node("Separator2").visible = show_scores
@@ -90,6 +93,7 @@ func _fit_panel_to_size(viewport_size: Vector2, safe_area: Rect2 = Rect2()) -> v
 	ai_score_label.add_theme_font_size_override("font_size", 16 if compact else 20)
 	play_again_button.add_theme_font_size_override("font_size", 16 if compact else 18)
 	main_menu_button.add_theme_font_size_override("font_size", 16 if compact else 18)
+	report_button.add_theme_font_size_override("font_size", 16 if compact else 18)
 
 
 func _get_safe_area_rect(viewport_size: Vector2) -> Rect2:
@@ -124,6 +128,7 @@ func show_defeat(stats: Dictionary) -> void:
 func _show_result(text: String, color: Color, stats: Dictionary) -> void:
 	play_again_button.disabled = false
 	main_menu_button.disabled = false
+	report_button.disabled = false
 	summary_diagnostics = stats.duplicate(true)
 	summary_diagnostics["result"] = text
 	result_label.text = text
@@ -225,20 +230,20 @@ func _add_stat_row(label_text: String, player_val: int, ai_val: int, lower_is_be
 
 
 func _animate_in() -> void:
-	# Fade and scale within the safe bounds; a downward slide can put the panel
-	# under a landscape home indicator during its first animation frames.
-	panel.modulate = Color(1, 1, 1, 0)
-	panel.pivot_offset = panel.size * 0.5
-	panel.scale = Vector2(0.96, 0.96)
+	# Keep all actions at their full 48px target size throughout the transition.
+	panel.scale = Vector2.ONE
+	panel.modulate = Color.WHITE
+	if GameManager.reduced_motion:
+		return
+	panel.modulate.a = 0.0
 
 	var tween := create_tween()
 	tween.set_parallel(true)
 	tween.set_ease(Tween.EASE_OUT)
 	tween.set_trans(Tween.TRANS_CUBIC)
 
-	# Panel fades and settles without leaving its fitted rectangle.
+	# Fade without moving the panel outside its fitted safe rectangle.
 	tween.tween_property(panel, "modulate", Color(1, 1, 1, 1), 0.4)
-	tween.tween_property(panel, "scale", Vector2.ONE, 0.4)
 
 
 func _on_play_again() -> void:
@@ -246,6 +251,7 @@ func _on_play_again() -> void:
 		return
 	play_again_button.disabled = true
 	main_menu_button.disabled = true
+	report_button.disabled = true
 	AudioManager.play_ui("button_click")
 	get_tree().paused = false
 	visible = false
@@ -257,7 +263,16 @@ func _on_main_menu() -> void:
 		return
 	play_again_button.disabled = true
 	main_menu_button.disabled = true
+	report_button.disabled = true
 	AudioManager.play_ui("button_click")
 	get_tree().paused = false
 	visible = false
 	main_menu_requested.emit()
+
+
+func _on_report() -> void:
+	if report_button.disabled:
+		return
+	# The existing private report flow keeps this concluded match and its
+	# result available when the player closes the report card.
+	problem_report_requested.emit()

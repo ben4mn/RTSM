@@ -39,6 +39,29 @@ var capture_progress: float = 0.0
 
 ## Accumulated hold time for the current owner.
 var victory_timer: float = 0.0
+var match_mode: int = SkirmishData.MatchMode.STANDARD
+var control_banks: Array[float] = [0.0, 0.0]
+
+
+func configure_match_mode(mode: int) -> void:
+	match_mode = SkirmishData.normalize_match_mode(mode)
+	victory_hold_time = SkirmishData.get_sacred_target(match_mode)
+	control_banks = [0.0, 0.0]
+	victory_timer = 0.0
+
+
+func _reset_or_restore_timer() -> void:
+	victory_timer = control_banks[owning_player] if match_mode != SkirmishData.MatchMode.STANDARD and owning_player in [0, 1] else 0.0
+
+
+func _advance_victory(delta: float) -> void:
+	if owning_player not in [0, 1]:
+		return
+	victory_timer += delta
+	if match_mode != SkirmishData.MatchMode.STANDARD:
+		control_banks[owning_player] = victory_timer
+	victory_timer_tick.emit(owning_player, victory_hold_time - victory_timer, victory_hold_time)
+
 
 ## ResourceManager stores whole resources. Preserve sub-resource income between
 ## frames so a normal 60 FPS update does not truncate every award to zero.
@@ -87,12 +110,12 @@ func _handle_neutral(p1: int, p2: int, _delta: float) -> void:
 		state = SiteState.CAPTURING
 		owning_player = 0
 		capture_progress = 0.0
-		victory_timer = 0.0
+		_reset_or_restore_timer()
 	elif p2 > 0 and p1 == 0:
 		state = SiteState.CAPTURING
 		owning_player = 1
 		capture_progress = 0.0
-		victory_timer = 0.0
+		_reset_or_restore_timer()
 
 
 func _handle_capturing(p1: int, p2: int, delta: float) -> void:
@@ -142,7 +165,7 @@ func _handle_captured(p1: int, p2: int, delta: float) -> void:
 			state = SiteState.NEUTRAL
 			var _old_owner := owning_player
 			owning_player = -1
-			victory_timer = 0.0
+			_reset_or_restore_timer()
 			neutralized.emit()
 		return
 
@@ -150,8 +173,7 @@ func _handle_captured(p1: int, p2: int, delta: float) -> void:
 	_generate_gold(delta)
 
 	# Tick victory timer.
-	victory_timer += delta
-	victory_timer_tick.emit(owning_player, victory_hold_time - victory_timer, victory_hold_time)
+	_advance_victory(delta)
 
 
 func _handle_contested(p1: int, p2: int, delta: float) -> void:
@@ -167,7 +189,7 @@ func _handle_contested(p1: int, p2: int, delta: float) -> void:
 			if capture_progress <= 0.0:
 				owning_player = 0
 				capture_progress = 0.0
-				victory_timer = 0.0
+				_reset_or_restore_timer()
 				state = SiteState.CAPTURING
 		return
 	if p2 > 0 and p1 == 0:
@@ -178,10 +200,10 @@ func _handle_contested(p1: int, p2: int, delta: float) -> void:
 			if capture_progress <= 0.0:
 				owning_player = 1
 				capture_progress = 0.0
-				victory_timer = 0.0
+				_reset_or_restore_timer()
 				state = SiteState.CAPTURING
 		return
-	# Both players present — no progress.
+	# Both players present — pause control in both rule sets.
 
 
 func _generate_gold(delta: float) -> void:
@@ -326,6 +348,8 @@ func get_status() -> Dictionary:
 		"remaining": maxf(0.0, victory_hold_time - victory_timer),
 		"total": victory_hold_time,
 		"gold_per_second": gold_per_second,
+		"match_mode": match_mode,
+		"control_banks": control_banks.duplicate(),
 	}
 
 

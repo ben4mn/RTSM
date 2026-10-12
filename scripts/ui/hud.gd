@@ -3718,6 +3718,15 @@ func update_sacred_site_status(status: Dictionary) -> void:
 		objective_title = "Sacred Site · Contested"
 	elif phase == "neutralizing":
 		objective_title = "Sacred Site · Disrupted"
+	if int(status.get("match_mode", SkirmishData.MatchMode.STANDARD)) != SkirmishData.MatchMode.STANDARD:
+		var scoring_state: String = "bank control"
+		if phase == "holding":
+			scoring_state = "You scoring" if int(status.get("owner", -1)) == 0 else "Enemy scoring"
+		elif phase == "capturing":
+			scoring_state = "capturing"
+		if phase in ["contested", "neutralizing"]:
+			scoring_state = "paused"
+		objective_title = "Sacred %s · %s" % [_sacred_clock(float(status.get("total", 240.0))), scoring_state]
 	_sacred_site_label.text = objective_title + "\n" + _sacred_site_status_line(status)
 	_sacred_site_button.tooltip_text = _sacred_site_instructions(status)
 	var owner: int = int(status.get("owner", -1))
@@ -3736,6 +3745,9 @@ func update_sacred_site_status(status: Dictionary) -> void:
 
 
 func _sacred_site_status_line(status: Dictionary) -> String:
+	if int(status.get("match_mode", SkirmishData.MatchMode.STANDARD)) != SkirmishData.MatchMode.STANDARD:
+		var banks: Array = status.get("control_banks", [0.0, 0.0])
+		return "You %s · Enemy %s" % [_sacred_clock(float(banks[0])), _sacred_clock(float(banks[1]))]
 	var owner_name: String = "You" if int(status.get("owner", -1)) == 0 else "Enemy"
 	var remaining: int = maxi(0, ceili(float(status.get("remaining", 0.0))))
 	var remaining_text: String = "%d:%02d" % [int(remaining / 60.0), remaining % 60]
@@ -3747,9 +3759,18 @@ func _sacred_site_status_line(status: Dictionary) -> String:
 	return "Neutral · enter the ring"
 
 
+func _sacred_clock(seconds: float) -> String:
+	var whole_seconds: int = maxi(0, floori(seconds))
+	return "%d:%02d" % [int(whole_seconds / 60.0), whole_seconds % 60]
+
+
 func _sacred_site_instructions(status: Dictionary) -> String:
 	var total_seconds: int = maxi(0, ceili(float(status.get("total", 0.0))))
 	var total_text: String = "%d:%02d" % [int(total_seconds / 60.0), total_seconds % 60]
+	var mode: int = int(status.get("match_mode", SkirmishData.MatchMode.STANDARD))
+	if mode != SkirmishData.MatchMode.STANDARD:
+		var scoring_rule: String = "Contests pause scoring. Clear the ring to resume."
+		return "Any living unit can capture. Bank %s of Sacred control to win; each side keeps its earned time across captures. %s Barracks, Range and Stable cost 100 wood; Feudal costs 250 food / 125 gold." % [total_text, scoring_rule]
 	return "Any living unit, including Scouts and villagers, can capture. Keep units inside the ring with no enemies. Send units into an enemy-held ring to pause its clock; clear the defenders to neutralize it. An uncontested hold of %s wins, or destroy the enemy Town Center." % total_text
 
 
@@ -3776,6 +3797,8 @@ func show_sacred_site_selection(status: Dictionary) -> void:
 		"contested": selection_details.text = "Contested\nClear enemies"
 		"neutralizing": selection_details.text = "Disrupted\nStay in ring"
 		_: selection_details.text = "Neutral\nEnter ring"
+	if int(status.get("match_mode", SkirmishData.MatchMode.STANDARD)) != SkirmishData.MatchMode.STANDARD:
+		selection_details.text = "%s\nBank %s · %s" % [_sacred_site_status_line(status), _sacred_clock(float(status.get("total", 240.0))), phase.capitalize()]
 	selection_details.tooltip_text = _sacred_site_instructions(status)
 	if first_selection:
 		_queue_mobile_layout_refresh()

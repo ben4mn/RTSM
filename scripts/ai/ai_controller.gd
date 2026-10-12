@@ -1722,6 +1722,11 @@ func _get_build_order(age: int) -> Array:
 		var first_role: int = mounted_role if _get_compact_missing_role_building() == mounted_role else ranged_role
 		var second_role: int = ranged_role if first_role == mounted_role else mounted_role
 		var order: Array = [BuildingData.BuildingType.FARM, BuildingData.BuildingType.BARRACKS, BuildingData.BuildingType.LUMBER_CAMP, BuildingData.BuildingType.MILL, first_role, second_role, BuildingData.BuildingType.MINING_CAMP]
+		if GameManager.get_match_mode() == SkirmishData.MatchMode.QUICK_CONTROL:
+			# One Farm and the TC sustain the short opening. Buy the first paid
+			# counter producer before spending another 100 wood on a nearer Mill.
+			# Keep the wood drop-off first and the food drop-off immediately after.
+			order = [BuildingData.BuildingType.FARM, BuildingData.BuildingType.BARRACKS, BuildingData.BuildingType.LUMBER_CAMP, first_role, BuildingData.BuildingType.MILL, second_role, BuildingData.BuildingType.MINING_CAMP]
 		if age >= 3:
 			order.append(BuildingData.BuildingType.SIEGE_WORKSHOP)
 		order.append_array([BuildingData.BuildingType.WATCH_TOWER, BuildingData.BuildingType.BLACKSMITH])

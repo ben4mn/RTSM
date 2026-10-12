@@ -12,6 +12,7 @@ func _initialize() -> void:
 
 func _run() -> void:
 	var examples: Array[Dictionary] = [
+		{"match_mode": SkirmishData.MatchMode.QUICK_CONTROL, "victory_reason": "Sacred control banked for 4:00", "is_victory": false, "ai_sacred_control_seconds": 240, "learning": {"objective_contests": 4}, "expect": "Both sides keep earned time"},
 		{"victory_reason": "Sacred Site held for 10:00", "learning": {"paid_army": 0}, "expect": "No fighting troops"},
 		{"learning": {"paid_army": 3, "worker_losses": 2, "worker_replacements": 1}, "expect": "Workers lost 2; paid replacements 1"},
 		{"victory_reason": "Sacred Site held for 10:00", "ai_sacred_control_seconds": 600, "learning": {"paid_army": 3, "worker_losses": 8, "worker_replacements": 0}, "expect": "No Sacred capture or contest"},
@@ -50,17 +51,20 @@ func _run() -> void:
 					_expect(label.get_line_count() <= 3, "%s %.3f notch%s debrief text fits three lines" % [physical, scale_value, notched])
 					var rect: Rect2 = panel.get_global_rect()
 					_expect(rect.position.x >= safe.position.x - 0.5 and rect.position.y >= safe.position.y - 0.5 and rect.end.x <= safe.end.x + 0.5 and rect.end.y <= safe.end.y + 0.5, "%s %.3f notch%s result fits safe bounds" % [physical, scale_value, notched])
-					for name: String in ["PlayAgainButton", "MainMenuButton"]:
+					for name: String in ["PlayAgainButton", "MainMenuButton", "ReportButton"]:
 						var button: Button = screen.get_node("GameOverPanel/Margin/VBox/ButtonRow/" + name)
-						_expect(button.size.y * scale_value >= 48.0, "Result action preserves 48 physical px")
+						_expect(button.size.x >= 48.0 and button.size.y >= 48.0, "Result action preserves 48 logical px")
 					paused = false
 				records.append({"physical": str(physical), "scale": scale_value, "notched": notched, "panel": str(panel.get_global_rect()), "max_lines": max_lines})
 				viewport.free()
 				await process_frame
-	var output := FileAccess.open("res://output/evolution/mobile-playability-pass-20261012/debrief-phone.json", FileAccess.WRITE)
-	output.store_string(JSON.stringify({"scope": "Synthetic telemetry decision fixtures and headless Control/font measurements, no human/device claim", "profiles": records, "failures": failures}, "\t"))
+	var folder: String = OS.get_environment("AOEM_CAPTURE_UX_DIR")
+	if not folder.is_empty():
+		DirAccess.make_dir_recursive_absolute(folder)
+		var output := FileAccess.open(folder.path_join("debrief-phone.json"), FileAccess.WRITE)
+		output.store_string(JSON.stringify({"scope": "Synthetic telemetry decision fixtures and headless Control/font measurements, no human/device claim", "profiles": records, "failures": failures}, "\t"))
 	if failures.is_empty():
-		print("[PASS] match_debrief: receipt-based suggestions, no invented empty telemetry, six explanations across 12 phone profiles")
+		print("[PASS] match_debrief: receipt-based suggestions, no invented empty telemetry, standard and banked explanations across 12 phone profiles")
 		quit(0)
 	else:
 		quit(1)

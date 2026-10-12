@@ -514,6 +514,7 @@ func _on_difficulty_changed(index: int) -> void:
 
 
 func _apply_difficulty_description() -> void:
+	start_button.text = "Play skirmish" if GameManager.selected_match_mode == SkirmishData.MatchMode.STANDARD else "Play control race"
 	difficulty_description.text = DIFFICULTY_DESCRIPTIONS[_selected_difficulty]
 	for index: int in _difficulty_buttons.size():
 		_difficulty_buttons[index].set_pressed_no_signal(index == _selected_difficulty)

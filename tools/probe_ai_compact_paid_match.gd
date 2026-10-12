@@ -37,10 +37,13 @@ func _ready() -> void:
 func _run() -> void:
 	AudioManager.set_all_enabled(false)
 	GameManager.guided_opening_enabled = false
+	GameManager.selected_match_mode = SkirmishData.MatchMode.STANDARD
 	GameManager.selected_difficulty = 1
 	GameManager.selected_population_limit = 30
 	GameManager.selected_map_seed = 424242
 	for argument: String in OS.get_cmdline_user_args():
+		if argument.begins_with("--mode="):
+			GameManager.selected_match_mode = SkirmishData.normalize_match_mode(int(argument.trim_prefix("--mode=")))
 		if argument.begins_with("--pop="):
 			GameManager.selected_population_limit = int(argument.trim_prefix("--pop="))
 		if argument.begins_with("--seed="):
@@ -111,6 +114,8 @@ func _run() -> void:
 	stats["age_times"] = match_scene.get("_age_reached_at").duplicate(true)
 	stats["resources"] = [ResourceManager.get_all_resources(0), ResourceManager.get_all_resources(1)]
 	stats["difficulty"] = GameManager.selected_difficulty
+	stats["match_mode"] = GameManager.get_match_mode()
+	stats["match_mode_name"] = SkirmishData.get_mode_name(GameManager.get_match_mode())
 	stats["summary"] = match_scene.get("match_summary_diagnostics")
 	stats["victory_reason"] = match_scene.get("_victory_reason") if ending == "game over" else "unresolved at %ds" % int(duration_seconds)
 	stats["live_stats"] = match_scene.get("_stats").duplicate(true)
@@ -311,7 +316,7 @@ func _get_runtime_source_hashes() -> Dictionary:
 	# Cached Script resources expose the source actually loaded in this process,
 	# even if another collaborator edits the file while the match is running.
 	var hashes: Dictionary = {}
-	for path: String in ["scripts/ai/ai_controller.gd", "scripts/data/unit_data.gd", "scripts/data/building_data.gd", "scripts/data/skirmish_data.gd", "scripts/buildings/building_base.gd", "scripts/units/unit_base.gd", "scripts/units/combat.gd", "scripts/units/villager.gd", "scripts/main/main.gd", "scripts/ui/hud.gd", "scripts/map/map_data.gd", "scripts/map/map_generator.gd", "scripts/map/game_map.gd", "scripts/map/resource_node.gd", "scripts/map/pathfinding.gd", "scripts/managers/fog_manager.gd", "scripts/managers/selection_manager.gd", "scripts/managers/game_manager.gd", "scripts/managers/resource_manager.gd", "tools/probe_ai_compact_paid_match.gd"]:
+	for path: String in ["scripts/ai/ai_controller.gd", "scripts/data/unit_data.gd", "scripts/data/building_data.gd", "scripts/data/skirmish_data.gd", "scripts/buildings/building_base.gd", "scripts/units/unit_base.gd", "scripts/units/combat.gd", "scripts/units/villager.gd", "scripts/main/main.gd", "scripts/ui/hud.gd", "scripts/map/map_data.gd", "scripts/map/map_generator.gd", "scripts/map/sacred_site.gd", "scripts/map/game_map.gd", "scripts/map/resource_node.gd", "scripts/map/pathfinding.gd", "scripts/managers/fog_manager.gd", "scripts/managers/selection_manager.gd", "scripts/managers/game_manager.gd", "scripts/managers/resource_manager.gd", "tools/probe_ai_compact_paid_match.gd"]:
 		var script: Script = load("res://" + path) as Script
 		hashes[path] = script.get_source_code().sha256_text()
 	for path: String in ["scripts/data/tech_data.gd", "scripts/main/match_learning.gd", "scripts/main/match_debrief.gd", "scripts/units/auto_targeting.gd"]:

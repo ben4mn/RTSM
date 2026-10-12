@@ -463,6 +463,8 @@ func _on_map_ready(map_gen: MapGenerator) -> void:
 			"map_seed": str(map_gen.get("_rng").seed),
 			"difficulty": _resolve_ai_difficulty(),
 			"population_cap": GameManager.get_match_population_limit(),
+			"match_mode": GameManager.get_match_mode(),
+			"match_mode_name": SkirmishData.get_mode_name(GameManager.get_match_mode()),
 			"game_speed": Engine.time_scale,
 		})
 	if not GameManager.age_advanced.is_connected(_on_age_advanced_for_summary):
@@ -522,7 +524,7 @@ func _on_map_ready(map_gen: MapGenerator) -> void:
 	if game_map.sacred_site:
 		# The economy must have time to turn into armies and reinforcements.
 		# Keep the small standalone site fixture independent of match pacing.
-		game_map.sacred_site.victory_hold_time = SkirmishData.SACRED_VICTORY_HOLD_SECONDS
+		game_map.sacred_site.configure_match_mode(GameManager.get_match_mode())
 		game_map.sacred_site.captured.connect(_on_sacred_site_captured)
 		game_map.sacred_site.neutralized.connect(_on_sacred_site_neutralized)
 		game_map.sacred_site.victory_timer_tick.connect(_on_sacred_site_timer_tick)
@@ -721,7 +723,8 @@ func _on_sacred_site_timer_tick(player_id: int, remaining: float, total: float) 
 	_sacred_last_remaining = remaining
 	# Check for victory
 	if remaining <= 0.0:
-		_conclude_match(player_id, "Sacred Site held for %s" % _format_duration_seconds(total))
+		var victory_rule: String = "Sacred control banked for %s" if GameManager.get_match_mode() != SkirmishData.MatchMode.STANDARD else "Sacred Site held for %s"
+		_conclude_match(player_id, victory_rule % _format_duration_seconds(total))
 	# Warn at 60 seconds remaining
 	elif remaining <= 60.0 and not _sacred_site_victory_notified:
 		_sacred_site_victory_notified = true
@@ -897,6 +900,9 @@ func _on_problem_report_requested() -> void:
 	if playtest == null:
 		return
 	playtest.call("record_event", "report_context", {
+		"entry_point": "result" if _game_over_shown else "pause",
+		"match_mode": GameManager.get_match_mode(),
+		"match_mode_name": SkirmishData.get_mode_name(GameManager.get_match_mode()),
 		"game_seconds": GameManager.game_time,
 		"game_speed": Engine.time_scale,
 		"ui_scale": GameManager.ui_scale,
@@ -906,6 +912,20 @@ func _on_problem_report_requested() -> void:
 		"armed_attack": _attack_move_command_armed,
 		"armed_patrol": _patrol_command_armed,
 	})
+	if _game_over_shown:
+		playtest.call("record_event", "match_result", {
+			"match_mode": GameManager.get_match_mode(),
+			"match_mode_name": SkirmishData.get_mode_name(GameManager.get_match_mode()),
+			"winner_id": int(match_summary_diagnostics.get("winner_id", -1)),
+			"is_victory": bool(match_summary_diagnostics.get("is_victory", false)),
+			"victory_reason": _victory_reason,
+			"game_seconds": GameManager.game_time,
+			"army_trained": int(match_summary_diagnostics.get("army_trained", 0)),
+			"units_lost": int(match_summary_diagnostics.get("units_lost", 0)),
+			"resources_gathered": int(match_summary_diagnostics.get("resources_gathered", 0)),
+			"sacred_control_seconds": int(match_summary_diagnostics.get("sacred_control_seconds", 0)),
+			"learning": match_summary_diagnostics.get("learning", {}),
+		})
 	var report: Dictionary = playtest.call("mark_report")
 	if OS.has_feature("web"):
 		return  # The Web bridge shows its report card while the match stays paused.
@@ -3456,6 +3476,8 @@ func _show_game_over() -> void:
 	add_child(game_over)
 
 	var stats: Dictionary = {
+		"match_mode": GameManager.get_match_mode(),
+		"match_mode_name": SkirmishData.get_mode_name(GameManager.get_match_mode()),
 		"victory_reason": _victory_reason,
 		"is_victory": is_victory,
 		"winner_id": winner_id,
@@ -3499,6 +3521,8 @@ func _show_game_over() -> void:
 		game_over.restart_requested.connect(_on_restart)
 	if game_over.has_signal("main_menu_requested"):
 		game_over.main_menu_requested.connect(_on_main_menu)
+	if game_over.has_signal("problem_report_requested"):
+		game_over.problem_report_requested.connect(_on_problem_report_requested)
 
 
 func _format_duration_seconds(duration: float) -> String:

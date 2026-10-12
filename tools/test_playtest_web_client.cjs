@@ -161,6 +161,26 @@ async function check(name, run) {
         assert.equal(latest.device.platform, 'iOS');
     });
 
+    await check('runtime result report retains its entry point and outcome', async () => {
+        const env = await boot({online: false});
+        record(env, 'report_context', {entry_point: 'result', game_seconds: 582}, 1);
+        record(env, 'match_result', {winner_id: 1, is_victory: false, victory_reason: 'Sacred Site held'}, 2);
+        env.client.record(JSON.stringify({type: 'report', session_id: 'runtime-session',
+            context: {map_seed: 424242}, report: {events: [
+                {kind: 'report_context', fields: {entry_point: 'pause'}},
+                {kind: 'report_context', fields: {entry_point: 'result'}}],
+                problem: {context: {map_seed: 424242}}}}));
+        const saved = env.w.localStorage.snapshot().pending.at(-1);
+        assert.equal(saved.events.find(event => event.kind === 'problem_marked').fields.origin, 'result');
+        assert.equal(saved.events.find(event => event.kind === 'match_result').fields.winner_id, 1);
+        assert.equal(saved.context.map_seed, 424242);
+        await env.button('Back to result').click();
+        assert.equal(env.document.getElementById('pocket-report').hidden, true);
+        assert.equal(env.canvas.focused, true);
+        env.client.openReport();
+        assert(env.button('Back to Pause'), 'pause entry did not restore its return label');
+    });
+
     await check('acknowledged 202 report removes pending and claims online success', async () => {
         const env = await boot(); record(env);
         const id = env.client.openReport(); await settle();

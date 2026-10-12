@@ -53,7 +53,7 @@ const BUILDING_CATEGORIES: Dictionary = {
 }
 const BUILDING_PURPOSES: Dictionary = {
 	BuildingData.BuildingType.HOUSE: "+10 population",
-	BuildingData.BuildingType.FARM: "Steady food supply",
+	BuildingData.BuildingType.FARM: "300 food · finite",
 	BuildingData.BuildingType.MILL: "Food drop-off",
 	BuildingData.BuildingType.LUMBER_CAMP: "Wood drop-off",
 	BuildingData.BuildingType.MINING_CAMP: "Gold drop-off",

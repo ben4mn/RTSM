@@ -1,6 +1,8 @@
 extends Node
 ## Bridges the selection-independent overview to existing paid, fog-legal orders.
 
+const ECONOMY_ASSESSMENT = preload("res://scripts/managers/economy_assessment.gd")
+
 var _main: Node
 var _hud: CanvasLayer
 var _map: Node2D
@@ -16,6 +18,8 @@ func setup(main: Node, hud: CanvasLayer, map: Node2D) -> void:
 	_overview.allocation_requested.connect(_allocate_worker)
 	_overview.repeat_requested.connect(_set_repeat)
 	_overview.rally_requested.connect(_rally_to_army)
+	_overview.sacred_rally_requested.connect(_rally_to_sacred)
+	_overview.farm_requested.connect(_plan_farm)
 	_overview.save_group_requested.connect(_save_group)
 	_overview.recall_group_requested.connect(_recall_group)
 	_overview.training_requested.connect(_train)
@@ -53,19 +57,32 @@ func _worker_source(worker: Villager) -> String:
 	return "idle" if worker.current_state == UnitBase.State.IDLE else "moving"
 
 
+func _can_plan_with_worker(worker: Villager) -> bool:
+	# Match the states Main can automatically assign when placement is paid.
+	# An explicitly fighting villager must not be presented as a free builder.
+	return not worker.is_auto_recovering() and not worker.has_active_build_order() and worker.current_state in [UnitBase.State.IDLE, UnitBase.State.GATHERING, UnitBase.State.MOVING]
+
+
 func _refresh() -> void:
 	if not is_instance_valid(_main) or not is_instance_valid(_overview):
 		return
 	var workers: Dictionary = {"food": 0, "wood": 0, "gold": 0, "idle": 0, "recovering": 0, "build": 0, "moving": 0}
-	for worker: Villager in _own_workers():
+	var own_workers: Array[Villager] = _own_workers()
+	var available_builders: int = 0
+	for worker: Villager in own_workers:
 		var source: String = _worker_source(worker)
 		workers[source] = int(workers.get(source, 0)) + 1
+		if _can_plan_with_worker(worker):
+			available_builders += 1
 	var military: int = 0
 	for entry: Variant in (_main.get("_player_units") as Array)[0]:
 		if is_instance_valid(entry) and entry is UnitBase and not entry is Villager and entry.player_owner == 0 and entry.current_state != UnitBase.State.DEAD:
 			military += 1
 	var producers: Array[Dictionary] = []
 	var idle_producers: int = 0
+	var queued_workers: int = 0
+	var refund_food: int = 0
+	var active_worker_producer: bool = false
 	for entry: Variant in (_main.get("_player_buildings") as Array)[0]:
 		if not is_instance_valid(entry) or not entry is BuildingBase or entry.player_owner != 0 or entry.state == BuildingBase.State.DESTROYED:
 			continue
@@ -76,6 +93,11 @@ func _refresh() -> void:
 		var paid: Array[String] = []
 		for unit_type: int in queue.queue:
 			paid.append(UnitData.get_unit_name(unit_type))
+			refund_food += int(UnitData.get_unit_cost(unit_type).get("food", 0))
+			if unit_type == UnitData.UnitType.VILLAGER and building.state == BuildingBase.State.ACTIVE:
+				queued_workers += 1
+		if UnitData.UnitType.VILLAGER in building.trainable_units and building.state == BuildingBase.State.ACTIVE:
+			active_worker_producer = true
 		var status: String = building.building_name
 		if building.state != BuildingBase.State.ACTIVE:
 			status += " · under construction"
@@ -90,20 +112,30 @@ func _refresh() -> void:
 		var unit_status: Dictionary = {}
 		for unit_type: int in building.trainable_units:
 			unit_status[unit_type] = _training_blocker(building, unit_type)
-		producers.append({"building": building, "status": status, "active": building.state == BuildingBase.State.ACTIVE, "queue": paid, "trainable": building.trainable_units.duplicate(), "repeat_type": queue.auto_queue_unit_type, "repeat_enabled": queue.auto_queue_enabled, "unit_status": unit_status})
+		producers.append({"building": building, "status": status, "active": building.state == BuildingBase.State.ACTIVE, "queue": paid, "trainable": building.trainable_units.duplicate(), "repeat_type": queue.auto_queue_unit_type, "repeat_enabled": queue.auto_queue_enabled, "unit_status": unit_status, "rally_status": _rally_status(building), "sacred_available": is_instance_valid(_map.get("sacred_site"))})
 	var data: Dictionary = GameManager.players.get(0, {})
 	var committed: int = GameManager.get_committed_population(0)
 	var cap: int = int(data.get("population_cap", 5))
 	var pop: int = int(data.get("population", 0))
 	var population_text: String = "Population %d/%d + %d paid slots · %d idle producers" % [pop, cap, maxi(0, committed - pop), idle_producers]
 	if committed >= cap:
-		population_text += "\nPopulation blocked — build a House." if cap < GameManager.get_player_population_limit(0) else "\nMatch population limit reached."
+		var can_add_housing: bool = cap < GameManager.get_player_population_limit(0) and pop < GameManager.get_player_population_limit(0) and not own_workers.is_empty()
+		if pop < cap:
+			population_text += "\nPopulation blocked — refund paid slots" + (" or build a House." if can_add_housing else ".")
+		elif can_add_housing:
+			population_text += "\nLiving units fill available housing — build a House. Refunds alone cannot open a slot."
+		else:
+			population_text += "\nLiving units fill available population; a slot must open before training."
 	var groups: Dictionary = {}
+	var group_has_buildings: Dictionary = {}
 	for index: int in [1, 2]:
 		groups[index] = 0
+		group_has_buildings[index] = false
 		for entry: Variant in (_main.get("_control_groups") as Array)[index]:
 			if _valid_group_entry(entry):
 				groups[index] += 1
+				if entry is BuildingBase:
+					group_has_buildings[index] = true
 	var selection_count: int = 0
 	var selected_military: int = 0
 	for entry: Variant in _map.selection_mgr.selected:
@@ -111,7 +143,59 @@ func _refresh() -> void:
 			selection_count += 1
 			if entry is UnitBase and not entry is Villager:
 				selected_military += 1
-	_overview.update_snapshot({"workers": workers, "military": military, "producers": producers, "population_text": population_text, "groups": groups, "selection_count": selection_count, "selected_military": selected_military})
+	var economy_facts: Dictionary = _observed_food_stock(own_workers)
+	economy_facts.merge({"workers": own_workers.size(), "recovering": int(workers.recovering), "food_workers": int(workers.food), "queued_workers": queued_workers, "refund_food": refund_food, "active_worker_producer": active_worker_producer, "food": ResourceManager.get_resource(0, "food"), "free_population": maxi(0, cap - committed), "reserved_population": maxi(0, committed - pop), "population_room_after_refunds": maxi(0, cap - pop)}, true)
+	var farm_missing: Dictionary = ResourceManager.get_missing_resources(0, BuildingData.get_building_cost(BuildingData.BuildingType.FARM))
+	var farm_blocker: String = "Needs a free worker; builders and recovering workers keep their orders." if available_builders == 0 else ("Need %d more wood to build a Farm." % int(farm_missing.get("wood", 0)) if not farm_missing.is_empty() else "Plan a location, then confirm the paid Farm. Assign a food worker after construction.")
+	_overview.update_snapshot({"workers": workers, "military": military, "producers": producers, "population_text": population_text, "groups": groups, "group_has_buildings": group_has_buildings, "selection_count": selection_count, "selected_military": selected_military, "economy": ECONOMY_ASSESSMENT.describe(economy_facts), "economy_facts": economy_facts, "can_plan_farm": available_builders > 0 and farm_missing.is_empty(), "farm_blocker": farm_blocker})
+
+
+func _observed_food_stock(workers: Array[Villager]) -> Dictionary:
+	# Check visibility before inspecting a neutral node's stock or type. Own
+	# fields are known through the ownership registry; enemy fields are excluded.
+	var berries: int = 0
+	var farms: int = 0
+	var known: Dictionary = {}
+	for entry: Variant in (_map.get("resource_nodes") as Dictionary).values():
+		if not is_instance_valid(entry) or not entry is ResourceNode:
+			continue
+		var node := entry as ResourceNode
+		if not _map.is_resource_target_visible_to_player(node, 0):
+			continue
+		if not _map.is_resource_target_valid(node, "food", 0):
+			continue
+		berries += node.remaining
+		known[node.get_instance_id()] = node.remaining
+	for entry: Variant in (_main.get("_player_buildings") as Array)[0]:
+		if not is_instance_valid(entry) or not entry is BuildingBase:
+			continue
+		var building := entry as BuildingBase
+		if building.player_owner == 0 and building.provides_food and building.is_harvestable_by(0):
+			farms += building.farm_remaining
+			known[building.get_instance_id()] = building.farm_remaining
+	var worked_ids: Dictionary = {}
+	var worked: int = 0
+	for worker: Villager in workers:
+		if _worker_source(worker) != "food" or not is_instance_valid(worker.gather_target):
+			continue
+		var id: int = worker.gather_target.get_instance_id()
+		if known.has(id) and not worked_ids.has(id):
+			worked += int(known[id])
+			worked_ids[id] = true
+	return {"berry_food": berries, "farm_food": farms, "visible_food": berries + farms, "worked_food": worked}
+
+
+func _rally_status(building: BuildingBase) -> String:
+	if not building.has_custom_rally_point():
+		return "Rally: beside this building."
+	var tile: Vector2i = _map.world_to_tile(building.rally_point)
+	var destination: String = "a fixed map location"
+	var site: Node2D = _map.get("sacred_site") as Node2D
+	if is_instance_valid(site) and tile == _map.world_to_tile(site.global_position):
+		destination = "Sacred Site"
+	if building.rally_resource_instance_id > 0:
+		destination = "gather %s at %s" % [building.rally_resource_type, destination]
+	return "Rally: %s · fixed until changed.%s" % [destination, " Includes new Villagers." if UnitData.UnitType.VILLAGER in building.trainable_units else ""]
 
 
 func _valid_group_entry(entry: Variant) -> bool:
@@ -125,18 +209,48 @@ func _valid_group_entry(entry: Variant) -> bool:
 
 
 func _training_blocker(building: BuildingBase, unit_type: int) -> String:
+	if building.state != BuildingBase.State.ACTIVE:
+		return "under construction"
 	if unit_type < 0 or unit_type not in building.trainable_units:
 		return "train a unit first"
+	var queue := building.get_production_queue() as ProductionQueue
+	if queue != null and queue.get_queue_size() >= ProductionQueue.MAX_QUEUE_SIZE:
+		return "queue full (%d/%d) — wait or undo" % [queue.get_queue_size(), ProductionQueue.MAX_QUEUE_SIZE]
 	var pop_cost: int = int(UnitData.UNITS.get(unit_type, {}).get("pop_cost", 1))
 	var cap: int = int(GameManager.players.get(0, {}).get("population_cap", 5))
 	if GameManager.get_committed_population(0) + pop_cost > cap:
-		return "population full"
+		var population: int = int(GameManager.players.get(0, {}).get("population", 0))
+		if population + pop_cost <= cap:
+			return "population blocked — refund paid slots"
+		if cap < GameManager.get_player_population_limit(0) and population + pop_cost <= GameManager.get_player_population_limit(0) and not _own_workers().is_empty():
+			return "population blocked — build a House; refunds alone cannot help"
+		return "population blocked — living units must free a slot"
 	var missing: Dictionary = ResourceManager.get_missing_resources(0, UnitData.get_unit_cost(unit_type))
 	var parts: PackedStringArray = []
 	for resource: String in ["food", "wood", "gold"]:
 		if int(missing.get(resource, 0)) > 0:
 			parts.append("%d %s" % [int(missing[resource]), resource])
 	return "need " + ", ".join(parts) if not parts.is_empty() else "ready"
+
+
+func _plan_farm() -> void:
+	if not _playing():
+		return
+	var available: bool = false
+	for worker: Villager in _own_workers():
+		if _can_plan_with_worker(worker):
+			available = true
+			break
+	if not available or not ResourceManager.can_afford(0, BuildingData.get_building_cost(BuildingData.BuildingType.FARM)):
+		_overview.show_feedback("A Farm needs %d wood and a free worker. Builders and recovering workers keep their orders." % int(BuildingData.get_building_cost(BuildingData.BuildingType.FARM).get("wood", 75)), false)
+		_refresh()
+		return
+	# Enter the same placement flow as the Build palette. Planning spends
+	# nothing: Main's confirmation still validates terrain, workers and payment.
+	_hud.call("close_secondary_surface")
+	var menu: Node = _main.get("_build_menu") as Node
+	if is_instance_valid(menu):
+		menu.emit_signal("building_selected", BuildingData.BuildingType.FARM)
 
 
 func _allocate_worker(source: String, destination: String) -> void:
@@ -224,3 +338,17 @@ func _rally_to_army(building: Node2D) -> void:
 	var target: Vector2i = _map.world_to_tile(center / float(count))
 	var accepted: bool = bool(_main.call("_set_production_rally", building, target))
 	_overview.show_feedback("Future recruits will join this army location. Rally stays here until changed." if accepted else "Army center is blocked. Move the group onto clear ground and try again.", accepted)
+	_refresh()
+
+
+func _rally_to_sacred(building: Node2D) -> void:
+	if _owned_producer(building) == null:
+		return
+	var site: Node2D = _map.get("sacred_site") as Node2D
+	if not is_instance_valid(site):
+		return
+	# Sacred's public location is known even through fog. The canonical setter
+	# handles bounds and visible blockers without inspecting hidden terrain.
+	var accepted: bool = bool(_main.call("_set_production_rally", building, _map.world_to_tile(site.global_position)))
+	_overview.show_feedback("Future recruits rally to Sacred. Existing units keep their orders; the destination stays fixed." if accepted else "Sacred rally is blocked. Choose another rally point on the map.", accepted)
+	_refresh()

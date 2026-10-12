@@ -3,6 +3,24 @@ extends RefCounted
 ## Small skirmish budgets for comparing mobile economy and army sizes.
 ## Population counts workers and troops; cavalry/siege can consume extra slots.
 
+enum MatchMode { STANDARD, QUICK_CONTROL }
+
+static func normalize_match_mode(value: int) -> int:
+	return value if value in [MatchMode.STANDARD, MatchMode.QUICK_CONTROL] else MatchMode.STANDARD
+
+
+static func get_mode_name(mode: int) -> String:
+	match mode:
+		MatchMode.QUICK_CONTROL: return "Control race"
+	return "Standard"
+
+
+static func get_sacred_target(mode: int) -> float:
+	match mode:
+		MatchMode.QUICK_CONTROL: return 240.0
+	return SACRED_VICTORY_HOLD_SECONDS
+
+
 const POPULATION_OPTIONS: Array[int] = [20, 30, 40]
 const DEFAULT_POPULATION_LIMIT: int = 30
 const REFERENCE_POPULATION_LIMIT: int = 40
@@ -45,7 +63,9 @@ static func get_new_worker_weights(age: int) -> Dictionary:
 	return DARK_AGE_WORKER_WEIGHTS if age < 2 else FEUDAL_WORKER_WEIGHTS
 
 
-static func get_age_up_cost(target_age: int, population_limit: int) -> Dictionary:
+static func get_age_up_cost(target_age: int, population_limit: int, mode: int = MatchMode.STANDARD) -> Dictionary:
+	if mode != MatchMode.STANDARD and target_age == 2:
+		return {"food": 250, "gold": 125}
 	var base_cost: Dictionary = AGE_UP_COSTS.get(target_age, {})
 	var cost: Dictionary = {}
 	# The existing 40-pop economy remains the reference. Legacy large match

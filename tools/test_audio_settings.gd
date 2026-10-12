@@ -5,7 +5,7 @@ extends Node
 var _failures: Array[String] = []
 const PHONE_SIZES: Array[Vector2] = [Vector2(844, 390), Vector2(932, 430)]
 const SCALES: Array[float] = [1.0, 1.075, 1.15]
-const PREFS: Array[String] = ["audio_enabled", "master_volume", "sfx_volume", "sfx_muted", "ui_alert_muted", "ui_alert_volume", "camera_speed_scale", "zoom_sensitivity_scale", "ui_scale", "hold_shortcuts_enabled", "reduced_motion", "reduced_flashes", "clearer_player_markers", "selected_difficulty", "selected_population_limit", "selected_map_seed", "guided_opening_enabled"]
+const PREFS: Array[String] = ["audio_enabled", "master_volume", "sfx_volume", "sfx_muted", "ui_alert_muted", "ui_alert_volume", "camera_speed_scale", "zoom_sensitivity_scale", "ui_scale", "hold_shortcuts_enabled", "reduced_motion", "reduced_flashes", "clearer_player_markers", "selected_difficulty", "selected_population_limit", "selected_map_seed", "selected_match_mode", "guided_opening_enabled"]
 var _saved: Dictionary = {}
 var _had_file: bool = false
 var _file_contents: PackedByteArray
@@ -100,6 +100,13 @@ func _check_layout(physical: Vector2, scale_value: float, notched: bool) -> void
 			var pan: OptionButton = panel.find_child("CameraSpeedScaleOption", true, false)
 			pan.item_selected.emit(2)
 			_expect(is_equal_approx(GameManager.camera_speed_scale, 1.25), "pan preference has no behavior value")
+		if section == 3:
+			var quick: Button = panel.find_child("QuickRulesButton", true, false)
+			var standard: Button = panel.find_child("StandardRulesButton", true, false)
+			await _pointer_button(viewport, quick.get_global_rect().get_center(), MOUSE_BUTTON_LEFT)
+			_expect(GameManager.selected_match_mode == SkirmishData.MatchMode.QUICK_CONTROL and quick.button_pressed, "dispatched quick rule choice " + suffix)
+			await _pointer_button(viewport, standard.get_global_rect().get_center(), MOUSE_BUTTON_LEFT)
+			_expect(GameManager.selected_match_mode == SkirmishData.MatchMode.STANDARD and standard.button_pressed, "dispatched standard rule choice " + suffix)
 	panel.free()
 	viewport.free()
 
@@ -135,6 +142,10 @@ func _check_wheel_ownership(viewport: SubViewport, panel: Control, sink: WheelSi
 
 
 func _wheel(viewport: Viewport, position: Vector2, direction: int) -> void:
+	await _pointer_button(viewport, position, direction)
+
+
+func _pointer_button(viewport: Viewport, position: Vector2, direction: int) -> void:
 	var motion := InputEventMouseMotion.new()
 	motion.position = position
 	motion.global_position = position
@@ -157,17 +168,19 @@ func _check_persistence() -> void:
 	GameManager.reduced_flashes = true
 	GameManager.reduced_motion = true
 	GameManager.clearer_player_markers = false
+	GameManager.selected_match_mode = SkirmishData.MatchMode.QUICK_CONTROL
 	GameManager.selected_map_seed = 712104
 	GameManager.save_preferences()
 	GameManager.master_volume = 0.9
 	GameManager.zoom_sensitivity_scale = 0.75
 	GameManager.selected_map_seed = -1
+	GameManager.selected_match_mode = SkirmishData.MatchMode.STANDARD
 	GameManager.call("_load_preferences")
 	_expect(is_equal_approx(GameManager.master_volume, 0.35) and is_equal_approx(GameManager.sfx_volume, 0.25) and is_equal_approx(GameManager.ui_alert_volume, 0.65), "volume persistence")
-	_expect(is_equal_approx(GameManager.zoom_sensitivity_scale, 1.25) and GameManager.selected_map_seed == 712104, "controls/setup persistence")
+	_expect(is_equal_approx(GameManager.zoom_sensitivity_scale, 1.25) and GameManager.selected_map_seed == 712104 and GameManager.selected_match_mode == SkirmishData.MatchMode.QUICK_CONTROL, "controls/setup persistence")
 	_expect(GameManager.reduced_flashes and GameManager.reduced_motion and not GameManager.clearer_player_markers, "accessibility persistence")
 	GameManager.reset_preferences()
-	_expect(is_equal_approx(GameManager.master_volume, 0.8) and GameManager.selected_map_seed == -1 and not GameManager.reduced_motion, "reset defaults")
+	_expect(is_equal_approx(GameManager.master_volume, 0.8) and GameManager.selected_map_seed == -1 and not GameManager.reduced_motion and GameManager.selected_match_mode == SkirmishData.MatchMode.STANDARD, "reset defaults")
 
 
 func _check_audio() -> void:
