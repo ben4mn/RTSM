@@ -1,0 +1,30 @@
+Take ownership of the next Pocket Kingdoms gameplay development pass in /Users/ben/Documents/1_Projects/aoem.
+Live game: https://game.4mn.org/index.html
+
+Act as lead game designer, Godot engineer and playtester. Work autonomously through investigation, implementation, playtesting with ordinary resource costs, integration and publication. Make reasonable decisions; ask me only when missing information genuinely blocks progress. Deliver a coherent improvement to the actual game, not merely a plan.
+
+Start from verified current state. Read AGENTS.md, docs/mobile_playability_pass_2026-10-12.md, docs/audio_settings_playability_2026-10-12.md, docs/resilient_skirmish_pass_2026-10-12.md, docs/debian_game_deployment.md, and docs/pwa_welcome_updates_2026-10-12.md. Verify Git and public version metadata against the actual release receipts. Preserve unrelated changes and historical evidence.
+
+Verified Web handoff (re-verify before relying on it):
+- Runtime 8e6fe0ecfb78, version 0.1.0-beta.2. Main also contains a subsequent documentation commit; inspect HEAD/origin rather than assuming they equal the runtime.
+- Staged source SHA-256: 233d47b600e0c316b456e7b3b291f98c62bba0c187f7f549ce4574de8d2aef12.
+- Canonical export: build/pwa-onboarding-published-20261012; reproducibility witness: build/pwa-onboarding-published-reproduced-20261012.
+- Public release: releases/8e6fe0ecfb78-20261012-pwa. Rollback: releases/a8c20088acd1-20261012-resilience.
+- All 27 public payload hashes verified. Fresh private report: PK-01041A574586, with matching clean loaded/served runtime.
+- Read docs/pwa_welcome_updates_2026-10-12.md for evidence, limits and the exact delivery scope.
+
+The latest Web pass addresses the browser introduction, optional installation guidance, portrait onboarding, release notes and automatic updates between matches. Check its delivered status and limitations. Preserve optional browser play, accurate iPhone/Android/desktop instructions, first-launch/offline behavior and protection of live matches, Pause, results and reports during updates. An ordinary fullscreen tab is not proof of an installed PWA. Keep web/release_notes.json current for each published player-facing pass. The updater conservatively retains predecessor caches to protect late old clients; evaluate safe bounded cleanup before many further releases, without deleting any cache needed by an open window.
+
+Play the current public build before deciding changes. Inspect existing evidence selectively, then identify the three most consequential problems, likely causes and concrete before/after success criteria. Keep the scope focused on an enjoyable mobile RTS: economy, scouting, counters, reinforcements, raids and map control, including deliberate recovery when behind.
+
+Preserve the character art, compact menus, Base/Economy/Army navigation, two groups, remote paid production and reassignment, management-sheet stability after selected-unit deaths, finite-Farm/depletion guidance, visible production blockers/counter roles/rallies, fog legality, optional holds, accessibility and audio settings, and private Pause/result reports. Preserve exact cargo, payments, population reservations, refunds and Repeat. Use existing signals, typed GDScript, canonical GameMap conversions and data-driven rules. Audit AI fairness before changing difficulty. Do not add broad architecture or content systems without demonstrated need.
+
+Investigate sustained food replacement, recovery after meaningful losses, first counter access, army concentration and objective contests. The prior completed Easy/Medium Control race matches ended at 8:02 defeat and 12:36 victory, both at 1× with different pause schedules; these are individual observations, not controlled balance evidence. Control race remains optional, banking four minutes of exclusive Sacred control with contests pausing scoring. Standard remains the default. Neither an 8–12 minute guarantee nor completed live recovery after a worker wipe was established. The Medium run defended a base raid then objective attacks, not verified simultaneous fronts. Let ordinary paid play determine what actually needs improvement; never manufacture success with grants, injected orders or forced outcomes.
+
+Delegate independent work with clear ownership. Keep heavy tests and gameplay browsers coordinated to avoid input delays or focus interference. Use fresh evidence directories and isolated test/export stages with unique user-data paths; keep private reports out of the public payload.
+
+Validate changed systems with relevant regressions, actual dispatched contacts and browser interactions. Cover both 844×390 and 932×430, all three UI scales, ordinary/notched safe areas and 48 logical pixel primary targets; check portrait onboarding where affected. For pacing/AI changes compare seed 424242 plus two additional fixed seeds, clearly separating automated paid policies from visible-control play. Complete final paid Easy and Medium matches with meaningful normal-speed portions, natural endings, exact source/build identity, speed/pause schedules and screenshots/reports. Capture a concrete improvement. Repeat broad checks only when new changes or unresolved evidence justify it.
+
+Verify physical-phone comfort, installed-PWA relaunch/update and subjective Web audio when available. State unavailable capabilities precisely; simulated viewports are not physical-thumb evidence and waveform data is not listening.
+
+You are authorized to commit, push, integrate completed work into main, publish the verified Web export and restart only the dedicated game service as needed. Follow the existing deployment workflow, retain rollback, verify public artifact identity and a fresh report reaching private storage, then confirm clean/pushed main. Preserve history and unrelated work. Finish with concise player-facing changes, evidence, match results, tests/limits, verified release identity and report code; update the handoff for the next session.

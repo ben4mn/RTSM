@@ -78,7 +78,13 @@ On iPhone, open the URL in Safari and use Share → Add to Home Screen. Enable *
 
 This is a rough public preview. Desktop browser automation does not certify physical-phone touch behavior, safe areas, audio, or prolonged performance.
 
-## Latest release — 2026-10-11
+## Latest release — 2026-10-12
+
+The browser welcome, optional installation guide, release notes and verified automatic updater are published as `releases/8e6fe0ecfb78-20261012-pwa`, runtime `8e6fe0ecfb78`, version `0.1.0-beta.2`. Canonical export: `build/pwa-onboarding-published-20261012`; independent witness: `build/pwa-onboarding-published-reproduced-20261012`. Their staged source SHA-256 is `233d47b600e0c316b456e7b3b291f98c62bba0c187f7f549ce4574de8d2aef12`.
+
+All 27 public payload hashes, MIME/compression, isolation/no-store headers and private-read denial pass. Fresh private report `PK-01041A574586` matches the loaded and served clean runtime. Only `aoem` restarted; the tunnel and collector were preserved. Retained pre-pass rollback: `releases/a8c20088acd1-20261012-resilience`. See [Web/PWA handoff](pwa_welcome_updates_2026-10-12.md) for browser/offline/update evidence and precise limitations, and [prior gameplay handoff](resilient_skirmish_pass_2026-10-12.md) for match results.
+
+## Historical release — 2026-10-11
 
 The character/menu redesign, mobile holds and input diagnostics are published as `releases/def645382dbd-20261011-playtest`, runtime revision `def645382dbd`. Canonical export: `build/playtest-diagnostics-bridge-fixed-20261011/`; reproducibility witness: `build/playtest-diagnostics-bridge-fixed-20261011-reproduced/`. Both have staged source SHA-256 `0e1766b333ade806ee801d259fd69853f9fba8fce921ff1f90d7dc80be8132e7` and identical game packs. All 21 public files pass exact decoded hashes, trusted HTTPS, MIME, compression, isolation and no-store checks. All three containers were restarted, and the private collector is healthy.
 
