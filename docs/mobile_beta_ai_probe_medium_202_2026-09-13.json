@@ -1,0 +1,115 @@
+{
+  "generated_at": "2026-09-13T12:34:57Z",
+  "sim_seconds": 450.0,
+  "sample_seconds": 5.0,
+  "time_scale": 3.0,
+  "require_completion": true,
+  "require_policy": true,
+  "policy_guardrails": {
+    "classification": "conservative AI liveness checks; not a balance verdict",
+    "age_up_deadlines_seconds": {
+      "0": 390.0,
+      "1": 330.0,
+      "2": 285.0
+    },
+    "age_up_terminal_exception": "an authoritative completed AI victory satisfies only the age-progression liveness clause; economy, force, pressure, fair-economy, and technical guardrails remain enforced",
+    "max_worker_deposit_stagnation_seconds": {
+      "0": 180.0,
+      "1": 120.0,
+      "2": 105.0
+    },
+    "minimum_peak_villagers": {
+      "0": 10,
+      "1": 12,
+      "2": 12
+    },
+    "minimum_peak_military": {
+      "0": 2,
+      "1": 3,
+      "2": 4
+    },
+    "force_horizon_seconds": 300.0,
+    "force_horizon_evidence": "per-result policy_* fields use only snapshots at or before the horizon; policy_last_sample_time exposes conservative sampling granularity",
+    "economy_grace_seconds": 60.0
+  },
+  "summary": {
+    "cases": 1,
+    "passed": 1,
+    "technical_passed": 1,
+    "policy_passed": 1,
+    "completed": 1,
+    "runtime_errors": 0,
+    "median_match_seconds": 361.0,
+    "median_first_attack_seconds": -1.0,
+    "winner_counts": {
+      "1": 1
+    }
+  },
+  "results": [
+    {
+      "difficulty": 1,
+      "name": "Medium",
+      "seed": 202,
+      "ok": true,
+      "reason": "ok",
+      "match_completed": true,
+      "winner_id": 1,
+      "victory_reason": "Sacred Site held for 3:00",
+      "runtime_errors": 0,
+      "elapsed": 361.0,
+      "age": 2,
+      "feudal_time": 308.360014999996,
+      "castle_time": -1.0,
+      "imperial_time": -1.0,
+      "food": 23,
+      "wood": 20,
+      "gold": 276,
+      "villagers": 14,
+      "military": 3,
+      "buildings": 5,
+      "idle_villagers": 0,
+      "idle_production_buildings": 1,
+      "resource_float": 319,
+      "resources_gathered": 1321,
+      "peak_villagers": 14,
+      "peak_military": 3,
+      "policy_horizon_seconds": 300.0,
+      "policy_last_sample_time": 289.201174999982,
+      "policy_peak_villagers": 12,
+      "policy_peak_military": 3,
+      "policy_attack_count": 0,
+      "policy_objective_modes": {
+        "none": 2,
+        "scout": 8,
+        "capture": 2,
+        "defend": 8
+      },
+      "policy_objective_unit_peak": 1,
+      "policy_objective_force_samples": 10,
+      "policy_sacred_control_seconds": 107.804103000003,
+      "attack_count": 0,
+      "first_attack_time": -1.0,
+      "objective_modes": {
+        "none": 2,
+        "scout": 8,
+        "capture": 2,
+        "defend": 13
+      },
+      "objective_unit_peak": 1,
+      "enemy_memory_peak": 0,
+      "rebuild_request_peak": 1,
+      "last_decision": "defend_sacred_site",
+      "economic_bonus_observed": false,
+      "sacred_control_seconds": 179.387081999986,
+      "pressure_samples": 0,
+      "saving_samples": 17,
+      "stall_seconds": 150.23497200001833,
+      "economy_stagnation_seconds": 0.0,
+      "fps": 117.0,
+      "frame_time_ms": 15.198,
+      "technical_ok": true,
+      "policy_ok": true,
+      "policy_issues": []
+    }
+  ]
+}

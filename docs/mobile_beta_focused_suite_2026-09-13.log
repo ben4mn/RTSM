@@ -1,0 +1,263 @@
+=== [1/46] test_ai_live_vision ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] ai_live_vision: canonical unit/building vision drops live refs and preserves last sightings
+[PASS] test_ai_live_vision
+=== [2/46] test_autonomous_navigation_recovery ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] autonomous_navigation_recovery: exact gather disks, Farm fallback, bounded separation, route recovery, and drop-off cancellation
+[PASS] test_autonomous_navigation_recovery
+=== [3/46] test_build_menu_age_ownership ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] build_menu_age_ownership: AI age-up stays isolated; human age-up unlocks palette
+[PASS] test_build_menu_age_ownership
+=== [4/46] test_build_menu_mobile_layout ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] build_menu_mobile_layout: four-card sheet preserves battlefield at Standard/Large scale
+[PASS] test_build_menu_mobile_layout
+=== [5/46] test_build_menu_placement_transition ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] build_menu_placement_transition: menu dismissal, bottom Cancel, reopen, and world delivery
+[PASS] test_build_menu_placement_transition
+=== [6/46] test_building_placement_fog ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] building_placement_fog: unseen footprints are generic; preview and transaction races are blocked
+[PASS] test_building_placement_fog
+=== [7/46] test_building_placement_input ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] building_placement_input: GUI Cancel is isolated; world touch confirms; world input restores
+[PASS] test_building_placement_input
+=== [8/46] test_combat_damage ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] combat_damage: canonical damage, upgrades, armor, counters, siege, and towers
+[PASS] test_combat_damage
+=== [9/46] test_fog_command_legality ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] fog_command_legality: hidden targets and control-group camera tracking are gated
+[PASS] test_fog_command_legality
+=== [10/46] test_force_move_engagement ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] force_move_engagement: Move bypasses enemies; A-Move engages; intent cleanup is bounded
+[PASS] test_force_move_engagement
+=== [11/46] test_group_movement_combat_scale ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] group_movement_combat_scale: 1, 8, 20, and population-cap groups
+[PASS] test_group_movement_combat_scale
+=== [12/46] test_mobile_hud_composition ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] mobile_hud_composition: phone states, safe areas, and 1.0/1.15 UI scales remain collision-free; 8 real queue/train/research action profiles meet 48px and 4:1 limits
+[PASS] test_mobile_hud_composition
+=== [13/46] test_mobile_safe_area ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+PASS: mobile viewport and safe-area coordinate mapping
+[PASS] test_mobile_safe_area
+=== [14/46] test_mobile_unit_command_bar ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] mobile_unit_command_bar: 8 phone profiles expose stable 48px Move/A-Move/Patrol/Stop/Stance/Clear controls
+[PASS] test_mobile_unit_command_bar
+=== [15/46] test_mobile_unit_commands ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] mobile_unit_commands: live Move/A-Move/Patrol/Stop/Stance/Clear wiring
+[PASS] test_mobile_unit_commands
+=== [16/46] test_navigation_and_range ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] navigation_and_range: detours, bounded failure, solid recovery, canonical ranges, and starting vision
+[PASS] test_navigation_and_range
+=== [17/46] test_phone_menu_layout ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] phone_menu_layout: menu/settings fit 844x390 at 1.0/1.15 scale with safe areas and 48px targets
+[PASS] test_phone_menu_layout
+=== [18/46] test_resource_fog_targeting ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] resource_fog_targeting: automatic resource discovery obeys current player vision
+[PASS] test_resource_fog_targeting
+=== [19/46] test_sacred_income ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] sacred_income: exact awards, owner isolation, and dead-unit exclusion
+[PASS] test_sacred_income
+=== [20/46] test_selection_lifecycle_cleanup ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] selection_lifecycle_cleanup: stale selections prune once and later clear/tap paths stay safe
+[PASS] test_selection_lifecycle_cleanup
+=== [21/46] test_touch_building_reselection ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] touch_building_reselection: center selects; nearby ground still moves
+[PASS] test_touch_building_reselection
+=== [22/46] test_touch_hit_radius_zoom ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] touch_hit_radius_zoom: screen pixels divide by zoom and retain the world-radius floor
+[PASS] test_touch_hit_radius_zoom
+=== [23/46] test_touch_military_resource_routing ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] touch_military_resource_routing: smart Scout and armed Villager resource taps route correctly
+[PASS] test_touch_military_resource_routing
+=== [24/46] test_touch_train_button_input ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] touch_train_button_input: train, queue, clear, and research controls survive synchronous HUD refresh
+[PASS] test_touch_train_button_input
+=== [25/46] test_villager_retaliation ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] villager_retaliation: economic flee intent preserved; explicit attacks still work
+[PASS] test_villager_retaliation
+=== [26/46] test_ai_attack_wave_recovery ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] ai_attack_wave_recovery: arrival, force loss, retarget, timeout, and relaunch
+[PASS] test_ai_attack_wave_recovery
+=== [27/46] test_ai_construction_timing ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] ai_construction_timing: real builders, construction-first recovery, fair duration, and bounded refunds
+[PASS] test_ai_construction_timing
+=== [28/46] test_ai_economy_recovery ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] ai_economy_recovery: fog-safe recovery, transaction-safe cargo, and paid build order
+[PASS] test_ai_economy_recovery
+=== [29/46] test_ai_freed_reference_cleanup ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] ai_freed_reference_cleanup: freed unit/building/wave references are safely pruned
+[PASS] test_ai_freed_reference_cleanup
+=== [30/46] test_ai_integration_regressions ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] ai_integration_regressions: pending House gate and canonical upgraded strength
+[PASS] test_ai_integration_regressions
+=== [31/46] test_ai_strategic_policy ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] ai_strategic_policy: fair difficulty, objective policy, defense, memory, and rebuilding
+[PASS] test_ai_strategic_policy
+=== [32/46] test_enemy_building_controls ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] enemy_building_controls: enemy inspect-only guards and friendly actions
+[PASS] test_enemy_building_controls
+=== [33/46] test_farm_economy ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[RUN] farm_economy: standalone assertions started
+[PASS] farm_economy: discovery, ownership, input, depletion, and deposit loop
+[PASS] test_farm_economy
+=== [34/46] test_game_over_summary ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] game_over_summary_contract: reason, duration, comparison rows, diagnostics, and touch targets
+[PASS] test_game_over_summary
+=== [35/46] test_guided_scout_queue_result ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] guided_scout_queue_result: queue truthfulness and observable full-army shortcut
+[PASS] test_guided_scout_queue_result
+=== [36/46] test_match_endings:victory_menu ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] match_ending_victory_menu: result, reason, game state, and navigation
+[PASS] test_match_endings:victory_menu
+=== [37/46] test_match_endings:elimination_menu ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] match_ending_elimination_menu: result, reason, game state, and navigation
+[PASS] test_match_endings:elimination_menu
+=== [38/46] test_match_endings:defeat_restart ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] match_ending_defeat_restart: result, reason, game state, and navigation
+[PASS] test_match_endings:defeat_restart
+=== [39/46] test_match_endings:pause_quit ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] match_ending_pause_quit: result, reason, game state, and navigation
+[PASS] test_match_endings:pause_quit
+=== [40/46] test_match_process_boundary ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] match_process_boundary: pause/game-over freeze and ALWAYS controls
+[PASS] test_match_process_boundary
+=== [41/46] test_menu_match_transition ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] menu_match_transition: Start Skirmish reached a ready match
+[PASS] test_menu_match_transition
+=== [42/46] test_population_cap_building_loss ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] population_cap_building_loss: nominal providers, revoke order, idempotence, and reservations
+[PASS] test_population_cap_building_loss
+=== [43/46] test_population_reservations ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] population_reservations: overflow, cancellation, completion, destruction, restart isolation, spawn failure, and real main spawn
+WARNING: No population room to spawn unit type 0 for player 0
+     at: push_warning (core/variant/variant_utility.cpp:1034)
+     GDScript backtrace (most recent call first):
+         [0] _spawn_unit (res://scripts/main/main.gd:1233)
+         [1] _test_direct_spawn_and_unclaimed_completion (res://tools/test_population_reservations.gd:181)
+         [2] _run (res://tools/test_population_reservations.gd:34)
+WARNING: No scene for unit type 4
+     at: push_warning (core/variant/variant_utility.cpp:1034)
+     GDScript backtrace (most recent call first):
+         [0] _spawn_unit (res://scripts/main/main.gd:1219)
+         [1] _on_unit_trained (res://scripts/main/main.gd:1294)
+         [2] _complete_current_unit (res://scripts/buildings/production_queue.gd:183)
+         [3] _test_real_main_training_transaction (res://tools/test_population_reservations.gd:256)
+         [4] _wait_for (res://tools/test_population_reservations.gd:308)
+WARNING: Training completed but unit type 4 could not spawn for player 0
+     at: push_warning (core/variant/variant_utility.cpp:1034)
+     GDScript backtrace (most recent call first):
+         [0] _on_unit_trained (res://scripts/main/main.gd:1298)
+         [1] _complete_current_unit (res://scripts/buildings/production_queue.gd:183)
+         [2] _test_real_main_training_transaction (res://tools/test_population_reservations.gd:256)
+         [3] _wait_for (res://tools/test_population_reservations.gd:308)
+[PASS] test_population_reservations
+=== [44/46] test_production_rally_spawn ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] production_rally_spawn: adjacent spawn, routed far rally, fog-safe acceptance, bounded fallback, sealed failure
+WARNING: Training completed but no bounded walkable egress exists for unit type 4 (player 0)
+     at: push_warning (core/variant/variant_utility.cpp:1034)
+     GDScript backtrace (most recent call first):
+         [0] _on_unit_trained (res://scripts/main/main.gd:1291)
+         [1] _complete_current_unit (res://scripts/buildings/production_queue.gd:183)
+         [2] _test_blocked_egress_fallback (res://tools/test_production_rally_spawn.gd:209)
+         [3] _run (res://tools/test_production_rally_spawn.gd:75)
+         [4] _wait_for (res://tools/test_production_rally_spawn.gd:306)
+[PASS] test_production_rally_spawn
+=== [45/46] test_sacred_control_telemetry ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] sacred_control_telemetry: same-owner recovery persists while opposing takeover resets hold time
+[PASS] test_sacred_control_telemetry
+=== [46/46] test_touch_long_press_context ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] touch_long_press_context: single dispatch, release fallback, durable runtime evidence
+[PASS] test_touch_long_press_context
+FOCUSED_SUITE: 46/46 passed
+Command: python3 tools/run_focused_tests.py --log docs/mobile_beta_focused_suite_2026-09-13.log
+Exit: 0

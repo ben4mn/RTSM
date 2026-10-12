@@ -1,0 +1,7 @@
+Command: python3 tools/test_mcp_phone_touch_targeting.py
+.....
+----------------------------------------------------------------------
+Ran 5 tests in 0.000s
+
+OK
+Exit: 0

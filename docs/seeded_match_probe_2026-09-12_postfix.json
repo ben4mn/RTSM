@@ -1,0 +1,54 @@
+{
+  "generated_at": "2026-09-13T01:46:20Z",
+  "sim_seconds": 180.0,
+  "sample_seconds": 5.0,
+  "time_scale": 3.0,
+  "require_completion": true,
+  "summary": {
+    "cases": 1,
+    "passed": 1,
+    "completed": 1,
+    "runtime_errors": 0,
+    "median_match_seconds": 347.0,
+    "median_first_attack_seconds": 136.50729399999,
+    "winner_counts": {
+      "1": 1
+    }
+  },
+  "results": [
+    {
+      "difficulty": 1,
+      "name": "Medium",
+      "seed": 424242,
+      "ok": true,
+      "reason": "ok",
+      "match_completed": true,
+      "winner_id": 1,
+      "victory_reason": "Town Center destroyed",
+      "runtime_errors": 0,
+      "elapsed": 347.0,
+      "age": 2,
+      "feudal_time": 264.351411999979,
+      "castle_time": -1.0,
+      "imperial_time": -1.0,
+      "food": 37,
+      "wood": 24,
+      "gold": 111,
+      "villagers": 20,
+      "military": 14,
+      "buildings": 10,
+      "idle_villagers": 0,
+      "idle_production_buildings": 1,
+      "resource_float": 172,
+      "peak_villagers": 20,
+      "peak_military": 14,
+      "attack_count": 2,
+      "first_attack_time": 136.50729399999,
+      "pressure_samples": 0,
+      "saving_samples": 3,
+      "stall_seconds": 0.0,
+      "fps": 1416.0,
+      "frame_time_ms": 11.679
+    }
+  ]
+}

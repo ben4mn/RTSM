@@ -77,6 +77,8 @@ closing the page abandons the current match.
 | Zoom | Pinch with two fingers. |
 | Jump the camera | Tap a location on the minimap. |
 | Select | Tap one of your units or buildings. Double-tap one of your units to select visible units of the same type. |
+| Select a group in an area | Tap **Select area**, then drag a box around your units. The box owns this gesture without panning. It ends after one selection; tap **Cancel area** or add a second finger to cancel. |
+| Deselect | Tap empty ground to close a building/resource card. With units selected, double-tap empty ground or tap **Clear**; their existing order continues. |
 | Reselect a building while units are selected | Tap near the center of your owned building. A tap beside it remains a ground command. |
 | Smart command | With units selected, tap ground to move. Military units use smart attack-move by default; villagers use ordinary move. |
 | Gather | Select villagers, then tap a visible food, wood, gold, or Farm target. |
@@ -89,16 +91,15 @@ closing the page abandons the current match.
 When one or more of your units are selected, the command rail stays in this order:
 
 - **Move** — arms one no-engagement move; tap the destination next.
-- **A-Move** — arms one attack-move; tap ground or a target next.
-- **Patrol** — available for military selections; tap the next patrol point.
-- **Stop** — stops the selected units immediately.
-- **Stance** — toggles Aggressive and Stand Ground. The acknowledgement names the
-  resulting stance.
+- **Attack** — arms one attack-move; tap a destination to fight enemies along the way. Tapping a unit or building still chooses its ground location.
+- **More** — opens **Stop**, **Patrol** (military only), and **Stance** (Aggressive/Stand Ground).
 - **Clear** — deselects everything.
 
-Move, A-Move, and Patrol are one-shot modes. The highlighted mode is consumed by the
-next valid command. Watch for a destination marker, button state, sound, or a brief
-notification after every command. Report a tap that produces no acknowledgement.
+Move, Attack, and Patrol are one-shot modes. The highlighted mode is consumed by the
+next valid command; pressing Move or Attack again cancels it. Selected units show
+their remaining route: green for Move, coral for combat, gold for work. Nearby formation
+destinations share a leader route to keep the view readable. Combat retains the
+attack-move destination marker while units engage. Report a tap that produces no acknowledgement.
 
 ## Building, Production, and Advancement
 
@@ -128,7 +129,7 @@ Controls underneath them should not also activate. Please report any double acti
    displayed type, **Undo** the last queued unit, or **Clear** the whole queue.
 4. **Auto Queue** repeatedly trains from that selected building while resources and
    population permit.
-5. With a production building selected, tap ground to set its rally point. A completed
+5. With a production building selected, hold ground to set its rally point. Tap a visible resource to set a gather rally for villagers. A completed
    unit must first appear at a reachable edge beside the building, then walk to the
    rally point; the rally itself is never a remote spawn location.
 

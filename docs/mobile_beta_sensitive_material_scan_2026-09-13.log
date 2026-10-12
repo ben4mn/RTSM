@@ -1,0 +1,16 @@
+AOEM_SENSITIVE_MATERIAL_SCAN format=1 date=2026-09-13
+source_revision=89567778b26e
+source_dirty=true
+source_tree_sha256=54ada2e25cdb3c0690ef37580039b78fbe3198be2f21597fccc703b4e6458fa5
+[PASS] artifact-canonical manifest_entries=18 symlinks=0 special=0 sensitive_names=0 sourcemap_files=0 absolute_paths=0 credentials=0 localhost_urls=0 tunnel_urls=0 unexpected_urls=0 dev_symbols=0 sourcemap_markers=0 pem_key_blocks=0 pem_header_non_wasm=0 pem_header_literals=7 stock_wasm_template_match=1
+[INFO] artifact-canonical pem_header_literals are stock WebAssembly format constants; pem_key_blocks=0
+[PASS] artifact-canonical stock_wasm_template_match=true
+[PASS] artifact-canonical checksum_closure=PASS service_worker_static=PASS
+[PASS] artifact-repro-b manifest_entries=18 symlinks=0 special=0 sensitive_names=0 sourcemap_files=0 absolute_paths=0 credentials=0 localhost_urls=0 tunnel_urls=0 unexpected_urls=0 dev_symbols=0 sourcemap_markers=0 pem_key_blocks=0 pem_header_non_wasm=0 pem_header_literals=7 stock_wasm_template_match=1
+[INFO] artifact-repro-b pem_header_literals are stock WebAssembly format constants; pem_key_blocks=0
+[PASS] artifact-repro-b stock_wasm_template_match=true
+[PASS] artifact-repro-b checksum_closure=PASS service_worker_static=PASS
+[PASS] reproducibility substantive_files_equal=true source_manifest_equal=true
+[PASS] reproducibility version_allowed_delta_only=true service_worker_allowed_delta_only=true
+RESULT=PASS
+COMMAND_EXIT=0

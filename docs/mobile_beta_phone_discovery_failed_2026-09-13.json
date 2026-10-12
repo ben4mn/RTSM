@@ -1,0 +1,136 @@
+{
+  "generated_at_utc": "2026-09-13T05:04:26.619372+00:00",
+  "status": "FAIL",
+  "settings": {
+    "menu_scene": "res://scenes/ui/main_menu.tscn",
+    "scene": "res://scenes/main/main.tscn",
+    "allow_startup_fallback": false,
+    "min_touch_target_px": 48.0,
+    "max_button_aspect_ratio": 4.0,
+    "min_fps": 15.0,
+    "max_frame_time_ms": 120.0
+  },
+  "checks": [
+    {
+      "name": "tooling_available",
+      "passed": true,
+      "detail": "editor/input/project/node tools discovered"
+    },
+    {
+      "name": "addon_connection",
+      "passed": true,
+      "detail": "connected (server=2.16.1 addon=2.16.1)"
+    },
+    {
+      "name": "main_menu_ready",
+      "passed": true,
+      "detail": "Main menu scene is active"
+    },
+    {
+      "name": "main_menu_contract",
+      "passed": true,
+      "detail": "diagnostics ready (difficulty=Easy guided_opening=True logical=844x474 input_scale=1.517x1.519)"
+    },
+    {
+      "name": "touch_target_audit_main_menu",
+      "passed": true,
+      "detail": "6 controls meet target/aspect constraints"
+    },
+    {
+      "name": "main_menu_guided_opening_enabled",
+      "passed": true,
+      "detail": "Guided opener was already enabled in main-menu diagnostics"
+    },
+    {
+      "name": "main_menu_settings_open",
+      "passed": true,
+      "detail": "attempt1=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:804:559:1, pointer:screen_touch:0:804:559:0] over 70ms open=True"
+    },
+    {
+      "name": "touch_target_audit_main_menu_settings",
+      "passed": true,
+      "detail": "4 controls meet target/aspect constraints"
+    },
+    {
+      "name": "main_menu_settings_close",
+      "passed": true,
+      "detail": "attempt1=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:640:550:1, pointer:screen_touch:0:640:550:0] over 70ms closed=True"
+    },
+    {
+      "name": "main_menu_seed_entry",
+      "passed": true,
+      "detail": "Entered deterministic seed 424242 through touch/text input"
+    },
+    {
+      "name": "main_menu_touch_start_smoke",
+      "passed": true,
+      "detail": "transitioned after 1 tap(s); tap1: Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:497:559:1, pointer:screen_touch:0:497:559:0] over 70ms"
+    },
+    {
+      "name": "startup_to_gameplay",
+      "passed": true,
+      "detail": "screen=1280x720, transitioned via touch"
+    },
+    {
+      "name": "camera_mobile_framing",
+      "passed": true,
+      "detail": "zoom=1.049 (mobile_min=0.78 mobile_max=1.90 desktop_default=1.35)"
+    },
+    {
+      "name": "hud_phone_layout_profiles",
+      "passed": true,
+      "detail": "844x390[w=109.7,h=48.0,cols=3], 932x430[w=116.0,h=48.0,cols=3]"
+    },
+    {
+      "name": "touch_target_audit_hud_core",
+      "passed": true,
+      "detail": "4 controls meet target/aspect constraints"
+    },
+    {
+      "name": "touch_target_audit_minimap_region",
+      "passed": true,
+      "detail": "2 controls meet target/aspect constraints"
+    },
+    {
+      "name": "touch_select_move_smoke",
+      "passed": true,
+      "detail": "Input sequence completed: 4 action(s) executed [pointer:screen_touch:0:640:360:1, pointer:screen_touch:0:640:360:0, pointer:screen_touch:0:819:417:1, pointer:screen_touch:0:819:417:0] over 330ms"
+    },
+    {
+      "name": "guided_opener_initial_stage",
+      "passed": true,
+      "detail": "enabled=True, active=True, stage=gather_food, gather=False, house=False, scout=False, move=False, loop=False"
+    },
+    {
+      "name": "touch_select_villager_for_gather",
+      "passed": true,
+      "detail": "candidate1[/root/Main/GameMap/UnitsContainer/Villager]=attempt1=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:275:455:1, pointer:screen_touch:0:275:455:0] over 70ms action=select path=/root/Main/GameMap/UnitsContainer/Villager tapped_dist=15.5327196121216 resource= resource_dist=-1 radii=(22.882967659601,26.6967956028678) zoom=1.04881501197815 timestamp=9050>8547 @(275,455)"
+    },
+    {
+      "name": "touch_select_villager_target",
+      "passed": true,
+      "detail": "Tapped villager /root/Main/GameMap/UnitsContainer/Villager at (181,299)"
+    },
+    {
+      "name": "touch_select_villager_assertion",
+      "passed": true,
+      "detail": "selected=1"
+    },
+    {
+      "name": "touch_villager_gather_smoke",
+      "passed": false,
+      "detail": "No visible resource target found after selecting villager"
+    }
+  ],
+  "findings": [],
+  "fix_plan": [
+    {
+      "priority": "p0",
+      "target_file": "runtime check diagnostics",
+      "control": "touch_villager_gather_smoke",
+      "node_path": "",
+      "expected_update": "Resolve the failed runtime contract and rerun the phone audit",
+      "reason": "No visible resource target found after selecting villager"
+    }
+  ]
+}

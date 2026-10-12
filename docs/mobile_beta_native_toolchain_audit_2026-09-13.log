@@ -1,0 +1,28 @@
+[Xcode]
+Xcode 26.6
+Build version 17F113
+26.5
+     0 valid identities found
+[Java/Android]
+The operation couldn’t be completed. Unable to locate a Java Runtime.
+Please visit http://www.java.com for information on installing Java.
+
+The operation couldn’t be completed. Unable to locate a Java Runtime.
+Please visit http://www.java.com for information on installing Java.
+
+/opt/homebrew/bin/sdkmanager
+[Godot templates]
+/Users/ben/Library/Application Support/Godot/export_templates/4.6.stable/android_source.zip
+/Users/ben/Library/Application Support/Godot/export_templates/4.6.stable/ios.zip
+/Users/ben/Library/Application Support/Godot/export_templates/4.6.stable/macos.zip
+/Users/ben/Library/Application Support/Godot/export_templates/4.6.stable/web_debug.zip
+/Users/ben/Library/Application Support/Godot/export_templates/4.6.stable/web_dlink_debug.zip
+/Users/ben/Library/Application Support/Godot/export_templates/4.6.stable/web_dlink_nothreads_debug.zip
+/Users/ben/Library/Application Support/Godot/export_templates/4.6.stable/web_dlink_nothreads_release.zip
+/Users/ben/Library/Application Support/Godot/export_templates/4.6.stable/web_dlink_release.zip
+/Users/ben/Library/Application Support/Godot/export_templates/4.6.stable/web_nothreads_debug.zip
+/Users/ben/Library/Application Support/Godot/export_templates/4.6.stable/web_nothreads_release.zip
+/Users/ben/Library/Application Support/Godot/export_templates/4.6.stable/web_release.zip
+[Export presets]
+name="Web"
+name="Mobile Web Beta"

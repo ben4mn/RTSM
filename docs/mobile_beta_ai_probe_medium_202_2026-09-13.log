@@ -1,0 +1,31 @@
+Command: python3 -u tools/mcp_ai_balance_pass.py --sim-seconds 450 --sample-seconds 5 --difficulties 1 --seeds 202 --time-scale 3 --editor-boot-seconds 8 --require-policy --require-completion --out docs/mobile_beta_ai_probe_medium_202_2026-09-13.json --verbose
+\n=== Running Medium (difficulty=1, seed=202) ===
+[mcp-notify] {"method": "notifications/message", "params": {"level": "info", "logger": "godot-mcp", "data": "Server started"}, "jsonrpc": "2.0"}
+[Medium] t=4.0s age=1 res=(60/125/90) v=4 m=0
+[Medium] t=19.0s age=1 res=(10/75/90) v=5 m=0
+[Medium] t=34.1s age=1 res=(20/84/90) v=5 m=1
+[Medium] t=49.2s age=1 res=(0/94/98) v=6 m=1
+[Medium] t=64.4s age=1 res=(8/94/98) v=7 m=1
+[Medium] t=79.5s age=1 res=(28/114/98) v=8 m=1
+[Medium] t=94.6s age=1 res=(48/134/108) v=8 m=1
+[Medium] t=108.8s age=1 res=(18/4/118) v=8 m=1
+[Medium] t=123.9s age=1 res=(29/34/118) v=9 m=1
+[Medium] t=139.0s age=1 res=(49/44/128) v=9 m=1
+[Medium] t=154.1s age=1 res=(29/74/138) v=9 m=1
+[Medium] t=169.2s age=1 res=(39/19/138) v=10 m=1
+[Medium] t=184.3s age=1 res=(9/49/153) v=10 m=1
+[Medium] t=199.5s age=1 res=(49/14/194) v=11 m=1
+[Medium] t=213.6s age=1 res=(19/26/222) v=11 m=1
+[Medium] t=228.7s age=1 res=(29/36/232) v=11 m=1
+[Medium] t=243.8s age=1 res=(39/36/242) v=12 m=2
+[Medium] t=259.0s age=1 res=(139/46/273) v=12 m=3
+[Medium] t=274.1s age=1 res=(209/46/303) v=12 m=3
+[Medium] t=289.2s age=1 res=(289/56/333) v=12 m=3
+[Medium] t=304.3s age=1 res=(369/56/363) v=12 m=3
+[Medium] t=319.5s age=2 res=(33/65/194) v=12 m=3
+[Medium] t=334.6s age=2 res=(43/65/224) v=12 m=3
+[Medium] t=349.7s age=2 res=(23/10/254) v=13 m=3
+[mcp-stderr] [godot-mcp] [warning] Disconnected from Godot
+[Medium seed=202] technical_ok=True policy_ok=True completed=True winner=1 reason=Sacred Site held for 3:00 age=2 feudal=308.4s castle=-1.0s imperial=-1.0s res=(23/20/276) pop(v/m/b)=(14/3/5) idle(v/p)=0/1 peak(v/m)=14/3 float=319 gathered=1321 attacks=0 first_attack=-1.0s objective={'none': 2, 'scout': 8, 'capture': 2, 'defend': 13} objective_units=1 sacred=179.4s econ_bonus=False policy@289.2s=(v12/m3/a0/o1/of10/s107.8) stall=150.2s economy_stagnation=0.0s runtime_errors=0
+\nSaved report: /Users/ben/Documents/1_Projects/aoem/docs/mobile_beta_ai_probe_medium_202_2026-09-13.json
+Exit: 0

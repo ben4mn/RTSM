@@ -1,0 +1,15 @@
+[mcp-stderr] [godot-mcp] [error] Connection error
+[mcp-stderr] [godot-mcp] [warning] Disconnected from Godot
+[mcp-stderr] [godot-mcp] [warning] Reconnecting to Godot
+[mcp-stderr] [godot-mcp] [warning] Initial connection failed, will retry
+[mcp-notify] {"method": "notifications/message", "params": {"level": "info", "logger": "godot-mcp", "data": "Server started"}, "jsonrpc": "2.0"}
+[PASS] tooling_available: editor/input/project/node tools discovered
+[FAIL] addon_connection: Not connected to Godot editor with godot_mcp enabled.
+
+Phone Playability Summary
+- Total checks: 2
+- Passed: 1
+- Failed: 1
+- JSON report: docs/mobile_beta_phone_final_pass2_2026-09-13.json
+- Markdown report: docs/mobile_beta_phone_final_pass2_2026-09-13.md
+- Status: FAIL

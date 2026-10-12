@@ -1,0 +1,499 @@
+Command: tools/build_mobile_web_beta.sh build/mobile-web-beta-repro-b
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[   0% ] [90m[1mfirst_scan_filesystem[22m | Started Project initialization (5 steps)[39m[0m
+[   0% ] [90m[1mfirst_scan_filesystem[22m | Scanning file structure...[39m[0m
+[  16% ] [90m[1mfirst_scan_filesystem[22m | Loading global class names...[39m[0m
+[  33% ] [90m[1mfirst_scan_filesystem[22m | Verifying GDExtensions...[39m[0m
+[  50% ] [90m[1mfirst_scan_filesystem[22m | Creating autoload scripts...[39m[0m
+[  66% ] [90m[1mfirst_scan_filesystem[22m | Initializing plugins...[39m[0m
+[  83% ] [90m[1mfirst_scan_filesystem[22m | Starting file scan...[39m[0m
+[92m[ DONE ][39m [1mfirst_scan_filesystem[22m
+[0m
+[   0% ] [90m[1mupdate_scripts_classes[22m | Started Registering global classes... (29 steps)[39m[0m
+[   0% ] [90m[1mupdate_scripts_classes[22m | AIController[39m[0m
+[   3% ] [90m[1mupdate_scripts_classes[22m | BuildingBase[39m[0m
+[   6% ] [90m[1mupdate_scripts_classes[22m | BuildingPlacement[39m[0m
+[  10% ] [90m[1mupdate_scripts_classes[22m | ProductionQueue[39m[0m
+[  13% ] [90m[1mupdate_scripts_classes[22m | BuildingData[39m[0m
+[  16% ] [90m[1mupdate_scripts_classes[22m | UnitData[39m[0m
+[  20% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  23% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  26% ] [90m[1mupdate_scripts_classes[22m | FogManager[39m[0m
+[  30% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  33% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  36% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  40% ] [90m[1mupdate_scripts_classes[22m | SelectionManager[39m[0m
+[  43% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  46% ] [90m[1mupdate_scripts_classes[22m | MapData[39m[0m
+[  50% ] [90m[1mupdate_scripts_classes[22m | MapGenerator[39m[0m
+[  53% ] [90m[1mupdate_scripts_classes[22m | Pathfinding[39m[0m
+[  56% ] [90m[1mupdate_scripts_classes[22m | ResourceNode[39m[0m
+[  60% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  63% ] [90m[1mupdate_scripts_classes[22m | TilesetBuilder[39m[0m
+[  66% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  70% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  73% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  76% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  80% ] [90m[1mupdate_scripts_classes[22m | [39m[0m
+[  83% ] [90m[1mupdate_scripts_classes[22m | Combat[39m[0m
+[  86% ] [90m[1mupdate_scripts_classes[22m | UnitBase[39m[0m
+[  90% ] [90m[1mupdate_scripts_classes[22m | Villager[39m[0m
+[  93% ] [90m[1mupdate_scripts_classes[22m | VFX[39m[0m
+[92m[ DONE ][39m [1mupdate_scripts_classes[22m
+[0m
+[   0% ] [90m[1m_update_scan_actions[22m | Started Scanning actions... (58 steps)[39m[0m
+[   0% ] [90m[1m_update_scan_actions[22m | archery_range.png[39m[0m
+[   1% ] [90m[1m_update_scan_actions[22m | barracks.png[39m[0m
+[   3% ] [90m[1m_update_scan_actions[22m | blacksmith.png[39m[0m
+[   5% ] [90m[1m_update_scan_actions[22m | house.png[39m[0m
+[   6% ] [90m[1m_update_scan_actions[22m | lumber_camp.png[39m[0m
+[   8% ] [90m[1m_update_scan_actions[22m | market.png[39m[0m
+[  10% ] [90m[1m_update_scan_actions[22m | market_stall.png[39m[0m
+[  11% ] [90m[1m_update_scan_actions[22m | monument.png[39m[0m
+[  13% ] [90m[1m_update_scan_actions[22m | stable.png[39m[0m
+[  15% ] [90m[1m_update_scan_actions[22m | tower.png[39m[0m
+[  16% ] [90m[1m_update_scan_actions[22m | town_center.png[39m[0m
+[  18% ] [90m[1m_update_scan_actions[22m | town_center_alt.png[39m[0m
+[  20% ] [90m[1m_update_scan_actions[22m | berry_bush.png[39m[0m
+[  22% ] [90m[1m_update_scan_actions[22m | bush.png[39m[0m
+[  23% ] [90m[1m_update_scan_actions[22m | gold_rocks.png[39m[0m
+[  25% ] [90m[1m_update_scan_actions[22m | log.png[39m[0m
+[  27% ] [90m[1m_update_scan_actions[22m | rock_large.png[39m[0m
+[  28% ] [90m[1m_update_scan_actions[22m | rock_small.png[39m[0m
+[  30% ] [90m[1m_update_scan_actions[22m | tree_dead.png[39m[0m
+[  32% ] [90m[1m_update_scan_actions[22m | tree_large.png[39m[0m
+[  33% ] [90m[1m_update_scan_actions[22m | tree_medium.png[39m[0m
+[  35% ] [90m[1m_update_scan_actions[22m | tree_small.png[39m[0m
+[  37% ] [90m[1m_update_scan_actions[22m | tile_dirt.png[39m[0m
+[  38% ] [90m[1m_update_scan_actions[22m | tile_farmland2.png[39m[0m
+[  40% ] [90m[1m_update_scan_actions[22m | tile_farmland.png[39m[0m
+[  42% ] [90m[1m_update_scan_actions[22m | tile_grass_alt.png[39m[0m
+[  44% ] [90m[1m_update_scan_actions[22m | tile_grass_dark.png[39m[0m
+[  45% ] [90m[1m_update_scan_actions[22m | tile_grass_flowers.png[39m[0m
+[  47% ] [90m[1m_update_scan_actions[22m | tile_grass_stump.png[39m[0m
+[  49% ] [90m[1m_update_scan_actions[22m | tile_grass_tree.png[39m[0m
+[  50% ] [90m[1m_update_scan_actions[22m | tile_sand.png[39m[0m
+[  52% ] [90m[1m_update_scan_actions[22m | kenney_mini.ttf[39m[0m
+[  54% ] [90m[1m_update_scan_actions[22m | kenney_pixel.ttf[39m[0m
+[  55% ] [90m[1m_update_scan_actions[22m | unit_01.png[39m[0m
+[  57% ] [90m[1m_update_scan_actions[22m | unit_02.png[39m[0m
+[  59% ] [90m[1m_update_scan_actions[22m | unit_03.png[39m[0m
+[  61% ] [90m[1m_update_scan_actions[22m | unit_04.png[39m[0m
+[  62% ] [90m[1m_update_scan_actions[22m | unit_05.png[39m[0m
+[  64% ] [90m[1m_update_scan_actions[22m | unit_06.png[39m[0m
+[  66% ] [90m[1m_update_scan_actions[22m | unit_07.png[39m[0m
+[  67% ] [90m[1m_update_scan_actions[22m | unit_08.png[39m[0m
+[  69% ] [90m[1m_update_scan_actions[22m | unit_09.png[39m[0m
+[  71% ] [90m[1m_update_scan_actions[22m | unit_10.png[39m[0m
+[  72% ] [90m[1m_update_scan_actions[22m | unit_11.png[39m[0m
+[  74% ] [90m[1m_update_scan_actions[22m | unit_12.png[39m[0m
+[  76% ] [90m[1m_update_scan_actions[22m | unit_13.png[39m[0m
+[  77% ] [90m[1m_update_scan_actions[22m | unit_14.png[39m[0m
+[  79% ] [90m[1m_update_scan_actions[22m | unit_15.png[39m[0m
+[  81% ] [90m[1m_update_scan_actions[22m | unit_16.png[39m[0m
+[  83% ] [90m[1m_update_scan_actions[22m | unit_17.png[39m[0m
+[  84% ] [90m[1m_update_scan_actions[22m | unit_18.png[39m[0m
+[  86% ] [90m[1m_update_scan_actions[22m | unit_19.png[39m[0m
+[  88% ] [90m[1m_update_scan_actions[22m | unit_20.png[39m[0m
+[  89% ] [90m[1m_update_scan_actions[22m | unit_21.png[39m[0m
+[  91% ] [90m[1m_update_scan_actions[22m | unit_22.png[39m[0m
+[  93% ] [90m[1m_update_scan_actions[22m | unit_23.png[39m[0m
+[  94% ] [90m[1m_update_scan_actions[22m | unit_24.png[39m[0m
+[  96% ] [90m[1m_update_scan_actions[22m | icon.svg[39m[0m
+[92m[ DONE ][39m [1m_update_scan_actions[22m
+[0m
+[   0% ] [90m[1mreimport[22m | Started (Re)Importing Assets (58 steps)[39m[0m
+[   0% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[   1% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[   3% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[   5% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[   6% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[   8% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  10% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  11% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  13% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  15% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  16% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  18% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  20% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  22% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  23% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  25% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  27% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  28% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  30% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  32% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  33% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  35% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  37% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  38% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  40% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  42% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  44% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  45% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  47% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  49% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  50% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  52% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  54% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  55% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  57% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  59% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  61% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  62% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  64% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  66% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  67% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  69% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  71% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  72% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  74% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  76% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  77% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  79% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  81% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  83% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  84% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  86% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  88% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  89% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  91% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  93% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  94% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[  96% ] [90m[1mreimport[22m | Preparing files to reimport...[39m[0m
+[   0% ] [90m[1mreimport[22m | Executing pre-reimport operations...[39m[0m
+[   0% ] [90m[1mreimport[22m | kenney_mini.ttf[39m[0m
+res://assets/ui/kenney_mini.ttf: Pixel font detected, disabling subpixel positioning.
+res://assets/ui/kenney_pixel.ttf: Pixel font detected, disabling subpixel positioning.
+[   1% ] [90m[1mreimport[22m | kenney_pixel.ttf[39m[0m
+[   3% ] [90m[1mreimport[22m | kenney_mini.ttf[39m[0m
+[   5% ] [90m[1mreimport[22m | kenney_pixel.ttf[39m[0m
+[   6% ] [90m[1mreimport[22m | tile_grass_tree.png[39m[0m
+[   8% ] [90m[1mreimport[22m | tile_sand.png[39m[0m
+[  10% ] [90m[1mreimport[22m | unit_01.png[39m[0m
+[  11% ] [90m[1mreimport[22m | unit_02.png[39m[0m
+[  13% ] [90m[1mreimport[22m | unit_03.png[39m[0m
+[  15% ] [90m[1mreimport[22m | unit_04.png[39m[0m
+[  16% ] [90m[1mreimport[22m | unit_05.png[39m[0m
+[  18% ] [90m[1mreimport[22m | unit_06.png[39m[0m
+[  20% ] [90m[1mreimport[22m | unit_07.png[39m[0m
+[  22% ] [90m[1mreimport[22m | unit_08.png[39m[0m
+[  23% ] [90m[1mreimport[22m | unit_09.png[39m[0m
+[  25% ] [90m[1mreimport[22m | unit_10.png[39m[0m
+[  27% ] [90m[1mreimport[22m | unit_11.png[39m[0m
+[  28% ] [90m[1mreimport[22m | unit_12.png[39m[0m
+[  30% ] [90m[1mreimport[22m | unit_13.png[39m[0m
+[  32% ] [90m[1mreimport[22m | unit_14.png[39m[0m
+[  33% ] [90m[1mreimport[22m | unit_15.png[39m[0m
+[  35% ] [90m[1mreimport[22m | unit_16.png[39m[0m
+[  37% ] [90m[1mreimport[22m | unit_17.png[39m[0m
+[  38% ] [90m[1mreimport[22m | unit_18.png[39m[0m
+[  40% ] [90m[1mreimport[22m | unit_19.png[39m[0m
+[  42% ] [90m[1mreimport[22m | unit_20.png[39m[0m
+[  44% ] [90m[1mreimport[22m | unit_21.png[39m[0m
+[  45% ] [90m[1mreimport[22m | unit_22.png[39m[0m
+[  47% ] [90m[1mreimport[22m | unit_23.png[39m[0m
+[  49% ] [90m[1mreimport[22m | unit_24.png[39m[0m
+[  50% ] [90m[1mreimport[22m | icon.svg[39m[0m
+[  52% ] [90m[1mreimport[22m | archery_range.png[39m[0m
+[  54% ] [90m[1mreimport[22m | barracks.png[39m[0m
+[  55% ] [90m[1mreimport[22m | blacksmith.png[39m[0m
+[  57% ] [90m[1mreimport[22m | house.png[39m[0m
+[  59% ] [90m[1mreimport[22m | lumber_camp.png[39m[0m
+[  61% ] [90m[1mreimport[22m | market.png[39m[0m
+[  62% ] [90m[1mreimport[22m | market_stall.png[39m[0m
+[  64% ] [90m[1mreimport[22m | monument.png[39m[0m
+[  66% ] [90m[1mreimport[22m | stable.png[39m[0m
+[  67% ] [90m[1mreimport[22m | tower.png[39m[0m
+[  69% ] [90m[1mreimport[22m | town_center.png[39m[0m
+[  71% ] [90m[1mreimport[22m | town_center_alt.png[39m[0m
+[  72% ] [90m[1mreimport[22m | berry_bush.png[39m[0m
+[  74% ] [90m[1mreimport[22m | bush.png[39m[0m
+[  76% ] [90m[1mreimport[22m | gold_rocks.png[39m[0m
+[  77% ] [90m[1mreimport[22m | log.png[39m[0m
+[  79% ] [90m[1mreimport[22m | rock_large.png[39m[0m
+[  81% ] [90m[1mreimport[22m | rock_small.png[39m[0m
+[  83% ] [90m[1mreimport[22m | tree_dead.png[39m[0m
+[  84% ] [90m[1mreimport[22m | tree_large.png[39m[0m
+[  86% ] [90m[1mreimport[22m | tree_medium.png[39m[0m
+[  88% ] [90m[1mreimport[22m | tree_small.png[39m[0m
+[  89% ] [90m[1mreimport[22m | tile_dirt.png[39m[0m
+[  91% ] [90m[1mreimport[22m | tile_farmland2.png[39m[0m
+[  93% ] [90m[1mreimport[22m | tile_farmland.png[39m[0m
+[  94% ] [90m[1mreimport[22m | tile_grass_alt.png[39m[0m
+[  96% ] [90m[1mreimport[22m | tile_grass_dark.png[39m[0m
+[  98% ] [90m[1mreimport[22m | Finalizing Asset Import...[39m[0m
+[92m[ DONE ][39m [1mreimport[22m
+[0m
+[   0% ] [90m[1mreimport[22m | Started (Re)Importing Assets (58 steps)[39m[0m
+[   0% ] [90m[1mreimport[22m | Executing post-reimport operations...[39m[0m
+[92m[ DONE ][39m [1mreimport[22m
+[0m
+[   0% ] [90m[1mloading_editor_layout[22m | Started Loading editor (5 steps)[39m[0m
+[   0% ] [90m[1mloading_editor_layout[22m | Loading editor layout...[39m[0m
+[  16% ] [90m[1mloading_editor_layout[22m | Loading docks...[39m[0m
+[92m[ DONE ][39m [1mloading_editor_layout[22m
+[0m
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[   0% ] [90m[1mfirst_scan_filesystem[22m | Started Project initialization (5 steps)[39m[0m
+[   0% ] [90m[1mfirst_scan_filesystem[22m | Scanning file structure...[39m[0m
+[  16% ] [90m[1mfirst_scan_filesystem[22m | Loading global class names...[39m[0m
+[  33% ] [90m[1mfirst_scan_filesystem[22m | Verifying GDExtensions...[39m[0m
+[  50% ] [90m[1mfirst_scan_filesystem[22m | Creating autoload scripts...[39m[0m
+[  66% ] [90m[1mfirst_scan_filesystem[22m | Initializing plugins...[39m[0m
+[  83% ] [90m[1mfirst_scan_filesystem[22m | Starting file scan...[39m[0m
+[92m[ DONE ][39m [1mfirst_scan_filesystem[22m
+[0m
+[   0% ] [90m[1msavepack[22m | Started Packing (102 steps)[39m[0m
+[   1% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/archery_range.png-d95c90080eed3cb40dbafb6bdf9e0818.ctex[39m[0m
+[   1% ] [90m[1msavepack[22m | Storing File: res://assets/buildings/archery_range.png.import[39m[0m
+[   1% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/barracks.png-3da7fe1e6d0e0f41bf7fafee09207b2b.ctex[39m[0m
+[   1% ] [90m[1msavepack[22m | Storing File: res://assets/buildings/barracks.png.import[39m[0m
+[   2% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/blacksmith.png-dfd35446644349d56d1f22b3afbb1665.ctex[39m[0m
+[   2% ] [90m[1msavepack[22m | Storing File: res://assets/buildings/blacksmith.png.import[39m[0m
+[   3% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/house.png-f08fd263abde9ffb83b70716ecf78db1.ctex[39m[0m
+[   3% ] [90m[1msavepack[22m | Storing File: res://assets/buildings/house.png.import[39m[0m
+[   4% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/lumber_camp.png-c4038709eaef16cd4bd9d3f9b91d8f24.ctex[39m[0m
+[   4% ] [90m[1msavepack[22m | Storing File: res://assets/buildings/lumber_camp.png.import[39m[0m
+[   5% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/market.png-e8b4a7abfbff9692fbc76366d5a439e4.ctex[39m[0m
+[   5% ] [90m[1msavepack[22m | Storing File: res://assets/buildings/market.png.import[39m[0m
+[   6% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/market_stall.png-d286c09f80677d1052643fd9d13d597a.ctex[39m[0m
+[   6% ] [90m[1msavepack[22m | Storing File: res://assets/buildings/market_stall.png.import[39m[0m
+[   7% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/monument.png-aa2762c10bbe823007ebe061c33954cd.ctex[39m[0m
+[   7% ] [90m[1msavepack[22m | Storing File: res://assets/buildings/monument.png.import[39m[0m
+[   7% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/stable.png-0bd21c8355228f0cb768479d7afc56eb.ctex[39m[0m
+[   7% ] [90m[1msavepack[22m | Storing File: res://assets/buildings/stable.png.import[39m[0m
+[   8% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/tower.png-316b902b7f32d3083cbd017653918d00.ctex[39m[0m
+[   8% ] [90m[1msavepack[22m | Storing File: res://assets/buildings/tower.png.import[39m[0m
+[   9% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/town_center.png-258d981e0e14c04dfc6d2815757ec318.ctex[39m[0m
+[   9% ] [90m[1msavepack[22m | Storing File: res://assets/buildings/town_center.png.import[39m[0m
+[  10% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/town_center_alt.png-9c58538a46aaa9f275402e1176a24012.ctex[39m[0m
+[  10% ] [90m[1msavepack[22m | Storing File: res://assets/buildings/town_center_alt.png.import[39m[0m
+[  11% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/berry_bush.png-3569f0a36897c34f44838707504dac5c.ctex[39m[0m
+[  11% ] [90m[1msavepack[22m | Storing File: res://assets/resources/berry_bush.png.import[39m[0m
+[  12% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/bush.png-dfddd83385f564863b24f94e0bb3cdf1.ctex[39m[0m
+[  12% ] [90m[1msavepack[22m | Storing File: res://assets/resources/bush.png.import[39m[0m
+[  13% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/gold_rocks.png-a8a9c8f8af7321d66845ed6acbe56b8a.ctex[39m[0m
+[  13% ] [90m[1msavepack[22m | Storing File: res://assets/resources/gold_rocks.png.import[39m[0m
+[  13% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/log.png-9f58258a5bc2880c02deb0b2437d2c17.ctex[39m[0m
+[  13% ] [90m[1msavepack[22m | Storing File: res://assets/resources/log.png.import[39m[0m
+[  14% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/rock_large.png-c4b9532974dc935fc4f667a320775927.ctex[39m[0m
+[  14% ] [90m[1msavepack[22m | Storing File: res://assets/resources/rock_large.png.import[39m[0m
+[  15% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/rock_small.png-74c5d97c258d374ade37277f726e79b2.ctex[39m[0m
+[  15% ] [90m[1msavepack[22m | Storing File: res://assets/resources/rock_small.png.import[39m[0m
+[  16% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/tree_dead.png-03b9b05d5092fe1a2081d688563caa15.ctex[39m[0m
+[  16% ] [90m[1msavepack[22m | Storing File: res://assets/resources/tree_dead.png.import[39m[0m
+[  17% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/tree_large.png-befca12f587109ab50c7085e9a8532b4.ctex[39m[0m
+[  17% ] [90m[1msavepack[22m | Storing File: res://assets/resources/tree_large.png.import[39m[0m
+[  18% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/tree_medium.png-7d4a200d7716fde474751f612128ca5b.ctex[39m[0m
+[  18% ] [90m[1msavepack[22m | Storing File: res://assets/resources/tree_medium.png.import[39m[0m
+[  19% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/tree_small.png-33de6cad91e9388322004936431a9241.ctex[39m[0m
+[  19% ] [90m[1msavepack[22m | Storing File: res://assets/resources/tree_small.png.import[39m[0m
+[  19% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/tile_dirt.png-13fcb7c05df8d956c2328d6ed7523104.ctex[39m[0m
+[  19% ] [90m[1msavepack[22m | Storing File: res://assets/terrain/tile_dirt.png.import[39m[0m
+[  20% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/tile_farmland2.png-4e8b25a8f97618696cec874faeccd7ec.ctex[39m[0m
+[  20% ] [90m[1msavepack[22m | Storing File: res://assets/terrain/tile_farmland2.png.import[39m[0m
+[  21% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/tile_farmland.png-263b2fd50794dc757ae1ec22569c4c70.ctex[39m[0m
+[  21% ] [90m[1msavepack[22m | Storing File: res://assets/terrain/tile_farmland.png.import[39m[0m
+[  22% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/tile_grass_alt.png-cc624583b44a484fc0eba28ee59cc9fa.ctex[39m[0m
+[  22% ] [90m[1msavepack[22m | Storing File: res://assets/terrain/tile_grass_alt.png.import[39m[0m
+[  23% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/tile_grass_dark.png-f1a99dc65a363c1591b846d22a0e93fa.ctex[39m[0m
+[  23% ] [90m[1msavepack[22m | Storing File: res://assets/terrain/tile_grass_dark.png.import[39m[0m
+[  24% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/tile_grass_flowers.png-fd19036f6c10dd965e83dcfdab137e5f.ctex[39m[0m
+[  24% ] [90m[1msavepack[22m | Storing File: res://assets/terrain/tile_grass_flowers.png.import[39m[0m
+[  25% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/tile_grass_stump.png-109b1120a5d0d881db796295ec3bc907.ctex[39m[0m
+[  25% ] [90m[1msavepack[22m | Storing File: res://assets/terrain/tile_grass_stump.png.import[39m[0m
+[  26% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/tile_grass_tree.png-1b1c47fb9b9e5d16cbecc011eb944b90.ctex[39m[0m
+[  26% ] [90m[1msavepack[22m | Storing File: res://assets/terrain/tile_grass_tree.png.import[39m[0m
+[  26% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/tile_sand.png-ed9d8d57f919a8ac37f66c86c2d443e4.ctex[39m[0m
+[  26% ] [90m[1msavepack[22m | Storing File: res://assets/terrain/tile_sand.png.import[39m[0m
+[  27% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/kenney_mini.ttf-a1152d11225f0f786493a04e4b2cb549.fontdata[39m[0m
+[  27% ] [90m[1msavepack[22m | Storing File: res://assets/ui/kenney_mini.ttf.import[39m[0m
+[  28% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/kenney_pixel.ttf-9ad0ccbd956b1f8f8e43bf823eef06a0.fontdata[39m[0m
+[  28% ] [90m[1msavepack[22m | Storing File: res://assets/ui/kenney_pixel.ttf.import[39m[0m
+[  29% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/unit_01.png-3cf4485ed99902fbd2d376f64fa75906.ctex[39m[0m
+[  29% ] [90m[1msavepack[22m | Storing File: res://assets/units/unit_01.png.import[39m[0m
+[  30% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/unit_02.png-47583ff1d74925151657ea10377f7522.ctex[39m[0m
+[  30% ] [90m[1msavepack[22m | Storing File: res://assets/units/unit_02.png.import[39m[0m
+[  31% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/unit_03.png-2cd6a7ca0b30c155d4d2e1d8c0f822e0.ctex[39m[0m
+[  31% ] [90m[1msavepack[22m | Storing File: res://assets/units/unit_03.png.import[39m[0m
+[  32% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/unit_04.png-9a135101a56b3f6a41b199f6dd10e88b.ctex[39m[0m
+[  32% ] [90m[1msavepack[22m | Storing File: res://assets/units/unit_04.png.import[39m[0m
+[  32% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/unit_05.png-afc4b42b418c19ba0cace0240f594faa.ctex[39m[0m
+[  32% ] [90m[1msavepack[22m | Storing File: res://assets/units/unit_05.png.import[39m[0m
+[  33% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/unit_06.png-49fa6b093df11370d26d93d3212ec098.ctex[39m[0m
+[  33% ] [90m[1msavepack[22m | Storing File: res://assets/units/unit_06.png.import[39m[0m
+[  33% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/unit_07.png-42cc79e8265d2336fd29a7724770dfbb.ctex[39m[0m
+[  33% ] [90m[1msavepack[22m | Storing File: res://assets/units/unit_07.png.import[39m[0m
+[  34% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/unit_08.png-4de67e5a1acf28d6c820d68f67d725f0.ctex[39m[0m
+[  34% ] [90m[1msavepack[22m | Storing File: res://assets/units/unit_08.png.import[39m[0m
+[  35% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/unit_09.png-712f69edac4b0e815f3052d1d0c46a42.ctex[39m[0m
+[  35% ] [90m[1msavepack[22m | Storing File: res://assets/units/unit_09.png.import[39m[0m
+[  36% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/unit_10.png-53b4128c4c94a71444318d4a26403dcd.ctex[39m[0m
+[  36% ] [90m[1msavepack[22m | Storing File: res://assets/units/unit_10.png.import[39m[0m
+[  37% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/unit_11.png-9ada3026c7683e18779ae1f70722d835.ctex[39m[0m
+[  37% ] [90m[1msavepack[22m | Storing File: res://assets/units/unit_11.png.import[39m[0m
+[  37% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/unit_12.png-0d53f4c35a1800fd714b2a741d234ac9.ctex[39m[0m
+[  37% ] [90m[1msavepack[22m | Storing File: res://assets/units/unit_12.png.import[39m[0m
+[  38% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/unit_13.png-8cac0edc9f55342261dc418cdba30bea.ctex[39m[0m
+[  38% ] [90m[1msavepack[22m | Storing File: res://assets/units/unit_13.png.import[39m[0m
+[  39% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/unit_14.png-c563313932078b0b58e9f7edd2dfa322.ctex[39m[0m
+[  39% ] [90m[1msavepack[22m | Storing File: res://assets/units/unit_14.png.import[39m[0m
+[  40% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/unit_15.png-b091f2233f8600425548d1b9f81f8675.ctex[39m[0m
+[  40% ] [90m[1msavepack[22m | Storing File: res://assets/units/unit_15.png.import[39m[0m
+[  41% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/unit_16.png-8bd8780a0930eed88d05b9741fd44fa8.ctex[39m[0m
+[  41% ] [90m[1msavepack[22m | Storing File: res://assets/units/unit_16.png.import[39m[0m
+[  42% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/unit_17.png-a18d44f85855a6a9883513d4bf0d649a.ctex[39m[0m
+[  42% ] [90m[1msavepack[22m | Storing File: res://assets/units/unit_17.png.import[39m[0m
+[  43% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/unit_18.png-ff1f0f91d2d10cbe42dfe03fe129cb18.ctex[39m[0m
+[  43% ] [90m[1msavepack[22m | Storing File: res://assets/units/unit_18.png.import[39m[0m
+[  43% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/unit_19.png-6ed2e5923ad337a32f6335c0cf15b35e.ctex[39m[0m
+[  43% ] [90m[1msavepack[22m | Storing File: res://assets/units/unit_19.png.import[39m[0m
+[  44% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/unit_20.png-d410572c7c516f6f78caeab1bc019b9e.ctex[39m[0m
+[  44% ] [90m[1msavepack[22m | Storing File: res://assets/units/unit_20.png.import[39m[0m
+[  45% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/unit_21.png-3229007f25d43ec002b55376bc79676b.ctex[39m[0m
+[  45% ] [90m[1msavepack[22m | Storing File: res://assets/units/unit_21.png.import[39m[0m
+[  46% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/unit_22.png-b66fdf53bc243692183d90f9ee6dabdf.ctex[39m[0m
+[  46% ] [90m[1msavepack[22m | Storing File: res://assets/units/unit_22.png.import[39m[0m
+[  47% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/unit_23.png-989c8f6735728833260c91664913a357.ctex[39m[0m
+[  47% ] [90m[1msavepack[22m | Storing File: res://assets/units/unit_23.png.import[39m[0m
+[  48% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/unit_24.png-d129d8f1a1c48e4d499cf8cff4460731.ctex[39m[0m
+[  48% ] [90m[1msavepack[22m | Storing File: res://assets/units/unit_24.png.import[39m[0m
+[  49% ] [90m[1msavepack[22m | Storing File: res://scenes/buildings/archery_range.tscn[39m[0m
+[  50% ] [90m[1msavepack[22m | Storing File: res://scenes/buildings/barracks.tscn[39m[0m
+[  50% ] [90m[1msavepack[22m | Storing File: res://scenes/buildings/blacksmith.tscn[39m[0m
+[  51% ] [90m[1msavepack[22m | Storing File: res://scenes/buildings/building_base.tscn[39m[0m
+[  52% ] [90m[1msavepack[22m | Storing File: res://scenes/buildings/farm.tscn[39m[0m
+[  53% ] [90m[1msavepack[22m | Storing File: res://scenes/buildings/house.tscn[39m[0m
+[  54% ] [90m[1msavepack[22m | Storing File: res://scenes/buildings/lumber_camp.tscn[39m[0m
+[  55% ] [90m[1msavepack[22m | Storing File: res://scenes/buildings/mill.tscn[39m[0m
+[  56% ] [90m[1msavepack[22m | Storing File: res://scenes/buildings/mining_camp.tscn[39m[0m
+[  56% ] [90m[1msavepack[22m | Storing File: res://scenes/buildings/siege_workshop.tscn[39m[0m
+[  57% ] [90m[1msavepack[22m | Storing File: res://scenes/buildings/stable.tscn[39m[0m
+[  58% ] [90m[1msavepack[22m | Storing File: res://scenes/buildings/town_center.tscn[39m[0m
+[  59% ] [90m[1msavepack[22m | Storing File: res://scenes/buildings/watch_tower.tscn[39m[0m
+[  60% ] [90m[1msavepack[22m | Storing File: res://scenes/main/main.tscn[39m[0m
+[  61% ] [90m[1msavepack[22m | Storing File: res://scenes/map/game_map.tscn[39m[0m
+[  62% ] [90m[1msavepack[22m | Storing File: res://scenes/map/resource_node.tscn[39m[0m
+[  62% ] [90m[1msavepack[22m | Storing File: res://scenes/map/sacred_site.tscn[39m[0m
+[  63% ] [90m[1msavepack[22m | Storing File: res://scenes/ui/age_up_dialog.tscn[39m[0m
+[  64% ] [90m[1msavepack[22m | Storing File: res://scenes/ui/build_menu.tscn[39m[0m
+[  65% ] [90m[1msavepack[22m | Storing File: res://scenes/ui/game_over_screen.tscn[39m[0m
+[  66% ] [90m[1msavepack[22m | Storing File: res://scenes/ui/hud.tscn[39m[0m
+[  66% ] [90m[1msavepack[22m | Storing File: res://scenes/ui/main_menu.tscn[39m[0m
+[  67% ] [90m[1msavepack[22m | Storing File: res://scenes/units/archer.tscn[39m[0m
+[  67% ] [90m[1msavepack[22m | Storing File: res://scenes/units/cavalry.tscn[39m[0m
+[  68% ] [90m[1msavepack[22m | Storing File: res://scenes/units/infantry.tscn[39m[0m
+[  69% ] [90m[1msavepack[22m | Storing File: res://scenes/units/scout.tscn[39m[0m
+[  70% ] [90m[1msavepack[22m | Storing File: res://scenes/units/siege.tscn[39m[0m
+[  71% ] [90m[1msavepack[22m | Storing File: res://scenes/units/unit_base.tscn[39m[0m
+[  72% ] [90m[1msavepack[22m | Storing File: res://scenes/units/villager.tscn[39m[0m
+[  73% ] [90m[1msavepack[22m | Storing File: res://scripts/ai/ai_controller.gdc[39m[0m
+[  74% ] [90m[1msavepack[22m | Storing File: res://scripts/buildings/building_base.gdc[39m[0m
+[  74% ] [90m[1msavepack[22m | Storing File: res://scripts/buildings/building_placement.gdc[39m[0m
+[  75% ] [90m[1msavepack[22m | Storing File: res://scripts/buildings/production_queue.gdc[39m[0m
+[  76% ] [90m[1msavepack[22m | Storing File: res://scripts/data/building_data.gdc[39m[0m
+[  77% ] [90m[1msavepack[22m | Storing File: res://scripts/data/unit_data.gdc[39m[0m
+[  78% ] [90m[1msavepack[22m | Storing File: res://scripts/main/main.gdc[39m[0m
+[  79% ] [90m[1msavepack[22m | Storing File: res://scripts/managers/audio_manager.gdc[39m[0m
+[  80% ] [90m[1msavepack[22m | Storing File: res://scripts/managers/fog_manager.gdc[39m[0m
+[  80% ] [90m[1msavepack[22m | Storing File: res://scripts/managers/game_manager.gdc[39m[0m
+[  81% ] [90m[1msavepack[22m | Storing File: res://scripts/managers/resource_manager.gdc[39m[0m
+[  82% ] [90m[1msavepack[22m | Storing File: res://scripts/managers/runtime_game_bridge.gdc[39m[0m
+[  83% ] [90m[1msavepack[22m | Storing File: res://scripts/managers/selection_manager.gdc[39m[0m
+[  84% ] [90m[1msavepack[22m | Storing File: res://scripts/map/game_map.gdc[39m[0m
+[  85% ] [90m[1msavepack[22m | Storing File: res://scripts/map/map_data.gdc[39m[0m
+[  86% ] [90m[1msavepack[22m | Storing File: res://scripts/map/map_generator.gdc[39m[0m
+[  86% ] [90m[1msavepack[22m | Storing File: res://scripts/map/pathfinding.gdc[39m[0m
+[  87% ] [90m[1msavepack[22m | Storing File: res://scripts/map/resource_node.gdc[39m[0m
+[  88% ] [90m[1msavepack[22m | Storing File: res://scripts/map/sacred_site.gdc[39m[0m
+[  89% ] [90m[1msavepack[22m | Storing File: res://scripts/map/tileset_builder.gdc[39m[0m
+[  90% ] [90m[1msavepack[22m | Storing File: res://scripts/ui/age_up_dialog.gdc[39m[0m
+[  91% ] [90m[1msavepack[22m | Storing File: res://scripts/ui/build_menu.gdc[39m[0m
+[  92% ] [90m[1msavepack[22m | Storing File: res://scripts/ui/game_over_screen.gdc[39m[0m
+[  92% ] [90m[1msavepack[22m | Storing File: res://scripts/ui/hud.gdc[39m[0m
+[  93% ] [90m[1msavepack[22m | Storing File: res://scripts/ui/main_menu.gdc[39m[0m
+[  94% ] [90m[1msavepack[22m | Storing File: res://scripts/units/combat.gdc[39m[0m
+[  95% ] [90m[1msavepack[22m | Storing File: res://scripts/units/unit_base.gdc[39m[0m
+[  96% ] [90m[1msavepack[22m | Storing File: res://scripts/units/villager.gdc[39m[0m
+[  97% ] [90m[1msavepack[22m | Storing File: res://scripts/vfx/vfx.gdc[39m[0m
+[  98% ] [90m[1msavepack[22m | Storing File: res://.godot/imported/icon.svg-218a8f2b3041327d8a5756f3a245f83b.ctex[39m[0m
+[  98% ] [90m[1msavepack[22m | Storing File: res://icon.svg.import[39m[0m
+[  98% ] [90m[1msavepack[22m | Storing File: res://scripts/ai/ai_controller.gd.remap[39m[0m
+[  98% ] [90m[1msavepack[22m | Storing File: res://scripts/buildings/building_base.gd.remap[39m[0m
+[  98% ] [90m[1msavepack[22m | Storing File: res://scripts/buildings/building_placement.gd.remap[39m[0m
+[  98% ] [90m[1msavepack[22m | Storing File: res://scripts/buildings/production_queue.gd.remap[39m[0m
+[  98% ] [90m[1msavepack[22m | Storing File: res://scripts/data/building_data.gd.remap[39m[0m
+[  98% ] [90m[1msavepack[22m | Storing File: res://scripts/data/unit_data.gd.remap[39m[0m
+[  98% ] [90m[1msavepack[22m | Storing File: res://scripts/main/main.gd.remap[39m[0m
+[  98% ] [90m[1msavepack[22m | Storing File: res://scripts/managers/audio_manager.gd.remap[39m[0m
+[  98% ] [90m[1msavepack[22m | Storing File: res://scripts/managers/fog_manager.gd.remap[39m[0m
+[  98% ] [90m[1msavepack[22m | Storing File: res://scripts/managers/game_manager.gd.remap[39m[0m
+[  98% ] [90m[1msavepack[22m | Storing File: res://scripts/managers/resource_manager.gd.remap[39m[0m
+[  98% ] [90m[1msavepack[22m | Storing File: res://scripts/managers/runtime_game_bridge.gd.remap[39m[0m
+[  98% ] [90m[1msavepack[22m | Storing File: res://scripts/managers/selection_manager.gd.remap[39m[0m
+[  98% ] [90m[1msavepack[22m | Storing File: res://scripts/map/game_map.gd.remap[39m[0m
+[  98% ] [90m[1msavepack[22m | Storing File: res://scripts/map/map_data.gd.remap[39m[0m
+[  98% ] [90m[1msavepack[22m | Storing File: res://scripts/map/map_generator.gd.remap[39m[0m
+[  98% ] [90m[1msavepack[22m | Storing File: res://scripts/map/pathfinding.gd.remap[39m[0m
+[  98% ] [90m[1msavepack[22m | Storing File: res://scripts/map/resource_node.gd.remap[39m[0m
+[  98% ] [90m[1msavepack[22m | Storing File: res://scripts/map/sacred_site.gd.remap[39m[0m
+[  98% ] [90m[1msavepack[22m | Storing File: res://scripts/map/tileset_builder.gd.remap[39m[0m
+[  98% ] [90m[1msavepack[22m | Storing File: res://scripts/ui/age_up_dialog.gd.remap[39m[0m
+[  98% ] [90m[1msavepack[22m | Storing File: res://scripts/ui/build_menu.gd.remap[39m[0m
+[  98% ] [90m[1msavepack[22m | Storing File: res://scripts/ui/game_over_screen.gd.remap[39m[0m
+[  98% ] [90m[1msavepack[22m | Storing File: res://scripts/ui/hud.gd.remap[39m[0m
+[  98% ] [90m[1msavepack[22m | Storing File: res://scripts/ui/main_menu.gd.remap[39m[0m
+[  98% ] [90m[1msavepack[22m | Storing File: res://scripts/units/combat.gd.remap[39m[0m
+[  98% ] [90m[1msavepack[22m | Storing File: res://scripts/units/unit_base.gd.remap[39m[0m
+[  98% ] [90m[1msavepack[22m | Storing File: res://scripts/units/villager.gd.remap[39m[0m
+[  98% ] [90m[1msavepack[22m | Storing File: res://scripts/vfx/vfx.gd.remap[39m[0m
+[  98% ] [90m[1msavepack[22m | Storing File: res://.godot/global_script_class_cache.cfg[39m[0m
+[  98% ] [90m[1msavepack[22m | Storing File: res://icon.svg[39m[0m
+[  98% ] [90m[1msavepack[22m | Storing File: res://.godot/uid_cache.bin[39m[0m
+[  98% ] [90m[1msavepack[22m | Storing File: res://project.binary[39m[0m
+[92m[ DONE ][39m [1msavepack[22m
+[0m
+./CONTENT_AUDIT.txt: OK
+./SOURCE_SHA256SUMS.txt: OK
+./index.144x144.png: OK
+./index.180x180.png: OK
+./index.512x512.png: OK
+./index.apple-touch-icon.png: OK
+./index.audio.position.worklet.js: OK
+./index.audio.worklet.js: OK
+./index.html: OK
+./index.icon.png: OK
+./index.js: OK
+./index.manifest.json: OK
+./index.offline.html: OK
+./index.pck: OK
+./index.png: OK
+./index.service.worker.js: OK
+./index.wasm: OK
+./version.json: OK
+./CONTENT_AUDIT.txt: OK
+./SOURCE_SHA256SUMS.txt: OK
+./index.144x144.png: OK
+./index.180x180.png: OK
+./index.512x512.png: OK
+./index.apple-touch-icon.png: OK
+./index.audio.position.worklet.js: OK
+./index.audio.worklet.js: OK
+./index.html: OK
+./index.icon.png: OK
+./index.js: OK
+./index.manifest.json: OK
+./index.offline.html: OK
+./index.pck: OK
+./index.png: OK
+./index.service.worker.js: OK
+./index.wasm: OK
+./version.json: OK
+Mobile Web beta built at /Users/ben/Documents/1_Projects/aoem/build/mobile-web-beta-repro-b
+Version: 89567778b26e (dirty=true), Godot 4.6.stable.official.89cea1439
+Staged source tree: 54ada2e25cdb3c0690ef37580039b78fbe3198be2f21597fccc703b4e6458fa5
+Checksums: /Users/ben/Documents/1_Projects/aoem/build/mobile-web-beta-repro-b/SHA256SUMS.txt
+Exit: 0

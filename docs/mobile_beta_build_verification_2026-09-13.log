@@ -1,0 +1,92 @@
+Mobile Web beta build verification — 2026-09-13
+Build order: repro-b first, canonical second (canonical remains final)
+Build command 1: tools/build_mobile_web_beta.sh build/mobile-web-beta-repro-b
+Build command 1 exit: 0
+Build command 2: tools/build_mobile_web_beta.sh build/mobile-web-beta
+Build command 2 exit: 0
+Build logs record exact command and exit: PASS
+Command: (cd build/mobile-web-beta-repro-b && shasum -a 256 -c SHA256SUMS.txt)
+./CONTENT_AUDIT.txt: OK
+./SOURCE_SHA256SUMS.txt: OK
+./index.144x144.png: OK
+./index.180x180.png: OK
+./index.512x512.png: OK
+./index.apple-touch-icon.png: OK
+./index.audio.position.worklet.js: OK
+./index.audio.worklet.js: OK
+./index.html: OK
+./index.icon.png: OK
+./index.js: OK
+./index.manifest.json: OK
+./index.offline.html: OK
+./index.pck: OK
+./index.png: OK
+./index.service.worker.js: OK
+./index.wasm: OK
+./version.json: OK
+Command exit: 0
+Command: (cd build/mobile-web-beta && shasum -a 256 -c SHA256SUMS.txt)
+./CONTENT_AUDIT.txt: OK
+./SOURCE_SHA256SUMS.txt: OK
+./index.144x144.png: OK
+./index.180x180.png: OK
+./index.512x512.png: OK
+./index.apple-touch-icon.png: OK
+./index.audio.position.worklet.js: OK
+./index.audio.worklet.js: OK
+./index.html: OK
+./index.icon.png: OK
+./index.js: OK
+./index.manifest.json: OK
+./index.offline.html: OK
+./index.pck: OK
+./index.png: OK
+./index.service.worker.js: OK
+./index.wasm: OK
+./version.json: OK
+Command exit: 0
+Closed payload build/mobile-web-beta-repro-b: PASS (18 manifested payload files + SHA256SUMS.txt; regular files/directories only)
+Closed payload build/mobile-web-beta: PASS (18 manifested payload files + SHA256SUMS.txt; regular files/directories only)
+Cross-build exact file set: PASS (19/19 paths identical)
+Command: python3 - build/mobile-web-beta-repro-b build/mobile-web-beta /Users/ben/Documents/1_Projects/aoem  # manifest, metadata, normalization, byte-identity assertions
+MANIFEST_PATHS_IDENTICAL=18
+MANIFEST_HASH_DIFFERENCES=./index.service.worker.js,./version.json
+SOURCE_SHA256SUMS_LINES=206
+SOURCE_SHA256SUMS_SHA256=54ada2e25cdb3c0690ef37580039b78fbe3198be2f21597fccc703b4e6458fa5
+SOURCE_REVISION=89567778b26e
+SOURCE_DIRTY=true
+SOURCE_TREE_SHA256=54ada2e25cdb3c0690ef37580039b78fbe3198be2f21597fccc703b4e6458fa5
+REPRO_BUILT_AT_UTC=2026-09-13T12:05:15Z
+CANONICAL_BUILT_AT_UTC=2026-09-13T12:05:38Z
+NORMALIZED_VERSION_SHA256=76db41e3c04b13cfa076e5acbf054689dfc71d52e935044e8fd64d98e3343c79
+REPRO_CACHE_VERSION=1789301114|1184544
+CANONICAL_CACHE_VERSION=1789301138|1160324
+NORMALIZED_SERVICE_WORKER_SHA256=56bfc6904ba047d9683abdd8b412f839ca051f8bdf22ec0fca6b9ca2b170ffe8
+INDEX_PCK_SHA256=e8cdc4467fcb41eb3f9fb1163d279a758a25d4b59ba76848fc53e2a61649e611
+INDEX_PCK_SIZE_BYTES=1601384
+BYTE_IDENTICAL_OTHER_SUBSTANTIVE_FILES=16
+CROSS_BUILD_NORMALIZATION=PASS
+Command exit: 0
+Build evidence log hashes:
+3fce77166996fcf936dcb92f410b241d7f97ec1871526584d2d53e54d3835890  docs/mobile_beta_build_repro_b_2026-09-13.log
+047bb3bebd0510f9ba607fb3571bff24c07eac06bfba2288774eea414f56774e  docs/mobile_beta_build_canonical_2026-09-13.log
+Build log error scan: PASS
+Frozen source and harness hashes:
+c4765e3af59e70b0997914d1c0f0241a8d3f70a215bab7f8278626adeeed0eb6  scripts/ai/ai_controller.gd
+a25bedaff252c878044ccf222770fcd5a2a91eb870bcf84cdc948d0586fc7a22  scripts/units/villager.gd
+831181a8c810f1efc7499ed452336a1ec3dec64224230da8e507635f12fbcb8d  scripts/units/unit_base.gd
+bb4da1c8674f25bdb56a04d3ee51a74cf20710ea2276e82a4216ad4ff8c73b82  scripts/map/game_map.gd
+0493dc63226fd5c7e0f9e36f1ed8beb65b4d69bd022594a6dc612c3707c05f20  scripts/map/map_data.gd
+0b9937a2556c1f70d4b7924b841525c29fdc25f130753eac59e278ea54aed5e6  scripts/main/main.gd
+5c9744fe282c6e0b63be959cc2b85b8917e6b5cfc0b63054e8ec747d545ad642  tools/mcp_ai_balance_pass.py
+a6617a68c04cddcca4dc8dcd2f2786ee40c2c742a4479642f31aac362ab7351a  tools/run_focused_tests.py
+aa5b3a49a5b7b51f7ac311bb5900f8c6e0741d7ba30fdc16b735e593339383b7  tools/test_mcp_phone_touch_targeting.py
+dc5f587f8f391809881477043d32bd75ac2879bfdff8d68c7352092d3a6c735f  tools/test_mcp_ai_balance_policy.py
+9374118010d930e0bbc46df8b19cd7ce8e750c6a7657f4a6051480e99242776f  tools/build_mobile_web_beta.sh
+Frozen source/harness hash check: PASS
+Command: git diff --check
+Command exit: 0
+Residual Godot process check: PASS (none)
+Browser launch: NOT PERFORMED
+Publish action: NOT PERFORMED
+OVERALL: PASS

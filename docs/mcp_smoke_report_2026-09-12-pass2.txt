@@ -1,0 +1,24 @@
+[PASS] tooling_available: editor/input/project tools discovered
+[PASS] addon_connection: connected (server=2.16.1, addon=2.16.1, versions_match=True)
+[PASS] startup_to_gameplay: scene playing and screenshot captured (res://scenes/main/main.tscn)
+[PASS] camera_movement_smoke: Input sequence completed: 4 action(s) executed [camera_right, camera_down, camera_left, camera_up] over 1700ms
+[PASS] selection_command_smoke: Input sequence completed: 2 action(s) executed [select, command] over 120ms
+[PASS] build_menu_and_production_smoke: Input sequence completed: 3 action(s) executed [toggle_build_menu, train_unit] over 500ms
+[PASS] phase2_action_bindings: Touch/HUD/build-placement actions detected in input map
+[PASS] phase2_touch_select_move_smoke: Input sequence completed: 2 action(s) executed [select] over 220ms; screenshot captured
+[PASS] phase2_touch_villager_gather_smoke: Input sequence completed: 3 action(s) executed [idle_villager, select] over 360ms; screenshot captured
+[PASS] phase2_hud_shortcuts_smoke: Input sequence completed: 3 action(s) executed [idle_villager, select_all_military, find_army] over 420ms; screenshot captured
+[PASS] phase2_invalid_placement_feedback_smoke: Input sequence completed: 5 action(s) executed [toggle_build_menu, select, cancel] over 900ms; screenshot captured
+[PASS] phase3_action_bindings: Patrol + stance + army command actions detected in input map
+[PASS] phase3_patrol_command_smoke: Input sequence completed: 4 action(s) executed [select_all_military, patrol_command, command, find_army] over 760ms; screenshot captured
+[PASS] phase3_stance_attack_move_smoke: Input sequence completed: 5 action(s) executed [select_all_military, toggle_stance, command] over 940ms; screenshot captured
+[PASS] phase4_long_simulation_smoke: Completed 7 segment(s) across 75.0s; screenshot captured
+[PASS] phase4_performance_guardrail: fps=1283.00, frame_time_ms=35.57
+[PASS] performance_guardrail: fps=1283.00, frame_time_ms=35.57
+[PASS] runtime_errors: none
+
+Smoke Summary
+- Total checks: 18
+- Passed: 18
+- Failed: 0
+- Status: PASS

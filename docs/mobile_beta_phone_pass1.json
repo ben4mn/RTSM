@@ -1,0 +1,286 @@
+{
+  "generated_at_utc": "2026-09-13T03:35:03.630477+00:00",
+  "status": "FAIL",
+  "settings": {
+    "menu_scene": "res://scenes/ui/main_menu.tscn",
+    "scene": "res://scenes/main/main.tscn",
+    "allow_startup_fallback": false,
+    "min_touch_target_px": 48.0,
+    "max_button_aspect_ratio": 4.0,
+    "min_fps": 15.0,
+    "max_frame_time_ms": 120.0
+  },
+  "checks": [
+    {
+      "name": "tooling_available",
+      "passed": true,
+      "detail": "editor/input/project/node tools discovered"
+    },
+    {
+      "name": "addon_connection",
+      "passed": true,
+      "detail": "connected (server=2.16.1 addon=2.16.1)"
+    },
+    {
+      "name": "main_menu_ready",
+      "passed": true,
+      "detail": "Main menu scene is active"
+    },
+    {
+      "name": "main_menu_contract",
+      "passed": true,
+      "detail": "diagnostics ready (difficulty=Easy guided_opening=True logical=844x474 input_scale=1.517x1.519)"
+    },
+    {
+      "name": "touch_target_audit_main_menu",
+      "passed": true,
+      "detail": "6 controls meet target/aspect constraints"
+    },
+    {
+      "name": "main_menu_guided_opening_enabled",
+      "passed": true,
+      "detail": "Guided opener was already enabled in main-menu diagnostics"
+    },
+    {
+      "name": "main_menu_settings_open",
+      "passed": true,
+      "detail": "attempt1=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:804:559:1, pointer:screen_touch:0:804:559:0] over 70ms open=True"
+    },
+    {
+      "name": "touch_target_audit_main_menu_settings",
+      "passed": true,
+      "detail": "4 controls meet target/aspect constraints"
+    },
+    {
+      "name": "main_menu_settings_close",
+      "passed": true,
+      "detail": "attempt1=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:640:550:1, pointer:screen_touch:0:640:550:0] over 70ms closed=True"
+    },
+    {
+      "name": "main_menu_seed_entry",
+      "passed": true,
+      "detail": "Entered deterministic seed 424242 through touch/text input"
+    },
+    {
+      "name": "main_menu_touch_start_smoke",
+      "passed": true,
+      "detail": "transitioned after 1 tap(s); tap1: Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:497:559:1, pointer:screen_touch:0:497:559:0] over 70ms"
+    },
+    {
+      "name": "startup_to_gameplay",
+      "passed": true,
+      "detail": "screen=1280x720, transitioned via touch"
+    },
+    {
+      "name": "camera_mobile_framing",
+      "passed": true,
+      "detail": "zoom=1.049 (mobile_min=0.78 mobile_max=1.90 desktop_default=1.35)"
+    },
+    {
+      "name": "hud_phone_layout_profiles",
+      "passed": true,
+      "detail": "844x390[w=109.7,h=48.0,cols=3], 932x430[w=116.0,h=48.0,cols=3]"
+    },
+    {
+      "name": "touch_target_audit_hud_core",
+      "passed": true,
+      "detail": "4 controls meet target/aspect constraints"
+    },
+    {
+      "name": "touch_target_audit_minimap_region",
+      "passed": true,
+      "detail": "2 controls meet target/aspect constraints"
+    },
+    {
+      "name": "touch_select_move_smoke",
+      "passed": true,
+      "detail": "Input sequence completed: 4 action(s) executed [pointer:screen_touch:0:640:360:1, pointer:screen_touch:0:640:360:0, pointer:screen_touch:0:819:417:1, pointer:screen_touch:0:819:417:0] over 330ms"
+    },
+    {
+      "name": "guided_opener_initial_stage",
+      "passed": true,
+      "detail": "enabled=True, active=True, stage=gather_food, gather=False, house=False, scout=False, move=False, loop=False"
+    },
+    {
+      "name": "touch_select_villager_for_gather",
+      "passed": true,
+      "detail": "candidate1[/root/Main/GameMap/UnitsContainer/@Area2D@397]=attempt1=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:355:565:1, pointer:screen_touch:0:355:565:0] over 70ms action=ignored path= tapped_dist=-1 resource= resource_dist=-1 radii=(22.882967659601,26.6967956028678) zoom=1.04881501197815 timestamp=9237>8753 @(355,565) | candidate2[/root/Main/GameMap/UnitsContainer/Villager]=attempt1=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:306:364:1, pointer:screen_touch:0:306:364:0] over 70ms action=ignored path= tapped_dist=-1 resource= resource_dist=-1 radii=(22.882967659601,26.6967956028678) zoom=1.04881501197815 timestamp=10587>9237 @(306,364) | candidate3[/root/Main/GameMap/UnitsContainer/@Area2D@396]=attempt1=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:325:328:1, pointer:screen_touch:0:325:328:0] over 70ms action=select path=/root/Main/GameMap/UnitsContainer/@Area2D@396 tapped_dist=13.157021522522 resource= resource_dist=-1 radii=(22.882967659601,26.6967956028678) zoom=1.04881501197815 timestamp=11904>10587 @(325,328)"
+    },
+    {
+      "name": "touch_select_villager_target",
+      "passed": true,
+      "detail": "Tapped villager /root/Main/GameMap/UnitsContainer/@Area2D@396 at (214,215)"
+    },
+    {
+      "name": "touch_select_villager_assertion",
+      "passed": true,
+      "detail": "selected=1"
+    },
+    {
+      "name": "touch_villager_gather_smoke",
+      "passed": true,
+      "detail": "attempt1=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:307:82:1, pointer:screen_touch:0:307:82:0] over 70ms action=gather path=/root/Main/GameMap/ResourcesContainer/@Area2D@240 tapped_dist=-1 resource=/root/Main/GameMap/ResourcesContainer/@Area2D@240 resource_dist=0.266416221857071 radii=(22.882967659601,26.6967956028678) zoom=1.04881501197815 timestamp=12303>11904 @(307,82)"
+    },
+    {
+      "name": "touch_villager_gather_target",
+      "passed": true,
+      "detail": "Tapped resource node /root/Main/GameMap/ResourcesContainer/@Area2D@240 at (307,82)"
+    },
+    {
+      "name": "guided_opener_after_gather",
+      "passed": true,
+      "detail": "enabled=True, active=True, stage=build_house, gather=True, house=False, scout=False, move=False, loop=False"
+    },
+    {
+      "name": "touch_open_build_menu_for_audit",
+      "passed": true,
+      "detail": "Build menu opened from touch input"
+    },
+    {
+      "name": "touch_target_audit_build_menu",
+      "passed": true,
+      "detail": "13 controls meet target/aspect constraints"
+    },
+    {
+      "name": "touch_build_menu_house_option",
+      "passed": true,
+      "detail": "Selected `House +10p`"
+    },
+    {
+      "name": "touch_build_place_cancel_smoke",
+      "passed": true,
+      "detail": "arm=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:511:606:1, pointer:screen_touch:0:511:606:0] over 70ms cancel=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:1178:504:1, pointer:screen_touch:0:1178:504:0] over 70ms placement_active=False cancel_visible=False buildings=1->1"
+    },
+    {
+      "name": "touch_build_menu_close_after_cancel",
+      "passed": true,
+      "detail": "Build menu closed after cancel-path verification"
+    },
+    {
+      "name": "touch_camera_drag_responsive_0",
+      "passed": true,
+      "detail": "Input sequence completed: 3 action(s) executed [pointer:screen_touch:0:947:432:1, pointer:screen_drag:0:512:288:-435:-144, pointer:screen_touch:0:512:288:0] over 190ms"
+    },
+    {
+      "name": "touch_camera_drag_responsive_1",
+      "passed": true,
+      "detail": "Input sequence completed: 3 action(s) executed [pointer:screen_touch:0:435:417:1, pointer:screen_drag:0:870:259:435:-158, pointer:screen_touch:0:870:259:0] over 190ms"
+    },
+    {
+      "name": "touch_camera_drag_responsive",
+      "passed": true,
+      "detail": "camera drag deltas: 363.9, 372.7"
+    },
+    {
+      "name": "touch_pinch_zoom_out_smoke",
+      "passed": true,
+      "detail": "Input sequence completed: 6 action(s) executed [pointer:screen_touch:0:560:360:1, pointer:screen_touch:1:720:360:1, pointer:screen_drag:0:490:360:-70:0, pointer:screen_drag:1:790:360:70:0, pointer:screen_touch:0:490:360:0, pointer:screen_touch:1:790:360:0] over 220ms"
+    },
+    {
+      "name": "touch_pinch_zoom_in_smoke",
+      "passed": true,
+      "detail": "Input sequence completed: 6 action(s) executed [pointer:screen_touch:0:490:360:1, pointer:screen_touch:1:790:360:1, pointer:screen_drag:0:560:360:70:0, pointer:screen_drag:1:720:360:-70:0, pointer:screen_touch:0:560:360:0, pointer:screen_touch:1:720:360:0] over 220ms"
+    },
+    {
+      "name": "touch_pinch_zoom_validation",
+      "passed": true,
+      "detail": "before=1.049 out=1.900 in=1.013"
+    },
+    {
+      "name": "touch_minimap_geometry",
+      "passed": true,
+      "detail": "rect=(12,526)-(194,708) size=182x182"
+    },
+    {
+      "name": "touch_minimap_reposition_smoke_0",
+      "passed": true,
+      "detail": "Input sequence completed: 3 action(s) executed [pointer:screen_touch:0:52:667:1, pointer:screen_drag:0:153:566:101:-101, pointer:screen_touch:0:153:566:0] over 190ms"
+    },
+    {
+      "name": "touch_minimap_camera_delta",
+      "passed": true,
+      "detail": "touch(idx=0)=1434.4"
+    },
+    {
+      "name": "progression_hint_validation",
+      "passed": true,
+      "detail": "Tap Build, then House."
+    },
+    {
+      "name": "touch_build_recenter_on_tc",
+      "passed": true,
+      "detail": "Input sequence completed: 2 action(s) executed [select_tc, center_selection] over 120ms"
+    },
+    {
+      "name": "touch_build_option_arm_placement",
+      "passed": true,
+      "detail": "Placement mode activated"
+    },
+    {
+      "name": "touch_build_menu_close_after_place",
+      "passed": true,
+      "detail": "Build menu closed after placement"
+    },
+    {
+      "name": "touch_build_place_resume_economy_smoke",
+      "passed": true,
+      "detail": "placed at 793,503; attempt1=invalid@844,417(Invalid placement), attempt2=invalid@435,417(Blocked terrain), attempt3=placed@793,503; resume_select=attempt1=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:368:121:1, pointer:screen_touch:0:368:121:0] over 70ms selected=1 @(368,121) | resume_gather=attempt1=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:318:92:1, pointer:screen_touch:0:318:92:0] over 70ms action=gather path=/root/Main/GameMap/ResourcesContainer/@Area2D@240 tapped_dist=-1 resource=/root/Main/GameMap/ResourcesContainer/@Area2D@240 resource_dist=0.297838151454926 radii=(23.6842080372855,27.6315760434998) zoom=1.01333343982697 timestamp=22386>22054 @(318,92)"
+    },
+    {
+      "name": "guided_opener_after_house",
+      "passed": true,
+      "detail": "enabled=True, active=True, stage=train_scout, gather=True, house=True, scout=False, move=False, loop=False"
+    },
+    {
+      "name": "touch_pause_open_for_audit",
+      "passed": true,
+      "detail": "Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:1147:39:1, pointer:screen_touch:0:1147:39:0] over 70ms"
+    },
+    {
+      "name": "touch_target_audit_pause_controls",
+      "passed": true,
+      "detail": "4 controls meet target/aspect constraints"
+    },
+    {
+      "name": "touch_pause_resume_after_audit",
+      "passed": true,
+      "detail": "Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:640:298:1, pointer:screen_touch:0:640:298:0] over 70ms"
+    },
+    {
+      "name": "touch_pause_resume_state",
+      "passed": true,
+      "detail": "Game resumed after pause-controls audit"
+    },
+    {
+      "name": "touch_resume_select_tc_smoke",
+      "passed": true,
+      "detail": "Input sequence completed: 1 action(s) executed [select_tc] over 0ms"
+    },
+    {
+      "name": "touch_resume_tc_train_assertion",
+      "passed": true,
+      "detail": "selected=1, train_buttons=2"
+    },
+    {
+      "name": "touch_train_unit_smoke",
+      "passed": true,
+      "detail": "Town Center selection retained for touch training"
+    },
+    {
+      "name": "touch_train_unit_button_press",
+      "passed": false,
+      "detail": "attempt1=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:723:653:1, pointer:screen_touch:0:723:653:0] over 70ms center=(723,653) offset=(0,0) scout=False hud_unit=? emitted=? result=none | attempt2=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:703:653:1, pointer:screen_touch:0:703:653:0] over 70ms center=(723,653) offset=(-20,0) scout=False hud_unit=? emitted=? result=none | attempt3=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:743:653:1, pointer:screen_touch:0:743:653:0] over 70ms center=(723,653) offset=(20,0) scout=False hud_unit=? emitted=? result=none | attempt4=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:723:641:1, pointer:screen_touch:0:723:641:0] over 70ms center=(723,653) offset=(0,-12) scout=False hud_unit=? emitted=? result=none | attempt5=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:723:665:1, pointer:screen_touch:0:723:665:0] over 70ms center=(723,653) offset=(0,12) scout=False hud_unit=? emitted=? result=none"
+    }
+  ],
+  "findings": [],
+  "fix_plan": [
+    {
+      "priority": "p0",
+      "target_file": "runtime check diagnostics",
+      "control": "touch_train_unit_button_press",
+      "node_path": "",
+      "expected_update": "Resolve the failed runtime contract and rerun the phone audit",
+      "reason": "attempt1=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:723:653:1, pointer:screen_touch:0:723:653:0] over 70ms center=(723,653) offset=(0,0) scout=False hud_unit=? emitted=? result=none | attempt2=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:703:653:1, pointer:screen_touch:0:703:653:0] over 70ms center=(723,653) offset=(-20,0) scout=False hud_unit=? emitted=? result=none | attempt3=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:743:653:1, pointer:screen_touch:0:743:653:0] over 70ms center=(723,653) offset=(20,0) scout=False hud_unit=? emitted=? result=none | attempt4=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:723:641:1, pointer:screen_touch:0:723:641:0] over 70ms center=(723,653) offset=(0,-12) scout=False hud_unit=? emitted=? result=none | attempt5=Input sequence completed: 2 action(s) executed [pointer:screen_touch:0:723:665:1, pointer:screen_touch:0:723:665:0] over 70ms center=(723,653) offset=(0,12) scout=False hud_unit=? emitted=? result=none"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+AOEM_WEB_MIME_CHECK date=2026-09-13
+index.html expected=text/html actual=text/html result=PASS
+index.js expected=text/javascript actual=text/javascript result=PASS
+index.wasm expected=application/wasm actual=application/wasm result=PASS
+index.pck expected=application/octet-stream actual=application/octet-stream result=PASS
+index.service.worker.js expected=text/javascript actual=text/javascript result=PASS
+index.manifest.json expected=application/json actual=application/json result=PASS
+index.icon.png expected=image/png actual=image/png result=PASS
+RESULT=PASS
+COMMAND_EXIT=0

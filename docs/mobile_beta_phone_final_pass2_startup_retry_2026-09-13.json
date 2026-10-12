@@ -1,0 +1,36 @@
+{
+  "generated_at_utc": "2026-09-13T05:08:49.163541+00:00",
+  "status": "FAIL",
+  "settings": {
+    "menu_scene": "res://scenes/ui/main_menu.tscn",
+    "scene": "res://scenes/main/main.tscn",
+    "allow_startup_fallback": false,
+    "min_touch_target_px": 48.0,
+    "max_button_aspect_ratio": 4.0,
+    "min_fps": 15.0,
+    "max_frame_time_ms": 120.0
+  },
+  "checks": [
+    {
+      "name": "tooling_available",
+      "passed": true,
+      "detail": "editor/input/project/node tools discovered"
+    },
+    {
+      "name": "addon_connection",
+      "passed": false,
+      "detail": "Not connected to Godot editor with godot_mcp enabled."
+    }
+  ],
+  "findings": [],
+  "fix_plan": [
+    {
+      "priority": "p0",
+      "target_file": "runtime check diagnostics",
+      "control": "addon_connection",
+      "node_path": "",
+      "expected_update": "Resolve the failed runtime contract and rerun the phone audit",
+      "reason": "Not connected to Godot editor with godot_mcp enabled."
+    }
+  ]
+}
