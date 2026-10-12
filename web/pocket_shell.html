@@ -2,7 +2,7 @@
 <html lang="en">
 	<head>
 		<meta charset="utf-8">
-		<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, viewport-fit=cover">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 		<meta name="apple-mobile-web-app-capable" content="yes">
 		<meta name="apple-mobile-web-app-title" content="Pocket Kingdoms">
 		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -174,9 +174,63 @@ body.pocket-report-open { touch-action: auto; }
 	#pocket-landscape-prompt { display: grid; }
 }
 		</style>
+		<link rel="stylesheet" href="pocket_launch.css">
 		$GODOT_HEAD_INCLUDE
 	</head>
-	<body>
+	<body class="pocket-welcome">
+		<main id="pocket-welcome">
+			<div class="pk-wrap">
+				<header class="pk-header">
+					<div class="pk-brand"><img src="index.192x192.png" alt="" width="40" height="40">Pocket Kingdoms</div>
+					<a href="#pocket-releases">What’s new</a>
+				</header>
+				<section class="pk-hero" aria-labelledby="pocket-welcome-title">
+					<div>
+						<p class="pk-eyebrow">A kingdom in your pocket</p>
+						<h1 id="pocket-welcome-title">Build a village.<br>Command the battle.</h1>
+						<p class="pk-description">Gather resources, choose your counters and outplay an AI rival for sacred ground. A compact real-time strategy game made for landscape play.</p>
+						<div class="pk-actions">
+							<button id="pocket-install" class="pk-button pk-primary" type="button">Install the game <span aria-hidden="true">↗</span></button>
+							<button id="pocket-play" class="pk-button" type="button">Play in browser <span aria-hidden="true">→</span></button>
+						</div>
+						<p class="pk-fine">Free to play · No account · Solo vs AI</p>
+						<p id="pocket-launch-status" class="pk-fine" role="status"></p>
+					</div>
+					<div class="pk-art"><figure>
+						<img src="pocket_kingdom.png" alt="An isometric village with a Town Center, houses, villagers and soldiers." width="792" height="468">
+						<figcaption><span>Small world. Real decisions.</span><span>Early access</span></figcaption>
+					</figure></div>
+				</section>
+				<section class="pk-loop" aria-label="How to play">
+					<article><span class="pk-number">01</span><h2>Keep the village working</h2><p>Gather food and wood. Grow your workforce, build your base and invest in the next age.</p></article>
+					<article><span class="pk-number">02</span><h2>Bring the right army</h2><p>Scout your rival, choose Warriors, Archers or Horsemen, and send paid reinforcements into the fight.</p></article>
+					<article><span class="pk-number">03</span><h2>Hold your ground</h2><p>Defend the village and contest the Sacred site. Try Standard or the optional Control race.</p></article>
+				</section>
+				<section id="pocket-install-guide" class="pk-install" aria-labelledby="pocket-install-title" tabindex="-1">
+					<div><p class="pk-eyebrow">One tap away, next time</p><h2 id="pocket-install-title">Make room for a kingdom.</h2>
+						<p>Add Pocket Kingdoms to your Home Screen for its own app window, without the browser bars.</p>
+						<p>Play in landscape. Touch and mouse controls are supported. You can always play here without installing.</p>
+						<p id="pocket-install-status" class="pk-install-status" role="status"></p>
+						<button id="pocket-native-install" class="pk-button pk-primary pk-native-install" type="button" hidden>Install Pocket Kingdoms</button>
+					</div>
+					<div>
+						<div class="pk-platforms" role="group" aria-label="Installation instructions">
+							<button class="pk-platform" data-platform="apple" aria-pressed="false" type="button">iPhone / iPad</button>
+							<button class="pk-platform" data-platform="android" aria-pressed="false" type="button">Android</button>
+							<button class="pk-platform" data-platform="desktop" aria-pressed="true" type="button">Desktop</button>
+						</div>
+						<ol class="pk-steps" data-instructions="apple" hidden><li>Open this page in <strong>Safari</strong>.</li><li>Open <strong>Share</strong> (inside the Page Menu if needed), then choose <strong>Add to Home Screen</strong>.</li><li>Keep <strong>Open as Web App</strong> on if shown, then tap <strong>Add</strong>.</li><li>Launch the new Pocket Kingdoms icon and turn your device sideways.</li></ol>
+						<ol class="pk-steps" data-instructions="android" hidden><li>Open this page in <strong>Chrome</strong> or a browser that supports app installation.</li><li>Tap <strong>Install the game</strong> above when the browser offers it. Otherwise open the browser menu and choose <strong>Install app</strong> or <strong>Add to Home screen</strong>.</li><li>Confirm the installation, then launch the new icon in landscape.</li></ol>
+						<ol class="pk-steps" data-instructions="desktop"><li>Open this page in <strong>Chrome</strong> or <strong>Edge</strong>.</li><li>Use the address bar’s install icon or the browser menu’s <strong>Install app</strong> option when available.</li><li>On a Mac with Safari, use <strong>File → Add to Dock</strong> if available. You can also keep playing in your browser.</li></ol>
+					</div>
+				</section>
+				<section id="pocket-releases" class="pk-updates" aria-labelledby="pocket-releases-title">
+					<div class="pk-updates-heading"><h2 id="pocket-releases-title">A growing kingdom.</h2><p>Release notes · Improvements as we build</p></div>
+					<div id="pocket-release-list"><p class="pk-fine">Loading release notes…</p></div>
+				</section>
+				<footer class="pk-footer"><p>Updates apply between matches when you’re online.<br><span id="pocket-update-copy">Open the app online to check for the latest release.</span></p><p id="pocket-build-label">Pocket Kingdoms · Early access</p></footer>
+			</div>
+		</main>
 		<div id="pocket-app">
 		<div id="pocket-game">
 		<canvas id="canvas">
@@ -195,6 +249,7 @@ body.pocket-report-open { touch-action: auto; }
 
 		</div>
 		<button id="pocket-screen-control" class="pocket-button" type="button" hidden>Full screen</button>
+		<div id="pocket-shell-links" hidden><button id="pocket-release-open" class="pocket-button" type="button">What’s new</button></div>
 		<div id="pocket-screen-help" role="dialog" aria-modal="true" aria-labelledby="pocket-help-title" hidden>
 			<div class="pocket-help-card">
 				<h1 id="pocket-help-title">Play without browser bars</h1>
@@ -206,7 +261,17 @@ body.pocket-report-open { touch-action: auto; }
 			<div><h1>Turn your phone to play</h1><p>Pocket Kingdoms plays in landscape.</p></div>
 		</div>
 		</div>
+		<div id="pocket-release-dialog" class="pk-dialog" role="dialog" aria-modal="true" aria-labelledby="pocket-release-dialog-title" hidden>
+			<div class="pk-dialog-card"><div class="pk-dialog-head"><h2 id="pocket-release-dialog-title">What’s new</h2><button id="pocket-release-close" class="pk-button" type="button">Back to game</button></div>
+				<div class="pk-dialog-body" tabindex="0" aria-label="Release notes"><p id="pocket-dialog-update-copy">Updates apply at the main menu. Your current match will not be interrupted.</p><div id="pocket-dialog-release-list"></div></div>
+			</div>
+		</div>
+		<div id="pocket-update-blocker" role="status" hidden>Getting your kingdom up to date…</div>
+		<div id="pocket-boot" role="status" hidden><div><img src="index.192x192.png" alt="" width="72" height="72"><h1>Preparing your kingdom…</h1><p>First launch downloads the game.<br>Keep this window open for a moment.</p></div></div>
+		<script>window.POCKET_RELEASE = /*POCKET_RELEASE*/null;</script>
 		<script src="playtest_diagnostics.js"></script>
+		<script src="pocket_updates.js"></script>
+		<script src="pocket_launch.js"></script>
 		<script id="pocket-web-shell-script">
 (function () {
 	'use strict';
@@ -280,7 +345,11 @@ body.pocket-report-open { touch-action: auto; }
 	window.PocketWebShell = Object.freeze({
 		setControlsVisible: function (visible) {
 			controlsAllowed = visible === true;
+			window.PocketLaunch.setControlsVisible(controlsAllowed);
 			updateControl();
+		},
+		setUpdateSafe: function (safe) {
+			return window.PocketLaunch.setUpdateSafe(safe === true);
 		},
 		engineStarted: function () {
 			engineReady = true;
@@ -336,13 +405,24 @@ body.pocket-report-open { touch-action: auto; }
 	resizeCanvas();
 }());
 		</script>
-		<script src="$GODOT_URL"></script>
 		<script>
 const GODOT_CONFIG = $GODOT_CONFIG;
 const GODOT_THREADS_ENABLED = $GODOT_THREADS_ENABLED;
-const engine = new Engine(GODOT_CONFIG);
 
-(function () {
+(async function () {
+	await window.PocketLaunch.ready;
+	const loaded = await new Promise((resolve) => {
+		const script = document.createElement('script');
+		script.src = '$GODOT_URL';
+		script.onload = () => resolve(true);
+		script.onerror = () => resolve(false);
+		document.body.appendChild(script);
+	});
+	if (!loaded) {
+		window.PocketLaunch.showFailure('The game could not load. Check your connection and try again.');
+		return;
+	}
+	const engine = new Engine(GODOT_CONFIG);
 	const statusOverlay = document.getElementById('status');
 	const statusProgress = document.getElementById('status-progress');
 	const statusNotice = document.getElementById('status-notice');
@@ -387,6 +467,7 @@ const engine = new Engine(GODOT_CONFIG);
 		}
 		setStatusMode('notice');
 		initializing = false;
+		window.PocketLaunch.showFailure(statusNotice.textContent);
 	}
 
 	const missing = Engine.getMissingFeatures({
@@ -394,36 +475,7 @@ const engine = new Engine(GODOT_CONFIG);
 	});
 
 	if (missing.length !== 0) {
-		if (GODOT_CONFIG['serviceWorker'] && GODOT_CONFIG['ensureCrossOriginIsolationHeaders'] && 'serviceWorker' in navigator) {
-			let serviceWorkerRegistrationPromise;
-			try {
-				serviceWorkerRegistrationPromise = navigator.serviceWorker.getRegistration();
-			} catch (err) {
-				serviceWorkerRegistrationPromise = Promise.reject(new Error('Service worker registration failed.'));
-			}
-			// There's a chance that installing the service worker would fix the issue
-			Promise.race([
-				serviceWorkerRegistrationPromise.then((registration) => {
-					if (registration != null) {
-						return Promise.reject(new Error('Service worker already exists.'));
-					}
-					return registration;
-				}).then(() => engine.installServiceWorker()),
-				// For some reason, `getRegistration()` can stall
-				new Promise((resolve) => {
-					setTimeout(() => resolve(), 2000);
-				}),
-			]).then(() => {
-				// Reload if there was no error.
-				window.location.reload();
-			}).catch((err) => {
-				console.error('Error while registering service worker:', err);
-			});
-		} else {
-			// Display the message as usual
-			const missingMsg = 'Error\nThe following features required to run Godot projects on the Web are missing:\n';
-			displayFailureNotice(missingMsg + missing.join('\n'));
-		}
+		displayFailureNotice('This browser is missing a feature needed to play: ' + missing.join(', ') + '. Try opening Pocket Kingdoms in a recent browser.');
 	} else {
 		setStatusMode('progress');
 		engine.startGame({
@@ -438,6 +490,7 @@ const engine = new Engine(GODOT_CONFIG);
 			},
 		}).then(() => {
 			setStatusMode('hidden');
+			window.PocketLaunch.engineFinishedLoading();
 			window.PocketWebShell.engineStarted();
 		}, displayFailureNotice);
 	}

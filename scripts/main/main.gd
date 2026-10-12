@@ -202,6 +202,7 @@ func _ready() -> void:
 	# HUD and GameOverScreen opt into ALWAYS independently so their paused-state
 	# controls remain actionable while units, buildings, AI, and the map freeze.
 	process_mode = Node.PROCESS_MODE_PAUSABLE
+	WEB_SHELL_BRIDGE.set_update_safe(false)
 	WEB_SHELL_BRIDGE.set_controls_visible(false)
 	GameManager.game_state_changed.connect(_on_game_state_changed)
 	# Wait for map generation to finish.

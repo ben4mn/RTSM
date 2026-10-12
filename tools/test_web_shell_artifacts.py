@@ -7,7 +7,7 @@ import unittest
 import zlib
 from pathlib import Path
 
-from package_mobile_web_pwa import package_pwa
+from package_mobile_web_pwa import package_pwa, package_update_worker
 from verify_mobile_web_artifacts import VerificationError, verify_service_worker, verify_web_shell
 
 
@@ -30,13 +30,20 @@ class MobileShellArtifactTests(unittest.TestCase):
         self.html = self.html.replace("$GODOT_URL", "index.js")
         self.html += '<!-- index.service.worker.js -->'
         (self.root / "index.html").write_text(self.html)
-        (self.root / "index.service.worker.js").write_text('const FILES=["index.pck","index.wasm"];')
+        for name in ("index.js", "index.wasm", "index.pck", "index.offline.html"):
+            (self.root / name).write_text("fixture")
+        for name in ("playtest_diagnostics.js", "pocket_launch.js", "pocket_launch.css", "pocket_updates.js", "pocket_kingdom.png", "release_notes.json"):
+            (self.root / name).write_bytes((Path(__file__).resolve().parents[1] / "web" / name).read_bytes())
+        (self.root / "version.json").write_text(json.dumps({"source_revision": "abcdef012345", "source_tree_sha256": "a" * 64, "source_dirty": False, "version": "test"}))
         self.manifest = {"display": "standalone", "orientation": "landscape", "start_url": "./index.html", "icons": []}
         for size in (192, 512):
             name = f"index.{size}x{size}.png"
             (self.root / name).write_bytes(fixture_png(size))
             self.manifest["icons"].append({"sizes": f"{size}x{size}", "src": name, "type": "image/png"})
         self.write_manifest()
+        package_pwa(self.root)
+        package_update_worker(self.root)
+        self.html = (self.root / "index.html").read_text()
 
     def write_manifest(self) -> None:
         (self.root / "index.manifest.json").write_text(json.dumps(self.manifest))
@@ -112,6 +119,21 @@ class MobileShellArtifactTests(unittest.TestCase):
         (self.root / "index.192x192.png").write_bytes(fixture_png(180))
         with self.assertRaises(ValueError):
             package_pwa(self.root)
+
+    def test_update_payload_tampering_is_rejected(self) -> None:
+        (self.root / "pocket_launch.js").write_text("changed after packaging")
+        with self.assertRaises(VerificationError):
+            verify_service_worker(self.root)
+
+    def test_missing_welcome_art_is_rejected(self) -> None:
+        (self.root / "pocket_kingdom.png").unlink()
+        with self.assertRaises(VerificationError):
+            verify_service_worker(self.root)
+
+    def test_stock_worker_cannot_replace_update_protocol(self) -> None:
+        (self.root / "index.service.worker.js").write_text('const FILES=["index.pck","index.wasm"];')
+        with self.assertRaises(VerificationError):
+            verify_service_worker(self.root)
 
 
 if __name__ == "__main__":

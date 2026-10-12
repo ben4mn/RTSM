@@ -30,6 +30,7 @@ static func open(parent: Node, in_match: bool = false) -> Control:
 
 
 func _ready() -> void:
+	preload("res://scripts/ui/web_shell_bridge.gd").set_update_safe(false)
 	preload("res://scripts/ui/web_shell_bridge.gd").set_controls_visible(false)
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	z_index = 200
@@ -116,6 +117,8 @@ func close() -> void:
 	preload("res://scripts/ui/web_shell_bridge.gd").set_controls_visible(true)
 	GameManager.save_preferences()
 	closed.emit()
+	if not from_match:
+		preload("res://scripts/ui/web_shell_bridge.gd").set_update_safe(true)
 	queue_free()
 
 

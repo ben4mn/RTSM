@@ -292,20 +292,10 @@ SOURCE_TREE_SHA256=$(shasum -a 256 "$SOURCE_MANIFEST" | awk '{print $1}')
 
 "$GODOT_BIN" --headless --path "$STAGE_DIR" --export-release "Mobile Web Beta" "$EXPORT_DIR/index.html"
 
-# Keep the observer available on cached/offline PWA boots as well as online.
-cp "$STAGE_DIR/web/playtest_diagnostics.js" "$EXPORT_DIR/playtest_diagnostics.js"
-python3 - "$EXPORT_DIR/index.service.worker.js" <<'PY'
-from pathlib import Path
-import json, re, sys
-path = Path(sys.argv[1])
-source = path.read_text()
-match = re.search(r'const CACHED_FILES = (\[[^;]+\]);', source)
-assert match, 'Missing service-worker pre-cache list'
-files = json.loads(match.group(1))
-if 'playtest_diagnostics.js' not in files:
-    files.append('playtest_diagnostics.js')
-path.write_text(source[:match.start(1)] + json.dumps(files, separators=(',', ':')) + source[match.end(1):])
-PY
+# Ship the source-controlled welcome, notes and update client alongside Godot.
+for web_asset in playtest_diagnostics.js pocket_updates.js pocket_launch.js pocket_launch.css pocket_kingdom.png release_notes.json; do
+	cp "$STAGE_DIR/web/$web_asset" "$EXPORT_DIR/$web_asset"
+done
 
 # Godot's stock PWA exporter generates 144/180/512 icons. Chromium also needs
 # 192; render it from the same staged vector source and package it before hashes.
@@ -318,12 +308,9 @@ import sys
 
 sys.path.insert(0, sys.argv[1])
 from package_mobile_web_pwa import package_pwa
-from verify_mobile_web_artifacts import verify_service_worker, verify_web_shell
 
 root = Path(sys.argv[2])
 package_pwa(root)
-verify_service_worker(root)
-verify_web_shell(root)
 PY
 
 PRODUCT_VERSION=$(sed -n 's/^config\/version="\(.*\)"/\1/p' "$PROJECT_ROOT/project.godot" | head -n 1)
@@ -406,6 +393,22 @@ printf '%s\n' \
 	'scope=staged source paths, staged project configuration, packaged resource paths, and distinctive excluded-resource basenames' \
 	'compiled_diagnostic_symbol_absence=NOT_CERTIFIED' \
 	> "$EXPORT_DIR/CONTENT_AUDIT.txt"
+
+# Hash the final player payload into the worker after provenance exists, then
+# checksum the closed release. The worker excludes its own recursive hash.
+python3 - "$PROJECT_ROOT/tools" "$EXPORT_DIR" "$STAGE_DIR/web/pocket_service_worker.js" <<'PY'
+from pathlib import Path
+import sys
+
+sys.path.insert(0, sys.argv[1])
+from package_mobile_web_pwa import package_update_worker
+from verify_mobile_web_artifacts import verify_service_worker, verify_web_shell
+
+root = Path(sys.argv[2])
+package_update_worker(root, Path(sys.argv[3]))
+verify_service_worker(root)
+verify_web_shell(root)
+PY
 
 (
 	cd "$EXPORT_DIR"

@@ -1,0 +1,44 @@
+{
+  "releases": [
+    {
+      "id": "2026-10-12-welcome",
+      "version": "0.1.0-beta.2",
+      "date": "2026-10-12",
+      "title": "Your kingdom, ready to go",
+      "summary": "A proper welcome in your browser. A direct route into the game from your Home Screen.",
+      "changes": [
+        "Learn the game and find installation steps for iPhone, iPad, Android and desktop.",
+        "Play in your browser whenever you prefer. Installation is optional.",
+        "Online update checks happen automatically. Ready updates apply at the main menu, with active matches and their results protected.",
+        "Find these release notes from the welcome page, main menu or Pause screen."
+      ]
+    },
+    {
+      "id": "2026-10-12-control-race",
+      "version": "0.1.0-beta.1",
+      "date": "2026-10-12",
+      "title": "Keep your kingdom in the fight",
+      "summary": "Clearer economy decisions and a new optional way to contest the map.",
+      "changes": [
+        "Economy now warns when worked food is running low and explains finite Farms: 75 wood buys a field containing 300 food.",
+        "See production shortages, counter roles and rally destinations without relying on tooltips.",
+        "Economy and Army stay open when a selected unit falls, so the next reinforcement order remains within reach.",
+        "Control race offers cheaper paid Feudal and military buildings. Bank four minutes of exclusive Sacred control; contests pause scoring. Standard rules remain available.",
+        "Report a problem directly from the result screen using the existing private report flow."
+      ]
+    },
+    {
+      "id": "2026-10-12-mobile",
+      "version": "0.1.0-beta.1",
+      "date": "2026-10-12",
+      "title": "Less menu work. More strategy.",
+      "summary": "Mobile management, deliberate gestures and persistent settings.",
+      "changes": [
+        "Reach Base, Economy and Army quickly, save two groups, and manage paid production away from home.",
+        "Reassign workers, follow raid warnings and locate the Sacred site while keeping the battlefield visible.",
+        "Adjust interface size, camera and audio preferences. Settings stay on this device.",
+        "Web audio routing and background transitions have been improved."
+      ]
+    }
+  ]
+}

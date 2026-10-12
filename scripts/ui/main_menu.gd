@@ -122,9 +122,11 @@ func _ready() -> void:
 	# diagnostics and injected touch coordinates describe the rendered controls,
 	# not their pre-layout positions.
 	call_deferred("_refresh_responsive_layout")
+	WEB_SHELL_BRIDGE.set_update_safe(true)
 
 
 func _exit_tree() -> void:
+	WEB_SHELL_BRIDGE.set_update_safe(false)
 	WEB_SHELL_BRIDGE.set_controls_visible(false)
 
 
@@ -586,6 +588,8 @@ func _on_seed_text_changed(_new_text: String) -> void:
 
 
 func _on_start_pressed() -> void:
+	if not WEB_SHELL_BRIDGE.begin_match():
+		return
 	GameManager.selected_difficulty = _selected_difficulty
 	GameManager.guided_opening_enabled = guided_opening_toggle.button_pressed
 	var seed_text: String = seed_input.text.strip_edges()

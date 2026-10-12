@@ -38,13 +38,13 @@ docker compose run --rm --no-deps -T aoem nginx -t </dev/null
 docker compose up -d
 ```
 
-For an update that should also restart the existing game services, run:
+For an ordinary static game release, preserve the running collector and tunnel. Restart only the game service if needed:
 
 ```sh
-docker compose restart diagnostics aoem cloudflared
+docker compose restart aoem
 ```
 
-This restarts the three dedicated game services. They use `unless-stopped`; Docker is enabled at host boot. Allow the collector to finish starting before checking its health or submitting a report. See [playtest_diagnostics.md](playtest_diagnostics.md) for private report lookup, bounded storage and player instructions.
+This restarts only the dedicated game service. Change or restart the collector and tunnel only when separately authorized and required by their own configuration changes. They use `unless-stopped`; Docker is enabled at host boot. Allow the collector to finish starting before checking its health or submitting a report. See [playtest_diagnostics.md](playtest_diagnostics.md) for private report lookup, bounded storage and player instructions.
 
 The initial DNS route is created once using the existing authenticated Cloudflare CLI:
 
@@ -56,7 +56,7 @@ Check trusted public HTTPS, correct WASM/JS/PCK MIME types, compression, `versio
 
 Nginx sends `Cache-Control: no-store, max-age=0, must-revalidate` and `CDN-Cache-Control: no-store`. The zone's browser TTL replaced a plain `no-cache` header with four hours on JavaScript/icons, so verify the actual public response after changes. Explicit service-worker CacheStorage provides offline caching separately.
 
-Online visits to `/` redirect to `/index.html`, matching the manifest's installed start URL and the stock worker's cached HTML entry. After a controlling online reload caches the engine and pack, that installed entry boots offline. A direct offline navigation to an old bare-root bookmark can still miss the stock worker's cache; launch the installed icon or use `/index.html`.
+Online visits to `/` redirect to `/index.html`, matching the manifest's installed start URL. The custom worker caches a small welcome shell first and verifies the complete game when Play is chosen. Existing apps verify the full next release before installation succeeds. A complete cached release can launch offline; `version.json` and private reports remain network-only. The worker also maps an offline `/` navigation to cached `index.html`.
 
 Always pass the game config and UUID for DNS commands. The server CLI otherwise reads its shared system tunnel config, which can override the positional tunnel name. If correcting a record created for the wrong tunnel, insert `--overwrite-dns` after `dns` and verify the logged tunnel UUID.
 
@@ -70,7 +70,7 @@ ln -s releases/PREVIOUS_RELEASE current.next
 mv -Tf current.next current
 ```
 
-To stop this game only, run `docker compose down` from `/home/ben/aoem`. Existing sites and tunnels are independent. Installed PWA clients can keep a prior service worker until all game windows close; reopen online after a release or rollback.
+To stop this game only, run `docker compose down` from `/home/ben/aoem`. Existing sites and tunnels are independent. New clients check for updates on launch, return to the foreground and reconnection. Complete releases activate after every open window agrees it is safe; matches, Pause, results, settings and reports defer activation. Legacy clients do not understand this agreement, so close all old game windows and reopen online once to migrate. Browsers schedule worker checks; a closed or offline app cannot be forced to update. Predecessor caches are retained for late old-client requests; storage failure keeps the current complete release and retries later.
 
 ## Phone installation
 

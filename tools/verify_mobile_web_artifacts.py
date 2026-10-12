@@ -189,6 +189,26 @@ def scan_content(root: Path) -> dict[str, int]:
 def verify_service_worker(root: Path) -> None:
     html = (root / "index.html").read_text(encoding="utf-8")
     worker = (root / "index.service.worker.js").read_text(encoding="utf-8")
+    cache_manifest_path = root / "pocket-cache-manifest.json"
+    if not cache_manifest_path.is_file() or "POCKET_SW_RELEASE" not in worker:
+        raise VerificationError("release-bound update worker or cache manifest missing")
+    cache_manifest = json.loads(cache_manifest_path.read_text(encoding="utf-8"))
+    files = cache_manifest.get("files", {})
+    required_payload = {"index.html", "index.js", "index.pck", "index.wasm", "pocket_launch.js", "pocket_launch.css",
+                        "pocket_updates.js", "pocket_kingdom.png", "release_notes.json", "playtest_diagnostics.js"}
+    if not isinstance(files, dict) or not required_payload.issubset(files):
+        raise VerificationError("update cache omits player-facing assets")
+    if "version.json" in files:
+        raise VerificationError("served version metadata must remain network-only")
+    embedded = re.search(r"const POCKET_SW_RELEASE = /\*POCKET_SW_RELEASE\*/(\{[^\n]+\});", worker)
+    if embedded is None or json.loads(embedded.group(1)) != cache_manifest:
+        raise VerificationError("worker and update cache manifest disagree")
+    for name, digest in files.items():
+        if not isinstance(name, str) or Path(name).name != name or not re.fullmatch(r"[0-9a-f]{64}", str(digest)):
+            raise VerificationError("invalid update cache manifest entry")
+        path = root / name
+        if not path.is_file() or sha256(path) != digest:
+            raise VerificationError("update cache hash mismatch")
     if "index.service.worker.js" not in html:
         raise VerificationError("HTML does not register the relative service worker")
     for required in ("index.pck", "index.wasm"):
@@ -246,7 +266,8 @@ def verify_web_shell(root: Path) -> None:
         raise VerificationError("Web shell omits safe-area viewport support")
     if metadata.meta.get("apple-mobile-web-app-capable") != "yes":
         raise VerificationError("Web shell omits Apple standalone support")
-    required_ids = {"canvas", "pocket-game", "pocket-screen-control", "pocket-screen-help", "pocket-web-shell-script"}
+    required_ids = {"canvas", "pocket-game", "pocket-screen-control", "pocket-screen-help", "pocket-web-shell-script",
+                    "pocket-welcome", "pocket-install", "pocket-play", "pocket-install-guide", "pocket-releases", "pocket-release-dialog"}
     if not required_ids.issubset(metadata.ids) or "PocketWebShell" not in html:
         raise VerificationError("Export did not retain the source-controlled screen shell")
     config_match = re.search(r"const GODOT_CONFIG = (\{[^\n]+\});", html)
@@ -254,6 +275,8 @@ def verify_web_shell(root: Path) -> None:
         raise VerificationError("Web shell needs external canvas resize ownership")
     if not re.search(r"const GODOT_THREADS_ENABLED = false;", html):
         raise VerificationError("Mobile Web export must remain single-threaded")
+    if "await window.PocketLaunch.ready" not in html or "setUpdateSafe" not in html:
+        raise VerificationError("Web shell lacks the launch/update lifecycle gate")
 
 
 def normalized_version(root: Path) -> dict[str, object]:
