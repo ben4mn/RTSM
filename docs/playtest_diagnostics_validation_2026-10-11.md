@@ -1,0 +1,20 @@
+# Playtest diagnostics publication — 2026-10-11
+
+The public game at `https://game.4mn.org/index.html` runs `def645382dbd`. Anonymous input diagnostics and **Pause → Report problem** are active. Reports remain private on the dedicated Debian collector; player descriptions are sent only with **Send report**. See [playtest_diagnostics.md](playtest_diagnostics.md) for use and lookup.
+
+## Validation and scope
+
+- The frozen initial implementation `cdf268f39a66` passed the complete 116-case Godot gameplay suite, 47 Python checks and 15 actual browser-client factory checks. Native GPU screenshots and real touch dispatch checked the Report/Sound row across 12 phone/scale/notch profiles, including 48 logical pixel targets and unchanged paused game state.
+- Public end-to-end testing caught a Web binding bug: the JavaScript Boolean probe returned `Variant.INT(1)`, so comparing it with Boolean `true` skipped the interface. An isolated Web probe confirmed direct interface lookup succeeded. Final commit `def645382dbd` changes only that Web binding branch; controls, thresholds and simulation behavior are unchanged.
+- The final exact 685-file source copy passed eight relevant Godot checks: diagnostics storage, phone world dispatch, selection lifecycle, camera modal lifecycle, hold control, hold journey, HUD composition and the paid redesign journey. Native checks do not exercise the Web branch; the following actual browser proof does.
+- Two final Godot 4.6 exports pass closed checksum, stock WebAssembly, sensitive-material exclusion, shell/PWA and reproducibility checks. Their 250 staged source entries match, and their game packs are identical. Fingerprint: `0e1766b333ade806ee801d259fd69853f9fba8fce921ff1f90d7dc80be8132e7`.
+- The selected release was uploaded/checksummed, activated with the existing atomic relative symlink, and all three dedicated game containers restarted. The collector uses UID/GID `10001:10001`, a read-only application filesystem and a private data mount. Trusted public HTTPS returns all 21 selected files with exact decoded hashes, appropriate MIME/isolation/no-store headers and compressed WebAssembly. Public report reads are denied.
+- A fresh public browser window at 844×390 started a real match, selected a villager, panned and zoomed the camera, then opened Pause → Report problem and sent a generic QA note. The UI displayed **Saved online**. The corresponding private JSON contains the exact displayed code/note, matching loaded/served revision `def645382dbd`, map seed, viewport/scale, selection hit geometry, camera displacement, GUI routing and preceding event history. No runtime state was injected; the console reported no errors or warnings.
+
+The browser proof uses desktop contacts through Godot's touch emulation. It does not certify physical-phone comfort or prolonged device performance. New reports from players supply that evidence. Earlier static-host logs cannot reconstruct prior taps, and the owner requested that work focus on future playtests.
+
+## Local receipts
+
+Receipts are under `output/evolution/playtest-diagnostics-20261011/`, excluded from Git and the static payload. Relevant files are `focused-final.log`, `python-checks-final.log`, `web-client-check-final.log`, `native-pause-report/native-receipt.json`, `bridge-probe-browser-console.json`, `bridge-fixed-source-manifest.json`, `bridge-fixed-targeted.log`, `bridge-fixed-web-verification.json`, `bridge-fixed-public-release-verification.json`, `bridge-fixed-final-health.log` and `live-report-end-to-end-receipt.json`. The QA screenshot is `live-report-saved-online.png`. Actual report contents stay outside Git and public hosting.
+
+Read-only preservation audits confirm the original UX evidence (1121 entries), mobile interaction evidence (1332 entries), incoming backup (757 entries), CDF source/exports and final frozen source remain unchanged. Documentation updates after runtime freeze are tracked separately; they do not alter the deployed pack. Pre-existing September reports remain local and were not mixed into the new implementation.
