@@ -78,7 +78,15 @@ On iPhone, open the URL in Safari and use Share → Add to Home Screen. Enable *
 
 This is a rough public preview. Desktop browser automation does not certify physical-phone touch behavior, safe areas, audio, or prolonged performance.
 
-## Latest release — 2026-10-12
+## Latest release — 2026-10-12 icon controls
+
+Published `releases/25fd059ed176-20261012-icons`, runtime `25fd059ed176`, version `0.1.0-beta.4`. Canonical export: `build/icon-hud-published-20261012`; independent witness: `build/icon-hud-published-reproduced-20261012`. Clean staged source SHA-256: `01803f3d63aea821937696431119a4ec9de745b706c5cc340dc3e51b24ac4616`.
+
+The atomic switch completed at 23:16:02 UTC. All 27 public hashes, trusted HTTPS, MIME/compression, isolation/no-store and private-read denial pass. Fresh public report `PK-4B6C04521067` and updated-old-client report `PK-8D2728D49145` match clean loaded/served identity and were verified in private collector storage. The beta.3 browser retained its 00:03 paused match and Report while beta.4 waited, then automatically reloaded only after Quit to Main Menu. This was an ordinary browser, not an installed PWA.
+
+No service restart was needed; game, tunnel and collector start times remained unchanged. Retained rollback: `releases/3c31d866a2c4-20261012-large-maps`. Runtime commit `25fd059ed176c4b01f3eec1594e1cc4a574894e3` was pushed before publication; final documentation-only HEAD intentionally differs. See [icon HUD pass](icon_hud_pass_2026-10-12.md) for scoped tests, completed Easy/Medium matches, limitations and exact release receipts.
+
+## Previous release — 2026-10-12 larger maps
 
 The larger-map and mobile-camera pass is published as `releases/3c31d866a2c4-20261012-large-maps`, runtime `3c31d866a2c4`, version `0.1.0-beta.3`. Canonical export: `build/large-maps-published-20261012`; independent witness: `build/large-maps-published-reproduced-20261012`. Their staged source SHA-256 is `c92be762ae87a9e6af222399d54919a60e2ddb78fad454999201d11bbfa78e0e`.
 
