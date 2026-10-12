@@ -22,6 +22,9 @@ func _run() -> void:
 		for population_limit: int in SkirmishData.POPULATION_OPTIONS:
 			await _exercise_profile(viewport_size, population_limit)
 	_expect(_profiles_checked == VIEWPORT_SIZES.size() * SkirmishData.POPULATION_OPTIONS.size(), "every requested profile completed")
+	# Drain finished UI alert playback before immediate SceneTree shutdown.
+	root.get_node("AudioManager").call("stop_all")
+	await create_timer(0.15, true).timeout
 	if _failures.is_empty():
 		print("[PASS] age_up_affordability: six desktop/phone population profiles expose live Dark/Feudal costs, deposit/spend availability, pause/resume guards, supported-age boundary, and fitted button text")
 		quit(0)

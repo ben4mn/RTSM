@@ -147,7 +147,9 @@ func _run() -> void:
 				break
 	_report["stale_hidden_memory"] = {"failed_route_ticks": 30, "orders_to_same_lead": failed_memory_orders, "snapshot": ai.get_strategy_snapshot(), "worker_state": workers[3].current_state}
 	_expect(failed_memory_orders == 1, "a stale hidden memory gets one attempt until another legal sighting")
-	_expect(int(ai.get_strategy_snapshot()["economy_exploration_orders"]) > 0, "failed memory advances the finite geometry sweep")
+	_expect(int(ai.get_strategy_snapshot()["economy_exploration_route_checks"]) > 0, "failed memory tests a bounded geometry route")
+	_expect(int(ai.get_strategy_snapshot()["economy_exploration_orders"]) == 0, "unreachable geometry never counts an untraveled order as exploration")
+	_expect(int(ai.get_strategy_snapshot()["economy_exploration_waypoints_remaining"]) == int(ai.get_strategy_snapshot()["economy_exploration_waypoint_count"]), "failed routes leave all unrevealed destinations available to other workers")
 
 	# Re-observe a real resource through the current-visible lookup and accepted
 	# gather order, then hide it again. This fresh sighting permits one new attempt.

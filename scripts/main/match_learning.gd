@@ -183,7 +183,8 @@ func _choose_lesson(buildings: Array, site_status: Dictionary) -> Dictionary:
 			if int(site_status.get("match_mode", SkirmishData.MatchMode.STANDARD)) != SkirmishData.MatchMode.STANDARD:
 				text = "Sacred · Bank control across captures. Rally paid replacements and protect your workers."
 			else:
-				text = "Sacred · Hold for 10:00. Rally replacements nearby and protect your workers."
+				var target_seconds: int = ceili(float(site_status.get("total", SkirmishData.SACRED_VICTORY_HOLD_SECONDS)))
+				text = "Sacred · Hold for %d:%02d. Rally replacements nearby and protect your workers." % [int(target_seconds / 60.0), target_seconds % 60]
 		else:
 			text = "Sacred · Tap the Site locator; send your army into its ring to capture or contest."
 	return {"text": text, "focus": focus, "building_type": building_type, "unit_type": unit_type, "lesson": lesson}

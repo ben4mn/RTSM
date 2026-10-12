@@ -120,7 +120,7 @@ const HINTS: Array = [
 	{"time": 42.0, "text": "Drag on open terrain to pan camera. Tap the minimap to jump view.", "color": Color(0.7, 0.8, 1.0)},
 	{"time": 75.0, "text": "Tap ground to move. Attack fights on the way. Double-tap ground to clear selection.", "color": Color(0.65, 0.82, 1.0)},
 	{"time": 105.0, "text": "Train a scout from your Town Center to reveal more map quickly.", "color": Color(0.7, 0.8, 1.0)},
-	{"time": 180.0, "text": "Sacred Site is at map center. Hold it for 10:00 to win, or destroy the enemy Town Center.", "color": Color(0.85, 0.7, 1.0)},
+	{"time": 180.0, "text": "Sacred Site is at map center. Complete its control clock to win, or destroy the enemy Town Center.", "color": Color(0.85, 0.7, 1.0)},
 ]
 var _milestone_first_house: bool = false
 var _milestone_first_military_building: bool = false

@@ -188,6 +188,7 @@ func _build_display() -> void:
 func _build_match() -> void:
 	_note("Match setup · applies to your NEXT skirmish." if from_match else "Match setup · applies when you start a skirmish.")
 	_match_rules()
+	_note("Standard: hold Sacred for %d minutes. Contests pause your clock; losing ownership resets it. Destroying the enemy Town Center also wins." % int(SkirmishData.SACRED_VICTORY_HOLD_SECONDS / 60.0))
 	_note("Control race: bank 4 minutes of Sacred control across captures; contests pause scoring. Barracks, Range and Stable cost 100 wood; Feudal costs 250 food / 125 gold.")
 	_choice("Difficulty", "selected_difficulty", ["Easy · breathing room", "Medium · steady raids", "Hard · early attacks"], [0, 1, 2])
 	_choice("Population / player", "selected_population_limit", ["20 · compact", "30 · standard", "40 · larger armies"], [20, 30, 40])
@@ -211,7 +212,7 @@ func _build_match() -> void:
 		GameManager.selected_map_seed = -1
 		_save()
 	))
-	_note("Map: balanced wilderness. A seed repeats its terrain. Match speed starts at 1×; use the clock control during play for 0.5× / 1× / 2× / 3×. Guidance explains actions and grants no resources.")
+	_note("Battlefield: %d × %d for every population limit. Scout the flanks for finite food, wood and gold expansions. A seed repeats its terrain. Match speed starts at 1×; use the clock control during play for 0.5× / 1× / 2× / 3×. Guidance explains actions and grants no resources." % [MapData.MAP_WIDTH, MapData.MAP_HEIGHT])
 
 
 func _row(label_text: String) -> HBoxContainer:

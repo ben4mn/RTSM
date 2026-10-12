@@ -40,6 +40,35 @@ func _run() -> void:
 			for dy: int in range(4):
 				for dx: int in range(4):
 					_expect(MapData.is_grass(generator.get_tile(spawn + Vector2i(dx, dy))), "seed %d TC footprint remains open" % seed_value)
+		var navigation := Pathfinding.new(generator)
+		var expansion_map: Node2D = load("res://scripts/map/game_map.gd").new()
+		expansion_map.set("map_generator", generator)
+		expansion_map.set("pathfinding", navigation)
+		var tc_footprint: Vector2i = BuildingData.BUILDINGS[BuildingData.BuildingType.TOWN_CENTER]["footprint"]
+		for spawn: Vector2i in generator.spawn_positions:
+			navigation.set_area_solid(spawn, tc_footprint)
+		var start_world: Vector2 = expansion_map.call("tile_to_world", generator.spawn_positions[0])
+		for pocket: Vector2i in generator.get_expansion_pocket_centers():
+			_expect(generator.spawn_positions[0].distance_to(pocket) > 16.0, "seed %d expansion requires scouting beyond opening vision" % seed_value)
+			var pocket_world: Vector2 = expansion_map.call("tile_to_world", pocket)
+			var pocket_route: PackedVector2Array = expansion_map.call("get_navigation_world_path", start_world, pocket_world, 0.0)
+			_expect(not pocket_route.is_empty(), "seed %d expansion work perimeter is reachable around starting TC" % seed_value)
+			var stocks: Dictionary = {MapData.TileType.BERRY_BUSH: 0, MapData.TileType.GOLD_MINE: 0, MapData.TileType.FOREST: 0}
+			for dy: int in range(-3, 4):
+				for dx: int in range(-3, 4):
+					var resource: int = generator.get_tile(pocket + Vector2i(dx, dy))
+					if stocks.has(resource):
+						stocks[resource] += 1
+						for player_id: int in [0, 1]:
+							var resource_tile: Vector2i = pocket + Vector2i(dx, dy)
+							if player_id == 1:
+								resource_tile = Vector2i(resource_tile.y, resource_tile.x)
+							var approach_start: Vector2 = expansion_map.call("tile_to_world", generator.spawn_positions[player_id])
+							var target_world: Vector2 = expansion_map.call("tile_to_world", resource_tile)
+							var approach: PackedVector2Array = expansion_map.call("get_navigation_world_path", approach_start, target_world, MapData.RESOURCE_GATHER_INTERACTION_RADIUS_WORLD)
+							_expect(not approach.is_empty() and approach[-1].distance_to(target_world) <= MapData.RESOURCE_GATHER_INTERACTION_RADIUS_WORLD + 0.1, "seed %d player %d expansion source has a real gather approach around both TC footprints" % [seed_value, player_id])
+			_expect(stocks[MapData.TileType.BERRY_BUSH] == 2 and stocks[MapData.TileType.GOLD_MINE] == 1 and stocks[MapData.TileType.FOREST] == 4, "seed %d finite expansion stocks are present and reflected" % seed_value)
+		expansion_map.free()
 		var metrics: Dictionary = probe.call("measure_seed", seed_value)
 		for resource_name: String in ["food", "wood", "gold"]:
 			var sides: Array = metrics["sides"]
@@ -55,7 +84,7 @@ func _run() -> void:
 	_expect(has_variety, "the fair opening preserves seeded terrain variety")
 	probe.free()
 	if _failures.is_empty():
-		print("[PASS] map_opening_fairness: 64 reproducible varied maps, reflected terrain, intact TC/objective and reachable food/wood/gold deposit routes on both starts")
+		print("[PASS] map_opening_fairness: 64 reproducible varied maps, reflected terrain, intact TC/objective, fair starting deposits and 1792 reachable expansion harvest approaches around real TC footprints")
 		get_tree().quit(0)
 	else:
 		for failure: String in _failures:

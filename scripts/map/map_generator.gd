@@ -40,6 +40,7 @@ func generate() -> Array:
 	_ensure_center_lane()
 	_place_guaranteed_near_spawn_resources()
 	_place_contested_mid_resources()
+	_place_expansion_resources()
 	_add_grass_variety()
 	return grid
 
@@ -68,7 +69,7 @@ func _place_sacred_site() -> void:
 
 ## Place small symmetric water features (lakes).
 func _place_water_features() -> void:
-	var num_lakes := _rng.randi_range(2, 3)
+	var num_lakes := _rng.randi_range(3, 4)
 	for i in range(num_lakes):
 		var lake_size := _rng.randi_range(3, 6)
 		for _attempt in range(80):
@@ -83,7 +84,7 @@ func _place_water_features() -> void:
 
 ## Place stealth forest clusters symmetrically.
 func _place_forest_clusters() -> void:
-	var num_clusters := _rng.randi_range(6, 8)
+	var num_clusters := _rng.randi_range(9, 12)
 	for i in range(num_clusters):
 		var cluster_size := _rng.randi_range(5, 9)
 		for _attempt in range(80):
@@ -99,8 +100,8 @@ func _place_forest_clusters() -> void:
 ## Place gold mines, berry bushes, and stone deposits symmetrically.
 func _place_resources() -> void:
 	# Forward expansion resources.
-	_place_resource_pair(MapData.TileType.GOLD_MINE, 4)
-	_place_resource_pair(MapData.TileType.BERRY_BUSH, 5)
+	_place_resource_pair(MapData.TileType.GOLD_MINE, 5)
+	_place_resource_pair(MapData.TileType.BERRY_BUSH, 7)
 	_place_resource_pair(MapData.TileType.STONE, 4)
 
 
@@ -311,6 +312,34 @@ func _place_contested_mid_resources() -> void:
 	_place_center_resource_pair(MapData.TileType.BERRY_BUSH, 1, 4, 6)
 
 
+## Two finite expansion pockets flank each approach. They sit beyond starting
+## vision and outside the direct center lane: scouting and a paid drop-off make
+## them useful without replacing the protected opening with a larger free bank.
+func get_expansion_pocket_centers() -> Array[Vector2i]:
+	var spawn: Vector2i = spawn_positions[0]
+	return [spawn + Vector2i(8, -22), spawn + Vector2i(22, -8)]
+
+
+func _place_expansion_resources() -> void:
+	var pocket: Dictionary = {
+		Vector2i(-1, 0): MapData.TileType.BERRY_BUSH,
+		Vector2i(1, 0): MapData.TileType.BERRY_BUSH,
+		Vector2i(0, -1): MapData.TileType.GOLD_MINE,
+		Vector2i(-2, 2): MapData.TileType.FOREST,
+		Vector2i(-1, 2): MapData.TileType.FOREST,
+		Vector2i(0, 2): MapData.TileType.FOREST,
+		Vector2i(1, 2): MapData.TileType.FOREST,
+	}
+	for center: Vector2i in get_expansion_pocket_centers():
+		# Clear the stock and immediate work perimeter out of any random lake.
+		# Seeded route checks also verify approaches through the surrounding map.
+		for dy: int in range(-3, 4):
+			for dx: int in range(-3, 4):
+				_set_symmetric_tile(center + Vector2i(dx, dy), MapData.TileType.GRASS)
+		for offset: Vector2i in pocket:
+			_set_symmetric_tile(center + offset, pocket[offset])
+
+
 func _place_center_resource_pair(tile_type: MapData.TileType, count: int, min_x_offset: int, max_x_offset: int) -> void:
 	for _i in range(count):
 		for _attempt in range(80):
@@ -355,7 +384,7 @@ func _in_bounds(x: int, y: int) -> bool:
 	return x >= 0 and x < MapData.MAP_WIDTH and y >= 0 and y < MapData.MAP_HEIGHT
 
 
-## Reflect across the map's x=y diagonal, mapping (6,41) to (41,6).
+## Reflect across the map's x=y diagonal, mapping either start to the other.
 ## In isometric world space this flips horizontal position and preserves
 ## vertical position. An x-only tile reflection does not map these spawns.
 func _mirror_tile(tile: Vector2i) -> Vector2i:

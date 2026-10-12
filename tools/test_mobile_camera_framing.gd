@@ -4,6 +4,7 @@ extends Node
 var _failures: Array[String] = []
 var _render: bool = false
 var _profiles: Array[Dictionary] = []
+var _output: String = "res://output/evolution/large-maps-20261012-camera/framing"
 
 
 func _ready() -> void:
@@ -12,15 +13,20 @@ func _ready() -> void:
 
 func _run() -> void:
 	AudioManager.set_all_enabled(false)
+	if not OS.get_environment("AOEM_CAMERA_TEST_OUTPUT").is_empty():
+		_output = OS.get_environment("AOEM_CAMERA_TEST_OUTPUT")
 	_render = "--render" in OS.get_cmdline_user_args()
 	for phone: Vector2i in [Vector2i(844, 390), Vector2i(932, 430)]:
 		for seed_value: int in [42, 101, 424242]:
 			for guided: bool in [false, true]:
 				await _profile(phone, seed_value, guided)
-	var output: String = "res://output/critical-play-2026-10-10/camera"
+	var output: String = _output
 	DirAccess.make_dir_recursive_absolute(output)
 	var manifest := FileAccess.open(output + "/framing.json", FileAccess.WRITE)
-	manifest.store_string(JSON.stringify({"evidence": "Frozen real main scenes in phone-sized SubViewports; actual projected sprite/marker bounds and synthetic notch insets. Optional native render images are layout evidence, not paid play or a physical phone.", "profiles": _profiles}, "  "))
+	var hashes: Dictionary = {}
+	for path: String in ["scripts/map/game_map.gd", "scripts/map/map_data.gd", "scripts/map/map_generator.gd", "tools/test_mobile_camera_framing.gd"]:
+		hashes[path] = FileAccess.get_sha256("res://" + path)
+	manifest.store_string(JSON.stringify({"evidence": "Frozen real main scenes in phone-sized SubViewports; actual projected sprite/marker bounds and synthetic notch insets. Optional native render images are layout evidence, not paid play or a physical phone.", "source_sha256": hashes, "profiles": _profiles}, "  "))
 	if _failures.is_empty():
 		print("[PASS] mobile_camera_framing: real Guide ON/OFF boots and TC/worker/food fit two phone sizes/notches across three seeds; Home handles distant food, preserves2.2 manual zoom, TC access and fog")
 	else:
@@ -64,12 +70,12 @@ func _profile(phone_size: Vector2i, seed_value: int, guided: bool) -> void:
 	_check_accessible(hud, tc, worker, food, Rect2(Vector2.ZERO, Vector2(phone_size)), prefix + " initial boot")
 	if _render:
 		await RenderingServer.frame_post_draw
-		var boot_output: String = "res://output/critical-play-2026-10-10/camera"
+		var boot_output: String = _output
 		DirAccess.make_dir_recursive_absolute(boot_output)
 		phone.get_texture().get_image().save_png("%s/%dx%d-seed%d-boot%s.png" % [boot_output, phone_size.x, phone_size.y, seed_value, "-guided" if guided else ""])
 	var zoom_state: Dictionary = map.call("get_zoom_state")
 	_expect(is_equal_approx(float(map.get("mobile_default_zoom")), 1.25), prefix + " uses the closer mobile default")
-	_expect(is_equal_approx(float(zoom_state["min"]), 0.62) and is_equal_approx(float(zoom_state["max"]), 2.2), prefix + " preserves overview/detail limits")
+	_expect(is_equal_approx(float(zoom_state["min"]), 0.42) and is_equal_approx(float(zoom_state["max"]), 2.2), prefix + " expands overview while preserving detail limits")
 	for notched: bool in [false, true]:
 		var safe_area := Rect2(Vector2(44, 0), Vector2(phone_size) - Vector2(88, 18)) if notched else Rect2(Vector2.ZERO, Vector2(phone_size))
 		hud.call("apply_mobile_layout", Vector2(phone_size), safe_area)
@@ -89,7 +95,7 @@ func _profile(phone_size: Vector2i, seed_value: int, guided: bool) -> void:
 		_profiles.append({"phone": str(phone_size), "seed": seed_value, "notched": notched, "guided": guided, "zoom": camera.zoom.x, "configured_default": zoom_state["default"], "field": str(field), "tc": str(_projected_visual_bounds(tc)), "worker": str(_projected_visual_bounds(worker)), "food": str(_projected_visual_bounds(food))})
 		if _render:
 			await RenderingServer.frame_post_draw
-			var output: String = "res://output/critical-play-2026-10-10/camera"
+			var output: String = _output
 			DirAccess.make_dir_recursive_absolute(output)
 			phone.get_texture().get_image().save_png("%s/%dx%d-seed%d-%s%s.png" % [output, phone_size.x, phone_size.y, seed_value, "notched" if notched else "full", "-guided" if guided else ""])
 
@@ -112,6 +118,7 @@ func _profile(phone_size: Vector2i, seed_value: int, guided: bool) -> void:
 		_expect(camera.zoom.x > 0.9, "remote Farm does not force Home to whole-map zoom")
 	map.call("zoom_in")
 	map.call("zoom_in")
+	map.call("_update_camera_zoom", 0.2)
 	var chosen_zoom: Vector2 = camera.zoom
 	var fog: FogManager = map.get("fog_of_war") as FogManager
 	var fog_before: Array = fog.fog_grid.duplicate(true)
@@ -124,6 +131,7 @@ func _profile(phone_size: Vector2i, seed_value: int, guided: bool) -> void:
 	if seed_value == 101:
 		for step: int in 20:
 			map.call("zoom_in")
+		map.call("_update_camera_zoom", 0.2)
 		var detail_zoom: Vector2 = camera.zoom
 		match_scene.call("_select_town_center")
 		camera.reset_smoothing()
@@ -134,7 +142,11 @@ func _profile(phone_size: Vector2i, seed_value: int, guided: bool) -> void:
 		_check_accessible(hud, tc, null, null, Rect2(Vector2.ZERO, Vector2(phone_size)), prefix + " Home at2.2", true)
 		if _render:
 			await RenderingServer.frame_post_draw
-			phone.get_texture().get_image().save_png("res://output/critical-play-2026-10-10/camera/%dx%d-seed101-home-detail%s.png" % [phone_size.x, phone_size.y, "-guided" if guided else ""])
+			phone.get_texture().get_image().save_png("%s/%dx%d-seed101-home-detail%s.png" % [_output, phone_size.x, phone_size.y, "-guided" if guided else ""])
+	if _render and seed_value == 424242 and not guided:
+		map.call("show_overview")
+		await RenderingServer.frame_post_draw
+		phone.get_texture().get_image().save_png("%s/%dx%d-seed424242-base-overview.png" % [_output, phone_size.x, phone_size.y])
 	phone.free()
 	await get_tree().process_frame
 

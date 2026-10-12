@@ -153,6 +153,10 @@ func _scenario(phone: Vector2i, interface_scale: float, mouse_emulation: bool) -
 		_expect(int(_selection.get("_primary_touch_index"))==fresh_index and bool(_selection.get("_touch_hold_active")),"old release cleanup canceled a fresh contact")
 		await _contact(fresh_index,ground,false,true)
 		_expect_clean("fresh contact")
+	# Natural movement changed target hit geometry since the opening tap.
+	# Re-admit empty ground before testing its single-action hold semantics.
+	ground=_find_empty_ground()
+	_expect(ground!=Vector2.ZERO,"no empty reachable ground after natural movement for long hold")
 	var context_before: int=int(_selection.get("_touch_context_execution_count"))
 	var orders_before_hold: int=_orders
 	await _contact(119,ground,true)

@@ -1,6 +1,21 @@
 {
   "releases": [
     {
+      "id": "2026-10-12-larger-battlefields",
+      "version": "0.1.0-beta.3",
+      "date": "2026-10-12",
+      "title": "Room to explore. Room to fight.",
+      "summary": "Larger battlefields, a wider camera view and more reasons to scout the flanks.",
+      "changes": [
+        "Every population setting now plays on a 72 by 72 battlefield, with more than twice the previous area.",
+        "Discover two finite food, wood and gold expansion pockets on each side. Nearby opening resources remain balanced between rivals.",
+        "Zoom farther out for an overview. Wheel and button zoom ease around your focus; small trackpad movements make smaller adjustments. Pinch follows your fingers, and Reduced motion keeps zoom immediate.",
+        "Villagers work through each gathering cycle faster for both players, with wood gathering matching food to help fund buildings and reinforcements. Resources still need real delivery, Farms still run out, and every recruit and building still costs resources.",
+        "AI workers keep looking for new resources when a search route is blocked, so trapped workers cannot use up the whole team's exploration plan. The opponent still has to scout before finding resources.",
+        "Standard now needs four minutes of Sacred control. Contests pause your clock and losing ownership resets it. Control race keeps banking its four minutes across captures; destroying the enemy Town Center still wins either mode."
+      ]
+    },
+    {
       "id": "2026-10-12-welcome",
       "version": "0.1.0-beta.2",
       "date": "2026-10-12",

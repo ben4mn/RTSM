@@ -32,7 +32,9 @@ func _run() -> void:
 		for scale_factor: float in [1.0, 1.075, 1.15]:
 			for notched: bool in [false, true]:
 				await _scenario(phone, scale_factor, notched)
-	var output_dir := "res://output/evolution/mobile-rts-pass-20261012-input"
+	var output_dir := "res://output/evolution/large-maps-20261012-camera/contacts"
+	if not OS.get_environment("AOEM_CAMERA_TEST_OUTPUT").is_empty():
+		output_dir = OS.get_environment("AOEM_CAMERA_TEST_OUTPUT")
 	DirAccess.make_dir_recursive_absolute(output_dir)
 	var file := FileAccess.open(output_dir.path_join("contact-boundaries.json"), FileAccess.WRITE)
 	file.store_string(JSON.stringify({"scope": "Actual Input.parse_input_event with real Main/HUD and camera; synthetic isolated input fixture, not physical phone or balance evidence.", "profiles": _records, "failures": _failures}, "  "))
@@ -186,6 +188,7 @@ func _scenario(phone: Vector2i, scale_factor: float, notched: bool) -> void:
 		GameManager.zoom_sensitivity_scale = sensitivity
 		var original_zoom: float = _camera.zoom.x
 		await _mouse(ground, MOUSE_BUTTON_WHEEL_UP, true)
+		await get_tree().create_timer(0.2).timeout
 		zoom_ratios.append(_camera.zoom.x / original_zoom)
 	_expect(zoom_ratios[1] > zoom_ratios[0], "zoom sensitivity does not change wheel motion")
 	GameManager.zoom_sensitivity_scale = 1.0
@@ -199,7 +202,7 @@ func _scenario(phone: Vector2i, scale_factor: float, notched: bool) -> void:
 
 func _stable_target_radii(ground: Vector2) -> void:
 	var original_zoom: Vector2 = _camera.zoom
-	for zoom: float in [0.62, 2.2]:
+	for zoom: float in [0.42, 0.62, 2.2]:
 		_prepare_world()
 		_camera.zoom = Vector2(zoom, zoom)
 		_camera.position += Vector2(600, 0)

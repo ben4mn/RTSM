@@ -22,15 +22,19 @@ func _run() -> void:
 	current_scene = _world
 	var food_worker: Node = _make_worker(0)
 	var wood_worker: Node = _make_worker(1)
+	var gold_worker: Node = _make_worker(0)
 	var food: Node2D = _make_resource("food", Vector2.ZERO)
 	var wood: Node2D = _make_resource("wood", Vector2.ZERO)
+	var gold: Node2D = _make_resource("gold", Vector2.ZERO)
 	_expect(bool(food_worker.call("command_gather", food)), "food source accepts normal gathering")
 	_expect(bool(wood_worker.call("command_gather", wood)), "wood source accepts normal gathering")
+	_expect(bool(gold_worker.call("command_gather", gold)), "gold source accepts normal gathering")
 	for _tick: int in range(75):
 		food_worker.call("_process_gathering", 0.1)
 		wood_worker.call("_process_gathering", 0.1)
-	_expect(int(food_worker.get("carried_amount")) == 6 and int(wood_worker.get("carried_amount")) == 5, "food earns six units in the time wood earns five")
-	_expect(int(food.get("remaining")) == 194 and int(wood.get("remaining")) == 195, "each cargo unit is removed from its finite real source")
+		gold_worker.call("_process_gathering", 0.1)
+	_expect(int(food_worker.get("carried_amount")) == 7 and int(wood_worker.get("carried_amount")) == 7 and int(gold_worker.get("carried_amount")) == 6, "7.5 seconds earns seven food/wood or six gold at source for either player")
+	_expect(int(food.get("remaining")) == 193 and int(wood.get("remaining")) == 193 and int(gold.get("remaining")) == 194, "each cargo unit is removed from its finite real source")
 	food_worker.set("gather_rate", UnitData.VILLAGER_GATHER_AMOUNT + UnitData.WHEELBARROW_GATHER_BONUS)
 	food_worker.set("carried_amount", 0)
 	var before_upgrade_stock: int = int(food.get("remaining"))
@@ -62,7 +66,7 @@ func _run() -> void:
 	_world.free()
 	current_scene = null
 	if _failures.is_empty():
-		print("[PASS] economy_balance: equal lower wood, faster finite food, effective fractional upgrades, capped cargo and real deposits")
+		print("[PASS] economy_balance: equal starting bank, faster finite food/wood, effective fractional upgrades, capped cargo and real deposits")
 		quit(0)
 	else:
 		for failure: String in _failures:

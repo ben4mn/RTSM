@@ -70,6 +70,8 @@ func _run() -> void:
 	main.call("_update_progression_hint")
 	_expect(coach.paid_army == 2 and coach.lesson == "objective", "Two living paid combat roles advance into objective guidance")
 	_expect(bool(coach.get_summary()["counter_demonstrated"]), "Counter mix is based on fielded paid roles")
+	var custom_status_hint: Dictionary = coach.call("_choose_lesson", [], {"phase": "holding", "owner": 0, "match_mode": SkirmishData.MatchMode.STANDARD, "total": 360.0})
+	_expect(String(custom_status_hint.get("text", "")).begins_with("Sacred · Hold for 6:00."), "Objective lesson formats the supplied 360-second site target instead of a fixed ten minutes")
 	warrior.take_damage(30)
 	main.call("_update_progression_hint")
 	_expect(coach.lesson == "retreat", "Real damage prioritizes deliberate retreat guidance")

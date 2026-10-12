@@ -6,6 +6,7 @@ extends Node
 const OUTPUT := "res://output/evolution/group-movement-20261010"
 const INFANTRY := preload("res://scenes/units/infantry.tscn")
 const PLANNER := preload("res://scripts/main/group_order_planner.gd")
+const FAR_CORNER := Vector2i(MapData.MAP_WIDTH - 1, MapData.MAP_HEIGHT - 1)
 var _main: Node
 var _map: Node2D
 var _selection: SelectionManager
@@ -50,17 +51,17 @@ func _run() -> void:
 	for count: int in [1, 8, 20, 40]:
 		_flat()
 		var units: Array[UnitBase] = _group(count, Vector2i(28, 28))
-		_order(units, Vector2i(47, 47), "force", "corner-%d" % count)
-		_check_legal_unique(units, Vector2i(47, 47))
+		_order(units, FAR_CORNER, "force", "corner-%d" % count)
+		_check_legal_unique(units, FAR_CORNER)
 		_clear()
 	_flat()
 	var settled: Array[UnitBase] = []
-	for tile: Vector2i in [Vector2i(46, 47), Vector2i(47, 46), Vector2i(47, 47), Vector2i(46, 46)]:
+	for tile: Vector2i in [(FAR_CORNER + Vector2i(-1, 0)), (FAR_CORNER + Vector2i(0, -1)), FAR_CORNER, (FAR_CORNER + Vector2i(-1, -1))]:
 		var unit: UnitBase = _spawn(tile)
 		unit.command_move(unit.global_position)
 		unit.call("_process_moving", 0.05)
 		settled.append(unit)
-	_order(settled, Vector2i(47, 47), "force", "settled-equal-distance-repeat")
+	_order(settled, FAR_CORNER, "force", "settled-equal-distance-repeat")
 	var settled_changes: int = 0
 	for unit: UnitBase in settled:
 		if unit.move_target != unit.global_position:
@@ -70,8 +71,8 @@ func _run() -> void:
 	_clear()
 	_flat()
 	var outside: Array[UnitBase] = _group(8, Vector2i(25, 25))
-	_order(outside, Vector2i(80, -20), "force", "outside-map-center-projection")
-	_check_legal_unique(outside, Vector2i(47, 0))
+	_order(outside, Vector2i(MapData.MAP_WIDTH + 32, -20), "force", "outside-map-center-projection")
+	_check_legal_unique(outside, Vector2i(MapData.MAP_WIDTH - 1, 0))
 	_clear()
 	_flat()
 	_navigation.set_area_solid(Vector2i(29, 29), Vector2i(4, 4))
@@ -126,8 +127,8 @@ func _run() -> void:
 		_clear()
 	_flat()
 	var patrolling: Array[UnitBase] = _group(8, Vector2i(25, 25))
-	_order(patrolling, Vector2i(47, 47), "patrol", "patrol-endpoints")
-	_check_legal_unique(patrolling, Vector2i(47, 47), false)
+	_order(patrolling, FAR_CORNER, "patrol", "patrol-endpoints")
+	_check_legal_unique(patrolling, FAR_CORNER, false)
 	for unit: UnitBase in patrolling:
 		_expect(bool(unit.get("_patrol_active")) and unit.attack_move and not bool(unit.get("_force_move_active")), "Patrol must retain its route and engagement semantics")
 	_clear()

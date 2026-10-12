@@ -213,9 +213,35 @@ func _run() -> void:
 	var released_inputs: Variant = _placement.get("_released_touch_inputs")
 	_expect(released_inputs is Dictionary and (released_inputs as Dictionary).is_empty(), "consumed release snapshots accumulated after dispatch")
 	_expect(_placement.ghost_position == ghost_before, "consumed final release moved the preview")
-	await _touch(487, p0 + Vector2(80.0, 40.0), true)
-	await _touch(487, p0 + Vector2(80.0, 40.0), false)
+	# The reverse pan changed the canvas again. Project a distinct tile rather
+	# than assume an arbitrary screen offset cannot hit the current ghost tile.
+	preview_tile_before = _map.call("world_to_tile", ghost_before)
+	preview_target_tile = preview_tile_before
+	preview_target_screen = Vector2.ZERO
+	canvas = _placement.get_canvas_transform()
+	hud_obstacles = hud.call("get_world_occlusion_rects")
+	for neighbor: Vector2i in [Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT, Vector2i.UP]:
+		var candidate_tile: Vector2i = preview_tile_before + neighbor
+		if candidate_tile.x < 0 or candidate_tile.y < 0 or candidate_tile.x >= MapData.MAP_WIDTH or candidate_tile.y >= MapData.MAP_HEIGHT:
+			continue
+		var candidate_screen: Vector2 = canvas * (_map.call("tile_to_world", candidate_tile) as Vector2)
+		if not world_screen_rect.has_point(candidate_screen) or gui_guard.get_global_rect().has_point(candidate_screen):
+			continue
+		var blocked_by_hud := false
+		for obstacle: Rect2 in hud_obstacles:
+			if obstacle.has_point(candidate_screen):
+				blocked_by_hud = true
+				break
+		if blocked_by_hud:
+			continue
+		preview_target_tile = candidate_tile
+		preview_target_screen = candidate_screen
+		break
+	_expect(preview_target_tile != preview_tile_before, "could not project distinct fresh-tap ground after reverse pan")
+	await _touch(487, preview_target_screen, true)
+	await _touch(487, preview_target_screen, false)
 	_expect(_placement.ghost_position != ghost_before, "fresh tap failed after a consumed final release")
+	_expect(_map.call("world_to_tile", _placement.ghost_position) == preview_target_tile, "fresh tap did not reach the predicted tile after consumed final release")
 	_expect_pending(wood_before, buildings_before, "reverse/consumed final release")
 
 	# Navigation never purchases. Return to the legal opening preview and use

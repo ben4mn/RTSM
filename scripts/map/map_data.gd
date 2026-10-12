@@ -21,10 +21,11 @@ enum FogState {
 	VISIBLE,     ## Currently in a unit's line of sight.
 }
 
-## Duel map dimensions. Open center and side approaches leave room for
-## cavalry flanks and a retreat beyond the opponent's firing line.
-const MAP_WIDTH := 48
-const MAP_HEIGHT := 48
+## Every population preset uses this battlefield: 2.25 times the former area.
+## Local opening pockets stay close; the extra room separates raids, flanks and
+## reinforcements without changing unit speed or turning home gathering into a trek.
+const MAP_WIDTH := 72
+const MAP_HEIGHT := 72
 
 ## Isometric tile size in pixels.
 const TILE_WIDTH := 64

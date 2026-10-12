@@ -15,6 +15,7 @@ func _run() -> void:
 	var manager: Node = root.get_node("GameManager")
 	root.get_node("AudioManager").call("set_all_enabled", false)
 	manager.set("selected_map_seed", 42)
+	manager.set("selected_match_mode", SkirmishData.MatchMode.STANDARD)
 	_match_scene = load("res://scenes/main/main.tscn").instantiate()
 	root.add_child(_match_scene)
 	get_tree().current_scene = _match_scene
@@ -66,18 +67,18 @@ func _run() -> void:
 	site.call("_process", 6.0)
 	_expect("20%" in (hud.get("selection_details") as Label).text, "selected inspector refreshes capture progress without reselection")
 	site.call("_process", 24.0)
-	_expect("You win in 10:00" in label.text, "capture starts the actual ten-minute hold")
+	_expect("You win in 4:00" in label.text, "capture starts the actual four-minute hold")
 	site.call("_process", 12.0)
-	_expect("9:48" in label.text, "holding countdown follows authoritative time")
+	_expect("3:48" in label.text, "holding countdown follows authoritative time")
 	enemy.position = site.global_position + Vector2(10, 0)
 	site.call("_process", 0.5)
-	_expect("Contested" in label.text and "9:48 paused" in label.text, "contest explicitly pauses the preserved clock")
+	_expect("Contested" in label.text and "3:48 paused" in label.text, "contest explicitly pauses the preserved clock")
 	_expect(selection.selected == [site] and "Contested" in (hud.get("selection_details") as Label).text, "selected inspector follows contest without being cleared")
 	enemy.position = site.global_position + Vector2(500, 0)
 	site.call("_process", 0.0)
 	site.call("_process", 0.0)
 	site.call("_process", 5.0)
-	_expect("You win in 9:43" in label.text, "same-owner recovery resumes rather than restarting the hold")
+	_expect("You win in 3:43" in label.text, "same-owner recovery resumes rather than restarting the hold")
 
 	# Opponent takeover earns its own full hold instead of inheriting the clock.
 	_match_scene.set("_sacred_site_victory_notified", true)
@@ -87,18 +88,18 @@ func _run() -> void:
 	site.call("_process", 30.0)
 	site.call("_process", 30.0)
 	site.call("_process", 2.0)
-	_expect("Enemy win in 9:58" in label.text, "opponent ownership uses a new hold clock")
+	_expect("Enemy win in 3:58" in label.text, "opponent ownership uses a new hold clock")
 	_expect(not bool(_match_scene.get("_sacred_site_victory_notified")), "new owner receives its own final-minute warning")
 	_expect("Enter to pause" in (hud.get("selection_details") as Label).text, "enemy site inspection explains how to interrupt victory")
 	friendly.position = site.global_position
 	enemy.position = site.global_position + Vector2(500, 0)
 	site.call("_process", 0.5)
-	_expect("Disrupted" in label.text and "9:58 paused" in label.text, "undefended enemy site also reports its paused clock")
+	_expect("Disrupted" in label.text and "3:58 paused" in label.text, "undefended enemy site also reports its paused clock")
 	# A partially neutralized site resumes when attackers retreat; its capture
 	# progress alone must not make the UI claim the clock is still paused.
 	friendly.position = site.global_position + Vector2(500, 0)
 	site.call("_process", 1.0)
-	_expect("Enemy win in 9:57" in label.text, "attacker retreat resumes partial-control hold feedback")
+	_expect("Enemy win in 3:57" in label.text, "attacker retreat resumes partial-control hold feedback")
 	friendly.position = site.global_position
 	site.call("_process", 30.0)
 	_expect("Neutral" in label.text and panel.visible, "neutralization preserves the locator")

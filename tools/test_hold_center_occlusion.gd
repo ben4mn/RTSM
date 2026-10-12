@@ -31,6 +31,11 @@ func _run() -> void:
 		push_error("[FAIL] hold_center_occlusion: " + failure)
 	if _failures.is_empty():
 		print("[PASS] hold_center_occlusion: %d actual keyboard Center cases; held Info/chooser and persistent Info, complete artwork clearance, feasible manual zoom and unchanged gesture ownership" % _records.size())
+	# Native rendering can leave the final UI click's WAV playback retained
+	# by the mixer after this fixture frees its HUD. Drain that playback before
+	# terminating the process; all interaction assertions above stay intact.
+	AudioManager.stop_all()
+	await get_tree().create_timer(0.15, true).timeout
 	get_tree().quit(0 if _failures.is_empty() else 1)
 
 

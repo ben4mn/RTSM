@@ -15,14 +15,19 @@ func _run() -> void:
 	get_tree().root.size = Vector2i(844, 390)
 	GameManager.ui_scale = 1.15
 	GameManager.apply_preferences()
-	for range_y: int in [43, 44]:
+	for range_offset_y: int in [2, 3]:
 		await _start()
-		await _corner_farm_case(range_y)
+		await _corner_farm_case(range_offset_y)
 		_main.free()
 		_workers.clear()
 		GameManager.set_state(GameManager.GameState.MENU)
 		await get_tree().process_frame
 	Engine.time_scale = 1.0
+	# Construction completion can leave a finished alert in the audio mixer.
+	AudioManager.stop_all()
+	var audio_drain_deadline: int = Time.get_ticks_msec() + 150
+	while Time.get_ticks_msec() < audio_drain_deadline:
+		await get_tree().process_frame
 	if _failures.is_empty():
 		print("[PASS] building_perimeter_work: two paid interrupted Farms/Ranges, legal edge progress, loaded resume/cargo, cancel/reassign, Farm harvest and TC deposits")
 		get_tree().quit(0)
@@ -55,8 +60,14 @@ func _start() -> void:
 		if unit is Villager:
 			_workers.append(unit)
 
-func _corner_farm_case(range_y: int) -> void:
-	var farm: BuildingBase = _paid_place(BuildingData.BuildingType.FARM, Vector2i(6, 45))
+func _corner_farm_case(range_offset_y: int) -> void:
+	# Keep this paid sealed-corner arrangement attached to the real opening
+	# footprint as battlefield dimensions change. No terrain is edited.
+	var spawn: Vector2i = (_map.map_generator as MapGenerator).spawn_positions[0]
+	var farm_tile: Vector2i = spawn + Vector2i(0, 4)
+	var range_tile: Vector2i = spawn + Vector2i(-3, range_offset_y)
+	var approach_tile: Vector2i = spawn + Vector2i(2, -8)
+	var farm: BuildingBase = _paid_place(BuildingData.BuildingType.FARM, farm_tile)
 	if farm == null:
 		return
 	var first: Villager = null
@@ -80,13 +91,13 @@ func _corner_farm_case(range_y: int) -> void:
 	# worker to construction. Fairer map routes no longer supply an accidental
 	# extra delivery during the Range's build that this fixture relied on.
 	var planned_wood: int = int(BuildingData.get_building_cost(BuildingData.BuildingType.ARCHERY_RANGE)["wood"])
-	if range_y == 44:
+	if range_offset_y == 3:
 		planned_wood += int(BuildingData.get_building_cost(BuildingData.BuildingType.HOUSE)["wood"])
 	await _until(func() -> bool: return ResourceManager.can_afford(0, age_cost) and ResourceManager.get_resource(0, "wood") >= planned_wood, 350.0)
 	_expect(ResourceManager.can_afford(0, age_cost), "natural labor did not finance Feudal")
 	_main.call("_on_age_up_requested")
 	_expect(GameManager.get_player_age(0) == 2, "Feudal must be purchased normally")
-	var range_building: BuildingBase = _paid_place(BuildingData.BuildingType.ARCHERY_RANGE, Vector2i(3, range_y))
+	var range_building: BuildingBase = _paid_place(BuildingData.BuildingType.ARCHERY_RANGE, range_tile)
 	if range_building == null:
 		return
 	await _until(func() -> bool: return range_building.state == BuildingBase.State.ACTIVE, 80.0)
@@ -101,17 +112,17 @@ func _corner_farm_case(range_y: int) -> void:
 	worker.resource_deposited.connect(func(kind: String, amount: int) -> void:
 		deposits[kind] = int(deposits.get(kind, 0)) + amount
 	)
-	if range_y == 43:
+	if range_offset_y == 2:
 		await _until(func() -> bool: return worker.current_state == UnitBase.State.MOVING and bool(worker.get("_dropoff_route_active")) and worker.carried_amount > 0, 100.0)
 		_expect(worker.carried_amount > 0 and bool(worker.get("_dropoff_route_active")), "loaded case requires genuine delivery travel")
 	else:
 		# Cancel the active gather order, travel naturally, then interrupt the first
 		# build approach with another explicit Move before deliberately reassigning.
 		await _until(func() -> bool: return worker.carried_amount == 0, 100.0)
-		worker.command_move_path(_map.get_navigation_world_path(worker.global_position, _map.tile_to_world(Vector2i(8, 33)), 4.0))
+		worker.command_move_path(_map.get_navigation_world_path(worker.global_position, _map.tile_to_world(approach_tile), 4.0))
 		await _until(func() -> bool: return worker.current_state == UnitBase.State.IDLE, 60.0)
 		await _tap_farm(worker, farm)
-		worker.command_move_path(_map.get_navigation_world_path(worker.global_position, _map.tile_to_world(Vector2i(8, 33)), 4.0))
+		worker.command_move_path(_map.get_navigation_world_path(worker.global_position, _map.tile_to_world(approach_tile), 4.0))
 		await _until(func() -> bool: return worker.current_state == UnitBase.State.IDLE, 30.0)
 		await _wait_seconds(12.0)
 		_expect(is_equal_approx(farm.build_progress, interrupted_progress), "explicit Move must cancel perimeter construction")
@@ -125,7 +136,7 @@ func _corner_farm_case(range_y: int) -> void:
 	_expect(bool(_main.call("_can_ai_builder_reach", worker, farm.global_position, farm.footprint)), "Main preflight must accept the same reachable footprint")
 	await _tap_farm(worker, farm)
 	var blocking_house: BuildingBase = null
-	if range_y == 44:
+	if range_offset_y == 3:
 		# A second normal placement can occupy the chosen work endpoint while
 		# the builder is traveling. It must choose another edge, preserving its
 		# construction order rather than repeatedly approaching the blocked tile.
@@ -147,7 +158,7 @@ func _corner_farm_case(range_y: int) -> void:
 		await get_tree().process_frame
 	_expect(farm.state == BuildingBase.State.ACTIVE, "corner Farm did not finish through natural replacement labor")
 	var construction_seconds: float = GameManager.game_time - started
-	if range_y == 43:
+	if range_offset_y == 2:
 		_expect(worker.gather_target == wood and worker.gather_type == Villager.GatherType.WOOD, "loaded builder must resume exact original wood source")
 		await _until(func() -> bool: return int(deposits["wood"]) - deposited_before >= cargo_before, 80.0)
 		_expect(int(deposits["wood"]) - deposited_before == cargo_before, "original wood cargo must deposit exactly once")
@@ -168,7 +179,7 @@ func _corner_farm_case(range_y: int) -> void:
 	_expect(worker.gather_target == farm, "Farm gathering must not silently retarget an old berry source")
 	if blocking_house != null:
 		_expect(blocking_house.state == BuildingBase.State.ACTIVE, "paid two-tile House must also finish through ordinary edge work")
-	print("[METRIC] ", JSON.stringify({"range_tile": str(Vector2i(3, range_y)), "paid_farm_and_range": true, "farm_interrupted_progress": interrupted_progress, "old_anchor_endpoint_distance": anchor_route[-1].distance_to(farm.global_position), "work_endpoint_distance": _map.get_building_work_distance(work_route[-1], farm.global_position, farm.footprint), "construction_seconds": construction_seconds, "cargo_preserved": cargo_before, "wood_deposit": int(deposits["wood"]) - deposited_before, "farm_food_deposit": int(deposits["food"]) - food_before, "tc_dropoff_unchanged": true, "paid_endpoint_blocking_house": blocking_house != null}))
+	print("[METRIC] ", JSON.stringify({"range_tile": str(range_tile), "paid_farm_and_range": true, "farm_interrupted_progress": interrupted_progress, "old_anchor_endpoint_distance": anchor_route[-1].distance_to(farm.global_position), "work_endpoint_distance": _map.get_building_work_distance(work_route[-1], farm.global_position, farm.footprint), "construction_seconds": construction_seconds, "cargo_preserved": cargo_before, "wood_deposit": int(deposits["wood"]) - deposited_before, "farm_food_deposit": int(deposits["food"]) - food_before, "tc_dropoff_unchanged": true, "paid_endpoint_blocking_house": blocking_house != null}))
 
 func _paid_place(kind: int, tile: Vector2i) -> BuildingBase:
 	var before: int = (_main.get("_player_buildings")[0] as Array).size()

@@ -81,6 +81,10 @@ var _resource_memory: Dictionary = {
 }
 var _economy_exploration_waypoints: Array[Vector2] = []
 var _next_economy_exploration_waypoint: int = 0
+var _economy_exploration_revealed: Dictionary = {}  # waypoint index -> true
+var _economy_exploration_workers: Dictionary = {}  # waypoint index -> own worker and accepted endpoint
+var _economy_exploration_retry_after: Dictionary = {}  # worker instance ID -> simulation time
+var _economy_exploration_route_checks: int = 0
 var _economy_exploration_orders_issued: int = 0
 var _economy_memory_revisit_orders_issued: int = 0
 var _economy_wood_search_orders_issued: int = 0
@@ -205,6 +209,8 @@ const ATTACK_WAVE_PROGRESS_EPSILON: float = 6.0
 const ATTACK_WAVE_NO_PROGRESS_TIMEOUT: float = 24.0
 const ECONOMY_EXPLORATION_GRID_STEP: int = 5
 const ECONOMY_EXPLORATION_GRID_MARGIN: int = 2
+const ECONOMY_EXPLORATION_ROUTE_CHECKS_PER_WORKER: int = 2
+const ECONOMY_EXPLORATION_RETRY_SECONDS: float = 15.0
 const RESOURCE_MEMORY_LIMIT_PER_TYPE: int = 8
 const ECONOMY_REBALANCE_INTERVALS: Dictionary = {
 	Difficulty.EASY: 32.0,
@@ -792,6 +798,7 @@ func _check_house_need() -> void:
 # ═════════════════════════════════════════════════════════════════════════
 
 func _assign_idle_villagers() -> void:
+	_refresh_economy_exploration()
 	# Release invalid search ownership at the policy boundary. Snapshot queries
 	# only observe the reference and cannot change the next allocation decision.
 	if _get_active_wood_search_worker() == null:
@@ -869,10 +876,10 @@ func _assign_idle_villagers() -> void:
 		if _try_order_economy_search(villager, priority):
 			continue
 
-		# A complete sweep is deliberately bounded. With no remaining legal lead,
-		# keeping the worker safe at home is preferable to unbounded order churn.
+		# With no available lead or while this worker waits for a bounded route
+		# retry, keep it safe at home. Unrevealed leads remain available to others.
 		villager.command_move(_base_position)
-		_last_economy_action = "sweep_complete"
+		_last_economy_action = "sweep_complete" if _economy_exploration_revealed.size() >= _economy_exploration_waypoints.size() else "search_wait"
 
 
 func _get_active_wood_search_worker() -> UnitBase:
@@ -916,19 +923,35 @@ func _try_order_economy_search(villager: UnitBase, priority: Array) -> bool:
 			_economy_memory_revisit_orders_issued += 1
 			_last_economy_action = "revisit_%s" % resource_type
 			return true
-	# Each waypoint is consumed once, including unsafe or failed destinations.
-	# This loop is bounded by the public geometry sweep, never hidden stock.
-	var exploration_target: Dictionary = _take_next_economy_exploration_target()
-	while not exploration_target.is_empty():
-		var position: Vector2 = exploration_target.get("position", _base_position) as Vector2
-		if not _is_worker_position_exposed(position, threats):
-			villager.command_move(position)
-			if villager.current_state != UnitBase.State.MOVING:
-				return false
-			_economy_exploration_orders_issued += 1
-			_last_economy_action = "explore"
-			return true
-		exploration_target = _take_next_economy_exploration_target()
+	# A trapped worker must not consume the shared search plan. Check a bounded
+	# number of normal movement routes and reserve only accepted orders; current
+	# vision, never issuing an order, is what completes a geometry waypoint.
+	var worker_id: int = villager.get_instance_id()
+	if _game_time < float(_economy_exploration_retry_after.get(worker_id, -INF)):
+		return false
+	for _attempt: int in range(ECONOMY_EXPLORATION_ROUTE_CHECKS_PER_WORKER):
+		var exploration_target: Dictionary = _take_next_economy_exploration_target()
+		if exploration_target.is_empty():
+			break
+		var position: Vector2 = exploration_target["position"] as Vector2
+		if _is_worker_position_exposed(position, threats):
+			continue
+		var route := PackedVector2Array([position])
+		if game_map != null and game_map.has_method("get_navigation_world_path"):
+			_economy_exploration_route_checks += 1
+			route = game_map.call("get_navigation_world_path", villager.global_position, position) as PackedVector2Array
+		if route.is_empty():
+			continue
+		villager.command_move_path(route)
+		if villager.current_state != UnitBase.State.MOVING:
+			continue
+		_economy_exploration_workers[int(exploration_target["index"])] = {
+			"worker": weakref(villager), "endpoint": route[route.size() - 1],
+		}
+		_economy_exploration_orders_issued += 1
+		_last_economy_action = "explore"
+		return true
+	_economy_exploration_retry_after[worker_id] = _game_time + ECONOMY_EXPLORATION_RETRY_SECONDS
 	return false
 
 
@@ -2959,9 +2982,11 @@ func get_strategy_snapshot() -> Dictionary:
 		"economy_exploration_waypoint_count": _economy_exploration_waypoints.size(),
 		"economy_exploration_waypoints_remaining": maxi(
 			0,
-			_economy_exploration_waypoints.size() - _next_economy_exploration_waypoint
+			_economy_exploration_waypoints.size() - _economy_exploration_revealed.size()
 		),
 		"economy_exploration_orders": _economy_exploration_orders_issued,
+		"economy_exploration_route_checks": _economy_exploration_route_checks,
+		"economy_exploration_active_workers": _economy_exploration_workers.size(),
 		"economy_memory_revisit_orders": _economy_memory_revisit_orders_issued,
 		"economy_wood_search_orders": _economy_wood_search_orders_issued,
 		"economy_wood_search_active": _get_active_wood_search_worker() != null,
@@ -3360,6 +3385,10 @@ func _reset_economy_recovery() -> void:
 	}
 	_economy_exploration_waypoints.clear()
 	_next_economy_exploration_waypoint = 0
+	_economy_exploration_revealed.clear()
+	_economy_exploration_workers.clear()
+	_economy_exploration_retry_after.clear()
+	_economy_exploration_route_checks = 0
 	_economy_exploration_orders_issued = 0
 	_economy_memory_revisit_orders_issued = 0
 	_economy_wood_search_orders_issued = 0
@@ -3458,17 +3487,46 @@ func _find_resource_memory_target(priority: Array, from_position: Vector2) -> Di
 	return best
 
 
+func _refresh_economy_exploration() -> void:
+	for index: int in _economy_exploration_workers.keys():
+		# Only an active search trip is completed here. Other transient military
+		# vision must not retire destinations before economy search examines them.
+		if index < _economy_exploration_waypoints.size() and _is_tile_currently_visible(_world_to_tile(_economy_exploration_waypoints[index])):
+			_economy_exploration_revealed[index] = true
+		var reservation: Dictionary = _economy_exploration_workers[index] as Dictionary
+		var worker: UnitBase = (reservation["worker"] as WeakRef).get_ref() as UnitBase
+		if _economy_exploration_revealed.has(index):
+			_economy_exploration_workers.erase(index)
+		elif (
+			worker == null
+			or worker.current_state != UnitBase.State.MOVING
+			or _is_worker_retreating(worker)
+			or int(worker.get("carried_amount")) > 0
+			or worker.move_target.distance_to(reservation["endpoint"] as Vector2) > 0.5
+		):
+			# An interrupted or failed trip is still unexplored. Another worker can
+			# try it now; the original worker retries only after a short cooldown.
+			_economy_exploration_workers.erase(index)
+			if worker != null:
+				_economy_exploration_retry_after[worker.get_instance_id()] = _game_time + ECONOMY_EXPLORATION_RETRY_SECONDS
+	for worker_id: int in _economy_exploration_retry_after.keys():
+		if _game_time >= float(_economy_exploration_retry_after[worker_id]):
+			_economy_exploration_retry_after.erase(worker_id)
+
+
 func _take_next_economy_exploration_target() -> Dictionary:
-	while _next_economy_exploration_waypoint < _economy_exploration_waypoints.size():
-		var position: Vector2 = _economy_exploration_waypoints[_next_economy_exploration_waypoint]
-		_next_economy_exploration_waypoint += 1
+	# Circular ordering preserves local-first geometry while keeping failed or
+	# interrupted trips eligible. At most one finite map-sized pass runs here.
+	for _checked: int in range(_economy_exploration_waypoints.size()):
+		var index: int = _next_economy_exploration_waypoint % _economy_exploration_waypoints.size()
+		_next_economy_exploration_waypoint = (index + 1) % _economy_exploration_waypoints.size()
+		var position: Vector2 = _economy_exploration_waypoints[index]
 		var tile: Vector2i = _world_to_tile(position)
 		if _is_tile_currently_visible(tile):
+			_economy_exploration_revealed[index] = true
+		if _economy_exploration_revealed.has(index) or _economy_exploration_workers.has(index):
 			continue
-		return {
-			"position": position,
-			"tile": tile,
-		}
+		return {"position": position, "tile": tile, "index": index}
 	return {}
 
 

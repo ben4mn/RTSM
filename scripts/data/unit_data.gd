@@ -11,13 +11,15 @@ enum UnitType {
 	SIEGE
 }
 
-# At a source, food funds paid worker/army queues 20% faster. Travel and real
-# drop-offs still determine deposited income; both sides use these same rates.
+# A shorter shared work cycle funds earlier paid choices on the wider map.
+# Food and wood work 20% faster than gold, keeping finite-Farm replacement
+# and counter buildings affordable alongside paid troops. Travel, ten-unit
+# cargo and finite stock still constrain both players' deposited income.
 const VILLAGER_GATHER_AMOUNT: float = 1.0
 const WHEELBARROW_GATHER_BONUS: float = VILLAGER_GATHER_AMOUNT * 0.25
 const VILLAGER_CARRY_CAPACITY: int = 10
-const VILLAGER_GATHER_TICK_SECONDS: float = 1.5
-const RESOURCE_GATHER_SPEEDS: Dictionary = {"food": 1.2, "wood": 1.0, "gold": 1.0}
+const VILLAGER_GATHER_TICK_SECONDS: float = 1.15
+const RESOURCE_GATHER_SPEEDS: Dictionary = {"food": 1.2, "wood": 1.2, "gold": 1.0}
 
 # Cost format: { "food": int, "wood": int, "gold": int }
 # All units defined with base stats for Age 1. Upgrades scale from here.

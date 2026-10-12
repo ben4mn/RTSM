@@ -30,9 +30,25 @@ func _run() -> void:
 	await _click((hud.get("_camera_view_button") as Button).get_global_rect().get_center())
 	_expect((hud.get("_camera_zoom_in_button") as Button).is_visible_in_tree(), "View did not reveal zoom controls")
 	await _click((hud.get("_camera_zoom_in_button") as Button).get_global_rect().get_center())
+	await get_tree().create_timer(0.2).timeout
 	_expect(float(map.call("get_zoom_state")["zoom"]) > zoom_before, "Zoom + pointer click did not zoom in")
 	await _click((hud.get("_camera_zoom_out_button") as Button).get_global_rect().get_center())
+	await get_tree().create_timer(0.2).timeout
 	_expect(absf(float(map.call("get_zoom_state")["zoom"]) - zoom_before) < 0.001, "Zoom - does not reverse the + step")
+	# Repeated actual GUI presses must accumulate even before easing finishes;
+	# GUI ownership must not cancel the previous requested button step.
+	for press: int in 2:
+		await _click((hud.get("_camera_zoom_in_button") as Button).get_global_rect().get_center())
+	await get_tree().create_timer(0.2).timeout
+	_expect(absf(float(map.call("get_zoom_state")["zoom"]) - zoom_before * pow(1.12, 2.0)) < 0.001, "rapid GUI zoom presses lost accumulated steps")
+	for press: int in 2:
+		await _click((hud.get("_camera_zoom_out_button") as Button).get_global_rect().get_center())
+	await get_tree().create_timer(0.2).timeout
+	_expect(absf(float(map.call("get_zoom_state")["zoom"]) - zoom_before) < 0.001, "rapid GUI zoom presses failed to restore scale")
+	await _click((hud.get("_camera_zoom_in_button") as Button).get_global_rect().get_center())
+	await _click((hud.get("_camera_zoom_out_button") as Button).get_global_rect().get_center())
+	await get_tree().create_timer(0.2).timeout
+	_expect(absf(float(map.call("get_zoom_state")["zoom"]) - zoom_before) < 0.001, "early GUI zoom reversal lost the requested scale")
 	await _click((hud.get("_camera_zoom_in_button") as Button).get_global_rect().get_center())
 	await _click((hud.get("_camera_zoom_reset_button") as Button).get_global_rect().get_center())
 	_expect(absf(float(map.call("get_zoom_state")["zoom"]) - float(map.call("get_zoom_state")["default"])) < 0.001, "Reset pointer click does not restore default zoom")

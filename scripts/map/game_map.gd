@@ -23,7 +23,7 @@ var pathfinding: Pathfinding
 
 ## Mobile-first camera tuning.
 @export var mobile_default_zoom: float = 1.25
-@export var mobile_zoom_min: float = 0.62
+@export var mobile_zoom_min: float = 0.42
 @export var mobile_zoom_max: float = 2.2
 @export var desktop_default_zoom: float = 1.35
 @export var mobile_disable_camera_smoothing: bool = true
@@ -38,9 +38,11 @@ var _touch_pan_active: Dictionary = {}  # index -> bool
 var _touch_input_detected: bool = false
 
 ## Camera zoom limits.
-const DESKTOP_ZOOM_MIN := 0.5
+const DESKTOP_ZOOM_MIN := 0.4
 const DESKTOP_ZOOM_MAX := 2.5
-const ZOOM_STEP_FACTOR := 1.16
+const ZOOM_STEP_FACTOR := 1.12
+const ZOOM_TRANSITION_SECONDS := 0.18
+const CAMERA_FRAME_ZOOM_STEPS := 32
 const NO_ZOOM_ANCHOR := Vector2(-1.0, -1.0)
 const CAMERA_PAN_SPEED := 400.0
 const EDGE_SCROLL_MARGIN := 8.0  # Pixels from screen edge to trigger scroll
@@ -58,6 +60,14 @@ var _camera_world_bounds: Rect2 = Rect2()
 var _mobile_profile_active: bool = false
 var _user_zoom_override: bool = false
 var _camera_interaction_revision: int = 0
+## Only discrete wheel/button steps ease. Pinch/magnify follow the fingers
+## directly; a new pan, focus, modal or resize retires any pending step.
+var _zoom_transition_active: bool = false
+var _zoom_transition_start: float = 1.0
+var _zoom_transition_target: float = 1.0
+var _zoom_transition_elapsed: float = 0.0
+var _zoom_transition_anchor: Vector2 = Vector2.ZERO
+var _zoom_transition_world: Vector2 = Vector2.ZERO
 ## Recording state never participates in camera/contact ownership.
 var _playtest_camera_contacts: Dictionary = {}
 var _playtest_last_zoom_sample_ms: int = -200
@@ -216,6 +226,7 @@ func _get_mobile_short_side_scale(viewport_size: Vector2) -> float:
 
 
 func _apply_camera_profile(viewport_size: Vector2, preserve_zoom_if_user_override: bool) -> void:
+	_zoom_transition_active = false
 	_mobile_profile_active = _is_mobile_camera_profile(viewport_size)
 	if _mobile_profile_active:
 		_camera_zoom_min = maxf(0.1, mobile_zoom_min)
@@ -240,6 +251,7 @@ func _get_camera_half_view_world() -> Vector2:
 
 func _process(delta: float) -> void:
 	_update_camera_pan(delta)
+	_update_camera_zoom(delta / maxf(0.001, Engine.time_scale))
 
 
 func _update_camera_pan(delta: float) -> void:
@@ -273,6 +285,7 @@ func _update_camera_pan(delta: float) -> void:
 			pan.y += 1.0
 
 	if pan != Vector2.ZERO:
+		_zoom_transition_active = false
 		var camera_speed_scale: float = 1.0
 		var game_manager: Node = get_node_or_null("/root/GameManager")
 		if game_manager != null:
@@ -340,6 +353,7 @@ func _release_camera_touch(index: int) -> void:
 ## A modal menu may receive the release of contacts that started in the world.
 ## Forget the old gesture so resuming cannot adopt those fingers or jump view.
 func cancel_camera_touch_gesture() -> void:
+	_zoom_transition_active = false
 	if not _touch_points.is_empty() or _camera_drag_active:
 		_playtest_camera_record("camera_gesture_cancel", {
 			"reason": "modal_or_context_change",
@@ -455,10 +469,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventMouseButton:
 		var mb := event as InputEventMouseButton
 		if mb.pressed and mb.button_index == MOUSE_BUTTON_WHEEL_UP:
-			zoom_in(mb.position)
+			_queue_zoom_step(1.0, mb.position, mb.factor)
 			get_viewport().set_input_as_handled()
 		elif mb.pressed and mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			zoom_out(mb.position)
+			_queue_zoom_step(-1.0, mb.position, mb.factor)
 			get_viewport().set_input_as_handled()
 		# Middle-mouse drag for pan.
 		elif mb.button_index == MOUSE_BUTTON_MIDDLE:
@@ -495,9 +509,81 @@ func _apply_zoom(factor: float, from_user: bool = false, anchor_screen: Vector2 
 	_set_zoom_anchored(camera.zoom.x * pow(factor, _zoom_sensitivity() if from_user else 1.0), anchor_screen, anchor_screen, from_user)
 
 
+func _queue_zoom_step(direction: float, anchor_screen: Vector2, factor: float = 1.0) -> void:
+	if camera == null or not is_finite(factor):
+		return
+	# Some wheel drivers omit factor (zero); fractional trackpad values must
+	# retain their smaller steps instead of becoming full mouse-wheel notches.
+	# Browser pixel-wheel deltas can report several notches in one event. Cap
+	# that event at one step while preserving precision scrolling below it.
+	var amount: float = minf(absf(factor), 1.0) if factor != 0.0 else 1.0
+	var base_zoom: float = _zoom_transition_target if _zoom_transition_active else camera.zoom.x
+	var target: float = clampf(base_zoom * pow(ZOOM_STEP_FACTOR, direction * amount * _zoom_sensitivity()), _camera_zoom_min, _camera_zoom_max)
+	if bool(GameManager.reduced_motion):
+		_set_zoom_anchored(target, anchor_screen, anchor_screen, true)
+		return
+	var center: Vector2 = get_viewport().get_visible_rect().size * 0.5
+	var anchor: Vector2 = center if anchor_screen == NO_ZOOM_ANCHOR else anchor_screen
+	var rendered_view: Transform2D = get_viewport().get_canvas_transform().affine_inverse()
+	note_camera_interaction()
+	_user_zoom_override = true
+	_zoom_transition_start = camera.zoom.x
+	_zoom_transition_target = target
+	_zoom_transition_elapsed = 0.0
+	_zoom_transition_anchor = anchor
+	_zoom_transition_world = rendered_view * anchor
+	_zoom_transition_active = not is_equal_approx(target, camera.zoom.x)
+	# Retire any pending desktop pan smoothing without moving the rendered
+	# view. Otherwise it could shift the terrain before the first eased frame.
+	camera.position = rendered_view * center
+	_clamp_camera()
+	camera.reset_smoothing()
+	camera.force_update_scroll()
+	_playtest_camera_record("camera_zoom_step", {
+		"previous_zoom": camera.zoom.x,
+		"target_zoom": target,
+		"wheel_factor": amount,
+		"anchor": [anchor.x, anchor.y],
+		"duration_seconds": ZOOM_TRANSITION_SECONDS,
+	})
+
+
+func _update_camera_zoom(delta: float) -> void:
+	if not _zoom_transition_active or camera == null:
+		return
+	_zoom_transition_elapsed += maxf(0.0, delta)
+	var progress: float = minf(1.0, _zoom_transition_elapsed / ZOOM_TRANSITION_SECONDS)
+	if bool(GameManager.reduced_motion):
+		progress = 1.0
+	var eased: float = 1.0 - pow(1.0 - progress, 3.0)
+	var next_zoom: float = exp(lerpf(log(_zoom_transition_start), log(_zoom_transition_target), eased))
+	if progress >= 1.0:
+		next_zoom = _zoom_transition_target
+		_zoom_transition_active = false
+	var center: Vector2 = get_viewport().get_visible_rect().size * 0.5
+	camera.zoom = Vector2(next_zoom, next_zoom)
+	camera.position = _zoom_transition_world + (center - _zoom_transition_anchor) / next_zoom
+	_clamp_camera()
+	camera.reset_smoothing()
+	camera.force_update_scroll()
+	zoom_changed.emit(next_zoom, _camera_zoom_min, _camera_zoom_max)
+	if progress >= 1.0:
+		_playtest_camera_record("camera_zoom", {
+			"mode": "eased_wheel_or_control",
+			"previous_zoom": _zoom_transition_start,
+			"requested_zoom": _zoom_transition_target,
+			"zoom": next_zoom,
+			"minimum": _camera_zoom_min,
+			"maximum": _camera_zoom_max,
+			"anchor_before": [_zoom_transition_anchor.x, _zoom_transition_anchor.y],
+			"anchor_after": [_zoom_transition_anchor.x, _zoom_transition_anchor.y],
+		})
+
+
 func _set_zoom_anchored(level: float, previous_anchor: Vector2, next_anchor: Vector2, from_user: bool) -> void:
 	if camera == null or not is_finite(level):
 		return
+	_zoom_transition_active = false
 	var viewport_center: Vector2 = get_viewport().get_visible_rect().size * 0.5
 	var previous_zoom: float = camera.zoom.x
 	var previous_position: Vector2 = camera.position
@@ -540,11 +626,11 @@ func _get_default_zoom() -> float:
 
 
 func zoom_in(anchor_screen: Vector2 = NO_ZOOM_ANCHOR) -> void:
-	_apply_zoom(ZOOM_STEP_FACTOR, true, anchor_screen)
+	_queue_zoom_step(1.0, anchor_screen)
 
 
 func zoom_out(anchor_screen: Vector2 = NO_ZOOM_ANCHOR) -> void:
-	_apply_zoom(1.0 / ZOOM_STEP_FACTOR, true, anchor_screen)
+	_queue_zoom_step(-1.0, anchor_screen)
 
 
 func reset_zoom(anchor_screen: Vector2 = NO_ZOOM_ANCHOR) -> void:
@@ -558,6 +644,7 @@ func fit_opening_zoom(maximum: float) -> void:
 
 
 func note_camera_interaction() -> void:
+	_zoom_transition_active = false
 	_camera_interaction_revision += 1
 
 
@@ -725,13 +812,23 @@ func frame_world_bounds(subjects: Array[Rect2], safe_area: Rect2, obstacles: Arr
 	var fitted: bool = focus.is_finite()
 	if not fitted:
 		# Center is also a useful way to recover a spread army. Reduce detail
-		# only as much as needed, bounded by the ordinary overview limit.
-		var overview_focus: Vector2 = _find_unoccluded_focus(subjects, field, exclusions, _camera_zoom_min)
+		# only as much as needed. At a map edge the widest view can fail even
+		# when an intermediate view fits: legal camera focus bounds limit how
+		# far a subject can move around a HUD card as zoom decreases. Find the
+		# first feasible bracket rather than assuming the minimum always fits.
 		chosen_zoom = _camera_zoom_min
-		focus = overview_focus
-		if overview_focus.is_finite():
-			var lower: float = _camera_zoom_min
-			var upper: float = previous_zoom
+		var lower: float = _camera_zoom_min
+		var upper: float = previous_zoom
+		for step: int in range(1, CAMERA_FRAME_ZOOM_STEPS + 1):
+			var trial_zoom: float = lerpf(previous_zoom, _camera_zoom_min, float(step) / float(CAMERA_FRAME_ZOOM_STEPS))
+			var trial_focus: Vector2 = _find_unoccluded_focus(subjects, field, exclusions, trial_zoom)
+			if trial_focus.is_finite():
+				lower = trial_zoom
+				focus = trial_focus
+				fitted = true
+				break
+			upper = trial_zoom
+		if fitted:
 			for step: int in range(12):
 				var trial_zoom: float = (lower + upper) * 0.5
 				var trial_focus: Vector2 = _find_unoccluded_focus(subjects, field, exclusions, trial_zoom)
@@ -741,10 +838,9 @@ func frame_world_bounds(subjects: Array[Rect2], safe_area: Rect2, obstacles: Arr
 				else:
 					upper = trial_zoom
 			chosen_zoom = lower
-			fitted = true
 		else:
-			# A selection larger than the maximum overview remains centered on
-			# its extent. No legal zoom can promise that every member is visible.
+			# If none of the sampled views fits, center the full extent at
+			# overview without claiming that every member will be visible.
 			var envelope: Rect2 = subjects[0]
 			for subject: Rect2 in subjects:
 				envelope = envelope.merge(subject)

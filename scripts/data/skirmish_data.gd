@@ -27,7 +27,7 @@ const REFERENCE_POPULATION_LIMIT: int = 40
 ## Castle unlocks the siege endgame. Imperial has no skirmish content yet.
 const MAX_AGE: int = 3
 const AGE_NAMES: Array[String] = ["Dark Age", "Feudal Age", "Castle Age"]
-const SACRED_VICTORY_HOLD_SECONDS: float = 600.0
+const SACRED_VICTORY_HOLD_SECONDS: float = 240.0
 # Both players fund their first House and nearby drop-off from this bank, then
 # must gather wood before opening military production.
 const STARTING_RESOURCES: Dictionary = {"food": 200, "wood": 150, "gold": 100}
