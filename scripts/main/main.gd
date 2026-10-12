@@ -60,6 +60,7 @@ var _move_command_armed: bool = false
 var _attack_move_command_armed: bool = false
 var _selection_context_key: String = ""
 var _selection_context_revision: int = 0
+var _last_playtest_sample_msec: int = 0
 
 # --- Under-attack notification cooldown ---
 var _under_attack_cooldown: float = 0.0
@@ -454,6 +455,15 @@ func _on_map_ready(map_gen: MapGenerator) -> void:
 	GameManager.initialize_game(2)
 	ResourceManager.initialize_player(0)
 	ResourceManager.initialize_player(1)
+	var playtest: Node = get_node_or_null("/root/PlaytestDiagnostics")
+	if playtest != null:
+		playtest.call("start_match", {
+			"ui_scale": GameManager.ui_scale,
+			"map_seed": str(map_gen.get("_rng").seed),
+			"difficulty": _resolve_ai_difficulty(),
+			"population_cap": GameManager.get_match_population_limit(),
+			"game_speed": Engine.time_scale,
+		})
 	if not GameManager.age_advanced.is_connected(_on_age_advanced_for_summary):
 		GameManager.age_advanced.connect(_on_age_advanced_for_summary)
 	if not GameManager.research_completed.is_connected(_on_research_completed):
@@ -875,6 +885,33 @@ func _on_resume_requested() -> void:
 	GameManager.set_paused(false)
 	_sync_hud_modal_state()
 	_refresh_first_session_diagnostics()
+
+
+func _on_problem_report_requested() -> void:
+	var playtest: Node = get_node_or_null("/root/PlaytestDiagnostics")
+	if playtest == null:
+		return
+	playtest.call("record_event", "report_context", {
+		"game_seconds": GameManager.game_time,
+		"game_speed": Engine.time_scale,
+		"ui_scale": GameManager.ui_scale,
+		"selection_count": game_map.selection_mgr.selected.size(),
+		"secondary_surface": hud.get_secondary_surface_name(),
+		"armed_move": _move_command_armed,
+		"armed_attack": _attack_move_command_armed,
+		"armed_patrol": _patrol_command_armed,
+	})
+	var report: Dictionary = playtest.call("mark_report")
+	if OS.has_feature("web"):
+		return  # The Web bridge shows its report card while the match stays paused.
+	var dialog := AcceptDialog.new()
+	dialog.title = "Playtest log saved"
+	dialog.process_mode = Node.PROCESS_MODE_ALWAYS
+	dialog.dialog_text = "Report code: %s\n\nRecent game inputs were saved on this device.\nAttach playtest-diagnostics.json when reporting the problem." % str(report.get("problem", {}).get("id", ""))
+	dialog.confirmed.connect(dialog.queue_free)
+	dialog.canceled.connect(dialog.queue_free)
+	hud.add_child(dialog)
+	dialog.popup_centered(Vector2i(420, 210))
 
 
 func _on_quit_to_menu_requested() -> void:
@@ -2421,6 +2458,7 @@ func _setup_hud() -> void:
 	hud.quit_to_menu_requested.connect(_on_quit_to_menu_requested)
 	hud.guidance_dismissed.connect(_on_guidance_dismissed)
 	hud.match_learning_requested.connect(_toggle_match_learning)
+	hud.problem_report_requested.connect(_on_problem_report_requested)
 	_build_menu.hold_component_created.connect(hud.register_hold_component)
 	_build_menu.information_requested.connect(hud.show_card_information)
 	for component: Node in _build_menu.get("_hold_components"):
@@ -3055,6 +3093,19 @@ var _selection_refresh_timer: float = 0.0
 func _process(delta: float) -> void:
 	if GameManager.current_state != GameManager.GameState.PLAYING:
 		return
+	var now_msec: int = Time.get_ticks_msec()
+	if now_msec - _last_playtest_sample_msec >= 2000:
+		_last_playtest_sample_msec = now_msec
+		var playtest: Node = get_node_or_null("/root/PlaytestDiagnostics")
+		if playtest != null:
+			playtest.call("record_event", "game_sample", {
+				"game_seconds": GameManager.game_time,
+				"frames_per_second": Engine.get_frames_per_second(),
+				"game_speed": Engine.time_scale,
+				"ui_scale": GameManager.ui_scale,
+				"selection_count": game_map.selection_mgr.selected.size(),
+				"secondary_surface": hud.get_secondary_surface_name(),
+			})
 	_advance_production_queues(delta)
 	_process_ai_construction_recovery(delta)
 	_update_fog_of_war()

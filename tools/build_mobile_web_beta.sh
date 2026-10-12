@@ -82,6 +82,7 @@ TEMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/aoem-mobile-web.XXXXXX")
 trap 'rm -rf "$TEMP_DIR"' EXIT INT TERM
 STAGE_DIR="$TEMP_DIR/project"
 EXPORT_DIR="$TEMP_DIR/export"
+GIT_REV=$(git -C "$PROJECT_ROOT" rev-parse --short=12 HEAD 2>/dev/null || printf 'unversioned')
 mkdir -p "$STAGE_DIR" "$EXPORT_DIR"
 
 verify_closed_payload() {
@@ -244,7 +245,8 @@ rsync -a \
 	--exclude 'desktop.ini' \
 	"$PROJECT_ROOT/" "$STAGE_DIR/"
 
-awk '
+awk -v runtime_revision="$GIT_REV" '
+	/^\[application\]$/ { print; print "config/playtest_revision=\"" runtime_revision "\""; next }
 	/^\[autoload\]$/ { in_autoload = 1 }
 	/^\[/ && $0 != "[autoload]" { in_autoload = 0 }
 	in_autoload && /^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*\.debug[[:space:]]*=/ { next }
@@ -290,6 +292,21 @@ SOURCE_TREE_SHA256=$(shasum -a 256 "$SOURCE_MANIFEST" | awk '{print $1}')
 
 "$GODOT_BIN" --headless --path "$STAGE_DIR" --export-release "Mobile Web Beta" "$EXPORT_DIR/index.html"
 
+# Keep the observer available on cached/offline PWA boots as well as online.
+cp "$STAGE_DIR/web/playtest_diagnostics.js" "$EXPORT_DIR/playtest_diagnostics.js"
+python3 - "$EXPORT_DIR/index.service.worker.js" <<'PY'
+from pathlib import Path
+import json, re, sys
+path = Path(sys.argv[1])
+source = path.read_text()
+match = re.search(r'const CACHED_FILES = (\[[^;]+\]);', source)
+assert match, 'Missing service-worker pre-cache list'
+files = json.loads(match.group(1))
+if 'playtest_diagnostics.js' not in files:
+    files.append('playtest_diagnostics.js')
+path.write_text(source[:match.start(1)] + json.dumps(files, separators=(',', ':')) + source[match.end(1):])
+PY
+
 # Godot's stock PWA exporter generates 144/180/512 icons. Chromium also needs
 # 192; render it from the same staged vector source and package it before hashes.
 "$GODOT_BIN" --headless --path "$STAGE_DIR" --script "$PROJECT_ROOT/tools/render_pwa_icon.gd" -- \
@@ -309,7 +326,6 @@ verify_service_worker(root)
 verify_web_shell(root)
 PY
 
-GIT_REV=$(git -C "$PROJECT_ROOT" rev-parse --short=12 HEAD 2>/dev/null || printf 'unversioned')
 PRODUCT_VERSION=$(sed -n 's/^config\/version="\(.*\)"/\1/p' "$PROJECT_ROOT/project.godot" | head -n 1)
 if git -C "$PROJECT_ROOT" diff --quiet --ignore-submodules HEAD -- 2>/dev/null && [ -z "$(git -C "$PROJECT_ROOT" ls-files --others --exclude-standard 2>/dev/null)" ]; then
 	DIRTY=false

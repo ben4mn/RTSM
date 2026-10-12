@@ -93,6 +93,13 @@ var _last_touch_context_action_id: int = -1
 var _last_touch_context_timestamp_ms: int = 0
 var _touch_context_execution_count: int = 0
 var _building_facade_art_bounds: Dictionary = {}  # texture instance id -> opaque art bounds
+## Observational records are separate from gesture ownership. They never admit
+## a contact or change a target; production reports retain the route and result.
+var _playtest_contacts: Dictionary = {}
+var _playtest_contact_sequence: int = 0
+var _playtest_pointer_source: String = "unknown"
+const PLAYTEST_MOTION_SAMPLE_MS: int = 200
+const PLAYTEST_MAX_CONTACTS: int = 16
 
 const DESKTOP_UNIT_HIT_RADIUS_WORLD := 20.0
 const DESKTOP_BUILDING_HIT_RADIUS_WORLD := 36.0
@@ -123,6 +130,7 @@ func set_touch_area_selection_armed(armed: bool) -> void:
 ## A modal world interaction owns any fingers already down. Cancel its prior
 ## gesture so a delayed long press cannot issue an order during placement.
 func cancel_touch_gesture(preserve_completed_tap: bool = false) -> void:
+	_playtest_cancel_contacts("context_or_selection_change")
 	# Selection signals can run synchronously inside a successful tap release.
 	# Keep that completed tap available for double-tap selection while still
 	# discarding history whenever a live contact or another cancellation owns it.
@@ -170,6 +178,7 @@ func _ready() -> void:
 
 func _notification(what: int) -> void:
 	if is_node_ready() and (what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_APPLICATION_PAUSED):
+		_playtest_cancel_contacts("application_focus_or_pause")
 		cancel_touch_gesture()
 
 
@@ -190,6 +199,7 @@ func _process(_delta: float) -> void:
 	# Gesture time is real time, independent of the skirmish simulation speed.
 	_touch_hold_elapsed = maxf(0.0, float(now_msec - _touch_hold_started_at_msec) / 1000.0)
 	if _touch_hold_has_elapsed(now_msec):
+		_playtest_classify_contact(_primary_touch_index, "hold", "real_time_threshold")
 		_touch_hold_active = false
 		_touch_hold_started_at_msec = 0
 		_touch_long_press_consumed = true
@@ -200,6 +210,7 @@ func _process(_delta: float) -> void:
 
 
 func _input(event: InputEvent) -> void:
+	_playtest_observe_input(event)
 	# HUD controls can consume a finger release before unhandled input. Keep
 	# only gesture bookkeeping here so that release never selects the world,
 	# leaves a stale pinch finger, or triggers a delayed long press.
@@ -259,6 +270,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func _handle_touch(event: InputEventScreenTouch) -> void:
 	_last_touch_input_msec = Time.get_ticks_msec()
 	if event.pressed:
+		_playtest_admit_contact(event.index)
 		_released_world_touch_indices.erase(event.index)
 		if _active_touch_indices.is_empty():
 			world_gesture_started.emit(event.index, event.position)
@@ -266,6 +278,7 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 			_touch_pan_gesture = false
 		_active_touch_indices[event.index] = true
 		if _active_touch_indices.size() > 1:
+			_playtest_classify_contacts("pinch", "additional_world_contact")
 			_touch_pan_gesture = true
 			_cancel_pending_touch_hold()
 			_is_dragging = false
@@ -302,6 +315,7 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 		_released_world_touch_indices.erase(event.index)
 		_active_touch_indices.erase(event.index)
 		if event.canceled or not owned_world_press:
+			_playtest_classify_contact(event.index, "cancel" if event.canceled else "suppressed", "os_canceled" if event.canceled else "no_world_press")
 			if _touch_area_gesture and touch_area_selection_armed:
 				touch_area_selection_armed = false
 				touch_area_selection_changed.emit(false)
@@ -313,11 +327,13 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 				_finish_released_touch(event.index)
 			return
 		if event.index != _primary_touch_index:
+			_playtest_classify_contact(event.index, "pinch", "secondary_contact_release")
 			if _active_touch_indices.is_empty():
 				_finish_released_touch(event.index)
 			return
 		_touch_hold_active = false
 		if _touch_area_gesture and touch_area_selection_armed:
+			_playtest_classify_contact(event.index, "area_select", "explicit_selection_mode")
 			_drag_end = event.position
 			_is_dragging = false
 			_touch_area_gesture = false
@@ -337,6 +353,7 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 			queue_redraw()
 			return
 		if _touch_context_open:
+			_playtest_classify_contact(event.index, "hold", "context_menu_open")
 			_touch_hold_started_at_msec = 0
 			_touch_long_press_consumed = false
 			_is_dragging = false
@@ -344,6 +361,7 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 			_finish_released_touch(event.index)
 			return
 		if _touch_long_press_consumed:
+			_playtest_classify_contact(event.index, "hold", "context_already_executed")
 			# The threshold callback already opened the context action. A
 			# single-action menu executes immediately, so its release must not
 			# run the long-press fallback (or the normal tap path) a second time.
@@ -358,6 +376,7 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 		var held_long_enough: bool = _touch_hold_has_elapsed(Time.get_ticks_msec())
 		_touch_hold_started_at_msec = 0
 		if _active_touch_indices.is_empty() and not _touch_pan_gesture and not _touch_hold_canceled and held_long_enough and touch_context_enabled:
+			_playtest_classify_contact(event.index, "hold", "release_threshold")
 			_touch_long_press_consumed = true
 			_open_touch_context(event.position)
 			_touch_long_press_consumed = false
@@ -366,7 +385,12 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 			_finish_released_touch(event.index)
 			return
 		if _active_touch_indices.is_empty() and not _touch_pan_gesture and _touch_max_displacement_px < touch_tap_slop_px:
+			_playtest_classify_contact(event.index, "tap", "below_tap_slop")
 			_handle_tap(event.position, true)
+		elif _touch_pan_gesture:
+			_playtest_classify_contact(event.index, "pan" if _active_touch_indices.is_empty() else "pinch", "camera_owned_movement")
+		else:
+			_playtest_classify_contact(event.index, "suppressed", "movement_between_tap_and_pan_thresholds")
 		if _active_touch_indices.is_empty():
 			_finish_released_touch(event.index)
 		queue_redraw()
@@ -376,8 +400,10 @@ func _handle_drag(event: InputEventScreenDrag) -> void:
 	_last_touch_input_msec = Time.get_ticks_msec()
 	if not _active_touch_indices.has(event.index):
 		# A GUI-owned or unknown contact cannot enter a world gesture by dragging.
+		_playtest_note_suppressed_drag(event.index, "gui_or_unknown_contact")
 		return
 	if _touch_context_open:
+		_playtest_note_suppressed_drag(event.index, "world_context_menu_open")
 		return
 	if event.index != _primary_touch_index:
 		_touch_pan_gesture = true
@@ -397,6 +423,7 @@ func _handle_drag(event: InputEventScreenDrag) -> void:
 		return
 	var drag_distance := _drag_start.distance_to(_drag_end)
 	if drag_distance > touch_pan_threshold:
+		_playtest_classify_contact(event.index, "pan", "pan_threshold_crossed")
 		_touch_pan_gesture = true
 	_record_touch_displacement(_drag_end)
 	queue_redraw()
@@ -464,6 +491,7 @@ func _handle_mouse_motion(event: InputEventMouseMotion) -> void:
 ## --- Tap / click logic ---
 
 func _handle_tap(screen_pos: Vector2, is_touch_input: bool) -> void:
+	_playtest_pointer_source = "touch" if is_touch_input else "mouse"
 	_prune_stale_selection()
 	var consumed: bool = false
 	var world_pos := _screen_to_world(screen_pos)
@@ -693,6 +721,7 @@ func _handle_double_tap(screen_pos: Vector2, is_touch_input: bool) -> void:
 			n_type = node.get_meta("unit_type")
 		if n_type == unit_type and _is_on_screen(node as Node2D):
 			_add_to_selection(node as Node2D)
+	_record_touch_input(screen_pos, world_pos, "double_tap_select_type", tapped_node, null)
 
 
 ## --- Drag-box selection ---
@@ -709,6 +738,11 @@ func _finish_drag_select() -> void:
 			# Only select own units during drag.
 			if not _is_enemy(node as Node2D):
 				_add_to_selection(node as Node2D)
+	_playtest_record("selection_area_result", {
+		"screen_start": [_drag_start.x, _drag_start.y],
+		"screen_end": [_drag_end.x, _drag_end.y],
+		"selected_count": selected.size(),
+	})
 	_drag_rect = Rect2()
 
 
@@ -992,6 +1026,7 @@ func _is_on_screen(node: Node2D) -> bool:
 ## --- Right-click command ---
 
 func _handle_right_click(screen_pos: Vector2) -> void:
+	_playtest_pointer_source = "mouse_right"
 	_prune_stale_selection()
 	if selected.is_empty():
 		return
@@ -1000,25 +1035,30 @@ func _handle_right_click(screen_pos: Vector2) -> void:
 	# Check for enemy target → attack
 	var tapped_node: Node2D = _get_node_at(world_pos, false)
 	if tapped_node != null and tapped_node.is_in_group("sacred_sites"):
+		_record_touch_input(screen_pos, world_pos, "move", tapped_node, null, _world_to_tile(tapped_node.global_position))
 		move_command.emit(_world_to_tile(tapped_node.global_position))
 		return
 	if tapped_node != null and _is_enemy(tapped_node):
+		_record_touch_input(screen_pos, world_pos, "attack", tapped_node, null)
 		attack_command.emit(tapped_node)
 		return
 
 	# Check for construction site + villagers → build command
 	if tapped_node != null and _has_selected_villagers() and _is_under_construction(tapped_node):
+		_record_touch_input(screen_pos, world_pos, "build", tapped_node, null)
 		build_command.emit(tapped_node)
 		return
 
 	# Check for resource node → gather command
 	var resource_node: Node2D = _get_resource_at(world_pos, false)
 	if resource_node != null:
+		_record_touch_input(screen_pos, world_pos, "gather", tapped_node, resource_node)
 		gather_command.emit(resource_node)
 		return
 
 	# Empty ground → move command
 	var tile_pos := _world_to_tile(world_pos)
+	_record_touch_input(screen_pos, world_pos, "move", tapped_node, resource_node, tile_pos)
 	move_command.emit(tile_pos)
 
 
@@ -1144,6 +1184,16 @@ func _open_touch_context(screen_pos: Vector2) -> void:
 	var tapped_node: Node2D = _get_node_at(world_pos, true)
 	var resource_node: Node2D = _get_resource_at(world_pos, true)
 	var actions := _build_touch_context_actions(tapped_node, resource_node)
+	var action_labels: Array[String] = []
+	for action: Dictionary in actions:
+		action_labels.append(String(action.get("label", "")))
+	_playtest_record("selection_context_open", {
+		"screen": [screen_pos.x, screen_pos.y],
+		"world": [world_pos.x, world_pos.y],
+		"actions": action_labels,
+		"presentation": "automatic_single_action" if actions.size() <= 1 else "menu",
+		"selected_count": selected.size(),
+	})
 	if actions.size() <= 1:
 		_refresh_touch_context_diagnostics(actions, false, screen_pos)
 		if actions.size() == 1:
@@ -1266,6 +1316,13 @@ func _execute_touch_context_action(action_id: int) -> void:
 		_last_touch_context_action_id = action_id
 		_last_touch_context_timestamp_ms = Time.get_ticks_msec()
 		_touch_context_execution_count += 1
+	_playtest_record("selection_context_action", {
+		"action_id": action_id,
+		"action": executed_action,
+		"outcome": "emitted" if not executed_action.is_empty() else "no_longer_actionable",
+		"selected_count": selected.size(),
+		"world": [_context_world_pos.x, _context_world_pos.y],
+	})
 	get_viewport().set_input_as_handled()
 	_refresh_touch_context_diagnostics()
 
@@ -1281,6 +1338,7 @@ func _set_touch_context_closed() -> void:
 	if not _touch_context_open:
 		return
 	_touch_context_open = false
+	_playtest_record("selection_context_close")
 	touch_context_closed.emit()
 
 
@@ -1328,6 +1386,21 @@ func _record_touch_input(
 	resource_node: Node2D,
 	target_tile: Vector2i = Vector2i.ZERO,
 ) -> void:
+	if action != "pending" and _playtest_store() != null:
+		_playtest_record("selection_tap_result", {
+			"action": action,
+			"pointer_source": _playtest_pointer_source,
+			"screen": [screen_pos.x, screen_pos.y],
+			"world": [world_pos.x, world_pos.y],
+			"selected_count": selected.size(),
+			"command_armed": unit_command_armed,
+			"target": _playtest_target_summary(tapped_node, screen_pos),
+			"resource": _playtest_target_summary(resource_node, screen_pos),
+			"empty_hit": tapped_node == null and resource_node == null,
+			"nearest_visible": _playtest_nearest_visible_target(screen_pos),
+			"camera_zoom": _get_camera_zoom_scalar(),
+			"target_tile": [target_tile.x, target_tile.y],
+		})
 	if OS.has_feature("production"):
 		return
 	var tapped_node_distance: float = -1.0
@@ -1422,6 +1495,286 @@ func _get_camera_zoom_scalar() -> float:
 		if camera_node is Camera2D:
 			return maxf(0.25, (camera_node as Camera2D).zoom.x)
 	return 1.0
+
+
+## The optional recorder also works in production. Keep all history outside
+## the recognizer so a missing/disabled recorder cannot affect input behavior.
+func _playtest_store() -> Node:
+	if not is_inside_tree():
+		return null
+	var recorder: Node = get_node_or_null("/root/PlaytestDiagnostics")
+	return recorder if recorder != null and recorder.has_method("record_event") else null
+
+
+func _playtest_record(kind: String, fields: Dictionary = {}) -> void:
+	var recorder: Node = _playtest_store()
+	if recorder != null:
+		recorder.call("record_event", kind, fields)
+
+
+func _playtest_observe_input(event: InputEvent) -> void:
+	if _playtest_store() == null:
+		return
+	if event is InputEventScreenTouch:
+		var touch := event as InputEventScreenTouch
+		var now: int = Time.get_ticks_msec()
+		if touch.pressed:
+			if _playtest_contacts.has(touch.index):
+				var previous: Dictionary = _playtest_contacts[touch.index]
+				if not bool(previous.get("released", false)):
+					_playtest_classify_contact(touch.index, "cancel", "contact_identity_reused")
+				_playtest_finish_contact(touch.index, int(previous.get("token", 0)))
+			if _playtest_contacts.size() >= PLAYTEST_MAX_CONTACTS:
+				var oldest_index: int = int(_playtest_contacts.keys()[0])
+				var oldest: Dictionary = _playtest_contacts[oldest_index]
+				_playtest_classify_contact(oldest_index, "cancel", "diagnostic_contact_limit")
+				_playtest_finish_contact(oldest_index, int(oldest.get("token", 0)))
+			_playtest_contact_sequence += 1
+			var world: Vector2 = _screen_to_world(touch.position)
+			var hovered: Control = get_viewport().gui_get_hovered_control()
+			var fields: Dictionary = {
+				"finger_id": touch.index,
+				"token": _playtest_contact_sequence,
+				"started_ms": now,
+				"screen_start": [touch.position.x, touch.position.y],
+				"screen_last": [touch.position.x, touch.position.y],
+				"world_start": [world.x, world.y],
+				"max_distance_px": 0.0,
+				"last_motion_ms": now,
+				"admitted": false,
+				"released": false,
+				"classification": "unrouted",
+				"reason": "",
+				"camera_zoom": _get_camera_zoom_scalar(),
+				"selected_count_at_press": selected.size(),
+				"hovered_gui_control": String(hovered.name) if hovered != null else "",
+			}
+			_playtest_contacts[touch.index] = fields
+			_playtest_record("selection_contact_start", {
+				"finger_id": touch.index,
+				"contact_sequence": _playtest_contact_sequence,
+				"screen": fields["screen_start"],
+				"world": fields["world_start"],
+				"camera_zoom": fields["camera_zoom"],
+				"selected_count": selected.size(),
+				"tap_slop_px": touch_tap_slop_px,
+				"pan_threshold_px": touch_pan_threshold,
+				"hold_threshold_ms": int(round(long_press_threshold * 1000.0)),
+				"hovered_gui_control": fields["hovered_gui_control"],
+			})
+			call_deferred("_playtest_finish_press_route", touch.index, _playtest_contact_sequence)
+		elif _playtest_contacts.has(touch.index):
+			_playtest_update_contact_position(touch.index, touch.position)
+			var fields: Dictionary = _playtest_contacts[touch.index]
+			fields["released"] = true
+			fields["released_ms"] = now
+			fields["os_canceled"] = touch.canceled
+			call_deferred("_playtest_finish_contact", touch.index, int(fields.get("token", 0)))
+	elif event is InputEventScreenDrag:
+		var drag := event as InputEventScreenDrag
+		_playtest_update_contact_position(drag.index, drag.position)
+
+
+func _playtest_update_contact_position(index: int, position: Vector2) -> void:
+	if not _playtest_contacts.has(index):
+		return
+	var contact: Dictionary = _playtest_contacts[index]
+	var start: Array = contact.get("screen_start", [position.x, position.y])
+	var displacement: float = Vector2(float(start[0]), float(start[1])).distance_to(position)
+	contact["max_distance_px"] = maxf(float(contact.get("max_distance_px", 0.0)), displacement)
+	contact["screen_last"] = [position.x, position.y]
+	var now: int = Time.get_ticks_msec()
+	if now - int(contact.get("last_motion_ms", now)) >= PLAYTEST_MOTION_SAMPLE_MS:
+		contact["last_motion_ms"] = now
+		_playtest_record("selection_contact_motion", {
+			"finger_id": index,
+			"contact_sequence": int(contact.get("token", 0)),
+			"screen": contact["screen_last"],
+			"max_distance_px": contact["max_distance_px"],
+			"world_admitted": bool(contact.get("admitted", false)),
+			"classification": String(contact.get("classification", "unrouted")),
+		})
+
+
+func _playtest_admit_contact(index: int) -> void:
+	if not _playtest_contacts.has(index):
+		return
+	var contact: Dictionary = _playtest_contacts[index]
+	contact["admitted"] = true
+	contact["classification"] = "pending"
+	contact["reason"] = "unhandled_world_press"
+	for active_index: int in _playtest_contacts:
+		var active: Dictionary = _playtest_contacts[active_index]
+		if bool(active.get("admitted", false)) and not bool(active.get("released", false)):
+			active["peak_world_contacts"] = maxi(int(active.get("peak_world_contacts", 1)), _active_touch_indices.size() + 1)
+	_playtest_record("selection_contact_route", {
+		"finger_id": index,
+		"contact_sequence": int(contact.get("token", 0)),
+		"route": "world",
+		"reason": "unhandled_world_press",
+		"other_world_contacts": _active_touch_indices.size(),
+		"command_armed": unit_command_armed,
+		"area_selection_armed": touch_area_selection_armed,
+	})
+
+
+func _playtest_finish_press_route(index: int, token: int) -> void:
+	if not _playtest_contacts.has(index):
+		return
+	var contact: Dictionary = _playtest_contacts[index]
+	if int(contact.get("token", 0)) != token or bool(contact.get("admitted", false)):
+		return
+	contact["classification"] = "gui_or_modal"
+	contact["reason"] = "press_consumed_before_world"
+	_playtest_record("selection_contact_route", {
+		"finger_id": index,
+		"contact_sequence": token,
+		"route": "gui_or_modal",
+		"reason": "press_consumed_before_world",
+		"hovered_gui_control": String(contact.get("hovered_gui_control", "")),
+	})
+
+
+func _playtest_classify_contact(index: int, classification: String, reason: String) -> void:
+	if not _playtest_contacts.has(index):
+		return
+	var contact: Dictionary = _playtest_contacts[index]
+	# The release of a deliberately canceled world finger remains a cancellation
+	# even though the recognizer correctly rejects its now-unowned contact.
+	if String(contact.get("classification", "")) != "cancel" or classification == "cancel":
+		contact["classification"] = classification
+		contact["reason"] = reason
+	contact["world_release_seen"] = bool(contact.get("released", false))
+
+
+func _playtest_classify_contacts(classification: String, reason: String) -> void:
+	for index: int in _active_touch_indices:
+		_playtest_classify_contact(index, classification, reason)
+
+
+func _playtest_cancel_contacts(reason: String) -> void:
+	for index: int in _playtest_contacts:
+		var contact: Dictionary = _playtest_contacts[index]
+		if bool(contact.get("released", false)) or not bool(contact.get("admitted", false)):
+			continue
+		if String(contact.get("classification", "")) == "cancel":
+			continue
+		_playtest_classify_contact(index, "cancel", reason)
+		_playtest_record("selection_gesture_cancel", {
+			"finger_id": index,
+			"contact_sequence": int(contact.get("token", 0)),
+			"reason": reason,
+			"duration_ms": Time.get_ticks_msec() - int(contact.get("started_ms", Time.get_ticks_msec())),
+		})
+
+
+func _playtest_note_suppressed_drag(index: int, reason: String) -> void:
+	if not _playtest_contacts.has(index):
+		return
+	var contact: Dictionary = _playtest_contacts[index]
+	if String(contact.get("suppressed_reason", "")) == reason:
+		return
+	contact["suppressed_reason"] = reason
+	_playtest_record("selection_drag_suppressed", {"finger_id": index, "reason": reason})
+
+
+func _playtest_finish_contact(index: int, token: int) -> void:
+	if not _playtest_contacts.has(index):
+		return
+	var contact: Dictionary = _playtest_contacts[index]
+	if int(contact.get("token", 0)) != token:
+		return
+	var classification: String = String(contact.get("classification", "unrouted"))
+	var reason: String = String(contact.get("reason", ""))
+	if bool(contact.get("os_canceled", false)):
+		classification = "cancel"
+		reason = "os_canceled"
+	elif bool(contact.get("admitted", false)) and not bool(contact.get("world_release_seen", false)) and classification != "cancel":
+		classification = "suppressed"
+		reason = "release_consumed_before_world"
+	elif not bool(contact.get("admitted", false)) and classification == "unrouted":
+		classification = "gui_or_modal"
+		reason = "press_consumed_before_world"
+	if int(contact.get("peak_world_contacts", 1)) > 1 and classification == "pan":
+		classification = "pinch"
+	_playtest_record("selection_contact_end", {
+		"finger_id": index,
+		"contact_sequence": token,
+		"screen_start": contact.get("screen_start", []),
+		"screen_end": contact.get("screen_last", []),
+		"world_start": contact.get("world_start", []),
+		"duration_ms": int(contact.get("released_ms", Time.get_ticks_msec())) - int(contact.get("started_ms", Time.get_ticks_msec())),
+		"max_distance_px": float(contact.get("max_distance_px", 0.0)),
+		"classification": classification,
+		"reason": reason,
+		"world_admitted": bool(contact.get("admitted", false)),
+		"peak_world_contacts": int(contact.get("peak_world_contacts", 0)),
+		"tap_slop_px": touch_tap_slop_px,
+		"pan_threshold_px": touch_pan_threshold,
+		"hold_threshold_ms": int(round(long_press_threshold * 1000.0)),
+		"selected_count": selected.size(),
+	})
+	_playtest_contacts.erase(index)
+
+
+func _playtest_target_summary(entry: Variant, screen_pos: Vector2) -> Dictionary:
+	if not _is_current_selection_entry(entry):
+		return {}
+	var node: Node2D = entry as Node2D
+	if not _is_visible_to_local_player(node):
+		return {}
+	var center: Vector2 = _world_to_screen(node.global_position)
+	var world_pos: Vector2 = _screen_to_world(screen_pos)
+	var summary: Dictionary = {
+		"screen_center": [center.x, center.y],
+		"distance_px": center.distance_to(screen_pos),
+		"distance_world": node.global_position.distance_to(world_pos),
+		"kind": "objective",
+	}
+	if node.is_in_group("units"):
+		summary["kind"] = "unit"
+		summary["hit_radius_px"] = touch_unit_hit_radius_px
+		summary["hit_radius_world"] = _screen_px_to_world_radius(touch_unit_hit_radius_px)
+		summary["reselect_radius_px"] = touch_unit_reselect_radius_px
+		summary["body_hit"] = _is_touch_on_unit_body(node, world_pos)
+		if node is UnitBase:
+			summary["type_id"] = (node as UnitBase).unit_type
+			summary["owner"] = (node as UnitBase).player_owner
+	elif node.is_in_group("buildings"):
+		summary["kind"] = "building"
+		summary["hit_radius_px"] = touch_building_hit_radius_px
+		summary["hit_radius_world"] = _screen_px_to_world_radius(touch_building_hit_radius_px)
+		summary["reselect_radius_px"] = touch_building_reselect_radius_px
+		summary["facade_hit"] = _is_touch_on_building_facade(node, world_pos)
+		if node is BuildingBase:
+			summary["type_id"] = (node as BuildingBase).building_type
+			summary["owner"] = (node as BuildingBase).player_owner
+	elif node.is_in_group("resources"):
+		summary["kind"] = "resource"
+		summary["hit_radius_px"] = touch_resource_hit_radius_px
+		summary["hit_radius_world"] = _screen_px_to_world_radius(touch_resource_hit_radius_px)
+		if node is ResourceNode:
+			summary["resource_type"] = (node as ResourceNode).resource_type
+	return summary
+
+
+func _playtest_nearest_visible_target(screen_pos: Vector2) -> Dictionary:
+	var best: Node2D = null
+	var best_distance: float = INF
+	for group: String in ["units", "buildings", "resources"]:
+		for entry: Node in get_tree().get_nodes_in_group(group):
+			if not _is_current_selection_entry(entry):
+				continue
+			var node: Node2D = entry as Node2D
+			if not _is_visible_to_local_player(node) or not _is_on_screen(node):
+				continue
+			if group == "resources" and not _is_resource_target_valid_for_local_player(node):
+				continue
+			var distance: float = _world_to_screen(node.global_position).distance_to(screen_pos)
+			if distance < best_distance:
+				best = node
+				best_distance = distance
+	return _playtest_target_summary(best, screen_pos)
 
 
 ## --- Draw drag-box ---

@@ -31,6 +31,7 @@ signal resume_requested()
 signal quit_to_menu_requested()
 signal guidance_dismissed()
 signal match_learning_requested()
+signal problem_report_requested()
 signal world_context_close_requested()
 signal secondary_surface_changed(surface: String)
 
@@ -787,10 +788,17 @@ func _create_pause_overlay() -> void:
 	pause_help.add_theme_color_override("font_color", Color(0.92, 0.88, 0.74))
 	vbox.add_child(pause_help)
 
+	# Keep reporting reachable without adding another vertical phone menu row.
+	var utility_row := HBoxContainer.new()
+	utility_row.name = "UtilityRow"
+	utility_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	utility_row.add_theme_constant_override("separation", 8)
+	vbox.add_child(utility_row)
 	var sound_btn := Button.new()
 	sound_btn.name = "SoundToggleButton"
 	sound_btn.text = "Sound: ON" if AudioManager.sfx_enabled else "Sound: OFF"
-	sound_btn.custom_minimum_size = Vector2(192, 48)
+	sound_btn.custom_minimum_size = Vector2(128, 48)
+	sound_btn.add_theme_font_size_override("font_size", 15)
 	sound_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	sound_btn.process_mode = Node.PROCESS_MODE_ALWAYS
 	sound_btn.pressed.connect(func() -> void:
@@ -799,7 +807,15 @@ func _create_pause_overlay() -> void:
 		sound_btn.text = "Sound: ON" if enabled else "Sound: OFF"
 		AudioManager.play_ui("button_click")
 	)
-	vbox.add_child(sound_btn)
+	utility_row.add_child(sound_btn)
+	var report_btn := Button.new()
+	report_btn.name = "ReportProblemButton"
+	report_btn.text = "Report problem"
+	report_btn.custom_minimum_size = Vector2(160, 48)
+	report_btn.add_theme_font_size_override("font_size", 15)
+	report_btn.process_mode = Node.PROCESS_MODE_ALWAYS
+	report_btn.pressed.connect(func() -> void: problem_report_requested.emit())
+	utility_row.add_child(report_btn)
 	_match_learning_button = Button.new()
 	_match_learning_button.name = "MatchLearningButton"
 	_match_learning_button.text = "Battle lessons: ON" if _match_learning_active else "Learn full match"

@@ -121,6 +121,8 @@ func get_choice_rects() -> Array[Dictionary]:
 
 
 func cancel_gesture(_reason: String = "external") -> void:
+	if _contact != NO_CONTACT and not _canceled:
+		_playtest_event("gui_contact_cancel", {"reason": _reason})
 	_scrolling = false
 	if _contact == NO_CONTACT:
 		_hide_surface()
@@ -368,6 +370,7 @@ func _begin_contact(contact: int, position: Vector2, provisional: bool = false) 
 	_scroll_parent = _find_scroll_parent()
 	_scroll_origin = Vector2(_scroll_parent.scroll_horizontal, _scroll_parent.scroll_vertical) if is_instance_valid(_scroll_parent) else Vector2.ZERO
 	_scrolling = false
+	_playtest_event("gui_contact_begin", {"provisional_mouse": provisional})
 	_show_progress()
 
 
@@ -389,6 +392,7 @@ func _handle_motion(position: Vector2) -> void:
 		cancel_gesture("movement")
 		if can_scroll:
 			_scrolling = true
+			_playtest_event("gui_scroll_begin", {"scroll_origin": [_scroll_origin.x, _scroll_origin.y]})
 			_scroll_from_origin(position)
 
 
@@ -432,6 +436,10 @@ func _release_contact(position: Vector2, touch: bool) -> void:
 		if _choice_index >= 0 and bool(_choices[_choice_index].get("enabled", true)):
 			action = _choices[_choice_index].get("id")
 	var short_tap: bool = not _consumed and not _canceled and _target_visible() and _button.get_global_rect().has_point(position) and not _button.disabled
+	_playtest_event("gui_contact_release", {
+		"outcome": "scroll" if _scrolling else ("choice" if action != null else ("tap" if short_tap else ("canceled" if _canceled else "inspect"))),
+		"choice": action,
+	})
 	_native_release_allowed = short_tap
 	_awaiting_native_release = touch and _native_mouse_seen and not _native_mouse_released
 	_scrolling = false
@@ -456,6 +464,7 @@ func _release_contact(position: Vector2, touch: bool) -> void:
 func _activate_hold() -> void:
 	if _canceled or _consumed or not _context_valid():
 		return
+	_playtest_event("gui_hold_activated")
 	_consumed = true
 	_reset_native_button()
 	_hide_progress()
@@ -553,6 +562,26 @@ func _to_logical(position: Vector2) -> Vector2:
 	# Viewport transforms OS/parse_input_event positions before Node._input.
 	# The incoming position is already in viewport logical coordinates.
 	return position
+
+
+func _playtest_event(kind: String, extra: Dictionary = {}) -> void:
+	if not is_inside_tree():
+		return
+	var recorder: Node = get_node_or_null("/root/PlaytestDiagnostics")
+	if recorder == null:
+		return
+	var fields: Dictionary = {
+		"control": str(_button.name) if is_instance_valid(_button) else "detached",
+		"contact_id": _contact,
+		"position": [_current_position.x, _current_position.y],
+		"start": [_press_position.x, _press_position.y],
+		"duration_ms": maxi(0, Time.get_ticks_msec() - _started_msec),
+		"maximum_movement": _max_displacement,
+		"move_tolerance": move_tolerance,
+		"hold_msec": hold_msec,
+	}
+	fields.merge(extra)
+	recorder.call("record_event", kind, fields)
 
 
 func _get_safe_rect() -> Rect2:

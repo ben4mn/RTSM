@@ -58,6 +58,12 @@ var _camera_world_bounds: Rect2 = Rect2()
 var _mobile_profile_active: bool = false
 var _user_zoom_override: bool = false
 var _camera_interaction_revision: int = 0
+## Recording state never participates in camera/contact ownership.
+var _playtest_camera_contacts: Dictionary = {}
+var _playtest_last_zoom_sample_ms: int = -200
+var _playtest_last_unknown_drag_ms: int = -200
+var _playtest_continuous_pan: Dictionary = {}
+const PLAYTEST_CAMERA_SAMPLE_MS: int = 200
 
 
 ## Preloaded scenes.
@@ -240,6 +246,7 @@ func _update_camera_pan(delta: float) -> void:
 	if camera == null:
 		return
 	var pan := Vector2.ZERO
+	var camera_before: Vector2 = camera.position
 	if Input.is_action_pressed("camera_up"):
 		pan.y -= 1.0
 	if Input.is_action_pressed("camera_down"):
@@ -250,6 +257,7 @@ func _update_camera_pan(delta: float) -> void:
 		pan.x += 1.0
 	if pan != Vector2.ZERO:
 		note_camera_interaction()
+	var pan_source: String = "keyboard" if pan != Vector2.ZERO else "edge"
 
 	# Edge scrolling should only run on pointer-based desktop controls.
 	if not DisplayServer.is_touchscreen_available() and not _touch_input_detected:
@@ -271,6 +279,7 @@ func _update_camera_pan(delta: float) -> void:
 			camera_speed_scale = clampf(float(game_manager.get("camera_speed_scale")), 0.75, 1.25)
 		camera.position += pan.normalized() * CAMERA_PAN_SPEED * camera_speed_scale * delta / camera.zoom.x
 		_clamp_camera()
+	_playtest_record_continuous_pan(pan, pan_source, camera_before)
 
 
 func _clamp_camera() -> void:
@@ -307,12 +316,16 @@ func _input(event: InputEvent) -> void:
 	# unhandled input. Clean up without consuming the event or leaving a stale
 	# second finger that would turn later drags into unexpected pinch gestures.
 	if event is InputEventScreenTouch and not (event as InputEventScreenTouch).pressed:
-		_release_camera_touch((event as InputEventScreenTouch).index)
+		var touch := event as InputEventScreenTouch
+		_playtest_finish_camera_contact(touch.index, touch.position, "os_canceled" if touch.canceled else "released")
+		_release_camera_touch(touch.index)
 
 
 func _release_camera_touch(index: int) -> void:
 	if not _touch_points.has(index):
 		return
+	if _touch_points.size() == 2:
+		_playtest_camera_record("camera_pinch_end", {"released_finger_id": index, "zoom": camera.zoom.x})
 	_touch_points.erase(index)
 	_touch_start_points.erase(index)
 	_touch_pan_active.erase(index)
@@ -327,6 +340,16 @@ func _release_camera_touch(index: int) -> void:
 ## A modal menu may receive the release of contacts that started in the world.
 ## Forget the old gesture so resuming cannot adopt those fingers or jump view.
 func cancel_camera_touch_gesture() -> void:
+	if not _touch_points.is_empty() or _camera_drag_active:
+		_playtest_camera_record("camera_gesture_cancel", {
+			"reason": "modal_or_context_change",
+			"world_contact_count": _touch_points.size(),
+			"mouse_drag_active": _camera_drag_active,
+		})
+	for index: int in _playtest_camera_contacts.keys():
+		var contact: Dictionary = _playtest_camera_contacts[index]
+		var last: Array = contact.get("screen_last", [0.0, 0.0])
+		_playtest_finish_camera_contact(index, Vector2(float(last[0]), float(last[1])), "modal_or_context_change")
 	_touch_points.clear()
 	_touch_start_points.clear()
 	_touch_pan_active.clear()
@@ -339,17 +362,25 @@ func _unhandled_input(event: InputEvent) -> void:
 	# SelectionManager draws the rectangle; camera pan must not move its units.
 	if selection_mgr != null and selection_mgr.touch_area_selection_armed \
 			and (event is InputEventScreenTouch or event is InputEventScreenDrag):
+		if event is InputEventScreenTouch and (event as InputEventScreenTouch).pressed:
+			_playtest_camera_record("camera_contact_suppressed", {"finger_id": (event as InputEventScreenTouch).index, "reason": "explicit_area_selection"})
 		return
 	# --- Multi-touch pinch zoom (mobile) ---
 	if event is InputEventScreenTouch:
 		_touch_input_detected = true
 		var touch := event as InputEventScreenTouch
 		if touch.pressed:
+			_playtest_start_camera_contact(touch.index, touch.position)
 			note_camera_interaction()
 			_touch_points[touch.index] = touch.position
 			_touch_start_points[touch.index] = touch.position
 			_touch_pan_active[touch.index] = false
+			if _touch_points.size() == 2:
+				_playtest_camera_record("camera_pinch_begin", {"finger_ids": _touch_points.keys(), "zoom": camera.zoom.x})
+				for index: int in _playtest_camera_contacts:
+					(_playtest_camera_contacts[index] as Dictionary)["mode"] = "pinch"
 		else:
+			_playtest_finish_camera_contact(touch.index, touch.position, "os_canceled" if touch.canceled else "released")
 			_release_camera_touch(touch.index)
 
 	elif event is InputEventScreenDrag:
@@ -357,7 +388,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		var drag := event as InputEventScreenDrag
 		if not _touch_points.has(drag.index):
 			# A finger that started on GUI belongs to GUI until it lifts.
+			_playtest_unknown_camera_drag(drag.index, "gui_or_unknown_contact")
 			return
+		_playtest_update_camera_contact(drag.index, drag.position)
 		var old_pos: Vector2 = _touch_points.get(drag.index, drag.position)
 		_touch_points[drag.index] = drag.position
 
@@ -367,6 +400,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			# Keep the first two world fingers in control if a third contact is
 			# added. An extra finger must neither freeze nor shift their gesture.
 			if drag.index != int(keys[0]) and drag.index != int(keys[1]):
+				_playtest_unknown_camera_drag(drag.index, "extra_pinch_contact")
 				return
 			var p0_new: Vector2 = _touch_points[keys[0]]
 			var p1_new: Vector2 = _touch_points[keys[1]]
@@ -388,11 +422,28 @@ func _unhandled_input(event: InputEvent) -> void:
 			var moved_distance: float = start_pos.distance_to(drag.position)
 			var pan_active: bool = _touch_pan_active.get(drag.index, false)
 			if not pan_active and moved_distance >= TOUCH_PAN_DEADZONE:
+				_playtest_camera_record("camera_pan_begin", {
+					"finger_id": drag.index,
+					"screen_start": [start_pos.x, start_pos.y],
+					"screen": [drag.position.x, drag.position.y],
+					"distance_px": moved_distance,
+					"deadzone_px": TOUCH_PAN_DEADZONE,
+					"zoom": camera.zoom.x,
+				})
+				if _playtest_camera_contacts.has(drag.index):
+					(_playtest_camera_contacts[drag.index] as Dictionary)["mode"] = "pan"
 				pan_active = true
 				_touch_pan_active[drag.index] = true
 			if pan_active:
+				var before: Vector2 = camera.position
 				camera.position -= drag.relative / camera.zoom
 				_clamp_camera()
+				_playtest_camera_motion_sample(drag.index, "camera_pan_sample", {
+					"screen": [drag.position.x, drag.position.y],
+					"relative_px": [drag.relative.x, drag.relative.y],
+					"camera_delta": [camera.position.x - before.x, camera.position.y - before.y],
+					"clamped": not camera.position.is_equal_approx(before - drag.relative / camera.zoom),
+				})
 
 	elif event is InputEventMagnifyGesture:
 		var magnify := event as InputEventMagnifyGesture
@@ -410,6 +461,11 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 		# Middle-mouse drag for pan.
 		elif mb.button_index == MOUSE_BUTTON_MIDDLE:
+			_playtest_camera_record("camera_mouse_pan_begin" if mb.pressed else "camera_mouse_pan_end", {
+				"screen": [mb.position.x, mb.position.y],
+				"camera": [camera.position.x, camera.position.y],
+				"zoom": camera.zoom.x,
+			})
 			if mb.pressed:
 				note_camera_interaction()
 			_camera_drag_active = mb.pressed
@@ -433,6 +489,8 @@ func _set_zoom_anchored(level: float, previous_anchor: Vector2, next_anchor: Vec
 	if camera == null or not is_finite(level):
 		return
 	var viewport_center: Vector2 = get_viewport().get_visible_rect().size * 0.5
+	var previous_zoom: float = camera.zoom.x
+	var previous_position: Vector2 = camera.position
 	var before: Vector2 = viewport_center if previous_anchor == NO_ZOOM_ANCHOR else previous_anchor
 	var after: Vector2 = viewport_center if next_anchor == NO_ZOOM_ANCHOR else next_anchor
 	# Read the rendered view rather than the camera's smoothing target. This
@@ -449,6 +507,19 @@ func _set_zoom_anchored(level: float, previous_anchor: Vector2, next_anchor: Vec
 	camera.reset_smoothing()
 	camera.force_update_scroll()
 	zoom_changed.emit(camera.zoom.x, _camera_zoom_min, _camera_zoom_max)
+	if from_user and Time.get_ticks_msec() - _playtest_last_zoom_sample_ms >= PLAYTEST_CAMERA_SAMPLE_MS:
+		_playtest_last_zoom_sample_ms = Time.get_ticks_msec()
+		_playtest_camera_record("camera_zoom", {
+			"mode": "pinch" if _touch_points.size() >= 2 else "wheel_or_control",
+			"previous_zoom": previous_zoom,
+			"requested_zoom": level,
+			"zoom": camera.zoom.x,
+			"minimum": _camera_zoom_min,
+			"maximum": _camera_zoom_max,
+			"anchor_before": [before.x, before.y],
+			"anchor_after": [after.x, after.y],
+			"camera_delta": [camera.position.x - previous_position.x, camera.position.y - previous_position.y],
+		})
 
 
 func _get_default_zoom() -> float:
@@ -498,6 +569,130 @@ func get_zoom_state() -> Dictionary:
 		"default": default_zoom,
 		"ratio": current_zoom / maxf(0.001, default_zoom),
 	}
+
+
+func _playtest_camera_store() -> Node:
+	if not is_inside_tree():
+		return null
+	var recorder: Node = get_node_or_null("/root/PlaytestDiagnostics")
+	return recorder if recorder != null and recorder.has_method("record_event") else null
+
+
+func _playtest_camera_record(kind: String, fields: Dictionary = {}) -> void:
+	var recorder: Node = _playtest_camera_store()
+	if recorder != null:
+		recorder.call("record_event", kind, fields)
+
+
+func _playtest_start_camera_contact(index: int, position: Vector2) -> void:
+	if _playtest_camera_store() == null or camera == null:
+		return
+	if _playtest_camera_contacts.has(index):
+		_playtest_finish_camera_contact(index, position, "contact_identity_reused")
+	var now: int = Time.get_ticks_msec()
+	_playtest_camera_contacts[index] = {
+		"started_ms": now,
+		"last_sample_ms": now,
+		"screen_start": [position.x, position.y],
+		"screen_last": [position.x, position.y],
+		"camera_start": [camera.position.x, camera.position.y],
+		"zoom_start": camera.zoom.x,
+		"max_distance_px": 0.0,
+		"mode": "pending",
+	}
+	_playtest_camera_record("camera_contact_start", {
+		"finger_id": index,
+		"screen": [position.x, position.y],
+		"camera": [camera.position.x, camera.position.y],
+		"zoom": camera.zoom.x,
+		"other_world_contacts": _touch_points.size(),
+		"deadzone_px": TOUCH_PAN_DEADZONE,
+	})
+
+
+func _playtest_update_camera_contact(index: int, position: Vector2) -> void:
+	if not _playtest_camera_contacts.has(index):
+		return
+	var contact: Dictionary = _playtest_camera_contacts[index]
+	var start: Array = contact.get("screen_start", [position.x, position.y])
+	contact["screen_last"] = [position.x, position.y]
+	contact["max_distance_px"] = maxf(float(contact.get("max_distance_px", 0.0)), Vector2(float(start[0]), float(start[1])).distance_to(position))
+
+
+func _playtest_camera_motion_sample(index: int, kind: String, fields: Dictionary) -> void:
+	if not _playtest_camera_contacts.has(index):
+		return
+	var contact: Dictionary = _playtest_camera_contacts[index]
+	var now: int = Time.get_ticks_msec()
+	if now - int(contact.get("last_sample_ms", now)) < PLAYTEST_CAMERA_SAMPLE_MS:
+		return
+	contact["last_sample_ms"] = now
+	fields["finger_id"] = index
+	fields["zoom"] = camera.zoom.x
+	fields["camera"] = [camera.position.x, camera.position.y]
+	fields["max_distance_px"] = contact.get("max_distance_px", 0.0)
+	_playtest_camera_record(kind, fields)
+
+
+func _playtest_finish_camera_contact(index: int, position: Vector2, reason: String) -> void:
+	if not _playtest_camera_contacts.has(index) or camera == null:
+		return
+	_playtest_update_camera_contact(index, position)
+	var contact: Dictionary = _playtest_camera_contacts[index]
+	var start_camera: Array = contact.get("camera_start", [camera.position.x, camera.position.y])
+	var mode: String = String(contact.get("mode", "pending"))
+	_playtest_camera_record("camera_pan_end" if mode == "pan" else "camera_contact_end", {
+		"finger_id": index,
+		"mode": mode,
+		"reason": reason,
+		"screen_start": contact.get("screen_start", []),
+		"screen_end": contact.get("screen_last", []),
+		"duration_ms": Time.get_ticks_msec() - int(contact.get("started_ms", Time.get_ticks_msec())),
+		"max_distance_px": contact.get("max_distance_px", 0.0),
+		"camera_start": start_camera,
+		"camera_end": [camera.position.x, camera.position.y],
+		"camera_delta": [camera.position.x - float(start_camera[0]), camera.position.y - float(start_camera[1])],
+		"zoom_start": contact.get("zoom_start", camera.zoom.x),
+		"zoom_end": camera.zoom.x,
+		"deadzone_px": TOUCH_PAN_DEADZONE,
+	})
+	_playtest_camera_contacts.erase(index)
+
+
+func _playtest_unknown_camera_drag(index: int, reason: String) -> void:
+	var now: int = Time.get_ticks_msec()
+	if now - _playtest_last_unknown_drag_ms < PLAYTEST_CAMERA_SAMPLE_MS:
+		return
+	_playtest_last_unknown_drag_ms = now
+	_playtest_camera_record("camera_drag_suppressed", {"finger_id": index, "reason": reason})
+
+
+func _playtest_record_continuous_pan(direction: Vector2, source: String, before: Vector2) -> void:
+	if _playtest_camera_store() == null or camera == null:
+		return
+	var now: int = Time.get_ticks_msec()
+	if direction == Vector2.ZERO:
+		if not _playtest_continuous_pan.is_empty():
+			var start: Array = _playtest_continuous_pan.get("camera_start", [camera.position.x, camera.position.y])
+			_playtest_camera_record("camera_continuous_pan_end", {
+				"mode": String(_playtest_continuous_pan.get("mode", "unknown")),
+				"duration_ms": now - int(_playtest_continuous_pan.get("started_ms", now)),
+				"camera_delta": [camera.position.x - float(start[0]), camera.position.y - float(start[1])],
+				"zoom": camera.zoom.x,
+			})
+			_playtest_continuous_pan.clear()
+		return
+	if _playtest_continuous_pan.is_empty():
+		_playtest_continuous_pan = {"mode": source, "started_ms": now, "last_sample_ms": now, "camera_start": [before.x, before.y]}
+		_playtest_camera_record("camera_continuous_pan_begin", {"mode": source, "camera": [before.x, before.y], "zoom": camera.zoom.x})
+	elif now - int(_playtest_continuous_pan.get("last_sample_ms", now)) >= PLAYTEST_CAMERA_SAMPLE_MS:
+		_playtest_continuous_pan["last_sample_ms"] = now
+		_playtest_camera_record("camera_continuous_pan_sample", {
+			"mode": source,
+			"direction": [direction.x, direction.y],
+			"camera": [camera.position.x, camera.position.y],
+			"zoom": camera.zoom.x,
+		})
 
 
 ## Center the complete selected silhouettes in visible terrain. Screen-space
