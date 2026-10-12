@@ -429,6 +429,12 @@ const GODOT_THREADS_ENABLED = $GODOT_THREADS_ENABLED;
 
 	let initializing = true;
 	let statusMode = '';
+	// Godot 4.6 can leave init() pending after an inner WASM promise rejects.
+	// Keep bootstrap failures recoverable even when that rejection is unchained.
+	function onBootstrapRejection(event) {
+		if (initializing) displayFailureNotice(event.reason || 'The game could not finish loading.');
+	}
+	window.addEventListener('unhandledrejection', onBootstrapRejection);
 
 	function setStatusMode(mode) {
 		if (statusMode === mode || !initializing) {
@@ -437,6 +443,7 @@ const GODOT_THREADS_ENABLED = $GODOT_THREADS_ENABLED;
 		if (mode === 'hidden') {
 			statusOverlay.remove();
 			initializing = false;
+			window.removeEventListener('unhandledrejection', onBootstrapRejection);
 			return;
 		}
 		statusOverlay.style.visibility = 'visible';
@@ -467,6 +474,7 @@ const GODOT_THREADS_ENABLED = $GODOT_THREADS_ENABLED;
 		}
 		setStatusMode('notice');
 		initializing = false;
+		window.removeEventListener('unhandledrejection', onBootstrapRejection);
 		window.PocketLaunch.showFailure(statusNotice.textContent);
 	}
 
@@ -478,7 +486,9 @@ const GODOT_THREADS_ENABLED = $GODOT_THREADS_ENABLED;
 		displayFailureNotice('This browser is missing a feature needed to play: ' + missing.join(', ') + '. Try opening Pocket Kingdoms in a recent browser.');
 	} else {
 		setStatusMode('progress');
-		engine.startGame({
+		// Handle the initial network rejection before Godot's init wrapper can
+		// leave it detached from the startGame promise.
+		Engine.load(GODOT_CONFIG.executable, GODOT_CONFIG.fileSizes[GODOT_CONFIG.executable + '.wasm']).then(() => engine.startGame({
 			'onProgress': function (current, total) {
 				if (current > 0 && total > 0) {
 					statusProgress.value = current;
@@ -488,7 +498,7 @@ const GODOT_THREADS_ENABLED = $GODOT_THREADS_ENABLED;
 					statusProgress.removeAttribute('max');
 				}
 			},
-		}).then(() => {
+		})).then(() => {
 			setStatusMode('hidden');
 			window.PocketLaunch.engineFinishedLoading();
 			window.PocketWebShell.engineStarted();
