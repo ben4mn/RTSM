@@ -71,7 +71,7 @@ func _profile(phone: Vector2i,scale_factor: float) -> void:
     selection.select_single(villager)
     await _settle()
     _expect((hud.get("build_menu_button") as Button).is_visible_in_tree() and not (hud.get("age_up_button") as Button).is_visible_in_tree(),profile+" worker context is wrong")
-    _expect((hud.get("_villager_task_hbox") as Control).is_visible_in_tree(),profile+" worker distribution caption is hidden")
+    _expect(not (hud.get("_villager_task_hbox") as Control).is_visible_in_tree(),profile+" duplicate worker distribution expands field dock")
     selection.select_single(tc)
     await _settle()
     _expect((hud.get("age_up_button") as Button).is_visible_in_tree() and not (hud.get("build_menu_button") as Button).is_visible_in_tree(),profile+" Town Center context is wrong")

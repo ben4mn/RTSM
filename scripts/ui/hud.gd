@@ -58,9 +58,10 @@ const MOBILE_TOP_BAR_COMPACT_SHORT_SIDE := 520.0
 const MOBILE_TOP_BAR_COMPACT_WIDTH := 780.0
 const MOBILE_SELECTION_COMMAND_WIDTH := 520.0
 const MOBILE_SELECTION_HEIGHT := 72.0
+const MOBILE_UNIT_SELECTION_HEIGHT := 64.0
 const MOBILE_DOCK_CAPTION_HEIGHT := 24.0
 const MOBILE_TOP_RAIL_HEIGHT := 56.0
-const MOBILE_UNIT_COMMAND_WIDTH := 56.0
+const MOBILE_UNIT_COMMAND_WIDTH := 48.0
 const MOBILE_GUIDANCE_WIDTH := 360.0
 const MOBILE_GUIDANCE_HEIGHT := 54.0
 const PHONE_LAYOUT_KEYS: PackedStringArray = ["844x390", "932x430"]
@@ -168,6 +169,8 @@ var _last_military_count: int = 0
 var _top_bar_compact: bool = false
 var _resource_labels_abbreviated: bool = false
 var _top_bar_safe_width: float = 844.0
+var _narrow_resource_grid: GridContainer = null
+var _resource_grid_compact: bool = false
 var _selection_full_name: String = ""
 var _selection_action_text: String = ""
 var _selection_cargo_text: String = ""
@@ -721,6 +724,30 @@ func _create_resource_chips() -> void:
 		chip.add_child(token)
 		label.reparent(chip)
 		_resource_chips[keys[index]] = chip
+	_narrow_resource_grid = GridContainer.new()
+	_narrow_resource_grid.name = "CompactResourceGrid"
+	_narrow_resource_grid.columns = 2
+	_narrow_resource_grid.add_theme_constant_override("h_separation", 8)
+	_narrow_resource_grid.add_theme_constant_override("v_separation", 0)
+	_narrow_resource_grid.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_narrow_resource_grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_narrow_resource_grid.visible = false
+	top_bar_hbox.add_child(_narrow_resource_grid)
+	top_bar_hbox.move_child(_narrow_resource_grid, 0)
+
+
+func _layout_resource_chips(narrow: bool) -> void:
+	if _narrow_resource_grid == null or narrow == _resource_grid_compact:
+		return
+	_resource_grid_compact = narrow
+	var index: int = 0
+	for key: String in ["food", "wood", "gold", "population"]:
+		var chip: Control = _resource_chips[key]
+		chip.reparent(_narrow_resource_grid if narrow else top_bar_hbox)
+		if not narrow:
+			top_bar_hbox.move_child(chip, index)
+		index += 1
+	_narrow_resource_grid.visible = narrow
 
 
 func _refresh_command_icons() -> void:
@@ -743,7 +770,8 @@ func _refresh_command_icons() -> void:
 		var button: Button = entry[0]
 		if is_instance_valid(button):
 			CommandIcons.apply(button, entry[1], entry[2])
-			button.custom_minimum_size.x = 56.0 if button in [_unit_move_button, _unit_attack_move_button, build_menu_button] else 48.0
+			button.custom_minimum_size = Vector2(48.0, 48.0)
+			button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	CommandIcons.set_badge(_unit_more_button, "•" if _unit_command_mode == "patrol" else "")
 	var expanded: Array = [
 		[_camera_zoom_out_button, "zoom_out", "Zoom out", ""],
@@ -759,9 +787,13 @@ func _refresh_command_icons() -> void:
 		var button: Button = entry[0]
 		if is_instance_valid(button):
 			CommandIcons.apply(button, entry[1], entry[2], entry[3])
-			button.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
-			button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			button.add_theme_font_size_override("font_size", 10)
+			button.vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER
+			button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER if String(entry[3]).is_empty() else HORIZONTAL_ALIGNMENT_LEFT
+			button.alignment = HORIZONTAL_ALIGNMENT_CENTER if String(entry[3]).is_empty() else HORIZONTAL_ALIGNMENT_LEFT
+			button.custom_minimum_size = Vector2(48.0 if String(entry[3]).is_empty() else 80.0, 48.0)
+			button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			button.add_theme_constant_override("icon_max_width", 24 if String(entry[3]).is_empty() else 20)
+			button.add_theme_font_size_override("font_size", 11)
 	CommandIcons.set_badge(_worker_idle_button, str(_last_idle_villager_count) if _last_idle_villager_count > 0 else "")
 	if _unit_move_button:
 		_unit_move_button.tooltip_text = "Move armed: tap a destination" if _unit_command_mode == "move" else "Move: tap a destination"
@@ -1055,7 +1087,7 @@ func _create_command_dock() -> void:
 	_command_dock.name = "CommandDock"
 	_command_dock.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_command_dock.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	_command_dock.add_theme_stylebox_override("panel", KingdomTheme.panel_style(KingdomTheme.INK_PANEL, KingdomTheme.BORDER, 12))
+	_command_dock.add_theme_stylebox_override("panel", KingdomTheme.panel_style(KingdomTheme.INK_PANEL, KingdomTheme.BORDER, 8))
 	$Root.add_child(_command_dock)
 	$Root.move_child(_command_dock, 0)
 	selection_panel.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
@@ -1282,7 +1314,7 @@ func _create_unit_command_buttons() -> void:
 	_advanced_command_panel.name = "AdvancedCommandsPanel"
 	_advanced_command_panel.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	_advanced_command_panel.visible = false
-	_advanced_command_panel.add_theme_stylebox_override("panel", KingdomTheme.panel_style())
+	_advanced_command_panel.add_theme_stylebox_override("panel", KingdomTheme.panel_style(KingdomTheme.INK_PANEL, KingdomTheme.BORDER, 8))
 	$Root.add_child(_advanced_command_panel)
 	_advanced_command_container = HBoxContainer.new()
 	_advanced_command_container.add_theme_constant_override("separation", 6)
@@ -1323,6 +1355,7 @@ func _make_unit_command_button(button_name: String, label: String, tooltip: Stri
 	button.name = button_name
 	button.text = label
 	button.custom_minimum_size = Vector2(MOBILE_UNIT_COMMAND_WIDTH, MOBILE_ACTION_BUTTON_HEIGHT)
+	button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	button.add_theme_font_size_override("font_size", 14)
 	var compact_style: StyleBoxFlat = KingdomTheme.panel_style(KingdomTheme.INK_LIGHT, KingdomTheme.BORDER, 9)
 	compact_style.set_content_margin(SIDE_LEFT, 8.0)
@@ -1569,6 +1602,7 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 		update_military_count(_last_military_count)
 
 	_top_bar_safe_width = safe_area.size.x
+	_layout_resource_chips(safe_area.size.x < 650.0)
 	var abbreviated_resources: bool = safe_area.size.x < 620.0
 	if _resource_labels_abbreviated != abbreviated_resources:
 		_resource_labels_abbreviated = abbreviated_resources
@@ -1580,7 +1614,9 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 		var task_parent: Node = _command_dock
 		if _villager_task_hbox.get_parent() != task_parent:
 			_villager_task_hbox.reparent(task_parent)
-		_villager_task_hbox.visible = (_selection_kind == "unit" and _selection_is_worker and _unit_commands_authorized and not _unit_commands_have_military and not _advanced_commands_open and not _placement_mode_active and _ui_modal_state == UIModalState.NONE)
+		# Exact job counts live in Economy; a second strip makes the field dock
+		# grow into the management rail when workers are selected.
+		_villager_task_hbox.visible = false
 	var safe_top: float = metrics["safe_top"]
 	var safe_left: float = metrics["safe_left"]
 	var safe_right: float = metrics["safe_right"]
@@ -1588,7 +1624,7 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 	top_bar.offset_bottom = safe_top + top_bar.custom_minimum_size.y
 	_layout_secondary_cards()
 	if _strategy_overview:
-		_strategy_overview.apply_layout(safe_area, standard_field_chrome_visible and _ui_modal_state == UIModalState.NONE, get_hold_safe_rect())
+		_strategy_overview.apply_layout(safe_area, standard_field_chrome_visible and _ui_modal_state == UIModalState.NONE, get_hold_safe_rect(), float(metrics["selection_height"]))
 	var top_bar_margin: MarginContainer = top_bar.get_node_or_null("TopBarMargin")
 	if top_bar_margin:
 		top_bar_margin.add_theme_constant_override("margin_left", int(round(safe_left + 10.0)))
@@ -1674,7 +1710,7 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 			dock_left = viewport_size.x + metrics["bottom_right_left"]
 		var dock_right: float = maxf(metrics["selection_right"] if _selection_context_active else viewport_size.x + metrics["action_right"], viewport_size.x + metrics["bottom_right_right"] if bottom_right.visible else 0.0)
 		_command_dock.position = Vector2(dock_left - 4.0, viewport_size.y + metrics["selection_top"] - caption_height)
-		_command_dock.size = Vector2(dock_right - dock_left + 8.0, MOBILE_SELECTION_HEIGHT + caption_height)
+		_command_dock.size = Vector2(dock_right - dock_left + 8.0, float(metrics["selection_height"]) + caption_height)
 		_command_dock.visible = standard_field_chrome_visible and (_selection_context_active or action_count > 0 or bottom_right.visible)
 	if _villager_task_hbox and _villager_task_hbox.get_parent() == _command_dock:
 		_villager_task_hbox.set_anchors_preset(Control.PRESET_TOP_LEFT)
@@ -1690,15 +1726,16 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 	command_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER if _is_phone_context() else ScrollContainer.SCROLL_MODE_AUTO
 	_layout_queue_page()
 	if _advanced_command_panel:
-		var advanced_width: float = minf(218.0, metrics["selection_width"])
-		_advanced_command_panel.offset_left = metrics["selection_right"] - advanced_width - viewport_size.x * 0.5
+		var advanced_width: float = _production_row_width(_advanced_command_container) + 8.0
+		var advanced_right: float = _strategy_overview.rail.position.x - 8.0 if _strategy_overview else metrics["selection_right"]
+		_advanced_command_panel.offset_left = advanced_right - advanced_width - viewport_size.x * 0.5
 		_advanced_command_panel.offset_right = _advanced_command_panel.offset_left + advanced_width
-		_advanced_command_panel.offset_bottom = metrics["selection_top"] - (72.0 if _strategy_overview else 8.0)
-		_advanced_command_panel.offset_top = _advanced_command_panel.offset_bottom - maxf(60.0, _advanced_command_panel.get_combined_minimum_size().y)
+		_advanced_command_panel.offset_bottom = metrics["selection_top"] - 4.0
+		_advanced_command_panel.offset_top = _advanced_command_panel.offset_bottom - 56.0
 		_advanced_command_panel.visible = _advanced_commands_open and not _hold_chooser_active and _unit_command_container.visible and standard_field_chrome_visible
 		for child in _advanced_command_container.get_children():
 			if child is Button:
-				(child as Button).custom_minimum_size = Vector2(64.0, MOBILE_ACTION_BUTTON_HEIGHT)
+				(child as Button).custom_minimum_size = Vector2(80.0, MOBILE_ACTION_BUTTON_HEIGHT)
 	if _placement_status_panel:
 		var status_width: float = minf(420.0, safe_area.size.x - 16.0)
 		_placement_status_panel.offset_left = safe_pos.x + (safe_area.size.x - status_width) * 0.5 - viewport_size.x * 0.5
@@ -1819,12 +1856,16 @@ func _calculate_mobile_layout_metrics(viewport_size: Vector2, safe_area: Rect2, 
 	var bottom_inset: float = maxf(0.0, viewport_size.y - safe_end.y)
 	var short_side: float = minf(safe_area.size.x, safe_area.size.y)
 	var phone: bool = short_side <= MOBILE_TOP_BAR_COMPACT_SHORT_SIDE
-	var side_button_width: float = 104.0 if age_up_button.visible else 56.0
+	var side_button_width: float = (88.0 if safe_area.size.x < 650.0 else 104.0) if age_up_button.visible else 48.0
 	var side_count: int = int(age_up_button.visible) + int(build_menu_button.visible)
 	var side_width: float = side_button_width * float(side_count) + 6.0 * float(maxi(0, side_count - 1))
 	var bottom_right_right: float = -right_inset - MOBILE_ACTION_MARGIN
 	var bottom_right_left: float = bottom_right_right - side_width
-	var bottom_right_bottom: float = -bottom_inset - MOBILE_ACTION_MARGIN - 12.0
+	# Cargo/counter detail gets its own line. Keep the smaller dock for simple
+	# selections, but allow the same readable height as recruitment when needed.
+	var detailed_selection: bool = selection_details.text.contains("\n")
+	var dock_height: float = MOBILE_SELECTION_HEIGHT if detailed_selection or (_selection_kind == "building" and _selection_has_commands()) else MOBILE_UNIT_SELECTION_HEIGHT
+	var bottom_right_bottom: float = -bottom_inset - MOBILE_ACTION_MARGIN - (dock_height - MOBILE_ACTION_BUTTON_HEIGHT) * 0.5
 	var bottom_right_top: float = bottom_right_bottom - MOBILE_ACTION_BUTTON_HEIGHT
 	var action_columns: int = maxi(1, action_button_count)
 	var button_width: float = 104.0
@@ -1867,8 +1908,8 @@ func _calculate_mobile_layout_metrics(viewport_size: Vector2, safe_area: Rect2, 
 	var selection_right: float = selection_zone_right
 	var selection_left: float = selection_right - selection_width
 	var selection_bottom: float = -bottom_inset - MOBILE_ACTION_MARGIN
-	var selection_top: float = selection_bottom - MOBILE_SELECTION_HEIGHT
-	var selection_rect := Rect2(Vector2(selection_left, viewport_size.y + selection_top), Vector2(selection_width, MOBILE_SELECTION_HEIGHT))
+	var selection_top: float = selection_bottom - dock_height
+	var selection_rect := Rect2(Vector2(selection_left, viewport_size.y + selection_top), Vector2(selection_width, dock_height))
 	var minimap_calc := Rect2(Vector2(minimap_left, viewport_size.y + minimap_top), Vector2(minimap_size, minimap_size))
 	var action_rect := Rect2(Vector2(action_left, viewport_size.y + action_top), Vector2(action_width, MOBILE_ACTION_BUTTON_HEIGHT))
 	var side_rect := Rect2(Vector2(viewport_size.x + bottom_right_left, viewport_size.y + bottom_right_top), Vector2(side_width, MOBILE_ACTION_BUTTON_HEIGHT))
@@ -1887,7 +1928,7 @@ func _calculate_mobile_layout_metrics(viewport_size: Vector2, safe_area: Rect2, 
 		"button_width": button_width, "button_height": MOBILE_ACTION_BUTTON_HEIGHT,
 		"action_left": action_left, "action_right": action_right, "action_top": action_top, "action_bottom": action_bottom,
 		"minimap_left": minimap_left, "minimap_right": minimap_right, "minimap_top": minimap_top, "minimap_bottom": minimap_bottom,
-		"selection_width": selection_width, "selection_height": MOBILE_SELECTION_HEIGHT, "selection_info_width": info_width,
+		"selection_width": selection_width, "selection_height": dock_height, "selection_info_width": info_width,
 		"selection_left": selection_left, "selection_right": selection_right, "selection_top": selection_top, "selection_bottom": selection_bottom,
 		"side_button_width": side_button_width, "side_button_height": MOBILE_ACTION_BUTTON_HEIGHT,
 		"bottom_right_top": bottom_right_top, "bottom_right_bottom": bottom_right_bottom, "bottom_right_left": bottom_right_left, "bottom_right_right": bottom_right_right,
@@ -2311,7 +2352,13 @@ func update_population(current: int, cap: int) -> void:
 	if _top_bar_compact:
 		var gm: Node = _get_game_manager()
 		var current_age: String = gm.get_age_name(gm.get_player_age(0)) if gm else "Dark Age"
-		pop_label.text += "\n" + current_age
+		if _resource_grid_compact:
+			var age_index: int = clampi(gm.get_player_age(0) if gm else 1, 1, 4)
+			pop_label.text += " · " + ["I", "II", "III", "IV"][age_index - 1]
+		else:
+			pop_label.text += "\n" + current_age
+		pop_label.tooltip_text += " · " + current_age
+		pop_label.accessibility_name = pop_label.tooltip_text
 
 
 # --- Age display ---
@@ -2350,7 +2397,7 @@ func _update_age_display() -> void:
 		if not cost.is_empty():
 			var rm: Node = _get_resource_manager()
 			var affordable: bool = rm != null and rm.can_afford(0, cost)
-			age_up_button.text = "Age Up\n%dF · %dG" % [int(cost.get("food", 0)), int(cost.get("gold", 0))]
+			age_up_button.text = ("Age Up\n%dF·%dG" if _resource_grid_compact else "Age Up\n%dF · %dG") % [int(cost.get("food", 0)), int(cost.get("gold", 0))]
 			age_up_button.tooltip_text = _get_age_up_preview(age + 1)
 			age_up_button.disabled = not affordable or _ui_modal_state != UIModalState.NONE
 		else:

@@ -24,7 +24,7 @@ func _ready() -> void:
 	_expect(button.disabled and button.toggle_mode and button.button_pressed, "decoration changed action state")
 	_expect(button.vertical_icon_alignment == VERTICAL_ALIGNMENT_TOP, "decoration changed caller's vertical alignment")
 	_expect(button.text.is_empty() and button.accessibility_name == "Build a structure" and button.tooltip_text == button.accessibility_name, "icon-only action lost its accessible label")
-	_expect(button.icon_alignment == HORIZONTAL_ALIGNMENT_CENTER and not button.expand_icon and button.get_theme_constant("icon_max_width") == 26, "icon-only geometry changed")
+	_expect(button.icon_alignment == HORIZONTAL_ALIGNMENT_CENTER and not button.expand_icon and button.get_theme_constant("icon_max_width") == 24, "icon-only geometry changed")
 	CommandIcons.apply(button, "build", "Build a structure", "Build")
 	_expect(button.icon_alignment == HORIZONTAL_ALIGNMENT_LEFT, "caption and glyph overlap")
 	_expect(button.get_theme_color("icon_pressed_color") == button.get_theme_color("font_pressed_color"), "pressed icon contrast differs from text")

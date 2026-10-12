@@ -16,7 +16,7 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 
 config/name="Pocket Kingdoms"
 config/description="A touch-first landscape isometric strategy skirmish"
-config/version="0.1.0-beta.4"
+config/version="0.1.0-beta.5"
 run/main_scene="res://scenes/ui/main_menu.tscn"
 config/features=PackedStringArray("4.6", "Mobile")
 config/icon="res://icon.svg"
@@ -40,6 +40,10 @@ window/size/window_height_override=720
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/handheld/orientation=4
+
+[editor]
+
+import/use_multiple_threads=false
 
 [editor_plugins]
 

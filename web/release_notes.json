@@ -1,6 +1,19 @@
 {
   "releases": [
     {
+      "id": "2026-10-12-phone-proportions",
+      "version": "0.1.0-beta.5",
+      "date": "2026-10-12",
+      "title": "A better fit for your phone",
+      "summary": "Cleaner shapes, less stacked interface and comfortable controls on smaller screens.",
+      "changes": [
+        "Primary commands now use matching square buttons; extra orders open beside the management controls to leave more of the battlefield visible.",
+        "Build categories have compact tabs and consistently sized cards. Army fits its contents, while Economy adapts its worker controls to narrower screens.",
+        "Worker job counts live in Economy, removing a duplicate strip above the command dock. Names, prices, shortages and finite Farm food remain available where you make decisions.",
+        "Smaller screens automatically receive a minimum control-size adjustment. Your interface-size preference still applies on top."
+      ]
+    },
+    {
       "id": "2026-10-12-icon-controls",
       "version": "0.1.0-beta.4",
       "date": "2026-10-12",

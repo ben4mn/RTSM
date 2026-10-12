@@ -20,6 +20,9 @@ func _run() -> void:
 		for ui_scale: float in UI_SCALES:
 			for notched: bool in [false, true]:
 				await _exercise_profile(phone, ui_scale, notched)
+	# Effective logical area of the small phone at its largest preference
+	# after the screen-space target floor; distinct from a physical device.
+	await _exercise_profile(Vector2i(632, 356), 1.0, false)
 	if _failures.is_empty():
 		print("[PASS] mobile_hud_composition: %d phone/scale/notch profiles; integrated rail/dock, guidance/toast separation, contextual targets, paid production pages, placement and pause" % _profiles_checked)
 	else:
@@ -86,9 +89,7 @@ func _exercise_profile(phone: Vector2i, ui_scale: float, notched: bool) -> void:
 	hud.call("configure_unit_commands", true, false, "Aggressive", "move")
 	await _settle(hud, logical, safe)
 	var caption: Control = hud.get("_villager_task_hbox")
-	_expect(caption.visible and caption.get_parent() == dock, profile + " worker counts are detached from dock")
-	_expect(dock.get_global_rect().encloses(caption.get_global_rect()), profile + " worker counts leave backplate")
-	_expect(not caption.get_global_rect().intersects(selection.get_global_rect()), profile + " worker caption covers selected identity")
+	_expect(not caption.visible, profile + " duplicate worker counts add a third field row")
 	_expect((hud.get("_unit_move_button") as Button).button_pressed and (hud.get("_unit_move_button") as Button).icon != null and (hud.get("_unit_move_button") as Button).tooltip_text.contains("armed") and (hud.get("selection_details") as Label).text.contains("Tap to move"), profile + " Move lacks armed cue")
 	_expect(not (hud.get("age_up_button") as Button).visible and (hud.get("build_menu_button") as Button).visible, profile + " worker context is wrong")
 	_expect(not (hud.get("_mobile_action_panel") as Control).visible, profile + " worker leaves detached utility rail")
@@ -101,10 +102,23 @@ func _exercise_profile(phone: Vector2i, ui_scale: float, notched: bool) -> void:
 		for action: Button in (hud.get("_unit_command_container") as HBoxContainer).get_children():
 			_expect(initial_shelf.get_global_rect().encloses(action.get_global_rect()), profile + " " + mode + " clips " + String(action.name))
 			_target(action, safe, profile)
+			_expect(action.size.is_equal_approx(Vector2(48, 48)), profile + " primary command is not square: " + String(action.name))
+	_expect(selection.size.y <= 64.5, profile + " unit dock exceeds64")
+	# The isolated HUD starts with its legacy shortcuts. Real matches attach
+	# Strategy from main.gd; install it before testing the shared orders row.
+	hud.call("setup_strategy_overview")
 	hud.call("_on_unit_more_pressed")
 	await _settle(hud, logical, safe)
 	_target(hud.get("_worker_idle_button"), safe, profile)
 	_expect((hud.get("_worker_idle_button") as Button).get_node("CommandIconBadge").text == "2", profile + " More loses idle count")
+	var advanced: Control = hud.get("_advanced_command_panel")
+	var strategy: Control = hud.get("_strategy_overview")
+	var strategy_rail: Control = strategy.get("rail")
+	_expect(advanced.get_global_rect().end.x <= strategy_rail.get_global_rect().position.x - 7.5, profile + " expanded orders overlap management rail")
+	for action: Button in (hud.get("_advanced_command_container") as HBoxContainer).get_children():
+		if action.visible:
+			_expect(action.size.y <= 48.5, profile + " expanded order stretches vertically")
+			_expect(absf(action.get_global_rect().get_center().y - strategy_rail.get_global_rect().get_center().y) <= 0.5, profile + " expanded orders create a separate third row")
 	_assert_field(hud, safe, profile + " worker More")
 	hud.call("_on_unit_more_pressed")
 

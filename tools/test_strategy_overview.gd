@@ -9,23 +9,25 @@ func _run() -> void:
 		for interface_scale: float in [1.0, 1.075, 1.15]:
 			for notched: bool in [false, true]:
 				await _strategy_journey(phone, interface_scale, notched)
+	# Deliberate logical stress size, separate from the twelve device profiles.
+	await _strategy_journey(Vector2i(550, 338), 1.0, false, Vector2i(550, 338))
 	var folder: String = OS.get_environment("AOEM_CAPTURE_UX_DIR")
 	if not folder.is_empty():
 		DirAccess.make_dir_recursive_absolute(folder)
-		FileAccess.open(folder.path_join("strategy-overview-receipt.json"), FileAccess.WRITE).store_string(JSON.stringify({"profiles": _receipts, "failures": _failures, "scope": "Engine ScreenTouch dispatch; ordinary starting resources, paid House and Scout; controlled construction/training time; no physical device claim."}, "  "))
+		FileAccess.open(folder.path_join("strategy-overview-receipt.json"), FileAccess.WRITE).store_string(JSON.stringify({"profiles": _receipts, "failures": _failures, "scope": "Twelve device profiles plus a separate 550x338 logical geometry stress case. Engine ScreenTouch dispatch; ordinary starting resources, paid House and Scout; controlled construction/training time; no physical device claim."}, "  "))
 	for failure: String in _failures:
 		push_error("[FAIL] strategy_overview: " + failure)
 	if _failures.is_empty():
-		print("[PASS] strategy_overview: 12 phone/scale/notch profiles; 48px persistent navigation, army-preserving paid training/refund/repeat/rally, explicit worker reallocation, two saved groups, touch/wheel scrolling with owned top/bottom/header boundaries and outside dismissal with no world orders")
+		print("[PASS] strategy_overview: 12 phone/scale/notch profiles plus 550x338 logical stress; 48px persistent navigation, army-preserving paid training/refund/repeat/rally, explicit worker reallocation, two saved groups, touch/wheel scrolling with owned top/bottom/header boundaries and outside dismissal with no world orders")
 	get_tree().quit(0 if _failures.is_empty() else 1)
 
 
-func _strategy_journey(phone: Vector2i, interface_scale: float, notched: bool) -> void:
+func _strategy_journey(phone: Vector2i, interface_scale: float, notched: bool, logical_size: Vector2i = Vector2i(844, 390)) -> void:
 	_profile = "%dx%d-scale%.3f-%s" % [phone.x, phone.y, interface_scale, "notched" if notched else "ordinary"]
 	_synthetic_notch = notched
 	_hud = null
 	get_window().size = phone
-	get_window().content_scale_size = Vector2i(844, 390)
+	get_window().content_scale_size = logical_size
 	GameManager.ui_scale = interface_scale
 	get_window().content_scale_factor = interface_scale
 	GameManager.selected_map_seed = 101
@@ -77,13 +79,20 @@ func _strategy_journey(phone: Vector2i, interface_scale: float, notched: bool) -
 	for action: Button in overview.rail.get_children():
 		_expect(action.is_visible_in_tree() and action.size.x >= 48 and action.size.y >= 48 and safe.encloses(action.get_global_rect()), "persistent rail unsafe: " + str(action.name))
 		_expect(action.icon != null and action.text.is_empty() and not action.tooltip_text.is_empty() and action.accessibility_name == action.tooltip_text, "compact rail loses icon or full action name: " + str(action.name))
-		_expect(action.size.x <= 56.5 and action.size.y <= 56.5, "compact rail expands beyond 56px: " + str(action.name))
+		_expect(action.size.is_equal_approx(Vector2(48, 48)), "persistent icon must remain a true 48px square: " + str(action.name))
 		var hover_pressed: StyleBox = action.get_theme_stylebox("hover_pressed")
 		_expect(action.theme == overview.theme and hover_pressed is StyleBoxFlat and (hover_pressed as StyleBoxFlat).bg_color.is_equal_approx(KingdomTheme.AMBER), "selected hover must use the Kingdom flat style, not the Godot fallback: " + str(action.name))
 		_expect(action.get_theme_color("font_hover_pressed_color").is_equal_approx(KingdomTheme.INK) and action.get_theme_color("icon_hover_pressed_color").is_equal_approx(KingdomTheme.INK), "selected hover text and icon must contrast with its amber fill: " + str(action.name))
 		_expect(action.get_theme_stylebox("focus") is StyleBoxFlat, "strategy icon focus retains the fallback texture: " + str(action.name))
-	_expect(overview.rail.size.x <= 180.5 and overview.rail.size.y <= 56.5, "compact strategy rail retains the old text-strip bounds")
+	_expect(overview.rail.size.is_equal_approx(Vector2(156, 48)), "strategy rail must use three 48px squares with 6px gaps")
 	_expect(overview.get_visible_bounds().has(overview.rail.get_global_rect()), "compact rail omitted from camera occlusion")
+	# The rail follows both dock heights rather than keeping a producer-sized gap.
+	var held_area: Rect2 = _hud.call("get_hold_safe_rect")
+	for dock_height: float in [64.0, 72.0]:
+		overview.apply_layout(safe, true, held_area, dock_height)
+		_expect(is_equal_approx(overview.rail.get_rect().end.y, safe.end.y - dock_height - 16.0), "strategy rail ignores the current selection dock height")
+	_hud.call("_apply_mobile_layout_for_current_viewport")
+	await _frames(2)
 	await _button(_hud.get("_unit_more_button"))
 	var more: Control = _hud.get("_advanced_command_panel")
 	_expect(not more.get_global_rect().intersects(overview.rail.get_global_rect()), "More overlaps persistent strategy navigation")
@@ -120,16 +129,48 @@ func _strategy_journey(phone: Vector2i, interface_scale: float, notched: bool) -
 	_expect(safe.encloses(overview.panel.get_global_rect()), "economy sheet outside safe bounds")
 	_expect(not overview.panel.get_global_rect().intersects(overview.rail.get_global_rect()), "management sheet covers its persistent launchers")
 	_expect(overview.panel.size.x >= overview.panel.get_combined_minimum_size().x, "management content exceeds the reserved-rail sheet width")
+	_expect(overview.panel.get_global_rect().end.x <= overview.rail.get_global_rect().position.x - 7.5, "sheet minimum consumes the reserved 8px launcher gap")
+	_expect(overview.panel.size.x <= 480.5, "management sheet exceeds the compact 480px maximum")
+	var economy_height: float = overview.panel.size.y
+	var farm_button: Button = overview.get("_farm_button")
+	_expect(farm_button.text.contains("75W") and farm_button.text.contains("300 finite food"), "Farm loses its visible paid cost and finite stock")
+	_expect((overview.get("_farm_blocker") as Label).text == str(snapshot.get("farm_blocker", "")), "Farm blocker or paid-placement instruction was discarded")
 	var scroll: ScrollContainer = overview.get("_scroll")
 	await _check_wheel_ownership(overview, true)
+	var chip_width: float = ((overview.get("_source_buttons") as Dictionary)["idle"] as Button).custom_minimum_size.x
+	_expect(chip_width >= 80.0 and chip_width <= 96.0, "job grid width leaves the readable 80–96px range")
+	if logical_size.x == 550:
+		_expect(get_viewport().get_visible_rect().size.x <= 550.5 and chip_width < 96.0, "narrow stress must use the actual 550px logical viewport and adapted chips")
 	var rows: Dictionary = overview.get("_producer_rows")
 	var row: Dictionary = rows[tc.get_instance_id()]
 	var train: Button = row.train[UnitData.UnitType.VILLAGER]
+	_expect((row.repeat as Button).text.contains("Scout") and (row.repeat as Button).text.contains("OFF"), "Repeat must visibly identify the previously paid Scout and its OFF state")
 	var villager_food_cost: int = int(UnitData.get_unit_cost(UnitData.UnitType.VILLAGER).get("food", 0))
 	_expect(train.icon != null and train.text.contains("Villager") and train.text.contains("%dF" % villager_food_cost), "remote producer loses unit portrait, name or paid cost")
+	_expect(train.size.is_equal_approx(Vector2(156, 48)), "remote training card expands beyond its deliberate 156x48 rectangle")
 	for resource: String in ["idle", "food", "wood", "gold"]:
 		var source_button: Button = (overview.get("_source_buttons") as Dictionary)[resource]
 		_expect(source_button.icon != null and source_button.text.contains(resource.capitalize()), "worker source icon loses its explicit job name")
+		_expect(source_button.size.is_equal_approx(Vector2(chip_width, 48)), "source job chip breaks the equal 48px-high grid: " + resource)
+		_check_caption_fit(source_button)
+	for resource: String in ["food", "wood", "gold"]:
+		var destination: Button = (overview.get("_destination_buttons") as Dictionary)[resource]
+		_expect(destination.size.is_equal_approx(Vector2(chip_width, 48)) and destination.text.contains(resource.capitalize()), "destination job chip loses its equal grid or job name: " + resource)
+		_check_caption_fit(destination)
+	_expect((overview.get("_idle_button") as Button).size.is_equal_approx(Vector2(chip_width, 48)), "Find idle must complete the same job grid")
+	for action: Button in [row.repeat, row.undo, row.clear]:
+		_expect(action.size.y == 48.0 and action.size.x <= 120.5 and action.size.x >= 104.0, "paid producer action breaks the compact captioned proportions: " + str(action.name))
+		_expect(is_equal_approx(action.size.x, (row.repeat as Button).size.x), "producer captions force unequal button widths: " + str(action.name))
+		_check_caption_fit(action)
+	var repeat_preview := Button.new()
+	repeat_preview.theme = overview.theme
+	for unit_type: int in UnitData.UNITS:
+		StrategyOverview.apply_repeat_caption(repeat_preview, unit_type, true)
+		_check_caption_fit(row.repeat, repeat_preview.text)
+		_expect(repeat_preview.accessibility_name.contains(UnitData.get_unit_name(unit_type)) and repeat_preview.accessibility_name == repeat_preview.tooltip_text, "Repeat accessible action loses the full unit name")
+		if unit_type == UnitData.UnitType.SIEGE:
+			_expect(repeat_preview.text == "Siege\nON" and repeat_preview.accessibility_name.contains("Repeat Siege Engine: ON") and UnitData.get_unit_name(unit_type) == "Siege Engine", "Siege Repeat alias must retain its full accessible and recruitment name")
+	repeat_preview.free()
 	await _overview_button(overview, train)
 	var bank_after_train: int = ResourceManager.get_resource(0, "food")
 	_expect(queue.queue == [UnitData.UnitType.VILLAGER] and int(GameManager.players[0].population_reserved) == 1, "overview Train must pay and reserve one unit")
@@ -161,9 +202,13 @@ func _strategy_journey(phone: Vector2i, interface_scale: float, notched: bool) -
 	_expect(_hud.call("get_secondary_surface_name") == "none", "outside contact did not close economy")
 	await _button(overview.rail.get_node("ArmyButton"))
 	_expect(army_button.button_pressed and not economy_button.button_pressed, "expanded Army lacks exclusive selected state")
+	_expect(overview.panel.size.y < economy_height and overview.panel.size.y <= 260.0, "Army sheet retains the tall Economy height instead of fitting its rows")
+	_expect(safe.encloses(overview.panel.get_global_rect()) and not overview.panel.get_global_rect().intersects(overview.rail.get_global_rect()), "compact Army sheet must stay safe and leave launchers reachable")
 	await _check_wheel_ownership(overview, false)
 	var groups: Dictionary = overview.get("_group_rows")
 	_expect((groups[1].save as Button).icon != null and (groups[1].save as Button).text == "Save" and (groups[1].recall as Button).icon != null and (groups[1].recall as Button).text == "Recall", "group controls lose understandable icon captions")
+	for index: int in [1, 2]:
+		_expect((groups[index].save as Button).size.is_equal_approx(Vector2(104, 48)) and (groups[index].recall as Button).size.is_equal_approx(Vector2(104, 48)), "group actions must share the same 104x48 proportions")
 	await _overview_button(overview, groups[1].save)
 	await _overview_button(overview, groups[2].save)
 	_expect(_main.get("_control_groups")[1] == [scout] and _main.get("_control_groups")[2] == [scout], "two visible Save buttons did not save own selected army")
@@ -222,6 +267,21 @@ func _check_wheel_ownership(overview: StrategyOverview, expects_scrolling: bool)
 	await _frames(2)
 
 
+func _check_caption_fit(button: Button, caption: String = "") -> void:
+	var text: String = button.text if caption.is_empty() else caption
+	var font: Font = button.get_theme_font("font")
+	var font_size: int = button.get_theme_font_size("font_size")
+	var text_size: Vector2 = font.get_multiline_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
+	var icon_size: Vector2 = button.icon.get_size() if button.icon != null else Vector2.ZERO
+	var icon_limit: float = float(button.get_theme_constant("icon_max_width"))
+	if icon_limit > 0.0 and icon_size.x > icon_limit:
+		icon_size *= icon_limit / icon_size.x
+	var padding: Vector2 = button.get_theme_stylebox("normal").get_minimum_size()
+	var gap: float = float(button.get_theme_constant("h_separation")) if icon_size.x > 0.0 and not text.is_empty() else 0.0
+	var required := Vector2(text_size.x + icon_size.x + gap, maxf(text_size.y, icon_size.y)) + padding
+	_expect(required.x <= button.size.x + 0.5 and required.y <= button.size.y + 0.5, "visible caption/icon exceed button: %s %s; required=%s actual=%s" % [button.name, text.replace("\n", "/"), required, button.size])
+
+
 func _overview_wheel(position: Vector2, direction: int) -> void:
 	var camera: Camera2D = _map.get("camera")
 	var position_before: Vector2 = camera.position
@@ -261,7 +321,7 @@ func _overview_button(overview: StrategyOverview, button: Button) -> void:
 	var scroll: ScrollContainer = overview.get("_scroll")
 	scroll.ensure_control_visible(button)
 	await _frames(3)
-	_expect(scroll.get_global_rect().encloses(button.get_global_rect()), "management action clipped: " + str(button.name))
+	_expect(scroll.get_global_rect().encloses(button.get_global_rect()), "management action clipped: %s; scroll=%s action=%s" % [button.name, scroll.get_global_rect(), button.get_global_rect()])
 	await _button(button)
 
 

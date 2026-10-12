@@ -34,16 +34,18 @@ var _layout_refresh_queued: bool = false
 var _safe_area_rect: Rect2 = Rect2()
 var _has_safe_area_override: bool = false
 var _category_buttons: Dictionary = {}
+var _header_action_spacer: Control = null
 var _active_category: String = "Economy"
 var _dismiss_shield: Control = null
 var _hold_components: Array[Node] = []
 @export var touch_target_diagnostics: Dictionary = {}
 
 const SHEET_MAX_WIDTH := 700.0
-const SHEET_VIEWPORT_MARGIN := 38.0
+const SHEET_VIEWPORT_MARGIN := 16.0
 const SHEET_BOTTOM_MARGIN := 8.0
 const HEADER_HEIGHT := 48.0
-const CARD_HEIGHT := 84.0
+const CARD_WIDTH := 150.0
+const CARD_HEIGHT := 80.0
 const CARD_GAP := 8.0
 const BUILDING_CATEGORIES: Dictionary = {
 	"Economy": [BuildingData.BuildingType.HOUSE, BuildingData.BuildingType.FARM, BuildingData.BuildingType.MILL, BuildingData.BuildingType.LUMBER_CAMP, BuildingData.BuildingType.MINING_CAMP, BuildingData.BuildingType.TOWN_CENTER],
@@ -122,10 +124,10 @@ func _apply_compact_layout() -> void:
 	var vertical_padding: float = panel_padding.y + float(margin.get_theme_constant("margin_top") + margin.get_theme_constant("margin_bottom"))
 	var sheet_width: float = maximum_width
 	if visible_count == 1:
-		# A one-card category needs only its tabs and one full-width card, rather
-		# than the empty space reserved for three cards in the larger categories.
+		# The header sets the compact sheet width; its single building keeps the
+		# same card proportions as every other category.
 		sheet_width = minf(maximum_width, _header_minimum_width() + horizontal_padding)
-	var cards_overflow: bool = visible_count > 1 and float(visible_count) * (150.0 + CARD_GAP) - CARD_GAP > sheet_width - horizontal_padding
+	var cards_overflow: bool = visible_count > 1 and float(visible_count) * (CARD_WIDTH + CARD_GAP) - CARD_GAP > sheet_width - horizontal_padding
 	var scroll_height: float = scroll_container.get_h_scroll_bar().get_combined_minimum_size().y if cards_overflow else 0.0
 	_sheet_height = vertical_padding + HEADER_HEIGHT + float(($Margin/VBox as VBoxContainer).get_theme_constant("separation")) + CARD_HEIGHT + scroll_height
 	var sheet_center_x: float = safe_area.position.x + safe_area.size.x * 0.5
@@ -139,8 +141,8 @@ func _apply_compact_layout() -> void:
 	offset_top = offset_bottom - _sheet_height
 	custom_minimum_size = Vector2(sheet_width, _sheet_height)
 
-	var content_width: float = sheet_width - horizontal_padding
-	_card_width = content_width if visible_count == 1 else 150.0
+	_card_width = CARD_WIDTH
+	grid.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	for button: Button in _button_map.values():
 		button.custom_minimum_size = Vector2(_card_width, CARD_HEIGHT)
 	if _dismiss_shield != null:
@@ -177,12 +179,11 @@ func set_safe_area_rect(safe_area: Rect2) -> void:
 
 func _apply_visual_theme() -> void:
 	theme = KingdomTheme.create_theme()
-	var sheet_style: StyleBoxFlat = KingdomTheme.panel_style()
+	var sheet_style: StyleBoxFlat = KingdomTheme.panel_style(KingdomTheme.INK_PANEL, KingdomTheme.BORDER, 8)
 	sheet_style.bg_color.a = 0.96
 	sheet_style.set_content_margin_all(2)
-	sheet_style.set_border_width(SIDE_TOP, 2)
-	sheet_style.shadow_size = 8
-	sheet_style.shadow_offset = Vector2(0, -2)
+	sheet_style.shadow_size = 4
+	sheet_style.shadow_offset = Vector2(0, -1)
 	add_theme_stylebox_override("panel", sheet_style)
 	title_label.text = "Build"
 	title_label.add_theme_color_override("font_color", KingdomTheme.PARCHMENT)
@@ -195,8 +196,10 @@ func _apply_header_button_style(button: Button) -> void:
 
 
 func _apply_card_style(button: Button) -> void:
-	var normal: StyleBoxFlat = KingdomTheme.panel_style(KingdomTheme.INK_LIGHT)
+	var normal: StyleBoxFlat = KingdomTheme.panel_style(KingdomTheme.INK_LIGHT, KingdomTheme.BORDER, CommandIcons.CORNER_RADIUS)
 	normal.set_content_margin_all(6)
+	normal.set_content_margin(SIDE_TOP, 4)
+	normal.set_content_margin(SIDE_BOTTOM, 4)
 	var hover: StyleBoxFlat = normal.duplicate()
 	hover.border_color = KingdomTheme.AMBER
 	var pressed: StyleBoxFlat = normal.duplicate()
@@ -219,9 +222,8 @@ func _create_category_buttons() -> void:
 	for category: String in BUILDING_CATEGORIES:
 		var button := Button.new()
 		button.name = "%sCategoryButton" % category
-		var category_width: float = {"Economy": 102.0, "Army": 84.0, "Defence": 102.0}[category]
-		button.custom_minimum_size = Vector2(category_width, HEADER_HEIGHT)
-		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.custom_minimum_size = Vector2(CommandIcons.TARGET_SIZE, HEADER_HEIGHT)
+		button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 		button.add_theme_font_size_override("font_size", 13)
 		button.toggle_mode = true
 		button.focus_mode = Control.FOCUS_NONE
@@ -229,6 +231,12 @@ func _create_category_buttons() -> void:
 		header.add_child(button)
 		header.move_child(button, header.get_child_count() - 2)
 		_category_buttons[category] = button
+	_header_action_spacer = Control.new()
+	_header_action_spacer.name = "BuildHeaderActionSpacer"
+	_header_action_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_header_action_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(_header_action_spacer)
+	header.move_child(_header_action_spacer, header.get_child_count() - 2)
 	_refresh_categories()
 
 
@@ -248,6 +256,8 @@ func _refresh_categories() -> void:
 		else:
 			KingdomTheme.apply_secondary(button)
 		CommandIcons.apply(button, {"Economy": "economy", "Army": "army", "Defence": "stance"}[category], "%s buildings" % category, category)
+		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		button.add_theme_constant_override("icon_max_width", 20)
 	var visible_count: int = 0
 	for building_type: int in _button_map:
 		var button: Button = _button_map[building_type]
@@ -533,6 +543,13 @@ func _refresh_affordability() -> void:
 			btn.modulate = Color(0.85, 0.85, 0.85, 1.0)
 		if building_type == _recommended_building_type and not btn.disabled:
 			KingdomTheme.apply_primary(btn)
+			# Recommendation colour must not change the common card shape.
+			for state: String in ["normal", "hover", "pressed"]:
+				var style: StyleBoxFlat = btn.get_theme_stylebox(state).duplicate() as StyleBoxFlat
+				style.set_corner_radius_all(CommandIcons.CORNER_RADIUS)
+				style.set_content_margin(SIDE_LEFT, 6)
+				style.set_content_margin(SIDE_RIGHT, 6)
+				btn.add_theme_stylebox_override(state, style)
 	_update_aux_button()
 	_refresh_touch_target_diagnostics()
 
@@ -542,9 +559,11 @@ func _missing_resource_text(cost: Dictionary) -> String:
 	for resource: String in ["food", "wood", "gold"]:
 		var shortage: int = maxi(0, int(cost.get(resource, 0)) - int(_current_resources.get(resource, 0)))
 		if shortage > 0:
-			parts.append("+%d%s" % [shortage, resource.left(1).to_upper()])
+			parts.append("%d%s" % [shortage, resource.left(1).to_upper()])
 
-	return "Need " + " · ".join(parts)
+	# Multi-resource buildings need a fourth line to keep every shortage legible
+	# beside the portrait without widening this card or reducing its font.
+	return "Need " + "\n".join(parts)
 
 
 func _can_afford(cost: Dictionary) -> bool:

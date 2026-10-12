@@ -28,6 +28,8 @@ const MAX_PLAYERS: int = 2
 const MAX_AGE: int = SkirmishData.MAX_AGE
 const AGE_NAMES: Array[String] = SkirmishData.AGE_NAMES
 const PREFERENCES_PATH: String = "user://preferences.cfg"
+const MIN_SCREEN_TOUCH_SIZE := 44.0
+const AUTHORED_TOUCH_SIZE := 48.0
 
 var current_state: GameState = GameState.MENU
 var players: Dictionary = {}  # player_id -> PlayerData dict
@@ -51,6 +53,7 @@ var reduced_flashes: bool = false
 var clearer_player_markers: bool = true
 var camera_speed_scale: float = 1.0
 var ui_scale: float = 1.0
+var _display_window_size: Vector2i = Vector2i.ZERO
 var hold_shortcuts_enabled: bool = true
 var _match_population_limit: int = SkirmishData.DEFAULT_POPULATION_LIMIT
 
@@ -78,6 +81,8 @@ var _age_transactions: Dictionary = {}  # player_id -> in-flight purchase
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_load_preferences()
+	get_window().size_changed.connect(_on_display_window_resized)
+	_apply_display_preferences()
 	var seed_override: String = OS.get_environment("AOEM_MAP_SEED").strip_edges()
 	if seed_override.is_valid_int():
 		selected_map_seed = int(seed_override)
@@ -171,8 +176,39 @@ func reset_preferences() -> void:
 func _apply_display_preferences() -> void:
 	var window: Window = get_window()
 	if window != null:
+		_display_window_size = window.size
 		ui_scale = clampf(ui_scale, 1.0, 1.15)
-		window.content_scale_factor = ui_scale
+		# Importers and headless simulations have no physical screen. Their
+		# dummy window dimensions must not change authored viewport geometry.
+		if DisplayServer.get_name() == "headless":
+			window.content_scale_factor = ui_scale
+			return
+		var screen_size := Vector2(window.size)
+		if OS.has_feature("web"):
+			# The shell excludes safe-area insets before sizing this element.
+			# CSS dimensions avoid counting Retina backing pixels as more space.
+			var dimensions: Variant = JavaScriptBridge.eval("JSON.stringify((function(){var g=document.getElementById('pocket-game');var r=g&&g.getBoundingClientRect();return r?[r.width,r.height]:[0,0];})())")
+			if dimensions is String:
+				var parsed: Variant = JSON.parse_string(dimensions)
+				if parsed is Array and parsed.size() == 2 and float(parsed[0]) > 0 and float(parsed[1]) > 0:
+					screen_size = Vector2(float(parsed[0]), float(parsed[1]))
+		var factor: float = display_scale_for_screen(screen_size, Vector2(window.content_scale_size), ui_scale)
+		if not is_equal_approx(window.content_scale_factor, factor):
+			window.content_scale_factor = factor
+
+
+func _on_display_window_resized() -> void:
+	# Changing content scale also emits size_changed. Only a new backing size
+	# needs another calculation; preferences apply explicitly above.
+	if get_window().size != _display_window_size:
+		_apply_display_preferences()
+
+
+static func display_scale_for_screen(screen_size: Vector2, base_size: Vector2, preference: float) -> float:
+	if screen_size.x <= 0 or screen_size.y <= 0 or base_size.x <= 0 or base_size.y <= 0:
+		return preference
+	var stretch: float = minf(screen_size.x / base_size.x, screen_size.y / base_size.y)
+	return preference * maxf(1.0, MIN_SCREEN_TOUCH_SIZE / (AUTHORED_TOUCH_SIZE * stretch))
 
 
 func _process(delta: float) -> void:

@@ -18,6 +18,8 @@ func _run() -> void:
         for scale_factor: float in [1.0,1.075,1.15]:
             for notched: bool in [false,true]:
                 await _profile(phone,scale_factor,notched)
+    await _profile(Vector2i(632,356),1.0,false)
+    await _narrow_resource_rail()
     await _touch_ownership()
     var evidence_path: String = OS.get_environment("AOEM_READABILITY_EVIDENCE")
     if evidence_path.is_empty():
@@ -28,8 +30,27 @@ func _run() -> void:
     for failure: String in _failures:
         push_error("[FAIL] mobile_iteration_readability: "+failure)
     if _failures.is_empty():
-        print("[PASS] mobile_iteration_readability: 12 profiles, all six production names/costs/roles/max queue badges, worker/army/foundation density, full essential text, large banks, safe labels, projected minimap and viewport canceled/orphan/HUD/pinch ownership")
+        print("[PASS] mobile_iteration_readability: 12 phone profiles plus632 logical stress,550 logical resource rail, all six production names/costs/roles/max queue badges, full essential text and viewport touch ownership")
     get_tree().quit(0 if _failures.is_empty() else 1)
+
+func _narrow_resource_rail() -> void:
+    var viewport := SubViewport.new()
+    viewport.size = Vector2i(550,338)
+    add_child(viewport)
+    var hud: CanvasLayer = load("res://scenes/ui/hud.tscn").instantiate()
+    viewport.add_child(hud)
+    var safe := Rect2(Vector2.ZERO,Vector2(550,338))
+    hud.call("update_sacred_site_timer",1,172.0,240.0)
+    hud.call("_update_resource_display",{"food":99999,"wood":99999,"gold":99999})
+    hud.call("update_population",40,40)
+    await _settle(hud,Vector2i(550,338),safe)
+    for key: String in ["food_label","wood_label","gold_label","pop_label","game_time_label","_sacred_site_label"]:
+        var label: Label = hud.get(key)
+        _text_fits(label,"550 resource rail " + key)
+        _expect(safe.encloses(label.get_global_rect()),"550 resource label outside safe area: " + key)
+    _expect((hud.get("pop_label") as Label).text.contains(" · I"),"550 resource rail omits Age numeral")
+    viewport.free()
+    await get_tree().process_frame
 
 func _profile(phone: Vector2i, scale_factor: float, notched: bool) -> void:
     var logical := Vector2i(floori(phone.x/scale_factor),floori(phone.y/scale_factor))
@@ -146,11 +167,7 @@ func _profile(phone: Vector2i, scale_factor: float, notched: bool) -> void:
     (hud.get("_unit_more_button") as Button).pressed.emit()
     await _settle(hud,logical,safe)
     var task_caption: HBoxContainer=hud.get("_villager_task_hbox")
-    _expect(task_caption.visible,"%s worker distribution missing" % label)
-    for task_text: Label in task_caption.get_children():
-        if task_text.visible:
-            _text_fits(task_text,label+" worker counts")
-    _expect(safe.encloses(task_caption.get_global_rect()),"%s worker counts outside safe area" % label)
+    _expect(not task_caption.visible,"%s duplicate worker distribution expands field dock" % label)
     _publish_selection_change(hud)
     hud.call("clear_selection")
     await _settle(hud,logical,safe)

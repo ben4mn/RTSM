@@ -10,6 +10,10 @@ const ICON_KEYS: PackedStringArray = [
 	"check", "group_save", "group_recall", "find", "undo", "rally", "sacred", "farm",
 ]
 const BADGE_NODE_NAME := "CommandIconBadge"
+const TARGET_SIZE := 48.0
+const GLYPH_SIZE := 24
+const GAP := 6
+const CORNER_RADIUS := 6
 static var _textures: Dictionary = {}
 
 
@@ -29,8 +33,8 @@ static func apply(button: Button, key: String, accessible_label: String, caption
 	button.alignment = HORIZONTAL_ALIGNMENT_CENTER
 	button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER if caption.is_empty() else HORIZONTAL_ALIGNMENT_LEFT
 	button.expand_icon = false
-	button.add_theme_constant_override("icon_max_width", 26)
-	button.add_theme_constant_override("h_separation", 6)
+	button.add_theme_constant_override("icon_max_width", GLYPH_SIZE)
+	button.add_theme_constant_override("h_separation", GAP)
 	# Before tree entry, Control lookups can still return the engine fallback
 	# even when theme is assigned. Read that resource directly for entries the
 	# caller has not overridden; otherwise decoration would freeze the fallback.
@@ -45,13 +49,15 @@ static func apply(button: Button, key: String, accessible_label: String, caption
 		var style: StyleBox = button.get_theme_stylebox(state)
 		if pending_theme != null and not button.has_theme_stylebox_override(state) and pending_theme.has_stylebox(state, "Button"):
 			style = pending_theme.get_stylebox(state, "Button")
-		if style.get_content_margin(SIDE_LEFT) == 6.0 and style.get_content_margin(SIDE_TOP) == 4.0:
+		if style.get_content_margin(SIDE_LEFT) == 6.0 and style.get_content_margin(SIDE_TOP) == 4.0 and style is StyleBoxFlat and (style as StyleBoxFlat).corner_radius_top_left == CORNER_RADIUS:
 			continue
 		var compact: StyleBox = style.duplicate()
 		compact.set_content_margin(SIDE_LEFT, 6.0)
 		compact.set_content_margin(SIDE_RIGHT, 6.0)
 		compact.set_content_margin(SIDE_TOP, 4.0)
 		compact.set_content_margin(SIDE_BOTTOM, 4.0)
+		if compact is StyleBoxFlat:
+			(compact as StyleBoxFlat).set_corner_radius_all(CORNER_RADIUS)
 		button.add_theme_stylebox_override(state, compact)
 
 

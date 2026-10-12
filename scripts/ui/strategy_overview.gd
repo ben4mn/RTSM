@@ -21,9 +21,13 @@ signal recall_group_requested(index: int)
 
 const SOURCES: PackedStringArray = ["idle", "food", "wood", "gold"]
 const RESOURCES: PackedStringArray = ["food", "wood", "gold"]
-const RAIL_BUTTON_SIZE := 56.0
-const RAIL_GAP := 6.0
+const RAIL_BUTTON_SIZE := CommandIcons.TARGET_SIZE
+const RAIL_GAP := CommandIcons.GAP
 const RAIL_WIDTH := RAIL_BUTTON_SIZE * 3.0 + RAIL_GAP * 2.0
+const JOB_CHIP_WIDTH := 96.0
+const JOB_CHIP_MIN_WIDTH := 80.0
+const TRAIN_CARD_WIDTH := 156.0
+const SHEET_MAX_WIDTH := 480.0
 var rail: HBoxContainer
 var panel: PanelContainer
 var _title: Label
@@ -33,7 +37,6 @@ var _army: VBoxContainer
 var _summary: Label
 var _economy_health: Label
 var _food_stock: Label
-var _farm_description: Label
 var _farm_blocker: Label
 var _farm_button: Button
 var _population: Label
@@ -51,6 +54,7 @@ var _focus_army_button: Button
 var _source: String = "idle"
 var _surface: String = ""
 var _snapshot: Dictionary = {}
+var _sheet_width: float = SHEET_MAX_WIDTH
 
 
 func _ready() -> void:
@@ -83,7 +87,7 @@ func _ready() -> void:
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	# Header, padding and exhausted scroll gestures belong to the sheet.
 	panel.mouse_force_pass_scroll_events = false
-	panel.add_theme_stylebox_override("panel", KingdomTheme.panel_style())
+	panel.add_theme_stylebox_override("panel", KingdomTheme.panel_style(KingdomTheme.INK_PANEL, KingdomTheme.BORDER, 8))
 	panel.gui_input.connect(_on_gui_contact)
 	add_child(panel)
 	var body := VBoxContainer.new()
@@ -108,11 +112,11 @@ func _ready() -> void:
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_scroll.add_child(content)
 	_economy = VBoxContainer.new()
-	_economy.add_theme_constant_override("separation", 7)
+	_economy.add_theme_constant_override("separation", int(CommandIcons.GAP))
 	content.add_child(_economy)
 	_build_economy()
 	_army = VBoxContainer.new()
-	_army.add_theme_constant_override("separation", 8)
+	_army.add_theme_constant_override("separation", int(CommandIcons.GAP))
 	content.add_child(_army)
 	_build_army()
 	set_surface("")
@@ -124,7 +128,8 @@ func _button(text: String, control_name: String, width: float = 96.0) -> Button:
 	button.theme = theme
 	button.name = control_name
 	button.text = text
-	button.custom_minimum_size = Vector2(width, 48)
+	button.custom_minimum_size = Vector2(width, CommandIcons.TARGET_SIZE)
+	button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	button.focus_mode = Control.FOCUS_NONE
 	button.add_theme_font_size_override("font_size", 13)
 	button.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -157,12 +162,12 @@ func _build_economy() -> void:
 	_food_stock = _label("", 12)
 	_food_stock.name = "FoodStock"
 	_economy.add_child(_food_stock)
-	_economy.add_child(_label("Move one worker: choose their current job, then where to work."))
+	_economy.add_child(_label("Move one worker: choose a current job, then a destination."))
 	var sources := HBoxContainer.new()
 	sources.add_theme_constant_override("separation", 6)
 	_economy.add_child(sources)
 	for resource: String in SOURCES:
-		var button := _icon_button(resource, "Workers currently on " + resource, "Source_" + resource, 88, resource.capitalize())
+		var button := _icon_button(resource, "Workers currently on " + resource, "Source_" + resource, JOB_CHIP_WIDTH, resource.capitalize())
 		button.toggle_mode = true
 		button.pressed.connect(_choose_source.bind(resource))
 		_source_buttons[resource] = button
@@ -171,22 +176,20 @@ func _build_economy() -> void:
 	destinations.add_theme_constant_override("separation", 6)
 	_economy.add_child(destinations)
 	for resource: String in RESOURCES:
-		var button := _icon_button(resource, "Move one worker to " + resource, "Assign_" + resource, 88, "To " + resource.capitalize())
+		var button := _icon_button(resource, "Move one worker to " + resource, "Assign_" + resource, JOB_CHIP_WIDTH, "To\n" + resource.capitalize())
 		button.pressed.connect(func() -> void: allocation_requested.emit(_source, resource))
 		_destination_buttons[resource] = button
 		destinations.add_child(button)
-	_idle_button = _icon_button("idle", "Select the next idle worker", "FindIdleButton", 104, "Find idle")
+	_idle_button = _icon_button("idle", "Select the next idle worker", "FindIdleButton", JOB_CHIP_WIDTH, "Find\nidle")
 	_idle_button.pressed.connect(func() -> void: idle_requested.emit())
 	destinations.add_child(_idle_button)
-	_feedback = _label("Cargo is delivered first. Builders and recovering workers keep their orders.", 12)
+	_feedback = _label("Cargo first; builders and recovering workers keep their orders.", 12)
 	_feedback.add_theme_color_override("font_color", KingdomTheme.MUTED)
 	_economy.add_child(_feedback)
-	_farm_description = _label("", 12)
-	_economy.add_child(_farm_description)
 	var farm_row := HBoxContainer.new()
-	farm_row.add_theme_constant_override("separation", 8)
+	farm_row.add_theme_constant_override("separation", int(CommandIcons.GAP))
 	_economy.add_child(farm_row)
-	_farm_button = _icon_button("farm", "Plan a paid Farm with finite food", "PlanFarm", 152, "Farm\n75W / 300F")
+	_farm_button = _icon_button("farm", "Plan a paid Farm with finite food", "PlanFarm", TRAIN_CARD_WIDTH, "Farm · 75W\n300 finite food")
 	_farm_button.pressed.connect(func() -> void: farm_requested.emit())
 	farm_row.add_child(_farm_button)
 	_farm_blocker = _label("", 12)
@@ -201,26 +204,27 @@ func _build_economy() -> void:
 
 
 func _build_army() -> void:
-	_army.add_child(_label("Save your selection, then recall the group from anywhere. Open Camera and choose Center to follow the group."))
+	_army.add_child(_label("Save your selection. Recall selects it again."))
 	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", int(CommandIcons.GAP))
 	_army.add_child(actions)
-	_select_army_button = _icon_button("army", "Select every military unit", "SelectAllArmy", 144, "Select all")
+	_select_army_button = _icon_button("army", "Select every military unit", "SelectAllArmy", 120, "Select all")
 	_select_army_button.pressed.connect(func() -> void: army_requested.emit())
 	actions.add_child(_select_army_button)
-	_focus_army_button = _icon_button("find", "Find and view your army", "FindArmy", 112, "Find army")
+	_focus_army_button = _icon_button("find", "Find and view your army", "FindArmy", 120, "Find army")
 	_focus_army_button.pressed.connect(func() -> void: army_focus_requested.emit())
 	actions.add_child(_focus_army_button)
 	for index: int in [1, 2]:
 		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 8)
+		row.add_theme_constant_override("separation", int(CommandIcons.GAP))
 		_army.add_child(row)
 		var label := _label("Group %d · empty" % index)
 		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(label)
-		var save := _icon_button("group_save", "Save current selection to group %d" % index, "SaveGroup%d" % index, 96, "Save")
+		var save := _icon_button("group_save", "Save current selection to group %d" % index, "SaveGroup%d" % index, 104, "Save")
 		save.pressed.connect(func() -> void: save_group_requested.emit(index))
 		row.add_child(save)
-		var recall := _icon_button("group_recall", "Recall group %d" % index, "RecallGroup%d" % index, 104, "Recall")
+		var recall := _icon_button("group_recall", "Recall group %d. Then open Camera and choose Center to view the group." % index, "RecallGroup%d" % index, 104, "Recall")
 		recall.pressed.connect(func() -> void: recall_group_requested.emit(index))
 		row.add_child(recall)
 		_group_rows[index] = {"label": label, "save": save, "recall": recall}
@@ -266,18 +270,18 @@ func update_snapshot(snapshot: Dictionary) -> void:
 	_economy_health.visible = not _economy_health.text.is_empty()
 	_economy_health.add_theme_color_override("font_color", KingdomTheme.AMBER if int(economy.get("severity", 0)) > 0 else KingdomTheme.PARCHMENT)
 	_food_stock.text = str(economy.get("stock", ""))
-	_farm_description.text = str(economy.get("farm", ""))
 	_farm_blocker.text = str(snapshot.get("farm_blocker", ""))
 	var farm_wood: int = int(BuildingData.get_building_cost(BuildingData.BuildingType.FARM).get("wood", 75))
-	CommandIcons.apply(_farm_button, "farm", "Plan a Farm: costs %d wood and provides %d finite food. %s" % [farm_wood, BuildingData.FARM_FOOD_AMOUNT, _farm_blocker.text], "Farm\n%dW / %dF" % [farm_wood, BuildingData.FARM_FOOD_AMOUNT])
+	CommandIcons.apply(_farm_button, "farm", "Plan a Farm: costs %d wood and provides %d finite food. Rebuild when exhausted. %s" % [farm_wood, BuildingData.FARM_FOOD_AMOUNT, _farm_blocker.text], "Farm · %dW\n%d finite food" % [farm_wood, BuildingData.FARM_FOOD_AMOUNT])
 	_farm_button.disabled = not bool(snapshot.get("can_plan_farm", false))
 	_population.text = str(snapshot.get("population_text", ""))
-	CommandIcons.apply(_idle_button, "idle", "Find the next of %d idle workers" % idle, "Find idle %d" % idle)
+	CommandIcons.apply(_idle_button, "idle", "Find the next of %d idle workers" % idle, "Find\nidle")
 	_idle_button.disabled = idle <= 0
 	_select_army_button.disabled = military <= 0
 	_focus_army_button.disabled = military <= 0
 	_refresh_allocation_buttons()
 	_refresh_producers(snapshot.get("producers", []))
+	_fit_economy_rows(_sheet_width)
 	var counts: Dictionary = snapshot.get("groups", {})
 	for index: int in [1, 2]:
 		var row: Dictionary = _group_rows[index]
@@ -298,7 +302,7 @@ func _refresh_allocation_buttons() -> void:
 			KingdomTheme.apply_primary(button)
 		else:
 			KingdomTheme.apply_secondary(button)
-		CommandIcons.apply(button, resource, "%s: %d workers. Choose this current job before assigning one worker." % [resource.capitalize(), count], "%s %d" % [resource.capitalize(), count])
+		CommandIcons.apply(button, resource, "%s: %d workers. Choose this current job before assigning one worker." % [resource.capitalize(), count], "%s\n%d" % [resource.capitalize(), count])
 	for resource: String in RESOURCES:
 		(_destination_buttons[resource] as Button).disabled = resource == _source or int(workers.get(_source, 0)) <= 0
 
@@ -319,9 +323,7 @@ func _refresh_producers(producers: Array) -> void:
 		(row.paid as Label).text = "Paid queue: " + (" / ".join(queue) if not queue.is_empty() else "empty")
 		var repeat_type: int = int(producer.get("repeat_type", -1))
 		var repeat_button: Button = row.repeat
-		var repeat_state: String = "ON" if bool(producer.get("repeat_enabled", false)) else "OFF"
-		var repeat_unit: String = UnitData.get_unit_name(repeat_type) if repeat_type >= 0 else "Train first"
-		CommandIcons.apply(repeat_button, "repeat", "Repeat %s: %s. Each training order is paid." % [repeat_unit, repeat_state], "Repeat %s\n%s" % [repeat_state, repeat_unit])
+		apply_repeat_caption(repeat_button, repeat_type, bool(producer.get("repeat_enabled", false)))
 		repeat_button.set_pressed_no_signal(bool(producer.get("repeat_enabled", false)))
 		repeat_button.disabled = repeat_type < 0 or not bool(producer.get("active", false))
 		(row.undo as Button).disabled = queue.is_empty()
@@ -347,12 +349,20 @@ func _refresh_producers(producers: Array) -> void:
 			_producer_rows.erase(id)
 
 
+static func apply_repeat_caption(button: Button, unit_type: int, enabled: bool) -> void:
+	var state: String = "ON" if enabled else "OFF"
+	var full_name: String = UnitData.get_unit_name(unit_type) if unit_type >= 0 else "Train first"
+	# The recruitment card and accessible action retain the full unit name.
+	var caption: String = "Siege" if unit_type == UnitData.UnitType.SIEGE else full_name
+	CommandIcons.apply(button, "repeat", "Repeat %s: %s. Each training order is paid." % [full_name, state], "%s\n%s" % [caption, state])
+
+
 func _create_producer(producer: Dictionary) -> void:
 	var building: Node2D = producer.building
 	var id: int = building.get_instance_id()
 	var card := PanelContainer.new()
 	card.name = "Producer_%d" % id
-	card.add_theme_stylebox_override("panel", KingdomTheme.panel_style(KingdomTheme.INK))
+	card.add_theme_stylebox_override("panel", KingdomTheme.panel_style(KingdomTheme.INK, KingdomTheme.BORDER, 8))
 	_producer_list.add_child(card)
 	var content := VBoxContainer.new()
 	content.add_theme_constant_override("separation", 4)
@@ -373,15 +383,15 @@ func _create_producer(producer: Dictionary) -> void:
 			if int(cost.get(resource, 0)) > 0:
 				costs.append("%d%s" % [int(cost[resource]), resource.left(1).to_upper()])
 		var unit_card := VBoxContainer.new()
-		unit_card.custom_minimum_size.x = 168
-		unit_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		unit_card.custom_minimum_size.x = TRAIN_CARD_WIDTH
+		unit_card.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 		training.add_child(unit_card)
-		var button := _button("%s\n%s" % [UnitData.get_unit_name(unit_type), " ".join(costs)], "Train_%d" % unit_type, 168)
+		var button := _button("%s\n%s" % [UnitData.get_unit_name(unit_type), " ".join(costs)], "Train_%d" % unit_type, TRAIN_CARD_WIDTH)
 		button.add_theme_font_size_override("font_size", 12)
 		var portrait_path: String = UnitData.get_unit_icon_path(unit_type)
 		if not portrait_path.is_empty() and ResourceLoader.exists(portrait_path):
 			button.icon = load(portrait_path)
-			button.add_theme_constant_override("icon_max_width", 28)
+			button.add_theme_constant_override("icon_max_width", int(CommandIcons.GLYPH_SIZE))
 			button.expand_icon = false
 		button.pressed.connect(func() -> void:
 			if is_instance_valid(building):
@@ -395,19 +405,19 @@ func _create_producer(producer: Dictionary) -> void:
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 6)
 	content.add_child(actions)
-	var repeat_button := _icon_button("repeat", "Repeat paid training while resources and population room allow", "Repeat", 120, "Repeat OFF")
+	var repeat_button := _icon_button("repeat", "Repeat paid training while resources and population room allow", "Repeat", 120, "Repeat\nOFF")
 	repeat_button.toggle_mode = true
 	repeat_button.toggled.connect(func(enabled: bool) -> void:
 		if is_instance_valid(building):
 			repeat_requested.emit(building, enabled))
 	actions.add_child(repeat_button)
-	var undo := _icon_button("undo", "Refund the last paid unit", "UndoLast", 104, "Undo last")
+	var undo := _icon_button("undo", "Refund the last paid unit", "UndoLast", 120, "Undo\nlast")
 	undo.tooltip_text = "Refund the last paid unit and its population reservation. Repeat keeps its current setting."
 	undo.pressed.connect(func() -> void:
 		if is_instance_valid(building) and _producer_rows.has(id):
 			cancellation_requested.emit(building, int(_producer_rows[id].queue_size) - 1))
 	actions.add_child(undo)
-	var clear := _icon_button("clear", "Stop Repeat and refund all queued units", "ClearAndStop", 120, "Clear & stop")
+	var clear := _icon_button("clear", "Stop Repeat and refund all queued units", "ClearAndStop", 120, "Clear\n& stop")
 	clear.tooltip_text = "Stop Repeat and refund every paid unit and reserved population slot."
 	clear.pressed.connect(func() -> void:
 		if is_instance_valid(building):
@@ -419,13 +429,13 @@ func _create_producer(producer: Dictionary) -> void:
 	var rallies := HBoxContainer.new()
 	rallies.add_theme_constant_override("separation", 6)
 	content.add_child(rallies)
-	var rally := _icon_button("rally", "Rally future recruits to the selected army", "RallyToArmy", 152, "Rally to army")
+	var rally := _icon_button("rally", "Rally future recruits to the selected army", "RallyToArmy", TRAIN_CARD_WIDTH, "Rally to army")
 	rally.tooltip_text = "Send future trained units to the selected army’s current location. Existing units keep their orders."
 	rally.pressed.connect(func() -> void:
 		if is_instance_valid(building):
 			rally_requested.emit(building))
 	rallies.add_child(rally)
-	var sacred := _icon_button("sacred", "Rally future recruits to the Sacred Site", "RallyToSacred", 152, "Rally to Sacred")
+	var sacred := _icon_button("sacred", "Rally future recruits to the Sacred Site", "RallyToSacred", TRAIN_CARD_WIDTH, "Rally to Sacred")
 	sacred.tooltip_text = "All future recruits go to the public Sacred location. Existing units keep their orders."
 	sacred.pressed.connect(func() -> void:
 		if is_instance_valid(building):
@@ -452,19 +462,48 @@ func set_surface(surface: String) -> void:
 		_scroll.scroll_vertical = 0
 
 
-func apply_layout(safe: Rect2, field_visible: bool, card_area: Rect2) -> void:
+func apply_layout(safe: Rect2, field_visible: bool, card_area: Rect2, dock_height: float = 72.0) -> void:
 	rail.visible = field_visible
-	rail.position = Vector2(safe.end.x - RAIL_WIDTH - 8.0, safe.end.y - RAIL_BUTTON_SIZE - 88.0)
+	var rail_bottom: float = safe.end.y - dock_height - 16.0
+	rail.position = Vector2(safe.end.x - RAIL_WIDTH - 8.0, rail_bottom - RAIL_BUTTON_SIZE)
 	rail.size = Vector2(RAIL_WIDTH, RAIL_BUTTON_SIZE)
-	# Keep all launchers reachable while their sheet is open, including a second
-	# tap to collapse. The narrowest supported phone still leaves 453px for rows.
+	# The sheet leaves its launchers reachable for switching and tap-to-collapse.
 	var card_left: float = card_area.position.x + 8.0
 	var card_right: float = minf(card_area.end.x - 8.0, rail.position.x - 8.0)
-	var card_size := Vector2(minf(560.0, card_right - card_left), minf(310.0, card_area.size.y - 16.0))
+	_sheet_width = minf(SHEET_MAX_WIDTH, card_right - card_left)
+	_fit_economy_rows(_sheet_width)
+	var card_height: float = minf(310.0, card_area.size.y - 16.0)
+	if _surface == "army":
+		# Three action rows and their short instruction determine the Army height;
+		# safe-area constraints can still scroll the contents on a narrow profile.
+		# Two pixels absorb container rounding at fractional interface scales.
+		var content_height: float = _army.get_combined_minimum_size().y
+		card_height = minf(card_height, content_height + CommandIcons.TARGET_SIZE + 14.0)
+	var card_size := Vector2(_sheet_width, card_height)
 	var centered: Vector2 = card_area.position + (card_area.size - card_size) * 0.5
 	panel.position = Vector2(clampf(centered.x, card_left, card_right - card_size.x), centered.y)
 	panel.size = card_size
 	panel.visible = field_visible and _surface in ["economy", "army"]
+
+
+func _fit_economy_rows(sheet_width: float) -> void:
+	# Reserve the real scroll bar even before it becomes visible. Reflow widths
+	# before sizing the panel, so a stale child minimum cannot enlarge the sheet.
+	var panel_padding: float = panel.get_theme_stylebox("panel").get_minimum_size().x
+	var scroll_width: float = _scroll.get_v_scroll_bar().get_combined_minimum_size().x
+	var content_width: float = sheet_width - panel_padding - scroll_width
+	var chip_width: float = clampf(floorf((content_width - CommandIcons.GAP * 3.0) / 4.0), JOB_CHIP_MIN_WIDTH, JOB_CHIP_WIDTH)
+	for button: Button in _source_buttons.values():
+		button.custom_minimum_size.x = chip_width
+	for button: Button in _destination_buttons.values():
+		button.custom_minimum_size.x = chip_width
+	_idle_button.custom_minimum_size.x = chip_width
+	for row: Dictionary in _producer_rows.values():
+		var producer: PanelContainer = row.card
+		var inner_padding: float = producer.get_theme_stylebox("panel").get_minimum_size().x
+		var action_width: float = minf(120.0, floorf((content_width - inner_padding - CommandIcons.GAP * 2.0) / 3.0))
+		for button: Button in [row.repeat, row.undo, row.clear]:
+			button.custom_minimum_size.x = maxf(CommandIcons.TARGET_SIZE, action_width)
 
 
 func get_visible_bounds() -> Array[Rect2]:
