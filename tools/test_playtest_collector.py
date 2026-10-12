@@ -88,7 +88,7 @@ class EnvelopeTests(unittest.TestCase):
 
     def test_array_depth_string_keys_and_nonfinite_limits_reject(self):
         nested = 1
-        for _ in range(10):
+        for _ in range(collector.MAX_DEPTH + 2):
             nested = {"child": nested}
         cases = [({"extra": nested}), ({"events": [{"kind": "tap"}] * 601}),
                  ({"note": "x" * 401}), ({"extra": {str(i): i for i in range(81)}}),
@@ -268,6 +268,24 @@ class HTTPTests(unittest.TestCase):
         saved = (self.root / "s_123/latest.json").read_text()
         self.assertNotIn("UNWANTED", saved)
         self.assertNotIn("192.0.2.88", saved)
+
+    def test_client_depth_five_fields_inside_marked_window_survive_http(self):
+        # The client cleans technical fields to five levels before wrapping
+        # them in an event and then in the saved problem window.
+        technical = 42
+        for _ in range(5):
+            technical = {"state": technical}
+        value = packet(reason="problem", report="PK-depth")
+        value["events"][0]["fields"] = technical
+        value["problem_window"] = {"marked_sequence": 2, "preceding_events": value["events"], "following_events": []}
+        self.assertEqual(self.post(value)[0], 202)
+        saved = json.loads((self.root / "s_123/reports/PK-depth.json").read_bytes())
+        self.assertEqual(saved["problem_window"]["preceding_events"][0]["fields"], technical)
+        value["device"]["visual_viewport"] = {"width": 800, "height": 380, "offset_left": 22, "offset_top": 5, "scale": 1}
+        self.assertEqual(self.post(value)[0], 202)
+        saved = json.loads((self.root / "s_123/reports/PK-depth.json").read_bytes())
+        self.assertEqual(saved["device"]["visual_viewport"]["offset_left"], 22)
+        self.assertEqual(saved["device"]["visual_viewport"]["offset_top"], 5)
 
 
 if __name__ == "__main__":

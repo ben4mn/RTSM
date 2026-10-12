@@ -23,7 +23,7 @@ from typing import Any
 
 MAX_BODY_BYTES = 256 * 1024
 MAX_EVENTS = 600
-MAX_DEPTH = 8
+MAX_DEPTH = 12
 MAX_KEYS = 80
 MAX_STRING = 400
 ID_PATTERN = re.compile(r"[A-Za-z0-9_-]{1,64}\Z", re.ASCII)
