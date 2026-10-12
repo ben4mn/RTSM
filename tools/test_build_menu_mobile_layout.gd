@@ -5,7 +5,7 @@ const PHONE_SIZE := Vector2i(844, 390)
 const MAX_SHEET_WIDTH := 700.0
 const MAX_SHEET_HEIGHT := 176.0
 const MIN_TOUCH_TARGET := 48.0
-const EXPECTED_VISIBLE_COLUMNS := 3
+const EXPECTED_VISIBLE_COLUMNS := 4
 
 var _failures: Array[String] = []
 
@@ -52,7 +52,7 @@ func _run() -> void:
 	_expect(panel_rect.size.y <= PHONE_SIZE.y * 0.54, "sheet leaves less than46% of the battlefield visible")
 
 	var diagnostics: Dictionary = build_menu.get("touch_target_diagnostics")
-	_expect_eq(int(diagnostics.get("visible_card_columns", 0)), EXPECTED_VISIBLE_COLUMNS, "diagnostics preserve three readable columns")
+	_expect_eq(int(diagnostics.get("visible_card_columns", 0)), EXPECTED_VISIBLE_COLUMNS, "diagnostics preserve four compact columns")
 	var grid: GridContainer = build_menu.get_node("Margin/VBox/ScrollContainer/BuildingGrid") as GridContainer
 	var scroll: ScrollContainer = build_menu.get_node("Margin/VBox/ScrollContainer") as ScrollContainer
 	var cards: Array[Node] = []
@@ -73,14 +73,29 @@ func _run() -> void:
 			first_card_width = card.size.x
 		_expect(card.size.x >= MIN_TOUCH_TARGET, "%s is narrower than 48px" % card.name)
 		_expect(card.size.y >= MIN_TOUCH_TARGET, "%s is shorter than 48px" % card.name)
-		_expect(card.text.split("\n").size() == 3, "%s must show name, purpose and cost" % card.name)
+		_expect(card.text.split("\n").size() in [2, 3], "%s must show name and cost with only decision-changing context" % card.name)
+		_expect(card.icon != null, "%s loses building portrait" % card.name)
+		_expect(not card.accessibility_name.is_empty(), "%s loses accessible description" % card.name)
+		_expect_button_text_fits(card, "fully funded card")
 	var gap: float = float(grid.get_theme_constant("h_separation"))
 	var visible_card_count: float = (scroll.size.x + gap) / maxf(1.0, first_card_width + gap)
 	_expect(
-		visible_card_count >= 3.0 and visible_card_count <= 3.4,
-		"phone viewport shows %.2f card columns instead of approximately three" % visible_card_count
+		visible_card_count >= 4.0 and visible_card_count <= 4.4,
+		"phone viewport shows %.2f card columns instead of approximately four" % visible_card_count
 	)
 
+	var farm: Button = (build_menu.get("_button_map") as Dictionary)[BuildingData.BuildingType.FARM]
+	_expect(farm.text.contains("300 food · finite"), "funded Farm loses finite stock")
+	build_menu.call("update_resources", {"food": 0, "wood": 0, "gold": 0})
+	await get_tree().process_frame
+	_expect(farm.text.contains("300 food · finite") and farm.text.contains("Need +75W"), "unfunded Farm loses finite stock or paid shortage")
+	_expect_button_text_fits(farm, "unfunded Farm")
+	await get_tree().process_frame
+	_expect(build_menu.get_global_rect().end.y <= PHONE_SIZE.y - 7.5, "unfunded four-line Farm consumes the bottom safe margin")
+	_expect(build_menu.get_global_rect().size.y <= MAX_SHEET_HEIGHT, "unfunded Farm expands beyond the compact sheet")
+	for card: Button in (build_menu.get("_button_map") as Dictionary).values():
+		_expect_button_text_fits(card, "unfunded late-age card")
+	build_menu.call("update_resources", {"food": 5000, "wood": 5000, "gold": 5000})
 	var close_diag: Dictionary = diagnostics.get("cancel_button", {})
 	_expect(float(close_diag.get("height", 0.0)) >= MIN_TOUCH_TARGET, "Close is shorter than 48px")
 	_expect(bool(close_diag.get("visible", false)), "Close is not visible while the sheet is open")
@@ -90,6 +105,7 @@ func _run() -> void:
 	_expect_eq(categories.size(), 3, "three build categories are accessible")
 	for category_button: Button in categories.values():
 		_expect(category_button.size.y >= MIN_TOUCH_TARGET, "build category is under48px")
+		_expect(category_button.icon != null and not category_button.text.is_empty(), "category loses icon or caption")
 	build_menu.call("_on_category_pressed", "Army")
 	await get_tree().process_frame
 	_expect_eq(String(build_menu.get("_active_category")), "Army", "Army category did not activate")
@@ -202,7 +218,7 @@ func _check_category_density(phone_size: Vector2i, ui_scale: float, notched: boo
 			var scroll: ScrollContainer = menu.get("scroll_container")
 			var grid: GridContainer = menu.get("grid")
 			_expect(safe_area.encloses(panel), "%s %s sheet outside safe area" % [profile, category])
-			_expect(panel.size.y <= 166.5, "%s %s sheet keeps excess height %.1f" % [profile, category, panel.size.y])
+			_expect(panel.size.y <= 170.5, "%s %s sheet keeps excess height %.1f" % [profile, category, panel.size.y])
 			_expect(not (menu.get("title_label") as Label).visible, "%s retains redundant Build title" % profile)
 			var header: HBoxContainer = menu.get("header")
 			_expect(panel.encloses(header.get_global_rect()), "%s header escapes Build sheet" % profile)
@@ -218,7 +234,7 @@ func _check_category_density(phone_size: Vector2i, ui_scale: float, notched: boo
 				var horizontal_padding: float = menu.get_theme_stylebox("panel").get_minimum_size().x + margin.get_theme_constant("margin_left") + margin.get_theme_constant("margin_right")
 				var content_width: float = header.get_combined_minimum_size().x + horizontal_padding
 				_expect(absf(panel.size.x - content_width) <= 0.5, "%s one-card Defence exceeds header content width %.1f/%.1f" % [profile, panel.size.x, content_width])
-				_expect(panel.size.y <= 150.5, "%s one-card Defence leaves blank height %.1f" % [profile, panel.size.y])
+				_expect(panel.size.y <= 154.5, "%s one-card Defence leaves blank height %.1f" % [profile, panel.size.y])
 				_expect(not scroll.get_h_scroll_bar().visible, "%s Defence shows an unnecessary scrollbar" % profile)
 				var tower: Button = (menu.get("_button_map") as Dictionary)[BuildingData.BuildingType.WATCH_TOWER]
 				_expect(absf(tower.size.x - scroll.size.x) <= 0.5, "%s Defence card does not fill its compact row" % profile)
@@ -250,15 +266,23 @@ func _check_category_density(phone_size: Vector2i, ui_scale: float, notched: boo
 				_expect_button_text_fits(available_tower, profile)
 				menu.call("update_age", 1)
 			else:
-				_expect(grid.size.x > scroll.size.x + 1.0, "%s %s loses horizontal navigation" % [profile, category])
+				var visible_cards: int = int(menu.call("_visible_card_count"))
+				var required_width: float = float(visible_cards) * 158.0 - 8.0
+				if required_width > scroll.size.x + 0.5:
+					_expect(grid.size.x > scroll.size.x + 1.0 and scroll.get_h_scroll_bar().visible, "%s %s loses horizontal navigation" % [profile, category])
+				else:
+					_expect(not scroll.get_h_scroll_bar().visible, "%s %s shows scrollbar when every card fits" % [profile, category])
 				var first: Button = null
 				for card: Button in grid.get_children():
 					if card.visible:
 						first = card
 						break
 				var card_gap: float = float(grid.get_theme_constant("h_separation"))
+				for card: Button in grid.get_children():
+					if card.visible:
+						_expect_button_text_fits(card, profile + " " + category)
 				var visible_columns: float = (scroll.size.x + card_gap) / (first.size.x + card_gap)
-				_expect(visible_columns > 3.0 and visible_columns < 3.4, "%s %s loses next-card discovery %.2f" % [profile, category, visible_columns])
+				_expect(visible_columns > 3.5 and visible_columns < 4.4, "%s %s loses next-card discovery %.2f" % [profile, category, visible_columns])
 	menu.free()
 	viewport.free()
 	await get_tree().process_frame

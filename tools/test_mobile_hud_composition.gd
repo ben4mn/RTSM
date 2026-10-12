@@ -89,7 +89,7 @@ func _exercise_profile(phone: Vector2i, ui_scale: float, notched: bool) -> void:
 	_expect(caption.visible and caption.get_parent() == dock, profile + " worker counts are detached from dock")
 	_expect(dock.get_global_rect().encloses(caption.get_global_rect()), profile + " worker counts leave backplate")
 	_expect(not caption.get_global_rect().intersects(selection.get_global_rect()), profile + " worker caption covers selected identity")
-	_expect((hud.get("_unit_move_button") as Button).button_pressed and (hud.get("_unit_move_button") as Button).text.contains("Armed") and (hud.get("selection_details") as Label).text.contains("Tap to move"), profile + " Move lacks armed cue")
+	_expect((hud.get("_unit_move_button") as Button).button_pressed and (hud.get("_unit_move_button") as Button).icon != null and (hud.get("_unit_move_button") as Button).tooltip_text.contains("armed") and (hud.get("selection_details") as Label).text.contains("Tap to move"), profile + " Move lacks armed cue")
 	_expect(not (hud.get("age_up_button") as Button).visible and (hud.get("build_menu_button") as Button).visible, profile + " worker context is wrong")
 	_expect(not (hud.get("_mobile_action_panel") as Control).visible, profile + " worker leaves detached utility rail")
 	_assert_field(hud, safe, profile + " workers")
@@ -104,7 +104,7 @@ func _exercise_profile(phone: Vector2i, ui_scale: float, notched: bool) -> void:
 	hud.call("_on_unit_more_pressed")
 	await _settle(hud, logical, safe)
 	_target(hud.get("_worker_idle_button"), safe, profile)
-	_expect((hud.get("_worker_idle_button") as Button).text.contains("2"), profile + " More loses idle count")
+	_expect((hud.get("_worker_idle_button") as Button).get_node("CommandIconBadge").text == "2", profile + " More loses idle count")
 	_assert_field(hud, safe, profile + " worker More")
 	hud.call("_on_unit_more_pressed")
 
@@ -146,7 +146,7 @@ func _exercise_profile(phone: Vector2i, ui_scale: float, notched: bool) -> void:
 		if button is Button and button.visible and not button.is_queued_for_deletion():
 			_target(button, safe, profile)
 			_expect(scroll.get_global_rect().encloses(button.get_global_rect()), profile + " queue cancellation target cannot be reached")
-	_expect((hud.get("_queue_navigation_button") as Button).text.contains("Train"), profile + " queue loses return action")
+	_expect((hud.get("_queue_navigation_button") as Button).icon != null and (hud.get("_queue_navigation_button") as Button).accessibility_name.contains("recruitment"), profile + " queue loses return action")
 
 	var smith := BuildingBase.new()
 	smith.building_type = BuildingData.BuildingType.BLACKSMITH

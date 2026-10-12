@@ -50,7 +50,7 @@ func _run() -> void:
 	_expect(not bool(hud.call("is_build_menu_open")), "HUD retained stale build-menu-open state")
 	_expect(not build_menu.is_visible_in_tree(), "Build menu still covered the world during placement")
 	_expect(not bool(build_menu.get("_placement_mode_active")), "hidden Build menu was not reset for its next open")
-	_expect(str(hud.get("build_menu_button").text) == "Build", "Build button was not reset after menu dismissal")
+	_expect(hud.get("build_menu_button").icon == CommandIcons.get_icon("build") and str(hud.get("build_menu_button").accessibility_name) == "Build", "Build button was not reset after menu dismissal")
 	_expect(bool(hud.call("is_placement_cancel_visible")), "bottom PlacementCancelButton was not left available")
 
 	# A second Build tap is a deliberate mode switch: cancel the ghost and open
@@ -63,7 +63,7 @@ func _run() -> void:
 	_expect(build_menu.is_visible_in_tree(), "Build menu surface stayed hidden on reopen")
 	_expect(not bool(build_menu.get("_placement_mode_active")), "reopened Build menu retained placement mode")
 	_expect(not bool(hud.call("is_placement_cancel_visible")), "bottom placement Cancel remained after reopening Build")
-	_expect(str(hud.get("build_menu_button").text) == "X", "reopened Build button did not show close state")
+	_expect(hud.get("build_menu_button").icon == CommandIcons.get_icon("close") and str(hud.get("build_menu_button").accessibility_name) == "Close building menu", "reopened Build button did not show close state")
 
 	# Re-enter placement, then tap the center of the old menu footprint.  The
 	# placement system must receive it as preview positioning without spending;

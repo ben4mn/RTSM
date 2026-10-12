@@ -60,7 +60,7 @@ const MOBILE_SELECTION_COMMAND_WIDTH := 520.0
 const MOBILE_SELECTION_HEIGHT := 72.0
 const MOBILE_DOCK_CAPTION_HEIGHT := 24.0
 const MOBILE_TOP_RAIL_HEIGHT := 56.0
-const MOBILE_UNIT_COMMAND_WIDTH := 64.0
+const MOBILE_UNIT_COMMAND_WIDTH := 56.0
 const MOBILE_GUIDANCE_WIDTH := 360.0
 const MOBILE_GUIDANCE_HEIGHT := 54.0
 const PHONE_LAYOUT_KEYS: PackedStringArray = ["844x390", "932x430"]
@@ -238,6 +238,7 @@ var _progression_hint_label: Label = null
 var _guidance_dismiss_button: Button = null
 var _minimap_hint_label: Label = null
 var _minimap_touch_index: int = -1
+var _resource_chips: Dictionary = {}
 var _resource_values: Dictionary = {"food": 0, "wood": 0, "gold": 0}
 var _population_current: int = 0
 var _population_cap: int = 5
@@ -302,6 +303,8 @@ func _ready() -> void:
 	_create_progression_hint()
 	_create_minimap_hint()
 	_configure_mobile_visuals()
+	_create_resource_chips()
+	_refresh_command_icons()
 
 	# Connect to autoloads if available
 	if Engine.has_singleton("GameManager") or has_node("/root/GameManager"):
@@ -598,7 +601,7 @@ func _create_camera_controls() -> void:
 	_select_area_button = Button.new()
 	_select_area_button.name = "SelectAreaButton"
 	_select_area_button.text = "Select area"
-	_select_area_button.custom_minimum_size = Vector2(104, 48)
+	_select_area_button.custom_minimum_size = Vector2(48, 48)
 	_select_area_button.add_theme_font_size_override("font_size", 12)
 	_select_area_button.toggle_mode = true
 	_select_area_button.focus_mode = Control.FOCUS_NONE
@@ -624,7 +627,7 @@ func set_area_selection_armed(armed: bool) -> void:
 	_area_selection_armed = armed
 	if _select_area_button:
 		_select_area_button.set_pressed_no_signal(armed)
-		_select_area_button.text = "Cancel area\nDrag to select" if armed else "Select area"
+		CommandIcons.apply(_select_area_button, "select_area", "Cancel area selection" if armed else "Select area")
 	_queue_mobile_layout_refresh()
 
 
@@ -692,6 +695,78 @@ func _configure_mobile_visuals() -> void:
 		frame_style.set_corner_radius_all(6)
 		_minimap_frame.add_theme_stylebox_override("panel", frame_style)
 		minimap_bg.add_child(_minimap_frame)
+
+
+func _create_resource_chips() -> void:
+	var labels: Array[Label] = [food_label, wood_label, gold_label, pop_label]
+	var keys: PackedStringArray = ["food", "wood", "gold", "population"]
+	for index: int in labels.size():
+		var label: Label = labels[index]
+		var original_index: int = label.get_index()
+		var chip := HBoxContainer.new()
+		chip.name = keys[index].capitalize() + "Chip"
+		chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		chip.add_theme_constant_override("separation", 4)
+		top_bar_hbox.add_child(chip)
+		top_bar_hbox.move_child(chip, original_index)
+		var token := TextureRect.new()
+		token.name = "ResourceIcon"
+		token.texture = CommandIcons.get_icon(keys[index])
+		token.custom_minimum_size = Vector2(22, 22)
+		token.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		token.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		token.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		token.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		token.modulate = RESOURCE_COLORS.get(keys[index], KingdomTheme.PARCHMENT)
+		chip.add_child(token)
+		label.reparent(chip)
+		_resource_chips[keys[index]] = chip
+
+
+func _refresh_command_icons() -> void:
+	if _unit_stance_button == null:
+		return
+	# Existing buttons keep their identity, input ownership and exclusive menus.
+	# Closed launchers are compact; their expanded choices retain short captions.
+	var definitions: Array = [
+		[_pause_button, "resume" if _ui_modal_state == UIModalState.PAUSE_MENU else "pause", "Resume" if _ui_modal_state == UIModalState.PAUSE_MENU else "Pause"],
+		[_camera_view_button, "view", "Camera controls"],
+		[_select_area_button, "select_area", "Cancel area selection" if _area_selection_armed else "Select area"],
+		[_selection_back_button, "back", "Clear selection"],
+		[_unit_move_button, "move", "Move"],
+		[_unit_attack_move_button, "attack", "Attack-move"],
+		[_unit_more_button, "back" if _advanced_commands_open else "more", "Close orders" if _advanced_commands_open else "More orders"],
+		[_unit_clear_button, "clear", "Clear selection"],
+		[build_menu_button, "close" if _build_menu_open else "build", "Close building menu" if _build_menu_open else "Build"],
+	]
+	for entry: Array in definitions:
+		var button: Button = entry[0]
+		if is_instance_valid(button):
+			CommandIcons.apply(button, entry[1], entry[2])
+			button.custom_minimum_size.x = 56.0 if button in [_unit_move_button, _unit_attack_move_button, build_menu_button] else 48.0
+	CommandIcons.set_badge(_unit_more_button, "•" if _unit_command_mode == "patrol" else "")
+	var expanded: Array = [
+		[_camera_zoom_out_button, "zoom_out", "Zoom out", ""],
+		[_camera_zoom_in_button, "zoom_in", "Zoom in", ""],
+		[_camera_zoom_reset_button, "reset", "Reset zoom", "Reset"],
+		[_camera_center_button, "center", "Center selection", "Center"],
+		[_unit_stop_button, "stop", "Stop selected units", "Stop"],
+		[_unit_patrol_button, "patrol", "Patrol between two points", "Patrol"],
+		[_unit_stance_button, "stance", _unit_stance_button.tooltip_text, "Guard" if _unit_stance_button.button_pressed else "Aggro"],
+		[_worker_idle_button, "idle", "Find idle worker", "Idle"],
+	]
+	for entry: Array in expanded:
+		var button: Button = entry[0]
+		if is_instance_valid(button):
+			CommandIcons.apply(button, entry[1], entry[2], entry[3])
+			button.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
+			button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			button.add_theme_font_size_override("font_size", 10)
+	CommandIcons.set_badge(_worker_idle_button, str(_last_idle_villager_count) if _last_idle_villager_count > 0 else "")
+	if _unit_move_button:
+		_unit_move_button.tooltip_text = "Move armed: tap a destination" if _unit_command_mode == "move" else "Move: tap a destination"
+	if _unit_attack_move_button:
+		_unit_attack_move_button.tooltip_text = "Attack-move armed: tap a destination" if _unit_command_mode == "attack_move" else "Attack-move: fight enemies along the route"
 
 
 func _set_button_icon(button: Button, texture_path: String, max_width: int) -> void:
@@ -1318,27 +1393,21 @@ func configure_unit_commands(
 		_unit_patrol_button.disabled = not authorized or not has_military
 	if _unit_move_button:
 		_unit_move_button.set_pressed_no_signal(armed_mode == "move")
-		_unit_move_button.text = "Move\nArmed" if armed_mode == "move" else "Move"
 	if _unit_attack_move_button:
 		_unit_attack_move_button.set_pressed_no_signal(armed_mode == "attack_move")
-		_unit_attack_move_button.text = "Attack\nArmed" if armed_mode == "attack_move" else "Attack"
 	if _unit_patrol_button:
 		_unit_patrol_button.set_pressed_no_signal(armed_mode == "patrol")
-		_unit_patrol_button.text = "Patrol\nArmed" if armed_mode == "patrol" else "Patrol"
 	if _unit_stance_button:
-		_unit_stance_button.text = "Stance"
 		_unit_stance_button.set_pressed_no_signal(stance_name == "Stand Ground")
 		_unit_stance_button.tooltip_text = "Current stance: %s. Tap to toggle." % stance_name
 	if _worker_idle_button:
 		_worker_idle_button.visible = not has_military and _selection_is_worker
 		_worker_idle_button.disabled = _last_idle_villager_count <= 0
-		_worker_idle_button.text = "Idle %d" % _last_idle_villager_count
 	_unit_patrol_button.visible = has_military
 	_unit_stance_button.visible = authorized
-	if _unit_more_button:
-		_unit_more_button.text = "More •" if armed_mode == "patrol" else "More"
 	if _advanced_command_panel:
 		_advanced_command_panel.visible = _advanced_commands_open and _unit_command_container.visible
+	_refresh_command_icons()
 	_queue_mobile_layout_refresh()
 	_refresh_touch_target_diagnostics()
 
@@ -1463,6 +1532,7 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 	var safe_pos: Vector2 = safe_area.position
 	_world_safe_rect = safe_area
 	_apply_context_actions(viewport_size)
+	_refresh_command_icons()
 	var action_count: int = _count_visible_mobile_action_buttons()
 	var metrics: Dictionary = _calculate_mobile_layout_metrics(viewport_size, safe_area, action_count)
 	var build_sheet_open: bool = _ui_modal_state == UIModalState.BUILD_MENU
@@ -1490,7 +1560,7 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 	if _unit_command_container:
 		for child in _unit_command_container.get_children():
 			if child is Button:
-				(child as Button).custom_minimum_size = Vector2(MOBILE_UNIT_COMMAND_WIDTH, MOBILE_ACTION_BUTTON_HEIGHT)
+				(child as Button).custom_minimum_size = Vector2(MOBILE_UNIT_COMMAND_WIDTH if child in [_unit_move_button, _unit_attack_move_button] else 48.0, MOBILE_ACTION_BUTTON_HEIGHT)
 
 	var compact_labels: bool = metrics["compact_labels"]
 	if compact_labels != _mobile_compact_labels:
@@ -1555,9 +1625,9 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 		for zoom_button: Button in [_camera_zoom_out_button, _camera_zoom_in_button, _camera_zoom_reset_button, _camera_center_button]:
 			zoom_button.visible = not phone_camera or _camera_controls_expanded
 		_navigation_controls.offset_left = metrics["minimap_left"]
-		var camera_width: float = 290.0 if phone_camera and _camera_controls_expanded else (48.0 if phone_camera else 238.0)
+		var camera_width: float = _production_row_width(_camera_controls)
 		_camera_center_button.disabled = not _selection_context_active or _ui_modal_state != UIModalState.NONE
-		var nav_width: float = camera_width + (110.0 if _select_area_button.visible else 0.0) + (54.0 if _selection_back_button.visible else 0.0)
+		var nav_width: float = camera_width + (54.0 if _select_area_button.visible else 0.0) + (54.0 if _selection_back_button.visible else 0.0)
 		_navigation_controls.offset_right = metrics["minimap_left"] + nav_width
 		_navigation_controls.offset_bottom = metrics["minimap_top"] - 8.0
 		_navigation_controls.offset_top = _navigation_controls.offset_bottom - 48.0
@@ -1592,6 +1662,7 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 	_update_selection_name_layout(float(metrics["selection_info_width"]) - 26.0)
 	if _selection_info_button:
 		_selection_info_button.visible = _selection_context_active and standard_field_chrome_visible
+		_selection_info_button.accessibility_name = "Information about " + _selection_full_name
 		_selection_info_button.position = selection_info_column.get_global_rect().position
 		_selection_info_button.size = Vector2(float(metrics["selection_info_width"]), maxf(48.0, selection_info_column.size.y))
 		call_deferred("_layout_summary_info_target")
@@ -1614,17 +1685,20 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 	var selection_has_commands: bool = _selection_has_commands()
 	selection_separator.visible = selection_has_commands and not (bool(metrics["top_bar_compact"]) and _is_town_center_production_context())
 	command_scroll.visible = selection_has_commands
+	# The explicit Queue pager exposes both pages. Keep touch scrolling without
+	# spending phone command-bar height on a second navigation control.
+	command_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER if _is_phone_context() else ScrollContainer.SCROLL_MODE_AUTO
 	_layout_queue_page()
 	if _advanced_command_panel:
-		var advanced_width: float = minf(344.0, metrics["selection_width"])
+		var advanced_width: float = minf(218.0, metrics["selection_width"])
 		_advanced_command_panel.offset_left = metrics["selection_right"] - advanced_width - viewport_size.x * 0.5
 		_advanced_command_panel.offset_right = _advanced_command_panel.offset_left + advanced_width
-		_advanced_command_panel.offset_bottom = metrics["selection_top"] - (64.0 if _strategy_overview else 8.0)
-		_advanced_command_panel.offset_top = _advanced_command_panel.offset_bottom - 60.0
+		_advanced_command_panel.offset_bottom = metrics["selection_top"] - (72.0 if _strategy_overview else 8.0)
+		_advanced_command_panel.offset_top = _advanced_command_panel.offset_bottom - maxf(60.0, _advanced_command_panel.get_combined_minimum_size().y)
 		_advanced_command_panel.visible = _advanced_commands_open and not _hold_chooser_active and _unit_command_container.visible and standard_field_chrome_visible
 		for child in _advanced_command_container.get_children():
 			if child is Button:
-				(child as Button).custom_minimum_size = Vector2(104.0, MOBILE_ACTION_BUTTON_HEIGHT)
+				(child as Button).custom_minimum_size = Vector2(64.0, MOBILE_ACTION_BUTTON_HEIGHT)
 	if _placement_status_panel:
 		var status_width: float = minf(420.0, safe_area.size.x - 16.0)
 		_placement_status_panel.offset_left = safe_pos.x + (safe_area.size.x - status_width) * 0.5 - viewport_size.x * 0.5
@@ -1745,7 +1819,7 @@ func _calculate_mobile_layout_metrics(viewport_size: Vector2, safe_area: Rect2, 
 	var bottom_inset: float = maxf(0.0, viewport_size.y - safe_end.y)
 	var short_side: float = minf(safe_area.size.x, safe_area.size.y)
 	var phone: bool = short_side <= MOBILE_TOP_BAR_COMPACT_SHORT_SIDE
-	var side_button_width: float = 104.0
+	var side_button_width: float = 104.0 if age_up_button.visible else 56.0
 	var side_count: int = int(age_up_button.visible) + int(build_menu_button.visible)
 	var side_width: float = side_button_width * float(side_count) + 6.0 * float(maxi(0, side_count - 1))
 	var bottom_right_right: float = -right_inset - MOBILE_ACTION_MARGIN
@@ -2210,22 +2284,10 @@ func _update_resource_display(resources: Dictionary) -> void:
 	var values: Array[int] = [food, wood, gold]
 	var labels: Array[Label] = [food_label, wood_label, gold_label]
 	for index: int in 3:
-		labels[index].text = "%s: %s" % [names[index], _compact_resource_amount(values[index])]
+		labels[index].text = _compact_resource_amount(values[index])
 		labels[index].tooltip_text = "%s: %d" % [names[index], values[index]]
-	# Measure the rendered font widths, including population, age and clock.
-	# Full resource names stay visible whenever the actual safe corridor fits.
-	var required_width: float = 0.0
-	var visible_labels: Array[Label] = [food_label, wood_label, gold_label, pop_label, age_label, game_time_label]
-	if _match_population_label and _match_population_label.visible:
-		visible_labels.append(_match_population_label)
-	for label: Label in visible_labels:
-		if label.visible and label.get_parent() == top_bar_hbox:
-			required_width += label.get_theme_font("font").get_string_size(label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, label.get_theme_font_size("font_size")).x
-	required_width += float(visible_labels.size() - 1) * float(top_bar_hbox.get_theme_constant("separation"))
-	_resource_labels_abbreviated = required_width > _top_bar_safe_width - 378.0
-	if _resource_labels_abbreviated:
-		for index: int in 3:
-			labels[index].text = "%s %s" % [names[index].left(1), _compact_resource_amount(values[index])]
+		labels[index].accessibility_name = labels[index].tooltip_text
+	_resource_labels_abbreviated = true
 	update_population(_population_current, _population_cap)
 	_update_age_display()
 
@@ -2243,10 +2305,9 @@ func _compact_resource_amount(value: int) -> String:
 func update_population(current: int, cap: int) -> void:
 	_population_current = current
 	_population_cap = cap
-	if _resource_labels_abbreviated:
-		pop_label.text = "P %d/%d" % [current, cap]
-	else:
-		pop_label.text = "Pop: %d/%d" % [current, cap]
+	pop_label.text = "%d/%d" % [current, cap]
+	pop_label.tooltip_text = "Population: %d of %d" % [current, cap]
+	pop_label.accessibility_name = pop_label.tooltip_text
 	if _top_bar_compact:
 		var gm: Node = _get_game_manager()
 		var current_age: String = gm.get_age_name(gm.get_player_age(0)) if gm else "Dark Age"
@@ -2942,27 +3003,28 @@ func _update_train_buttons(trainable_units: Array) -> void:
 		var role_text: String = UnitData.get_unit_counter_description(ut) if ut != UnitData.UnitType.VILLAGER else ""
 		if compact_town_center and ut == UnitData.UnitType.SCOUT:
 			role_text = "Recon"
-		btn.text = "%s%s\n%s%s" % [unit_name, queue_badge, cost_str, "\n" + role_text if not role_text.is_empty() else ""]
-		btn.custom_minimum_size = Vector2(74 if compact_town_center else 104, 48) if compact_producer else Vector2(130, 48)
-		btn.alignment = HORIZONTAL_ALIGNMENT_CENTER if compact_town_center else HORIZONTAL_ALIGNMENT_LEFT
-		btn.add_theme_font_size_override("font_size", 11 if compact_producer or not role_text.is_empty() else 13)
-		for style_name: String in ["normal", "hover", "pressed", "disabled", "focus"]:
+		btn.text = "%s\n%s" % [unit_name, cost_str] if compact_producer else "%s%s\n%s\n%s" % [unit_name, queue_badge, cost_str, role_text]
+		btn.custom_minimum_size = Vector2(76 if compact_town_center else 90, 60) if compact_producer else Vector2(130, 48)
+		btn.alignment = HORIZONTAL_ALIGNMENT_CENTER if compact_producer else HORIZONTAL_ALIGNMENT_LEFT
+		btn.add_theme_font_size_override("font_size", 10 if compact_producer else 13)
+		btn.accessibility_name = "Train %s. %s. %s" % [unit_name, _full_cost_text(cost), role_text]
+		CommandIcons.set_badge(btn, str(queue_count) if queue_count > 0 else "")
+		for style_name: String in ["normal", "hover", "pressed", "disabled", "focus", "hover_pressed"]:
 			btn.remove_theme_stylebox_override(style_name)
 			if compact_producer or not role_text.is_empty():
 				var style: StyleBoxFlat = btn.get_theme_stylebox(style_name).duplicate() as StyleBoxFlat
 				style.set_content_margin(SIDE_LEFT, 4.0)
 				style.set_content_margin(SIDE_RIGHT, 4.0)
-				style.set_content_margin(SIDE_TOP, 4.0)
-				style.set_content_margin(SIDE_BOTTOM, 4.0)
+				style.set_content_margin(SIDE_TOP, 1.0 if compact_producer else 4.0)
+				style.set_content_margin(SIDE_BOTTOM, 1.0 if compact_producer else 4.0)
 				btn.add_theme_stylebox_override(style_name, style)
 		var icon_path: String = UnitData.get_unit_icon_path(ut)
-		if compact_producer:
-			btn.icon = null
-		elif icon_path != "" and ResourceLoader.exists(icon_path):
+		if icon_path != "" and ResourceLoader.exists(icon_path):
 			btn.icon = load(icon_path)
 			btn.expand_icon = false
-			btn.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
-			btn.add_theme_constant_override("icon_max_width", 26)
+			btn.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER if compact_producer else HORIZONTAL_ALIGNMENT_LEFT
+			btn.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP if compact_producer else VERTICAL_ALIGNMENT_CENTER
+			btn.add_theme_constant_override("icon_max_width", 24 if compact_producer else 26)
 		# Build detailed tooltip with unit stats
 		var tip_lines: PackedStringArray = PackedStringArray()
 		tip_lines.append("%s (tap to train)" % unit_name)
@@ -2991,7 +3053,7 @@ func _update_train_buttons(trainable_units: Array) -> void:
 		_auto_queue_button.mouse_filter = Control.MOUSE_FILTER_STOP
 		_auto_queue_button.custom_minimum_size = Vector2(74 if compact_town_center else 88, 48) if compact_producer else Vector2(104, 48)
 		_auto_queue_button.add_theme_font_size_override("font_size", 11 if compact_producer else 14)
-		for style_name: String in ["normal", "hover", "pressed", "disabled", "focus"]:
+		for style_name: String in ["normal", "hover", "pressed", "disabled", "focus", "hover_pressed"]:
 			var repeat_style: StyleBoxFlat = _auto_queue_button.get_theme_stylebox(style_name).duplicate() as StyleBoxFlat
 			repeat_style.set_content_margin(SIDE_LEFT, 4.0)
 			repeat_style.set_content_margin(SIDE_RIGHT, 4.0)
@@ -3037,8 +3099,8 @@ func _refresh_queue_navigation(_value: float = 0.0) -> void:
 		# A pending reconciliation can briefly clamp its scrollbar; keep that
 		# requested page alive until its deferred restoration has completed.
 		_set_secondary_surface(SecondarySurface.NONE)
-	_queue_navigation_button.text = "Train\n‹" if queue_in_view else "Queue\n(%d)" % _last_queue_items.size()
-	_queue_navigation_button.tooltip_text = "Return to recruitment" if queue_in_view else "Inspect production and cancel queued units"
+	CommandIcons.apply(_queue_navigation_button, "back" if queue_in_view else "queue", "Return to recruitment" if queue_in_view else "Inspect production and cancel queued units")
+	CommandIcons.set_badge(_queue_navigation_button, "" if queue_in_view else str(_last_queue_items.size()))
 
 
 func _restore_producer_queue_view(building_ref: Node2D, offset: int, revision: int) -> void:
@@ -3100,16 +3162,16 @@ func _refresh_auto_queue_button(production_queue: Node) -> void:
 	_auto_queue_button.set_meta("repeat_unit_type", unit_type)
 	_auto_queue_button.disabled = unit_type < 0 or _ui_modal_state == UIModalState.PAUSE_MENU
 	if unit_type < 0:
-		_auto_queue_button.text = "Train first\nRepeat · OFF"
+		_auto_queue_button.text = "Train first\nOFF"
 		_auto_queue_button.tooltip_text = "Queue a unit first, then turn on repeat training for that unit."
 		_auto_queue_button.icon = null
 	else:
 		var unit_name: String = UnitData.get_unit_name(unit_type)
-		_auto_queue_button.text = "%s\nRepeat · %s" % [unit_name, "ON" if enabled else "OFF"]
+		_auto_queue_button.text = "%s\n%s" % [unit_name, "ON" if enabled else "OFF"]
 		_auto_queue_button.tooltip_text = "Keep training %s after each completion while resources and population room allow. The last unit you queue is the one repeated." % unit_name
 		_auto_queue_button.icon = null
 		if enabled and int(production_queue.call("get_queue_size")) == 0:
-			_auto_queue_button.text += "\n" + _get_repeat_wait_reason()
+			_auto_queue_button.text = "%s · ON\n%s" % [unit_name, _get_repeat_wait_reason()]
 			_auto_queue_button.add_theme_font_size_override("font_size", 11)
 	if enabled:
 		KingdomTheme.apply_primary(_auto_queue_button)
@@ -3117,6 +3179,20 @@ func _refresh_auto_queue_button(production_queue: Node) -> void:
 		KingdomTheme.apply_secondary(_auto_queue_button)
 		_auto_queue_button.add_theme_color_override("font_hover_color", KingdomTheme.PARCHMENT)
 		_auto_queue_button.add_theme_color_override("font_focus_color", KingdomTheme.PARCHMENT)
+	CommandIcons.apply(_auto_queue_button, "repeat", _auto_queue_button.tooltip_text, _auto_queue_button.text)
+	_auto_queue_button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_auto_queue_button.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
+	_auto_queue_button.add_theme_constant_override("icon_max_width", 20)
+	_auto_queue_button.add_theme_font_size_override("font_size", 10 if _is_phone_context() else 12)
+	_auto_queue_button.accessibility_name = "Repeat training: " + _auto_queue_button.text.replace("\n", ". ")
+	if _is_phone_context():
+		# Native stacked icons reserve more height than their visible artwork.
+		# Keep the full icon/text inside the72px production dock.
+		for state: String in ["normal", "hover", "pressed", "disabled", "focus", "hover_pressed"]:
+			var style: StyleBox = _auto_queue_button.get_theme_stylebox(state).duplicate()
+			style.set_content_margin(SIDE_TOP, 1.0)
+			style.set_content_margin(SIDE_BOTTOM, 1.0)
+			_auto_queue_button.add_theme_stylebox_override(state, style)
 	_refresh_touch_target_diagnostics()
 
 
@@ -4088,6 +4164,7 @@ func _create_secondary_surface_controls() -> void:
 	_secondary_dismissal_shield.connect("dismiss_requested", close_secondary_surface)
 	_info_panel = PanelContainer.new()
 	_info_panel.name = "SelectionInfoPanel"
+	_info_panel.theme = ($Root as Control).theme
 	_info_panel.z_index = 60
 	_info_panel.visible = false
 	_info_panel.add_theme_stylebox_override("panel", KingdomTheme.panel_style())
@@ -4104,8 +4181,9 @@ func _create_secondary_surface_controls() -> void:
 	header.add_child(_info_title)
 	var close_button := Button.new()
 	close_button.name = "InfoCloseButton"
-	close_button.text = "Close"
-	close_button.custom_minimum_size = Vector2(64, 48)
+	close_button.theme = _info_panel.theme
+	CommandIcons.apply(close_button, "close", "Close information")
+	close_button.custom_minimum_size = Vector2(48, 48)
 	close_button.pressed.connect(close_secondary_surface)
 	header.add_child(close_button)
 	var scroll := ScrollContainer.new()
@@ -4128,10 +4206,13 @@ func _create_secondary_surface_controls() -> void:
 	selection_name.reparent(_selection_name_header)
 	selection_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	selection_name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	var info_handle := Label.new()
-	info_handle.text = "Info ›"
-	info_handle.add_theme_font_size_override("font_size", 10)
-	info_handle.add_theme_color_override("font_color", KingdomTheme.AMBER)
+	var info_handle := TextureRect.new()
+	info_handle.texture = CommandIcons.get_icon("info")
+	info_handle.custom_minimum_size = Vector2(16, 16)
+	info_handle.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	info_handle.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	info_handle.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	info_handle.modulate = KingdomTheme.AMBER
 	_selection_name_header.add_child(info_handle)
 	_selection_info_button = Button.new()
 	_selection_info_button.name = "SelectionInfoButton"
@@ -4150,6 +4231,7 @@ func _create_secondary_surface_controls() -> void:
 func _layout_summary_info_target() -> void:
 	if _selection_info_button == null:
 		return
+	_selection_info_button.accessibility_name = "Information about " + _selection_full_name
 	_selection_info_button.position = selection_info_column.get_global_rect().position
 	_selection_info_button.size = Vector2(selection_info_column.size.x, maxf(48.0, selection_info_column.size.y))
 
@@ -4207,8 +4289,8 @@ func _selection_information() -> Dictionary:
 	if not selection_details.text.is_empty():
 		lines.append(selection_details.text)
 	if _selection_kind == "unit":
-		lines.append("Move: choose a destination. Attack: move and fight on the way. Tap the armed command again to cancel.")
-		lines.append("More: Stop, Stance and %s. Hold More, slide to preview, release to choose; return to the center to cancel." % ("Patrol" if _unit_commands_have_military else "Idle workers"))
+		lines.append("Arrow: Move to a destination. Sword: Attack-move and fight on the way. A highlighted icon means the command is armed; tap it again to cancel.")
+		lines.append("Up chevron: expand Stop, Stance and %s. Hold the chevron, slide to preview, release to choose; return to the center to cancel." % ("Patrol" if _unit_commands_have_military else "Idle workers"))
 	elif is_instance_valid(_selected_building_ref):
 		for container: Control in [_train_buttons_container, _research_container, queue_container]:
 			if container:
@@ -4221,7 +4303,7 @@ func _selection_information() -> Dictionary:
 		if _last_queue_items.is_empty():
 			_append_information(lines, _refund_information(-1))
 			_append_information(lines, _refund_information(-2))
-	lines.append("Hold action buttons to inspect. Short taps keep their normal action. Hold shortcuts can be disabled in Settings.")
+	lines.append("Costs: F food, W wood, G gold. Top counters use apple, log, ingot and population icons.\nHold recruitment or queue actions to inspect. Short taps keep their normal action. Hold shortcuts can be disabled in Settings.")
 	return {"title": _selection_full_name, "body": "\n\n".join(lines)}
 
 

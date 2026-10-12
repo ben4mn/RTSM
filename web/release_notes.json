@@ -1,6 +1,20 @@
 {
   "releases": [
     {
+      "id": "2026-10-12-icon-controls",
+      "version": "0.1.0-beta.4",
+      "date": "2026-10-12",
+      "title": "More battlefield. Fewer labels.",
+      "summary": "Compact icon controls open the actions you need, with names and costs where decisions happen.",
+      "changes": [
+        "Reach Base, Economy and Army through compact icons with unit counts and economy alerts. Tap Economy or Army again to close its panel.",
+        "Move, attack, select an area and expand camera or extra orders from recognizable icons. Armed commands stay highlighted; Info and optional holds explain every action.",
+        "Recruit from unit portraits with clear names and full costs. Queue badges show pending units; Repeat keeps its ON/OFF state and any shortage visible.",
+        "See more building choices at once, with names, prices and requirements retained. Finite Farm food remains explicit.",
+        "Read food, wood, gold and population from distinct symbols and numerical counters. Larger maps, camera zoom and match rules are unchanged."
+      ]
+    },
+    {
       "id": "2026-10-12-larger-battlefields",
       "version": "0.1.0-beta.3",
       "date": "2026-10-12",

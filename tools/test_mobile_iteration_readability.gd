@@ -99,7 +99,7 @@ func _profile(phone: Vector2i, scale_factor: float, notched: bool) -> void:
     _expect((hud.get("selection_panel") as Control).size.x <= 420.0,"%s TC recruitment shelf retains empty width: %.1f" % [label,(hud.get("selection_panel") as Control).size.x])
     _expect(safe.encloses(queue_navigation.get_global_rect()),"%s queue navigation outside safe area" % label)
     _expect(not queue_navigation.get_global_rect().intersects((hud.get("selection_info_column") as Control).get_global_rect()),"%s queue navigation overlaps selection details" % label)
-    _expect(queue_navigation.text.contains("1"),"%s initial queue count missing" % label)
+    _expect(queue_navigation.get_node("CommandIconBadge").text == "1","%s initial queue count missing" % label)
     _expect((hud.get("selection_details") as Label).text.to_lower().contains("rally") and (hud.get("selection_details") as Label).text.contains("40%"),"%s compact production loses rally cue or training progress: %s" % [label,(hud.get("selection_details") as Label).text])
     var production_details: Label = hud.get("selection_details")
     var details_height: float = production_details.get_theme_font("font").get_height(production_details.get_theme_font_size("font_size")) * float(production_details.text.split("\n").size())
@@ -116,7 +116,7 @@ func _profile(phone: Vector2i, scale_factor: float, notched: bool) -> void:
         if action.visible and not action.is_queued_for_deletion() and action is Button:
             _expect(scroll.get_global_rect().encloses(action.get_global_rect()),"%s queue-page name/action clipped: %s %s inside %s" % [label,(action as Button).text,action.get_global_rect(),scroll.get_global_rect()])
             _button_text_fits(action as Button,label+" queue page")
-    _expect(queue_navigation.text.contains("Train"),"%s queue navigation does not offer return to training" % label)
+    _expect(queue_navigation.accessibility_name.contains("recruitment"),"%s queue navigation does not offer return to training" % label)
     _expect((hud.get("selection_panel") as Control).get_global_rect().encloses(queue_navigation.get_global_rect()),"%s Train return floats outside queue shelf" % label)
     await _tap_control(hud,queue_navigation)
     _expect(scroll.scroll_horizontal == 0,"%s queue navigation does not return to training" % label)
@@ -141,7 +141,7 @@ func _profile(phone: Vector2i, scale_factor: float, notched: bool) -> void:
     (hud.get("_unit_more_button") as Button).pressed.emit()
     await _settle(hud,logical,safe)
     var worker_idle: Button = hud.get("_worker_idle_button")
-    _expect(worker_idle.is_visible_in_tree() and worker_idle.text.contains("2"),"%s worker More loses Idle shortcut/count" % label)
+    _expect(worker_idle.is_visible_in_tree() and worker_idle.icon != null and worker_idle.get_node("CommandIconBadge").text == "2","%s worker More loses Idle shortcut/count" % label)
     _expect(worker_idle.size.x >= 48 and worker_idle.size.y >= 48,"%s worker Idle target under48" % label)
     (hud.get("_unit_more_button") as Button).pressed.emit()
     await _settle(hud,logical,safe)
@@ -289,14 +289,14 @@ func _all_production_unit_text(hud: Node,logical: Vector2i,safe: Rect2,profile: 
         await _settle(hud,logical,safe)
         var unit_profile: String = "%s %s max queue" % [profile,UnitData.get_unit_name(unit_type)]
         var recruit: Button = (hud.get("_train_buttons_container") as HBoxContainer).get_node("TrainButton_%d" % unit_type)
-        _expect(recruit.text.contains("%s x%d" % [UnitData.get_unit_name(unit_type),ProductionQueue.MAX_QUEUE_SIZE]),unit_profile+" recruitment loses maximum queue badge")
+        _expect(recruit.text.contains(UnitData.get_unit_name(unit_type)) and recruit.icon != null and recruit.get_node("CommandIconBadge").text == str(ProductionQueue.MAX_QUEUE_SIZE),unit_profile+" recruitment loses maximum queue badge")
         for resource: String in ["food","wood","gold"]:
             var cost: int = int(UnitData.get_unit_cost(unit_type).get(resource,0))
             if cost > 0:
                 _expect(recruit.text.contains("%d%s" % [cost,resource.left(1).to_upper()]),unit_profile+" recruitment loses "+resource+" cost")
         var role: String = "Recon" if unit_type == UnitData.UnitType.SCOUT else UnitData.get_unit_counter_description(unit_type)
         if not role.is_empty():
-            _expect(recruit.text.contains(role),unit_profile+" recruitment loses role")
+            _expect(recruit.accessibility_name.contains(role) and str(hud.call("_selection_information")).contains(role),unit_profile+" recruitment loses role")
         for button: Button in (hud.get("_train_buttons_container") as HBoxContainer).get_children():
             if button.visible and not button.is_queued_for_deletion():
                 _expect(scroll.get_global_rect().encloses(button.get_global_rect()),unit_profile+" recruitment/Repeat clipped: "+String(button.name))
@@ -356,7 +356,7 @@ func _non_production_shelf_density(hud: Node,logical: Vector2i,safe: Rect2,profi
             # On the narrowest notched worker corridor Clear already needs a short
             # scroll. Every whole target must remain reachable at the final offset.
             for button: Button in commands.get_children():
-                _expect(button.visible and button.size.x >= 64.0 and button.size.y >= 48.0,context_profile+" shrinks/hides "+String(button.name))
+                _expect(button.visible and button.icon != null and button.size.x >= 48.0 and button.size.y >= 48.0,context_profile+" shrinks/hides "+String(button.name))
                 _button_text_fits(button,context_profile)
                 if not scroll.get_global_rect().encloses(button.get_global_rect()):
                     scroll.scroll_horizontal = int(scroll.get_h_scroll_bar().max_value-scroll.get_h_scroll_bar().page)

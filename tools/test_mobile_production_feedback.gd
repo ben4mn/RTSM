@@ -70,21 +70,21 @@ func _profile(phone: Vector2i, scale_factor: float) -> void:
 	var navigation: Button = hud.get("_queue_navigation_button")
 	var shelf: ScrollContainer = hud.get("command_scroll")
 	await _queue_selection_cancel(hud,tc,second,viewport,navigation,logical,safe,profile)
-	_expect(navigation.visible and not navigation.disabled and navigation.text.contains("3"), profile + " Queue count/control missing")
+	_expect(navigation.visible and not navigation.disabled and navigation.get_node("CommandIconBadge").text == "3", profile + " Queue count/control missing")
 	_expect(navigation.size.x >= 48.0 and navigation.size.y >= 48.0, profile + " Queue touch target under48px")
 	_expect(safe.encloses(navigation.get_global_rect()), profile + " Queue outside safe area")
 	_expect((hud.get("selection_panel") as Control).get_global_rect().encloses(navigation.get_global_rect()), profile + " Queue does not share production shelf")
 	for recruit: Button in (hud.get("_train_buttons_container") as HBoxContainer).get_children():
 		_expect(shelf.get_global_rect().encloses(recruit.get_global_rect()), profile + " inline pager clips " + String(recruit.name))
 	await _tap(viewport, navigation.get_global_rect().get_center())
-	_expect(shelf.scroll_horizontal > 0 and navigation.text.contains("Train"), profile + " Queue touch does not open cancellation page")
+	_expect(shelf.scroll_horizontal > 0 and navigation.accessibility_name.contains("recruitment"), profile + " Queue touch does not open cancellation page")
 	var undo: Button = (hud.get("queue_container") as HBoxContainer).get_node("QueueClearLastButton")
 	var clear: Button = (hud.get("queue_container") as HBoxContainer).get_node("QueueClearAllButton")
 	_expect(shelf.get_global_rect().encloses(undo.get_global_rect()) and shelf.get_global_rect().encloses(clear.get_global_rect()), profile + " Queue page hides Undo/Clear: shelf %s Undo %s Clear %s" % [shelf.get_global_rect(), undo.get_global_rect(), clear.get_global_rect()])
 	var inspected_scroll: int = shelf.scroll_horizontal
 	_show(hud, tc)
 	await _settle(hud, logical, safe)
-	_expect(shelf.scroll_horizontal > 0 and navigation.text.contains("Train") and _queue_actions_visible(hud), profile + " same producer refresh loses queue inspection: %d -> %d (queue begins %.0f)" % [inspected_scroll, shelf.scroll_horizontal, (hud.get("queue_container") as Control).position.x])
+	_expect(shelf.scroll_horizontal > 0 and navigation.accessibility_name.contains("recruitment") and _queue_actions_visible(hud), profile + " same producer refresh loses queue inspection: %d -> %d (queue begins %.0f)" % [inspected_scroll, shelf.scroll_horizontal, (hud.get("queue_container") as Control).position.x])
 	_show(hud, tc)
 	await _tap(viewport, navigation.get_global_rect().get_center(), 0)
 	await _settle(hud, logical, safe)
@@ -93,14 +93,14 @@ func _profile(phone: Vector2i, scale_factor: float) -> void:
 	var old_restore_revision: int = hud.get("_queue_navigation_revision")
 	shelf.scroll_horizontal = 0
 	await _queue_press_race(hud, tc, viewport, navigation, logical, safe, old_restore_revision, profile)
-	_expect(navigation.text.contains("Train") and shelf.get_global_rect().encloses(undo.get_global_rect()) and shelf.get_global_rect().encloses(clear.get_global_rect()), profile + " immediate Queue reopen before producer refresh clips refund actions")
+	_expect(navigation.accessibility_name.contains("recruitment") and shelf.get_global_rect().encloses(undo.get_global_rect()) and shelf.get_global_rect().encloses(clear.get_global_rect()), profile + " immediate Queue reopen before producer refresh clips refund actions")
 	shelf.scroll_horizontal = 0
 	_show(hud, tc)
 	await _settle(hud, logical, safe)
 	_expect(shelf.scroll_horizontal == 0, profile + " producer refresh overrides manual scroll back to Train")
 	_expect(hud.call("get_secondary_surface_name") == "none", profile + " manual Train return retains Queue ownership")
 	await _tap(viewport, navigation.get_global_rect().get_center())
-	_expect(hud.call("get_secondary_surface_name") == "queue" and navigation.text.contains("Train"), profile + " Queue does not reopen after manual Train return")
+	_expect(hud.call("get_secondary_surface_name") == "queue" and navigation.accessibility_name.contains("recruitment"), profile + " Queue does not reopen after manual Train return")
 	_expect(shelf.get_global_rect().encloses(undo.get_global_rect()) and shelf.get_global_rect().encloses(clear.get_global_rect()), profile + " reopened Queue clips refund actions")
 	var food_before: int = ResourceManager.get_resource(0, "food")
 	var population_before: int = GameManager.get_committed_population(0)
@@ -146,7 +146,13 @@ func _profile(phone: Vector2i, scale_factor: float) -> void:
 	await _settle(hud, logical, safe)
 	var repeat: Button = hud.get("_auto_queue_button")
 	_expect(repeat.text.contains("Need 50F"), profile + " Repeat lacks food shortage")
-	_expect(not navigation.disabled and navigation.text.contains("0"), profile + " empty waiting Repeat cannot open Clear")
+	# Fractional Window scaling can place anchored edges0.13px apart.
+	# A half logical pixel allows rounding, while rejecting actual dock growth.
+	var panel_rect: Rect2 = (hud.get("selection_panel") as Control).get_global_rect()
+	var dock_rect: Rect2 = (hud.get("_command_dock") as Control).get_global_rect()
+	_expect(panel_rect.size.y <= 72.5 and dock_rect.grow(0.5).encloses(panel_rect), profile + " waiting Repeat exceeds integrated72px dock: panel%s dock%s" % [panel_rect, dock_rect])
+	_expect(shelf.get_global_rect().encloses(repeat.get_global_rect()), profile + " waiting Repeat icon/text leaves shelf")
+	_expect(not navigation.disabled and navigation.get_node("CommandIconBadge").text == "0", profile + " empty waiting Repeat cannot open Clear")
 	await _tap(viewport, navigation.get_global_rect().get_center())
 	clear = (hud.get("queue_container") as HBoxContainer).get_node("QueueClearAllButton")
 	await _tap(viewport, clear.get_global_rect().get_center())
@@ -172,10 +178,10 @@ func _profile(phone: Vector2i, scale_factor: float) -> void:
 	var house: Button = cards[BuildingData.BuildingType.HOUSE]
 	var stable: Button = cards[BuildingData.BuildingType.STABLE]
 	var house_cost: int = int(BuildingData.get_building_cost(BuildingData.BuildingType.HOUSE).get("wood", 0))
-	_expect(house.disabled and house.text.contains("Need +%d wood" % (house_cost - 15)), profile + " Build card shortage missing")
+	_expect(house.disabled and house.text.contains("Need +%dW" % (house_cost - 15)), profile + " Build card shortage missing")
 	_expect(stable.disabled and stable.text.contains("Unlocks in Age 2") and not stable.text.contains("Need"), profile + " shortage hides age lock")
 	build_menu.call("update_resources", {"food": 10000, "wood": 10000, "gold": 10000})
-	_expect(not house.disabled and house.text.contains("population") and not house.text.contains("Need"), profile + " affordability does not restore purpose")
+	_expect(not house.disabled and house.accessibility_name.contains("population") and not house.text.contains("Need"), profile + " affordability does not restore purpose")
 	for frame: int in 3:
 		await get_tree().process_frame
 	fixture.free()

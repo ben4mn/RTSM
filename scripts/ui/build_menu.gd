@@ -28,7 +28,7 @@ var _repeat_button: Button = null
 var _info_button: Button = null
 var _info_mode: bool = false
 var _recommended_building_type: int = -1
-var _card_width: float = 206.0
+var _card_width: float = 150.0
 var _sheet_height: float = 174.0
 var _layout_refresh_queued: bool = false
 var _safe_area_rect: Rect2 = Rect2()
@@ -42,9 +42,8 @@ var _hold_components: Array[Node] = []
 const SHEET_MAX_WIDTH := 700.0
 const SHEET_VIEWPORT_MARGIN := 38.0
 const SHEET_BOTTOM_MARGIN := 8.0
-const CARD_COLUMNS_VISIBLE := 3
 const HEADER_HEIGHT := 48.0
-const CARD_HEIGHT := 80.0
+const CARD_HEIGHT := 84.0
 const CARD_GAP := 8.0
 const BUILDING_CATEGORIES: Dictionary = {
 	"Economy": [BuildingData.BuildingType.HOUSE, BuildingData.BuildingType.FARM, BuildingData.BuildingType.MILL, BuildingData.BuildingType.LUMBER_CAMP, BuildingData.BuildingType.MINING_CAMP, BuildingData.BuildingType.TOWN_CENTER],
@@ -126,7 +125,8 @@ func _apply_compact_layout() -> void:
 		# A one-card category needs only its tabs and one full-width card, rather
 		# than the empty space reserved for three cards in the larger categories.
 		sheet_width = minf(maximum_width, _header_minimum_width() + horizontal_padding)
-	var scroll_height: float = scroll_container.get_h_scroll_bar().get_combined_minimum_size().y if visible_count > 1 else 0.0
+	var cards_overflow: bool = visible_count > 1 and float(visible_count) * (150.0 + CARD_GAP) - CARD_GAP > sheet_width - horizontal_padding
+	var scroll_height: float = scroll_container.get_h_scroll_bar().get_combined_minimum_size().y if cards_overflow else 0.0
 	_sheet_height = vertical_padding + HEADER_HEIGHT + float(($Margin/VBox as VBoxContainer).get_theme_constant("separation")) + CARD_HEIGHT + scroll_height
 	var sheet_center_x: float = safe_area.position.x + safe_area.size.x * 0.5
 	anchor_left = 0.5
@@ -140,7 +140,7 @@ func _apply_compact_layout() -> void:
 	custom_minimum_size = Vector2(sheet_width, _sheet_height)
 
 	var content_width: float = sheet_width - horizontal_padding
-	_card_width = content_width if visible_count == 1 else clampf(floorf((content_width - CARD_GAP * float(CARD_COLUMNS_VISIBLE - 1)) / 3.2), 174.0, 206.0)
+	_card_width = content_width if visible_count == 1 else 150.0
 	for button: Button in _button_map.values():
 		button.custom_minimum_size = Vector2(_card_width, CARD_HEIGHT)
 	if _dismiss_shield != null:
@@ -196,7 +196,7 @@ func _apply_header_button_style(button: Button) -> void:
 
 func _apply_card_style(button: Button) -> void:
 	var normal: StyleBoxFlat = KingdomTheme.panel_style(KingdomTheme.INK_LIGHT)
-	normal.set_content_margin_all(10)
+	normal.set_content_margin_all(6)
 	var hover: StyleBoxFlat = normal.duplicate()
 	hover.border_color = KingdomTheme.AMBER
 	var pressed: StyleBoxFlat = normal.duplicate()
@@ -219,11 +219,10 @@ func _create_category_buttons() -> void:
 	for category: String in BUILDING_CATEGORIES:
 		var button := Button.new()
 		button.name = "%sCategoryButton" % category
-		button.text = category
-		var category_width: float = {"Economy": 84.0, "Army": 64.0, "Defence": 80.0}[category]
+		var category_width: float = {"Economy": 102.0, "Army": 84.0, "Defence": 102.0}[category]
 		button.custom_minimum_size = Vector2(category_width, HEADER_HEIGHT)
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		button.add_theme_font_size_override("font_size", 14)
+		button.add_theme_font_size_override("font_size", 13)
 		button.toggle_mode = true
 		button.focus_mode = Control.FOCUS_NONE
 		button.pressed.connect(_on_category_pressed.bind(category))
@@ -248,6 +247,7 @@ func _refresh_categories() -> void:
 			KingdomTheme.apply_primary(button)
 		else:
 			KingdomTheme.apply_secondary(button)
+		CommandIcons.apply(button, {"Economy": "economy", "Army": "army", "Defence": "stance"}[category], "%s buildings" % category, category)
 	var visible_count: int = 0
 	for building_type: int in _button_map:
 		var button: Button = _button_map[building_type]
@@ -263,13 +263,13 @@ func _create_repeat_button() -> void:
 		return
 	_repeat_button = Button.new()
 	_repeat_button.name = "RepeatLastBuildButton"
-	_repeat_button.text = "Again"
-	_repeat_button.custom_minimum_size = Vector2(64, 48)
+	_repeat_button.custom_minimum_size = Vector2(48, 48)
 	_repeat_button.visible = false
 	_repeat_button.tooltip_text = "Repeat the last selected building"
 	_repeat_button.pressed.connect(_on_repeat_pressed)
 	_apply_header_button_style(_repeat_button)
 	header.add_child(_repeat_button)
+	CommandIcons.apply(_repeat_button, "repeat", "Repeat the last selected building")
 	header.move_child(_repeat_button, header.get_child_count() - 2)
 
 
@@ -284,8 +284,7 @@ func _create_dismiss_shield() -> void:
 func _create_info_button() -> void:
 	_info_button = Button.new()
 	_info_button.name = "BuildInfoButton"
-	_info_button.text = "Info"
-	_info_button.custom_minimum_size = Vector2(56, 48)
+	_info_button.custom_minimum_size = Vector2(48, 48)
 	_info_button.toggle_mode = true
 	_info_button.focus_mode = Control.FOCUS_NONE
 	_info_button.tooltip_text = "Inspect building costs and requirements; tap Info again to build"
@@ -293,6 +292,7 @@ func _create_info_button() -> void:
 	header.add_child(_info_button)
 	header.move_child(_info_button, header.get_child_count() - 2)
 	KingdomTheme.apply_secondary(_info_button)
+	CommandIcons.apply(_info_button, "info", "Inspect building costs and requirements; tap Info again to build")
 
 
 func _on_info_toggled(enabled: bool) -> void:
@@ -304,6 +304,7 @@ func _on_info_toggled(enabled: bool) -> void:
 		KingdomTheme.apply_primary(_info_button)
 	else:
 		KingdomTheme.apply_secondary(_info_button)
+	CommandIcons.apply(_info_button, "info", "Return to building" if enabled else "Inspect building costs and requirements")
 	_refresh_affordability()
 
 
@@ -358,6 +359,7 @@ func close_menu() -> void:
 	if _info_button != null:
 		_info_button.set_pressed_no_signal(false)
 		KingdomTheme.apply_secondary(_info_button)
+		CommandIcons.apply(_info_button, "info", "Inspect building costs and requirements")
 	if _dismiss_shield != null:
 		_dismiss_shield.set_active(false)
 	for component: Node in _hold_components:
@@ -417,10 +419,12 @@ func _rebuild_grid() -> void:
 		btn.name = "BuildButton_%s" % str(building_type)
 		btn.custom_minimum_size = Vector2(_card_width, CARD_HEIGHT)
 		btn.text = _format_button_text(stats, age_locked, building_type)
-		btn.add_theme_font_size_override("font_size", 14)
+		btn.add_theme_font_size_override("font_size", 13)
 		btn.tooltip_text = _format_tooltip(stats, building_type)
+		btn.accessibility_name = btn.tooltip_text
 		btn.set_meta("age_locked", age_locked)
 		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		btn.add_theme_constant_override("h_separation", 4)
 		btn.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
 		_apply_card_style(btn)
 
@@ -431,7 +435,7 @@ func _rebuild_grid() -> void:
 			btn.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
 			btn.expand_icon = true
 			# Scale icon down within button
-			btn.add_theme_constant_override("icon_max_width", 36)
+			btn.add_theme_constant_override("icon_max_width", 30)
 
 		btn.pressed.connect(_on_building_button_pressed.bind(building_type))
 		grid.add_child(btn)
@@ -450,17 +454,19 @@ func _rebuild_grid() -> void:
 
 func _format_button_text(stats: Dictionary, age_locked: bool, building_type: int = -1) -> String:
 	var cost: Dictionary = stats.get("cost", {})
-	var parts: PackedStringArray = PackedStringArray()
+	var parts: PackedStringArray = []
 	for resource: String in ["food", "wood", "gold"]:
 		if int(cost.get(resource, 0)) > 0:
-			parts.append("%d %s" % [int(cost[resource]), resource])
-	var cost_text: String = " · ".join(parts)
-	if cost_text == "":
-		cost_text = "No cost"
-	var purpose: String = BUILDING_PURPOSES.get(building_type, "Expand your settlement")
+			parts.append("%d%s" % [int(cost[resource]), resource.left(1).to_upper()])
+	var lines: PackedStringArray = [String(stats.get("name", "Build"))]
+	lines.append(" · ".join(parts) if not parts.is_empty() else "No cost")
+	# Only decision-changing context stays on the compact card. Full purpose,
+	# cost names and effects remain available through Info, hold and accessibility.
 	if age_locked:
-		purpose = "Unlocks in Age %d" % int(stats.get("age_required", 0))
-	return "%s\n%s\n%s" % [String(stats.get("name", "Build")), purpose, cost_text]
+		lines.append("Unlocks in Age %d" % int(stats.get("age_required", 0)))
+	elif building_type == BuildingData.BuildingType.FARM:
+		lines.append("300 food · finite")
+	return "\n".join(lines)
 
 
 func _compact_building_name(building_name: String) -> String:
@@ -510,9 +516,13 @@ func _refresh_affordability() -> void:
 		var stats: Dictionary = BuildingData.get_building_stats(building_type)
 		btn.text = _format_button_text(stats, age_locked, building_type)
 		if not age_locked and not can_afford:
-			var lines: PackedStringArray = btn.text.split("\n")
-			lines[1] = _missing_resource_text(cost)
-			btn.text = "\n".join(lines)
+			# Farm stock remains visible even when its purchase is unaffordable.
+			btn.text += "\n" + _missing_resource_text(cost)
+		btn.accessibility_name = _format_tooltip(stats, building_type)
+		if age_locked:
+			btn.accessibility_name += "\nLocked"
+		elif not can_afford:
+			btn.accessibility_name += "\n" + _missing_resource_text(cost)
 		_apply_card_style(btn)
 		btn.disabled = _placement_mode_active or (not _info_mode and (age_locked or not can_afford))
 		if age_locked:
@@ -532,13 +542,8 @@ func _missing_resource_text(cost: Dictionary) -> String:
 	for resource: String in ["food", "wood", "gold"]:
 		var shortage: int = maxi(0, int(cost.get(resource, 0)) - int(_current_resources.get(resource, 0)))
 		if shortage > 0:
-			parts.append("+%d %s" % [shortage, resource])
-	if parts.size() > 1:
-		parts.clear()
-		for resource: String in ["food", "wood", "gold"]:
-			var shortage: int = maxi(0, int(cost.get(resource, 0)) - int(_current_resources.get(resource, 0)))
-			if shortage > 0:
-				parts.append("+%d%s" % [shortage, resource.left(1).to_upper()])
+			parts.append("+%d%s" % [shortage, resource.left(1).to_upper()])
+
 	return "Need " + " · ".join(parts)
 
 
@@ -616,15 +621,14 @@ func _update_aux_button() -> void:
 	if _placement_mode_active:
 		cancel_button.visible = true
 		cancel_button.disabled = false
-		cancel_button.text = "Cancel"
-		cancel_button.tooltip_text = "Cancel current placement"
+		CommandIcons.apply(cancel_button, "close", "Cancel current placement")
 		_queue_layout_refresh()
 		_refresh_touch_target_diagnostics()
 		return
 
 	cancel_button.visible = true
-	cancel_button.text = "Close"
-	cancel_button.tooltip_text = "Close build menu"
+	cancel_button.custom_minimum_size = Vector2(48, 48)
+	CommandIcons.apply(cancel_button, "close", "Close build menu")
 	cancel_button.disabled = false
 	_update_repeat_button()
 	_queue_layout_refresh()
@@ -642,8 +646,7 @@ func _update_repeat_button() -> void:
 	var cost: Dictionary = BuildingData.get_building_cost(_last_selected_building_type)
 	_repeat_button.visible = not _placement_mode_active
 	_repeat_button.disabled = _placement_mode_active or not _can_afford(cost)
-	_repeat_button.text = "Again"
-	_repeat_button.tooltip_text = "Repeat %s" % building_name
+	CommandIcons.apply(_repeat_button, "repeat", "Repeat %s" % building_name)
 
 
 func _get_age_requirement_text(age_required: int) -> String:
@@ -712,7 +715,7 @@ func _refresh_touch_target_diagnostics() -> void:
 		"grid_buttons": buttons,
 		"category_buttons": _category_diagnostics(),
 		"active_category": _active_category,
-		"visible_card_columns": mini(CARD_COLUMNS_VISIBLE, _visible_card_count()),
+		"visible_card_columns": mini(_visible_card_count(), floori((scroll_container.size.x + CARD_GAP) / (_card_width + CARD_GAP))),
 		"grid_columns": grid.columns,
 		"card_width": _card_width,
 		"card_height": CARD_HEIGHT,
