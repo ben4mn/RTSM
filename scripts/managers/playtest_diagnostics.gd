@@ -45,11 +45,9 @@ func _ready() -> void:
 	# Headless checks should neither read nor replace a player's diagnostic file.
 	_persistence_enabled = DisplayServer.get_name() != "headless"
 	if OS.has_feature("web"):
-		var has_bridge: Variant = JavaScriptBridge.eval(
-			"typeof window.PocketPlaytestDiagnostics === 'object' && typeof window.PocketPlaytestDiagnostics.record === 'function'", true
-		)
-		if has_bridge == true:
-			_web_bridge = JavaScriptBridge.get_interface("PocketPlaytestDiagnostics")
+		# The Web template can return an integer for an evaluated JS Boolean.
+		# Direct lookup is nullable and avoids a Variant type comparison gate.
+		_web_bridge = JavaScriptBridge.get_interface("PocketPlaytestDiagnostics")
 	record_event("session_start", {"platform": OS.get_name()})
 
 
