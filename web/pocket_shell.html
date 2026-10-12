@@ -422,7 +422,9 @@ const GODOT_THREADS_ENABLED = $GODOT_THREADS_ENABLED;
 		window.PocketLaunch.showFailure('The game could not load. Check your connection and try again.');
 		return;
 	}
-	const engine = new Engine(GODOT_CONFIG);
+	// PocketUpdates owns registration and activation; Godot must not register
+	// its worker again or reject startup when service workers are unavailable.
+	const engine = new Engine(Object.assign({}, GODOT_CONFIG, {serviceWorker: ''}));
 	const statusOverlay = document.getElementById('status');
 	const statusProgress = document.getElementById('status-progress');
 	const statusNotice = document.getElementById('status-notice');
