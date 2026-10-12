@@ -80,6 +80,14 @@ This is a rough public preview. Desktop browser automation does not certify phys
 
 ## Latest release — 2026-10-12
 
+The larger-map and mobile-camera pass is published as `releases/3c31d866a2c4-20261012-large-maps`, runtime `3c31d866a2c4`, version `0.1.0-beta.3`. Canonical export: `build/large-maps-published-20261012`; independent witness: `build/large-maps-published-reproduced-20261012`. Their staged source SHA-256 is `c92be762ae87a9e6af222399d54919a60e2ddb78fad454999201d11bbfa78e0e`.
+
+All 27 public payload hashes, trusted HTTPS, MIME/compression, isolation/no-store headers and private-read denial pass. Fresh private report `PK-BB28FA624417` matches the clean loaded/served runtime and private collector storage. The existing beta.2 browser deferred the update through Report and Pause, then automatically activated it at Main Menu; its new report `PK-330918F9D08B` also matches clean beta.3 and private storage. This is an ordinary browser lifecycle check, not installed-PWA or physical-phone verification.
+
+The atomic release-link switch needed no container restart; game, tunnel and collector start times stayed unchanged. Retained rollback: `releases/8e6fe0ecfb78-20261012-pwa`. Runtime commit `3c31d866a2c42f90ef708aebff96f84a93c06bdc` was pushed before publication; later documentation-only HEAD intentionally differs. See [larger-map pass](large_maps_pacing_2026-10-12.md) for tests, actual match results, paired timing limitations and release receipts.
+
+## Previous release — 2026-10-12 welcome and updates
+
 The browser welcome, optional installation guide, release notes and verified automatic updater are published as `releases/8e6fe0ecfb78-20261012-pwa`, runtime `8e6fe0ecfb78`, version `0.1.0-beta.2`. Canonical export: `build/pwa-onboarding-published-20261012`; independent witness: `build/pwa-onboarding-published-reproduced-20261012`. Their staged source SHA-256 is `233d47b600e0c316b456e7b3b291f98c62bba0c187f7f549ce4574de8d2aef12`.
 
 All 27 public payload hashes, MIME/compression, isolation/no-store headers and private-read denial pass. Fresh private report `PK-01041A574586` matches the loaded and served clean runtime. Only `aoem` restarted; the tunnel and collector were preserved. Retained pre-pass rollback: `releases/a8c20088acd1-20261012-resilience`. See [Web/PWA handoff](pwa_welcome_updates_2026-10-12.md) for browser/offline/update evidence and precise limitations, and [prior gameplay handoff](resilient_skirmish_pass_2026-10-12.md) for match results.

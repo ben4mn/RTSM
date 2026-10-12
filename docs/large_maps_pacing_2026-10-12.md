@@ -32,7 +32,7 @@ Every population preset now uses 72×72 terrain. Opening pockets still contain f
 
 The 64-seed map check covers reflection, starting drop-off access and all 1,792 expansion harvest endpoints with solid Town Center footprints. The separate inventory probe rejects missing paths and uses actual unit speeds. On seed 424242, an unopposed infantry trip between starting bases grows from about 41 to 69 seconds; a Scout trip grows from 22 to 38 seconds. These are route estimates, not battle-duration measurements.
 
-The shared gathering cycle changes from 1.5 to 1.15 seconds. Food retains its 1.2 work multiplier; wood now also uses 1.2, while gold remains 1.0. Starting banks, unit/building costs, ten-unit cargo, finite source stock and unit strength are unchanged. Effective delivered income still includes travel, congestion and drop-offs. The source fixture verifies seven food, seven wood and six gold work units over 7.5 seconds, plus exact stock, cargo, deposits and upgrades.
+The shared gathering cycle changes from 1.5 to 1.15 seconds. Food retains its 1.2 work multiplier; wood now also uses 1.2, while gold remains 1.0. Starting banks, unit/building costs, ten-unit cargo, stock per resource node and unit strength are unchanged. Effective delivered income still includes travel, congestion and drop-offs. The source fixture verifies seven food, seven wood and six gold work units over 7.5 seconds, plus exact stock, cargo, deposits and upgrades.
 
 An initial blanket speed increase made replacement Warriors easy to fund while the paid policy delayed wood-heavy counter buildings. A separate wood-rate experiment improved the 424242 Control race from the fresh baseline's 15:35 to 12:59, with Archers and Horsemen present earlier. This is one automated policy observation, not a promise of match length. The old exploration policy also let three trapped workers exhaust all 196 shared geometry leads by issuing failed trips. The final candidate comparisons below use the corrected search policy, where actual vision completes a lead and failed movement cannot consume another worker's chance to investigate it.
 
@@ -87,3 +87,47 @@ All completed final invocation receipts verify immutable disk sources, cached lo
 The older `standard-six` experiment is different again: cached hashes prove it loaded wood multiplier 1.0 before an attempted staging edit to 1.2. Its natural 17:09 result belongs to that blanket-rate, old-AI experiment and is affected by the observed wood-search failure. The provenance correction and raw record are preserved. Likewise, the earlier 12:59 wood experiment used the old AI and is not the final pacing result.
 
 The selected four-minute mobile objective fixture and distinct Standard/Control ownership-reset rules pass in a separate frozen test stage. Custom 600-second telemetry and dynamic lesson-duration coverage also pass; an initial telemetry command incorrectly named a nonexistent scene, so its error log remains alongside the successful `--script` rerun. Full traces, manifests, comparison tables, source-cycle tests and map inventories are under `output/evolution/large-maps-20261012-balance/`.
+
+
+## Final visible-control matches
+
+Both completed matches used the clean canonical release, ordinary paid inputs and natural endings. There were no resource grants, injected losses or forced outcomes. Their independent report receipts verify runtime/source/served revision `3c31d866a2c4`, source hash `c92be762ae87a9e6af222399d54919a60e2ddb78fad454999201d11bbfa78e0e`, clean source and `source_mismatch: false`.
+
+| Match | Viewport and settings | Natural outcome | Speed and retained evidence |
+| --- | --- | --- | --- |
+| Easy Standard | 932×430, population 30, actual seed **4** | Defeat at **14:30**; AI retained Sacred for four minutes | Opening through 3:39 at 1×; remainder 2× with management pauses. Local private preview report `PK-CCF71FC66CCA`. |
+| Medium Control race | 844×390, population 30, verified seed **424242** | Defeat at **11:25**; AI banked four minutes, human 2:08 | Opening through 3:50 at 1×; remainder 2× with management pauses. Local private preview report `PK-A73AA478BA02`. |
+
+The Easy seed was intended to be 424242, but fast keyboard entry only retained its first digit. The saved report revealed this; its note and this record were corrected to actual seed 4. Medium used delayed character entry and a screenshot of the saved 424242 setting before Play. The controlled three-seed matrix above is unaffected. These matches have different rules, seeds and pause schedules; they are not a paired duration comparison.
+
+Easy exercised paid villagers, Scout, House, Barracks, Farms, Feudal, Range, Warriors and Archers, rallies, Repeat, group saving, economy reassignment, wider zoom, objective contests and defense against a base raid. Its result records 15 army produced, 23 units lost and 2,386 resources gathered. Eight worker losses and two paid replacements demonstrate a recovery attempt, not recovery from a complete worker wipe. Medium exercised the same main management flows plus a real dispatched two-finger pinch; it produced 11 army, lost 11 units and gathered 2,067 resources. Six paid army replacements were recorded. Some blocked placements and late inaccurate clicks were operator errors; a final replacement Farm was not confirmed. Neither unsuccessful defense is relabeled as a win or a successful economy recovery.
+
+Both reports have no reported runtime error/warning counters. Performance evidence remains limited: Easy's 107 retained samples are all at 2×, with FPS 30–60 and the last 33 at 30. Medium's 89 retained samples are all at 2×: 86 at 30 FPS and three at 25, 22 and 21. These desktop touch-emulated runs do not prove constant 60 FPS, physical-phone performance or a performance regression relative to a controlled baseline. Final private JSON, result screenshots and independent receipts are under `output/playwright/large-maps-20261012/final-easy/` and `final-medium/`.
+
+## Published release and final acceptance
+
+The clean runtime commit is `3c31d866a2c42f90ef708aebff96f84a93c06bdc`, version `0.1.0-beta.3`. It was pushed to `origin/main` before publication. A subsequent documentation-only commit records this acceptance; Git HEAD therefore intentionally differs from the runtime identity.
+
+- Canonical export: `build/large-maps-published-20261012`.
+- Independent witness: `build/large-maps-published-reproduced-20261012`.
+- Staged source SHA-256: `c92be762ae87a9e6af222399d54919a60e2ddb78fad454999201d11bbfa78e0e`.
+- Public release: `releases/3c31d866a2c4-20261012-large-maps` at <https://game.4mn.org/index.html>.
+- Retained rollback: `releases/8e6fe0ecfb78-20261012-pwa`.
+
+Independent export verification passes checksum closure, equal source manifests and substantive reproduction, with only permitted build-time/worker metadata differences. Sensitive/developer-artifact scans pass. The final independent lightweight regression rerun passes all 52 Python tests, 18 updater/worker cases and the private Web-report case, plus JavaScript syntax and release-note JSON validation. Relevant final AI, economy, objective, Settings and camera regressions are recorded above; this does not assert that the entire broad suite was rerun on every later source revision.
+
+The server changed its relative `current` symlink atomically. No restart was needed: game, tunnel and private collector container start times remained unchanged. Trusted public HTTPS verification matches all 27 payload hashes and exact clean version metadata, and passes WASM/PCK/JS MIME, compression, no-store and COOP/COEP headers, private GET denial and private-directory denial. Receipts are under `output/evolution/large-maps-20261012-release/published-3c31d866a2c4-20261012-large-maps/`.
+
+A fresh public browser loaded the welcome page, beta.3 release notes, main menu and Standard match, queued a paid Villager, used eased zoom, paused and submitted report **PK-BB28FA624417**. Its loaded/served/source identity matches the clean canonical release with no mismatch. This is a short public acceptance opening, not another completed match.
+
+Independent SSH verification found both fresh-public and updated-client reports in private collector storage. Codes, session IDs, notes, build identities, all events, context, counters and marked windows match the local downloads; only the expected upload-versus-Save-log timestamps differ. The verification receipt is retained beside the release receipt under `private-report-verification/receipt.json`. No full private report was added to Git or the public release.
+
+The baseline public 8e6 client remained at its existing report and 1:06 Pause after an ordinary service-worker update check staged the new release. The new worker remained waiting, with both complete release caches present. Returning to Main Menu activated the update and reloaded automatically. A subsequent match report **PK-330918F9D08B** confirms loaded and served beta.3, with no mismatch. Screenshots, worker-state receipts and downloaded private reports are in `output/playwright/large-maps-20261012/public/` and the release evidence directory. This verifies an actual browser transition with a controlling worker; it is not evidence of an installed-PWA relaunch or a physical device lifecycle. The welcome/update code was preserved, and beta.3 player-facing release notes were added.
+
+## Next decisions and remaining limits
+
+The user's desired typical 8–15 minutes and few-minute early-aggression finish remain goals, not guarantees. The controlled Standard case still lasted 19:41, Control seed 202 worsened to 18:24, and these two visible losses cannot establish a general distribution. Next compare separate paid early-raid and economy/Sacred approaches across fixed seeds and population 20/40, recording first counters, TC damage, objective pause/reset time and natural outcomes. Avoid tuning timers repeatedly against one self-play policy.
+
+Investigate connectivity after paid building placement: preserving exploration leads fixes team-wide search exhaustion but does not release workers already enclosed by buildings. Measure stalled-worker seconds and real post-opening-forest deposits, while retaining fog legality and exact payment/cargo rules. Also measure baseline-versus-candidate frame timing at normal speed under comparable load before drawing performance conclusions.
+
+No connected physical phone or installed Pocket Kingdoms PWA was available. Physical-thumb comfort, installed-PWA lifecycle and subjective Web audio were not verified. Predecessor cache cleanup remains deliberately deferred until late-client safety is established. Raw private reports remain outside tracked files and public payloads.
