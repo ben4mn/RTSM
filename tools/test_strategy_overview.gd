@@ -16,7 +16,7 @@ func _run() -> void:
 	for failure: String in _failures:
 		push_error("[FAIL] strategy_overview: " + failure)
 	if _failures.is_empty():
-		print("[PASS] strategy_overview: 12 phone/scale/notch profiles; 48px persistent navigation, army-preserving paid training/refund/repeat/rally, explicit worker reallocation, two saved groups, scrolling and outside dismissal with no world orders")
+		print("[PASS] strategy_overview: 12 phone/scale/notch profiles; 48px persistent navigation, army-preserving paid training/refund/repeat/rally, explicit worker reallocation, two saved groups, touch/wheel scrolling with owned top/bottom/header boundaries and outside dismissal with no world orders")
 	get_tree().quit(0 if _failures.is_empty() else 1)
 
 
@@ -90,6 +90,7 @@ func _strategy_journey(phone: Vector2i, interface_scale: float, notched: bool) -
 	_expect(_hud.call("get_secondary_surface_name") == "economy", "Economy did not open")
 	_expect(safe.encloses(overview.panel.get_global_rect()), "economy sheet outside safe bounds")
 	var scroll: ScrollContainer = overview.get("_scroll")
+	await _check_wheel_ownership(overview, true)
 	var rows: Dictionary = overview.get("_producer_rows")
 	var row: Dictionary = rows[tc.get_instance_id()]
 	var train: Button = row.train[UnitData.UnitType.VILLAGER]
@@ -121,6 +122,7 @@ func _strategy_journey(phone: Vector2i, interface_scale: float, notched: bool) -
 	await _tap(Vector2(safe.position.x + 8, safe.position.y + 80))
 	_expect(_hud.call("get_secondary_surface_name") == "none", "outside contact did not close economy")
 	await _button(overview.rail.get_node("ArmyButton"))
+	await _check_wheel_ownership(overview, false)
 	var groups: Dictionary = overview.get("_group_rows")
 	await _overview_button(overview, groups[1].save)
 	await _overview_button(overview, groups[2].save)
@@ -135,6 +137,68 @@ func _strategy_journey(phone: Vector2i, interface_scale: float, notched: bool) -
 	_hud = null
 	GameManager.set_state(GameManager.GameState.MENU)
 	await _frames(2)
+
+
+func _check_wheel_ownership(overview: StrategyOverview, expects_scrolling: bool) -> void:
+	var scroll: ScrollContainer = overview.get("_scroll")
+	var camera: Camera2D = _map.get("camera")
+	var position_before: Vector2 = camera.position
+	var zoom_before: Vector2 = camera.zoom
+	var selection_before: Array = _selection.selected.duplicate()
+	var surface: String = _hud.call("get_secondary_surface_name")
+	scroll.scroll_vertical = 0
+	await _frames(2)
+	var center: Vector2 = scroll.get_global_rect().get_center()
+	await _overview_wheel(center, MOUSE_BUTTON_WHEEL_UP)
+	_expect(scroll.scroll_vertical == 0, surface + " wheel crossed top scroll limit")
+	_expect(camera.zoom.is_equal_approx(zoom_before), surface + " top-limit wheel leaked map zoom")
+	await _overview_wheel(center, MOUSE_BUTTON_WHEEL_DOWN)
+	if expects_scrolling:
+		_expect(scroll.scroll_vertical > 0, "Economy wheel did not scroll real content")
+	_expect(camera.zoom.is_equal_approx(zoom_before), surface + " scrolling wheel leaked map zoom")
+	scroll.scroll_vertical = int(ceilf(scroll.get_v_scroll_bar().max_value))
+	await _frames(2)
+	var bottom: int = scroll.scroll_vertical
+	await _overview_wheel(center, MOUSE_BUTTON_WHEEL_DOWN)
+	_expect(scroll.scroll_vertical == bottom, surface + " wheel crossed bottom scroll limit")
+	_expect(camera.zoom.is_equal_approx(zoom_before), surface + " bottom-limit wheel leaked map zoom")
+	await _overview_wheel(center, MOUSE_BUTTON_WHEEL_UP)
+	if expects_scrolling:
+		_expect(scroll.scroll_vertical < bottom, "Economy upward wheel did not scroll real content")
+	var title: Label = overview.get("_title")
+	await _overview_wheel(title.get_global_rect().get_center(), MOUSE_BUTTON_WHEEL_UP)
+	await _overview_wheel(overview.panel.find_child("CloseStrategyButton", true, false).get_global_rect().get_center(), MOUSE_BUTTON_WHEEL_DOWN)
+	await _overview_wheel(overview.panel.get_global_rect().position + Vector2(3, 3), MOUSE_BUTTON_WHEEL_UP)
+	var safe: Rect2 = _hud.call("get_world_safe_rect")
+	var outside: Vector2 = safe.position + Vector2(8, 80)
+	var shield: Control = _hud.get("_secondary_dismissal_shield")
+	_expect(shield.visible and shield.call("_has_point", outside - shield.global_position), "outside wheel fixture must belong to active dismissal shield")
+	await _overview_wheel(outside, MOUSE_BUTTON_WHEEL_UP)
+	await _overview_wheel(outside, MOUSE_BUTTON_WHEEL_DOWN)
+	_expect(camera.zoom.is_equal_approx(zoom_before) and camera.position.is_equal_approx(position_before), surface + " header/button/padding wheel changed camera")
+	_expect(_selection.selected == selection_before and _hud.call("get_secondary_surface_name") == surface, surface + " wheel changed selection or dismissed sheet")
+	scroll.scroll_vertical = 0
+	await _frames(2)
+
+
+func _overview_wheel(position: Vector2, direction: int) -> void:
+	var camera: Camera2D = _map.get("camera")
+	var position_before: Vector2 = camera.position
+	var zoom_before: Vector2 = camera.zoom
+	var motion := InputEventMouseMotion.new()
+	motion.position = get_viewport().get_final_transform() * position
+	motion.global_position = motion.position
+	Input.parse_input_event(motion)
+	await _frames(1)
+	for pressed: bool in [true, false]:
+		var event := InputEventMouseButton.new()
+		event.position = motion.position
+		event.global_position = motion.position
+		event.button_index = direction
+		event.pressed = pressed
+		Input.parse_input_event(event)
+		await _frames(1)
+	_expect(camera.zoom.is_equal_approx(zoom_before) and camera.position.is_equal_approx(position_before), "sheet wheel %d at %s leaked to camera" % [direction, position])
 
 
 func _paid_house() -> BuildingBase:

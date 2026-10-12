@@ -34,11 +34,14 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	z_index = 200
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	mouse_force_pass_scroll_events = false
 	color = Color(0.02, 0.045, 0.065, 0.97)
 	theme = THEME.create_theme()
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_panel = PanelContainer.new()
 	_panel.name = "PreferencesCard"
+	_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	_panel.mouse_force_pass_scroll_events = false
 	add_child(_panel)
 	var margin := MarginContainer.new()
 	for edge: String in ["left", "right", "top", "bottom"]:
@@ -68,6 +71,7 @@ func _ready() -> void:
 	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_scroll.mouse_filter = Control.MOUSE_FILTER_STOP
+	_scroll.mouse_force_pass_scroll_events = false
 	column.add_child(_scroll)
 	_body = VBoxContainer.new()
 	_body.name = "SectionBody"

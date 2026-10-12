@@ -17,6 +17,7 @@ static func has_owned_contact() -> bool:
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
+	mouse_force_pass_scroll_events = false
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	visible = false
 

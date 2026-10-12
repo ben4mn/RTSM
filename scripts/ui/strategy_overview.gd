@@ -67,6 +67,9 @@ func _ready() -> void:
 	panel.name = "StrategyPanel"
 	panel.z_index = 60
 	panel.visible = false
+	panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	# Header, padding and exhausted scroll gestures belong to the sheet.
+	panel.mouse_force_pass_scroll_events = false
 	panel.add_theme_stylebox_override("panel", KingdomTheme.panel_style())
 	panel.gui_input.connect(_on_gui_contact)
 	add_child(panel)
@@ -85,6 +88,7 @@ func _ready() -> void:
 	_scroll.name = "StrategyScroll"
 	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_scroll.mouse_force_pass_scroll_events = false
 	_scroll.gui_input.connect(_on_gui_contact)
 	body.add_child(_scroll)
 	var content := VBoxContainer.new()

@@ -51,6 +51,16 @@ in the actual exported game, without bypassing browser autoplay policy.
   save/reload/reset, real paused selection/camera preservation, hidden-source
   suppression, the 12-player bound, mute/preview cancellation and background
   lifecycle handlers. `test_phone_menu_layout.tscn` covers the updated menu flow.
+- A late routed-wheel regression reproduced Settings wheel propagation to
+  unhandled input in all 12 profiles × four tabs. Explicit modal/card/scroll
+  boundaries fixed it while preserving actual content scrolling. The test has
+  an unhandled-input positive control, so a paused camera cannot mask the leak;
+  it also checks real paused-match camera zoom at scroll limits and the footer.
+  Evidence: `settings-wheel-before.log` and `settings-wheel-after.log`.
+- Verbose shutdown inspection of two unrelated fixtures found retained
+  `AudioStreamWAV`/`AudioStreamPlaybackWAV` mixer references, without leaked player
+  nodes. Stopping audio and allowing 0.15 seconds for the mixer in their test
+  teardown removed the warnings. Runtime pools remain bounded at 12 players.
 
 ## Limits
 

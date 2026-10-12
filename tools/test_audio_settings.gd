@@ -16,6 +16,13 @@ class FogFixture extends Node2D:
 		return revealed
 
 
+class WheelSink extends Node:
+	var wheel_events: int = 0
+	func _unhandled_input(event: InputEvent) -> void:
+		if event is InputEventMouseButton and event.pressed and event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
+			wheel_events += 1
+
+
 func _ready() -> void:
 	call_deferred("_run")
 
@@ -43,7 +50,7 @@ func _run() -> void:
 	AudioManager.stop_all()
 	await get_tree().create_timer(0.15, true).timeout
 	if _failures.is_empty():
-		print("[PASS] audio_settings: 12 phone/safe-area layouts × 4 tabs, live preferences/reload/reset, real paused selection/camera, fog, voice bounds, mute/background lifecycle")
+		print("[PASS] audio_settings: 12 phone/safe-area layouts × 4 tabs, routed wheel containment/scrolling, live preferences/reload/reset, real paused selection/camera, fog, voice bounds, mute/background lifecycle")
 		get_tree().quit(0)
 	else:
 		for failure: String in _failures: push_error("[FAIL] audio_settings: " + failure)
@@ -57,7 +64,14 @@ func _check_layout(physical: Vector2, scale_value: float, notched: bool) -> void
 	add_child(viewport)
 	var root_control := Control.new()
 	root_control.size = logical
+	root_control.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	viewport.add_child(root_control)
+	var sink := WheelSink.new()
+	sink.process_mode = Node.PROCESS_MODE_ALWAYS
+	viewport.add_child(sink)
+	await _wheel(viewport, logical * 0.5, MOUSE_BUTTON_WHEEL_DOWN)
+	_expect(sink.wheel_events == 1, "wheel fixture did not reach unhandled input without modal")
+	sink.wheel_events = 0
 	var panel: Control = load("res://scripts/ui/settings_panel.gd").open(root_control)
 	await get_tree().process_frame
 	var safe := Rect2(Vector2.ZERO, logical)
@@ -76,6 +90,7 @@ func _check_layout(physical: Vector2, scale_value: float, notched: bool) -> void
 			_expect(control.size.y >= 47.5, "short logical button " + str(control.name) + " " + suffix)
 		var scroll: ScrollContainer = panel.get("_scroll")
 		_expect(scroll.size.y >= 80, "insufficient scroll area " + suffix)
+		await _check_wheel_ownership(viewport, panel, sink, suffix)
 		if section == 0:
 			scroll.scroll_vertical = 1000
 			await get_tree().process_frame
@@ -87,6 +102,51 @@ func _check_layout(physical: Vector2, scale_value: float, notched: bool) -> void
 			_expect(is_equal_approx(GameManager.camera_speed_scale, 1.25), "pan preference has no behavior value")
 	panel.free()
 	viewport.free()
+
+
+func _check_wheel_ownership(viewport: SubViewport, panel: Control, sink: WheelSink, suffix: String) -> void:
+	var scroll: ScrollContainer = panel.get("_scroll")
+	var center: Vector2 = scroll.get_global_rect().get_center()
+	scroll.scroll_vertical = 0
+	await get_tree().process_frame
+	await _wheel(viewport, center, MOUSE_BUTTON_WHEEL_UP)
+	_expect(scroll.scroll_vertical == 0, "wheel crossed top limit " + suffix)
+	await _wheel(viewport, center, MOUSE_BUTTON_WHEEL_DOWN)
+	var can_scroll: bool = scroll.get_v_scroll_bar().max_value > scroll.get_v_scroll_bar().page
+	if can_scroll:
+		_expect(scroll.scroll_vertical > 0, "wheel did not scroll real settings content " + suffix)
+	scroll.scroll_vertical = int(ceilf(scroll.get_v_scroll_bar().max_value))
+	await get_tree().process_frame
+	var bottom: int = scroll.scroll_vertical
+	await _wheel(viewport, center, MOUSE_BUTTON_WHEEL_DOWN)
+	_expect(scroll.scroll_vertical == bottom, "wheel crossed bottom limit " + suffix)
+	await _wheel(viewport, center, MOUSE_BUTTON_WHEEL_UP)
+	if can_scroll:
+		_expect(scroll.scroll_vertical < bottom, "upward wheel did not scroll settings " + suffix)
+	var card: Control = panel.get("_panel")
+	await _wheel(viewport, card.get_global_rect().position + Vector2(3, 3), MOUSE_BUTTON_WHEEL_UP)
+	await _wheel(viewport, panel.find_child("AudioTab", true, false).get_global_rect().get_center(), MOUSE_BUTTON_WHEEL_DOWN)
+	await _wheel(viewport, panel.find_child("SettingsDoneButton", true, false).get_global_rect().get_center(), MOUSE_BUTTON_WHEEL_UP)
+	await _wheel(viewport, Vector2(2, 2), MOUSE_BUTTON_WHEEL_DOWN)
+	_expect(sink.wheel_events == 0, "settings wheel escaped to unhandled input " + suffix)
+	sink.wheel_events = 0
+	scroll.scroll_vertical = 0
+	await get_tree().process_frame
+
+
+func _wheel(viewport: Viewport, position: Vector2, direction: int) -> void:
+	var motion := InputEventMouseMotion.new()
+	motion.position = position
+	motion.global_position = position
+	viewport.push_input(motion, true)
+	for pressed: bool in [true, false]:
+		var event := InputEventMouseButton.new()
+		event.position = position
+		event.global_position = position
+		event.button_index = direction
+		event.pressed = pressed
+		viewport.push_input(event, true)
+		await get_tree().process_frame
 
 
 func _check_persistence() -> void:
@@ -162,6 +222,7 @@ func _check_match_state() -> void:
 	selection.call("select_single", units[0])
 	var camera: Camera2D = map.get("camera")
 	var position_before: Vector2 = camera.position
+	var zoom_before: Vector2 = camera.zoom
 	var selected_before: Array = (selection.get("selected") as Array).duplicate()
 	scene.call("_on_pause_requested")
 	var hud: Node = scene.get_node("HUD")
@@ -172,10 +233,17 @@ func _check_match_state() -> void:
 	await get_tree().process_frame
 	var flashes: CheckButton = panel.find_child("ReducedFlashesToggle", true, false)
 	flashes.toggled.emit(true)
+	var scroll: ScrollContainer = panel.get("_scroll")
+	for bottom: bool in [false, true]:
+		scroll.scroll_vertical = int(ceilf(scroll.get_v_scroll_bar().max_value)) if bottom else 0
+		await _wheel(get_viewport(), scroll.get_global_rect().get_center(), MOUSE_BUTTON_WHEEL_DOWN if bottom else MOUSE_BUTTON_WHEEL_UP)
+		_expect(camera.zoom.is_equal_approx(zoom_before), "paused settings boundary wheel changed camera zoom")
+	await _wheel(get_viewport(), panel.find_child("SettingsDoneButton", true, false).get_global_rect().get_center(), MOUSE_BUTTON_WHEEL_UP)
 	panel.call("close")
 	await get_tree().process_frame
 	_expect(get_tree().paused and GameManager.current_state == GameManager.GameState.PAUSED, "settings resumed match")
 	_expect(camera.position.is_equal_approx(position_before), "settings moved camera")
+	_expect(camera.zoom.is_equal_approx(zoom_before), "settings changed camera zoom")
 	_expect(selection.get("selected") == selected_before, "settings lost selection")
 	GameManager.set_state(GameManager.GameState.MENU)
 	scene.free()
