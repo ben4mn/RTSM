@@ -78,7 +78,15 @@ On iPhone, open the URL in Safari and use Share → Add to Home Screen. Enable *
 
 This is a rough public preview. Desktop browser automation does not certify physical-phone touch behavior, safe areas, audio, or prolonged performance.
 
-## Latest release — 2026-10-12 icon controls
+## Latest release — 2026-10-12 phone proportions
+
+Published `releases/73250a6b0140-20261012-iphone`, runtime `73250a6b0140`, version `0.1.0-beta.5`. Canonical export: `build/iphone-proportions-published-20261012`; independent witness: `build/iphone-proportions-published-reproduced-20261012`. Clean source SHA-256: `c43461ec41c416e7c2535e1a8be9defc85c6bd33acb7309974fb04505c49491b`.
+
+The atomic relative symlink switch completed at 2026-10-13T00:12:55.093667Z (October 12 local time). All 27 public decoded hashes, trusted HTTPS, MIME/compression, isolation/no-store and private-read denial pass. The beta.4 browser preserved its paid 00:00 Pause and Report while beta.5 waited, then automatically reloaded at ordinary Quit to Main Menu. Fresh public report `PK-9A99CDE408C9` and updated-client report `PK-44B1361B2E02` match clean loaded/served identity and exact notes in private collector storage. The fresh client also verified the welcome, beta.5 release notes and an exact paid Villager transaction. This was an ordinary browser, not an installed PWA.
+
+No container restart or configuration change was needed. Verified rollback: `releases/25fd059ed176-20261012-icons`. Runtime `73250a6b01406a61dc8b19cdabde90108c74a4f5` was pushed before export/publication; final documentation-only HEAD intentionally differs. See [phone proportions](iphone_proportions_2026-10-12.md) for scoped tests, Retina rendering, completed paid matches, limitations and exact release receipts. The Easy Standard match lasted 30:18, so the intended 8–15 minute pacing is not established.
+
+## Previous release — 2026-10-12 icon controls
 
 Published `releases/25fd059ed176-20261012-icons`, runtime `25fd059ed176`, version `0.1.0-beta.4`. Canonical export: `build/icon-hud-published-20261012`; independent witness: `build/icon-hud-published-reproduced-20261012`. Clean staged source SHA-256: `01803f3d63aea821937696431119a4ec9de745b706c5cc340dc3e51b24ac4616`.
 
