@@ -78,7 +78,21 @@ On iPhone, open the URL in Safari and use Share → Add to Home Screen. Enable *
 
 This is a rough public preview. Desktop browser automation does not certify physical-phone touch behavior, safe areas, audio, or prolonged performance.
 
-## Latest release — 2026-10-22 hold the site
+## Latest release — 2026-10-22 find your fighters
+
+Published `releases/5c363f3a-selected-fighters-20261022` at `2026-10-22T06:35:39Z`, version `0.2.0-beta.8`. Clean runtime revision: `c26be0f34f2b90a574f3a30ea75d669f1e382bc1`; staged source SHA-256: `5c363f3a38cb31bb50e5b4a040753cab6237fb328702dec62dd056c8096b45a7`. Canonical export: `build/selected-fighters-20261022`; independent witness: `build/selected-fighters-reproduced-20261022`. Both closed exports match in substantive payloads and source manifests. Runtime was committed and pushed before export.
+
+Scope: [small foreground selection brackets](selected_unit_cues_2026-10-22.md), with 188 native and 148 headless assertions passing, plus the existing route regression. This release also records an [isolated desktop battle diagnostic](dense_battle_native_2026-10-22.md); it does not claim a runtime performance improvement or physical-phone certification.
+
+The match server had zero established connections immediately before replacement. Online image `sha256:5be908a828aa74006355a5253e0902bacfb6a7b5983fb6e86292e0ba8c2179a2` started at `06:35:37.214465264Z`; the static symlink switched atomically and `aoem-game` restarted at `06:35:39.531019499Z`. The diagnostics collector remained healthy with its exact original ID/start, and the tunnel retained its October 12 start. Rollback: `releases/9daf8247-hold-site-20261022` and online image `sha256:2c59171b8d146495746fa9c4e907b960a46ebd32d8369d10db85a3840600ea0e`; previous context is `deployment-backups/match-server-before-selected-fighters-20261022`.
+
+All 40 decoded public payloads match; all 13 private paths return 404. Trusted TLS, cache/isolation headers and required MIME checks pass. All ten public WSS checks pass from the exact frozen runtime, including both ordinary-resource production/combat clients, attack-move, visibility, replicated damage, Stand Ground on inert replicas and surrender/results. All 1,291 tracked hashes remain unchanged; all clients are closed. Zero runtime/script errors; four existing ObjectDB shutdown warnings remain (strategy-one, loading-ended, client-one and combat-one). The changed runtime overlay matches inside the running image. Postflight at `06:40:04Z` verifies zero match connections and server errors; every container retains its expected identity and state.
+
+Fresh public 844×390 DPR3 touch emulation confirms the exact clean loaded/served identity, a full-canvas menu, Extra Large/asymmetric safe areas, ordinary Scout training/rally, touch selection, the cue during actual damage at 2:56–2:58, and automatic cue removal on death at 3:01. The explored-site badge returns correctly. Pause/menu return passes. Zero console errors; two software-renderer readback warnings. The browser is closed; this functional journey is not a performance measurement. See the [morning handoff](morning_handoff_2026-10-22.md) and tracked screenshots.
+
+Raw receipts: `output/selected-fighters-deployment.json`, `output/selected-fighters-artifact-verification.txt`, `output/selected-fighters-public-browser.json`, `output/selected-fighters-running-runtime.json`, `output/selected-fighters-postflight.json`, `output/public-release-check/selected-fighters-20261022-live/receipt.json` and `output/selected-fighters-online-public/public-summary.json`. Later documentation-only commits intentionally differ from the embedded runtime revision.
+
+## Previous release — 2026-10-22 hold the site
 
 Published `releases/9daf8247-hold-site-20261022` at `2026-10-22T05:54:06Z`, version `0.2.0-beta.7`. Clean runtime revision: `2ab5c416cd4c9d7a3d65b39c46dda5cc1f51e9c1`; staged source SHA-256: `9daf824730f954187ab94ab21af12067ec1114d2273b0e85aef3f7e6c0fc6976`. Canonical export: `build/hold-site-20261022`; independent witness: `build/hold-site-reproduced-20261022`. Both closed exports match in substantive payloads and source manifests. Runtime was committed and pushed before export.
 
