@@ -2,10 +2,10 @@ extends Node
 ## Native art/contract receipt. The village screenshots are synthetic visual
 ## fixtures, not paid-play evidence; paid placement is covered by existing tests.
 
-const OUTPUT := "res://output/company-buildings-2026-10-22"
-const TYPES: Array[int] = [BuildingData.BuildingType.TOWN_CENTER, BuildingData.BuildingType.HOUSE, BuildingData.BuildingType.BARRACKS]
-const SCALES: Array[float] = [1.08, 0.45, 0.60]
-const FOOTPRINTS: Array[Vector2i] = [Vector2i(4, 4), Vector2i(2, 2), Vector2i(3, 3)]
+const OUTPUT := "res://output/company-buildings-expansion-2026-10-22"
+const TYPES: Array[int] = [BuildingData.BuildingType.TOWN_CENTER, BuildingData.BuildingType.HOUSE, BuildingData.BuildingType.BARRACKS, BuildingData.BuildingType.RESOURCE_CAMP, BuildingData.BuildingType.ARCHERY_RANGE, BuildingData.BuildingType.STABLE]
+const SCALES: Array[float] = [1.08, 0.45, 0.60, 0.45, 0.55, 0.55]
+const FOOTPRINTS: Array[Vector2i] = [Vector2i(4, 4), Vector2i(2, 2), Vector2i(3, 3), Vector2i(2, 2), Vector2i(3, 3), Vector2i(3, 3)]
 var _failures: Array[String] = []
 
 func _ready() -> void:
@@ -18,16 +18,17 @@ func _run() -> void:
 	GameManager.selected_map_seed = 101
 	GameManager.selected_map_archetype = MapData.MapArchetype.OPEN_PLAINS
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUTPUT))
-	await _contracts_and_contact_sheet()
+	for page: int in 2:
+		await _contracts_and_contact_sheet(page)
 	if DisplayServer.get_name() != "headless":
 		await _village_captures()
 	for failure: String in _failures:
 		push_error("[FAIL] company_building_art: " + failure)
 	if _failures.is_empty():
-		print("[PASS] company_building_art: original imported textures, 128px canvas, unchanged scales/offsets/footprints/collision, home/enemy/construction appearance; native contact sheet and phone village captures when rendered")
+		print("[PASS] company_building_art: six original imported building families, 128px canvas, unchanged scales/offsets/footprints/collision, home/enemy/construction appearance; native contact sheet and phone village captures when rendered")
 	get_tree().quit(0 if _failures.is_empty() else 1)
 
-func _contracts_and_contact_sheet() -> void:
+func _contracts_and_contact_sheet(page: int) -> void:
 	get_window().size = Vector2i(932, 600)
 	get_window().content_scale_size = Vector2i(932, 600)
 	get_window().content_scale_factor = 1.0
@@ -39,10 +40,11 @@ func _contracts_and_contact_sheet() -> void:
 	sheet.add_child(background)
 	_label(sheet, "COMPANY ARCHITECTURE", Vector2(28, 14), 26)
 	_label(sheet, "Original SVGs · same 128px canvas and runtime geometry", Vector2(28, 49), 16)
-	for index: int in TYPES.size():
+	for index: int in range(page * 3, mini(TYPES.size(), page * 3 + 3)):
+		var column: int = index % 3
 		var kind: int = TYPES[index]
 		var name_text: String = BuildingData.get_building_name(kind)
-		_label(sheet, name_text.to_upper(), Vector2(50 + 300 * index, 83), 21)
+		_label(sheet, name_text.to_upper(), Vector2(50 + 300 * column, 83), 21)
 		for owner: int in [0, 1]:
 			var building := BuildingBase.new()
 			building.building_type = kind
@@ -74,13 +76,13 @@ func _contracts_and_contact_sheet() -> void:
 			_expect(alpha_equal, name_text + " home/enemy palettes retain identical silhouette alpha")
 			var picture := TextureRect.new()
 			picture.texture = sprite.texture
-			picture.position = Vector2(50 + 300 * index, 112 + 205 * owner)
+			picture.position = Vector2(50 + 300 * column, 112 + 205 * owner)
 			picture.size = Vector2(192, 192)
 			picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 			picture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 			picture.modulate = sprite.modulate
 			sheet.add_child(picture)
-			_label(sheet, "HOME" if owner == 0 else "ENEMY · clay roof, neutral walls", Vector2(50 + 300 * index, 290 + 205 * owner), 14)
+			_label(sheet, "HOME" if owner == 0 else "ENEMY · clay roof, neutral walls", Vector2(50 + 300 * column, 290 + 205 * owner), 14)
 			building.player_owner = 1 - owner
 			building.call("_update_sprite_appearance")
 			_expect(sprite.texture.resource_path.ends_with("_enemy.svg") == (building.player_owner == 1), name_text + " refreshes cached texture after late owner assignment")
@@ -91,7 +93,7 @@ func _contracts_and_contact_sheet() -> void:
 			building.free()
 	_label(sheet, "VISUAL FIXTURE · enlarged for material/ownership review; phone captures use real world scale", Vector2(28, 560), 14)
 	await _frames(4)
-	await _capture("building-materials-and-ownership.png")
+	await _capture("building-materials-and-ownership-%d.png" % page)
 	sheet.free()
 
 func _village_captures() -> void:
@@ -110,15 +112,16 @@ func _village_captures() -> void:
 		var map: Node2D = main.get("game_map")
 		var tc: BuildingBase = main.get("_player_town_center")
 		var home: Vector2i = map.map_generator.spawn_positions[0]
-		var house: BuildingBase = _visual_building(main, BuildingData.BuildingType.HOUSE, home + Vector2i(4, -1))
-		var barracks: BuildingBase = _visual_building(main, BuildingData.BuildingType.BARRACKS, home + Vector2i(7, -4))
-		_expect(house != null and barracks != null, "village visual fixture found legal foundations")
+		var camp: BuildingBase = _visual_building(main, BuildingData.BuildingType.RESOURCE_CAMP, home + Vector2i(4, -1))
+		var archery: BuildingBase = _visual_building(main, BuildingData.BuildingType.ARCHERY_RANGE, home + Vector2i(7, -4))
+		var stable: BuildingBase = _visual_building(main, BuildingData.BuildingType.STABLE, home + Vector2i(8, -8))
+		_expect(camp != null and archery != null and stable != null, "village visual fixture found legal foundations")
 		main.call("_update_fog_of_war")
 		main.call("_select_town_center")
 		main.process_mode = Node.PROCESS_MODE_DISABLED
 		for zoom: float in [0.952, 1.6]:
 			map.camera.zoom = Vector2.ONE * zoom
-			map.camera.position = tc.global_position + Vector2(125, -10)
+			map.camera.position = tc.global_position + (Vector2(220, -10) if zoom < 1.0 else Vector2(340, 40))
 			map.camera.reset_smoothing()
 			map.camera.force_update_scroll()
 			await _frames(4)

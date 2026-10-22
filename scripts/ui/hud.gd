@@ -1583,6 +1583,7 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 
 	var safe_pos: Vector2 = safe_area.position
 	_world_safe_rect = safe_area
+	_refresh_progression_hint_visibility()
 	_apply_context_actions(viewport_size)
 	_refresh_command_icons()
 	var action_count: int = _count_visible_mobile_action_buttons()
@@ -2228,14 +2229,11 @@ func set_progression_hint(text: String, emphasis: bool = false) -> void:
 	if _progression_hint_label == null or _progression_hint_panel == null:
 		return
 	var trimmed: String = "Drag to select · Tap the selection icon to cancel" if _area_selection_armed else text.strip_edges()
-	var visibility_changed: bool = _progression_hint_panel.visible != (trimmed != "")
-	_progression_hint_panel.visible = trimmed != ""
-	if visibility_changed:
-		_queue_mobile_layout_refresh()
 	_progression_hint_label.text = trimmed
-	var color: Color = Color(0.95, 0.92, 0.82)
+	_refresh_progression_hint_visibility()
+	var color: Color = KingdomTheme.PARCHMENT
 	if emphasis:
-		color = Color(1.0, 0.9, 0.45)
+		color = KingdomTheme.TEAL
 	_progression_hint_label.add_theme_color_override("font_color", color)
 	var style: StyleBoxFlat = KingdomTheme.panel_style()
 	style.border_color = KingdomTheme.AMBER if emphasis else KingdomTheme.BORDER
@@ -2243,6 +2241,17 @@ func set_progression_hint(text: String, emphasis: bool = false) -> void:
 	style.set_corner_radius_all(8)
 	style.set_content_margin_all(3)
 	_progression_hint_panel.add_theme_stylebox_override("panel", style)
+
+
+func _refresh_progression_hint_visibility() -> void:
+	if _progression_hint_panel == null or _progression_hint_label == null:
+		return
+	# Keep the current lesson while management owns the screen. Closing a card
+	# restores the latest instruction without advancing or dismissing the guide.
+	var show_hint: bool = not _progression_hint_label.text.is_empty() and _ui_modal_state == UIModalState.NONE and _secondary_surface == SecondarySurface.NONE
+	if _progression_hint_panel.visible != show_hint:
+		_progression_hint_panel.visible = show_hint
+		_queue_mobile_layout_refresh()
 
 
 func set_minimap_hint(text: String) -> void:
@@ -4181,6 +4190,7 @@ func _set_secondary_surface(surface: SecondarySurface, preserve_queue_scroll: bo
 	if surface in [SecondarySurface.VIEW, SecondarySurface.MORE, SecondarySurface.INFO, SecondarySurface.HELP, SecondarySurface.WORLD_CONTEXT]:
 		_cancel_queue_navigation_press()
 	_secondary_surface = surface
+	_refresh_progression_hint_visibility()
 	if surface != SecondarySurface.INFO:
 		_info_from_build_menu = false
 	if not keep_hold:
@@ -4322,6 +4332,9 @@ func _refresh_dismissal_shield() -> void:
 			protected.append(_pause_button.get_global_rect())
 		if _strategy_overview and _strategy_overview.rail.is_visible_in_tree():
 			protected.append(_strategy_overview.rail.get_global_rect())
+		var battlefield: Node = get_node_or_null("Root/BattlefieldFeedback")
+		if battlefield and battlefield.has_method("get_visible_bounds"):
+			protected.append_array(battlefield.call("get_visible_bounds"))
 		_secondary_dismissal_shield.set("protected_rects", protected)
 		_secondary_dismissal_shield.call("set_active", _secondary_surface in [SecondarySurface.HELP, SecondarySurface.WORLD_CONTEXT, SecondarySurface.ECONOMY, SecondarySurface.ARMY] or (_secondary_surface == SecondarySurface.INFO and _active_hold_component == null))
 

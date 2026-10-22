@@ -2,6 +2,8 @@ extends Control
 ## Public objective annotation and two independent, recent owned attack fronts.
 ## Never changes fog or reads enemies. Ordinary toasts cannot retire these cards.
 
+signal interaction_bounds_changed()
+
 const FRONT_RADIUS: float = 320.0
 const FRONT_LIFETIME: float = 20.0
 const FRONT_SOUND_COOLDOWN: float = 8.0
@@ -12,12 +14,14 @@ var _focus: Callable
 var _lane: VBoxContainer
 var _buttons: Array[Button] = []
 var _site: Node2D
+var _last_interaction_bounds: Array[Rect2] = []
 
 
 func setup(hud: CanvasLayer, map: Node2D, focus: Callable) -> void:
 	_hud = hud
 	_map = map
 	_focus = focus
+	interaction_bounds_changed.connect(Callable(hud, "_refresh_dismissal_shield"))
 	_site = map.get("sacred_site") as Node2D
 	name = "BattlefieldFeedback"
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -100,6 +104,13 @@ func _refresh() -> void:
 	var guidance: Control = _hud.get("_progression_hint_panel") as Control
 	if is_instance_valid(guidance) and guidance.is_visible_in_tree():
 		width = minf(width, guidance.get_global_rect().position.x - _lane.position.x - 8.0)
+	var overview: Control = _hud.get("_strategy_overview") as Control
+	if is_instance_valid(overview) and overview.get("panel").is_visible_in_tree():
+		# Management leaves its right-hand launchers exposed. Keep attacks in
+		# that same lane so the card never covers an urgent response target.
+		var rail: Control = overview.get("rail")
+		_lane.position.x = rail.get_global_rect().position.x
+		width = rail.size.x
 	_lane.size = Vector2(maxf(120.0, width), 100)
 	for index: int in _buttons.size():
 		var button: Button = _buttons[index]
@@ -115,10 +126,15 @@ func _refresh() -> void:
 	var feed: Control = _hud.get("_notification_container") as Control
 	if is_instance_valid(feed):
 		feed.visible = fronts.is_empty()
+	var bounds: Array[Rect2] = get_visible_bounds()
+	if bounds != _last_interaction_bounds:
+		_last_interaction_bounds = bounds
+		interaction_bounds_changed.emit()
 
 
 func _view_front(index: int) -> void:
 	if index < fronts.size() and GameManager.current_state == GameManager.GameState.PLAYING:
+		_hud.call("close_secondary_surface")
 		_focus.call(fronts[index]["position"])
 
 

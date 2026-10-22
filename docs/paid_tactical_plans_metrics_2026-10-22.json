@@ -1,0 +1,5308 @@
+{
+  "baseline_commit": "009bed42c7dbb3c019c852643db9e8ad199cadba",
+  "scope": "Paid tactical scenario: ordinary resources/deposits/construction/queues/Feudal purchase, then controlled placement of purchased units and fixed group orders. Not human APM, full-match balance, optimal openings, networking latency or rendered performance. One seed101 on three layouts.",
+  "runtime_source_hashes": {
+    "scripts/ai/ai_controller.gd": "2af6d8141e758000d3c7f1ab9988ac7cfe13f812fbe008c79053e23a04e7d43e",
+    "scripts/buildings/building_base.gd": "596eab26b627cc3b3aa800fd8102ea00aa0a885738b86cb7aeebaba2989b59fa",
+    "scripts/buildings/production_queue.gd": "320e537d6bc13cc961db6f82b9145382b8f6f543957d0454c9e969fdbfb3418d",
+    "scripts/data/building_data.gd": "efaf130402720d18ae9bfe7fe55f3959a92e8e00bced2343c2a324011008f04f",
+    "scripts/data/skirmish_data.gd": "55f29f70336392629f1879d7988827c334fee01e4df8c5f75cb9788f59334de4",
+    "scripts/data/unit_data.gd": "d9cf105220fb82ce8b0d2d0cc7c8e3d6451a9cb04f13f300d301099e8e7048e5",
+    "scripts/main/group_order_planner.gd": "6cd953a8ea29cd115164ad8b97ad6832d4d12309d97c0e6cd80f25a4590ac3c8",
+    "scripts/main/main.gd": "320687d5a3d4982f5a241779f87051151344c301114f49d142ee8977bc6227e1",
+    "scripts/managers/fog_manager.gd": "12d3bc70d7bb03c6e6d85e14fa095ea2667c19c2c255e0cd8e8fac1e9ab7febd",
+    "scripts/managers/game_manager.gd": "a1b418f1d6bb42ac1fffc5aff2369c5f135181bf9c0ea2e28e3931e015cee115",
+    "scripts/managers/resource_manager.gd": "3cc4ce18ab4b60b69a8bcc4ea8127d99f0fb098934a8706cdf43fcb64fc359b7",
+    "scripts/map/game_map.gd": "414655bdb42f9a5f69af5e60d1f8e260315fda1fdb91b00bb4ccd7c23c77fb1a",
+    "scripts/map/map_data.gd": "4ef25a5959f9a7aa312b0c8433f58e62c1a97488cfcb9b5a05995dcbc98caa0f",
+    "scripts/map/map_generator.gd": "8d93482746cdbb10b73d887459d3cfe002c311d4068e1f3916c9e951d5d0358b",
+    "scripts/map/pathfinding.gd": "2e04cf53471ae89593af7bcad7c03544eb6cccb03bb412f5a9a81aab00e4bc55",
+    "scripts/map/resource_node.gd": "ebf9f945a18b11283a247a282f4ea88ec4760036be95102dcc7a05c5c728b5ac",
+    "scripts/units/auto_targeting.gd": "8a04fde81b30d50134a8b472c69b72b69ecdf35e2514a1ca4bafaf42dac3920b",
+    "scripts/units/combat.gd": "6b21e67b5812c413807940b90d9a7b67cf399bc91922ea6085855daaa01468f4",
+    "scripts/units/unit_base.gd": "88900a23306ff40e3a6dfbdcf432537e67b5ddcd5f6107155da97598c4c4c8a4",
+    "scripts/units/villager.gd": "f05c6bf167166959e57a377157bd42295d6ce76ef3500c96aa95263e95b4b100",
+    "tools/fixtures/tactical_paid_opening.gd": "9938e9c89c221a0256c9f0981bba47ce429b32d3f2dd81f55a323266464e9b63",
+    "tools/probe_paid_tactical_plans.gd": "b62c7ecf06e682f8cb920b75a0b1ce5926e2779f4042cff299b5142983dd46c0"
+  },
+  "runtime_hashes_match_baseline": true,
+  "all_cases_same_hash_set": true,
+  "roster_and_worker_validation": "15/15 exact full-health paid rosters;10 workers each after six paid worker purchases; no economic bonus;250F250W100G initial banks; both Age2.",
+  "deterministic_repeat": {
+    "case": "map0-seed101-mounted_staged",
+    "differences_excluding_process_ids_and_user_dir": [],
+    "report": "output/paid-tactics-20261022/repeat/map0-seed101-mounted_staged.json"
+  },
+  "native_checks": [
+    {
+      "report": "output/paid-tactics-20261022/native-stepped/map0-seed101-mounted_flank.json",
+      "compared_fields": [
+        "first_hit",
+        "last_hit",
+        "largest_hit_gap",
+        "damage",
+        "hits",
+        "counter_hits",
+        "kills",
+        "navigation_failures",
+        "navigation_stall_unit_seconds",
+        "severe_friendly_overlap_pair_seconds",
+        "order_response_seconds",
+        "unanswered_orders",
+        "target_changes",
+        "role_damage",
+        "survivors",
+        "remaining_hp",
+        "orders",
+        "events"
+      ],
+      "differences": [],
+      "runtime_source_hashes": {
+        "scripts/ai/ai_controller.gd": "2af6d8141e758000d3c7f1ab9988ac7cfe13f812fbe008c79053e23a04e7d43e",
+        "scripts/buildings/building_base.gd": "596eab26b627cc3b3aa800fd8102ea00aa0a885738b86cb7aeebaba2989b59fa",
+        "scripts/buildings/production_queue.gd": "320e537d6bc13cc961db6f82b9145382b8f6f543957d0454c9e969fdbfb3418d",
+        "scripts/data/building_data.gd": "efaf130402720d18ae9bfe7fe55f3959a92e8e00bced2343c2a324011008f04f",
+        "scripts/data/skirmish_data.gd": "55f29f70336392629f1879d7988827c334fee01e4df8c5f75cb9788f59334de4",
+        "scripts/data/unit_data.gd": "d9cf105220fb82ce8b0d2d0cc7c8e3d6451a9cb04f13f300d301099e8e7048e5",
+        "scripts/main/group_order_planner.gd": "6cd953a8ea29cd115164ad8b97ad6832d4d12309d97c0e6cd80f25a4590ac3c8",
+        "scripts/main/main.gd": "320687d5a3d4982f5a241779f87051151344c301114f49d142ee8977bc6227e1",
+        "scripts/managers/fog_manager.gd": "12d3bc70d7bb03c6e6d85e14fa095ea2667c19c2c255e0cd8e8fac1e9ab7febd",
+        "scripts/managers/game_manager.gd": "a1b418f1d6bb42ac1fffc5aff2369c5f135181bf9c0ea2e28e3931e015cee115",
+        "scripts/managers/resource_manager.gd": "3cc4ce18ab4b60b69a8bcc4ea8127d99f0fb098934a8706cdf43fcb64fc359b7",
+        "scripts/map/game_map.gd": "414655bdb42f9a5f69af5e60d1f8e260315fda1fdb91b00bb4ccd7c23c77fb1a",
+        "scripts/map/map_data.gd": "4ef25a5959f9a7aa312b0c8433f58e62c1a97488cfcb9b5a05995dcbc98caa0f",
+        "scripts/map/map_generator.gd": "8d93482746cdbb10b73d887459d3cfe002c311d4068e1f3916c9e951d5d0358b",
+        "scripts/map/pathfinding.gd": "2e04cf53471ae89593af7bcad7c03544eb6cccb03bb412f5a9a81aab00e4bc55",
+        "scripts/map/resource_node.gd": "ebf9f945a18b11283a247a282f4ea88ec4760036be95102dcc7a05c5c728b5ac",
+        "scripts/units/auto_targeting.gd": "8a04fde81b30d50134a8b472c69b72b69ecdf35e2514a1ca4bafaf42dac3920b",
+        "scripts/units/combat.gd": "6b21e67b5812c413807940b90d9a7b67cf399bc91922ea6085855daaa01468f4",
+        "scripts/units/unit_base.gd": "88900a23306ff40e3a6dfbdcf432537e67b5ddcd5f6107155da97598c4c4c8a4",
+        "scripts/units/villager.gd": "f05c6bf167166959e57a377157bd42295d6ce76ef3500c96aa95263e95b4b100",
+        "tools/fixtures/tactical_paid_opening.gd": "ff24608f47e4218e6c5005958ad56f14c5c84af4de85db6d08e4054af40d67a6",
+        "tools/probe_paid_tactical_plans.gd": "b62c7ecf06e682f8cb920b75a0b1ce5926e2779f4042cff299b5142983dd46c0"
+      },
+      "scope": "Native per-frame visual validation of the same combat on009bed4. Pre-final purchaser observer synchronization; paid opening timing/bank are not final matrix values."
+    },
+    {
+      "report": "output/paid-tactics-20261022/native-stepped/map0-seed101-ranged_screen.json",
+      "compared_fields": [
+        "first_hit",
+        "last_hit",
+        "largest_hit_gap",
+        "damage",
+        "hits",
+        "counter_hits",
+        "kills",
+        "navigation_failures",
+        "navigation_stall_unit_seconds",
+        "severe_friendly_overlap_pair_seconds",
+        "order_response_seconds",
+        "unanswered_orders",
+        "target_changes",
+        "role_damage",
+        "survivors",
+        "remaining_hp",
+        "orders",
+        "events"
+      ],
+      "differences": [],
+      "runtime_source_hashes": {
+        "scripts/ai/ai_controller.gd": "2af6d8141e758000d3c7f1ab9988ac7cfe13f812fbe008c79053e23a04e7d43e",
+        "scripts/buildings/building_base.gd": "596eab26b627cc3b3aa800fd8102ea00aa0a885738b86cb7aeebaba2989b59fa",
+        "scripts/buildings/production_queue.gd": "320e537d6bc13cc961db6f82b9145382b8f6f543957d0454c9e969fdbfb3418d",
+        "scripts/data/building_data.gd": "efaf130402720d18ae9bfe7fe55f3959a92e8e00bced2343c2a324011008f04f",
+        "scripts/data/skirmish_data.gd": "55f29f70336392629f1879d7988827c334fee01e4df8c5f75cb9788f59334de4",
+        "scripts/data/unit_data.gd": "d9cf105220fb82ce8b0d2d0cc7c8e3d6451a9cb04f13f300d301099e8e7048e5",
+        "scripts/main/group_order_planner.gd": "6cd953a8ea29cd115164ad8b97ad6832d4d12309d97c0e6cd80f25a4590ac3c8",
+        "scripts/main/main.gd": "320687d5a3d4982f5a241779f87051151344c301114f49d142ee8977bc6227e1",
+        "scripts/managers/fog_manager.gd": "12d3bc70d7bb03c6e6d85e14fa095ea2667c19c2c255e0cd8e8fac1e9ab7febd",
+        "scripts/managers/game_manager.gd": "a1b418f1d6bb42ac1fffc5aff2369c5f135181bf9c0ea2e28e3931e015cee115",
+        "scripts/managers/resource_manager.gd": "3cc4ce18ab4b60b69a8bcc4ea8127d99f0fb098934a8706cdf43fcb64fc359b7",
+        "scripts/map/game_map.gd": "414655bdb42f9a5f69af5e60d1f8e260315fda1fdb91b00bb4ccd7c23c77fb1a",
+        "scripts/map/map_data.gd": "4ef25a5959f9a7aa312b0c8433f58e62c1a97488cfcb9b5a05995dcbc98caa0f",
+        "scripts/map/map_generator.gd": "8d93482746cdbb10b73d887459d3cfe002c311d4068e1f3916c9e951d5d0358b",
+        "scripts/map/pathfinding.gd": "2e04cf53471ae89593af7bcad7c03544eb6cccb03bb412f5a9a81aab00e4bc55",
+        "scripts/map/resource_node.gd": "ebf9f945a18b11283a247a282f4ea88ec4760036be95102dcc7a05c5c728b5ac",
+        "scripts/units/auto_targeting.gd": "8a04fde81b30d50134a8b472c69b72b69ecdf35e2514a1ca4bafaf42dac3920b",
+        "scripts/units/combat.gd": "6b21e67b5812c413807940b90d9a7b67cf399bc91922ea6085855daaa01468f4",
+        "scripts/units/unit_base.gd": "88900a23306ff40e3a6dfbdcf432537e67b5ddcd5f6107155da97598c4c4c8a4",
+        "scripts/units/villager.gd": "f05c6bf167166959e57a377157bd42295d6ce76ef3500c96aa95263e95b4b100",
+        "tools/fixtures/tactical_paid_opening.gd": "ff24608f47e4218e6c5005958ad56f14c5c84af4de85db6d08e4054af40d67a6",
+        "tools/probe_paid_tactical_plans.gd": "b62c7ecf06e682f8cb920b75a0b1ce5926e2779f4042cff299b5142983dd46c0"
+      },
+      "scope": "Native per-frame visual validation of the same combat on009bed4. Pre-final purchaser observer synchronization; paid opening timing/bank are not final matrix values."
+    }
+  ],
+  "cases": [
+    {
+      "ages": [
+        2,
+        2
+      ],
+      "bank_after_opening": [
+        {
+          "food": 1061,
+          "gold": 95,
+          "wood": 230
+        },
+        {
+          "food": 1145,
+          "gold": 100,
+          "wood": 35
+        }
+      ],
+      "counter_hits": [
+        0,
+        22
+      ],
+      "damage": [
+        250.0,
+        348.0
+      ],
+      "deposits": [
+        {
+          "food": 1661,
+          "gold": 120,
+          "wood": 500
+        },
+        {
+          "food": 1670,
+          "gold": 125,
+          "wood": 500
+        }
+      ],
+      "economic_bonus_active": false,
+      "end": "disengaged",
+      "failures": [],
+      "final_unit_diagnostics": [
+        {
+          "attack_move": false,
+          "attack_range": 16.0,
+          "enemies": [
+            {
+              "currently_visible": true,
+              "distance": 89.1208267211914,
+              "id": 4476781988303,
+              "ignored": false,
+              "role": 2
+            }
+          ],
+          "failed_repaths": 0,
+          "force_move": false,
+          "forced_attack": false,
+          "hp": 12.0,
+          "id": 3487966431602,
+          "move_target": [
+            320.0,
+            1152.0
+          ],
+          "navigation_active": false,
+          "owner": 0,
+          "path_index": 0,
+          "path_size": 0,
+          "position": [
+            316.940795898438,
+            1150.06481933594
+          ],
+          "role": 1,
+          "stall_repaths": 0,
+          "stance": 0,
+          "state": 0,
+          "target": 0,
+          "vision_radius": 64.0
+        },
+        {
+          "attack_move": false,
+          "attack_range": 80.0,
+          "enemies": [
+            {
+              "currently_visible": true,
+              "distance": 89.1208267211914,
+              "id": 3487966431602,
+              "ignored": true,
+              "role": 1
+            }
+          ],
+          "failed_repaths": 0,
+          "force_move": false,
+          "forced_attack": false,
+          "hp": 35.0,
+          "id": 4476781988303,
+          "move_target": [
+            2016.0,
+            1072.0
+          ],
+          "navigation_active": false,
+          "owner": 1,
+          "path_index": 0,
+          "path_size": 0,
+          "position": [
+            352.0,
+            1232.0
+          ],
+          "role": 2,
+          "stall_repaths": 0,
+          "stance": 1,
+          "state": 0,
+          "target": 0,
+          "vision_radius": 96.0
+        }
+      ],
+      "first_hit": 14.9833333333333,
+      "group_orders_per_minute": 0.999722299361289,
+      "hits": [
+        40,
+        38
+      ],
+      "initial_resources": [
+        {
+          "food": 250,
+          "gold": 100,
+          "wood": 250
+        },
+        {
+          "food": 250,
+          "gold": 100,
+          "wood": 250
+        }
+      ],
+      "initial_tactical_units": {
+        "at": -1.0,
+        "units": [
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1231749648381,
+            "max_hp": 60.0,
+            "owner": 0,
+            "position": [
+              -576.0,
+              1120.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1372493712191,
+            "max_hp": 60.0,
+            "owner": 0,
+            "position": [
+              -608.0,
+              1168.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 3346165401469,
+            "max_hp": 60.0,
+            "owner": 0,
+            "position": [
+              -576.0,
+              1216.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 3487966431602,
+            "max_hp": 60.0,
+            "owner": 0,
+            "position": [
+              -608.0,
+              1264.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 3627821305335,
+            "max_hp": 60.0,
+            "owner": 0,
+            "position": [
+              -576.0,
+              1312.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 3753230994582,
+            "max_hp": 60.0,
+            "owner": 0,
+            "position": [
+              -608.0,
+              1360.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1211566657399,
+            "max_hp": 60.0,
+            "owner": 1,
+            "position": [
+              256.0,
+              1120.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1381586963904,
+            "max_hp": 60.0,
+            "owner": 1,
+            "position": [
+              256.0,
+              1184.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 3349806058740,
+            "max_hp": 60.0,
+            "owner": 1,
+            "position": [
+              224.0,
+              1232.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 3702647687708,
+            "max_hp": 35.0,
+            "owner": 1,
+            "position": [
+              320.0,
+              1120.0
+            ],
+            "role": 2,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 4019418303552,
+            "max_hp": 35.0,
+            "owner": 1,
+            "position": [
+              320.0,
+              1184.0
+            ],
+            "role": 2,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 4476781988303,
+            "max_hp": 35.0,
+            "owner": 1,
+            "position": [
+              352.0,
+              1232.0
+            ],
+            "role": 2,
+            "state": 0
+          }
+        ]
+      },
+      "initial_workers": [
+        4,
+        4
+      ],
+      "kills": [
+        5,
+        5
+      ],
+      "largest_hit_gap": 0.866666666666667,
+      "last_hit": 31.7333333333333,
+      "map": 0,
+      "method": "Ordinary paid 30-pop opening then disclosed relocation of purchased armies; frozen economy/AI, fixed 60Hz real unit navigation/combat. Group order counts are not human APM; no rendering/performance claim.",
+      "navigation_failures": 0,
+      "navigation_stall_unit_seconds": 0.0,
+      "opening_seconds": 322.516666666702,
+      "opening_stats": [
+        {
+          "army_trained": 6,
+          "buildings_built": 6,
+          "buildings_lost": 0,
+          "resources_gathered": 2281,
+          "units_killed": 0,
+          "units_lost": 0,
+          "units_trained": 12
+        },
+        {
+          "army_trained": 6,
+          "buildings_built": 7,
+          "buildings_lost": 0,
+          "resources_gathered": 2295,
+          "units_killed": 0,
+          "units_lost": 0,
+          "units_trained": 12
+        }
+      ],
+      "orders": [
+        {
+          "at": 0.0,
+          "attack_move": true,
+          "destination": [
+            332.0,
+            1168.0
+          ],
+          "owner": 0,
+          "planned_orders": 6,
+          "reason": "single-group direct pressure",
+          "units": 6
+        }
+      ],
+      "paid_army_cost": [
+        {
+          "food": 300,
+          "gold": 0,
+          "wood": 120
+        },
+        {
+          "food": 225,
+          "gold": 0,
+          "wood": 195
+        }
+      ],
+      "paid_ready_at": [
+        265.016666666754,
+        322.516666666702
+      ],
+      "plan": "infantry_pressure",
+      "remaining_hp": [
+        12.0,
+        35.0
+      ],
+      "role_damage": [
+        {
+          "1": 250.0
+        },
+        {
+          "1": 96.0,
+          "2": 252.0
+        }
+      ],
+      "seed": 101,
+      "severe_friendly_overlap_pair_seconds": 11.0,
+      "survivors": [
+        1,
+        1
+      ],
+      "tactical_seconds": 60.0166666666667,
+      "target_changes": 52,
+      "unanswered_orders": 0,
+      "upper_crossing": [
+        32.0,
+        656.0
+      ],
+      "user_data_dir": "/Users/ben/Library/Application Support/aoem-tactical-probes/d3751965c9ae4c218e32c312c535d7ba",
+      "report": "output/paid-tactics-20261022/final/map0-seed101-infantry_pressure.json",
+      "max_order_response_seconds": 0.0166666666666667,
+      "order_count": 1,
+      "time_since_last_damage": 28.283333333333402,
+      "actual_rosters": [
+        {
+          "1": 6
+        },
+        {
+          "1": 3,
+          "2": 3
+        }
+      ]
+    },
+    {
+      "ages": [
+        2,
+        2
+      ],
+      "bank_after_opening": [
+        {
+          "food": 957,
+          "gold": 95,
+          "wood": 130
+        },
+        {
+          "food": 1145,
+          "gold": 100,
+          "wood": 35
+        }
+      ],
+      "counter_hits": [
+        2,
+        19
+      ],
+      "damage": [
+        223.0,
+        360.0
+      ],
+      "deposits": [
+        {
+          "food": 1627,
+          "gold": 120,
+          "wood": 530
+        },
+        {
+          "food": 1670,
+          "gold": 125,
+          "wood": 500
+        }
+      ],
+      "economic_bonus_active": false,
+      "end": "elimination",
+      "failures": [],
+      "first_hit": 9.65,
+      "group_orders_per_minute": 2.05245153933865,
+      "hits": [
+        30,
+        37
+      ],
+      "initial_resources": [
+        {
+          "food": 250,
+          "gold": 100,
+          "wood": 250
+        },
+        {
+          "food": 250,
+          "gold": 100,
+          "wood": 250
+        }
+      ],
+      "initial_tactical_units": {
+        "at": -1.0,
+        "units": [
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1231749648381,
+            "max_hp": 60.0,
+            "owner": 0,
+            "position": [
+              -576.0,
+              1120.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1372493712191,
+            "max_hp": 60.0,
+            "owner": 0,
+            "position": [
+              -608.0,
+              1168.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 80.0,
+            "id": 3738114723876,
+            "max_hp": 80.0,
+            "owner": 0,
+            "position": [
+              -672.0,
+              1136.0
+            ],
+            "role": 3,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 80.0,
+            "id": 3927881814009,
+            "max_hp": 80.0,
+            "owner": 0,
+            "position": [
+              -704.0,
+              1184.0
+            ],
+            "role": 3,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 80.0,
+            "id": 4099697281946,
+            "max_hp": 80.0,
+            "owner": 0,
+            "position": [
+              -672.0,
+              1232.0
+            ],
+            "role": 3,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1211566657399,
+            "max_hp": 60.0,
+            "owner": 1,
+            "position": [
+              256.0,
+              1120.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1381586963904,
+            "max_hp": 60.0,
+            "owner": 1,
+            "position": [
+              256.0,
+              1184.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 3306336292743,
+            "max_hp": 60.0,
+            "owner": 1,
+            "position": [
+              224.0,
+              1232.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 3694678511634,
+            "max_hp": 35.0,
+            "owner": 1,
+            "position": [
+              320.0,
+              1120.0
+            ],
+            "role": 2,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 4024250140584,
+            "max_hp": 35.0,
+            "owner": 1,
+            "position": [
+              320.0,
+              1184.0
+            ],
+            "role": 2,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 4500639189878,
+            "max_hp": 35.0,
+            "owner": 1,
+            "position": [
+              352.0,
+              1232.0
+            ],
+            "role": 2,
+            "state": 0
+          }
+        ]
+      },
+      "initial_workers": [
+        4,
+        4
+      ],
+      "kills": [
+        4,
+        5
+      ],
+      "largest_hit_gap": 1.66666666666667,
+      "last_hit": 29.2166666666667,
+      "map": 0,
+      "method": "Ordinary paid 30-pop opening then disclosed relocation of purchased armies; frozen economy/AI, fixed 60Hz real unit navigation/combat. Group order counts are not human APM; no rendering/performance claim.",
+      "navigation_failures": 0,
+      "navigation_stall_unit_seconds": 0.0,
+      "opening_seconds": 322.516666666702,
+      "opening_stats": [
+        {
+          "army_trained": 5,
+          "buildings_built": 7,
+          "buildings_lost": 0,
+          "resources_gathered": 2277,
+          "units_killed": 0,
+          "units_lost": 0,
+          "units_trained": 11
+        },
+        {
+          "army_trained": 6,
+          "buildings_built": 7,
+          "buildings_lost": 0,
+          "resources_gathered": 2295,
+          "units_killed": 0,
+          "units_lost": 0,
+          "units_trained": 12
+        }
+      ],
+      "orders": [
+        {
+          "at": 0.0,
+          "attack_move": true,
+          "destination": [
+            332.0,
+            1168.0
+          ],
+          "owner": 0,
+          "planned_orders": 5,
+          "reason": "single-group direct pressure",
+          "units": 5
+        }
+      ],
+      "paid_army_cost": [
+        {
+          "food": 370,
+          "gold": 0,
+          "wood": 130
+        },
+        {
+          "food": 225,
+          "gold": 0,
+          "wood": 195
+        }
+      ],
+      "paid_ready_at": [
+        292.516666666729,
+        322.516666666702
+      ],
+      "plan": "mounted_direct",
+      "remaining_hp": [
+        0.0,
+        62.0
+      ],
+      "role_damage": [
+        {
+          "1": 79.0,
+          "3": 144.0
+        },
+        {
+          "1": 233.0,
+          "2": 127.0
+        }
+      ],
+      "seed": 101,
+      "severe_friendly_overlap_pair_seconds": 4.0,
+      "survivors": [
+        0,
+        2
+      ],
+      "tactical_seconds": 29.2333333333333,
+      "target_changes": 34,
+      "unanswered_orders": 0,
+      "upper_crossing": [
+        32.0,
+        656.0
+      ],
+      "user_data_dir": "/Users/ben/Library/Application Support/aoem-tactical-probes/af5b6f2161fb4e3d8425d1d3d096b04b",
+      "report": "output/paid-tactics-20261022/final/map0-seed101-mounted_direct.json",
+      "max_order_response_seconds": 0.0166666666666667,
+      "order_count": 1,
+      "time_since_last_damage": 0.016666666666598218,
+      "actual_rosters": [
+        {
+          "1": 2,
+          "3": 3
+        },
+        {
+          "1": 3,
+          "2": 3
+        }
+      ]
+    },
+    {
+      "ages": [
+        2,
+        2
+      ],
+      "bank_after_opening": [
+        {
+          "food": 957,
+          "gold": 95,
+          "wood": 130
+        },
+        {
+          "food": 1145,
+          "gold": 100,
+          "wood": 35
+        }
+      ],
+      "counter_hits": [
+        6,
+        9
+      ],
+      "damage": [
+        206.0,
+        224.0
+      ],
+      "deposits": [
+        {
+          "food": 1627,
+          "gold": 120,
+          "wood": 530
+        },
+        {
+          "food": 1670,
+          "gold": 125,
+          "wood": 500
+        }
+      ],
+      "economic_bonus_active": false,
+      "end": "disengaged",
+      "failures": [],
+      "first_hit": 14.65,
+      "group_orders_per_minute": 4.99861149680644,
+      "hits": [
+        27,
+        27
+      ],
+      "initial_resources": [
+        {
+          "food": 250,
+          "gold": 100,
+          "wood": 250
+        },
+        {
+          "food": 250,
+          "gold": 100,
+          "wood": 250
+        }
+      ],
+      "initial_tactical_units": {
+        "at": -1.0,
+        "units": [
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1231749648381,
+            "max_hp": 60.0,
+            "owner": 0,
+            "position": [
+              -576.0,
+              1120.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1372493712191,
+            "max_hp": 60.0,
+            "owner": 0,
+            "position": [
+              -608.0,
+              1168.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 80.0,
+            "id": 3738114723876,
+            "max_hp": 80.0,
+            "owner": 0,
+            "position": [
+              -672.0,
+              1136.0
+            ],
+            "role": 3,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 80.0,
+            "id": 3927881814009,
+            "max_hp": 80.0,
+            "owner": 0,
+            "position": [
+              -704.0,
+              1184.0
+            ],
+            "role": 3,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 80.0,
+            "id": 4099697281946,
+            "max_hp": 80.0,
+            "owner": 0,
+            "position": [
+              -672.0,
+              1232.0
+            ],
+            "role": 3,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1211566657399,
+            "max_hp": 60.0,
+            "owner": 1,
+            "position": [
+              256.0,
+              1120.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1381586963904,
+            "max_hp": 60.0,
+            "owner": 1,
+            "position": [
+              256.0,
+              1184.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 3306336292743,
+            "max_hp": 60.0,
+            "owner": 1,
+            "position": [
+              224.0,
+              1232.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 3694678511634,
+            "max_hp": 35.0,
+            "owner": 1,
+            "position": [
+              320.0,
+              1120.0
+            ],
+            "role": 2,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 4024250140584,
+            "max_hp": 35.0,
+            "owner": 1,
+            "position": [
+              320.0,
+              1184.0
+            ],
+            "role": 2,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 4500639189878,
+            "max_hp": 35.0,
+            "owner": 1,
+            "position": [
+              352.0,
+              1232.0
+            ],
+            "role": 2,
+            "state": 0
+          }
+        ]
+      },
+      "initial_workers": [
+        4,
+        4
+      ],
+      "kills": [
+        4,
+        2
+      ],
+      "largest_hit_gap": 5.43333333333333,
+      "last_hit": 37.3833333333333,
+      "map": 0,
+      "method": "Ordinary paid 30-pop opening then disclosed relocation of purchased armies; frozen economy/AI, fixed 60Hz real unit navigation/combat. Group order counts are not human APM; no rendering/performance claim.",
+      "navigation_failures": 0,
+      "navigation_stall_unit_seconds": 0.0,
+      "opening_seconds": 322.516666666702,
+      "opening_stats": [
+        {
+          "army_trained": 5,
+          "buildings_built": 7,
+          "buildings_lost": 0,
+          "resources_gathered": 2277,
+          "units_killed": 0,
+          "units_lost": 0,
+          "units_trained": 11
+        },
+        {
+          "army_trained": 6,
+          "buildings_built": 7,
+          "buildings_lost": 0,
+          "resources_gathered": 2295,
+          "units_killed": 0,
+          "units_lost": 0,
+          "units_trained": 12
+        }
+      ],
+      "orders": [
+        {
+          "at": 0.0,
+          "attack_move": true,
+          "destination": [
+            232.0,
+            1168.0
+          ],
+          "owner": 0,
+          "planned_orders": 2,
+          "reason": "warriors pressure center",
+          "units": 2
+        },
+        {
+          "at": 0.0,
+          "attack_move": false,
+          "destination": [
+            132.0,
+            656.0
+          ],
+          "owner": 0,
+          "planned_orders": 3,
+          "reason": "horsemen take upper crossing",
+          "units": 3
+        },
+        {
+          "at": 9.8,
+          "attack_move": true,
+          "destination": [
+            392.0,
+            1136.0
+          ],
+          "owner": 0,
+          "planned_orders": 3,
+          "reason": "flank engages ranged rear",
+          "units": 3
+        },
+        {
+          "at": 20.65,
+          "attack_move": false,
+          "destination": [
+            -328.0,
+            1048.0
+          ],
+          "owner": 0,
+          "planned_orders": 2,
+          "reason": "withdraw up to two wounded specialists",
+          "units": 2
+        },
+        {
+          "at": 28.65,
+          "attack_move": true,
+          "destination": [
+            332.0,
+            1168.0
+          ],
+          "owner": 0,
+          "planned_orders": 2,
+          "reason": "specialists reengage after eight seconds",
+          "units": 2
+        }
+      ],
+      "paid_army_cost": [
+        {
+          "food": 370,
+          "gold": 0,
+          "wood": 130
+        },
+        {
+          "food": 225,
+          "gold": 0,
+          "wood": 195
+        }
+      ],
+      "paid_ready_at": [
+        292.516666666729,
+        322.516666666702
+      ],
+      "plan": "mounted_flank",
+      "remaining_hp": [
+        136.0,
+        79.0
+      ],
+      "retreat_ordered": 2,
+      "retreat_survivors_at_reengage": 2,
+      "role_damage": [
+        {
+          "1": 88.0,
+          "3": 118.0
+        },
+        {
+          "1": 152.0,
+          "2": 72.0
+        }
+      ],
+      "seed": 101,
+      "severe_friendly_overlap_pair_seconds": 1.5,
+      "survivors": [
+        3,
+        2
+      ],
+      "tactical_seconds": 60.0166666666667,
+      "target_changes": 27,
+      "unanswered_orders": 0,
+      "upper_crossing": [
+        32.0,
+        656.0
+      ],
+      "user_data_dir": "/Users/ben/Library/Application Support/aoem-tactical-probes/cb5d9bf504ca47b2b194957a76dc6282",
+      "report": "output/paid-tactics-20261022/final/map0-seed101-mounted_flank.json",
+      "max_order_response_seconds": 0.0166666666666667,
+      "order_count": 5,
+      "time_since_last_damage": 22.633333333333404,
+      "actual_rosters": [
+        {
+          "1": 2,
+          "3": 3
+        },
+        {
+          "1": 3,
+          "2": 3
+        }
+      ]
+    },
+    {
+      "ages": [
+        2,
+        2
+      ],
+      "bank_after_opening": [
+        {
+          "food": 957,
+          "gold": 95,
+          "wood": 130
+        },
+        {
+          "food": 1145,
+          "gold": 100,
+          "wood": 35
+        }
+      ],
+      "counter_hits": [
+        9,
+        9
+      ],
+      "damage": [
+        285.0,
+        236.0
+      ],
+      "deposits": [
+        {
+          "food": 1627,
+          "gold": 120,
+          "wood": 530
+        },
+        {
+          "food": 1670,
+          "gold": 125,
+          "wood": 500
+        }
+      ],
+      "economic_bonus_active": false,
+      "end": "elimination",
+      "failures": [],
+      "first_hit": 13.0333333333333,
+      "group_orders_per_minute": 3.67534456355283,
+      "hits": [
+        35,
+        29
+      ],
+      "initial_resources": [
+        {
+          "food": 250,
+          "gold": 100,
+          "wood": 250
+        },
+        {
+          "food": 250,
+          "gold": 100,
+          "wood": 250
+        }
+      ],
+      "initial_tactical_units": {
+        "at": -1.0,
+        "units": [
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1231749648381,
+            "max_hp": 60.0,
+            "owner": 0,
+            "position": [
+              -576.0,
+              1120.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1372493712191,
+            "max_hp": 60.0,
+            "owner": 0,
+            "position": [
+              -608.0,
+              1168.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 80.0,
+            "id": 3738114723876,
+            "max_hp": 80.0,
+            "owner": 0,
+            "position": [
+              -672.0,
+              1136.0
+            ],
+            "role": 3,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 80.0,
+            "id": 3927881814009,
+            "max_hp": 80.0,
+            "owner": 0,
+            "position": [
+              -704.0,
+              1184.0
+            ],
+            "role": 3,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 80.0,
+            "id": 4099697281946,
+            "max_hp": 80.0,
+            "owner": 0,
+            "position": [
+              -672.0,
+              1232.0
+            ],
+            "role": 3,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1211566657399,
+            "max_hp": 60.0,
+            "owner": 1,
+            "position": [
+              256.0,
+              1120.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1381586963904,
+            "max_hp": 60.0,
+            "owner": 1,
+            "position": [
+              256.0,
+              1184.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 3306336292743,
+            "max_hp": 60.0,
+            "owner": 1,
+            "position": [
+              224.0,
+              1232.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 3694678511634,
+            "max_hp": 35.0,
+            "owner": 1,
+            "position": [
+              320.0,
+              1120.0
+            ],
+            "role": 2,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 4024250140584,
+            "max_hp": 35.0,
+            "owner": 1,
+            "position": [
+              320.0,
+              1184.0
+            ],
+            "role": 2,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 4500639189878,
+            "max_hp": 35.0,
+            "owner": 1,
+            "position": [
+              352.0,
+              1232.0
+            ],
+            "role": 2,
+            "state": 0
+          }
+        ]
+      },
+      "initial_workers": [
+        4,
+        4
+      ],
+      "kills": [
+        6,
+        2
+      ],
+      "largest_hit_gap": 1.06666666666667,
+      "last_hit": 32.6333333333333,
+      "map": 0,
+      "method": "Ordinary paid 30-pop opening then disclosed relocation of purchased armies; frozen economy/AI, fixed 60Hz real unit navigation/combat. Group order counts are not human APM; no rendering/performance claim.",
+      "navigation_failures": 0,
+      "navigation_stall_unit_seconds": 0.0,
+      "opening_seconds": 322.516666666702,
+      "opening_stats": [
+        {
+          "army_trained": 5,
+          "buildings_built": 7,
+          "buildings_lost": 0,
+          "resources_gathered": 2277,
+          "units_killed": 0,
+          "units_lost": 0,
+          "units_trained": 11
+        },
+        {
+          "army_trained": 6,
+          "buildings_built": 7,
+          "buildings_lost": 0,
+          "resources_gathered": 2295,
+          "units_killed": 0,
+          "units_lost": 0,
+          "units_trained": 12
+        }
+      ],
+      "orders": [
+        {
+          "at": 0.0,
+          "attack_move": false,
+          "destination": [
+            112.0,
+            1168.0
+          ],
+          "owner": 0,
+          "planned_orders": 5,
+          "reason": "passive staging before the defended line",
+          "units": 5
+        },
+        {
+          "at": 11.6666666666667,
+          "attack_move": true,
+          "destination": [
+            332.0,
+            1168.0
+          ],
+          "owner": 0,
+          "planned_orders": 5,
+          "reason": "attack after the slower screen reaches staging",
+          "units": 5
+        }
+      ],
+      "paid_army_cost": [
+        {
+          "food": 370,
+          "gold": 0,
+          "wood": 130
+        },
+        {
+          "food": 225,
+          "gold": 0,
+          "wood": 195
+        }
+      ],
+      "paid_ready_at": [
+        292.516666666729,
+        322.516666666702
+      ],
+      "plan": "mounted_staged",
+      "remaining_hp": [
+        124.0,
+        0.0
+      ],
+      "role_damage": [
+        {
+          "1": 40.0,
+          "3": 245.0
+        },
+        {
+          "1": 60.0,
+          "2": 176.0
+        }
+      ],
+      "seed": 101,
+      "severe_friendly_overlap_pair_seconds": 6.5,
+      "survivors": [
+        3,
+        0
+      ],
+      "tactical_seconds": 32.65,
+      "target_changes": 47,
+      "unanswered_orders": 0,
+      "upper_crossing": [
+        32.0,
+        656.0
+      ],
+      "user_data_dir": "/Users/ben/Library/Application Support/aoem-tactical-probes/759687cba9f547bc8e2c9af7b37021ac",
+      "report": "output/paid-tactics-20261022/final/map0-seed101-mounted_staged.json",
+      "max_order_response_seconds": 0.0166666666666667,
+      "order_count": 2,
+      "time_since_last_damage": 0.016666666666701246,
+      "actual_rosters": [
+        {
+          "1": 2,
+          "3": 3
+        },
+        {
+          "1": 3,
+          "2": 3
+        }
+      ]
+    },
+    {
+      "ages": [
+        2,
+        2
+      ],
+      "bank_after_opening": [
+        {
+          "food": 1138,
+          "gold": 95,
+          "wood": 40
+        },
+        {
+          "food": 1145,
+          "gold": 100,
+          "wood": 35
+        }
+      ],
+      "counter_hits": [
+        13,
+        3
+      ],
+      "damage": [
+        285.0,
+        102.0
+      ],
+      "deposits": [
+        {
+          "food": 1638,
+          "gold": 120,
+          "wood": 530
+        },
+        {
+          "food": 1670,
+          "gold": 125,
+          "wood": 500
+        }
+      ],
+      "economic_bonus_active": false,
+      "end": "elimination",
+      "failures": [],
+      "first_hit": 15.4333333333333,
+      "group_orders_per_minute": 4.41717791411043,
+      "hits": [
+        32,
+        13
+      ],
+      "initial_resources": [
+        {
+          "food": 250,
+          "gold": 100,
+          "wood": 250
+        },
+        {
+          "food": 250,
+          "gold": 100,
+          "wood": 250
+        }
+      ],
+      "initial_tactical_units": {
+        "at": -1.0,
+        "units": [
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1231749648381,
+            "max_hp": 60.0,
+            "owner": 0,
+            "position": [
+              -576.0,
+              1120.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1372493712191,
+            "max_hp": 60.0,
+            "owner": 0,
+            "position": [
+              -608.0,
+              1168.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 3695567703224,
+            "max_hp": 35.0,
+            "owner": 0,
+            "position": [
+              -672.0,
+              1136.0
+            ],
+            "role": 2,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 3851444816408,
+            "max_hp": 35.0,
+            "owner": 0,
+            "position": [
+              -704.0,
+              1184.0
+            ],
+            "role": 2,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 4083222056211,
+            "max_hp": 35.0,
+            "owner": 0,
+            "position": [
+              -672.0,
+              1232.0
+            ],
+            "role": 2,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 4534445281273,
+            "max_hp": 35.0,
+            "owner": 0,
+            "position": [
+              -704.0,
+              1280.0
+            ],
+            "role": 2,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1211566657399,
+            "max_hp": 60.0,
+            "owner": 1,
+            "position": [
+              256.0,
+              1120.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1381586963904,
+            "max_hp": 60.0,
+            "owner": 1,
+            "position": [
+              256.0,
+              1184.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 3306336292743,
+            "max_hp": 60.0,
+            "owner": 1,
+            "position": [
+              224.0,
+              1232.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 3679914561388,
+            "max_hp": 35.0,
+            "owner": 1,
+            "position": [
+              320.0,
+              1120.0
+            ],
+            "role": 2,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 4024485022784,
+            "max_hp": 35.0,
+            "owner": 1,
+            "position": [
+              320.0,
+              1184.0
+            ],
+            "role": 2,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 4512651676418,
+            "max_hp": 35.0,
+            "owner": 1,
+            "position": [
+              352.0,
+              1232.0
+            ],
+            "role": 2,
+            "state": 0
+          }
+        ]
+      },
+      "initial_workers": [
+        4,
+        4
+      ],
+      "kills": [
+        6,
+        1
+      ],
+      "largest_hit_gap": 1.36666666666667,
+      "last_hit": 27.15,
+      "map": 0,
+      "method": "Ordinary paid 30-pop opening then disclosed relocation of purchased armies; frozen economy/AI, fixed 60Hz real unit navigation/combat. Group order counts are not human APM; no rendering/performance claim.",
+      "navigation_failures": 0,
+      "navigation_stall_unit_seconds": 0.0,
+      "opening_seconds": 324.016666666701,
+      "opening_stats": [
+        {
+          "army_trained": 6,
+          "buildings_built": 7,
+          "buildings_lost": 0,
+          "resources_gathered": 2288,
+          "units_killed": 0,
+          "units_lost": 0,
+          "units_trained": 12
+        },
+        {
+          "army_trained": 6,
+          "buildings_built": 7,
+          "buildings_lost": 0,
+          "resources_gathered": 2295,
+          "units_killed": 0,
+          "units_lost": 0,
+          "units_trained": 12
+        }
+      ],
+      "orders": [
+        {
+          "at": 0.0,
+          "attack_move": true,
+          "destination": [
+            212.0,
+            1168.0
+          ],
+          "owner": 0,
+          "planned_orders": 2,
+          "reason": "warriors screen",
+          "units": 2
+        },
+        {
+          "at": 0.0,
+          "attack_move": true,
+          "destination": [
+            332.0,
+            1168.0
+          ],
+          "owner": 0,
+          "planned_orders": 4,
+          "reason": "archers follow screen",
+          "units": 4
+        }
+      ],
+      "paid_army_cost": [
+        {
+          "food": 200,
+          "gold": 0,
+          "wood": 220
+        },
+        {
+          "food": 225,
+          "gold": 0,
+          "wood": 195
+        }
+      ],
+      "paid_ready_at": [
+        324.016666666701,
+        322.516666666702
+      ],
+      "plan": "ranged_screen",
+      "remaining_hp": [
+        158.0,
+        0.0
+      ],
+      "retreat_ordered": 0,
+      "role_damage": [
+        {
+          "1": 24.0,
+          "2": 261.0
+        },
+        {
+          "1": 24.0,
+          "2": 78.0
+        }
+      ],
+      "seed": 101,
+      "severe_friendly_overlap_pair_seconds": 3.5,
+      "survivors": [
+        5,
+        0
+      ],
+      "tactical_seconds": 27.1666666666667,
+      "target_changes": 33,
+      "unanswered_orders": 0,
+      "upper_crossing": [
+        32.0,
+        656.0
+      ],
+      "user_data_dir": "/Users/ben/Library/Application Support/aoem-tactical-probes/428ed1b7bb4044e5bbe1d898df63d7c3",
+      "report": "output/paid-tactics-20261022/final/map0-seed101-ranged_screen.json",
+      "max_order_response_seconds": 0.0166666666666667,
+      "order_count": 2,
+      "time_since_last_damage": 0.016666666666701246,
+      "actual_rosters": [
+        {
+          "1": 2,
+          "2": 4
+        },
+        {
+          "1": 3,
+          "2": 3
+        }
+      ]
+    },
+    {
+      "ages": [
+        2,
+        2
+      ],
+      "bank_after_opening": [
+        {
+          "food": 1315,
+          "gold": 129,
+          "wood": 317
+        },
+        {
+          "food": 1325,
+          "gold": 114,
+          "wood": 40
+        }
+      ],
+      "counter_hits": [
+        0,
+        22
+      ],
+      "damage": [
+        250.0,
+        348.0
+      ],
+      "deposits": [
+        {
+          "food": 1915,
+          "gold": 154,
+          "wood": 587
+        },
+        {
+          "food": 1850,
+          "gold": 139,
+          "wood": 505
+        }
+      ],
+      "economic_bonus_active": false,
+      "end": "disengaged",
+      "failures": [],
+      "final_unit_diagnostics": [
+        {
+          "attack_move": false,
+          "attack_range": 16.0,
+          "enemies": [
+            {
+              "currently_visible": true,
+              "distance": 89.1208267211914,
+              "id": 4549578329201,
+              "ignored": false,
+              "role": 2
+            }
+          ],
+          "failed_repaths": 0,
+          "force_move": false,
+          "forced_attack": false,
+          "hp": 12.0,
+          "id": 3555024965568,
+          "move_target": [
+            320.0,
+            1152.0
+          ],
+          "navigation_active": false,
+          "owner": 0,
+          "path_index": 0,
+          "path_size": 0,
+          "position": [
+            316.940795898438,
+            1150.06481933594
+          ],
+          "role": 1,
+          "stall_repaths": 0,
+          "stance": 0,
+          "state": 0,
+          "target": 0,
+          "vision_radius": 64.0
+        },
+        {
+          "attack_move": false,
+          "attack_range": 80.0,
+          "enemies": [
+            {
+              "currently_visible": true,
+              "distance": 89.1208267211914,
+              "id": 3555024965568,
+              "ignored": true,
+              "role": 1
+            }
+          ],
+          "failed_repaths": 0,
+          "force_move": false,
+          "forced_attack": false,
+          "hp": 35.0,
+          "id": 4549578329201,
+          "move_target": [
+            2016.0,
+            1072.0
+          ],
+          "navigation_active": false,
+          "owner": 1,
+          "path_index": 0,
+          "path_size": 0,
+          "position": [
+            352.0,
+            1232.0
+          ],
+          "role": 2,
+          "stall_repaths": 0,
+          "stance": 1,
+          "state": 0,
+          "target": 0,
+          "vision_radius": 96.0
+        }
+      ],
+      "first_hit": 14.9833333333333,
+      "group_orders_per_minute": 0.999722299361289,
+      "hits": [
+        40,
+        38
+      ],
+      "initial_resources": [
+        {
+          "food": 250,
+          "gold": 100,
+          "wood": 250
+        },
+        {
+          "food": 250,
+          "gold": 100,
+          "wood": 250
+        }
+      ],
+      "initial_tactical_units": {
+        "at": -1.0,
+        "units": [
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1105870196421,
+            "max_hp": 60.0,
+            "owner": 0,
+            "position": [
+              -576.0,
+              1120.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1264481996680,
+            "max_hp": 60.0,
+            "owner": 0,
+            "position": [
+              -608.0,
+              1168.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 3403694477144,
+            "max_hp": 60.0,
+            "owner": 0,
+            "position": [
+              -576.0,
+              1216.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 3555024965568,
+            "max_hp": 60.0,
+            "owner": 0,
+            "position": [
+              -608.0,
+              1264.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 3686021466801,
+            "max_hp": 60.0,
+            "owner": 0,
+            "position": [
+              -576.0,
+              1312.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 3820994170591,
+            "max_hp": 60.0,
+            "owner": 0,
+            "position": [
+              -608.0,
+              1360.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1142159313542,
+            "max_hp": 60.0,
+            "owner": 1,
+            "position": [
+              256.0,
+              1120.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1327295893355,
+            "max_hp": 60.0,
+            "owner": 1,
+            "position": [
+              256.0,
+              1184.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 3407335132128,
+            "max_hp": 60.0,
+            "owner": 1,
+            "position": [
+              224.0,
+              1232.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 3809703104406,
+            "max_hp": 35.0,
+            "owner": 1,
+            "position": [
+              320.0,
+              1120.0
+            ],
+            "role": 2,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 4111843986071,
+            "max_hp": 35.0,
+            "owner": 1,
+            "position": [
+              320.0,
+              1184.0
+            ],
+            "role": 2,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 4549578329201,
+            "max_hp": 35.0,
+            "owner": 1,
+            "position": [
+              352.0,
+              1232.0
+            ],
+            "role": 2,
+            "state": 0
+          }
+        ]
+      },
+      "initial_workers": [
+        4,
+        4
+      ],
+      "kills": [
+        5,
+        5
+      ],
+      "largest_hit_gap": 0.866666666666667,
+      "last_hit": 31.7333333333333,
+      "map": 1,
+      "method": "Ordinary paid 30-pop opening then disclosed relocation of purchased armies; frozen economy/AI, fixed 60Hz real unit navigation/combat. Group order counts are not human APM; no rendering/performance claim.",
+      "navigation_failures": 0,
+      "navigation_stall_unit_seconds": 0.0,
+      "opening_seconds": 322.516666666702,
+      "opening_stats": [
+        {
+          "army_trained": 6,
+          "buildings_built": 6,
+          "buildings_lost": 0,
+          "resources_gathered": 2656,
+          "units_killed": 0,
+          "units_lost": 0,
+          "units_trained": 12
+        },
+        {
+          "army_trained": 6,
+          "buildings_built": 7,
+          "buildings_lost": 0,
+          "resources_gathered": 2494,
+          "units_killed": 0,
+          "units_lost": 0,
+          "units_trained": 12
+        }
+      ],
+      "orders": [
+        {
+          "at": 0.0,
+          "attack_move": true,
+          "destination": [
+            332.0,
+            1168.0
+          ],
+          "owner": 0,
+          "planned_orders": 6,
+          "reason": "single-group direct pressure",
+          "units": 6
+        }
+      ],
+      "paid_army_cost": [
+        {
+          "food": 300,
+          "gold": 0,
+          "wood": 120
+        },
+        {
+          "food": 225,
+          "gold": 0,
+          "wood": 195
+        }
+      ],
+      "paid_ready_at": [
+        265.016666666754,
+        322.516666666702
+      ],
+      "plan": "infantry_pressure",
+      "remaining_hp": [
+        12.0,
+        35.0
+      ],
+      "role_damage": [
+        {
+          "1": 250.0
+        },
+        {
+          "1": 96.0,
+          "2": 252.0
+        }
+      ],
+      "seed": 101,
+      "severe_friendly_overlap_pair_seconds": 11.0,
+      "survivors": [
+        1,
+        1
+      ],
+      "tactical_seconds": 60.0166666666667,
+      "target_changes": 52,
+      "unanswered_orders": 0,
+      "upper_crossing": [
+        32.0,
+        656.0
+      ],
+      "user_data_dir": "/Users/ben/Library/Application Support/aoem-tactical-probes/38d62fe6a91b4353802ce68daf0f04d8",
+      "report": "output/paid-tactics-20261022/final/map1-seed101-infantry_pressure.json",
+      "max_order_response_seconds": 0.0166666666666667,
+      "order_count": 1,
+      "time_since_last_damage": 28.283333333333402,
+      "actual_rosters": [
+        {
+          "1": 6
+        },
+        {
+          "1": 3,
+          "2": 3
+        }
+      ]
+    },
+    {
+      "ages": [
+        2,
+        2
+      ],
+      "bank_after_opening": [
+        {
+          "food": 1207,
+          "gold": 127,
+          "wood": 197
+        },
+        {
+          "food": 1325,
+          "gold": 114,
+          "wood": 40
+        }
+      ],
+      "counter_hits": [
+        2,
+        19
+      ],
+      "damage": [
+        223.0,
+        360.0
+      ],
+      "deposits": [
+        {
+          "food": 1877,
+          "gold": 152,
+          "wood": 597
+        },
+        {
+          "food": 1850,
+          "gold": 139,
+          "wood": 505
+        }
+      ],
+      "economic_bonus_active": false,
+      "end": "elimination",
+      "failures": [],
+      "first_hit": 9.65,
+      "group_orders_per_minute": 2.05245153933865,
+      "hits": [
+        30,
+        37
+      ],
+      "initial_resources": [
+        {
+          "food": 250,
+          "gold": 100,
+          "wood": 250
+        },
+        {
+          "food": 250,
+          "gold": 100,
+          "wood": 250
+        }
+      ],
+      "initial_tactical_units": {
+        "at": -1.0,
+        "units": [
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1105870196421,
+            "max_hp": 60.0,
+            "owner": 0,
+            "position": [
+              -576.0,
+              1120.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1264481996680,
+            "max_hp": 60.0,
+            "owner": 0,
+            "position": [
+              -608.0,
+              1168.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 80.0,
+            "id": 3769722998471,
+            "max_hp": 80.0,
+            "owner": 0,
+            "position": [
+              -672.0,
+              1136.0
+            ],
+            "role": 3,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 80.0,
+            "id": 3951990673237,
+            "max_hp": 80.0,
+            "owner": 0,
+            "position": [
+              -704.0,
+              1184.0
+            ],
+            "role": 3,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 80.0,
+            "id": 4138972745376,
+            "max_hp": 80.0,
+            "owner": 0,
+            "position": [
+              -672.0,
+              1232.0
+            ],
+            "role": 3,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1142159313542,
+            "max_hp": 60.0,
+            "owner": 1,
+            "position": [
+              256.0,
+              1120.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1327295893355,
+            "max_hp": 60.0,
+            "owner": 1,
+            "position": [
+              256.0,
+              1184.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 3363664038997,
+            "max_hp": 60.0,
+            "owner": 1,
+            "position": [
+              224.0,
+              1232.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 3811380825635,
+            "max_hp": 35.0,
+            "owner": 1,
+            "position": [
+              320.0,
+              1120.0
+            ],
+            "role": 2,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 4123822918929,
+            "max_hp": 35.0,
+            "owner": 1,
+            "position": [
+              320.0,
+              1184.0
+            ],
+            "role": 2,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 4572697332446,
+            "max_hp": 35.0,
+            "owner": 1,
+            "position": [
+              352.0,
+              1232.0
+            ],
+            "role": 2,
+            "state": 0
+          }
+        ]
+      },
+      "initial_workers": [
+        4,
+        4
+      ],
+      "kills": [
+        4,
+        5
+      ],
+      "largest_hit_gap": 1.66666666666667,
+      "last_hit": 29.2166666666667,
+      "map": 1,
+      "method": "Ordinary paid 30-pop opening then disclosed relocation of purchased armies; frozen economy/AI, fixed 60Hz real unit navigation/combat. Group order counts are not human APM; no rendering/performance claim.",
+      "navigation_failures": 0,
+      "navigation_stall_unit_seconds": 0.0,
+      "opening_seconds": 322.516666666702,
+      "opening_stats": [
+        {
+          "army_trained": 5,
+          "buildings_built": 7,
+          "buildings_lost": 0,
+          "resources_gathered": 2626,
+          "units_killed": 0,
+          "units_lost": 0,
+          "units_trained": 11
+        },
+        {
+          "army_trained": 6,
+          "buildings_built": 7,
+          "buildings_lost": 0,
+          "resources_gathered": 2494,
+          "units_killed": 0,
+          "units_lost": 0,
+          "units_trained": 12
+        }
+      ],
+      "orders": [
+        {
+          "at": 0.0,
+          "attack_move": true,
+          "destination": [
+            332.0,
+            1168.0
+          ],
+          "owner": 0,
+          "planned_orders": 5,
+          "reason": "single-group direct pressure",
+          "units": 5
+        }
+      ],
+      "paid_army_cost": [
+        {
+          "food": 370,
+          "gold": 0,
+          "wood": 130
+        },
+        {
+          "food": 225,
+          "gold": 0,
+          "wood": 195
+        }
+      ],
+      "paid_ready_at": [
+        289.516666666732,
+        322.516666666702
+      ],
+      "plan": "mounted_direct",
+      "remaining_hp": [
+        0.0,
+        62.0
+      ],
+      "role_damage": [
+        {
+          "1": 79.0,
+          "3": 144.0
+        },
+        {
+          "1": 233.0,
+          "2": 127.0
+        }
+      ],
+      "seed": 101,
+      "severe_friendly_overlap_pair_seconds": 4.0,
+      "survivors": [
+        0,
+        2
+      ],
+      "tactical_seconds": 29.2333333333333,
+      "target_changes": 34,
+      "unanswered_orders": 0,
+      "upper_crossing": [
+        32.0,
+        656.0
+      ],
+      "user_data_dir": "/Users/ben/Library/Application Support/aoem-tactical-probes/dd61dece233445f49a918e6a50158d31",
+      "report": "output/paid-tactics-20261022/final/map1-seed101-mounted_direct.json",
+      "max_order_response_seconds": 0.0166666666666667,
+      "order_count": 1,
+      "time_since_last_damage": 0.016666666666598218,
+      "actual_rosters": [
+        {
+          "1": 2,
+          "3": 3
+        },
+        {
+          "1": 3,
+          "2": 3
+        }
+      ]
+    },
+    {
+      "ages": [
+        2,
+        2
+      ],
+      "bank_after_opening": [
+        {
+          "food": 1207,
+          "gold": 127,
+          "wood": 197
+        },
+        {
+          "food": 1325,
+          "gold": 114,
+          "wood": 40
+        }
+      ],
+      "counter_hits": [
+        9,
+        1
+      ],
+      "damage": [
+        231.0,
+        201.0
+      ],
+      "deposits": [
+        {
+          "food": 1877,
+          "gold": 152,
+          "wood": 597
+        },
+        {
+          "food": 1850,
+          "gold": 139,
+          "wood": 505
+        }
+      ],
+      "economic_bonus_active": false,
+      "end": "disengaged",
+      "failures": [],
+      "first_hit": 15.25,
+      "group_orders_per_minute": 4.99861149680644,
+      "hits": [
+        30,
+        32
+      ],
+      "initial_resources": [
+        {
+          "food": 250,
+          "gold": 100,
+          "wood": 250
+        },
+        {
+          "food": 250,
+          "gold": 100,
+          "wood": 250
+        }
+      ],
+      "initial_tactical_units": {
+        "at": -1.0,
+        "units": [
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1105870196421,
+            "max_hp": 60.0,
+            "owner": 0,
+            "position": [
+              -576.0,
+              1120.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1264481996680,
+            "max_hp": 60.0,
+            "owner": 0,
+            "position": [
+              -608.0,
+              1168.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 80.0,
+            "id": 3769722998471,
+            "max_hp": 80.0,
+            "owner": 0,
+            "position": [
+              -672.0,
+              1136.0
+            ],
+            "role": 3,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 80.0,
+            "id": 3951990673237,
+            "max_hp": 80.0,
+            "owner": 0,
+            "position": [
+              -704.0,
+              1184.0
+            ],
+            "role": 3,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 80.0,
+            "id": 4138972745376,
+            "max_hp": 80.0,
+            "owner": 0,
+            "position": [
+              -672.0,
+              1232.0
+            ],
+            "role": 3,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1142159313542,
+            "max_hp": 60.0,
+            "owner": 1,
+            "position": [
+              256.0,
+              1120.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1327295893355,
+            "max_hp": 60.0,
+            "owner": 1,
+            "position": [
+              256.0,
+              1184.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 3363664038997,
+            "max_hp": 60.0,
+            "owner": 1,
+            "position": [
+              224.0,
+              1232.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 3811380825635,
+            "max_hp": 35.0,
+            "owner": 1,
+            "position": [
+              320.0,
+              1120.0
+            ],
+            "role": 2,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 4123822918929,
+            "max_hp": 35.0,
+            "owner": 1,
+            "position": [
+              320.0,
+              1184.0
+            ],
+            "role": 2,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 4572697332446,
+            "max_hp": 35.0,
+            "owner": 1,
+            "position": [
+              352.0,
+              1232.0
+            ],
+            "role": 2,
+            "state": 0
+          }
+        ]
+      },
+      "initial_workers": [
+        4,
+        4
+      ],
+      "kills": [
+        5,
+        1
+      ],
+      "largest_hit_gap": 1.1,
+      "last_hit": 35.4666666666667,
+      "map": 1,
+      "method": "Ordinary paid 30-pop opening then disclosed relocation of purchased armies; frozen economy/AI, fixed 60Hz real unit navigation/combat. Group order counts are not human APM; no rendering/performance claim.",
+      "navigation_failures": 0,
+      "navigation_stall_unit_seconds": 0.0,
+      "opening_seconds": 322.516666666702,
+      "opening_stats": [
+        {
+          "army_trained": 5,
+          "buildings_built": 7,
+          "buildings_lost": 0,
+          "resources_gathered": 2626,
+          "units_killed": 0,
+          "units_lost": 0,
+          "units_trained": 11
+        },
+        {
+          "army_trained": 6,
+          "buildings_built": 7,
+          "buildings_lost": 0,
+          "resources_gathered": 2494,
+          "units_killed": 0,
+          "units_lost": 0,
+          "units_trained": 12
+        }
+      ],
+      "orders": [
+        {
+          "at": 0.0,
+          "attack_move": true,
+          "destination": [
+            232.0,
+            1168.0
+          ],
+          "owner": 0,
+          "planned_orders": 2,
+          "reason": "warriors pressure center",
+          "units": 2
+        },
+        {
+          "at": 0.0,
+          "attack_move": false,
+          "destination": [
+            132.0,
+            656.0
+          ],
+          "owner": 0,
+          "planned_orders": 3,
+          "reason": "horsemen take upper crossing",
+          "units": 3
+        },
+        {
+          "at": 10.0333333333333,
+          "attack_move": true,
+          "destination": [
+            392.0,
+            1136.0
+          ],
+          "owner": 0,
+          "planned_orders": 3,
+          "reason": "flank engages ranged rear",
+          "units": 3
+        },
+        {
+          "at": 21.25,
+          "attack_move": false,
+          "destination": [
+            -328.0,
+            1048.0
+          ],
+          "owner": 0,
+          "planned_orders": 1,
+          "reason": "withdraw up to two wounded specialists",
+          "units": 1
+        },
+        {
+          "at": 29.25,
+          "attack_move": true,
+          "destination": [
+            332.0,
+            1168.0
+          ],
+          "owner": 0,
+          "planned_orders": 1,
+          "reason": "specialists reengage after eight seconds",
+          "units": 1
+        }
+      ],
+      "paid_army_cost": [
+        {
+          "food": 370,
+          "gold": 0,
+          "wood": 130
+        },
+        {
+          "food": 225,
+          "gold": 0,
+          "wood": 195
+        }
+      ],
+      "paid_ready_at": [
+        289.516666666732,
+        322.516666666702
+      ],
+      "plan": "mounted_flank",
+      "remaining_hp": [
+        159.0,
+        54.0
+      ],
+      "retreat_ordered": 1,
+      "retreat_survivors_at_reengage": 1,
+      "role_damage": [
+        {
+          "1": 120.0,
+          "3": 111.0
+        },
+        {
+          "1": 129.0,
+          "2": 72.0
+        }
+      ],
+      "seed": 101,
+      "severe_friendly_overlap_pair_seconds": 2.5,
+      "survivors": [
+        4,
+        1
+      ],
+      "tactical_seconds": 60.0166666666667,
+      "target_changes": 25,
+      "unanswered_orders": 0,
+      "upper_crossing": [
+        32.0,
+        656.0
+      ],
+      "user_data_dir": "/Users/ben/Library/Application Support/aoem-tactical-probes/8172462b4905418eacc05793de7a8c14",
+      "report": "output/paid-tactics-20261022/final/map1-seed101-mounted_flank.json",
+      "max_order_response_seconds": 0.0166666666666667,
+      "order_count": 5,
+      "time_since_last_damage": 24.550000000000004,
+      "actual_rosters": [
+        {
+          "1": 2,
+          "3": 3
+        },
+        {
+          "1": 3,
+          "2": 3
+        }
+      ]
+    },
+    {
+      "ages": [
+        2,
+        2
+      ],
+      "bank_after_opening": [
+        {
+          "food": 1207,
+          "gold": 127,
+          "wood": 197
+        },
+        {
+          "food": 1325,
+          "gold": 114,
+          "wood": 40
+        }
+      ],
+      "counter_hits": [
+        9,
+        9
+      ],
+      "damage": [
+        285.0,
+        236.0
+      ],
+      "deposits": [
+        {
+          "food": 1877,
+          "gold": 152,
+          "wood": 597
+        },
+        {
+          "food": 1850,
+          "gold": 139,
+          "wood": 505
+        }
+      ],
+      "economic_bonus_active": false,
+      "end": "elimination",
+      "failures": [],
+      "first_hit": 13.0333333333333,
+      "group_orders_per_minute": 3.67534456355283,
+      "hits": [
+        35,
+        29
+      ],
+      "initial_resources": [
+        {
+          "food": 250,
+          "gold": 100,
+          "wood": 250
+        },
+        {
+          "food": 250,
+          "gold": 100,
+          "wood": 250
+        }
+      ],
+      "initial_tactical_units": {
+        "at": -1.0,
+        "units": [
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1105870196421,
+            "max_hp": 60.0,
+            "owner": 0,
+            "position": [
+              -576.0,
+              1120.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1264481996680,
+            "max_hp": 60.0,
+            "owner": 0,
+            "position": [
+              -608.0,
+              1168.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 80.0,
+            "id": 3769722998471,
+            "max_hp": 80.0,
+            "owner": 0,
+            "position": [
+              -672.0,
+              1136.0
+            ],
+            "role": 3,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 80.0,
+            "id": 3951990673237,
+            "max_hp": 80.0,
+            "owner": 0,
+            "position": [
+              -704.0,
+              1184.0
+            ],
+            "role": 3,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 80.0,
+            "id": 4138972745376,
+            "max_hp": 80.0,
+            "owner": 0,
+            "position": [
+              -672.0,
+              1232.0
+            ],
+            "role": 3,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1142159313542,
+            "max_hp": 60.0,
+            "owner": 1,
+            "position": [
+              256.0,
+              1120.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1327295893355,
+            "max_hp": 60.0,
+            "owner": 1,
+            "position": [
+              256.0,
+              1184.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 3363664038997,
+            "max_hp": 60.0,
+            "owner": 1,
+            "position": [
+              224.0,
+              1232.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 3811380825635,
+            "max_hp": 35.0,
+            "owner": 1,
+            "position": [
+              320.0,
+              1120.0
+            ],
+            "role": 2,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 4123822918929,
+            "max_hp": 35.0,
+            "owner": 1,
+            "position": [
+              320.0,
+              1184.0
+            ],
+            "role": 2,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 4572697332446,
+            "max_hp": 35.0,
+            "owner": 1,
+            "position": [
+              352.0,
+              1232.0
+            ],
+            "role": 2,
+            "state": 0
+          }
+        ]
+      },
+      "initial_workers": [
+        4,
+        4
+      ],
+      "kills": [
+        6,
+        2
+      ],
+      "largest_hit_gap": 1.06666666666667,
+      "last_hit": 32.6333333333333,
+      "map": 1,
+      "method": "Ordinary paid 30-pop opening then disclosed relocation of purchased armies; frozen economy/AI, fixed 60Hz real unit navigation/combat. Group order counts are not human APM; no rendering/performance claim.",
+      "navigation_failures": 0,
+      "navigation_stall_unit_seconds": 0.0,
+      "opening_seconds": 322.516666666702,
+      "opening_stats": [
+        {
+          "army_trained": 5,
+          "buildings_built": 7,
+          "buildings_lost": 0,
+          "resources_gathered": 2626,
+          "units_killed": 0,
+          "units_lost": 0,
+          "units_trained": 11
+        },
+        {
+          "army_trained": 6,
+          "buildings_built": 7,
+          "buildings_lost": 0,
+          "resources_gathered": 2494,
+          "units_killed": 0,
+          "units_lost": 0,
+          "units_trained": 12
+        }
+      ],
+      "orders": [
+        {
+          "at": 0.0,
+          "attack_move": false,
+          "destination": [
+            112.0,
+            1168.0
+          ],
+          "owner": 0,
+          "planned_orders": 5,
+          "reason": "passive staging before the defended line",
+          "units": 5
+        },
+        {
+          "at": 11.6666666666667,
+          "attack_move": true,
+          "destination": [
+            332.0,
+            1168.0
+          ],
+          "owner": 0,
+          "planned_orders": 5,
+          "reason": "attack after the slower screen reaches staging",
+          "units": 5
+        }
+      ],
+      "paid_army_cost": [
+        {
+          "food": 370,
+          "gold": 0,
+          "wood": 130
+        },
+        {
+          "food": 225,
+          "gold": 0,
+          "wood": 195
+        }
+      ],
+      "paid_ready_at": [
+        289.516666666732,
+        322.516666666702
+      ],
+      "plan": "mounted_staged",
+      "remaining_hp": [
+        124.0,
+        0.0
+      ],
+      "role_damage": [
+        {
+          "1": 40.0,
+          "3": 245.0
+        },
+        {
+          "1": 60.0,
+          "2": 176.0
+        }
+      ],
+      "seed": 101,
+      "severe_friendly_overlap_pair_seconds": 6.5,
+      "survivors": [
+        3,
+        0
+      ],
+      "tactical_seconds": 32.65,
+      "target_changes": 47,
+      "unanswered_orders": 0,
+      "upper_crossing": [
+        32.0,
+        656.0
+      ],
+      "user_data_dir": "/Users/ben/Library/Application Support/aoem-tactical-probes/0fb39f17860d4e019bdb7cbcd5a6a1e1",
+      "report": "output/paid-tactics-20261022/final/map1-seed101-mounted_staged.json",
+      "max_order_response_seconds": 0.0166666666666667,
+      "order_count": 2,
+      "time_since_last_damage": 0.016666666666701246,
+      "actual_rosters": [
+        {
+          "1": 2,
+          "3": 3
+        },
+        {
+          "1": 3,
+          "2": 3
+        }
+      ]
+    },
+    {
+      "ages": [
+        2,
+        2
+      ],
+      "bank_after_opening": [
+        {
+          "food": 1377,
+          "gold": 92,
+          "wood": 142
+        },
+        {
+          "food": 1325,
+          "gold": 114,
+          "wood": 40
+        }
+      ],
+      "counter_hits": [
+        13,
+        3
+      ],
+      "damage": [
+        285.0,
+        102.0
+      ],
+      "deposits": [
+        {
+          "food": 1877,
+          "gold": 117,
+          "wood": 632
+        },
+        {
+          "food": 1850,
+          "gold": 139,
+          "wood": 505
+        }
+      ],
+      "economic_bonus_active": false,
+      "end": "elimination",
+      "failures": [],
+      "first_hit": 15.4333333333333,
+      "group_orders_per_minute": 4.41717791411043,
+      "hits": [
+        32,
+        13
+      ],
+      "initial_resources": [
+        {
+          "food": 250,
+          "gold": 100,
+          "wood": 250
+        },
+        {
+          "food": 250,
+          "gold": 100,
+          "wood": 250
+        }
+      ],
+      "initial_tactical_units": {
+        "at": -1.0,
+        "units": [
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1105870196421,
+            "max_hp": 60.0,
+            "owner": 0,
+            "position": [
+              -576.0,
+              1120.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1264481996680,
+            "max_hp": 60.0,
+            "owner": 0,
+            "position": [
+              -608.0,
+              1168.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 3740765522995,
+            "max_hp": 35.0,
+            "owner": 0,
+            "position": [
+              -672.0,
+              1136.0
+            ],
+            "role": 2,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 3912530660425,
+            "max_hp": 35.0,
+            "owner": 0,
+            "position": [
+              -704.0,
+              1184.0
+            ],
+            "role": 2,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 4078256000856,
+            "max_hp": 35.0,
+            "owner": 0,
+            "position": [
+              -672.0,
+              1232.0
+            ],
+            "role": 2,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 4227757771891,
+            "max_hp": 35.0,
+            "owner": 0,
+            "position": [
+              -704.0,
+              1280.0
+            ],
+            "role": 2,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1142159313542,
+            "max_hp": 60.0,
+            "owner": 1,
+            "position": [
+              256.0,
+              1120.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1327295893355,
+            "max_hp": 60.0,
+            "owner": 1,
+            "position": [
+              256.0,
+              1184.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 3363664038997,
+            "max_hp": 60.0,
+            "owner": 1,
+            "position": [
+              224.0,
+              1232.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 3826144775715,
+            "max_hp": 35.0,
+            "owner": 1,
+            "position": [
+              320.0,
+              1120.0
+            ],
+            "role": 2,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 4143854914174,
+            "max_hp": 35.0,
+            "owner": 1,
+            "position": [
+              320.0,
+              1184.0
+            ],
+            "role": 2,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 4592695774288,
+            "max_hp": 35.0,
+            "owner": 1,
+            "position": [
+              352.0,
+              1232.0
+            ],
+            "role": 2,
+            "state": 0
+          }
+        ]
+      },
+      "initial_workers": [
+        4,
+        4
+      ],
+      "kills": [
+        6,
+        1
+      ],
+      "largest_hit_gap": 1.36666666666667,
+      "last_hit": 27.15,
+      "map": 1,
+      "method": "Ordinary paid 30-pop opening then disclosed relocation of purchased armies; frozen economy/AI, fixed 60Hz real unit navigation/combat. Group order counts are not human APM; no rendering/performance claim.",
+      "navigation_failures": 0,
+      "navigation_stall_unit_seconds": 0.0,
+      "opening_seconds": 322.516666666702,
+      "opening_stats": [
+        {
+          "army_trained": 6,
+          "buildings_built": 7,
+          "buildings_lost": 0,
+          "resources_gathered": 2626,
+          "units_killed": 0,
+          "units_lost": 0,
+          "units_trained": 12
+        },
+        {
+          "army_trained": 6,
+          "buildings_built": 7,
+          "buildings_lost": 0,
+          "resources_gathered": 2494,
+          "units_killed": 0,
+          "units_lost": 0,
+          "units_trained": 12
+        }
+      ],
+      "orders": [
+        {
+          "at": 0.0,
+          "attack_move": true,
+          "destination": [
+            212.0,
+            1168.0
+          ],
+          "owner": 0,
+          "planned_orders": 2,
+          "reason": "warriors screen",
+          "units": 2
+        },
+        {
+          "at": 0.0,
+          "attack_move": true,
+          "destination": [
+            332.0,
+            1168.0
+          ],
+          "owner": 0,
+          "planned_orders": 4,
+          "reason": "archers follow screen",
+          "units": 4
+        }
+      ],
+      "paid_army_cost": [
+        {
+          "food": 200,
+          "gold": 0,
+          "wood": 220
+        },
+        {
+          "food": 225,
+          "gold": 0,
+          "wood": 195
+        }
+      ],
+      "paid_ready_at": [
+        295.516666666727,
+        322.516666666702
+      ],
+      "plan": "ranged_screen",
+      "remaining_hp": [
+        158.0,
+        0.0
+      ],
+      "retreat_ordered": 0,
+      "role_damage": [
+        {
+          "1": 24.0,
+          "2": 261.0
+        },
+        {
+          "1": 24.0,
+          "2": 78.0
+        }
+      ],
+      "seed": 101,
+      "severe_friendly_overlap_pair_seconds": 3.5,
+      "survivors": [
+        5,
+        0
+      ],
+      "tactical_seconds": 27.1666666666667,
+      "target_changes": 33,
+      "unanswered_orders": 0,
+      "upper_crossing": [
+        32.0,
+        656.0
+      ],
+      "user_data_dir": "/Users/ben/Library/Application Support/aoem-tactical-probes/99b144beb5af4eed82608dfb9ad170dc",
+      "report": "output/paid-tactics-20261022/final/map1-seed101-ranged_screen.json",
+      "max_order_response_seconds": 0.0166666666666667,
+      "order_count": 2,
+      "time_since_last_damage": 0.016666666666701246,
+      "actual_rosters": [
+        {
+          "1": 2,
+          "2": 4
+        },
+        {
+          "1": 3,
+          "2": 3
+        }
+      ]
+    },
+    {
+      "ages": [
+        2,
+        2
+      ],
+      "bank_after_opening": [
+        {
+          "food": 1256,
+          "gold": 67,
+          "wood": 266
+        },
+        {
+          "food": 1189,
+          "gold": 28,
+          "wood": 35
+        }
+      ],
+      "counter_hits": [
+        0,
+        23
+      ],
+      "damage": [
+        239.0,
+        360.0
+      ],
+      "deposits": [
+        {
+          "food": 1856,
+          "gold": 92,
+          "wood": 536
+        },
+        {
+          "food": 1714,
+          "gold": 53,
+          "wood": 500
+        }
+      ],
+      "economic_bonus_active": false,
+      "end": "elimination",
+      "failures": [],
+      "first_hit": 14.9833333333333,
+      "group_orders_per_minute": 1.85089974293059,
+      "hits": [
+        38,
+        41
+      ],
+      "initial_resources": [
+        {
+          "food": 250,
+          "gold": 100,
+          "wood": 250
+        },
+        {
+          "food": 250,
+          "gold": 100,
+          "wood": 250
+        }
+      ],
+      "initial_tactical_units": {
+        "at": -1.0,
+        "units": [
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1136320843578,
+            "max_hp": 60.0,
+            "owner": 0,
+            "position": [
+              -576.0,
+              1120.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1309142946033,
+            "max_hp": 60.0,
+            "owner": 0,
+            "position": [
+              -608.0,
+              1168.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 3420102595574,
+            "max_hp": 60.0,
+            "owner": 0,
+            "position": [
+              -576.0,
+              1216.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 3571718295449,
+            "max_hp": 60.0,
+            "owner": 0,
+            "position": [
+              -608.0,
+              1264.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 3712462361510,
+            "max_hp": 60.0,
+            "owner": 0,
+            "position": [
+              -576.0,
+              1312.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 3844817818666,
+            "max_hp": 60.0,
+            "owner": 0,
+            "position": [
+              -608.0,
+              1360.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 989469873161,
+            "max_hp": 60.0,
+            "owner": 1,
+            "position": [
+              256.0,
+              1120.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1420778541961,
+            "max_hp": 60.0,
+            "owner": 1,
+            "position": [
+              256.0,
+              1184.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 3423743251562,
+            "max_hp": 60.0,
+            "owner": 1,
+            "position": [
+              224.0,
+              1232.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 3766686323697,
+            "max_hp": 35.0,
+            "owner": 1,
+            "position": [
+              320.0,
+              1120.0
+            ],
+            "role": 2,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 4066679722264,
+            "max_hp": 35.0,
+            "owner": 1,
+            "position": [
+              320.0,
+              1184.0
+            ],
+            "role": 2,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 4263409357019,
+            "max_hp": 35.0,
+            "owner": 1,
+            "position": [
+              352.0,
+              1232.0
+            ],
+            "role": 2,
+            "state": 0
+          }
+        ]
+      },
+      "initial_workers": [
+        4,
+        4
+      ],
+      "kills": [
+        4,
+        6
+      ],
+      "largest_hit_gap": 0.833333333333332,
+      "last_hit": 32.4,
+      "map": 2,
+      "method": "Ordinary paid 30-pop opening then disclosed relocation of purchased armies; frozen economy/AI, fixed 60Hz real unit navigation/combat. Group order counts are not human APM; no rendering/performance claim.",
+      "navigation_failures": 0,
+      "navigation_stall_unit_seconds": 0.0,
+      "opening_seconds": 297.016666666725,
+      "opening_stats": [
+        {
+          "army_trained": 6,
+          "buildings_built": 6,
+          "buildings_lost": 0,
+          "resources_gathered": 2484,
+          "units_killed": 0,
+          "units_lost": 0,
+          "units_trained": 12
+        },
+        {
+          "army_trained": 6,
+          "buildings_built": 7,
+          "buildings_lost": 0,
+          "resources_gathered": 2267,
+          "units_killed": 0,
+          "units_lost": 0,
+          "units_trained": 12
+        }
+      ],
+      "orders": [
+        {
+          "at": 0.0,
+          "attack_move": true,
+          "destination": [
+            332.0,
+            1168.0
+          ],
+          "owner": 0,
+          "planned_orders": 6,
+          "reason": "single-group direct pressure",
+          "units": 6
+        }
+      ],
+      "paid_army_cost": [
+        {
+          "food": 300,
+          "gold": 0,
+          "wood": 120
+        },
+        {
+          "food": 225,
+          "gold": 0,
+          "wood": 195
+        }
+      ],
+      "paid_ready_at": [
+        265.016666666754,
+        297.016666666725
+      ],
+      "plan": "infantry_pressure",
+      "remaining_hp": [
+        0.0,
+        46.0
+      ],
+      "role_damage": [
+        {
+          "1": 239.0
+        },
+        {
+          "1": 108.0,
+          "2": 252.0
+        }
+      ],
+      "seed": 101,
+      "severe_friendly_overlap_pair_seconds": 5.0,
+      "survivors": [
+        0,
+        2
+      ],
+      "tactical_seconds": 32.4166666666667,
+      "target_changes": 52,
+      "unanswered_orders": 0,
+      "upper_crossing": [
+        32.0,
+        656.0
+      ],
+      "user_data_dir": "/Users/ben/Library/Application Support/aoem-tactical-probes/d5462bef85fd4dadbdae5bd28ab4f4cc",
+      "report": "output/paid-tactics-20261022/final/map2-seed101-infantry_pressure.json",
+      "max_order_response_seconds": 0.0166666666666667,
+      "order_count": 1,
+      "time_since_last_damage": 0.016666666666701246,
+      "actual_rosters": [
+        {
+          "1": 6
+        },
+        {
+          "1": 3,
+          "2": 3
+        }
+      ]
+    },
+    {
+      "ages": [
+        2,
+        2
+      ],
+      "bank_after_opening": [
+        {
+          "food": 1160,
+          "gold": 78,
+          "wood": 136
+        },
+        {
+          "food": 1189,
+          "gold": 28,
+          "wood": 35
+        }
+      ],
+      "counter_hits": [
+        2,
+        19
+      ],
+      "damage": [
+        223.0,
+        360.0
+      ],
+      "deposits": [
+        {
+          "food": 1830,
+          "gold": 103,
+          "wood": 536
+        },
+        {
+          "food": 1714,
+          "gold": 53,
+          "wood": 500
+        }
+      ],
+      "economic_bonus_active": false,
+      "end": "elimination",
+      "failures": [],
+      "first_hit": 9.65,
+      "group_orders_per_minute": 2.05245153933865,
+      "hits": [
+        30,
+        37
+      ],
+      "initial_resources": [
+        {
+          "food": 250,
+          "gold": 100,
+          "wood": 250
+        },
+        {
+          "food": 250,
+          "gold": 100,
+          "wood": 250
+        }
+      ],
+      "initial_tactical_units": {
+        "at": -1.0,
+        "units": [
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1136320843578,
+            "max_hp": 60.0,
+            "owner": 0,
+            "position": [
+              -576.0,
+              1120.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1309142946033,
+            "max_hp": 60.0,
+            "owner": 0,
+            "position": [
+              -608.0,
+              1168.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 80.0,
+            "id": 3829768655754,
+            "max_hp": 80.0,
+            "owner": 0,
+            "position": [
+              -672.0,
+              1136.0
+            ],
+            "role": 3,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 80.0,
+            "id": 4020643042353,
+            "max_hp": 80.0,
+            "owner": 0,
+            "position": [
+              -704.0,
+              1184.0
+            ],
+            "role": 3,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 80.0,
+            "id": 4209101508953,
+            "max_hp": 80.0,
+            "owner": 0,
+            "position": [
+              -672.0,
+              1232.0
+            ],
+            "role": 3,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 989469873161,
+            "max_hp": 60.0,
+            "owner": 1,
+            "position": [
+              256.0,
+              1120.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1420778541961,
+            "max_hp": 60.0,
+            "owner": 1,
+            "position": [
+              256.0,
+              1184.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 3380273484036,
+            "max_hp": 60.0,
+            "owner": 1,
+            "position": [
+              224.0,
+              1232.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 3758247384248,
+            "max_hp": 35.0,
+            "owner": 1,
+            "position": [
+              320.0,
+              1120.0
+            ],
+            "role": 2,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 4076645389300,
+            "max_hp": 35.0,
+            "owner": 1,
+            "position": [
+              320.0,
+              1184.0
+            ],
+            "role": 2,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 4282770263960,
+            "max_hp": 35.0,
+            "owner": 1,
+            "position": [
+              352.0,
+              1232.0
+            ],
+            "role": 2,
+            "state": 0
+          }
+        ]
+      },
+      "initial_workers": [
+        4,
+        4
+      ],
+      "kills": [
+        4,
+        5
+      ],
+      "largest_hit_gap": 1.66666666666667,
+      "last_hit": 29.2166666666667,
+      "map": 2,
+      "method": "Ordinary paid 30-pop opening then disclosed relocation of purchased armies; frozen economy/AI, fixed 60Hz real unit navigation/combat. Group order counts are not human APM; no rendering/performance claim.",
+      "navigation_failures": 0,
+      "navigation_stall_unit_seconds": 0.0,
+      "opening_seconds": 297.016666666725,
+      "opening_stats": [
+        {
+          "army_trained": 5,
+          "buildings_built": 7,
+          "buildings_lost": 0,
+          "resources_gathered": 2469,
+          "units_killed": 0,
+          "units_lost": 0,
+          "units_trained": 11
+        },
+        {
+          "army_trained": 6,
+          "buildings_built": 7,
+          "buildings_lost": 0,
+          "resources_gathered": 2267,
+          "units_killed": 0,
+          "units_lost": 0,
+          "units_trained": 12
+        }
+      ],
+      "orders": [
+        {
+          "at": 0.0,
+          "attack_move": true,
+          "destination": [
+            332.0,
+            1168.0
+          ],
+          "owner": 0,
+          "planned_orders": 5,
+          "reason": "single-group direct pressure",
+          "units": 5
+        }
+      ],
+      "paid_army_cost": [
+        {
+          "food": 370,
+          "gold": 0,
+          "wood": 130
+        },
+        {
+          "food": 225,
+          "gold": 0,
+          "wood": 195
+        }
+      ],
+      "paid_ready_at": [
+        292.516666666729,
+        297.016666666725
+      ],
+      "plan": "mounted_direct",
+      "remaining_hp": [
+        0.0,
+        62.0
+      ],
+      "role_damage": [
+        {
+          "1": 79.0,
+          "3": 144.0
+        },
+        {
+          "1": 233.0,
+          "2": 127.0
+        }
+      ],
+      "seed": 101,
+      "severe_friendly_overlap_pair_seconds": 4.0,
+      "survivors": [
+        0,
+        2
+      ],
+      "tactical_seconds": 29.2333333333333,
+      "target_changes": 34,
+      "unanswered_orders": 0,
+      "upper_crossing": [
+        32.0,
+        656.0
+      ],
+      "user_data_dir": "/Users/ben/Library/Application Support/aoem-tactical-probes/162d2523a8ed437789172c2a4a79a57b",
+      "report": "output/paid-tactics-20261022/final/map2-seed101-mounted_direct.json",
+      "max_order_response_seconds": 0.0166666666666667,
+      "order_count": 1,
+      "time_since_last_damage": 0.016666666666598218,
+      "actual_rosters": [
+        {
+          "1": 2,
+          "3": 3
+        },
+        {
+          "1": 3,
+          "2": 3
+        }
+      ]
+    },
+    {
+      "ages": [
+        2,
+        2
+      ],
+      "bank_after_opening": [
+        {
+          "food": 1160,
+          "gold": 78,
+          "wood": 136
+        },
+        {
+          "food": 1189,
+          "gold": 28,
+          "wood": 35
+        }
+      ],
+      "counter_hits": [
+        6,
+        6
+      ],
+      "damage": [
+        232.0,
+        224.0
+      ],
+      "deposits": [
+        {
+          "food": 1830,
+          "gold": 103,
+          "wood": 536
+        },
+        {
+          "food": 1714,
+          "gold": 53,
+          "wood": 500
+        }
+      ],
+      "economic_bonus_active": false,
+      "end": "disengaged",
+      "failures": [],
+      "first_hit": 15.2833333333333,
+      "group_orders_per_minute": 4.99861149680644,
+      "hits": [
+        31,
+        30
+      ],
+      "initial_resources": [
+        {
+          "food": 250,
+          "gold": 100,
+          "wood": 250
+        },
+        {
+          "food": 250,
+          "gold": 100,
+          "wood": 250
+        }
+      ],
+      "initial_tactical_units": {
+        "at": -1.0,
+        "units": [
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1136320843578,
+            "max_hp": 60.0,
+            "owner": 0,
+            "position": [
+              -576.0,
+              1120.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1309142946033,
+            "max_hp": 60.0,
+            "owner": 0,
+            "position": [
+              -608.0,
+              1168.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 80.0,
+            "id": 3829768655754,
+            "max_hp": 80.0,
+            "owner": 0,
+            "position": [
+              -672.0,
+              1136.0
+            ],
+            "role": 3,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 80.0,
+            "id": 4020643042353,
+            "max_hp": 80.0,
+            "owner": 0,
+            "position": [
+              -704.0,
+              1184.0
+            ],
+            "role": 3,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 80.0,
+            "id": 4209101508953,
+            "max_hp": 80.0,
+            "owner": 0,
+            "position": [
+              -672.0,
+              1232.0
+            ],
+            "role": 3,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 989469873161,
+            "max_hp": 60.0,
+            "owner": 1,
+            "position": [
+              256.0,
+              1120.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1420778541961,
+            "max_hp": 60.0,
+            "owner": 1,
+            "position": [
+              256.0,
+              1184.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 3380273484036,
+            "max_hp": 60.0,
+            "owner": 1,
+            "position": [
+              224.0,
+              1232.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 3758247384248,
+            "max_hp": 35.0,
+            "owner": 1,
+            "position": [
+              320.0,
+              1120.0
+            ],
+            "role": 2,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 4076645389300,
+            "max_hp": 35.0,
+            "owner": 1,
+            "position": [
+              320.0,
+              1184.0
+            ],
+            "role": 2,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 4282770263960,
+            "max_hp": 35.0,
+            "owner": 1,
+            "position": [
+              352.0,
+              1232.0
+            ],
+            "role": 2,
+            "state": 0
+          }
+        ]
+      },
+      "initial_workers": [
+        4,
+        4
+      ],
+      "kills": [
+        4,
+        2
+      ],
+      "largest_hit_gap": 7.05,
+      "last_hit": 39.0166666666667,
+      "map": 2,
+      "method": "Ordinary paid 30-pop opening then disclosed relocation of purchased armies; frozen economy/AI, fixed 60Hz real unit navigation/combat. Group order counts are not human APM; no rendering/performance claim.",
+      "navigation_failures": 0,
+      "navigation_stall_unit_seconds": 0.0,
+      "opening_seconds": 297.016666666725,
+      "opening_stats": [
+        {
+          "army_trained": 5,
+          "buildings_built": 7,
+          "buildings_lost": 0,
+          "resources_gathered": 2469,
+          "units_killed": 0,
+          "units_lost": 0,
+          "units_trained": 11
+        },
+        {
+          "army_trained": 6,
+          "buildings_built": 7,
+          "buildings_lost": 0,
+          "resources_gathered": 2267,
+          "units_killed": 0,
+          "units_lost": 0,
+          "units_trained": 12
+        }
+      ],
+      "orders": [
+        {
+          "at": 0.0,
+          "attack_move": true,
+          "destination": [
+            232.0,
+            1168.0
+          ],
+          "owner": 0,
+          "planned_orders": 2,
+          "reason": "warriors pressure center",
+          "units": 2
+        },
+        {
+          "at": 0.0,
+          "attack_move": false,
+          "destination": [
+            132.0,
+            656.0
+          ],
+          "owner": 0,
+          "planned_orders": 3,
+          "reason": "horsemen take upper crossing",
+          "units": 3
+        },
+        {
+          "at": 10.9333333333333,
+          "attack_move": true,
+          "destination": [
+            392.0,
+            1136.0
+          ],
+          "owner": 0,
+          "planned_orders": 3,
+          "reason": "flank engages ranged rear",
+          "units": 3
+        },
+        {
+          "at": 21.2833333333333,
+          "attack_move": false,
+          "destination": [
+            -328.0,
+            1048.0
+          ],
+          "owner": 0,
+          "planned_orders": 2,
+          "reason": "withdraw up to two wounded specialists",
+          "units": 2
+        },
+        {
+          "at": 29.2833333333333,
+          "attack_move": true,
+          "destination": [
+            332.0,
+            1168.0
+          ],
+          "owner": 0,
+          "planned_orders": 2,
+          "reason": "specialists reengage after eight seconds",
+          "units": 2
+        }
+      ],
+      "paid_army_cost": [
+        {
+          "food": 370,
+          "gold": 0,
+          "wood": 130
+        },
+        {
+          "food": 225,
+          "gold": 0,
+          "wood": 195
+        }
+      ],
+      "paid_ready_at": [
+        292.516666666729,
+        297.016666666725
+      ],
+      "plan": "mounted_flank",
+      "remaining_hp": [
+        136.0,
+        53.0
+      ],
+      "retreat_ordered": 2,
+      "retreat_survivors_at_reengage": 2,
+      "role_damage": [
+        {
+          "1": 114.0,
+          "3": 118.0
+        },
+        {
+          "1": 170.0,
+          "2": 54.0
+        }
+      ],
+      "seed": 101,
+      "severe_friendly_overlap_pair_seconds": 4.0,
+      "survivors": [
+        3,
+        2
+      ],
+      "tactical_seconds": 60.0166666666667,
+      "target_changes": 23,
+      "unanswered_orders": 0,
+      "upper_crossing": [
+        32.0,
+        656.0
+      ],
+      "user_data_dir": "/Users/ben/Library/Application Support/aoem-tactical-probes/29990d1773b747e0af66e3a792a583f4",
+      "report": "output/paid-tactics-20261022/final/map2-seed101-mounted_flank.json",
+      "max_order_response_seconds": 0.0166666666666667,
+      "order_count": 5,
+      "time_since_last_damage": 21.0,
+      "actual_rosters": [
+        {
+          "1": 2,
+          "3": 3
+        },
+        {
+          "1": 3,
+          "2": 3
+        }
+      ]
+    },
+    {
+      "ages": [
+        2,
+        2
+      ],
+      "bank_after_opening": [
+        {
+          "food": 1160,
+          "gold": 78,
+          "wood": 136
+        },
+        {
+          "food": 1189,
+          "gold": 28,
+          "wood": 35
+        }
+      ],
+      "counter_hits": [
+        9,
+        9
+      ],
+      "damage": [
+        285.0,
+        236.0
+      ],
+      "deposits": [
+        {
+          "food": 1830,
+          "gold": 103,
+          "wood": 536
+        },
+        {
+          "food": 1714,
+          "gold": 53,
+          "wood": 500
+        }
+      ],
+      "economic_bonus_active": false,
+      "end": "elimination",
+      "failures": [],
+      "first_hit": 13.0333333333333,
+      "group_orders_per_minute": 3.67534456355283,
+      "hits": [
+        35,
+        29
+      ],
+      "initial_resources": [
+        {
+          "food": 250,
+          "gold": 100,
+          "wood": 250
+        },
+        {
+          "food": 250,
+          "gold": 100,
+          "wood": 250
+        }
+      ],
+      "initial_tactical_units": {
+        "at": -1.0,
+        "units": [
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1136320843578,
+            "max_hp": 60.0,
+            "owner": 0,
+            "position": [
+              -576.0,
+              1120.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1309142946033,
+            "max_hp": 60.0,
+            "owner": 0,
+            "position": [
+              -608.0,
+              1168.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 80.0,
+            "id": 3829768655754,
+            "max_hp": 80.0,
+            "owner": 0,
+            "position": [
+              -672.0,
+              1136.0
+            ],
+            "role": 3,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 80.0,
+            "id": 4020643042353,
+            "max_hp": 80.0,
+            "owner": 0,
+            "position": [
+              -704.0,
+              1184.0
+            ],
+            "role": 3,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 80.0,
+            "id": 4209101508953,
+            "max_hp": 80.0,
+            "owner": 0,
+            "position": [
+              -672.0,
+              1232.0
+            ],
+            "role": 3,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 989469873161,
+            "max_hp": 60.0,
+            "owner": 1,
+            "position": [
+              256.0,
+              1120.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1420778541961,
+            "max_hp": 60.0,
+            "owner": 1,
+            "position": [
+              256.0,
+              1184.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 3380273484036,
+            "max_hp": 60.0,
+            "owner": 1,
+            "position": [
+              224.0,
+              1232.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 3758247384248,
+            "max_hp": 35.0,
+            "owner": 1,
+            "position": [
+              320.0,
+              1120.0
+            ],
+            "role": 2,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 4076645389300,
+            "max_hp": 35.0,
+            "owner": 1,
+            "position": [
+              320.0,
+              1184.0
+            ],
+            "role": 2,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 4282770263960,
+            "max_hp": 35.0,
+            "owner": 1,
+            "position": [
+              352.0,
+              1232.0
+            ],
+            "role": 2,
+            "state": 0
+          }
+        ]
+      },
+      "initial_workers": [
+        4,
+        4
+      ],
+      "kills": [
+        6,
+        2
+      ],
+      "largest_hit_gap": 1.06666666666667,
+      "last_hit": 32.6333333333333,
+      "map": 2,
+      "method": "Ordinary paid 30-pop opening then disclosed relocation of purchased armies; frozen economy/AI, fixed 60Hz real unit navigation/combat. Group order counts are not human APM; no rendering/performance claim.",
+      "navigation_failures": 0,
+      "navigation_stall_unit_seconds": 0.0,
+      "opening_seconds": 297.016666666725,
+      "opening_stats": [
+        {
+          "army_trained": 5,
+          "buildings_built": 7,
+          "buildings_lost": 0,
+          "resources_gathered": 2469,
+          "units_killed": 0,
+          "units_lost": 0,
+          "units_trained": 11
+        },
+        {
+          "army_trained": 6,
+          "buildings_built": 7,
+          "buildings_lost": 0,
+          "resources_gathered": 2267,
+          "units_killed": 0,
+          "units_lost": 0,
+          "units_trained": 12
+        }
+      ],
+      "orders": [
+        {
+          "at": 0.0,
+          "attack_move": false,
+          "destination": [
+            112.0,
+            1168.0
+          ],
+          "owner": 0,
+          "planned_orders": 5,
+          "reason": "passive staging before the defended line",
+          "units": 5
+        },
+        {
+          "at": 11.6666666666667,
+          "attack_move": true,
+          "destination": [
+            332.0,
+            1168.0
+          ],
+          "owner": 0,
+          "planned_orders": 5,
+          "reason": "attack after the slower screen reaches staging",
+          "units": 5
+        }
+      ],
+      "paid_army_cost": [
+        {
+          "food": 370,
+          "gold": 0,
+          "wood": 130
+        },
+        {
+          "food": 225,
+          "gold": 0,
+          "wood": 195
+        }
+      ],
+      "paid_ready_at": [
+        292.516666666729,
+        297.016666666725
+      ],
+      "plan": "mounted_staged",
+      "remaining_hp": [
+        124.0,
+        0.0
+      ],
+      "role_damage": [
+        {
+          "1": 40.0,
+          "3": 245.0
+        },
+        {
+          "1": 60.0,
+          "2": 176.0
+        }
+      ],
+      "seed": 101,
+      "severe_friendly_overlap_pair_seconds": 6.5,
+      "survivors": [
+        3,
+        0
+      ],
+      "tactical_seconds": 32.65,
+      "target_changes": 47,
+      "unanswered_orders": 0,
+      "upper_crossing": [
+        32.0,
+        656.0
+      ],
+      "user_data_dir": "/Users/ben/Library/Application Support/aoem-tactical-probes/fd9553d63c1148e688cbc2c38afdb3f1",
+      "report": "output/paid-tactics-20261022/final/map2-seed101-mounted_staged.json",
+      "max_order_response_seconds": 0.0166666666666667,
+      "order_count": 2,
+      "time_since_last_damage": 0.016666666666701246,
+      "actual_rosters": [
+        {
+          "1": 2,
+          "3": 3
+        },
+        {
+          "1": 3,
+          "2": 3
+        }
+      ]
+    },
+    {
+      "ages": [
+        2,
+        2
+      ],
+      "bank_after_opening": [
+        {
+          "food": 1330,
+          "gold": 63,
+          "wood": 61
+        },
+        {
+          "food": 1204,
+          "gold": 28,
+          "wood": 35
+        }
+      ],
+      "counter_hits": [
+        13,
+        3
+      ],
+      "damage": [
+        285.0,
+        102.0
+      ],
+      "deposits": [
+        {
+          "food": 1830,
+          "gold": 88,
+          "wood": 551
+        },
+        {
+          "food": 1729,
+          "gold": 53,
+          "wood": 500
+        }
+      ],
+      "economic_bonus_active": false,
+      "end": "elimination",
+      "failures": [],
+      "first_hit": 15.4333333333333,
+      "group_orders_per_minute": 4.38756855575868,
+      "hits": [
+        32,
+        13
+      ],
+      "initial_resources": [
+        {
+          "food": 250,
+          "gold": 100,
+          "wood": 250
+        },
+        {
+          "food": 250,
+          "gold": 100,
+          "wood": 250
+        }
+      ],
+      "initial_tactical_units": {
+        "at": -1.0,
+        "units": [
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1136320843578,
+            "max_hp": 60.0,
+            "owner": 0,
+            "position": [
+              -576.0,
+              1120.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1309142946033,
+            "max_hp": 60.0,
+            "owner": 0,
+            "position": [
+              -608.0,
+              1168.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 3805341027398,
+            "max_hp": 35.0,
+            "owner": 0,
+            "position": [
+              -672.0,
+              1136.0
+            ],
+            "role": 2,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 3982994969044,
+            "max_hp": 35.0,
+            "owner": 0,
+            "position": [
+              -704.0,
+              1184.0
+            ],
+            "role": 2,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 4148820972411,
+            "max_hp": 35.0,
+            "owner": 0,
+            "position": [
+              -672.0,
+              1232.0
+            ],
+            "role": 2,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 4311610299558,
+            "max_hp": 35.0,
+            "owner": 0,
+            "position": [
+              -704.0,
+              1280.0
+            ],
+            "role": 2,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 989469873161,
+            "max_hp": 60.0,
+            "owner": 1,
+            "position": [
+              256.0,
+              1120.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 1420778541961,
+            "max_hp": 60.0,
+            "owner": 1,
+            "position": [
+              256.0,
+              1184.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 60.0,
+            "id": 3380273484036,
+            "max_hp": 60.0,
+            "owner": 1,
+            "position": [
+              224.0,
+              1232.0
+            ],
+            "role": 1,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 3758247384248,
+            "max_hp": 35.0,
+            "owner": 1,
+            "position": [
+              320.0,
+              1120.0
+            ],
+            "role": 2,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 4091610665240,
+            "max_hp": 35.0,
+            "owner": 1,
+            "position": [
+              320.0,
+              1184.0
+            ],
+            "role": 2,
+            "state": 0
+          },
+          {
+            "attack_move": false,
+            "hp": 35.0,
+            "id": 4297936868376,
+            "max_hp": 35.0,
+            "owner": 1,
+            "position": [
+              352.0,
+              1232.0
+            ],
+            "role": 2,
+            "state": 0
+          }
+        ]
+      },
+      "initial_workers": [
+        4,
+        4
+      ],
+      "kills": [
+        6,
+        1
+      ],
+      "largest_hit_gap": 1.36666666666667,
+      "last_hit": 27.3333333333333,
+      "map": 2,
+      "method": "Ordinary paid 30-pop opening then disclosed relocation of purchased armies; frozen economy/AI, fixed 60Hz real unit navigation/combat. Group order counts are not human APM; no rendering/performance claim.",
+      "navigation_failures": 0,
+      "navigation_stall_unit_seconds": 0.0,
+      "opening_seconds": 298.516666666724,
+      "opening_stats": [
+        {
+          "army_trained": 6,
+          "buildings_built": 7,
+          "buildings_lost": 0,
+          "resources_gathered": 2469,
+          "units_killed": 0,
+          "units_lost": 0,
+          "units_trained": 12
+        },
+        {
+          "army_trained": 6,
+          "buildings_built": 7,
+          "buildings_lost": 0,
+          "resources_gathered": 2282,
+          "units_killed": 0,
+          "units_lost": 0,
+          "units_trained": 12
+        }
+      ],
+      "orders": [
+        {
+          "at": 0.0,
+          "attack_move": true,
+          "destination": [
+            212.0,
+            1168.0
+          ],
+          "owner": 0,
+          "planned_orders": 2,
+          "reason": "warriors screen",
+          "units": 2
+        },
+        {
+          "at": 0.0,
+          "attack_move": true,
+          "destination": [
+            332.0,
+            1168.0
+          ],
+          "owner": 0,
+          "planned_orders": 4,
+          "reason": "archers follow screen",
+          "units": 4
+        }
+      ],
+      "paid_army_cost": [
+        {
+          "food": 200,
+          "gold": 0,
+          "wood": 220
+        },
+        {
+          "food": 225,
+          "gold": 0,
+          "wood": 195
+        }
+      ],
+      "paid_ready_at": [
+        298.516666666724,
+        297.016666666725
+      ],
+      "plan": "ranged_screen",
+      "remaining_hp": [
+        158.0,
+        0.0
+      ],
+      "retreat_ordered": 0,
+      "role_damage": [
+        {
+          "1": 24.0,
+          "2": 261.0
+        },
+        {
+          "1": 24.0,
+          "2": 78.0
+        }
+      ],
+      "seed": 101,
+      "severe_friendly_overlap_pair_seconds": 3.5,
+      "survivors": [
+        5,
+        0
+      ],
+      "tactical_seconds": 27.35,
+      "target_changes": 35,
+      "unanswered_orders": 0,
+      "upper_crossing": [
+        32.0,
+        656.0
+      ],
+      "user_data_dir": "/Users/ben/Library/Application Support/aoem-tactical-probes/e5e384f8b2724fe5b05bb7a8685b4ac0",
+      "report": "output/paid-tactics-20261022/final/map2-seed101-ranged_screen.json",
+      "max_order_response_seconds": 0.0166666666666667,
+      "order_count": 2,
+      "time_since_last_damage": 0.016666666666701246,
+      "actual_rosters": [
+        {
+          "1": 2,
+          "2": 4
+        },
+        {
+          "1": 3,
+          "2": 3
+        }
+      ]
+    }
+  ]
+}

@@ -1,25 +1,51 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <!-- Spear guard: pale helmet, long shield, single vertical spear. -->
-  <path fill="#354341" d="m47 75-3 24-7 5h20l4-27zm17 1 6 24-3 4h20l-7-8-5-22z"/>
-  <path fill="#CCD1C6" d="m43 48 13-7 17 4 11 17-7 20-29 2-10-20z"/>
-  <path fill="#9CAFA4" d="m43 48 10-4 3 35-8 5-10-20z"/>
-  <path fill="#BD8067" d="m54 45 11 4 8-2 3 36-14 7-13-8z"/>
-  <path fill="#DFB498" d="m58 49 5 3 4 30-6 3z"/>
-  <path fill="#BFCBBE" d="m73 51 12 12 12-5 3 7-17 7-15-14z"/>
-  <path d="M99 19v85" stroke="#776F59" stroke-width="3"/>
-  <path fill="#E8E5DB" d="m99 7-6 15 6 5 5-5z"/>
-  <path fill="#A9B9B0" d="m99 7-1 18 6-3z"/>
-  <path fill="#DDE1D5" d="m47 28 9-10 17 2 8 12-5 17-23 1-7-11z"/>
-  <path fill="#A8B7AB" d="m47 28 8-9 1 25-3 6-7-11z"/>
-  <path fill="#31413E" d="m50 34 27-2-2 9-21 2z"/>
-  <path fill="#E8E5DB" d="m56 20 15 2 5 8-20-1z"/>
-  <path fill="#D8D1B9" d="m29 51 15-5 17 7-3 34-14 15-14-11-5-24z"/>
-  <path fill="#BD8067" d="m33 54 11-4 13 6-3 29-10 12-10-9-5-21z"/>
-  <path fill="#855949" d="m33 54 6-2-1 34 6 11-10-9-5-21z"/>
-  <path d="m44 53 1 36" stroke="#DFB498" stroke-width="2"/>
-  <path fill="#C9B394" d="m55 42 17-2-2 9-10 3-6-5z"/>
-  <path d="m57 36 5 1m7-2 4 1" stroke="#E8E5DB" stroke-width="1.6" stroke-linecap="square"/>
-  <path fill="#AAB9AF" d="m63 29 4 1 2 14-5 1z"/>
-  <path d="m62 47 6-1" stroke="#6A6855" stroke-width="1.5"/>
-  <path fill="#E8E5DB" d="m40 63 10 1-1 3-9-1zm3 7 5 1-1 9-4-1z"/>
+  <!-- Original Company Warrior. A bearded face under the bone helmet, broad
+       route-mark shield, practical spear and folded mineral scarf. y104 feet. -->
+  <path fill="#855949" d="m46 45 26-6 14 14 6 39-18-4-27 8-10-15z"/>
+  <path fill="#BD8067" d="m47 48 8 11-8 32-8-6z"/>
+  <path fill="#3E433F" d="m48 78 17 2-8 21-16 1zm20 1 11-2 9 25-17 1z"/>
+  <path fill="#626357" d="m50 80 9 2-7 15-8 1zm20 2 6-2 6 17-8 1z"/>
+  <path fill="#373C36" d="m44 96 12 1 1 7H35q1-5 9-8m29 0 11 2 7 4v2H69z"/>
+  <path fill="#9B9176" d="m37 102 19-1 1 3H35zm33 0 17-1 4 3H69z"/>
+  <path fill="#B9B9A6" d="m49 45 23-4 13 15-3 27-24 7-16-12z"/>
+  <path fill="#E8E5DB" d="m58 46 13-3 11 14-5 20-18 6-10-11z"/>
+  <path fill="#CED1BF" d="m72 47 10 6 4 11-9 7-5-8z"/>
+  <path fill="#F1ECDD" d="m73 47 8 5 3 8-10 2-5-5z"/>
+  <path fill="#785C43" d="m51 49 6-4 24 33-6 5z"/>
+  <path fill="#AF8C60" d="m53 49 2-2 24 32-3 1z"/>
+  <path fill="#5A4634" d="m49 78 32-6 3 7-34 7z"/>
+  <path fill="#D5BD8B" d="m67 75 8-1 1 5-8 1z"/>
+  <path fill="#A87D58" d="m80 60 10 4 9-8 6 6-13 12-14-6z"/>
+  <path fill="#D0A17A" d="m82 59 8 4 9-6 3 4-11 8-10-4z"/>
+  <path fill="#554A3A" d="m85 63 6 2 4 6-5 3-7-5z"/>
+  <path d="M101 21v81" stroke="#594A35" stroke-width="5" stroke-linecap="round"/>
+  <path d="m102 25-1 76" stroke="#A68A58" stroke-width="2"/>
+  <path fill="#ADB5A5" d="m101 5-8 16 8 9 7-10z"/>
+  <path fill="#E8E5DB" d="m101 5-1 19-7-3z"/>
+  <path fill="#F4F0E1" d="m101 5 7 15-8 4z"/>
+  <path fill="#855949" d="m98 28 8-1 1 7 10 9-11-2-7-9z"/>
+  <path fill="#DFB498" d="m98 28 8-1 1 4-9 1z"/>
+  <path fill="#D0A17A" d="m96 55 7-2 5 4-1 7-9 1-4-5z"/>
+  <path fill="#293B37" d="m47 35 11-12 21 3 6 15-8 14-19 1z"/>
+  <path fill="#A46D49" d="m54 28 19-1 8 11-3 14-14 8-12-12z"/>
+  <path fill="#D49A6C" d="m61 28 12 1 7 10-3 11-11 5-7-9z"/>
+  <path fill="#3D342D" d="m54 39 5 8 7 2 12-5-2 12-11 5-11-9z"/>
+  <path fill="#6B4F37" d="m61 52 6 3 7-4-6 8z"/>
+  <path d="m61 36 5-1m8 0 4 1" stroke="#47372A" stroke-width="2" stroke-linecap="round"/>
+  <path d="m64 48 7-1" stroke="#E3B384" stroke-width="2" stroke-linecap="round"/>
+  <path fill="#9EA895" d="m45 30 6-15 18-9 15 14 3 15-8-3-5-10-15 1-7 12 2 15-7-2z"/>
+  <path fill="#DADAC7" d="m48 29 6-13 15-8 13 12 3 11-9-2-4-9-14 2-7 12z"/>
+  <path fill="#F1EBDD" d="m55 16 14-8 3 12-14 2-7 8z"/>
+  <path fill="#B6BFAC" d="m69 8 3 12 4 9-1 16-6-3-1-17-10-3 14-2z"/>
+  <path fill="#E8E5DB" d="m69 12 3 8 1 22-3-2-2-17z"/>
+  <path fill="#855949" d="m43 47 14-5 11 12 15-9 4 11-18 13-23-8-8-9z"/>
+  <path fill="#BD8067" d="m43 46 12-4 12 12 17-10 2 7-18 11-22-7-8-4z"/>
+  <path fill="#DFB498" d="m44 46 11-3 4 5-12 4-7-2zm18 11 7 1 14-9-14 12z"/>
+  <path fill="#C2B995" d="M28 56q17-12 37-3l4 19q-3 20-20 31-18-8-23-29z"/>
+  <path fill="#E8E5DB" d="M28 56q15-11 35-4l2 4q-19-7-33 4l-3 15 1 8-4-9z"/>
+  <path fill="#855949" d="M33 59q13-9 28-3l4 16q-4 17-16 26-15-8-19-25z"/>
+  <path fill="#BD8067" d="M38 57q12-5 23-1l4 16q-4 17-16 26-5-3-8-8z"/>
+  <path fill="#DFB498" d="m38 58 3-1 3 32-3-2z"/>
+  <path d="m51 58 1 13q-1 4-6 4h-4q-4 0-3 4l3 6 14 7" fill="none" stroke="#E8E5DB" stroke-width="5" stroke-linejoin="round"/>
+  <circle cx="33" cy="62" r="1.8" fill="#D9D1B4"/><circle cx="61" cy="61" r="1.8" fill="#D9D1B4"/>
 </svg>

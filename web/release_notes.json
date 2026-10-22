@@ -1,6 +1,19 @@
 {
   "releases": [
     {
+      "id": "2026-10-22-company-in-the-field",
+      "version": "0.2.0-beta.4",
+      "date": "2026-10-22",
+      "title": "Your company, in the field",
+      "summary": "Recognizable miniatures, purpose-built architecture and a clearer view of the battle.",
+      "changes": [
+        "The Builder carries his shoulder mallet beneath a broad straw hat; the Warrior bears the company shield; the Archer brings her copper hair and open bow to the battlefield. Their existing roles and combat rules stay the same.",
+        "Resource Camps have open supply shelters, Archery Ranges have practice targets, and Stables have timber bays. Each has matching teal and clay team materials.",
+        "Opening guidance steps aside while you manage workers, troops or settings, then returns with the current instruction. Placement guidance remains available.",
+        "Raid alerts remain reachable beside Economy and Army. Tap an alert to close management and view the threatened location while keeping your selected units."
+      ]
+    },
+    {
       "id": "2026-10-22-room-to-learn",
       "version": "0.2.0-beta.3",
       "date": "2026-10-22",
@@ -21,7 +34,7 @@
       "summary": "An original cast, bespoke controls and three battlefields with room for different tactics.",
       "changes": [
         "Meet the Builder, Warrior and Archer in a new character-led menu. Custom command plates, equipment-inspired icons and quieter battlefield markers give the game a consistent identity.",
-        "Choose Open Plains, River Crossings or Woodland Flanks in Settings \u2192 Map. Save a seed to revisit a battlefield.",
+        "Choose Open Plains, River Crossings or Woodland Flanks in Settings → Map. Save a seed to revisit a battlefield.",
         "River maps have three broad crossings. Woodland maps offer attack lanes around deep forests. Both keep opening resources close and expansions reachable.",
         "Online rivals receive the same map and seed. Updated players can meet on all three styles; matches with older clients retain Open Plains.",
         "Melee fighters make room for allies while attacking, reducing stacks of units on a shared target.",

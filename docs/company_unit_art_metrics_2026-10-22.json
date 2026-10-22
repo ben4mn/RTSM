@@ -1,0 +1,103 @@
+{
+  "failures": [],
+  "passed": true,
+  "phone_captures": [
+    {
+      "viewport": "(844, 390)",
+      "zoom": 0.952
+    },
+    {
+      "viewport": "(844, 390)",
+      "zoom": 0.65
+    },
+    {
+      "viewport": "(844, 390)",
+      "zoom": 1.6
+    },
+    {
+      "viewport": "(932, 430)",
+      "zoom": 0.952
+    },
+    {
+      "viewport": "(932, 430)",
+      "zoom": 0.65
+    },
+    {
+      "viewport": "(932, 430)",
+      "zoom": 1.6
+    }
+  ],
+  "poses_checked": 30,
+  "roles": [
+    {
+      "opaque_pixels": 4927,
+      "role": "Builder",
+      "team_alpha_identical": true,
+      "unchanged_material_pixels": 3486,
+      "used_rect": "[P: (20, 7), S: (89, 97)]"
+    },
+    {
+      "opaque_pixels": 4970,
+      "role": "Warrior",
+      "team_alpha_identical": true,
+      "unchanged_material_pixels": 3225,
+      "used_rect": "[P: (26, 5), S: (91, 100)]"
+    },
+    {
+      "opaque_pixels": 4550,
+      "role": "Archer",
+      "team_alpha_identical": true,
+      "unchanged_material_pixels": 3612,
+      "used_rect": "[P: (23, 10), S: (99, 94)]"
+    }
+  ],
+  "baseline_revision": "009bed4",
+  "source_sha256": {
+    "assets/units/worker.svg": "5ec86a71b859233f20c4063aa03ba5f81c1c11eb555beb20760a9d8a010a1897",
+    "assets/units/worker_enemy.svg": "9cb883f1b896f873228665ffd16a0583d8dab93edda75ebbe1a0c4d0d09a370a",
+    "assets/units/warrior.svg": "de78a49a432562dda27a900bb220488fb58f18896cb00a52dc80db2823deab88",
+    "assets/units/warrior_enemy.svg": "4a5c2f72c4abbb5a68c4549c009cd925dcce1719ccc7299f4297f77e1054fda6",
+    "assets/units/archer.svg": "07bf7388c0089afa1fc922f2fa34af04e1da713d578000de2f4d638cbac8cd00",
+    "assets/units/archer_enemy.svg": "887dbf9851eec9182d39873add498ab44ae7f6333cec70a6790fe40c36edb809",
+    "tools/test_company_unit_art.gd": "bbb07a589e4feea20bef685b542fb04d1f3735ce017b6521398f095b96f8ae4e",
+    "tools/test_company_unit_replica.gd": "b30b7d9609f2f7ce5303f506bb6c0db5c5f579a284a6e41b04406baa9e455f95"
+  },
+  "unchanged_runtime": {
+    "scripts/units/unit_base.gd": {
+      "matches_baseline": true,
+      "sha256": "88900a23306ff40e3a6dfbdcf432537e67b5ddcd5f6107155da97598c4c4c8a4"
+    },
+    "scripts/units/combat.gd": {
+      "matches_baseline": true,
+      "sha256": "6b21e67b5812c413807940b90d9a7b67cf399bc91922ea6085855daaa01468f4"
+    },
+    "scripts/units/auto_targeting.gd": {
+      "matches_baseline": true,
+      "sha256": "8a04fde81b30d50134a8b472c69b72b69ecdf35e2514a1ca4bafaf42dac3920b"
+    },
+    "scripts/data/unit_data.gd": {
+      "matches_baseline": true,
+      "sha256": "d9cf105220fb82ce8b0d2d0cc7c8e3d6451a9cb04f13f300d301099e8e7048e5"
+    },
+    "scripts/managers/selection_manager.gd": {
+      "matches_baseline": true,
+      "sha256": "7ea4786a935ea080b6f79766dfedf1c8841d46a18a4e3921d35efef7b7ceb182"
+    }
+  },
+  "replica_fixture": {
+    "passed": true,
+    "roles": 3,
+    "local_slots": [
+      1,
+      0
+    ],
+    "server_owners": [
+      0,
+      1
+    ],
+    "rebuilds_per_slot": 2,
+    "simulation_disabled": true,
+    "live_socket": false
+  },
+  "scope": "SVG-only runtime change; no unit presentation code or gameplay mechanics edited."
+}

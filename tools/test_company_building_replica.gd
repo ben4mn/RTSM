@@ -23,7 +23,7 @@ func _run() -> void:
 	var adapter: Node = session.adapter
 	adapter.set_process(false)
 	var actors: Array[Dictionary] = []
-	for type: int in [0, 1, 2, 9]:
+	for type: int in [0, 1, 2, 3, 4, 6, 9]:
 		for server_owner: int in [0, 1]:
 			actors.append({"id": actors.size() + 1, "kind": "building", "type": type, "owner": server_owner, "x": float(actors.size() * 150), "y": 1152.0, "state": 2, "progress": 1.0, "hp": 500.0, "max_hp": 500.0})
 	for rebuild: int in 2:
@@ -56,7 +56,7 @@ func _run() -> void:
 	for failure: String in failures:
 		push_error("[FAIL] company_building_replica: " + failure)
 	if failures.is_empty():
-		print("[PASS] company_building_replica: actual snapshot adapter, slot-one local owner remap, three Company families + legacy tint, reconstruction and construction fade; replicas stay inert")
+		print("[PASS] company_building_replica: actual snapshot adapter, slot-one local owner remap, six Company families + legacy tint, reconstruction and construction fade; replicas stay inert")
 	quit(0 if failures.is_empty() else 1)
 
 func _check(condition: bool, message: String) -> void:

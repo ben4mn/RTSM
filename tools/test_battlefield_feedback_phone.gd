@@ -5,6 +5,8 @@ extends Node
 var _failures: Array[String] = []
 var _profiles: Array[Dictionary] = []
 var _output_dir := "res://output/evolution/mobile-rts-pass-20261012-input/battlefield"
+var _fixture_hud: CanvasLayer
+var _fixture_safe: Rect2
 
 
 func _ready() -> void:
@@ -13,6 +15,9 @@ func _ready() -> void:
 
 func _run() -> void:
 	AudioManager.set_all_enabled(false)
+	var requested_output: String = OS.get_environment("AOEM_CAPTURE_UX_DIR")
+	if not requested_output.is_empty():
+		_output_dir = requested_output
 	DirAccess.make_dir_recursive_absolute(_output_dir)
 	for phone: Vector2i in [Vector2i(844, 390), Vector2i(932, 430)]:
 		for scale_factor: float in [1.0, 1.075, 1.15]:
@@ -23,7 +28,7 @@ func _run() -> void:
 	for failure: String in _failures:
 		push_error("[FAIL] battlefield_feedback_phone: " + failure)
 	if _failures.is_empty():
-		print("[PASS] battlefield_feedback_phone: 12 native phone profiles, fogged objective, two raid cards survive ordinary toast, safe 48px targets")
+		print("[PASS] battlefield_feedback_phone: 12 native phone profiles, fogged objective, two raid cards survive ordinary toast and remain outside Economy/Army, safe 48px targets")
 	get_tree().quit(0 if _failures.is_empty() else 1)
 
 
@@ -66,6 +71,8 @@ func _scenario(phone: Vector2i, scale_factor: float, notched: bool) -> void:
 	var safe := Rect2(Vector2.ZERO, view)
 	if notched:
 		safe = Rect2(Vector2(44.0 / scale_factor, 0), view - Vector2(88.0 / scale_factor, 18.0 / scale_factor))
+	_fixture_hud = hud
+	_fixture_safe = safe
 	hud.call("apply_mobile_layout", view, safe)
 	await _settle()
 	var bounds: Array[Rect2] = feedback.call("get_visible_bounds")
@@ -91,13 +98,44 @@ func _scenario(phone: Vector2i, scale_factor: float, notched: bool) -> void:
 		var result: Error = get_viewport().get_texture().get_image().save_png(_output_dir.path_join(profile + ".png"))
 		_expect(result == OK, profile + " capture failed")
 	_profiles.append({"profile": profile, "logical_viewport": str(view), "safe_rect": str(safe), "raid_bounds": str(bounds), "hud_bounds": str(siblings), "site_fogged": not bool(map.call("is_tile_visible_to_player", site.get("tile_position"), 0))})
+	for surface: String in ["economy", "army"]:
+		hud.call("_set_secondary_surface", hud.SecondarySurface.ECONOMY if surface == "economy" else hud.SecondarySurface.ARMY)
+		hud.call("apply_mobile_layout", view, safe)
+		await _settle()
+		# Queued layout may use native display bounds; restore this fixture's
+		# explicit cutout rectangle once its real container sizes have settled.
+		hud.call("apply_mobile_layout", view, safe)
+		await _settle()
+		var management_bounds: Array[Rect2] = feedback.call("get_visible_bounds")
+		_expect(management_bounds.size() == 2, profile + " " + surface + " lost an attack front")
+		var panel: Control = overview.get("panel")
+		var rail: Control = overview.get("rail")
+		for rectangle: Rect2 in management_bounds:
+			_expect(safe.encloses(rectangle), profile + " " + surface + " raid outside safe bounds")
+			_expect(rectangle.size.x >= 48.0 and rectangle.size.y >= 48.0, profile + " " + surface + " small raid target")
+			_expect(not rectangle.intersects(panel.get_global_rect()) and not rectangle.intersects(rail.get_global_rect()), profile + " " + surface + " hides a raid target")
+		for button: Button in feedback.get("_buttons"):
+			var font: Font = button.get_theme_font("font")
+			var text_size: Vector2 = font.get_multiline_string_size(button.text, HORIZONTAL_ALIGNMENT_LEFT, -1, button.get_theme_font_size("font_size"))
+			var padding: Vector2 = button.get_theme_stylebox("normal").get_minimum_size()
+			_expect(text_size.x + padding.x <= button.size.x + 0.5 and text_size.y + padding.y <= button.size.y + 0.5, profile + " " + surface + " clips raid text")
+		if DisplayServer.get_name() != "headless":
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(_output_dir.path_join(profile + "-" + surface + ".png"))
+		_profiles.append({"profile": profile, "surface": surface, "raid_bounds": str(management_bounds), "panel": str(panel.get_global_rect()), "rail": str(rail.get_global_rect())})
 	main.free()
+	_fixture_hud = null
 	await _settle()
 
 
 func _settle() -> void:
 	for frame: int in 5:
 		await get_tree().process_frame
+		# This desktop-only geometry fixture supplies synthetic cutouts. Keep
+		# those bounds through deferred container layout; native DisplayServer
+		# correctly knows nothing about this test's imaginary phone notch.
+		if is_instance_valid(_fixture_hud):
+			_fixture_hud.call("apply_mobile_layout", get_viewport().get_visible_rect().size, _fixture_safe)
 
 
 func _expect(condition: bool, message: String) -> void:

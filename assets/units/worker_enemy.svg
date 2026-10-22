@@ -1,22 +1,53 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <!-- Field worker: folded linen, mineral apron, one unmistakable iron pick. -->
-  <path fill="#3B4543" d="m47 75-3 24-5 5h17l5-27zm18 1 3 23-2 5h17l-6-7-2-22z"/>
-  <path fill="#DDD9C9" d="m45 46 13-6 17 8 6 27-13 10-23-6-6-21z"/>
-  <path fill="#B7BEAF" d="m45 48 8-4 2 31-10 4-6-21z"/>
-  <path fill="#BD8067" d="m52 45 7 2 1 15 9-1-1-16 7 4 3 32-13 7-20-8 5-20z"/>
-  <path fill="#855949" d="m51 68 21-2 1 12-9 4-14-5z"/>
-  <path fill="#C9B394" d="m41 54-7 11 8 13 6-5-7-9 6-7zm34-1 9 8 10-5 4 6-15 8-12-10z"/>
-  <path fill="#C9B394" d="m52 29 18-1 6 9-5 15-13 1-9-12z"/>
-  <path fill="#947F63" d="m49 34 4-9 18 1 5 9-12-4z"/>
-  <path fill="#E8E5DB" d="m36 30 15-5 22-1 14 9-20 7-24-2z"/>
-  <path fill="#CBC7B4" d="m47 26 5-10 15-2 11 10-3 7-18 2z"/>
-  <path fill="#BD8067" d="m48 27 28-2 2 5-19 4-12-3z"/>
-  <path d="m91 40 8 63" fill="none" stroke="#766C57" stroke-width="4" stroke-linecap="square"/>
-  <path fill="#384744" d="m72 39 12-6 19-1 12 11-17-5-19 7z"/>
-  <path fill="#B7C1B7" d="m75 39 11-4 16-1 6 4-11-2-18 6z"/>
-  <path fill="#7D7158" d="m51 40 6 7 10 2 7-4-4 8-13 1-6-7z"/>
-  <path d="m65 36 7 1" stroke="#465046" stroke-width="1.8" stroke-linecap="round"/>
-  <circle cx="69" cy="40" r="1.4" fill="#293B38"/>
-  <path d="m65 48 5-2" stroke="#E4D1AD" stroke-width="1.5" stroke-linecap="round"/>
-  <path fill="#DFB498" d="m51 70 6 1-1 7-6-1z"/>
+  <!-- Original Company Builder. Straw brim, rolled linen, leather apron straps,
+       shoulder mallet and a warm bearded face. Feet share the y104 field anchor. -->
+  <g id="boots-and-trousers">
+    <path fill="#464941" d="m46 80 17 1-6 21-16-1zm20 1 13-3 5 24-15 1z"/>
+    <path fill="#6C6B55" d="m48 81 9 1-4 15-8 1zm20 3 7-3 3 17-6 1z"/>
+    <path fill="#423D32" d="m44 96 11 1 1 7H36q0-6 8-8m26 1 10-1 8 5 1 3H69z"/>
+    <path fill="#8D785B" d="m38 102 17-1v3H36zm32 0 17-1 2 3H69z"/>
+  </g>
+  <path fill="#B9B6A0" d="m45 49 14-6 18 4 13 14-8 19-39-2-10-15z"/>
+  <path fill="#E8E5DB" d="m45 48 13-4 9 7 9-5 10 9-5 13-10-2-5-9-9 9-17-4z"/>
+  <path fill="#F4EEDF" d="m44 52 7-3 6 7-10 8-9-5zm31 0 7 1 7 10-8 5-7-7z"/>
+  <g id="apron-team-cloth">
+    <path fill="#855949" d="m49 57 22-2 8 12 2 27-18 7-24-7 4-22z"/>
+    <path fill="#BD8067" d="m52 57 18-1 5 11-2 22-14 8-17-6 5-20z"/>
+    <path fill="#DFB498" d="m50 60 3-1-3 20-4 10-3 1 3-19z"/>
+    <path fill="#855949" d="m51 72 18-1-1 12-17 2z"/>
+    <path fill="#DFB498" d="m52 73 15-1v2l-15 2z"/>
+  </g>
+  <path fill="#79583E" d="m48 48 5 2-7 22-5-1zm24-1 5 2-4 22-5-1z"/>
+  <path fill="#B9976B" d="m47 57 4 1-1 6-4-1zm23-1 4 1v6l-4-1z"/>
+  <path fill="#634A36" d="m41 83 34-5 5 6-38 6z"/>
+  <path fill="#D0B98C" d="m59 80 8-1 1 6-9 1z"/>
+  <path fill="#77573B" d="m37 79 10 1-1 15-9 1z"/>
+  <path fill="#B78C5D" d="m37 80 9 1-1 5-8-1z"/>
+  <path fill="#A76F4C" d="m82 63 7-1 4 13-8 10-7-4 7-9z"/>
+  <path fill="#CD986E" d="m83 64 4 1 2 8-6 9-4-3 6-7z"/>
+  <!-- The mallet is a generous wood mass, not a hairline pick. -->
+  <path d="m24 60 64-18" stroke="#4E3D2E" stroke-width="7" stroke-linecap="round"/>
+  <path d="m24 58 63-17" stroke="#B58C59" stroke-width="3" stroke-linecap="round"/>
+  <path fill="#6C5036" d="m83 31 18-3 8 7-1 20-19 3-8-8z"/>
+  <path fill="#AD8553" d="m83 31 18-3 2 19-16 4-6-1z"/>
+  <path fill="#D1AC72" d="m83 31 18-3 8 7-20 4z"/>
+  <path fill="#765A3C" d="m89 39 3-1 1 13-4 1z"/>
+  <path fill="#A76F4C" d="m36 55 7-7 8 1 3 8-7 5-5-2-5 8-7-4z"/>
+  <path fill="#CD986E" d="m37 55 6-5 6 1 2 5-6 4-4-2-5 6-3-2z"/>
+  <path fill="#8F5E40" d="m56 40 16-1 2 13-12 8-10-8z"/>
+  <path fill="#D0A079" d="m59 43 10-1 1 9-8 5-6-5z"/>
+  <path fill="#332F29" d="M45 32q0-14 17-15 19-1 21 16l-5 15-25 3-9-9z"/>
+  <path fill="#B77D54" d="m51 29 19-3 9 9-2 10-7 9-11-1-9-10z"/>
+  <path fill="#DAA277" d="m58 29 12-2 7 8-2 8-7 6-8-2-5-11z"/>
+  <path fill="#342F29" d="m49 35 7 5 3 7 8 2 10-7-2 10-9 5-12-4-5-9z"/>
+  <path fill="#66513A" d="m56 48 10 4 8-4-7 7-8-2z"/>
+  <path d="m60 39 4-1m8-1 4 1" stroke="#4E3B2B" stroke-width="2" stroke-linecap="round"/>
+  <path d="m64 46 7-1" stroke="#E7BE93" stroke-width="2" stroke-linecap="round"/>
+  <path fill="#A27B49" d="M28 28Q43 21 62 20 85 20 98 29Q88 36 67 37 44 37 28 32z"/>
+  <path fill="#D5B77B" d="M28 28Q42 20 63 18 86 18 98 29Q82 33 65 33 43 33 28 30z"/>
+  <path fill="#E5CC92" d="M31 28q17-7 34-7 17 1 27 8-25 5-52 1z"/>
+  <path fill="#B29360" d="m43 25 6-13 19-5 14 13-2 11-24 1z"/>
+  <path fill="#E1C58C" d="m47 23 5-10 16-4 10 10-1 8-22 1z"/>
+  <path fill="#BD8067" d="m44 24 10 3 25-2 1 6-25 3-13-4z"/>
+  <path fill="#DFB498" d="m49 25 6 2 22-2v2l-22 3-7-2z"/>
 </svg>
