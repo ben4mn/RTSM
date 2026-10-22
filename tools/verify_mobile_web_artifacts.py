@@ -33,6 +33,15 @@ ALLOWED_URL_PREFIXES = (
     b"https://tribby.com/",
 )
 ALLOWED_EXACT_URLS = (b"https://godotengine.org",)
+# Signed Content Credentials in the original generated PNG. Preserve provenance;
+# these certificate/claim references are metadata, not application endpoints.
+COMPANY_CREDENTIAL_URL_PREFIXES = (
+    b"https://ocsp.trufo.ai",
+    b"https://ca.trufo.ai/root-ca.crt",
+    b"https://ca.trufo.ai/c2pa-ca.crt",
+    b"https://trufo.ai/cpcps",
+    b"http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia",
+)
 ABSOLUTE_PATH_PATTERN = re.compile(rb"(?:file://)?/Users/|[A-Z]:\\\\Users\\\\", re.IGNORECASE)
 LOCAL_URL_PATTERN = re.compile(
     rb"https?://(?:localhost|127(?:\.[0-9]{1,3}){3}|\[::1\]|0\.0\.0\.0)(?::[0-9]+)?(?:/|$)",
@@ -168,11 +177,14 @@ def scan_content(root: Path) -> dict[str, int]:
         if path.name != "index.wasm":
             pem_header_non_wasm += len(PEM_HEADER_PATTERN.findall(payload))
         if path.name != "index.wasm" or not stock_wasm_template_match:
+            allowed_prefixes = ALLOWED_URL_PREFIXES
+            if path.name == "field_company.png":
+                allowed_prefixes += COMPANY_CREDENTIAL_URL_PREFIXES
             unexpected_urls.update(
                 url
                 for url in URL_PATTERN.findall(payload)
                 if url.lower() not in ALLOWED_EXACT_URLS
-                and not any(url.lower().startswith(prefix.lower()) for prefix in ALLOWED_URL_PREFIXES)
+                and not any(url.lower().startswith(prefix.lower()) for prefix in allowed_prefixes)
             )
         if path.name not in {"CONTENT_AUDIT.txt", "SOURCE_SHA256SUMS.txt", "SHA256SUMS.txt"}:
             dev_symbols += len(DEV_SYMBOL_PATTERN.findall(payload))
