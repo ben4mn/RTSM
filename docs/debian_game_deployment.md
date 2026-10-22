@@ -78,7 +78,21 @@ On iPhone, open the URL in Safari and use Share → Add to Home Screen. Enable *
 
 This is a rough public preview. Desktop browser automation does not certify physical-phone touch behavior, safe areas, audio, or prolonged performance.
 
-## Latest release — 2026-10-22 company in the field
+## Latest release — 2026-10-22 fieldcraft
+
+Published `releases/5d19e106-fieldcraft-20261022` at `2026-10-22T04:38:03Z`, version `0.2.0-beta.5`. Clean runtime revision: `84d61799b4c4c4638efff7a1b0f7b3915ed70090`; staged source SHA-256: `5d19e1065840d122da78ba0876ba0f55fcd14cf5691bbc28eda90460e7a653b6`. Canonical export: `build/fieldcraft-20261022`; independent witness: `build/fieldcraft-reproduced-20261022`. Both closed exports match in substantive payloads and source manifests, with only allowed build metadata differences. Runtime was committed and pushed before either export.
+
+Scope: [Army field notes and integration](fieldcraft_2026-10-22.md), [Stand Ground acquisition](stand_ground_2026-10-22.md), [original industry buildings](company_industry_2026-10-22.md), and [paid tactical/Easy regression](paid_tactics_boundary_regression_2026-10-22.md). The guard fix changes some later fight outcomes; all three slower-learner Easy matches remain paid wins. These controlled policies do not establish human balance.
+
+The public match server had zero established match connections immediately before replacement. Online image `sha256:912fabdd1754a4a94bcc714fc843fe75182a8925988a5277a611c480e13f6f70` started at `04:38:00.714915136Z`; the static symlink then switched atomically and `aoem-game` restarted at `04:38:02.834454716Z`. Diagnostics remained healthy, preserving its container/start, and the tunnel retained its October 12 start. Running-container hashes of all three edited runtime scripts match the tested source. Rollback: `releases/10c7d430-company-field-20261022` and online image `sha256:adbc5272c30c607c7e4e5299539c59b3256a2e6081987a0847097d321d0f049e`; prior context is in `deployment-backups/match-server-before-fieldcraft-20261022`.
+
+All 40 decoded public payloads match; trusted TLS, MIME, no-store/CDN no-store, COOP/COEP and nosniff pass. All 13 private paths return 404. A fresh public Chromium touch journey at 844×390, DPR3, Extra Large UI and synthetic asymmetric insets verifies Army Info/Back/Close, full instruction fit, guide suppression/restoration, Pause and return to menu. Canvas remains 844×390 at (0,0). Zero console errors; two software-renderer ReadPixels warnings. No physical-phone or performance claim is made.
+
+Public WSS verification passes all ten checks in one invocation from the frozen integrated runtime: both strategy clients, connection/loading failures, lifecycle, both paid economy clients and both combat clients. Both combat clients verify paid Barracks/Warriors, Stand Ground on inert owner-remapped replicas, attack-move, visible enemies, authoritative damage and surrender/results. Zero runtime/script errors; three nonfatal ObjectDB shutdown warnings remain (strategy-one, loading-ended and client-one). Ten clients use distinct private preferences; all 444 frozen source files still match the commit and all 88 runner source entries remain unchanged. All clients closed, zero established match connections remain, server logs contain no runtime errors, and diagnostics stays healthy. Evidence: `output/fieldcraft-online-public/verification-summary.json`, `source-receipt.json`, `commit-source-receipt.json` and sibling logs.
+
+Raw receipts: `output/fieldcraft-deployment.json`, `output/fieldcraft-artifact-verification.txt`, `output/public-release-check/fieldcraft-20261022-live/receipt.json` and `output/fieldcraft-public-browser.json`. Later documentation-only commits intentionally differ from the embedded runtime revision.
+
+## Previous release — 2026-10-22 company in the field
 
 Published `releases/10c7d430-company-field-20261022` at `2026-10-22T03:56:30Z`, version `0.2.0-beta.4`. Clean runtime revision: `0a45f90e90b8`; staged source SHA-256: `10c7d4300daf36231b33b13dc1c01f1f55c0739e73854b21dde8458ba8f0e6a0`. Canonical export: `build/company-field-20261022`; independent witness: `build/company-field-reproduced-20261022`. Substantive files and source manifests match, and the remote payload checksum verification passes.
 
