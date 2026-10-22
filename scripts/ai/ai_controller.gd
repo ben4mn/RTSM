@@ -2000,8 +2000,17 @@ func _is_sacred_timing_ready() -> bool:
 	return _game_time >= float(SACRED_SITE_START_TIMES.get(difficulty, 150.0))
 
 
+func _is_easy_sacred_response_delayed() -> bool:
+	# Recon and fighter orders must agree about when an opponent's claim can
+	# be challenged. Base raids and uncontested initiative have later gates.
+	return _uses_easy_learning_policy() and (
+		_game_time < SkirmishData.EASY_SACRED_RESPONSE_SECONDS
+		or _game_time < _easy_regroup_until
+	)
+
+
 func _should_hold_sacred_recon(sacred_site: Node2D) -> bool:
-	if _uses_easy_learning_policy() and (_game_time < float(SkirmishData.AI_RAID_START_SECONDS[Difficulty.EASY]) or _game_time < _easy_regroup_until):
+	if _is_easy_sacred_response_delayed():
 		return true
 	if _is_sacred_timing_ready():
 		return false
@@ -2126,7 +2135,7 @@ func _check_sacred_site_strategy() -> bool:
 	if sacred_site == null:
 		_release_objective_units()
 		return false
-	if _uses_easy_learning_policy() and (_game_time < float(SkirmishData.AI_RAID_START_SECONDS[Difficulty.EASY]) or _game_time < _easy_regroup_until):
+	if _is_easy_sacred_response_delayed():
 		return false
 
 	const SITE_NEUTRAL: int = 0

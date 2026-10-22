@@ -166,6 +166,11 @@ func _draw() -> void:
 	var camera: Camera2D = _map.get("camera") as Camera2D
 	var radius: float = float(_site.call("get_capture_radius_world")) * camera.zoom.x
 	draw_arc(center, radius, 0, TAU, 96, Color(color, 0.5), 2.0, true)
+	# The badge locates an unseen public objective. Once its ground is visible,
+	# let the units at its center remain readable; the ring and HUD keep status.
+	var site_tile: Vector2i = _map.call("world_to_tile", _site.global_position)
+	if bool(_map.call("is_tile_visible_to_player", site_tile, 0)):
+		return
 	draw_circle(center, 23, Color(KingdomTheme.INK, 0.95))
 	draw_arc(center, 23, 0, TAU, 32, color, 2.5, true)
 	draw_line(center + Vector2(-5, 12), center + Vector2(-5, -13), color, 3, true)

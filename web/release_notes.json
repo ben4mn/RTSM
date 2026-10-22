@@ -1,6 +1,19 @@
 {
   "releases": [
     {
+      "id": "2026-10-22-hold-the-site",
+      "version": "0.2.0-beta.7",
+      "date": "2026-10-22",
+      "title": "Hold the site",
+      "summary": "An early Sacred claim on Easy now gives you a reason to bring reinforcements.",
+      "changes": [
+        "Easy can respond to your Sacred claim from 2:30 with its existing small, paid force. Scout the site, then bring troops to hold it.",
+        "Ordinary base raids still wait until 5:00, and Easy starts its own neutral-site initiative at 6:30. Its 45-second regroup after a field loss remains.",
+        "Training, costs, gathering and unit strength retain their existing rules. Medium and Hard keep their current response policy.",
+        "The large Sacred badge clears when its ground is visible, so it no longer covers the units fighting there. The capture ring and top status remain, and the badge returns when vision is lost."
+      ]
+    },
+    {
       "id": "2026-10-22-read-the-ground",
       "version": "0.2.0-beta.6",
       "date": "2026-10-22",

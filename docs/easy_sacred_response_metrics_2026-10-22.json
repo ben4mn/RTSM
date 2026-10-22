@@ -1,0 +1,1188 @@
+{
+  "baseline_revision": "6cf0cda669a357ef6554348d2692f42155eaf98e",
+  "runtime_hashes_before": {
+    "scripts/ai/ai_controller.gd": "2af6d8141e758000d3c7f1ab9988ac7cfe13f812fbe008c79053e23a04e7d43e",
+    "scripts/data/skirmish_data.gd": "55f29f70336392629f1879d7988827c334fee01e4df8c5f75cb9788f59334de4",
+    "scripts/main/main.gd": "320687d5a3d4982f5a241779f87051151344c301114f49d142ee8977bc6227e1",
+    "scripts/units/unit_base.gd": "394d2ab4676726a225f23a5c045124a7cdc9b24357a6d19daeeab0861d6cfea3",
+    "scripts/map/map_generator.gd": "8d93482746cdbb10b73d887459d3cfe002c311d4068e1f3916c9e951d5d0358b",
+    "scripts/map/game_map.gd": "942726ed22b808301c9e2baac1d0445dd15c431181afe22b24d9d06a2504344f",
+    "scripts/map/sacred_site.gd": "04139f7970faba20f5764eb954d1ae2adf933c0c04edbca9a810b42f106393d6",
+    "scripts/data/unit_data.gd": "d9cf105220fb82ce8b0d2d0cc7c8e3d6451a9cb04f13f300d301099e8e7048e5",
+    "scripts/buildings/production_queue.gd": "320e537d6bc13cc961db6f82b9145382b8f6f543957d0454c9e969fdbfb3418d",
+    "scripts/managers/resource_manager.gd": "3cc4ce18ab4b60b69a8bcc4ea8127d99f0fb098934a8706cdf43fcb64fc359b7",
+    "scripts/managers/fog_manager.gd": "12d3bc70d7bb03c6e6d85e14fa095ea2667c19c2c255e0cd8e8fac1e9ab7febd"
+  },
+  "runtime_hashes_after": {
+    "scripts/ai/ai_controller.gd": "935ee0485f56b36845adbb70bdb398c56f9d1b447fc77420832d74111ffcdf35",
+    "scripts/data/skirmish_data.gd": "7de3eb1d90294f25f5066ada460369a51b5f66a5ef4a0be97a70a0bfede95c57",
+    "scripts/main/main.gd": "320687d5a3d4982f5a241779f87051151344c301114f49d142ee8977bc6227e1",
+    "scripts/units/unit_base.gd": "394d2ab4676726a225f23a5c045124a7cdc9b24357a6d19daeeab0861d6cfea3",
+    "scripts/map/map_generator.gd": "8d93482746cdbb10b73d887459d3cfe002c311d4068e1f3916c9e951d5d0358b",
+    "scripts/map/game_map.gd": "942726ed22b808301c9e2baac1d0445dd15c431181afe22b24d9d06a2504344f",
+    "scripts/map/sacred_site.gd": "04139f7970faba20f5764eb954d1ae2adf933c0c04edbca9a810b42f106393d6",
+    "scripts/data/unit_data.gd": "d9cf105220fb82ce8b0d2d0cc7c8e3d6451a9cb04f13f300d301099e8e7048e5",
+    "scripts/buildings/production_queue.gd": "320e537d6bc13cc961db6f82b9145382b8f6f543957d0454c9e969fdbfb3418d",
+    "scripts/managers/resource_manager.gd": "3cc4ce18ab4b60b69a8bcc4ea8127d99f0fb098934a8706cdf43fcb64fc359b7",
+    "scripts/managers/fog_manager.gd": "12d3bc70d7bb03c6e6d85e14fa095ea2667c19c2c255e0cd8e8fac1e9ab7febd"
+  },
+  "changed_runtime_sources": [
+    "scripts/ai/ai_controller.gd",
+    "scripts/data/skirmish_data.gd"
+  ],
+  "probe_sha256": "d5dde8c7cb4905d6d8a7cfed58d748e62d0b5d5fe316b2daf3a3fbc396d9bbd8",
+  "runner_sha256": "9c6ce203acc3020d846a08cf7110543e0d862a5312bad060c5c6ce71844f2821",
+  "match_count": 30,
+  "matched_pairs": 15,
+  "distinct_private_user_directories": 30,
+  "errors": [],
+  "method": "Actual Main, normal starting banks/workers, real paid train/build and normal selection/ground/attack-move handlers. All economy, AI, fog, navigation, combat and Sacred active. Headless fixed60Hz,time_scale1. No grants, actor relocation, combat injection or FPS claims.",
+  "outcome_note": "winner=-1 means unfinished at420s. The raw Main victory_reason retains its dormant default and is not interpreted as a win.",
+  "pairs": [
+    {
+      "case": "map0-seed101-delayed",
+      "map": 0,
+      "seed": 101,
+      "scenario": "delayed",
+      "terrain_sha256": "6f89107e2597c5736c0fa13ba8e69649b1525058860d9930b000986ec3b46452",
+      "opening_and_pre150_scout_trace_identical": true,
+      "baseline": {
+        "scout_produced_at": 8.01666666666664,
+        "first_ring_entry": 194.450000000047,
+        "claim_at": 224.483333333404,
+        "first_ai_objective_order_at": 300.016666666722,
+        "first_contest_at": 314.566666666709,
+        "first_scout_damage_at": 316.683333333374,
+        "first_ai_field_attack_at": 352.016666666675,
+        "first_home_damage_at": 389.183333333308,
+        "first_ai_capture_at": 415.816666666617,
+        "ended_at": 420.016666666613,
+        "winner": -1,
+        "max_ai_objective_fighters": 3,
+        "outcome": "unresolved at420s",
+        "human_spending": {
+          "food": 40,
+          "wood": 0,
+          "gold": 10
+        },
+        "first_deliberate_neutral_capture_order": 390.016666666641,
+        "human_military_deaths": [
+          {
+            "at": 320.266666666704,
+            "type": 4
+          }
+        ],
+        "ai_fighter_deaths_before300": 0,
+        "ai_fighter_hp_lost_before300": 0,
+        "human_command_count": 2
+      },
+      "candidate": {
+        "scout_produced_at": 8.01666666666664,
+        "first_ring_entry": 194.450000000047,
+        "claim_at": -1.0,
+        "first_ai_objective_order_at": 196.016666666715,
+        "first_contest_at": 218.600000000066,
+        "first_scout_damage_at": 221.116666666735,
+        "first_ai_field_attack_at": 300.016666666722,
+        "first_home_damage_at": 357.400000000004,
+        "first_ai_capture_at": -1.0,
+        "ended_at": 420.016666666613,
+        "winner": -1,
+        "max_ai_objective_fighters": 3,
+        "outcome": "unresolved at420s",
+        "human_spending": {
+          "food": 40,
+          "wood": 0,
+          "gold": 10
+        },
+        "first_deliberate_neutral_capture_order": 390.016666666641,
+        "human_military_deaths": [
+          {
+            "at": 223.316666666737,
+            "type": 4
+          }
+        ],
+        "ai_fighter_deaths_before300": 0,
+        "ai_fighter_hp_lost_before300": 0,
+        "human_command_count": 2
+      }
+    },
+    {
+      "case": "map0-seed101-earliest",
+      "map": 0,
+      "seed": 101,
+      "scenario": "earliest",
+      "terrain_sha256": "6f89107e2597c5736c0fa13ba8e69649b1525058860d9930b000986ec3b46452",
+      "opening_and_pre150_scout_trace_identical": true,
+      "baseline": {
+        "scout_produced_at": 8.01666666666664,
+        "first_ring_entry": 23.4166666666666,
+        "claim_at": 53.4499999999982,
+        "first_ai_objective_order_at": -1.0,
+        "first_contest_at": -1.0,
+        "first_scout_damage_at": -1.0,
+        "first_ai_field_attack_at": -1.0,
+        "first_home_damage_at": -1.0,
+        "first_ai_capture_at": -1.0,
+        "ended_at": 233.450000000078,
+        "winner": 0,
+        "max_ai_objective_fighters": 0,
+        "outcome": "human Sacred win",
+        "human_spending": {
+          "food": 40,
+          "wood": 0,
+          "gold": 10
+        },
+        "first_deliberate_neutral_capture_order": -1,
+        "human_military_deaths": [],
+        "ai_fighter_deaths_before300": 0,
+        "ai_fighter_hp_lost_before300": 0,
+        "human_command_count": 2
+      },
+      "candidate": {
+        "scout_produced_at": 8.01666666666664,
+        "first_ring_entry": 23.4166666666666,
+        "claim_at": 53.4499999999982,
+        "first_ai_objective_order_at": 150.016666666678,
+        "first_contest_at": 172.766666666696,
+        "first_scout_damage_at": 176.050000000032,
+        "first_ai_field_attack_at": 300.016666666722,
+        "first_home_damage_at": 359.800000000001,
+        "first_ai_capture_at": -1.0,
+        "ended_at": 420.016666666613,
+        "winner": -1,
+        "max_ai_objective_fighters": 3,
+        "outcome": "unresolved at420s",
+        "human_spending": {
+          "food": 40,
+          "wood": 0,
+          "gold": 10
+        },
+        "first_deliberate_neutral_capture_order": 390.016666666641,
+        "human_military_deaths": [
+          {
+            "at": 181.550000000037,
+            "type": 4
+          }
+        ],
+        "ai_fighter_deaths_before300": 0,
+        "ai_fighter_hp_lost_before300": 0,
+        "human_command_count": 2
+      },
+      "seconds_of_old_hold_remaining_at_contest": 60.683333333381995
+    },
+    {
+      "case": "map0-seed101-reinforced",
+      "map": 0,
+      "seed": 101,
+      "scenario": "reinforced",
+      "terrain_sha256": "6f89107e2597c5736c0fa13ba8e69649b1525058860d9930b000986ec3b46452",
+      "opening_and_pre150_scout_trace_identical": true,
+      "baseline": {
+        "scout_produced_at": 8.01666666666664,
+        "first_ring_entry": 23.4166666666666,
+        "claim_at": 53.4499999999982,
+        "first_ai_objective_order_at": -1.0,
+        "first_contest_at": -1.0,
+        "first_scout_damage_at": -1.0,
+        "first_ai_field_attack_at": -1.0,
+        "first_home_damage_at": -1.0,
+        "first_ai_capture_at": -1.0,
+        "ended_at": 233.450000000078,
+        "winner": 0,
+        "max_ai_objective_fighters": 0,
+        "outcome": "human Sacred win",
+        "human_spending": {
+          "food": 140,
+          "wood": 160,
+          "gold": 10
+        },
+        "first_deliberate_neutral_capture_order": -1,
+        "human_military_deaths": [],
+        "ai_fighter_deaths_before300": 0,
+        "ai_fighter_hp_lost_before300": 0,
+        "human_command_count": 7
+      },
+      "candidate": {
+        "scout_produced_at": 8.01666666666664,
+        "first_ring_entry": 23.4166666666666,
+        "claim_at": 53.4499999999982,
+        "first_ai_objective_order_at": 150.016666666678,
+        "first_contest_at": 172.783333333363,
+        "first_scout_damage_at": 176.050000000032,
+        "first_ai_field_attack_at": 300.016666666722,
+        "first_home_damage_at": -1.0,
+        "first_ai_capture_at": 417.416666666616,
+        "ended_at": 420.016666666613,
+        "winner": -1,
+        "max_ai_objective_fighters": 3,
+        "outcome": "unresolved at420s",
+        "human_spending": {
+          "food": 140,
+          "wood": 160,
+          "gold": 10
+        },
+        "first_deliberate_neutral_capture_order": 390.016666666641,
+        "human_military_deaths": [
+          {
+            "at": 181.550000000037,
+            "type": 4
+          },
+          {
+            "at": 184.850000000039,
+            "type": 1
+          },
+          {
+            "at": 187.100000000041,
+            "type": 1
+          }
+        ],
+        "ai_fighter_deaths_before300": 0,
+        "ai_fighter_hp_lost_before300": 120.0,
+        "human_command_count": 7
+      }
+    },
+    {
+      "case": "map0-seed20261021-earliest",
+      "map": 0,
+      "seed": 20261021,
+      "scenario": "earliest",
+      "terrain_sha256": "d1a136315473c8a4acaddf5b2b3cdb71e013f59cd2aeb30d7c6b89bd27e24a14",
+      "opening_and_pre150_scout_trace_identical": true,
+      "baseline": {
+        "scout_produced_at": 8.01666666666664,
+        "first_ring_entry": 23.4166666666666,
+        "claim_at": 53.4499999999982,
+        "first_ai_objective_order_at": -1.0,
+        "first_contest_at": -1.0,
+        "first_scout_damage_at": -1.0,
+        "first_ai_field_attack_at": -1.0,
+        "first_home_damage_at": -1.0,
+        "first_ai_capture_at": -1.0,
+        "ended_at": 233.450000000078,
+        "winner": 0,
+        "max_ai_objective_fighters": 0,
+        "outcome": "human Sacred win",
+        "human_spending": {
+          "food": 40,
+          "wood": 0,
+          "gold": 10
+        },
+        "first_deliberate_neutral_capture_order": -1,
+        "human_military_deaths": [],
+        "ai_fighter_deaths_before300": 0,
+        "ai_fighter_hp_lost_before300": 0,
+        "human_command_count": 2
+      },
+      "candidate": {
+        "scout_produced_at": 8.01666666666664,
+        "first_ring_entry": 23.4166666666666,
+        "claim_at": 53.4499999999982,
+        "first_ai_objective_order_at": 150.016666666678,
+        "first_contest_at": 172.816666666696,
+        "first_scout_damage_at": 176.083333333366,
+        "first_ai_field_attack_at": 300.016666666722,
+        "first_home_damage_at": 361.55,
+        "first_ai_capture_at": -1.0,
+        "ended_at": 420.016666666613,
+        "winner": -1,
+        "max_ai_objective_fighters": 3,
+        "outcome": "unresolved at420s",
+        "human_spending": {
+          "food": 40,
+          "wood": 0,
+          "gold": 10
+        },
+        "first_deliberate_neutral_capture_order": 390.016666666641,
+        "human_military_deaths": [
+          {
+            "at": 181.58333333337,
+            "type": 4
+          }
+        ],
+        "ai_fighter_deaths_before300": 0,
+        "ai_fighter_hp_lost_before300": 0,
+        "human_command_count": 2
+      },
+      "seconds_of_old_hold_remaining_at_contest": 60.63333333338201
+    },
+    {
+      "case": "map0-seed424242-earliest",
+      "map": 0,
+      "seed": 424242,
+      "scenario": "earliest",
+      "terrain_sha256": "73efc0faf0df463acd9e69ad48fff93c265735921b0128b0335058df5fcbb809",
+      "opening_and_pre150_scout_trace_identical": true,
+      "baseline": {
+        "scout_produced_at": 8.01666666666664,
+        "first_ring_entry": 23.4833333333333,
+        "claim_at": 53.5166666666649,
+        "first_ai_objective_order_at": -1.0,
+        "first_contest_at": -1.0,
+        "first_scout_damage_at": -1.0,
+        "first_ai_field_attack_at": -1.0,
+        "first_home_damage_at": -1.0,
+        "first_ai_capture_at": -1.0,
+        "ended_at": 233.516666666745,
+        "winner": 0,
+        "max_ai_objective_fighters": 0,
+        "outcome": "human Sacred win",
+        "human_spending": {
+          "food": 40,
+          "wood": 0,
+          "gold": 10
+        },
+        "first_deliberate_neutral_capture_order": -1,
+        "human_military_deaths": [],
+        "ai_fighter_deaths_before300": 0,
+        "ai_fighter_hp_lost_before300": 0,
+        "human_command_count": 2
+      },
+      "candidate": {
+        "scout_produced_at": 8.01666666666664,
+        "first_ring_entry": 23.4833333333333,
+        "claim_at": 53.5166666666649,
+        "first_ai_objective_order_at": 150.016666666678,
+        "first_contest_at": 172.716666666696,
+        "first_scout_damage_at": 175.983333333366,
+        "first_ai_field_attack_at": 300.016666666722,
+        "first_home_damage_at": 366.383333333329,
+        "first_ai_capture_at": -1.0,
+        "ended_at": 420.016666666613,
+        "winner": -1,
+        "max_ai_objective_fighters": 3,
+        "outcome": "unresolved at420s",
+        "human_spending": {
+          "food": 40,
+          "wood": 0,
+          "gold": 10
+        },
+        "first_deliberate_neutral_capture_order": 390.016666666641,
+        "human_military_deaths": [
+          {
+            "at": 180.383333333369,
+            "type": 4
+          }
+        ],
+        "ai_fighter_deaths_before300": 0,
+        "ai_fighter_hp_lost_before300": 0,
+        "human_command_count": 2
+      },
+      "seconds_of_old_hold_remaining_at_contest": 60.80000000004901
+    },
+    {
+      "case": "map1-seed101-delayed",
+      "map": 1,
+      "seed": 101,
+      "scenario": "delayed",
+      "terrain_sha256": "111c6c817c86b366f57a63ce8cf0bc830dbc0eff3f53a809aa9bb1eba1dbc429",
+      "opening_and_pre150_scout_trace_identical": true,
+      "baseline": {
+        "scout_produced_at": 8.01666666666664,
+        "first_ring_entry": 194.450000000047,
+        "claim_at": 224.483333333404,
+        "first_ai_objective_order_at": 300.016666666722,
+        "first_contest_at": 314.566666666709,
+        "first_scout_damage_at": 316.683333333374,
+        "first_ai_field_attack_at": 352.016666666675,
+        "first_home_damage_at": 390.016666666641,
+        "first_ai_capture_at": 415.383333333284,
+        "ended_at": 420.016666666613,
+        "winner": -1,
+        "max_ai_objective_fighters": 3,
+        "outcome": "unresolved at420s",
+        "human_spending": {
+          "food": 40,
+          "wood": 0,
+          "gold": 10
+        },
+        "first_deliberate_neutral_capture_order": 390.016666666641,
+        "human_military_deaths": [
+          {
+            "at": 320.450000000037,
+            "type": 4
+          }
+        ],
+        "ai_fighter_deaths_before300": 0,
+        "ai_fighter_hp_lost_before300": 0,
+        "human_command_count": 2
+      },
+      "candidate": {
+        "scout_produced_at": 8.01666666666664,
+        "first_ring_entry": 194.450000000047,
+        "claim_at": -1.0,
+        "first_ai_objective_order_at": 196.016666666715,
+        "first_contest_at": 218.700000000066,
+        "first_scout_damage_at": 222.050000000069,
+        "first_ai_field_attack_at": 300.016666666722,
+        "first_home_damage_at": 362.366666666666,
+        "first_ai_capture_at": -1.0,
+        "ended_at": 420.016666666613,
+        "winner": -1,
+        "max_ai_objective_fighters": 3,
+        "outcome": "unresolved at420s",
+        "human_spending": {
+          "food": 40,
+          "wood": 0,
+          "gold": 10
+        },
+        "first_deliberate_neutral_capture_order": 390.016666666641,
+        "human_military_deaths": [
+          {
+            "at": 224.666666666738,
+            "type": 4
+          }
+        ],
+        "ai_fighter_deaths_before300": 0,
+        "ai_fighter_hp_lost_before300": 0,
+        "human_command_count": 2
+      }
+    },
+    {
+      "case": "map1-seed101-earliest",
+      "map": 1,
+      "seed": 101,
+      "scenario": "earliest",
+      "terrain_sha256": "111c6c817c86b366f57a63ce8cf0bc830dbc0eff3f53a809aa9bb1eba1dbc429",
+      "opening_and_pre150_scout_trace_identical": true,
+      "baseline": {
+        "scout_produced_at": 8.01666666666664,
+        "first_ring_entry": 23.4166666666666,
+        "claim_at": 53.4499999999982,
+        "first_ai_objective_order_at": -1.0,
+        "first_contest_at": -1.0,
+        "first_scout_damage_at": -1.0,
+        "first_ai_field_attack_at": -1.0,
+        "first_home_damage_at": -1.0,
+        "first_ai_capture_at": -1.0,
+        "ended_at": 233.450000000078,
+        "winner": 0,
+        "max_ai_objective_fighters": 0,
+        "outcome": "human Sacred win",
+        "human_spending": {
+          "food": 40,
+          "wood": 0,
+          "gold": 10
+        },
+        "first_deliberate_neutral_capture_order": -1,
+        "human_military_deaths": [],
+        "ai_fighter_deaths_before300": 0,
+        "ai_fighter_hp_lost_before300": 0,
+        "human_command_count": 2
+      },
+      "candidate": {
+        "scout_produced_at": 8.01666666666664,
+        "first_ring_entry": 23.4166666666666,
+        "claim_at": 53.4499999999982,
+        "first_ai_objective_order_at": 150.016666666678,
+        "first_contest_at": 172.783333333363,
+        "first_scout_damage_at": 176.066666666699,
+        "first_ai_field_attack_at": 300.016666666722,
+        "first_home_damage_at": 361.999999999999,
+        "first_ai_capture_at": -1.0,
+        "ended_at": 420.016666666613,
+        "winner": -1,
+        "max_ai_objective_fighters": 3,
+        "outcome": "unresolved at420s",
+        "human_spending": {
+          "food": 40,
+          "wood": 0,
+          "gold": 10
+        },
+        "first_deliberate_neutral_capture_order": 390.016666666641,
+        "human_military_deaths": [
+          {
+            "at": 181.33333333337,
+            "type": 4
+          }
+        ],
+        "ai_fighter_deaths_before300": 0,
+        "ai_fighter_hp_lost_before300": 0,
+        "human_command_count": 2
+      },
+      "seconds_of_old_hold_remaining_at_contest": 60.666666666715
+    },
+    {
+      "case": "map1-seed101-reinforced",
+      "map": 1,
+      "seed": 101,
+      "scenario": "reinforced",
+      "terrain_sha256": "111c6c817c86b366f57a63ce8cf0bc830dbc0eff3f53a809aa9bb1eba1dbc429",
+      "opening_and_pre150_scout_trace_identical": true,
+      "baseline": {
+        "scout_produced_at": 8.01666666666664,
+        "first_ring_entry": 23.4166666666666,
+        "claim_at": 53.4499999999982,
+        "first_ai_objective_order_at": -1.0,
+        "first_contest_at": -1.0,
+        "first_scout_damage_at": -1.0,
+        "first_ai_field_attack_at": -1.0,
+        "first_home_damage_at": -1.0,
+        "first_ai_capture_at": -1.0,
+        "ended_at": 233.450000000078,
+        "winner": 0,
+        "max_ai_objective_fighters": 0,
+        "outcome": "human Sacred win",
+        "human_spending": {
+          "food": 140,
+          "wood": 160,
+          "gold": 10
+        },
+        "first_deliberate_neutral_capture_order": -1,
+        "human_military_deaths": [],
+        "ai_fighter_deaths_before300": 0,
+        "ai_fighter_hp_lost_before300": 0,
+        "human_command_count": 7
+      },
+      "candidate": {
+        "scout_produced_at": 8.01666666666664,
+        "first_ring_entry": 23.4166666666666,
+        "claim_at": 53.4499999999982,
+        "first_ai_objective_order_at": 150.016666666678,
+        "first_contest_at": 172.80000000003,
+        "first_scout_damage_at": 176.083333333366,
+        "first_ai_field_attack_at": 300.016666666722,
+        "first_home_damage_at": 366.083333333329,
+        "first_ai_capture_at": -1.0,
+        "ended_at": 420.016666666613,
+        "winner": -1,
+        "max_ai_objective_fighters": 3,
+        "outcome": "unresolved at420s",
+        "human_spending": {
+          "food": 140,
+          "wood": 160,
+          "gold": 10
+        },
+        "first_deliberate_neutral_capture_order": 390.016666666641,
+        "human_military_deaths": [
+          {
+            "at": 181.58333333337,
+            "type": 4
+          },
+          {
+            "at": 184.683333333372,
+            "type": 1
+          },
+          {
+            "at": 185.90000000004,
+            "type": 1
+          }
+        ],
+        "ai_fighter_deaths_before300": 0,
+        "ai_fighter_hp_lost_before300": 102.0,
+        "human_command_count": 7
+      }
+    },
+    {
+      "case": "map1-seed20261021-earliest",
+      "map": 1,
+      "seed": 20261021,
+      "scenario": "earliest",
+      "terrain_sha256": "fd3aaeae827d54f23b20b8fc6037ba0f83acecfbd47ca3594d3e8b126a6577a4",
+      "opening_and_pre150_scout_trace_identical": true,
+      "baseline": {
+        "scout_produced_at": 8.01666666666664,
+        "first_ring_entry": 23.4666666666666,
+        "claim_at": 53.4999999999982,
+        "first_ai_objective_order_at": -1.0,
+        "first_contest_at": -1.0,
+        "first_scout_damage_at": -1.0,
+        "first_ai_field_attack_at": -1.0,
+        "first_home_damage_at": -1.0,
+        "first_ai_capture_at": -1.0,
+        "ended_at": 233.500000000078,
+        "winner": 0,
+        "max_ai_objective_fighters": 0,
+        "outcome": "human Sacred win",
+        "human_spending": {
+          "food": 40,
+          "wood": 0,
+          "gold": 10
+        },
+        "first_deliberate_neutral_capture_order": -1,
+        "human_military_deaths": [],
+        "ai_fighter_deaths_before300": 0,
+        "ai_fighter_hp_lost_before300": 0,
+        "human_command_count": 2
+      },
+      "candidate": {
+        "scout_produced_at": 8.01666666666664,
+        "first_ring_entry": 23.4666666666666,
+        "claim_at": 53.4999999999982,
+        "first_ai_objective_order_at": 150.016666666678,
+        "first_contest_at": 172.766666666696,
+        "first_scout_damage_at": 176.033333333366,
+        "first_ai_field_attack_at": 300.016666666722,
+        "first_home_damage_at": 367.583333333328,
+        "first_ai_capture_at": -1.0,
+        "ended_at": 420.016666666613,
+        "winner": -1,
+        "max_ai_objective_fighters": 3,
+        "outcome": "unresolved at420s",
+        "human_spending": {
+          "food": 40,
+          "wood": 0,
+          "gold": 10
+        },
+        "first_deliberate_neutral_capture_order": 390.016666666641,
+        "human_military_deaths": [
+          {
+            "at": 180.500000000036,
+            "type": 4
+          }
+        ],
+        "ai_fighter_deaths_before300": 0,
+        "ai_fighter_hp_lost_before300": 0,
+        "human_command_count": 2
+      },
+      "seconds_of_old_hold_remaining_at_contest": 60.73333333338198
+    },
+    {
+      "case": "map1-seed424242-earliest",
+      "map": 1,
+      "seed": 424242,
+      "scenario": "earliest",
+      "terrain_sha256": "3bd86b9cbf5800bb5ee4a9de25b70832330fe69a78a1bad7ca455b8ed295197a",
+      "opening_and_pre150_scout_trace_identical": true,
+      "baseline": {
+        "scout_produced_at": 8.01666666666664,
+        "first_ring_entry": 23.4166666666666,
+        "claim_at": 53.4499999999982,
+        "first_ai_objective_order_at": -1.0,
+        "first_contest_at": -1.0,
+        "first_scout_damage_at": -1.0,
+        "first_ai_field_attack_at": -1.0,
+        "first_home_damage_at": -1.0,
+        "first_ai_capture_at": -1.0,
+        "ended_at": 233.450000000078,
+        "winner": 0,
+        "max_ai_objective_fighters": 0,
+        "outcome": "human Sacred win",
+        "human_spending": {
+          "food": 40,
+          "wood": 0,
+          "gold": 10
+        },
+        "first_deliberate_neutral_capture_order": -1,
+        "human_military_deaths": [],
+        "ai_fighter_deaths_before300": 0,
+        "ai_fighter_hp_lost_before300": 0,
+        "human_command_count": 2
+      },
+      "candidate": {
+        "scout_produced_at": 8.01666666666664,
+        "first_ring_entry": 23.4166666666666,
+        "claim_at": 53.4499999999982,
+        "first_ai_objective_order_at": 150.016666666678,
+        "first_contest_at": 172.783333333363,
+        "first_scout_damage_at": 176.050000000032,
+        "first_ai_field_attack_at": 300.016666666722,
+        "first_home_damage_at": 359.900000000001,
+        "first_ai_capture_at": 419.499999999947,
+        "ended_at": 420.016666666613,
+        "winner": -1,
+        "max_ai_objective_fighters": 3,
+        "outcome": "unresolved at420s",
+        "human_spending": {
+          "food": 40,
+          "wood": 0,
+          "gold": 10
+        },
+        "first_deliberate_neutral_capture_order": 390.016666666641,
+        "human_military_deaths": [
+          {
+            "at": 181.550000000037,
+            "type": 4
+          }
+        ],
+        "ai_fighter_deaths_before300": 0,
+        "ai_fighter_hp_lost_before300": 0,
+        "human_command_count": 2
+      },
+      "seconds_of_old_hold_remaining_at_contest": 60.666666666715
+    },
+    {
+      "case": "map2-seed101-delayed",
+      "map": 2,
+      "seed": 101,
+      "scenario": "delayed",
+      "terrain_sha256": "cb63a69d974c7e7e89ea3cf8739678a2ed30ca72b8fc5db88ac33bf757132c68",
+      "opening_and_pre150_scout_trace_identical": true,
+      "baseline": {
+        "scout_produced_at": 8.01666666666664,
+        "first_ring_entry": 194.450000000047,
+        "claim_at": 224.483333333404,
+        "first_ai_objective_order_at": 300.016666666722,
+        "first_contest_at": 313.133333333377,
+        "first_scout_damage_at": 315.066666666709,
+        "first_ai_field_attack_at": 350.016666666677,
+        "first_home_damage_at": 384.249999999979,
+        "first_ai_capture_at": -1.0,
+        "ended_at": 420.016666666613,
+        "winner": -1,
+        "max_ai_objective_fighters": 3,
+        "outcome": "unresolved at420s",
+        "human_spending": {
+          "food": 40,
+          "wood": 0,
+          "gold": 10
+        },
+        "first_deliberate_neutral_capture_order": 390.016666666641,
+        "human_military_deaths": [
+          {
+            "at": 319.266666666705,
+            "type": 4
+          }
+        ],
+        "ai_fighter_deaths_before300": 0,
+        "ai_fighter_hp_lost_before300": 0,
+        "human_command_count": 2
+      },
+      "candidate": {
+        "scout_produced_at": 8.01666666666664,
+        "first_ring_entry": 194.450000000047,
+        "claim_at": -1.0,
+        "first_ai_objective_order_at": 196.016666666715,
+        "first_contest_at": 218.6833333334,
+        "first_scout_damage_at": 222.066666666736,
+        "first_ai_field_attack_at": 300.016666666722,
+        "first_home_damage_at": 360.333333333334,
+        "first_ai_capture_at": 418.549999999948,
+        "ended_at": 420.016666666613,
+        "winner": -1,
+        "max_ai_objective_fighters": 3,
+        "outcome": "unresolved at420s",
+        "human_spending": {
+          "food": 40,
+          "wood": 0,
+          "gold": 10
+        },
+        "first_deliberate_neutral_capture_order": 390.016666666641,
+        "human_military_deaths": [
+          {
+            "at": 224.933333333404,
+            "type": 4
+          }
+        ],
+        "ai_fighter_deaths_before300": 0,
+        "ai_fighter_hp_lost_before300": 0,
+        "human_command_count": 2
+      }
+    },
+    {
+      "case": "map2-seed101-earliest",
+      "map": 2,
+      "seed": 101,
+      "scenario": "earliest",
+      "terrain_sha256": "cb63a69d974c7e7e89ea3cf8739678a2ed30ca72b8fc5db88ac33bf757132c68",
+      "opening_and_pre150_scout_trace_identical": true,
+      "baseline": {
+        "scout_produced_at": 8.01666666666664,
+        "first_ring_entry": 23.4166666666666,
+        "claim_at": 53.4499999999982,
+        "first_ai_objective_order_at": -1.0,
+        "first_contest_at": -1.0,
+        "first_scout_damage_at": -1.0,
+        "first_ai_field_attack_at": -1.0,
+        "first_home_damage_at": -1.0,
+        "first_ai_capture_at": -1.0,
+        "ended_at": 233.450000000078,
+        "winner": 0,
+        "max_ai_objective_fighters": 0,
+        "outcome": "human Sacred win",
+        "human_spending": {
+          "food": 40,
+          "wood": 0,
+          "gold": 10
+        },
+        "first_deliberate_neutral_capture_order": -1,
+        "human_military_deaths": [],
+        "ai_fighter_deaths_before300": 0,
+        "ai_fighter_hp_lost_before300": 0,
+        "human_command_count": 2
+      },
+      "candidate": {
+        "scout_produced_at": 8.01666666666664,
+        "first_ring_entry": 23.4166666666666,
+        "claim_at": 53.4499999999982,
+        "first_ai_objective_order_at": 150.016666666678,
+        "first_contest_at": 172.766666666696,
+        "first_scout_damage_at": 176.033333333366,
+        "first_ai_field_attack_at": 300.016666666722,
+        "first_home_damage_at": 360.683333333334,
+        "first_ai_capture_at": -1.0,
+        "ended_at": 420.016666666613,
+        "winner": -1,
+        "max_ai_objective_fighters": 3,
+        "outcome": "unresolved at420s",
+        "human_spending": {
+          "food": 40,
+          "wood": 0,
+          "gold": 10
+        },
+        "first_deliberate_neutral_capture_order": 390.016666666641,
+        "human_military_deaths": [
+          {
+            "at": 181.53333333337,
+            "type": 4
+          }
+        ],
+        "ai_fighter_deaths_before300": 0,
+        "ai_fighter_hp_lost_before300": 0,
+        "human_command_count": 2
+      },
+      "seconds_of_old_hold_remaining_at_contest": 60.683333333381995
+    },
+    {
+      "case": "map2-seed101-reinforced",
+      "map": 2,
+      "seed": 101,
+      "scenario": "reinforced",
+      "terrain_sha256": "cb63a69d974c7e7e89ea3cf8739678a2ed30ca72b8fc5db88ac33bf757132c68",
+      "opening_and_pre150_scout_trace_identical": true,
+      "baseline": {
+        "scout_produced_at": 8.01666666666664,
+        "first_ring_entry": 23.4166666666666,
+        "claim_at": 53.4499999999982,
+        "first_ai_objective_order_at": -1.0,
+        "first_contest_at": -1.0,
+        "first_scout_damage_at": -1.0,
+        "first_ai_field_attack_at": -1.0,
+        "first_home_damage_at": -1.0,
+        "first_ai_capture_at": -1.0,
+        "ended_at": 233.450000000078,
+        "winner": 0,
+        "max_ai_objective_fighters": 0,
+        "outcome": "human Sacred win",
+        "human_spending": {
+          "food": 140,
+          "wood": 160,
+          "gold": 10
+        },
+        "first_deliberate_neutral_capture_order": -1,
+        "human_military_deaths": [],
+        "ai_fighter_deaths_before300": 0,
+        "ai_fighter_hp_lost_before300": 0,
+        "human_command_count": 7
+      },
+      "candidate": {
+        "scout_produced_at": 8.01666666666664,
+        "first_ring_entry": 23.4166666666666,
+        "claim_at": 53.4499999999982,
+        "first_ai_objective_order_at": 150.016666666678,
+        "first_contest_at": 172.80000000003,
+        "first_scout_damage_at": 176.066666666699,
+        "first_ai_field_attack_at": 300.016666666722,
+        "first_home_damage_at": 360.95,
+        "first_ai_capture_at": 416.883333333283,
+        "ended_at": 420.016666666613,
+        "winner": -1,
+        "max_ai_objective_fighters": 3,
+        "outcome": "unresolved at420s",
+        "human_spending": {
+          "food": 140,
+          "wood": 160,
+          "gold": 10
+        },
+        "first_deliberate_neutral_capture_order": 390.016666666641,
+        "human_military_deaths": [
+          {
+            "at": 181.566666666703,
+            "type": 4
+          },
+          {
+            "at": 185.033333333373,
+            "type": 1
+          },
+          {
+            "at": 186.500000000041,
+            "type": 1
+          }
+        ],
+        "ai_fighter_deaths_before300": 0,
+        "ai_fighter_hp_lost_before300": 114.0,
+        "human_command_count": 7
+      }
+    },
+    {
+      "case": "map2-seed20261021-earliest",
+      "map": 2,
+      "seed": 20261021,
+      "scenario": "earliest",
+      "terrain_sha256": "5ec7b3109ae4188d0eb416a2232fc1e0eb7eab8835ac60a6666e5dd3b510c9ac",
+      "opening_and_pre150_scout_trace_identical": true,
+      "baseline": {
+        "scout_produced_at": 8.01666666666664,
+        "first_ring_entry": 23.4166666666666,
+        "claim_at": 53.4499999999982,
+        "first_ai_objective_order_at": -1.0,
+        "first_contest_at": -1.0,
+        "first_scout_damage_at": -1.0,
+        "first_ai_field_attack_at": -1.0,
+        "first_home_damage_at": -1.0,
+        "first_ai_capture_at": -1.0,
+        "ended_at": 233.450000000078,
+        "winner": 0,
+        "max_ai_objective_fighters": 0,
+        "outcome": "human Sacred win",
+        "human_spending": {
+          "food": 40,
+          "wood": 0,
+          "gold": 10
+        },
+        "first_deliberate_neutral_capture_order": -1,
+        "human_military_deaths": [],
+        "ai_fighter_deaths_before300": 0,
+        "ai_fighter_hp_lost_before300": 0,
+        "human_command_count": 2
+      },
+      "candidate": {
+        "scout_produced_at": 8.01666666666664,
+        "first_ring_entry": 23.4166666666666,
+        "claim_at": 53.4499999999982,
+        "first_ai_objective_order_at": 150.016666666678,
+        "first_contest_at": 172.816666666696,
+        "first_scout_damage_at": 176.083333333366,
+        "first_ai_field_attack_at": 300.016666666722,
+        "first_home_damage_at": 361.55,
+        "first_ai_capture_at": -1.0,
+        "ended_at": 420.016666666613,
+        "winner": -1,
+        "max_ai_objective_fighters": 3,
+        "outcome": "unresolved at420s",
+        "human_spending": {
+          "food": 40,
+          "wood": 0,
+          "gold": 10
+        },
+        "first_deliberate_neutral_capture_order": 390.016666666641,
+        "human_military_deaths": [
+          {
+            "at": 181.58333333337,
+            "type": 4
+          }
+        ],
+        "ai_fighter_deaths_before300": 0,
+        "ai_fighter_hp_lost_before300": 0,
+        "human_command_count": 2
+      },
+      "seconds_of_old_hold_remaining_at_contest": 60.63333333338201
+    },
+    {
+      "case": "map2-seed424242-earliest",
+      "map": 2,
+      "seed": 424242,
+      "scenario": "earliest",
+      "terrain_sha256": "8a57c4fc855bfcb72b0c2eec1f2b50c45fabb9fdb93023900124655a400ea7b7",
+      "opening_and_pre150_scout_trace_identical": true,
+      "baseline": {
+        "scout_produced_at": 8.01666666666664,
+        "first_ring_entry": 23.4166666666666,
+        "claim_at": 53.4499999999982,
+        "first_ai_objective_order_at": -1.0,
+        "first_contest_at": -1.0,
+        "first_scout_damage_at": -1.0,
+        "first_ai_field_attack_at": -1.0,
+        "first_home_damage_at": -1.0,
+        "first_ai_capture_at": -1.0,
+        "ended_at": 233.450000000078,
+        "winner": 0,
+        "max_ai_objective_fighters": 0,
+        "outcome": "human Sacred win",
+        "human_spending": {
+          "food": 40,
+          "wood": 0,
+          "gold": 10
+        },
+        "first_deliberate_neutral_capture_order": -1,
+        "human_military_deaths": [],
+        "ai_fighter_deaths_before300": 0,
+        "ai_fighter_hp_lost_before300": 0,
+        "human_command_count": 2
+      },
+      "candidate": {
+        "scout_produced_at": 8.01666666666664,
+        "first_ring_entry": 23.4166666666666,
+        "claim_at": 53.4499999999982,
+        "first_ai_objective_order_at": 150.016666666678,
+        "first_contest_at": 172.783333333363,
+        "first_scout_damage_at": 176.066666666699,
+        "first_ai_field_attack_at": 300.016666666722,
+        "first_home_damage_at": 359.816666666668,
+        "first_ai_capture_at": -1.0,
+        "ended_at": 420.016666666613,
+        "winner": -1,
+        "max_ai_objective_fighters": 3,
+        "outcome": "unresolved at420s",
+        "human_spending": {
+          "food": 40,
+          "wood": 0,
+          "gold": 10
+        },
+        "first_deliberate_neutral_capture_order": 390.016666666641,
+        "human_military_deaths": [
+          {
+            "at": 181.566666666703,
+            "type": 4
+          }
+        ],
+        "ai_fighter_deaths_before300": 0,
+        "ai_fighter_hp_lost_before300": 0,
+        "human_command_count": 2
+      },
+      "seconds_of_old_hold_remaining_at_contest": 60.666666666715
+    }
+  ],
+  "raw_artifacts": [
+    {
+      "path": "output/easy-sacred-response-20261022/baseline/map0-seed101-delayed.json",
+      "sha256": "22cce5a83849fa791e744b46ff68b97efe4a2431390e9c15495d2902936387e0",
+      "log_sha256": "d374e36b7f70762545558bf54778df13bec2891cbf4c4c44118a82724e211ae0"
+    },
+    {
+      "path": "output/easy-sacred-response-20261022/candidate/map0-seed101-delayed.json",
+      "sha256": "6033d08f7c09285bac9266fa5ffc841beb934744a790f9f81687fa765c94fdc3",
+      "log_sha256": "a8258fc40d727cf1d0ce6e78cc4d0c7aa68cb827e3d9949729ee79b77c2a498c"
+    },
+    {
+      "path": "output/easy-sacred-response-20261022/baseline/map0-seed101-earliest.json",
+      "sha256": "ab03082612a2aec67867867743023328e34a8733b7510698b0166970db71ef62",
+      "log_sha256": "afae802e3f959ee7c9ad7d69620467fa1485466c38c6fdd15dd4968a316ee412"
+    },
+    {
+      "path": "output/easy-sacred-response-20261022/candidate/map0-seed101-earliest.json",
+      "sha256": "a2b641150058e6344a18fa09c32b6800c7cfd516107d39df78f0fcd7745cb12a",
+      "log_sha256": "9fb03ba8dacffd86f3695c056c035194e34560016b56c59b265a0c76be7f2978"
+    },
+    {
+      "path": "output/easy-sacred-response-20261022/baseline/map0-seed101-reinforced.json",
+      "sha256": "b9a1203844eae1928f9f7047277eb97b87872dd01e84e9c078e147c2f0d1d875",
+      "log_sha256": "afae802e3f959ee7c9ad7d69620467fa1485466c38c6fdd15dd4968a316ee412"
+    },
+    {
+      "path": "output/easy-sacred-response-20261022/candidate/map0-seed101-reinforced.json",
+      "sha256": "0e50a74395bfc09706c5b847a34442590172e5594181b848a6eeee2a77fa7ef2",
+      "log_sha256": "78b5e5e69421f2f41deb5bfc4ffd2e9ca03731700b5f8d7fc58fa8bffc79d335"
+    },
+    {
+      "path": "output/easy-sacred-response-20261022/baseline/map0-seed20261021-earliest.json",
+      "sha256": "abc11034b2ef2b695b442b92a843d4150084a48424e862a2d7a8e4e75537a10d",
+      "log_sha256": "afae802e3f959ee7c9ad7d69620467fa1485466c38c6fdd15dd4968a316ee412"
+    },
+    {
+      "path": "output/easy-sacred-response-20261022/candidate/map0-seed20261021-earliest.json",
+      "sha256": "f19d127348b450938bddea1ffc20e613bd45948aa4a2ebb010837f91e4c1e914",
+      "log_sha256": "42542c0cbee3a08d3cc49d906ba7bab69296b3d454a908db89267f52e469f770"
+    },
+    {
+      "path": "output/easy-sacred-response-20261022/baseline/map0-seed424242-earliest.json",
+      "sha256": "0317c0df54e32b6549cca0ad6990f9e1538bdc44d27b87c1a7a5fcfe52ed683c",
+      "log_sha256": "ade5ad3d617fb5a31ac8511c261925ab66c0b5e91af872f58fe5cf080161005e"
+    },
+    {
+      "path": "output/easy-sacred-response-20261022/candidate/map0-seed424242-earliest.json",
+      "sha256": "7e399565d755add21855ce79459a9e1205830dae170f09c04a5cebfd0f6a0e10",
+      "log_sha256": "bf1a1b71cc70af1651af47c9e1ada18e5fe84351059c650a8464fe6867eb953c"
+    },
+    {
+      "path": "output/easy-sacred-response-20261022/baseline/map1-seed101-delayed.json",
+      "sha256": "761fac34d7c4a2b64ec173d88a474578f1a4cee6457261282339e9400d481e10",
+      "log_sha256": "f738958ab37f248e0bef0e81b7970801c53dd0f105e296be5c336dc87e4996c7"
+    },
+    {
+      "path": "output/easy-sacred-response-20261022/candidate/map1-seed101-delayed.json",
+      "sha256": "c93d74cdf4ce6149ed31ba982b26edf64861473071f4aa76e3efd6163f71704d",
+      "log_sha256": "93ce259898c8df2690f61d23c7f34ee533df424e3d37abfb324a1ea672ffac80"
+    },
+    {
+      "path": "output/easy-sacred-response-20261022/baseline/map1-seed101-earliest.json",
+      "sha256": "8db9974103242e6ba7ec021952bcb10791a513088e37895263857166e8a14a0b",
+      "log_sha256": "ffc9c057667ecaaf0ee7cdcd0ab11ceac108c9b1e883e6214286330b8e6a3874"
+    },
+    {
+      "path": "output/easy-sacred-response-20261022/candidate/map1-seed101-earliest.json",
+      "sha256": "767a34d33c838e76ce26a74ccfa27b32a11041609774853e2c4e49ba1edf6dda",
+      "log_sha256": "3bbce714262821787e865e15ae46b148e36a36e5ec8f3f5b43a4925dad53b11b"
+    },
+    {
+      "path": "output/easy-sacred-response-20261022/baseline/map1-seed101-reinforced.json",
+      "sha256": "a693e8d98c3e50f57f9b7a5a4652c754da0b18e9b5fce72bef7d174f46f77bbf",
+      "log_sha256": "ffc9c057667ecaaf0ee7cdcd0ab11ceac108c9b1e883e6214286330b8e6a3874"
+    },
+    {
+      "path": "output/easy-sacred-response-20261022/candidate/map1-seed101-reinforced.json",
+      "sha256": "9fb39b31426a4c6ba7c95a55baa734ac2ec823e9aac51453b32b14744b8b4b30",
+      "log_sha256": "11c92d1d650546c896fd65499219639fb97fe27306f6c11eaf84e16ec51df3de"
+    },
+    {
+      "path": "output/easy-sacred-response-20261022/baseline/map1-seed20261021-earliest.json",
+      "sha256": "8064523e1d0057baebe41a51d4c1a9b277252e5df4802bf40a4019ddd3336fb8",
+      "log_sha256": "0095dafe3b9431da27678c1d0e31f8adeaf01c7dde32811faaf862243d5228b6"
+    },
+    {
+      "path": "output/easy-sacred-response-20261022/candidate/map1-seed20261021-earliest.json",
+      "sha256": "50c5bb252c3a4fc5b4ff6b27ae74c908b9807acfd9ef1c6548d78ef45a84a332",
+      "log_sha256": "33c88c4c3010744688a0b357baefac3d2f016e37383aaed31dda4862f38a70e9"
+    },
+    {
+      "path": "output/easy-sacred-response-20261022/baseline/map1-seed424242-earliest.json",
+      "sha256": "13b6c8836fb5e08c2781d3d99e88892ce1d2e35b471dbb216da9d0741923391e",
+      "log_sha256": "ffc9c057667ecaaf0ee7cdcd0ab11ceac108c9b1e883e6214286330b8e6a3874"
+    },
+    {
+      "path": "output/easy-sacred-response-20261022/candidate/map1-seed424242-earliest.json",
+      "sha256": "f344e6612070afd705970705edd48daef12036b602c91ade99fc38e33aae6b91",
+      "log_sha256": "3bbce714262821787e865e15ae46b148e36a36e5ec8f3f5b43a4925dad53b11b"
+    },
+    {
+      "path": "output/easy-sacred-response-20261022/baseline/map2-seed101-delayed.json",
+      "sha256": "c4fdf6e890dc8e468188e392e48302545ec38cff7ab7b634b4b5dc42e33371a0",
+      "log_sha256": "094e9be49155ab591119a1accf411352bd0194bc57d57a958b8fe93efc62fb57"
+    },
+    {
+      "path": "output/easy-sacred-response-20261022/candidate/map2-seed101-delayed.json",
+      "sha256": "8e3045680cd58db8559362164e572b856291fd1d63ea4fd98aab5286ca10c91e",
+      "log_sha256": "b00342a66d52f5d0cf774e760f4a695b0a6c2f12ff1028678f631e2a90ebe123"
+    },
+    {
+      "path": "output/easy-sacred-response-20261022/baseline/map2-seed101-earliest.json",
+      "sha256": "43ae1c3d1d28833d51b4d9f994dc296bd408e91ddfb31db2e0874693b36ea52e",
+      "log_sha256": "6c7b80ce8415f950cdc998e3818a4c941164c6f2f6455c835cc288b560812f04"
+    },
+    {
+      "path": "output/easy-sacred-response-20261022/candidate/map2-seed101-earliest.json",
+      "sha256": "1f89b1f2e2e06b7ec976c6794c5cb4a4b95accba4d256f735560f5c4929b560f",
+      "log_sha256": "2cf3ebe369caf237838f4208a255ddc034fbb10531b579d87649ce8b916b3d4f"
+    },
+    {
+      "path": "output/easy-sacred-response-20261022/baseline/map2-seed101-reinforced.json",
+      "sha256": "87ff9a68c863d21b3fb56555d976f654038cfe207356369f7abbe6a7dfa025b5",
+      "log_sha256": "6c7b80ce8415f950cdc998e3818a4c941164c6f2f6455c835cc288b560812f04"
+    },
+    {
+      "path": "output/easy-sacred-response-20261022/candidate/map2-seed101-reinforced.json",
+      "sha256": "2f7bbe7940ef1b54b00da5cfb3cb13338c68432dd6b6657bd446178501622449",
+      "log_sha256": "4f5f604acac218d45deea4f762645165fb2c8fac5187c8821ba06c8e92cfac80"
+    },
+    {
+      "path": "output/easy-sacred-response-20261022/baseline/map2-seed20261021-earliest.json",
+      "sha256": "d1b2305ecd2600fbb08f873efcf5c861e3b7be82a230e4ca08d9d60a87886e6f",
+      "log_sha256": "6c7b80ce8415f950cdc998e3818a4c941164c6f2f6455c835cc288b560812f04"
+    },
+    {
+      "path": "output/easy-sacred-response-20261022/candidate/map2-seed20261021-earliest.json",
+      "sha256": "326b351907404fda4ba754b446e62cd39033d1349128015bd4459a9c2341e039",
+      "log_sha256": "02a28075187bba8c8ee436198b157a762befa32578f83cf9e2f917a9b28ed9f1"
+    },
+    {
+      "path": "output/easy-sacred-response-20261022/baseline/map2-seed424242-earliest.json",
+      "sha256": "611c87080fddc63cb5a705bb4a21d83dfaa546bc4f11cb0a830d696c552987b3",
+      "log_sha256": "6c7b80ce8415f950cdc998e3818a4c941164c6f2f6455c835cc288b560812f04"
+    },
+    {
+      "path": "output/easy-sacred-response-20261022/candidate/map2-seed424242-earliest.json",
+      "sha256": "4441af6303c14bff19130ccca8ea4fc534244f710d514076a23878c0e07708cb",
+      "log_sha256": "689186a5bace5e6f100ac616d6ea5a0616de86ec553996146ac02f20b936282f"
+    }
+  ]
+}

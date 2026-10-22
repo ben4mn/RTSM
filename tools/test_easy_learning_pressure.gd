@@ -6,8 +6,9 @@ var fixtures: Array[Node] = []
 
 class TestMap extends Node2D:
 	var sacred_site: Node2D
+	var enemies_visible: bool = true
 	func is_entity_visible_to_player(_entity: Node2D, _viewer: int = 0) -> bool:
-		return true
+		return enemies_visible
 	func tile_to_world(tile: Vector2i) -> Vector2:
 		return Vector2(float(tile.x - tile.y) * 32.0, float(tile.x + tile.y) * 16.0)
 	func world_to_tile(world: Vector2) -> Vector2i:
@@ -64,6 +65,7 @@ func _run() -> void:
 			ai.call("_clear_attack_wave")
 	gm.players[1]["max_population"] = 30
 	ai.set("_last_field_attack_time", -INF)
+	_check_reactive_opening(ai, map, gm, enemy)
 	var launches: Array[int] = []
 	ai.connect("ai_attack_launched", func(units: Array, _target: Vector2) -> void: launches.append(units.size()))
 	ai.set("_game_time", 299.0)
@@ -176,11 +178,67 @@ func _run() -> void:
 		if is_instance_valid(fixture):
 			fixture.free()
 	if failures.is_empty():
-		print("[PASS] easy_learning_pressure: opening grace, bounded redirects, real-loss regroup, home defense, finite recovery and Medium/Hard urgency")
+		print("[PASS] easy_learning_pressure: separate reactive/raid/neutral timing, visible threats, bounded redirects, real-loss regroup, home defense and Medium/Hard urgency")
 	else:
 		for failure: String in failures:
 			push_error(failure)
 	quit(0 if failures.is_empty() else 1)
+
+
+func _check_reactive_opening(ai: Node, map: TestMap, gm: Node, enemy: Node) -> void:
+	var site := TestSite.new()
+	site.position = Vector2(800, 1000)
+	root.add_child(site)
+	fixtures.append(site)
+	map.sacred_site = site
+	for limit: int in [20, 30, 40]:
+		gm.players[1]["max_population"] = limit
+		for site_state: int in [1, 2, 3]:
+			site.state = site_state
+			site.owning_player = 0
+			ai.call("_release_objective_units")
+			ai.set("_game_time", 149.999)
+			_expect(bool(ai.call("_should_hold_sacred_recon", site)), "%d-pop recon respects opening response grace for state%d" % [limit, site_state])
+			_expect(not bool(ai.call("_check_sacred_site_strategy")) and (ai.get("_objective_units") as Array).is_empty(), "%d-pop fighters respect the same response grace for state%d" % [limit, site_state])
+			ai.set("_game_time", 150.0)
+			_expect(not bool(ai.call("_should_hold_sacred_recon", site)), "%d-pop recon permits a public hostile claim response at150 for state%d" % [limit, site_state])
+			ai.call("_check_attack_or_defend")
+			_expect(str(ai.get("_last_strategy_decision")) == "contest_sacred_site" and (ai.get("_objective_units") as Array).size() == 3 and (ai.get("_attack_wave_units") as Array).is_empty(), "%d-pop responds at150 with one three-fighter objective squad for state%d" % [limit, site_state])
+	gm.players[1]["max_population"] = 30
+	ai.call("_release_objective_units")
+	site.state = 0
+	site.owning_player = -1
+	for moment: float in [150.0, 299.999, 389.999]:
+		ai.set("_game_time", moment)
+		_expect(bool(ai.call("_should_hold_sacred_recon", site)) and not bool(ai.call("_check_sacred_site_strategy")), "an empty neutral objective remains recon-only at%.3fs" % moment)
+		if moment < 300.0:
+			ai.call("_check_attack_or_defend")
+			_expect((ai.get("_attack_wave_units") as Array).is_empty(), "reactive eligibility does not advance ordinary raids at%.3fs" % moment)
+	# Public ownership can trigger a response without granting hidden-unit
+	# knowledge. A hidden visitor alone cannot make a neutral site urgent.
+	ai.set("_game_time", 150.0)
+	enemy.set("position", site.position)
+	map.enemies_visible = false
+	_expect(bool(ai.call("_should_hold_sacred_recon", site)) and not bool(ai.call("_check_sacred_site_strategy")), "a hidden neutral-site visitor does not trigger early objective orders")
+	site.state = 2
+	site.owning_player = 0
+	ai.call("_check_attack_or_defend")
+	_expect((ai.get("_objective_units") as Array).size() == 3, "the public enemy-owned clock still permits a bounded response without enemy vision")
+	for fighter: Node in ai.get("_objective_units"):
+		_expect(fighter.get("attack_target") == null, "a public-clock response never directly targets the hidden visitor")
+	ai.call("_release_objective_units")
+	site.state = 0
+	site.owning_player = -1
+	map.enemies_visible = true
+	ai.call("_check_attack_or_defend")
+	_expect((ai.get("_objective_units") as Array).size() == 3, "a currently visible threat at the neutral objective permits the same bounded response")
+	# Removing the threat restores the later neutral policy and passive staging.
+	enemy.set("position", Vector2(2000, 1000))
+	ai.call("_check_attack_or_defend")
+	_expect((ai.get("_objective_units") as Array).is_empty() and (ai.get("_attack_wave_units") as Array).is_empty(), "a cleared objective does not become an early initiative or base raid")
+	map.sacred_site = null
+	ai.set("_last_field_attack_time", -INF)
+
 
 func _unit(owner: int, at: Vector2) -> Node:
 	var unit: Node = load("res://scenes/units/infantry.tscn").instantiate()

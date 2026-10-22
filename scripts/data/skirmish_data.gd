@@ -36,6 +36,9 @@ const STARTING_RESOURCES: Dictionary = {"food": 250, "wood": 250, "gold": 100}
 # objective, then sends small coherent squads with a visible recovery interval.
 const AI_RAID_START_SECONDS: Dictionary = {0: 300.0, 1: 120.0, 2: 0.0}
 const AI_RAID_COOLDOWN_SECONDS: Dictionary = {0: 150.0, 1: 75.0, 2: 0.0}
+# Respond to an opponent's objective claim before its first victory. This
+# does not advance the separate neutral initiative or ordinary base raids.
+const EASY_SACRED_RESPONSE_SECONDS: float = 150.0
 const EASY_SACRED_INITIATIVE_SECONDS: float = 390.0
 const EASY_REGROUP_SECONDS: float = 45.0
 const EASY_LARGER_SQUAD_SECONDS: float = 480.0
