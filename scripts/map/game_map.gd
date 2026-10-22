@@ -1037,7 +1037,8 @@ func get_building_work_world_path(
 	from_world: Vector2,
 	anchor_world: Vector2,
 	footprint: Vector2i,
-	action_radius_world: float
+	action_radius_world: float,
+	prefer_shortest_route: bool = false
 ) -> PackedVector2Array:
 	if pathfinding == null:
 		return PackedVector2Array()
@@ -1056,13 +1057,41 @@ func get_building_work_world_path(
 	candidates.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
 		return from_world.distance_squared_to(tile_to_world(a)) < from_world.distance_squared_to(tile_to_world(b))
 	)
-	var tile_path: Array[Vector2i] = pathfinding.get_tile_path_to_any(
-		world_to_tile(from_world), candidates, NAVIGATION_MAX_PATH_CHECKS
-	)
+	var tile_path: Array[Vector2i] = []
+	if prefer_shortest_route:
+		var shortest_distance: float = INF
+		for destination: Vector2i in candidates:
+			# Euclidean distance is a lower bound on any route to this endpoint.
+			# Sorted candidates beyond our best route cannot improve it.
+			if from_world.distance_to(tile_to_world(destination)) > shortest_distance:
+				break
+			var route: Array[Vector2i] = pathfinding.get_tile_path_to_any(
+				world_to_tile(from_world), [destination], NAVIGATION_MAX_PATH_CHECKS
+			)
+			if route.is_empty():
+				continue
+			var route_distance: float = 0.0
+			var previous: Vector2 = from_world
+			for tile: Vector2i in route:
+				var waypoint: Vector2 = tile_to_world(tile)
+				route_distance += previous.distance_to(waypoint)
+				previous = waypoint
+			if route_distance < shortest_distance:
+				shortest_distance = route_distance
+				tile_path = route
+	else:
+		tile_path = pathfinding.get_tile_path_to_any(
+			world_to_tile(from_world), candidates, NAVIGATION_MAX_PATH_CHECKS
+		)
 	var world_path := PackedVector2Array()
 	for tile: Vector2i in tile_path:
 		world_path.append(tile_to_world(tile))
 	return world_path
+
+
+## Delivery compares actual route length across every legal building edge.
+func get_building_dropoff_world_path(from_world: Vector2, anchor_world: Vector2, footprint: Vector2i, action_radius_world: float) -> PackedVector2Array:
+	return get_building_work_world_path(from_world, anchor_world, footprint, action_radius_world, true)
 
 
 ## Canonical current-visibility query for every simulated player. Player 0 uses

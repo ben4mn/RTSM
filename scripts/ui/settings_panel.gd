@@ -4,7 +4,7 @@ extends ColorRect
 signal closed()
 
 const THEME := preload("res://scripts/ui/kingdom_theme.gd")
-const SECTIONS: Array[String] = ["Audio", "Controls", "Display", "Match"]
+const SECTIONS: Array[String] = ["Audio", "Controls", "Display", "Match", "Map"]
 const SCALE_VALUES: Array[float] = [1.0, 1.075, 1.15]
 const SENSITIVITY_VALUES: Array[float] = [0.75, 1.0, 1.25]
 var from_match: bool = false
@@ -41,15 +41,18 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_panel = PanelContainer.new()
 	_panel.name = "PreferencesCard"
+	var panel_style: StyleBoxFlat = THEME.panel_style()
+	panel_style.set_content_margin_all(2)
+	_panel.add_theme_stylebox_override("panel", panel_style)
 	_panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	_panel.mouse_force_pass_scroll_events = false
 	add_child(_panel)
 	var margin := MarginContainer.new()
 	for edge: String in ["left", "right", "top", "bottom"]:
-		margin.add_theme_constant_override("margin_" + edge, 10)
+		margin.add_theme_constant_override("margin_" + edge, 4)
 	_panel.add_child(margin)
 	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 5)
+	column.add_theme_constant_override("separation", 2)
 	margin.add_child(column)
 	var tabs := HBoxContainer.new()
 	tabs.add_theme_constant_override("separation", 5)
@@ -71,13 +74,14 @@ func _ready() -> void:
 	_scroll.name = "SettingsScroll"
 	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_scroll.mouse_filter = Control.MOUSE_FILTER_STOP
 	_scroll.mouse_force_pass_scroll_events = false
 	column.add_child(_scroll)
 	_body = VBoxContainer.new()
 	_body.name = "SectionBody"
 	_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_body.add_theme_constant_override("separation", 6)
+	_body.add_theme_constant_override("separation", 2)
 	_scroll.add_child(_body)
 	var footer := HBoxContainer.new()
 	footer.add_theme_constant_override("separation", 8)
@@ -156,43 +160,46 @@ func _show_section(index: int) -> void:
 		1: _build_controls()
 		2: _build_display()
 		3: _build_match()
+		4: _build_map()
 
 
 func _build_audio() -> void:
-	_note("Audio · timber, steel and horns. Alerts remain distinct during battle.")
 	_toggle("Sound enabled", "audio_enabled")
+	var toggle: Control = _body.get_child(_body.get_child_count() - 1)
+	var row := HBoxContainer.new()
+	_body.add_child(row)
+	toggle.reparent(row)
+	toggle.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(_button("Preview", "AudioPreviewButton", AudioManager.preview))
 	_volume("Master", "master_volume")
 	_volume("World effects", "sfx_volume")
 	_volume("UI & alerts", "ui_alert_volume")
-	_body.add_child(_button("Preview: click / steel / warning horn", "AudioPreviewButton", AudioManager.preview))
-	_note("No music track is included. Preview follows your mute and volume levels.")
 
 
 func _build_controls() -> void:
-	_note("Controls · tap to select or order, drag to pan, pinch to zoom.")
+	_note("Tap ground: move · Hold ground: attack-move\nDrag: pan · Pinch: zoom")
 	_choice("Pan sensitivity", "camera_speed_scale", ["Relaxed", "Standard", "Fast"], SENSITIVITY_VALUES)
 	_choice("Zoom sensitivity", "zoom_sensitivity_scale", ["Relaxed", "Standard", "Fast"], SENSITIVITY_VALUES)
 	_toggle("Optional hold shortcuts", "hold_shortcuts_enabled")
-	_note("Hold a target to inspect or open secondary commands. All commands also have visible tap controls. Hold shortcuts never replace tap actions.")
+
 
 
 func _build_display() -> void:
-	_note("Display / accessibility · preferences apply immediately.")
 	_choice("Interface size", "ui_scale", ["Standard", "Large", "Extra Large"], SCALE_VALUES)
 	_toggle("Reduced motion", "reduced_motion")
 	_toggle("Reduced flashes", "reduced_flashes")
 	_toggle("Clear player markers", "clearer_player_markers")
-	_note("Clear markers: your units have a circle; rivals have a diamond. Reduced motion removes decorative particles and drifting labels. Reduced flashes makes combat highlights steady.")
 
 
 func _build_match() -> void:
-	_note("Match setup · applies to your NEXT skirmish." if from_match else "Match setup · applies when you start a skirmish.")
 	_match_rules()
-	_note("Standard: hold Sacred for %d minutes. Contests pause your clock; losing ownership resets it. Destroying the enemy Town Center also wins." % int(SkirmishData.SACRED_VICTORY_HOLD_SECONDS / 60.0))
-	_note("Control race: bank 4 minutes of Sacred control across captures; contests pause scoring. Barracks, Range and Stable cost 100 wood; Feudal costs 250 food / 125 gold.")
-	_choice("Difficulty", "selected_difficulty", ["Easy · breathing room", "Medium · steady raids", "Hard · early attacks"], [0, 1, 2])
-	_choice("Population / player", "selected_population_limit", ["20 · compact", "30 · standard", "40 · larger armies"], [20, 30, 40])
+	_choice("Difficulty", "selected_difficulty", ["Easy", "Medium", "Hard"], [0, 1, 2])
+	_choice("Population / player", "selected_population_limit", ["20", "30", "40"], [20, 30, 40])
 	_toggle("Guide my opening", "guided_opening_enabled")
+
+
+func _build_map() -> void:
+	_note("Applies to your next solo skirmish. Online matches use shared rules.")
 	var row := _row("Map seed")
 	var seed := LineEdit.new()
 	seed.name = "MapSeedInput"
@@ -212,7 +219,9 @@ func _build_match() -> void:
 		GameManager.selected_map_seed = -1
 		_save()
 	))
-	_note("Battlefield: %d × %d for every population limit. Scout the flanks for finite food, wood and gold expansions. A seed repeats its terrain. Match speed starts at 1×; use the clock control during play for 0.5× / 1× / 2× / 3×. Guidance explains actions and grants no resources." % [MapData.MAP_WIDTH, MapData.MAP_HEIGHT])
+	_note("%d × %d battlefield. Leave the seed blank for a new map." % [MapData.MAP_WIDTH, MapData.MAP_HEIGHT])
+	_note("Win: destroy the rival Town Center or hold Sacred for %d minutes." % int(SkirmishData.SACRED_VICTORY_HOLD_SECONDS / 60.0))
+
 
 
 func _row(label_text: String) -> HBoxContainer:

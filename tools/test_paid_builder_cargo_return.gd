@@ -61,14 +61,14 @@ func _builder_cargo_case(mode: String) -> void:
 	_expect(house.state == BuildingBase.State.ACTIVE and saved_ref.get_ref() == null, mode + ": House must complete naturally after saved target is removed")
 	if mode == "missing_depot":
 		_expect(worker.get_work_status() == "Waiting for drop-off" and worker.get_economy_task() == "" and worker.carried_amount == cargo_before, "missing depot: partial cargo must wait without claiming a gather job")
-		var camp: BuildingBase = _place_paid_building(BuildingData.BuildingType.LUMBER_CAMP)
+		var camp: BuildingBase = _place_paid_building(BuildingData.BuildingType.RESOURCE_CAMP)
 		if camp == null:
 			return
 		_expect(worker.build_target == camp, "replacement depot: waiting worker must accept paid construction")
 		await _until(func() -> bool: return camp.state == BuildingBase.State.ACTIVE, 60.0)
 		await _until(func() -> bool: return int(_deposits["wood"]) == cargo_before, 40.0)
 		_expect(worker.current_state == UnitBase.State.IDLE and worker.carried_amount == 0 and worker.get_economy_task() == "", "replacement depot: one real deposit must return worker to Idle")
-		_expect(int(_deposits["wood"]) == cargo_before and ResourceManager.get_resource(0, "wood") == wood_before - 50 - 100 + cargo_before, "replacement depot: paid 50+100 wood and exactly one original cargo deposit")
+		_expect(int(_deposits["wood"]) == cargo_before and ResourceManager.get_resource(0, "wood") == wood_before - 50 - int(BuildingData.get_building_cost(BuildingData.BuildingType.RESOURCE_CAMP)["wood"]) + cargo_before, "replacement depot: paid House + Resource Camp wood and exactly one original cargo deposit")
 		print("PAID_BUILDER_MISSING_DEPOT ", JSON.stringify({"cargo_before":cargo_before,"deposits":_deposits,"bank_wood":ResourceManager.get_resource(0,"wood"),"replacement_active":camp.state == BuildingBase.State.ACTIVE,"status":worker.get_work_status()}))
 		return
 	_expect(worker.is_returning_resources() and worker.carried_amount == cargo_before, mode + ": natural completion must accept exact cargo return")

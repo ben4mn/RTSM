@@ -136,7 +136,7 @@ func _run() -> void:
 	siege.call("_process", 0.05)
 	_expect(siege.get("attack_building_target") == null, "existing siege target is dropped immediately after losing live sight")
 	_expect(bool(siege.get("attack_move")) and siege.get("move_target") == destination, "sight loss resumes the original attack-move order")
-	print("Paid siege: Workshop labor40s; production35s/150W100G/3pop; live Scout40F10G; target HP %s -> %s" % [hp_before, target.get("hp")])
+	print("Paid siege: Workshop labor28s; production25s/150W100G/3pop; live Scout40F10G; target HP %s -> %s" % [hp_before, target.get("hp")])
 	_finish()
 
 

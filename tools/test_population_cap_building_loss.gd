@@ -37,7 +37,7 @@ func _run() -> void:
 	# Mobile 20/30/40 budgets are covered separately by skirmish_population.
 	var players: Dictionary = _game_manager.get("players")
 	players[PLAYER_ID]["max_population"] = 200
-	_expect_eq(_population_cap(), 10, "starting active Town Center contributes its nominal five slots")
+	_expect_eq(_population_cap(), 15, "starting active Town Center contributes its nominal ten slots")
 	_test_unfinished_house_changes_nothing()
 	await process_frame
 	_test_manager_provider_idempotence()

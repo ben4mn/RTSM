@@ -135,7 +135,7 @@ def main() -> int:
                     "building_type": props.get("building_type"),
                     "state": props.get("state"),
                     "build_progress": props.get("build_progress"),
-                    "farm_remaining": props.get("farm_remaining"),
+                    "permanent_food": props.get("provides_food"),
                     "position": props.get("position"),
                 }
             )

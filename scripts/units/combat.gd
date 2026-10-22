@@ -201,15 +201,14 @@ static func resolve_unit_hit(attacker: UnitBase, defender: UnitBase, final_damag
 	if is_instance_valid(attacker) and was_alive and defender.hp <= 0.0:
 		attacker.kills += 1
 
-	# If the defender isn't already attacking something, make it fight back
+	# UnitBase owns intent priority, including passive movement, explicit
+	# building attacks, stand ground and resuming attack-move after retaliation.
 	if (
 		is_instance_valid(attacker)
 		and attacker.current_state != UnitBase.State.DEAD
 		and defender.current_state != UnitBase.State.DEAD
-		and defender.attack_target == null
-		and defender.can_auto_retaliate()
 	):
-		defender.command_attack(attacker)
+		defender.respond_to_attacker(attacker)
 
 
 static func deal_damage_to_building(attacker: UnitBase, defender: BuildingBase) -> void:

@@ -1,7 +1,6 @@
 class_name BuildingData
 extends RefCounted
 
-const FARM_FOOD_AMOUNT: int = 300
 ## Static data definitions for all building types in AOEM.
 ## `attack_range` values are range tiles and use MapData's shared conversion.
 
@@ -12,12 +11,10 @@ enum BuildingType {
 	ARCHERY_RANGE,
 	STABLE,
 	FARM,
-	LUMBER_CAMP,
-	MINING_CAMP,
-	SIEGE_WORKSHOP,
-	BLACKSMITH,
-	WATCH_TOWER,
-	MILL,
+	RESOURCE_CAMP = 6,
+	SIEGE_WORKSHOP = 8,
+	BLACKSMITH = 9,
+	WATCH_TOWER = 10,
 }
 
 # Cost format: { "food": int, "wood": int, "gold": int }
@@ -29,7 +26,7 @@ const BUILDINGS: Dictionary = {
 		"hp": 5000,
 		"cost": { "food": 0, "wood": 400, "gold": 0 },
 		"build_time": 60.0,
-		"pop_provided": 5,
+		"pop_provided": 10,
 		"footprint": Vector2i(4, 4),
 		"can_train": [UnitData.UnitType.VILLAGER, UnitData.UnitType.SCOUT],
 		"age_required": 3,  # Extra TCs available in Castle Age
@@ -51,7 +48,7 @@ const BUILDINGS: Dictionary = {
 		"name": "House",
 		"hp": 500,
 		"cost": { "food": 0, "wood": 50, "gold": 0 },
-		"build_time": 15.0,
+		"build_time": 10.0,
 		"pop_provided": 10,
 		"footprint": Vector2i(2, 2),
 		"can_train": [],
@@ -62,8 +59,8 @@ const BUILDINGS: Dictionary = {
 	BuildingType.BARRACKS: {
 		"name": "Barracks",
 		"hp": 1500,
-		"cost": { "food": 0, "wood": 150, "gold": 0 },
-		"build_time": 30.0,
+		"cost": { "food": 0, "wood": 120, "gold": 0 },
+		"build_time": 20.0,
 		"pop_provided": 0,
 		"footprint": Vector2i(3, 3),
 		"can_train": [UnitData.UnitType.INFANTRY],
@@ -74,8 +71,8 @@ const BUILDINGS: Dictionary = {
 	BuildingType.ARCHERY_RANGE: {
 		"name": "Archery Range",
 		"hp": 1200,
-		"cost": { "food": 0, "wood": 150, "gold": 0 },
-		"build_time": 30.0,
+		"cost": { "food": 0, "wood": 120, "gold": 0 },
+		"build_time": 20.0,
 		"pop_provided": 0,
 		"footprint": Vector2i(3, 3),
 		"can_train": [UnitData.UnitType.ARCHER],
@@ -86,8 +83,8 @@ const BUILDINGS: Dictionary = {
 	BuildingType.STABLE: {
 		"name": "Stable",
 		"hp": 1200,
-		"cost": { "food": 0, "wood": 150, "gold": 0 },
-		"build_time": 30.0,
+		"cost": { "food": 0, "wood": 120, "gold": 0 },
+		"build_time": 20.0,
 		"pop_provided": 0,
 		"footprint": Vector2i(3, 3),
 		"can_train": [UnitData.UnitType.CAVALRY],
@@ -108,47 +105,23 @@ const BUILDINGS: Dictionary = {
 		"provides_food": true,
 		"color": Color(0.75, 0.7, 0.3),
 	},
-	BuildingType.MILL: {
-		"name": "Mill",
-		"hp": 650,
-		"cost": { "food": 0, "wood": 100, "gold": 0 },
-		"build_time": 18.0,
+	BuildingType.RESOURCE_CAMP: {
+		"name": "Resource Camp",
+		"hp": 600,
+		"cost": { "food": 0, "wood": 80, "gold": 0 },
+		"build_time": 10.0,
 		"pop_provided": 0,
 		"footprint": Vector2i(2, 2),
 		"can_train": [],
 		"age_required": 0,
-		"drop_off": ["food"],
-		"color": Color(0.78, 0.62, 0.35),
-	},
-	BuildingType.LUMBER_CAMP: {
-		"name": "Lumber Camp",
-		"hp": 500,
-		"cost": { "food": 0, "wood": 100, "gold": 0 },
-		"build_time": 15.0,
-		"pop_provided": 0,
-		"footprint": Vector2i(2, 2),
-		"can_train": [],
-		"age_required": 0,
-		"drop_off": ["wood"],
-		"color": Color(0.45, 0.35, 0.2),
-	},
-	BuildingType.MINING_CAMP: {
-		"name": "Mining Camp",
-		"hp": 500,
-		"cost": { "food": 0, "wood": 100, "gold": 0 },
-		"build_time": 15.0,
-		"pop_provided": 0,
-		"footprint": Vector2i(2, 2),
-		"can_train": [],
-		"age_required": 0,
-		"drop_off": ["gold"],
-		"color": Color(0.5, 0.5, 0.55),
+		"drop_off": ["food", "wood", "gold"],
+		"color": Color(0.65, 0.53, 0.33),
 	},
 	BuildingType.SIEGE_WORKSHOP: {
 		"name": "Siege Workshop",
 		"hp": 1500,
 		"cost": { "food": 0, "wood": 300, "gold": 100 },
-		"build_time": 40.0,
+		"build_time": 28.0,
 		"pop_provided": 0,
 		"footprint": Vector2i(3, 3),
 		"can_train": [UnitData.UnitType.SIEGE],
@@ -159,8 +132,8 @@ const BUILDINGS: Dictionary = {
 	BuildingType.BLACKSMITH: {
 		"name": "Blacksmith",
 		"hp": 1200,
-		"cost": { "food": 0, "wood": 150, "gold": 0 },
-		"build_time": 25.0,
+		"cost": { "food": 0, "wood": 120, "gold": 0 },
+		"build_time": 18.0,
 		"pop_provided": 0,
 		"footprint": Vector2i(2, 2),
 		"can_train": [],
@@ -173,7 +146,7 @@ const BUILDINGS: Dictionary = {
 		"name": "Watch Tower",
 		"hp": 800,
 		"cost": { "food": 0, "wood": 100, "gold": 25 },
-		"build_time": 30.0,
+		"build_time": 20.0,
 		"pop_provided": 0,
 		"footprint": Vector2i(1, 1),
 		"can_train": [],

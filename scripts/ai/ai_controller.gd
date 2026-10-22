@@ -105,9 +105,7 @@ var _house_count: int = 0
 var _barracks_count: int = 0
 var _archery_range_count: int = 0
 var _stable_count: int = 0
-var _lumber_camp_count: int = 0
-var _mining_camp_count: int = 0
-var _mill_count: int = 0
+var _resource_camp_count: int = 0
 var _farm_count: int = 0
 var _feudal_paid_farm_foundations: int = 0
 var _feudal_paid_farm_foundation_ids: Dictionary = {}
@@ -187,9 +185,7 @@ const REBUILD_PRIORITY: Array[int] = [
 	BuildingData.BuildingType.WATCH_TOWER,
 	BuildingData.BuildingType.ARCHERY_RANGE,
 	BuildingData.BuildingType.STABLE,
-	BuildingData.BuildingType.LUMBER_CAMP,
-	BuildingData.BuildingType.MINING_CAMP,
-	BuildingData.BuildingType.MILL,
+	BuildingData.BuildingType.RESOURCE_CAMP,
 	BuildingData.BuildingType.BLACKSMITH,
 	BuildingData.BuildingType.FARM,
 	BuildingData.BuildingType.SIEGE_WORKSHOP,
@@ -218,13 +214,13 @@ const ECONOMY_REBALANCE_INTERVALS: Dictionary = {
 	Difficulty.HARD: 16.0,
 }
 const ECONOMY_REBALANCE_RETRY_SECONDS: float = 18.0
-# Three paid farms contain 900 food. Together with the opening bank and finite
+# Permanent farms sustain food after finite berries. Together with the opening bank and
 # legally gathered natural food, that funds the 12-villager/3-military liveness
-# floor plus the 400-food Feudal transaction without a bonus or hidden lookup.
-# Depleted farms remain subject to the normal paid rebuild path.
+# floor plus the age-up transaction without a bonus or hidden lookup.
+# Destroyed farms remain subject to the normal paid rebuild path.
 const FEUDAL_FARM_CAPACITY_TARGET: int = 3
 # The opening still needs to earn 225 wood after its first Farm and House:
-# 75 for the Barracks bank plus 150 for two more finite Farms. With TC-length
+# 75 for the Farm bank plus 150 for two more Farms. With TC-length
 # drop-off routes, a quarter of the early workforce cannot complete those real
 # transactions by the liveness horizon. This temporary half-workforce floor is
 # released as soon as all four foundations are registered.
@@ -437,8 +433,8 @@ func _on_ai_building_construction_complete(building: BuildingBase) -> void:
 
 func _track_paid_feudal_farm_foundation(building: Node) -> void:
 	## Foundations are registered only after Main has completed the normal paid
-	## construction transaction. Count each pre-Feudal Farm once even if its finite
-	## stock later depletes and the node leaves _my_buildings: consumed Farm capacity
+	## construction transaction. Count each pre-Feudal Farm once even if it
+	## is destroyed and leaves _my_buildings: purchased Farm capacity
 	## already contributed real food and must not keep the opening wood latch active.
 	if GameManager.get_player_age(player_id) > 1:
 		return
@@ -476,7 +472,7 @@ func _assign_safe_worker_to_completed_farm(farm_node: Node) -> void:
 		var state: int = int(villager.get("current_state"))
 		# Even an IDLE worker may be holding cargo after an interrupted drop-off.
 		# Keep it on the explicit return path. A GATHERING worker may be loaded because
-		# Villager's cross-type command deposits that exact cargo before the Farm order.
+		# Villager's cargo manifest preserves its old resources during the Farm order.
 		if state == UnitBase.State.IDLE:
 			if int(villager.get("carried_amount")) == 0:
 				candidates.append(villager)
@@ -999,8 +995,8 @@ func _get_economy_resource_priority(resources: Dictionary) -> Array:
 
 func _rebalance_gathering_villagers() -> void:
 	## Rebalancing is deliberately rate-limited to one gatherer. Loaded donors
-	## use Villager's deposit-then-retarget transaction; a pending request can also
-	## catch the post-dropoff zero-cargo window without discarding resources.
+	## retask immediately while preserving their cargo; unavailable destinations
+	## remain pending until a reachable visible source can be assigned.
 	_service_pending_economy_rebalance()
 	if _pending_economy_rebalance_type != "":
 		return
@@ -1219,8 +1215,8 @@ func _service_pending_economy_rebalance() -> void:
 		if _is_worker_retreating(villager):
 			continue
 		# BUILDING workers and MOVING dropoff workers are never interrupted. A loaded
-		# GATHERING donor is safe because command_gather preserves and deposits its
-		# old cargo before activating the requested resource type.
+		# GATHERING donor is safe because command_gather preserves its old cargo
+		# independently while activating the requested resource type.
 		if int(villager.get("current_state")) != UnitBase.State.GATHERING:
 			continue
 		if str(villager.get("carried_resource_type")) != _pending_economy_rebalance_from_type:
@@ -1267,7 +1263,7 @@ func _check_building_construction() -> void:
 	# One paid Farm secures food continuity, but the first Barracks is the hard
 	# prerequisite for the declared military liveness floor. Before that force
 	# floor is committed, do not let Farm 2 (or a cheaper support building) spend
-	# the 150-wood Barracks bank.
+	# the 120-wood Barracks bank.
 	# Foundations are registered immediately, so _barracks_count also closes this
 	# gate while the first Barracks is still under construction.
 	var committed_military: int = _get_military_units().size() + _count_queued_military_units()
@@ -1328,12 +1324,12 @@ func _check_building_construction() -> void:
 		if not ResourceManager.can_afford(player_id, cost):
 			if b_type == _get_compact_missing_role_building() and _farm_count > 0:
 				# Preserve the second troop-role unlock. An active paid Farm keeps
-				# food flowing while wood banks; if the last Farm expires, its normal
+				# food flowing while wood banks; if the last Farm is destroyed, its normal
 				# paid replacement is still allowed below instead of starving workers.
 				return
 			# After the first paid Farm, preserve wood for the one Age-I military
-			# production unlock. Otherwise an affordable Mill/camp later in the order
-			# can repeatedly consume the 150-wood Barracks reserve.
+			# production unlock. Otherwise an affordable camp later in the order
+			# can repeatedly consume the 120-wood Barracks reserve.
 			if (
 				age <= 1
 				and b_type == BuildingData.BuildingType.BARRACKS
@@ -1686,14 +1682,8 @@ func _get_target_building_counts(age: int) -> Dictionary:
 	if _saving_for_age_up and age <= 1:
 		farm_target = clampi(villagers / 8, 0, 2)
 	if _timed_age_up_reserve_active and age <= 1:
-		# A depleted Farm has already delivered part or all of its paid finite stock.
-		# Request only the remaining number of paid foundations, rather than resetting
-		# to three simultaneous live Farms and creating an unbounded rebuild treadmill.
-		var remaining_paid_farms: int = maxi(
-			0,
-			_get_feudal_farm_capacity_target() - _feudal_paid_farm_foundations
-		)
-		farm_target = maxi(farm_target, _farm_count + remaining_paid_farms)
+		farm_target = maxi(farm_target, _get_feudal_farm_capacity_target())
+
 	if _is_under_pressure:
 		farm_target = maxi(1, farm_target)
 	if _get_compact_missing_role_building() >= 0:
@@ -1702,9 +1692,7 @@ func _get_target_building_counts(age: int) -> Dictionary:
 	var targets: Dictionary = {
 		# Houses are exclusively demand-driven by _check_house_need().
 		BuildingData.BuildingType.HOUSE: 0,
-		BuildingData.BuildingType.MILL: 1 if age <= 2 else 2,
-		BuildingData.BuildingType.LUMBER_CAMP: 1 if age <= 1 else 2,
-		BuildingData.BuildingType.MINING_CAMP: 1 if age <= 2 else 2,
+		BuildingData.BuildingType.RESOURCE_CAMP: 1 if age <= 1 else 2,
 		BuildingData.BuildingType.FARM: farm_target,
 		BuildingData.BuildingType.BARRACKS: 1 if age <= 1 else 2,
 		BuildingData.BuildingType.ARCHERY_RANGE: 0 if age < 2 else 1,
@@ -1725,12 +1713,11 @@ func _get_target_building_counts(age: int) -> Dictionary:
 		if age >= 2:
 			targets[BuildingData.BuildingType.WATCH_TOWER] = 2
 			targets[BuildingData.BuildingType.ARCHERY_RANGE] = maxi(targets[BuildingData.BuildingType.ARCHERY_RANGE], 1)
-		targets[BuildingData.BuildingType.MILL] = 1
 		targets[BuildingData.BuildingType.TOWN_CENTER] = 1
 	if _uses_compact_population_policy():
 		# A second TC/production duplicate cannot earn its cost back with a ten
 		# to twenty worker economy and small replacement queues. Spend on troops.
-		for building_type in [BuildingData.BuildingType.TOWN_CENTER, BuildingData.BuildingType.BARRACKS, BuildingData.BuildingType.ARCHERY_RANGE, BuildingData.BuildingType.STABLE, BuildingData.BuildingType.MILL, BuildingData.BuildingType.LUMBER_CAMP, BuildingData.BuildingType.MINING_CAMP]:
+		for building_type in [BuildingData.BuildingType.TOWN_CENTER, BuildingData.BuildingType.BARRACKS, BuildingData.BuildingType.ARCHERY_RANGE, BuildingData.BuildingType.STABLE, BuildingData.BuildingType.RESOURCE_CAMP]:
 			targets[building_type] = mini(int(targets[building_type]), 1)
 		targets[BuildingData.BuildingType.SIEGE_WORKSHOP] = 1 if age >= 3 and _get_fighting_units().size() >= _get_attack_threshold() and not _needs_compact_worker_recovery() else 0
 	return targets
@@ -1744,12 +1731,10 @@ func _get_build_order(age: int) -> Array:
 		var mounted_role: int = BuildingData.BuildingType.STABLE
 		var first_role: int = mounted_role if _get_compact_missing_role_building() == mounted_role else ranged_role
 		var second_role: int = ranged_role if first_role == mounted_role else mounted_role
-		var order: Array = [BuildingData.BuildingType.FARM, BuildingData.BuildingType.BARRACKS, BuildingData.BuildingType.LUMBER_CAMP, BuildingData.BuildingType.MILL, first_role, second_role, BuildingData.BuildingType.MINING_CAMP]
+		var order: Array = [BuildingData.BuildingType.FARM, BuildingData.BuildingType.BARRACKS, BuildingData.BuildingType.RESOURCE_CAMP, first_role, second_role]
 		if GameManager.get_match_mode() == SkirmishData.MatchMode.QUICK_CONTROL:
-			# One Farm and the TC sustain the short opening. Buy the first paid
-			# counter producer before spending another 100 wood on a nearer Mill.
-			# Keep the wood drop-off first and the food drop-off immediately after.
-			order = [BuildingData.BuildingType.FARM, BuildingData.BuildingType.BARRACKS, BuildingData.BuildingType.LUMBER_CAMP, first_role, BuildingData.BuildingType.MILL, second_role, BuildingData.BuildingType.MINING_CAMP]
+			# One Farm, camp and TC sustain the short opening.
+			order = [BuildingData.BuildingType.FARM, BuildingData.BuildingType.BARRACKS, BuildingData.BuildingType.RESOURCE_CAMP, first_role, second_role]
 		if age >= 3:
 			order.append(BuildingData.BuildingType.SIEGE_WORKSHOP)
 		order.append_array([BuildingData.BuildingType.WATCH_TOWER, BuildingData.BuildingType.BLACKSMITH])
@@ -1759,10 +1744,8 @@ func _get_build_order(age: int) -> Array:
 			BuildingData.BuildingType.HOUSE,
 			BuildingData.BuildingType.FARM,
 			BuildingData.BuildingType.BARRACKS,
-			BuildingData.BuildingType.MILL,
 			BuildingData.BuildingType.WATCH_TOWER,
-			BuildingData.BuildingType.LUMBER_CAMP,
-			BuildingData.BuildingType.MINING_CAMP,
+			BuildingData.BuildingType.RESOURCE_CAMP,
 			BuildingData.BuildingType.ARCHERY_RANGE,
 			BuildingData.BuildingType.STABLE,
 			BuildingData.BuildingType.BLACKSMITH,
@@ -1772,9 +1755,7 @@ func _get_build_order(age: int) -> Array:
 	if age >= 3:
 		return [
 			BuildingData.BuildingType.HOUSE,
-			BuildingData.BuildingType.MILL,
-			BuildingData.BuildingType.LUMBER_CAMP,
-			BuildingData.BuildingType.MINING_CAMP,
+			BuildingData.BuildingType.RESOURCE_CAMP,
 			BuildingData.BuildingType.FARM,
 			BuildingData.BuildingType.BARRACKS,
 			BuildingData.BuildingType.ARCHERY_RANGE,
@@ -1788,9 +1769,7 @@ func _get_build_order(age: int) -> Array:
 		BuildingData.BuildingType.HOUSE,
 		BuildingData.BuildingType.FARM,
 		BuildingData.BuildingType.BARRACKS,
-		BuildingData.BuildingType.MILL,
-		BuildingData.BuildingType.LUMBER_CAMP,
-		BuildingData.BuildingType.MINING_CAMP,
+		BuildingData.BuildingType.RESOURCE_CAMP,
 		BuildingData.BuildingType.BLACKSMITH,
 		BuildingData.BuildingType.ARCHERY_RANGE,
 		BuildingData.BuildingType.STABLE,
@@ -1804,15 +1783,11 @@ func _is_essential_building_while_saving(building_type: int) -> bool:
 	if building_type == BuildingData.BuildingType.HOUSE:
 		return true
 	# Unlock one real military production queue before reserving the economy for
-	# an age-up. This costs the same 150 wood as it does for the human player;
+	# an age-up. This costs the same 120 wood as it does for the human player;
 	# it only prevents the fair opening from starving its own liveness.
 	if building_type == BuildingData.BuildingType.BARRACKS:
 		return _barracks_count == 0
-	if building_type == BuildingData.BuildingType.LUMBER_CAMP:
-		return true
-	if building_type == BuildingData.BuildingType.MINING_CAMP:
-		return true
-	if building_type == BuildingData.BuildingType.MILL:
+	if building_type == BuildingData.BuildingType.RESOURCE_CAMP:
 		return true
 	if building_type == BuildingData.BuildingType.FARM:
 		return true
@@ -2601,7 +2576,7 @@ func _find_defense_threats() -> Array:
 			continue
 		if building.state == BuildingBase.State.DESTROYED:
 			continue
-		# Farms are replaceable map economy. Everything else is infrastructure
+		# Farms are permanent but destructible map economy. Everything else is infrastructure
 		# worth reacting to, including a House whose loss may population-block us.
 		if building.building_type != BuildingData.BuildingType.FARM:
 			anchors.append(building.global_position)
@@ -3062,9 +3037,7 @@ func _update_building_counts() -> void:
 	_barracks_count = 0
 	_archery_range_count = 0
 	_stable_count = 0
-	_lumber_camp_count = 0
-	_mining_camp_count = 0
-	_mill_count = 0
+	_resource_camp_count = 0
 	_farm_count = 0
 	_siege_workshop_count = 0
 	_blacksmith_count = 0
@@ -3082,9 +3055,7 @@ func _update_building_counts() -> void:
 			BuildingData.BuildingType.BARRACKS: _barracks_count += 1
 			BuildingData.BuildingType.ARCHERY_RANGE: _archery_range_count += 1
 			BuildingData.BuildingType.STABLE: _stable_count += 1
-			BuildingData.BuildingType.LUMBER_CAMP: _lumber_camp_count += 1
-			BuildingData.BuildingType.MINING_CAMP: _mining_camp_count += 1
-			BuildingData.BuildingType.MILL: _mill_count += 1
+			BuildingData.BuildingType.RESOURCE_CAMP: _resource_camp_count += 1
 			BuildingData.BuildingType.FARM: _farm_count += 1
 			BuildingData.BuildingType.SIEGE_WORKSHOP: _siege_workshop_count += 1
 			BuildingData.BuildingType.BLACKSMITH: _blacksmith_count += 1
@@ -3098,9 +3069,7 @@ func _get_building_count(building_type: int) -> int:
 		BuildingData.BuildingType.BARRACKS: return _barracks_count
 		BuildingData.BuildingType.ARCHERY_RANGE: return _archery_range_count
 		BuildingData.BuildingType.STABLE: return _stable_count
-		BuildingData.BuildingType.LUMBER_CAMP: return _lumber_camp_count
-		BuildingData.BuildingType.MINING_CAMP: return _mining_camp_count
-		BuildingData.BuildingType.MILL: return _mill_count
+		BuildingData.BuildingType.RESOURCE_CAMP: return _resource_camp_count
 		BuildingData.BuildingType.FARM: return _farm_count
 		BuildingData.BuildingType.SIEGE_WORKSHOP: return _siege_workshop_count
 		BuildingData.BuildingType.BLACKSMITH: return _blacksmith_count
@@ -3599,12 +3568,8 @@ func _find_build_location_candidate(
 			return Vector2i(-1, -1)
 
 	# Special placement for resource-gathering buildings
-	if building_type == BuildingData.BuildingType.MILL:
-		return _find_build_near_resource(MapData.TileType.BERRY_BUSH, footprint, search_cursor)
-	if building_type == BuildingData.BuildingType.LUMBER_CAMP:
+	if building_type == BuildingData.BuildingType.RESOURCE_CAMP:
 		return _find_build_near_resource(MapData.TileType.FOREST, footprint, search_cursor)
-	if building_type == BuildingData.BuildingType.MINING_CAMP:
-		return _find_build_near_resource(MapData.TileType.GOLD_MINE, footprint, search_cursor)
 
 	return _find_build_location_near_tile(_base_tile, footprint, 3, 15, search_cursor)
 

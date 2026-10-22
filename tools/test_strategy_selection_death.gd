@@ -18,7 +18,7 @@ func _run() -> void:
 	for failure: String in _failures:
 		push_error("[FAIL] strategy_selection_death: " + failure)
 	if _failures.is_empty():
-		print("[PASS] strategy_selection_death: 12 profiles; partial/last selected deaths preserve Economy/Army and scroll, next contact pays once, groups refresh, no world leakage, deliberate selection and context surfaces still dismiss")
+		print("[PASS] strategy_selection_death: 12 profiles; partial/last selected deaths preserve Economy/Army bounded pages, next contact pays once, groups refresh, no world leakage, deliberate selection and context surfaces still dismiss")
 	get_tree().quit(0 if _failures.is_empty() else 1)
 
 
@@ -73,14 +73,14 @@ func _death_journey(phone: Vector2i, interface_scale: float, notched: bool) -> v
 	var camera_position: Vector2 = camera.position
 	var camera_zoom: Vector2 = camera.zoom
 	await _button(overview.rail.get_node("EconomyButton"))
+	await _button(overview.get("_production_tab"))
 	var row: Dictionary = (overview.get("_producer_rows") as Dictionary)[tc.get_instance_id()]
 	var train: Button = row.train[UnitData.UnitType.VILLAGER]
 	var scroll: ScrollContainer = overview.get("_scroll")
-	scroll.ensure_control_visible(train)
 	await _frames(3)
 	var production_scroll: int = scroll.scroll_vertical
 	var intended_contact: Vector2 = train.get_global_rect().get_center()
-	_expect(production_scroll > 0 and scroll.get_global_rect().encloses(train.get_global_rect()), "fixture needs a visible scrolled production button")
+	_expect(production_scroll == 0 and train.is_visible_in_tree() and scroll.get_global_rect().encloses(train.get_global_rect()), "fixture needs the visible unscrolled Train page")
 	await _kill_selected(troops[0] as UnitBase, controller)
 	_assert_surface(overview, "economy", production_scroll, 1)
 	_expect(not (row.rally as Button).disabled, "partial loss disabled the surviving army rally")

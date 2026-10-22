@@ -1,5 +1,5 @@
 extends SceneTree
-## Standalone headless regression for farms as finite, owner-scoped food resources.
+## Standalone headless regression for farms as permanent, owner-scoped food resources.
 ##
 ## Run with:
 ##   Godot --headless --path . --script tools/test_farm_economy.gd
@@ -113,10 +113,8 @@ func _test_discovery_and_owner_filtering(game_map: Node2D) -> void:
 	var friendly: Node2D = _make_farm(0, Vector2(20.0, 0.0), BUILDING_ACTIVE)
 	var enemy: Node2D = _make_farm(1, Vector2(10.0, 0.0), BUILDING_ACTIVE)
 	var constructing: Node2D = _make_farm(0, Vector2(5.0, 0.0), BUILDING_CONSTRUCTING)
-	var exhausted: Node2D = _make_farm(0, Vector2(3.0, 0.0), BUILDING_ACTIVE)
-	exhausted.set("farm_remaining", 0)
 	var destroyed: Node2D = _make_farm(0, Vector2(2.0, 0.0), BUILDING_DESTROYED)
-	for farm: Node2D in [friendly, enemy, constructing, exhausted, destroyed]:
+	for farm: Node2D in [friendly, enemy, constructing, destroyed]:
 		game_map.call("register_harvestable", farm)
 
 	_expect_same(
@@ -137,7 +135,6 @@ func _test_discovery_and_owner_filtering(game_map: Node2D) -> void:
 	_expect(bool(game_map.call("is_resource_target_valid", natural_food, "food", 0)), "neutral food remains valid for player 0")
 	_expect(not bool(game_map.call("is_resource_target_valid", enemy, "food", 0)), "enemy farm is rejected")
 	_expect(not bool(game_map.call("is_resource_target_valid", constructing, "food", 0)), "constructing farm is rejected")
-	_expect(not bool(game_map.call("is_resource_target_valid", exhausted, "food", 0)), "exhausted farm is rejected")
 	_expect(not bool(game_map.call("is_resource_target_valid", destroyed, "food", 0)), "destroyed farm is rejected")
 
 	friendly.set("state", BUILDING_DESTROYED)
@@ -195,14 +192,13 @@ func _test_human_input_targeting(game_map: Node2D) -> void:
 
 func _test_harvest_depletion() -> void:
 	var farm: Node2D = _make_farm(0, Vector2(600.0, 0.0), BUILDING_ACTIVE)
-	farm.set("farm_remaining", 3)
-	_expect_eq(farm.call("harvest", 2), 2, "farm returns the requested amount while stocked")
-	_expect_eq(farm.get("farm_remaining"), 1, "farm stock decreases exactly")
-	_expect_eq(farm.call("harvest", 5), 1, "final harvest is capped to remaining stock")
-	_expect_eq(farm.get("farm_remaining"), 0, "farm reaches zero stock")
-	_expect_eq(farm.get("state"), BUILDING_DESTROYED, "exhausted farm enters destroyed state immediately")
-	_expect(not bool(farm.call("is_harvestable_by", 0)), "exhausted farm cannot be harvested again")
-	_expect_eq(farm.call("harvest", 1), 0, "repeated harvest after exhaustion returns zero")
+	for _load: int in range(1000):
+		_expect_eq(farm.call("harvest", 15), 15, "every harvest respects the requested load without exhaustion")
+	_expect_eq(farm.get("state"), BUILDING_ACTIVE, "15,000 food does not exhaust a permanent farm")
+	_expect(bool(farm.call("is_harvestable_by", 0)), "permanent farm remains harvestable")
+	_expect_eq(farm.call("harvest", -5), 0, "negative requests cannot create negative cargo")
+	farm.set("state", BUILDING_DESTROYED)
+	_expect_eq(farm.call("harvest", 1), 0, "destroyed farm cannot provide food")
 
 
 func _test_villager_harvest_and_deposit_loop() -> void:
@@ -280,7 +276,7 @@ func _finish() -> void:
 	if _resource_manager != null:
 		_resource_manager.call("reset")
 	if _failures.is_empty():
-		print("[PASS] farm_economy: discovery, ownership, input, depletion, and deposit loop")
+		print("[PASS] farm_economy: discovery, ownership, input, permanence, and deposit loop")
 		quit(0)
 		return
 	for failure: String in _failures:

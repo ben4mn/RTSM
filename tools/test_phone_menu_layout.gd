@@ -87,6 +87,21 @@ func _exercise_layout(ui_scale: float, notched: bool) -> void:
 	)
 	_check_surface_bounds(diagnostics, "kingdom_preview", "%s kingdom preview" % suffix)
 	_check_difficulty_choices(menu, diagnostics, suffix, ui_scale)
+	var online_button: Button = menu.get("_online_button")
+	if online_button.size.y * ui_scale < MIN_PHYSICAL_TOUCH_TARGET - 0.5 or not safe_area.grow(0.5).encloses(online_button.get_global_rect()):
+		_failures.append("%s online action leaves safe touch area" % suffix)
+	menu.call("_on_network_status_changed", "searching", "Searching for an opponent…")
+	await get_tree().process_frame
+	menu.call("apply_mobile_layout", logical_size, safe_area)
+	await get_tree().process_frame
+	if (menu.get("difficulty_description") as Label).visible or not (menu.get("_network_status") as Label).visible or (menu.get("start_button") as Button).text != "Cancel search":
+		_failures.append("%s search layout obscures search/cancel state" % suffix)
+	menu.call("_on_network_status_changed", "error", "Connection lost. Try again.")
+	await get_tree().process_frame
+	menu.call("apply_mobile_layout", logical_size, safe_area)
+	if (menu.get("difficulty_description") as Label).text != "Connection lost. Try again." or online_button.disabled:
+		_failures.append("%s connection error hides retry" % suffix)
+	menu.call("_on_network_status_changed", "idle", "")
 	for key: String in ["seed_input", "random_seed_button", "difficulty_option"]:
 		if bool((diagnostics.get(key, {}) as Dictionary).get("visible", true)):
 			_failures.append("%s advanced setup %s leaked into quick start" % [suffix, key])
@@ -103,7 +118,7 @@ func _exercise_layout(ui_scale: float, notched: bool) -> void:
 	if settings == null:
 		_failures.append("%s shared settings did not open" % suffix)
 	else:
-		for section: int in 4:
+		for section: int in 5:
 			settings.call("_show_section", section)
 			await get_tree().process_frame
 			await get_tree().process_frame

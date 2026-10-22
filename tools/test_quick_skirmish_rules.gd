@@ -26,20 +26,20 @@ func _test_latched_costs() -> void:
 	ResourceManager.initialize_player(0)
 	ResourceManager.initialize_player(1)
 	for pid: int in [0, 1]:
-		_expect(ResourceManager.get_resource(pid, "wood") == 150, "mode keeps ordinary starting bank")
+		_expect(ResourceManager.get_resource(pid, "wood") == 250, "mode keeps ordinary starting bank")
 		_expect(GameManager.get_age_up_cost(pid, 2) == {"food": 250, "gold": 125}, "both sides pay quick age cost")
 		var cost: Dictionary = BuildingData.get_building_cost(BuildingData.BuildingType.BARRACKS)
 		_expect(cost["wood"] == 100 and ResourceManager.try_spend(pid, cost), "both sides pay quick barracks")
-		_expect(ResourceManager.get_resource(pid, "wood") == 50, "quick building debits exact cost")
+		_expect(ResourceManager.get_resource(pid, "wood") == 150, "quick building debits exact cost")
 		ResourceManager.refund(pid, cost)
-		_expect(ResourceManager.get_resource(pid, "wood") == 150, "refund preserves exact purchase")
+		_expect(ResourceManager.get_resource(pid, "wood") == 250, "refund preserves exact purchase")
 	GameManager.selected_match_mode = SkirmishData.MatchMode.STANDARD
 	GameManager.set_state(GameManager.GameState.PAUSED)
 	_expect(BuildingData.get_building_stats(BuildingData.BuildingType.ARCHERY_RANGE)["cost"]["wood"] == 100, "pause settings cannot change running displayed/spent costs")
 	_expect(GameManager.get_age_up_cost(0, 2)["food"] == 250, "pause settings cannot change running age cost")
 	GameManager.initialize_game()
-	_expect(BuildingData.get_building_cost(BuildingData.BuildingType.BARRACKS)["wood"] == 150, "new standard match restores original costs")
-	_expect(GameManager.get_age_up_cost(0, 2) == {"food": 300, "gold": 150}, "standard Feudal remains unchanged")
+	_expect(BuildingData.get_building_cost(BuildingData.BuildingType.BARRACKS)["wood"] == 120, "new standard match restores original costs")
+	_expect(GameManager.get_age_up_cost(0, 2) == {"food": 250, "gold": 125}, "standard Feudal uses shared pacing costs")
 
 func _site(mode: int) -> Node2D:
 	var site: Node2D = SITE.instantiate()
@@ -72,7 +72,7 @@ func _test_control_bank() -> void:
 	_expect(is_equal_approx(site.victory_timer, 100.0), "recapture restores original side bank")
 	var ticks: Array[float] = []
 	site.victory_timer_tick.connect(func(_owner: int, remaining: float, _total: float) -> void: ticks.append(remaining))
-	site._handle_captured(1, 0, 140.0)
+	site._handle_captured(1, 0, SkirmishData.get_sacred_target(SkirmishData.MatchMode.QUICK_CONTROL) - 100.0)
 	_expect(ticks.size() == 1 and is_zero_approx(ticks[0]), "natural bank boundary emits existing victory signal")
 	site.free()
 	var standard: Node2D = _site(SkirmishData.MatchMode.STANDARD)

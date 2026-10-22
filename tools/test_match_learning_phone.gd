@@ -31,6 +31,7 @@ func _run() -> void:
 				await _check_profile(physical, scale_value, notched)
 	await _check_root_input(Vector2i(844, 390))
 	await _check_root_input(Vector2i(932, 430))
+	DirAccess.make_dir_recursive_absolute("res://output/evolution/learning-20261010-battle-lessons")
 	var output := FileAccess.open("res://output/evolution/learning-20261010-battle-lessons/phone-lessons.json", FileAccess.WRITE)
 	output.store_string(JSON.stringify({"scope": "Headless SubViewport Control/font shaping and synthetic screen-touch dispatch; no device rendering or performance claim", "profiles": profiles, "inputs": inputs, "failures": failures}, "\t"))
 	if failures.is_empty():

@@ -88,6 +88,15 @@ func _run() -> void:
 		_expect(routes[0]["destination"] == worker.move_target and routes[0]["order_destination"] == worker.move_target, "regular movement endpoint metadata disagrees with the accepted order")
 		_expect(routes[0]["mode"] == "move", "forced Move is displayed as attack-move")
 	_record("issued_detour", routes, worker)
+	var observed: Dictionary = _overlay.get("_observed_orders")
+	(observed[worker.get_instance_id()] as Dictionary)["started"] = Time.get_ticks_msec() / 1000.0 - 1.7
+	var fading: Array[Dictionary] = _routes()
+	_expect(fading.size() == 1 and float(fading[0]["opacity"]) > 0.0 and float(fading[0]["opacity"]) < 0.6, "route preview does not fade gently after its brief display")
+	(observed[worker.get_instance_id()] as Dictionary)["started"] = Time.get_ticks_msec() / 1000.0 - 2.1
+	_expect(_routes().is_empty(), "route lines remain visible beyond two seconds")
+	_selection.deselect_all()
+	_selection.select_single(worker)
+	_expect(not _routes().is_empty(), "reselection must offer a fresh brief route preview")
 	var before_feedback: int = _navigation.requests
 	for repeat: int in 20:
 		_routes()
@@ -130,9 +139,10 @@ func _test_attack_intent() -> void:
 		for x: int in MapData.MAP_WIDTH:
 			fog.fog_grid[y][x] = MapData.FogState.VISIBLE
 	_selection.select_single(troop)
+	_main.call("_arm_attack_move_command")
 	_main.call("_on_move_command", GOAL)
 	var accepted_destination: Vector2 = troop.move_target
-	_expect(troop.attack_move and _routes()[0]["mode"] == "attack", "military smart ground order must expose attack-move feedback")
+	_expect(troop.attack_move and _routes()[0]["mode"] == "attack", "deliberate attack-move must expose attack-move feedback")
 	troop.command_attack(enemy, false)
 	_expect(troop.current_state == UnitBase.State.ATTACKING and troop.attack_move, "auto-acquisition discarded attack-move intent")
 	var engaged: Array[Dictionary] = _routes()
@@ -186,7 +196,7 @@ func _test_grouping_and_visibility() -> void:
 		unit.command_move_path(PackedVector2Array([unit.global_position, goal + Vector2(index * 160, 0)]))
 		group.append(unit)
 	_selection.select_many(group)
-	_expect(_routes().size() == 4, "independent route groups are not capped at four")
+	_expect(_routes().size() == 3, "independent route groups are not capped at three")
 	_record("capped_groups", _routes(), first)
 	var enemy := _fixture_unit(1, Vector2i(12, 12))
 	enemy.command_move_path(PackedVector2Array([enemy.global_position, goal]))
@@ -247,5 +257,5 @@ func _finish() -> void:
 	for failure: String in _failures:
 		push_error("[FAIL] command_path_feedback: " + failure)
 	if _failures.is_empty():
-		print("[PASS] command_path_feedback: real Main detour and live progress; no feedback A*; Stop/arrival/death/deselect; combat order retention and explicit Attack replacement; ownership and four-group cap")
+		print("[PASS] command_path_feedback: real Main detour and live progress; two-second fade/reselection; no feedback A*; Stop/arrival/death/deselect; combat order retention and explicit Attack replacement; ownership and three-group cap")
 	get_tree().quit(0 if _failures.is_empty() else 1)

@@ -38,18 +38,18 @@ func _playing() -> bool:
 	return is_instance_valid(_main) and GameManager.current_state == GameManager.GameState.PLAYING
 
 
-func _own_workers() -> Array[Villager]:
+func _own_workers(owner: int = 0) -> Array[Villager]:
 	var workers: Array[Villager] = []
-	for entry: Variant in (_main.get("_player_units") as Array)[0]:
-		if is_instance_valid(entry) and entry is Villager and entry.player_owner == 0 and entry.current_state != UnitBase.State.DEAD:
+	for entry: Variant in (_main.get("_player_units") as Array)[owner]:
+		if is_instance_valid(entry) and entry is Villager and entry.player_owner == owner and entry.current_state != UnitBase.State.DEAD:
 			workers.append(entry as Villager)
 	return workers
 
 
 func _worker_source(worker: Villager) -> String:
-	if worker.is_auto_recovering():
+	if bool(worker.get_meta("network_recovering", worker.is_auto_recovering())):
 		return "recovering"
-	if worker.has_active_build_order():
+	if bool(worker.get_meta("network_building", worker.has_active_build_order())):
 		return "build"
 	var task: String = worker.get_economy_task()
 	if task in ["food", "wood", "gold"]:
@@ -60,7 +60,7 @@ func _worker_source(worker: Villager) -> String:
 func _can_plan_with_worker(worker: Villager) -> bool:
 	# Match the states Main can automatically assign when placement is paid.
 	# An explicitly fighting villager must not be presented as a free builder.
-	return not worker.is_auto_recovering() and not worker.has_active_build_order() and worker.current_state in [UnitBase.State.IDLE, UnitBase.State.GATHERING, UnitBase.State.MOVING]
+	return _worker_source(worker) not in ["recovering", "build"] and worker.current_state in [UnitBase.State.IDLE, UnitBase.State.GATHERING, UnitBase.State.MOVING]
 
 
 func _refresh() -> void:
@@ -155,6 +155,7 @@ func _observed_food_stock(workers: Array[Villager]) -> Dictionary:
 	# fields are known through the ownership registry; enemy fields are excluded.
 	var berries: int = 0
 	var farms: int = 0
+	var permanent_worked: bool = false
 	var known: Dictionary = {}
 	for entry: Variant in (_map.get("resource_nodes") as Dictionary).values():
 		if not is_instance_valid(entry) or not entry is ResourceNode:
@@ -171,8 +172,8 @@ func _observed_food_stock(workers: Array[Villager]) -> Dictionary:
 			continue
 		var building := entry as BuildingBase
 		if building.player_owner == 0 and building.provides_food and building.is_harvestable_by(0):
-			farms += building.farm_remaining
-			known[building.get_instance_id()] = building.farm_remaining
+			farms += 1
+			known[building.get_instance_id()] = -1
 	var worked_ids: Dictionary = {}
 	var worked: int = 0
 	for worker: Villager in workers:
@@ -180,9 +181,12 @@ func _observed_food_stock(workers: Array[Villager]) -> Dictionary:
 			continue
 		var id: int = worker.gather_target.get_instance_id()
 		if known.has(id) and not worked_ids.has(id):
-			worked += int(known[id])
+			if int(known[id]) < 0:
+				permanent_worked = true
+			else:
+				worked += int(known[id])
 			worked_ids[id] = true
-	return {"berry_food": berries, "farm_food": farms, "visible_food": berries + farms, "worked_food": worked}
+	return {"berry_food": berries, "permanent_farms": farms, "visible_food": berries + farms, "worked_food": worked, "permanent_food_worked": permanent_worked}
 
 
 func _rally_status(building: BuildingBase) -> String:
@@ -256,8 +260,29 @@ func _plan_farm() -> void:
 func _allocate_worker(source: String, destination: String) -> void:
 	if not _playing() or source not in StrategyOverview.SOURCES or destination not in StrategyOverview.RESOURCES or source == destination:
 		return
+	if NetworkSession.is_client():
+		var sent: bool = NetworkSession.send_command("allocate", {"source": source, "destination": destination})
+		_overview.show_feedback("Requested one worker: %s to %s." % [source, destination] if sent else "Connection unavailable. Try again.", sent)
+		return
+	var result: Dictionary = try_allocate_worker(0, source, destination)
+	if result.has("worker"):
+		var worker: Villager = result.worker
+		_overview.show_feedback("Moved one worker from %s to %s.%s" % [source, destination, " Cargo kept." if worker.carried_amount > 0 and worker.carried_resource_type != destination else ""])
+		var diagnostics: Node = get_node_or_null("/root/PlaytestDiagnostics")
+		if diagnostics:
+			diagnostics.call("record_event", "economy_reallocation", {"source": source, "destination": destination, "worker": str(worker.get_path()), "cargo": worker.carried_amount})
+		_refresh()
+	else:
+		_overview.show_feedback(str(result.error), false)
+
+
+func try_allocate_worker(owner: int, source: String, destination: String) -> Dictionary:
+	# Resolve the job and eligible worker on the simulation authority. Replica
+	# snapshots can be stale and must never steal a builder or recovering worker.
+	if not _playing() or owner not in [0, 1] or source not in StrategyOverview.SOURCES or destination not in StrategyOverview.RESOURCES or source == destination:
+		return {"error": "Invalid worker assignment"}
 	var candidates: Array[Villager] = []
-	for worker: Villager in _own_workers():
+	for worker: Villager in _own_workers(owner):
 		if _worker_source(worker) == source:
 			candidates.append(worker)
 	# Stable least-cargo choice minimizes interruption without stealing builders
@@ -265,15 +290,10 @@ func _allocate_worker(source: String, destination: String) -> void:
 	candidates.sort_custom(func(a: Villager, b: Villager) -> bool:
 		return a.get_instance_id() < b.get_instance_id() if a.carried_amount == b.carried_amount else a.carried_amount < b.carried_amount)
 	for worker: Villager in candidates:
-		var target: Node2D = _map.get_nearest_reachable_resource_node(destination, worker.global_position, 0)
+		var target: Node2D = _map.get_nearest_reachable_resource_node(destination, worker.global_position, owner)
 		if target != null and worker.command_gather(target):
-			_overview.show_feedback("Moved one worker from %s to %s.%s" % [source, destination, " Current cargo will be delivered first." if worker.carried_amount > 0 and worker.carried_resource_type != destination else ""])
-			var diagnostics: Node = get_node_or_null("/root/PlaytestDiagnostics")
-			if diagnostics:
-				diagnostics.call("record_event", "economy_reallocation", {"source": source, "destination": destination, "worker": str(worker.get_path()), "cargo": worker.carried_amount})
-			_refresh()
-			return
-	_overview.show_feedback("No %s worker is available." % source if candidates.is_empty() else "No visible reachable %s. Scout a deposit%s." % [destination, " or build a Farm" if destination == "food" else ""], false)
+			return {"worker": worker}
+	return {"error": "No %s worker is available." % source if candidates.is_empty() else "No visible reachable %s. Scout a deposit%s." % [destination, " or build a Farm" if destination == "food" else ""]}
 
 
 func _owned_producer(building: Node2D) -> ProductionQueue:
@@ -286,6 +306,9 @@ func _train(building: Node2D, unit_type: int) -> void:
 	if _owned_producer(building) == null:
 		return
 	_hud.emit_signal("train_unit_requested", building, unit_type)
+	if NetworkSession.is_client():
+		_overview.show_feedback(str(_main.get("_last_train_feedback")), str(_main.get("_last_train_request_result")) == "requested")
+		return
 	var queued: bool = str(_main.get("_last_train_request_result")) == "queued"
 	_overview.show_feedback("Paid training: " + UnitData.get_unit_name(unit_type) if queued else str(_main.get("_last_train_feedback")), queued)
 	_refresh()
@@ -306,6 +329,11 @@ func _cancel(building: Node2D, index: int) -> void:
 func _set_repeat(building: Node2D, enabled: bool) -> void:
 	var queue: ProductionQueue = _owned_producer(building)
 	if queue == null or queue.auto_queue_unit_type < 0:
+		return
+	if NetworkSession.is_client():
+		var sent: bool = NetworkSession.send_command("repeat", {"target": NetworkSession.entity_id(building), "enabled": enabled})
+		_overview.show_feedback("Repeat %s requested." % ("ON" if enabled else "OFF") if sent else "Connection unavailable. Try again.", sent)
+		_refresh()
 		return
 	queue.auto_queue_enabled = enabled
 	_refresh()

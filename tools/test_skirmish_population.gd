@@ -41,7 +41,7 @@ func _run() -> void:
 				break
 			await get_tree().process_frame
 		_expect(match_scene.get("_building_placement") != null, "%d: match initialization timed out" % limit)
-		_expect(int(GameManager.players[0]["population_cap"]) == 10, "%d: starting Town Center housing changed" % limit)
+		_expect(int(GameManager.players[0]["population_cap"]) == 15, "%d: starting Town Center housing changed" % limit)
 		_expect(GameManager.get_player_population_limit(1) == limit, "%d: AI match limit wrong" % limit)
 		var cost: Dictionary = GameManager.get_age_up_cost(0, 2)
 		var before: Dictionary = ResourceManager.get_all_resources(0)

@@ -20,6 +20,7 @@ static func find_target(attacker: UnitBase, unit_radius: float, building_radius:
 static func _nearest_unit(attacker: UnitBase, radius: float) -> UnitBase:
 	var nearest: UnitBase = null
 	var nearest_distance: float = radius
+	var best_priority: int = -1
 	for candidate: Node in attacker.get_tree().get_nodes_in_group("units"):
 		if not is_instance_valid(candidate) or not candidate is UnitBase or candidate == attacker:
 			continue
@@ -29,10 +30,29 @@ static func _nearest_unit(attacker: UnitBase, radius: float) -> UnitBase:
 		if not attacker._is_valid_target(unit) or attacker._is_auto_target_temporarily_ignored(unit):
 			continue
 		var distance: float = attacker.global_position.distance_to(unit.global_position)
-		if distance < nearest_distance:
+		if distance > radius:
+			continue
+		var priority: int = _unit_priority(attacker, unit)
+		if priority > best_priority or (priority == best_priority and distance < nearest_distance):
+			best_priority = priority
 			nearest_distance = distance
 			nearest = unit
 	return nearest
+
+
+static func find_nearby_threat(attacker: UnitBase, radius: float) -> UnitBase:
+	var target := _nearest_unit(attacker, radius)
+	return target if target != null and _unit_priority(attacker, target) >= 2 else null
+
+
+static func _unit_priority(attacker: UnitBase, target: UnitBase) -> int:
+	if is_instance_valid(target.attack_target) and target.attack_target.player_owner == attacker.player_owner:
+		return 3
+	if is_instance_valid(target.attack_building_target) and target.attack_building_target.player_owner == attacker.player_owner:
+		return 3
+	if target.damage > 0.0 and target.unit_type != UnitData.UnitType.VILLAGER:
+		return 2
+	return 1
 
 
 static func _nearest_building(attacker: UnitBase, radius: float) -> BuildingBase:
@@ -46,7 +66,7 @@ static func _nearest_building(attacker: UnitBase, radius: float) -> BuildingBase
 			continue
 		if not attacker._is_valid_building_target(building) or attacker._is_auto_target_temporarily_ignored(building):
 			continue
-		var distance: float = attacker.global_position.distance_to(building.global_position)
+		var distance: float = attacker._get_building_attack_distance(building)
 		if distance < nearest_distance:
 			nearest_distance = distance
 			nearest = building

@@ -149,7 +149,7 @@ func _choose_lesson(buildings: Array, site_status: Dictionary) -> Dictionary:
 		unit_type = UnitData.UnitType.VILLAGER
 	elif _injured_army and retreats_completed == 0:
 		lesson = "retreat"
-		text = "Retreat · Select hurt troops, tap Move, then safe ground. Attack fights on the way."
+		text = "Retreat · Tap safe ground. Hold ground to fight on the way."
 	elif paid_army == 0:
 		lesson = "army"
 		building_type = BuildingData.BuildingType.BARRACKS

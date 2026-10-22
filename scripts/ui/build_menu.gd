@@ -48,16 +48,14 @@ const CARD_WIDTH := 150.0
 const CARD_HEIGHT := 80.0
 const CARD_GAP := 8.0
 const BUILDING_CATEGORIES: Dictionary = {
-	"Economy": [BuildingData.BuildingType.HOUSE, BuildingData.BuildingType.FARM, BuildingData.BuildingType.MILL, BuildingData.BuildingType.LUMBER_CAMP, BuildingData.BuildingType.MINING_CAMP, BuildingData.BuildingType.TOWN_CENTER],
+	"Economy": [BuildingData.BuildingType.HOUSE, BuildingData.BuildingType.FARM, BuildingData.BuildingType.RESOURCE_CAMP, BuildingData.BuildingType.TOWN_CENTER],
 	"Army": [BuildingData.BuildingType.BARRACKS, BuildingData.BuildingType.ARCHERY_RANGE, BuildingData.BuildingType.STABLE, BuildingData.BuildingType.BLACKSMITH, BuildingData.BuildingType.SIEGE_WORKSHOP],
 	"Defence": [BuildingData.BuildingType.WATCH_TOWER],
 }
 const BUILDING_PURPOSES: Dictionary = {
 	BuildingData.BuildingType.HOUSE: "+10 population",
-	BuildingData.BuildingType.FARM: "300 food · finite",
-	BuildingData.BuildingType.MILL: "Food drop-off",
-	BuildingData.BuildingType.LUMBER_CAMP: "Wood drop-off",
-	BuildingData.BuildingType.MINING_CAMP: "Gold drop-off",
+	BuildingData.BuildingType.FARM: "Unlimited food",
+	BuildingData.BuildingType.RESOURCE_CAMP: "All resource drop-off",
 	BuildingData.BuildingType.TOWN_CENTER: "Train workers",
 	BuildingData.BuildingType.BARRACKS: "Train Warriors",
 	BuildingData.BuildingType.ARCHERY_RANGE: "Train archers",
@@ -127,9 +125,11 @@ func _apply_compact_layout() -> void:
 		# The header sets the compact sheet width; its single building keeps the
 		# same card proportions as every other category.
 		sheet_width = minf(maximum_width, _header_minimum_width() + horizontal_padding)
-	var cards_overflow: bool = visible_count > 1 and float(visible_count) * (CARD_WIDTH + CARD_GAP) - CARD_GAP > sheet_width - horizontal_padding
-	var scroll_height: float = scroll_container.get_h_scroll_bar().get_combined_minimum_size().y if cards_overflow else 0.0
-	_sheet_height = vertical_padding + HEADER_HEIGHT + float(($Margin/VBox as VBoxContainer).get_theme_constant("separation")) + CARD_HEIGHT + scroll_height
+	# Every category fits on one page at landscape phone sizes. A swipe always
+	# belongs to the battlefield; construction never requires horizontal scrolling.
+	scroll_container.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll_container.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_sheet_height = vertical_padding + HEADER_HEIGHT + float(($Margin/VBox as VBoxContainer).get_theme_constant("separation")) + CARD_HEIGHT
 	var sheet_center_x: float = safe_area.position.x + safe_area.size.x * 0.5
 	anchor_left = 0.5
 	anchor_top = 1.0
@@ -141,7 +141,8 @@ func _apply_compact_layout() -> void:
 	offset_top = offset_bottom - _sheet_height
 	custom_minimum_size = Vector2(sheet_width, _sheet_height)
 
-	_card_width = CARD_WIDTH
+	_card_width = minf(CARD_WIDTH, (sheet_width - horizontal_padding - CARD_GAP * float(visible_count - 1)) / float(visible_count))
+	grid.columns = visible_count
 	grid.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	for button: Button in _button_map.values():
 		button.custom_minimum_size = Vector2(_card_width, CARD_HEIGHT)
@@ -468,19 +469,19 @@ func _format_button_text(stats: Dictionary, age_locked: bool, building_type: int
 	for resource: String in ["food", "wood", "gold"]:
 		if int(cost.get(resource, 0)) > 0:
 			parts.append("%d%s" % [int(cost[resource]), resource.left(1).to_upper()])
-	var lines: PackedStringArray = [String(stats.get("name", "Build"))]
+	var lines: PackedStringArray = [_compact_building_name(String(stats.get("name", "Build")))]
 	lines.append(" · ".join(parts) if not parts.is_empty() else "No cost")
 	# Only decision-changing context stays on the compact card. Full purpose,
 	# cost names and effects remain available through Info, hold and accessibility.
 	if age_locked:
-		lines.append("Unlocks in Age %d" % int(stats.get("age_required", 0)))
+		lines.append("Age %d" % int(stats.get("age_required", 0)))
 	elif building_type == BuildingData.BuildingType.FARM:
-		lines.append("300 food · finite")
+		lines.append("Unlimited food")
 	return "\n".join(lines)
 
 
 func _compact_building_name(building_name: String) -> String:
-	return building_name
+	return {"Resource Camp": "Camp", "Archery Range": "Archery", "Siege Workshop": "Siege", "Town Center": "Town Center"}.get(building_name, building_name)
 
 
 func _format_tooltip(stats: Dictionary, building_type: int) -> String:

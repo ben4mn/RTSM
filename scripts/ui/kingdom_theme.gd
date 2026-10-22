@@ -63,6 +63,8 @@ static func create_theme() -> Theme:
 	theme.set_stylebox("panel", "PopupMenu", panel_style())
 	theme.set_stylebox("hover", "PopupMenu", hover)
 	theme.set_color("font_color", "PopupMenu", PARCHMENT)
+	theme.set_font_size("font_size", "PopupMenu", 18)
+	theme.set_constant("v_separation", "PopupMenu", 28)
 	theme.set_stylebox("background", "ProgressBar", panel_style(INK, INK, 4))
 	theme.set_stylebox("fill", "ProgressBar", panel_style(TEAL, TEAL, 4))
 	return theme

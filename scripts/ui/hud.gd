@@ -133,6 +133,7 @@ var _camera_controls_expanded: bool = false
 var _selection_back_button: Button = null
 var _select_area_button: Button = null
 var _area_selection_armed: bool = false
+var _movement_controls_hint_shown: bool = false
 var _selection_kind: String = "none"
 var _selection_is_worker: bool = false
 var _age_action_primary: bool = false
@@ -630,7 +631,8 @@ func set_area_selection_armed(armed: bool) -> void:
 	_area_selection_armed = armed
 	if _select_area_button:
 		_select_area_button.set_pressed_no_signal(armed)
-		CommandIcons.apply(_select_area_button, "select_area", "Cancel area selection" if armed else "Select area")
+		CommandIcons.apply(_select_area_button, "select_area", "Drag to select; tap again to cancel" if armed else "Select area")
+	set_progression_hint("Drag to select" if armed else "")
 	_queue_mobile_layout_refresh()
 
 
@@ -758,7 +760,7 @@ func _refresh_command_icons() -> void:
 	var definitions: Array = [
 		[_pause_button, "resume" if _ui_modal_state == UIModalState.PAUSE_MENU else "pause", "Resume" if _ui_modal_state == UIModalState.PAUSE_MENU else "Pause"],
 		[_camera_view_button, "view", "Camera controls"],
-		[_select_area_button, "select_area", "Cancel area selection" if _area_selection_armed else "Select area"],
+		[_select_area_button, "select_area", "Drag to select; tap again to cancel" if _area_selection_armed else "Select area"],
 		[_selection_back_button, "back", "Clear selection"],
 		[_unit_move_button, "move", "Move"],
 		[_unit_attack_move_button, "attack", "Attack-move"],
@@ -798,7 +800,7 @@ func _refresh_command_icons() -> void:
 	if _unit_move_button:
 		_unit_move_button.tooltip_text = "Move armed: tap a destination" if _unit_command_mode == "move" else "Move: tap a destination"
 	if _unit_attack_move_button:
-		_unit_attack_move_button.tooltip_text = "Attack-move armed: tap a destination" if _unit_command_mode == "attack_move" else "Attack-move: fight enemies along the route"
+		_unit_attack_move_button.tooltip_text = "Attack-move armed: tap a destination" if _unit_command_mode == "attack_move" else "Attack-move: hold ground or tap here, then a destination"
 
 
 func _set_button_icon(button: Button, texture_path: String, max_width: int) -> void:
@@ -819,6 +821,8 @@ func _on_pause_pressed() -> void:
 
 
 func _on_speed_pressed() -> void:
+	if NetworkSession.is_network_match():
+		return
 	AudioManager.play_ui("button_click")
 	_game_speed_index = (_game_speed_index + 1) % GAME_SPEEDS.size()
 	var new_speed: float = GAME_SPEEDS[_game_speed_index]
@@ -852,6 +856,7 @@ func _toggle_pause_overlay(show: bool) -> void:
 
 
 func _create_pause_overlay() -> void:
+	var online: bool = NetworkSession.is_client()
 	_pause_overlay = ColorRect.new()
 	_pause_overlay.name = "PauseOverlay"
 	_pause_overlay.color = Color(0, 0, 0, 0.6)
@@ -869,7 +874,7 @@ func _create_pause_overlay() -> void:
 	vbox.process_mode = Node.PROCESS_MODE_ALWAYS
 
 	var title := Label.new()
-	title.text = "PAUSED"
+	title.text = "MATCH MENU" if online else "PAUSED"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 24)
 	title.add_theme_color_override("font_color", Color(1.0, 0.9, 0.5))
@@ -880,7 +885,7 @@ func _create_pause_overlay() -> void:
 
 	var resume_btn := Button.new()
 	resume_btn.name = "ResumeButton"
-	resume_btn.text = "Resume"
+	resume_btn.text = "Return to match" if online else "Resume"
 	resume_btn.custom_minimum_size = Vector2(192, 48)
 	resume_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	resume_btn.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -891,7 +896,7 @@ func _create_pause_overlay() -> void:
 
 	var pause_help := Label.new()
 	pause_help.name = "PauseHelpLabel"
-	pause_help.text = "Touch Resume to continue the match."
+	pause_help.text = "Play continues online. Leaving forfeits." if online else "Touch Resume to continue the match."
 	pause_help.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	pause_help.custom_minimum_size = Vector2(250, 18)
 	pause_help.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -933,10 +938,11 @@ func _create_pause_overlay() -> void:
 	_match_learning_button.process_mode = Node.PROCESS_MODE_ALWAYS
 	_match_learning_button.pressed.connect(func() -> void: match_learning_requested.emit())
 	vbox.add_child(_match_learning_button)
+	_match_learning_button.visible = not online
 
 	var quit_btn := Button.new()
 	quit_btn.name = "QuitButton"
-	quit_btn.text = "Quit to Main Menu"
+	quit_btn.text = "Leave match" if online else "Quit to Main Menu"
 	quit_btn.custom_minimum_size = Vector2(192, 48)
 	quit_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	quit_btn.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -979,7 +985,7 @@ func _set_gameplay_ui_interactable(interactable: bool) -> void:
 	minimap_bg.mouse_filter = allow_mouse
 	minimap_rect.mouse_filter = allow_mouse
 	if _speed_button:
-		_speed_button.disabled = not interactable
+		_speed_button.disabled = not interactable or NetworkSession.is_network_match()
 	update_camera_zoom(_camera_zoom_current, _camera_zoom_min, _camera_zoom_max)
 	age_up_button.disabled = not interactable
 	build_menu_button.disabled = not interactable
@@ -1410,6 +1416,9 @@ func configure_unit_commands(
 ) -> void:
 	if _unit_command_container == null:
 		return
+	if authorized and not _movement_controls_hint_shown:
+		_movement_controls_hint_shown = true
+		show_notification("Tap ground: move · Hold ground: attack-move", KingdomTheme.MUTED, 4.0)
 	_unit_commands_authorized = authorized
 	_unit_commands_have_military = has_military
 	_unit_command_mode = armed_mode
@@ -1721,9 +1730,10 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 	var selection_has_commands: bool = _selection_has_commands()
 	selection_separator.visible = selection_has_commands and not (bool(metrics["top_bar_compact"]) and _is_town_center_production_context())
 	command_scroll.visible = selection_has_commands
-	# The explicit Queue pager exposes both pages. Keep touch scrolling without
-	# spending phone command-bar height on a second navigation control.
-	command_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER if _is_phone_context() else ScrollContainer.SCROLL_MODE_AUTO
+	# Queue switches complete pages. Disable drag scrolling while retaining
+	# the programmatic offset used by that explicit pager.
+	command_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+	command_scroll.scroll_deadzone = 1000000
 	_layout_queue_page()
 	if _advanced_command_panel:
 		var advanced_width: float = _production_row_width(_advanced_command_container) + 8.0
@@ -2207,7 +2217,7 @@ func set_pending_military_shortcut(pending: bool) -> void:
 func set_progression_hint(text: String, emphasis: bool = false) -> void:
 	if _progression_hint_label == null or _progression_hint_panel == null:
 		return
-	var trimmed: String = text.strip_edges()
+	var trimmed: String = "Drag to select · Tap the selection icon to cancel" if _area_selection_armed else text.strip_edges()
 	var visibility_changed: bool = _progression_hint_panel.visible != (trimmed != "")
 	_progression_hint_panel.visible = trimmed != ""
 	if visibility_changed:
@@ -2569,7 +2579,7 @@ func show_building_selection(building_name: String, current_hp: int, max_hp: int
 		if b.state == BuildingBase.State.CONSTRUCTING:
 			detail_parts.append("Under construction...")
 		if b.provides_food:
-			detail_parts.append("%d food remaining" % b.farm_remaining)
+			detail_parts.append("Unlimited food")
 		if b.rally_resource_instance_id > 0:
 			detail_parts.append("Villager rally: gather %s" % b.rally_resource_type)
 	selection_name.tooltip_text = "%s\n%s" % [building_name, " | ".join(detail_parts)]
@@ -2694,10 +2704,8 @@ func _building_purpose(building_ref: Node2D) -> String:
 				return "Ground rally"
 			return "Tap resource\nfor rally"
 		BuildingData.BuildingType.HOUSE: return "+%d housing" % int(BuildingData.BUILDINGS[building.building_type].get("pop_provided", 0))
-		BuildingData.BuildingType.MILL: return "Food drop-off"
-		BuildingData.BuildingType.LUMBER_CAMP: return "Wood drop-off"
-		BuildingData.BuildingType.MINING_CAMP: return "Gold drop-off"
-		BuildingData.BuildingType.FARM: return "Food: %d remaining" % building.farm_remaining
+		BuildingData.BuildingType.RESOURCE_CAMP: return "Food · wood · gold drop-off"
+		BuildingData.BuildingType.FARM: return "Unlimited food"
 		BuildingData.BuildingType.BARRACKS: return "Trains Warriors"
 		BuildingData.BuildingType.ARCHERY_RANGE: return "Trains Archers"
 		BuildingData.BuildingType.STABLE: return "Trains Horsemen"
@@ -3273,6 +3281,11 @@ func _get_repeat_wait_reason() -> String:
 
 
 func _on_auto_queue_toggled(pressed: bool) -> void:
+	var session: Node = get_node_or_null("/root/NetworkSession")
+	if session != null and bool(session.call("is_client")):
+		if _is_human_owned_building(_selected_building_ref):
+			session.call("send_command", "repeat", {"target": session.call("entity_id", _selected_building_ref), "enabled": pressed})
+		return
 	if _is_human_owned_building(_selected_building_ref):
 		var pq: Node = _selected_building_ref.get_production_queue() if _selected_building_ref.has_method("get_production_queue") else null
 		if pq:

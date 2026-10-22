@@ -264,11 +264,11 @@ func _test_home_defender_economy_and_unlock_bank() -> void:
 	ai.register_unit(_unit("res://scenes/units/infantry.tscn", 1, ai.game_map))
 	for _index: int in range(2):
 		_expect(barracks.get_production_queue().enqueue_unit(UnitData.UnitType.INFANTRY), "pending real Warriors complete the home defense packet")
-	root.get_node("ResourceManager").initialize_player(1, {"food": 100, "wood": 149, "gold": 0})
+	root.get_node("ResourceManager").initialize_player(1, {"food": 100, "wood": 119, "gold": 0})
 	var requests: Array[int] = []
 	ai.ai_wants_to_train.connect(func(_production: Node, role: int) -> void: requests.append(role))
 	_expect(not ai._try_train_from_building(BuildingData.BuildingType.BARRACKS, UnitData.UnitType.INFANTRY), "living plus pending fighters preserve the one-wood-short Stable bank")
-	_expect(requests.is_empty() and root.get_node("ResourceManager").get_resource(1, "wood") == 149, "role reserve spends nothing while the paid defense packet finishes")
+	_expect(requests.is_empty() and root.get_node("ResourceManager").get_resource(1, "wood") == 119, "role reserve spends nothing while the paid defense packet finishes")
 
 
 func _test_safe_replacement_role_bank() -> void:

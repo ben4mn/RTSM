@@ -95,6 +95,7 @@ func _run() -> void:
 	main.call("_refresh_match_learning")
 	_expect(not coach.visible_enemy_roles.has(UnitData.UnitType.CAVALRY), "Hidden enemy role never enters learning intel")
 	evidence["summary"] = coach.get_summary()
+	DirAccess.make_dir_recursive_absolute("res://output/evolution/learning-20261010-battle-lessons")
 	var output := FileAccess.open("res://output/evolution/learning-20261010-battle-lessons/field-actions.json", FileAccess.WRITE)
 	output.store_string(JSON.stringify(evidence, "\t"))
 	main.free()

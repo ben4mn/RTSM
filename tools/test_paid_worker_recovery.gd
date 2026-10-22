@@ -153,8 +153,8 @@ func _raid(damage_only: bool = false, resource_type: String = "wood", raider_cou
 
 func _train_paid_raider(raider_count: int = 1) -> UnitBase:
 	# Finance the complete plan before construction takes a starting worker away
-	# from its normal opening economy. Starting Wood150 pays only the Barracks;
-	# every requested Warrior also needs its actual20 Wood, even a single raider.
+	# from its normal opening economy. Fund the current data-driven Barracks
+	# plus every requested Warrior at its normal paid cost.
 	var required_resources: Dictionary = UnitData.get_unit_cost(UnitData.UnitType.INFANTRY)
 	for kind: String in required_resources:
 		required_resources[kind] = int(required_resources[kind]) * raider_count
@@ -201,7 +201,7 @@ func _train_paid_raider(raider_count: int = 1) -> UnitBase:
 				break
 		if barracks != null:
 			break
-	_expect(barracks != null and ResourceManager.get_resource(1, "wood") == wood_before - 150, "raid Barracks must be normally paid and staffed")
+	_expect(barracks != null and ResourceManager.get_resource(1, "wood") == wood_before - int(BuildingData.get_building_cost(BuildingData.BuildingType.BARRACKS)["wood"]), "raid Barracks must be normally paid and staffed")
 	if barracks == null:
 		return null
 	await _until(func() -> bool: return barracks.build_progress > 0.05, 30.0)
@@ -275,10 +275,12 @@ func _farm(loaded: bool) -> void:
 	await _until(func() -> bool: return builder.gather_target == farm and builder.carried_resource_type == "food", 80.0)
 	_expect(builder.gather_target == farm, "otherwise unassigned builder did not start its completed Farm")
 	if loaded:
-		_expect(int(_deposits["wood"]) == cargo_before and ResourceManager.get_resource(0, "wood") == wood_before - 75 + cargo_before, "loaded Farm retyped/lost/duplicated original wood cargo")
+		_expect(int(builder.get_carried_resources().get("wood", 0)) + int(_deposits["wood"]) == cargo_before, "loaded Farm must preserve exact original wood while immediately adopting food work")
 	await _until(func() -> bool: return int(_deposits["food"]) > 0, 80.0)
+	if loaded:
+		_expect(int(_deposits["wood"]) == cargo_before and ResourceManager.get_resource(0, "wood") == wood_before - 75 + cargo_before, "loaded Farm retyped/lost/duplicated original wood cargo at delivery")
 	_expect(int(_deposits["food"]) > 0 and ResourceManager.get_resource(0, "food") == food_before + int(_deposits["food"]), "new Farm did not deliver real harvested Food to TC")
-	print("PAID_FARM_AUTO_WORK ", JSON.stringify({"loaded": loaded, "cost_wood": 75, "cargo_before": cargo_before, "wood_deposited": _deposits["wood"], "food_deposited": _deposits["food"], "farm_stock": farm.farm_remaining, "state": builder.current_state, "status": builder.get_work_status()}))
+	print("PAID_FARM_AUTO_WORK ", JSON.stringify({"loaded": loaded, "cost_wood": 75, "cargo_before": cargo_before, "wood_deposited": _deposits["wood"], "food_deposited": _deposits["food"], "farm_permanent": farm.is_harvestable_by(0), "state": builder.current_state, "status": builder.get_work_status()}))
 
 func _place_farm() -> BuildingBase:
 	var placement: BuildingPlacement = _main.get("_building_placement")

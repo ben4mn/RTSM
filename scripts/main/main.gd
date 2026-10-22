@@ -23,9 +23,7 @@ var _building_scenes: Dictionary = {
 	BuildingData.BuildingType.ARCHERY_RANGE: preload("res://scenes/buildings/archery_range.tscn"),
 	BuildingData.BuildingType.STABLE: preload("res://scenes/buildings/stable.tscn"),
 	BuildingData.BuildingType.FARM: preload("res://scenes/buildings/farm.tscn"),
-	BuildingData.BuildingType.MILL: preload("res://scenes/buildings/mill.tscn"),
-	BuildingData.BuildingType.LUMBER_CAMP: preload("res://scenes/buildings/lumber_camp.tscn"),
-	BuildingData.BuildingType.MINING_CAMP: preload("res://scenes/buildings/mining_camp.tscn"),
+	BuildingData.BuildingType.RESOURCE_CAMP: preload("res://scenes/buildings/resource_camp.tscn"),
 	BuildingData.BuildingType.SIEGE_WORKSHOP: preload("res://scenes/buildings/siege_workshop.tscn"),
 	BuildingData.BuildingType.BLACKSMITH: preload("res://scenes/buildings/blacksmith.tscn"),
 	BuildingData.BuildingType.WATCH_TOWER: preload("res://scenes/buildings/watch_tower.tscn"),
@@ -478,7 +476,7 @@ func _on_map_ready(map_gen: MapGenerator) -> void:
 	_sacred_last_remaining = -1.0
 	_match_learning = MATCH_LEARNING_SCRIPT.new()
 	match_learning_diagnostics = {}
-	_guided_opening_active = bool(GameManager.guided_opening_enabled)
+	_guided_opening_active = bool(GameManager.guided_opening_enabled) and not NetworkSession.is_network_match()
 	_guided_stage = GuidedOpeningStage.GATHER_FOOD
 	_opening_gather_complete = false
 	_opening_house_complete = false
@@ -498,8 +496,9 @@ func _on_map_ready(map_gen: MapGenerator) -> void:
 	ResourceManager.resources_changed.connect(_on_resource_changed)
 
 	# Place starting Town Centers and Villagers.
-	_setup_player_start(0, map_gen.spawn_positions[0])
-	_setup_player_start(1, map_gen.spawn_positions[1])
+	if not NetworkSession.is_client():
+		_setup_player_start(0, map_gen.spawn_positions[0])
+		_setup_player_start(1, map_gen.spawn_positions[1])
 	# Establish real current vision before camera framing and deferred economy
 	# assignment query fog-aware resource discovery for the first time.
 	if game_map.fog_of_war != null:
@@ -512,6 +511,7 @@ func _on_map_ready(map_gen: MapGenerator) -> void:
 	# Connect selection manager signals.
 	var selection_mgr: Node = game_map.selection_mgr
 	selection_mgr.move_command.connect(_on_move_command)
+	selection_mgr.attack_move_command.connect(_on_touch_attack_move_command)
 	selection_mgr.attack_command.connect(_on_attack_command)
 	selection_mgr.gather_command.connect(_on_gather_command)
 	selection_mgr.build_command.connect(_on_build_command)
@@ -540,7 +540,10 @@ func _on_map_ready(map_gen: MapGenerator) -> void:
 	_battlefield_feedback.call("setup", hud, game_map, _on_minimap_clicked)
 
 	# Wire up AI.
-	_setup_ai(map_gen)
+	if not NetworkSession.is_network_match():
+		_setup_ai(map_gen)
+	else:
+		ai_controller.process_mode = Node.PROCESS_MODE_DISABLED
 	if not OS.has_feature("production"):
 		_reset_balance_snapshot()
 		_update_balance_snapshot()
@@ -559,6 +562,7 @@ func _on_map_ready(map_gen: MapGenerator) -> void:
 	_milestone_first_age_up = false
 	_refresh_first_session_diagnostics()
 	_bootstrap_opening_guidance()
+	NetworkSession.attach_match(self)
 	# A bound signal automatically disconnects when this match is freed; no
 	# coroutine survives scene teardown. Run after the next frame's HUD layout.
 	get_tree().process_frame.connect(
@@ -824,6 +828,8 @@ func _unhandled_input(event: InputEvent) -> void:
 const GAME_SPEEDS: Array[float] = [0.5, 1.0, 2.0, 3.0]
 
 func _cycle_game_speed(direction: int) -> void:
+	if NetworkSession.is_network_match():
+		return
 	var current_speed: float = Engine.time_scale
 	var current_idx: int = 1  # default to 1x
 	for i in GAME_SPEEDS.size():
@@ -941,6 +947,8 @@ func _on_problem_report_requested() -> void:
 
 
 func _on_quit_to_menu_requested() -> void:
+	if NetworkSession.is_client():
+		NetworkSession.leave_match()
 	Engine.time_scale = 1.0
 	GameManager.set_paused(false)
 	GameManager.set_state(GameManager.GameState.MENU)
@@ -1057,6 +1065,9 @@ func _is_own_control_group_entry(entry: Variant) -> bool:
 
 
 func _stop_selected_units() -> void:
+	if _send_network_selection("stop"):
+		_clear_armed_unit_commands()
+		return
 	_clear_armed_unit_commands(false)
 	var selected: Array = game_map.selection_mgr.selected
 	var stopped: int = 0
@@ -1070,6 +1081,11 @@ func _stop_selected_units() -> void:
 
 
 func _delete_selected_building() -> void:
+	if NetworkSession.is_client():
+		var selection: Array = game_map.selection_mgr.selected
+		if selection.size() == 1:
+			NetworkSession.send_command("delete", {"target": NetworkSession.entity_id(selection[0])})
+		return
 	var selected: Array = game_map.selection_mgr.selected
 	if selected.size() != 1:
 		return
@@ -1093,6 +1109,8 @@ func _delete_selected_building() -> void:
 
 
 func _toggle_stance() -> void:
+	if _send_network_selection("stance"):
+		return
 	var selected: Array = game_map.selection_mgr.selected
 	if selected.is_empty():
 		return
@@ -1432,7 +1450,7 @@ func _spawn_unit(
 		unit.resource_deposited.connect(_on_resource_deposited.bind(player_id))
 
 	# Register with AI if it's the AI's unit.
-	if player_id == ai_controller.player_id:
+	if player_id == ai_controller.player_id and not NetworkSession.is_network_match():
 		ai_controller.register_unit(unit)
 
 	return unit
@@ -1460,12 +1478,14 @@ func _on_unit_trained(unit_type: int, player_id: int, source_queue: ProductionQu
 	if unit_type != UnitData.UnitType.VILLAGER:
 		_stats[player_id]["army_trained"] += 1
 	var use_default_villager_assignment: bool = (
-		player_id == 0
+		(player_id == 0 or NetworkSession.server_mode)
 		and unit is Villager
 		and not producer.has_custom_rally_point()
 	)
 	if not use_default_villager_assignment:
 		_issue_production_rally(unit, producer.rally_point, producer)
+	elif player_id != 0 and unit is Villager:
+		_auto_assign_new_villager(unit)
 	if player_id == 0:
 		_update_idle_villager_count()
 		_on_selection_changed(game_map.selection_mgr.selected)
@@ -1500,11 +1520,15 @@ func _on_unit_trained(unit_type: int, player_id: int, source_queue: ProductionQu
 
 
 func _resolve_production_egress(producer: BuildingBase) -> Dictionary:
-	## Select the nearest legal perimeter ring and stop after a hard three-tile
-	## fallback. A sealed producer fails safely instead of spawning at its rally.
+	## Choose the connected battlefield side within the three-ring spawn bound.
+	## A walkable tile can be a tiny pocket sealed off by the producer itself;
+	## spawning there permanently trapped paid units beside boundary buildings.
 	if not is_instance_valid(producer) or game_map == null:
 		return {"valid": false}
 	var origin: Vector2i = game_map.world_to_tile(producer.global_position)
+	var components: Array[Dictionary] = []
+	var best: Dictionary = {"valid": false}
+	var best_component_size: int = -1
 	for ring: int in range(1, PRODUCTION_EGRESS_MAX_RING_TILES + 1):
 		var candidates: Array[Vector2i] = []
 		var min_x: int = origin.x - ring
@@ -1533,14 +1557,23 @@ func _resolve_production_egress(producer: BuildingBase) -> Dictionary:
 		)
 		if candidates.size() > PRODUCTION_EGRESS_MAX_CANDIDATES:
 			candidates.resize(PRODUCTION_EGRESS_MAX_CANDIDATES)
-		var chosen_tile: Vector2i = candidates[0]
-		return {
-			"valid": true,
-			"tile": chosen_tile,
-			"world_position": game_map.tile_to_world(chosen_tile),
-			"ring": ring,
-		}
-	return {"valid": false}
+		for candidate: Vector2i in candidates:
+			var component_size: int = -1
+			for component: Dictionary in components:
+				if component.has(candidate):
+					component_size = component.size()
+					break
+			if component_size < 0:
+				var connected: Dictionary = GROUP_ORDER_PLANNER._collect_connected_tiles(game_map, candidate)
+				components.append(connected)
+				component_size = connected.size()
+			# For the same region, earlier rings and their rally-distance ordering
+			# win. Connectivity is computed once per region for this transaction.
+			if component_size <= best_component_size:
+				continue
+			best_component_size = component_size
+			best = {"valid": true, "tile": candidate, "world_position": game_map.tile_to_world(candidate), "ring": ring}
+	return best
 
 
 func _issue_production_rally(unit: UnitBase, requested_rally: Vector2, producer: BuildingBase = null) -> bool:
@@ -1567,7 +1600,7 @@ func _issue_production_rally(unit: UnitBase, requested_rally: Vector2, producer:
 		unit.command_move_path(route)
 	else:
 		# Reinforcements should defend themselves and resume this rally after
-		# nearby combat, matching the ordinary smart military ground command.
+		# nearby combat, using attack-move for their production rally journey.
 		unit.command_attack_move_path(route)
 	return true
 
@@ -1646,7 +1679,7 @@ func _auto_assign_new_villager(villager: UnitBase) -> void:
 	# needs. Assign only the newborn; preserve every existing player order.
 	var counts: Dictionary = {"food": 0, "wood": 0, "gold": 0}
 	var total_workers: int = 1
-	for unit: Node in _player_units[0]:
+	for unit: Node in _player_units[villager.player_owner]:
 		if not is_instance_valid(unit) or not unit is Villager or unit == villager or unit.current_state == UnitBase.State.DEAD:
 			continue
 		total_workers += 1
@@ -1654,7 +1687,7 @@ func _auto_assign_new_villager(villager: UnitBase) -> void:
 			Villager.GatherType.FOOD: counts["food"] += 1
 			Villager.GatherType.WOOD: counts["wood"] += 1
 			Villager.GatherType.GOLD: counts["gold"] += 1
-	var weights: Dictionary = SkirmishData.get_new_worker_weights(GameManager.get_player_age(0))
+	var weights: Dictionary = SkirmishData.get_new_worker_weights(GameManager.get_player_age(villager.player_owner))
 	var priority: Array[String] = ["food", "wood", "gold"]
 	var ranks: Dictionary = {"food": 0, "wood": 1, "gold": 2}
 	priority.sort_custom(func(a: String, b: String) -> bool:
@@ -1727,7 +1760,7 @@ func _spawn_building(building_type: int, player_id: int, tile_pos: Vector2i) -> 
 			pq.connect("queue_changed", _update_population_display)
 
 	# Register with AI.
-	if player_id == ai_controller.player_id:
+	if player_id == ai_controller.player_id and not NetworkSession.is_network_match():
 		ai_controller.register_building(building)
 
 	return building
@@ -1765,15 +1798,10 @@ func _on_building_destroyed(building: BuildingBase, player_id: int, tile_pos: Ve
 	_player_buildings[player_id].erase(building)
 	if building.provides_food:
 		game_map.unregister_harvestable(building)
-	if not building.depleted_naturally:
-		_stats[player_id]["buildings_lost"] += 1
+	_stats[player_id]["buildings_lost"] += 1
 	game_map.remove_building_obstacle(tile_pos, building.footprint)
-	if player_id == 0:
-		if building.depleted_naturally:
-			hud.show_notification("Farm exhausted. Build another for more food.", Color(0.95, 0.80, 0.40))
-		else:
-			if is_instance_valid(_battlefield_feedback):
-				_battlefield_feedback.call("report_loss", building.building_name, building.global_position)
+	if player_id == 0 and is_instance_valid(_battlefield_feedback):
+		_battlefield_feedback.call("report_loss", building.building_name, building.global_position)
 
 	if building.pop_provided > 0:
 		# Existing units and reservations survive an over-cap state. The cap ledger
@@ -1887,7 +1915,8 @@ func _on_selection_changed(selected_units: Array[Node2D]) -> void:
 					cargo_amount += worker.carried_amount
 					cargo_capacity += worker.carry_capacity
 					if worker.carried_amount > 0:
-						cargo_types[worker.carried_resource_type] = true
+						for resource: String in worker.get_carried_resources():
+							cargo_types[resource] = true
 			if worker_statuses.size() > 1:
 				action_text = "Mixed tasks"
 			stats["cargo_amount"] = cargo_amount
@@ -1928,6 +1957,10 @@ func _on_selection_changed(selected_units: Array[Node2D]) -> void:
 
 
 func _set_production_rally(building: BuildingBase, target_tile: Vector2i) -> bool:
+	if NetworkSession.is_client():
+		var world: Vector2 = game_map.tile_to_world(target_tile)
+		VFX.rally_indicator(get_tree(), world)
+		return NetworkSession.send_command("rally", {"target": NetworkSession.entity_id(building), "position": [world.x, world.y]})
 	if GameManager.current_state != GameManager.GameState.PLAYING or not is_instance_valid(building) or building.player_owner != 0 or building.state != BuildingBase.State.ACTIVE or building.trainable_units.is_empty():
 		return false
 	var in_bounds: bool = target_tile.x >= 0 and target_tile.y >= 0 and target_tile.x < MapData.MAP_WIDTH and target_tile.y < MapData.MAP_HEIGHT
@@ -1938,15 +1971,22 @@ func _set_production_rally(building: BuildingBase, target_tile: Vector2i) -> boo
 		return false
 	var world: Vector2 = game_map.tile_to_world(target_tile)
 	building.set_rally_point(world)
-	VFX.move_indicator(get_tree(), world)
+	VFX.rally_indicator(get_tree(), world)
 	hud.show_notification("Rally point set: %s" % building.building_name, Color(0.58, 0.82, 1.0))
 	return true
+
+
+func _on_touch_attack_move_command(target_tile: Vector2i) -> void:
+	_attack_move_command_armed = true
+	_move_command_armed = false
+	_patrol_command_armed = false
+	_on_move_command(target_tile)
 
 
 func _on_move_command(target_tile: Vector2i) -> void:
 	var selected: Array = game_map.selection_mgr.selected
 	var issue_patrol: bool = _patrol_command_armed
-	var issue_force_move: bool = _move_command_armed
+	var issue_force_move: bool = not _attack_move_command_armed and not _patrol_command_armed
 	var issue_attack_move: bool = _attack_move_command_armed
 	_clear_armed_unit_commands(false)
 
@@ -1956,6 +1996,17 @@ func _on_move_command(target_tile: Vector2i) -> void:
 		if b.player_owner == 0 and b.trainable_units.size() > 0:
 			_set_production_rally(b, target_tile)
 			return
+
+	if NetworkSession.is_client():
+		var world: Vector2 = game_map.tile_to_world(target_tile)
+		var operation: String = "patrol" if issue_patrol else ("attack_move" if issue_attack_move else "move")
+		_send_network_selection(operation, {"position": [world.x, world.y]})
+		if issue_attack_move:
+			VFX.attack_move_indicator(get_tree(), world)
+		else:
+			VFX.move_indicator(get_tree(), world)
+		_refresh_unit_command_hud()
+		return
 
 	# Collect moveable units
 	var moveable: Array[UnitBase] = []
@@ -1981,16 +2032,15 @@ func _on_move_command(target_tile: Vector2i) -> void:
 		var world_path: PackedVector2Array = order["path"]
 		if issue_force_move:
 			_match_learning.observe_retreat_order(unit, world_pos, GameManager.game_time, _get_visible_learning_enemies())
-		# Military units use smart attack-move by default. Explicit Move suppresses
-		# engagement for every selected unit; A-Move makes the intent visible and
-		# available to villagers as well.
+		# A ground tap travels without acquiring enemies. Holding ground or the
+		# Attack button explicitly requests engagement along the route.
 		var is_military: bool = unit.unit_type != UnitData.UnitType.VILLAGER
 		if world_path.size() > 1:
 			if issue_patrol and is_military:
 				unit.command_patrol(world_pos)
 			elif issue_force_move:
 				unit.command_move_path(world_path)
-			elif is_military or issue_attack_move:
+			elif issue_attack_move:
 				unit.command_attack_move_path(world_path)
 			else:
 				unit.command_move_path(world_path)
@@ -1999,7 +2049,7 @@ func _on_move_command(target_tile: Vector2i) -> void:
 				unit.command_patrol(world_pos)
 			elif issue_force_move:
 				unit.command_move(world_pos)
-			elif is_military or issue_attack_move:
+			elif issue_attack_move:
 				unit.command_attack_move(world_pos)
 			else:
 				unit.command_move(world_pos)
@@ -2008,12 +2058,12 @@ func _on_move_command(target_tile: Vector2i) -> void:
 		VFX.move_indicator(get_tree(), game_map.tile_to_world(target_tile))
 		hud.show_notification("Patrol route set", Color(0.95, 0.8, 0.4))
 	# Show green indicator for regular move, red for attack-move
-	elif not issue_force_move and (has_military or issue_attack_move):
+	elif not issue_force_move and issue_attack_move:
 		VFX.attack_move_indicator(get_tree(), game_map.tile_to_world(target_tile))
 	else:
 		VFX.move_indicator(get_tree(), game_map.tile_to_world(target_tile))
 	if not orders.is_empty():
-		AudioManager.play_ui("command_attack" if not issue_force_move and not issue_patrol and (has_military or issue_attack_move) else "command_move")
+		AudioManager.play_ui("command_attack" if not issue_force_move and not issue_patrol and issue_attack_move else "command_move")
 	_refresh_unit_command_hud()
 
 
@@ -2021,6 +2071,10 @@ func _on_attack_command(target: Node2D) -> void:
 	if _route_armed_unit_command_to_target(target):
 		return
 	_clear_armed_unit_commands(false)
+	if NetworkSession.is_client():
+		_send_network_selection("attack", NetworkSession.target_payload(target))
+		VFX.attack_move_indicator(get_tree(), target.global_position)
+		return
 	var selected: Array = game_map.selection_mgr.selected
 	var accepted: bool = false
 	for node in selected:
@@ -2039,6 +2093,17 @@ func _on_gather_command(resource_node: Node2D) -> void:
 	if _route_armed_unit_command_to_target(resource_node):
 		return
 	_clear_armed_unit_commands(false)
+	if NetworkSession.is_client():
+		var selection: Array = game_map.selection_mgr.selected
+		if selection.size() == 1 and selection[0] is BuildingBase:
+			var payload: Dictionary = NetworkSession.target_payload(selection[0])
+			payload["position"] = [resource_node.global_position.x, resource_node.global_position.y]
+			NetworkSession.send_command("rally", payload)
+			VFX.rally_indicator(get_tree(), resource_node.global_position)
+			return
+		_send_network_selection("gather", NetworkSession.target_payload(resource_node))
+		VFX.gather_indicator(get_tree(), resource_node.global_position)
+		return
 	if not game_map.is_resource_target_visible_to_player(resource_node, 0):
 		return
 	if not game_map.is_resource_target_valid(resource_node, "", 0):
@@ -2048,7 +2113,7 @@ func _on_gather_command(resource_node: Node2D) -> void:
 		var producer: BuildingBase = selected[0] as BuildingBase
 		if producer.player_owner == 0 and UnitData.UnitType.VILLAGER in producer.trainable_units:
 			producer.set_resource_rally(resource_node)
-			VFX.move_indicator(get_tree(), resource_node.global_position)
+			VFX.rally_indicator(get_tree(), resource_node.global_position)
 			hud.show_notification("Villager rally: gather %s" % resource_node.get_resource_type(), Color(0.58, 0.82, 1.0))
 			_on_selection_changed(game_map.selection_mgr.selected)
 		return
@@ -2056,6 +2121,8 @@ func _on_gather_command(resource_node: Node2D) -> void:
 	for node in selected:
 		if node is UnitBase and node.player_owner == 0 and node.has_method("command_gather"):
 			assigned_any = bool(node.call("command_gather", resource_node)) or assigned_any
+	if assigned_any:
+		VFX.gather_indicator(get_tree(), resource_node.global_position)
 	if assigned_any and resource_node.get_resource_type() == "food":
 		_opening_gather_complete = true
 	_refresh_guided_opening_stage()
@@ -2066,6 +2133,9 @@ func _on_build_command(building: Node2D) -> void:
 	if _route_armed_unit_command_to_target(building):
 		return
 	_clear_armed_unit_commands(false)
+	if NetworkSession.is_client():
+		_send_network_selection("build", NetworkSession.target_payload(building))
+		return
 	var selected: Array = game_map.selection_mgr.selected
 	for node in selected:
 		if node is Villager and node.player_owner == 0:
@@ -2084,6 +2154,12 @@ func _route_armed_unit_command_to_target(target: Node2D) -> bool:
 
 
 func _on_train_unit_requested(building: Node2D, unit_type: int) -> void:
+	if NetworkSession.is_client():
+		var sent: bool = NetworkSession.send_command("train", {"target": NetworkSession.entity_id(building), "type": unit_type})
+		_last_train_request_unit_type = unit_type
+		_last_train_request_result = "requested" if sent else "connection_unavailable"
+		_last_train_feedback = "Training requested: " + UnitData.get_unit_name(unit_type) if sent else "Connection unavailable. Try again."
+		return
 	_last_train_request_unit_type = unit_type
 	_last_train_feedback = ""
 	if not is_instance_valid(building) or not (building is BuildingBase):
@@ -2395,6 +2471,9 @@ func _get_camera_subject_bounds(subject: Node2D, include_ground: bool = true, in
 
 
 func _on_cancel_queue_requested(building: Node2D, index: int) -> void:
+	if NetworkSession.is_client():
+		NetworkSession.send_command("cancel", {"target": NetworkSession.entity_id(building), "index": index})
+		return
 	if not is_instance_valid(building) or not (building is BuildingBase):
 		return
 	var b: BuildingBase = building as BuildingBase
@@ -2410,6 +2489,9 @@ func _on_cancel_queue_requested(building: Node2D, index: int) -> void:
 
 
 func _on_research_requested(building: Node2D, research_id: String) -> void:
+	if NetworkSession.is_client():
+		NetworkSession.send_command("research", {"target": NetworkSession.entity_id(building), "research": research_id})
+		return
 	if GameManager.current_state != GameManager.GameState.PLAYING:
 		return
 	if not is_instance_valid(building) or not building is BuildingBase or building.player_owner != 0:
@@ -2696,6 +2778,9 @@ func _on_placement_invalid(reason: String) -> void:
 
 
 func _on_age_up_requested() -> void:
+	if NetworkSession.is_client():
+		NetworkSession.send_command("age")
+		return
 	if GameManager.current_state != GameManager.GameState.PLAYING:
 		return
 	var age: int = GameManager.get_player_age(0)
@@ -2725,6 +2810,10 @@ func _on_age_up_requested() -> void:
 # =========================================================================
 
 func _on_placement_confirmed(building_type: int, world_pos: Vector2) -> void:
+	if NetworkSession.is_client():
+		_send_network_selection("place", {"type": building_type, "position": [world_pos.x, world_pos.y]})
+		_cancel_placement()
+		return
 	var tile_pos: Vector2i = game_map.world_to_tile(world_pos)
 	var cost: Dictionary = BuildingData.get_building_cost(building_type)
 	# The preview owns the first confirmation check, but fog/occupancy can change
@@ -3136,8 +3225,9 @@ func _process(delta: float) -> void:
 				"selection_count": game_map.selection_mgr.selected.size(),
 				"secondary_surface": hud.get_secondary_surface_name(),
 			})
-	_advance_production_queues(delta)
-	_process_ai_construction_recovery(delta)
+	if not NetworkSession.is_client():
+		_advance_production_queues(delta)
+		_process_ai_construction_recovery(delta)
 	_update_fog_of_war()
 	_update_fog_entity_visibility()
 	# Main refreshes fog before the child SelectionManager processes. Prune now
@@ -3448,6 +3538,8 @@ func _update_progression_hint() -> void:
 # =========================================================================
 
 func _conclude_match(winner_id: int, reason: String) -> void:
+	if NetworkSession.server_mode:
+		_victory_reason = reason
 	if _game_over_shown or not GameManager.players.has(winner_id):
 		return
 	var loser_id: int = 1 if winner_id == 0 else 0
@@ -3561,11 +3653,25 @@ func _calculate_score(player_id: int = 0) -> int:
 
 
 func _on_restart() -> void:
+	if NetworkSession.is_client():
+		NetworkSession.find_match()
+		get_tree().call_deferred("change_scene_to_file", "res://scenes/ui/main_menu.tscn")
+		return
 	Engine.time_scale = 1.0
 	get_tree().call_deferred("reload_current_scene")
 
 
 func _on_main_menu() -> void:
+	if NetworkSession.is_client():
+		NetworkSession.leave_match()
 	Engine.time_scale = 1.0
 	GameManager.set_state(GameManager.GameState.MENU)
 	get_tree().call_deferred("change_scene_to_file", "res://scenes/ui/main_menu.tscn")
+
+
+func _send_network_selection(operation: String, payload: Dictionary = {}) -> bool:
+	if not NetworkSession.is_client():
+		return false
+	payload["ids"] = NetworkSession.selection_ids(game_map.selection_mgr.selected)
+	NetworkSession.send_command(operation, payload)
+	return true

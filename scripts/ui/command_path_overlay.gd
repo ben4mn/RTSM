@@ -2,11 +2,15 @@ extends Node2D
 ## Selected friendly orders: live navigation routes and destination markers.
 ## A leader represents nearby formation destinations to keep phone views clear.
 
-const MAX_ROUTE_GROUPS: int = 4
+const MAX_ROUTE_GROUPS: int = 3
+const PREVIEW_SECONDS: float = 1.4
+const FADE_SECONDS: float = 0.6
 const FORMATION_GOAL_RADIUS: float = 96.0
 const MOVE_COLOR := Color("8cdecf")
 const ATTACK_COLOR := Color("ff9d85")
 const WORK_COLOR := Color("f1d18a")
+
+var _observed_orders: Dictionary = {}
 
 @onready var selection_manager: SelectionManager = get_parent().get_node("SelectionManager") as SelectionManager
 
@@ -18,7 +22,9 @@ func _process(_delta: float) -> void:
 
 
 func _ready() -> void:
-	selection_manager.selection_changed.connect(func(_selection: Array[Node2D]) -> void: queue_redraw())
+	selection_manager.selection_changed.connect(func(_selection: Array[Node2D]) -> void:
+		_observed_orders.clear()
+		queue_redraw())
 
 
 ## Public for render fixtures and regressions; every route is world-space.
@@ -37,10 +43,23 @@ func get_display_routes() -> Array[Dictionary]:
 		var mode: String = "move"
 		if unit.attack_move or unit.current_state == UnitBase.State.ATTACKING:
 			mode = "attack"
-		elif unit.current_state in [UnitBase.State.GATHERING, UnitBase.State.BUILDING]:
+		elif unit.current_state in [UnitBase.State.GATHERING, UnitBase.State.BUILDING] or (unit is Villager and (unit as Villager).get_work_status() not in ["Idle", "Moving"]):
 			mode = "work"
 		var destination: Vector2 = points[points.size() - 1] if not points.is_empty() else unit.move_target
 		var order_destination: Vector2 = unit.move_target if resuming_attack_move else destination
+		var id: int = unit.get_instance_id()
+		# A new destination or selecting the unit previews its route once. Walking,
+		# gathering shuttles and combat repaths do not continually restart the flash.
+		var signature: String = "%s:%s" % [mode, unit.move_target]
+		var now: float = Time.get_ticks_msec() / 1000.0
+		var observed: Dictionary = _observed_orders.get(id, {})
+		if observed.get("signature", "") != signature:
+			observed = {"signature": signature, "started": now}
+			_observed_orders[id] = observed
+		var elapsed: float = now - float(observed.started)
+		var opacity: float = clampf((PREVIEW_SECONDS + FADE_SECONDS - elapsed) / FADE_SECONDS, 0.0, 1.0)
+		if opacity <= 0.0:
+			continue
 		var represented: bool = false
 		for route: Dictionary in routes:
 			if route["mode"] == mode and (route["order_destination"] as Vector2).distance_to(order_destination) <= FORMATION_GOAL_RADIUS:
@@ -48,7 +67,7 @@ func get_display_routes() -> Array[Dictionary]:
 				break
 		if represented:
 			continue
-		routes.append({"points": points, "destination": destination, "order_destination": order_destination, "mode": mode})
+		routes.append({"points": points, "destination": destination, "order_destination": order_destination, "mode": mode, "opacity": opacity})
 		if routes.size() >= MAX_ROUTE_GROUPS:
 			break
 	return routes
@@ -65,10 +84,9 @@ func _draw() -> void:
 		for point: Vector2 in world_points:
 			points.append(to_local(point))
 		var color: Color = ATTACK_COLOR if route["mode"] == "attack" else (WORK_COLOR if route["mode"] == "work" else MOVE_COLOR)
-		if points.size() >= 2:
-			draw_polyline(points, Color(0.04, 0.10, 0.12, 0.70), 4.5 / zoom, true)
+		color.a = 0.55 * float(route.get("opacity", 1.0))
 		for index: int in range(1, points.size()):
-			draw_dashed_line(points[index - 1], points[index], color, 2.0 / zoom, 7.0 / zoom, true, true)
+			draw_dashed_line(points[index - 1], points[index], color, 1.2 / zoom, 8.0 / zoom, true, true)
 		_draw_destination(to_local(route["destination"]), color, zoom, route["mode"] == "attack")
 		# Engagement temporarily replaces the live route with a chase. Keep the
 		# attack-move goal marked so the player knows where troops will resume.
@@ -91,7 +109,7 @@ func _draw() -> void:
 
 
 func _draw_destination(destination: Vector2, color: Color, zoom: float, attack: bool) -> void:
-	draw_circle(destination, 9.0 / zoom, Color(0.04, 0.10, 0.12, 0.80))
+	draw_circle(destination, 9.0 / zoom, Color(0.04, 0.10, 0.12, color.a * 0.7))
 	draw_arc(destination, 7.0 / zoom, 0.0, TAU, 24, color, 2.0 / zoom, true)
 	if attack:
 		draw_line(destination + Vector2(-3, -3) / zoom, destination + Vector2(3, 3) / zoom, color, 1.5 / zoom, true)

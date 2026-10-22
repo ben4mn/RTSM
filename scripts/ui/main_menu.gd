@@ -81,6 +81,10 @@ var _settings_header: HBoxContainer = null
 var _hold_shortcuts_toggle: CheckButton = null
 var _selected_population_limit: int = SkirmishData.DEFAULT_POPULATION_LIMIT
 
+var _online_button: Button
+var _network_search_active: bool = false
+var _network_status: Label
+
 
 func _ready() -> void:
 	# A menu scene can be entered from pause, summary, or directly during test
@@ -89,6 +93,7 @@ func _ready() -> void:
 	WEB_SHELL_BRIDGE.set_controls_visible(true)
 	theme = THEME.create_theme()
 	_build_quick_start_presentation()
+	_build_online_controls()
 	start_button.pressed.connect(_on_start_pressed)
 	random_seed_button.pressed.connect(_on_random_seed_pressed)
 	guided_opening_toggle.toggled.connect(_on_guided_opening_toggled)
@@ -158,7 +163,7 @@ func _build_quick_start_presentation() -> void:
 	_hero_art.set_script(DIORAMA)
 	_hero.add_child(_hero_art)
 	_hero_caption = Label.new()
-	_hero_caption.text = "1v1 VS AI  /  20–40 POPULATION"
+	_hero_caption.text = "SOLO SKIRMISH  /  ONLINE 1v1"
 	_hero_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_hero_caption.add_theme_color_override("font_color", THEME.MUTED)
 	_hero_caption.add_theme_font_size_override("font_size", 12)
@@ -239,6 +244,59 @@ func _build_quick_start_presentation() -> void:
 	settings_overlay.color = Color(0.025, 0.055, 0.08, 0.94)
 	THEME.apply_primary(settings_close_button)
 	_build_population_choices()
+
+
+func _build_online_controls() -> void:
+	var secondary := HBoxContainer.new()
+	secondary.name = "SecondaryActions"
+	secondary.add_theme_constant_override("separation", 6)
+	actions_row.add_child(secondary)
+	_online_button = Button.new()
+	_online_button.name = "FindOnlineMatch"
+	_online_button.text = "Play online"
+	_online_button.custom_minimum_size = Vector2(0, 48)
+	_online_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_online_button.add_theme_font_size_override("font_size", 14)
+	_online_button.accessibility_name = "Find another player for an online match"
+	THEME.apply_secondary(_online_button)
+	secondary.add_child(_online_button)
+	settings_button.reparent(secondary)
+	settings_button.text = "Settings"
+	_network_status = Label.new()
+	_network_status.name = "OnlineStatus"
+	_network_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_network_status.custom_minimum_size = Vector2(0, 96)
+	_network_status.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_network_status.add_theme_font_size_override("font_size", 18)
+	_network_status.hide()
+	setup_vbox.add_child(_network_status)
+	_online_button.pressed.connect(func() -> void:
+		var session: Node = get_node_or_null("/root/NetworkSession")
+		if session != null:
+			session.call("find_match"))
+	var session: Node = get_node_or_null("/root/NetworkSession")
+	if session != null:
+		session.connect("status_changed", _on_network_status_changed)
+		_on_network_status_changed(str(session.get("state")), str(session.get("status_text")))
+
+
+func _on_network_status_changed(state: String, message: String) -> void:
+	_network_search_active = state in ["connecting", "searching", "loading"]
+	WEB_SHELL_BRIDGE.set_update_safe(not _network_search_active and state != "playing")
+	_network_status.visible = _network_search_active
+	_network_status.text = message
+	for control: Control in [_difficulty_row, difficulty_label, difficulty_description, guided_opening_toggle]:
+		control.visible = not _network_search_active
+	_online_button.disabled = _network_search_active
+	settings_button.disabled = _network_search_active
+	start_button.text = "Cancel search" if _network_search_active else "Play skirmish"
+	if state == "error":
+		difficulty_description.text = message
+		difficulty_description.tooltip_text = message
+		difficulty_description.add_theme_color_override("font_color", THEME.AMBER)
+	elif not _network_search_active:
+		_apply_difficulty_description()
+	call_deferred("_refresh_responsive_layout")
 
 
 func _build_population_choices() -> void:
@@ -402,10 +460,10 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 	_hero_caption.size = Vector2(hero_rect.size.x, 20.0)
 	content_vbox.custom_minimum_size.x = card_width
 	content_vbox.add_theme_constant_override("separation", 8)
-	map_heading.visible = not compact
+	map_heading.visible = not compact and not _network_search_active
 	map_heading.add_theme_font_size_override("font_size", 12)
 	difficulty_label.add_theme_font_size_override("font_size", 17)
-	difficulty_description.visible = true
+	difficulty_description.visible = not _network_search_active
 	difficulty_description.add_theme_font_size_override("font_size", 13)
 	difficulty_description.custom_minimum_size.y = 34.0
 	setup_margin.add_theme_constant_override("margin_left", 12 if compact else 20)
@@ -419,7 +477,9 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 	start_button.custom_minimum_size = Vector2(card_width, 56)
 	start_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	start_button.add_theme_font_size_override("font_size", 20)
-	settings_button.custom_minimum_size = Vector2(card_width, 48)
+	settings_button.custom_minimum_size = Vector2(0, 48)
+	if is_instance_valid(_online_button):
+		_online_button.custom_minimum_size = Vector2(0, 48)
 	settings_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	settings_button.add_theme_font_size_override("font_size", 14)
 	settings_panel.custom_minimum_size.x = minf(normalized_safe_area.size.x - 24.0, 600.0)
@@ -518,6 +578,8 @@ func _on_difficulty_changed(index: int) -> void:
 func _apply_difficulty_description() -> void:
 	start_button.text = "Play skirmish" if GameManager.selected_match_mode == SkirmishData.MatchMode.STANDARD else "Play control race"
 	difficulty_description.text = DIFFICULTY_DESCRIPTIONS[_selected_difficulty]
+	difficulty_description.tooltip_text = difficulty_description.text
+	difficulty_description.add_theme_color_override("font_color", THEME.MUTED)
 	for index: int in _difficulty_buttons.size():
 		_difficulty_buttons[index].set_pressed_no_signal(index == _selected_difficulty)
 	_refresh_main_menu_diagnostics()
@@ -588,6 +650,9 @@ func _on_seed_text_changed(_new_text: String) -> void:
 
 
 func _on_start_pressed() -> void:
+	if _network_search_active:
+		get_node("/root/NetworkSession").call("cancel_search")
+		return
 	if not WEB_SHELL_BRIDGE.begin_match():
 		return
 	GameManager.selected_difficulty = _selected_difficulty

@@ -101,7 +101,7 @@ func _exercise_profile(phone_size: Vector2i, ui_scale: float, notched: bool) -> 
 	_expect(area_button.is_visible_in_tree(), "%s Select area is unavailable with units selected" % suffix)
 	_expect(area_button.size.x * ui_scale >= 47.5 and area_button.size.y * ui_scale >= 47.5, "%s Select area is below 48 physical pixels" % suffix)
 	hud.call("set_area_selection_armed", true)
-	_expect(area_button.button_pressed and area_button.icon != null and area_button.accessibility_name.contains("Cancel"), "%s area selection lacks its persistent cancellation cue" % suffix)
+	_expect(area_button.button_pressed and area_button.icon != null and area_button.accessibility_name.to_lower().contains("cancel"), "%s area selection lacks its persistent cancellation cue" % suffix)
 	hud.call("set_area_selection_armed", false)
 	var patrol_button := advanced.get_node("UnitPatrolButton") as Button
 	hud.call("configure_unit_commands", true, false, "Stand Ground", "smart")

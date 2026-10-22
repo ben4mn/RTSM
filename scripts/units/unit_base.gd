@@ -48,6 +48,8 @@ var _stuck_timer: float = 0.0        # Detects stuck units during movement
 var _last_move_pos: Vector2 = Vector2.ZERO
 var _forced_attack: bool = false      # True when explicit player/AI attack command should override stance chase limits.
 var _force_move_active: bool = false  # Explicit Move ignores enemies until arrival, failure, or another command.
+var _auto_engagement_origin: Vector2 = Vector2.ZERO
+var _auto_chase_elapsed: float = 0.0
 var _patrol_active: bool = false
 var _patrol_point_a: Vector2 = Vector2.ZERO
 var _patrol_point_b: Vector2 = Vector2.ZERO
@@ -130,6 +132,8 @@ const NAVIGATION_STUCK_TIMEOUT: float = 1.25
 const NAVIGATION_MAX_FAILED_REPATHS: int = 4
 const NAVIGATION_MAX_STALL_REPATHS: int = 3
 const AUTO_TARGET_IGNORE_SECONDS: float = 3.0
+const AUTO_CHASE_MAX_SECONDS: float = 6.0
+const AUTO_CHASE_MIN_DISTANCE: float = 128.0
 
 
 func _ready() -> void:
@@ -361,6 +365,7 @@ func _on_reached_destination() -> void:
 		move_target = _patrol_point_b if _patrol_to_b else _patrol_point_a
 		set_state(State.MOVING)
 		return
+	attack_move = false
 	set_state(State.IDLE)
 	arrived_at_destination.emit(self)
 
@@ -554,6 +559,7 @@ func _before_new_command() -> void:
 
 
 func _process_attacking(delta: float) -> void:
+	_consider_nearby_threat()
 	# Handle building attacks
 	if attack_building_target != null:
 		if not _is_valid_building_target(attack_building_target):
@@ -563,15 +569,12 @@ func _process_attacking(delta: float) -> void:
 			if not _resume_post_combat_movement():
 				set_state(State.IDLE)
 			return
-		var dist: float = global_position.distance_to(attack_building_target.global_position)
+		var dist: float = _get_building_attack_distance(attack_building_target)
 		if dist > attack_range + 24.0:
-			var building_result: int = _navigate_toward(
-				attack_building_target.global_position,
-				attack_range + 24.0,
-				delta,
-				true,
-				false
-			)
+			if _should_abandon_auto_chase(attack_building_target, delta):
+				_abandon_auto_chase()
+				return
+			var building_result: int = _navigate_toward_building_target(attack_building_target, delta)
 			if building_result == NavigationResult.UNREACHABLE:
 				_temporarily_ignore_auto_target(attack_building_target)
 				attack_building_target = null
@@ -580,6 +583,7 @@ func _process_attacking(delta: float) -> void:
 				if not _resume_post_combat_movement():
 					set_state(State.IDLE)
 		else:
+			_auto_chase_elapsed = 0.0
 			_reset_navigation()
 			if attack_cooldown <= 0.0:
 				_perform_building_attack()
@@ -595,12 +599,8 @@ func _process_attacking(delta: float) -> void:
 
 	var dist: float = global_position.distance_to(attack_target.global_position)
 	if dist > attack_range + 8.0:
-		# Stand ground only blocks chase for passive auto-targets.
-		if stance == Stance.STAND_GROUND and not attack_move and not _forced_attack:
-			attack_target = null
-			_forced_attack = false
-			if not _resume_post_combat_movement():
-				set_state(State.IDLE)
+		if _should_abandon_auto_chase(attack_target, delta):
+			_abandon_auto_chase()
 			return
 		var unit_result: int = _navigate_toward(
 			attack_target.global_position,
@@ -617,10 +617,42 @@ func _process_attacking(delta: float) -> void:
 			if not _resume_post_combat_movement():
 				set_state(State.IDLE)
 	else:
+		_auto_chase_elapsed = 0.0
 		_reset_navigation()
 		# In range, attack
 		if attack_cooldown <= 0.0:
 			_perform_attack()
+
+
+func _get_building_attack_distance(building: BuildingBase) -> float:
+	var game_map := _get_navigation_map()
+	if game_map != null and game_map.has_method("get_building_work_distance"):
+		return float(game_map.call("get_building_work_distance", global_position, building.global_position, building.footprint))
+	return global_position.distance_to(building.global_position)
+
+
+func _navigate_toward_building_target(building: BuildingBase, delta: float) -> int:
+	var game_map := _get_navigation_map()
+	if game_map == null or not game_map.has_method("get_building_work_world_path"):
+		return _navigate_toward(building.global_position, attack_range + 24.0, delta, true, false)
+	# The building anchor is a corner of the solid footprint. As with workers,
+	# military approach a reachable perimeter, including the opposite edge.
+	if not path.is_empty() and path_index < path.size():
+		var waypoint: Vector2i = game_map.call("world_to_tile", path[path_index])
+		if not bool(game_map.call("is_tile_walkable", waypoint)):
+			_reset_navigation()
+	if not _navigation_active:
+		if _navigation_repath_cooldown > 0.0:
+			return NavigationResult.MOVING
+		var route: PackedVector2Array = game_map.call("get_building_work_world_path", global_position, building.global_position, building.footprint, attack_range + 24.0)
+		_navigation_repath_cooldown = NAVIGATION_REPATH_INTERVAL
+		if route.is_empty():
+			_navigation_failed_repaths += 1
+			return _navigation_failure_result()
+		path = route
+		path_index = 0
+		_navigation_goal = route[route.size() - 1]
+	return _navigate_toward(_navigation_goal, NAVIGATION_POINT_TOLERANCE, delta, false, false)
 
 
 func _process_gathering(_delta: float) -> void:
@@ -659,6 +691,62 @@ func _try_auto_attack() -> void:
 func can_auto_retaliate() -> bool:
 	## Unit roles can opt out without disabling explicit attack commands.
 	return damage > 0.0 and not _force_move_active
+
+
+func respond_to_attacker(attacker: UnitBase) -> void:
+	# Damage is an autonomous stimulus. It must preserve attack-move/patrol
+	# destinations and cannot replace an explicit unit or building target.
+	if not can_auto_retaliate() or _forced_attack or not _is_valid_target(attacker):
+		return
+	if attacker.player_owner == player_owner or _is_valid_target(attack_target):
+		return
+	if stance == Stance.STAND_GROUND and not attack_move and global_position.distance_to(attacker.global_position) > attack_range + 8.0:
+		return
+	command_attack(attacker, false, false)
+
+
+func _consider_nearby_threat() -> void:
+	# Stay committed to a target in weapon range. A normal fighter chasing a
+	# distant target or hitting a building can help an immediate nearby fight;
+	# siege retains its deliberate building role and explicit orders always win.
+	if _forced_attack or _auto_attack_timer > 0.0 or _attack_windup_remaining >= 0.0:
+		return
+	if _is_valid_target(attack_target) and global_position.distance_to(attack_target.global_position) <= attack_range + 8.0:
+		return
+	if attack_building_target != null and bool(UnitData.UNITS.get(unit_type, {}).get("auto_target_buildings_first", false)):
+		return
+	_auto_attack_timer = 0.3
+	var threat: UnitBase = UnitAutoTargeting.find_nearby_threat(self, maxf(vision_radius, attack_range + 8.0))
+	if threat != null and threat != attack_target:
+		command_attack(threat, false, false)
+
+
+func _should_abandon_auto_chase(target: Node2D, delta: float) -> bool:
+	if _forced_attack:
+		return false
+	if stance == Stance.STAND_GROUND and not attack_move:
+		return true
+	_auto_chase_elapsed += delta
+	var leash: float = maxf(AUTO_CHASE_MIN_DISTANCE, maxf(vision_radius * 2.0, attack_range + 64.0))
+	return _auto_chase_elapsed >= AUTO_CHASE_MAX_SECONDS or (not target is BuildingBase and _auto_engagement_origin.distance_to(target.global_position) > leash)
+
+
+func _abandon_auto_chase() -> void:
+	_temporarily_ignore_auto_target(attack_target if is_instance_valid(attack_target) else attack_building_target)
+	attack_target = null
+	attack_building_target = null
+	_cancel_attack_windup()
+	_reset_navigation()
+	if _resume_post_combat_movement():
+		return
+	# An idle defender returns to the place it was guarding. A fleeing enemy
+	# cannot pull it farther away again on each acquisition cooldown.
+	if global_position.distance_to(_auto_engagement_origin) > NAVIGATION_POINT_TOLERANCE:
+		move_target = _auto_engagement_origin
+		_force_move_active = true
+		set_state(State.MOVING)
+	else:
+		set_state(State.IDLE)
 
 
 func _perform_attack() -> void:
@@ -702,7 +790,7 @@ func _advance_attack_windup(delta: float) -> void:
 		var building := target as BuildingBase
 		if building != attack_building_target or not _is_valid_building_target(building):
 			return
-		if global_position.distance_to(building.global_position) > attack_range + 28.0:
+		if _get_building_attack_distance(building) > attack_range + 28.0:
 			return
 		Combat.deal_damage_to_building(self, building)
 		if get_tree().current_scene != null:
@@ -861,6 +949,9 @@ func command_attack(target: UnitBase, force_chase: bool = true, clear_patrol: bo
 		return
 	if not _is_valid_target(target):
 		return
+	if current_state != State.ATTACKING or _forced_attack or force_chase:
+		_auto_engagement_origin = global_position
+		_auto_chase_elapsed = 0.0
 	_before_new_command()
 	_cancel_attack_windup()
 	_attack_animation_remaining = 0.0
@@ -883,6 +974,9 @@ func command_attack_building(target: BuildingBase, force_chase: bool = true, cle
 		return
 	if not _is_valid_building_target(target):
 		return
+	if current_state != State.ATTACKING or _forced_attack or force_chase:
+		_auto_engagement_origin = global_position
+		_auto_chase_elapsed = 0.0
 	_before_new_command()
 	_cancel_attack_windup()
 	_attack_animation_remaining = 0.0

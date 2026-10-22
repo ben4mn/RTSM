@@ -1,5 +1,5 @@
 extends RefCounted
-## Bounded endpoint allocation for a human group order. The intended marker
+## Bounded endpoint allocation for a player's group order. The intended marker
 ## stays with Main; these are the actual legal slots its units can occupy.
 
 const MAX_SLOT_RADIUS_TILES: int = 6
@@ -12,13 +12,14 @@ static func plan(
 	game_map: Node2D,
 	units: Array[UnitBase],
 	target_tile: Vector2i,
-	friendly_units: Array = []
+	friendly_units: Array = [],
+	player_owner: int = 0
 ) -> Array[Dictionary]:
 	var orders: Array[Dictionary] = []
 	var selected_ids: Dictionary = {}
 	var pending: Array[UnitBase] = []
 	for unit: UnitBase in units:
-		if not is_instance_valid(unit) or unit.is_queued_for_deletion() or unit.player_owner != 0 or unit.current_state == UnitBase.State.DEAD:
+		if not is_instance_valid(unit) or unit.is_queued_for_deletion() or unit.player_owner != player_owner or unit.current_state == UnitBase.State.DEAD:
 			continue
 		selected_ids[unit.get_instance_id()] = true
 		pending.append(unit)
@@ -38,7 +39,7 @@ static func plan(
 			if not game_map.is_tile_walkable(candidate):
 				continue
 			var destination: Vector2 = game_map.tile_to_world(candidate)
-			if _is_occupied_by_other_friendly(destination, friendly_units, selected_ids):
+			if _is_occupied_by_other_friendly(destination, friendly_units, selected_ids, player_owner):
 				continue
 			candidates.append(candidate)
 	candidates.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
@@ -141,12 +142,12 @@ static func _collect_connected_tiles(game_map: Node2D, origin: Vector2i) -> Dict
 			frontier.append(neighbor)
 	return connected
 
-static func _is_occupied_by_other_friendly(destination: Vector2, friendly_units: Array, selected_ids: Dictionary) -> bool:
+static func _is_occupied_by_other_friendly(destination: Vector2, friendly_units: Array, selected_ids: Dictionary, player_owner: int) -> bool:
 	for entry: Variant in friendly_units:
 		if not is_instance_valid(entry) or not entry is UnitBase:
 			continue
 		var unit := entry as UnitBase
-		if unit.player_owner != 0 or unit.is_queued_for_deletion() or selected_ids.has(unit.get_instance_id()) or unit.current_state == UnitBase.State.DEAD:
+		if unit.player_owner != player_owner or unit.is_queued_for_deletion() or selected_ids.has(unit.get_instance_id()) or unit.current_state == UnitBase.State.DEAD:
 			continue
 		if unit.global_position.distance_to(destination) < FRIENDLY_CLEARANCE_WORLD:
 			return true

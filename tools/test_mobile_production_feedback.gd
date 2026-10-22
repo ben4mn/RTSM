@@ -178,8 +178,8 @@ func _profile(phone: Vector2i, scale_factor: float) -> void:
 	var house: Button = cards[BuildingData.BuildingType.HOUSE]
 	var stable: Button = cards[BuildingData.BuildingType.STABLE]
 	var house_cost: int = int(BuildingData.get_building_cost(BuildingData.BuildingType.HOUSE).get("wood", 0))
-	_expect(house.disabled and house.text.contains("Need +%dW" % (house_cost - 15)), profile + " Build card shortage missing")
-	_expect(stable.disabled and stable.text.contains("Unlocks in Age 2") and not stable.text.contains("Need"), profile + " shortage hides age lock")
+	_expect(house.disabled and house.text.contains("Need %dW" % (house_cost - 15)), profile + " Build card shortage missing")
+	_expect(stable.disabled and stable.text.contains("Age 2") and not stable.text.contains("Need"), profile + " shortage hides age lock")
 	build_menu.call("update_resources", {"food": 10000, "wood": 10000, "gold": 10000})
 	_expect(not house.disabled and house.accessibility_name.contains("population") and not house.text.contains("Need"), profile + " affordability does not restore purpose")
 	for frame: int in 3:

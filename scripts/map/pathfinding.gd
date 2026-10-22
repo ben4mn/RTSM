@@ -5,6 +5,8 @@ extends RefCounted
 
 var _astar := AStarGrid2D.new()
 var _map_generator: MapGenerator
+## Consumers can invalidate failed destinations after a route opens/closes.
+var walkability_revision: int = 0
 
 const DEFAULT_MAX_PATH_CHECKS := 32
 const DEFAULT_START_RECOVERY_RADIUS := 4
@@ -121,8 +123,9 @@ func is_walkable(pos: Vector2i) -> bool:
 
 ## Mark a tile as solid (e.g., when a building is placed).
 func set_solid(pos: Vector2i, solid: bool = true) -> void:
-	if _in_bounds(pos):
+	if _in_bounds(pos) and _astar.is_point_solid(pos) != solid:
 		_astar.set_point_solid(pos, solid)
+		walkability_revision += 1
 
 
 ## Mark a rectangular area as solid (for buildings).
@@ -137,9 +140,9 @@ func update_tile(pos: Vector2i, tile_type: MapData.TileType) -> void:
 	if not _in_bounds(pos):
 		return
 	if MapData.is_obstacle(tile_type):
-		_astar.set_point_solid(pos, true)
+		set_solid(pos, true)
 	else:
-		_astar.set_point_solid(pos, false)
+		set_solid(pos, false)
 		if tile_type == MapData.TileType.FOREST:
 			_astar.set_point_weight_scale(pos, MapData.FOREST_MOVE_COST)
 		else:

@@ -141,9 +141,9 @@ func _run() -> void:
 	farm.state = BuildingBase.State.CONSTRUCTING
 	_expect(picker.call("_get_resource_at", farm_body, true) == null, "unfinished Farm body became a food target")
 	farm.state = BuildingBase.State.ACTIVE
-	farm.farm_remaining = 0
-	_expect(picker.call("_get_resource_at", farm_body, true) == null, "exhausted Farm body remained a food target")
-	farm.farm_remaining = 300
+	farm.state = BuildingBase.State.DESTROYED
+	_expect(picker.call("_get_resource_at", farm_body, true) == null, "destroyed Farm body remained a food target")
+	farm.state = BuildingBase.State.ACTIVE
 	enemy.position = farm_body
 	enemy.visible = true
 	picker.select_single(worker)

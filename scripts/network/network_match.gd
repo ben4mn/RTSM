@@ -1,0 +1,448 @@
+extends Node
+## Uses the existing simulation exclusively on the server. Clients keep inert
+## visual replicas, with local player 0 remapped to their assigned server slot.
+
+const PLANNER := preload("res://scripts/main/group_order_planner.gd")
+var main: Node = null
+var game_map: Node2D = null
+var entities: Dictionary = {}
+var _next_entity_id: int = 1
+var _interpolation: Dictionary = {}
+var _hit_flashes: Dictionary = {}
+var _camera_initialized: bool = false
+var _snapshot_number: int = 0
+var _resource_tiles: Array[Vector2i] = []
+
+func setup(controller: Node) -> void:
+	main = controller
+	game_map = main.game_map
+	for tile: Vector2i in game_map.resource_nodes:
+		_resource_tiles.append(tile)
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	main.ai_controller.process_mode = Node.PROCESS_MODE_DISABLED
+	main._hints_shown = main.HINTS.size()
+	if NetworkSession.is_client():
+		game_map.sacred_site.set_process(false)
+		main._guided_opening_active = false
+		main._clear_guidance_state()
+	else:
+		GameManager.game_over.connect(_on_server_game_over)
+
+func _on_server_game_over(winner: int) -> void:
+	NetworkSession.call_deferred("end_match", winner, main._victory_reason)
+
+func _process(delta: float) -> void:
+	if not NetworkSession.is_client():
+		return
+	for id: int in _interpolation.keys():
+		var unit: UnitBase = entities.get(id) as UnitBase
+		if is_instance_valid(unit):
+			unit.global_position = unit.global_position.lerp(_interpolation[id], minf(1.0, delta * 15.0))
+			unit._update_sprite_motion(delta)
+			unit.queue_redraw()
+	for id: int in _hit_flashes.keys():
+		_hit_flashes[id] = float(_hit_flashes[id]) - delta
+		var node: Node2D = entities.get(id) as Node2D
+		if float(_hit_flashes[id]) <= 0.0 or not is_instance_valid(node):
+			if is_instance_valid(node):
+				node.modulate = Color.WHITE
+			_hit_flashes.erase(id)
+
+func _local_owner(server_owner: int) -> int:
+	if server_owner < 0:
+		return server_owner
+	return 0 if server_owner == NetworkSession.player_slot else 1
+
+func _register_server_entities() -> void:
+	for group: String in ["units", "buildings"]:
+		for node: Node in get_tree().get_nodes_in_group(group):
+			if not (node is UnitBase or node is BuildingBase) or node.is_queued_for_deletion():
+				continue
+			if not node.has_meta("network_id"):
+				node.set_meta("network_id", _next_entity_id)
+				_next_entity_id += 1
+			entities[NetworkSession.entity_id(node)] = node
+	for id: int in entities.keys():
+		if not is_instance_valid(entities[id]) or entities[id].is_queued_for_deletion():
+			entities.erase(id)
+
+func broadcast_snapshots() -> void:
+	_register_server_entities()
+	_snapshot_number += 1
+	for slot: int in 2:
+		NetworkSession.send_snapshot(slot, _snapshot_for(slot))
+
+func _snapshot_for(slot: int) -> Dictionary:
+	var actors: Array = []
+	for node: Node2D in entities.values():
+		if not is_instance_valid(node) or node.is_queued_for_deletion():
+			continue
+		if node.player_owner != slot and not game_map.is_entity_visible_to_player(node, slot):
+			continue
+		var actor: Dictionary = {"id": NetworkSession.entity_id(node), "owner": node.player_owner, "x": node.global_position.x, "y": node.global_position.y, "hp": node.hp, "max_hp": node.max_hp}
+		if node is UnitBase:
+			if node.current_state == UnitBase.State.DEAD:
+				continue
+			actor.merge({"kind": "unit", "type": node.unit_type, "state": node.current_state, "stance": node.stance, "animation": [node._attack_animation_remaining, node._attack_animation_duration, node._attack_animation_direction.x, node._attack_animation_direction.y, node._sprite.flip_h if node._sprite != null else false]})
+			if node.player_owner == slot:
+				var points: Array = []
+				var route: PackedVector2Array = node.get_remaining_navigation_path()
+				for point: Vector2 in route.slice(0, mini(route.size(), 12)):
+					points.append([point.x, point.y])
+				actor["path"] = points
+				actor["destination"] = [node.move_target.x, node.move_target.y]
+				actor["attack_move"] = node.attack_move
+			if node is Villager and node.player_owner == slot:
+				actor.merge({"gather": node.gather_type, "cargo": node.carried_amount, "cargo_type": node.carried_resource_type, "cargo_manifest": node.get_carried_resources(), "work": node.get_economy_task(), "work_status": node.get_work_status(), "recovering": node.is_auto_recovering(), "building_order": node.has_active_build_order()})
+		else:
+			if node.state == BuildingBase.State.DESTROYED:
+				continue
+			actor.merge({"kind": "building", "type": node.building_type, "state": node.state, "progress": node.build_progress})
+			if node.player_owner == slot:
+				actor["rally"] = [node.rally_point.x, node.rally_point.y]
+				actor["custom_rally"] = node.rally_point_is_custom
+				var queue: ProductionQueue = node.get_production_queue()
+				if queue != null:
+					actor["queue"] = {"items": queue.queue, "progress": queue.current_progress, "time": queue.current_train_time, "training": queue.is_training, "repeat": queue.auto_queue_enabled, "repeat_type": queue.auto_queue_unit_type}
+		actors.append(actor)
+	var resources: Array = []
+	for tile: Vector2i in _resource_tiles:
+		if game_map.is_tile_visible_to_player(tile, slot):
+			var resource: Node2D = game_map.get_resource_node_at(tile)
+			resources.append([tile.x, tile.y, resource.remaining if is_instance_valid(resource) else 0])
+	var site: Node = game_map.sacred_site
+	var player: Dictionary = GameManager.players[slot].duplicate()
+	player.erase("units")
+	player.erase("buildings")
+	return {"tick": _snapshot_number, "time": GameManager.game_time, "actors": actors, "resources": resources, "bank": ResourceManager.get_all_resources(slot), "player": player, "upgrades": GameManager.player_upgrades[slot], "research": GameManager.researched_upgrades[slot], "stats": main._stats[slot], "site": {"state": site.state, "owner": site.owning_player, "capture": site.capture_progress, "timer": site.victory_timer, "hold": site.victory_hold_time}}
+
+func apply_snapshot(snapshot: Dictionary) -> void:
+	GameManager.game_time = float(snapshot.get("time", 0.0))
+	var player: Dictionary = snapshot.get("player", {})
+	for key: String in ["age", "population", "population_reserved", "population_cap", "max_population", "is_defeated"]:
+		if player.has(key):
+			GameManager.players[0][key] = player[key]
+	GameManager.player_upgrades[0] = snapshot.get("upgrades", {})
+	GameManager.researched_upgrades[0] = snapshot.get("research", [])
+	main._stats[0] = snapshot.get("stats", main._stats[0])
+	var bank: Dictionary = snapshot.get("bank", {})
+	for resource: String in ResourceManager.RESOURCE_NAMES:
+		var amount: int = int(bank.get(resource, 0))
+		ResourceManager._player_resources[0][resource] = amount
+		ResourceManager.resources_changed.emit(0, resource, amount)
+	var seen: Dictionary = {}
+	for actor: Dictionary in snapshot.get("actors", []):
+		var id: int = int(actor.id)
+		seen[id] = true
+		var node: Node2D = entities.get(id) as Node2D
+		var was_present: bool = is_instance_valid(node)
+		if not is_instance_valid(node):
+			node = _create_replica(actor)
+			if node == null:
+				continue
+			entities[id] = node
+		var world := Vector2(float(actor.x), float(actor.y))
+		if node is UnitBase:
+			_interpolation[id] = world
+			node.current_state = int(actor.state)
+			node.stance = int(actor.stance)
+			if node.player_owner == 0:
+				var route := PackedVector2Array()
+				for point: Array in actor.get("path", []):
+					route.append(Vector2(float(point[0]), float(point[1])))
+				node.path = route
+				node.path_index = 0
+				var destination: Array = actor.get("destination", [actor.x, actor.y])
+				node.move_target = Vector2(float(destination[0]), float(destination[1]))
+				node.attack_move = bool(actor.get("attack_move", false))
+			var animation: Array = actor.get("animation", [])
+			if animation.size() == 5:
+				node._attack_animation_remaining = float(animation[0])
+				node._attack_animation_duration = maxf(0.01, float(animation[1]))
+				node._attack_animation_direction = Vector2(float(animation[2]), float(animation[3]))
+				if node._sprite != null:
+					node._sprite.flip_h = bool(animation[4])
+			if node is Villager:
+				node.gather_type = int(actor.get("gather", 0))
+				node.carried_amount = int(actor.get("cargo", 0))
+				node.carried_resource_type = str(actor.get("cargo_type", ""))
+				node.set_meta("network_cargo", actor.get("cargo_manifest", {}))
+				node.set_meta("network_work", str(actor.get("work", "")))
+				node.set_meta("network_work_status", str(actor.get("work_status", "")))
+				node.set_meta("network_recovering", bool(actor.get("recovering", false)))
+				node.set_meta("network_building", bool(actor.get("building_order", false)))
+		else:
+			node.state = int(actor.state)
+			node.build_progress = float(actor.progress)
+			node._update_sprite_appearance()
+			var rally: Array = actor.get("rally", [])
+			if rally.size() == 2:
+				node.rally_point = Vector2(float(rally[0]), float(rally[1]))
+				node.rally_point_is_custom = bool(actor.get("custom_rally", false))
+			var queue: ProductionQueue = node.get_production_queue()
+			if queue != null and actor.has("queue"):
+				var data: Dictionary = actor.queue
+				queue.queue.assign(data.items)
+				queue.current_progress = float(data.progress)
+				queue.current_train_time = float(data.time)
+				queue.is_training = bool(data.training)
+				queue.auto_queue_enabled = bool(data.repeat)
+				queue.auto_queue_unit_type = int(data.repeat_type)
+		if was_present and float(actor.hp) < float(node.hp) and node.is_visible_in_tree():
+			if not GameManager.reduced_flashes:
+				node.modulate = Color(1.2, 0.8, 0.8)
+				_hit_flashes[id] = 0.15
+			AudioManager.play_world("attack_hit", node)
+		node.hp = actor.hp
+		node.max_hp = actor.max_hp
+		node.queue_redraw()
+	for id: int in entities.keys():
+		if not seen.has(id):
+			_remove_replica(id)
+	for item: Array in snapshot.get("resources", []):
+		var resource: Node2D = game_map.get_resource_node_at(Vector2i(int(item[0]), int(item[1])))
+		if resource is ResourceNode:
+			resource.remaining = int(item[2])
+			if resource.remaining <= 0:
+				game_map._on_resource_depleted(resource, Vector2i(int(item[0]), int(item[1])))
+				resource.queue_free()
+	var site_data: Dictionary = snapshot.get("site", {})
+	var site: Node = game_map.sacred_site
+	if not site_data.is_empty():
+		site.state = int(site_data.state)
+		site.owning_player = _local_owner(int(site_data.owner))
+		site.capture_progress = float(site_data.capture)
+		site.victory_timer = float(site_data.timer)
+		site.victory_hold_time = float(site_data.hold)
+		site._update_visuals()
+		main._refresh_sacred_site_status()
+	main._update_population_display()
+	if not _camera_initialized and is_instance_valid(main._player_town_center):
+		_camera_initialized = true
+		game_map.camera.position = main._get_initial_camera_focus(main._player_town_center.global_position)
+		game_map._clamp_camera()
+		game_map.camera.reset_smoothing()
+
+func _create_replica(actor: Dictionary) -> Node2D:
+	var owner: int = _local_owner(int(actor.owner))
+	var type: int = int(actor.type)
+	var unit_actor: bool = str(actor.kind) == "unit"
+	var scenes: Dictionary = main._unit_scenes if unit_actor else main._building_scenes
+	if not scenes.has(type):
+		return null
+	var node: Node2D = (scenes[type] as PackedScene).instantiate()
+	node.player_owner = owner
+	node.global_position = Vector2(float(actor.x), float(actor.y))
+	node.set_meta("network_id", int(actor.id))
+	# Disable before add_child: no replica can run even one simulation tick.
+	if node is CollisionObject2D:
+		node.disable_mode = CollisionObject2D.DISABLE_MODE_KEEP_ACTIVE
+	node.process_mode = Node.PROCESS_MODE_DISABLED
+	if unit_actor:
+		node.unit_type = type
+		node.set_team_color(main.TEAM_COLORS[owner])
+		game_map.get_node("UnitsContainer").add_child(node)
+		main._player_units[owner].append(node)
+	else:
+		node.building_type = type
+		game_map.get_node("BuildingsContainer").add_child(node)
+		main._player_buildings[owner].append(node)
+		game_map.place_building_obstacle(game_map.world_to_tile(node.global_position), node.footprint)
+		if node.provides_food:
+			game_map.register_harvestable(node)
+		if owner == 0 and type == BuildingData.BuildingType.TOWN_CENTER:
+			main._player_town_center = node
+	return node
+
+func _remove_replica(id: int) -> void:
+	var node: Node2D = entities[id] as Node2D
+	entities.erase(id)
+	_interpolation.erase(id)
+	_hit_flashes.erase(id)
+	if not is_instance_valid(node):
+		return
+	if node is UnitBase:
+		main._player_units[node.player_owner].erase(node)
+	else:
+		main._player_buildings[node.player_owner].erase(node)
+		game_map.remove_building_obstacle(game_map.world_to_tile(node.global_position), node.footprint)
+		if node.provides_food:
+			game_map.unregister_harvestable(node)
+	node.queue_free()
+
+func show_feedback(message: String) -> void:
+	main.hud.show_notification(message, Color(1.0, 0.7, 0.35))
+
+func finish_match(server_winner: int, reason: String) -> void:
+	get_tree().paused = false
+	if server_winner >= 0:
+		main._conclude_match(_local_owner(server_winner), reason)
+	else:
+		# A transport failure/draw must not falsely award either player victory.
+		main._victory_reason = reason
+		for player: Dictionary in GameManager.players.values():
+			player.is_defeated = true
+		GameManager.set_state(GameManager.GameState.GAME_OVER)
+		main._show_game_over()
+
+func _owned(id: int, owner: int) -> Node2D:
+	var node: Node2D = entities.get(id) as Node2D
+	if not is_instance_valid(node) or node.is_queued_for_deletion() or node.player_owner != owner or node.hp <= 0:
+		return null
+	return node
+
+func _valid_packet(packet: Dictionary) -> bool:
+	if packet.has("enabled") and typeof(packet.enabled) != TYPE_BOOL:
+		return false
+	for key: String in ["target", "type", "index", "sequence", "match"]:
+		if packet.has(key) and typeof(packet[key]) not in [TYPE_INT, TYPE_FLOAT]:
+			return false
+	for key: String in ["command", "research", "source", "destination"]:
+		if packet.has(key) and not packet[key] is String:
+			return false
+	if packet.has("ids"):
+		if not packet.ids is Array or packet.ids.size() > 64:
+			return false
+		for id: Variant in packet.ids:
+			if typeof(id) not in [TYPE_INT, TYPE_FLOAT]:
+				return false
+	if packet.has("position"):
+		if not packet.position is Array or packet.position.size() != 2:
+			return false
+		for value: Variant in packet.position:
+			if typeof(value) not in [TYPE_INT, TYPE_FLOAT] or not is_finite(float(value)) or absf(float(value)) > 100000.0:
+				return false
+	return true
+
+func execute_command(owner: int, packet: Dictionary) -> String:
+	if not _valid_packet(packet) or owner not in [0, 1] or GameManager.current_state != GameManager.GameState.PLAYING:
+		return "Invalid order"
+	_register_server_entities()
+	var operation: String = str(packet.get("command", ""))
+	var units: Array[UnitBase] = []
+	for id: Variant in packet.get("ids", []):
+		var unit: Node2D = _owned(int(id), owner)
+		if unit is UnitBase and unit not in units:
+			units.append(unit)
+	var target: Node2D = entities.get(int(packet.get("target", 0))) as Node2D
+	if not is_instance_valid(target) or target.is_queued_for_deletion():
+		target = null
+	var position_data: Array = packet.get("position", [0, 0])
+	var position := Vector2(float(position_data[0]), float(position_data[1]))
+	var tile: Vector2i = game_map.world_to_tile(position)
+	if operation in ["move", "attack_move", "patrol", "rally", "place"] and (tile.x < 0 or tile.y < 0 or tile.x >= MapData.MAP_WIDTH or tile.y >= MapData.MAP_HEIGHT):
+		return "Outside map"
+	match operation:
+		"allocate":
+			var result: Dictionary = main.get_node("StrategyController").try_allocate_worker(owner, str(packet.get("source", "")), str(packet.get("destination", "")))
+			return str(result.get("error", ""))
+		"surrender":
+			main._conclude_match(1 - owner, "Surrender")
+		"move", "attack_move", "patrol":
+			if units.is_empty():
+				return "Select your units"
+			var orders: Array[Dictionary] = PLANNER.plan(game_map, units, tile, main._player_units[owner], owner)
+			for order: Dictionary in orders:
+				var unit: UnitBase = order.unit
+				if operation == "attack_move":
+					unit.command_attack_move_path(order.path) if order.path.size() > 1 else unit.command_attack_move(order.destination)
+				elif operation == "patrol":
+					unit.command_patrol(order.destination)
+				else:
+					unit.command_move_path(order.path) if order.path.size() > 1 else unit.command_move(order.destination)
+		"stop", "stance":
+			for unit: UnitBase in units:
+				if operation == "stop":
+					unit.command_stop()
+				else:
+					unit.stance = UnitBase.Stance.STAND_GROUND if unit.stance == UnitBase.Stance.AGGRESSIVE else UnitBase.Stance.AGGRESSIVE
+		"attack":
+			if target == null or target.player_owner == owner or not game_map.is_entity_visible_to_player(target, owner):
+				return "Target no longer visible"
+			for unit: UnitBase in units:
+				if target is UnitBase:
+					unit.command_attack(target)
+				elif target is BuildingBase:
+					unit.command_attack_building(target)
+		"gather":
+			if target == null:
+				target = game_map.get_resource_node_at(tile)
+			if not game_map.is_resource_target_valid(target, "", owner) or not game_map.is_resource_target_visible_to_player(target, owner):
+				return "Resource no longer available"
+			for unit: UnitBase in units:
+				if unit is Villager:
+					unit.command_gather(target)
+		"build":
+			if target == null or not target is BuildingBase or target.player_owner != owner:
+				return "Select your foundation"
+			for unit: UnitBase in units:
+				if unit is Villager:
+					unit.command_build(target)
+		"age":
+			if not GameManager.try_advance_age(owner):
+				return "Cannot advance age yet"
+		"place":
+			return _place_building(owner, int(packet.get("type", -1)), position, units)
+		"train", "cancel", "repeat", "research", "rally", "delete":
+			if target == null or not target is BuildingBase or _owned(int(packet.get("target", 0)), owner) == null:
+				return "Select your building"
+			var queue: ProductionQueue = target.get_production_queue()
+			match operation:
+				"train":
+					var type: int = int(packet.get("type", -1))
+					if not UnitData.UNITS.has(type) or GameManager.get_player_age(owner) < int(UnitData.UNITS[type].get("age_required", 1)) or queue == null or not queue.enqueue_unit(type):
+						return "Cannot train · check resources and population"
+				"cancel":
+					if queue != null:
+						var index: int = int(packet.get("index", -1))
+						queue.cancel_all() if index == -1 else queue.cancel_unit(index)
+				"repeat":
+					if queue != null:
+						queue.auto_queue_enabled = bool(packet.get("enabled", false))
+				"research":
+					if not GameManager.try_research(owner, target, str(packet.get("research", ""))):
+						return "Research unavailable"
+				"rally":
+					if target.state != BuildingBase.State.ACTIVE or target.trainable_units.is_empty():
+						return "Rally unavailable"
+					target.set_rally_point(position)
+					var resource: Node2D = game_map.get_resource_node_at(tile)
+					if resource != null and game_map.is_resource_target_visible_to_player(resource, owner):
+						target.set_resource_rally(resource)
+				"delete":
+					if target.building_type == BuildingData.BuildingType.TOWN_CENTER:
+						return "Cannot demolish Town Center"
+					for resource: String in BuildingData.get_building_cost(target.building_type):
+						ResourceManager.add_resource(owner, resource, int(BuildingData.get_building_cost(target.building_type)[resource] * 0.5))
+					target.take_damage(target.max_hp + 1)
+		_:
+			return "Unknown order"
+	return ""
+
+func _place_building(owner: int, type: int, position: Vector2, selected: Array[UnitBase]) -> String:
+	var definition: Dictionary = BuildingData.get_building_stats(type)
+	if definition.is_empty() or not main._building_scenes.has(type):
+		return "Building unavailable"
+	if GameManager.get_player_age(owner) < int(definition.get("age_required", 1)):
+		return "Advance age first"
+	if main._player_buildings[owner].size() >= 80:
+		return "Building limit reached"
+	if not main._building_placement.revalidate_confirmation(type, position, owner):
+		return "Choose clear, visible ground"
+	var candidates: Array = selected.duplicate()
+	for unit: Node in main._player_units[owner]:
+		if unit not in candidates:
+			candidates.append(unit)
+	var builder: Villager = null
+	for unit: Node in candidates:
+		if is_instance_valid(unit) and unit is Villager and unit.hp > 0 and main._can_ai_builder_reach(unit, position, definition.get("footprint", Vector2i.ONE)):
+			builder = unit
+			break
+	if builder == null:
+		return "No worker can reach this site"
+	if not ResourceManager.try_spend(owner, BuildingData.get_building_cost(type)):
+		return "Not enough resources"
+	var building: BuildingBase = main._spawn_building(type, owner, game_map.world_to_tile(position))
+	building.start_construction()
+	builder.command_build(building)
+	return ""

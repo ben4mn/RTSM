@@ -29,6 +29,8 @@ services:
       dockerfile: diagnostics.Dockerfile
     image: aoem-playtest-diagnostics:local
     container_name: aoem-playtest-diagnostics
+    # Reap orphaned probe children after Docker's healthcheck timeout.
+    init: true
     restart: unless-stopped
     read_only: true
     cap_drop: [ALL]

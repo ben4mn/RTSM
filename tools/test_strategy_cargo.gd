@@ -19,7 +19,7 @@ func _run() -> void:
 	var gold: Node2D = _map.get_nearest_reachable_resource_node("gold", worker.global_position, 0)
 	_expect(gold != null, "visible gold destination is required")
 	controller.call("_allocate_worker", "wood", "gold")
-	_expect(worker.carried_amount == cargo and worker.carried_resource_type == "wood" and worker.get_economy_task() == "gold", "overview must defer destination while preserving original cargo accounting")
+	_expect(worker.carried_amount == cargo and worker.get_carried_resources() == {"wood": cargo} and worker.get_economy_task() == "gold", "overview must immediately retask while preserving original cargo accounting")
 	await _until(func() -> bool: return int(_deposits.wood) == cargo, 80.0)
 	_expect(ResourceManager.get_resource(0, "wood") == bank + cargo and stock - wood.remaining == cargo, "old resource bank must receive exactly its natural harvest")
 	await _until(func() -> bool: return int(_deposits.gold) > 0, 100.0)
@@ -41,5 +41,5 @@ func _run() -> void:
 	for failure: String in _failures:
 		push_error("[FAIL] strategy_cargo: " + failure)
 	if _failures.is_empty():
-		print("[PASS] strategy_cargo: natural wood harvest survives explicit Gold retask and deposits exactly once before new gold; recovering worker protected and exactly one idle worker retasked")
+		print("[PASS] strategy_cargo: natural wood harvest survives explicit Gold retask and deposits exactly once alongside new gold; recovering worker protected and exactly one idle worker retasked")
 	get_tree().quit(0 if _failures.is_empty() else 1)

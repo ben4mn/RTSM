@@ -223,7 +223,7 @@ func _measure() -> void:
 			var worker_tasks: Dictionary = {}
 			var army_types: Dictionary = {}
 			var building_counts: Dictionary = {}
-			var farm_stock: int = 0
+			var permanent_farms: int = 0
 			for unit in match_scene._player_units[pid]:
 				if not is_instance_valid(unit) or unit.current_state == UnitBase.State.DEAD:
 					continue
@@ -240,9 +240,9 @@ func _measure() -> void:
 					continue
 				building_counts[str(building.building_type)] = int(building_counts.get(str(building.building_type), 0)) + 1
 				if building.building_type == BuildingData.BuildingType.FARM:
-					farm_stock += int(building.farm_remaining)
+					permanent_farms += 1
 			var controller: AIController = human_bot if pid == 0 else match_scene.ai_controller
-			sample["players"].append({"units_trained": match_scene.get("_stats")[pid]["units_trained"], "army_trained": match_scene.get("_stats")[pid]["army_trained"], "army_types": army_types, "resources": ResourceManager.get_all_resources(pid).duplicate(), "worker_states": unit_states, "worker_resources": worker_resources, "worker_tasks": worker_tasks, "building_counts": building_counts, "farm_stock": farm_stock, "strategy": controller.get_strategy_snapshot(), "age": GameManager.get_player_age(pid)})
+			sample["players"].append({"units_trained": match_scene.get("_stats")[pid]["units_trained"], "army_trained": match_scene.get("_stats")[pid]["army_trained"], "army_types": army_types, "resources": ResourceManager.get_all_resources(pid).duplicate(), "worker_states": unit_states, "worker_resources": worker_resources, "worker_tasks": worker_tasks, "building_counts": building_counts, "permanent_farms": permanent_farms, "strategy": controller.get_strategy_snapshot(), "age": GameManager.get_player_age(pid)})
 		stats["snapshots"].append(sample)
 	for player_id: int in [0, 1]:
 		var controller: AIController = human_bot if player_id == 0 else match_scene.ai_controller

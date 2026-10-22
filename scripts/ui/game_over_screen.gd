@@ -22,6 +22,7 @@ const COLOR_WIN := Color(0.3, 0.85, 0.3)
 const COLOR_LOSE := Color(1.0, 0.35, 0.35)
 const COLOR_TIE := Color(0.7, 0.7, 0.7)
 var _debrief_label: Label = null
+var _online_result: bool = false
 const MATCH_DEBRIEF := preload("res://scripts/main/match_debrief.gd")
 
 const HUD_LAYOUT_SCRIPT := preload("res://scripts/ui/hud.gd")
@@ -76,7 +77,7 @@ func _fit_panel_to_size(viewport_size: Vector2, safe_area: Rect2 = Rect2()) -> v
 	var button_row: BoxContainer = vbox.get_node("ButtonRow")
 	# On the shortest phone corridor, actual match advice takes the score row's
 	# space; the measured comparisons and all three 48px actions remain readable.
-	var show_scores: bool = not compact or _debrief_label == null or not _debrief_label.visible
+	var show_scores: bool = not _online_result and (not compact or _debrief_label == null or not _debrief_label.visible)
 	score_bar.visible = show_scores
 	vbox.get_node("Separator2").visible = show_scores
 	margin.add_theme_constant_override("margin_left", 14 if compact else 24)
@@ -126,7 +127,12 @@ func show_defeat(stats: Dictionary) -> void:
 
 
 func _show_result(text: String, color: Color, stats: Dictionary) -> void:
+	_online_result = NetworkSession.is_client()
+	if _online_result and int(stats.get("winner_id", -1)) < 0:
+		text = "MATCH ENDED"
+		color = KingdomTheme.PARCHMENT
 	play_again_button.disabled = false
+	play_again_button.text = "Find match" if _online_result else "Play Again"
 	main_menu_button.disabled = false
 	report_button.disabled = false
 	summary_diagnostics = stats.duplicate(true)
@@ -145,6 +151,11 @@ func _show_result(text: String, color: Color, stats: Dictionary) -> void:
 	var player_feudal: String = _format_timing(float(stats.get("player_feudal_seconds", -1.0)))
 	var ai_feudal: String = _format_timing(float(stats.get("ai_feudal_seconds", -1.0)))
 	time_label.text = "%s  •  %s\nFeudal %s vs %s  •  End %s vs %s" % [time_str, reason, player_feudal, ai_feudal, p_age_name, a_age_name]
+	if _online_result:
+		time_label.text = "%s  •  %s\nYour age: %s" % [time_str, reason, p_age_name]
+	# Opponent economy and statistics remain private during online play.
+	# Display only our authoritative statistics, without fabricated comparisons.
+	panel.get_node("Margin/VBox/StatsHeader/Right").visible = not _online_result
 
 	# Scores
 	var player_score: int = stats.get("score", 0)
@@ -167,9 +178,10 @@ func _show_result(text: String, color: Color, stats: Dictionary) -> void:
 	_add_stat_row("Units Lost", stats.get("units_lost", 0), stats.get("ai_units_lost", 0), true)
 	_add_stat_row("Buildings Lost", stats.get("buildings_lost", 0), stats.get("ai_buildings_lost", 0), true)
 	_add_stat_row("Resources Gathered", stats.get("resources_gathered", 0), stats.get("ai_resources_gathered", 0))
-	_add_stat_row("Sacred Control", stats.get("sacred_control_seconds", 0), stats.get("ai_sacred_control_seconds", 0))
+	if not _online_result:
+		_add_stat_row("Sacred Control", stats.get("sacred_control_seconds", 0), stats.get("ai_sacred_control_seconds", 0))
 
-	_debrief_label.text = MATCH_DEBRIEF.describe(stats)
+	_debrief_label.text = "" if _online_result else MATCH_DEBRIEF.describe(stats)
 	_debrief_label.visible = not _debrief_label.text.is_empty()
 	summary_diagnostics["debrief"] = _debrief_label.text
 	_fit_panel_to_viewport()
@@ -211,7 +223,10 @@ func _add_stat_row(label_text: String, player_val: int, ai_val: int, lower_is_be
 	a_label.add_theme_font_size_override("font_size", 11 if compact else 15)
 
 	# Color code: green for winner, red for loser
-	if player_val != ai_val:
+	if _online_result:
+		p_label.add_theme_color_override("font_color", KingdomTheme.PARCHMENT)
+		a_label.visible = false
+	elif player_val != ai_val:
 		var player_wins: bool
 		if lower_is_better:
 			player_wins = player_val < ai_val

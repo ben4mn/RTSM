@@ -1,6 +1,21 @@
 {
   "releases": [
     {
+      "id": "2026-10-21-mobile-online",
+      "version": "0.2.0-beta.1",
+      "date": "2026-10-21",
+      "title": "Find a rival. Build your kingdom.",
+      "summary": "Online 1v1, quicker openings and simpler touch controls.",
+      "changes": [
+        "Choose Online 1v1 to search for another player. Matches run on a shared authoritative server; search can be cancelled and disconnects produce a clear result.",
+        "Tap ground to move without stopping for enemies. Hold ground to attack-move. Drag to pan, pinch to zoom, and use the area-selection icon before dragging around an army.",
+        "Build choices, worker management, training and settings fit compact pages without scrolling. Short, distinct markers show move, gather, attack and rally orders.",
+        "Farms provide food indefinitely. One Resource Camp accepts food, wood and gold; workers choose reachable drop-offs and preserve carried resources when reassigned.",
+        "Larger opening supplies, faster paid training and better delivery rates bring armies forward. Standard Sacred victory now requires three minutes of uninterrupted control.",
+        "Units keep movement intent under fire, defend nearby allies and limit autonomous pursuit. Production exits avoid isolated pockets beside buildings."
+      ]
+    },
+    {
       "id": "2026-10-12-phone-proportions",
       "version": "0.1.0-beta.5",
       "date": "2026-10-12",

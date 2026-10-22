@@ -38,13 +38,18 @@ def discover_cases(godot: Path) -> list[tuple[str, list[str]]]:
     for scene in sorted(TOOLS_DIR.glob("test_*.tscn")):
         scene_stems.add(scene.stem)
         # The perimeter scene funds two Feudal economies; the raid scene walks
-        # sixteen paid A/B economies. Fixed60 preserves their 60Hz/4x simulation
+        # sixteen paid A/B economies; worker recovery includes two more raids.
+        # Fixed60 preserves their 60Hz/4x simulation
         # while finishing within the unchanged per-case wall timeout.
-        fixed_step_scenes = {"test_building_perimeter_work", "test_paid_proactive_worker_raid"}
+        fixed_step_scenes = {"test_building_perimeter_work", "test_paid_proactive_worker_raid", "test_paid_worker_recovery"}
         case_prefix = [*prefix, "--fixed-fps", "60"] if scene.stem in fixed_step_scenes else prefix
         cases.append((scene.stem, [*case_prefix, f"res://tools/{scene.name}"]))
 
     for script in sorted(TOOLS_DIR.glob("test_*.gd")):
+        # Online scenarios require a listening match service and two independent
+        # clients; tools/run_online_tests.py owns their paired lifecycle.
+        if script.name.startswith("test_online_"):
+            continue
         if script.stem in scene_stems:
             continue
         resource_path = f"res://tools/{script.name}"

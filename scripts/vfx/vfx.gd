@@ -112,56 +112,61 @@ static func construction_dust(tree: SceneTree, pos: Vector2) -> void:
 	p.emitting = true
 
 
-static func move_indicator(tree: SceneTree, pos: Vector2) -> void:
-	if GameManager.reduced_motion:
+class OrderMarker extends Node2D:
+	var kind: String = "move"
+	var remaining: float = 1.0
+
+	func _process(delta: float) -> void:
+		remaining -= delta
+		if remaining <= 0.0:
+			queue_free()
+		else:
+			modulate.a = minf(1.0, remaining * 2.0)
+			queue_redraw()
+
+	func _draw() -> void:
+		var zoom: float = maxf(0.1, get_canvas_transform().x.length())
+		var color: Color = {"move": Color("8cdecf"), "attack": Color("ff9d85"), "gather": Color("f1d18a"), "rally": Color("88c9f0")}.get(kind, Color.WHITE)
+		var radius: float = 9.0 / zoom
+		draw_circle(Vector2.ZERO, radius + 2.0 / zoom, Color(0.04, 0.10, 0.12, 0.55))
+		if kind == "rally":
+			draw_line(Vector2(-4, 7) / zoom, Vector2(-4, -9) / zoom, color, 1.5 / zoom, true)
+			draw_colored_polygon(PackedVector2Array([Vector2(-3, -9) / zoom, Vector2(8, -5) / zoom, Vector2(-3, 0) / zoom]), color)
+		elif kind == "gather":
+			draw_polyline(PackedVector2Array([Vector2(0, -8) / zoom, Vector2(8, 0) / zoom, Vector2(0, 8) / zoom, Vector2(-8, 0) / zoom, Vector2(0, -8) / zoom]), color, 1.5 / zoom, true)
+		else:
+			draw_arc(Vector2.ZERO, radius, 0, TAU, 24, color, 1.5 / zoom, true)
+			if kind == "attack":
+				draw_line(Vector2(-4, -4) / zoom, Vector2(4, 4) / zoom, color, 1.5 / zoom, true)
+				draw_line(Vector2(-4, 4) / zoom, Vector2(4, -4) / zoom, color, 1.5 / zoom, true)
+			else:
+				draw_circle(Vector2.ZERO, 2.0 / zoom, color)
+
+
+static func _order_indicator(tree: SceneTree, pos: Vector2, kind: String) -> void:
+	if tree.current_scene == null or DisplayServer.get_name() == "headless":
 		return
-	var p := CPUParticles2D.new()
-	p.emitting = false
-	p.one_shot = true
-	p.amount = 12
-	p.lifetime = 0.4
-	p.explosiveness = 0.95
-	p.direction = Vector2.UP
-	p.spread = 180.0
-	p.initial_velocity_min = 15.0
-	p.initial_velocity_max = 35.0
-	p.gravity = Vector2(0, -15)
-	p.scale_amount_min = 1.0
-	p.scale_amount_max = 2.0
-	var grad := Gradient.new()
-	grad.set_color(0, Color(0.3, 0.9, 0.3, 0.8))
-	grad.set_color(1, Color(0.3, 0.9, 0.3, 0.0))
-	p.color_ramp = grad
-	p.global_position = pos
-	tree.current_scene.add_child(p)
-	p.finished.connect(p.queue_free)
-	p.emitting = true
+	var marker := OrderMarker.new()
+	marker.kind = kind
+	marker.z_index = 80
+	marker.position = pos
+	tree.current_scene.add_child(marker)
+
+
+static func move_indicator(tree: SceneTree, pos: Vector2) -> void:
+	_order_indicator(tree, pos, "move")
 
 
 static func attack_move_indicator(tree: SceneTree, pos: Vector2) -> void:
-	if GameManager.reduced_motion:
-		return
-	var p := CPUParticles2D.new()
-	p.emitting = false
-	p.one_shot = true
-	p.amount = 12
-	p.lifetime = 0.4
-	p.explosiveness = 0.95
-	p.direction = Vector2.UP
-	p.spread = 180.0
-	p.initial_velocity_min = 15.0
-	p.initial_velocity_max = 35.0
-	p.gravity = Vector2(0, -15)
-	p.scale_amount_min = 1.0
-	p.scale_amount_max = 2.0
-	var grad := Gradient.new()
-	grad.set_color(0, Color(1.0, 0.4, 0.2, 0.8))
-	grad.set_color(1, Color(1.0, 0.2, 0.0, 0.0))
-	p.color_ramp = grad
-	p.global_position = pos
-	tree.current_scene.add_child(p)
-	p.finished.connect(p.queue_free)
-	p.emitting = true
+	_order_indicator(tree, pos, "attack")
+
+
+static func gather_indicator(tree: SceneTree, pos: Vector2) -> void:
+	_order_indicator(tree, pos, "gather")
+
+
+static func rally_indicator(tree: SceneTree, pos: Vector2) -> void:
+	_order_indicator(tree, pos, "rally")
 
 
 static func resource_float(tree: SceneTree, pos: Vector2, text: String, color: Color) -> void:

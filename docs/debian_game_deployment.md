@@ -78,7 +78,23 @@ On iPhone, open the URL in Safari and use Share → Add to Home Screen. Enable *
 
 This is a rough public preview. Desktop browser automation does not certify physical-phone touch behavior, safe areas, audio, or prolonged performance.
 
-## Latest release — 2026-10-12 phone proportions
+## Latest release — 2026-10-21 mobile gameplay and online 1v1
+
+Published `releases/33ac3713-mobile-online-20261021` at `2026-10-22T01:25:12Z`, version `0.2.0-beta.1`. Canonical export: `build/mobile-online-20261021`; independent witness: `build/mobile-online-reproduced-20261021`. Both have staged source SHA-256 `33ac37134deb6a9bdc71f3603b1344c07559f85cb374e458748ebede6cf37dcf` and identical substantive payloads. The artifact was exported before the task's changes were committed, so its recorded base revision is `3a26757f1ed3`, explicitly marked dirty; the source-tree hash identifies its exact runtime contents.
+
+All 26 public decoded payload hashes match; artifact closure, runtime/developer-material separation and two-export reproducibility pass. The final release changes only one confirmation string from the preceding browser-tested `1ef2c92e` build, replacing an unsupported arrow glyph with “to”. No simulation/protocol change was made after the paired public browser gameplay checks. See [mobile gameplay receipt](mobile_online_2026-10-21.md) for final browser identity and evidence.
+
+The static symlink switch required no service restart. The new authoritative backend is image `sha256:121028c0531e5ab520061a41462cda493302e648df50b41f4dbe982e6c9920d7`; its isolated service and `/match` route are documented in [online multiplayer](online_multiplayer.md). The previous static-only release `releases/73250a6b0140-20261012-iphone` remains retained; a static rollback to it removes online entry, while the backend may be stopped separately without affecting solo hosting. The preceding `releases/1ef2c92e-mobile-online-20261021` is also retained and protocol-compatible.
+
+### Diagnostics collector recovery — 2026-10-22 UTC
+
+The final browser check exposed an existing collector failure: `/api/playtest-diagnostics` returned 502 and the collector reported `RuntimeError: can't start new thread`. Inspection found one live Python server thread, 62 zombie Python children adopted by PID 1, and the 64-process cgroup limit exhausted (44,385 limit events). There were no memory-limit or OOM events. The confirmed failure was unreaped child-process exhaustion, not a live request-thread leak. The shell-form Python healthcheck could leave adopted children after a probe timeout; the historical timeout that first created the zombies was not reproduced.
+
+Only `aoem-playtest-diagnostics` was rebuilt/recreated using `docker compose up -d --no-deps --wait diagnostics`. Its Compose service now has `init: true` to reap adopted children, and its Docker healthcheck uses exec-form `CMD` without an intermediate shell. Image: `sha256:5092086bf278bc8580f4055220a35c339c58c294b56b199e81d7b3f9def67643`. Configuration backups are in `/home/ben/aoem/deployment-backups/diagnostics-reaper-20261022/`. The private `/data` volume was preserved. Its IP remained `10.33.0.4`, so Nginx needed no DNS refresh or reload. The static game, authoritative match server and tunnel retained their exact container IDs and start times; no frontend or gameplay reexport was needed for this maintenance fix.
+
+Trusted public HTTPS POST returned 202 with `stored: true`, and the synthetic `diagnostics_reaper_check_20261022` event was verified in private storage. All 19 collector tests passed. Three scheduled healthchecks passed after recreation, with zero zombies, zero new PID-limit events and two steady processes (init plus Python); memory was about 15 MiB. Evidence: `output/diagnostics-recovery-public.headers`, `output/diagnostics-recovery-public.json` and `output/diagnostics-recovery-health.txt`. This verifies immediate recovery and child reaping configuration, not another nine days of uptime.
+
+## Previous release — 2026-10-12 phone proportions
 
 Published `releases/73250a6b0140-20261012-iphone`, runtime `73250a6b0140`, version `0.1.0-beta.5`. Canonical export: `build/iphone-proportions-published-20261012`; independent witness: `build/iphone-proportions-published-reproduced-20261012`. Clean source SHA-256: `c43461ec41c416e7c2535e1a8be9defc85c6bd33acb7309974fb04505c49491b`.
 

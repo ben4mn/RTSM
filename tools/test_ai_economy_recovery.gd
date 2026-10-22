@@ -288,10 +288,11 @@ func _run() -> void:
 		bool(cross_type_worker.call("command_gather", resource)),
 		"loaded cross-resource gather order is accepted"
 	)
-	_expect_eq(str(cross_type_worker.get("carried_resource_type")), "wood", "accepted retarget keeps the in-hand cargo typed as wood")
+	_expect_eq(cross_type_worker.call("get_carried_resources"), {"wood": 7}, "accepted retarget keeps the in-hand cargo typed as wood")
 	_expect_eq(int(cross_type_worker.get("carried_amount")), 7, "accepted retarget keeps the exact in-hand cargo amount")
-	_expect_eq(str(cross_type_worker.get("_pending_gather_resource_type")), "food", "new food intent waits behind the wood delivery")
-	_expect_eq(int(cross_type_worker.get("current_state")), STATE_MOVING, "loaded retarget routes to a real drop-off first")
+	_expect_eq(str(cross_type_worker.call("get_economy_task")), "food", "new food assignment is immediate")
+	_expect_eq(int(cross_type_worker.get("current_state")), STATE_GATHERING, "loaded retarget immediately approaches food")
+	cross_type_worker.call("command_return_resources")
 	cross_type_worker.call("_on_arrived_for_dropoff", cross_type_worker)
 	_expect_eq(int(cargo_dropoff.deposits.get("wood", 0)), 7, "drop-off receives exactly seven wood from the loaded retarget")
 	_expect_eq(int(cargo_dropoff.deposits.get("food", 0)), 0, "loaded retarget cannot transmute wood into food")
@@ -316,6 +317,7 @@ func _run() -> void:
 	_expect(bool(hidden_pending_worker.call("command_gather", resource)), "visible target accepts the second loaded retarget")
 	recovery_map.resource_visible = false
 	var hidden_lookups_before_delivery: int = recovery_map.hidden_lookup_count
+	hidden_pending_worker.call("command_return_resources")
 	hidden_pending_worker.call("_on_arrived_for_dropoff", hidden_pending_worker)
 	_expect_eq(recovery_map.hidden_lookup_count, hidden_lookups_before_delivery, "delivery activation performs no resource lookup while its accepted tile is hidden")
 	_expect(hidden_pending_worker.get("gather_target") == null, "hidden pending order retains no live resource reference")
@@ -355,10 +357,11 @@ func _run() -> void:
 	depleted_pending_worker.set("carried_amount", 7)
 	depleted_pending_worker.call("set_state", STATE_IDLE)
 	_expect(bool(depleted_pending_worker.call("command_gather", removed_food)), "visible soon-depleted target accepts a loaded retarget")
-	_expect_eq(int(depleted_pending_worker.get("_pending_gather_last_known_instance_id")), removed_id, "pending order stores only the observed scalar identity")
+	_expect_eq(int(depleted_pending_worker.get("_gather_last_known_instance_id")), removed_id, "pending order stores only the observed scalar identity")
 	recovery_map.resource_visible = false
 	recovery_map.remove_child(removed_food)
 	removed_food.free()
+	depleted_pending_worker.call("command_return_resources")
 	depleted_pending_worker.call("_on_arrived_for_dropoff", depleted_pending_worker)
 	_expect(depleted_pending_worker.get("gather_target") == null, "hidden removal cannot redirect the pending gather order")
 	var replacement_food: Node2D = _spawn_fixture(
@@ -539,7 +542,7 @@ func _run() -> void:
 	var pending_food_workers: int = 0
 	var remaining_wood_workers: int = 0
 	for convergence_worker: Node in convergence_workers:
-		if str(convergence_worker.get("_pending_gather_resource_type")) == "food":
+		if str(convergence_worker.call("get_economy_task")) == "food" and int(convergence_worker.get("carried_amount")) > 0:
 			pending_food_workers += 1
 		if (
 			str(convergence_worker.get("carried_resource_type")) == "wood"
@@ -658,11 +661,12 @@ func _run() -> void:
 		(ai.call("get_strategy_snapshot") as Dictionary).get("economy_rebalance_orders", 0)
 	)
 	ai.call("_service_pending_economy_rebalance")
-	_expect_eq(int(loaded_direct_donor.get("current_state")), STATE_MOVING, "loaded donor begins an exact drop-off before cross-resource rebalance")
-	_expect_eq(str(loaded_direct_donor.get("carried_resource_type")), "gold", "loaded rebalance preserves old cargo type in transit")
+	_expect_eq(int(loaded_direct_donor.get("current_state")), STATE_GATHERING, "loaded donor immediately rebalances")
+	_expect_eq(loaded_direct_donor.call("get_carried_resources"), {"gold": 7}, "loaded rebalance preserves old cargo type in transit")
 	_expect_eq(int(loaded_direct_donor.get("carried_amount")), 7, "loaded rebalance preserves old cargo amount in transit")
-	_expect_eq(str(loaded_direct_donor.get("_pending_gather_resource_type")), "food", "loaded donor records the direct food target behind delivery")
+	_expect_eq(str(loaded_direct_donor.call("get_economy_task")), "food", "loaded donor immediately records the direct food target")
 	_expect_eq(str(ai.get("_pending_economy_rebalance_type")), "", "accepted loaded transaction clears the AI rebalance request")
+	loaded_direct_donor.call("command_return_resources")
 	loaded_direct_donor.call("_on_arrived_for_dropoff", loaded_direct_donor)
 	_expect_eq(int(cargo_dropoff.deposits.get("gold", 0)), 7, "loaded donor deposits exactly seven gold before switching")
 	_expect_eq(int(cargo_dropoff.deposits.get("food", 0)), 0, "loaded donor rebalance cannot transmute gold into food")
@@ -975,10 +979,11 @@ func _run() -> void:
 	if built_farm != null and is_instance_valid(built_farm):
 		ai.call("_assign_safe_worker_to_completed_farm", built_farm)
 		_expect_eq(
-			int(loaded_farm_worker.get("_pending_gather_last_known_instance_id")),
+			int(loaded_farm_worker.get("_gather_last_known_instance_id")),
 			built_farm.get_instance_id(),
 			"loaded recovery worker commits to the exact completed Farm, not nearer natural food"
 		)
+		loaded_farm_worker.call("command_return_resources")
 		loaded_farm_worker.call("_on_arrived_for_dropoff", loaded_farm_worker)
 		_expect(loaded_farm_worker.get("gather_target") == built_farm, "completed Farm becomes the gather target after exact old-cargo delivery")
 		_expect(loaded_farm_worker.get("gather_target") != nearer_natural_food, "nearer natural food cannot replace the completed Farm assignment")
@@ -1012,17 +1017,17 @@ func _run() -> void:
 		_expect_eq(int(build_intents[0]), BuildingData.BuildingType.HOUSE, "capacity safety request remains a real House intent")
 	game_manager.players[PLAYER_AI]["population"] = 4
 	game_manager.players[PLAYER_AI]["population_cap"] = 10
-	resource_manager.call("initialize_player", PLAYER_AI, {"food": 0, "wood": 125, "gold": 406})
+	resource_manager.call("initialize_player", PLAYER_AI, {"food": 0, "wood": 95, "gold": 406})
 	build_intents.clear()
 	ai.call("_check_building_construction")
-	_expect_eq(build_intents.size(), 0, "125 wood is preserved for Barracks while the force floor is unmet")
-	_expect_eq(int(resource_manager.call("get_resource", PLAYER_AI, "wood")), 125, "unmet force floor spends no support or extra-Farm wood")
+	_expect_eq(build_intents.size(), 0, "95 wood is preserved for Barracks while the force floor is unmet")
+	_expect_eq(int(resource_manager.call("get_resource", PLAYER_AI, "wood")), 95, "unmet force floor spends no support or extra-Farm wood")
 	resource_manager.call("add_resource", PLAYER_AI, "wood", 25)
 	ai.call("_check_building_construction")
 	_expect_eq(build_intents.size(), 1, "opening resumes construction when the Barracks cost is earned")
 	if not build_intents.is_empty():
 		_expect_eq(int(build_intents[0]), BuildingData.BuildingType.BARRACKS, "first Barracks precedes Farm 2 for the three-unit floor")
-	_expect_eq(int(resource_manager.call("get_resource", PLAYER_AI, "wood")), 0, "Barracks spends its normal 150 wood cost")
+	_expect_eq(int(resource_manager.call("get_resource", PLAYER_AI, "wood")), 0, "Barracks spends its normal 120 wood cost")
 	ai.set("_barracks_count", 1)
 	build_intents.clear()
 	ai.call("_check_building_construction")
@@ -1032,7 +1037,7 @@ func _run() -> void:
 	_expect_eq(build_intents.size(), 1, "opening issues Farm 2 when its exact cost is earned")
 	if not build_intents.is_empty():
 		_expect_eq(int(build_intents[0]), BuildingData.BuildingType.FARM, "Farm 2 follows the registered Barracks foundation")
-	_expect_eq(int(resource_manager.call("get_resource", PLAYER_AI, "wood")), 0, "two Farms and Barracks spend exactly their normal 300 wood total")
+	_expect_eq(int(resource_manager.call("get_resource", PLAYER_AI, "wood")), 0, "two Farms and Barracks spend exactly their normal 270 wood total")
 	# The fixture does not spawn a Barracks node; retain the already-observed
 	# foundation count after Farm registration recomputes real fixture counts.
 	ai.set("_barracks_count", 1)
@@ -1042,12 +1047,12 @@ func _run() -> void:
 	_expect_eq(build_intents.size(), 1, "opening issues Farm 3 when its exact cost is earned")
 	if not build_intents.is_empty():
 		_expect_eq(int(build_intents[0]), BuildingData.BuildingType.FARM, "Farm 3 completes the paid Feudal food capacity")
-	_expect_eq(int(resource_manager.call("get_resource", PLAYER_AI, "wood")), 0, "three Farms and Barracks spend exactly their normal 375 wood total")
+	_expect_eq(int(resource_manager.call("get_resource", PLAYER_AI, "wood")), 0, "three Farms and Barracks spend exactly their normal 345 wood total")
 	build_intents.clear()
 	ai.call("_check_building_construction")
 	_expect_eq(build_intents.size(), 0, "pre-age opening never requests Farm 4")
 	var timed_build_targets: Dictionary = ai.call("_get_target_building_counts", 1) as Dictionary
-	_expect_eq(int(timed_build_targets.get(BuildingData.BuildingType.FARM, 0)), 3, "timed Feudal reserve funds three finite Farms")
+	_expect_eq(int(timed_build_targets.get(BuildingData.BuildingType.FARM, 0)), 3, "timed Feudal reserve funds three permanent Farms")
 	snapshot = ai.call("get_strategy_snapshot")
 	_expect_eq(int(snapshot.get("farm_count", 0)), 3, "strategy telemetry counts all registered Farm foundations")
 	_expect_eq(int(snapshot.get("feudal_paid_farm_foundations", 0)), 3, "strategy telemetry retains all paid pre-Feudal Farm foundations")
@@ -1059,7 +1064,7 @@ func _run() -> void:
 	_expect_eq(recovery_map.hidden_lookup_count, hidden_lookups_before_farm, "Farm opening does not query a hidden natural resource")
 	if built_farm != null and is_instance_valid(built_farm):
 		ai.call("_on_ai_building_destroyed", built_farm)
-		_expect_eq(int(ai.get("_feudal_paid_farm_foundations")), 3, "accepted Farm capacity remains cumulative after finite depletion/destruction")
+		_expect_eq(int(ai.get("_feudal_paid_farm_foundations")), 3, "accepted Farm capacity remains cumulative after destruction")
 	opening_scout.free()
 	ai.call("_cleanup_references")
 

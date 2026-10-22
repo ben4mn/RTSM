@@ -98,7 +98,7 @@ func _run() -> void:
 	_check_legal_unique(arriving, Vector2i(30, 30))
 	for unit: UnitBase in arriving:
 		_expect(unit.move_target.distance_to(occupied.global_position) >= PLANNER.FRIENDLY_CLEARANCE_WORLD, "group order must not stack onto an unselected friendly")
-		_expect(unit.attack_move, "smart military ground order must remain attack-move")
+		_expect(not unit.attack_move and bool(unit.get("_force_move_active")), "ordinary military ground tap must preserve passive movement")
 	(_main.get("_player_units")[0] as Array).erase(occupied)
 	_clear()
 	_flat()

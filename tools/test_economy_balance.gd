@@ -16,7 +16,7 @@ func _run() -> void:
 	rm.call("reset")
 	for player_id: int in [0, 1]:
 		rm.call("initialize_player", player_id)
-		_expect(rm.call("get_all_resources", player_id) == {"food": 200, "wood": 150, "gold": 100}, "both players start with the shared 150-wood bank")
+		_expect(rm.call("get_all_resources", player_id) == SkirmishData.STARTING_RESOURCES, "both players start with the shared opening bank")
 	_world = Node2D.new()
 	root.add_child(_world)
 	current_scene = _world
@@ -33,8 +33,8 @@ func _run() -> void:
 		food_worker.call("_process_gathering", 0.1)
 		wood_worker.call("_process_gathering", 0.1)
 		gold_worker.call("_process_gathering", 0.1)
-	_expect(int(food_worker.get("carried_amount")) == 7 and int(wood_worker.get("carried_amount")) == 7 and int(gold_worker.get("carried_amount")) == 6, "7.5 seconds earns seven food/wood or six gold at source for either player")
-	_expect(int(food.get("remaining")) == 193 and int(wood.get("remaining")) == 193 and int(gold.get("remaining")) == 194, "each cargo unit is removed from its finite real source")
+	_expect(int(food_worker.get("carried_amount")) == 10 and int(wood_worker.get("carried_amount")) == 10 and int(gold_worker.get("carried_amount")) == 8, "7.5 seconds earns ten food/wood or eight gold at source for either player")
+	_expect(int(food.get("remaining")) == 190 and int(wood.get("remaining")) == 190 and int(gold.get("remaining")) == 192, "each cargo unit is removed from its finite real source")
 	food_worker.set("gather_rate", UnitData.VILLAGER_GATHER_AMOUNT + UnitData.WHEELBARROW_GATHER_BONUS)
 	food_worker.set("carried_amount", 0)
 	var before_upgrade_stock: int = int(food.get("remaining"))
@@ -43,10 +43,10 @@ func _run() -> void:
 		upgrade_yield += int(food_worker.call("_harvest_from_target"))
 	_expect(upgrade_yield == 5, "Wheelbarrow's promised 25% bonus produces five actual units over four ticks")
 	_expect(before_upgrade_stock - int(food.get("remaining")) == 5, "fractional upgrade harvest is paid by actual source depletion")
-	food_worker.set("carried_amount", 9)
+	food_worker.set("carried_amount", 14)
 	var capped_yield: int = int(food_worker.call("_harvest_from_target"))
-	food_worker.set("carried_amount", 9 + capped_yield)
-	_expect(capped_yield == 1 and int(food_worker.call("_harvest_from_target")) == 0, "harvest fills the tenth carry slot without exceeding capacity")
+	food_worker.set("carried_amount", 14 + capped_yield)
+	_expect(capped_yield == 1 and int(food_worker.call("_harvest_from_target")) == 0, "harvest fills the fifteenth carry slot without exceeding capacity")
 	food_worker.set("carried_amount", 0)
 	food_worker.set("gather_rate", 1.5)
 	food_worker.set("_fractional_harvest", 0.5)
@@ -62,7 +62,7 @@ func _run() -> void:
 	_expect(bool(food_worker.call("command_return_resources")), "partial cargo receives a normal real drop-off order")
 	food_worker.set("global_position", tc.get("global_position"))
 	food_worker.call("_on_arrived_for_dropoff", food_worker)
-	_expect(int(rm.call("get_resource", 0, "wood")) == 157 and int(food_worker.get("carried_amount")) == 0, "a real friendly Town Center deposits exact cargo into the lower starting bank")
+	_expect(int(rm.call("get_resource", 0, "wood")) == 257 and int(food_worker.get("carried_amount")) == 0, "a real friendly Town Center deposits exact cargo into the lower starting bank")
 	_world.free()
 	current_scene = null
 	if _failures.is_empty():

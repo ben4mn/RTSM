@@ -164,12 +164,12 @@ func _test_case(name: String) -> void:
 		_expect(_until(func() -> bool: return house.build_progress > 0.05, 15.0), "real building progress never started")
 	if name in ["cross_type", "safe_pending"]:
 		_expect(_worker.command_gather(_gold), "loaded cross-type command rejected")
-		_expect(_worker.carried_resource_type == "wood", "cross-type setup relabeled cargo")
-		_expect(_worker.get_economy_task() == "gold" and _worker.get_work_status() == "Returning wood", "pending accepted job/count and actual cargo action were conflated")
+		_expect(int(_worker.get_carried_resources().get("wood", 0)) == cargo_before, "cross-type setup relabeled cargo")
+		_expect(_worker.get_economy_task() == "gold" and _worker.gather_target == _gold and not _worker.is_returning_resources(), "new gold assignment must activate immediately while retaining wood cargo")
 	_worker.take_damage(1.0)
 	_expect(_worker.is_auto_recovering(), "economic damage did not start recovery")
 	_expect(_worker.get_economy_task() == "" and _worker.get_work_status() == "Retreating", "retreating cargo was labeled employed")
-	_expect(_worker.carried_amount == cargo_before and _worker.carried_resource_type == "wood", "damage lost/retyped cargo")
+	_expect(_worker.carried_amount == cargo_before and int(_worker.get_carried_resources().get("wood", 0)) == cargo_before, "damage lost/retyped cargo")
 	if name in ["safe_alternate", "safe_pending"]:
 		var requested: String = "gold" if name == "safe_pending" else "wood"
 		var camp_tile: Vector2i = Vector2i(18, 19) if name == "safe_pending" else Vector2i(12, 19)
@@ -213,6 +213,7 @@ func _test_case(name: String) -> void:
 		(_wood as ObservedResource).hidden_for_test = true
 		_step(20.0)
 		_expect((_wood as ObservedResource).hidden_queries == 0, "recovery queried hidden harvestability/type/stock")
+		_expect(_worker.gather_target == null and int(_worker.get("_gather_last_known_instance_id")) == _wood.get_instance_id(), "hidden recovery must retain observed identity without a live resource reference")
 		_expect(not _worker.is_auto_recovering() and _worker.current_state == UnitBase.State.GATHERING, "hidden remembered job could not resume its legal approach")
 		(_wood as ObservedResource).hidden_for_test = false
 		(_map.get_node("FogOfWar") as FogManager).fog_grid[19][12] = MapData.FogState.VISIBLE
@@ -229,11 +230,11 @@ func _test_case(name: String) -> void:
 		_expect(_worker.gather_target == _wood, "builder failed to restore exact previous resource job")
 		_expect(_worker.carried_amount + int(_deposits["wood"]) == cargo_before, "builder recovery lost/duplicated cargo")
 	elif name == "cross_type":
-		_expect(_until(func() -> bool: return _worker.gather_target == _gold, 50.0), "pending gold order did not activate")
+		_expect(_until(func() -> bool: return not _worker.is_auto_recovering() and _worker.gather_target == _gold and int(_deposits["wood"]) == cargo_before, 50.0), "retasked gold order did not recover and deliver original cargo")
 		_expect(int(_deposits["wood"]) == cargo_before and ResourceManager.get_resource(0, "wood") == cargo_before, "original wood cargo was not delivered exactly once")
 		_expect(_worker.carried_resource_type == "gold", "gold gather did not follow wood delivery")
 	else:
-		_expect(_until(func() -> bool: return _worker.current_state == UnitBase.State.GATHERING and not _worker.is_auto_recovering(), 50.0), "old gather order never resumed")
+		_expect(_until(func() -> bool: return _worker.current_state == UnitBase.State.GATHERING and not _worker.is_auto_recovering() and _worker.gather_target == _wood, 50.0), "old gather order never resumed")
 		_expect(_worker.gather_target == _wood, "recovery replaced the exact accepted resource")
 		if cargo_before > 0:
 			_expect(int(_deposits["wood"]) == cargo_before, "interrupted cargo did not deposit exactly once before resume")

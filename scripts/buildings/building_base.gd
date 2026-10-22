@@ -34,7 +34,6 @@ var rally_point_is_custom: bool = false
 var rally_resource_type: String = ""
 var rally_resource_instance_id: int = 0
 var rally_resource_is_building: bool = false
-var depleted_naturally: bool = false
 var is_selected: bool = false
 var _production_queue: Node = null
 var _sprite: Sprite2D = null
@@ -109,9 +108,7 @@ const BUILDING_SPRITES: Dictionary = {
 	BuildingData.BuildingType.ARCHERY_RANGE: "res://assets/buildings/archery_range.png",
 	BuildingData.BuildingType.STABLE: "res://assets/buildings/stable.png",
 	BuildingData.BuildingType.FARM: "res://assets/buildings/farm.svg",
-	BuildingData.BuildingType.MILL: "res://assets/buildings/market.png",
-	BuildingData.BuildingType.LUMBER_CAMP: "res://assets/buildings/blacksmith.png",
-	BuildingData.BuildingType.MINING_CAMP: "res://assets/buildings/market.png",
+	BuildingData.BuildingType.RESOURCE_CAMP: "res://assets/buildings/blacksmith.png",
 	BuildingData.BuildingType.SIEGE_WORKSHOP: "res://assets/buildings/archery_range.png",
 	BuildingData.BuildingType.BLACKSMITH: "res://assets/buildings/blacksmith.png",
 	BuildingData.BuildingType.WATCH_TOWER: "res://assets/buildings/watch_tower.svg",
@@ -125,9 +122,7 @@ const BUILDING_SCALES: Dictionary = {
 	BuildingData.BuildingType.ARCHERY_RANGE: Vector2(0.55, 0.55),
 	BuildingData.BuildingType.STABLE: Vector2(0.55, 0.55),
 	BuildingData.BuildingType.FARM: Vector2(1.0, 1.0),
-	BuildingData.BuildingType.MILL: Vector2(0.45, 0.45),
-	BuildingData.BuildingType.LUMBER_CAMP: Vector2(0.45, 0.45),
-	BuildingData.BuildingType.MINING_CAMP: Vector2(0.40, 0.40),
+	BuildingData.BuildingType.RESOURCE_CAMP: Vector2(0.45, 0.45),
 	BuildingData.BuildingType.SIEGE_WORKSHOP: Vector2(0.60, 0.60),
 	BuildingData.BuildingType.BLACKSMITH: Vector2(0.50, 0.50),
 	BuildingData.BuildingType.WATCH_TOWER: Vector2(0.65, 0.65),
@@ -291,24 +286,15 @@ func _draw() -> void:
 
 	_draw_drop_off_badges(pixel_w, pixel_h)
 
-	# Rally point indicator with line
-	if is_selected and state == State.ACTIVE and trainable_units.size() > 0:
-		var rp_local := rally_point - global_position
-		# Dashed line from building to rally point
-		var line_color := Color(0.2, 0.6, 1.0, 0.4)
-		var dash_len := 6.0
-		var gap_len := 4.0
-		var total_dist := rp_local.length()
-		if total_dist > 1.0:
-			var dir := rp_local.normalized()
-			var d := 0.0
-			while d < total_dist:
-				var start := dir * d
-				var end_d := minf(d + dash_len, total_dist)
-				var end := dir * end_d
-				draw_line(start, end, line_color, 1.5)
-				d = end_d + gap_len
-		draw_circle(rp_local, 4.0, Color(0.2, 0.6, 1.0, 0.7))
+	# Only the selected producer shows its rally flag; no battlefield-spanning line.
+	if is_selected and state == State.ACTIVE and not trainable_units.is_empty():
+		var rp_local: Vector2 = to_local(rally_point)
+		var camera: Camera2D = get_viewport().get_camera_2d()
+		var scale_factor: float = 1.0 / maxf(0.1, camera.zoom.x) if camera != null else 1.0
+		var flag_color := Color(0.36, 0.72, 1.0, 0.8)
+		draw_arc(rp_local, 5.0 * scale_factor, 0.0, TAU, 20, flag_color, scale_factor)
+		draw_line(rp_local, rp_local + Vector2(0, -14) * scale_factor, flag_color, 1.5 * scale_factor)
+		draw_colored_polygon(PackedVector2Array([rp_local + Vector2(0, -14) * scale_factor, rp_local + Vector2(9, -11) * scale_factor, rp_local + Vector2(0, -8) * scale_factor]), flag_color)
 
 
 func _draw_drop_off_badges(pixel_w: float, pixel_h: float) -> void:
@@ -513,6 +499,8 @@ func get_player_id() -> int:
 
 
 func deposit_resource(resource_type: String, amount: int) -> void:
+	if state != State.ACTIVE or amount <= 0 or not is_drop_off_point(resource_type):
+		return
 	var rm: Node = get_node_or_null("/root/ResourceManager")
 	if rm:
 		rm.add_resource(player_owner, resource_type, amount)
@@ -522,8 +510,7 @@ func can_train() -> bool:
 	return state == State.ACTIVE and trainable_units.size() > 0
 
 
-# --- Farm support: finite food sources ---
-var farm_remaining: int = BuildingData.FARM_FOOD_AMOUNT
+# --- Farm support: permanent food, limited by worker speed and carry slots ---
 
 func get_resource_type() -> String:
 	if provides_food:
@@ -538,7 +525,7 @@ func is_sprite_body_hit(world_position: Vector2) -> bool:
 
 
 func is_harvestable_by(gathering_player_id: int = -1) -> bool:
-	if not provides_food or state != State.ACTIVE or farm_remaining <= 0:
+	if not provides_food or state != State.ACTIVE:
 		return false
 	return gathering_player_id < 0 or gathering_player_id == player_owner
 
@@ -546,14 +533,7 @@ func is_harvestable_by(gathering_player_id: int = -1) -> bool:
 func harvest(amount: int) -> int:
 	if not is_harvestable_by():
 		return 0
-	var actual := mini(amount, farm_remaining)
-	farm_remaining -= actual
-	if farm_remaining <= 0:
-		# Depletion uses the normal obstacle/registry cleanup without claiming a
-		# combat loss or warning that an enemy destroyed the field.
-		depleted_naturally = true
-		_destroy()
-	return actual
+	return maxi(0, amount)
 
 
 func get_production_queue() -> Node:

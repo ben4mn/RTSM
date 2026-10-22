@@ -139,8 +139,8 @@ func _run() -> void:
 		if dropoff.wood_deposited > 0:
 			break
 	_expect(revealed_before, "unblocked worker physically reaches an expansion destination")
-	_expect(dropoff.wood_deposited == 10, "revealed expansion wood completes a real ten-wood gather and drop-off cycle")
-	_expect(int(root.get_node("ResourceManager").get_resource(1, "wood")) == 10, "expansion deposit credits the bank through the ordinary resource transaction")
+	_expect(dropoff.wood_deposited == UnitData.VILLAGER_CARRY_CAPACITY, "revealed expansion wood completes a real full-capacity gather and drop-off cycle")
+	_expect(int(root.get_node("ResourceManager").get_resource(1, "wood")) == UnitData.VILLAGER_CARRY_CAPACITY, "expansion deposit credits the bank through the ordinary resource transaction")
 	_expect(int(ai.get_strategy_snapshot()["economy_exploration_waypoints_remaining"]) == total - 1, "only the currently revealed destination completes exploration")
 	_expect(map.hidden_guards > 0, "hidden resource queries stop at the visibility guard")
 	var report := {"failures": failures, "waypoint_count": total, "blocked_route_checks": checks_before, "expansion_wood_deposited": dropoff.wood_deposited, "strategy": ai.get_strategy_snapshot()}

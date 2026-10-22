@@ -19,6 +19,12 @@ var gather_target: Node2D = null
 var gather_type: int = GatherType.NONE
 var carried_resource_type: String = ""
 var carried_amount: int = 0
+# carried_resource_type is the current work assignment; cargo keeps its own
+# accounting type across instant retasks. All types share carry_capacity.
+var _cargo: Dictionary = {}
+var _dropoff_recheck_timer: float = 0.0
+var _dropoff_topology_revision: int = -1
+var _dropoff_buildings_signature: int = 0
 var gather_timer: float = 0.0
 var _fractional_harvest: float = 0.0
 var dropoff_target: Node2D = null
@@ -32,13 +38,12 @@ var _unreachable_resource_ids_until: Dictionary = {}
 var _unreachable_dropoff_ids_until: Dictionary = {}
 
 const DROP_OFF_RETRY_INTERVAL: float = 1.0
-const DROP_OFF_ANY_ADVANTAGE_RATIO: float = 0.7
+const MAX_RECOVERY_PATH_CHECKS: int = 8
 # GameMap preflight and the interaction check share one exact route contract.
 const GATHER_APPROACH_DISTANCE: float = MapData.RESOURCE_GATHER_INTERACTION_RADIUS_WORLD
 const BUILD_APPROACH_DISTANCE: float = 40.0
 const BUILDING_APPROACH_DISTANCE: float = 48.0
 const UNREACHABLE_TARGET_IGNORE_SECONDS: float = 5.0
-const MAX_DROPOFF_PATH_CHECKS: int = 8
 
 # Building state
 var build_target: Node2D = null
@@ -142,6 +147,15 @@ func take_damage(amount: float) -> void:
 
 func _process_moving(delta: float) -> void:
 	if not _auto_recovering:
+		if _dropoff_route_active:
+			_dropoff_recheck_timer -= delta
+			if _dropoff_recheck_timer <= 0.0:
+				_dropoff_recheck_timer = 1.0
+				if not _dropoff_accepts_cargo(dropoff_target) or _get_dropoff_topology_revision() != _dropoff_topology_revision or _get_dropoff_buildings_signature() != _dropoff_buildings_signature:
+					_unreachable_dropoff_ids_until.clear()
+					_find_and_go_to_dropoff()
+					if current_state != State.MOVING:
+						return
 		super._process_moving(delta)
 		return
 	if _recovery_waiting:
@@ -225,6 +239,8 @@ func is_returning_resources() -> bool:
 
 
 func get_economy_task() -> String:
+	if has_meta("network_work"):
+		return str(get_meta("network_work"))
 	if _auto_recovering or current_state == State.DEAD:
 		return ""
 	if current_state == State.BUILDING:
@@ -237,12 +253,14 @@ func get_economy_task() -> String:
 
 
 func get_work_status() -> String:
+	if has_meta("network_work_status"):
+		return str(get_meta("network_work_status"))
 	if current_state == State.DEAD:
 		return "Dead"
 	if _auto_recovering:
 		return "Sheltering" if _recovery_waiting else "Retreating"
 	if is_returning_resources():
-		return "Returning " + carried_resource_type
+		return "Delivering · " + carried_resource_type
 	if current_state == State.GATHERING:
 		if _recovery_return_only or carried_amount >= carry_capacity or _pending_gather_resource_type != "":
 			return "Waiting for drop-off"
@@ -261,23 +279,12 @@ func get_work_status() -> String:
 
 
 func _process_gathering(delta: float) -> void:
-	# A cross-resource retask is a two-step transaction: first return the cargo
-	# under its original type, then activate the newly requested gather order.
-	# This also handles a missing drop-off by retrying without harvesting more of
-	# the old resource or inspecting the pending target while it is hidden.
+	# Position-only orders activate immediately, retaining every cargo type.
 	if _pending_gather_resource_type != "":
-		if carried_amount <= 0:
-			_activate_pending_gather_order()
-			return
-		if dropoff_target != null and is_instance_valid(dropoff_target):
-			return
-		_dropoff_retry_timer -= delta
-		if _dropoff_retry_timer <= 0.0:
-			_dropoff_retry_timer = DROP_OFF_RETRY_INTERVAL
-			_find_and_go_to_dropoff()
+		_activate_pending_gather_order()
 		return
 
-	if carried_amount >= carry_capacity:
+	if carried_amount >= carry_capacity or _recovery_return_only:
 		if dropoff_target != null and is_instance_valid(dropoff_target):
 			return
 		_dropoff_retry_timer -= delta
@@ -333,10 +340,13 @@ func _process_gathering(delta: float) -> void:
 	# We are at the resource, gather
 	gather_timer += delta
 	var tick_seconds: float = gather_tick_time / float(UnitData.RESOURCE_GATHER_SPEEDS.get(carried_resource_type, 1.0))
-	if gather_timer >= tick_seconds:
-		gather_timer -= tick_seconds
+	if gather_timer + 0.000001 >= tick_seconds:
+		gather_timer = maxf(0.0, gather_timer - tick_seconds)
+		_sync_cargo_manifest()
 		var gathered: int = _harvest_from_target()
-		carried_amount += gathered
+		if gathered > 0:
+			_cargo[carried_resource_type] = int(_cargo.get(carried_resource_type, 0)) + gathered
+			carried_amount += gathered
 
 		if carried_amount >= carry_capacity:
 			_find_and_go_to_dropoff()
@@ -370,53 +380,80 @@ func _harvest_from_target() -> int:
 	return amount_requested
 
 
-func _find_and_go_to_dropoff() -> void:
-	# Prefer resource-specific drop-offs unless a generic one is at least 30%
-	# closer, but only commit to a candidate with a bounded reachable route.
-	_prune_expired_unreachable_targets(_unreachable_dropoff_ids_until)
-	var candidates: Array[Node2D] = []
-	for building in get_tree().get_nodes_in_group("dropoff_buildings"):
-		if not is_instance_valid(building):
-			continue
-		if building.has_method("get_player_owner") and building.get_player_owner() != player_owner:
-			continue
-		if building is BuildingBase and (building as BuildingBase).state != BuildingBase.State.ACTIVE:
-			continue
-		if _unreachable_dropoff_ids_until.has(building.get_instance_id()):
-			continue
-		candidates.append(building as Node2D)
-	candidates.sort_custom(func(a: Node2D, b: Node2D) -> bool:
-		var a_distance: float = global_position.distance_to(a.global_position)
-		var b_distance: float = global_position.distance_to(b.global_position)
-		if a.has_method("is_drop_off_point") and bool(a.call("is_drop_off_point", carried_resource_type)):
-			a_distance *= DROP_OFF_ANY_ADVANTAGE_RATIO
-		if b.has_method("is_drop_off_point") and bool(b.call("is_drop_off_point", carried_resource_type)):
-			b_distance *= DROP_OFF_ANY_ADVANTAGE_RATIO
-		return a_distance < b_distance
-	)
+func _get_dropoff_topology_revision() -> int:
+	var game_map: Node2D = _get_navigation_map()
+	if game_map != null and game_map.get("pathfinding") != null:
+		var navigation: Object = game_map.get("pathfinding") as Object
+		if navigation != null and "walkability_revision" in navigation:
+			return int(navigation.get("walkability_revision"))
+	return 0
 
+
+func _get_dropoff_buildings_signature() -> int:
+	var identities: Array[int] = []
+	for building: Node in get_tree().get_nodes_in_group("dropoff_buildings"):
+		if _dropoff_accepts_cargo(building as Node2D):
+			identities.append(building.get_instance_id())
+	return hash(identities)
+
+
+func _dropoff_accepts_cargo(building: Node2D) -> bool:
+	if not is_instance_valid(building) or not building.has_method("get_player_owner") or int(building.call("get_player_owner")) != player_owner:
+		return false
+	if building is BuildingBase and (building as BuildingBase).state != BuildingBase.State.ACTIVE:
+		return false
+	if not building.has_method("is_drop_off_point") or not building.has_method("deposit_resource"):
+		return false
+	for resource: String in get_carried_resources():
+		if not bool(building.call("is_drop_off_point", resource)):
+			return false
+	return carried_amount > 0
+
+
+func _get_dropoff_route(building: Node2D) -> PackedVector2Array:
+	var game_map: Node2D = _get_navigation_map()
+	if building is BuildingBase and game_map != null and game_map.has_method("get_building_dropoff_world_path"):
+		return game_map.call("get_building_dropoff_world_path", global_position, building.global_position, (building as BuildingBase).footprint, BUILD_APPROACH_DISTANCE)
+	if building is BuildingBase and game_map != null and game_map.has_method("get_building_work_world_path"):
+		return game_map.call("get_building_work_world_path", global_position, building.global_position, (building as BuildingBase).footprint, BUILD_APPROACH_DISTANCE)
+	return _get_navigation_route(building.global_position, BUILD_APPROACH_DISTANCE)
+
+
+func _find_and_go_to_dropoff() -> void:
+	_sync_cargo_manifest()
+	var topology_revision: int = _get_dropoff_topology_revision()
+	if topology_revision != _dropoff_topology_revision:
+		_unreachable_dropoff_ids_until.clear()
+	_dropoff_topology_revision = topology_revision
+	_dropoff_buildings_signature = _get_dropoff_buildings_signature()
+	_prune_expired_unreachable_targets(_unreachable_dropoff_ids_until)
 	var chosen_building: Node2D = null
 	var chosen_route := PackedVector2Array()
-	var checked: int = 0
+	var shortest_distance: float = INF
 	var recovery_threats: Array[Node2D] = []
 	if _avoid_recovery_dropoff_danger:
 		recovery_threats = _get_visible_recovery_threats()
-	for candidate: Node2D in candidates:
-		if checked >= MAX_DROPOFF_PATH_CHECKS:
-			break
-		checked += 1
-		var route: PackedVector2Array = _get_navigation_route(candidate.global_position, BUILD_APPROACH_DISTANCE)
-		if route.is_empty():
-			_remember_unreachable_target(candidate, _unreachable_dropoff_ids_until)
+	# Compare actual routes to legal footprint perimeter cells. No Euclidean
+	# preference or candidate-count cap can hide the only reachable camp.
+	for entry: Node in get_tree().get_nodes_in_group("dropoff_buildings"):
+		var candidate: Node2D = entry as Node2D
+		if not _dropoff_accepts_cargo(candidate) or _unreachable_dropoff_ids_until.has(candidate.get_instance_id()):
 			continue
-		if route[route.size() - 1].distance_to(candidate.global_position) > BUILDING_APPROACH_DISTANCE:
+		var route: PackedVector2Array = _get_dropoff_route(candidate)
+		if route.is_empty():
 			_remember_unreachable_target(candidate, _unreachable_dropoff_ids_until)
 			continue
 		if _avoid_recovery_dropoff_danger and _route_is_threatened(route, recovery_threats):
 			continue
-		chosen_building = candidate
-		chosen_route = route
-		break
+		var route_length: float = 0.0
+		var previous: Vector2 = global_position
+		for waypoint: Vector2 in route:
+			route_length += previous.distance_to(waypoint)
+			previous = waypoint
+		if route_length < shortest_distance:
+			shortest_distance = route_length
+			chosen_building = candidate
+			chosen_route = route
 
 	if chosen_building != null:
 		_dropoff_retry_timer = 0.0
@@ -431,8 +468,9 @@ func _find_and_go_to_dropoff() -> void:
 			arrived_at_destination.disconnect(_on_arrived_for_dropoff)
 		arrived_at_destination.connect(_on_arrived_for_dropoff, CONNECT_ONE_SHOT)
 	else:
-		# No dropoff available yet - stay in gather state and retry.
-		dropoff_target = null
+		# A failed/replaced delivery cannot retain an old arrival callback or path.
+		_cancel_dropoff_route()
+		_reset_navigation()
 		_dropoff_retry_timer = DROP_OFF_RETRY_INTERVAL
 		set_state(State.GATHERING)
 
@@ -458,33 +496,43 @@ func _on_arrived_for_dropoff(_unit: UnitBase) -> void:
 	_resume_gather_order_or_retarget()
 
 
+func _sync_cargo_manifest() -> void:
+	# Also supports saved state / fixtures that provide the legacy single stack.
+	var total: int = 0
+	for amount: int in _cargo.values():
+		total += amount
+	if total != carried_amount:
+		_cargo.clear()
+		if carried_amount > 0 and carried_resource_type != "":
+			_cargo[carried_resource_type] = carried_amount
+
+
+func get_carried_resources() -> Dictionary:
+	if has_meta("network_cargo"):
+		return (get_meta("network_cargo") as Dictionary).duplicate()
+	_sync_cargo_manifest()
+	return _cargo.duplicate()
+
+
 func _deposit_resources() -> bool:
 	if carried_amount <= 0:
 		return true
+	_sync_cargo_manifest()
+	if not _dropoff_accepts_cargo(dropoff_target):
+		return false
+	if _building_work_distance(dropoff_target) > BUILDING_APPROACH_DISTANCE:
+		return false
 	var deposited_amount: int = carried_amount
-	var deposited_type: String = carried_resource_type
-	if dropoff_target == null or not is_instance_valid(dropoff_target):
-		return false
-	if dropoff_target is BuildingBase and (dropoff_target as BuildingBase).state != BuildingBase.State.ACTIVE:
-		return false
-	if global_position.distance_to(dropoff_target.global_position) > BUILDING_APPROACH_DISTANCE:
-		return false
-	if not dropoff_target.has_method("deposit_resource"):
-		return false
-	dropoff_target.deposit_resource(carried_resource_type, carried_amount)
-	resource_deposited.emit(carried_resource_type, carried_amount)
+	for resource: String in _cargo:
+		var amount: int = int(_cargo[resource])
+		dropoff_target.call("deposit_resource", resource, amount)
+		resource_deposited.emit(resource, amount)
+	_cargo.clear()
 	carried_amount = 0
 	dropoff_target = null
 	_avoid_recovery_dropoff_danger = false
-	# Floating resource text
 	if get_tree() and get_tree().current_scene:
-		var float_color: Color
-		match deposited_type:
-			"food": float_color = Color(0.95, 0.4, 0.3)
-			"wood": float_color = Color(0.45, 0.8, 0.3)
-			"gold": float_color = Color(0.95, 0.85, 0.2)
-			_: float_color = Color.WHITE
-		VFX.resource_float(get_tree(), global_position, "+%d %s" % [deposited_amount, deposited_type.capitalize()], float_color)
+		VFX.resource_float(get_tree(), global_position, "+%d" % deposited_amount, Color(0.7, 0.85, 0.5))
 	return true
 
 
@@ -526,7 +574,7 @@ func _process_building(delta: float) -> void:
 			):
 				# Unassigned farmers start work on the paid Farm they just finished.
 				# Established workers keep their saved assignment. Loaded builders
-				# use the normal cross-resource cargo delivery transaction.
+				# keep old cargo in the shared bag while starting their new food order.
 				if command_gather(completed_building):
 					_clear_saved_gather_order()
 					return
@@ -587,19 +635,9 @@ func command_gather(resource_node: Node2D) -> bool:
 	attack_move = false
 	_forced_attack = false
 	_reset_navigation()
-	if carried_amount > 0:
-		# Never rewrite the accounting type of resources already in hand. A
-		# different-type order remains accepted, but is activated only after the
-		# current cargo has reached a real friendly drop-off.
-		if carried_resource_type == "":
-			return false
-		if carried_resource_type != requested_resource_type:
-			_pending_gather_resource_type = requested_resource_type
-			_pending_gather_last_known_position = resource_node.global_position
-			_pending_gather_last_known_is_building = resource_node is BuildingBase
-			_pending_gather_last_known_instance_id = resource_node.get_instance_id()
-			_find_and_go_to_dropoff()
-			return true
+	# Snapshot the old stack before changing the assignment. Partial cargo now
+	# travels with the worker instead of sending it away from the tapped source.
+	_sync_cargo_manifest()
 	_clear_pending_gather_order()
 	if carried_resource_type != requested_resource_type:
 		_fractional_harvest = 0.0
@@ -647,9 +685,6 @@ func command_gather_last_observed(resource_type: String, observed_position: Vect
 	_pending_gather_last_known_position = observed_position
 	_pending_gather_last_known_is_building = is_building
 	_pending_gather_last_known_instance_id = observed_instance_id
-	if carried_amount > 0:
-		_find_and_go_to_dropoff()
-		return true
 	return _activate_pending_gather_order()
 
 
@@ -675,8 +710,8 @@ func command_return_resources() -> bool:
 		or _pending_gather_resource_type != ""
 		or (_auto_recovering and _recovery_work_state == State.GATHERING and gather_type != GatherType.NONE)
 	)
-	# A direct return command is compatible with an already accepted cross-type
-	# order: keep that position-only intent so it can activate after delivery.
+	# A direct return command preserves any accepted position-only assignment
+	# so delivery can resume the newest work intent.
 	_preserve_pending_gather_on_command = true
 	_before_new_command()
 	_preserve_pending_gather_on_command = false
@@ -829,7 +864,7 @@ func _flee_to_safety() -> void:
 	var best_route := PackedVector2Array()
 	var best_refuge: BuildingBase = null
 	var best_score: float = INF
-	for candidate: BuildingBase in candidates.slice(0, MAX_DROPOFF_PATH_CHECKS):
+	for candidate: BuildingBase in candidates.slice(0, MAX_RECOVERY_PATH_CHECKS):
 		var route: PackedVector2Array = _get_refuge_world_path(candidate, threats)
 		if route.is_empty():
 			continue
@@ -892,7 +927,7 @@ func _get_refuge_world_path(building: BuildingBase, threats: Array[Node2D]) -> P
 	goals.sort_custom(func(a: Vector2, b: Vector2) -> bool:
 		return _refuge_point_score(a, threats) < _refuge_point_score(b, threats)
 	)
-	for point: Vector2 in goals.slice(0, MAX_DROPOFF_PATH_CHECKS):
+	for point: Vector2 in goals.slice(0, MAX_RECOVERY_PATH_CHECKS):
 		var route: PackedVector2Array = _get_navigation_route(point, NAVIGATION_POINT_TOLERANCE)
 		if route.is_empty() or route[-1].distance_to(point) > NAVIGATION_POINT_TOLERANCE:
 			continue
@@ -990,7 +1025,7 @@ func _try_resume_safer_resource(threats: Array[Node2D]) -> bool:
 		return false
 	var requested_type: String = _pending_gather_resource_type if _pending_gather_resource_type != "" else carried_resource_type
 	var exclusions: Dictionary = _unreachable_resource_ids_until.duplicate()
-	for index: int in range(MAX_DROPOFF_PATH_CHECKS):
+	for index: int in range(MAX_RECOVERY_PATH_CHECKS):
 		var candidate: Node2D = game_map.call("get_nearest_reachable_resource_node", requested_type, global_position, player_owner, exclusions) as Node2D
 		if candidate == null or not _is_new_gather_target_currently_visible(candidate):
 			return false
@@ -1097,6 +1132,7 @@ func _try_retarget_resource() -> bool:
 
 func _resume_gather_order_or_retarget() -> void:
 	if _has_gather_last_known_position and not _is_gather_order_position_visible():
+		gather_target = null
 		_cancel_dropoff_route()
 		_reset_navigation()
 		gather_timer = 0.0
@@ -1132,10 +1168,8 @@ func _activate_pending_gather_order() -> bool:
 	var pending_instance_id: int = _pending_gather_last_known_instance_id
 	_clear_pending_gather_order()
 
-	# The original cargo is already zero. The pending command retained no live
-	# resource reference: if its tile is visible now, resolve a reachable current-
-	# vision resource of the requested type. Otherwise approach only the legally
-	# observed position and resolve after the worker reveals it.
+	# Preserve old cargo independently of this new, fog-safe assignment.
+	_sync_cargo_manifest()
 	gather_target = null
 	if carried_resource_type != pending_type:
 		_fractional_harvest = 0.0

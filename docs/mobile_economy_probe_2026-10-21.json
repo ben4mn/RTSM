@@ -1,0 +1,550 @@
+{
+  "before": {
+    "time": 300.000000000056,
+    "end": "time limit",
+    "victory_reason": "unresolved at 300s",
+    "seed": 424242,
+    "population_limit": 30,
+    "difficulty": 1,
+    "human_policy": "AI difficulty 1 using normal human construction/training/age transactions; automated, not hands-on",
+    "initial_resources": [
+      {
+        "food": 200,
+        "gold": 100,
+        "wood": 150
+      },
+      {
+        "food": 200,
+        "gold": 100,
+        "wood": 150
+      }
+    ],
+    "first_attack": [
+      240.01666666675,
+      -1.0
+    ],
+    "first_contact": 267.450000000085,
+    "first_role_time": [
+      {
+        "1": 184.516666666706,
+        "4": 25.5333333333332
+      },
+      {
+        "1": 250.516666666758,
+        "4": 25.5333333333332
+      }
+    ],
+    "age_times": [
+      {
+        "1": 0.0,
+        "2": 232.516666666744
+      },
+      {
+        "1": 0.0,
+        "2": 274.516666666746
+      }
+    ],
+    "peak_workers": [
+      14,
+      13
+    ],
+    "peak_troops": [
+      4,
+      4
+    ],
+    "deposited_by_resource": [
+      {
+        "food": 830,
+        "gold": 98,
+        "wood": 370
+      },
+      {
+        "food": 1020,
+        "gold": 150,
+        "wood": 326
+      }
+    ],
+    "housing_blocked_seconds": [
+      0.0,
+      0.0
+    ],
+    "landed_hits_by_role": [
+      {
+        "1": 15
+      },
+      {
+        "1": 9
+      }
+    ],
+    "simulation": {
+      "map_height": 72,
+      "map_width": 72,
+      "physics_ticks_per_second": 60,
+      "time_scale": 1.0
+    },
+    "first_barracks_foundations": [
+      {
+        "time": 141.016666666671,
+        "player": 0
+      },
+      {
+        "time": 207.016666666724,
+        "player": 1
+      }
+    ]
+  },
+  "after_300": {
+    "time": 300.000000000056,
+    "end": "time limit",
+    "victory_reason": "unresolved at 300s",
+    "seed": 424242,
+    "population_limit": 30,
+    "difficulty": 1,
+    "human_policy": "AI difficulty 1 using normal human construction/training/age transactions; automated, not hands-on",
+    "initial_resources": [
+      {
+        "food": 250,
+        "gold": 100,
+        "wood": 250
+      },
+      {
+        "food": 250,
+        "gold": 100,
+        "wood": 250
+      }
+    ],
+    "first_attack": [
+      120.016666666661,
+      123.016666666661
+    ],
+    "first_contact": 148.900000000011,
+    "first_role_time": [
+      {
+        "1": 95.5166666666625,
+        "2": 193.516666666713,
+        "3": 233.016666666744,
+        "4": 21.5333333333334
+      },
+      {
+        "1": 101.516666666662,
+        "2": 199.516666666718,
+        "3": 240.51666666675,
+        "4": 21.5333333333334
+      }
+    ],
+    "age_times": [
+      {
+        "1": 0.0,
+        "2": 144.016666666673
+      },
+      {
+        "1": 0.0,
+        "2": 145.516666666675
+      }
+    ],
+    "peak_workers": [
+      15,
+      15
+    ],
+    "peak_troops": [
+      14,
+      7
+    ],
+    "deposited_by_resource": [
+      {
+        "food": 1631,
+        "gold": 158,
+        "wood": 1225
+      },
+      {
+        "food": 1381,
+        "gold": 243,
+        "wood": 1120
+      }
+    ],
+    "housing_blocked_seconds": [
+      0.966666666667436,
+      0.0
+    ],
+    "landed_hits_by_role": [
+      {
+        "1": 41,
+        "3": 14
+      },
+      {
+        "1": 19,
+        "3": 7
+      }
+    ],
+    "simulation": {
+      "map_height": 72,
+      "map_width": 72,
+      "physics_ticks_per_second": 60,
+      "time_scale": 1.0
+    },
+    "first_barracks_foundations": [
+      {
+        "time": 3.01666666666666,
+        "player": 0
+      },
+      {
+        "time": 3.01666666666666,
+        "player": 1
+      }
+    ]
+  },
+  "after_match_end": {
+    "time": 409.249999999956,
+    "end": "game over",
+    "victory_reason": "Sacred Site held for 3:00",
+    "seed": 424242,
+    "population_limit": 30,
+    "difficulty": 1,
+    "human_policy": "AI difficulty 1 using normal human construction/training/age transactions; automated, not hands-on",
+    "initial_resources": [
+      {
+        "food": 250,
+        "gold": 100,
+        "wood": 250
+      },
+      {
+        "food": 250,
+        "gold": 100,
+        "wood": 250
+      }
+    ],
+    "first_attack": [
+      120.016666666661,
+      123.016666666661
+    ],
+    "first_contact": 148.900000000011,
+    "first_role_time": [
+      {
+        "1": 95.5166666666625,
+        "2": 193.516666666713,
+        "3": 233.016666666744,
+        "4": 21.5333333333334
+      },
+      {
+        "1": 101.516666666662,
+        "2": 199.516666666718,
+        "3": 240.51666666675,
+        "4": 21.5333333333334
+      }
+    ],
+    "age_times": [
+      {
+        "1": 0.0,
+        "2": 144.016666666673
+      },
+      {
+        "1": 0.0,
+        "2": 145.516666666675
+      }
+    ],
+    "peak_workers": [
+      15,
+      15
+    ],
+    "peak_troops": [
+      15,
+      13
+    ],
+    "deposited_by_resource": [
+      {
+        "food": 2236,
+        "gold": 158,
+        "wood": 1785
+      },
+      {
+        "food": 2331,
+        "gold": 258,
+        "wood": 1750
+      }
+    ],
+    "housing_blocked_seconds": [
+      0.966666666667436,
+      0.0
+    ],
+    "landed_hits_by_role": [
+      {
+        "1": 77,
+        "3": 34
+      },
+      {
+        "1": 33,
+        "3": 25
+      }
+    ],
+    "simulation": {
+      "map_height": 72,
+      "map_width": 72,
+      "physics_ticks_per_second": 60,
+      "time_scale": 1.0
+    },
+    "first_barracks_foundations": [
+      {
+        "time": 3.01666666666666,
+        "player": 0
+      },
+      {
+        "time": 3.01666666666666,
+        "player": 1
+      }
+    ]
+  },
+  "final_egress_fixed_match": {
+    "time": 390.116666666641,
+    "end": "game over",
+    "victory_reason": "Sacred Site held for 3:00",
+    "seed": 424242,
+    "population_limit": 30,
+    "difficulty": 1,
+    "human_policy": "AI difficulty 1 using normal human construction/training/age transactions; automated, not hands-on",
+    "initial_resources": [
+      {
+        "food": 250,
+        "gold": 100,
+        "wood": 250
+      },
+      {
+        "food": 250,
+        "gold": 100,
+        "wood": 250
+      }
+    ],
+    "first_attack": [
+      120.016666666661,
+      123.016666666661
+    ],
+    "first_contact": 148.900000000011,
+    "first_role_time": [
+      {
+        "1": 95.5166666666625,
+        "2": 193.516666666713,
+        "3": 233.016666666744,
+        "4": 21.5333333333334
+      },
+      {
+        "1": 101.516666666662,
+        "2": 199.516666666718,
+        "3": 240.51666666675,
+        "4": 21.5333333333334
+      }
+    ],
+    "age_times": [
+      {
+        "1": 0.0,
+        "2": 144.016666666673,
+        "3": 364.516666666664
+      },
+      {
+        "1": 0.0,
+        "2": 145.516666666675
+      }
+    ],
+    "peak_workers": [
+      15,
+      15
+    ],
+    "peak_troops": [
+      15,
+      8
+    ],
+    "deposited_by_resource": [
+      {
+        "food": 2116,
+        "gold": 158,
+        "wood": 1680
+      },
+      {
+        "food": 2181,
+        "gold": 258,
+        "wood": 1650
+      }
+    ],
+    "housing_blocked_seconds": [
+      0.0,
+      0.0
+    ],
+    "landed_hits_by_role": [
+      {
+        "1": 71,
+        "2": 52,
+        "3": 32
+      },
+      {
+        "1": 22,
+        "2": 14,
+        "3": 6
+      }
+    ],
+    "simulation": {
+      "map_height": 72,
+      "map_width": 72,
+      "physics_ticks_per_second": 60,
+      "time_scale": 1.0
+    },
+    "scope": "Intermediate paid gameplay after the disconnected production-egress pocket fix, before shortest-perimeter routing refinement."
+  },
+  "final_runtime_match": {
+    "time": 401.933333333296,
+    "end": "game over",
+    "victory_reason": "Sacred Site held for 3:00",
+    "seed": 424242,
+    "population_limit": 30,
+    "difficulty": 1,
+    "human_policy": "AI difficulty 1 using normal human construction/training/age transactions; automated, not hands-on",
+    "initial_resources": [
+      {
+        "food": 250,
+        "gold": 100,
+        "wood": 250
+      },
+      {
+        "food": 250,
+        "gold": 100,
+        "wood": 250
+      }
+    ],
+    "first_attack": [
+      120.016666666661,
+      126.016666666661
+    ],
+    "first_contact": 151.800000000013,
+    "first_role_time": [
+      {
+        "1": 88.016666666663,
+        "2": 184.516666666706,
+        "3": 219.516666666733,
+        "4": 21.5333333333334
+      },
+      {
+        "1": 101.516666666662,
+        "2": 198.016666666716,
+        "3": 237.516666666748,
+        "4": 21.5333333333334
+      }
+    ],
+    "age_times": [
+      {
+        "1": 0.0,
+        "2": 141.016666666671,
+        "3": 387.016666666643
+      },
+      {
+        "1": 0.0,
+        "2": 145.516666666675
+      }
+    ],
+    "peak_workers": [
+      16,
+      15
+    ],
+    "peak_troops": [
+      14,
+      8
+    ],
+    "deposited_by_resource": [
+      {
+        "food": 2350,
+        "gold": 197,
+        "wood": 1701
+      },
+      {
+        "food": 2284,
+        "gold": 246,
+        "wood": 1750
+      }
+    ],
+    "housing_blocked_seconds": [
+      4.43333333333308,
+      0.0
+    ],
+    "landed_hits_by_role": [
+      {
+        "1": 61,
+        "2": 51,
+        "3": 42
+      },
+      {
+        "1": 32,
+        "2": 15,
+        "3": 12
+      }
+    ],
+    "simulation": {
+      "map_height": 72,
+      "map_width": 72,
+      "physics_ticks_per_second": 60,
+      "time_scale": 1.0
+    },
+    "first_landed_role_hit_at": [
+      {
+        "1": 151.800000000013,
+        "2": 280.983333333406,
+        "3": 245.683333333421
+      },
+      {
+        "1": 152.966666666681,
+        "2": 230.650000000076,
+        "3": 262.783333333423
+      }
+    ],
+    "match_cap_seconds": [
+      65.3833333332739,
+      0.0
+    ],
+    "runtime_source_hashes": {
+      "scripts/ai/ai_controller.gd": "1e3bff5b0167be74ffb3cb7871c291eebb0b051a88da9ce1b1c50cba3d881bff",
+      "scripts/buildings/building_base.gd": "9079a25f5bb74b2dcb0705ea00fff5815bd657bde478dfecfffb89b29812238e",
+      "scripts/buildings/building_placement.gd": "a18d24990f92e4bb88a724be6b5de1e045c855dcad7bc34c29399e8a39ada536",
+      "scripts/buildings/production_queue.gd": "320e537d6bc13cc961db6f82b9145382b8f6f543957d0454c9e969fdbfb3418d",
+      "scripts/data/building_data.gd": "efaf130402720d18ae9bfe7fe55f3959a92e8e00bced2343c2a324011008f04f",
+      "scripts/data/skirmish_data.gd": "9fe46f0439df81f9e5f4634036988f9ed6a086d950063eb90d925e31933ad251",
+      "scripts/data/tech_data.gd": "4b7a0edb723b92e4e211df6f56b389c2fe23349489133526e4b632016aa3ead8",
+      "scripts/data/unit_data.gd": "d9cf105220fb82ce8b0d2d0cc7c8e3d6451a9cb04f13f300d301099e8e7048e5",
+      "scripts/main/group_order_planner.gd": "6cd953a8ea29cd115164ad8b97ad6832d4d12309d97c0e6cd80f25a4590ac3c8",
+      "scripts/main/main.gd": "00e78cabdab27dece7dd7a408254e98b4a398cefa48c4b4a2eb08f5e538e01b9",
+      "scripts/main/match_debrief.gd": "dd7d327d9f6ee74957fc7473598b75ec6a52f2903cc715745e2e72eaedcc25f8",
+      "scripts/main/match_learning.gd": "28752f996af73ee1c4b015991aa9d74b0ad914a4413a9c096ed36e4135054cab",
+      "scripts/managers/audio_manager.gd": "7541c29380eb83a13d5db8dd6c89d2b3107cbc2423f3055c139704fba017b8bb",
+      "scripts/managers/economy_assessment.gd": "0deda89cd83813953f3788e024bd25dc2b7b7bbfcb980ca7c84cb4293443db8b",
+      "scripts/managers/fog_manager.gd": "12d3bc70d7bb03c6e6d85e14fa095ea2667c19c2c255e0cd8e8fac1e9ab7febd",
+      "scripts/managers/game_manager.gd": "c4472ccaa7fd55ec4be070815c14ae7b3ba73abac16f33b7c532c1630995b2f1",
+      "scripts/managers/playtest_diagnostics.gd": "d8eb05e773c85c6b3c3734c68032855b95dce523a084213c710d349f26eb4a6c",
+      "scripts/managers/resource_manager.gd": "3cc4ce18ab4b60b69a8bcc4ea8127d99f0fb098934a8706cdf43fcb64fc359b7",
+      "scripts/managers/runtime_game_bridge.gd": "d36665dc69c21296055f134e5d850806e7032e6cbe49e1ca0490701be737353a",
+      "scripts/managers/selection_manager.gd": "7ea4786a935ea080b6f79766dfedf1c8841d46a18a4e3921d35efef7b7ceb182",
+      "scripts/managers/strategy_controller.gd": "3a95dda66548ba628fab1a29dc759a7813bed2e70a8eb06b13118c9889edb0af",
+      "scripts/map/game_map.gd": "9b60aaaff41cf7c244eac2d3562a9da3eb277f5fbf7a04f038e070ef9b4331e2",
+      "scripts/map/map_data.gd": "20bc886516bc165e9ff240424401a806b2186b1bbcdef4733d8e9c73cb1dc812",
+      "scripts/map/map_generator.gd": "8be2bae4c466b710aa1ae7c607499be8d779e1241c684be78a10346bc132b9b1",
+      "scripts/map/pathfinding.gd": "2e04cf53471ae89593af7bcad7c03544eb6cccb03bb412f5a9a81aab00e4bc55",
+      "scripts/map/resource_node.gd": "82ca0327b97a1301f525502e1cf0d3c279e54e749f0171375fd0804c76da085b",
+      "scripts/map/sacred_site.gd": "cf9b5fe4748ebf4c90f229954e826aa61aab7aa39402203f810571cdbd647294",
+      "scripts/map/tileset_builder.gd": "f8a7ee34d680f418442548d8cc190bd354d035ae0f72dc114070a7a51799b6fc",
+      "scripts/network/network_session.gd": "062428c0bb06cde7ff35a342aed01edc8e5d5641cfd1d497abc6301c847ad677",
+      "scripts/ui/battlefield_feedback.gd": "d8661b513df9e023ef9e96f666b5f38af2ac80db6205dbdedf6071662105b3fd",
+      "scripts/ui/build_menu.gd": "3d5822f9dee3398bc47fae020bbe5f0d9fcc50b5c4c400eb241f493e9fbbd2b1",
+      "scripts/ui/command_icons.gd": "e445931137b297287977ae989700e3dd0451ac22aa31682514403964413d46a2",
+      "scripts/ui/command_path_overlay.gd": "34da27d69cbebde698c2b36c256df3fd55cd3720b6cf8a6d3338ae4f92767153",
+      "scripts/ui/debug_bootstrap.gd": "27258952ed47742b03a0d337e72b95872985b311e6818b04cfc76ad22c90721a",
+      "scripts/ui/debug_panel.gd": "bee369016901630243beb7f8aad815eaa737d06c26da26c4a5a864c430024554",
+      "scripts/ui/game_over_screen.gd": "e750e039219748fa516c980e3e480110ce71a2f06d8f73f8e7a3e8dcd459c7aa",
+      "scripts/ui/hud.gd": "a82624024626b7eef516a1404aa213c64a8730bfc68e0daf34ec9ccaea1ab735",
+      "scripts/ui/hud_hold_control.gd": "538e9e30c1c1314189d342301c3527723f69abfbc03b45a7746476e2e0f54cc2",
+      "scripts/ui/kingdom_theme.gd": "84c32465502253661afb525a79f5ce309e40298e49d1046a5ea3f001583859eb",
+      "scripts/ui/modal_dismiss_shield.gd": "a1a5890a631909256f1ea5f95536373773c7902651e103286ea1c5a96f1b2b9e",
+      "scripts/ui/strategy_overview.gd": "7a74b1b16d4944ae4c8acfb5ec88f764f0b26d46f4caeb54610ee30231705556",
+      "scripts/ui/web_shell_bridge.gd": "7593604132095b525be11426f7af6f07d83c3ce7977f84acd7c9c454830aa753",
+      "scripts/units/auto_targeting.gd": "8a04fde81b30d50134a8b472c69b72b69ecdf35e2514a1ca4bafaf42dac3920b",
+      "scripts/units/combat.gd": "82c89f932145fc2d78a1fcee0f981cb3ad780c5ee13eadf993bacde63e772ccd",
+      "scripts/units/unit_base.gd": "3a20c9b377ebf8ec8b6939a438484286ee8a9e5c1acdc2fa2cf8cb15b0640c4b",
+      "scripts/units/villager.gd": "f05c6bf167166959e57a377157bd42295d6ce76ef3500c96aa95263e95b4b100",
+      "scripts/vfx/vfx.gd": "b5518f8f68df325ac81104b4e636c1ef4887095700becf53e82980262043f009",
+      "tools/probe_ai_compact_paid_match.gd": "503ec8d0b2d55ccac77292a37297ed10b10eebd53ffd0bca3adaff6314a0b13b"
+    },
+    "scope": "Final frozen economy runtime: production-egress correction plus actual shortest perimeter drop-off routing. Automated paid gameplay; no injected resources."
+  }
+}

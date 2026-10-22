@@ -1,0 +1,19 @@
+# Add with: docker compose -f docker-compose.yml -f docker-compose.online.yml up -d online
+# The existing nginx/tunnel carries WSS /match; no additional public port.
+services:
+  online:
+    build:
+      context: ./match-server
+    image: aoem-online:local
+    container_name: aoem-online
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 768m
+    cpus: 1.5
+    pids_limit: 128
+    tmpfs:
+      - /tmp:size=32m,noexec,nosuid
+      - /home/game:size=16m,nosuid,uid=10002,gid=10002,mode=700

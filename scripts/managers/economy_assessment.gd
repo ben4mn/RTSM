@@ -15,8 +15,8 @@ static func describe(facts: Dictionary) -> Dictionary:
 	var total_visible: int = int(facts.get("visible_food", 0))
 	var worked_food: int = int(facts.get("worked_food", 0))
 	var food_workers: int = int(facts.get("food_workers", 0))
-	var stock: String = "Known food: %d visible berries + %d in your Farms, still to gather." % [int(facts.get("berry_food", 0)), int(facts.get("farm_food", 0))]
-	var farm: String = "Farm: %d wood for %d finite food. A worker builds and gathers; rebuild when exhausted." % [farm_wood, BuildingData.FARM_FOOD_AMOUNT]
+	var stock: String = "Food: %d in visible berries · %d permanent Farms." % [int(facts.get("berry_food", 0)), int(facts.get("permanent_farms", 0))]
+	var farm: String = "Farm: %d wood for permanent food. Assign workers to gather." % farm_wood
 	var result: Dictionary = {"title": "Economy", "detail": "", "stock": stock, "farm": farm, "attention": "", "severity": 0}
 	if workers == 0:
 		result["severity"] = 2
@@ -55,7 +55,7 @@ static func describe(facts: Dictionary) -> Dictionary:
 		result["detail"] = "Choose Idle, Wood or Gold below, then To food. This uses a currently visible, reachable source." if total_visible > 0 else "No food source is currently visible. Scout berries, or spend %d wood on a Farm and assign a worker." % farm_wood
 		result["attention"] = "No food!"
 		result["severity"] = 1
-	elif worked_food > 0 and worked_food <= maxi(worker_cost, food_workers * worker_cost):
+	elif not bool(facts.get("permanent_food_worked", false)) and worked_food > 0 and worked_food <= maxi(worker_cost, food_workers * worker_cost):
 		result["title"] = "Worked food is running low"
 		result["detail"] = "%d food remains across the sources worked by %d food workers. Scout another source or plan a %d-wood Farm before they exhaust. Workers can retarget visible reachable food." % [worked_food, food_workers, farm_wood]
 		result["attention"] = "Food low!"

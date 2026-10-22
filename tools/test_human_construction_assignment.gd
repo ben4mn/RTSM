@@ -109,7 +109,7 @@ func _test_moving_workers_complete_house_and_barracks() -> void:
 	var barracks: BuildingBase = _place(BuildingData.BuildingType.BARRACKS, map.world_to_tile(house.global_position))
 	if barracks == null:
 		return
-	_expect(wood_before - ResourceManager.get_resource(0, "wood") == 150, "Barracks was not a paid 150-wood human placement")
+	_expect(wood_before - ResourceManager.get_resource(0, "wood") == int(BuildingData.get_building_cost(BuildingData.BuildingType.BARRACKS)["wood"]), "Barracks did not pay its data-defined human placement cost")
 	var barracks_builder: Villager = _builder_for(barracks)
 	_expect(barracks_builder != null and _builder_count(barracks) == 1, "remaining MOVING workers did not staff Barracks")
 	_expect(barracks_builder != house_builder, "placing Barracks stole the existing House worker")

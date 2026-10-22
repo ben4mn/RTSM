@@ -12,6 +12,7 @@ var _hud: CanvasLayer
 var _worker: Villager
 var _profile: String
 var _orders: int = 0
+var _attack_orders: int = 0
 var _consume_release_index: int = -1
 
 func _ready() -> void:
@@ -31,6 +32,7 @@ func _run() -> void:
 		for interface_scale: float in [1.0,1.075]:
 			for mouse_emulation: bool in [false,true]:
 				await _scenario(phone,interface_scale,mouse_emulation)
+	DirAccess.make_dir_recursive_absolute("res://output/phone-input-2026-10-01/selection")
 	var record := FileAccess.open("res://output/phone-input-2026-10-01/selection/dispatch-evidence.json",FileAccess.WRITE)
 	record.store_string(JSON.stringify({"scope":"Actual Input.parse_input_event world/HUD touch routing, real Main and natural movement; no private input handler calls or injected worker positions.","profiles":_records,"failures":_failures},"  "))
 	for failure: String in _failures:
@@ -66,8 +68,12 @@ func _scenario(phone: Vector2i, interface_scale: float, mouse_emulation: bool) -
 	_worker=_main.get("_player_units")[0][0] as Villager
 	_worker.command_stop()
 	_orders=0
+	_attack_orders=0
 	_events.clear()
 	_selection.move_command.connect(func(_tile: Vector2i) -> void: _orders+=1)
+	_selection.attack_move_command.connect(func(_tile: Vector2i) -> void:
+		_orders+=1
+		_attack_orders+=1)
 	# An earlier menu/HUD gesture used another ID; web contacts need not be0.
 	await _tap(7,(_hud.call("get_base_navigation_button") as Button).get_global_rect().get_center())
 	if mouse_emulation:
@@ -161,7 +167,7 @@ func _scenario(phone: Vector2i, interface_scale: float, mouse_emulation: bool) -
 	var orders_before_hold: int=_orders
 	await _contact(119,ground,true)
 	await _wait_sim_seconds(0.42)
-	_expect(_orders==orders_before_hold+1 and int(_selection.get("_touch_context_execution_count"))==context_before+1,"nonzero long press did not execute the single ground Move exactly once")
+	_expect(_orders==orders_before_hold+1 and _attack_orders==1 and _worker.attack_move and int(_selection.get("_touch_context_execution_count"))==context_before+1,"nonzero long press did not execute ground attack-move exactly once")
 	await _contact(119,ground,false)
 	_expect(_orders==orders_before_hold+1,"nonzero long-press release repeated the action")
 	_expect_clean("long press")
@@ -172,7 +178,7 @@ func _scenario(phone: Vector2i, interface_scale: float, mouse_emulation: bool) -
 	await _contact(127,ground,false)
 	_expect(bool(_selection.get("_touch_pan_gesture")),"already executed long press lost the later multi-touch latch")
 	await _contact(139,ground,false)
-	_expect(_orders==orders_before_hold_pinch+1,"long-press-then-pinch release repeated a world order")
+	_expect(_orders==orders_before_hold_pinch+1 and _attack_orders==2,"long-press-then-pinch release repeated a world order")
 	_expect_clean("long press then pinch")
 	_records.append({"profile":_profile,"emulated_mouse":mouse_emulation,"screen":str(screen),"ground":str(ground),"final_transform":str(get_viewport().get_final_transform()),"selected_nonzero":selected,"natural_move_distance":natural_distance,"world_orders":_orders,"touches":_events.duplicate(true),"diagnostics":_selection.touch_input_diagnostics.duplicate(true)})
 	_main.free()

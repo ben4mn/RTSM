@@ -17,7 +17,7 @@ static func get_mode_name(mode: int) -> String:
 
 static func get_sacred_target(mode: int) -> float:
 	match mode:
-		MatchMode.QUICK_CONTROL: return 240.0
+		MatchMode.QUICK_CONTROL: return 180.0
 	return SACRED_VICTORY_HOLD_SECONDS
 
 
@@ -27,19 +27,19 @@ const REFERENCE_POPULATION_LIMIT: int = 40
 ## Castle unlocks the siege endgame. Imperial has no skirmish content yet.
 const MAX_AGE: int = 3
 const AGE_NAMES: Array[String] = ["Dark Age", "Feudal Age", "Castle Age"]
-const SACRED_VICTORY_HOLD_SECONDS: float = 240.0
-# Both players fund their first House and nearby drop-off from this bank, then
-# must gather wood before opening military production.
-const STARTING_RESOURCES: Dictionary = {"food": 200, "wood": 150, "gold": 100}
+const SACRED_VICTORY_HOLD_SECONDS: float = 180.0
+# The first Barracks (120W), camp (80W), and House (50W) fit the bank;
+# concurrent training still requires food workers and construction opportunity cost.
+const STARTING_RESOURCES: Dictionary = {"food": 250, "wood": 250, "gold": 100}
 # Difficulty changes planning time, never costs, income or unit strength.
 # Defense and a live Sacred contest remain immediate during these raid delays.
-const AI_RAID_START_SECONDS: Dictionary = {0: 360.0, 1: 240.0, 2: 0.0}
+const AI_RAID_START_SECONDS: Dictionary = {0: 240.0, 1: 120.0, 2: 0.0}
 const AI_RAID_COOLDOWN_SECONDS: Dictionary = {0: 120.0, 1: 75.0, 2: 0.0}
 const DARK_AGE_WORKER_WEIGHTS: Dictionary = {"food": 0.55, "wood": 0.35, "gold": 0.10}
 const FEUDAL_WORKER_WEIGHTS: Dictionary = {"food": 0.55, "wood": 0.40, "gold": 0.05}
 const AGE_UP_COSTS: Dictionary = {
-	2: {"food": 400, "gold": 200},
-	3: {"food": 1200, "gold": 600},
+	2: {"food": 320, "gold": 160},
+	3: {"food": 800, "gold": 400},
 }
 
 

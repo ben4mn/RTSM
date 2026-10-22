@@ -73,7 +73,7 @@ func _profile(phone: Vector2i, scale_factor: float) -> void:
 	if _foundation == null:
 		_main.free()
 		return
-	_expect(wood_before - ResourceManager.get_resource(0, "wood") == 150, "foundation must use the real 150 Wood placement transaction")
+	_expect(wood_before - ResourceManager.get_resource(0, "wood") == int(BuildingData.get_building_cost(BuildingData.BuildingType.BARRACKS)["wood"]), "foundation must pay the current Barracks cost")
 	var builder: Villager = _find_builder()
 	_expect(builder != null, "paid placement has no accepted builder")
 	if builder == null:

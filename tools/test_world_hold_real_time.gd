@@ -64,6 +64,8 @@ func _run() -> void:
 	add_child(_blocker)
 	_selection.move_command.connect(func(tile: Vector2i) -> void:
 		_orders.append({"action": "move", "time_msec": Time.get_ticks_msec(), "tile": str(tile)}))
+	_selection.attack_move_command.connect(func(tile: Vector2i) -> void:
+		_orders.append({"action": "attack_move", "time_msec": Time.get_ticks_msec(), "tile": str(tile)}))
 	_selection.gather_command.connect(func(_target: Node2D) -> void:
 		_orders.append({"action": "gather", "time_msec": Time.get_ticks_msec()}))
 	_selection.world_gesture_started.connect(func(index: int, _position: Vector2) -> void: _admissions.append(index))
@@ -86,7 +88,7 @@ func _run() -> void:
 			_expect(elapsed >= HOLD_MSEC and elapsed <= 500, "speed %.1f / emulation %s hold elapsed %dms" % [speed, emulate_mouse, elapsed])
 			_contact(41, GROUND, false)
 			await _frames(2)
-			_expect(_orders.size() == 1, "threshold release duplicated a world command")
+			_expect(_orders.size() == 1 and _orders[0]["action"] == "attack_move", "hold release must retain exactly one attack-move command")
 			_expect(_admissions == [41], "touch gesture was admitted more than once or acquired synthetic mouse ownership")
 			_expect_clean("timed hold")
 			_timing.append({"speed": speed, "mouse_emulation": emulate_mouse, "elapsed_msec": elapsed, "orders": _orders.size()})
@@ -99,7 +101,7 @@ func _run() -> void:
 			_expect(_orders.is_empty(), "below-threshold short tap activated during hold")
 			_contact(58, GROUND, false)
 			await _frames(2)
-			_expect(_orders.size() == 1 and _selection.touch_context_diagnostics.get("execution_count", 0) == _context_count_before, "short tap changed its normal Move meaning")
+			_expect(_orders.size() == 1 and _orders[0]["action"] == "move" and _selection.touch_context_diagnostics.get("execution_count", 0) == _context_count_before, "short tap changed its passive Move meaning")
 			_expect_clean("short tap")
 	Engine.time_scale = 1.0
 	Input.emulate_mouse_from_touch = true
@@ -319,6 +321,8 @@ func _test_main_selection_change() -> void:
 	_orders.clear()
 	_selection.move_command.connect(func(tile: Vector2i) -> void:
 		_orders.append({"action": "move", "time_msec": Time.get_ticks_msec(), "tile": str(tile)}))
+	_selection.attack_move_command.connect(func(tile: Vector2i) -> void:
+		_orders.append({"action": "attack_move", "time_msec": Time.get_ticks_msec(), "tile": str(tile)}))
 	await _frames(3)
 	_contact(1227, Vector2(350.0, 150.0), true)
 	_expect(_selection.get("_active_touch_indices").has(1227) and bool(_selection.get("_touch_hold_active")), "actual Main did not admit the pending world hold")
@@ -341,8 +345,78 @@ func _test_main_selection_change() -> void:
 	await _frames(2)
 	_expect(_orders.is_empty(), "old world hold issued a Move/rally for the replacement selection")
 	_expect_clean("Main selection replacement release")
+	await _test_main_move_intents(main)
 	main.queue_free()
 	await _frames(3)
+
+
+func _test_main_move_intents(main: Node) -> void:
+	# Real Main command dispatch on both phone canvases. One injected military
+	# fixture isolates intent; this is not a paid training or movement test.
+	var scout: UnitBase = null
+	for unit: UnitBase in main.get("_player_units")[0]:
+		unit.set_process(false)
+		if unit.unit_type == UnitData.UnitType.SCOUT:
+			scout = unit
+	if scout == null:
+		scout = main.call("_spawn_unit", UnitData.UnitType.INFANTRY, 0, _unit.position + Vector2(24, 0)) as UnitBase
+	_expect(scout != null, "Main phone intent fixture has an owned military unit")
+	if scout == null:
+		return
+	scout.set_process(false)
+	for phone: Vector2i in [Vector2i(844, 390), Vector2i(932, 430)]:
+		get_window().size = phone
+		get_window().content_scale_size = phone
+		await _frames(3)
+		for kind: String in ["tap", "hold", "pan", "pinch", "cancel"]:
+			scout.command_stop()
+			_selection.select_single(scout)
+			_orders.clear()
+			await _frames(3)
+			var ground: Vector2 = _main_empty_ground(main)
+			_expect(ground != Vector2.ZERO, "actual phone battlefield exposes an empty ground target")
+			_contact(1501, ground, true)
+			if kind == "tap":
+				_contact(1501, ground, false)
+			elif kind == "hold":
+				await _wait_until(Time.get_ticks_msec() + 390)
+				_expect(_orders.size() == 1 and _orders[0]["action"] == "attack_move", "real Main hold issues exactly one attack-move at threshold")
+				_contact(1501, ground, false)
+			else:
+				if kind == "pan":
+					_drag(1501, ground + Vector2(20, 0), Vector2(20, 0))
+					_drag(1501, ground, Vector2(-20, 0))
+				elif kind == "pinch":
+					_contact(1502, ground + Vector2(40, 0), true)
+					_drag(1502, ground + Vector2(60, 0), Vector2(20, 0))
+				else:
+					_contact(1501, ground, false, true)
+				await _wait_until(Time.get_ticks_msec() + 390)
+				if kind == "pinch":
+					_contact(1502, ground + Vector2(60, 0), false)
+				if kind != "cancel":
+					_contact(1501, ground, false)
+			await _frames(2)
+			if kind == "tap":
+				_expect(_orders.size() == 1 and _orders[0]["action"] == "move" and not scout.attack_move and bool(scout.get("_force_move_active")), "actual phone ground tap delivers passive Move through Main")
+			elif kind == "hold":
+				_expect(_orders.size() == 1 and scout.attack_move and not bool(scout.get("_force_move_active")), "actual phone hold/release delivers one deliberate attack-move through Main")
+			else:
+				_expect(_orders.is_empty() and scout.current_state == UnitBase.State.IDLE, "actual phone %s cannot leak Move or attack-move" % kind)
+			_expect_clean("Main %s %s" % [phone, kind])
+			_timing.append({"phone": str(phone), "gesture": kind, "orders": _orders.duplicate(true), "attack_move": scout.attack_move, "passive_move": scout.get("_force_move_active")})
+
+
+func _main_empty_ground(main: Node) -> Vector2:
+	var hud: CanvasLayer = main.get("hud")
+	var bottom: float = (hud.get("selection_panel") as Control).get_global_rect().position.y - 24.0
+	for y: int in range(100, int(bottom), 24):
+		for x: int in range(210, int(get_viewport().get_visible_rect().size.x) - 210, 32):
+			var point := Vector2(x, y)
+			var world: Vector2 = _selection.call("_screen_to_world", point)
+			if _selection.call("_get_node_at", world, true) == null and _selection.call("_get_resource_at", world, true) == null:
+				return point
+	return Vector2.ZERO
 
 
 func _contact(index: int, point: Vector2, pressed: bool, canceled: bool = false) -> void:

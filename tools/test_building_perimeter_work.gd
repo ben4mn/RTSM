@@ -171,11 +171,10 @@ func _corner_farm_case(range_offset_y: int) -> void:
 		if resource != farm:
 			exclusions[resource.get_instance_id()] = true
 	_expect(_map.get_nearest_reachable_resource_node("food", worker.global_position, 0, exclusions) == farm, "nearest reachable query must retain the known Farm edge")
-	var stock_before: int = farm.farm_remaining
 	var food_before: int = int(deposits["food"])
 	_expect(worker.command_gather(farm), "completed owned Farm must accept normal gathering")
 	await _until(func() -> bool: return int(deposits["food"]) > food_before, 100.0)
-	_expect(farm.farm_remaining < stock_before and int(deposits["food"]) - food_before == worker.carry_capacity, "natural Farm harvest must deliver one real food load to the existing TC")
+	_expect(farm.is_harvestable_by(0) and int(deposits["food"]) - food_before == worker.carry_capacity, "natural Farm harvest must deliver one real food load to the existing TC")
 	_expect(worker.gather_target == farm, "Farm gathering must not silently retarget an old berry source")
 	if blocking_house != null:
 		_expect(blocking_house.state == BuildingBase.State.ACTIVE, "paid two-tile House must also finish through ordinary edge work")

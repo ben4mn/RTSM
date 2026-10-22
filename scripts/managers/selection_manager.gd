@@ -7,6 +7,8 @@ extends Node2D
 signal selection_changed(selected_units: Array[Node2D])
 ## Emitted when a move command is issued to a tile.
 signal move_command(target_tile: Vector2i)
+## Hold ground is the deliberate fighting journey; tap ground is passive.
+signal attack_move_command(target_tile: Vector2i)
 ## Emitted when an attack command is issued against a target.
 signal attack_command(target: Node2D)
 ## Emitted when a gather command is issued on a resource node.
@@ -57,7 +59,7 @@ var _double_tap_radius := 30.0  # pixels
 var _drag_rect: Rect2 = Rect2()
 
 ## --- Touch long-press context ---
-enum TouchContextAction { MOVE = 100, ATTACK = 101, GATHER = 102, BUILD = 103, SELECT = 104, CLEAR = 105 }
+enum TouchContextAction { MOVE = 100, ATTACK = 101, GATHER = 102, BUILD = 103, SELECT = 104, CLEAR = 105, ATTACK_MOVE = 106 }
 var _touch_hold_active := false
 var _touch_hold_elapsed := 0.0
 var _touch_hold_started_at_msec: int = 0
@@ -1237,6 +1239,8 @@ func _ensure_touch_context_menu() -> void:
 	_touch_context_menu = PopupMenu.new()
 	_touch_context_menu.name = "TouchContextMenu"
 	_touch_context_menu.hide_on_item_selection = true
+	_touch_context_menu.add_theme_constant_override("v_separation", 26)
+	_touch_context_menu.add_theme_font_size_override("font_size", 18)
 	_touch_context_menu.id_pressed.connect(_on_touch_context_pressed)
 	_touch_context_menu.popup_hide.connect(_on_touch_context_hidden)
 	add_child(_touch_context_menu)
@@ -1311,6 +1315,9 @@ func _build_touch_context_actions(tapped_node: Node2D, resource_node: Node2D) ->
 			actions.append({"id": TouchContextAction.GATHER, "label": gather_label})
 		if tapped_node != null and _has_selected_villagers() and _is_under_construction(tapped_node):
 			actions.append({"id": TouchContextAction.BUILD, "label": "Build"})
+		if tapped_node == null and resource_node == null and _has_selected_units():
+			actions.append({"id": TouchContextAction.ATTACK_MOVE, "label": "Attack-move"})
+			return actions
 		if tapped_node == null:
 			var ground_action: String = "Move"
 			if selected.size() == 1 and selected[0] is BuildingBase:
@@ -1359,6 +1366,10 @@ func _execute_touch_context_action(action_id: int) -> void:
 			if _is_current_selection_entry(_context_target) and _has_selected_villagers() and _is_under_construction(_context_target):
 				build_command.emit(_context_target)
 				executed_action = "Build"
+		TouchContextAction.ATTACK_MOVE:
+			if _has_selected_units():
+				attack_move_command.emit(_world_to_tile(_context_world_pos))
+				executed_action = "Attack-move"
 		TouchContextAction.MOVE:
 			if not selected.is_empty():
 				var tile_pos := _world_to_tile(_context_world_pos)

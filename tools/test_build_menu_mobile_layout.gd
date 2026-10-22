@@ -60,9 +60,9 @@ func _run() -> void:
 		if child.visible:
 			cards.append(child)
 	_expect_eq(grid.columns, cards.size(), "cards remain in one horizontally scannable row")
-	_expect(scroll.horizontal_scroll_mode != ScrollContainer.SCROLL_MODE_DISABLED, "horizontal card scrolling is disabled")
+	_expect(scroll.horizontal_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED, "construction must not require scrolling")
 	_expect_eq(scroll.vertical_scroll_mode, ScrollContainer.SCROLL_MODE_DISABLED, "vertical scrolling should stay disabled")
-	_expect(grid.size.x > scroll.size.x + 1.0, "card row does not overflow horizontally")
+	_expect(grid.size.x <= scroll.size.x + 1.0, "all category cards must fit on screen")
 
 	var first_card_width: float = 0.0
 	for card_node: Node in cards:
@@ -73,7 +73,7 @@ func _run() -> void:
 			first_card_width = card.size.x
 		_expect(card.size.x >= MIN_TOUCH_TARGET, "%s is narrower than 48px" % card.name)
 		_expect(card.size.y >= MIN_TOUCH_TARGET, "%s is shorter than 48px" % card.name)
-		_expect(absf(card.size.x - 150.0) <= 0.5 and absf(card.size.y - 80.0) <= 0.5, "%s loses consistent150x80 proportions" % card.name)
+		_expect(card.size.x >= 120.0 and card.size.x <= 150.5 and absf(card.size.y - 80.0) <= 0.5, "%s loses readable responsive proportions" % card.name)
 		_expect(card.text.split("\n").size() in [2, 3], "%s must show name and cost with only decision-changing context" % card.name)
 		_expect(card.icon != null, "%s loses building portrait" % card.name)
 		_expect(not card.accessibility_name.is_empty(), "%s loses accessible description" % card.name)
@@ -86,10 +86,10 @@ func _run() -> void:
 	)
 
 	var farm: Button = (build_menu.get("_button_map") as Dictionary)[BuildingData.BuildingType.FARM]
-	_expect(farm.text.contains("300 food · finite"), "funded Farm loses finite stock")
+	_expect(farm.text.contains("Unlimited food"), "funded Farm loses permanent food")
 	build_menu.call("update_resources", {"food": 0, "wood": 0, "gold": 0})
 	await get_tree().process_frame
-	_expect(farm.text.contains("300 food · finite") and farm.text.contains("Need 75W"), "unfunded Farm loses finite stock or paid shortage")
+	_expect(farm.text.contains("Unlimited food") and farm.text.contains("Need 75W"), "unfunded Farm loses permanent food or paid shortage")
 	_expect_button_text_fits(farm, "unfunded Farm")
 	await get_tree().process_frame
 	_expect(build_menu.get_global_rect().end.y <= PHONE_SIZE.y - 7.5, "unfunded four-line Farm consumes the bottom safe margin")
@@ -136,7 +136,7 @@ func _run() -> void:
 	build_menu.free()
 	phone_viewport.free()
 	if _failures.is_empty():
-		print("[PASS] build_menu_mobile_layout: 12 phone profiles, grouped header, consistent cards, full touch targets and multi-card scrolling")
+		print("[PASS] build_menu_mobile_layout: 12 phone profiles, grouped header, consistent cards, full touch targets and all cards visible without scrolling")
 		get_tree().quit(0)
 		return
 	for failure: String in _failures:
@@ -243,7 +243,7 @@ func _check_category_density(phone_size: Vector2i, ui_scale: float, notched: boo
 					_expect(absf(utility.size.x - 48.0) <= 0.5 and absf(utility.size.y - 48.0) <= 0.5, "%s utility loses48x48 proportions" % profile)
 			for card: Button in grid.get_children():
 				if card.visible:
-					_expect(absf(card.size.x - 150.0) <= 0.5 and absf(card.size.y - 80.0) <= 0.5, "%s %s changes card proportions %.1fx%.1f" % [profile, category, card.size.x, card.size.y])
+					_expect(card.size.x >= 120.0 and card.size.x <= 150.5 and absf(card.size.y - 80.0) <= 0.5, "%s %s changes card proportions %.1fx%.1f" % [profile, category, card.size.x, card.size.y])
 			if category == "Defence":
 				var margin: MarginContainer = menu.get_node("Margin")
 				var horizontal_padding: float = menu.get_theme_stylebox("panel").get_minimum_size().x + margin.get_theme_constant("margin_left") + margin.get_theme_constant("margin_right")
@@ -255,7 +255,7 @@ func _check_category_density(phone_size: Vector2i, ui_scale: float, notched: boo
 				_expect(absf(tower.size.x - 150.0) <= 0.5, "%s Defence card stretches to fill its compact row" % profile)
 				_expect_button_text_fits(tower, profile)
 				# Locked and unaffordable cards explain their requirement on screen.
-				_expect(tower.text.contains("Unlocks in Age 2"), "%s locked tower loses age explanation" % profile)
+				_expect(tower.text.contains("Age 2"), "%s locked tower loses age explanation" % profile)
 				_expect(tower.disabled, "%s normal Build exposes locked purchase" % profile)
 				info_button.button_pressed = true
 				_expect(bool(menu.get("_info_mode")) and not tower.disabled, "%s Info mode cannot tap-inspect locked card" % profile)
@@ -282,11 +282,7 @@ func _check_category_density(phone_size: Vector2i, ui_scale: float, notched: boo
 				menu.call("update_age", 1)
 			else:
 				var visible_cards: int = int(menu.call("_visible_card_count"))
-				var required_width: float = float(visible_cards) * 158.0 - 8.0
-				if required_width > scroll.size.x + 0.5:
-					_expect(grid.size.x > scroll.size.x + 1.0 and scroll.get_h_scroll_bar().visible, "%s %s loses horizontal navigation" % [profile, category])
-				else:
-					_expect(not scroll.get_h_scroll_bar().visible, "%s %s shows scrollbar when every card fits" % [profile, category])
+				_expect(grid.size.x <= scroll.size.x + 1.0 and not scroll.get_h_scroll_bar().visible, "%s %s must show every card without scrolling" % [profile, category])
 				var first: Button = null
 				for card: Button in grid.get_children():
 					if card.visible:
@@ -297,7 +293,7 @@ func _check_category_density(phone_size: Vector2i, ui_scale: float, notched: boo
 					if card.visible:
 						_expect_button_text_fits(card, profile + " " + category)
 				var visible_columns: float = (scroll.size.x + card_gap) / (first.size.x + card_gap)
-				_expect(visible_columns > 3.5 and visible_columns < 4.4, "%s %s loses next-card discovery %.2f" % [profile, category, visible_columns])
+				_expect(visible_columns > 3.5 and visible_columns < 4.4, "%s %s clips category cards %.2f" % [profile, category, visible_columns])
 	menu.free()
 	viewport.free()
 	await get_tree().process_frame

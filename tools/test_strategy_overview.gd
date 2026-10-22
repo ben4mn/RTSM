@@ -18,7 +18,7 @@ func _run() -> void:
 	for failure: String in _failures:
 		push_error("[FAIL] strategy_overview: " + failure)
 	if _failures.is_empty():
-		print("[PASS] strategy_overview: 12 phone/scale/notch profiles plus 550x338 logical stress; 48px persistent navigation, army-preserving paid training/refund/repeat/rally, explicit worker reallocation, two saved groups, touch/wheel scrolling with owned top/bottom/header boundaries and outside dismissal with no world orders")
+		print("[PASS] strategy_overview: 12 phone/scale/notch profiles plus 550x338 logical stress; 48px persistent navigation, army-preserving paid training/refund/repeat/rally, explicit worker reallocation, two saved groups, bounded worker/producer pages with owned gesture boundaries and outside dismissal with no world orders")
 	get_tree().quit(0 if _failures.is_empty() else 1)
 
 
@@ -133,10 +133,11 @@ func _strategy_journey(phone: Vector2i, interface_scale: float, notched: bool, l
 	_expect(overview.panel.size.x <= 480.5, "management sheet exceeds the compact 480px maximum")
 	var economy_height: float = overview.panel.size.y
 	var farm_button: Button = overview.get("_farm_button")
-	_expect(farm_button.text.contains("75W") and farm_button.text.contains("300 finite food"), "Farm loses its visible paid cost and finite stock")
+	_expect(farm_button.text.contains("75W") and farm_button.text.contains("Unlimited food"), "Farm loses its visible paid cost and permanent food")
 	_expect((overview.get("_farm_blocker") as Label).text == str(snapshot.get("farm_blocker", "")), "Farm blocker or paid-placement instruction was discarded")
 	var scroll: ScrollContainer = overview.get("_scroll")
-	await _check_wheel_ownership(overview, true)
+	await _check_info_page(overview, false)
+	await _check_wheel_ownership(overview, false)
 	var chip_width: float = ((overview.get("_source_buttons") as Dictionary)["idle"] as Button).custom_minimum_size.x
 	_expect(chip_width >= 80.0 and chip_width <= 96.0, "job grid width leaves the readable 80–96px range")
 	if logical_size.x == 550:
@@ -171,9 +172,13 @@ func _strategy_journey(phone: Vector2i, interface_scale: float, notched: bool, l
 		if unit_type == UnitData.UnitType.SIEGE:
 			_expect(repeat_preview.text == "Siege\nON" and repeat_preview.accessibility_name.contains("Repeat Siege Engine: ON") and UnitData.get_unit_name(unit_type) == "Siege Engine", "Siege Repeat alias must retain its full accessible and recruitment name")
 	repeat_preview.free()
+	await _button(overview.get("_production_tab"))
+	await _frames(3)
+	_expect(not (overview.get("_farm_button") as Control).is_visible_in_tree(), "Train page failed to hide worker actions")
 	await _overview_button(overview, train)
 	var bank_after_train: int = ResourceManager.get_resource(0, "food")
 	_expect(queue.queue == [UnitData.UnitType.VILLAGER] and int(GameManager.players[0].population_reserved) == 1, "overview Train must pay and reserve one unit")
+	await _check_info_page(overview, true)
 	await _overview_button(overview, row.repeat)
 	_expect(queue.auto_queue_enabled, "overview Repeat did not turn on")
 	await _overview_button(overview, row.rally)
@@ -186,6 +191,7 @@ func _strategy_journey(phone: Vector2i, interface_scale: float, notched: bool, l
 	var worker: Villager = _main.get("_player_units")[0][0]
 	worker.command_stop()
 	controller.call("_refresh")
+	await _button(overview.get("_workers_tab"))
 	scroll.scroll_vertical = 0
 	await _frames(3)
 	await _overview_button(overview, (overview.get("_source_buttons") as Dictionary)["idle"])
@@ -222,6 +228,51 @@ func _strategy_journey(phone: Vector2i, interface_scale: float, notched: bool, l
 	_hud = null
 	GameManager.set_state(GameManager.GameState.MENU)
 	await _frames(2)
+
+
+func _check_info_page(overview: StrategyOverview, production: bool) -> void:
+	var info: Button = overview.get("_info_button")
+	_expect(info.size.is_equal_approx(Vector2(48, 48)) and info.icon != null, "Info must be a 48px touch target")
+	await _button(info)
+	await _frames(3)
+	var details: Control = overview.get("_details")
+	_expect(details.is_visible_in_tree() and not (overview.get("_economy") as Control).is_visible_in_tree(), "Info must replace action rows with details")
+	_expect(info.button_pressed and info.tooltip_text == "Back to actions", "Info must identify its return action")
+	var safe: Rect2 = _hud.call("get_world_safe_rect")
+	_expect(safe.encloses(overview.panel.get_global_rect()) and overview.panel.size.y <= 240.5, "details page must remain bounded within 240px and the safe area")
+	_expect(not overview.panel.get_global_rect().intersects(overview.rail.get_global_rect()), "Info header consumes the rail gap")
+	var scroll: ScrollContainer = overview.get("_scroll")
+	_expect(scroll.vertical_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED, "details must not require scrolling")
+	var text: String = _visible_detail_text(overview)
+	if production:
+		_expect(text.contains("Villager") and text.contains("50F") and text.contains("Recon") and text.contains("Training:") and text.contains("Paid: Villager ×1") and text.contains("Rally:"), "producer Info omits roles, cost, blockers, paid queue or rally")
+	else:
+		_expect(text.contains("recovering") and text.contains("Population") and text.contains("Visible berry food") and text.contains("permanent Farms"), "worker Info omits recovery, population or observed food stock")
+	for line: Label in overview.get("_detail_lines"):
+		if line.is_visible_in_tree():
+			_expect(scroll.get_global_rect().grow(1).encloses(line.get_global_rect()), "detail text falls outside the unscrolled content: " + line.text)
+	# Update the existing page while it stays open: no close/reopen is required.
+	var original: Dictionary = overview.get("_snapshot")
+	var changed: Dictionary = original.duplicate(true)
+	if production:
+		(changed.producers[0] as Dictionary)["status"] = "Live producer status"
+	else:
+		(changed.economy_facts as Dictionary)["berry_food"] = 73
+	overview.update_snapshot(changed)
+	await _frames(2)
+	_expect(_visible_detail_text(overview).contains("Live producer status" if production else "Visible berry food 73"), "open Info page did not refresh with its snapshot")
+	overview.update_snapshot(original)
+	await _capture("production-info" if production else "workers-info")
+	await _button(info)
+	_expect(not details.is_visible_in_tree() and (overview.get("_economy") as Control).is_visible_in_tree() and _orders == 0, "Back must restore actions without a world order")
+
+
+func _visible_detail_text(overview: StrategyOverview) -> String:
+	var parts: PackedStringArray = []
+	for line: Label in overview.get("_detail_lines"):
+		if line.is_visible_in_tree():
+			parts.append(line.text)
+	return "\n".join(parts)
 
 
 func _check_wheel_ownership(overview: StrategyOverview, expects_scrolling: bool) -> void:

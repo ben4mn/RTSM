@@ -121,6 +121,7 @@ func _expect(condition: bool, message: String) -> void:
 
 
 func _write_evidence() -> void:
+	DirAccess.make_dir_recursive_absolute("res://output/evolution/learning-20261010-battle-lessons")
 	var output := FileAccess.open("res://output/evolution/learning-20261010-battle-lessons/paid-lesson-behavior.json", FileAccess.WRITE)
 	if output:
 		output.store_string(JSON.stringify(evidence, "\t"))

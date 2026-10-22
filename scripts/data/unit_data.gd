@@ -11,14 +11,12 @@ enum UnitType {
 	SIEGE
 }
 
-# A shorter shared work cycle funds earlier paid choices on the wider map.
-# Food and wood work 20% faster than gold, keeping finite-Farm replacement
-# and counter buildings affordable alongside paid troops. Travel, ten-unit
-# cargo and finite stock still constrain both players' deposited income.
+# A nearby camp (120 world units away) delivers ~59 food/wood per minute.
+# Shared carry slots preserve mixed cargo on retask; no harvest is discarded.
 const VILLAGER_GATHER_AMOUNT: float = 1.0
 const WHEELBARROW_GATHER_BONUS: float = VILLAGER_GATHER_AMOUNT * 0.25
-const VILLAGER_CARRY_CAPACITY: int = 10
-const VILLAGER_GATHER_TICK_SECONDS: float = 1.15
+const VILLAGER_CARRY_CAPACITY: int = 15
+const VILLAGER_GATHER_TICK_SECONDS: float = 0.9
 const RESOURCE_GATHER_SPEEDS: Dictionary = {"food": 1.2, "wood": 1.2, "gold": 1.0}
 
 # Cost format: { "food": int, "wood": int, "gold": int }
@@ -34,7 +32,7 @@ const UNITS: Dictionary = {
 		"armor": 0,
 		"speed": 60.0,
 		"cost": { "food": 50, "wood": 0, "gold": 0 },
-		"build_time": 16.0,
+		"build_time": 12.0,
 		"vision_radius": 4,
 		"attack_range": 1,
 		"pop_cost": 1,
@@ -50,7 +48,7 @@ const UNITS: Dictionary = {
 		"armor": 2,
 		"speed": 55.0,
 		"cost": { "food": 50, "wood": 20, "gold": 0 },
-		"build_time": 12.0,
+		"build_time": 10.0,
 		"attack_interval": 1.1,
 		"attack_windup": 0.16,
 		"vision_radius": 4,
@@ -68,7 +66,7 @@ const UNITS: Dictionary = {
 		"armor": 0,
 		"speed": 55.0,
 		"cost": { "food": 25, "wood": 45, "gold": 0 },
-		"build_time": 16.0,
+		"build_time": 12.0,
 		"attack_interval": 1.1,
 		"attack_windup": 0.18,
 		"projectile_speed": 300.0,
@@ -87,7 +85,7 @@ const UNITS: Dictionary = {
 		"armor": 1,
 		"speed": 95.0,
 		"cost": { "food": 90, "wood": 30, "gold": 0 },
-		"build_time": 18.0,
+		"build_time": 14.0,
 		"attack_interval": 1.05,
 		"attack_windup": 0.14,
 		"vision_radius": 5,
@@ -121,7 +119,7 @@ const UNITS: Dictionary = {
 		"armor": 3,
 		"speed": 30.0,
 		"cost": { "food": 0, "wood": 150, "gold": 100 },
-		"build_time": 35.0,
+		"build_time": 25.0,
 		"vision_radius": 3,
 		"attack_range": 7,
 		"pop_cost": 3,

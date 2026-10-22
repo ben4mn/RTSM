@@ -212,6 +212,12 @@ static func display_scale_for_screen(screen_size: Vector2, base_size: Vector2, p
 
 
 func _process(delta: float) -> void:
+	var session: Node = get_node_or_null("/root/NetworkSession")
+	if session != null and bool(session.call("is_network_match")):
+		# Clients use the authoritative snapshot clock. The server must not count
+		# its paused loading barrier as elapsed gameplay.
+		if bool(session.call("is_client")) or str(session.get("state")) != "playing":
+			return
 	if current_state == GameState.PLAYING:
 		game_time += delta * game_speed
 
@@ -284,7 +290,7 @@ func set_state(new_state: GameState) -> void:
 
 	# MENU/LOADING/GAME_OVER must never inherit a paused SceneTree from the
 	# previous match. Treat PAUSED as the sole state that freezes processing.
-	get_tree().paused = new_state == GameState.PAUSED
+	get_tree().paused = new_state == GameState.PAUSED and not _is_online_client()
 
 
 func advance_age(player_id: int) -> bool:
@@ -675,3 +681,8 @@ func set_paused(paused: bool) -> void:
 		return
 	if current_state == GameState.PAUSED:
 		set_state(GameState.PLAYING)
+
+
+func _is_online_client() -> bool:
+	var session: Node = get_node_or_null("/root/NetworkSession")
+	return session != null and bool(session.call("is_client"))

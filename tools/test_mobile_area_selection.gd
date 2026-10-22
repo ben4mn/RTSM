@@ -179,7 +179,7 @@ func _run() -> void:
 func _arm_area() -> void:
 	await _tap(7, (_hud.get("_select_area_button") as Button).get_global_rect().get_center())
 	_expect(_selection.touch_area_selection_armed, "real GUI Select area did not arm")
-	_expect((_hud.get("_select_area_button") as Button).text.contains("Drag to select"), "armed area lacks a persistent instruction")
+	_expect((_hud.get("_progression_hint_label") as Label).text.contains("Drag to select") and (_hud.get("_progression_hint_panel") as Control).visible, "armed area lacks a persistent instruction")
 
 
 func _tap(index: int, position: Vector2) -> void:

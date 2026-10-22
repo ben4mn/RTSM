@@ -291,16 +291,16 @@ func _test_farm_one_open_edge_harvests_and_sealed_edge_recovers() -> void:
 	game_map.get_node("UnitsContainer").add_child(gatherer)
 	_expect(bool(gatherer.command_gather(farm)), "active owned Farm accepts the open-edge gather command")
 	gatherer.set("_gather_offset", Vector2(10.0, 0.0))
-	var farm_remaining_before: int = farm.farm_remaining
+	var cargo_before: int = gatherer.carried_amount
 	for _step in range(160):
 		gatherer._process(0.1)
-		if farm.farm_remaining < farm_remaining_before:
+		if gatherer.carried_amount > cargo_before:
 			break
-	print("[METRIC] Farm single-edge navigation: ", JSON.stringify({"position": str(gatherer.global_position), "origin": str(origin_world), "edge": str(work_route[-1]) if not work_route.is_empty() else "none", "work_distance": game_map.call("get_building_work_distance", gatherer.global_position, farm.global_position, farm.footprint), "state": gatherer.current_state, "path": str(gatherer.path), "stock": farm.farm_remaining, "stock_before": farm_remaining_before, "gather_target": str(gatherer.gather_target)}))
+	print("[METRIC] Farm single-edge navigation: ", JSON.stringify({"position": str(gatherer.global_position), "origin": str(origin_world), "edge": str(work_route[-1]) if not work_route.is_empty() else "none", "work_distance": game_map.call("get_building_work_distance", gatherer.global_position, farm.global_position, farm.footprint), "state": gatherer.current_state, "path": str(gatherer.path), "cargo": gatherer.carried_amount, "cargo_before": cargo_before, "gather_target": str(gatherer.gather_target)}))
 	_expect(gatherer.global_position.distance_to(farm.global_position) > Villager.BUILD_APPROACH_DISTANCE, "Farm harvest genuinely occurs beyond its sealed anchor disk")
 	_expect(float(game_map.call("get_building_work_distance", gatherer.global_position, farm.global_position, farm.footprint)) <= Villager.BUILD_APPROACH_DISTANCE, "Farm harvester enters the exact footprint work radius")
 	_expect(navigation.is_walkable(game_map.call("world_to_tile", gatherer.global_position) as Vector2i), "Farm harvester works from real walkable edge terrain")
-	_expect(gatherer.carried_amount > 0 and farm.farm_remaining < farm_remaining_before, "Farm edge navigation advances through a real harvest tick")
+	_expect(gatherer.carried_amount > 0 and gatherer.carried_amount > cargo_before, "Farm edge navigation advances through a real harvest tick")
 	gatherer.free()
 
 	# Close the final edge: no arbitrary nearby fallback may harvest remotely.
@@ -313,13 +313,12 @@ func _test_farm_one_open_edge_harvests_and_sealed_edge_recovers() -> void:
 	stranded.gather_tick_time = 0.1
 	game_map.get_node("UnitsContainer").add_child(stranded)
 	_expect(bool(stranded.command_gather(farm)), "visible valid sealed Farm initially accepts an explicit order")
-	var sealed_stock: int = farm.farm_remaining
 	for _step in range(100):
 		stranded._process(0.1)
 		if stranded.current_state == UnitBase.State.IDLE:
 			break
 	_expect(stranded.current_state == UnitBase.State.IDLE and stranded.gather_target == null, "unreachable Farm recovers to idle and clears its target")
-	_expect(stranded.carried_amount == 0 and farm.farm_remaining == sealed_stock, "unreachable Farm never grants a remote harvest")
+	_expect(stranded.carried_amount == 0, "unreachable Farm never grants a remote harvest")
 	game_map.free()
 
 
