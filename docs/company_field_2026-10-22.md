@@ -23,3 +23,12 @@ Local evidence: `output/guidance-priority/`, `output/management-raids/`, `output
 ## Tactical follow-through
 
 The separate paid tactical comparison buys its rosters through ordinary gathering, construction and queues before explicitly staging controlled engagements on all three map styles. It compares composition, attack route and a same-roster extra staging order. Treat its receipts as tactical fixture evidence, not equal-budget or full-match balance evidence. Keep any future teaching or target-acquisition change bounded and test it separately from this visual release. See [paid tactical plans](paid_tactical_plans_2026-10-22.md).
+
+
+## Published verification
+
+Live at https://game.4mn.org as clean `0.2.0-beta.4`, runtime `0a45f90e90b8`, staged source `10c7d4300daf36231b33b13dc1c01f1f55c0739e73854b21dde8458ba8f0e6a0`, published `2026-10-22T03:56:30Z`. Two independent exports match. All 40 decoded public payloads match canonical checksums, correct TLS/MIME/no-store/isolation headers pass, and 13 private paths return 404. The idle match service and static game were restarted; diagnostics and tunnel stayed intact. See the [deployment receipt](debian_game_deployment.md) for rollback.
+
+A fresh public Chromium touch session repeated the 844×390, DPR3, Extra Large asymmetric-inset journey. Both management panels hide the guide, closing restores it, and a real Villager purchase changes 280F to 230F, queues one unit and completes with 5/15 population and an empty queue. Pause hides guidance and Quit returns to the full-canvas menu. Zero console errors; three software-renderer readback warnings. Public raid-card touch is covered by the native actual-input fixture, not claimed from this short public solo journey. Raw browser receipt: `output/company-field-public-browser.json`. The browser was closed after verification.
+
+Public WSS verification passes all ten cases: both strategy clients, connection/loading failure handling, lifecycle, both paid economy clients and both combat clients. Paid Barracks/infantry, attack-move, enemy visibility and replicated damage pass through the deployed authoritative server. Zero runtime/script errors; four subprocesses retain nonfatal ObjectDB exit warnings. All clients closed and all 37 recorded source hashes stayed unchanged. Server logs contain no runtime errors, no established match clients remain, and diagnostics remains healthy. Receipt: `output/company-expansion-online-public/source-receipt.json` and sibling logs.

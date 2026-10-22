@@ -46,3 +46,18 @@ The new Builder hat/mallet, Warrior shield and copper-haired Archer now match th
 Opening guidance now hides while management/modal surfaces own the screen and returns at its current step. Two urgent raid cards remain reachable beside Economy/Army, and one tap closes management and focuses the threat without clearing selection. Four actual touch journeys and 36 geometry/capture views pass. The final integrated native screenshots and actual exported-browser phone views were inspected. See [field integration](company_field_2026-10-22.md).
 
 The paid tactical tool compares 15 controlled engagements across the three maps, including same-roster direct and staged cavalry attacks. A staging order prevents the fast units arriving alone and materially improves survival in this fixture. No combat-stat change is bundled into this art/UI release. The [separate tactical receipt](paid_tactical_plans_2026-10-22.md) records its deliberate staging, paid-roster setup, limits and acquisition-boundary discovery.
+
+
+### Second iteration published
+
+Live at https://game.4mn.org as `0.2.0-beta.4`: clean runtime `0a45f90e90b8`, staged source `10c7d4300daf36231b33b13dc1c01f1f55c0739e73854b21dde8458ba8f0e6a0`, publication `2026-10-22T03:56:30Z`. Both clean exports match. All 40 public payloads and 13 private-path denials pass. The fresh public phone-size browser journey verifies management guidance, a 50-food Villager purchase and completed training, Pause and return to menu, with zero console errors. The public WSS suite passes all ten cases, including paid economy and replicated combat; four existing ObjectDB cleanup warnings remain. All clients are closed and the server has zero established match connections.
+
+The match server was idle before replacement; its image is `sha256:adbc5272c30c607c7e4e5299539c59b3256a2e6081987a0847097d321d0f049e`. Game and match containers restarted; diagnostics stayed healthy and the tunnel kept its original start. Rollback remains beta.3's `releases/29fa2b41-room-to-learn-20261022` and image `sha256:7ebc695cf8cf45043695cf769eb4ed3ce37249c7955c3e8c9d043c778fe3a015`. See [deployment](debian_game_deployment.md) for exact receipts. The heartbeat remains active until the agreed 07:00 UTC cutoff.
+
+### Next bounded iteration
+
+- Add a restrained mixed-army staging tip or practice step using the same-roster tactical evidence. Preserve manual timing and selection decisions; do not silently slow Horsemen.
+- Investigate the documented Stand Ground scan/engagement mismatch at 88/89/96 units. If fixed, align acquisition to existing reach, preserve explicit orders and no-chase behavior, and compare focused combat fixtures before deployment.
+- Continue original architecture with Blacksmith/Siege Workshop if readability and gameplay priorities leave time. Review all further art at actual phone scale.
+- Evaluate remaining ordinary-toast/overlay conflicts and guidance highlight tint separately. No claim that all UI overlaps or every dense formation is solved.
+- Stop iterations at 07:00 UTC, publish/checkpoint verified work, leave Git clean, write the morning handoff and disable this heartbeat. Physical-phone and new-player human confirmation remain outstanding.

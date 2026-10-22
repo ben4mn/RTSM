@@ -78,7 +78,19 @@ On iPhone, open the URL in Safari and use Share → Add to Home Screen. Enable *
 
 This is a rough public preview. Desktop browser automation does not certify physical-phone touch behavior, safe areas, audio, or prolonged performance.
 
-## Latest release — 2026-10-22 room to learn
+## Latest release — 2026-10-22 company in the field
+
+Published `releases/10c7d430-company-field-20261022` at `2026-10-22T03:56:30Z`, version `0.2.0-beta.4`. Clean runtime revision: `0a45f90e90b8`; staged source SHA-256: `10c7d4300daf36231b33b13dc1c01f1f55c0739e73854b21dde8458ba8f0e6a0`. Canonical export: `build/company-field-20261022`; independent witness: `build/company-field-reproduced-20261022`. Substantive files and source manifests match, and the remote payload checksum verification passes.
+
+Immediately before replacement, the public match service had no established clients. Its new image is `sha256:adbc5272c30c607c7e4e5299539c59b3256a2e6081987a0847097d321d0f049e`, starting at `03:56:27Z`; `aoem-game` restarted at `03:56:30Z` after the relative release symlink switched atomically. The healthy diagnostics collector and tunnel retained their exact IDs/start times. Rollback is `releases/29fa2b41-room-to-learn-20261022` with online image `sha256:7ebc695cf8cf45043695cf769eb4ed3ce37249c7955c3e8c9d043c778fe3a015`. Prior server context is retained in `deployment-backups/match-server-before-company-field-20261022`.
+
+Scope: [field UI integration](company_field_2026-10-22.md), [unit identities](company_units_2026-10-22.md), [specialist buildings](company_specialist_buildings_2026-10-22.md), and [paid tactical comparisons](paid_tactical_plans_2026-10-22.md). Raw deployment and reproducibility receipts: `output/company-field-deployment.json` and `output/company-field-artifact-verification.txt`. Later documentation-only commits intentionally differ from the runtime revision.
+
+All 40 public decoded payloads match the canonical artifact (39 manifest entries plus the checksum manifest); trusted TLS, MIME, no-store/CDN no-store and COOP/COEP pass, and 13 private paths return 404. Fresh public Chromium touch emulation at 844×390, DPR3 verified full canvas, Extra Large asymmetric safe areas, guidance/management transitions, exact paid Villager training, Pause and return to menu. Zero console errors; three software-renderer readback warnings. This is not physical-phone performance certification. Receipts: `output/public-release-check/company-field-20261022-live/receipt.json` and `output/company-field-public-browser.json`.
+
+Public WSS verification passes all ten cases: both strategy clients, connection/loading failure handling, lifecycle, both paid economy clients and both combat clients. Paid Barracks/infantry, attack-move, enemy visibility and replicated damage pass through the deployed authoritative server. Zero runtime/script errors; four subprocesses retain nonfatal ObjectDB exit warnings. All clients closed and all 37 recorded source hashes stayed unchanged. Server logs contain no runtime errors, no established match clients remain, and diagnostics remains healthy. Receipt: `output/company-expansion-online-public/source-receipt.json` and sibling logs.
+
+## Previous release — 2026-10-22 room to learn
 
 Published `releases/29fa2b41-room-to-learn-20261022` at `2026-10-22T03:27:05Z`, version `0.2.0-beta.3`. Clean runtime revision: `ca46ddbfb13f`; staged source SHA-256: `29fa2b41ff71e53e776584b82220836febc8fbb6f6dcb39b0b205d0d9076dff3`. Canonical export: `build/room-to-learn-20261022`; independent witness: `build/room-to-learn-reproduced-20261022`. Substantive files and source manifests match. All 39 public decoded payload hashes plus the checksum manifest match; MIME, no-store/CDN no-store, COOP/COEP and 13 private-path 404 checks pass.
 
