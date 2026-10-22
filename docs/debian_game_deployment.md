@@ -78,7 +78,15 @@ On iPhone, open the URL in Safari and use Share → Add to Home Screen. Enable *
 
 This is a rough public preview. Desktop browser automation does not certify physical-phone touch behavior, safe areas, audio, or prolonged performance.
 
-## Latest release — 2026-10-21 mobile gameplay and online 1v1
+## Latest release — 2026-10-22 company and battlefields
+
+Published `releases/8e935c1c-company-battlefields-20261022` at `2026-10-22T02:36:43Z`, version `0.2.0-beta.2`. Clean runtime revision: `334fd81a70fb`; staged source SHA-256: `8e935c1ce9aef037f622f3be9f7ff3a26b2d0e8311b21f63ecdad3af3693b386`. Canonical export: `build/company-battlefields-20261022`; witness: `build/company-battlefields-reproduced-20261022`. Substantive files and source manifests match, and all 39 public decoded file hashes match. MIME, no-store, isolation and private-source read-denial checks pass. The original illustration retains its signed Content Credentials; the audit recognises only its specific provenance references in that PNG.
+
+The idle authoritative service was rebuilt/recreated as image `sha256:50997db44c60511c68ffb0de94d9a6666a98c2fe42ea8f68c87c2728f936a5e7`, then the relative static symlink switched atomically and `aoem-game` restarted as requested. Online start: `02:36:41Z`; game start: `02:36:43Z`. The healthy diagnostics collector and tunnel kept their existing containers/start times. The previous static release `33ac3713-mobile-online-20261021` and old online image `sha256:121028c0531e5ab520061a41462cda493302e648df50b41f4dbe982e6c9920d7` remain available for rollback.
+
+See [company and battlefields receipt](company_battlefields_2026-10-22.md) for scope, validation and public browser evidence. Later commits change audit/documentation only, so their HEAD intentionally differs from the clean runtime revision embedded in the release.
+
+## Previous release — 2026-10-21 mobile gameplay and online 1v1
 
 Published `releases/33ac3713-mobile-online-20261021` at `2026-10-22T01:25:12Z`, version `0.2.0-beta.1`. Canonical export: `build/mobile-online-20261021`; independent witness: `build/mobile-online-reproduced-20261021`. Both have staged source SHA-256 `33ac37134deb6a9bdc71f3603b1344c07559f85cb374e458748ebede6cf37dcf` and identical substantive payloads. The artifact was exported before the task's changes were committed, so its recorded base revision is `3a26757f1ed3`, explicitly marked dirty; the source-tree hash identifies its exact runtime contents.
 
