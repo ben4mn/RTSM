@@ -1,6 +1,17 @@
 {
   "releases": [
     {
+      "id": "2026-10-22-find-your-fighters",
+      "version": "0.2.0-beta.8",
+      "date": "2026-10-22",
+      "title": "Find your fighters",
+      "summary": "Small selection brackets help you keep track of your units in a crowded fight.",
+      "changes": [
+        "Selected units gain small, hollow foot brackets that stay visible above overlapping fighters. The brackets keep the same size as you zoom.",
+        "The cue follows your Clear player markers setting and clears when you deselect a unit. It appears only for your living units in current vision."
+      ]
+    },
+    {
       "id": "2026-10-22-hold-the-site",
       "version": "0.2.0-beta.7",
       "date": "2026-10-22",

@@ -1,0 +1,322 @@
+{
+  "scope": "Render-completion cadence of a native desktop debug build at phone-sized viewport; not display presentation, GPU duration, physical phone or Web timing. Engine TIME_PROCESS is an aggregate frame monitor, not pure script CPU. Default renderer/VSync and ordinary runtime diagnostics stay active. Muted audio; fixed purchasing policy, not standard strategic AI.",
+  "executed_source_revision": "5d825008de1699b92e2d9b917852723595c104da",
+  "published_runtime_revision": "2ab5c416cd4c9d7a3d65b39c46dda5cc1f51e9c1",
+  "runtime_assets_project_equal": true,
+  "environment": {
+    "audio_enabled": false,
+    "camera": [
+      32.0,
+      1168.0
+    ],
+    "content_scale_factor": 1.0,
+    "debug_build": true,
+    "display": "macOS",
+    "fixed_fps": false,
+    "max_fps": 0,
+    "physics_ticks": 60,
+    "refresh_hz": 60.0,
+    "render_device": "Apple M4 (Apple9)",
+    "render_driver": "metal",
+    "render_method": "mobile",
+    "runtime_diagnostics_persistence": true,
+    "screen_scale": 2.0,
+    "user_data_dir": "/Users/ben/Library/Application Support/aoem-dense-native/d50b1a5de9cb42258b79d12c9ed7ec4d",
+    "viewport": [
+      844.0,
+      390.0
+    ],
+    "vsync_mode": 1,
+    "window": [
+      844,
+      390
+    ],
+    "zoom": 0.952
+  },
+  "executed_probe_sha256": "1f05915d6dd5c4da1919a19d5ae98313b92217d49cfd5ca08a60efddaad2aee6",
+  "executed_runner_sha256": "cf7009f0b60696d63bc19d69710b728686d0375bcdf0525efb33ad8f68dcd0f7",
+  "promoted_probe_sha256": "f782c57b5b60bb148069505c2e634a2c331ee9107ad765ea5ae7f0ef49acbc00",
+  "promoted_runner_sha256": "ef5a9ecd2604b97193e62da1b20caae5d16a11df3899605b3e783d0b71a74bd5",
+  "promotion_validation": "Measurement and analysis logic retained; promoted focus-only branch and explicit prepare/import/focus/run wrapper were not used for the recorded paid run. Python AST, offline frozen prepare, exact analysis recomputation and integration Godot editor import passed; no second paid run claimed.",
+  "actual_sample_wall_seconds": 29.799788,
+  "actual_sample_game_seconds": 30.008517000075017,
+  "whole": {
+    "frames": 3510,
+    "summed_frame_seconds": 29.79065300000005,
+    "frame_ms": {
+      "p50": 8.402,
+      "p90": 9.157,
+      "p95": 9.377,
+      "p99": 13.125
+    },
+    "maximum_frame_ms": 29.756,
+    "thresholds": {
+      "16.666667": {
+        "frames": 18,
+        "percent": 0.5128205128205128
+      },
+      "25": {
+        "frames": 1,
+        "percent": 0.02849002849002849
+      },
+      "33.333333": {
+        "frames": 0,
+        "percent": 0.0
+      },
+      "50": {
+        "frames": 0,
+        "percent": 0.0
+      }
+    },
+    "longest_consecutive_over33ms_frames": 0,
+    "engine_time_process_ms_p95": 29.585,
+    "engine_time_physics_ms_p95": 0.255,
+    "draw_calls_p95": 224.0
+  },
+  "active": {
+    "frames": 2346,
+    "summed_frame_seconds": 19.874625000000016,
+    "frame_ms": {
+      "p50": 8.409,
+      "p90": 9.099,
+      "p95": 9.354,
+      "p99": 13.233
+    },
+    "maximum_frame_ms": 19.145,
+    "thresholds": {
+      "16.666667": {
+        "frames": 12,
+        "percent": 0.5115089514066496
+      },
+      "25": {
+        "frames": 0,
+        "percent": 0.0
+      },
+      "33.333333": {
+        "frames": 0,
+        "percent": 0.0
+      },
+      "50": {
+        "frames": 0,
+        "percent": 0.0
+      }
+    },
+    "longest_consecutive_over33ms_frames": 0,
+    "engine_time_process_ms_p95": 19.078,
+    "engine_time_physics_ms_p95": 0.245,
+    "draw_calls_p95": 224.0
+  },
+  "dense": {
+    "frames": 810,
+    "summed_frame_seconds": 6.856333000000002,
+    "frame_ms": {
+      "p50": 8.388,
+      "p90": 9.072,
+      "p95": 9.226,
+      "p99": 13.846
+    },
+    "maximum_frame_ms": 18.725,
+    "thresholds": {
+      "16.666667": {
+        "frames": 3,
+        "percent": 0.37037037037037035
+      },
+      "25": {
+        "frames": 0,
+        "percent": 0.0
+      },
+      "33.333333": {
+        "frames": 0,
+        "percent": 0.0
+      },
+      "50": {
+        "frames": 0,
+        "percent": 0.0
+      }
+    },
+    "longest_consecutive_over33ms_frames": 0,
+    "engine_time_process_ms_p95": 18.718,
+    "engine_time_physics_ms_p95": 0.232,
+    "draw_calls_p95": 233.0
+  },
+  "established_dense": {
+    "frames": 575,
+    "summed_frame_seconds": 4.860336000000002,
+    "frame_ms": {
+      "p50": 8.351,
+      "p90": 9.074,
+      "p95": 9.238,
+      "p99": 11.097
+    },
+    "maximum_frame_ms": 18.725,
+    "thresholds": {
+      "16.666667": {
+        "frames": 2,
+        "percent": 0.34782608695652173
+      },
+      "25": {
+        "frames": 0,
+        "percent": 0.0
+      },
+      "33.333333": {
+        "frames": 0,
+        "percent": 0.0
+      },
+      "50": {
+        "frames": 0,
+        "percent": 0.0
+      }
+    },
+    "longest_consecutive_over33ms_frames": 0,
+    "engine_time_process_ms_p95": 18.718,
+    "engine_time_physics_ms_p95": 0.232,
+    "draw_calls_p95": 223.0
+  },
+  "classification": "Active = a military damage event in preceding1s. Dense = active plus at least16 military units on screen (visibility/position cached2Hz). Quiet frames remain in full window and cannot hide dense subset.",
+  "established_dense_definition": "Dense-active frames at least2s after first real damage; separates initial encounter work from established fighting.",
+  "paid_setup": {
+    "military_per_owner": {
+      "Warrior": 6,
+      "Archer": 4,
+      "Horseman": 2
+    },
+    "army_cost_per_owner": {
+      "food": 580,
+      "wood": 360,
+      "gold": 0
+    },
+    "starting_workers_per_owner": 4,
+    "paid_workers_per_owner": 6,
+    "total_workers_per_owner": 10,
+    "military_ready_game_seconds": 430.236482333402,
+    "initial_banks": [
+      {
+        "food": 250,
+        "gold": 100,
+        "wood": 250
+      },
+      {
+        "food": 250,
+        "gold": 100,
+        "wood": 250
+      }
+    ],
+    "ages": [
+      2,
+      2
+    ],
+    "initial_buildings": 17,
+    "total_initial_units": 44,
+    "economic_bonus": false
+  },
+  "damage_events": 153,
+  "damage_total": 1251.0,
+  "remaining_military": 3,
+  "peak_viewport_visible_military": 24,
+  "peak_projectiles": 5,
+  "first_damage_after_sample_anchor_seconds": 4.75618,
+  "commands": [
+    {
+      "attack_move": false,
+      "destination": [
+        -320.0,
+        1168.0
+      ],
+      "dispatch_ms": 7.393,
+      "game_time": 430.236482333402,
+      "orders": 12,
+      "owner": 0,
+      "phase": "staging",
+      "units": 12
+    },
+    {
+      "attack_move": false,
+      "destination": [
+        384.0,
+        1168.0
+      ],
+      "dispatch_ms": 7.294,
+      "game_time": 430.236482333402,
+      "orders": 12,
+      "owner": 1,
+      "phase": "staging",
+      "units": 12
+    },
+    {
+      "attack_move": true,
+      "destination": [
+        32.0,
+        1168.0
+      ],
+      "dispatch_ms": 11.395,
+      "game_time": 476.475752333426,
+      "orders": 12,
+      "owner": 0,
+      "phase": "measured",
+      "units": 12
+    },
+    {
+      "attack_move": true,
+      "destination": [
+        32.0,
+        1168.0
+      ],
+      "dispatch_ms": 9.72,
+      "game_time": 476.475752333426,
+      "orders": 12,
+      "owner": 1,
+      "phase": "measured",
+      "units": 12
+    }
+  ],
+  "observer": {
+    "frame_callback": "constant append of eight values; no added fixture I/O or screenshots during sampling; ordinary runtime diagnostics persistence retained",
+    "presence_interval_seconds": 0.5,
+    "presence_peak_us": 114,
+    "presence_total_us": 2825
+  },
+  "navigation_failures": 0,
+  "validation": {
+    "loaded_source_hash_checks": 11,
+    "mismatches": [],
+    "runtime_assets_project_changed_between_published_source_and_recorded_revision": [],
+    "focus_losses": [],
+    "sample_game_seconds": 30.008517000075017,
+    "sample_wall_seconds": 29.799788,
+    "runtime_errors": 0,
+    "process_isolation": {
+      "before_native": [],
+      "during_native": "Exclusive native slot coordinated with root; no polling workloads. Existing private stage already passed standalone LaunchServices focus check; importer omitted before this paid launch.",
+      "after_native": []
+    }
+  },
+  "raw_sha256": "b7c9067cf3e50b176751f449a2eca822300deeb5cec3c0d74e4912b762307f51",
+  "runtime_source_hashes": {
+    "scripts/ai/ai_controller.gd": "935ee0485f56b36845adbb70bdb398c56f9d1b447fc77420832d74111ffcdf35",
+    "scripts/main/main.gd": "320687d5a3d4982f5a241779f87051151344c301114f49d142ee8977bc6227e1",
+    "scripts/managers/fog_manager.gd": "12d3bc70d7bb03c6e6d85e14fa095ea2667c19c2c255e0cd8e8fac1e9ab7febd",
+    "scripts/map/game_map.gd": "942726ed22b808301c9e2baac1d0445dd15c431181afe22b24d9d06a2504344f",
+    "scripts/map/pathfinding.gd": "2e04cf53471ae89593af7bcad7c03544eb6cccb03bb412f5a9a81aab00e4bc55",
+    "scripts/map/tileset_builder.gd": "2ee703276980c3d9fa7cbf4e24812bfcf6e1342322b82e934f7c7f137fff2792",
+    "scripts/ui/hud.gd": "ddfdcd54883dc58065f8c025c38b2f69161acd2da8845e84904f267e6f991b1b",
+    "scripts/units/unit_base.gd": "394d2ab4676726a225f23a5c045124a7cdc9b24357a6d19daeeab0861d6cfea3",
+    "tools/dense_paid_policy.gd": "e393ee87b3e15af0dea3c767cfe1e6ee0b08d9511dcf29c339fcbfbac717071f",
+    "tools/fixtures/tactical_paid_opening.gd": "9938e9c89c221a0256c9f0981bba47ce429b32d3f2dd81f55a323266464e9b63",
+    "tools/probe_dense_paid_native.gd": "1f05915d6dd5c4da1919a19d5ae98313b92217d49cfd5ca08a60efddaad2aee6"
+  },
+  "rejected_attempts": [
+    {
+      "name": "run1",
+      "reason": "Unfocused start and fixture typed argument failed on freed units; timings unusable."
+    },
+    {
+      "name": "run2",
+      "reason": "Focus gate rejected before measurement; zero timed frames."
+    },
+    {
+      "name": "run3",
+      "reason": "Standalone LaunchServices focus preflight failed; paid setup never started."
+    }
+  ],
+  "artifacts": "output/dense-battle-native-20261022/focus4/"
+}

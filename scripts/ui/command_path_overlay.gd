@@ -9,6 +9,13 @@ const FORMATION_GOAL_RADIUS: float = 96.0
 const MOVE_COLOR := Color("8cdecf")
 const ATTACK_COLOR := Color("ff9d85")
 const WORK_COLOR := Color("f1d18a")
+const SELECTION_CUE_INK := Color("293235")
+const SELECTION_CUE_BONE := Color("e8e5db")
+# Two hollow foot brackets, in screen pixels. Pairs are separate line segments.
+const SELECTION_CUE_SEGMENTS: Array[Vector2] = [
+	Vector2(-6, -2), Vector2(-6, 4), Vector2(-6, 4), Vector2(-3, 4),
+	Vector2(6, -2), Vector2(6, 4), Vector2(6, 4), Vector2(3, 4),
+]
 
 var _observed_orders: Dictionary = {}
 
@@ -73,6 +80,32 @@ func get_display_routes() -> Array[Dictionary]:
 	return routes
 
 
+## Selected own positions only. No target discovery, simulation or input change.
+func get_selected_unit_cue_points() -> PackedVector2Array:
+	var points := PackedVector2Array()
+	if selection_manager == null or not GameManager.clearer_player_markers:
+		return points
+	var map: Node2D = selection_manager.game_map
+	if not is_instance_valid(map):
+		return points
+	var zoom: float = maxf(0.1, get_canvas_transform().x.length())
+	for entry: Variant in selection_manager.selected:
+		if not is_instance_valid(entry) or not entry is UnitBase:
+			continue
+		var unit := entry as UnitBase
+		if unit.player_owner != 0 or not unit.is_selected or unit.is_queued_for_deletion():
+			continue
+		if unit.current_state == UnitBase.State.DEAD or unit.hp <= 0.0 or not unit.is_visible_in_tree():
+			continue
+		var tile: Vector2i = map.call("world_to_tile", unit.global_position)
+		if not bool(map.call("is_tile_visible_to_player", tile, 0)):
+			continue
+		var anchor: Vector2 = to_local(unit.global_position)
+		for offset: Vector2 in SELECTION_CUE_SEGMENTS:
+			points.append(anchor + offset / zoom)
+	return points
+
+
 func _draw() -> void:
 	if selection_manager == null:
 		return
@@ -106,6 +139,12 @@ func _draw() -> void:
 				arrow,
 				arrow - direction * 5.0 / zoom - side * 4.0 / zoom,
 			]), color, 2.0 / zoom, true)
+	# Persist independently of brief order previews. Only the hollow cue paints
+	# above crowded bodies; unit artwork, world rings and health stay in place.
+	var cues: PackedVector2Array = get_selected_unit_cue_points()
+	if not cues.is_empty():
+		draw_multiline(cues, SELECTION_CUE_INK, 3.0 / zoom, true)
+		draw_multiline(cues, SELECTION_CUE_BONE, 1.5 / zoom, true)
 
 
 func _draw_destination(destination: Vector2, color: Color, zoom: float, attack: bool) -> void:
