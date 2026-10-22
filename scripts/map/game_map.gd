@@ -167,14 +167,22 @@ func _build_terrain() -> void:
 	for y in range(MapData.MAP_HEIGHT):
 		for x in range(MapData.MAP_WIDTH):
 			var tile_type: MapData.TileType = map_generator.grid[y][x] as MapData.TileType
-			var atlas_coords := _tile_type_to_atlas(tile_type)
+			var atlas_coords := _tile_type_to_atlas(tile_type, Vector2i(x, y))
 			terrain_layer.set_cell(Vector2i(x, y), 0, atlas_coords)
 
 
-## Map tile type to atlas coordinate in our procedural tileset.
-## Each tile type occupies a column in a 7x1 atlas.
-func _tile_type_to_atlas(tile_type: MapData.TileType) -> Vector2i:
-	return Vector2i(tile_type, 0)
+## Shoreline choice is presentation-only and is made once during map build.
+## Resource depletion stays land, so it never changes a neighboring water mask.
+func _tile_type_to_atlas(tile_type: MapData.TileType, tile_position: Vector2i = Vector2i(-1, -1)) -> Vector2i:
+	var shore_mask: int = 0
+	if tile_type == MapData.TileType.WATER and map_generator != null and tile_position != Vector2i(-1, -1):
+		var directions: Array[Vector2i] = [Vector2i.LEFT, Vector2i.UP, Vector2i.RIGHT, Vector2i.DOWN]
+		for edge: int in directions.size():
+			var neighbor: Vector2i = tile_position + directions[edge]
+			if neighbor.x >= 0 and neighbor.y >= 0 and neighbor.x < MapData.MAP_WIDTH and neighbor.y < MapData.MAP_HEIGHT:
+				if map_generator.grid[neighbor.y][neighbor.x] != MapData.TileType.WATER:
+					shore_mask |= 1 << edge
+	return TilesetBuilder.get_terrain_atlas_coords(tile_type, shore_mask)
 
 
 ## Keep the map rectangle as legal camera focus positions. Physical Camera2D

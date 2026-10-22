@@ -123,9 +123,7 @@ func _refresh() -> void:
 				detail = "Lost %d · %s" % [int(front["losses"]), str(front.get("last_loss", "unit"))]
 			button.text = "RAID %d · %s\n%s · view" % [index + 1, str(front["target"]), detail]
 			button.tooltip_text = "Recent attack on your %s. View location without changing selection." % str(front["target"])
-	var feed: Control = _hud.get("_notification_container") as Control
-	if is_instance_valid(feed):
-		feed.visible = fronts.is_empty()
+	_hud.call("set_battlefield_alerts_active", not fronts.is_empty())
 	var bounds: Array[Rect2] = get_visible_bounds()
 	if bounds != _last_interaction_bounds:
 		_last_interaction_bounds = bounds

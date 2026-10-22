@@ -190,6 +190,7 @@ var _queue_navigation_revision: int = 0
 
 # Notification feed
 var _notification_container: VBoxContainer = null
+var _battlefield_alerts_active: bool = false
 const MAX_NOTIFICATIONS: int = 3
 const NOTIFICATION_DURATION: float = 3.5
 const MOBILE_NOTIFICATION_MAX_WIDTH := 224.0
@@ -1584,6 +1585,7 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 	var safe_pos: Vector2 = safe_area.position
 	_world_safe_rect = safe_area
 	_refresh_progression_hint_visibility()
+	_refresh_notification_visibility()
 	_apply_context_actions(viewport_size)
 	_refresh_command_icons()
 	var action_count: int = _count_visible_mobile_action_buttons()
@@ -3665,7 +3667,11 @@ func show_notification(text: String, color: Color = Color.WHITE, duration: float
 		panel.mouse_filter = Control.MOUSE_FILTER_STOP
 		panel.custom_minimum_size.y = MOBILE_ACTION_BUTTON_HEIGHT
 		panel.gui_input.connect(func(event: InputEvent) -> void:
-			if (event is InputEventScreenTouch and event.pressed) or (
+			# Godot may deliver the same contact again as an emulated pointer.
+			if event.device == InputEvent.DEVICE_ID_EMULATION:
+				panel.accept_event()
+				return
+			if (event is InputEventScreenTouch and event.pressed and not event.canceled) or (
 				event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed
 			):
 				action.call()
@@ -3694,6 +3700,7 @@ func show_notification(text: String, color: Color = Color.WHITE, duration: float
 	panel.add_child(lbl)
 
 	_notification_container.add_child(panel)
+	_refresh_notification_visibility()
 	_fit_notification_feed()
 
 	# Auto-fade and remove after duration
@@ -3701,6 +3708,21 @@ func show_notification(text: String, color: Color = Color.WHITE, duration: float
 	tween.tween_interval(duration)
 	tween.tween_property(panel, "modulate:a", 0.0, 0.5)
 	tween.tween_callback(panel.queue_free)
+
+
+func set_battlefield_alerts_active(active: bool) -> void:
+	_battlefield_alerts_active = active
+	_refresh_notification_visibility()
+
+
+func _refresh_notification_visibility() -> void:
+	if _notification_container == null:
+		return
+	# A sheet owns the reading space. Keep existing message lifetimes, so only
+	# still-current feedback returns on close; raid cards retain their own lane.
+	# Compact View/More/Queue controls keep their contextual gesture feedback.
+	var sheet_open: bool = _secondary_surface in [SecondarySurface.ECONOMY, SecondarySurface.ARMY, SecondarySurface.INFO, SecondarySurface.HELP, SecondarySurface.WORLD_CONTEXT]
+	_notification_container.visible = not _battlefield_alerts_active and not sheet_open and _ui_modal_state == UIModalState.NONE
 
 
 func _fit_notification_feed() -> void:
@@ -4191,6 +4213,7 @@ func _set_secondary_surface(surface: SecondarySurface, preserve_queue_scroll: bo
 		_cancel_queue_navigation_press()
 	_secondary_surface = surface
 	_refresh_progression_hint_visibility()
+	_refresh_notification_visibility()
 	if surface != SecondarySurface.INFO:
 		_info_from_build_menu = false
 	if not keep_hold:

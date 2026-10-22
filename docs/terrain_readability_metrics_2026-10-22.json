@@ -1,0 +1,109 @@
+{
+  "baseline_revision": "ec6a3da",
+  "passed": true,
+  "candidate_checks": 21581,
+  "source_sha256": {
+    "scripts/map/tileset_builder.gd": "2ee703276980c3d9fa7cbf4e24812bfcf6e1342322b82e934f7c7f137fff2792",
+    "scripts/map/game_map.gd": "942726ed22b808301c9e2baac1d0445dd15c431181afe22b24d9d06a2504344f",
+    "tools/test_terrain_presentation.gd": "49cfcbb2288f29862e90ff06b035eeda94a55e98f0df479a6af063ba5e2a5b16",
+    "tools/test_terrain_presentation.tscn": "e6f8001c531e14174cbac8b1f4364e90782b6ffa044561062b9acbb2e607d7f5"
+  },
+  "exact_baseline_candidate_map_records": true,
+  "unchanged_from_baseline": {
+    "scripts/map/map_generator.gd": true,
+    "scripts/map/pathfinding.gd": true,
+    "scripts/map/map_data.gd": true,
+    "scripts/managers/fog_manager.gd": true,
+    "scripts/managers/selection_manager.gd": true
+  },
+  "maps": [
+    {
+      "archetype": 1,
+      "grid_sha256": "111c6c817c86b366f57a63ce8cf0bc830dbc0eff3f53a809aa9bb1eba1dbc429",
+      "paths_sha256": "5e03ebcc9b261db036a4e80c4ef9fed690c9dfc11df77055aebab28e72dfc04b",
+      "phone": [
+        844,
+        390
+      ],
+      "resource_count": 114,
+      "terrain_cells": 5184
+    },
+    {
+      "archetype": 2,
+      "grid_sha256": "cb63a69d974c7e7e89ea3cf8739678a2ed30ca72b8fc5db88ac33bf757132c68",
+      "paths_sha256": "4eb828ef258a3c5d40fd2fdd099e14bd264931cde896448257ae663a850d27d1",
+      "phone": [
+        844,
+        390
+      ],
+      "resource_count": 417,
+      "terrain_cells": 5184
+    },
+    {
+      "archetype": 1,
+      "grid_sha256": "111c6c817c86b366f57a63ce8cf0bc830dbc0eff3f53a809aa9bb1eba1dbc429",
+      "paths_sha256": "5e03ebcc9b261db036a4e80c4ef9fed690c9dfc11df77055aebab28e72dfc04b",
+      "phone": [
+        932,
+        430
+      ],
+      "resource_count": 114,
+      "terrain_cells": 5184
+    },
+    {
+      "archetype": 2,
+      "grid_sha256": "cb63a69d974c7e7e89ea3cf8739678a2ed30ca72b8fc5db88ac33bf757132c68",
+      "paths_sha256": "4eb828ef258a3c5d40fd2fdd099e14bd264931cde896448257ae663a850d27d1",
+      "phone": [
+        932,
+        430
+      ],
+      "resource_count": 417,
+      "terrain_cells": 5184
+    }
+  ],
+  "baseline_atlas": {
+    "fog_sha256": "183cdd1a8c6dbfd405074f2168fa1075f32b3bf7895b241b04e3e8609699b0c1",
+    "rgba_bytes": 73728,
+    "size": [
+      576,
+      32
+    ],
+    "water_base_sha256": "ff46c7c2c6c6470a18b095cb4ca803a02c47298fc27d6a65b6ce132b90cb7440"
+  },
+  "candidate_atlas": {
+    "fog_sha256": "183cdd1a8c6dbfd405074f2168fa1075f32b3bf7895b241b04e3e8609699b0c1",
+    "rgba_bytes": 196608,
+    "size": [
+      1536,
+      32
+    ],
+    "water_base_sha256": "ff46c7c2c6c6470a18b095cb4ca803a02c47298fc27d6a65b6ce132b90cb7440"
+  },
+  "baseline_sources": {
+    "tileset_sha256": "e273f4f1b5ceacc18ebf5a5831f8955f1ec74c19a0d4de25e1da31e4db5f0bc5",
+    "game_map_sha256": "414655bdb42f9a5f69af5e60d1f8e260315fda1fdb91b00bb4ccd7c23c77fb1a"
+  },
+  "native_captures_per_run": 16,
+  "capture_names": [
+    "map1-center-844x390-zoom0.952.png",
+    "map1-center-844x390-zoom0.650.png",
+    "map1-upper_flank-844x390-zoom0.952.png",
+    "map1-upper_flank-844x390-zoom0.650.png",
+    "map1-lower_flank-844x390-zoom0.952.png",
+    "map1-lower_flank-844x390-zoom0.650.png",
+    "map2-upper_flank-844x390-zoom0.952.png",
+    "map2-lower_flank-844x390-zoom0.952.png",
+    "map1-center-932x430-zoom0.952.png",
+    "map1-center-932x430-zoom0.650.png",
+    "map1-upper_flank-932x430-zoom0.952.png",
+    "map1-upper_flank-932x430-zoom0.650.png",
+    "map1-lower_flank-932x430-zoom0.952.png",
+    "map1-lower_flank-932x430-zoom0.650.png",
+    "map2-upper_flank-932x430-zoom0.952.png",
+    "map2-lower_flank-932x430-zoom0.952.png"
+  ],
+  "existing_resource_fog_targeting": "PASS",
+  "raw_output": "output/terrain-20261022",
+  "limits": "Native Metal renders of stopped/revealed actual Main scenes; isolated terrain source, baseline resource/HUD art; no FPS, device, paid battle or online claim."
+}

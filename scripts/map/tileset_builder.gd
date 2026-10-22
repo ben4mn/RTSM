@@ -17,8 +17,19 @@ const TILE_TEXTURES: Dictionary = {
 	MapData.TileType.GRASS_DARK: "res://assets/terrain/tile_grass_dark.png",
 }
 
+## Base columns remain the TileType values. Only water gains presentation
+## variants: bits follow grid -X, -Y, +X, +Y (NW, NE, SE, SW on screen).
+const SHORE_VARIANT_START: int = MapData.TileType.GRASS_DARK + 1
+const SHORE_VARIANT_COUNT: int = 15
 
-## Build the terrain tileset with one tile per MapData.TileType.
+
+static func get_terrain_atlas_coords(tile_type: int, shore_mask: int = 0) -> Vector2i:
+	if tile_type == MapData.TileType.WATER and shore_mask > 0:
+		return Vector2i(SHORE_VARIANT_START + clampi(shore_mask, 1, 15) - 1, 0)
+	return Vector2i(tile_type, 0)
+
+
+## One shared atlas; shoreline variants add no scene nodes or frame updates.
 static func build_terrain_tileset() -> TileSet:
 	var ts := TileSet.new()
 	ts.tile_size = Vector2i(MapData.TILE_WIDTH, MapData.TILE_HEIGHT)
@@ -33,7 +44,7 @@ static func build_terrain_tileset() -> TileSet:
 	source.texture = atlas_texture
 	source.texture_region_size = Vector2i(MapData.TILE_WIDTH, MapData.TILE_HEIGHT)
 
-	for i in range(tile_count):
+	for i in range(tile_count + SHORE_VARIANT_COUNT):
 		source.create_tile(Vector2i(i, 0))
 
 	ts.add_source(source, 0)
@@ -66,7 +77,7 @@ static func build_fog_tileset() -> TileSet:
 static func _create_terrain_atlas(tile_count: int) -> Image:
 	var tw := MapData.TILE_WIDTH
 	var th := MapData.TILE_HEIGHT
-	var w := tw * tile_count
+	var w := tw * (tile_count + SHORE_VARIANT_COUNT)
 	var h := th
 	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
@@ -78,7 +89,34 @@ static func _create_terrain_atlas(tile_count: int) -> Image:
 		# those beneath real trees made every open tile look like a forest.
 		_fill_iso_diamond(img, offset_x, 0, tw, th, tile_type, null)
 
+	var water: Image = img.get_region(Rect2i(MapData.TileType.WATER * tw, 0, tw, th))
+	for shore_mask: int in range(1, SHORE_VARIANT_COUNT + 1):
+		var offset_x: int = (SHORE_VARIANT_START + shore_mask - 1) * tw
+		img.blit_rect(water, Rect2i(0, 0, tw, th), Vector2i(offset_x, 0))
+		_paint_shore_edges(img, offset_x, tw, th, shore_mask)
+
 	return img
+
+
+static func _paint_shore_edges(img: Image, ox: int, tw: int, th: int, shore_mask: int) -> void:
+	# Paint strictly within the unchanged water alpha. A warm narrow bank and
+	# shallow mineral tint identify land edges; interior water seams stay quiet.
+	for y: int in th:
+		for x: int in tw:
+			var base: Color = img.get_pixel(ox + x, y)
+			if base.a <= 0.0:
+				continue
+			var nx: float = (float(x) - tw * 0.5) / (tw * 0.5)
+			var ny: float = (float(y) - th * 0.5) / (th * 0.5)
+			var distances: Array[float] = [1.0 + nx + ny, 1.0 - nx + ny, 1.0 - nx - ny, 1.0 + nx - ny]
+			var nearest: float = INF
+			for edge: int in 4:
+				if shore_mask & (1 << edge):
+					nearest = minf(nearest, distances[edge])
+			if nearest < 0.055:
+				img.set_pixel(ox + x, y, Color("aaa990"))
+			elif nearest < 0.28:
+				img.set_pixel(ox + x, y, base.lerp(Color("9aafa0"), 0.7 * (1.0 - nearest / 0.28)))
 
 
 ## Fill an isometric diamond on the atlas image.
@@ -92,8 +130,8 @@ static func _fill_iso_diamond(img: Image, ox: int, oy: int, tw: int, th: int, ti
 	var half_h := th / 2.0
 	var surface_colors: Dictionary = {
 		MapData.TileType.GRASS: Color("9ba58a"),
-		MapData.TileType.GRASS_ALT: Color("9fa88e"),
-		MapData.TileType.GRASS_DARK: Color("97a187"),
+		MapData.TileType.GRASS_ALT: Color("9da68c"),
+		MapData.TileType.GRASS_DARK: Color("99a389"),
 		MapData.TileType.FOREST: Color("89977d"),
 		MapData.TileType.WATER: Color("668f93"),
 		MapData.TileType.GOLD_MINE: Color("aaa488"),
@@ -118,7 +156,8 @@ static func _fill_iso_diamond(img: Image, ox: int, oy: int, tw: int, th: int, ti
 					img.set_pixel(px, py, color)
 				else:
 					# Subpixel grain gives the meadow texture without a tile grid.
-					var grain: float = float(posmod((px - ox) * 17 + py * 31, 7) - 3) * 0.0014
+					var grain_strength: float = 0.0007 if MapData.is_grass(tile_type) else 0.0014
+					var grain: float = float(posmod((px - ox) * 17 + py * 31, 7) - 3) * grain_strength
 					var color := Color(fallback_color.r + grain, fallback_color.g + grain, fallback_color.b + grain)
 					if tile_type == MapData.TileType.WATER and posmod(py * 3 + px, 23) < 2:
 						color = color.lightened(0.045)

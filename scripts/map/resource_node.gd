@@ -18,7 +18,7 @@ var remaining: int = 0
 ## The tile position this resource sits on.
 var tile_position: Vector2i = Vector2i.ZERO
 
-## Sprite textures per resource type from Kenney Medieval RTS pack.
+## Original pack textures retain their exact alpha and canopy picking mask.
 const RESOURCE_SPRITES: Dictionary = {
 	"food": "res://assets/resources/bush.png",
 	"wood": "res://assets/resources/tree_large.png",
@@ -56,6 +56,16 @@ const RESOURCE_BADGES: Dictionary = {
 	"stone": "S",
 }
 
+## Shared palette-only materials: no new texture, silhouette or per-frame CPU work.
+const COMPANY_MATERIAL: Shader = preload("res://assets/resources/company_material.gdshader")
+const MATERIAL_PALETTES: Dictionary = {
+	"wood": [[Color("115f32"), Color("198a49"), Color("1b914d"), Color("bb8044")], [Color("3b5745"), Color("718866"), Color("849b75"), Color("a58c62")]],
+	"food": [[Color("115f32"), Color("198a49"), Color("1b9850"), Color("1a924d")], [Color("3c5945"), Color("728a63"), Color("98a77d"), Color("869b6e")]],
+	"gold": [[Color("775029"), Color("bb8044"), Color("cd8c4a"), Color("d9934d")], [Color("596454"), Color("969b84"), Color("b9a16a"), Color("d2b577")]],
+	"stone": [[Color("686d6d"), Color("9ba6a6"), Color("acb8b8"), Color("c1d0d0")], [Color("596355"), Color("969f8b"), Color("aeb69e"), Color("c9cbb2")]],
+}
+static var _shared_materials: Dictionary = {}
+
 var _sprite: Sprite2D = null
 
 
@@ -87,6 +97,7 @@ func _setup_sprite() -> void:
 	var tex_path: String = RESOURCE_SPRITES.get(resource_type, RESOURCE_SPRITES.get("stone", ""))
 	if tex_path != "" and ResourceLoader.exists(tex_path):
 		_sprite.texture = load(tex_path)
+	_sprite.material = _get_company_material(resource_type)
 	_sprite.scale = RESOURCE_SCALES.get(resource_type, Vector2(0.25, 0.25))
 	_sprite.offset = RESOURCE_OFFSETS.get(resource_type, Vector2(0, -8))
 	# Sort by Y position so trees overlap correctly
@@ -94,6 +105,21 @@ func _setup_sprite() -> void:
 	# Keep badges, selection rings and resource feedback above the artwork.
 	_sprite.show_behind_parent = true
 	add_child(_sprite)
+
+
+static func _get_company_material(kind: String) -> ShaderMaterial:
+	if not MATERIAL_PALETTES.has(kind):
+		kind = "stone"
+	if not _shared_materials.has(kind):
+		var material := ShaderMaterial.new()
+		material.shader = COMPANY_MATERIAL
+		var palette: Array = MATERIAL_PALETTES[kind]
+		for index: int in 4:
+			var suffix: String = ["a", "b", "c", "d"][index]
+			material.set_shader_parameter("source_" + suffix, palette[0][index])
+			material.set_shader_parameter("paint_" + suffix, palette[1][index])
+		_shared_materials[kind] = material
+	return _shared_materials[kind]
 
 
 func is_sprite_body_hit(world_position: Vector2) -> bool:
@@ -162,11 +188,13 @@ func _draw() -> void:
 
 	if remaining > 0:
 		if resource_type == "food":
-			# The original bush has no fruit; visible berries make the food
-			# instruction match the thing the player sees and taps.
-			for berry: Vector2 in [Vector2(-7, -6), Vector2(0, -10), Vector2(7, -4), Vector2(-1, -1)]:
-				draw_circle(berry, 2.6, Color("d87975"))
-				draw_circle(berry + Vector2(-0.6, -0.6), 0.7, Color("f3c5a0"))
+			# Compact paired fruit keeps food distinct from an unmarked shrub;
+			# every cluster remains inside the existing ground discovery radius.
+			for berry: Vector2 in [Vector2(-6, -5), Vector2(2, -9), Vector2(6, -2)]:
+				draw_circle(berry + Vector2(0.5, 1.0), 3.1, Color("4b5940"))
+				draw_circle(berry + Vector2(-1.2, 0), 2.0, Color("b96f57"))
+				draw_circle(berry + Vector2(1.5, 0.6), 1.9, Color("d2916c"))
+				draw_circle(berry + Vector2(0.8, -0.2), 0.65, Color("ead3a0"))
 	# Selected stock remains readable without permanent bars over the forest.
 	if is_selected and remaining < total_amount and remaining > 0:
 		var bar_w := 18.0

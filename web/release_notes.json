@@ -1,6 +1,19 @@
 {
   "releases": [
     {
+      "id": "2026-10-22-read-the-ground",
+      "version": "0.2.0-beta.6",
+      "date": "2026-10-22",
+      "title": "Read the ground",
+      "summary": "Clearer river banks, grounded resource colors and quieter management screens.",
+      "changes": [
+        "Narrow bank and shallows details make river edges easier to read. The meadow has softer variation so units and useful terrain stand out.",
+        "Trees use moss tones, food grows in small fruit clusters, and gold appears in neutral rock with ochre facets. Gathering, stock and touch footprints retain their existing rules.",
+        "Ordinary notifications stay out of management and modal sheets. Current messages return when you close the sheet; expired messages stay retired. Raid cards keep their own reachable lane.",
+        "An actionable notification now responds once to a tap, including when the browser also sends an emulated mouse event."
+      ]
+    },
+    {
       "id": "2026-10-22-fieldcraft",
       "version": "0.2.0-beta.5",
       "date": "2026-10-22",
