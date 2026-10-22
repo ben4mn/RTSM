@@ -93,3 +93,14 @@ HUD now exclusively controls ordinary-toast visibility beneath management and mo
 
 
 The actual browser River Crossings seed 101 opening used a normally purchased Scout. It held Sacred at 3:25 but was gone by 6:58, with enemy capture at 90%; no uncontested Scout win was observed. This partial game ended through Pause after seven minutes. It is a useful next-pass scenario, with exact counterattack timing still to measure. Browser Extra Large/asymmetric-safe-area rendering, normal paid production, movement and menu return pass. The development static server's missing POST handler produces expected 501 diagnostics messages; there are no engine errors. No Easy tuning is bundled into this presentation release.
+
+
+### Fourth iteration published
+
+Live at https://game.4mn.org as `0.2.0-beta.6`, clean runtime `c61918e45853a086cbdbcc99b860a0decdf1c402`, staged source `efeaba3c86f81f7637997de0bf71b86028ace1f5eedabaae08e335aa87c19ef9`, publication `2026-10-22T05:24:55Z`. Two independent exports match; 40 public payloads and 13 private-path checks pass. All ten public WSS cases pass with no runtime errors and four existing cleanup warnings. All clients closed; server postflight has zero match connections/errors. Six changed runtime/shader files match the running image. Game/match containers restarted after an idle check; collector stayed healthy and tunnel unchanged. Online image `sha256:89f64accb0569bd623bcba50b54ebf17841775553bade6cdfb9c6935a886d7a8`; beta.5 rollback is preserved. See [deployment](debian_game_deployment.md).
+
+Fresh public phone-size Extra Large/asymmetric-safe-area browser checks pass, including exact paid Scout cost, rally movement, Army notes, Sacred result and menu return. Zero console errors; two readback warnings. Crucially, this earlier Scout opening **wins at 4:30 without combat**. The isolated immediate-purchase probe wins at 233.45s on all three maps / seed 101, while paid AI troops remain staged behind the 300s objective gate. The later preview opening's loss did not rule this out.
+
+### Next bounded iteration
+
+Separate Easy's reactive Sacred response from its five-minute base-raid grace. Test a modest 150s response against the exact paid Scout opening, leaving neutral initiative 390s, regroup 45s, squad caps, production and costs unchanged. Compare earlier/delayed claims and paid reinforcements on multiple seeds; rerun slower-learner and Medium/Hard controls before release. The goal is an objective fight that rewards reinforcement without making the base opening harsher. Keep all edits isolated by owner and retain baseline evidence. Continue only until 07:00 UTC, then checkpoint/push/clean, write morning handoff and disable heartbeat.

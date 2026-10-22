@@ -78,7 +78,19 @@ On iPhone, open the URL in Safari and use Share → Add to Home Screen. Enable *
 
 This is a rough public preview. Desktop browser automation does not certify physical-phone touch behavior, safe areas, audio, or prolonged performance.
 
-## Latest release — 2026-10-22 fieldcraft
+## Latest release — 2026-10-22 read the ground
+
+Published `releases/efeaba3c-ground-20261022` at `2026-10-22T05:24:55Z`, version `0.2.0-beta.6`. Clean runtime revision: `c61918e45853a086cbdbcc99b860a0decdf1c402`; staged source SHA-256: `efeaba3c86f81f7637997de0bf71b86028ace1f5eedabaae08e335aa87c19ef9`. Canonical export: `build/ground-20261022`; independent witness: `build/ground-reproduced-20261022`. Both closed exports match in substantive payloads and source manifests. Runtime was committed and pushed before export.
+
+Scope: [terrain, resource materials and notification priority](read_the_ground_2026-10-22.md), with [independent map and replication evidence](presentation_integrity_2026-10-22.md). This release changes presentation and toast input handling; AI and combat rules are unchanged.
+
+The match server had zero established connections immediately before replacement. Online image `sha256:89f64accb0569bd623bcba50b54ebf17841775553bade6cdfb9c6935a886d7a8` started at `05:24:53.113889798Z`; the static symlink switched atomically and `aoem-game` restarted at `05:24:55.185186859Z`. All six changed runtime/shader files match the tested source inside the running server. The diagnostics collector remains healthy with its exact original ID/start, and the tunnel retains its October 12 start. Rollback: `releases/5d19e106-fieldcraft-20261022` and online image `sha256:912fabdd1754a4a94bcc714fc843fe75182a8925988a5277a611c480e13f6f70`; previous context is `deployment-backups/match-server-before-ground-20261022`.
+
+All 40 decoded public payloads match, all 13 private paths return 404, and trusted TLS, MIME, no-store/CDN no-store, COOP/COEP and nosniff pass. The final frozen-commit public WSS suite passes ten cases including both paid production and combat clients, Stand Ground on inert owner-remapped replicas, visible enemies, replicated damage and surrender/results. Zero runtime errors; four existing ObjectDB shutdown warnings remain (client-one, combat-one, loading-ended, strategy-two). All 1,260 tracked file hashes remain unchanged. All clients closed; postflight finds zero established match connections and no server errors.
+
+Raw receipts: `output/ground-deployment.json`, `output/ground-artifact-verification.txt`, `output/ground-postflight.json`, `output/public-release-check/ground-20261022-live/receipt.json` and `output/presentation-integrity-20261022/public-final/`. The public phone-size browser journey is recorded in the integration receipt. Later documentation-only commits intentionally differ from the embedded runtime revision.
+
+## Previous release — 2026-10-22 fieldcraft
 
 Published `releases/5d19e106-fieldcraft-20261022` at `2026-10-22T04:38:03Z`, version `0.2.0-beta.5`. Clean runtime revision: `84d61799b4c4c4638efff7a1b0f7b3915ed70090`; staged source SHA-256: `5d19e1065840d122da78ba0876ba0f55fcd14cf5691bbc28eda90460e7a653b6`. Canonical export: `build/fieldcraft-20261022`; independent witness: `build/fieldcraft-reproduced-20261022`. Both closed exports match in substantive payloads and source manifests, with only allowed build metadata differences. Runtime was committed and pushed before either export.
 
