@@ -51,6 +51,7 @@ func _ready() -> void:
 	vbox.move_child(_debrief_label, vbox.get_node("Spacer").get_index())
 	_debrief_label.visible = false
 	get_viewport().size_changed.connect(_fit_panel_to_viewport)
+	preload("res://scripts/ui/web_shell_bridge.gd").watch_safe_area(self, _fit_panel_to_viewport)
 	_fit_panel_to_viewport()
 
 
@@ -104,7 +105,7 @@ func _fit_panel_to_size(viewport_size: Vector2, safe_area: Rect2 = Rect2()) -> v
 func _get_safe_area_rect(viewport_size: Vector2) -> Rect2:
 	var viewport_rect := Rect2(Vector2.ZERO, viewport_size)
 	if OS.has_feature("web"):
-		return viewport_rect
+		return preload("res://scripts/ui/web_shell_bridge.gd").get_safe_area_rect(viewport_size)
 	if not OS.has_feature("mobile") and not OS.has_feature("web"):
 		return viewport_rect
 	var safe_rect_i: Rect2i = DisplayServer.get_display_safe_area()

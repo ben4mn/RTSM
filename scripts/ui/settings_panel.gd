@@ -114,6 +114,7 @@ func _ready() -> void:
 	THEME.apply_primary(done)
 	footer.add_child(done)
 	get_viewport().size_changed.connect(_layout)
+	preload("res://scripts/ui/web_shell_bridge.gd").watch_safe_area(self, _layout)
 	_show_section(0)
 	_layout()
 

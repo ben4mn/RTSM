@@ -331,6 +331,7 @@ func _ready() -> void:
 	var viewport: Viewport = get_viewport()
 	if not viewport.size_changed.is_connected(_queue_mobile_layout_refresh):
 		viewport.size_changed.connect(_queue_mobile_layout_refresh)
+	preload("res://scripts/ui/web_shell_bridge.gd").watch_safe_area(self, _on_web_safe_area_changed)
 
 	refresh_match_state()
 	_apply_mobile_layout_for_current_viewport()
@@ -346,6 +347,13 @@ func _notification(what: int) -> void:
 		close_secondary_surface()
 		_cancel_hud_holds("focus loss")
 		_refresh_dismissal_shield()
+
+
+func _on_web_safe_area_changed() -> void:
+	# Reversing landscape can move the cutout without resizing the canvas.
+	close_secondary_surface()
+	_cancel_hud_holds("safe area changed")
+	_queue_mobile_layout_refresh()
 
 
 func _queue_mobile_layout_refresh() -> void:
@@ -368,11 +376,11 @@ func _get_safe_area_rect(viewport_size: Vector2) -> Rect2:
 	if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
 		_safe_area_diagnostics = {"source": "invalid_viewport"}
 		return viewport_rect
-	# Web reports the canvas as its safe area but the monitor as its screen.
-	# Mapping one through the other shrinks the HUD to a fraction of the canvas.
+	# The full canvas renders beneath cutouts; only controls use CSS safe bounds.
 	if OS.has_feature("web"):
-		_safe_area_diagnostics = {"source": "web_viewport", "normalized": viewport_rect}
-		return viewport_rect
+		var web_safe: Rect2 = preload("res://scripts/ui/web_shell_bridge.gd").get_safe_area_rect(viewport_size)
+		_safe_area_diagnostics = {"source": "web_css_safe_area", "normalized": web_safe}
+		return web_safe
 
 	# DisplayServer reports safe areas in physical display coordinates, while
 	# Control layout uses root-viewport coordinates.  These only happened to
@@ -674,12 +682,12 @@ func set_match_population_limit(limit: int) -> void:
 func _configure_mobile_visuals() -> void:
 	# Reuse the game's own readable silhouettes so the primary controls scan as
 	# game actions rather than anonymous text slabs.
-	_set_button_icon(build_menu_button, "res://assets/buildings/house.png", 26)
-	_set_button_icon(age_up_button, "res://assets/buildings/town_center_alt.png", 24)
+	_set_button_icon(build_menu_button, "res://assets/buildings/company_house.svg", 26)
+	_set_button_icon(age_up_button, "res://assets/buildings/company_town_center.svg", 24)
 	_set_button_icon(_idle_villager_button, UnitData.get_unit_icon_path(UnitData.UnitType.VILLAGER), 24)
 	_set_button_icon(_select_military_button, UnitData.get_unit_icon_path(UnitData.UnitType.SCOUT), 24)
 	_set_button_icon(_find_army_button, UnitData.get_unit_icon_path(UnitData.UnitType.SCOUT), 22)
-	_set_button_icon(_town_center_button, "res://assets/buildings/town_center_alt.png", 24)
+	_set_button_icon(_town_center_button, "res://assets/buildings/company_town_center.svg", 24)
 	for button in [build_menu_button, age_up_button, _idle_villager_button, _select_military_button, _find_army_button]:
 		if button:
 			button.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -3670,8 +3678,9 @@ func show_notification(text: String, color: Color = Color.WHITE, duration: float
 	lbl.clip_text = false
 	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	lbl.add_theme_font_size_override("font_size", 13)
+	lbl.add_theme_font_override("font", KingdomTheme.FONT_BODY)
 	lbl.add_theme_constant_override("line_spacing", 0)
-	lbl.add_theme_color_override("font_color", color)
+	lbl.add_theme_color_override("font_color", KingdomTheme.PARCHMENT)
 	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(lbl)
 

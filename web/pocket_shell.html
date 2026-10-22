@@ -92,8 +92,14 @@ body {
 	text-align: center;
 	z-index: 1;
 }
-/* Policy 0 sizes the backing buffer to the same visible safe-area rect. */
-html, body { width: 100%; height: 100%; background: #13222c; overscroll-behavior: none; }
+:root {
+	--pocket-safe-left: env(safe-area-inset-left, 0px);
+	--pocket-safe-top: env(safe-area-inset-top, 0px);
+	--pocket-safe-right: env(safe-area-inset-right, 0px);
+	--pocket-safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+/* The scene fills the viewport; only interactive UI uses the safe bounds. */
+html, body { width: 100%; height: 100%; background: #171c1d; overscroll-behavior: none; }
 #pocket-app {
 	position: fixed;
 	left: var(--pocket-viewport-left, 0px);
@@ -104,70 +110,79 @@ html, body { width: 100%; height: 100%; background: #13222c; overscroll-behavior
 }
 #pocket-game {
 	position: absolute;
-	left: env(safe-area-inset-left, 0px); top: env(safe-area-inset-top, 0px);
-	right: env(safe-area-inset-right, 0px); bottom: env(safe-area-inset-bottom, 0px);
+	inset: 0;
 	overflow: hidden;
+}
+#pocket-safe-area {
+	position: absolute; inset: 0; box-sizing: border-box;
+	visibility: hidden; pointer-events: none;
+	padding-left: var(--pocket-safe-left);
+	padding-top: var(--pocket-safe-top);
+	padding-right: var(--pocket-safe-right);
+	padding-bottom: var(--pocket-safe-bottom);
 }
 #canvas { width: 100%; height: 100%; touch-action: none; }
 #status { pointer-events: none; }
 [hidden] { display: none !important; }
 .pocket-button {
 	box-sizing: border-box; min-height: 44px;
-	border: 1px solid #667e89; border-radius: 10px; padding: 8px 14px;
-	background: #213b4d; color: #f2ead8;
+	border: 1px solid #465150; border-radius: 3px; padding: 8px 14px;
+	background: #202729; color: #e8e5db;
 	font: 600 15px/1.2 system-ui, -apple-system, sans-serif;
 	touch-action: manipulation; cursor: pointer;
 }
-.pocket-button:focus-visible { outline: 3px solid #efbc63; outline-offset: 3px; }
+.pocket-button:focus-visible { outline: 3px solid #88b7ad; outline-offset: 3px; }
 #pocket-screen-control {
 	position: absolute; z-index: 10;
-	right: calc(env(safe-area-inset-right, 0px) + 12px);
-	top: calc(env(safe-area-inset-top, 0px) + 12px);
+	right: calc(var(--pocket-safe-right) + 12px);
+	top: calc(var(--pocket-safe-top) + 12px);
 }
 #pocket-screen-help {
 	position: absolute; inset: 0; z-index: 20;
 	display: grid; place-items: center; box-sizing: border-box;
-	padding: calc(env(safe-area-inset-top, 0px) + 12px)
-		calc(env(safe-area-inset-right, 0px) + 12px)
-		calc(env(safe-area-inset-bottom, 0px) + 12px)
-		calc(env(safe-area-inset-left, 0px) + 12px);
+	padding: calc(var(--pocket-safe-top) + 12px)
+		calc(var(--pocket-safe-right) + 12px)
+		calc(var(--pocket-safe-bottom) + 12px)
+		calc(var(--pocket-safe-left) + 12px);
 	background: #09151be0; touch-action: manipulation;
 }
 .pocket-help-card {
 	box-sizing: border-box; width: min(420px, 100%); max-height: 100%; overflow: auto;
-	border: 1px solid #667e89; border-radius: 14px; padding: 20px;
-	background: #13222c; color: #f2ead8;
+	border: 1px solid #465150; border-radius: 4px; padding: 20px;
+	background: #171c1d; color: #e8e5db;
 	font: 16px/1.45 system-ui, -apple-system, sans-serif;
 }
 .pocket-help-card h1 { margin: 0 0 12px; font-size: 22px; line-height: 1.2; }
 .pocket-help-card p { margin: 0 0 16px; }
-#pocket-help-close { width: 100%; background: #efbc63; color: #13222c; }
+#pocket-help-close { width: 100%; background: transparent; }
 #pocket-landscape-prompt {
 	display: none; position: absolute; inset: 0; z-index: 30;
 	box-sizing: border-box; padding: 24px; place-items: center;
-	background: #13222c; color: #f2ead8; text-align: center;
+	background: #171c1d; color: #e8e5db; text-align: center;
 	font: 18px/1.4 system-ui, -apple-system, sans-serif;
 }
 #pocket-landscape-prompt h1 { margin: 0 0 12px; font-size: 28px; }
 #pocket-landscape-prompt p { margin: 0; }
 body.pocket-report-open { touch-action: auto; }
 #pocket-report {
-	position: absolute; inset: 0; z-index: 50; padding: 10px;
+	position: absolute; inset: 0; z-index: 50;
+	padding: max(12px, var(--pocket-safe-top)) max(12px, var(--pocket-safe-right))
+		max(12px, var(--pocket-safe-bottom)) max(12px, var(--pocket-safe-left));
 	box-sizing: border-box; display: grid; place-items: center;
-	background: #09151bee; touch-action: pan-y;
+	background: #171c1dee; touch-action: pan-y;
 }
 .pocket-report-card {
 	box-sizing: border-box; width: min(560px, 100%); max-height: 100%; overflow: auto;
-	border: 1px solid #667e89; border-radius: 14px; padding: 14px;
-	background: #172b28; color: #f2ead8; font: 15px/1.3 system-ui, sans-serif;
+	border: 1px solid #465150; border-radius: 4px; padding: 14px;
+	background: #202729; color: #e8e5db; font: 15px/1.3 Barlow, sans-serif;
 }
 .pocket-report-card h1 { font-size: 22px; margin: 0 0 8px; }
 .pocket-report-card p { margin: 6px 0; }
 .pocket-report-card label { display: grid; gap: 4px; margin: 8px 0; }
 .pocket-report-card input, .pocket-report-card textarea {
-	box-sizing: border-box; width: 100%; min-height: 44px; border-radius: 6px;
-	border: 1px solid #667e89; padding: 8px; background: #20382e; color: #f2ead8;
-	font: 16px/1.2 system-ui, sans-serif;
+	box-sizing: border-box; width: 100%; min-height: 48px; border-radius: 3px;
+	border: 1px solid #465150; padding: 8px; background: #171c1d; color: #e8e5db;
+	font: 16px/1.2 Barlow, sans-serif;
 }
 .pocket-report-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 @media (orientation: portrait) and (max-width: 700px) {
@@ -232,6 +247,7 @@ body.pocket-report-open { touch-action: auto; }
 			</div>
 		</main>
 		<div id="pocket-app">
+		<div id="pocket-safe-area" aria-hidden="true"></div>
 		<div id="pocket-game">
 		<canvas id="canvas">
 			Your browser does not support the canvas tag.
@@ -277,6 +293,7 @@ body.pocket-report-open { touch-action: auto; }
 	'use strict';
 	const app = document.getElementById('pocket-app');
 	const game = document.getElementById('pocket-game');
+	const safeAreaProbe = document.getElementById('pocket-safe-area');
 	const canvas = document.getElementById('canvas');
 	const screenButton = document.getElementById('pocket-screen-control');
 	const help = document.getElementById('pocket-screen-help');
@@ -288,6 +305,8 @@ body.pocket-report-open { touch-action: auto; }
 	let controlsAllowed = false;
 	let engineReady = false;
 	let resizeFrame = 0;
+	let safeArea = [0, 0, 0, 0];
+	const safeAreaListeners = new Set();
 
 	function isStandalone() {
 		return navigator.standalone === true || standaloneQuery.matches || fullscreenQuery.matches;
@@ -337,12 +356,29 @@ body.pocket-report-open { touch-action: auto; }
 		const backingHeight = Math.max(1, Math.round(rect.height * ratio));
 		if (canvas.width !== backingWidth) canvas.width = backingWidth;
 		if (canvas.height !== backingHeight) canvas.height = backingHeight;
+		const style = window.getComputedStyle(safeAreaProbe);
+		const nextSafeArea = [style.paddingLeft, style.paddingTop, style.paddingRight, style.paddingBottom]
+			.map((value, index) => Math.max(0, parseFloat(value) || 0) / Math.max(1, index % 2 ? rect.height : rect.width));
+		if (nextSafeArea.some((value, index) => value !== safeArea[index])) {
+			safeArea = nextSafeArea;
+			for (const listener of safeAreaListeners) listener();
+		}
 	}
 	function scheduleResize() {
 		if (!resizeFrame) resizeFrame = window.requestAnimationFrame(resizeCanvas);
 	}
 	// MainMenu/GameManager call this hook; live play hides every shell control.
 	window.PocketWebShell = Object.freeze({
+		// Normalized CSS insets map once into Godot's UI-scaled viewport.
+		getSafeArea: function () { return safeArea.slice(); },
+		getMenuTopClearance: function () {
+			// Read the declared toolbar size even before engineStarted unhides it.
+			const style = window.getComputedStyle(screenButton);
+			const bottom = (parseFloat(style.top) || 0) + (parseFloat(style.minHeight) || 48) + 8;
+			return bottom / Math.max(1, game.getBoundingClientRect().height);
+		},
+		addSafeAreaListener: function (callback) { safeAreaListeners.add(callback); },
+		removeSafeAreaListener: function (callback) { safeAreaListeners.delete(callback); },
 		setControlsVisible: function (visible) {
 			controlsAllowed = visible === true;
 			window.PocketLaunch.setControlsVisible(controlsAllowed);
@@ -401,7 +437,12 @@ body.pocket-report-open { touch-action: auto; }
 		if (query.addEventListener) query.addEventListener('change', updateControl);
 		else if (query.addListener) query.addListener(updateControl);
 	}
-	if (window.ResizeObserver) new ResizeObserver(scheduleResize).observe(game);
+	if (window.ResizeObserver) {
+		const observer = new ResizeObserver(scheduleResize);
+		observer.observe(game);
+		// Padding can change on a notch-side swap without a canvas size change.
+		observer.observe(safeAreaProbe);
+	}
 	resizeCanvas();
 }());
 		</script>

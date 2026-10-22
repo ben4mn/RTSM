@@ -32,9 +32,13 @@ const SACRED_VICTORY_HOLD_SECONDS: float = 180.0
 # concurrent training still requires food workers and construction opportunity cost.
 const STARTING_RESOURCES: Dictionary = {"food": 250, "wood": 250, "gold": 100}
 # Difficulty changes planning time, never costs, income or unit strength.
-# Defense and a live Sacred contest remain immediate during these raid delays.
-const AI_RAID_START_SECONDS: Dictionary = {0: 240.0, 1: 120.0, 2: 0.0}
-const AI_RAID_COOLDOWN_SECONDS: Dictionary = {0: 120.0, 1: 75.0, 2: 0.0}
+# Home defense remains immediate. Easy gives a learner time to explore the
+# objective, then sends small coherent squads with a visible recovery interval.
+const AI_RAID_START_SECONDS: Dictionary = {0: 300.0, 1: 120.0, 2: 0.0}
+const AI_RAID_COOLDOWN_SECONDS: Dictionary = {0: 150.0, 1: 75.0, 2: 0.0}
+const EASY_SACRED_INITIATIVE_SECONDS: float = 390.0
+const EASY_REGROUP_SECONDS: float = 45.0
+const EASY_LARGER_SQUAD_SECONDS: float = 480.0
 const DARK_AGE_WORKER_WEIGHTS: Dictionary = {"food": 0.55, "wood": 0.35, "gold": 0.10}
 const FEUDAL_WORKER_WEIGHTS: Dictionary = {"food": 0.55, "wood": 0.40, "gold": 0.05}
 const AGE_UP_COSTS: Dictionary = {
@@ -56,7 +60,11 @@ static func get_easy_economy_target(population_limit: int) -> int:
 
 
 static func get_easy_fighter_target(population_limit: int) -> int:
-	return maxi(3, int(population_limit * 3 / 10))
+	return maxi(3, int(population_limit / 5))
+
+
+static func get_easy_pressure_squad_size(game_time: float) -> int:
+	return 3 if game_time < EASY_LARGER_SQUAD_SECONDS else 4
 
 
 static func get_new_worker_weights(age: int) -> Dictionary:

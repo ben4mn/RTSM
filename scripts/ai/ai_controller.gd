@@ -55,6 +55,7 @@ var _retreat_threshold: float = 0.3  # Pull back if army drops below 30%
 var _game_time: float = 0.0  # Track elapsed time for timed aggression
 var _last_harass_time: float = 0.0  # Cooldown for harassment raids
 var _last_field_attack_time: float = -INF
+var _easy_regroup_until: float = -INF
 var _scout_waypoints: Array[Vector2] = []
 var _next_scout_waypoint_index: int = 0
 var _objective_scout_sent: bool = false
@@ -298,6 +299,7 @@ func start_ai(base_tile: Vector2i, base_world_pos: Vector2) -> void:
 	_last_field_attack_time = -INF
 	_has_launched_field_attack = false
 	_last_defense_threat_time = -INF
+	_easy_regroup_until = -INF
 	_objective_scout_sent = false
 	_saving_for_age_up = false
 	_timed_age_up_reserve_active = false
@@ -376,6 +378,16 @@ func register_unit(unit: Node) -> void:
 
 
 func _on_unit_died(unit: UnitBase) -> void:
+	# A field casualty is something this AI actually knows about. Easy backs
+	# off once per engagement; further deaths during the retreat cannot keep
+	# extending the interval. Home defense is handled before this pacing gate.
+	if (
+		_uses_easy_learning_policy()
+		and _game_time >= _easy_regroup_until
+		and unit.unit_type not in [UnitData.UnitType.VILLAGER, UnitData.UnitType.SCOUT]
+		and (unit in _attack_wave_units or unit in _objective_units)
+	):
+		_easy_regroup_until = _game_time + SkirmishData.EASY_REGROUP_SECONDS
 	_my_units.erase(unit)
 	_attack_wave_units.erase(unit)
 	_objective_units.erase(unit)
@@ -1616,6 +1628,8 @@ func _get_attack_threshold() -> int:
 	var threshold: int = int(ARMY_ATTACK_THRESHOLDS.get(difficulty, 8))
 	if _uses_compact_population_policy():
 		threshold = mini(threshold, clampi(int(GameManager.get_player_population_limit(player_id) / 8), 3, 6))
+		if _uses_easy_learning_policy():
+			threshold = mini(threshold, SkirmishData.get_easy_pressure_squad_size(_game_time))
 	return threshold
 
 
@@ -1979,12 +1993,16 @@ func _check_scouting() -> void:
 
 
 func _is_sacred_timing_ready() -> bool:
+	if _uses_easy_learning_policy():
+		return _game_time >= SkirmishData.EASY_SACRED_INITIATIVE_SECONDS and _game_time >= _easy_regroup_until
 	if _uses_compact_population_policy() and not _has_launched_field_attack:
 		return false
 	return _game_time >= float(SACRED_SITE_START_TIMES.get(difficulty, 150.0))
 
 
 func _should_hold_sacred_recon(sacred_site: Node2D) -> bool:
+	if _uses_easy_learning_policy() and (_game_time < float(SkirmishData.AI_RAID_START_SECONDS[Difficulty.EASY]) or _game_time < _easy_regroup_until):
+		return true
 	if _is_sacred_timing_ready():
 		return false
 	const SITE_CAPTURING: int = 1
@@ -2002,6 +2020,20 @@ func _should_hold_sacred_recon(sacred_site: Node2D) -> bool:
 func _maintain_safe_sacred_recon(unit: UnitBase, sacred_site: Node2D) -> void:
 	unit.stance = UnitBase.Stance.STAND_GROUND
 	var recon_position: Vector2 = _get_sacred_recon_position(sacred_site)
+	if (
+		_uses_easy_learning_policy()
+		and _game_time < _easy_regroup_until
+		and unit.global_position.distance_to(sacred_site.global_position) <= _get_sacred_capture_world_radius(sacred_site) + SACRED_RECON_ROUTE_CLEARANCE
+	):
+		# Regroup can begin after the Scout has already captured the site. That
+		# inside-to-outside transition is separate from the normal recon guard,
+		# which correctly rejects every route starting inside the capture disk.
+		var escape_route: PackedVector2Array = _get_sacred_recon_route(unit.global_position, recon_position)
+		if _is_outbound_sacred_recon_route(unit.global_position, escape_route, sacred_site):
+			unit.command_move_path(escape_route)
+		else:
+			unit.command_stop()
+		return
 	if (
 		unit.current_state == UnitBase.State.IDLE
 		and unit.global_position.distance_to(recon_position) <= SACRED_RECON_TARGET_TOLERANCE
@@ -2058,6 +2090,21 @@ func _is_route_outside_sacred_capture(
 	return true
 
 
+func _is_outbound_sacred_recon_route(from_position: Vector2, route: PackedVector2Array, sacred_site: Node2D) -> bool:
+	var clearance: float = _get_sacred_capture_world_radius(sacred_site) + SACRED_RECON_ROUTE_CLEARANCE
+	if route.is_empty() or from_position.distance_to(sacred_site.global_position) > clearance:
+		return false
+	var cleared: bool = false
+	var previous: Vector2 = from_position
+	for waypoint: Vector2 in route:
+		if cleared and _distance_from_point_to_segment(sacred_site.global_position, previous, waypoint) < clearance:
+			return false
+		if waypoint.distance_to(sacred_site.global_position) >= clearance:
+			cleared = true
+		previous = waypoint
+	return cleared
+
+
 func _distance_from_point_to_segment(point: Vector2, segment_start: Vector2, segment_end: Vector2) -> float:
 	var segment: Vector2 = segment_end - segment_start
 	var length_squared: float = segment.length_squared()
@@ -2078,6 +2125,8 @@ func _check_sacred_site_strategy() -> bool:
 	var sacred_site: Node2D = _get_sacred_site()
 	if sacred_site == null:
 		_release_objective_units()
+		return false
+	if _uses_easy_learning_policy() and (_game_time < float(SkirmishData.AI_RAID_START_SECONDS[Difficulty.EASY]) or _game_time < _easy_regroup_until):
 		return false
 
 	const SITE_NEUTRAL: int = 0
@@ -2139,6 +2188,10 @@ func _check_sacred_site_strategy() -> bool:
 				var remaining_hold: float = float(sacred_site.get("victory_hold_time")) - float(sacred_site.get("victory_timer"))
 				if remaining_hold <= 120.0:
 					desired_force = maxi(desired_force, fighters)
+		if _uses_easy_learning_policy():
+			# A contested/near-expiry clock must not silently turn Easy into the
+			# Medium all-army response. A Scout can still capture an empty site.
+			desired_force = mini(desired_force, SkirmishData.get_easy_pressure_squad_size(_game_time))
 	var mode_changed: bool = new_mode != _objective_mode
 	_objective_mode = new_mode
 	_assign_objective_force(sacred_site, desired_force, urgent, mode_changed, site_threats)
@@ -2192,6 +2245,19 @@ func _assign_objective_force(
 	)
 	var selected_count: int = mini(desired_force, candidates.size())
 	var selected: Array = candidates.slice(0, selected_count)
+	if _uses_easy_learning_policy() and not urgent:
+		# Nonurgent capture/guard duties share the same fighter budget as an
+		# active raid. A harmless Scout does not consume a combat squad slot.
+		var fighter_room: int = maxi(0, SkirmishData.get_easy_pressure_squad_size(_game_time) - _get_attack_wave_survivors().size())
+		selected.clear()
+		for candidate: UnitBase in candidates:
+			if selected.size() >= desired_force:
+				break
+			if candidate.unit_type != UnitData.UnitType.SCOUT and fighter_room <= 0:
+				continue
+			selected.append(candidate)
+			if candidate.unit_type != UnitData.UnitType.SCOUT:
+				fighter_room -= 1
 	_objective_units = selected
 	for unit in _objective_units:
 		if is_instance_valid(unit) and unit is UnitBase:
@@ -2199,6 +2265,10 @@ func _assign_objective_force(
 
 	if urgent and _attack_in_progress:
 		_clear_attack_wave()
+	if _uses_easy_learning_policy():
+		# A redirect must recall the old wave, not leave it attacking alongside
+		# a newly selected objective squad after its tracking array is cleared.
+		_recall_easy_unassigned_units(_objective_units + _attack_wave_units)
 	_issue_objective_orders(sacred_site, urgent, mode_changed, site_threats)
 
 
@@ -2321,6 +2391,12 @@ func _check_attack_or_defend() -> void:
 		_rally_defense([])
 		_last_strategy_decision = "search_last_base_threat"
 		return
+	if _uses_easy_learning_policy() and _game_time < _easy_regroup_until:
+		_clear_attack_wave()
+		_release_objective_units()
+		_recall_easy_unassigned_units([])
+		_last_strategy_decision = "learning_regroup"
+		return
 
 	if _check_sacred_site_strategy():
 		return
@@ -2330,6 +2406,14 @@ func _check_attack_or_defend() -> void:
 	var reserve: Array = _get_base_reserve_units(_get_military_units())
 	_rally_base_reserve(reserve)
 	var military: Array = _get_field_military(reserve)
+	if _uses_easy_learning_policy():
+		# Keep the already assigned squad coherent. Reserves must not join merely
+		# because the battlefield or a retreating defender came into sight.
+		var pressure_room: int = maxi(0, SkirmishData.get_easy_pressure_squad_size(_game_time) - _count_easy_objective_fighters())
+		military = _get_attack_wave_survivors().slice(0, pressure_room) if _attack_in_progress else military.slice(0, pressure_room)
+		if _attack_in_progress:
+			_attack_wave_units = military.duplicate()
+		_recall_easy_unassigned_units(_attack_wave_units + _objective_units)
 	var threshold: int = _get_attack_threshold()
 	var own_strength: float = maxf(1.0, _evaluate_units_strength(military))
 	var visible_enemy_strength: float = _evaluate_enemy_visible_strength()
@@ -2354,7 +2438,7 @@ func _check_attack_or_defend() -> void:
 			unit.command_move(_staging_point)
 
 	# Easy/Medium give mobile players time to build a paid economy and defenders.
-	# Visible home defense and active Sacred contests were handled above, so
+	# Visible home defense and eligible Sacred contests were handled above, so
 	# this pacing gate only delays ordinary raids while production/recon continue.
 	if _uses_compact_population_policy():
 		var raid_start: float = float(SkirmishData.AI_RAID_START_SECONDS.get(difficulty, 240.0))
@@ -2402,6 +2486,31 @@ func _check_attack_or_defend() -> void:
 				_last_field_attack_time = _game_time
 				ai_attack_launched.emit(raiders, target)
 				_last_strategy_decision = "harass"
+
+
+func _uses_easy_learning_policy() -> bool:
+	return difficulty == Difficulty.EASY and _uses_compact_population_policy()
+
+
+func _count_easy_objective_fighters() -> int:
+	var count: int = 0
+	for unit in _objective_units:
+		if is_instance_valid(unit) and unit.unit_type != UnitData.UnitType.SCOUT:
+			count += 1
+	return count
+
+
+func _recall_easy_unassigned_units(assigned: Array) -> void:
+	for unit: UnitBase in _get_fighting_units():
+		if unit in assigned:
+			continue
+		# Local in-range self-defense is allowed; a held reserve cannot pursue
+		# a distant sighting and become an untracked extra pressure squad.
+		unit.stance = UnitBase.Stance.STAND_GROUND
+		if unit.current_state == UnitBase.State.MOVING and not unit.attack_move and unit.move_target.distance_to(_staging_point) <= 64.0:
+			continue
+		if unit.current_state == UnitBase.State.MOVING or unit.global_position.distance_to(_staging_point) > 64.0 or is_instance_valid(unit.attack_target) or is_instance_valid(unit.attack_building_target):
+			unit.command_move(_staging_point)
 
 
 func _begin_attack_wave(units: Array, target_position: Vector2, target_node: Node = null) -> void:
@@ -2616,6 +2725,9 @@ func _has_recent_defense_threat() -> bool:
 
 func _rally_defense(threats: Array = []) -> void:
 	var military: Array = _get_fighting_units()
+	if _uses_easy_learning_policy():
+		for unit: UnitBase in military:
+			unit.stance = UnitBase.Stance.AGGRESSIVE
 	if threats.is_empty():
 		for unit in military:
 			var already_investigating: bool = (
@@ -2788,6 +2900,8 @@ func _issue_attack_orders(units: Array, target: Vector2) -> void:
 	for unit in units:
 		if not is_instance_valid(unit):
 			continue
+		if _uses_easy_learning_policy():
+			unit.stance = UnitBase.Stance.AGGRESSIVE
 		if unit.has_method("command_attack_move"):
 			unit.command_attack_move(target)
 		else:

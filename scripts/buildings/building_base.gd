@@ -100,11 +100,11 @@ class DefensiveArrow extends Node2D:
 			_heading * 6.0, normal * 2.5, -normal * 2.5
 		]), Color(1.0, 0.98, 0.80))
 
-## Sprite texture paths per building type from Kenney Medieval RTS pack.
+## Original Company SVGs for principal buildings; remaining legacy pack art.
 const BUILDING_SPRITES: Dictionary = {
-	BuildingData.BuildingType.TOWN_CENTER: "res://assets/buildings/town_center_alt.png",
-	BuildingData.BuildingType.HOUSE: "res://assets/buildings/house.png",
-	BuildingData.BuildingType.BARRACKS: "res://assets/buildings/barracks.png",
+	BuildingData.BuildingType.TOWN_CENTER: "res://assets/buildings/company_town_center.svg",
+	BuildingData.BuildingType.HOUSE: "res://assets/buildings/company_house.svg",
+	BuildingData.BuildingType.BARRACKS: "res://assets/buildings/company_barracks.svg",
 	BuildingData.BuildingType.ARCHERY_RANGE: "res://assets/buildings/archery_range.png",
 	BuildingData.BuildingType.STABLE: "res://assets/buildings/stable.png",
 	BuildingData.BuildingType.FARM: "res://assets/buildings/farm.svg",
@@ -113,6 +113,21 @@ const BUILDING_SPRITES: Dictionary = {
 	BuildingData.BuildingType.BLACKSMITH: "res://assets/buildings/blacksmith.png",
 	BuildingData.BuildingType.WATCH_TOWER: "res://assets/buildings/watch_tower.svg",
 }
+
+## Company roofs/cloth carry ownership while bone, timber and stone remain neutral.
+## Legacy families retain their original whole-sprite tint until redrawn.
+const COMPANY_ENEMY_SPRITES: Dictionary = {
+	BuildingData.BuildingType.TOWN_CENTER: "res://assets/buildings/company_town_center_enemy.svg",
+	BuildingData.BuildingType.HOUSE: "res://assets/buildings/company_house_enemy.svg",
+	BuildingData.BuildingType.BARRACKS: "res://assets/buildings/company_barracks_enemy.svg",
+}
+
+
+static func get_sprite_texture_path(type: int, owner: int = 0) -> String:
+	if owner != 0 and COMPANY_ENEMY_SPRITES.has(type):
+		return COMPANY_ENEMY_SPRITES[type]
+	return BUILDING_SPRITES.get(type, "")
+
 
 ## Scale per building type — larger footprint buildings get larger sprites.
 const BUILDING_SCALES: Dictionary = {
@@ -189,7 +204,7 @@ func _setup_collision() -> void:
 func _setup_sprite() -> void:
 	_sprite = Sprite2D.new()
 	_sprite.name = "BuildingSprite"
-	var tex_path: String = BUILDING_SPRITES.get(building_type, "")
+	var tex_path: String = get_sprite_texture_path(building_type, player_owner)
 	if tex_path != "" and ResourceLoader.exists(tex_path):
 		_sprite.texture = load(tex_path)
 	_sprite.scale = BUILDING_SCALES.get(building_type, Vector2(0.4, 0.4))
@@ -210,7 +225,13 @@ static func get_sprite_offset(type: int, size_in_tiles: Vector2i) -> Vector2:
 func _update_sprite_appearance() -> void:
 	if _sprite == null:
 		return
-	var base_color: Color = Color(1.0, 0.55, 0.55) if player_owner != 0 else Color.WHITE
+	# Snapshot replicas set owner/type before entering the tree; the refresh also
+	# handles a later owner assignment without retaining a cached home texture.
+	var texture_path: String = get_sprite_texture_path(building_type, player_owner)
+	if _sprite.texture != null and _sprite.texture.resource_path != texture_path and ResourceLoader.exists(texture_path):
+		_sprite.texture = load(texture_path)
+	var legacy_enemy_tint: bool = player_owner != 0 and not COMPANY_ENEMY_SPRITES.has(building_type)
+	var base_color: Color = Color(1.0, 0.55, 0.55) if legacy_enemy_tint else Color.WHITE
 	match state:
 		State.CONSTRUCTING:
 			# Darken and make semi-transparent during construction, lerp to full

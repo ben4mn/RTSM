@@ -105,6 +105,7 @@ func _ready() -> void:
 	ui_scale_option.item_selected.connect(_on_ui_scale_selected)
 	seed_input.text_changed.connect(_on_seed_text_changed)
 	get_viewport().size_changed.connect(_on_viewport_size_changed)
+	WEB_SHELL_BRIDGE.watch_safe_area(self, _on_viewport_size_changed)
 
 	# Populate difficulty dropdown
 	difficulty_option.clear()
@@ -452,6 +453,10 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 	var card_width: float = clampf(available.size.x * 0.42, 284.0, 360.0)
 	var hero_rect := Rect2(available.position, Vector2(available.size.x - card_width - 26.0, available.size.y))
 	var card_rect := Rect2(Vector2(available.end.x - card_width, normalized_safe_area.position.y), Vector2(card_width, normalized_safe_area.size.y))
+	var web_toolbar_bottom: float = WEB_SHELL_BRIDGE.get_menu_top_clearance(viewport_size)
+	if landscape and web_toolbar_bottom > card_rect.position.y:
+		card_rect.position.y = web_toolbar_bottom
+		card_rect.size.y = maxf(1.0, normalized_safe_area.end.y - web_toolbar_bottom)
 	if not landscape:
 		card_width = minf(360.0, available.size.x)
 		var hero_height: float = minf(250.0, available.size.y * 0.36)
@@ -485,10 +490,11 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 	map_heading.visible = not compact and not _network_search_active
 	map_heading.add_theme_font_size_override("font_size", 12)
 	difficulty_label.add_theme_font_size_override("font_size", 17)
+	difficulty_label.visible = not (compact and web_toolbar_bottom > 0.0)
 	difficulty_label.add_theme_font_override("font", THEME.FONT_MEDIUM)
 	difficulty_description.visible = not _network_search_active
 	difficulty_description.add_theme_font_size_override("font_size", 13)
-	difficulty_description.custom_minimum_size.y = 30.0
+	difficulty_description.custom_minimum_size.y = 0.0 if compact and web_toolbar_bottom > 0.0 else 30.0
 	setup_margin.add_theme_constant_override("margin_left", 0)
 	setup_margin.add_theme_constant_override("margin_right", 0)
 	setup_margin.add_theme_constant_override("margin_top", 6 if compact else 18)
@@ -540,12 +546,9 @@ func _get_safe_area_rect(viewport_size: Vector2) -> Rect2:
 	var viewport_rect := Rect2(Vector2.ZERO, viewport_size)
 	if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
 		return viewport_rect
-	# Web's safe-area fallback is the canvas, while screen_get_size() is the
-	# entire monitor. Mapping one through the other shrinks a phone preview to
-	# a fraction of its real canvas. The browser already supplies the usable
-	# content viewport (our export does not opt into viewport-fit=cover).
+	# The browser owns CSS cutout insets; DisplayServer uses a different space.
 	if OS.has_feature("web"):
-		return viewport_rect
+		return WEB_SHELL_BRIDGE.get_safe_area_rect(viewport_size)
 	if not OS.has_feature("mobile"):
 		return viewport_rect
 	var safe_rect_i: Rect2i = DisplayServer.get_display_safe_area()

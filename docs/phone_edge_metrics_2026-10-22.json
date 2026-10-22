@@ -1,0 +1,207 @@
+{
+  "source_sha256": {
+    "web/pocket_shell.html": "97fba20abf89df9ad75b51330c842caef25659e384a0ac94ee4077d415c4eeb0",
+    "web/pocket_launch.css": "21dbe4924fa93e5d5c22798580be75d44d1b1b3fae111963f335a2b8987c0245",
+    "scripts/ui/web_shell_bridge.gd": "68b23d44e45068345d446fa0cfaee4dfb69d26346c31224668427cbd8983f41c"
+  },
+  "pure_mapping_cases": 24,
+  "artifact_tests": 18,
+  "browser_geometry_cases": 80,
+  "browser_fixture": [
+    {
+      "engine": "chromium",
+      "profiles": [
+        {
+          "viewport": {
+            "width": 844,
+            "height": 390,
+            "dpr": 1
+          },
+          "landscape_cases": 5,
+          "portrait_cases": 5,
+          "backing_pixels": [
+            844,
+            390
+          ],
+          "listener_lifecycle": "passed",
+          "html_controls": "48px and safe",
+          "report_dialog": "safe card and48px fields",
+          "menu_toolbar_clearance": {
+            "hidden_and_visible_match": true,
+            "gap_css_pixels": 8,
+            "unnotched_css_pixels": 68,
+            "top_24px_css_pixels": 92,
+            "checked_again_in_portrait": true
+          }
+        },
+        {
+          "viewport": {
+            "width": 844,
+            "height": 390,
+            "dpr": 3
+          },
+          "landscape_cases": 5,
+          "portrait_cases": 5,
+          "backing_pixels": [
+            2532,
+            1170
+          ],
+          "listener_lifecycle": "passed",
+          "html_controls": "48px and safe",
+          "report_dialog": "safe card and48px fields",
+          "menu_toolbar_clearance": {
+            "hidden_and_visible_match": true,
+            "gap_css_pixels": 8,
+            "unnotched_css_pixels": 68,
+            "top_24px_css_pixels": 92,
+            "checked_again_in_portrait": true
+          }
+        },
+        {
+          "viewport": {
+            "width": 932,
+            "height": 430,
+            "dpr": 3
+          },
+          "landscape_cases": 5,
+          "portrait_cases": 5,
+          "backing_pixels": [
+            2796,
+            1290
+          ],
+          "listener_lifecycle": "passed",
+          "html_controls": "48px and safe",
+          "report_dialog": "safe card and48px fields",
+          "menu_toolbar_clearance": {
+            "hidden_and_visible_match": true,
+            "gap_css_pixels": 8,
+            "unnotched_css_pixels": 68,
+            "top_24px_css_pixels": 92,
+            "checked_again_in_portrait": true
+          }
+        },
+        {
+          "viewport": {
+            "width": 1280,
+            "height": 590,
+            "dpr": 1
+          },
+          "landscape_cases": 5,
+          "portrait_cases": 5,
+          "backing_pixels": [
+            1280,
+            590
+          ],
+          "listener_lifecycle": "passed",
+          "html_controls": "48px and safe",
+          "report_dialog": "safe card and48px fields",
+          "menu_toolbar_clearance": {
+            "hidden_and_visible_match": true,
+            "gap_css_pixels": 8,
+            "unnotched_css_pixels": 68,
+            "top_24px_css_pixels": 92,
+            "checked_again_in_portrait": true
+          }
+        }
+      ]
+    },
+    {
+      "engine": "webkit",
+      "profiles": [
+        {
+          "viewport": {
+            "width": 844,
+            "height": 390,
+            "dpr": 1
+          },
+          "landscape_cases": 5,
+          "portrait_cases": 5,
+          "backing_pixels": [
+            844,
+            390
+          ],
+          "listener_lifecycle": "passed",
+          "html_controls": "48px and safe",
+          "report_dialog": "safe card and48px fields",
+          "menu_toolbar_clearance": {
+            "hidden_and_visible_match": true,
+            "gap_css_pixels": 8,
+            "unnotched_css_pixels": 68,
+            "top_24px_css_pixels": 92,
+            "checked_again_in_portrait": true
+          }
+        },
+        {
+          "viewport": {
+            "width": 844,
+            "height": 390,
+            "dpr": 3
+          },
+          "landscape_cases": 5,
+          "portrait_cases": 5,
+          "backing_pixels": [
+            2532,
+            1170
+          ],
+          "listener_lifecycle": "passed",
+          "html_controls": "48px and safe",
+          "report_dialog": "safe card and48px fields",
+          "menu_toolbar_clearance": {
+            "hidden_and_visible_match": true,
+            "gap_css_pixels": 8,
+            "unnotched_css_pixels": 68,
+            "top_24px_css_pixels": 92,
+            "checked_again_in_portrait": true
+          }
+        },
+        {
+          "viewport": {
+            "width": 932,
+            "height": 430,
+            "dpr": 3
+          },
+          "landscape_cases": 5,
+          "portrait_cases": 5,
+          "backing_pixels": [
+            2796,
+            1290
+          ],
+          "listener_lifecycle": "passed",
+          "html_controls": "48px and safe",
+          "report_dialog": "safe card and48px fields",
+          "menu_toolbar_clearance": {
+            "hidden_and_visible_match": true,
+            "gap_css_pixels": 8,
+            "unnotched_css_pixels": 68,
+            "top_24px_css_pixels": 92,
+            "checked_again_in_portrait": true
+          }
+        },
+        {
+          "viewport": {
+            "width": 1280,
+            "height": 590,
+            "dpr": 1
+          },
+          "landscape_cases": 5,
+          "portrait_cases": 5,
+          "backing_pixels": [
+            1280,
+            590
+          ],
+          "listener_lifecycle": "passed",
+          "html_controls": "48px and safe",
+          "report_dialog": "safe card and48px fields",
+          "menu_toolbar_clearance": {
+            "hidden_and_visible_match": true,
+            "gap_css_pixels": 8,
+            "unnotched_css_pixels": 68,
+            "top_24px_css_pixels": 92,
+            "checked_again_in_portrait": true
+          }
+        }
+      ]
+    }
+  ],
+  "test_limit": "Real browser engines with explicit CSS safe-area custom properties; not a physical notched iPhone or a loaded Godot export."
+}

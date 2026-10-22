@@ -46,6 +46,11 @@ var attack_orders: Array[Dictionary] = []
 var decision_seconds: Array[Dictionary] = [{}, {}]
 var near_enemy_seconds: Array[float] = [0.0, 0.0]
 var military_idle_seconds: Array[float] = [0.0, 0.0]
+var beginner_policy: bool = false
+var first_home_damage: Array[float] = [-1.0, -1.0]
+var first_town_center_damage: Array[float] = [-1.0, -1.0]
+var first_worker_damage: Array[float] = [-1.0, -1.0]
+var winner: int = -1
 
 func _ready() -> void:
 	call_deferred("_run")
@@ -85,6 +90,8 @@ func _run() -> void:
 			result_path = argument.trim_prefix("--output=")
 		elif argument == "--swap-starts":
 			swap_starts = true
+		elif argument == "--beginner":
+			beginner_policy = true
 		elif argument.begins_with("--human-difficulty="):
 			human_difficulty = clampi(int(argument.trim_prefix("--human-difficulty=")), 0, 2)
 	match_scene = load("res://scenes/main/main.tscn").instantiate()
@@ -98,7 +105,7 @@ func _run() -> void:
 		if match_scene.get("_building_placement") != null:
 			break
 		await get_tree().process_frame
-	human_bot = AIController.new()
+	human_bot = load("res://tools/fixtures/beginner_paid_policy.gd").new() if beginner_policy else AIController.new()
 	human_bot.player_id = 0
 	human_bot.enemy_id = 1
 	human_bot.difficulty = human_difficulty
@@ -106,12 +113,12 @@ func _run() -> void:
 	human_bot.map_generator = match_scene.game_map.map_generator
 	human_bot.pathfinding = match_scene.game_map.pathfinding
 	match_scene.add_child(human_bot)
-	human_bot.ai_wants_to_build.connect(func(building_type: int, tile_pos: Vector2i, _rebuild: bool): match_scene._on_placement_confirmed(building_type, match_scene.game_map.tile_to_world(tile_pos)))
-	human_bot.ai_wants_to_train.connect(func(building: Node, unit_type: int): match_scene._on_train_unit_requested(building, unit_type))
-	human_bot.ai_wants_to_age_up.connect(match_scene._on_age_up_requested)
+	human_bot.ai_wants_to_build.connect(_human_build)
+	human_bot.ai_wants_to_train.connect(_human_train)
+	human_bot.ai_wants_to_age_up.connect(_human_age)
 	human_bot.ai_attack_launched.connect(_attack.bind(0))
 	match_scene.ai_controller.ai_attack_launched.connect(_attack.bind(1))
-	GameManager.game_over.connect(func(_winner: int): ending = "game over")
+	GameManager.game_over.connect(func(winner_id: int): ending = "game over"; winner = winner_id)
 	stats["initial_population_limits"] = [GameManager.get_player_population_limit(0), GameManager.get_player_population_limit(1)]
 	stats["initial_resources"] = [ResourceManager.get_all_resources(0).duplicate(), ResourceManager.get_all_resources(1).duplicate()]
 	stats["first_contact"] = -1.0
@@ -165,6 +172,15 @@ func _run() -> void:
 	stats["swap_starts"] = swap_starts
 	stats["human_difficulty"] = human_difficulty
 	stats["human_policy"] = "AI difficulty %d using normal human construction/training/age transactions; automated, not hands-on" % human_difficulty
+	stats["beginner_policy"] = human_bot.call("get_learner_receipt") if beginner_policy else {}
+	if beginner_policy:
+		stats["human_policy"] = "Slower automated learner fixture using normal human transactions; see beginner_policy for all deliberate delays"
+		stats["runtime_source_hashes"]["tools/fixtures/beginner_paid_policy.gd"] = human_bot.get_script().get_source_code().sha256_text()
+	stats["first_home_damage"] = first_home_damage
+	stats["first_town_center_damage"] = first_town_center_damage
+	stats["first_worker_damage"] = first_worker_damage
+	stats["winner"] = winner
+	stats["user_data_dir"] = OS.get_user_data_dir()
 	stats["simulation"] = {"physics_ticks_per_second": Engine.physics_ticks_per_second, "time_scale": Engine.time_scale, "map_width": MapData.MAP_WIDTH, "map_height": MapData.MAP_HEIGHT}
 
 	var file := FileAccess.open(result_path, FileAccess.WRITE)
@@ -177,6 +193,21 @@ func _run() -> void:
 	Engine.time_scale = 1.0
 	match_scene.free()
 	get_tree().quit()
+
+
+func _human_build(building_type: int, tile_pos: Vector2i, _rebuild: bool) -> void:
+	if not beginner_policy or human_bot.call("accept_build_input", building_type):
+		match_scene._on_placement_confirmed(building_type, match_scene.game_map.tile_to_world(tile_pos))
+
+
+func _human_train(building: Node, unit_type: int) -> void:
+	if not beginner_policy or human_bot.call("accept_train_input", building):
+		match_scene._on_train_unit_requested(building, unit_type)
+
+
+func _human_age() -> void:
+	if not beginner_policy or human_bot.call("accept_age_input"):
+		match_scene._on_age_up_requested()
 
 func _register_human_entities() -> void:
 	for unit: Node in match_scene._player_units[0]:
@@ -234,6 +265,14 @@ func _on_damage_received(victim: Node2D, hp_loss: float) -> void:
 		return
 	var time: float = GameManager.game_time
 	var owner: int = int(victim.player_owner)
+	var home_tile: Vector2i = match_scene.game_map.map_generator.spawn_positions[owner]
+	var home: Vector2 = match_scene.game_map.tile_to_world(home_tile)
+	if first_home_damage[owner] < 0.0 and victim.global_position.distance_to(home) <= 360.0:
+		first_home_damage[owner] = time
+	if first_town_center_damage[owner] < 0.0 and victim is BuildingBase and victim.building_type == BuildingData.BuildingType.TOWN_CENTER:
+		first_town_center_damage[owner] = time
+	if first_worker_damage[owner] < 0.0 and victim is Villager:
+		first_worker_damage[owner] = time
 	damage_events += 1
 	damage_taken[owner] += hp_loss
 	damage_seconds[int(time)] = true

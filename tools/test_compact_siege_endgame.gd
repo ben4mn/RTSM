@@ -39,7 +39,7 @@ func _run() -> void:
 		await _build_paid(kind)
 	var barracks: BuildingBase = ai._find_trainable_building_of_type(BuildingData.BuildingType.BARRACKS)
 	if barracks != null:
-		for index: int in range(6 if easy_cap_fixture else 3):
+		for index: int in range(SkirmishData.get_easy_fighter_target(20) if easy_cap_fixture else 3):
 			_expect(barracks.get_production_queue().enqueue_unit(UnitData.UnitType.INFANTRY), "paid escort trains")
 			barracks.get_production_queue().advance(13.0)
 	ai._update_ai_state()
@@ -85,7 +85,12 @@ func _run() -> void:
 	for argument: String in OS.get_cmdline_user_args():
 		if argument.begins_with("--output="):
 			output_path = argument.trim_prefix("--output=")
-	FileAccess.open(output_path, FileAccess.WRITE).store_string(JSON.stringify(evidence, "\t"))
+	DirAccess.make_dir_recursive_absolute(output_path.get_base_dir())
+	var evidence_file := FileAccess.open(output_path, FileAccess.WRITE)
+	if evidence_file != null:
+		evidence_file.store_string(JSON.stringify(evidence, "\t"))
+	else:
+		failures.append("siege evidence file could not be written")
 	Engine.time_scale = 1.0
 	main.free()
 	for failure: String in failures:

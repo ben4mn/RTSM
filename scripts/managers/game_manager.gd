@@ -192,8 +192,8 @@ func _apply_display_preferences() -> void:
 			return
 		var screen_size := Vector2(window.size)
 		if OS.has_feature("web"):
-			# The shell excludes safe-area insets before sizing this element.
-			# CSS dimensions avoid counting Retina backing pixels as more space.
+			# Use the full CSS canvas for physical touch sizing. UI layout applies
+			# safe insets separately; Retina backing pixels are not extra space.
 			var dimensions: Variant = JavaScriptBridge.eval("JSON.stringify((function(){var g=document.getElementById('pocket-game');var r=g&&g.getBoundingClientRect();return r?[r.width,r.height]:[0,0];})())")
 			if dimensions is String:
 				var parsed: Variant = JSON.parse_string(dimensions)

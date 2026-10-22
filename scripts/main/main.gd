@@ -1490,7 +1490,7 @@ func _on_unit_trained(unit_type: int, player_id: int, source_queue: ProductionQu
 		_update_idle_villager_count()
 		_on_selection_changed(game_map.selection_mgr.selected)
 		AudioManager.play_sfx("unit_trained")
-		hud.show_notification("Unit trained: %s" % UnitData.get_unit_name(unit_type), Color(0.4, 0.7, 1.0))
+		hud.show_notification("Unit trained: %s" % UnitData.get_unit_name(unit_type), KingdomTheme.TEAL)
 		if (
 			unit != null
 			and unit_type == UnitData.UnitType.SCOUT
@@ -1775,17 +1775,17 @@ func _on_building_constructed(building: BuildingBase, player_id: int) -> void:
 	_stats[player_id]["buildings_built"] += 1
 	if player_id == 0:
 		AudioManager.play_sfx("building_complete")
-		hud.show_notification("Building complete: %s" % building.building_name, Color(0.3, 0.85, 0.3))
+		hud.show_notification("Building complete: %s" % building.building_name, KingdomTheme.TEAL)
 		if building.building_type == BuildingData.BuildingType.HOUSE and not _milestone_first_house:
 			_milestone_first_house = true
-			hud.show_notification("Milestone: First House complete.", Color(0.92, 0.84, 0.38))
+			hud.show_notification("Milestone: First House complete.", KingdomTheme.PARCHMENT)
 		if building.building_type in [
 			BuildingData.BuildingType.BARRACKS,
 			BuildingData.BuildingType.ARCHERY_RANGE,
 			BuildingData.BuildingType.STABLE,
 		] and not _milestone_first_military_building:
 			_milestone_first_military_building = true
-			hud.show_notification("Milestone: Military production unlocked.", Color(0.82, 0.72, 1.0))
+			hud.show_notification("Milestone: Military production unlocked.", KingdomTheme.PARCHMENT)
 		_refresh_guided_opening_stage()
 		_update_progression_hint()
 

@@ -1,6 +1,7 @@
 """Regression guards for exported mobile Web entrypoints and app manifests."""
 
 import json
+import re
 import struct
 import tempfile
 import unittest
@@ -66,6 +67,23 @@ class MobileShellArtifactTests(unittest.TestCase):
         (self.root / "index.html").write_text(self.html.replace('"canvasResizePolicy":0', '"canvasResizePolicy":2'))
         with self.assertRaises(VerificationError):
             verify_web_shell(self.root)
+
+    def test_render_surface_fills_viewport_without_safe_area_crop(self) -> None:
+        rule = re.search(r"#pocket-game\s*\{([^}]+)\}", self.html)
+        self.assertIsNotNone(rule)
+        declarations = rule.group(1)
+        self.assertRegex(declarations, r"inset:\s*0\s*;")
+        self.assertNotIn("safe-area", declarations)
+        self.assertNotRegex(declarations, r"(?:padding|margin)(?:-\w+)?:")
+
+    def test_safe_area_probe_and_listener_contract_are_exported(self) -> None:
+        self.assertIn('id="pocket-safe-area"', self.html)
+        for side in ("left", "top", "right", "bottom"):
+            self.assertIn(f"--pocket-safe-{side}: env(safe-area-inset-{side}, 0px)", self.html)
+            self.assertIn(f"padding-{side}: var(--pocket-safe-{side})", self.html)
+        for method in ("getSafeArea", "getMenuTopClearance", "addSafeAreaListener", "removeSafeAreaListener"):
+            self.assertIn(method + ": function", self.html)
+        self.assertIn(".observe(safeAreaProbe)", self.html)
 
     def test_threaded_mobile_export_is_rejected(self) -> None:
         (self.root / "index.html").write_text(self.html.replace('const GODOT_THREADS_ENABLED = false;', 'const GODOT_THREADS_ENABLED = true;'))

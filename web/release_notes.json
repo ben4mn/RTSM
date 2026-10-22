@@ -1,6 +1,19 @@
 {
   "releases": [
     {
+      "id": "2026-10-22-room-to-learn",
+      "version": "0.2.0-beta.3",
+      "date": "2026-10-22",
+      "title": "Room to learn. Room to play.",
+      "summary": "A full-screen battlefield, a gentler Easy opponent and architecture made for the company.",
+      "changes": [
+        "Menu backgrounds and battlefields fill the phone screen. Controls stay clear of camera cutouts and the home indicator, including when you rotate the phone.",
+        "Easy sends smaller squads, gives you longer to establish your village and regroups after losing a fighter. Medium and Hard retain their pressure.",
+        "The Town Center, House and Barracks have original silhouettes, mineral roofs, timber details and pale stone. Enemy roofs and banners use clay colours while their materials stay natural.",
+        "Browser controls share the custom command plates. Notices use clearer type and quieter colours; the problem-report form respects the phone safe area."
+      ]
+    },
+    {
       "id": "2026-10-22-battlefields",
       "version": "0.2.0-beta.2",
       "date": "2026-10-22",

@@ -1,0 +1,948 @@
+{
+  "scope": "Six paired 30-population ordinary-spending learner-proxy matches at fixed60, time_scale1. No resource grants, free units, injected damage or income modifiers in full matches. Not human balance or rendered performance evidence.",
+  "baseline_runtime_commit": "334fd81",
+  "baseline_runtime_hashes": {
+    "scripts/ai/ai_controller.gd": "b42eeb98ed8287f2d5ad44c75b07dc8a0a3ec94ef46343dce752d9cf3acbcacd",
+    "scripts/buildings/building_base.gd": "2be91cad7361b10d014f3a382df06d8619226b4df6ecff57c38d04f2491ca712",
+    "scripts/buildings/building_placement.gd": "a18d24990f92e4bb88a724be6b5de1e045c855dcad7bc34c29399e8a39ada536",
+    "scripts/buildings/production_queue.gd": "320e537d6bc13cc961db6f82b9145382b8f6f543957d0454c9e969fdbfb3418d",
+    "scripts/data/building_data.gd": "efaf130402720d18ae9bfe7fe55f3959a92e8e00bced2343c2a324011008f04f",
+    "scripts/data/skirmish_data.gd": "9fe46f0439df81f9e5f4634036988f9ed6a086d950063eb90d925e31933ad251",
+    "scripts/data/tech_data.gd": "4b7a0edb723b92e4e211df6f56b389c2fe23349489133526e4b632016aa3ead8",
+    "scripts/data/unit_data.gd": "d9cf105220fb82ce8b0d2d0cc7c8e3d6451a9cb04f13f300d301099e8e7048e5",
+    "scripts/main/group_order_planner.gd": "6cd953a8ea29cd115164ad8b97ad6832d4d12309d97c0e6cd80f25a4590ac3c8",
+    "scripts/main/main.gd": "8160b5c390f5a9748f003ecd8470d2403c8d8da9f771da67368502772099f4c0",
+    "scripts/main/match_debrief.gd": "dd7d327d9f6ee74957fc7473598b75ec6a52f2903cc715745e2e72eaedcc25f8",
+    "scripts/main/match_learning.gd": "28752f996af73ee1c4b015991aa9d74b0ad914a4413a9c096ed36e4135054cab",
+    "scripts/managers/audio_manager.gd": "7541c29380eb83a13d5db8dd6c89d2b3107cbc2423f3055c139704fba017b8bb",
+    "scripts/managers/economy_assessment.gd": "0deda89cd83813953f3788e024bd25dc2b7b7bbfcb980ca7c84cb4293443db8b",
+    "scripts/managers/fog_manager.gd": "12d3bc70d7bb03c6e6d85e14fa095ea2667c19c2c255e0cd8e8fac1e9ab7febd",
+    "scripts/managers/game_manager.gd": "d1d1668d6cee84f3556ea520c2dcaf6dfee9d1a4cec48df420280350f44bc961",
+    "scripts/managers/playtest_diagnostics.gd": "d8eb05e773c85c6b3c3734c68032855b95dce523a084213c710d349f26eb4a6c",
+    "scripts/managers/resource_manager.gd": "3cc4ce18ab4b60b69a8bcc4ea8127d99f0fb098934a8706cdf43fcb64fc359b7",
+    "scripts/managers/runtime_game_bridge.gd": "d36665dc69c21296055f134e5d850806e7032e6cbe49e1ca0490701be737353a",
+    "scripts/managers/selection_manager.gd": "7ea4786a935ea080b6f79766dfedf1c8841d46a18a4e3921d35efef7b7ceb182",
+    "scripts/managers/strategy_controller.gd": "b8f514374340e29c9895d72b34a780fe529e3626bcafc1e8ae0e9e8cb842f172",
+    "scripts/map/game_map.gd": "414655bdb42f9a5f69af5e60d1f8e260315fda1fdb91b00bb4ccd7c23c77fb1a",
+    "scripts/map/map_data.gd": "4ef25a5959f9a7aa312b0c8433f58e62c1a97488cfcb9b5a05995dcbc98caa0f",
+    "scripts/map/map_generator.gd": "8d93482746cdbb10b73d887459d3cfe002c311d4068e1f3916c9e951d5d0358b",
+    "scripts/map/pathfinding.gd": "2e04cf53471ae89593af7bcad7c03544eb6cccb03bb412f5a9a81aab00e4bc55",
+    "scripts/map/resource_node.gd": "ebf9f945a18b11283a247a282f4ea88ec4760036be95102dcc7a05c5c728b5ac",
+    "scripts/map/sacred_site.gd": "04139f7970faba20f5764eb954d1ae2adf933c0c04edbca9a810b42f106393d6",
+    "scripts/map/tileset_builder.gd": "e273f4f1b5ceacc18ebf5a5831f8955f1ec74c19a0d4de25e1da31e4db5f0bc5",
+    "scripts/network/network_session.gd": "1b5076149a78ce64575b155a672d738f880db3aa72ef131997561a2190f9aff2",
+    "scripts/ui/battlefield_feedback.gd": "245648637eb80497e82d86a8d13bdc7e5940b9d1c4dc61482e2f970dfbab34ed",
+    "scripts/ui/build_menu.gd": "0d96c37fac43334b5b75c52becc43ee91d21252a1361e9b36a46d812cc41cb7e",
+    "scripts/ui/command_icons.gd": "fb3f206e64d9e3b5f6903d40245ce6d7e85866ab142f547fcb15bee40bb81557",
+    "scripts/ui/command_path_overlay.gd": "34da27d69cbebde698c2b36c256df3fd55cd3720b6cf8a6d3338ae4f92767153",
+    "scripts/ui/debug_bootstrap.gd": "27258952ed47742b03a0d337e72b95872985b311e6818b04cfc76ad22c90721a",
+    "scripts/ui/debug_panel.gd": "bee369016901630243beb7f8aad815eaa737d06c26da26c4a5a864c430024554",
+    "scripts/ui/game_over_screen.gd": "53f50532f9f8eb59fd2d1469ec709a27c6727d41500ad3f7773f470eb9a2570f",
+    "scripts/ui/hud.gd": "62a538df4ee31145dfb2ec074ccf44933d4e05b15d27d711cbb84fd59266d483",
+    "scripts/ui/hud_hold_control.gd": "538e9e30c1c1314189d342301c3527723f69abfbc03b45a7746476e2e0f54cc2",
+    "scripts/ui/kingdom_theme.gd": "30f21e4b4b2d061c85e00decd357fe07802ca82210b34bbb895338b1d4377b73",
+    "scripts/ui/modal_dismiss_shield.gd": "a1a5890a631909256f1ea5f95536373773c7902651e103286ea1c5a96f1b2b9e",
+    "scripts/ui/strategy_overview.gd": "e8c853c634e0885114e07a994ca573f6abe3894e4183a22bc06f64162fd5e46d",
+    "scripts/ui/web_shell_bridge.gd": "7593604132095b525be11426f7af6f07d83c3ce7977f84acd7c9c454830aa753",
+    "scripts/units/auto_targeting.gd": "8a04fde81b30d50134a8b472c69b72b69ecdf35e2514a1ca4bafaf42dac3920b",
+    "scripts/units/combat.gd": "6b21e67b5812c413807940b90d9a7b67cf399bc91922ea6085855daaa01468f4",
+    "scripts/units/unit_base.gd": "88900a23306ff40e3a6dfbdcf432537e67b5ddcd5f6107155da97598c4c4c8a4",
+    "scripts/units/villager.gd": "f05c6bf167166959e57a377157bd42295d6ce76ef3500c96aa95263e95b4b100",
+    "scripts/vfx/vfx.gd": "83fb9d1743b9f7252e2e399e6977bea864990023ef139c0ac489bc961f1fea50",
+    "tools/fixtures/beginner_paid_policy.gd": "ae76e7b2740dd774bb5d5e7440fa0bf285ac3de6dbd6ace245abc0d0e189d3b0",
+    "tools/probe_ai_compact_paid_match.gd": "f2548c3fc745d0499c1e46958a0903db6c2c7e7be72b4608faccbae4accad694"
+  },
+  "verified_runtime_hashes": {
+    "scripts/ai/ai_controller.gd": "2af6d8141e758000d3c7f1ab9988ac7cfe13f812fbe008c79053e23a04e7d43e",
+    "scripts/buildings/building_base.gd": "2be91cad7361b10d014f3a382df06d8619226b4df6ecff57c38d04f2491ca712",
+    "scripts/buildings/building_placement.gd": "a18d24990f92e4bb88a724be6b5de1e045c855dcad7bc34c29399e8a39ada536",
+    "scripts/buildings/production_queue.gd": "320e537d6bc13cc961db6f82b9145382b8f6f543957d0454c9e969fdbfb3418d",
+    "scripts/data/building_data.gd": "efaf130402720d18ae9bfe7fe55f3959a92e8e00bced2343c2a324011008f04f",
+    "scripts/data/skirmish_data.gd": "55f29f70336392629f1879d7988827c334fee01e4df8c5f75cb9788f59334de4",
+    "scripts/data/tech_data.gd": "4b7a0edb723b92e4e211df6f56b389c2fe23349489133526e4b632016aa3ead8",
+    "scripts/data/unit_data.gd": "d9cf105220fb82ce8b0d2d0cc7c8e3d6451a9cb04f13f300d301099e8e7048e5",
+    "scripts/main/group_order_planner.gd": "6cd953a8ea29cd115164ad8b97ad6832d4d12309d97c0e6cd80f25a4590ac3c8",
+    "scripts/main/main.gd": "8160b5c390f5a9748f003ecd8470d2403c8d8da9f771da67368502772099f4c0",
+    "scripts/main/match_debrief.gd": "dd7d327d9f6ee74957fc7473598b75ec6a52f2903cc715745e2e72eaedcc25f8",
+    "scripts/main/match_learning.gd": "28752f996af73ee1c4b015991aa9d74b0ad914a4413a9c096ed36e4135054cab",
+    "scripts/managers/audio_manager.gd": "7541c29380eb83a13d5db8dd6c89d2b3107cbc2423f3055c139704fba017b8bb",
+    "scripts/managers/economy_assessment.gd": "0deda89cd83813953f3788e024bd25dc2b7b7bbfcb980ca7c84cb4293443db8b",
+    "scripts/managers/fog_manager.gd": "12d3bc70d7bb03c6e6d85e14fa095ea2667c19c2c255e0cd8e8fac1e9ab7febd",
+    "scripts/managers/game_manager.gd": "d1d1668d6cee84f3556ea520c2dcaf6dfee9d1a4cec48df420280350f44bc961",
+    "scripts/managers/playtest_diagnostics.gd": "d8eb05e773c85c6b3c3734c68032855b95dce523a084213c710d349f26eb4a6c",
+    "scripts/managers/resource_manager.gd": "3cc4ce18ab4b60b69a8bcc4ea8127d99f0fb098934a8706cdf43fcb64fc359b7",
+    "scripts/managers/runtime_game_bridge.gd": "d36665dc69c21296055f134e5d850806e7032e6cbe49e1ca0490701be737353a",
+    "scripts/managers/selection_manager.gd": "7ea4786a935ea080b6f79766dfedf1c8841d46a18a4e3921d35efef7b7ceb182",
+    "scripts/managers/strategy_controller.gd": "b8f514374340e29c9895d72b34a780fe529e3626bcafc1e8ae0e9e8cb842f172",
+    "scripts/map/game_map.gd": "414655bdb42f9a5f69af5e60d1f8e260315fda1fdb91b00bb4ccd7c23c77fb1a",
+    "scripts/map/map_data.gd": "4ef25a5959f9a7aa312b0c8433f58e62c1a97488cfcb9b5a05995dcbc98caa0f",
+    "scripts/map/map_generator.gd": "8d93482746cdbb10b73d887459d3cfe002c311d4068e1f3916c9e951d5d0358b",
+    "scripts/map/pathfinding.gd": "2e04cf53471ae89593af7bcad7c03544eb6cccb03bb412f5a9a81aab00e4bc55",
+    "scripts/map/resource_node.gd": "ebf9f945a18b11283a247a282f4ea88ec4760036be95102dcc7a05c5c728b5ac",
+    "scripts/map/sacred_site.gd": "04139f7970faba20f5764eb954d1ae2adf933c0c04edbca9a810b42f106393d6",
+    "scripts/map/tileset_builder.gd": "e273f4f1b5ceacc18ebf5a5831f8955f1ec74c19a0d4de25e1da31e4db5f0bc5",
+    "scripts/network/network_session.gd": "1b5076149a78ce64575b155a672d738f880db3aa72ef131997561a2190f9aff2",
+    "scripts/ui/battlefield_feedback.gd": "245648637eb80497e82d86a8d13bdc7e5940b9d1c4dc61482e2f970dfbab34ed",
+    "scripts/ui/build_menu.gd": "0d96c37fac43334b5b75c52becc43ee91d21252a1361e9b36a46d812cc41cb7e",
+    "scripts/ui/command_icons.gd": "fb3f206e64d9e3b5f6903d40245ce6d7e85866ab142f547fcb15bee40bb81557",
+    "scripts/ui/command_path_overlay.gd": "34da27d69cbebde698c2b36c256df3fd55cd3720b6cf8a6d3338ae4f92767153",
+    "scripts/ui/debug_bootstrap.gd": "27258952ed47742b03a0d337e72b95872985b311e6818b04cfc76ad22c90721a",
+    "scripts/ui/debug_panel.gd": "bee369016901630243beb7f8aad815eaa737d06c26da26c4a5a864c430024554",
+    "scripts/ui/game_over_screen.gd": "53f50532f9f8eb59fd2d1469ec709a27c6727d41500ad3f7773f470eb9a2570f",
+    "scripts/ui/hud.gd": "62a538df4ee31145dfb2ec074ccf44933d4e05b15d27d711cbb84fd59266d483",
+    "scripts/ui/hud_hold_control.gd": "538e9e30c1c1314189d342301c3527723f69abfbc03b45a7746476e2e0f54cc2",
+    "scripts/ui/kingdom_theme.gd": "30f21e4b4b2d061c85e00decd357fe07802ca82210b34bbb895338b1d4377b73",
+    "scripts/ui/modal_dismiss_shield.gd": "a1a5890a631909256f1ea5f95536373773c7902651e103286ea1c5a96f1b2b9e",
+    "scripts/ui/strategy_overview.gd": "e8c853c634e0885114e07a994ca573f6abe3894e4183a22bc06f64162fd5e46d",
+    "scripts/ui/web_shell_bridge.gd": "7593604132095b525be11426f7af6f07d83c3ce7977f84acd7c9c454830aa753",
+    "scripts/units/auto_targeting.gd": "8a04fde81b30d50134a8b472c69b72b69ecdf35e2514a1ca4bafaf42dac3920b",
+    "scripts/units/combat.gd": "6b21e67b5812c413807940b90d9a7b67cf399bc91922ea6085855daaa01468f4",
+    "scripts/units/unit_base.gd": "88900a23306ff40e3a6dfbdcf432537e67b5ddcd5f6107155da97598c4c4c8a4",
+    "scripts/units/villager.gd": "f05c6bf167166959e57a377157bd42295d6ce76ef3500c96aa95263e95b4b100",
+    "scripts/vfx/vfx.gd": "83fb9d1743b9f7252e2e399e6977bea864990023ef139c0ac489bc961f1fea50",
+    "tools/fixtures/beginner_paid_policy.gd": "ae76e7b2740dd774bb5d5e7440fa0bf285ac3de6dbd6ace245abc0d0e189d3b0",
+    "tools/probe_ai_compact_paid_match.gd": "f2548c3fc745d0499c1e46958a0903db6c2c7e7be72b4608faccbae4accad694"
+  },
+  "learner_policy": {
+    "build_input_spacing": 20.0,
+    "decision_seconds": 6.0,
+    "definition": "Slower automated Medium policy; not human play. Normal costs, queues, workers and damage. No injected losses or resources.",
+    "field_orders_at": 240.0,
+    "first_barracks_at": 90.0,
+    "opening_delay": 18.0,
+    "recovery_seconds": 45.0,
+    "train_input_spacing": 18.0,
+    "wounded_unit_micro": false
+  },
+  "private_user_directories_unique": true,
+  "cases": [
+    {
+      "map": "Open Plains",
+      "archetype": 0,
+      "seed": 101,
+      "runtime_changed_paths": [
+        "scripts/ai/ai_controller.gd",
+        "scripts/data/skirmish_data.gd"
+      ],
+      "before": {
+        "first_contact_seconds": 258.8,
+        "first_ai_unit_damage_seconds": 258.8,
+        "first_ai_raid_seconds": 240.02,
+        "first_ai_objective_order_seconds": 258.02,
+        "end_seconds": 551.13,
+        "winner": 1,
+        "victory_reason": "Sacred Site held for 3:00",
+        "learner_first_natural_fighter_loss": 286.75,
+        "learner_first_paid_fighter_replacement": 306.02,
+        "learner_paid_fighters_after_loss": 14,
+        "peak_committed_fighters": [
+          5,
+          9
+        ],
+        "peak_workers": [
+          15,
+          12
+        ],
+        "kills": [
+          10,
+          16
+        ],
+        "damage_active_seconds": 70,
+        "longest_quiet_gap_after_contact": 83.08,
+        "ai_regroup_seconds": 0,
+        "sampled_ai_objective_force_peak": 6,
+        "first_home_damage": [
+          -1.0,
+          -1.0
+        ],
+        "first_worker_damage": [
+          -1.0,
+          -1.0
+        ],
+        "first_town_center_damage": [
+          -1.0,
+          -1.0
+        ],
+        "ages": [
+          3,
+          3
+        ],
+        "deposited_by_resource": [
+          {
+            "food": 4126,
+            "gold": 700,
+            "wood": 1945
+          },
+          {
+            "food": 2379,
+            "gold": 507,
+            "wood": 1930
+          }
+        ]
+      },
+      "after": {
+        "first_contact_seconds": 314.77,
+        "first_ai_unit_damage_seconds": 314.77,
+        "first_ai_raid_seconds": 356.02,
+        "first_ai_objective_order_seconds": 300.02,
+        "end_seconds": 659.9,
+        "winner": 0,
+        "victory_reason": "Sacred Site held for 3:00",
+        "learner_first_natural_fighter_loss": 324.48,
+        "learner_first_paid_fighter_replacement": 348.02,
+        "learner_paid_fighters_after_loss": 11,
+        "peak_committed_fighters": [
+          12,
+          7
+        ],
+        "peak_workers": [
+          15,
+          12
+        ],
+        "kills": [
+          4,
+          5
+        ],
+        "damage_active_seconds": 35,
+        "longest_quiet_gap_after_contact": 67.95,
+        "ai_regroup_seconds": 177.88,
+        "sampled_ai_objective_force_peak": 4,
+        "first_home_damage": [
+          384.499999999979,
+          -1.0
+        ],
+        "first_worker_damage": [
+          -1.0,
+          -1.0
+        ],
+        "first_town_center_damage": [
+          -1.0,
+          -1.0
+        ],
+        "ages": [
+          3,
+          3
+        ],
+        "deposited_by_resource": [
+          {
+            "food": 6035,
+            "gold": 647,
+            "wood": 2012
+          },
+          {
+            "food": 2622,
+            "gold": 845,
+            "wood": 2187
+          }
+        ]
+      }
+    },
+    {
+      "map": "Open Plains",
+      "archetype": 0,
+      "seed": 424242,
+      "runtime_changed_paths": [
+        "scripts/ai/ai_controller.gd",
+        "scripts/data/skirmish_data.gd"
+      ],
+      "before": {
+        "first_contact_seconds": 257.98,
+        "first_ai_unit_damage_seconds": 257.98,
+        "first_ai_raid_seconds": 240.02,
+        "first_ai_objective_order_seconds": 258.02,
+        "end_seconds": 670.25,
+        "winner": 1,
+        "victory_reason": "Sacred Site held for 3:00",
+        "learner_first_natural_fighter_loss": 291.53,
+        "learner_first_paid_fighter_replacement": 312.02,
+        "learner_paid_fighters_after_loss": 22,
+        "peak_committed_fighters": [
+          6,
+          10
+        ],
+        "peak_workers": [
+          15,
+          12
+        ],
+        "kills": [
+          13,
+          23
+        ],
+        "damage_active_seconds": 102,
+        "longest_quiet_gap_after_contact": 85.12,
+        "ai_regroup_seconds": 0,
+        "sampled_ai_objective_force_peak": 7,
+        "first_home_damage": [
+          -1.0,
+          -1.0
+        ],
+        "first_worker_damage": [
+          -1.0,
+          -1.0
+        ],
+        "first_town_center_damage": [
+          -1.0,
+          -1.0
+        ],
+        "ages": [
+          3,
+          3
+        ],
+        "deposited_by_resource": [
+          {
+            "food": 6226,
+            "gold": 807,
+            "wood": 1975
+          },
+          {
+            "food": 2980,
+            "gold": 647,
+            "wood": 2135
+          }
+        ]
+      },
+      "after": {
+        "first_contact_seconds": 275.13,
+        "first_ai_unit_damage_seconds": 306.75,
+        "first_ai_raid_seconds": 354.02,
+        "first_ai_objective_order_seconds": 300.02,
+        "end_seconds": 625.52,
+        "winner": 0,
+        "victory_reason": "Sacred Site held for 3:00",
+        "learner_first_natural_fighter_loss": 308.9,
+        "learner_first_paid_fighter_replacement": 348.02,
+        "learner_paid_fighters_after_loss": 14,
+        "peak_committed_fighters": [
+          12,
+          7
+        ],
+        "peak_workers": [
+          15,
+          12
+        ],
+        "kills": [
+          6,
+          6
+        ],
+        "damage_active_seconds": 39,
+        "longest_quiet_gap_after_contact": 71.53,
+        "ai_regroup_seconds": 171.5,
+        "sampled_ai_objective_force_peak": 4,
+        "first_home_damage": [
+          -1.0,
+          -1.0
+        ],
+        "first_worker_damage": [
+          -1.0,
+          -1.0
+        ],
+        "first_town_center_damage": [
+          -1.0,
+          -1.0
+        ],
+        "ages": [
+          3,
+          3
+        ],
+        "deposited_by_resource": [
+          {
+            "food": 5490,
+            "gold": 647,
+            "wood": 2060
+          },
+          {
+            "food": 2667,
+            "gold": 890,
+            "wood": 1930
+          }
+        ]
+      }
+    },
+    {
+      "map": "River Crossings",
+      "archetype": 1,
+      "seed": 101,
+      "runtime_changed_paths": [
+        "scripts/ai/ai_controller.gd",
+        "scripts/data/skirmish_data.gd"
+      ],
+      "before": {
+        "first_contact_seconds": 262.72,
+        "first_ai_unit_damage_seconds": 262.72,
+        "first_ai_raid_seconds": 240.02,
+        "first_ai_objective_order_seconds": 258.02,
+        "end_seconds": 521.27,
+        "winner": 1,
+        "victory_reason": "Sacred Site held for 3:00",
+        "learner_first_natural_fighter_loss": 275.18,
+        "learner_first_paid_fighter_replacement": 306.02,
+        "learner_paid_fighters_after_loss": 13,
+        "peak_committed_fighters": [
+          7,
+          9
+        ],
+        "peak_workers": [
+          15,
+          12
+        ],
+        "kills": [
+          4,
+          14
+        ],
+        "damage_active_seconds": 59,
+        "longest_quiet_gap_after_contact": 82.38,
+        "ai_regroup_seconds": 0,
+        "sampled_ai_objective_force_peak": 7,
+        "first_home_damage": [
+          -1.0,
+          -1.0
+        ],
+        "first_worker_damage": [
+          -1.0,
+          -1.0
+        ],
+        "first_town_center_damage": [
+          -1.0,
+          -1.0
+        ],
+        "ages": [
+          3,
+          3
+        ],
+        "deposited_by_resource": [
+          {
+            "food": 3998,
+            "gold": 800,
+            "wood": 1744
+          },
+          {
+            "food": 2711,
+            "gold": 523,
+            "wood": 1750
+          }
+        ]
+      },
+      "after": {
+        "first_contact_seconds": 294.08,
+        "first_ai_unit_damage_seconds": 294.08,
+        "first_ai_raid_seconds": 366.02,
+        "first_ai_objective_order_seconds": 300.02,
+        "end_seconds": 735.43,
+        "winner": 0,
+        "victory_reason": "Sacred Site held for 3:00",
+        "learner_first_natural_fighter_loss": 329.4,
+        "learner_first_paid_fighter_replacement": 420.02,
+        "learner_paid_fighters_after_loss": 12,
+        "peak_committed_fighters": [
+          12,
+          6
+        ],
+        "peak_workers": [
+          15,
+          12
+        ],
+        "kills": [
+          7,
+          4
+        ],
+        "damage_active_seconds": 61,
+        "longest_quiet_gap_after_contact": 72.38,
+        "ai_regroup_seconds": 167.42,
+        "sampled_ai_objective_force_peak": 4,
+        "first_home_damage": [
+          414.433333333285,
+          -1.0
+        ],
+        "first_worker_damage": [
+          393.083333333304,
+          -1.0
+        ],
+        "first_town_center_damage": [
+          -1.0,
+          -1.0
+        ],
+        "ages": [
+          3,
+          3
+        ],
+        "deposited_by_resource": [
+          {
+            "food": 6533,
+            "gold": 782,
+            "wood": 2410
+          },
+          {
+            "food": 3878,
+            "gold": 830,
+            "wood": 1900
+          }
+        ]
+      }
+    },
+    {
+      "map": "River Crossings",
+      "archetype": 1,
+      "seed": 424242,
+      "runtime_changed_paths": [
+        "scripts/ai/ai_controller.gd",
+        "scripts/data/skirmish_data.gd"
+      ],
+      "before": {
+        "first_contact_seconds": 257.52,
+        "first_ai_unit_damage_seconds": 257.52,
+        "first_ai_raid_seconds": 240.02,
+        "first_ai_objective_order_seconds": 258.02,
+        "end_seconds": 900.02,
+        "winner": -1,
+        "victory_reason": "unresolved at 900s",
+        "learner_first_natural_fighter_loss": 291.8,
+        "learner_first_paid_fighter_replacement": 312.02,
+        "learner_paid_fighters_after_loss": 41,
+        "peak_committed_fighters": [
+          12,
+          10
+        ],
+        "peak_workers": [
+          15,
+          12
+        ],
+        "kills": [
+          30,
+          34
+        ],
+        "damage_active_seconds": 172,
+        "longest_quiet_gap_after_contact": 64.43,
+        "ai_regroup_seconds": 0,
+        "sampled_ai_objective_force_peak": 7,
+        "first_home_damage": [
+          -1.0,
+          -1.0
+        ],
+        "first_worker_damage": [
+          -1.0,
+          892.349999999517
+        ],
+        "first_town_center_damage": [
+          -1.0,
+          -1.0
+        ],
+        "ages": [
+          3,
+          3
+        ],
+        "deposited_by_resource": [
+          {
+            "food": 7707,
+            "gold": 905,
+            "wood": 2765
+          },
+          {
+            "food": 4451,
+            "gold": 683,
+            "wood": 2310
+          }
+        ]
+      },
+      "after": {
+        "first_contact_seconds": 293.73,
+        "first_ai_unit_damage_seconds": 293.73,
+        "first_ai_raid_seconds": 350.02,
+        "first_ai_objective_order_seconds": 308.02,
+        "end_seconds": 720.17,
+        "winner": 0,
+        "victory_reason": "Sacred Site held for 3:00",
+        "learner_first_natural_fighter_loss": 319.68,
+        "learner_first_paid_fighter_replacement": 342.02,
+        "learner_paid_fighters_after_loss": 12,
+        "peak_committed_fighters": [
+          12,
+          7
+        ],
+        "peak_workers": [
+          15,
+          12
+        ],
+        "kills": [
+          9,
+          6
+        ],
+        "damage_active_seconds": 44,
+        "longest_quiet_gap_after_contact": 62.88,
+        "ai_regroup_seconds": 180.0,
+        "sampled_ai_objective_force_peak": 4,
+        "first_home_damage": [
+          379.533333333317,
+          -1.0
+        ],
+        "first_worker_damage": [
+          -1.0,
+          -1.0
+        ],
+        "first_town_center_damage": [
+          -1.0,
+          -1.0
+        ],
+        "ages": [
+          3,
+          3
+        ],
+        "deposited_by_resource": [
+          {
+            "food": 6343,
+            "gold": 800,
+            "wood": 2045
+          },
+          {
+            "food": 3843,
+            "gold": 800,
+            "wood": 1972
+          }
+        ]
+      }
+    },
+    {
+      "map": "Woodland Flanks",
+      "archetype": 2,
+      "seed": 101,
+      "runtime_changed_paths": [
+        "scripts/ai/ai_controller.gd",
+        "scripts/data/skirmish_data.gd"
+      ],
+      "before": {
+        "first_contact_seconds": 258.88,
+        "first_ai_unit_damage_seconds": 258.88,
+        "first_ai_raid_seconds": 240.02,
+        "first_ai_objective_order_seconds": 258.02,
+        "end_seconds": 561.33,
+        "winner": 1,
+        "victory_reason": "Sacred Site held for 3:00",
+        "learner_first_natural_fighter_loss": 275.72,
+        "learner_first_paid_fighter_replacement": 306.02,
+        "learner_paid_fighters_after_loss": 15,
+        "peak_committed_fighters": [
+          6,
+          9
+        ],
+        "peak_workers": [
+          15,
+          12
+        ],
+        "kills": [
+          7,
+          17
+        ],
+        "damage_active_seconds": 78,
+        "longest_quiet_gap_after_contact": 47.65,
+        "ai_regroup_seconds": 0,
+        "sampled_ai_objective_force_peak": 7,
+        "first_home_damage": [
+          -1.0,
+          -1.0
+        ],
+        "first_worker_damage": [
+          -1.0,
+          -1.0
+        ],
+        "first_town_center_damage": [
+          -1.0,
+          -1.0
+        ],
+        "ages": [
+          3,
+          3
+        ],
+        "deposited_by_resource": [
+          {
+            "food": 4027,
+            "gold": 775,
+            "wood": 2071
+          },
+          {
+            "food": 2973,
+            "gold": 622,
+            "wood": 1912
+          }
+        ]
+      },
+      "after": {
+        "first_contact_seconds": 274.87,
+        "first_ai_unit_damage_seconds": 303.72,
+        "first_ai_raid_seconds": -1.0,
+        "first_ai_objective_order_seconds": 300.02,
+        "end_seconds": 677.28,
+        "winner": 0,
+        "victory_reason": "Sacred Site held for 3:00",
+        "learner_first_natural_fighter_loss": 404.5,
+        "learner_first_paid_fighter_replacement": 420.02,
+        "learner_paid_fighters_after_loss": 13,
+        "peak_committed_fighters": [
+          12,
+          7
+        ],
+        "peak_workers": [
+          15,
+          12
+        ],
+        "kills": [
+          6,
+          8
+        ],
+        "damage_active_seconds": 52,
+        "longest_quiet_gap_after_contact": 74.42,
+        "ai_regroup_seconds": 221.27,
+        "sampled_ai_objective_force_peak": 4,
+        "first_home_damage": [
+          -1.0,
+          -1.0
+        ],
+        "first_worker_damage": [
+          -1.0,
+          -1.0
+        ],
+        "first_town_center_damage": [
+          -1.0,
+          -1.0
+        ],
+        "ages": [
+          3,
+          3
+        ],
+        "deposited_by_resource": [
+          {
+            "food": 5412,
+            "gold": 619,
+            "wood": 2335
+          },
+          {
+            "food": 3613,
+            "gold": 840,
+            "wood": 2060
+          }
+        ]
+      }
+    },
+    {
+      "map": "Woodland Flanks",
+      "archetype": 2,
+      "seed": 424242,
+      "runtime_changed_paths": [
+        "scripts/ai/ai_controller.gd",
+        "scripts/data/skirmish_data.gd"
+      ],
+      "before": {
+        "first_contact_seconds": 258.32,
+        "first_ai_unit_damage_seconds": 258.32,
+        "first_ai_raid_seconds": 240.02,
+        "first_ai_objective_order_seconds": 258.02,
+        "end_seconds": 900.02,
+        "winner": -1,
+        "victory_reason": "unresolved at 900s",
+        "learner_first_natural_fighter_loss": 275.9,
+        "learner_first_paid_fighter_replacement": 306.02,
+        "learner_paid_fighters_after_loss": 35,
+        "peak_committed_fighters": [
+          11,
+          10
+        ],
+        "peak_workers": [
+          15,
+          12
+        ],
+        "kills": [
+          28,
+          39
+        ],
+        "damage_active_seconds": 162,
+        "longest_quiet_gap_after_contact": 81.22,
+        "ai_regroup_seconds": 0,
+        "sampled_ai_objective_force_peak": 7,
+        "first_home_damage": [
+          -1.0,
+          -1.0
+        ],
+        "first_worker_damage": [
+          -1.0,
+          -1.0
+        ],
+        "first_town_center_damage": [
+          -1.0,
+          -1.0
+        ],
+        "ages": [
+          3,
+          3
+        ],
+        "deposited_by_resource": [
+          {
+            "food": 8259,
+            "gold": 800,
+            "wood": 2445
+          },
+          {
+            "food": 5972,
+            "gold": 613,
+            "wood": 2284
+          }
+        ]
+      },
+      "after": {
+        "first_contact_seconds": 314.78,
+        "first_ai_unit_damage_seconds": 314.78,
+        "first_ai_raid_seconds": 402.02,
+        "first_ai_objective_order_seconds": 300.02,
+        "end_seconds": 750.05,
+        "winner": 0,
+        "victory_reason": "Sacred Site held for 3:00",
+        "learner_first_natural_fighter_loss": 356.8,
+        "learner_first_paid_fighter_replacement": 364.02,
+        "learner_paid_fighters_after_loss": 12,
+        "peak_committed_fighters": [
+          12,
+          6
+        ],
+        "peak_workers": [
+          15,
+          12
+        ],
+        "kills": [
+          6,
+          6
+        ],
+        "damage_active_seconds": 50,
+        "longest_quiet_gap_after_contact": 72.13,
+        "ai_regroup_seconds": 224.03,
+        "sampled_ai_objective_force_peak": 4,
+        "first_home_damage": [
+          -1.0,
+          -1.0
+        ],
+        "first_worker_damage": [
+          -1.0,
+          -1.0
+        ],
+        "first_town_center_damage": [
+          -1.0,
+          -1.0
+        ],
+        "ages": [
+          3,
+          3
+        ],
+        "deposited_by_resource": [
+          {
+            "food": 6749,
+            "gold": 774,
+            "wood": 2060
+          },
+          {
+            "food": 4905,
+            "gold": 845,
+            "wood": 1921
+          }
+        ]
+      }
+    }
+  ],
+  "medium_hard_controls": [
+    {
+      "case": "map0-seed101-difficulty1",
+      "all_measured_fields_identical": true,
+      "first_contact_seconds": 150.650000000012,
+      "end_seconds": 472.099999999899,
+      "winner": 1,
+      "before_ai_hash": "b42eeb98ed8287f2d5ad44c75b07dc8a0a3ec94ef46343dce752d9cf3acbcacd",
+      "candidate_ai_hash": "a57003cf2b7aff2a62f7de98251db7ffd33ca7fd1bdc6e3cadb7fdc240efff19",
+      "scope": "Paid control candidate predates final Easy-only Scout withdrawal and reserve-stance fixes. Final difficulty-isolation behavior is additionally covered by focused tests."
+    },
+    {
+      "case": "map2-seed424242-difficulty2",
+      "all_measured_fields_identical": true,
+      "first_contact_seconds": 147.533333333343,
+      "end_seconds": 493.84999999988,
+      "winner": 0,
+      "before_ai_hash": "b42eeb98ed8287f2d5ad44c75b07dc8a0a3ec94ef46343dce752d9cf3acbcacd",
+      "candidate_ai_hash": "a57003cf2b7aff2a62f7de98251db7ffd33ca7fd1bdc6e3cadb7fdc240efff19",
+      "scope": "Paid control candidate predates final Easy-only Scout withdrawal and reserve-stance fixes. Final difficulty-isolation behavior is additionally covered by focused tests."
+    }
+  ],
+  "focused_tests": [
+    {
+      "test": "test_easy_learning_pressure.gd",
+      "passed": true,
+      "exit": 0
+    },
+    {
+      "test": "test_compact_ai_policy.gd",
+      "passed": true,
+      "exit": 0
+    },
+    {
+      "test": "test_ai_strategic_policy.gd",
+      "passed": true,
+      "exit": 0
+    },
+    {
+      "test": "test_ai_live_vision.tscn",
+      "passed": true,
+      "exit": 0
+    },
+    {
+      "test": "test_ai_economy_recovery.gd",
+      "passed": true,
+      "exit": 0
+    },
+    {
+      "test": "test_ai_attack_wave_recovery.gd",
+      "passed": true,
+      "exit": 0
+    },
+    {
+      "test": "test_ai_recovery_composition.tscn",
+      "passed": true,
+      "exit": 0
+    },
+    {
+      "test": "test_easy_siege_budget.tscn",
+      "passed": true,
+      "exit": 0
+    },
+    {
+      "test": "test_easy_scout_regroup_maps.tscn",
+      "passed": true,
+      "exit": 0
+    }
+  ],
+  "scout_regroup_maps": [
+    {
+      "ai_source": "2af6d8141e758000d3c7f1ab9988ac7cfe13f812fbe008c79053e23a04e7d43e",
+      "archetype": 0,
+      "final_distance": 316.666412353516,
+      "initial_path_points": 6,
+      "legal_route": true,
+      "paid_opening_seconds": 80.0833333333339,
+      "seconds_to_clear_capture_and_buffer": 2.35,
+      "seed": 101
+    },
+    {
+      "ai_source": "2af6d8141e758000d3c7f1ab9988ac7cfe13f812fbe008c79053e23a04e7d43e",
+      "archetype": 1,
+      "final_distance": 316.666412353516,
+      "initial_path_points": 6,
+      "legal_route": true,
+      "paid_opening_seconds": 82.0833333333338,
+      "seconds_to_clear_capture_and_buffer": 2.35,
+      "seed": 101
+    },
+    {
+      "ai_source": "2af6d8141e758000d3c7f1ab9988ac7cfe13f812fbe008c79053e23a04e7d43e",
+      "archetype": 2,
+      "final_distance": 316.666412353516,
+      "initial_path_points": 6,
+      "legal_route": true,
+      "paid_opening_seconds": 86.0833333333336,
+      "seconds_to_clear_capture_and_buffer": 2.35,
+      "seed": 101
+    }
+  ],
+  "local_evidence_root": "output/easy-learning-20261022"
+}

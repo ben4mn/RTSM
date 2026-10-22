@@ -392,7 +392,11 @@ func _test_easy_opening_pacing(gm: Node) -> void:
 	_fixtures.append(site)
 	visibility_map.sacred_site = site
 	ai.call("_check_attack_or_defend")
-	_expect(str(ai.get("_last_strategy_decision")) == "contest_sacred_site" and (ai.get("_objective_units") as Array).size() == 3, "a hostile Sacred claim receives all three opening fighters during the raid delay")
+	_expect((ai.get("_objective_units") as Array).is_empty(), "an early Sacred probe cannot bypass Easy opening grace")
+	_expect(bool(ai.call("_should_hold_sacred_recon", site)), "Easy Scout holds outside capture during early enemy claim")
+	ai.set("_game_time", float(SkirmishData.AI_RAID_START_SECONDS[0]) + 1.0)
+	ai.call("_check_attack_or_defend")
+	_expect(str(ai.get("_last_strategy_decision")) == "contest_sacred_site" and (ai.get("_objective_units") as Array).size() == 3, "a hostile Sacred claim receives a bounded three-fighter squad after the opening grace")
 	var chased_enemy: Node = (load("res://scenes/units/infantry.tscn") as PackedScene).instantiate()
 	chased_enemy.set("player_owner", 0)
 	chased_enemy.set("position", Vector2(520.0, 1000.0))
@@ -484,7 +488,7 @@ func _test_easy_paid_fighter_caps(gm: Node) -> void:
 			ai.call("register_building", building)
 			fixtures.append(building)
 			buildings.append(building)
-		var fighter_cap: int = int({20: 6, 30: 9, 40: 12}[limit])
+		var fighter_cap: int = int({20: 4, 30: 6, 40: 8}[limit])
 		var soldiers: Array[Node] = []
 		for index: int in range(fighter_cap - 2):
 			var warrior: Node = (load("res://scenes/units/infantry.tscn") as PackedScene).instantiate()

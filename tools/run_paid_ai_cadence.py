@@ -8,7 +8,9 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import tempfile
 import time
+import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
@@ -19,6 +21,7 @@ parser.add_argument('--duration', type=float, default=900)
 parser.add_argument('--jobs', type=int, default=2)
 parser.add_argument('--wall-timeout', type=float, default=1200)
 parser.add_argument('--human-difficulty', type=int, default=1)
+parser.add_argument('--beginner', action='store_true', help='Use the fixed slower paid learner fixture for player 0')
 args = parser.parse_args()
 args.output = args.output.resolve()
 args.output.mkdir(parents=True, exist_ok=True)
@@ -33,10 +36,26 @@ def run_case(case):
     name = f'map{archetype}-seed{seed}-difficulty{difficulty}'
     report = args.output / f'{name}.json'
     log = args.output / f'{name}.log'
-    command = [godot, '--headless', '--fixed-fps', '60', '--path', str(args.project.resolve()),
+    # A private project configuration selects a private Godot user directory.
+    # Symlink runtime inputs read-only by convention, without copying huge imports
+    # or repurposing HOME. Parallel cases never read/write player preferences.
+    isolated = tempfile.TemporaryDirectory(prefix='aoem-paid-case-')
+    project = Path(isolated.name)
+    source = args.project.resolve()
+    for entry in source.iterdir():
+        if entry.name not in ('project.godot', 'override.cfg', '.git', 'output', 'builds'):
+            (project / entry.name).symlink_to(entry, target_is_directory=entry.is_dir())
+    user_dir = f'aoem-paid-probes/{uuid.uuid4().hex}'
+    project_text = (source / 'project.godot').read_text()
+    project_text = '\n'.join(line for line in project_text.splitlines() if not line.startswith(('config/use_custom_user_dir=', 'config/custom_user_dir_name=')))
+    project_text = project_text.replace('[application]', '[application]\nconfig/use_custom_user_dir=true\nconfig/custom_user_dir_name="' + user_dir + '"', 1)
+    (project / 'project.godot').write_text(project_text+'\n')
+    command = [godot, '--headless', '--fixed-fps', '60', '--path', str(project),
                'res://tools/probe_ai_compact_paid_match.tscn', '--', '--pop=30',
                f'--seed={seed}', f'--difficulty={difficulty}', f'--human-difficulty={args.human_difficulty}',
                f'--duration={args.duration}', f'--archetype={archetype}', f'--output={report}']
+    if args.beginner:
+        command.append('--beginner')
     started = time.monotonic()
     environment = os.environ.copy()
     environment.update(AOEM_AI_DIFFICULTY=str(difficulty), AOEM_MAP_ARCHETYPE=str(archetype), AOEM_SIM_TIME_SCALE='1')
@@ -44,7 +63,9 @@ def run_case(case):
         try:
             result = subprocess.run(command, stdout=stream, stderr=subprocess.STDOUT, timeout=args.wall_timeout, env=environment)
         except subprocess.TimeoutExpired:
+            isolated.cleanup()
             return {'case': name, 'error': 'wall timeout', 'log': str(log)}
+    isolated.cleanup()
     text = log.read_text()
     if result.returncode or 'SCRIPT ERROR' in text or 'ERROR:' in text or not report.exists():
         return {'case': name, 'error': f'process failed ({result.returncode})', 'log': str(log)}
@@ -68,6 +89,10 @@ def run_case(case):
             'counter_hits_by_role': data.get('counter_hits_by_role'), 'decision_seconds': cadence.get('decision_seconds'),
             'kills': data['kills'], 'peak_troops': data['peak_troops'], 'peak_workers': data['peak_workers'],
             'ages': data['ages'], 'deposits': data['deposited_by_resource'],
+            'beginner_policy': data.get('beginner_policy', {}), 'winner': data.get('winner', -1),
+            'first_home_damage': data.get('first_home_damage'), 'first_worker_damage': data.get('first_worker_damage'),
+            'first_town_center_damage': data.get('first_town_center_damage'),
+            'user_data_dir': data.get('user_data_dir'),
             'runtime_source_hashes': data['runtime_source_hashes'], 'report': str(report), 'log': str(log)}
 
 

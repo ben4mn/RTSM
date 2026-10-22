@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- Original Company shield hall. Long low roof, broad open armory door,
+       shield sign and upright training spears distinguish the infantry role. -->
+  <g stroke-linejoin="round" stroke-linecap="round" transform="translate(0,-2) scale(1,.73)">
+    <path d="M14 98 57 80 118 96 77 119 24 112Z" fill="#263c36" opacity=".22"/>
+    <path d="M16 83 68 95 114 75 114 101 72 118 16 105Z" fill="#829782" stroke="#344a43" stroke-width="1.7"/>
+    <path d="M16 83 68 95 68 110 16 99Z" fill="#c2c5ac"/>
+    <path d="M16 99 68 110 114 91 114 101 72 118 16 105Z" fill="#9cab91"/>
+    <path d="M16 99 68 110 68 116 16 105Z" fill="#d2d1b6"/>
+    <!-- Wide armory walls, strong corner posts. -->
+    <path d="M22 47 70 59 70 102 22 91Z" fill="#ded8c0" stroke="#344a43" stroke-width="1.8"/>
+    <path d="M70 59 105 42 105 86 70 102Z" fill="#9caf98" stroke="#344a43" stroke-width="1.6"/>
+    <path d="M23 51 70 62 70 69 23 58 M25 58 30 59 30 92 25 91 M63 67 68 68 68 101 63 100" fill="#747e64"/>
+    <path d="M74 66 79 64 79 98 74 100 M99 54 104 52 104 87 99 89" fill="#587261"/>
+    <path d="M22 85 70 96 105 81 105 86 70 102 22 91Z" fill="#8e9f87"/>
+    <!-- Long double-pitch roof and raised ridge vent. -->
+    <path d="M15 46 47 17 88 26 113 43 71 64Z" fill="#304c45" stroke="#293d39" stroke-width="2"/>
+    <path d="M15 46 47 17 88 26 71 58Z" fill="#729b8c"/>
+    <path d="M47 17 88 26 113 43 71 58Z" fill="#4d796a"/>
+    <path d="M47 17 88 26" stroke="#c6cbae" stroke-width="2"/>
+    <path d="M29 45 52 24 M45 49 63 26 M60 53 75 29 M92 33 103 42" fill="none" stroke="#a6bda6" stroke-width="1.2" opacity=".65"/>
+    <path d="M16 47 71 60 112 43" fill="none" stroke="#bcc6a7" stroke-width="1.5"/>
+    <path d="M51 17 63 8 84 13 93 24 78 30 51 24Z" fill="#36594b" stroke="#314d42" stroke-width="1.3"/>
+    <path d="M49 17 63 6 85 12 95 23 78 26Z" fill="#9eb69d" stroke="#3b5849" stroke-width="1.4"/>
+    <path d="M51 18 78 26 78 30 51 24Z" fill="#d3cfb1"/>
+    <path d="M58 22 58 25 M66 24 66 27 M73 26 73 29" stroke="#526e57" stroke-width="2"/>
+    <!-- Deep open door with its planked leaves folded back. -->
+    <path d="M35 64 58 69 58 98 35 93Z" fill="#2c4940"/>
+    <path d="M35 65 40 66 40 94 35 93Z M53 69 58 70 58 98 53 97Z" fill="#a6a582"/>
+    <path d="M37 69 37 91 M56 73 56 95" stroke="#758663" stroke-width="1.1"/>
+    <path d="M40 88 53 91 53 97 40 94Z" fill="#607d60"/>
+    <path d="M32 63 60 69 63 63 36 57Z" fill="#587e66" stroke="#344a43" stroke-width="1.4"/>
+    <path d="M31 65 31 93 M61 71 61 99" stroke="#d9d5b8" stroke-width="2.6"/>
+    <path d="M33 97 58 103 58 109 33 103Z" fill="#c6c7a9" stroke="#81967b" stroke-width=".9"/>
+    <!-- Large shield sign echoes the company Warrior, visible at match zoom. -->
+    <path d="M79 66 91 61 91 77 85 87 79 83Z" fill="#e2dbc0" stroke="#3d5c49" stroke-width="1.4"/>
+    <path d="M81 68 89 65 89 76 85 83 81 80Z" fill="#547d65"/>
+    <path d="M84 69 84 75 87 74" fill="none" stroke="#dcd1a8" stroke-width="1.5"/>
+    <!-- Upright spear rack outside the return wall; chunky heads stay legible. -->
+    <path d="M101 93 104 68 M108 90 111 65" stroke="#7b8260" stroke-width="2.2"/>
+    <path d="M104 62 101 69 106 70Z M111 59 108 66 113 67Z" fill="#d4d4bc" stroke="#506b54" stroke-width="1"/>
+    <path d="M99 84 112 78 M98 94 111 88" stroke="#596f52" stroke-width="2.5"/>
+    <path d="M24 78 31 80 M76 94 85 90 M22 100 33 102" stroke="#b8c3a6" stroke-width="1"/>
+  </g>
+</svg>
