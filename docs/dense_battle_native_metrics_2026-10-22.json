@@ -318,5 +318,7 @@
       "reason": "Standalone LaunchServices focus preflight failed; paid setup never started."
     }
   ],
-  "artifacts": "output/dense-battle-native-20261022/focus4/"
+  "artifacts": "output/dense-battle-native-20261022/focus4/",
+  "raw_archive": "docs/evidence/dense-battle-native-20261022.json.gz",
+  "uncompressed_raw_sha256": "b7c9067cf3e50b176751f449a2eca822300deeb5cec3c0d74e4912b762307f51"
 }
