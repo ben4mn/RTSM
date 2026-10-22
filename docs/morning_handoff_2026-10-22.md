@@ -37,4 +37,4 @@ Detailed records: [overnight journal](overnight_iteration_2026-10-22.md), [deplo
 3. Measure longer, larger fights on physical phones and browser exports. The current isolated timing sample is one short Mac encounter.
 4. Expand paid reinforcement, flank and withdrawal comparisons across more seeds before adding further combat mechanics. Then extend original character art to Scout, Horseman and Siege roles.
 
-No further runtime iteration is planned before the agreed 07:00 UTC stop. The closing journal entry records the final Git/automation state.
+The overnight window closed at 07:00 UTC. The heartbeat is paused, all delivery work is pushed to GitHub, and the closing journal entry records the exact cutoff state. No further runtime iteration is scheduled.

@@ -140,3 +140,10 @@ All ten exact-commit public WSS checks pass, including ordinary-resource economy
 ### Morning priorities
 
 Finish the agreed window at 07:00 UTC with no further runtime scope. The next useful evidence is physical-phone safe-area/touch confirmation and first-time human Easy sessions. Follow with larger/longer real-time phone/browser fights, and paid reinforcement/retreat comparisons across more maps and seeds. The automated slower learner can still win, while an unattended lone Scout or two unmicroed Warriors cannot hold the site against the new response; that tradeoff needs human calibration. Additional original Scout/Horseman/Siege identities can follow after those gameplay checks. Do not treat one Mac timing sample as mobile performance certification.
+
+
+## Overnight window closed — 07:00 UTC
+
+Further iterations stopped at the agreed cutoff. The heartbeat `improve-pocket-kingdoms-overnight` was changed to `PAUSED` and its saved state verified at 07:00:29 UTC. No runtime change followed the verified beta.8 publication. The game remains on `c26be0f34f2b90a574f3a30ea75d669f1e382bc1`, release `releases/5c363f3a-selected-fighters-20261022`; game/match containers were restarted at publication, and diagnostics/tunnel were preserved.
+
+Runtime, handoff/screenshots and complete compressed raw native measurements were pushed to GitHub. At the cutoff check, `main` and `origin/main` both pointed to `d9fb387fddbc4cb2fc2bbf25fb69232d8e9ca07d` with a clean worktree. This closing entry is documentation only. All test clients and browsers created for the final checks are closed. The [morning handoff](morning_handoff_2026-10-22.md) records what is live, exact identities, evidence, remaining physical-phone/human-balance limitations and next priorities.
