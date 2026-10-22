@@ -1,0 +1,357 @@
+{
+  "runtime_revision": "2ab5c416cd4c9d7a3d65b39c46dda5cc1f51e9c1",
+  "scope": "Paired native visibility pixels and separate natural paid Scout observer; no performance claim",
+  "native_paid": {
+    "baseline": {
+      "end": "game_over",
+      "ended_at": 233.450000000078,
+      "winner": 0,
+      "first_ai_objective_order_at": -1.0,
+      "first_ai_ring_entry": -1.0,
+      "first_contest_at": -1.0,
+      "first_scout_damage_at": -1.0,
+      "first_ai_field_attack_at": -1.0,
+      "failures": [],
+      "raw_report": "output/easy-response-native/baseline-native.json",
+      "raw_report_sha256": "06082a9dfa831f4bae91b56018941d77ef06df8cba15687d03d3e9f427ea567e"
+    },
+    "candidate": {
+      "end": "limit_or_fixture_failure",
+      "ended_at": 480.033333333225,
+      "winner": -1,
+      "first_ai_objective_order_at": 150.016666666678,
+      "first_ai_ring_entry": 172.766666666696,
+      "first_contest_at": 172.783333333363,
+      "first_scout_damage_at": 176.066666666699,
+      "first_ai_field_attack_at": 300.016666666722,
+      "failures": [],
+      "raw_report": "output/easy-response-native/candidate-native.json",
+      "raw_report_sha256": "778b9b7ca0ff8fd51768de1133b2d6ec3e0024c19131b43e632f3ba7ee60f88c"
+    }
+  },
+  "baseline_annotation": {
+    "report": "output/sacred-annotation/baseline/receipt.json",
+    "sha256": "31c9bbfbed3f402e866e9ca25b9518c1a67bcb336d4f1279891a902d5c6d2faf",
+    "result": {
+      "failures": [
+        "844x390-scale1.00 visible opaque badge pixels=1962",
+        "844x390-scale1.00 visible caption pixels=3250",
+        "844x390-scale1.00 visible-again opaque badge pixels=1962",
+        "844x390-scale1.00 visible-again caption pixels=2928",
+        "844x390-scale1.15 visible opaque badge pixels=2588",
+        "844x390-scale1.15 visible caption pixels=4390",
+        "844x390-scale1.15 visible-again opaque badge pixels=2588",
+        "844x390-scale1.15 visible-again caption pixels=3954",
+        "932x430-scale1.00 visible opaque badge pixels=2348",
+        "932x430-scale1.00 visible caption pixels=4184",
+        "932x430-scale1.00 visible-again opaque badge pixels=2348",
+        "932x430-scale1.00 visible-again caption pixels=3782",
+        "932x430-scale1.15 visible opaque badge pixels=3117",
+        "932x430-scale1.15 visible caption pixels=5364",
+        "932x430-scale1.15 visible-again opaque badge pixels=3116",
+        "932x430-scale1.15 visible-again caption pixels=4826"
+      ],
+      "profiles": [
+        {
+          "caption_pixels_changed": 3250,
+          "center_pixels_changed": 1962,
+          "current_visibility": false,
+          "phase": "unseen",
+          "profile": "844x390-scale1.00",
+          "ring_pixels_changed": 80,
+          "zoom": 0.649999976158142
+        },
+        {
+          "caption_pixels_changed": 3250,
+          "center_pixels_changed": 1962,
+          "current_visibility": true,
+          "phase": "visible",
+          "profile": "844x390-scale1.00",
+          "ring_pixels_changed": 80,
+          "zoom": 0.649999976158142
+        },
+        {
+          "caption_pixels_changed": 2928,
+          "center_pixels_changed": 1962,
+          "current_visibility": false,
+          "phase": "owned-explored",
+          "profile": "844x390-scale1.00",
+          "ring_pixels_changed": 80,
+          "zoom": 0.649999976158142
+        },
+        {
+          "caption_pixels_changed": 2928,
+          "center_pixels_changed": 1962,
+          "current_visibility": true,
+          "phase": "visible-again",
+          "profile": "844x390-scale1.00",
+          "ring_pixels_changed": 80,
+          "zoom": 0.649999976158142
+        },
+        {
+          "caption_pixels_changed": 4390,
+          "center_pixels_changed": 2588,
+          "current_visibility": false,
+          "phase": "unseen",
+          "profile": "844x390-scale1.15",
+          "ring_pixels_changed": 90,
+          "zoom": 0.649999976158142
+        },
+        {
+          "caption_pixels_changed": 4390,
+          "center_pixels_changed": 2588,
+          "current_visibility": true,
+          "phase": "visible",
+          "profile": "844x390-scale1.15",
+          "ring_pixels_changed": 90,
+          "zoom": 0.649999976158142
+        },
+        {
+          "caption_pixels_changed": 3956,
+          "center_pixels_changed": 2588,
+          "current_visibility": false,
+          "phase": "owned-explored",
+          "profile": "844x390-scale1.15",
+          "ring_pixels_changed": 90,
+          "zoom": 0.649999976158142
+        },
+        {
+          "caption_pixels_changed": 3954,
+          "center_pixels_changed": 2588,
+          "current_visibility": true,
+          "phase": "visible-again",
+          "profile": "844x390-scale1.15",
+          "ring_pixels_changed": 90,
+          "zoom": 0.649999976158142
+        },
+        {
+          "caption_pixels_changed": 4184,
+          "center_pixels_changed": 2348,
+          "current_visibility": false,
+          "phase": "unseen",
+          "profile": "932x430-scale1.00",
+          "ring_pixels_changed": 85,
+          "zoom": 0.649999976158142
+        },
+        {
+          "caption_pixels_changed": 4184,
+          "center_pixels_changed": 2348,
+          "current_visibility": true,
+          "phase": "visible",
+          "profile": "932x430-scale1.00",
+          "ring_pixels_changed": 85,
+          "zoom": 0.649999976158142
+        },
+        {
+          "caption_pixels_changed": 3782,
+          "center_pixels_changed": 2348,
+          "current_visibility": false,
+          "phase": "owned-explored",
+          "profile": "932x430-scale1.00",
+          "ring_pixels_changed": 85,
+          "zoom": 0.649999976158142
+        },
+        {
+          "caption_pixels_changed": 3782,
+          "center_pixels_changed": 2348,
+          "current_visibility": true,
+          "phase": "visible-again",
+          "profile": "932x430-scale1.00",
+          "ring_pixels_changed": 85,
+          "zoom": 0.649999976158142
+        },
+        {
+          "caption_pixels_changed": 5364,
+          "center_pixels_changed": 3117,
+          "current_visibility": false,
+          "phase": "unseen",
+          "profile": "932x430-scale1.15",
+          "ring_pixels_changed": 100,
+          "zoom": 0.649999976158142
+        },
+        {
+          "caption_pixels_changed": 5364,
+          "center_pixels_changed": 3117,
+          "current_visibility": true,
+          "phase": "visible",
+          "profile": "932x430-scale1.15",
+          "ring_pixels_changed": 100,
+          "zoom": 0.649999976158142
+        },
+        {
+          "caption_pixels_changed": 4826,
+          "center_pixels_changed": 3117,
+          "current_visibility": false,
+          "phase": "owned-explored",
+          "profile": "932x430-scale1.15",
+          "ring_pixels_changed": 100,
+          "zoom": 0.649999976158142
+        },
+        {
+          "caption_pixels_changed": 4826,
+          "center_pixels_changed": 3116,
+          "current_visibility": true,
+          "phase": "visible-again",
+          "profile": "932x430-scale1.15",
+          "ring_pixels_changed": 100,
+          "zoom": 0.649999976158142
+        }
+      ],
+      "scope": "Four native phone profiles; controlled unit positions and live FogManager refresh, no paid-match or physical-phone claim. Pixel comparisons against the same scene with only the annotation hidden."
+    }
+  },
+  "candidate_annotation": {
+    "report": "output/sacred-annotation/candidate/receipt.json",
+    "sha256": "ff90cf34316c0cc9eb2df9489f02fdc4a35afa97b933a4a86832796dce414901",
+    "result": {
+      "failures": [],
+      "profiles": [
+        {
+          "caption_pixels_changed": 3250,
+          "center_pixels_changed": 1962,
+          "current_visibility": false,
+          "phase": "unseen",
+          "profile": "844x390-scale1.00",
+          "ring_pixels_changed": 80,
+          "zoom": 0.649999976158142
+        },
+        {
+          "caption_pixels_changed": 0,
+          "center_pixels_changed": 0,
+          "current_visibility": true,
+          "phase": "visible",
+          "profile": "844x390-scale1.00",
+          "ring_pixels_changed": 80,
+          "zoom": 0.649999976158142
+        },
+        {
+          "caption_pixels_changed": 2928,
+          "center_pixels_changed": 1962,
+          "current_visibility": false,
+          "phase": "owned-explored",
+          "profile": "844x390-scale1.00",
+          "ring_pixels_changed": 80,
+          "zoom": 0.649999976158142
+        },
+        {
+          "caption_pixels_changed": 0,
+          "center_pixels_changed": 0,
+          "current_visibility": true,
+          "phase": "visible-again",
+          "profile": "844x390-scale1.00",
+          "ring_pixels_changed": 80,
+          "zoom": 0.649999976158142
+        },
+        {
+          "caption_pixels_changed": 4390,
+          "center_pixels_changed": 2588,
+          "current_visibility": false,
+          "phase": "unseen",
+          "profile": "844x390-scale1.15",
+          "ring_pixels_changed": 90,
+          "zoom": 0.649999976158142
+        },
+        {
+          "caption_pixels_changed": 0,
+          "center_pixels_changed": 0,
+          "current_visibility": true,
+          "phase": "visible",
+          "profile": "844x390-scale1.15",
+          "ring_pixels_changed": 90,
+          "zoom": 0.649999976158142
+        },
+        {
+          "caption_pixels_changed": 3956,
+          "center_pixels_changed": 2588,
+          "current_visibility": false,
+          "phase": "owned-explored",
+          "profile": "844x390-scale1.15",
+          "ring_pixels_changed": 90,
+          "zoom": 0.649999976158142
+        },
+        {
+          "caption_pixels_changed": 0,
+          "center_pixels_changed": 0,
+          "current_visibility": true,
+          "phase": "visible-again",
+          "profile": "844x390-scale1.15",
+          "ring_pixels_changed": 90,
+          "zoom": 0.649999976158142
+        },
+        {
+          "caption_pixels_changed": 4184,
+          "center_pixels_changed": 2348,
+          "current_visibility": false,
+          "phase": "unseen",
+          "profile": "932x430-scale1.00",
+          "ring_pixels_changed": 85,
+          "zoom": 0.649999976158142
+        },
+        {
+          "caption_pixels_changed": 0,
+          "center_pixels_changed": 0,
+          "current_visibility": true,
+          "phase": "visible",
+          "profile": "932x430-scale1.00",
+          "ring_pixels_changed": 85,
+          "zoom": 0.649999976158142
+        },
+        {
+          "caption_pixels_changed": 3782,
+          "center_pixels_changed": 2348,
+          "current_visibility": false,
+          "phase": "owned-explored",
+          "profile": "932x430-scale1.00",
+          "ring_pixels_changed": 85,
+          "zoom": 0.649999976158142
+        },
+        {
+          "caption_pixels_changed": 0,
+          "center_pixels_changed": 0,
+          "current_visibility": true,
+          "phase": "visible-again",
+          "profile": "932x430-scale1.00",
+          "ring_pixels_changed": 85,
+          "zoom": 0.649999976158142
+        },
+        {
+          "caption_pixels_changed": 5364,
+          "center_pixels_changed": 3117,
+          "current_visibility": false,
+          "phase": "unseen",
+          "profile": "932x430-scale1.15",
+          "ring_pixels_changed": 100,
+          "zoom": 0.649999976158142
+        },
+        {
+          "caption_pixels_changed": 0,
+          "center_pixels_changed": 0,
+          "current_visibility": true,
+          "phase": "visible",
+          "profile": "932x430-scale1.15",
+          "ring_pixels_changed": 100,
+          "zoom": 0.649999976158142
+        },
+        {
+          "caption_pixels_changed": 4826,
+          "center_pixels_changed": 3117,
+          "current_visibility": false,
+          "phase": "owned-explored",
+          "profile": "932x430-scale1.15",
+          "ring_pixels_changed": 100,
+          "zoom": 0.649999976158142
+        },
+        {
+          "caption_pixels_changed": 0,
+          "center_pixels_changed": 0,
+          "current_visibility": true,
+          "phase": "visible-again",
+          "profile": "932x430-scale1.15",
+          "ring_pixels_changed": 100,
+          "zoom": 0.649999976158142
+        }
+      ],
+      "scope": "Four native phone profiles; controlled unit positions and live FogManager refresh, no paid-match or physical-phone claim. Pixel comparisons against the same scene with only the annotation hidden."
+    }
+  }
+}

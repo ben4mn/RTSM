@@ -78,7 +78,19 @@ On iPhone, open the URL in Safari and use Share → Add to Home Screen. Enable *
 
 This is a rough public preview. Desktop browser automation does not certify physical-phone touch behavior, safe areas, audio, or prolonged performance.
 
-## Latest release — 2026-10-22 read the ground
+## Latest release — 2026-10-22 hold the site
+
+Published `releases/9daf8247-hold-site-20261022` at `2026-10-22T05:54:06Z`, version `0.2.0-beta.7`. Clean runtime revision: `2ab5c416cd4c9d7a3d65b39c46dda5cc1f51e9c1`; staged source SHA-256: `9daf824730f954187ab94ab21af12067ec1114d2273b0e85aef3f7e6c0fc6976`. Canonical export: `build/hold-site-20261022`; independent witness: `build/hold-site-reproduced-20261022`. Both closed exports match in substantive payloads and source manifests. Runtime was committed and pushed before export.
+
+Scope: [Easy objective response and visible-site clarity](hold_the_site_2026-10-22.md), including 30 natural paid runs in 15 pairs and independent slower-learner/Medium/Hard comparisons. Easy can respond to a hostile Sacred claim from 150s; its ordinary base raids still wait until 300s, neutral initiative until 390s. The visible-site badge clears without changing public status or touch routing.
+
+The match server had zero established connections immediately before replacement. Online image `sha256:2c59171b8d146495746fa9c4e907b960a46ebd32d8369d10db85a3840600ea0e` started at `05:54:04.574496772Z`; the static symlink switched atomically and `aoem-game` restarted at `05:54:06.683145625Z`. The diagnostics collector remained healthy with its exact original ID/start, and the tunnel retained its October 12 start. Rollback: `releases/efeaba3c-ground-20261022` and online image `sha256:89f64accb0569bd623bcba50b54ebf17841775553bade6cdfb9c6935a886d7a8`; previous context is `deployment-backups/match-server-before-hold-site-20261022`.
+
+All 40 decoded public payloads match; all 13 private paths return 404. Trusted TLS, cache/isolation headers and required MIME checks pass. Fresh public 844×390 DPR3 touch emulation confirms the clean loaded/served identity, Extra Large/asymmetric safe areas, a normal paid Scout rally, contested loss by 3:05, restored fog badge and Pause/menu return at 4:20. Zero console errors; two software-renderer readback warnings. The three changed runtime files match inside the running server. All ten public WSS checks pass from the exact frozen runtime, including both paid production/combat clients, attack-move, visibility, replicated damage, Stand Ground on inert replicas and surrender/results. All 1,278 tracked hashes remain unchanged; all clients are closed. Zero runtime/script errors; three existing ObjectDB shutdown warnings remain (client-one, combat-one and loading-ended). Postflight verifies zero established match connections and server errors; the collector stays healthy and every container retains its expected state.
+
+Raw receipts: `output/hold-site-deployment.json`, `output/hold-site-artifact-verification.txt`, `output/hold-site-public-browser.json`, `output/hold-site-running-runtime.json`, `output/hold-site-postflight.json`, `output/public-release-check/hold-site-20261022-live/receipt.json` and `output/easy-response-independent/public-final/public-summary.json`. Later documentation-only commits intentionally differ from the embedded runtime revision.
+
+## Previous release — 2026-10-22 read the ground
 
 Published `releases/efeaba3c-ground-20261022` at `2026-10-22T05:24:55Z`, version `0.2.0-beta.6`. Clean runtime revision: `c61918e45853a086cbdbcc99b860a0decdf1c402`; staged source SHA-256: `efeaba3c86f81f7637997de0bf71b86028ace1f5eedabaae08e335aa87c19ef9`. Canonical export: `build/ground-20261022`; independent witness: `build/ground-reproduced-20261022`. Both closed exports match in substantive payloads and source manifests. Runtime was committed and pushed before export.
 
