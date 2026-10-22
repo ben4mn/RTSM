@@ -78,7 +78,17 @@ On iPhone, open the URL in Safari and use Share → Add to Home Screen. Enable *
 
 This is a rough public preview. Desktop browser automation does not certify physical-phone touch behavior, safe areas, audio, or prolonged performance.
 
-## Latest release — 2026-10-22 company and battlefields
+## Latest release — 2026-10-22 room to learn
+
+Published `releases/29fa2b41-room-to-learn-20261022` at `2026-10-22T03:27:05Z`, version `0.2.0-beta.3`. Clean runtime revision: `ca46ddbfb13f`; staged source SHA-256: `29fa2b41ff71e53e776584b82220836febc8fbb6f6dcb39b0b205d0d9076dff3`. Canonical export: `build/room-to-learn-20261022`; independent witness: `build/room-to-learn-reproduced-20261022`. Substantive files and source manifests match. All 39 public decoded payload hashes plus the checksum manifest match; MIME, no-store/CDN no-store, COOP/COEP and 13 private-path 404 checks pass.
+
+The idle match service was rebuilt/recreated as image `sha256:7ebc695cf8cf45043695cf769eb4ed3ce37249c7955c3e8c9d043c778fe3a015`, starting at `03:27:02Z`. The static symlink switched atomically and `aoem-game` restarted at `03:27:05Z`. The diagnostics collector remained healthy with its `01:28:31Z` start, and the tunnel retained its October 12 start. Rollback remains `releases/8e935c1c-company-battlefields-20261022` with online image `sha256:50997db44c60511c68ffb0de94d9a6666a98c2fe42ea8f68c87c2728f936a5e7`; previous server context is retained in `deployment-backups/match-server-before-room-to-learn-20261022`.
+
+Scope and evidence: [phone canvas and public touch journey](phone_edges_2026-10-22.md), [Easy paid comparisons](easy_learning_2026-10-22.md), [original buildings](company_buildings_2026-10-22.md). Actual public Chromium touch emulation at 844 × 390 DPR3 passed Standard/Extra Large menus, paid training/Repeat, live notch reversal, Pause and return to menu with zero console errors. It is not physical-phone performance evidence. Raw release receipts are `output/room-to-learn-deployment.json`, `output/room-to-learn-artifact-verification.txt`, `output/public-release-check/room-to-learn-20261022-live/receipt.json` and `output/room-to-learn-public-browser.json`. Later documentation-only commits intentionally differ from the runtime revision.
+
+Public WSS verification also passed all ten checks against the deployed match server: two strategy clients; connection-failure, loading-ended, loading-failure and lifecycle checks; two paid economy clients; and two paid combat clients. Both players verified paid Barracks/infantry, attack-move, visible enemies and replicated damage. There were no runtime errors; four subprocesses emitted nonfatal ObjectDB exit warnings. All test clients closed and source hashes remained unchanged. Evidence: `output/overnight-online-public/source-receipt.json` and sibling logs.
+
+## Previous release — 2026-10-22 company and battlefields
 
 Published `releases/8e935c1c-company-battlefields-20261022` at `2026-10-22T02:36:43Z`, version `0.2.0-beta.2`. Clean runtime revision: `334fd81a70fb`; staged source SHA-256: `8e935c1ce9aef037f622f3be9f7ff3a26b2d0e8311b21f63ecdad3af3693b386`. Canonical export: `build/company-battlefields-20261022`; witness: `build/company-battlefields-reproduced-20261022`. Substantive files and source manifests match, and all 39 public decoded file hashes match. MIME, no-store, isolation and private-source read-denial checks pass. The original illustration retains its signed Content Credentials; the audit recognises only its specific provenance references in that PNG.
 

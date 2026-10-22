@@ -30,3 +30,11 @@ The final Easy source adds a longer opening, smaller combined field force, 45-se
 - Extend the original building vocabulary to Resource Camp, Archery Range and Stable, prioritizing readability at phone scale. Preserve selection bounds and gameplay geometry.
 - Run contrasting paid attack plans on the three tactical maps; inspect readable contact, retreat and counterplay rather than adding mechanics without evidence.
 - Keep performance evidence scoped to the actual machine/browser. The phone edge fix still needs the user's physical-phone confirmation.
+
+## First iteration published
+
+Live at https://game.4mn.org as `0.2.0-beta.3`, clean runtime `ca46ddbfb13f`, staged source `29fa2b41ff71e53e776584b82220836febc8fbb6f6dcb39b0b205d0d9076dff3`, published `2026-10-22T03:27:05Z`. Two independent exports match. Public payloads, headers and private-path denial pass; the live Retina touch journey includes paid Villager/Repeat, reversing the cutout insets during play, and returning through Pause to the menu. Game and online containers restarted; diagnostics and tunnel were preserved. See [deployment receipt](debian_game_deployment.md) for rollback.
+
+The current source is frozen for this release. Continue the next bounded iteration from the candidate list above. The heartbeat remains active through the agreed 07:00 UTC cutoff; `caffeinate -i -t 14800`, started around 02:53 UTC, keeps the host awake until approximately that deadline. Do not extend the overnight window automatically.
+
+Public WSS verification also passed all ten checks against the deployed match server: two strategy clients; connection-failure, loading-ended, loading-failure and lifecycle checks; two paid economy clients; and two paid combat clients. Both players verified paid Barracks/infantry, attack-move, visible enemies and replicated damage. There were no runtime errors; four subprocesses emitted nonfatal ObjectDB exit warnings. All test clients closed and source hashes remained unchanged. Evidence: `output/overnight-online-public/source-receipt.json` and sibling logs.

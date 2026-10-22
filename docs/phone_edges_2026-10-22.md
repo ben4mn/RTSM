@@ -46,3 +46,11 @@ The full Godot export was also exercised in Chromium at 844 × 390, DPR3, with t
 This was a dirty development export used for UI verification, not the published artifact or final Easy-balance measurement. The console contained nine expected 501 responses from the local static server's absent diagnostics endpoint and no other errors or Godot runtime errors. Source hashes and the parsed console receipt are in `output/overnight-ui/browser-receipt.json`; screenshots include `output/playwright/fullbleed-final-large-menu-css.png`, `fullbleed-paid-repeat.png`, `fullbleed-reversed-hud.png` and `fullbleed-large-return.png`.
 
 A separate native rendered journey passed all 12 phone/layout profiles, covering paid training/repeat/refunds, Build placement/cancellation, actual unit selection and Move/Attack input, minimap, live resize and GUI input isolation. Its isolated preferences and input receipt are in `output/overnight-ui/`. Neither native desktop rendering nor browser emulation certifies physical-phone performance.
+
+## Public release confirmation
+
+The clean `0.2.0-beta.3` release (`ca46ddbfb13f`, staged source `29fa2b41ff71e53e776584b82220836febc8fbb6f6dcb39b0b205d0d9076dff3`) passed the same real exported-game journey at https://game.4mn.org after publication. At 844 × 390 DPR3, Standard and Extra Large menus, Display settings, paid Villager queue/Repeat, a live asymmetric-notch reversal, Pause and Quit to Main Menu worked. Final body and canvas bounds were exactly x0/y0/844×390 with a 2532×1170 backing buffer. Console errors: zero; two software-renderer ReadPixels warnings occurred during automated capture. The browser was closed after the check.
+
+![Public menu at Extra Large UI with reversed notch insets, Chromium touch emulation](images/phone-fullbleed-public-2026-10-22.png)
+
+The public screenshot uses explicit CSS cutout insets; it is not a physical-phone photograph. Full local receipt: `output/room-to-learn-public-browser.json`.
