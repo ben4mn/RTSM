@@ -717,6 +717,7 @@ func _try_auto_attack() -> void:
 	# must include usable weapon reach; the canonical visibility check still
 	# rejects hidden targets. Stand ground retains its bounded engagement.
 	var search_radius: float = attack_range + 16.0 if stance == Stance.STAND_GROUND else maxf(vision_radius, attack_range + 8.0)
+	search_radius = _get_auto_unit_acquisition_radius(search_radius)
 	var building_radius: float = maxf(search_radius * 0.5, attack_range + 24.0)
 	var buildings_first: bool = bool(UnitData.UNITS.get(unit_type, {}).get("auto_target_buildings_first", false))
 	var target: Node2D = UnitAutoTargeting.find_target(self, search_radius, building_radius, buildings_first)
@@ -724,6 +725,15 @@ func _try_auto_attack() -> void:
 		command_attack(target as UnitBase, false, false)
 	elif target is BuildingBase:
 		command_attack_building(target as BuildingBase, false, false)
+
+
+func _get_auto_unit_acquisition_radius(default_radius: float) -> float:
+	# Both idle acquisition and threat switches must fit a stationary guard's
+	# engagement reach. Otherwise it immediately abandons/ignores that target,
+	# even if the enemy then moves into reach. Advancing orders keep their scan.
+	if stance == Stance.STAND_GROUND and not attack_move:
+		return attack_range + 8.0
+	return default_radius
 
 
 func can_auto_retaliate() -> bool:
@@ -754,7 +764,8 @@ func _consider_nearby_threat() -> void:
 	if attack_building_target != null and bool(UnitData.UNITS.get(unit_type, {}).get("auto_target_buildings_first", false)):
 		return
 	_auto_attack_timer = 0.3
-	var threat: UnitBase = UnitAutoTargeting.find_nearby_threat(self, maxf(vision_radius, attack_range + 8.0))
+	var threat_radius: float = _get_auto_unit_acquisition_radius(maxf(vision_radius, attack_range + 8.0))
+	var threat: UnitBase = UnitAutoTargeting.find_nearby_threat(self, threat_radius)
 	if threat != null and threat != attack_target:
 		command_attack(threat, false, false)
 

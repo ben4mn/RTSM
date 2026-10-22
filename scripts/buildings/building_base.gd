@@ -109,8 +109,8 @@ const BUILDING_SPRITES: Dictionary = {
 	BuildingData.BuildingType.STABLE: "res://assets/buildings/company_stable.svg",
 	BuildingData.BuildingType.FARM: "res://assets/buildings/farm.svg",
 	BuildingData.BuildingType.RESOURCE_CAMP: "res://assets/buildings/company_resource_camp.svg",
-	BuildingData.BuildingType.SIEGE_WORKSHOP: "res://assets/buildings/archery_range.png",
-	BuildingData.BuildingType.BLACKSMITH: "res://assets/buildings/blacksmith.png",
+	BuildingData.BuildingType.SIEGE_WORKSHOP: "res://assets/buildings/company_siege_workshop.svg",
+	BuildingData.BuildingType.BLACKSMITH: "res://assets/buildings/company_blacksmith.svg",
 	BuildingData.BuildingType.WATCH_TOWER: "res://assets/buildings/watch_tower.svg",
 }
 
@@ -123,6 +123,8 @@ const COMPANY_ENEMY_SPRITES: Dictionary = {
 	BuildingData.BuildingType.ARCHERY_RANGE: "res://assets/buildings/company_archery_range_enemy.svg",
 	BuildingData.BuildingType.STABLE: "res://assets/buildings/company_stable_enemy.svg",
 	BuildingData.BuildingType.RESOURCE_CAMP: "res://assets/buildings/company_resource_camp_enemy.svg",
+	BuildingData.BuildingType.SIEGE_WORKSHOP: "res://assets/buildings/company_siege_workshop_enemy.svg",
+	BuildingData.BuildingType.BLACKSMITH: "res://assets/buildings/company_blacksmith_enemy.svg",
 }
 
 

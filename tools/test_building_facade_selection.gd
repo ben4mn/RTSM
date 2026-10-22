@@ -39,7 +39,7 @@ func _run() -> void:
 	previous.position = Vector2(-250.0, 140.0)
 	await get_tree().process_frame
 
-	for building_type: String in ["town_center", "barracks", "resource_camp", "archery_range", "stable"]:
+	for building_type: String in ["town_center", "barracks", "resource_camp", "archery_range", "stable", "blacksmith", "siege_workshop"]:
 		var building: BuildingBase = load("res://scenes/buildings/%s.tscn" % building_type).instantiate() as BuildingBase
 		building.player_owner = 0
 		building.state = BuildingBase.State.ACTIVE
@@ -47,7 +47,7 @@ func _run() -> void:
 		building.set_process(false)
 		var sprite: Sprite2D = building.get_node("BuildingSprite") as Sprite2D
 		# These opaque pixels are in the actual front wall/door of each asset.
-		var facade_pixel: Vector2 = {"town_center": Vector2(64, 106), "barracks": Vector2(64, 60), "resource_camp": Vector2(64, 87), "archery_range": Vector2(64, 87), "stable": Vector2(60, 92)}[building_type]
+		var facade_pixel: Vector2 = {"town_center": Vector2(64, 106), "barracks": Vector2(64, 60), "resource_camp": Vector2(64, 87), "archery_range": Vector2(64, 87), "stable": Vector2(60, 92), "blacksmith": Vector2(64, 87), "siege_workshop": Vector2(64, 87)}[building_type]
 		var facade_world: Vector2 = sprite.to_global(sprite.get_rect().position + facade_pixel)
 		_expect(sprite.texture.get_image().get_pixelv(Vector2i(facade_pixel)).a > 0.9, "%s fixture taps opaque facade art" % building_type)
 
@@ -140,7 +140,7 @@ func _run() -> void:
 
 	world.free()
 	if _failures.is_empty():
-		print("[PASS] building_facade_selection: TC/Barracks/Camp/Range/Stable facades beat nearby unit/resource rings; body hits, one-shot/grouping and construction preserved via viewport touch/mouse at 3 zooms")
+		print("[PASS] building_facade_selection: TC/Barracks/Camp/Range/Stable/Blacksmith/Workshop facades beat nearby unit/resource rings; body hits, one-shot/grouping and construction preserved via viewport touch/mouse at 3 zooms")
 		get_tree().quit(0)
 	else:
 		for failure: String in _failures.slice(0, 8):

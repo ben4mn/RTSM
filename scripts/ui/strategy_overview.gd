@@ -34,6 +34,7 @@ var _title: Label
 var _scroll: ScrollContainer
 var _economy: VBoxContainer
 var _army: VBoxContainer
+var _army_notes: VBoxContainer
 var _summary: Label
 var _economy_health: Label
 var _food_stock: Label
@@ -154,6 +155,11 @@ func _ready() -> void:
 	_army.add_theme_constant_override("separation", int(CommandIcons.GAP))
 	content.add_child(_army)
 	_build_army()
+	_army_notes = VBoxContainer.new()
+	_army_notes.name = "ArmyFieldNotes"
+	_army_notes.add_theme_constant_override("separation", 12)
+	content.add_child(_army_notes)
+	_build_army_notes()
 	_details = VBoxContainer.new()
 	_details.name = "StrategyDetails"
 	_details.add_theme_constant_override("separation", 4)
@@ -274,6 +280,38 @@ func _build_army() -> void:
 		recall.pressed.connect(func() -> void: recall_group_requested.emit(index))
 		row.add_child(recall)
 		_group_rows[index] = {"label": label, "save": save, "recall": recall}
+
+
+func _build_army_notes() -> void:
+	# A deliberate Info page: tactics stay available without another field banner.
+	var notes: Array[Dictionary] = [
+		{"icon": "move", "title": "01  Assemble", "body": "Tap ground to assemble. Let Warriors catch up with Horsemen."},
+		{"icon": "attack", "title": "02  Commit together", "body": "Hold ground to attack-move. Fight enemies along your route."},
+		{"icon": "rally", "title": "03  Preserve your army", "body": "Tap safe ground to withdraw. Rally fresh recruits nearby."},
+	]
+	for note: Dictionary in notes:
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 12)
+		_army_notes.add_child(row)
+		var icon := TextureRect.new()
+		icon.texture = CommandIcons.get_icon(note.icon)
+		icon.custom_minimum_size = Vector2(36, 36)
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		icon.modulate = KingdomTheme.TEAL
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(icon)
+		var copy := VBoxContainer.new()
+		copy.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		copy.add_theme_constant_override("separation", 2)
+		row.add_child(copy)
+		var heading: Label = _label(note.title, 18)
+		heading.add_theme_font_override("font", KingdomTheme.FONT_HEADING)
+		copy.add_child(heading)
+		var body: Label = _label(note.body, 13)
+		body.add_theme_color_override("font_color", KingdomTheme.MUTED)
+		copy.add_child(body)
 
 
 func _choose_source(resource: String) -> void:
@@ -532,11 +570,17 @@ func _step_producer(direction: int) -> void:
 
 func _refresh_pages() -> void:
 	var economy_open: bool = _surface == "economy"
+	var army_open: bool = _surface == "army"
 	_economy.visible = economy_open and not _details_page
 	_details.visible = economy_open and _details_page
-	_info_button.visible = economy_open
+	_army.visible = army_open and not _details_page
+	_army_notes.visible = army_open and _details_page
+	_info_button.visible = economy_open or army_open
 	_info_button.set_pressed_no_signal(_details_page)
-	CommandIcons.apply(_info_button, "back" if _details_page else "info", "Back to actions" if _details_page else "Show current worker or producer details")
+	var info_description: String = "Army field notes: assemble, attack-move and withdraw" if army_open else "Show current worker or producer details"
+	CommandIcons.apply(_info_button, "back" if _details_page else "info", "Back to actions" if _details_page else info_description)
+	if army_open:
+		_title.text = "Army field notes" if _details_page else "Army & groups"
 	_title.visible = not economy_open
 	_workers_tab.visible = economy_open
 	_production_tab.visible = economy_open
@@ -672,7 +716,7 @@ func apply_layout(safe: Rect2, field_visible: bool, card_area: Rect2, dock_heigh
 		# Three action rows and their short instruction determine the Army height;
 		# safe-area constraints keep its complete page on screen.
 		# Two pixels absorb container rounding at fractional interface scales.
-		var content_height: float = _army.get_combined_minimum_size().y
+		var content_height: float = (_army_notes if _details_page else _army).get_combined_minimum_size().y
 		card_height = minf(card_height, content_height + CommandIcons.TARGET_SIZE + 14.0)
 	_last_panel_minimum = panel.get_combined_minimum_size()
 	card_height = maxf(card_height, _last_panel_minimum.y)

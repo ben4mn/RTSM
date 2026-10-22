@@ -26,10 +26,35 @@ args.output.mkdir(parents=True, exist_ok=True)
 godot = os.environ.get('GODOT_BIN', '/Applications/Godot.app/Contents/MacOS/Godot')
 
 
+def validate_paid_fixture(data, archetype):
+    errors = []
+    if data.get('map') != archetype or data.get('economic_bonus_active'):
+        errors.append('wrong map or economic bonus')
+    if data.get('initial_resources') != [{'food': 250, 'wood': 250, 'gold': 100}] * 2 or data.get('ages') != [2, 2]:
+        errors.append('ordinary starting banks/paid ages differ')
+    if any(stats['units_trained'] - stats['army_trained'] != 6 for stats in data.get('opening_stats', [])):
+        errors.append('worker purchases differ from six per owner')
+    actual = [{}, {}]
+    for unit in data.get('initial_tactical_units', {}).get('units', []):
+        if unit['hp'] != unit['max_hp']:
+            errors.append('tactical unit starts wounded')
+        owner, role = unit['owner'], str(unit['role'])
+        actual[owner][role] = actual[owner].get(role, 0) + 1
+    plan = data.get('plan')
+    expected = {'1': 6} if plan == 'infantry_pressure' else ({'1': 2, '2': 4} if plan == 'ranged_screen' else {'1': 2, '3': 3})
+    if actual != [expected, {'1': 3, '2': 3}]:
+        errors.append('completed roster differs from declared paid plan')
+    if data.get('failures'):
+        errors.extend(data['failures'])
+    return errors
+
+
 def run_case(case):
     archetype, plan = case
     name = f'map{archetype}-seed{args.seed}-{plan}'
     report, log = args.output / f'{name}.json', args.output / f'{name}.log'
+    if report.exists():
+        report.unlink()
     started = time.monotonic()
     with tempfile.TemporaryDirectory(prefix='aoem-paid-tactic-') as temporary:
         project = Path(temporary)
@@ -56,6 +81,9 @@ def run_case(case):
     if status.returncode or 'SCRIPT ERROR' in log_text or 'ERROR:' in log_text or not report.exists():
         return {'case': name, 'error': f'process failure ({status.returncode})', 'log': str(log)}
     data = json.loads(report.read_text())
+    validation_errors = validate_paid_fixture(data, archetype)
+    if validation_errors:
+        return {'case': name, 'error': '; '.join(validation_errors), 'log': str(log)}
     return {'case': name, 'wall_seconds': round(time.monotonic() - started, 2), 'report': str(report),
             **{key: data[key] for key in ['plan', 'map', 'paid_ready_at', 'opening_seconds', 'first_hit', 'tactical_seconds', 'end', 'survivors', 'remaining_hp', 'navigation_failures', 'navigation_stall_unit_seconds', 'severe_friendly_overlap_pair_seconds', 'group_orders_per_minute', 'failures']}}
 

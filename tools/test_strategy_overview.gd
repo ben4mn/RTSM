@@ -81,9 +81,10 @@ func _strategy_journey(phone: Vector2i, interface_scale: float, notched: bool, l
 		_expect(action.icon != null and action.text.is_empty() and not action.tooltip_text.is_empty() and action.accessibility_name == action.tooltip_text, "compact rail loses icon or full action name: " + str(action.name))
 		_expect(action.size.is_equal_approx(Vector2(48, 48)), "persistent icon must remain a true 48px square: " + str(action.name))
 		var hover_pressed: StyleBox = action.get_theme_stylebox("hover_pressed")
-		_expect(action.theme == overview.theme and hover_pressed is StyleBoxFlat and (hover_pressed as StyleBoxFlat).bg_color.is_equal_approx(KingdomTheme.AMBER), "selected hover must use the Kingdom flat style, not the Godot fallback: " + str(action.name))
-		_expect(action.get_theme_color("font_hover_pressed_color").is_equal_approx(KingdomTheme.INK) and action.get_theme_color("icon_hover_pressed_color").is_equal_approx(KingdomTheme.INK), "selected hover text and icon must contrast with its amber fill: " + str(action.name))
-		_expect(action.get_theme_stylebox("focus") is StyleBoxFlat, "strategy icon focus retains the fallback texture: " + str(action.name))
+		_expect(action.theme == overview.theme and hover_pressed is StyleBoxTexture and (hover_pressed as StyleBoxTexture).texture.resource_path == "res://assets/ui/plates/secondary_pressed.svg", "selected hover must use the custom command plate, not the Godot fallback: " + str(action.name))
+		_expect(action.get_theme_color("font_hover_pressed_color").is_equal_approx(KingdomTheme.INK) and action.get_theme_color("icon_hover_pressed_color").is_equal_approx(KingdomTheme.INK), "selected hover text and icon must contrast with the selected plate: " + str(action.name))
+		var focus: StyleBox = action.get_theme_stylebox("focus")
+		_expect(focus is StyleBoxTexture and (focus as StyleBoxTexture).texture.resource_path == "res://assets/ui/plates/secondary_focus.svg", "strategy icon focus must use the custom outline: " + str(action.name))
 	_expect(overview.rail.size.is_equal_approx(Vector2(156, 48)), "strategy rail must use three 48px squares with 6px gaps")
 	_expect(overview.get_visible_bounds().has(overview.rail.get_global_rect()), "compact rail omitted from camera occlusion")
 	# The rail follows both dock heights rather than keeping a producer-sized gap.

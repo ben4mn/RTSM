@@ -1,6 +1,18 @@
 {
   "releases": [
     {
+      "id": "2026-10-22-fieldcraft",
+      "version": "0.2.0-beta.5",
+      "date": "2026-10-22",
+      "title": "Fieldcraft",
+      "summary": "Army field notes, more responsive guards and original working yards.",
+      "changes": [
+        "Open Army, then Info for three short field notes: assemble slower troops, attack-move together, and withdraw before your next push. Back returns to your groups without changing selection.",
+        "Stand Ground troops stop repeatedly choosing enemies beyond their reach and respond when an enemy enters range. Weapon reach, damage and direct orders retain their existing rules.",
+        "The Blacksmith has a limewashed chimney, ember hearth and iron anvil. The Siege Workshop has an open assembly floor, timber crane and carriage wheel. Both use the company’s teal and clay materials."
+      ]
+    },
+    {
       "id": "2026-10-22-company-in-the-field",
       "version": "0.2.0-beta.4",
       "date": "2026-10-22",

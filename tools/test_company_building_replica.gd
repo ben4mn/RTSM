@@ -23,7 +23,7 @@ func _run() -> void:
 	var adapter: Node = session.adapter
 	adapter.set_process(false)
 	var actors: Array[Dictionary] = []
-	for type: int in [0, 1, 2, 3, 4, 6, 9]:
+	for type: int in [0, 1, 2, 3, 4, 6, 8, 9, 10]:
 		for server_owner: int in [0, 1]:
 			actors.append({"id": actors.size() + 1, "kind": "building", "type": type, "owner": server_owner, "x": float(actors.size() * 150), "y": 1152.0, "state": 2, "progress": 1.0, "hp": 500.0, "max_hp": 500.0})
 	for rebuild: int in 2:
@@ -39,7 +39,7 @@ func _run() -> void:
 			_check(building.building_type == int(actor.type), "Replica type set before sprite setup")
 			_check(sprite.texture.resource_path == building_script.get_sprite_texture_path(int(actor.type), local_owner), "Replica texture matches type/local owner after rebuild %d" % rebuild)
 			_check(building.process_mode == Node.PROCESS_MODE_DISABLED, "Art does not enable replica simulation")
-			var expected: Color = Color(1.0, 0.55, 0.55) if int(actor.type) == 9 and local_owner == 1 else Color.WHITE
+			var expected: Color = Color(1.0, 0.55, 0.55) if int(actor.type) == 10 and local_owner == 1 else Color.WHITE
 			_check(sprite.modulate == expected, "Company retains neutral materials; legacy retains original tint")
 			actor.state = 1
 			actor.progress = 0.4
@@ -56,7 +56,7 @@ func _run() -> void:
 	for failure: String in failures:
 		push_error("[FAIL] company_building_replica: " + failure)
 	if failures.is_empty():
-		print("[PASS] company_building_replica: actual snapshot adapter, slot-one local owner remap, six Company families + legacy tint, reconstruction and construction fade; replicas stay inert")
+		print("[PASS] company_building_replica: actual snapshot adapter, slot-one local owner remap, eight Company families + legacy tint, reconstruction and construction fade; replicas stay inert")
 	quit(0 if failures.is_empty() else 1)
 
 func _check(condition: bool, message: String) -> void:

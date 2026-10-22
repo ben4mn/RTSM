@@ -459,10 +459,25 @@ func _hashes() -> Dictionary:
 	for path: String in ["scripts/main/main.gd", "scripts/ai/ai_controller.gd", "scripts/data/skirmish_data.gd", "scripts/data/unit_data.gd", "scripts/data/building_data.gd", "scripts/units/unit_base.gd", "scripts/units/villager.gd", "scripts/map/map_generator.gd", "scripts/map/game_map.gd", "scripts/map/pathfinding.gd", "scripts/main/group_order_planner.gd", "scripts/units/combat.gd", "scripts/units/auto_targeting.gd", "scripts/buildings/building_base.gd", "scripts/managers/game_manager.gd", "scripts/managers/resource_manager.gd", "scripts/managers/fog_manager.gd", "scripts/map/map_data.gd", "scripts/map/resource_node.gd", "scripts/buildings/production_queue.gd", "tools/fixtures/tactical_paid_opening.gd", "tools/probe_paid_tactical_plans.gd"]:
 		if FileAccess.file_exists("res://" + path):
 			result[path] = (load("res://" + path) as Script).get_source_code().sha256_text()
+	_add_cached_script_hashes("res://scripts", result)
 	return result
 
 
+func _add_cached_script_hashes(folder: String, result: Dictionary) -> void:
+	# Bind every loaded runtime dependency, including UI/autoloads and scripts
+	# loaded lazily during the paid opening or combat. Read the cached source.
+	for filename: String in DirAccess.get_files_at(folder):
+		var path: String = folder.path_join(filename)
+		if filename.ends_with(".gd") and ResourceLoader.has_cached(path):
+			var script: Script = load(path) as Script
+			if script != null:
+				result[path.trim_prefix("res://")] = script.get_source_code().sha256_text()
+	for dirname: String in DirAccess.get_directories_at(folder):
+		_add_cached_script_hashes(folder.path_join(dirname), result)
+
+
 func _finish() -> void:
+	metrics["runtime_source_hashes"] = _hashes()
 	metrics["failures"] = failures
 	metrics["method"] = "Ordinary paid 30-pop opening then disclosed relocation of purchased armies; frozen economy/AI, fixed 60Hz real unit navigation/combat. Group order counts are not human APM; no rendering/performance claim."
 	DirAccess.make_dir_recursive_absolute(result_path.get_base_dir())

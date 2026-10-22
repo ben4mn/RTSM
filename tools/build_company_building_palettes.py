@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Derive enemy roof/cloth colors from the six original Company SVG masters.
+"""Derive enemy roof/cloth colors from the eight original Company SVG masters.
 
 Geometry, bone masonry, timber, metal and shadows remain identical. This edits
 vector material tokens, never raster pixels. Run after changing a home master.
@@ -25,7 +25,7 @@ CLAY = {
 
 
 def main() -> None:
-    for name in ('town_center', 'house', 'barracks', 'resource_camp', 'archery_range', 'stable'):
+    for name in ('town_center', 'house', 'barracks', 'resource_camp', 'archery_range', 'stable', 'blacksmith', 'siege_workshop'):
         source = ROOT / f'assets/buildings/company_{name}.svg'
         text = source.read_text()
         derived = re.sub(r'#[0-9a-fA-F]{6}', lambda m: CLAY.get(m.group().lower(), m.group()), text)

@@ -12,11 +12,15 @@ var military_id := 0
 var saw_enemy := false
 var completed_at := -1.0
 var end_sent := false
+var stand_ground_check := false
+var stance_sent := false
+var saw_stance_replica := false
 
 func _initialize() -> void:
 	call_deferred("_start")
 
 func _start() -> void:
+	stand_ground_check = "--stand-ground" in OS.get_cmdline_user_args()
 	session = root.get_node("NetworkSession")
 	session.snapshot_received.connect(_snapshot)
 	session.match_ended.connect(_ended)
@@ -44,7 +48,14 @@ func _snapshot(data: Dictionary) -> void:
 				trained = true
 			if actor.kind == "unit" and int(actor.type) == 1:
 				military_id = int(actor.id)
-				if not ordered:
+				if stand_ground_check and not stance_sent:
+					session.send_command("stance", {"ids": [military_id]})
+					stance_sent = true
+				if stand_ground_check and int(actor.stance) == 1:
+					var replica: Node = session.adapter.entities.get(military_id)
+					if is_instance_valid(replica) and replica.get("stance") == 1 and not replica.can_process() and replica.process_mode == Node.PROCESS_MODE_DISABLED and int(replica.get("player_owner")) == 0:
+						saw_stance_replica = true
+				if not ordered and (not stand_ground_check or saw_stance_replica):
 					var center: Vector2 = map.sacred_site.global_position
 					session.send_command("attack_move", {"ids": [military_id], "position": [center.x, center.y]})
 					ordered = true
@@ -62,10 +73,10 @@ func _snapshot(data: Dictionary) -> void:
 					if not placed and current_scene._building_placement.revalidate_confirmation(2, world, 0):
 						session.send_command("place", {"type": 2, "ids": [workers[0]], "position": [world.x, world.y]})
 						placed = true
-	if saw_enemy and saw_combat and not completed:
+	if saw_enemy and saw_combat and (not stand_ground_check or saw_stance_replica) and not completed:
 		completed = true
 		completed_at = float(data.time)
-		print("ONLINE_COMBAT_VERIFIED slot=%d paid_barracks=true paid_infantry=true attack_move=true enemy_visible=true replicated_damage=true" % own)
+		print("ONLINE_COMBAT_VERIFIED slot=%d paid_barracks=true paid_infantry=true attack_move=true enemy_visible=true replicated_damage=true stand_ground_requested=%s inert_stance_replica=%s" % [own, stand_ground_check, saw_stance_replica])
 	if completed and own == 1 and float(data.time) > completed_at + 4.0 and not end_sent:
 		end_sent = true
 		session.send_command("surrender")

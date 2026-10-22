@@ -1,0 +1,562 @@
+{
+  "baseline_revision": "1ea5bf0",
+  "checks_per_run": 146,
+  "baseline_failure_count": 28,
+  "candidate_passed": true,
+  "candidate_failures": [],
+  "baseline_failures": [
+    "owner0 type2 distance89 never acquires an unreachable standing target",
+    "owner0 type2 distance89 does not poison ignore cache with an out-of-range scan",
+    "owner0 type1 distance25 never acquires an unreachable standing target",
+    "owner0 type1 distance25 does not poison ignore cache with an out-of-range scan",
+    "owner0 type2 distance96 never acquires an unreachable standing target",
+    "owner0 type2 distance96 does not poison ignore cache with an out-of-range scan",
+    "owner0 type1 distance32 never acquires an unreachable standing target",
+    "owner0 type1 distance32 does not poison ignore cache with an out-of-range scan",
+    "moving owner0 reacquires within one scan after crossing88",
+    "moving owner0 is not immune for the stale three-second ignore window",
+    "building threat owner0 type2 distance89 retains reachable building against out-of-range distraction",
+    "building threat owner0 type2 distance96 retains reachable building against out-of-range distraction",
+    "building threat owner0 type1 distance25 retains reachable building against out-of-range distraction",
+    "building threat owner0 type1 distance32 retains reachable building against out-of-range distraction",
+    "owner1 type2 distance89 never acquires an unreachable standing target",
+    "owner1 type2 distance89 does not poison ignore cache with an out-of-range scan",
+    "owner1 type1 distance25 never acquires an unreachable standing target",
+    "owner1 type1 distance25 does not poison ignore cache with an out-of-range scan",
+    "owner1 type2 distance96 never acquires an unreachable standing target",
+    "owner1 type2 distance96 does not poison ignore cache with an out-of-range scan",
+    "owner1 type1 distance32 never acquires an unreachable standing target",
+    "owner1 type1 distance32 does not poison ignore cache with an out-of-range scan",
+    "moving owner1 reacquires within one scan after crossing88",
+    "moving owner1 is not immune for the stale three-second ignore window",
+    "building threat owner1 type2 distance89 retains reachable building against out-of-range distraction",
+    "building threat owner1 type2 distance96 retains reachable building against out-of-range distraction",
+    "building threat owner1 type1 distance25 retains reachable building against out-of-range distraction",
+    "building threat owner1 type1 distance32 retains reachable building against out-of-range distraction"
+  ],
+  "baseline_unit_base_sha256": "88900a23306ff40e3a6dfbdcf432537e67b5ddcd5f6107155da97598c4c4c8a4",
+  "source_sha256": {
+    "scripts/units/unit_base.gd": "394d2ab4676726a225f23a5c045124a7cdc9b24357a6d19daeeab0861d6cfea3",
+    "scripts/units/auto_targeting.gd": "8a04fde81b30d50134a8b472c69b72b69ecdf35e2514a1ca4bafaf42dac3920b",
+    "scripts/units/combat.gd": "6b21e67b5812c413807940b90d9a7b67cf399bc91922ea6085855daaa01468f4",
+    "scripts/data/unit_data.gd": "d9cf105220fb82ce8b0d2d0cc7c8e3d6451a9cb04f13f300d301099e8e7048e5",
+    "tools/test_stand_ground_acquisition.gd": "9be4e4f13e747faf01301b8f30418b526db280986dc544f4f78fde075bb99b0f",
+    "tools/test_stand_ground_acquisition.tscn": "c24e982665ae9c8a941d903564010a8d852d10b919f808c6b238a2197168cc8f"
+  },
+  "unchanged_from_baseline": {
+    "scripts/units/auto_targeting.gd": true,
+    "scripts/units/combat.gd": true,
+    "scripts/data/unit_data.gd": true
+  },
+  "baseline_metrics": [
+    {
+      "acquisitions": 1,
+      "case": "stationary",
+      "damage": 36.0,
+      "distance": 88.0,
+      "guard_distance": 0.0,
+      "ignored_targets": 0,
+      "owner": 0,
+      "type": 2
+    },
+    {
+      "acquisitions": 1,
+      "case": "stationary",
+      "damage": 18.0,
+      "distance": 24.0,
+      "guard_distance": 0.0,
+      "ignored_targets": 0,
+      "owner": 0,
+      "type": 1
+    },
+    {
+      "acquisitions": 1,
+      "case": "stationary",
+      "damage": 0.0,
+      "distance": 89.0,
+      "guard_distance": 0.0,
+      "ignored_targets": 1,
+      "owner": 0,
+      "type": 2
+    },
+    {
+      "acquisitions": 1,
+      "case": "stationary",
+      "damage": 0.0,
+      "distance": 25.0,
+      "guard_distance": 0.0,
+      "ignored_targets": 1,
+      "owner": 0,
+      "type": 1
+    },
+    {
+      "acquisitions": 1,
+      "case": "stationary",
+      "damage": 0.0,
+      "distance": 96.0,
+      "guard_distance": 0.0,
+      "ignored_targets": 1,
+      "owner": 0,
+      "type": 2
+    },
+    {
+      "acquisitions": 1,
+      "case": "stationary",
+      "damage": 0.0,
+      "distance": 32.0,
+      "guard_distance": 0.0,
+      "ignored_targets": 1,
+      "owner": 0,
+      "type": 1
+    },
+    {
+      "acquired_in_range_at": 3.18333333333333,
+      "case": "moving",
+      "crossed_88_at": 0.15,
+      "first_damage_at": 3.65,
+      "guard_distance": 0.0,
+      "owner": 0,
+      "retreat_distance": 136.333297729492
+    },
+    {
+      "acquired_threat": true,
+      "case": "building_threat",
+      "distance": 88.0,
+      "ignored_targets": 0,
+      "owner": 0,
+      "retained_building": false,
+      "type": 2
+    },
+    {
+      "acquired_threat": false,
+      "case": "building_threat",
+      "distance": 89.0,
+      "ignored_targets": 1,
+      "owner": 0,
+      "retained_building": false,
+      "type": 2
+    },
+    {
+      "acquired_threat": false,
+      "case": "building_threat",
+      "distance": 96.0,
+      "ignored_targets": 1,
+      "owner": 0,
+      "retained_building": false,
+      "type": 2
+    },
+    {
+      "acquired_threat": true,
+      "case": "building_threat",
+      "distance": 24.0,
+      "ignored_targets": 0,
+      "owner": 0,
+      "retained_building": false,
+      "type": 1
+    },
+    {
+      "acquired_threat": false,
+      "case": "building_threat",
+      "distance": 25.0,
+      "ignored_targets": 1,
+      "owner": 0,
+      "retained_building": false,
+      "type": 1
+    },
+    {
+      "acquired_threat": false,
+      "case": "building_threat",
+      "distance": 32.0,
+      "ignored_targets": 1,
+      "owner": 0,
+      "retained_building": false,
+      "type": 1
+    },
+    {
+      "acquisitions": 1,
+      "case": "stationary",
+      "damage": 36.0,
+      "distance": 88.0,
+      "guard_distance": 0.0,
+      "ignored_targets": 0,
+      "owner": 1,
+      "type": 2
+    },
+    {
+      "acquisitions": 1,
+      "case": "stationary",
+      "damage": 18.0,
+      "distance": 24.0,
+      "guard_distance": 0.0,
+      "ignored_targets": 0,
+      "owner": 1,
+      "type": 1
+    },
+    {
+      "acquisitions": 1,
+      "case": "stationary",
+      "damage": 0.0,
+      "distance": 89.0,
+      "guard_distance": 0.0,
+      "ignored_targets": 1,
+      "owner": 1,
+      "type": 2
+    },
+    {
+      "acquisitions": 1,
+      "case": "stationary",
+      "damage": 0.0,
+      "distance": 25.0,
+      "guard_distance": 0.0,
+      "ignored_targets": 1,
+      "owner": 1,
+      "type": 1
+    },
+    {
+      "acquisitions": 1,
+      "case": "stationary",
+      "damage": 0.0,
+      "distance": 96.0,
+      "guard_distance": 0.0,
+      "ignored_targets": 1,
+      "owner": 1,
+      "type": 2
+    },
+    {
+      "acquisitions": 1,
+      "case": "stationary",
+      "damage": 0.0,
+      "distance": 32.0,
+      "guard_distance": 0.0,
+      "ignored_targets": 1,
+      "owner": 1,
+      "type": 1
+    },
+    {
+      "acquired_in_range_at": 3.18333333333333,
+      "case": "moving",
+      "crossed_88_at": 0.15,
+      "first_damage_at": 3.65,
+      "guard_distance": 0.0,
+      "owner": 1,
+      "retreat_distance": 136.333297729492
+    },
+    {
+      "acquired_threat": true,
+      "case": "building_threat",
+      "distance": 88.0,
+      "ignored_targets": 0,
+      "owner": 1,
+      "retained_building": false,
+      "type": 2
+    },
+    {
+      "acquired_threat": false,
+      "case": "building_threat",
+      "distance": 89.0,
+      "ignored_targets": 1,
+      "owner": 1,
+      "retained_building": false,
+      "type": 2
+    },
+    {
+      "acquired_threat": false,
+      "case": "building_threat",
+      "distance": 96.0,
+      "ignored_targets": 1,
+      "owner": 1,
+      "retained_building": false,
+      "type": 2
+    },
+    {
+      "acquired_threat": true,
+      "case": "building_threat",
+      "distance": 24.0,
+      "ignored_targets": 0,
+      "owner": 1,
+      "retained_building": false,
+      "type": 1
+    },
+    {
+      "acquired_threat": false,
+      "case": "building_threat",
+      "distance": 25.0,
+      "ignored_targets": 1,
+      "owner": 1,
+      "retained_building": false,
+      "type": 1
+    },
+    {
+      "acquired_threat": false,
+      "case": "building_threat",
+      "distance": 32.0,
+      "ignored_targets": 1,
+      "owner": 1,
+      "retained_building": false,
+      "type": 1
+    }
+  ],
+  "candidate_metrics": [
+    {
+      "acquisitions": 1,
+      "case": "stationary",
+      "damage": 36.0,
+      "distance": 88.0,
+      "guard_distance": 0.0,
+      "ignored_targets": 0,
+      "owner": 0,
+      "type": 2
+    },
+    {
+      "acquisitions": 1,
+      "case": "stationary",
+      "damage": 18.0,
+      "distance": 24.0,
+      "guard_distance": 0.0,
+      "ignored_targets": 0,
+      "owner": 0,
+      "type": 1
+    },
+    {
+      "acquisitions": 0,
+      "case": "stationary",
+      "damage": 0.0,
+      "distance": 89.0,
+      "guard_distance": 0.0,
+      "ignored_targets": 0,
+      "owner": 0,
+      "type": 2
+    },
+    {
+      "acquisitions": 0,
+      "case": "stationary",
+      "damage": 0.0,
+      "distance": 25.0,
+      "guard_distance": 0.0,
+      "ignored_targets": 0,
+      "owner": 0,
+      "type": 1
+    },
+    {
+      "acquisitions": 0,
+      "case": "stationary",
+      "damage": 0.0,
+      "distance": 96.0,
+      "guard_distance": 0.0,
+      "ignored_targets": 0,
+      "owner": 0,
+      "type": 2
+    },
+    {
+      "acquisitions": 0,
+      "case": "stationary",
+      "damage": 0.0,
+      "distance": 32.0,
+      "guard_distance": 0.0,
+      "ignored_targets": 0,
+      "owner": 0,
+      "type": 1
+    },
+    {
+      "acquired_in_range_at": 0.333333333333333,
+      "case": "moving",
+      "crossed_88_at": 0.15,
+      "first_damage_at": 0.8,
+      "guard_distance": 0.0,
+      "owner": 0,
+      "retreat_distance": 136.333297729492
+    },
+    {
+      "acquired_threat": true,
+      "case": "building_threat",
+      "distance": 88.0,
+      "ignored_targets": 0,
+      "owner": 0,
+      "retained_building": false,
+      "type": 2
+    },
+    {
+      "acquired_threat": false,
+      "case": "building_threat",
+      "distance": 89.0,
+      "ignored_targets": 0,
+      "owner": 0,
+      "retained_building": true,
+      "type": 2
+    },
+    {
+      "acquired_threat": false,
+      "case": "building_threat",
+      "distance": 96.0,
+      "ignored_targets": 0,
+      "owner": 0,
+      "retained_building": true,
+      "type": 2
+    },
+    {
+      "acquired_threat": true,
+      "case": "building_threat",
+      "distance": 24.0,
+      "ignored_targets": 0,
+      "owner": 0,
+      "retained_building": false,
+      "type": 1
+    },
+    {
+      "acquired_threat": false,
+      "case": "building_threat",
+      "distance": 25.0,
+      "ignored_targets": 0,
+      "owner": 0,
+      "retained_building": true,
+      "type": 1
+    },
+    {
+      "acquired_threat": false,
+      "case": "building_threat",
+      "distance": 32.0,
+      "ignored_targets": 0,
+      "owner": 0,
+      "retained_building": true,
+      "type": 1
+    },
+    {
+      "acquisitions": 1,
+      "case": "stationary",
+      "damage": 36.0,
+      "distance": 88.0,
+      "guard_distance": 0.0,
+      "ignored_targets": 0,
+      "owner": 1,
+      "type": 2
+    },
+    {
+      "acquisitions": 1,
+      "case": "stationary",
+      "damage": 18.0,
+      "distance": 24.0,
+      "guard_distance": 0.0,
+      "ignored_targets": 0,
+      "owner": 1,
+      "type": 1
+    },
+    {
+      "acquisitions": 0,
+      "case": "stationary",
+      "damage": 0.0,
+      "distance": 89.0,
+      "guard_distance": 0.0,
+      "ignored_targets": 0,
+      "owner": 1,
+      "type": 2
+    },
+    {
+      "acquisitions": 0,
+      "case": "stationary",
+      "damage": 0.0,
+      "distance": 25.0,
+      "guard_distance": 0.0,
+      "ignored_targets": 0,
+      "owner": 1,
+      "type": 1
+    },
+    {
+      "acquisitions": 0,
+      "case": "stationary",
+      "damage": 0.0,
+      "distance": 96.0,
+      "guard_distance": 0.0,
+      "ignored_targets": 0,
+      "owner": 1,
+      "type": 2
+    },
+    {
+      "acquisitions": 0,
+      "case": "stationary",
+      "damage": 0.0,
+      "distance": 32.0,
+      "guard_distance": 0.0,
+      "ignored_targets": 0,
+      "owner": 1,
+      "type": 1
+    },
+    {
+      "acquired_in_range_at": 0.333333333333333,
+      "case": "moving",
+      "crossed_88_at": 0.15,
+      "first_damage_at": 0.8,
+      "guard_distance": 0.0,
+      "owner": 1,
+      "retreat_distance": 136.333297729492
+    },
+    {
+      "acquired_threat": true,
+      "case": "building_threat",
+      "distance": 88.0,
+      "ignored_targets": 0,
+      "owner": 1,
+      "retained_building": false,
+      "type": 2
+    },
+    {
+      "acquired_threat": false,
+      "case": "building_threat",
+      "distance": 89.0,
+      "ignored_targets": 0,
+      "owner": 1,
+      "retained_building": true,
+      "type": 2
+    },
+    {
+      "acquired_threat": false,
+      "case": "building_threat",
+      "distance": 96.0,
+      "ignored_targets": 0,
+      "owner": 1,
+      "retained_building": true,
+      "type": 2
+    },
+    {
+      "acquired_threat": true,
+      "case": "building_threat",
+      "distance": 24.0,
+      "ignored_targets": 0,
+      "owner": 1,
+      "retained_building": false,
+      "type": 1
+    },
+    {
+      "acquired_threat": false,
+      "case": "building_threat",
+      "distance": 25.0,
+      "ignored_targets": 0,
+      "owner": 1,
+      "retained_building": true,
+      "type": 1
+    },
+    {
+      "acquired_threat": false,
+      "case": "building_threat",
+      "distance": 32.0,
+      "ignored_targets": 0,
+      "owner": 1,
+      "retained_building": true,
+      "type": 1
+    }
+  ],
+  "existing_regressions": {
+    "combat_order_priorities": "PASS",
+    "combat_spacing": "PASS",
+    "minimum_spacing": 26.7793521881104,
+    "damage_per_terrain_case": 120.0
+  },
+  "test_environment": {
+    "engine": "4.6.stable.official.89cea1439",
+    "step_seconds": 0.0166666666666667,
+    "isolated_user_directory": true,
+    "native_rendered": false,
+    "real_map_pathfinding": false,
+    "public_connections": 0
+  },
+  "raw_output": "output/stand-ground-20261022"
+}

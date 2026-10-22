@@ -61,3 +61,18 @@ The match server was idle before replacement; its image is `sha256:adbc5272c30c6
 - Continue original architecture with Blacksmith/Siege Workshop if readability and gameplay priorities leave time. Review all further art at actual phone scale.
 - Evaluate remaining ordinary-toast/overlay conflicts and guidance highlight tint separately. No claim that all UI overlaps or every dense formation is solved.
 - Stop iterations at 07:00 UTC, publish/checkpoint verified work, leave Git clean, write the morning handoff and disable this heartbeat. Physical-phone and new-player human confirmation remain outstanding.
+
+
+## Third iteration — fieldcraft
+
+Army gains an opt-in Info page with three concrete tactics, grounded in the same-roster staging comparison. It preserves selection and returns directly to groups. Twelve native touch/typography profiles, four guide/raid-priority journeys and the full paid management journey pass. An obsolete flat-button assertion was updated to check the already-published custom plate textures; production theme code was not changed.
+
+A reproduced Stand Ground false acquisition/ignore cycle delayed guards against inward-moving enemies. The narrow UnitBase change bounds both automatic acquisition paths to existing stationary reach, preserving no-chase, weapon damage/reach, direct orders and advancing attack-move/patrol. All 146 focused assertions pass; an independent review found no intent/priority/fog defect. All fifteen paired paid engagements preserve their openings and first damage with zero navigation failures/stalls/unanswered orders, while later damage and survival change. The three slower-learner Easy matches remain paid Sacred wins in 670.67–703.13s, with no economic bonus or worker/Town Center damage. This supports the fix without claiming balance-neutral outcomes or human certification. See the paired regression receipt.
+
+Original Blacksmith and Siege Workshop art completes eight main building families. Geometry and costs remain fixed; native phone art/selection, adapter ownership and paid construction/research/Siege production pass. See [fieldcraft](fieldcraft_2026-10-22.md), [Stand Ground](stand_ground_2026-10-22.md) and [industry art](company_industry_2026-10-22.md).
+
+### Candidates after fieldcraft
+
+- Bring resources into the company materials: moss foliage, readable berry clusters, neutral stone with ochre gold seams. Tree alpha currently determines canopy picking (`ResourceNode.is_sprite_body_hit`); preserve the alpha footprint for a material pass, or explicitly verify overlap/hit masks before changing silhouette. Check depletion/fog and worker/enemy selection at zoom 0.65/0.952/1.6.
+- Reduce conspicuous grass-diamond contrast and inspect actual river crossings before choosing shoreline treatments. Neighbor-derived atlas variants should be selected during terrain construction, without per-frame nodes or navigation changes. Verify identical map/path hashes and all crossing routes.
+- Keep ordinary-toast/management overlap and guide-highlight tint as a separate modest UI scope.

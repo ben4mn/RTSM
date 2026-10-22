@@ -2,10 +2,10 @@ extends Node
 ## Native art/contract receipt. The village screenshots are synthetic visual
 ## fixtures, not paid-play evidence; paid placement is covered by existing tests.
 
-const OUTPUT := "res://output/company-buildings-expansion-2026-10-22"
-const TYPES: Array[int] = [BuildingData.BuildingType.TOWN_CENTER, BuildingData.BuildingType.HOUSE, BuildingData.BuildingType.BARRACKS, BuildingData.BuildingType.RESOURCE_CAMP, BuildingData.BuildingType.ARCHERY_RANGE, BuildingData.BuildingType.STABLE]
-const SCALES: Array[float] = [1.08, 0.45, 0.60, 0.45, 0.55, 0.55]
-const FOOTPRINTS: Array[Vector2i] = [Vector2i(4, 4), Vector2i(2, 2), Vector2i(3, 3), Vector2i(2, 2), Vector2i(3, 3), Vector2i(3, 3)]
+const OUTPUT := "res://output/company-industry-2026-10-22"
+const TYPES: Array[int] = [BuildingData.BuildingType.TOWN_CENTER, BuildingData.BuildingType.HOUSE, BuildingData.BuildingType.BARRACKS, BuildingData.BuildingType.RESOURCE_CAMP, BuildingData.BuildingType.ARCHERY_RANGE, BuildingData.BuildingType.STABLE, BuildingData.BuildingType.BLACKSMITH, BuildingData.BuildingType.SIEGE_WORKSHOP]
+const SCALES: Array[float] = [1.08, 0.45, 0.60, 0.45, 0.55, 0.55, 0.50, 0.60]
+const FOOTPRINTS: Array[Vector2i] = [Vector2i(4, 4), Vector2i(2, 2), Vector2i(3, 3), Vector2i(2, 2), Vector2i(3, 3), Vector2i(3, 3), Vector2i(2, 2), Vector2i(3, 3)]
 var _failures: Array[String] = []
 
 func _ready() -> void:
@@ -18,14 +18,14 @@ func _run() -> void:
 	GameManager.selected_map_seed = 101
 	GameManager.selected_map_archetype = MapData.MapArchetype.OPEN_PLAINS
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUTPUT))
-	for page: int in 2:
+	for page: int in 3:
 		await _contracts_and_contact_sheet(page)
 	if DisplayServer.get_name() != "headless":
 		await _village_captures()
 	for failure: String in _failures:
 		push_error("[FAIL] company_building_art: " + failure)
 	if _failures.is_empty():
-		print("[PASS] company_building_art: six original imported building families, 128px canvas, unchanged scales/offsets/footprints/collision, home/enemy/construction appearance; native contact sheet and phone village captures when rendered")
+		print("[PASS] company_building_art: eight original imported building families, 128px canvas, unchanged scales/offsets/footprints/collision, home/enemy/construction appearance; native contact sheet and phone village captures when rendered")
 	get_tree().quit(0 if _failures.is_empty() else 1)
 
 func _contracts_and_contact_sheet(page: int) -> void:
@@ -112,20 +112,29 @@ func _village_captures() -> void:
 		var map: Node2D = main.get("game_map")
 		var tc: BuildingBase = main.get("_player_town_center")
 		var home: Vector2i = map.map_generator.spawn_positions[0]
-		var camp: BuildingBase = _visual_building(main, BuildingData.BuildingType.RESOURCE_CAMP, home + Vector2i(4, -1))
-		var archery: BuildingBase = _visual_building(main, BuildingData.BuildingType.ARCHERY_RANGE, home + Vector2i(7, -4))
-		var stable: BuildingBase = _visual_building(main, BuildingData.BuildingType.STABLE, home + Vector2i(8, -8))
-		_expect(camp != null and archery != null and stable != null, "village visual fixture found legal foundations")
+		var smith: BuildingBase = _visual_building(main, BuildingData.BuildingType.BLACKSMITH, home + Vector2i(5, -1))
+		var workshop: BuildingBase = _visual_building(main, BuildingData.BuildingType.SIEGE_WORKSHOP, home + Vector2i(8, -5))
+		_expect(smith != null and workshop != null, "industry visual fixture found legal foundations")
 		main.call("_update_fog_of_war")
 		main.call("_select_town_center")
 		main.process_mode = Node.PROCESS_MODE_DISABLED
-		for zoom: float in [0.952, 1.6]:
-			map.camera.zoom = Vector2.ONE * zoom
-			map.camera.position = tc.global_position + (Vector2(220, -10) if zoom < 1.0 else Vector2(340, 40))
+		map.camera.zoom = Vector2.ONE * 0.952
+		map.camera.position = tc.global_position + Vector2(220, -10)
+		map.camera.reset_smoothing()
+		map.camera.force_update_scroll()
+		await _frames(4)
+		await _capture("village-%dx%d-zoom0.952.png" % [phone.x, phone.y])
+		# Individual detail views keep both the tall chimney and projecting jib
+		# inside the usable battlefield without changing actual sprite scale.
+		for building: BuildingBase in [smith, workshop]:
+			if building == null:
+				continue
+			map.camera.zoom = Vector2.ONE * 1.6
+			map.camera.position = building.global_position - Vector2(0, 10)
 			map.camera.reset_smoothing()
 			map.camera.force_update_scroll()
 			await _frames(4)
-			await _capture("village-%dx%d-zoom%s.png" % [phone.x, phone.y, str(zoom)])
+			await _capture("detail-%s-%dx%d-zoom1.6.png" % [building.building_name.to_snake_case(), phone.x, phone.y])
 		main.free()
 		GameManager.set_state(GameManager.GameState.MENU)
 		await _frames(2)
