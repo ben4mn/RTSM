@@ -56,6 +56,7 @@ var _patrol_point_b: Vector2 = Vector2.ZERO
 var _patrol_to_b: bool = true
 var _separation_timer: float = 0.0
 var _separation_vector: Vector2 = Vector2.ZERO
+var _combat_spacing_opponents: Array[UnitBase] = []
 var _navigation_active: bool = false
 var _navigation_goal: Vector2 = Vector2.ZERO
 var _navigation_target_snapshot: Vector2 = Vector2.ZERO
@@ -73,11 +74,12 @@ var _attack_animation_duration: float = 0.3
 var _attack_animation_direction: Vector2 = Vector2.RIGHT
 var _animation_clock: float = 0.0
 var _last_visual_position: Vector2 = Vector2.ZERO
+var _health_feedback_remaining: float = 0.0
 
 # --- Node references ---
 @onready var collision_shape: CollisionShape2D = $CollisionShape2D
 
-# --- Pocket Kingdoms miniature role artwork ---
+# --- Flat field-piece artwork; silhouettes carry the role at phone scale. ---
 const UNIT_SPRITES: Dictionary = {
 	UnitData.UnitType.VILLAGER: "res://assets/units/worker.svg",
 	UnitData.UnitType.INFANTRY: "res://assets/units/warrior.svg",
@@ -124,6 +126,7 @@ const FRIENDLY_SEPARATION_RADIUS: float = 34.0
 const FRIENDLY_SEPARATION_WEIGHT: float = 1.15
 const FRIENDLY_SEPARATION_MAX_STEER: float = 0.75
 const FRIENDLY_SEPARATION_REFRESH: float = 0.06
+const COMBAT_SPACING_SPEED_FRACTION: float = 0.35
 const NAVIGATION_POINT_TOLERANCE: float = 4.0
 const NAVIGATION_REPATH_INTERVAL: float = 0.45
 const NAVIGATION_DYNAMIC_REPATH_INTERVAL: float = 0.65
@@ -171,6 +174,10 @@ func _setup_sprite() -> void:
 	_sprite = Sprite2D.new()
 	_sprite.name = "UnitSprite"
 	var tex_path: String = UNIT_SPRITES.get(unit_type, "")
+	if player_owner != 0:
+		var alternate: String = tex_path.replace(".svg", "_enemy.svg")
+		if ResourceLoader.exists(alternate):
+			tex_path = alternate
 	if tex_path != "" and ResourceLoader.exists(tex_path):
 		_sprite.texture = load(tex_path)
 	_sprite.scale = UNIT_SPRITE_SCALES.get(unit_type, Vector2(0.20, 0.20))
@@ -182,9 +189,9 @@ func _setup_sprite() -> void:
 			_sprite_opaque_rect_cache[tex_path] = Rect2(image.get_used_rect()) if image != null else Rect2(Vector2.ZERO, _sprite.texture.get_size())
 		_sprite_opaque_rect = _sprite_opaque_rect_cache[tex_path]
 		_health_bar_y = floorf(_sprite.scale.y * (_sprite_opaque_rect.position.y - _sprite.texture.get_height() * 0.5 + _sprite.offset.y) - 6.0)
-	# Apply team color tint to enemy units
-	if player_owner != 0:
-		_sprite.modulate = Color(1.0, 0.4, 0.4)  # Bold red tint for enemies
+	# Team cloth has its own palette; neutral metal, skin and mounts retain
+	# their material colors instead of receiving a full-sprite red wash.
+	_sprite.modulate = Color.WHITE
 	_sprite_team_modulate = _sprite.modulate
 	_last_visual_position = global_position
 
@@ -247,53 +254,47 @@ func _process(delta: float) -> void:
 func _draw() -> void:
 	var size: float = UNIT_SIZES.get(unit_type, 10.0)
 
-	# A ground ellipse reads as a person standing on the isometric map.
+	# One quiet contact shadow. Team cloth supplies the normal ownership cue;
+	# only selected figures receive a surrounding ring.
 	var ground_ring := PackedVector2Array()
 	for i in range(33):
 		var angle: float = float(i) / 32.0 * TAU
 		ground_ring.append(Vector2(cos(angle) * (size + 1.0), sin(angle) * size * 0.48 + 3.0))
-	draw_colored_polygon(ground_ring, Color(0.04, 0.09, 0.10, 0.18))
+	draw_colored_polygon(ground_ring, Color(0.09, 0.13, 0.13, 0.12))
 	var contact_shadow := PackedVector2Array()
 	for point: Vector2 in ground_ring:
-		contact_shadow.append(Vector2(point.x * 0.64, (point.y - 3.0) * 0.62 + 2.0))
-	draw_colored_polygon(contact_shadow, Color(0.03, 0.07, 0.08, 0.19))
-	draw_polyline(ground_ring, Color(team_color.lightened(0.18), 0.85), 1.4, true)
+		contact_shadow.append(Vector2(point.x * 0.72, (point.y - 3.0) * 0.58 + 2.0))
+	draw_colored_polygon(contact_shadow, Color(0.09, 0.13, 0.13, 0.12))
 
 	if GameManager.clearer_player_markers:
 		var camera: Camera2D = get_viewport().get_camera_2d()
 		var inverse_zoom: float = 1.0 / maxf(0.5, camera.zoom.x) if camera != null else 1.0
-		var marker_size: float = 3.5 * inverse_zoom
-		var center := Vector2(0, 7.0)
+		var marker_size: float = 3.0 * inverse_zoom
+		var center := Vector2(0, 6.5)
 		if player_owner == 0:
-			draw_circle(center, marker_size + inverse_zoom, Color(0.02, 0.06, 0.08, 0.95))
-			draw_circle(center, marker_size, Color("81e0e0"))
+			draw_line(center - Vector2(marker_size, 0), center + Vector2(marker_size, 0), Color("293235"), 3.0 * inverse_zoom, true)
+			draw_line(center - Vector2(marker_size, 0), center + Vector2(marker_size, 0), Color("88b7ad"), 1.5 * inverse_zoom, true)
 		else:
-			var diamond := PackedVector2Array([center + Vector2(0, -marker_size * 1.3), center + Vector2(marker_size * 1.3, 0), center + Vector2(0, marker_size * 1.3), center + Vector2(-marker_size * 1.3, 0), center + Vector2(0, -marker_size * 1.3)])
-			draw_colored_polygon(diamond, Color("ff937a"))
-			draw_polyline(diamond, Color(0.12, 0.03, 0.02, 0.95), inverse_zoom, true)
+			var chevron := PackedVector2Array([center + Vector2(-marker_size, -1.5 * inverse_zoom), center + Vector2(0, 1.5 * inverse_zoom), center + Vector2(marker_size, -1.5 * inverse_zoom)])
+			draw_polyline(chevron, Color("293235"), 3.0 * inverse_zoom, true)
+			draw_polyline(chevron, Color("d69477"), 1.5 * inverse_zoom, true)
 
-	# Selection indicator (pulsing circle under unit)
+	# A stable ivory selection line stays readable without permanent bright
+	# team rings or pulsing graphics beneath every miniature.
 	if is_selected:
-		var pulse: float = 1.0 if GameManager.reduced_flashes or GameManager.reduced_motion else 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.005)
-		var sel_alpha := lerpf(0.75, 1.0, pulse)
-		draw_polyline(ground_ring, Color(1.0, 0.86, 0.49, sel_alpha), 3.0, true)
+		draw_polyline(ground_ring, Color("e8e5db"), 1.5, true)
 
-	# Critical HP pulsing red ring (< 25% HP)
 	var hp_ratio: float = hp / max_hp if max_hp > 0 else 0.0
-	if hp_ratio > 0.0 and hp_ratio < 0.25:
-		var crit_pulse: float = 0.8 if GameManager.reduced_flashes else 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.01)
-		draw_polyline(ground_ring, Color(1.0, 0.2, 0.1, crit_pulse * 0.8), 2.0, true)
-		queue_redraw()
 
-	# Health bar (above unit)
-	var bar_width: float = size * 2.5
-	var bar_height: float = 3.0
+	# Recent damage, selection and critical health remain visible. A healthy
+	# idle army needs neither floating meters nor permanent status badges.
+	var bar_width: float = size * 2.3
+	var bar_height: float = 2.0
 	var bar_y: float = _health_bar_y
 
-	# Healthy unselected villagers need no floating meter clutter.
-	if is_selected or hp < max_hp:
-		draw_rect(Rect2(-bar_width / 2.0, bar_y, bar_width, bar_height), Color(0.06, 0.12, 0.14, 0.9))
-		var hp_color := Color("9dcd81") if hp_ratio > 0.5 else (Color("e2bd67") if hp_ratio > 0.25 else Color("e97865"))
+	if is_selected or _health_feedback_remaining > 0.0 or hp_ratio <= 0.35:
+		draw_rect(Rect2(-bar_width / 2.0, bar_y, bar_width, bar_height), Color("293235"))
+		var hp_color := Color("e8e5db") if hp_ratio > 0.35 else Color("d69477")
 		draw_rect(Rect2(-bar_width / 2.0, bar_y, bar_width * hp_ratio, bar_height), hp_color)
 
 	# Stance indicator: shield icon for Stand Ground
@@ -307,8 +308,8 @@ func _draw() -> void:
 			Vector2(sx, sy + 4),
 			Vector2(sx - 3, sy + 1),
 		])
-		draw_colored_polygon(shield_pts, Color(0.9, 0.75, 0.2, 0.85))
-		draw_polyline(shield_pts, Color(0.6, 0.45, 0.1, 0.9), 1.0)
+		draw_colored_polygon(shield_pts, Color("293235"))
+		draw_polyline(shield_pts, Color("b7c4ba"), 1.0)
 
 
 # --- State Machine ---
@@ -619,9 +620,46 @@ func _process_attacking(delta: float) -> void:
 	else:
 		_auto_chase_elapsed = 0.0
 		_reset_navigation()
+		_relax_combat_spacing(delta, attack_target.global_position)
 		# In range, attack
 		if attack_cooldown <= 0.0:
 			_perform_attack()
+
+
+func _relax_combat_spacing(delta: float, target_position: Vector2) -> void:
+	# Pursuers often share a final A* waypoint. Once they enter attack range,
+	# movement steering stops; without this small in-range correction they can
+	# remain drawn on top of one another for the whole fight. Keep the current
+	# target, attack cadence and reachable attack circle while making room.
+	if stance == Stance.STAND_GROUND and not attack_move and not _forced_attack:
+		return
+	_update_friendly_separation()
+	if _separation_vector.is_zero_approx():
+		return
+	var proposed: Vector2 = global_position + _separation_vector * speed * COMBAT_SPACING_SPEED_FRACTION * delta
+	var from_target: Vector2 = proposed - target_position
+	var allowed_radius: float = attack_range + 8.0
+	# Resolve friendly pressure around the opponent, not through its body.
+	# Preserve an already closer position instead of teleporting outwards.
+	var inner_radius: float = minf(attack_range, global_position.distance_to(target_position))
+	if from_target.length() < inner_radius:
+		var radial: Vector2 = from_target.normalized() if not from_target.is_zero_approx() else (global_position - target_position).normalized()
+		proposed = target_position + radial * inner_radius
+		from_target = proposed - target_position
+	if from_target.length() > allowed_radius:
+		proposed = target_position + from_target.normalized() * allowed_radius
+	for opponent: UnitBase in _combat_spacing_opponents:
+		if not is_instance_valid(opponent) or opponent.current_state == State.DEAD:
+			continue
+		var body_clearance: float = (float(UNIT_SIZES.get(unit_type, 12.0)) + float(UNIT_SIZES.get(opponent.unit_type, 12.0))) * 0.6
+		var minimum_distance: float = minf(body_clearance, global_position.distance_to(opponent.global_position))
+		if proposed.distance_squared_to(opponent.global_position) < minimum_distance * minimum_distance:
+			return
+	var game_map: Node2D = _get_navigation_map()
+	if game_map != null and game_map.has_method("is_tile_walkable") and game_map.has_method("world_to_tile"):
+		if not bool(game_map.call("is_tile_walkable", game_map.call("world_to_tile", proposed))):
+			return
+	global_position = proposed
 
 
 func _get_building_attack_distance(building: BuildingBase) -> float:
@@ -816,6 +854,10 @@ func _cancel_attack_windup() -> void:
 func _update_sprite_motion(delta: float) -> void:
 	if _sprite == null:
 		return
+	if _health_feedback_remaining > 0.0:
+		_health_feedback_remaining = maxf(0.0, _health_feedback_remaining - delta)
+		if _health_feedback_remaining <= 0.0:
+			queue_redraw()
 	_animation_clock += delta
 	_attack_animation_remaining = maxf(0.0, _attack_animation_remaining - delta)
 	var displacement: Vector2 = global_position - _last_visual_position
@@ -1101,20 +1143,32 @@ func _update_friendly_separation() -> void:
 		return
 	_separation_timer = FRIENDLY_SEPARATION_REFRESH
 	var repel := Vector2.ZERO
+	_combat_spacing_opponents.clear()
 	for node in get_tree().get_nodes_in_group("units"):
 		if node == self or not (node is UnitBase):
 			continue
 		var other: UnitBase = node as UnitBase
 		if not is_instance_valid(other) or other.current_state == State.DEAD:
 			continue
-		if other.player_owner != player_owner:
-			continue
 		var offset: Vector2 = global_position - other.global_position
 		var dist: float = offset.length()
 		var desired_spacing: float = UNIT_SIZES.get(unit_type, 12.0) + UNIT_SIZES.get(other.unit_type, 12.0) + 8.0
 		var separation_radius: float = maxf(FRIENDLY_SEPARATION_RADIUS, desired_spacing)
-		if dist <= 0.001 or dist > separation_radius:
+		if dist > separation_radius:
 			continue
+		if other.player_owner != player_owner:
+			if current_state == State.ATTACKING:
+				_combat_spacing_opponents.append(other)
+			continue
+		if dist <= 0.001:
+			# Exact shared endpoints otherwise have no direction and never recover.
+			# A stable opposite direction for each pair breaks the tie without RNG.
+			var tie_direction: Vector2 = Vector2.RIGHT
+			if current_state == State.ATTACKING and is_instance_valid(attack_target):
+				var toward_target: Vector2 = attack_target.global_position - global_position
+				if not toward_target.is_zero_approx():
+					tie_direction = toward_target.orthogonal().normalized()
+			offset = -tie_direction if get_instance_id() < other.get_instance_id() else tie_direction
 		var strength: float = (separation_radius - dist) / separation_radius
 		var moving_bias: float = 1.0
 		if other.current_state == State.MOVING:
@@ -1144,9 +1198,10 @@ func take_damage(amount: float) -> void:
 	health_changed.emit(self, hp, max_hp)
 	if hp < previous_hp:
 		damage_received.emit(self, previous_hp - hp)
+		_health_feedback_remaining = 2.0
 	_flash_damage()
 	# Floating damage number
-	if get_tree() and get_tree().current_scene and AudioManager.is_source_visible(self):
+	if is_selected and get_tree() and get_tree().current_scene and AudioManager.is_source_visible(self):
 		VFX.damage_float(get_tree(), global_position, actual_damage)
 	AudioManager.play_world("attack_hit", self)
 	queue_redraw()
@@ -1162,7 +1217,7 @@ func _flash_damage() -> void:
 	# transient color, which permanently bleached enemies after focus fire.
 	if _damage_flash_tween != null and _damage_flash_tween.is_valid():
 		_damage_flash_tween.kill()
-	_sprite.modulate = Color(1.0, 1.0, 1.0)  # White flash — visible on both friendly and enemy units
+	_sprite.modulate = Color(1.16, 1.12, 1.04)
 	_damage_flash_tween = create_tween()
 	_damage_flash_tween.tween_property(_sprite, "modulate", _sprite_team_modulate, 0.15)
 

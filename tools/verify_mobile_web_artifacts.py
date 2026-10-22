@@ -26,6 +26,11 @@ ALLOWED_URL_PREFIXES = (
     b"https://developer.mozilla.org/",
     b"https://emscripten.org/",
     b"https://godotengine.org/",
+    # Copyright/OFL metadata embedded in the bundled Barlow font files.
+    b"https://github.com/jpt/barlow",
+    b"https://github.com/google/fonts/tree/main/ofl/",
+    b"http://scripts.sil.org/OFL",
+    b"https://tribby.com/",
 )
 ALLOWED_EXACT_URLS = (b"https://godotengine.org",)
 ABSOLUTE_PATH_PATTERN = re.compile(rb"(?:file://)?/Users/|[A-Z]:\\\\Users\\\\", re.IGNORECASE)
@@ -195,7 +200,11 @@ def verify_service_worker(root: Path) -> None:
     cache_manifest = json.loads(cache_manifest_path.read_text(encoding="utf-8"))
     files = cache_manifest.get("files", {})
     required_payload = {"index.html", "index.js", "index.pck", "index.wasm", "pocket_launch.js", "pocket_launch.css",
-                        "pocket_updates.js", "pocket_kingdom.png", "release_notes.json", "playtest_diagnostics.js"}
+                        "pocket_updates.js", "field_atlas.svg", "field_company.png", "play_dark.svg",
+                        "primary_normal.svg", "primary_hover.svg", "primary_pressed.svg",
+                        "secondary_normal.svg", "secondary_hover.svg", "secondary_pressed.svg", "release_notes.json", "playtest_diagnostics.js",
+                        "Barlow-Regular.ttf", "Barlow-Medium.ttf", "BarlowCondensed-SemiBold.ttf",
+                        "barlow-OFL.txt", "barlowcondensed-OFL.txt"}
     if not isinstance(files, dict) or not required_payload.issubset(files):
         raise VerificationError("update cache omits player-facing assets")
     if "version.json" in files:

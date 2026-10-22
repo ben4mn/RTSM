@@ -16,6 +16,11 @@ enum SiteState {
 	CONTESTED,
 }
 
+const NEUTRAL_COLOR: Color = Color("d5cdb5")
+const FRIENDLY_COLOR: Color = Color("88b7ad")
+const ENEMY_COLOR: Color = Color("d69477")
+const CONTESTED_COLOR: Color = Color("c6b486")
+
 ## Current state of the sacred site.
 var state: SiteState = SiteState.NEUTRAL
 
@@ -259,14 +264,14 @@ func _update_visuals() -> void:
 		return
 	match state:
 		SiteState.NEUTRAL:
-			sprite.modulate = Color(0.75, 0.65, 0.85)
+			sprite.modulate = NEUTRAL_COLOR
 		SiteState.CAPTURING:
-			var owner_color := Color(0.3, 0.5, 1.0) if owning_player == 0 else Color(1.0, 0.3, 0.3)
-			sprite.modulate = owner_color.lerp(Color(0.75, 0.65, 0.85), 1.0 - capture_progress)
+			var owner_color := FRIENDLY_COLOR if owning_player == 0 else ENEMY_COLOR
+			sprite.modulate = owner_color.lerp(NEUTRAL_COLOR, 1.0 - capture_progress)
 		SiteState.CAPTURED:
-			sprite.modulate = Color(0.3, 0.5, 1.0) if owning_player == 0 else Color(1.0, 0.3, 0.3)
+			sprite.modulate = FRIENDLY_COLOR if owning_player == 0 else ENEMY_COLOR
 		SiteState.CONTESTED:
-			sprite.modulate = Color(1.0, 0.85, 0.2)  # Yellow when contested.
+			sprite.modulate = CONTESTED_COLOR
 
 	# Update progress indicator bar.
 	var fill_node: Node = get_node_or_null("ProgressIndicator/ProgressFill")
@@ -277,45 +282,33 @@ func _update_visuals() -> void:
 		])
 		# Color the fill bar based on owner
 		if owning_player == 0:
-			(fill_node as Polygon2D).color = Color(0.3, 0.6, 1.0, 0.9)
+			(fill_node as Polygon2D).color = FRIENDLY_COLOR
 		elif owning_player == 1:
-			(fill_node as Polygon2D).color = Color(1.0, 0.3, 0.3, 0.9)
+			(fill_node as Polygon2D).color = ENEMY_COLOR
 
 	queue_redraw()
 
 
 func _draw() -> void:
-	# Pulsing glow aura
-	var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.003)
-	var aura_radius := 50.0 + pulse * 10.0
-
-	# Base aura (always visible, purple neutral)
-	var aura_color: Color
+	# A quiet field marker, with ownership carried by the same colors as units.
+	var site_color: Color = NEUTRAL_COLOR
 	match state:
-		SiteState.NEUTRAL:
-			aura_color = Color(0.6, 0.4, 0.8, 0.06 + pulse * 0.04)
 		SiteState.CAPTURING:
-			var base_col := Color(0.3, 0.5, 1.0) if owning_player == 0 else Color(1.0, 0.3, 0.3)
-			aura_color = Color(base_col.r, base_col.g, base_col.b, 0.08 + pulse * 0.05)
+			site_color = FRIENDLY_COLOR if owning_player == 0 else ENEMY_COLOR
 		SiteState.CAPTURED:
-			var base_col := Color(0.3, 0.5, 1.0) if owning_player == 0 else Color(1.0, 0.3, 0.3)
-			aura_color = Color(base_col.r, base_col.g, base_col.b, 0.10 + pulse * 0.06)
+			site_color = FRIENDLY_COLOR if owning_player == 0 else ENEMY_COLOR
 		SiteState.CONTESTED:
-			aura_color = Color(1.0, 0.85, 0.2, 0.08 + pulse * 0.05)
-		_:
-			aura_color = Color(0.6, 0.4, 0.8, 0.06)
-
-	draw_circle(Vector2.ZERO, aura_radius, aura_color)
-	draw_arc(Vector2.ZERO, aura_radius, 0, TAU, 48, Color(aura_color.r, aura_color.g, aura_color.b, aura_color.a * 2.0), 1.5)
-	# The small glow is decorative. This boundary is the actual distance at
+			site_color = CONTESTED_COLOR
+	draw_arc(Vector2.ZERO, 48.0, 0, TAU, 48, Color(site_color, 0.22), 1.0, true)
+	# This boundary is the actual distance at
 	# which troops capture or pause a hold, using the same radius as detection.
-	var boundary_color := Color(aura_color.r, aura_color.g, aura_color.b, 0.24)
+	var boundary_color := Color(site_color, 0.24)
 	draw_arc(Vector2.ZERO, get_capture_radius_world(), 0, TAU, 96, boundary_color, 1.2, true)
 
 	# Victory timer ring (when captured, shows progress toward victory)
 	if state == SiteState.CAPTURED and victory_timer > 0.0:
 		var timer_ratio := clampf(victory_timer / victory_hold_time, 0.0, 1.0)
-		var ring_color := Color(0.3, 0.7, 1.0, 0.6) if owning_player == 0 else Color(1.0, 0.4, 0.3, 0.6)
+		var ring_color := FRIENDLY_COLOR if owning_player == 0 else ENEMY_COLOR
 		var arc_end := TAU * timer_ratio - PI * 0.5
 		draw_arc(Vector2.ZERO, 35.0, -PI * 0.5, arc_end, 48, ring_color, 3.0)
 

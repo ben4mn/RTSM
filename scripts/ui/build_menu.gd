@@ -180,11 +180,9 @@ func set_safe_area_rect(safe_area: Rect2) -> void:
 
 func _apply_visual_theme() -> void:
 	theme = KingdomTheme.create_theme()
-	var sheet_style: StyleBoxFlat = KingdomTheme.panel_style(KingdomTheme.INK_PANEL, KingdomTheme.BORDER, 8)
+	var sheet_style: StyleBoxFlat = KingdomTheme.panel_style(KingdomTheme.INK_PANEL, KingdomTheme.BORDER, 4)
 	sheet_style.bg_color.a = 0.96
 	sheet_style.set_content_margin_all(2)
-	sheet_style.shadow_size = 4
-	sheet_style.shadow_offset = Vector2(0, -1)
 	add_theme_stylebox_override("panel", sheet_style)
 	title_label.text = "Build"
 	title_label.add_theme_color_override("font_color", KingdomTheme.PARCHMENT)
@@ -197,23 +195,12 @@ func _apply_header_button_style(button: Button) -> void:
 
 
 func _apply_card_style(button: Button) -> void:
-	var normal: StyleBoxFlat = KingdomTheme.panel_style(KingdomTheme.INK_LIGHT, KingdomTheme.BORDER, CommandIcons.CORNER_RADIUS)
-	normal.set_content_margin_all(6)
-	normal.set_content_margin(SIDE_TOP, 4)
-	normal.set_content_margin(SIDE_BOTTOM, 4)
-	var hover: StyleBoxFlat = normal.duplicate()
-	hover.border_color = KingdomTheme.AMBER
-	var pressed: StyleBoxFlat = normal.duplicate()
-	pressed.bg_color = Color(0.20, 0.17, 0.10)
-	pressed.border_color = KingdomTheme.AMBER
-	var disabled: StyleBoxFlat = normal.duplicate()
-	disabled.bg_color = KingdomTheme.INK
-	disabled.border_color = Color(0.18, 0.22, 0.27)
-	button.add_theme_stylebox_override("normal", normal)
-	button.add_theme_stylebox_override("hover", hover)
-	button.add_theme_stylebox_override("pressed", pressed)
-	button.add_theme_stylebox_override("focus", hover)
-	button.add_theme_stylebox_override("disabled", disabled)
+	for state: String in ["normal", "hover", "pressed", "focus", "disabled"]:
+		var style: StyleBox = KingdomTheme.button_style("secondary", state)
+		style.set_content_margin_all(6)
+		style.set_content_margin(SIDE_TOP, 4)
+		style.set_content_margin(SIDE_BOTTOM, 4)
+		button.add_theme_stylebox_override(state, style)
 	button.add_theme_color_override("font_color", KingdomTheme.PARCHMENT)
 	button.add_theme_color_override("font_disabled_color", KingdomTheme.MUTED)
 	button.add_theme_color_override("icon_normal_color", KingdomTheme.PARCHMENT)
@@ -546,8 +533,7 @@ func _refresh_affordability() -> void:
 			KingdomTheme.apply_primary(btn)
 			# Recommendation colour must not change the common card shape.
 			for state: String in ["normal", "hover", "pressed"]:
-				var style: StyleBoxFlat = btn.get_theme_stylebox(state).duplicate() as StyleBoxFlat
-				style.set_corner_radius_all(CommandIcons.CORNER_RADIUS)
+				var style: StyleBox = btn.get_theme_stylebox(state).duplicate()
 				style.set_content_margin(SIDE_LEFT, 6)
 				style.set_content_margin(SIDE_RIGHT, 6)
 				btn.add_theme_stylebox_override(state, style)

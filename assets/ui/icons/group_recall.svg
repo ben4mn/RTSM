@@ -1,3 +1,4 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
-  <g fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="9" r="4"/><path d="M3 25v-4c0-4 3-6 7-6h4M20 5c6 0 6 9 0 9M17 23h12m-6-6 6 6-6 6"/></g>
+  <title>Field company — group recall</title>
+  <path d="M5 3h20v22l-10-4-10 4z" fill="#e8e5db"/><path d="M8 6h14v10H8z" fill="#88b7ad"/><path d="M11 8v5m4-5v5m4-5v5" fill="none" stroke="#171c1d" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"/><path d="M24 19l-8 6 8 6v-4h8v-4h-8z" fill="#e8e5db"/>
 </svg>

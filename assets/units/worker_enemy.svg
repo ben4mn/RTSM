@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- Field worker: folded linen, mineral apron, one unmistakable iron pick. -->
+  <path fill="#3B4543" d="m47 75-3 24-5 5h17l5-27zm18 1 3 23-2 5h17l-6-7-2-22z"/>
+  <path fill="#DDD9C9" d="m45 46 13-6 17 8 6 27-13 10-23-6-6-21z"/>
+  <path fill="#B7BEAF" d="m45 48 8-4 2 31-10 4-6-21z"/>
+  <path fill="#BD8067" d="m52 45 7 2 1 15 9-1-1-16 7 4 3 32-13 7-20-8 5-20z"/>
+  <path fill="#855949" d="m51 68 21-2 1 12-9 4-14-5z"/>
+  <path fill="#C9B394" d="m41 54-7 11 8 13 6-5-7-9 6-7zm34-1 9 8 10-5 4 6-15 8-12-10z"/>
+  <path fill="#C9B394" d="m52 29 18-1 6 9-5 15-13 1-9-12z"/>
+  <path fill="#947F63" d="m49 34 4-9 18 1 5 9-12-4z"/>
+  <path fill="#E8E5DB" d="m36 30 15-5 22-1 14 9-20 7-24-2z"/>
+  <path fill="#CBC7B4" d="m47 26 5-10 15-2 11 10-3 7-18 2z"/>
+  <path fill="#BD8067" d="m48 27 28-2 2 5-19 4-12-3z"/>
+  <path d="m91 40 8 63" fill="none" stroke="#766C57" stroke-width="4" stroke-linecap="square"/>
+  <path fill="#384744" d="m72 39 12-6 19-1 12 11-17-5-19 7z"/>
+  <path fill="#B7C1B7" d="m75 39 11-4 16-1 6 4-11-2-18 6z"/>
+  <path fill="#7D7158" d="m51 40 6 7 10 2 7-4-4 8-13 1-6-7z"/>
+  <path d="m65 36 7 1" stroke="#465046" stroke-width="1.8" stroke-linecap="round"/>
+  <circle cx="69" cy="40" r="1.4" fill="#293B38"/>
+  <path d="m65 48 5-2" stroke="#E4D1AD" stroke-width="1.5" stroke-linecap="round"/>
+  <path fill="#DFB498" d="m51 70 6 1-1 7-6-1z"/>
+</svg>

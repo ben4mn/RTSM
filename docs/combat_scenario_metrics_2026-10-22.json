@@ -1,0 +1,3045 @@
+{
+  "method": "Fixed 60 Hz real generated maps, live-source visibility for both owners, real unit/formation/navigation/combat code. Free tactical armies; no economy or human-skill inference. All units release before melee resolves; released arrows continue. CPU excludes rendering and telemetry sampling.",
+  "unit_base_sha256": [
+    "952915c81c13fa1410c8cabf5e5cc57b05093483ec3c2c8258ab055bdf047cc3"
+  ],
+  "probe_sha256": [
+    "3bb537a6480e95ce9f837fd68b67efb80bef8fbf36d8b0534240e16955e265ba"
+  ],
+  "case_count": 72,
+  "missing_contact": 0,
+  "navigation_failures": 0,
+  "navigation_stall_unit_seconds": 0.0,
+  "command_unanswered": 0,
+  "first_hit_range_seconds": [
+    3.21666666666667,
+    5.46666666666667
+  ],
+  "median_case_p95_unit_update_cpu_ms": 1.584,
+  "cases": [
+    {
+      "map": 0,
+      "seed": 101,
+      "scenario": "infantry_clash",
+      "policy": "automatic",
+      "duration_seconds": 26.167,
+      "end_reason": "elimination",
+      "first_hit_seconds": 4.6,
+      "largest_hit_gap_seconds": 0.616666666666667,
+      "final_quiet_seconds": 0.517000000000003,
+      "winner": 1,
+      "survivors": [
+        0,
+        2
+      ],
+      "remaining_hp": [
+        0.0,
+        30.0
+      ],
+      "damage": [
+        690.0,
+        720.0
+      ],
+      "kills": [
+        10,
+        12
+      ],
+      "friendly_overlap_pair_seconds": 52.0,
+      "enemy_overlap_pair_seconds": 1.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 0.0,
+      "intervention_orders": 0,
+      "intervention_orders_per_minute": 0.0,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 111,
+      "unit_update_cpu_ms_p50": 0.4,
+      "unit_update_cpu_ms_p95": 1.502,
+      "unit_update_cpu_ms_max": 11.898,
+      "command_cpu_ms": 35.351
+    },
+    {
+      "map": 0,
+      "seed": 101,
+      "scenario": "infantry_clash",
+      "policy": "deliberate",
+      "duration_seconds": 24.617,
+      "end_reason": "elimination",
+      "first_hit_seconds": 4.6,
+      "largest_hit_gap_seconds": 0.766666666666666,
+      "final_quiet_seconds": 0.516999999999999,
+      "winner": 1,
+      "survivors": [
+        0,
+        3
+      ],
+      "remaining_hp": [
+        0.0,
+        150.0
+      ],
+      "damage": [
+        570.0,
+        720.0
+      ],
+      "kills": [
+        9,
+        12
+      ],
+      "friendly_overlap_pair_seconds": 50.5,
+      "enemy_overlap_pair_seconds": 0.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 0.0,
+      "intervention_orders": 2,
+      "intervention_orders_per_minute": 4.8746800991185,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 119,
+      "unit_update_cpu_ms_p50": 0.497,
+      "unit_update_cpu_ms_p95": 1.731,
+      "unit_update_cpu_ms_max": 11.08,
+      "command_cpu_ms": 78.258
+    },
+    {
+      "map": 0,
+      "seed": 101,
+      "scenario": "cavalry_flank",
+      "policy": "automatic",
+      "duration_seconds": 23.767,
+      "end_reason": "elimination",
+      "first_hit_seconds": 4.15,
+      "largest_hit_gap_seconds": 0.75,
+      "final_quiet_seconds": 0.516999999999999,
+      "winner": 0,
+      "survivors": [
+        6,
+        0
+      ],
+      "remaining_hp": [
+        238.0,
+        0.0
+      ],
+      "damage": [
+        640.0,
+        482.0
+      ],
+      "kills": [
+        14,
+        4
+      ],
+      "friendly_overlap_pair_seconds": 51.5,
+      "enemy_overlap_pair_seconds": 3.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 122.049999999994,
+      "intervention_orders": 0,
+      "intervention_orders_per_minute": 0.0,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 141,
+      "unit_update_cpu_ms_p50": 0.375,
+      "unit_update_cpu_ms_p95": 1.511,
+      "unit_update_cpu_ms_max": 11.674,
+      "command_cpu_ms": 19.43
+    },
+    {
+      "map": 0,
+      "seed": 101,
+      "scenario": "cavalry_flank",
+      "policy": "deliberate",
+      "duration_seconds": 38.683,
+      "end_reason": "disengaged",
+      "first_hit_seconds": 5.46666666666667,
+      "largest_hit_gap_seconds": 0.883333333333333,
+      "final_quiet_seconds": 9.033,
+      "winner": -1,
+      "survivors": [
+        7,
+        1
+      ],
+      "remaining_hp": [
+        250.0,
+        30.0
+      ],
+      "damage": [
+        610.0,
+        470.0
+      ],
+      "kills": [
+        13,
+        3
+      ],
+      "friendly_overlap_pair_seconds": 22.0,
+      "enemy_overlap_pair_seconds": 0.5,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 198.75000000005,
+      "intervention_orders": 5,
+      "intervention_orders_per_minute": 7.75534472507303,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 118,
+      "unit_update_cpu_ms_p50": 0.216,
+      "unit_update_cpu_ms_p95": 0.903,
+      "unit_update_cpu_ms_max": 7.991,
+      "command_cpu_ms": 112.037
+    },
+    {
+      "map": 0,
+      "seed": 101,
+      "scenario": "retreat_reengage",
+      "policy": "automatic",
+      "duration_seconds": 12.167,
+      "end_reason": "elimination",
+      "first_hit_seconds": 3.21666666666667,
+      "largest_hit_gap_seconds": 0.300000000000001,
+      "final_quiet_seconds": 0.516999999999999,
+      "winner": 0,
+      "survivors": [
+        10,
+        0
+      ],
+      "remaining_hp": [
+        338.0,
+        0.0
+      ],
+      "damage": [
+        720.0,
+        302.0
+      ],
+      "kills": [
+        10,
+        4
+      ],
+      "friendly_overlap_pair_seconds": 25.0,
+      "enemy_overlap_pair_seconds": 0.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 0.0,
+      "intervention_orders": 0,
+      "intervention_orders_per_minute": 0.0,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 107,
+      "unit_update_cpu_ms_p50": 0.597,
+      "unit_update_cpu_ms_p95": 1.552,
+      "unit_update_cpu_ms_max": 9.712,
+      "command_cpu_ms": 35.56
+    },
+    {
+      "map": 0,
+      "seed": 101,
+      "scenario": "retreat_reengage",
+      "policy": "deliberate",
+      "duration_seconds": 22.15,
+      "end_reason": "elimination",
+      "first_hit_seconds": 3.21666666666667,
+      "largest_hit_gap_seconds": 3.35,
+      "final_quiet_seconds": 0.516666666666669,
+      "winner": 0,
+      "survivors": [
+        8,
+        0
+      ],
+      "remaining_hp": [
+        212.0,
+        0.0
+      ],
+      "damage": [
+        720.0,
+        428.0
+      ],
+      "kills": [
+        10,
+        6
+      ],
+      "friendly_overlap_pair_seconds": 48.0,
+      "enemy_overlap_pair_seconds": 1.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 31.7333333333328,
+      "intervention_orders": 2,
+      "intervention_orders_per_minute": 5.4176072234763,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 119,
+      "unit_update_cpu_ms_p50": 0.411,
+      "unit_update_cpu_ms_p95": 1.699,
+      "unit_update_cpu_ms_max": 15.61,
+      "command_cpu_ms": 106.098
+    },
+    {
+      "map": 0,
+      "seed": 101,
+      "scenario": "crossing_reinforcements",
+      "policy": "automatic",
+      "duration_seconds": 50.617,
+      "end_reason": "elimination",
+      "first_hit_seconds": 5.15,
+      "largest_hit_gap_seconds": 3.33333333333333,
+      "final_quiet_seconds": 0.517000000000003,
+      "winner": 0,
+      "survivors": [
+        1,
+        0
+      ],
+      "remaining_hp": [
+        6.0,
+        0.0
+      ],
+      "damage": [
+        1180.0,
+        1174.0
+      ],
+      "kills": [
+        20,
+        19
+      ],
+      "friendly_overlap_pair_seconds": 24.5,
+      "enemy_overlap_pair_seconds": 0.5,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 15.666666666667,
+      "intervention_orders": 0,
+      "intervention_orders_per_minute": 0.0,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 181,
+      "unit_update_cpu_ms_p50": 0.369,
+      "unit_update_cpu_ms_p95": 2.223,
+      "unit_update_cpu_ms_max": 65.591,
+      "command_cpu_ms": 113.467
+    },
+    {
+      "map": 0,
+      "seed": 101,
+      "scenario": "crossing_reinforcements",
+      "policy": "deliberate",
+      "duration_seconds": 55.45,
+      "end_reason": "disengaged",
+      "first_hit_seconds": 5.15,
+      "largest_hit_gap_seconds": 4.85,
+      "final_quiet_seconds": 8.01666666666667,
+      "winner": -1,
+      "survivors": [
+        3,
+        1
+      ],
+      "remaining_hp": [
+        96.0,
+        7.0
+      ],
+      "damage": [
+        1173.0,
+        1084.0
+      ],
+      "kills": [
+        19,
+        17
+      ],
+      "friendly_overlap_pair_seconds": 24.5,
+      "enemy_overlap_pair_seconds": 0.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 61.4833333333311,
+      "intervention_orders": 2,
+      "intervention_orders_per_minute": 2.16411181244364,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 181,
+      "unit_update_cpu_ms_p50": 0.384,
+      "unit_update_cpu_ms_p95": 2.691,
+      "unit_update_cpu_ms_max": 68.518,
+      "command_cpu_ms": 214.287
+    },
+    {
+      "map": 0,
+      "seed": 424242,
+      "scenario": "infantry_clash",
+      "policy": "automatic",
+      "duration_seconds": 26.167,
+      "end_reason": "elimination",
+      "first_hit_seconds": 4.6,
+      "largest_hit_gap_seconds": 0.616666666666667,
+      "final_quiet_seconds": 0.517000000000003,
+      "winner": 1,
+      "survivors": [
+        0,
+        2
+      ],
+      "remaining_hp": [
+        0.0,
+        30.0
+      ],
+      "damage": [
+        690.0,
+        720.0
+      ],
+      "kills": [
+        10,
+        12
+      ],
+      "friendly_overlap_pair_seconds": 52.0,
+      "enemy_overlap_pair_seconds": 1.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 0.0,
+      "intervention_orders": 0,
+      "intervention_orders_per_minute": 0.0,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 111,
+      "unit_update_cpu_ms_p50": 0.453,
+      "unit_update_cpu_ms_p95": 1.835,
+      "unit_update_cpu_ms_max": 11.933,
+      "command_cpu_ms": 59.753
+    },
+    {
+      "map": 0,
+      "seed": 424242,
+      "scenario": "infantry_clash",
+      "policy": "deliberate",
+      "duration_seconds": 24.617,
+      "end_reason": "elimination",
+      "first_hit_seconds": 4.6,
+      "largest_hit_gap_seconds": 0.766666666666666,
+      "final_quiet_seconds": 0.516999999999999,
+      "winner": 1,
+      "survivors": [
+        0,
+        3
+      ],
+      "remaining_hp": [
+        0.0,
+        150.0
+      ],
+      "damage": [
+        570.0,
+        720.0
+      ],
+      "kills": [
+        9,
+        12
+      ],
+      "friendly_overlap_pair_seconds": 50.5,
+      "enemy_overlap_pair_seconds": 0.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 0.0,
+      "intervention_orders": 2,
+      "intervention_orders_per_minute": 4.8746800991185,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 119,
+      "unit_update_cpu_ms_p50": 0.523,
+      "unit_update_cpu_ms_p95": 2.287,
+      "unit_update_cpu_ms_max": 23.871,
+      "command_cpu_ms": 101.579
+    },
+    {
+      "map": 0,
+      "seed": 424242,
+      "scenario": "cavalry_flank",
+      "policy": "automatic",
+      "duration_seconds": 23.767,
+      "end_reason": "elimination",
+      "first_hit_seconds": 4.15,
+      "largest_hit_gap_seconds": 0.75,
+      "final_quiet_seconds": 0.516999999999999,
+      "winner": 0,
+      "survivors": [
+        6,
+        0
+      ],
+      "remaining_hp": [
+        238.0,
+        0.0
+      ],
+      "damage": [
+        640.0,
+        482.0
+      ],
+      "kills": [
+        14,
+        4
+      ],
+      "friendly_overlap_pair_seconds": 51.5,
+      "enemy_overlap_pair_seconds": 3.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 122.049999999994,
+      "intervention_orders": 0,
+      "intervention_orders_per_minute": 0.0,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 141,
+      "unit_update_cpu_ms_p50": 0.375,
+      "unit_update_cpu_ms_p95": 1.938,
+      "unit_update_cpu_ms_max": 20.099,
+      "command_cpu_ms": 23.836
+    },
+    {
+      "map": 0,
+      "seed": 424242,
+      "scenario": "cavalry_flank",
+      "policy": "deliberate",
+      "duration_seconds": 38.683,
+      "end_reason": "disengaged",
+      "first_hit_seconds": 5.46666666666667,
+      "largest_hit_gap_seconds": 0.883333333333333,
+      "final_quiet_seconds": 9.033,
+      "winner": -1,
+      "survivors": [
+        7,
+        1
+      ],
+      "remaining_hp": [
+        250.0,
+        30.0
+      ],
+      "damage": [
+        610.0,
+        470.0
+      ],
+      "kills": [
+        13,
+        3
+      ],
+      "friendly_overlap_pair_seconds": 22.0,
+      "enemy_overlap_pair_seconds": 0.5,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 198.75000000005,
+      "intervention_orders": 5,
+      "intervention_orders_per_minute": 7.75534472507303,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 118,
+      "unit_update_cpu_ms_p50": 0.22,
+      "unit_update_cpu_ms_p95": 1.009,
+      "unit_update_cpu_ms_max": 22.687,
+      "command_cpu_ms": 130.269
+    },
+    {
+      "map": 0,
+      "seed": 424242,
+      "scenario": "retreat_reengage",
+      "policy": "automatic",
+      "duration_seconds": 12.167,
+      "end_reason": "elimination",
+      "first_hit_seconds": 3.21666666666667,
+      "largest_hit_gap_seconds": 0.300000000000001,
+      "final_quiet_seconds": 0.516999999999999,
+      "winner": 0,
+      "survivors": [
+        10,
+        0
+      ],
+      "remaining_hp": [
+        338.0,
+        0.0
+      ],
+      "damage": [
+        720.0,
+        302.0
+      ],
+      "kills": [
+        10,
+        4
+      ],
+      "friendly_overlap_pair_seconds": 25.0,
+      "enemy_overlap_pair_seconds": 0.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 0.0,
+      "intervention_orders": 0,
+      "intervention_orders_per_minute": 0.0,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 107,
+      "unit_update_cpu_ms_p50": 0.565,
+      "unit_update_cpu_ms_p95": 1.928,
+      "unit_update_cpu_ms_max": 9.66,
+      "command_cpu_ms": 37.834
+    },
+    {
+      "map": 0,
+      "seed": 424242,
+      "scenario": "retreat_reengage",
+      "policy": "deliberate",
+      "duration_seconds": 22.15,
+      "end_reason": "elimination",
+      "first_hit_seconds": 3.21666666666667,
+      "largest_hit_gap_seconds": 3.35,
+      "final_quiet_seconds": 0.516666666666669,
+      "winner": 0,
+      "survivors": [
+        8,
+        0
+      ],
+      "remaining_hp": [
+        212.0,
+        0.0
+      ],
+      "damage": [
+        720.0,
+        428.0
+      ],
+      "kills": [
+        10,
+        6
+      ],
+      "friendly_overlap_pair_seconds": 48.0,
+      "enemy_overlap_pair_seconds": 1.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 31.7333333333328,
+      "intervention_orders": 2,
+      "intervention_orders_per_minute": 5.4176072234763,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 119,
+      "unit_update_cpu_ms_p50": 0.411,
+      "unit_update_cpu_ms_p95": 1.579,
+      "unit_update_cpu_ms_max": 25.165,
+      "command_cpu_ms": 78.949
+    },
+    {
+      "map": 0,
+      "seed": 424242,
+      "scenario": "crossing_reinforcements",
+      "policy": "automatic",
+      "duration_seconds": 50.917,
+      "end_reason": "elimination",
+      "first_hit_seconds": 5.15,
+      "largest_hit_gap_seconds": 3.83333333333333,
+      "final_quiet_seconds": 0.517000000000003,
+      "winner": 1,
+      "survivors": [
+        0,
+        4
+      ],
+      "remaining_hp": [
+        0.0,
+        133.0
+      ],
+      "damage": [
+        1047.0,
+        1180.0
+      ],
+      "kills": [
+        16,
+        20
+      ],
+      "friendly_overlap_pair_seconds": 24.5,
+      "enemy_overlap_pair_seconds": 0.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 27.4333333333331,
+      "intervention_orders": 0,
+      "intervention_orders_per_minute": 0.0,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 182,
+      "unit_update_cpu_ms_p50": 0.361,
+      "unit_update_cpu_ms_p95": 2.106,
+      "unit_update_cpu_ms_max": 53.339,
+      "command_cpu_ms": 122.975
+    },
+    {
+      "map": 0,
+      "seed": 424242,
+      "scenario": "crossing_reinforcements",
+      "policy": "deliberate",
+      "duration_seconds": 54.55,
+      "end_reason": "elimination",
+      "first_hit_seconds": 5.15,
+      "largest_hit_gap_seconds": 4.96666666666667,
+      "final_quiet_seconds": 0.516666666666673,
+      "winner": 1,
+      "survivors": [
+        0,
+        3
+      ],
+      "remaining_hp": [
+        0.0,
+        55.0
+      ],
+      "damage": [
+        1125.0,
+        1180.0
+      ],
+      "kills": [
+        17,
+        20
+      ],
+      "friendly_overlap_pair_seconds": 36.5,
+      "enemy_overlap_pair_seconds": 0.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 79.6499999999968,
+      "intervention_orders": 2,
+      "intervention_orders_per_minute": 2.19981668194317,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 191,
+      "unit_update_cpu_ms_p50": 0.399,
+      "unit_update_cpu_ms_p95": 2.319,
+      "unit_update_cpu_ms_max": 53.526,
+      "command_cpu_ms": 149.63
+    },
+    {
+      "map": 0,
+      "seed": 20261021,
+      "scenario": "infantry_clash",
+      "policy": "automatic",
+      "duration_seconds": 26.167,
+      "end_reason": "elimination",
+      "first_hit_seconds": 4.6,
+      "largest_hit_gap_seconds": 0.616666666666667,
+      "final_quiet_seconds": 0.517000000000003,
+      "winner": 1,
+      "survivors": [
+        0,
+        2
+      ],
+      "remaining_hp": [
+        0.0,
+        30.0
+      ],
+      "damage": [
+        690.0,
+        720.0
+      ],
+      "kills": [
+        10,
+        12
+      ],
+      "friendly_overlap_pair_seconds": 52.0,
+      "enemy_overlap_pair_seconds": 1.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 0.0,
+      "intervention_orders": 0,
+      "intervention_orders_per_minute": 0.0,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 111,
+      "unit_update_cpu_ms_p50": 0.413,
+      "unit_update_cpu_ms_p95": 1.562,
+      "unit_update_cpu_ms_max": 20.384,
+      "command_cpu_ms": 36.2
+    },
+    {
+      "map": 0,
+      "seed": 20261021,
+      "scenario": "infantry_clash",
+      "policy": "deliberate",
+      "duration_seconds": 24.617,
+      "end_reason": "elimination",
+      "first_hit_seconds": 4.6,
+      "largest_hit_gap_seconds": 0.766666666666666,
+      "final_quiet_seconds": 0.516999999999999,
+      "winner": 1,
+      "survivors": [
+        0,
+        3
+      ],
+      "remaining_hp": [
+        0.0,
+        150.0
+      ],
+      "damage": [
+        570.0,
+        720.0
+      ],
+      "kills": [
+        9,
+        12
+      ],
+      "friendly_overlap_pair_seconds": 50.5,
+      "enemy_overlap_pair_seconds": 0.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 0.0,
+      "intervention_orders": 2,
+      "intervention_orders_per_minute": 4.8746800991185,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 119,
+      "unit_update_cpu_ms_p50": 0.508,
+      "unit_update_cpu_ms_p95": 1.956,
+      "unit_update_cpu_ms_max": 11.645,
+      "command_cpu_ms": 84.206
+    },
+    {
+      "map": 0,
+      "seed": 20261021,
+      "scenario": "cavalry_flank",
+      "policy": "automatic",
+      "duration_seconds": 23.767,
+      "end_reason": "elimination",
+      "first_hit_seconds": 4.15,
+      "largest_hit_gap_seconds": 0.75,
+      "final_quiet_seconds": 0.516999999999999,
+      "winner": 0,
+      "survivors": [
+        6,
+        0
+      ],
+      "remaining_hp": [
+        238.0,
+        0.0
+      ],
+      "damage": [
+        640.0,
+        482.0
+      ],
+      "kills": [
+        14,
+        4
+      ],
+      "friendly_overlap_pair_seconds": 51.5,
+      "enemy_overlap_pair_seconds": 3.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 122.049999999994,
+      "intervention_orders": 0,
+      "intervention_orders_per_minute": 0.0,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 141,
+      "unit_update_cpu_ms_p50": 0.396,
+      "unit_update_cpu_ms_p95": 1.453,
+      "unit_update_cpu_ms_max": 15.352,
+      "command_cpu_ms": 17.519
+    },
+    {
+      "map": 0,
+      "seed": 20261021,
+      "scenario": "cavalry_flank",
+      "policy": "deliberate",
+      "duration_seconds": 38.683,
+      "end_reason": "disengaged",
+      "first_hit_seconds": 5.46666666666667,
+      "largest_hit_gap_seconds": 0.883333333333333,
+      "final_quiet_seconds": 9.033,
+      "winner": -1,
+      "survivors": [
+        7,
+        1
+      ],
+      "remaining_hp": [
+        250.0,
+        30.0
+      ],
+      "damage": [
+        610.0,
+        470.0
+      ],
+      "kills": [
+        13,
+        3
+      ],
+      "friendly_overlap_pair_seconds": 22.0,
+      "enemy_overlap_pair_seconds": 0.5,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 198.75000000005,
+      "intervention_orders": 5,
+      "intervention_orders_per_minute": 7.75534472507303,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 118,
+      "unit_update_cpu_ms_p50": 0.218,
+      "unit_update_cpu_ms_p95": 1.053,
+      "unit_update_cpu_ms_max": 13.167,
+      "command_cpu_ms": 136.69
+    },
+    {
+      "map": 0,
+      "seed": 20261021,
+      "scenario": "retreat_reengage",
+      "policy": "automatic",
+      "duration_seconds": 12.167,
+      "end_reason": "elimination",
+      "first_hit_seconds": 3.21666666666667,
+      "largest_hit_gap_seconds": 0.300000000000001,
+      "final_quiet_seconds": 0.516999999999999,
+      "winner": 0,
+      "survivors": [
+        10,
+        0
+      ],
+      "remaining_hp": [
+        338.0,
+        0.0
+      ],
+      "damage": [
+        720.0,
+        302.0
+      ],
+      "kills": [
+        10,
+        4
+      ],
+      "friendly_overlap_pair_seconds": 25.0,
+      "enemy_overlap_pair_seconds": 0.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 0.0,
+      "intervention_orders": 0,
+      "intervention_orders_per_minute": 0.0,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 107,
+      "unit_update_cpu_ms_p50": 0.589,
+      "unit_update_cpu_ms_p95": 1.673,
+      "unit_update_cpu_ms_max": 9.712,
+      "command_cpu_ms": 36.401
+    },
+    {
+      "map": 0,
+      "seed": 20261021,
+      "scenario": "retreat_reengage",
+      "policy": "deliberate",
+      "duration_seconds": 22.15,
+      "end_reason": "elimination",
+      "first_hit_seconds": 3.21666666666667,
+      "largest_hit_gap_seconds": 3.35,
+      "final_quiet_seconds": 0.516666666666669,
+      "winner": 0,
+      "survivors": [
+        8,
+        0
+      ],
+      "remaining_hp": [
+        212.0,
+        0.0
+      ],
+      "damage": [
+        720.0,
+        428.0
+      ],
+      "kills": [
+        10,
+        6
+      ],
+      "friendly_overlap_pair_seconds": 48.0,
+      "enemy_overlap_pair_seconds": 1.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 31.7333333333328,
+      "intervention_orders": 2,
+      "intervention_orders_per_minute": 5.4176072234763,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 119,
+      "unit_update_cpu_ms_p50": 0.379,
+      "unit_update_cpu_ms_p95": 1.622,
+      "unit_update_cpu_ms_max": 18.678,
+      "command_cpu_ms": 88.511
+    },
+    {
+      "map": 0,
+      "seed": 20261021,
+      "scenario": "crossing_reinforcements",
+      "policy": "automatic",
+      "duration_seconds": 55.833,
+      "end_reason": "elimination",
+      "first_hit_seconds": 5.15,
+      "largest_hit_gap_seconds": 1.15,
+      "final_quiet_seconds": 0.516333333333336,
+      "winner": 0,
+      "survivors": [
+        2,
+        0
+      ],
+      "remaining_hp": [
+        24.0,
+        0.0
+      ],
+      "damage": [
+        1180.0,
+        1156.0
+      ],
+      "kills": [
+        20,
+        18
+      ],
+      "friendly_overlap_pair_seconds": 17.0,
+      "enemy_overlap_pair_seconds": 0.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 14.516666666667,
+      "intervention_orders": 0,
+      "intervention_orders_per_minute": 0.0,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 189,
+      "unit_update_cpu_ms_p50": 0.33,
+      "unit_update_cpu_ms_p95": 2.055,
+      "unit_update_cpu_ms_max": 58.425,
+      "command_cpu_ms": 119.243
+    },
+    {
+      "map": 0,
+      "seed": 20261021,
+      "scenario": "crossing_reinforcements",
+      "policy": "deliberate",
+      "duration_seconds": 49.917,
+      "end_reason": "elimination",
+      "first_hit_seconds": 5.15,
+      "largest_hit_gap_seconds": 5.0,
+      "final_quiet_seconds": 0.517000000000003,
+      "winner": 0,
+      "survivors": [
+        3,
+        0
+      ],
+      "remaining_hp": [
+        90.0,
+        0.0
+      ],
+      "damage": [
+        1180.0,
+        1090.0
+      ],
+      "kills": [
+        20,
+        17
+      ],
+      "friendly_overlap_pair_seconds": 27.0,
+      "enemy_overlap_pair_seconds": 0.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 22.0833333333334,
+      "intervention_orders": 2,
+      "intervention_orders_per_minute": 2.40399062443656,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 199,
+      "unit_update_cpu_ms_p50": 0.382,
+      "unit_update_cpu_ms_p95": 2.486,
+      "unit_update_cpu_ms_max": 50.081,
+      "command_cpu_ms": 169.008
+    },
+    {
+      "map": 1,
+      "seed": 101,
+      "scenario": "infantry_clash",
+      "policy": "automatic",
+      "duration_seconds": 26.167,
+      "end_reason": "elimination",
+      "first_hit_seconds": 4.6,
+      "largest_hit_gap_seconds": 0.616666666666667,
+      "final_quiet_seconds": 0.517000000000003,
+      "winner": 1,
+      "survivors": [
+        0,
+        2
+      ],
+      "remaining_hp": [
+        0.0,
+        30.0
+      ],
+      "damage": [
+        690.0,
+        720.0
+      ],
+      "kills": [
+        10,
+        12
+      ],
+      "friendly_overlap_pair_seconds": 52.0,
+      "enemy_overlap_pair_seconds": 1.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 0.0,
+      "intervention_orders": 0,
+      "intervention_orders_per_minute": 0.0,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 111,
+      "unit_update_cpu_ms_p50": 0.437,
+      "unit_update_cpu_ms_p95": 1.964,
+      "unit_update_cpu_ms_max": 11.619,
+      "command_cpu_ms": 55.282
+    },
+    {
+      "map": 1,
+      "seed": 101,
+      "scenario": "infantry_clash",
+      "policy": "deliberate",
+      "duration_seconds": 24.617,
+      "end_reason": "elimination",
+      "first_hit_seconds": 4.6,
+      "largest_hit_gap_seconds": 0.766666666666666,
+      "final_quiet_seconds": 0.516999999999999,
+      "winner": 1,
+      "survivors": [
+        0,
+        3
+      ],
+      "remaining_hp": [
+        0.0,
+        150.0
+      ],
+      "damage": [
+        570.0,
+        720.0
+      ],
+      "kills": [
+        9,
+        12
+      ],
+      "friendly_overlap_pair_seconds": 50.5,
+      "enemy_overlap_pair_seconds": 0.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 0.0,
+      "intervention_orders": 2,
+      "intervention_orders_per_minute": 4.8746800991185,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 119,
+      "unit_update_cpu_ms_p50": 0.517,
+      "unit_update_cpu_ms_p95": 1.766,
+      "unit_update_cpu_ms_max": 13.213,
+      "command_cpu_ms": 73.714
+    },
+    {
+      "map": 1,
+      "seed": 101,
+      "scenario": "cavalry_flank",
+      "policy": "automatic",
+      "duration_seconds": 23.767,
+      "end_reason": "elimination",
+      "first_hit_seconds": 4.15,
+      "largest_hit_gap_seconds": 0.75,
+      "final_quiet_seconds": 0.516999999999999,
+      "winner": 0,
+      "survivors": [
+        6,
+        0
+      ],
+      "remaining_hp": [
+        238.0,
+        0.0
+      ],
+      "damage": [
+        640.0,
+        482.0
+      ],
+      "kills": [
+        14,
+        4
+      ],
+      "friendly_overlap_pair_seconds": 51.5,
+      "enemy_overlap_pair_seconds": 3.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 122.049999999994,
+      "intervention_orders": 0,
+      "intervention_orders_per_minute": 0.0,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 141,
+      "unit_update_cpu_ms_p50": 0.387,
+      "unit_update_cpu_ms_p95": 1.55,
+      "unit_update_cpu_ms_max": 12.791,
+      "command_cpu_ms": 17.48
+    },
+    {
+      "map": 1,
+      "seed": 101,
+      "scenario": "cavalry_flank",
+      "policy": "deliberate",
+      "duration_seconds": 38.683,
+      "end_reason": "disengaged",
+      "first_hit_seconds": 5.46666666666667,
+      "largest_hit_gap_seconds": 0.883333333333333,
+      "final_quiet_seconds": 9.033,
+      "winner": -1,
+      "survivors": [
+        7,
+        1
+      ],
+      "remaining_hp": [
+        250.0,
+        30.0
+      ],
+      "damage": [
+        610.0,
+        470.0
+      ],
+      "kills": [
+        13,
+        3
+      ],
+      "friendly_overlap_pair_seconds": 22.0,
+      "enemy_overlap_pair_seconds": 0.5,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 198.75000000005,
+      "intervention_orders": 5,
+      "intervention_orders_per_minute": 7.75534472507303,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 118,
+      "unit_update_cpu_ms_p50": 0.227,
+      "unit_update_cpu_ms_p95": 0.976,
+      "unit_update_cpu_ms_max": 10.751,
+      "command_cpu_ms": 112.886
+    },
+    {
+      "map": 1,
+      "seed": 101,
+      "scenario": "retreat_reengage",
+      "policy": "automatic",
+      "duration_seconds": 12.167,
+      "end_reason": "elimination",
+      "first_hit_seconds": 3.21666666666667,
+      "largest_hit_gap_seconds": 0.300000000000001,
+      "final_quiet_seconds": 0.516999999999999,
+      "winner": 0,
+      "survivors": [
+        10,
+        0
+      ],
+      "remaining_hp": [
+        338.0,
+        0.0
+      ],
+      "damage": [
+        720.0,
+        302.0
+      ],
+      "kills": [
+        10,
+        4
+      ],
+      "friendly_overlap_pair_seconds": 25.0,
+      "enemy_overlap_pair_seconds": 0.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 0.0,
+      "intervention_orders": 0,
+      "intervention_orders_per_minute": 0.0,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 107,
+      "unit_update_cpu_ms_p50": 0.64,
+      "unit_update_cpu_ms_p95": 2.142,
+      "unit_update_cpu_ms_max": 13.299,
+      "command_cpu_ms": 43.469
+    },
+    {
+      "map": 1,
+      "seed": 101,
+      "scenario": "retreat_reengage",
+      "policy": "deliberate",
+      "duration_seconds": 22.15,
+      "end_reason": "elimination",
+      "first_hit_seconds": 3.21666666666667,
+      "largest_hit_gap_seconds": 3.35,
+      "final_quiet_seconds": 0.516666666666669,
+      "winner": 0,
+      "survivors": [
+        8,
+        0
+      ],
+      "remaining_hp": [
+        212.0,
+        0.0
+      ],
+      "damage": [
+        720.0,
+        428.0
+      ],
+      "kills": [
+        10,
+        6
+      ],
+      "friendly_overlap_pair_seconds": 48.0,
+      "enemy_overlap_pair_seconds": 1.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 31.7333333333328,
+      "intervention_orders": 2,
+      "intervention_orders_per_minute": 5.4176072234763,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 119,
+      "unit_update_cpu_ms_p50": 0.415,
+      "unit_update_cpu_ms_p95": 1.843,
+      "unit_update_cpu_ms_max": 16.079,
+      "command_cpu_ms": 74.851
+    },
+    {
+      "map": 1,
+      "seed": 101,
+      "scenario": "crossing_reinforcements",
+      "policy": "automatic",
+      "duration_seconds": 48.667,
+      "end_reason": "elimination",
+      "first_hit_seconds": 5.15,
+      "largest_hit_gap_seconds": 1.16666666666666,
+      "final_quiet_seconds": 0.517000000000003,
+      "winner": 1,
+      "survivors": [
+        0,
+        3
+      ],
+      "remaining_hp": [
+        0.0,
+        102.0
+      ],
+      "damage": [
+        1078.0,
+        1180.0
+      ],
+      "kills": [
+        17,
+        20
+      ],
+      "friendly_overlap_pair_seconds": 17.5,
+      "enemy_overlap_pair_seconds": 2.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 2.61666666666666,
+      "intervention_orders": 0,
+      "intervention_orders_per_minute": 0.0,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 189,
+      "unit_update_cpu_ms_p50": 0.344,
+      "unit_update_cpu_ms_p95": 2.082,
+      "unit_update_cpu_ms_max": 70.604,
+      "command_cpu_ms": 116.721
+    },
+    {
+      "map": 1,
+      "seed": 101,
+      "scenario": "crossing_reinforcements",
+      "policy": "deliberate",
+      "duration_seconds": 56.567,
+      "end_reason": "disengaged",
+      "first_hit_seconds": 5.15,
+      "largest_hit_gap_seconds": 4.86666666666667,
+      "final_quiet_seconds": 8.017,
+      "winner": -1,
+      "survivors": [
+        4,
+        1
+      ],
+      "remaining_hp": [
+        96.0,
+        7.0
+      ],
+      "damage": [
+        1173.0,
+        1084.0
+      ],
+      "kills": [
+        19,
+        16
+      ],
+      "friendly_overlap_pair_seconds": 27.5,
+      "enemy_overlap_pair_seconds": 0.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 69.566666666664,
+      "intervention_orders": 2,
+      "intervention_orders_per_minute": 2.12137818869659,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 194,
+      "unit_update_cpu_ms_p50": 0.331,
+      "unit_update_cpu_ms_p95": 1.666,
+      "unit_update_cpu_ms_max": 49.763,
+      "command_cpu_ms": 129.968
+    },
+    {
+      "map": 1,
+      "seed": 424242,
+      "scenario": "infantry_clash",
+      "policy": "automatic",
+      "duration_seconds": 26.167,
+      "end_reason": "elimination",
+      "first_hit_seconds": 4.6,
+      "largest_hit_gap_seconds": 0.616666666666667,
+      "final_quiet_seconds": 0.517000000000003,
+      "winner": 1,
+      "survivors": [
+        0,
+        2
+      ],
+      "remaining_hp": [
+        0.0,
+        30.0
+      ],
+      "damage": [
+        690.0,
+        720.0
+      ],
+      "kills": [
+        10,
+        12
+      ],
+      "friendly_overlap_pair_seconds": 52.0,
+      "enemy_overlap_pair_seconds": 1.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 0.0,
+      "intervention_orders": 0,
+      "intervention_orders_per_minute": 0.0,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 111,
+      "unit_update_cpu_ms_p50": 0.38,
+      "unit_update_cpu_ms_p95": 1.348,
+      "unit_update_cpu_ms_max": 10.816,
+      "command_cpu_ms": 33.663
+    },
+    {
+      "map": 1,
+      "seed": 424242,
+      "scenario": "infantry_clash",
+      "policy": "deliberate",
+      "duration_seconds": 24.617,
+      "end_reason": "elimination",
+      "first_hit_seconds": 4.6,
+      "largest_hit_gap_seconds": 0.766666666666666,
+      "final_quiet_seconds": 0.516999999999999,
+      "winner": 1,
+      "survivors": [
+        0,
+        3
+      ],
+      "remaining_hp": [
+        0.0,
+        150.0
+      ],
+      "damage": [
+        570.0,
+        720.0
+      ],
+      "kills": [
+        9,
+        12
+      ],
+      "friendly_overlap_pair_seconds": 50.5,
+      "enemy_overlap_pair_seconds": 0.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 0.0,
+      "intervention_orders": 2,
+      "intervention_orders_per_minute": 4.8746800991185,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 119,
+      "unit_update_cpu_ms_p50": 0.481,
+      "unit_update_cpu_ms_p95": 1.589,
+      "unit_update_cpu_ms_max": 16.014,
+      "command_cpu_ms": 64.484
+    },
+    {
+      "map": 1,
+      "seed": 424242,
+      "scenario": "cavalry_flank",
+      "policy": "automatic",
+      "duration_seconds": 23.767,
+      "end_reason": "elimination",
+      "first_hit_seconds": 4.15,
+      "largest_hit_gap_seconds": 0.75,
+      "final_quiet_seconds": 0.516999999999999,
+      "winner": 0,
+      "survivors": [
+        6,
+        0
+      ],
+      "remaining_hp": [
+        238.0,
+        0.0
+      ],
+      "damage": [
+        640.0,
+        482.0
+      ],
+      "kills": [
+        14,
+        4
+      ],
+      "friendly_overlap_pair_seconds": 51.5,
+      "enemy_overlap_pair_seconds": 3.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 122.049999999994,
+      "intervention_orders": 0,
+      "intervention_orders_per_minute": 0.0,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 141,
+      "unit_update_cpu_ms_p50": 0.36,
+      "unit_update_cpu_ms_p95": 1.172,
+      "unit_update_cpu_ms_max": 11.155,
+      "command_cpu_ms": 17.421
+    },
+    {
+      "map": 1,
+      "seed": 424242,
+      "scenario": "cavalry_flank",
+      "policy": "deliberate",
+      "duration_seconds": 38.683,
+      "end_reason": "disengaged",
+      "first_hit_seconds": 5.46666666666667,
+      "largest_hit_gap_seconds": 0.883333333333333,
+      "final_quiet_seconds": 9.033,
+      "winner": -1,
+      "survivors": [
+        7,
+        1
+      ],
+      "remaining_hp": [
+        250.0,
+        30.0
+      ],
+      "damage": [
+        610.0,
+        470.0
+      ],
+      "kills": [
+        13,
+        3
+      ],
+      "friendly_overlap_pair_seconds": 22.0,
+      "enemy_overlap_pair_seconds": 0.5,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 198.75000000005,
+      "intervention_orders": 5,
+      "intervention_orders_per_minute": 7.75534472507303,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 118,
+      "unit_update_cpu_ms_p50": 0.207,
+      "unit_update_cpu_ms_p95": 0.83,
+      "unit_update_cpu_ms_max": 8.179,
+      "command_cpu_ms": 101.908
+    },
+    {
+      "map": 1,
+      "seed": 424242,
+      "scenario": "retreat_reengage",
+      "policy": "automatic",
+      "duration_seconds": 12.167,
+      "end_reason": "elimination",
+      "first_hit_seconds": 3.21666666666667,
+      "largest_hit_gap_seconds": 0.300000000000001,
+      "final_quiet_seconds": 0.516999999999999,
+      "winner": 0,
+      "survivors": [
+        10,
+        0
+      ],
+      "remaining_hp": [
+        338.0,
+        0.0
+      ],
+      "damage": [
+        720.0,
+        302.0
+      ],
+      "kills": [
+        10,
+        4
+      ],
+      "friendly_overlap_pair_seconds": 25.0,
+      "enemy_overlap_pair_seconds": 0.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 0.0,
+      "intervention_orders": 0,
+      "intervention_orders_per_minute": 0.0,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 107,
+      "unit_update_cpu_ms_p50": 0.571,
+      "unit_update_cpu_ms_p95": 1.372,
+      "unit_update_cpu_ms_max": 13.209,
+      "command_cpu_ms": 32.927
+    },
+    {
+      "map": 1,
+      "seed": 424242,
+      "scenario": "retreat_reengage",
+      "policy": "deliberate",
+      "duration_seconds": 22.15,
+      "end_reason": "elimination",
+      "first_hit_seconds": 3.21666666666667,
+      "largest_hit_gap_seconds": 3.35,
+      "final_quiet_seconds": 0.516666666666669,
+      "winner": 0,
+      "survivors": [
+        8,
+        0
+      ],
+      "remaining_hp": [
+        212.0,
+        0.0
+      ],
+      "damage": [
+        720.0,
+        428.0
+      ],
+      "kills": [
+        10,
+        6
+      ],
+      "friendly_overlap_pair_seconds": 48.0,
+      "enemy_overlap_pair_seconds": 1.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 31.7333333333328,
+      "intervention_orders": 2,
+      "intervention_orders_per_minute": 5.4176072234763,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 119,
+      "unit_update_cpu_ms_p50": 0.37,
+      "unit_update_cpu_ms_p95": 1.57,
+      "unit_update_cpu_ms_max": 11.333,
+      "command_cpu_ms": 71.621
+    },
+    {
+      "map": 1,
+      "seed": 424242,
+      "scenario": "crossing_reinforcements",
+      "policy": "automatic",
+      "duration_seconds": 56.4,
+      "end_reason": "elimination",
+      "first_hit_seconds": 5.15,
+      "largest_hit_gap_seconds": 2.03333333333333,
+      "final_quiet_seconds": 0.516666666666666,
+      "winner": 1,
+      "survivors": [
+        0,
+        1
+      ],
+      "remaining_hp": [
+        0.0,
+        24.0
+      ],
+      "damage": [
+        1156.0,
+        1180.0
+      ],
+      "kills": [
+        19,
+        20
+      ],
+      "friendly_overlap_pair_seconds": 20.0,
+      "enemy_overlap_pair_seconds": 0.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 4.09999999999999,
+      "intervention_orders": 0,
+      "intervention_orders_per_minute": 0.0,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 175,
+      "unit_update_cpu_ms_p50": 0.295,
+      "unit_update_cpu_ms_p95": 1.739,
+      "unit_update_cpu_ms_max": 65.237,
+      "command_cpu_ms": 114.859
+    },
+    {
+      "map": 1,
+      "seed": 424242,
+      "scenario": "crossing_reinforcements",
+      "policy": "deliberate",
+      "duration_seconds": 53.883,
+      "end_reason": "elimination",
+      "first_hit_seconds": 5.15,
+      "largest_hit_gap_seconds": 5.88333333333334,
+      "final_quiet_seconds": 0.516333333333336,
+      "winner": 1,
+      "survivors": [
+        0,
+        3
+      ],
+      "remaining_hp": [
+        0.0,
+        95.0
+      ],
+      "damage": [
+        1085.0,
+        1180.0
+      ],
+      "kills": [
+        17,
+        20
+      ],
+      "friendly_overlap_pair_seconds": 38.0,
+      "enemy_overlap_pair_seconds": 0.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 99.5499999999956,
+      "intervention_orders": 2,
+      "intervention_orders_per_minute": 2.22704749178776,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 185,
+      "unit_update_cpu_ms_p50": 0.35,
+      "unit_update_cpu_ms_p95": 1.801,
+      "unit_update_cpu_ms_max": 45.895,
+      "command_cpu_ms": 142.472
+    },
+    {
+      "map": 1,
+      "seed": 20261021,
+      "scenario": "infantry_clash",
+      "policy": "automatic",
+      "duration_seconds": 26.167,
+      "end_reason": "elimination",
+      "first_hit_seconds": 4.6,
+      "largest_hit_gap_seconds": 0.616666666666667,
+      "final_quiet_seconds": 0.517000000000003,
+      "winner": 1,
+      "survivors": [
+        0,
+        2
+      ],
+      "remaining_hp": [
+        0.0,
+        30.0
+      ],
+      "damage": [
+        690.0,
+        720.0
+      ],
+      "kills": [
+        10,
+        12
+      ],
+      "friendly_overlap_pair_seconds": 52.0,
+      "enemy_overlap_pair_seconds": 1.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 0.0,
+      "intervention_orders": 0,
+      "intervention_orders_per_minute": 0.0,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 111,
+      "unit_update_cpu_ms_p50": 0.405,
+      "unit_update_cpu_ms_p95": 1.414,
+      "unit_update_cpu_ms_max": 9.555,
+      "command_cpu_ms": 33.575
+    },
+    {
+      "map": 1,
+      "seed": 20261021,
+      "scenario": "infantry_clash",
+      "policy": "deliberate",
+      "duration_seconds": 24.617,
+      "end_reason": "elimination",
+      "first_hit_seconds": 4.6,
+      "largest_hit_gap_seconds": 0.766666666666666,
+      "final_quiet_seconds": 0.516999999999999,
+      "winner": 1,
+      "survivors": [
+        0,
+        3
+      ],
+      "remaining_hp": [
+        0.0,
+        150.0
+      ],
+      "damage": [
+        570.0,
+        720.0
+      ],
+      "kills": [
+        9,
+        12
+      ],
+      "friendly_overlap_pair_seconds": 50.5,
+      "enemy_overlap_pair_seconds": 0.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 0.0,
+      "intervention_orders": 2,
+      "intervention_orders_per_minute": 4.8746800991185,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 119,
+      "unit_update_cpu_ms_p50": 0.456,
+      "unit_update_cpu_ms_p95": 1.468,
+      "unit_update_cpu_ms_max": 12.701,
+      "command_cpu_ms": 63.155
+    },
+    {
+      "map": 1,
+      "seed": 20261021,
+      "scenario": "cavalry_flank",
+      "policy": "automatic",
+      "duration_seconds": 23.767,
+      "end_reason": "elimination",
+      "first_hit_seconds": 4.15,
+      "largest_hit_gap_seconds": 0.75,
+      "final_quiet_seconds": 0.516999999999999,
+      "winner": 0,
+      "survivors": [
+        6,
+        0
+      ],
+      "remaining_hp": [
+        238.0,
+        0.0
+      ],
+      "damage": [
+        640.0,
+        482.0
+      ],
+      "kills": [
+        14,
+        4
+      ],
+      "friendly_overlap_pair_seconds": 51.5,
+      "enemy_overlap_pair_seconds": 3.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 122.049999999994,
+      "intervention_orders": 0,
+      "intervention_orders_per_minute": 0.0,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 141,
+      "unit_update_cpu_ms_p50": 0.352,
+      "unit_update_cpu_ms_p95": 1.291,
+      "unit_update_cpu_ms_max": 11.937,
+      "command_cpu_ms": 18.13
+    },
+    {
+      "map": 1,
+      "seed": 20261021,
+      "scenario": "cavalry_flank",
+      "policy": "deliberate",
+      "duration_seconds": 38.683,
+      "end_reason": "disengaged",
+      "first_hit_seconds": 5.46666666666667,
+      "largest_hit_gap_seconds": 0.883333333333333,
+      "final_quiet_seconds": 9.033,
+      "winner": -1,
+      "survivors": [
+        7,
+        1
+      ],
+      "remaining_hp": [
+        250.0,
+        30.0
+      ],
+      "damage": [
+        610.0,
+        470.0
+      ],
+      "kills": [
+        13,
+        3
+      ],
+      "friendly_overlap_pair_seconds": 22.0,
+      "enemy_overlap_pair_seconds": 0.5,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 198.75000000005,
+      "intervention_orders": 5,
+      "intervention_orders_per_minute": 7.75534472507303,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 118,
+      "unit_update_cpu_ms_p50": 0.192,
+      "unit_update_cpu_ms_p95": 0.841,
+      "unit_update_cpu_ms_max": 10.97,
+      "command_cpu_ms": 96.303
+    },
+    {
+      "map": 1,
+      "seed": 20261021,
+      "scenario": "retreat_reengage",
+      "policy": "automatic",
+      "duration_seconds": 12.167,
+      "end_reason": "elimination",
+      "first_hit_seconds": 3.21666666666667,
+      "largest_hit_gap_seconds": 0.300000000000001,
+      "final_quiet_seconds": 0.516999999999999,
+      "winner": 0,
+      "survivors": [
+        10,
+        0
+      ],
+      "remaining_hp": [
+        338.0,
+        0.0
+      ],
+      "damage": [
+        720.0,
+        302.0
+      ],
+      "kills": [
+        10,
+        4
+      ],
+      "friendly_overlap_pair_seconds": 25.0,
+      "enemy_overlap_pair_seconds": 0.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 0.0,
+      "intervention_orders": 0,
+      "intervention_orders_per_minute": 0.0,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 107,
+      "unit_update_cpu_ms_p50": 0.553,
+      "unit_update_cpu_ms_p95": 1.669,
+      "unit_update_cpu_ms_max": 10.672,
+      "command_cpu_ms": 32.393
+    },
+    {
+      "map": 1,
+      "seed": 20261021,
+      "scenario": "retreat_reengage",
+      "policy": "deliberate",
+      "duration_seconds": 22.15,
+      "end_reason": "elimination",
+      "first_hit_seconds": 3.21666666666667,
+      "largest_hit_gap_seconds": 3.35,
+      "final_quiet_seconds": 0.516666666666669,
+      "winner": 0,
+      "survivors": [
+        8,
+        0
+      ],
+      "remaining_hp": [
+        212.0,
+        0.0
+      ],
+      "damage": [
+        720.0,
+        428.0
+      ],
+      "kills": [
+        10,
+        6
+      ],
+      "friendly_overlap_pair_seconds": 48.0,
+      "enemy_overlap_pair_seconds": 1.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 31.7333333333328,
+      "intervention_orders": 2,
+      "intervention_orders_per_minute": 5.4176072234763,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 119,
+      "unit_update_cpu_ms_p50": 0.363,
+      "unit_update_cpu_ms_p95": 1.182,
+      "unit_update_cpu_ms_max": 16.433,
+      "command_cpu_ms": 80.405
+    },
+    {
+      "map": 1,
+      "seed": 20261021,
+      "scenario": "crossing_reinforcements",
+      "policy": "automatic",
+      "duration_seconds": 49.933,
+      "end_reason": "elimination",
+      "first_hit_seconds": 5.15,
+      "largest_hit_gap_seconds": 1.06666666666667,
+      "final_quiet_seconds": 0.516333333333336,
+      "winner": 1,
+      "survivors": [
+        0,
+        2
+      ],
+      "remaining_hp": [
+        0.0,
+        48.0
+      ],
+      "damage": [
+        1132.0,
+        1180.0
+      ],
+      "kills": [
+        18,
+        20
+      ],
+      "friendly_overlap_pair_seconds": 28.5,
+      "enemy_overlap_pair_seconds": 0.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 7.89999999999998,
+      "intervention_orders": 0,
+      "intervention_orders_per_minute": 0.0,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 171,
+      "unit_update_cpu_ms_p50": 0.33,
+      "unit_update_cpu_ms_p95": 1.954,
+      "unit_update_cpu_ms_max": 43.777,
+      "command_cpu_ms": 101.057
+    },
+    {
+      "map": 1,
+      "seed": 20261021,
+      "scenario": "crossing_reinforcements",
+      "policy": "deliberate",
+      "duration_seconds": 48.7,
+      "end_reason": "elimination",
+      "first_hit_seconds": 5.15,
+      "largest_hit_gap_seconds": 5.05,
+      "final_quiet_seconds": 0.516666666666673,
+      "winner": 1,
+      "survivors": [
+        0,
+        3
+      ],
+      "remaining_hp": [
+        0.0,
+        106.0
+      ],
+      "damage": [
+        1074.0,
+        1180.0
+      ],
+      "kills": [
+        17,
+        20
+      ],
+      "friendly_overlap_pair_seconds": 29.0,
+      "enemy_overlap_pair_seconds": 3.5,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 15.5333333333337,
+      "intervention_orders": 2,
+      "intervention_orders_per_minute": 2.46406570841889,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 205,
+      "unit_update_cpu_ms_p50": 0.376,
+      "unit_update_cpu_ms_p95": 1.77,
+      "unit_update_cpu_ms_max": 41.721,
+      "command_cpu_ms": 135.93
+    },
+    {
+      "map": 2,
+      "seed": 101,
+      "scenario": "infantry_clash",
+      "policy": "automatic",
+      "duration_seconds": 26.167,
+      "end_reason": "elimination",
+      "first_hit_seconds": 4.6,
+      "largest_hit_gap_seconds": 0.616666666666667,
+      "final_quiet_seconds": 0.517000000000003,
+      "winner": 1,
+      "survivors": [
+        0,
+        2
+      ],
+      "remaining_hp": [
+        0.0,
+        30.0
+      ],
+      "damage": [
+        690.0,
+        720.0
+      ],
+      "kills": [
+        10,
+        12
+      ],
+      "friendly_overlap_pair_seconds": 52.0,
+      "enemy_overlap_pair_seconds": 1.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 0.0,
+      "intervention_orders": 0,
+      "intervention_orders_per_minute": 0.0,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 111,
+      "unit_update_cpu_ms_p50": 0.365,
+      "unit_update_cpu_ms_p95": 1.389,
+      "unit_update_cpu_ms_max": 11.376,
+      "command_cpu_ms": 35.63
+    },
+    {
+      "map": 2,
+      "seed": 101,
+      "scenario": "infantry_clash",
+      "policy": "deliberate",
+      "duration_seconds": 24.617,
+      "end_reason": "elimination",
+      "first_hit_seconds": 4.6,
+      "largest_hit_gap_seconds": 0.766666666666666,
+      "final_quiet_seconds": 0.516999999999999,
+      "winner": 1,
+      "survivors": [
+        0,
+        3
+      ],
+      "remaining_hp": [
+        0.0,
+        150.0
+      ],
+      "damage": [
+        570.0,
+        720.0
+      ],
+      "kills": [
+        9,
+        12
+      ],
+      "friendly_overlap_pair_seconds": 50.5,
+      "enemy_overlap_pair_seconds": 0.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 0.0,
+      "intervention_orders": 2,
+      "intervention_orders_per_minute": 4.8746800991185,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 119,
+      "unit_update_cpu_ms_p50": 0.491,
+      "unit_update_cpu_ms_p95": 1.675,
+      "unit_update_cpu_ms_max": 9.754,
+      "command_cpu_ms": 73.877
+    },
+    {
+      "map": 2,
+      "seed": 101,
+      "scenario": "cavalry_flank",
+      "policy": "automatic",
+      "duration_seconds": 23.767,
+      "end_reason": "elimination",
+      "first_hit_seconds": 4.15,
+      "largest_hit_gap_seconds": 0.75,
+      "final_quiet_seconds": 0.516999999999999,
+      "winner": 0,
+      "survivors": [
+        6,
+        0
+      ],
+      "remaining_hp": [
+        238.0,
+        0.0
+      ],
+      "damage": [
+        640.0,
+        482.0
+      ],
+      "kills": [
+        14,
+        4
+      ],
+      "friendly_overlap_pair_seconds": 51.5,
+      "enemy_overlap_pair_seconds": 3.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 122.049999999994,
+      "intervention_orders": 0,
+      "intervention_orders_per_minute": 0.0,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 141,
+      "unit_update_cpu_ms_p50": 0.351,
+      "unit_update_cpu_ms_p95": 1.304,
+      "unit_update_cpu_ms_max": 8.833,
+      "command_cpu_ms": 18.423
+    },
+    {
+      "map": 2,
+      "seed": 101,
+      "scenario": "cavalry_flank",
+      "policy": "deliberate",
+      "duration_seconds": 38.683,
+      "end_reason": "disengaged",
+      "first_hit_seconds": 5.46666666666667,
+      "largest_hit_gap_seconds": 0.883333333333333,
+      "final_quiet_seconds": 9.033,
+      "winner": -1,
+      "survivors": [
+        7,
+        1
+      ],
+      "remaining_hp": [
+        250.0,
+        30.0
+      ],
+      "damage": [
+        610.0,
+        470.0
+      ],
+      "kills": [
+        13,
+        3
+      ],
+      "friendly_overlap_pair_seconds": 22.0,
+      "enemy_overlap_pair_seconds": 0.5,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 198.75000000005,
+      "intervention_orders": 5,
+      "intervention_orders_per_minute": 7.75534472507303,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 118,
+      "unit_update_cpu_ms_p50": 0.198,
+      "unit_update_cpu_ms_p95": 0.783,
+      "unit_update_cpu_ms_max": 7.001,
+      "command_cpu_ms": 96.648
+    },
+    {
+      "map": 2,
+      "seed": 101,
+      "scenario": "retreat_reengage",
+      "policy": "automatic",
+      "duration_seconds": 12.167,
+      "end_reason": "elimination",
+      "first_hit_seconds": 3.21666666666667,
+      "largest_hit_gap_seconds": 0.300000000000001,
+      "final_quiet_seconds": 0.516999999999999,
+      "winner": 0,
+      "survivors": [
+        10,
+        0
+      ],
+      "remaining_hp": [
+        338.0,
+        0.0
+      ],
+      "damage": [
+        720.0,
+        302.0
+      ],
+      "kills": [
+        10,
+        4
+      ],
+      "friendly_overlap_pair_seconds": 25.0,
+      "enemy_overlap_pair_seconds": 0.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 0.0,
+      "intervention_orders": 0,
+      "intervention_orders_per_minute": 0.0,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 107,
+      "unit_update_cpu_ms_p50": 0.541,
+      "unit_update_cpu_ms_p95": 1.961,
+      "unit_update_cpu_ms_max": 15.085,
+      "command_cpu_ms": 36.14
+    },
+    {
+      "map": 2,
+      "seed": 101,
+      "scenario": "retreat_reengage",
+      "policy": "deliberate",
+      "duration_seconds": 22.15,
+      "end_reason": "elimination",
+      "first_hit_seconds": 3.21666666666667,
+      "largest_hit_gap_seconds": 3.35,
+      "final_quiet_seconds": 0.516666666666669,
+      "winner": 0,
+      "survivors": [
+        8,
+        0
+      ],
+      "remaining_hp": [
+        212.0,
+        0.0
+      ],
+      "damage": [
+        720.0,
+        428.0
+      ],
+      "kills": [
+        10,
+        6
+      ],
+      "friendly_overlap_pair_seconds": 48.0,
+      "enemy_overlap_pair_seconds": 1.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 31.7333333333328,
+      "intervention_orders": 2,
+      "intervention_orders_per_minute": 5.4176072234763,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 119,
+      "unit_update_cpu_ms_p50": 0.368,
+      "unit_update_cpu_ms_p95": 1.607,
+      "unit_update_cpu_ms_max": 13.01,
+      "command_cpu_ms": 79.563
+    },
+    {
+      "map": 2,
+      "seed": 101,
+      "scenario": "crossing_reinforcements",
+      "policy": "automatic",
+      "duration_seconds": 47.95,
+      "end_reason": "elimination",
+      "first_hit_seconds": 5.15,
+      "largest_hit_gap_seconds": 2.35,
+      "final_quiet_seconds": 0.516666666666673,
+      "winner": 1,
+      "survivors": [
+        0,
+        2
+      ],
+      "remaining_hp": [
+        0.0,
+        40.0
+      ],
+      "damage": [
+        1140.0,
+        1180.0
+      ],
+      "kills": [
+        18,
+        20
+      ],
+      "friendly_overlap_pair_seconds": 18.5,
+      "enemy_overlap_pair_seconds": 0.5,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 14.0333333333336,
+      "intervention_orders": 0,
+      "intervention_orders_per_minute": 0.0,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 181,
+      "unit_update_cpu_ms_p50": 0.332,
+      "unit_update_cpu_ms_p95": 1.882,
+      "unit_update_cpu_ms_max": 85.012,
+      "command_cpu_ms": 106.148
+    },
+    {
+      "map": 2,
+      "seed": 101,
+      "scenario": "crossing_reinforcements",
+      "policy": "deliberate",
+      "duration_seconds": 56.05,
+      "end_reason": "elimination",
+      "first_hit_seconds": 5.15,
+      "largest_hit_gap_seconds": 5.18333333333333,
+      "final_quiet_seconds": 0.516666666666673,
+      "winner": 1,
+      "survivors": [
+        0,
+        2
+      ],
+      "remaining_hp": [
+        0.0,
+        19.0
+      ],
+      "damage": [
+        1161.0,
+        1180.0
+      ],
+      "kills": [
+        18,
+        20
+      ],
+      "friendly_overlap_pair_seconds": 25.5,
+      "enemy_overlap_pair_seconds": 0.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 35.6333333333326,
+      "intervention_orders": 2,
+      "intervention_orders_per_minute": 2.14094558429973,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 178,
+      "unit_update_cpu_ms_p50": 0.323,
+      "unit_update_cpu_ms_p95": 1.655,
+      "unit_update_cpu_ms_max": 53.577,
+      "command_cpu_ms": 138.424
+    },
+    {
+      "map": 2,
+      "seed": 424242,
+      "scenario": "infantry_clash",
+      "policy": "automatic",
+      "duration_seconds": 26.167,
+      "end_reason": "elimination",
+      "first_hit_seconds": 4.6,
+      "largest_hit_gap_seconds": 0.616666666666667,
+      "final_quiet_seconds": 0.517000000000003,
+      "winner": 1,
+      "survivors": [
+        0,
+        2
+      ],
+      "remaining_hp": [
+        0.0,
+        30.0
+      ],
+      "damage": [
+        690.0,
+        720.0
+      ],
+      "kills": [
+        10,
+        12
+      ],
+      "friendly_overlap_pair_seconds": 52.0,
+      "enemy_overlap_pair_seconds": 1.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 0.0,
+      "intervention_orders": 0,
+      "intervention_orders_per_minute": 0.0,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 111,
+      "unit_update_cpu_ms_p50": 0.388,
+      "unit_update_cpu_ms_p95": 1.514,
+      "unit_update_cpu_ms_max": 10.58,
+      "command_cpu_ms": 35.261
+    },
+    {
+      "map": 2,
+      "seed": 424242,
+      "scenario": "infantry_clash",
+      "policy": "deliberate",
+      "duration_seconds": 24.617,
+      "end_reason": "elimination",
+      "first_hit_seconds": 4.6,
+      "largest_hit_gap_seconds": 0.766666666666666,
+      "final_quiet_seconds": 0.516999999999999,
+      "winner": 1,
+      "survivors": [
+        0,
+        3
+      ],
+      "remaining_hp": [
+        0.0,
+        150.0
+      ],
+      "damage": [
+        570.0,
+        720.0
+      ],
+      "kills": [
+        9,
+        12
+      ],
+      "friendly_overlap_pair_seconds": 50.5,
+      "enemy_overlap_pair_seconds": 0.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 0.0,
+      "intervention_orders": 2,
+      "intervention_orders_per_minute": 4.8746800991185,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 119,
+      "unit_update_cpu_ms_p50": 0.449,
+      "unit_update_cpu_ms_p95": 1.416,
+      "unit_update_cpu_ms_max": 12.803,
+      "command_cpu_ms": 75.824
+    },
+    {
+      "map": 2,
+      "seed": 424242,
+      "scenario": "cavalry_flank",
+      "policy": "automatic",
+      "duration_seconds": 23.767,
+      "end_reason": "elimination",
+      "first_hit_seconds": 4.15,
+      "largest_hit_gap_seconds": 0.75,
+      "final_quiet_seconds": 0.516999999999999,
+      "winner": 0,
+      "survivors": [
+        6,
+        0
+      ],
+      "remaining_hp": [
+        238.0,
+        0.0
+      ],
+      "damage": [
+        640.0,
+        482.0
+      ],
+      "kills": [
+        14,
+        4
+      ],
+      "friendly_overlap_pair_seconds": 51.5,
+      "enemy_overlap_pair_seconds": 3.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 122.049999999994,
+      "intervention_orders": 0,
+      "intervention_orders_per_minute": 0.0,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 141,
+      "unit_update_cpu_ms_p50": 0.339,
+      "unit_update_cpu_ms_p95": 0.93,
+      "unit_update_cpu_ms_max": 12.931,
+      "command_cpu_ms": 16.018
+    },
+    {
+      "map": 2,
+      "seed": 424242,
+      "scenario": "cavalry_flank",
+      "policy": "deliberate",
+      "duration_seconds": 38.683,
+      "end_reason": "disengaged",
+      "first_hit_seconds": 5.46666666666667,
+      "largest_hit_gap_seconds": 0.883333333333333,
+      "final_quiet_seconds": 9.033,
+      "winner": -1,
+      "survivors": [
+        7,
+        1
+      ],
+      "remaining_hp": [
+        250.0,
+        30.0
+      ],
+      "damage": [
+        610.0,
+        470.0
+      ],
+      "kills": [
+        13,
+        3
+      ],
+      "friendly_overlap_pair_seconds": 22.0,
+      "enemy_overlap_pair_seconds": 0.5,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 198.75000000005,
+      "intervention_orders": 5,
+      "intervention_orders_per_minute": 7.75534472507303,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 118,
+      "unit_update_cpu_ms_p50": 0.189,
+      "unit_update_cpu_ms_p95": 0.804,
+      "unit_update_cpu_ms_max": 6.443,
+      "command_cpu_ms": 96.185
+    },
+    {
+      "map": 2,
+      "seed": 424242,
+      "scenario": "retreat_reengage",
+      "policy": "automatic",
+      "duration_seconds": 12.167,
+      "end_reason": "elimination",
+      "first_hit_seconds": 3.21666666666667,
+      "largest_hit_gap_seconds": 0.300000000000001,
+      "final_quiet_seconds": 0.516999999999999,
+      "winner": 0,
+      "survivors": [
+        10,
+        0
+      ],
+      "remaining_hp": [
+        338.0,
+        0.0
+      ],
+      "damage": [
+        720.0,
+        302.0
+      ],
+      "kills": [
+        10,
+        4
+      ],
+      "friendly_overlap_pair_seconds": 25.0,
+      "enemy_overlap_pair_seconds": 0.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 0.0,
+      "intervention_orders": 0,
+      "intervention_orders_per_minute": 0.0,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 107,
+      "unit_update_cpu_ms_p50": 0.545,
+      "unit_update_cpu_ms_p95": 1.437,
+      "unit_update_cpu_ms_max": 9.119,
+      "command_cpu_ms": 34.779
+    },
+    {
+      "map": 2,
+      "seed": 424242,
+      "scenario": "retreat_reengage",
+      "policy": "deliberate",
+      "duration_seconds": 22.15,
+      "end_reason": "elimination",
+      "first_hit_seconds": 3.21666666666667,
+      "largest_hit_gap_seconds": 3.35,
+      "final_quiet_seconds": 0.516666666666669,
+      "winner": 0,
+      "survivors": [
+        8,
+        0
+      ],
+      "remaining_hp": [
+        212.0,
+        0.0
+      ],
+      "damage": [
+        720.0,
+        428.0
+      ],
+      "kills": [
+        10,
+        6
+      ],
+      "friendly_overlap_pair_seconds": 48.0,
+      "enemy_overlap_pair_seconds": 1.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 31.7333333333328,
+      "intervention_orders": 2,
+      "intervention_orders_per_minute": 5.4176072234763,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 119,
+      "unit_update_cpu_ms_p50": 0.366,
+      "unit_update_cpu_ms_p95": 1.146,
+      "unit_update_cpu_ms_max": 9.023,
+      "command_cpu_ms": 66.041
+    },
+    {
+      "map": 2,
+      "seed": 424242,
+      "scenario": "crossing_reinforcements",
+      "policy": "automatic",
+      "duration_seconds": 49.533,
+      "end_reason": "elimination",
+      "first_hit_seconds": 5.15,
+      "largest_hit_gap_seconds": 1.88333333333333,
+      "final_quiet_seconds": 0.516333333333336,
+      "winner": 1,
+      "survivors": [
+        0,
+        3
+      ],
+      "remaining_hp": [
+        0.0,
+        85.0
+      ],
+      "damage": [
+        1095.0,
+        1180.0
+      ],
+      "kills": [
+        17,
+        20
+      ],
+      "friendly_overlap_pair_seconds": 22.0,
+      "enemy_overlap_pair_seconds": 0.5,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 22.3166666666667,
+      "intervention_orders": 0,
+      "intervention_orders_per_minute": 0.0,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 190,
+      "unit_update_cpu_ms_p50": 0.336,
+      "unit_update_cpu_ms_p95": 1.868,
+      "unit_update_cpu_ms_max": 54.977,
+      "command_cpu_ms": 107.949
+    },
+    {
+      "map": 2,
+      "seed": 424242,
+      "scenario": "crossing_reinforcements",
+      "policy": "deliberate",
+      "duration_seconds": 62.567,
+      "end_reason": "disengaged",
+      "first_hit_seconds": 5.15,
+      "largest_hit_gap_seconds": 6.1,
+      "final_quiet_seconds": 8.017,
+      "winner": -1,
+      "survivors": [
+        1,
+        1
+      ],
+      "remaining_hp": [
+        14.0,
+        7.0
+      ],
+      "damage": [
+        1173.0,
+        1166.0
+      ],
+      "kills": [
+        19,
+        19
+      ],
+      "friendly_overlap_pair_seconds": 32.0,
+      "enemy_overlap_pair_seconds": 3.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 103.749999999995,
+      "intervention_orders": 2,
+      "intervention_orders_per_minute": 1.91794396407052,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 193,
+      "unit_update_cpu_ms_p50": 0.294,
+      "unit_update_cpu_ms_p95": 1.61,
+      "unit_update_cpu_ms_max": 41.969,
+      "command_cpu_ms": 147.6
+    },
+    {
+      "map": 2,
+      "seed": 20261021,
+      "scenario": "infantry_clash",
+      "policy": "automatic",
+      "duration_seconds": 26.167,
+      "end_reason": "elimination",
+      "first_hit_seconds": 4.6,
+      "largest_hit_gap_seconds": 0.616666666666667,
+      "final_quiet_seconds": 0.517000000000003,
+      "winner": 1,
+      "survivors": [
+        0,
+        2
+      ],
+      "remaining_hp": [
+        0.0,
+        30.0
+      ],
+      "damage": [
+        690.0,
+        720.0
+      ],
+      "kills": [
+        10,
+        12
+      ],
+      "friendly_overlap_pair_seconds": 52.0,
+      "enemy_overlap_pair_seconds": 1.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 0.0,
+      "intervention_orders": 0,
+      "intervention_orders_per_minute": 0.0,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 111,
+      "unit_update_cpu_ms_p50": 0.38,
+      "unit_update_cpu_ms_p95": 1.359,
+      "unit_update_cpu_ms_max": 9.928,
+      "command_cpu_ms": 34.598
+    },
+    {
+      "map": 2,
+      "seed": 20261021,
+      "scenario": "infantry_clash",
+      "policy": "deliberate",
+      "duration_seconds": 24.617,
+      "end_reason": "elimination",
+      "first_hit_seconds": 4.6,
+      "largest_hit_gap_seconds": 0.766666666666666,
+      "final_quiet_seconds": 0.516999999999999,
+      "winner": 1,
+      "survivors": [
+        0,
+        3
+      ],
+      "remaining_hp": [
+        0.0,
+        150.0
+      ],
+      "damage": [
+        570.0,
+        720.0
+      ],
+      "kills": [
+        9,
+        12
+      ],
+      "friendly_overlap_pair_seconds": 50.5,
+      "enemy_overlap_pair_seconds": 0.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 0.0,
+      "intervention_orders": 2,
+      "intervention_orders_per_minute": 4.8746800991185,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 119,
+      "unit_update_cpu_ms_p50": 0.446,
+      "unit_update_cpu_ms_p95": 1.362,
+      "unit_update_cpu_ms_max": 9.651,
+      "command_cpu_ms": 68.967
+    },
+    {
+      "map": 2,
+      "seed": 20261021,
+      "scenario": "cavalry_flank",
+      "policy": "automatic",
+      "duration_seconds": 23.767,
+      "end_reason": "elimination",
+      "first_hit_seconds": 4.15,
+      "largest_hit_gap_seconds": 0.75,
+      "final_quiet_seconds": 0.516999999999999,
+      "winner": 0,
+      "survivors": [
+        6,
+        0
+      ],
+      "remaining_hp": [
+        238.0,
+        0.0
+      ],
+      "damage": [
+        640.0,
+        482.0
+      ],
+      "kills": [
+        14,
+        4
+      ],
+      "friendly_overlap_pair_seconds": 51.5,
+      "enemy_overlap_pair_seconds": 3.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 122.049999999994,
+      "intervention_orders": 0,
+      "intervention_orders_per_minute": 0.0,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 141,
+      "unit_update_cpu_ms_p50": 0.349,
+      "unit_update_cpu_ms_p95": 0.948,
+      "unit_update_cpu_ms_max": 10.345,
+      "command_cpu_ms": 17.183
+    },
+    {
+      "map": 2,
+      "seed": 20261021,
+      "scenario": "cavalry_flank",
+      "policy": "deliberate",
+      "duration_seconds": 38.683,
+      "end_reason": "disengaged",
+      "first_hit_seconds": 5.46666666666667,
+      "largest_hit_gap_seconds": 0.883333333333333,
+      "final_quiet_seconds": 9.033,
+      "winner": -1,
+      "survivors": [
+        7,
+        1
+      ],
+      "remaining_hp": [
+        250.0,
+        30.0
+      ],
+      "damage": [
+        610.0,
+        470.0
+      ],
+      "kills": [
+        13,
+        3
+      ],
+      "friendly_overlap_pair_seconds": 22.0,
+      "enemy_overlap_pair_seconds": 0.5,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 198.75000000005,
+      "intervention_orders": 5,
+      "intervention_orders_per_minute": 7.75534472507303,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 118,
+      "unit_update_cpu_ms_p50": 0.195,
+      "unit_update_cpu_ms_p95": 0.76,
+      "unit_update_cpu_ms_max": 9.726,
+      "command_cpu_ms": 103.382
+    },
+    {
+      "map": 2,
+      "seed": 20261021,
+      "scenario": "retreat_reengage",
+      "policy": "automatic",
+      "duration_seconds": 12.167,
+      "end_reason": "elimination",
+      "first_hit_seconds": 3.21666666666667,
+      "largest_hit_gap_seconds": 0.300000000000001,
+      "final_quiet_seconds": 0.516999999999999,
+      "winner": 0,
+      "survivors": [
+        10,
+        0
+      ],
+      "remaining_hp": [
+        338.0,
+        0.0
+      ],
+      "damage": [
+        720.0,
+        302.0
+      ],
+      "kills": [
+        10,
+        4
+      ],
+      "friendly_overlap_pair_seconds": 25.0,
+      "enemy_overlap_pair_seconds": 0.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 0.0,
+      "intervention_orders": 0,
+      "intervention_orders_per_minute": 0.0,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 107,
+      "unit_update_cpu_ms_p50": 0.558,
+      "unit_update_cpu_ms_p95": 1.522,
+      "unit_update_cpu_ms_max": 9.086,
+      "command_cpu_ms": 37.67
+    },
+    {
+      "map": 2,
+      "seed": 20261021,
+      "scenario": "retreat_reengage",
+      "policy": "deliberate",
+      "duration_seconds": 22.15,
+      "end_reason": "elimination",
+      "first_hit_seconds": 3.21666666666667,
+      "largest_hit_gap_seconds": 3.35,
+      "final_quiet_seconds": 0.516666666666669,
+      "winner": 0,
+      "survivors": [
+        8,
+        0
+      ],
+      "remaining_hp": [
+        212.0,
+        0.0
+      ],
+      "damage": [
+        720.0,
+        428.0
+      ],
+      "kills": [
+        10,
+        6
+      ],
+      "friendly_overlap_pair_seconds": 48.0,
+      "enemy_overlap_pair_seconds": 1.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 31.7333333333328,
+      "intervention_orders": 2,
+      "intervention_orders_per_minute": 5.4176072234763,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 119,
+      "unit_update_cpu_ms_p50": 0.364,
+      "unit_update_cpu_ms_p95": 1.204,
+      "unit_update_cpu_ms_max": 11.054,
+      "command_cpu_ms": 67.321
+    },
+    {
+      "map": 2,
+      "seed": 20261021,
+      "scenario": "crossing_reinforcements",
+      "policy": "automatic",
+      "duration_seconds": 46.417,
+      "end_reason": "elimination",
+      "first_hit_seconds": 5.15,
+      "largest_hit_gap_seconds": 1.8,
+      "final_quiet_seconds": 0.517000000000003,
+      "winner": 1,
+      "survivors": [
+        0,
+        3
+      ],
+      "remaining_hp": [
+        0.0,
+        96.0
+      ],
+      "damage": [
+        1084.0,
+        1180.0
+      ],
+      "kills": [
+        17,
+        20
+      ],
+      "friendly_overlap_pair_seconds": 22.5,
+      "enemy_overlap_pair_seconds": 6.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 0.866666666666668,
+      "intervention_orders": 0,
+      "intervention_orders_per_minute": 0.0,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 162,
+      "unit_update_cpu_ms_p50": 0.334,
+      "unit_update_cpu_ms_p95": 1.917,
+      "unit_update_cpu_ms_max": 42.294,
+      "command_cpu_ms": 114.328
+    },
+    {
+      "map": 2,
+      "seed": 20261021,
+      "scenario": "crossing_reinforcements",
+      "policy": "deliberate",
+      "duration_seconds": 46.633,
+      "end_reason": "elimination",
+      "first_hit_seconds": 5.15,
+      "largest_hit_gap_seconds": 5.33333333333333,
+      "final_quiet_seconds": 0.516333333333336,
+      "winner": 1,
+      "survivors": [
+        0,
+        4
+      ],
+      "remaining_hp": [
+        0.0,
+        194.0
+      ],
+      "damage": [
+        986.0,
+        1180.0
+      ],
+      "kills": [
+        16,
+        20
+      ],
+      "friendly_overlap_pair_seconds": 33.0,
+      "enemy_overlap_pair_seconds": 0.0,
+      "navigation_stall_unit_seconds": 0.0,
+      "navigation_failures": 0,
+      "idle_near_enemy_seconds": 20.2333333333335,
+      "intervention_orders": 4,
+      "intervention_orders_per_minute": 5.14657002551841,
+      "command_response_p95_ms": 16.6666666666667,
+      "command_unanswered": 0,
+      "target_changes": 206,
+      "unit_update_cpu_ms_p50": 0.381,
+      "unit_update_cpu_ms_p95": 1.821,
+      "unit_update_cpu_ms_max": 54.711,
+      "command_cpu_ms": 146.6
+    }
+  ]
+}

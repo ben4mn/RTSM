@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- Horse guard: pale angular mount, armored rider, a forward lance. -->
+  <path fill="#5C655C" d="m38 70-13 8-6 13 11-6 13-9z"/>
+  <path fill="#ADB5A4" d="m40 78 3 21-4 5h12l4-23zm37 1 5 21-3 4h14l-4-26z"/>
+  <path fill="#D9DAC7" d="m33 70 15-9 34 3 10 13-8 16-39-2-15-10z"/>
+  <path fill="#B8C1AE" d="m33 70 12 5 36 8 8-4-5 14-39-2-15-10z"/>
+  <path fill="#E8E5DB" d="m78 74 5-23 9-12 10 5 12 15-5 9-12 1-8 17z"/>
+  <path fill="#9CAA9A" d="m82 50 2-11 7 7 7-10 5 8-12 13-7 18-7-1z"/>
+  <path fill="#354341" d="m100 49 3 3-2 3-3-2z"/>
+  <path d="m92 56 16 7-36 3" fill="none" stroke="#8B8971" stroke-width="1.5"/>
+  <path fill="#855949" d="m43 69 34 2 5 11-14 13-23-7z"/>
+  <path fill="#BD8067" d="m46 71 27 3 1 10-8 7-16-6z"/>
+  <path d="m50 78 18 4" stroke="#DFB498" stroke-width="2"/>
+  <path fill="#BBC8BC" d="m48 38 12-6 13 6 5 24-14 10-18-8z"/>
+  <path fill="#BD8067" d="m57 36 9 4 5 24-10 3-7-10z"/>
+  <path fill="#65776C" d="m63 61 8 1 2 17 9 6-5 4-12-8z"/>
+  <path fill="#CBD3C3" d="m70 41 12 10 9-7 4 5-13 11-16-12z"/>
+  <path d="m79 70 29-55" stroke="#7F7960" stroke-width="3"/>
+  <path fill="#E8E5DB" d="m105 18 9-13-1 17z"/>
+  <path fill="#DDE1D5" d="m49 23 9-11 15 4 7 12-7 13-19-1-7-9z"/>
+  <path fill="#A8B7AB" d="m49 23 7-9 2 25-4 1-7-9z"/>
+  <path fill="#31413E" d="m51 27 25-1-4 8-17 2z"/>
+  <path fill="#D8D1B9" d="m31 42 14-3 13 8-3 24-13 13-13-12-4-18z"/>
+  <path fill="#BD8067" d="m34 45 10-2 10 6-3 21-9 9-10-10-3-15z"/>
+  <path fill="#855949" d="m34 45 4-1-1 23 5 12-10-10-3-15z"/>
+  <path fill="#C9B394" d="m55 34 17-1-2 8-12 3-5-5z"/>
+  <path fill="#7D7158" d="m55 37 8 4 8-4-1 6-10 3-6-5z"/>
+  <path d="m58 29 5 1m6-2 4 1" stroke="#E8E5DB" stroke-width="1.5"/>
+  <path fill="#AAB9AF" d="m64 24 3 1 2 12-4 1z"/>
+  <path fill="#E8E5DB" d="m39 52 9 1-1 3-9-1zm2 6 5 1-1 8-4-1z"/>
+</svg>

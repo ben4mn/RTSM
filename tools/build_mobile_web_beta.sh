@@ -293,8 +293,16 @@ SOURCE_TREE_SHA256=$(shasum -a 256 "$SOURCE_MANIFEST" | awk '{print $1}')
 "$GODOT_BIN" --headless --path "$STAGE_DIR" --export-release "Mobile Web Beta" "$EXPORT_DIR/index.html"
 
 # Ship the source-controlled welcome, notes and update client alongside Godot.
-for web_asset in playtest_diagnostics.js pocket_updates.js pocket_launch.js pocket_launch.css pocket_kingdom.png release_notes.json; do
+for web_asset in playtest_diagnostics.js pocket_updates.js pocket_launch.js pocket_launch.css field_atlas.svg release_notes.json; do
 	cp "$STAGE_DIR/web/$web_asset" "$EXPORT_DIR/$web_asset"
+done
+cp "$STAGE_DIR/assets/ui/field_company.png" "$EXPORT_DIR/field_company.png"
+cp "$STAGE_DIR/assets/ui/icons/play_dark.svg" "$EXPORT_DIR/play_dark.svg"
+for plate_asset in primary_normal primary_hover primary_pressed secondary_normal secondary_hover secondary_pressed; do
+	cp "$STAGE_DIR/assets/ui/plates/$plate_asset.svg" "$EXPORT_DIR/$plate_asset.svg"
+done
+for font_asset in Barlow-Regular.ttf Barlow-Medium.ttf BarlowCondensed-SemiBold.ttf barlow-OFL.txt barlowcondensed-OFL.txt; do
+	cp "$STAGE_DIR/assets/fonts/$font_asset" "$EXPORT_DIR/$font_asset"
 done
 
 # Godot's stock PWA exporter generates 144/180/512 icons. Chromium also needs

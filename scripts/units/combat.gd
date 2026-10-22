@@ -194,8 +194,8 @@ static func resolve_unit_hit(attacker: UnitBase, defender: UnitBase, final_damag
 	if tree and tree.current_scene and defender.visible:
 		VFX.hit_burst(tree, defender.global_position + Vector2(0.0, -14.0))
 		# Show counter bonus text when type advantage applies
-		if counter_bonus > 1.0:
-			VFX.counter_bonus_float(tree, defender.global_position, "x%.1f!" % counter_bonus)
+		if counter_bonus > 1.0 and (defender.is_selected or (is_instance_valid(attacker) and attacker.is_selected)):
+			VFX.counter_bonus_float(tree, defender.global_position, "×%.1f" % counter_bonus)
 
 	# Track kill
 	if is_instance_valid(attacker) and was_alive and defender.hp <= 0.0:

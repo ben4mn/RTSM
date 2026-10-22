@@ -36,7 +36,7 @@ func _ready() -> void:
 	z_index = 200
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	mouse_force_pass_scroll_events = false
-	color = Color(0.02, 0.045, 0.065, 0.97)
+	color = Color(THEME.INK, 0.97)
 	theme = THEME.create_theme()
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_panel = PanelContainer.new()
@@ -49,7 +49,7 @@ func _ready() -> void:
 	add_child(_panel)
 	var margin := MarginContainer.new()
 	for edge: String in ["left", "right", "top", "bottom"]:
-		margin.add_theme_constant_override("margin_" + edge, 4)
+		margin.add_theme_constant_override("margin_" + edge, 10 if edge in ["left", "right"] else 4)
 	_panel.add_child(margin)
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 2)
@@ -67,6 +67,16 @@ func _ready() -> void:
 		button.add_theme_font_size_override("font_size", 15)
 		button.toggle_mode = true
 		button.button_group = group
+		var tab_normal: StyleBoxFlat = THEME.panel_style(THEME.INK_PANEL, THEME.INK_PANEL, 0)
+		var tab_active: StyleBoxFlat = tab_normal.duplicate()
+		tab_active.border_color = THEME.TEAL
+		tab_active.set_border_width_all(0)
+		tab_active.border_width_bottom = 2
+		button.add_theme_stylebox_override("normal", tab_normal)
+		button.add_theme_stylebox_override("pressed", tab_active)
+		button.add_theme_stylebox_override("hover_pressed", tab_active)
+		button.add_theme_color_override("font_pressed_color", THEME.PARCHMENT)
+		button.add_theme_color_override("font_hover_pressed_color", THEME.PARCHMENT)
 		button.pressed.connect(_show_section.bind(i))
 		tabs.add_child(button)
 		_tabs.append(button)
@@ -199,7 +209,38 @@ func _build_match() -> void:
 
 
 func _build_map() -> void:
-	_note("Applies to your next solo skirmish. Online matches use shared rules.")
+	_note("Next solo skirmish. Online maps are chosen together by the server.")
+	var choices := HBoxContainer.new()
+	choices.name = "MapChoices"
+	choices.add_theme_constant_override("separation", 6)
+	_body.add_child(choices)
+	var group := ButtonGroup.new()
+	var tactics: Label = _note(MapData.get_archetype_description(GameManager.selected_map_archetype))
+	tactics.name = "MapTacticsLabel"
+	for archetype: int in MapData.MAP_ARCHETYPES:
+		var choice := Button.new()
+		var map_name: String = MapData.get_archetype_name(archetype)
+		choice.name = map_name.replace(" ", "") + "MapButton"
+		choice.text = map_name.replace(" ", "\n")
+		choice.icon = load("res://assets/ui/icons/map_%d.svg" % archetype)
+		choice.add_theme_constant_override("icon_max_width", 28)
+		choice.add_theme_constant_override("h_separation", 10)
+		choice.add_theme_color_override("icon_normal_color", THEME.PARCHMENT)
+		choice.add_theme_color_override("icon_pressed_color", THEME.INK)
+		choice.add_theme_color_override("icon_hover_pressed_color", THEME.INK)
+		choice.tooltip_text = MapData.get_archetype_description(archetype)
+		choice.custom_minimum_size = Vector2(140, 56)
+		choice.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		choice.add_theme_font_size_override("font_size", 15)
+		choice.toggle_mode = true
+		choice.button_group = group
+		choice.set_pressed_no_signal(GameManager.selected_map_archetype == archetype)
+		choice.pressed.connect(func() -> void:
+			GameManager.selected_map_archetype = archetype
+			tactics.text = MapData.get_archetype_description(archetype)
+			_save()
+		)
+		choices.add_child(choice)
 	var row := _row("Map seed")
 	var seed := LineEdit.new()
 	seed.name = "MapSeedInput"
@@ -220,7 +261,6 @@ func _build_map() -> void:
 		_save()
 	))
 	_note("%d × %d battlefield. Leave the seed blank for a new map." % [MapData.MAP_WIDTH, MapData.MAP_HEIGHT])
-	_note("Win: destroy the rival Town Center or hold Sacred for %d minutes." % int(SkirmishData.SACRED_VICTORY_HOLD_SECONDS / 60.0))
 
 
 
@@ -330,13 +370,14 @@ func _choice(label: String, property: String, labels: Array, values: Array) -> v
 	row.add_child(choice)
 
 
-func _note(text: String) -> void:
+func _note(text: String) -> Label:
 	var label := Label.new()
 	label.text = text
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.add_theme_font_size_override("font_size", 13)
 	label.add_theme_color_override("font_color", THEME.MUTED)
 	_body.add_child(label)
+	return label
 
 
 func _button(text: String, node_name: String, callback: Callable) -> Button:

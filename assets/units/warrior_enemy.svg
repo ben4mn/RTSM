@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- Spear guard: pale helmet, long shield, single vertical spear. -->
+  <path fill="#354341" d="m47 75-3 24-7 5h20l4-27zm17 1 6 24-3 4h20l-7-8-5-22z"/>
+  <path fill="#CCD1C6" d="m43 48 13-7 17 4 11 17-7 20-29 2-10-20z"/>
+  <path fill="#9CAFA4" d="m43 48 10-4 3 35-8 5-10-20z"/>
+  <path fill="#BD8067" d="m54 45 11 4 8-2 3 36-14 7-13-8z"/>
+  <path fill="#DFB498" d="m58 49 5 3 4 30-6 3z"/>
+  <path fill="#BFCBBE" d="m73 51 12 12 12-5 3 7-17 7-15-14z"/>
+  <path d="M99 19v85" stroke="#776F59" stroke-width="3"/>
+  <path fill="#E8E5DB" d="m99 7-6 15 6 5 5-5z"/>
+  <path fill="#A9B9B0" d="m99 7-1 18 6-3z"/>
+  <path fill="#DDE1D5" d="m47 28 9-10 17 2 8 12-5 17-23 1-7-11z"/>
+  <path fill="#A8B7AB" d="m47 28 8-9 1 25-3 6-7-11z"/>
+  <path fill="#31413E" d="m50 34 27-2-2 9-21 2z"/>
+  <path fill="#E8E5DB" d="m56 20 15 2 5 8-20-1z"/>
+  <path fill="#D8D1B9" d="m29 51 15-5 17 7-3 34-14 15-14-11-5-24z"/>
+  <path fill="#BD8067" d="m33 54 11-4 13 6-3 29-10 12-10-9-5-21z"/>
+  <path fill="#855949" d="m33 54 6-2-1 34 6 11-10-9-5-21z"/>
+  <path d="m44 53 1 36" stroke="#DFB498" stroke-width="2"/>
+  <path fill="#C9B394" d="m55 42 17-2-2 9-10 3-6-5z"/>
+  <path d="m57 36 5 1m7-2 4 1" stroke="#E8E5DB" stroke-width="1.6" stroke-linecap="square"/>
+  <path fill="#AAB9AF" d="m63 29 4 1 2 14-5 1z"/>
+  <path d="m62 47 6-1" stroke="#6A6855" stroke-width="1.5"/>
+  <path fill="#E8E5DB" d="m40 63 10 1-1 3-9-1zm3 7 5 1-1 9-4-1z"/>
+</svg>

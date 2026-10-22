@@ -11,6 +11,7 @@ const RESOURCE_TYPES: Dictionary = {
 }
 var _output_path: String = "res://output/evolution/map-opening-baseline.json"
 var _generator_source_path: String = "res://scripts/map/map_generator.gd"
+var _archetype: int = MapData.MapArchetype.OPEN_PLAINS
 var _seeds: Array[int] = [1, 2, 7, 42, 101, 202, 303, 404, 777, 424242]
 
 
@@ -28,9 +29,11 @@ func _run() -> void:
 				_seeds.append(int(seed_text))
 		elif argument.begins_with("--generator-source="):
 			_generator_source_path = argument.trim_prefix("--generator-source=")
+		elif argument.begins_with("--archetype="):
+			_archetype = MapData.normalize_archetype(int(argument.trim_prefix("--archetype=")))
 	var results: Array[Dictionary] = []
 	for seed_value: int in _seeds:
-		results.append(measure_seed(seed_value))
+		results.append(measure_seed(seed_value, _archetype))
 	var report: Dictionary = {
 		"evidence_kind": "generated-map navigation fixture; no gathering or deposit simulation",
 		"engine": Engine.get_version_info(),
@@ -39,7 +42,7 @@ func _run() -> void:
 		"generator_loaded_sha256": (load(_generator_source_path) as Script).source_code.sha256_text(),
 		"population_caps": [20, 30, 40],
 		"cap_scope": "map generation and starting TC geometry are independent of population cap",
-		"method": "Nearest source by canonical TC-anchor world distance; real bounded GameMap path to 36px gather radius. trip_seconds is a geometry approach to the 48px TC footprint. deposit_trip_seconds instead uses the current worker return route to the 40px TC anchor and validates the 48px deposit distance. Two TC footprints are solid. Route length includes entry from the solid anchor to recovered route start. Seconds use unupgraded villager speed and exclude harvest ticks, crowding, visibility and combat.",
+		"method": "Nearest source by canonical TC-anchor world distance; real bounded GameMap path to 36px gather radius. trip_seconds is a geometry approach to the 48px TC footprint. deposit_trip_seconds uses the current shortest legal 40px TC-perimeter drop-off route. Two TC footprints are solid. Route length includes entry from the solid anchor to recovered route start. Seconds use unupgraded villager speed and exclude harvest ticks, crowding, visibility and combat.",
 		"seeds": results,
 	}
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(_output_path).get_base_dir())
@@ -50,8 +53,9 @@ func _run() -> void:
 	get_tree().quit(0)
 
 
-func measure_seed(seed_value: int) -> Dictionary:
-	var generator: MapGenerator = (load(_generator_source_path) as Script).new(seed_value)
+func measure_seed(seed_value: int, archetype: int = MapData.MapArchetype.OPEN_PLAINS) -> Dictionary:
+	# The one-argument branch also supports archived default-generator fixtures.
+	var generator: MapGenerator = (load(_generator_source_path) as Script).new(seed_value) if archetype == MapData.MapArchetype.OPEN_PLAINS else (load(_generator_source_path) as Script).new(seed_value, archetype)
 	generator.generate()
 	var map: Node2D = GAME_MAP_SCRIPT.new()
 	map.set("map_generator", generator)
@@ -86,7 +90,7 @@ func measure_seed(seed_value: int) -> Dictionary:
 			var arrival: Vector2 = outbound[-1] if not outbound.is_empty() else anchor
 			var returning: PackedVector2Array = map.call("get_building_work_world_path", arrival, anchor, footprint, 48.0)
 			var return_distance: float = _route_length(arrival, returning)
-			var deposit_return: PackedVector2Array = map.call("get_navigation_world_path", arrival, anchor, 40.0)
+			var deposit_return: PackedVector2Array = map.call("get_building_dropoff_world_path", arrival, anchor, footprint, 40.0)
 			var deposit_return_distance: float = _route_length(arrival, deposit_return)
 			side["resources"][resource_name] = {
 				"nearest_tile": [nearest.x, nearest.y], "local_tiles_in_13_radius": local_count,
@@ -94,7 +98,7 @@ func measure_seed(seed_value: int) -> Dictionary:
 				"return_world": return_distance, "trip_seconds": (outbound_distance + return_distance) / speed,
 				"deposit_return_world": deposit_return_distance,
 				"deposit_trip_seconds": (outbound_distance + deposit_return_distance) / speed,
-				"deposit_reachable": not deposit_return.is_empty() and deposit_return[-1].distance_to(anchor) <= 48.0,
+				"deposit_reachable": not deposit_return.is_empty() and float(map.call("get_building_work_distance", deposit_return[-1], anchor, footprint)) <= 48.0,
 				"reachable": not outbound.is_empty() and not returning.is_empty(),
 			}
 		sides.append(side)
@@ -106,7 +110,7 @@ func measure_seed(seed_value: int) -> Dictionary:
 		var second_deposit: float = sides[1]["resources"][resource_name]["deposit_trip_seconds"]
 		differences[resource_name] = {"seconds": absf(first - second), "ratio": maxf(first, second) / maxf(0.01, minf(first, second)), "deposit_seconds": absf(first_deposit - second_deposit), "deposit_ratio": maxf(first_deposit, second_deposit) / maxf(0.01, minf(first_deposit, second_deposit))}
 	map.free()
-	return {"seed": seed_value, "sides": sides, "trip_difference": differences}
+	return {"seed": seed_value, "archetype": archetype, "sides": sides, "trip_difference": differences}
 
 
 func _route_length(from: Vector2, route: PackedVector2Array) -> float:

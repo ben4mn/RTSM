@@ -13,7 +13,7 @@ const BADGE_NODE_NAME := "CommandIconBadge"
 const TARGET_SIZE := 48.0
 const GLYPH_SIZE := 24
 const GAP := 6
-const CORNER_RADIUS := 6
+const CORNER_RADIUS := 4
 static var _textures: Dictionary = {}
 
 
@@ -39,7 +39,7 @@ static func apply(button: Button, key: String, accessible_label: String, caption
 	# even when theme is assigned. Read that resource directly for entries the
 	# caller has not overridden; otherwise decoration would freeze the fallback.
 	var pending_theme: Theme = button.theme if not button.is_inside_tree() else null
-	# Match the theme's pressed/disabled contrast, including amber primary actions.
+	# Match the theme's pressed/disabled contrast, including primary actions.
 	for state: String in ["normal", "hover", "pressed", "disabled", "focus", "hover_pressed"]:
 		var font_key: String = "font_color" if state == "normal" else "font_%s_color" % state
 		var font_color: Color = button.get_theme_color(font_key)
@@ -84,7 +84,7 @@ static func set_badge(button: Button, text: String, attention: bool = false) -> 
 		style.bg_color = KingdomTheme.AMBER if attention else KingdomTheme.INK
 		style.border_color = KingdomTheme.AMBER if attention else KingdomTheme.BORDER
 		style.set_border_width_all(1)
-		style.set_corner_radius_all(7)
+		style.set_corner_radius_all(3)
 		style.set_content_margin_all(2)
 		badge.add_theme_stylebox_override("normal", style)
 		badge.add_theme_color_override("font_color", KingdomTheme.INK if attention else KingdomTheme.PARCHMENT)

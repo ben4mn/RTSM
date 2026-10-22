@@ -37,6 +37,7 @@ var game_time: float = 0.0
 var game_speed: float = 1.0
 var selected_difficulty: int = 0  # Fresh beta installs start on the onboarding-safe Easy profile.
 var selected_map_seed: int = -1
+var selected_map_archetype: int = MapData.MapArchetype.OPEN_PLAINS
 var selected_population_limit: int = SkirmishData.DEFAULT_POPULATION_LIMIT
 var selected_match_mode: int = SkirmishData.MatchMode.STANDARD
 var _match_mode: int = SkirmishData.MatchMode.STANDARD
@@ -86,6 +87,9 @@ func _ready() -> void:
 	var seed_override: String = OS.get_environment("AOEM_MAP_SEED").strip_edges()
 	if seed_override.is_valid_int():
 		selected_map_seed = int(seed_override)
+	var archetype_override: String = OS.get_environment("AOEM_MAP_ARCHETYPE").strip_edges()
+	if archetype_override.is_valid_int():
+		selected_map_archetype = MapData.normalize_archetype(int(archetype_override))
 	var population_override: String = OS.get_environment("AOEM_POPULATION_LIMIT").strip_edges()
 	if population_override.is_valid_int():
 		selected_population_limit = SkirmishData.normalize_population_limit(int(population_override))
@@ -97,6 +101,7 @@ func _load_preferences() -> void:
 		return
 	selected_match_mode = SkirmishData.normalize_match_mode(int(config.get_value("skirmish", "match_mode", selected_match_mode)))
 	selected_map_seed = maxi(-1, int(config.get_value("skirmish", "map_seed", selected_map_seed)))
+	selected_map_archetype = MapData.normalize_archetype(int(config.get_value("skirmish", "map_archetype", selected_map_archetype)))
 	selected_difficulty = clampi(int(config.get_value("skirmish", "difficulty", selected_difficulty)), 0, 2)
 	selected_population_limit = SkirmishData.normalize_population_limit(int(config.get_value("skirmish", "population_limit", selected_population_limit)))
 	guided_opening_enabled = bool(config.get_value("onboarding", "guided_opening", guided_opening_enabled))
@@ -122,6 +127,7 @@ func save_preferences() -> bool:
 	var config := ConfigFile.new()
 	config.set_value("skirmish", "match_mode", SkirmishData.normalize_match_mode(selected_match_mode))
 	config.set_value("skirmish", "map_seed", selected_map_seed)
+	config.set_value("skirmish", "map_archetype", MapData.normalize_archetype(selected_map_archetype))
 	config.set_value("skirmish", "difficulty", clampi(selected_difficulty, 0, 2))
 	config.set_value("skirmish", "population_limit", SkirmishData.normalize_population_limit(selected_population_limit))
 	config.set_value("onboarding", "guided_opening", guided_opening_enabled)
@@ -168,6 +174,7 @@ func reset_preferences() -> void:
 	selected_difficulty = 0
 	selected_match_mode = SkirmishData.MatchMode.STANDARD
 	selected_map_seed = -1
+	selected_map_archetype = MapData.MapArchetype.OPEN_PLAINS
 	selected_population_limit = SkirmishData.DEFAULT_POPULATION_LIMIT
 	apply_preferences()
 	save_preferences()

@@ -91,15 +91,15 @@ static func _fill_iso_diamond(img: Image, ox: int, oy: int, tw: int, th: int, ti
 	var half_w := tw / 2.0
 	var half_h := th / 2.0
 	var surface_colors: Dictionary = {
-		MapData.TileType.GRASS: Color("84966c"),
-		MapData.TileType.GRASS_ALT: Color("88996f"),
-		MapData.TileType.GRASS_DARK: Color("809268"),
-		MapData.TileType.FOREST: Color("748962"),
-		MapData.TileType.WATER: Color("4c8991"),
-		MapData.TileType.GOLD_MINE: Color("a39870"),
-		MapData.TileType.BERRY_BUSH: Color("83916a"),
-		MapData.TileType.STONE: Color("9b9b85"),
-		MapData.TileType.SACRED_SITE: Color("b2a580"),
+		MapData.TileType.GRASS: Color("9ba58a"),
+		MapData.TileType.GRASS_ALT: Color("9fa88e"),
+		MapData.TileType.GRASS_DARK: Color("97a187"),
+		MapData.TileType.FOREST: Color("89977d"),
+		MapData.TileType.WATER: Color("668f93"),
+		MapData.TileType.GOLD_MINE: Color("aaa488"),
+		MapData.TileType.BERRY_BUSH: Color("98a28a"),
+		MapData.TileType.STONE: Color("a5a895"),
+		MapData.TileType.SACRED_SITE: Color("bbb59e"),
 	}
 	var fallback_color: Color = surface_colors.get(tile_type, Color.MAGENTA)
 

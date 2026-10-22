@@ -18,9 +18,9 @@ signal problem_report_requested()
 
 @export var summary_diagnostics: Dictionary = {}
 
-const COLOR_WIN := Color(0.3, 0.85, 0.3)
-const COLOR_LOSE := Color(1.0, 0.35, 0.35)
-const COLOR_TIE := Color(0.7, 0.7, 0.7)
+const COLOR_WIN := KingdomTheme.TEAL
+const COLOR_LOSE := KingdomTheme.RUST
+const COLOR_TIE := KingdomTheme.MUTED
 var _debrief_label: Label = null
 var _online_result: bool = false
 const MATCH_DEBRIEF := preload("res://scripts/main/match_debrief.gd")
@@ -32,6 +32,10 @@ func _ready() -> void:
 	layer = 20
 	visible = false
 	panel.theme = KingdomTheme.create_theme()
+	result_label.add_theme_font_override("font", KingdomTheme.FONT_HEADING)
+	panel.get_node("Margin/VBox/StatsHeader/Left").add_theme_color_override("font_color", KingdomTheme.TEAL)
+	panel.get_node("Margin/VBox/StatsHeader/Right").add_theme_color_override("font_color", KingdomTheme.RUST)
+	time_label.add_theme_color_override("font_color", KingdomTheme.MUTED)
 	KingdomTheme.apply_primary(play_again_button)
 	play_again_button.pressed.connect(_on_play_again)
 	main_menu_button.pressed.connect(_on_main_menu)
@@ -119,11 +123,11 @@ func _get_safe_area_rect(viewport_size: Vector2) -> Rect2:
 
 
 func show_victory(stats: Dictionary) -> void:
-	_show_result("VICTORY", Color(1.0, 0.85, 0.2), stats)
+	_show_result("VICTORY", KingdomTheme.TEAL, stats)
 
 
 func show_defeat(stats: Dictionary) -> void:
-	_show_result("DEFEAT", Color(0.9, 0.25, 0.2), stats)
+	_show_result("DEFEAT", KingdomTheme.RUST, stats)
 
 
 func _show_result(text: String, color: Color, stats: Dictionary) -> void:

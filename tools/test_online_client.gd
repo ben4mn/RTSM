@@ -17,11 +17,14 @@ var house_finished: bool = false
 var gathered: bool = false
 var builder_id: int = 0
 var end_sent: bool = false
+var map_verified: bool = false
 
 func _initialize() -> void:
 	call_deferred("_start")
 
 func _start() -> void:
+	root.get_node("GameManager").selected_map_seed = 454545
+	root.get_node("GameManager").selected_map_archetype = MapData.MapArchetype.WOODLAND_FLANKS
 	session = root.get_node("NetworkSession")
 	session.snapshot_received.connect(_snapshot)
 	session.match_ended.connect(_ended)
@@ -43,6 +46,15 @@ func _status(state: String, message: String) -> void:
 func _snapshot(data: Dictionary) -> void:
 	if session.state != "playing":
 		return
+	if not map_verified:
+		var game_map: Node = current_scene.get_node("GameMap")
+		var expected := MapGenerator.new(session.match_seed, session.match_map_archetype)
+		if game_map.map_archetype != session.match_map_archetype or game_map.map_generator.grid != expected.generate():
+			push_error("ONLINE_CLIENT_MAP_MISMATCH")
+			quit(1)
+			return
+		map_verified = true
+		print("ONLINE_CLIENT_MAP_VERIFIED slot=%d seed=%d archetype=%d" % [session.player_slot, session.match_seed, session.match_map_archetype])
 	var units: Array = []
 	var town_center: int = 0
 	for actor: Dictionary in data.get("actors", []):
@@ -101,4 +113,8 @@ func _snapshot(data: Dictionary) -> void:
 func _ended(winner: int, reason: String) -> void:
 	print("CLIENT_FINAL_CHECKS moved=%s house=%s deposits=%s trained=%s" % [saw_move, house_finished, gathered, own_count > initial_count])
 	print("ONLINE_CLIENT_RESULT slot=%d winner=%d reason=%s verified=%s" % [session.player_slot, winner, reason, completed])
-	quit(0 if completed and winner == 0 else 1)
+	var manager: Node = root.get_node("GameManager")
+	session.leave_match()
+	var preferences_preserved: bool = manager.selected_map_seed == 454545 and manager.selected_map_archetype == MapData.MapArchetype.WOODLAND_FLANKS
+	print("ONLINE_SOLO_MAP_PREFERENCES_PRESERVED ", preferences_preserved)
+	quit(0 if completed and map_verified and preferences_preserved and winner == 0 else 1)

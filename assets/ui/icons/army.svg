@@ -1,3 +1,4 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
-  <g fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 4 5 2 15 18-3 3L7 10 6 4Zm20 0-5 2-7 8m-4 4-5 6 3 3 6-7M4 19l8 8m8-1 8-8"/></g>
+  <title>Field company — army</title>
+  <path d="M6 3h2v17H6zM24 3h2v17h-2zM4 7l3-5 3 5zM22 7l3-5 3 5z" fill="#e8e5db"/><path d="M10 9l6-3 6 3v10l-6 9-6-9z" fill="#e8e5db"/><path d="M13 11h6v7l-3 5-3-5z" fill="#88b7ad"/><path d="M16 10v9" fill="none" stroke="#171c1d" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"/>
 </svg>

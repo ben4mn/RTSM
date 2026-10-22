@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="420" height="228" viewBox="0 0 420 228">
+<!-- The field company: a practical builder, a steadfast guard and a watchful archer.
+     Original role artwork, shared with the actual units; transparent atlas overlay. -->
+<defs><clipPath id="company-crop"><rect x="0" y="0" width="420" height="228"/></clipPath></defs>
+<g clip-path="url(#company-crop)">
+<g transform="translate(-38 19) scale(2.14)">
+  <!-- Field worker: folded linen, mineral apron, one unmistakable iron pick. -->
+  <path fill="#3B4543" d="m47 75-3 24-5 5h17l5-27zm18 1 3 23-2 5h17l-6-7-2-22z"/>
+  <path fill="#DDD9C9" d="m45 46 13-6 17 8 6 27-13 10-23-6-6-21z"/>
+  <path fill="#B7BEAF" d="m45 48 8-4 2 31-10 4-6-21z"/>
+  <path fill="#6E9C94" d="m52 45 7 2 1 15 9-1-1-16 7 4 3 32-13 7-20-8 5-20z"/>
+  <path fill="#406861" d="m51 68 21-2 1 12-9 4-14-5z"/>
+  <path fill="#C9B394" d="m41 54-7 11 8 13 6-5-7-9 6-7zm34-1 9 8 10-5 4 6-15 8-12-10z"/>
+  <path fill="#C9B394" d="m52 29 18-1 6 9-5 15-13 1-9-12z"/>
+  <path fill="#947F63" d="m49 34 4-9 18 1 5 9-12-4z"/>
+  <path fill="#E8E5DB" d="m36 30 15-5 22-1 14 9-20 7-24-2z"/>
+  <path fill="#CBC7B4" d="m47 26 5-10 15-2 11 10-3 7-18 2z"/>
+  <path fill="#6E9C94" d="m48 27 28-2 2 5-19 4-12-3z"/>
+  <path d="m91 40 8 63" fill="none" stroke="#766C57" stroke-width="4" stroke-linecap="square"/>
+  <path fill="#384744" d="m72 39 12-6 19-1 12 11-17-5-19 7z"/>
+  <path fill="#B7C1B7" d="m75 39 11-4 16-1 6 4-11-2-18 6z"/>
+  <path fill="#7D7158" d="m51 40 6 7 10 2 7-4-4 8-13 1-6-7z"/>
+  <path d="m65 36 7 1" stroke="#465046" stroke-width="1.8" stroke-linecap="round"/>
+  <circle cx="69" cy="40" r="1.4" fill="#293B38"/>
+  <path d="m65 48 5-2" stroke="#E4D1AD" stroke-width="1.5" stroke-linecap="round"/>
+  <path fill="#A9C7BB" d="m51 70 6 1-1 7-6-1z"/>
+</g><g transform="translate(194 28) scale(1.94)">
+  <!-- Bow guard: angular hood and open bow arc, without miniature face detail. -->
+  <path fill="#796E58" d="m31 43 10-4 12 32-14 8z"/>
+  <path d="m34 47-8-23m14 21-6-26m12 27-4-24" stroke="#DCD9C9" stroke-width="2.5"/>
+  <path fill="#38423E" d="m47 77-2 22-7 5h19l4-25zm18 1 5 21-3 5h19l-7-8-3-20z"/>
+  <path fill="#406861" d="m46 45 13-6 16 9 6 33-17 9-23-8-4-22z"/>
+  <path fill="#6E9C94" d="m55 44 17 3 6 31-14 8-16-7z"/>
+  <path fill="#A9C7BB" d="m61 47 6 1 3 30-7 4z"/>
+  <path d="m44 75 32-1" stroke="#A29B7C" stroke-width="4"/>
+  <path fill="#C9B394" d="m74 51 12 8 13-3 1 7-16 3-15-9zm-27 3 15 9 16-6 3 6-20 8-17-11z"/>
+  <path fill="#406861" d="m43 37 6-15 12-8 16 12 5 18-15 12-21-7z"/>
+  <path fill="#6E9C94" d="m49 29 12-15 13 10 7 16-15-9-11 4-4 15-6-3z"/>
+  <path fill="#D6C5A6" d="m57 34 12-1 7 8-6 10-12-3-4-8z"/>
+  <path fill="#A9C7BB" d="m55 26 7-7 9 7-6-2z"/>
+  <path d="M99 27q28 31 0 64" fill="none" stroke="#4B5043" stroke-width="4" stroke-linecap="round"/>
+  <path d="M99 28 82 58l17 32" fill="none" stroke="#DFD9C2" stroke-width="1.6"/>
+  <path d="m78 58 34-2" stroke="#9E9575" stroke-width="2.5"/>
+  <path fill="#E8E5DB" d="m109 52 10 3-10 4z"/>
+  <path fill="#5E6654" d="m56 34 6-3-3 10-2 7-3-8z"/>
+  <path d="m65 37 7 2" stroke="#465046" stroke-width="1.7" stroke-linecap="round"/>
+  <circle cx="69" cy="41" r="1.3" fill="#293B38"/>
+  <path d="m65 47 5-1" stroke="#8E7A60" stroke-width="1.3" stroke-linecap="round"/>
+  <path fill="#A9C7BB" d="m50 49 8 2 10 2-12 6-9-4z"/>
+</g><g transform="translate(78 -3) scale(2.28)">
+  <!-- Spear guard: pale helmet, long shield, single vertical spear. -->
+  <path fill="#354341" d="m47 75-3 24-7 5h20l4-27zm17 1 6 24-3 4h20l-7-8-5-22z"/>
+  <path fill="#CCD1C6" d="m43 48 13-7 17 4 11 17-7 20-29 2-10-20z"/>
+  <path fill="#9CAFA4" d="m43 48 10-4 3 35-8 5-10-20z"/>
+  <path fill="#6E9C94" d="m54 45 11 4 8-2 3 36-14 7-13-8z"/>
+  <path fill="#A9C7BB" d="m58 49 5 3 4 30-6 3z"/>
+  <path fill="#BFCBBE" d="m73 51 12 12 12-5 3 7-17 7-15-14z"/>
+  <path d="M99 19v85" stroke="#776F59" stroke-width="3"/>
+  <path fill="#E8E5DB" d="m99 7-6 15 6 5 5-5z"/>
+  <path fill="#A9B9B0" d="m99 7-1 18 6-3z"/>
+  <path fill="#DDE1D5" d="m47 28 9-10 17 2 8 12-5 17-23 1-7-11z"/>
+  <path fill="#A8B7AB" d="m47 28 8-9 1 25-3 6-7-11z"/>
+  <path fill="#31413E" d="m50 34 27-2-2 9-21 2z"/>
+  <path fill="#E8E5DB" d="m56 20 15 2 5 8-20-1z"/>
+  <path fill="#D8D1B9" d="m29 51 15-5 17 7-3 34-14 15-14-11-5-24z"/>
+  <path fill="#6E9C94" d="m33 54 11-4 13 6-3 29-10 12-10-9-5-21z"/>
+  <path fill="#406861" d="m33 54 6-2-1 34 6 11-10-9-5-21z"/>
+  <path d="m44 53 1 36" stroke="#A9C7BB" stroke-width="2"/>
+  <path fill="#C9B394" d="m55 42 17-2-2 9-10 3-6-5z"/>
+  <path d="m57 36 5 1m7-2 4 1" stroke="#E8E5DB" stroke-width="1.6" stroke-linecap="square"/>
+  <path fill="#AAB9AF" d="m63 29 4 1 2 14-5 1z"/>
+  <path d="m62 47 6-1" stroke="#6A6855" stroke-width="1.5"/>
+  <path fill="#E8E5DB" d="m40 63 10 1-1 3-9-1zm3 7 5 1-1 9-4-1z"/>
+</g></g></svg>

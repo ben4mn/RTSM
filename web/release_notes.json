@@ -1,6 +1,21 @@
 {
   "releases": [
     {
+      "id": "2026-10-22-battlefields",
+      "version": "0.2.0-beta.2",
+      "date": "2026-10-22",
+      "title": "A company worth commanding",
+      "summary": "An original cast, bespoke controls and three battlefields with room for different tactics.",
+      "changes": [
+        "Meet the Builder, Warrior and Archer in a new character-led menu. Custom command plates, equipment-inspired icons and quieter battlefield markers give the game a consistent identity.",
+        "Choose Open Plains, River Crossings or Woodland Flanks in Settings \u2192 Map. Save a seed to revisit a battlefield.",
+        "River maps have three broad crossings. Woodland maps offer attack lanes around deep forests. Both keep opening resources close and expansions reachable.",
+        "Online rivals receive the same map and seed. Updated players can meet on all three styles; matches with older clients retain Open Plains.",
+        "Melee fighters make room for allies while attacking, reducing stacks of units on a shared target.",
+        "The AI can rebalance its workers when another worker is unable to find a job, keeping paid military production moving."
+      ]
+    },
+    {
       "id": "2026-10-21-mobile-online",
       "version": "0.2.0-beta.1",
       "date": "2026-10-21",

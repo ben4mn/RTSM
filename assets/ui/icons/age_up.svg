@@ -1,3 +1,4 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
-  <g fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 16 10-10 10 10M6 26l10-10 10 10"/></g>
+  <title>Field company — age up</title>
+  <path d="M5 29V16l4-4 4 4v13zM19 29V16l4-4 4 4v13z" fill="#e8e5db"/><path d="M12 18h8v11h-8z" fill="#88b7ad"/><path d="M16 2L6 10h7v5h6v-5h7z" fill="#e8e5db"/>
 </svg>

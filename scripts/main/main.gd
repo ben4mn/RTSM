@@ -31,8 +31,8 @@ var _building_scenes: Dictionary = {
 
 # --- Team colors ---
 const TEAM_COLORS: Array[Color] = [
-	Color(0.2, 0.5, 1.0),  # Player 0 — blue
-	Color(1.0, 0.25, 0.2),  # Player 1 — red
+	Color("88b7ad"),  # Player 0 — mineral teal
+	Color("d69477"),  # Player 1 — clay
 ]
 
 # --- Node references ---

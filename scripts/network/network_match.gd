@@ -189,8 +189,10 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 				queue.auto_queue_enabled = bool(data.repeat)
 				queue.auto_queue_unit_type = int(data.repeat_type)
 		if was_present and float(actor.hp) < float(node.hp) and node.is_visible_in_tree():
+			if node is UnitBase:
+				(node as UnitBase)._health_feedback_remaining = 2.0
 			if not GameManager.reduced_flashes:
-				node.modulate = Color(1.2, 0.8, 0.8)
+				node.modulate = Color(1.16, 1.12, 1.04)
 				_hit_flashes[id] = 0.15
 			AudioManager.play_world("attack_hit", node)
 		node.hp = actor.hp

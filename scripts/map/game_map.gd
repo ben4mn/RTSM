@@ -20,6 +20,7 @@ var pathfinding: Pathfinding
 
 ## Seed for deterministic map generation (-1 = random).
 @export var map_seed: int = -1
+@export var map_archetype: int = MapData.MapArchetype.OPEN_PLAINS
 
 ## Mobile-first camera tuning.
 @export var mobile_default_zoom: float = 1.25
@@ -114,8 +115,13 @@ func _ready() -> void:
 	var gm: Node = get_node_or_null("/root/GameManager")
 	if gm and gm.get("selected_map_seed") != null:
 		resolved_seed = int(gm.get("selected_map_seed"))
+	if gm and gm.get("selected_map_archetype") != null:
+		map_archetype = MapData.normalize_archetype(int(gm.get("selected_map_archetype")))
+	if NetworkSession.is_network_match():
+		resolved_seed = NetworkSession.match_seed
+		map_archetype = NetworkSession.match_map_archetype
 	map_seed = resolved_seed
-	map_generator = MapGenerator.new(resolved_seed)
+	map_generator = MapGenerator.new(resolved_seed, map_archetype)
 	map_generator.generate()
 
 	# Create and assign procedural tilesets.

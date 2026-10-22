@@ -55,14 +55,19 @@ func _check_pre_tree_theme(primary: bool) -> void:
 		KingdomTheme.apply_primary(button)
 	else:
 		KingdomTheme.apply_secondary(button)
-	var normal_fill: Color = KingdomTheme.AMBER if primary else KingdomTheme.INK_LIGHT
+	var expected_normal: StyleBoxTexture = button.get_theme_stylebox("normal") as StyleBoxTexture
+	var expected_selected: StyleBoxTexture = button.theme.get_stylebox("hover_pressed", "Button") as StyleBoxTexture
 	var normal_ink: Color = KingdomTheme.INK if primary else KingdomTheme.PARCHMENT
 	CommandIcons.apply(button, "economy", "Economy")
 	_expect(not button.is_inside_tree(), "theme regression fixture must decorate before tree entry")
 	var hovered: StyleBox = button.get_theme_stylebox("hover_pressed")
-	_expect(hovered is StyleBoxFlat and (hovered as StyleBoxFlat).bg_color.is_equal_approx(KingdomTheme.AMBER), "pre-tree decoration froze the engine fallback style")
+	_expect(hovered is StyleBoxTexture and expected_selected != null and (hovered as StyleBoxTexture).texture == expected_selected.texture, "pre-tree decoration froze the engine fallback instead of the selected plate")
 	_expect(button.get_theme_color("icon_hover_pressed_color").is_equal_approx(KingdomTheme.INK), "pre-tree decoration froze fallback selected icon contrast")
-	_expect((button.get_theme_stylebox("normal") as StyleBoxFlat).bg_color.is_equal_approx(normal_fill) and button.get_theme_color("icon_normal_color").is_equal_approx(normal_ink), "explicit primary/secondary overrides were replaced by the pending theme")
+	var normal: StyleBoxTexture = button.get_theme_stylebox("normal") as StyleBoxTexture
+	_expect(normal != null and expected_normal != null and normal.texture == expected_normal.texture and button.get_theme_color("icon_normal_color").is_equal_approx(normal_ink), "explicit primary/secondary plate or icon contrast was replaced by the pending theme")
+	if normal != null and expected_normal != null:
+		for side: int in [SIDE_LEFT, SIDE_TOP, SIDE_RIGHT, SIDE_BOTTOM]:
+			_expect(is_equal_approx(normal.get_texture_margin(side), expected_normal.get_texture_margin(side)), "decoration changed the nine-slice plate border")
 	add_child(button)
 	_expect(button.get_theme_stylebox("hover_pressed") == hovered and button.get_theme_color("font_hover_pressed_color").is_equal_approx(button.get_theme_color("icon_hover_pressed_color")), "tree entry changes the captured style or exposes mismatched selected contrast")
 	button.free()

@@ -11,7 +11,11 @@ var _hooked: bool = false
 var _perf_output: String = "res://output/evolution/rendered-paid-performance.json"
 var _perf_start_game_seconds: float = 0.0
 var _profile_wall_seconds: float = 10.0
+var _sample_speed: float = 3.0
 var _sampling_started_us: int = 0
+var _capture_directory: String = ""
+var _captured_profile: int = -1
+var _last_camera_second: int = -1
 
 
 func _ready() -> void:
@@ -26,6 +30,11 @@ func _ready() -> void:
 			_perf_start_game_seconds = maxf(0.0, float(argument.trim_prefix("--perf-start=")))
 		elif argument.begins_with("--profile-wall-seconds="):
 			_profile_wall_seconds = maxf(5.0, float(argument.trim_prefix("--profile-wall-seconds=")))
+		elif argument.begins_with("--sample-speed="):
+			_sample_speed = clampf(float(argument.trim_prefix("--sample-speed=")), 0.5, 3.0)
+		elif argument.begins_with("--capture-battles="):
+			_capture_directory = argument.trim_prefix("--capture-battles=")
+			DirAccess.make_dir_recursive_absolute(_capture_directory)
 	OS.set_environment("AOEM_SIM_TIME_SCALE", "3")
 	super._ready()
 
@@ -42,6 +51,7 @@ func _process(_delta: float) -> void:
 		return
 	if _sampling_started_us == 0:
 		_sampling_started_us = now_us
+		Engine.time_scale = _sample_speed
 	var elapsed: float = float(now_us - _sampling_started_us) / 1000000.0
 	var desired_profile: int = mini(int(elapsed / _profile_wall_seconds), 3)
 	if desired_profile != _profile_index:
@@ -53,6 +63,11 @@ func _process(_delta: float) -> void:
 		get_window().content_scale_size = Vector2i(844, 390)
 		match_scene.game_map.camera.zoom = Vector2.ONE * zoom_value
 		_profiles.append({"pixels": str(phone), "zoom": zoom_value, "frame_ms": [], "process_ms": [], "draw_calls": [], "peak_units": 0, "peak_buildings": 0})
+	if not _capture_directory.is_empty():
+		_follow_visible_battle()
+		if _captured_profile != _profile_index and now_us - _last_profile_us >= 3000000:
+			_captured_profile = _profile_index
+			_capture_battle.call_deferred(_profile_index)
 	# Ignore first two wall seconds after resizing; include no startup/loading
 	# frames in steady-state timing. Intervals are monotonic wall time, unscaled.
 	if now_us - _last_profile_us >= 2000000 and _previous_us > 0:
@@ -66,6 +81,22 @@ func _process(_delta: float) -> void:
 	_previous_us = now_us
 
 
+func _follow_visible_battle() -> void:
+	var second: int = int(GameManager.game_time)
+	if second == _last_camera_second:
+		return
+	_last_camera_second = second
+	for candidate: Node in get_tree().get_nodes_in_group("units"):
+		if candidate is UnitBase and candidate.player_owner == 0 and candidate.current_state == UnitBase.State.ATTACKING and is_instance_valid(candidate.attack_target):
+			match_scene.game_map.camera.position = (candidate.global_position + candidate.attack_target.global_position) * 0.5
+			return
+
+
+func _capture_battle(profile: int) -> void:
+	await RenderingServer.frame_post_draw
+	get_viewport().get_texture().get_image().save_png(_capture_directory.path_join("paid-battle-profile-%d.png" % profile))
+
+
 func _write_performance() -> void:
 	var summaries: Array[Dictionary] = []
 	for profile: Dictionary in _profiles:
@@ -76,7 +107,7 @@ func _write_performance() -> void:
 		var draw_calls: Array = profile["draw_calls"]
 		draw_calls.sort()
 		summaries.append({"pixels": profile["pixels"], "zoom": profile["zoom"], "sample_frames": intervals.size(), "frame_ms_p50": _percentile(intervals, 0.5), "frame_ms_p95": _percentile(intervals, 0.95), "frame_ms_p99": _percentile(intervals, 0.99), "process_ms_p95": _percentile(process_times, 0.95), "draw_calls_p95": _percentile(draw_calls, 0.95), "peak_units": profile["peak_units"], "peak_buildings": profile["peak_buildings"], "contact_seen": profile.get("contact_seen", false)})
-	var result: Dictionary = {"scope": "Native desktop rendered paid policies, no fixed FPS; 3x gameplay speed; four phone pixel/zoom profiles; first two resize seconds excluded. Not Web/physical-phone/GPU timing or human play. Background workloads can affect intervals.", "sampling_start_game_seconds": _perf_start_game_seconds, "profile_wall_seconds": _profile_wall_seconds, "first_contact_game_seconds": stats.get("first_contact", -1.0), "engine": Engine.get_version_info(), "display": DisplayServer.get_name(), "renderer": RenderingServer.get_rendering_device().get_device_name() if RenderingServer.get_rendering_device() != null else "Compatibility", "wall_seconds": float(Time.get_ticks_usec() - _started_us) / 1000000.0, "game_seconds": GameManager.game_time, "source_hashes": stats.get("runtime_source_hashes", {}), "probe_sha256": FileAccess.get_file_as_string("res://tools/probe_rendered_paid_match.gd").sha256_text(), "profiles": summaries}
+	var result: Dictionary = {"scope": "Native desktop rendered paid policies, no fixed FPS; 3x warmup; configurable sampling speed; four phone pixel/zoom profiles; first two resize seconds excluded. Not Web/physical-phone/GPU timing or human play. Background workloads can affect intervals.", "sampling_game_speed": _sample_speed, "sampling_start_game_seconds": _perf_start_game_seconds, "profile_wall_seconds": _profile_wall_seconds, "first_contact_game_seconds": stats.get("first_contact", -1.0), "engine": Engine.get_version_info(), "display": DisplayServer.get_name(), "renderer": RenderingServer.get_rendering_device().get_device_name() if RenderingServer.get_rendering_device() != null else "Compatibility", "wall_seconds": float(Time.get_ticks_usec() - _started_us) / 1000000.0, "game_seconds": GameManager.game_time, "source_hashes": stats.get("runtime_source_hashes", {}), "probe_sha256": FileAccess.get_file_as_string("res://tools/probe_rendered_paid_match.gd").sha256_text(), "profiles": summaries}
 	var file: FileAccess = FileAccess.open(_perf_output, FileAccess.WRITE)
 	file.store_string(JSON.stringify(result, "\t"))
 	print("[RENDERED_PAID_PERFORMANCE] ", JSON.stringify(result))

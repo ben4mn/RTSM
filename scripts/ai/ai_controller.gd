@@ -1014,8 +1014,9 @@ func _rebalance_gathering_villagers() -> void:
 		_next_economy_rebalance_time = _game_time + float(
 			ECONOMY_REBALANCE_INTERVALS.get(difficulty, 28.0)
 		)
-	if not _get_idle_villagers().is_empty():
-		return
+	# A parked or temporarily unassignable idle worker cannot fill this deficit.
+	# Do not let it block the existing one-donor, visible-target correction for
+	# the productive workforce (for example 14 Food / 1 Wood late in a match).
 
 	var counts: Dictionary = _get_economy_work_counts()
 	var active_economy_workers: int = int(counts["food"]) + int(counts["wood"]) + int(counts["gold"])

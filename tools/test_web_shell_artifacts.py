@@ -32,8 +32,13 @@ class MobileShellArtifactTests(unittest.TestCase):
         (self.root / "index.html").write_text(self.html)
         for name in ("index.js", "index.wasm", "index.pck", "index.offline.html"):
             (self.root / name).write_text("fixture")
-        for name in ("playtest_diagnostics.js", "pocket_launch.js", "pocket_launch.css", "pocket_updates.js", "pocket_kingdom.png", "release_notes.json"):
+        for name in ("playtest_diagnostics.js", "pocket_launch.js", "pocket_launch.css", "pocket_updates.js", "field_atlas.svg", "release_notes.json"):
             (self.root / name).write_bytes((Path(__file__).resolve().parents[1] / "web" / name).read_bytes())
+        for name in ("Barlow-Regular.ttf", "Barlow-Medium.ttf", "BarlowCondensed-SemiBold.ttf", "barlow-OFL.txt", "barlowcondensed-OFL.txt"):
+            (self.root / name).write_bytes((Path(__file__).resolve().parents[1] / "assets/fonts" / name).read_bytes())
+        assets = Path(__file__).resolve().parents[1] / "assets/ui"
+        for source in [assets / "field_company.png", assets / "icons/play_dark.svg"] + [assets / "plates" / f"{kind}_{state}.svg" for kind in ("primary", "secondary") for state in ("normal", "hover", "pressed")]:
+            (self.root / source.name).write_bytes(source.read_bytes())
         (self.root / "version.json").write_text(json.dumps({"source_revision": "abcdef012345", "source_tree_sha256": "a" * 64, "source_dirty": False, "version": "test"}))
         self.manifest = {"display": "standalone", "orientation": "landscape", "start_url": "./index.html", "icons": []}
         for size in (192, 512):
@@ -126,7 +131,7 @@ class MobileShellArtifactTests(unittest.TestCase):
             verify_service_worker(self.root)
 
     def test_missing_welcome_art_is_rejected(self) -> None:
-        (self.root / "pocket_kingdom.png").unlink()
+        (self.root / "field_atlas.svg").unlink()
         with self.assertRaises(VerificationError):
             verify_service_worker(self.root)
 

@@ -1,8 +1,11 @@
-:root { --pk-ink: #132824; --pk-paper: #f7efdd; --pk-muted: #b2c2b5; --pk-gold: #efbd68; --pk-border: #355247; }
-body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+@font-face { font-family: Barlow; src: url("Barlow-Regular.ttf") format("truetype"); font-weight: 400; font-display: swap; }
+@font-face { font-family: Barlow; src: url("Barlow-Medium.ttf") format("truetype"); font-weight: 500 800; font-display: swap; }
+@font-face { font-family: "Barlow Condensed"; src: url("BarlowCondensed-SemiBold.ttf") format("truetype"); font-weight: 600; font-display: swap; }
+:root { --pk-ink: #171c1d; --pk-paper: #e8e5db; --pk-muted: #a6afad; --pk-gold: #88b7ad; --pk-border: #465150; }
+body { font-family: Barlow, sans-serif; }
 body.pocket-welcome { overflow: auto; touch-action: auto; background: var(--pk-ink); color: var(--pk-paper); }
 body.pocket-welcome #pocket-app { visibility: hidden; pointer-events: none; }
-#pocket-welcome { min-height: 100dvh; background: radial-gradient(ellipse at 80% 12%, #31534466, transparent 48%), var(--pk-ink); }
+#pocket-welcome { min-height: 100dvh; background: var(--pk-ink); }
 .pk-wrap { box-sizing: border-box; width: min(1160px, 100%); margin: auto; padding: 0 max(28px, env(safe-area-inset-right)) 0 max(28px, env(safe-area-inset-left)); }
 .pk-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: max(24px, env(safe-area-inset-top)); padding-bottom: 36px; }
 .pk-brand { display: flex; align-items: center; gap: 11px; font-size: 18px; font-weight: 750; letter-spacing: -.4px; }
@@ -11,35 +14,40 @@ body.pocket-welcome #pocket-app { visibility: hidden; pointer-events: none; }
 .pk-header a { display: inline-flex; align-items: center; min-height: 48px; font-size: 14px; }
 .pk-hero { display: grid; grid-template-columns: 1fr 1.04fr; align-items: center; gap: 44px; padding: 18px 0 56px; }
 .pk-eyebrow { color: var(--pk-gold); font-size: 12px; font-weight: 750; letter-spacing: 2px; text-transform: uppercase; margin: 0 0 18px; }
-.pk-hero h1 { font: 500 clamp(38px, 5vw, 62px)/1.04 Georgia, "Times New Roman", serif; letter-spacing: -1.8px; margin: 0 0 22px; }
-.pk-description { color: #d1dacd; font-size: 17px; line-height: 1.65; max-width: 490px; margin: 0 0 26px; }
+.pk-hero h1 { font: 600 clamp(52px, 6.2vw, 88px)/.88 "Barlow Condensed", sans-serif; letter-spacing: -.5px; margin: 0 0 22px; }
+.pk-description { color: var(--pk-muted); font-size: 17px; line-height: 1.5; max-width: 490px; margin: 0 0 26px; }
 .pk-actions { display: flex; flex-wrap: wrap; gap: 10px; }
-.pk-button { min-height: 50px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 13px 20px; border: 1px solid var(--pk-border); border-radius: 10px; background: #223d33; color: var(--pk-paper); font: 650 15px/1.3 system-ui, sans-serif; cursor: pointer; touch-action: manipulation; text-decoration: none; }
-.pk-button:hover { background: #2b4b3e; }
-.pk-primary { background: var(--pk-gold); border-color: var(--pk-gold); color: #192b24; }
-.pk-primary:hover { background: #f4cf8e; }
+.pk-button { min-height: 52px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 10px; padding: 2px 10px; border: 12px solid transparent; border-image: url("secondary_normal.svg") 12 fill / 12px; background: transparent; color: var(--pk-paper); font: 600 21px/1.1 "Barlow Condensed", sans-serif; cursor: pointer; touch-action: manipulation; text-decoration: none; }
+.pk-button:hover { border-image-source: url("secondary_hover.svg"); }
+.pk-button:active { border-image-source: url("secondary_pressed.svg"); color: var(--pk-ink); }
+.pk-primary { border-image-source: url("primary_normal.svg"); color: var(--pk-ink); }
+.pk-primary:hover { border-image-source: url("primary_hover.svg"); }
+.pk-primary:active { border-image-source: url("primary_pressed.svg"); }
+.pk-button img { width: 26px; height: 26px; object-fit: contain; }
 .pk-button:focus-visible, #pocket-welcome a:focus-visible, .pk-dialog a:focus-visible, .pk-platform:focus-visible { outline: 3px solid var(--pk-gold); outline-offset: 4px; }
 .pk-button:disabled { opacity: .7; cursor: progress; }
 .pk-fine { color: var(--pk-muted); font-size: 12px; line-height: 1.7; margin: 15px 0 0; }
-.pk-art { background: #101c2a; border: 1px solid #3d554c; border-radius: 28px; overflow: hidden; box-shadow: 0 26px 60px #05161240; transform: rotate(-1.5deg); }
-.pk-art img { display: block; width: 100%; height: auto; }
-.pk-art figcaption { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #2f4449; padding: 16px 22px; color: #c4d3c9; font-size: 11px; font-weight: 650; letter-spacing: 1.5px; text-transform: uppercase; }
-.pk-art figure { margin: 0; }
+.pk-art { position: relative; overflow: hidden; }
+.pk-art figure { margin: 0; position: relative; }
+.pk-art-stage { position: relative; aspect-ratio: 1.65; display: flex; align-items: flex-end; }
+.pk-art .pk-atlas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .35; }
+.pk-art .pk-company { position: relative; display: block; width: 108%; max-width: none; height: auto; margin-left: -4%; }
+.pk-art figcaption { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--pk-border); padding: 14px 2px; color: var(--pk-muted); font-size: 11px; font-weight: 500; letter-spacing: 1.5px; text-transform: uppercase; }
 .pk-art figcaption span:first-child { color: var(--pk-gold); }
 .pk-loop { display: grid; grid-template-columns: repeat(3,1fr); gap: 28px; border-top: 1px solid var(--pk-border); padding: 30px 0 48px; }
 .pk-loop h2 { font-size: 17px; margin: 0 0 9px; }
 .pk-loop p { color: var(--pk-muted); font-size: 14px; line-height: 1.65; margin: 0; }
 .pk-loop .pk-number { display: block; color: var(--pk-gold); font-size: 12px; margin-bottom: 10px; }
-.pk-install { display: grid; grid-template-columns: .9fr 1.1fr; gap: 46px; align-items: start; padding: 36px; margin-bottom: 56px; background: #203a30; border: 1px solid #3c5747; border-radius: 20px; scroll-margin-top: 20px; }
-.pk-install h2, .pk-updates h2 { font: 500 32px/1.15 Georgia, serif; letter-spacing: -.6px; margin: 0 0 15px; }
-.pk-install p { color: #c7d2c5; font-size: 15px; line-height: 1.65; margin: 0 0 14px; }
+.pk-install { display: grid; grid-template-columns: .9fr 1.1fr; gap: 46px; align-items: start; padding: 28px; margin-bottom: 48px; background: #202729; border: 1px solid var(--pk-border); border-radius: 3px; scroll-margin-top: 20px; }
+.pk-install h2, .pk-updates h2 { font: 600 34px/1.1 "Barlow Condensed", sans-serif; letter-spacing: 0; margin: 0 0 15px; }
+.pk-install p { color: var(--pk-muted); font-size: 15px; line-height: 1.65; margin: 0 0 14px; }
 .pk-platforms { display: flex; gap: 6px; margin-bottom: 18px; flex-wrap: wrap; }
-.pk-platform { min-height: 48px; padding: 10px 14px; border: 1px solid #4a6655; border-radius: 8px; color: #e6eadf; background: transparent; font: 600 13px system-ui, sans-serif; cursor: pointer; }
-.pk-platform[aria-pressed="true"] { background: #f0e7d3; border-color: #f0e7d3; color: #20352a; }
-.pk-steps { margin: 0; padding: 0 0 0 23px; color: #e6eadf; font-size: 15px; line-height: 1.7; }
+.pk-platform { min-height: 48px; padding: 10px 14px; border: 1px solid var(--pk-border); border-radius: 3px; color: var(--pk-paper); background: transparent; font: 600 13px Barlow, sans-serif; cursor: pointer; }
+.pk-platform[aria-pressed="true"] { background: var(--pk-gold); border-color: var(--pk-gold); color: var(--pk-ink); }
+.pk-steps { margin: 0; padding: 0 0 0 23px; color: var(--pk-paper); font-size: 15px; line-height: 1.7; }
 .pk-steps li { padding: 0 0 12px 6px; }
 .pk-steps li::marker { color: var(--pk-gold); font-weight: 650; }
-.pk-steps strong { color: #fff4dc; font-weight: 700; }
+.pk-steps strong { color: var(--pk-paper); font-weight: 700; }
 .pk-native-install { margin-top: 12px; }
 .pk-install-status { min-height: 20px; }
 .pk-updates { padding: 0 0 40px; scroll-margin-top: 24px; }
@@ -49,7 +57,7 @@ body.pocket-welcome #pocket-app { visibility: hidden; pointer-events: none; }
 .pk-release time { color: var(--pk-gold); font-size: 12px; letter-spacing: .4px; }
 .pk-release h3 { margin: 7px 0 10px; font-size: 20px; }
 .pk-release p { color: var(--pk-muted); font-size: 14px; line-height: 1.6; }
-.pk-release ul { padding-left: 20px; color: #dce4d8; font-size: 14px; line-height: 1.65; }
+.pk-release ul { padding-left: 20px; color: var(--pk-paper); font-size: 14px; line-height: 1.65; }
 .pk-release li { margin-bottom: 8px; }
 .pk-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 16px; border-top: 1px solid var(--pk-border); padding: 24px 0 max(28px, env(safe-area-inset-bottom)); color: var(--pk-muted); font-size: 12px; line-height: 1.6; }
 .pk-footer p { margin: 0; }
@@ -57,17 +65,17 @@ body.pocket-welcome #pocket-app { visibility: hidden; pointer-events: none; }
 #pocket-launch-status:empty { display: none; }
 .pocket-button { min-height: 48px; }
 #pocket-shell-links { position: absolute; z-index: 10; right: calc(env(safe-area-inset-right,0px) + 132px); top: calc(env(safe-area-inset-top,0px) + 12px); display: flex; gap: 8px; }
-#pocket-shell-links .pocket-button { background: #152a24eb; border-color: #597364; font-size: 12px; padding: 8px 12px; }
-.pk-dialog { position: fixed; inset: 0; z-index: 45; padding: max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left)); box-sizing: border-box; display: grid; place-items: center; background: #091b17ed; color: var(--pk-paper); touch-action: pan-y; }
-.pk-dialog-card { display: flex; flex-direction: column; width: min(700px,100%); max-height: 100%; box-sizing: border-box; background: var(--pk-ink); border: 1px solid #57705b; border-radius: 18px; overflow: hidden; box-shadow: 0 18px 60px #0006; }
+#pocket-shell-links .pocket-button { background: #171c1df2; border-color: var(--pk-border); font-size: 12px; padding: 8px 12px; }
+.pk-dialog { position: fixed; inset: 0; z-index: 45; padding: max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left)); box-sizing: border-box; display: grid; place-items: center; background: #171c1df2; color: var(--pk-paper); touch-action: pan-y; }
+.pk-dialog-card { display: flex; flex-direction: column; width: min(700px,100%); max-height: 100%; box-sizing: border-box; background: var(--pk-ink); border: 1px solid var(--pk-border); border-radius: 4px; overflow: hidden; }
 .pk-dialog-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 22px; border-bottom: 1px solid var(--pk-border); flex-shrink: 0; }
-.pk-dialog-head h2 { font: 500 27px Georgia,serif; margin: 0; }
+.pk-dialog-head h2 { font: 600 30px "Barlow Condensed",sans-serif; margin: 0; }
 .pk-dialog-body { overflow: auto; overscroll-behavior: contain; padding: 10px 24px 20px; }
 .pk-dialog-body .pk-release:first-child { border-top: 0; }
 .pk-dialog-body > p { color: var(--pk-muted); font-size: 14px; line-height: 1.6; }
-#pocket-update-blocker { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; background: #132824f5; color: var(--pk-paper); font: 600 18px system-ui,sans-serif; text-align: center; padding: 28px; }
+#pocket-update-blocker { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; background: #171c1df5; color: var(--pk-paper); font: 600 18px Barlow,sans-serif; text-align: center; padding: 28px; }
 #pocket-boot { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: var(--pk-ink); color: var(--pk-paper); text-align: center; padding: 28px; box-sizing: border-box; }
-#pocket-boot img { border-radius: 20px; } #pocket-boot h1 { font: 500 28px Georgia,serif; } #pocket-boot p { color: var(--pk-muted); font: 15px/1.6 system-ui,sans-serif; }
+#pocket-boot img { border-radius: 4px; } #pocket-boot h1 { font: 600 32px "Barlow Condensed",sans-serif; } #pocket-boot p { color: var(--pk-muted); font: 15px/1.6 Barlow,sans-serif; }
 body.pocket-shell-modal { touch-action: pan-y; }
 .pk-dialog-body:focus-visible { outline: 2px solid var(--pk-gold); outline-offset: -4px; }
 body.pocket-shell-modal #pocket-game { pointer-events: none; }
@@ -77,7 +85,7 @@ body.pocket-shell-modal #pocket-screen-control, body.pocket-shell-modal #pocket-
  .pk-header { padding-top: max(14px,env(safe-area-inset-top)); padding-bottom: 22px; }
  .pk-brand { font-size: 16px; gap: 8px; } .pk-brand img { width: 32px; height: 32px; }
  .pk-hero { grid-template-columns: 1fr; gap: 30px; padding: 8px 0 32px; }
- .pk-hero h1 { font-size: 45px; } .pk-description { font-size: 16px; margin-bottom: 20px; }
+ .pk-hero h1 { font-size: 64px; } .pk-description { font-size: 16px; margin-bottom: 20px; }
  .pk-eyebrow { font-size: 10px; margin-bottom: 14px; } .pk-art { max-width: 500px; transform: none; }
  .pk-actions { display: grid; grid-template-columns: 1fr; } .pk-actions .pk-button { width: 100%; }
  .pk-loop { grid-template-columns: 1fr; gap: 24px; padding-bottom: 34px; }
@@ -86,5 +94,27 @@ body.pocket-shell-modal #pocket-screen-control, body.pocket-shell-modal #pocket-
  .pk-install h2,.pk-updates h2 { font-size: 29px; } .pk-updates-heading { display: block; }
  .pk-platform { padding: 10px 12px; } .pk-dialog-head { padding: 12px 16px; } .pk-dialog-body { padding: 6px 18px 20px; }
 }
-@media (max-height: 520px) and (min-width: 761px) { .pk-header { padding-bottom: 10px; } .pk-hero { gap: 28px; padding-top: 8px; padding-bottom: 30px; } .pk-hero h1 { font-size: 40px; } .pk-description { font-size: 15px; margin-bottom: 16px; } .pk-art figcaption { padding: 12px 16px; } }
+@media (max-height: 520px) and (min-width: 761px) { .pk-header { padding-bottom: 10px; } .pk-hero { gap: 28px; padding-top: 8px; padding-bottom: 30px; } .pk-hero h1 { font-size: 54px; } .pk-description { font-size: 15px; margin-bottom: 16px; } .pk-art figcaption { padding: 12px 16px; } }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+
+/* Keep the entry actions visible on landscape phones before any optional reading. */
+@media (max-height: 520px) and (orientation: landscape) {
+ .pk-wrap { padding-left: max(24px,env(safe-area-inset-left)); padding-right: max(24px,env(safe-area-inset-right)); }
+ .pk-header { padding-top: max(10px,env(safe-area-inset-top)); padding-bottom: 6px; }
+ .pk-brand img { width: 30px; height: 30px; border-radius: 3px; }
+ .pk-header a { min-height: 48px; }
+ .pk-hero { grid-template-columns: 1fr 1fr; gap: 24px; min-height: 270px; padding: 4px 0 20px; }
+ .pk-eyebrow { font-size: 10px; letter-spacing: 1.6px; margin-bottom: 10px; }
+ .pk-hero h1 { font-size: 56px; margin-bottom: 14px; }
+ .pk-description { font-size: 14px; line-height: 1.4; margin-bottom: 14px; max-width: 340px; }
+ .pk-actions { display: flex; gap: 8px; }
+ .pk-actions .pk-button { width: auto; min-height: 50px; padding: 1px 6px; font-size: 20px; }
+ .pk-fine { font-size: 11px; margin-top: 10px; }
+ .pk-art figcaption { padding: 10px 12px; letter-spacing: 1px; font-size: 10px; }
+ .pk-art-stage { aspect-ratio: 1.55; max-height: 250px; }
+}
+
+/* The surrounding web controls share the game's typography and palette. */
+.pocket-button { border-radius: 3px; border-color: var(--pk-border); background: var(--pk-ink); color: var(--pk-paper); font-family: Barlow, sans-serif; }
+.pocket-help-card { border-radius: 4px; border-color: var(--pk-border); background: var(--pk-ink); color: var(--pk-paper); font-family: Barlow, sans-serif; }
+.pocket-button:focus-visible { outline-color: var(--pk-gold); }

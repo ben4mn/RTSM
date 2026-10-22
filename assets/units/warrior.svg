@@ -1,26 +1,25 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <!-- Pocket Kingdoms spear infantry: sturdy steel helmet, broad kite shield and tall spear. Feet at y104. -->
-  <g stroke="#3d4945" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M43 77 43 95 38 99 39 104 56 104 60 79 M65 78 70 96 68 104 85 104 86 100 79 94 77 76" fill="#65746d"/>
-    <path d="M43 95 55 95 53 102 40 102 M70 96 80 96 83 102 70 102" fill="#424c47" stroke-width="2.5"/>
-    <path d="M41 53 53 46 69 46 81 55 79 80 63 86 43 80Z" fill="#a5b9b3"/>
-    <path d="M53 49 59 51 67 49 73 81 49 81Z" fill="#3798a9" stroke-width="2.5"/>
-    <path d="M58 54 65 54 67 75 58 75Z" fill="#79c7c7" stroke="none"/>
-    <path d="M42 56 37 66 47 74" fill="none" stroke="#aebeb6" stroke-width="10"/>
-    <path d="M76 56 84 67 97 63" fill="none" stroke="#3d4945" stroke-width="12"/>
-    <path d="M76 55 84 65 97 62" fill="none" stroke="#d4d8c4" stroke-width="7"/>
-    <path d="M98 25 98 104" fill="none" stroke="#82633d" stroke-width="5"/>
-    <path d="M98 7 90 25 98 30 106 25Z" fill="#cedbd2"/>
-    <path d="M98 11 98 25" stroke="#f0eed6" stroke-width="2"/>
-    <path d="M48 32 53 22 70 22 79 33 76 49 53 51 46 43Z" fill="#b8ccc4"/>
-    <path d="M49 34 56 29 73 30 77 35 75 44 54 44Z" fill="#536963" stroke-width="2.5"/>
-    <path d="M55 37 62 38 67 37 72 38" fill="none" stroke="#e7d7ac" stroke-width="3"/>
-    <path d="M58 23 58 18 67 16 73 21 69 25" fill="#3da5b6" stroke-width="3"/>
-    <path d="M50 31 57 25 69 25" fill="none" stroke="#e0e4cb" stroke-width="2.5"/>
-    <path d="M29 57 42 52 58 57 61 75 54 90 43 99 31 90 26 73Z" fill="#d9b574"/>
-    <path d="M32 60 42 56 54 60 56 74 50 87 42 94 33 86 30 73Z" fill="#3e94a6" stroke-width="2.5"/>
-    <path d="M41 59 45 59 47 86 42 91Z" fill="#8bd2c9" stroke="none"/>
-    <path d="M33 72 53 70" stroke="#efd99b" stroke-width="3"/>
-    <circle cx="43" cy="71" r="3" fill="#e5c884" stroke-width="2"/>
-  </g>
+  <!-- Spear guard: pale helmet, long shield, single vertical spear. -->
+  <path fill="#354341" d="m47 75-3 24-7 5h20l4-27zm17 1 6 24-3 4h20l-7-8-5-22z"/>
+  <path fill="#CCD1C6" d="m43 48 13-7 17 4 11 17-7 20-29 2-10-20z"/>
+  <path fill="#9CAFA4" d="m43 48 10-4 3 35-8 5-10-20z"/>
+  <path fill="#6E9C94" d="m54 45 11 4 8-2 3 36-14 7-13-8z"/>
+  <path fill="#A9C7BB" d="m58 49 5 3 4 30-6 3z"/>
+  <path fill="#BFCBBE" d="m73 51 12 12 12-5 3 7-17 7-15-14z"/>
+  <path d="M99 19v85" stroke="#776F59" stroke-width="3"/>
+  <path fill="#E8E5DB" d="m99 7-6 15 6 5 5-5z"/>
+  <path fill="#A9B9B0" d="m99 7-1 18 6-3z"/>
+  <path fill="#DDE1D5" d="m47 28 9-10 17 2 8 12-5 17-23 1-7-11z"/>
+  <path fill="#A8B7AB" d="m47 28 8-9 1 25-3 6-7-11z"/>
+  <path fill="#31413E" d="m50 34 27-2-2 9-21 2z"/>
+  <path fill="#E8E5DB" d="m56 20 15 2 5 8-20-1z"/>
+  <path fill="#D8D1B9" d="m29 51 15-5 17 7-3 34-14 15-14-11-5-24z"/>
+  <path fill="#6E9C94" d="m33 54 11-4 13 6-3 29-10 12-10-9-5-21z"/>
+  <path fill="#406861" d="m33 54 6-2-1 34 6 11-10-9-5-21z"/>
+  <path d="m44 53 1 36" stroke="#A9C7BB" stroke-width="2"/>
+  <path fill="#C9B394" d="m55 42 17-2-2 9-10 3-6-5z"/>
+  <path d="m57 36 5 1m7-2 4 1" stroke="#E8E5DB" stroke-width="1.6" stroke-linecap="square"/>
+  <path fill="#AAB9AF" d="m63 29 4 1 2 14-5 1z"/>
+  <path d="m62 47 6-1" stroke="#6A6855" stroke-width="1.5"/>
+  <path fill="#E8E5DB" d="m40 63 10 1-1 3-9-1zm3 7 5 1-1 9-4-1z"/>
 </svg>

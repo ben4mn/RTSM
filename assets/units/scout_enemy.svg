@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- Scout: dark unarmored mount, low rider and a small survey pennant. -->
+  <path fill="#3B4541" d="m36 73-12 5-7 13 12-6 11-7z"/>
+  <path fill="#566259" d="m39 80 4 20-4 4h13l4-23zm38-1 4 21-3 4h14l-4-25z"/>
+  <path fill="#778274" d="m32 72 14-10 33 4 13 15-10 12-38-2-14-11z"/>
+  <path fill="#566259" d="m32 72 14 4 33 8 10-3-7 12-38-2-14-11z"/>
+  <path fill="#899383" d="m79 75 4-22 11-11 11 8 9 11-6 8-12-1-6 16z"/>
+  <path fill="#354341" d="m83 53 1-12 7 7 6-12 6 9-12 11-8 18-5-1z"/>
+  <path fill="#D5D7C8" d="m98 48 5 2 8 11-4 4-5-8z"/>
+  <path d="m92 59 14 7-34 1" fill="none" stroke="#C4C1A5" stroke-width="1.5"/>
+  <path fill="#855949" d="m43 71 32 3 6 10-13 10-23-5z"/>
+  <path fill="#BD8067" d="m52 38 14-4 9 12-5 21-20 4-15-7 12-14z"/>
+  <path fill="#DFB498" d="m56 40 8-3 8 10-7 15-13 4z"/>
+  <path fill="#855949" d="m52 38 4 2-4 26-17-2 12-14z"/>
+  <path fill="#C9B394" d="m69 44 12 9 10 5-3 5-13-5-11-10z"/>
+  <path fill="#5B5B49" d="m62 64 9-1 2 16 9 6-4 4-13-7z"/>
+  <path fill="#C9B394" d="m51 22 15-2 10 9-5 12-13 2-9-9z"/>
+  <path fill="#565D4B" d="m48 29 3-13 13-5 11 9 2 8-15-5-9 7-3 7z"/>
+  <path d="M88 20v60" stroke="#8F8B70" stroke-width="2.5"/>
+  <path fill="#BD8067" d="m89 19 24 5-10 5 6 6-20-2z"/>
+  <path fill="#DFB498" d="m89 19 24 5-24 1z"/>
+  <path d="m65 27 6 2" stroke="#465046" stroke-width="1.7" stroke-linecap="round"/>
+  <circle cx="68" cy="32" r="1.3" fill="#293B38"/>
+  <path d="m62 38 5 1" stroke="#8E7A60" stroke-width="1.3"/>
+  <path fill="#DFB498" d="m53 41 10 3-12 11-8-2z"/>
+</svg>

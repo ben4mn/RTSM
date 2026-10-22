@@ -1091,8 +1091,61 @@ func _run() -> void:
 	for resource_type in ["food", "wood", "gold"]:
 		_expect_eq(int(resource_manager.call("get_resource", PLAYER_AI, resource_type)), 1000 - 3 * int(warrior_cost.get(resource_type, 0)), "queue gate spends exactly three Warrior %s costs" % resource_type)
 
+	_check_idle_worker_does_not_block_rebalance()
 	resource_manager.call("reset")
 	_finish()
+
+
+func _check_idle_worker_does_not_block_rebalance() -> void:
+	# A paid River match reached 14 Food / 1 Wood with a parked idle worker.
+	# That unrelated worker must not prevent an existing gatherer from correcting
+	# the Wood deficit. This isolates the real cargo-preserving gather transaction.
+	var game_manager: Node = root.get_node("GameManager")
+	var resource_manager: Node = root.get_node("ResourceManager")
+	game_manager.players[PLAYER_AI]["max_population"] = 30
+	game_manager.players[PLAYER_AI]["age"] = 3
+	resource_manager.call("initialize_player", PLAYER_AI, {"food": 1400, "wood": 10, "gold": 288})
+	var recovery_map := RecoveryMap.new()
+	root.add_child(recovery_map)
+	_fixtures.append(recovery_map)
+	var base_tile := Vector2i(33, 6)
+	var base_position: Vector2 = recovery_map.tile_to_world(base_tile)
+	var wood: Node2D = _spawn_fixture(RESOURCE_SCENE_PATH, -1, base_position + Vector2(32.0, 0.0)) as Node2D
+	wood.set("resource_type", "wood")
+	recovery_map.add_child(wood)
+	recovery_map.visible_resource = wood
+	recovery_map.resource_visible = true
+	var ai: Node = load(AI_CONTROLLER_SCRIPT_PATH).new()
+	root.add_child(ai)
+	_fixtures.append(ai)
+	ai.set("game_map", recovery_map)
+	ai.call("start_ai", base_tile, base_position)
+	(ai.get("_decision_timer") as Timer).stop()
+	ai.set("_game_time", 650.0)
+	ai.set("_archery_range_count", 1)
+	ai.set("_stable_count", 1)
+	ai.set("_next_economy_rebalance_time", 0.0)
+	var workers: Array[Node] = []
+	for index in range(16):
+		var worker: Node = _spawn_fixture(VILLAGER_SCENE_PATH, PLAYER_AI, base_position + Vector2(float(index), 0.0))
+		recovery_map.add_child(worker)
+		worker.set("carried_resource_type", "wood" if index == 14 else "food")
+		worker.set("carried_amount", 7 if index < 14 else 0)
+		worker.call("set_state", STATE_IDLE if index == 15 else STATE_GATHERING)
+		ai.call("register_unit", worker)
+		workers.append(worker)
+	var bank_before: Dictionary = resource_manager.call("get_all_resources", PLAYER_AI)
+	ai.call("_rebalance_gathering_villagers")
+	var counts: Dictionary = ai.call("_get_economy_work_counts")
+	_expect_eq(int(counts["wood"]), 2, "idle search worker does not block one needed Food-to-Wood donor")
+	_expect_eq(int(counts["food"]), 13, "late Wood correction changes exactly one productive donor")
+	_expect_eq(int(workers[15].get("current_state")), STATE_IDLE, "bounded rebalance leaves the unrelated idle worker alone")
+	_expect_eq(workers[0].call("get_carried_resources"), {"food": 7}, "late Wood correction preserves the loaded donor's actual Food")
+	_expect_eq(resource_manager.call("get_all_resources", PLAYER_AI), bank_before, "reallocation grants no resources and preserves the bank")
+	ai.call("_rebalance_gathering_villagers")
+	_expect_eq(int((ai.call("_get_economy_work_counts") as Dictionary)["wood"]), 2, "late deficit still respects the normal rebalance interval")
+	_expect_eq(int((ai.call("get_strategy_snapshot") as Dictionary)["economy_rebalance_orders"]), 1, "one late correction emits exactly one gather order")
+	_expect_eq(recovery_map.hidden_lookup_count, 0, "late correction only uses visible reachable Wood")
 
 
 func _spawn_fixture(scene_path: String, owner: int, position: Vector2) -> Node:

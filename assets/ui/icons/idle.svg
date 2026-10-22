@@ -1,3 +1,4 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
-  <g fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M3 25v-4c0-4 4-7 9-7m9 1v7l4 2"/><circle cx="22" cy="22" r="8"/></g>
+  <title>Field company — idle</title>
+  <path d="M8 3h16v4H8zM8 25h16v4H8z" fill="#e8e5db"/><path d="M10 7v3l12 12v3M22 7v3L10 22v3" fill="none" stroke="#e8e5db" stroke-width="2.5" stroke-linecap="square" stroke-linejoin="miter"/><path d="M11 22l5-5 5 5z" fill="#88b7ad"/><path d="M12 9h8l-4 4z" fill="#88b7ad"/>
 </svg>

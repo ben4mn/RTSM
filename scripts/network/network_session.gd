@@ -8,6 +8,7 @@ signal snapshot_received(snapshot: Dictionary)
 signal match_ended(winner: int, reason: String)
 
 const PROTOCOL := 1
+const MAP_CATALOG_VERSION := 1
 const DEFAULT_ENDPOINT := "wss://game.4mn.org/match"
 const MAX_CLIENT_PACKET := 8192
 const MAX_SERVER_PACKET := 262144
@@ -23,6 +24,7 @@ var server_mode: bool = false
 var online: bool = false
 var player_slot: int = 0
 var match_seed: int = 1
+var match_map_archetype: int = MapData.MapArchetype.OPEN_PLAINS
 var match_id: int = 0
 var adapter: Node = null
 var _socket: WebSocketPeer = null
@@ -164,7 +166,7 @@ func _poll_client(delta: float) -> void:
 	_socket.poll()
 	if _socket.get_ready_state() == WebSocketPeer.STATE_OPEN:
 		if state == "connecting":
-			_send(_socket, {"op": "search", "protocol": PROTOCOL})
+			_send(_socket, {"op": "search", "protocol": PROTOCOL, "map_catalog": MAP_CATALOG_VERSION})
 			_set_status("searching", "Searching for an opponent…")
 		_heartbeat += delta
 		if _heartbeat > 4.0:
@@ -205,9 +207,17 @@ func _client_packet(packet: Dictionary) -> void:
 			online = true
 			player_slot = int(packet["slot"])
 			match_seed = int(packet["seed"])
+			# Previous servers omit this field and always generate Open Plains.
+			var received_archetype: Variant = packet.get("map_archetype", MapData.MapArchetype.OPEN_PLAINS)
+			if typeof(received_archetype) not in [TYPE_INT, TYPE_FLOAT]:
+				_fail("Invalid map from server. Return to the menu and try again.")
+				return
+			if not is_finite(float(received_archetype)) or float(received_archetype) != float(int(received_archetype)) or not MapData.MAP_ARCHETYPES.has(int(received_archetype)):
+				_fail("Map version changed. Reload to play online.")
+				return
+			match_map_archetype = int(received_archetype)
 			match_id = int(packet["match"])
 			_sequence = 0
-			GameManager.selected_map_seed = match_seed
 			GameManager.selected_population_limit = SkirmishData.DEFAULT_POPULATION_LIMIT
 			GameManager.selected_match_mode = SkirmishData.MatchMode.STANDARD
 			_set_status("loading", "Opponent found · loading…")
@@ -277,7 +287,7 @@ func _poll_server(delta: float) -> void:
 		var socket := _new_socket()
 		socket.inbound_buffer_size = MAX_CLIENT_PACKET * 2
 		if socket.accept_stream(stream) == OK:
-			_peers[_next_peer] = {"socket": socket, "last": _elapsed, "tokens": 40.0, "seq": 0}
+			_peers[_next_peer] = {"socket": socket, "last": _elapsed, "tokens": 40.0, "seq": 0, "map_catalog": 0}
 			_next_peer += 1
 	for id: int in _peers.keys():
 		if not _peers.has(id):
@@ -322,7 +332,7 @@ func _poll_server(delta: float) -> void:
 func _server_packet(id: int, packet: Dictionary) -> void:
 	if not packet.get("op", "") is String:
 		return
-	for key: String in ["protocol", "sequence", "match"]:
+	for key: String in ["protocol", "sequence", "match", "map_catalog"]:
 		if packet.has(key) and typeof(packet[key]) not in [TYPE_INT, TYPE_FLOAT]:
 			return
 	match str(packet.get("op", "")):
@@ -333,6 +343,7 @@ func _server_packet(id: int, packet: Dictionary) -> void:
 				_send_peer(id, {"op": "error", "reason": "Game version changed. Reload to play online."})
 				return
 			if id not in _queue and id not in _players:
+				_peers[id]["map_catalog"] = MAP_CATALOG_VERSION if float(packet.get("map_catalog", 0)) == float(MAP_CATALOG_VERSION) else 0
 				_queue.append(id)
 			_send_peer(id, {"op": "queued", "busy": not _players.is_empty()})
 		"leave":
@@ -356,15 +367,25 @@ func _start_match() -> void:
 	_ready_peers.clear()
 	match_id += 1
 	match_seed = int(randi() % 2147483646) + 1
+	match_map_archetype = _choose_match_archetype(_players, match_seed)
 	online = true
 	_match_loading_at = _elapsed
-	GameManager.selected_map_seed = match_seed
 	GameManager.selected_match_mode = SkirmishData.MatchMode.STANDARD
 	GameManager.selected_population_limit = SkirmishData.DEFAULT_POPULATION_LIMIT
 	_set_status("loading", "")
 	for slot: int in 2:
-		_send_peer(_players[slot], {"op": "matched", "slot": slot, "seed": match_seed, "match": match_id})
+		_send_peer(_players[slot], {"op": "matched", "slot": slot, "seed": match_seed, "map_archetype": match_map_archetype, "match": match_id})
 	get_tree().call_deferred("change_scene_to_file", "res://scenes/main/main.tscn")
+
+
+func _choose_match_archetype(peers: Array[int], seed_value: int) -> int:
+	# Older clients generate terrain locally and ignore unknown packet fields.
+	# Keep mixed-version pairs on their byte-identical original generator.
+	for id: int in peers:
+		if int(_peers.get(id, {}).get("map_catalog", 0)) != MAP_CATALOG_VERSION:
+			return MapData.MapArchetype.OPEN_PLAINS
+	var choices: Array = MapData.MAP_ARCHETYPES.keys()
+	return int(choices[posmod(seed_value, choices.size())])
 
 func send_snapshot(slot: int, snapshot: Dictionary) -> void:
 	if slot < _players.size():

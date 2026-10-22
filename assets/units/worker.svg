@@ -1,24 +1,22 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <!-- Pocket Kingdoms miniature worker: broad straw hat, rolled sleeves and iron pick. Feet at y104. -->
-  <g stroke="#3d4945" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M45 77 44 95 40 100 41 104 56 104 60 80 M65 79 69 96 68 104 84 104 84 99 78 95 76 76" fill="#68553d"/>
-    <path d="M45 94 55 94 54 101 42 101 M70 95 79 95 82 101 70 101" fill="#413d33" stroke-width="2.5"/>
-    <path d="M42 55 53 48 69 48 80 56 77 82 65 87 44 82Z" fill="#e6d5ac"/>
-    <path d="M52 51 58 53 57 65 66 65 66 52 72 51 76 82 46 82Z" fill="#409b9b" stroke-width="2.5"/>
-    <path d="M50 69 70 69 69 78 51 78Z" fill="#73c0b4" stroke="none"/>
-    <path d="M42 55 37 65 42 77 49 74 47 65 50 59" fill="#f2d2a0"/>
-    <path d="M73 55 82 61 91 56 96 62 83 71 73 64" fill="#f2d2a0"/>
-    <path d="M76 53 81 58 77 65 70 59" fill="#f0e2c2" stroke-width="2.5"/>
-    <path d="M88 39 96 100" fill="none" stroke="#705438" stroke-width="5"/>
-    <path d="M75 40 Q89 31 105 34 L112 42 Q94 37 78 45Z" fill="#adbbb1" stroke-width="3"/>
-    <path d="M81 40 92 37 104 37" fill="none" stroke="#e7eed5" stroke-width="2"/>
-    <path d="M51 30 68 28 76 37 74 47 65 54 52 49 47 40Z" fill="#f2d2a0"/>
-    <path d="M49 34 55 29 69 29 73 35" fill="none" stroke="#80623b" stroke-width="5"/>
-    <path d="M39 32 Q59 24 81 30 L85 34 Q63 43 38 36Z" fill="#d6ae5f" stroke="#765d3c" stroke-width="3"/>
-    <path d="M46 30 50 21 66 18 76 25 77 31 Q61 36 46 30Z" fill="#ecc779" stroke="#765d3c" stroke-width="3"/>
-    <path d="M48 29 76 29" fill="none" stroke="#489f97" stroke-width="4"/>
-    <path d="M69 40 69 42" stroke="#3e4440" stroke-width="3"/>
-    <path d="M60 47 66 48" stroke="#b68352" stroke-width="2.5"/>
-    <path d="M54 23 64 21" stroke="#fae1a5" stroke-width="2.5"/>
-  </g>
+  <!-- Field worker: folded linen, mineral apron, one unmistakable iron pick. -->
+  <path fill="#3B4543" d="m47 75-3 24-5 5h17l5-27zm18 1 3 23-2 5h17l-6-7-2-22z"/>
+  <path fill="#DDD9C9" d="m45 46 13-6 17 8 6 27-13 10-23-6-6-21z"/>
+  <path fill="#B7BEAF" d="m45 48 8-4 2 31-10 4-6-21z"/>
+  <path fill="#6E9C94" d="m52 45 7 2 1 15 9-1-1-16 7 4 3 32-13 7-20-8 5-20z"/>
+  <path fill="#406861" d="m51 68 21-2 1 12-9 4-14-5z"/>
+  <path fill="#C9B394" d="m41 54-7 11 8 13 6-5-7-9 6-7zm34-1 9 8 10-5 4 6-15 8-12-10z"/>
+  <path fill="#C9B394" d="m52 29 18-1 6 9-5 15-13 1-9-12z"/>
+  <path fill="#947F63" d="m49 34 4-9 18 1 5 9-12-4z"/>
+  <path fill="#E8E5DB" d="m36 30 15-5 22-1 14 9-20 7-24-2z"/>
+  <path fill="#CBC7B4" d="m47 26 5-10 15-2 11 10-3 7-18 2z"/>
+  <path fill="#6E9C94" d="m48 27 28-2 2 5-19 4-12-3z"/>
+  <path d="m91 40 8 63" fill="none" stroke="#766C57" stroke-width="4" stroke-linecap="square"/>
+  <path fill="#384744" d="m72 39 12-6 19-1 12 11-17-5-19 7z"/>
+  <path fill="#B7C1B7" d="m75 39 11-4 16-1 6 4-11-2-18 6z"/>
+  <path fill="#7D7158" d="m51 40 6 7 10 2 7-4-4 8-13 1-6-7z"/>
+  <path d="m65 36 7 1" stroke="#465046" stroke-width="1.8" stroke-linecap="round"/>
+  <circle cx="69" cy="40" r="1.4" fill="#293B38"/>
+  <path d="m65 48 5-2" stroke="#E4D1AD" stroke-width="1.5" stroke-linecap="round"/>
+  <path fill="#A9C7BB" d="m51 70 6 1-1 7-6-1z"/>
 </svg>

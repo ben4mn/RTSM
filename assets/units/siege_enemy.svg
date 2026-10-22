@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- Field ballista: a clear crossbow silhouette on a low timber carriage. -->
+  <path fill="#716F59" d="m30 78 27-13 39 13-23 18z"/>
+  <path fill="#B6AA86" d="m30 75 28-13 38 13-23 17z"/>
+  <path fill="#8F896C" d="m30 75 1 12 42 17V92z"/>
+  <path fill="#6B705C" d="m73 92 23-17-1 13-22 16z"/>
+  <path d="m44 79 33 10m-20-18 27 9" stroke="#D2C9A6" stroke-width="2"/>
+  <circle cx="39" cy="92" r="11" fill="#35433F"/>
+  <circle cx="39" cy="92" r="6" fill="#A19A7A"/>
+  <circle cx="89" cy="92" r="11" fill="#35433F"/>
+  <circle cx="89" cy="92" r="6" fill="#A19A7A"/>
+  <path d="M39 83v18m-9-9h18M89 83v18m-9-9h18" stroke="#C0B895" stroke-width="1.6"/>
+  <path fill="#868C73" d="m57 81 3-27 9 1 3 30-8 4z"/>
+  <path fill="#C5B995" d="m26 62 21-19 22 4 29 13 14 18-21-12-24-8-20-5z"/>
+  <path fill="#6F7561" d="m26 62 21-13 22 4 26 11 17 14-21-12-24-8-20-5z"/>
+  <path d="m28 62 35 14 47 1" fill="none" stroke="#E8E5DB" stroke-width="1.8"/>
+  <path d="m54 84 29-45" stroke="#625F4D" stroke-width="5"/>
+  <path d="m57 80 28-44" stroke="#D6D5BE" stroke-width="2"/>
+  <path fill="#E8E5DB" d="m80 38 10-12-2 18z"/>
+  <path fill="#BD8067" d="m42 70 16 4-5 12-17-5z"/>
+  <path d="m43 74 10 3" stroke="#DFB498" stroke-width="2"/>
+</svg>

@@ -1,5 +1,5 @@
 extends Control
-## Quick-start menu. The kingdom takes center stage; advanced setup lives in settings.
+## A field atlas beside a focused match setup; advanced choices live in Settings.
 
 const THEME := preload("res://scripts/ui/kingdom_theme.gd")
 const DIORAMA := preload("res://scripts/ui/menu_diorama.gd")
@@ -13,9 +13,9 @@ enum Difficulty {
 
 const DIFFICULTY_NAMES: Array[String] = ["Easy", "Medium", "Hard"]
 const DIFFICULTY_DESCRIPTIONS: Array[String] = [
-	"A little breathing room to build your kingdom.",
-	"Steady raids. A worthy rival for your kingdom.",
-	"Early attacks. Every villager and order counts.",
+	"Time to build. Light pressure.",
+	"Regular raids. Balanced pressure.",
+	"Early raids. Relentless pressure.",
 ]
 const CAMERA_SPEED_VALUES: Array[float] = [0.75, 1.0, 1.25]
 const UI_SCALE_VALUES: Array[float] = [1.0, 1.075, 1.15]
@@ -69,6 +69,7 @@ var _hero: Control
 var _hero_labels: VBoxContainer
 var _hero_art: Control
 var _hero_caption: Label
+var _menu_rule: ColorRect
 var _difficulty_buttons: Array[Button] = []
 var _difficulty_row: HBoxContainer
 var _settings_columns: HBoxContainer
@@ -153,27 +154,38 @@ func _build_quick_start_presentation() -> void:
 		label.reparent(_hero_labels)
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	title_label.text = "Pocket Kingdoms"
+	title_label.text = "POCKET\nKINGDOMS"
+	title_label.add_theme_font_override("font", THEME.FONT_HEADING)
+	title_label.add_theme_constant_override("line_spacing", -7)
 	title_label.add_theme_color_override("font_color", THEME.PARCHMENT)
-	subtitle_label.text = "A KINGDOM IN YOUR POCKET"
-	subtitle_label.add_theme_color_override("font_color", THEME.AMBER)
-	promise_label.text = "Build a village. Raise an army.\nHold the sacred ground."
+	subtitle_label.text = "REAL-TIME  /  1v1"
+	subtitle_label.add_theme_color_override("font_color", THEME.MUTED)
+	promise_label.text = ""
+	promise_label.hide()
 	promise_label.add_theme_color_override("font_color", THEME.MUTED)
 	_hero_art = Control.new()
 	_hero_art.set_script(DIORAMA)
+	_hero_art.clip_contents = true
 	_hero.add_child(_hero_art)
 	_hero_caption = Label.new()
-	_hero_caption.text = "SOLO SKIRMISH  /  ONLINE 1v1"
-	_hero_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_hero_caption.text = ""
+	_hero_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_hero_caption.add_theme_font_override("font", THEME.FONT_MEDIUM)
 	_hero_caption.add_theme_color_override("font_color", THEME.MUTED)
 	_hero_caption.add_theme_font_size_override("font_size", 12)
 	_hero.add_child(_hero_caption)
+	_menu_rule = ColorRect.new()
+	_menu_rule.color = THEME.BORDER
+	_menu_rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_menu_rule)
+	move_child(_menu_rule, $CenterContainer.get_index())
+	$CenterContainer/VBox/SetupPanel.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	content_spacer.hide()
 	actions_spacer.hide()
 	map_summary_label.hide()
-	map_heading.text = "PLAY A SKIRMISH"
+	map_heading.text = "SOLO SKIRMISH"
 	map_heading.add_theme_color_override("font_color", THEME.AMBER)
-	difficulty_label.text = "Choose your rival"
+	difficulty_label.text = "Opponent"
 	difficulty_option.hide()
 	_difficulty_row = HBoxContainer.new()
 	_difficulty_row.name = "DifficultyChoices"
@@ -194,12 +206,19 @@ func _build_quick_start_presentation() -> void:
 		_difficulty_row.add_child(button)
 		_difficulty_buttons.append(button)
 	difficulty_description.add_theme_color_override("font_color", THEME.MUTED)
-	guided_opening_toggle.text = "Guide my first steps"
+	guided_opening_toggle.text = "Opening guide"
 	guided_opening_toggle.add_theme_color_override("font_color", THEME.PARCHMENT)
-	start_button.text = "Play skirmish  ›"
+	start_button.text = "Play solo"
 	settings_button.text = "Settings & map"
 	THEME.apply_primary(start_button)
+	start_button.icon = load("res://assets/ui/icons/play_dark.svg") as Texture2D
+	start_button.add_theme_constant_override("h_separation", 12)
+	start_button.add_theme_color_override("icon_normal_color", Color.WHITE)
+	start_button.add_theme_color_override("icon_hover_color", Color.WHITE)
+	start_button.add_theme_color_override("icon_pressed_color", Color.WHITE)
 	THEME.apply_secondary(settings_button)
+	settings_button.icon = load("res://assets/ui/icons/settings.svg") as Texture2D
+	settings_button.add_theme_constant_override("h_separation", 7)
 	_settings_columns = HBoxContainer.new()
 	_settings_columns.add_theme_constant_override("separation", 20)
 	settings_vbox.add_child(_settings_columns)
@@ -259,6 +278,8 @@ func _build_online_controls() -> void:
 	_online_button.add_theme_font_size_override("font_size", 14)
 	_online_button.accessibility_name = "Find another player for an online match"
 	THEME.apply_secondary(_online_button)
+	_online_button.icon = load("res://assets/ui/icons/online.svg") as Texture2D
+	_online_button.add_theme_constant_override("h_separation", 7)
 	secondary.add_child(_online_button)
 	settings_button.reparent(secondary)
 	settings_button.text = "Settings"
@@ -289,7 +310,7 @@ func _on_network_status_changed(state: String, message: String) -> void:
 		control.visible = not _network_search_active
 	_online_button.disabled = _network_search_active
 	settings_button.disabled = _network_search_active
-	start_button.text = "Cancel search" if _network_search_active else "Play skirmish"
+	start_button.text = "Cancel search" if _network_search_active else "Play solo"
 	if state == "error":
 		difficulty_description.text = message
 		difficulty_description.tooltip_text = message
@@ -440,34 +461,36 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 	_layout_center_in_safe_area(settings_center, normalized_safe_area)
 	_hero.position = hero_rect.position
 	_hero.size = hero_rect.size
-	_hero_labels.position = Vector2(6.0, 8.0 if compact else 20.0)
-	_hero_labels.size = Vector2(hero_rect.size.x - 12.0, 0.0)
-	title_label.text = "Pocket Kingdoms"
-	title_label.add_theme_font_size_override("font_size", 30 if compact else 44)
-	subtitle_label.add_theme_font_size_override("font_size", 11 if compact else 13)
-	promise_label.add_theme_font_size_override("font_size", 14 if compact else 17)
-	var art_top: float = 124.0
-	if not compact:
-		art_top += 30.0
+	_hero_labels.position = Vector2(4.0, 0.0)
+	_hero_labels.size = Vector2(hero_rect.size.x - 8.0, 0.0)
+	title_label.text = "POCKET\nKINGDOMS"
+	title_label.add_theme_font_size_override("font_size", 48 if compact else 76)
+	subtitle_label.add_theme_font_size_override("font_size", 11 if compact else 12)
+	promise_label.hide()
+	var art_top: float = 117.0 if compact else 171.0
 	if not landscape:
-		promise_label.visible = false
-		art_top = 74.0
-	else:
-		promise_label.visible = true
-	_hero_art.position = Vector2(0.0, art_top)
-	_hero_art.size = Vector2(hero_rect.size.x, maxf(70.0, hero_rect.size.y - art_top - 22.0))
-	_hero_caption.position = Vector2(0.0, hero_rect.size.y - 20.0)
-	_hero_caption.size = Vector2(hero_rect.size.x, 20.0)
+		title_label.text = "POCKET KINGDOMS"
+		title_label.add_theme_font_size_override("font_size", 36)
+		art_top = 64.0
+	_hero_art.position = Vector2(-6.0, art_top)
+	_hero_art.size = Vector2(hero_rect.size.x + 12.0, maxf(60.0, hero_rect.size.y - art_top - 25.0))
+	_hero_caption.position = Vector2(4.0, hero_rect.size.y - 18.0)
+	_hero_caption.size = Vector2(hero_rect.size.x - 8.0, 18.0)
+	_hero_caption.text = "%02d  /  %s" % [GameManager.selected_map_archetype + 1, MapData.get_archetype_name(GameManager.selected_map_archetype).to_upper()]
+	_menu_rule.visible = landscape
+	_menu_rule.position = Vector2(card_rect.position.x - 18.0, available.position.y + 6.0)
+	_menu_rule.size = Vector2(1.0, maxf(0.0, available.size.y - 12.0))
 	content_vbox.custom_minimum_size.x = card_width
 	content_vbox.add_theme_constant_override("separation", 8)
 	map_heading.visible = not compact and not _network_search_active
 	map_heading.add_theme_font_size_override("font_size", 12)
 	difficulty_label.add_theme_font_size_override("font_size", 17)
+	difficulty_label.add_theme_font_override("font", THEME.FONT_MEDIUM)
 	difficulty_description.visible = not _network_search_active
 	difficulty_description.add_theme_font_size_override("font_size", 13)
-	difficulty_description.custom_minimum_size.y = 34.0
-	setup_margin.add_theme_constant_override("margin_left", 12 if compact else 20)
-	setup_margin.add_theme_constant_override("margin_right", 12 if compact else 20)
+	difficulty_description.custom_minimum_size.y = 30.0
+	setup_margin.add_theme_constant_override("margin_left", 0)
+	setup_margin.add_theme_constant_override("margin_right", 0)
 	setup_margin.add_theme_constant_override("margin_top", 6 if compact else 18)
 	setup_margin.add_theme_constant_override("margin_bottom", 4 if compact else 16)
 	setup_vbox.add_theme_constant_override("separation", 6)
@@ -476,7 +499,8 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 	actions_row.add_theme_constant_override("separation", 6)
 	start_button.custom_minimum_size = Vector2(card_width, 56)
 	start_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	start_button.add_theme_font_size_override("font_size", 20)
+	start_button.add_theme_font_size_override("font_size", 24)
+	start_button.add_theme_font_override("font", THEME.FONT_HEADING)
 	settings_button.custom_minimum_size = Vector2(0, 48)
 	if is_instance_valid(_online_button):
 		_online_button.custom_minimum_size = Vector2(0, 48)
@@ -576,7 +600,7 @@ func _on_difficulty_changed(index: int) -> void:
 
 
 func _apply_difficulty_description() -> void:
-	start_button.text = "Play skirmish" if GameManager.selected_match_mode == SkirmishData.MatchMode.STANDARD else "Play control race"
+	start_button.text = "Play solo" if GameManager.selected_match_mode == SkirmishData.MatchMode.STANDARD else "Play control race"
 	difficulty_description.text = DIFFICULTY_DESCRIPTIONS[_selected_difficulty]
 	difficulty_description.tooltip_text = difficulty_description.text
 	difficulty_description.add_theme_color_override("font_color", THEME.MUTED)

@@ -1,6 +1,27 @@
 class_name MapData
 ## Shared tile/map constants and enums used across the map system.
 
+enum MapArchetype { OPEN_PLAINS, RIVER_CROSSINGS, WOODLAND_FLANKS }
+
+const MAP_ARCHETYPES: Dictionary = {
+	MapArchetype.OPEN_PLAINS: {"name": "Open Plains", "description": "Open center, scattered woods. Scout expansions and split your raids."},
+	MapArchetype.RIVER_CROSSINGS: {"name": "River Crossings", "description": "Three broad crossings. Hold one and threaten another."},
+	MapArchetype.WOODLAND_FLANKS: {"name": "Woodland Flanks", "description": "Open attack lanes beside deep woods. Scout the side routes and expansions."},
+}
+
+
+static func normalize_archetype(value: int) -> int:
+	return value if MAP_ARCHETYPES.has(value) else MapArchetype.OPEN_PLAINS
+
+
+static func get_archetype_name(value: int) -> String:
+	return str(MAP_ARCHETYPES[normalize_archetype(value)]["name"])
+
+
+static func get_archetype_description(value: int) -> String:
+	return str(MAP_ARCHETYPES[normalize_archetype(value)]["description"])
+
+
 ## Tile types present on the map.
 enum TileType {
 	GRASS,

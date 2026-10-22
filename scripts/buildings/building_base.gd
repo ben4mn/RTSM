@@ -129,9 +129,9 @@ const BUILDING_SCALES: Dictionary = {
 }
 
 const DROP_OFF_BADGE_COLORS: Dictionary = {
-	"food": Color(0.92, 0.34, 0.30),
-	"wood": Color(0.46, 0.76, 0.34),
-	"gold": Color(0.96, 0.86, 0.22),
+	"food": Color("bd8067"),
+	"wood": Color("88a58b"),
+	"gold": Color("c4af77"),
 }
 
 

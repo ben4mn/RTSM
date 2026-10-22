@@ -19,9 +19,12 @@ var grid: Array = []
 
 ## Spawn positions for each player (tile coords). Index 0 = P1, 1 = P2.
 var spawn_positions: Array[Vector2i] = []
+var archetype: int = MapData.MapArchetype.OPEN_PLAINS
+var _flank_crossings: Array[Vector2i] = [Vector2i(20, 20), Vector2i(52, 52)]
 
 
-func _init(seed_value: int = -1) -> void:
+func _init(seed_value: int = -1, map_archetype: int = MapData.MapArchetype.OPEN_PLAINS) -> void:
+	archetype = MapData.normalize_archetype(map_archetype)
 	if seed_value >= 0:
 		_rng.seed = seed_value
 	else:
@@ -35,14 +38,93 @@ func generate() -> Array:
 	_place_spawn_positions()
 	_place_water_features()
 	_place_forest_clusters()
+	_place_archetype_features()
 	_place_resources()
 	_ensure_spawn_clearance()
 	_ensure_center_lane()
+	_ensure_tactical_lanes()
 	_place_guaranteed_near_spawn_resources()
 	_place_contested_mid_resources()
 	_place_expansion_resources()
 	_add_grass_variety()
 	return grid
+
+
+## The default performs no additional random draws or edits, preserving existing
+## seeded maps. New layouts retain the same reflected starts and opening stock.
+func _place_archetype_features() -> void:
+	if archetype == MapData.MapArchetype.OPEN_PLAINS:
+		return
+	var upper: int = _rng.randi_range(18, 21)
+	var lower: int = _rng.randi_range(50, 53)
+	_flank_crossings = [Vector2i(upper, upper), Vector2i(lower, lower)]
+	if archetype == MapData.MapArchetype.RIVER_CROSSINGS:
+		_place_crossing_river()
+	else:
+		_place_flanking_woodlands()
+
+
+## A diagonal river separates the two starts. Three independent broad land
+## crossings are carved afterwards; occupying the objective cannot close them.
+func _place_crossing_river() -> void:
+	var bank_phase: int = _rng.randi_range(0, 3)
+	for y: int in range(MapData.MAP_HEIGHT):
+		for x: int in range(y + 1):
+			var tile := Vector2i(x, y)
+			var half_width: int = 3 + posmod(int((x + y) / 9) + bank_phase, 2)
+			if absi(x - y) <= half_width and not _is_near_center(tile, CENTER_CLEAR_RADIUS):
+				_set_symmetric_tile(tile, MapData.TileType.WATER)
+
+
+## Larger woods make route choice and expansion scouting matter. They keep the
+## existing forest routing weight; no camouflage, armor or speed bonus is added.
+func _place_flanking_woodlands() -> void:
+	var centers: Array[Vector2i] = [Vector2i(15, 39), Vector2i(31, 56), Vector2i(24, 44)]
+	for base: Vector2i in centers:
+		var center: Vector2i = base + Vector2i(_rng.randi_range(-2, 2), _rng.randi_range(-2, 2))
+		_place_woodland_ellipse(center, _rng.randi_range(5, 7), _rng.randi_range(7, 9))
+	for crossing: Vector2i in _flank_crossings:
+		_place_woodland_ellipse(crossing, 7, 7)
+
+
+func _place_woodland_ellipse(center: Vector2i, radius_x: int, radius_y: int) -> void:
+	for dy: int in range(-radius_y, radius_y + 1):
+		for dx: int in range(-radius_x, radius_x + 1):
+			if pow(float(dx) / radius_x, 2.0) + pow(float(dy) / radius_y, 2.0) > 1.0:
+				continue
+			var tile: Vector2i = center + Vector2i(dx, dy)
+			if not _in_bounds(tile.x, tile.y) or _is_near_spawn(tile, 14) or _is_near_center(tile, FEATURE_CENTER_BUFFER):
+				continue
+			if grid[tile.y][tile.x] == MapData.TileType.GRASS:
+				_set_symmetric_tile(tile, MapData.TileType.FOREST)
+
+
+## Explicit geometry for scouting/route probes; these are connected routes, not
+## orders or AI knowledge. Both flank routes bypass the Sacred Site entirely.
+func get_tactical_routes() -> Array[Dictionary]:
+	if spawn_positions.size() < 2:
+		return []
+	var start: Vector2i = spawn_positions[0] + Vector2i(4, -4)
+	var finish: Vector2i = _mirror_tile(start)
+	var center := Vector2i(MapData.MAP_WIDTH / 2, MapData.MAP_HEIGHT / 2)
+	return [
+		{"name": "Center", "waypoints": [start, center, finish]},
+		{"name": "Upper flank", "waypoints": [start, _flank_crossings[0], finish]},
+		{"name": "Lower flank", "waypoints": [start, _flank_crossings[1], finish]},
+	]
+
+
+func _ensure_tactical_lanes() -> void:
+	if archetype == MapData.MapArchetype.OPEN_PLAINS:
+		return
+	for route: Dictionary in get_tactical_routes():
+		var points: Array = route["waypoints"]
+		for index: int in range(1, points.size()):
+			var from_tile: Vector2i = points[index - 1]
+			var to_tile: Vector2i = points[index]
+			_carve_grass_corridor(from_tile, to_tile, CORRIDOR_HALF_WIDTH)
+			# Explicit reflection also handles round-to-nearest ties at bends.
+			_carve_grass_corridor(_mirror_tile(from_tile), _mirror_tile(to_tile), CORRIDOR_HALF_WIDTH)
 
 
 ## Fill the entire grid with grass.

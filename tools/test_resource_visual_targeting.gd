@@ -54,7 +54,9 @@ func _run() -> void:
 			var click := InputEventMouseButton.new()
 			click.device = 0
 			click.button_index = MOUSE_BUTTON_RIGHT
-			click.position = screen
+			# Input.parse_input_event accepts window coordinates; the picker
+			# returns viewport coordinates, before the accessibility UI stretch.
+			click.position = get_viewport().get_final_transform() * screen
 			click.pressed = pressed
 			Input.parse_input_event(click)
 			await get_tree().process_frame
@@ -82,7 +84,7 @@ func _run() -> void:
 	for pressed: bool in [true, false]:
 		var tap := InputEventScreenTouch.new()
 		tap.index = 0
-		tap.position = enemy_screen
+		tap.position = get_viewport().get_final_transform() * enemy_screen
 		tap.pressed = pressed
 		Input.parse_input_event(tap)
 		await get_tree().process_frame
@@ -112,7 +114,7 @@ func _run() -> void:
 	for pressed: bool in [true, false]:
 		var farm_tap := InputEventScreenTouch.new()
 		farm_tap.index = 0
-		farm_tap.position = farm_screen
+		farm_tap.position = get_viewport().get_final_transform() * farm_screen
 		farm_tap.pressed = pressed
 		Input.parse_input_event(farm_tap)
 		await get_tree().process_frame
@@ -126,7 +128,7 @@ func _run() -> void:
 		var farm_click := InputEventMouseButton.new()
 		farm_click.device = 0
 		farm_click.button_index = MOUSE_BUTTON_RIGHT
-		farm_click.position = farm_outer_screen
+		farm_click.position = get_viewport().get_final_transform() * farm_outer_screen
 		farm_click.pressed = pressed
 		Input.parse_input_event(farm_click)
 		await get_tree().process_frame
@@ -154,7 +156,7 @@ func _run() -> void:
 	for pressed: bool in [true, false]:
 		var enemy_farm_tap := InputEventScreenTouch.new()
 		enemy_farm_tap.index = 0
-		enemy_farm_tap.position = farm_screen
+		enemy_farm_tap.position = get_viewport().get_final_transform() * farm_screen
 		enemy_farm_tap.pressed = pressed
 		Input.parse_input_event(enemy_farm_tap)
 		await get_tree().process_frame

@@ -43,10 +43,10 @@ const RESOURCE_OFFSETS: Dictionary = {
 }
 
 const RESOURCE_COLORS: Dictionary = {
-	"food": Color(0.90, 0.30, 0.35),
-	"wood": Color(0.35, 0.75, 0.30),
-	"gold": Color(0.95, 0.85, 0.20),
-	"stone": Color(0.65, 0.68, 0.72),
+	"food": Color("bd8067"),
+	"wood": Color("88a58b"),
+	"gold": Color("c4af77"),
+	"stone": Color("b2b8b2"),
 }
 
 const RESOURCE_BADGES: Dictionary = {
@@ -153,25 +153,22 @@ func deselect() -> void:
 
 
 func _draw() -> void:
-	# Selection ring
+	# The artwork identifies idle resources. Details appear on selection so a
+	# grove does not become a wall of floating letters and colored ground dots.
 	if is_selected:
-		var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.005)
-		var sel_alpha := lerpf(0.45, 0.9, pulse)
-		draw_arc(Vector2.ZERO, 20.0, 0, TAU, 32, Color(1.0, 0.92, 0.55, sel_alpha), 3.0)
+		draw_arc(Vector2.ZERO, 20.0, 0, TAU, 32, Color("e8e5db"), 1.5, true)
+		if remaining > 0:
+			_draw_resource_badge()
 
-	# Colored glow circle behind resource to keep nearby economy readable.
 	if remaining > 0:
-		var glow_color: Color = _get_resource_color(0.12)
-		draw_circle(Vector2.ZERO, 18.0, glow_color)
-		_draw_resource_badge()
 		if resource_type == "food":
 			# The original bush has no fruit; visible berries make the food
 			# instruction match the thing the player sees and taps.
 			for berry: Vector2 in [Vector2(-7, -6), Vector2(0, -10), Vector2(7, -4), Vector2(-1, -1)]:
 				draw_circle(berry, 2.6, Color("d87975"))
 				draw_circle(berry + Vector2(-0.6, -0.6), 0.7, Color("f3c5a0"))
-	# Depletion bar overlay — sprite handles the visual
-	if remaining < total_amount and remaining > 0:
+	# Selected stock remains readable without permanent bars over the forest.
+	if is_selected and remaining < total_amount and remaining > 0:
 		var bar_w := 18.0
 		var bar_h := 2.0
 		var bar_y := 10.0
@@ -191,8 +188,8 @@ func _get_resource_color(alpha: float = 1.0) -> Color:
 
 func _draw_resource_badge() -> void:
 	var badge_pos := Vector2(0.0, -24.0)
-	draw_circle(badge_pos, 8.0, Color(0.02, 0.02, 0.02, 0.82))
-	draw_circle(badge_pos, 6.6, _get_resource_color(0.98))
+	draw_circle(badge_pos, 7.0, Color("293235"))
+	draw_arc(badge_pos, 7.0, 0, TAU, 24, _get_resource_color(), 1.0, true)
 	var font := ThemeDB.fallback_font
 	if font == null:
 		return

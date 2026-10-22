@@ -37,9 +37,9 @@ signal secondary_surface_changed(surface: String)
 signal world_gesture_cancel_requested()
 
 const RESOURCE_COLORS: Dictionary = {
-	"food": Color(0.9, 0.35, 0.25),
-	"wood": Color(0.45, 0.7, 0.3),
-	"gold": Color(0.95, 0.85, 0.2),
+	"food": Color("bd8067"),
+	"wood": Color("88a58b"),
+	"gold": Color("c4af77"),
 }
 
 const GAME_SPEEDS: Array[float] = [0.5, 1.0, 2.0, 3.0]
@@ -859,7 +859,7 @@ func _create_pause_overlay() -> void:
 	var online: bool = NetworkSession.is_client()
 	_pause_overlay = ColorRect.new()
 	_pause_overlay.name = "PauseOverlay"
-	_pause_overlay.color = Color(0, 0, 0, 0.6)
+	_pause_overlay.color = Color(KingdomTheme.INK, 0.94)
 	_pause_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_pause_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 	_pause_overlay.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -877,7 +877,8 @@ func _create_pause_overlay() -> void:
 	title.text = "MATCH MENU" if online else "PAUSED"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 24)
-	title.add_theme_color_override("font_color", Color(1.0, 0.9, 0.5))
+	title.add_theme_font_override("font", KingdomTheme.FONT_HEADING)
+	title.add_theme_color_override("font_color", KingdomTheme.PARCHMENT)
 	vbox.add_child(title)
 
 	var sep := HSeparator.new()
@@ -893,6 +894,7 @@ func _create_pause_overlay() -> void:
 		resume_requested.emit()
 	)
 	vbox.add_child(resume_btn)
+	KingdomTheme.apply_primary(resume_btn)
 
 	var pause_help := Label.new()
 	pause_help.name = "PauseHelpLabel"
@@ -902,7 +904,7 @@ func _create_pause_overlay() -> void:
 	pause_help.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	pause_help.clip_text = true
 	pause_help.add_theme_font_size_override("font_size", 12)
-	pause_help.add_theme_color_override("font_color", Color(0.92, 0.88, 0.74))
+	pause_help.add_theme_color_override("font_color", KingdomTheme.MUTED)
 	vbox.add_child(pause_help)
 
 	# Keep reporting reachable without adding another vertical phone menu row.
@@ -1093,7 +1095,7 @@ func _create_command_dock() -> void:
 	_command_dock.name = "CommandDock"
 	_command_dock.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_command_dock.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	_command_dock.add_theme_stylebox_override("panel", KingdomTheme.panel_style(KingdomTheme.INK_PANEL, KingdomTheme.BORDER, 8))
+	_command_dock.add_theme_stylebox_override("panel", KingdomTheme.panel_style(KingdomTheme.INK_PANEL, KingdomTheme.BORDER, 4))
 	$Root.add_child(_command_dock)
 	$Root.move_child(_command_dock, 0)
 	selection_panel.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
@@ -1320,7 +1322,7 @@ func _create_unit_command_buttons() -> void:
 	_advanced_command_panel.name = "AdvancedCommandsPanel"
 	_advanced_command_panel.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	_advanced_command_panel.visible = false
-	_advanced_command_panel.add_theme_stylebox_override("panel", KingdomTheme.panel_style(KingdomTheme.INK_PANEL, KingdomTheme.BORDER, 8))
+	_advanced_command_panel.add_theme_stylebox_override("panel", KingdomTheme.panel_style(KingdomTheme.INK_PANEL, KingdomTheme.BORDER, 4))
 	$Root.add_child(_advanced_command_panel)
 	_advanced_command_container = HBoxContainer.new()
 	_advanced_command_container.add_theme_constant_override("separation", 6)
@@ -1363,7 +1365,7 @@ func _make_unit_command_button(button_name: String, label: String, tooltip: Stri
 	button.custom_minimum_size = Vector2(MOBILE_UNIT_COMMAND_WIDTH, MOBILE_ACTION_BUTTON_HEIGHT)
 	button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	button.add_theme_font_size_override("font_size", 14)
-	var compact_style: StyleBoxFlat = KingdomTheme.panel_style(KingdomTheme.INK_LIGHT, KingdomTheme.BORDER, 9)
+	var compact_style: StyleBoxTexture = KingdomTheme.button_style()
 	compact_style.set_content_margin(SIDE_LEFT, 8.0)
 	compact_style.set_content_margin(SIDE_RIGHT, 8.0)
 	button.add_theme_stylebox_override("normal", compact_style)
@@ -2736,11 +2738,11 @@ func _update_hp_bar_color(current: int, maximum: int) -> void:
 	var pct: float = float(current) / float(maximum)
 	var fill_style: StyleBoxFlat = selection_hp_bar.get_theme_stylebox("fill").duplicate() as StyleBoxFlat
 	if pct > 0.6:
-		fill_style.bg_color = Color(0.35, 0.70, 0.25, 0.9)  # Green
+		fill_style.bg_color = KingdomTheme.TEAL
 	elif pct > 0.3:
-		fill_style.bg_color = Color(0.85, 0.70, 0.15, 0.9)  # Yellow
+		fill_style.bg_color = Color("cfbd85")
 	else:
-		fill_style.bg_color = Color(0.85, 0.20, 0.15, 0.9)  # Red
+		fill_style.bg_color = KingdomTheme.RUST
 	selection_hp_bar.add_theme_stylebox_override("fill", fill_style)
 
 
@@ -3067,7 +3069,7 @@ func _update_train_buttons(trainable_units: Array) -> void:
 		for style_name: String in ["normal", "hover", "pressed", "disabled", "focus", "hover_pressed"]:
 			btn.remove_theme_stylebox_override(style_name)
 			if compact_producer or not role_text.is_empty():
-				var style: StyleBoxFlat = btn.get_theme_stylebox(style_name).duplicate() as StyleBoxFlat
+				var style: StyleBox = btn.get_theme_stylebox(style_name).duplicate()
 				style.set_content_margin(SIDE_LEFT, 4.0)
 				style.set_content_margin(SIDE_RIGHT, 4.0)
 				style.set_content_margin(SIDE_TOP, 1.0 if compact_producer else 4.0)
@@ -3109,7 +3111,7 @@ func _update_train_buttons(trainable_units: Array) -> void:
 		_auto_queue_button.custom_minimum_size = Vector2(74 if compact_town_center else 88, 48) if compact_producer else Vector2(104, 48)
 		_auto_queue_button.add_theme_font_size_override("font_size", 11 if compact_producer else 14)
 		for style_name: String in ["normal", "hover", "pressed", "disabled", "focus", "hover_pressed"]:
-			var repeat_style: StyleBoxFlat = _auto_queue_button.get_theme_stylebox(style_name).duplicate() as StyleBoxFlat
+			var repeat_style: StyleBox = _auto_queue_button.get_theme_stylebox(style_name).duplicate()
 			repeat_style.set_content_margin(SIDE_LEFT, 4.0)
 			repeat_style.set_content_margin(SIDE_RIGHT, 4.0)
 			_auto_queue_button.add_theme_stylebox_override(style_name, repeat_style)
@@ -3458,27 +3460,20 @@ func update_minimap(grid: Array, player_units: Array, enemy_units: Array, player
 					color = color.darkened(0.28)
 			_minimap_image.set_pixel(x, y, color)
 
-	# Draw player units (blue dots) — always visible (own units)
+	# Draw player units (teal dots) — always visible (own units)
 	for unit in player_units:
 		if not is_instance_valid(unit):
 			continue
 		var tile_pos: Vector2i = _world_to_tile_minimap(unit.global_position)
 		if tile_pos.x >= 0 and tile_pos.x < map_w and tile_pos.y >= 0 and tile_pos.y < map_h:
-			_minimap_image.set_pixel(tile_pos.x, tile_pos.y, Color(0.2, 0.5, 1.0))
+			_draw_minimap_marker(tile_pos, KingdomTheme.TEAL, 0)
 
-	# Draw player buildings (bright blue squares) — always visible (own buildings)
+	# Draw player buildings with a dark edge so teal survives grass terrain.
 	for building in player_buildings:
-		if not is_instance_valid(building):
-			continue
-		var tile_pos: Vector2i = _world_to_tile_minimap(building.global_position)
-		for dy in range(-1, 2):
-			for dx in range(-1, 2):
-				var px: int = tile_pos.x + dx
-				var py: int = tile_pos.y + dy
-				if px >= 0 and px < map_w and py >= 0 and py < map_h:
-					_minimap_image.set_pixel(px, py, Color(0.3, 0.6, 1.0))
+		if is_instance_valid(building):
+			_draw_minimap_marker(_world_to_tile_minimap(building.global_position), KingdomTheme.TEAL, 1)
 
-	# Draw enemy buildings (bright red squares) — only if tile is visible
+	# Draw enemy buildings (clay squares) — only if tile is visible
 	for building in enemy_buildings:
 		if not is_instance_valid(building):
 			continue
@@ -3487,14 +3482,9 @@ func update_minimap(grid: Array, player_units: Array, enemy_units: Array, player
 		if not show and tile_pos.y >= 0 and tile_pos.y < map_h and tile_pos.x >= 0 and tile_pos.x < map_w:
 			show = fog_grid[tile_pos.y][tile_pos.x] == MapData.FogState.VISIBLE
 		if show:
-			for dy in range(-1, 2):
-				for dx in range(-1, 2):
-					var px: int = tile_pos.x + dx
-					var py: int = tile_pos.y + dy
-					if px >= 0 and px < map_w and py >= 0 and py < map_h:
-						_minimap_image.set_pixel(px, py, Color(1.0, 0.3, 0.3))
+			_draw_minimap_marker(tile_pos, KingdomTheme.RUST, 1)
 
-	# Draw enemy units (red dots) — only if tile is visible
+	# Draw enemy units (clay dots) — only if tile is visible
 	for unit in enemy_units:
 		if not is_instance_valid(unit):
 			continue
@@ -3504,7 +3494,7 @@ func update_minimap(grid: Array, player_units: Array, enemy_units: Array, player
 			if not show:
 				show = fog_grid[tile_pos.y][tile_pos.x] == MapData.FogState.VISIBLE
 			if show:
-				_minimap_image.set_pixel(tile_pos.x, tile_pos.y, Color(1.0, 0.25, 0.2))
+				_draw_minimap_marker(tile_pos, KingdomTheme.RUST, 0)
 
 	# Project all four world corners. A world rectangle is a quadrilateral in
 	# the tile grid; projecting only its diagonal collapses it into a stripe.
@@ -3513,29 +3503,36 @@ func update_minimap(grid: Array, player_units: Array, enemy_units: Array, player
 		for index: int in 4:
 			_draw_minimap_camera_edge(_world_to_minimap_point(corners[index]), _world_to_minimap_point(corners[(index + 1) % 4]), map_w, map_h)
 
-	# Draw sacred site (bright purple dot at map center, always visible)
+	# Draw sacred site (bone objective at map center, always visible)
 	@warning_ignore("integer_division")
 	var sacred_x: int = map_w / 2
 	@warning_ignore("integer_division")
 	var sacred_y: int = map_h / 2
-	var sacred_color := Color(0.85, 0.55, 1.0)
+	var sacred_color := KingdomTheme.PARCHMENT
 	var sacred_phase: String = str(_sacred_site_status.get("phase", "neutral"))
 	if sacred_phase in ["contested", "neutralizing"]:
-		sacred_color = Color(1.0, 0.85, 0.2)
+		sacred_color = KingdomTheme.RUST
 	elif int(_sacred_site_status.get("owner", -1)) == 0:
-		sacred_color = Color(0.3, 0.6, 1.0)
+		sacred_color = KingdomTheme.TEAL
 	elif int(_sacred_site_status.get("owner", -1)) == 1:
-		sacred_color = Color(1.0, 0.3, 0.3)
-	for dy in range(-1, 2):
-		for dx in range(-1, 2):
-			var px: int = sacred_x + dx
-			var py: int = sacred_y + dy
-			if px >= 0 and px < map_w and py >= 0 and py < map_h:
-				# Objective location is public; terrain and enemies remain fogged.
-				_minimap_image.set_pixel(px, py, sacred_color)
+		sacred_color = KingdomTheme.RUST
+	# Objective location is public; terrain and enemies remain fogged.
+	_draw_minimap_marker(Vector2i(sacred_x, sacred_y), sacred_color, 1)
 
 	_minimap_texture.update(_minimap_image)
 	minimap_rect.texture = _minimap_texture
+
+
+func _draw_minimap_marker(point: Vector2i, color: Color, radius: int) -> void:
+	# At one or three map pixels wide, hue alone cannot distinguish a token
+	# from terrain. A one-pixel ink edge preserves its silhouette at phone size.
+	for dy: int in range(-radius - 1, radius + 2):
+		for dx: int in range(-radius - 1, radius + 2):
+			var pixel: Vector2i = point + Vector2i(dx, dy)
+			if pixel.x < 0 or pixel.y < 0 or pixel.x >= _minimap_image.get_width() or pixel.y >= _minimap_image.get_height():
+				continue
+			var border: bool = absi(dx) > radius or absi(dy) > radius
+			_minimap_image.set_pixelv(pixel, KingdomTheme.INK if border else color)
 
 
 func _world_to_minimap_point(world_pos: Vector2) -> Vector2:
@@ -3658,12 +3655,12 @@ func show_notification(text: String, color: Color = Color.WHITE, duration: float
 				panel.accept_event()
 		)
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.025, 0.045, 0.04, 0.82)
+	style.bg_color = Color(KingdomTheme.INK, 0.94)
 	style.border_color = color
 	style.border_width_left = 3
 	style.set_content_margin_all(3)
 	style.content_margin_left = 7
-	style.set_corner_radius_all(5)
+	style.set_corner_radius_all(3)
 	panel.add_theme_stylebox_override("panel", style)
 
 	var lbl := Label.new()
@@ -3810,7 +3807,7 @@ func _create_sacred_site_label() -> void:
 	chip_style.bg_color = KingdomTheme.INK_LIGHT
 	chip_style.border_color = KingdomTheme.BORDER
 	chip_style.set_border_width_all(1)
-	chip_style.set_corner_radius_all(7)
+	chip_style.set_corner_radius_all(3)
 	chip_style.set_content_margin_all(0)
 	_sacred_site_panel.add_theme_stylebox_override("panel", chip_style)
 	_sacred_site_button = Button.new()
@@ -3866,13 +3863,13 @@ func update_sacred_site_status(status: Dictionary) -> void:
 	_sacred_site_label.text = objective_title + "\n" + _sacred_site_status_line(status)
 	_sacred_site_button.tooltip_text = _sacred_site_instructions(status)
 	var owner: int = int(status.get("owner", -1))
-	var color := Color(0.85, 0.7, 1.0)
+	var color := KingdomTheme.PARCHMENT
 	if phase in ["contested", "neutralizing"]:
-		color = Color(1.0, 0.85, 0.3)
+		color = KingdomTheme.RUST
 	elif owner == 0:
-		color = Color(0.3, 0.7, 1.0)
+		color = KingdomTheme.TEAL
 	elif owner == 1:
-		color = Color(1.0, 0.4, 0.3)
+		color = KingdomTheme.RUST
 	_sacred_site_label.add_theme_color_override("font_color", color)
 	if _selection_kind == "sacred":
 		show_sacred_site_selection(status)
@@ -4535,13 +4532,20 @@ func _get_resource_manager() -> Node:
 func _apply_game_theme() -> void:
 	var root_ctrl: Control = $Root
 	root_ctrl.theme = KingdomTheme.create_theme()
+	var bar_style: StyleBoxFlat = KingdomTheme.panel_style(KingdomTheme.INK_PANEL, KingdomTheme.BORDER, 0)
+	bar_style.bg_color.a = 0.97
+	bar_style.set_border_width_all(0)
+	bar_style.border_width_bottom = 1
+	top_bar.add_theme_stylebox_override("panel", bar_style)
 	var selection_style: StyleBoxFlat = KingdomTheme.panel_style()
 	selection_style.set_content_margin_all(0.0)
 	selection_panel.add_theme_stylebox_override("panel", selection_style)
+	selection_name.add_theme_font_override("font", KingdomTheme.FONT_MEDIUM)
+	selection_details.add_theme_color_override("font_color", KingdomTheme.MUTED)
 	KingdomTheme.apply_primary(build_menu_button)
-	food_label.add_theme_color_override("font_color", Color(0.95, 0.54, 0.39))
-	wood_label.add_theme_color_override("font_color", Color(0.62, 0.78, 0.55))
-	gold_label.add_theme_color_override("font_color", KingdomTheme.AMBER)
+	for label: Label in [food_label, wood_label, gold_label, pop_label, age_label, game_time_label]:
+		label.add_theme_font_override("font", KingdomTheme.FONT_MEDIUM)
+		label.add_theme_color_override("font_color", KingdomTheme.PARCHMENT)
 
 
 func setup_strategy_overview() -> StrategyOverview:

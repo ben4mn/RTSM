@@ -4,22 +4,22 @@ extends RefCounted
 ## All methods are static — call VFX.hit_burst(tree, pos) etc.
 
 
-static func hit_burst(tree: SceneTree, pos: Vector2, color: Color = Color(1.0, 0.9, 0.6)) -> void:
+static func hit_burst(tree: SceneTree, pos: Vector2, color: Color = Color("e8e5db")) -> void:
 	if GameManager.reduced_motion:
 		return
 	var p := CPUParticles2D.new()
 	p.emitting = false
 	p.one_shot = true
-	p.amount = 8
-	p.lifetime = 0.25
+	p.amount = 3
+	p.lifetime = 0.18
 	p.explosiveness = 0.95
 	p.direction = Vector2.UP
 	p.spread = 180.0
-	p.initial_velocity_min = 25.0
-	p.initial_velocity_max = 55.0
+	p.initial_velocity_min = 12.0
+	p.initial_velocity_max = 26.0
 	p.gravity = Vector2(0, 80)
-	p.scale_amount_min = 1.0
-	p.scale_amount_max = 2.5
+	p.scale_amount_min = 0.7
+	p.scale_amount_max = 1.4
 	p.color = color
 	p.global_position = pos
 	tree.current_scene.add_child(p)
@@ -33,19 +33,19 @@ static func death_puff(tree: SceneTree, pos: Vector2) -> void:
 	var p := CPUParticles2D.new()
 	p.emitting = false
 	p.one_shot = true
-	p.amount = 16
-	p.lifetime = 0.6
+	p.amount = 5
+	p.lifetime = 0.3
 	p.explosiveness = 0.85
 	p.direction = Vector2.UP
 	p.spread = 180.0
-	p.initial_velocity_min = 10.0
-	p.initial_velocity_max = 30.0
+	p.initial_velocity_min = 6.0
+	p.initial_velocity_max = 18.0
 	p.gravity = Vector2(0, -30)
-	p.scale_amount_min = 2.0
-	p.scale_amount_max = 5.0
+	p.scale_amount_min = 1.0
+	p.scale_amount_max = 2.5
 	var grad := Gradient.new()
-	grad.set_color(0, Color(0.6, 0.6, 0.6, 0.7))
-	grad.set_color(1, Color(0.3, 0.3, 0.3, 0.0))
+	grad.set_color(0, Color(0.24, 0.28, 0.25, 0.4))
+	grad.set_color(1, Color(0.24, 0.28, 0.25, 0.0))
 	p.color_ramp = grad
 	p.global_position = pos
 	tree.current_scene.add_child(p)
@@ -193,8 +193,8 @@ static func damage_float(tree: SceneTree, pos: Vector2, amount: float) -> void:
 	var lbl := Label.new()
 	lbl.text = "-%d" % int(amount)
 	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lbl.add_theme_font_size_override("font_size", 12)
-	lbl.add_theme_color_override("font_color", Color(1.0, 0.3, 0.2))
+	lbl.add_theme_font_size_override("font_size", 10)
+	lbl.add_theme_color_override("font_color", Color("e8e5db"))
 	lbl.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
 	lbl.add_theme_constant_override("shadow_offset_x", 1)
 	lbl.add_theme_constant_override("shadow_offset_y", 1)
@@ -287,7 +287,7 @@ static func counter_bonus_float(tree: SceneTree, pos: Vector2, text: String) -> 
 	lbl.text = text
 	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	lbl.add_theme_font_size_override("font_size", 11)
-	lbl.add_theme_color_override("font_color", Color(1.0, 0.9, 0.3))
+	lbl.add_theme_color_override("font_color", Color("d6c5a6"))
 	lbl.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.9))
 	lbl.add_theme_constant_override("shadow_offset_x", 1)
 	lbl.add_theme_constant_override("shadow_offset_y", 1)

@@ -31,8 +31,8 @@ func setup(hud: CanvasLayer, map: Node2D, focus: Callable) -> void:
 		button.custom_minimum_size = Vector2(0, 48)
 		button.focus_mode = Control.FOCUS_NONE
 		button.add_theme_font_size_override("font_size", 12)
-		button.add_theme_stylebox_override("normal", KingdomTheme.panel_style(Color(0.19, 0.045, 0.03, 0.96), Color(1, 0.42, 0.24), 7))
-		button.add_theme_color_override("font_color", Color(1, 0.85, 0.69))
+		button.add_theme_stylebox_override("normal", KingdomTheme.button_style())
+		button.add_theme_color_override("font_color", KingdomTheme.RUST)
 		button.pressed.connect(_view_front.bind(index))
 		button.button_down.connect(func() -> void:
 			if _hud.has_signal("world_gesture_cancel_requested"):
@@ -142,17 +142,17 @@ func _draw() -> void:
 	var status: Dictionary = _site.call("get_status")
 	var owner: int = int(status.get("owner", -1))
 	var phase: String = str(status.get("phase", "neutral"))
-	var color := Color(0.84, 0.68, 1.0)
+	var color := KingdomTheme.PARCHMENT
 	if owner == 0:
-		color = Color(0.38, 0.72, 1.0)
+		color = KingdomTheme.TEAL
 	elif owner == 1:
-		color = Color(1.0, 0.44, 0.32)
+		color = KingdomTheme.RUST
 	if phase in ["contested", "neutralizing"]:
-		color = Color(1.0, 0.82, 0.3)
+		color = Color("c6b486")
 	var camera: Camera2D = _map.get("camera") as Camera2D
 	var radius: float = float(_site.call("get_capture_radius_world")) * camera.zoom.x
 	draw_arc(center, radius, 0, TAU, 96, Color(color, 0.5), 2.0, true)
-	draw_circle(center, 23, Color(0.035, 0.055, 0.05, 0.95))
+	draw_circle(center, 23, Color(KingdomTheme.INK, 0.95))
 	draw_arc(center, 23, 0, TAU, 32, color, 2.5, true)
 	draw_line(center + Vector2(-5, 12), center + Vector2(-5, -13), color, 3, true)
 	draw_colored_polygon(PackedVector2Array([center + Vector2(-4,-13),center + Vector2(13,-7),center + Vector2(-4,0)]), color)
@@ -161,8 +161,9 @@ func _draw() -> void:
 		title = "SACRED SITE · clock paused"
 	elif phase == "holding":
 		title = "SACRED SITE · " + ("defend" if owner == 0 else "enter to contest")
-	var font: Font = ThemeDB.fallback_font
+	var font: Font = KingdomTheme.FONT_MEDIUM
 	var text_size: Vector2 = font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, 12)
 	var label_rect := Rect2(center + Vector2(-text_size.x * 0.5 - 6, 27), text_size + Vector2(12, 8))
-	draw_style_box(KingdomTheme.panel_style(Color(0.035, 0.055, 0.05, 0.95), color, 4), label_rect)
+	label_rect.position.x = clampf(label_rect.position.x, safe.position.x, maxf(safe.position.x, safe.end.x - label_rect.size.x))
+	draw_style_box(KingdomTheme.panel_style(Color(KingdomTheme.INK, 0.95), color, 4), label_rect)
 	draw_string(font, label_rect.position + Vector2(6, 17), title, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, color)

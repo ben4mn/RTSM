@@ -1,0 +1,435 @@
+{
+  "scope": "105 seeded generated maps; real Pathfinding/GameMap routes, solid TC footprints and explicit closed-crossing geometry; no combat or harvest simulation",
+  "tested_seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    101,
+    424242,
+    20261021
+  ],
+  "classic_hash_seeds": [
+    0,
+    1,
+    101,
+    424242,
+    20261021
+  ],
+  "failures": [],
+  "archetypes": [
+    {
+      "id": 0,
+      "name": "Open Plains",
+      "maps_tested": 35,
+      "forest_tiles_range": [
+        108,
+        191
+      ],
+      "water_tiles_range": [
+        10,
+        36
+      ],
+      "minimum_reachable_land_fraction": 0.999804534792807,
+      "maximum_opening_trip_difference_seconds": 0.0,
+      "flank_route_over_center_ratio_range": [
+        1.059485830978196,
+        1.0934521105565294
+      ],
+      "routes": [
+        {
+          "archetype": 0,
+          "forest_tiles": 108,
+          "name": "Open Plains",
+          "opening_trip_difference_seconds": 0.0,
+          "reachable_land_fraction": 1.0,
+          "routes": [
+            {
+              "crossing": [
+                36,
+                36
+              ],
+              "name": "Center",
+              "world_length": 3271.55417633057
+            },
+            {
+              "crossing": [
+                20,
+                20
+              ],
+              "name": "Upper flank",
+              "world_length": 3498.17946624756
+            },
+            {
+              "crossing": [
+                52,
+                52
+              ],
+              "name": "Lower flank",
+              "world_length": 3513.28781890869
+            }
+          ],
+          "seed": 101,
+          "water_tiles": 24
+        },
+        {
+          "archetype": 0,
+          "forest_tiles": 126,
+          "name": "Open Plains",
+          "opening_trip_difference_seconds": 0.0,
+          "reachable_land_fraction": 1.0,
+          "routes": [
+            {
+              "crossing": [
+                36,
+                36
+              ],
+              "name": "Center",
+              "world_length": 3301.77088165283
+            },
+            {
+              "crossing": [
+                20,
+                20
+              ],
+              "name": "Upper flank",
+              "world_length": 3498.17946624756
+            },
+            {
+              "crossing": [
+                52,
+                52
+              ],
+              "name": "Lower flank",
+              "world_length": 3513.28781890869
+            }
+          ],
+          "seed": 424242,
+          "water_tiles": 14
+        },
+        {
+          "archetype": 0,
+          "forest_tiles": 158,
+          "name": "Open Plains",
+          "opening_trip_difference_seconds": 0.0,
+          "reachable_land_fraction": 1.0,
+          "routes": [
+            {
+              "crossing": [
+                36,
+                36
+              ],
+              "name": "Center",
+              "world_length": 3271.55417633057
+            },
+            {
+              "crossing": [
+                20,
+                20
+              ],
+              "name": "Upper flank",
+              "world_length": 3498.17946624756
+            },
+            {
+              "crossing": [
+                52,
+                52
+              ],
+              "name": "Lower flank",
+              "world_length": 3513.28781890869
+            }
+          ],
+          "seed": 20261021,
+          "water_tiles": 28
+        }
+      ]
+    },
+    {
+      "id": 1,
+      "name": "River Crossings",
+      "maps_tested": 35,
+      "forest_tiles_range": [
+        54,
+        146
+      ],
+      "water_tiles_range": [
+        343,
+        375
+      ],
+      "minimum_reachable_land_fraction": 0.999582027168234,
+      "maximum_opening_trip_difference_seconds": 0.0,
+      "flank_route_over_center_ratio_range": [
+        1.0501048930431873,
+        1.0785076393041206
+      ],
+      "routes": [
+        {
+          "archetype": 1,
+          "forest_tiles": 70,
+          "name": "River Crossings",
+          "opening_trip_difference_seconds": 0.0,
+          "reachable_land_fraction": 1.0,
+          "routes": [
+            {
+              "crossing": [
+                36,
+                36
+              ],
+              "name": "Center",
+              "world_length": 3271.55417633057
+            },
+            {
+              "crossing": [
+                20,
+                20
+              ],
+              "name": "Upper flank",
+              "world_length": 3498.17946624756
+            },
+            {
+              "crossing": [
+                50,
+                50
+              ],
+              "name": "Lower flank",
+              "world_length": 3483.07111358643
+            }
+          ],
+          "seed": 101,
+          "water_tiles": 345
+        },
+        {
+          "archetype": 1,
+          "forest_tiles": 90,
+          "name": "River Crossings",
+          "opening_trip_difference_seconds": 0.0,
+          "reachable_land_fraction": 1.0,
+          "routes": [
+            {
+              "crossing": [
+                36,
+                36
+              ],
+              "name": "Center",
+              "world_length": 3286.6625289917
+            },
+            {
+              "crossing": [
+                21,
+                21
+              ],
+              "name": "Upper flank",
+              "world_length": 3531.96276092529
+            },
+            {
+              "crossing": [
+                53,
+                53
+              ],
+              "name": "Lower flank",
+              "world_length": 3528.39617156982
+            }
+          ],
+          "seed": 424242,
+          "water_tiles": 347
+        },
+        {
+          "archetype": 1,
+          "forest_tiles": 114,
+          "name": "River Crossings",
+          "opening_trip_difference_seconds": 0.0,
+          "reachable_land_fraction": 1.0,
+          "routes": [
+            {
+              "crossing": [
+                36,
+                36
+              ],
+              "name": "Center",
+              "world_length": 3271.55417633057
+            },
+            {
+              "crossing": [
+                18,
+                18
+              ],
+              "name": "Upper flank",
+              "world_length": 3528.39617156982
+            },
+            {
+              "crossing": [
+                51,
+                51
+              ],
+              "name": "Lower flank",
+              "world_length": 3498.17946624756
+            }
+          ],
+          "seed": 20261021,
+          "water_tiles": 363
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Woodland Flanks",
+      "maps_tested": 35,
+      "forest_tiles_range": [
+        335,
+        576
+      ],
+      "water_tiles_range": [
+        0,
+        30
+      ],
+      "minimum_reachable_land_fraction": 0.999804839968774,
+      "maximum_opening_trip_difference_seconds": 0.0408814112345368,
+      "flank_route_over_center_ratio_range": [
+        1.0549099978260281,
+        1.0785076393041206
+      ],
+      "routes": [
+        {
+          "archetype": 2,
+          "forest_tiles": 368,
+          "name": "Woodland Flanks",
+          "opening_trip_difference_seconds": 0.0,
+          "reachable_land_fraction": 1.0,
+          "routes": [
+            {
+              "crossing": [
+                36,
+                36
+              ],
+              "name": "Center",
+              "world_length": 3271.55417633057
+            },
+            {
+              "crossing": [
+                20,
+                20
+              ],
+              "name": "Upper flank",
+              "world_length": 3498.17946624756
+            },
+            {
+              "crossing": [
+                50,
+                50
+              ],
+              "name": "Lower flank",
+              "world_length": 3483.07111358643
+            }
+          ],
+          "seed": 101,
+          "water_tiles": 0
+        },
+        {
+          "archetype": 2,
+          "forest_tiles": 370,
+          "name": "Woodland Flanks",
+          "opening_trip_difference_seconds": 0.0,
+          "reachable_land_fraction": 1.0,
+          "routes": [
+            {
+              "crossing": [
+                36,
+                36
+              ],
+              "name": "Center",
+              "world_length": 3271.55417633057
+            },
+            {
+              "crossing": [
+                21,
+                21
+              ],
+              "name": "Upper flank",
+              "world_length": 3483.07111358643
+            },
+            {
+              "crossing": [
+                53,
+                53
+              ],
+              "name": "Lower flank",
+              "world_length": 3528.39617156982
+            }
+          ],
+          "seed": 424242,
+          "water_tiles": 6
+        },
+        {
+          "archetype": 2,
+          "forest_tiles": 434,
+          "name": "Woodland Flanks",
+          "opening_trip_difference_seconds": 0.0,
+          "reachable_land_fraction": 1.0,
+          "routes": [
+            {
+              "crossing": [
+                36,
+                36
+              ],
+              "name": "Center",
+              "world_length": 3271.55417633057
+            },
+            {
+              "crossing": [
+                18,
+                18
+              ],
+              "name": "Upper flank",
+              "world_length": 3528.39617156982
+            },
+            {
+              "crossing": [
+                51,
+                51
+              ],
+              "name": "Lower flank",
+              "world_length": 3498.17946624756
+            }
+          ],
+          "seed": 20261021,
+          "water_tiles": 20
+        }
+      ]
+    }
+  ],
+  "source_sha256": {
+    "scripts/map/map_generator.gd": "8d93482746cdbb10b73d887459d3cfe002c311d4068e1f3916c9e951d5d0358b",
+    "scripts/map/map_data.gd": "4ef25a5959f9a7aa312b0c8433f58e62c1a97488cfcb9b5a05995dcbc98caa0f",
+    "tools/test_map_archetypes.gd": "0b6d2e6118c579850849f31b51e4eacd3dec56ba575eafe7088ea411b5caac8a",
+    "tools/probe_map_opening_fairness.gd": "8dd3043b3a7965c0edda1dd524f01d99d7e7f5b564105e50f8b72037d11a9279"
+  },
+  "opening_resource_connectivity": "All food, gold, and forest resource tiles within 13 tiles of either spawn are reachable with both TC footprints blocked."
+}

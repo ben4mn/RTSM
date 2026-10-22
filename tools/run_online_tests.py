@@ -12,6 +12,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--url', help='Public WSS endpoint; otherwise start a local authoritative server')
 parser.add_argument('--combat', action='store_true', help='Also buy armies and verify replicated combat')
 parser.add_argument('--strategy-only', action='store_true', help='Only exercise real Strategy controls on two clients')
+parser.add_argument('--maps-only', action='store_true', help='Only exercise legacy/mixed/current map catalog pairs')
 parser.add_argument('--output', default=str(ROOT / 'output' / 'online-tests'))
 args = parser.parse_args()
 godot = os.environ.get('GODOT_BIN', '/Applications/Godot.app/Contents/MacOS/Godot')
@@ -58,11 +59,15 @@ try:
             time.sleep(0.1)
         else:
             raise RuntimeError('Server did not listen')
-    first = launch('strategy-one', 'test_online_strategy', env=env)
-    second = launch('strategy-two', 'test_online_strategy', env=env)
-    check('strategy-one', first, 50)
-    check('strategy-two', second, 50)
-    if not args.strategy_only:
+    if args.maps_only:
+        maps = launch('map-catalog', 'test_online_maps', env=env)
+        check('map-catalog', maps, 40)
+    else:
+        first = launch('strategy-one', 'test_online_strategy', env=env)
+        second = launch('strategy-two', 'test_online_strategy', env=env)
+        check('strategy-one', first, 50)
+        check('strategy-two', second, 50)
+    if not args.strategy_only and not args.maps_only:
         unavailable = launch('connection-failure', 'test_online_connection_failure', env=env)
         check('connection-failure', unavailable, 20)
         delayed_end = launch('loading-ended', 'test_online_loading_terminal', env=env)

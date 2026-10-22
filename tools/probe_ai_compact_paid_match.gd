@@ -30,6 +30,22 @@ var deposited_by_resource: Array[Dictionary] = [{"food": 0, "wood": 0, "gold": 0
 var military_producer_idle_seconds: Array[float] = [0.0, 0.0]
 var housing_blocked_seconds: Array[float] = [0.0, 0.0]
 var match_cap_seconds: Array[float] = [0.0, 0.0]
+var map_archetype: int = 0
+var damage_seconds: Dictionary = {}
+var damage_seconds_by_owner: Array[Dictionary] = [{}, {}]
+var damage_taken: Array[float] = [0.0, 0.0]
+var damage_events: int = 0
+var damage_observers: Dictionary = {}
+var last_damage_time: float = -1.0
+var longest_quiet_gap: float = 0.0
+var quiet_gaps: Array[Dictionary] = []
+var fight_bursts: Array[Dictionary] = []
+var victim_types: Array[Dictionary] = [{}, {}]
+var worker_raid_hits: Array[int] = [0, 0]
+var attack_orders: Array[Dictionary] = []
+var decision_seconds: Array[Dictionary] = [{}, {}]
+var near_enemy_seconds: Array[float] = [0.0, 0.0]
+var military_idle_seconds: Array[float] = [0.0, 0.0]
 
 func _ready() -> void:
 	call_deferred("_run")
@@ -50,6 +66,13 @@ func _run() -> void:
 			GameManager.selected_map_seed = int(argument.trim_prefix("--seed="))
 		if argument.begins_with("--difficulty="):
 			GameManager.selected_difficulty = int(argument.trim_prefix("--difficulty="))
+		if argument.begins_with("--archetype="):
+			map_archetype = int(argument.trim_prefix("--archetype="))
+	# Work with the frozen pre-archetype baseline too; current builds always set
+	# an explicit map so persisted user preferences cannot contaminate probes.
+	for property: Dictionary in GameManager.get_property_list():
+		if property.name == "selected_map_archetype":
+			GameManager.set("selected_map_archetype", map_archetype)
 	result_path = "res://output/aoe-mobile-rts/ai/paid-%d-%d-%d.json" % [GameManager.selected_population_limit, GameManager.selected_map_seed, GameManager.selected_difficulty]
 	for argument: String in OS.get_cmdline_user_args():
 		if argument.begins_with("--duration="):
@@ -110,6 +133,8 @@ func _run() -> void:
 	stats["end"] = ending
 	stats["population_limit"] = GameManager.get_match_population_limit()
 	stats["seed"] = GameManager.selected_map_seed
+	stats["map_archetype"] = map_archetype
+	stats["actual_map_archetype"] = int(match_scene.game_map.map_generator.get("archetype")) if match_scene.game_map.map_generator.get("archetype") != null else 0
 	stats["ages"] = [GameManager.get_player_age(0), GameManager.get_player_age(1)]
 	stats["age_times"] = match_scene.get("_age_reached_at").duplicate(true)
 	stats["resources"] = [ResourceManager.get_all_resources(0), ResourceManager.get_all_resources(1)]
@@ -136,6 +161,7 @@ func _run() -> void:
 	stats["military_producer_idle_seconds"] = military_producer_idle_seconds
 	stats["housing_blocked_seconds"] = housing_blocked_seconds
 	stats["match_cap_seconds"] = match_cap_seconds
+	_finalize_cadence()
 	stats["swap_starts"] = swap_starts
 	stats["human_difficulty"] = human_difficulty
 	stats["human_policy"] = "AI difficulty %d using normal human construction/training/age transactions; automated, not hands-on" % human_difficulty
@@ -146,6 +172,7 @@ func _run() -> void:
 	var compact_summary: Dictionary = stats.duplicate()
 	compact_summary.erase("snapshots")
 	compact_summary.erase("decision_changes")
+	compact_summary.erase("cadence")
 	print("[PAID_COMPACT_MATCH] ", JSON.stringify(compact_summary))
 	Engine.time_scale = 1.0
 	match_scene.free()
@@ -164,11 +191,16 @@ func _register_human_entities() -> void:
 
 func _register_combat_observers() -> void:
 	for pid: int in [0, 1]:
+		for building: BuildingBase in match_scene._player_buildings[pid]:
+			if is_instance_valid(building) and not damage_observers.has(building.get_instance_id()):
+				damage_observers[building.get_instance_id()] = true
+				building.damage_received.connect(_on_damage_received)
 		for unit: UnitBase in match_scene._player_units[pid]:
 			if not is_instance_valid(unit) or registered_combat_units.has(unit.get_instance_id()):
 				continue
 			registered_combat_units[unit.get_instance_id()] = true
 			unit.attack_landed.connect(_on_attack_landed)
+			unit.damage_received.connect(_on_damage_received)
 			if unit is Villager:
 				(unit as Villager).resource_deposited.connect(_on_paid_deposit.bind(pid))
 
@@ -184,6 +216,10 @@ func _on_attack_landed(attacker: UnitBase, defender: UnitBase, hp_loss: float, c
 		return
 	var pid: int = attacker.player_owner
 	var role: String = str(attacker.unit_type)
+	var target_role: String = str(defender.unit_type)
+	victim_types[pid][target_role] = int(victim_types[pid].get(target_role, 0)) + 1
+	if defender is Villager and not attacker is Villager:
+		worker_raid_hits[pid] += 1
 	landed_hits_by_role[pid][role] = int(landed_hits_by_role[pid].get(role, 0)) + 1
 	if not first_landed_role_hit_at[pid].has(role):
 		first_landed_role_hit_at[pid][role] = GameManager.game_time
@@ -192,10 +228,56 @@ func _on_attack_landed(attacker: UnitBase, defender: UnitBase, hp_loss: float, c
 	if int(landed_hits_by_role[pid][role]) <= 2 or (counter_bonus > 1.0 and int(counter_hits_by_role[pid][role]) <= 3):
 		landed_hit_examples.append({"time": GameManager.game_time, "player": pid, "role": attacker.unit_type, "target_role": defender.unit_type, "hp_loss": hp_loss, "counter_bonus": counter_bonus, "target_remaining_hp": maxf(0.0, defender.hp)})
 
+
+func _on_damage_received(victim: Node2D, hp_loss: float) -> void:
+	if hp_loss <= 0.0:
+		return
+	var time: float = GameManager.game_time
+	var owner: int = int(victim.player_owner)
+	damage_events += 1
+	damage_taken[owner] += hp_loss
+	damage_seconds[int(time)] = true
+	damage_seconds_by_owner[owner][int(time)] = true
+	if float(stats.first_contact) < 0.0:
+		stats.first_contact = time
+	if last_damage_time >= 0.0:
+		var gap: float = time - last_damage_time
+		longest_quiet_gap = maxf(longest_quiet_gap, gap)
+		if gap >= 15.0:
+			quiet_gaps.append({"from": last_damage_time, "to": time, "seconds": gap})
+	if fight_bursts.is_empty() or time - last_damage_time > 5.0:
+		fight_bursts.append({"start": time, "last_hit": time, "hits": 1, "hp_loss": hp_loss})
+	else:
+		var burst: Dictionary = fight_bursts[-1]
+		burst.last_hit = time
+		burst.hits = int(burst.hits) + 1
+		burst.hp_loss = float(burst.hp_loss) + hp_loss
+	last_damage_time = time
+
+
+func _finalize_cadence() -> void:
+	var tail: float = GameManager.game_time - last_damage_time if last_damage_time >= 0.0 else 0.0
+	longest_quiet_gap = maxf(longest_quiet_gap, tail)
+	if tail >= 15.0:
+		quiet_gaps.append({"from": last_damage_time, "to": GameManager.game_time, "seconds": tail, "terminal_tail": true})
+	stats["cadence"] = {"definition": "Damage-active seconds are occupied one-second simulation bins with actual HP loss, including buildings. Fight bursts split after more than five seconds without HP loss. Quiet gaps start only after first damage and include the terminal tail. Near-enemy and idle seconds are summed fighter-seconds, not match seconds.", "damage_events": damage_events, "damage_active_seconds": damage_seconds.size(), "damage_active_seconds_by_victim_owner": [damage_seconds_by_owner[0].size(), damage_seconds_by_owner[1].size()], "damage_taken": damage_taken, "last_damage_at": last_damage_time, "longest_quiet_gap_after_contact": longest_quiet_gap, "quiet_gaps_over_15_seconds": quiet_gaps, "fight_bursts": fight_bursts, "worker_raid_hits": worker_raid_hits, "victim_role_hits": victim_types, "attack_orders": attack_orders, "decision_seconds": decision_seconds, "near_enemy_fighter_seconds": near_enemy_seconds, "idle_fighter_seconds": military_idle_seconds}
+
 func _measure() -> void:
 	var measured_delta: float = maxf(0.0, GameManager.game_time - last_economy_measure)
 	last_economy_measure = GameManager.game_time
 	for pid: int in [0, 1]:
+		var brain: AIController = human_bot if pid == 0 else match_scene.ai_controller
+		var decision: String = str(brain.get("_last_strategy_decision"))
+		decision_seconds[pid][decision] = float(decision_seconds[pid].get(decision, 0.0)) + measured_delta
+		for unit: UnitBase in match_scene._player_units[pid]:
+			if not is_instance_valid(unit) or unit.current_state == UnitBase.State.DEAD or unit is Villager or unit.damage <= 0.0:
+				continue
+			if unit.current_state == UnitBase.State.IDLE:
+				military_idle_seconds[pid] += measured_delta
+			for enemy: UnitBase in match_scene._player_units[1 - pid]:
+				if is_instance_valid(enemy) and enemy.current_state != UnitBase.State.DEAD and unit.global_position.distance_squared_to(enemy.global_position) <= 160.0 * 160.0:
+					near_enemy_seconds[pid] += measured_delta
+					break
 		var player: Dictionary = GameManager.players[pid]
 		var committed: int = GameManager.get_committed_population(pid)
 		if committed >= int(player["population_cap"]):
@@ -216,7 +298,7 @@ func _measure() -> void:
 		var site: Node2D = match_scene.game_map.sacred_site
 		var sample: Dictionary = {"time": GameManager.game_time, "players": [], "sacred": {"owner": site.owning_player, "state": site.state, "hold_elapsed": site.victory_timer}}
 		if int(GameManager.game_time) % 120 < 20:
-			print("[PROGRESS] ", int(GameManager.game_time), "s deposits=", deposited_by_resource, " sacred=", sample["sacred"])
+			print("[PROGRESS] ", int(GameManager.game_time), "s deposits=", deposited_by_resource, " sacred=", sample["sacred"], " damage_seconds=", damage_seconds.size(), " first_contact=", stats.first_contact, " longest_gap=", longest_quiet_gap)
 		for pid: int in [0, 1]:
 			var unit_states: Dictionary = {}
 			var worker_resources: Dictionary = {}
@@ -286,6 +368,10 @@ func _measure() -> void:
 
 func _attack(_units: Array, _target: Vector2, player_id: int) -> void:
 	stats.attacks[player_id] += 1
+	var roles: Dictionary = {}
+	for unit: UnitBase in _units:
+		roles[str(unit.unit_type)] = int(roles.get(str(unit.unit_type), 0)) + 1
+	attack_orders.append({"time": GameManager.game_time, "player": player_id, "units": _units.size(), "roles": roles, "target": {"x": _target.x, "y": _target.y}})
 	if stats.first_attack[player_id] < 0.0:
 		stats.first_attack[player_id] = GameManager.game_time
 
