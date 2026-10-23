@@ -21,6 +21,7 @@ const TILE_TEXTURES: Dictionary = {
 ## variants: bits follow grid -X, -Y, +X, +Y (NW, NE, SE, SW on screen).
 const SHORE_VARIANT_START: int = MapData.TileType.GRASS_DARK + 1
 const SHORE_VARIANT_COUNT: int = 15
+const GROUND_MATERIAL: Shader = preload("res://assets/terrain/company_ground.gdshader")
 
 
 static func get_terrain_atlas_coords(tile_type: int, shore_mask: int = 0) -> Vector2i:
@@ -46,6 +47,16 @@ static func build_terrain_tileset() -> TileSet:
 
 	for i in range(tile_count + SHORE_VARIANT_COUNT):
 		source.create_tile(Vector2i(i, 0))
+	# Static world-space detail shares two materials across the existing atlas.
+	# No processing nodes, tile changes, or per-frame CPU work are introduced.
+	var meadow := ShaderMaterial.new()
+	meadow.shader = GROUND_MATERIAL
+	var water := ShaderMaterial.new()
+	water.shader = GROUND_MATERIAL
+	water.set_shader_parameter("water_surface", true)
+	for i in range(tile_count + SHORE_VARIANT_COUNT):
+		var is_water: bool = i == MapData.TileType.WATER or i >= SHORE_VARIANT_START
+		source.get_tile_data(Vector2i(i, 0), 0).material = water if is_water else meadow
 
 	ts.add_source(source, 0)
 	return ts
@@ -114,9 +125,11 @@ static func _paint_shore_edges(img: Image, ox: int, tw: int, th: int, shore_mask
 				if shore_mask & (1 << edge):
 					nearest = minf(nearest, distances[edge])
 			if nearest < 0.055:
-				img.set_pixel(ox + x, y, Color("aaa990"))
-			elif nearest < 0.28:
-				img.set_pixel(ox + x, y, base.lerp(Color("9aafa0"), 0.7 * (1.0 - nearest / 0.28)))
+				img.set_pixel(ox + x, y, Color("bbc0a0"))
+			elif nearest < 0.13:
+				img.set_pixel(ox + x, y, Color("829e8d"))
+			elif nearest < 0.40:
+				img.set_pixel(ox + x, y, base.lerp(Color("91b2a0"), 0.82 * (1.0 - (nearest - 0.13) / 0.27)))
 
 
 ## Fill an isometric diamond on the atlas image.
@@ -129,14 +142,14 @@ static func _fill_iso_diamond(img: Image, ox: int, oy: int, tw: int, th: int, ti
 	var half_w := tw / 2.0
 	var half_h := th / 2.0
 	var surface_colors: Dictionary = {
-		MapData.TileType.GRASS: Color("9ba58a"),
-		MapData.TileType.GRASS_ALT: Color("9da68c"),
-		MapData.TileType.GRASS_DARK: Color("99a389"),
-		MapData.TileType.FOREST: Color("89977d"),
-		MapData.TileType.WATER: Color("668f93"),
-		MapData.TileType.GOLD_MINE: Color("aaa488"),
-		MapData.TileType.BERRY_BUSH: Color("98a28a"),
-		MapData.TileType.STONE: Color("a5a895"),
+		MapData.TileType.GRASS: Color("9ca889"),
+		MapData.TileType.GRASS_ALT: Color("9da98a"),
+		MapData.TileType.GRASS_DARK: Color("9ba788"),
+		MapData.TileType.FOREST: Color("9ba788"),
+		MapData.TileType.WATER: Color("527f88"),
+		MapData.TileType.GOLD_MINE: Color("9ca889"),
+		MapData.TileType.BERRY_BUSH: Color("9ca889"),
+		MapData.TileType.STONE: Color("9ca889"),
 		MapData.TileType.SACRED_SITE: Color("bbb59e"),
 	}
 	var fallback_color: Color = surface_colors.get(tile_type, Color.MAGENTA)
@@ -156,11 +169,9 @@ static func _fill_iso_diamond(img: Image, ox: int, oy: int, tw: int, th: int, ti
 					img.set_pixel(px, py, color)
 				else:
 					# Subpixel grain gives the meadow texture without a tile grid.
-					var grain_strength: float = 0.0007 if MapData.is_grass(tile_type) else 0.0014
+					var grain_strength: float = 0.0005
 					var grain: float = float(posmod((px - ox) * 17 + py * 31, 7) - 3) * grain_strength
 					var color := Color(fallback_color.r + grain, fallback_color.g + grain, fallback_color.b + grain)
-					if tile_type == MapData.TileType.WATER and posmod(py * 3 + px, 23) < 2:
-						color = color.lightened(0.045)
 					img.set_pixel(px, py, color)
 
 

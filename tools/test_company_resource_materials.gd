@@ -1,5 +1,5 @@
 extends Node
-## Palette-only GPU contracts plus synthetic material sheet and real map views.
+## Authored resource art, visible-alpha picking, grounding, and fog/depletion contracts.
 const OUTPUT := "res://output/company-resources-2026-10-22"
 const KINDS: Array[String] = ["wood", "food", "gold", "stone"]
 var _failures: Array[String] = []
@@ -12,38 +12,48 @@ func _run() -> void:
 	AudioManager.set_all_enabled(false)
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUTPUT))
 	for kind: String in KINDS:
-		await _contracts(kind)
-	_expect(_metrics.size() == KINDS.size(), "All four material contracts must complete")
+		await _contracts(kind, 0)
+	for variant: int in range(1, ResourceNode.WOOD_SPRITES.size()):
+		await _contracts("wood", variant)
+	_expect(_metrics.size() == KINDS.size() + ResourceNode.WOOD_SPRITES.size() - 1, "All resource kinds and tree variants must complete")
 	if DisplayServer.get_name() != "headless":
 		await _material_sheet()
 		await _phone_captures()
-	var report := {"passed": _failures.is_empty(), "failures": _failures, "metrics": _metrics, "resource_node_sha256": FileAccess.get_sha256("res://scripts/map/resource_node.gd"), "shader_sha256": FileAccess.get_sha256("res://assets/resources/company_material.gdshader"), "user_data": OS.get_user_data_dir()}
+	var report := {"passed": _failures.is_empty(), "failures": _failures, "metrics": _metrics, "resource_node_sha256": FileAccess.get_sha256("res://scripts/map/resource_node.gd"), "user_data": OS.get_user_data_dir()}
 	var file := FileAccess.open(OUTPUT.path_join("material-contracts.json"), FileAccess.WRITE)
 	if file != null:
 		file.store_string(JSON.stringify(report, "\t") + "\n")
 	for failure: String in _failures:
 		push_error("[FAIL] company_resource_materials: " + failure)
 	if _failures.is_empty():
-		print("[PASS] company_resource_materials: four unchanged source textures, stock/collision/masks, calibrated scales/anchors, shared materials; GPU alpha/fade and native phone captures when rendered")
+		print("[PASS] company_resource_materials: four resources and three tree silhouettes, stock/collision, actual opaque picking, calibrated anchors, baked shadows without extra nodes; GPU inherited fade and native phone captures when rendered")
 	get_tree().quit(0 if _failures.is_empty() else 1)
 
-func _contracts(kind: String) -> void:
+func _contracts(kind: String, variant: int) -> void:
 	var resource := ResourceNode.new()
 	resource.resource_type = kind
+	resource.tile_position = Vector2i(variant, 0)
 	resource.total_amount = 300
 	add_child(resource)
 	resource.visible = false
 	var sprite: Sprite2D = resource.get_node("Sprite")
-	_expect(sprite.texture.resource_path == ResourceNode.RESOURCE_SPRITES[kind], kind + " keeps its original source texture")
+	_expect(sprite.texture.resource_path == resource.get_presentation_texture_path(), kind + " uses its deterministic authored texture")
 	_expect(sprite.scale == ResourceNode.RESOURCE_SCALES[kind] and sprite.offset == ResourceNode.RESOURCE_OFFSETS[kind], kind + " uses calibrated scale and anchor")
 	_expect(resource.remaining == 300, kind + " preserves initial stock")
 	var collision := resource.get_child(0) as CollisionShape2D
 	_expect(collision != null and is_equal_approx((collision.shape as CircleShape2D).radius, 16.0), kind + " preserves collision circle")
 	var second := ResourceNode.new()
 	second.resource_type = kind
+	second.tile_position = resource.tile_position
 	add_child(second)
 	second.visible = false
-	_expect((second.get_node("Sprite") as Sprite2D).material == sprite.material, kind + " shares its cached palette material")
+	_expect((second.get_node("Sprite") as Sprite2D).texture == sprite.texture, kind + " shares its authored texture")
+	_expect(resource.get_child_count() == 2, kind + " retains collision plus one sprite with baked contact shade")
+	_expect(sprite.material == null, kind + " needs no per-resource material/shader")
+	var art_bounds: Rect2 = Rect2(sprite.texture.get_image().get_used_rect())
+	var base_y: float = (art_bounds.end.y - sprite.texture.get_height() * 0.5 + sprite.offset.y) * sprite.scale.y
+	_expect(base_y >= 0.0 and base_y <= 6.0, kind + " visible base stays on its ground tile")
+	_expect(art_bounds.size.x * sprite.scale.x < 55.0 and art_bounds.size.y * sprite.scale.y < 76.0, kind + " canopy/deposit keeps a compact readable world envelope")
 	second.free()
 	var original_sprite := Sprite2D.new()
 	original_sprite.texture = sprite.texture
@@ -55,8 +65,8 @@ func _contracts(kind: String) -> void:
 			var expected: bool = kind == "wood" and original_sprite.is_pixel_opaque(local)
 			mask_differences += int(resource.is_sprite_body_hit(sprite.to_global(local)) != expected)
 	original_sprite.free()
-	_expect(mask_differences == 0, kind + " leaves every original canopy picking sample unchanged")
-	var metric := {"kind": kind, "mask_differences": mask_differences, "source_texture_sha256": FileAccess.get_sha256(sprite.texture.resource_path)}
+	_expect(mask_differences == 0, kind + " picks exactly the visible authored canopy, not transparent padding")
+	var metric := {"kind": kind, "variant": variant, "base_y": base_y, "mask_differences": mask_differences, "source_texture_sha256": FileAccess.get_sha256(sprite.texture.resource_path)}
 	if DisplayServer.get_name() != "headless":
 		var viewport := SubViewport.new()
 		viewport.size = Vector2i(160, 160)
@@ -77,15 +87,15 @@ func _contracts(kind: String) -> void:
 		await RenderingServer.frame_post_draw
 		var mapped: Image = viewport.get_texture().get_image()
 		var alpha_differences := 0
-		var changed_colors := 0
+		var color_differences := 0
 		for y: int in 160:
 			for x: int in 160:
 				var before: Color = original.get_pixel(x, y)
 				var after: Color = mapped.get_pixel(x, y)
 				alpha_differences += int(not is_equal_approx(before.a, after.a))
-				changed_colors += int(before.a > 0.9 and before != after)
-		_expect(alpha_differences == 0, kind + " GPU material preserves every alpha pixel")
-		_expect(changed_colors > 100, kind + " material actually changes visible colors")
+				color_differences += int(before.a > 0.9 and before != after)
+		_expect(alpha_differences == 0, kind + " GPU authored art preserves every alpha pixel")
+		_expect(color_differences == 0, kind + " displays authored material colors directly")
 		tint.modulate = Color(0.5, 0.5, 0.5, 0.5)
 		await _frames(3)
 		await RenderingServer.frame_post_draw
@@ -99,7 +109,7 @@ func _contracts(kind: String) -> void:
 				if before.a > 0.9:
 					fade_failures += int(after.r > before.r or after.g > before.g or after.b > before.b)
 		_expect(fade_failures == 0, kind + " preserves inherited fog tint and half-alpha fade")
-		metric.merge({"gpu_alpha_differences": alpha_differences, "changed_opaque_colors": changed_colors, "fade_failures": fade_failures})
+		metric.merge({"gpu_alpha_differences": alpha_differences, "changed_opaque_colors": color_differences, "fade_failures": fade_failures})
 		viewport.free()
 	var signal_count := [0]
 	resource.depleted.connect(func(_node: ResourceNode) -> void: signal_count[0] += 1)
@@ -121,7 +131,7 @@ func _material_sheet() -> void:
 	background.size = Vector2(932, 430)
 	sheet.add_child(background)
 	_label(sheet, "COMPANY RESOURCES", Vector2(28, 18), 27)
-	_label(sheet, "Original texture silhouettes · moss foliage · ochre mineral · neutral stone", Vector2(28, 57), 17)
+	_label(sheet, "Original faceted crowns · clustered fruit · gold veins · cut stone", Vector2(28, 57), 17)
 	for index: int in KINDS.size():
 		var resource := ResourceNode.new()
 		resource.resource_type = KINDS[index]

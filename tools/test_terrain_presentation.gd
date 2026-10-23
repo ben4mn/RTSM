@@ -25,6 +25,8 @@ func _run() -> void:
 	GameManager.ui_scale = 1.0
 	if not _baseline:
 		_test_atlas()
+		if DisplayServer.get_name() != "headless":
+			await _test_material_alpha()
 	for phone: Vector2i in [Vector2i(844, 390), Vector2i(932, 430)]:
 		for archetype: int in [MapData.MapArchetype.RIVER_CROSSINGS, MapData.MapArchetype.WOODLAND_FLANKS]:
 			await _inspect_map(phone, archetype)
@@ -158,6 +160,54 @@ func _test_map_cells(map: Node2D) -> void:
 						mask |= 1 << edge
 			var expected: Vector2i = Vector2i(9 + mask - 1, 0) if mask > 0 else Vector2i(type, 0)
 			_expect(map.terrain_layer.get_cell_atlas_coords(tile) == expected, "tile%s uses only its land-adjacent shoreline bits" % tile)
+
+func _test_material_alpha() -> void:
+	var source: TileSetAtlasSource = TilesetBuilder.build_terrain_tileset().get_source(0)
+	var viewport := SubViewport.new()
+	viewport.size = Vector2i(64, 32)
+	viewport.transparent_bg = true
+	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	add_child(viewport)
+	var tint := Node2D.new()
+	viewport.add_child(tint)
+	var sprite := Sprite2D.new()
+	sprite.centered = false
+	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	tint.add_child(sprite)
+	for column: int in [MapData.TileType.GRASS, MapData.TileType.WATER, TilesetBuilder.SHORE_VARIANT_START]:
+		var texture := AtlasTexture.new()
+		texture.atlas = source.texture
+		texture.region = Rect2(column * 64, 0, 64, 32)
+		sprite.texture = texture
+		sprite.material = null
+		tint.modulate = Color.WHITE
+		await get_tree().process_frame
+		await RenderingServer.frame_post_draw
+		var original: Image = viewport.get_texture().get_image()
+		sprite.material = source.get_tile_data(Vector2i(column, 0), 0).material
+		await get_tree().process_frame
+		await RenderingServer.frame_post_draw
+		var shaded: Image = viewport.get_texture().get_image()
+		var changed_colors: int = 0
+		for y: int in 32:
+			for x: int in 64:
+				var before: Color = original.get_pixel(x, y)
+				var after: Color = shaded.get_pixel(x, y)
+				_expect(is_equal_approx(before.a, after.a), "material%d retains every rendered alpha pixel" % column)
+				changed_colors += int(before.a > 0.9 and before != after)
+		_expect(changed_colors > 0, "material%d adds visible surface variation" % column)
+		tint.modulate = Color(0.5, 0.5, 0.5, 0.5)
+		await get_tree().process_frame
+		await RenderingServer.frame_post_draw
+		var faded: Image = viewport.get_texture().get_image()
+		for y: int in 32:
+			for x: int in 64:
+				var before: Color = shaded.get_pixel(x, y)
+				var after: Color = faded.get_pixel(x, y)
+				_expect(absf(after.a - before.a * 0.5) < 1.1 / 255.0, "material%d retains inherited half-alpha" % column)
+				if before.a > 0.9:
+					_expect(after.r <= before.r and after.g <= before.g and after.b <= before.b, "material%d retains inherited darkness" % column)
+	viewport.free()
 
 func _test_depletion_memory(map: Node2D) -> void:
 	var resource_tile: Vector2i = map.resource_nodes.keys()[0]

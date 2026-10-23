@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+<ellipse cx="65" cy="110" rx="21" ry="3.5" fill="#273e35" opacity=".08"/>
+<ellipse cx="65" cy="110" rx="14.280000000000001" ry="2.1" fill="#273e35" opacity=".12"/>
+
+<!-- Original Company field art. Root is (65,108); crowns share a compact envelope. -->
+<path d="M59 78 70 77 69 100 75 109 64 112 55 108 61 101Z" fill="#826e4c" stroke="#354a40" stroke-width="3" stroke-linejoin="round"/>
+<path d="m64 85 2 18 5 6-7 1-3-8Z" fill="#b59c6c"/>
+<path d="M39 76 32 66 35 55 31 47 39 36 50 33 55 23 68 20 79 28 88 30 94 41 91 51 98 60 94 74 83 83 68 87 53 84Z" fill="#3f5a45" stroke="#354a40" stroke-width="3" stroke-linejoin="round"/>
+<path d="m37 48 8-13 14-1 6-10 14 7 9 9-4 14-14 6-18-2Z" fill="#81996a"/>
+<path d="m34 57 16-5 16 11 1 16-16 2-12-8Z" fill="#69875a"/>
+<path d="m66 57 18-9 9 11-2 14-13 7-11-2Z" fill="#59784f"/>
+<path d="m45 38 11-3 7-8 9 2-4 5-10 5-8 6Z" fill="#a5b780"/>
+<path d="m39 59 10-3 8 6-2 5-9-3-5 3Zm35 2 9-5 5 5-4 6-8 1Z" fill="#8aa16d"/>
+<path d="m54 73 9-4 6 4-5 7-9-1Z" fill="#4a694b"/>
+<path d="m48 48 7-2m16-4 7 2m-33 25 5 2m30 3 6-4" stroke="#bed09a" stroke-opacity=".45" stroke-width="2" stroke-linecap="round"/>
+</svg>
