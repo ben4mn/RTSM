@@ -32,6 +32,9 @@ func _ready() -> void:
 	layer = 20
 	visible = false
 	panel.theme = KingdomTheme.create_theme()
+	var ledger := KingdomTheme.panel_style(KingdomTheme.INK_PANEL, KingdomTheme.GOLD, 2)
+	ledger.border_width_top = 3
+	panel.add_theme_stylebox_override("panel", ledger)
 	result_label.add_theme_font_override("font", KingdomTheme.FONT_HEADING)
 	panel.get_node("Margin/VBox/StatsHeader/Left").add_theme_color_override("font_color", KingdomTheme.TEAL)
 	panel.get_node("Margin/VBox/StatsHeader/Right").add_theme_color_override("font_color", KingdomTheme.RUST)
@@ -137,7 +140,7 @@ func _show_result(text: String, color: Color, stats: Dictionary) -> void:
 		text = "MATCH ENDED"
 		color = KingdomTheme.PARCHMENT
 	play_again_button.disabled = false
-	play_again_button.text = "Find match" if _online_result else "Play Again"
+	play_again_button.text = "New game"
 	main_menu_button.disabled = false
 	report_button.disabled = false
 	summary_diagnostics = stats.duplicate(true)
@@ -212,20 +215,20 @@ func _add_stat_row(label_text: String, player_val: int, ai_val: int, lower_is_be
 	p_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	p_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var compact: bool = get_viewport().get_visible_rect().size.y <= 500.0
-	p_label.add_theme_font_size_override("font_size", 11 if compact else 15)
+	p_label.add_theme_font_size_override("font_size", 13 if compact else 16)
 
 	var center := Label.new()
 	center.text = label_text
 	center.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	center.add_theme_font_size_override("font_size", 11 if compact else 14)
-	center.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
+	center.add_theme_font_size_override("font_size", 12 if compact else 14)
+	center.add_theme_color_override("font_color", KingdomTheme.MUTED)
 
 	var a_label := Label.new()
 	a_label.text = str(ai_val)
 	a_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	a_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	a_label.add_theme_font_size_override("font_size", 11 if compact else 15)
+	a_label.add_theme_font_size_override("font_size", 13 if compact else 16)
 
 	# Color code: green for winner, red for loser
 	if _online_result:

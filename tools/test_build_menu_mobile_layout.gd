@@ -3,7 +3,7 @@ extends Node
 
 const PHONE_SIZE := Vector2i(844, 390)
 const MAX_SHEET_WIDTH := 700.0
-const MAX_SHEET_HEIGHT := 160.0
+const MAX_SHEET_HEIGHT := 174.0
 const MIN_TOUCH_TARGET := 48.0
 const EXPECTED_VISIBLE_COLUMNS := 4
 
@@ -44,7 +44,7 @@ func _run() -> void:
 
 	var panel_rect: Rect2 = build_menu.get_global_rect()
 	_expect(panel_rect.size.x <= MAX_SHEET_WIDTH + 0.5, "sheet width exceeds 700px: %.1f" % panel_rect.size.x)
-	_expect(panel_rect.size.y <= MAX_SHEET_HEIGHT + 0.5, "sheet height exceeds160px: %.1f" % panel_rect.size.y)
+	_expect(panel_rect.size.y <= MAX_SHEET_HEIGHT + 0.5, "sheet height exceeds174px: %.1f" % panel_rect.size.y)
 	_expect(panel_rect.position.x >= -0.5, "sheet extends beyond the left edge")
 	_expect(panel_rect.end.x <= PHONE_SIZE.x + 0.5, "sheet extends beyond the right edge")
 	_expect(panel_rect.position.y >= -0.5, "sheet extends above the phone viewport")
@@ -73,7 +73,7 @@ func _run() -> void:
 			first_card_width = card.size.x
 		_expect(card.size.x >= MIN_TOUCH_TARGET, "%s is narrower than 48px" % card.name)
 		_expect(card.size.y >= MIN_TOUCH_TARGET, "%s is shorter than 48px" % card.name)
-		_expect(card.size.x >= 120.0 and card.size.x <= 150.5 and absf(card.size.y - 80.0) <= 0.5, "%s loses readable responsive proportions" % card.name)
+		_expect(card.size.x >= 120.0 and card.size.x <= 150.5 and absf(card.size.y - 94.0) <= 0.5, "%s loses readable responsive proportions" % card.name)
 		_expect(card.text.split("\n").size() in [2, 3], "%s must show name and cost with only decision-changing context" % card.name)
 		_expect(card.icon != null, "%s loses building portrait" % card.name)
 		_expect(not card.accessibility_name.is_empty(), "%s loses accessible description" % card.name)
@@ -219,7 +219,7 @@ func _check_category_density(phone_size: Vector2i, ui_scale: float, notched: boo
 			var scroll: ScrollContainer = menu.get("scroll_container")
 			var grid: GridContainer = menu.get("grid")
 			_expect(safe_area.encloses(panel), "%s %s sheet outside safe area" % [profile, category])
-			_expect(panel.size.y <= 160.5, "%s %s sheet keeps excess height %.1f" % [profile, category, panel.size.y])
+			_expect(panel.size.y <= MAX_SHEET_HEIGHT + 0.5, "%s %s sheet keeps excess height %.1f" % [profile, category, panel.size.y])
 			_expect(not (menu.get("title_label") as Label).visible, "%s retains redundant Build title" % profile)
 			var header: HBoxContainer = menu.get("header")
 			_expect(panel.encloses(header.get_global_rect()), "%s header escapes Build sheet" % profile)
@@ -243,13 +243,13 @@ func _check_category_density(phone_size: Vector2i, ui_scale: float, notched: boo
 					_expect(absf(utility.size.x - 48.0) <= 0.5 and absf(utility.size.y - 48.0) <= 0.5, "%s utility loses48x48 proportions" % profile)
 			for card: Button in grid.get_children():
 				if card.visible:
-					_expect(card.size.x >= 120.0 and card.size.x <= 150.5 and absf(card.size.y - 80.0) <= 0.5, "%s %s changes card proportions %.1fx%.1f" % [profile, category, card.size.x, card.size.y])
+					_expect(card.size.x >= 120.0 and card.size.x <= 150.5 and absf(card.size.y - 94.0) <= 0.5, "%s %s changes card proportions %.1fx%.1f" % [profile, category, card.size.x, card.size.y])
 			if category == "Defence":
 				var margin: MarginContainer = menu.get_node("Margin")
 				var horizontal_padding: float = menu.get_theme_stylebox("panel").get_minimum_size().x + margin.get_theme_constant("margin_left") + margin.get_theme_constant("margin_right")
 				var content_width: float = header.get_combined_minimum_size().x + horizontal_padding
 				_expect(absf(panel.size.x - content_width) <= 0.5, "%s one-card Defence exceeds header content width %.1f/%.1f" % [profile, panel.size.x, content_width])
-				_expect(panel.size.y <= 150.5, "%s one-card Defence leaves blank height %.1f" % [profile, panel.size.y])
+				_expect(panel.size.y <= 164.5, "%s one-card Defence leaves blank height %.1f" % [profile, panel.size.y])
 				_expect(not scroll.get_h_scroll_bar().visible, "%s Defence shows an unnecessary scrollbar" % profile)
 				var tower: Button = (menu.get("_button_map") as Dictionary)[BuildingData.BuildingType.WATCH_TOWER]
 				_expect(absf(tower.size.x - 150.0) <= 0.5, "%s Defence card stretches to fill its compact row" % profile)
@@ -301,7 +301,7 @@ func _check_category_density(phone_size: Vector2i, ui_scale: float, notched: boo
 
 func _expect_button_text_fits(button: Button, profile: String) -> void:
 	var available_width: float = button.size.x - button.get_theme_stylebox("normal").get_minimum_size().x
-	if button.icon != null:
+	if button.icon != null and button.vertical_icon_alignment == VERTICAL_ALIGNMENT_CENTER:
 		available_width -= float(button.get_theme_constant("icon_max_width") + button.get_theme_constant("h_separation"))
 	for line: String in button.text.split("\n"):
 		var line_width: float = button.get_theme_font("font").get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, button.get_theme_font_size("font_size")).x

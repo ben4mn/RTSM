@@ -1,135 +1,110 @@
 extends Control
-## A field atlas beside a focused match setup; advanced choices live in Settings.
+## One game-creation journey: battlefield, opponent, shared room, then battle.
 
 const THEME := preload("res://scripts/ui/kingdom_theme.gd")
 const DIORAMA := preload("res://scripts/ui/menu_diorama.gd")
+const MAP_PREVIEW := preload("res://scripts/ui/map_preview.gd")
 const WEB_SHELL_BRIDGE := preload("res://scripts/ui/web_shell_bridge.gd")
-
-enum Difficulty {
-	EASY,
-	MEDIUM,
-	HARD,
-}
-
 const DIFFICULTY_NAMES: Array[String] = ["Easy", "Medium", "Hard"]
-const DIFFICULTY_DESCRIPTIONS: Array[String] = [
-	"Time to build. Light pressure.",
-	"Regular raids. Balanced pressure.",
-	"Early raids. Relentless pressure.",
-]
-const CAMERA_SPEED_VALUES: Array[float] = [0.75, 1.0, 1.25]
-const UI_SCALE_VALUES: Array[float] = [1.0, 1.075, 1.15]
+const DIFFICULTY_DESCRIPTIONS: Array[String] = ["Time to build. Light pressure.", "Regular raids. Balanced pressure.", "Early raids. Relentless pressure."]
+const MAP_TRAITS: Array[String] = ["Room to manoeuvre", "Control the crossings", "Find the side routes"]
 const COMPACT_LAYOUT_MAX_HEIGHT: float = 500.0
-const COMPACT_SETTINGS_CONTROLS_TEXT: String = "Tap selects/commands • unit rail has battle orders • drag pans • pinch zooms"
-const FULL_SETTINGS_CONTROLS_TEXT: String = "Touch: tap to select or command • owned buildings reselect directly • drag to pan • pinch to zoom\nSelected units expose Move, A-Move, Patrol, Stop, stance, and Clear • hold a world target for context"
-
-@onready var title_label: Label = %TitleLabel
-@onready var promise_label: Label = %PromiseLabel
-@onready var map_summary_label: Label = %MapSummaryLabel
-@onready var start_button: Button = %StartButton
-@onready var difficulty_option: OptionButton = %DifficultyOption
-@onready var difficulty_description: Label = %DifficultyDescription
-@onready var seed_input: LineEdit = %SeedInput
-@onready var random_seed_button: Button = %RandomSeedButton
-@onready var guided_opening_toggle: CheckButton = %GuidedOpeningToggle
-@onready var settings_button: Button = %SettingsButton
-@onready var settings_overlay: ColorRect = %SettingsOverlay
-@onready var settings_close_button: Button = %SettingsCloseButton
-@onready var audio_toggle: CheckButton = %AudioToggle
-@onready var camera_speed_option: OptionButton = %CameraSpeedOption
-@onready var ui_scale_option: OptionButton = %UIScaleOption
-@onready var content_center: CenterContainer = $CenterContainer
-@onready var content_vbox: VBoxContainer = $CenterContainer/VBox
-@onready var subtitle_label: Label = $CenterContainer/VBox/Subtitle
-@onready var content_spacer: Control = $CenterContainer/VBox/Spacer
-@onready var setup_margin: MarginContainer = $CenterContainer/VBox/SetupPanel/SetupMargin
-@onready var setup_vbox: VBoxContainer = $CenterContainer/VBox/SetupPanel/SetupMargin/SetupVBox
-@onready var map_heading: Label = $CenterContainer/VBox/SetupPanel/SetupMargin/SetupVBox/MapHeading
-@onready var difficulty_label: Label = $CenterContainer/VBox/SetupPanel/SetupMargin/SetupVBox/DifficultyLabel
-@onready var seed_label: Label = $CenterContainer/VBox/SetupPanel/SetupMargin/SetupVBox/SeedLabel
-@onready var actions_spacer: Control = $CenterContainer/VBox/Spacer2
-@onready var actions_row: VBoxContainer = $CenterContainer/VBox/ActionsRow
-@onready var settings_center: CenterContainer = $SettingsOverlay/Center
-@onready var settings_panel: PanelContainer = $SettingsOverlay/Center/Panel
-@onready var settings_margin: MarginContainer = $SettingsOverlay/Center/Panel/Margin
-@onready var settings_vbox: VBoxContainer = $SettingsOverlay/Center/Panel/Margin/VBox
-@onready var settings_title: Label = $SettingsOverlay/Center/Panel/Margin/VBox/Title
-@onready var settings_controls: Label = $SettingsOverlay/Center/Panel/Margin/VBox/Controls
-@onready var camera_speed_label: Label = $SettingsOverlay/Center/Panel/Margin/VBox/CameraSpeedLabel
-@onready var ui_scale_label: Label = $SettingsOverlay/Center/Panel/Margin/VBox/UIScaleLabel
-@onready var guidance_note: Label = $SettingsOverlay/Center/Panel/Margin/VBox/GuidanceNote
 
 @export var main_menu_diagnostics: Dictionary = {}
-
 var _shared_settings: Control
-var _selected_difficulty: int = Difficulty.EASY
+var _active_safe_area := Rect2()
 var _compact_layout: bool = false
-var _active_safe_area: Rect2 = Rect2()
-var _hero: Control
-var _hero_labels: VBoxContainer
-var _hero_art: Control
-var _hero_caption: Label
-var _menu_rule: ColorRect
-var _difficulty_buttons: Array[Button] = []
-var _difficulty_row: HBoxContainer
-var _settings_columns: HBoxContainer
-var _preferences_column: VBoxContainer
-var _advanced_column: VBoxContainer
-var _advanced_title: Label
-var _population_buttons: Array[Button] = []
-var _population_choices: HBoxContainer = null
-var _settings_header: HBoxContainer = null
-var _hold_shortcuts_toggle: CheckButton = null
-var _selected_population_limit: int = SkirmishData.DEFAULT_POPULATION_LIMIT
-
-var _online_button: Button
+var _screen: String = "home"
+var _mode: String = "solo"
+var _selected_difficulty: int = 0
+var _selected_population_limit: int = 30
 var _network_search_active: bool = false
+var _room_waiting: bool = false
+var _web_update_safe: bool = false
+var _session: Node
+var _transition: Tween
+var _root_margin: MarginContainer
+var _shell: VBoxContainer
+var _header: HBoxContainer
+var _page_title: Label
+var _back_button: Button
+var settings_button: Button
+var _home: BoxContainer
+var _hero: VBoxContainer
+var title_label: Label
+var promise_label: Label
+var _hero_art: Control
+var _home_actions: VBoxContainer
+var _home_intro: Label
+var _home_note: Label
+var _new_game_button: Button
+var _online_button: Button
+var _setup: VBoxContainer
+var _tabs: HBoxContainer
+var _solo_tab: Button
+var _online_tab: Button
+var _columns: BoxContainer
+var _map_panel: VBoxContainer
+var _map_cards: HBoxContainer
+var _map_buttons: Array[Button] = []
+var _map_previews: Array[Control] = []
+var _map_names: Array[Label] = []
+var _map_badges: Array[Label] = []
+var map_summary_label: Label
+var _map_note: Label
+var _map_heading: Label
+var _options_panel: PanelContainer
+var _options_scroll: ScrollContainer
+var _options_body: VBoxContainer
+var _solo_options: VBoxContainer
+var _multiplayer_options: VBoxContainer
+var _difficulty_row: HBoxContainer
+var _difficulty_buttons: Array[Button] = []
+var difficulty_option: OptionButton
+var difficulty_description: Label
+var guided_opening_toggle: CheckButton
+var _population_buttons: Array[Button] = []
+var _rules_option: OptionButton
+var seed_input: LineEdit
+var random_seed_button: Button
+var _host_button: Button
+var _join_input: LineEdit
+var _join_button: Button
+var _quick_match_button: Button
+var _room_details: VBoxContainer
+var _room_code: Label
+var _room_players: Label
+var _room_map: Label
 var _network_status: Label
+var _footer: HBoxContainer
+var _selection_summary: Label
+var start_button: Button
+var _leave_button: Button
 
 
 func _ready() -> void:
-	# A menu scene can be entered from pause, summary, or directly during test
-	# setup. Normalize the global match state immediately in every route.
 	GameManager.set_state(GameManager.GameState.MENU)
-	WEB_SHELL_BRIDGE.set_controls_visible(true)
 	theme = THEME.create_theme()
-	_build_quick_start_presentation()
-	_build_online_controls()
-	start_button.pressed.connect(_on_start_pressed)
-	random_seed_button.pressed.connect(_on_random_seed_pressed)
-	guided_opening_toggle.toggled.connect(_on_guided_opening_toggled)
-	settings_button.pressed.connect(_on_settings_pressed)
-	settings_close_button.pressed.connect(_on_settings_close_pressed)
-	audio_toggle.toggled.connect(_on_audio_toggled)
-	camera_speed_option.item_selected.connect(_on_camera_speed_selected)
-	ui_scale_option.item_selected.connect(_on_ui_scale_selected)
-	seed_input.text_changed.connect(_on_seed_text_changed)
-	get_viewport().size_changed.connect(_on_viewport_size_changed)
-	WEB_SHELL_BRIDGE.watch_safe_area(self, _on_viewport_size_changed)
-
-	# Populate difficulty dropdown
-	difficulty_option.clear()
-	for i in range(DIFFICULTY_NAMES.size()):
-		difficulty_option.add_item(DIFFICULTY_NAMES[i], i)
-	_selected_difficulty = clampi(GameManager.selected_difficulty, Difficulty.EASY, Difficulty.HARD)
+	_selected_difficulty = clampi(GameManager.selected_difficulty, 0, 2)
 	_selected_population_limit = GameManager.selected_population_limit
-	_refresh_population_choices()
-	difficulty_option.selected = _selected_difficulty
-	difficulty_option.item_selected.connect(_on_difficulty_changed)
-	_apply_difficulty_description()
-
-	if GameManager.selected_map_seed >= 0:
-		seed_input.text = str(GameManager.selected_map_seed)
-	else:
-		seed_input.placeholder_text = "Random each match"
-	guided_opening_toggle.button_pressed = bool(GameManager.guided_opening_enabled)
-	_setup_settings_controls()
-	_apply_responsive_layout()
-	# Container geometry settles after `_ready()`. Refresh on the next frame so
-	# diagnostics and injected touch coordinates describe the rendered controls,
-	# not their pre-layout positions.
+	_session = get_node_or_null("/root/NetworkSession")
+	_build_interface()
+	if _session != null:
+		_session.connect("status_changed", _on_network_status_changed)
+		if _session.has_signal("room_changed"):
+			_session.connect("room_changed", _on_room_changed)
+		_on_network_status_changed(str(_session.get("state")), str(_session.get("status_text")))
+	_refresh_selection()
+	_show_screen("home")
+	if GameManager.has_meta("open_new_game"):
+		var requested_mode: String = str(GameManager.get_meta("open_new_game"))
+		GameManager.remove_meta("open_new_game")
+		_open_new_game("multiplayer" if requested_mode == "multiplayer" else "solo")
+	get_viewport().size_changed.connect(_refresh_responsive_layout)
+	WEB_SHELL_BRIDGE.watch_safe_area(self, _refresh_responsive_layout)
+	WEB_SHELL_BRIDGE.set_controls_visible(true)
+	_refresh_web_update_safety()
 	call_deferred("_refresh_responsive_layout")
-	WEB_SHELL_BRIDGE.set_update_safe(true)
 
 
 func _exit_tree() -> void:
@@ -137,479 +112,513 @@ func _exit_tree() -> void:
 	WEB_SHELL_BRIDGE.set_controls_visible(false)
 
 
-func _build_quick_start_presentation() -> void:
-	$Background.color = THEME.INK
-	$BackdropGlow.color = Color(0.17, 0.29, 0.32, 0.18)
-	$BackdropGlow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	$BackdropGlow.hide()
-	_hero = Control.new()
-	_hero.name = "KingdomPreview"
-	_hero.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_hero)
-	move_child(_hero, $CenterContainer.get_index())
-	_hero_labels = VBoxContainer.new()
-	_hero_labels.add_theme_constant_override("separation", 3)
-	_hero_labels.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_hero.add_child(_hero_labels)
-	for label: Label in [subtitle_label, title_label, promise_label]:
-		label.reparent(_hero_labels)
-		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	title_label.text = "POCKET\nKINGDOMS"
-	title_label.add_theme_font_override("font", THEME.FONT_HEADING)
-	title_label.add_theme_constant_override("line_spacing", -7)
-	title_label.add_theme_color_override("font_color", THEME.PARCHMENT)
-	subtitle_label.text = "REAL-TIME  /  1v1"
-	subtitle_label.add_theme_color_override("font_color", THEME.MUTED)
-	promise_label.text = ""
-	promise_label.hide()
-	promise_label.add_theme_color_override("font_color", THEME.MUTED)
+func _input(event: InputEvent) -> void:
+	if is_instance_valid(_shared_settings):
+		return
+	if event.is_action_pressed("cancel") and _screen != "home":
+		_on_back_pressed()
+		get_viewport().set_input_as_handled()
+
+
+func _build_interface() -> void:
+	var background := ColorRect.new()
+	background.name = "Background"
+	background.color = THEME.INK
+	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(background)
+	_root_margin = MarginContainer.new()
+	_root_margin.name = "MenuFrame"
+	add_child(_root_margin)
+	_shell = VBoxContainer.new()
+	_shell.add_theme_constant_override("separation", 14)
+	_root_margin.add_child(_shell)
+	_header = HBoxContainer.new()
+	_header.add_theme_constant_override("separation", 16)
+	_shell.add_child(_header)
+	_back_button = _button("Back", "BackButton", _on_back_pressed)
+	_header.add_child(_back_button)
+	_page_title = _label("POCKET KINGDOMS", 22)
+	THEME.apply_heading(_page_title, 22)
+	_page_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_header.add_child(_page_title)
+	settings_button = _button("Settings", "SettingsButton", _on_settings_pressed)
+	settings_button.icon = load("res://assets/ui/icons/settings.svg")
+	settings_button.add_theme_constant_override("icon_max_width", 20)
+	_header.add_child(settings_button)
+	var rule := HSeparator.new()
+	var rule_style := StyleBoxLine.new()
+	rule_style.color = THEME.BORDER
+	rule_style.thickness = 1
+	rule.add_theme_stylebox_override("separator", rule_style)
+	_shell.add_child(rule)
+	_build_home()
+	_build_setup()
+	_footer = HBoxContainer.new()
+	_footer.name = "GameFooter"
+	_footer.add_theme_constant_override("separation", 12)
+	_shell.add_child(_footer)
+	_selection_summary = _label("", 15, true)
+	_selection_summary.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_footer.add_child(_selection_summary)
+	_leave_button = _button("Leave room", "LeaveRoomButton", _leave_room)
+	_footer.add_child(_leave_button)
+	start_button = _button("Start game", "StartButton", _on_start_pressed)
+	start_button.custom_minimum_size.x = 184
+	THEME.apply_primary(start_button)
+	_footer.add_child(start_button)
+
+
+func _build_home() -> void:
+	_home = BoxContainer.new()
+	_home.name = "Home"
+	_home.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_home.add_theme_constant_override("separation", 48)
+	_shell.add_child(_home)
+	_hero = VBoxContainer.new()
+	_hero.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_hero.add_theme_constant_override("separation", 6)
+	_home.add_child(_hero)
+	var eyebrow := _label("BUILD A KINGDOM. COMMAND THE FIELD.", 12)
+	THEME.apply_eyebrow(eyebrow)
+	_hero.add_child(eyebrow)
+	title_label = _label("Pocket\nKingdoms", 52)
+	THEME.apply_heading(title_label, 52)
+	_hero.add_child(title_label)
 	_hero_art = Control.new()
 	_hero_art.set_script(DIORAMA)
+	_hero_art.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_hero_art.clip_contents = true
 	_hero.add_child(_hero_art)
-	_hero_caption = Label.new()
-	_hero_caption.text = ""
-	_hero_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	_hero_caption.add_theme_font_override("font", THEME.FONT_MEDIUM)
-	_hero_caption.add_theme_color_override("font_color", THEME.MUTED)
-	_hero_caption.add_theme_font_size_override("font_size", 12)
-	_hero.add_child(_hero_caption)
-	_menu_rule = ColorRect.new()
-	_menu_rule.color = THEME.BORDER
-	_menu_rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_menu_rule)
-	move_child(_menu_rule, $CenterContainer.get_index())
-	$CenterContainer/VBox/SetupPanel.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
-	content_spacer.hide()
-	actions_spacer.hide()
-	map_summary_label.text = "%d × %d battlefield" % [MapData.MAP_WIDTH, MapData.MAP_HEIGHT]
-	map_summary_label.hide()
-	map_heading.text = "SOLO SKIRMISH"
-	map_heading.add_theme_color_override("font_color", THEME.AMBER)
-	difficulty_label.text = "Opponent"
-	difficulty_option.hide()
-	_difficulty_row = HBoxContainer.new()
-	_difficulty_row.name = "DifficultyChoices"
-	_difficulty_row.add_theme_constant_override("separation", 6)
-	setup_vbox.add_child(_difficulty_row)
-	setup_vbox.move_child(_difficulty_row, difficulty_option.get_index())
+	_home_actions = VBoxContainer.new()
+	_home_actions.name = "HomeActions"
+	_home_actions.alignment = BoxContainer.ALIGNMENT_CENTER
+	_home_actions.custom_minimum_size.x = 290
+	_home_actions.add_theme_constant_override("separation", 12)
+	_home.add_child(_home_actions)
+	promise_label = _label("A kingdom begins\nwith a choice.", 28)
+	THEME.apply_heading(promise_label, 28)
+	_home_actions.add_child(promise_label)
+	_home_intro = _label("Gather, build and command your army.\nClaim the Sacred Site or break the enemy town.", 16, true)
+	_home_intro.add_theme_color_override("font_color", THEME.MUTED)
+	_home_actions.add_child(_home_intro)
+	_new_game_button = _button("New Game", "NewGameButton", _open_new_game.bind("solo"))
+	_new_game_button.custom_minimum_size.y = 58
+	THEME.apply_primary(_new_game_button)
+	_home_actions.add_child(_new_game_button)
+	_online_button = _button("Join a friend", "JoinFriendButton", _open_new_game.bind("multiplayer"))
+	_home_actions.add_child(_online_button)
+	_home_note = _label("Solo skirmish  ·  Private 1v1 rooms", 13)
+	_home_note.add_theme_color_override("font_color", THEME.MUTED)
+	_home_actions.add_child(_home_note)
+
+
+func _build_setup() -> void:
+	_setup = VBoxContainer.new()
+	_setup.name = "NewGame"
+	_setup.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_setup.add_theme_constant_override("separation", 12)
+	_shell.add_child(_setup)
+	_tabs = HBoxContainer.new()
+	_tabs.add_theme_constant_override("separation", 8)
+	_setup.add_child(_tabs)
+	_solo_tab = _button("Solo skirmish", "SoloTab", _set_mode.bind("solo"))
+	_online_tab = _button("Multiplayer", "MultiplayerTab", _set_mode.bind("multiplayer"))
+	for button: Button in [_solo_tab, _online_tab]:
+		button.toggle_mode = true
+		button.custom_minimum_size.x = 160
+		_tabs.add_child(button)
+	_columns = BoxContainer.new()
+	_columns.name = "SetupColumns"
+	_columns.add_theme_constant_override("separation", 20)
+	_columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_setup.add_child(_columns)
+	_map_panel = VBoxContainer.new()
+	_map_panel.name = "BattlefieldSelection"
+	_map_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_map_panel.size_flags_stretch_ratio = 1.6
+	_map_panel.add_theme_constant_override("separation", 8)
+	_columns.add_child(_map_panel)
+	_map_heading = _label("CHOOSE YOUR BATTLEFIELD", 12)
+	THEME.apply_eyebrow(_map_heading)
+	_map_panel.add_child(_map_heading)
+	_map_cards = HBoxContainer.new()
+	_map_cards.name = "MapChoices"
+	_map_cards.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_map_cards.add_theme_constant_override("separation", 10)
+	_map_panel.add_child(_map_cards)
 	var group := ButtonGroup.new()
-	for index: int in DIFFICULTY_NAMES.size():
-		var button := Button.new()
-		button.name = "%sDifficulty" % DIFFICULTY_NAMES[index]
-		button.text = DIFFICULTY_NAMES[index]
+	for archetype: int in MapData.MAP_ARCHETYPES:
+		var button := _button("", "Map%dButton" % archetype, _select_map.bind(archetype))
+		button.tooltip_text = MapData.get_archetype_description(archetype)
+		button.accessibility_name = MapData.get_archetype_name(archetype) + ". " + button.tooltip_text
 		button.toggle_mode = true
 		button.button_group = group
+		var selected_style: StyleBoxFlat = THEME.panel_style(THEME.INK_LIGHT, THEME.GOLD)
+		selected_style.set_border_width_all(2)
+		button.add_theme_stylebox_override("pressed", selected_style)
+		button.add_theme_stylebox_override("hover_pressed", selected_style)
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		button.custom_minimum_size = Vector2(0, 48)
-		button.add_theme_font_size_override("font_size", 15)
-		button.pressed.connect(_on_difficulty_changed.bind(index))
+		_map_cards.add_child(button)
+		_map_buttons.append(button)
+		var stack := VBoxContainer.new()
+		stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		stack.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		stack.offset_left = 8
+		stack.offset_top = 8
+		stack.offset_right = -8
+		stack.offset_bottom = -8
+		stack.add_theme_constant_override("separation", 5)
+		button.add_child(stack)
+		var preview: Control = MAP_PREVIEW.new()
+		preview.set("archetype", archetype)
+		preview.custom_minimum_size.y = 82
+		preview.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		stack.add_child(preview)
+		_map_previews.append(preview)
+		var name_label := _label(MapData.get_archetype_name(archetype).replace(" ", "\n"), 17)
+		name_label.add_theme_font_override("font", THEME.FONT_MEDIUM)
+		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		stack.add_child(name_label)
+		_map_names.append(name_label)
+		var badge := _label("SELECT", 11)
+		badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		badge.add_theme_color_override("font_color", THEME.MUTED)
+		stack.add_child(badge)
+		_map_badges.append(badge)
+	map_summary_label = _label("", 15, true)
+	map_summary_label.custom_minimum_size.y = 36
+	_map_panel.add_child(map_summary_label)
+	_map_note = _label("Terrain previews · blue / red starts · diamond objective", 12)
+	_map_note.add_theme_color_override("font_color", THEME.MUTED)
+	_map_panel.add_child(_map_note)
+	_build_options()
+
+
+func _build_options() -> void:
+	_options_panel = PanelContainer.new()
+	_options_panel.name = "MatchOptions"
+	_options_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_options_panel.add_theme_stylebox_override("panel", THEME.inset_panel())
+	_columns.add_child(_options_panel)
+	_options_scroll = ScrollContainer.new()
+	_options_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_options_panel.add_child(_options_scroll)
+	_options_body = VBoxContainer.new()
+	_options_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_options_body.add_theme_constant_override("separation", 12)
+	_options_scroll.add_child(_options_body)
+	_solo_options = VBoxContainer.new()
+	_solo_options.add_theme_constant_override("separation", 8)
+	_options_body.add_child(_solo_options)
+	var label := _label("YOUR OPPONENT", 12)
+	THEME.apply_eyebrow(label)
+	_solo_options.add_child(label)
+	_difficulty_row = HBoxContainer.new()
+	_difficulty_row.add_theme_constant_override("separation", 4)
+	_solo_options.add_child(_difficulty_row)
+	difficulty_option = OptionButton.new()
+	for difficulty: String in DIFFICULTY_NAMES:
+		difficulty_option.add_item(difficulty)
+	difficulty_option.hide()
+	_solo_options.add_child(difficulty_option)
+	for i: int in DIFFICULTY_NAMES.size():
+		var button := _button(DIFFICULTY_NAMES[i], DIFFICULTY_NAMES[i] + "Difficulty", _on_difficulty_changed.bind(i))
+		button.toggle_mode = true
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.add_theme_font_size_override("font_size", 14)
+		button.add_theme_stylebox_override("normal", _small_button_style("normal"))
+		button.add_theme_stylebox_override("pressed", _small_button_style("pressed"))
 		_difficulty_row.add_child(button)
 		_difficulty_buttons.append(button)
+	difficulty_description = _label("", 13, true)
 	difficulty_description.add_theme_color_override("font_color", THEME.MUTED)
-	guided_opening_toggle.text = "Opening guide"
-	guided_opening_toggle.add_theme_color_override("font_color", THEME.PARCHMENT)
-	start_button.text = "Play solo"
-	settings_button.text = "Settings & map"
-	THEME.apply_primary(start_button)
-	start_button.icon = load("res://assets/ui/icons/play_dark.svg") as Texture2D
-	start_button.add_theme_constant_override("h_separation", 12)
-	start_button.add_theme_color_override("icon_normal_color", Color.WHITE)
-	start_button.add_theme_color_override("icon_hover_color", Color.WHITE)
-	start_button.add_theme_color_override("icon_pressed_color", Color.WHITE)
-	THEME.apply_secondary(settings_button)
-	settings_button.icon = load("res://assets/ui/icons/settings.svg") as Texture2D
-	settings_button.add_theme_constant_override("h_separation", 7)
-	_settings_columns = HBoxContainer.new()
-	_settings_columns.add_theme_constant_override("separation", 20)
-	settings_vbox.add_child(_settings_columns)
-	settings_vbox.move_child(_settings_columns, 2)
-	_preferences_column = VBoxContainer.new()
-	_preferences_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_preferences_column.add_theme_constant_override("separation", 5)
-	_settings_columns.add_child(_preferences_column)
-	for control: Control in [audio_toggle, camera_speed_label, camera_speed_option, ui_scale_label, ui_scale_option]:
-		control.reparent(_preferences_column)
-	_hold_shortcuts_toggle = CheckButton.new()
-	_hold_shortcuts_toggle.name = "HoldShortcutsToggle"
-	_hold_shortcuts_toggle.text = "Hold shortcuts"
-	_hold_shortcuts_toggle.tooltip_text = "Hold to inspect cards or slide to a More command. Tap controls remain available."
-	_hold_shortcuts_toggle.custom_minimum_size = Vector2(0, 48)
-	_hold_shortcuts_toggle.add_theme_font_size_override("font_size", 14)
-	_hold_shortcuts_toggle.toggled.connect(_on_hold_shortcuts_toggled)
-	_advanced_column = VBoxContainer.new()
-	_advanced_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_advanced_column.add_theme_constant_override("separation", 5)
-	_settings_columns.add_child(_advanced_column)
-	_advanced_title = Label.new()
-	_advanced_title.text = "ADVANCED MAP"
-	_advanced_title.add_theme_font_size_override("font_size", 12)
-	_advanced_title.add_theme_color_override("font_color", THEME.AMBER)
-	_advanced_column.add_child(_advanced_title)
-	_advanced_title.hide()
-	_advanced_column.add_child(_hold_shortcuts_toggle)
-	seed_label.text = "Map seed (optional)"
-	seed_label.reparent(_advanced_column)
-	seed_input.reparent(_advanced_column)
-	random_seed_button.reparent(_advanced_column)
-	random_seed_button.text = "Use a random map"
-	settings_controls.reparent(_advanced_column)
-	settings_controls.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	settings_controls.add_theme_color_override("font_color", THEME.MUTED)
-	setup_vbox.get_node("SeedRow").hide()
-	guidance_note.hide()
-	settings_title.text = "Make yourself at home"
-	camera_speed_label.text = "Camera speed"
-	ui_scale_label.text = "Interface size"
-	settings_overlay.color = Color(0.025, 0.055, 0.08, 0.94)
-	THEME.apply_primary(settings_close_button)
-	_build_population_choices()
+	_solo_options.add_child(difficulty_description)
+	guided_opening_toggle = CheckButton.new()
+	guided_opening_toggle.name = "GuidedOpeningToggle"
+	guided_opening_toggle.text = "Guide my opening"
+	guided_opening_toggle.custom_minimum_size.y = 48
+	guided_opening_toggle.add_theme_font_size_override("font_size", 14)
+	guided_opening_toggle.set_pressed_no_signal(GameManager.guided_opening_enabled)
+	guided_opening_toggle.toggled.connect(_on_guided_opening_toggled)
+	_solo_options.add_child(guided_opening_toggle)
+	var rules_label := _label("MATCH RULES", 12)
+	THEME.apply_eyebrow(rules_label)
+	_solo_options.add_child(rules_label)
+	_rules_option = OptionButton.new()
+	_rules_option.name = "MatchRulesOption"
+	_rules_option.custom_minimum_size.y = 48
+	_rules_option.add_item("Standard skirmish")
+	_rules_option.add_item("Control race")
+	_rules_option.select(GameManager.selected_match_mode)
+	_rules_option.item_selected.connect(func(index: int) -> void:
+		GameManager.selected_match_mode = index
+		_refresh_selection()
+	)
+	_solo_options.add_child(_rules_option)
+	_solo_options.add_child(_label("Population per player", 14))
+	var population := HBoxContainer.new()
+	population.add_theme_constant_override("separation", 6)
+	_solo_options.add_child(population)
+	for limit: int in SkirmishData.POPULATION_OPTIONS:
+		var button := _button(str(limit), "Population%dButton" % limit, _on_population_selected.bind(limit))
+		button.toggle_mode = true
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		population.add_child(button)
+		_population_buttons.append(button)
+	_solo_options.add_child(_label("Map seed (optional)", 14))
+	var seed_row := HBoxContainer.new()
+	seed_row.add_theme_constant_override("separation", 6)
+	_solo_options.add_child(seed_row)
+	seed_input = LineEdit.new()
+	seed_input.name = "MapSeedInput"
+	seed_input.placeholder_text = "Random"
+	seed_input.text = str(GameManager.selected_map_seed) if GameManager.selected_map_seed >= 0 else ""
+	seed_input.custom_minimum_size = Vector2(90, 48)
+	seed_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	seed_input.text_changed.connect(_on_seed_text_changed)
+	seed_row.add_child(seed_input)
+	random_seed_button = _button("Random", "RandomSeedButton", _on_random_seed_pressed)
+	seed_row.add_child(random_seed_button)
+	_build_multiplayer_options()
 
 
-func _build_online_controls() -> void:
-	var secondary := HBoxContainer.new()
-	secondary.name = "SecondaryActions"
-	secondary.add_theme_constant_override("separation", 6)
-	actions_row.add_child(secondary)
-	_online_button = Button.new()
-	_online_button.name = "FindOnlineMatch"
-	_online_button.text = "Play online"
-	_online_button.custom_minimum_size = Vector2(0, 48)
-	_online_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_online_button.add_theme_font_size_override("font_size", 14)
-	_online_button.accessibility_name = "Find another player for an online match"
-	THEME.apply_secondary(_online_button)
-	_online_button.icon = load("res://assets/ui/icons/online.svg") as Texture2D
-	_online_button.add_theme_constant_override("h_separation", 7)
-	secondary.add_child(_online_button)
-	settings_button.reparent(secondary)
-	settings_button.text = "Settings"
-	_network_status = Label.new()
-	_network_status.name = "OnlineStatus"
-	_network_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_network_status.custom_minimum_size = Vector2(0, 96)
-	_network_status.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_network_status.add_theme_font_size_override("font_size", 18)
-	_network_status.hide()
-	setup_vbox.add_child(_network_status)
-	_online_button.pressed.connect(func() -> void:
-		var session: Node = get_node_or_null("/root/NetworkSession")
-		if session != null:
-			session.call("find_match"))
-	var session: Node = get_node_or_null("/root/NetworkSession")
-	if session != null:
-		session.connect("status_changed", _on_network_status_changed)
-		_on_network_status_changed(str(session.get("state")), str(session.get("status_text")))
+func _build_multiplayer_options() -> void:
+	_multiplayer_options = VBoxContainer.new()
+	_multiplayer_options.name = "MultiplayerSetup"
+	_multiplayer_options.add_theme_constant_override("separation", 10)
+	_options_body.add_child(_multiplayer_options)
+	var heading := _label("PLAY WITH A FRIEND", 12)
+	THEME.apply_eyebrow(heading)
+	_multiplayer_options.add_child(heading)
+	_multiplayer_options.add_child(_label("Choose a battlefield, then share your room code.", 15, true))
+	_host_button = _button("Create room", "HostGameButton", _host_game)
+	THEME.apply_primary(_host_button)
+	_multiplayer_options.add_child(_host_button)
+	_multiplayer_options.add_child(_label("Already have a code?", 14))
+	_join_input = LineEdit.new()
+	_join_input.name = "RoomCodeInput"
+	_join_input.placeholder_text = "Enter room code"
+	_join_input.max_length = 6
+	_join_input.custom_minimum_size.y = 48
+	_join_input.text_changed.connect(func(_text: String) -> void: _join_button.disabled = _join_input.text.strip_edges().length() != 6)
+	_join_input.text_submitted.connect(func(_text: String) -> void: _join_game())
+	var join_row := HBoxContainer.new()
+	join_row.add_theme_constant_override("separation", 6)
+	_multiplayer_options.add_child(join_row)
+	_join_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_join_input.custom_minimum_size.x = 90
+	join_row.add_child(_join_input)
+	_join_button = _button("Join", "JoinGameButton", _join_game)
+	_join_button.disabled = true
+	join_row.add_child(_join_button)
+	_multiplayer_options.add_child(_label("Standard rules · 30 population\nBoth players see the host’s battlefield.", 13, true))
+	_quick_match_button = _button("Quick match", "QuickMatchButton", func() -> void:
+		if _session != null:
+			_session.call("find_match")
+	)
+	_multiplayer_options.add_child(_quick_match_button)
+	_multiplayer_options.add_child(_label("Find any opponent. The server chooses the battlefield.", 13, true))
+	_room_details = VBoxContainer.new()
+	_room_details.name = "RoomDetails"
+	_room_details.add_theme_constant_override("separation", 12)
+	_options_body.add_child(_room_details)
+	var room_heading := _label("YOUR ROOM", 12)
+	THEME.apply_eyebrow(room_heading)
+	_room_details.add_child(room_heading)
+	_room_code = _label("", 30)
+	THEME.apply_heading(_room_code, 30)
+	_room_details.add_child(_room_code)
+	_room_players = _label("", 16, true)
+	_room_details.add_child(_room_players)
+	_room_map = _label("", 15, true)
+	_room_details.add_child(_room_map)
+	_room_details.add_child(_label("Standard rules · 30 population", 13, true))
+	_network_status = _label("", 14, true)
+	_network_status.name = "NetworkStatus"
+	_network_status.add_theme_color_override("font_color", THEME.MUTED)
+	_options_body.add_child(_network_status)
+	_options_body.move_child(_network_status, 0)
+
+
+func _button(text: String, node_name: String, callback: Callable) -> Button:
+	var button := Button.new()
+	button.name = node_name
+	button.text = text
+	button.custom_minimum_size = Vector2(48, 48)
+	button.add_theme_font_size_override("font_size", 16)
+	button.pressed.connect(callback)
+	return button
+
+
+func _label(text: String, font_size: int, wrap: bool = false) -> Label:
+	var label := Label.new()
+	label.text = text
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	label.add_theme_font_size_override("font_size", font_size)
+	if wrap:
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	return label
+
+
+func _small_button_style(state: String) -> StyleBoxFlat:
+	var style: StyleBoxFlat = THEME.button_style("secondary", state)
+	style.content_margin_left = 7
+	style.content_margin_right = 7
+	return style
+
+
+func _open_new_game(mode: String = "solo") -> void:
+	_set_mode(mode)
+	_show_screen("setup")
+
+
+func _show_screen(screen: String) -> void:
+	var changed: bool = _screen != screen
+	_screen = screen
+	_home.visible = screen == "home"
+	_setup.visible = screen != "home"
+	_footer.visible = screen != "home"
+	_tabs.visible = screen != "home"
+	_back_button.visible = screen != "home"
+	_page_title.text = "THE COMMAND TABLE" if screen == "home" else "New Game"
+	_refresh_selection()
+	if changed and not GameManager.reduced_motion:
+		if _transition != null:
+			_transition.kill()
+		var surface: Control = _home if screen == "home" else _setup
+		surface.modulate.a = 0.0
+		_transition = create_tween()
+		_transition.tween_property(surface, "modulate:a", 1.0, 0.16)
+	call_deferred("_refresh_responsive_layout")
+
+
+func _set_mode(mode: String) -> void:
+	if _is_room_open() or _network_search_active:
+		return
+	_mode = mode
+	_options_scroll.scroll_vertical = 0
+	_refresh_selection()
+
+
+func _select_map(archetype: int) -> void:
+	if _is_room_open():
+		if not bool(_session.get("room_host")):
+			return
+		_session.call("set_hosted_map", archetype)
+		return
+	GameManager.selected_map_archetype = MapData.normalize_archetype(archetype)
+	_refresh_selection()
+
+
+func _refresh_selection() -> void:
+	if not is_instance_valid(start_button):
+		return
+	var room: bool = _is_room_open()
+	var online: bool = _mode == "multiplayer" or room
+	var archetype: int = int(_session.get("match_map_archetype")) if room else GameManager.selected_map_archetype
+	var guest: bool = room and not bool(_session.get("room_host"))
+	for i: int in _map_buttons.size():
+		_map_buttons[i].set_pressed_no_signal(i == archetype)
+		_map_buttons[i].disabled = guest or _network_search_active or _room_waiting
+		_map_names[i].add_theme_color_override("font_color", THEME.PARCHMENT)
+		_map_buttons[i].add_theme_stylebox_override("disabled", _map_buttons[i].get_theme_stylebox("pressed") if i == archetype else THEME.button_style())
+		_map_badges[i].text = "SELECTED" if i == archetype else "SELECT"
+		_map_badges[i].add_theme_color_override("font_color", THEME.GOLD if i == archetype else THEME.MUTED)
+	_map_heading.text = "HOST’S BATTLEFIELD" if guest else "CHOOSE YOUR BATTLEFIELD"
+	map_summary_label.text = MapData.get_archetype_description(archetype)
+	_selection_summary.text = "%s\n%s" % [MapData.get_archetype_name(archetype), "Shared battlefield · Standard rules" if online else "%s opponent · %d population" % [DIFFICULTY_NAMES[_selected_difficulty], _selected_population_limit]]
+	_solo_tab.set_pressed_no_signal(not online)
+	_online_tab.set_pressed_no_signal(online)
+	_solo_tab.disabled = room or _network_search_active
+	_online_tab.disabled = room or _network_search_active
+	_solo_options.visible = not online
+	_multiplayer_options.visible = online and not room
+	_room_details.visible = room
+	_network_status.visible = online and not _network_status.text.is_empty()
+	_leave_button.visible = room or _network_search_active
+	start_button.visible = not online or room
+	start_button.text = "Start game" if not room else ("Start match" if not guest else "Waiting for host")
+	start_button.disabled = _network_search_active or _room_waiting or (room and (guest or int(_session.get("room_players")) < 2))
+	_host_button.disabled = _network_search_active
+	_quick_match_button.disabled = _network_search_active
+	_leave_button.text = "Cancel search" if _network_search_active and not room else "Leave room"
+	_join_button.disabled = _network_search_active or _join_input.text.strip_edges().length() != 6
+	_join_input.editable = not _network_search_active
+	for i: int in _difficulty_buttons.size():
+		_difficulty_buttons[i].set_pressed_no_signal(i == _selected_difficulty)
+	difficulty_option.select(_selected_difficulty)
+	difficulty_description.text = DIFFICULTY_DESCRIPTIONS[_selected_difficulty]
+	for button: Button in _population_buttons:
+		button.set_pressed_no_signal(int(button.text) == _selected_population_limit)
+	_refresh_main_menu_diagnostics()
+
+
+func _is_room_open() -> bool:
+	return _session != null and str(_session.get("room_code")) != "" and str(_session.get("state")) in ["lobby", "loading", "playing"]
+
+
+func _host_game() -> void:
+	if _session != null and not _network_search_active:
+		_session.call("host_game", GameManager.selected_map_archetype)
+
+
+func _join_game() -> void:
+	if _session != null and not _join_button.disabled:
+		_session.call("join_game", _join_input.text.strip_edges().to_upper())
+
+
+func _on_room_changed() -> void:
+	if _is_room_open():
+		_mode = "multiplayer"
+		_show_screen("setup")
+		_room_code.text = str(_session.get("room_code"))
+		_room_players.text = "You are the host\n%d / 2 players joined" % int(_session.get("room_players")) if bool(_session.get("room_host")) else "You joined the room\n2 / 2 players joined"
+		_room_map.text = "Battlefield\n" + MapData.get_archetype_name(int(_session.get("match_map_archetype")))
+	_refresh_selection()
 
 
 func _on_network_status_changed(state: String, message: String) -> void:
-	_network_search_active = state in ["connecting", "searching", "loading"]
-	WEB_SHELL_BRIDGE.set_update_safe(not _network_search_active and state != "playing")
-	_network_status.visible = _network_search_active
+	_network_search_active = state in ["connecting", "searching", "hosting", "joining", "loading"]
+	_room_waiting = state == "lobby" and message == "Waiting for an arena…"
 	_network_status.text = message
-	for control: Control in [_difficulty_row, difficulty_label, difficulty_description, guided_opening_toggle]:
-		control.visible = not _network_search_active
-	_online_button.disabled = _network_search_active
-	settings_button.disabled = _network_search_active
-	start_button.text = "Cancel search" if _network_search_active else "Play solo"
-	if state == "error":
-		difficulty_description.text = message
-		difficulty_description.tooltip_text = message
-		difficulty_description.add_theme_color_override("font_color", THEME.AMBER)
-	elif not _network_search_active:
-		_apply_difficulty_description()
-	call_deferred("_refresh_responsive_layout")
+	_network_status.add_theme_color_override("font_color", THEME.RUST if state == "error" else THEME.MUTED)
+	_refresh_web_update_safety()
+	_on_room_changed()
+	_refresh_selection()
 
 
-func _build_population_choices() -> void:
-	_settings_header = HBoxContainer.new()
-	_settings_header.name = "SettingsHeader"
-	_settings_header.add_theme_constant_override("separation", 10)
-	settings_vbox.add_child(_settings_header)
-	settings_vbox.move_child(_settings_header, 0)
-	settings_title.reparent(_settings_header)
-	settings_title.text = "Skirmish settings"
-	settings_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	settings_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var population_label := Label.new()
-	population_label.text = "Max pop per player\nincluding workers"
-	population_label.add_theme_font_size_override("font_size", 12)
-	population_label.add_theme_color_override("font_color", THEME.MUTED)
-	population_label.tooltip_text = "Population limit per player, including workers. Houses provide room up to this limit."
-	_settings_header.add_child(population_label)
-	_population_choices = HBoxContainer.new()
-	_population_choices.name = "PopulationChoices"
-	_population_choices.add_theme_constant_override("separation", 4)
-	_settings_header.add_child(_population_choices)
-	var group := ButtonGroup.new()
-	for limit: int in SkirmishData.POPULATION_OPTIONS:
-		var button := Button.new()
-		button.name = "Population%dButton" % limit
-		button.text = str(limit)
-		button.custom_minimum_size = Vector2(48, 48)
-		button.add_theme_font_size_override("font_size", 15)
-		button.toggle_mode = true
-		button.button_group = group
-		button.tooltip_text = "%d population per player, including workers" % limit
-		button.pressed.connect(_on_population_selected.bind(limit))
-		_population_choices.add_child(button)
-		_population_buttons.append(button)
-	_refresh_population_choices()
+func _leave_room() -> void:
+	if _session != null:
+		_session.call("leave_match")
+	_refresh_selection()
 
 
-func _on_population_selected(limit: int) -> void:
-	_selected_population_limit = limit
-	GameManager.selected_population_limit = limit
-	GameManager.save_preferences()
-	_refresh_population_choices()
-	_refresh_main_menu_diagnostics()
-
-
-func _refresh_population_choices() -> void:
-	for button: Button in _population_buttons:
-		button.set_pressed_no_signal(int(button.text) == _selected_population_limit)
-
-
-func _setup_settings_controls() -> void:
-	audio_toggle.button_pressed = GameManager.audio_enabled
-	_hold_shortcuts_toggle.set_pressed_no_signal(GameManager.hold_shortcuts_enabled)
-	camera_speed_option.clear()
-	for label in ["Relaxed", "Standard", "Fast"]:
-		camera_speed_option.add_item(label)
-	camera_speed_option.selected = _nearest_value_index(CAMERA_SPEED_VALUES, GameManager.camera_speed_scale)
-	ui_scale_option.clear()
-	for label in ["Standard", "Large", "Extra Large"]:
-		ui_scale_option.add_item(label)
-	ui_scale_option.selected = _nearest_value_index(UI_SCALE_VALUES, GameManager.ui_scale)
-
-
-func _nearest_value_index(values: Array[float], target: float) -> int:
-	var best_index: int = 0
-	var best_distance: float = INF
-	for i in values.size():
-		var distance: float = absf(values[i] - target)
-		if distance < best_distance:
-			best_distance = distance
-			best_index = i
-	return best_index
-
-
-func _notification(what: int) -> void:
-	if what == NOTIFICATION_WM_SIZE_CHANGED:
-		if not is_node_ready():
-			return
-		call_deferred("_refresh_responsive_layout")
-
-
-func _on_viewport_size_changed() -> void:
-	call_deferred("_refresh_responsive_layout")
-
-
-func _refresh_responsive_layout() -> void:
-	if not is_node_ready():
-		return
-	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
-	apply_mobile_layout(viewport_size, _get_safe_area_rect(viewport_size))
-	# Web canvas resizes can publish width and height on adjacent frames. Re-read
-	# the viewport once after the first layout pass so an orientation/viewport
-	# change cannot leave the menu vertically centered against the old height.
-	call_deferred("_settle_responsive_layout")
-
-
-func _settle_responsive_layout() -> void:
-	if not is_inside_tree() or not is_node_ready():
-		return
-	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
-	apply_mobile_layout(viewport_size, _get_safe_area_rect(viewport_size))
-	content_center.queue_sort()
-	settings_center.queue_sort()
-	# This final deferred call runs after the container sorts queued above.
-	call_deferred("_refresh_main_menu_diagnostics_if_ready")
-
-
-func _refresh_main_menu_diagnostics_if_ready() -> void:
-	if is_inside_tree() and is_node_ready():
-		_refresh_main_menu_diagnostics()
-
-
-func _apply_responsive_layout() -> void:
-	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
-	apply_mobile_layout(viewport_size, _get_safe_area_rect(viewport_size))
-
-
-func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
-	var viewport_rect := Rect2(Vector2.ZERO, viewport_size)
-	var normalized_safe_area: Rect2 = safe_area.intersection(viewport_rect)
-	if not normalized_safe_area.has_area():
-		normalized_safe_area = viewport_rect
-	_active_safe_area = normalized_safe_area
-	if is_instance_valid(_shared_settings):
-		_shared_settings.apply_mobile_layout(viewport_size, normalized_safe_area)
-	_compact_layout = normalized_safe_area.size.y <= COMPACT_LAYOUT_MAX_HEIGHT
-	var compact: bool = _compact_layout
-	var landscape: bool = normalized_safe_area.size.x >= 620.0
-	var inset: float = 20.0 if compact else 44.0
-	var available: Rect2 = normalized_safe_area.grow(-inset)
-	var card_width: float = clampf(available.size.x * 0.42, 284.0, 360.0)
-	var hero_rect := Rect2(available.position, Vector2(available.size.x - card_width - 26.0, available.size.y))
-	var card_rect := Rect2(Vector2(available.end.x - card_width, normalized_safe_area.position.y), Vector2(card_width, normalized_safe_area.size.y))
-	var web_toolbar_bottom: float = WEB_SHELL_BRIDGE.get_menu_top_clearance(viewport_size)
-	if landscape and web_toolbar_bottom > card_rect.position.y:
-		card_rect.position.y = web_toolbar_bottom
-		card_rect.size.y = maxf(1.0, normalized_safe_area.end.y - web_toolbar_bottom)
-	if not landscape:
-		card_width = minf(360.0, available.size.x)
-		var hero_height: float = minf(250.0, available.size.y * 0.36)
-		hero_rect = Rect2(available.position, Vector2(available.size.x, hero_height))
-		card_rect = Rect2(Vector2(available.position.x, available.position.y + hero_height + 12.0), Vector2(available.size.x, available.size.y - hero_height - 12.0))
-	_layout_center_in_safe_area(content_center, card_rect)
-	_layout_center_in_safe_area(settings_center, normalized_safe_area)
-	_hero.position = hero_rect.position
-	_hero.size = hero_rect.size
-	_hero_labels.position = Vector2(4.0, 0.0)
-	_hero_labels.size = Vector2(hero_rect.size.x - 8.0, 0.0)
-	title_label.text = "POCKET\nKINGDOMS"
-	title_label.add_theme_font_size_override("font_size", 48 if compact else 76)
-	subtitle_label.add_theme_font_size_override("font_size", 11 if compact else 12)
-	promise_label.hide()
-	var art_top: float = 117.0 if compact else 171.0
-	if not landscape:
-		title_label.text = "POCKET KINGDOMS"
-		title_label.add_theme_font_size_override("font_size", 36)
-		art_top = 64.0
-	_hero_art.position = Vector2(-6.0, art_top)
-	_hero_art.size = Vector2(hero_rect.size.x + 12.0, maxf(60.0, hero_rect.size.y - art_top - 25.0))
-	_hero_caption.position = Vector2(4.0, hero_rect.size.y - 18.0)
-	_hero_caption.size = Vector2(hero_rect.size.x - 8.0, 18.0)
-	_hero_caption.text = "%02d  /  %s" % [GameManager.selected_map_archetype + 1, MapData.get_archetype_name(GameManager.selected_map_archetype).to_upper()]
-	_menu_rule.visible = landscape
-	_menu_rule.position = Vector2(card_rect.position.x - 18.0, available.position.y + 6.0)
-	_menu_rule.size = Vector2(1.0, maxf(0.0, available.size.y - 12.0))
-	content_vbox.custom_minimum_size.x = card_width
-	content_vbox.add_theme_constant_override("separation", 8)
-	map_heading.visible = not compact and not _network_search_active
-	map_heading.add_theme_font_size_override("font_size", 12)
-	difficulty_label.add_theme_font_size_override("font_size", 17)
-	difficulty_label.visible = not (compact and web_toolbar_bottom > 0.0)
-	difficulty_label.add_theme_font_override("font", THEME.FONT_MEDIUM)
-	difficulty_description.visible = not _network_search_active
-	difficulty_description.add_theme_font_size_override("font_size", 13)
-	difficulty_description.custom_minimum_size.y = 0.0 if compact and web_toolbar_bottom > 0.0 else 30.0
-	setup_margin.add_theme_constant_override("margin_left", 0)
-	setup_margin.add_theme_constant_override("margin_right", 0)
-	setup_margin.add_theme_constant_override("margin_top", 6 if compact else 18)
-	setup_margin.add_theme_constant_override("margin_bottom", 4 if compact else 16)
-	setup_vbox.add_theme_constant_override("separation", 6)
-	guided_opening_toggle.custom_minimum_size = Vector2(0, 48)
-	guided_opening_toggle.add_theme_font_size_override("font_size", 14)
-	actions_row.add_theme_constant_override("separation", 6)
-	start_button.custom_minimum_size = Vector2(card_width, 56)
-	start_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	start_button.add_theme_font_size_override("font_size", 24)
-	start_button.add_theme_font_override("font", THEME.FONT_HEADING)
-	settings_button.custom_minimum_size = Vector2(0, 48)
-	if is_instance_valid(_online_button):
-		_online_button.custom_minimum_size = Vector2(0, 48)
-	settings_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	settings_button.add_theme_font_size_override("font_size", 14)
-	settings_panel.custom_minimum_size.x = minf(normalized_safe_area.size.x - 24.0, 600.0)
-	settings_margin.add_theme_constant_override("margin_left", 14 if compact else 22)
-	settings_margin.add_theme_constant_override("margin_right", 14 if compact else 22)
-	settings_margin.add_theme_constant_override("margin_top", 2 if compact else 18)
-	settings_margin.add_theme_constant_override("margin_bottom", 2 if compact else 18)
-	settings_vbox.add_theme_constant_override("separation", 6)
-	settings_title.add_theme_font_size_override("font_size", 20 if compact else 24)
-	settings_controls.add_theme_font_size_override("font_size", 12 if compact else 14)
-	settings_controls.text = "Tap, drag or hold controls."
-	camera_speed_label.add_theme_font_size_override("font_size", 13)
-	ui_scale_label.add_theme_font_size_override("font_size", 13)
-	seed_label.add_theme_font_size_override("font_size", 13)
-	audio_toggle.add_theme_font_size_override("font_size", 14)
-	seed_input.custom_minimum_size = Vector2(0, 48)
-	random_seed_button.custom_minimum_size = Vector2(0, 48)
-	random_seed_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	random_seed_button.add_theme_font_size_override("font_size", 14)
-	settings_close_button.custom_minimum_size = Vector2(180, 48)
-	settings_close_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-
-
-func _layout_center_in_safe_area(center: CenterContainer, safe_area: Rect2) -> void:
-	center.anchor_left = 0.0
-	center.anchor_top = 0.0
-	center.anchor_right = 0.0
-	center.anchor_bottom = 0.0
-	center.position = safe_area.position
-	center.size = safe_area.size
-
-
-func _get_safe_area_rect(viewport_size: Vector2) -> Rect2:
-	var viewport_rect := Rect2(Vector2.ZERO, viewport_size)
-	if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
-		return viewport_rect
-	# The browser owns CSS cutout insets; DisplayServer uses a different space.
-	if OS.has_feature("web"):
-		return WEB_SHELL_BRIDGE.get_safe_area_rect(viewport_size)
-	if not OS.has_feature("mobile"):
-		return viewport_rect
-	var safe_rect_i: Rect2i = DisplayServer.get_display_safe_area()
-	if safe_rect_i.size.x <= 0 or safe_rect_i.size.y <= 0:
-		return viewport_rect
-	var screen_id: int = DisplayServer.SCREEN_OF_MAIN_WINDOW
-	var display_rect := Rect2(
-		Vector2(DisplayServer.screen_get_position(screen_id)),
-		Vector2(DisplayServer.screen_get_size(screen_id))
-	)
-	return map_display_safe_area_to_viewport(
-		Rect2(Vector2(safe_rect_i.position), Vector2(safe_rect_i.size)),
-		display_rect,
-		viewport_size
-	)
-
-
-static func map_display_safe_area_to_viewport(
-	raw_safe_area: Rect2,
-	display_rect: Rect2,
-	viewport_size: Vector2
-) -> Rect2:
-	var viewport_rect := Rect2(Vector2.ZERO, viewport_size)
-	if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
-		return viewport_rect
-	if display_rect.size.x <= 0.0 or display_rect.size.y <= 0.0:
-		return viewport_rect
-	if raw_safe_area.size.x <= 0.0 or raw_safe_area.size.y <= 0.0:
-		return viewport_rect
-	var clipped_safe_area: Rect2 = raw_safe_area.intersection(display_rect)
-	if not clipped_safe_area.has_area():
-		return viewport_rect
-	var display_to_viewport := Vector2(
-		viewport_size.x / display_rect.size.x,
-		viewport_size.y / display_rect.size.y
-	)
-	var mapped := Rect2(
-		(clipped_safe_area.position - display_rect.position) * display_to_viewport,
-		clipped_safe_area.size * display_to_viewport
-	).intersection(viewport_rect)
-	return mapped if mapped.has_area() else viewport_rect
+func _on_back_pressed() -> void:
+	if _is_room_open() or _network_search_active:
+		_leave_room()
+	else:
+		_show_screen("home")
 
 
 func _on_difficulty_changed(index: int) -> void:
-	_selected_difficulty = index
-	difficulty_option.selected = index
+	_selected_difficulty = clampi(index, 0, 2)
 	GameManager.selected_difficulty = _selected_difficulty
+	_refresh_selection()
+
+
+func _on_population_selected(limit: int) -> void:
+	_selected_population_limit = SkirmishData.normalize_population_limit(limit)
 	GameManager.selected_population_limit = _selected_population_limit
-	GameManager.save_preferences()
-	_apply_difficulty_description()
+	_refresh_selection()
+
+
+func _on_guided_opening_toggled(enabled: bool) -> void:
+	GameManager.guided_opening_enabled = enabled
 	_refresh_main_menu_diagnostics()
 
 
-func _apply_difficulty_description() -> void:
-	start_button.text = "Play solo" if GameManager.selected_match_mode == SkirmishData.MatchMode.STANDARD else "Play control race"
-	difficulty_description.text = DIFFICULTY_DESCRIPTIONS[_selected_difficulty]
-	difficulty_description.tooltip_text = difficulty_description.text
-	difficulty_description.add_theme_color_override("font_color", THEME.MUTED)
-	for index: int in _difficulty_buttons.size():
-		_difficulty_buttons[index].set_pressed_no_signal(index == _selected_difficulty)
+func _on_seed_text_changed(_text: String) -> void:
 	_refresh_main_menu_diagnostics()
 
 
@@ -620,187 +629,167 @@ func _on_random_seed_pressed() -> void:
 	_refresh_main_menu_diagnostics()
 
 
-func _on_guided_opening_toggled(pressed: bool) -> void:
-	GameManager.guided_opening_enabled = pressed
-	GameManager.save_preferences()
-	_refresh_main_menu_diagnostics()
-
-
 func _on_settings_pressed() -> void:
 	_shared_settings = preload("res://scripts/ui/settings_panel.gd").open(self)
-	_shared_settings.closed.connect(_on_shared_settings_closed)
-	settings_overlay.visible = false
-	# The formerly hidden overlay needs one layout frame before its child bounds
-	# are meaningful to touch automation and accessibility diagnostics.
+	_shared_settings.closed.connect(_on_settings_closed)
+	_refresh_web_update_safety()
 	call_deferred("_refresh_responsive_layout")
 
 
-func _on_shared_settings_closed() -> void:
-	_selected_difficulty = GameManager.selected_difficulty
-	_selected_population_limit = GameManager.selected_population_limit
-	difficulty_option.select(_selected_difficulty)
-	guided_opening_toggle.set_pressed_no_signal(GameManager.guided_opening_enabled)
-	seed_input.text = str(GameManager.selected_map_seed) if GameManager.selected_map_seed >= 0 else ""
-	_apply_difficulty_description()
-	_refresh_population_choices()
+func _on_settings_closed() -> void:
+	_shared_settings = null
+	_refresh_web_update_safety()
 	call_deferred("_refresh_responsive_layout")
 
 
-func _on_settings_close_pressed() -> void:
-	settings_overlay.visible = false
-	call_deferred("_refresh_responsive_layout")
-
-
-func _on_audio_toggled(pressed: bool) -> void:
-	GameManager.audio_enabled = pressed
-	GameManager.apply_preferences()
-	GameManager.save_preferences()
-
-
-func _on_hold_shortcuts_toggled(enabled: bool) -> void:
-	GameManager.hold_shortcuts_enabled = enabled
-	GameManager.save_preferences()
-
-
-func _on_camera_speed_selected(index: int) -> void:
-	GameManager.camera_speed_scale = CAMERA_SPEED_VALUES[clampi(index, 0, CAMERA_SPEED_VALUES.size() - 1)]
-	GameManager.save_preferences()
-
-
-func _on_ui_scale_selected(index: int) -> void:
-	GameManager.ui_scale = UI_SCALE_VALUES[clampi(index, 0, UI_SCALE_VALUES.size() - 1)]
-	GameManager.apply_preferences()
-	GameManager.save_preferences()
-
-
-func _on_seed_text_changed(_new_text: String) -> void:
-	_refresh_main_menu_diagnostics()
+func _refresh_web_update_safety() -> void:
+	# A waiting room is a live connection too. Status changes and closing Settings
+	# must not let a pending service-worker update reload a room or loading match.
+	var session_state: String = str(_session.get("state")) if _session != null else "idle"
+	_web_update_safe = not is_instance_valid(_shared_settings) and session_state in ["idle", "error"]
+	WEB_SHELL_BRIDGE.set_update_safe(_web_update_safe)
 
 
 func _on_start_pressed() -> void:
-	if _network_search_active:
-		get_node("/root/NetworkSession").call("cancel_search")
+	if start_button.disabled:
 		return
-	if not WEB_SHELL_BRIDGE.begin_match():
+	if _is_room_open():
+		_session.call("start_hosted_match")
+		return
+	if _mode != "solo" or not WEB_SHELL_BRIDGE.begin_match():
 		return
 	GameManager.selected_difficulty = _selected_difficulty
+	GameManager.selected_population_limit = _selected_population_limit
 	GameManager.guided_opening_enabled = guided_opening_toggle.button_pressed
 	var seed_text: String = seed_input.text.strip_edges()
-	GameManager.selected_map_seed = int(seed_text) if seed_text != "" and seed_text.is_valid_int() else -1
+	GameManager.selected_map_seed = maxi(-1, int(seed_text)) if seed_text.is_valid_int() else -1
 	GameManager.save_preferences()
-	# A touch-generated Button press is still being dispatched by Viewport while
-	# this callback runs. Removing the focused menu immediately leaves Web's
-	# emulated mouse/touch focus pointing at a detached Control for the remainder
-	# of that dispatch, which makes the engine call Node.can_process() outside the
-	# tree. Defer the swap until the input event is fully unwound.
 	start_button.disabled = true
+	# Preserve input dispatch lifetime on touch/Web, including repeat presses.
 	get_tree().call_deferred("change_scene_to_file", "res://scenes/main/main.tscn")
 
 
+func _refresh_responsive_layout() -> void:
+	if not is_node_ready():
+		return
+	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+	apply_mobile_layout(viewport_size, _get_safe_area_rect(viewport_size))
+	call_deferred("_refresh_main_menu_diagnostics")
+
+
+func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
+	_active_safe_area = safe_area.intersection(Rect2(Vector2.ZERO, viewport_size))
+	if not _active_safe_area.has_area():
+		_active_safe_area = Rect2(Vector2.ZERO, viewport_size)
+	if is_instance_valid(_shared_settings):
+		_shared_settings.apply_mobile_layout(viewport_size, _active_safe_area)
+	_compact_layout = _active_safe_area.size.y <= COMPACT_LAYOUT_MAX_HEIGHT
+	var compact: bool = _compact_layout
+	var desired_tab_parent: Node = _header if compact else _setup
+	if _tabs.get_parent() != desired_tab_parent:
+		_tabs.reparent(desired_tab_parent)
+		desired_tab_parent.move_child(_tabs, 1 if compact else 0)
+	_page_title.visible = not compact or _screen == "home"
+	_home_intro.visible = not compact
+	_home_note.visible = not compact
+	var margin: float = 12.0 if compact else 32.0
+	var web_clearance: float = WEB_SHELL_BRIDGE.get_menu_top_clearance(viewport_size)
+	var available: Rect2 = _active_safe_area.grow(-margin)
+	if web_clearance > available.position.y:
+		available.size.y -= web_clearance - available.position.y
+		available.position.y = web_clearance
+	var max_width: float = 1280.0
+	if available.size.x > max_width:
+		available.position.x += (available.size.x - max_width) * 0.5
+		available.size.x = max_width
+	_root_margin.position = available.position
+	_root_margin.size = available.size
+	_shell.add_theme_constant_override("separation", 6 if compact else 14)
+	_setup.add_theme_constant_override("separation", 6 if compact else 14)
+	_columns.add_theme_constant_override("separation", 12 if compact else 24)
+	_map_cards.add_theme_constant_override("separation", 6 if compact else 12)
+	_map_panel.add_theme_constant_override("separation", 4 if compact else 8)
+	_options_panel.custom_minimum_size.x = 236 if compact else 310
+	_columns.vertical = available.size.x < 560
+	_page_title.add_theme_font_size_override("font_size", 18 if compact else 22)
+	_header.add_theme_constant_override("separation", 8 if compact else 16)
+	for button: Button in [_solo_tab, _online_tab]:
+		button.custom_minimum_size.x = 140 if compact else 180
+	_map_note.visible = not compact
+	map_summary_label.add_theme_font_size_override("font_size", 13 if compact else 15)
+	map_summary_label.custom_minimum_size.y = 30 if compact else 38
+	for i: int in _map_buttons.size():
+		_map_buttons[i].custom_minimum_size.y = 126 if compact else 240
+		_map_previews[i].custom_minimum_size.y = 54 if compact else 144
+		_map_names[i].add_theme_font_size_override("font_size", 14 if compact else 18)
+		_map_badges[i].add_theme_font_size_override("font_size", 10 if compact else 12)
+	_home.add_theme_constant_override("separation", 24 if compact else 64)
+	_home_actions.custom_minimum_size.x = minf(310, available.size.x * 0.43)
+	title_label.add_theme_font_size_override("font_size", 34 if compact else 60)
+	promise_label.add_theme_font_size_override("font_size", 22 if compact else 30)
+	_selection_summary.add_theme_font_size_override("font_size", 13 if compact else 16)
+	start_button.custom_minimum_size.x = 158 if compact else 200
+	start_button.custom_minimum_size.y = 48 if compact else 56
+	if available.size.x < 560:
+		_home.vertical = true
+		_home_actions.custom_minimum_size.x = 0
+		_hero_art.custom_minimum_size.y = 90
+	else:
+		_home.vertical = false
+		_hero_art.custom_minimum_size.y = 0
+
+
+func _get_safe_area_rect(viewport_size: Vector2) -> Rect2:
+	var viewport_rect := Rect2(Vector2.ZERO, viewport_size)
+	if OS.has_feature("web"):
+		return WEB_SHELL_BRIDGE.get_safe_area_rect(viewport_size)
+	if not OS.has_feature("mobile"):
+		return viewport_rect
+	var safe_rect: Rect2i = DisplayServer.get_display_safe_area()
+	var screen_id: int = DisplayServer.SCREEN_OF_MAIN_WINDOW
+	return map_display_safe_area_to_viewport(Rect2(safe_rect), Rect2(Vector2(DisplayServer.screen_get_position(screen_id)), Vector2(DisplayServer.screen_get_size(screen_id))), viewport_size)
+
+
+static func map_display_safe_area_to_viewport(raw_safe_area: Rect2, display_rect: Rect2, viewport_size: Vector2) -> Rect2:
+	var viewport_rect := Rect2(Vector2.ZERO, viewport_size)
+	if not raw_safe_area.has_area() or not display_rect.has_area():
+		return viewport_rect
+	var clipped: Rect2 = raw_safe_area.intersection(display_rect)
+	if not clipped.has_area():
+		return viewport_rect
+	var factor := viewport_size / display_rect.size
+	return Rect2((clipped.position - display_rect.position) * factor, clipped.size * factor).intersection(viewport_rect)
+
+
 func _refresh_main_menu_diagnostics() -> void:
-	if OS.has_feature("production"):
+	if not is_inside_tree() or not is_instance_valid(start_button) or OS.has_feature("production"):
 		return
 	main_menu_diagnostics = {
-		"ready": is_node_ready(),
-		"title": title_label.text,
-		"promise": promise_label.text,
-		"map_summary": map_summary_label.text,
-		"selected_difficulty": _selected_difficulty,
-		"selected_population_limit": _selected_population_limit,
-		"population_choices": _population_choice_diagnostics(),
-		"difficulty_name": DIFFICULTY_NAMES[_selected_difficulty],
-		"difficulty_description": difficulty_description.text,
+		"ready": is_node_ready(), "screen": _screen, "mode": _mode,
+		"title": title_label.text, "map_summary": map_summary_label.text,
+		"selected_map_archetype": int(_session.get("match_map_archetype")) if _is_room_open() else GameManager.selected_map_archetype,
+		"selected_difficulty": _selected_difficulty, "selected_population_limit": _selected_population_limit,
 		"compact_layout": _compact_layout,
-		"viewport_width": get_viewport().get_visible_rect().size.x,
-		"viewport_height": get_viewport().get_visible_rect().size.y,
-		"safe_area": {
-			"x": _active_safe_area.position.x,
-			"y": _active_safe_area.position.y,
-			"width": _active_safe_area.size.x,
-			"height": _active_safe_area.size.y,
-		},
-		"guided_opening_enabled": guided_opening_toggle.button_pressed,
-		"seed_text": seed_input.text,
-		"main_menu_bounds": _control_diag(content_vbox, "main_menu_bounds"),
-		"start_button": _control_diag(start_button, "main_menu_start"),
-		"difficulty_option": _control_diag(difficulty_option, "main_menu_difficulty"),
-		"difficulty_choices": _difficulty_button_diagnostics(),
-		"kingdom_preview": _control_diag(_hero, "main_menu_kingdom_preview"),
-		"random_seed_button": _control_diag(random_seed_button, "main_menu_random_seed"),
-		"guided_opening_toggle": _control_diag(guided_opening_toggle, "main_menu_guided_opening"),
-		"seed_input": _control_diag(seed_input, "main_menu_seed_input"),
-		"settings_open": is_instance_valid(_shared_settings) or settings_overlay.visible,
-		"settings_button": _control_diag(settings_button, "main_menu_settings"),
-		"settings_bounds": _control_diag(settings_panel, "main_menu_settings_bounds"),
-		"settings_title": _control_diag(settings_title, "main_menu_settings_title"),
-		"settings_controls": _control_diag(settings_controls, "main_menu_settings_controls"),
-		"settings_close_button": _control_diag(settings_close_button, "main_menu_settings_close"),
-		"audio_toggle": _control_diag(audio_toggle, "main_menu_audio_toggle"),
-		"hold_shortcuts_toggle": _control_diag(_hold_shortcuts_toggle, "main_menu_hold_shortcuts"),
-		"camera_speed_label": _control_diag(camera_speed_label, "main_menu_camera_speed_label"),
-		"camera_speed_option": _control_diag(camera_speed_option, "main_menu_camera_speed"),
-		"ui_scale_label": _control_diag(ui_scale_label, "main_menu_ui_scale_label"),
-		"ui_scale_option": _control_diag(ui_scale_option, "main_menu_ui_scale"),
-		"audio_enabled": audio_toggle.button_pressed,
-		"camera_speed_scale": GameManager.camera_speed_scale,
-		"ui_scale": GameManager.ui_scale,
+		"viewport_width": get_viewport().get_visible_rect().size.x, "viewport_height": get_viewport().get_visible_rect().size.y,
+		"safe_area": {"x": _active_safe_area.position.x, "y": _active_safe_area.position.y, "width": _active_safe_area.size.x, "height": _active_safe_area.size.y},
+		"main_menu_bounds": _control_diag(_root_margin), "kingdom_preview": _control_diag(_hero),
+		"start_button": _control_diag(start_button), "new_game_button": _control_diag(_new_game_button),
+		"settings_button": _control_diag(settings_button), "guided_opening_toggle": _control_diag(guided_opening_toggle),
+		"seed_input": _control_diag(seed_input), "random_seed_button": _control_diag(random_seed_button),
+		"difficulty_option": _control_diag(difficulty_option), "difficulty_choices": _button_diagnostics(_difficulty_buttons),
+		"map_choices": _button_diagnostics(_map_buttons), "population_choices": _button_diagnostics(_population_buttons),
+		"settings_open": is_instance_valid(_shared_settings), "room_open": _is_room_open(),
+		"web_update_safe": _web_update_safe,
 	}
 
 
-func _population_choice_diagnostics() -> Array[Dictionary]:
-	var result: Array[Dictionary] = []
-	for button: Button in _population_buttons:
-		result.append(_control_diag(button, "main_menu_population_choice"))
-	return result
+func _button_diagnostics(buttons: Array[Button]) -> Array[Dictionary]:
+	var results: Array[Dictionary] = []
+	for button: Button in buttons:
+		results.append(_control_diag(button))
+	return results
 
 
-func _difficulty_button_diagnostics() -> Array[Dictionary]:
-	var result: Array[Dictionary] = []
-	for button: Button in _difficulty_buttons:
-		result.append(_control_diag(button, "main_menu_difficulty_choice"))
-	return result
-
-
-func _control_diag(control: Control, role: String) -> Dictionary:
-	# Diagnostics and injected input use root-viewport logical coordinates. Using
-	# get_screen_position() mixes in stretch/HiDPI transforms on real phones.
-	var screen_pos: Vector2 = control.get_global_rect().position
-	var size: Vector2 = control.size
-	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
-	var within_viewport: bool = (
-		screen_pos.x >= -0.5
-		and screen_pos.y >= -0.5
-		and screen_pos.x + size.x <= viewport_size.x + 0.5
-		and screen_pos.y + size.y <= viewport_size.y + 0.5
-	)
-	var width: float = size.x
-	var height: float = size.y
-	var within_safe_area: bool = (
-		screen_pos.x >= _active_safe_area.position.x - 0.5
-		and screen_pos.y >= _active_safe_area.position.y - 0.5
-		and screen_pos.x + size.x <= _active_safe_area.end.x + 0.5
-		and screen_pos.y + size.y <= _active_safe_area.end.y + 0.5
-	)
-	var disabled: bool = false
-	if control is BaseButton:
-		disabled = (control as BaseButton).disabled
-	return {
-		"role": role,
-		"name": control.name,
-		"path": str(control.get_path()),
-		"visible": control.is_visible_in_tree(),
-		"disabled": disabled,
-		"width": width,
-		"height": height,
-		"aspect_ratio": width / height if height > 0.0 else 0.0,
-		# Checkboxes, text fields, and dropdowns are intentionally row-shaped.
-		# Their height is the touch-target constraint; the generic sliver rule is
-		# only useful for ordinary action buttons.
-		"allows_wide_touch_target": control is CheckButton or control is LineEdit or control is OptionButton,
-		"within_viewport": within_viewport,
-		"within_safe_area": within_safe_area,
-		"x": screen_pos.x,
-		"y": screen_pos.y,
-		"min_width": control.custom_minimum_size.x,
-		"min_height": control.custom_minimum_size.y,
-	}
+func _control_diag(control: Control) -> Dictionary:
+	var rect: Rect2 = control.get_global_rect()
+	return {"name": control.name, "path": str(control.get_path()), "visible": control.is_visible_in_tree(), "disabled": control.disabled if control is BaseButton else false, "x": rect.position.x, "y": rect.position.y, "width": rect.size.x, "height": rect.size.y, "within_viewport": Rect2(Vector2.ZERO, get_viewport().get_visible_rect().size).grow(0.5).encloses(rect), "within_safe_area": _active_safe_area.grow(0.5).encloses(rect)}

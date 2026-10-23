@@ -1,22 +1,23 @@
 class_name KingdomTheme
 extends RefCounted
-## Field-atlas typography and restrained, high-contrast touch controls.
+## Illuminated command atlas: navy surfaces, parchment type, antique-gold actions.
 
-const INK := Color("171c1d")
-const INK_PANEL := Color("202729")
-const INK_LIGHT := Color("293235")
-const PARCHMENT := Color("e8e5db")
-const MUTED := Color("a6afad")
-const RUST := Color("d69477")
-const AMBER := RUST # Compatibility name for existing notices and accents.
-const TEAL := Color("88b7ad")
-const BORDER := Color("465150")
+const INK := Color("101c2c")
+const INK_PANEL := Color("192a3c")
+const INK_LIGHT := Color("24394c")
+const PARCHMENT := Color("f2e6c9")
+const MUTED := Color("aeb8c0")
+const RUST := Color("df947f")
+const GOLD := Color("d8b36b")
+const AMBER := GOLD
+const TEAL := Color("9fc7d0")
+const BORDER := Color("455a6a")
 const FONT_BODY := preload("res://assets/fonts/Barlow-Regular.ttf")
 const FONT_MEDIUM := preload("res://assets/fonts/Barlow-Medium.ttf")
-const FONT_HEADING := preload("res://assets/fonts/BarlowCondensed-SemiBold.ttf")
+const FONT_HEADING := preload("res://assets/fonts/Cinzel.ttf")
 
 
-static func panel_style(background: Color = INK_PANEL, border: Color = BORDER, radius: int = 4) -> StyleBoxFlat:
+static func panel_style(background: Color = INK_PANEL, border: Color = BORDER, radius: int = 2) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = background
 	style.border_color = border
@@ -26,17 +27,52 @@ static func panel_style(background: Color = INK_PANEL, border: Color = BORDER, r
 	return style
 
 
-static func button_style(kind: String = "secondary", state: String = "normal") -> StyleBoxTexture:
-	var family: String = kind if kind in ["primary", "secondary"] else "secondary"
-	var variant: String = state if state in ["normal", "hover", "pressed", "disabled", "focus"] else "normal"
-	var style := StyleBoxTexture.new()
-	style.texture = load("res://assets/ui/plates/%s_%s.svg" % [family, variant]) as Texture2D
-	for side: int in [SIDE_LEFT, SIDE_RIGHT, SIDE_TOP, SIDE_BOTTOM]:
-		style.set_texture_margin(side, 12.0)
+static func button_style(kind: String = "secondary", state: String = "normal") -> StyleBoxFlat:
+	var primary: bool = kind == "primary"
+	var background: Color = AMBER if primary else INK_LIGHT
+	var border: Color = AMBER if primary else BORDER
+	match state:
+		"hover":
+			background = Color("edcb85") if primary else Color("304b60")
+			border = PARCHMENT if primary else AMBER
+		"pressed":
+			background = Color("b99554") if primary else AMBER
+			border = PARCHMENT
+		"disabled":
+			background = Color("192636")
+			border = Color("354656")
+		"focus":
+			background = Color.TRANSPARENT
+			border = PARCHMENT
+	var style: StyleBoxFlat = panel_style(background, border, 2)
+	style.border_width_bottom = 2
+	if state == "focus":
+		style.set_border_width_all(2)
 	style.content_margin_left = 16.0
 	style.content_margin_right = 16.0
-	style.content_margin_top = 7.0
-	style.content_margin_bottom = 7.0
+	style.content_margin_top = 8.0
+	style.content_margin_bottom = 8.0
+	return style
+
+
+static func apply_heading(label: Label, size: int = 24) -> void:
+	label.add_theme_font_override("font", FONT_HEADING)
+	label.add_theme_font_size_override("font_size", size)
+	label.add_theme_color_override("font_color", PARCHMENT)
+
+
+static func apply_eyebrow(label: Label) -> void:
+	label.add_theme_font_override("font", FONT_MEDIUM)
+	label.add_theme_font_size_override("font_size", 12)
+	label.add_theme_color_override("font_color", AMBER)
+
+
+static func inset_panel() -> StyleBoxFlat:
+	var style: StyleBoxFlat = panel_style(INK, BORDER)
+	style.content_margin_left = 14
+	style.content_margin_right = 14
+	style.content_margin_top = 12
+	style.content_margin_bottom = 12
 	return style
 
 
@@ -46,11 +82,11 @@ static func create_theme() -> Theme:
 	theme.default_font_size = 16
 	theme.set_color("font_color", "Label", PARCHMENT)
 	theme.set_stylebox("panel", "PanelContainer", panel_style())
-	var normal: StyleBoxTexture = button_style()
-	var hover: StyleBoxTexture = button_style("secondary", "hover")
-	var pressed: StyleBoxTexture = button_style("secondary", "pressed")
-	var disabled: StyleBoxTexture = button_style("secondary", "disabled")
-	var focus: StyleBoxTexture = button_style("secondary", "focus")
+	var normal: StyleBoxFlat = button_style()
+	var hover: StyleBoxFlat = button_style("secondary", "hover")
+	var pressed: StyleBoxFlat = button_style("secondary", "pressed")
+	var disabled: StyleBoxFlat = button_style("secondary", "disabled")
+	var focus: StyleBoxFlat = button_style("secondary", "focus")
 	for control_type: String in ["Button", "OptionButton", "CheckButton"]:
 		theme.set_font("font", control_type, FONT_MEDIUM)
 		theme.set_stylebox("normal", control_type, normal)

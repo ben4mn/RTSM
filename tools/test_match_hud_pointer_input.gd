@@ -110,8 +110,8 @@ func _run() -> void:
 	await _click(repeat_button.get_global_rect().get_center())
 	_expect(bool(queue.get("auto_queue_enabled")) and repeat_button.button_pressed, "repeat pointer click did not turn repetition ON")
 	_expect(repeat_button.text == "Scout\nON", "repeat active state is not visible")
-	var active_style: StyleBoxTexture = repeat_button.get_theme_stylebox("normal") as StyleBoxTexture
-	_expect(active_style != null and active_style.texture.resource_path.ends_with("primary_normal.svg") and repeat_button.get_theme_color("font_color").is_equal_approx(KingdomTheme.INK), "repeat active state lacks its primary plate and readable ink label")
+	var active_style: StyleBoxFlat = repeat_button.get_theme_stylebox("normal") as StyleBoxFlat
+	_expect(active_style != null and active_style.bg_color == KingdomTheme.GOLD and repeat_button.get_theme_color("font_color").is_equal_approx(KingdomTheme.INK), "repeat active state lacks its primary plate and readable ink label")
 	_assert_initial_training_row(scroll, [villager_button, scout_button, repeat_button])
 	await _capture("tc-repeat-on-844x390")
 	await get_tree().process_frame

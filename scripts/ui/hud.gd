@@ -57,8 +57,8 @@ const MOBILE_MINIMAP_SHORT_SIDE_RATIO := 0.27
 const MOBILE_TOP_BAR_COMPACT_SHORT_SIDE := 520.0
 const MOBILE_TOP_BAR_COMPACT_WIDTH := 780.0
 const MOBILE_SELECTION_COMMAND_WIDTH := 520.0
-const MOBILE_SELECTION_HEIGHT := 72.0
-const MOBILE_UNIT_SELECTION_HEIGHT := 64.0
+const MOBILE_SELECTION_HEIGHT := 80.0
+const MOBILE_UNIT_SELECTION_HEIGHT := 72.0
 const MOBILE_DOCK_CAPTION_HEIGHT := 24.0
 const MOBILE_TOP_RAIL_HEIGHT := 56.0
 const MOBILE_UNIT_COMMAND_WIDTH := 48.0
@@ -649,7 +649,7 @@ func set_area_selection_armed(armed: bool) -> void:
 	_area_selection_armed = armed
 	if _select_area_button:
 		_select_area_button.set_pressed_no_signal(armed)
-		CommandIcons.apply(_select_area_button, "select_area", "Drag to select; tap again to cancel" if armed else "Select area")
+		CommandIcons.apply_labeled(_select_area_button, "select_area", "Drag to select; tap again to cancel" if armed else "Select area", "Select")
 	set_progression_hint("Drag to select" if armed else "")
 	_queue_mobile_layout_refresh()
 
@@ -715,7 +715,7 @@ func _configure_mobile_visuals() -> void:
 		frame_style.bg_color = Color(0.0, 0.0, 0.0, 0.0)
 		frame_style.border_color = KingdomTheme.BORDER
 		frame_style.set_border_width_all(2)
-		frame_style.set_corner_radius_all(6)
+		frame_style.set_corner_radius_all(2)
 		_minimap_frame.add_theme_stylebox_override("panel", frame_style)
 		minimap_bg.add_child(_minimap_frame)
 
@@ -789,7 +789,8 @@ func _refresh_command_icons() -> void:
 	for entry: Array in definitions:
 		var button: Button = entry[0]
 		if is_instance_valid(button):
-			CommandIcons.apply(button, entry[1], entry[2])
+			var captions: Dictionary = {"pause": "Menu", "resume": "Resume", "view": "View", "select_area": "Select", "back": "Back", "move": "Move", "attack": "Attack", "more": "Orders", "clear": "Clear", "build": "Build", "close": "Close"}
+			CommandIcons.apply_labeled(button, entry[1], entry[2], captions.get(entry[1], ""))
 			button.custom_minimum_size = Vector2(48.0, 48.0)
 			button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	CommandIcons.set_badge(_unit_more_button, "•" if _unit_command_mode == "patrol" else "")
@@ -896,7 +897,7 @@ func _create_pause_overlay() -> void:
 	var online: bool = NetworkSession.is_client()
 	_pause_overlay = ColorRect.new()
 	_pause_overlay.name = "PauseOverlay"
-	_pause_overlay.color = Color(KingdomTheme.INK, 0.94)
+	_pause_overlay.color = Color(KingdomTheme.INK, 0.84)
 	_pause_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_pause_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 	_pause_overlay.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -907,11 +908,11 @@ func _create_pause_overlay() -> void:
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	vbox.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	vbox.custom_minimum_size = Vector2(250, 0)
-	vbox.add_theme_constant_override("separation", 6)
+	vbox.add_theme_constant_override("separation", 10)
 	vbox.process_mode = Node.PROCESS_MODE_ALWAYS
 
 	var title := Label.new()
-	title.text = "MATCH MENU" if online else "PAUSED"
+	title.text = "The battle continues" if online else "A moment of counsel"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 24)
 	title.add_theme_font_override("font", KingdomTheme.FONT_HEADING)
@@ -925,7 +926,7 @@ func _create_pause_overlay() -> void:
 	resume_btn.name = "ResumeButton"
 	resume_btn.text = "Return to match" if online else "Resume"
 	resume_btn.tooltip_text = "Return to match [Esc / P]"
-	resume_btn.custom_minimum_size = Vector2(192, 48)
+	resume_btn.custom_minimum_size = Vector2(296, 48)
 	resume_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	resume_btn.process_mode = Node.PROCESS_MODE_ALWAYS
 	resume_btn.pressed.connect(func() -> void:
@@ -936,12 +937,12 @@ func _create_pause_overlay() -> void:
 
 	var pause_help := Label.new()
 	pause_help.name = "PauseHelpLabel"
-	pause_help.text = "Play continues online. Leaving forfeits." if online else "Resume or press Esc / P to continue."
+	pause_help.text = "Online match · Play continues. Leaving forfeits." if online else "Battle paused · Esc / P to resume"
 	pause_help.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	pause_help.custom_minimum_size = Vector2(250, 18)
 	pause_help.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	pause_help.clip_text = true
-	pause_help.add_theme_font_size_override("font_size", 12)
+	pause_help.add_theme_font_size_override("font_size", 13)
 	pause_help.add_theme_color_override("font_color", KingdomTheme.MUTED)
 	vbox.add_child(pause_help)
 
@@ -972,18 +973,27 @@ func _create_pause_overlay() -> void:
 	utility_row.add_child(report_btn)
 	_match_learning_button = Button.new()
 	_match_learning_button.name = "MatchLearningButton"
-	_match_learning_button.text = "Battle lessons: ON" if _match_learning_active else "Learn full match"
+	_match_learning_button.text = "Lessons: on" if _match_learning_active else "Battle lessons"
 	_match_learning_button.custom_minimum_size = Vector2(192, 48)
 	_match_learning_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_match_learning_button.process_mode = Node.PROCESS_MODE_ALWAYS
 	_match_learning_button.pressed.connect(func() -> void: match_learning_requested.emit())
-	vbox.add_child(_match_learning_button)
+	var departure_row := HBoxContainer.new()
+	departure_row.name = "DepartureRow"
+	departure_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	departure_row.add_theme_constant_override("separation", 8)
+	vbox.add_child(departure_row)
+	_match_learning_button.custom_minimum_size.x = 144
+	_match_learning_button.add_theme_font_size_override("font_size", 14)
+	departure_row.add_child(_match_learning_button)
 	_match_learning_button.visible = not online
 
 	var quit_btn := Button.new()
 	quit_btn.name = "QuitButton"
-	quit_btn.text = "Leave match" if online else "Quit to Main Menu"
-	quit_btn.custom_minimum_size = Vector2(192, 48)
+	quit_btn.text = "Leave match" if online else "Main menu"
+	quit_btn.custom_minimum_size = Vector2(144, 48)
+	quit_btn.add_theme_font_size_override("font_size", 14)
+	quit_btn.add_theme_color_override("font_color", KingdomTheme.RUST)
 	quit_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	quit_btn.process_mode = Node.PROCESS_MODE_ALWAYS
 	quit_btn.pressed.connect(func() -> void:
@@ -992,8 +1002,15 @@ func _create_pause_overlay() -> void:
 		quit_btn.disabled = true
 		quit_to_menu_requested.emit()
 	)
-	vbox.add_child(quit_btn)
+	departure_row.add_child(quit_btn)
 
+	var frame := Panel.new()
+	frame.name = "PauseFrame"
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var frame_style := KingdomTheme.panel_style(KingdomTheme.INK_PANEL, KingdomTheme.GOLD, 2)
+	frame_style.border_width_top = 3
+	frame.add_theme_stylebox_override("panel", frame_style)
+	_pause_overlay.add_child(frame)
 	_pause_overlay.add_child(vbox)
 	get_node("Root").add_child(_pause_overlay)
 	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
@@ -1017,6 +1034,10 @@ func _layout_pause_menu(viewport_size: Vector2, safe_area: Rect2) -> void:
 	desired_size.y = minf(desired_size.y, available_size.y)
 	pause_menu.size = desired_size
 	pause_menu.position = safe_bounds.position + (safe_bounds.size - desired_size) * 0.5
+	var frame := _pause_overlay.get_node_or_null("PauseFrame") as Control
+	if frame:
+		frame.position = pause_menu.position - Vector2(20, 14)
+		frame.size = pause_menu.size + Vector2(40, 28)
 
 
 func _set_gameplay_ui_interactable(interactable: bool) -> void:
@@ -1133,7 +1154,10 @@ func _create_command_dock() -> void:
 	_command_dock.name = "CommandDock"
 	_command_dock.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_command_dock.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	_command_dock.add_theme_stylebox_override("panel", KingdomTheme.panel_style(KingdomTheme.INK_PANEL, KingdomTheme.BORDER, 4))
+	var dock_style := KingdomTheme.panel_style(KingdomTheme.INK_PANEL, KingdomTheme.BORDER, 2)
+	dock_style.border_width_top = 2
+	dock_style.border_color = KingdomTheme.GOLD.darkened(0.25)
+	_command_dock.add_theme_stylebox_override("panel", dock_style)
 	$Root.add_child(_command_dock)
 	$Root.move_child(_command_dock, 0)
 	selection_panel.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
@@ -1403,7 +1427,7 @@ func _make_unit_command_button(button_name: String, label: String, tooltip: Stri
 	button.custom_minimum_size = Vector2(MOBILE_UNIT_COMMAND_WIDTH, MOBILE_ACTION_BUTTON_HEIGHT)
 	button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	button.add_theme_font_size_override("font_size", 14)
-	var compact_style: StyleBoxTexture = KingdomTheme.button_style()
+	var compact_style: StyleBox = KingdomTheme.button_style()
 	compact_style.set_content_margin(SIDE_LEFT, 8.0)
 	compact_style.set_content_margin(SIDE_RIGHT, 8.0)
 	button.add_theme_stylebox_override("normal", compact_style)
@@ -1737,15 +1761,15 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 	selection_panel.offset_top = metrics["selection_top"]
 	selection_panel.custom_minimum_size = Vector2(metrics["selection_width"], metrics["selection_height"])
 	selection_info_column.custom_minimum_size.x = metrics["selection_info_width"]
-	var compact_tc_info: bool = bool(metrics["top_bar_compact"]) and _is_town_center_production_context()
-	selection_name.add_theme_font_size_override("font_size", 12 if compact_tc_info else 14)
-	selection_details.add_theme_font_size_override("font_size", 10 if compact_tc_info else 11)
+	var compact_tc_info: bool = _is_town_center_production_context()
+	selection_name.add_theme_font_size_override("font_size", 13 if compact_tc_info else 15)
+	selection_details.add_theme_font_size_override("font_size", 11 if compact_tc_info else 12)
 	if compact_tc_info:
 		selection_details.add_theme_constant_override("line_spacing", 0)
 	else:
 		selection_details.remove_theme_constant_override("line_spacing")
-	selection_hp_bar.custom_minimum_size.y = 8.0 if compact_tc_info else 10.0
-	selection_info_column.add_theme_constant_override("separation", 0)
+	selection_hp_bar.custom_minimum_size.y = 4.0
+	selection_info_column.add_theme_constant_override("separation", 3)
 	_update_selection_name_layout(float(metrics["selection_info_width"]) - 26.0)
 	if _selection_info_button:
 		_selection_info_button.visible = _selection_context_active and standard_field_chrome_visible
@@ -1946,11 +1970,12 @@ func _calculate_mobile_layout_metrics(viewport_size: Vector2, safe_area: Rect2, 
 	var selection_width: float = 166.0
 	if selection_has_commands:
 		selection_width = minf(selection_zone_width, MOBILE_SELECTION_COMMAND_WIDTH)
-	if phone and _auto_queue_button != null and _train_buttons_container != null and _train_buttons_container.visible:
-		var showing_queue: bool = _queue_view_requested or (queue_container.visible and command_scroll.scroll_horizontal > maxi(1, int(queue_container.position.x * 0.5)))
-		var page_width: float = _production_row_width(queue_container) if showing_queue else _production_row_width(_train_buttons_container)
+	if _auto_queue_button != null and _train_buttons_container != null and _train_buttons_container.visible:
+		# Both pages use the same viewport width, so opening or refreshing the
+		# queue cannot clamp its scroll position while the shelf changes size.
+		var page_width: float = maxf(_production_row_width(queue_container), _production_row_width(_train_buttons_container))
 		info_width = 88.0 if _is_town_center_production_context() else 108.0
-		selection_width = minf(selection_zone_width, ceilf(info_width + page_width + 48.0 + (16.0 if _is_town_center_production_context() else 28.0) + 16.0) + 2.0)
+		selection_width = minf(selection_zone_width, ceilf(info_width + page_width + 48.0 + (16.0 if phone and _is_town_center_production_context() else 28.0) + 16.0) + 2.0)
 	elif phone and unit_commands_visible:
 		var command_width: float = _production_row_width(_unit_command_container)
 		# Keep every frequent action fully visible at scroll0, including Clear.
@@ -2174,7 +2199,7 @@ func _refresh_touch_target_diagnostics() -> void:
 		var pause_menu: Control = _pause_overlay.get_node_or_null("PauseMenu")
 		diag["pause_menu"] = _control_touch_diag(pause_menu, "pause_menu")
 		var resume_btn: Control = _pause_overlay.get_node_or_null("PauseMenu/ResumeButton")
-		var quit_btn: Control = _pause_overlay.get_node_or_null("PauseMenu/QuitButton")
+		var quit_btn: Control = _pause_overlay.get_node_or_null("PauseMenu/DepartureRow/QuitButton")
 		diag["pause_menu_resume"] = _control_touch_diag(resume_btn, "pause_menu_resume")
 		diag["pause_menu_quit"] = _control_touch_diag(quit_btn, "pause_menu_quit")
 		diag["pause_menu_learning"] = _control_touch_diag(_match_learning_button, "pause_menu_learning")
@@ -2183,14 +2208,14 @@ func _refresh_touch_target_diagnostics() -> void:
 
 func _apply_top_bar_compact(compact: bool) -> void:
 	if _match_population_label:
-		_match_population_label.visible = not compact
+		_match_population_label.visible = false
+	if _resource_node_legend:
+		_resource_node_legend.visible = false
 	top_bar.custom_minimum_size = Vector2(0, MOBILE_TOP_RAIL_HEIGHT)
 	if compact == _top_bar_compact:
 		return
 	_top_bar_compact = compact
 	top_bar_hbox.add_theme_constant_override("separation", 8 if compact else 14)
-	if _resource_node_legend:
-		_resource_node_legend.visible = not compact
 	age_label.visible = not compact
 	var font_size: int = 14 if compact else 16
 	for label in [food_label, wood_label, gold_label, pop_label, age_label, game_time_label]:
@@ -2856,7 +2881,7 @@ func _update_queue_display(queue_items: Array) -> void:
 		queue_units.append(int(raw_unit_type))
 	queue_units.sort()
 	var desired_names: Dictionary = {}
-	var compact_training: bool = minf(get_viewport().get_visible_rect().size.x, get_viewport().get_visible_rect().size.y) <= 520.0
+	var compact_training: bool = _is_town_center_production_context() or minf(get_viewport().get_visible_rect().size.x, get_viewport().get_visible_rect().size.y) <= 520.0
 	queue_container.add_theme_constant_override("separation", 4 if compact_training else 6)
 	if training_label != "" and not compact_training:
 		desired_names["QueueTrainingChip"] = true
@@ -3029,8 +3054,6 @@ func _is_town_center_production_context() -> bool:
 		and _is_human_owned_building(_selected_building_ref)
 		and _selected_building_ref is BuildingBase
 		and (_selected_building_ref as BuildingBase).building_type == BuildingData.BuildingType.TOWN_CENTER
-		and _train_buttons_container != null
-		and _train_buttons_container.visible
 	)
 
 
@@ -3044,6 +3067,8 @@ func _update_train_buttons(trainable_units: Array) -> void:
 		var parent_vbox: Control = queue_container.get_parent()
 		if parent_vbox:
 			parent_vbox.add_child(_train_buttons_container)
+			if parent_vbox is Container:
+				(parent_vbox as Container).sort_children.connect(_on_production_pages_sorted)
 			# Recruiting stays at the start of the shelf as the queue grows.
 			parent_vbox.move_child(_train_buttons_container, 0)
 			_queue_page_spacer = Control.new()
@@ -3062,6 +3087,7 @@ func _update_train_buttons(trainable_units: Array) -> void:
 			_queue_navigation_button.pressed.connect(_on_queue_navigation_pressed)
 			selection_info_column.get_parent().add_child(_queue_navigation_button)
 			command_scroll.get_h_scroll_bar().value_changed.connect(_refresh_queue_navigation)
+			command_scroll.get_h_scroll_bar().changed.connect(_on_production_pages_sorted)
 
 	# Reconcile by stable names instead of rebuilding the row on every selection
 	# refresh. Main refreshes a selected production building every 0.5 seconds;
@@ -3096,7 +3122,7 @@ func _update_train_buttons(trainable_units: Array) -> void:
 
 	_train_buttons_container.visible = true
 	var viewport_size_for_cards: Vector2 = get_viewport().get_visible_rect().size
-	var compact_producer: bool = minf(viewport_size_for_cards.x, viewport_size_for_cards.y) <= 520.0
+	var compact_producer: bool = _is_town_center_production_context() or minf(viewport_size_for_cards.x, viewport_size_for_cards.y) <= 520.0
 	var compact_town_center: bool = _is_town_center_production_context() and compact_producer
 	_train_buttons_container.add_theme_constant_override("separation", 3 if compact_town_center else 8)
 	var child_index := 0
@@ -3130,9 +3156,9 @@ func _update_train_buttons(trainable_units: Array) -> void:
 			role_text = "Unarmed"
 		var status_text: String = str(availability.get("short", ""))
 		btn.text = "%s\n%s" % [unit_name, status_text if blocked else cost_str] if compact_producer else "%s%s\n%s\n%s" % [unit_name, queue_badge, cost_str, status_text if blocked else role_text]
-		btn.custom_minimum_size = Vector2(76 if compact_town_center else 90, 60) if compact_producer else Vector2(130, 48)
+		btn.custom_minimum_size = Vector2(76 if compact_town_center else 90, 66) if compact_producer else Vector2(130, 48)
 		btn.alignment = HORIZONTAL_ALIGNMENT_CENTER if compact_producer else HORIZONTAL_ALIGNMENT_LEFT
-		btn.add_theme_font_size_override("font_size", 10 if compact_producer else 13)
+		btn.add_theme_font_size_override("font_size", 11 if compact_producer else 14)
 		# Unavailable cards stay tappable so the existing command path explains
 		# failed purchases. Their visible status and Info describe the same state.
 		btn.add_theme_color_override("font_color", KingdomTheme.RUST if blocked else KingdomTheme.PARCHMENT)
@@ -3210,6 +3236,18 @@ func _layout_queue_page() -> void:
 	_refresh_queue_navigation()
 
 
+func _on_production_pages_sorted() -> void:
+	# Container resizing can clamp the scrollbar after the selection refresh
+	# has restored it. Align the owned page after the final child layout.
+	if _secondary_surface == SecondarySurface.QUEUE:
+		_align_queue_page_after_sort.call_deferred(_queue_navigation_revision)
+
+
+func _align_queue_page_after_sort(revision: int) -> void:
+	if revision == _queue_navigation_revision and _secondary_surface == SecondarySurface.QUEUE and queue_container.visible and selection_panel.visible:
+		command_scroll.scroll_horizontal = int(queue_container.position.x) + _queue_view_offset
+
+
 func _refresh_queue_navigation(_value: float = 0.0) -> void:
 	if _queue_navigation_button == null:
 		return
@@ -3230,7 +3268,10 @@ func _restore_producer_queue_view(building_ref: Node2D, offset: int, revision: i
 	# containers have sorted so their transient scrollbar clamp cannot hide work.
 	await get_tree().process_frame
 	await get_tree().process_frame
-	if revision == _queue_navigation_revision and _queue_view_requested and _selected_building_ref == building_ref and queue_container.visible and selection_panel.visible:
+	# Several container passes can finish for the same refresh. Reconcile the
+	# still-owned Queue page on each pass; a deliberate Train return changes
+	# the revision and therefore cannot be overwritten by this callback.
+	if revision == _queue_navigation_revision and (_queue_view_requested or _secondary_surface == SecondarySurface.QUEUE) and _selected_building_ref == building_ref and queue_container.visible and selection_panel.visible:
 		command_scroll.scroll_horizontal = int(queue_container.position.x) + offset
 		_queue_view_requested = false
 
@@ -3277,7 +3318,8 @@ func _on_train_button_pressed(unit_type: int) -> void:
 func _refresh_auto_queue_button(production_queue: Node) -> void:
 	if _auto_queue_button == null or production_queue == null:
 		return
-	_auto_queue_button.add_theme_font_size_override("font_size", 11 if _is_phone_context() else 14)
+	var compact_repeat: bool = _is_phone_context() or _is_town_center_production_context()
+	_auto_queue_button.add_theme_font_size_override("font_size", 11 if compact_repeat else 14)
 	var unit_type: int = int(production_queue.get("auto_queue_unit_type"))
 	var enabled: bool = bool(production_queue.get("auto_queue_enabled"))
 	_auto_queue_button.set_pressed_no_signal(enabled)
@@ -3305,9 +3347,9 @@ func _refresh_auto_queue_button(production_queue: Node) -> void:
 	_auto_queue_button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_auto_queue_button.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
 	_auto_queue_button.add_theme_constant_override("icon_max_width", 20)
-	_auto_queue_button.add_theme_font_size_override("font_size", 10 if _is_phone_context() else 12)
+	_auto_queue_button.add_theme_font_size_override("font_size", 10 if compact_repeat else 12)
 	_auto_queue_button.accessibility_name = "Repeat training: " + _auto_queue_button.text.replace("\n", ". ")
-	if _is_phone_context():
+	if compact_repeat:
 		# Native stacked icons reserve more height than their visible artwork.
 		# Keep the full icon/text inside the72px production dock.
 		for state: String in ["normal", "hover", "pressed", "disabled", "focus", "hover_pressed"]:
@@ -3397,7 +3439,7 @@ func _update_research_buttons(building_ref: Node2D) -> void:
 	if _research_container == null:
 		_research_container = HBoxContainer.new()
 		_research_container.name = "ResearchButtons"
-		_research_container.add_theme_constant_override("separation", 6)
+		_research_container.add_theme_constant_override("separation", 4)
 		var parent_vbox: Control = queue_container.get_parent()
 		if parent_vbox:
 			parent_vbox.add_child(_research_container)
@@ -3442,21 +3484,31 @@ func _update_research_buttons(building_ref: Node2D) -> void:
 		_attach_hud_hold(btn, _research_information.bind(research_id))
 		btn.visible = true
 		btn.mouse_filter = Control.MOUSE_FILTER_STOP
-		var cost_str := ""
-		if rd["cost"].get("food", 0) > 0:
-			cost_str += "F:%d " % rd["cost"]["food"]
-		if rd["cost"].get("wood", 0) > 0:
-			cost_str += "W:%d " % rd["cost"]["wood"]
-		if rd["cost"].get("gold", 0) > 0:
-			cost_str += "G:%d" % rd["cost"]["gold"]
-		btn.text = "%s\n%s  %s" % [rd["name"], rd["desc"], cost_str.strip_edges()]
-		btn.custom_minimum_size = Vector2(154, 48)
-		btn.add_theme_font_size_override("font_size", 12)
+		var costs: PackedStringArray = []
+		for resource: String in ["food", "wood", "gold"]:
+			var amount: int = int(rd["cost"].get(resource, 0))
+			if amount > 0:
+				costs.append("%d%s" % [amount, resource.left(1).to_upper()])
+		# Four upgrades share the fixed command shelf. Separate name, effect and
+		# cost so each remains readable without widening an unreachable scroll row.
+		var short_names: Dictionary = {"forging": "Forge", "scale_mail": "Mail"}
+		var short_effects: Dictionary = {"loom": "+15 worker HP"}
+		btn.text = "%s\n%s\n%s" % [short_names.get(research_id, rd["name"]), short_effects.get(research_id, rd["desc"]), " · ".join(costs)]
+		btn.custom_minimum_size = Vector2(84, 64)
+		btn.add_theme_font_size_override("font_size", 11)
+		btn.add_theme_color_override("font_disabled_color", KingdomTheme.MUTED)
+		for state: String in ["normal", "hover", "pressed", "disabled", "focus"]:
+			var style: StyleBox = KingdomTheme.button_style("secondary", state)
+			style.set_content_margin(SIDE_LEFT, 4.0)
+			style.set_content_margin(SIDE_RIGHT, 4.0)
+			style.set_content_margin(SIDE_TOP, 3.0)
+			style.set_content_margin(SIDE_BOTTOM, 3.0)
+			btn.add_theme_stylebox_override(state, style)
 		var already_done: bool = false
 		if gm and gm.has_method("has_research"):
 			already_done = gm.has_research(b.player_owner, research_id)
 		if already_done:
-			btn.text += " [DONE]"
+			btn.text = "%s\n%s\nComplete" % [short_names.get(research_id, rd["name"]), short_effects.get(research_id, rd["desc"])]
 		btn.disabled = already_done or gm == null or not gm.can_research(b.player_owner, b, research_id)
 		var information: Dictionary = _research_information(research_id)
 		btn.tooltip_text = "%s\n%s" % [information.get("title", "Research"), information.get("body", "")]
@@ -4044,13 +4096,12 @@ func _create_score_label() -> void:
 	root_ctrl.add_child(_score_label)
 
 
-func _refresh_score_visibility(viewport_size: Vector2) -> void:
+func _refresh_score_visibility(_viewport_size: Vector2) -> void:
 	if _score_label == null:
 		return
-	# The compact phone rail already owns the remaining top-right width with its
-	# match clock and pause/speed controls. Scores remain available at game over.
-	var phone_layout: bool = minf(viewport_size.x, viewport_size.y) <= 520.0
-	_score_label.visible = not phone_layout and not _early_game_ui_active
+	# The rail prioritizes economy, objective and clock. Comparative scores
+	# belong in the results ledger, keeping this space clear at every size.
+	_score_label.visible = false
 
 
 func _create_minimap_hint() -> void:
@@ -4722,12 +4773,16 @@ func _apply_game_theme() -> void:
 	var bar_style: StyleBoxFlat = KingdomTheme.panel_style(KingdomTheme.INK_PANEL, KingdomTheme.BORDER, 0)
 	bar_style.bg_color.a = 0.97
 	bar_style.set_border_width_all(0)
-	bar_style.border_width_bottom = 1
+	bar_style.border_width_bottom = 2
+	bar_style.border_color = KingdomTheme.GOLD.darkened(0.35)
 	top_bar.add_theme_stylebox_override("panel", bar_style)
-	var selection_style: StyleBoxFlat = KingdomTheme.panel_style()
+	var selection_style: StyleBoxFlat = KingdomTheme.panel_style(KingdomTheme.INK_PANEL, KingdomTheme.BORDER, 2)
+	selection_style.border_width_top = 2
+	selection_style.border_color = KingdomTheme.GOLD
 	selection_style.set_content_margin_all(0.0)
 	selection_panel.add_theme_stylebox_override("panel", selection_style)
 	selection_name.add_theme_font_override("font", KingdomTheme.FONT_MEDIUM)
+	selection_name.add_theme_color_override("font_color", KingdomTheme.GOLD)
 	selection_details.add_theme_color_override("font_color", KingdomTheme.MUTED)
 	KingdomTheme.apply_primary(build_menu_button)
 	for label: Label in [food_label, wood_label, gold_label, pop_label, age_label, game_time_label]:

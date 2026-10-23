@@ -45,7 +45,7 @@ const SHEET_VIEWPORT_MARGIN := 16.0
 const SHEET_BOTTOM_MARGIN := 8.0
 const HEADER_HEIGHT := 48.0
 const CARD_WIDTH := 150.0
-const CARD_HEIGHT := 80.0
+const CARD_HEIGHT := 94.0
 const CARD_GAP := 8.0
 const BUILDING_CATEGORIES: Dictionary = {
 	"Economy": [BuildingData.BuildingType.HOUSE, BuildingData.BuildingType.FARM, BuildingData.BuildingType.RESOURCE_CAMP, BuildingData.BuildingType.TOWN_CENTER],
@@ -181,10 +181,13 @@ func set_safe_area_rect(safe_area: Rect2) -> void:
 func _apply_visual_theme() -> void:
 	theme = KingdomTheme.create_theme()
 	var sheet_style: StyleBoxFlat = KingdomTheme.panel_style(KingdomTheme.INK_PANEL, KingdomTheme.BORDER, 4)
-	sheet_style.bg_color.a = 0.96
+	sheet_style.bg_color.a = 0.98
+	sheet_style.border_width_top = 2
+	sheet_style.border_color = KingdomTheme.GOLD
 	sheet_style.set_content_margin_all(2)
 	add_theme_stylebox_override("panel", sheet_style)
-	title_label.text = "Build"
+	title_label.text = "Construction"
+	KingdomTheme.apply_heading(title_label, 18)
 	title_label.add_theme_color_override("font_color", KingdomTheme.PARCHMENT)
 	title_label.add_theme_font_size_override("font_size", 18)
 	KingdomTheme.apply_secondary(cancel_button)
@@ -424,7 +427,7 @@ func _rebuild_grid() -> void:
 		btn.tooltip_text = _format_tooltip(stats, building_type)
 		btn.accessibility_name = btn.tooltip_text
 		btn.set_meta("age_locked", age_locked)
-		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		btn.alignment = HORIZONTAL_ALIGNMENT_CENTER
 		btn.add_theme_constant_override("h_separation", 4)
 		btn.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
 		_apply_card_style(btn)
@@ -433,10 +436,11 @@ func _rebuild_grid() -> void:
 		var tex_path: String = BuildingBase.BUILDING_SPRITES.get(building_type, "")
 		if tex_path != "" and ResourceLoader.exists(tex_path):
 			btn.icon = load(tex_path)
-			btn.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
+			btn.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			btn.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
 			btn.expand_icon = true
 			# Scale icon down within button
-			btn.add_theme_constant_override("icon_max_width", 30)
+			btn.add_theme_constant_override("icon_max_width", 36)
 
 		btn.pressed.connect(_on_building_button_pressed.bind(building_type))
 		grid.add_child(btn)

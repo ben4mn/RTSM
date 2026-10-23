@@ -83,16 +83,19 @@ func _ready() -> void:
 	base.custom_minimum_size.y = RAIL_BUTTON_SIZE
 	base.pressed.connect(func() -> void: base_requested.emit())
 	rail.add_child(base)
+	CommandIcons.apply_labeled(base, "base", base.accessibility_name, "Base")
 	_economy_button = _icon_button("economy", "Economy: manage workers and paid production", "EconomyButton", RAIL_BUTTON_SIZE)
 	_economy_button.custom_minimum_size.y = RAIL_BUTTON_SIZE
 	_economy_button.toggle_mode = true
 	_economy_button.pressed.connect(func() -> void: surface_requested.emit("" if _surface == "economy" else "economy"))
 	rail.add_child(_economy_button)
+	CommandIcons.apply_labeled(_economy_button, "economy", _economy_button.accessibility_name, "Economy")
 	_army_button = _icon_button("army", "Army: select units and manage two groups", "ArmyButton", RAIL_BUTTON_SIZE)
 	_army_button.custom_minimum_size.y = RAIL_BUTTON_SIZE
 	_army_button.toggle_mode = true
 	_army_button.pressed.connect(func() -> void: surface_requested.emit("" if _surface == "army" else "army"))
 	rail.add_child(_army_button)
+	CommandIcons.apply_labeled(_army_button, "army", _army_button.accessibility_name, "Army")
 	panel = PanelContainer.new()
 	panel.name = "StrategyPanel"
 	panel.z_index = 60
@@ -100,7 +103,7 @@ func _ready() -> void:
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	# Header, padding and exhausted scroll gestures belong to the sheet.
 	panel.mouse_force_pass_scroll_events = false
-	panel.add_theme_stylebox_override("panel", KingdomTheme.panel_style(KingdomTheme.INK_PANEL, KingdomTheme.BORDER, 8))
+	panel.add_theme_stylebox_override("panel", KingdomTheme.panel_style(KingdomTheme.INK_PANEL, KingdomTheme.GOLD, 2))
 	panel.gui_input.connect(_on_gui_contact)
 	add_child(panel)
 	panel.minimum_size_changed.connect(_on_panel_minimum_changed)
@@ -111,6 +114,7 @@ func _ready() -> void:
 	header.add_theme_constant_override("separation", 2)
 	body.add_child(header)
 	_title = _label("Economy & production", 16)
+	KingdomTheme.apply_heading(_title, 16)
 	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(_title)
 	_workers_tab = _button("Workers", "WorkersTab", 76)
@@ -337,9 +341,9 @@ func update_snapshot(snapshot: Dictionary) -> void:
 		economy_description += "\n" + attention
 	if int(economy.get("severity", 0)) > 0:
 		economy_description += "\n%s\n%s" % [str(economy.get("title", "")), str(economy.get("detail", ""))]
-	CommandIcons.apply(_economy_button, "economy", economy_description)
+	CommandIcons.apply_labeled(_economy_button, "economy", economy_description, "Economy")
 	CommandIcons.set_badge(_economy_button, "!" if not warnings.is_empty() or not attention.is_empty() else "", true)
-	CommandIcons.apply(_army_button, "army", "Army: %d military units. Select units and manage two groups." % military)
+	CommandIcons.apply_labeled(_army_button, "army", "Army: %d military units. Select units and manage two groups." % military, "Army")
 	CommandIcons.set_badge(_army_button, str(military))
 	var worker_count: int = 0
 	for amount: Variant in workers.values():

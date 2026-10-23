@@ -50,7 +50,7 @@ func _run() -> void:
 	AudioManager.stop_all()
 	await get_tree().create_timer(0.15, true).timeout
 	if _failures.is_empty():
-		print("[PASS] audio_settings: 12 phone/safe-area layouts × 4 tabs, routed wheel containment/scrolling, live preferences/reload/reset, real paused selection/camera, fog, voice bounds, mute/background lifecycle")
+		print("[PASS] audio_settings: 12 phone/safe-area layouts × 3 tabs, routed wheel containment/scrolling, live preferences/reload/reset, real paused selection/camera, fog, voice bounds, mute/background lifecycle")
 		get_tree().quit(0)
 	else:
 		for failure: String in _failures: push_error("[FAIL] audio_settings: " + failure)
@@ -77,7 +77,7 @@ func _check_layout(physical: Vector2, scale_value: float, notched: bool) -> void
 	var safe := Rect2(Vector2.ZERO, logical)
 	if notched: safe = Rect2(Vector2(44.0 / scale_value, 0), logical - Vector2(88.0 / scale_value, 18.0 / scale_value))
 	panel.call("apply_mobile_layout", logical, safe)
-	for section: int in 4:
+	for section: int in 3:
 		panel.call("_show_section", section)
 		await get_tree().process_frame
 		await get_tree().process_frame

@@ -152,7 +152,11 @@ func _run_case(case_index: int) -> bool:
 	var menu: Node = get_tree().current_scene
 	if menu.scene_file_path != "res://scenes/ui/main_menu.tscn":
 		return _fail("Expected a real main menu before starting " + str(scenario.name))
-	menu.call("_on_shared_settings_closed")
+	menu.call("_on_difficulty_changed", GameManager.selected_difficulty)
+	menu.call("_on_population_selected", GameManager.selected_population_limit)
+	(menu.get("seed_input") as LineEdit).text = str(GameManager.selected_map_seed) if GameManager.selected_map_seed >= 0 else ""
+	(menu.get("guided_opening_toggle") as CheckButton).set_pressed_no_signal(GameManager.guided_opening_enabled)
+	await _click(menu.get("_new_game_button") as Button)
 	_set_phase("menu")
 	await _settle(6)
 	await _capture("01-menu")

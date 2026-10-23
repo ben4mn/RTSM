@@ -35,7 +35,8 @@ func _run() -> void:
 	await process_frame
 	await process_frame
 
-	var start_button: Button = menu.get_node("CenterContainer/VBox/ActionsRow/StartButton")
+	menu.call("_open_new_game", "solo")
+	var start_button: Button = menu.get("start_button")
 	start_button.pressed.emit()
 	# The menu must survive until the current input dispatch has unwound. A
 	# synchronous scene removal leaves Viewport's touch/mouse focus referencing a
@@ -59,7 +60,7 @@ func _run() -> void:
 			_failures.append("paid advancement did not synchronize the Feudal HUD")
 		game_manager.set("game_time", 974.0)
 		first_match.call("_on_pause_requested")
-		var quit_button: Button = first_hud.get_node("Root/PauseOverlay/PauseMenu/QuitButton")
+		var quit_button: Button = first_hud.get_node("Root/PauseOverlay/PauseMenu/DepartureRow/QuitButton")
 		quit_button.pressed.emit()
 		if current_scene != first_match or not quit_button.disabled:
 			_failures.append("Pause Quit did not defer and lock its transition")
@@ -67,7 +68,8 @@ func _run() -> void:
 			_failures.append("Pause Quit did not return to Main Menu")
 		else:
 			var next_menu: Node = current_scene
-			var next_start: Button = next_menu.get_node("CenterContainer/VBox/ActionsRow/StartButton")
+			next_menu.call("_open_new_game", "solo")
+			var next_start: Button = next_menu.get("start_button")
 			next_start.pressed.emit()
 			if current_scene != next_menu or not next_start.disabled:
 				_failures.append("second Start did not defer and lock its transition")

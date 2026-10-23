@@ -13,13 +13,13 @@ func _ready() -> void:
 func _run() -> void:
 	AudioManager.set_all_enabled(false)
 	Input.emulate_mouse_from_touch = true
-	for phone: Vector2i in [Vector2i(844, 390), Vector2i(932, 430)]:
+	for phone: Vector2i in [Vector2i(844, 390), Vector2i(932, 430), Vector2i(1100, 700), Vector2i(1280, 720)]:
 		for scale_factor: float in [1.0, 1.15]:
 			await _profile(phone, scale_factor)
 	for failure: String in _failures:
 		push_error("[FAIL] mobile_production_feedback: " + failure)
 	if _failures.is_empty():
-		print("[PASS] mobile_production_feedback: four phone/scale profiles; touch Queue/Train/Undo/Clear, paid refunds and producer scroll lifecycle; repeat food/pop/build waiting and unlocked/locked card shortages")
+		print("[PASS] mobile_production_feedback: eight desktop/phone/scale profiles; touch Queue/Train/Undo/Clear, paid refunds and producer scroll lifecycle; repeat food/pop/build waiting and unlocked/locked card shortages")
 	get_tree().quit(0 if _failures.is_empty() else 1)
 
 
@@ -67,6 +67,7 @@ func _profile(phone: Vector2i, scale_factor: float) -> void:
 		_expect(producer.enqueue_unit(unit_type), profile + " paid queue failed")
 	_show(hud, tc)
 	await _settle(hud, logical, safe)
+	_assert_producer_identity(hud, profile)
 	var navigation: Button = hud.get("_queue_navigation_button")
 	var shelf: ScrollContainer = hud.get("command_scroll")
 	await _queue_selection_cancel(hud,tc,second,viewport,navigation,logical,safe,profile)
@@ -76,14 +77,24 @@ func _profile(phone: Vector2i, scale_factor: float) -> void:
 	_expect((hud.get("selection_panel") as Control).get_global_rect().encloses(navigation.get_global_rect()), profile + " Queue does not share production shelf")
 	for recruit: Button in (hud.get("_train_buttons_container") as HBoxContainer).get_children():
 		_expect(shelf.get_global_rect().encloses(recruit.get_global_rect()), profile + " inline pager clips " + String(recruit.name))
+		_expect(recruit.size.x >= 48.0 and recruit.size.y >= 48.0, profile + " recruit/repeat target under48px")
+	var repeat_toggle: Button = hud.get("_auto_queue_button")
+	await _tap(viewport, repeat_toggle.get_global_rect().get_center())
+	_expect(producer.auto_queue_enabled, profile + " Repeat touch cannot enable training")
+	await _tap(viewport, repeat_toggle.get_global_rect().get_center())
+	_expect(not producer.auto_queue_enabled, profile + " Repeat touch cannot disable training")
 	await _tap(viewport, navigation.get_global_rect().get_center())
 	_expect(shelf.scroll_horizontal > 0 and navigation.accessibility_name.contains("recruitment"), profile + " Queue touch does not open cancellation page")
 	var undo: Button = (hud.get("queue_container") as HBoxContainer).get_node("QueueClearLastButton")
 	var clear: Button = (hud.get("queue_container") as HBoxContainer).get_node("QueueClearAllButton")
 	_expect(shelf.get_global_rect().encloses(undo.get_global_rect()) and shelf.get_global_rect().encloses(clear.get_global_rect()), profile + " Queue page hides Undo/Clear: shelf %s Undo %s Clear %s" % [shelf.get_global_rect(), undo.get_global_rect(), clear.get_global_rect()])
 	var inspected_scroll: int = shelf.scroll_horizontal
+	for queued: Control in (hud.get("queue_container") as HBoxContainer).get_children():
+		if queued is Button and queued.visible and not queued.is_queued_for_deletion():
+			_expect(shelf.get_global_rect().grow(0.5).encloses(queued.get_global_rect()), profile + " Queue page clips grouped cancellation target " + str(queued.name))
 	_show(hud, tc)
 	await _settle(hud, logical, safe)
+	_assert_producer_identity(hud, profile + " refreshed queue")
 	_expect(shelf.scroll_horizontal > 0 and navigation.accessibility_name.contains("recruitment") and _queue_actions_visible(hud), profile + " same producer refresh loses queue inspection: %d -> %d (queue begins %.0f)" % [inspected_scroll, shelf.scroll_horizontal, (hud.get("queue_container") as Control).position.x])
 	_show(hud, tc)
 	await _tap(viewport, navigation.get_global_rect().get_center(), 0)
@@ -145,12 +156,13 @@ func _profile(phone: Vector2i, scale_factor: float) -> void:
 	_show(hud, tc)
 	await _settle(hud, logical, safe)
 	var repeat: Button = hud.get("_auto_queue_button")
+	_assert_producer_identity(hud, profile + " repeat waiting")
 	_expect(repeat.text.contains("Need 50F"), profile + " Repeat lacks food shortage")
-	# Fractional Window scaling can place anchored edges0.13px apart.
-	# A half logical pixel allows rounding, while rejecting actual dock growth.
+	# Fractional Window scaling can place anchored edges up to one logical
+	# pixel apart; allow that rounding while rejecting actual dock growth.
 	var panel_rect: Rect2 = (hud.get("selection_panel") as Control).get_global_rect()
 	var dock_rect: Rect2 = (hud.get("_command_dock") as Control).get_global_rect()
-	_expect(panel_rect.size.y <= 72.5 and dock_rect.grow(0.5).encloses(panel_rect), profile + " waiting Repeat exceeds integrated72px dock: panel%s dock%s" % [panel_rect, dock_rect])
+	_expect(panel_rect.size.y <= 80.5 and dock_rect.grow(1.0).encloses(panel_rect), profile + " waiting Repeat exceeds integrated80px dock: panel%s dock%s" % [panel_rect, dock_rect])
 	_expect(shelf.get_global_rect().encloses(repeat.get_global_rect()), profile + " waiting Repeat icon/text leaves shelf")
 	_expect(not navigation.disabled and navigation.get_node("CommandIconBadge").text == "0", profile + " empty waiting Repeat cannot open Clear")
 	await _tap(viewport, navigation.get_global_rect().get_center())
@@ -179,13 +191,21 @@ func _profile(phone: Vector2i, scale_factor: float) -> void:
 	var stable: Button = cards[BuildingData.BuildingType.STABLE]
 	var house_cost: int = int(BuildingData.get_building_cost(BuildingData.BuildingType.HOUSE).get("wood", 0))
 	_expect(house.disabled and house.text.contains("Need %dW" % (house_cost - 15)), profile + " Build card shortage missing")
-	_expect(stable.disabled and stable.text.contains("Age 2") and not stable.text.contains("Need"), profile + " shortage hides age lock")
+	_expect(stable.disabled and stable.text.contains("Feudal Age") and not stable.text.contains("Need"), profile + " shortage hides age lock")
 	build_menu.call("update_resources", {"food": 10000, "wood": 10000, "gold": 10000})
 	_expect(not house.disabled and house.accessibility_name.contains("population") and not house.text.contains("Need"), profile + " affordability does not restore purpose")
 	for frame: int in 3:
 		await get_tree().process_frame
 	fixture.free()
 	await get_tree().process_frame
+
+
+func _assert_producer_identity(hud: Node, profile: String) -> void:
+	var panel: Rect2 = (hud.get("selection_panel") as Control).get_global_rect().grow(1.0)
+	for key: String in ["selection_name", "selection_details"]:
+		var label: Label = hud.get(key)
+		_expect(panel.encloses(label.get_global_rect()), profile + " producer identity leaves shelf: " + key)
+		_expect(label.get_minimum_size().y <= label.size.y + 0.5, profile + " producer identity text clips vertically: " + key)
 
 
 func _show(hud: Node, building: BuildingBase) -> void:

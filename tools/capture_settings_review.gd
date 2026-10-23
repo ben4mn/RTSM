@@ -2,7 +2,7 @@ extends Node
 ## Native phone settings review: real touch navigation plus synthetic safe areas.
 
 const OUTPUT := "res://output/visual-redesign-2026-10-22/settings-review"
-const SECTIONS: Array[String] = ["Audio", "Controls", "Display", "Match", "Map"]
+const SECTIONS: Array[String] = ["Audio", "Controls", "Display"]
 var _failures: Array[String] = []
 var _records: Array[Dictionary] = []
 var _contact_id: int = 0
@@ -27,7 +27,7 @@ func _run() -> void:
 	for failure: String in _failures:
 		push_error("[FAIL] settings_review: " + failure)
 	if _failures.is_empty():
-		print("[PASS] settings_review: 20 actual native settings screens, real touch tab navigation, both phone sizes at maximum scale, ordinary and notched safe areas")
+		print("[PASS] settings_review: 12 actual native settings screens, real touch tab navigation, both phone sizes at maximum scale, ordinary and notched safe areas")
 	get_tree().quit(0 if _failures.is_empty() else 1)
 
 

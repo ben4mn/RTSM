@@ -69,7 +69,7 @@ func _exercise_profile(phone_size: Vector2i, ui_scale: float, notched: bool) -> 
 	var container: HBoxContainer = hud.get("_unit_command_container") as HBoxContainer
 	var command_scroll: ScrollContainer = hud.get("command_scroll") as ScrollContainer
 	_expect(container.visible, "%s command rail is hidden" % suffix)
-	_expect(selection.size.y <= 72.5, "%s command rail grows above 72px: %s (min=%s)" % [suffix, selection.size, selection.get_combined_minimum_size()])
+	_expect(selection.size.y <= 80.5, "%s command rail grows above 80px: %s (min=%s)" % [suffix, selection.size, selection.get_combined_minimum_size()])
 	_expect(selection.size.x <= 520.5, "%s command rail exceeds the field corridor" % suffix)
 	_expect(not selection.get_global_rect().intersects(minimap.get_global_rect(), true), "%s command rail %s min=%s commands=%s scroll=%s overlaps minimap %s" % [suffix, selection.get_global_rect(), selection.get_combined_minimum_size(), container.get_combined_minimum_size(), command_scroll.get_combined_minimum_size(), minimap.get_global_rect()])
 	_expect(not side_rail.visible or not selection.get_global_rect().intersects(side_rail.get_global_rect(), true), "%s command rail %s overlaps thumb controls %s" % [suffix, selection.get_global_rect(), side_rail.get_global_rect()])

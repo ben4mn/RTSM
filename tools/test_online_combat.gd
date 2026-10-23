@@ -23,6 +23,7 @@ func _start() -> void:
 	stand_ground_check = "--stand-ground" in OS.get_cmdline_user_args()
 	session = root.get_node("NetworkSession")
 	session.snapshot_received.connect(_snapshot)
+	session.status_changed.connect(_status)
 	session.match_ended.connect(_ended)
 	session.find_match()
 
@@ -84,3 +85,10 @@ func _snapshot(data: Dictionary) -> void:
 func _ended(winner: int, reason: String) -> void:
 	print("ONLINE_COMBAT_RESULT slot=%d winner=%d reason=%s verified=%s" % [session.player_slot, winner, reason, completed])
 	quit(0 if completed else 1)
+
+
+func _status(value: String, message: String) -> void:
+	print("ONLINE_COMBAT_STATUS slot=%d state=%s elapsed=%.2f message=%s" % [session.player_slot, value, elapsed, message])
+	if value == "error":
+		push_error("ONLINE_COMBAT_TRANSPORT_FAILURE " + message)
+		quit(1)

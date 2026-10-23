@@ -8,6 +8,7 @@ var _records: Array[Dictionary] = []
 var _queue_records: Array[Dictionary] = []
 var _output: String = "res://output/evolution/ux-redesign-20261011/after"
 var _quick: bool = false
+var _review: bool = false
 
 func _ready() -> void:
     call_deferred("_run")
@@ -19,6 +20,9 @@ func _run() -> void:
             _output = argument.trim_prefix("--output=")
         elif argument.begins_with("--states="):
             _states.assign(argument.trim_prefix("--states=").split(","))
+        elif argument == "--review":
+            _review = true
+            _states.assign(["unselected", "worker", "tc_repeat", "military_production", "commands", "build_economy", "build_army", "placement_valid", "research", "pause", "results"])
         elif argument == "--quick":
             _quick = true
             _states.assign(["unselected","worker","tc_repeat","mixed_army","commands","view_expanded","build_economy","placement_valid","pause","results","learning"])
@@ -26,13 +30,13 @@ func _run() -> void:
             _states.assign(WORKER_STATUS_FIXTURES.keys())
             _states.append("tc")
     DirAccess.make_dir_recursive_absolute(_output)
-    for phone: Vector2i in [Vector2i(844,390),Vector2i(932,430)]:
-        for interface_scale: float in ([1.0,1.15] if _quick else [1.0,1.075,1.15]):
-            for notched: bool in ([interface_scale > 1.0] if _quick else [false,true]):
+    for phone: Vector2i in ([Vector2i(1100,700),Vector2i(844,390),Vector2i(932,430)] if _review else [Vector2i(844,390),Vector2i(932,430)]):
+        for interface_scale: float in ([1.15 if phone.x == 932 else 1.0] if _review else ([1.0,1.15] if _quick else [1.0,1.075,1.15])):
+            for notched: bool in ([interface_scale > 1.0] if _quick or _review else [false,true]):
                 await _profile(phone,interface_scale,notched)
     var file := FileAccess.open(_output+"/manifest.json",FileAccess.WRITE)
     file.store_string(JSON.stringify({"evidence":"Actual root Window renders at requested phone pixels and UI scale, with project844x390 canvas_items/expand stretch. Production main scene is frozen with synthetic queue, economy banks, armies and safe-area insets to stress UI; no balance or paid-match claim.","profiles":_records,"supplementary_queue_pages":_queue_records},"  "))
-    print("[PASS] ux_redesign_matrix: ",_records.size()," rendered states (two phones, all UI scales and safe areas, three zooms), manifest with settled Control bounds")
+    print("[PASS] ux_redesign_matrix: ",_records.size()," rendered states; exact viewport, scale, safe area and zoom in manifest with settled Control bounds")
     get_tree().quit()
 
 func _profile(phone: Vector2i,interface_scale: float,notched: bool) -> void:
@@ -84,10 +88,11 @@ func _profile(phone: Vector2i,interface_scale: float,notched: bool) -> void:
     main.add_child(result_screen)
     var queue := tc.get_production_queue()
     var production_fixture: BuildingBase=null
+    var research_fixture: BuildingBase=null
     queue.auto_queue_unit_type = UnitData.UnitType.VILLAGER
     var queue_items: Array = [{"unit_type":UnitData.UnitType.VILLAGER,"name":"Villager","is_training":true,"progress":0.42},{"unit_type":UnitData.UnitType.VILLAGER,"name":"Villager","is_training":false},{"unit_type":UnitData.UnitType.SCOUT,"name":"Scout","is_training":false}]
     var prefix := "%dx%d-scale%d-%s" % [phone.x,phone.y,roundi(interface_scale*1000),"notched" if notched else "ordinary"]
-    for zoom_name: String in ["overview","default","detail"]:
+    for zoom_name: String in (["default"] if _review else ["overview","default","detail"]):
         var zoom: float = float(map.call("get_zoom_state")["min" if zoom_name=="overview" else ("max" if zoom_name=="detail" else "default")])
         camera.zoom = Vector2(zoom,zoom)
         camera.position = center
@@ -139,6 +144,14 @@ func _profile(phone: Vector2i,interface_scale: float,notched: bool) -> void:
                     map.add_child(production_fixture)
                     production_fixture.state=BuildingBase.State.ACTIVE
                 hud.call("show_building_selection","Barracks",1200,1200,[],[UnitData.UnitType.INFANTRY],production_fixture)
+            elif state == "research":
+                if research_fixture == null:
+                    research_fixture = load("res://scenes/buildings/blacksmith.tscn").instantiate()
+                    research_fixture.player_owner = 0
+                    research_fixture.position = tc.position + Vector2(160,160)
+                    map.add_child(research_fixture)
+                    research_fixture.state = BuildingBase.State.ACTIVE
+                hud.call("show_building_selection", "Blacksmith", 1200,1200,[],[],research_fixture)
             elif state in ["warrior","archer","horseman","mixed_army","commands"]:
                 var role: int = UnitData.UnitType.INFANTRY if state=="warrior" else (UnitData.UnitType.ARCHER if state=="archer" else UnitData.UnitType.CAVALRY)
                 var stats: Dictionary = {"unit_type":role}
@@ -162,8 +175,26 @@ func _profile(phone: Vector2i,interface_scale: float,notched: bool) -> void:
             elif state.begins_with("placement_"):
                 placement.call("start_placement",BuildingData.BuildingType.HOUSE)
                 hud.call("set_placement_mode",true,"House")
-                placement.call("update_preview_at_world",tc.global_position if state=="placement_invalid" else center+Vector2(100,80))
-                hud.call("update_placement_preview",state=="placement_valid","Ready" if state=="placement_valid" else "Occupied by Town Center")
+                var candidate: Vector2 = tc.global_position
+                if state == "placement_valid":
+                    var center_tile: Vector2i = map.call("world_to_tile",center)
+                    var best_distance: float = INF
+                    for y: int in range(-8,9):
+                        for x: int in range(-8,9):
+                            var world: Vector2 = map.call("tile_to_world",center_tile+Vector2i(x,y))
+                            var screen: Vector2 = viewport.get_canvas_transform()*world
+                            if not Rect2(Vector2(140,90),logical-Vector2(280,210)).has_point(screen):
+                                continue
+                            if not placement.call("revalidate_confirmation",BuildingData.BuildingType.HOUSE,world,0):
+                                continue
+                            if world.distance_squared_to(center) < best_distance:
+                                candidate = world
+                                best_distance = world.distance_squared_to(center)
+                    assert(is_finite(best_distance),"Valid placement fixture needs visible legal ground")
+                placement.call("update_preview_at_world",candidate)
+                var actual_valid: bool = placement.get("is_valid_placement")
+                assert(actual_valid == (state=="placement_valid"),"Placement screenshot label must match production validation")
+                hud.call("update_placement_preview",actual_valid,"" if actual_valid else placement.call("get_invalid_reason"))
             elif state=="learning":
                 hud.call("show_unit_selection","Warriors",300,330,"Moving",3,{"unit_type":UnitData.UnitType.INFANTRY})
                 hud.call("configure_unit_commands",true,true,"Aggressive","smart")

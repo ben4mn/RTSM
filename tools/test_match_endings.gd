@@ -52,7 +52,7 @@ func _run() -> void:
 		match_scene.call("_on_pause_requested")
 		await process_frame
 		var hud: CanvasLayer = match_scene.get_node("HUD") as CanvasLayer
-		var quit_button: Button = hud.get_node("Root/PauseOverlay/PauseMenu/QuitButton") as Button
+		var quit_button: Button = hud.get_node("Root/PauseOverlay/PauseMenu/DepartureRow/QuitButton") as Button
 		quit_button.pressed.emit()
 		if current_scene != match_scene or not match_scene.is_inside_tree():
 			_fail("Pause Quit removed the focused match synchronously")
@@ -151,7 +151,8 @@ func _run() -> void:
 			_fail("Main Menu action left GameManager outside MENU")
 		else:
 			var new_menu: Control = current_scene as Control
-			var start_button: Button = new_menu.get_node("CenterContainer/VBox/ActionsRow/StartButton")
+			new_menu.call("_open_new_game", "solo")
+			var start_button: Button = new_menu.get("start_button")
 			start_button.pressed.emit()
 			if current_scene != new_menu or not start_button.disabled:
 				_fail("Main Menu Start did not defer and lock its transition")
@@ -166,12 +167,19 @@ func _run() -> void:
 			_fail("Play Again removed the focused match synchronously")
 		if not restart_button.disabled:
 			_fail("Play Again remained enabled during the deferred transition")
-		if not await _wait_for(func() -> bool: return current_scene != null and current_scene.scene_file_path == MAIN_SCENE and current_scene.get_instance_id() != old_match_id):
-			_fail("Play Again did not reload a new match scene")
-		elif not await _wait_for(func() -> bool: return _is_ready_match()):
-			_fail("restarted match did not return to PLAYING")
+		if not await _wait_for(func() -> bool: return current_scene != null and current_scene.scene_file_path == MENU_SCENE):
+			_fail("New game did not return to setup")
 		else:
-			_assert_fresh_match(current_scene, "Play Again")
+			var setup: Control = current_scene as Control
+			if str(setup.get("_screen")) != "setup":
+				_fail("New game did not open map selection")
+			var next_start: Button = setup.get("start_button")
+			next_start.pressed.emit()
+			if not await _wait_for(func() -> bool: return _is_ready_match() and current_scene.get_instance_id() != old_match_id):
+				_fail("New game setup did not start a fresh match")
+			else:
+				_assert_fresh_match(current_scene, "New game")
+
 
 	await process_frame
 	await process_frame

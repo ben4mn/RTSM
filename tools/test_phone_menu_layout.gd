@@ -1,14 +1,14 @@
 extends Node
-## Real-layout regression for the phone-sized first-session menu and settings surfaces.
-
-const PHYSICAL_PHONE_SIZE := Vector2i(844, 390)
-const MAX_UI_SCALE := 1.15
-const LANDSCAPE_SIDE_INSET := 44.0
-const LANDSCAPE_BOTTOM_INSET := 18.0
-const MIN_PHYSICAL_TOUCH_TARGET := 48.0
-const MAX_TOUCH_TARGET_ASPECT_RATIO := 8.0  # Full-width thumb actions are intentional.
+## Real container layout and game-creation contracts, not a network transport test.
 
 var _failures: Array[String] = []
+var _checks: int = 0
+const PROFILES: Array[Dictionary] = [
+	{"size": Vector2(1280, 720), "scale": 1.0, "notch": false},
+	{"size": Vector2(844, 390), "scale": 1.0, "notch": false},
+	{"size": Vector2(844, 390), "scale": 1.15, "notch": true},
+	{"size": Vector2(932, 430), "scale": 1.15, "notch": true},
+]
 
 
 func _ready() -> void:
@@ -17,242 +17,136 @@ func _ready() -> void:
 
 func _run() -> void:
 	AudioManager.set_all_enabled(false)
-	await _exercise_layout(1.0, false)
-	await _exercise_layout(MAX_UI_SCALE, true)
-
+	for profile: Dictionary in PROFILES:
+		await _exercise(profile)
 	if _failures.is_empty():
-		print("[PASS] phone_menu_layout: menu/settings fit 844x390 at 1.0/1.15 scale with safe areas and 48px targets")
+		print("[PASS] phone_menu_layout: %d checks; home, New Game, 3 maps, solo setup, host/guest lobby presentation, preference-only Settings at desktop/phone/max-scale safe areas" % _checks)
 		get_tree().quit(0)
-		return
-	for failure in _failures:
-		push_error("[FAIL] phone_menu_layout: %s" % failure)
-	get_tree().quit(1)
-
-
-func _exercise_layout(ui_scale: float, notched: bool) -> void:
-	# Window.content_scale_factor reduces the logical layout surface as UI grows.
-	# Build that effective canvas directly and convert target sizes back to
-	# physical pixels for the acceptance checks.
-	var logical_size := Vector2(
-		floorf(float(PHYSICAL_PHONE_SIZE.x) / ui_scale),
-		floorf(float(PHYSICAL_PHONE_SIZE.y) / ui_scale)
-	)
-	var safe_area := Rect2(Vector2.ZERO, logical_size)
-	if notched:
-		var side_inset: float = LANDSCAPE_SIDE_INSET / ui_scale
-		var bottom_inset: float = LANDSCAPE_BOTTOM_INSET / ui_scale
-		safe_area = Rect2(
-			Vector2(side_inset, 0.0),
-			Vector2(logical_size.x - side_inset * 2.0, logical_size.y - bottom_inset)
-		)
-
-	var phone_viewport := SubViewport.new()
-	phone_viewport.size = Vector2i(logical_size)
-	add_child(phone_viewport)
-	var menu_scene: PackedScene = load("res://scenes/ui/main_menu.tscn")
-	var menu: Control = menu_scene.instantiate() as Control
-	# A full-rect Control only resolves its anchors after it enters a parent
-	# Control. Give the isolated root the same logical rect it receives in-game.
-	menu.anchor_left = 0.0
-	menu.anchor_top = 0.0
-	menu.anchor_right = 0.0
-	menu.anchor_bottom = 0.0
-	menu.position = Vector2.ZERO
-	menu.size = logical_size
-	phone_viewport.add_child(menu)
-	await get_tree().process_frame
-	await get_tree().process_frame
-	menu.call("apply_mobile_layout", logical_size, safe_area)
-	await get_tree().process_frame
-	await get_tree().process_frame
-	menu.call("_refresh_main_menu_diagnostics")
-
-	var suffix := "844x390 scale %.2f%s" % [ui_scale, " notched" if notched else ""]
-	var diagnostics: Dictionary = menu.get("main_menu_diagnostics")
-	if not bool(diagnostics.get("compact_layout", false)):
-		_failures.append("%s menu did not select compact layout" % suffix)
-	_expect_near(float(diagnostics.get("viewport_width", 0.0)), logical_size.x, "%s menu viewport width" % suffix)
-	_expect_near(float(diagnostics.get("viewport_height", 0.0)), logical_size.y, "%s menu viewport height" % suffix)
-	_check_safe_area(diagnostics, safe_area, suffix)
-	_check_surface_bounds(diagnostics, "main_menu_bounds", "%s main menu" % suffix)
-	_check_action_controls(
-		diagnostics,
-		[
-			"guided_opening_toggle",
-			"start_button",
-			"settings_button",
-		],
-		"%s main menu" % suffix,
-		ui_scale
-	)
-	_check_surface_bounds(diagnostics, "kingdom_preview", "%s kingdom preview" % suffix)
-	_check_difficulty_choices(menu, diagnostics, suffix, ui_scale)
-	var online_button: Button = menu.get("_online_button")
-	if online_button.size.y * ui_scale < MIN_PHYSICAL_TOUCH_TARGET - 0.5 or not safe_area.grow(0.5).encloses(online_button.get_global_rect()):
-		_failures.append("%s online action leaves safe touch area" % suffix)
-	menu.call("_on_network_status_changed", "searching", "Searching for an opponent…")
-	await get_tree().process_frame
-	menu.call("apply_mobile_layout", logical_size, safe_area)
-	await get_tree().process_frame
-	if (menu.get("difficulty_description") as Label).visible or not (menu.get("_network_status") as Label).visible or (menu.get("start_button") as Button).text != "Cancel search":
-		_failures.append("%s search layout obscures search/cancel state" % suffix)
-	menu.call("_on_network_status_changed", "error", "Connection lost. Try again.")
-	await get_tree().process_frame
-	menu.call("apply_mobile_layout", logical_size, safe_area)
-	if (menu.get("difficulty_description") as Label).text != "Connection lost. Try again." or online_button.disabled:
-		_failures.append("%s connection error hides retry" % suffix)
-	menu.call("_on_network_status_changed", "idle", "")
-	for key: String in ["seed_input", "random_seed_button", "difficulty_option"]:
-		if bool((diagnostics.get(key, {}) as Dictionary).get("visible", true)):
-			_failures.append("%s advanced setup %s leaked into quick start" % [suffix, key])
-
-	menu.call("_on_settings_pressed")
-	await get_tree().process_frame
-	# Opening the overlay schedules its runtime safe-area refresh. Reapply this
-	# test's synthetic notch after that refresh has settled.
-	menu.call("apply_mobile_layout", logical_size, safe_area)
-	await get_tree().process_frame
-	await get_tree().process_frame
-	menu.call("_refresh_main_menu_diagnostics")
-	var settings: Control = menu.get("_shared_settings")
-	if settings == null:
-		_failures.append("%s shared settings did not open" % suffix)
 	else:
-		for section: int in 5:
-			settings.call("_show_section", section)
-			await get_tree().process_frame
-			await get_tree().process_frame
-			var card: Control = settings.get("_panel")
-			if not safe_area.grow(0.5).encloses(card.get_global_rect()):
-				_failures.append("%s shared settings card leaves safe area" % suffix)
-			for node: Node in settings.find_children("*", "BaseButton", true, false):
-				var control := node as Control
-				if control.is_visible_in_tree() and control.size.y < 47.5:
-					_failures.append("%s setting %s shorter than 48 logical px" % [suffix, control.name])
-			if section == 2:
-				var scale_option: OptionButton = settings.find_child("UiScaleOption", true, false)
-				if scale_option == null or scale_option.item_count != 3 or scale_option.get_item_text(0) != "Standard":
-					_failures.append("%s display settings do not expose supported scales" % suffix)
-			if section == 3:
-				var population: OptionButton = settings.find_child("SelectedPopulationLimitOption", true, false)
-				if population == null or population.item_count != 3:
-					_failures.append("%s match settings do not expose 20/30/40 population" % suffix)
+		for failure: String in _failures:
+			push_error("[FAIL] phone_menu_layout: " + failure)
+		get_tree().quit(1)
 
+
+func _exercise(profile: Dictionary) -> void:
+	var logical: Vector2 = (profile.size / profile.scale).floor()
+	var safe := Rect2(Vector2.ZERO, logical)
+	if profile.notch:
+		var inset: float = 44.0 / float(profile.scale)
+		safe = Rect2(Vector2(inset, 0), logical - Vector2(inset * 2, 18.0 / float(profile.scale)))
+	var viewport := SubViewport.new()
+	viewport.size = Vector2i(logical)
+	add_child(viewport)
+	var menu: Control = load("res://scenes/ui/main_menu.tscn").instantiate()
+	menu.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+	menu.size = logical
+	viewport.add_child(menu)
+	await _settle(menu, logical, safe)
+	var context: String = "%s scale=%s" % [profile.size, profile.scale]
+	_expect(menu.get("_screen") == "home", context + " starts at home")
+	_bounds(menu.get("_root_margin"), safe, context + " home frame")
+	_touch(menu.get("_new_game_button"), safe, context + " New Game")
+	_touch(menu.get("_online_button"), safe, context + " Join friend")
+	_touch(menu.get("settings_button"), safe, context + " Settings")
+	(menu.get("_new_game_button") as Button).pressed.emit()
+	await _settle(menu, logical, safe)
+	_expect(menu.get("_screen") == "setup", context + " New Game opens setup")
+	_bounds(menu.get("_root_margin"), safe, context + " setup frame")
+	_touch(menu.get("start_button"), safe, context + " Start")
+	_touch(menu.get("_back_button"), safe, context + " Back")
+	for button: Button in menu.get("_map_buttons"):
+		_touch(button, safe, context + " " + button.name)
+	for archetype: int in MapData.MAP_ARCHETYPES:
+		(menu.get("_map_buttons") as Array)[archetype].pressed.emit()
+		_expect(GameManager.selected_map_archetype == archetype, context + " selected map is game draft")
+		_expect((menu.get("_selection_summary") as Label).text.contains(MapData.get_archetype_name(archetype)), context + " footer names selected map")
+		_expect((menu.get("map_summary_label") as Label).text == MapData.get_archetype_description(archetype), context + " selected map tactics")
+		var selected: int = 0
+		for button: Button in menu.get("_map_buttons"):
+			selected += int(button.button_pressed)
+		_expect(selected == 1, context + " exactly one selected map")
+	(menu.get("_difficulty_buttons") as Array)[2].pressed.emit()
+	_expect(GameManager.selected_difficulty == 2, context + " difficulty applied")
+	(menu.get("_population_buttons") as Array)[0].pressed.emit()
+	_expect(GameManager.selected_population_limit == 20, context + " population applied")
+	var scroll: ScrollContainer = menu.get("_options_scroll")
+	_expect(scroll.size.y >= 120, context + " useful options scroll viewport")
+	scroll.scroll_vertical = 10000
+	await get_tree().process_frame
+	_bounds(menu.get("seed_input"), safe, context + " seed reachable by scroll")
+	menu.call("_set_mode", "multiplayer")
+	await _settle(menu, logical, safe)
+	_touch(menu.get("_host_button"), safe, context + " create room")
+	_expect(not (menu.get("_solo_options") as Control).visible, context + " solo settings hidden online")
+	var session: Node = get_node("/root/NetworkSession")
+	# Model shared room states independently of transport; actual socket coverage
+	# lives in test_network_room_lobby, so these assertions exercise the UI contract.
+	session.set("state", "lobby")
+	session.set("room_code", "TEST23")
+	session.set("room_host", false)
+	session.set("room_players", 2)
+	session.set("match_map_archetype", 1)
+	menu.call("_on_room_changed")
+	await _settle(menu, logical, safe)
+	_expect((menu.get("start_button") as Button).disabled, context + " guest cannot start")
+	_expect((menu.get("_room_map") as Label).text.contains("River Crossings"), context + " guest sees host map")
+	for button: Button in menu.get("_map_buttons"):
+		_expect(button.disabled, context + " guest cannot edit host map")
+	session.set("room_host", true)
+	session.set("room_players", 1)
+	menu.call("_on_room_changed")
+	_expect((menu.get("start_button") as Button).disabled, context + " host cannot start alone")
+	session.set("room_players", 2)
+	menu.call("_on_room_changed")
+	_expect(not (menu.get("start_button") as Button).disabled, context + " host can start two-player room")
+	_touch(menu.get("_leave_button"), safe, context + " leave room")
+	menu.call("_on_network_status_changed", "lobby", "Waiting for an arena…")
+	_expect((menu.get("start_button") as Button).disabled, context + " queued host cannot repeat start")
+	for button: Button in menu.get("_map_buttons"):
+		_expect(button.disabled, context + " queued room map remains locked")
+	session.set("room_code", "")
+	session.set("room_players", 0)
+	session.set("room_host", false)
+	session.set("state", "idle")
+	menu.call("_on_network_status_changed", "idle", "")
+	menu.call("_on_settings_pressed")
+	await _settle(menu, logical, safe)
+	var settings: Control = menu.get("_shared_settings")
+	var tabs: Array = settings.get("_tabs")
+	_expect(tabs.size() == 3, context + " settings has only application preference tabs")
+	_expect(settings.find_child("MapTab", true, false) == null and settings.find_child("MatchTab", true, false) == null, context + " map and match removed from Settings")
+	for i: int in 3:
+		settings.call("_show_section", i)
+		await get_tree().process_frame
+		await get_tree().process_frame
+		_bounds(settings.get("_panel"), safe, context + " settings card")
+		for button: BaseButton in settings.find_children("*", "BaseButton", true, false):
+			if button.is_visible_in_tree():
+				_expect(button.size.y >= 47.5, context + " preference touch height")
 	menu.free()
-	phone_viewport.free()
+	viewport.free()
 	await get_tree().process_frame
 
 
-func _check_difficulty_choices(menu: Control, diagnostics: Dictionary, suffix: String, ui_scale: float) -> void:
-	var choices: Array = diagnostics.get("difficulty_choices", [])
-	if choices.size() != 3:
-		_failures.append("%s quick start must expose three difficulty choices" % suffix)
-		return
-	for choice: Dictionary in choices:
-		if not bool(choice.get("visible", false)) or not bool(choice.get("within_safe_area", false)):
-			_failures.append("%s difficulty %s is hidden or outside safe area" % [suffix, choice.get("name", "?")])
-		if float(choice.get("height", 0.0)) * ui_scale < MIN_PHYSICAL_TOUCH_TARGET - 0.5:
-			_failures.append("%s difficulty choice is shorter than 48 physical px" % suffix)
-	var hard_button: Button = menu.get_node("CenterContainer/VBox/SetupPanel/SetupMargin/SetupVBox/DifficultyChoices/HardDifficulty")
-	var option: OptionButton = menu.get("difficulty_option")
-	var original_difficulty: int = option.selected
-	hard_button.pressed.emit()
-	if option.selected != 2 or int(menu.get("_selected_difficulty")) != 2:
-		_failures.append("%s Hard choice did not update match difficulty" % suffix)
-	menu.call("_on_difficulty_changed", original_difficulty)
+func _settle(menu: Control, logical: Vector2, safe: Rect2) -> void:
+	await get_tree().process_frame
+	await get_tree().process_frame
+	menu.call("apply_mobile_layout", logical, safe)
+	await get_tree().process_frame
+	await get_tree().process_frame
 
 
-func _check_settings_choices(menu: Control, suffix: String) -> void:
-	var ui_scale_option: OptionButton = menu.get("ui_scale_option") as OptionButton
-	if ui_scale_option.item_count != 3:
-		_failures.append("%s settings overlay does not expose three supported UI scales" % suffix)
-		return
-	if ui_scale_option.get_item_text(0) != "Standard":
-		_failures.append("%s settings still offers a sub-100%% Compact scale" % suffix)
-	if ui_scale_option.get_item_text(ui_scale_option.item_count - 1) != "Extra Large":
-		_failures.append("%s maximum UI scale is not labeled Extra Large" % suffix)
+func _touch(control: Control, safe: Rect2, label: String) -> void:
+	_bounds(control, safe, label)
+	_expect(control.size.y >= 47.5 and control.size.x >= 47.5, label + " 48px target")
 
 
-func _check_population_choices(menu: Control, suffix: String, ui_scale: float) -> void:
-	var diagnostics: Dictionary = menu.get("main_menu_diagnostics")
-	var choices: Array = diagnostics.get("population_choices", [])
-	if choices.size() != 3:
-		_failures.append("%s population must offer 20/30/40" % suffix)
-		return
-	for choice: Dictionary in choices:
-		if not bool(choice.get("visible", false)) or not bool(choice.get("within_safe_area", false)):
-			_failures.append("%s population choice leaves the settings safe area" % suffix)
-		if float(choice.get("height", 0.0)) * ui_scale < MIN_PHYSICAL_TOUCH_TARGET - 0.5 or float(choice.get("width", 0.0)) * ui_scale < MIN_PHYSICAL_TOUCH_TARGET - 0.5:
-			_failures.append("%s population choice is under48px" % suffix)
-	var previous_limit: int = GameManager.selected_population_limit
-	var population_buttons: Array = menu.get("_population_buttons")
-	(population_buttons[0] as Button).pressed.emit()
-	if GameManager.selected_population_limit != 20 or int(menu.get("_selected_population_limit")) != 20:
-		_failures.append("%s population choice did not apply to the match" % suffix)
-	menu.call("_on_population_selected", previous_limit)
+func _bounds(control: Control, safe: Rect2, label: String) -> void:
+	_expect(control.is_visible_in_tree(), label + " visible")
+	_expect(safe.grow(0.5).encloses(control.get_global_rect()), label + " safe bounds: " + str(control.get_global_rect()))
 
 
-func _check_safe_area(diagnostics: Dictionary, expected: Rect2, surface: String) -> void:
-	var safe: Dictionary = diagnostics.get("safe_area", {})
-	if safe.is_empty():
-		_failures.append("%s is missing safe-area diagnostics" % surface)
-		return
-	_expect_near(float(safe.get("x", -1.0)), expected.position.x, "%s safe-area x" % surface)
-	_expect_near(float(safe.get("y", -1.0)), expected.position.y, "%s safe-area y" % surface)
-	_expect_near(float(safe.get("width", -1.0)), expected.size.x, "%s safe-area width" % surface)
-	_expect_near(float(safe.get("height", -1.0)), expected.size.y, "%s safe-area height" % surface)
-
-
-func _check_surface_bounds(diagnostics: Dictionary, key: String, surface: String) -> void:
-	var control: Dictionary = diagnostics.get(key, {})
-	if control.is_empty():
-		_failures.append("%s missing %s diagnostics" % [surface, key])
-		return
-	if not bool(control.get("visible", false)):
-		_failures.append("%s %s is not visible" % [surface, key])
-	if not bool(control.get("within_viewport", false)):
-		_failures.append("%s %s extends outside the logical viewport" % [surface, key])
-	if not bool(control.get("within_safe_area", false)):
-		_failures.append(
-			"%s %s violates the safe area (x=%.1f y=%.1f w=%.1f h=%.1f)"
-			% [
-				surface,
-				key,
-				float(control.get("x", 0.0)),
-				float(control.get("y", 0.0)),
-				float(control.get("width", 0.0)),
-				float(control.get("height", 0.0)),
-			]
-		)
-
-
-func _check_action_controls(
-	diagnostics: Dictionary,
-	keys: Array[String],
-	surface: String,
-	ui_scale: float
-) -> void:
-	for key in keys:
-		_check_surface_bounds(diagnostics, key, surface)
-		var control: Dictionary = diagnostics.get(key, {})
-		if control.is_empty():
-			continue
-		var physical_height: float = float(control.get("height", 0.0)) * ui_scale
-		if physical_height < MIN_PHYSICAL_TOUCH_TARGET - 0.5:
-			_failures.append(
-				"%s %s is shorter than %.0f physical px: %.1f"
-				% [surface, key, MIN_PHYSICAL_TOUCH_TARGET, physical_height]
-			)
-		var control_height: float = float(control.get("height", 0.0))
-		var aspect_ratio: float = float(control.get("width", 0.0)) / maxf(1.0, control_height)
-		var compact_button: bool = key in ["random_seed_button", "start_button", "settings_button", "settings_close_button"]
-		if compact_button and aspect_ratio > MAX_TOUCH_TARGET_ASPECT_RATIO + 0.01:
-			_failures.append(
-				"%s %s is too wide for reliable touch targeting: %.2f"
-				% [surface, key, aspect_ratio]
-			)
-
-
-func _expect_near(actual: float, expected: float, label: String) -> void:
-	if absf(actual - expected) > 0.5:
-		_failures.append("%s expected %.1f, got %.1f" % [label, expected, actual])
+func _expect(ok: bool, message: String) -> void:
+	_checks += 1
+	if not ok:
+		_failures.append(message)

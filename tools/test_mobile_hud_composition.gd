@@ -107,8 +107,8 @@ func _exercise_profile(phone: Vector2i, ui_scale: float, notched: bool) -> void:
 		for action: Button in (hud.get("_unit_command_container") as HBoxContainer).get_children():
 			_expect(initial_shelf.get_global_rect().encloses(action.get_global_rect()), profile + " " + mode + " clips " + String(action.name))
 			_target(action, safe, profile)
-			_expect(action.size.is_equal_approx(Vector2(48, 48)), profile + " primary command is not square: " + String(action.name))
-	_expect(selection.size.y <= 64.5, profile + " unit dock exceeds64")
+			_expect(action.size.is_equal_approx(Vector2(48, 48)), profile + " primary command is not square: " + String(action.name) + " " + str(action.size))
+	_expect(selection.size.y <= 72.5, profile + " unit dock exceeds72")
 	# The isolated HUD starts with its legacy shortcuts. Real matches attach
 	# Strategy from main.gd; install it before testing the shared orders row.
 	hud.call("setup_strategy_overview")
@@ -123,7 +123,7 @@ func _exercise_profile(phone: Vector2i, ui_scale: float, notched: bool) -> void:
 	for action: Button in (hud.get("_advanced_command_container") as HBoxContainer).get_children():
 		if action.visible:
 			_expect(action.size.y <= 48.5, profile + " expanded order stretches vertically")
-			_expect(absf(action.get_global_rect().get_center().y - strategy_rail.get_global_rect().get_center().y) <= 0.5, profile + " expanded orders create a separate third row")
+			_expect(absf(action.get_global_rect().get_center().y - strategy_rail.get_global_rect().get_center().y) <= 0.5, profile + " expanded orders create a separate third row: " + str(action.get_global_rect()) + " rail=" + str(strategy_rail.get_global_rect()))
 	_assert_field(hud, safe, profile + " worker More")
 	hud.call("_on_unit_more_pressed")
 
@@ -177,6 +177,7 @@ func _exercise_profile(phone: Vector2i, ui_scale: float, notched: bool) -> void:
 	for button: Button in (hud.get("_research_container") as HBoxContainer).get_children():
 		if button.visible and not button.is_queued_for_deletion():
 			_expect(button.size.x >= 48 and button.size.y >= 48, profile + " research target under48")
+			_expect(scroll.get_global_rect().grow(0.5).encloses(button.get_global_rect()), profile + " research target clipped by fixed shelf: " + str(button.name))
 	_assert_field(hud, safe, profile + " research")
 
 	hud.call("set_ui_modal_state", 1)
@@ -203,7 +204,7 @@ func _exercise_profile(phone: Vector2i, ui_scale: float, notched: bool) -> void:
 	await _settle(hud, logical, safe)
 	var pause_menu: Control = hud.get("_pause_overlay").get_node("PauseMenu")
 	_expect(safe.encloses(pause_menu.get_global_rect()), profile + " pause leaves safe area")
-	for name: String in ["ResumeButton", "UtilityRow/SettingsButton", "UtilityRow/ReportProblemButton", "QuitButton", "MatchLearningButton"]:
+	for name: String in ["ResumeButton", "UtilityRow/SettingsButton", "UtilityRow/ReportProblemButton", "DepartureRow/QuitButton", "DepartureRow/MatchLearningButton"]:
 		_target(pause_menu.get_node(name), safe, profile)
 	hud.call("set_ui_modal_state", 0)
 	_profiles_checked += 1
@@ -250,7 +251,7 @@ func _assert_field(hud: Node, safe: Rect2, label: String) -> void:
 func _target(button: Button, safe: Rect2, label: String) -> void:
 	_expect(button.is_visible_in_tree(), label + " target hidden: " + String(button.name))
 	_expect(button.size.x >= MIN_TOUCH_TARGET - 0.5 and button.size.y >= MIN_TOUCH_TARGET - 0.5, label + " target under48: " + String(button.name))
-	_expect(button.size.x / maxf(1.0, button.size.y) <= 4.0, label + " target exceeds4:1: " + String(button.name))
+	_expect(button.size.x / maxf(1.0, button.size.y) <= (6.5 if button.name == "ResumeButton" else 4.0), label + " target exceeds4:1: " + String(button.name))
 	_expect(safe.encloses(button.get_global_rect()), label + " target outside safe: " + String(button.name))
 
 

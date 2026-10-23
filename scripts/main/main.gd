@@ -3713,12 +3713,13 @@ func _calculate_score(player_id: int = 0) -> int:
 
 
 func _on_restart() -> void:
+	var new_game_mode: String = "multiplayer" if NetworkSession.is_client() else "solo"
 	if NetworkSession.is_client():
-		NetworkSession.find_match()
-		get_tree().call_deferred("change_scene_to_file", "res://scenes/ui/main_menu.tscn")
-		return
+		NetworkSession.leave_match()
 	Engine.time_scale = 1.0
-	get_tree().call_deferred("reload_current_scene")
+	GameManager.set_state(GameManager.GameState.MENU)
+	GameManager.set_meta("open_new_game", new_game_mode)
+	get_tree().call_deferred("change_scene_to_file", "res://scenes/ui/main_menu.tscn")
 
 
 func _on_main_menu() -> void:

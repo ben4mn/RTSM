@@ -4,7 +4,7 @@ extends ColorRect
 signal closed()
 
 const THEME := preload("res://scripts/ui/kingdom_theme.gd")
-const SECTIONS: Array[String] = ["Audio", "Controls", "Display", "Match", "Map"]
+const SECTIONS: Array[String] = ["Audio", "Controls", "Display"]
 const SCALE_VALUES: Array[float] = [1.0, 1.075, 1.15]
 const SENSITIVITY_VALUES: Array[float] = [0.75, 1.0, 1.25]
 var from_match: bool = false
@@ -84,7 +84,7 @@ func _ready() -> void:
 	_scroll.name = "SettingsScroll"
 	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	_scroll.mouse_filter = Control.MOUSE_FILTER_STOP
 	_scroll.mouse_force_pass_scroll_events = false
 	column.add_child(_scroll)
@@ -96,7 +96,7 @@ func _ready() -> void:
 	var footer := HBoxContainer.new()
 	footer.add_theme_constant_override("separation", 8)
 	column.add_child(footer)
-	var reset := _button("Reset defaults", "ResetDefaultsButton", GameManager.reset_preferences)
+	var reset := _button("Reset defaults", "ResetDefaultsButton", _reset_application_preferences)
 	reset.pressed.connect(func() -> void:
 		_show_section(_section)
 		_status.text = "Defaults restored"
@@ -131,9 +131,9 @@ func close() -> void:
 	_closing = true
 	preload("res://scripts/ui/web_shell_bridge.gd").set_controls_visible(true)
 	GameManager.save_preferences()
+	# The owner restores its own update gate: a menu may still contain a live
+	# multiplayer room, and an in-match panel must keep reloads blocked.
 	closed.emit()
-	if not from_match:
-		preload("res://scripts/ui/web_shell_bridge.gd").set_update_safe(true)
 	queue_free()
 
 
@@ -170,8 +170,7 @@ func _show_section(index: int) -> void:
 		0: _build_audio()
 		1: _build_controls()
 		2: _build_display()
-		3: _build_match()
-		4: _build_map()
+
 
 
 func _build_audio() -> void:
@@ -200,69 +199,6 @@ func _build_display() -> void:
 	_toggle("Reduced motion", "reduced_motion")
 	_toggle("Reduced flashes", "reduced_flashes")
 	_toggle("Clear player markers", "clearer_player_markers")
-
-
-func _build_match() -> void:
-	_match_rules()
-	_choice("Difficulty", "selected_difficulty", ["Easy", "Medium", "Hard"], [0, 1, 2])
-	_choice("Population / player", "selected_population_limit", ["20", "30", "40"], [20, 30, 40])
-	_toggle("Guide my opening", "guided_opening_enabled")
-
-
-func _build_map() -> void:
-	_note("Next solo skirmish. Online maps are chosen together by the server.")
-	var choices := HBoxContainer.new()
-	choices.name = "MapChoices"
-	choices.add_theme_constant_override("separation", 6)
-	_body.add_child(choices)
-	var group := ButtonGroup.new()
-	var tactics: Label = _note(MapData.get_archetype_description(GameManager.selected_map_archetype))
-	tactics.name = "MapTacticsLabel"
-	for archetype: int in MapData.MAP_ARCHETYPES:
-		var choice := Button.new()
-		var map_name: String = MapData.get_archetype_name(archetype)
-		choice.name = map_name.replace(" ", "") + "MapButton"
-		choice.text = map_name.replace(" ", "\n")
-		choice.icon = load("res://assets/ui/icons/map_%d.svg" % archetype)
-		choice.add_theme_constant_override("icon_max_width", 28)
-		choice.add_theme_constant_override("h_separation", 10)
-		choice.add_theme_color_override("icon_normal_color", THEME.PARCHMENT)
-		choice.add_theme_color_override("icon_pressed_color", THEME.INK)
-		choice.add_theme_color_override("icon_hover_pressed_color", THEME.INK)
-		choice.tooltip_text = MapData.get_archetype_description(archetype)
-		choice.custom_minimum_size = Vector2(140, 56)
-		choice.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		choice.add_theme_font_size_override("font_size", 15)
-		choice.toggle_mode = true
-		choice.button_group = group
-		choice.set_pressed_no_signal(GameManager.selected_map_archetype == archetype)
-		choice.pressed.connect(func() -> void:
-			GameManager.selected_map_archetype = archetype
-			tactics.text = MapData.get_archetype_description(archetype)
-			_save()
-		)
-		choices.add_child(choice)
-	var row := _row("Map seed")
-	var seed := LineEdit.new()
-	seed.name = "MapSeedInput"
-	seed.placeholder_text = "Random each match"
-	seed.text = str(GameManager.selected_map_seed) if GameManager.selected_map_seed >= 0 else ""
-	seed.custom_minimum_size = Vector2(180, 48)
-	seed.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	seed.add_theme_font_size_override("font_size", 15)
-	seed.text_changed.connect(func(value: String) -> void:
-		if value.strip_edges().is_empty() or value.is_valid_int():
-			GameManager.selected_map_seed = maxi(-1, int(value)) if not value.is_empty() else -1
-			_save()
-	)
-	row.add_child(seed)
-	row.add_child(_button("Random", "RandomMapButton", func() -> void:
-		seed.text = ""
-		GameManager.selected_map_seed = -1
-		_save()
-	))
-	_note("%d × %d battlefield. Leave the seed blank for a new map." % [MapData.MAP_WIDTH, MapData.MAP_HEIGHT])
-
 
 
 func _row(label_text: String) -> HBoxContainer:
@@ -330,26 +266,6 @@ func _volume(label: String, property: String) -> void:
 		row.add_child(mute)
 
 
-func _match_rules() -> void:
-	var row := _row("Rules")
-	var group := ButtonGroup.new()
-	for mode: int in [SkirmishData.MatchMode.STANDARD, SkirmishData.MatchMode.QUICK_CONTROL]:
-		var choice := Button.new()
-		choice.name = "StandardRulesButton" if mode == SkirmishData.MatchMode.STANDARD else "QuickRulesButton"
-		choice.text = SkirmishData.get_mode_name(mode)
-		choice.toggle_mode = true
-		choice.button_group = group
-		choice.custom_minimum_size = Vector2(120, 48)
-		choice.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		choice.add_theme_font_size_override("font_size", 14)
-		choice.set_pressed_no_signal(GameManager.selected_match_mode == mode)
-		choice.pressed.connect(func() -> void:
-			GameManager.selected_match_mode = mode
-			_save()
-		)
-		row.add_child(choice)
-
-
 func _choice(label: String, property: String, labels: Array, values: Array) -> void:
 	var row := _row(label)
 	var choice := OptionButton.new()
@@ -394,3 +310,15 @@ func _button(text: String, node_name: String, callback: Callable) -> Button:
 func _save() -> void:
 	GameManager.apply_preferences()
 	_status.text = "Saved" if GameManager.save_preferences() else "Could not save preferences"
+
+
+func _reset_application_preferences() -> void:
+	# Reset application preferences without changing the draft game being created.
+	var match_keys: Array[String] = ["selected_difficulty", "selected_population_limit", "selected_map_seed", "selected_map_archetype", "selected_match_mode", "guided_opening_enabled"]
+	var draft: Dictionary = {}
+	for key: String in match_keys:
+		draft[key] = GameManager.get(key)
+	GameManager.reset_preferences()
+	for key: String in match_keys:
+		GameManager.set(key, draft[key])
+	GameManager.save_preferences()

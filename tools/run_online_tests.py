@@ -19,6 +19,7 @@ parser.add_argument('--combat', action='store_true', help='Also buy armies and v
 parser.add_argument('--stand-ground-combat', action='store_true', help='Also verify replicated Stand Ground before paid attack-move combat')
 parser.add_argument('--combat-only', action='store_true', help='Run just the two paid combat clients')
 parser.add_argument('--strategy-only', action='store_true', help='Only exercise real Strategy controls on two clients')
+parser.add_argument('--rooms-only', action='store_true', help='Only exercise host/join lobby, map agreement, cancellation and recovery')
 parser.add_argument('--maps-only', action='store_true', help='Only exercise legacy/mixed/current map catalog pairs')
 parser.add_argument('--output', default=str(ROOT / 'output' / 'online-tests'))
 args = parser.parse_args()
@@ -93,6 +94,9 @@ try:
             raise RuntimeError('Server did not listen')
     if args.combat_only:
         pass
+    elif args.rooms_only:
+        rooms = launch('rooms', 'test_online_rooms', env=env)
+        check('rooms', rooms, 50)
     elif args.maps_only:
         maps = launch('map-catalog', 'test_online_maps', env=env)
         check('map-catalog', maps, 40)
@@ -101,13 +105,19 @@ try:
         second = launch('strategy-two', 'test_online_strategy', env=env)
         check('strategy-one', first, 50)
         check('strategy-two', second, 50)
-    if not args.strategy_only and not args.maps_only and not args.combat_only:
+    if not args.strategy_only and not args.maps_only and not args.rooms_only and not args.combat_only:
         unavailable = launch('connection-failure', 'test_online_connection_failure', env=env)
         check('connection-failure', unavailable, 20)
         delayed_end = launch('loading-ended', 'test_online_loading_terminal', env=env)
         check('loading-ended', delayed_end, 20)
         delayed_failure = launch('loading-failure', 'test_online_loading_terminal', extra=('--', '--connection-failure'), env=env)
         check('loading-failure', delayed_failure, 20)
+        delayed_poll = launch('delayed-poll', 'test_online_delayed_poll', env=env)
+        check('delayed-poll', delayed_poll, 20)
+        delayed_result = launch('delayed-result', 'test_online_delayed_result', env=env)
+        check('delayed-result', delayed_result, 25)
+        lifetime = launch('reference-lifetime', 'test_network_reference_lifetime', env=env)
+        check('reference-lifetime', lifetime, 20)
         lifecycle = launch('lifecycle', 'test_online_lifecycle', env=env)
         check('lifecycle', lifecycle, 50)
         first = launch('client-one', 'test_online_client', env=env)

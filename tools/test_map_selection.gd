@@ -33,7 +33,7 @@ func _run() -> void:
 	for failure: String in _failures:
 		push_error("[FAIL] map_selection: " + failure)
 	if _failures.is_empty():
-		print("[PASS] map_selection: all three map choices, real ScreenTouch, saved preferences and actual menu-to-match terrain at two phone sizes/scales; no scrolling or manual layout")
+		print("[PASS] map_selection: all three map choices, real ScreenTouch, saved preferences and actual New Game-to-match terrain at two phone sizes/scales; map cards need no scrolling or manual layout")
 	get_tree().quit(0 if _failures.is_empty() else 1)
 
 
@@ -48,38 +48,23 @@ func _exercise(phone: Vector2i, scale: float, launch_archetype: int) -> void:
 	get_tree().root.add_child(menu)
 	get_tree().current_scene = menu
 	await _frames(4)
-	await _tap(menu.get("settings_button"))
-	if not is_instance_valid(menu):
-		_failures.append("Settings touch unexpectedly changed scene")
+	await _tap(menu.get("_new_game_button"))
+	if not is_instance_valid(menu) or str(menu.get("_screen")) != "setup":
+		_failures.append("touch New Game did not open setup")
 		return
-	var settings: Control = menu.get("_shared_settings")
-	if settings == null:
-		_failures.append("touch Settings did not open")
-		menu.free()
-		get_tree().current_scene = null
-		return
-	await _tap(settings.find_child("MapTab", true, false))
 	for archetype: int in MapData.MAP_ARCHETYPES:
-		var name: String = MapData.get_archetype_name(archetype).replace(" ", "") + "MapButton"
-		var choice: Button = settings.find_child(name, true, false)
+		var choice: Button = (menu.get("_map_buttons") as Array)[archetype]
 		await _tap(choice)
-		_expect(GameManager.selected_map_archetype == archetype and choice.button_pressed, "touch map choice applied " + name)
-		var tactics: Label = settings.find_child("MapTacticsLabel", true, false)
+		_expect(GameManager.selected_map_archetype == archetype and choice.button_pressed, "touch map choice applied " + choice.name)
+		var tactics: Label = menu.get("map_summary_label")
 		_expect(tactics.text == MapData.get_archetype_description(archetype), "tactical description follows choice")
-		var config := ConfigFile.new()
-		config.load(GameManager.PREFERENCES_PATH)
-		_expect(int(config.get_value("skirmish", "map_archetype", -1)) == archetype, "map choice saved")
-		var scroll: ScrollContainer = settings.get("_scroll")
-		var body: Control = settings.get("_body")
-		_expect(scroll.get_global_rect().grow(1).encloses(body.get_global_rect()), "map choices and seed fit without scrolling at %s scale%s" % [phone, scale])
+		_expect(get_viewport().get_visible_rect().grow(1).encloses(choice.get_global_rect()), "map choice visible without scrolling at %s scale%s" % [phone, scale])
 		_expect(choice.size.y >= 48.0, "map touch target at least48")
 		if launch_archetype == 0 and not _capture_dir.is_empty() and DisplayServer.get_name() != "headless":
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png(_capture_dir.path_join("map-%d-%dx%d-%s.png" % [archetype, phone.x, phone.y, scale]))
-	# Each terrain must survive Done and the real Play button.
-	var launch_name: String = MapData.get_archetype_name(launch_archetype).replace(" ", "") + "MapButton"
-	await _tap(settings.find_child(launch_name, true, false))
-	await _tap(settings.find_child("SettingsDoneButton", true, false))
+	# The real Start action persists the draft and uses that same map and seed.
+	await _tap((menu.get("_map_buttons") as Array)[launch_archetype])
 	await _tap(menu.get("start_button"))
 	var main: Node = null
 	for frame: int in range(900):
@@ -90,6 +75,9 @@ func _exercise(phone: Vector2i, scale: float, launch_archetype: int) -> void:
 	_expect(is_instance_valid(main) and main.scene_file_path == "res://scenes/main/main.tscn", "touch Play loads match")
 	if is_instance_valid(main) and main.has_node("GameMap"):
 		var game_map: Node2D = main.get_node("GameMap")
+		var config := ConfigFile.new()
+		config.load(GameManager.PREFERENCES_PATH)
+		_expect(int(config.get_value("skirmish", "map_archetype", -1)) == launch_archetype, "Start saves chosen map")
 		_expect(game_map.map_archetype == launch_archetype, "selected archetype reaches actual match")
 		var expected := MapGenerator.new(101, launch_archetype)
 		_expect(game_map.map_generator.grid == expected.generate(), "actual terrain reproduces selected archetype and seed")

@@ -3,3 +3,7 @@ Unmodified files from the official Google Fonts repository:
 https://github.com/google/fonts/tree/main/ofl/barlow
 https://github.com/google/fonts/tree/main/ofl/barlowcondensed
 Distributed under the SIL Open Font License 1.1; see the accompanying license files.
+
+Cinzel by Natanael Gama. Unmodified variable font from the official Google Fonts repository:
+https://github.com/google/fonts/tree/main/ofl/cinzel
+Distributed under SIL Open Font License 1.1; see cinzel-OFL.txt.

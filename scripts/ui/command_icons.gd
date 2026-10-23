@@ -13,7 +13,7 @@ const BADGE_NODE_NAME := "CommandIconBadge"
 const TARGET_SIZE := 48.0
 const GLYPH_SIZE := 24
 const GAP := 6
-const CORNER_RADIUS := 4
+const CORNER_RADIUS := 2
 static var _textures: Dictionary = {}
 
 
@@ -58,6 +58,23 @@ static func apply(button: Button, key: String, accessible_label: String, caption
 		compact.set_content_margin(SIDE_BOTTOM, 4.0)
 		if compact is StyleBoxFlat:
 			(compact as StyleBoxFlat).set_corner_radius_all(CORNER_RADIUS)
+		button.add_theme_stylebox_override(state, compact)
+
+
+static func apply_labeled(button: Button, key: String, accessible_label: String, caption: String) -> void:
+	## A visible word makes the everyday command discoverable on touch screens.
+	apply(button, key, accessible_label, caption)
+	button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	button.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
+	button.add_theme_constant_override("icon_max_width", 20)
+	button.add_theme_constant_override("h_separation", 1)
+	button.add_theme_font_size_override("font_size", 10)
+	for state: String in ["normal", "hover", "pressed", "disabled", "focus", "hover_pressed"]:
+		var compact := button.get_theme_stylebox(state).duplicate() as StyleBox
+		compact.set_content_margin(SIDE_LEFT, 3.0)
+		compact.set_content_margin(SIDE_RIGHT, 3.0)
+		compact.set_content_margin(SIDE_TOP, 2.0)
+		compact.set_content_margin(SIDE_BOTTOM, 2.0)
 		button.add_theme_stylebox_override(state, compact)
 
 
