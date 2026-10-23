@@ -1,6 +1,20 @@
 {
   "releases": [
     {
+      "id": "2026-10-23-command-table",
+      "version": "0.2.0-beta.9",
+      "date": "2026-10-23",
+      "title": "Your battlefield. Your company.",
+      "summary": "Choose a battlefield in New Game, invite a friend to a private room, and command through a redesigned interface.",
+      "changes": [
+        "New Game now contains the map previews, match rules and opponent options. Settings keeps audio, controls and display preferences.",
+        "Create a private multiplayer room and share its code. The host chooses Open Plains, River Crossings or Woodland Flanks; both players see the choice before starting.",
+        "A shared navy, parchment and gold interface brings clearer headings, labeled commands and readable construction, recruitment, research, pause and results panels.",
+        "Multiplayer handles loading delays and final results more reliably, and safely ignores input references to units removed by a newer snapshot.",
+        "Recent building clearance, Farm ownership, resource delivery, crowd movement and combat improvements are included. A lost connection still ends the current match; return to New Game to play again."
+      ]
+    },
+    {
       "id": "2026-10-22-find-your-fighters",
       "version": "0.2.0-beta.8",
       "date": "2026-10-22",
