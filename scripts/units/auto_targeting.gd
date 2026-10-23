@@ -27,10 +27,12 @@ static func _nearest_unit(attacker: UnitBase, radius: float) -> UnitBase:
 		var unit: UnitBase = candidate as UnitBase
 		if unit.player_owner == attacker.player_owner:
 			continue
-		if not attacker._is_valid_target(unit) or attacker._is_auto_target_temporarily_ignored(unit):
-			continue
 		var distance: float = attacker.global_position.distance_to(unit.global_position)
 		if distance > radius:
+			continue
+		# Most opponents are elsewhere on the map. Reject them before the live
+		# fog query, which may inspect every vision source for this player.
+		if not attacker._is_valid_target(unit) or attacker._is_auto_target_temporarily_ignored(unit):
 			continue
 		var priority: int = _unit_priority(attacker, unit)
 		if priority > best_priority or (priority == best_priority and distance < nearest_distance):
@@ -64,10 +66,10 @@ static func _nearest_building(attacker: UnitBase, radius: float) -> BuildingBase
 		var building: BuildingBase = candidate as BuildingBase
 		if building.player_owner == attacker.player_owner:
 			continue
-		if not attacker._is_valid_building_target(building) or attacker._is_auto_target_temporarily_ignored(building):
-			continue
 		var distance: float = attacker._get_building_attack_distance(building)
 		if distance < nearest_distance:
+			if not attacker._is_valid_building_target(building) or attacker._is_auto_target_temporarily_ignored(building):
+				continue
 			nearest_distance = distance
 			nearest = building
 	return nearest

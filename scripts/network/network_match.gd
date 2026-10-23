@@ -106,8 +106,9 @@ func _snapshot_for(slot: int) -> Dictionary:
 					actor["queue"] = {"items": queue.queue, "progress": queue.current_progress, "time": queue.current_train_time, "training": queue.is_training, "repeat": queue.auto_queue_enabled, "repeat_type": queue.auto_queue_unit_type}
 		actors.append(actor)
 	var resources: Array = []
+	var visible_resource_tiles: Dictionary = game_map.get_visible_tiles_for_player(_resource_tiles, slot)
 	for tile: Vector2i in _resource_tiles:
-		if game_map.is_tile_visible_to_player(tile, slot):
+		if visible_resource_tiles.has(tile):
 			var resource: Node2D = game_map.get_resource_node_at(tile)
 			resources.append([tile.x, tile.y, resource.remaining if is_instance_valid(resource) else 0])
 	var site: Node = game_map.sacred_site

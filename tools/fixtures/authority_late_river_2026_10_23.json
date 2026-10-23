@@ -1,0 +1,637 @@
+{
+  "seed": 169179283,
+  "map": 1,
+  "actors": [
+    {
+      "id": 1,
+      "owner": 0,
+      "kind": "unit",
+      "type": 0,
+      "x": -1557.69799804688,
+      "y": 1297.64184570312
+    },
+    {
+      "id": 2,
+      "owner": 0,
+      "kind": "unit",
+      "type": 0,
+      "x": -1816.9599609375,
+      "y": 1100.47998046875
+    },
+    {
+      "id": 3,
+      "owner": 0,
+      "kind": "unit",
+      "type": 0,
+      "x": -1553.19030761719,
+      "y": 1239.40490722656
+    },
+    {
+      "id": 4,
+      "owner": 0,
+      "kind": "unit",
+      "type": 0,
+      "x": -1987.43322753906,
+      "y": 1214.01477050781
+    },
+    {
+      "id": 9,
+      "owner": 0,
+      "kind": "building",
+      "type": 0,
+      "x": -1856,
+      "y": 1152
+    },
+    {
+      "id": 11,
+      "owner": 0,
+      "kind": "unit",
+      "type": 0,
+      "x": -1498.1376953125,
+      "y": 1297.73388671875
+    },
+    {
+      "id": 13,
+      "owner": 0,
+      "kind": "building",
+      "type": 2,
+      "x": -1856,
+      "y": 1024
+    },
+    {
+      "id": 15,
+      "owner": 0,
+      "kind": "unit",
+      "type": 0,
+      "x": -1629.12048339844,
+      "y": 1038.56030273438
+    },
+    {
+      "id": 17,
+      "owner": 0,
+      "kind": "unit",
+      "type": 0,
+      "x": -1702.25793457031,
+      "y": 1196.87109375
+    },
+    {
+      "id": 19,
+      "owner": 0,
+      "kind": "building",
+      "type": 9,
+      "x": -2112,
+      "y": 1152
+    },
+    {
+      "id": 23,
+      "owner": 0,
+      "kind": "unit",
+      "type": 0,
+      "x": -1516.20104980469,
+      "y": 1036.20104980469
+    },
+    {
+      "id": 27,
+      "owner": 0,
+      "kind": "unit",
+      "type": 0,
+      "x": -1745.759765625,
+      "y": 1333.98034667969
+    },
+    {
+      "id": 31,
+      "owner": 0,
+      "kind": "building",
+      "type": 5,
+      "x": -1728,
+      "y": 1088
+    },
+    {
+      "id": 34,
+      "owner": 0,
+      "kind": "unit",
+      "type": 0,
+      "x": -1791.99987792969,
+      "y": 1120.3408203125
+    },
+    {
+      "id": 39,
+      "owner": 0,
+      "kind": "unit",
+      "type": 0,
+      "x": -1666.87951660156,
+      "y": 1121.43969726562
+    },
+    {
+      "id": 42,
+      "owner": 0,
+      "kind": "unit",
+      "type": 0,
+      "x": -1605.94812011719,
+      "y": 1280.48986816406
+    },
+    {
+      "id": 46,
+      "owner": 0,
+      "kind": "building",
+      "type": 5,
+      "x": -2048,
+      "y": 1216
+    },
+    {
+      "id": 50,
+      "owner": 0,
+      "kind": "building",
+      "type": 1,
+      "x": -1952,
+      "y": 1264
+    },
+    {
+      "id": 52,
+      "owner": 0,
+      "kind": "building",
+      "type": 3,
+      "x": -1472,
+      "y": 1152
+    },
+    {
+      "id": 56,
+      "owner": 0,
+      "kind": "building",
+      "type": 4,
+      "x": -1280,
+      "y": 1120
+    },
+    {
+      "id": 58,
+      "owner": 0,
+      "kind": "unit",
+      "type": 2,
+      "x": -1.11088371276855,
+      "y": 1120.85925292969
+    },
+    {
+      "id": 63,
+      "owner": 0,
+      "kind": "unit",
+      "type": 2,
+      "x": 0,
+      "y": 1184
+    },
+    {
+      "id": 67,
+      "owner": 0,
+      "kind": "unit",
+      "type": 1,
+      "x": 32,
+      "y": 1104
+    },
+    {
+      "id": 69,
+      "owner": 0,
+      "kind": "building",
+      "type": 8,
+      "x": -1792,
+      "y": 928
+    },
+    {
+      "id": 70,
+      "owner": 0,
+      "kind": "unit",
+      "type": 2,
+      "x": 32,
+      "y": 1168
+    },
+    {
+      "id": 73,
+      "owner": 0,
+      "kind": "unit",
+      "type": 1,
+      "x": 30.7133598327637,
+      "y": 1136.46838378906
+    },
+    {
+      "id": 77,
+      "owner": 0,
+      "kind": "unit",
+      "type": 1,
+      "x": -32.0746192932129,
+      "y": 1104.01379394531
+    },
+    {
+      "id": 81,
+      "owner": 0,
+      "kind": "building",
+      "type": 1,
+      "x": -1632,
+      "y": 1136
+    },
+    {
+      "id": 84,
+      "owner": 0,
+      "kind": "unit",
+      "type": 2,
+      "x": -32.3743705749512,
+      "y": 1135.13134765625
+    },
+    {
+      "id": 85,
+      "owner": 0,
+      "kind": "building",
+      "type": 5,
+      "x": -1664,
+      "y": 1344
+    },
+    {
+      "id": 92,
+      "owner": 0,
+      "kind": "unit",
+      "type": 1,
+      "x": -33.3019256591797,
+      "y": 1200.10070800781
+    },
+    {
+      "id": 94,
+      "owner": 0,
+      "kind": "unit",
+      "type": 2,
+      "x": 0,
+      "y": 1152
+    },
+    {
+      "id": 95,
+      "owner": 0,
+      "kind": "unit",
+      "type": 3,
+      "x": -32,
+      "y": 1168
+    },
+    {
+      "id": 97,
+      "owner": 0,
+      "kind": "unit",
+      "type": 1,
+      "x": 31.7633323669434,
+      "y": 1200.00073242188
+    },
+    {
+      "id": 100,
+      "owner": 0,
+      "kind": "unit",
+      "type": 1,
+      "x": 64.3733596801758,
+      "y": 1149.29211425781
+    },
+    {
+      "id": 101,
+      "owner": 0,
+      "kind": "unit",
+      "type": 2,
+      "x": 0,
+      "y": 1088
+    },
+    {
+      "id": 107,
+      "owner": 0,
+      "kind": "building",
+      "type": 5,
+      "x": -1856,
+      "y": 1312
+    },
+    {
+      "id": 108,
+      "owner": 0,
+      "kind": "building",
+      "type": 5,
+      "x": -1696,
+      "y": 1008
+    },
+    {
+      "id": 109,
+      "owner": 0,
+      "kind": "building",
+      "type": 5,
+      "x": -1600,
+      "y": 1056
+    },
+    {
+      "id": 5,
+      "owner": 1,
+      "kind": "unit",
+      "type": 0,
+      "x": 1538.81970214844,
+      "y": 1374.59008789062
+    },
+    {
+      "id": 6,
+      "owner": 1,
+      "kind": "unit",
+      "type": 0,
+      "x": 1568,
+      "y": 1040
+    },
+    {
+      "id": 7,
+      "owner": 1,
+      "kind": "unit",
+      "type": 0,
+      "x": 1408,
+      "y": 1344
+    },
+    {
+      "id": 8,
+      "owner": 1,
+      "kind": "unit",
+      "type": 0,
+      "x": 956.049926757812,
+      "y": 1342.77746582031
+    },
+    {
+      "id": 10,
+      "owner": 1,
+      "kind": "building",
+      "type": 0,
+      "x": 1920,
+      "y": 1152
+    },
+    {
+      "id": 12,
+      "owner": 1,
+      "kind": "unit",
+      "type": 0,
+      "x": 1789.06176757812,
+      "y": 1214.1728515625
+    },
+    {
+      "id": 14,
+      "owner": 1,
+      "kind": "building",
+      "type": 2,
+      "x": 1920,
+      "y": 1024
+    },
+    {
+      "id": 16,
+      "owner": 1,
+      "kind": "unit",
+      "type": 0,
+      "x": 1781.12377929688,
+      "y": 1178.533203125
+    },
+    {
+      "id": 18,
+      "owner": 1,
+      "kind": "unit",
+      "type": 0,
+      "x": 2077.76733398438,
+      "y": 1169.11633300781
+    },
+    {
+      "id": 20,
+      "owner": 1,
+      "kind": "building",
+      "type": 9,
+      "x": 1664,
+      "y": 1152
+    },
+    {
+      "id": 24,
+      "owner": 1,
+      "kind": "unit",
+      "type": 0,
+      "x": 1544.85900878906,
+      "y": 1061.12292480469
+    },
+    {
+      "id": 28,
+      "owner": 1,
+      "kind": "unit",
+      "type": 0,
+      "x": 951.518310546875,
+      "y": 1378.64086914062
+    },
+    {
+      "id": 33,
+      "owner": 1,
+      "kind": "unit",
+      "type": 0,
+      "x": 1383.31567382812,
+      "y": 1260.34216308594
+    },
+    {
+      "id": 36,
+      "owner": 1,
+      "kind": "building",
+      "type": 5,
+      "x": 2144,
+      "y": 1136
+    },
+    {
+      "id": 37,
+      "owner": 1,
+      "kind": "unit",
+      "type": 0,
+      "x": 1588.46569824219,
+      "y": 1020.42730712891
+    },
+    {
+      "id": 40,
+      "owner": 1,
+      "kind": "unit",
+      "type": 0,
+      "x": 1720.68432617188,
+      "y": 1379.65783691406
+    },
+    {
+      "id": 45,
+      "owner": 1,
+      "kind": "building",
+      "type": 5,
+      "x": 1728,
+      "y": 1216
+    },
+    {
+      "id": 51,
+      "owner": 1,
+      "kind": "building",
+      "type": 1,
+      "x": 1824,
+      "y": 1264
+    },
+    {
+      "id": 53,
+      "owner": 1,
+      "kind": "building",
+      "type": 3,
+      "x": 1472,
+      "y": 1152
+    },
+    {
+      "id": 55,
+      "owner": 1,
+      "kind": "building",
+      "type": 4,
+      "x": 1568,
+      "y": 1232
+    },
+    {
+      "id": 72,
+      "owner": 1,
+      "kind": "building",
+      "type": 8,
+      "x": 1696,
+      "y": 1296
+    },
+    {
+      "id": 87,
+      "owner": 1,
+      "kind": "building",
+      "type": 1,
+      "x": 2048,
+      "y": 1088
+    },
+    {
+      "id": 89,
+      "owner": 1,
+      "kind": "unit",
+      "type": 1,
+      "x": 1885.08020019531,
+      "y": 1106.12023925781
+    },
+    {
+      "id": 90,
+      "owner": 1,
+      "kind": "unit",
+      "type": 2,
+      "x": 1984,
+      "y": 1088
+    },
+    {
+      "id": 91,
+      "owner": 1,
+      "kind": "unit",
+      "type": 5,
+      "x": 1981.11291503906,
+      "y": 1153.39965820312
+    },
+    {
+      "id": 93,
+      "owner": 1,
+      "kind": "unit",
+      "type": 1,
+      "x": 1950.4287109375,
+      "y": 1103.1650390625
+    },
+    {
+      "id": 96,
+      "owner": 1,
+      "kind": "unit",
+      "type": 2,
+      "x": 2016,
+      "y": 1136
+    },
+    {
+      "id": 98,
+      "owner": 1,
+      "kind": "unit",
+      "type": 1,
+      "x": 1920,
+      "y": 1120
+    },
+    {
+      "id": 99,
+      "owner": 1,
+      "kind": "unit",
+      "type": 2,
+      "x": 1952,
+      "y": 1136
+    },
+    {
+      "id": 102,
+      "owner": 1,
+      "kind": "unit",
+      "type": 1,
+      "x": 1984,
+      "y": 1120
+    },
+    {
+      "id": 103,
+      "owner": 1,
+      "kind": "unit",
+      "type": 5,
+      "x": 1854.5078125,
+      "y": 1152.73156738281
+    },
+    {
+      "id": 104,
+      "owner": 1,
+      "kind": "unit",
+      "type": 2,
+      "x": 1856.97595214844,
+      "y": 1089.51440429688
+    },
+    {
+      "id": 105,
+      "owner": 1,
+      "kind": "unit",
+      "type": 1,
+      "x": 1888.73376464844,
+      "y": 1136.38439941406
+    },
+    {
+      "id": 106,
+      "owner": 1,
+      "kind": "unit",
+      "type": 2,
+      "x": 1856,
+      "y": 1120
+    },
+    {
+      "id": 110,
+      "owner": 1,
+      "kind": "building",
+      "type": 5,
+      "x": 1312,
+      "y": 1232
+    },
+    {
+      "id": 111,
+      "owner": 1,
+      "kind": "building",
+      "type": 5,
+      "x": 1408,
+      "y": 1280
+    },
+    {
+      "id": 112,
+      "owner": 1,
+      "kind": "building",
+      "type": 5,
+      "x": 1504,
+      "y": 1328
+    },
+    {
+      "id": 113,
+      "owner": 1,
+      "kind": "building",
+      "type": 5,
+      "x": 1536,
+      "y": 1408
+    }
+  ],
+  "scope": "Synthetic paused reproduction of final recorded public River own-actor positions/types. Direct spawns and active buildings; excludes original unit paths, orders, cargo, research, resource depletion and paid progression. No full-match or throughput claim.",
+  "receipts": [
+    {
+      "role": "host",
+      "sha256": "c89a1161192289667415319a038ce135bcd2e5ee332f93f4625ea887d4d85550",
+      "tick": 7390,
+      "game_seconds": 864.495868999973
+    },
+    {
+      "role": "guest",
+      "sha256": "81e65adad69502d67dda5f48912565742074805cde732f09dced4ebe6b007b8b",
+      "tick": 7390,
+      "game_seconds": 864.495868999973
+    }
+  ]
+}

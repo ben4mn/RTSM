@@ -1155,6 +1155,45 @@ func is_tile_visible_to_player(tile_pos: Vector2i, viewer_player_id: int = 0) ->
 	return _are_tiles_visible_from_live_sources([tile_pos], viewer_player_id)
 
 
+## Fresh batch for snapshot serialization. It lives only for this synchronous
+## call; movement, creation, deletion and vision changes cannot leave stale fog.
+## Single gameplay queries retain their existing live-source contract below.
+func get_visible_tiles_for_player(tile_positions: Array[Vector2i], viewer_player_id: int = 0) -> Dictionary:
+	var visible: Dictionary = {}
+	if fog_of_war != null and viewer_player_id == fog_of_war.owning_player:
+		for tile: Vector2i in tile_positions:
+			if fog_of_war.is_tile_visible(tile): visible[tile] = true
+		return visible
+	if not is_inside_tree():
+		return visible
+	var sources: Dictionary = {}
+	for node: Node in get_tree().get_nodes_in_group("units"):
+		if not is_instance_valid(node) or not is_ancestor_of(node) or not node is UnitBase:
+			continue
+		var unit := node as UnitBase
+		if unit.player_owner == viewer_player_id and unit.current_state != UnitBase.State.DEAD:
+			var origin: Vector2i = world_to_tile(unit.global_position)
+			var radius: int = maxi(0, int(round(MapData.world_to_range_tiles(unit.vision_radius))))
+			sources[Vector3i(origin.x, origin.y, radius)] = true
+	for node: Node in get_tree().get_nodes_in_group("buildings"):
+		if not is_instance_valid(node) or not is_ancestor_of(node) or not node is BuildingBase:
+			continue
+		var building := node as BuildingBase
+		if building.player_owner == viewer_player_id and building.state != BuildingBase.State.DESTROYED:
+			var origin: Vector2i = world_to_tile(building.global_position)
+			var stats: Dictionary = BuildingData.get_building_stats(building.building_type)
+			sources[Vector3i(origin.x, origin.y, maxi(0, int(stats.get("vision_radius", 3))))] = true
+	for tile: Vector2i in tile_positions:
+		if tile.x < 0 or tile.y < 0 or tile.x >= MapData.MAP_WIDTH or tile.y >= MapData.MAP_HEIGHT:
+			continue
+		for source: Vector3i in sources:
+			var offset := tile - Vector2i(source.x, source.y)
+			if offset.x * offset.x + offset.y * offset.y <= source.z * source.z:
+				visible[tile] = true
+				break
+	return visible
+
+
 func _are_tiles_visible_from_live_sources(
 	target_tiles: Array[Vector2i],
 	viewer_player_id: int
