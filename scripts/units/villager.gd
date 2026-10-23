@@ -367,6 +367,8 @@ func _process_gathering(delta: float) -> void:
 		if gathered > 0:
 			_cargo[carried_resource_type] = int(_cargo.get(carried_resource_type, 0)) + gathered
 			carried_amount += gathered
+			# An unselected worker can gain mixed cargo without changing state.
+			queue_redraw()
 
 		if carried_amount >= carry_capacity:
 			_find_and_go_to_dropoff()
@@ -1664,33 +1666,71 @@ func _is_build_target_valid(building_site: Variant) -> bool:
 	return building_site.has_method("add_build_progress")
 
 
-# --- Override draw for carried resource indicator ---
+# --- Resource work and cargo presentation ---
+
+func _resource_marker_type() -> String:
+	# Work can change while an old load is still in the bag. Read the manifest
+	# without synchronizing/mutating it from drawing, including inert replicas.
+	if current_state == State.DEAD:
+		return ""
+	if carried_amount > 0:
+		var manifest: Dictionary = get_meta("network_cargo", _cargo)
+		var kind: String = ""
+		var total: int = 0
+		for resource: String in manifest:
+			var amount: int = int(manifest[resource])
+			if amount <= 0:
+				continue
+			total += amount
+			kind = resource if kind == "" else "mixed"
+		if total == carried_amount and kind != "":
+			return kind
+		# Saved single-stack state predates the typed manifest.
+		return carried_resource_type if carried_resource_type != "" else "mixed"
+	return carried_resource_type if current_state == State.GATHERING else ""
+
 
 func get_visual_bounds() -> Rect2:
 	var bounds: Rect2 = super.get_visual_bounds()
-	if current_state == State.GATHERING or carried_amount > 0:
+	if _resource_marker_type() != "":
 		var size: float = UNIT_SIZES.get(unit_type, 8.0)
-		bounds = bounds.merge(global_transform * Rect2(size - 2.0, -6.0, 12.0, 12.0))
+		bounds = bounds.merge(global_transform * Rect2(size - 3.0, -8.0, 14.0, 17.0))
 	return bounds
 
 
 func _draw() -> void:
 	super._draw()
-	# Show resource indicator when gathering or carrying resources
-	if current_state == State.GATHERING or carried_amount > 0:
-		var res_color: Color
-		match carried_resource_type:
-			"food":
-				res_color = Color(1.0, 0.3, 0.3)  # red
-			"wood":
-				res_color = Color(0.5, 0.3, 0.1)  # brown
-			"gold":
-				res_color = Color(1.0, 0.85, 0.0) # gold
-			_:
-				res_color = Color.WHITE
-		var size: float = UNIT_SIZES.get(unit_type, 8.0)
-		var dot_pos := Vector2(size + 4.0, 0)
-		# Black outline
-		draw_circle(dot_pos, 6.0, Color(0, 0, 0, 0.6))
-		# Colored dot (larger)
-		draw_circle(dot_pos, 5.0, res_color)
+	var kind: String = _resource_marker_type()
+	if kind == "":
+		return
+	var size: float = UNIT_SIZES.get(unit_type, 8.0)
+	var center := Vector2(size + 4.0, -1.0)
+	var ink := Color("293b3e")
+	var paper := Color("e4ddbf")
+	# Compact shaped cargo stays legible at ordinary zoom. Quiet mineral colors
+	# leave team cloth, selection and combat damage as the strongest accents.
+	draw_circle(center, 6.5, Color(0.09, 0.15, 0.17, 0.84))
+	match kind:
+		"food":
+			for offset: Vector2 in [Vector2(-2.2, 0.2), Vector2(2.2, 0.2), Vector2(0, 2.6)]:
+				draw_circle(center + offset, 2.1, Color("cf8d72"))
+			draw_colored_polygon(PackedVector2Array([center + Vector2(-1, -1.7), center + Vector2(0, -4.7), center + Vector2(3.6, -3.5), center + Vector2(1, -1)]), Color("a6b78a"))
+		"wood":
+			for offset: Vector2 in [Vector2(-1.5, -1.6), Vector2(1.1, 1.5)]:
+				var a: Vector2 = center + offset + Vector2(-2, 1.5)
+				var b: Vector2 = center + offset + Vector2(2, -1.5)
+				draw_line(a, b, Color("9c7956"), 3.8, true)
+				draw_circle(a, 1.9, Color("d6bc89"))
+				draw_circle(a, 0.6, ink)
+		"gold":
+			draw_colored_polygon(PackedVector2Array([center + Vector2(-4.5, 2.8), center + Vector2(-2.8, -0.5), center + Vector2(3, -0.5), center + Vector2(4.7, 2.8)]), Color("c7a65c"))
+			draw_line(center + Vector2(-2.6, -0.4), center + Vector2(2.6, -0.4), paper, 1.2, true)
+			draw_colored_polygon(PackedVector2Array([center + Vector2(-2.8, -1.8), center + Vector2(-1.5, -4.1), center + Vector2(1.5, -4.1), center + Vector2(2.8, -1.8)]), Color("e2c37c"))
+		_:
+			# A tied satchel means mixed cargo; it never invents a single type.
+			draw_colored_polygon(PackedVector2Array([center + Vector2(-2, -3.5), center + Vector2(2, -3.5), center + Vector2(1.6, -1.6), center + Vector2(4, 1), center + Vector2(3.5, 4), center + Vector2(-3.5, 4), center + Vector2(-4, 1), center + Vector2(-1.6, -1.6)]), paper)
+			draw_line(center + Vector2(-2, -1.4), center + Vector2(2, -1.4), Color("8b7659"), 1.5, true)
+	if is_selected and carried_amount > 0:
+		var ratio: float = clampf(float(carried_amount) / maxf(1.0, carry_capacity), 0.0, 1.0)
+		draw_rect(Rect2(center + Vector2(-7, 5.5), Vector2(14, 4)), ink)
+		draw_rect(Rect2(center + Vector2(-6, 6.5), Vector2(12 * ratio, 2)), paper)
