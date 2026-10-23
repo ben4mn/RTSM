@@ -1,6 +1,17 @@
 {
   "releases": [
     {
+      "id": "2026-10-23-settled-game-creation",
+      "version": "0.2.0-beta.11",
+      "date": "2026-10-23",
+      "title": "A clear path to your lobby",
+      "summary": "Join a friend opens with readable battlefield previews and reachable room controls.",
+      "changes": [
+        "Opening multiplayer directly from Home now settles the game-creation layout after its text wraps.",
+        "The multiplayer, shared battlefield selection and interface improvements from beta.9 and beta.10 are included."
+      ]
+    },
+    {
       "id": "2026-10-23-visible-lobby-actions",
       "version": "0.2.0-beta.10",
       "date": "2026-10-23",

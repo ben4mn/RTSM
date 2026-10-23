@@ -26,6 +26,8 @@ var _web_update_safe: bool = false
 var _session: Node
 var _transition: Tween
 var _root_margin: MarginContainer
+var _frame_rect := Rect2()
+var _frame_reflow_queued: bool = false
 var _shell: VBoxContainer
 var _header: HBoxContainer
 var _page_title: Label
@@ -133,6 +135,7 @@ func _build_interface() -> void:
 	_root_margin = MarginContainer.new()
 	_root_margin.name = "MenuFrame"
 	add_child(_root_margin)
+	_root_margin.minimum_size_changed.connect(_queue_frame_reflow)
 	_shell = VBoxContainer.new()
 	_shell.add_theme_constant_override("separation", 14)
 	_root_margin.add_child(_shell)
@@ -715,6 +718,7 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2, shell_top_cle
 	if available.size.x > max_width:
 		available.position.x += (available.size.x - max_width) * 0.5
 		available.size.x = max_width
+	_frame_rect = available
 	_root_margin.position = available.position
 	_root_margin.size = available.size
 	_shell.add_theme_constant_override("separation", 6 if compact else 14)
@@ -750,6 +754,23 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2, shell_top_cle
 	else:
 		_home.vertical = false
 		_hero_art.custom_minimum_size.y = 0
+
+
+func _queue_frame_reflow() -> void:
+	if _frame_reflow_queued:
+		return
+	_frame_reflow_queued = true
+	call_deferred("_restore_frame_size")
+
+
+func _restore_frame_size() -> void:
+	_frame_reflow_queued = false
+	if not is_inside_tree() or not _frame_rect.has_area():
+		return
+	# First-show autowrap can briefly inflate a manually sized Container. Once
+	# its minimum settles, restore the viewport allocation instead of retaining
+	# that transient height and stretching the map cards off screen.
+	_root_margin.size = _frame_rect.size
 
 
 static func _menu_frame_rect(safe_area: Rect2, margin: float, top_clearance: float) -> Rect2:
