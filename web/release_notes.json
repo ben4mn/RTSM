@@ -1,6 +1,20 @@
 {
   "releases": [
     {
+      "id": "2026-10-23-living-battlefields",
+      "version": "0.2.0-beta.12",
+      "date": "2026-10-23",
+      "title": "A living battlefield",
+      "summary": "Richer woods and water, clearer worker loads, and useful status at a glance.",
+      "changes": [
+        "Original oak, elm and pine silhouettes, grounded fruit and mineral deposits, quieter meadows and deeper water bring the battlefield together.",
+        "Workers carry recognizable food, timber, ore and mixed-load symbols. Selected workers show how full their bag is.",
+        "Selection meters name health, stock, construction and capture progress. Local Farms show whether a worker is assigned, and population feedback explains reserved queue space.",
+        "Online foundations no longer show a missing-builder warning based on incomplete client information.",
+        "Reduced server work as armies grow, while preserving current vision and targeting rules."
+      ]
+    },
+    {
       "id": "2026-10-23-settled-game-creation",
       "version": "0.2.0-beta.11",
       "date": "2026-10-23",
