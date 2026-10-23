@@ -21,6 +21,7 @@ var _invalid_reason: String = ""
 var _invalid_tiles: Array[Vector2i] = []
 var _player_owner: int = 0
 var _ghost_sprite: Sprite2D = null
+var _ghost_art_rect: Rect2 = Rect2()
 var _terrain_layer: TileMapLayer = null
 var _last_invalid_feedback_msec: int = -10000
 var _suspended_world_inputs: Array[Dictionary] = []
@@ -29,8 +30,25 @@ var _released_touch_inputs: Dictionary = {}
 var _touch_camera_gesture: bool = false
 var _uses_touch_input: bool = false
 var _preview_refresh_elapsed: float = 0.0
+var _placement_grid: PlacementGrid = null
+var _grid_canvas_transform: Transform2D = Transform2D.IDENTITY
+var _grid_world_transform: Transform2D = Transform2D.IDENTITY
+var _grid_view_rect: Rect2 = Rect2()
+var _grid_tile_bounds: Rect2i = Rect2i()
+var _grid_cache_valid: bool = false
 
 const GENERIC_INVALID_REASON := "Invalid placement"
+const PLACEMENT_GRID_COLOR := Color(0.90, 0.92, 0.83, 0.18)
+const PLACEMENT_GRID_WIDTH_PX := 0.9
+
+
+class PlacementGrid extends Node2D:
+	var segments := PackedVector2Array()
+	var line_width: float = 1.0
+
+	func _draw() -> void:
+		if not segments.is_empty():
+			draw_multiline(segments, PLACEMENT_GRID_COLOR, line_width, true)
 
 
 func _ready() -> void:
@@ -67,6 +85,7 @@ func start_placement(building_type: int, player_owner: int = 0) -> void:
 	_suspend_conflicting_world_input()
 	set_process_input(true)
 	set_process_unhandled_input(true)
+	_ensure_placement_grid()
 	_setup_ghost_sprite()
 	cancel_touch_gesture()
 	_preview_refresh_elapsed = 0.0
@@ -75,6 +94,70 @@ func start_placement(building_type: int, player_owner: int = 0) -> void:
 	var view_center: Vector2 = get_viewport().get_visible_rect().size * 0.5
 	var center_world: Vector2 = get_canvas_transform().affine_inverse() * view_center
 	update_preview_at_world(_find_initial_preview_position(center_world))
+
+
+func _ensure_placement_grid() -> void:
+	if _placement_grid == null:
+		_placement_grid = PlacementGrid.new()
+		_placement_grid.name = "PlacementGrid"
+		# Terrain is -10. World objects use 0 and fog uses 10, so neither the
+		# grid nor its color can reveal hidden resources/building occupancy.
+		_placement_grid.z_as_relative = false
+		_placement_grid.z_index = -5
+		add_child(_placement_grid)
+	_placement_grid.visible = true
+	_grid_cache_valid = false
+
+
+func _hide_placement_grid() -> void:
+	if _placement_grid != null:
+		_placement_grid.visible = false
+		_placement_grid.segments.clear()
+		_placement_grid.queue_redraw()
+	_grid_tile_bounds = Rect2i()
+	_grid_cache_valid = false
+
+
+func _refresh_placement_grid(force: bool = false) -> void:
+	if not active or _placement_grid == null:
+		return
+	var canvas: Transform2D = get_canvas_transform()
+	var world_transform: Transform2D = _placement_grid.global_transform
+	var view_rect: Rect2 = get_viewport().get_visible_rect()
+	if not force and _grid_cache_valid and canvas == _grid_canvas_transform and world_transform == _grid_world_transform and view_rect == _grid_view_rect:
+		return
+	_grid_canvas_transform = canvas
+	_grid_world_transform = world_transform
+	_grid_view_rect = view_rect
+	_grid_cache_valid = true
+	_placement_grid.line_width = PLACEMENT_GRID_WIDTH_PX / maxf(0.01, canvas.x.length())
+	var minimum := Vector2i(MapData.MAP_WIDTH, MapData.MAP_HEIGHT)
+	var maximum := Vector2i(-1, -1)
+	var inverse_canvas: Transform2D = canvas.affine_inverse()
+	for corner: Vector2 in [view_rect.position, view_rect.position + Vector2(view_rect.size.x, 0.0), view_rect.end, view_rect.position + Vector2(0.0, view_rect.size.y)]:
+		var tile: Vector2i = _world_to_tile(inverse_canvas * corner)
+		minimum = minimum.min(tile - Vector2i.ONE)
+		maximum = maximum.max(tile + Vector2i.ONE)
+	minimum = minimum.max(Vector2i.ZERO)
+	maximum = maximum.min(Vector2i(MapData.MAP_WIDTH - 1, MapData.MAP_HEIGHT - 1))
+	var segments := PackedVector2Array()
+	_grid_tile_bounds = Rect2i()
+	if minimum.x <= maximum.x and minimum.y <= maximum.y:
+		_grid_tile_bounds = Rect2i(minimum, maximum - minimum + Vector2i.ONE)
+		# Half-cell corners come from the actual terrain projection. No
+		# terrain/resource queries are needed for this uniform geometric grid.
+		var origin: Vector2 = _tile_to_world(Vector2i.ZERO)
+		var half_x: Vector2 = (_tile_to_world(Vector2i(1, 0)) - origin) * 0.5
+		var half_y: Vector2 = (_tile_to_world(Vector2i(0, 1)) - origin) * 0.5
+		var end: Vector2i = maximum + Vector2i.ONE
+		for x: int in range(minimum.x, end.x + 1):
+			segments.append(_placement_grid.to_local(_tile_to_world(Vector2i(x, minimum.y)) - half_x - half_y))
+			segments.append(_placement_grid.to_local(_tile_to_world(Vector2i(x, end.y)) - half_x - half_y))
+		for y: int in range(minimum.y, end.y + 1):
+			segments.append(_placement_grid.to_local(_tile_to_world(Vector2i(minimum.x, y)) - half_x - half_y))
+			segments.append(_placement_grid.to_local(_tile_to_world(Vector2i(end.x, y)) - half_x - half_y))
+	_placement_grid.segments = segments
+	_placement_grid.queue_redraw()
 
 
 func _setup_ghost_sprite() -> void:
@@ -87,9 +170,17 @@ func _setup_ghost_sprite() -> void:
 	var tex_path: String = BuildingBase.BUILDING_SPRITES.get(current_building_type, "")
 	if tex_path != "" and ResourceLoader.exists(tex_path):
 		_ghost_sprite.texture = load(tex_path)
-	_ghost_sprite.scale = BuildingBase.BUILDING_SCALES.get(current_building_type, Vector2(0.4, 0.4))
-	_ghost_sprite.offset = BuildingBase.get_sprite_offset(current_building_type, current_footprint)
+	var texture_scale: Vector2 = BuildingBase.get_art_texture_scale(_ghost_sprite.texture)
+	_ghost_sprite.scale = BuildingBase.BUILDING_SCALES.get(current_building_type, Vector2(0.4, 0.4)) / texture_scale
+	_ghost_sprite.offset = BuildingBase.get_sprite_offset(current_building_type, current_footprint) * texture_scale
+	_ghost_sprite.position = BuildingBase.get_footprint_center_offset(current_footprint, get_parent())
+	_ghost_art_rect = _ghost_sprite.get_rect()
+	if _ghost_sprite.texture != null:
+		var ink: Rect2i = _ghost_sprite.texture.get_image().get_used_rect()
+		_ghost_art_rect = Rect2(_ghost_sprite.get_rect().position + Vector2(ink.position), Vector2(ink.size))
 	_ghost_sprite.modulate = Color(0.4, 1.0, 0.4, 0.6)
+	# Keep the exact cell edges and blocked marks readable over the translucent art.
+	_ghost_sprite.show_behind_parent = true
 	add_child(_ghost_sprite)
 
 
@@ -122,7 +213,7 @@ func _initial_preview_fits_world_area(tile: Vector2i, world_pos: Vector2, world_
 	# Account for the whole sprite above its anchor, so a useful green preview
 	# cannot open behind the guidance card or the bottom thumb actions.
 	if _ghost_sprite != null and _ghost_sprite.texture != null:
-		var art: Rect2 = _ghost_sprite.get_rect()
+		var art: Rect2 = _ghost_art_rect
 		for corner: Vector2 in [art.position, art.position + Vector2(art.size.x, 0.0), art.end, art.position + Vector2(0.0, art.size.y)]:
 			if not world_area.has_point(canvas * (world_pos + _ghost_sprite.transform * corner)):
 				return false
@@ -134,6 +225,7 @@ func _initial_preview_fits_world_area(tile: Vector2i, world_pos: Vector2, world_
 
 func cancel_placement() -> void:
 	active = false
+	_hide_placement_grid()
 	visible = false
 	current_building_type = -1
 	set_process(false)
@@ -307,6 +399,7 @@ func _restore_conflicting_world_input() -> void:
 func _process(delta: float) -> void:
 	if not active:
 		return
+	_refresh_placement_grid()
 	_preview_refresh_elapsed += delta
 	if _preview_refresh_elapsed >= 0.12:
 		_preview_refresh_elapsed = 0.0
@@ -336,6 +429,7 @@ func _update_ghost_position(screen_pos: Vector2) -> void:
 
 
 func _refresh_preview_state(force_signal: bool = false) -> void:
+	_refresh_placement_grid()
 	var was_valid: bool = is_valid_placement
 	var previous_reason: String = _invalid_reason
 	is_valid_placement = _check_validity()
@@ -492,7 +586,33 @@ func _check_footprint_validity(
 			if tile_invalid:
 				_invalid_tiles.append(check_tile)
 
+	_mark_owned_clearance_conflicts(tile_origin, footprint, player_owner)
 	return _invalid_tiles.is_empty()
+
+
+func _mark_owned_clearance_conflicts(origin: Vector2i, footprint: Vector2i, owner: int) -> void:
+	var map_node: Node = get_parent()
+	if map_node == null or not is_inside_tree():
+		return
+	var candidate := Rect2i(origin, footprint)
+	for node: Node in get_tree().get_nodes_in_group("buildings"):
+		if not (node is BuildingBase) or not map_node.is_ancestor_of(node):
+			continue
+		var building := node as BuildingBase
+		if building.player_owner != owner or building.state == BuildingBase.State.DESTROYED:
+			continue
+		# Owned locations are already known. No enemy or hidden terrain is read.
+		var occupied := Rect2i(_world_to_tile(building.global_position), building.footprint)
+		var protected_ground := occupied.grow(BuildingData.BUILDING_CLEARANCE_TILES)
+		if not candidate.intersects(protected_ground):
+			continue
+		if _invalid_reason == "":
+			_invalid_reason = "Leave 1 tile between buildings for a path"
+		for dx: int in footprint.x:
+			for dy: int in footprint.y:
+				var tile: Vector2i = origin + Vector2i(dx, dy)
+				if protected_ground.has_point(tile) and tile not in _invalid_tiles:
+					_invalid_tiles.append(tile)
 
 
 func _has_building_at_tile(tile_pos: Vector2i) -> bool:
@@ -548,6 +668,7 @@ func _confirm_placement() -> void:
 		return
 	var pos := ghost_position
 	active = false
+	_hide_placement_grid()
 	visible = false
 	set_process(false)
 	set_process_unhandled_input(false)
@@ -591,16 +712,22 @@ func _draw() -> void:
 			for i in tile_points.size():
 				var next_i := (i + 1) % tile_points.size()
 				draw_line(tile_points[i], tile_points[next_i], stroke, 2.0)
+			if tile_invalid:
+				# Shape as well as color distinguishes the blocked square.
+				var cross_color := Color(1.0, 0.76, 0.62, 1.0)
+				draw_line(local_center + Vector2(-8, -4), local_center + Vector2(8, 4), cross_color, 2.0, true)
+				draw_line(local_center + Vector2(-8, 4), local_center + Vector2(8, -4), cross_color, 2.0, true)
 
 	var pixel_w: float = current_footprint.x * MapData.TILE_WIDTH
 	var pixel_h: float = current_footprint.y * MapData.TILE_HEIGHT
 
-	# Draw isometric diamond outline for footprint
+	# Match the reserved cells, whose origin is their first tile.
+	var center: Vector2 = _ghost_sprite.position if _ghost_sprite != null else Vector2.ZERO
 	var points := PackedVector2Array([
-		Vector2(0, -pixel_h * 0.5),
-		Vector2(pixel_w * 0.5, 0),
-		Vector2(0, pixel_h * 0.5),
-		Vector2(-pixel_w * 0.5, 0),
+		center + Vector2(0, -pixel_h * 0.5),
+		center + Vector2(pixel_w * 0.5, 0),
+		center + Vector2(0, pixel_h * 0.5),
+		center + Vector2(-pixel_w * 0.5, 0),
 	])
 
 	var outline := Color(1.0, 0.94, 0.70, 0.85) if is_valid_placement else Color(1.0, 0.3, 0.3, 0.75)
@@ -614,9 +741,12 @@ func _draw() -> void:
 	var fsize := ThemeDB.fallback_font_size
 	if font:
 		if bname != "Unknown":
-			var text_pos := Vector2(-pixel_w * 0.25, -pixel_h * 0.5 - 20)
+			var label_y: float = -pixel_h * 0.5 - 20
+			if _ghost_sprite != null:
+				label_y = (_ghost_sprite.transform * _ghost_art_rect).position.y - 12.0
+			var text_pos := Vector2(center.x - pixel_w * 0.25, label_y)
 			draw_string(font, text_pos, bname, HORIZONTAL_ALIGNMENT_CENTER, pixel_w, fsize, Color.WHITE)
 		# Show reason when placement is invalid
 		if not is_valid_placement and _invalid_reason != "":
-			var reason_pos := Vector2(-pixel_w * 0.25, pixel_h * 0.5 + 14)
+			var reason_pos := center + Vector2(-pixel_w * 0.25, pixel_h * 0.5 + 14)
 			draw_string(font, reason_pos, _invalid_reason, HORIZONTAL_ALIGNMENT_CENTER, pixel_w, fsize, Color(1.0, 0.4, 0.3))

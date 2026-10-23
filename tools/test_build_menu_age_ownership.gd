@@ -27,6 +27,11 @@ func _run() -> void:
 
 	_assert_card_lock(build_menu, BuildingData.BuildingType.ARCHERY_RANGE, true, "initial human Dark Age")
 	_expect_eq(int(build_menu.get("_current_age")), 1, "palette did not initialize from human age")
+	var archery: Button = build_menu.get("_button_map")[BuildingData.BuildingType.ARCHERY_RANGE]
+	_expect(archery.text.contains("Feudal Age"), "locked card names the required age")
+	_expect(archery.tooltip_text.contains("Locked · Requires Feudal Age"), "hover explains the current age blocker")
+	var locked_info: Dictionary = build_menu.call("_build_info", BuildingData.BuildingType.ARCHERY_RANGE)
+	_expect(not String(locked_info.body).contains("Tap the card"), "locked Info does not promise unavailable placement")
 
 	_expect(GameManager.advance_age(1), "AI failed to advance to Feudal Age")
 	await get_tree().process_frame
@@ -47,6 +52,19 @@ func _run() -> void:
 	await get_tree().process_frame
 	_expect_eq(int(build_menu.get("_current_age")), 2, "human age-up did not refresh the palette")
 	_assert_card_lock(build_menu, BuildingData.BuildingType.ARCHERY_RANGE, false, "after human age-up")
+	archery = build_menu.get("_button_map")[BuildingData.BuildingType.ARCHERY_RANGE]
+	_expect(archery.tooltip_text.contains("Ready to place") and not archery.tooltip_text.contains("Locked"), "age-up replaces stale hover blocker")
+	build_menu.call("update_resources", {"food": 0, "wood": 40, "gold": 0})
+	_expect(archery.tooltip_text.contains("Need 80 wood more"), "resource shortage updates hover immediately")
+	_expect_eq(archery.accessibility_name, archery.tooltip_text, "accessible and hover descriptions agree")
+	var shortage_info: Dictionary = build_menu.call("_build_info", BuildingData.BuildingType.ARCHERY_RANGE)
+	_expect(String(shortage_info.body).contains("Need 80 wood more"), "tap Info explains the live shortage")
+	_expect(not String(shortage_info.body).contains("Tap the card"), "shortage Info does not promise unavailable placement")
+	build_menu.call("update_resources", {"food": 0, "wood": 120, "gold": 0})
+	_expect(archery.tooltip_text.contains("Ready to place") and not archery.tooltip_text.contains("Need 80"), "resource recovery removes stale shortage")
+	build_menu.call("_on_info_toggled", true)
+	var ready_info: Dictionary = build_menu.call("_build_info", BuildingData.BuildingType.ARCHERY_RANGE)
+	_expect(String(ready_info.body).contains("turn off Info"), "tap Info explains how to return to placement")
 
 	build_menu.free()
 	viewport.free()

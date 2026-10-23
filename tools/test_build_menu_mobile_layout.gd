@@ -255,7 +255,7 @@ func _check_category_density(phone_size: Vector2i, ui_scale: float, notched: boo
 				_expect(absf(tower.size.x - 150.0) <= 0.5, "%s Defence card stretches to fill its compact row" % profile)
 				_expect_button_text_fits(tower, profile)
 				# Locked and unaffordable cards explain their requirement on screen.
-				_expect(tower.text.contains("Age 2"), "%s locked tower loses age explanation" % profile)
+				_expect(tower.text.contains("Feudal Age"), "%s locked tower loses named age explanation" % profile)
 				_expect(tower.disabled, "%s normal Build exposes locked purchase" % profile)
 				info_button.button_pressed = true
 				_expect(bool(menu.get("_info_mode")) and not tower.disabled, "%s Info mode cannot tap-inspect locked card" % profile)

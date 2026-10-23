@@ -246,7 +246,7 @@ func _check_info_page(overview: StrategyOverview, production: bool) -> void:
 	_expect(scroll.vertical_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED, "details must not require scrolling")
 	var text: String = _visible_detail_text(overview)
 	if production:
-		_expect(text.contains("Villager") and text.contains("50F") and text.contains("Recon") and text.contains("Training:") and text.contains("Paid: Villager ×1") and text.contains("Rally:"), "producer Info omits roles, cost, blockers, paid queue or rally")
+		_expect(text.contains("Villager") and text.contains("50F") and text.contains("Unarmed") and text.contains("vision") and text.contains("Training:") and text.contains("Paid: Villager ×1") and text.contains("Rally:"), "producer Info omits roles, cost, blockers, paid queue or rally")
 	else:
 		_expect(text.contains("recovering") and text.contains("Population") and text.contains("Visible berry food") and text.contains("permanent Farms"), "worker Info omits recovery, population or observed food stock")
 	for line: Label in overview.get("_detail_lines"):

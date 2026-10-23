@@ -1,5 +1,5 @@
 extends Node
-## Paid production-world Farm/Range placements reproduce a sealed anchor corner.
+## Paid production-world Farm/Range placements preserve a legal work perimeter.
 ## Workers move, harvest, die, construct and deposit through normal processing.
 
 var _failures: Array[String] = []
@@ -39,6 +39,8 @@ func _run() -> void:
 func _start() -> void:
 	GameManager.set_state(GameManager.GameState.MENU)
 	GameManager.selected_map_seed = 202
+	GameManager.selected_map_archetype = MapData.MapArchetype.OPEN_PLAINS
+	GameManager.selected_match_mode = SkirmishData.MatchMode.STANDARD
 	GameManager.selected_population_limit = 30
 	GameManager.selected_difficulty = AIController.Difficulty.EASY
 	GameManager.guided_opening_enabled = false
@@ -61,11 +63,12 @@ func _start() -> void:
 			_workers.append(unit)
 
 func _corner_farm_case(range_offset_y: int) -> void:
-	# Keep this paid sealed-corner arrangement attached to the real opening
+	# Keep this paid perimeter arrangement attached to the real opening
 	# footprint as battlefield dimensions change. No terrain is edited.
 	var spawn: Vector2i = (_map.map_generator as MapGenerator).spawn_positions[0]
-	var farm_tile: Vector2i = spawn + Vector2i(0, 4)
-	var range_tile: Vector2i = spawn + Vector2i(-3, range_offset_y)
+	# Reserve the same one-tile movement lane now required of all paid builds.
+	var farm_tile: Vector2i = spawn + Vector2i(0, 5)
+	var range_tile: Vector2i = spawn + Vector2i(-4, range_offset_y)
 	var approach_tile: Vector2i = spawn + Vector2i(2, -8)
 	var farm: BuildingBase = _paid_place(BuildingData.BuildingType.FARM, farm_tile)
 	if farm == null:
@@ -130,22 +133,29 @@ func _corner_farm_case(range_offset_y: int) -> void:
 	var cargo_before: int = worker.carried_amount
 	var deposited_before: int = int(deposits["wood"])
 	var anchor_route: PackedVector2Array = _map.get_navigation_world_path(worker.global_position, farm.global_position, Villager.BUILD_APPROACH_DISTANCE)
-	_expect(not anchor_route.is_empty() and anchor_route[-1].distance_to(farm.global_position) > Villager.BUILD_APPROACH_DISTANCE, "corner fixture must reproduce the old anchor-route rejection")
+	_expect(not anchor_route.is_empty() and anchor_route[-1].distance_to(farm.global_position) <= Villager.BUILD_APPROACH_DISTANCE, "required one-tile lane must keep the previously sealed anchor route in work range")
 	var work_route: PackedVector2Array = _map.get_building_work_world_path(worker.global_position, farm.global_position, farm.footprint, Villager.BUILD_APPROACH_DISTANCE)
 	_expect(not work_route.is_empty(), "reachable outer Farm edge must yield a real route")
 	_expect(bool(_main.call("_can_ai_builder_reach", worker, farm.global_position, farm.footprint)), "Main preflight must accept the same reachable footprint")
 	await _tap_farm(worker, farm)
-	var blocking_house: BuildingBase = null
+	var endpoint_purchase_rejected: bool = false
 	if range_offset_y == 3:
-		# A second normal placement can occupy the chosen work endpoint while
-		# the builder is traveling. It must choose another edge, preserving its
-		# construction order rather than repeatedly approaching the blocked tile.
+		# The new owned-building lane rule prevents the old paid House from
+		# occupying the builder's work edge. Exercise Main's real transaction
+		# guard without replacing the active construction order or taking money.
 		var first_endpoint: Vector2 = worker.get("_building_work_destination")
 		var endpoint_tile: Vector2i = _map.world_to_tile(first_endpoint)
-		blocking_house = _paid_place(BuildingData.BuildingType.HOUSE, endpoint_tile)
-		_expect(blocking_house != null and not _map.is_tile_walkable(endpoint_tile), "paid House must block the cached Farm work endpoint")
+		var buildings_before: int = (_main.get("_player_buildings")[0] as Array).size()
+		var resources_before: Dictionary = ResourceManager.get_all_resources(0).duplicate()
+		var cargo_before_attempt: Dictionary = worker.get_carried_resources().duplicate()
+		_expect(ResourceManager.can_afford(0, BuildingData.get_building_cost(BuildingData.BuildingType.HOUSE)), "edge-purchase rejection must test space rather than lack of money")
+		_main.call("_on_placement_confirmed", BuildingData.BuildingType.HOUSE, _map.tile_to_world(endpoint_tile))
+		endpoint_purchase_rejected = (_main.get("_player_buildings")[0] as Array).size() == buildings_before
+		_expect(endpoint_purchase_rejected and ResourceManager.get_all_resources(0) == resources_before, "House cannot occupy the reserved Farm work edge or charge for rejection")
+		_expect(worker.build_target == farm and worker.current_state == UnitBase.State.BUILDING and worker.get_carried_resources() == cargo_before_attempt, "rejected edge purchase preserves exact Farm construction order and cargo")
+		_expect(_map.is_tile_walkable(endpoint_tile), "rejected House leaves the active work endpoint walkable")
 		await get_tree().process_frame
-		_expect((worker.get("_building_work_destination") as Vector2).distance_to(first_endpoint) > 1.0 and worker.build_target == farm, "blocked endpoint must select another Farm edge without losing the job")
+		_expect(worker.build_target == farm and (worker.get("_building_work_destination") as Vector2).is_equal_approx(first_endpoint), "open work endpoint remains stable after rejected purchase")
 	var started: float = GameManager.game_time
 	var old_progress: float = farm.build_progress
 	var deadline: float = started + 80.0
@@ -170,15 +180,13 @@ func _corner_farm_case(range_offset_y: int) -> void:
 	for resource: Node in get_tree().get_nodes_in_group("resources"):
 		if resource != farm:
 			exclusions[resource.get_instance_id()] = true
-	_expect(_map.get_nearest_reachable_resource_node("food", worker.global_position, 0, exclusions) == farm, "nearest reachable query must retain the known Farm edge")
+	_expect(_map.get_nearest_reachable_resource_node("food", worker.global_position, 0, exclusions, worker) == farm, "nearest reachable query must retain the assigned worker's known Farm edge")
 	var food_before: int = int(deposits["food"])
 	_expect(worker.command_gather(farm), "completed owned Farm must accept normal gathering")
 	await _until(func() -> bool: return int(deposits["food"]) > food_before, 100.0)
 	_expect(farm.is_harvestable_by(0) and int(deposits["food"]) - food_before == worker.carry_capacity, "natural Farm harvest must deliver one real food load to the existing TC")
 	_expect(worker.gather_target == farm, "Farm gathering must not silently retarget an old berry source")
-	if blocking_house != null:
-		_expect(blocking_house.state == BuildingBase.State.ACTIVE, "paid two-tile House must also finish through ordinary edge work")
-	print("[METRIC] ", JSON.stringify({"range_tile": str(range_tile), "paid_farm_and_range": true, "farm_interrupted_progress": interrupted_progress, "old_anchor_endpoint_distance": anchor_route[-1].distance_to(farm.global_position), "work_endpoint_distance": _map.get_building_work_distance(work_route[-1], farm.global_position, farm.footprint), "construction_seconds": construction_seconds, "cargo_preserved": cargo_before, "wood_deposit": int(deposits["wood"]) - deposited_before, "farm_food_deposit": int(deposits["food"]) - food_before, "tc_dropoff_unchanged": true, "paid_endpoint_blocking_house": blocking_house != null}))
+	print("[METRIC] ", JSON.stringify({"range_tile": str(range_tile), "paid_farm_and_range": true, "farm_interrupted_progress": interrupted_progress, "anchor_endpoint_distance": anchor_route[-1].distance_to(farm.global_position), "work_endpoint_distance": _map.get_building_work_distance(work_route[-1], farm.global_position, farm.footprint), "construction_seconds": construction_seconds, "cargo_preserved": cargo_before, "wood_deposit": int(deposits["wood"]) - deposited_before, "farm_food_deposit": int(deposits["food"]) - food_before, "tc_dropoff_unchanged": true, "endpoint_house_purchase_rejected": endpoint_purchase_rejected}))
 
 func _paid_place(kind: int, tile: Vector2i) -> BuildingBase:
 	var before: int = (_main.get("_player_buildings")[0] as Array).size()

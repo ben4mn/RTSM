@@ -55,7 +55,14 @@ func _run() -> void:
 	selection_manager.select_single(scout)
 	# Wait past the double-tap interval so this remains an independent ground tap.
 	await get_tree().create_timer(0.36).timeout
-	selection_manager.call("_handle_tap", building_screen_position + Vector2(36.0, 0.0), true)
+	# The larger centered Town Center now covers the former anchor+36 sample.
+	# Use actual exterior ground beyond its visible art, independent of scale.
+	var building_sprite: Sprite2D = building.get_node("BuildingSprite")
+	var ink: Rect2i = building_sprite.texture.get_image().get_used_rect()
+	var art_world: Rect2 = building_sprite.global_transform * Rect2(building_sprite.get_rect().position + Vector2(ink.position), Vector2(ink.size))
+	var nearby_ground := Vector2(maxf(building.global_position.x + 36.0, art_world.end.x + 8.0), building.global_position.y)
+	_expect(not selection_manager.call("_is_touch_on_building_facade", building, nearby_ground), "ground fixture is outside transformed facade")
+	selection_manager.call("_handle_tap", selection_manager.call("_world_to_screen", nearby_ground), true)
 	_expect(selection_manager.selected.size() == 1 and selection_manager.selected[0] == scout, "nearby ground tap retains the unit selection")
 	_expect_eq(_move_count, 1, "nearby ground tap emits exactly one move")
 	_expect_eq(String(selection_manager.touch_input_diagnostics.get("action", "")), "move", "nearby tap remains a move command")

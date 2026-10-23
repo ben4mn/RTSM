@@ -160,10 +160,16 @@ func _test_attack_intent() -> void:
 		if chase_points.size() >= 2:
 			_expect(engaged[0]["destination"] == chase_points[chase_points.size() - 1], "live combat endpoint disagrees with chase navigation")
 	_record("combat_chase", engaged, troop)
+	var accepted_chase: PackedVector2Array = troop.get_remaining_navigation_path()
 	troop.command_attack(enemy, true)
 	_expect(not troop.attack_move, "explicit Attack retains a stale attack-move destination")
 	_expect(not bool(troop.call("_resume_post_combat_movement")), "explicit Attack resumes an obsolete attack-move order")
-	_expect(_routes().is_empty(), "explicit Attack with no chase path exposes the previous command marker")
+	_expect(troop.get_remaining_navigation_path() == accepted_chase, "same-target explicit Attack restarts the accepted chase route")
+	engaged = _routes()
+	_expect(engaged.size() == 1, "same-target explicit Attack hides its valid chase route")
+	if engaged.size() == 1:
+		_expect(engaged[0]["order_destination"] == engaged[0]["destination"], "explicit Attack exposes the obsolete attack-move destination marker")
+	_record("explicit_same_target", engaged, troop)
 	var enemy_building: BuildingBase = load("res://scenes/buildings/watch_tower.tscn").instantiate() as BuildingBase
 	enemy_building.player_owner = 1
 	enemy_building.position = _map.tile_to_world(Vector2i(21, 27))

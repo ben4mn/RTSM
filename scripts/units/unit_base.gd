@@ -56,6 +56,7 @@ var _patrol_point_b: Vector2 = Vector2.ZERO
 var _patrol_to_b: bool = true
 var _separation_timer: float = 0.0
 var _separation_vector: Vector2 = Vector2.ZERO
+var _navigation_neighbors: Array[UnitBase] = []
 var _combat_spacing_opponents: Array[UnitBase] = []
 var _navigation_active: bool = false
 var _navigation_goal: Vector2 = Vector2.ZERO
@@ -99,15 +100,8 @@ const UNIT_SIZES: Dictionary = {
 	UnitData.UnitType.SIEGE: 18.0,
 }
 
-# --- Sprite scales per unit type (128x128 sprites scaled down) ---
-const UNIT_SPRITE_SCALES: Dictionary = {
-	UnitData.UnitType.VILLAGER: Vector2(0.43, 0.43),
-	UnitData.UnitType.INFANTRY: Vector2(0.46, 0.46),
-	UnitData.UnitType.ARCHER: Vector2(0.43, 0.43),
-	UnitData.UnitType.CAVALRY: Vector2(0.50, 0.50),
-	UnitData.UnitType.SCOUT: Vector2(0.48, 0.48),
-	UnitData.UnitType.SIEGE: Vector2(0.50, 0.50),
-}
+# World scales share a grounded size system; HUD portraits retain their size.
+const UNIT_SPRITE_SCALES: Dictionary = UnitData.WORLD_SPRITE_SCALES
 
 var _sprite: Sprite2D = null
 var _sprite_team_modulate: Color = Color.WHITE
@@ -128,6 +122,9 @@ const FRIENDLY_SEPARATION_MAX_STEER: float = 0.75
 const FRIENDLY_SEPARATION_REFRESH: float = 0.06
 const COMBAT_SPACING_SPEED_FRACTION: float = 0.35
 const NAVIGATION_POINT_TOLERANCE: float = 4.0
+const NAVIGATION_CROWDED_WAYPOINT_RADIUS: float = 24.0
+const NAVIGATION_OCCUPIED_WAYPOINT_RADIUS: float = 12.0
+const NAVIGATION_SEGMENT_SAMPLE_DISTANCE: float = 4.0
 const NAVIGATION_REPATH_INTERVAL: float = 0.45
 const NAVIGATION_DYNAMIC_REPATH_INTERVAL: float = 0.65
 const NAVIGATION_DYNAMIC_REPATH_DISTANCE: float = 20.0
@@ -421,7 +418,7 @@ func _navigate_toward(
 		if not _request_navigation_path(game_map, target_position, arrival_radius, dynamic_target):
 			return _navigation_failure_result()
 
-	while path_index < path.size() and global_position.distance_to(path[path_index]) <= NAVIGATION_POINT_TOLERANCE:
+	while path_index < path.size() and (global_position.distance_to(path[path_index]) <= NAVIGATION_POINT_TOLERANCE or _can_pass_occupied_waypoint(game_map)):
 		path_index += 1
 	if path_index >= path.size():
 		if global_position.distance_to(target_position) <= arrival_radius:
@@ -430,6 +427,12 @@ func _navigate_toward(
 			return NavigationResult.ARRIVED
 		path = PackedVector2Array()
 		path_index = 0
+		# Reaching an old pursuit waypoint is progress, not an unreachable
+		# target. A fresh stationary-failure delay here lets a slower runner
+		# repeatedly escape before its pursuer can enter weapon range.
+		if dynamic_target and _navigation_target_snapshot.distance_to(target_position) > NAVIGATION_POINT_TOLERANCE:
+			_navigation_repath_cooldown = 0.0
+			return NavigationResult.MOVING
 		_navigation_repath_cooldown = NAVIGATION_REPATH_INTERVAL
 		_navigation_failed_repaths += 1
 		return _navigation_failure_result()
@@ -485,28 +488,77 @@ func _navigation_failure_result() -> int:
 	return NavigationResult.MOVING
 
 
+func _can_pass_occupied_waypoint(game_map: Node2D) -> bool:
+	# Intermediate tile centers describe a route, not places every traveller
+	# must occupy. Keep final service/Move arrival semantics, but let a unit
+	# pass an occupied center when the following segment is still walkable.
+	if current_state not in [State.MOVING, State.GATHERING, State.BUILDING] or path_index >= path.size() - 1:
+		return false
+	var waypoint: Vector2 = path[path_index]
+	if global_position.distance_to(waypoint) > NAVIGATION_CROWDED_WAYPOINT_RADIUS:
+		return false
+	var occupied: bool = false
+	var occupied_radius_squared: float = NAVIGATION_OCCUPIED_WAYPOINT_RADIUS * NAVIGATION_OCCUPIED_WAYPOINT_RADIUS
+	for other: UnitBase in _navigation_neighbors:
+		if is_instance_valid(other) and other.player_owner == player_owner and other.current_state != State.DEAD and waypoint.distance_squared_to(other.global_position) < occupied_radius_squared:
+			occupied = true
+			break
+	return occupied and _is_navigation_segment_clear(global_position, path[path_index + 1], game_map)
+
+
+func _is_navigation_segment_clear(from_position: Vector2, to_position: Vector2, game_map: Node2D) -> bool:
+	if game_map == null or not game_map.has_method("world_to_tile") or not game_map.has_method("is_tile_walkable"):
+		return true
+	var previous_tile: Vector2i = game_map.call("world_to_tile", from_position)
+	# Existing displacement/recovery can begin inside a newly blocked tile.
+	# Preserve its escape behavior; ordinary movement starts on walkable ground.
+	if not bool(game_map.call("is_tile_walkable", previous_tile)):
+		return true
+	var target_tile: Vector2i = game_map.call("world_to_tile", to_position)
+	if not bool(game_map.call("is_tile_walkable", target_tile)):
+		return false
+	var tile_delta: Vector2i = (target_tile - previous_tile).abs()
+	if tile_delta.x <= 1 and tile_delta.y <= 1:
+		# A cell, two adjacent cells, or a fully open 2x2 block is convex.
+		# These cover ordinary frame steps without a per-pixel map walk.
+		if tile_delta.x == 0 or tile_delta.y == 0:
+			return true
+		return bool(game_map.call("is_tile_walkable", Vector2i(target_tile.x, previous_tile.y))) and bool(game_map.call("is_tile_walkable", Vector2i(previous_tile.x, target_tile.y)))
+	var samples: int = maxi(1, int(ceil(from_position.distance_to(to_position) / NAVIGATION_SEGMENT_SAMPLE_DISTANCE)))
+	for sample: int in range(1, samples + 1):
+		var tile: Vector2i = game_map.call("world_to_tile", from_position.lerp(to_position, float(sample) / samples))
+		if tile == previous_tile:
+			continue
+		if not bool(game_map.call("is_tile_walkable", tile)):
+			return false
+		if tile.x != previous_tile.x and tile.y != previous_tile.y:
+			if not bool(game_map.call("is_tile_walkable", Vector2i(tile.x, previous_tile.y))) or not bool(game_map.call("is_tile_walkable", Vector2i(previous_tile.x, tile.y))):
+				return false
+		previous_tile = tile
+	return true
+
+
 func _move_in_direction(direction: Vector2, delta: float, game_map: Node2D) -> void:
 	if direction.length() < 0.001:
 		return
 	var desired_dir: Vector2 = direction.normalized()
-	_update_friendly_separation()
+	_update_friendly_separation(desired_dir)
 	var move_dir: Vector2 = desired_dir
-	if direction.length() > 10.0 and _separation_vector.length() > 0.0:
+	var intermediate_waypoint: bool = current_state in [State.MOVING, State.GATHERING, State.BUILDING] and path_index < path.size() - 1
+	if (intermediate_waypoint or direction.length() > 10.0) and _separation_vector.length() > 0.0:
 		move_dir = (desired_dir + _separation_vector).normalized()
 	var separation_drag: float = clampf(_separation_vector.length() * 0.16, 0.0, 0.18)
 	var step_distance: float = minf(speed * (1.0 - separation_drag) * delta, direction.length())
 	var proposed_position: Vector2 = global_position + move_dir * step_distance
-	if game_map != null and game_map.has_method("world_to_tile") and game_map.has_method("is_tile_walkable"):
-		var current_tile: Vector2i = game_map.call("world_to_tile", global_position)
-		var proposed_tile: Vector2i = game_map.call("world_to_tile", proposed_position)
-		var current_walkable: bool = bool(game_map.call("is_tile_walkable", current_tile))
-		if current_walkable and not bool(game_map.call("is_tile_walkable", proposed_tile)):
-			# Separation must never push a pathed unit into a solid cell. Fall back
-			# to the route direction, then wait for a repath if even that is blocked.
-			proposed_position = global_position + desired_dir * step_distance
-			proposed_tile = game_map.call("world_to_tile", proposed_position)
-			if not bool(game_map.call("is_tile_walkable", proposed_tile)):
-				return
+	# Passing must keep the next route point reachable as well. Otherwise a
+	# later sideways step can tuck behind a solid corner after a safe shortcut.
+	var keeps_route_visible: bool = not intermediate_waypoint or move_dir.is_equal_approx(desired_dir) or _is_navigation_segment_clear(proposed_position, global_position + direction, game_map)
+	if not keeps_route_visible or not _is_navigation_segment_clear(global_position, proposed_position, game_map):
+		# Check the entire actual steered step, including solid corners. A clear
+		# lookahead segment alone cannot make a later sideways step safe.
+		proposed_position = global_position + desired_dir * step_distance
+		if not _is_navigation_segment_clear(global_position, proposed_position, game_map):
+			return
 	global_position = proposed_position
 
 
@@ -619,7 +671,9 @@ func _process_attacking(delta: float) -> void:
 				set_state(State.IDLE)
 	else:
 		_auto_chase_elapsed = 0.0
-		_reset_navigation()
+		# Keep the accepted pursuit route while briefly inside weapon range.
+		# A moving opponent can leave it again next frame; discarding the route
+		# here would ask A* for the same short approach on every other frame.
 		_relax_combat_spacing(delta, attack_target.global_position)
 		# In range, attack
 		if attack_cooldown <= 0.0:
@@ -898,22 +952,24 @@ func _update_sprite_motion(delta: float) -> void:
 	_sprite.position = sprite_offset
 
 
-func _is_valid_target(target: UnitBase) -> bool:
-	if target == null:
+# Freed Object handles fail typed Object parameters before the body can run.
+# Keep this lifetime boundary as Variant, then narrow only after validation.
+func _is_valid_target(target: Variant) -> bool:
+	if not is_instance_valid(target) or not target is UnitBase:
 		return false
-	if not is_instance_valid(target):
+	var unit := target as UnitBase
+	if not _can_track_entity(unit):
 		return false
-	if not _can_track_entity(target):
-		return false
-	return target.current_state != State.DEAD
+	return unit.current_state != State.DEAD
 
 
-func _is_valid_building_target(target: BuildingBase) -> bool:
-	if target == null or not is_instance_valid(target):
+func _is_valid_building_target(target: Variant) -> bool:
+	if not is_instance_valid(target) or not target is BuildingBase:
 		return false
-	if not _can_track_entity(target):
+	var building := target as BuildingBase
+	if not _can_track_entity(building):
 		return false
-	return target.state != BuildingBase.State.DESTROYED
+	return building.state != BuildingBase.State.DESTROYED
 
 
 func _can_track_entity(entity: Node2D) -> bool:
@@ -950,6 +1006,11 @@ func get_remaining_navigation_path() -> PackedVector2Array:
 	var remaining := PackedVector2Array()
 	if current_state in [State.IDLE, State.DEAD] or path_index >= path.size():
 		return remaining
+	# A reusable chase route is internal while the fighter is already in
+	# reach. Hide it until movement actually resumes, including target loss.
+	if current_state == State.ATTACKING and attack_target != null:
+		if not _is_valid_target(attack_target) or global_position.distance_to(attack_target.global_position) <= attack_range + 8.0:
+			return remaining
 	remaining.append(global_position)
 	for index: int in range(maxi(0, path_index), path.size()):
 		if remaining[remaining.size() - 1].distance_squared_to(path[index]) > 1.0:
@@ -1002,19 +1063,23 @@ func command_attack(target: UnitBase, force_chase: bool = true, clear_patrol: bo
 		return
 	if not _is_valid_target(target):
 		return
+	var same_target: bool = current_state == State.ATTACKING and attack_target == target
 	if current_state != State.ATTACKING or _forced_attack or force_chase:
 		_auto_engagement_origin = global_position
 		_auto_chase_elapsed = 0.0
 	_before_new_command()
-	_cancel_attack_windup()
-	_attack_animation_remaining = 0.0
+	# Reconfirming the same opponent updates intent without interrupting a
+	# strike already winding up or restarting the route to a moving target.
+	if not same_target:
+		_cancel_attack_windup()
+		_attack_animation_remaining = 0.0
+		_reset_navigation()
 	if clear_patrol:
 		_clear_patrol()
 	if force_chase:
 		# A fresh explicit attack replaces a previous attack-move destination;
 		# auto-acquisition keeps that destination so movement resumes after combat.
 		attack_move = false
-	_reset_navigation()
 	attack_target = target
 	attack_building_target = null
 	_forced_attack = force_chase
@@ -1027,17 +1092,19 @@ func command_attack_building(target: BuildingBase, force_chase: bool = true, cle
 		return
 	if not _is_valid_building_target(target):
 		return
+	var same_target: bool = current_state == State.ATTACKING and attack_building_target == target
 	if current_state != State.ATTACKING or _forced_attack or force_chase:
 		_auto_engagement_origin = global_position
 		_auto_chase_elapsed = 0.0
 	_before_new_command()
-	_cancel_attack_windup()
-	_attack_animation_remaining = 0.0
+	if not same_target:
+		_cancel_attack_windup()
+		_attack_animation_remaining = 0.0
+		_reset_navigation()
 	if clear_patrol:
 		_clear_patrol()
 	if force_chase:
 		attack_move = false
-	_reset_navigation()
 	attack_building_target = target
 	attack_target = null
 	_forced_attack = force_chase
@@ -1149,12 +1216,16 @@ func _resume_post_combat_movement() -> bool:
 	return false
 
 
-func _update_friendly_separation() -> void:
+func _update_friendly_separation(movement_direction: Vector2 = Vector2.ZERO) -> void:
 	if _separation_timer > 0.0:
 		return
 	_separation_timer = FRIENDLY_SEPARATION_REFRESH
 	var repel := Vector2.ZERO
+	# Workers use GATHERING/BUILDING even while following a work route. The
+	# supplied direction distinguishes actual travel from standing work/combat.
+	var navigating: bool = current_state in [State.MOVING, State.GATHERING, State.BUILDING] and not movement_direction.is_zero_approx()
 	_combat_spacing_opponents.clear()
+	_navigation_neighbors.clear()
 	for node in get_tree().get_nodes_in_group("units"):
 		if node == self or not (node is UnitBase):
 			continue
@@ -1165,26 +1236,49 @@ func _update_friendly_separation() -> void:
 		var dist: float = offset.length()
 		var desired_spacing: float = UNIT_SIZES.get(unit_type, 12.0) + UNIT_SIZES.get(other.unit_type, 12.0) + 8.0
 		var separation_radius: float = maxf(FRIENDLY_SEPARATION_RADIUS, desired_spacing)
+		# Reuse the throttled neighborhood scan for crowded waypoint handling.
+		# The extra margin includes allies beside the upcoming route center.
+		if navigating and other.player_owner == player_owner and dist <= separation_radius + NAVIGATION_CROWDED_WAYPOINT_RADIUS:
+			_navigation_neighbors.append(other)
 		if dist > separation_radius:
 			continue
 		if other.player_owner != player_owner:
 			if current_state == State.ATTACKING:
 				_combat_spacing_opponents.append(other)
 			continue
+		var opposite_movement: bool = false
+		if navigating:
+			var other_direction: Vector2 = Vector2.ZERO
+			if other.current_state in [State.MOVING, State.GATHERING, State.BUILDING] and other.path_index < other.path.size():
+				other_direction = other.path[other.path_index] - other.global_position
+			elif other.current_state == State.MOVING:
+				other_direction = other.move_target - other.global_position
+			opposite_movement = movement_direction.dot(other_direction.normalized()) < -0.5
 		if dist <= 0.001:
 			# Exact shared endpoints otherwise have no direction and never recover.
 			# A stable opposite direction for each pair breaks the tie without RNG.
 			var tie_direction: Vector2 = Vector2.RIGHT
+			if navigating:
+				tie_direction = movement_direction.orthogonal()
 			if current_state == State.ATTACKING and is_instance_valid(attack_target):
 				var toward_target: Vector2 = attack_target.global_position - global_position
 				if not toward_target.is_zero_approx():
 					tie_direction = toward_target.orthogonal().normalized()
-			offset = -tie_direction if get_instance_id() < other.get_instance_id() else tie_direction
+			# Opposing movers each keep the same passing side relative to their
+			# route, producing opposite world-space offsets. Same-heading exact
+			# overlaps use the stable pair ordering to split to opposite sides.
+			offset = tie_direction if opposite_movement else (-tie_direction if get_instance_id() < other.get_instance_id() else tie_direction)
 		var strength: float = (separation_radius - dist) / separation_radius
 		var moving_bias: float = 1.0
 		if other.current_state == State.MOVING:
 			moving_bias = 1.2
 		repel += offset.normalized() * strength * moving_bias
+		if navigating and dist > 0.001 and movement_direction.dot(-offset.normalized()) > 0.5:
+			# Collinear repulsion only slows opposing/overtaking units or a
+			# mover meeting a settled ally. Add a passing side before coincidence.
+			# The existing steering cap and movement solid-tile guard still own
+			# speed/progress and reject any sideways step into a building.
+			repel += movement_direction.orthogonal() * strength
 	if repel.length() > 0.0:
 		# Preserve the overlap-derived magnitude: normalizing here made even an
 		# epsilon overlap a full-strength shove. Keep steering strictly below the

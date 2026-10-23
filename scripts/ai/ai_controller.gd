@@ -8,6 +8,8 @@ extends Node
 ## for construction. NO cheating — the AI has the same resources, vision,
 ## and unit stats as a human player.
 
+const GROUP_ORDER_PLANNER := preload("res://scripts/main/group_order_planner.gd")
+
 signal ai_wants_to_build(building_type: int, tile_pos: Vector2i, is_rebuild: bool)
 signal ai_wants_to_train(building: Node, unit_type: int)
 signal ai_wants_to_age_up()
@@ -473,6 +475,7 @@ func _assign_safe_worker_to_completed_farm(farm_node: Node) -> void:
 		or farm.building_type != BuildingData.BuildingType.FARM
 		or farm.state != BuildingBase.State.ACTIVE
 		or not farm.is_harvestable_by(player_id)
+		or not farm.is_available_to_worker()
 	):
 		return
 	if _is_worker_position_exposed(farm.global_position, _get_visible_worker_threats()):
@@ -1703,6 +1706,12 @@ func _get_target_building_counts(age: int) -> Dictionary:
 		farm_target = maxi(1, farm_target)
 	if _get_compact_missing_role_building() >= 0:
 		farm_target = mini(farm_target, 1)
+	elif villagers > 0 and _farm_count > 0 and _find_nearest_resource_node("food", _base_position) == null:
+		# Each Farm now sustains one farmer. Once current-visible food has no
+		# free work slot, buy capacity for the existing food-labor target through
+		# the ordinary paid construction path. Hidden resources are not consulted.
+		var worker_targets: Dictionary = _get_economy_worker_targets(villagers, ResourceManager.get_all_resources(player_id))
+		farm_target = maxi(farm_target, clampi(int(worker_targets.get("food", 1)), 1, 12))
 
 	var targets: Dictionary = {
 		# Houses are exclusively demand-driven by _check_house_need().
@@ -2443,8 +2452,7 @@ func _check_attack_or_defend() -> void:
 	# Gather idle military at staging point
 	var idle_military: Array = _get_idle_units_from(military)
 	for unit in idle_military:
-		if unit.global_position.distance_to(_staging_point) > 64.0:
-			unit.command_move(_staging_point)
+		_move_to_assembly_slot(unit, _staging_point)
 
 	# Easy/Medium give mobile players time to build a paid economy and defenders.
 	# Visible home defense and eligible Sacred contests were handled above, so
@@ -2516,10 +2524,62 @@ func _recall_easy_unassigned_units(assigned: Array) -> void:
 		# Local in-range self-defense is allowed; a held reserve cannot pursue
 		# a distant sighting and become an untracked extra pressure squad.
 		unit.stance = UnitBase.Stance.STAND_GROUND
-		if unit.current_state == UnitBase.State.MOVING and not unit.attack_move and unit.move_target.distance_to(_staging_point) <= 64.0:
-			continue
-		if unit.current_state == UnitBase.State.MOVING or unit.global_position.distance_to(_staging_point) > 64.0 or is_instance_valid(unit.attack_target) or is_instance_valid(unit.attack_building_target):
-			unit.command_move(_staging_point)
+		_move_to_assembly_slot(unit, _staging_point)
+
+
+func _move_to_assembly_slot(unit: UnitBase, anchor: Vector2, hold_radius: float = 64.0, engage_on_route: bool = false) -> bool:
+	# Assembly belongs to the AI order, not idle-unit physics. Human Move,
+	# Stand Ground, worker service positions and combat targets stay untouched.
+	if not is_instance_valid(unit) or unit.player_owner != player_id or unit.unit_type == UnitData.UnitType.VILLAGER or unit.current_state == UnitBase.State.DEAD:
+		return false
+	var map_pathfinder: Variant = game_map.get("pathfinding") if game_map != null else null
+	if game_map == null or not game_map.has_method("tile_to_world") or not game_map.has_method("world_to_tile") or not game_map.has_method("is_tile_walkable") or not is_instance_valid(map_pathfinder) or not map_pathfinder.has_method("get_tile_path_to_any"):
+		# Unit-only strategy fixtures have no terrain planner. The live match
+		# always uses the canonical GameMap branch below.
+		if unit.global_position.distance_to(anchor) > hold_radius or unit.current_state != UnitBase.State.IDLE:
+			if engage_on_route:
+				unit.command_attack_move(anchor)
+			else:
+				unit.command_move(anchor)
+			return true
+		return false
+	# Live destinations reserve slots without a second reservation lifetime.
+	# Death/retasking releases them immediately through the shared planner.
+	if unit.current_state == UnitBase.State.MOVING and unit.attack_move == engage_on_route and unit.move_target.distance_to(anchor) <= hold_radius and game_map.call("is_tile_walkable", _world_to_tile(unit.move_target)):
+		# Investigation may inherit a shared attack-move goal from an earlier
+		# combat order. Retain only destinations the other defenders do not own.
+		if not engage_on_route or not GROUP_ORDER_PLANNER._is_occupied_by_other_friendly(unit.move_target, _my_units, {unit.get_instance_id(): true}, player_id):
+			return false
+	if unit.current_state == UnitBase.State.IDLE and unit.global_position.distance_to(anchor) <= hold_radius and game_map.call("is_tile_walkable", _world_to_tile(unit.global_position)):
+		# Arrival can stop up to four pixels before each allocated center. Keep
+		# that normal tolerance instead of repeatedly packing settled soldiers.
+		var settled_clearance: float = GROUP_ORDER_PLANNER.FRIENDLY_CLEARANCE_WORLD - UnitBase.NAVIGATION_POINT_TOLERANCE * 2.0
+		var crowded: bool = false
+		for entry: Variant in _my_units:
+			if is_instance_valid(entry) and entry is UnitBase and entry != unit and entry.player_owner == player_id and entry.current_state != UnitBase.State.DEAD and not entry.is_queued_for_deletion() and entry.global_position.distance_to(unit.global_position) < settled_clearance:
+				crowded = true
+				break
+		if not crowded:
+			return false
+	var selected: Array[UnitBase] = [unit]
+	var in_hold_area := func(destination: Vector2) -> bool:
+		return destination.distance_to(anchor) <= hold_radius - UnitBase.NAVIGATION_POINT_TOLERANCE
+	var orders: Array[Dictionary] = GROUP_ORDER_PLANNER.plan(game_map, selected, _world_to_tile(anchor), _my_units, player_id, in_hold_area)
+	for order: Dictionary in orders:
+		var route: PackedVector2Array = order.get("path", PackedVector2Array())
+		# The human planner may expand six tiles. AI assembly must stay inside
+		# its existing strategic hold area, including normal arrival tolerance.
+		if not route.is_empty():
+			if engage_on_route:
+				unit.command_attack_move_path(route)
+			else:
+				unit.command_move_path(route)
+			return true
+	# A full/sealed hold area cannot collapse back to a shared endpoint or
+	# leave an obsolete attack-move active during an Easy reserve recall.
+	if unit.current_state != UnitBase.State.IDLE:
+		unit.command_stop()
+	return false
 
 
 func _begin_attack_wave(units: Array, target_position: Vector2, target_node: Node = null) -> void:
@@ -2738,13 +2798,11 @@ func _rally_defense(threats: Array = []) -> void:
 		for unit: UnitBase in military:
 			unit.stance = UnitBase.Stance.AGGRESSIVE
 	if threats.is_empty():
-		for unit in military:
-			var already_investigating: bool = (
-				unit.current_state == UnitBase.State.MOVING
-				and unit.move_target.distance_to(_last_defense_threat_position) <= 16.0
-			)
-			if not already_investigating and unit.current_state != UnitBase.State.ATTACKING:
-				unit.command_attack_move(_last_defense_threat_position)
+		for unit: UnitBase in military:
+			if unit.current_state != UnitBase.State.ATTACKING:
+				# Search around the remembered threat while retaining attack-move
+				# acquisition. A shared exact endpoint stacks every idle defender.
+				_move_to_assembly_slot(unit, _last_defense_threat_position, 64.0, true)
 		return
 
 	# Assign the visible matchup before distributing spare defenders. Cavalry
@@ -2877,8 +2935,8 @@ func _get_base_reserve_units(military: Array) -> Array:
 func _rally_base_reserve(reserve: Array) -> void:
 	var guard_position: Vector2 = _base_position.lerp(_staging_point, 0.28)
 	for unit in reserve:
-		if unit.current_state == UnitBase.State.IDLE and unit.global_position.distance_to(guard_position) > 56.0:
-			unit.command_move(guard_position)
+		if unit.current_state == UnitBase.State.IDLE:
+			_move_to_assembly_slot(unit, guard_position, 56.0)
 
 
 func _get_field_military(reserve: Array) -> Array:
@@ -2897,7 +2955,7 @@ func _retreat_army() -> void:
 	if military.is_empty():
 		military = _get_field_military(_get_base_reserve_units(_get_military_units()))
 	for unit in military:
-		unit.command_move(_staging_point)
+		_move_to_assembly_slot(unit, _staging_point)
 
 
 func _send_attack(units: Array, target: Vector2) -> void:
@@ -3425,9 +3483,11 @@ func _find_trainable_building_of_type(building_type: int) -> Node:
 	return best
 
 
-func _find_nearest_resource_node(resource_type: String, from_pos: Vector2) -> Node2D:
+func _find_nearest_resource_node(resource_type: String, from_pos: Vector2, worker: UnitBase = null) -> Node2D:
 	## Finds the nearest resource node of the given type using the game_map lookup.
 	if game_map and game_map.has_method("get_nearest_resource_node"):
+		if game_map.has_method("is_resource_target_available_to_worker"):
+			return game_map.call("get_nearest_resource_node", resource_type, from_pos, player_id, worker) as Node2D
 		return game_map.get_nearest_resource_node(resource_type, from_pos, player_id)
 	return null
 
@@ -3447,7 +3507,10 @@ func _find_resource_for_villager(resource_type: String, villager: UnitBase) -> N
 		# Query only current-visible, reachable candidates. Excluding an exposed
 		# endpoint avoids immediately sending a recovered worker back into a raid.
 		for _candidate_index: int in range(8):
-			var candidate: Node2D = game_map.call("get_nearest_reachable_resource_node", resource_type, villager.global_position, player_id, excluded_instance_ids) as Node2D
+			var arguments: Array = [resource_type, villager.global_position, player_id, excluded_instance_ids]
+			if game_map.has_method("is_resource_target_available_to_worker"):
+				arguments.append(villager)
+			var candidate: Node2D = game_map.callv("get_nearest_reachable_resource_node", arguments) as Node2D
 			if candidate == null:
 				return null
 			if not _is_worker_position_exposed(candidate.global_position, visible_threats):
@@ -3456,7 +3519,7 @@ func _find_resource_for_villager(resource_type: String, villager: UnitBase) -> N
 				return null
 			excluded_instance_ids[candidate.get_instance_id()] = true
 		return null
-	var nearest: Node2D = _find_nearest_resource_node(resource_type, villager.global_position)
+	var nearest: Node2D = _find_nearest_resource_node(resource_type, villager.global_position, villager)
 	if nearest != null and _is_worker_position_exposed(nearest.global_position, _get_visible_worker_threats()):
 		return null
 	return nearest
@@ -3804,6 +3867,23 @@ func _is_valid_build_spot(origin: Vector2i, footprint: Vector2i) -> bool:
 				return false
 			elif pathfinding and not pathfinding.is_walkable(Vector2i(tx, ty)):
 				return false
+	return _has_automatic_building_clearance(origin, footprint)
+
+
+func _has_automatic_building_clearance(origin: Vector2i, footprint: Vector2i) -> bool:
+	# Keep an open tile between automatically placed structures. Dense growth
+	# otherwise seals occupied courtyards even though each foundation is legal.
+	# Only owned footprints are consulted, matching the player placement rule.
+	var candidate := Rect2i(origin, footprint)
+	for building: Node in _my_buildings:
+		if not is_instance_valid(building) or not (building is BuildingBase):
+			continue
+		var own_building := building as BuildingBase
+		if own_building.player_owner != player_id or own_building.state == BuildingBase.State.DESTROYED:
+			continue
+		var occupied := Rect2i(_world_to_tile(own_building.global_position), own_building.footprint)
+		if candidate.intersects(occupied.grow(BuildingData.BUILDING_CLEARANCE_TILES)):
+			return false
 	return true
 
 

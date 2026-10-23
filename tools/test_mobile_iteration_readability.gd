@@ -14,6 +14,10 @@ func _ready() -> void:
 
 func _run() -> void:
     AudioManager.set_all_enabled(false)
+    GameManager.initialize_game(2)
+    GameManager.increase_population_cap(0,30)
+    ResourceManager.reset()
+    ResourceManager.initialize_player(0,{"food":10000,"wood":10000,"gold":10000})
     for phone: Vector2i in [Vector2i(844,390),Vector2i(932,430)]:
         for scale_factor: float in [1.0,1.075,1.15]:
             for notched: bool in [false,true]:
@@ -298,20 +302,26 @@ func _all_production_unit_text(hud: Node,logical: Vector2i,safe: Rect2,profile: 
         var pending: Array = []
         for index: int in ProductionQueue.MAX_QUEUE_SIZE:
             pending.append({"unit_type":unit_type,"name":UnitData.get_unit_name(unit_type),"is_training":false})
+            queue.queue.append(unit_type)
         var trainable: Array = [unit_type]
         if building.building_type == BuildingData.BuildingType.TOWN_CENTER:
             trainable = [UnitData.UnitType.VILLAGER,UnitData.UnitType.SCOUT]
+        # These layout-only producers stay outside the tree, so initialize
+        # their actual capabilities as _ready would for a live producer.
+        building.trainable_units.assign(trainable)
         _publish_selection_change(hud)
         hud.call("show_building_selection",BuildingData.get_building_name(building.building_type),5000,5000,pending,trainable,building)
         await _settle(hud,logical,safe)
         var unit_profile: String = "%s %s max queue" % [profile,UnitData.get_unit_name(unit_type)]
         var recruit: Button = (hud.get("_train_buttons_container") as HBoxContainer).get_node("TrainButton_%d" % unit_type)
         _expect(recruit.text.contains(UnitData.get_unit_name(unit_type)) and recruit.icon != null and recruit.get_node("CommandIconBadge").text == str(ProductionQueue.MAX_QUEUE_SIZE),unit_profile+" recruitment loses maximum queue badge")
+        _expect(recruit.text.contains("Queue full"),unit_profile+" recruitment loses visible full-queue blocker")
         for resource: String in ["food","wood","gold"]:
             var cost: int = int(UnitData.get_unit_cost(unit_type).get(resource,0))
             if cost > 0:
-                _expect(recruit.text.contains("%d%s" % [cost,resource.left(1).to_upper()]),unit_profile+" recruitment loses "+resource+" cost")
-        var role: String = "Recon" if unit_type == UnitData.UnitType.SCOUT else UnitData.get_unit_counter_description(unit_type)
+                var full_cost := "%d %s" % [cost,resource]
+                _expect(recruit.tooltip_text.contains(full_cost) and recruit.accessibility_name.contains(full_cost),unit_profile+" blocked recruitment loses hover/accessibility "+resource+" cost")
+        var role: String = UnitData.get_unit_counter_description(unit_type)
         if not role.is_empty():
             _expect(recruit.accessibility_name.contains(role) and str(hud.call("_selection_information")).contains(role),unit_profile+" recruitment loses role")
         for button: Button in (hud.get("_train_buttons_container") as HBoxContainer).get_children():

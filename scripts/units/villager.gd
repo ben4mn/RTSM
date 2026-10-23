@@ -16,6 +16,8 @@ enum GatherType { NONE, FOOD, WOOD, GOLD }
 
 # Gathering state
 var gather_target: Node2D = null
+var _assigned_farm_ref: WeakRef = null
+var _preserve_farm_assignment_on_command: bool = false
 var gather_type: int = GatherType.NONE
 var carried_resource_type: String = ""
 var carried_amount: int = 0
@@ -65,6 +67,13 @@ var _pending_gather_last_known_instance_id: int = 0
 var _preserve_pending_gather_on_command: bool = false
 var _building_work_target_id: int = 0
 var _building_work_destination: Vector2 = Vector2.ZERO
+# Positions reserve space, never resource capacity. Claims are weak and scoped
+# to the real navigation map; only route planning scans them, not every frame.
+static var _service_positions: Dictionary = {}
+var _service_target_id: int = 0
+var _service_destination: Vector2 = Vector2.ZERO
+var _service_kind: String = ""
+const SERVICE_SPACING: float = 22.0
 
 # Automatic raid recovery retains the economic order independently of the
 # movement state. A fresh player/AI command always supersedes this intent.
@@ -98,6 +107,17 @@ func _ready() -> void:
 	unit_type = UnitData.UnitType.VILLAGER
 	super._ready()
 	add_to_group("villagers")
+
+
+func _exit_tree() -> void:
+	_release_service_position()
+	_release_assigned_farm()
+
+
+func die() -> void:
+	_release_service_position()
+	_release_assigned_farm()
+	super.die()
 
 
 ## Villagers don't auto-attack; they stay focused on economic tasks.
@@ -297,6 +317,8 @@ func _process_gathering(delta: float) -> void:
 	# observed position remains usable. Do not inspect the live node (including
 	# validity, remaining stock, ownership, or type) until that tile is visible.
 	if _has_gather_last_known_position and not _is_gather_order_position_visible():
+		if _service_kind == "work":
+			_release_service_position()
 		_process_hidden_gather_approach(delta)
 		return
 	if gather_target == null and _gather_last_known_instance_id != 0:
@@ -322,12 +344,10 @@ func _process_gathering(delta: float) -> void:
 	var approach_distance: float = BUILD_APPROACH_DISTANCE if gather_target is BuildingBase else GATHER_APPROACH_DISTANCE
 	var is_farm: bool = gather_target is BuildingBase and (gather_target as BuildingBase).provides_food
 	var work_distance: float = _building_work_distance(gather_target) if is_farm else global_position.distance_to(resource_position)
-	if work_distance > approach_distance:
-		var navigation_result: int
-		if is_farm:
-			navigation_result = _navigate_toward_building_work(gather_target, delta)
-		else:
-			navigation_result = _navigate_toward_gather_center(resource_position, approach_distance, delta)
+	var navigation_result: int = _advance_economic_work_position(gather_target, approach_distance, delta)
+	if navigation_result == -1 and work_distance > approach_distance:
+		navigation_result = _navigate_toward_building_work(gather_target, delta) if is_farm else _navigate_toward_gather_center(resource_position, approach_distance, delta)
+	if navigation_result != -1 and navigation_result != NavigationResult.ARRIVED:
 		if navigation_result == NavigationResult.UNREACHABLE:
 			_remember_unreachable_target(gather_target, _unreachable_resource_ids_until)
 			_clear_gather_target_knowledge()
@@ -366,7 +386,7 @@ func _harvest_from_target() -> int:
 		return 0
 	# Try calling harvest on the resource node if it has the method
 	if gather_target.has_method("harvest"):
-		var amount: int = gather_target.harvest(amount_requested)
+		var amount: int = (gather_target as BuildingBase).harvest(amount_requested, self) if gather_target is BuildingBase else gather_target.harvest(amount_requested)
 		if amount > 0 and is_instance_valid(gather_target) and get_tree() and get_tree().current_scene:
 			if AudioManager.is_source_visible(self):
 				VFX.gather_particles(get_tree(), gather_target.global_position, carried_resource_type)
@@ -413,7 +433,8 @@ func _dropoff_accepts_cargo(building: Node2D) -> bool:
 func _get_dropoff_route(building: Node2D) -> PackedVector2Array:
 	var game_map: Node2D = _get_navigation_map()
 	if building is BuildingBase and game_map != null and game_map.has_method("get_building_dropoff_world_path"):
-		return game_map.call("get_building_dropoff_world_path", global_position, building.global_position, (building as BuildingBase).footprint, BUILD_APPROACH_DISTANCE)
+		var route: PackedVector2Array = game_map.call("get_building_dropoff_world_path", global_position, building.global_position, (building as BuildingBase).footprint, BUILD_APPROACH_DISTANCE)
+		return _spread_service_route(building, route, BUILD_APPROACH_DISTANCE)
 	if building is BuildingBase and game_map != null and game_map.has_method("get_building_work_world_path"):
 		return game_map.call("get_building_work_world_path", global_position, building.global_position, (building as BuildingBase).footprint, BUILD_APPROACH_DISTANCE)
 	return _get_navigation_route(building.global_position, BUILD_APPROACH_DISTANCE)
@@ -464,6 +485,7 @@ func _find_and_go_to_dropoff() -> void:
 		_preserve_pending_gather_on_command = false
 		dropoff_target = chosen_building
 		_dropoff_route_active = true
+		_reserve_service_position(chosen_building, chosen_route[-1], "dropoff")
 		if arrived_at_destination.is_connected(_on_arrived_for_dropoff):
 			arrived_at_destination.disconnect(_on_arrived_for_dropoff)
 		arrived_at_destination.connect(_on_arrived_for_dropoff, CONNECT_ONE_SHOT)
@@ -479,6 +501,7 @@ func _on_arrived_for_dropoff(_unit: UnitBase) -> void:
 	if not _dropoff_route_active:
 		return
 	_dropoff_route_active = false
+	_release_service_position()
 	var deposited: bool = _deposit_resources()
 	if not deposited and carried_amount > 0:
 		_find_and_go_to_dropoff()
@@ -544,8 +567,10 @@ func _process_building(delta: float) -> void:
 		return
 
 	var dist: float = _building_work_distance(build_target)
-	if dist > BUILD_APPROACH_DISTANCE:
-		var navigation_result: int = _navigate_toward_building_work(build_target, delta)
+	var navigation_result: int = _advance_economic_work_position(build_target, BUILD_APPROACH_DISTANCE, delta)
+	if navigation_result == -1 and dist > BUILD_APPROACH_DISTANCE:
+		navigation_result = _navigate_toward_building_work(build_target, delta)
+	if navigation_result != -1 and navigation_result != NavigationResult.ARRIVED:
 		if navigation_result == NavigationResult.UNREACHABLE:
 			build_target = null
 			_reset_navigation()
@@ -588,6 +613,171 @@ func _building_work_distance(building: Node2D) -> float:
 	return global_position.distance_to(building.global_position)
 
 
+func _supports_service_positions(game_map: Node2D) -> bool:
+	return game_map != null and game_map.has_method("tile_to_world") and game_map.has_method("world_to_tile") and game_map.has_method("is_tile_walkable") and game_map.has_method("get_navigation_world_path")
+
+
+func _advance_economic_work_position(target: Node2D, radius: float, delta: float) -> int:
+	var game_map: Node2D = _get_navigation_map()
+	if not _supports_service_positions(game_map):
+		return -1 # Preserve detached/legacy fixtures' direct interaction contract.
+	if target is BuildingBase and (not game_map.has_method("get_building_work_world_path") or not game_map.has_method("get_building_work_distance")):
+		return -1
+	var has_position: bool = _service_target_id == target.get_instance_id() and _service_kind == "work"
+	if has_position and not bool(game_map.call("is_tile_walkable", game_map.call("world_to_tile", _service_destination))):
+		has_position = false
+	if not has_position:
+		_release_service_position()
+		var distance: float = _building_work_distance(target) if target is BuildingBase else global_position.distance_to(target.global_position)
+		# Existing workers already standing at a free legal edge need no detour.
+		if distance <= radius and bool(game_map.call("is_tile_walkable", game_map.call("world_to_tile", global_position))) and _service_pressure(global_position, _occupied_service_points()) <= 0.0:
+			_reserve_service_position(target, global_position, "work")
+			return NavigationResult.ARRIVED
+		var route: PackedVector2Array
+		if target is BuildingBase:
+			route = game_map.call("get_building_work_world_path", global_position, target.global_position, (target as BuildingBase).footprint, radius)
+		else:
+			route = _get_navigation_route(target.global_position, radius)
+		route = _spread_service_route(target, route, radius)
+		if route.is_empty():
+			return NavigationResult.UNREACHABLE
+		_reset_navigation()
+		_reserve_service_position(target, route[-1], "work")
+		_building_work_target_id = target.get_instance_id() if target is BuildingBase else 0
+		_building_work_destination = route[-1]
+		path = route
+		path_index = 0
+	# A stall can discard the inherited route. Rebuild a sub-tile service route
+	# through its actual cell rather than accepting a nearby center as the job.
+	if path.is_empty() and global_position.distance_to(_service_destination) > NAVIGATION_POINT_TOLERANCE:
+		var destination_tile: Vector2i = game_map.call("world_to_tile", _service_destination)
+		var destination_center: Vector2 = game_map.call("tile_to_world", destination_tile)
+		var route: PackedVector2Array = game_map.call("get_navigation_world_path", global_position, destination_center, NAVIGATION_POINT_TOLERANCE)
+		if route.is_empty() or game_map.call("world_to_tile", route[-1]) != destination_tile:
+			return NavigationResult.UNREACHABLE
+		if not route[-1].is_equal_approx(_service_destination):
+			route.append(_service_destination)
+		path = route
+		path_index = 0
+	return _navigate_toward(_service_destination, NAVIGATION_POINT_TOLERANCE, delta, false, false)
+
+
+func _spread_service_route(target: Node2D, original: PackedVector2Array, radius: float) -> PackedVector2Array:
+	var game_map: Node2D = _get_navigation_map()
+	if original.is_empty() or not _supports_service_positions(game_map):
+		return original
+	if target is BuildingBase and not game_map.has_method("get_building_work_distance"):
+		return original
+	var occupied: PackedVector2Array = _occupied_service_points()
+	var best_pressure: float = _service_pressure(original[-1], occupied)
+	if best_pressure <= 0.0:
+		return original
+	var candidates: Array[Vector2] = []
+	if target is BuildingBase:
+		var building := target as BuildingBase
+		var origin: Vector2i = game_map.call("world_to_tile", building.global_position)
+		for dx: int in range(-1, building.footprint.x + 1):
+			for dy: int in range(-1, building.footprint.y + 1):
+				if dx >= 0 and dx < building.footprint.x and dy >= 0 and dy < building.footprint.y:
+					continue
+				var point: Vector2 = game_map.call("tile_to_world", origin + Vector2i(dx, dy))
+				if float(game_map.call("get_building_work_distance", point, building.global_position, building.footprint)) <= radius:
+					candidates.append(point)
+	else:
+		# Eight evenly spaced standing points fit inside the unchanged resource
+		# interaction disk. A final within-tile segment preserves these sub-tile
+		# endpoints instead of collapsing them back to one pathfinding cell center.
+		for index: int in 8:
+			var angle: float = TAU * float(index) / 8.0
+			candidates.append(target.global_position + Vector2.from_angle(angle) * maxf(1.0, radius - 8.0))
+		candidates.append(target.global_position)
+	var best: PackedVector2Array = original
+	var best_length: float = _service_route_length(original)
+	candidates.sort_custom(func(a: Vector2, b: Vector2) -> bool:
+		return global_position.distance_squared_to(a) < global_position.distance_squared_to(b)
+	)
+	for point: Vector2 in candidates:
+		# Straight-line distance is a lower bound on path length. Once a free
+		# endpoint is found, farther candidates cannot improve its actual route.
+		if best_pressure <= 0.0 and global_position.distance_to(point) > best_length:
+			break
+		var tile: Vector2i = game_map.call("world_to_tile", point)
+		if not bool(game_map.call("is_tile_walkable", tile)):
+			continue
+		if not target is BuildingBase and not _is_world_position_visible(point):
+			continue
+		var pressure: float = _service_pressure(point, occupied)
+		if pressure > best_pressure:
+			continue
+		var cell_center: Vector2 = game_map.call("tile_to_world", tile)
+		var route: PackedVector2Array = game_map.call("get_navigation_world_path", global_position, cell_center, NAVIGATION_POINT_TOLERANCE)
+		if route.is_empty() or game_map.call("world_to_tile", route[-1]) != tile:
+			continue
+		if not route[-1].is_equal_approx(point):
+			route.append(point)
+		var length: float = _service_route_length(route)
+		if pressure < best_pressure or length < best_length:
+			best = route
+			best_pressure = pressure
+			best_length = length
+	return best
+
+
+func _service_route_length(route: PackedVector2Array) -> float:
+	var length: float = 0.0
+	var previous: Vector2 = global_position
+	for point: Vector2 in route:
+		length += previous.distance_to(point)
+		previous = point
+	return length
+
+
+func _occupied_service_points() -> PackedVector2Array:
+	var points := PackedVector2Array()
+	var game_map: Node2D = _get_navigation_map()
+	for id: int in _service_positions.keys():
+		var entry: Dictionary = _service_positions[id]
+		var worker: Villager = entry.worker.get_ref() as Villager
+		var target: Node2D = entry.target.get_ref() as Node2D
+		if not is_instance_valid(worker) or not is_instance_valid(target) or worker.current_state == State.DEAD:
+			_service_positions.erase(id)
+			continue
+		if worker != self and worker.player_owner == player_owner and entry.map.get_ref() == game_map:
+			points.append(entry.point)
+	# Settled friendly troops and delivery finishers occupy standing space too.
+	# This bounded group scan runs only when choosing a new economic route.
+	for node: Node in get_tree().get_nodes_in_group("units"):
+		var unit := node as UnitBase
+		if unit == null or unit == self or unit.player_owner != player_owner or unit.current_state == State.DEAD or unit._get_navigation_map() != game_map:
+			continue
+		if not unit._navigation_active:
+			points.append(unit.global_position)
+	return points
+
+
+func _service_pressure(point: Vector2, occupied: PackedVector2Array) -> float:
+	var pressure: float = 0.0
+	for other: Vector2 in occupied:
+		pressure += maxf(0.0, 1.0 - point.distance_to(other) / SERVICE_SPACING)
+	return pressure
+
+
+func _reserve_service_position(target: Node2D, point: Vector2, kind: String) -> void:
+	var game_map: Node2D = _get_navigation_map()
+	if not _supports_service_positions(game_map):
+		return
+	_service_target_id = target.get_instance_id()
+	_service_destination = point
+	_service_kind = kind
+	_service_positions[get_instance_id()] = {"worker":weakref(self), "target":weakref(target), "map":weakref(game_map), "point":point}
+
+
+func _release_service_position() -> void:
+	_service_positions.erase(get_instance_id())
+	_service_target_id = 0
+	_service_kind = ""
+
+
 func _navigate_toward_building_work(building: Node2D, delta: float) -> int:
 	var game_map: Node2D = _get_navigation_map()
 	if not building is BuildingBase or game_map == null or not game_map.has_method("get_building_work_world_path"):
@@ -628,7 +818,19 @@ func command_gather(resource_node: Node2D) -> bool:
 	var requested_resource_type: String = _get_resource_type_from_target(resource_node)
 	if requested_resource_type == "":
 		return false
+	var farm: BuildingBase = resource_node as BuildingBase if resource_node is BuildingBase and (resource_node as BuildingBase).provides_food else null
+	if farm != null and not farm.try_assign_worker(self):
+		return false
+	# Reserve before replacing the old job: sequential group commands cannot
+	# race into one Farm, and rejected orders leave cargo and prior work intact.
+	if farm != null:
+		var previous: BuildingBase = _assigned_farm_ref.get_ref() as BuildingBase if _assigned_farm_ref != null else null
+		if previous != farm:
+			_release_assigned_farm()
+		_assigned_farm_ref = weakref(farm)
+		_preserve_farm_assignment_on_command = true
 	_before_new_command()
+	_preserve_farm_assignment_on_command = false
 	_clear_patrol()
 	attack_target = null
 	attack_building_target = null
@@ -1026,7 +1228,7 @@ func _try_resume_safer_resource(threats: Array[Node2D]) -> bool:
 	var requested_type: String = _pending_gather_resource_type if _pending_gather_resource_type != "" else carried_resource_type
 	var exclusions: Dictionary = _unreachable_resource_ids_until.duplicate()
 	for index: int in range(MAX_RECOVERY_PATH_CHECKS):
-		var candidate: Node2D = game_map.call("get_nearest_reachable_resource_node", requested_type, global_position, player_owner, exclusions) as Node2D
+		var candidate: Node2D = _lookup_resource_for_worker(game_map, requested_type, global_position, exclusions)
 		if candidate == null or not _is_new_gather_target_currently_visible(candidate):
 			return false
 		var route: PackedVector2Array
@@ -1116,15 +1318,9 @@ func _try_retarget_resource() -> bool:
 	_prune_expired_unreachable_targets(_unreachable_resource_ids_until)
 	var new_target: Node2D = null
 	if game_map.has_method("get_nearest_reachable_resource_node"):
-		new_target = game_map.call(
-			"get_nearest_reachable_resource_node",
-			carried_resource_type,
-			global_position,
-			player_owner,
-			_unreachable_resource_ids_until
-		)
+		new_target = _lookup_resource_for_worker(game_map, carried_resource_type, global_position, _unreachable_resource_ids_until)
 	else:
-		new_target = game_map.get_nearest_resource_node(carried_resource_type, global_position, player_owner)
+		new_target = _lookup_resource_for_worker(game_map, carried_resource_type, global_position, {}, false)
 	if new_target != null and is_instance_valid(new_target):
 		return command_gather(new_target)
 	return false
@@ -1205,12 +1401,7 @@ func _try_resume_observed_gather_target() -> bool:
 	# Registry lookup is called only after the observed tile is currently visible;
 	# its player-id contract filters hidden, depleted, enemy-owned, and unregistered
 	# candidates before returning a live object.
-	var registered_target: Node2D = game_map.call(
-		"get_nearest_resource_node",
-		carried_resource_type,
-		_gather_last_known_position,
-		player_owner
-	) as Node2D
+	var registered_target: Node2D = _lookup_resource_for_worker(game_map, carried_resource_type, _gather_last_known_position, {}, false)
 	if registered_target == null:
 		return false
 	if not _is_new_gather_target_currently_visible(registered_target):
@@ -1331,6 +1522,9 @@ func _find_resource_game_map() -> Node2D:
 
 
 func _clear_gather_target_knowledge() -> void:
+	if _service_kind == "work":
+		_release_service_position()
+	_release_assigned_farm()
 	gather_target = null
 	_gather_last_known_position = Vector2.ZERO
 	_has_gather_last_known_position = false
@@ -1370,6 +1564,9 @@ func _gather_type_for_resource(resource_type: String) -> int:
 
 
 func _before_new_command() -> void:
+	_release_service_position()
+	if not _preserve_farm_assignment_on_command and not _preserve_pending_gather_on_command and not _preserve_recovery_on_command:
+		_release_assigned_farm()
 	_observed_worker_threat_distances.clear()
 	# Spread a selected worker group's four-Hz vision checks across five phases.
 	_economic_threat_check_timer = float(posmod(get_index(), 5)) * 0.05
@@ -1384,6 +1581,8 @@ func _before_new_command() -> void:
 
 
 func _cancel_dropoff_route() -> void:
+	if _service_kind == "dropoff":
+		_release_service_position()
 	_dropoff_route_active = false
 	dropoff_target = null
 	if arrived_at_destination.is_connected(_on_arrived_for_dropoff):
@@ -1426,9 +1625,30 @@ func _is_gather_target_valid(resource_node: Node2D) -> bool:
 		return false
 	if not resource_node.has_method("get_resource_type") or not resource_node.has_method("harvest"):
 		return false
+	if resource_node is BuildingBase and not (resource_node as BuildingBase).is_available_to_worker(self):
+		return false
 	if resource_node.has_method("is_harvestable_by"):
 		return bool(resource_node.call("is_harvestable_by", player_owner))
 	return true
+
+
+func _release_assigned_farm() -> void:
+	var farm: BuildingBase = _assigned_farm_ref.get_ref() as BuildingBase if _assigned_farm_ref != null else null
+	_assigned_farm_ref = null
+	if is_instance_valid(farm):
+		farm.release_worker(self)
+
+
+func _lookup_resource_for_worker(game_map: Node2D, resource_type: String, from: Vector2, exclusions: Dictionary = {}, reachable: bool = true) -> Node2D:
+	var arguments: Array = [resource_type, from, player_owner]
+	if reachable:
+		arguments.append(exclusions)
+	# Older minimal navigation fixtures expose the generic lookup contract.
+	# Production supports a requester so its farmer can recover its own slot.
+	if game_map.has_method("is_resource_target_available_to_worker"):
+		arguments.append(self)
+	var method: String = "get_nearest_reachable_resource_node" if reachable else "get_nearest_resource_node"
+	return game_map.callv(method, arguments) as Node2D
 
 
 func _is_build_target_valid(building_site: Variant) -> bool:

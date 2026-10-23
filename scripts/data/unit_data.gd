@@ -11,6 +11,18 @@ enum UnitType {
 	SIEGE
 }
 
+# World presentation is independent of recruitment portraits and combat stats.
+# At the shared y104 foot anchor, infantry stands about 28–30 world pixels
+# tall; mounted roles read taller and wider, and siege keeps its carriage size.
+const WORLD_SPRITE_SCALES: Dictionary = {
+	UnitType.VILLAGER: Vector2(0.30, 0.30),
+	UnitType.INFANTRY: Vector2(0.31, 0.31),
+	UnitType.ARCHER: Vector2(0.30, 0.30),
+	UnitType.CAVALRY: Vector2(0.45, 0.45),
+	UnitType.SCOUT: Vector2(0.43, 0.43),
+	UnitType.SIEGE: Vector2(0.60, 0.60),
+}
+
 # A nearby camp (120 world units away) delivers ~59 food/wood per minute.
 # Shared carry slots preserve mixed cargo on retask; no harvest is discarded.
 const VILLAGER_GATHER_AMOUNT: float = 1.0
@@ -20,7 +32,8 @@ const VILLAGER_GATHER_TICK_SECONDS: float = 0.9
 const RESOURCE_GATHER_SPEEDS: Dictionary = {"food": 1.2, "wood": 1.2, "gold": 1.0}
 
 # Cost format: { "food": int, "wood": int, "gold": int }
-# All units defined with base stats for Age 1. Upgrades scale from here.
+# These base stats apply at every age; ages unlock options, not stat scaling.
+# Blacksmith research adds owner bonuses through Combat and Main.
 # `attack_range` and `vision_radius` are range tiles, converted through
 # MapData.range_tiles_to_world() when a unit enters the world.
 
@@ -181,6 +194,6 @@ static func get_unit_counter_name(unit_type: int) -> String:
 
 static func get_unit_counter_description(unit_type: int) -> String:
 	if unit_type == UnitType.SCOUT:
-		return "Recon · wide vision"
+		return "Unarmed · wide vision"
 	var counter_name: String = get_unit_counter_name(unit_type)
 	return "Beats %s" % counter_name if not counter_name.is_empty() else ""

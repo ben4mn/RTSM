@@ -371,9 +371,16 @@ func execute_command(owner: int, packet: Dictionary) -> String:
 				target = game_map.get_resource_node_at(tile)
 			if not game_map.is_resource_target_valid(target, "", owner) or not game_map.is_resource_target_visible_to_player(target, owner):
 				return "Resource no longer available"
+			var gathered_any: bool = false
+			var occupied_farm_rejected: bool = false
 			for unit: UnitBase in units:
 				if unit is Villager:
-					unit.command_gather(target)
+					var gathered: bool = unit.command_gather(target)
+					gathered_any = gathered or gathered_any
+					if not gathered and target is BuildingBase and target.provides_food and not target.is_available_to_worker(unit):
+						occupied_farm_rejected = true
+			if occupied_farm_rejected and not gathered_any:
+				return "Farm occupied. Choose an empty Farm or another food source."
 		"build":
 			if target == null or not target is BuildingBase or target.player_owner != owner:
 				return "Select your foundation"

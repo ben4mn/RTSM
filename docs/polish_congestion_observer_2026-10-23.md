@@ -1,0 +1,32 @@
+# Paid-match congestion observer
+
+`tools/probe_polish_skirmishes.gd` retains the existing slower paid learner versus untouched Easy AI, ordinary starting banks, production queues, resources, fog, combat and natural victory. The three cases remain Open Plains 1280×720, River 844×390 and Woodland 932×430, seed 101, population 30, automatic 3× game speed. Manual runs retain 1×, human commands and camera. No new simulation policy, resources, buildings, teleport, terrain reveal, path query or delayed ending is introduced by this observer.
+
+The historical `output/polish-2026-10-22/native-combined-final` receipts already recorded 8–11 completed Farms per owner in every map and substantial ordinary food/wood deposits. Those receipts do not prove smooth local movement. The new instrumentation measures the missing observations while preserving that policy.
+
+## Definitions and limits
+
+- Samples run at most once each 0.5 simulation seconds. Their cadence is simulation time, not wall time. Both owners are observed, including offscreen actors; no collected knowledge is supplied to either controller.
+- A close-contact episode means two unit centers remain inside the sum of their configured `UNIT_SIZES` circles. This is a proximity measurement, not proof of collision, stacking, failed navigation or invalid working positions. Normal working and combat contacts are included and their states/work labels are recorded.
+- A low-displacement travel episode requires active navigation, a live remaining route and an endpoint more than 6 world units away. Moving less than 4 world units from the episode anchor for 8 simulation seconds triggers an observation. A changed state, endpoint shift above 16 world units, loss of route, or sufficient movement resets the episode. Settled workers reset navigation in runtime; the public route helper excludes unit attackers already in range. UI text such as “Building” is not used to exclude travel because that label can also describe a builder still approaching.
+- Episodes within 48 world units of the route endpoint are counted separately. This does not diagnose deadlock or distinguish necessary yielding from a bug. Repeated failures remain visible through the existing actual `navigation_failed` signal records.
+- Gap candidates are 1–3 walkable tiles wide between opposed edges of two actual owned building footprints, with a positive overlapping length. The observer records a traversal only after a sampled entrance through one end, at least one in-gap sample, then an opposite-end exit within 20 simulation seconds. Entry/exit must stay within the passage width. Discovery runs every 5 simulation seconds, without computing paths. Short crossings can be missed, and this proves sampled passage use rather than general pathfinding correctness.
+- Each detailed contact, stall and gap collection is limited to 80 entries. Aggregate counts continue; `dropped_records` explicitly reports truncation. Max episode lengths are sampled durations. Details capture their threshold-time context, not a full frame trace.
+
+## Economy evidence and required coverage
+
+Each deposit signal is bound to its real worker and the actual dropoff still present during the signal. The receipt includes distinct depositing workers and workers per dropoff. Farm cargo increases are counted only across samples with the same live Farm target; food deposited while the worker still has a Farm assignment is labelled Farm-associated, not a precise provenance claim for mixed cargo. Farm completion counts come from real construction signals; no free Farm exists in this match setup.
+
+For automatic cases, coverage requires for each owner at least 2 paid Farm completions, at least 2 distinct depositing workers, a dropoff used by at least 2 workers, observed Farm cargo gain and a Farm-associated food deposit. A sampled base-gap traversal is also required somewhere in the case. Coverage failures are separate from runtime/gameplay failures and are checked only after the game ends or reaches its existing cap. They do not suppress victory, stop the opponent, issue extra commands or abort subsequent naturally resolved cases. Manual runs report the same coverage without imposing an economy policy.
+
+Native automatic runs frame the home-side first shared dropoff deposit, active paid Farm, long close contact, long travel observation and gap exit when each occurs. Screenshots retain exact trigger context in the case receipt. These are selected observations; they do not guarantee that a long episode is still present by the next rendered frame. Manual runs do not move the camera or enqueue those automatic views.
+
+## Runner and validation
+
+`tools/run_polish_skirmishes.py` preserves the frozen source/import manifest, private preferences and exact-stage process cleanup. Missing optional `resources/` is represented by an empty staged directory; required runtime folders still fail if missing. `analysis.json` summarizes coverage and congestion while per-case JSON retains bounded details. Missing mandatory coverage returns a nonzero exit separately from gameplay errors.
+
+A 60-simulation-second private headless smoke run at `output/polish-crowding-2026-10-23/harness-smoke` imported and ran without script errors or warnings. It intentionally reached its short cap, reported unfinished match and insufficient two-Farm coverage, and already observed deposits, Farm cargo and gap traversal. It is not a completed-match or performance result. The following full private check uses `harness-paid-check`; native evidence is run and reviewed separately by the parent task.
+
+The observer adds CPU work. Its native timing is scoped to the instrumented runs and is not a substitute for the exclusive dense benchmark or physical-device/display performance.
+
+The full private headless check completed Plains naturally at 710.93 simulation seconds (human-policy Sacred Site win), verified result→menu, and passed all coverage with no errors or warnings. Owners completed 7/8 paid Farms; sampled Farm cargo gains were 1997/2194; peak simultaneous delivering workers were 8/8; 345 gap traversals were observed. There were 179 long close-contact episodes, maximum sampled contact 274.5 seconds, and zero qualifying long route-stall episodes. These contacts require state/visual interpretation rather than a claim of smooth or blocked navigation. The run is behavioral evidence only; native timing/screenshot claims remain separate.

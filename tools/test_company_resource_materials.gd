@@ -24,7 +24,7 @@ func _run() -> void:
 	for failure: String in _failures:
 		push_error("[FAIL] company_resource_materials: " + failure)
 	if _failures.is_empty():
-		print("[PASS] company_resource_materials: four unchanged source textures, stock/scales/anchors/collision/masks, shared materials; GPU alpha/fade and native phone captures when rendered")
+		print("[PASS] company_resource_materials: four unchanged source textures, stock/collision/masks, calibrated scales/anchors, shared materials; GPU alpha/fade and native phone captures when rendered")
 	get_tree().quit(0 if _failures.is_empty() else 1)
 
 func _contracts(kind: String) -> void:
@@ -35,7 +35,7 @@ func _contracts(kind: String) -> void:
 	resource.visible = false
 	var sprite: Sprite2D = resource.get_node("Sprite")
 	_expect(sprite.texture.resource_path == ResourceNode.RESOURCE_SPRITES[kind], kind + " keeps its original source texture")
-	_expect(sprite.scale == ResourceNode.RESOURCE_SCALES[kind] and sprite.offset == ResourceNode.RESOURCE_OFFSETS[kind], kind + " preserves scale and anchor")
+	_expect(sprite.scale == ResourceNode.RESOURCE_SCALES[kind] and sprite.offset == ResourceNode.RESOURCE_OFFSETS[kind], kind + " uses calibrated scale and anchor")
 	_expect(resource.remaining == 300, kind + " preserves initial stock")
 	var collision := resource.get_child(0) as CollisionShape2D
 	_expect(collision != null and is_equal_approx((collision.shape as CircleShape2D).radius, 16.0), kind + " preserves collision circle")

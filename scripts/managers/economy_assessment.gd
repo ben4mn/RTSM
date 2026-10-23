@@ -16,7 +16,7 @@ static func describe(facts: Dictionary) -> Dictionary:
 	var worked_food: int = int(facts.get("worked_food", 0))
 	var food_workers: int = int(facts.get("food_workers", 0))
 	var stock: String = "Food: %d in visible berries · %d permanent Farms." % [int(facts.get("berry_food", 0)), int(facts.get("permanent_farms", 0))]
-	var farm: String = "Farm: %d wood for permanent food. Assign workers to gather." % farm_wood
+	var farm: String = "Farm: %d wood for permanent food. Assign one worker per Farm." % farm_wood
 	var result: Dictionary = {"title": "Economy", "detail": "", "stock": stock, "farm": farm, "attention": "", "severity": 0}
 	if workers == 0:
 		result["severity"] = 2

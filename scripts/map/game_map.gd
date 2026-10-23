@@ -1370,6 +1370,14 @@ func is_resource_target_valid(node: Node2D, type: String = "", player_id: int = 
 	return true
 
 
+## Input may still target an occupied Farm to explain rejection. Autonomous
+## discovery needs an available work slot, including the requester's own slot.
+func is_resource_target_available_to_worker(node: Node2D, type: String = "", player_id: int = -1, worker: Node2D = null) -> bool:
+	if not is_resource_target_valid(node, type, player_id):
+		return false
+	return not node is BuildingBase or (node as BuildingBase).is_available_to_worker(worker)
+
+
 ## Resource discovery is fog-aware whenever a concrete player is supplied.
 ## A negative player id remains the explicit omniscient/debug discovery mode.
 func is_resource_target_visible_to_player(node: Node2D, player_id: int = -1) -> bool:
@@ -1380,7 +1388,7 @@ func is_resource_target_visible_to_player(node: Node2D, player_id: int = -1) -> 
 
 ## Find the nearest resource node of a given type ("food", "wood", "gold") from a world position.
 ## When player_id is supplied, candidates must be currently visible and enemy-owned farms are excluded.
-func get_nearest_resource_node(type: String, from: Vector2, player_id: int = -1) -> Node2D:
+func get_nearest_resource_node(type: String, from: Vector2, player_id: int = -1, worker: Node2D = null) -> Node2D:
 	var best_node: Node2D = null
 	var best_dist: float = INF
 	var candidates: Array[Node2D] = []
@@ -1394,7 +1402,7 @@ func get_nearest_resource_node(type: String, from: Vector2, player_id: int = -1)
 	for node: Node2D in candidates:
 		if not is_resource_target_visible_to_player(node, player_id):
 			continue
-		if not is_resource_target_valid(node, type, player_id):
+		if not is_resource_target_available_to_worker(node, type, player_id, worker):
 			continue
 		var dist: float = from.distance_to(node.global_position)
 		if dist < best_dist:
@@ -1414,7 +1422,8 @@ func get_nearest_reachable_resource_node(
 	type: String,
 	from: Vector2,
 	player_id: int = -1,
-	excluded_instance_ids: Dictionary = {}
+	excluded_instance_ids: Dictionary = {},
+	worker: Node2D = null
 ) -> Node2D:
 	var candidates: Array[Node2D] = []
 	for tile_pos: Vector2i in resource_nodes:
@@ -1422,7 +1431,7 @@ func get_nearest_reachable_resource_node(
 		if (
 			natural_node != null
 			and is_resource_target_visible_to_player(natural_node, player_id)
-			and is_resource_target_valid(natural_node, type, player_id)
+			and is_resource_target_available_to_worker(natural_node, type, player_id, worker)
 		):
 			candidates.append(natural_node)
 	for additional_node: Node2D in _additional_resource_nodes:
@@ -1430,7 +1439,7 @@ func get_nearest_reachable_resource_node(
 			additional_node != null
 			and additional_node not in candidates
 			and is_resource_target_visible_to_player(additional_node, player_id)
-			and is_resource_target_valid(additional_node, type, player_id)
+			and is_resource_target_available_to_worker(additional_node, type, player_id, worker)
 		):
 			candidates.append(additional_node)
 	candidates.sort_custom(func(a: Node2D, b: Node2D) -> bool:

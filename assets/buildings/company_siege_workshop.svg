@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
   <!-- Original Company siege yard: an open assembly shed with a projecting
-       timber crane, hanging tackle and a large carriage wheel. -->
+       timber crane, hanging tackle and a field-sized carriage. -->
   <g stroke-linejoin="round" stroke-linecap="round">
     <path d="M6 105 47 86 122 105 80 126 15 118Z" fill="#263c36" opacity=".22"/>
     <path d="M10 90 55 70 118 87 118 108 76 124 10 109Z" fill="#879a7d" stroke="#405647" stroke-width="1.6"/>
@@ -27,21 +27,29 @@
     <path d="M111 48 119 46 119 55 115 60 111 57Z" fill="#506c5c" stroke="#2f493c" stroke-width="1.2"/>
     <path d="M115 59 115 65 Q115 70 110 68" fill="none" stroke="#c5c7a9" stroke-width="2.5"/>
     <path d="M86 93 98 88 102 92 90 98Z" fill="#d2c6a1" stroke="#586f50" stroke-width="1"/>
-    <!-- A partly assembled wheeled chassis, not an unrelated military statue. -->
-    <path d="M44 88 71 77 100 85 74 98Z" fill="#b6aa80" stroke="#405b45" stroke-width="1.7"/>
-    <path d="M44 88 74 95 100 84 100 91 75 103 44 96Z" fill="#8d916a" stroke="#405b45" stroke-width="1.3"/>
-    <path d="M52 84 82 91 M62 80 91 87" stroke="#dbcca3" stroke-width="2"/>
-    <path d="M58 88 65 70 70 72 67 90 M78 91 83 74 88 76 86 94" fill="#a89f76" stroke="#405b45" stroke-width="1.3"/>
-    <path d="M63 72 84 77" stroke="#dbc9a0" stroke-width="3"/>
-    <!-- The near wheel reads as a broad ring even at the default phone zoom. -->
-    <ellipse cx="72" cy="104" rx="13" ry="16" fill="#445e48" stroke="#2d473a" stroke-width="1.6"/>
-    <ellipse cx="72" cy="103" rx="9" ry="12" fill="#bfb28a"/>
-    <ellipse cx="72" cy="103" rx="6" ry="9" fill="#506b4e"/>
-    <path d="M72 92 72 114 M64 98 80 108 M64 108 80 98" stroke="#d0be95" stroke-width="2.1"/>
-    <ellipse cx="72" cy="103" rx="3" ry="4" fill="#e0cc9d" stroke="#526b4b" stroke-width="1"/>
-    <ellipse cx="95" cy="94" rx="6" ry="9" fill="#405b43" stroke="#2e4738" stroke-width="1.3"/>
-    <ellipse cx="95" cy="94" rx="3.5" ry="6" fill="#b6a982"/>
-    <path d="M95 89 95 99" stroke="#506748" stroke-width="1.5"/>
+    <!-- A 50 world-pixel carriage matches the deployable field engine. -->
+    <g id="workshop-carriage" transform="translate(72 111) scale(.58) translate(-72 -111)">
+      <!-- A partly assembled wheeled chassis, not an unrelated military statue. -->
+      <path d="M44 88 71 77 100 85 74 98Z" fill="#b6aa80" stroke="#405b45" stroke-width="1.7"/>
+      <path d="M44 88 74 95 100 84 100 91 75 103 44 96Z" fill="#8d916a" stroke="#405b45" stroke-width="1.3"/>
+      <path d="M52 84 82 91 M62 80 91 87" stroke="#dbcca3" stroke-width="2"/>
+      <path d="M58 88 65 70 70 72 67 90 M78 91 83 74 88 76 86 94" fill="#a89f76" stroke="#405b45" stroke-width="1.3"/>
+      <path d="M63 72 84 77" stroke="#dbc9a0" stroke-width="3"/>
+      <!-- Wheel diameters stay 10–15 world pixels, like the mobile engine. -->
+      <g id="workshop-near-wheel" transform="translate(72 104) scale(.45) translate(-72 -104)">
+        <!-- The near wheel reads as a broad ring even at the default phone zoom. -->
+        <ellipse cx="72" cy="104" rx="13" ry="16" fill="#445e48" stroke="#2d473a" stroke-width="1.6"/>
+        <ellipse cx="72" cy="103" rx="9" ry="12" fill="#bfb28a"/>
+        <ellipse cx="72" cy="103" rx="6" ry="9" fill="#506b4e"/>
+        <path d="M72 92 72 114 M64 98 80 108 M64 108 80 98" stroke="#d0be95" stroke-width="2.1"/>
+        <ellipse cx="72" cy="103" rx="3" ry="4" fill="#e0cc9d" stroke="#526b4b" stroke-width="1"/>
+      </g>
+      <g id="workshop-far-wheel" transform="translate(95 94) scale(.70) translate(-95 -94)">
+        <ellipse cx="95" cy="94" rx="6" ry="9" fill="#405b43" stroke="#2e4738" stroke-width="1.3"/>
+        <ellipse cx="95" cy="94" rx="3.5" ry="6" fill="#b6a982"/>
+        <path d="M95 89 95 99" stroke="#506748" stroke-width="1.5"/>
+      </g>
+    </g>
     <!-- Stored timber keeps the ground plane practical and uncluttered. -->
     <path d="M15 100 31 94 48 98 33 105Z M15 105 31 99 48 103 33 110Z" fill="#b4aa82" stroke="#536b4b" stroke-width="1.2"/>
     <path d="M22 101 39 105 M29 98 43 102" stroke="#dfcda4" stroke-width="1.2"/>

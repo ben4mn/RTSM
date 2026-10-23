@@ -16,6 +16,11 @@ func _ready() -> void:
 
 func _run() -> void:
 	AudioManager.set_all_enabled(false)
+	# Recruitment now exposes live purchase blockers. Give the ready-layout
+	# scenario real player state and a funded producer instead of orphan nodes.
+	GameManager.initialize_game(1)
+	ResourceManager.reset()
+	ResourceManager.initialize_player(0, {"food": 500, "wood": 500, "gold": 500})
 	for phone: Vector2i in PHONE_SIZES:
 		for ui_scale: float in UI_SCALES:
 			for notched: bool in [false, true]:
@@ -136,6 +141,7 @@ func _exercise_profile(phone: Vector2i, ui_scale: float, notched: bool) -> void:
 	var pq := ProductionQueue.new()
 	tc.add_child(pq)
 	tc.set_production_queue(pq)
+	viewport.add_child(tc)
 	pq.auto_queue_unit_type = UnitData.UnitType.SCOUT
 	var queue_items: Array = [
 		{"unit_type": UnitData.UnitType.VILLAGER, "name": "Villager", "is_training": true, "progress": 0.42},

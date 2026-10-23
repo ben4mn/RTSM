@@ -64,7 +64,13 @@ func _run() -> void:
 	var guidance_label: Label = hud.get("_progression_hint_label") as Label
 	_expect(guidance_label.visible and guidance_label.text != "", "opening guidance has no visible text")
 	_expect(guidance_label.size.x >= 220.0 and guidance_label.size.y >= 34.0, "opening guidance text is clipped by its layout: %s" % guidance_label.size)
-	_expect(guidance_label.get_theme_color("font_color").r > 0.8, "opening guidance is dark on navy")
+	var guidance_panel: PanelContainer = hud.get("_progression_hint_panel") as PanelContainer
+	var guidance_style: StyleBoxFlat = guidance_panel.get_theme_stylebox("panel") as StyleBoxFlat
+	var foreground: float = guidance_label.get_theme_color("font_color").srgb_to_linear().get_luminance()
+	var background: float = guidance_style.bg_color.srgb_to_linear().get_luminance()
+	var contrast: float = (maxf(foreground, background) + 0.05) / (minf(foreground, background) + 0.05)
+	_expect(contrast >= 4.5, "opening guidance lacks readable contrast: %.2f" % contrast)
+	print("[METRIC] opening guidance contrast=%.2f foreground=%s background=%s" % [contrast, guidance_label.get_theme_color("font_color"), guidance_style.bg_color])
 	var train_row: HBoxContainer = hud.get("_train_buttons_container") as HBoxContainer
 	var villager_button: Button = train_row.get_node("TrainButton_%d" % UnitData.UnitType.VILLAGER) as Button
 	var scout_button: Button = train_row.get_node("TrainButton_%d" % UnitData.UnitType.SCOUT) as Button
@@ -74,7 +80,7 @@ func _run() -> void:
 	await _capture("tc-initial-844x390")
 	var scout_cost: Dictionary = UnitData.get_unit_cost(UnitData.UnitType.SCOUT)
 	_expect(scout_button.text.contains("%dF" % int(scout_cost.get("food", 0))) and scout_button.text.contains("%dG" % int(scout_cost.get("gold", 0))), "Scout compact training cost omits a resource: %s" % scout_button.text)
-	_expect(scout_button.icon != null and scout_button.accessibility_name.contains("Recon") and str(hud.call("_selection_information")).contains("Recon"), "Scout compact role is missing")
+	_expect(scout_button.icon != null and scout_button.accessibility_name.contains("Unarmed") and str(hud.call("_selection_information")).contains("Unarmed"), "Scout compact unarmed role is missing")
 	var before_food: int = int(ResourceManager.get_all_resources(0).get("food", 0))
 	var position: Vector2 = villager_button.get_global_rect().get_center()
 	await _hover(position)

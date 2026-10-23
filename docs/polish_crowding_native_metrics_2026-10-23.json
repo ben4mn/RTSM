@@ -1,0 +1,4616 @@
+{
+  "scope": "Render-completion cadence of a native desktop debug build at phone-sized viewport; not display presentation, GPU duration, physical phone or Web timing. Engine TIME_PROCESS is an aggregate frame monitor, not pure script CPU. Default renderer/VSync and ordinary runtime diagnostics stay active. Muted audio; fixed purchasing policy, not standard strategic AI.",
+  "baseline_label": "Pre-crowding HD accepted native run",
+  "baseline_summary": {
+    "scope": "Render-completion cadence of a native desktop debug build at phone-sized viewport; not display presentation, GPU duration, physical phone or Web timing. Engine TIME_PROCESS is an aggregate frame monitor, not pure script CPU. Default renderer/VSync and ordinary runtime diagnostics stay active. Muted audio; fixed purchasing policy, not standard strategic AI.",
+    "classification": "Active = a military damage event in preceding1s. Dense = active plus at least16 military units on screen (visibility/position cached2Hz). Quiet frames remain in full window and cannot hide dense subset.",
+    "environment": {
+      "audio_enabled": false,
+      "camera": [
+        32.0,
+        1168.0
+      ],
+      "content_scale_factor": 1.0,
+      "debug_build": true,
+      "display": "macOS",
+      "fixed_fps": false,
+      "max_fps": 0,
+      "physics_ticks": 60,
+      "refresh_hz": 60.0,
+      "render_device": "Apple M4 (Apple9)",
+      "render_driver": "metal",
+      "render_method": "mobile",
+      "runtime_diagnostics_persistence": true,
+      "screen_scale": 2.0,
+      "user_data_dir": "/Users/ben/Library/Application Support/aoem-dense-native/27fa1a5302344503a546fe2be831629f",
+      "viewport": [
+        844.0,
+        390.0
+      ],
+      "vsync_mode": 1,
+      "window": [
+        844,
+        390
+      ],
+      "zoom": 0.952
+    },
+    "paid_ready_at": 454.195025666528,
+    "sample_start_game_seconds": 499.211790888716,
+    "sample_end_game_seconds": 529.228457555356,
+    "first_hit_after_sample_start_seconds": 4.60596,
+    "whole": {
+      "frames": 1800,
+      "summed_frame_seconds": 30.017174999999977,
+      "frame_ms": {
+        "p50": 16.664,
+        "p90": 17.078,
+        "p95": 17.271,
+        "p99": 21.652
+      },
+      "maximum_frame_ms": 49.688,
+      "thresholds": {
+        "16.666667": {
+          "frames": 879,
+          "percent": 48.833333333333336
+        },
+        "25": {
+          "frames": 9,
+          "percent": 0.5
+        },
+        "33.333333": {
+          "frames": 3,
+          "percent": 0.16666666666666666
+        },
+        "50": {
+          "frames": 0,
+          "percent": 0.0
+        }
+      },
+      "longest_consecutive_over33ms_frames": 1,
+      "engine_time_process_ms_p95": 43.586,
+      "engine_time_physics_ms_p95": 0.58,
+      "draw_calls_p95": 217.0
+    },
+    "active": {
+      "frames": 1199,
+      "summed_frame_seconds": 19.983905999999962,
+      "frame_ms": {
+        "p50": 16.665,
+        "p90": 17.16,
+        "p95": 17.31,
+        "p99": 22.151
+      },
+      "maximum_frame_ms": 43.671,
+      "thresholds": {
+        "16.666667": {
+          "frames": 593,
+          "percent": 49.45788156797331
+        },
+        "25": {
+          "frames": 5,
+          "percent": 0.4170141784820684
+        },
+        "33.333333": {
+          "frames": 1,
+          "percent": 0.08340283569641367
+        },
+        "50": {
+          "frames": 0,
+          "percent": 0.0
+        }
+      },
+      "longest_consecutive_over33ms_frames": 1,
+      "engine_time_process_ms_p95": 43.586,
+      "engine_time_physics_ms_p95": 0.58,
+      "draw_calls_p95": 219.0
+    },
+    "dense": {
+      "frames": 427,
+      "summed_frame_seconds": 7.117027999999998,
+      "frame_ms": {
+        "p50": 16.664,
+        "p90": 16.855,
+        "p95": 17.189,
+        "p99": 22.685
+      },
+      "maximum_frame_ms": 27.207,
+      "thresholds": {
+        "16.666667": {
+          "frames": 209,
+          "percent": 48.94613583138173
+        },
+        "25": {
+          "frames": 2,
+          "percent": 0.468384074941452
+        },
+        "33.333333": {
+          "frames": 0,
+          "percent": 0.0
+        },
+        "50": {
+          "frames": 0,
+          "percent": 0.0
+        }
+      },
+      "longest_consecutive_over33ms_frames": 0,
+      "engine_time_process_ms_p95": 27.125,
+      "engine_time_physics_ms_p95": 0.276,
+      "draw_calls_p95": 223.0
+    },
+    "established_dense": {
+      "frames": 307,
+      "summed_frame_seconds": 5.116756999999998,
+      "frame_ms": {
+        "p50": 16.664,
+        "p90": 16.855,
+        "p95": 17.189,
+        "p99": 19.445
+      },
+      "maximum_frame_ms": 24.698,
+      "thresholds": {
+        "16.666667": {
+          "frames": 152,
+          "percent": 49.5114006514658
+        },
+        "25": {
+          "frames": 0,
+          "percent": 0.0
+        },
+        "33.333333": {
+          "frames": 0,
+          "percent": 0.0
+        },
+        "50": {
+          "frames": 0,
+          "percent": 0.0
+        }
+      },
+      "longest_consecutive_over33ms_frames": 0,
+      "engine_time_process_ms_p95": 24.738,
+      "engine_time_physics_ms_p95": 0.276,
+      "draw_calls_p95": 219.0
+    },
+    "actual_sample_wall_seconds": 30.025752,
+    "actual_sample_game_seconds": 30.01666666664005,
+    "dense_adequate": true,
+    "presence": [
+      {
+        "alive": [
+          12,
+          12
+        ],
+        "at_us": 171472113,
+        "attacking": 0,
+        "buildings": 27,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 499.211790888716,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 44,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          12,
+          0
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          12,
+          12
+        ],
+        "at_us": 171495733,
+        "attacking": 0,
+        "buildings": 27,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 499.228457555383,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 44,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          12,
+          0
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          12,
+          12
+        ],
+        "at_us": 172007533,
+        "attacking": 0,
+        "buildings": 27,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 499.761790888716,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 44,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          12,
+          0
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          12,
+          12
+        ],
+        "at_us": 172524129,
+        "attacking": 0,
+        "buildings": 27,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 500.278457555382,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 44,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          12,
+          0
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          12,
+          12
+        ],
+        "at_us": 173024169,
+        "attacking": 0,
+        "buildings": 27,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 500.778457555382,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 44,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          12,
+          0
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          12,
+          12
+        ],
+        "at_us": 173524185,
+        "attacking": 0,
+        "buildings": 27,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 501.278457555381,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 44,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          12,
+          0
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          12,
+          12
+        ],
+        "at_us": 174024247,
+        "attacking": 0,
+        "buildings": 27,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 501.778457555381,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 44,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          12,
+          0
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          12,
+          12
+        ],
+        "at_us": 174540927,
+        "attacking": 0,
+        "buildings": 27,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 502.295124222047,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 44,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          12,
+          2
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          12,
+          12
+        ],
+        "at_us": 175057559,
+        "attacking": 0,
+        "buildings": 28,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 502.795124222046,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 44,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          12,
+          8
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          12,
+          12
+        ],
+        "at_us": 175557566,
+        "attacking": 1,
+        "buildings": 28,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 503.295124222046,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 44,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          12,
+          11
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          12,
+          12
+        ],
+        "at_us": 176073947,
+        "attacking": 5,
+        "buildings": 28,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 503.811790888712,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 44,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          12,
+          12
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          12,
+          12
+        ],
+        "at_us": 176574470,
+        "attacking": 5,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 504.311790888712,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 44,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          12,
+          12
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          12,
+          12
+        ],
+        "at_us": 177090993,
+        "attacking": 10,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 504.828457555378,
+        "projectiles": 1,
+        "time_scale": 1.0,
+        "total_units": 44,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          12,
+          12
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          12,
+          12
+        ],
+        "at_us": 177607565,
+        "attacking": 17,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 505.345124222044,
+        "projectiles": 3,
+        "time_scale": 1.0,
+        "total_units": 44,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          12,
+          12
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          12,
+          12
+        ],
+        "at_us": 178107593,
+        "attacking": 18,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 505.845124222044,
+        "projectiles": 1,
+        "time_scale": 1.0,
+        "total_units": 44,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          12,
+          12
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          11,
+          12
+        ],
+        "at_us": 178607631,
+        "attacking": 19,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 506.345124222043,
+        "projectiles": 2,
+        "time_scale": 1.0,
+        "total_units": 43,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          11,
+          12
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          11,
+          12
+        ],
+        "at_us": 179107714,
+        "attacking": 21,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 506.845124222043,
+        "projectiles": 1,
+        "time_scale": 1.0,
+        "total_units": 43,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          11,
+          12
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          11,
+          11
+        ],
+        "at_us": 179624146,
+        "attacking": 21,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 507.361790888709,
+        "projectiles": 3,
+        "time_scale": 1.0,
+        "total_units": 42,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          11,
+          11
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          10,
+          11
+        ],
+        "at_us": 180124249,
+        "attacking": 21,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 507.861790888709,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 41,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          10,
+          11
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          10,
+          11
+        ],
+        "at_us": 180640942,
+        "attacking": 21,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 508.378457555375,
+        "projectiles": 3,
+        "time_scale": 1.0,
+        "total_units": 41,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          10,
+          11
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          10,
+          10
+        ],
+        "at_us": 181157781,
+        "attacking": 19,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 508.895124222041,
+        "projectiles": 1,
+        "time_scale": 1.0,
+        "total_units": 41,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          10,
+          10
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          8,
+          10
+        ],
+        "at_us": 181674193,
+        "attacking": 18,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 509.411790888707,
+        "projectiles": 1,
+        "time_scale": 1.0,
+        "total_units": 40,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          8,
+          10
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          8,
+          9
+        ],
+        "at_us": 182174420,
+        "attacking": 17,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 509.911790888707,
+        "projectiles": 2,
+        "time_scale": 1.0,
+        "total_units": 38,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          8,
+          9
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          8,
+          9
+        ],
+        "at_us": 182675284,
+        "attacking": 17,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 510.411790888706,
+        "projectiles": 1,
+        "time_scale": 1.0,
+        "total_units": 37,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          8,
+          9
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          7,
+          8
+        ],
+        "at_us": 183191040,
+        "attacking": 15,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 510.928457555372,
+        "projectiles": 2,
+        "time_scale": 1.0,
+        "total_units": 37,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          7,
+          8
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          7,
+          8
+        ],
+        "at_us": 183691231,
+        "attacking": 15,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 511.428457555372,
+        "projectiles": 1,
+        "time_scale": 1.0,
+        "total_units": 35,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          7,
+          8
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          6,
+          8
+        ],
+        "at_us": 184207560,
+        "attacking": 14,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 511.945124222038,
+        "projectiles": 3,
+        "time_scale": 1.0,
+        "total_units": 34,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          6,
+          8
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          6,
+          7
+        ],
+        "at_us": 184708504,
+        "attacking": 13,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 512.445124222038,
+        "projectiles": 1,
+        "time_scale": 1.0,
+        "total_units": 33,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          6,
+          7
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          5,
+          6
+        ],
+        "at_us": 185224261,
+        "attacking": 7,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 512.961790888704,
+        "projectiles": 1,
+        "time_scale": 1.0,
+        "total_units": 33,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          5,
+          6
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          4,
+          5
+        ],
+        "at_us": 185727094,
+        "attacking": 3,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 513.461790888703,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 31,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          4,
+          5
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          4,
+          5
+        ],
+        "at_us": 186240852,
+        "attacking": 5,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 513.97845755537,
+        "projectiles": 3,
+        "time_scale": 1.0,
+        "total_units": 29,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          4,
+          5
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          4,
+          5
+        ],
+        "at_us": 186757530,
+        "attacking": 8,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 514.495124222036,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 29,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          4,
+          5
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          4,
+          5
+        ],
+        "at_us": 187257547,
+        "attacking": 8,
+        "buildings": 30,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 514.995124222035,
+        "projectiles": 2,
+        "time_scale": 1.0,
+        "total_units": 29,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          4,
+          5
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          4,
+          4
+        ],
+        "at_us": 187757638,
+        "attacking": 5,
+        "buildings": 30,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 515.495124222035,
+        "projectiles": 1,
+        "time_scale": 1.0,
+        "total_units": 29,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          4,
+          4
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          4,
+          4
+        ],
+        "at_us": 188258353,
+        "attacking": 7,
+        "buildings": 30,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 515.995124222035,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 28,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          4,
+          4
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          3,
+          4
+        ],
+        "at_us": 188774111,
+        "attacking": 6,
+        "buildings": 30,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 516.511790888701,
+        "projectiles": 3,
+        "time_scale": 1.0,
+        "total_units": 28,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          3,
+          4
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          3,
+          4
+        ],
+        "at_us": 189274265,
+        "attacking": 6,
+        "buildings": 30,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 517.0117908887,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 27,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          3,
+          4
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          3,
+          4
+        ],
+        "at_us": 189796998,
+        "attacking": 6,
+        "buildings": 30,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 517.528457555366,
+        "projectiles": 3,
+        "time_scale": 1.0,
+        "total_units": 27,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          3,
+          4
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          3,
+          4
+        ],
+        "at_us": 190307569,
+        "attacking": 6,
+        "buildings": 30,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 518.045124222033,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 27,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          3,
+          4
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          3,
+          4
+        ],
+        "at_us": 190824391,
+        "attacking": 6,
+        "buildings": 30,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 518.561790888699,
+        "projectiles": 4,
+        "time_scale": 1.0,
+        "total_units": 27,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          3,
+          4
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          2,
+          3
+        ],
+        "at_us": 191340632,
+        "attacking": 4,
+        "buildings": 30,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 519.078457555365,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 26,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          2,
+          3
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          2,
+          3
+        ],
+        "at_us": 191840681,
+        "attacking": 4,
+        "buildings": 30,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 519.578457555365,
+        "projectiles": 4,
+        "time_scale": 1.0,
+        "total_units": 25,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          2,
+          3
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          2,
+          2
+        ],
+        "at_us": 192340847,
+        "attacking": 3,
+        "buildings": 30,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 520.078457555364,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 24,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          2,
+          2
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          2,
+          2
+        ],
+        "at_us": 192857307,
+        "attacking": 3,
+        "buildings": 30,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 520.59512422203,
+        "projectiles": 2,
+        "time_scale": 1.0,
+        "total_units": 24,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          2,
+          2
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          2,
+          1
+        ],
+        "at_us": 193357553,
+        "attacking": 0,
+        "buildings": 30,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 521.09512422203,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 23,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          2,
+          1
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          2,
+          1
+        ],
+        "at_us": 193858124,
+        "attacking": 2,
+        "buildings": 30,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 521.595124222029,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 23,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          2,
+          1
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          2,
+          1
+        ],
+        "at_us": 194374065,
+        "attacking": 2,
+        "buildings": 30,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 522.111790888696,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 23,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          2,
+          1
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          2,
+          1
+        ],
+        "at_us": 194874956,
+        "attacking": 2,
+        "buildings": 30,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 522.611790888695,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 23,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          2,
+          1
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          1,
+          1
+        ],
+        "at_us": 195391025,
+        "attacking": 0,
+        "buildings": 30,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 523.128457555361,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 23,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          1,
+          1
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          1,
+          1
+        ],
+        "at_us": 195891483,
+        "attacking": 0,
+        "buildings": 30,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 523.628457555361,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 22,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          1,
+          1
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          1,
+          1
+        ],
+        "at_us": 196408553,
+        "attacking": 0,
+        "buildings": 30,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 524.145124222027,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 22,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          1,
+          1
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          1,
+          1
+        ],
+        "at_us": 196925003,
+        "attacking": 0,
+        "buildings": 30,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 524.661790888693,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 22,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          1,
+          1
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          1,
+          1
+        ],
+        "at_us": 197440738,
+        "attacking": 0,
+        "buildings": 30,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 525.17845755536,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 22,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          1,
+          1
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          1,
+          1
+        ],
+        "at_us": 197940952,
+        "attacking": 0,
+        "buildings": 30,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 525.678457555359,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 22,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          1,
+          1
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          1,
+          1
+        ],
+        "at_us": 198457435,
+        "attacking": 0,
+        "buildings": 30,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 526.195124222025,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 22,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          1,
+          1
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          1,
+          1
+        ],
+        "at_us": 198957587,
+        "attacking": 0,
+        "buildings": 31,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 526.695124222025,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 22,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          1,
+          1
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          1,
+          1
+        ],
+        "at_us": 199458226,
+        "attacking": 0,
+        "buildings": 31,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 527.195124222024,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 22,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          1,
+          1
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          1,
+          1
+        ],
+        "at_us": 199974866,
+        "attacking": 0,
+        "buildings": 31,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 527.711790888691,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 22,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          1,
+          1
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          1,
+          1
+        ],
+        "at_us": 200490730,
+        "attacking": 0,
+        "buildings": 31,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 528.228457555357,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 22,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          1,
+          1
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          1,
+          1
+        ],
+        "at_us": 200990871,
+        "attacking": 0,
+        "buildings": 31,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 528.728457555356,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 22,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          1,
+          1
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          1,
+          1
+        ],
+        "at_us": 201491579,
+        "attacking": 0,
+        "buildings": 31,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 529.228457555356,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 22,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          1,
+          1
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      }
+    ],
+    "commands": [
+      {
+        "attack_move": false,
+        "destination": [
+          -320.0,
+          1168.0
+        ],
+        "dispatch_ms": 7.314,
+        "game_time": 454.195025666528,
+        "orders": 12,
+        "owner": 0,
+        "phase": "staging",
+        "units": 12
+      },
+      {
+        "attack_move": false,
+        "destination": [
+          384.0,
+          1168.0
+        ],
+        "dispatch_ms": 7.299,
+        "game_time": 454.195025666528,
+        "orders": 12,
+        "owner": 1,
+        "phase": "staging",
+        "units": 12
+      },
+      {
+        "attack_move": true,
+        "destination": [
+          32.0,
+          1168.0
+        ],
+        "dispatch_ms": 11.261,
+        "game_time": 499.211790888716,
+        "orders": 12,
+        "owner": 0,
+        "phase": "measured",
+        "units": 12
+      },
+      {
+        "attack_move": true,
+        "destination": [
+          32.0,
+          1168.0
+        ],
+        "dispatch_ms": 9.73,
+        "game_time": 499.211790888716,
+        "orders": 12,
+        "owner": 1,
+        "phase": "measured",
+        "units": 12
+      }
+    ],
+    "observer": {
+      "frame_callback": "constant append of eight values; no added fixture I/O or screenshots during sampling; ordinary runtime diagnostics persistence retained",
+      "presence_interval_seconds": 0.5,
+      "presence_peak_us": 156,
+      "presence_total_us": 3704
+    },
+    "damage_events": 158,
+    "damage_total": 1292.0,
+    "established_dense_definition": "Dense-active frames at least2s after first real damage; separates initial encounter work from established fighting.",
+    "remaining_military": 2,
+    "errors": [],
+    "documentation": [
+      "https://docs.godotengine.org/en/4.6/classes/class_renderingserver.html#signals",
+      "https://docs.godotengine.org/en/4.6/classes/class_performance.html"
+    ],
+    "raw_sha256": "f9c8493d7e4e01ee823e2ebdfe8902c0c8f778ea77222b8292e34f21ba4eabdb"
+  },
+  "final_label": "Final crowding publication candidate",
+  "final_summary": {
+    "scope": "Render-completion cadence of a native desktop debug build at phone-sized viewport; not display presentation, GPU duration, physical phone or Web timing. Engine TIME_PROCESS is an aggregate frame monitor, not pure script CPU. Default renderer/VSync and ordinary runtime diagnostics stay active. Muted audio; fixed purchasing policy, not standard strategic AI.",
+    "classification": "Active = a military damage event in preceding1s. Dense = active plus at least16 military units on screen (visibility/position cached2Hz). Quiet frames remain in full window and cannot hide dense subset.",
+    "environment": {
+      "audio_enabled": false,
+      "camera": [
+        32.0,
+        1168.0
+      ],
+      "content_scale_factor": 1.0,
+      "debug_build": true,
+      "display": "macOS",
+      "fixed_fps": false,
+      "max_fps": 0,
+      "physics_ticks": 60,
+      "refresh_hz": 60.0,
+      "render_device": "Apple M4 (Apple9)",
+      "render_driver": "metal",
+      "render_method": "mobile",
+      "runtime_diagnostics_persistence": true,
+      "screen_scale": 2.0,
+      "user_data_dir": "/Users/ben/Library/Application Support/aoem-dense-native/5f57c4532c4343b28c6ef5c771cb53f9",
+      "viewport": [
+        844.0,
+        390.0
+      ],
+      "vsync_mode": 1,
+      "window": [
+        844,
+        390
+      ],
+      "zoom": 0.952
+    },
+    "paid_ready_at": 472.118804666737,
+    "sample_start_game_seconds": 515.635471333408,
+    "sample_end_game_seconds": 545.650935333381,
+    "first_hit_after_sample_start_seconds": 3.429238,
+    "whole": {
+      "frames": 1799,
+      "summed_frame_seconds": 29.983589000000002,
+      "frame_ms": {
+        "p50": 16.67,
+        "p90": 16.927,
+        "p95": 17.046,
+        "p99": 20.77
+      },
+      "maximum_frame_ms": 47.019,
+      "thresholds": {
+        "16.666667": {
+          "frames": 918,
+          "percent": 51.028349082823794
+        },
+        "25": {
+          "frames": 5,
+          "percent": 0.27793218454697055
+        },
+        "33.333333": {
+          "frames": 2,
+          "percent": 0.11117287381878821
+        },
+        "50": {
+          "frames": 0,
+          "percent": 0.0
+        }
+      },
+      "longest_consecutive_over33ms_frames": 1,
+      "engine_time_process_ms_p95": 45.806,
+      "engine_time_physics_ms_p95": 0.321,
+      "draw_calls_p95": 223.0
+    },
+    "active": {
+      "frames": 1177,
+      "summed_frame_seconds": 19.617204000000005,
+      "frame_ms": {
+        "p50": 16.67,
+        "p90": 16.927,
+        "p95": 17.045,
+        "p99": 20.427
+      },
+      "maximum_frame_ms": 47.019,
+      "thresholds": {
+        "16.666667": {
+          "frames": 602,
+          "percent": 51.14698385726423
+        },
+        "25": {
+          "frames": 3,
+          "percent": 0.2548853016142736
+        },
+        "33.333333": {
+          "frames": 1,
+          "percent": 0.08496176720475786
+        },
+        "50": {
+          "frames": 0,
+          "percent": 0.0
+        }
+      },
+      "longest_consecutive_over33ms_frames": 1,
+      "engine_time_process_ms_p95": 46.828,
+      "engine_time_physics_ms_p95": 0.321,
+      "draw_calls_p95": 225.0
+    },
+    "dense": {
+      "frames": 433,
+      "summed_frame_seconds": 7.216814,
+      "frame_ms": {
+        "p50": 16.665,
+        "p90": 16.872,
+        "p95": 16.961,
+        "p99": 17.776
+      },
+      "maximum_frame_ms": 47.019,
+      "thresholds": {
+        "16.666667": {
+          "frames": 214,
+          "percent": 49.42263279445727
+        },
+        "25": {
+          "frames": 2,
+          "percent": 0.4618937644341801
+        },
+        "33.333333": {
+          "frames": 1,
+          "percent": 0.23094688221709006
+        },
+        "50": {
+          "frames": 0,
+          "percent": 0.0
+        }
+      },
+      "longest_consecutive_over33ms_frames": 1,
+      "engine_time_process_ms_p95": 46.828,
+      "engine_time_physics_ms_p95": 0.244,
+      "draw_calls_p95": 229.0
+    },
+    "established_dense": {
+      "frames": 316,
+      "summed_frame_seconds": 5.266615999999996,
+      "frame_ms": {
+        "p50": 16.665,
+        "p90": 16.888,
+        "p95": 16.968,
+        "p99": 17.176
+      },
+      "maximum_frame_ms": 28.554,
+      "thresholds": {
+        "16.666667": {
+          "frames": 157,
+          "percent": 49.68354430379747
+        },
+        "25": {
+          "frames": 1,
+          "percent": 0.31645569620253167
+        },
+        "33.333333": {
+          "frames": 0,
+          "percent": 0.0
+        },
+        "50": {
+          "frames": 0,
+          "percent": 0.0
+        }
+      },
+      "longest_consecutive_over33ms_frames": 0,
+      "engine_time_process_ms_p95": 46.828,
+      "engine_time_physics_ms_p95": 0.244,
+      "draw_calls_p95": 226.0
+    },
+    "actual_sample_wall_seconds": 29.999626,
+    "actual_sample_game_seconds": 30.015463999973008,
+    "dense_adequate": true,
+    "presence": [
+      {
+        "alive": [
+          12,
+          12
+        ],
+        "at_us": 177277721,
+        "attacking": 0,
+        "buildings": 27,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 515.635471333408,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 44,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          12,
+          0
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          12,
+          12
+        ],
+        "at_us": 177306577,
+        "attacking": 0,
+        "buildings": 27,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 515.652138000075,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 44,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          12,
+          0
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          12,
+          12
+        ],
+        "at_us": 177821637,
+        "attacking": 0,
+        "buildings": 27,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 516.185471333407,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 44,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          12,
+          0
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          12,
+          12
+        ],
+        "at_us": 178321736,
+        "attacking": 0,
+        "buildings": 27,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 516.685471333407,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 44,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          12,
+          0
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          12,
+          12
+        ],
+        "at_us": 178821906,
+        "attacking": 0,
+        "buildings": 27,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 517.185471333407,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 44,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          12,
+          0
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          12,
+          12
+        ],
+        "at_us": 179338386,
+        "attacking": 0,
+        "buildings": 27,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 517.702138000073,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 44,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          12,
+          0
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          12,
+          12
+        ],
+        "at_us": 179838439,
+        "attacking": 0,
+        "buildings": 27,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 518.202138000072,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 44,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          12,
+          1
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          12,
+          12
+        ],
+        "at_us": 180355059,
+        "attacking": 1,
+        "buildings": 27,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 518.718804666738,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 44,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          12,
+          9
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          12,
+          12
+        ],
+        "at_us": 180855069,
+        "attacking": 2,
+        "buildings": 28,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 519.234268666738,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 44,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          12,
+          10
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          12,
+          12
+        ],
+        "at_us": 181355191,
+        "attacking": 3,
+        "buildings": 28,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 519.734268666738,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 44,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          12,
+          12
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          12,
+          12
+        ],
+        "at_us": 181855311,
+        "attacking": 5,
+        "buildings": 28,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 520.234268666737,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 44,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          12,
+          12
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          12,
+          12
+        ],
+        "at_us": 182371683,
+        "attacking": 7,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 520.750935333403,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 44,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          12,
+          12
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          12,
+          12
+        ],
+        "at_us": 182871701,
+        "attacking": 13,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 521.250935333403,
+        "projectiles": 2,
+        "time_scale": 1.0,
+        "total_units": 44,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          12,
+          12
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          12,
+          12
+        ],
+        "at_us": 183371811,
+        "attacking": 15,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 521.750935333402,
+        "projectiles": 2,
+        "time_scale": 1.0,
+        "total_units": 44,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          12,
+          12
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          12,
+          12
+        ],
+        "at_us": 183872028,
+        "attacking": 21,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 522.250935333402,
+        "projectiles": 2,
+        "time_scale": 1.0,
+        "total_units": 44,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          12,
+          12
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          11,
+          12
+        ],
+        "at_us": 184388468,
+        "attacking": 17,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 522.767602000068,
+        "projectiles": 3,
+        "time_scale": 1.0,
+        "total_units": 44,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          11,
+          12
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          11,
+          11
+        ],
+        "at_us": 184905322,
+        "attacking": 21,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 523.284268666734,
+        "projectiles": 1,
+        "time_scale": 1.0,
+        "total_units": 43,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          11,
+          11
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          11,
+          11
+        ],
+        "at_us": 185405408,
+        "attacking": 22,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 523.784268666734,
+        "projectiles": 2,
+        "time_scale": 1.0,
+        "total_units": 42,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          11,
+          11
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          11,
+          10
+        ],
+        "at_us": 185905519,
+        "attacking": 21,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 524.284268666733,
+        "projectiles": 1,
+        "time_scale": 1.0,
+        "total_units": 42,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          11,
+          10
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          10,
+          9
+        ],
+        "at_us": 186422167,
+        "attacking": 19,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 524.8009353334,
+        "projectiles": 1,
+        "time_scale": 1.0,
+        "total_units": 40,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          10,
+          9
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          9,
+          8
+        ],
+        "at_us": 186938829,
+        "attacking": 15,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 525.317602000066,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 39,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          9,
+          8
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          8,
+          8
+        ],
+        "at_us": 187455451,
+        "attacking": 14,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 525.834268666732,
+        "projectiles": 1,
+        "time_scale": 1.0,
+        "total_units": 37,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          8,
+          8
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          8,
+          7
+        ],
+        "at_us": 187971761,
+        "attacking": 11,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 526.350935333398,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 36,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          8,
+          7
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          8,
+          7
+        ],
+        "at_us": 188472038,
+        "attacking": 13,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 526.850935333398,
+        "projectiles": 3,
+        "time_scale": 1.0,
+        "total_units": 35,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          8,
+          7
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          7,
+          6
+        ],
+        "at_us": 188988726,
+        "attacking": 12,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 527.367602000064,
+        "projectiles": 2,
+        "time_scale": 1.0,
+        "total_units": 34,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          7,
+          6
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          7,
+          6
+        ],
+        "at_us": 189488741,
+        "attacking": 13,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 527.867602000063,
+        "projectiles": 2,
+        "time_scale": 1.0,
+        "total_units": 33,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          7,
+          6
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          6,
+          6
+        ],
+        "at_us": 190004949,
+        "attacking": 10,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 528.38426866673,
+        "projectiles": 1,
+        "time_scale": 1.0,
+        "total_units": 33,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          6,
+          6
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          6,
+          5
+        ],
+        "at_us": 190505383,
+        "attacking": 9,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 528.884268666729,
+        "projectiles": 1,
+        "time_scale": 1.0,
+        "total_units": 32,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          6,
+          5
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          5,
+          5
+        ],
+        "at_us": 191021570,
+        "attacking": 10,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 529.400935333395,
+        "projectiles": 2,
+        "time_scale": 1.0,
+        "total_units": 31,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          5,
+          5
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          5,
+          4
+        ],
+        "at_us": 191521849,
+        "attacking": 6,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 529.900935333395,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 29,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          5,
+          4
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          5,
+          4
+        ],
+        "at_us": 192022203,
+        "attacking": 6,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 530.400935333395,
+        "projectiles": 2,
+        "time_scale": 1.0,
+        "total_units": 29,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          5,
+          4
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          5,
+          4
+        ],
+        "at_us": 192539160,
+        "attacking": 9,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 530.917602000061,
+        "projectiles": 2,
+        "time_scale": 1.0,
+        "total_units": 29,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          5,
+          4
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          5,
+          4
+        ],
+        "at_us": 193055882,
+        "attacking": 9,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 531.434268666727,
+        "projectiles": 1,
+        "time_scale": 1.0,
+        "total_units": 29,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          5,
+          4
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          4,
+          4
+        ],
+        "at_us": 193572242,
+        "attacking": 7,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 531.950935333393,
+        "projectiles": 2,
+        "time_scale": 1.0,
+        "total_units": 29,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          4,
+          4
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          3,
+          4
+        ],
+        "at_us": 194088582,
+        "attacking": 6,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 532.467602000059,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 28,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          3,
+          4
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          3,
+          4
+        ],
+        "at_us": 194589257,
+        "attacking": 6,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 532.967602000059,
+        "projectiles": 1,
+        "time_scale": 1.0,
+        "total_units": 27,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          3,
+          4
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          3,
+          3
+        ],
+        "at_us": 195105049,
+        "attacking": 5,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 533.484268666725,
+        "projectiles": 3,
+        "time_scale": 1.0,
+        "total_units": 27,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          3,
+          3
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          3,
+          2
+        ],
+        "at_us": 195605783,
+        "attacking": 5,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 533.984268666725,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 25,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          3,
+          2
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          3,
+          1
+        ],
+        "at_us": 196122169,
+        "attacking": 2,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 534.500935333391,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 25,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          3,
+          1
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          3,
+          1
+        ],
+        "at_us": 196631093,
+        "attacking": 2,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 535.00093533339,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 24,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          3,
+          1
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          3,
+          1
+        ],
+        "at_us": 197146354,
+        "attacking": 2,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 535.517602000057,
+        "projectiles": 1,
+        "time_scale": 1.0,
+        "total_units": 24,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          3,
+          1
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          3,
+          1
+        ],
+        "at_us": 197655579,
+        "attacking": 3,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 536.034268666723,
+        "projectiles": 1,
+        "time_scale": 1.0,
+        "total_units": 24,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          3,
+          1
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          3,
+          1
+        ],
+        "at_us": 198171937,
+        "attacking": 3,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 536.550935333389,
+        "projectiles": 2,
+        "time_scale": 1.0,
+        "total_units": 24,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          3,
+          1
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          3,
+          1
+        ],
+        "at_us": 198688205,
+        "attacking": 3,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 537.067602000055,
+        "projectiles": 1,
+        "time_scale": 1.0,
+        "total_units": 24,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          3,
+          1
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          3,
+          1
+        ],
+        "at_us": 199188679,
+        "attacking": 3,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 537.567602000055,
+        "projectiles": 2,
+        "time_scale": 1.0,
+        "total_units": 24,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          3,
+          1
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          2,
+          0
+        ],
+        "at_us": 199688683,
+        "attacking": 0,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 538.067602000054,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 23,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          2,
+          0
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          2,
+          0
+        ],
+        "at_us": 200205042,
+        "attacking": 0,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 538.58426866672,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 22,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          2,
+          0
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          2,
+          0
+        ],
+        "at_us": 200722417,
+        "attacking": 0,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 539.100935333387,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 22,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          2,
+          0
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          2,
+          0
+        ],
+        "at_us": 201238469,
+        "attacking": 0,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 539.617602000053,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 22,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          2,
+          0
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          2,
+          0
+        ],
+        "at_us": 201738645,
+        "attacking": 0,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 540.117602000052,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 22,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          2,
+          0
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          2,
+          0
+        ],
+        "at_us": 202238677,
+        "attacking": 0,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 540.617602000052,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 22,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          2,
+          0
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          2,
+          0
+        ],
+        "at_us": 202755620,
+        "attacking": 0,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 541.134268666718,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 22,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          2,
+          0
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          2,
+          0
+        ],
+        "at_us": 203271936,
+        "attacking": 0,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 541.650935333384,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 22,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          2,
+          0
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          2,
+          0
+        ],
+        "at_us": 203771990,
+        "attacking": 0,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 542.150935333384,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 22,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          2,
+          0
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          2,
+          0
+        ],
+        "at_us": 204288646,
+        "attacking": 0,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 542.66760200005,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 22,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          2,
+          0
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          2,
+          0
+        ],
+        "at_us": 204788965,
+        "attacking": 0,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 543.16760200005,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 22,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          2,
+          0
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          2,
+          0
+        ],
+        "at_us": 205305198,
+        "attacking": 0,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 543.684268666716,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 22,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          2,
+          0
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          2,
+          0
+        ],
+        "at_us": 205821545,
+        "attacking": 0,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 544.200935333382,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 22,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          2,
+          0
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          2,
+          0
+        ],
+        "at_us": 206322167,
+        "attacking": 0,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 544.700935333381,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 22,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          2,
+          0
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      },
+      {
+        "alive": [
+          2,
+          0
+        ],
+        "at_us": 206838961,
+        "attacking": 0,
+        "buildings": 29,
+        "camera": [
+          32.0,
+          1168.0
+        ],
+        "content_scale_factor": 1.0,
+        "game_time": 545.217602000048,
+        "projectiles": 0,
+        "time_scale": 1.0,
+        "total_units": 22,
+        "viewport": [
+          844.0,
+          390.0
+        ],
+        "visible_military": [
+          2,
+          0
+        ],
+        "window": [
+          844.0,
+          390.0
+        ],
+        "zoom": [
+          0.952000021934509,
+          0.952000021934509
+        ]
+      }
+    ],
+    "commands": [
+      {
+        "attack_move": false,
+        "destination": [
+          -320.0,
+          1168.0
+        ],
+        "dispatch_ms": 7.516,
+        "game_time": 472.118804666737,
+        "orders": 12,
+        "owner": 0,
+        "phase": "staging",
+        "units": 12
+      },
+      {
+        "attack_move": false,
+        "destination": [
+          384.0,
+          1168.0
+        ],
+        "dispatch_ms": 7.521,
+        "game_time": 472.118804666737,
+        "orders": 12,
+        "owner": 1,
+        "phase": "staging",
+        "units": 12
+      },
+      {
+        "attack_move": true,
+        "destination": [
+          32.0,
+          1168.0
+        ],
+        "dispatch_ms": 8.804,
+        "game_time": 515.635471333408,
+        "orders": 12,
+        "owner": 0,
+        "phase": "measured",
+        "units": 12
+      },
+      {
+        "attack_move": true,
+        "destination": [
+          32.0,
+          1168.0
+        ],
+        "dispatch_ms": 8.609,
+        "game_time": 515.635471333408,
+        "orders": 12,
+        "owner": 1,
+        "phase": "measured",
+        "units": 12
+      }
+    ],
+    "observer": {
+      "frame_callback": "constant append of eight values; no added fixture I/O or screenshots during sampling; ordinary runtime diagnostics persistence retained",
+      "presence_interval_seconds": 0.5,
+      "presence_peak_us": 174,
+      "presence_total_us": 4960
+    },
+    "damage_events": 152,
+    "damage_total": 1264.0,
+    "established_dense_definition": "Dense-active frames at least2s after first real damage; separates initial encounter work from established fighting.",
+    "remaining_military": 2,
+    "errors": [],
+    "documentation": [
+      "https://docs.godotengine.org/en/4.6/classes/class_renderingserver.html#signals",
+      "https://docs.godotengine.org/en/4.6/classes/class_performance.html"
+    ],
+    "raw_sha256": "ee3e4c91d9486637b60a899473791d3bc44ca7ca6f1af7d8039886e48a5a21d6"
+  },
+  "final_archive_raw_sha256": "2277ac3e63b8c64fbd960cab3e4899e5468783aac91e62257fb3e4a3bb20d866",
+  "final_source_hashes": {
+    "scripts/units/villager.gd": "35507194f8d9808652dea6e038ee034c9a42ca9ea34f05ded4e530bf4a17d920",
+    "scripts/units/unit_base.gd": "c3786684c2a0d81ed7c8f0c9be4947d1432b6272ace4d2911684410b6b57327b",
+    "scripts/ai/ai_controller.gd": "7e972a7d0dc6dea440e3c8671c93029198c397dfb8ce70d6be1d0232c111b768",
+    "scripts/main/group_order_planner.gd": "7dbbaa059193273934ddc7a7b407311cecb79475ca9ce6b0e67cd9963cb2ce12"
+  }
+}

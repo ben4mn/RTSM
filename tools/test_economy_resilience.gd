@@ -8,6 +8,11 @@ const ASSESSMENT = preload("res://scripts/managers/economy_assessment.gd")
 func _run() -> void:
 	AudioManager.set_all_enabled(false)
 	Input.emulate_mouse_from_touch = true
+	# This fixture reduces one worked source to 20 food. On Woodland Flanks
+	# starting food workers can use different sources, so a saved map choice
+	# otherwise changes the aggregate stock that this assertion is testing.
+	var previous_archetype: int = GameManager.selected_map_archetype
+	GameManager.selected_map_archetype = MapData.MapArchetype.OPEN_PLAINS
 	_assessment_cases()
 	for phone: Vector2i in [Vector2i(844, 390), Vector2i(932, 430)]:
 		for interface_scale: float in [1.0, 1.075, 1.15]:
@@ -21,6 +26,7 @@ func _run() -> void:
 		push_error("[FAIL] economy_resilience: " + failure)
 	if _failures.is_empty():
 		print("[PASS] economy_resilience: observed stock, early depletion warning, honest refund/queued/sheltering/hopeless recovery, paid Farm planning/cancel/place, Sacred rally, counters/blockers, 12 profiles and no world leakage")
+	GameManager.selected_map_archetype = previous_archetype
 	get_tree().quit(0 if _failures.is_empty() else 1)
 
 
@@ -115,7 +121,7 @@ func _resilience_journey(phone: Vector2i, interface_scale: float, notched: bool)
 	_expect((_hud.call("get_world_safe_rect") as Rect2).encloses(overview.panel.get_global_rect()), "economy card outside safe area")
 	await _button(overview.get("_production_tab"))
 	var row: Dictionary = (overview.get("_producer_rows") as Dictionary)[tc.get_instance_id()]
-	_expect(str((row.train[UnitData.UnitType.SCOUT] as Button).tooltip_text).contains("Recon"), "remote Scout omits its role")
+	_expect(str((row.train[UnitData.UnitType.SCOUT] as Button).tooltip_text).contains("Unarmed") and str((row.train[UnitData.UnitType.SCOUT] as Button).tooltip_text).contains("vision"), "remote Scout omits its unarmed reconnaissance role")
 	var site: Node2D = _map.get("sacred_site")
 	var fog_before: bool = _map.is_tile_visible_to_player(_map.world_to_tile(site.global_position), 0)
 	await _overview_button(overview, row.sacred)

@@ -183,6 +183,7 @@ func _build_quick_start_presentation() -> void:
 	$CenterContainer/VBox/SetupPanel.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	content_spacer.hide()
 	actions_spacer.hide()
+	map_summary_label.text = "%d × %d battlefield" % [MapData.MAP_WIDTH, MapData.MAP_HEIGHT]
 	map_summary_label.hide()
 	map_heading.text = "SOLO SKIRMISH"
 	map_heading.add_theme_color_override("font_color", THEME.AMBER)

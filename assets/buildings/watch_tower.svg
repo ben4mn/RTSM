@@ -1,15 +1,38 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <!-- A stone guard tower; its crenellations read clearly at phone scale. -->
-  <ellipse cx="65" cy="111" rx="36" ry="8" fill="#14252b" opacity=".22"/>
-  <path d="M38 104 64 117 93 102 64 90Z" fill="#8a987f" stroke="#617465" stroke-width="3"/>
-  <path d="M40 46 64 57 64 109 40 98Z" fill="#b7c2ae" stroke="#7c9181" stroke-width="3" stroke-linejoin="round"/>
-  <path d="M64 57 89 44 89 97 64 109Z" fill="#929f8e" stroke="#6e8273" stroke-width="3" stroke-linejoin="round"/>
-  <path d="M34 40 63 26 95 39 65 55Z" fill="#d0d5bb" stroke="#829784" stroke-width="3" stroke-linejoin="round"/>
-  <path d="M34 39 34 28 43 31 43 40 51 43 51 34 60 37 60 47 68 49 68 38 78 34 78 44 86 39 86 29 96 24 96 39 66 57Z" fill="#bec8b1" stroke="#839986" stroke-width="3" stroke-linejoin="round"/>
-  <path d="M47 63 55 66 55 78 47 75Z" fill="#50695e"/>
-  <path d="M74 62 80 59 80 72 74 75Z" fill="#485e55"/>
-  <path d="M51 88 59 91 59 106 51 102Z" fill="#7a6545" stroke="#65796a" stroke-width="2"/>
-  <path d="M64 62 64 88 76 82 76 57Z" fill="#3f9faf" stroke="#2b727f" stroke-width="2"/>
-  <path d="M70 61 70 78" stroke="#e9cf91" stroke-width="3"/>
-  <path d="M47 82 60 88 M68 93 84 84 M44 56 57 62" stroke="#9ead98" stroke-width="2"/>
+  <!-- Company lookout: a narrow one-tile masonry shaft with a person-sized
+       door and a platform above the House roof. Uniform runtime scaling. -->
+  <g stroke-linejoin="round" stroke-linecap="round">
+    <path d="M42 117 63 106 87 117 65 128 45 123Z" fill="#263c36" opacity=".22"/>
+    <path d="M43 115 64 104 85 115 85 120 64 127 43 120Z" fill="#8d9d87" stroke="#344a43" stroke-width="1.3"/>
+    <path d="M43 115 64 124 85 115 64 105Z" fill="#c6c6ac"/>
+    <!-- One continuous shaft, with stone courses and broad neutral faces. -->
+    <path d="M46 31 64 40 64 120 46 111Z" fill="#ded8bf" stroke="#344a43" stroke-width="1.6"/>
+    <path d="M64 40 82 31 82 111 64 120Z" fill="#9eae98" stroke="#344a43" stroke-width="1.5"/>
+    <path d="M47 52 63 60 M47 72 63 80 M47 92 63 100 M65 61 81 53 M65 81 81 73 M65 101 81 93" stroke="#899e86" stroke-width="1.1"/>
+    <path d="M54 55V64 M54 75V84 M73 57V66 M73 77V86 M73 98V107" stroke="#aab69b" stroke-width="1"/>
+    <path d="M47 35 51 37 51 112 47 110 M78 35 81 33 81 110 78 112" fill="#bdc3a6"/>
+    <!-- Door is 24 source pixels high: 30 world pixels at runtime. -->
+    <path d="M52 90 61 94 61 118 52 114Z" fill="#3a5548" stroke="#6b7c60" stroke-width="1.1"/>
+    <path d="M54 93 59 95 59 115 54 113Z" fill="#8e8c68"/>
+    <path d="M57 96V113" stroke="#697a58" stroke-width="1"/>
+    <path d="M58 105 59 105" stroke="#e2d3a7" stroke-width="1.4"/>
+    <path d="M50 115 62 121 62 125 50 120Z" fill="#d4ceb1" stroke="#87997e" stroke-width=".8"/>
+    <!-- Narrow high arrow slits leave the entrance readable. -->
+    <path d="M54 57 59 59 59 72 54 70Z M70 61 75 58 75 71 70 74Z" fill="#465f4e"/>
+    <path d="M56 59V69 M72 61V71" stroke="#79916c" stroke-width="1"/>
+    <!-- Overhanging watch floor, supported by compact corbels. -->
+    <path d="M42 28 64 39 86 28 86 35 64 47 42 35Z" fill="#9dab90" stroke="#344a43" stroke-width="1.5"/>
+    <path d="M42 28 64 17 86 28 64 39Z" fill="#d2d0b5" stroke="#344a43" stroke-width="1.5"/>
+    <path d="M46 37 49 39 49 47 46 44 M58 43 61 45 61 53 58 50 M68 45 71 43 71 51 68 53 M79 39 82 37 82 44 79 47" fill="#7a9078"/>
+    <!-- Alternating merlons have broad gaps, with no castle-sized keep. -->
+    <path d="M42 28V18L48 21V28L54 31V24L60 27V34L65 36V28L71 25V32L77 29V22L86 17V28L64 40Z" fill="#ded8bf" stroke="#344a43" stroke-width="1.5"/>
+    <path d="M43 18 64 8 86 17 79 21 64 14 48 22Z" fill="#b7bfa4" stroke="#344a43" stroke-width="1.3"/>
+    <path d="M53 19 64 14 75 19 64 25Z" fill="#6c8069"/>
+    <!-- Small route pennant carries ownership; stone remains neutral. -->
+    <path d="M78 26V3" stroke="#475e4c" stroke-width="1.7"/>
+    <path d="M79 4 86 7 79 13Z" fill="#6c9890" stroke="#3a5847" stroke-width="1"/>
+    <path d="M79 6 83 7" stroke="#bed0b2" stroke-width="1"/>
+    <path d="M66 48 76 43 76 58 71 64 66 62Z" fill="#6c9890" stroke="#4e7058" stroke-width="1"/>
+    <path d="M70 49V58L73 56" fill="none" stroke="#dcd1a8" stroke-width="1.3"/>
+  </g>
 </svg>

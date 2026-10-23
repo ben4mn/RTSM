@@ -27,13 +27,22 @@
     <!-- A bone horseshoe badge, broad enough to read above the open bay. -->
     <path d="M84 71 96 65 96 81 84 87Z" fill="#a47255" stroke="#49694d" stroke-width="1"/>
     <path d="M87 72 87 79 Q90 85 93 77 L93 69" fill="none" stroke="#e4d9af" stroke-width="2.8"/>
-    <!-- Chestnut horse and pale muzzle: material colors remain neutral for both teams. -->
-    <path d="M56 100 56 87 60 81 59 72 61 68 65 74 69 75 71 83 76 87 75 93 69 93 66 89 65 101Z" fill="#a18461" stroke="#2b4439" stroke-width="1.2"/>
-    <path d="M59 73 61 68 65 74 64 79 62 85 60 98 56 100 56 87 60 81Z" fill="#3b4c3f"/>
-    <path d="M67 78 69 77 71 83 69 86 66 83Z" fill="#c5ad83"/>
-    <path d="M69 86 76 87 75 92 70 91 67 88Z" fill="#dbc7a1"/>
-    <circle cx="68.5" cy="80.5" r="1.1" fill="#263d34"/>
-    <path d="M64 83 71 86 75 87 M68 86 65 93" fill="none" stroke="#5c6a49" stroke-width="1.2"/>
+    <!-- Horse head is about 15 world pixels, comparable to the mounted unit. -->
+    <g id="stable-horse">
+      <!-- The chest stays behind the gate; the smaller head remains at an
+           adult horse's standing height rather than sinking toward the floor. -->
+      <path d="M61 89 65 89 67 95 67 102 59 100 59 95Z" fill="#a18461" stroke="#2b4439" stroke-width=".65"/>
+      <path d="M61 89 63 89 61 98 59 100 59 95Z" fill="#3b4c3f"/>
+      <g id="stable-horse-head" transform="translate(65 93) scale(.40) translate(-65 -101)">
+        <!-- Chestnut horse and pale muzzle: material colors remain neutral for both teams. -->
+        <path d="M56 100 56 87 60 81 59 72 61 68 65 74 69 75 71 83 76 87 75 93 69 93 66 89 65 101Z" fill="#a18461" stroke="#2b4439" stroke-width="1.2"/>
+        <path d="M59 73 61 68 65 74 64 79 62 85 60 98 56 100 56 87 60 81Z" fill="#3b4c3f"/>
+        <path d="M67 78 69 77 71 83 69 86 66 83Z" fill="#c5ad83"/>
+        <path d="M69 86 76 87 75 92 70 91 67 88Z" fill="#dbc7a1"/>
+        <circle cx="68.5" cy="80.5" r="1.1" fill="#263d34"/>
+        <path d="M64 83 71 86 75 87 M68 86 65 93" fill="none" stroke="#5c6a49" stroke-width="1.2"/>
+      </g>
+    </g>
     <!-- A solid lower stall gate with two rails; the head remains visible above. -->
     <path d="M54 96 72 100 72 106 54 102Z" fill="#909974" stroke="#526d4c" stroke-width="1.1"/>
     <path d="M28 80 46 84 46 90 28 86Z M28 91 46 95 46 101 28 97Z" fill="#b1b08b" stroke="#687b56" stroke-width="1.1"/>

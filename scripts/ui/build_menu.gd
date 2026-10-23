@@ -54,13 +54,13 @@ const BUILDING_CATEGORIES: Dictionary = {
 }
 const BUILDING_PURPOSES: Dictionary = {
 	BuildingData.BuildingType.HOUSE: "+10 population",
-	BuildingData.BuildingType.FARM: "Unlimited food",
+	BuildingData.BuildingType.FARM: "Unlimited food · 1 worker",
 	BuildingData.BuildingType.RESOURCE_CAMP: "All resource drop-off",
 	BuildingData.BuildingType.TOWN_CENTER: "Train workers",
 	BuildingData.BuildingType.BARRACKS: "Train Warriors",
 	BuildingData.BuildingType.ARCHERY_RANGE: "Train archers",
 	BuildingData.BuildingType.STABLE: "Train Horsemen",
-	BuildingData.BuildingType.BLACKSMITH: "Army upgrades",
+	BuildingData.BuildingType.BLACKSMITH: "Unit and worker upgrades",
 	BuildingData.BuildingType.SIEGE_WORKSHOP: "Siege production",
 	BuildingData.BuildingType.WATCH_TOWER: "Base defence",
 }
@@ -312,9 +312,12 @@ func _position_dismiss_shield() -> void:
 
 
 func _build_info(building_type: int) -> Dictionary:
-	var lines: PackedStringArray = _format_tooltip(BuildingData.get_building_stats(building_type), building_type).split("\n")
+	var stats: Dictionary = BuildingData.get_building_stats(building_type)
+	var lines: PackedStringArray = _format_tooltip(stats, building_type).split("\n")
 	lines.remove_at(0)
-	lines.append("Tap to preview. Place spends the cost; Cancel spends nothing.")
+	if int(stats.get("age_required", 0)) <= _current_age and _can_afford(stats.get("cost", {})):
+		lines.append("Close this panel and turn off Info to choose a placement." if _info_mode else "Tap the card to preview a placement.")
+	lines.append("Place spends the cost; Cancel spends nothing.")
 	return {"title": BuildingData.get_building_name(building_type), "body": "\n".join(lines)}
 
 
@@ -461,7 +464,7 @@ func _format_button_text(stats: Dictionary, age_locked: bool, building_type: int
 	# Only decision-changing context stays on the compact card. Full purpose,
 	# cost names and effects remain available through Info, hold and accessibility.
 	if age_locked:
-		lines.append("Age %d" % int(stats.get("age_required", 0)))
+		lines.append(_get_age_requirement_text(int(stats.get("age_required", 0))).trim_prefix("Requires "))
 	elif building_type == BuildingData.BuildingType.FARM:
 		lines.append("Unlimited food")
 	return "\n".join(lines)
@@ -482,9 +485,22 @@ func _format_tooltip(stats: Dictionary, building_type: int) -> String:
 			costs.append("%d %s" % [amount, resource])
 	lines.append("Cost: " + (" · ".join(costs) if not costs.is_empty() else "No cost"))
 	var age_req: int = stats.get("age_required", 0)
-	if age_req > 0:
+	if age_req > _current_age:
+		lines.append("Locked · " + _get_age_requirement_text(age_req))
+	elif not _can_afford(stats.get("cost", {})):
+		var missing: PackedStringArray = []
+		for resource: String in ["food", "wood", "gold"]:
+			var shortage: int = maxi(0, int(stats.get("cost", {}).get(resource, 0)) - int(_current_resources.get(resource, 0)))
+			if shortage > 0:
+				missing.append("%d %s" % [shortage, resource])
+		lines.append("Need " + " · ".join(missing) + " more")
+	else:
+		lines.append("Ready to place")
+	if age_req > 1 and age_req <= _current_age:
 		lines.append(_get_age_requirement_text(age_req))
 	lines.append("HP %d · Build %ds" % [stats.get("hp", 0), int(stats.get("build_time", 30.0))])
+	if building_type == BuildingData.BuildingType.FARM:
+		lines.append("One worker per Farm. Food must be carried to a Town Center or Resource Camp.")
 	if stats.get("pop_provided", 0) > 0:
 		lines.append("Provides: +%d population" % stats["pop_provided"])
 	var drop_off: Array = stats.get("drop_off", [])
@@ -497,7 +513,7 @@ func _format_tooltip(stats: Dictionary, building_type: int) -> String:
 			unit_names.append(UnitData.get_unit_name(ut))
 		lines.append("Trains: %s" % ", ".join(unit_names))
 	if stats.get("has_research", false):
-		lines.append("Research: Weapon & Armor upgrades")
+		lines.append("Research: weapons, armor, gathering and Villager health")
 	if stats.get("attack_damage", 0) > 0:
 		lines.append("Attack: %d (Range: %d)" % [stats["attack_damage"], stats.get("attack_range", 0)])
 	return "\n".join(lines)
@@ -516,11 +532,8 @@ func _refresh_affordability() -> void:
 		if not age_locked and not can_afford:
 			# Farm stock remains visible even when its purchase is unaffordable.
 			btn.text += "\n" + _missing_resource_text(cost)
-		btn.accessibility_name = _format_tooltip(stats, building_type)
-		if age_locked:
-			btn.accessibility_name += "\nLocked"
-		elif not can_afford:
-			btn.accessibility_name += "\n" + _missing_resource_text(cost)
+		btn.tooltip_text = _format_tooltip(stats, building_type)
+		btn.accessibility_name = btn.tooltip_text
 		_apply_card_style(btn)
 		btn.disabled = _placement_mode_active or (not _info_mode and (age_locked or not can_afford))
 		if age_locked:

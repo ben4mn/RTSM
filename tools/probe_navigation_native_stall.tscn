@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://tools/probe_navigation_native_stall.gd" id="1"]
+
+[node name="ProbeNativeStall" type="Node"]
+script = ExtResource("1")

@@ -141,6 +141,7 @@ var _last_train_request_result: String = "none"
 var _last_train_request_unit_type: int = -1
 var _last_train_feedback: String = ""
 var _last_placement_feedback: String = ""
+var _navigation_feedback_available_msec: int = 0
 var _military_shortcut_invocation_count: int = 0
 var _military_shortcut_last_timestamp_ms: int = 0
 var _military_shortcut_selected_count: int = 0
@@ -491,6 +492,7 @@ func _on_map_ready(map_gen: MapGenerator) -> void:
 	_production_tick_counter = 0
 	_production_active_queue_count = 0
 	_production_latest_progress = 0.0
+	_navigation_feedback_available_msec = 0
 
 	# Connect resource changes to HUD.
 	ResourceManager.resources_changed.connect(_on_resource_changed)
@@ -862,7 +864,12 @@ func _handle_escape() -> void:
 	if game_map.selection_mgr.touch_area_selection_armed:
 		game_map.selection_mgr.set_touch_area_selection_armed(false)
 		return
-	game_map.selection_mgr.deselect_all()
+	if not game_map.selection_mgr.selected.is_empty():
+		game_map.selection_mgr.deselect_all()
+		return
+	# Back removes one layer at a time. Once the field has no active context,
+	# the same key reaches the match menu; HUD owns Back while the tree is paused.
+	_on_pause_requested()
 
 
 func _center_camera_on_selection() -> void:
@@ -1372,7 +1379,7 @@ func _auto_assign_starting_villagers(villagers: Array) -> void:
 		if not is_instance_valid(v):
 			continue
 		var res_type: String = assignments[i] if i < assignments.size() else "food"
-		var resource_node: Node2D = game_map.get_nearest_resource_node(res_type, v.global_position, v.player_owner)
+		var resource_node: Node2D = game_map.get_nearest_resource_node(res_type, v.global_position, v.player_owner, v)
 		if resource_node and v.has_method("command_gather"):
 			v.command_gather(resource_node)
 
@@ -1444,6 +1451,7 @@ func _spawn_unit(
 	# Under-attack detection for player units.
 	if player_id == 0:
 		unit.damage_received.connect(_on_player_unit_damaged)
+		unit.navigation_failed.connect(_on_player_unit_navigation_failed)
 
 	# Track resource deposits for stats.
 	if unit.has_signal("resource_deposited"):
@@ -1580,10 +1588,18 @@ func _issue_production_rally(unit: UnitBase, requested_rally: Vector2, producer:
 	if not is_instance_valid(unit) or game_map == null:
 		return false
 	if unit is Villager and is_instance_valid(producer) and producer.rally_resource_instance_id > 0:
-		return (unit as Villager).command_gather_last_observed(
+		var worker: Villager = unit as Villager
+		var accepted: bool = worker.command_gather_last_observed(
 			producer.rally_resource_type, requested_rally,
 			producer.rally_resource_instance_id, producer.rally_resource_is_building
 		)
+		# A paid birth cannot share an occupied Farm. Recover to current-visible,
+		# reachable food without changing hidden or natural-resource rally intent.
+		if accepted and producer.rally_resource_is_building and worker.current_state == UnitBase.State.IDLE:
+			var alternative: Node2D = game_map.get_nearest_reachable_resource_node(producer.rally_resource_type, worker.global_position, worker.player_owner, {}, worker)
+			if alternative != null:
+				return worker.command_gather(alternative)
+		return accepted
 	var route: PackedVector2Array = game_map.get_navigation_world_path(
 		unit.global_position,
 		requested_rally,
@@ -1696,7 +1712,7 @@ func _auto_assign_new_villager(villager: UnitBase) -> void:
 		return int(ranks[a]) < int(ranks[b]) if is_equal_approx(deficit_a, deficit_b) else deficit_a > deficit_b
 	)
 	for res_type in priority:
-		var node: Node2D = game_map.get_nearest_reachable_resource_node(res_type, villager.global_position, villager.player_owner)
+		var node: Node2D = game_map.get_nearest_reachable_resource_node(res_type, villager.global_position, villager.player_owner, {}, villager)
 		if node != null and bool(villager.call("command_gather", node)):
 			return
 
@@ -1704,6 +1720,26 @@ func _auto_assign_new_villager(villager: UnitBase) -> void:
 func _on_player_unit_damaged(unit: UnitBase, _hp_loss: float) -> void:
 	_match_learning.observe_damage(unit, GameManager.game_time)
 	_show_under_attack_alert(UnitData.get_unit_name(unit.unit_type), unit.global_position)
+
+
+func _on_player_unit_navigation_failed(unit: UnitBase, _target_position: Vector2) -> void:
+	if (
+		GameManager.current_state != GameManager.GameState.PLAYING
+		or not is_instance_valid(unit)
+		or unit.player_owner != 0
+		or unit.current_state == UnitBase.State.DEAD
+		or not unit.is_selected
+		or game_map == null
+		or unit not in game_map.selection_mgr.selected
+		or hud == null
+	):
+		return
+	var now: int = Time.get_ticks_msec()
+	if now < _navigation_feedback_available_msec:
+		return
+	_navigation_feedback_available_msec = now + 3000
+	# Explain the failed order without disclosing unseen terrain or blockers.
+	hud.show_notification("Route blocked. Choose another destination or leave a gap between buildings.", KingdomTheme.RUST)
 
 
 func _on_player_building_damaged(building: BuildingBase, _hp_loss: int) -> void:
@@ -2071,11 +2107,22 @@ func _on_attack_command(target: Node2D) -> void:
 	if _route_armed_unit_command_to_target(target):
 		return
 	_clear_armed_unit_commands(false)
+	var selected: Array = game_map.selection_mgr.selected
+	var own_units: int = 0
+	var armed_units: int = 0
+	for node in selected:
+		if node is UnitBase and node.player_owner == 0:
+			own_units += 1
+			if node.damage > 0.0:
+				armed_units += 1
+	if own_units > 0 and armed_units == 0:
+		hud.show_notification("Scouts are unarmed. Move to explore or contest the Sacred Site.", KingdomTheme.RUST)
+		_refresh_unit_command_hud()
+		return
 	if NetworkSession.is_client():
 		_send_network_selection("attack", NetworkSession.target_payload(target))
 		VFX.attack_move_indicator(get_tree(), target.global_position)
 		return
-	var selected: Array = game_map.selection_mgr.selected
 	var accepted: bool = false
 	for node in selected:
 		if node is UnitBase and node.player_owner == 0:
@@ -2118,11 +2165,17 @@ func _on_gather_command(resource_node: Node2D) -> void:
 			_on_selection_changed(game_map.selection_mgr.selected)
 		return
 	var assigned_any: bool = false
+	var occupied_farm_rejections: int = 0
 	for node in selected:
 		if node is UnitBase and node.player_owner == 0 and node.has_method("command_gather"):
-			assigned_any = bool(node.call("command_gather", resource_node)) or assigned_any
+			var accepted: bool = bool(node.call("command_gather", resource_node))
+			assigned_any = accepted or assigned_any
+			if not accepted and resource_node is BuildingBase and resource_node.provides_food and not resource_node.is_available_to_worker(node):
+				occupied_farm_rejections += 1
 	if assigned_any:
 		VFX.gather_indicator(get_tree(), resource_node.global_position)
+	if occupied_farm_rejections > 0:
+		hud.show_notification("One worker per Farm. Other workers keep their orders." if assigned_any else "Farm occupied. Choose an empty Farm or another food source.", KingdomTheme.RUST)
 	if assigned_any and resource_node.get_resource_type() == "food":
 		_opening_gather_complete = true
 	_refresh_guided_opening_stage()
@@ -2374,14 +2427,19 @@ func _get_initial_camera_focus(player_spawn: Vector2, safe_area: Rect2 = Rect2()
 
 
 func _get_town_center_camera_focus(player_spawn: Vector2, field: Rect2, obstacles: Array[Rect2], viewport_size: Vector2) -> Vector2:
-	# At a deliberate close zoom, berries, workers, outline and flag may not
-	# fit together. Keep the selected producer's roof/body and ground usable.
+	# At a deliberate close zoom, the complete architecture can be taller than
+	# the field. Keep the central facade and its ground accessible at that zoom.
 	var body := Rect2(player_spawn - Vector2(14.0, 14.0), Vector2(28.0, 28.0))
 	var landmarks: Array[Node2D] = []
 	if is_instance_valid(_player_town_center):
 		body = _get_camera_subject_bounds(_player_town_center, false, false)
 		landmarks.append(_player_town_center)
 	var zoom: Vector2 = game_map.camera.zoom
+	if is_instance_valid(_player_town_center) and body.size.y * zoom.y > field.size.y:
+		var ground: Vector2 = _player_town_center.global_position + BuildingBase.get_footprint_center_offset(_player_town_center.footprint, game_map)
+		# This covers the hall entrance, porch and central platform. Roof/flag
+		# clipping is expected here; automatic opening still fits the full art.
+		body = Rect2(ground + Vector2(-64.0, -56.0), Vector2(128.0, 88.0))
 	var focus: Vector2 = game_map.get_clamped_camera_focus(body.get_center() + (viewport_size * 0.5 - field.get_center()) / zoom)
 	var pan: Vector2 = _get_opening_camera_pan(body, landmarks, field, obstacles, focus, viewport_size, zoom, false, true)
 	return focus - pan / zoom if pan.is_finite() else focus
@@ -2392,6 +2450,12 @@ func _get_opening_camera_pan(subjects: Rect2, landmarks: Array[Node2D], field: R
 	var projected: Rect2 = projection * subjects
 	var horizontal: Array[float] = [0.0, field.position.x - projected.position.x, field.end.x - projected.end.x]
 	var vertical: Array[float] = [0.0, field.position.y - projected.position.y, field.end.y - projected.end.y]
+	if allow_partial:
+		for obstacle: Rect2 in obstacles:
+			horizontal.append(obstacle.position.x - projected.end.x)
+			horizontal.append(obstacle.end.x - projected.position.x)
+			vertical.append(obstacle.position.y - projected.end.y)
+			vertical.append(obstacle.end.y - projected.position.y)
 	var art_bounds: Array[Rect2] = []
 	for landmark: Node2D in landmarks:
 		# Ground selection diamonds may extend behind a small top overlay; the
@@ -2417,6 +2481,8 @@ func _get_opening_camera_pan(subjects: Rect2, landmarks: Array[Node2D], field: R
 		var shifted := Rect2(projected.position + pan, projected.size)
 		if not field.grow(0.1).encloses(shifted):
 			continue
+		if allow_partial and obstacles.any(func(obstacle: Rect2) -> bool: return shifted.intersects(obstacle)):
+			continue
 		var clear: bool = true
 		var overlap: float = 0.0
 		for art: Rect2 in art_bounds:
@@ -2432,27 +2498,21 @@ func _get_opening_camera_pan(subjects: Rect2, landmarks: Array[Node2D], field: R
 			best_partial = pan
 	if allow_partial:
 		# A wide Guide card and maximum manual detail can leave no corridor
-		# for the complete roof. Keep its body in the field with least overlap.
+		# for the complete roof. Keep the facade clear, with least roof overlap.
 		return best_partial
 	return Vector2(INF, INF)
 
 
-func _get_camera_subject_bounds(subject: Node2D, include_ground: bool = true, include_flag: bool = true) -> Rect2:
+func _get_camera_subject_bounds(subject: Node2D, include_ground: bool = true, _include_flag: bool = true) -> Rect2:
 	if subject is UnitBase and subject.has_method("get_visual_bounds"):
 		# Unit bounds include the entire gait excursion as well as the ring.
 		return subject.call("get_visual_bounds") as Rect2
-	var bounds := Rect2(subject.global_position - Vector2(14.0, 14.0), Vector2(28.0, 28.0))
 	if subject is BuildingBase:
-		var building: BuildingBase = subject as BuildingBase
-		if include_ground and building.is_selected:
-			var footprint_size := Vector2(building.footprint.x * MapData.TILE_WIDTH, building.footprint.y * MapData.TILE_HEIGHT)
-			bounds = bounds.merge(subject.get_global_transform() * Rect2(-footprint_size * 0.5, footprint_size).grow(2.0))
-		if building.state == BuildingBase.State.CONSTRUCTING or building.hp < building.max_hp:
-			var pixel_size := Vector2(building.footprint.x * MapData.TILE_WIDTH, building.footprint.y * MapData.TILE_HEIGHT)
-			bounds = bounds.merge(subject.get_global_transform() * Rect2(-pixel_size.x * 0.3, -pixel_size.y * 0.5 - 8.0, pixel_size.x * 0.6, 6.0))
-		if include_flag and building.building_type == BuildingData.BuildingType.TOWN_CENTER:
-			bounds = bounds.merge(subject.get_global_transform() * Rect2(47.0, -79.0, 26.0, 45.0))
-	elif subject is ResourceNode:
+		# Architecture, its footprint outline and overhead feedback share the
+		# same presentation bounds as placement. Ownership flags are in the art.
+		return (subject as BuildingBase).get_visual_bounds(include_ground)
+	var bounds := Rect2(subject.global_position - Vector2(14.0, 14.0), Vector2(28.0, 28.0))
+	if subject is ResourceNode:
 		# Include the resource's visible badge above the sprite and its ground ring.
 		bounds = bounds.merge(Rect2(subject.global_position + Vector2(-20.0, -34.0), Vector2(40.0, 54.0)))
 	for child: Node in subject.get_children():

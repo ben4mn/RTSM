@@ -17,6 +17,9 @@ enum BuildingType {
 	WATCH_TOWER = 10,
 }
 
+## Keep a walkable tile between owned foundations, including their corners.
+const BUILDING_CLEARANCE_TILES: int = 1
+
 # Cost format: { "food": int, "wood": int, "gold": int }
 # footprint: tile size in isometric grid (width x height)
 

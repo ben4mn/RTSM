@@ -48,6 +48,7 @@ func _run() -> void:
 		var sprite: Sprite2D = building.get_node("BuildingSprite") as Sprite2D
 		# These opaque pixels are in the actual front wall/door of each asset.
 		var facade_pixel: Vector2 = {"town_center": Vector2(64, 106), "barracks": Vector2(64, 60), "resource_camp": Vector2(64, 87), "archery_range": Vector2(64, 87), "stable": Vector2(60, 92), "blacksmith": Vector2(64, 87), "siege_workshop": Vector2(64, 87)}[building_type]
+		facade_pixel *= sprite.texture.get_size() / Vector2(128, 128)
 		var facade_world: Vector2 = sprite.to_global(sprite.get_rect().position + facade_pixel)
 		_expect(sprite.texture.get_image().get_pixelv(Vector2i(facade_pixel)).a > 0.9, "%s fixture taps opaque facade art" % building_type)
 
@@ -108,20 +109,21 @@ func _run() -> void:
 			_expect(_build_count == before_builds + 1 and selection.selected[0] == worker, "%s facade did not retain worker construction context" % building_type)
 			building.state = BuildingBase.State.ACTIVE
 
-		# At overview, an adjacent resource tile is also inside the generous
-		# resource discovery radius. The opaque production wall is still the
-		# deliberate target when a worker is selected.
+		# Place a synthetic resource inside the generous overview discovery ring
+		# relative to this transformed facade. Its opaque canopy stays to one
+		# side, so the competing target is the broad ring, not direct tree art.
 		camera.zoom = Vector2(0.62, 0.62)
 		camera.force_update_scroll()
 		for unit: UnitBase in [worker, soldier, enemy]:
 			unit.position = Vector2(250.0, 140.0)
 		var adjacent_tree := ResourceNode.new()
-		adjacent_tree.position = Vector2(-32.0, -16.0)
+		adjacent_tree.position = facade_world + Vector2(-30.0, -16.0)
 		world.add_child(adjacent_tree)
 		selection.select_single(worker)
 		selection.set("_last_tap_time", 0.0)
 		var before_gathers: int = _gather_count
-		_expect(selection.call("_get_resource_at", facade_world, true) == adjacent_tree, "adjacent-resource fixture lies in overview discovery radius")
+		_expect(selection.call("_get_resource_at", facade_world, true) == adjacent_tree, "%s resource fixture lies in overview discovery radius" % building_type)
+		_expect(not adjacent_tree.is_sprite_body_hit(facade_world), "%s competing resource is a discovery ring, not an opaque tree hit" % building_type)
 		_push_tap(selection, selection.call("_world_to_screen", facade_world), true)
 		_expect(selection.selected.size() == 1 and selection.selected[0] == building and _gather_count == before_gathers, "%s opaque facade was stolen by an adjacent resource ring" % building_type)
 		adjacent_tree.free()

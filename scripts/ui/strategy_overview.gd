@@ -677,6 +677,8 @@ func _producer_details(producer: Dictionary) -> PackedStringArray:
 			if int(cost.get(resource, 0)) > 0:
 				costs.append("%d%s" % [int(cost[resource]), resource.left(1).to_upper()])
 		var role: String = "Gather & build" if unit_type == UnitData.UnitType.VILLAGER else UnitData.get_unit_role_description(unit_type)
+		if unit_type == UnitData.UnitType.SCOUT:
+			role = UnitData.get_unit_counter_description(unit_type)
 		var counter: String = UnitData.get_unit_counter_name(unit_type)
 		if not counter.is_empty():
 			role += "; beats " + counter

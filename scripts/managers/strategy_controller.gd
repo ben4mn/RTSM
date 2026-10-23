@@ -290,10 +290,10 @@ func try_allocate_worker(owner: int, source: String, destination: String) -> Dic
 	candidates.sort_custom(func(a: Villager, b: Villager) -> bool:
 		return a.get_instance_id() < b.get_instance_id() if a.carried_amount == b.carried_amount else a.carried_amount < b.carried_amount)
 	for worker: Villager in candidates:
-		var target: Node2D = _map.get_nearest_reachable_resource_node(destination, worker.global_position, owner)
+		var target: Node2D = _map.get_nearest_reachable_resource_node(destination, worker.global_position, owner, {}, worker)
 		if target != null and worker.command_gather(target):
 			return {"worker": worker}
-	return {"error": "No %s worker is available." % source if candidates.is_empty() else "No visible reachable %s. Scout a deposit%s." % [destination, " or build a Farm" if destination == "food" else ""]}
+	return {"error": "No %s worker is available." % source if candidates.is_empty() else "No visible, reachable %s work is available. Scout a deposit%s." % [destination, " or build another Farm" if destination == "food" else ""]}
 
 
 func _owned_producer(building: Node2D) -> ProductionQueue:

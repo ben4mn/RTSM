@@ -3,7 +3,7 @@ extends SceneTree
 ## production or damage; replicas stay inert while animation/feedback is rendered.
 
 var failures: Array[String] = []
-const FILES: Array[String] = ["worker", "warrior", "archer"]
+const FILES: Array[String] = ["worker", "warrior", "archer", "cavalry", "scout", "siege"]
 
 func _initialize() -> void:
 	call_deferred("_run")
@@ -27,7 +27,7 @@ func _run() -> void:
 	for slot: int in [1, 0]:
 		session.player_slot = slot
 		var actors: Array[Dictionary] = []
-		for role: int in 3:
+		for role: int in FILES.size():
 			for owner: int in 2:
 				actors.append({"id": actors.size() + 1, "kind": "unit", "type": role, "owner": owner,
 					"x": 300.0 + actors.size() * 85.0, "y": 1152.0, "state": 0, "stance": 0,
@@ -41,6 +41,13 @@ func _run() -> void:
 				_check(unit.player_owner == local_owner, "Slot%d maps server owner before sprite creation" % slot)
 				_check(unit._sprite.texture.resource_path == expected, "Rebuilt replica uses correct role and local cloth")
 				_check(unit._sprite.modulate == Color.WHITE, "Neutral skin, hair and equipment remain untinted")
+				var local_reference: Node = (adapter.main._unit_scenes[int(actor.type)] as PackedScene).instantiate()
+				local_reference.player_owner = local_owner
+				local_reference.process_mode = Node.PROCESS_MODE_DISABLED
+				root.add_child(local_reference)
+				_check(unit._sprite.scale == local_reference._sprite.scale, "Network reconstruction keeps the local world proportion for every role")
+				_check(unit._sprite.offset == local_reference._sprite.offset and is_equal_approx(unit._health_bar_y, local_reference._health_bar_y), "Replica shares local foot anchor and health placement")
+				local_reference.free()
 				_check(unit.process_mode == Node.PROCESS_MODE_DISABLED, "Presentation does not enable replica simulation")
 				unit.visible = true
 				unit.is_selected = local_owner == 0
@@ -59,6 +66,11 @@ func _run() -> void:
 				_check(is_equal_approx(unit.hp, 75.0), "Animation does not simulate extra combat damage")
 				_check(unit.process_mode == Node.PROCESS_MODE_DISABLED, "Animated replica remains inert")
 				_check(unit._health_feedback_remaining > 1.8, "Damaged replica retains health feedback")
+				var art: Rect2 = unit._sprite_opaque_rect
+				art.position += unit._sprite.offset - unit._sprite.texture.get_size() * 0.5
+				if unit._sprite.flip_h:
+					art.position.x = -art.end.x
+				_check(unit.get_visual_bounds().encloses(unit._sprite.global_transform * art), "Animated replica remains inside camera framing bounds")
 			adapter.apply_snapshot({"actors": []})
 			await process_frame
 			for actor: Dictionary in actors:
@@ -68,7 +80,7 @@ func _run() -> void:
 	for failure: String in failures:
 		push_error("[FAIL] company_unit_replica: " + failure)
 	if failures.is_empty():
-		print("[PASS] company_unit_replica: three roles, both slots/owners, reconstruction, neutral materials, attack interpolation and recent-hit feedback; replicas remain inert")
+		print("[PASS] company_unit_replica: six roles, both slots/owners, reconstruction, neutral materials, attack interpolation and recent-hit feedback; replicas remain inert")
 	quit(0 if failures.is_empty() else 1)
 
 func _check(condition: bool, message: String) -> void:

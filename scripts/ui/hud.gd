@@ -136,6 +136,7 @@ var _area_selection_armed: bool = false
 var _movement_controls_hint_shown: bool = false
 var _selection_kind: String = "none"
 var _selection_is_worker: bool = false
+var _selection_is_scout: bool = false
 var _age_action_primary: bool = false
 var _camera_zoom_in_button: Button = null
 var _camera_zoom_out_button: Button = null
@@ -493,13 +494,21 @@ func _process(_delta: float) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if not event.is_pressed() or event.is_echo():
 		return
-	if event.is_action("pause"):
+	var gm: Node = _get_game_manager()
+	if gm == null or gm.current_state not in [gm.GameState.PLAYING, gm.GameState.PAUSED]:
+		return
+	# Main is pausable and cannot receive Escape while the match menu is open.
+	# Settings consumes its own Back in _input, leaving this as the next layer.
+	var menu_back: bool = event.is_action("cancel") and gm.current_state == gm.GameState.PAUSED
+	if event.is_action("pause") or menu_back:
 		if is_instance_valid(_pause_overlay) and _pause_overlay.has_node("SettingsPanel"):
 			get_viewport().set_input_as_handled()
 			return
 		_on_pause_pressed()
-	elif event is InputEventKey and event.keycode == KEY_F2:
+		get_viewport().set_input_as_handled()
+	elif gm.current_state == gm.GameState.PLAYING and event is InputEventKey and event.keycode == KEY_F2:
 		_toggle_hotkey_panel()
+		get_viewport().set_input_as_handled()
 
 
 # --- Pause / Speed controls ---
@@ -791,7 +800,7 @@ func _refresh_command_icons() -> void:
 		[_camera_center_button, "center", "Center selection", "Center"],
 		[_unit_stop_button, "stop", "Stop selected units", "Stop"],
 		[_unit_patrol_button, "patrol", "Patrol between two points", "Patrol"],
-		[_unit_stance_button, "stance", _unit_stance_button.tooltip_text, "Guard" if _unit_stance_button.button_pressed else "Aggro"],
+		[_unit_stance_button, "stance", _unit_stance_button.tooltip_text.trim_suffix(" [G]"), "Guard" if _unit_stance_button.button_pressed else "Aggro"],
 		[_worker_idle_button, "idle", "Find idle worker", "Idle"],
 	]
 	for entry: Array in expanded:
@@ -807,9 +816,28 @@ func _refresh_command_icons() -> void:
 			button.add_theme_font_size_override("font_size", 11)
 	CommandIcons.set_badge(_worker_idle_button, str(_last_idle_villager_count) if _last_idle_villager_count > 0 else "")
 	if _unit_move_button:
-		_unit_move_button.tooltip_text = "Move armed: tap a destination" if _unit_command_mode == "move" else "Move: tap a destination"
+		_unit_move_button.tooltip_text = "Move armed: tap a destination; tap again or Esc to cancel" if _unit_command_mode == "move" else "Move: tap here, then a destination"
+		_unit_move_button.accessibility_name = _unit_move_button.tooltip_text
 	if _unit_attack_move_button:
-		_unit_attack_move_button.tooltip_text = "Attack-move armed: tap a destination" if _unit_command_mode == "attack_move" else "Attack-move: hold ground or tap here, then a destination"
+		_unit_attack_move_button.tooltip_text = "Attack-move armed: tap a destination; tap again or Esc to cancel" if _unit_command_mode == "attack_move" else "Attack-move: armed units fight on the way. Tap here, then a destination."
+		_unit_attack_move_button.accessibility_name = _unit_attack_move_button.tooltip_text
+	# Icon refresh replaces tooltip_text. Append hints here so layout and state
+	# refreshes cannot erase them; retain concise accessibility action names.
+	var shortcuts: Dictionary = {
+		_pause_button: "[P / Esc]" if _ui_modal_state == UIModalState.PAUSE_MENU else "[P]",
+		_selection_back_button: "[Esc]",
+		_unit_clear_button: "[Esc]",
+		build_menu_button: "[B]",
+		_camera_center_button: "[Space]",
+		_unit_stop_button: "[T]",
+		_unit_patrol_button: "[R]",
+		_unit_stance_button: "[G]",
+		_worker_idle_button: "[.]",
+	}
+	for button: Button in shortcuts:
+		if is_instance_valid(button):
+			var suffix: String = " " + str(shortcuts[button])
+			button.tooltip_text = button.tooltip_text.trim_suffix(suffix) + suffix
 
 
 func _set_button_icon(button: Button, texture_path: String, max_width: int) -> void:
@@ -896,6 +924,7 @@ func _create_pause_overlay() -> void:
 	var resume_btn := Button.new()
 	resume_btn.name = "ResumeButton"
 	resume_btn.text = "Return to match" if online else "Resume"
+	resume_btn.tooltip_text = "Return to match [Esc / P]"
 	resume_btn.custom_minimum_size = Vector2(192, 48)
 	resume_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	resume_btn.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -907,7 +936,7 @@ func _create_pause_overlay() -> void:
 
 	var pause_help := Label.new()
 	pause_help.name = "PauseHelpLabel"
-	pause_help.text = "Play continues online. Leaving forfeits." if online else "Touch Resume to continue the match."
+	pause_help.text = "Play continues online. Leaving forfeits." if online else "Resume or press Esc / P to continue."
 	pause_help.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	pause_help.custom_minimum_size = Vector2(250, 18)
 	pause_help.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -1315,7 +1344,7 @@ func _create_unit_command_buttons() -> void:
 	_unit_move_button.toggle_mode = true
 	_unit_move_button.pressed.connect(_on_unit_move_pressed)
 	_unit_command_container.add_child(_unit_move_button)
-	_unit_attack_move_button = _make_unit_command_button("UnitAttackMoveButton", "Attack", "Attack-move: tap a destination and fight enemies on the way")
+	_unit_attack_move_button = _make_unit_command_button("UnitAttackMoveButton", "Attack", "Attack-move: tap a destination; armed units fight on the way")
 	_unit_attack_move_button.toggle_mode = true
 	_unit_attack_move_button.pressed.connect(_on_unit_attack_move_pressed)
 	_unit_command_container.add_child(_unit_attack_move_button)
@@ -2430,10 +2459,12 @@ func _update_age_display() -> void:
 			var affordable: bool = rm != null and rm.can_afford(0, cost)
 			age_up_button.text = ("Age Up\n%dF·%dG" if _resource_grid_compact else "Age Up\n%dF · %dG") % [int(cost.get("food", 0)), int(cost.get("gold", 0))]
 			age_up_button.tooltip_text = _get_age_up_preview(age + 1)
+			age_up_button.accessibility_name = age_up_button.tooltip_text
 			age_up_button.disabled = not affordable or _ui_modal_state != UIModalState.NONE
 		else:
 			age_up_button.text = "Max Age"
 			age_up_button.tooltip_text = "You have reached the highest age"
+			age_up_button.accessibility_name = age_up_button.tooltip_text
 			age_up_button.disabled = true
 		if _early_game_ui_active:
 			age_up_button.visible = false
@@ -2457,6 +2488,7 @@ func _get_age_up_preview(next_age: int) -> String:
 			else:
 				lines.append("Need +%d food · +%d gold" % [int(missing.get("food", 0)), int(missing.get("gold", 0))])
 	lines.append("")
+	lines.append("Advances immediately after payment. Unlocks buildings and recruitment; unit HP, Attack and Armor stay the same.")
 	# Find buildings that unlock at this age
 	var new_buildings: PackedStringArray = PackedStringArray()
 	for key in BuildingData.BUILDINGS:
@@ -2467,20 +2499,36 @@ func _get_age_up_preview(next_age: int) -> String:
 		lines.append("Unlocks buildings:")
 		for b_name in new_buildings:
 			lines.append("  + %s" % b_name)
-	# Find units that become available via new buildings
+	# The starting Town Center already recruits Villagers and Scouts. Castle
+	# unlocks extra Town Centers, not those opening units a second time.
+	var available_units: Array = []
+	for key in BuildingData.BUILDINGS:
+		var data: Dictionary = BuildingData.BUILDINGS[key]
+		if int(data["age_required"]) < next_age or key == BuildingData.BuildingType.TOWN_CENTER:
+			for unit_type: int in data["can_train"]:
+				if unit_type not in available_units:
+					available_units.append(unit_type)
+	# Find units that become available via new buildings.
 	var new_units: PackedStringArray = PackedStringArray()
 	for key in BuildingData.BUILDINGS:
 		var data: Dictionary = BuildingData.BUILDINGS[key]
 		if data["age_required"] == next_age:
 			for ut in data["can_train"]:
 				var u_name: String = UnitData.get_unit_name(ut)
-				if u_name not in new_units:
+				if ut not in available_units and u_name not in new_units:
 					new_units.append(u_name)
 	if new_units.size() > 0:
-		lines.append("Unlocks units:")
+		lines.append("New recruitment (build its producer first):")
 		for u_name in new_units:
 			lines.append("  + %s" % u_name)
 	return "\n".join(lines)
+
+
+func _age_up_information() -> Dictionary:
+	var gm: Node = _get_game_manager()
+	if gm == null or gm.get_player_age(0) >= gm.MAX_AGE:
+		return {"title": "Age Up", "body": "You have reached the highest age."}
+	return {"title": "Age Up", "body": _get_age_up_preview(gm.get_player_age(0) + 1) + "\nTap Age Up to pay and advance. Holding only inspects."}
 
 
 func _on_game_state_changed(new_state: int) -> void:
@@ -2547,6 +2595,7 @@ func show_unit_selection(unit_name: String, current_hp: int, max_hp: int, action
 	if unit_stats.has("role_counts"):
 		selected_type = -1
 	_selection_is_worker = selected_type == UnitData.UnitType.VILLAGER
+	_selection_is_scout = selected_type == UnitData.UnitType.SCOUT
 	if selected_type >= 0:
 		_selection_role_text = UnitData.get_unit_counter_description(selected_type)
 	if unit_stats.has("role_counts") and selected_type < 0:
@@ -2600,7 +2649,7 @@ func show_building_selection(building_name: String, current_hp: int, max_hp: int
 		if b.state == BuildingBase.State.CONSTRUCTING:
 			detail_parts.append("Under construction...")
 		if b.provides_food:
-			detail_parts.append("Unlimited food")
+			detail_parts.append("Unlimited food · 1 worker")
 		if b.rally_resource_instance_id > 0:
 			detail_parts.append("Villager rally: gather %s" % b.rally_resource_type)
 	selection_name.tooltip_text = "%s\n%s" % [building_name, " | ".join(detail_parts)]
@@ -2726,11 +2775,11 @@ func _building_purpose(building_ref: Node2D) -> String:
 			return "Tap resource\nfor rally"
 		BuildingData.BuildingType.HOUSE: return "+%d housing" % int(BuildingData.BUILDINGS[building.building_type].get("pop_provided", 0))
 		BuildingData.BuildingType.RESOURCE_CAMP: return "Food · wood · gold drop-off"
-		BuildingData.BuildingType.FARM: return "Unlimited food"
+		BuildingData.BuildingType.FARM: return "Unlimited food\n1 worker"
 		BuildingData.BuildingType.BARRACKS: return "Trains Warriors"
 		BuildingData.BuildingType.ARCHERY_RANGE: return "Trains Archers"
 		BuildingData.BuildingType.STABLE: return "Trains Horsemen"
-		BuildingData.BuildingType.BLACKSMITH: return "Army upgrades"
+		BuildingData.BuildingType.BLACKSMITH: return "Unit + worker\nupgrades"
 		BuildingData.BuildingType.WATCH_TOWER: return "Base defence"
 	return ""
 
@@ -3054,8 +3103,8 @@ func _update_train_buttons(trainable_units: Array) -> void:
 	for ut: int in desired_unit_types:
 		var unit_name: String = UnitData.get_unit_name(ut)
 		var cost: Dictionary = UnitData.get_unit_cost(ut)
-		var stats: Dictionary = UnitData.UNITS.get(ut, {})
-		var train_time: float = stats.get("build_time", 15.0)
+		var availability: Dictionary = _training_availability(ut)
+		var blocked: bool = bool(availability.get("blocked", false))
 		var cost_parts: PackedStringArray = []
 		for resource: String in ["food", "wood", "gold"]:
 			if int(cost.get(resource, 0)) > 0:
@@ -3078,12 +3127,17 @@ func _update_train_buttons(trainable_units: Array) -> void:
 		btn.mouse_filter = Control.MOUSE_FILTER_STOP
 		var role_text: String = UnitData.get_unit_counter_description(ut) if ut != UnitData.UnitType.VILLAGER else ""
 		if compact_town_center and ut == UnitData.UnitType.SCOUT:
-			role_text = "Recon"
-		btn.text = "%s\n%s" % [unit_name, cost_str] if compact_producer else "%s%s\n%s\n%s" % [unit_name, queue_badge, cost_str, role_text]
+			role_text = "Unarmed"
+		var status_text: String = str(availability.get("short", ""))
+		btn.text = "%s\n%s" % [unit_name, status_text if blocked else cost_str] if compact_producer else "%s%s\n%s\n%s" % [unit_name, queue_badge, cost_str, status_text if blocked else role_text]
 		btn.custom_minimum_size = Vector2(76 if compact_town_center else 90, 60) if compact_producer else Vector2(130, 48)
 		btn.alignment = HORIZONTAL_ALIGNMENT_CENTER if compact_producer else HORIZONTAL_ALIGNMENT_LEFT
 		btn.add_theme_font_size_override("font_size", 10 if compact_producer else 13)
-		btn.accessibility_name = "Train %s. %s. %s" % [unit_name, _full_cost_text(cost), role_text]
+		# Unavailable cards stay tappable so the existing command path explains
+		# failed purchases. Their visible status and Info describe the same state.
+		btn.add_theme_color_override("font_color", KingdomTheme.RUST if blocked else KingdomTheme.PARCHMENT)
+		var information: Dictionary = _train_information(ut)
+		btn.accessibility_name = "Train %s. %s" % [unit_name, str(information.get("body", "")).replace("\n", ". ")]
 		CommandIcons.set_badge(btn, str(queue_count) if queue_count > 0 else "")
 		for style_name: String in ["normal", "hover", "pressed", "disabled", "focus", "hover_pressed"]:
 			btn.remove_theme_stylebox_override(style_name)
@@ -3101,15 +3155,7 @@ func _update_train_buttons(trainable_units: Array) -> void:
 			btn.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER if compact_producer else HORIZONTAL_ALIGNMENT_LEFT
 			btn.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP if compact_producer else VERTICAL_ALIGNMENT_CENTER
 			btn.add_theme_constant_override("icon_max_width", 24 if compact_producer else 26)
-		# Build detailed tooltip with unit stats
-		var tip_lines: PackedStringArray = PackedStringArray()
-		tip_lines.append("%s (tap to train)" % unit_name)
-		tip_lines.append("HP: %d  Atk: %d  Arm: %d" % [stats.get("hp", 0), stats.get("damage", 0), stats.get("armor", 0)])
-		if stats.get("attack_range", 1) > 1:
-			tip_lines.append("Range: %d" % stats["attack_range"])
-		tip_lines.append("Speed: %d  Pop: %d" % [int(stats.get("speed", 50)), stats.get("pop_cost", 1)])
-		tip_lines.append("Train time: %ds" % int(train_time))
-		btn.tooltip_text = "\n".join(tip_lines)
+		btn.tooltip_text = "%s\n%s" % [information.get("title", unit_name), information.get("body", "")]
 		_train_buttons_container.move_child(btn, child_index)
 		child_index += 1
 
@@ -3412,6 +3458,9 @@ func _update_research_buttons(building_ref: Node2D) -> void:
 		if already_done:
 			btn.text += " [DONE]"
 		btn.disabled = already_done or gm == null or not gm.can_research(b.player_owner, b, research_id)
+		var information: Dictionary = _research_information(research_id)
+		btn.tooltip_text = "%s\n%s" % [information.get("title", "Research"), information.get("body", "")]
+		btn.accessibility_name = btn.tooltip_text.replace("\n", ". ")
 		_research_container.move_child(btn, child_index)
 		child_index += 1
 	_queue_mobile_layout_refresh()
@@ -3788,7 +3837,7 @@ func _create_hotkey_panel() -> void:
 		["1-9", "Recall control group"],
 		["+/-", "Game speed (0.5x-3x)"],
 		["P", "Pause / Resume"],
-		["Esc", "Cancel / Deselect"],
+		["Esc", "Back / Deselect / Match menu"],
 	]
 
 	for pair in hotkeys:
@@ -4325,6 +4374,7 @@ func _create_secondary_surface_controls() -> void:
 	$Root.add_child(_selection_info_button)
 	_hotkey_panel.z_index = 60
 	_attach_hud_hold(_unit_more_button, _selection_information, _more_hold_choices)
+	_attach_hud_hold(age_up_button, _age_up_information)
 
 
 func _layout_summary_info_target() -> void:
@@ -4391,9 +4441,17 @@ func _selection_information() -> Dictionary:
 	if not selection_details.text.is_empty():
 		lines.append(selection_details.text)
 	if _selection_kind == "unit":
-		lines.append("Arrow: Move to a destination. Sword: Attack-move and fight on the way. A highlighted icon means the command is armed; tap it again to cancel.")
+		if _selection_is_scout:
+			lines.append("Scouts are unarmed: they reveal ground and can capture or contest the Sacred Site, but cannot fight back. Move away from attackers and reinforce with Warriors or Archers.")
+		lines.append("Arrow: Move to a destination. Sword: Attack-move; armed units fight on the way. A highlighted icon means the command is armed; tap it again to cancel.")
 		lines.append("Up chevron: expand Stop, Stance and %s. Hold the chevron, slide to preview, release to choose; return to the center to cancel." % ("Patrol" if _unit_commands_have_military else "Idle workers"))
 	elif is_instance_valid(_selected_building_ref):
+		if _selected_building_ref is BuildingBase and (_selected_building_ref as BuildingBase).provides_food:
+			_append_information(lines, _farm_information(_selected_building_ref as BuildingBase))
+		if _is_human_owned_building(_selected_building_ref) and (_selected_building_ref as BuildingBase).building_type == BuildingData.BuildingType.TOWN_CENTER:
+			# A tap-only route to the same age cost/effects, including when the
+			# Age Up button is unaffordable or hold shortcuts are disabled.
+			_append_information(lines, _age_up_information())
 		for container: Control in [_train_buttons_container, _research_container, queue_container]:
 			if container:
 				for child: Node in container.get_children():
@@ -4401,12 +4459,24 @@ func _selection_information() -> Dictionary:
 						var component: Node = child.get_meta("hud_hold_control") as Node
 						if is_instance_valid(component):
 							_append_information(lines, component.call("get_info"))
-		# Refund rules remain inspectable when no queue has been purchased yet.
-		if _last_queue_items.is_empty():
+		# Empty producers still explain refunds; Farms and research buildings
+		# have no training queue to cancel.
+		if _last_queue_items.is_empty() and _is_human_owned_building(_selected_building_ref) and (_selected_building_ref as BuildingBase).can_train():
 			_append_information(lines, _refund_information(-1))
 			_append_information(lines, _refund_information(-2))
 	lines.append("Costs: F food, W wood, G gold. Top counters use apple, log, ingot and population icons.\nHold recruitment or queue actions to inspect. Short taps keep their normal action. Hold shortcuts can be disabled in Settings.")
 	return {"title": _selection_full_name, "body": "\n\n".join(lines)}
+
+
+func _farm_information(farm: BuildingBase) -> Dictionary:
+	var body := "Unlimited food for 1 worker at a time.\nFood must be carried to a Town Center or Resource Camp."
+	if farm.state == BuildingBase.State.CONSTRUCTING:
+		body += "\nFinish construction before assigning a worker."
+	elif farm.state == BuildingBase.State.ACTIVE and farm.player_owner == 0 and not NetworkSession.is_network_match():
+		# Online replicas do not carry farmer reservations. Never label them
+		# available from missing local data, or disclose an enemy assignment.
+		body += "\nWorker assigned (including travel and drop-off)." if is_instance_valid(farm.get_assigned_worker()) else "\nAvailable: assign one Villager to gather."
+	return {"title": "Farm capacity", "body": body}
 
 
 func _append_information(lines: PackedStringArray, info: Dictionary) -> void:
@@ -4522,13 +4592,71 @@ func _full_cost_text(cost: Dictionary) -> String:
 
 
 func _train_information(unit_type: int) -> Dictionary:
-	var stats: Dictionary = UnitData.UNITS.get(unit_type, {})
-	var body: String = "Cost: %s\nPopulation: %d · Training: %ds\nHP %d · Attack %d · Armor %d" % [_full_cost_text(UnitData.get_unit_cost(unit_type)), int(stats.get("pop_cost", 1)), int(stats.get("build_time", 15)), int(stats.get("hp", 0)), int(stats.get("damage", 0)), int(stats.get("armor", 0))]
+	var player_id: int = (_selected_building_ref as BuildingBase).player_owner if _is_human_owned_building(_selected_building_ref) else 0
+	var stats: Dictionary = Combat.get_effective_unit_type_stats(unit_type, player_id)
+	var availability: Dictionary = _training_availability(unit_type)
+	var body: String = "%s\nCost: %s\nPopulation: %d · Training: %ds\nHP %d · Attack %d · Armor %d" % [availability.get("body", ""), _full_cost_text(UnitData.get_unit_cost(unit_type)), int(stats.get("pop_cost", 1)), int(stats.get("build_time", 15)), int(stats.get("hp", 0)), int(stats.get("damage", 0)), int(stats.get("armor", 0))]
+	body += "\nSpeed %d" % int(stats.get("speed", 50))
+	if int(stats.get("attack_range", 1)) > 1:
+		body += " · Range %d" % int(stats.get("attack_range", 1))
 	var role: String = UnitData.get_unit_counter_description(unit_type)
 	if not role.is_empty():
 		body += "\n" + role
-	body += "\nRequires an active producer, enough resources and free committed population.\nTap to train one. Holding only inspects."
+	if unit_type == UnitData.UnitType.SCOUT:
+		body += "\nReveals ground and contests the Sacred Site.\nCannot attack or fight back; retreat from enemies."
+	var shortcut: String = ""
+	if _is_human_owned_building(_selected_building_ref):
+		var trainable: Array = (_selected_building_ref as BuildingBase).trainable_units
+		if not trainable.is_empty() and int(trainable[0]) == unit_type:
+			shortcut = " Shortcut: Q."
+	body += "\nTap to train one.%s Holding only inspects." % shortcut
 	return {"title": UnitData.get_unit_name(unit_type), "body": body}
+
+
+func _training_availability(unit_type: int) -> Dictionary:
+	# Read live state for both hover and touch Info; queued units already reserve
+	# population, including those in other producers. Never simulate a purchase.
+	if not _is_human_owned_building(_selected_building_ref):
+		return {"blocked": true, "short": "Select producer", "body": "Select your production building to train this unit."}
+	var building := _selected_building_ref as BuildingBase
+	if building.state != BuildingBase.State.ACTIVE:
+		return {"blocked": true, "short": "Building…" if building.state == BuildingBase.State.CONSTRUCTING else "Unavailable", "body": "Finish construction before training." if building.state == BuildingBase.State.CONSTRUCTING else "This producer is unavailable."}
+	if unit_type not in building.trainable_units:
+		return {"blocked": true, "short": "Unavailable", "body": "This building cannot train %s." % UnitData.get_unit_name(unit_type)}
+	var gm: Node = _get_game_manager()
+	if gm != null:
+		var player: Dictionary = gm.players.get(building.player_owner, {})
+		var committed: int = gm.get_committed_population(building.player_owner)
+		var cap: int = int(player.get("population_cap", 0))
+		var unit_pop: int = int(UnitData.UNITS.get(unit_type, {}).get("pop_cost", 1))
+		if committed + unit_pop > cap:
+			var living: int = int(player.get("population", 0))
+			var limit: int = gm.get_player_population_limit(building.player_owner)
+			var recovery: String = "Living units must free %d population before training." % maxi(1, living + unit_pop - cap)
+			if living + unit_pop <= cap:
+				recovery = "Use Queue to cancel paid units and free population."
+			elif cap < limit and living + unit_pop <= limit:
+				recovery = "Build a House to add room.\nCanceling queued units alone cannot open a slot."
+			else:
+				recovery = "Match population limit reached.\n" + recovery
+			return {"blocked": true, "short": "Pop %d/%d" % [committed, cap], "body": "Population blocked (%d/%d; this unit needs %d).\nIncluding %d paid slots.\n%s" % [committed, cap, unit_pop, maxi(0, committed - living), recovery]}
+	var queue: Node = building.get_production_queue()
+	var queue_size: int = int(queue.call("get_queue_size")) if queue != null else 0
+	if queue_size >= ProductionQueue.MAX_QUEUE_SIZE:
+		return {"blocked": true, "short": "Queue full", "body": "Queue full (%d/%d).\nWait for training or use Queue to cancel a unit." % [queue_size, ProductionQueue.MAX_QUEUE_SIZE]}
+	var rm: Node = _get_resource_manager()
+	if rm != null:
+		var missing: Dictionary = rm.get_missing_resources(building.player_owner, UnitData.get_unit_cost(unit_type))
+		var short_parts: PackedStringArray = []
+		for resource: String in ["food", "wood", "gold"]:
+			if int(missing.get(resource, 0)) > 0:
+				short_parts.append("%d%s" % [int(missing[resource]), resource.left(1).to_upper()])
+		if not short_parts.is_empty():
+			# A compact first shortage keeps the phone shelf's targets in place;
+			# the plus sign directs players to the full list in hover or Info.
+			var short_text: String = "Need " + short_parts[0] + (" +" if short_parts.size() > 1 else "")
+			return {"blocked": true, "short": short_text, "body": "Need %s more to train." % _full_cost_text(missing)}
+	return {"blocked": false, "short": "Ready", "body": "Ready to train. Queue %d/%d." % [queue_size, ProductionQueue.MAX_QUEUE_SIZE]}
 
 
 func _repeat_information() -> Dictionary:
@@ -4547,7 +4675,21 @@ func _repeat_information() -> Dictionary:
 func _research_information(research_id: String) -> Dictionary:
 	for research: Dictionary in RESEARCH_DEFS:
 		if str(research.get("id", "")) == research_id:
-			return {"title": research.get("name", "Research"), "body": "%s\nCost: %s\nRequires your active Blacksmith and sufficient resources. Completed research cannot be bought again.\nTap to research. Holding only inspects." % [research.get("desc", ""), _full_cost_text(research.get("cost", {}))]}
+			var status := "Requires your active Blacksmith."
+			var gm: Node = _get_game_manager()
+			if gm != null:
+				match str(gm.get_research_failure_reason(0, _selected_building_ref, research_id)):
+					"": status = "Ready to research."
+					"already_researched": status = "Researched. This upgrade can be purchased only once."
+					"unaffordable":
+						var rm: Node = _get_resource_manager()
+						if rm != null:
+							status = "Need %s more." % _full_cost_text(rm.get_missing_resources(0, research.get("cost", {})))
+					"age_required": status = "Requires %s." % gm.get_age_name(int(research.get("age_required", 1)))
+					"building_incomplete": status = "Finish your Blacksmith before researching."
+					"purchase_in_progress": status = "Another purchase is being processed."
+					"match_inactive": status = "Return to the match to research."
+			return {"title": research.get("name", "Research"), "body": "%s\nCost: %s\n%s\n%s\nTap to research. Holding only inspects." % [research.get("desc", ""), _full_cost_text(research.get("cost", {})), research.get("details", "Completed research cannot be bought again."), status]}
 	return {"title": "Research", "body": "Unavailable in this context."}
 
 

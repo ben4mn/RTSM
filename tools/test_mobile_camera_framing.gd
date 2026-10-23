@@ -24,11 +24,11 @@ func _run() -> void:
 	DirAccess.make_dir_recursive_absolute(output)
 	var manifest := FileAccess.open(output + "/framing.json", FileAccess.WRITE)
 	var hashes: Dictionary = {}
-	for path: String in ["scripts/map/game_map.gd", "scripts/map/map_data.gd", "scripts/map/map_generator.gd", "tools/test_mobile_camera_framing.gd"]:
+	for path: String in ["scripts/main/main.gd", "scripts/map/game_map.gd", "scripts/map/map_data.gd", "scripts/map/map_generator.gd", "scripts/buildings/building_base.gd", "scripts/data/unit_data.gd", "assets/buildings/company_town_center.svg", "assets/buildings/company_town_center.svg.import", "tools/test_mobile_camera_framing.gd"]:
 		hashes[path] = FileAccess.get_sha256("res://" + path)
 	manifest.store_string(JSON.stringify({"evidence": "Frozen real main scenes in phone-sized SubViewports; actual projected sprite/marker bounds and synthetic notch insets. Optional native render images are layout evidence, not paid play or a physical phone.", "source_sha256": hashes, "profiles": _profiles}, "  "))
 	if _failures.is_empty():
-		print("[PASS] mobile_camera_framing: real Guide ON/OFF boots and TC/worker/food fit two phone sizes/notches across three seeds; Home handles distant food, preserves2.2 manual zoom, TC access and fog")
+		print("[PASS] mobile_camera_framing: real Guide ON/OFF boots and TC/worker/food fit two phone sizes/notches across three seeds; Home handles distant food, preserves 2.2 manual zoom, entrance/ground access and fog")
 	else:
 		for failure: String in _failures:
 			push_error("[FAIL] mobile_camera_framing: " + failure)
@@ -105,6 +105,8 @@ func _profile(phone_size: Vector2i, seed_value: int, guided: bool) -> void:
 		for natural: Node2D in (map.get("resource_nodes") as Dictionary).values():
 			if natural is ResourceNode and natural.resource_type == "food":
 				natural.harvest(natural.remaining)
+		match_scene.call("_select_town_center")
+		var local_base_zoom: float = camera.zoom.x
 		var remote_farm: BuildingBase = match_scene.call("_spawn_building", BuildingData.BuildingType.FARM, 0, Vector2i(40, 40)) as BuildingBase
 		remote_farm.complete_instantly()
 		_expect(remote_farm.global_position.distance_to(tc.global_position) > 512.0, "depleted-berries fixture has only remote food context")
@@ -115,7 +117,7 @@ func _profile(phone_size: Vector2i, seed_value: int, guided: bool) -> void:
 		await get_tree().process_frame
 		await get_tree().process_frame
 		_check_accessible(hud, tc, worker, null, Rect2(Vector2.ZERO, Vector2(phone_size)), "Home after local berries deplete")
-		_expect(camera.zoom.x > 0.9, "remote Farm does not force Home to whole-map zoom")
+		_expect(is_equal_approx(camera.zoom.x, local_base_zoom), "adding a remote Farm leaves local Home framing zoom unchanged")
 	map.call("zoom_in")
 	map.call("zoom_in")
 	map.call("_update_camera_zoom", 0.2)
@@ -140,6 +142,7 @@ func _profile(phone_size: Vector2i, seed_value: int, guided: bool) -> void:
 		await get_tree().process_frame
 		_expect(is_equal_approx(detail_zoom.x, 2.2) and camera.zoom == detail_zoom, prefix + " Home preserves maximum deliberate detail zoom")
 		_check_accessible(hud, tc, null, null, Rect2(Vector2.ZERO, Vector2(phone_size)), prefix + " Home at2.2", true)
+		_profiles.append({"phone": str(phone_size), "seed": seed_value, "guided": guided, "mode": "manual Home", "zoom": camera.zoom.x, "tc": str(_projected_visual_bounds(tc)), "entrance_and_ground": str(_projected_entrance_bounds(tc)), "scope": "Entrance and canonical ground remain clear; roof may leave the field at deliberate maximum zoom."})
 		if _render:
 			await RenderingServer.frame_post_draw
 			phone.get_texture().get_image().save_png("%s/%dx%d-seed101-home-detail%s.png" % [_output, phone_size.x, phone_size.y, "-guided" if guided else ""])
@@ -176,41 +179,55 @@ func _check_accessible(hud: CanvasLayer, tc: Node2D, worker: Node2D, food: Node2
 	for subject: Node2D in [tc, worker, food]:
 		if subject == null:
 			continue
-		var projected: Rect2 = _projected_visual_bounds(subject, not body_only, not body_only)
+		var projected: Rect2 = _projected_entrance_bounds(subject as BuildingBase) if body_only else _projected_visual_bounds(subject)
 		_expect(field.grow(0.5).encloses(projected), "%s %s art/marker bounds %s leave field %s" % [prefix, subject.name, projected, field])
 		for panel_name: String in ["_sacred_site_panel", "_progression_hint_panel", "_camera_controls", "_minimap_frame", "_minimap_hint_label", "_town_center_button", "build_menu_button"]:
 			var overlay: Control = hud.get(panel_name) as Control
 			if overlay != null and overlay.is_visible_in_tree():
 				var obstacle: Rect2 = overlay.get_global_rect().grow(3.0)
-				var art: Rect2 = _projected_visual_bounds(subject, false, not body_only)
+				var art: Rect2 = _projected_visual_bounds(subject, false)
 				if body_only:
-					# At 2.2 on a short Guide phone, an entire roof cannot fit beside
-					# the wide guidance card. Ground access and the body take priority.
-					var ground: Rect2 = subject.get_global_transform_with_canvas() * Rect2(-14.0, -14.0, 28.0, 28.0)
-					_expect(not ground.intersects(obstacle), prefix + " selected TC ground remains accessible")
-					_expect(art.intersection(obstacle).get_area() <= art.get_area() * 0.15, prefix + " selected TC body remains substantially visible")
+					# The source-space entrance and real footprint center are checked
+					# independently of Main's deliberately cropped framing rectangle.
+					_expect(not projected.intersects(obstacle), prefix + " selected TC entrance and ground remain accessible")
 				else:
 					_expect(not art.intersects(obstacle), "%s %s art is covered by %s" % [prefix, subject.name, panel_name])
 
 
-func _projected_visual_bounds(subject: Node2D, include_ground: bool = true, include_flag: bool = true) -> Rect2:
+func _projected_entrance_bounds(building: BuildingBase) -> Rect2:
+	var center: Vector2 = BuildingBase.get_footprint_center_offset(building.footprint)
+	var projected: Rect2 = building.get_global_transform_with_canvas() * Rect2(center - Vector2(14.0, 14.0), Vector2(28.0, 28.0))
+	# Company TC porch, entrance and stairs occupy x32–62/y78–118 of its SVG.
+	# Check those visible features, rather than reusing Main's target rectangle.
+	var sprite: Sprite2D = building.get("_sprite") as Sprite2D
+	var texture_scale: Vector2 = sprite.texture.get_size() / Vector2(128, 128)
+	return projected.merge(sprite.get_global_transform_with_canvas() * Rect2(sprite.get_rect().position + Vector2(32.0, 78.0) * texture_scale, Vector2(30.0, 40.0) * texture_scale))
+
+
+func _projected_visual_bounds(subject: Node2D, include_ground: bool = true) -> Rect2:
 	var ground := Rect2(-14.0, -14.0, 28.0, 28.0)
-	if subject is BuildingBase and include_ground and (subject as BuildingBase).is_selected:
-		var footprint: Vector2i = (subject as BuildingBase).footprint
-		var size := Vector2(footprint.x * MapData.TILE_WIDTH, footprint.y * MapData.TILE_HEIGHT)
-		ground = Rect2(-size * 0.5, size)
+	if subject is BuildingBase:
+		var building := subject as BuildingBase
+		var center: Vector2 = BuildingBase.get_footprint_center_offset(building.footprint)
+		ground.position += center
+		if include_ground and building.is_selected:
+			var size := Vector2(building.footprint.x * MapData.TILE_WIDTH, building.footprint.y * MapData.TILE_HEIGHT)
+			ground = Rect2(center - size * 0.5, size).grow(2.0)
 	elif subject is ResourceNode:
 		ground = Rect2(-20.0, -34.0, 40.0, 54.0)
 	var projected: Rect2 = subject.get_global_transform_with_canvas() * ground
-	if include_flag and subject is BuildingBase and (subject as BuildingBase).building_type == BuildingData.BuildingType.TOWN_CENTER:
-		# Include the procedural pole stroke and flag independently of the sprite.
-		projected = projected.merge(subject.get_global_transform_with_canvas() * Rect2(47.0, -79.0, 26.0, 45.0))
 	for child: Node in subject.get_children():
 		if child is Sprite2D:
 			var sprite: Sprite2D = child as Sprite2D
 			if sprite.texture != null:
 				var art: Rect2i = sprite.texture.get_image().get_used_rect()
 				projected = projected.merge(sprite.get_global_transform_with_canvas() * Rect2(sprite.get_rect().position + Vector2(art.position), Vector2(art.size)))
+	if subject is BuildingBase:
+		var building := subject as BuildingBase
+		if not building.drop_off_resources.is_empty() and (building.building_type != BuildingData.BuildingType.TOWN_CENTER or building.is_selected):
+			var center: Vector2 = BuildingBase.get_footprint_center_offset(building.footprint)
+			var badges := Rect2(center.x - building.footprint.x * MapData.TILE_WIDTH * 0.28 - 7.0, float(building.get("_visual_top")) - 28.0, (building.drop_off_resources.size() - 1) * 16.0 + 14.0, 14.0)
+			projected = projected.merge(building.get_global_transform_with_canvas() * badges)
 	return projected
 
 

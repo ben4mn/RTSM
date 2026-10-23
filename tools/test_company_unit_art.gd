@@ -2,11 +2,10 @@ extends Node
 ## Original miniature art at real phone scale. These are visual fixtures, not
 ## paid production or device-performance evidence. Never saves player settings.
 
-const NAMES: Array[String] = ["Builder", "Warrior", "Archer"]
-const FILES: Array[String] = ["worker", "warrior", "archer"]
-const SCENES: Array[String] = ["villager", "infantry", "archer"]
-const SCALES: Array[float] = [0.43, 0.46, 0.43]
-const RADII: Array[float] = [12.0, 14.0, 13.0]
+const NAMES: Array[String] = ["Builder", "Warrior", "Archer", "Horseman", "Scout", "Siege"]
+const FILES: Array[String] = ["worker", "warrior", "archer", "cavalry", "scout", "siege"]
+const SCENES: Array[String] = ["villager", "infantry", "archer", "cavalry", "scout", "siege"]
+const RADII: Array[float] = [12.0, 14.0, 13.0, 16.0, 12.0, 18.0]
 var failures: Array[String] = []
 var output: String = "res://output/company-units-20261022"
 var baseline: String = "res://output/company-units-20261022/baseline"
@@ -35,6 +34,15 @@ func _run() -> void:
 		else:
 			print("[INFO] Archived baseline art absent; current phone captures still run. Use --baseline=/path/to/previous/svgs for the comparison sheet.")
 		await _phone_captures()
+	metrics["renderer"] = DisplayServer.get_name()
+	var source_hashes: Dictionary = {}
+	for path: String in ["scripts/data/unit_data.gd", "scripts/units/unit_base.gd", "scripts/units/villager.gd", "scripts/managers/selection_manager.gd", "tools/test_company_unit_art.gd"]:
+		source_hashes[path] = FileAccess.get_sha256("res://" + path)
+	for asset: String in FILES:
+		for suffix: String in ["", "_enemy"]:
+			var path: String = "assets/units/%s%s.svg" % [asset, suffix]
+			source_hashes[path] = FileAccess.get_sha256("res://" + path)
+	metrics["source_sha256"] = source_hashes
 	metrics["passed"] = failures.is_empty()
 	metrics["failures"] = failures
 	metrics["user_data_dir"] = OS.get_user_data_dir()
@@ -43,13 +51,14 @@ func _run() -> void:
 	for failure: String in failures:
 		push_error("[FAIL] company_unit_art: " + failure)
 	if failures.is_empty():
-		print("[PASS] company_unit_art: three original roles, neutral materials, identical team alpha, preserved scale/collision/foot anchor, pose bounds/selection/health; native phone gallery when rendered")
+		print("[PASS] company_unit_art: six roles, neutral materials, identical team alpha, grounded relative sizes/collision/foot anchor, pose bounds/selection/health; three foot-role native gallery when rendered")
 	get_tree().quit(0 if failures.is_empty() else 1)
 
 func _contracts() -> void:
 	var selection: SelectionManager = load("res://scripts/managers/selection_manager.gd").new()
 	add_child(selection)
 	selection.set_process(false)
+	var world_sizes: Array[Vector2] = []
 	for role: int in FILES.size():
 		var home: Image = load("res://assets/units/%s.svg" % FILES[role]).get_image()
 		var enemy: Image = load("res://assets/units/%s_enemy.svg" % FILES[role]).get_image()
@@ -72,7 +81,18 @@ func _contracts() -> void:
 			var unit := _unit(role, owner, self)
 			var sprite: Sprite2D = unit.get_node("UnitSprite")
 			_expect(sprite.texture.get_size() == Vector2(128, 128), NAMES[role] + " retains128px canvas")
-			_expect(sprite.scale == Vector2.ONE * SCALES[role], NAMES[role] + " retains battle scale")
+			var ink_size: Vector2 = unit._sprite_opaque_rect.size * sprite.scale
+			if owner == 0:
+				world_sizes.append(ink_size)
+				metrics.roles[role]["world_ink_size"] = [ink_size.x, ink_size.y]
+			_expect(is_equal_approx(sprite.scale.x, sprite.scale.y) and sprite.scale.x > 0.0, NAMES[role] + " preserves artwork aspect ratio")
+			_expect(sprite.to_global(Vector2(64, 104) - sprite.texture.get_size() * 0.5 + sprite.offset).is_equal_approx(unit.global_position), NAMES[role] + " authored feet meet the actual ground origin")
+			var idle_art: Rect2 = sprite.transform * Rect2(unit._sprite_opaque_rect.position - sprite.texture.get_size() * 0.5 + sprite.offset, unit._sprite_opaque_rect.size)
+			_expect(absf(idle_art.end.y) <= 1.0, NAMES[role] + " opaque feet meet ground without floating or sinking")
+			_expect(unit._health_bar_y + 2.0 < idle_art.position.y, NAMES[role] + " idle health bar clears the head and weapons")
+			if role < 3:
+				_expect(ink_size.y >= 24.0 and ink_size.y <= 36.0, NAMES[role] + " foot miniature stays within the grounded human-height band")
+				_expect(ink_size.x <= RADII[role] * 2.5, NAMES[role] + " equipment silhouette remains close to its unchanged navigation footprint")
 			_expect(sprite.offset == Vector2(0, -40), NAMES[role] + " retains y104 foot anchor")
 			_expect(is_equal_approx((unit.collision_shape.shape as CircleShape2D).radius, RADII[role]), NAMES[role] + " retains collision radius")
 			_expect(sprite.modulate == Color.WHITE, NAMES[role] + " retains neutral material colors")
@@ -99,8 +119,16 @@ func _contracts() -> void:
 				_expect(visible.encloses(health), NAMES[role] + " critical health remains within framing")
 				var body_target: Vector2 = sprite.to_global(selection._unit_touch_body_rect(sprite).get_center())
 				_expect(selection._is_touch_on_unit_body(unit, body_target), NAMES[role] + " keeps central body selectable in every pose")
+				_expect(selection._get_node_at(body_target, false) == unit, NAMES[role] + " desktop resolver selects the animated body")
+				_expect(selection._get_node_at(body_target, true) == unit, NAMES[role] + " touch resolver selects the animated body")
+				_expect(selection._get_node_at(unit.global_position, true) == unit, NAMES[role] + " ground marker retains deliberate touch access")
 				metrics.poses_checked += 1
 			unit.free()
+	var tallest_foot: float = maxf(world_sizes[0].y, maxf(world_sizes[1].y, world_sizes[2].y))
+	for role: int in [3, 4]:
+		_expect(world_sizes[role].y > tallest_foot * 1.25, NAMES[role] + " mounted rider sits clearly above foot troops")
+		_expect(world_sizes[role].x > world_sizes[1].x * 1.25, NAMES[role] + " mount reads wider than a standing warrior")
+	_expect(world_sizes[5].x > maxf(world_sizes[3].x, world_sizes[4].x), "siege carriage reads broader than either mount")
 	selection.free()
 
 func _unit(role: int, owner: int, parent: Node) -> UnitBase:
@@ -120,7 +148,7 @@ func _contact_sheet() -> void:
 	sheet.add_child(bg)
 	_label(sheet, "COMPANY MINIATURES  /  ORIGINAL ROLE IDENTITIES", Vector2(24, 14), 24)
 	_label(sheet, "Previous field art", Vector2(24, 53), 16)
-	_label(sheet, "Refined cast  ·  same canvas, scale, foot anchor and team materials", Vector2(24, 310), 16)
+	_label(sheet, "Refined cast  ·  shared canvas, foot anchor and team materials", Vector2(24, 310), 16)
 	for role: int in 3:
 		for row: int in 2:
 			var texture: Texture2D = load("res://assets/units/%s.svg" % FILES[role])

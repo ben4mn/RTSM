@@ -181,7 +181,7 @@ func _opaque_canopy_point(sprite: Sprite2D, anchor: Vector2, minimum_radius: flo
 	var rect: Rect2 = sprite.get_rect()
 	for y: int in range(int(rect.position.y), int(rect.end.y), 4):
 		for x: int in range(int(rect.position.x), int(rect.end.x), 4):
-			var local := Vector2(x, y)
+			var local := Vector2(x, y) + Vector2(0.5, 0.5)
 			var point: Vector2 = sprite.to_global(local)
 			if sprite.is_pixel_opaque(local) and point.distance_to(anchor) > minimum_radius:
 				return point
@@ -192,7 +192,7 @@ func _opaque_facade_point(picker: SelectionManager, building: BuildingBase) -> V
 	var rect: Rect2 = sprite.get_rect()
 	for y: int in range(int(rect.position.y), int(rect.end.y), 2):
 		for x: int in range(int(rect.position.x), int(rect.end.x), 2):
-			var local := Vector2(x, y)
+			var local := Vector2(x, y) + Vector2(0.5, 0.5)
 			var point: Vector2 = sprite.to_global(local)
 			if sprite.is_pixel_opaque(local) and point.distance_to(building.global_position) > 24.0 and bool(picker.call("_is_touch_on_building_facade", building, point)):
 				return point

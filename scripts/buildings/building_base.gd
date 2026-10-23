@@ -28,6 +28,7 @@ var drop_off_resources: Array = []
 var trainable_units: Array = []
 var building_color: Color = Color(0.6, 0.45, 0.3)
 var provides_food: bool = false
+var _assigned_farmer_ref: WeakRef = null
 
 var rally_point: Vector2 = Vector2.ZERO
 var rally_point_is_custom: bool = false
@@ -37,6 +38,10 @@ var rally_resource_is_building: bool = false
 var is_selected: bool = false
 var _production_queue: Node = null
 var _sprite: Sprite2D = null
+var _defensive_flash: Node2D = null
+var _footprint_center: Vector2 = Vector2.ZERO
+var _sprite_visual_rect: Rect2 = Rect2()
+var _visual_top: float = -48.0
 var _construction_dust_timer: float = 0.0
 var _damage_smoke_timer: float = 0.0
 
@@ -49,6 +54,12 @@ var tower_attack_buildings: bool = true
 var _tower_attack_cooldown: float = 0.0
 var _defensive_shot_flash_remaining: float = 0.0
 const DEFENSIVE_TARGET_SCAN_INTERVAL: float = 0.2
+# Authored 128px coordinates: Town Center lookout window and Watch Tower rampart.
+# These attach presentation to the art; weapon range stays at the ground origin.
+const DEFENSIVE_FIRE_POINTS: Dictionary = {
+	BuildingData.BuildingType.TOWN_CENTER: Vector2(101, 72),
+	BuildingData.BuildingType.WATCH_TOWER: Vector2(64, 21),
+}
 
 
 class DefensiveArrow extends Node2D:
@@ -100,7 +111,7 @@ class DefensiveArrow extends Node2D:
 			_heading * 6.0, normal * 2.5, -normal * 2.5
 		]), Color(1.0, 0.98, 0.80))
 
-## Original Company SVGs for principal buildings; remaining legacy pack art.
+## Original Company SVGs for civic, military and farming buildings.
 const BUILDING_SPRITES: Dictionary = {
 	BuildingData.BuildingType.TOWN_CENTER: "res://assets/buildings/company_town_center.svg",
 	BuildingData.BuildingType.HOUSE: "res://assets/buildings/company_house.svg",
@@ -115,7 +126,7 @@ const BUILDING_SPRITES: Dictionary = {
 }
 
 ## Company roofs/cloth carry ownership while bone, timber and stone remain neutral.
-## Legacy families retain their original whole-sprite tint until redrawn.
+## Every family keeps neutral timber, crops and masonry for both owners.
 const COMPANY_ENEMY_SPRITES: Dictionary = {
 	BuildingData.BuildingType.TOWN_CENTER: "res://assets/buildings/company_town_center_enemy.svg",
 	BuildingData.BuildingType.HOUSE: "res://assets/buildings/company_house_enemy.svg",
@@ -125,6 +136,8 @@ const COMPANY_ENEMY_SPRITES: Dictionary = {
 	BuildingData.BuildingType.RESOURCE_CAMP: "res://assets/buildings/company_resource_camp_enemy.svg",
 	BuildingData.BuildingType.SIEGE_WORKSHOP: "res://assets/buildings/company_siege_workshop_enemy.svg",
 	BuildingData.BuildingType.BLACKSMITH: "res://assets/buildings/company_blacksmith_enemy.svg",
+	BuildingData.BuildingType.FARM: "res://assets/buildings/farm_enemy.svg",
+	BuildingData.BuildingType.WATCH_TOWER: "res://assets/buildings/watch_tower_enemy.svg",
 }
 
 
@@ -134,18 +147,37 @@ static func get_sprite_texture_path(type: int, owner: int = 0) -> String:
 	return BUILDING_SPRITES.get(type, "")
 
 
-## Scale per building type — larger footprint buildings get larger sprites.
+const ART_AUTHORED_SIZE := Vector2(128, 128)
+
+
+## Calibrated against visible artwork, not the padded 128px canvas.
+## Broad, lower rooflines keep 28–30px people readable beside architecture.
+## The reserved footprint includes open ground around the visible structure.
 const BUILDING_SCALES: Dictionary = {
-	BuildingData.BuildingType.TOWN_CENTER: Vector2(1.08, 1.08),
-	BuildingData.BuildingType.HOUSE: Vector2(0.45, 0.45),
-	BuildingData.BuildingType.BARRACKS: Vector2(0.60, 0.60),
-	BuildingData.BuildingType.ARCHERY_RANGE: Vector2(0.55, 0.55),
-	BuildingData.BuildingType.STABLE: Vector2(0.55, 0.55),
+	BuildingData.BuildingType.TOWN_CENTER: Vector2(1.70, 1.60),
+	BuildingData.BuildingType.HOUSE: Vector2(1.00, 0.96),
+	BuildingData.BuildingType.BARRACKS: Vector2(1.48, 1.40),
+	BuildingData.BuildingType.ARCHERY_RANGE: Vector2(1.35, 1.28),
+	BuildingData.BuildingType.STABLE: Vector2(1.35, 1.28),
 	BuildingData.BuildingType.FARM: Vector2(1.0, 1.0),
-	BuildingData.BuildingType.RESOURCE_CAMP: Vector2(0.45, 0.45),
-	BuildingData.BuildingType.SIEGE_WORKSHOP: Vector2(0.60, 0.60),
-	BuildingData.BuildingType.BLACKSMITH: Vector2(0.50, 0.50),
-	BuildingData.BuildingType.WATCH_TOWER: Vector2(0.65, 0.65),
+	BuildingData.BuildingType.RESOURCE_CAMP: Vector2(0.90, 0.86),
+	BuildingData.BuildingType.SIEGE_WORKSHOP: Vector2(1.32, 1.25),
+	BuildingData.BuildingType.BLACKSMITH: Vector2(0.92, 0.88),
+	BuildingData.BuildingType.WATCH_TOWER: Vector2(1.12, 1.12),
+}
+
+## Source-space center of each ground platform (including transparent padding).
+const BUILDING_GROUND_ANCHORS: Dictionary = {
+	BuildingData.BuildingType.TOWN_CENTER: Vector2(64, 104),
+	BuildingData.BuildingType.HOUSE: Vector2(65, 104),
+	BuildingData.BuildingType.BARRACKS: Vector2(65, 70),
+	BuildingData.BuildingType.ARCHERY_RANGE: Vector2(64, 100),
+	BuildingData.BuildingType.STABLE: Vector2(64, 98),
+	BuildingData.BuildingType.FARM: Vector2(64, 86),
+	BuildingData.BuildingType.RESOURCE_CAMP: Vector2(64, 92),
+	BuildingData.BuildingType.SIEGE_WORKSHOP: Vector2(64, 99),
+	BuildingData.BuildingType.BLACKSMITH: Vector2(64, 100),
+	BuildingData.BuildingType.WATCH_TOWER: Vector2(64, 116),
 }
 
 const DROP_OFF_BADGE_COLORS: Dictionary = {
@@ -207,24 +239,76 @@ func _setup_collision() -> void:
 
 
 func _setup_sprite() -> void:
+	# Let the centered ground anchor participate in GameMap's shared depth sort.
+	# Sorting the whole building at its first tile draws upper-side workers over roofs.
+	y_sort_enabled = true
 	_sprite = Sprite2D.new()
 	_sprite.name = "BuildingSprite"
 	var tex_path: String = get_sprite_texture_path(building_type, player_owner)
 	if tex_path != "" and ResourceLoader.exists(tex_path):
 		_sprite.texture = load(tex_path)
-	_sprite.scale = BUILDING_SCALES.get(building_type, Vector2(0.4, 0.4))
-	# Offset sprite upward so the base sits at the building position
-	_sprite.offset = get_sprite_offset(building_type, footprint)
+	# The node stays at the first reserved tile. Only presentation moves to the
+	# center of that tile rectangle; pathfinding and attack origins do not move.
+	var map_node: Node = get_parent()
+	while map_node != null and not map_node.has_method("tile_to_world"):
+		map_node = map_node.get_parent()
+	_footprint_center = get_footprint_center_offset(footprint, map_node)
+	_sprite.position = _footprint_center
 	add_child(_sprite)
+	_refresh_sprite_geometry()
 	_update_sprite_appearance()
+	if tower_attack_damage > 0:
+		_defensive_flash = Node2D.new()
+		_defensive_flash.name = "DefensiveShotFlash"
+		_defensive_flash.z_index = 1
+		_defensive_flash.draw.connect(_draw_defensive_shot_flash)
+		add_child(_defensive_flash)
 
 
-static func get_sprite_offset(type: int, size_in_tiles: Vector2i) -> Vector2:
-	if type == BuildingData.BuildingType.FARM:
-		return Vector2(0, -7)
-	if type == BuildingData.BuildingType.WATCH_TOWER:
-		return Vector2(0, -46)
-	return Vector2(0, -size_in_tiles.y * MapData.TILE_HEIGHT * 0.3)
+static func get_art_texture_scale(texture: Texture2D) -> Vector2:
+	# SVG import resolution is independent of authored proportions and anchors.
+	return texture.get_size() / ART_AUTHORED_SIZE if texture != null else Vector2.ONE
+
+
+func _refresh_sprite_geometry() -> void:
+	var texture_scale: Vector2 = get_art_texture_scale(_sprite.texture)
+	_sprite.scale = BUILDING_SCALES.get(building_type, Vector2(0.4, 0.4)) / texture_scale
+	_sprite.offset = get_sprite_offset(building_type, footprint) * texture_scale
+	if _sprite.texture != null:
+		var ink: Rect2i = _sprite.texture.get_image().get_used_rect()
+		_sprite_visual_rect = _sprite.transform * Rect2(_sprite.get_rect().position + Vector2(ink.position), Vector2(ink.size))
+		_visual_top = _sprite_visual_rect.position.y
+
+
+static func get_sprite_offset(type: int, _size_in_tiles: Vector2i) -> Vector2:
+	return Vector2(64, 64) - BUILDING_GROUND_ANCHORS.get(type, Vector2(64, 104))
+
+
+static func get_footprint_center_offset(size_in_tiles: Vector2i, map_node: Node = null) -> Vector2:
+	# Use the same projection as terrain. Standalone art fixtures have no map,
+	# so a short-lived GameMap supplies its canonical fallback conversion.
+	var projection: Node = map_node
+	var owns_projection: bool = projection == null or not projection.has_method("tile_to_world")
+	if owns_projection:
+		projection = load("res://scripts/map/game_map.gd").new()
+	var first: Vector2 = projection.call("tile_to_world", Vector2i.ZERO)
+	var last: Vector2 = projection.call("tile_to_world", size_in_tiles - Vector2i.ONE)
+	if owns_projection:
+		projection.free()
+	return (last - first) * 0.5
+
+
+func get_visual_bounds(include_ground: bool = true) -> Rect2:
+	var bounds: Rect2 = _sprite_visual_rect
+	if include_ground and is_selected:
+		var ground_size := Vector2(footprint.x * MapData.TILE_WIDTH, footprint.y * MapData.TILE_HEIGHT)
+		bounds = bounds.merge(Rect2(_footprint_center - ground_size * 0.5, ground_size).grow(2.0))
+	if state == State.CONSTRUCTING or (state == State.ACTIVE and hp < max_hp):
+		var bar_width: float = footprint.x * MapData.TILE_WIDTH * 0.6
+		bounds = bounds.merge(Rect2(_footprint_center.x - bar_width * 0.5, _visual_top - 8.0, bar_width, 4.0))
+	if not drop_off_resources.is_empty() and (building_type != BuildingData.BuildingType.TOWN_CENTER or is_selected):
+		bounds = bounds.merge(Rect2(_footprint_center.x - footprint.x * MapData.TILE_WIDTH * 0.28 - 7.0, _visual_top - 28.0, (drop_off_resources.size() - 1) * 16.0 + 14.0, 14.0))
+	return global_transform * bounds
 
 
 func _update_sprite_appearance() -> void:
@@ -235,6 +319,7 @@ func _update_sprite_appearance() -> void:
 	var texture_path: String = get_sprite_texture_path(building_type, player_owner)
 	if _sprite.texture != null and _sprite.texture.resource_path != texture_path and ResourceLoader.exists(texture_path):
 		_sprite.texture = load(texture_path)
+		_refresh_sprite_geometry()
 	var legacy_enemy_tint: bool = player_owner != 0 and not COMPANY_ENEMY_SPRITES.has(building_type)
 	var base_color: Color = Color(1.0, 0.55, 0.55) if legacy_enemy_tint else Color.WHITE
 	match state:
@@ -261,54 +346,38 @@ func _draw() -> void:
 		for segment: int in range(32):
 			var angle: float = float(segment) * TAU / 32.0
 			draw_arc(Vector2.ZERO, tower_attack_range, angle, angle + TAU / 48.0, 4, range_color, 1.6, true)
-	if _defensive_shot_flash_remaining > 0.0 and not GameManager.reduced_flashes:
-		draw_circle(Vector2(0.0, -52.0), 4.0, Color(1.0, 0.88, 0.48, 0.7))
-
 	# Selection outline (pulsing isometric diamond border)
 	if is_selected:
 		var pulse: float = 1.0 if GameManager.reduced_motion or GameManager.reduced_flashes else 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.005)
 		var sel_alpha := lerpf(0.55, 0.95, pulse)
 		var sel_width := lerpf(2.0, 3.6, pulse)
 		var points := PackedVector2Array([
-			Vector2(0, -pixel_h * 0.5),
-			Vector2(pixel_w * 0.5, 0),
-			Vector2(0, pixel_h * 0.5),
-			Vector2(-pixel_w * 0.5, 0),
+			_footprint_center + Vector2(0, -pixel_h * 0.5),
+			_footprint_center + Vector2(pixel_w * 0.5, 0),
+			_footprint_center + Vector2(0, pixel_h * 0.5),
+			_footprint_center + Vector2(-pixel_w * 0.5, 0),
 		])
 		for i in points.size():
 			var next_i := (i + 1) % points.size()
 			draw_line(points[i], points[next_i], Color(1.0, 0.92, 0.55, sel_alpha), sel_width)
 
-	# Shadow ellipse under building
-	var shadow_w := pixel_w * 0.35
-	var shadow_h := pixel_h * 0.25
-	var shadow_pts := PackedVector2Array()
-	for a in range(32):
-		var angle := float(a) / 32.0 * TAU
-		shadow_pts.append(Vector2(cos(angle) * shadow_w, sin(angle) * shadow_h + 2.0))
-	draw_colored_polygon(shadow_pts, Color(0, 0, 0, 0.12))
-	if building_type == BuildingData.BuildingType.TOWN_CENTER:
-		var team: Color = Color("6bade0") if player_owner == 0 else Color("dc806d")
-		draw_line(Vector2(48, -35), Vector2(48, -78), Color("384440"), 2.0, true)
-		draw_colored_polygon(PackedVector2Array([Vector2(49, -77), Vector2(72, -71), Vector2(49, -63)]), team)
-
 	# Construction progress bar
 	if state == State.CONSTRUCTING:
 		var bar_w := pixel_w * 0.6
 		var bar_h := 4.0
-		var bar_y := -pixel_h * 0.5 - 8.0
-		draw_rect(Rect2(-bar_w * 0.5, bar_y, bar_w, bar_h), Color(0.2, 0.2, 0.2))
-		draw_rect(Rect2(-bar_w * 0.5, bar_y, bar_w * build_progress, bar_h), Color(0.2, 0.8, 0.2))
+		var bar_y := _visual_top - 8.0
+		draw_rect(Rect2(_footprint_center.x - bar_w * 0.5, bar_y, bar_w, bar_h), Color(0.2, 0.2, 0.2))
+		draw_rect(Rect2(_footprint_center.x - bar_w * 0.5, bar_y, bar_w * build_progress, bar_h), Color(0.2, 0.8, 0.2))
 
 	# Health bar (only when active and damaged)
 	if state == State.ACTIVE and hp < max_hp:
 		var bar_w := pixel_w * 0.6
 		var bar_h := 3.0
-		var bar_y := -pixel_h * 0.5 - 6.0
+		var bar_y := _visual_top - 8.0
 		var hp_ratio := float(hp) / float(max_hp)
 		var hp_color := Color(0.2, 0.8, 0.2) if hp_ratio > 0.5 else Color(0.8, 0.8, 0.2) if hp_ratio > 0.25 else Color(0.8, 0.2, 0.2)
-		draw_rect(Rect2(-bar_w * 0.5, bar_y, bar_w, bar_h), Color(0.2, 0.2, 0.2))
-		draw_rect(Rect2(-bar_w * 0.5, bar_y, bar_w * hp_ratio, bar_h), hp_color)
+		draw_rect(Rect2(_footprint_center.x - bar_w * 0.5, bar_y, bar_w, bar_h), Color(0.2, 0.2, 0.2))
+		draw_rect(Rect2(_footprint_center.x - bar_w * 0.5, bar_y, bar_w * hp_ratio, bar_h), hp_color)
 
 	_draw_drop_off_badges(pixel_w, pixel_h)
 
@@ -323,7 +392,7 @@ func _draw() -> void:
 		draw_colored_polygon(PackedVector2Array([rp_local + Vector2(0, -14) * scale_factor, rp_local + Vector2(9, -11) * scale_factor, rp_local + Vector2(0, -8) * scale_factor]), flag_color)
 
 
-func _draw_drop_off_badges(pixel_w: float, pixel_h: float) -> void:
+func _draw_drop_off_badges(pixel_w: float, _pixel_h: float) -> void:
 	if drop_off_resources.is_empty():
 		return
 	if building_type == BuildingData.BuildingType.TOWN_CENTER and not is_selected:
@@ -332,8 +401,8 @@ func _draw_drop_off_badges(pixel_w: float, pixel_h: float) -> void:
 	if font == null:
 		return
 	var fsize: int = maxi(10, ThemeDB.fallback_font_size - 3)
-	var start_x: float = -pixel_w * 0.28
-	var y: float = -pixel_h * 0.54
+	var start_x: float = _footprint_center.x - pixel_w * 0.28
+	var y: float = _visual_top - 21.0
 	var spacing: float = 16.0
 	for i in range(drop_off_resources.size()):
 		var resource_type: String = String(drop_off_resources[i])
@@ -391,6 +460,8 @@ func _process(delta: float) -> void:
 			_tower_attack_cooldown = tower_attack_interval if _tower_try_attack() else DEFENSIVE_TARGET_SCAN_INTERVAL
 	if is_selected or had_shot_flash:
 		queue_redraw()
+	if had_shot_flash and _defensive_flash != null:
+		_defensive_flash.queue_redraw()
 
 
 ## Called by villagers to add construction progress.
@@ -461,6 +532,7 @@ func _flash_damage() -> void:
 
 func _destroy() -> void:
 	state = State.DESTROYED
+	_assigned_farmer_ref = null
 	_update_sprite_appearance()
 	building_destroyed.emit(self)
 	# Destruction smoke puff
@@ -536,7 +608,7 @@ func can_train() -> bool:
 	return state == State.ACTIVE and trainable_units.size() > 0
 
 
-# --- Farm support: permanent food, limited by worker speed and carry slots ---
+# --- Farm support: permanent food, one assigned worker including delivery ---
 
 func get_resource_type() -> String:
 	if provides_food:
@@ -556,8 +628,42 @@ func is_harvestable_by(gathering_player_id: int = -1) -> bool:
 	return gathering_player_id < 0 or gathering_player_id == player_owner
 
 
-func harvest(amount: int) -> int:
+func get_assigned_worker() -> UnitBase:
+	var worker: UnitBase = _assigned_farmer_ref.get_ref() as UnitBase if _assigned_farmer_ref != null else null
+	if not is_instance_valid(worker) or worker.is_queued_for_deletion() or worker.current_state == UnitBase.State.DEAD or state != State.ACTIVE:
+		_assigned_farmer_ref = null
+		return null
+	return worker
+
+
+func is_available_to_worker(worker: Node2D = null) -> bool:
 	if not is_harvestable_by():
+		return false
+	var assigned: UnitBase = get_assigned_worker()
+	return assigned == null or assigned == worker
+
+
+func try_assign_worker(worker: UnitBase) -> bool:
+	if not is_instance_valid(worker) or worker.is_queued_for_deletion() or worker.current_state == UnitBase.State.DEAD:
+		return false
+	if worker.unit_type != UnitData.UnitType.VILLAGER or not is_harvestable_by(worker.player_owner) or not is_available_to_worker(worker):
+		return false
+	_assigned_farmer_ref = weakref(worker)
+	return true
+
+
+func release_worker(worker: Node2D) -> void:
+	if _assigned_farmer_ref != null and _assigned_farmer_ref.get_ref() == worker:
+		_assigned_farmer_ref = null
+
+
+func harvest(amount: int, worker: UnitBase = null) -> int:
+	if not is_harvestable_by():
+		return 0
+	# Unassigned direct harvest remains useful for resource-contract probes;
+	# every Villager supplies itself, and only the reserved farmer earns food.
+	var assigned: UnitBase = get_assigned_worker()
+	if (worker != null and assigned != worker) or (worker == null and assigned != null):
 		return 0
 	return maxi(0, amount)
 
@@ -642,6 +748,18 @@ func _defensive_target_priority(unit: UnitBase) -> int:
 	return 2
 
 
+func _get_defensive_fire_position() -> Vector2:
+	if _sprite == null or _sprite.texture == null:
+		return to_global(Vector2(0.0, -52.0))
+	var source_point: Vector2 = DEFENSIVE_FIRE_POINTS.get(building_type, Vector2(64, 52))
+	return _sprite.to_global(_sprite.get_rect().position + source_point * get_art_texture_scale(_sprite.texture))
+
+
+func _draw_defensive_shot_flash() -> void:
+	if _defensive_shot_flash_remaining > 0.0 and not GameManager.reduced_flashes:
+		_defensive_flash.draw_circle(_defensive_flash.to_local(_get_defensive_fire_position()), 4.0, Color(1.0, 0.88, 0.48, 0.7))
+
+
 func _launch_defensive_arrow(target: UnitBase) -> void:
 	var arrow := DefensiveArrow.new()
 	arrow.defender_ref = weakref(target)
@@ -649,7 +767,7 @@ func _launch_defensive_arrow(target: UnitBase) -> void:
 	if visibility_map != null:
 		arrow.visibility_map_ref = weakref(visibility_map)
 	arrow.final_damage = Combat.calculate_tower_damage(self, target)
-	arrow.start_position = global_position + Vector2(0.0, -52.0)
+	arrow.start_position = _get_defensive_fire_position()
 	arrow.flight_seconds = clampf(global_position.distance_to(target.global_position) / tower_attack_projectile_speed, 0.12, 0.42)
 	arrow.z_index = 80
 	get_parent().add_child(arrow)
@@ -657,6 +775,8 @@ func _launch_defensive_arrow(target: UnitBase) -> void:
 	arrow.global_position = arrow.start_position
 	arrow.visible = visible
 	_defensive_shot_flash_remaining = 0.18
+	if _defensive_flash != null:
+		_defensive_flash.queue_redraw()
 	queue_redraw()
 
 

@@ -111,15 +111,50 @@ def require_isolation():
     return processes
 
 
+def working_tree_paths(project):
+    names = subprocess.check_output(
+        ['git', 'ls-files', '-z', '--cached', '--others', '--exclude-standard'], cwd=project
+    ).split(b'\0')
+    # Read the checkout bytes, including staged/unstaged edits and new source;
+    # a tracked deletion must remain deleted in the frozen project.
+    return sorted({os.fsdecode(name) for name in names if name and (project / os.fsdecode(name)).exists()})
+
+
+def snapshot_working_tree(project, stage):
+    names = working_tree_paths(project)
+    hashes = {}
+    for name in names:
+        source = project / name
+        if source.is_symlink() or not source.is_file():
+            raise RuntimeError(f'Working-tree snapshot requires ordinary files: {name}')
+        data = source.read_bytes()
+        destination = stage / name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(data)
+        shutil.copymode(source, destination)
+        hashes[name] = hashlib.sha256(data).hexdigest()
+    changed = [name for name, expected in hashes.items()
+               if not (project / name).is_file() or sha(project / name) != expected]
+    if changed or working_tree_paths(project) != names:
+        raise RuntimeError(f'Working tree changed during snapshot; prepare again: {changed}')
+    return hashes
+
+
 def prepare(args, output):
     project = args.project.resolve()
-    revision = subprocess.check_output(['git', 'rev-parse', args.revision], cwd=project, text=True).strip()
+    working_tree = args.working_tree
+    base_revision = subprocess.check_output(['git', 'rev-parse', 'HEAD' if working_tree else (args.revision or 'HEAD')], cwd=project, text=True).strip()
+    revision = 'working-tree' if working_tree else base_revision
     stage = Path(tempfile.mkdtemp(prefix='aoem-dense-native-'))
-    archive = stage / 'source.tar'
-    with archive.open('wb') as handle:
-        subprocess.run(['git', 'archive', revision], cwd=project, stdout=handle, check=True)
-    subprocess.run(['tar', '-xf', str(archive), '-C', str(stage)], check=True)
-    archive.unlink()
+    if working_tree:
+        inputs = snapshot_working_tree(project, stage)
+        write_json(output / 'working-tree-inputs.json', inputs)
+    else:
+        archive = stage / 'source.tar'
+        with archive.open('wb') as handle:
+            subprocess.run(['git', 'archive', revision], cwd=project, stdout=handle, check=True)
+        subprocess.run(['tar', '-xf', str(archive), '-C', str(stage)], check=True)
+        archive.unlink()
     if (project / '.godot').is_dir():
         shutil.copytree(project / '.godot', stage / '.godot')
     for name in HARNESS:
@@ -132,11 +167,15 @@ def prepare(args, output):
     files += list((stage / 'scripts').rglob('*.gd'))
     files += list((stage / 'scenes').rglob('*.tscn'))
     files.append(stage / 'tools/fixtures/tactical_paid_opening.gd')
-    files += [p for p in (stage / 'assets').rglob('*') if p.is_file() and p.suffix != '.import']
-    metadata = {'revision': revision, 'stage': str(stage), 'platform': platform.platform(),
+    files += [p for p in (stage / 'assets').rglob('*') if p.is_file()]
+    metadata = {'revision': revision, 'source_kind': 'working_tree' if working_tree else 'git_revision',
+                'base_revision': base_revision, 'stage': str(stage), 'platform': platform.platform(),
                 'godot_app': str(args.godot_app.resolve()), 'files': {str(p.relative_to(stage)): sha(p) for p in files},
                 'runner_sha256': sha(Path(__file__)), 'width': args.width, 'height': args.height, 'duration': args.duration,
-                'scope': 'Frozen Git revision plus current diagnostic harness. Private preferences. macOS LaunchServices native debug build; no runtime/renderer changes.'}
+                'scope': ('Frozen working-tree bytes (tracked and nonignored untracked files; deletions honored)' if working_tree else 'Frozen Git revision') + ' plus current diagnostic harness. Private preferences. macOS LaunchServices native debug build; no runtime/renderer changes by the runner.'}
+    if working_tree:
+        metadata['working_tree_inputs'] = {'path': 'working-tree-inputs.json', 'sha256': sha(output / 'working-tree-inputs.json'),
+                                          'file_count': len(inputs), 'scope': 'Original checkout bytes before diagnostic-harness overlay and private-user-directory rewrite; generated .godot cache excluded.'}
     write_json(output / 'source.json', metadata)
     print(json.dumps({'prepared': str(stage), 'manifest': str(output / 'source.json'), 'revision': revision}), flush=True)
 
@@ -180,9 +219,16 @@ def execute(args, output):
     app = Path(source['godot_app'])
     engine = app / 'Contents/MacOS/Godot'
     if args.mode == 'import':
+        frozen_project = (stage / 'project.godot').read_bytes()
         command = [str(engine), '--headless', '--editor', '--path', str(stage), '--quit']
         with (output / 'import.log').open('w') as handle:
             result = subprocess.run(command, stdout=handle, stderr=subprocess.STDOUT, timeout=120)
+        # The editor can reorder the two private-user-directory settings. Keep
+        # its result as evidence, then restore the exact frozen launch settings.
+        imported_project = (stage / 'project.godot').read_bytes()
+        if imported_project != frozen_project:
+            (output / 'project-after-import.godot').write_bytes(imported_project)
+            (stage / 'project.godot').write_bytes(frozen_project)
         log = (output / 'import.log').read_text()
         receipt['after'] = require_isolation()
         write_json(output / 'import-isolation.json', receipt)
@@ -252,13 +298,17 @@ def main():
     parser.add_argument('--mode', choices=['prepare', 'import', 'focus', 'run', 'analyze'], default='prepare')
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--project', type=Path, default=ROOT)
-    parser.add_argument('--revision', default='HEAD', help='Git revision frozen by prepare; never silently measures uncommitted runtime edits')
+    source = parser.add_mutually_exclusive_group()
+    source.add_argument('--revision', help='Git revision frozen by prepare (default HEAD); excludes uncommitted edits')
+    source.add_argument('--working-tree', action='store_true', help='Explicitly freeze current tracked and nonignored untracked checkout bytes; no commit is created')
     parser.add_argument('--godot-app', type=Path, default=Path('/Applications/Godot.app'))
     parser.add_argument('--width', type=int, default=844)
     parser.add_argument('--height', type=int, default=390)
     parser.add_argument('--duration', type=float, default=30)
     parser.add_argument('--timeout', type=int, default=600)
     args = parser.parse_args()
+    if args.mode != 'prepare' and (args.working_tree or args.revision is not None):
+        parser.error('--working-tree and --revision apply only to --mode prepare; later modes use source.json')
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     if args.mode == 'prepare':

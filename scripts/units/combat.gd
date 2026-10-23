@@ -14,7 +14,7 @@ extends RefCounted
 # Warriors +100% vs Horsemen
 # Archers +100% vs Warriors
 # Horsemen +50% vs Archers
-# Siege +300% vs Buildings (handled via bonus_vs_buildings stat)
+# Siege x3 vs Buildings (handled via bonus_vs_buildings stat)
 const COUNTER_BONUSES: Dictionary = UnitData.COUNTER_BONUSES
 
 
@@ -98,11 +98,32 @@ static func get_counter_bonus(attacker_type: int, defender_type: int) -> float:
 
 
 static func get_effective_attack(unit: UnitBase) -> float:
+	# A weapon upgrade cannot arm a zero-damage reconnaissance unit.
+	if unit.damage <= 0.0:
+		return 0.0
 	var result: float = unit.damage
 	var gm: Node = unit.get_node_or_null("/root/GameManager")
 	if gm != null:
 		result += float(gm.get_attack_bonus(unit.player_owner))
 	return result
+
+
+static func get_effective_unit_type_stats(unit_type: int, player_id: int) -> Dictionary:
+	## Preview the HP, attack and armor a newly recruited unit will receive.
+	## Base data stays immutable; age unlocks do not scale these values.
+	var stats: Dictionary = UnitData.get_unit_stats(unit_type)
+	if stats.is_empty():
+		return stats
+	var scene_tree: SceneTree = Engine.get_main_loop() as SceneTree
+	var gm: Node = scene_tree.root.get_node_or_null("GameManager") if scene_tree != null else null
+	if gm == null:
+		return stats
+	if float(stats.get("damage", 0.0)) > 0.0:
+		stats["damage"] = float(stats["damage"]) + float(gm.get_attack_bonus(player_id))
+	stats["armor"] = float(stats.get("armor", 0.0)) + float(gm.get_armor_bonus(player_id))
+	if unit_type == UnitData.UnitType.VILLAGER:
+		stats["hp"] = int(stats["hp"]) + int(gm.get_villager_hp_bonus(player_id))
+	return stats
 
 
 static func get_effective_armor(unit: UnitBase) -> float:

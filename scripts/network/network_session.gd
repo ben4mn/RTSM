@@ -8,7 +8,9 @@ signal snapshot_received(snapshot: Dictionary)
 signal match_ended(winner: int, reason: String)
 
 const PROTOCOL := 1
-const MAP_CATALOG_VERSION := 1
+# Version 2 places River/Woodland resources after carving their routes.
+# A different catalog must use unchanged Open Plains on either server version.
+const MAP_CATALOG_VERSION := 2
 const DEFAULT_ENDPOINT := "wss://game.4mn.org/match"
 const MAX_CLIENT_PACKET := 8192
 const MAX_SERVER_PACKET := 262144

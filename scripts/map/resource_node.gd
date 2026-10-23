@@ -26,20 +26,21 @@ const RESOURCE_SPRITES: Dictionary = {
 	"stone": "res://assets/resources/rock_large.png",
 }
 
-## Sprite scale per resource type (sprites are 128x128, need to fit ~30px game size).
+## Match opaque artwork to people: trees stand twice as tall, bushes waist-high.
+## Source padding differs substantially between these 128px textures.
 const RESOURCE_SCALES: Dictionary = {
-	"food": Vector2(0.64, 0.64),
-	"wood": Vector2(0.50, 0.50),
-	"gold": Vector2(0.48, 0.48),
-	"stone": Vector2(0.45, 0.45),
+	"food": Vector2(.48, .48),
+	"wood": Vector2(.72, .72),
+	"gold": Vector2(.52, .52),
+	"stone": Vector2(.50, .50),
 }
 
-## Sprite offset to center the visual on the tile.
+## Place the visible root/base on the resource tile, independent of padding.
 const RESOURCE_OFFSETS: Dictionary = {
-	"food": Vector2(0, -6),
-	"wood": Vector2(0, -16),
-	"gold": Vector2(0, -8),
-	"stone": Vector2(0, -6),
+	"food": Vector2(0, -18),
+	"wood": Vector2(-1, -44),
+	"gold": Vector2(0, -28),
+	"stone": Vector2(0, -24),
 }
 
 const RESOURCE_COLORS: Dictionary = {

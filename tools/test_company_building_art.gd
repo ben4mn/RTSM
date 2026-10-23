@@ -4,7 +4,6 @@ extends Node
 
 const OUTPUT := "res://output/company-industry-2026-10-22"
 const TYPES: Array[int] = [BuildingData.BuildingType.TOWN_CENTER, BuildingData.BuildingType.HOUSE, BuildingData.BuildingType.BARRACKS, BuildingData.BuildingType.RESOURCE_CAMP, BuildingData.BuildingType.ARCHERY_RANGE, BuildingData.BuildingType.STABLE, BuildingData.BuildingType.BLACKSMITH, BuildingData.BuildingType.SIEGE_WORKSHOP]
-const SCALES: Array[float] = [1.08, 0.45, 0.60, 0.45, 0.55, 0.55, 0.50, 0.60]
 const FOOTPRINTS: Array[Vector2i] = [Vector2i(4, 4), Vector2i(2, 2), Vector2i(3, 3), Vector2i(2, 2), Vector2i(3, 3), Vector2i(3, 3), Vector2i(2, 2), Vector2i(3, 3)]
 var _failures: Array[String] = []
 
@@ -25,7 +24,7 @@ func _run() -> void:
 	for failure: String in _failures:
 		push_error("[FAIL] company_building_art: " + failure)
 	if _failures.is_empty():
-		print("[PASS] company_building_art: eight original imported building families, 128px canvas, unchanged scales/offsets/footprints/collision, home/enemy/construction appearance; native contact sheet and phone village captures when rendered")
+		print("[PASS] company_building_art: eight original imported building families, 128px authored canvas / 256px import, calibrated proportions/ground anchors, unchanged footprints/collision, home/enemy/construction appearance; native contact sheet and phone village captures when rendered")
 	get_tree().quit(0 if _failures.is_empty() else 1)
 
 func _contracts_and_contact_sheet(page: int) -> void:
@@ -39,7 +38,7 @@ func _contracts_and_contact_sheet(page: int) -> void:
 	background.size = Vector2(932, 600)
 	sheet.add_child(background)
 	_label(sheet, "COMPANY ARCHITECTURE", Vector2(28, 14), 26)
-	_label(sheet, "Original SVGs · same 128px canvas and runtime geometry", Vector2(28, 49), 16)
+	_label(sheet, "Original SVGs · 128px authored canvas / 256px import · deliberate world proportions", Vector2(28, 49), 16)
 	for index: int in range(page * 3, mini(TYPES.size(), page * 3 + 3)):
 		var column: int = index % 3
 		var kind: int = TYPES[index]
@@ -55,10 +54,15 @@ func _contracts_and_contact_sheet(page: int) -> void:
 			building.visible = false
 			var sprite: Sprite2D = building.get_node("BuildingSprite")
 			_expect(sprite.texture != null and sprite.texture.resource_path.ends_with(".svg"), name_text + " uses imported SVG")
-			_expect(sprite.texture.get_size() == Vector2(128, 128), name_text + " preserves 128px texture canvas")
-			_expect(sprite.scale == Vector2.ONE * SCALES[index], name_text + " preserves runtime scale")
+			_expect(sprite.texture.get_size() == Vector2(256, 256), name_text + " imports a 256px texture")
+			var svg_source: String = FileAccess.get_file_as_string(sprite.texture.resource_path)
+			_expect(svg_source.contains('width="128"') and svg_source.contains('height="128"') and svg_source.contains('viewBox="0 0 128 128"'), name_text + " preserves authored 128px coordinates")
+			var texture_scale: Vector2 = sprite.texture.get_size() / Vector2(128, 128)
+			var art: Rect2i = sprite.texture.get_image().get_used_rect()
+			var coverage: float = float(art.size.x) * sprite.scale.x / (FOOTPRINTS[index].x * MapData.TILE_WIDTH)
+			_expect(coverage >= 0.75 and coverage <= 0.95, name_text + " fills its intended ground width with a modest margin")
 			_expect(building.footprint == FOOTPRINTS[index], name_text + " preserves gameplay footprint")
-			_expect(sprite.offset == Vector2(0, -FOOTPRINTS[index].y * MapData.TILE_HEIGHT * 0.3), name_text + " preserves vertical anchor")
+			_expect(sprite.to_global(sprite.get_rect().position + BuildingBase.BUILDING_GROUND_ANCHORS[kind] * texture_scale).is_equal_approx(building.global_position + BuildingBase.get_footprint_center_offset(FOOTPRINTS[index])), name_text + " places source ground center on reserved tiles")
 			var collision: CollisionShape2D = null
 			for child: Node in building.get_children():
 				if child is CollisionShape2D:
@@ -70,8 +74,8 @@ func _contracts_and_contact_sheet(page: int) -> void:
 			var home_image: Image = load(BuildingBase.get_sprite_texture_path(kind, 0)).get_image()
 			var enemy_image: Image = load(BuildingBase.get_sprite_texture_path(kind, 1)).get_image()
 			var alpha_equal := true
-			for y: int in 128:
-				for x: int in 128:
+			for y: int in home_image.get_height():
+				for x: int in home_image.get_width():
 					alpha_equal = alpha_equal and is_equal_approx(home_image.get_pixel(x, y).a, enemy_image.get_pixel(x, y).a)
 			_expect(alpha_equal, name_text + " home/enemy palettes retain identical silhouette alpha")
 			var picture := TextureRect.new()

@@ -1,5 +1,7 @@
 extends SceneTree
-## Real old/mixed/current WebSocket pairs, plus deterministic catalog selection.
+## Real absent/old/mixed/current WebSocket pairs and deterministic catalog choice.
+## AOEM_TEST_SERVER_MAP_CATALOG permits the same current-client probe against
+## a frozen older server; only matching advertisements may use that catalog.
 
 var clients: Array[WebSocketPeer] = []
 var states: Array[Dictionary] = []
@@ -8,6 +10,9 @@ var round_index: int = 0
 var elapsed: float = 0.0
 var next_round_at: float = 0.0
 var endpoint: String
+var current_catalog: int = 0
+var server_catalog: int = 0
+var catalog_pairs: Array[Array] = []
 
 
 func _initialize() -> void:
@@ -15,12 +20,18 @@ func _initialize() -> void:
 	if endpoint.is_empty():
 		endpoint = "ws://127.0.0.1:19080"
 	var session: Node = load("res://scripts/network/network_session.gd").new()
-	session.set("_peers", {1: {"map_catalog": 1}, 2: {"map_catalog": 1}})
+	current_catalog = int(session.get_script().get_script_constant_map()["MAP_CATALOG_VERSION"])
+	server_catalog = int(OS.get_environment("AOEM_TEST_SERVER_MAP_CATALOG")) if not OS.get_environment("AOEM_TEST_SERVER_MAP_CATALOG").is_empty() else current_catalog
+	catalog_pairs = [[0, 0], [1, 1], [1, current_catalog], [current_catalog, 1], [0, current_catalog], [current_catalog, 0], [999, current_catalog], [current_catalog, 999], [current_catalog, current_catalog]]
+	session.set("_peers", {1: {"map_catalog": current_catalog}, 2: {"map_catalog": current_catalog}})
 	var peers: Array[int] = [1, 2]
 	for seed_value: int in range(6):
 		_expect(session.call("_choose_match_archetype", peers, seed_value) == seed_value % 3, "all compatible map types participate")
-	session.set("_peers", {1: {"map_catalog": 1}, 2: {}})
-	_expect(session.call("_choose_match_archetype", peers, 1) == MapData.MapArchetype.OPEN_PLAINS, "unknown peer catalog falls back safely")
+	for pair: Array in catalog_pairs:
+		if pair == [current_catalog, current_catalog]:
+			continue
+		session.set("_peers", {1: {"map_catalog": pair[0]}, 2: {"map_catalog": pair[1]}})
+		_expect(session.call("_choose_match_archetype", peers, 1) == MapData.MapArchetype.OPEN_PLAINS, "old, absent or unknown peer catalog falls back safely: " + str(pair))
 	for invalid_map: Variant in [-1, 3, 1.5, "1", [], {}]:
 		session.call("_client_packet", {"op": "matched", "slot": 0, "seed": 101, "match": 41, "map_archetype": invalid_map})
 		_expect(session.get("state") == "error", "unsupported map is rejected before terrain loading")
@@ -37,7 +48,7 @@ func _begin_round() -> void:
 		socket.connect_to_url(endpoint)
 		clients.append(socket)
 		states.append({"searched": false, "matched": false, "started": false, "snapshot": false})
-	print("ONLINE_MAP_PAIR_BEGIN ", round_index)
+	print("ONLINE_MAP_PAIR_BEGIN round=%d catalogs=%s server_catalog=%d" % [round_index, catalog_pairs[round_index], server_catalog])
 
 
 func _process(delta: float) -> bool:
@@ -53,8 +64,9 @@ func _process(delta: float) -> bool:
 			continue
 		if not states[index].searched:
 			var search: Dictionary = {"op": "search", "protocol": 1}
-			if round_index == 2 or (round_index == 1 and index == 0):
-				search["map_catalog"] = 1
+			var declared_catalog: int = int(catalog_pairs[round_index][index])
+			if declared_catalog > 0:
+				search["map_catalog"] = declared_catalog
 			socket.send_text(JSON.stringify(search))
 			states[index].searched = true
 		while socket.get_available_packet_count() > 0:
@@ -77,22 +89,23 @@ func _process(delta: float) -> bool:
 		_expect(states[0].match_id == states[1].match_id, "paired clients share match")
 		var chosen: int = int(states[0].map)
 		_expect(MapData.MAP_ARCHETYPES.has(chosen), "server publishes supported map")
-		if round_index < 2:
-			_expect(chosen == MapData.MapArchetype.OPEN_PLAINS, "legacy or mixed pair uses original terrain")
-		else:
+		var catalog_matches: bool = catalog_pairs[round_index] == [server_catalog, server_catalog]
+		if catalog_matches:
 			_expect(chosen == int(states[0].seed) % MapData.MAP_ARCHETYPES.size(), "current pair uses seeded catalog")
-		print("ONLINE_MAP_PAIR_VERIFIED round=%d seed=%d archetype=%d" % [round_index, states[0].seed, chosen])
+		else:
+			_expect(chosen == MapData.MapArchetype.OPEN_PLAINS, "old, mixed or unknown catalogs use unchanged Plains: " + str(catalog_pairs[round_index]))
+		print("ONLINE_MAP_PAIR_VERIFIED round=%d catalogs=%s server_catalog=%d seed=%d archetype=%d" % [round_index, catalog_pairs[round_index], server_catalog, states[0].seed, chosen])
 		for socket: WebSocketPeer in clients:
 			socket.send_text(JSON.stringify({"op": "leave"}))
 			socket.close()
 		clients.clear()
 		round_index += 1
 		next_round_at = elapsed + 0.5
-		if round_index == 3:
+		if round_index == catalog_pairs.size():
 			for failure: String in failures:
 				push_error("[FAIL] online_maps: " + failure)
 			if failures.is_empty():
-				print("[PASS] online_maps: real legacy, mixed and current catalog pairs share terrain selection; all catalog entries reachable")
+				print("[PASS] online_maps: nine real absent/legacy/mixed/unknown/current catalog pairs share terrain selection; only matching catalog uses new layouts; all catalog entries reachable")
 			quit(0 if failures.is_empty() else 1)
 	if elapsed > 35.0:
 		push_error("[FAIL] online_maps timed out round=%d" % round_index)

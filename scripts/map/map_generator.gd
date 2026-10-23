@@ -39,10 +39,16 @@ func generate() -> Array:
 	_place_water_features()
 	_place_forest_clusters()
 	_place_archetype_features()
-	_place_resources()
+	# Keep established Open Plains seeds intact. On the terrain-heavy maps,
+	# finish carving routes before scattering finite expansion resources so
+	# a river crossing cannot silently erase most of a seed's food deposits.
+	if archetype == MapData.MapArchetype.OPEN_PLAINS:
+		_place_resources()
 	_ensure_spawn_clearance()
 	_ensure_center_lane()
 	_ensure_tactical_lanes()
+	if archetype != MapData.MapArchetype.OPEN_PLAINS:
+		_place_resources()
 	_place_guaranteed_near_spawn_resources()
 	_place_contested_mid_resources()
 	_place_expansion_resources()

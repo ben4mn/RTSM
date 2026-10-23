@@ -1,26 +1,69 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <!-- Scout: dark unarmored mount, low rider and a small survey pennant. -->
-  <path fill="#3B4541" d="m36 73-12 5-7 13 12-6 11-7z"/>
-  <path fill="#566259" d="m39 80 4 20-4 4h13l4-23zm38-1 4 21-3 4h14l-4-25z"/>
-  <path fill="#778274" d="m32 72 14-10 33 4 13 15-10 12-38-2-14-11z"/>
-  <path fill="#566259" d="m32 72 14 4 33 8 10-3-7 12-38-2-14-11z"/>
-  <path fill="#899383" d="m79 75 4-22 11-11 11 8 9 11-6 8-12-1-6 16z"/>
-  <path fill="#354341" d="m83 53 1-12 7 7 6-12 6 9-12 11-8 18-5-1z"/>
-  <path fill="#D5D7C8" d="m98 48 5 2 8 11-4 4-5-8z"/>
-  <path d="m92 59 14 7-34 1" fill="none" stroke="#C4C1A5" stroke-width="1.5"/>
-  <path fill="#406861" d="m43 71 32 3 6 10-13 10-23-5z"/>
-  <path fill="#6E9C94" d="m52 38 14-4 9 12-5 21-20 4-15-7 12-14z"/>
-  <path fill="#A9C7BB" d="m56 40 8-3 8 10-7 15-13 4z"/>
-  <path fill="#406861" d="m52 38 4 2-4 26-17-2 12-14z"/>
-  <path fill="#C9B394" d="m69 44 12 9 10 5-3 5-13-5-11-10z"/>
-  <path fill="#5B5B49" d="m62 64 9-1 2 16 9 6-4 4-13-7z"/>
-  <path fill="#C9B394" d="m51 22 15-2 10 9-5 12-13 2-9-9z"/>
-  <path fill="#565D4B" d="m48 29 3-13 13-5 11 9 2 8-15-5-9 7-3 7z"/>
-  <path d="M88 20v60" stroke="#8F8B70" stroke-width="2.5"/>
-  <path fill="#6E9C94" d="m89 19 24 5-10 5 6 6-20-2z"/>
-  <path fill="#A9C7BB" d="m89 19 24 5-24 1z"/>
-  <path d="m65 27 6 2" stroke="#465046" stroke-width="1.7" stroke-linecap="round"/>
-  <circle cx="68" cy="32" r="1.3" fill="#293B38"/>
-  <path d="m62 38 5 1" stroke="#8E7A60" stroke-width="1.3"/>
-  <path fill="#A9C7BB" d="m53 41 10 3-12 11-8-2z"/>
+  <!-- Company outrider: hooded surveyor, route pennant, light saddle and dark
+       unarmored pony. Neutral leather/skin/mount; only cloth changes by owner.
+       Same 128px canvas and y104 hoof baseline as the original field piece. -->
+  <!-- Far legs and streaming tail stay behind the body. -->
+  <path fill="#303A36" d="m37 71-13 5-10 15 10-4 10-8 9-1z"/>
+  <path fill="#6B7163" d="m31 76-10 11 9-4 10-8z"/>
+  <path fill="#454F45" d="m43 78 5 15-5 8h10l6-20zm30 1 9 13-2 10h10l-1-14-5-13z"/>
+  <path fill="#29332F" d="m44 99 9-1 1 6H40zm37 0 9-1 3 6H79z"/>
+  <!-- Pony torso: clear shoulder, tucked belly and four readable hooves. -->
+  <path fill="#596757" d="m30 73 13-12 31 2 16 12-1 14-13 5-33-4-12-8z"/>
+  <path fill="#89917B" d="m34 73 11-8 27 1 15 11-9 8-31-4z"/>
+  <path fill="#6D7965" d="m33 79 14 3 31 4 10-7-3 11-13 4-29-4z"/>
+  <path fill="#76836D" d="m35 79 11 3-3 17 3 5H34l2-9zm42 4 10-4 1 18 7 5-2 2H81l-5-11z"/>
+  <path fill="#A4AB90" d="m37 83 4 2-2 13-3 1zm44 2 3-2 1 14 5 3-5 1-4-7z"/>
+  <path fill="#303A33" d="m35 100 9-1 2 5H33zm48 0 7 1 5 2-2 1H81z"/>
+  <!-- Upright unarmored neck, dark mane, cream blaze and bridle. -->
+  <path fill="#76836D" d="m75 79 6-24 10-14 12 4 12 14-3 9-12 1-9 19-9 5z"/>
+  <path fill="#A0A98E" d="m86 57 8-11 7 2 10 13-8 4-7-2-7 17-7 2z"/>
+  <path fill="#343E36" d="m80 60 2-17 7 5 7-12 5 8-10 10-7 19-8 6z"/>
+  <path fill="#BBC0A6" d="m98 48 5 2 9 11-4 4-6-8z"/>
+  <path fill="#414D42" d="m105 63 9-3-2 8-8 1z"/>
+  <path fill="#24312C" d="m98 53 3 1-1 3-3-1z"/>
+  <path d="m91 54 14 11m-1-3-30 7" fill="none" stroke="#413C30" stroke-width="3" stroke-linecap="round"/>
+  <path d="m91 54 14 11m-1-3-30 7" fill="none" stroke="#B5A480" stroke-width="1.2"/>
+  <!-- Team saddle blanket, route mark and travel roll. -->
+  <path fill="#406861" d="m43 67 31 3 7 13-14 12-25-8z"/>
+  <path fill="#6E9C94" d="m45 70 24 2 6 10-10 9-19-7z"/>
+  <path d="m49 78 7 3 6-5 7 4" fill="none" stroke="#E8E5DB" stroke-width="2.3" stroke-linejoin="round"/>
+  <path fill="#483F30" d="m47 64 25 1 3 8-25-1z"/>
+  <path fill="#AC936B" d="m34 61 10-3 9 5-2 7-13 1-7-5z"/>
+  <path fill="#D1BB91" d="m34 61 10-3 7 4-12 4z"/>
+  <path d="m40 60 4 9m4-9 2 7" stroke="#5E513B" stroke-width="2"/>
+  <!-- Cloak and practical leather over the low seated body. -->
+  <path fill="#406861" d="m48 35 18-2 10 13-6 21-16 8-22-9 7-16z"/>
+  <path fill="#6E9C94" d="m49 38 10 5-8 25-16-4 8-15z"/>
+  <path fill="#A9C7BB" d="m48 41 7 3-10 17-9 3 6-13z"/>
+  <path fill="#7A664C" d="m59 41 11 1 4 18-8 9-12-6z"/>
+  <path fill="#BAA37B" d="m62 42 6 2 3 13-7 5-7-4z"/>
+  <path d="m54 39 16 24" stroke="#4A3D2D" stroke-width="4"/>
+  <path d="m55 39 15 23" stroke="#BE9F6C" stroke-width="1.5"/>
+  <!-- Bent leg and dark boot read separately from the blanket. -->
+  <path fill="#4A493C" d="m58 61 13-1 3 16 8 9-4 5-13-9z"/>
+  <path fill="#80765B" d="m61 64 7-1 2 13-3 1z"/>
+  <path fill="#342F29" d="m67 77 5-1 7 7 5 2-1 5-7 1-10-8z"/>
+  <path fill="#BEA879" d="m76 87 7-1-1 3-7 1z"/>
+  <!-- Gloved reins hand and warm, framed face. -->
+  <path fill="#AC7D55" d="m69 43 10 10 12 5-3 6-13-6-10-10z"/>
+  <path fill="#D3A57C" d="m71 43 9 9 10 5-2 3-11-5-8-9z"/>
+  <path fill="#493D2E" d="m85 56 7 1 2 5-5 3-7-4z"/>
+  <path fill="#D5AB80" d="m50 21 13-5 11 11-2 14-11 6-12-10z"/>
+  <path fill="#AE7D53" d="m50 25 5 1 2 11 9 6-6 4-11-10z"/>
+  <path fill="#F0C69A" d="m60 24 8 1 4 7-4 2 1 5-7 2-3-8z"/>
+  <path fill="#3F3C30" d="m48 27 3-13 11-7 10 8 5 16-7-5-6-7-9 7-2 11z"/>
+  <path fill="#6E9C94" d="m48 27 4-14 10-7 11 9-10-5-9 11-3 13z"/>
+  <path fill="#A9C7BB" d="m53 14 9-7 6 7-6-3-7 7z"/>
+  <path d="m62 27 7 1" stroke="#49392B" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="67" cy="31" r="1.4" fill="#29312C"/>
+  <path d="m64 38 5-1" stroke="#8E5F40" stroke-width="1.6" stroke-linecap="round"/>
+  <path fill="#E8E5DB" d="m51 36 8 6 12-2-5 8-11-1-7-7z"/>
+  <path fill="#A9C7BB" d="m50 40 7 6-8 13-8-3z"/>
+  <!-- Tall narrow route pennant distinguishes recon from armored cavalry. -->
+  <path d="M91 14v68" stroke="#493D2B" stroke-width="4" stroke-linecap="round"/>
+  <path d="M92 16v64" stroke="#B89D68" stroke-width="1.6"/>
+  <path fill="#406861" d="m93 13 25 5-7 7 4 8-22-4z"/>
+  <path fill="#6E9C94" d="m93 13 25 5-9 5-16-1z"/>
+  <path fill="#A9C7BB" d="m93 13 25 5-25-2z"/>
+  <path d="m98 19 4 1v5l6 1" fill="none" stroke="#E8E5DB" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

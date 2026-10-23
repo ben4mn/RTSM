@@ -978,6 +978,12 @@ func _run() -> void:
 	var farm_recovery_gold_before: int = int(cargo_dropoff.deposits.get("gold", 0))
 	if built_farm != null and is_instance_valid(built_farm):
 		ai.call("_assign_safe_worker_to_completed_farm", built_farm)
+		_expect(built_farm.call("get_assigned_worker") == villager, "occupied Farm retains its existing farmer")
+		_expect_eq(int(loaded_farm_worker.get("carried_amount")), 7, "occupied Farm leaves a second worker's gold untouched")
+		# Release the first farmer through a real new job. The completion recovery
+		# contract now applies to an available slot, never a second simultaneous one.
+		_expect(bool(villager.call("command_gather", nearer_natural_food)), "first farmer can leave for natural food")
+		ai.call("_assign_safe_worker_to_completed_farm", built_farm)
 		_expect_eq(
 			int(loaded_farm_worker.get("_gather_last_known_instance_id")),
 			built_farm.get_instance_id(),

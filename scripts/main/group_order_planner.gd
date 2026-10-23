@@ -13,7 +13,8 @@ static func plan(
 	units: Array[UnitBase],
 	target_tile: Vector2i,
 	friendly_units: Array = [],
-	player_owner: int = 0
+	player_owner: int = 0,
+	destination_filter: Callable = Callable()
 ) -> Array[Dictionary]:
 	var orders: Array[Dictionary] = []
 	var selected_ids: Dictionary = {}
@@ -39,6 +40,10 @@ static func plan(
 			if not game_map.is_tile_walkable(candidate):
 				continue
 			var destination: Vector2 = game_map.tile_to_world(candidate)
+			# Optional caller bounds must constrain candidates before route choice.
+			# The default human group order retains its full existing search area.
+			if destination_filter.is_valid() and not bool(destination_filter.call(destination)):
+				continue
 			if _is_occupied_by_other_friendly(destination, friendly_units, selected_ids, player_owner):
 				continue
 			candidates.append(candidate)
