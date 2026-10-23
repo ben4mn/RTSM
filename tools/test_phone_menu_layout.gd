@@ -8,6 +8,8 @@ const PROFILES: Array[Dictionary] = [
 	{"size": Vector2(844, 390), "scale": 1.0, "notch": false},
 	{"size": Vector2(844, 390), "scale": 1.15, "notch": true},
 	{"size": Vector2(932, 430), "scale": 1.15, "notch": true},
+	{"size": Vector2(844, 390), "scale": 1.15, "notch": true, "clearance": 60.0, "scroll_map": true},
+	{"size": Vector2(932, 430), "scale": 1.15, "notch": true, "clearance": 60.0, "scroll_map": true},
 	# 1280x800 Web stretches to 844x527. Shell controls consume more height.
 	{"size": Vector2(844, 527), "scale": 1.0, "notch": false, "clearance": 45.0},
 	{"size": Vector2(844, 501), "scale": 1.0, "notch": false},
@@ -71,6 +73,13 @@ func _exercise(profile: Dictionary) -> void:
 	_touch(menu.get("_back_button"), safe, context + " Back")
 	for button: Button in menu.get("_map_buttons"):
 		_touch(button, safe, context + " " + button.name)
+		_bounds(button, (menu.get("_map_scroll") as Control).get_global_rect(), context + " map target initially visible")
+	if bool(profile.get("scroll_map", false)):
+		var map_scroll: ScrollContainer = menu.get("_map_scroll")
+		map_scroll.scroll_vertical = 10000
+		await get_tree().process_frame
+		_bounds(menu.get("map_summary_label"), map_scroll.get_global_rect(), context + " map details reachable by scroll")
+		map_scroll.scroll_vertical = 0
 	for archetype: int in MapData.MAP_ARCHETYPES:
 		(menu.get("_map_buttons") as Array)[archetype].pressed.emit()
 		_expect(GameManager.selected_map_archetype == archetype, context + " selected map is game draft")
@@ -85,7 +94,7 @@ func _exercise(profile: Dictionary) -> void:
 	(menu.get("_population_buttons") as Array)[0].pressed.emit()
 	_expect(GameManager.selected_population_limit == 20, context + " population applied")
 	var scroll: ScrollContainer = menu.get("_options_scroll")
-	_expect(scroll.size.y >= 120, context + " useful options scroll viewport")
+	_expect(scroll.size.y >= (96.0 if bool(profile.get("scroll_map", false)) else 120.0), context + " useful options scroll viewport")
 	scroll.scroll_vertical = 10000
 	await get_tree().process_frame
 	_bounds(menu.get("seed_input"), safe, context + " seed reachable by scroll")

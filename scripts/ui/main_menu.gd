@@ -46,6 +46,7 @@ var _tabs: HBoxContainer
 var _solo_tab: Button
 var _online_tab: Button
 var _columns: BoxContainer
+var _map_scroll: ScrollContainer
 var _map_panel: VBoxContainer
 var _map_cards: HBoxContainer
 var _map_buttons: Array[Button] = []
@@ -235,12 +236,19 @@ func _build_setup() -> void:
 	_columns.add_theme_constant_override("separation", 20)
 	_columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_setup.add_child(_columns)
+	_map_scroll = ScrollContainer.new()
+	_map_scroll.name = "BattlefieldScroll"
+	_map_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_map_scroll.size_flags_stretch_ratio = 1.6
+	_map_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_map_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_columns.add_child(_map_scroll)
 	_map_panel = VBoxContainer.new()
 	_map_panel.name = "BattlefieldSelection"
 	_map_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_map_panel.size_flags_stretch_ratio = 1.6
+	_map_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_map_panel.add_theme_constant_override("separation", 8)
-	_columns.add_child(_map_panel)
+	_map_scroll.add_child(_map_panel)
 	_map_heading = _label("CHOOSE YOUR BATTLEFIELD", 12)
 	THEME.apply_eyebrow(_map_heading)
 	_map_panel.add_child(_map_heading)
@@ -698,6 +706,11 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2, shell_top_cle
 	_home_note.visible = not compact
 	var margin: float = 12.0 if compact else 32.0
 	var available: Rect2 = _menu_frame_rect(_active_safe_area, margin, web_clearance)
+	# On the shortest UI-scaled phones the browser toolbar leaves less than the
+	# compact body's minimum. Keep actions fixed and scroll battlefield details.
+	var short_body: bool = compact and available.size.y < 302.0
+	_map_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO if short_body else ScrollContainer.SCROLL_MODE_DISABLED
+	_map_heading.visible = not short_body
 	var max_width: float = 1280.0
 	if available.size.x > max_width:
 		available.position.x += (available.size.x - max_width) * 0.5

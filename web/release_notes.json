@@ -5,9 +5,10 @@
       "version": "0.2.0-beta.10",
       "date": "2026-10-23",
       "title": "Ready to start",
-      "summary": "New Game keeps its Start and Leave room controls visible in intermediate-height browser windows.",
+      "summary": "New Game keeps Start and Leave room visible in browser windows and small landscape screens.",
       "changes": [
         "The lobby and game-creation layout now account for browser controls, safe areas and margins before choosing the larger map cards.",
+        "On the shortest screens, battlefield details scroll while the map choices and match actions stay within reach.",
         "The multiplayer stability, shared map selection and command-table redesign from beta.9 are included."
       ]
     },
