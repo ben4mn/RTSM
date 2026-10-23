@@ -156,11 +156,22 @@ func _run_case(case_index: int) -> bool:
 	menu.call("_on_population_selected", GameManager.selected_population_limit)
 	(menu.get("seed_input") as LineEdit).text = str(GameManager.selected_map_seed) if GameManager.selected_map_seed >= 0 else ""
 	(menu.get("guided_opening_toggle") as CheckButton).set_pressed_no_signal(GameManager.guided_opening_enabled)
-	await _click(menu.get("_new_game_button") as Button)
+	# The production menu lays out its containers through deferred reflow. Its
+	# first-frame button coordinates are not yet usable for viewport input.
+	_set_phase("menu-home")
+	await _settle(6)
+	if not await _click(menu.get("_new_game_button") as Button):
+		return false
+	if menu.get("_screen") != "setup":
+		return _fail("New Game did not open the real setup screen")
 	_set_phase("menu")
 	await _settle(6)
+	if not await _click((menu.get("_map_buttons") as Array)[int(scenario.map)] as Button):
+		return false
+	await _settle(6)
 	await _capture("01-menu")
-	await _click(menu.get("start_button") as Button)
+	if not await _click(menu.get("start_button") as Button):
+		return false
 	if not await _wait_for(func() -> bool:
 		return get_tree().current_scene != null and get_tree().current_scene.scene_file_path == "res://scenes/main/main.tscn" and get_tree().current_scene.get("_building_placement") != null and GameManager.current_state == GameManager.GameState.PLAYING
 	):
@@ -239,7 +250,8 @@ func _run_case(case_index: int) -> bool:
 	if result == null or not bool(result.get("visible")):
 		return _fail("Natural ending did not show the real game-over screen")
 	_validate_case()
-	await _click(result.get("main_menu_button") as Button)
+	if not await _click(result.get("main_menu_button") as Button):
+		return false
 	if not await _wait_for(func() -> bool:
 		return get_tree().current_scene != null and get_tree().current_scene.scene_file_path == "res://scenes/ui/main_menu.tscn" and GameManager.current_state == GameManager.GameState.MENU and not get_tree().paused
 	):
@@ -677,10 +689,9 @@ func _capture(label: String) -> void:
 		current.screenshots.append({"file": path, "game_seconds": GameManager.game_time, "phase": phase, "congestion_context": _crowd_capture_targets.get(label, {})})
 
 
-func _click(button: Button) -> void:
+func _click(button: Button) -> bool:
 	if button == null or not button.is_visible_in_tree() or button.disabled:
-		_fail("Navigation button is unavailable")
-		return
+		return _fail("Navigation button is unavailable: " + (str(button.get_path()) if button != null else "missing button"))
 	var viewport: Viewport = button.get_viewport()
 	# push_input(..., true) takes logical viewport coordinates. Include the
 	# control's canvas transform, but do not apply the final window stretch.
@@ -712,7 +723,10 @@ func _click(button: Button) -> void:
 	if not report.has("navigation_clicks"): report["navigation_clicks"] = []
 	report.navigation_clicks.append(receipt)
 	_write_json(output_directory.path_join("navigation-clicks.json"), {"clicks": report.navigation_clicks})
+	if int(receipt.pressed_signals) != 1:
+		return _fail("Navigation click did not activate exactly once: " + str(receipt.button))
 	await get_tree().process_frame
+	return true
 
 
 func _key(keycode: int) -> void:

@@ -37,7 +37,8 @@ func _run() -> void:
 		_check(not session.send_command("age"), "Ended match accepted gameplay command")
 		var result: CanvasLayer = session.adapter.main.get_node("GameOverScreen")
 		_check(result.result_label.text == ("MATCH ENDED" if connection_failure else "VICTORY"), "Result misrepresents unknown winner")
-		_check(result.play_again_button.text == "Find match", "Online replay action is unclear")
+		# Results return to the shared New Game flow introduced with private rooms.
+		_check(result.play_again_button.text == "New game", "Online replay action is unclear")
 		_check(not result.score_bar.visible and not result.panel.get_node("Margin/VBox/StatsHeader/Right").visible, "Online result fabricated opponent comparisons")
 	_check(session.state == ("error" if connection_failure else "ended"), "Wrong terminal transport state")
 	# A late start frame must never reactivate the terminal transport.
