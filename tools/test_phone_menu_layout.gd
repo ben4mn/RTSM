@@ -8,7 +8,18 @@ const PROFILES: Array[Dictionary] = [
 	{"size": Vector2(844, 390), "scale": 1.0, "notch": false},
 	{"size": Vector2(844, 390), "scale": 1.15, "notch": true},
 	{"size": Vector2(932, 430), "scale": 1.15, "notch": true},
+	# 1280x800 Web stretches to 844x527. Shell controls consume more height.
+	{"size": Vector2(844, 527), "scale": 1.0, "notch": false, "clearance": 45.0},
+	{"size": Vector2(844, 501), "scale": 1.0, "notch": false},
+	{"size": Vector2(844, 560), "scale": 1.0, "notch": false},
+	{"size": Vector2(844, 600), "scale": 1.0, "notch": true},
+	{"size": Vector2(844, 623), "scale": 1.0, "notch": false, "compact": true},
+	{"size": Vector2(844, 624), "scale": 1.0, "notch": false, "compact": false},
+	{"size": Vector2(844, 624), "scale": 1.0, "notch": false, "clearance": 45.0, "compact": true},
+	{"size": Vector2(844, 637), "scale": 1.0, "notch": false, "clearance": 45.0, "compact": false},
+	{"size": Vector2(844, 660), "scale": 1.0, "notch": true, "clearance": 45.0},
 ]
+var _shell_clearance: float = 0.0
 
 
 func _ready() -> void:
@@ -30,6 +41,7 @@ func _run() -> void:
 
 func _exercise(profile: Dictionary) -> void:
 	var logical: Vector2 = (profile.size / profile.scale).floor()
+	_shell_clearance = float(profile.get("clearance", 0.0))
 	var safe := Rect2(Vector2.ZERO, logical)
 	if profile.notch:
 		var inset: float = 44.0 / float(profile.scale)
@@ -42,7 +54,9 @@ func _exercise(profile: Dictionary) -> void:
 	menu.size = logical
 	viewport.add_child(menu)
 	await _settle(menu, logical, safe)
-	var context: String = "%s scale=%s" % [profile.size, profile.scale]
+	var context: String = "%s scale=%s shell=%s" % [profile.size, profile.scale, _shell_clearance]
+	if profile.has("compact"):
+		_expect(menu.get("_compact_layout") == profile.compact, context + " usable-height breakpoint")
 	_expect(menu.get("_screen") == "home", context + " starts at home")
 	_bounds(menu.get("_root_margin"), safe, context + " home frame")
 	_touch(menu.get("_new_game_button"), safe, context + " New Game")
@@ -53,6 +67,7 @@ func _exercise(profile: Dictionary) -> void:
 	_expect(menu.get("_screen") == "setup", context + " New Game opens setup")
 	_bounds(menu.get("_root_margin"), safe, context + " setup frame")
 	_touch(menu.get("start_button"), safe, context + " Start")
+	_footer_bounds(menu, safe, context + " solo")
 	_touch(menu.get("_back_button"), safe, context + " Back")
 	for button: Button in menu.get("_map_buttons"):
 		_touch(button, safe, context + " " + button.name)
@@ -89,6 +104,7 @@ func _exercise(profile: Dictionary) -> void:
 	menu.call("_on_room_changed")
 	await _settle(menu, logical, safe)
 	_expect((menu.get("start_button") as Button).disabled, context + " guest cannot start")
+	_footer_bounds(menu, safe, context + " guest")
 	_expect((menu.get("_room_map") as Label).text.contains("River Crossings"), context + " guest sees host map")
 	for button: Button in menu.get("_map_buttons"):
 		_expect(button.disabled, context + " guest cannot edit host map")
@@ -98,7 +114,9 @@ func _exercise(profile: Dictionary) -> void:
 	_expect((menu.get("start_button") as Button).disabled, context + " host cannot start alone")
 	session.set("room_players", 2)
 	menu.call("_on_room_changed")
+	await _settle(menu, logical, safe)
 	_expect(not (menu.get("start_button") as Button).disabled, context + " host can start two-player room")
+	_footer_bounds(menu, safe, context + " host")
 	_touch(menu.get("_leave_button"), safe, context + " leave room")
 	menu.call("_on_network_status_changed", "lobby", "Waiting for an arena…")
 	_expect((menu.get("start_button") as Button).disabled, context + " queued host cannot repeat start")
@@ -131,9 +149,21 @@ func _exercise(profile: Dictionary) -> void:
 func _settle(menu: Control, logical: Vector2, safe: Rect2) -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
-	menu.call("apply_mobile_layout", logical, safe)
+	menu.call("apply_mobile_layout", logical, safe, _shell_clearance)
 	await get_tree().process_frame
 	await get_tree().process_frame
+
+
+func _footer_bounds(menu: Control, safe: Rect2, context: String) -> void:
+	var frame: Control = menu.get("_root_margin")
+	_bounds(frame, safe, context + " frame")
+	_expect(frame.position.y >= _shell_clearance, context + " below browser controls")
+	for control: Control in [menu.get("_footer"), menu.get("start_button")]:
+		_bounds(control, frame.get_global_rect(), context + " footer within frame")
+	_touch(menu.get("start_button"), safe, context + " footer Start")
+	if (menu.get("_leave_button") as Control).is_visible_in_tree():
+		_touch(menu.get("_leave_button"), frame.get_global_rect(), context + " footer Leave")
+	_expect((menu.get("_columns") as Control).get_global_rect().end.y <= (menu.get("_footer") as Control).get_global_rect().position.y, context + " content does not overlap footer")
 
 
 func _touch(control: Control, safe: Rect2, label: String) -> void:

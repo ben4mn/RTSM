@@ -8,7 +8,9 @@ const WEB_SHELL_BRIDGE := preload("res://scripts/ui/web_shell_bridge.gd")
 const DIFFICULTY_NAMES: Array[String] = ["Easy", "Medium", "Hard"]
 const DIFFICULTY_DESCRIPTIONS: Array[String] = ["Time to build. Light pressure.", "Regular raids. Balanced pressure.", "Early raids. Relentless pressure."]
 const MAP_TRAITS: Array[String] = ["Room to manoeuvre", "Control the crossings", "Find the side routes"]
-const COMPACT_LAYOUT_MAX_HEIGHT: float = 500.0
+# Expanded cards, tabs, header and footer need 545px with the current fonts.
+# Leave a little rounding headroom inside the frame, after safe areas and chrome.
+const EXPANDED_LAYOUT_MIN_HEIGHT: float = 560.0
 
 @export var main_menu_diagnostics: Dictionary = {}
 var _shared_settings: Control
@@ -677,13 +679,15 @@ func _refresh_responsive_layout() -> void:
 	call_deferred("_refresh_main_menu_diagnostics")
 
 
-func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
+func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2, shell_top_clearance: float = -1.0) -> void:
 	_active_safe_area = safe_area.intersection(Rect2(Vector2.ZERO, viewport_size))
 	if not _active_safe_area.has_area():
 		_active_safe_area = Rect2(Vector2.ZERO, viewport_size)
 	if is_instance_valid(_shared_settings):
 		_shared_settings.apply_mobile_layout(viewport_size, _active_safe_area)
-	_compact_layout = _active_safe_area.size.y <= COMPACT_LAYOUT_MAX_HEIGHT
+	var web_clearance: float = shell_top_clearance if shell_top_clearance >= 0.0 else WEB_SHELL_BRIDGE.get_menu_top_clearance(viewport_size)
+	var expanded_frame: Rect2 = _menu_frame_rect(_active_safe_area, 32.0, web_clearance)
+	_compact_layout = expanded_frame.size.y < EXPANDED_LAYOUT_MIN_HEIGHT
 	var compact: bool = _compact_layout
 	var desired_tab_parent: Node = _header if compact else _setup
 	if _tabs.get_parent() != desired_tab_parent:
@@ -693,11 +697,7 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 	_home_intro.visible = not compact
 	_home_note.visible = not compact
 	var margin: float = 12.0 if compact else 32.0
-	var web_clearance: float = WEB_SHELL_BRIDGE.get_menu_top_clearance(viewport_size)
-	var available: Rect2 = _active_safe_area.grow(-margin)
-	if web_clearance > available.position.y:
-		available.size.y -= web_clearance - available.position.y
-		available.position.y = web_clearance
+	var available: Rect2 = _menu_frame_rect(_active_safe_area, margin, web_clearance)
 	var max_width: float = 1280.0
 	if available.size.x > max_width:
 		available.position.x += (available.size.x - max_width) * 0.5
@@ -737,6 +737,14 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 	else:
 		_home.vertical = false
 		_hero_art.custom_minimum_size.y = 0
+
+
+static func _menu_frame_rect(safe_area: Rect2, margin: float, top_clearance: float) -> Rect2:
+	var available: Rect2 = safe_area.grow(-margin)
+	if top_clearance > available.position.y:
+		available.size.y -= top_clearance - available.position.y
+		available.position.y = top_clearance
+	return available
 
 
 func _get_safe_area_rect(viewport_size: Vector2) -> Rect2:

@@ -1,6 +1,17 @@
 {
   "releases": [
     {
+      "id": "2026-10-23-visible-lobby-actions",
+      "version": "0.2.0-beta.10",
+      "date": "2026-10-23",
+      "title": "Ready to start",
+      "summary": "New Game keeps its Start and Leave room controls visible in intermediate-height browser windows.",
+      "changes": [
+        "The lobby and game-creation layout now account for browser controls, safe areas and margins before choosing the larger map cards.",
+        "The multiplayer stability, shared map selection and command-table redesign from beta.9 are included."
+      ]
+    },
+    {
       "id": "2026-10-23-command-table",
       "version": "0.2.0-beta.9",
       "date": "2026-10-23",
