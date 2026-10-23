@@ -78,7 +78,15 @@ On iPhone, open the URL in Safari and use Share → Add to Home Screen. Enable *
 
 This is a rough public preview. Desktop browser automation does not certify physical-phone touch behavior, safe areas, audio, or prolonged performance.
 
-## Latest release — 2026-10-22 find your fighters
+## Latest release — 2026-10-23 command table and private lobbies
+
+Published beta.9 at 18:42 UTC, beta.10 footer corrections at 19:05 UTC, and the final beta.11 direct-entry layout correction at `2026-10-23T19:24:43Z`. Final static target: `releases/94323bc4-settled-menu-20261023`; clean runtime revision `b48ebbb5c01369614aac35510382a3833e21c6dc`; source tree `94323bc46aedecadcfb976e93d3342d170e2aa8c20f396b6fd602f178c589505`. Server image `sha256:b821423cfb5ea2e129cd94932a11da691f0f3fd207b52792163f274bee1831ff` started at `19:24:42Z`. All 447 runtime files and all 40 public payloads match. Each cutover waited for zero connections and replaced only online; Nginx, diagnostics and the tunnel retained their exact original containers/start times.
+
+This release publishes the [multiplayer stability and presentation overhaul](redesign_stability_2026-10-23.md). Publication, actual browser matches, cached-client update, layout fixes, observed late-game slowdown and postflight are recorded in [the live deployment report](live_deployment_2026-10-23.md). Canonical/reproduced exports are preserved at `build/deployed-beta11-20261023` and `build/deployed-beta11-reproduced-20261023`, with the closed server context at `build/deployed-beta11-match-server-20261023`.
+
+Immediate rollback retains beta.10 static `releases/475bb5f8-fixed-lobby-20261023`, image `sha256:947bb896c0daaa5f120a77253a7dabf9a1d52b12350e0ffb145989b98cae265b`, and context/identity backup `deployment-backups/server-before-beta11-b48ebbb5c013-20261023`. The earlier beta.9/beta.8 releases and images also remain. The final immutable context is `deployment-candidates/server-beta11-b48ebbb5c013` under `/home/ben/aoem`.
+
+## Previous release — 2026-10-22 find your fighters
 
 Published `releases/5c363f3a-selected-fighters-20261022` at `2026-10-22T06:35:39Z`, version `0.2.0-beta.8`. Clean runtime revision: `c26be0f34f2b90a574f3a30ea75d669f1e382bc1`; staged source SHA-256: `5c363f3a38cb31bb50e5b4a040753cab6237fb328702dec62dd056c8096b45a7`. Canonical export: `build/selected-fighters-20261022`; independent witness: `build/selected-fighters-reproduced-20261022`. Both closed exports match in substantive payloads and source manifests. Runtime was committed and pushed before export.
 
