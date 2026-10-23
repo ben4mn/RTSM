@@ -87,6 +87,8 @@ var _hold_hints_shown: Dictionary = {}
 var _hold_chooser_active: bool = false
 var _selection_info_button: Button = null
 var _selection_name_header: HBoxContainer = null
+var _selection_meter_label: Label = null
+var _selection_meter_information: String = ""
 var _info_panel: PanelContainer = null
 var _info_title: Label = null
 var _info_body: Label = null
@@ -1768,8 +1770,10 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 		selection_details.add_theme_constant_override("line_spacing", 0)
 	else:
 		selection_details.remove_theme_constant_override("line_spacing")
-	selection_hp_bar.custom_minimum_size.y = 4.0
-	selection_info_column.add_theme_constant_override("separation", 3)
+	# The value sits inside the meter so health, stock and progress remain
+	# explicit without adding another row to the compact identity column.
+	selection_hp_bar.custom_minimum_size.y = 14.0
+	selection_info_column.add_theme_constant_override("separation", 2 if compact_tc_info else 3)
 	_update_selection_name_layout(float(metrics["selection_info_width"]) - 26.0)
 	if _selection_info_button:
 		_selection_info_button.visible = _selection_context_active and standard_field_chrome_visible
@@ -2432,8 +2436,13 @@ func update_population(current: int, cap: int) -> void:
 	_population_current = current
 	_population_cap = cap
 	pop_label.text = "%d/%d" % [current, cap]
-	pop_label.tooltip_text = "Population: %d of %d" % [current, cap]
+	pop_label.tooltip_text = str(_population_information().get("body", ""))
 	pop_label.accessibility_name = pop_label.tooltip_text
+	var population_color: Color = KingdomTheme.RUST if current >= cap else (KingdomTheme.AMBER if cap - current <= 2 else KingdomTheme.PARCHMENT)
+	pop_label.add_theme_color_override("font_color", population_color)
+	var population_chip: Control = _resource_chips.get("population")
+	if population_chip != null:
+		(population_chip.get_node("ResourceIcon") as TextureRect).modulate = population_color
 	if _top_bar_compact:
 		var gm: Node = _get_game_manager()
 		var current_age: String = gm.get_age_name(gm.get_player_age(0)) if gm else "Dark Age"
@@ -2444,6 +2453,27 @@ func update_population(current: int, cap: int) -> void:
 			pop_label.text += "\n" + current_age
 		pop_label.tooltip_text += " · " + current_age
 		pop_label.accessibility_name = pop_label.tooltip_text
+
+
+func _population_information() -> Dictionary:
+	var gm: Node = _get_game_manager()
+	var player: Dictionary = gm.players.get(0, {}) if gm != null else {}
+	var living: int = int(player.get("population", _population_current))
+	var reserved: int = maxi(0, _population_current - living)
+	var limit: int = gm.get_player_population_limit(0) if gm != null else _match_population_limit
+	var lines: PackedStringArray = ["Population: %d of %d" % [_population_current, _population_cap], "%d living · %d paid in queues" % [living, reserved]]
+	if _population_current >= _population_cap:
+		if _population_cap < limit:
+			lines.append("Housing full. Build a House to add room.")
+		else:
+			lines.append("Match population limit reached.")
+		if living < _population_cap:
+			lines.append("Cancel a paid unit in Queue to free its reserved room.")
+		elif _population_cap >= limit:
+			lines.append("A living unit must leave before another can train.")
+	else:
+		lines.append("%d room available. Queued units reserve room immediately." % (_population_cap - _population_current))
+	return {"title": "Population & housing", "body": "\n".join(lines)}
 
 
 # --- Age display ---
@@ -2588,8 +2618,7 @@ func show_unit_selection(unit_name: String, current_hp: int, max_hp: int, action
 	else:
 		selection_name.text = unit_name
 	_selection_full_name = selection_name.text
-	selection_hp_bar.max_value = max_hp
-	selection_hp_bar.value = current_hp
+	_set_selection_meter(current_hp, max_hp, "HP %d / %d" % [current_hp, max_hp], "Health %d / %d" % [current_hp, max_hp])
 	_update_hp_bar_color(current_hp, max_hp)
 	# Show stats line + action text
 	var stats_line := ""
@@ -2656,9 +2685,13 @@ func show_building_selection(building_name: String, current_hp: int, max_hp: int
 	selection_panel.visible = not _placement_mode_active and _ui_modal_state != UIModalState.BUILD_MENU
 	selection_name.text = building_name
 	_selection_full_name = building_name
-	selection_hp_bar.max_value = max_hp
-	selection_hp_bar.value = current_hp
+	_set_selection_meter(current_hp, max_hp, "HP %d / %d" % [current_hp, max_hp], "Health %d / %d" % [current_hp, max_hp])
 	_update_hp_bar_color(current_hp, max_hp)
+	if is_instance_valid(building_ref) and building_ref is BuildingBase and (building_ref as BuildingBase).state == BuildingBase.State.CONSTRUCTING:
+		var foundation := building_ref as BuildingBase
+		var progress: int = clampi(int(foundation.build_progress * 100.0), 0, 100)
+		_set_selection_meter(progress, 100, "Build %d%%" % progress, "Construction %d%%\nHealth %d / %d" % [progress, current_hp, max_hp])
+		_set_selection_meter_color(KingdomTheme.GOLD)
 	# Show building details
 	var detail_parts: PackedStringArray = PackedStringArray()
 	if building_ref and is_instance_valid(building_ref) and building_ref is BuildingBase:
@@ -2728,9 +2761,8 @@ func show_resource_info(type_name: String, remaining: int, total: int, pct: int)
 	selection_panel.visible = not _placement_mode_active and _ui_modal_state != UIModalState.BUILD_MENU
 	selection_name.text = "%s Resource" % type_name
 	_selection_full_name = selection_name.text
-	selection_hp_bar.max_value = total
-	selection_hp_bar.value = remaining
-	_update_hp_bar_color(remaining, total)
+	_set_selection_meter(remaining, total, "Stock %d%%" % pct, "%s stock: %d / %d (%d%% remaining)" % [type_name, remaining, total, pct])
+	_set_selection_meter_color(RESOURCE_COLORS.get(type_name.to_lower(), KingdomTheme.TEAL))
 	selection_details.text = "%d / %d\n%d%% remaining" % [remaining, total, pct]
 	queue_container.visible = false
 	_last_queue_items = []
@@ -2786,7 +2818,9 @@ func _building_purpose(building_ref: Node2D) -> String:
 		# A stopped foundation cannot make progress without an accepted Build
 		# order. Keep travel and protective recovery assigned; never infer enemy
 		# labor behind fog from this human construction hint.
-		if building.player_owner == 0 and not _has_foundation_builder(building):
+		# Online snapshots carry completion, but no worker-to-foundation link.
+		# An absent local build_target cannot establish that labor is missing.
+		if building.player_owner == 0 and not NetworkSession.is_network_match() and not _has_foundation_builder(building):
 			return "Needs builder"
 		return "Building %d%%" % int(building.build_progress * 100.0)
 	match building.building_type:
@@ -2800,7 +2834,12 @@ func _building_purpose(building_ref: Node2D) -> String:
 			return "Tap resource\nfor rally"
 		BuildingData.BuildingType.HOUSE: return "+%d housing" % int(BuildingData.BUILDINGS[building.building_type].get("pop_provided", 0))
 		BuildingData.BuildingType.RESOURCE_CAMP: return "Food · wood · gold drop-off"
-		BuildingData.BuildingType.FARM: return "Unlimited food\n1 worker"
+		BuildingData.BuildingType.FARM:
+			# Replicas do not include farmer reservations. Missing local data must
+			# never imply availability, nor disclose an opponent's assignment.
+			if building.player_owner == 0 and not NetworkSession.is_network_match():
+				return "Unlimited food\nWorker assigned" if is_instance_valid(building.get_assigned_worker()) else "Unlimited food\nNeeds 1 worker"
+			return "Unlimited food\n1 worker capacity"
 		BuildingData.BuildingType.BARRACKS: return "Trains Warriors"
 		BuildingData.BuildingType.ARCHERY_RANGE: return "Trains Archers"
 		BuildingData.BuildingType.STABLE: return "Trains Horsemen"
@@ -2829,13 +2868,41 @@ func _update_hp_bar_color(current: int, maximum: int) -> void:
 	if maximum <= 0:
 		return
 	var pct: float = float(current) / float(maximum)
-	var fill_style: StyleBoxFlat = selection_hp_bar.get_theme_stylebox("fill").duplicate() as StyleBoxFlat
 	if pct > 0.6:
-		fill_style.bg_color = KingdomTheme.TEAL
+		_set_selection_meter_color(KingdomTheme.TEAL)
 	elif pct > 0.3:
-		fill_style.bg_color = Color("cfbd85")
+		_set_selection_meter_color(Color("cfbd85"))
 	else:
-		fill_style.bg_color = KingdomTheme.RUST
+		_set_selection_meter_color(KingdomTheme.RUST)
+
+
+func _set_selection_meter(current: float, maximum: float, caption: String, information: String) -> void:
+	selection_hp_bar.max_value = maxf(1.0, maximum)
+	selection_hp_bar.value = current
+	selection_hp_bar.tooltip_text = information
+	selection_hp_bar.accessibility_name = information
+	_selection_meter_information = information
+	if _selection_meter_label == null:
+		_selection_meter_label = Label.new()
+		_selection_meter_label.name = "SelectionMeterValue"
+		_selection_meter_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_selection_meter_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_selection_meter_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		_selection_meter_label.add_theme_font_size_override("font_size", 11)
+		_selection_meter_label.add_theme_color_override("font_color", KingdomTheme.PARCHMENT)
+		_selection_meter_label.add_theme_color_override("font_outline_color", KingdomTheme.INK)
+		_selection_meter_label.add_theme_font_override("font", KingdomTheme.FONT_MEDIUM)
+		_selection_meter_label.add_theme_constant_override("outline_size", 1)
+		selection_hp_bar.add_child(_selection_meter_label)
+		_selection_meter_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_selection_meter_label.text = caption
+
+
+func _set_selection_meter_color(color: Color) -> void:
+	var fill_style: StyleBoxFlat = selection_hp_bar.get_theme_stylebox("fill").duplicate() as StyleBoxFlat
+	# Parchment values need contrast even across a completely filled meter.
+	# Keep the resource/health hue, with enough darkness for the small caption.
+	fill_style.bg_color = color.darkened(0.50)
 	selection_hp_bar.add_theme_stylebox_override("fill", fill_style)
 
 
@@ -4059,9 +4126,10 @@ func show_sacred_site_selection(status: Dictionary) -> void:
 		_selection_full_name = "Sacred Site"
 		selection_name.text = _selection_full_name
 	selection_name.tooltip_text = _sacred_site_instructions(status)
-	selection_hp_bar.max_value = 100.0
-	selection_hp_bar.value = float(status.get("capture_progress", 0.0)) * 100.0
+	var capture_percent: int = clampi(floori(float(status.get("capture_progress", 0.0)) * 100.0), 0, 100)
+	_set_selection_meter(capture_percent, 100.0, "Capture %d%%" % capture_percent, "Capture progress: %d%%" % capture_percent)
 	var phase: String = str(status.get("phase", "neutral"))
+	_set_selection_meter_color(KingdomTheme.RUST if int(status.get("owner", -1)) == 1 else KingdomTheme.TEAL)
 	var owner_name: String = "You" if int(status.get("owner", -1)) == 0 else "Enemy"
 	var remaining: int = maxi(0, ceili(float(status.get("remaining", 0.0))))
 	var clock: String = "%d:%02d" % [int(remaining / 60.0), remaining % 60]
@@ -4488,7 +4556,8 @@ func show_card_information(info: Dictionary) -> void:
 
 func _selection_information() -> Dictionary:
 	var lines: PackedStringArray = []
-	lines.append("HP %d / %d" % [int(selection_hp_bar.value), int(selection_hp_bar.max_value)])
+	if not _selection_meter_information.is_empty():
+		lines.append(_selection_meter_information)
 	if not selection_details.text.is_empty():
 		lines.append(selection_details.text)
 	if _selection_kind == "unit":
@@ -4499,6 +4568,8 @@ func _selection_information() -> Dictionary:
 	elif is_instance_valid(_selected_building_ref):
 		if _selected_building_ref is BuildingBase and (_selected_building_ref as BuildingBase).provides_food:
 			_append_information(lines, _farm_information(_selected_building_ref as BuildingBase))
+		if _is_human_owned_building(_selected_building_ref) and ((_selected_building_ref as BuildingBase).can_train() or (_selected_building_ref as BuildingBase).building_type == BuildingData.BuildingType.HOUSE):
+			_append_information(lines, _population_information())
 		if _is_human_owned_building(_selected_building_ref) and (_selected_building_ref as BuildingBase).building_type == BuildingData.BuildingType.TOWN_CENTER:
 			# A tap-only route to the same age cost/effects, including when the
 			# Age Up button is unaffordable or hold shortcuts are disabled.
