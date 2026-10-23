@@ -211,7 +211,7 @@ verify_staged_source() {
 # leak paths for developer-only resources into the PCK. The runtime bridge stub
 # remains, while debug-only autoload overrides and editor plugin configuration do not.
 rsync -a \
-	--exclude '/.git/' \
+	--exclude '/.git' \
 	--exclude '/.github/' \
 	--exclude '/.gitignore' \
 	--exclude '/.godot/' \
