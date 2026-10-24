@@ -119,7 +119,9 @@ func _strategy_journey(phone: Vector2i, interface_scale: float, notched: bool, l
 		if int(workers.get(resource, 0)) == 0:
 			attention = true
 			_expect(economy_button.tooltip_text.contains("No " + resource) and (overview.get("_economy_health") as Label).text.contains("No " + resource), "unstaffed job warning must remain in the tooltip and expanded sheet")
-	_expect(economy_badge.visible == attention and (not attention or economy_badge.text == "!") and economy_badge.mouse_filter == Control.MOUSE_FILTER_IGNORE, "Economy badge loses current attention or intercepts contacts")
+	var idle_count: int = int(workers.get("idle", 0))
+	var expected_economy_badge: String = (str(idle_count) if idle_count < 100 else "99+") if idle_count > 0 else ("!" if attention else "")
+	_expect(economy_badge.visible == not expected_economy_badge.is_empty() and economy_badge.text == expected_economy_badge and economy_badge.mouse_filter == Control.MOUSE_FILTER_IGNORE, "Economy badge loses current idle/attention state or intercepts contacts")
 	var economy_identity: int = economy_button.get_instance_id()
 	controller.call("_refresh")
 	await _frames(2)

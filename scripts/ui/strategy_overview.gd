@@ -383,6 +383,8 @@ func update_snapshot(snapshot: Dictionary) -> void:
 	var economy: Dictionary = snapshot.get("economy", {})
 	var attention: String = str(economy.get("attention", ""))
 	var economy_description := "Economy: manage workers and paid production"
+	if idle > 0:
+		economy_description += "\n%d idle worker%s. Choose Idle, then a job." % [idle, "" if idle == 1 else "s"]
 	if not warnings.is_empty():
 		economy_description += "\n" + "; ".join(warnings)
 	if not attention.is_empty():
@@ -390,7 +392,10 @@ func update_snapshot(snapshot: Dictionary) -> void:
 	if int(economy.get("severity", 0)) > 0:
 		economy_description += "\n%s\n%s" % [str(economy.get("title", "")), str(economy.get("detail", ""))]
 	CommandIcons.apply_labeled(_economy_button, "economy", economy_description, "Economy")
-	CommandIcons.set_badge(_economy_button, "!" if not warnings.is_empty() or not attention.is_empty() else "", true)
+	# Keep unused workers visible even when another worker still staffs each job.
+	# This is a count of observed idle workers, never an automatic assignment.
+	var economy_badge: String = (str(idle) if idle < 100 else "99+") if idle > 0 else ("!" if not warnings.is_empty() or not attention.is_empty() else "")
+	CommandIcons.set_badge(_economy_button, economy_badge, true)
 	CommandIcons.apply_labeled(_army_button, "army", "Army: %d military units. Recruit fighters and manage two groups." % military, "Army")
 	CommandIcons.set_badge(_army_button, str(military))
 	var worker_count: int = 0
@@ -401,7 +406,9 @@ func update_snapshot(snapshot: Dictionary) -> void:
 		_summary.text = "No food · assign food workers."
 	elif bool(snapshot.get("food_low_attention_ready", false)):
 		_summary.text = "Food low · scout or build a Farm."
-	_summary.add_theme_color_override("font_color", KingdomTheme.AMBER if not warnings.is_empty() or bool(snapshot.get("food_low_attention_ready", false)) else KingdomTheme.PARCHMENT)
+	elif idle > 0:
+		_summary.text = "%d idle · choose Idle, then a job." % idle
+	_summary.add_theme_color_override("font_color", KingdomTheme.AMBER if idle > 0 or not warnings.is_empty() or bool(snapshot.get("food_low_attention_ready", false)) else KingdomTheme.PARCHMENT)
 	_economy_health.text = ""
 	if int(economy.get("severity", 0)) > 0:
 		_economy_health.text = "%s\n%s" % [str(economy.get("title", "")), str(economy.get("detail", ""))]
