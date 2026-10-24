@@ -7,6 +7,7 @@ import re
 import sys
 from pathlib import Path
 from urllib.parse import urlsplit
+from beta2_browser_evidence import PROFILE as BETA2_PROFILE, beta2_gates
 
 
 def read(path, default=None):
@@ -259,10 +260,15 @@ def public_gates(folder, invocation, role):
     }
 
 
-def analyze(folder):
+def analyze(folder, require_beta2=False):
     failures, mismatches, clients, records = [], [], {}, {}
     invocation = read(folder / 'invocation.json', {})
     scenario = invocation.get('scenario', 'full')
+    profile = invocation.get('acceptance_profile', 'legacy')
+    if profile not in ('legacy', BETA2_PROFILE):
+        failures.append('unrecognized acceptance profile')
+    if require_beta2 and profile != BETA2_PROFILE:
+        failures.append('required beta2 mobile acceptance profile missing')
     states = read(folder / 'controller-state.json', {})
     for role in ('host', 'guest'):
         terminal = read(folder / f'{role}-terminal.json', {})
@@ -369,6 +375,8 @@ def analyze(folder):
                 gates['signature_ordinary_cost_and_affordable_request'] = any(row.get('sent') is True and row.get('command') == 'train' and row.get('payload', {}).get('type') == signature_type and row.get('expected_cost') == cost and all(row.get('bank_before', {}).get(key, -1) >= amount for key, amount in cost.items()) and any(wire.get('packet', {}).get('command') == 'train' and wire['packet'].get('type') == signature_type and wire['packet'].get('target') == row['payload'].get('target') and wire['packet'].get('match') == matched.get('match') and abs(wire.get('unix', 0) - row.get('unix', 0)) < 5000 for wire in sent) for row in policy)
         if invocation.get('mode') == 'public':
             gates.update(public_gates(folder, invocation, role))
+        if require_beta2 or profile == BETA2_PROFILE:
+            gates.update(beta2_gates(folder, invocation, role, slot))
         failures.extend(f'{role}: {key}' for key, value in gates.items() if not value)
         clients[role] = {'matched': matched, 'ended': terminal.get('ended'),
                          'last_game_seconds': latest.get('time'),
@@ -438,7 +446,7 @@ def analyze(folder):
     controller_errors = lines(folder / 'controller-errors.jsonl')
     if controller_errors:
         failures.append('controller errors recorded')
-    report = {'passed': not failures, 'failures': failures, 'scenario': scenario, 'identity_and_result_agreement': agreement,
+    report = {'passed': not failures, 'failures': failures, 'scenario': scenario, 'acceptance_profile': profile, 'beta2_required': require_beta2, 'identity_and_result_agreement': agreement,
               'same_tick_comparison': counters, 'same_tick_mismatches': mismatches[:100], 'clients': clients,
               'controller_errors': controller_errors,
               'scope': invocation.get('scope', 'Two actual deployed browser contexts. UI lobby and recorded keyboard actions; test-only ordinary paid WebSocket gameplay policy. Evidence is passive transport, rendered screenshots and operator UI checks. No direct browser-replica inspection, physical phone test or performance claim.'),
@@ -447,6 +455,7 @@ def analyze(folder):
     report['raw_evidence_sha256'] = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(folder.iterdir()) if p.is_file() and p.name != 'analysis.json'}
     report['public_postflight_header_sha256'] = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted((folder / 'public-postflight-headers').glob('*.headers'))}
     report['analyzer_sha256'] = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+    report['beta2_evidence_helper_sha256'] = hashlib.sha256(Path(__file__).with_name('beta2_browser_evidence.py').read_bytes()).hexdigest()
     (folder / 'analysis.json').write_text(json.dumps(report, indent=2) + '\n')
     return report
 
@@ -454,7 +463,8 @@ def analyze(folder):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('output', type=Path)
+    parser.add_argument('--require-beta2', action='store_true', help='Fail unless both clients meet every paid Siege/fighter/native-touch beta2 gate')
     args = parser.parse_args()
-    result = analyze(args.output)
+    result = analyze(args.output, require_beta2=args.require_beta2)
     print(json.dumps({key: result[key] for key in ('passed', 'failures', 'identity_and_result_agreement', 'same_tick_comparison')}, indent=2))
     sys.exit(0 if result['passed'] else 1)

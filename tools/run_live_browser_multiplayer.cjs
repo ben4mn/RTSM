@@ -12,6 +12,7 @@ const assert = require('node:assert/strict');
 const os = require('node:os');
 const {startLocalRuntime, digest, verifyTree} = require('./local_browser_runtime.cjs');
 const {civilization,resultExpectation,paidVillagerRecruitment} = require('./live_browser_receipts.cjs');
+const {nativeTap,createBeta2Controller} = require('./live_browser_beta2_ui.cjs');
 
 function installWitness(configuration = {}) {
   const Native = window.WebSocket;
@@ -132,7 +133,8 @@ function planPolicy(client) {
   const d=client.last,m=client.matched;
   if (!d||!m||client.ended||!client.policy) return [];
   const own=d.actors.filter(a=>a.owner===m.slot), workers=own.filter(a=>a.kind==='unit'&&a.type===0);
-  const army=own.filter(a=>a.kind==='unit'&&a.type!==0).map(a=>a.id);
+  const army=own.filter(a=>a.kind==='unit'&&a.type!==0&&(!client.beta2||[1,2,3,5].includes(a.type))).map(a=>a.id);
+  const saving=client.beta2&&!client.beta2SiegeDone&&d.player.age>=2;
   const buildings=own.filter(a=>a.kind==='building'), active=t=>buildings.find(a=>a.type===t&&a.state===2);
   const count=t=>buildings.filter(a=>a.type===t).length, queued=a=>a?.queue?.items?.length||0;
   const bank={...d.bank}, commands=[], send=(command,payload={})=>commands.push({command,payload,...(command==='train'?{expected_cost:{...unitCosts[payload.type]},bank_before:{...bank}}:{})});
@@ -165,7 +167,7 @@ function planPolicy(client) {
     else if(count(5)<Math.min(6,Math.max(2,tasks.food,workers.length-7))&&t>100)type=5;
     else if(!count(3)&&d.player.age>=2)type=3;
     else if(!count(4)&&d.player.age>=2)type=4;
-    else if(!count(8)&&d.player.age>=3)type=8;
+    else if(!count(8)&&d.player.age>=3&&!client.beta2)type=8;
     if(type>=0&&afford(bank,buildingCosts[type])) {
       const candidate=placementCandidate(d,m.slot,town,type,client.rejectedPlacements);
       if(candidate) {send('place',{type,ids:[workers[0].id],position:candidate.position});spend(bank,buildingCosts[type]);
@@ -175,11 +177,11 @@ function planPolicy(client) {
   const ageCost=d.player.age===1?{food:250,gold:125}:d.player.age===2?{food:600,gold:300}:null;
   if(ageCost&&afford(bank,ageCost)){send('age');spend(bank,ageCost);}
   const smith=active(9);
-  if(smith)for(const tech of techs)if(!d.research.includes(tech.id)&&afford(bank,tech.cost)){send('research',{target:smith.id,research:tech.id});spend(bank,tech.cost);break;}
+  if(smith&&!saving)for(const tech of techs)if(!d.research.includes(tech.id)&&afford(bank,tech.cost)){send('research',{target:smith.id,research:tech.id});spend(bank,tech.cost);break;}
   const reserve=d.player.age>=3||t<180?0:d.player.age===1?260:620;
   const emergency=t<180||d.player.age>=3?3:0;
-  if(army.length<12&&(bank.food>reserve||army.length<emergency))for(const [buildingType,unitType] of [[2,1],[3,2],[4,3],[8,5]]) {
-    const b=active(buildingType);if(b&&queued(b)<1&&afford(bank,unitCosts[unitType])) {send('train',{target:b.id,type:unitType});spend(bank,unitCosts[unitType]);}
+  if(!saving&&army.length<12&&(bank.food>reserve||army.length<emergency))for(const [buildingType,unitType] of [[2,1],[3,2],[4,3],[8,5]]) {
+    const b=active(buildingType);if((!client.beta2||client.beta2SiegeDone||unitType!==5)&&b&&queued(b)<1&&afford(bank,unitCosts[unitType])) {send('train',{target:b.id,type:unitType});spend(bank,unitCosts[unitType]);}
   }
   if(army.length&&t-client.lastArmy>=24){
     const position=t>650?(client.role==='host'?[0,1152]:[town.x,town.y]):[0,1536];
@@ -202,6 +204,9 @@ async function main() {
   }
   const localMode=process.argv.includes('--local');
   const inputMode=process.argv.includes('--touch')?'touch':'mouse';
+  const beta2=process.argv.includes('--beta2');
+  if(beta2&&(inputMode!=='touch'||process.argv.includes('--objective-only')))throw Error('--beta2 requires --touch and the full scenario');
+  if(beta2&&((arg('width')&&Number(arg('width'))!==844)||(arg('height')&&Number(arg('height'))!==390)))throw Error('--beta2 acceptance requires two844x390 touch viewports');
   const expectations={host:civilization(arg('host-civilization')||1),guest:civilization(arg('guest-civilization')||2)};
   const expectedIds=[expectations.host.id,expectations.guest.id];
   if(localMode && (process.argv.includes('--allow-public') || arg('url')))throw new Error('--local owns both verified endpoints; do not combine it with --allow-public or --url.');
@@ -227,20 +232,20 @@ async function main() {
   if(publicProof)save('public-source.json',publicProof);
   const append=(name,value)=>fs.appendFileSync(path.join(out,name),JSON.stringify(value)+'\n');
   const objectiveOnly=process.argv.includes('--objective-only');
-  save('invocation.json',{url,port,started:new Date().toISOString(),headless:false,input_mode:inputMode,civilization_expectations:expectations,protocol:2,scenario:objectiveOnly?'objective':'full',mode:localMode?'local-sealed':'public',match_url:local?.matchUrl||'wss://game.4mn.org/match',source_revision:local?.source.version.source_revision||JSON.parse(fs.readFileSync(path.join(publicProof.artifact.directory||arg('artifact-dir'),'version.json'),'utf8')).source_revision,harness_sha256:digest(fs.readFileSync(__filename)),local_runtime_helper_sha256:digest(fs.readFileSync(require.resolve('./local_browser_runtime.cjs'))),receipt_helper_sha256:digest(fs.readFileSync(require.resolve('./live_browser_receipts.cjs'))),browser_version:browser.version(),policy_scope:'Ordinary paid scripted policy: grow to12 workers;4wood/3gold/restfood;paid Farms after100s follow own planned/observed food-worker demand, minimum2/cap6; train mixed stable-ID troops; central skirmish until650s then host takes Sacred while guest returns home. Paid house demolition tests destruction. Natural server terminal is policy-scheduled, not human pacing or an11–14minute balance average. No camp coverage.',scope:localMode?'Automated browser fixture using two fresh contexts of a byte-verified export and matching local authority. Canvas inputs and disclosed ordinary paid protocol policy are separate from root CUA play. Exact endpoint redirected to loopback; command sequence normalized; no state, grants, time or result injected.':'Two isolated actual deployed-browser contexts; UI lobby/keyboard actions plus disclosed test-only ordinary paid WebSocket policy. Only command sequence is normalized. No direct gameplay state, grants, time changes or forced result.'});
+  save('invocation.json',{url,port,started:new Date().toISOString(),headless:false,input_mode:inputMode,acceptance_profile:beta2?'beta2-mobile':'legacy',beta2_tool_sha256:beta2?Object.fromEntries(['live_browser_beta2_ui.cjs','live_browser_beta2_receipts.cjs'].map(name=>[name,digest(fs.readFileSync(path.join(__dirname,name)))])):null,civilization_expectations:expectations,protocol:2,scenario:objectiveOnly?'objective':'full',mode:localMode?'local-sealed':'public',match_url:local?.matchUrl||'wss://game.4mn.org/match',source_revision:local?.source.version.source_revision||JSON.parse(fs.readFileSync(path.join(publicProof.artifact.directory||arg('artifact-dir'),'version.json'),'utf8')).source_revision,harness_sha256:digest(fs.readFileSync(__filename)),local_runtime_helper_sha256:digest(fs.readFileSync(require.resolve('./local_browser_runtime.cjs'))),receipt_helper_sha256:digest(fs.readFileSync(require.resolve('./live_browser_receipts.cjs'))),browser_version:browser.version(),beta2_policy_scope:beta2?'Ordinary-cost saving policy: after reaching Feudal, defer research and military purchases until actual touch Workshop construction and Siege birth are witnessed. Essential paid workers, houses, farms, Range, Stable and ages continue. Both policies are explicitly held for isolated UI transactions; gathering and simulation continue. Scout is paid through UI and excluded from automatic army commands. The disclosed650s terminal schedule is retained, not a pacing average.':null,policy_scope:'Ordinary paid scripted policy: grow to12 workers;4wood/3gold/restfood;paid Farms after100s follow own planned/observed food-worker demand, minimum2/cap6; train mixed stable-ID troops; central skirmish until650s then host takes Sacred while guest returns home. Paid house demolition tests destruction. Natural server terminal is policy-scheduled, not human pacing or an11-14 minute balance average. No camp coverage.',scope:localMode?'Automated browser fixture using two fresh contexts of a byte-verified export and matching local authority. Canvas inputs and disclosed ordinary paid protocol policy are separate from root CUA play. Exact endpoint redirected to loopback; command sequence normalized; no state, grants, time or result injected.':'Two isolated actual deployed-browser contexts; UI lobby/keyboard actions plus disclosed test-only ordinary paid WebSocket policy. Only command sequence is normalized. No direct gameplay state, grants, time changes or forced result.'});
   const capture=async(c,label)=>{const name=c.role+'-'+String(label).replace(/[^a-zA-Z0-9_-]/g,'_')+'.png',filename=path.join(out,name);if(fs.existsSync(filename))throw Error('Capture already exists; use a new label');await c.page.screenshot({path:filename});const receipt={name,path:filename,sha256:digest(fs.readFileSync(filename)),unix:Date.now()};c.captures.push(receipt);append(c.role+'-captures.jsonl',receipt);return receipt;};
-  const canvasInput=async(c,point,purpose)=>{const viewport=c.page.viewportSize();if(!point||!Number.isFinite(point.x)||!Number.isFinite(point.y)||point.x<0||point.y<0||point.x>=viewport.width||point.y>=viewport.height)throw Error('Supply observed canvas coordinates inside the current viewport');if(inputMode==='touch')await c.page.touchscreen.tap(point.x,point.y);else await c.page.mouse.click(point.x,point.y);const receipt={unix:Date.now(),kind:inputMode==='touch'?'tap':'click',purpose,x:point.x,y:point.y};c.browserInputs.push(receipt);append(c.role+'-browser-input.jsonl',receipt);return receipt;};
+  const canvasInput=async(c,point,purpose)=>{const viewport=c.page.viewportSize();if(!point||!Number.isFinite(point.x)||!Number.isFinite(point.y)||point.x<0||point.y<0||point.x>=viewport.width||point.y>=viewport.height)throw Error('Supply observed canvas coordinates inside the current viewport');let receipt;if(beta2){receipt=await nativeTap(c.touchCDP,point,purpose,viewport);}else{if(inputMode==='touch')await c.page.touchscreen.tap(point.x,point.y);else await c.page.mouse.click(point.x,point.y);receipt={unix:Date.now(),kind:inputMode==='touch'?'tap':'click',purpose,x:point.x,y:point.y};}c.browserInputs.push(receipt);append(c.role+'-browser-input.jsonl',receipt);return receipt;};
   const identityMatches=c=>c.matched&&c.last&&JSON.stringify(c.matched.civilizations)===JSON.stringify(expectedIds)&&JSON.stringify(c.last.civilizations)===JSON.stringify(expectedIds)&&c.last.player?.civilization===expectations[c.role].id&&c.matched.civilizations[c.matched.slot]===expectations[c.role].id&&c.room?.players===2&&JSON.stringify(c.room.civilizations)===JSON.stringify(expectedIds)&&c.lobbyRequests.some(p=>['host','join','search'].includes(p.op)&&p.protocol===2)&&c.lobbyRequests.at(-1)?.civilization===expectations[c.role].id;
   const assetTasks=[];
   for(const role of ['host','guest']) {
-    const context=await browser.newContext({viewport:{width:Number(arg('width')||(localMode?844:1600)),height:Number(arg('height')||(localMode?390:900))},deviceScaleFactor:1,hasTouch:inputMode==='touch',...(localMode?{serviceWorkers:'block'}:{})});
+    const context=await browser.newContext({viewport:{width:Number(arg('width')||((localMode||beta2)?844:1600)),height:Number(arg('height')||((localMode||beta2)?390:900))},deviceScaleFactor:1,hasTouch:inputMode==='touch',...(localMode?{serviceWorkers:'block'}:{})});
     if(localMode) {
       await configureLocalGuards(context,local.matchUrl,url,event=>append(role+'-endpoint-guard.jsonl',event));
     }
     await context.exposeBinding('__pocketHarnessEvent',(_source,event)=>{if(['socket_route','command_origin'].includes(event.kind))append(role+'-'+event.kind+'.jsonl',event);});
     await context.addInitScript(installWitness,{local:localMode,matchUrl:local?.matchUrl});const page=await context.newPage();
     if(!localMode){const cdp=await context.newCDPSession(page);await cdp.send('Network.enable',{maxTotalBufferSize:268435456,maxResourceBufferSize:134217728});}
-    const client=clients[role]={role,page,context,objectiveOnly,policy:false,last:null,matched:null,room:null,ended:null,started:0,
+    const client=clients[role]={role,page,context,touchCDP:beta2?await context.newCDPSession(page):null,beta2,beta2SiegeDone:false,beta2Reviewed:false,objectiveOnly,policy:false,last:null,matched:null,room:null,ended:null,started:0,
       errors:[],warnings:[],rejections:[],lastBuild:-10,lastArmy:-60,demolished:false,rejectedPlacements:new Set(),pendingPlace:null,uiChecks:[],captures:[],browserInputs:[],recruitAttempts:[],paidRecruitReviewed:false,policyEver:false,civilizationSelection:null,lobbyRequests:[],endedAt:null};
     page.on('console',message=>{const entry={type:message.type(),text:message.text(),unix:Date.now()};append(role+'-console.jsonl',entry);if(entry.type==='error')client.errors.push(entry);if(entry.type==='warning')client.warnings.push(entry);});
     page.on('pageerror',error=>{const entry={type:'pageerror',text:String(error),unix:Date.now()};client.errors.push(entry);append(role+'-console.jsonl',entry);});
@@ -261,9 +266,9 @@ async function main() {
       append(role+'-transport.jsonl',{event:'open',url:socket.url(),unix:Date.now()});
       socket.on('framesent',event=>{let packet;try{packet=JSON.parse(String(event.payload));}catch(_){return;}append(role+'-sent.jsonl',{unix:Date.now(),packet});if(['host','join','search','room_civilization'].includes(packet.op))client.lobbyRequests.push(packet);});
       socket.on('framereceived',event=>{let packet;try{packet=JSON.parse(String(event.payload));}catch(_){return;}
-        if(packet.op==='snapshot') {client.last=packet;if(packet.tick%10===0)append(role+'-snapshots.jsonl',{unix:Date.now(),wall:(performance.now()-client.started)/1000,packet});}
+        if(packet.op==='snapshot') {client.last=packet;if(beta2)append(role+'-authority-full.jsonl',{unix:Date.now(),packet});if(packet.tick%10===0)append(role+'-snapshots.jsonl',{unix:Date.now(),wall:(performance.now()-client.started)/1000,packet});}
         else {append(role+'-transport.jsonl',{event:'packet',unix:Date.now(),packet});if(packet.op==='room')client.room=packet;
-          if(packet.op==='matched')client.matched=packet;if(packet.op==='started')client.started=performance.now();
+          if(packet.op==='matched'){client.matched=packet;client.beta2SiegeDone=false;client.beta2Reviewed=false;}if(packet.op==='started')client.started=performance.now();
           if(packet.op==='ended'){client.endedAt=Date.now();client.ended={...packet,match_wall_seconds:(performance.now()-client.started)/1000};client.policy=false;save(role+'-terminal.json',{received_unix:client.endedAt,matched:client.matched,ended:client.ended,last:client.last});}
           if(packet.op==='rejected'){client.rejections.push(packet);if(client.pendingPlace&&/clear|reach|Outside/.test(packet.reason)){client.rejectedPlacements.add(client.pendingPlace.key);client.pendingPlace=null;}}}
       });
@@ -273,23 +278,25 @@ async function main() {
     await page.goto(url,{waitUntil:'domcontentloaded'});
     save(role+'-browser-capabilities.json',await page.evaluate(()=>({width:innerWidth,height:innerHeight,max_touch_points:navigator.maxTouchPoints,coarse_pointer:matchMedia('(pointer: coarse)').matches,scope:'Read-only browser capabilities; no physical-device claim'})));
   }
-  let running=false;
-  const timer=controllerTimer=setInterval(async()=>{if(running)return;running=true;try{for(const c of Object.values(clients))for(const cmd of planPolicy(c)) {
+  let running=false,uiBusy=false;
+  const beta2Controller=createBeta2Controller({clients,capture,input:canvasInput,append,policyBusy:()=>running});
+  const timer=controllerTimer=setInterval(async()=>{if(running||uiBusy)return;running=true;try{for(const c of Object.values(clients)){const phase=c.beta2?(c.beta2SiegeDone?'normal-paid-policy':c.last?.player?.age>=2?'saving-for-touch-workshop-and-siege':'normal-paid-opening'):null;if(phase&&phase!==c.beta2PolicyPhase){append('beta2-policy-phases.jsonl',{unix:Date.now(),role:c.role,game_seconds:c.last?.time,phase});c.beta2PolicyPhase=phase;}for(const cmd of planPolicy(c)) {
     const sent=await c.page.evaluate(({command,payload})=>window.__aoemLiveWitness.sendCommand(command,payload),cmd);
     append(c.role+'-policy.jsonl',{unix:Date.now(),game_seconds:c.last?.time,...cmd,sent});
-  }}catch(error){append('controller-errors.jsonl',{unix:Date.now(),error:String(error)});}finally{running=false;}},2000);
+  }}}catch(error){append('controller-errors.jsonl',{unix:Date.now(),error:String(error)});}finally{running=false;}},2000);
   const status=()=>Object.fromEntries(Object.values(clients).map(c=>[c.role,{room:c.room,matched:c.matched,ended:c.ended,
     game_seconds:c.last?.time,wall:c.started?(performance.now()-c.started)/1000:0,bank:c.last?.bank,player:c.last?.player,stats:c.last?.stats,battle:c.last?.battle,
-    civilizations:c.last?.civilizations,civilization_selection:c.civilizationSelection,expected_civilization:expectations[c.role],policy:c.policy,policy_ever:c.policyEver,paid_recruit_reviewed:c.paidRecruitReviewed,errors:c.errors,warnings:c.warnings.slice(-8),rejections:c.rejections.length,pendingPlace:c.pendingPlace,uiChecks:c.uiChecks,captures:c.captures}]));
+    civilizations:c.last?.civilizations,civilization_selection:c.civilizationSelection,expected_civilization:expectations[c.role],policy:c.policy,policy_ever:c.policyEver,paid_recruit_reviewed:c.paidRecruitReviewed,beta2_siege_done:c.beta2SiegeDone,beta2_reviewed:c.beta2Reviewed,errors:c.errors,warnings:c.warnings.slice(-8),rejections:c.rejections.length,pendingPlace:c.pendingPlace,uiChecks:c.uiChecks,captures:c.captures}]));
   const server=controllerServer=http.createServer(async(req,res)=>{try{
-    let body='';for await(const chunk of req)body+=chunk;const data=body?JSON.parse(body):{};const c=clients[data.role||'host'];let result;
+    let body='';for await(const chunk of req)body+=chunk;const data=body?JSON.parse(body):{};if(uiBusy&&!['/state','/page'].includes(req.url))throw Error('Wait for the isolated beta2 UI step');const c=clients[data.role||'host'];let result;
     if(req.url==='/state')result=status();
+    else if(req.url==='/beta2'){if(!beta2)throw Error('Use --beta2 for these acceptance steps');if(uiBusy)throw Error('Another UI step is in flight');uiBusy=true;try{result=await beta2Controller.handle(c,data);}finally{uiBusy=false;}}
     else if(req.url==='/viewport'){await c.page.setViewportSize({width:Number(data.width),height:Number(data.height)});append(c.role+'-browser-input.jsonl',{unix:Date.now(),kind:'viewport',...data});result={resized:true};}
     else if(req.url==='/page')result=await c.page.evaluate(()=>({url:location.href,title:document.title,text:document.body.innerText,canvases:Array.from(document.querySelectorAll('canvas')).map(e=>({id:e.id,width:e.width,height:e.height,rect:e.getBoundingClientRect().toJSON()})),buttons:Array.from(document.querySelectorAll('button')).map(e=>({text:e.innerText,id:e.id,disabled:e.disabled,rect:e.getBoundingClientRect().toJSON()}))}));
     else if(req.url==='/capture')result=await capture(c,data.label||'capture');
-    else if(req.url==='/input') {if(data.kind==='click'||data.kind==='tap'){if(data.kind==='tap'&&inputMode!=='touch')throw Error('Native browser taps require --touch');if(inputMode==='touch'&&data.button&&data.button!=='left')throw Error('Touch mode has no mouse right-click');if(inputMode==='touch')await c.page.touchscreen.tap(data.x,data.y);else await c.page.mouse.click(data.x,data.y,{button:data.button||'left'});data.kind=inputMode==='touch'?'tap':'click';}
+    else if(req.url==='/input') {if(uiBusy)throw Error('A beta2 UI proof is in flight');if(data.kind==='click'||data.kind==='tap'){if(data.kind==='tap'&&inputMode!=='touch')throw Error('Native browser taps require --touch');if(inputMode==='touch'&&data.button&&data.button!=='left')throw Error('Touch mode has no mouse right-click');if(beta2){result=await canvasInput(c,data,data.purpose||'operator_tap');}else if(inputMode==='touch')await c.page.touchscreen.tap(data.x,data.y);else await c.page.mouse.click(data.x,data.y,{button:data.button||'left'});data.kind=inputMode==='touch'?'tap':'click';}
       else if(data.kind==='press')await c.page.keyboard.press(data.key);else if(data.kind==='type')await c.page.keyboard.type(data.text);
-      else if(data.kind==='scroll'){if(inputMode==='touch')throw Error('Mouse wheel is not a touch gesture; do not claim a touch path with mouse fallback');await c.page.mouse.wheel(data.x||0,data.y||0);}else throw new Error('Unknown input kind');const input={...data,unix:Date.now()};c.browserInputs.push(input);append(c.role+'-browser-input.jsonl',input);result={sent:true};}
+      else if(data.kind==='scroll'){if(inputMode==='touch')throw Error('Mouse wheel is not a touch gesture; do not claim a touch path with mouse fallback');await c.page.mouse.wheel(data.x||0,data.y||0);}else throw new Error('Unknown input kind');if(!result){const input={...data,unix:Date.now()};c.browserInputs.push(input);append(c.role+'-browser-input.jsonl',input);result={sent:true};}}
     else if(req.url==='/civilization-ui') {
       if(c.matched||c.policy)throw Error('Choose the kingdom in the real menu/lobby before matching');
       const selected=civilization(data.civilization);assert.equal(selected.id,expectations[c.role].id,'Picker selection must match this invocation expectation');
@@ -352,8 +359,8 @@ async function main() {
       if(!evidence)throw new Error('HUD clicks produced no game-generated attack_move command; A key or ordinary movement is not accepted');
       result=receipt;
     }
-    else if(req.url==='/start-policy'){if(!Object.values(clients).every(c=>c.matched&&c.last&&!c.ended&&c.civilizationSelection&&c.civilizationIdentityReviewed&&identityMatches(c)))throw new Error('Both reviewed real picker choices and protocol2 room/matched/snapshot civilizations must agree before paid policy');if(inputMode==='touch'&&!Object.values(clients).every(c=>c.paidRecruitReviewed))throw Error('Touch acceptance requires reviewed real tap recruitment with paid bank/queue proof on both clients before policy');Object.values(clients).forEach(c=>{c.policy=true;c.policyEver=true;});append('policy-starts.jsonl',{unix:Date.now(),input_mode:inputMode,roles:Object.keys(clients)});result={started:true};}
-    else if(req.url==='/stop-policy'){Object.values(clients).forEach(c=>c.policy=false);result={stopped:true};}
+    else if(req.url==='/start-policy'){if(uiBusy||running)throw Error('Wait for the current UI/policy operation');if(beta2&&(!data.reason||String(data.reason).trim().length<12))throw Error('Disclose the reason for starting/resuming the scripted policy');if(!Object.values(clients).every(c=>c.matched&&c.last&&!c.ended&&c.civilizationSelection&&c.civilizationIdentityReviewed&&identityMatches(c)))throw new Error('Both reviewed real picker choices and protocol2 room/matched/snapshot civilizations must agree before paid policy');if(inputMode==='touch'&&!Object.values(clients).every(c=>c.paidRecruitReviewed))throw Error('Touch acceptance requires reviewed real tap recruitment with paid bank/queue proof on both clients before policy');Object.values(clients).forEach(c=>{c.policy=true;c.policyEver=true;});append('policy-starts.jsonl',{unix:Date.now(),input_mode:inputMode,roles:Object.keys(clients),reason:data.reason||null,game_seconds:Object.fromEntries(Object.values(clients).map(c=>[c.role,c.last?.time]))});result={started:true};}
+    else if(req.url==='/stop-policy'){if(beta2&&(!data.reason||String(data.reason).trim().length<12))throw Error('Disclose the reason for this ordinary-policy pause');Object.values(clients).forEach(c=>c.policy=false);const deadline=Date.now()+5000;while(running&&Date.now()<deadline)await new Promise(resolve=>setTimeout(resolve,25));if(running)throw Error('Policy send loop has not quiesced');const row={unix:Date.now(),reason:data.reason||null,game_seconds:Object.fromEntries(Object.values(clients).map(c=>[c.role,c.last?.time])),scope:'Stops scripted commands only; simulation, harvesting and paid queues continue'};append('policy-pauses.jsonl',row);result={stopped:true,...row};}
     else if(req.url==='/ui-check'){c.uiChecks.push({...data,unix:Date.now(),scope:'Operator screenshot/input verification'});result={recorded:true};}
     else if(req.url==='/review-screen') {
       if(data.reviewed!==true||!c.ended)throw Error('Review an actual captured post-terminal screen first');
