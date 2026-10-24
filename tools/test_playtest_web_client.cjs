@@ -30,7 +30,7 @@ function response(body, status = 202) {
     return {ok: status >= 200 && status < 300, status, json: async () => body};
 }
 function fakeWindow(options = {}) {
-    const listeners = new Map(), intervals = [], timeouts = new Map(), posts = [], beacons = [];
+    const listeners = new Map(), intervals = [], timeouts = new Map(), posts = [], beacons = [], downloads = [];
     let nextTimer = 1, nextRandom = 1;
     function target(tag = '') {
         const callbacks = new Map();
@@ -49,7 +49,7 @@ function fakeWindow(options = {}) {
             async dispatch(name, event = {}) {
                 for (const callback of callbacks.get(name) || []) await callback.fn(event);
             },
-            click() { return this.dispatch('click'); },
+            click() { return this.dispatch('click', {stopPropagation() {}, preventDefault() {}}); },
             callbacks,
         };
         return node;
@@ -74,7 +74,7 @@ function fakeWindow(options = {}) {
         crypto: {getRandomValues(bytes) { bytes.fill(nextRandom++); return bytes; }},
         performance: {now: () => clock % 1000000},
         matchMedia: () => ({matches: false}), AbortController, Blob,
-        URL: {createObjectURL: () => 'blob:test', revokeObjectURL() {}},
+        URL: {createObjectURL: blob => { downloads.push(blob); return 'blob:test'; }, revokeObjectURL() {}},
         console: {warn() {}, error() {}},
         addEventListener(name, fn) {
             if (!listeners.has(name)) listeners.set(name, []);
@@ -92,7 +92,7 @@ function fakeWindow(options = {}) {
         },
     };
     return {
-        w, document, canvas, posts, beacons, intervals, timeouts,
+        w, document, canvas, posts, beacons, intervals, timeouts, downloads,
         buttons: () => all(body).filter(node => node.tag === 'button'),
         button: text => all(body).find(node => node.tag === 'button' && node.textContent === text),
         async dispatch(name, event = {}) { for (const fn of listeners.get(name) || []) await fn(event); },
@@ -306,7 +306,55 @@ async function check(name, run) {
         for (const secret of ['Private Person', 'person@example.test', 'secret-token', 'secret-cookie',
             'private-full-UA', 'secret-full-UA-device-fingerprint', 'https://example.test', '/Users/private']) assert(!text.includes(secret), secret);
         assert.equal(latest.counters.browser_console_error, 1);
-        assert.match(latest.events.find(event => event.kind === 'browser_console_error').fields.error_message, /\[URL\].*\[local path\].*\[email\]/);
+        assert.match(latest.events.find(event => event.kind === 'browser_console_error').fields.error_message, /\[URL\]/);
+    });
+
+    await check('runtime source details retain basenames and bounded frames without sensitive stack text', async () => {
+        const env = await boot({online: false});
+        const error = new RangeError('Invalid array length');
+        error.stack = 'RangeError: secret-token\n' + Array.from({length: 40}, (_, index) =>
+            '    at person@example.test (https://private.example/user/PrivatePerson/index.js?token=secret-token:' + (index + 1) + ':42)').join('\n');
+        await env.dispatch('error', {message: error.message, error, filename: 'https://private.example/index.js?token=secret-token', lineno: 1, colno: 42});
+        await env.dispatch('unhandledrejection', {reason: error});
+        await env.dispatch('error', {message: 'Failed C:\\Users\\Private Person\\secret.txt, token=secret-token', lineno: Infinity, colno: -1});
+        await env.dispatch('error', {message: 'Authorization: Bearer OPAQUE_AUTH_VALUE, api_key=OPAQUE_API_VALUE'});
+        await env.dispatch('error', {message: 'Failed /opt/private-user/secret file.js'});
+        await env.dispatch('error', {message: 'Authorization="Bearer QUOTED_AUTH_VALUE", password="QUOTED PASSWORD VALUE"'});
+        await env.dispatch('error', {message: 'Failed "/opt/quoted-private-user/quoted secret file.js"'});
+        await env.dispatch('error', {message: 'password="PRIVATE_PREFIX,PRIVATE_SUFFIX"'});
+        await env.dispatch('error', {message: 'Cookie: sid=PRIVATE_FIRST; other=PRIVATE_COOKIE_TAIL'});
+        await env.dispatch('error', {message: 'secret="PRIVATE_SECRET;PRIVATE_TAIL"'});
+        await env.dispatch('error', {message: '{"access_token":"PRIVATE_JSON_TOKEN"}'});
+        await env.dispatch('error', {message: 'Failed file:///C:/Users/PRIVATE_FILE_PREFIX PRIVATE_FILE_TAIL/file.js'});
+        await env.dispatch('error', {message: 'Failed "/home/PRIVATE_PATH_PREFIX,PRIVATE_PATH_SUFFIX;PRIVATE_PATH_TAIL/file.js"'});
+        await env.dispatch('unhandledrejection', {reason: {get message() { throw new Error('hostile getter'); }}});
+        await env.dispatch('pagehide');
+        const latest = env.w.localStorage.snapshot().latest;
+        const first = latest.events.find(event => event.kind === 'browser_error').fields;
+        assert.equal(first.file, 'index.js'); assert.equal(first.line, 1); assert.equal(first.column, 42);
+        assert.equal(first.stack.length, 8); assert.deepEqual(first.stack[0], {file: 'index.js', line: 1, column: 42});
+        const text = JSON.stringify(latest);
+        for (const secret of ['secret-token', 'Private Person', 'private.example', 'person@example.test', 'C:\\\\Users',
+            'OPAQUE_AUTH_VALUE', 'OPAQUE_API_VALUE', 'QUOTED_AUTH_VALUE', 'QUOTED PASSWORD VALUE',
+            'private-user', 'secret file.js', 'PRIVATE_PREFIX', 'PRIVATE_SUFFIX', 'PRIVATE_FIRST',
+            'PRIVATE_COOKIE_TAIL', 'PRIVATE_SECRET', 'PRIVATE_TAIL', 'PRIVATE_JSON_TOKEN', 'PRIVATE_FILE_PREFIX',
+            'PRIVATE_FILE_TAIL', 'PRIVATE_PATH_PREFIX', 'PRIVATE_PATH_SUFFIX', 'PRIVATE_PATH_TAIL']) assert(!text.includes(secret), secret);
+        assert(text.includes('Error details unavailable'));
+    });
+
+    await check('direct log download survives storage failure and does not open or grow the report queue', async () => {
+        const env = await boot({online: false, storage: {getItem() { throw new Error('disabled'); }, setItem() { throw new Error('full'); }}});
+        record(env, 'match_result', {winner_id: 1});
+        await env.dispatch('error', {message: 'Invalid array length', lineno: 1});
+        assert.equal(env.client.saveLog(), true);
+        assert.equal(env.document.getElementById('pocket-report'), null);
+        const saved = JSON.parse(await env.downloads[0].text());
+        assert(saved.events.some(event => event.kind === 'browser_error'));
+        assert(saved.events.some(event => event.kind === 'match_result'));
+        assert.match(saved.report_id, /^PK-[A-F0-9]{12}$/);
+        assert(Buffer.byteLength(JSON.stringify(saved)) <= 240 * 1024);
+        env.w.URL.createObjectURL = () => { throw new Error('download unavailable'); };
+        assert.equal(env.client.saveLog(), false);
     });
 
     await check('dense bounded events and problem windows fit 240 KiB transport cap', async () => {
@@ -340,7 +388,7 @@ async function check(name, run) {
         assert(env.posts.some(post => !post.body.report_id));
         assert(env.posts.some(post => post.body.report_id));
         for (const post of env.posts) {
-            const result = spawnSync('python3', ['-c', validate, path.join(__dirname, '../deploy/diagnostics_server.py')],
+            const result = spawnSync(process.env.PYTHON || (process.platform === 'win32' ? 'python' : 'python3'), ['-X', 'utf8', '-B', '-c', validate, path.join(__dirname, '../deploy/diagnostics_server.py')],
                 {input: JSON.stringify(post.body), encoding: 'utf8'});
             assert.equal(result.status, 0, result.stderr);
         }

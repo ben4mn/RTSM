@@ -120,3 +120,22 @@ body.pocket-shell-modal #pocket-screen-control, body.pocket-shell-modal #pocket-
 .pocket-button:active { border-image-source: url("secondary_pressed.svg"); color: var(--pk-ink); }
 .pocket-help-card { border-radius: 4px; border-color: var(--pk-border); background: var(--pk-ink); color: var(--pk-paper); font-family: Barlow, sans-serif; }
 .pocket-button:focus-visible { outline-color: var(--pk-gold); }
+
+/* Browser-owned recovery remains reachable over the portrait prompt, below
+   existing report/release/update surfaces. Outside this card, play continues. */
+#pocket-runtime-recovery {
+ position: fixed; z-index: 40; box-sizing: border-box;
+ left: max(12px,var(--pocket-safe-left)); right: max(12px,var(--pocket-safe-right));
+ bottom: max(12px,var(--pocket-safe-bottom)); width: auto; max-width: 560px; margin: 0 auto;
+ max-height: calc(100dvh - max(12px,var(--pocket-safe-top)) - max(12px,var(--pocket-safe-bottom)));
+ overflow: auto; overscroll-behavior: contain; touch-action: pan-y;
+ padding: 12px; background: var(--pk-ink); color: var(--pk-paper);
+ border: 1px solid var(--pk-gold); border-radius: 4px; box-shadow: 0 4px 20px #0008;
+ font: 15px/1.35 system-ui,sans-serif;
+}
+#pocket-runtime-recovery p { margin: 0 0 8px; }
+#pocket-runtime-recovery .pk-recovery-warning { color: var(--pk-muted); font-size: 13px; }
+.pk-recovery-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.pk-recovery-actions .pocket-button { flex: 1; min-width: 88px; min-height: 48px; }
+body.pocket-report-open #pocket-runtime-recovery,
+body.pocket-shell-modal #pocket-runtime-recovery { visibility: hidden; }

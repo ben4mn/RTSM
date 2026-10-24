@@ -21,6 +21,9 @@
     let playing = false;
     let preparing = false;
     let bootResolved = false;
+    let engineReady = false;
+    let recovery = null;
+    let recoveryDismissed = false;
     let held = false;
     let safeWanted = true;
     let installPromptOpen = false;
@@ -66,8 +69,63 @@
     }
     function updateSafety() {
         return window.PocketUpdates.setSafeToReload(safeWanted && dialog.hidden && !installPromptOpen
+            && !(recovery && !recovery.hidden)
             && !document.body.classList.contains('pocket-report-open'));
     }
+    // This escape hatch belongs to the browser, not the engine's input loop.
+    // It neither claims the game has stopped nor attempts to repair its state.
+    function showRuntimeRecovery() {
+        if (!engineReady || recoveryDismissed) return;
+        if (!recovery) {
+            recovery = document.createElement('section');
+            recovery.id = 'pocket-runtime-recovery';
+            recovery.setAttribute('aria-label', 'Game error recovery');
+            const message = document.createElement('p');
+            message.setAttribute('role', 'status');
+            message.textContent = 'Game reported an error. If controls stop responding, reload.';
+            const warning = document.createElement('p');
+            warning.className = 'pk-recovery-warning';
+            warning.textContent = 'Reloading leaves your current match.';
+            const actions = document.createElement('div');
+            actions.className = 'pk-recovery-actions';
+            function button(text, action) {
+                const node = document.createElement('button');
+                node.type = 'button'; node.className = 'pocket-button'; node.textContent = text;
+                node.addEventListener('click', () => { if (!held) action(); });
+                actions.appendChild(node);
+            }
+            button('Save log', () => {
+                try {
+                    if (!window.PocketPlaytestDiagnostics.saveLog()) throw new Error('download unavailable');
+                    warning.textContent = 'Log download requested. Reloading leaves your current match.';
+                } catch (_) {
+                    warning.textContent = 'Log download unavailable. Reloading leaves your current match.';
+                }
+            });
+            button('Reload game', () => window.location.reload());
+            button('Dismiss', () => {
+                recoveryDismissed = true; recovery.hidden = true;
+                updateSafety();
+            });
+            recovery.append(message, warning, actions);
+            // Do not take keyboard focus or make the still-running game inert.
+            // Once dismissed, later errors remain recorded without nagging again.
+            for (const name of ['pointerdown', 'pointerup', 'pointermove', 'pointercancel', 'mousedown', 'mouseup', 'mousemove',
+                'touchstart', 'touchmove', 'touchend', 'touchcancel', 'wheel', 'click', 'keydown', 'keyup', 'contextmenu']) {
+                recovery.addEventListener(name, event => event.stopPropagation());
+            }
+            document.body.appendChild(recovery);
+        }
+        recovery.hidden = false; recovery.inert = held;
+        updateSafety();
+    }
+    window.addEventListener('error', event => {
+        // Resource load failures are plain Events, not runtime ErrorEvents.
+        if (event instanceof ErrorEvent && typeof event.message === 'string' && event.message.trim()) showRuntimeRecovery();
+    });
+    window.addEventListener('unhandledrejection', event => {
+        if (event.reason instanceof Error) showRuntimeRecovery();
+    });
     async function requestInstall() {
         if (!deferredInstall) { showInstallGuide(); return; }
         const prompt = deferredInstall;
@@ -184,6 +242,7 @@
         blocker.hidden = !held;
         app.inert = held || !playing;
         welcome.inert = held;
+        if (recovery) recovery.inert = held;
         if (held) closeReleases(false);
     });
 
@@ -208,6 +267,7 @@
         }
     }
     function showFailure(message) {
+        engineReady = false;
         boot.hidden = true;
         playing = false; showWelcome();
         launchStatus.textContent = message;
@@ -220,7 +280,7 @@
     new MutationObserver(updateSafety).observe(document.body, {attributes:true, attributeFilter:['class']});
     window.PocketLaunch = Object.freeze({
         ready, showFailure,
-        engineFinishedLoading() { boot.hidden = true; },
+        engineFinishedLoading() { boot.hidden = true; engineReady = true; },
         setUpdateSafe(safe) { safeWanted = safe === true; return updateSafety(); },
         setControlsVisible(visible) {
             controlsAllowed = visible === true;

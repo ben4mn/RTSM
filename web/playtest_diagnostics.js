@@ -17,9 +17,36 @@
     const contacts = new Map();
 
     function errorText(value) {
-        return String(value).replace(/https?:\/\/[^\s]+/g, '[URL]')
-            .replace(/\/Users\/[^\s]+/g, '[local path]')
+        return String(value).slice(0, 4096).replace(/(?:https?|wss?|file|blob):[^\r\n]*/gi, '[URL]')
+            .replace(/(?:[A-Za-z]:[\\/]|\\\\|\/[A-Za-z0-9._-]+\/)[^\r\n]*/g, '[local path]')
+            .replace(/\b(authorization|cookies?|(?:access[_-]?|refresh[_-]?)?token|password|secret|api[_-]?key)["']?\s*[:=][^\r\n]*/gi, '$1=[redacted]')
             .replace(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g, '[email]').slice(0, 192);
+    }
+    function sourceFile(value) {
+        // Keep only a short script basename, never the URL, query or local path.
+        const basename = String(value || '').slice(0, 2048).split(/[?#]/, 1)[0].split(/[\\/]/).pop();
+        return /^[A-Za-z0-9_.-]{1,80}\.(?:js|mjs|wasm|html)$/i.test(basename) ? basename : '';
+    }
+    function sourceNumber(value) { return Number.isSafeInteger(value) && value >= 0 ? value : 0; }
+    function errorFields(event, rejection = false) {
+        try {
+            const error = rejection ? event.reason : event.error;
+            const fields = {error_message: errorText(rejection ? error && error.message || 'promise rejected' : event.message || 'error')};
+            if (!rejection) {
+                fields.file = sourceFile(event.filename);
+                fields.line = sourceNumber(event.lineno); fields.column = sourceNumber(event.colno);
+            }
+            // Store source locations only: arbitrary function names and the raw
+            // stack's message can contain user data. All existing envelope caps apply.
+            if (error instanceof Error && typeof error.stack === 'string') {
+                fields.stack = error.stack.slice(0, 8192).split('\n').slice(1, 17).flatMap(line => {
+                    const match = line.slice(0, 512).match(/(?:\(|@|\s)([^\s()]+):(\d+):(\d+)\)?$/);
+                    const file = match && sourceFile(match[1]);
+                    return file ? [{file, line: sourceNumber(Number(match[2])), column: sourceNumber(Number(match[3]))}] : [];
+                }).slice(0, 8);
+            }
+            return fields;
+        } catch (_) { return {error_message: 'Error details unavailable'}; }
     }
 
     function randomId() {
@@ -230,6 +257,19 @@
         const canvas = w.document.getElementById('canvas');
         if (canvas) canvas.focus();
     }
+    function saveLog() {
+        // A direct browser gesture can download even when engine callbacks or
+        // local storage are unavailable. No report dialog or game order is used.
+        try {
+            const reportId = activeReport ? activeReport.report_id : 'PK-' + randomId().slice(0, 12).toUpperCase();
+            const blob = new w.Blob([JSON.stringify(snapshot('problem', reportId))], {type: 'application/json'});
+            const url = w.URL.createObjectURL(blob), link = element('a', '', w.document.body);
+            link.addEventListener('click', event => event.stopPropagation());
+            link.href = url; link.download = reportId + '.json'; link.click(); link.remove();
+            w.setTimeout(() => w.URL.revokeObjectURL(url), 1000);
+            return true;
+        } catch (_) { return false; }
+    }
     function showDialog() {
         if (!overlay) {
             overlay = element('div', '', w.document.getElementById('pocket-app'));
@@ -256,12 +296,7 @@
                 status.textContent = 'Saved on this device. Uploading…'; flush('problem');
             });
             const download = element('button', 'Save log', actions); download.className = 'pocket-button'; download.type = 'button';
-            download.addEventListener('click', () => {
-                const blob = new w.Blob([JSON.stringify(snapshot('problem', activeReport.report_id), null, 2)], {type: 'application/json'});
-                const url = w.URL.createObjectURL(blob), link = element('a', '', w.document.body);
-                link.href = url; link.download = activeReport.report_id + '.json'; link.click(); link.remove();
-                w.setTimeout(() => w.URL.revokeObjectURL(url), 1000);
-            });
+            download.addEventListener('click', () => { if (!saveLog()) status.textContent = 'Log download unavailable. You can still copy the report code.'; });
             returnButton = element('button', '', actions); returnButton.className = 'pocket-button'; returnButton.type = 'button';
             returnButton.addEventListener('click', closeDialog);
             overlay.addEventListener('keydown', event => {
@@ -326,8 +361,8 @@
         append('browser_' + name, {device: device()});
         if (name === 'online') { nextAttempt = 0; flush(); }
     });
-    w.addEventListener('error', event => append('browser_error', {error_message: errorText(event.message || 'error'), line: event.lineno}));
-    w.addEventListener('unhandledrejection', event => append('browser_rejection', {error_message: errorText(event.reason && event.reason.message || 'promise rejected')}));
+    w.addEventListener('error', event => append('browser_error', errorFields(event)));
+    w.addEventListener('unhandledrejection', event => append('browser_rejection', errorFields(event, true)));
     if (w.console) for (const [method, kind] of [['warn', 'browser_console_warning'], ['error', 'browser_console_error']]) {
         const original = w.console[method]; let last = '', lastAt = 0;
         w.console[method] = function (...args) {
@@ -348,5 +383,5 @@
         if (dirty && Date.now() - lastPersist >= 5000) persist();
         flush();
     }, 10000);
-    return Object.freeze({record, openReport, flush});
+    return Object.freeze({record, openReport, flush, saveLog});
 }));
