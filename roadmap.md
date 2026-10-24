@@ -1,4 +1,14 @@
-# AOEM roadmap and release state
+# Pocket Kingdoms roadmap and release state
+
+## Current checkpoint October 24 2026
+
+The recovered beta3 source is `d7291a7ccff1b1b9fcb5acbd02391a04ed7f8d3c`, version `0.3.0-beta.3`, network protocol 3. It includes Find space construction previews, full-footprint fog guidance, Town Center recruitment alignment and browser error recovery. See the [recovery handoff and next steps](docs/recovery_handoff_2026-10-24.md) for publication status, known failures and the exact continuation point. That checkpoint supersedes the historical release state below.
+
+The next priorities are the late idle-browser WebGL error, real-phone control checks, and recovery after losing an army. The desired ordinary game is around 11 minutes, with an average up to 14 and 20 exceptional; that target remains unproven. The six-minute scoring delay and protocol 4 experiment are excluded because the Hard comparison remained unresolved after 20 minutes.
+
+At every completed, verified implementation checkpoint: update this roadmap/handoff, commit and push to GitHub, deploy the matching build and restart the dedicated game service when safe, then check public health. Check active matches before replacement. Preserve a working rollback. Do not resume an open-ended development loop without the owner's next instruction.
+
+## Historical roadmap
 
 Status date: 2026-10-01
 
