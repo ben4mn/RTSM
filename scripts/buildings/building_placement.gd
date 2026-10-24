@@ -10,6 +10,7 @@ signal placement_cancelled()
 signal placement_invalid(reason: String)
 signal preview_changed(valid: bool, reason: String)
 signal input_mode_changed(uses_touch: bool)
+signal assisted_preview_changed(active: bool)
 
 var active: bool = false
 var current_building_type: int = -1
@@ -29,6 +30,7 @@ var _touch_points: Dictionary = {}
 var _released_touch_inputs: Dictionary = {}
 var _touch_camera_gesture: bool = false
 var _uses_touch_input: bool = false
+var _assisted_preview_active: bool = false
 var _preview_refresh_elapsed: float = 0.0
 var _placement_grid: PlacementGrid = null
 var _grid_canvas_transform: Transform2D = Transform2D.IDENTITY
@@ -37,6 +39,9 @@ var _grid_view_rect: Rect2 = Rect2()
 var _grid_tile_bounds: Rect2i = Rect2i()
 var _grid_cache_valid: bool = false
 
+const FIND_SPACE_RADIUS: int = 12
+const FIND_SPACE_MAX_CANDIDATES: int = 625
+const FIND_SPACE_SCREEN_MARGIN: float = 6.0
 const GENERIC_INVALID_REASON := "Invalid placement"
 const FOG_INVALID_REASON := "Move all tiles into sight"
 const PLACEMENT_GRID_COLOR := Color(0.90, 0.92, 0.83, 0.18)
@@ -185,6 +190,106 @@ func _setup_ghost_sprite() -> void:
 	add_child(_ghost_sprite)
 
 
+func has_assisted_preview() -> bool:
+	return _assisted_preview_active
+
+
+func _set_assisted_preview(value: bool) -> void:
+	if _assisted_preview_active == value:
+		return
+	_assisted_preview_active = value
+	assisted_preview_changed.emit(value)
+
+
+## Explicit assistance changes only the preview. The normal confirmation path
+## still revalidates current vision, terrain, clearance and available payment.
+func find_visible_space(safe_rect: Rect2, occlusions: Array[Rect2]) -> bool:
+	if not active or not safe_rect.has_area() or not safe_rect.position.is_finite() or not safe_rect.size.is_finite():
+		return false
+	var canvas: Transform2D = get_canvas_transform()
+	var screen_anchor: Vector2 = canvas * ghost_position
+	if not screen_anchor.is_finite():
+		return false
+	# An old preview can be outside a newly panned view. Search near the closest
+	# current view point, never pan the camera or inspect the whole map.
+	screen_anchor = screen_anchor.clamp(safe_rect.position, safe_rect.end)
+	var world_anchor: Vector2 = canvas.affine_inverse() * screen_anchor
+	var center: Vector2i = _world_to_tile(world_anchor)
+	var candidates: Array[Dictionary] = []
+	for dx: int in range(-FIND_SPACE_RADIUS, FIND_SPACE_RADIUS + 1):
+		for dy: int in range(-FIND_SPACE_RADIUS, FIND_SPACE_RADIUS + 1):
+			var tile: Vector2i = center + Vector2i(dx, dy)
+			candidates.append({"tile": tile, "distance": (canvas * _tile_to_world(tile)).distance_squared_to(screen_anchor)})
+	candidates.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		var a_distance: float = float(a["distance"])
+		var b_distance: float = float(b["distance"])
+		if a_distance != b_distance:
+			return a_distance < b_distance
+		var a_tile: Vector2i = a["tile"]
+		var b_tile: Vector2i = b["tile"]
+		return a_tile.x < b_tile.x if a_tile.x != b_tile.x else a_tile.y < b_tile.y
+	)
+	var previous_reason: String = _invalid_reason
+	var previous_tiles: Array[Vector2i] = _invalid_tiles.duplicate()
+	var examined: int = 0
+	for candidate: Dictionary in candidates:
+		var tile: Vector2i = candidate["tile"]
+		if examined >= FIND_SPACE_MAX_CANDIDATES:
+			break
+		examined += 1
+		var bounds: Rect2 = _find_space_preview_screen_rect(tile)
+		if not bounds.has_area() or not safe_rect.encloses(bounds):
+			continue
+		var occluded: bool = false
+		for obstacle: Rect2 in occlusions:
+			if obstacle.has_area() and bounds.intersects(obstacle, true):
+				occluded = true
+				break
+		if occluded:
+			continue
+		# This existing validator checks the WHOLE footprint's current visibility
+		# before querying any terrain/occupancy. Do not prefilter hidden terrain.
+		if not _check_footprint_validity(tile, current_footprint, _player_owner):
+			continue
+		_set_assisted_preview(true)
+		ghost_position = _tile_to_world(tile)
+		global_position = ghost_position
+		_refresh_preview_state(true)
+		return true
+	# A failed search must not replace the user's selected footprint or its
+	# ordinary invalid-cell explanation with the last rejected candidate.
+	_invalid_reason = previous_reason
+	_invalid_tiles = previous_tiles
+	return false
+
+
+func _find_space_preview_screen_rect(tile: Vector2i) -> Rect2:
+	var canvas: Transform2D = get_canvas_transform()
+	var origin: Vector2 = _tile_to_world(tile)
+	var half_w: float = float(MapData.TILE_WIDTH) * 0.5
+	var half_h: float = float(MapData.TILE_HEIGHT) * 0.5
+	# The four outer diamond corners enclose every rendered footprint cell.
+	var points: Array[Vector2] = [
+		origin + Vector2(0.0, -half_h),
+		_tile_to_world(tile + Vector2i(current_footprint.x - 1, 0)) + Vector2(half_w, 0.0),
+		_tile_to_world(tile + current_footprint - Vector2i.ONE) + Vector2(0.0, half_h),
+		_tile_to_world(tile + Vector2i(0, current_footprint.y - 1)) - Vector2(half_w, 0.0),
+	]
+	if _ghost_sprite != null and _ghost_sprite.texture != null:
+		var art: Rect2 = _ghost_art_rect
+		for corner: Vector2 in [art.position, art.position + Vector2(art.size.x, 0.0), art.end, art.position + Vector2(0.0, art.size.y)]:
+			points.append(origin + _ghost_sprite.transform * corner)
+	var minimum: Vector2 = canvas * points[0]
+	var maximum: Vector2 = minimum
+	for point: Vector2 in points:
+		var screen: Vector2 = canvas * point
+		if not screen.is_finite():
+			return Rect2()
+		minimum = minimum.min(screen)
+		maximum = maximum.max(screen)
+	return Rect2(minimum, maximum - minimum).grow(FIND_SPACE_SCREEN_MARGIN)
+
+
 func _find_initial_preview_position(center_world: Vector2) -> Vector2:
 	var center_tile: Vector2i = _world_to_tile(center_world)
 	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
@@ -225,6 +330,7 @@ func _initial_preview_fits_world_area(tile: Vector2i, world_pos: Vector2, world_
 
 
 func cancel_placement() -> void:
+	_set_assisted_preview(false)
 	active = false
 	_hide_placement_grid()
 	visible = false
@@ -359,7 +465,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.device == InputEvent.DEVICE_ID_EMULATION:
 			return
 		var motion := event as InputEventMouseMotion
-		if Input.is_mouse_button_pressed(MOUSE_BUTTON_MIDDLE):
+		if _assisted_preview_active or Input.is_mouse_button_pressed(MOUSE_BUTTON_MIDDLE):
 			return
 		update_preview_at_screen(motion.position)
 		get_viewport().set_input_as_handled()
@@ -417,6 +523,7 @@ func update_preview_at_screen(screen_pos: Vector2) -> void:
 
 
 func update_preview_at_world(world_pos: Vector2) -> void:
+	_set_assisted_preview(false)
 	if not active:
 		return
 	# Snap to tile grid
@@ -668,6 +775,7 @@ func _confirm_placement() -> void:
 		_emit_invalid_feedback()
 		return
 	var pos := ghost_position
+	_set_assisted_preview(false)
 	active = false
 	_hide_placement_grid()
 	visible = false

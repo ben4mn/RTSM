@@ -26,6 +26,7 @@ signal center_selection_requested()
 signal research_requested(building: Node2D, research_id: String)
 signal placement_cancel_requested()
 signal placement_confirm_requested()
+signal placement_find_space_requested()
 signal pause_requested()
 signal resume_requested()
 signal quit_to_menu_requested()
@@ -161,6 +162,8 @@ var _mobile_action_panel: PanelContainer = null
 var _mobile_action_strip: GridContainer = null
 var _placement_cancel_button: Button = null
 var _placement_confirm_button: Button = null
+var _placement_find_space_button: Button = null
+var _placement_assisted_preview: bool = false
 var _placement_status_panel: PanelContainer = null
 var _placement_status_label: Label = null
 var _placement_preview_valid: bool = false
@@ -1071,6 +1074,8 @@ func _set_gameplay_ui_interactable(interactable: bool) -> void:
 		_select_area_button.disabled = not interactable
 	if _placement_cancel_button:
 		_placement_cancel_button.disabled = not interactable
+	if _placement_find_space_button:
+		_placement_find_space_button.disabled = not interactable
 	if _placement_confirm_button:
 		_placement_confirm_button.disabled = not interactable or not _placement_preview_valid
 	if _advanced_command_panel:
@@ -1262,6 +1267,16 @@ func _ensure_mobile_action_strip() -> void:
 	_placement_confirm_button.pressed.connect(func(): placement_confirm_requested.emit())
 	KingdomTheme.apply_primary(_placement_confirm_button)
 	_mobile_action_strip.add_child(_placement_confirm_button)
+
+	_placement_find_space_button = Button.new()
+	_placement_find_space_button.name = "PlacementFindSpaceButton"
+	_placement_find_space_button.text = "Find space"
+	_placement_find_space_button.accessibility_name = "Find visible space for this building"
+	_placement_find_space_button.tooltip_text = "Preview nearby clear ground in sight. No building is purchased."
+	_placement_find_space_button.custom_minimum_size = Vector2(132, MOBILE_ACTION_BUTTON_HEIGHT)
+	_placement_find_space_button.visible = false
+	_placement_find_space_button.pressed.connect(func(): placement_find_space_requested.emit())
+	_mobile_action_strip.add_child(_placement_find_space_button)
 
 	_placement_status_panel = PanelContainer.new()
 	_placement_status_panel.name = "PlacementStatusPanel"
@@ -1572,7 +1587,10 @@ func set_placement_mode(active: bool, building_name: String = "") -> void:
 		_cancel_hud_holds("placement")
 	_placement_mode_active = active
 	_placement_cancel_button.visible = active
-	_placement_confirm_button.visible = active and _placement_uses_touch
+	_placement_find_space_button.visible = active
+	if not active:
+		_placement_assisted_preview = false
+	_placement_confirm_button.visible = active and (_placement_uses_touch or _placement_assisted_preview)
 	_placement_status_panel.visible = active
 	if _town_center_button:
 		_town_center_button.visible = not active
@@ -1622,16 +1640,36 @@ func update_placement_preview(valid: bool, reason: String = "") -> void:
 		if _placement_confirm_button.text.length() > 20:
 			_placement_confirm_button.text = "Place building"
 	if _placement_status_label:
-		var status: String = ("Tap Place to build" if _placement_uses_touch else "Click ground to build") if valid else (reason if reason != "" else "Choose clear ground")
+		var status: String = ("Tap Place to build" if _placement_uses_touch else ("Click Place to build" if _placement_assisted_preview else "Click ground to build")) if valid else (reason if reason != "" else "Choose clear ground")
 		_placement_status_label.text = "%s · %s" % [_placement_building_name, status] if _placement_building_name != "" else status
 		_placement_status_label.add_theme_color_override("font_color", KingdomTheme.PARCHMENT if valid else Color(1.0, 0.75, 0.55))
 	_refresh_touch_target_diagnostics()
 
 
+func set_placement_assisted_preview(active: bool) -> void:
+	_placement_assisted_preview = active
+	if _placement_confirm_button:
+		_placement_confirm_button.visible = _placement_mode_active and (_placement_uses_touch or active)
+	update_placement_preview(_placement_preview_valid, _placement_preview_reason)
+	if _placement_mode_active:
+		var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+		apply_mobile_layout(viewport_size, _get_safe_area_rect(viewport_size))
+
+
+func get_placement_search_safe_rect() -> Rect2:
+	var field: Rect2 = get_world_safe_rect()
+	# Reserve the entire bottom action band. A successful mouse search exposes
+	# Place beside Find space, so the preview must not occupy that future width.
+	for control: Control in [_placement_status_panel, _mobile_action_panel]:
+		if control != null and control.is_visible_in_tree():
+			field.end.y = minf(field.end.y, control.get_global_rect().position.y - 6.0)
+	return field
+
+
 func set_placement_input_mode(uses_touch: bool) -> void:
 	_placement_uses_touch = uses_touch
 	if _placement_confirm_button:
-		_placement_confirm_button.visible = _placement_mode_active and uses_touch
+		_placement_confirm_button.visible = _placement_mode_active and (uses_touch or _placement_assisted_preview)
 	update_placement_preview(_placement_preview_valid, _placement_preview_reason)
 	if _placement_mode_active:
 		var viewport_size: Vector2 = get_viewport().get_visible_rect().size
@@ -1669,7 +1707,7 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 
 	_mobile_action_strip.columns = metrics["action_columns"]
 	var button_width: float = metrics["button_width"]
-	for button in [_placement_confirm_button, _placement_cancel_button, _town_center_button, _idle_villager_button, _select_military_button, _find_army_button]:
+	for button in [_placement_confirm_button, _placement_find_space_button, _placement_cancel_button, _town_center_button, _idle_villager_button, _select_military_button, _find_army_button]:
 		if button:
 			button.custom_minimum_size = Vector2(maxf(button_width, 148.0) if _placement_mode_active else button_width, MOBILE_ACTION_BUTTON_HEIGHT)
 	if _unit_command_container:
@@ -1898,7 +1936,7 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 
 func _count_visible_mobile_action_buttons() -> int:
 	var count: int = 0
-	for button in [_placement_confirm_button, _placement_cancel_button, _town_center_button, _idle_villager_button, _select_military_button, _find_army_button]:
+	for button in [_placement_confirm_button, _placement_find_space_button, _placement_cancel_button, _town_center_button, _idle_villager_button, _select_military_button, _find_army_button]:
 		if button and button.visible:
 			count += 1
 	return count
@@ -2180,6 +2218,8 @@ func _refresh_touch_target_diagnostics() -> void:
 	diag["guidance_dismiss_button"] = _control_touch_diag(_guidance_dismiss_button, "guidance_dismiss")
 	diag["mobile_action_panel"] = _control_touch_diag(_mobile_action_panel, "mobile_action_panel")
 	diag["placement_confirm_button"] = _control_touch_diag(_placement_confirm_button, "placement_confirm_button")
+	diag["placement_find_space_button"] = _control_touch_diag(_placement_find_space_button, "placement_find_space_button")
+	diag["placement_assisted_preview"] = _placement_assisted_preview
 	diag["placement_preview_valid"] = _placement_preview_valid
 	diag["placement_input_mode"] = "touch" if _placement_uses_touch else "mouse"
 	diag["home_button"] = _control_touch_diag(get_base_navigation_button(), "home_button")

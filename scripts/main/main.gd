@@ -2693,6 +2693,7 @@ func _setup_hud() -> void:
 	hud.research_requested.connect(_on_research_requested)
 	hud.placement_cancel_requested.connect(_on_cancel_placement)
 	hud.placement_confirm_requested.connect(_on_confirm_placement)
+	hud.placement_find_space_requested.connect(_on_find_placement_space)
 	hud.town_center_pressed.connect(_select_town_center)
 	hud.camera_zoom_requested.connect(_on_camera_zoom_requested)
 	hud.camera_zoom_reset_requested.connect(game_map.reset_zoom)
@@ -2726,6 +2727,7 @@ func _setup_hud() -> void:
 	_building_placement.placement_invalid.connect(_on_placement_invalid)
 	_building_placement.preview_changed.connect(_on_placement_preview_changed)
 	_building_placement.input_mode_changed.connect(_on_placement_input_mode_changed)
+	_building_placement.assisted_preview_changed.connect(hud.set_placement_assisted_preview)
 	_sync_hud_modal_state()
 	var strategy := preload("res://scripts/managers/strategy_controller.gd").new()
 	strategy.name = "StrategyController"
@@ -2853,6 +2855,15 @@ func _on_camera_zoom_requested(direction: int) -> void:
 		game_map.zoom_in()
 	elif direction < 0:
 		game_map.zoom_out()
+
+
+func _on_find_placement_space() -> void:
+	if not _placement_active or _building_placement == null or hud == null:
+		return
+	if GameManager.current_state != GameManager.GameState.PLAYING or get_tree().paused:
+		return
+	if not _building_placement.find_visible_space(hud.get_placement_search_safe_rect(), hud.get_world_occlusion_rects()):
+		hud.show_notification("No nearby space · pan or scout", Color(1.0, 0.75, 0.3))
 
 
 func _on_confirm_placement() -> void:

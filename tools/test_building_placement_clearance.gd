@@ -52,6 +52,7 @@ func _run() -> void:
 	_map = _main.get_node("GameMap")
 	_map.set_process(false)
 	_placement = _main.get("_building_placement")
+	await _measure_generated_find_space()
 	for side: Array in _main.get("_player_units"):
 		for unit: UnitBase in side:
 			unit.command_stop()
@@ -158,7 +159,66 @@ func _run() -> void:
 	existing.take_damage(existing.hp)
 	_expect(existing.state == BuildingBase.State.DESTROYED and _preview(far_corner), "real destruction releases clearance before the fading building is freed")
 	_expect(_map.is_tile_buildable(ANCHOR), "real destruction releases the original occupied footprint")
+	await _check_find_space_transaction()
 	_finish()
+
+
+func _measure_generated_find_space() -> void:
+	# One desktop/headless timing sample on real generated opening terrain and
+	# normal starting actors. Preview is requested synthetically, not purchased.
+	get_window().size = Vector2i(932, 430)
+	get_window().content_scale_size = Vector2i(932, 430)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_main.call("_on_building_selected_for_placement", BuildingData.BuildingType.ARCHERY_RANGE)
+	var hud: Node = _main.get_node("HUD")
+	var before: Dictionary = ResourceManager.get_all_resources(0).duplicate(true)
+	var camera_before: Vector2 = _map.camera.position
+	var started: int = Time.get_ticks_usec()
+	(hud.get("_placement_find_space_button") as Button).pressed.emit()
+	var elapsed_ms: float = float(Time.get_ticks_usec() - started) / 1000.0
+	print("[MEASURE] find_space actualMain generatedPlains101 Range preview 932x430 found=%s elapsed_ms=%.3f (desktop/headless fixture, not phone FPS)" % [_placement.has_assisted_preview(), elapsed_ms])
+	_expect(ResourceManager.get_all_resources(0) == before and _map.camera.position == camera_before, "generated opening search does not spend or move camera")
+	_main.call("_cancel_placement")
+
+
+func _check_find_space_transaction() -> void:
+	# Synthetic visible grass is already prepared above; final payment, fog,
+	# foundation registration and ordinary HUD signals remain the actual code.
+	_map.camera.position = _map.tile_to_world(ANCHOR)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_main.call("_on_building_selected_for_placement", HOUSE)
+	var hud: Node = _main.get_node("HUD")
+	var camera_before: Vector2 = _map.camera.position
+	var accounts: Dictionary = ResourceManager.get_all_resources(0).duplicate(true)
+	var orders: Array = _snapshot_orders()
+	var count_before: int = (_main.get("_player_buildings")[0] as Array).size()
+	(hud.get("_placement_find_space_button") as Button).pressed.emit()
+	_expect(_placement.has_assisted_preview() and _placement.is_valid_placement, "actual Find space signal produces a legal green preview")
+	_expect(_map.camera.position == camera_before, "actual assistance never moves the camera")
+	_expect(ResourceManager.get_all_resources(0) == accounts and (_main.get("_player_buildings")[0] as Array).size() == count_before and _snapshot_orders() == orders, "assistance preserves real resources, workers and foundation count")
+	if not _placement.is_valid_placement:
+		return
+	var tile: Vector2i = _map.world_to_tile(_placement.ghost_position)
+	var bounds: Rect2 = _placement.call("_find_space_preview_screen_rect", tile)
+	_expect((hud.call("get_placement_search_safe_rect") as Rect2).encloses(bounds), "actual suggested footprint/art fits current safe field")
+	for obstacle: Rect2 in hud.call("get_world_occlusion_rects"):
+		_expect(not bounds.intersects(obstacle, true), "actual suggestion avoids every rendered HUD obstruction")
+	var fog_before: int = _map.fog_of_war.fog_grid[tile.y][tile.x]
+	_map.fog_of_war.fog_grid[tile.y][tile.x] = MapData.FogState.EXPLORED
+	(hud.get("_placement_confirm_button") as Button).pressed.emit()
+	_expect(ResourceManager.get_all_resources(0) == accounts and (_main.get("_player_buildings")[0] as Array).size() == count_before, "assisted Place rechecks lost vision without purchase")
+	_map.fog_of_war.fog_grid[tile.y][tile.x] = fog_before
+	(hud.get("_placement_find_space_button") as Button).pressed.emit()
+	_expect(_placement.is_valid_placement, "assistance recovers after vision returns")
+	var accepted_position: Vector2 = _placement.ghost_position
+	(hud.get("_placement_confirm_button") as Button).pressed.emit()
+	_expect(ResourceManager.get_resource(0, "wood") == int(accounts.wood) - int(BuildingData.get_building_cost(HOUSE).wood), "explicit assisted Place charges exactly the normal House price")
+	_expect((_main.get("_player_buildings")[0] as Array).size() == count_before + 1, "explicit assisted Place creates one real foundation")
+	var placed: BuildingBase = (_main.get("_player_buildings")[0] as Array).back()
+	_expect(placed.global_position == accepted_position and placed.state == BuildingBase.State.CONSTRUCTING, "paid foundation uses the suggested position and normal construction state")
+	_expect(not _placement.active and not _placement.has_assisted_preview(), "paid completion clears assisted placement")
 
 
 func _prepare_patch() -> void:
