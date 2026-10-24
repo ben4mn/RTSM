@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 from urllib.parse import urlsplit
 from beta2_browser_evidence import PROFILE as BETA2_PROFILE, beta2_gates
+from march_browser_evidence import march_gates
 
 
 def read(path, default=None):
@@ -260,7 +261,8 @@ def public_gates(folder, invocation, role):
     }
 
 
-def analyze(folder, require_beta2=False):
+def analyze(folder, require_beta2=False, require_cohesion=False):
+    require_beta2 = require_beta2 or require_cohesion
     failures, mismatches, clients, records = [], [], {}, {}
     invocation = read(folder / 'invocation.json', {})
     scenario = invocation.get('scenario', 'full')
@@ -269,6 +271,8 @@ def analyze(folder, require_beta2=False):
         failures.append('unrecognized acceptance profile')
     if require_beta2 and profile != BETA2_PROFILE:
         failures.append('required beta2 mobile acceptance profile missing')
+    if require_cohesion and invocation.get('cohesion_acceptance') is not True:
+        failures.append('required paired cohesion acceptance missing')
     states = read(folder / 'controller-state.json', {})
     for role in ('host', 'guest'):
         terminal = read(folder / f'{role}-terminal.json', {})
@@ -377,6 +381,8 @@ def analyze(folder, require_beta2=False):
             gates.update(public_gates(folder, invocation, role))
         if require_beta2 or profile == BETA2_PROFILE:
             gates.update(beta2_gates(folder, invocation, role, slot))
+        if require_cohesion or invocation.get('cohesion_acceptance') is True:
+            gates.update(march_gates(folder, invocation, role, slot))
         failures.extend(f'{role}: {key}' for key, value in gates.items() if not value)
         clients[role] = {'matched': matched, 'ended': terminal.get('ended'),
                          'last_game_seconds': latest.get('time'),
@@ -456,6 +462,8 @@ def analyze(folder, require_beta2=False):
     report['public_postflight_header_sha256'] = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted((folder / 'public-postflight-headers').glob('*.headers'))}
     report['analyzer_sha256'] = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
     report['beta2_evidence_helper_sha256'] = hashlib.sha256(Path(__file__).with_name('beta2_browser_evidence.py').read_bytes()).hexdigest()
+    report['cohesion_required'] = require_cohesion
+    report['march_evidence_helper_sha256'] = hashlib.sha256(Path(__file__).with_name('march_browser_evidence.py').read_bytes()).hexdigest()
     (folder / 'analysis.json').write_text(json.dumps(report, indent=2) + '\n')
     return report
 
@@ -464,7 +472,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('output', type=Path)
     parser.add_argument('--require-beta2', action='store_true', help='Fail unless both clients meet every paid Siege/fighter/native-touch beta2 gate')
+    parser.add_argument('--require-cohesion', action='store_true', help='Also require paid mixed march, private status, and explicit Move release for both slots')
     args = parser.parse_args()
-    result = analyze(args.output, require_beta2=args.require_beta2)
+    result = analyze(args.output, require_beta2=args.require_beta2, require_cohesion=args.require_cohesion)
     print(json.dumps({key: result[key] for key in ('passed', 'failures', 'identity_and_result_agreement', 'same_tick_comparison')}, indent=2))
     sys.exit(0 if result['passed'] else 1)
