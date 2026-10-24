@@ -101,6 +101,30 @@ test('manifest paths cannot escape the sealed root or alias another file',()=>{
   for(const rows of [hash+'  ../outside',hash+'  ./C:/outside',hash+'  ./a\\b',hash+'  ./a\n'+hash+'  ./A'])assert.throws(()=>manifestEntries(rows),/Unsafe/);
 });
 
+test('generated UID requires identical sealed bytes and a matching committed parent script',()=>{
+  const f=fixture();
+  const sourceManifest=()=>fs.readFileSync(path.join(f.web,'SOURCE_SHA256SUMS.txt'),'utf8');
+  const uid='uid://b65pkbaqnkmw2\n',uidHash=digest(Buffer.from(uid));
+  const add=(name,bytes)=>{write(f.server,'runtime/'+name,bytes);write(f.web,'SOURCE_SHA256SUMS.txt',sourceManifest()+digest(Buffer.from(bytes))+'  ./'+name+'\n');seal(f.web);seal(f.server);};
+  try {
+    add('scripts/unit.gd.uid',uid);
+    const receipt=verifyPair(f.web,f.server);
+    assert.equal(receipt.shared_runtime_files,2);assert.equal(receipt.shared_committed_runtime_files,1);
+    assert.deepEqual(receipt.generated_uid_derivatives,[{name:'scripts/unit.gd.uid',sha256:uidHash,committed_script:'scripts/unit.gd',committed_script_sha256:digest(Buffer.from('extends Node\n'))}]);
+    write(f.server,'runtime/scripts/unit.gd.uid','uid://different\n');seal(f.server);
+    assert.throws(()=>verifyPair(f.web,f.server),/sealed runtime bytes mismatch/);
+    write(f.server,'runtime/scripts/unit.gd.uid',uid);seal(f.server);
+    const base=sourceManifest();
+    add('scripts/orphan.gd.uid',uid);assert.throws(()=>verifyPair(f.web,f.server),/runtime source mismatch/);
+    fs.unlinkSync(path.join(f.server,'runtime/scripts/orphan.gd.uid'));write(f.web,'SOURCE_SHA256SUMS.txt',base);seal(f.web);seal(f.server);
+    add('scripts/uncommitted.gd','extends Node\n');assert.throws(()=>verifyPair(f.web,f.server),/runtime source mismatch/);
+  } finally {dispose(f.root);}
+});
+
+test('committed source ledger cannot hide different sealed runtime bytes',()=>{
+  const f=fixture();try{write(f.server,'runtime/scripts/unit.gd','extends Node2D\n');seal(f.server);assert.throws(()=>verifyPair(f.web,f.server),/sealed runtime bytes mismatch/);}finally{dispose(f.root);}
+});
+
 test('source binding rejects absent, ambiguous or malformed clean provenance',()=>{
   const f=fixture();
   try {

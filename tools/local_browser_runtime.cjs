@@ -56,12 +56,25 @@ function verifyPair(artifactDirectory, serverDirectory) {
       !authority.source_revision.startsWith(version.source_revision)) throw new Error('Local paired witness requires matching clean committed client/server sources');
   const sources = manifestEntries(fs.readFileSync(path.join(artifact.root, 'SOURCE_SHA256SUMS.txt'), 'utf8'));
   let compared = 0;
+  const generatedUIDs = [];
   for (const [name, hash] of Object.entries(sources)) if (/^(scripts|scenes|assets)\//.test(name)) {
-    if (authority.committed_source_sha256['runtime/' + name] !== hash) throw new Error('Client/server runtime source mismatch: ' + name);
+    const runtimeName = 'runtime/' + name;
+    if (server.files[runtimeName] !== hash || digest(fs.readFileSync(path.join(server.root, runtimeName))) !== hash) throw new Error('Client/server sealed runtime bytes mismatch: ' + name);
+    if (authority.committed_source_sha256[runtimeName] !== hash) {
+      // Editor import can create a UID for a committed script that did not
+      // already have one. Its exact bytes must still be in BOTH closed source
+      // manifests, and its parent script must be an identical committed input.
+      const script = name.endsWith('.gd.uid') ? name.slice(0, -4) : null;
+      if (Object.hasOwn(authority.committed_source_sha256, runtimeName) || !script ||
+          !sources[script] || authority.committed_source_sha256['runtime/' + script] !== sources[script] ||
+          server.files['runtime/' + script] !== sources[script] ||
+          digest(fs.readFileSync(path.join(server.root, 'runtime', script))) !== sources[script]) throw new Error('Client/server runtime source mismatch: ' + name);
+      generatedUIDs.push({name,sha256:hash,committed_script:script,committed_script_sha256:sources[script]});
+    }
     compared++;
   }
   if (!compared) throw new Error('No shared runtime inputs in source manifest');
-  return {artifact, server, version, authority, shared_runtime_files: compared};
+  return {artifact, server, version, authority, shared_runtime_files: compared, shared_committed_runtime_files: compared-generatedUIDs.length, generated_uid_derivatives: generatedUIDs};
 }
 
 async function freePort() {
