@@ -89,7 +89,7 @@ func _refresh() -> void:
 	for entry: Variant in (_main.get("_player_units") as Array)[0]:
 		if is_instance_valid(entry) and entry is UnitBase and not entry is Villager and entry.player_owner == 0 and entry.current_state != UnitBase.State.DEAD:
 			military += 1
-			if entry.damage > 0.0:
+			if entry.damage > 0.0 and entry.unit_type != UnitData.UnitType.SCOUT and entry.hp > 0.0 and entry.is_inside_tree() and not entry.is_queued_for_deletion():
 				fighters += 1
 	var producers: Array[Dictionary] = []
 	var idle_producers: int = 0

@@ -8,6 +8,7 @@ from mcp_phone_playability import (
     choose_empty_ground_target,
     has_fresh_context_execution,
     has_fresh_military_shortcut_execution,
+    has_fresh_scout_selection,
     mobile_layout_blocking_rects,
 )
 
@@ -87,7 +88,7 @@ class PhoneWorldTargetingTests(unittest.TestCase):
         self.assertFalse(has_fresh_context_execution(before, double_fired, "Move", 100))
 
     def test_military_shortcut_requires_fresh_complete_selection(self) -> None:
-        scout_path = "/root/Main/GameMap/UnitsContainer/Scout"
+        fighter_path = "/root/Main/GameMap/UnitsContainer/Archer"
         before = {
             "military_shortcut_invocation_count": 2,
             "military_shortcut_last_timestamp_ms": 1200,
@@ -96,29 +97,49 @@ class PhoneWorldTargetingTests(unittest.TestCase):
             "military_shortcut_invocation_count": 3,
             "military_shortcut_last_timestamp_ms": 1400,
             "military_shortcut_selected_count": 2,
-            "military_shortcut_selected_paths": [scout_path, "/root/Main/GameMap/UnitsContainer/Infantry"],
-            "military_count": 2,
+            "military_shortcut_selected_paths": [fighter_path, "/root/Main/GameMap/UnitsContainer/Infantry"],
+            "military_count": 3,
+            "fighter_count": 2,
         }
-        self.assertTrue(has_fresh_military_shortcut_execution(before, fresh, scout_path))
+        self.assertTrue(has_fresh_military_shortcut_execution(before, fresh, fighter_path))
 
         already_selected_false_positive = dict(fresh, military_shortcut_invocation_count=2)
         self.assertFalse(
-            has_fresh_military_shortcut_execution(before, already_selected_false_positive, scout_path)
+            has_fresh_military_shortcut_execution(before, already_selected_false_positive, fighter_path)
         )
 
         stale_timestamp = dict(fresh, military_shortcut_last_timestamp_ms=1200)
-        self.assertFalse(has_fresh_military_shortcut_execution(before, stale_timestamp, scout_path))
+        self.assertFalse(has_fresh_military_shortcut_execution(before, stale_timestamp, fighter_path))
 
         partial_selection = dict(fresh, military_shortcut_selected_count=1)
-        partial_selection["military_shortcut_selected_paths"] = [scout_path]
-        self.assertFalse(has_fresh_military_shortcut_execution(before, partial_selection, scout_path))
+        partial_selection["military_shortcut_selected_paths"] = [fighter_path]
+        self.assertFalse(has_fresh_military_shortcut_execution(before, partial_selection, fighter_path))
 
         missing_expected_unit = dict(fresh)
         missing_expected_unit["military_shortcut_selected_paths"] = [
             "/root/Main/GameMap/UnitsContainer/Infantry",
-            "/root/Main/GameMap/UnitsContainer/Archer",
+            "/root/Main/GameMap/UnitsContainer/Cavalry",
         ]
-        self.assertFalse(has_fresh_military_shortcut_execution(before, missing_expected_unit, scout_path))
+        self.assertFalse(has_fresh_military_shortcut_execution(before, missing_expected_unit, fighter_path))
+
+        missing_fighter_count = dict(fresh)
+        missing_fighter_count.pop("fighter_count")
+        self.assertFalse(has_fresh_military_shortcut_execution(before, missing_fighter_count, fighter_path))
+        repeated_path = dict(fresh, military_shortcut_selected_paths=[fighter_path, fighter_path])
+        self.assertFalse(has_fresh_military_shortcut_execution(before, repeated_path, fighter_path))
+        extra_duplicate = dict(fresh, military_shortcut_selected_paths=[*fresh["military_shortcut_selected_paths"], fighter_path])
+        self.assertFalse(has_fresh_military_shortcut_execution(before, extra_duplicate, fighter_path))
+
+    def test_scout_world_tap_requires_fresh_exact_selection(self) -> None:
+        path = "/root/Main/GameMap/UnitsContainer/Scout"
+        before = {"timestamp_ms": 100}
+        fresh = {"timestamp_ms": 200, "action": "select_unit", "tapped_node_path": path, "selected_count": 1, "has_selected_units": True}
+        for action in ["select", "select_unit"]:
+            witness = {**fresh, "action": action}
+            self.assertTrue(has_fresh_scout_selection(before, witness, path))
+            for mutation in [{"timestamp_ms": 100}, {"action": "move"}, {"tapped_node_path": path + "Other"}, {"selected_count": 2}, {"has_selected_units": False}, {"has_selected_units": 1}]:
+                self.assertFalse(has_fresh_scout_selection(before, {**witness, **mutation}, path))
+        self.assertFalse(has_fresh_scout_selection({}, {}, path))
 
 
 if __name__ == "__main__":

@@ -1340,10 +1340,10 @@ func _create_military_buttons() -> void:
 
 	_select_military_button = Button.new()
 	_select_military_button.name = "SelectMilitaryButton"
-	_select_military_button.text = "Military: 0 [M]"
+	_select_military_button.text = "Fighters: 0 [M]"
 	_select_military_button.custom_minimum_size = Vector2(MOBILE_ACTION_MIN_BUTTON_WIDTH, MOBILE_ACTION_BUTTON_HEIGHT)
 	_select_military_button.pressed.connect(_emit_select_all_military_pressed)
-	_select_military_button.tooltip_text = "Select all military units [M]"
+	_select_military_button.tooltip_text = "Select fighters [M]. Scouts keep their own orders."
 	_select_military_button.disabled = true
 	_mobile_action_strip.add_child(_select_military_button)
 
@@ -1352,7 +1352,7 @@ func _create_military_buttons() -> void:
 	_find_army_button.text = "Find Army: 0 [F]"
 	_find_army_button.custom_minimum_size = Vector2(MOBILE_ACTION_MIN_BUTTON_WIDTH, MOBILE_ACTION_BUTTON_HEIGHT)
 	_find_army_button.pressed.connect(_emit_find_army_pressed)
-	_find_army_button.tooltip_text = "Center camera on your army [F]"
+	_find_army_button.tooltip_text = "View your fighters [F]. Scouts do not affect this view."
 	_find_army_button.disabled = true
 	_mobile_action_strip.add_child(_find_army_button)
 
@@ -4018,8 +4018,8 @@ func _create_hotkey_panel() -> void:
 		["Q", "Train unit (from selected building)"],
 		["B", "Toggle build menu"],
 		["H", "Select Town Center"],
-		["M", "Select all military"],
-		["F", "Find/center on army"],
+		["M", "Select fighters"],
+		["F", "Find/center on fighters"],
 		[".", "Cycle idle villagers"],
 		["R", "Arm patrol command"],
 		["G", "Toggle stance (Aggr/Stand)"],
@@ -4340,10 +4340,11 @@ func update_military_count(count: int) -> void:
 		_select_military_button.visible = show_shortcuts
 		layout_changed = layout_changed or was_visible != _select_military_button.visible
 		if _mobile_compact_labels:
-			_select_military_button.text = "Army %d" % count if count > 0 else "Army"
+			_select_military_button.text = "Fighters %d" % count if count > 0 else "Fighters"
 		else:
-			_select_military_button.text = "Military: %d [M]" % count if count > 0 else "Military [M]"
-		_select_military_button.disabled = not (count > 0 or _pending_military_shortcut)
+			_select_military_button.text = "Fighters: %d [M]" % count if count > 0 else "Fighters [M]"
+		_select_military_button.disabled = count <= 0
+		_select_military_button.accessibility_name = "Select %d fighters. Scouts keep their own orders." % count
 	if _find_army_button:
 		var was_find_visible: bool = _find_army_button.visible
 		_find_army_button.visible = show_shortcuts and count > 0 and not _mobile_compact_labels
@@ -4353,6 +4354,7 @@ func update_military_count(count: int) -> void:
 		else:
 			_find_army_button.text = "Find Army: %d [F]" % count
 		_find_army_button.disabled = count <= 0
+		_find_army_button.accessibility_name = "Find army: view %d fighters without moving units or including Scouts." % count
 	if layout_changed:
 		var viewport_size: Vector2 = get_viewport().get_visible_rect().size
 		apply_mobile_layout(viewport_size, _get_safe_area_rect(viewport_size))

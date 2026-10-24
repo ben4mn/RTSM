@@ -1,5 +1,5 @@
 extends SceneTree
-## Guided Scout queue truthfulness plus complete, observable Select Military behavior.
+## Guided Scout queue truthfulness plus complete, observable Select fighters behavior.
 
 const MAIN_SCENE_PATH := "res://scenes/main/main.tscn"
 const PLAYER_ID := 0
@@ -83,8 +83,8 @@ func _run() -> void:
 	match_scene.set("_opening_scout_queued", false)
 	_expect(not bool(match_scene.call("_is_timed_hint_relevant", {"context": "scout"})), "existing Scout suppresses the reminder without a local queue flag")
 
-	# The guided Scout is auto-selected. The Select Military shortcut must still
-	# execute, replace that partial selection with the complete army, and retain
+	# The guided Scout is auto-selected. The fighter shortcut must still
+	# execute, select only armed fighters while leaving the Scout alone, and retain
 	# durable evidence for touch-only runtime validation.
 	var scout: Node2D = player_units.back() as Node2D
 	var infantry: Node2D = match_scene.call(
@@ -100,23 +100,25 @@ func _run() -> void:
 		var shortcut_before: Dictionary = match_scene.get("first_session_diagnostics") as Dictionary
 		match_scene.call("_select_all_military")
 		var shortcut_after: Dictionary = match_scene.get("first_session_diagnostics") as Dictionary
+		_expect_eq(shortcut_after.get("fighter_count", -1), 1, "debug fighter count excludes the Scout")
+		_expect_eq(shortcut_after.get("military_count", -1), 2, "historical military count remains available for Scout onboarding")
 		_expect_eq(
 			int(shortcut_after.get("military_shortcut_invocation_count", 0)),
 			int(shortcut_before.get("military_shortcut_invocation_count", 0)) + 1,
-			"Select Military records one fresh invocation"
+			"Select fighters records one fresh invocation"
 		)
 		_expect(
 			int(shortcut_after.get("military_shortcut_last_timestamp_ms", 0))
 			> int(shortcut_before.get("military_shortcut_last_timestamp_ms", 0)),
-			"Select Military records a fresh monotonic timestamp"
+			"Select fighters records a fresh monotonic timestamp"
 		)
 		_expect_eq(
 			int(shortcut_after.get("military_shortcut_selected_count", 0)),
-			2,
-			"Select Military replaces an existing Scout selection with the complete army"
+			1,
+			"Select fighters replaces an existing Scout selection with the armed Infantry"
 		)
 		var selected_paths: Array = shortcut_after.get("military_shortcut_selected_paths", []) as Array
-		_expect(selected_paths.has(str(scout.get_path())), "shortcut evidence includes the guided Scout")
+		_expect(not selected_paths.has(str(scout.get_path())), "shortcut evidence excludes the guided Scout")
 		_expect(selected_paths.has(str(infantry.get_path())), "shortcut evidence includes the Infantry")
 
 	_finish(match_scene)
@@ -151,7 +153,7 @@ func _finish(match_scene: Node) -> void:
 		match_scene.free()
 	current_scene = null
 	if _failures.is_empty():
-		print("[PASS] guided_scout_queue_result: queue truthfulness and observable full-army shortcut")
+		print("[PASS] guided_scout_queue_result: queue truthfulness and observable fighter-only shortcut")
 		quit(0)
 	else:
 		quit(1)

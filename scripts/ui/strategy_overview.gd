@@ -303,10 +303,10 @@ func _build_army() -> void:
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", int(CommandIcons.GAP))
 	_army.add_child(actions)
-	_select_army_button = _icon_button("army", "Select every military unit", "SelectAllArmy", 120, "Select all")
+	_select_army_button = _icon_button("army", "Select all armed fighters. Scouts keep their own orders.", "SelectAllArmy", 120, "Select fighters")
 	_select_army_button.pressed.connect(func() -> void: army_requested.emit())
 	actions.add_child(_select_army_button)
-	_focus_army_button = _icon_button("find", "Find and view your army", "FindArmy", 120, "Find army")
+	_focus_army_button = _icon_button("find", "View your fighters. Scouts keep exploring independently.", "FindArmy", 120, "Find army")
 	_focus_army_button.pressed.connect(func() -> void: army_focus_requested.emit())
 	actions.add_child(_focus_army_button)
 	for index: int in [1, 2]:
@@ -379,7 +379,7 @@ func update_snapshot(snapshot: Dictionary) -> void:
 		if int(workers.get(resource, 0)) == 0:
 			warnings.append("No " + resource + " workers")
 	var idle: int = int(workers.get("idle", 0))
-	var military: int = int(snapshot.get("military", 0))
+	var fighters: int = maxi(0, int(snapshot.get("fighters", 0)))
 	var economy: Dictionary = snapshot.get("economy", {})
 	var attention: String = str(economy.get("attention", ""))
 	var economy_description := "Economy: manage workers and paid production"
@@ -396,8 +396,8 @@ func update_snapshot(snapshot: Dictionary) -> void:
 	# This is a count of observed idle workers, never an automatic assignment.
 	var economy_badge: String = (str(idle) if idle < 100 else "99+") if idle > 0 else ("!" if not warnings.is_empty() or not attention.is_empty() else "")
 	CommandIcons.set_badge(_economy_button, economy_badge, true)
-	CommandIcons.apply_labeled(_army_button, "army", "Army: %d military units. Recruit fighters and manage two groups." % military, "Army")
-	CommandIcons.set_badge(_army_button, str(military))
+	CommandIcons.apply_labeled(_army_button, "army", "Army: %d fighters. Recruit fighters and manage two groups. Scouts keep their own orders." % fighters, "Army")
+	CommandIcons.set_badge(_army_button, str(fighters))
 	var worker_count: int = 0
 	for amount: Variant in workers.values():
 		worker_count += int(amount)
@@ -428,8 +428,8 @@ func update_snapshot(snapshot: Dictionary) -> void:
 	_population.text = str(snapshot.get("population_text", ""))
 	CommandIcons.apply(_idle_button, "idle", "Find the next of %d idle workers" % idle, "Find\nidle")
 	_idle_button.disabled = idle <= 0
-	_select_army_button.disabled = military <= 0
-	_focus_army_button.disabled = military <= 0
+	_select_army_button.disabled = fighters <= 0
+	_focus_army_button.disabled = fighters <= 0
 	_refresh_allocation_buttons()
 	_refresh_producers(snapshot.get("producers", []))
 	_refresh_pages()

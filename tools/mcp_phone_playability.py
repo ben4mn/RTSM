@@ -336,13 +336,13 @@ def has_fresh_military_shortcut_execution(
     after: dict[str, Any],
     expected_selected_path: str,
 ) -> bool:
-    """Require one new shortcut invocation that selected the complete live army."""
+    """Require a fresh fighter-count selection; Scout onboarding uses a direct tap."""
     before_timestamp = int(as_float(before.get("military_shortcut_last_timestamp_ms", 0), 0.0))
     before_count = int(as_float(before.get("military_shortcut_invocation_count", 0), 0.0))
     after_timestamp = int(as_float(after.get("military_shortcut_last_timestamp_ms", 0), 0.0))
     after_count = int(as_float(after.get("military_shortcut_invocation_count", 0), 0.0))
     selected_count = int(as_float(after.get("military_shortcut_selected_count", 0), 0.0))
-    military_count = int(as_float(after.get("military_count", 0), 0.0))
+    fighter_count = int(as_float(after.get("fighter_count", 0), 0.0))
     raw_paths = after.get("military_shortcut_selected_paths", [])
     if not isinstance(raw_paths, list):
         return False
@@ -351,9 +351,22 @@ def has_fresh_military_shortcut_execution(
         after_count == before_count + 1
         and after_timestamp > before_timestamp
         and selected_count > 0
-        and selected_count == military_count
+        and selected_count == fighter_count
         and len(selected_paths) == selected_count
+        and len(set(selected_paths)) == selected_count
         and expected_selected_path in selected_paths
+    )
+
+
+def has_fresh_scout_selection(before: dict[str, Any], after: dict[str, Any], expected_path: str) -> bool:
+    """Require an observed world tap to select exactly the intended Scout."""
+    return (
+        bool(expected_path)
+        and int(as_float(after.get("timestamp_ms", 0), 0.0)) > int(as_float(before.get("timestamp_ms", 0), 0.0))
+        and after.get("action") in {"select", "select_unit"}
+        and after.get("tapped_node_path") == expected_path
+        and int(as_float(after.get("selected_count", 0), 0.0)) == 1
+        and after.get("has_selected_units") is True
     )
 
 
@@ -1193,7 +1206,7 @@ def main() -> int:
             time.sleep(0.15)
         return None
 
-    def find_visible_player_military_target(screen_w: int, screen_h: int) -> tuple[int, int, str] | None:
+    def find_visible_player_scout_target(screen_w: int, screen_h: int) -> tuple[int, int, str] | None:
         screen_center_x = screen_w * 0.5
         screen_center_y = screen_h * 0.5
         candidates: list[tuple[float, int, int, str]] = []
@@ -1203,7 +1216,7 @@ def main() -> int:
             if int(as_float(target.get("player_owner", -1), -1.0)) != 0:
                 continue
             unit_type = int(as_float(target.get("unit_type", -1), -1.0))
-            if unit_type < 0 or unit_type == 0:
+            if unit_type != 4:  # Scout: explicitly selected, never a fighter shortcut.
                 continue
             screen_x, screen_y = logical_to_input_point(
                 as_float(target.get("screen_x", 0.0)),
@@ -1218,14 +1231,14 @@ def main() -> int:
             return screen_x, screen_y, node_path
         return None
 
-    def wait_for_visible_player_military_target(
+    def wait_for_visible_player_scout_target(
         screen_w: int,
         screen_h: int,
         timeout: float = 3.0,
     ) -> tuple[int, int, str] | None:
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
-            target = find_visible_player_military_target(screen_w, screen_h)
+            target = find_visible_player_scout_target(screen_w, screen_h)
             if target is not None:
                 return target
             time.sleep(0.15)
@@ -1613,17 +1626,11 @@ def main() -> int:
         input_x, input_y = logical_to_input_point(center[0], center[1])
         return touch_tap(input_x, input_y, start_ms)
 
-    def wait_for_military_available(timeout: float = 50.0) -> bool:
+    def wait_for_scout_available(screen_w: int, screen_h: int, timeout: float = 50.0) -> bool:
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
-            session_diag = first_session_diag()
-            military_count = int(as_float(session_diag.get("military_count", 0), 0.0))
-            diag = hud_touch_diag()
-            army_button = find_named_control(diag, "SelectMilitaryButton")
-            if isinstance(army_button, dict):
-                disabled = as_bool(army_button.get("disabled", True), True)
-                if military_count > 0 and not disabled:
-                    return True
+            if find_visible_player_scout_target(screen_w, screen_h) is not None:
+                return True
             time.sleep(0.5)
         return False
 
@@ -2814,14 +2821,14 @@ def main() -> int:
             True,
         )
 
-        if wait_for_military_available(timeout=50.0):
-            record("touch_train_wait_for_military", True, "Military action button enabled")
+        if wait_for_scout_available(screen_w, screen_h, timeout=50.0):
+            record("touch_train_wait_for_scout", True, "Trained Scout is visibly available for an explicit world tap")
         else:
             military_wait_diag = first_session_diag()
             record(
-                "touch_train_wait_for_military",
+                "touch_train_wait_for_scout",
                 False,
-                "Military unit did not become available; count=%s train_result=%s production_ticks=%s active_queues=%s progress=%s"
+                "Scout did not become visibly available; count=%s train_result=%s production_ticks=%s active_queues=%s progress=%s"
                 % (
                     military_wait_diag.get("military_count", "?"),
                     military_wait_diag.get("last_train_request_result", "?"),
@@ -2830,17 +2837,9 @@ def main() -> int:
                     military_wait_diag.get("production_latest_progress", "?"),
                 ),
             )
-            raise MCPError("military action button unavailable for touch move validation")
+            raise MCPError("visible Scout unavailable for explicit touch move validation")
 
-        hud_diag = hud_touch_diag()
-        army_button = find_named_control(hud_diag, "SelectMilitaryButton")
-        if army_button is None:
-            record("touch_select_military_move_smoke", False, "SelectMilitaryButton not found in HUD diagnostics")
-            raise MCPError("missing SelectMilitaryButton in HUD diagnostics")
-        if as_bool(army_button.get("disabled", True), True):
-            record("touch_select_military_move_smoke", False, "SelectMilitaryButton remained disabled after military spawn")
-            raise MCPError("SelectMilitaryButton remained disabled after scout training")
-        military_target = wait_for_visible_player_military_target(screen_w, screen_h)
+        military_target = wait_for_visible_player_scout_target(screen_w, screen_h)
         if military_target is None:
             target_diag = selection_manager_touch_target_diag()
             unit_summaries: list[str] = []
@@ -2858,62 +2857,42 @@ def main() -> int:
                     )
                 )
             record(
-                "touch_select_military_move_smoke",
+                "touch_scout_move_smoke",
                 False,
-                "No visible player military unit found; target snapshot units: %s" % " | ".join(unit_summaries),
+                "No visible player Scout found; target snapshot units: %s" % " | ".join(unit_summaries),
             )
-            raise MCPError("no visible player military unit found for move command")
+            raise MCPError("no visible player Scout found for move command")
         military_x, military_y, military_path = military_target
         empty_ground_target = find_visible_empty_ground_target(screen_w, screen_h, military_x, military_y)
         if empty_ground_target is None:
-            record("touch_select_military_move_smoke", False, "No reliable empty-ground target found for touch move")
-            raise MCPError("no empty-ground target found for military move command")
+            record("touch_scout_move_smoke", False, "No reliable empty-ground target found for touch move")
+            raise MCPError("no empty-ground target found for Scout move command")
         move_target_x, move_target_y, move_target_detail = empty_ground_target
         record(
-            "touch_select_military_move_target",
+            "touch_scout_move_target",
             True,
             "Moving %s toward (%d,%d) [%s]" % (military_path, move_target_x, move_target_y, move_target_detail),
         )
-        military_shortcut_before = first_session_diag()
+        # A Scout is deliberately selected in the world. The bulk fighter
+        # button may correctly remain disabled when no armed units exist.
+        scout_tap_before = selection_manager_touch_input_diag()
         run_touch_scenario(
-            "touch_select_military_button",
-            tap_control(army_button, 0, "select_military"),
+            "touch_select_scout_world",
+            touch_tap(military_x, military_y, 0),
             timeout=20.0,
         )
-        military_shortcut_diag: dict[str, Any] = {}
-        military_shortcut_fresh = False
-        military_shortcut_deadline = time.monotonic() + 2.0
-        while time.monotonic() < military_shortcut_deadline:
-            military_shortcut_diag = first_session_diag()
-            if has_fresh_military_shortcut_execution(
-                military_shortcut_before,
-                military_shortcut_diag,
-                military_path,
-            ):
-                military_shortcut_fresh = True
+        scout_tap_after: dict[str, Any] = {}
+        scout_selected = False
+        scout_deadline = time.monotonic() + 2.0
+        while time.monotonic() < scout_deadline:
+            scout_tap_after = selection_manager_touch_input_diag()
+            if has_fresh_scout_selection(scout_tap_before, scout_tap_after, military_path) and selection_count() == 1:
+                scout_selected = True
                 break
             time.sleep(0.1)
-        military_selection_count = int(
-            as_float(military_shortcut_diag.get("military_shortcut_selected_count", 0), 0.0)
-        )
-        live_selection_count = selection_count()
-        military_shortcut_detail = (
-            "invocations=%s->%s timestamp=%s->%s selected=%d live_selected=%d military=%s paths=%s"
-            % (
-                military_shortcut_before.get("military_shortcut_invocation_count", 0),
-                military_shortcut_diag.get("military_shortcut_invocation_count", 0),
-                military_shortcut_before.get("military_shortcut_last_timestamp_ms", 0),
-                military_shortcut_diag.get("military_shortcut_last_timestamp_ms", 0),
-                military_selection_count,
-                live_selection_count,
-                military_shortcut_diag.get("military_count", 0),
-                military_shortcut_diag.get("military_shortcut_selected_paths", []),
-            )
-        )
-        military_shortcut_ok = military_shortcut_fresh and live_selection_count == military_selection_count
-        record("touch_select_military_assertion", military_shortcut_ok, military_shortcut_detail)
-        if not military_shortcut_ok:
-            raise MCPError("military shortcut lacked one fresh complete-selection invocation")
+        record("touch_select_scout_assertion", scout_selected, json.dumps({"expected_path": military_path, "before": scout_tap_before, "after": scout_tap_after, "live_selected": selection_count()}))
+        if not scout_selected:
+            raise MCPError("Scout world tap lacked fresh exact-selection evidence")
 
         # Exercise the single-action long-press path with a known selected unit
         # and a target already verified to be empty world space. Passing this

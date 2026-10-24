@@ -430,9 +430,12 @@ func _refresh_first_session_diagnostics() -> void:
 	if OS.has_feature("production"):
 		return
 	var military_count: int = 0
+	var fighter_count: int = 0
 	for unit in _player_units[0]:
 		if not is_instance_valid(unit) or unit.current_state == UnitBase.State.DEAD:
 			continue
+		if _is_live_owned_fighter(unit):
+			fighter_count += 1
 		if unit.unit_type != UnitData.UnitType.VILLAGER:
 			military_count += 1
 	first_session_diagnostics = {
@@ -447,6 +450,7 @@ func _refresh_first_session_diagnostics() -> void:
 		"opening_loop_complete": _opening_gather_complete and _opening_house_complete and _opening_scout_queued and _opening_military_move_complete,
 		"guidance_dismissed": _guidance_dismissed_in_match,
 		"military_count": military_count,
+		"fighter_count": fighter_count,
 		"pause_open_count": _pause_open_count,
 		"placement_active": _placement_active,
 		"placement_type": _placement_type,
@@ -993,23 +997,29 @@ func _on_quit_to_menu_requested() -> void:
 	get_tree().call_deferred("change_scene_to_file", "res://scenes/ui/main_menu.tscn")
 
 
+func _is_live_owned_fighter(entry: Variant) -> bool:
+	# Ownership precedes mutable reads; inert online replicas use the same
+	# public armed-unit facts. Scout movement and saved groups stay separate.
+	return is_instance_valid(entry) and entry is UnitBase and entry.player_owner == 0 and entry.is_inside_tree() and not entry.is_queued_for_deletion() and entry.current_state != UnitBase.State.DEAD and entry.hp > 0.0 and not entry is Villager and entry.unit_type != UnitData.UnitType.SCOUT and entry.damage > 0.0
+
+
 func _select_all_military() -> void:
-	var military_units: Array[Node2D] = []
-	for unit in _player_units[0]:
-		if not is_instance_valid(unit) or unit.current_state == UnitBase.State.DEAD:
-			continue
-		if unit is Villager:
-			continue
-		military_units.append(unit)
-	game_map.selection_mgr.select_many(military_units)
+	var fighters: Array[Node2D] = []
+	for entry: Variant in _player_units[0]:
+		if _is_live_owned_fighter(entry):
+			fighters.append(entry as Node2D)
+	if not fighters.is_empty():
+		game_map.selection_mgr.select_many(fighters)
+	else:
+		hud.show_notification("No fighters yet. Recruit Warriors from a Barracks.", KingdomTheme.AMBER)
 	_military_shortcut_invocation_count += 1
 	_military_shortcut_last_timestamp_ms = maxi(
 		Time.get_ticks_msec(),
 		_military_shortcut_last_timestamp_ms + 1
 	)
-	_military_shortcut_selected_count = game_map.selection_mgr.selected.size()
+	_military_shortcut_selected_count = fighters.size()
 	_military_shortcut_selected_paths.clear()
-	for unit in game_map.selection_mgr.selected:
+	for unit: Node2D in fighters:
 		_military_shortcut_selected_paths.append(str(unit.get_path()))
 	_refresh_first_session_diagnostics()
 
@@ -1017,17 +1027,16 @@ func _select_all_military() -> void:
 func _find_army() -> void:
 	var center := Vector2.ZERO
 	var count: int = 0
-	for unit in _player_units[0]:
-		if not is_instance_valid(unit) or unit.current_state == UnitBase.State.DEAD:
-			continue
-		if unit is Villager:
-			continue
-		center += unit.global_position
-		count += 1
+	for entry: Variant in _player_units[0]:
+		if _is_live_owned_fighter(entry):
+			center += (entry as UnitBase).global_position
+			count += 1
 	if count > 0:
 		game_map.note_camera_interaction()
 		game_map.camera.position = center / float(count)
 		game_map._clamp_camera()
+	else:
+		hud.show_notification("No fighters yet. Recruit Warriors from a Barracks.", KingdomTheme.AMBER)
 
 
 # =========================================================================
@@ -1365,7 +1374,7 @@ func _update_idle_villager_count() -> void:
 				"wood": vill_wood += 1
 				"gold": vill_gold += 1
 				"build": vill_build += 1
-		else:
+		elif _is_live_owned_fighter(unit):
 			military_count += 1
 	hud.update_idle_villager_count(idle_count)
 	hud.update_military_count(military_count)
@@ -1554,7 +1563,7 @@ func _on_unit_trained(unit_type: int, player_id: int, source_queue: ProductionQu
 			game_map.note_camera_interaction()
 			game_map.camera.position = unit.global_position
 			game_map.camera.reset_smoothing()
-			hud.show_notification("Scout ready: tap Army, Select all army, then open ground.", Color(0.95, 0.86, 0.42))
+			hud.show_notification("Scout ready: tap open ground to explore.", Color(0.95, 0.86, 0.42))
 			_update_progression_hint()
 		# Auto-assign new villagers to gather the most needed resource
 		if unit and unit_type == UnitData.UnitType.VILLAGER and use_default_villager_assignment:
@@ -3650,7 +3659,7 @@ func _update_progression_hint() -> void:
 				elif has_selected_military:
 					_apply_primary_guidance("4 / 4 · Tap open ground to explore.", "", -1)
 				else:
-					_apply_primary_guidance("4 / 4 · Tap Army, then open ground.", "military_button", -1)
+					_apply_primary_guidance("4 / 4 · Tap your Scout, then open ground.", "", -1)
 				return
 			GuidedOpeningStage.FREE_PLAY:
 				pass
