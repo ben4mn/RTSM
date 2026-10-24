@@ -1,6 +1,23 @@
 {
   "releases": [
     {
+      "id": "2026-10-24-hold-your-ground",
+      "version": "0.3.0-beta.2",
+      "date": "2026-10-24",
+      "title": "Hold your ground",
+      "summary": "Defend the Sacred Site with fighters, bring mixed armies together and build with steadier mobile controls.",
+      "changes": [
+        "In Standard matches, keep at least one fighter in the Sacred Site ring to run its victory clock. Scouts and workers can still claim and contest it. Leaving pauses your progress; returning resumes it. Uncontested ownership still earns gold. Control race keeps its existing rules.",
+        "Nearby mixed fighters receiving a compatible Attack order march at a shared pace until combat. Move keeps each unit's normal speed for scouting and withdrawal. Selection shows when fighters are marching together. Both online players need this release.",
+        "Select fighters and Find army gather your armed troops without pulling Scouts away from their scouting routes.",
+        "Castle unlocks the Siege Workshop in 20-, 30- and 40-population matches. The Army build row scrolls on narrow screens so every building stays reachable.",
+        "Construction cards keep the same order as you advance through the ages, including House and Town Center.",
+        "The guided opener lets you advance when you can afford it. Assigning a worker to food counts toward its food lesson; you can end the guide and continue playing.",
+        "Rotating or resizing a paused game preserves your chosen camera zoom.",
+        "Economy makes idle workers easier to spot and assign. Army Info can explain repeated counter losses your troops actually witnessed."
+      ]
+    },
+    {
       "id": "2026-10-24-three-kingdoms",
       "version": "0.3.0-beta.1",
       "date": "2026-10-24",
