@@ -28,6 +28,10 @@ func _run() -> void:
 	get_tree().root.add_child(menu)
 	get_tree().current_scene = menu
 	await _settle(6)
+	current = {"name": "navigation-click", "screenshots": [], "failures": []}
+	phase = "home"
+	await _click(menu.get("_new_game_button"))
+	await _settle(3)
 	var button: Button = menu.get("start_button")
 	var events: Dictionary = {"pressed_signals": 0, "gui_events": []}
 	button.pressed.connect(func() -> void: events.pressed_signals += 1)
@@ -35,7 +39,6 @@ func _run() -> void:
 		if event is InputEventMouse:
 			events.gui_events.append({"type": event.get_class(), "position": _xy(event.position), "pressed": event.pressed if event is InputEventMouseButton else false})
 	)
-	current = {"name": "navigation-click", "screenshots": [], "failures": []}
 	phase = "menu"
 	await _capture("before")
 	report["before"] = {"window": _xy(get_window().size), "viewport": _xy(get_viewport().get_visible_rect().size), "content_scale_factor": get_window().content_scale_factor, "final_transform": str(get_viewport().get_final_transform()), "button_rect": str(button.get_global_rect()), "button_viewport_center": _xy(button.get_global_transform_with_canvas() * (button.size * 0.5)), "hovered": button.is_hovered()}

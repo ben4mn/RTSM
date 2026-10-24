@@ -133,16 +133,23 @@ func _scenario(phone: Vector2i, scale_factor: float, notched: bool) -> void:
 	# before that finger can reach its hold threshold or release into a command.
 	_prepare_world()
 	_selection.touch_context_enabled = true
-	_selection.long_press_threshold = 0.08
+	# Keep the production hold delay. An 80ms shortcut can expire during the
+	# two real frames used to dispatch the first finger on a loaded host.
+	var hold_threshold: float = _selection.long_press_threshold
 	var more: Button = hud.get("_unit_more_button")
 	before = _orders
 	index = _new_contact()
 	var gui_index: int = _new_contact()
+	var first_contact_at: int = Time.get_ticks_msec()
 	await _touch(index, ground, true)
+	var gui_hold_observation := {"profile":_profile,"threshold_ms":roundi(hold_threshold*1000.0),"before_gui_ms":Time.get_ticks_msec()-first_contact_at,"orders_before_gui":_orders-before}
+	_expect(_orders == before, "world hold elapsed before the fixture delivered its second GUI contact")
 	await _touch(gui_index, more.get_global_rect().get_center(), true)
-	await get_tree().create_timer(0.11).timeout
+	await get_tree().create_timer(hold_threshold + 0.05).timeout
 	await _touch(index, ground, false)
 	await _touch(gui_index, ground, false)
+	gui_hold_observation["orders_after_release"] = _orders-before
+	print("GUI_HOLD_TIMING ", JSON.stringify(gui_hold_observation))
 	_expect(_orders == before, "second GUI contact left a world hold/release actionable")
 	_expect_clean("world then GUI")
 	hud.call("close_secondary_surface")
@@ -152,7 +159,7 @@ func _scenario(phone: Vector2i, scale_factor: float, notched: bool) -> void:
 	var hold_executions: int = int(_selection.get("_touch_context_execution_count"))
 	index = _new_contact()
 	await _touch(index, ground, true)
-	await get_tree().create_timer(0.11).timeout
+	await get_tree().create_timer(hold_threshold + 0.05).timeout
 	_expect(_orders == before, "disabled hold preference still activated a world hold")
 	await _touch(index, ground, false)
 	_expect(_orders == before + 1 and int(_selection.get("_touch_context_execution_count")) == hold_executions, "disabled hold did not preserve ordinary tap semantics")
@@ -195,7 +202,7 @@ func _scenario(phone: Vector2i, scale_factor: float, notched: bool) -> void:
 	_map.call("reset_zoom")
 	await _stable_target_radii(ground)
 	await _desktop_ownership(ground)
-	_records.append({"profile": _profile, "logical_viewport": str(view), "boundaries": contacts, "pan_distances": pan_distances})
+	_records.append({"profile": _profile, "logical_viewport": str(view), "boundaries": contacts, "pan_distances": pan_distances, "world_then_gui":gui_hold_observation})
 	_main.free()
 	await _settle()
 

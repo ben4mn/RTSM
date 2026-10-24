@@ -22,6 +22,9 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 TOOLS_DIR = PROJECT_ROOT / "tools"
 DEFAULT_GODOT = Path("/Applications/Godot.app/Contents/MacOS/Godot")
 ENDING_SCENARIOS = ("victory_menu", "elimination_menu", "defeat_restart", "pause_quit")
+NATIVE_RENDER_CASES = {
+    "test_sacred_annotation_visibility": "Requires native viewport pixels; headless rendering cannot validate annotation visibility",
+}
 
 
 def terminate_process_tree(process: subprocess.Popen) -> None:
@@ -72,6 +75,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--timeout", type=float, default=120.0, help="Per-case timeout in seconds")
     parser.add_argument("--log", type=Path, help="Optional combined evidence log")
     parser.add_argument("--only", action="append", default=[], metavar="PATTERN", help="Run matching case names (glob; repeatable). Default runs every discovered case")
+    parser.add_argument("--native-rendering", action="store_true", help="Also run native-only pixel fixtures in visible windows, with private capture directories")
     return parser.parse_args()
 
 
@@ -147,6 +151,13 @@ def run_suite(args: argparse.Namespace, project: Path) -> int:
             print("No focused cases match --only", file=sys.stderr)
             return 2
 
+    native_rendering = bool(getattr(args, "native_rendering", False))
+    not_run = [
+        {"case": name, "status": "NOT RUN", "reason": NATIVE_RENDER_CASES[name] + "; enable --native-rendering"}
+        for name, _command in cases if name in NATIVE_RENDER_CASES and not native_rendering
+    ]
+    cases = [(name, command) for name, command in cases if native_rendering or name not in NATIVE_RENDER_CASES]
+
     transcript: list[str] = []
     failures: list[str] = []
     records: list[dict] = []
@@ -171,9 +182,15 @@ def run_suite(args: argparse.Namespace, project: Path) -> int:
             "private_user_dirs": private_user_dirs,
             "unique_user_dirs": len(private_user_dirs) == len(set(private_user_dirs.values())),
             "cases": records, "failures": failures, "fixture_artifacts": str(artifact_path),
+            "not_run": not_run, "native_rendering": native_rendering,
         }, indent=2) + "\n", encoding="utf-8")
 
     save_receipt()
+
+    for skipped in not_run:
+        line = f"[NOT RUN] {skipped['case']}: {skipped['reason']}"
+        print(line, flush=True)
+        transcript.append(line)
 
     for index, (name, command) in enumerate(cases, start=1):
         # Each case starts with fresh preferences, even after a preceding test
@@ -185,11 +202,17 @@ def run_suite(args: argparse.Namespace, project: Path) -> int:
         header = f"=== [{index}/{len(cases)}] {name} ==="
         print(header, flush=True)
         transcript.append(header)
+        case_environment = environment.copy()
+        if name in NATIVE_RENDER_CASES:
+            command = [argument for argument in command if argument != "--headless"]
+            capture = artifact_path / "native" / name
+            capture.mkdir(parents=True, exist_ok=True)
+            case_environment["AOEM_CAPTURE_UX_DIR"] = str(capture.resolve())
         try:
             result = run_case(
                 command,
                 cwd=project,
-                env=environment,
+                env=case_environment,
                 timeout=args.timeout,
             )
             output = "\n".join(part.rstrip() for part in (result.stdout, result.stderr) if part.strip())
@@ -233,6 +256,8 @@ def run_suite(args: argparse.Namespace, project: Path) -> int:
     summary = f"FOCUSED_SUITE: {len(cases) - len(failures)}/{len(cases)} passed"
     if failures:
         summary += f"; failed: {', '.join(failures)}"
+    if not_run:
+        summary += f"; {len(not_run)} native-only NOT RUN (requires --native-rendering)"
     print(summary)
     transcript.append(summary)
 
@@ -242,10 +267,15 @@ def run_suite(args: argparse.Namespace, project: Path) -> int:
     save_receipt(completed=True)
     print(f"Saved log: {log_path}")
 
-    return 0 if not failures else 1
+    return 1 if failures else (0 if cases else 2)
 
 
 def main() -> int:
+    # Godot diagnostics include Unicode names/arrows. Windows pipe defaults
+    # can be cp1252 even though run_case correctly decodes the engine as UTF-8.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     args = parse_args()
     if not args.godot.is_file() or not os.access(args.godot, os.X_OK):
         print(f"Godot executable is unavailable: {args.godot}", file=sys.stderr)

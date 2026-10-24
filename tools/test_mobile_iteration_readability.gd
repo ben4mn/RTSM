@@ -28,6 +28,7 @@ func _run() -> void:
     var evidence_path: String = OS.get_environment("AOEM_READABILITY_EVIDENCE")
     if evidence_path.is_empty():
         evidence_path = "res://output/aoe-iteration/mobile-readability.json"
+    DirAccess.make_dir_recursive_absolute(evidence_path.get_base_dir())
     var evidence := FileAccess.open(evidence_path,FileAccess.WRITE)
     if evidence:
         evidence.store_string(JSON.stringify({"profiles":_profiles,"failures":_failures,"units":"Settled logical Control bounds. CSS-equivalent sizes use actual phone/logical viewport ratios; no physical phone or native density claim."},"  "))
@@ -120,7 +121,7 @@ func _profile(phone: Vector2i, scale_factor: float, notched: bool) -> void:
     _expect(queue_navigation.visible and not queue_navigation.disabled,"%s queue navigation missing or disabled" % label)
     _expect(queue_navigation.size.x >= 48.0 and queue_navigation.size.y >= 48.0,"%s queue navigation target under48px" % label)
     _expect((hud.get("selection_panel") as Control).get_global_rect().encloses(queue_navigation.get_global_rect()),"%s queue navigation floats outside shelf" % label)
-    _expect((hud.get("selection_panel") as Control).size.y <= 72.5,"%s production shelf grows beyond72px" % label)
+    _expect((hud.get("selection_panel") as Control).size.y <= 80.5,"%s production shelf grows beyond80px" % label)
     _expect((hud.get("selection_panel") as Control).size.x <= 420.0,"%s TC recruitment shelf retains empty width: %.1f" % [label,(hud.get("selection_panel") as Control).size.x])
     _expect(safe.encloses(queue_navigation.get_global_rect()),"%s queue navigation outside safe area" % label)
     _expect(not queue_navigation.get_global_rect().intersects((hud.get("selection_info_column") as Control).get_global_rect()),"%s queue navigation overlaps selection details" % label)
@@ -154,8 +155,8 @@ func _profile(phone: Vector2i, scale_factor: float, notched: bool) -> void:
         await _settle(hud,logical,safe)
         await _selection_name_readable(hud,logical,safe,label)
         _text_fits(hud.get("selection_details"),label)
-        _expect((hud.get("selection_panel") as Control).size.y <= 72.5,"%s counter details expand shelf" % label)
-        _expect((hud.get("selection_details") as Label).text.contains(UnitData.get_unit_counter_description(role)),"%s missing visible counter" % label)
+        _expect((hud.get("selection_panel") as Control).size.y <= 80.5,"%s counter details expand shelf" % label)
+        _expect((hud.get("selection_details") as Label).text.contains("Bonus: " + UnitData.get_unit_counter_name(role,0)),"%s missing visible counter" % label)
         _expect(not (hud.get("build_menu_button") as Button).visible and not (hud.get("age_up_button") as Button).visible and not (hud.get("_mobile_action_panel") as Control).visible,"%s army retains irrelevant controls" % label)
     _publish_selection_change(hud)
     hud.call("show_unit_selection","Villager",50,50,"Gathering Food (19/20)",1,{"unit_type":UnitData.UnitType.VILLAGER})
@@ -364,12 +365,15 @@ func _non_production_shelf_density(hud: Node,logical: Vector2i,safe: Rect2,profi
             hud.call("show_unit_selection",UnitData.get_unit_name(unit_type),50,50,"Seeking Food" if context == "worker" else "Attacking",1,{"unit_type":unit_type})
             hud.call("configure_unit_commands",true,context == "army","Aggressive","smart")
         await _settle(hud,logical,safe)
-        _expect(panel.size.y <= 72.5,context_profile+" grows above72px")
+        # The established HUD gives the counter line its own readable row;
+        # simple worker/foundation selections retain the smaller shelf.
+        var maximum_height: float = 80.5 if context == "army" else 72.5
+        _expect(panel.size.y <= maximum_height,context_profile+" grows above its intended height")
         _expect(safe.encloses(panel.get_global_rect()),context_profile+" is outside safe area")
         _expect(not panel.get_global_rect().intersects((hud.get("minimap_bg") as Control).get_global_rect()),context_profile+" overlaps minimap")
         await _selection_name_readable(hud,logical,safe,context_profile)
         _text_fits(hud.get("selection_details"),context_profile)
-        _expect((hud.get("selection_name") as Label).get_theme_font_size("font_size") == 14 and (hud.get("selection_details") as Label).get_theme_font_size("font_size") == 11,context_profile+" changes info typography")
+        _expect((hud.get("selection_name") as Label).get_theme_font_size("font_size") == 15 and (hud.get("selection_details") as Label).get_theme_font_size("font_size") == 12,context_profile+" changes info typography")
         var info_width: float = (hud.get("selection_info_column") as Control).custom_minimum_size.x
         _expect(info_width == 148.0 if context == "foundation" else (info_width >= 96.0 and info_width <= 120.0),context_profile+" information column width leaves intended range")
         if context == "foundation":

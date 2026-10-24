@@ -46,7 +46,18 @@ func _run() -> void:
 	forge.call("start_construction")
 	var units: Array = main.get("_player_units")
 	var builder: Node2D = units[0][0] as Node2D
-	builder.global_position = forge.global_position + Vector2(28.0, 0.0)
+	var game_map: Node2D = main.get("game_map") as Node2D
+	var work_route: PackedVector2Array = game_map.call("get_building_work_world_path", builder.global_position, forge.global_position, forge.get("footprint"), 40.0)
+	_expect(not work_route.is_empty(), "paid forge has a reachable work perimeter")
+	if work_route.is_empty():
+		main.free()
+		current_scene = null
+		quit(1)
+		return
+	var work_position: Vector2 = work_route[-1]
+	_expect(bool(game_map.call("is_tile_walkable", game_map.call("world_to_tile", work_position))), "forge worker stands on a walkable perimeter cell")
+	_expect(float(game_map.call("get_building_work_distance", work_position, forge.global_position, forge.get("footprint"))) <= 40.0, "forge endpoint is inside real work reach")
+	builder.global_position = work_position
 	builder.call("command_build", forge)
 	builder.call("_process_building", float(forge.get("build_time")))
 	_expect(int(forge.get("state")) == 2, "real worker completes paid forge")

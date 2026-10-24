@@ -32,9 +32,13 @@ func _run() -> void:
 	for frame: int in range(4): await get_tree().process_frame
 	_expect((hud.get("selection_details") as Label).text .contains("Unlimited"), "selected Farm exposes permanent food immediately")
 	var details: Label = hud.get("selection_details") as Label
-	var width: float = details.get_theme_font("font").get_string_size(details.text, HORIZONTAL_ALIGNMENT_LEFT, -1, details.get_theme_font_size("font_size")).x
+	# Font.get_string_size measures a single shaped line; the authored line
+	# break separates food permanence from assignment state in the real Label.
+	var width: float = 0.0
+	for line: String in details.text.split("\n"):
+		width = maxf(width, details.get_theme_font("font").get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, details.get_theme_font_size("font_size")).x)
 	_expect(width <= details.size.x and details.get_line_count() == details.get_visible_line_count(), "permanent Farm text fits the phone information column")
-	print("FARM_TEXT_METRIC ", JSON.stringify({"phone": "844x390", "text": details.text, "text_width": width, "available_width": details.size.x}))
+	print("FARM_TEXT_METRIC ", JSON.stringify({"phone": "844x390", "text": details.text, "widest_line": width, "available_width": details.size.x, "rendered_lines": details.get_line_count(), "visible_lines": details.get_visible_line_count()}))
 	_expect(farm.harvest(200) == 200, "ordinary harvest delivers the requested work")
 	_match.call("_on_selection_changed", map.selection_mgr.selected)
 	_expect((hud.get("selection_details") as Label).text.contains("Unlimited"), "selected Farm keeps permanent-food feedback")

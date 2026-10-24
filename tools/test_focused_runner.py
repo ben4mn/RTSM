@@ -1,6 +1,10 @@
 """Real subprocess coverage for scoped timeout cleanup; no Godot required."""
 
 import ctypes
+from argparse import Namespace
+from contextlib import redirect_stdout
+import io
+import json
 import os
 from pathlib import Path
 import signal
@@ -9,8 +13,9 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest import mock
 
-from run_focused_tests import run_case
+from run_focused_tests import run_case, run_suite
 
 
 def process_is_running(pid: int) -> bool:
@@ -39,6 +44,48 @@ def process_is_running(pid: int) -> bool:
 
 
 class FocusedRunnerTests(unittest.TestCase):
+    def test_native_fixture_is_explicitly_unrun_until_opted_in(self):
+        with tempfile.TemporaryDirectory() as folder:
+            project = Path(folder)
+            (project / "tools").mkdir()
+            (project / "tools" / "test_ordinary.tscn").write_text("fixture")
+            (project / "tools" / "test_sacred_annotation_visibility.tscn").write_text("fixture")
+            (project / "project.godot").write_text("[application]\nconfig/name=\"Fixture\"\n")
+            for native in (False, True):
+                with self.subTest(native=native):
+                    log = project / ("native.log" if native else "headless.log")
+                    args = Namespace(godot=Path("fake-godot"), only=[], timeout=10.0, log=log, native_rendering=native)
+                    with mock.patch("run_focused_tests.run_case", return_value=subprocess.CompletedProcess([], 0, "ok", "")) as run, redirect_stdout(io.StringIO()):
+                        self.assertEqual(run_suite(args, project), 0)
+                    receipt = json.loads(log.with_suffix(".receipt.json").read_text())
+                    self.assertTrue(receipt["source_unchanged"])
+                    self.assertEqual(len(receipt["cases"]), 2 if native else 1)
+                    self.assertEqual(len(receipt["not_run"]), 0 if native else 1)
+                    if native:
+                        native_call = next(call for call in run.call_args_list if any("sacred_annotation" in str(arg) for arg in call.args[0]))
+                        self.assertNotIn("--headless", native_call.args[0])
+                        capture = Path(native_call.kwargs["env"]["AOEM_CAPTURE_UX_DIR"])
+                        self.assertTrue(capture.is_dir())
+                        self.assertTrue(capture.is_relative_to(project))
+                        self.assertTrue(receipt["unique_user_dirs"])
+                    else:
+                        self.assertEqual(receipt["not_run"][0]["status"], "NOT RUN")
+                        self.assertIn("--native-rendering", receipt["not_run"][0]["reason"])
+                        self.assertIn("1/1 passed; 1 native-only NOT RUN", log.read_text())
+                        self.assertTrue(all("--headless" in call.args[0] for call in run.call_args_list))
+
+    def test_cli_reports_unicode_path_under_legacy_output_encoding(self):
+        with tempfile.TemporaryDirectory() as folder:
+            missing = Path(folder) / "missing-godot-\u2192.exe"
+            environment = dict(os.environ, PYTHONIOENCODING="cp1252")
+            result = subprocess.run(
+                [sys.executable, str(Path(__file__).with_name("run_focused_tests.py")), "--godot", str(missing)],
+                env=environment, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10,
+            )
+        self.assertEqual(result.returncode, 2, result.stderr.decode(errors="replace"))
+        self.assertIn(str(missing), result.stderr.decode("utf-8"))
+        self.assertNotIn("Traceback", result.stderr.decode("utf-8"))
+
     def test_case_retains_output_and_exit_status(self):
         with tempfile.TemporaryDirectory() as folder:
             result = run_case([sys.executable, "-c", "import sys; print('out'); print('err',file=sys.stderr); sys.exit(7)"], cwd=Path(folder), env=os.environ.copy(), timeout=10)

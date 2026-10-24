@@ -72,6 +72,7 @@ func _notification_journey(phone: Vector2i, interface_scale: float) -> void:
 	await _button(overview.panel.find_child("CloseStrategyButton", true, false))
 	_expect(feed.is_visible_in_tree() and _message(feed) == "Unit trained: Warrior", "current toast did not restore")
 	await _button(overview.rail.get_node("ArmyButton"))
+	await _button(overview.get("_groups_tab"))
 	_check_hidden(feed, feedback, "Army")
 	await _button(overview.get("_info_button"))
 	_check_hidden(feed, feedback, "Army notes")

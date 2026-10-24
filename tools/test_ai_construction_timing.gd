@@ -9,6 +9,7 @@ const STATE_MOVING: int = 1
 const STATE_BUILDING: int = 4
 const STATE_CONSTRUCTING: int = 1
 const STATE_ACTIVE: int = 2
+const BUILD_WORK_RADIUS: float = 40.0
 const EPSILON: float = 0.001
 
 var _failures: Array[String] = []
@@ -101,7 +102,8 @@ func _run() -> void:
 		return
 	_expect_eq(int(first_builder.get("current_state")), STATE_BUILDING, "assigned AI Villager is occupied building")
 	_expect(first_builder.get("build_target") == first_building, "assigned AI Villager targets its foundation")
-	var travel_fixture: Dictionary = _find_reachable_distant_origin(game_map, first_tile, first_position)
+	var house_footprint: Vector2i = first_building.get("footprint")
+	var travel_fixture: Dictionary = _find_reachable_distant_origin(game_map, first_tile, first_position, house_footprint)
 	_expect(bool(travel_fixture.get("found", false)), "fixture finds a distant route around the placed foundation")
 	if bool(travel_fixture.get("found", false)):
 		first_builder.set("global_position", travel_fixture.get("position"))
@@ -116,7 +118,10 @@ func _run() -> void:
 	var second_position: Vector2 = game_map.call("tile_to_world", second_tile)
 	for villager in villagers:
 		if villager != first_builder:
-			villager.global_position = second_position + Vector2(28.0, 0.0)
+			var nearby_work: Dictionary = _find_legal_work_endpoint(game_map, villager.global_position, second_position, house_footprint)
+			_expect(bool(nearby_work.get("found", false)), "second builder has a legal perimeter endpoint before placement")
+			if bool(nearby_work.get("found", false)):
+				villager.global_position = nearby_work["position"]
 			break
 	match_scene.call("_on_ai_wants_to_build", HOUSE_TYPE, second_tile, false)
 	jobs = match_scene.get("_ai_construction_jobs")
@@ -137,7 +142,16 @@ func _run() -> void:
 
 	# Real Villager work contributes one builder-second per simulated second.
 	# No Main-owned tween can advance the foundation in the background.
-	first_builder.set("global_position", first_position + Vector2(28.0, 0.0))
+	var first_work: Dictionary = _find_legal_work_endpoint(game_map, first_builder.get("global_position"), first_position, house_footprint)
+	_expect(bool(first_work.get("found", false)), "timed builder reaches a legal walkable work endpoint")
+	if not bool(first_work.get("found", false)):
+		match_scene.free()
+		_finish()
+		return
+	first_builder.set("global_position", first_work["position"])
+	# The earlier travel check reserved a service destination and route. A fresh
+	# normal build order discards that route after this fixture-only relocation.
+	first_builder.call("command_build", first_building)
 	var half_time: float = float(first_building.get("build_time")) * 0.5
 	first_builder.call("_process_building", half_time)
 	_expect_approx(float(first_building.get("build_progress")), 0.5, "one Villager reaches half progress at half build time")
@@ -203,7 +217,10 @@ func _run() -> void:
 			break
 	_expect(replacement_candidate != null, "fixture has a spare recovery Villager")
 	if replacement_candidate != null and second_builder != null:
-		replacement_candidate.set("global_position", second_building.get("global_position") + Vector2(28.0, 0.0))
+		var recovery_work: Dictionary = _find_legal_work_endpoint(game_map, replacement_candidate.get("global_position"), second_building.get("global_position"), house_footprint)
+		_expect(bool(recovery_work.get("found", false)), "replacement builder has a reachable legal work endpoint")
+		if bool(recovery_work.get("found", false)):
+			replacement_candidate.set("global_position", recovery_work["position"])
 		replacement_candidate.call("set_state", STATE_IDLE)
 		second_builder.call("command_stop")
 		match_scene.call("_process_ai_construction_recovery", 0.5)
@@ -299,7 +316,21 @@ func _weak_node(job: Dictionary, key: String) -> Node:
 	return reference.get_ref() as Node if reference != null else null
 
 
-func _find_reachable_distant_origin(game_map: Node2D, target_tile: Vector2i, target_position: Vector2) -> Dictionary:
+func _find_legal_work_endpoint(game_map: Node2D, from_position: Vector2, target_position: Vector2, footprint: Vector2i) -> Dictionary:
+	var route: PackedVector2Array = game_map.call(
+		"get_building_work_world_path", from_position, target_position, footprint, BUILD_WORK_RADIUS
+	)
+	if route.is_empty():
+		return {"found": false}
+	var endpoint: Vector2 = route[-1]
+	if not bool(game_map.call("is_tile_walkable", game_map.call("world_to_tile", endpoint))):
+		return {"found": false}
+	if float(game_map.call("get_building_work_distance", endpoint, target_position, footprint)) > BUILD_WORK_RADIUS:
+		return {"found": false}
+	return {"found": true, "position": endpoint}
+
+
+func _find_reachable_distant_origin(game_map: Node2D, target_tile: Vector2i, target_position: Vector2, footprint: Vector2i) -> Dictionary:
 	for ring in range(3, 11):
 		for dy in range(-ring, ring + 1):
 			for dx in range(-ring, ring + 1):
@@ -311,13 +342,8 @@ func _find_reachable_distant_origin(game_map: Node2D, target_tile: Vector2i, tar
 				var candidate_position: Vector2 = game_map.call("tile_to_world", candidate_tile)
 				if candidate_position.distance_to(target_position) <= 80.0:
 					continue
-				var route: PackedVector2Array = game_map.call(
-					"get_navigation_world_path",
-					candidate_position,
-					target_position,
-					40.0
-				)
-				if route.is_empty() or route[route.size() - 1].distance_to(target_position) > 40.5:
+				var work_endpoint: Dictionary = _find_legal_work_endpoint(game_map, candidate_position, target_position, footprint)
+				if not bool(work_endpoint.get("found", false)):
 					continue
 				return {"found": true, "position": candidate_position}
 	return {"found": false}

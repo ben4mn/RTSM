@@ -142,7 +142,12 @@ func _run() -> void:
 			min_pair = minf(min_pair,positions[a].distance_to(positions[b]))
 			max_pair = maxf(max_pair,positions[a].distance_to(positions[b]))
 	var result: Dictionary = {"diagnostic":"normal-budget paid Scout production to one rally, idle overlap","accepted":accepted,"scouts":positions.size(),"states":states,"positions":positions,"rally":rally,"minimum_pair_world":min_pair,"maximum_pair_world":max_pair,"starting_bank":before,"ending_bank":{"food":rm.call("get_resource",0,"food"),"wood":rm.call("get_resource",0,"wood"),"gold":rm.call("get_resource",0,"gold")},"manual_browser_state_modified":false}
+	DirAccess.make_dir_recursive_absolute("res://output/rts-iteration-2026-09-30")
 	var file := FileAccess.open("res://output/rts-iteration-2026-09-30/rally-spacing-regression.json",FileAccess.WRITE)
+	if file == null:
+		push_error("[FAIL] production_rally_spacing: cannot write evidence receipt")
+		quit(1)
+		return
 	file.store_string(JSON.stringify(result,"\t"))
 	_expect(positions.size() == 5 and states == [0,0,0,0,0], "five paid Scouts naturally finish IDLE")
 	_expect(min_pair >= 24.0, "idle arrivals remain visibly separated")

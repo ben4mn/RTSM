@@ -62,7 +62,15 @@ func _run() -> void:
 	workshop.call("start_construction")
 	var units: Array = _main.get("_player_units")
 	var worker: Node2D = units[0][0] as Node2D
-	worker.global_position = workshop.global_position + Vector2(28.0, 0.0)
+	var work_route: PackedVector2Array = _map.call("get_building_work_world_path", worker.global_position, workshop.global_position, workshop.get("footprint"), 40.0)
+	_expect(not work_route.is_empty(), "paid Workshop has a reachable work perimeter")
+	if work_route.is_empty():
+		_finish()
+		return
+	var work_position: Vector2 = work_route[-1]
+	_expect(bool(_map.call("is_tile_walkable", _map.call("world_to_tile", work_position))), "Workshop worker stands on a walkable perimeter cell")
+	_expect(float(_map.call("get_building_work_distance", work_position, workshop.global_position, workshop.get("footprint"))) <= 40.0, "Workshop endpoint is inside real work reach")
+	worker.global_position = work_position
 	worker.call("command_build", workshop)
 	worker.call("_process_building", float(workshop.get("build_time")))
 	_expect(int(workshop.get("state")) == 2, "real worker completes Workshop")

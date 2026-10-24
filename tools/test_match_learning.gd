@@ -28,6 +28,24 @@ func _run() -> void:
 	main.get_node("AIController").set_process(false)
 	var hud: Node = main.get_node("HUD")
 	var coach: RefCounted = main.get("_match_learning")
+	# Public kingdom choices name the recruit and the actually observed enemy.
+	# These isolated copy checks do not create actors or reveal enemy locations.
+	var names_coach: RefCounted = load("res://scripts/main/match_learning.gd").new()
+	names_coach.paid_army = 1
+	var own_civilization: int = int(gm.players[0].get("civilization", 0))
+	var enemy_civilization: int = int(gm.players[1].get("civilization", 0))
+	gm.players[0]["civilization"] = CivilizationData.Civilization.VERDANT_LEAGUE
+	gm.players[1]["civilization"] = CivilizationData.Civilization.SUNSTRIDE_CLANS
+	var unscouted_lesson: Dictionary = names_coach.call("_choose_lesson", [], {})
+	_expect("Add Longbows" in str(unscouted_lesson.text), "Unscouted counter lesson names the local kingdom recruit")
+	names_coach.visible_enemy_roles = {UnitData.UnitType.CAVALRY: true}
+	var cavalry_lesson: Dictionary = names_coach.call("_choose_lesson", [], {})
+	_expect("Enemy Outrider: recruit Warrior" in str(cavalry_lesson.text), "Observed cavalry lesson names the public rival signature")
+	names_coach.visible_enemy_roles = {UnitData.UnitType.INFANTRY: true}
+	var infantry_lesson: Dictionary = names_coach.call("_choose_lesson", [], {})
+	_expect("Enemy Warrior: recruit Longbow" in str(infantry_lesson.text), "Observed infantry lesson names the local signature counter")
+	gm.players[0]["civilization"] = own_civilization
+	gm.players[1]["civilization"] = enemy_civilization
 	_expect(not coach.active and not hud.get("_progression_hint_panel").visible, "Free play starts without lessons")
 	main.call("_on_pause_requested")
 	await get_tree().process_frame

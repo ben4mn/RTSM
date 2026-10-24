@@ -13,6 +13,7 @@ var _food_low_started: float = -1.0
 const FOOD_ALERT_STARTUP_GRACE := 12.0
 const FOOD_ALERT_GAP_GRACE := 6.0
 const FOOD_LOW_GRACE := 3.0
+const FOOD_NEARBY_RADIUS_WORLD: float = 192.0
 
 
 func setup(main: Node, hud: CanvasLayer, map: Node2D) -> void:
@@ -178,8 +179,8 @@ func _update_food_attention(workers: int, food_workers: int, recovering: int) ->
 
 
 func _update_food_low_attention(economy: Dictionary, recovering: int) -> bool:
-	# Reuse the assessment of visible, actually worked food. A new healthy
-	# source, staffed Farm, loss of food work or recovery clears the grace.
+	# Reuse the assessment of visible supply around current food work. A healthy
+	# nearby patch, staffed Farm, loss of food work or recovery clears the grace.
 	if not _playing() or recovering > 0 or str(economy.get("attention", "")) != "Food low!":
 		_food_low_started = -1.0
 		return false
@@ -195,6 +196,7 @@ func _observed_food_stock(workers: Array[Villager]) -> Dictionary:
 	var farms: int = 0
 	var permanent_worked: bool = false
 	var known: Dictionary = {}
+	var known_berry_positions: Dictionary = {}
 	for entry: Variant in (_map.get("resource_nodes") as Dictionary).values():
 		if not is_instance_valid(entry) or not entry is ResourceNode:
 			continue
@@ -205,6 +207,7 @@ func _observed_food_stock(workers: Array[Villager]) -> Dictionary:
 			continue
 		berries += node.remaining
 		known[node.get_instance_id()] = node.remaining
+		known_berry_positions[node.get_instance_id()] = node.global_position
 	for entry: Variant in (_main.get("_player_buildings") as Array)[0]:
 		if not is_instance_valid(entry) or not entry is BuildingBase:
 			continue
@@ -214,6 +217,7 @@ func _observed_food_stock(workers: Array[Villager]) -> Dictionary:
 			known[building.get_instance_id()] = -1
 	var worked_ids: Dictionary = {}
 	var worked: int = 0
+	var worked_berry_positions: Array[Vector2] = []
 	for worker: Villager in workers:
 		if _worker_source(worker) != "food" or not is_instance_valid(worker.gather_target):
 			continue
@@ -223,8 +227,20 @@ func _observed_food_stock(workers: Array[Villager]) -> Dictionary:
 				permanent_worked = true
 			else:
 				worked += int(known[id])
+				worked_berry_positions.append(known_berry_positions[id])
 			worked_ids[id] = true
-	return {"berry_food": berries, "permanent_farms": farms, "visible_food": berries + farms, "worked_food": worked, "permanent_food_worked": permanent_worked}
+	# This is a bounded visibility hint, not a promise that terrain admits a
+	# route. Reuse only the filtered snapshot and anchor it to worked berries,
+	# so hauling workers and overlapping patches cannot inflate or flicker it.
+	var nearby: int = 0
+	var radius_squared: float = FOOD_NEARBY_RADIUS_WORLD * FOOD_NEARBY_RADIUS_WORLD
+	for id: int in known_berry_positions:
+		var position: Vector2 = known_berry_positions[id]
+		for anchor: Vector2 in worked_berry_positions:
+			if position.distance_squared_to(anchor) <= radius_squared:
+				nearby += int(known[id])
+				break
+	return {"berry_food": berries, "permanent_farms": farms, "visible_food": berries + farms, "worked_food": worked, "nearby_food": nearby, "permanent_food_worked": permanent_worked}
 
 
 func _rally_status(building: BuildingBase) -> String:

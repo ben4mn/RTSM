@@ -168,13 +168,13 @@ func _choose_lesson(buildings: Array, site_status: Dictionary) -> Dictionary:
 		lesson = "counters"
 		unit_type = _recommended_counter()
 		building_type = _producer_for(unit_type)
-		text = "Counters · Warriors beat Horsemen; Archers beat Warriors; Horsemen beat Archers."
 		if unit_type >= 0:
-			text = "Counters · Enemy %s: recruit %s at %s." % [UnitData.get_unit_name(_countered_role(unit_type)), UnitData.get_unit_name(unit_type), BuildingData.get_building_name(building_type)]
+			text = "Counters · Enemy %s: recruit %s at %s." % [UnitData.get_unit_name(_countered_role(unit_type), 1), UnitData.get_unit_name(unit_type, 0), BuildingData.get_building_name(building_type)]
 		else:
 			building_type = BuildingData.BuildingType.ARCHERY_RANGE
 			unit_type = UnitData.UnitType.ARCHER
-			text = "Counters · Add Archers at an Archery Range. Archers beat Warriors; Warriors beat Horsemen."
+			var ranged_name: String = UnitData.get_unit_name(unit_type, 0) + "s"
+			text = "Counters · Add %s at an Archery Range. They beat Warriors; Warriors beat cavalry." % ranged_name
 	else:
 		lesson = "objective"
 		if str(site_status.get("phase", "")) == "contested":

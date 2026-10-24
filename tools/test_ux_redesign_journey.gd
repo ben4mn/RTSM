@@ -117,7 +117,9 @@ func _journey(phone: Vector2i,interface_scale: float,notched: bool) -> void:
 	_expect(int(ResourceManager.get_all_resources(0).wood) == int(bank.wood)-int(BuildingData.get_building_cost(BuildingData.BuildingType.HOUSE).wood),"Place spent incorrect wood")
 	_expect(_orders == 0,"GUI production/build gesture leaked world Move")
 	# Select an actual world worker through a nonzero touch identity.
-	await _action("cancel")
+	# Placement already returns to the unselected field. Another Back here
+	# correctly opens Pause rather than clearing a nonexistent context.
+	_expect(GameManager.current_state == GameManager.GameState.PLAYING,"paid placement did not return to the live field")
 	var worker: Villager = _main.get("_player_units")[0][0]
 	worker.command_stop()
 	var camera: Camera2D = _map.get("camera")

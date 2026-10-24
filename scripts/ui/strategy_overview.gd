@@ -243,7 +243,7 @@ func _icon_button(key: String, label: String, control_name: String, width: float
 
 func _build_economy() -> void:
 	_summary = _label("Workers: Food 0 · Wood 0 · Gold 0")
-	_summary.max_lines_visible = 2
+	_summary.max_lines_visible = 1
 	_summary.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_economy.add_child(_summary)
 	_economy_health = _label("", 13)
@@ -386,9 +386,9 @@ func update_snapshot(snapshot: Dictionary) -> void:
 		worker_count += int(amount)
 	_summary.text = "%d workers · %d building · %d recovering" % [worker_count, int(workers.get("build", 0)), int(workers.get("recovering", 0))]
 	if bool(snapshot.get("food_attention_ready", false)):
-		_summary.text = "No food income\nAssign food workers or build a Farm."
+		_summary.text = "No food · assign food workers."
 	elif bool(snapshot.get("food_low_attention_ready", false)):
-		_summary.text = "Worked food running low\nScout berries or plan a Farm."
+		_summary.text = "Food low · scout or build a Farm."
 	_summary.add_theme_color_override("font_color", KingdomTheme.AMBER if not warnings.is_empty() or bool(snapshot.get("food_low_attention_ready", false)) else KingdomTheme.PARCHMENT)
 	_economy_health.text = ""
 	if int(economy.get("severity", 0)) > 0:
@@ -780,8 +780,8 @@ func _worker_recovery_hint(economy: Dictionary, facts: Dictionary) -> String:
 			return "Protect their work area; saved jobs resume when safe."
 		"No workers on food":
 			return "Assign a worker to food." if int(facts.get("visible_food", 0)) > 0 else "Scout berries or build a %d-wood Farm; assign a worker." % farm_wood
-		"Worked food is running low":
-			return "%d worked food left. Scout berries or plan a %d-wood Farm." % [int(facts.get("worked_food", 0)), farm_wood]
+		"Nearby food is running low":
+			return "%d food visible nearby. Scout berries or plan a %d-wood Farm." % [int(facts.get("nearby_food", facts.get("worked_food", 0))), farm_wood]
 	return "Protect workers; keep food and wood staffed."
 
 
@@ -847,10 +847,10 @@ func apply_layout(safe: Rect2, field_visible: bool, card_area: Rect2, dock_heigh
 	card_height = maxf(card_height, _last_panel_minimum.y)
 	var card_size := Vector2(_sheet_width, card_height)
 	var centered: Vector2 = card_area.position + (card_area.size - card_size) * 0.5
-	# Keep the tabs and close button at one vertical anchor while changing pages.
+	# Anchor all pages just below the resource bar. Page height and hidden labels'
+	# unsettled wrapping must not move the tabs or the Info return control.
 	# Compact pages still expose more battlefield below their shorter body.
-	var header_top: float = card_area.position.y + (card_area.size.y - sheet_slot_height) * 0.5
-	panel.position = Vector2(clampf(centered.x, card_left, card_right - card_size.x), clampf(header_top, safe.position.y, maxf(safe.position.y, safe.end.y - card_size.y)))
+	panel.position = Vector2(clampf(centered.x, card_left, card_right - card_size.x), maxf(safe.position.y, card_area.position.y))
 	panel.size = card_size
 	panel.visible = field_visible and _surface in ["economy", "army"]
 

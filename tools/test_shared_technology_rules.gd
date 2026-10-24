@@ -69,7 +69,16 @@ func _run() -> void:
 		var forge: Node2D = human_forge if player_id == 0 else ai_forge
 		var units: Array = _main.get("_player_units")
 		var worker: Node2D = units[player_id][0] as Node2D
-		worker.global_position = forge.global_position + Vector2(28.0, 0.0)
+		var game_map: Node2D = _main.get("game_map") as Node2D
+		var work_route: PackedVector2Array = game_map.call("get_building_work_world_path", worker.global_position, forge.global_position, forge.get("footprint"), 40.0)
+		_expect(not work_route.is_empty(), "player %d paid forge has a reachable work perimeter" % player_id)
+		if work_route.is_empty():
+			_finish()
+			return
+		var work_position: Vector2 = work_route[-1]
+		_expect(bool(game_map.call("is_tile_walkable", game_map.call("world_to_tile", work_position))), "player %d forge worker stands on a walkable perimeter cell" % player_id)
+		_expect(float(game_map.call("get_building_work_distance", work_position, forge.global_position, forge.get("footprint"))) <= 40.0, "player %d forge endpoint is inside real work reach" % player_id)
+		worker.global_position = work_position
 		worker.call("command_build", forge)
 		worker.call("_process_building", float(forge.get("build_time")) * 0.5)
 		_expect(int(forge.get("state")) == 1 and is_equal_approx(float(forge.get("build_progress")), 0.5), "player %d forge stays incomplete after half paid labor" % player_id)

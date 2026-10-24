@@ -1,22 +1,32 @@
 extends Node
-## Tracks actual app/tab backgrounding. Losing focus to another Web control is
-## deliberately not a lifecycle event; foregrounding never resumes a match.
+## Tracks actual app/tab backgrounding and the Web portrait blocker. Losing
+## focus to another Web control is not an interruption; returning never resumes.
 
 signal background_changed(backgrounded: bool)
 
 const WEB_LIFECYCLE_SOURCE: String = """
 window.PocketMatchLifecycle = {
   create(callback) {
-    const reportVisibility = () => callback(document.visibilityState === 'hidden');
+    const portraitBlocked = () => {
+      const prompt = document.getElementById('pocket-landscape-prompt');
+      return !!prompt && prompt.getClientRects().length > 0 &&
+        getComputedStyle(prompt).visibility !== 'hidden';
+    };
+    const reportAvailability = () => callback(document.visibilityState === 'hidden' || portraitBlocked());
     const reportPageHide = () => callback(true);
-    document.addEventListener('visibilitychange', reportVisibility);
+    document.addEventListener('visibilitychange', reportAvailability);
     window.addEventListener('pagehide', reportPageHide);
-    window.addEventListener('pageshow', reportVisibility);
-    reportVisibility();
+    window.addEventListener('pageshow', reportAvailability);
+    window.addEventListener('resize', reportAvailability);
+    const viewport = window.visualViewport;
+    if (viewport) viewport.addEventListener('resize', reportAvailability);
+    reportAvailability();
     return { detach() {
-      document.removeEventListener('visibilitychange', reportVisibility);
+      document.removeEventListener('visibilitychange', reportAvailability);
       window.removeEventListener('pagehide', reportPageHide);
-      window.removeEventListener('pageshow', reportVisibility);
+      window.removeEventListener('pageshow', reportAvailability);
+      window.removeEventListener('resize', reportAvailability);
+      if (viewport) viewport.removeEventListener('resize', reportAvailability);
     }};
   }
 };

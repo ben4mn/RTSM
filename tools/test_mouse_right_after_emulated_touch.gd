@@ -22,7 +22,12 @@ func _run() -> void:
 			await _profile(phone,scale_factor)
 	for failure: String in _failures:
 		push_error("[FAIL] mouse_right_after_emulated_touch: "+failure)
+	DirAccess.make_dir_recursive_absolute("res://output/rts-iteration-2026-09-30")
 	var evidence := FileAccess.open("res://output/rts-iteration-2026-09-30/mouse-right-emulation-evidence.json",FileAccess.WRITE)
+	if evidence == null:
+		push_error("[FAIL] mouse_right_after_emulated_touch: cannot save fixture evidence")
+		get_tree().quit(1)
+		return
 	evidence.store_string(JSON.stringify({"fixture":"Production Main with synthetic Range, actual Input.parse native mouse through engine mouse→touch emulation. Not physical hardware or paid match.","selection_sha256":FileAccess.get_sha256("res://scripts/managers/selection_manager.gd"),"profiles":_profiles,"failures":_failures},"  "))
 	if _failures.is_empty():
 		print("[PASS] mouse_right_after_emulated_touch: four actual Window profiles; engine-generated device-1 touches from native left select; immediate native right rally once; generated mouse duplicates/HUD touch guarded")

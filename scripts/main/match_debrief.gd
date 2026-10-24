@@ -42,7 +42,7 @@ static func describe(stats: Dictionary) -> String:
 	if army_losses > army_replacements:
 		return "Fighting troops lost %d; paid replacements %d. Keep Food + Wood workers gathering and rally replacements near your army." % [army_losses, army_replacements]
 	if not bool(learning.get("counter_demonstrated", false)):
-		return "No counter preparation recorded. Next match: scout their army, then add a counter. Archers beat Warriors; Warriors beat Horsemen."
+		return "No counter preparation recorded. Scout their army, then add counters: Warriors beat cavalry; ranged troops beat Warriors."
 	return "First fighting troop %s; paid replacements %d; Sacred contests %d. Keep scouting counters and protecting your gatherers." % [_format_time(float(learning.get("first_army_seconds", -1.0))), army_replacements, contests]
 
 

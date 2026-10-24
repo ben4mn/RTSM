@@ -5,15 +5,38 @@ extends "res://tools/test_strategy_overview.gd"
 const ASSESSMENT = preload("res://scripts/managers/economy_assessment.gd")
 
 
+class ObservedFoodMap extends Node2D:
+	var resource_nodes: Dictionary = {}
+	var visible_ids: Dictionary = {}
+	var hidden_validation_reads: int = 0
+	var path_queries: int = 0
+
+	func is_resource_target_visible_to_player(node: Node2D, _owner: int) -> bool:
+		return visible_ids.has(node.get_instance_id())
+
+	func is_resource_target_valid(node: Node2D, type: String, _owner: int) -> bool:
+		if not visible_ids.has(node.get_instance_id()):
+			hidden_validation_reads += 1
+		return node is ResourceNode and (node as ResourceNode).resource_type == type and (node as ResourceNode).remaining > 0
+
+	func get_navigation_world_path(_from: Vector2, _to: Vector2) -> PackedVector2Array:
+		path_queries += 1
+		return PackedVector2Array()
+
+
+class ObservedFoodMain extends Node:
+	var _player_buildings: Array = [[], []]
+
+
 func _run() -> void:
 	AudioManager.set_all_enabled(false)
 	Input.emulate_mouse_from_touch = true
-	# This fixture reduces one worked source to 20 food. On Woodland Flanks
-	# starting food workers can use different sources, so a saved map choice
-	# otherwise changes the aggregate stock that this assertion is testing.
+	# Keep the paid touch journey's opening fixed. The isolated stock cases below
+	# cover nearby, distant and hidden supply separately from these phone layouts.
 	var previous_archetype: int = GameManager.selected_map_archetype
 	GameManager.selected_map_archetype = MapData.MapArchetype.OPEN_PLAINS
 	_assessment_cases()
+	_nearby_food_snapshot_cases()
 	for phone: Vector2i in [Vector2i(844, 390), Vector2i(932, 430)]:
 		for interface_scale: float in [1.0, 1.075, 1.15]:
 			for notched: bool in [false, true]:
@@ -39,7 +62,9 @@ func _assessment_cases() -> void:
 		{"change": {"queued_workers": 1}, "title": "Replacement already paid"},
 		{"change": {"food": 50}, "title": "Rebuild your workforce"},
 		{"change": {"workers": 2, "recovering": 2}, "title": "Workers sheltering from danger"},
-		{"change": {"workers": 3, "food_workers": 2, "worked_food": 80, "visible_food": 500}, "title": "Worked food is running low"},
+		{"change": {"workers": 3, "food_workers": 2, "worked_food": 80, "visible_food": 500}, "title": "Nearby food is running low"},
+		{"change": {"workers": 3, "food_workers": 2, "worked_food": 80, "nearby_food": 500, "visible_food": 500}, "title": "Keep food and wood staffed"},
+		{"change": {"workers": 3, "food_workers": 2, "worked_food": 80, "nearby_food": 80, "visible_food": 500}, "title": "Nearby food is running low"},
 		{"change": {"workers": 3, "food_workers": 0, "visible_food": 0}, "title": "No workers on food"},
 		{"change": {"workers": 4, "food_workers": 2, "worked_food": 400, "visible_food": 400}, "title": "Keep food and wood staffed"},
 	]
@@ -61,6 +86,82 @@ func _assessment_cases() -> void:
 	_expect(str(ASSESSMENT.describe(full).detail).contains("Refunds cannot open a slot"), "recoverable food does not imply recoverable population")
 	full["queued_workers"] = 1
 	_expect(str(ASSESSMENT.describe(full).title) == "Replacement already paid", "paid replacement retains priority even after housing loss")
+
+
+func _nearby_food_snapshot_cases() -> void:
+	# Isolated observed-stock fixture: no simulation, route query or worker order.
+	var controller: Node = load("res://scripts/managers/strategy_controller.gd").new()
+	var observed_map := ObservedFoodMap.new()
+	var observed_main := ObservedFoodMain.new()
+	controller.set("_map", observed_map)
+	controller.set("_main", observed_main)
+	var nodes: Array[ResourceNode] = []
+	for definition: Dictionary in [{"x": 0.0, "stock": 40}, {"x": 192.0, "stock": 600}, {"x": 64.0, "stock": 10}, {"x": 385.0, "stock": 2000}, {"x": 20.0, "stock": 9000}]:
+		var node := ResourceNode.new()
+		node.resource_type = "food"
+		node.remaining = int(definition.stock)
+		node.position = Vector2(float(definition.x), 0.0)
+		nodes.append(node)
+		observed_map.resource_nodes[node.get_instance_id()] = node
+		if nodes.size() < 5:
+			observed_map.visible_ids[node.get_instance_id()] = true
+	var workers: Array[Villager] = []
+	for _index: int in 3:
+		var worker := Villager.new()
+		worker.current_state = UnitBase.State.GATHERING
+		worker.carried_resource_type = "food"
+		worker.gather_target = nodes[0]
+		workers.append(worker)
+	var facts: Dictionary = controller.call("_observed_food_stock", workers)
+	_expect(int(facts.worked_food) == 40 and int(facts.nearby_food) == 650, "shared worker anchors must count the visible local union once, including the192-unit boundary")
+	facts.merge({"workers": 3, "food_workers": 3})
+	_expect(str(ASSESSMENT.describe(facts).attention).is_empty(), "healthy nearby berries must suppress the premature low-food warning")
+	nodes[1].position.x = 192.1
+	facts = controller.call("_observed_food_stock", workers)
+	_expect(int(facts.nearby_food) == 50 and int(facts.berry_food) == 2650, "distant visible stock must remain diagnostic without suppressing local depletion")
+	facts.merge({"workers": 3, "food_workers": 3})
+	_expect(str(ASSESSMENT.describe(facts).attention) == "Food low!", "true low local supply must still warn when distant berries are visible")
+	nodes[1].position.x = 192.0
+	workers[2].gather_target = nodes[2]
+	facts = controller.call("_observed_food_stock", workers)
+	_expect(int(facts.worked_food) == 50 and int(facts.nearby_food) == 650, "overlapping worked patches must not double-count nearby stock")
+	workers[0].position = Vector2(10000.0, 10000.0)
+	workers[0].current_state = UnitBase.State.MOVING
+	workers[0].set("_dropoff_route_active", true)
+	workers[0].carried_amount = 10
+	_expect(controller.call("_observed_food_stock", workers) == facts, "delivery movement must retain the source-anchored supply snapshot")
+	nodes[4].remaining += 99999
+	nodes[4].position = Vector2.ZERO
+	_expect(controller.call("_observed_food_stock", workers) == facts, "hidden stock and position must not alter nearby food")
+	for worker: Villager in workers:
+		worker.gather_target = nodes[4]
+	facts = controller.call("_observed_food_stock", workers)
+	_expect(int(facts.worked_food) == 0 and int(facts.nearby_food) == 0, "a hidden worked target must not seed a local visible-food patch")
+	var farm := BuildingBase.new()
+	farm.player_owner = 0
+	farm.provides_food = true
+	farm.state = BuildingBase.State.ACTIVE
+	observed_main._player_buildings[0].append(farm)
+	workers[0].gather_target = farm
+	workers[1].gather_target = nodes[0]
+	workers[2].gather_target = nodes[2]
+	nodes[1].remaining = 0
+	facts = controller.call("_observed_food_stock", workers)
+	_expect(int(facts.permanent_farms) == 1 and bool(facts.permanent_food_worked), "a worked own permanent Farm must preserve its existing assessment behavior")
+	facts.merge({"workers": 3, "food_workers": 3})
+	_expect(str(ASSESSMENT.describe(facts).attention).is_empty(), "staffed permanent food must keep suppressing finite-stock depletion advice")
+	farm.player_owner = 1
+	facts = controller.call("_observed_food_stock", workers)
+	_expect(int(facts.permanent_farms) == 0 and not bool(facts.permanent_food_worked), "a foreign Farm must not become known own permanent supply")
+	_expect(observed_map.hidden_validation_reads == 0 and observed_map.path_queries == 0, "observed supply must not inspect hidden validity or request navigation")
+	for worker: Villager in workers:
+		worker.free()
+	for node: ResourceNode in nodes:
+		node.free()
+	farm.free()
+	controller.free()
+	observed_map.free()
+	observed_main.free()
 
 
 func _resilience_journey(phone: Vector2i, interface_scale: float, notched: bool) -> void:
@@ -185,9 +286,13 @@ func _scene_economy_facts(controller: Node, overview: StrategyOverview, tc: Buil
 		_expect(false, "fixture needs a hidden food source")
 	var food_target: ResourceNode = _map.get_nearest_resource_node("food", workers[0].global_position, 0) as ResourceNode
 	if food_target != null:
-		var stock: int = food_target.remaining
-		workers[0].command_gather(food_target)
+		var visible_stocks: Dictionary = {}
+		for entry: Variant in (_map.get("resource_nodes") as Dictionary).values():
+			if entry is ResourceNode and _map.is_resource_target_visible_to_player(entry, 0) and _map.is_resource_target_valid(entry, "food", 0):
+				visible_stocks[entry] = entry.remaining
+				entry.remaining = 0
 		food_target.remaining = 20
+		_expect(workers[0].command_gather(food_target), "depletion fixture must retain a valid actual food order")
 		var held_time: float = GameManager.game_time
 		GameManager.game_time = 100.0
 		controller.set("_food_low_started", -1.0)
@@ -199,7 +304,8 @@ func _scene_economy_facts(controller: Node, overview: StrategyOverview, tc: Buil
 		_expect(bool((overview.get("_snapshot") as Dictionary).get("food_low_attention_ready", false)), "actual observed low stock must reach the visible warning through the normal controller snapshot")
 		(overview.get("_scroll") as ScrollContainer).scroll_vertical = 0
 		await _capture("food-running-low")
-		food_target.remaining = stock
+		for entry: ResourceNode in visible_stocks:
+			entry.remaining = int(visible_stocks[entry])
 		controller.call("_refresh")
 		_expect(not bool((overview.get("_snapshot") as Dictionary).get("food_low_attention_ready", false)), "healthy worked stock must immediately clear the normal snapshot warning")
 		GameManager.game_time = held_time

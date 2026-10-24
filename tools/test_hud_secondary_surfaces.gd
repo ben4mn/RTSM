@@ -240,7 +240,11 @@ func _drag(view: SubViewport, index: int, point: Vector2) -> void:
 func _check_civilization_copy(hud: CanvasLayer, tag: String) -> void:
 	var original_own: int = int(GameManager.players[0].civilization)
 	var original_enemy: int = int(GameManager.players[1].civilization)
-	var palette := preload("res://scripts/ui/build_menu.gd").new()
+	# Tooltip age requirements resolve autoloads through the real scene tree.
+	# Keep the full hidden palette with this profile's HUD so deferred shield
+	# setup and signal cleanup have the same lifetime as production children.
+	var palette: Control = preload("res://scenes/ui/build_menu.tscn").instantiate()
+	hud.add_child(palette)
 	var building := BuildingBase.new()
 	building.state = BuildingBase.State.ACTIVE
 	for civilization: int in CivilizationData.ORDERED_IDS:
@@ -266,7 +270,7 @@ func _check_civilization_copy(hud: CanvasLayer, tag: String) -> void:
 	GameManager.players[0].civilization = original_own
 	GameManager.players[1].civilization = original_enemy
 	building.free()
-	palette.free()
+	palette.player_owner = 0
 
 
 func _frames() -> void:

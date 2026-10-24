@@ -21,6 +21,8 @@ func _run() -> void:
 
 func _hold_journey(phone: Vector2i,interface_scale: float,notched: bool) -> void:
 	_profile = "%dx%d-scale%.3f-%s" % [phone.x,phone.y,interface_scale,"notched" if notched else "ordinary"]
+	var profile_started: int = Time.get_ticks_msec()
+	print("HOLD_JOURNEY_PROFILE_START ", _profile)
 	_synthetic_notch = notched
 	_hud = null
 	get_window().size = phone
@@ -261,6 +263,7 @@ func _hold_journey(phone: Vector2i,interface_scale: float,notched: bool) -> void
 	# removing this fixture; the next profile creates a separate match scene.
 	await _frames(4)
 	_receipts.append({"profile":_profile,"inspection_bank":bank,"paid_then_refunded":ResourceManager.get_all_resources(0)==bank,"world_orders":_orders,"intended_move_orders":intended_move_orders,"intended_rally_orders":intended_rally_orders,"unintended_orders":_orders-intended_move_orders-intended_rally_orders,"chooser_choices":choices.size()})
+	print("HOLD_JOURNEY_PROFILE_COMPLETE ", JSON.stringify({"profile":_profile,"wall_seconds":(Time.get_ticks_msec()-profile_started)/1000.0,"failures_so_far":_failures.size()}))
 	_main.free()
 	await _frames(3)
 

@@ -29,7 +29,7 @@ func _run() -> void:
 	while Time.get_ticks_msec() < audio_drain_deadline:
 		await get_tree().process_frame
 	if _failures.is_empty():
-		print("[PASS] building_perimeter_work: two paid interrupted Farms/Ranges, legal edge progress, loaded resume/cargo, cancel/reassign, Farm harvest and TC deposits")
+		print("[PASS] building_perimeter_work: two paid interrupted Farms/Ranges, legal edge progress, builder food assignment/cargo, cancel/reassign, Farm harvest and TC deposits")
 		get_tree().quit(0)
 	else:
 		for failure: String in _failures:
@@ -169,7 +169,7 @@ func _corner_farm_case(range_offset_y: int) -> void:
 	_expect(farm.state == BuildingBase.State.ACTIVE, "corner Farm did not finish through natural replacement labor")
 	var construction_seconds: float = GameManager.game_time - started
 	if range_offset_y == 2:
-		_expect(worker.gather_target == wood and worker.gather_type == Villager.GatherType.WOOD, "loaded builder must resume exact original wood source")
+		_expect(worker.gather_target == farm and worker.gather_type == Villager.GatherType.FOOD, "loaded builder must start its completed Farm while preserving original wood cargo")
 		await _until(func() -> bool: return int(deposits["wood"]) - deposited_before >= cargo_before, 80.0)
 		_expect(int(deposits["wood"]) - deposited_before == cargo_before, "original wood cargo must deposit exactly once")
 	else:
