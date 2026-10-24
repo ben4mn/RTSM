@@ -6,7 +6,20 @@ const fs=require('node:fs');
 const os=require('node:os');
 const path=require('node:path');
 const {installWitness,configureLocalGuards,planPolicy}=require('./run_live_browser_multiplayer.cjs');
-const {digest,manifestEntries,verifyTree,verifyPair}=require('./local_browser_runtime.cjs');
+const {digest,manifestEntries,verifyTree,verifyPair,createArtifactServer}=require('./local_browser_runtime.cjs');
+const {civilization,counterLesson,resultExpectation,paidVillagerRecruitment}=require('./live_browser_receipts.cjs');
+
+test('paid touch recruitment proof requires an owned UI command, queue, reservation and ordinary cost accounting',()=>{
+  const before={match:7,tick:10,time:2,bank:{food:250,wood:200,gold:100},player:{population_reserved:0},stats:{resources_gathered:0},actors:[{id:3,owner:0,kind:'building',type:0,state:2,queue:{repeat:false,items:[]}}]};
+  const after=structuredClone(before);after.tick++;after.time+=0.2;after.bank.food=210;after.stats.resources_gathered=10;after.player.population_reserved=1;after.actors[0].queue.items=[0];
+  const evidence={source:'game_ui_or_engine',packet:{op:'command',command:'train',type:0,target:3,match:7}};
+  assert.equal(paidVillagerRecruitment(before,after,0,evidence).net_spent,50);
+  assert.throws(()=>paidVillagerRecruitment(before,after,1,evidence),/recipient/);
+  for(const modify of [a=>a.bank.food++,a=>a.player.population_reserved=0,a=>a.actors[0].queue.items=[],a=>a.actors[0].queue.repeat=true,a=>a.tick=10,a=>a.match=8,a=>a.time=8]) {
+    const bad=structuredClone(after);modify(bad);assert.throws(()=>paidVillagerRecruitment(before,bad,0,evidence));
+  }
+  assert.throws(()=>paidVillagerRecruitment(before,after,0,{...evidence,source:'paid_policy'}),/game UI/);
+});
 
 function witness(configuration={}) {
   const constructed=[],events=[];
@@ -115,6 +128,46 @@ test('source binding rejects absent, ambiguous or malformed clean provenance',()
 test('paid policy never emits grant, speed, result or raw object mutations',()=>{
   const client={role:'host',policy:true,ended:null,matched:{slot:0},lastBuild:-10,lastArmy:-60,demolished:false,rejectedPlacements:new Set(),pendingPlace:null,last:{time:120,actors:[{id:1,kind:'building',type:0,owner:0,state:2,x:0,y:0,queue:{items:[]}},{id:2,kind:'unit',type:0,owner:0,work:'food'}],bank:{food:600,wood:600,gold:600},player:{age:1,population:4,population_reserved:0,population_cap:10},research:[],resources:[]}};
   const commands=planPolicy(client);assert(commands.length>0);assert(commands.every(c=>['allocate','train','place','age','research','attack_move','move','delete'].includes(c.command)));
+});
+
+test('paid Farm capacity follows own food-worker demand with a six-Farm cap',()=>{
+  const actors=[{id:1,kind:'building',type:0,owner:0,state:2,x:0,y:400,queue:{items:[]}}];
+  let id=2;for(const type of [1,2,9,5,5])actors.push({id:id++,kind:'building',type,owner:0,state:2,x:id*100,y:400,queue:{items:[]}});
+  for(let i=0;i<12;i++)actors.push({id:id++,kind:'unit',type:0,owner:0,work:i<4?'wood':i<7?'gold':'food'});
+  const client={role:'host',policy:true,matched:{slot:0},lastBuild:-10,lastArmy:-60,demolished:false,rejectedPlacements:new Set(),last:{time:150,actors,bank:{food:0,wood:75,gold:0},player:{age:1,population:12,population_cap:30},research:[],resources:[]}};
+  assert(planPolicy(client).some(order=>order.command==='place'&&order.payload.type===5));
+  client.pendingPlace=null;client.lastBuild=-10;
+  for(let i=0;i<3;i++)actors.push({id:id++,kind:'building',type:5,owner:0,state:2,x:id*100,y:400});
+  assert(!planPolicy(client).some(order=>order.command==='place'&&order.payload.type===5));
+  for(const actor of actors)if(actor.kind==='unit')actor.work='food';
+  actors.push({id:id++,kind:'building',type:5,owner:0,state:2,x:id*100,y:400});
+  assert(!planPolicy(client).some(order=>order.command==='place'&&order.payload.type===5));
+});
+
+test('kingdom names and lesson expectations use received owner slots, never intended inputs',()=>{
+  assert.equal(civilization('Verdant League').id,1);assert.equal(civilization('sunstride-clans').id,2);assert.equal(civilization('0').name,'Crownlands');
+  assert.throws(()=>civilization('imaginary'));
+  const packet={match:7,civilizations:[1,2],battle:{losses_by_matchup:[[2,3,4]]},stats:{army_trained:8,units_lost:4,buildings_lost:0,resources_gathered:900}};
+  assert.equal(counterLesson(packet,0).text,'Enemy Outriders landed final blows on 4 of your Longbows. Add Warriors to counter them; regroup before your next fight.');
+  assert.equal(resultExpectation({matched:{match:7,slot:0},ended:{match:7,winner:0,reason:'Sacred hold'},last:packet}).result,'VICTORY');
+  packet.battle.losses_by_matchup=[[3,1,3]];
+  assert.match(counterLesson(packet,1).text,/Enemy Warriors.*your Outriders.*Add Archers/);
+  packet.battle.losses_by_matchup=[[2,3,2]];assert.equal(counterLesson(packet,0).status,'none');
+  packet.battle.losses_by_matchup=[[2,3,4],[2,3,1]];assert.throws(()=>counterLesson(packet,0),/Malformed/);
+});
+
+test('owned artifact host correlates exact bytes and bounds local-only diagnostics',async()=>{
+  const f=fixture(),output=path.join(f.root,'receipts');fs.mkdirSync(output);
+  const host=createArtifactServer(verifyTree(f.web),output);
+  try {
+    await new Promise(resolve=>host.server.listen(0,'127.0.0.1',resolve));const url='http://127.0.0.1:'+host.server.address().port+'/';
+    let response=await fetch(url);assert.equal(response.status,200);assert.equal(response.headers.get('x-pocket-request-id'),host.served[0].request_id);assert.equal(response.headers.get('x-pocket-artifact-sha256'),host.served[0].sha256);assert.equal(Number(response.headers.get('content-length')),host.served[0].bytes);assert.equal(await response.text(),'local export');
+    const body=JSON.stringify({session_id:'fixture',report_id:'private-test',events:[]});
+    response=await fetch(url+'api/playtest-diagnostics',{method:'POST',body});assert.deepEqual(await response.json(),{stored:true,report_id:'private-test'});assert.equal(fs.readFileSync(path.join(output,host.collector[0].file),'utf8'),body);
+    response=await fetch(url+'api/playtest-diagnostics',{method:'POST',body:'x'.repeat(256*1024+1)});assert.equal(response.status,413);
+    response=await fetch(url+'api/playtest-diagnostics',{method:'POST',body:'[]'});assert.equal(response.status,400);assert.equal(host.collector.length,1);
+    write(f.web,'index.html','mutated');response=await fetch(url);assert.equal(response.status,409);assert.equal(host.failures.length,1);
+  } finally {await new Promise(resolve=>{host.server.close(resolve);host.server.closeAllConnections();});dispose(f.root);}
 });
 
 test('real Chromium transport uses loopback and blocks a bypassed public socket', {skip:process.env.POCKET_BROWSER_SMOKE!=='1',timeout:20000}, async()=>{

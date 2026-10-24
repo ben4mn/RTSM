@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import re
 import sys
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -14,6 +15,151 @@ def read(path, default=None):
 
 def lines(path):
     return [json.loads(line) for line in path.read_text().splitlines() if line.strip()] if path.exists() else []
+
+
+CIVILIZATIONS = {0: 'Crownlands', 1: 'Verdant League', 2: 'Sunstride Clans'}
+
+
+def image_matches(folder, image):
+    name = image.get('name') if isinstance(image, dict) else None
+    return (isinstance(name, str) and Path(name).name == name and (folder / name).is_file()
+            and hashlib.sha256((folder / name).read_bytes()).hexdigest() == image.get('sha256'))
+
+
+def counter_lesson(packet, slot):
+    """Expected visible text derives only from this recipient's authority facts."""
+    ids, rows = packet.get('civilizations'), packet.get('battle', {}).get('losses_by_matchup')
+    if not isinstance(ids, list) or len(ids) != 2 or any(type(i) is not int or i not in CIVILIZATIONS for i in ids):
+        return None
+    if slot not in (0, 1) or not isinstance(rows, list) or len(rows) > 9:
+        return None
+    seen, eligible = set(), []
+    for row in rows:
+        if (not isinstance(row, list) or len(row) != 3 or any(type(i) is not int for i in row)
+                or row[0] not in (1, 2, 3) or row[1] not in (1, 2, 3) or not 0 < row[2] <= 9999 or tuple(row[:2]) in seen):
+            return None
+        seen.add(tuple(row[:2]))
+        if row[2] >= 3 and {1: 2, 2: 3, 3: 1}[row[0]] == row[1]:
+            eligible.append(row)
+    if not eligible:
+        return {'status': 'none', 'text': '', 'eligible': []}
+    victim, attacker, count = max(eligible, key=lambda row: row[2])
+    def plural(unit, civ):
+        return 'Warriors' if unit == 1 else ('Longbows' if civ == 1 else 'Archers') if unit == 2 else ('Outriders' if civ == 2 else 'Horsemen')
+    text = (f'Enemy {plural(attacker, ids[1-slot])} landed final blows on {count} of your {plural(victim, ids[slot])}. '
+            f'Add {plural({1: 2, 2: 3, 3: 1}[attacker], ids[slot])} to counter them; regroup before your next fight.')
+    return {'status': 'counter_lesson', 'text': text, 'eligible': eligible}
+
+
+def civilization_gates(folder, invocation, role):
+    expected = invocation.get('civilization_expectations', {})
+    declared = expected.get(role, {})
+    expected_ids = [expected.get(key, {}).get('id') for key in ('host', 'guest')]
+    valid_declared = all(type(i) is int and i in CIVILIZATIONS for i in expected_ids) and declared.get('name') == CIVILIZATIONS.get(declared.get('id'))
+    terminal = read(folder / f'{role}-terminal.json', {})
+    matched, last = terminal.get('matched', {}), terminal.get('last', {})
+    slot = matched.get('slot')
+    wire = [row.get('packet', {}) for row in lines(folder / f'{role}-sent.jsonl')]
+    requests = [p for p in wire if p.get('op') in ('host', 'join', 'search', 'room_civilization')]
+    handshakes = [p for p in requests if p.get('op') in ('host', 'join', 'search')]
+    rooms = [row.get('packet', {}) for row in lines(folder / f'{role}-transport.jsonl') if row.get('packet', {}).get('op') == 'room' and row['packet'].get('players') == 2]
+    snapshots = [row.get('packet', {}) for row in lines(folder / f'{role}-snapshots.jsonl')] + [last]
+    selections = lines(folder / f'{role}-civilization-ui.jsonl')
+    reviews = lines(folder / f'{role}-civilization-identity.jsonl')
+    kind = 'tap' if invocation.get('input_mode') == 'touch' else 'click'
+    inputs = lines(folder / f'{role}-browser-input.jsonl')
+    picker = any(row.get('performed') is True and row.get('selected') == declared and len(row.get('captures', [])) == 3
+                 and all(image_matches(folder, image) for image in row['captures']) for row in selections)
+    reviewed = any(row.get('passed') is True and row.get('reviewed') is True and row.get('observed_name') == declared.get('name')
+                   and row.get('selected') == declared and row.get('matched') == matched for row in reviews)
+    clicks = all(any(row.get('kind') == kind and row.get('purpose') == purpose for row in inputs)
+                 for purpose in ('civilization_picker_open', 'civilization_picker_choice', 'civilization_picker_confirm'))
+    return {
+        'reviewed_picker_matches_received_civilization': valid_declared and picker and reviewed and clicks,
+        'protocol2_actual_civilization_request': valid_declared and invocation.get('protocol') == 2 and bool(handshakes) and all(p.get('protocol') == 2 for p in handshakes) and requests[-1].get('civilization') == declared.get('id'),
+        'civilization_identity_stable_through_terminal': valid_declared and slot in (0, 1) and matched.get('civilizations') == expected_ids and expected_ids[slot] == declared.get('id') and bool(rooms) and rooms[-1].get('civilizations') == expected_ids and bool(snapshots) and all(p.get('civilizations') == expected_ids and p.get('player', {}).get('civilization') == declared.get('id') for p in snapshots),
+    }
+
+
+def screen_gates(folder, role):
+    terminal = read(folder / f'{role}-terminal.json', {})
+    matched, ended, last = terminal.get('matched', {}), terminal.get('ended', {}), terminal.get('last', {})
+    lesson = counter_lesson(last, matched.get('slot'))
+    counts = {label: last.get('stats', {}).get(key) for label, key in {'Army Produced': 'army_trained', 'Units Lost': 'units_lost', 'Buildings Lost': 'buildings_lost', 'Resources Gathered': 'resources_gathered'}.items()}
+    outcome = 'MATCH ENDED' if ended.get('winner', -1) < 0 else 'VICTORY' if ended.get('winner') == matched.get('slot') else 'DEFEAT'
+    reviews = lines(folder / f'{role}-screen-reviews.jsonl')
+    captures = lines(folder / f'{role}-captures.jsonl')
+    def captured(review):
+        image = review.get('image', {})
+        return image_matches(folder, image) and image in captures and type(terminal.get('received_unix')) is int and image.get('unix', -1) >= terminal['received_unix']
+    result = any(row.get('check') == 'result_review' and row.get('passed') is True and captured(row)
+                 and row.get('observed', {}).get('result') == outcome and row['observed'].get('reason') == ended.get('reason')
+                 and row['observed'].get('counts') == counts and all(type(n) is int and n >= 0 for n in counts.values())
+                 and lesson is not None and row['observed'].get('lesson_status') == lesson['status']
+                 and ' '.join(row['observed'].get('lesson_text', '').split()) == lesson['text'] for row in reviews)
+    menu = any(row.get('check') == 'menu_return' and row.get('passed') is True and captured(row)
+               and {'New Game', 'Join a friend'} <= set(row.get('observed', {}).get('actions', [])) for row in reviews)
+    return {'reviewed_result_counts_and_eligible_lesson': result, 'reviewed_visible_menu_return': menu}
+
+
+def touch_gates(folder, invocation, role):
+    """Touch acceptance is native browser input plus passive paid authority facts."""
+    if invocation.get('input_mode') != 'touch':
+        return {}
+    inputs = lines(folder / f'{role}-browser-input.jsonl')
+    wire = lines(folder / f'{role}-sent.jsonl')
+    origins = lines(folder / f'{role}-command_origin.jsonl')
+    captures = lines(folder / f'{role}-captures.jsonl')
+    attempts = lines(folder / f'{role}-recruit-ui.jsonl')
+    reviews = lines(folder / f'{role}-recruit-reviews.jsonl')
+    snapshots = lines(folder / f'{role}-recruit-snapshots.jsonl')
+    starts = lines(folder / 'policy-starts.jsonl')
+    first_policy = min((row.get('unix', 0) for row in starts), default=0)
+    valid_purchase = False
+    for attempt in attempts:
+        before, after = attempt.get('before', {}), attempt.get('after', {})
+        evidence = attempt.get('evidence') or {}
+        command = evidence.get('packet', {})
+        slot = attempt.get('slot')
+        images = attempt.get('captures', [])
+        bank_before, bank_after = before.get('bank', {}), after.get('bank', {})
+        def town(packet):
+            return next((actor for actor in packet.get('actors', []) if actor.get('id') == command.get('target') and actor.get('kind') == 'building' and actor.get('type') == 0 and actor.get('owner') == slot and actor.get('state') == 2), {})
+        previous, current = town(before), town(after)
+        deposits_before, deposits_after = before.get('stats', {}).get('resources_gathered'), after.get('stats', {}).get('resources_gathered')
+        bank_valid = all(type(bank.get(key)) is int and bank[key] >= 0 for bank in (bank_before, bank_after) for key in ('food', 'wood', 'gold'))
+        deposits_valid = type(deposits_before) is int and type(deposits_after) is int and 0 <= deposits_before <= deposits_after
+        cost_valid = bank_valid and deposits_valid and bank_before['food'] >= 50 and sum(bank_before[key] - bank_after[key] for key in ('food', 'wood', 'gold')) + deposits_after - deposits_before == 50
+        reserved_before, reserved_after = before.get('player', {}).get('population_reserved'), after.get('player', {}).get('population_reserved')
+        reservation_valid = type(reserved_before) is int and type(reserved_after) is int and reserved_after == reserved_before + 1
+        queue_valid = previous.get('queue', {}).get('items') == [] and current.get('queue', {}).get('items') == [0] and previous.get('queue', {}).get('repeat') is False and current.get('queue', {}).get('repeat') is False
+        timing_valid = (type(before.get('tick')) is int and type(after.get('tick')) is int and after['tick'] > before['tick']
+                        and type(before.get('time')) in (int, float) and type(after.get('time')) in (int, float) and 0 <= after['time'] - before['time'] <= 5)
+        matching_transport = (evidence.get('source') == 'game_ui_or_engine' and command.get('op') == 'command' and command.get('command') == 'train' and command.get('type') == 0
+                              and command.get('match') is not None and before.get('match') == command['match'] == after.get('match')
+                              and any(row.get('packet') == command for row in wire)
+                              and any(row.get('serial') == evidence.get('serial') and row.get('packet') == command and row.get('source') == 'game_ui_or_engine' for row in origins))
+        actual_tap = (attempt.get('input') in inputs and attempt.get('input', {}).get('kind') == 'tap' and attempt.get('input', {}).get('purpose') == 'paid_recruit_villager')
+        exact_snapshots = all(any(row.get('attempt') == attempt.get('attempt') and row.get('stage') == stage and row.get('packet') == packet for row in snapshots) for stage, packet in (('before', before), ('after', after)))
+        reviewed = any(row.get('attempt') == attempt.get('attempt') and row.get('passed') is True and row.get('reviewed') is True and row.get('input_mode') == 'touch'
+                       and 0 < row.get('unix', 0) < first_policy and row.get('captures') == images
+                       and row.get('observed', {}).get('unit') == 'Villager' and row['observed'].get('cost_food') == 50 and row['observed'].get('queue_count') == 1
+                       and row['observed'].get('before_bank') == bank_before and row['observed'].get('after_bank') == bank_after for row in reviews)
+        images_valid = len(images) == 2 and all(image in captures and image_matches(folder, image) for image in images)
+        valid_purchase |= (slot in (0, 1) and attempt.get('passed') is True and attempt.get('input_mode') == 'touch' and attempt.get('policy_ever') is False
+                           and cost_valid and reservation_valid and queue_valid and timing_valid and matching_transport and actual_tap and exact_snapshots and reviewed and images_valid)
+    lobby = [('lobby_create', 'host'), ('lobby_start', 'room_start')] if role == 'host' else [('lobby_join', 'join')]
+    lobby_taps = all(any(row.get('kind') == 'tap' and row.get('purpose') == purpose and any(sent.get('packet', {}).get('op') == op and abs(sent.get('unix', 0)-row.get('unix', -10000)) <= 5000 for sent in wire) for row in inputs) for purpose, op in lobby)
+    terminal = read(folder / f'{role}-terminal.json', {})
+    terminal_at = terminal.get('received_unix')
+    menus = [row for row in lines(folder / f'{role}-screen-reviews.jsonl') if row.get('check') == 'menu_return' and row.get('passed') is True]
+    menu_tap = type(terminal_at) is int and any(row.get('kind') == 'tap' and row.get('purpose') == 'result_main_menu' and terminal_at <= row.get('unix', 0) and any(row['unix'] <= menu.get('image', {}).get('unix', -1) for menu in menus) for row in inputs)
+    capabilities = read(folder / f'{role}-browser-capabilities.json', {})
+    return {'native_touch_844x390_context': capabilities.get('width') == 844 and capabilities.get('height') == 390 and capabilities.get('max_touch_points', 0) > 0 and capabilities.get('coarse_pointer') is True,
+            'no_mouse_pointer_fallback': not any(row.get('kind') in ('click', 'scroll') for row in inputs),
+            'actual_tap_paid_recruitment_reviewed_before_policy': valid_purchase,
+            'actual_tap_lobby_protocol_actions': lobby_taps,
+            'actual_tap_terminal_menu_return': menu_tap}
 
 
 def local_gates(folder, invocation, role):
@@ -32,6 +178,12 @@ def local_gates(folder, invocation, role):
     bodies = lines(folder / f'{role}-asset-bytes.jsonl')
     expected = initial.get('artifact', {}).get('files', {})
     verified_files = {row.get('file') for row in bodies if isinstance(expected.get(row.get('file')), str) and len(expected[row['file']]) == 64 and row.get('expected') == expected[row['file']] and row.get('sha256') == expected[row['file']] and row.get('bytes', 0) > 0}
+    for response in lines(folder / f'{role}-asset-server-proof.jsonl'):
+        name = response.get('file')
+        if name not in expected or response.get('sha256') != expected[name] or response.get('status') != 200 or response.get('bytes', 0) <= 0:
+            continue
+        if any(row.get('request_id') == response.get('request_id') and row.get('method') == 'GET' and row.get('file') == name and row.get('sha256') == response['sha256'] and row.get('bytes') == response['bytes'] for row in final.get('served', [])):
+            verified_files.add(name)
     attacks = lines(folder / f'{role}-attack-ui.jsonl')
     origins = lines(folder / f'{role}-command_origin.jsonl')
     wire = lines(folder / f'{role}-sent.jsonl')
@@ -46,11 +198,12 @@ def local_gates(folder, invocation, role):
         matching_wire = any(row.get('packet') == command for row in wire)
         screenshots = check.get('screenshots', [])
         safe_screenshots = len(screenshots) == 3 and all(isinstance(name, str) and Path(name).name == name and (folder / name).is_file() for name in screenshots)
-        actual_clicks = all(any(row.get('kind') == 'click' and row.get('purpose') == purpose for row in inputs) for purpose in ('observed_attack_hud_button', 'attack_move_ground_destination'))
+        actual_clicks = all(any(row.get('kind') == ('tap' if invocation.get('input_mode') == 'touch' else 'click') and row.get('purpose') == purpose for row in inputs) for purpose in ('observed_attack_hud_button', 'attack_move_ground_destination'))
         valid_attack |= matching_origin and matching_wire and safe_screenshots and actual_clicks
     return {
         'sealed_local_source_unchanged': final.get('completed') is True and final.get('production_artifacts_unchanged') is True and final.get('private_runtime_unchanged') is True,
-        'owned_authority_endpoint': loopback_endpoint and ready.get('match_url') == endpoint and ready.get('source_revision') == initial.get('authority', {}).get('source_revision') and ready.get('pid') == initial.get('server_pid'),
+        'owned_authority_endpoint': loopback_endpoint and ready.get('protocol') == 2 and ready.get('match_url') == endpoint and ready.get('source_revision') == initial.get('authority', {}).get('source_revision') and ready.get('pid') == initial.get('server_pid'),
+        'no_owned_artifact_server_failure': final.get('artifact_failures') == [],
         'exact_endpoint_redirection': bool(routes) and all(row.get('blocked') is False and row.get('resolved') == endpoint and row.get('requested') in ('wss://game.4mn.org/match', endpoint) for row in routes),
         'no_unapproved_socket_reached_browser_transport': bool(guards) and all(row.get('allowed') is True and row.get('url') == endpoint for row in guards),
         'loaded_engine_bytes_match_sealed_export': {'index.js', 'index.wasm', 'index.pck'} <= verified_files,
@@ -73,7 +226,9 @@ def analyze(folder):
             slot = matched.get('slot')
         coverage = {'max_age': 0, 'research': [], 'unit_hp_decreases': 0, 'visible_enemies': 0,
                     'buildings': {}, 'units': {}, 'worker_statuses': {}, 'cargo_observations': 0,
-                    'farm_peak': 0, 'snapshot_samples': len(snapshots)}
+                    'farm_peak': 0, 'snapshot_samples': len(snapshots), 'signature_unit_ids': [], 'signature_max_hp': [], 'signature_paid_queue_observed': False}
+        own_civilization = matched.get('civilizations', [0, 0])[slot] if slot in (0, 1) and isinstance(matched.get('civilizations'), list) and len(matched['civilizations']) == 2 else 0
+        signature_type = 3 if own_civilization == 2 else 2
         previous_units = {}
         for row in snapshots:
             packet = row['packet']
@@ -90,6 +245,11 @@ def analyze(folder):
                     continue
                 kinds = coverage['buildings' if actor['kind'] == 'building' else 'units']
                 kinds[str(actor['type'])] = kinds.get(str(actor['type']), 0) + 1
+                if actor['kind'] == 'unit' and actor['type'] == signature_type and actor['id'] not in coverage['signature_unit_ids']:
+                    coverage['signature_unit_ids'].append(actor['id'])
+                    coverage['signature_max_hp'].append(actor['max_hp'])
+                if actor['kind'] == 'building' and signature_type in actor.get('queue', {}).get('items', []):
+                    coverage['signature_paid_queue_observed'] = True
                 own_farms += actor['kind'] == 'building' and actor['type'] == 5 and actor['state'] == 2
                 if actor['kind'] == 'unit' and actor['type'] == 0:
                     status = actor.get('work_status', '')
@@ -142,8 +302,20 @@ def analyze(folder):
             for key in ('built', 'damage', 'enemy_visible', 'age_progression', 'research', 'unit_destruction', 'building_destruction_including_paid_demolition'):
                 gates.pop(key)
             gates['paid_scout_observed'] = '4' in coverage['units']
+        if invocation.get('input_mode') == 'touch':
+            for key in ('actual_keyboard_q', 'actual_keyboard_b', 'keyboard_ui_operator_verified'):
+                gates.pop(key)
+            gates.update(touch_gates(folder, invocation, role))
         if invocation.get('mode') == 'local-sealed':
             gates.update(local_gates(folder, invocation, role))
+            gates.update(civilization_gates(folder, invocation, role))
+            gates.update(screen_gates(folder, role))
+            if scenario != 'objective':
+                cost = {2: {'food': 25, 'wood': 45}, 3: {'food': 90, 'wood': 30}}[signature_type]
+                policy = lines(folder / f'{role}-policy.jsonl')
+                gates['signature_paid_queue_and_completed_unit'] = coverage['signature_paid_queue_observed'] and bool(coverage['signature_unit_ids'])
+                gates['signature_authority_base_health'] = bool(coverage['signature_max_hp']) and all(hp == {0: 35, 1: 30, 2: 70}.get(own_civilization) for hp in coverage['signature_max_hp'])
+                gates['signature_ordinary_cost_and_affordable_request'] = any(row.get('sent') is True and row.get('command') == 'train' and row.get('payload', {}).get('type') == signature_type and row.get('expected_cost') == cost and all(row.get('bank_before', {}).get(key, -1) >= amount for key, amount in cost.items()) and any(wire.get('packet', {}).get('command') == 'train' and wire['packet'].get('type') == signature_type and wire['packet'].get('target') == row['payload'].get('target') and wire['packet'].get('match') == matched.get('match') and abs(wire.get('unix', 0) - row.get('unix', 0)) < 5000 for wire in sent) for row in policy)
         failures.extend(f'{role}: {key}' for key, value in gates.items() if not value)
         clients[role] = {'matched': matched, 'ended': terminal.get('ended'),
                          'last_game_seconds': latest.get('time'),
@@ -151,11 +323,17 @@ def analyze(folder):
                          'warnings': [row for row in console if row.get('type') == 'warning'],
                          'http_errors': lines(folder / f'{role}-http-errors.jsonl'),
                          'request_failures': request_failures, 'request_recovery': request_recovery,
+                         'artifact_cdp_body_hashes': lines(folder / f'{role}-asset-bytes.jsonl'),
+                         'artifact_cdp_body_failures': lines(folder / f'{role}-asset-body-failures.jsonl'),
+                         'artifact_owned_server_response_proof': lines(folder / f'{role}-asset-server-proof.jsonl'),
                          'rejections': [row for row in transport if row.get('packet', {}).get('op') == 'rejected'],
                          'ui_checks': ui, 'commands_sent': len(commands)}
     host, guest = clients['host'], clients['guest']
     agreement = {}
-    for key in ('match', 'seed', 'map_archetype'):
+    identity_keys = ['match', 'seed', 'map_archetype']
+    if invocation.get('protocol') == 2 or invocation.get('mode') == 'local-sealed':
+        identity_keys.append('civilizations')
+    for key in identity_keys:
         a, b = (client.get('matched') or {} for client in (host, guest))
         agreement[key] = a.get(key) is not None and b.get(key) is not None and a[key] == b[key]
     agreement['opposite_slots'] = {(c.get('matched') or {}).get('slot') for c in clients.values()} == {0, 1}
@@ -163,11 +341,16 @@ def analyze(folder):
         a, b = (client.get('ended') or {} for client in (host, guest))
         agreement['terminal_' + key] = a.get(key) is not None and b.get(key) is not None and a[key] == b[key]
     agreement['natural_sacred_result'] = all('Sacred' in (c.get('ended') or {}).get('reason', '') for c in clients.values())
+    if invocation.get('mode') == 'local-sealed':
+        log_path = folder / 'local-authority.log'
+        terminal_lines = re.findall(r'AOEM_MATCH_ENDED match=(\d+) winner=(-?\d+) seconds=([0-9.]+) fps=[0-9.]+ reason=([^\r\n]+)', log_path.read_text(encoding='utf-8', errors='replace') if log_path.exists() else '')
+        ended = host.get('ended') or {}
+        agreement['natural_terminal_in_owned_authority_log'] = any(int(match) == ended.get('match') and int(winner) == ended.get('winner') and reason == ended.get('reason') and abs(float(seconds) - (host.get('last_game_seconds') or 0)) < 0.2 for match, winner, seconds, reason in terminal_lines)
     counters = {'same_tick_samples': 0, 'shared_actor_fields': 0, 'shared_resource_tiles': 0}
     for tick in sorted(records['host'].keys() & records['guest'].keys()):
         a, b = records['host'][tick], records['guest'][tick]
         counters['same_tick_samples'] += 1
-        if a['time'] != b['time'] or a['site'] != b['site']:
+        if a['time'] != b['time'] or a['site'] != b['site'] or a.get('civilizations') != b.get('civilizations'):
             mismatches.append([tick, 'time_or_site'])
         actors_a, actors_b = ({row['id']: row for row in packet['actors']} for packet in (a, b))
         for identity in actors_a.keys() & actors_b.keys():

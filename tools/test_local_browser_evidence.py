@@ -1,10 +1,11 @@
 """Synthetic receipt validation; no browser, game or network is launched."""
 import json
+import hashlib
 import tempfile
 import unittest
 from pathlib import Path
 
-from analyze_live_browser_multiplayer import local_gates
+from analyze_live_browser_multiplayer import local_gates, civilization_gates, screen_gates, counter_lesson, touch_gates
 
 
 class LocalBrowserEvidenceTests(unittest.TestCase):
@@ -16,8 +17,8 @@ class LocalBrowserEvidenceTests(unittest.TestCase):
         self.invocation = {'match_url': self.endpoint}
         hashes = {name: '1' * 64 for name in ('index.js', 'index.pck', 'index.wasm')}
         self.write('local-source-initial.json', {'artifact': {'files': hashes}, 'authority': {'source_revision': 'abcdef'}, 'server_pid': 71})
-        self.write('local-source-final.json', {'completed': True, 'production_artifacts_unchanged': True, 'private_runtime_unchanged': True})
-        self.write('local-authority-ready.json', {'match_url': self.endpoint, 'source_revision': 'abcdef', 'pid': 71})
+        self.write('local-source-final.json', {'completed': True, 'production_artifacts_unchanged': True, 'private_runtime_unchanged': True, 'artifact_failures': []})
+        self.write('local-authority-ready.json', {'match_url': self.endpoint, 'source_revision': 'abcdef', 'pid': 71, 'protocol': 2})
         self.rows('host-socket_route.jsonl', [{'requested': 'wss://game.4mn.org/match', 'resolved': self.endpoint, 'blocked': False}])
         self.rows('host-endpoint-guard.jsonl', [{'url': self.endpoint, 'allowed': True}])
         self.rows('host-asset-bytes.jsonl', [{'file': name, 'expected': value, 'sha256': value, 'bytes': 10} for name, value in hashes.items()])
@@ -75,6 +76,127 @@ class LocalBrowserEvidenceTests(unittest.TestCase):
         self.rows('host-sent.jsonl', [{'packet': self.command}])
         self.rows('host-attack-ui.jsonl', [{'passed': True, 'evidence': self.evidence, 'screenshots': ['../before.png', 'armed.png', 'after.png']}])
         self.assertFalse(self.gates()['actual_attack_hud_generated_attack_move'])
+
+    def test_owned_server_proof_is_correlated_to_response_id_hash_and_length(self):
+        self.rows('host-asset-bytes.jsonl', [])
+        served = [{'request_id': str(i), 'method': 'GET', 'file': name, 'sha256': '1'*64, 'bytes': 10}
+                  for i, name in enumerate(('index.js', 'index.wasm', 'index.pck'))]
+        self.write('local-source-final.json', {'completed': True, 'production_artifacts_unchanged': True, 'private_runtime_unchanged': True, 'artifact_failures': [], 'served': served})
+        self.rows('host-asset-server-proof.jsonl', [dict(row, status=200) for row in served])
+        self.assertTrue(self.gates()['loaded_engine_bytes_match_sealed_export'])
+        served[-1]['bytes'] = 9
+        self.write('local-source-final.json', {'served': served})
+        self.assertFalse(self.gates()['loaded_engine_bytes_match_sealed_export'])
+
+    def test_touch_evidence_requires_actual_tap_receipts(self):
+        self.invocation['input_mode'] = 'touch'
+        self.assertFalse(self.gates()['actual_attack_hud_generated_attack_move'])
+        self.rows('host-browser-input.jsonl', [{'kind': 'tap', 'purpose': purpose} for purpose in ('observed_attack_hud_button', 'attack_move_ground_destination')])
+        self.assertTrue(self.gates()['actual_attack_hud_generated_attack_move'])
+
+    def touch_fixture(self):
+        self.invocation['input_mode'] = 'touch'
+        self.write('host-browser-capabilities.json', {'width': 844, 'height': 390, 'max_touch_points': 1, 'coarse_pointer': True})
+        command = {'op': 'command', 'command': 'train', 'type': 0, 'target': 3, 'match': 7, 'sequence': 1}
+        evidence = {'serial': 1, 'source': 'game_ui_or_engine', 'packet': command}
+        before = {'match': 7, 'tick': 10, 'time': 2, 'bank': {'food': 250, 'wood': 200, 'gold': 100}, 'player': {'population_reserved': 0}, 'stats': {'resources_gathered': 0}, 'actors': [{'id': 3, 'owner': 0, 'kind': 'building', 'type': 0, 'state': 2, 'queue': {'repeat': False, 'items': []}}]}
+        after = json.loads(json.dumps(before))
+        after.update(tick=11, time=2.2)
+        after['bank']['food'] = 210
+        after['stats']['resources_gathered'] = 10
+        after['player']['population_reserved'] = 1
+        after['actors'][0]['queue']['items'] = [0]
+        images = [{'name': name, 'sha256': hashlib.sha256((self.root / name).read_bytes()).hexdigest(), 'unix': stamp} for name, stamp in (('before.png', 1000), ('after.png', 1100))]
+        tap = {'kind': 'tap', 'purpose': 'paid_recruit_villager', 'unix': 1010, 'x': 600, 'y': 300}
+        attempt = {'attempt': 'recruit-1', 'passed': True, 'input_mode': 'touch', 'policy_ever': False, 'slot': 0, 'input': tap, 'evidence': evidence, 'before': before, 'after': after, 'captures': images}
+        self.rows('host-recruit-ui.jsonl', [attempt])
+        self.rows('host-recruit-snapshots.jsonl', [{'attempt': 'recruit-1', 'stage': stage, 'packet': packet} for stage, packet in (('before', before), ('after', after))])
+        self.rows('host-captures.jsonl', images)
+        self.rows('host-recruit-reviews.jsonl', [{'attempt': 'recruit-1', 'passed': True, 'reviewed': True, 'unix': 1200, 'input_mode': 'touch', 'captures': images, 'observed': {'unit': 'Villager', 'cost_food': 50, 'queue_count': 1, 'before_bank': before['bank'], 'after_bank': after['bank']}}])
+        self.rows('policy-starts.jsonl', [{'unix': 1300}])
+        self.rows('host-command_origin.jsonl', [evidence])
+        self.rows('host-sent.jsonl', [{'unix': 1010, 'packet': command}, {'unix': 50, 'packet': {'op': 'host'}}, {'unix': 100, 'packet': {'op': 'room_start'}}])
+        self.rows('host-browser-input.jsonl', [tap, {'kind': 'tap', 'purpose': 'lobby_create', 'unix': 50}, {'kind': 'tap', 'purpose': 'lobby_start', 'unix': 100}, {'kind': 'tap', 'purpose': 'result_main_menu', 'unix': 2100}])
+        self.write('host-terminal.json', {'received_unix': 2000})
+        self.rows('host-screen-reviews.jsonl', [{'check': 'menu_return', 'passed': True, 'image': {'unix': 2200}}])
+        return attempt
+
+    def test_touch_paid_recruitment_accounts_for_normal_deposits_and_requires_pre_policy_review(self):
+        self.touch_fixture()
+        self.assertTrue(all(touch_gates(self.root, self.invocation, 'host').values()))
+        self.rows('policy-starts.jsonl', [{'unix': 1100}])
+        self.assertFalse(touch_gates(self.root, self.invocation, 'host')['actual_tap_paid_recruitment_reviewed_before_policy'])
+
+    def test_touch_paid_recruitment_rejects_policy_wrong_cost_missing_queue_and_invented_snapshots(self):
+        for mutation in ('policy', 'cost', 'queue', 'reservation', 'snapshot', 'review', 'mouse'):
+            with self.subTest(mutation=mutation):
+                attempt = self.touch_fixture()
+                if mutation == 'policy': attempt['evidence']['source'] = 'paid_policy'
+                elif mutation == 'cost': attempt['after']['bank']['food'] += 1
+                elif mutation == 'queue': attempt['after']['actors'][0]['queue']['items'] = []
+                elif mutation == 'reservation': attempt['after']['player']['population_reserved'] = 0
+                elif mutation == 'snapshot': self.rows('host-recruit-snapshots.jsonl', [])
+                elif mutation == 'review': self.rows('host-recruit-reviews.jsonl', [])
+                elif mutation == 'mouse': attempt['input']['kind'] = 'click'
+                self.rows('host-recruit-ui.jsonl', [attempt])
+                self.assertFalse(touch_gates(self.root, self.invocation, 'host')['actual_tap_paid_recruitment_reviewed_before_policy'])
+
+    def test_touch_lobby_menu_capabilities_and_no_mouse_fallback_are_independent_gates(self):
+        self.touch_fixture()
+        self.rows('host-browser-input.jsonl', [{'kind': 'click', 'purpose': 'lobby_create', 'unix': 50}])
+        gates = touch_gates(self.root, self.invocation, 'host')
+        self.assertFalse(gates['no_mouse_pointer_fallback'])
+        self.assertFalse(gates['actual_tap_lobby_protocol_actions'])
+        self.assertFalse(gates['actual_tap_terminal_menu_return'])
+        self.write('host-browser-capabilities.json', {'width': 844, 'height': 390, 'max_touch_points': 0})
+        self.assertFalse(touch_gates(self.root, self.invocation, 'host')['native_touch_844x390_context'])
+
+    def kingdom_fixture(self):
+        own = {'id': 1, 'key': 'verdant-league', 'name': 'Verdant League'}
+        self.invocation.update(protocol=2, input_mode='mouse', civilization_expectations={'host': own, 'guest': {'id': 2, 'key': 'sunstride-clans', 'name': 'Sunstride Clans'}})
+        matched = {'match': 1, 'slot': 0, 'civilizations': [1, 2]}
+        packet = {'match': 1, 'civilizations': [1, 2], 'player': {'civilization': 1}, 'battle': {'losses_by_matchup': [[2, 3, 4]]}, 'stats': {'army_trained': 8, 'units_lost': 4, 'buildings_lost': 0, 'resources_gathered': 900}}
+        self.write('host-terminal.json', {'received_unix': 1, 'matched': matched, 'ended': {'match': 1, 'winner': 0, 'reason': 'Sacred hold'}, 'last': packet})
+        self.rows('host-sent.jsonl', [{'packet': {'op': 'host', 'protocol': 2, 'civilization': 1}}])
+        self.rows('host-transport.jsonl', [{'packet': {'op': 'room', 'players': 2, 'civilizations': [1, 2]}}])
+        self.rows('host-snapshots.jsonl', [{'packet': packet}])
+        captures = [{'name': name, 'sha256': hashlib.sha256((self.root / name).read_bytes()).hexdigest(), 'unix': 1} for name in ('before.png', 'armed.png', 'after.png')]
+        self.rows('host-captures.jsonl', captures)
+        self.rows('host-civilization-ui.jsonl', [{'performed': True, 'selected': own, 'captures': captures}])
+        self.rows('host-civilization-identity.jsonl', [{'passed': True, 'reviewed': True, 'observed_name': own['name'], 'selected': own, 'matched': matched}])
+        self.rows('host-browser-input.jsonl', [{'kind': 'click', 'purpose': purpose} for purpose in ('civilization_picker_open', 'civilization_picker_choice', 'civilization_picker_confirm')])
+        lesson = counter_lesson(packet, 0)
+        self.rows('host-screen-reviews.jsonl', [
+            {'check': 'result_review', 'passed': True, 'image': captures[0], 'observed': {'result': 'VICTORY', 'reason': 'Sacred hold', 'counts': {'Army Produced': 8, 'Units Lost': 4, 'Buildings Lost': 0, 'Resources Gathered': 900}, 'lesson_status': lesson['status'], 'lesson_text': lesson['text']}},
+            {'check': 'menu_return', 'passed': True, 'image': captures[1], 'observed': {'actions': ['New Game', 'Join a friend']}}])
+        return packet
+
+    def test_civilization_claim_needs_received_protocol_identity_and_reviewed_pixels(self):
+        self.kingdom_fixture()
+        self.assertTrue(all(civilization_gates(self.root, self.invocation, 'host').values()))
+        self.rows('host-sent.jsonl', [{'packet': {'op': 'host', 'protocol': 1, 'civilization': 1}}])
+        self.assertFalse(civilization_gates(self.root, self.invocation, 'host')['protocol2_actual_civilization_request'])
+        self.rows('host-civilization-identity.jsonl', [])
+        self.assertFalse(civilization_gates(self.root, self.invocation, 'host')['reviewed_picker_matches_received_civilization'])
+
+    def test_signature_names_and_terminal_identity_do_not_follow_intended_choice(self):
+        packet = self.kingdom_fixture()
+        self.assertIn('Enemy Outriders landed final blows on 4 of your Longbows', counter_lesson(packet, 0)['text'])
+        packet['civilizations'] = [0, 2]
+        self.rows('host-snapshots.jsonl', [{'packet': packet}])
+        self.assertFalse(civilization_gates(self.root, self.invocation, 'host')['civilization_identity_stable_through_terminal'])
+
+    def test_result_review_requires_exact_counts_and_eligible_lesson_or_explicit_none(self):
+        self.kingdom_fixture()
+        self.assertTrue(all(screen_gates(self.root, 'host').values()))
+        reviews = json.loads((self.root / 'host-screen-reviews.jsonl').read_text().splitlines()[0])
+        reviews['observed']['lesson_status'] = 'none'; reviews['observed']['lesson_text'] = ''
+        self.rows('host-screen-reviews.jsonl', [reviews])
+        self.assertFalse(screen_gates(self.root, 'host')['reviewed_result_counts_and_eligible_lesson'])
+        packet = self.kingdom_fixture(); packet['battle']['losses_by_matchup'] = [[2, 3, 2]]
+        self.assertEqual(counter_lesson(packet, 0), {'status': 'none', 'text': '', 'eligible': []})
+        packet['battle']['losses_by_matchup'] = [[2, 3, 4], [2, 3, 1]]
+        self.assertIsNone(counter_lesson(packet, 0))
 
 
 if __name__ == '__main__':

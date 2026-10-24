@@ -11,6 +11,7 @@ const crypto = require('node:crypto');
 const assert = require('node:assert/strict');
 const os = require('node:os');
 const {startLocalRuntime, digest} = require('./local_browser_runtime.cjs');
+const {civilization,resultExpectation,paidVillagerRecruitment} = require('./live_browser_receipts.cjs');
 
 function installWitness(configuration = {}) {
   const Native = window.WebSocket;
@@ -134,7 +135,7 @@ function planPolicy(client) {
   const army=own.filter(a=>a.kind==='unit'&&a.type!==0).map(a=>a.id);
   const buildings=own.filter(a=>a.kind==='building'), active=t=>buildings.find(a=>a.type===t&&a.state===2);
   const count=t=>buildings.filter(a=>a.type===t).length, queued=a=>a?.queue?.items?.length||0;
-  const bank={...d.bank}, commands=[], send=(command,payload={})=>commands.push({command,payload});
+  const bank={...d.bank}, commands=[], send=(command,payload={})=>commands.push({command,payload,...(command==='train'?{expected_cost:{...unitCosts[payload.type]},bank_before:{...bank}}:{})});
   const town=active(0), t=d.time;
   if (!town) return [];
   if(client.objectiveOnly) {
@@ -159,7 +160,9 @@ function planPolicy(client) {
     else if(t>260&&!client.demolished&&count(1)<2)type=1;
     else if(!count(2))type=2;
     else if(!count(9)&&t>55)type=9;
-    else if(count(5)<(t>700?6:2)&&t>100)type=5;
+    // Ordinary paid capacity for this script's own planned/observed food jobs.
+    // Five food workers need five one-worker Farms once berries are exhausted.
+    else if(count(5)<Math.min(6,Math.max(2,tasks.food,workers.length-7))&&t>100)type=5;
     else if(!count(3)&&d.player.age>=2)type=3;
     else if(!count(4)&&d.player.age>=2)type=4;
     else if(!count(8)&&d.player.age>=3)type=8;
@@ -198,6 +201,9 @@ async function main() {
     assert.deepEqual(socket.wire.map(p=>p.sequence),[1,2]);console.log('Witness sequence normalization and paid-policy arithmetic checks passed. No browser or network launched.');return;
   }
   const localMode=process.argv.includes('--local');
+  const inputMode=process.argv.includes('--touch')?'touch':'mouse';
+  const expectations={host:civilization(arg('host-civilization')||1),guest:civilization(arg('guest-civilization')||2)};
+  const expectedIds=[expectations.host.id,expectations.guest.id];
   if(localMode && (process.argv.includes('--allow-public') || arg('url')))throw new Error('--local owns both verified endpoints; do not combine it with --allow-public or --url.');
   if(!localMode && !process.argv.includes('--allow-public'))throw new Error('Use --local for sealed local artifacts, or --allow-public only after deployment readiness.');
   let modulePath=arg('playwright-module');
@@ -218,22 +224,26 @@ async function main() {
   const save=(name,value)=>fs.writeFileSync(path.join(out,name),JSON.stringify(value,null,2)+'\n');
   const append=(name,value)=>fs.appendFileSync(path.join(out,name),JSON.stringify(value)+'\n');
   const objectiveOnly=process.argv.includes('--objective-only');
-  save('invocation.json',{url,port,started:new Date().toISOString(),headless:false,scenario:objectiveOnly?'objective':'full',mode:localMode?'local-sealed':'public',match_url:local?.matchUrl||null,source_revision:local?.source.version.source_revision||null,harness_sha256:digest(fs.readFileSync(__filename)),local_runtime_helper_sha256:digest(fs.readFileSync(require.resolve('./local_browser_runtime.cjs'))),browser_version:browser.version(),scope:localMode?'Automated browser fixture using two fresh contexts of a byte-verified export and matching local authority. Canvas inputs and disclosed ordinary paid protocol policy are separate from root CUA play. Exact endpoint redirected to loopback; command sequence normalized; no state, grants, time or result injected.':'Two isolated actual deployed-browser contexts; UI lobby/keyboard actions plus disclosed test-only ordinary paid WebSocket policy. Only command sequence is normalized. No direct gameplay state, grants, time changes or forced result.'});
+  save('invocation.json',{url,port,started:new Date().toISOString(),headless:false,input_mode:inputMode,civilization_expectations:expectations,protocol:2,scenario:objectiveOnly?'objective':'full',mode:localMode?'local-sealed':'public',match_url:local?.matchUrl||null,source_revision:local?.source.version.source_revision||null,harness_sha256:digest(fs.readFileSync(__filename)),local_runtime_helper_sha256:digest(fs.readFileSync(require.resolve('./local_browser_runtime.cjs'))),receipt_helper_sha256:digest(fs.readFileSync(require.resolve('./live_browser_receipts.cjs'))),browser_version:browser.version(),policy_scope:'Ordinary paid scripted policy: grow to12 workers;4wood/3gold/restfood;paid Farms after100s follow own planned/observed food-worker demand, minimum2/cap6; train mixed stable-ID troops; central skirmish until650s then host takes Sacred while guest returns home. Paid house demolition tests destruction. Natural server terminal is policy-scheduled, not human pacing or an11–14minute balance average. No camp coverage.',scope:localMode?'Automated browser fixture using two fresh contexts of a byte-verified export and matching local authority. Canvas inputs and disclosed ordinary paid protocol policy are separate from root CUA play. Exact endpoint redirected to loopback; command sequence normalized; no state, grants, time or result injected.':'Two isolated actual deployed-browser contexts; UI lobby/keyboard actions plus disclosed test-only ordinary paid WebSocket policy. Only command sequence is normalized. No direct gameplay state, grants, time changes or forced result.'});
+  const capture=async(c,label)=>{const name=c.role+'-'+String(label).replace(/[^a-zA-Z0-9_-]/g,'_')+'.png',filename=path.join(out,name);if(fs.existsSync(filename))throw Error('Capture already exists; use a new label');await c.page.screenshot({path:filename});const receipt={name,path:filename,sha256:digest(fs.readFileSync(filename)),unix:Date.now()};c.captures.push(receipt);append(c.role+'-captures.jsonl',receipt);return receipt;};
+  const canvasInput=async(c,point,purpose)=>{const viewport=c.page.viewportSize();if(!point||!Number.isFinite(point.x)||!Number.isFinite(point.y)||point.x<0||point.y<0||point.x>=viewport.width||point.y>=viewport.height)throw Error('Supply observed canvas coordinates inside the current viewport');if(inputMode==='touch')await c.page.touchscreen.tap(point.x,point.y);else await c.page.mouse.click(point.x,point.y);const receipt={unix:Date.now(),kind:inputMode==='touch'?'tap':'click',purpose,x:point.x,y:point.y};c.browserInputs.push(receipt);append(c.role+'-browser-input.jsonl',receipt);return receipt;};
+  const identityMatches=c=>c.matched&&c.last&&JSON.stringify(c.matched.civilizations)===JSON.stringify(expectedIds)&&JSON.stringify(c.last.civilizations)===JSON.stringify(expectedIds)&&c.last.player?.civilization===expectations[c.role].id&&c.matched.civilizations[c.matched.slot]===expectations[c.role].id&&c.room?.players===2&&JSON.stringify(c.room.civilizations)===JSON.stringify(expectedIds)&&c.lobbyRequests.some(p=>['host','join','search'].includes(p.op)&&p.protocol===2)&&c.lobbyRequests.at(-1)?.civilization===expectations[c.role].id;
   const assetTasks=[];
   for(const role of ['host','guest']) {
-    const context=await browser.newContext({viewport:{width:Number(arg('width')||(localMode?844:1600)),height:Number(arg('height')||(localMode?390:900))},deviceScaleFactor:1,...(localMode?{serviceWorkers:'block'}:{})});
+    const context=await browser.newContext({viewport:{width:Number(arg('width')||(localMode?844:1600)),height:Number(arg('height')||(localMode?390:900))},deviceScaleFactor:1,hasTouch:inputMode==='touch',...(localMode?{serviceWorkers:'block'}:{})});
     if(localMode) {
       await configureLocalGuards(context,local.matchUrl,url,event=>append(role+'-endpoint-guard.jsonl',event));
     }
     await context.exposeBinding('__pocketHarnessEvent',(_source,event)=>{if(['socket_route','command_origin'].includes(event.kind))append(role+'-'+event.kind+'.jsonl',event);});
     await context.addInitScript(installWitness,{local:localMode,matchUrl:local?.matchUrl});const page=await context.newPage();
     const client=clients[role]={role,page,context,objectiveOnly,policy:false,last:null,matched:null,room:null,ended:null,started:0,
-      errors:[],warnings:[],rejections:[],lastBuild:-10,lastArmy:-60,demolished:false,rejectedPlacements:new Set(),pendingPlace:null,uiChecks:[]};
+      errors:[],warnings:[],rejections:[],lastBuild:-10,lastArmy:-60,demolished:false,rejectedPlacements:new Set(),pendingPlace:null,uiChecks:[],captures:[],browserInputs:[],recruitAttempts:[],paidRecruitReviewed:false,policyEver:false,civilizationSelection:null,lobbyRequests:[],endedAt:null};
     page.on('console',message=>{const entry={type:message.type(),text:message.text(),unix:Date.now()};append(role+'-console.jsonl',entry);if(entry.type==='error')client.errors.push(entry);if(entry.type==='warning')client.warnings.push(entry);});
     page.on('pageerror',error=>{const entry={type:'pageerror',text:String(error),unix:Date.now()};client.errors.push(entry);append(role+'-console.jsonl',entry);});
     page.on('response',response=>{if(response.status()>=400)append(role+'-http-errors.jsonl',{url:response.url(),status:response.status()});
       if(/\.(pck|wasm|js)(\?|$)|\/(build-info|version)\.json(\?|$)/.test(response.url())) {
         append(role+'-assets.jsonl',{url:response.url(),status:response.status(),unix:Date.now(),from_service_worker:response.fromServiceWorker(),headers:response.headers()});
+        if(localMode&&response.status()===200){const headers=response.headers();append(role+'-asset-server-proof.jsonl',{url:response.url(),file:decodeURIComponent(new URL(response.url()).pathname).slice(1),status:200,request_id:headers['x-pocket-request-id'],sha256:headers['x-pocket-artifact-sha256'],bytes:Number(headers['content-length']),proof:'Browser response headers correlated with owned server exact-byte log; distinct from CDP response.body hash'});}
         if(localMode&&response.status()===200)assetTasks.push(response.body().then(bytes=>{
           const name=decodeURIComponent(new URL(response.url()).pathname).slice(1),sha256=digest(bytes),expected=local.source.artifact.files[name];
           const record={unix:Date.now(),url:response.url(),file:name,bytes:bytes.length,sha256,expected,match:sha256===expected};
@@ -245,18 +255,19 @@ async function main() {
     page.on('requestfailed',request=>append(role+'-request-failures.jsonl',{url:request.url(),error:request.failure(),unix:Date.now()}));
     page.on('websocket',socket=>{
       append(role+'-transport.jsonl',{event:'open',url:socket.url(),unix:Date.now()});
-      socket.on('framesent',event=>{let packet;try{packet=JSON.parse(String(event.payload));}catch(_){return;}append(role+'-sent.jsonl',{unix:Date.now(),packet});});
+      socket.on('framesent',event=>{let packet;try{packet=JSON.parse(String(event.payload));}catch(_){return;}append(role+'-sent.jsonl',{unix:Date.now(),packet});if(['host','join','search','room_civilization'].includes(packet.op))client.lobbyRequests.push(packet);});
       socket.on('framereceived',event=>{let packet;try{packet=JSON.parse(String(event.payload));}catch(_){return;}
         if(packet.op==='snapshot') {client.last=packet;if(packet.tick%10===0)append(role+'-snapshots.jsonl',{unix:Date.now(),wall:(performance.now()-client.started)/1000,packet});}
         else {append(role+'-transport.jsonl',{event:'packet',unix:Date.now(),packet});if(packet.op==='room')client.room=packet;
           if(packet.op==='matched')client.matched=packet;if(packet.op==='started')client.started=performance.now();
-          if(packet.op==='ended'){client.ended={...packet,match_wall_seconds:(performance.now()-client.started)/1000};client.policy=false;save(role+'-terminal.json',{matched:client.matched,ended:client.ended,last:client.last});}
+          if(packet.op==='ended'){client.endedAt=Date.now();client.ended={...packet,match_wall_seconds:(performance.now()-client.started)/1000};client.policy=false;save(role+'-terminal.json',{received_unix:client.endedAt,matched:client.matched,ended:client.ended,last:client.last});}
           if(packet.op==='rejected'){client.rejections.push(packet);if(client.pendingPlace&&/clear|reach|Outside/.test(packet.reason)){client.rejectedPlacements.add(client.pendingPlace.key);client.pendingPlace=null;}}}
       });
       socket.on('close',()=>append(role+'-transport.jsonl',{event:'close',unix:Date.now()}));
       socket.on('socketerror',error=>{client.errors.push({type:'socketerror',text:String(error)});append(role+'-transport.jsonl',{event:'error',error:String(error),unix:Date.now()});});
     });
     await page.goto(url,{waitUntil:'domcontentloaded'});
+    save(role+'-browser-capabilities.json',await page.evaluate(()=>({width:innerWidth,height:innerHeight,max_touch_points:navigator.maxTouchPoints,coarse_pointer:matchMedia('(pointer: coarse)').matches,scope:'Read-only browser capabilities; no physical-device claim'})));
   }
   let running=false;
   const timer=controllerTimer=setInterval(async()=>{if(running)return;running=true;try{for(const c of Object.values(clients))for(const cmd of planPolicy(c)) {
@@ -265,41 +276,90 @@ async function main() {
   }}catch(error){append('controller-errors.jsonl',{unix:Date.now(),error:String(error)});}finally{running=false;}},2000);
   const status=()=>Object.fromEntries(Object.values(clients).map(c=>[c.role,{room:c.room,matched:c.matched,ended:c.ended,
     game_seconds:c.last?.time,wall:c.started?(performance.now()-c.started)/1000:0,bank:c.last?.bank,player:c.last?.player,stats:c.last?.stats,battle:c.last?.battle,
-    policy:c.policy,errors:c.errors,warnings:c.warnings.slice(-8),rejections:c.rejections.length,pendingPlace:c.pendingPlace,uiChecks:c.uiChecks}]));
+    civilizations:c.last?.civilizations,civilization_selection:c.civilizationSelection,expected_civilization:expectations[c.role],policy:c.policy,policy_ever:c.policyEver,paid_recruit_reviewed:c.paidRecruitReviewed,errors:c.errors,warnings:c.warnings.slice(-8),rejections:c.rejections.length,pendingPlace:c.pendingPlace,uiChecks:c.uiChecks,captures:c.captures}]));
   const server=controllerServer=http.createServer(async(req,res)=>{try{
     let body='';for await(const chunk of req)body+=chunk;const data=body?JSON.parse(body):{};const c=clients[data.role||'host'];let result;
     if(req.url==='/state')result=status();
     else if(req.url==='/viewport'){await c.page.setViewportSize({width:Number(data.width),height:Number(data.height)});append(c.role+'-browser-input.jsonl',{unix:Date.now(),kind:'viewport',...data});result={resized:true};}
     else if(req.url==='/page')result=await c.page.evaluate(()=>({url:location.href,title:document.title,text:document.body.innerText,canvases:Array.from(document.querySelectorAll('canvas')).map(e=>({id:e.id,width:e.width,height:e.height,rect:e.getBoundingClientRect().toJSON()})),buttons:Array.from(document.querySelectorAll('button')).map(e=>({text:e.innerText,id:e.id,disabled:e.disabled,rect:e.getBoundingClientRect().toJSON()}))}));
-    else if(req.url==='/capture'){const label=String(data.label||'capture').replace(/[^a-zA-Z0-9_-]/g,'_');const filename=path.join(out,`${c.role}-${label}.png`);await c.page.screenshot({path:filename});result={path:filename};}
-    else if(req.url==='/input') {if(data.kind==='click')await c.page.mouse.click(data.x,data.y,{button:data.button||'left'});
+    else if(req.url==='/capture')result=await capture(c,data.label||'capture');
+    else if(req.url==='/input') {if(data.kind==='click'||data.kind==='tap'){if(data.kind==='tap'&&inputMode!=='touch')throw Error('Native browser taps require --touch');if(inputMode==='touch'&&data.button&&data.button!=='left')throw Error('Touch mode has no mouse right-click');if(inputMode==='touch')await c.page.touchscreen.tap(data.x,data.y);else await c.page.mouse.click(data.x,data.y,{button:data.button||'left'});data.kind=inputMode==='touch'?'tap':'click';}
       else if(data.kind==='press')await c.page.keyboard.press(data.key);else if(data.kind==='type')await c.page.keyboard.type(data.text);
-      else if(data.kind==='scroll')await c.page.mouse.wheel(data.x||0,data.y||0);else throw new Error('Unknown input kind');append(c.role+'-browser-input.jsonl',{unix:Date.now(),...data});result={sent:true};}
+      else if(data.kind==='scroll'){if(inputMode==='touch')throw Error('Mouse wheel is not a touch gesture; do not claim a touch path with mouse fallback');await c.page.mouse.wheel(data.x||0,data.y||0);}else throw new Error('Unknown input kind');const input={...data,unix:Date.now()};c.browserInputs.push(input);append(c.role+'-browser-input.jsonl',input);result={sent:true};}
+    else if(req.url==='/civilization-ui') {
+      if(c.matched||c.policy)throw Error('Choose the kingdom in the real menu/lobby before matching');
+      const selected=civilization(data.civilization);assert.equal(selected.id,expectations[c.role].id,'Picker selection must match this invocation expectation');
+      const label='civilization-'+Date.now(),images=[];
+      images.push(await capture(c,label+'-before'));
+      await canvasInput(c,data.open,'civilization_picker_open');await c.page.waitForTimeout(150);
+      await canvasInput(c,data.choice,'civilization_picker_choice');await c.page.waitForTimeout(150);images.push(await capture(c,label+'-choice'));
+      await canvasInput(c,data.confirm,'civilization_picker_confirm');await c.page.waitForTimeout(150);images.push(await capture(c,label+'-confirmed'));
+      result=c.civilizationSelection={selected,input_mode:inputMode,unix:Date.now(),performed:true,received_identity_verified:false,captures:images};append(c.role+'-civilization-ui.jsonl',result);
+    }
+    else if(req.url==='/civilization-check'){if(!c.civilizationSelection||!identityMatches(c))throw Error('Actual protocol2 lobby/matched/snapshot identities do not confirm the observed picker choice');if(data.reviewed!==true||data.observed_name!==expectations[c.role].name)throw Error('Inspect the captured picker and transcribe its selected kingdom name');result={passed:true,reviewed:true,observed_name:data.observed_name,selected:expectations[c.role],slot:c.matched.slot,room:c.room,matched:c.matched,snapshot_civilizations:c.last.civilizations,own_civilization:c.last.player.civilization};c.civilizationIdentityReviewed=true;append(c.role+'-civilization-identity.jsonl',result);}
+    else if(req.url==='/recruit-ui') {
+      if(Object.values(clients).some(client=>client.policy||client.policyEver)||!c.matched||!c.last||c.ended)throw Error('Paid recruitment witness must precede the first policy start on both clients');
+      const attempt='recruit-'+Date.now(),images=[];
+      images.push(await capture(c,attempt+'-before'));
+      const before=structuredClone(c.last),start=await c.page.evaluate(()=>window.__aoemLiveWitness.state.commandSerial);
+      append(c.role+'-recruit-snapshots.jsonl',{attempt,stage:'before',packet:before});
+      const input=await canvasInput(c,data.button,'paid_recruit_villager');
+      let evidence,proof,after,error='No matching UI train command or accepted paid queue';
+      for(let retry=0;retry<80;retry++) {
+        const commands=await c.page.evaluate(serial=>window.__aoemLiveWitness.state.sends.filter(e=>e.serial>serial),start);
+        if(commands.length>1){error='Concurrent commands make this one-purchase witness ambiguous';break;}
+        evidence=commands[0];after=structuredClone(c.last);
+        try {proof=paidVillagerRecruitment(before,after,c.matched.slot,evidence);break;} catch(failure){error=String(failure.message);}
+        await new Promise(resolve=>setTimeout(resolve,50));
+      }
+      append(c.role+'-recruit-snapshots.jsonl',{attempt,stage:'after',packet:after});
+      images.push(await capture(c,attempt+'-after'));
+      result={attempt,passed:!!proof,unix:Date.now(),input_mode:inputMode,policy_ever:false,slot:c.matched.slot,input,evidence,proof,before,after,captures:images,error:proof?null:error,scope:'Actual native browser input, passive authority queue/reservation/bank receipts; normal deposits are accounted for, never injected'};
+      c.recruitAttempts.push(result);append(c.role+'-recruit-ui.jsonl',result);
+      if(!proof)throw Error('Paid UI recruitment witness failed: '+error);
+    }
+    else if(req.url==='/recruit-review') {
+      const attempt=c.recruitAttempts.find(row=>row.attempt===data.attempt);
+      if(data.reviewed!==true||!attempt?.passed||c.policyEver)throw Error('Review the successful before-policy recruitment captures first');
+      for(const image of attempt.captures)assert.equal(digest(fs.readFileSync(image.path)),image.sha256,'Recruitment capture changed');
+      const observed=data.observed||{};
+      assert.equal(observed.unit,'Villager');assert.equal(observed.cost_food,50);assert.equal(observed.queue_count,1);
+      for(const resource of ['food','wood','gold']) {assert.equal(observed.before_bank?.[resource],attempt.before.bank[resource],'Transcribe the actual pre-tap bank');assert.equal(observed.after_bank?.[resource],attempt.after.bank[resource],'Transcribe the actual post-tap bank');}
+      result={check:'paid_recruit_review',attempt:attempt.attempt,passed:true,reviewed:true,unix:Date.now(),input_mode:inputMode,observed,captures:attempt.captures};
+      c.paidRecruitReviewed=true;c.uiChecks.push(result);append(c.role+'-recruit-reviews.jsonl',result);
+    }
     else if(req.url==='/attack-ui') {
       if(Object.values(clients).some(client=>client.policy)||!c.matched||c.ended)throw new Error('Stop paid policy and select a living armed unit before the Attack HUD check');
       for(const point of [data.button,data.destination])if(!point||!Number.isFinite(point.x)||!Number.isFinite(point.y))throw new Error('Supply observed Attack-button and ground coordinates');
       const before=await c.page.evaluate(()=>window.__aoemLiveWitness.state.commandSerial);
       const label='attack-hud-'+Date.now();
       await c.page.screenshot({path:path.join(out,c.role+'-'+label+'-before.png')});
-      await c.page.mouse.click(data.button.x,data.button.y);
-      append(c.role+'-browser-input.jsonl',{unix:Date.now(),kind:'click',purpose:'observed_attack_hud_button',...data.button});
+      await canvasInput(c,data.button,'observed_attack_hud_button');
       await c.page.screenshot({path:path.join(out,c.role+'-'+label+'-armed.png')});
-      await c.page.mouse.click(data.destination.x,data.destination.y);
-      append(c.role+'-browser-input.jsonl',{unix:Date.now(),kind:'click',purpose:'attack_move_ground_destination',...data.destination});
+      await canvasInput(c,data.destination,'attack_move_ground_destination');
       let evidence;
       for(let retry=0;retry<60;retry++) {
         evidence=await c.page.evaluate(start=>window.__aoemLiveWitness.state.sends.find(e=>e.serial>start&&e.source==='game_ui_or_engine'&&e.packet.command==='attack_move'),before);
         if(evidence)break;await new Promise(resolve=>setTimeout(resolve,50));
       }
       await c.page.screenshot({path:path.join(out,c.role+'-'+label+'-after.png')});
-      const receipt={check:'attack_hud',passed:!!evidence,unix:Date.now(),scope:'Automated browser canvas clicks at observed HUD/ground coordinates; actual game-generated command verified; distinct from root CUA play',evidence,screenshots:[c.role+'-'+label+'-before.png',c.role+'-'+label+'-armed.png',c.role+'-'+label+'-after.png']};
+      const receipt={check:'attack_hud',passed:!!evidence,unix:Date.now(),input_mode:inputMode,scope:'Automated browser native canvas input at observed HUD/ground coordinates; actual game-generated command verified; distinct from root CUA play',evidence,screenshots:[c.role+'-'+label+'-before.png',c.role+'-'+label+'-armed.png',c.role+'-'+label+'-after.png']};
       c.uiChecks.push(receipt);append(c.role+'-attack-ui.jsonl',receipt);
       if(!evidence)throw new Error('HUD clicks produced no game-generated attack_move command; A key or ordinary movement is not accepted');
       result=receipt;
     }
-    else if(req.url==='/start-policy'){if(!Object.values(clients).every(c=>c.matched&&c.last&&!c.ended))throw new Error('Both real UI-created clients must be playing first');Object.values(clients).forEach(c=>c.policy=true);result={started:true};}
+    else if(req.url==='/start-policy'){if(!Object.values(clients).every(c=>c.matched&&c.last&&!c.ended&&c.civilizationSelection&&c.civilizationIdentityReviewed&&identityMatches(c)))throw new Error('Both reviewed real picker choices and protocol2 room/matched/snapshot civilizations must agree before paid policy');if(inputMode==='touch'&&!Object.values(clients).every(c=>c.paidRecruitReviewed))throw Error('Touch acceptance requires reviewed real tap recruitment with paid bank/queue proof on both clients before policy');Object.values(clients).forEach(c=>{c.policy=true;c.policyEver=true;});append('policy-starts.jsonl',{unix:Date.now(),input_mode:inputMode,roles:Object.keys(clients)});result={started:true};}
     else if(req.url==='/stop-policy'){Object.values(clients).forEach(c=>c.policy=false);result={stopped:true};}
     else if(req.url==='/ui-check'){c.uiChecks.push({...data,unix:Date.now(),scope:'Operator screenshot/input verification'});result={recorded:true};}
+    else if(req.url==='/review-screen') {
+      if(data.reviewed!==true||!c.ended)throw Error('Review an actual captured post-terminal screen first');
+      const image=c.captures.find(item=>item.name===data.capture);if(!image||image.unix<c.endedAt||digest(fs.readFileSync(image.path))!==image.sha256)throw Error('Review needs an unchanged captured image after this terminal');
+      const observed=data.observed||{};let expected;
+      if(data.kind==='result') {expected=resultExpectation(c);assert.equal(observed.result,expected.result);assert.equal(observed.reason,expected.reason);assert.deepEqual(observed.counts,expected.counts);assert.equal(observed.lesson_status,expected.lesson.status);assert.equal(String(observed.lesson_text??'').replace(/\s+/g,' ').trim(),expected.lesson.text);}
+      else if(data.kind==='menu') {assert(c.uiChecks.some(check=>check.check==='result_review'&&check.passed));assert(Array.isArray(observed.actions)&&['New Game','Join a friend'].every(text=>observed.actions.includes(text)),'Record the actual visible Home actions');}
+      else throw Error('Review kind must be result or menu');
+      result={check:data.kind==='result'?'result_review':'menu_return',passed:true,scope:'Operator inspected actual captured pixels and transcribed visible text/counts; checked against recipient authority facts',image,observed,expected,unix:Date.now()};c.uiChecks.push(result);append(c.role+'-screen-reviews.jsonl',result);
+    }
     else if(req.url==='/save'){await Promise.allSettled(assetTasks);save('controller-state.json',status());result={saved:true};}
     else if(req.url==='/shutdown'){Object.values(clients).forEach(c=>c.policy=false);await Promise.allSettled(assetTasks);save('controller-state.json',status());clearInterval(timer);await browser.close();if(local)await local.stop();result={closed:true};setImmediate(()=>server.close());}
     else throw new Error('Unknown endpoint');
