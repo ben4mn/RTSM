@@ -11,12 +11,12 @@ PALETTE = {"#406861": "#855949", "#6E9C94": "#BD8067", "#A9C7BB": "#DFB498"}
 
 
 def main() -> None:
-    for name in ("worker", "warrior", "archer", "cavalry", "siege"):
+    for name in ("worker", "warrior", "archer", "cavalry", "siege", "longbow", "outrider"):
         path = ROOT / "assets/units" / f"{name}.svg"
-        source = path.read_text()
+        source = path.read_text(encoding="utf-8")
         for base, alternate in PALETTE.items():
             source = source.replace(base, alternate)
-        path.with_name(f"{name}_enemy.svg").write_text(source)
+        path.with_name(f"{name}_enemy.svg").write_text(source, encoding="utf-8", newline="\n")
 
 
 if __name__ == "__main__":

@@ -208,6 +208,8 @@ func _strategy_journey(phone: Vector2i, interface_scale: float, notched: bool, l
 	await _tap(outside)
 	_expect(_hud.call("get_secondary_surface_name") == "none", "outside contact did not close economy")
 	await _button(overview.rail.get_node("ArmyButton"))
+	_expect((overview.get("_recruit_tab") as Button).button_pressed and (overview.get("_recruit_empty") as Control).is_visible_in_tree(), "Army must offer recruitment when only an unarmed Scout exists")
+	await _button(overview.get("_groups_tab"))
 	_expect(army_button.button_pressed and not economy_button.button_pressed, "expanded Army lacks exclusive selected state")
 	_expect(overview.panel.size.y < economy_height and overview.panel.size.y <= 260.0, "Army sheet retains the tall Economy height instead of fitting its rows")
 	_expect(safe.encloses(overview.panel.get_global_rect()) and not overview.panel.get_global_rect().intersects(overview.rail.get_global_rect()), "compact Army sheet must stay safe and leave launchers reachable")

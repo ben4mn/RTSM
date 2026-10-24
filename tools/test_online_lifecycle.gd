@@ -37,7 +37,7 @@ func _process(delta: float) -> bool:
 		if heartbeat > 4.0:
 			_send(i, {"op": "ping"})
 		if not states[i].search:
-			_send(i, {"op": "search", "protocol": 1})
+			_send(i, {"op": "search", "protocol": 2})
 			states[i].search = true
 		while socket.get_available_packet_count() > 0:
 			var packet: Variant = JSON.parse_string(socket.get_packet().get_string_from_utf8())

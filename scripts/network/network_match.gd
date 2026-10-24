@@ -115,10 +115,16 @@ func _snapshot_for(slot: int) -> Dictionary:
 	var player: Dictionary = GameManager.players[slot].duplicate()
 	player.erase("units")
 	player.erase("buildings")
-	return {"tick": _snapshot_number, "time": GameManager.game_time, "actors": actors, "resources": resources, "bank": ResourceManager.get_all_resources(slot), "player": player, "upgrades": GameManager.player_upgrades[slot], "research": GameManager.researched_upgrades[slot], "stats": main._stats[slot], "site": {"state": site.state, "owner": site.owning_player, "capture": site.capture_progress, "timer": site.victory_timer, "hold": site.victory_hold_time}}
+	return {"tick": _snapshot_number, "time": GameManager.game_time, "civilizations": [GameManager.get_player_civilization(0), GameManager.get_player_civilization(1)], "actors": actors, "resources": resources, "bank": ResourceManager.get_all_resources(slot), "player": player, "upgrades": GameManager.player_upgrades[slot], "research": GameManager.researched_upgrades[slot], "stats": main._stats[slot], "site": {"state": site.state, "owner": site.owning_player, "capture": site.capture_progress, "timer": site.victory_timer, "hold": site.victory_hold_time}}
 
 func apply_snapshot(snapshot: Dictionary) -> void:
 	GameManager.game_time = float(snapshot.get("time", 0.0))
+	var civilizations: Variant = snapshot.get("civilizations")
+	if NetworkSession._valid_civilizations(civilizations):
+		# Apply both public identities before creating replicas. Guest local 0
+		# maps to server slot 1; its units must never inherit the host's bonuses.
+		for server_owner: int in 2:
+			GameManager.players[_local_owner(server_owner)]["civilization"] = int(civilizations[server_owner])
 	var player: Dictionary = snapshot.get("player", {})
 	for key: String in ["age", "population", "population_reserved", "population_cap", "max_population", "is_defeated"]:
 		if player.has(key):

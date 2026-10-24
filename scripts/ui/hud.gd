@@ -699,9 +699,9 @@ func _configure_mobile_visuals() -> void:
 	# game actions rather than anonymous text slabs.
 	_set_button_icon(build_menu_button, "res://assets/buildings/company_house.svg", 26)
 	_set_button_icon(age_up_button, "res://assets/buildings/company_town_center.svg", 24)
-	_set_button_icon(_idle_villager_button, UnitData.get_unit_icon_path(UnitData.UnitType.VILLAGER), 24)
-	_set_button_icon(_select_military_button, UnitData.get_unit_icon_path(UnitData.UnitType.SCOUT), 24)
-	_set_button_icon(_find_army_button, UnitData.get_unit_icon_path(UnitData.UnitType.SCOUT), 22)
+	_set_button_icon(_idle_villager_button, UnitData.get_unit_icon_path(UnitData.UnitType.VILLAGER, 0), 24)
+	_set_button_icon(_select_military_button, UnitData.get_unit_icon_path(UnitData.UnitType.SCOUT, 0), 24)
+	_set_button_icon(_find_army_button, UnitData.get_unit_icon_path(UnitData.UnitType.SCOUT, 0), 22)
 	_set_button_icon(_town_center_button, "res://assets/buildings/company_town_center.svg", 24)
 	for button in [build_menu_button, age_up_button, _idle_villager_button, _select_military_button, _find_army_button]:
 		if button:
@@ -2572,7 +2572,7 @@ func _get_age_up_preview(next_age: int) -> String:
 		var data: Dictionary = BuildingData.BUILDINGS[key]
 		if data["age_required"] == next_age:
 			for ut in data["can_train"]:
-				var u_name: String = UnitData.get_unit_name(ut)
+				var u_name: String = UnitData.get_unit_name(ut, 0)
 				if ut not in available_units and u_name not in new_units:
 					new_units.append(u_name)
 	if new_units.size() > 0:
@@ -2603,6 +2603,9 @@ func _on_game_state_changed(new_state: int) -> void:
 
 # --- Selection panel ---
 
+var _selection_unit_owner: int = 0
+
+
 func show_unit_selection(unit_name: String, current_hp: int, max_hp: int, action_text: String, count: int = 1, unit_stats: Dictionary = {}) -> void:
 	if _ui_modal_state == UIModalState.PAUSE_MENU:
 		return
@@ -2632,6 +2635,7 @@ func show_unit_selection(unit_name: String, current_hp: int, max_hp: int, action
 	if int(unit_stats.get("cargo_amount", 0)) > 0:
 		_selection_cargo_text = "%s %d/%d" % [str(unit_stats.get("cargo_resource", "mixed")).capitalize(), int(unit_stats["cargo_amount"]), int(unit_stats.get("cargo_capacity", 0))]
 	_selection_role_text = ""
+	_selection_unit_owner = int(unit_stats.get("player_owner", 0))
 	_selection_role_counts = unit_stats.get("role_counts", {}).duplicate()
 	_selection_roster.clear()
 	for role_type: int in _selection_role_counts:
@@ -2645,7 +2649,7 @@ func show_unit_selection(unit_name: String, current_hp: int, max_hp: int, action
 	var selected_type: int = int(unit_stats.get("unit_type", -1))
 	if selected_type < 0:
 		for candidate_type: int in UnitData.UNITS:
-			if UnitData.get_unit_name(candidate_type) == unit_name:
+			if UnitData.get_unit_name(candidate_type, _selection_unit_owner) == unit_name:
 				selected_type = candidate_type
 				break
 	if unit_stats.has("role_counts"):
@@ -2653,7 +2657,7 @@ func show_unit_selection(unit_name: String, current_hp: int, max_hp: int, action
 	_selection_is_worker = selected_type == UnitData.UnitType.VILLAGER
 	_selection_is_scout = selected_type == UnitData.UnitType.SCOUT
 	if selected_type >= 0:
-		var counter: String = UnitData.get_unit_counter_name(selected_type)
+		var counter: String = UnitData.get_unit_counter_name(selected_type, _selection_unit_owner)
 		_selection_role_text = "Bonus: " + counter if not counter.is_empty() else ""
 		if _selection_is_scout:
 			_selection_role_text = "Unarmed scout"
@@ -2830,7 +2834,7 @@ func _refresh_unit_selection_details() -> void:
 func _compact_roster_entry(unit_type: int) -> String:
 	# The full name is in Info. Siege's two-word name otherwise consumes the
 	# entire 96px minimum identity column before its count can be read.
-	var unit_name: String = "Siege" if unit_type == UnitData.UnitType.SIEGE else UnitData.get_unit_name(unit_type)
+	var unit_name: String = "Siege" if unit_type == UnitData.UnitType.SIEGE else UnitData.get_unit_name(unit_type, _selection_unit_owner)
 	return "%s ×%d" % [unit_name, int(_selection_role_counts[unit_type])]
 
 
@@ -2839,7 +2843,7 @@ func _unit_selection_information(selected_type: int, unit_stats: Dictionary, cou
 	if not _selection_roster.is_empty():
 		lines.append("Selection composition")
 		for role_type: int in _selection_roster:
-			lines.append("%s ×%d — %s" % [UnitData.get_unit_name(role_type), int(_selection_role_counts[role_type]), _unit_role_information(role_type)])
+			lines.append("%s ×%d — %s" % [UnitData.get_unit_name(role_type, _selection_unit_owner), int(_selection_role_counts[role_type]), _unit_role_information(role_type)])
 		lines.append("Select one type to inspect its attack, armor and current order. Scouts cannot attack.")
 	else:
 		var role: String = _unit_role_information(selected_type)
@@ -2873,8 +2877,8 @@ func _unit_role_information(unit_type: int) -> String:
 		return "Worker · gathers and builds"
 	if unit_type == UnitData.UnitType.SCOUT:
 		return "Reconnaissance · unarmed"
-	var role: String = UnitData.get_unit_role_description(unit_type)
-	var counter: String = UnitData.get_unit_counter_name(unit_type)
+	var role: String = UnitData.get_unit_role_description(unit_type, _selection_unit_owner)
+	var counter: String = UnitData.get_unit_counter_name(unit_type, _selection_unit_owner)
 	return role + (" · damage bonus against " + counter if not counter.is_empty() else "")
 
 
@@ -3000,7 +3004,7 @@ func _update_queue_display(queue_items: Array) -> void:
 		if not (item is Dictionary):
 			continue
 		var unit_type: int = int(item.get("unit_type", -1))
-		var name_str: String = String(item.get("name", UnitData.get_unit_name(unit_type)))
+		var name_str: String = String(item.get("name", UnitData.get_unit_name(unit_type, 0)))
 		if bool(item.get("is_training", false)):
 			var progress: float = float(item.get("progress", 0.0))
 			var pct: int = int(progress * 100.0)
@@ -3096,8 +3100,8 @@ func _update_queue_display(queue_items: Array) -> void:
 		_attach_hud_hold(btn, _refund_information.bind(unit_type))
 		btn.visible = true
 		btn.mouse_filter = Control.MOUSE_FILTER_STOP
-		btn.text = ("%s\nx%d" if compact_training else "%s x%d") % [UnitData.get_unit_name(unit_type), queue_count]
-		btn.tooltip_text = "Cancel first queued %s; keep the Repeat setting" % UnitData.get_unit_name(unit_type)
+		btn.text = ("%s\nx%d" if compact_training else "%s x%d") % [UnitData.get_unit_name(unit_type, 0), queue_count]
+		btn.tooltip_text = "Cancel first queued %s; keep the Repeat setting" % UnitData.get_unit_name(unit_type, 0)
 		btn.custom_minimum_size = Vector2(64 if compact_training else 104, 48)
 		btn.add_theme_font_size_override("font_size", 11 if compact_training else 12)
 		for style_name: String in ["normal", "hover", "pressed", "disabled"]:
@@ -3262,7 +3266,7 @@ func _update_train_buttons(trainable_units: Array) -> void:
 	_train_buttons_container.add_theme_constant_override("separation", 3 if compact_town_center else 8)
 	var child_index := 0
 	for ut: int in desired_unit_types:
-		var unit_name: String = UnitData.get_unit_name(ut)
+		var unit_name: String = UnitData.get_unit_name(ut, 0)
 		var cost: Dictionary = UnitData.get_unit_cost(ut)
 		var availability: Dictionary = _training_availability(ut)
 		var blocked: bool = bool(availability.get("blocked", false))
@@ -3286,7 +3290,7 @@ func _update_train_buttons(trainable_units: Array) -> void:
 		_attach_hud_hold(btn, _train_information.bind(ut))
 		btn.visible = true
 		btn.mouse_filter = Control.MOUSE_FILTER_STOP
-		var role_text: String = UnitData.get_unit_counter_description(ut) if ut != UnitData.UnitType.VILLAGER else ""
+		var role_text: String = UnitData.get_unit_counter_description(ut, 0) if ut != UnitData.UnitType.VILLAGER else ""
 		if compact_town_center and ut == UnitData.UnitType.SCOUT:
 			role_text = "Unarmed"
 		var status_text: String = str(availability.get("short", ""))
@@ -3309,7 +3313,7 @@ func _update_train_buttons(trainable_units: Array) -> void:
 				style.set_content_margin(SIDE_TOP, 1.0 if compact_producer else 4.0)
 				style.set_content_margin(SIDE_BOTTOM, 1.0 if compact_producer else 4.0)
 				btn.add_theme_stylebox_override(style_name, style)
-		var icon_path: String = UnitData.get_unit_icon_path(ut)
+		var icon_path: String = UnitData.get_unit_icon_path(ut, 0)
 		if icon_path != "" and ResourceLoader.exists(icon_path):
 			btn.icon = load(icon_path)
 			btn.expand_icon = false
@@ -3465,7 +3469,7 @@ func _refresh_auto_queue_button(production_queue: Node) -> void:
 		_auto_queue_button.tooltip_text = "Queue a unit first, then turn on repeat training for that unit."
 		_auto_queue_button.icon = null
 	else:
-		var unit_name: String = UnitData.get_unit_name(unit_type)
+		var unit_name: String = UnitData.get_unit_name(unit_type, 0)
 		_auto_queue_button.text = "%s\n%s" % [unit_name, "ON" if enabled else "OFF"]
 		_auto_queue_button.tooltip_text = "Keep training %s after each completion while resources and population room allow. The last unit you queue is the one repeated." % unit_name
 		_auto_queue_button.icon = null
@@ -3538,7 +3542,7 @@ func _on_auto_queue_toggled(pressed: bool) -> void:
 			_update_queue_display(pq.get_queue_info())
 			_layout_queue_page()
 			var unit_type: int = int(pq.get("auto_queue_unit_type"))
-			var unit_name: String = UnitData.get_unit_name(unit_type) if unit_type >= 0 else "unit"
+			var unit_name: String = UnitData.get_unit_name(unit_type, 0) if unit_type >= 0 else "unit"
 			show_notification(
 				"Repeat %s %s" % [unit_name, "ON" if pressed else "OFF"],
 				KingdomTheme.AMBER if pressed else KingdomTheme.MUTED
@@ -4791,7 +4795,7 @@ func _train_information(unit_type: int) -> Dictionary:
 	body += "\nSpeed %d" % int(stats.get("speed", 50))
 	if int(stats.get("attack_range", 1)) > 1:
 		body += " · Range %d" % int(stats.get("attack_range", 1))
-	var role: String = UnitData.get_unit_counter_description(unit_type)
+	var role: String = UnitData.get_unit_counter_description(unit_type, player_id)
 	if not role.is_empty():
 		body += "\n" + role
 	if unit_type == UnitData.UnitType.SCOUT:
@@ -4802,7 +4806,7 @@ func _train_information(unit_type: int) -> Dictionary:
 		if not trainable.is_empty() and int(trainable[0]) == unit_type:
 			shortcut = " Shortcut: Q."
 	body += "\nTap to train one.%s Holding only inspects." % shortcut
-	return {"title": UnitData.get_unit_name(unit_type), "body": body}
+	return {"title": UnitData.get_unit_name(unit_type, 0), "body": body}
 
 
 func _training_availability(unit_type: int) -> Dictionary:
@@ -4814,7 +4818,7 @@ func _training_availability(unit_type: int) -> Dictionary:
 	if building.state != BuildingBase.State.ACTIVE:
 		return {"blocked": true, "short": "Building…" if building.state == BuildingBase.State.CONSTRUCTING else "Unavailable", "body": "Finish construction before training." if building.state == BuildingBase.State.CONSTRUCTING else "This producer is unavailable."}
 	if unit_type not in building.trainable_units:
-		return {"blocked": true, "short": "Unavailable", "body": "This building cannot train %s." % UnitData.get_unit_name(unit_type)}
+		return {"blocked": true, "short": "Unavailable", "body": "This building cannot train %s." % UnitData.get_unit_name(unit_type, 0)}
 	var gm: Node = _get_game_manager()
 	if gm != null:
 		var player: Dictionary = gm.players.get(building.player_owner, {})
@@ -4859,7 +4863,7 @@ func _repeat_information() -> Dictionary:
 		if queue:
 			unit_type = int(queue.get("auto_queue_unit_type"))
 			enabled = bool(queue.get("auto_queue_enabled"))
-	var unit_name: String = UnitData.get_unit_name(unit_type) if unit_type >= 0 else "the last unit trained"
+	var unit_name: String = UnitData.get_unit_name(unit_type, 0) if unit_type >= 0 else "the last unit trained"
 	var body: String = "Repeat is %s.\nRepeats %s through the normal paid training queue.\nEach unit costs %s.\nWaits for resources or population space.\nCurrent status: %s\nTap to toggle. Holding only inspects." % ["ON" if enabled else "OFF", unit_name, _full_cost_text(UnitData.get_unit_cost(unit_type)) if unit_type >= 0 else "its normal resource cost", _get_repeat_wait_reason()]
 	return {"title": "Repeat training", "body": body}
 
@@ -4886,7 +4890,7 @@ func _research_information(research_id: String) -> Dictionary:
 
 
 func _refund_information(unit_type: int) -> Dictionary:
-	var title: String = "Cancel queued %s" % UnitData.get_unit_name(unit_type) if unit_type >= 0 else ("Clear production" if unit_type == -2 else "Undo last queued unit")
+	var title: String = "Cancel queued %s" % UnitData.get_unit_name(unit_type, 0) if unit_type >= 0 else ("Clear production" if unit_type == -2 else "Undo last queued unit")
 	var body: String = "Refunds the full paid resource cost and releases reserved population.\n"
 	if unit_type == -2:
 		body += "Stops Repeat and cancels all current and queued training. Even the active unit receives its full cost."

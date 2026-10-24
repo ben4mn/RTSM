@@ -66,6 +66,7 @@ func _notes_journey(phone: Vector2i, interface_scale: float, notched: bool) -> v
 	_selection.attack_command.connect(func(_target: Node2D) -> void: _orders += 1)
 	_selection.gather_command.connect(func(_target: Node2D) -> void: _orders += 1)
 	await _button(overview.rail.get_node("ArmyButton"))
+	await _button(overview.get("_groups_tab"))
 	_expect(not notes.is_visible_in_tree() and not guide.visible, "Army should begin with actions and no guide overlap")
 	var info: Button = overview.get("_info_button")
 	_expect(info.is_visible_in_tree() and info.size.x >= 48 and info.size.y >= 48 and info.accessibility_name.contains("Army field notes"), "Army Info lacks a reachable named target")

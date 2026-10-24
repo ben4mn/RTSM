@@ -186,7 +186,7 @@ func get_queue_info() -> Array[Dictionary]:
 	for i in queue.size():
 		info.append({
 			"unit_type": queue[i],
-			"name": UnitData.get_unit_name(queue[i]),
+			"name": UnitData.get_unit_name(queue[i], _building.player_owner if is_instance_valid(_building) else -1),
 			"is_training": i == 0 and is_training,
 			"progress": get_current_progress() if i == 0 else 0.0,
 		})
@@ -198,7 +198,7 @@ func _start_next_unit() -> void:
 		is_training = false
 		return
 	var unit_type: int = queue[0]
-	var stats: Dictionary = UnitData.get_unit_stats(unit_type)
+	var stats: Dictionary = UnitData.get_unit_stats(unit_type, _building.player_owner)
 	current_train_time = stats.get("build_time", 15.0)
 	current_progress = 0.0
 	is_training = true

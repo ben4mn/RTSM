@@ -111,7 +111,7 @@ static func get_effective_attack(unit: UnitBase) -> float:
 static func get_effective_unit_type_stats(unit_type: int, player_id: int) -> Dictionary:
 	## Preview the HP, attack and armor a newly recruited unit will receive.
 	## Base data stays immutable; age unlocks do not scale these values.
-	var stats: Dictionary = UnitData.get_unit_stats(unit_type)
+	var stats: Dictionary = UnitData.get_unit_stats(unit_type, player_id)
 	if stats.is_empty():
 		return stats
 	var scene_tree: SceneTree = Engine.get_main_loop() as SceneTree
@@ -148,7 +148,7 @@ static func calculate_damage(attacker: UnitBase, defender: UnitBase) -> float:
 
 
 static func get_building_damage_multiplier(attacker: UnitBase) -> float:
-	var stats: Dictionary = UnitData.get_unit_stats(attacker.unit_type)
+	var stats: Dictionary = UnitData.get_unit_stats(attacker.unit_type, attacker.player_owner)
 	return float(stats.get("bonus_vs_buildings", 1.0))
 
 

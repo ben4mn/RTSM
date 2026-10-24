@@ -50,6 +50,19 @@ func _run() -> void:
 		_finish()
 		return
 	var first: Villager = _workers[0]
+	# Main may choose a working woodcutter for the Farm. Each possible builder
+	# earns one real load first, so this catches the food-recovery dead end and
+	# verifies that changing the finished builder's job cannot discard cargo.
+	var builder_cargo: Dictionary = {}
+	for worker: Villager in _workers:
+		var opening_wood: Node2D = _map.get_nearest_reachable_resource_node("wood", worker.global_position, 0, {}, worker)
+		_expect(opening_wood != null and worker.command_gather(opening_wood), "prospective Farm builder starts an ordinary wood job")
+		for _step: int in range(3600):
+			worker._process(1.0 / 30.0)
+			if worker.carried_amount > 0:
+				break
+		_expect(worker.carried_amount > 0, "prospective Farm builder earns real wood before construction")
+		builder_cargo[worker.get_instance_id()] = worker.get_carried_resources().duplicate()
 	var farm: BuildingBase = _paid_farm(first)
 	if farm == null:
 		_finish()
@@ -70,7 +83,13 @@ func _run() -> void:
 		if farm.state == BuildingBase.State.ACTIVE:
 			break
 	_expect(farm.state == BuildingBase.State.ACTIVE, "paid Farm completes through its real assigned builder")
+	_expect(first.gather_target == farm and first.current_state == UnitBase.State.GATHERING, "finishing a paid Farm changes its established woodcutter into a farmer")
+	_expect(farm.get_assigned_worker() == first, "the completed Farm immediately reserves its single slot for the builder")
+	_expect(first.get_carried_resources() == builder_cargo[first.get_instance_id()], "Farm completion preserves the builder's exact earned wood cargo")
 	first.command_stop()
+	for worker: Villager in _workers:
+		if worker != first:
+			worker.command_stop()
 	var wood: Node2D = _map.get_nearest_reachable_resource_node("wood", second.global_position, 0, {}, second)
 	_expect(wood != null and second.command_gather(wood), "second worker starts natural wood")
 	for _step: int in range(3600):
@@ -230,7 +249,7 @@ func _finish() -> void:
 		GameManager.set(property, _previous_preferences[property])
 	GameManager.set_state(GameManager.GameState.MENU)
 	if _failures.is_empty():
-		print("[PASS] farm_command_integration: paid Farm build, Main group feedback/cargo, Strategy alternative, authoritative group rejection and paid occupied-Farm rally recovery")
+		print("[PASS] farm_command_integration: paid Farm builder becomes farmer without cargo loss, Main group feedback/cargo, Strategy alternative, authoritative group rejection and paid occupied-Farm rally recovery")
 	else:
 		for failure: String in _failures:
 			push_error("[FAIL] farm_command_integration: " + failure)

@@ -1498,7 +1498,7 @@ func _on_unit_trained(unit_type: int, player_id: int, source_queue: ProductionQu
 		_update_idle_villager_count()
 		_on_selection_changed(game_map.selection_mgr.selected)
 		AudioManager.play_sfx("unit_trained")
-		hud.show_notification("Unit trained: %s" % UnitData.get_unit_name(unit_type), KingdomTheme.TEAL)
+		hud.show_notification("Unit trained: %s" % UnitData.get_unit_name(unit_type, 0), KingdomTheme.TEAL)
 		if (
 			unit != null
 			and unit_type == UnitData.UnitType.SCOUT
@@ -1681,7 +1681,7 @@ func _on_unit_died(unit: UnitBase, player_id: int) -> void:
 	_stats[enemy_id]["units_killed"] += 1
 	if player_id == 0:
 		if is_instance_valid(_battlefield_feedback):
-			_battlefield_feedback.call("report_loss", UnitData.get_unit_name(unit.unit_type), unit.global_position)
+			_battlefield_feedback.call("report_loss", UnitData.get_unit_name(unit.unit_type, unit.player_owner), unit.global_position)
 
 
 func _on_resource_deposited(_resource_type: String, amount: int, player_id: int = 0) -> void:
@@ -1719,7 +1719,7 @@ func _auto_assign_new_villager(villager: UnitBase) -> void:
 
 func _on_player_unit_damaged(unit: UnitBase, _hp_loss: float) -> void:
 	_match_learning.observe_damage(unit, GameManager.game_time)
-	_show_under_attack_alert(UnitData.get_unit_name(unit.unit_type), unit.global_position)
+	_show_under_attack_alert(UnitData.get_unit_name(unit.unit_type, unit.player_owner), unit.global_position)
 
 
 func _on_player_unit_navigation_failed(unit: UnitBase, _target_position: Vector2) -> void:
@@ -1924,7 +1924,7 @@ func _on_selection_changed(selected_units: Array[Node2D]) -> void:
 		# A mixed army must describe the whole selection rather than claiming
 		# every soldier has the first unit's type, damage and armor.
 		var mixed_selection: bool = count < selected_units.size()
-		var selection_title: String = UnitData.get_unit_name(u.unit_type)
+		var selection_title: String = UnitData.get_unit_name(u.unit_type, u.player_owner)
 		if mixed_selection:
 			count = selected_units.size()
 			total_hp = 0
@@ -1937,7 +1937,7 @@ func _on_selection_changed(selected_units: Array[Node2D]) -> void:
 					includes_workers = includes_workers or node is Villager
 			selection_title = "Units" if includes_workers else "Army"
 			action_text = "Mixed (%d units)" % count
-		var stats: Dictionary = {"unit_type": u.unit_type}
+		var stats: Dictionary = {"unit_type": u.unit_type, "player_owner": u.player_owner}
 		if not mixed_selection and u is Villager:
 			var worker_statuses: Dictionary = {}
 			var cargo_types: Dictionary = {}
@@ -1971,6 +1971,7 @@ func _on_selection_changed(selected_units: Array[Node2D]) -> void:
 			var stats_are_base: bool = NetworkSession.is_client() and u.player_owner != 0
 			stats = {
 				"unit_type": u.unit_type,
+				"player_owner": u.player_owner,
 				"damage": int(u.damage if stats_are_base else Combat.get_effective_attack(u)),
 				"armor": int(u.armor if stats_are_base else Combat.get_effective_armor(u)),
 				"range": int(round(MapData.world_to_range_tiles(u.attack_range))),
@@ -2215,7 +2216,7 @@ func _on_train_unit_requested(building: Node2D, unit_type: int) -> void:
 		var sent: bool = NetworkSession.send_command("train", {"target": NetworkSession.entity_id(building), "type": unit_type})
 		_last_train_request_unit_type = unit_type
 		_last_train_request_result = "requested" if sent else "connection_unavailable"
-		_last_train_feedback = "Training requested: " + UnitData.get_unit_name(unit_type) if sent else "Connection unavailable. Try again."
+		_last_train_feedback = "Training requested: " + UnitData.get_unit_name(unit_type, 0) if sent else "Connection unavailable. Try again."
 		return
 	_last_train_request_unit_type = unit_type
 	_last_train_feedback = ""
@@ -2238,13 +2239,13 @@ func _on_train_unit_requested(building: Node2D, unit_type: int) -> void:
 			_last_train_feedback = "%s must finish construction before it can train units." % b.building_name
 		else:
 			_last_train_request_result = "unit_unavailable"
-			_last_train_feedback = "%s cannot train %s. Select a compatible production building." % [b.building_name, UnitData.get_unit_name(unit_type)]
+			_last_train_feedback = "%s cannot train %s. Select a compatible production building." % [b.building_name, UnitData.get_unit_name(unit_type, 0)]
 		hud.show_notification(_last_train_feedback, Color(1.0, 0.4, 0.3))
 		_refresh_first_session_diagnostics()
 		return
 	if unit_type not in b.trainable_units:
 		_last_train_request_result = "unit_unavailable"
-		_last_train_feedback = "%s cannot train %s. Select a compatible production building." % [b.building_name, UnitData.get_unit_name(unit_type)]
+		_last_train_feedback = "%s cannot train %s. Select a compatible production building." % [b.building_name, UnitData.get_unit_name(unit_type, 0)]
 		hud.show_notification(_last_train_feedback, Color(1.0, 0.4, 0.3))
 		_refresh_first_session_diagnostics()
 		return
@@ -2256,9 +2257,9 @@ func _on_train_unit_requested(building: Node2D, unit_type: int) -> void:
 	if pop + pop_cost > cap:
 		_last_train_request_result = "population_blocked"
 		if cap >= GameManager.get_player_population_limit(0):
-			_last_train_feedback = "Not enough population space (%d/%d). %s needs %d slots." % [pop, cap, UnitData.get_unit_name(unit_type), pop_cost]
+			_last_train_feedback = "Not enough population space (%d/%d). %s needs %d slots." % [pop, cap, UnitData.get_unit_name(unit_type, 0), pop_cost]
 		else:
-			_last_train_feedback = "Population full (%d/%d). Build a House before training %s." % [pop, cap, UnitData.get_unit_name(unit_type)]
+			_last_train_feedback = "Population full (%d/%d). Build a House before training %s." % [pop, cap, UnitData.get_unit_name(unit_type, 0)]
 		hud.show_notification(_last_train_feedback, Color(1.0, 0.6, 0.2))
 		_refresh_first_session_diagnostics()
 		return
@@ -2274,14 +2275,14 @@ func _on_train_unit_requested(building: Node2D, unit_type: int) -> void:
 		var missing: Dictionary = ResourceManager.get_missing_resources(0, cost)
 		if not missing.is_empty():
 			_last_train_request_result = "resources_missing"
-			_last_train_feedback = "Need %s to train %s." % [_format_missing_resources(missing), UnitData.get_unit_name(unit_type)]
+			_last_train_feedback = "Need %s to train %s." % [_format_missing_resources(missing), UnitData.get_unit_name(unit_type, 0)]
 			hud.show_notification(_last_train_feedback, Color(1.0, 0.4, 0.3))
 			_refresh_first_session_diagnostics()
 			return
 		var success: bool = pq.enqueue_unit(unit_type)
 		if not success:
 			_last_train_request_result = "queue_rejected"
-			_last_train_feedback = "%s cannot train %s right now. Check its construction and available units." % [b.building_name, UnitData.get_unit_name(unit_type)]
+			_last_train_feedback = "%s cannot train %s right now. Check its construction and available units." % [b.building_name, UnitData.get_unit_name(unit_type, 0)]
 			hud.show_notification(_last_train_feedback, Color(1.0, 0.4, 0.3))
 		else:
 			_last_train_request_result = "queued"
@@ -2291,7 +2292,7 @@ func _on_train_unit_requested(building: Node2D, unit_type: int) -> void:
 				and _guided_opening_active
 				and _guided_stage == GuidedOpeningStage.TRAIN_SCOUT
 			)
-			hud.show_notification("Queued: %s" % UnitData.get_unit_name(unit_type), Color(0.48, 0.78, 1.0))
+			hud.show_notification("Queued: %s" % UnitData.get_unit_name(unit_type, 0), Color(0.48, 0.78, 1.0))
 			if unit_type == UnitData.UnitType.SCOUT:
 				_opening_scout_queued = true
 			_refresh_guided_opening_stage()

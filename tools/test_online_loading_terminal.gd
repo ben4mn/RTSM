@@ -14,7 +14,7 @@ func _run() -> void:
 	var manager: Node = root.get_node("GameManager")
 	var connection_failure: bool = "--connection-failure" in OS.get_cmdline_user_args()
 	var reason: String = "Connection lost during loading" if connection_failure else "Opponent disconnected during loading"
-	session._client_packet({"op": "matched", "slot": 0, "seed": 101, "match": 41})
+	session._client_packet({"op": "matched", "slot": 0, "seed": 101, "match": 41, "civilizations": [0, 0]})
 	session._client_packet({"op": "snapshot", "match": 41, "time": 7.5, "player": {"is_defeated": false}, "actors": []})
 	if connection_failure:
 		session._fail(reason)

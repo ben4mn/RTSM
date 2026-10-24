@@ -120,7 +120,7 @@ func _refresh() -> void:
 			var age: int = maxi(0, int(GameManager.game_time - float(front["last_hit"])))
 			var detail: String = "Under attack" if age < 3 else "%ds ago" % age
 			if int(front.get("losses", 0)) > 0:
-				detail = "Lost %d · %s" % [int(front["losses"]), str(front.get("last_loss", "unit"))]
+				detail = "%d losses here" % int(front["losses"])
 			button.text = "RAID %d · %s\n%s · view" % [index + 1, str(front["target"]), detail]
 			button.tooltip_text = "Recent attack on your %s. View location without changing selection." % str(front["target"])
 	_hud.call("set_battlefield_alerts_active", not fronts.is_empty())

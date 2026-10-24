@@ -1178,7 +1178,10 @@ func _is_touch_on_building_facade(building: Node2D, world_pos: Vector2) -> bool:
 	var sprite: Sprite2D = building.get_node_or_null("BuildingSprite") as Sprite2D
 	if sprite == null or sprite.texture == null:
 		return false
-	return _building_touch_facade_rect(sprite).has_point(sprite.to_local(world_pos))
+	# A phone player aims at the visible roof as naturally as the doorway.
+	# Test the authored silhouette, so transparent padding remains usable
+	# ground. Direct unit bodies still take priority in _get_node_at().
+	return sprite.is_pixel_opaque(sprite.to_local(world_pos))
 
 
 func _building_touch_facade_rect(sprite: Sprite2D) -> Rect2:

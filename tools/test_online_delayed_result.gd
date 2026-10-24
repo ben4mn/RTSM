@@ -29,7 +29,7 @@ func _process(delta: float) -> bool:
 		partner.poll()
 		if partner.get_ready_state() == WebSocketPeer.STATE_OPEN and not partner_search:
 			partner_search = true
-			partner.send_text(JSON.stringify({"op": "search", "protocol": 1, "map_catalog": 2}))
+			partner.send_text(JSON.stringify({"op": "search", "protocol": 2, "map_catalog": 2}))
 		while partner.get_available_packet_count() > 0:
 			var packet: Dictionary = JSON.parse_string(partner.get_packet().get_string_from_utf8())
 			if packet.get("op", "") == "matched":

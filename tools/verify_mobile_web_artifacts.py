@@ -42,7 +42,7 @@ COMPANY_CREDENTIAL_URL_PREFIXES = (
     b"https://trufo.ai/cpcps",
     b"http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia",
 )
-ABSOLUTE_PATH_PATTERN = re.compile(rb"(?:file://)?/Users/|[A-Z]:\\\\Users\\\\", re.IGNORECASE)
+ABSOLUTE_PATH_PATTERN = re.compile(rb"(?:file://)?/Users/|[A-Z]:[\\/]+Users[\\/]+", re.IGNORECASE)
 LOCAL_URL_PATTERN = re.compile(
     rb"https?://(?:localhost|127(?:\.[0-9]{1,3}){3}|\[::1\]|0\.0\.0\.0)(?::[0-9]+)?(?:/|$)",
     re.IGNORECASE,
@@ -136,7 +136,7 @@ def verify_manifest(root: Path) -> tuple[int, str]:
     actual = {
         path.relative_to(root).as_posix()
         for path in regular_files(root)
-        if path.name != "SHA256SUMS.txt"
+        if path != manifest
     }
     if set(entries) != actual:
         raise VerificationError("checksum manifest does not close over artifact files")
@@ -149,20 +149,23 @@ def verify_manifest(root: Path) -> tuple[int, str]:
 def installed_template_wasm_sha(root: Path) -> str:
     version = json.loads((root / "version.json").read_text(encoding="utf-8"))
     template_version = str(version["godot"]).split(".official", 1)[0]
-    archive = (
-        Path.home()
-        / "Library"
-        / "Application Support"
-        / "Godot"
-        / "export_templates"
-        / template_version
-        / "web_nothreads_release.zip"
-    )
+    archive = installed_template_archive(template_version)
     with zipfile.ZipFile(archive) as handle, handle.open("godot.wasm") as wasm:
         digest = hashlib.sha256()
         for chunk in iter(lambda: wasm.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def installed_template_archive(template_version: str) -> Path:
+    """Locate the official installed template on the current host platform."""
+    if sys.platform == "win32":
+        data_root = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming")) / "Godot"
+    elif sys.platform == "darwin":
+        data_root = Path.home() / "Library" / "Application Support" / "Godot"
+    else:
+        data_root = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share")) / "godot"
+    return data_root / "export_templates" / template_version / "web_nothreads_release.zip"
 
 
 def scan_content(root: Path) -> dict[str, int]:

@@ -217,6 +217,11 @@ const ECONOMY_REBALANCE_INTERVALS: Dictionary = {
 	Difficulty.HARD: 16.0,
 }
 const ECONOMY_REBALANCE_RETRY_SECONDS: float = 18.0
+const ECONOMY_INVESTMENT_START_SECONDS: float = 240.0
+const EXPANSION_CAMP_HAUL_DISTANCE: float = 300.0
+const EXPANSION_CAMP_CLUSTER_RADIUS: float = 160.0
+const EXPANSION_CAMP_MIN_RESOURCE: int = 400
+const EXPANSION_CAMP_WOOD_RESERVE: int = 75
 # Permanent farms sustain food after finite berries. Together with the opening bank and
 # legally gathered natural food, that funds the 12-villager/3-military liveness
 # floor plus the age-up transaction without a bonus or hidden lookup.
@@ -1743,6 +1748,10 @@ func _get_target_building_counts(age: int) -> Dictionary:
 		# to twenty worker economy and small replacement queues. Spend on troops.
 		for building_type in [BuildingData.BuildingType.TOWN_CENTER, BuildingData.BuildingType.BARRACKS, BuildingData.BuildingType.ARCHERY_RANGE, BuildingData.BuildingType.STABLE, BuildingData.BuildingType.RESOURCE_CAMP]:
 			targets[building_type] = mini(int(targets[building_type]), 1)
+		# A second drop-off is useful only where our own paid workers are already
+		# making long trips. It is an earned expansion, not another home duplicate.
+		if _get_expansion_camp_anchor() != Vector2i(-1, -1):
+			targets[BuildingData.BuildingType.RESOURCE_CAMP] = 2
 		targets[BuildingData.BuildingType.SIEGE_WORKSHOP] = 1 if age >= 3 and _get_fighting_units().size() >= _get_attack_threshold() and not _needs_compact_worker_recovery() else 0
 	return targets
 
@@ -1903,6 +1912,11 @@ func _rank_compact_military_plan(plan: Array) -> Array:
 		var b_pop: int = int(UnitData.UNITS[b].get("pop_cost", 1))
 		var a_weight: float = 1.0 + 2.0 * float(visible_counters.get(a, 0)) / maxf(1.0, float(observed_fighters))
 		var b_weight: float = 1.0 + 2.0 * float(visible_counters.get(b, 0)) / maxf(1.0, float(observed_fighters))
+		# Civilization identity nudges the mix; an observed hard counter still
+		# outweighs that preference. Queued units remain part of the same budget.
+		var civilization: int = GameManager.get_player_civilization(player_id)
+		a_weight *= CivilizationData.get_ai_unit_weight(civilization, a)
+		b_weight *= CivilizationData.get_ai_unit_weight(civilization, b)
 		var a_score: float = float(int(counts[a]) * a_pop + 1) / a_weight
 		var b_score: float = float(int(counts[b]) * b_pop + 1) / b_weight
 		if is_equal_approx(a_score, b_score):
@@ -1951,9 +1965,126 @@ func _check_research() -> void:
 
 	# The human and opponent share completed-building legality, payment and
 	# once-only upgrade effects. Foundations never grant technology.
-	for research_id: String in ["forging", "scale_mail"]:
+	var research_plan: Array[String] = ["forging", "scale_mail"]
+	if _uses_compact_population_policy():
+		# Protect workers during a real home threat. Safe mature economies can
+		# invest in throughput without spending the next worker/Archer's bank.
+		if _is_under_pressure:
+			research_plan.push_front("loom")
+		elif _can_invest_in_economy() and _get_villagers().size() >= 10:
+			var wheelbarrow_cost: Dictionary = TechData.get_research_definition("wheelbarrow").get("cost", {})
+			if ResourceManager.get_resource(player_id, "food") >= int(wheelbarrow_cost.get("food", 0)) + 50 and ResourceManager.get_resource(player_id, "wood") >= int(wheelbarrow_cost.get("wood", 0)) + 45:
+				research_plan.push_front("wheelbarrow")
+		if _get_villagers().size() >= 8 and "loom" not in research_plan:
+			research_plan.append("loom")
+	for research_id: String in research_plan:
 		if GameManager.try_research(player_id, blacksmith, research_id):
 			return  # One paid research per decision.
+
+
+func _can_invest_in_economy() -> bool:
+	if _game_time < ECONOMY_INVESTMENT_START_SECONDS or GameManager.get_player_age(player_id) < 2:
+		return false
+	if _is_under_pressure or _saving_for_age_up or _needs_compact_worker_recovery():
+		return false
+	if _get_villagers().size() < 8 or _get_fighting_units().size() < _get_attack_threshold():
+		return false
+	if _get_compact_missing_role_building() >= 0:
+		return false
+	var site: Node2D = _get_sacred_site()
+	if site != null and int(site.get("owning_player")) == enemy_id and int(site.get("state")) == 2:
+		# Ownership and its clock are public; do not inspect hidden defenders.
+		if float(site.get("victory_hold_time")) - float(site.get("victory_timer")) <= 120.0:
+			return false
+	return true
+
+
+func _get_expansion_camp_anchor() -> Vector2i:
+	if not _uses_compact_population_policy() or _resource_camp_count != 1 or not _can_invest_in_economy():
+		return Vector2i(-1, -1)
+	if _find_trainable_building_of_type(BuildingData.BuildingType.RESOURCE_CAMP) == null:
+		return Vector2i(-1, -1)
+	var camp_cost: Dictionary = BuildingData.get_building_cost(BuildingData.BuildingType.RESOURCE_CAMP)
+	if ResourceManager.get_resource(player_id, "wood") < int(camp_cost.get("wood", 0)) + EXPANSION_CAMP_WOOD_RESERVE:
+		return Vector2i(-1, -1)
+	var worked_sources: Array[ResourceNode] = []
+	for worker: UnitBase in _get_villagers():
+		if not (worker is Villager) or _is_worker_retreating(worker):
+			continue
+		if not (worker as Villager).has_active_gather_order():
+			continue
+		var source: Node2D = (worker as Villager).gather_target
+		if not is_instance_valid(source) or not (source is ResourceNode):
+			continue
+		# Own orders may outlive vision. Check visibility before reading a node's
+		# type, remaining amount or position as a prospective expansion resource.
+		if not _is_tile_currently_visible((source as ResourceNode).tile_position):
+			continue
+		worked_sources.append(source as ResourceNode)
+	var best_anchor := Vector2i(-1, -1)
+	var best_score: float = 0.0
+	var seen: Dictionary = {}
+	var enemies: Array = _get_visible_enemies()
+	for source: ResourceNode in worked_sources:
+		if seen.has(source.get_instance_id()) or source.remaining <= 0:
+			continue
+		seen[source.get_instance_id()] = true
+		var haul: float = INF
+		for building: Node in _my_buildings:
+			if not is_instance_valid(building) or not (building is BuildingBase):
+				continue
+			var dropoff := building as BuildingBase
+			if dropoff.player_owner == player_id and dropoff.state != BuildingBase.State.DESTROYED and dropoff.is_drop_off_point(source.resource_type):
+				haul = minf(haul, source.global_position.distance_to(dropoff.global_position))
+		if is_inf(haul) or haul < EXPANSION_CAMP_HAUL_DISTANCE:
+			continue
+		var threatened: bool = false
+		for enemy: UnitBase in enemies:
+			if enemy.damage > 0.0 and enemy.global_position.distance_to(source.global_position) <= BASE_DEFENSE_RADIUS:
+				threatened = true
+				break
+		if threatened:
+			continue
+		var workers_nearby: int = 0
+		for worked: ResourceNode in worked_sources:
+			if source.global_position.distance_to(worked.global_position) <= EXPANSION_CAMP_CLUSTER_RADIUS:
+				workers_nearby += 1
+		if workers_nearby >= 2 and haul * float(workers_nearby) > best_score and _visible_expansion_resources(source) >= EXPANSION_CAMP_MIN_RESOURCE:
+			best_score = haul * float(workers_nearby)
+			best_anchor = source.tile_position
+	return best_anchor
+
+
+func _visible_expansion_resources(anchor: ResourceNode) -> int:
+	# Two workers need several harvest trips to repay a camp and builder time.
+	# Inspect only a bounded, currently visible neighborhood; one nearly-spent
+	# tree cannot justify the investment merely because two workers share it.
+	var stock: int = anchor.remaining
+	if game_map == null or not game_map.has_method("get_resource_node_at"):
+		return stock
+	var nearby_tiles: Array[Vector2i] = []
+	for y: int in range(-4, 5):
+		for x: int in range(-4, 5):
+			var tile: Vector2i = anchor.tile_position + Vector2i(x, y)
+			if tile == anchor.tile_position:
+				continue
+			if _tile_to_world(tile).distance_to(anchor.global_position) > EXPANSION_CAMP_CLUSTER_RADIUS:
+				continue
+			nearby_tiles.append(tile)
+	var visible_tiles: Dictionary = {}
+	if game_map.has_method("get_visible_tiles_for_player"):
+		visible_tiles = game_map.call("get_visible_tiles_for_player", nearby_tiles, player_id)
+	else:
+		for tile: Vector2i in nearby_tiles:
+			if _is_tile_currently_visible(tile):
+				visible_tiles[tile] = true
+	for tile: Vector2i in nearby_tiles:
+		if not visible_tiles.has(tile):
+			continue
+		var candidate: Node2D = game_map.call("get_resource_node_at", tile)
+		if candidate is ResourceNode and (candidate as ResourceNode).resource_type == anchor.resource_type:
+			stock += maxi(0, (candidate as ResourceNode).remaining)
+	return stock
 
 
 # ═════════════════════════════════════════════════════════════════════════
@@ -3756,6 +3887,9 @@ func _find_build_location_candidate(
 
 	# Special placement for resource-gathering buildings
 	if building_type == BuildingData.BuildingType.RESOURCE_CAMP:
+		var expansion_anchor: Vector2i = _get_expansion_camp_anchor()
+		if expansion_anchor != Vector2i(-1, -1):
+			return _find_build_location_near_tile(expansion_anchor, footprint, 1, 5, search_cursor)
 		return _find_build_near_resource(MapData.TileType.FOREST, footprint, search_cursor)
 
 	return _find_build_location_near_tile(_base_tile, footprint, 3, 15, search_cursor)

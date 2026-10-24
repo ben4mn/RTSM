@@ -8,7 +8,9 @@ signal room_changed()
 signal snapshot_received(snapshot: Dictionary)
 signal match_ended(winner: int, reason: String)
 
-const PROTOCOL := 1
+# Civilization identities affect base combat stats and must agree on both ends.
+# Version 1 clients cannot display them correctly and must refresh before play.
+const PROTOCOL := 2
 # Version 2 places River/Woodland resources after carving their routes.
 # A different catalog must use unchanged Open Plains on either server version.
 const MAP_CATALOG_VERSION := 2
@@ -32,6 +34,8 @@ var match_id: int = 0
 var room_code: String = ""
 var room_host: bool = false
 var room_players: int = 0
+var room_civilizations: Array[int] = [0, 0]
+var match_civilizations: Array[int] = [0, 0]  # authoritative server slot order
 var _connection_request: Dictionary = {}
 var _request_sent_at: float = 0.0
 var _rooms: Dictionary = {}
@@ -68,15 +72,25 @@ func is_network_match() -> bool:
 	return online
 
 func find_match(endpoint: String = "") -> void:
-	_connect_with_request({"op": "search", "protocol": PROTOCOL, "map_catalog": MAP_CATALOG_VERSION}, endpoint)
+	_connect_with_request({"op": "search", "protocol": PROTOCOL, "map_catalog": MAP_CATALOG_VERSION, "civilization": CivilizationData.normalize(GameManager.selected_civilization)}, endpoint)
 
 func host_game(map_archetype: int, endpoint: String = "") -> void:
 	if not MapData.MAP_ARCHETYPES.has(map_archetype):
 		return
-	_connect_with_request({"op": "host", "protocol": PROTOCOL, "map_catalog": MAP_CATALOG_VERSION, "map_archetype": map_archetype}, endpoint)
+	_connect_with_request({"op": "host", "protocol": PROTOCOL, "map_catalog": MAP_CATALOG_VERSION, "map_archetype": map_archetype, "civilization": CivilizationData.normalize(GameManager.selected_civilization)}, endpoint)
 
 func join_game(code: String, endpoint: String = "") -> void:
-	_connect_with_request({"op": "join", "protocol": PROTOCOL, "map_catalog": MAP_CATALOG_VERSION, "code": code.strip_edges().to_upper()}, endpoint)
+	_connect_with_request({"op": "join", "protocol": PROTOCOL, "map_catalog": MAP_CATALOG_VERSION, "code": code.strip_edges().to_upper(), "civilization": CivilizationData.normalize(GameManager.selected_civilization)}, endpoint)
+
+func set_room_civilization(civilization: int) -> bool:
+	if state != "lobby" or not CivilizationData.is_valid(civilization):
+		return false
+	return _send(_socket, {"op": "room_civilization", "civilization": civilization})
+
+func get_local_civilizations() -> Array[int]:
+	if server_mode:
+		return match_civilizations.duplicate()
+	return [match_civilizations[player_slot], match_civilizations[1 - player_slot]]
 
 func set_hosted_map(map_archetype: int) -> bool:
 	if state != "lobby" or not room_host or not MapData.MAP_ARCHETYPES.has(map_archetype):
@@ -121,6 +135,8 @@ func leave_match() -> void:
 	room_code = ""
 	room_host = false
 	room_players = 0
+	room_civilizations.assign([0, 0])
+	match_civilizations.assign([0, 0])
 	room_changed.emit()
 	_set_status("idle", "")
 
@@ -266,12 +282,13 @@ func _client_packet(packet: Dictionary) -> void:
 		"queued":
 			_set_status("searching", "Waiting for an arena…" if bool(packet.get("busy", false)) else "Searching for an opponent…")
 		"room":
-			if not packet.get("code", "") is String or not packet.get("host", false) is bool or not _whole_number(packet.get("players")) or not _valid_map(packet.get("map_archetype")):
+			if not packet.get("code", "") is String or not packet.get("host", false) is bool or not _whole_number(packet.get("players")) or not _valid_map(packet.get("map_archetype")) or not _valid_civilizations(packet.get("civilizations")):
 				_fail("Invalid lobby from server.")
 				return
 			room_code = packet.code
 			room_host = packet.host
 			room_players = int(packet.players)
+			room_civilizations.assign([int(packet.civilizations[0]), int(packet.civilizations[1])])
 			match_map_archetype = int(packet.map_archetype)
 			_set_status("lobby", "Both players joined · host can start" if room_players == 2 else "Waiting for your opponent…")
 			room_changed.emit()
@@ -281,6 +298,9 @@ func _client_packet(packet: Dictionary) -> void:
 			if not _whole_number(packet.get("slot")) or int(packet.slot) not in [0, 1] or not _whole_number(packet.get("seed")) or not _whole_number(packet.get("match")):
 				_fail("Invalid match from server.")
 				return
+			if not _valid_civilizations(packet.get("civilizations")):
+				_fail("Game version changed. Reload to play online with kingdoms.")
+				return
 			room_code = ""
 			room_players = 0
 			room_host = false
@@ -288,6 +308,7 @@ func _client_packet(packet: Dictionary) -> void:
 			_pending_terminal.clear()
 			online = true
 			player_slot = int(packet["slot"])
+			match_civilizations.assign([int(packet.civilizations[0]), int(packet.civilizations[1])])
 			match_seed = int(packet["seed"])
 			# Previous servers omit this field and always generate Open Plains.
 			var received_archetype: Variant = packet.get("map_archetype", MapData.MapArchetype.OPEN_PLAINS)
@@ -431,7 +452,7 @@ func _poll_server(delta: float) -> void:
 func _server_packet(id: int, packet: Dictionary) -> void:
 	if not packet.get("op", "") is String:
 		return
-	for key: String in ["protocol", "sequence", "match", "map_catalog", "map_archetype"]:
+	for key: String in ["protocol", "sequence", "match", "map_catalog", "map_archetype", "civilization"]:
 		if packet.has(key) and not _whole_number(packet[key]):
 			return
 	match str(packet.get("op", "")):
@@ -439,7 +460,7 @@ func _server_packet(id: int, packet: Dictionary) -> void:
 			_send_peer(id, {"op": "pong"})
 		"host", "join":
 			_room_request(id, packet)
-		"room_map", "room_start":
+		"room_map", "room_start", "room_civilization":
 			_room_action(id, packet)
 		"search":
 			if not _peer_room(id).is_empty():
@@ -447,8 +468,12 @@ func _server_packet(id: int, packet: Dictionary) -> void:
 			if int(packet.get("protocol", -1)) != PROTOCOL:
 				_send_peer(id, {"op": "error", "reason": "Game version changed. Reload to play online."})
 				return
+			if not _valid_civilization(packet.get("civilization", 0)):
+				_send_peer(id, {"op": "error", "reason": "Choose a supported kingdom."})
+				return
 			if id not in _queue and id not in _players:
 				_peers[id]["map_catalog"] = MAP_CATALOG_VERSION if float(packet.get("map_catalog", 0)) == float(MAP_CATALOG_VERSION) else 0
+				_peers[id]["civilization"] = int(packet.get("civilization", 0))
 				_queue.append(id)
 			_send_peer(id, {"op": "queued", "busy": not _players.is_empty()})
 		"result_ack":
@@ -476,6 +501,7 @@ func _start_match() -> void:
 
 func _begin_match(peers: Array[int], selected_map: int = -1) -> void:
 	_players = peers
+	match_civilizations.assign([int(_peers[peers[0]].get("civilization", 0)), int(_peers[peers[1]].get("civilization", 0))])
 	_ready_peers.clear()
 	match_id += 1
 	match_seed = int(randi() % 2147483646) + 1
@@ -487,7 +513,7 @@ func _begin_match(peers: Array[int], selected_map: int = -1) -> void:
 	GameManager.selected_population_limit = SkirmishData.DEFAULT_POPULATION_LIMIT
 	_set_status("loading", "")
 	for slot: int in 2:
-		_send_peer(_players[slot], {"op": "matched", "slot": slot, "seed": match_seed, "map_archetype": match_map_archetype, "match": match_id})
+		_send_peer(_players[slot], {"op": "matched", "slot": slot, "seed": match_seed, "map_archetype": match_map_archetype, "civilizations": match_civilizations, "match": match_id})
 	get_tree().call_deferred("change_scene_to_file", "res://scenes/main/main.tscn")
 
 
@@ -569,8 +595,11 @@ func _peer_room(id: int) -> String:
 func _room_request(id: int, packet: Dictionary) -> void:
 	if id in _players or id in _queue or not _peer_room(id).is_empty():
 		return
+	if not _valid_civilization(packet.get("civilization", 0)):
+		_send_peer(id, {"op": "error", "reason": "Choose a supported kingdom."})
+		return
 	if int(packet.get("protocol", -1)) != PROTOCOL or int(packet.get("map_catalog", -1)) != MAP_CATALOG_VERSION:
-		_send_peer(id, {"op": "error", "reason": "Both players need the current game version to use a private lobby."})
+		_send_peer(id, {"op": "error", "reason": "Game version changed. Both players must reload to use a private lobby."})
 		return
 	if str(packet.op) == "host":
 		if not _valid_map(packet.get("map_archetype")):
@@ -582,6 +611,7 @@ func _room_request(id: int, packet: Dictionary) -> void:
 			for character: int in 6:
 				code += "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[randi() % 32]
 		_rooms[code] = {"host": id, "guest": 0, "map": int(packet.map_archetype), "start": false}
+		_peers[id]["civilization"] = int(packet.get("civilization", 0))
 		_publish_room(code)
 	else:
 		if not packet.get("code", "") is String:
@@ -594,13 +624,23 @@ func _room_request(id: int, packet: Dictionary) -> void:
 			_send_peer(id, {"op": "error", "reason": "That lobby already has two players."})
 			return
 		_rooms[code].guest = id
+		_peers[id]["civilization"] = int(packet.get("civilization", 0))
 		_publish_room(code)
 
 func _room_action(id: int, packet: Dictionary) -> void:
 	var code: String = _peer_room(id)
-	if code.is_empty() or int(_rooms[code].host) != id:
+	if code.is_empty():
 		return
 	var room: Dictionary = _rooms[code]
+	if str(packet.op) == "room_civilization":
+		# Only the sending peer's own identity can change, before host Start.
+		if bool(room.start) or not _valid_civilization(packet.get("civilization")):
+			return
+		_peers[id]["civilization"] = int(packet.civilization)
+		_publish_room(code)
+		return
+	if int(room.host) != id:
+		return
 	if str(packet.op) == "room_map":
 		if not _valid_map(packet.get("map_archetype")) or bool(room.start):
 			return
@@ -614,9 +654,16 @@ func _room_action(id: int, packet: Dictionary) -> void:
 
 func _publish_room(code: String) -> void:
 	var room: Dictionary = _rooms[code]
+	var civilizations: Array[int] = [int(_peers.get(int(room.host), {}).get("civilization", 0)), int(_peers.get(int(room.guest), {}).get("civilization", 0))]
 	for id: int in [int(room.host), int(room.guest)]:
 		if id > 0:
-			_send_peer(id, {"op": "room", "code": code, "host": id == int(room.host), "players": 2 if int(room.guest) > 0 else 1, "map_archetype": int(room.map)})
+			_send_peer(id, {"op": "room", "code": code, "host": id == int(room.host), "players": 2 if int(room.guest) > 0 else 1, "map_archetype": int(room.map), "civilizations": civilizations})
+
+func _valid_civilization(value: Variant) -> bool:
+	return _whole_number(value) and CivilizationData.is_valid(int(value))
+
+func _valid_civilizations(value: Variant) -> bool:
+	return value is Array and value.size() == 2 and _valid_civilization(value[0]) and _valid_civilization(value[1])
 
 func _ready_room() -> String:
 	for code: String in _rooms:

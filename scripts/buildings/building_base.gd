@@ -251,7 +251,7 @@ func _ready() -> void:
 
 
 func _load_stats() -> void:
-	var stats: Dictionary = BuildingData.get_building_stats(building_type)
+	var stats: Dictionary = BuildingData.get_building_stats(building_type, player_owner)
 	if stats.is_empty():
 		return
 	max_hp = stats.get("hp", 500)

@@ -40,7 +40,10 @@ var selected_map_seed: int = -1
 var selected_map_archetype: int = MapData.MapArchetype.OPEN_PLAINS
 var selected_population_limit: int = SkirmishData.DEFAULT_POPULATION_LIMIT
 var selected_match_mode: int = SkirmishData.MatchMode.STANDARD
+var selected_civilization: int = CivilizationData.Civilization.CROWNLANDS
+var selected_opponent_civilization: int = CivilizationData.Civilization.CROWNLANDS
 var _match_mode: int = SkirmishData.MatchMode.STANDARD
+var _match_civilizations: Array[int] = []
 var guided_opening_enabled: bool = true
 var audio_enabled: bool = true
 var master_volume: float = 0.8
@@ -100,6 +103,8 @@ func _load_preferences() -> void:
 	if config.load(PREFERENCES_PATH) != OK:
 		return
 	selected_match_mode = SkirmishData.normalize_match_mode(int(config.get_value("skirmish", "match_mode", selected_match_mode)))
+	selected_civilization = CivilizationData.normalize(int(config.get_value("skirmish", "civilization", selected_civilization)))
+	selected_opponent_civilization = CivilizationData.normalize(int(config.get_value("skirmish", "opponent_civilization", selected_opponent_civilization)))
 	selected_map_seed = maxi(-1, int(config.get_value("skirmish", "map_seed", selected_map_seed)))
 	selected_map_archetype = MapData.normalize_archetype(int(config.get_value("skirmish", "map_archetype", selected_map_archetype)))
 	selected_difficulty = clampi(int(config.get_value("skirmish", "difficulty", selected_difficulty)), 0, 2)
@@ -126,6 +131,8 @@ func _load_preferences() -> void:
 func save_preferences() -> bool:
 	var config := ConfigFile.new()
 	config.set_value("skirmish", "match_mode", SkirmishData.normalize_match_mode(selected_match_mode))
+	config.set_value("skirmish", "civilization", CivilizationData.normalize(selected_civilization))
+	config.set_value("skirmish", "opponent_civilization", CivilizationData.normalize(selected_opponent_civilization))
 	config.set_value("skirmish", "map_seed", selected_map_seed)
 	config.set_value("skirmish", "map_archetype", MapData.normalize_archetype(selected_map_archetype))
 	config.set_value("skirmish", "difficulty", clampi(selected_difficulty, 0, 2))
@@ -173,6 +180,8 @@ func reset_preferences() -> void:
 	guided_opening_enabled = true
 	selected_difficulty = 0
 	selected_match_mode = SkirmishData.MatchMode.STANDARD
+	selected_civilization = CivilizationData.Civilization.CROWNLANDS
+	selected_opponent_civilization = CivilizationData.Civilization.CROWNLANDS
 	selected_map_seed = -1
 	selected_map_archetype = MapData.MapArchetype.OPEN_PLAINS
 	selected_population_limit = SkirmishData.DEFAULT_POPULATION_LIMIT
@@ -231,6 +240,10 @@ func _process(delta: float) -> void:
 
 func initialize_game(num_players: int = 2) -> void:
 	_match_mode = SkirmishData.normalize_match_mode(selected_match_mode)
+	_match_civilizations.assign([CivilizationData.normalize(selected_civilization), CivilizationData.normalize(selected_opponent_civilization)])
+	var session: Node = get_node_or_null("/root/NetworkSession")
+	if session != null and bool(session.call("is_network_match")) and session.has_method("get_local_civilizations"):
+		_match_civilizations.assign(session.call("get_local_civilizations"))
 	_match_population_limit = SkirmishData.normalize_population_limit(selected_population_limit)
 	_population_reservations.clear()
 	_base_population_caps.clear()
@@ -255,6 +268,7 @@ func initialize_game(num_players: int = 2) -> void:
 func _create_player_data(player_id: int) -> Dictionary:
 	return {
 		"id": player_id,
+		"civilization": _match_civilizations[player_id] if player_id < _match_civilizations.size() else CivilizationData.Civilization.CROWNLANDS,
 		"age": 1,
 		"population": 0,
 		"population_reserved": 0,
@@ -265,6 +279,17 @@ func _create_player_data(player_id: int) -> Dictionary:
 		"buildings": [],
 		"units": [],
 	}
+
+
+func get_player_civilization(player_id: int) -> int:
+	## Match identities stay latched even if next-match preferences are changed.
+	if players.has(player_id) and current_state in [GameState.PLAYING, GameState.PAUSED, GameState.GAME_OVER]:
+		return CivilizationData.normalize(int(players[player_id].get("civilization", CivilizationData.Civilization.CROWNLANDS)))
+	if player_id == 0:
+		return CivilizationData.normalize(selected_civilization)
+	if player_id == 1:
+		return CivilizationData.normalize(selected_opponent_civilization)
+	return CivilizationData.Civilization.CROWNLANDS
 
 
 func get_match_mode() -> int:

@@ -160,9 +160,9 @@ const UNIT_ICONS: Dictionary = {
 }
 
 
-static func get_unit_stats(unit_type: int) -> Dictionary:
+static func get_unit_stats(unit_type: int, player_id: int = -1) -> Dictionary:
 	if UNITS.has(unit_type):
-		return UNITS[unit_type].duplicate(true)
+		return CivilizationData.get_unit_stats(UNITS[unit_type], unit_type, CivilizationData.for_player(player_id))
 	return {}
 
 
@@ -172,28 +172,40 @@ static func get_unit_cost(unit_type: int) -> Dictionary:
 	return { "food": 0, "wood": 0, "gold": 0 }
 
 
-static func get_unit_name(unit_type: int) -> String:
+static func get_unit_name(unit_type: int, player_id: int = -1) -> String:
 	if UNITS.has(unit_type):
-		return UNITS[unit_type]["name"]
+		return str(get_unit_stats(unit_type, player_id)["name"])
 	return "Unknown"
 
 
-static func get_unit_icon_path(unit_type: int) -> String:
+static func get_unit_icon_path(unit_type: int, player_id: int = -1) -> String:
+	var signature_path: String = str(get_unit_stats(unit_type, player_id).get("civilization_icon", ""))
+	if not signature_path.is_empty() and ResourceLoader.exists(signature_path):
+		return signature_path
 	if UNIT_ICONS.has(unit_type):
 		return UNIT_ICONS[unit_type]
 	return ""
 
 
-static func get_unit_role_description(unit_type: int) -> String:
-	return str(UNITS.get(unit_type, {}).get("role", ""))
+static func get_unit_role_description(unit_type: int, player_id: int = -1) -> String:
+	return str(get_unit_stats(unit_type, player_id).get("role", ""))
 
 
-static func get_unit_counter_name(unit_type: int) -> String:
+static func get_unit_counter_name(unit_type: int, player_id: int = -1) -> String:
+	if player_id in [0, 1]:
+		var target_type: int = -1
+		match unit_type:
+			UnitType.INFANTRY: target_type = UnitType.CAVALRY
+			UnitType.ARCHER: target_type = UnitType.INFANTRY
+			UnitType.CAVALRY: target_type = UnitType.ARCHER
+		if target_type >= 0:
+			var target_name: String = get_unit_name(target_type, 1 - player_id)
+			return "Horsemen" if target_name == "Horseman" else target_name + "s"
 	return str(UNITS.get(unit_type, {}).get("counter_name", ""))
 
 
-static func get_unit_counter_description(unit_type: int) -> String:
+static func get_unit_counter_description(unit_type: int, player_id: int = -1) -> String:
 	if unit_type == UnitType.SCOUT:
 		return "Unarmed · wide vision"
-	var counter_name: String = get_unit_counter_name(unit_type)
+	var counter_name: String = get_unit_counter_name(unit_type, player_id)
 	return "Beats %s" % counter_name if not counter_name.is_empty() else ""

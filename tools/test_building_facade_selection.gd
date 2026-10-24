@@ -51,11 +51,24 @@ func _run() -> void:
 		facade_pixel *= sprite.texture.get_size() / Vector2(128, 128)
 		var facade_world: Vector2 = sprite.to_global(sprite.get_rect().position + facade_pixel)
 		_expect(sprite.texture.get_image().get_pixelv(Vector2i(facade_pixel)).a > 0.9, "%s fixture taps opaque facade art" % building_type)
+		var roof_world: Vector2 = _upper_roof_point(sprite)
+		_expect(roof_world.is_finite(), "%s has a visible upper roof target" % building_type)
 
 		for zoom: float in [0.62, 0.952, 2.2]:
 			camera.zoom = Vector2(zoom, zoom)
 			camera.reset_smoothing()
 			camera.force_update_scroll()
+			for unit: UnitBase in [worker, soldier, enemy]:
+				unit.position = Vector2(250.0, 140.0)
+			for touch: bool in [true, false]:
+				selection.select_single(previous)
+				selection.set("_last_tap_time", 0.0)
+				var roof_moves: int = _move_count
+				_push_tap(selection, selection.call("_world_to_screen", roof_world), touch)
+				_expect(selection.selected.size() == 1 and selection.selected[0] == building, "%s visible roof tap failed at zoom %.3f touch=%s" % [building_type, zoom, touch])
+				_expect(_move_count == roof_moves, "%s roof tap moved the selected army" % building_type)
+			var padding: Vector2 = sprite.to_global(sprite.get_rect().position + Vector2.ONE)
+			_expect(not bool(selection.call("_is_touch_on_building_facade", building, padding)), "%s transparent padding remains ground" % building_type)
 			for neighbor: UnitBase in [worker, soldier, enemy]:
 				for unit: UnitBase in [worker, soldier, enemy]:
 					unit.position = Vector2(250.0, 140.0)
@@ -142,7 +155,7 @@ func _run() -> void:
 
 	world.free()
 	if _failures.is_empty():
-		print("[PASS] building_facade_selection: TC/Barracks/Camp/Range/Stable/Blacksmith/Workshop facades beat nearby unit/resource rings; body hits, one-shot/grouping and construction preserved via viewport touch/mouse at 3 zooms")
+		print("[PASS] building_facade_selection: seven production roofs/facades select via viewport touch/mouse at three zooms; transparent padding, body priority, orders and construction preserved")
 		get_tree().quit(0)
 	else:
 		for failure: String in _failures.slice(0, 8):
@@ -158,6 +171,18 @@ func _spawn_unit(world: Node2D, type: String, owner: int) -> UnitBase:
 	unit.set_process(false)
 	unit.set_physics_process(false)
 	return unit
+
+
+func _upper_roof_point(sprite: Sprite2D) -> Vector2:
+	# Reproduce the actual missed roof tap: the previous picking rectangle
+	# deliberately excluded the top 30% of the visible building artwork.
+	var image: Image = sprite.texture.get_image()
+	var ink: Rect2i = image.get_used_rect()
+	for y: int in range(ink.position.y + int(ink.size.y * 0.12), ink.position.y + int(ink.size.y * 0.28)):
+		for x: int in range(ink.position.x + int(ink.size.x * 0.35), ink.position.x + int(ink.size.x * 0.65)):
+			if image.get_pixel(x, y).a > 0.9 and image.get_pixel(x - 1, y).a > 0.9 and image.get_pixel(x + 1, y).a > 0.9:
+				return sprite.to_global(sprite.get_rect().position + Vector2(x + 0.5, y + 0.5))
+	return Vector2(INF, INF)
 
 
 func _push_tap(selection: SelectionManager, position: Vector2, touch: bool) -> void:

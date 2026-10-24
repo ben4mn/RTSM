@@ -14,6 +14,10 @@ const EXPANDED_LAYOUT_MIN_HEIGHT: float = 560.0
 
 @export var main_menu_diagnostics: Dictionary = {}
 var _shared_settings: Control
+var _civilization_picker: Control
+var _civilization_button: Button
+var _opponent_civilization_button: Button
+var _room_civilizations: Label
 var _active_safe_area := Rect2()
 var _compact_layout: bool = false
 var _screen: String = "home"
@@ -118,7 +122,7 @@ func _exit_tree() -> void:
 
 
 func _input(event: InputEvent) -> void:
-	if is_instance_valid(_shared_settings):
+	if is_instance_valid(_shared_settings) or is_instance_valid(_civilization_picker):
 		return
 	if event.is_action_pressed("cancel") and _screen != "home":
 		_on_back_pressed()
@@ -234,6 +238,12 @@ func _build_setup() -> void:
 		button.toggle_mode = true
 		button.custom_minimum_size.x = 160
 		_tabs.add_child(button)
+	_civilization_button = _button("Kingdom", "ChooseCivilizationButton", _open_civilization_picker.bind(false))
+	_civilization_button.custom_minimum_size.x = 112
+	_civilization_button.expand_icon = true
+	_civilization_button.add_theme_constant_override("icon_max_width", 24)
+	_civilization_button.add_theme_font_size_override("font_size", 14)
+	_tabs.add_child(_civilization_button)
 	_columns = BoxContainer.new()
 	_columns.name = "SetupColumns"
 	_columns.add_theme_constant_override("separation", 20)
@@ -347,6 +357,9 @@ func _build_options() -> void:
 	difficulty_description = _label("", 13, true)
 	difficulty_description.add_theme_color_override("font_color", THEME.MUTED)
 	_solo_options.add_child(difficulty_description)
+	_opponent_civilization_button = _button("", "ChooseOpponentCivilizationButton", _open_civilization_picker.bind(true))
+	_opponent_civilization_button.add_theme_font_size_override("font_size", 14)
+	_solo_options.add_child(_opponent_civilization_button)
 	guided_opening_toggle = CheckButton.new()
 	guided_opening_toggle.name = "GuidedOpeningToggle"
 	guided_opening_toggle.text = "Guide my opening"
@@ -444,6 +457,9 @@ func _build_multiplayer_options() -> void:
 	_room_details.add_child(_room_code)
 	_room_players = _label("", 16, true)
 	_room_details.add_child(_room_players)
+	_room_civilizations = _label("", 14, true)
+	_room_civilizations.name = "RoomCivilizations"
+	_room_details.add_child(_room_civilizations)
 	_room_map = _label("", 15, true)
 	_room_details.add_child(_room_map)
 	_room_details.add_child(_label("Standard rules · 30 population", 13, true))
@@ -541,6 +557,7 @@ func _refresh_selection() -> void:
 	_map_heading.text = "HOST’S BATTLEFIELD" if guest else "CHOOSE YOUR BATTLEFIELD"
 	map_summary_label.text = MapData.get_archetype_description(archetype)
 	_selection_summary.text = "%s\n%s" % [MapData.get_archetype_name(archetype), "Shared battlefield · Standard rules" if online else "%s opponent · %d population" % [DIFFICULTY_NAMES[_selected_difficulty], _selected_population_limit]]
+	_refresh_civilizations(room)
 	_solo_tab.set_pressed_no_signal(not online)
 	_online_tab.set_pressed_no_signal(online)
 	_solo_tab.disabled = room or _network_search_active
@@ -569,6 +586,57 @@ func _refresh_selection() -> void:
 
 func _is_room_open() -> bool:
 	return _session != null and str(_session.get("room_code")) != "" and str(_session.get("state")) in ["lobby", "loading", "playing"]
+
+
+func _draft_civilization() -> int:
+	if _is_room_open():
+		var civilizations: Variant = _session.get("room_civilizations")
+		var slot: int = 0 if bool(_session.get("room_host")) else 1
+		if civilizations is Array and civilizations.size() > slot:
+			return CivilizationData.normalize(int(civilizations[slot]))
+	return GameManager.selected_civilization
+
+
+func _refresh_civilizations(room: bool) -> void:
+	var definition: Dictionary = CivilizationData.get_definition(_draft_civilization())
+	_civilization_button.tooltip_text = "Choose your kingdom: %s\n%s" % [definition.name, definition.tagline]
+	_civilization_button.icon = load(str(definition.icon_path))
+	_civilization_button.disabled = _network_search_active or _room_waiting
+	_opponent_civilization_button.text = "Rival: " + CivilizationData.get_civilization_name(GameManager.selected_opponent_civilization) + "  ·  Change"
+	if not room:
+		_selection_summary.text = _selection_summary.text.replace("\n", " · " + str(definition.name) + "\n")
+		return
+	var civilizations: Variant = _session.get("room_civilizations")
+	if civilizations is Array and civilizations.size() >= 2:
+		_room_civilizations.text = "%s vs %s" % [CivilizationData.get_civilization_name(int(civilizations[0])), CivilizationData.get_civilization_name(int(civilizations[1]))]
+	else:
+		_room_civilizations.text = str(definition.name)
+
+
+func _open_civilization_picker(opponent: bool) -> void:
+	if is_instance_valid(_civilization_picker) or _network_search_active or _room_waiting:
+		return
+	if opponent and _is_room_open():
+		return
+	var civilization: int = GameManager.selected_opponent_civilization if opponent else _draft_civilization()
+	_civilization_picker = preload("res://scripts/ui/civilization_picker.gd").open(self, civilization, "Choose your rival’s kingdom" if opponent else "Choose your kingdom")
+	_civilization_picker.connect("chosen", func(id: int) -> void:
+		if opponent:
+			GameManager.selected_opponent_civilization = id
+		else:
+			GameManager.selected_civilization = id
+			if _is_room_open():
+				_session.call("set_room_civilization", id)
+		GameManager.save_preferences()
+		_refresh_selection()
+	)
+	_civilization_picker.connect("closed", func() -> void:
+		_civilization_picker = null
+		WEB_SHELL_BRIDGE.set_controls_visible(true)
+		_refresh_web_update_safety()
+		call_deferred("_refresh_responsive_layout")
+	)
+	_refresh_web_update_safety()
 
 
 func _host_game() -> void:
@@ -659,7 +727,7 @@ func _refresh_web_update_safety() -> void:
 	# A waiting room is a live connection too. Status changes and closing Settings
 	# must not let a pending service-worker update reload a room or loading match.
 	var session_state: String = str(_session.get("state")) if _session != null else "idle"
-	_web_update_safe = not is_instance_valid(_shared_settings) and session_state in ["idle", "error"]
+	_web_update_safe = not is_instance_valid(_shared_settings) and not is_instance_valid(_civilization_picker) and session_state in ["idle", "error"]
 	WEB_SHELL_BRIDGE.set_update_safe(_web_update_safe)
 
 
@@ -696,6 +764,8 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2, shell_top_cle
 		_active_safe_area = Rect2(Vector2.ZERO, viewport_size)
 	if is_instance_valid(_shared_settings):
 		_shared_settings.apply_mobile_layout(viewport_size, _active_safe_area)
+	if is_instance_valid(_civilization_picker):
+		_civilization_picker.apply_mobile_layout(viewport_size, _active_safe_area)
 	var web_clearance: float = shell_top_clearance if shell_top_clearance >= 0.0 else WEB_SHELL_BRIDGE.get_menu_top_clearance(viewport_size)
 	var expanded_frame: Rect2 = _menu_frame_rect(_active_safe_area, 32.0, web_clearance)
 	_compact_layout = expanded_frame.size.y < EXPANDED_LAYOUT_MIN_HEIGHT
@@ -811,6 +881,8 @@ func _refresh_main_menu_diagnostics() -> void:
 		"title": title_label.text, "map_summary": map_summary_label.text,
 		"selected_map_archetype": int(_session.get("match_map_archetype")) if _is_room_open() else GameManager.selected_map_archetype,
 		"selected_difficulty": _selected_difficulty, "selected_population_limit": _selected_population_limit,
+		"selected_civilization": _draft_civilization(), "selected_opponent_civilization": GameManager.selected_opponent_civilization,
+		"civilization_button": _control_diag(_civilization_button), "civilization_picker_open": is_instance_valid(_civilization_picker),
 		"compact_layout": _compact_layout,
 		"viewport_width": get_viewport().get_visible_rect().size.x, "viewport_height": get_viewport().get_visible_rect().size.y,
 		"safe_area": {"x": _active_safe_area.position.x, "y": _active_safe_area.position.y, "width": _active_safe_area.size.x, "height": _active_safe_area.size.y},

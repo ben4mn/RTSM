@@ -51,7 +51,7 @@ func _process(delta: float) -> bool:
 	match phase:
 		0:
 			if _ready_client(0):
-				_send(0, {"op": "host", "protocol": 1, "map_catalog": 2, "map_archetype": round_index})
+				_send(0, {"op": "host", "protocol": 2, "map_catalog": 2, "map_archetype": round_index})
 				_next(1)
 		1:
 			if not states[0].room.is_empty():
@@ -61,7 +61,7 @@ func _process(delta: float) -> bool:
 				_next(2)
 		2:
 			if _ready_client(1):
-				_send(1, {"op": "join", "protocol": 1, "map_catalog": 2, "code": code.to_lower()})
+				_send(1, {"op": "join", "protocol": 2, "map_catalog": 2, "code": code.to_lower()})
 				_next(3)
 		3:
 			if not states[1].room.is_empty() and int(states[0].room.players) == 2:
@@ -73,7 +73,7 @@ func _process(delta: float) -> bool:
 				_next(4)
 		4:
 			if _ready_client(2):
-				_send(2, {"op": "join", "protocol": 1, "map_catalog": 2, "code": code})
+				_send(2, {"op": "join", "protocol": 2, "map_catalog": 2, "code": code})
 				_next(5)
 		5:
 			if not str(states[2].error).is_empty() and elapsed - phase_at > 0.15:
@@ -90,7 +90,7 @@ func _process(delta: float) -> bool:
 				_next(7)
 		7:
 			if _ready_client(3) and int(states[0].room.map_archetype) == (round_index + 1) % 3:
-				_send(3, {"op": "join", "protocol": 1, "map_catalog": 2, "code": code})
+				_send(3, {"op": "join", "protocol": 2, "map_catalog": 2, "code": code})
 				_next(8)
 		8:
 			if not states[3].room.is_empty() and int(states[0].room.players) == 2:
@@ -125,7 +125,7 @@ func _process(delta: float) -> bool:
 					_next(0)
 		12:
 			if _ready_client(0):
-				_send(0, {"op": "host", "protocol": 1, "map_catalog": 2, "map_archetype": 0})
+				_send(0, {"op": "host", "protocol": 2, "map_catalog": 2, "map_archetype": 0})
 				_next(13)
 		13:
 			if not states[0].room.is_empty():
@@ -134,7 +134,7 @@ func _process(delta: float) -> bool:
 				_next(14)
 		14:
 			if _ready_client(1):
-				_send(1, {"op": "join", "protocol": 1, "map_catalog": 2, "code": code})
+				_send(1, {"op": "join", "protocol": 2, "map_catalog": 2, "code": code})
 				_next(15)
 		15:
 			if not states[1].room.is_empty():

@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- Verdant League Longbow. Full-height yew bow, pointed field hood and
+       deep quiver distinguish this lightly protected specialist. y104 feet. -->
+  <!-- Tall quiver and pale fletching behind the narrow cloak. -->
+  <path fill="#594C35" d="m28 46 13-4 12 39-15 5z"/>
+  <path fill="#A38A5A" d="m30 48 8-3 10 35-9 3z"/>
+  <path d="m33 48-9-27m14 24-5-30m10 31-1-30" stroke="#8A7549" stroke-width="2.7"/>
+  <path fill="#E8E5DB" d="m20 14 5 2 3 12-5-3zm9-5 5 1 2 12-5-3zm10 1 5 1 1 11-5-4z"/>
+  <path fill="#406861" d="m41 40 21-8 17 17 3 42-19-9-26 13-7-19z"/>
+  <path fill="#6E9C94" d="m42 43 8 5-6 36-9 7-3-14z"/>
+  <path fill="#A9C7BB" d="m42 46 4 2-7 30-5 8z"/>
+  <!-- Braced boots, a slim leather jerkin and no plate armor. -->
+  <path fill="#3E493E" d="m46 76 15 2-7 23-14 1zm18 3 11-2 9 24-13 1z"/>
+  <path fill="#71816A" d="m48 81 7 1-5 15-7 2zm20 0 5-1 6 18-6 1z"/>
+  <path fill="#453D2D" d="m42 96 11 1 2 7H32q2-5 10-8m30 1 10-2 10 7 1 2H68z"/>
+  <path fill="#A28C60" d="m34 102 20-1 1 3H32zm36 0 20-1 3 3H68z"/>
+  <path fill="#68583C" d="m49 44 13-5 15 12 2 27-15 9-21-10z"/>
+  <path fill="#9D8B62" d="m54 46 9-4 11 11 1 21-12 8-15-7z"/>
+  <path fill="#C4B48B" d="m55 48 6-3-2 16-9 9-2-2z"/>
+  <path d="m57 50 13 22m-16-15 13 22" stroke="#786346" stroke-width="2"/>
+  <path fill="#52462F" d="m46 73 29-3 3 7-31 4z"/>
+  <path fill="#DBC697" d="m61 73 7-1v5l-7 1z"/>
+  <path fill="#6E9C94" d="m47 76 8 4-8 13-7-5z"/>
+  <!-- Pale shoulder wrap and extended bow arm; neutral skin stays warm. -->
+  <path fill="#C4CCB6" d="m69 45 12 5 4 12-12 4-8-11z"/>
+  <path fill="#E8E5DB" d="m70 46 10 5 3 7-10 3-5-6z"/>
+  <path fill="#AC7954" d="m78 59 8-2 14 1 5-5 5 4-7 9-18-1z"/>
+  <path fill="#D9AA7A" d="m80 59 6 1 14 1 4-4 3 1-6 5-16-1z"/>
+  <path fill="#594931" d="m91 58 9 1 2 7-10-1z"/>
+  <path fill="#B39768" d="m93 59 4 1 1 4-4-1z"/>
+  <!-- Pointed hood frames a small unhelmeted face. -->
+  <path fill="#324B42" d="m39 35 1-18 14-12 23 10 8 20-10 17-24-3z"/>
+  <path fill="#406861" d="m40 33 2-16 12-12 22 10 7 17-10-10-13-4-15 18-1 8z"/>
+  <path fill="#6E9C94" d="m42 27 1-10 11-12 15 7-13 2-10 14-3 9z"/>
+  <path fill="#A9C7BB" d="m43 17 11-12 6 3-7 2-8 13z"/>
+  <path fill="#A5744D" d="m56 24 14-6 11 12-3 14-12 6-13-10z"/>
+  <path fill="#DAB084" d="m62 24 8-3 8 10-2 10-10 5-8-8z"/>
+  <path fill="#F0CBA1" d="m65 26 5-2 6 8-3 7-6 3-5-7z"/>
+  <path fill="#514B34" d="m54 25 8-10 10 4 6 9-8-6-10 3-4 10z"/>
+  <path d="m65 31 6-1" stroke="#4E3D29" stroke-width="2" stroke-linecap="round"/>
+  <path d="m68 40 5-1" stroke="#956B48" stroke-width="1.7" stroke-linecap="round"/>
+  <path fill="#406861" d="m48 40 13 6 15-4 3 8-17 10-18-11z"/>
+  <path fill="#6E9C94" d="m49 41 12 6 15-4 1 4-16 8-15-7z"/>
+  <path fill="#A9C7BB" d="m51 43 10 5 12-3-12 6z"/>
+  <!-- Full draw: glove at cheek, arrow carried on the horizontal sight line. -->
+  <path fill="#A5744D" d="m48 57 8 8 20-9 5 5-24 13-16-12z"/>
+  <path fill="#DAB084" d="m48 57 9 9 18-8 3 2-22 10-12-10z"/>
+  <path fill="#594931" d="m69 58 9-5 6 6-12 7z"/>
+  <path fill="#A58B5C" d="m71 58 7-3 3 3-9 5z"/>
+  <!-- The long, almost straight stave reads at phone scale. -->
+  <path d="M101 5q28 47 1 96" fill="none" stroke="#433C2A" stroke-width="6" stroke-linecap="round"/>
+  <path d="M102 7q24 45 1 92" fill="none" stroke="#B89A5E" stroke-width="3" stroke-linecap="round"/>
+  <path d="m101 7-23 50 24 43" fill="none" stroke="#E8DFC2" stroke-width="1.8"/>
+  <path d="m77 57 40-1" stroke="#8B7546" stroke-width="2.5"/>
+  <path fill="#E8E5DB" d="m115 52 10 4-10 4z"/>
+  <path fill="#E8E5DB" d="m78 54 6 1-5 5-5-1z"/>
+</svg>

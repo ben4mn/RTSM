@@ -1,6 +1,21 @@
 {
   "releases": [
     {
+      "id": "2026-10-24-three-kingdoms",
+      "version": "0.3.0-beta.1",
+      "date": "2026-10-24",
+      "title": "Three kingdoms",
+      "summary": "Choose your kingdom, recruit from the field and keep your village working.",
+      "changes": [
+        "Choose Crownlands for a flexible army and full-strength defenses, Verdant League for a stronger wood economy and long-range Longbows, or Sunstride Clans for faster food harvesting and swift Outriders. Each specialty brings a real tradeoff.",
+        "Choose your solo rival's kingdom, or bring your own into an online lobby. Original crests and signature-unit artwork make each choice recognizable. Both online players need this release.",
+        "Army now includes Recruit alongside Groups. Train reinforcements and manage repeat production without finding each military building on the battlefield.",
+        "A worker who finishes a Farm starts farming immediately and keeps any resources already carried. Economy names a sustained food-work gap and explains how to restore production.",
+        "The opponent can invest in worker protection, hauling and a useful second Resource Camp when its economy can support them. Army choices consider its kingdom as well as enemies it has seen.",
+        "Tapping a visible building roof now selects the building more reliably, while nearby units and transparent space keep their existing selection rules."
+      ]
+    },
+    {
       "id": "2026-10-24-read-the-battle",
       "version": "0.2.0-beta.13",
       "date": "2026-10-24",

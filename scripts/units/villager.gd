@@ -221,16 +221,7 @@ func _check_visible_economic_threats() -> void:
 	# dictionary drops any enemy no longer in this owner's current vision.
 	var observed: Dictionary = {}
 	var threatened: bool = false
-	for candidate: Node in get_tree().get_nodes_in_group("units"):
-		if not candidate is UnitBase or candidate == self:
-			continue
-		var enemy: UnitBase = candidate as UnitBase
-		if enemy.player_owner == player_owner or not _can_track_entity(enemy):
-			continue
-		if enemy.current_state == State.DEAD or enemy.damage <= 0.0:
-			continue
-		if enemy is Villager and enemy.current_state != State.ATTACKING:
-			continue
+	for enemy: UnitBase in _get_visible_economic_threats():
 		var distance: float = global_position.distance_to(enemy.global_position)
 		var instance_id: int = enemy.get_instance_id()
 		observed[instance_id] = distance
@@ -246,6 +237,42 @@ func _check_visible_economic_threats() -> void:
 	if threatened:
 		_begin_recovery()
 		_flee_to_safety()
+
+
+func _get_visible_economic_threats() -> Array[UnitBase]:
+	var candidates: Array[UnitBase] = []
+	for candidate: Node in get_tree().get_nodes_in_group("units"):
+		if not candidate is UnitBase or candidate == self:
+			continue
+		var enemy := candidate as UnitBase
+		if enemy.player_owner == player_owner or enemy.current_state == State.DEAD or enemy.damage <= 0.0:
+			continue
+		if enemy is Villager and enemy.current_state != State.ATTACKING:
+			continue
+		candidates.append(enemy)
+	var visible: Array[UnitBase] = []
+	if candidates.is_empty():
+		return visible
+	var game_map := _get_navigation_map()
+	if game_map == null or not game_map.has_method("get_visible_tiles_for_player"):
+		for enemy: UnitBase in candidates:
+			if _can_track_entity(enemy):
+				visible.append(enemy)
+		return visible
+	# One fresh synchronous vision snapshot replaces a full source scan for
+	# every enemy. Keep distant visible enemies: crossing the warning boundary
+	# must still compare against their last observed position next time.
+	var tiles: Array[Vector2i] = []
+	for enemy: UnitBase in candidates:
+		tiles.append(game_map.world_to_tile(enemy.global_position))
+	var visible_tiles: Dictionary = game_map.get_visible_tiles_for_player(tiles, player_owner)
+	for index: int in candidates.size():
+		var tile: Vector2i = tiles[index]
+		var in_bounds: bool = tile.x >= 0 and tile.y >= 0 and tile.x < MapData.MAP_WIDTH and tile.y < MapData.MAP_HEIGHT
+		# The canonical entity query also supports transient off-map poses.
+		if visible_tiles.has(tile) if in_bounds else _can_track_entity(candidates[index]):
+			visible.append(candidates[index])
+	return visible
 
 
 func has_active_gather_order() -> bool:
@@ -380,9 +407,10 @@ func _harvest_from_target() -> int:
 	var remaining_capacity: int = maxi(0, carry_capacity - carried_amount)
 	if remaining_capacity <= 0:
 		return 0
-	_fractional_harvest += maxf(0.0, gather_rate)
-	var whole_work: int = floori(_fractional_harvest)
-	_fractional_harvest -= float(whole_work)
+	var civilization_multiplier: float = CivilizationData.get_gather_multiplier(CivilizationData.for_player(player_owner), carried_resource_type)
+	_fractional_harvest += maxf(0.0, gather_rate) * civilization_multiplier
+	var whole_work: int = floori(_fractional_harvest + 0.0000001)
+	_fractional_harvest = maxf(0.0, _fractional_harvest - float(whole_work))
 	var amount_requested: int = mini(whole_work, remaining_capacity)
 	if amount_requested <= 0:
 		return 0
@@ -596,12 +624,10 @@ func _process_building(delta: float) -> void:
 				is_instance_valid(completed_building)
 				and completed_building is BuildingBase
 				and (completed_building as BuildingBase).provides_food
-				and _saved_gather_type == GatherType.NONE
-				and not _saved_has_gather_last_known_position
 			):
-				# Unassigned farmers start work on the paid Farm they just finished.
-				# Established workers keep their saved assignment. Loaded builders
-				# keep old cargo in the shared bag while starting their new food order.
+				# Ordering a Farm means adding food production, even when Main chose
+				# a woodcutter as its builder. Keep earned cargo in the shared bag;
+				# the regular gather command still enforces one worker per Farm.
 				if command_gather(completed_building):
 					_clear_saved_gather_order()
 					return

@@ -16,6 +16,7 @@ signal repeat_requested(building: Node2D, enabled: bool)
 signal rally_requested(building: Node2D)
 signal sacred_rally_requested(building: Node2D)
 signal farm_requested()
+signal barracks_requested()
 signal save_group_requested(index: int)
 signal recall_group_requested(index: int)
 
@@ -57,10 +58,20 @@ var _surface: String = ""
 var _snapshot: Dictionary = {}
 var _sheet_width: float = SHEET_MAX_WIDTH
 var _production_page: bool = false
+var _army_recruit_page: bool = true
+var _army_page_initialized: bool = false
 var _page_layout_signature: String = ""
 var _producer_index: int = 0
+var _army_producer_index: int = 0
+var _economy_producer_id: int = 0
+var _army_producer_id: int = 0
 var _workers_tab: Button
 var _production_tab: Button
+var _recruit_tab: Button
+var _groups_tab: Button
+var _recruit_empty: VBoxContainer
+var _barracks_button: Button
+var _barracks_blocker: Label
 var _previous_producer: Button
 var _next_producer: Button
 var _info_button: Button
@@ -90,7 +101,7 @@ func _ready() -> void:
 	_economy_button.pressed.connect(func() -> void: surface_requested.emit("" if _surface == "economy" else "economy"))
 	rail.add_child(_economy_button)
 	CommandIcons.apply_labeled(_economy_button, "economy", _economy_button.accessibility_name, "Economy")
-	_army_button = _icon_button("army", "Army: select units and manage two groups", "ArmyButton", RAIL_BUTTON_SIZE)
+	_army_button = _icon_button("army", "Army: recruit fighters and manage two groups", "ArmyButton", RAIL_BUTTON_SIZE)
 	_army_button.custom_minimum_size.y = RAIL_BUTTON_SIZE
 	_army_button.toggle_mode = true
 	_army_button.pressed.connect(func() -> void: surface_requested.emit("" if _surface == "army" else "army"))
@@ -125,6 +136,14 @@ func _ready() -> void:
 	_production_tab.toggle_mode = true
 	_production_tab.pressed.connect(func() -> void: _set_production_page(true))
 	header.add_child(_production_tab)
+	_recruit_tab = _button("Recruit", "RecruitTab", 68)
+	_recruit_tab.toggle_mode = true
+	_recruit_tab.pressed.connect(func() -> void: _set_army_recruit_page(true))
+	header.add_child(_recruit_tab)
+	_groups_tab = _button("Groups", "GroupsTab", 66)
+	_groups_tab.toggle_mode = true
+	_groups_tab.pressed.connect(func() -> void: _set_army_recruit_page(false))
+	header.add_child(_groups_tab)
 	_previous_producer = _button("‹", "PreviousProducer", 48)
 	_previous_producer.pressed.connect(func() -> void: _step_producer(-1))
 	header.add_child(_previous_producer)
@@ -155,6 +174,21 @@ func _ready() -> void:
 	_economy.add_theme_constant_override("separation", int(CommandIcons.GAP))
 	content.add_child(_economy)
 	_build_economy()
+	_recruit_empty = VBoxContainer.new()
+	_recruit_empty.name = "RecruitEmpty"
+	_recruit_empty.add_theme_constant_override("separation", 8)
+	content.add_child(_recruit_empty)
+	var recruit_heading: Label = _label("Build your first fighting force", 18)
+	KingdomTheme.apply_heading(recruit_heading, 18)
+	_recruit_empty.add_child(recruit_heading)
+	_recruit_empty.add_child(_label("A Barracks trains Warriors. Scouts explore but cannot fight."))
+	_barracks_button = _icon_button("build", "Plan a paid Barracks", "PlanBarracks", 200, "Build Barracks · 120W")
+	_barracks_button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	_barracks_button.pressed.connect(func() -> void: barracks_requested.emit())
+	_recruit_empty.add_child(_barracks_button)
+	_barracks_blocker = _label("", 12)
+	_barracks_blocker.add_theme_color_override("font_color", KingdomTheme.MUTED)
+	_recruit_empty.add_child(_barracks_blocker)
 	_army = VBoxContainer.new()
 	_army.add_theme_constant_override("separation", int(CommandIcons.GAP))
 	content.add_child(_army)
@@ -209,6 +243,8 @@ func _icon_button(key: String, label: String, control_name: String, width: float
 
 func _build_economy() -> void:
 	_summary = _label("Workers: Food 0 · Wood 0 · Gold 0")
+	_summary.max_lines_visible = 2
+	_summary.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_economy.add_child(_summary)
 	_economy_health = _label("", 13)
 	_economy_health.name = "EconomyHealth"
@@ -343,12 +379,14 @@ func update_snapshot(snapshot: Dictionary) -> void:
 		economy_description += "\n%s\n%s" % [str(economy.get("title", "")), str(economy.get("detail", ""))]
 	CommandIcons.apply_labeled(_economy_button, "economy", economy_description, "Economy")
 	CommandIcons.set_badge(_economy_button, "!" if not warnings.is_empty() or not attention.is_empty() else "", true)
-	CommandIcons.apply_labeled(_army_button, "army", "Army: %d military units. Select units and manage two groups." % military, "Army")
+	CommandIcons.apply_labeled(_army_button, "army", "Army: %d military units. Recruit fighters and manage two groups." % military, "Army")
 	CommandIcons.set_badge(_army_button, str(military))
 	var worker_count: int = 0
 	for amount: Variant in workers.values():
 		worker_count += int(amount)
 	_summary.text = "%d workers · %d building · %d recovering" % [worker_count, int(workers.get("build", 0)), int(workers.get("recovering", 0))]
+	if bool(snapshot.get("food_attention_ready", false)):
+		_summary.text = "No food income\nAssign food workers or build a Farm."
 	_summary.add_theme_color_override("font_color", KingdomTheme.PARCHMENT if warnings.is_empty() else KingdomTheme.AMBER)
 	_economy_health.text = ""
 	if int(economy.get("severity", 0)) > 0:
@@ -362,6 +400,10 @@ func update_snapshot(snapshot: Dictionary) -> void:
 	var farm_wood: int = int(BuildingData.get_building_cost(BuildingData.BuildingType.FARM).get("wood", 75))
 	CommandIcons.apply(_farm_button, "farm", "Plan a Farm: %d wood, permanent food. %s" % [farm_wood, _farm_blocker.text], "Farm · %dW\nUnlimited food" % farm_wood)
 	_farm_button.disabled = not bool(snapshot.get("can_plan_farm", false))
+	_barracks_blocker.text = str(snapshot.get("barracks_blocker", ""))
+	var barracks_wood: int = int(BuildingData.get_building_cost(BuildingData.BuildingType.BARRACKS).get("wood", 120))
+	CommandIcons.apply(_barracks_button, "build", "Plan a Barracks: %d wood. %s" % [barracks_wood, _barracks_blocker.text], "Build Barracks · %dW" % barracks_wood)
+	_barracks_button.disabled = not bool(snapshot.get("can_plan_barracks", false))
 	_population.text = str(snapshot.get("population_text", ""))
 	CommandIcons.apply(_idle_button, "idle", "Find the next of %d idle workers" % idle, "Find\nidle")
 	_idle_button.disabled = idle <= 0
@@ -407,6 +449,7 @@ func _refresh_producers(producers: Array) -> void:
 		if not _producer_rows.has(id):
 			_create_producer(producer)
 		var row: Dictionary = _producer_rows[id]
+		row["military"] = bool(producer.get("military", false))
 		(row.status as Label).text = str(producer.get("status", ""))
 		var queue: Array = producer.get("queue", [])
 		(row.paid as Label).text = "Paid queue: " + (" / ".join(queue) if not queue.is_empty() else "empty")
@@ -427,7 +470,7 @@ func _refresh_producers(producers: Array) -> void:
 			button.disabled = not bool(producer.get("active", false))
 			var blocker: String = str((producer.get("unit_status", {}) as Dictionary).get(unit_type, ""))
 			var status_label: Label = row.train_status[unit_type]
-			var role: String = "Gather & build" if unit_type == UnitData.UnitType.VILLAGER else UnitData.get_unit_counter_description(unit_type)
+			var role: String = "Gather & build" if unit_type == UnitData.UnitType.VILLAGER else UnitData.get_unit_counter_description(unit_type, 0)
 			button.tooltip_text = "%s\n%s\n%s" % [button.text, role, blocker.capitalize()]
 			status_label.text = role if blocker == "ready" else blocker.capitalize()
 			status_label.add_theme_color_override("font_color", KingdomTheme.MUTED if blocker == "ready" else KingdomTheme.AMBER)
@@ -441,7 +484,7 @@ func _refresh_producers(producers: Array) -> void:
 
 static func apply_repeat_caption(button: Button, unit_type: int, enabled: bool) -> void:
 	var state: String = "ON" if enabled else "OFF"
-	var full_name: String = UnitData.get_unit_name(unit_type) if unit_type >= 0 else "Train first"
+	var full_name: String = UnitData.get_unit_name(unit_type, 0) if unit_type >= 0 else "Train first"
 	# The recruitment card and accessible action retain the full unit name.
 	var caption: String = "Siege" if unit_type == UnitData.UnitType.SIEGE else full_name
 	CommandIcons.apply(button, "repeat", "Repeat %s: %s. Each training order is paid." % [full_name, state], "%s\n%s" % [caption, state])
@@ -479,9 +522,9 @@ func _create_producer(producer: Dictionary) -> void:
 		unit_card.custom_minimum_size.x = TRAIN_CARD_WIDTH
 		unit_card.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 		training.add_child(unit_card)
-		var button := _button("%s\n%s" % [UnitData.get_unit_name(unit_type), " ".join(costs)], "Train_%d" % unit_type, TRAIN_CARD_WIDTH)
+		var button := _button("%s\n%s" % [UnitData.get_unit_name(unit_type, 0), " ".join(costs)], "Train_%d" % unit_type, TRAIN_CARD_WIDTH)
 		button.add_theme_font_size_override("font_size", 12)
-		var portrait_path: String = UnitData.get_unit_icon_path(unit_type)
+		var portrait_path: String = UnitData.get_unit_icon_path(unit_type, 0)
 		if not portrait_path.is_empty() and ResourceLoader.exists(portrait_path):
 			button.icon = load(portrait_path)
 			button.add_theme_constant_override("icon_max_width", int(CommandIcons.GLYPH_SIZE))
@@ -548,6 +591,10 @@ func show_feedback(message: String, success: bool = true) -> void:
 func set_surface(surface: String) -> void:
 	var changed: bool = _surface != surface
 	_surface = surface
+	if surface == "army" and not _army_page_initialized:
+		# The opening Scout is unarmed: first-time players need recruitment.
+		_army_recruit_page = int(_snapshot.get("fighters", 0)) == 0
+		_army_page_initialized = true
 	panel.visible = surface in ["economy", "army"]
 	_economy.visible = surface == "economy"
 	_army.visible = surface == "army"
@@ -562,52 +609,109 @@ func set_surface(surface: String) -> void:
 
 func _set_production_page(enabled: bool) -> void:
 	_production_page = enabled
+	_details_page = false
+	_scroll.scroll_vertical = 0
 	_refresh_pages()
 
 
+func _set_army_recruit_page(enabled: bool) -> void:
+	_army_recruit_page = enabled
+	_army_page_initialized = true
+	_details_page = false
+	_scroll.scroll_vertical = 0
+	_refresh_pages()
+
+
+func _showing_production() -> bool:
+	return _army_recruit_page if _surface == "army" else _production_page
+
+
+func _visible_producer_ids() -> Array[int]:
+	var ids: Array[int] = []
+	for id: int in _producer_rows:
+		if _surface != "army" or bool(_producer_rows[id].get("military", false)):
+			ids.append(id)
+	return ids
+
+
+func _selected_producer_id() -> int:
+	var ids: Array[int] = _visible_producer_ids()
+	if ids.is_empty():
+		return 0
+	var held_id: int = _army_producer_id if _surface == "army" else _economy_producer_id
+	var index: int = _army_producer_index if _surface == "army" else _producer_index
+	index = ids.find(held_id) if held_id in ids else clampi(index, 0, ids.size() - 1)
+	if _surface == "army":
+		_army_producer_index = index
+		_army_producer_id = ids[index]
+	else:
+		_producer_index = index
+		_economy_producer_id = ids[index]
+	return ids[index]
+
+
 func _step_producer(direction: int) -> void:
-	if _producer_rows.is_empty():
+	var ids: Array[int] = _visible_producer_ids()
+	if ids.is_empty():
 		return
-	_producer_index = posmod(_producer_index + direction, _producer_rows.size())
+	var current: int = ids.find(_selected_producer_id())
+	var next: int = posmod(current + direction, ids.size())
+	if _surface == "army":
+		_army_producer_index = next
+		_army_producer_id = ids[next]
+	else:
+		_producer_index = next
+		_economy_producer_id = ids[next]
 	_refresh_pages()
 
 
 func _refresh_pages() -> void:
 	var economy_open: bool = _surface == "economy"
 	var army_open: bool = _surface == "army"
-	_economy.visible = economy_open and not _details_page
-	_details.visible = economy_open and _details_page
-	_army.visible = army_open and not _details_page
-	_army_notes.visible = army_open and _details_page
-	_info_button.visible = economy_open or army_open
+	var recruiting: bool = army_open and _army_recruit_page
+	var production: bool = _showing_production()
+	var ids: Array[int] = _visible_producer_ids()
+	var empty_recruit: bool = recruiting and ids.is_empty()
+	var food_alert: bool = bool(_snapshot.get("food_attention_ready", false)) and not economy_open
+	var economy_caption: String = "No food" if food_alert else "Economy"
+	if _economy_button.text != economy_caption:
+		CommandIcons.apply_labeled(_economy_button, "food" if food_alert else "economy", _economy_button.accessibility_name, economy_caption)
+	_economy.visible = (economy_open or recruiting) and not _details_page and not empty_recruit
+	_details.visible = (economy_open or recruiting) and _details_page and not empty_recruit
+	_army.visible = army_open and not _army_recruit_page and not _details_page
+	_army_notes.visible = army_open and not _army_recruit_page and _details_page
+	_recruit_empty.visible = empty_recruit
+	_info_button.visible = (economy_open or army_open) and not empty_recruit
 	_info_button.set_pressed_no_signal(_details_page)
-	var info_description: String = "Army field notes: assemble, attack-move and withdraw" if army_open else "Show current worker or producer details"
+	var info_description: String = "Army field notes: assemble, attack-move and withdraw" if army_open and not recruiting else "Show current worker or producer details"
 	CommandIcons.apply(_info_button, "back" if _details_page else "info", "Back to actions" if _details_page else info_description)
 	if army_open:
 		_title.text = "Army field notes" if _details_page else "Army & groups"
-	_title.visible = not economy_open
+	_title.visible = false
 	_workers_tab.visible = economy_open
 	_production_tab.visible = economy_open
-	_previous_producer.visible = economy_open and _production_page
-	_next_producer.visible = economy_open and _production_page
-	_previous_producer.disabled = _producer_rows.size() <= 1
-	_next_producer.disabled = _producer_rows.size() <= 1
+	_recruit_tab.visible = army_open
+	_groups_tab.visible = army_open
+	_recruit_tab.set_pressed_no_signal(_army_recruit_page)
+	_groups_tab.set_pressed_no_signal(not _army_recruit_page)
+	_previous_producer.visible = (economy_open or army_open) and production and not empty_recruit
+	_next_producer.visible = _previous_producer.visible
+	_previous_producer.disabled = ids.size() <= 1
+	_next_producer.disabled = ids.size() <= 1
 	_workers_tab.set_pressed_no_signal(not _production_page)
 	_production_tab.set_pressed_no_signal(_production_page)
 	for child: Node in _economy.get_children():
 		if child is Control:
-			(child as Control).visible = (child == _producer_list) == _production_page
+			(child as Control).visible = (child == _producer_list) == production
 	# Details have their own touch-accessible page, keeping actions unscrolled.
 	_economy_health.hide()
 	_food_stock.hide()
 	_population.hide()
-	_producer_index = clampi(_producer_index, 0, maxi(0, _producer_rows.size() - 1))
-	var index: int = 0
-	for row: Dictionary in _producer_rows.values():
-		(row.card as Control).visible = index == _producer_index
-		index += 1
+	var selected_id: int = _selected_producer_id()
+	for id: int in _producer_rows:
+		(_producer_rows[id].card as Control).visible = id == selected_id
 	_refresh_details()
-	var signature: String = "%s:%s:%s:%s:%s" % [_surface, _production_page, _producer_index, _producer_rows.size(), _details_page]
+	var signature: String = "%s:%s:%s:%s:%s" % [_surface, production, selected_id, ids.size(), _details_page]
 	if signature != _page_layout_signature:
 		_page_layout_signature = signature
 		if panel.visible and get_parent().has_method("_queue_mobile_layout_refresh"):
@@ -616,7 +720,7 @@ func _refresh_pages() -> void:
 
 func _refresh_details() -> void:
 	var lines: PackedStringArray = []
-	if not _production_page:
+	if not _showing_production():
 		var economy: Dictionary = _snapshot.get("economy", {})
 		var facts: Dictionary = _snapshot.get("economy_facts", {})
 		var workers: Dictionary = _snapshot.get("workers", {})
@@ -628,10 +732,10 @@ func _refresh_details() -> void:
 		lines.append("Visible berry food %d · %d permanent Farms" % [int(facts.get("berry_food", 0)), int(facts.get("permanent_farms", 0))])
 	else:
 		var producers: Array = _snapshot.get("producers", [])
-		if _producer_rows.is_empty():
+		if _visible_producer_ids().is_empty():
 			lines.append("No production buildings")
 		else:
-			var selected_id: int = _producer_rows.keys()[_producer_index]
+			var selected_id: int = _selected_producer_id()
 			for producer: Dictionary in producers:
 				var building: Node2D = producer.get("building")
 				if is_instance_valid(building) and building.get_instance_id() == selected_id:
@@ -680,18 +784,18 @@ func _producer_details(producer: Dictionary) -> PackedStringArray:
 		for resource: String in RESOURCES:
 			if int(cost.get(resource, 0)) > 0:
 				costs.append("%d%s" % [int(cost[resource]), resource.left(1).to_upper()])
-		var role: String = "Gather & build" if unit_type == UnitData.UnitType.VILLAGER else UnitData.get_unit_role_description(unit_type)
+		var role: String = "Gather & build" if unit_type == UnitData.UnitType.VILLAGER else UnitData.get_unit_role_description(unit_type, 0)
 		if unit_type == UnitData.UnitType.SCOUT:
-			role = UnitData.get_unit_counter_description(unit_type)
-		var counter: String = UnitData.get_unit_counter_name(unit_type)
+			role = UnitData.get_unit_counter_description(unit_type, 0)
+		var counter: String = UnitData.get_unit_counter_name(unit_type, 0)
 		if not counter.is_empty():
 			role += "; beats " + counter
-		lines.append("%s · %s · %s" % [UnitData.get_unit_name(unit_type), " ".join(costs), role])
+		lines.append("%s · %s · %s" % [UnitData.get_unit_name(unit_type, 0), " ".join(costs), role])
 		var blocker: String = str((producer.get("unit_status", {}) as Dictionary).get(unit_type, "ready"))
 		blocker = blocker.replace("population blocked — ", "Population: ").replace("; refunds alone cannot help", "").replace("living units must free a slot", "living slot must open")
 		if blocker not in blockers:
 			blockers.append(blocker)
-		named_blockers.append(UnitData.get_unit_name(unit_type) + ": " + blocker)
+		named_blockers.append(UnitData.get_unit_name(unit_type, 0) + ": " + blocker)
 	lines.append("Training: " + "; ".join(blockers) if blockers.size() <= 1 else "; ".join(named_blockers))
 	var queue: Array = producer.get("queue", [])
 	var counts: Dictionary = {}
@@ -716,13 +820,13 @@ func apply_layout(safe: Rect2, field_visible: bool, card_area: Rect2, dock_heigh
 	_sheet_width = minf(SHEET_MAX_WIDTH, card_right - card_left)
 	_fit_economy_rows(_sheet_width)
 	var card_height: float = minf(310.0, card_area.size.y - 16.0)
-	if _surface == "economy" and _details_page:
+	if (_surface == "economy" or _army_recruit_page) and _details_page:
 		card_height = minf(card_height, 240.0)
 	if _surface == "army":
-		# Three action rows and their short instruction determine the Army height;
-		# safe-area constraints keep its complete page on screen.
+		# Fit the current Army page so recruitment leaves more battlefield visible.
 		# Two pixels absorb container rounding at fractional interface scales.
-		var content_height: float = (_army_notes if _details_page else _army).get_combined_minimum_size().y
+		var active_page: Control = _recruit_empty if _recruit_empty.visible else (_details if _details_page else _producer_list) if _army_recruit_page else (_army_notes if _details_page else _army)
+		var content_height: float = active_page.get_combined_minimum_size().y
 		card_height = minf(card_height, content_height + CommandIcons.TARGET_SIZE + 14.0)
 	_last_panel_minimum = panel.get_combined_minimum_size()
 	card_height = maxf(card_height, _last_panel_minimum.y)
@@ -782,5 +886,6 @@ func _on_gui_contact(event: InputEvent) -> void:
 
 
 func set_attention(action: String, pulse: float) -> void:
-	_economy_button.modulate = Color(1.0, pulse, 0.62) if action == "idle_button" else Color.WHITE
+	var economy_color: Color = KingdomTheme.AMBER if bool(_snapshot.get("food_attention_ready", false)) and _surface != "economy" else Color.WHITE
+	_economy_button.modulate = Color(1.0, pulse, 0.62) if action == "idle_button" else economy_color
 	_army_button.modulate = Color(1.0, pulse, 0.62) if action == "military_button" else Color.WHITE

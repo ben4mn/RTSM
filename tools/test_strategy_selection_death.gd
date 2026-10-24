@@ -109,6 +109,7 @@ func _death_journey(phone: Vector2i, interface_scale: float, notched: bool) -> v
 	_selection.select_many(troops)
 	controller.call("_refresh")
 	await _button(overview.rail.get_node("ArmyButton"))
+	await _button(overview.get("_groups_tab"))
 	var group: Dictionary = (overview.get("_group_rows") as Dictionary)[1]
 	await _overview_button(overview, group.save)
 	var army_scroll: int = scroll.scroll_vertical

@@ -315,7 +315,7 @@ func _position_dismiss_shield() -> void:
 
 
 func _build_info(building_type: int) -> Dictionary:
-	var stats: Dictionary = BuildingData.get_building_stats(building_type)
+	var stats: Dictionary = BuildingData.get_building_stats(building_type, player_owner)
 	var lines: PackedStringArray = _format_tooltip(stats, building_type).split("\n")
 	lines.remove_at(0)
 	if int(stats.get("age_required", 0)) <= _current_age and _can_afford(stats.get("cost", {})):
@@ -413,7 +413,7 @@ func _rebuild_grid() -> void:
 		var gm: Node = get_node_or_null("/root/GameManager")
 		if building_type == BuildingData.BuildingType.SIEGE_WORKSHOP and gm and int(gm.call("get_match_population_limit")) <= 40:
 			continue
-		var stats: Dictionary = BuildingData.get_building_stats(building_type)
+		var stats: Dictionary = BuildingData.get_building_stats(building_type, player_owner)
 		if stats.is_empty():
 			continue
 		var age_req: int = int(stats.get("age_required", 0))
@@ -514,7 +514,7 @@ func _format_tooltip(stats: Dictionary, building_type: int) -> String:
 	if can_train.size() > 0:
 		var unit_names: PackedStringArray = PackedStringArray()
 		for ut in can_train:
-			unit_names.append(UnitData.get_unit_name(ut))
+			unit_names.append(UnitData.get_unit_name(ut, player_owner))
 		lines.append("Trains: %s" % ", ".join(unit_names))
 	if stats.get("has_research", false):
 		lines.append("Research: weapons, armor, gathering and Villager health")
@@ -531,7 +531,7 @@ func _refresh_affordability() -> void:
 		var can_afford: bool = _can_afford(cost)
 		var btn: Button = _button_map[building_type]
 		var age_locked: bool = bool(btn.get_meta("age_locked", false))
-		var stats: Dictionary = BuildingData.get_building_stats(building_type)
+		var stats: Dictionary = BuildingData.get_building_stats(building_type, player_owner)
 		btn.text = _format_button_text(stats, age_locked, building_type)
 		if not age_locked and not can_afford:
 			# Farm stock remains visible even when its purchase is unaffordable.

@@ -152,7 +152,7 @@ func _setup_collision() -> void:
 
 
 func _load_stats_from_data() -> void:
-	var stats: Dictionary = UnitData.get_unit_stats(unit_type)
+	var stats: Dictionary = UnitData.get_unit_stats(unit_type, player_owner)
 	if stats.is_empty():
 		return
 	max_hp = float(stats.get("hp", max_hp))
@@ -170,7 +170,7 @@ func _load_stats_from_data() -> void:
 func _setup_sprite() -> void:
 	_sprite = Sprite2D.new()
 	_sprite.name = "UnitSprite"
-	var tex_path: String = UNIT_SPRITES.get(unit_type, "")
+	var tex_path: String = UnitData.get_unit_icon_path(unit_type, player_owner)
 	if player_owner != 0:
 		var alternate: String = tex_path.replace(".svg", "_enemy.svg")
 		if ResourceLoader.exists(alternate):
@@ -1400,4 +1400,4 @@ func get_player_id() -> int:
 
 
 func get_unit_type() -> String:
-	return UnitData.get_unit_name(unit_type)
+	return UnitData.get_unit_name(unit_type, player_owner)

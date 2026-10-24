@@ -164,10 +164,11 @@ const BUILDINGS: Dictionary = {
 }
 
 
-static func get_building_stats(building_type: int) -> Dictionary:
+static func get_building_stats(building_type: int, player_id: int = -1) -> Dictionary:
 	if BUILDINGS.has(building_type):
 		var stats: Dictionary = BUILDINGS[building_type].duplicate(true)
 		stats["cost"] = get_building_cost(building_type)
+		stats["hp"] = roundi(float(stats["hp"]) * CivilizationData.get_building_hp_multiplier(CivilizationData.for_player(player_id)))
 		return stats
 	return {}
 
