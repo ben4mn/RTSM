@@ -1780,6 +1780,10 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 	selection_hp_bar.custom_minimum_size.y = 14.0
 	selection_info_column.add_theme_constant_override("separation", 2 if compact_tc_info else 3)
 	_update_selection_name_layout(float(metrics["selection_info_width"]) - 26.0)
+	# Minimum/font changes may coalesce back to the last recorded minimum while
+	# Control retains a larger actual rectangle. Reconcile both axes after them.
+	selection_panel.size = Vector2(metrics["selection_width"], metrics["selection_height"])
+	selection_panel.position = Vector2(metrics["selection_left"], viewport_size.y + metrics["selection_top"])
 	if _selection_info_button:
 		_selection_info_button.visible = _selection_context_active and standard_field_chrome_visible
 		_selection_info_button.accessibility_name = "Information about " + _selection_full_name
