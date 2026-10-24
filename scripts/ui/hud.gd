@@ -177,6 +177,8 @@ var _narrow_resource_grid: GridContainer = null
 var _resource_grid_compact: bool = false
 var _selection_full_name: String = ""
 var _selection_action_text: String = ""
+var _selection_marching_fighters: int = 0
+var _selection_selected_fighters: int = 0
 var _selection_cargo_text: String = ""
 var _selection_role_text: String = ""
 var _selection_unit_information: String = ""
@@ -2636,6 +2638,8 @@ func show_unit_selection(unit_name: String, current_hp: int, max_hp: int, action
 		_selection_cargo_text = "%s %d/%d" % [str(unit_stats.get("cargo_resource", "mixed")).capitalize(), int(unit_stats["cargo_amount"]), int(unit_stats.get("cargo_capacity", 0))]
 	_selection_role_text = ""
 	_selection_unit_owner = int(unit_stats.get("player_owner", 0))
+	_selection_selected_fighters = maxi(0, int(unit_stats.get("selected_fighters", 0))) if _selection_unit_owner == 0 else 0
+	_selection_marching_fighters = clampi(int(unit_stats.get("marching_fighters", 0)), 0, _selection_selected_fighters)
 	_selection_role_counts = unit_stats.get("role_counts", {}).duplicate()
 	_selection_roster.clear()
 	for role_type: int in _selection_role_counts:
@@ -2806,6 +2810,11 @@ func _refresh_unit_selection_details() -> void:
 		action = "Tap attack-move"
 	elif _unit_command_mode == "patrol":
 		action = "Tap to patrol"
+	if _selection_marching_fighters > 0 and _unit_command_mode not in ["move", "attack_move", "patrol"]:
+		# The existing two lines must fit even the96px identity column. Full
+		# explanation and composition stay available through the Info control.
+		selection_details.text = "Marching\ntogether" if _selection_selected_fighters == 1 else "Group march\n%d/%d fighters" % [_selection_marching_fighters, _selection_selected_fighters]
+		return
 	if not _selection_roster.is_empty():
 		# Main supplies a composition, not a shared order/stat, for mixed units.
 		# Use the two existing lines; the Info target keeps every role accessible.
@@ -2840,6 +2849,9 @@ func _compact_roster_entry(unit_type: int) -> String:
 
 func _unit_selection_information(selected_type: int, unit_stats: Dictionary, count: int) -> String:
 	var lines: PackedStringArray = []
+	if _selection_marching_fighters > 0:
+		lines.append("Marching together" if _selection_selected_fighters == 1 else "Group march · %d/%d fighters" % [_selection_marching_fighters, _selection_selected_fighters])
+		lines.append("Keeps pace with its attack group until contact. Move travels at normal speed.")
 	if not _selection_roster.is_empty():
 		lines.append("Selection composition")
 		for role_type: int in _selection_roster:

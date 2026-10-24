@@ -3,6 +3,7 @@ extends Node
 ## visual replicas, with local player 0 remapped to their assigned server slot.
 
 const PLANNER := preload("res://scripts/main/group_order_planner.gd")
+const ATTACK_MARCH := preload("res://scripts/main/attack_march_cohesion.gd")
 var main: Node = null
 var game_map: Node2D = null
 var entities: Dictionary = {}
@@ -92,6 +93,7 @@ func _snapshot_for(slot: int) -> Dictionary:
 				actor["path"] = points
 				actor["destination"] = [node.move_target.x, node.move_target.y]
 				actor["attack_move"] = node.attack_move
+				actor["marching"] = node.is_attack_marching()
 			if node is Villager and node.player_owner == slot:
 				actor.merge({"gather": node.gather_type, "cargo": node.carried_amount, "cargo_type": node.carried_resource_type, "cargo_manifest": node.get_carried_resources(), "work": node.get_economy_task(), "work_status": node.get_work_status(), "recovering": node.is_auto_recovering(), "building_order": node.has_active_build_order()})
 		else:
@@ -165,6 +167,10 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 				var destination: Array = actor.get("destination", [actor.x, actor.y])
 				node.move_target = Vector2(float(destination[0]), float(destination[1]))
 				node.attack_move = bool(actor.get("attack_move", false))
+			# Default false on every packet: missing, non-boolean or enemy values
+			# cannot retain an earlier own status or disclose another cohort.
+			var marching: Variant = actor.get("marching", false)
+			node.set_meta("network_attack_march", node.player_owner == 0 and _local_owner(int(actor.owner)) == 0 and typeof(marching) == TYPE_BOOL and marching == true)
 			var animation: Array = actor.get("animation", [])
 			if animation.size() == 5:
 				node._attack_animation_remaining = float(animation[0])
@@ -277,6 +283,7 @@ func _remove_replica(id: int) -> void:
 	if not is_instance_valid(node):
 		return
 	if node is UnitBase:
+		node.set_meta("network_attack_march", false)
 		main._player_units[node.player_owner].erase(node)
 	else:
 		main._player_buildings[node.player_owner].erase(node)
@@ -365,6 +372,8 @@ func execute_command(owner: int, packet: Dictionary) -> String:
 					unit.command_patrol(order.destination)
 				else:
 					unit.command_move_path(order.path) if order.path.size() > 1 else unit.command_move(order.destination)
+			if operation == "attack_move":
+				ATTACK_MARCH.attach_orders(orders)
 		"stop", "stance":
 			for unit: UnitBase in units:
 				if operation == "stop":

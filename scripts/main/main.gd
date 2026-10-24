@@ -4,6 +4,7 @@ extends Node2D
 
 const WEB_SHELL_BRIDGE := preload("res://scripts/ui/web_shell_bridge.gd")
 const GROUP_ORDER_PLANNER := preload("res://scripts/main/group_order_planner.gd")
+const ATTACK_MARCH := preload("res://scripts/main/attack_march_cohesion.gd")
 const MATCH_BACKGROUND_GUARD := preload("res://scripts/main/match_background_guard.gd")
 var _match_background_guard: Node = null
 
@@ -2033,6 +2034,17 @@ func _on_selection_changed(selected_units: Array[Node2D]) -> void:
 			}
 			var stance_name: String = "Stand Ground" if u.stance == UnitBase.Stance.STAND_GROUND else "Aggressive"
 			stats["stance"] = stance_name
+		# Supply presentation facts from selected own fighters only. HUD neither
+		# receives tokens nor scans a world roster to infer shared orders.
+		var selected_fighters: int = 0
+		var marching_fighters: int = 0
+		for candidate: Node2D in selected_units:
+			if candidate is UnitBase and candidate.player_owner == 0 and candidate.damage > 0.0 and candidate.unit_type not in [UnitData.UnitType.VILLAGER, UnitData.UnitType.SCOUT]:
+				selected_fighters += 1
+				if candidate.is_attack_marching():
+					marching_fighters += 1
+		stats["selected_fighters"] = selected_fighters
+		stats["marching_fighters"] = marching_fighters
 		hud.show_unit_selection(selection_title, total_hp, total_max_hp, action_text, count, stats)
 		_refresh_unit_command_hud()
 	elif first is BuildingBase:
@@ -2149,6 +2161,8 @@ func _on_move_command(target_tile: Vector2i) -> void:
 			else:
 				unit.command_move(world_pos)
 
+	if issue_attack_move and not issue_patrol:
+		ATTACK_MARCH.attach_orders(orders)
 	if issue_patrol:
 		VFX.move_indicator(get_tree(), game_map.tile_to_world(target_tile))
 		hud.show_notification("Patrol route set", Color(0.95, 0.8, 0.4))

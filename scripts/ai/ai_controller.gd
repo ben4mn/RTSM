@@ -9,6 +9,7 @@ extends Node
 ## and unit stats as a human player.
 
 const GROUP_ORDER_PLANNER := preload("res://scripts/main/group_order_planner.gd")
+const PENDING_ATTACK_MARCH := preload("res://scripts/main/pending_attack_march.gd")
 
 signal ai_wants_to_build(building_type: int, tile_pos: Vector2i, is_rebuild: bool)
 signal ai_wants_to_train(building: Node, unit_type: int)
@@ -3091,6 +3092,9 @@ func _retreat_army() -> void:
 
 func _send_attack(units: Array, target: Vector2) -> void:
 	_issue_attack_orders(units, target)
+	# Only a fresh wave may cohere, after lazy navigation accepts its routes.
+	# Retarget/objective refreshes do not pass this seam or re-form a token.
+	PENDING_ATTACK_MARCH.watch_wave(units, target, player_id)
 	ai_attack_launched.emit(units, target)
 
 

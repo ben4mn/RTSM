@@ -42,6 +42,9 @@ var path: PackedVector2Array = PackedVector2Array()
 var path_index: int = 0
 var team_color: Color = Color.BLUE
 var attack_move: bool = false
+var _attack_march: RefCounted = null
+var _pending_attack_march: RefCounted = null
+var _command_generation: int = 0
 var kills: int = 0
 var _auto_attack_timer: float = 0.0  # Throttles enemy scanning (seconds until next scan)
 var _stuck_timer: float = 0.0        # Detects stuck units during movement
@@ -137,6 +140,9 @@ const AUTO_CHASE_MIN_DISTANCE: float = 128.0
 
 
 func _ready() -> void:
+	# A direct removal while paused must release peers without a movement scan.
+	if not tree_exiting.is_connected(detach_attack_march):
+		tree_exiting.connect(detach_attack_march)
 	_setup_collision()
 	_load_stats_from_data()
 	_setup_sprite()
@@ -318,6 +324,7 @@ func set_state(new_state: int) -> void:
 	# discard it even when the state itself does not change.
 	if new_state != State.MOVING:
 		_force_move_active = false
+		detach_attack_march()
 	if current_state == new_state:
 		return
 	current_state = new_state
@@ -464,7 +471,11 @@ func _request_navigation_path(
 	arrival_radius: float,
 	dynamic_target: bool
 ) -> bool:
+	# The token was admitted against the original accepted route. A fresh
+	# path may go around a different obstruction, so stop sharing transit speed.
+	_detach_active_attack_march()
 	if not game_map.has_method("get_navigation_world_path"):
+		_cancel_pending_attack_march()
 		return false
 	var route: PackedVector2Array = game_map.call(
 		"get_navigation_world_path",
@@ -475,10 +486,14 @@ func _request_navigation_path(
 	_navigation_target_snapshot = target_position
 	_navigation_repath_cooldown = NAVIGATION_DYNAMIC_REPATH_INTERVAL if dynamic_target else NAVIGATION_REPATH_INTERVAL
 	if route.is_empty():
+		_cancel_pending_attack_march()
 		_navigation_failed_repaths += 1
 		return false
 	path = route
 	path_index = 0
+	if _pending_attack_march != null:
+		var pending: RefCounted = _pending_attack_march
+		pending.call("accept_route", self)
 	return true
 
 
@@ -548,7 +563,7 @@ func _move_in_direction(direction: Vector2, delta: float, game_map: Node2D) -> v
 	if (intermediate_waypoint or direction.length() > 10.0) and _separation_vector.length() > 0.0:
 		move_dir = (desired_dir + _separation_vector).normalized()
 	var separation_drag: float = clampf(_separation_vector.length() * 0.16, 0.0, 0.18)
-	var step_distance: float = minf(speed * (1.0 - separation_drag) * delta, direction.length())
+	var step_distance: float = minf(get_movement_speed() * (1.0 - separation_drag) * delta, direction.length())
 	var proposed_position: Vector2 = global_position + move_dir * step_distance
 	# Passing must keep the next route point reachable as well. Otherwise a
 	# later sideways step can tuck behind a solid corner after a safe shortcut.
@@ -608,7 +623,83 @@ func _on_navigation_unreachable(target_position: Vector2) -> void:
 ## Subclasses use this to invalidate task-specific callbacks whenever a fresh
 ## player/AI command supersedes the old intent.
 func _before_new_command() -> void:
-	pass
+	_command_generation += 1
+	detach_attack_march()
+
+
+func set_attack_march(march: RefCounted) -> void:
+	_attack_march = march
+
+
+func get_attack_march() -> RefCounted:
+	return _attack_march
+
+
+func is_attack_marching() -> bool:
+	# Replicas have no local cohort. Only the recipient's validated boolean
+	# can describe their own march; base speed remains the ordinary unit stat.
+	if not is_inside_tree() or is_queued_for_deletion() or hp <= 0.0 or current_state != State.MOVING or not attack_move or damage <= 0.0 or unit_type in [UnitData.UnitType.VILLAGER, UnitData.UnitType.SCOUT]:
+		return false
+	if NetworkSession.is_client():
+		return player_owner == 0 and get_meta("network_attack_march", false) == true
+	return _attack_march != null and bool(_attack_march.call("is_active_member", self))
+
+
+func detach_attack_march() -> void:
+	_cancel_pending_attack_march()
+	_detach_active_attack_march()
+
+
+func _detach_active_attack_march() -> void:
+	if _attack_march != null:
+		_attack_march.call("detach", self)
+		_attack_march = null
+
+
+func _release_attack_march_for_combat() -> void:
+	_cancel_pending_attack_march()
+	if _attack_march != null:
+		_attack_march.call("release")
+		_attack_march = null
+
+
+func set_pending_attack_march(pending: RefCounted) -> void:
+	_cancel_pending_attack_march()
+	_pending_attack_march = pending
+
+
+func get_pending_attack_march() -> RefCounted:
+	return _pending_attack_march
+
+
+func get_command_generation() -> int:
+	return _command_generation
+
+
+func clear_pending_attack_march(pending: RefCounted) -> void:
+	if _pending_attack_march == pending:
+		_pending_attack_march = null
+
+
+func _cancel_pending_attack_march() -> void:
+	if _pending_attack_march != null:
+		var pending: RefCounted = _pending_attack_march
+		_pending_attack_march = null
+		pending.call("cancel")
+
+
+func get_movement_speed() -> float:
+	# The public base stat, animation, combat spacing, forced Move and pursuit
+	# keep their native speed. Only this one attack march has a transit cap.
+	if _pending_attack_march != null:
+		var pending: RefCounted = _pending_attack_march
+		pending.call("expire_if_needed")
+	if _attack_march != null and current_state == State.MOVING and attack_move:
+		var cap: float = float(_attack_march.call("get_speed_cap", self))
+		if cap > 0.0:
+			return minf(speed, cap)
+		_attack_march = null
+	return speed
 
 
 func _process_attacking(delta: float) -> void:
@@ -1087,6 +1178,8 @@ func command_attack(target: UnitBase, force_chase: bool = true, clear_patrol: bo
 		return
 	if not _is_valid_target(target):
 		return
+	if target.player_owner != player_owner:
+		_release_attack_march_for_combat()
 	var same_target: bool = current_state == State.ATTACKING and attack_target == target
 	if current_state != State.ATTACKING or _forced_attack or force_chase:
 		_auto_engagement_origin = global_position
@@ -1116,6 +1209,8 @@ func command_attack_building(target: BuildingBase, force_chase: bool = true, cle
 		return
 	if not _is_valid_building_target(target):
 		return
+	if target.player_owner != player_owner:
+		_release_attack_march_for_combat()
 	var same_target: bool = current_state == State.ATTACKING and attack_building_target == target
 	if current_state != State.ATTACKING or _forced_attack or force_chase:
 		_auto_engagement_origin = global_position
@@ -1326,6 +1421,7 @@ func take_damage(amount: float) -> void:
 	hp = maxf(0.0, hp - actual_damage)
 	health_changed.emit(self, hp, max_hp)
 	if hp < previous_hp:
+		_release_attack_march_for_combat()
 		damage_received.emit(self, previous_hp - hp)
 		_health_feedback_remaining = 2.0
 	_flash_damage()
