@@ -38,6 +38,27 @@ class FakeGameMap extends Node2D:
 			visible_tiles.erase(tile_pos)
 
 
+class FallbackMap extends Node2D:
+	var hidden_tile := Vector2i(-1, -1)
+	var walkability_queries: Array[Vector2i] = []
+
+	func is_tile_visible_to_player(tile_pos: Vector2i, _owner: int = 0) -> bool:
+		return tile_pos != hidden_tile
+
+	func is_tile_walkable(tile_pos: Vector2i) -> bool:
+		walkability_queries.append(tile_pos)
+		return true
+
+
+class PlacementProbe extends BuildingPlacement:
+	var occupancy_queries: Array[Vector2i] = []
+	var occupied_tiles: Dictionary = {}
+
+	func _has_building_at_tile(tile_pos: Vector2i) -> bool:
+		occupancy_queries.append(tile_pos)
+		return occupied_tiles.has(tile_pos)
+
+
 func _ready() -> void:
 	call_deferred("_run")
 
@@ -57,13 +78,15 @@ func _run() -> void:
 	placement.start_placement(BuildingData.BuildingType.HOUSE, 0)
 	placement.ghost_position = world_pos
 
-	# An unseen footprint containing a hidden blocker must fail generically, and
+	# An unseen footprint explains the visibility requirement, and
 	# the hidden tile must never be queried for terrain/occupancy information.
 	world.blocked_tiles[TEST_ORIGIN + Vector2i(1, 1)] = true
 	var preview_valid: bool = bool(placement.call("_check_validity"))
 	_expect(not preview_valid, "unseen footprint was accepted by the preview")
-	_expect_eq(placement.get_invalid_reason(), BuildingPlacement.GENERIC_INVALID_REASON, "unseen preview leaked a specific invalid reason")
+	_expect_eq(placement.get_invalid_reason(), BuildingPlacement.FOG_INVALID_REASON, "unseen preview leaked a specific invalid reason")
 	_expect(world.walkability_queries.is_empty(), "unseen preview queried hidden walkability")
+
+	_check_range_fog_feedback()
 
 	# Once visible, ordinary legal terrain is accepted. A visible blocker may use
 	# detailed feedback because it is no longer hidden information.
@@ -97,7 +120,7 @@ func _run() -> void:
 	_expect(placement.active, "stale preview rejection closed placement instead of allowing retry")
 	_expect_eq(_resource_wood, 200, "stale preview rejection spent resources")
 	_expect_eq(_spawn_count, 0, "stale preview rejection spawned a building")
-	_expect_eq(placement.get_invalid_reason(), BuildingPlacement.GENERIC_INVALID_REASON, "stale preview rejection leaked hidden state")
+	_expect_eq(placement.get_invalid_reason(), BuildingPlacement.FOG_INVALID_REASON, "stale preview rejection leaked hidden state")
 	_expect(world.walkability_queries.is_empty(), "stale preview rejection queried hidden walkability")
 	world.non_buildable_tiles.clear()
 
@@ -113,7 +136,7 @@ func _run() -> void:
 	_expect_eq(_transaction_rejections, 1, "confirm-time fog race was not rejected")
 	_expect_eq(_resource_wood, 200, "confirm-time fog race spent resources")
 	_expect_eq(_spawn_count, 0, "confirm-time fog race spawned a building")
-	_expect_eq(_last_transaction_invalid_reason, BuildingPlacement.GENERIC_INVALID_REASON, "transaction guard leaked hidden state")
+	_expect_eq(_last_transaction_invalid_reason, BuildingPlacement.FOG_INVALID_REASON, "transaction guard leaked hidden state")
 
 	# The same two-stage path must still allow a fully visible legal footprint.
 	_set_footprint_visibility(world, TEST_ORIGIN, true)
@@ -130,12 +153,95 @@ func _run() -> void:
 	placement.free()
 	world.free()
 	if _failures.is_empty():
-		print("[PASS] building_placement_fog: unseen footprints are generic; preview and transaction races are blocked")
+		print("[PASS] building_placement_fog: full-footprint sight feedback, no hidden queries/uniform cells, generic missing API; preview and transaction races are blocked")
 		get_tree().quit(0)
 		return
 	for failure in _failures:
 		push_error("[FAIL] building_placement_fog: %s" % failure)
 	get_tree().quit(1)
+
+
+func _check_range_fog_feedback() -> void:
+	var world := FakeGameMap.new()
+	add_child(world)
+	var placement := PlacementProbe.new()
+	world.add_child(placement)
+	var footprint := Vector2i(3, 3)
+	var expected_cells: Array[Vector2i] = []
+	for dx: int in footprint.x:
+		for dy: int in footprint.y:
+			var tile := TEST_ORIGIN + Vector2i(dx, dy)
+			expected_cells.append(tile)
+			world.set_tile_visible(tile, true)
+	var hidden := TEST_ORIGIN + Vector2i(2, 2)
+	world.set_tile_visible(hidden, false)
+	placement.start_placement(BuildingData.BuildingType.ARCHERY_RANGE, 0)
+	placement.ghost_position = _tile_to_world(TEST_ORIGIN)
+	# Known visibility may be explained; the hidden terrain, resources and
+	# occupancy must not change either text or the all-invalid footprint.
+	for hidden_state: int in 4:
+		world.blocked_tiles.clear()
+		world.non_buildable_tiles.clear()
+		placement.occupied_tiles.clear()
+		if hidden_state == 1:
+			world.blocked_tiles[hidden] = true
+		elif hidden_state == 2:
+			world.non_buildable_tiles[hidden] = true
+		elif hidden_state == 3:
+			placement.occupied_tiles[hidden] = true
+		world.walkability_queries.clear()
+		placement.occupancy_queries.clear()
+		_expect(not bool(placement.call("_check_validity")), "partially unseen Range accepted state%d" % hidden_state)
+		_expect_eq(placement.get_invalid_reason(), "Move all tiles into sight", "Range lacks actionable full-visibility feedback")
+		_expect_eq(placement.get("_invalid_tiles"), expected_cells, "hidden state changed uniform invalid Range cells")
+		_expect(world.walkability_queries.is_empty(), "partial Range queried terrain under fog")
+		_expect(placement.occupancy_queries.is_empty(), "partial Range queried occupancy under fog")
+	world.blocked_tiles.clear()
+	world.non_buildable_tiles.clear()
+	placement.occupied_tiles.clear()
+	world.set_tile_visible(hidden, true)
+	world.walkability_queries.clear()
+	placement.occupancy_queries.clear()
+	_expect(bool(placement.call("_check_validity")), "revealed clear Range did not become legal")
+	_expect_eq(world.walkability_queries.size(), 9, "revealed Range did not validate all terrain cells")
+	_expect(placement.occupancy_queries.is_empty(), "canonical buildability unexpectedly used occupancy fallback")
+	placement.free()
+	world.free()
+	# A map without the canonical buildable API uses the actual occupancy
+	# fallback. Prove that visibility blocks those reads too, then reveal the
+	# same actor so the witness cannot pass because that branch was unreachable.
+	var fallback_world := FallbackMap.new()
+	add_child(fallback_world)
+	var fallback := PlacementProbe.new()
+	fallback_world.add_child(fallback)
+	fallback_world.hidden_tile = hidden
+	fallback.start_placement(BuildingData.BuildingType.ARCHERY_RANGE, 0)
+	fallback.ghost_position = _tile_to_world(TEST_ORIGIN)
+	fallback.occupied_tiles[hidden] = true
+	fallback_world.walkability_queries.clear()
+	fallback.occupancy_queries.clear()
+	_expect(not bool(fallback.call("_check_validity")), "hidden fallback occupancy accepted Range")
+	_expect_eq(fallback.get_invalid_reason(), "Move all tiles into sight", "fallback exposed hidden occupancy reason")
+	_expect_eq(fallback.get("_invalid_tiles"), expected_cells, "fallback exposed hidden occupancy cell")
+	_expect(fallback_world.walkability_queries.is_empty() and fallback.occupancy_queries.is_empty(), "fallback queried hidden terrain/occupancy")
+	fallback_world.hidden_tile = Vector2i(-1, -1)
+	_expect(not bool(fallback.call("_check_validity")), "revealed occupied fallback Range accepted")
+	_expect_eq(fallback.get_invalid_reason(), "Overlaps building", "revealed fallback did not reach real occupancy branch")
+	_expect_eq(fallback.occupancy_queries.size(), 9, "revealed fallback did not query whole Range")
+	fallback.free()
+	fallback_world.free()
+	# Missing visibility support is not evidence that a player can fix fog.
+	var unavailable := Node2D.new()
+	add_child(unavailable)
+	var unknown := PlacementProbe.new()
+	unavailable.add_child(unknown)
+	unknown.start_placement(BuildingData.BuildingType.ARCHERY_RANGE, 0)
+	unknown.ghost_position = _tile_to_world(TEST_ORIGIN)
+	_expect(not bool(unknown.call("_check_validity")), "missing visibility API accepted Range")
+	_expect_eq(unknown.get_invalid_reason(), BuildingPlacement.GENERIC_INVALID_REASON, "missing API misreported known fog")
+	_expect(unknown.occupancy_queries.is_empty(), "missing visibility API queried occupancy")
+	unknown.free()
+	unavailable.free()
 
 
 func _on_confirmation_requested(

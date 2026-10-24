@@ -38,6 +38,7 @@ var _grid_tile_bounds: Rect2i = Rect2i()
 var _grid_cache_valid: bool = false
 
 const GENERIC_INVALID_REASON := "Invalid placement"
+const FOG_INVALID_REASON := "Move all tiles into sight"
 const PLACEMENT_GRID_COLOR := Color(0.90, 0.92, 0.83, 0.18)
 const PLACEMENT_GRID_WIDTH_PX := 0.9
 
@@ -529,7 +530,7 @@ func _check_footprint_validity(
 
 	# Bounds and visibility are checked in separate passes before terrain or
 	# occupancy. If any part of the footprint is outside current vision, return a
-	# single generic result and never query hidden walkability/buildings. This
+	# single visibility-only result and never query hidden walkability/buildings. This
 	# prevents the preview or feedback text from becoming an information oracle.
 	for dx in footprint.x:
 		for dy in footprint.y:
@@ -558,7 +559,7 @@ func _check_footprint_validity(
 				if not bool(game_map.call("is_tile_visible_to_player", check_tile, player_owner)):
 					has_hidden_tile = true
 		if has_hidden_tile:
-			_invalid_reason = GENERIC_INVALID_REASON
+			_invalid_reason = FOG_INVALID_REASON
 			for dx in footprint.x:
 				for dy in footprint.y:
 					_invalid_tiles.append(tile_origin + Vector2i(dx, dy))

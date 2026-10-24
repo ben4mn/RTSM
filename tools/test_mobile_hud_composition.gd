@@ -196,6 +196,18 @@ func _exercise_profile(phone: Vector2i, ui_scale: float, notched: bool) -> void:
 	_expect(not place.disabled, profile + " valid preview cannot be placed")
 	hud.call("update_placement_preview", false, "Blocked ground")
 	_expect(place.disabled, profile + " blocked preview leaves Place enabled")
+	# Long building names plus the observed-fog explanation remain readable
+	# within the existing status lane; this does not widen field chrome.
+	for building_name: String in ["Archery Range", "Siege Workshop", "Town Center"]:
+		hud.call("set_placement_mode", true, building_name)
+		hud.call("update_placement_preview", false, BuildingPlacement.FOG_INVALID_REASON)
+		await _settle(hud, logical, safe)
+		var status: Label = hud.get("_placement_status_label")
+		_expect(status.text == building_name + " · Move all tiles into sight", profile + " fog explanation missing")
+		_label_fits(status, profile + " full-footprint sight")
+		_expect(safe.encloses((hud.get("_placement_status_panel") as Control).get_global_rect()), profile + " sight status leaves safe area")
+		_expect(place.disabled, profile + " fog explanation enables Place")
+		_target(place, safe, profile)
 	hud.call("set_placement_mode", false)
 	await _settle(hud, logical, safe)
 	_expect(dock.visible and selection.visible and minimap.visible, profile + " placement does not restore context")

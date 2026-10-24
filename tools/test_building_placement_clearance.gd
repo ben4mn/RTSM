@@ -208,11 +208,11 @@ func _check_hidden_footprint(origin: Vector2i) -> void:
 	_map.fog_of_war.fog_grid[hidden.y][hidden.x] = MapData.FogState.EXPLORED
 	_expect(not _preview(origin), "one stale-vision square invalidates the whole footprint")
 	var hidden_cells: Array = (_placement.get("_invalid_tiles") as Array).duplicate()
-	_expect(_placement.get_invalid_reason() == BuildingPlacement.GENERIC_INVALID_REASON and hidden_cells.size() == 4, "hidden footprint hides the specific clearance cell and reason")
+	_expect(_placement.get_invalid_reason() == BuildingPlacement.FOG_INVALID_REASON and hidden_cells.size() == 4, "hidden footprint hides the specific clearance cell and reason")
 	_map.map_generator.grid[hidden.y][hidden.x] = MapData.TileType.WATER
 	_map.pathfinding.update_tile(hidden, MapData.TileType.WATER)
 	_expect(not _preview(origin), "hidden terrain change remains invalid")
-	_expect(_placement.get_invalid_reason() == BuildingPlacement.GENERIC_INVALID_REASON and _same_cells(_placement.get("_invalid_tiles"), hidden_cells), "hidden blocker changes neither feedback nor per-cell disclosure")
+	_expect(_placement.get_invalid_reason() == BuildingPlacement.FOG_INVALID_REASON and _same_cells(_placement.get("_invalid_tiles"), hidden_cells), "hidden blocker changes neither feedback nor per-cell disclosure")
 	_map.map_generator.grid[hidden.y][hidden.x] = MapData.TileType.GRASS
 	_map.pathfinding.update_tile(hidden, MapData.TileType.GRASS)
 	_map.fog_of_war.fog_grid[hidden.y][hidden.x] = MapData.FogState.VISIBLE
