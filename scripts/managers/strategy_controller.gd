@@ -2,6 +2,7 @@ extends Node
 ## Bridges the selection-independent overview to existing paid, fog-legal orders.
 
 const ECONOMY_ASSESSMENT = preload("res://scripts/managers/economy_assessment.gd")
+const BATTLE_RECEIPTS = preload("res://scripts/main/battle_receipts.gd")
 
 var _main: Node
 var _hud: CanvasLayer
@@ -164,7 +165,11 @@ func _refresh() -> void:
 	var farm_blocker: String = "Needs a free worker; builders and recovering workers keep their orders." if available_builders == 0 else ("Need %d more wood to build a Farm." % int(farm_missing.get("wood", 0)) if not farm_missing.is_empty() else "Builder starts farming when finished. One worker per Farm.")
 	var barracks_missing: Dictionary = ResourceManager.get_missing_resources(0, BuildingData.get_building_cost(BuildingData.BuildingType.BARRACKS))
 	var barracks_blocker: String = "Needs a free worker. Builders and recovering workers keep their orders." if available_builders == 0 else ("Need %d more wood to build a Barracks." % int(barracks_missing.get("wood", 0)) if not barracks_missing.is_empty() else "Choose a location, then confirm to pay. Train Warriors when construction finishes.")
-	_overview.update_snapshot({"workers": workers, "military": military, "fighters": fighters, "producers": producers, "population_text": population_text, "groups": groups, "group_has_buildings": group_has_buildings, "selection_count": selection_count, "selected_military": selected_military, "economy": economy, "economy_facts": economy_facts, "food_attention_ready": _update_food_attention(own_workers.size(), int(workers.food), int(workers.recovering)), "food_low_attention_ready": _update_food_low_attention(economy, int(workers.recovering)), "can_plan_farm": available_builders > 0 and farm_missing.is_empty(), "farm_blocker": farm_blocker, "can_plan_barracks": available_builders > 0 and barracks_missing.is_empty(), "barracks_blocker": barracks_blocker})
+	# This history contains only locally witnessed lethal hits, or the server's
+	# private recipient summary. It never asks the map for current enemy units.
+	var receipts: RefCounted = _main.get("_battle_receipts")
+	var battle_lesson: Dictionary = BATTLE_RECEIPTS.get_counter_lesson(receipts.call("get_summary", 0), GameManager.get_player_civilization(0), GameManager.get_player_civilization(1)) if receipts != null else {}
+	_overview.update_snapshot({"workers": workers, "military": military, "fighters": fighters, "producers": producers, "population_text": population_text, "groups": groups, "group_has_buildings": group_has_buildings, "selection_count": selection_count, "selected_military": selected_military, "economy": economy, "economy_facts": economy_facts, "battle_lesson": battle_lesson, "food_attention_ready": _update_food_attention(own_workers.size(), int(workers.food), int(workers.recovering)), "food_low_attention_ready": _update_food_low_attention(economy, int(workers.recovering)), "can_plan_farm": available_builders > 0 and farm_missing.is_empty(), "farm_blocker": farm_blocker, "can_plan_barracks": available_builders > 0 and barracks_missing.is_empty(), "barracks_blocker": barracks_blocker})
 
 
 func _update_food_attention(workers: int, food_workers: int, recovering: int) -> bool:

@@ -86,6 +86,9 @@ static func get_counter_lesson(summary: Dictionary, own_civilization: int, enemy
 		"text": "Enemy %s landed final blows on %d of your %s. Add %s to counter them; regroup before your next fight." % [
 			_plural_unit_name(int(strongest[1]), enemy_civilization), int(strongest[2]),
 			_plural_unit_name(int(strongest[0]), own_civilization), _plural_unit_name(recommended, own_civilization)],
+		"field_text": "Enemy %s finished %d %s. Add %s." % [
+			_plural_unit_name(int(strongest[1]), enemy_civilization), int(strongest[2]),
+			_plural_unit_name(int(strongest[0]), own_civilization), _plural_unit_name(recommended, own_civilization)],
 	}
 
 

@@ -38,6 +38,7 @@ func _test_bounded_receipts() -> void:
 	var lesson: Dictionary = RECEIPTS.get_counter_lesson(receipts.get_summary(0), 1, 2)
 	_expect(lesson.count == 3 and lesson.unit_type == UnitData.UnitType.INFANTRY, "Three observed counter kills recommend a matching counter")
 	_expect("Outriders landed final blows on 3 of your Longbows" in lesson.text and "Add Warriors" in lesson.text, "Public civilizations name victim, attacker and recommendation accurately")
+	_expect(lesson.field_text == "Enemy Outriders finished 3 Longbows. Add Warriors.", "Field note summarizes the same observed final blows without claiming current enemy composition")
 	_expect(RECEIPTS.get_counter_lesson(receipts.get_summary(1), 2, 1).is_empty(), "A single observed kill does not imply a repeated tactical pattern")
 	var incoming: String = JSON.stringify(receipts.get_summary(0))
 	var client: RefCounted = RECEIPTS.new()
@@ -121,6 +122,10 @@ func _test_actual_combat_and_private_snapshots() -> void:
 	var second: Dictionary = adapter.call("_snapshot_for", 1)
 	_expect(first.battle.losses_by_matchup == [[2, 3, 3]], "Server slot zero snapshot carries its observed losses")
 	_expect(second.battle.losses_by_matchup == [[3, 1, 3]], "Server slot one cannot read slot zero battle history")
+	main.get_node("StrategyController").call("_refresh")
+	var field: StrategyOverview = main.get_node("HUD").get("_strategy_overview")
+	_expect(field.get("_first_army_note_body").text == "Enemy Outriders finished 3 Longbows. Add Warriors.", "Actual lethal-hit history reaches the live local Army note")
+	_expect(not field.panel.visible, "A live lesson does not open an unsolicited management sheet")
 	main.call("_conclude_match", 1, "Sacred Site held for 6:00")
 	var summary: Dictionary = main.get("match_summary_diagnostics")
 	_expect(summary.battle == first.battle and summary.player_civilization == 1 and summary.opponent_civilization == 2, "Result retains observed receipts and latched public kingdom names")
@@ -148,8 +153,11 @@ func _test_guest_terminal_snapshot(server_snapshot: Dictionary) -> void:
 	packet["op"] = "snapshot"
 	packet["match"] = 91
 	session.call("_client_packet", packet)
-	session.call("_client_packet", {"op": "ended", "winner": 0, "reason": "Surrender"})
 	var client_main: Node = session.adapter.main
+	client_main.get_node("StrategyController").call("_refresh")
+	var field: StrategyOverview = client_main.get_node("HUD").get("_strategy_overview")
+	_expect(field.get("_first_army_note_body").text == "Enemy Warriors finished 3 Outriders. Add Archers.", "Guest live note uses only the remapped recipient history and kingdom names")
+	session.call("_client_packet", {"op": "ended", "winner": 0, "reason": "Surrender"})
 	var result: Dictionary = client_main.match_summary_diagnostics
 	_expect(result.battle.losses_by_matchup == [[3, 1, 3]], "Guest terminal result contains only its own authority battle receipt")
 	_expect(result.player_civilization == 2 and result.opponent_civilization == 1, "Guest terminal names follow public slot remapping")

@@ -36,6 +36,9 @@ var _scroll: ScrollContainer
 var _economy: VBoxContainer
 var _army: VBoxContainer
 var _army_notes: VBoxContainer
+var _first_army_note_icon: TextureRect
+var _first_army_note_title: Label
+var _first_army_note_body: Label
 var _summary: Label
 var _economy_health: Label
 var _food_stock: Label
@@ -352,6 +355,10 @@ func _build_army_notes() -> void:
 		var body: Label = _label(note.body, 13)
 		body.add_theme_color_override("font_color", KingdomTheme.MUTED)
 		copy.add_child(body)
+		if _first_army_note_body == null:
+			_first_army_note_icon = icon
+			_first_army_note_title = heading
+			_first_army_note_body = body
 
 
 func _choose_source(resource: String) -> void:
@@ -361,6 +368,11 @@ func _choose_source(resource: String) -> void:
 
 func update_snapshot(snapshot: Dictionary) -> void:
 	_snapshot = snapshot
+	var battle_lesson: Dictionary = snapshot.get("battle_lesson", {})
+	var field_text: String = str(battle_lesson.get("field_text", ""))
+	_first_army_note_icon.texture = CommandIcons.get_icon("army" if not field_text.is_empty() else "move")
+	_first_army_note_title.text = "01  Learn from losses" if not field_text.is_empty() else "01  Assemble"
+	_first_army_note_body.text = field_text if not field_text.is_empty() else "Tap ground to assemble. Let Warriors catch up with cavalry."
 	var workers: Dictionary = snapshot.get("workers", {})
 	var warnings: PackedStringArray = []
 	for resource: String in RESOURCES:
@@ -698,6 +710,8 @@ func _refresh_pages() -> void:
 	_info_button.visible = (economy_open or army_open) and not empty_recruit
 	_info_button.set_pressed_no_signal(_details_page)
 	var info_description: String = "Army field notes: assemble, attack-move and withdraw" if army_open and not recruiting else "Show current worker or producer details"
+	if army_open and not recruiting and not (_snapshot.get("battle_lesson", {}) as Dictionary).is_empty():
+		info_description = "Army field notes: observed losses, counters, attack-move and withdraw"
 	CommandIcons.apply(_info_button, "back" if _details_page else "info", "Back to actions" if _details_page else info_description)
 	if army_open:
 		_title.text = "Army field notes" if _details_page else "Army & groups"

@@ -13,27 +13,30 @@ func _run() -> void:
 		for interface_scale: float in [1.0, 1.075, 1.15]:
 			for notched: bool in [false, true]:
 				await _notes_journey(phone, interface_scale, notched)
+	await _notes_journey(Vector2i(550, 338), 1.0, false, Vector2i(550, 338))
 	var folder: String = OS.get_environment("AOEM_CAPTURE_UX_DIR")
 	if not folder.is_empty():
 		DirAccess.make_dir_recursive_absolute(folder)
-		FileAccess.open(folder.path_join("army-field-notes.json"), FileAccess.WRITE).store_string(JSON.stringify({"scope": "Twelve native phone/scale profiles; synthetic notches supplied only in six inset cases. Actual engine ScreenTouch events. Economy and AI held, existing starting worker selected. No paid-match or physical-phone claim.", "profiles": _receipts, "failures": _failures}, "  "))
+		FileAccess.open(folder.path_join("army-field-notes.json"), FileAccess.WRITE).store_string(JSON.stringify({"scope": "Twelve native phone/scale profiles plus one 550x338 logical stress case; synthetic notches supplied only in six inset cases. Actual engine ScreenTouch events. Economy and AI held, existing starting worker selected. Synthetic observed-loss records exercise typography. No paid-match or physical-phone claim.", "profiles": _receipts, "failures": _failures}, "  "))
 	for failure: String in _failures:
 		push_error("[FAIL] army_field_notes: " + failure)
 	if _failures.is_empty():
-		print("[PASS] army_field_notes: 12 touch profiles; notes/back/close/switch preserve selection, orders and banks; three readable tactics fit without scrolling; guide/raid priorities remain intact")
+		print("[PASS] army_field_notes: 12 touch profiles plus logical stress; live observed notes/back/close/switch preserve selection, orders and banks; three readable tactics fit without scrolling; guide/raid priorities remain intact")
 	get_tree().quit(0 if _failures.is_empty() else 1)
 
 
-func _notes_journey(phone: Vector2i, interface_scale: float, notched: bool) -> void:
+func _notes_journey(phone: Vector2i, interface_scale: float, notched: bool, logical_size: Vector2i = Vector2i(844, 390)) -> void:
 	_profile = "%dx%d-scale%.3f-%s" % [phone.x, phone.y, interface_scale, "notch" if notched else "plain"]
 	_synthetic_notch = notched
 	_hud = null
 	get_window().size = phone
-	get_window().content_scale_size = Vector2i(844, 390)
+	get_window().content_scale_size = logical_size
 	GameManager.ui_scale = interface_scale
 	get_window().content_scale_factor = interface_scale
 	GameManager.selected_map_seed = 101
 	GameManager.selected_population_limit = 30
+	GameManager.selected_civilization = CivilizationData.Civilization.VERDANT_LEAGUE
+	GameManager.selected_opponent_civilization = CivilizationData.Civilization.SUNSTRIDE_CLANS
 	GameManager.guided_opening_enabled = true
 	await _frames(3)
 	_main = load("res://scenes/main/main.tscn").instantiate()
@@ -85,13 +88,45 @@ func _notes_journey(phone: Vector2i, interface_scale: float, notched: bool) -> v
 			text.append(label.text)
 			_expect(label.get_visible_line_count() == label.get_line_count() and label.size.y + 1.0 >= label.get_line_count() * label.get_line_height(), "tactic clipped: " + label.text)
 			_expect(scroll.get_global_rect().grow(1).encloses(label.get_global_rect()), "tactic outside visible sheet: " + label.text)
-	_expect(text.size() == 6 and text[1].contains("Warriors catch up with Horsemen"), "staging advice lost its concrete mixed-speed tradeoff")
+	_expect(text.size() == 6 and text[1].contains("Warriors catch up with cavalry"), "staging advice lost its concrete mixed-speed tradeoff")
 	var bounds: Rect2 = overview.panel.get_global_rect()
 	for index: int in range(4):
 		_main.get_node("StrategyController").call("_refresh")
 		await _frames(2)
 		_expect(notes.is_visible_in_tree() and overview.panel.get_global_rect().is_equal_approx(bounds), "snapshot moved or dismissed notes")
 	await _capture("army-field-notes")
+	var receipts: RefCounted = _main.get("_battle_receipts")
+	for _i in 2:
+		receipts.record_loss(0, UnitData.UnitType.ARCHER, UnitData.UnitType.CAVALRY, true)
+	receipts.record_loss(0, UnitData.UnitType.ARCHER, UnitData.UnitType.CAVALRY, false)
+	for _i in 5:
+		receipts.record_loss(1, UnitData.UnitType.CAVALRY, UnitData.UnitType.INFANTRY, true)
+	_main.get_node("StrategyController").call("_refresh")
+	await _frames(3)
+	_expect(overview.get("_first_army_note_body").text == text[1], "Hidden or opposing losses manufactured a local lesson below threshold")
+	receipts.record_loss(0, UnitData.UnitType.ARCHER, UnitData.UnitType.CAVALRY, true)
+	_main.get_node("StrategyController").call("_refresh")
+	await _frames(4)
+	_expect(overview.get("_first_army_note_title").text == "01  Learn from losses" and overview.get("_first_army_note_body").text == "Enemy Outriders finished 3 Longbows. Add Warriors.", "Live observed lesson did not use latched local and opposing kingdom names")
+	_expect(notes.is_visible_in_tree() and overview.panel.get_global_rect().position.is_equal_approx(bounds.position), "Live lesson changed the active page or header position")
+	# Maximum accepted count exercises the longest numeric copy without combat
+	# simulation; this remains an isolated typography/interaction fixture.
+	receipts.apply_local_summary({"losses_by_matchup": [[2, 3, 9999]]})
+	_main.get_node("StrategyController").call("_refresh")
+	await _frames(4)
+	_expect(safe.encloses(overview.panel.get_global_rect()) and not overview.panel.get_global_rect().intersects(overview.rail.get_global_rect()), "Maximum observed lesson escapes the safe area or covers launchers")
+	var lesson_text: PackedStringArray = []
+	for row: Node in notes.get_children():
+		for label: Label in row.get_child(1).get_children():
+			lesson_text.append(label.text)
+			_expect(label.get_visible_line_count() == label.get_line_count() and label.size.y + 1.0 >= label.get_line_count() * label.get_line_height(), "Observed lesson clipped: " + label.text)
+			_expect(scroll.get_global_rect().grow(1).encloses(label.get_global_rect()), "Observed lesson outside visible sheet: " + label.text)
+	_expect(lesson_text[2] == text[2] and lesson_text[3] == text[3] and lesson_text[4] == text[4] and lesson_text[5] == text[5], "Observed lesson displaced attack or retreat advice")
+	await _capture("army-observed-counter-note")
+	receipts.apply_local_summary({})
+	_main.get_node("StrategyController").call("_refresh")
+	await _frames(4)
+	_expect(overview.get("_first_army_note_title").text == text[0] and overview.get("_first_army_note_body").text == text[1], "Empty replacement retained a stale lesson instead of assembly advice")
 	var feedback: Control = _main.get("_battlefield_feedback")
 	feedback.call("report_attack", "Villager", worker.global_position)
 	feedback.call("report_attack", "Town Center", worker.global_position + Vector2(800, 0))
@@ -111,7 +146,7 @@ func _notes_journey(phone: Vector2i, interface_scale: float, notched: bool) -> v
 	_expect(_selection.selected == selected and _orders == 0, "notes changed selection or issued a world order")
 	for resource: String in banks:
 		_expect(ResourceManager.get_resource(0, resource) == banks[resource], "notes changed the paid bank")
-	_receipts.append({"profile": _profile, "panel": str(bounds), "texts": text, "orders": _orders})
+	_receipts.append({"profile": _profile, "panel": str(bounds), "texts": text, "observed_lesson_texts": lesson_text, "orders": _orders})
 	_main.free()
 	_main = null
 	_hud = null

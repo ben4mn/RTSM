@@ -239,7 +239,7 @@ func _get_mobile_short_side_scale(viewport_size: Vector2) -> float:
 	return clampf(ratio, MOBILE_SHORT_SIDE_MIN_SCALE, MOBILE_SHORT_SIDE_MAX_SCALE)
 
 
-func _apply_camera_profile(viewport_size: Vector2, preserve_zoom_if_user_override: bool) -> void:
+func _apply_camera_profile(viewport_size: Vector2, preserve_existing_zoom: bool) -> void:
 	_zoom_transition_active = false
 	_mobile_profile_active = _is_mobile_camera_profile(viewport_size)
 	if _mobile_profile_active:
@@ -251,7 +251,10 @@ func _apply_camera_profile(viewport_size: Vector2, preserve_zoom_if_user_overrid
 		_camera_zoom_min = DESKTOP_ZOOM_MIN
 		_camera_zoom_max = DESKTOP_ZOOM_MAX
 		camera.position_smoothing_enabled = true
-	var desired_zoom: float = camera.zoom.x if preserve_zoom_if_user_override and _user_zoom_override else _get_default_zoom()
+	# A resize must retain the opening's fitted view as well as deliberate zoom.
+	# Explicit profile application still chooses the configured default; neither
+	# path changes whether the player has chosen their own zoom.
+	var desired_zoom: float = camera.zoom.x if preserve_existing_zoom else _get_default_zoom()
 	_set_zoom_anchored(desired_zoom, NO_ZOOM_ANCHOR, NO_ZOOM_ANCHOR, false)
 
 
