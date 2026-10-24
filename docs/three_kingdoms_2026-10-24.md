@@ -146,3 +146,26 @@ The combined source passes21 unique focused cases, including42 rule/AI checks,12
 Paid932x430 play on the isolated garrison preview confirmed Scout-only3:00 paused, fighter entry starting the clock, both fighters leaving at2:52, a12-second stable pause, and return resuming2:51→2:45. The Easy Crownlands/Plains101 match ended6:01 with14/11 troops produced and180/0 Sacred seconds. A Verdant/Sunstride Medium Woodland101 match ended7:58,24/24 troops produced,23/11 units lost,3760/5130 gathered and63/180 Sacred seconds. Its counter lesson identified seven Warriors finished by enemy Archers. Both returned through Main Menu with no captured browser warnings/errors. These deliberate tool-operated games preserve short outcomes rather than establish the requested good-game11-minute / average-up-to14-minute target.
 
 The separate late-economy AI experiment was not promoted: its only eligible mature comparison improved wood availability but extended an18:28 control to an unresolved20-minute cap. Other comparisons did not reach the policy's eligibility conditions. The intermittent Town Center dock shift remains unexplained after one live reproduction and two non-reproducing native diagnostics; no speculative layout patch or observational trace is included.
+
+## Beta3 mobile release candidate
+
+This candidate keeps protocol 3 and the shipped victory rules, economy, unit balance and AI. It combines the validated mobile fixes from `20c7f41`, `a119ffe`, `dde1665` and `dfe103a`: visible-ground construction guidance, Find space, selected-building dock geometry and browser recovery.
+
+Find space examines a bounded set of currently visible, unobscured positions in the current camera view. It suggests a stable preview without spending resources or moving the camera; explicit Place still revalidates and pays normally. An unsuccessful search preserves the preview and explains that the player can pan or scout. A real native-touch preview/Place/fog/Cancel journey and a completed 7:14 solo match exercised the feature. That match included poor counter choices and operator delays, so it is not a representative pacing sample.
+
+The dock correction reconciles the actual control rectangle after font and minimum-size changes. Its focused regression reproduces the stale geometry and passes 848 assertions after correction; the precise trigger of the earlier live incident remains untraced. Existing Find space and dock integration cases pass with the exact committed runtime bytes.
+
+The browser-owned recovery notice offers Save log, explicit Reload game and Dismiss after a runtime error. Reloading leaves the match; errors remain recorded. Diagnostic source locations and short stacks are bounded and sanitized. Host and native HTML checks pass, and a separately labeled unsealed full-PCK coexistence fixture exercised its controls. This is a recovery aid, not a repair of the late `Invalid array length` error observed after the prior public match. Final sealed browser acceptance and the separate passive idle comparison remain distinct evidence. The development harness now also retains a bounded error stack without changing its failure gates.
+
+### Pacing experiment retained outside the release
+
+The desired ordinary game remains about 11 minutes, with an average up to 14 and 20 exceptional. A private six-minute opening for Standard victory scoring was compared against the current rule in four declared AI-policy cases using ordinary costs and a population limit of 30. Costs, unit timing, maps, seeds and policies stayed fixed within each pair.
+
+| Case | Current rule | Six-minute opening |
+| --- | ---: | ---: |
+| Woodland 101 Medium, Verdant/Sunstride | 7:19 | 9:50 |
+| Plains 101 Medium, Crownlands/Verdant | 8:58 | 10:16 |
+| River 202 Medium, Verdant/Sunstride | 8:28 | 9:42 |
+| Woodland 424242 Hard, Verdant/Sunstride | 10:39 | Unresolved at 20:00 cap |
+
+The Medium extensions contained real additional fighting but no ownership reversals. In Hard, each side recaptured the Site once. There were 31 later bursts of fighting and 3,010 additional observed damage, yet the match remained unresolved at the cap with only 13.73/180 current hold seconds. Both sides reached Castle, but neither completed Siege; tower counts stayed one each. The active contest continued too long for this release's pacing target, so the 360-second rule, complete protocol 4 contract and associated acceptance tooling remain private and unshipped. The four fixed cases do not estimate a human average or long-match frequency; existing AI urgency also interacts with scoring time. Original failures, raw reports and source manifests remain preserved in the session workspace.

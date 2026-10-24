@@ -260,7 +260,7 @@ async function main() {
     const client=clients[role]={role,page,context,touchCDP:beta2?await context.newCDPSession(page):null,beta2,beta2SiegeDone:false,beta2Reviewed:false,objectiveOnly,policy:false,last:null,matched:null,room:null,ended:null,started:0,
       errors:[],warnings:[],rejections:[],lastBuild:-10,lastArmy:-60,demolished:false,rejectedPlacements:new Set(),pendingPlace:null,uiChecks:[],captures:[],browserInputs:[],recruitAttempts:[],paidRecruitReviewed:false,policyEver:false,civilizationSelection:null,lobbyRequests:[],endedAt:null};
     page.on('console',message=>{const entry={type:message.type(),text:message.text(),unix:Date.now()};append(role+'-console.jsonl',entry);if(entry.type==='error')client.errors.push(entry);if(entry.type==='warning')client.warnings.push(entry);});
-    page.on('pageerror',error=>{const entry={type:'pageerror',text:String(error),unix:Date.now()};client.errors.push(entry);append(role+'-console.jsonl',entry);});
+    page.on('pageerror',error=>{const entry={type:'pageerror',text:String(error),name:String(error.name||''),message:String(error.message||''),stack:String(error.stack||'').slice(0,32768),unix:Date.now()};client.errors.push(entry);append(role+'-console.jsonl',entry);});
     page.on('response',response=>{if(response.status()>=400)append(role+'-http-errors.jsonl',{url:response.url(),status:response.status()});
       if(/\.(pck|wasm|js)(\?|$)|\/(build-info|version)\.json(\?|$)/.test(response.url())) {
         append(role+'-assets.jsonl',{url:response.url(),status:response.status(),unix:Date.now(),from_service_worker:response.fromServiceWorker(),headers:response.headers()});

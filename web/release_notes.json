@@ -1,6 +1,18 @@
 {
   "releases": [
     {
+      "id": "2026-10-24-building-help-and-recovery",
+      "version": "0.3.0-beta.3",
+      "date": "2026-10-24",
+      "title": "Steadier controls, easier building",
+      "summary": "Find room for buildings, keep recruitment controls steady and recover from browser errors.",
+      "changes": [
+        "Find space suggests visible, clear ground for a building in your current view. Review the preview, then tap Place to pay and build. Fog messages explain when the whole footprint needs to move into sight.",
+        "Selected-building controls keep their intended positions after opening and closing panels, so recruitment buttons stay where you expect them.",
+        "After a browser error, a recovery notice offers Save log, Reload game and Dismiss. Reloading is your choice and leaves the current match."
+      ]
+    },
+    {
       "id": "2026-10-24-hold-your-ground",
       "version": "0.3.0-beta.2",
       "date": "2026-10-24",
