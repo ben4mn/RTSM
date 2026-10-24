@@ -2,14 +2,14 @@
 
 ## Current checkpoint October 24 2026
 
-The owner authorized a further bounded pass after beta4: fix the redundant kingdom selector, open up the maps and their finite resources, give the kingdoms original local histories and crafts, and animate work and combat. The resulting beta5 candidate is documented in [Room to settle](docs/settlements_maps_actions_2026-10-24.md).
+The owner authorized a further bounded pass after beta4: fix the redundant kingdom selector, open up the maps and their finite resources, give the kingdoms original local histories and crafts, and animate work and combat. The published beta5 release is documented in [Room to settle](docs/settlements_maps_actions_2026-10-24.md).
 
 - One player kingdom selector; reproducible contrasting solo rival; stale/repeated picker confirmations handled.
 - Bellwick, Alderfen and Redbank, with authored local histories and new high-resolution vector crests. Stable civilization IDs and balance are preserved.
 - 88x88 maps with larger home clearings, stocked expansion compounds and nine-wide routes kept clear of resources. Base separation remains unchanged.
 - Farming, chopping, berry picking, mining, building and role-specific attack poses across all three settlements, including bounded online replica presentation and accessibility settings.
 
-**Publication pending:** focused source checks have passed; beta4 from `005aa4b87b9a0c592ae0d73588a1e50c01669d56` remains live until the beta5 committed build is verified and switched. Beta5 requires protocol 4/map catalog 3 because the terrain generated from a seed changed. This is separate from the rejected six-minute scoring experiment; the existing 180-second armed Sacred rule is retained.
+**Beta5 is live:** source `f905d4a7bce8b83975dcb8091e8c7c8ae47185c8`. Focused checks, reproducible exports, Linux smoke, guarded restart, public HTTP/server verification and bounded browser construction/startup checks passed. Beta4 remains available for rollback. The paid-policy match hit its declared wall limit and is recorded only as partial evidence; full-match pacing and physical-phone performance are unproven. Beta5 requires protocol 4/map catalog 3 because the terrain generated from a seed changed. This is separate from the rejected six-minute scoring experiment; the existing 180-second armed Sacred rule is retained.
 
 After this checkpoint, priorities remain the late idle-browser WebGL error, real-phone readability/control/performance checks, terrain/HUD art coherence and recovery after losing an army. The desired ordinary game is around 11 minutes, with an average up to 14 and 20 exceptional; that target remains unproven.
 

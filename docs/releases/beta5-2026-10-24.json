@@ -1,0 +1,83 @@
+{
+  "version": "0.3.0-beta.5",
+  "source_revision": "f905d4a7bce8b83975dcb8091e8c7c8ae47185c8",
+  "release_id": "v030beta5-f905d4a7bce8-edce08e5fb-bd566edb05",
+  "published_utc": "2026-10-24T22:10:10.960323+00:00",
+  "protocol": 4,
+  "map_catalog": 3,
+  "web_manifest_sha256": "edce08e5fbe1ebbc2a296354b055ba151f3ab786ac34b7dcc1982f47819e65fc",
+  "server_manifest_sha256": "bd566edb0508b3d336aad8ccbf14a75f20db8000ec6db3c203ec15467239d319",
+  "active_runtime_files": 925,
+  "postflight_status": "PASS_READ_ONLY_POSTFLIGHT",
+  "browser": {
+    "source_revision": "f905d4a7bce8b83975dcb8091e8c7c8ae47185c8",
+    "recorded_utc": "2026-10-24T22:11:28.687921+00:00",
+    "local": {
+      "origin": "http://127.0.0.1:8787/",
+      "viewport": [
+        844,
+        390
+      ],
+      "checks": [
+        "one player kingdom selector",
+        "Bellwick and Redbank history/crest",
+        "confirm Redbank",
+        "River match startup",
+        "paid Villager trained",
+        "paid House completed",
+        "paid Farm completed with Worker assigned",
+        "gathered resources deposited",
+        "return to menu"
+      ],
+      "console_errors_or_warnings_observed": [],
+      "limitation": "Static preview server has no diagnostics POST handler; expected HTTP501 responses are retained in its console."
+    },
+    "public": {
+      "origin": "https://game.4mn.org/",
+      "checks": [
+        "normal reload and Play",
+        "one kingdom control with Alderfen identity",
+        "new map previews",
+        "Woodland match startup",
+        "return to menu"
+      ],
+      "console_errors_or_warnings_observed": []
+    },
+    "screenshots": {
+      "beta5-live-setup.png": {
+        "sha256": "f1e6b767f9c5fba1c062bfe322eb282879b4080e8a051b8cde4c4ee8a86ccd7c",
+        "size": [
+          65536,
+          4292542531
+        ]
+      },
+      "beta5-live-village.png": {
+        "sha256": "7c09334aa1abfec03d5852ad21cfd99465281bae3a28135b35679d3fb974ee0e",
+        "size": [
+          65536,
+          4292542531
+        ]
+      },
+      "beta5-local-village.png": {
+        "sha256": "770f97ac851528876540a9cc535a2600be27f474387b9f415bd0149ac840c196",
+        "size": [
+          65536,
+          4292542531
+        ]
+      },
+      "beta5-settlement-picker.png": {
+        "sha256": "87eace69b1cffd33a04577deaba649ab32ee1078c4cf4053bdf254919c075664",
+        "size": [
+          65536,
+          4292542531
+        ]
+      }
+    },
+    "scope": "Bounded browser interaction, startup and presentation checks. Not physical-phone or long-session acceptance."
+  },
+  "known_limits": [
+    "late idle-browser WebGL allocation failure remains open",
+    "physical-phone performance untested",
+    "paid-policy match stopped at wall cap; full-match pacing unproven"
+  ]
+}

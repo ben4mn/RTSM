@@ -2,13 +2,22 @@
 
 This checkpoint preserves the work from the interrupted chat **Improve Pocket Kingdoms gameplay**. The owner requested publication and a game restart, then a stop while they decide whether to continue development.
 
-## Latest work: beta5 verification and publication
+## Latest checkpoint: beta5 published
 
-The owner's subsequent request authorizes the single kingdom selector, expanded maps/resources, original settlements with local history/craft, and basic work/combat animations. The beta5 source candidate and exact verification scope are in [Room to settle](settlements_maps_actions_2026-10-24.md); map measurements are in [Room to build and expand](map_homesteads_2026-10-24.md).
+The owner's subsequent request authorizes the single kingdom selector, expanded maps/resources, original settlements with local history/craft, and basic work/combat animations. The published beta5 source and exact verification scope are in [Room to settle](settlements_maps_actions_2026-10-24.md); map measurements are in [Room to build and expand](map_homesteads_2026-10-24.md).
 
-Source checks pass; the matching committed client/server build, guarded activation and public browser verification are pending. Beta4 below remains live until a successful switch is recorded. Beta5 uses protocol 4/catalog 3 for changed seeded terrain, not the rejected timing experiment. The 180-second armed Sacred rule is unchanged.
+**Published:** `0.3.0-beta.5` from `f905d4a7bce8b83975dcb8091e8c7c8ae47185c8`, protocol 4/map catalog 3, at 2026-10-24T22:10:10.960323+00:00. Canonical and independently reproduced Web packages matched. The isolated Linux server smoke passed; guarded activation restarted the dedicated game service and switched the static release. Public HTTP/server postflight passed for 925 active runtime files. Beta4 is retained for rollback.
 
-Complete publication, restart the dedicated service, update these receipts and stop at the checkpoint. Do not begin a new improvement loop. Long-idle WebGL failure and physical-phone acceptance remain open.
+- Release identity: `v030beta5-f905d4a7bce8-edce08e5fb-bd566edb05`.
+- Web manifest SHA-256: `edce08e5fbe1ebbc2a296354b055ba151f3ab786ac34b7dcc1982f47819e65fc`.
+- Server manifest SHA-256: `bd566edb0508b3d336aad8ccbf14a75f20db8000ec6db3c203ec15467239d319`.
+- Activation receipt: `/home/ben/aoem/deployment-backups/v030beta5-f905d4a7bce8-edce08e5fb-bd566edb05/activation.json`.
+- Local evidence: current recovery workspace `work/beta5-settlements-20261024/`, including build, validation, Linux smoke, activation, postflight and browser records.
+
+Beta5 uses protocol 4/catalog 3 for changed seeded terrain, not the rejected timing experiment. The 180-second armed Sacred rule is unchanged. Local browser checks included paid recruitment, House and Farm completion, assigned Farm worker and menu return; public checks included updated setup, Alderfen Woodland startup and menu return. The paid-policy probe hit its 240-second wall cap and supplies only partial gameplay evidence through its 480-second progress log.
+
+
+Publication, the dedicated-service restart and verification are complete. Stop at this checkpoint; do not begin a new improvement loop without the owner’s next instruction. Long-idle WebGL failure and physical-phone acceptance remain open.
 
 ## Previous checkpoint: beta4 published
 
