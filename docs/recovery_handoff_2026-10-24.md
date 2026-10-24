@@ -2,19 +2,29 @@
 
 This checkpoint preserves the work from the interrupted chat **Improve Pocket Kingdoms gameplay**. The owner requested publication and a game restart, then a stop while they decide whether to continue development.
 
-## Latest checkpoint: beta4 presentation candidate
+## Latest checkpoint: beta4 published
 
 The owner subsequently authorized a bounded modern menu pass, then extended the same miniature art direction to all eighteen unit sprites and thirty building sprites across Crownlands, Verdant League and Sunstride Clans. This supersedes the initial stop point above for that presentation work only.
 
 Beta3 was activated successfully from `d7291a7ccff1b1b9fcb5acbd02391a04ed7f8d3c`. The preserved activation receipt is `/home/ben/aoem/deployment-backups/v030b3-d7291a7ccff1-17cb39668a-2b97b2f1e7/activation.json`. Main and the recovery documentation were pushed at `17ffb1a`. The older staged-only descriptions below record the recovery's starting state; they are not the current publication state.
 
-The current candidate is `0.3.0-beta.4`, still protocol 3. It refreshes the menu and browser welcome page with a shared miniature village illustration, clearer headings and panels, and a new castle icon. Civilization-specific art is shared by battlefield units/buildings, recruitment portraits, building cards and construction previews. The presentation catalog covers six unit roles and ten building roles for each kingdom. See [the miniature art record](kingdom_miniatures_2026-10-24.md) for coverage, asset provenance and limits.
+The published release is `0.3.0-beta.4`, still protocol 3. It refreshes the menu and browser welcome page with a shared miniature village illustration, clearer headings and panels, and a new castle icon. Civilization-specific art is shared by battlefield units/buildings, recruitment portraits, building cards and construction previews. The presentation catalog covers six unit roles and ten building roles for each kingdom. See [the miniature art record](kingdom_miniatures_2026-10-24.md) for coverage, asset provenance and limits.
 
-The focused kingdom-art validation reported **1,178 passing checks**. This is not a completed release or multiplayer acceptance result. **Beta4 publication is pending:** append the final committed source, canonical/reproduced artifact verification, Linux smoke result, activation/restart receipt and public checks after they complete. Until that evidence is recorded, beta3 remains the last confirmed published release.
+**Published:** `0.3.0-beta.4`, source `005aa4b87b9a0c592ae0d73588a1e50c01669d56`, protocol 3, at 2026-10-24T21:39:07.064878+00:00. The canonical and independent Web exports matched. The isolated Linux server smoke passed; guarded activation restarted only the dedicated game service and switched the static release. Public HTTP and active-server verification passed for 923 runtime files. Beta3 remains available for rollback.
+
+The local browser preview passed at 844×390: New Game, kingdom comparison, selection/confirmation, Sunstride match startup and menu return. The public browser loaded the updated welcome screen and menu, displayed the selected kingdom in setup, and started a Verdant match with the new artwork. These are bounded startup/presentation checks, not long-session or physical-device acceptance.
+
+- Release identity: `v030beta4-005aa4b87b9a-78cabe46fa-d72416a4eb`.
+- Web manifest SHA-256: `78cabe46fa85308aeb3145fc8ba353bd34301b7ac066977e975861fb5fc7525a`.
+- Server manifest SHA-256: `d72416a4eb97d3a0a481ce63a6f4445dc9f6775d2befa56d557d936396cfc559`.
+- Activation receipt: `/home/ben/aoem/deployment-backups/v030beta4-005aa4b87b9a-78cabe46fa-d72416a4eb/activation.json`.
+- Local build/smoke/activation/postflight/browser evidence: current chat `work/beta4-kingdoms-20261024/` and `outputs/`.
+
+Full presentation, focused check counts and screenshots are in [the miniature release record](kingdom_miniatures_2026-10-24.md).
 
 Combat statistics, costs, collision footprints, victory timing and protocol remain unchanged. The late idle-browser error remains open, and the rejected pacing/protocol experiments below remain excluded. After this authorized presentation checkpoint is pushed, deployed, restarted and checked, report the result before expanding development further.
 
-## Source and publication
+## Historical beta3 recovery starting state
 
 - Repository: https://github.com/ben4mn/RTSM
 - Game: https://game.4mn.org/
