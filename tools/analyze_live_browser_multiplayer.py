@@ -17,6 +17,17 @@ def lines(path):
     return [json.loads(line) for line in path.read_text().splitlines() if line.strip()] if path.exists() else []
 
 
+def valid_digest(value):
+    return isinstance(value, str) and re.fullmatch(r'[a-f0-9]{64}', value) is not None
+
+
+def known_body_mismatch(bodies, expected):
+    return any(row.get('file') in expected and (
+        not valid_digest(expected[row['file']]) or row.get('expected') != expected[row['file']]
+        or row.get('sha256') != expected[row['file']] or row.get('bytes', 0) <= 0
+        or row.get('match') is False) for row in bodies)
+
+
 CIVILIZATIONS = {0: 'Crownlands', 1: 'Verdant League', 2: 'Sunstride Clans'}
 
 
@@ -129,7 +140,8 @@ def touch_gates(folder, invocation, role):
         deposits_before, deposits_after = before.get('stats', {}).get('resources_gathered'), after.get('stats', {}).get('resources_gathered')
         bank_valid = all(type(bank.get(key)) is int and bank[key] >= 0 for bank in (bank_before, bank_after) for key in ('food', 'wood', 'gold'))
         deposits_valid = type(deposits_before) is int and type(deposits_after) is int and 0 <= deposits_before <= deposits_after
-        cost_valid = bank_valid and deposits_valid and bank_before['food'] >= 50 and sum(bank_before[key] - bank_after[key] for key in ('food', 'wood', 'gold')) + deposits_after - deposits_before == 50
+        implied_deposits = {key: bank_after[key] - bank_before[key] + (50 if key == 'food' else 0) for key in ('food', 'wood', 'gold')} if bank_valid else {}
+        cost_valid = bank_valid and deposits_valid and bank_before['food'] >= 50 and all(value >= 0 for value in implied_deposits.values()) and sum(implied_deposits.values()) == deposits_after - deposits_before
         reserved_before, reserved_after = before.get('player', {}).get('population_reserved'), after.get('player', {}).get('population_reserved')
         reservation_valid = type(reserved_before) is int and type(reserved_after) is int and reserved_after == reserved_before + 1
         queue_valid = previous.get('queue', {}).get('items') == [] and current.get('queue', {}).get('items') == [0] and previous.get('queue', {}).get('repeat') is False and current.get('queue', {}).get('repeat') is False
@@ -180,7 +192,7 @@ def local_gates(folder, invocation, role):
     verified_files = {row.get('file') for row in bodies if isinstance(expected.get(row.get('file')), str) and len(expected[row['file']]) == 64 and row.get('expected') == expected[row['file']] and row.get('sha256') == expected[row['file']] and row.get('bytes', 0) > 0}
     for response in lines(folder / f'{role}-asset-server-proof.jsonl'):
         name = response.get('file')
-        if name not in expected or response.get('sha256') != expected[name] or response.get('status') != 200 or response.get('bytes', 0) <= 0:
+        if name not in expected or not valid_digest(expected[name]) or response.get('sha256') != expected[name] or response.get('status') != 200 or response.get('bytes', 0) <= 0:
             continue
         if any(row.get('request_id') == response.get('request_id') and row.get('method') == 'GET' and row.get('file') == name and row.get('sha256') == response['sha256'] and row.get('bytes') == response['bytes'] for row in final.get('served', [])):
             verified_files.add(name)
@@ -206,8 +218,44 @@ def local_gates(folder, invocation, role):
         'no_owned_artifact_server_failure': final.get('artifact_failures') == [],
         'exact_endpoint_redirection': bool(routes) and all(row.get('blocked') is False and row.get('resolved') == endpoint and row.get('requested') in ('wss://game.4mn.org/match', endpoint) for row in routes),
         'no_unapproved_socket_reached_browser_transport': bool(guards) and all(row.get('allowed') is True and row.get('url') == endpoint for row in guards),
-        'loaded_engine_bytes_match_sealed_export': {'index.js', 'index.wasm', 'index.pck'} <= verified_files,
+        'loaded_engine_bytes_match_sealed_export': not known_body_mismatch(bodies, expected) and {'index.js', 'index.wasm', 'index.pck'} <= verified_files,
         'actual_attack_hud_generated_attack_move': valid_attack,
+    }
+
+
+def public_gates(folder, invocation, role):
+    """Public proof distinguishes captured bytes from correlated deployment validators."""
+    proof = read(folder / 'public-source.json', {})
+    expected = proof.get('artifact', {}).get('files', {})
+    postflight = proof.get('postflight', {})
+    request = postflight.get('request', {})
+    revision = invocation.get('source_revision')
+    revision_valid = isinstance(revision, str) and re.fullmatch(r'[a-f0-9]{12,40}', revision) is not None and isinstance(request.get('source_revision'), str) and re.fullmatch(r'[a-f0-9]{40}', request['source_revision']) is not None and request['source_revision'].startswith(revision)
+    bodies = lines(folder / f'{role}-asset-bytes.jsonl')
+    mismatched_body = known_body_mismatch(bodies, expected)
+    loaded = {row.get('file') for row in bodies if valid_digest(expected.get(row.get('file'))) and row.get('expected') == expected[row['file']] and row.get('sha256') == expected[row['file']] and row.get('bytes', 0) > 0}
+    correlated = set()
+    assets = lines(folder / f'{role}-assets.jsonl')
+    for response in postflight.get('requests', []):
+        url = response.get('url', '')
+        name = url.removeprefix('https://game.4mn.org/')
+        file = response.get('headers_file')
+        if (name not in ('index.pck', 'index.wasm') or not isinstance(expected.get(name), str) or re.fullmatch(r'[a-f0-9]{64}', expected[name]) is None or not isinstance(file, str) or Path(file).name != file or response.get('status') != 200 or response.get('ssl_verify_result') != 0 or response.get('sha256') != expected.get(name) or response.get('bytes_decoded', 0) <= 0):
+            continue
+        header_path = folder / 'public-postflight-headers' / file
+        if not header_path.exists():
+            continue
+        headers = dict(line.split(':', 1) for line in header_path.read_text().splitlines() if ':' in line)
+        headers = {key.lower().strip(): value.strip() for key, value in headers.items()}
+        validators = ('etag', 'last-modified', 'content-type', 'content-encoding')
+        if all(headers.get(key) for key in validators) and any(row.get('url') == url and row.get('status') == 200 and all(row.get('headers', {}).get(key) == headers[key] for key in validators) for row in assets):
+            correlated.add(name)
+    opens = [row for row in lines(folder / f'{role}-transport.jsonl') if row.get('event') == 'open']
+    return {
+        'public_exact_endpoint_no_redirect': invocation.get('url') == 'https://game.4mn.org/' and invocation.get('match_url') == 'wss://game.4mn.org/match' and bool(opens) and all(row.get('url') == 'wss://game.4mn.org/match' for row in opens) and not lines(folder / f'{role}-socket_route.jsonl'),
+        'public_postflight_matches_sealed_artifacts': invocation.get('protocol') == 2 and revision_valid and {'index.js', 'version.json', 'index.wasm', 'index.pck'} <= expected.keys() and all(valid_digest(value) for value in expected.values()) and request.get('protocol') == 2 and valid_digest(proof.get('artifact', {}).get('manifest_sha256')) and valid_digest(request.get('web_manifest_sha256')) and proof['artifact']['manifest_sha256'] == request['web_manifest_sha256'] and postflight.get('status') == 'PASS_READ_ONLY_POSTFLIGHT' and bool(expected) and all(postflight.get('public_files', {}).get(name, {}).get('sha256') == sha for name, sha in expected.items()),
+        'public_loaded_version_and_javascript_bytes_verified': not mismatched_body and {'index.js', 'version.json'} <= loaded,
+        'public_engine_response_provenance': not mismatched_body and {'index.js', 'index.wasm', 'index.pck'} <= (loaded | correlated),
     }
 
 
@@ -258,6 +306,7 @@ def analyze(folder):
             coverage['farm_peak'] = max(coverage['farm_peak'], own_farms)
         console = lines(folder / f'{role}-console.jsonl')
         errors = [row for row in console if row.get('type') in ('error', 'pageerror')]
+        errors += [{'type': 'controller-client', 'detail': row} for row in states.get(role, {}).get('errors', [])]
         transport = lines(folder / f'{role}-transport.jsonl')
         errors += [row for row in transport if row.get('event') == 'error']
         sent = lines(folder / f'{role}-sent.jsonl')
@@ -308,6 +357,8 @@ def analyze(folder):
             gates.update(touch_gates(folder, invocation, role))
         if invocation.get('mode') == 'local-sealed':
             gates.update(local_gates(folder, invocation, role))
+        if invocation.get('protocol') == 2 or invocation.get('mode') == 'public':
+            gates['actual_attack_hud_generated_attack_move'] = local_gates(folder, invocation, role)['actual_attack_hud_generated_attack_move']
             gates.update(civilization_gates(folder, invocation, role))
             gates.update(screen_gates(folder, role))
             if scenario != 'objective':
@@ -316,6 +367,8 @@ def analyze(folder):
                 gates['signature_paid_queue_and_completed_unit'] = coverage['signature_paid_queue_observed'] and bool(coverage['signature_unit_ids'])
                 gates['signature_authority_base_health'] = bool(coverage['signature_max_hp']) and all(hp == {0: 35, 1: 30, 2: 70}.get(own_civilization) for hp in coverage['signature_max_hp'])
                 gates['signature_ordinary_cost_and_affordable_request'] = any(row.get('sent') is True and row.get('command') == 'train' and row.get('payload', {}).get('type') == signature_type and row.get('expected_cost') == cost and all(row.get('bank_before', {}).get(key, -1) >= amount for key, amount in cost.items()) and any(wire.get('packet', {}).get('command') == 'train' and wire['packet'].get('type') == signature_type and wire['packet'].get('target') == row['payload'].get('target') and wire['packet'].get('match') == matched.get('match') and abs(wire.get('unix', 0) - row.get('unix', 0)) < 5000 for wire in sent) for row in policy)
+        if invocation.get('mode') == 'public':
+            gates.update(public_gates(folder, invocation, role))
         failures.extend(f'{role}: {key}' for key, value in gates.items() if not value)
         clients[role] = {'matched': matched, 'ended': terminal.get('ended'),
                          'last_game_seconds': latest.get('time'),
@@ -328,6 +381,20 @@ def analyze(folder):
                          'artifact_owned_server_response_proof': lines(folder / f'{role}-asset-server-proof.jsonl'),
                          'rejections': [row for row in transport if row.get('packet', {}).get('op') == 'rejected'],
                          'ui_checks': ui, 'commands_sent': len(commands)}
+    if scenario != 'objective' and (invocation.get('protocol') == 2 or invocation.get('mode') == 'public'):
+        for role, opposite in (('host', 'guest'), ('guest', 'host')):
+            matched = clients[role].get('matched', {})
+            slot = matched.get('slot')
+            ids = matched.get('civilizations', [])
+            unit_type = 3 if slot in (0, 1) and len(ids) == 2 and ids[slot] == 2 else 2
+            last = read(folder / f'{opposite}-terminal.json', {}).get('last', {})
+            battle = last.get('battle', {}).get('losses_by_matchup', [])
+            valid = counter_lesson(last, clients[opposite].get('matched', {}).get('slot')) is not None
+            final_blows = sum(row[2] for row in battle if row[1] == unit_type) if valid else 0
+            clients[role]['coverage']['signature_final_blows_witnessed_by_opponent'] = final_blows
+            clients[role]['gates']['signature_visible_combat_final_blow_receipt'] = final_blows > 0
+            if not final_blows:
+                failures.append(f'{role}: signature_visible_combat_final_blow_receipt')
     host, guest = clients['host'], clients['guest']
     agreement = {}
     identity_keys = ['match', 'seed', 'map_archetype']
@@ -341,11 +408,11 @@ def analyze(folder):
         a, b = (client.get('ended') or {} for client in (host, guest))
         agreement['terminal_' + key] = a.get(key) is not None and b.get(key) is not None and a[key] == b[key]
     agreement['natural_sacred_result'] = all('Sacred' in (c.get('ended') or {}).get('reason', '') for c in clients.values())
-    if invocation.get('mode') == 'local-sealed':
-        log_path = folder / 'local-authority.log'
+    if invocation.get('mode') in ('local-sealed', 'public'):
+        log_path = folder / ('local-authority.log' if invocation.get('mode') == 'local-sealed' else 'public-authority.log')
         terminal_lines = re.findall(r'AOEM_MATCH_ENDED match=(\d+) winner=(-?\d+) seconds=([0-9.]+) fps=[0-9.]+ reason=([^\r\n]+)', log_path.read_text(encoding='utf-8', errors='replace') if log_path.exists() else '')
         ended = host.get('ended') or {}
-        agreement['natural_terminal_in_owned_authority_log'] = any(int(match) == ended.get('match') and int(winner) == ended.get('winner') and reason == ended.get('reason') and abs(float(seconds) - (host.get('last_game_seconds') or 0)) < 0.2 for match, winner, seconds, reason in terminal_lines)
+        agreement['natural_terminal_in_owned_authority_log' if invocation.get('mode') == 'local-sealed' else 'natural_terminal_in_deployed_authority_log'] = any(int(match) == ended.get('match') and int(winner) == ended.get('winner') and reason == ended.get('reason') and abs(float(seconds) - (host.get('last_game_seconds') or 0)) < 0.2 for match, winner, seconds, reason in terminal_lines)
     counters = {'same_tick_samples': 0, 'shared_actor_fields': 0, 'shared_resource_tiles': 0}
     for tick in sorted(records['host'].keys() & records['guest'].keys()):
         a, b = records['host'][tick], records['guest'][tick]
@@ -375,8 +442,11 @@ def analyze(folder):
               'same_tick_comparison': counters, 'same_tick_mismatches': mismatches[:100], 'clients': clients,
               'controller_errors': controller_errors,
               'scope': invocation.get('scope', 'Two actual deployed browser contexts. UI lobby and recorded keyboard actions; test-only ordinary paid WebSocket gameplay policy. Evidence is passive transport, rendered screenshots and operator UI checks. No direct browser-replica inspection, physical phone test or performance claim.'),
+              'public_provenance_limit': 'Browser version and JavaScript body SHA-256 are direct. If CDP cannot retain large WASM/PCK bodies, actual response validators are matched to independently TLS-fetched and SHA-256-verified public postflight bytes; this is correlated deployment evidence, not browser-body hashing.' if invocation.get('mode') == 'public' else None,
               'private_state_scope': 'Each owner bank/player/research is retained from that client authority packet; opposite private banks are not expected to match. Farm claims, exact worker resource/dropoff target IDs and physical spacing are not exposed by this protocol.'}
     report['raw_evidence_sha256'] = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(folder.iterdir()) if p.is_file() and p.name != 'analysis.json'}
+    report['public_postflight_header_sha256'] = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted((folder / 'public-postflight-headers').glob('*.headers'))}
+    report['analyzer_sha256'] = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
     (folder / 'analysis.json').write_text(json.dumps(report, indent=2) + '\n')
     return report
 

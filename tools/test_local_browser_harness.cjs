@@ -21,6 +21,20 @@ test('paid touch recruitment proof requires an owned UI command, queue, reservat
   assert.throws(()=>paidVillagerRecruitment(before,after,0,{...evidence,source:'paid_policy'}),/game UI/);
 });
 
+test('paid Villager proof cannot substitute wood or gold for the50F cost',()=>{
+  const before={match:7,tick:10,time:2,bank:{food:250,wood:200,gold:100},player:{population_reserved:0},stats:{resources_gathered:0},actors:[{id:3,owner:0,kind:'building',type:0,state:2,queue:{repeat:false,items:[]}}]};
+  const after=structuredClone(before);after.tick++;after.time+=0.2;after.player.population_reserved=1;after.actors[0].queue.items=[0];
+  const evidence={source:'game_ui_or_engine',packet:{op:'command',command:'train',type:0,target:3,match:7}};
+  for(const resource of ['wood','gold']){
+    const bad=structuredClone(after);bad.bank.food=225;bad.bank[resource]-=25;
+    assert.throws(()=>paidVillagerRecruitment(before,bad,0,evidence),/negative deposits/);
+  }
+  after.bank={food:203,wood:204,gold:103};after.stats.resources_gathered=10;
+  assert.deepEqual(paidVillagerRecruitment(before,after,0,evidence).normal_deposits_by_resource,{food:3,wood:4,gold:3});
+  after.bank={food:215,wood:195,gold:100};
+  assert.throws(()=>paidVillagerRecruitment(before,after,0,evidence),/negative deposits/);
+});
+
 function witness(configuration={}) {
   const constructed=[],events=[];
   class Socket extends EventTarget {

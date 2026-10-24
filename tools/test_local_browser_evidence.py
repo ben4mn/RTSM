@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from analyze_live_browser_multiplayer import local_gates, civilization_gates, screen_gates, counter_lesson, touch_gates
+from analyze_live_browser_multiplayer import analyze, local_gates, civilization_gates, screen_gates, counter_lesson, touch_gates, public_gates
 
 
 class LocalBrowserEvidenceTests(unittest.TestCase):
@@ -150,6 +150,101 @@ class LocalBrowserEvidenceTests(unittest.TestCase):
         self.assertFalse(gates['actual_tap_terminal_menu_return'])
         self.write('host-browser-capabilities.json', {'width': 844, 'height': 390, 'max_touch_points': 0})
         self.assertFalse(touch_gates(self.root, self.invocation, 'host')['native_touch_844x390_context'])
+
+    def test_touch_payment_requires_nonnegative_per_resource_deposits(self):
+        for bank, deposits, valid in (({'food': 225, 'wood': 200, 'gold': 75}, 0, False),
+                                     ({'food': 225, 'wood': 175, 'gold': 100}, 0, False),
+                                     ({'food': 215, 'wood': 195, 'gold': 100}, 10, False),
+                                     ({'food': 203, 'wood': 204, 'gold': 103}, 10, True)):
+            with self.subTest(bank=bank):
+                attempt = self.touch_fixture()
+                attempt['after']['bank'] = bank
+                attempt['after']['stats']['resources_gathered'] = deposits
+                self.rows('host-recruit-ui.jsonl', [attempt])
+                self.rows('host-recruit-snapshots.jsonl', [{'attempt': attempt['attempt'], 'stage': stage, 'packet': packet} for stage, packet in (('before', attempt['before']), ('after', attempt['after']))])
+                reviews = [json.loads(line) for line in (self.root / 'host-recruit-reviews.jsonl').read_text().splitlines()]
+                reviews[0]['observed']['after_bank'] = bank
+                self.rows('host-recruit-reviews.jsonl', reviews)
+                self.assertEqual(touch_gates(self.root, self.invocation, 'host')['actual_tap_paid_recruitment_reviewed_before_policy'], valid)
+
+    def public_fixture(self):
+        self.invocation.update(protocol=2, url='https://game.4mn.org/', match_url='wss://game.4mn.org/match', source_revision='a'*12)
+        hashes = {name: '1'*64 for name in ('index.js', 'version.json', 'index.wasm', 'index.pck')}
+        headers = {'etag': 'W/"release-size"', 'last-modified': 'date', 'content-type': 'application/octet-stream', 'content-encoding': 'gzip'}
+        postflight = {'status': 'PASS_READ_ONLY_POSTFLIGHT', 'request': {'protocol': 2, 'source_revision': 'a'*40, 'web_manifest_sha256': '2'*64}, 'public_files': {name: {'sha256': sha} for name, sha in hashes.items()}, 'requests': []}
+        (self.root / 'public-postflight-headers').mkdir(exist_ok=True)
+        for name in ('index.pck', 'index.wasm'):
+            postflight['requests'].append({'url': 'https://game.4mn.org/'+name, 'status': 200, 'ssl_verify_result': 0, 'sha256': hashes[name], 'bytes_decoded': 100, 'headers_file': name+'.headers'})
+            (self.root / 'public-postflight-headers' / (name+'.headers')).write_text('HTTP/2 200\n'+'\n'.join(key+': '+value for key,value in headers.items()))
+        proof = {'artifact': {'files': hashes, 'manifest_sha256': '2'*64}, 'postflight': postflight}
+        self.write('public-source.json', proof)
+        self.rows('host-socket_route.jsonl', [])
+        self.rows('host-transport.jsonl', [{'event': 'open', 'url': 'wss://game.4mn.org/match'}])
+        self.rows('host-assets.jsonl', [{'url': 'https://game.4mn.org/'+name, 'status': 200, 'headers': headers} for name in ('index.pck', 'index.wasm')])
+        self.rows('host-asset-bytes.jsonl', [{'file': name, 'expected': hashes[name], 'sha256': hashes[name], 'bytes': 100} for name in ('index.js', 'version.json')])
+        return proof
+
+    def test_public_provenance_requires_exact_endpoint_revision_and_direct_small_body_hashes(self):
+        self.public_fixture()
+        self.assertTrue(all(public_gates(self.root, self.invocation, 'host').values()))
+        self.invocation['source_revision'] = ''
+        self.assertFalse(public_gates(self.root, self.invocation, 'host')['public_postflight_matches_sealed_artifacts'])
+        self.rows('host-asset-bytes.jsonl', [])
+        self.assertFalse(public_gates(self.root, self.invocation, 'host')['public_loaded_version_and_javascript_bytes_verified'])
+        self.rows('host-socket_route.jsonl', [{'resolved': 'ws://127.0.0.1:1/match'}])
+        self.assertFalse(public_gates(self.root, self.invocation, 'host')['public_exact_endpoint_no_redirect'])
+
+    def test_public_missing_protocol_and_manifest_hashes_fail_closed(self):
+        proof = self.public_fixture()
+        self.invocation.pop('protocol')
+        self.assertFalse(public_gates(self.root, self.invocation, 'host')['public_postflight_matches_sealed_artifacts'])
+        self.invocation['protocol'] = 2
+        proof['artifact']['files'].pop('index.pck')
+        proof['postflight']['requests'][0].pop('sha256')
+        self.write('public-source.json', proof)
+        gates = public_gates(self.root, self.invocation, 'host')
+        self.assertFalse(gates['public_postflight_matches_sealed_artifacts'])
+        self.assertFalse(gates['public_engine_response_provenance'])
+
+    def test_public_both_missing_or_malformed_manifest_digests_fail_closed(self):
+        for bad in (None, '', 'not-a-digest', 'a' * 63):
+            with self.subTest(bad=bad):
+                proof = self.public_fixture()
+                proof['artifact']['manifest_sha256'] = bad
+                proof['postflight']['request']['web_manifest_sha256'] = bad
+                self.write('public-source.json', proof)
+                self.assertFalse(public_gates(self.root, self.invocation, 'host')['public_postflight_matches_sealed_artifacts'])
+
+    def test_captured_body_mismatch_cannot_be_masked_by_validators_or_other_valid_bodies(self):
+        self.public_fixture()
+        bodies = [json.loads(line) for line in (self.root / 'host-asset-bytes.jsonl').read_text().splitlines()]
+        bodies += [{'file': 'index.pck', 'expected': '1' * 64, 'sha256': '0' * 64, 'bytes': 100, 'match': False},
+                   {'file': 'index.pck', 'expected': '1' * 64, 'sha256': '1' * 64, 'bytes': 100, 'match': True}]
+        self.rows('host-asset-bytes.jsonl', bodies)
+        self.assertFalse(public_gates(self.root, self.invocation, 'host')['public_engine_response_provenance'])
+        self.assertFalse(local_gates(self.root, self.invocation, 'host')['loaded_engine_bytes_match_sealed_export'])
+
+    def test_controller_client_artifact_error_cannot_be_omitted_from_analysis(self):
+        self.public_fixture()
+        self.write('invocation.json', self.invocation)
+        error = {'type': 'artifact-bytes', 'file': 'index.pck', 'match': False}
+        self.write('controller-state.json', {'host': {'errors': [error]}})
+        report = analyze(self.root)
+        self.assertFalse(report['clients']['host']['gates']['no_console_or_socket_errors'])
+        self.assertIn({'type': 'controller-client', 'detail': error}, report['clients']['host']['errors'])
+
+    def test_public_large_body_validator_correlation_fails_closed(self):
+        for mutation in ('hash', 'tls', 'missing', 'headers', 'escaped_path'):
+            with self.subTest(mutation=mutation):
+                proof = self.public_fixture()
+                response = proof['postflight']['requests'][0]
+                if mutation == 'hash': response['sha256'] = '0'*64
+                elif mutation == 'tls': response['ssl_verify_result'] = 1
+                elif mutation == 'escaped_path': response['headers_file'] = '../22.headers'
+                elif mutation == 'missing': (self.root / 'public-postflight-headers/index.pck.headers').unlink()
+                elif mutation == 'headers': self.rows('host-assets.jsonl', [])
+                self.write('public-source.json', proof)
+                self.assertFalse(public_gates(self.root, self.invocation, 'host')['public_engine_response_provenance'])
 
     def kingdom_fixture(self):
         own = {'id': 1, 'key': 'verdant-league', 'name': 'Verdant League'}

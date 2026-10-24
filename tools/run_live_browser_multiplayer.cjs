@@ -10,7 +10,7 @@ const http = require('node:http');
 const crypto = require('node:crypto');
 const assert = require('node:assert/strict');
 const os = require('node:os');
-const {startLocalRuntime, digest} = require('./local_browser_runtime.cjs');
+const {startLocalRuntime, digest, verifyTree} = require('./local_browser_runtime.cjs');
 const {civilization,resultExpectation,paidVillagerRecruitment} = require('./live_browser_receipts.cjs');
 
 function installWitness(configuration = {}) {
@@ -206,6 +206,8 @@ async function main() {
   const expectedIds=[expectations.host.id,expectations.guest.id];
   if(localMode && (process.argv.includes('--allow-public') || arg('url')))throw new Error('--local owns both verified endpoints; do not combine it with --allow-public or --url.');
   if(!localMode && !process.argv.includes('--allow-public'))throw new Error('Use --local for sealed local artifacts, or --allow-public only after deployment readiness.');
+  const publicProof=!localMode ? {artifact:verifyTree(arg('artifact-dir')),postflight:JSON.parse(fs.readFileSync(arg('public-postflight'),'utf8')),postflight_sha256:digest(fs.readFileSync(arg('public-postflight')))} : null;
+  if(publicProof){assert.equal(publicProof.postflight.status,'PASS_READ_ONLY_POSTFLIGHT');for(const [name,hash] of Object.entries(publicProof.artifact.files))assert.equal(publicProof.postflight.public_files[name]?.sha256,hash,'Public postflight does not match sealed file '+name);}
   let modulePath=arg('playwright-module');
   if(!modulePath){try{modulePath=require.resolve('playwright');}catch(_){
     const candidates=[path.join(os.homedir(),'.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright')];
@@ -222,9 +224,10 @@ async function main() {
   try {
   browser=await chromium.launch({channel:'chrome',headless:false,args:['--disable-background-timer-throttling','--disable-backgrounding-occluded-windows','--disable-renderer-backgrounding']});
   const save=(name,value)=>fs.writeFileSync(path.join(out,name),JSON.stringify(value,null,2)+'\n');
+  if(publicProof)save('public-source.json',publicProof);
   const append=(name,value)=>fs.appendFileSync(path.join(out,name),JSON.stringify(value)+'\n');
   const objectiveOnly=process.argv.includes('--objective-only');
-  save('invocation.json',{url,port,started:new Date().toISOString(),headless:false,input_mode:inputMode,civilization_expectations:expectations,protocol:2,scenario:objectiveOnly?'objective':'full',mode:localMode?'local-sealed':'public',match_url:local?.matchUrl||null,source_revision:local?.source.version.source_revision||null,harness_sha256:digest(fs.readFileSync(__filename)),local_runtime_helper_sha256:digest(fs.readFileSync(require.resolve('./local_browser_runtime.cjs'))),receipt_helper_sha256:digest(fs.readFileSync(require.resolve('./live_browser_receipts.cjs'))),browser_version:browser.version(),policy_scope:'Ordinary paid scripted policy: grow to12 workers;4wood/3gold/restfood;paid Farms after100s follow own planned/observed food-worker demand, minimum2/cap6; train mixed stable-ID troops; central skirmish until650s then host takes Sacred while guest returns home. Paid house demolition tests destruction. Natural server terminal is policy-scheduled, not human pacing or an11–14minute balance average. No camp coverage.',scope:localMode?'Automated browser fixture using two fresh contexts of a byte-verified export and matching local authority. Canvas inputs and disclosed ordinary paid protocol policy are separate from root CUA play. Exact endpoint redirected to loopback; command sequence normalized; no state, grants, time or result injected.':'Two isolated actual deployed-browser contexts; UI lobby/keyboard actions plus disclosed test-only ordinary paid WebSocket policy. Only command sequence is normalized. No direct gameplay state, grants, time changes or forced result.'});
+  save('invocation.json',{url,port,started:new Date().toISOString(),headless:false,input_mode:inputMode,civilization_expectations:expectations,protocol:2,scenario:objectiveOnly?'objective':'full',mode:localMode?'local-sealed':'public',match_url:local?.matchUrl||'wss://game.4mn.org/match',source_revision:local?.source.version.source_revision||JSON.parse(fs.readFileSync(path.join(publicProof.artifact.directory||arg('artifact-dir'),'version.json'),'utf8')).source_revision,harness_sha256:digest(fs.readFileSync(__filename)),local_runtime_helper_sha256:digest(fs.readFileSync(require.resolve('./local_browser_runtime.cjs'))),receipt_helper_sha256:digest(fs.readFileSync(require.resolve('./live_browser_receipts.cjs'))),browser_version:browser.version(),policy_scope:'Ordinary paid scripted policy: grow to12 workers;4wood/3gold/restfood;paid Farms after100s follow own planned/observed food-worker demand, minimum2/cap6; train mixed stable-ID troops; central skirmish until650s then host takes Sacred while guest returns home. Paid house demolition tests destruction. Natural server terminal is policy-scheduled, not human pacing or an11–14minute balance average. No camp coverage.',scope:localMode?'Automated browser fixture using two fresh contexts of a byte-verified export and matching local authority. Canvas inputs and disclosed ordinary paid protocol policy are separate from root CUA play. Exact endpoint redirected to loopback; command sequence normalized; no state, grants, time or result injected.':'Two isolated actual deployed-browser contexts; UI lobby/keyboard actions plus disclosed test-only ordinary paid WebSocket policy. Only command sequence is normalized. No direct gameplay state, grants, time changes or forced result.'});
   const capture=async(c,label)=>{const name=c.role+'-'+String(label).replace(/[^a-zA-Z0-9_-]/g,'_')+'.png',filename=path.join(out,name);if(fs.existsSync(filename))throw Error('Capture already exists; use a new label');await c.page.screenshot({path:filename});const receipt={name,path:filename,sha256:digest(fs.readFileSync(filename)),unix:Date.now()};c.captures.push(receipt);append(c.role+'-captures.jsonl',receipt);return receipt;};
   const canvasInput=async(c,point,purpose)=>{const viewport=c.page.viewportSize();if(!point||!Number.isFinite(point.x)||!Number.isFinite(point.y)||point.x<0||point.y<0||point.x>=viewport.width||point.y>=viewport.height)throw Error('Supply observed canvas coordinates inside the current viewport');if(inputMode==='touch')await c.page.touchscreen.tap(point.x,point.y);else await c.page.mouse.click(point.x,point.y);const receipt={unix:Date.now(),kind:inputMode==='touch'?'tap':'click',purpose,x:point.x,y:point.y};c.browserInputs.push(receipt);append(c.role+'-browser-input.jsonl',receipt);return receipt;};
   const identityMatches=c=>c.matched&&c.last&&JSON.stringify(c.matched.civilizations)===JSON.stringify(expectedIds)&&JSON.stringify(c.last.civilizations)===JSON.stringify(expectedIds)&&c.last.player?.civilization===expectations[c.role].id&&c.matched.civilizations[c.matched.slot]===expectations[c.role].id&&c.room?.players===2&&JSON.stringify(c.room.civilizations)===JSON.stringify(expectedIds)&&c.lobbyRequests.some(p=>['host','join','search'].includes(p.op)&&p.protocol===2)&&c.lobbyRequests.at(-1)?.civilization===expectations[c.role].id;
@@ -236,6 +239,7 @@ async function main() {
     }
     await context.exposeBinding('__pocketHarnessEvent',(_source,event)=>{if(['socket_route','command_origin'].includes(event.kind))append(role+'-'+event.kind+'.jsonl',event);});
     await context.addInitScript(installWitness,{local:localMode,matchUrl:local?.matchUrl});const page=await context.newPage();
+    if(!localMode){const cdp=await context.newCDPSession(page);await cdp.send('Network.enable',{maxTotalBufferSize:268435456,maxResourceBufferSize:134217728});}
     const client=clients[role]={role,page,context,objectiveOnly,policy:false,last:null,matched:null,room:null,ended:null,started:0,
       errors:[],warnings:[],rejections:[],lastBuild:-10,lastArmy:-60,demolished:false,rejectedPlacements:new Set(),pendingPlace:null,uiChecks:[],captures:[],browserInputs:[],recruitAttempts:[],paidRecruitReviewed:false,policyEver:false,civilizationSelection:null,lobbyRequests:[],endedAt:null};
     page.on('console',message=>{const entry={type:message.type(),text:message.text(),unix:Date.now()};append(role+'-console.jsonl',entry);if(entry.type==='error')client.errors.push(entry);if(entry.type==='warning')client.warnings.push(entry);});
@@ -244,10 +248,10 @@ async function main() {
       if(/\.(pck|wasm|js)(\?|$)|\/(build-info|version)\.json(\?|$)/.test(response.url())) {
         append(role+'-assets.jsonl',{url:response.url(),status:response.status(),unix:Date.now(),from_service_worker:response.fromServiceWorker(),headers:response.headers()});
         if(localMode&&response.status()===200){const headers=response.headers();append(role+'-asset-server-proof.jsonl',{url:response.url(),file:decodeURIComponent(new URL(response.url()).pathname).slice(1),status:200,request_id:headers['x-pocket-request-id'],sha256:headers['x-pocket-artifact-sha256'],bytes:Number(headers['content-length']),proof:'Browser response headers correlated with owned server exact-byte log; distinct from CDP response.body hash'});}
-        if(localMode&&response.status()===200)assetTasks.push(response.body().then(bytes=>{
-          const name=decodeURIComponent(new URL(response.url()).pathname).slice(1),sha256=digest(bytes),expected=local.source.artifact.files[name];
+        if(response.status()===200)assetTasks.push(response.body().then(bytes=>{
+          const name=decodeURIComponent(new URL(response.url()).pathname).slice(1),sha256=digest(bytes),expected=(local?.source.artifact||publicProof.artifact).files[name];
           const record={unix:Date.now(),url:response.url(),file:name,bytes:bytes.length,sha256,expected,match:sha256===expected};
-          append(role+'-asset-bytes.jsonl',record);if(!record.match)client.errors.push({type:'artifact-bytes',...record});
+          append(role+'-asset-bytes.jsonl',record);if(expected&&!record.match)client.errors.push({type:'artifact-bytes',...record});
         }).catch(error=>append(role+'-asset-body-failures.jsonl',{unix:Date.now(),url:response.url(),error:String(error)})));
       }});
     page.on('requestfinished',request=>{if(/\.(pck|wasm|js)(\?|$)/.test(request.url()))append(role+'-asset-finished.jsonl',{url:request.url(),unix:Date.now()});});

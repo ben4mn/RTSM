@@ -56,9 +56,12 @@ function paidVillagerRecruitment(before,after,slot,evidence) {
   const bank=packet=>{const values=['food','wood','gold'].map(k=>packet.bank?.[k]);assert(values.every(v=>Number.isInteger(v)&&v>=0),'Missing integer own bank');return values.reduce((a,b)=>a+b,0);};
   assert(before.bank?.food>=50,'Villager purchase must be affordable at ordinary50F cost');
   const deposited=after.stats?.resources_gathered-before.stats?.resources_gathered;
-  assert(Number.isInteger(before.stats?.resources_gathered)&&Number.isInteger(after.stats?.resources_gathered)&&deposited>=0,'Missing normal deposit accounting');
+  assert(Number.isInteger(before.stats?.resources_gathered)&&before.stats.resources_gathered>=0&&Number.isInteger(after.stats?.resources_gathered)&&deposited>=0,'Missing normal deposit accounting');
   const netSpent=bank(before)+deposited-bank(after);
   assert.equal(netSpent,50,'Own bank plus actual deposits must account for exactly50 spent');
-  return {unit:'Villager',unit_type:0,producer:command.target,cost:{food:50},bank_before:before.bank,bank_after:after.bank,normal_deposits:deposited,net_spent:netSpent,queue_before:previous.queue.items,queue_after:current.queue.items,reserved_before:before.player.population_reserved,reserved_after:after.player.population_reserved};
+  const depositsByResource=Object.fromEntries(['food','wood','gold'].map(key=>[key,after.bank[key]-before.bank[key]+(key==='food'?50:0)]));
+  assert(Object.values(depositsByResource).every(value=>value>=0),'A50F Villager cannot spend wood or gold or imply negative deposits');
+  assert.equal(Object.values(depositsByResource).reduce((sum,value)=>sum+value,0),deposited,'Per-resource deposits must match the observed gathered total');
+  return {unit:'Villager',unit_type:0,producer:command.target,cost:{food:50},bank_before:before.bank,bank_after:after.bank,normal_deposits:deposited,normal_deposits_by_resource:depositsByResource,net_spent:netSpent,queue_before:previous.queue.items,queue_after:current.queue.items,reserved_before:before.player.population_reserved,reserved_after:after.player.population_reserved};
 }
 module.exports={CIVILIZATIONS,civilization,counterLesson,resultExpectation,paidVillagerRecruitment};
