@@ -123,9 +123,15 @@ func _apply_compact_layout() -> void:
 		# The header sets the compact sheet width; its single building keeps the
 		# same card proportions as every other category.
 		sheet_width = minf(maximum_width, _header_minimum_width() + horizontal_padding)
-	# Every category fits on one page at landscape phone sizes. A swipe always
-	# belongs to the battlefield; construction never requires horizontal scrolling.
-	scroll_container.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	# Keep every Castle unlock reachable without squeezing its card text.
+	# Narrow Army rows can scroll inside the sheet; other rows still fit.
+	var content_width: float = sheet_width - horizontal_padding
+	_card_width = maxf(120.0, minf(CARD_WIDTH, (content_width - CARD_GAP * float(visible_count - 1)) / float(visible_count)))
+	var needs_scroll: bool = _card_width * visible_count + CARD_GAP * (visible_count - 1) > content_width + 0.5
+	# Keep a five-card row scroll-capable even while it fits. Otherwise its old
+	# wider child minimum can expand the panel during a category/scale change.
+	scroll_container.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER if visible_count > 4 or needs_scroll else ScrollContainer.SCROLL_MODE_DISABLED
+	scroll_container.accessibility_name = "%s buildings; swipe horizontally for more" % _active_category if needs_scroll else "%s buildings" % _active_category
 	scroll_container.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_sheet_height = vertical_padding + HEADER_HEIGHT + float(($Margin/VBox as VBoxContainer).get_theme_constant("separation")) + CARD_HEIGHT
 	var sheet_center_x: float = safe_area.position.x + safe_area.size.x * 0.5
@@ -139,7 +145,6 @@ func _apply_compact_layout() -> void:
 	offset_top = offset_bottom - _sheet_height
 	custom_minimum_size = Vector2(sheet_width, _sheet_height)
 
-	_card_width = minf(CARD_WIDTH, (sheet_width - horizontal_padding - CARD_GAP * float(visible_count - 1)) / float(visible_count))
 	grid.columns = visible_count
 	grid.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	for button: Button in _button_map.values():
@@ -408,9 +413,6 @@ func _rebuild_grid() -> void:
 	)
 
 	for building_type in all_types:
-		var gm: Node = get_node_or_null("/root/GameManager")
-		if building_type == BuildingData.BuildingType.SIEGE_WORKSHOP and gm and int(gm.call("get_match_population_limit")) <= 40:
-			continue
 		var stats: Dictionary = BuildingData.get_building_stats(building_type, player_owner)
 		if stats.is_empty():
 			continue

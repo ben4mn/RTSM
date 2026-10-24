@@ -17,6 +17,7 @@ func _ready() -> void:
 func _run() -> void:
 	AudioManager.set_all_enabled(false)
 	await _check_large_scale_geometry(Vector2i(844, 390), 1.15, true)
+	await _check_army_scroll_resize()
 	for phone: Vector2i in [Vector2i(844, 390), Vector2i(932, 430)]:
 		for ui_scale: float in [1.0, 1.075, 1.15]:
 			for notched: bool in [false, true]:
@@ -136,7 +137,7 @@ func _run() -> void:
 	build_menu.free()
 	phone_viewport.free()
 	if _failures.is_empty():
-		print("[PASS] build_menu_mobile_layout: 12 phone profiles, grouped header, consistent cards, full touch targets and all cards visible without scrolling")
+		print("[PASS] build_menu_mobile_layout: 12 phone profiles, grouped header, readable cards, full touch targets; narrow five-card Army row scrolls to Castle Siege")
 		get_tree().quit(0)
 		return
 	for failure: String in _failures:
@@ -218,6 +219,7 @@ func _check_category_density(phone_size: Vector2i, ui_scale: float, notched: boo
 			var panel: Rect2 = menu.get_global_rect()
 			var scroll: ScrollContainer = menu.get("scroll_container")
 			var grid: GridContainer = menu.get("grid")
+			_expect(scroll.scroll_horizontal == 0, "%s %s category switch retains a previous horizontal offset" % [profile, category])
 			_expect(safe_area.encloses(panel), "%s %s sheet outside safe area" % [profile, category])
 			_expect(panel.size.y <= MAX_SHEET_HEIGHT + 0.5, "%s %s sheet keeps excess height %.1f" % [profile, category, panel.size.y])
 			_expect(not (menu.get("title_label") as Label).visible, "%s retains redundant Build title" % profile)
@@ -282,7 +284,21 @@ func _check_category_density(phone_size: Vector2i, ui_scale: float, notched: boo
 				menu.call("update_age", 1)
 			else:
 				var visible_cards: int = int(menu.call("_visible_card_count"))
-				_expect(grid.size.x <= scroll.size.x + 1.0 and not scroll.get_h_scroll_bar().visible, "%s %s must show every card without scrolling" % [profile, category])
+				if grid.size.x > scroll.size.x + 1.0:
+					_expect(category == "Army" and visible_cards == 5, "%s unexpected overflowing category" % profile)
+					_expect(scroll.horizontal_scroll_mode == ScrollContainer.SCROLL_MODE_SHOW_NEVER, "%s narrow Army disables horizontal scrolling" % profile)
+					var last_card: Button = null
+					for card: Button in grid.get_children():
+						if card.visible:
+							last_card = card
+					_expect(last_card != null and (menu.get("_button_map") as Dictionary).has(BuildingData.BuildingType.SIEGE_WORKSHOP), "%s compact Army hides Siege Workshop" % profile)
+					if last_card != null:
+						scroll.ensure_control_visible(last_card)
+						for frame: int in 3:
+							await get_tree().process_frame
+						_expect(scroll.get_global_rect().encloses(last_card.get_global_rect()), "%s last Army card cannot scroll fully into view" % profile)
+				else:
+					_expect(not scroll.get_h_scroll_bar().visible, "%s fitting cards show an unnecessary scrollbar" % profile)
 				var first: Button = null
 				for card: Button in grid.get_children():
 					if card.visible:
@@ -293,7 +309,50 @@ func _check_category_density(phone_size: Vector2i, ui_scale: float, notched: boo
 					if card.visible:
 						_expect_button_text_fits(card, profile + " " + category)
 				var visible_columns: float = (scroll.size.x + card_gap) / (first.size.x + card_gap)
-				_expect(visible_columns > 3.5 and visible_columns < 4.4, "%s %s clips category cards %.2f" % [profile, category, visible_columns])
+				_expect(visible_columns > 3.5 and visible_columns < 5.4, "%s %s loses readable card density %.2f" % [profile, category, visible_columns])
+	menu.free()
+	viewport.free()
+	await get_tree().process_frame
+
+
+func _check_army_scroll_resize() -> void:
+	var viewport := SubViewport.new()
+	viewport.size = Vector2i(733, 339)
+	add_child(viewport)
+	var host := Control.new()
+	host.size = Vector2(viewport.size)
+	viewport.add_child(host)
+	var menu: PanelContainer = load("res://scenes/ui/build_menu.tscn").instantiate()
+	host.add_child(menu)
+	await get_tree().process_frame
+	menu.call("set_safe_area_rect", Rect2(Vector2(38, 0), Vector2(657, 323)))
+	menu.call("open_menu")
+	menu.call("update_age", 3)
+	menu.call("update_resources", {"food": 5000, "wood": 5000, "gold": 5000})
+	menu.call("_on_category_pressed", "Army")
+	for frame: int in 4:
+		await get_tree().process_frame
+	var scroll: ScrollContainer = menu.get("scroll_container")
+	var last: Button = (menu.get("_button_map") as Dictionary)[BuildingData.BuildingType.BLACKSMITH]
+	scroll.ensure_control_visible(last)
+	for frame: int in 4:
+		await get_tree().process_frame
+	_expect(scroll.scroll_horizontal > 0 and scroll.get_global_rect().encloses(last.get_global_rect()), "narrow Castle row must scroll to its actual last Blacksmith card")
+	viewport.size = Vector2i(932, 430)
+	host.size = Vector2(viewport.size)
+	menu.call("set_safe_area_rect", Rect2(Vector2.ZERO, Vector2(viewport.size)))
+	for frame: int in 5:
+		await get_tree().process_frame
+	var first: Button = (menu.get("_button_map") as Dictionary)[BuildingData.BuildingType.BARRACKS]
+	_expect(scroll.scroll_horizontal == 0 and scroll.get_global_rect().encloses(first.get_global_rect()), "widening a scrolled Army row must clamp offset and reveal its first card")
+	for category: String in ["Economy", "Defence"]:
+		menu.call("_on_category_pressed", category)
+		for frame: int in 4:
+			await get_tree().process_frame
+		_expect(scroll.scroll_horizontal == 0, category + " must reset a previously scrolled Army offset")
+		for card: Button in (menu.get("grid") as GridContainer).get_children():
+			if card.visible:
+				_expect(scroll.get_global_rect().encloses(card.get_global_rect()), category + " card must remain fully visible after Army resize")
 	menu.free()
 	viewport.free()
 	await get_tree().process_frame
