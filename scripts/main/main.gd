@@ -2226,10 +2226,17 @@ func _on_gather_command(resource_node: Node2D) -> void:
 		VFX.gather_indicator(get_tree(), resource_node.global_position)
 	if occupied_farm_rejections > 0:
 		hud.show_notification("One worker per Farm. Other workers keep their orders." if assigned_any else "Farm occupied. Choose an empty Farm or another food source.", KingdomTheme.RUST)
-	if assigned_any and resource_node.get_resource_type() == "food":
+	if assigned_any:
+		_on_player_gather_accepted(resource_node.get_resource_type())
+	_refresh_unit_command_hud()
+
+
+func _on_player_gather_accepted(resource_type: String) -> void:
+	# Only confirmed player orders reach this hook. Automatic starting/newborn
+	# assignments and unacknowledged online requests do not complete a lesson.
+	if resource_type == "food":
 		_opening_gather_complete = true
 	_refresh_guided_opening_stage()
-	_refresh_unit_command_hud()
 
 
 func _on_build_command(building: Node2D) -> void:
@@ -2698,6 +2705,7 @@ func _setup_hud() -> void:
 	var strategy := preload("res://scripts/managers/strategy_controller.gd").new()
 	strategy.name = "StrategyController"
 	add_child(strategy)
+	strategy.worker_allocation_accepted.connect(_on_player_gather_accepted)
 	strategy.setup(self, hud, game_map)
 
 

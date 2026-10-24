@@ -1,6 +1,8 @@
 extends Node
 ## Bridges the selection-independent overview to existing paid, fog-legal orders.
 
+signal worker_allocation_accepted(resource_type: String)
+
 const ECONOMY_ASSESSMENT = preload("res://scripts/managers/economy_assessment.gd")
 const BATTLE_RECEIPTS = preload("res://scripts/main/battle_receipts.gd")
 
@@ -334,6 +336,7 @@ func _allocate_worker(source: String, destination: String) -> void:
 	var result: Dictionary = try_allocate_worker(0, source, destination)
 	if result.has("worker"):
 		var worker: Villager = result.worker
+		worker_allocation_accepted.emit(destination)
 		_overview.show_feedback("Moved one worker from %s to %s.%s" % [source, destination, " Cargo kept." if worker.carried_amount > 0 and worker.carried_resource_type != destination else ""])
 		var diagnostics: Node = get_node_or_null("/root/PlaytestDiagnostics")
 		if diagnostics:

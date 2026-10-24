@@ -1913,7 +1913,8 @@ func _apply_context_actions(viewport_size: Vector2) -> void:
 	build_menu_button.visible = field_mode and (unselected or worker)
 	var gm: Node = _get_game_manager()
 	var can_advance: bool = gm == null or not gm.get_age_up_cost(0, gm.get_player_age(0) + 1).is_empty()
-	age_up_button.visible = field_mode and not _early_game_ui_active and can_advance and town_center
+	# The optional opener can suggest a next step without hiding a paid action.
+	age_up_button.visible = field_mode and can_advance and town_center
 	_selection_back_button.visible = field_mode and _selection_context_active and _selection_kind != "unit" and (not _camera_controls_expanded or _strategy_overview == null)
 	_selection_back_button.text = "Back"
 	_select_area_button.visible = field_mode
@@ -2252,7 +2253,7 @@ func clear_primary_action() -> void:
 
 func set_early_game_ui_state(active: bool) -> void:
 	_early_game_ui_active = active
-	age_up_button.visible = not active
+	_apply_context_actions(get_viewport().get_visible_rect().size)
 	_refresh_score_visibility(get_viewport().get_visible_rect().size)
 	if _speed_button:
 		_speed_button.modulate = Color(0.72, 0.72, 0.72, 0.8) if active else Color.WHITE
@@ -2262,6 +2263,7 @@ func set_early_game_ui_state(active: bool) -> void:
 	update_military_count(_last_military_count)
 	_refresh_primary_action_visuals()
 	_refresh_touch_target_diagnostics()
+	_queue_mobile_layout_refresh()
 
 
 func set_match_learning_active(active: bool) -> void:
@@ -2524,8 +2526,6 @@ func _update_age_display() -> void:
 			age_up_button.tooltip_text = "You have reached the highest age"
 			age_up_button.accessibility_name = age_up_button.tooltip_text
 			age_up_button.disabled = true
-		if _early_game_ui_active:
-			age_up_button.visible = false
 	else:
 		age_label.text = "Dark Age"
 
