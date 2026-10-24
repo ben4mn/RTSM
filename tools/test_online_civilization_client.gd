@@ -70,8 +70,8 @@ func _snapshot(data: Dictionary) -> void:
 						_expect(float(actor.max_hp) == float(enemy_stats.hp) and enemy.max_hp == float(enemy_stats.hp), "enemy authority and replica HP agree")
 						_expect(enemy.speed == float(enemy_stats.speed) and enemy.attack_range == MapData.range_tiles_to_world(float(enemy_stats.attack_range)), "enemy signature range and speed survive slot remapping")
 						_expect(enemy.get_unit_type() == str(enemy_stats.name), "enemy signature name is truthful")
-						var expected_icon: String = str(enemy_stats.get("civilization_icon", UnitData.UNIT_ICONS[opponent_type])).replace(".svg", "_enemy.svg")
-						_expect(enemy.get("_sprite").texture.resource_path == expected_icon, "enemy signature uses distinct enemy artwork")
+						var expected_icon: String = UnitData.get_unit_icon_path(opponent_type, 1)
+						_expect(enemy.get("_sprite").texture.resource_path == expected_icon, "enemy signature uses its actual civilization artwork")
 					enemy_verified = true
 					print("ONLINE_CIV_ENEMY_VERIFIED civ=%d opponent=%d slot=%d time=%.2f signature=%s failures=%s" % [civilization, opponent_civilization, slot, data.time, enemy_stats.name, failures])
 			continue
@@ -99,7 +99,7 @@ func _snapshot(data: Dictionary) -> void:
 				_expect(replica.max_hp == float(expected.hp) and float(actor.max_hp) == float(expected.hp), "authoritative and replica signature HP agree")
 				_expect(replica.speed == float(expected.speed) and replica.attack_range == MapData.range_tiles_to_world(float(expected.attack_range)), "replica speed/range agree with civilization rules")
 				_expect(replica.get_unit_type() == str(expected.name), "replica signature identity is truthful")
-				_expect(str(UnitData.get_unit_icon_path(signature_type, 0)) == str(expected.get("civilization_icon", UnitData.UNIT_ICONS[signature_type])), "replica signature artwork follows selected kingdom")
+				_expect(replica.get("_sprite").texture.resource_path == KingdomArt.unit_path(civilization, signature_type), "replica signature artwork follows selected kingdom")
 			for owned_actor: Dictionary in data.actors:
 				if int(owned_actor.owner) == slot and str(owned_actor.kind) == "building":
 					var expected_hp: float = float(BuildingData.BUILDINGS[int(owned_actor.type)].hp) * CivilizationData.get_building_hp_multiplier(civilization)

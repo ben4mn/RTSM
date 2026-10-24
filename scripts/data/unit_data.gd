@@ -179,6 +179,9 @@ static func get_unit_name(unit_type: int, player_id: int = -1) -> String:
 
 
 static func get_unit_icon_path(unit_type: int, player_id: int = -1) -> String:
+	var miniature_path: String = KingdomArt.unit_path(CivilizationData.for_player(player_id), unit_type)
+	if not miniature_path.is_empty():
+		return miniature_path
 	var signature_path: String = str(get_unit_stats(unit_type, player_id).get("civilization_icon", ""))
 	if not signature_path.is_empty() and ResourceLoader.exists(signature_path):
 		return signature_path

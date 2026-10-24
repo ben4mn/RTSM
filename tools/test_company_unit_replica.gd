@@ -24,6 +24,7 @@ func _run() -> void:
 		return
 	var adapter: Node = session.adapter
 	adapter.set_process(false)
+	var unit_data: GDScript = load("res://scripts/data/unit_data.gd")
 	for slot: int in [1, 0]:
 		session.player_slot = slot
 		var actors: Array[Dictionary] = []
@@ -37,9 +38,9 @@ func _run() -> void:
 			for actor: Dictionary in actors:
 				var unit: Node = adapter.entities[int(actor.id)]
 				var local_owner: int = 0 if int(actor.owner) == slot else 1
-				var expected: String = "res://assets/units/%s%s.svg" % [FILES[int(actor.type)], "_enemy" if local_owner == 1 else ""]
+				var expected: String = unit_data.get_unit_icon_path(int(actor.type), local_owner)
 				_check(unit.player_owner == local_owner, "Slot%d maps server owner before sprite creation" % slot)
-				_check(unit._sprite.texture.resource_path == expected, "Rebuilt replica uses correct role and local cloth")
+				_check(unit._sprite.texture.resource_path == expected, "Rebuilt replica uses correct role and local civilization")
 				_check(unit._sprite.modulate == Color.WHITE, "Neutral skin, hair and equipment remain untinted")
 				var local_reference: Node = (adapter.main._unit_scenes[int(actor.type)] as PackedScene).instantiate()
 				local_reference.player_owner = local_owner

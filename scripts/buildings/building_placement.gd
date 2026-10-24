@@ -173,16 +173,14 @@ func _setup_ghost_sprite() -> void:
 		_ghost_sprite = null
 
 	_ghost_sprite = Sprite2D.new()
-	var tex_path: String = BuildingBase.BUILDING_SPRITES.get(current_building_type, "")
+	var tex_path: String = BuildingBase.get_sprite_texture_path(current_building_type, _player_owner)
 	if tex_path != "" and ResourceLoader.exists(tex_path):
 		_ghost_sprite.texture = load(tex_path)
-	var texture_scale: Vector2 = BuildingBase.get_art_texture_scale(_ghost_sprite.texture)
-	_ghost_sprite.scale = BuildingBase.BUILDING_SCALES.get(current_building_type, Vector2(0.4, 0.4)) / texture_scale
-	_ghost_sprite.offset = BuildingBase.get_sprite_offset(current_building_type, current_footprint) * texture_scale
+	BuildingBase.configure_art_sprite(_ghost_sprite, current_building_type, current_footprint)
 	_ghost_sprite.position = BuildingBase.get_footprint_center_offset(current_footprint, get_parent())
 	_ghost_art_rect = _ghost_sprite.get_rect()
 	if _ghost_sprite.texture != null:
-		var ink: Rect2i = _ghost_sprite.texture.get_image().get_used_rect()
+		var ink: Rect2 = KingdomArt.ink_rect(_ghost_sprite.texture)
 		_ghost_art_rect = Rect2(_ghost_sprite.get_rect().position + Vector2(ink.position), Vector2(ink.size))
 	_ghost_sprite.modulate = Color(0.4, 1.0, 0.4, 0.6)
 	# Keep the exact cell edges and blocked marks readable over the translucent art.

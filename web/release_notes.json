@@ -1,6 +1,20 @@
 {
   "releases": [
     {
+      "id": "2026-10-24-kingdom-miniatures",
+      "version": "0.3.0-beta.4",
+      "date": "2026-10-24",
+      "title": "Little kingdoms, distinct character",
+      "summary": "A new miniature art style for every kingdom, with clearer match setup and a warmer menu.",
+      "changes": [
+        "Choose your kingdom directly in New Game. Your crest and kingdom name are visible beside the match options, with a separate rival choice for solo games.",
+        "Every kingdom has six refreshed unit roles and ten building illustrations. Crownlands uses teal and limestone, Verdant uses green and oak, and Sunstride uses terracotta and bronze. Longbows and Outriders retain their signature roles.",
+        "Recruitment portraits, building cards and construction previews use the same new art as the battlefield. Ownership marks distinguish friendly and rival armies without recolouring their materials.",
+        "A shared miniature village illustration, cleaner headings, softer panels and a new castle icon replace older menu and welcome-page graphics.",
+        "Unit costs, civilization bonuses, combat timing, building footprints, victory rules and protocol 3 remain unchanged. The existing recovery controls remain available; the late idle-browser error is still under investigation."
+      ]
+    },
+    {
       "id": "2026-10-24-building-help-and-recovery",
       "version": "0.3.0-beta.3",
       "date": "2026-10-24",

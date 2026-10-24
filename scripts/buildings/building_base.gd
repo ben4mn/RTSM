@@ -38,6 +38,8 @@ var rally_resource_is_building: bool = false
 var is_selected: bool = false
 var _production_queue: Node = null
 var _sprite: Sprite2D = null
+var _ownership_marker: Node2D = null
+var _ownership_marker_owner: int = -1
 var _defensive_flash: Node2D = null
 var _footprint_center: Vector2 = Vector2.ZERO
 var _sprite_visual_rect: Rect2 = Rect2()
@@ -184,6 +186,9 @@ const COMPANY_ENEMY_SPRITES: Dictionary = {
 
 
 static func get_sprite_texture_path(type: int, owner: int = 0) -> String:
+	var miniature_path: String = KingdomArt.building_path(CivilizationData.for_player(owner), type)
+	if not miniature_path.is_empty():
+		return miniature_path
 	if owner != 0 and COMPANY_ENEMY_SPRITES.has(type):
 		return COMPANY_ENEMY_SPRITES[type]
 	return BUILDING_SPRITES.get(type, "")
@@ -298,6 +303,11 @@ func _setup_sprite() -> void:
 	_sprite.position = _footprint_center
 	add_child(_sprite)
 	_refresh_sprite_geometry()
+	_ownership_marker = Node2D.new()
+	_ownership_marker.name = "OwnershipPennant"
+	_ownership_marker.z_index = 1
+	_ownership_marker.draw.connect(_draw_ownership_pennant)
+	add_child(_ownership_marker)
 	_update_sprite_appearance()
 	if tower_attack_damage > 0:
 		_defensive_flash = Node2D.new()
@@ -313,13 +323,20 @@ static func get_art_texture_scale(texture: Texture2D) -> Vector2:
 
 
 func _refresh_sprite_geometry() -> void:
-	var texture_scale: Vector2 = get_art_texture_scale(_sprite.texture)
-	_sprite.scale = BUILDING_SCALES.get(building_type, Vector2(0.4, 0.4)) / texture_scale
-	_sprite.offset = get_sprite_offset(building_type, footprint) * texture_scale
+	configure_art_sprite(_sprite, building_type, footprint)
 	if _sprite.texture != null:
-		var ink: Rect2i = _sprite.texture.get_image().get_used_rect()
+		var ink: Rect2 = KingdomArt.ink_rect(_sprite.texture)
 		_sprite_visual_rect = _sprite.transform * Rect2(_sprite.get_rect().position + Vector2(ink.position), Vector2(ink.size))
 		_visual_top = _sprite_visual_rect.position.y
+
+
+static func configure_art_sprite(sprite: Sprite2D, type: int, size_in_tiles: Vector2i) -> void:
+	if KingdomArt.is_kingdom_texture(sprite.texture):
+		KingdomArt.configure_building(sprite, type, size_in_tiles)
+		return
+	var texture_scale: Vector2 = get_art_texture_scale(sprite.texture)
+	sprite.scale = BUILDING_SCALES.get(type, Vector2(0.4, 0.4)) / texture_scale
+	sprite.offset = get_sprite_offset(type, size_in_tiles) * texture_scale
 
 
 static func get_sprite_offset(type: int, _size_in_tiles: Vector2i) -> Vector2:
@@ -364,7 +381,12 @@ func _update_sprite_appearance() -> void:
 	if _sprite.texture != null and _sprite.texture.resource_path != texture_path and ResourceLoader.exists(texture_path):
 		_sprite.texture = load(texture_path)
 		_refresh_sprite_geometry()
-	var legacy_enemy_tint: bool = player_owner != 0 and not COMPANY_ENEMY_SPRITES.has(building_type)
+	var legacy_enemy_tint: bool = player_owner != 0 and not COMPANY_ENEMY_SPRITES.has(building_type) and not KingdomArt.is_kingdom_texture(_sprite.texture)
+	if _ownership_marker != null:
+		_ownership_marker.visible = KingdomArt.is_kingdom_texture(_sprite.texture)
+		if _ownership_marker_owner != player_owner:
+			_ownership_marker_owner = player_owner
+			_ownership_marker.queue_redraw()
 	var base_color: Color = Color(1.0, 0.55, 0.55) if legacy_enemy_tint else Color.WHITE
 	match state:
 		State.CONSTRUCTING:
@@ -397,10 +419,9 @@ func _update_construction_presentation() -> void:
 		_construction_material = ShaderMaterial.new()
 		_construction_material.shader = CONSTRUCTION_REVEAL_SHADER
 		if _sprite.texture != null:
-			var ink: Rect2i = _sprite.texture.get_image().get_used_rect()
-			var texture_height: float = _sprite.texture.get_height()
-			_construction_material.set_shader_parameter("ink_top", float(ink.position.y) / texture_height)
-			_construction_material.set_shader_parameter("ink_bottom", float(ink.end.y) / texture_height)
+			var uv_range: Vector2 = KingdomArt.vertical_uv_range(_sprite.texture)
+			_construction_material.set_shader_parameter("ink_top", uv_range.x)
+			_construction_material.set_shader_parameter("ink_bottom", uv_range.y)
 		_sprite.material = _construction_material
 	_construction_material.set_shader_parameter("construction_progress", clampf(build_progress, 0.0, 1.0))
 	if not is_instance_valid(_construction_frame):
@@ -473,6 +494,20 @@ func _draw() -> void:
 		draw_arc(rp_local, 5.0 * scale_factor, 0.0, TAU, 20, flag_color, scale_factor)
 		draw_line(rp_local, rp_local + Vector2(0, -14) * scale_factor, flag_color, 1.5 * scale_factor)
 		draw_colored_polygon(PackedVector2Array([rp_local + Vector2(0, -14) * scale_factor, rp_local + Vector2(9, -11) * scale_factor, rp_local + Vector2(0, -8) * scale_factor]), flag_color)
+
+
+func _draw_ownership_pennant() -> void:
+	# Draw above the sprite, so an isometric facade cannot hide ownership.
+	# Civ architecture, skin, stone and crops keep their original materials.
+	var pixel_w: float = footprint.x * MapData.TILE_WIDTH
+	var pixel_h: float = footprint.y * MapData.TILE_HEIGHT
+	var pole := _footprint_center + Vector2(pixel_w * 0.29, pixel_h * 0.20)
+	var flag_color := Color("88b7ad") if player_owner == 0 else Color("d69477")
+	_ownership_marker.draw_line(pole, pole - Vector2(0, 19), Color("293235"), 2.0)
+	var flag := PackedVector2Array([pole + Vector2(0, -19), pole + Vector2(13, -17), pole + Vector2(10, -10), pole + Vector2(0, -12)])
+	_ownership_marker.draw_colored_polygon(flag, flag_color)
+	if player_owner != 0:
+		_ownership_marker.draw_polyline(PackedVector2Array([pole + Vector2(4, -16), pole + Vector2(7, -13), pole + Vector2(10, -15)]), Color("293235"), 1.4)
 
 
 func _draw_drop_off_badges(pixel_w: float, _pixel_h: float) -> void:
@@ -846,6 +881,9 @@ func _defensive_target_priority(unit: UnitBase) -> int:
 func _get_defensive_fire_position() -> Vector2:
 	if _sprite == null or _sprite.texture == null:
 		return to_global(Vector2(0.0, -52.0))
+	if KingdomArt.is_kingdom_texture(_sprite.texture):
+		var ink: Rect2 = KingdomArt.ink_rect(_sprite.texture)
+		return _sprite.to_global(_sprite.get_rect().position + ink.position + ink.size * Vector2(0.55, 0.42))
 	var source_point: Vector2 = DEFENSIVE_FIRE_POINTS.get(building_type, Vector2(64, 52))
 	return _sprite.to_global(_sprite.get_rect().position + source_point * get_art_texture_scale(_sprite.texture))
 

@@ -38,7 +38,7 @@ class MobileShellArtifactTests(unittest.TestCase):
         for name in ("Barlow-Regular.ttf", "Barlow-Medium.ttf", "BarlowCondensed-SemiBold.ttf", "barlow-OFL.txt", "barlowcondensed-OFL.txt"):
             (self.root / name).write_bytes((Path(__file__).resolve().parents[1] / "assets/fonts" / name).read_bytes())
         assets = Path(__file__).resolve().parents[1] / "assets/ui"
-        for source in [assets / "field_company.png", assets / "icons/play_dark.svg"] + [assets / "plates" / f"{kind}_{state}.svg" for kind in ("primary", "secondary") for state in ("normal", "hover", "pressed")]:
+        for source in [assets / "kingdom_company_v2.png", assets / "icons/play_dark.svg"] + [assets / "plates" / f"{kind}_{state}.svg" for kind in ("primary", "secondary") for state in ("normal", "hover", "pressed")]:
             (self.root / source.name).write_bytes(source.read_bytes())
         (self.root / "version.json").write_text(json.dumps({"source_revision": "abcdef012345", "source_tree_sha256": "a" * 64, "source_dirty": False, "version": "test"}))
         self.manifest = {"display": "standalone", "orientation": "landscape", "start_url": "./index.html", "icons": []}

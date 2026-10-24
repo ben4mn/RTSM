@@ -1,6 +1,15 @@
 extends Node
 ## Real menu/compare modal at phone safe areas, plus draft and cancellation rules.
 
+class SafeAreaMenu:
+	extends "res://scripts/ui/main_menu.gd"
+	var modeled_safe_area := Rect2()
+	func _refresh_responsive_layout() -> void:
+		if is_node_ready():
+			# Model platform geometry on every production reflow, including modal
+			# close. A one-off layout injection reverts to native desktop insets.
+			apply_mobile_layout(get_viewport().get_visible_rect().size, modeled_safe_area, 60.0)
+
 var _failures: Array[String] = []
 var _checks: int = 0
 
@@ -21,16 +30,19 @@ func _run() -> void:
 			var viewport := SubViewport.new()
 			viewport.size = Vector2i(size_value)
 			add_child(viewport)
-			var menu: Control = load("res://scenes/ui/main_menu.tscn").instantiate()
+			var menu := SafeAreaMenu.new()
+			menu.modeled_safe_area = safe
 			menu.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
 			menu.size = size_value
 			viewport.add_child(menu)
 			menu.call("_open_new_game", "solo")
 			await _settle()
-			menu.call("apply_mobile_layout", size_value, safe, 60.0)
 			await _settle()
 			var context: String = "%s scale %.2f" % [pixels, scale_value]
-			_bounds(menu.get("_civilization_button"), safe, context + " reachable kingdom action")
+			_bounds(menu.get("_header"), safe, context + " setup header")
+			_bounds(menu.get("settings_button"), safe, context + " settings beside setup choices")
+			_kingdom_choice(menu.get("_civilization_button"), menu.get("_civilization_name"), GameManager.selected_civilization, safe, context + " player setup")
+			_kingdom_choice(menu.get("_opponent_civilization_button"), menu.get("_opponent_civilization_name"), GameManager.selected_opponent_civilization, (menu.get("_options_scroll") as Control).get_global_rect(), context + " rival setup")
 			_bounds(menu.get("start_button"), safe, context + " Start remains reachable")
 			for id: int in CivilizationData.ORDERED_IDS:
 				(menu.get("_civilization_button") as Button).pressed.emit()
@@ -52,15 +64,18 @@ func _run() -> void:
 				(picker.get("_confirm") as Button).pressed.emit()
 				await _settle()
 				_expect(GameManager.selected_civilization == id, context + " confirms player kingdom")
+				_kingdom_choice(menu.get("_civilization_button"), menu.get("_civilization_name"), id, safe, context + " confirmed player setup")
 				_expect((menu.get("_selection_summary") as Label).text.contains(str(definition.name)), context + " footer confirms selected kingdom")
 				_expect(bool(menu.get("_web_update_safe")), context + " closed modal restores menu update safety")
-			menu.call("_open_civilization_picker", true)
+			(menu.get("_opponent_civilization_button") as Button).pressed.emit()
 			await _settle()
 			var rival_picker: Control = menu.get("_civilization_picker")
 			rival_picker.call("select_civilization", CivilizationData.Civilization.VERDANT_LEAGUE)
 			(rival_picker.get("_confirm") as Button).pressed.emit()
 			await _settle()
 			_expect(GameManager.selected_opponent_civilization == CivilizationData.Civilization.VERDANT_LEAGUE, context + " rival draft independent")
+			_expect(GameManager.selected_civilization == CivilizationData.Civilization.SUNSTRIDE_CLANS, context + " changing rival preserves player draft")
+			_kingdom_choice(menu.get("_opponent_civilization_button"), menu.get("_opponent_civilization_name"), CivilizationData.Civilization.VERDANT_LEAGUE, (menu.get("_options_scroll") as Control).get_global_rect(), context + " confirmed rival setup")
 			menu.call("_open_civilization_picker", false)
 			await _settle()
 			var cancel_picker: Control = menu.get("_civilization_picker")
@@ -88,6 +103,16 @@ func _settle() -> void:
 
 func _bounds(control: Control, safe: Rect2, label: String) -> void:
 	_expect(control.is_visible_in_tree() and safe.grow(0.5).encloses(control.get_global_rect()), label + " bounds " + str(control.get_global_rect()))
+
+
+func _kingdom_choice(button: Button, name_label: Label, civilization: int, safe: Rect2, context: String) -> void:
+	var expected_name: String = CivilizationData.get_civilization_name(civilization)
+	_bounds(button, safe, context + " reachable choice")
+	_bounds(name_label, button.get_global_rect(), context + " selected name remains within choice")
+	_expect(button.size.x >= 48.0 and button.size.y >= 48.0 and not button.disabled, context + " usable touch target")
+	_expect(name_label.text == expected_name, context + " visibly identifies the current draft")
+	# A narrow display may ellipsize the label; assistive output keeps its full name.
+	_expect(button.accessibility_name.contains(expected_name), context + " full selected name is accessible")
 
 
 func _expect(condition: bool, label: String) -> void:

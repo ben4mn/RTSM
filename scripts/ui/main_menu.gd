@@ -5,6 +5,14 @@ const THEME := preload("res://scripts/ui/kingdom_theme.gd")
 const DIORAMA := preload("res://scripts/ui/menu_diorama.gd")
 const MAP_PREVIEW := preload("res://scripts/ui/map_preview.gd")
 const WEB_SHELL_BRIDGE := preload("res://scripts/ui/web_shell_bridge.gd")
+const INK := Color("10282b")
+const PANEL := Color("19383b")
+const PANEL_LIGHT := Color("25474a")
+const IVORY := Color("f4eddd")
+const MUTED := Color("aabfba")
+const GOLD := Color("e7ba67")
+const TEAL := Color("8cc5b5")
+const BORDER := Color("3d5d60")
 const DIFFICULTY_NAMES: Array[String] = ["Easy", "Medium", "Hard"]
 const DIFFICULTY_DESCRIPTIONS: Array[String] = ["Time to build. Light pressure.", "Regular raids. Balanced pressure.", "Early raids. Relentless pressure."]
 const MAP_TRAITS: Array[String] = ["Room to manoeuvre", "Control the crossings", "Find the side routes"]
@@ -16,7 +24,9 @@ const EXPANDED_LAYOUT_MIN_HEIGHT: float = 560.0
 var _shared_settings: Control
 var _civilization_picker: Control
 var _civilization_button: Button
+var _civilization_name: Label
 var _opponent_civilization_button: Button
+var _opponent_civilization_name: Label
 var _room_civilizations: Label
 var _active_safe_area := Rect2()
 var _compact_layout: bool = false
@@ -39,6 +49,7 @@ var _back_button: Button
 var settings_button: Button
 var _home: BoxContainer
 var _hero: VBoxContainer
+var _home_eyebrow: Label
 var title_label: Label
 var promise_label: Label
 var _hero_art: Control
@@ -93,7 +104,7 @@ var _leave_button: Button
 
 func _ready() -> void:
 	GameManager.set_state(GameManager.GameState.MENU)
-	theme = THEME.create_theme()
+	theme = _create_menu_theme()
 	_selected_difficulty = clampi(GameManager.selected_difficulty, 0, 2)
 	_selected_population_limit = GameManager.selected_population_limit
 	_session = get_node_or_null("/root/NetworkSession")
@@ -132,7 +143,7 @@ func _input(event: InputEvent) -> void:
 func _build_interface() -> void:
 	var background := ColorRect.new()
 	background.name = "Background"
-	background.color = THEME.INK
+	background.color = INK
 	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(background)
@@ -149,7 +160,7 @@ func _build_interface() -> void:
 	_back_button = _button("Back", "BackButton", _on_back_pressed)
 	_header.add_child(_back_button)
 	_page_title = _label("POCKET KINGDOMS", 22)
-	THEME.apply_heading(_page_title, 22)
+	_apply_heading(_page_title, 22)
 	_page_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_header.add_child(_page_title)
 	settings_button = _button("Settings", "SettingsButton", _on_settings_pressed)
@@ -158,7 +169,7 @@ func _build_interface() -> void:
 	_header.add_child(settings_button)
 	var rule := HSeparator.new()
 	var rule_style := StyleBoxLine.new()
-	rule_style.color = THEME.BORDER
+	rule_style.color = BORDER
 	rule_style.thickness = 1
 	rule.add_theme_stylebox_override("separator", rule_style)
 	_shell.add_child(rule)
@@ -175,7 +186,7 @@ func _build_interface() -> void:
 	_footer.add_child(_leave_button)
 	start_button = _button("Start game", "StartButton", _on_start_pressed)
 	start_button.custom_minimum_size.x = 184
-	THEME.apply_primary(start_button)
+	_apply_primary(start_button)
 	_footer.add_child(start_button)
 
 
@@ -189,11 +200,11 @@ func _build_home() -> void:
 	_hero.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_hero.add_theme_constant_override("separation", 6)
 	_home.add_child(_hero)
-	var eyebrow := _label("BUILD A KINGDOM. COMMAND THE FIELD.", 12)
-	THEME.apply_eyebrow(eyebrow)
-	_hero.add_child(eyebrow)
+	_home_eyebrow = _label("A LITTLE KINGDOM. A GRAND PLAN.", 12)
+	THEME.apply_eyebrow(_home_eyebrow)
+	_hero.add_child(_home_eyebrow)
 	title_label = _label("Pocket\nKingdoms", 52)
-	THEME.apply_heading(title_label, 52)
+	_apply_heading(title_label, 52)
 	_hero.add_child(title_label)
 	_hero_art = Control.new()
 	_hero_art.set_script(DIORAMA)
@@ -206,20 +217,20 @@ func _build_home() -> void:
 	_home_actions.custom_minimum_size.x = 290
 	_home_actions.add_theme_constant_override("separation", 12)
 	_home.add_child(_home_actions)
-	promise_label = _label("A kingdom begins\nwith a choice.", 28)
-	THEME.apply_heading(promise_label, 28)
+	promise_label = _label("Small kingdoms.\nGrand plans.", 28)
+	_apply_heading(promise_label, 28)
 	_home_actions.add_child(promise_label)
-	_home_intro = _label("Gather, build and command your army.\nClaim the Sacred Site or break the enemy town.", 16, true)
-	_home_intro.add_theme_color_override("font_color", THEME.MUTED)
+	_home_intro = _label("Gather, build and rally your army.\nClaim the Sacred Site or the rival town.", 16, true)
+	_home_intro.add_theme_color_override("font_color", MUTED)
 	_home_actions.add_child(_home_intro)
 	_new_game_button = _button("New Game", "NewGameButton", _open_new_game.bind("solo"))
 	_new_game_button.custom_minimum_size.y = 58
-	THEME.apply_primary(_new_game_button)
+	_apply_primary(_new_game_button)
 	_home_actions.add_child(_new_game_button)
 	_online_button = _button("Join a friend", "JoinFriendButton", _open_new_game.bind("multiplayer"))
 	_home_actions.add_child(_online_button)
 	_home_note = _label("Solo skirmish  ·  Private 1v1 rooms", 13)
-	_home_note.add_theme_color_override("font_color", THEME.MUTED)
+	_home_note.add_theme_color_override("font_color", MUTED)
 	_home_actions.add_child(_home_note)
 
 
@@ -230,6 +241,7 @@ func _build_setup() -> void:
 	_setup.add_theme_constant_override("separation", 12)
 	_shell.add_child(_setup)
 	_tabs = HBoxContainer.new()
+	_tabs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_tabs.add_theme_constant_override("separation", 8)
 	_setup.add_child(_tabs)
 	_solo_tab = _button("Solo skirmish", "SoloTab", _set_mode.bind("solo"))
@@ -238,11 +250,10 @@ func _build_setup() -> void:
 		button.toggle_mode = true
 		button.custom_minimum_size.x = 160
 		_tabs.add_child(button)
-	_civilization_button = _button("Kingdom", "ChooseCivilizationButton", _open_civilization_picker.bind(false))
-	_civilization_button.custom_minimum_size.x = 112
-	_civilization_button.expand_icon = true
-	_civilization_button.add_theme_constant_override("icon_max_width", 24)
-	_civilization_button.add_theme_font_size_override("font_size", 14)
+	var draft_spacer := Control.new()
+	draft_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_tabs.add_child(draft_spacer)
+	_civilization_button = _build_civilization_choice(false)
 	_tabs.add_child(_civilization_button)
 	_columns = BoxContainer.new()
 	_columns.name = "SetupColumns"
@@ -277,7 +288,7 @@ func _build_setup() -> void:
 		button.accessibility_name = MapData.get_archetype_name(archetype) + ". " + button.tooltip_text
 		button.toggle_mode = true
 		button.button_group = group
-		var selected_style: StyleBoxFlat = THEME.panel_style(THEME.INK_LIGHT, THEME.GOLD)
+		var selected_style: StyleBoxFlat = THEME.panel_style(PANEL_LIGHT, GOLD, 12)
 		selected_style.set_border_width_all(2)
 		button.add_theme_stylebox_override("pressed", selected_style)
 		button.add_theme_stylebox_override("hover_pressed", selected_style)
@@ -306,14 +317,14 @@ func _build_setup() -> void:
 		_map_names.append(name_label)
 		var badge := _label("SELECT", 11)
 		badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		badge.add_theme_color_override("font_color", THEME.MUTED)
+		badge.add_theme_color_override("font_color", MUTED)
 		stack.add_child(badge)
 		_map_badges.append(badge)
 	map_summary_label = _label("", 15, true)
 	map_summary_label.custom_minimum_size.y = 36
 	_map_panel.add_child(map_summary_label)
-	_map_note = _label("Terrain previews · blue / red starts · diamond objective", 12)
-	_map_note.add_theme_color_override("font_color", THEME.MUTED)
+	_map_note = _label("Blue / red starts · diamond marks the Sacred Site", 12)
+	_map_note.add_theme_color_override("font_color", MUTED)
 	_map_panel.add_child(_map_note)
 	_build_options()
 
@@ -322,7 +333,11 @@ func _build_options() -> void:
 	_options_panel = PanelContainer.new()
 	_options_panel.name = "MatchOptions"
 	_options_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_options_panel.add_theme_stylebox_override("panel", THEME.inset_panel())
+	var options_style: StyleBoxFlat = THEME.inset_panel()
+	options_style.bg_color = PANEL
+	options_style.border_color = BORDER
+	options_style.set_corner_radius_all(14)
+	_options_panel.add_theme_stylebox_override("panel", options_style)
 	_columns.add_child(_options_panel)
 	_options_scroll = ScrollContainer.new()
 	_options_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -334,7 +349,9 @@ func _build_options() -> void:
 	_solo_options = VBoxContainer.new()
 	_solo_options.add_theme_constant_override("separation", 8)
 	_options_body.add_child(_solo_options)
-	var label := _label("YOUR OPPONENT", 12)
+	_opponent_civilization_button = _build_civilization_choice(true)
+	_solo_options.add_child(_opponent_civilization_button)
+	var label := _label("AI DIFFICULTY", 12)
 	THEME.apply_eyebrow(label)
 	_solo_options.add_child(label)
 	_difficulty_row = HBoxContainer.new()
@@ -355,11 +372,8 @@ func _build_options() -> void:
 		_difficulty_row.add_child(button)
 		_difficulty_buttons.append(button)
 	difficulty_description = _label("", 13, true)
-	difficulty_description.add_theme_color_override("font_color", THEME.MUTED)
+	difficulty_description.add_theme_color_override("font_color", MUTED)
 	_solo_options.add_child(difficulty_description)
-	_opponent_civilization_button = _button("", "ChooseOpponentCivilizationButton", _open_civilization_picker.bind(true))
-	_opponent_civilization_button.add_theme_font_size_override("font_size", 14)
-	_solo_options.add_child(_opponent_civilization_button)
 	guided_opening_toggle = CheckButton.new()
 	guided_opening_toggle.name = "GuidedOpeningToggle"
 	guided_opening_toggle.text = "Guide my opening"
@@ -419,7 +433,7 @@ func _build_multiplayer_options() -> void:
 	_multiplayer_options.add_child(heading)
 	_multiplayer_options.add_child(_label("Choose a battlefield, then share your room code.", 15, true))
 	_host_button = _button("Create room", "HostGameButton", _host_game)
-	THEME.apply_primary(_host_button)
+	_apply_primary(_host_button)
 	_multiplayer_options.add_child(_host_button)
 	_multiplayer_options.add_child(_label("Already have a code?", 14))
 	_join_input = LineEdit.new()
@@ -453,7 +467,7 @@ func _build_multiplayer_options() -> void:
 	THEME.apply_eyebrow(room_heading)
 	_room_details.add_child(room_heading)
 	_room_code = _label("", 30)
-	THEME.apply_heading(_room_code, 30)
+	_apply_heading(_room_code, 30)
 	_room_details.add_child(_room_code)
 	_room_players = _label("", 16, true)
 	_room_details.add_child(_room_players)
@@ -465,9 +479,117 @@ func _build_multiplayer_options() -> void:
 	_room_details.add_child(_label("Standard rules · 30 population", 13, true))
 	_network_status = _label("", 14, true)
 	_network_status.name = "NetworkStatus"
-	_network_status.add_theme_color_override("font_color", THEME.MUTED)
+	_network_status.add_theme_color_override("font_color", MUTED)
 	_options_body.add_child(_network_status)
 	_options_body.move_child(_network_status, 0)
+
+
+func _create_menu_theme() -> Theme:
+	# The menu has its own softer surfaces; the battle HUD keeps its compact theme.
+	var result: Theme = THEME.create_theme()
+	result.set_color("font_color", "Label", IVORY)
+	for control_type: String in ["Button", "OptionButton"]:
+		for state: String in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
+			result.set_stylebox(state, control_type, _menu_button_style("secondary", "pressed" if state == "hover_pressed" else state))
+		for state: String in ["font_color", "font_hover_color", "font_focus_color"]:
+			result.set_color(state, control_type, IVORY)
+		result.set_color("font_pressed_color", control_type, INK)
+		result.set_color("font_hover_pressed_color", control_type, INK)
+	for state: String in ["normal", "focus"]:
+		var style: StyleBoxFlat = result.get_stylebox(state, "LineEdit").duplicate()
+		style.bg_color = INK
+		style.border_color = TEAL if state == "focus" else BORDER
+		style.set_corner_radius_all(8)
+		style.content_margin_left = 12
+		style.content_margin_right = 12
+		result.set_stylebox(state, "LineEdit", style)
+	result.set_stylebox("panel", "PopupMenu", THEME.panel_style(PANEL, BORDER, 10))
+	return result
+
+
+func _apply_heading(label: Label, size_value: int) -> void:
+	label.add_theme_font_override("font", THEME.FONT_MEDIUM)
+	label.add_theme_font_size_override("font_size", size_value)
+	label.add_theme_color_override("font_color", IVORY)
+
+
+func _apply_primary(button: Button) -> void:
+	THEME.apply_primary(button)
+	for state: String in ["normal", "hover", "pressed"]:
+		button.add_theme_stylebox_override(state, _menu_button_style("primary", state))
+	for state: String in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
+		button.add_theme_color_override(state, INK)
+
+
+func _menu_button_style(kind: String = "secondary", state: String = "normal") -> StyleBoxFlat:
+	var style: StyleBoxFlat = THEME.button_style(kind, state)
+	style.set_corner_radius_all(10)
+	style.border_width_bottom = 1
+	style.bg_color = GOLD if kind == "primary" or state == "pressed" else PANEL_LIGHT
+	style.border_color = GOLD if kind == "primary" else BORDER
+	match state:
+		"hover":
+			style.bg_color = Color("f0cb86") if kind == "primary" else Color("30595b")
+			style.border_color = GOLD
+		"disabled":
+			style.bg_color = PANEL
+			style.border_color = BORDER
+		"focus":
+			style.bg_color = Color.TRANSPARENT
+			style.border_color = IVORY
+	return style
+
+
+func _build_civilization_choice(opponent: bool) -> Button:
+	var button := _button("", "ChooseOpponentCivilizationButton" if opponent else "ChooseCivilizationButton", _open_civilization_picker.bind(opponent))
+	button.custom_minimum_size = Vector2(204, 56)
+	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	button.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	button.expand_icon = true
+	button.add_theme_constant_override("icon_max_width", 28)
+	for state: String in ["normal", "hover", "pressed", "disabled"]:
+		var style: StyleBoxFlat = _menu_button_style("secondary", state)
+		style.set_corner_radius_all(10)
+		style.content_margin_left = 10
+		style.border_width_bottom = 1
+		if state == "normal":
+			style.bg_color = PANEL
+			style.border_color = Color("668c83")
+		if state == "pressed":
+			style.bg_color = PANEL_LIGHT
+			style.border_color = GOLD
+		button.add_theme_stylebox_override(state, style)
+	# Keep the colored crest intact when pressed; only the surface changes.
+	button.add_theme_color_override("icon_pressed_color", Color.WHITE)
+	var copy := VBoxContainer.new()
+	copy.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	copy.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	copy.offset_left = 46
+	copy.offset_top = 5
+	copy.offset_right = -10
+	copy.offset_bottom = -5
+	copy.alignment = BoxContainer.ALIGNMENT_CENTER
+	copy.add_theme_constant_override("separation", 0)
+	button.add_child(copy)
+	var top := HBoxContainer.new()
+	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	copy.add_child(top)
+	var caption := _label("RIVAL KINGDOM" if opponent else "YOUR KINGDOM", 10)
+	caption.add_theme_color_override("font_color", MUTED)
+	caption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top.add_child(caption)
+	var change := _label("Change ›", 11)
+	change.add_theme_color_override("font_color", TEAL)
+	top.add_child(change)
+	var kingdom_name := _label("", 15)
+	kingdom_name.add_theme_font_override("font", THEME.FONT_MEDIUM)
+	kingdom_name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	copy.add_child(kingdom_name)
+	if opponent:
+		_opponent_civilization_name = kingdom_name
+	else:
+		_civilization_name = kingdom_name
+	return button
 
 
 func _button(text: String, node_name: String, callback: Callable) -> Button:
@@ -491,7 +613,9 @@ func _label(text: String, font_size: int, wrap: bool = false) -> Label:
 
 
 func _small_button_style(state: String) -> StyleBoxFlat:
-	var style: StyleBoxFlat = THEME.button_style("secondary", state)
+	var style: StyleBoxFlat = _menu_button_style("secondary", state)
+	style.set_corner_radius_all(8)
+	style.border_width_bottom = 1
 	style.content_margin_left = 7
 	style.content_margin_right = 7
 	return style
@@ -510,7 +634,7 @@ func _show_screen(screen: String) -> void:
 	_footer.visible = screen != "home"
 	_tabs.visible = screen != "home"
 	_back_button.visible = screen != "home"
-	_page_title.text = "THE COMMAND TABLE" if screen == "home" else "New Game"
+	_page_title.text = "Pocket Kingdoms" if screen == "home" else "New game"
 	_refresh_selection()
 	if changed and not GameManager.reduced_motion:
 		if _transition != null:
@@ -550,10 +674,10 @@ func _refresh_selection() -> void:
 	for i: int in _map_buttons.size():
 		_map_buttons[i].set_pressed_no_signal(i == archetype)
 		_map_buttons[i].disabled = guest or _network_search_active or _room_waiting
-		_map_names[i].add_theme_color_override("font_color", THEME.PARCHMENT)
-		_map_buttons[i].add_theme_stylebox_override("disabled", _map_buttons[i].get_theme_stylebox("pressed") if i == archetype else THEME.button_style())
+		_map_names[i].add_theme_color_override("font_color", IVORY)
+		_map_buttons[i].add_theme_stylebox_override("disabled", _map_buttons[i].get_theme_stylebox("pressed") if i == archetype else _menu_button_style())
 		_map_badges[i].text = "SELECTED" if i == archetype else "SELECT"
-		_map_badges[i].add_theme_color_override("font_color", THEME.GOLD if i == archetype else THEME.MUTED)
+		_map_badges[i].add_theme_color_override("font_color", GOLD if i == archetype else MUTED)
 	_map_heading.text = "HOST’S BATTLEFIELD" if guest else "CHOOSE YOUR BATTLEFIELD"
 	map_summary_label.text = MapData.get_archetype_description(archetype)
 	_selection_summary.text = "%s\n%s" % [MapData.get_archetype_name(archetype), "Shared battlefield · Standard rules" if online else "%s opponent · %d population" % [DIFFICULTY_NAMES[_selected_difficulty], _selected_population_limit]]
@@ -599,10 +723,17 @@ func _draft_civilization() -> int:
 
 func _refresh_civilizations(room: bool) -> void:
 	var definition: Dictionary = CivilizationData.get_definition(_draft_civilization())
+	_civilization_name.text = str(definition.name)
+	_civilization_button.accessibility_name = "Your kingdom: %s. Change kingdom." % definition.name
 	_civilization_button.tooltip_text = "Choose your kingdom: %s\n%s" % [definition.name, definition.tagline]
 	_civilization_button.icon = load(str(definition.icon_path))
 	_civilization_button.disabled = _network_search_active or _room_waiting
-	_opponent_civilization_button.text = "Rival: " + CivilizationData.get_civilization_name(GameManager.selected_opponent_civilization) + "  ·  Change"
+	var rival: Dictionary = CivilizationData.get_definition(GameManager.selected_opponent_civilization)
+	_opponent_civilization_name.text = str(rival.name)
+	_opponent_civilization_button.icon = load(str(rival.icon_path))
+	_opponent_civilization_button.accessibility_name = "Rival kingdom: %s. Change kingdom." % rival.name
+	_opponent_civilization_button.tooltip_text = "Choose your rival: %s\n%s" % [rival.name, rival.tagline]
+	_civilization_name.modulate.a = 0.55 if _civilization_button.disabled else 1.0
 	if not room:
 		_selection_summary.text = _selection_summary.text.replace("\n", " · " + str(definition.name) + "\n")
 		return
@@ -663,7 +794,7 @@ func _on_network_status_changed(state: String, message: String) -> void:
 	_network_search_active = state in ["connecting", "searching", "hosting", "joining", "loading"]
 	_room_waiting = state == "lobby" and message == "Waiting for an arena…"
 	_network_status.text = message
-	_network_status.add_theme_color_override("font_color", THEME.RUST if state == "error" else THEME.MUTED)
+	_network_status.add_theme_color_override("font_color", THEME.RUST if state == "error" else MUTED)
 	_refresh_web_update_safety()
 	_on_room_changed()
 	_refresh_selection()
@@ -777,6 +908,7 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2, shell_top_cle
 	_page_title.visible = not compact or _screen == "home"
 	_home_intro.visible = not compact
 	_home_note.visible = not compact
+	_home_eyebrow.visible = not compact
 	var margin: float = 12.0 if compact else 32.0
 	var available: Rect2 = _menu_frame_rect(_active_safe_area, margin, web_clearance)
 	# On the shortest UI-scaled phones the browser toolbar leaves less than the
@@ -800,8 +932,21 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2, shell_top_cle
 	_columns.vertical = available.size.x < 560
 	_page_title.add_theme_font_size_override("font_size", 18 if compact else 22)
 	_header.add_theme_constant_override("separation", 8 if compact else 16)
+	_solo_tab.custom_minimum_size.x = 108 if compact else 180
+	_online_tab.custom_minimum_size.x = 112 if compact else 180
 	for button: Button in [_solo_tab, _online_tab]:
-		button.custom_minimum_size.x = 140 if compact else 180
+		button.add_theme_font_size_override("font_size", 14 if compact else 16)
+		for state: String in ["normal", "hover", "pressed", "hover_pressed"]:
+			var tab_style: StyleBoxFlat = theme.get_stylebox(state, "Button").duplicate()
+			tab_style.content_margin_left = 9 if compact else 16
+			tab_style.content_margin_right = 9 if compact else 16
+			button.add_theme_stylebox_override(state, tab_style)
+	_civilization_button.custom_minimum_size = Vector2(204 if compact else 244, 48 if compact else 56)
+	_civilization_name.add_theme_font_size_override("font_size", 14 if compact else 16)
+	settings_button.text = "" if compact else "Settings"
+	settings_button.tooltip_text = "Settings"
+	settings_button.accessibility_name = "Settings"
+	_tabs.add_theme_constant_override("separation", 6 if compact else 8)
 	_map_note.visible = not compact
 	map_summary_label.add_theme_font_size_override("font_size", 13 if compact else 15)
 	map_summary_label.custom_minimum_size.y = 30 if compact else 38
@@ -812,6 +957,7 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2, shell_top_cle
 		_map_badges[i].add_theme_font_size_override("font_size", 10 if compact else 12)
 	_home.add_theme_constant_override("separation", 24 if compact else 64)
 	_home_actions.custom_minimum_size.x = minf(310, available.size.x * 0.43)
+	title_label.text = "Pocket Kingdoms" if compact else "Pocket\nKingdoms"
 	title_label.add_theme_font_size_override("font_size", 34 if compact else 60)
 	promise_label.add_theme_font_size_override("font_size", 22 if compact else 30)
 	_selection_summary.add_theme_font_size_override("font_size", 13 if compact else 16)

@@ -181,7 +181,7 @@ def scan_content(root: Path) -> dict[str, int]:
             pem_header_non_wasm += len(PEM_HEADER_PATTERN.findall(payload))
         if path.name != "index.wasm" or not stock_wasm_template_match:
             allowed_prefixes = ALLOWED_URL_PREFIXES
-            if path.name == "field_company.png":
+            if path.name == "kingdom_company_v2.png":
                 allowed_prefixes += COMPANY_CREDENTIAL_URL_PREFIXES
             unexpected_urls.update(
                 url
@@ -215,7 +215,7 @@ def verify_service_worker(root: Path) -> None:
     cache_manifest = json.loads(cache_manifest_path.read_text(encoding="utf-8"))
     files = cache_manifest.get("files", {})
     required_payload = {"index.html", "index.js", "index.pck", "index.wasm", "pocket_launch.js", "pocket_launch.css",
-                        "pocket_updates.js", "field_atlas.svg", "field_company.png", "play_dark.svg",
+                        "pocket_updates.js", "field_atlas.svg", "kingdom_company_v2.png", "play_dark.svg",
                         "primary_normal.svg", "primary_hover.svg", "primary_pressed.svg",
                         "secondary_normal.svg", "secondary_hover.svg", "secondary_pressed.svg", "release_notes.json", "playtest_diagnostics.js",
                         "Barlow-Regular.ttf", "Barlow-Medium.ttf", "BarlowCondensed-SemiBold.ttf",

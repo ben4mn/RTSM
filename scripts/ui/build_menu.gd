@@ -430,7 +430,7 @@ func _rebuild_grid() -> void:
 		_apply_card_style(btn)
 
 		# Add building icon to button
-		var tex_path: String = BuildingBase.BUILDING_SPRITES.get(building_type, "")
+		var tex_path: String = BuildingBase.get_sprite_texture_path(building_type, 0)
 		if tex_path != "" and ResourceLoader.exists(tex_path):
 			btn.icon = load(tex_path)
 			btn.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER

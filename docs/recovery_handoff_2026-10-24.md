@@ -2,6 +2,18 @@
 
 This checkpoint preserves the work from the interrupted chat **Improve Pocket Kingdoms gameplay**. The owner requested publication and a game restart, then a stop while they decide whether to continue development.
 
+## Latest checkpoint: beta4 presentation candidate
+
+The owner subsequently authorized a bounded modern menu pass, then extended the same miniature art direction to all eighteen unit sprites and thirty building sprites across Crownlands, Verdant League and Sunstride Clans. This supersedes the initial stop point above for that presentation work only.
+
+Beta3 was activated successfully from `d7291a7ccff1b1b9fcb5acbd02391a04ed7f8d3c`. The preserved activation receipt is `/home/ben/aoem/deployment-backups/v030b3-d7291a7ccff1-17cb39668a-2b97b2f1e7/activation.json`. Main and the recovery documentation were pushed at `17ffb1a`. The older staged-only descriptions below record the recovery's starting state; they are not the current publication state.
+
+The current candidate is `0.3.0-beta.4`, still protocol 3. It refreshes the menu and browser welcome page with a shared miniature village illustration, clearer headings and panels, and a new castle icon. Civilization-specific art is shared by battlefield units/buildings, recruitment portraits, building cards and construction previews. The presentation catalog covers six unit roles and ten building roles for each kingdom. See [the miniature art record](kingdom_miniatures_2026-10-24.md) for coverage, asset provenance and limits.
+
+The focused kingdom-art validation reported **1,178 passing checks**. This is not a completed release or multiplayer acceptance result. **Beta4 publication is pending:** append the final committed source, canonical/reproduced artifact verification, Linux smoke result, activation/restart receipt and public checks after they complete. Until that evidence is recorded, beta3 remains the last confirmed published release.
+
+Combat statistics, costs, collision footprints, victory timing and protocol remain unchanged. The late idle-browser error remains open, and the rejected pacing/protocol experiments below remain excluded. After this authorized presentation checkpoint is pushed, deployed, restarted and checked, report the result before expanding development further.
+
 ## Source and publication
 
 - Repository: https://github.com/ben4mn/RTSM

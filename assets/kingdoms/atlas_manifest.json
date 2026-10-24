@@ -1,0 +1,800 @@
+{
+  "schema": 1,
+  "scope": "Generated PNGs are unchanged; regions exclude empty cell padding.",
+  "sheets": {
+    "crownlands_units.png": {
+      "size": [
+        1536,
+        1024
+      ],
+      "sha256": "ce0ac44566c05489052c9344804c12e632a58871927f83dea2473db1af0de4a4",
+      "layout": "reviewed alpha bounds",
+      "nominal_grid": [
+        3,
+        2
+      ]
+    },
+    "crownlands_buildings.png": {
+      "size": [
+        1448,
+        1086
+      ],
+      "sha256": "8cd925b37b7ef5c4e8bffcb84a6edac76ba1307fd3c95c4aa59917d0509748e5",
+      "layout": "reviewed alpha bounds",
+      "nominal_grid": [
+        4,
+        3
+      ]
+    },
+    "verdant_units.png": {
+      "size": [
+        1536,
+        1024
+      ],
+      "sha256": "10885ea5f8bc3af0fb7d7779a62ae53aa57df0487880d92651b68ac06b88efe1",
+      "layout": "reviewed alpha bounds",
+      "nominal_grid": [
+        3,
+        2
+      ]
+    },
+    "verdant_buildings.png": {
+      "size": [
+        1448,
+        1086
+      ],
+      "sha256": "be0b9aa9cfc95d2e2d93ae200a6534a8e533187325b75998e820af7d33ce2aae",
+      "layout": "reviewed alpha bounds",
+      "nominal_grid": [
+        4,
+        3
+      ]
+    },
+    "sunstride_units.png": {
+      "size": [
+        1536,
+        1024
+      ],
+      "sha256": "8f27ce39a4ae671c6a895c34e9f7f7e0775a7a15b69f1f0964cb991c5b1e21ee",
+      "layout": "reviewed alpha bounds",
+      "nominal_grid": [
+        3,
+        2
+      ]
+    },
+    "sunstride_buildings.png": {
+      "size": [
+        1448,
+        1086
+      ],
+      "sha256": "a4acb4c8e763140493368feb5db50efc842d9664195a56ecd8506f2188254a9e",
+      "layout": "reviewed alpha bounds",
+      "nominal_grid": [
+        4,
+        3
+      ]
+    }
+  },
+  "textures": {
+    "assets/kingdoms/crownlands/unit_villager.tres": {
+      "cell": [
+        81,
+        77,
+        410,
+        498
+      ],
+      "region": [
+        81,
+        77,
+        329,
+        421
+      ],
+      "source": "crownlands_units.png"
+    },
+    "assets/kingdoms/crownlands/unit_warrior.tres": {
+      "cell": [
+        622,
+        9,
+        970,
+        514
+      ],
+      "region": [
+        622,
+        9,
+        348,
+        505
+      ],
+      "source": "crownlands_units.png"
+    },
+    "assets/kingdoms/crownlands/unit_archer.tres": {
+      "cell": [
+        1109,
+        104,
+        1506,
+        513
+      ],
+      "region": [
+        1109,
+        104,
+        397,
+        409
+      ],
+      "source": "crownlands_units.png"
+    },
+    "assets/kingdoms/crownlands/unit_cavalry.tres": {
+      "cell": [
+        51,
+        517,
+        501,
+        1002
+      ],
+      "region": [
+        51,
+        517,
+        450,
+        485
+      ],
+      "source": "crownlands_units.png"
+    },
+    "assets/kingdoms/crownlands/unit_scout.tres": {
+      "cell": [
+        591,
+        552,
+        983,
+        995
+      ],
+      "region": [
+        591,
+        552,
+        392,
+        443
+      ],
+      "source": "crownlands_units.png"
+    },
+    "assets/kingdoms/crownlands/unit_siege.tres": {
+      "cell": [
+        1054,
+        531,
+        1514,
+        969
+      ],
+      "region": [
+        1054,
+        531,
+        460,
+        438
+      ],
+      "source": "crownlands_units.png"
+    },
+    "assets/kingdoms/crownlands/building_town_center.tres": {
+      "cell": [
+        15,
+        6,
+        382,
+        385
+      ],
+      "region": [
+        15,
+        6,
+        367,
+        379
+      ],
+      "source": "crownlands_buildings.png"
+    },
+    "assets/kingdoms/crownlands/building_house.tres": {
+      "cell": [
+        403,
+        40,
+        716,
+        369
+      ],
+      "region": [
+        403,
+        48,
+        313,
+        321
+      ],
+      "source": "crownlands_buildings.png"
+    },
+    "assets/kingdoms/crownlands/building_barracks.tres": {
+      "cell": [
+        734,
+        31,
+        1085,
+        374
+      ],
+      "region": [
+        734,
+        31,
+        351,
+        343
+      ],
+      "source": "crownlands_buildings.png"
+    },
+    "assets/kingdoms/crownlands/building_archery_range.tres": {
+      "cell": [
+        1105,
+        84,
+        1440,
+        369
+      ],
+      "region": [
+        1105,
+        84,
+        335,
+        285
+      ],
+      "source": "crownlands_buildings.png"
+    },
+    "assets/kingdoms/crownlands/building_stable.tres": {
+      "cell": [
+        9,
+        409,
+        384,
+        692
+      ],
+      "region": [
+        9,
+        409,
+        375,
+        283
+      ],
+      "source": "crownlands_buildings.png"
+    },
+    "assets/kingdoms/crownlands/building_farm.tres": {
+      "cell": [
+        392,
+        472,
+        723,
+        679
+      ],
+      "region": [
+        392,
+        472,
+        331,
+        207
+      ],
+      "source": "crownlands_buildings.png"
+    },
+    "assets/kingdoms/crownlands/building_resource_camp.tres": {
+      "cell": [
+        732,
+        423,
+        1080,
+        683
+      ],
+      "region": [
+        732,
+        423,
+        348,
+        260
+      ],
+      "source": "crownlands_buildings.png"
+    },
+    "assets/kingdoms/crownlands/building_siege_workshop.tres": {
+      "cell": [
+        1088,
+        391,
+        1442,
+        687
+      ],
+      "region": [
+        1088,
+        391,
+        354,
+        296
+      ],
+      "source": "crownlands_buildings.png"
+    },
+    "assets/kingdoms/crownlands/building_blacksmith.tres": {
+      "cell": [
+        23,
+        706,
+        374,
+        1059
+      ],
+      "region": [
+        23,
+        712,
+        351,
+        347
+      ],
+      "source": "crownlands_buildings.png"
+    },
+    "assets/kingdoms/crownlands/building_watch_tower.tres": {
+      "cell": [
+        424,
+        690,
+        681,
+        1055
+      ],
+      "region": [
+        424,
+        690,
+        257,
+        365
+      ],
+      "source": "crownlands_buildings.png"
+    },
+    "assets/kingdoms/verdant/unit_villager.tres": {
+      "cell": [
+        121,
+        39,
+        441,
+        490
+      ],
+      "region": [
+        121,
+        39,
+        320,
+        451
+      ],
+      "source": "verdant_units.png"
+    },
+    "assets/kingdoms/verdant/unit_warrior.tres": {
+      "cell": [
+        621,
+        19,
+        961,
+        501
+      ],
+      "region": [
+        621,
+        19,
+        340,
+        482
+      ],
+      "source": "verdant_units.png"
+    },
+    "assets/kingdoms/verdant/unit_archer.tres": {
+      "cell": [
+        1117,
+        9,
+        1487,
+        508
+      ],
+      "region": [
+        1117,
+        9,
+        370,
+        499
+      ],
+      "source": "verdant_units.png"
+    },
+    "assets/kingdoms/verdant/unit_cavalry.tres": {
+      "cell": [
+        55,
+        516,
+        516,
+        998
+      ],
+      "region": [
+        55,
+        516,
+        461,
+        482
+      ],
+      "source": "verdant_units.png"
+    },
+    "assets/kingdoms/verdant/unit_scout.tres": {
+      "cell": [
+        589,
+        538,
+        985,
+        991
+      ],
+      "region": [
+        589,
+        538,
+        396,
+        453
+      ],
+      "source": "verdant_units.png"
+    },
+    "assets/kingdoms/verdant/unit_siege.tres": {
+      "cell": [
+        1069,
+        556,
+        1503,
+        979
+      ],
+      "region": [
+        1069,
+        556,
+        434,
+        423
+      ],
+      "source": "verdant_units.png"
+    },
+    "assets/kingdoms/verdant/building_town_center.tres": {
+      "cell": [
+        41,
+        51,
+        364,
+        392
+      ],
+      "region": [
+        47,
+        57,
+        311,
+        329
+      ],
+      "source": "verdant_buildings.png"
+    },
+    "assets/kingdoms/verdant/building_house.tres": {
+      "cell": [
+        403,
+        98,
+        701,
+        390
+      ],
+      "region": [
+        409,
+        104,
+        286,
+        280
+      ],
+      "source": "verdant_buildings.png"
+    },
+    "assets/kingdoms/verdant/building_barracks.tres": {
+      "cell": [
+        740,
+        113,
+        1068,
+        391
+      ],
+      "region": [
+        746,
+        119,
+        316,
+        266
+      ],
+      "source": "verdant_buildings.png"
+    },
+    "assets/kingdoms/verdant/building_archery_range.tres": {
+      "cell": [
+        1093,
+        124,
+        1410,
+        391
+      ],
+      "region": [
+        1099,
+        130,
+        305,
+        255
+      ],
+      "source": "verdant_buildings.png"
+    },
+    "assets/kingdoms/verdant/building_stable.tres": {
+      "cell": [
+        31,
+        427,
+        375,
+        708
+      ],
+      "region": [
+        37,
+        433,
+        332,
+        269
+      ],
+      "source": "verdant_buildings.png"
+    },
+    "assets/kingdoms/verdant/building_farm.tres": {
+      "cell": [
+        394,
+        447,
+        719,
+        698
+      ],
+      "region": [
+        400,
+        453,
+        313,
+        239
+      ],
+      "source": "verdant_buildings.png"
+    },
+    "assets/kingdoms/verdant/building_resource_camp.tres": {
+      "cell": [
+        737,
+        442,
+        1071,
+        707
+      ],
+      "region": [
+        743,
+        448,
+        322,
+        253
+      ],
+      "source": "verdant_buildings.png"
+    },
+    "assets/kingdoms/verdant/building_siege_workshop.tres": {
+      "cell": [
+        1088,
+        424,
+        1426,
+        713
+      ],
+      "region": [
+        1094,
+        430,
+        326,
+        277
+      ],
+      "source": "verdant_buildings.png"
+    },
+    "assets/kingdoms/verdant/building_blacksmith.tres": {
+      "cell": [
+        46,
+        720,
+        375,
+        1058
+      ],
+      "region": [
+        52,
+        726,
+        317,
+        326
+      ],
+      "source": "verdant_buildings.png"
+    },
+    "assets/kingdoms/verdant/building_watch_tower.tres": {
+      "cell": [
+        442,
+        717,
+        692,
+        1048
+      ],
+      "region": [
+        448,
+        723,
+        238,
+        319
+      ],
+      "source": "verdant_buildings.png"
+    },
+    "assets/kingdoms/sunstride/unit_villager.tres": {
+      "cell": [
+        103,
+        48,
+        444,
+        487
+      ],
+      "region": [
+        103,
+        48,
+        341,
+        439
+      ],
+      "source": "sunstride_units.png"
+    },
+    "assets/kingdoms/sunstride/unit_warrior.tres": {
+      "cell": [
+        588,
+        8,
+        991,
+        500
+      ],
+      "region": [
+        588,
+        8,
+        403,
+        492
+      ],
+      "source": "sunstride_units.png"
+    },
+    "assets/kingdoms/sunstride/unit_archer.tres": {
+      "cell": [
+        1095,
+        57,
+        1470,
+        496
+      ],
+      "region": [
+        1095,
+        57,
+        375,
+        439
+      ],
+      "source": "sunstride_units.png"
+    },
+    "assets/kingdoms/sunstride/unit_cavalry.tres": {
+      "cell": [
+        46,
+        506,
+        514,
+        990
+      ],
+      "region": [
+        46,
+        506,
+        468,
+        484
+      ],
+      "source": "sunstride_units.png"
+    },
+    "assets/kingdoms/sunstride/unit_scout.tres": {
+      "cell": [
+        573,
+        532,
+        1001,
+        990
+      ],
+      "region": [
+        573,
+        532,
+        428,
+        458
+      ],
+      "source": "sunstride_units.png"
+    },
+    "assets/kingdoms/sunstride/unit_siege.tres": {
+      "cell": [
+        1067,
+        519,
+        1511,
+        965
+      ],
+      "region": [
+        1067,
+        519,
+        444,
+        446
+      ],
+      "source": "sunstride_units.png"
+    },
+    "assets/kingdoms/sunstride/building_town_center.tres": {
+      "cell": [
+        31,
+        35,
+        390,
+        363
+      ],
+      "region": [
+        37,
+        41,
+        347,
+        316
+      ],
+      "source": "sunstride_buildings.png"
+    },
+    "assets/kingdoms/sunstride/building_house.tres": {
+      "cell": [
+        433,
+        90,
+        700,
+        351
+      ],
+      "region": [
+        439,
+        96,
+        255,
+        249
+      ],
+      "source": "sunstride_buildings.png"
+    },
+    "assets/kingdoms/sunstride/building_barracks.tres": {
+      "cell": [
+        737,
+        101,
+        1070,
+        359
+      ],
+      "region": [
+        743,
+        107,
+        321,
+        246
+      ],
+      "source": "sunstride_buildings.png"
+    },
+    "assets/kingdoms/sunstride/building_archery_range.tres": {
+      "cell": [
+        1104,
+        124,
+        1419,
+        356
+      ],
+      "region": [
+        1110,
+        130,
+        303,
+        220
+      ],
+      "source": "sunstride_buildings.png"
+    },
+    "assets/kingdoms/sunstride/building_stable.tres": {
+      "cell": [
+        28,
+        423,
+        369,
+        668
+      ],
+      "region": [
+        34,
+        429,
+        329,
+        233
+      ],
+      "source": "sunstride_buildings.png"
+    },
+    "assets/kingdoms/sunstride/building_farm.tres": {
+      "cell": [
+        388,
+        466,
+        732,
+        666
+      ],
+      "region": [
+        394,
+        472,
+        332,
+        188
+      ],
+      "source": "sunstride_buildings.png"
+    },
+    "assets/kingdoms/sunstride/building_resource_camp.tres": {
+      "cell": [
+        741,
+        420,
+        1068,
+        668
+      ],
+      "region": [
+        747,
+        426,
+        315,
+        236
+      ],
+      "source": "sunstride_buildings.png"
+    },
+    "assets/kingdoms/sunstride/building_siege_workshop.tres": {
+      "cell": [
+        1098,
+        411,
+        1424,
+        673
+      ],
+      "region": [
+        1104,
+        417,
+        314,
+        250
+      ],
+      "source": "sunstride_buildings.png"
+    },
+    "assets/kingdoms/sunstride/building_blacksmith.tres": {
+      "cell": [
+        36,
+        685,
+        382,
+        1049
+      ],
+      "region": [
+        42,
+        691,
+        334,
+        352
+      ],
+      "source": "sunstride_buildings.png"
+    },
+    "assets/kingdoms/sunstride/building_watch_tower.tres": {
+      "cell": [
+        434,
+        697,
+        697,
+        1046
+      ],
+      "region": [
+        440,
+        703,
+        251,
+        337
+      ],
+      "source": "sunstride_buildings.png"
+    }
+  }
+}

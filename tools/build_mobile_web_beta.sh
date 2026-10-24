@@ -296,7 +296,7 @@ SOURCE_TREE_SHA256=$(shasum -a 256 "$SOURCE_MANIFEST" | awk '{print $1}')
 for web_asset in playtest_diagnostics.js pocket_updates.js pocket_launch.js pocket_launch.css field_atlas.svg release_notes.json; do
 	cp "$STAGE_DIR/web/$web_asset" "$EXPORT_DIR/$web_asset"
 done
-cp "$STAGE_DIR/assets/ui/field_company.png" "$EXPORT_DIR/field_company.png"
+cp "$STAGE_DIR/assets/ui/kingdom_company_v2.png" "$EXPORT_DIR/kingdom_company_v2.png"
 cp "$STAGE_DIR/assets/ui/icons/play_dark.svg" "$EXPORT_DIR/play_dark.svg"
 for plate_asset in primary_normal primary_hover primary_pressed secondary_normal secondary_hover secondary_pressed; do
 	cp "$STAGE_DIR/assets/ui/plates/$plate_asset.svg" "$EXPORT_DIR/$plate_asset.svg"

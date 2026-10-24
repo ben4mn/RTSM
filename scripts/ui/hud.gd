@@ -702,12 +702,12 @@ func set_match_population_limit(limit: int) -> void:
 func _configure_mobile_visuals() -> void:
 	# Reuse the game's own readable silhouettes so the primary controls scan as
 	# game actions rather than anonymous text slabs.
-	_set_button_icon(build_menu_button, "res://assets/buildings/company_house.svg", 26)
-	_set_button_icon(age_up_button, "res://assets/buildings/company_town_center.svg", 24)
+	_set_button_icon(build_menu_button, BuildingBase.get_sprite_texture_path(BuildingData.BuildingType.HOUSE, 0), 26)
+	_set_button_icon(age_up_button, BuildingBase.get_sprite_texture_path(BuildingData.BuildingType.TOWN_CENTER, 0), 24)
 	_set_button_icon(_idle_villager_button, UnitData.get_unit_icon_path(UnitData.UnitType.VILLAGER, 0), 24)
 	_set_button_icon(_select_military_button, UnitData.get_unit_icon_path(UnitData.UnitType.SCOUT, 0), 24)
 	_set_button_icon(_find_army_button, UnitData.get_unit_icon_path(UnitData.UnitType.SCOUT, 0), 22)
-	_set_button_icon(_town_center_button, "res://assets/buildings/company_town_center.svg", 24)
+	_set_button_icon(_town_center_button, BuildingBase.get_sprite_texture_path(BuildingData.BuildingType.TOWN_CENTER, 0), 24)
 	for button in [build_menu_button, age_up_button, _idle_villager_button, _select_military_button, _find_army_button]:
 		if button:
 			button.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT

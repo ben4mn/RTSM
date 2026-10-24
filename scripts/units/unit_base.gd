@@ -185,6 +185,8 @@ func _setup_sprite() -> void:
 		_sprite.texture = load(tex_path)
 	_sprite.scale = UNIT_SPRITE_SCALES.get(unit_type, Vector2(0.20, 0.20))
 	_sprite.offset = UNIT_FOOT_OFFSET
+	if KingdomArt.is_kingdom_texture(_sprite.texture):
+		KingdomArt.configure_unit(_sprite, unit_type)
 	add_child(_sprite)
 	if _sprite.texture != null:
 		if not _sprite_opaque_rect_cache.has(tex_path):
@@ -269,7 +271,9 @@ func _draw() -> void:
 		contact_shadow.append(Vector2(point.x * 0.72, (point.y - 3.0) * 0.58 + 2.0))
 	draw_colored_polygon(contact_shadow, Color(0.09, 0.13, 0.13, 0.12))
 
-	if GameManager.clearer_player_markers:
+	# Civilization palette never substitutes for ownership: retain a compact
+	# local-player bar / rival chevron with the new shared miniature sheets.
+	if GameManager.clearer_player_markers or KingdomArt.is_kingdom_texture(_sprite.texture):
 		var camera: Camera2D = get_viewport().get_camera_2d()
 		var inverse_zoom: float = 1.0 / maxf(0.5, camera.zoom.x) if camera != null else 1.0
 		var marker_size: float = 3.0 * inverse_zoom

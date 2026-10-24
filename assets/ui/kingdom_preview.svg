@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="300" viewBox="0 0 480 300">
+  <!-- Menu-only miniature: warm limestone, teal roofs and a honey banner. -->
+  <ellipse cx="242" cy="264" rx="187" ry="21" fill="#081d20" opacity=".35"/>
+  <path d="M57 220 235 143 424 220 252 284 57 237Z" fill="#44665a"/>
+  <path d="m57 220 178-77 189 77-172 64Z" fill="#719777"/>
+  <path d="m57 220 195 64v-17L57 205Z" fill="#577465"/>
+  <path d="m424 220-172 64v-17l172-62Z" fill="#304f48"/>
+  <path d="m173 243 59-32 64 14 38 25-32 13-51-31-56 23Z" fill="#d3c8a5"/>
+  <g stroke="#173b3d" stroke-width="3" stroke-linejoin="round">
+    <path d="M176 120 257 98 312 124v97l-63 25-73-28Z" fill="#d0c6a6"/>
+    <path d="m176 120 73 26 63-22-55-51Z" fill="#367777"/>
+    <path d="m176 120 73 26-26-70Z" fill="#59a09a"/>
+    <path d="m249 146 63-22v97l-63 25Z" fill="#aaa88c"/>
+    <path d="M214 233v-38q0-17 15-12 14 5 14 21v40Z" fill="#4c5a4b"/>
+    <path d="M165 161v-57h13v10h11v-14h13v58" fill="#e9dfbd"/>
+    <path d="M164 154 201 149v72l-17 8-20-7Z" fill="#dfd4b4"/>
+    <path d="M285 190V91l13-6 29 11v84l-19 10Z" fill="#e9dfbd"/>
+    <path d="m308 103 19-7v84l-19 10Z" fill="#bdb89b"/>
+    <path d="m279 95 26-46 28 48-25 10Z" fill="#3c8985"/>
+    <path d="m305 49 3 58 25-10Z" fill="#25666b"/>
+    <path d="M305 49V20" fill="none" stroke="#dcb565"/>
+    <path d="M307 21q19-8 35 3l-8 9q-11-7-27-1Z" fill="#e7ba67" stroke="#e7ba67"/>
+    <path d="M183 173v14m113-68v13m18 11v14m-118 1v14m72-22v14" fill="none" stroke="#667565" stroke-width="6"/>
+    <path d="m101 209 33-12 30 13v30l-29 11-34-14Z" fill="#dfd4b4"/>
+    <path d="m95 209 35-34 41 36-36 13Z" fill="#438b84"/>
+    <path d="m135 224 36-13-41-36Z" fill="#28686d"/>
+    <path d="M126 247v-16q0-10 9-7 8 2 8 12v12Z" fill="#50634e"/>
+  </g>
+  <g fill="#406c56" stroke="#2b5547" stroke-width="2">
+    <path d="M91 150v72m284-69v75" fill="none" stroke="#8f8560" stroke-width="9"/>
+    <circle cx="92" cy="157" r="24"/><circle cx="80" cy="170" r="19"/><circle cx="108" cy="174" r="18"/>
+    <circle cx="370" cy="158" r="27"/><circle cx="356" cy="177" r="21"/><circle cx="390" cy="178" r="23"/>
+  </g>
+  <g fill="#82a572"><circle cx="86" cy="148" r="14"/><circle cx="361" cy="150" r="17"/><circle cx="387" cy="164" r="13"/></g>
+  <g fill="#f0d99c"><circle cx="104" cy="240" r="2"/><circle cx="112" cy="244" r="2"/><circle cx="352" cy="236" r="2"/><circle cx="361" cy="239" r="2"/></g>
+</svg>

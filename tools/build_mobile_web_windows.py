@@ -244,7 +244,7 @@ def build(args: argparse.Namespace) -> Path:
             shutil.copyfile(stage / "web" / name, exported / name)
         for name in FONTS:
             shutil.copyfile(stage / "assets/fonts" / name, exported / name)
-        for source in [stage / "assets/ui/field_company.png", stage / "assets/ui/icons/play_dark.svg"] + [stage / "assets/ui/plates" / f"{kind}_{state}.svg" for kind in ("primary", "secondary") for state in ("normal", "hover", "pressed")]:
+        for source in [stage / "assets/ui/kingdom_company_v2.png", stage / "assets/ui/icons/play_dark.svg"] + [stage / "assets/ui/plates" / f"{kind}_{state}.svg" for kind in ("primary", "secondary") for state in ("normal", "hover", "pressed")]:
             shutil.copyfile(source, exported / source.name)
         run_godot(binary, ["--headless", "--path", str(stage), "--script", str(helper), "--", str(stage / "icon.svg"), str(exported / "index.192x192.png")], work / "icon.log")
         package_pwa(exported)

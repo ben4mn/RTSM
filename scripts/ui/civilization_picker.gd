@@ -6,11 +6,17 @@ signal closed()
 
 const THEME := preload("res://scripts/ui/kingdom_theme.gd")
 const WEB := preload("res://scripts/ui/web_shell_bridge.gd")
+const INK := Color("10282b")
+const PANEL := Color("19383b")
+const IVORY := Color("f4eddd")
+const GOLD := Color("e7ba67")
+const BORDER := Color("3d5d60")
 var selected: int = 0
 var heading: String = "Choose your kingdom"
 var _panel: PanelContainer
 var _cards: Array[Button] = []
 var _title: Label
+var _tagline: Label
 var _detail: Label
 var _portrait: TextureRect
 var _signature: Label
@@ -35,20 +41,31 @@ func _ready() -> void:
 	z_index = 200
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	mouse_force_pass_scroll_events = false
-	color = Color(THEME.INK, 0.97)
+	color = Color(INK, 0.97)
 	theme = THEME.create_theme()
+	theme.set_color("font_color", "Label", IVORY)
+	for state: String in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
+		var button_style: StyleBoxFlat = THEME.button_style("secondary", "pressed" if state == "hover_pressed" else state)
+		button_style.set_corner_radius_all(10)
+		button_style.border_width_bottom = 1
+		button_style.bg_color = GOLD if state in ["pressed", "hover_pressed"] else PANEL
+		button_style.border_color = GOLD if state in ["pressed", "hover_pressed", "hover"] else BORDER
+		if state == "focus":
+			button_style.bg_color = Color.TRANSPARENT
+			button_style.border_color = IVORY
+		theme.set_stylebox(state, "Button", button_style)
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_panel = PanelContainer.new()
 	_panel.name = "KingdomComparison"
-	var style: StyleBoxFlat = THEME.panel_style()
-	style.set_content_margin_all(10)
+	var style: StyleBoxFlat = THEME.panel_style(PANEL, BORDER, 16)
+	style.set_content_margin_all(16)
 	_panel.add_theme_stylebox_override("panel", style)
 	add_child(_panel)
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 8)
 	_panel.add_child(column)
 	_title = _label(heading, 22)
-	THEME.apply_heading(_title, 22)
+	_title.add_theme_font_override("font", THEME.FONT_MEDIUM)
 	column.add_child(_title)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
@@ -58,6 +75,8 @@ func _ready() -> void:
 		var card := Button.new()
 		card.name = "Civilization%d" % id
 		card.text = str(definition.name)
+		card.tooltip_text = "%s · %s" % [definition.name, definition.tagline]
+		card.accessibility_name = "Compare " + str(definition.name)
 		card.icon = load(str(definition.icon_path))
 		# Crests are colored illustrations, unlike monochrome command glyphs.
 		card.add_theme_color_override("icon_pressed_color", Color.WHITE)
@@ -91,18 +110,28 @@ func _ready() -> void:
 	_portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	identity.add_child(_portrait)
-	_signature = _label("", 13)
+	_signature = _label("", 15)
 	_signature.name = "SignatureCaption"
 	_signature.custom_minimum_size.x = 116
 	_signature.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_signature.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_signature.add_theme_color_override("font_color", THEME.GOLD)
+	_signature.add_theme_font_override("font", THEME.FONT_MEDIUM)
+	_signature.add_theme_color_override("font_color", GOLD)
 	identity.add_child(_signature)
+	var details := VBoxContainer.new()
+	details.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	details.add_theme_constant_override("separation", 10)
+	comparison.add_child(details)
+	_tagline = _label("", 20)
+	_tagline.name = "KingdomTagline"
+	_tagline.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_tagline.add_theme_font_override("font", THEME.FONT_MEDIUM)
+	details.add_child(_tagline)
 	_detail = _label("", 16)
 	_detail.name = "KingdomTradeoffs"
 	_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_detail.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	comparison.add_child(_detail)
+	details.add_child(_detail)
 	var footer := HBoxContainer.new()
 	footer.add_theme_constant_override("separation", 8)
 	column.add_child(footer)
@@ -117,6 +146,13 @@ func _ready() -> void:
 	_confirm.custom_minimum_size.y = 48
 	_confirm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	THEME.apply_primary(_confirm)
+	for state: String in ["normal", "hover", "pressed"]:
+		var confirm_style: StyleBoxFlat = THEME.button_style("primary", state)
+		confirm_style.bg_color = Color("f0cb86") if state == "hover" else GOLD
+		confirm_style.border_color = GOLD
+		confirm_style.set_corner_radius_all(10)
+		confirm_style.border_width_bottom = 1
+		_confirm.add_theme_stylebox_override(state, confirm_style)
 	_confirm.pressed.connect(_choose)
 	footer.add_child(_confirm)
 	select_civilization(selected)
@@ -140,9 +176,11 @@ func select_civilization(id: int) -> void:
 		_cards[index].set_pressed_no_signal(CivilizationData.ORDERED_IDS[index] == selected)
 	var strengths: Variant = definition.get("strengths", "")
 	var strength_text: String = " · ".join(strengths) if strengths is Array or strengths is PackedStringArray else str(strengths)
-	_detail.text = "%s\n%s\n\nStrengths: %s\nTradeoff: %s" % [definition.tagline, definition.description, strength_text, definition.weakness]
-	_portrait.texture = load(str(definition.get("preview_unit_icon", "res://assets/units/warrior.svg")))
-	_signature.text = str(definition.signature)
+	_tagline.text = str(definition.tagline)
+	_detail.text = "%s\n\nStrengths: %s\nTradeoff: %s\n\nSignature: %s" % [definition.description, strength_text, definition.weakness, definition.signature]
+	# Identity uses the same three crests as match setup, not old-theme portraits.
+	_portrait.texture = load(str(definition.icon_path))
+	_signature.text = str(definition.name)
 	_confirm.text = "Choose " + str(definition.name)
 	_scroll.scroll_vertical = 0
 
@@ -157,7 +195,10 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 	_panel.position = available.get_center() - Vector2(width_value, height_value) * 0.5
 	_panel.size = Vector2(width_value, height_value)
 	var compact: bool = height_value < 400 or width_value < 700
+	var panel_style: StyleBoxFlat = _panel.get_theme_stylebox("panel")
+	panel_style.set_content_margin_all(12 if compact else 20)
 	_title.add_theme_font_size_override("font_size", 18 if compact else 24)
+	_tagline.add_theme_font_size_override("font_size", 17 if compact else 21)
 	_detail.add_theme_font_size_override("font_size", 14 if compact else 16)
 	for card: Button in _cards:
 		card.custom_minimum_size.y = 58 if compact else 80
