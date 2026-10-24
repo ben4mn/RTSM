@@ -9,6 +9,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 from beta2_browser_evidence import PROFILE as BETA2_PROFILE, beta2_gates
 from march_browser_evidence import march_gates
+from garrison_browser_evidence import garrison_gates
 from protocol_evidence import protocol_number, protocol_declared, sealed_protocol
 
 
@@ -284,7 +285,8 @@ def protocol3_gates(folder, invocation, role):
     }
 
 
-def analyze(folder, require_beta2=False, require_cohesion=False, expected_protocol=None):
+def analyze(folder, require_beta2=False, require_cohesion=False, expected_protocol=None, require_garrison=False):
+    require_cohesion = require_cohesion or require_garrison
     require_beta2 = require_beta2 or require_cohesion
     failures, mismatches, clients, records = [], [], {}, {}
     invocation = read(folder / 'invocation.json', {})
@@ -294,6 +296,8 @@ def analyze(folder, require_beta2=False, require_cohesion=False, expected_protoc
         failures.append('missing or invalid explicit protocol declaration')
     if expected_protocol is not None and (protocol_number(expected_protocol) is None or protocol_number(invocation.get('protocol')) != protocol_number(expected_protocol)):
         failures.append('required release protocol mismatch')
+    if require_garrison and invocation.get('garrison_acceptance') is not True:
+        failures.append('required paired garrison acceptance missing')
     modern_acceptance = profile == BETA2_PROFILE or invocation.get('mode') in ('local-sealed', 'public') or protocol_number(invocation.get('protocol')) in (2, 3)
     if profile not in ('legacy', BETA2_PROFILE):
         failures.append('unrecognized acceptance profile')
@@ -413,6 +417,8 @@ def analyze(folder, require_beta2=False, require_cohesion=False, expected_protoc
             gates.update(beta2_gates(folder, invocation, role, slot))
         if require_cohesion or invocation.get('cohesion_acceptance') is True:
             gates.update(march_gates(folder, invocation, role, slot))
+        if require_garrison or invocation.get('garrison_acceptance') is True:
+            gates.update(garrison_gates(folder, invocation, role, slot))
         failures.extend(f'{role}: {key}' for key, value in gates.items() if not value)
         clients[role] = {'matched': matched, 'ended': terminal.get('ended'),
                          'last_game_seconds': latest.get('time'),
@@ -495,7 +501,9 @@ def analyze(folder, require_beta2=False, require_cohesion=False, expected_protoc
     report['cohesion_required'] = require_cohesion
     report['march_evidence_helper_sha256'] = hashlib.sha256(Path(__file__).with_name('march_browser_evidence.py').read_bytes()).hexdigest()
     report['protocol_evidence_helper_sha256'] = hashlib.sha256(Path(__file__).with_name('protocol_evidence.py').read_bytes()).hexdigest()
-    report['protocol3_clock_scope'] = 'Strict authority flags and actual matching handshake; no additional rendered online paused-copy claim. Root paid offline UI and separate replica/profile fixtures remain distinct.' if protocol_number(invocation.get('protocol')) == 3 else None
+    report['garrison_required'] = require_garrison
+    report['garrison_evidence_helper_sha256'] = hashlib.sha256(Path(__file__).with_name('garrison_browser_evidence.py').read_bytes()).hexdigest()
+    report['protocol3_clock_scope'] = ('Postpurchase native-input and both-recipient paused/ticking windows with reviewed remapped headers required.' if require_garrison or invocation.get('garrison_acceptance') is True else 'Strict authority flags and actual matching handshake; no additional rendered online paused-copy claim. Root paid offline UI and separate replica/profile fixtures remain distinct.') if protocol_number(invocation.get('protocol')) == 3 else None
     (folder / 'analysis.json').write_text(json.dumps(report, indent=2) + '\n')
     return report
 
@@ -505,8 +513,9 @@ if __name__ == '__main__':
     parser.add_argument('output', type=Path)
     parser.add_argument('--require-beta2', action='store_true', help='Fail unless both clients meet every paid Siege/fighter/native-touch beta2 gate')
     parser.add_argument('--require-cohesion', action='store_true', help='Also require paid mixed march, private status, and explicit Move release for both slots')
+    parser.add_argument('--require-garrison', action='store_true', help='Also require postpurchase actual Scout pause and fighter clock windows/screens for both slots')
     parser.add_argument('--expected-protocol', type=int, choices=(2, 3), help='Required release protocol; use3 for new live acceptance,2 only for historical receipt analysis')
     args = parser.parse_args()
-    result = analyze(args.output, require_beta2=args.require_beta2, require_cohesion=args.require_cohesion, expected_protocol=args.expected_protocol)
+    result = analyze(args.output, require_beta2=args.require_beta2, require_cohesion=args.require_cohesion, expected_protocol=args.expected_protocol, require_garrison=args.require_garrison)
     print(json.dumps({key: result[key] for key in ('passed', 'failures', 'identity_and_result_agreement', 'same_tick_comparison')}, indent=2))
     sys.exit(0 if result['passed'] else 1)
