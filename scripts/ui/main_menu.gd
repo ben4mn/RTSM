@@ -25,8 +25,6 @@ var _shared_settings: Control
 var _civilization_picker: Control
 var _civilization_button: Button
 var _civilization_name: Label
-var _opponent_civilization_button: Button
-var _opponent_civilization_name: Label
 var _room_civilizations: Label
 var _active_safe_area := Rect2()
 var _compact_layout: bool = false
@@ -253,7 +251,7 @@ func _build_setup() -> void:
 	var draft_spacer := Control.new()
 	draft_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_tabs.add_child(draft_spacer)
-	_civilization_button = _build_civilization_choice(false)
+	_civilization_button = _build_civilization_choice()
 	_tabs.add_child(_civilization_button)
 	_columns = BoxContainer.new()
 	_columns.name = "SetupColumns"
@@ -349,8 +347,6 @@ func _build_options() -> void:
 	_solo_options = VBoxContainer.new()
 	_solo_options.add_theme_constant_override("separation", 8)
 	_options_body.add_child(_solo_options)
-	_opponent_civilization_button = _build_civilization_choice(true)
-	_solo_options.add_child(_opponent_civilization_button)
 	var label := _label("AI DIFFICULTY", 12)
 	THEME.apply_eyebrow(label)
 	_solo_options.add_child(label)
@@ -374,6 +370,9 @@ func _build_options() -> void:
 	difficulty_description = _label("", 13, true)
 	difficulty_description.add_theme_color_override("font_color", MUTED)
 	_solo_options.add_child(difficulty_description)
+	var opponent_note := _label("Your rival’s kingdom is chosen automatically.", 13, true)
+	opponent_note.add_theme_color_override("font_color", MUTED)
+	_solo_options.add_child(opponent_note)
 	guided_opening_toggle = CheckButton.new()
 	guided_opening_toggle.name = "GuidedOpeningToggle"
 	guided_opening_toggle.text = "Guide my opening"
@@ -540,8 +539,8 @@ func _menu_button_style(kind: String = "secondary", state: String = "normal") ->
 	return style
 
 
-func _build_civilization_choice(opponent: bool) -> Button:
-	var button := _button("", "ChooseOpponentCivilizationButton" if opponent else "ChooseCivilizationButton", _open_civilization_picker.bind(opponent))
+func _build_civilization_choice() -> Button:
+	var button := _button("", "ChooseCivilizationButton", _open_civilization_picker)
 	button.custom_minimum_size = Vector2(204, 56)
 	button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	button.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -574,7 +573,7 @@ func _build_civilization_choice(opponent: bool) -> Button:
 	var top := HBoxContainer.new()
 	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	copy.add_child(top)
-	var caption := _label("RIVAL KINGDOM" if opponent else "YOUR KINGDOM", 10)
+	var caption := _label("YOUR KINGDOM", 10)
 	caption.add_theme_color_override("font_color", MUTED)
 	caption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top.add_child(caption)
@@ -585,10 +584,7 @@ func _build_civilization_choice(opponent: bool) -> Button:
 	kingdom_name.add_theme_font_override("font", THEME.FONT_MEDIUM)
 	kingdom_name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	copy.add_child(kingdom_name)
-	if opponent:
-		_opponent_civilization_name = kingdom_name
-	else:
-		_civilization_name = kingdom_name
+	_civilization_name = kingdom_name
 	return button
 
 
@@ -627,6 +623,8 @@ func _open_new_game(mode: String = "solo") -> void:
 
 
 func _show_screen(screen: String) -> void:
+	if screen == "home" and is_instance_valid(_civilization_picker):
+		_civilization_picker.call("close")
 	var changed: bool = _screen != screen
 	_screen = screen
 	_home.visible = screen == "home"
@@ -647,7 +645,7 @@ func _show_screen(screen: String) -> void:
 
 
 func _set_mode(mode: String) -> void:
-	if _is_room_open() or _network_search_active:
+	if _is_room_open() or _network_search_active or is_instance_valid(_civilization_picker) or is_instance_valid(_shared_settings):
 		return
 	_mode = mode
 	_options_scroll.scroll_vertical = 0
@@ -728,36 +726,32 @@ func _refresh_civilizations(room: bool) -> void:
 	_civilization_button.tooltip_text = "Choose your kingdom: %s\n%s" % [definition.name, definition.tagline]
 	_civilization_button.icon = load(str(definition.icon_path))
 	_civilization_button.disabled = _network_search_active or _room_waiting
-	var rival: Dictionary = CivilizationData.get_definition(GameManager.selected_opponent_civilization)
-	_opponent_civilization_name.text = str(rival.name)
-	_opponent_civilization_button.icon = load(str(rival.icon_path))
-	_opponent_civilization_button.accessibility_name = "Rival kingdom: %s. Change kingdom." % rival.name
-	_opponent_civilization_button.tooltip_text = "Choose your rival: %s\n%s" % [rival.name, rival.tagline]
 	_civilization_name.modulate.a = 0.55 if _civilization_button.disabled else 1.0
 	if not room:
-		_selection_summary.text = _selection_summary.text.replace("\n", " · " + str(definition.name) + "\n")
 		return
 	var civilizations: Variant = _session.get("room_civilizations")
-	if civilizations is Array and civilizations.size() >= 2:
-		_room_civilizations.text = "%s vs %s" % [CivilizationData.get_civilization_name(int(civilizations[0])), CivilizationData.get_civilization_name(int(civilizations[1]))]
+	if civilizations is Array and civilizations.size() >= 2 and int(_session.get("room_players")) >= 2:
+		var other_slot: int = 1 if bool(_session.get("room_host")) else 0
+		_room_civilizations.text = "Opponent: " + CivilizationData.get_civilization_name(int(civilizations[other_slot]))
 	else:
-		_room_civilizations.text = str(definition.name)
+		_room_civilizations.text = "Your opponent will choose their own kingdom."
 
 
-func _open_civilization_picker(opponent: bool) -> void:
-	if is_instance_valid(_civilization_picker) or _network_search_active or _room_waiting:
+func _open_civilization_picker() -> void:
+	if _screen != "setup" or is_instance_valid(_civilization_picker) or is_instance_valid(_shared_settings) or _network_search_active or _room_waiting:
 		return
-	if opponent and _is_room_open():
-		return
-	var civilization: int = GameManager.selected_opponent_civilization if opponent else _draft_civilization()
-	_civilization_picker = preload("res://scripts/ui/civilization_picker.gd").open(self, civilization, "Choose your rival’s kingdom" if opponent else "Choose your kingdom")
+	var opened_room: String = str(_session.get("room_code")) if _is_room_open() else ""
+	_civilization_picker = preload("res://scripts/ui/civilization_picker.gd").open(self, _draft_civilization())
+	_civilization_picker.set_meta("room_code", opened_room)
 	_civilization_picker.connect("chosen", func(id: int) -> void:
-		if opponent:
-			GameManager.selected_opponent_civilization = id
-		else:
-			GameManager.selected_civilization = id
-			if _is_room_open():
-				_session.call("set_room_civilization", id)
+		var current_room: String = str(_session.get("room_code")) if _is_room_open() else ""
+		# A room can close or start while its comparison is open. Never commit
+		# that stale choice into a different room or a loading match.
+		if current_room != opened_room or _network_search_active or _room_waiting:
+			return
+		GameManager.selected_civilization = id
+		if _is_room_open():
+			_session.call("set_room_civilization", id)
 		GameManager.save_preferences()
 		_refresh_selection()
 	)
@@ -781,6 +775,9 @@ func _join_game() -> void:
 
 
 func _on_room_changed() -> void:
+	var current_room: String = str(_session.get("room_code")) if _is_room_open() else ""
+	if is_instance_valid(_civilization_picker) and str(_civilization_picker.get_meta("room_code", "")) != current_room:
+		_civilization_picker.call("close")
 	if _is_room_open():
 		_mode = "multiplayer"
 		_show_screen("setup")
@@ -793,6 +790,8 @@ func _on_room_changed() -> void:
 func _on_network_status_changed(state: String, message: String) -> void:
 	_network_search_active = state in ["connecting", "searching", "hosting", "joining", "loading"]
 	_room_waiting = state == "lobby" and message == "Waiting for an arena…"
+	if (_network_search_active or _room_waiting) and is_instance_valid(_civilization_picker):
+		_civilization_picker.call("close")
 	_network_status.text = message
 	_network_status.add_theme_color_override("font_color", THEME.RUST if state == "error" else MUTED)
 	_refresh_web_update_safety()
@@ -807,6 +806,9 @@ func _leave_room() -> void:
 
 
 func _on_back_pressed() -> void:
+	if is_instance_valid(_civilization_picker):
+		_civilization_picker.call("close")
+		return
 	if _is_room_open() or _network_search_active:
 		_leave_room()
 	else:
@@ -842,6 +844,8 @@ func _on_random_seed_pressed() -> void:
 
 
 func _on_settings_pressed() -> void:
+	if is_instance_valid(_shared_settings) or is_instance_valid(_civilization_picker):
+		return
 	_shared_settings = preload("res://scripts/ui/settings_panel.gd").open(self)
 	_shared_settings.closed.connect(_on_settings_closed)
 	_refresh_web_update_safety()
@@ -863,7 +867,7 @@ func _refresh_web_update_safety() -> void:
 
 
 func _on_start_pressed() -> void:
-	if start_button.disabled:
+	if start_button.disabled or is_instance_valid(_civilization_picker) or is_instance_valid(_shared_settings):
 		return
 	if _is_room_open():
 		_session.call("start_hosted_match")
@@ -876,6 +880,9 @@ func _on_start_pressed() -> void:
 	var seed_text: String = seed_input.text.strip_edges()
 	GameManager.selected_map_seed = maxi(-1, int(seed_text)) if seed_text.is_valid_int() else -1
 	GameManager.save_preferences()
+	# GameMap consumes this after resolving the real map seed. Direct scene
+	# fixtures can still supply explicit rival identities without this marker.
+	GameManager.set_meta("auto_solo_opponent", true)
 	start_button.disabled = true
 	# Preserve input dispatch lifetime on touch/Web, including repeat presses.
 	get_tree().call_deferred("change_scene_to_file", "res://scenes/main/main.tscn")

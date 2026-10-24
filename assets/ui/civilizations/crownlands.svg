@@ -1,1 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><path d="M32 3 57 14v21c0 13-15 23-25 27C22 58 7 48 7 35V14Z" fill="#1b3042" stroke="#d7b56d" stroke-width="3"/><path d="m16 24 9 7 7-14 7 14 9-7-5 20H21Z" fill="#d7b56d"/><path d="M22 49h20" stroke="#eadfc8" stroke-width="3"/><circle cx="16" cy="22" r="3" fill="#eadfc8"/><circle cx="32" cy="16" r="3" fill="#eadfc8"/><circle cx="48" cy="22" r="3" fill="#eadfc8"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 64 64">
+<title>Bellwick — the bridge bell</title>
+<path d="M13 6 49 5 56 13 54 41Q47 53 32 59 17 53 10 41L8 14Z" fill="#224247" stroke="#d6b675" stroke-width="2.2"/>
+
+<path d="m14 15 2 23q5 9 16 15 11-5 16-15l2-23" fill="none" stroke="#78928a" stroke-width="1"/>
+<path d="M25 17q0-5 7-5t7 5l2 17 5 5H18l5-5Z" fill="#d6b675" stroke="#142e32" stroke-width="2" stroke-linejoin="round"/>
+<path d="M29 18v12m-3 5h13" fill="none" stroke="#f3dfaf" stroke-width="2.4" stroke-linecap="round"/>
+<path d="M29 41q3 5 6 0" fill="none" stroke="#d6b675" stroke-width="3"/>
+<path d="M19 46h26M22 49v-3m20 3v-3" fill="none" stroke="#e9e1ca" stroke-width="2" stroke-linecap="round"/>
+<path d="m17 10 3 1m25 29 3 1" stroke="#f3dfaf" stroke-width="1.2"/>
+</svg>

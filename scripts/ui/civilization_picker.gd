@@ -19,7 +19,6 @@ var _title: Label
 var _tagline: Label
 var _detail: Label
 var _portrait: TextureRect
-var _signature: Label
 var _confirm: Button
 var _scroll: ScrollContainer
 var _closing: bool = false
@@ -110,14 +109,6 @@ func _ready() -> void:
 	_portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	identity.add_child(_portrait)
-	_signature = _label("", 15)
-	_signature.name = "SignatureCaption"
-	_signature.custom_minimum_size.x = 116
-	_signature.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_signature.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_signature.add_theme_font_override("font", THEME.FONT_MEDIUM)
-	_signature.add_theme_color_override("font_color", GOLD)
-	identity.add_child(_signature)
 	var details := VBoxContainer.new()
 	details.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	details.add_theme_constant_override("separation", 10)
@@ -155,10 +146,23 @@ func _ready() -> void:
 		_confirm.add_theme_stylebox_override(state, confirm_style)
 	_confirm.pressed.connect(_choose)
 	footer.add_child(_confirm)
+	var focus_order: Array[Control] = []
+	for card: Button in _cards:
+		focus_order.append(card)
+	focus_order.append(cancel)
+	focus_order.append(_confirm)
+	for index: int in focus_order.size():
+		var control: Control = focus_order[index]
+		control.focus_next = control.get_path_to(focus_order[(index + 1) % focus_order.size()])
+		control.focus_previous = control.get_path_to(focus_order[posmod(index - 1, focus_order.size())])
 	select_civilization(selected)
 	get_viewport().size_changed.connect(_layout)
 	WEB.watch_safe_area(self, _layout)
 	_layout()
+	for card: Button in _cards:
+		if card.button_pressed:
+			card.grab_focus()
+			break
 
 
 func _label(text: String, size_value: int) -> Label:
@@ -170,6 +174,8 @@ func _label(text: String, size_value: int) -> Label:
 
 
 func select_civilization(id: int) -> void:
+	if _closing:
+		return
 	selected = CivilizationData.normalize(id)
 	var definition: Dictionary = CivilizationData.get_definition(selected)
 	for index: int in _cards.size():
@@ -180,8 +186,8 @@ func select_civilization(id: int) -> void:
 	_detail.text = "%s\n\nStrengths: %s\nTradeoff: %s\n\nSignature: %s" % [definition.description, strength_text, definition.weakness, definition.signature]
 	# Identity uses the same three crests as match setup, not old-theme portraits.
 	_portrait.texture = load(str(definition.icon_path))
-	_signature.text = str(definition.name)
-	_confirm.text = "Choose " + str(definition.name)
+	_confirm.text = "Confirm kingdom"
+	_confirm.accessibility_name = "Confirm " + str(definition.name)
 	_scroll.scroll_vertical = 0
 
 
@@ -218,15 +224,22 @@ func _input(event: InputEvent) -> void:
 
 
 func _choose() -> void:
-	if _closing:
-		return
-	chosen.emit(selected)
-	close()
+	_dismiss(true)
 
 
 func close() -> void:
+	_dismiss(false)
+
+
+func _dismiss(confirm: bool) -> void:
 	if _closing:
 		return
 	_closing = true
+	# Hide before the owner clears its reference. Rapid reopen/confirm cannot
+	# leave a second visible modal or commit this queued-for-deletion instance.
+	hide()
+	set_process_input(false)
+	if confirm:
+		chosen.emit(selected)
 	closed.emit()
 	queue_free()

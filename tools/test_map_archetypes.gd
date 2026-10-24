@@ -3,13 +3,6 @@ extends Node
 ## This is map structure/fairness evidence, not a combat or gathering simulation.
 
 const FAIRNESS_PROBE = preload("res://tools/probe_map_opening_fairness.gd")
-const CLASSIC_HASHES: Dictionary = {
-	0: "4d7539ea5a632e703539a1984df6211b178351aa00156d78ba32be6485662001",
-	1: "1c07fb650bc672897f21f51caca789e8f35a924604443bb554228bde94e25ae8",
-	101: "6f89107e2597c5736c0fa13ba8e69649b1525058860d9930b000986ec3b46452",
-	424242: "73efc0faf0df463acd9e69ad48fff93c265735921b0128b0335058df5fcbb809",
-	20261021: "d1a136315473c8a4acaddf5b2b3cdb71e013f59cd2aeb30d7c6b89bd27e24a14",
-}
 var _failures: Array[String] = []
 var _reports: Array[Dictionary] = []
 var _overview_maps: Array[Dictionary] = []
@@ -19,9 +12,7 @@ func _ready() -> void:
 
 func _run() -> void:
 	var probe: Node = FAIRNESS_PROBE.new()
-	for seed_value: int in CLASSIC_HASHES:
-		var classic := MapGenerator.new(seed_value)
-		_expect(JSON.stringify(classic.generate()).sha256_text() == CLASSIC_HASHES[seed_value], "classic seed %d changed" % seed_value)
+	_expect(MapData.GENERATOR_VERSION == 3, "map contract version is3")
 	_expect(MapData.normalize_archetype(-1) == MapData.MapArchetype.OPEN_PLAINS and MapData.normalize_archetype(99) == MapData.MapArchetype.OPEN_PLAINS, "unknown archetypes must normalize to classic")
 	var seeds: Array[int] = []
 	for value: int in range(32): seeds.append(value)
@@ -37,7 +28,7 @@ func _run() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(output_path).get_base_dir())
 	FileAccess.open(output_path, FileAccess.WRITE).store_string(JSON.stringify(report, "  "))
 	if _failures.is_empty():
-		print("[PASS] map_archetypes: 105 deterministic symmetric maps, classic hashes preserved, fair opening stock/deposit routes, connected expansions and three independently viable broad river crossings")
+		print("[PASS] map_archetypes: 105 deterministic symmetric maps, version3 layouts, fair opening stock/deposit routes, connected expansions and three independently viable broad river crossings")
 		get_tree().quit(0)
 	else:
 		for failure: String in _failures: push_error("[FAIL] map_archetypes: " + failure)
@@ -60,6 +51,10 @@ func _check_map(seed_value: int, archetype: int, probe: Node) -> void:
 				MapData.TileType.FOREST: forest_count += 1
 				MapData.TileType.WATER: water_count += 1
 	_expect(sacred_count == 4, label + " missing objective cells")
+	var routes_clear: bool = true
+	for reserved: Vector2i in generator.get("_route_tiles"):
+		routes_clear = routes_clear and MapData.is_grass(generator.get_tile(reserved))
+	_expect(routes_clear, label + " late deposits obstruct a reserved route")
 	var pathfinder := Pathfinding.new(generator)
 	var footprint := Vector2i(4, 4)
 	for spawn: Vector2i in generator.spawn_positions:
@@ -103,10 +98,16 @@ func _check_map(seed_value: int, archetype: int, probe: Node) -> void:
 					_expect(not MapData.is_obstacle(generator.get_tile(crossing + Vector2i(dx, dy))), label + " crossing narrower than seven cells")
 	for pocket: Vector2i in generator.get_expansion_pocket_centers():
 		_expect(not pathfinder.get_tile_path(routes[0].waypoints[0], pocket).is_empty(), label + " unreachable expansion")
+		var stock: Dictionary = {MapData.TileType.BERRY_BUSH: 0, MapData.TileType.GOLD_MINE: 0, MapData.TileType.FOREST: 0}
+		for dy: int in range(-MapGenerator.EXPANSION_CLEAR_RADIUS, MapGenerator.EXPANSION_CLEAR_RADIUS + 1):
+			for dx: int in range(-MapGenerator.EXPANSION_CLEAR_RADIUS, MapGenerator.EXPANSION_CLEAR_RADIUS + 1):
+				var tile_type: int = generator.get_tile(pocket + Vector2i(dx, dy))
+				if stock.has(tile_type): stock[tile_type] += 1
+		_expect(stock[MapData.TileType.BERRY_BUSH] == 8 and stock[MapData.TileType.GOLD_MINE] == 4 and stock[MapData.TileType.FOREST] == 20, label + " expansion lacks promised finite stock")
 	var fairness: Dictionary = probe.call("measure_seed", seed_value, archetype)
 	var max_trip_difference: float = 0.0
 	for resource: String in ["food", "wood", "gold"]:
-		var required: int = {"food": 4, "wood": 8, "gold": 2}[resource]
+		var required: int = {"food": 8, "wood": 24, "gold": 4}[resource]
 		for side: Dictionary in fairness.sides:
 			var measurement: Dictionary = side.resources[resource]
 			_expect(measurement.reachable and measurement.deposit_reachable, label + " resource route unavailable: " + resource)

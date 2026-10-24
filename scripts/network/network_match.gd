@@ -85,6 +85,10 @@ func _snapshot_for(slot: int) -> Dictionary:
 			if node.current_state == UnitBase.State.DEAD:
 				continue
 			actor.merge({"kind": "unit", "type": node.unit_type, "state": node.current_state, "stance": node.stance, "animation": [node._attack_animation_remaining, node._attack_animation_duration, node._attack_animation_direction.x, node._attack_animation_direction.y, node._sprite.flip_h if node._sprite != null else false]})
+			# Only an already-visible actor's observable tool/pose crosses here.
+			# No work target, private order or cargo is included for opponents.
+			var work_pose: Vector3 = node.get_work_presentation()
+			actor["work_pose"] = [int(work_pose.x), work_pose.y, work_pose.z]
 			if node.player_owner == slot:
 				var points: Array = []
 				var route: PackedVector2Array = node.get_remaining_navigation_path()
@@ -172,6 +176,7 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 			var marching: Variant = actor.get("marching", false)
 			node.set_meta("network_attack_march", node.player_owner == 0 and _local_owner(int(actor.owner)) == 0 and typeof(marching) == TYPE_BOOL and marching == true)
 			var animation: Array = actor.get("animation", [])
+			node.apply_work_presentation(actor.get("work_pose", []))
 			if animation.size() == 5:
 				node._attack_animation_remaining = float(animation[0])
 				node._attack_animation_duration = maxf(0.01, float(animation[1]))

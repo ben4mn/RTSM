@@ -110,6 +110,11 @@ var _sprite: Sprite2D = null
 var _sprite_team_modulate: Color = Color.WHITE
 var _damage_flash_tween: Tween = null
 var _sprite_opaque_rect: Rect2 = Rect2()
+var _sprite_rest_scale: Vector2 = Vector2.ONE
+var _action_presentation: UnitActionPresentation
+var _art_civilization: int = 0
+var _network_work_pose: Vector3 = Vector3.ZERO
+var _uses_network_work_pose: bool = false
 var _health_bar_y: float = -43.0
 static var _sprite_opaque_rect_cache: Dictionary = {}
 
@@ -198,6 +203,12 @@ func _setup_sprite() -> void:
 	# their material colors instead of receiving a full-sprite red wash.
 	_sprite.modulate = Color.WHITE
 	_sprite_team_modulate = _sprite.modulate
+	_sprite_rest_scale = _sprite.scale
+	_art_civilization = CivilizationData.for_player(player_owner)
+	_action_presentation = UnitActionPresentation.new()
+	_action_presentation.name = "ActionPresentation"
+	_action_presentation.visible = false
+	add_child(_action_presentation)
 	_last_visual_position = global_position
 
 
@@ -221,6 +232,8 @@ func get_visual_bounds() -> Rect2:
 		local_bounds = local_bounds.merge(Rect2(-size * 1.25, _health_bar_y, size * 2.5, 3.0))
 	if stance == Stance.STAND_GROUND:
 		local_bounds = local_bounds.merge(Rect2(size, -6.5, 8.0, 9.0))
+	if _action_presentation != null and _action_presentation.visible:
+		local_bounds = local_bounds.merge(Rect2(-24.0, -43.0, 48.0, 49.0))
 	return global_transform * local_bounds
 
 
@@ -1020,15 +1033,19 @@ func _update_sprite_motion(delta: float) -> void:
 			queue_redraw()
 	_animation_clock += delta
 	_attack_animation_remaining = maxf(0.0, _attack_animation_remaining - delta)
+	if _uses_network_work_pose and _network_work_pose.x > 0.0:
+		_network_work_pose.y = fposmod(_network_work_pose.y + maxf(0.0, delta) / _network_work_pose.z, 1.0)
 	var displacement: Vector2 = global_position - _last_visual_position
 	_last_visual_position = global_position
 	var sprite_offset := Vector2.ZERO
+	_sprite.rotation = 0.0
+	_sprite.scale = _sprite_rest_scale
 	if displacement.length_squared() > 0.001:
 		if absf(displacement.x) > 0.01:
 			_sprite.flip_h = displacement.x < 0.0
 		var mounted: bool = unit_type in [UnitData.UnitType.CAVALRY, UnitData.UnitType.SCOUT]
 		var gait_rate: float = 17.0 if mounted else 12.0
-		var stride: float = sin(_animation_clock * gait_rate)
+		var stride: float = 0.0 if GameManager.reduced_motion else sin(_animation_clock * gait_rate)
 		if unit_type == UnitData.UnitType.SIEGE:
 			# A low wheel roll keeps the heavy carriage grounded; infantry's
 			# two-unit hop makes the same art appear to walk on its wheels.
@@ -1037,28 +1054,57 @@ func _update_sprite_motion(delta: float) -> void:
 		else:
 			sprite_offset.y = -absf(stride) * (1.6 if mounted else 2.0)
 			_sprite.rotation = stride * (0.014 if mounted else 0.025)
-	elif current_state in [State.GATHERING, State.BUILDING]:
-		var work_stroke: float = sin(_animation_clock * 7.5)
-		_sprite.rotation = work_stroke * 0.04
-		sprite_offset.y = -absf(work_stroke) * 0.6
-	else:
-		_sprite.rotation = 0.0
+	var work: Vector3 = get_work_presentation()
+	var action: int = int(work.x)
+	var phase: float = work.y
 	if _attack_animation_remaining > 0.0:
 		# Both the server and inert replicas already carry duration/remaining.
 		# Derive the release from that visual clock; never read a replica's
 		# simulation windup or change the actual damage/projectile schedule.
 		var elapsed: float = _attack_animation_duration - _attack_animation_remaining
 		var windup: float = maxf(0.001, _attack_animation_duration - 0.16)
+		phase = UnitActionPresentation.RELEASE * elapsed / windup if elapsed <= windup else UnitActionPresentation.RELEASE + (1.0 - UnitActionPresentation.RELEASE) * (elapsed - windup) / 0.16
+		action = UnitActionPresentation.Action.MELEE
 		if unit_type == UnitData.UnitType.SIEGE:
-			# Recoil starts at release, then settles along the firing direction.
-			var recoil: float = sin(clampf((elapsed - windup) / 0.16, 0.0, 1.0) * PI)
-			sprite_offset -= _attack_animation_direction * recoil * 3.5
-			_sprite.rotation += recoil * 0.012 * (-1.0 if _sprite.flip_h else 1.0)
-		else:
-			var thrust: float = _attack_pose_strength(elapsed, windup)
-			sprite_offset += _attack_animation_direction * thrust * (-2.0 if is_ranged else 5.0)
-			_sprite.rotation += thrust * (0.035 if is_ranged else 0.06) * (-1.0 if _sprite.flip_h else 1.0)
+			action = UnitActionPresentation.Action.SIEGE
+		elif is_ranged:
+			action = UnitActionPresentation.Action.BOW
+		elif unit_type == UnitData.UnitType.CAVALRY or unit_type == UnitData.UnitType.SCOUT:
+			action = UnitActionPresentation.Action.MOUNTED
+	var facing: float = -1.0 if _sprite.flip_h else 1.0
+	if action != UnitActionPresentation.Action.NONE:
+		var pose: Vector4 = UnitActionPresentation.pose(action, phase, _art_civilization)
+		if not GameManager.reduced_motion:
+			var direction: Vector2 = _attack_animation_direction if _attack_animation_remaining > 0.0 else Vector2(facing, 0.0)
+			sprite_offset += direction * pose.x + Vector2(0.0, pose.y)
+			_sprite.rotation += pose.z * facing
+			_sprite.scale = _sprite_rest_scale * Vector2(1.0 + pose.w * 0.35, 1.0 - pose.w)
+	_action_presentation.position = sprite_offset
+	_action_presentation.present(action, phase, _art_civilization, facing, GameManager.reduced_motion, GameManager.reduced_flashes)
 	_sprite.position = sprite_offset
+
+
+func get_work_presentation() -> Vector3:
+	return _network_work_pose if _uses_network_work_pose else Vector3.ZERO
+
+
+func apply_work_presentation(value: Variant) -> void:
+	## Visible action only; never carry a target, cargo or hidden economic order.
+	_uses_network_work_pose = true
+	_network_work_pose = Vector3.ZERO
+	if not value is Array or value.size() != 3:
+		return
+	for component: Variant in value:
+		if typeof(component) != TYPE_INT and typeof(component) != TYPE_FLOAT:
+			return
+		if not is_finite(float(component)):
+			return
+	var kind: int = int(value[0])
+	if not UnitActionPresentation.is_work_action(kind) or float(kind) != float(value[0]):
+		return
+	if float(value[1]) < 0.0 or float(value[1]) > 1.0 or float(value[2]) < 0.2 or float(value[2]) > 4.0:
+		return
+	_network_work_pose = Vector3(kind, float(value[1]), float(value[2]))
 
 
 func _attack_pose_strength(elapsed: float, windup: float) -> float:

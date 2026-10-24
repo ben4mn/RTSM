@@ -120,8 +120,15 @@ func _ready() -> void:
 	if NetworkSession.is_network_match():
 		resolved_seed = NetworkSession.match_seed
 		map_archetype = NetworkSession.match_map_archetype
-	map_seed = resolved_seed
+	elif resolved_seed < 0:
+		resolved_seed = int(randi() % 2147483646) + 1
 	map_generator = MapGenerator.new(resolved_seed, map_archetype)
+	# Keep the actual randomized seed for replay and the automatic solo rival.
+	# The saved Random preference remains -1 for the next new match.
+	map_seed = map_generator._rng.seed
+	if gm != null and not NetworkSession.is_network_match() and gm.get_meta("auto_solo_opponent", false) == true:
+		gm.remove_meta("auto_solo_opponent")
+		gm.set("selected_opponent_civilization", CivilizationData.choose_solo_opponent(int(gm.get("selected_civilization")), map_seed))
 	map_generator.generate()
 
 	# Create and assign procedural tilesets.

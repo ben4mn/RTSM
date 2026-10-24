@@ -1,1 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><path d="M32 3 57 14v21c0 13-15 23-25 27C22 58 7 48 7 35V14Z" fill="#442c28" stroke="#d39769" stroke-width="3"/><g stroke="#e2b77a" stroke-width="3"><path d="M32 13v6m0 26v6M13 32h6m26 0h6M18 18l5 5m18 18 5 5M18 46l5-5m18-18 5-5"/></g><circle cx="32" cy="32" r="11" fill="#e2b77a"/><path d="m32 22-6 12h7l-1 9 9-15h-8l2-6Z" fill="#7d4436"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 64 64">
+<title>Redbank — the orchard wheel</title>
+<path d="M13 6 49 5 56 13 54 41Q47 53 32 59 17 53 10 41L8 14Z" fill="#663f32" stroke="#dfb077" stroke-width="2.2"/>
+
+<path d="M16 39h32M18 44h28" stroke="#b47a59" stroke-width="1.5"/>
+<circle cx="32" cy="34" r="14" fill="#874d35" stroke="#e0b777" stroke-width="3"/>
+<path d="M32 20v28M18 34h28M22 24l20 20m0-20L22 44" stroke="#e0b777" stroke-width="2"/>
+<circle cx="32" cy="34" r="4" fill="#f0d7a3" stroke="#663f32" stroke-width="1.5"/>
+<path d="M32 20q-3-9 3-12" fill="none" stroke="#e0b777" stroke-width="2.2" stroke-linecap="round"/>
+<path d="M33 15q4-10 14-5-3 9-14 5Z" fill="#b1b779" stroke="#663f32" stroke-width="1.3"/>
+<path d="m15 15 5-2m25 37-4 2" stroke="#f0d7a3" stroke-width="1.2"/>
+</svg>

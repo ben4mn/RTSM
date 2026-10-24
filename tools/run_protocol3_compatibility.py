@@ -1,4 +1,4 @@
-"""Bounded actual loopback old2/new3 sockets; source frozen in private copies."""
+"""Bounded loopback frozen-protocol2/current sockets; private source copies."""
 import argparse
 import hashlib
 import importlib.util
@@ -16,6 +16,14 @@ import websocket
 
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def network_constant(root, name):
+    source = (root / 'scripts/network/network_session.gd').read_text(encoding='utf-8')
+    match = re.search(r'^const\s+' + re.escape(name) + r'\s*(?::\s*int\s*)?(?::=|=)\s*(\d+)\b', source, re.MULTILINE)
+    if match is None:
+        raise ValueError('Missing integer network constant: ' + name)
+    return int(match.group(1))
 
 
 def load_runner(root):
@@ -53,6 +61,9 @@ def private_copy(source, destination, cache=None):
 
 
 def main(args):
+    current_protocol = network_constant(ROOT, 'PROTOCOL')
+    current_catalog = network_constant(ROOT, 'MAP_CATALOG_VERSION')
+    current_label = f'new{current_protocol}'
     output = args.output.resolve()
     output.mkdir(exist_ok=False)
     runner = load_runner(ROOT)
@@ -63,7 +74,7 @@ def main(args):
     streams = []
     connections = []
     events = []
-    report = {'status': 'RUNNING', 'scope': 'Actual owned loopback sockets and real new Godot client; no paid gameplay/browser/public connection.', 'source_sha256': original, 'old_source_sha256': old_original, 'events': events}
+    report = {'status': 'RUNNING', 'scope': 'Actual owned loopback sockets and real current Godot client; no paid gameplay/browser/public connection.', 'current_protocol': current_protocol, 'current_map_catalog': current_catalog, 'source_sha256': original, 'old_source_sha256': old_original, 'events': events}
     def connect(url):
         assert re.fullmatch(r'ws://127\.0\.0\.1:\d+/match', url)
         connection = websocket.create_connection(url, timeout=4, http_proxy_host=None)
@@ -81,7 +92,7 @@ def main(args):
                 return packet
         raise AssertionError('No expected packet: ' + label)
     try:
-        for label, source, protocol in [('new3', ROOT, 3), ('old2', args.old_root, 2)]:
+        for label, source, protocol in [(current_label, ROOT, current_protocol), ('old2', args.old_root, 2)]:
             folder = output / label
             hashes = private_copy(source, folder, args.import_cache)
             contexts[label] = {'directory': str(folder), 'sha256': hashes}
@@ -99,27 +110,27 @@ def main(args):
                 assert process.poll() is None, 'Server exited: ' + label
                 assert time.monotonic() < deadline, 'Server startup timed out: ' + label
                 time.sleep(.1)
-        url = contexts['new3']['endpoint']
+        url = contexts[current_label]['endpoint']
         host = connect(url)
-        send(host, {'op': 'host', 'protocol': 3.0, 'map_catalog': 2, 'map_archetype': 0, 'civilization': 1}, 'valid3-host')
-        room = receive(host, 'valid3-host', ['room', 'error'])
-        assert room.get('protocol') == 3 and room.get('players') == 1
+        send(host, {'op': 'host', 'protocol': float(current_protocol), 'map_catalog': current_catalog, 'map_archetype': 0, 'civilization': 1}, 'current-host')
+        room = receive(host, 'current-host', ['room', 'error'])
+        assert room.get('protocol') == current_protocol and room.get('players') == 1
         for operation in ('search', 'host', 'join'):
             peer = connect(url)
             send(peer, {'op': operation, 'protocol': 2, 'map_catalog': 2, 'map_archetype': 0, 'civilization': 2, 'code': room['code']}, 'old2-' + operation)
             rejected = receive(peer, 'old2-' + operation, ['error', 'room', 'queued', 'matched'])
             assert rejected.get('op') == 'error' and 'reload' in rejected.get('reason', '').lower()
             # Same live peer must recover without disconnect-driven cleanup.
-            send(peer, {'op': 'host', 'protocol': 3, 'map_catalog': 2, 'map_archetype': 0, 'civilization': 2}, 'old2-' + operation + '-recover3')
-            recovered = receive(peer, 'old2-' + operation + '-recover3', ['room', 'queued', 'matched', 'error'])
-            assert recovered.get('op') == 'room' and recovered.get('protocol') == 3 and recovered.get('players') == 1 and recovered.get('code') != room['code']
+            send(peer, {'op': 'host', 'protocol': current_protocol, 'map_catalog': current_catalog, 'map_archetype': 0, 'civilization': 2}, 'old2-' + operation + '-recover-current')
+            recovered = receive(peer, 'old2-' + operation + '-recover-current', ['room', 'queued', 'matched', 'error'])
+            assert recovered.get('op') == 'room' and recovered.get('protocol') == current_protocol and recovered.get('players') == 1 and recovered.get('code') != room['code']
             send(host, {'op': 'room_map', 'map_archetype': 0}, 'protected-during-' + operation)
             protected = receive(host, 'protected-during-' + operation, ['room', 'error'])
             assert protected.get('players') == 1 and protected.get('code') == room['code']
             peer.close()
-        for invalid in (None, 3.5, '3', True, 4):
+        for invalid in (None, current_protocol + 0.5, str(current_protocol), True, current_protocol + 1):
             peer = connect(url)
-            packet = {'op': 'host', 'map_catalog': 2, 'map_archetype': 0, 'civilization': 0}
+            packet = {'op': 'host', 'map_catalog': current_catalog, 'map_archetype': 0, 'civilization': 0}
             if invalid is not None:
                 packet['protocol'] = invalid
             send(peer, packet, 'invalid-protocol')
@@ -131,25 +142,25 @@ def main(args):
             peer.close()
         send(host, {'op': 'room_map', 'map_archetype': 0}, 'host-survives-rejections')
         protected = receive(host, 'host-survives-rejections', ['room'])
-        assert protected.get('players') == 1 and protected.get('code') == room['code'] and protected.get('protocol') == 3
+        assert protected.get('players') == 1 and protected.get('code') == room['code'] and protected.get('protocol') == current_protocol
         guest = connect(url)
-        send(guest, {'op': 'join', 'protocol': 3, 'map_catalog': 2, 'code': room['code'], 'civilization': 2}, 'valid3-guest')
-        for peer, label in [(host, 'valid3-host'), (guest, 'valid3-guest')]:
+        send(guest, {'op': 'join', 'protocol': current_protocol, 'map_catalog': current_catalog, 'code': room['code'], 'civilization': 2}, 'current-guest')
+        for peer, label in [(host, 'current-host'), (guest, 'current-guest')]:
             joined = receive(peer, label, ['room', 'error'])
-            assert joined.get('protocol') == 3 and joined.get('players') == 2
-        send(host, {'op': 'room_start'}, 'valid3-start')
-        starts = [receive(peer, label, ['matched', 'error']) for peer, label in [(host, 'valid3-host'), (guest, 'valid3-guest')]]
+            assert joined.get('protocol') == current_protocol and joined.get('players') == 2
+        send(host, {'op': 'room_start'}, 'current-start')
+        starts = [receive(peer, label, ['matched', 'error']) for peer, label in [(host, 'current-host'), (guest, 'current-guest')]]
         assert {item.get('slot') for item in starts} == {0, 1}
-        assert all(item.get('protocol') == 3 and item.get('civilizations') == [1, 2] for item in starts)
+        assert all(item.get('protocol') == current_protocol and item.get('civilizations') == [1, 2] for item in starts)
         assert starts[0]['match'] == starts[1]['match']
-        for peer, label in [(host, 'valid3-host'), (guest, 'valid3-guest')]:
+        for peer, label in [(host, 'current-host'), (guest, 'current-guest')]:
             send(peer, {'op': 'ready', 'match': starts[0]['match']}, label + '-ready')
-        for peer, label in [(host, 'valid3-host'), (guest, 'valid3-guest')]:
+        for peer, label in [(host, 'current-host'), (guest, 'current-guest')]:
             begun = receive(peer, label, ['started', 'error'])
             assert begun.get('op') == 'started' and begun.get('match') == starts[0]['match']
             snapshot = receive(peer, label, ['snapshot', 'error'])
             assert snapshot.get('op') == 'snapshot' and snapshot.get('match') == starts[0]['match'] and snapshot.get('actors')
-        client_root = output / 'new3-client'
+        client_root = output / (current_label + '-client')
         contexts['client'] = {'directory': str(client_root), 'sha256': private_copy(ROOT, client_root, args.import_cache)}
         command = [str(args.godot), '--headless', '--path', str(client_root), '--script', 'res://tools/test_online_protocol3_client_compatibility.gd', '--', '--old-url=' + contexts['old2']['endpoint']]
         client_process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=dict(os.environ, GODOT_AUDIO_DRIVER='Dummy'), start_new_session=os.name != 'nt')
@@ -159,12 +170,12 @@ def main(args):
         except subprocess.TimeoutExpired:
             runner.terminate_process_tree(client_process)
             stdout, _ = client_process.communicate(timeout=8)
-            (output / 'new3-client.log').write_text(stdout, encoding='utf-8')
+            (output / (current_label + '-client.log')).write_text(stdout, encoding='utf-8')
             raise
-        (output / 'new3-client.log').write_text(stdout, encoding='utf-8')
+        (output / (current_label + '-client.log')).write_text(stdout, encoding='utf-8')
         assert client_process.returncode == 0 and 'PROTOCOL3_CLIENT_COMPATIBILITY' in stdout
         assert not re.search(r'(SCRIPT ERROR|ERROR:|Parse Error)', stdout)
-        for label in ('new3', 'old2'):
+        for label in (current_label, 'old2'):
             assert not re.search(r'(SCRIPT ERROR|ERROR:|Parse Error)', (output / (label + '-server.log')).read_text(encoding='utf-8'))
         report['status'] = 'PASS'
     except Exception as error:

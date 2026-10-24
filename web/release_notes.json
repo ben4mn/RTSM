@@ -1,6 +1,20 @@
 {
   "releases": [
     {
+      "id": "2026-10-24-settled-kingdoms",
+      "date": "2026-10-24",
+      "version": "0.3.0-beta.5",
+      "title": "Room to settle",
+      "summary": "More room for your village, richer gathering grounds and settlements with a story.",
+      "changes": [
+        "Choose your settlement once in New Game. Solo opponents are selected automatically; multiplayer keeps each player in control of their own choice. Rapid reopening and stale lobby confirmations are fixed.",
+        "The battlefields now have larger home clearings, richer nearby groves, wider routes and stocked expansion sites with space to build. Bases move inward without shortening the direct journey between opponents.",
+        "Meet Bellwick, Alderfen and Redbank: bell-founders, marshland bowyers and orchard caravans. Crafted emblems and local histories replace the generic kingdom identities; their strengths and tradeoffs remain the same.",
+        "Workers chop, hoe, gather and build with distinct tool motions. Melee troops, archers, riders and siege engines wind up, strike and recover. Actions follow their existing gathering and combat timing, including online replicas.",
+        "Both online players must reload for the redesigned terrain. The Standard Sacred clock remains three minutes; the experimental scoring delay is not included."
+      ]
+    },
+    {
       "id": "2026-10-24-kingdom-miniatures",
       "version": "0.3.0-beta.4",
       "date": "2026-10-24",

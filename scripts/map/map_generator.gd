@@ -7,24 +7,28 @@ extends RefCounted
 ## grid is Array[Array] of MapData.TileType values (row-major).
 
 var _rng := RandomNumberGenerator.new()
-const SPAWN_EDGE_PADDING := 6
-const SPAWN_CLEAR_RADIUS := 6
+const SPAWN_EDGE_PADDING := 14
+const SPAWN_CLEAR_RADIUS := 11
 const CENTER_CLEAR_RADIUS := 7
-const FEATURE_SPAWN_BUFFER := 8
+const FEATURE_SPAWN_BUFFER := 13
 const FEATURE_CENTER_BUFFER := 8
-const CORRIDOR_HALF_WIDTH := 3
+const CORRIDOR_HALF_WIDTH := 4
+const EXPANSION_CLEAR_RADIUS := 8
 
-## The generated tile grid — Array of rows, each row is Array of MapData.TileType.
+## The generated tile grid: an array of rows, each containing MapData.TileType values.
 var grid: Array = []
+## Carved army routes stay open after the later resource-placement phase.
+var _route_tiles: Dictionary = {}
 
 ## Spawn positions for each player (tile coords). Index 0 = P1, 1 = P2.
 var spawn_positions: Array[Vector2i] = []
 var archetype: int = MapData.MapArchetype.OPEN_PLAINS
-var _flank_crossings: Array[Vector2i] = [Vector2i(20, 20), Vector2i(52, 52)]
+var _flank_crossings: Array[Vector2i] = []
 
 
 func _init(seed_value: int = -1, map_archetype: int = MapData.MapArchetype.OPEN_PLAINS) -> void:
 	archetype = MapData.normalize_archetype(map_archetype)
+	_flank_crossings = [_scaled_tile(Vector2i(20, 20)), _scaled_tile(Vector2i(52, 52))]
 	if seed_value >= 0:
 		_rng.seed = seed_value
 	else:
@@ -39,16 +43,13 @@ func generate() -> Array:
 	_place_water_features()
 	_place_forest_clusters()
 	_place_archetype_features()
-	# Keep established Open Plains seeds intact. On the terrain-heavy maps,
-	# finish carving routes before scattering finite expansion resources so
-	# a river crossing cannot silently erase most of a seed's food deposits.
-	if archetype == MapData.MapArchetype.OPEN_PLAINS:
-		_place_resources()
 	_ensure_spawn_clearance()
 	_ensure_center_lane()
 	_ensure_tactical_lanes()
-	if archetype != MapData.MapArchetype.OPEN_PLAINS:
-		_place_resources()
+	_ensure_expansion_clearance()
+	# Finish all terrain carving before placing finite stock. No crossing or
+	# expansion corridor may erase a promised opening deposit.
+	_place_resources()
 	_place_guaranteed_near_spawn_resources()
 	_place_contested_mid_resources()
 	_place_expansion_resources()
@@ -56,13 +57,12 @@ func generate() -> Array:
 	return grid
 
 
-## The default performs no additional random draws or edits, preserving existing
-## seeded maps. New layouts retain the same reflected starts and opening stock.
+## Proportional authored anchors retain three distinct layouts at every size.
 func _place_archetype_features() -> void:
 	if archetype == MapData.MapArchetype.OPEN_PLAINS:
 		return
-	var upper: int = _rng.randi_range(18, 21)
-	var lower: int = _rng.randi_range(50, 53)
+	var upper: int = _scaled_tile(Vector2i(20, 20)).x + _rng.randi_range(-2, 1)
+	var lower: int = _scaled_tile(Vector2i(52, 52)).x + _rng.randi_range(-2, 1)
 	_flank_crossings = [Vector2i(upper, upper), Vector2i(lower, lower)]
 	if archetype == MapData.MapArchetype.RIVER_CROSSINGS:
 		_place_crossing_river()
@@ -85,9 +85,9 @@ func _place_crossing_river() -> void:
 ## Larger woods make route choice and expansion scouting matter. They keep the
 ## existing forest routing weight; no camouflage, armor or speed bonus is added.
 func _place_flanking_woodlands() -> void:
-	var centers: Array[Vector2i] = [Vector2i(15, 39), Vector2i(31, 56), Vector2i(24, 44)]
+	var centers: Array[Vector2i] = [Vector2i(12, 30), Vector2i(40, 61), Vector2i(6, 43)]
 	for base: Vector2i in centers:
-		var center: Vector2i = base + Vector2i(_rng.randi_range(-2, 2), _rng.randi_range(-2, 2))
+		var center: Vector2i = _scaled_tile(base) + Vector2i(_rng.randi_range(-2, 2), _rng.randi_range(-2, 2))
 		_place_woodland_ellipse(center, _rng.randi_range(5, 7), _rng.randi_range(7, 9))
 	for crossing: Vector2i in _flank_crossings:
 		_place_woodland_ellipse(crossing, 7, 7)
@@ -121,8 +121,6 @@ func get_tactical_routes() -> Array[Dictionary]:
 
 
 func _ensure_tactical_lanes() -> void:
-	if archetype == MapData.MapArchetype.OPEN_PLAINS:
-		return
 	for route: Dictionary in get_tactical_routes():
 		var points: Array = route["waypoints"]
 		for index: int in range(1, points.size()):
@@ -136,6 +134,7 @@ func _ensure_tactical_lanes() -> void:
 ## Fill the entire grid with grass.
 func _init_grid() -> void:
 	grid.clear()
+	_route_tiles.clear()
 	for y in range(MapData.MAP_HEIGHT):
 		var row: Array = []
 		row.resize(MapData.MAP_WIDTH)
@@ -280,118 +279,21 @@ func _place_blob(cx: int, cy: int, size: int, tile_type: MapData.TileType) -> vo
 		y = clampi(y, 0, MapData.MAP_HEIGHT - 1)
 
 
-## Place guaranteed resources near each spawn so players always have nearby food, gold, and wood.
-## Called AFTER _ensure_spawn_clearance so resources won't be overwritten.
+## Authored, finite resource groves around a broad construction clearing.
+## Every source remains inside the actual 13-tile starting TC reveal. Reflection
+## gives the other player the identical access and stock without resource cheats.
 func _place_guaranteed_near_spawn_resources() -> void:
-	# Draw one opening pocket and reflect it to the other spawn. The reflection
-	# preserves isometric world distances and the anchored 4x4 TC footprint.
 	var spawn: Vector2i = spawn_positions[0]
-	_place_near_spawn(spawn, MapData.TileType.BERRY_BUSH, 4, SPAWN_CLEAR_RADIUS + 1, SPAWN_CLEAR_RADIUS + 3)
-	_place_near_spawn(spawn, MapData.TileType.GOLD_MINE, 2, SPAWN_CLEAR_RADIUS + 2, SPAWN_CLEAR_RADIUS + 5)
-	_place_near_spawn(spawn, MapData.TileType.STONE, 1, SPAWN_CLEAR_RADIUS + 3, SPAWN_CLEAR_RADIUS + 6)
-	_place_forest_near_spawn(spawn)
+	_place_resource_rectangle(spawn + Vector2i(-9, -5), Vector2i(4, 2), MapData.TileType.BERRY_BUSH)
+	_place_resource_rectangle(spawn + Vector2i(6, 4), Vector2i(4, 6), MapData.TileType.FOREST)
+	_place_resource_rectangle(spawn + Vector2i(-7, 7), Vector2i(2, 2), MapData.TileType.GOLD_MINE)
+	_place_resource_rectangle(spawn + Vector2i(-8, 4), Vector2i(2, 1), MapData.TileType.STONE)
 
 
-func _place_near_spawn(spawn: Vector2i, tile_type: MapData.TileType, count: int, min_dist: int, max_dist: int) -> void:
-	var placed := 0
-	for _attempt in range(200):
-		if placed >= count:
-			break
-		var dx := _rng.randi_range(-max_dist, max_dist)
-		var dy := _rng.randi_range(-max_dist, max_dist)
-		var dist := maxi(absi(dx), absi(dy))  # Chebyshev distance
-		if dist < min_dist or dist > max_dist:
-			continue
-		var tx := spawn.x + dx
-		var ty := spawn.y + dy
-		if not _is_in_starting_resource_reveal(spawn, Vector2i(tx, ty)):
-			continue
-		if _is_near_center(Vector2i(tx, ty), CENTER_CLEAR_RADIUS):
-			continue
-		if _in_bounds(tx, ty) and grid[ty][tx] == MapData.TileType.GRASS:
-			_set_symmetric_tile(Vector2i(tx, ty), tile_type)
-			placed += 1
-	# Random draws provide variety, but a crowded seed must still receive its
-	# promised opening stock after the finite attempt budget is exhausted.
-	for dy: int in range(-max_dist, max_dist + 1):
-		for dx: int in range(-max_dist, max_dist + 1):
-			if placed >= count:
-				return
-			var distance: int = maxi(absi(dx), absi(dy))
-			var tile: Vector2i = spawn + Vector2i(dx, dy)
-			if distance < min_dist or not _in_bounds(tile.x, tile.y):
-				continue
-			if not _is_in_starting_resource_reveal(spawn, tile) or _is_near_center(tile, CENTER_CLEAR_RADIUS):
-				continue
-			var mirrored: Vector2i = _mirror_tile(tile)
-			if grid[tile.y][tile.x] == MapData.TileType.GRASS and grid[mirrored.y][mirrored.x] == MapData.TileType.GRASS:
-				_set_symmetric_tile(tile, tile_type)
-				placed += 1
-
-
-func _place_forest_near_spawn(spawn: Vector2i) -> void:
-	var candidates: Array[Vector2i] = []
-	var forward_candidates: Array[Vector2i] = []
-	var radius: int = SPAWN_CLEAR_RADIUS + 5
-	for dy: int in range(-radius, radius + 1):
-		for dx: int in range(-radius, radius + 1):
-			var tile: Vector2i = spawn + Vector2i(dx, dy)
-			if not _can_place_starting_tree(spawn, tile):
-				continue
-			candidates.append(tile)
-			if dx > 0 and dy < 0:
-				forward_candidates.append(tile)
-	if candidates.is_empty():
-		return
-	# Grow a connected patch inside the real circular starting reveal. The old
-	# random walk could move every tree out of vision, idling the wood worker.
-	var starts: Array[Vector2i] = forward_candidates if not forward_candidates.is_empty() else candidates
-	var frontier: Array[Vector2i] = [starts[_rng.randi_range(0, starts.size() - 1)]]
-	var visited: Dictionary = {}
-	var placed: int = 0
-	while placed < 8:
-		if frontier.is_empty():
-			# A crowded patch may be enclosed by pre-existing resources. Continue
-			# from another legal pocket tile rather than losing guaranteed stock.
-			while not candidates.is_empty():
-				var next: Vector2i = candidates.pop_back()
-				if _can_place_starting_tree(spawn, next):
-					frontier.append(next)
-					break
-			if frontier.is_empty():
-				break
-		var index: int = _rng.randi_range(0, frontier.size() - 1)
-		var tile: Vector2i = frontier[index]
-		frontier.remove_at(index)
-		if visited.has(tile) or not _can_place_starting_tree(spawn, tile):
-			continue
-		visited[tile] = true
-		_set_symmetric_tile(tile, MapData.TileType.FOREST)
-		placed += 1
-		for offset: Vector2i in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
-			var adjacent: Vector2i = tile + offset
-			if not visited.has(adjacent) and _can_place_starting_tree(spawn, adjacent):
-				frontier.append(adjacent)
-
-
-func _can_place_starting_tree(spawn: Vector2i, tile: Vector2i) -> bool:
-	if not _in_bounds(tile.x, tile.y):
-		return false
-	var distance: int = maxi(absi(tile.x - spawn.x), absi(tile.y - spawn.y))
-	if distance <= SPAWN_CLEAR_RADIUS or distance > SPAWN_CLEAR_RADIUS + 5:
-		return false
-	if not _is_in_starting_resource_reveal(spawn, tile) or _is_near_center(tile, CENTER_CLEAR_RADIUS):
-		return false
-	var mirrored: Vector2i = _mirror_tile(tile)
-	return grid[tile.y][tile.x] == MapData.TileType.GRASS and grid[mirrored.y][mirrored.x] == MapData.TileType.GRASS
-
-
-func _is_in_starting_resource_reveal(spawn: Vector2i, tile: Vector2i) -> bool:
-	# Read the authoritative building vision instead of assuming a Chebyshev
-	# ring fits a circular reveal. AI and human commands share this same circle.
-	var stats: Dictionary = BuildingData.get_building_stats(BuildingData.BuildingType.TOWN_CENTER)
-	var vision: int = int(stats.get("vision_radius", 3))
-	return spawn.distance_squared_to(tile) <= float(vision * vision)
+func _place_resource_rectangle(anchor: Vector2i, size: Vector2i, tile_type: MapData.TileType) -> void:
+	for dy: int in range(size.y):
+		for dx: int in range(size.x):
+			_set_symmetric_tile(anchor + Vector2i(dx, dy), tile_type)
 
 
 func _place_contested_mid_resources() -> void:
@@ -400,32 +302,60 @@ func _place_contested_mid_resources() -> void:
 	_place_center_resource_pair(MapData.TileType.BERRY_BUSH, 1, 4, 6)
 
 
-## Two finite expansion pockets flank each approach. They sit beyond starting
-## vision and outside the direct center lane: scouting and a paid drop-off make
-## them useful without replacing the protected opening with a larger free bank.
+## Two genuinely stocked side compounds per player, beyond starting vision.
+## The central 5x5 pad stays resource-free for a paid camp, farms or a new TC;
+## resource fringes and a broad approach make these buildable destinations.
 func get_expansion_pocket_centers() -> Array[Vector2i]:
 	var spawn: Vector2i = spawn_positions[0]
 	return [spawn + Vector2i(8, -22), spawn + Vector2i(22, -8)]
 
 
-func _place_expansion_resources() -> void:
-	var pocket: Dictionary = {
-		Vector2i(-1, 0): MapData.TileType.BERRY_BUSH,
-		Vector2i(1, 0): MapData.TileType.BERRY_BUSH,
-		Vector2i(0, -1): MapData.TileType.GOLD_MINE,
-		Vector2i(-2, 2): MapData.TileType.FOREST,
-		Vector2i(-1, 2): MapData.TileType.FOREST,
-		Vector2i(0, 2): MapData.TileType.FOREST,
-		Vector2i(1, 2): MapData.TileType.FOREST,
-	}
+func _ensure_expansion_clearance() -> void:
+	var approach: Vector2i = spawn_positions[0] + Vector2i(5, -5)
 	for center: Vector2i in get_expansion_pocket_centers():
-		# Clear the stock and immediate work perimeter out of any random lake.
-		# Seeded route checks also verify approaches through the surrounding map.
-		for dy: int in range(-3, 4):
-			for dx: int in range(-3, 4):
+		_carve_grass_corridor(approach, center, CORRIDOR_HALF_WIDTH)
+		_carve_grass_corridor(_mirror_tile(approach), _mirror_tile(center), CORRIDOR_HALF_WIDTH)
+		for dy: int in range(-EXPANSION_CLEAR_RADIUS, EXPANSION_CLEAR_RADIUS + 1):
+			for dx: int in range(-EXPANSION_CLEAR_RADIUS, EXPANSION_CLEAR_RADIUS + 1):
 				_set_symmetric_tile(center + Vector2i(dx, dy), MapData.TileType.GRASS)
-		for offset: Vector2i in pocket:
-			_set_symmetric_tile(center + offset, pocket[offset])
+
+
+func _place_expansion_resources() -> void:
+	for center: Vector2i in get_expansion_pocket_centers():
+		_place_expansion_patch(center, Vector2i(-5, -1), 8, MapData.TileType.BERRY_BUSH)
+		_place_expansion_patch(center, Vector2i(1, -5), 4, MapData.TileType.GOLD_MINE)
+		_place_expansion_patch(center, Vector2i(5, -3), 2, MapData.TileType.STONE)
+		_place_expansion_patch(center, Vector2i(4, 4), 20, MapData.TileType.FOREST)
+
+
+func _place_expansion_patch(center: Vector2i, preferred_offset: Vector2i, count: int, tile_type: MapData.TileType) -> void:
+	var candidates: Array[Vector2i] = []
+	for dy: int in range(-EXPANSION_CLEAR_RADIUS, EXPANSION_CLEAR_RADIUS + 1):
+		for dx: int in range(-EXPANSION_CLEAR_RADIUS, EXPANSION_CLEAR_RADIUS + 1):
+			if maxi(absi(dx), absi(dy)) <= 2:
+				continue
+			var tile: Vector2i = center + Vector2i(dx, dy)
+			var mirrored: Vector2i = _mirror_tile(tile)
+			if not _route_tiles.has(tile) and not _route_tiles.has(mirrored) and get_tile(tile) == MapData.TileType.GRASS and get_tile(mirrored) == MapData.TileType.GRASS:
+				candidates.append(tile)
+	var preferred: Vector2i = center + preferred_offset
+	candidates.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+		var first: int = (a - preferred).length_squared()
+		var second: int = (b - preferred).length_squared()
+		return first < second or (first == second and (a.y < b.y or (a.y == b.y and a.x < b.x)))
+	)
+	for index: int in range(mini(count, candidates.size())):
+		_set_symmetric_tile(candidates[index], tile_type)
+	if candidates.size() < count:
+		push_error("Expansion compound lacks its promised resource fringe")
+
+
+func _is_in_expansion_clearance(tile: Vector2i) -> bool:
+	for center: Vector2i in get_expansion_pocket_centers():
+		for symmetric_center: Vector2i in [center, _mirror_tile(center)]:
+			if maxi(absi(tile.x - symmetric_center.x), absi(tile.y - symmetric_center.y)) <= EXPANSION_CLEAR_RADIUS:
+				return true
+	return false
 
 
 func _place_center_resource_pair(tile_type: MapData.TileType, count: int, min_x_offset: int, max_x_offset: int) -> void:
@@ -443,6 +373,8 @@ func _place_center_resource_pair(tile_type: MapData.TileType, count: int, min_x_
 			if not _in_bounds(mirrored.x, mirrored.y):
 				continue
 			if grid[y][x] != MapData.TileType.GRASS or grid[mirrored.y][mirrored.x] != MapData.TileType.GRASS:
+				continue
+			if _route_tiles.has(Vector2i(x, y)) or _route_tiles.has(mirrored):
 				continue
 			_set_symmetric_tile(Vector2i(x, y), tile_type)
 			break
@@ -470,6 +402,12 @@ func _set_tile(x: int, y: int, tile_type: MapData.TileType) -> void:
 
 func _in_bounds(x: int, y: int) -> bool:
 	return x >= 0 and x < MapData.MAP_WIDTH and y >= 0 and y < MapData.MAP_HEIGHT
+
+
+## Authored reference coordinates use the former 72-tile field. Scale positions,
+## not stock or route width; the larger field must not inflate walking distances.
+func _scaled_tile(reference: Vector2i) -> Vector2i:
+	return Vector2i(roundi(reference.x * float(MapData.MAP_WIDTH - 1) / 71.0), roundi(reference.y * float(MapData.MAP_HEIGHT - 1) / 71.0))
 
 
 ## Reflect across the map's x=y diagonal, mapping either start to the other.
@@ -505,7 +443,11 @@ func _can_place_symmetric_seed(tile: Vector2i, spawn_buffer: int, center_buffer:
 		return false
 	if grid[tile.y][tile.x] != MapData.TileType.GRASS or grid[mirrored.y][mirrored.x] != MapData.TileType.GRASS:
 		return false
+	if _route_tiles.has(tile) or _route_tiles.has(mirrored):
+		return false
 	if _is_near_spawn(tile, spawn_buffer) or _is_near_spawn(mirrored, spawn_buffer):
+		return false
+	if _is_in_expansion_clearance(tile) or _is_in_expansion_clearance(mirrored):
 		return false
 	if _is_near_center(tile, center_buffer) or _is_near_center(mirrored, center_buffer):
 		return false
@@ -529,6 +471,7 @@ func _carve_grass_corridor(from_tile: Vector2i, to_tile: Vector2i, half_width: i
 				if grid[ty][tx] == MapData.TileType.SACRED_SITE:
 					continue
 				_set_tile(tx, ty, MapData.TileType.GRASS)
+				_route_tiles[Vector2i(tx, ty)] = true
 
 
 ## Get the tile type at a position.

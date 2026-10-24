@@ -10,12 +10,11 @@ signal match_ended(winner: int, reason: String)
 
 # Civilization identities affect base combat stats and must agree on both ends.
 # Version 1 clients cannot display them correctly and must refresh before play.
-## Protocol3 requires authoritative Standard Sacred clock eligibility flags.
-## Older clients cannot explain an owned-but-unguarded paused clock.
-const PROTOCOL := 3
-# Version 2 places River/Woodland resources after carving their routes.
-# A different catalog must use unchanged Open Plains on either server version.
-const MAP_CATALOG_VERSION := 2
+## Protocol4 requires the larger version3 terrain on both clients and authority.
+## Older clients generate different terrain even for Open Plains and must reload.
+## Sacred eligibility and the existing 180-second victory clock are unchanged.
+const PROTOCOL := 4
+const MAP_CATALOG_VERSION := 3
 const DEFAULT_ENDPOINT := "wss://game.4mn.org/match"
 const MAX_CLIENT_PACKET := 8192
 const MAX_SERVER_PACKET := 262144
@@ -470,14 +469,14 @@ func _server_packet(id: int, packet: Dictionary) -> void:
 		"search":
 			if not _peer_room(id).is_empty():
 				return
-			if int(packet.get("protocol", -1)) != PROTOCOL:
+			if int(packet.get("protocol", -1)) != PROTOCOL or int(packet.get("map_catalog", -1)) != MAP_CATALOG_VERSION:
 				_send_peer(id, {"op": "error", "reason": "Game version changed. Reload to play online."})
 				return
 			if not _valid_civilization(packet.get("civilization", 0)):
 				_send_peer(id, {"op": "error", "reason": "Choose a supported kingdom."})
 				return
 			if id not in _queue and id not in _players:
-				_peers[id]["map_catalog"] = MAP_CATALOG_VERSION if float(packet.get("map_catalog", 0)) == float(MAP_CATALOG_VERSION) else 0
+				_peers[id]["map_catalog"] = MAP_CATALOG_VERSION
 				_peers[id]["civilization"] = int(packet.get("civilization", 0))
 				_queue.append(id)
 			_send_peer(id, {"op": "queued", "busy": not _players.is_empty()})
@@ -522,12 +521,9 @@ func _begin_match(peers: Array[int], selected_map: int = -1) -> void:
 	get_tree().call_deferred("change_scene_to_file", "res://scenes/main/main.tscn")
 
 
-func _choose_match_archetype(peers: Array[int], seed_value: int) -> int:
-	# Older clients generate terrain locally and ignore unknown packet fields.
-	# Keep mixed-version pairs on their byte-identical original generator.
-	for id: int in peers:
-		if int(_peers.get(id, {}).get("map_catalog", 0)) != MAP_CATALOG_VERSION:
-			return MapData.MapArchetype.OPEN_PLAINS
+func _choose_match_archetype(_peers_for_match: Array[int], seed_value: int) -> int:
+	# Queue admission requires the current terrain catalog. Every admitted pair
+	# can use the complete seeded rotation; no map supports mixed generators.
 	var choices: Array = MapData.MAP_ARCHETYPES.keys()
 	return int(choices[posmod(seed_value, choices.size())])
 

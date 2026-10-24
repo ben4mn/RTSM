@@ -4,9 +4,9 @@ class_name MapData
 enum MapArchetype { OPEN_PLAINS, RIVER_CROSSINGS, WOODLAND_FLANKS }
 
 const MAP_ARCHETYPES: Dictionary = {
-	MapArchetype.OPEN_PLAINS: {"name": "Open Plains", "description": "Open center, scattered woods. Scout expansions and split your raids."},
-	MapArchetype.RIVER_CROSSINGS: {"name": "River Crossings", "description": "Three broad crossings. Hold one and threaten another."},
-	MapArchetype.WOODLAND_FLANKS: {"name": "Woodland Flanks", "description": "Open attack lanes beside deep woods. Scout the side routes and expansions."},
+	MapArchetype.OPEN_PLAINS: {"name": "Open Plains", "description": "Roomy homesteads and open approaches. Expand into rich side clearings."},
+	MapArchetype.RIVER_CROSSINGS: {"name": "River Crossings", "description": "Three broad crossings connect rich banks. Build behind one and raid another."},
+	MapArchetype.WOODLAND_FLANKS: {"name": "Woodland Flanks", "description": "Deep woods frame broad routes and sheltered expansion clearings."},
 }
 
 
@@ -42,11 +42,12 @@ enum FogState {
 	VISIBLE,     ## Currently in a unit's line of sight.
 }
 
-## Every population preset uses this battlefield: 2.25 times the former area.
-## Local opening pockets stay close; the extra room separates raids, flanks and
-## reinforcements without changing unit speed or turning home gathering into a trek.
-const MAP_WIDTH := 72
-const MAP_HEIGHT := 72
+## Generator 3 gives towns rear construction room while preserving the previous
+## 59-tile diagonal base separation (88 with edge14, previously72 with edge6).
+## A seed from generator2 is not the same battlefield; online peers must agree.
+const GENERATOR_VERSION := 3
+const MAP_WIDTH := 88
+const MAP_HEIGHT := 88
 
 ## Isometric tile size in pixels.
 const TILE_WIDTH := 64

@@ -1,6 +1,7 @@
 extends Node
 ## Real container layout and game-creation contracts, not a network transport test.
 
+const MAP_PREVIEW := preload("res://scripts/ui/map_preview.gd")
 var _failures: Array[String] = []
 var _checks: int = 0
 const PROFILES: Array[Dictionary] = [
@@ -30,6 +31,7 @@ func _ready() -> void:
 
 func _run() -> void:
 	AudioManager.set_all_enabled(false)
+	_check_preview_projection()
 	for profile: Dictionary in PROFILES:
 		await _exercise(profile)
 	if _failures.is_empty():
@@ -39,6 +41,20 @@ func _run() -> void:
 		for failure: String in _failures:
 			push_error("[FAIL] phone_menu_layout: " + failure)
 		get_tree().quit(1)
+
+
+func _check_preview_projection() -> void:
+	var rect := Rect2(Vector2(7, 11), Vector2(176, 88))
+	var dimensions := Vector2(MapData.MAP_WIDTH, MapData.MAP_HEIGHT)
+	_expect(MAP_PREVIEW.project_tile_to_preview(Vector2.ZERO, rect).is_equal_approx(rect.position), "preview origin matches terrain origin")
+	_expect(MAP_PREVIEW.project_tile_to_preview(dimensions, rect).is_equal_approx(rect.end), "preview far edge matches current map dimensions")
+	_expect(MAP_PREVIEW.project_tile_to_preview(dimensions * 0.5, rect).is_equal_approx(rect.get_center()), "preview Sacred Site stays centered")
+	for archetype: int in MapData.MAP_ARCHETYPES:
+		var generator := MapGenerator.new(101, archetype)
+		generator.generate()
+		for spawn: Vector2i in generator.spawn_positions:
+			var marker: Vector2 = MAP_PREVIEW.project_tile_to_preview(Vector2(spawn) + Vector2(2, 2), rect)
+			_expect(rect.has_point(marker), "current map %d Town Center marker stays inside terrain" % archetype)
 
 
 func _exercise(profile: Dictionary) -> void:

@@ -47,9 +47,13 @@ func _draw() -> void:
 	draw_texture_rect(_terrain, rect, false)
 	draw_rect(rect, THEME.BORDER, false, 1.0)
 	for i: int in _spawns.size():
-		var marker: Vector2 = rect.position + (Vector2(_spawns[i]) + Vector2(2, 2)) / Vector2(72, 72) * side
+		var marker: Vector2 = project_tile_to_preview(Vector2(_spawns[i]) + Vector2(2, 2), rect)
 		draw_circle(marker, maxf(3, side * 0.035), THEME.INK)
 		draw_circle(marker, maxf(2, side * 0.023), THEME.TEAL if i == 0 else THEME.RUST)
 	var center: Vector2 = rect.get_center()
 	var diamond := PackedVector2Array([center + Vector2(0, -4), center + Vector2(4, 0), center + Vector2(0, 4), center + Vector2(-4, 0)])
 	draw_colored_polygon(diamond, THEME.PARCHMENT)
+
+
+static func project_tile_to_preview(tile: Vector2, rect: Rect2) -> Vector2:
+	return rect.position + tile / Vector2(MapData.MAP_WIDTH, MapData.MAP_HEIGHT) * rect.size

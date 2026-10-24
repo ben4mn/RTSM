@@ -42,12 +42,16 @@ func _run() -> void:
 			_bounds(menu.get("_header"), safe, context + " setup header")
 			_bounds(menu.get("settings_button"), safe, context + " settings beside setup choices")
 			_kingdom_choice(menu.get("_civilization_button"), menu.get("_civilization_name"), GameManager.selected_civilization, safe, context + " player setup")
-			_kingdom_choice(menu.get("_opponent_civilization_button"), menu.get("_opponent_civilization_name"), GameManager.selected_opponent_civilization, (menu.get("_options_scroll") as Control).get_global_rect(), context + " rival setup")
+			_expect(menu.find_child("ChooseOpponentCivilizationButton", true, false) == null, context + " setup has no second kingdom selector")
 			_bounds(menu.get("start_button"), safe, context + " Start remains reachable")
 			for id: int in CivilizationData.ORDERED_IDS:
 				(menu.get("_civilization_button") as Button).pressed.emit()
-				await _settle()
 				var picker: Control = menu.get("_civilization_picker")
+				(menu.get("_civilization_button") as Button).pressed.emit()
+				_expect(menu.get("_civilization_picker") == picker and _visible_pickers(menu) == 1, context + " repeat press keeps one modal")
+				menu.call("_on_settings_pressed")
+				_expect(menu.get("_shared_settings") == null, context + " settings cannot stack over kingdom choice")
+				await _settle()
 				picker.call("apply_mobile_layout", size_value, safe)
 				picker.call("select_civilization", id)
 				await _settle()
@@ -62,33 +66,35 @@ func _run() -> void:
 				_expect(not bool(menu.get("_web_update_safe")), context + " modal blocks web reload")
 				_bounds(picker.get("_confirm"), safe, context + " confirmation reachable")
 				(picker.get("_confirm") as Button).pressed.emit()
+				_expect(not picker.visible, context + " confirmed modal hides immediately")
+				# A same-frame reopen must survive stale presses on the old dialog.
+				(menu.get("_civilization_button") as Button).pressed.emit()
+				var reopened: Control = menu.get("_civilization_picker")
+				(picker.get("_confirm") as Button).pressed.emit()
+				_expect(reopened != picker and menu.get("_civilization_picker") == reopened and _visible_pickers(menu) == 1, context + " rapid reopen keeps exactly one active picker")
+				reopened.call("close")
 				await _settle()
 				_expect(GameManager.selected_civilization == id, context + " confirms player kingdom")
 				_kingdom_choice(menu.get("_civilization_button"), menu.get("_civilization_name"), id, safe, context + " confirmed player setup")
-				_expect((menu.get("_selection_summary") as Label).text.contains(str(definition.name)), context + " footer confirms selected kingdom")
+				_expect(not (menu.get("_selection_summary") as Label).text.contains(str(definition.name)), context + " footer does not repeat the kingdom choice")
 				_expect(bool(menu.get("_web_update_safe")), context + " closed modal restores menu update safety")
-			(menu.get("_opponent_civilization_button") as Button).pressed.emit()
-			await _settle()
-			var rival_picker: Control = menu.get("_civilization_picker")
-			rival_picker.call("select_civilization", CivilizationData.Civilization.VERDANT_LEAGUE)
-			(rival_picker.get("_confirm") as Button).pressed.emit()
-			await _settle()
-			_expect(GameManager.selected_opponent_civilization == CivilizationData.Civilization.VERDANT_LEAGUE, context + " rival draft independent")
-			_expect(GameManager.selected_civilization == CivilizationData.Civilization.SUNSTRIDE_CLANS, context + " changing rival preserves player draft")
-			_kingdom_choice(menu.get("_opponent_civilization_button"), menu.get("_opponent_civilization_name"), CivilizationData.Civilization.VERDANT_LEAGUE, (menu.get("_options_scroll") as Control).get_global_rect(), context + " confirmed rival setup")
-			menu.call("_open_civilization_picker", false)
+			_expect(GameManager.selected_opponent_civilization == original_rival, context + " setup leaves rival resolution until match seed exists")
+			(menu.get("_civilization_button") as Button).pressed.emit()
 			await _settle()
 			var cancel_picker: Control = menu.get("_civilization_picker")
 			cancel_picker.call("select_civilization", CivilizationData.Civilization.CROWNLANDS)
 			cancel_picker.call("close")
+			(cancel_picker.get("_confirm") as Button).pressed.emit()
 			await _settle()
 			_expect(GameManager.selected_civilization == CivilizationData.Civilization.SUNSTRIDE_CLANS, context + " cancellation preserves draft")
+			if pixels == Vector2(1280, 720) and is_equal_approx(scale_value, 1.0):
+				_test_room_and_loading_context(menu, context)
 			menu.free()
 			viewport.free()
 	GameManager.selected_civilization = original_self
 	GameManager.selected_opponent_civilization = original_rival
 	if _failures.is_empty():
-		print("[PASS] civilization_menu: %d checks, three kingdoms, independent rival, cancellation, phone safe areas and update safety" % _checks)
+		print("[PASS] civilization_menu: %d checks, one setup choice, three kingdoms, rapid reopen/cancellation, phone safe areas and update safety" % _checks)
 		get_tree().quit(0)
 	else:
 		for failure: String in _failures:
@@ -101,8 +107,52 @@ func _settle() -> void:
 		await get_tree().process_frame
 
 
+func _test_room_and_loading_context(menu: Control, context: String) -> void:
+	# Model server notifications without opening sockets or changing authority.
+	var session: Node = get_node("/root/NetworkSession")
+	var saved: Dictionary = {}
+	for key: String in ["state", "room_code", "room_host", "room_players", "room_civilizations"]:
+		saved[key] = session.get(key)
+	var player_before: int = GameManager.selected_civilization
+	session.set("state", "lobby")
+	session.set("room_code", "CIV123")
+	session.set("room_host", false)
+	session.set("room_players", 2)
+	var room_ids: Array[int] = [0, 1]
+	session.set("room_civilizations", room_ids)
+	menu.call("_on_room_changed")
+	_expect((menu.get("_civilization_name") as Label).text == CivilizationData.get_civilization_name(1), context + " guest choice reads its actual room slot")
+	_expect((menu.get("_room_civilizations") as Label).text == "Opponent: " + CivilizationData.get_civilization_name(0), context + " lobby identifies the other slot without a second selector")
+	(menu.get("_civilization_button") as Button).pressed.emit()
+	var stale_picker: Control = menu.get("_civilization_picker")
+	_expect(int(stale_picker.get("selected")) == 1, context + " picker opens on authoritative guest kingdom")
+	stale_picker.call("select_civilization", 0)
+	session.set("room_code", "OTHER1")
+	menu.call("_on_room_changed")
+	(stale_picker.get("_confirm") as Button).pressed.emit()
+	_expect(not stale_picker.visible and menu.get("_civilization_picker") == null and GameManager.selected_civilization == player_before, context + " room change discards stale modal choice")
+	(menu.get("_civilization_button") as Button).pressed.emit()
+	var loading_picker: Control = menu.get("_civilization_picker")
+	loading_picker.call("select_civilization", 0)
+	session.set("state", "loading")
+	menu.call("_on_network_status_changed", "loading", "Starting match")
+	(loading_picker.get("_confirm") as Button).pressed.emit()
+	_expect(not loading_picker.visible and menu.get("_civilization_picker") == null and GameManager.selected_civilization == player_before, context + " loading discards stale modal choice")
+	for key: String in saved:
+		session.set(key, saved[key])
+	menu.call("_on_network_status_changed", str(session.get("state")), "")
+
+
 func _bounds(control: Control, safe: Rect2, label: String) -> void:
 	_expect(control.is_visible_in_tree() and safe.grow(0.5).encloses(control.get_global_rect()), label + " bounds " + str(control.get_global_rect()))
+
+
+func _visible_pickers(menu: Control) -> int:
+	var count: int = 0
+	for child: Node in menu.get_children():
+		if child is Control and child.has_method("select_civilization") and (child as Control).is_visible_in_tree():
+			count += 1
+	return count
 
 
 func _kingdom_choice(button: Button, name_label: Label, civilization: int, safe: Rect2, context: String) -> void:

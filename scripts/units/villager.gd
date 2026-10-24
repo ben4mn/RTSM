@@ -28,6 +28,7 @@ var _dropoff_recheck_timer: float = 0.0
 var _dropoff_topology_revision: int = -1
 var _dropoff_buildings_signature: int = 0
 var gather_timer: float = 0.0
+var _presentation_working: bool = false
 var _fractional_harvest: float = 0.0
 var dropoff_target: Node2D = null
 var _dropoff_retry_timer: float = 0.0
@@ -130,6 +131,7 @@ func can_auto_retaliate() -> bool:
 
 
 func _process(delta: float) -> void:
+	_presentation_working = false
 	if not _auto_recovering and _has_active_economic_work():
 		_economic_threat_check_timer -= delta
 		if _economic_threat_check_timer <= 0.0:
@@ -285,6 +287,31 @@ func is_returning_resources() -> bool:
 	return not _auto_recovering and _dropoff_route_active and carried_amount > 0
 
 
+func _face_work_target(target_position: Vector2) -> void:
+	if _sprite != null and absf(target_position.x - global_position.x) > 0.5:
+		_sprite.flip_h = target_position.x < global_position.x
+
+
+func get_work_presentation() -> Vector3:
+	if _uses_network_work_pose:
+		return super.get_work_presentation()
+	if not _presentation_working or _auto_recovering or _dropoff_route_active:
+		return Vector3.ZERO
+	if current_state == State.BUILDING:
+		return Vector3(UnitActionPresentation.Action.BUILD, fposmod(build_timer / 0.8, 1.0), 0.8)
+	if current_state != State.GATHERING:
+		return Vector3.ZERO
+	var kind: int = UnitActionPresentation.Action.FORAGE
+	if carried_resource_type == "wood":
+		kind = UnitActionPresentation.Action.CHOP
+	elif carried_resource_type == "gold" or carried_resource_type == "stone":
+		kind = UnitActionPresentation.Action.MINE
+	elif carried_resource_type == "food" and is_instance_valid(gather_target) and gather_target is BuildingBase and (gather_target as BuildingBase).building_type == BuildingData.BuildingType.FARM and (gather_target as BuildingBase).provides_food:
+		kind = UnitActionPresentation.Action.FARM
+	var period: float = gather_tick_time / float(UnitData.RESOURCE_GATHER_SPEEDS.get(carried_resource_type, 1.0))
+	return Vector3(kind, clampf(gather_timer / period, 0.0, 1.0), period)
+
+
 func get_economy_task() -> String:
 	if has_meta("network_work"):
 		return str(get_meta("network_work"))
@@ -385,6 +412,8 @@ func _process_gathering(delta: float) -> void:
 	_reset_navigation()
 
 	# We are at the resource, gather
+	_presentation_working = true
+	_face_work_target(resource_position)
 	gather_timer += delta
 	var tick_seconds: float = gather_tick_time / float(UnitData.RESOURCE_GATHER_SPEEDS.get(carried_resource_type, 1.0))
 	if gather_timer + 0.000001 >= tick_seconds:
@@ -609,6 +638,8 @@ func _process_building(delta: float) -> void:
 	_reset_navigation()
 
 	# We are at the building, construct
+	_presentation_working = true
+	_face_work_target(build_target.global_position)
 	build_timer += delta
 	if build_target.has_method("add_build_progress"):
 		build_target.add_build_progress(delta)

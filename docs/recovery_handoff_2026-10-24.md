@@ -2,7 +2,15 @@
 
 This checkpoint preserves the work from the interrupted chat **Improve Pocket Kingdoms gameplay**. The owner requested publication and a game restart, then a stop while they decide whether to continue development.
 
-## Latest checkpoint: beta4 published
+## Latest work: beta5 verification and publication
+
+The owner's subsequent request authorizes the single kingdom selector, expanded maps/resources, original settlements with local history/craft, and basic work/combat animations. The beta5 source candidate and exact verification scope are in [Room to settle](settlements_maps_actions_2026-10-24.md); map measurements are in [Room to build and expand](map_homesteads_2026-10-24.md).
+
+Source checks pass; the matching committed client/server build, guarded activation and public browser verification are pending. Beta4 below remains live until a successful switch is recorded. Beta5 uses protocol 4/catalog 3 for changed seeded terrain, not the rejected timing experiment. The 180-second armed Sacred rule is unchanged.
+
+Complete publication, restart the dedicated service, update these receipts and stop at the checkpoint. Do not begin a new improvement loop. Long-idle WebGL failure and physical-phone acceptance remain open.
+
+## Previous checkpoint: beta4 published
 
 The owner subsequently authorized a bounded modern menu pass, then extended the same miniature art direction to all eighteen unit sprites and thirty building sprites across Crownlands, Verdant League and Sunstride Clans. This supersedes the initial stop point above for that presentation work only.
 

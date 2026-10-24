@@ -9,9 +9,9 @@ const ORDERED_IDS: Array[int] = [Civilization.CROWNLANDS, Civilization.VERDANT_L
 const CATALOG_VERSION: int = 1
 const DEFINITIONS: Dictionary = {
 	Civilization.CROWNLANDS: {
-		"name": "Crownlands",
-		"tagline": "A steady hand. An answer to every army.",
-		"description": "A balanced kingdom with durable Horsemen, dependable Archers and full-strength buildings. Adapt your army to the enemy instead of committing to a specialty.",
+		"name": "Bellwick",
+		"tagline": "Bell-founders and millwrights",
+		"description": "A market town built around a bell foundry. Each spring its guilds repair the bridge before sending anyone to war. Its militia carry broad shields; its masons build to last.",
 		"strengths": "Balanced armies · full-strength defenses",
 		"weakness": "No specialized economy or signature-unit bonus",
 		"signature": "Flexible combined arms",
@@ -22,9 +22,9 @@ const DEFINITIONS: Dictionary = {
 		"unit_overrides": {},
 	},
 	Civilization.VERDANT_LEAGUE: {
-		"name": "Verdant League",
-		"tagline": "Claim the tree line. Win the first volley.",
-		"description": "Woodcutters harvest 20% faster. Longbows replace Archers, reaching one tile farther but carrying only 30 HP. Horsemen have 65 HP, so protect your bow line with Warriors.",
+		"name": "Alderfen",
+		"tagline": "Reed-cutters and bowyers",
+		"description": "Three timber hamlets share a raised road through the alder marsh. Bowyers season their staves for years and cut a maker’s notch into every bow. Their strength travels on foot; their few horses travel light.",
 		"strengths": "+20% wood gathering · Longbows have +1 range",
 		"weakness": "Longbows: 30 HP · Horsemen: 65 HP",
 		"signature": "Longbow — long range, fragile at close quarters",
@@ -39,9 +39,9 @@ const DEFINITIONS: Dictionary = {
 		},
 	},
 	Civilization.SUNSTRIDE_CLANS: {
-		"name": "Sunstride Clans",
-		"tagline": "Move first. Strike where they are absent.",
-		"description": "Food workers harvest 15% faster. Outriders replace Horsemen: about 16% faster, but only 70 HP. Buildings have 20% less health. Keep pressure on the field and avoid a siege at home.",
+		"name": "Redbank",
+		"tagline": "Orchard keepers and caravan riders",
+		"description": "Kilns line the old riverbed; orchard walls catch the evening shade. Families lend mounts to the harvest caravans, and those same riders defend the road. They travel light and cannot hold a long siege.",
 		"strengths": "+15% food gathering · faster Outriders",
 		"weakness": "Outriders: 70 HP · buildings: −20% HP",
 		"signature": "Outrider — swift flanking cavalry",
@@ -70,6 +70,16 @@ static func get_definition(civilization: int) -> Dictionary:
 
 static func get_civilization_name(civilization: int) -> String:
 	return str(DEFINITIONS[normalize(civilization)]["name"])
+
+
+static func choose_solo_opponent(civilization: int, match_seed: int) -> int:
+	# An independent seeded draw leaves terrain generation untouched. A saved
+	# map seed and player choice always produce the same contrasting rival.
+	var choices: Array[int] = ORDERED_IDS.duplicate()
+	choices.erase(normalize(civilization))
+	var random := RandomNumberGenerator.new()
+	random.seed = match_seed ^ 0x5B17
+	return choices[random.randi_range(0, choices.size() - 1)]
 
 
 static func get_unit_stats(base_stats: Dictionary, unit_type: int, civilization: int) -> Dictionary:

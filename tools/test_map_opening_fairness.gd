@@ -54,8 +54,8 @@ func _run() -> void:
 			var pocket_route: PackedVector2Array = expansion_map.call("get_navigation_world_path", start_world, pocket_world, 0.0)
 			_expect(not pocket_route.is_empty(), "seed %d expansion work perimeter is reachable around starting TC" % seed_value)
 			var stocks: Dictionary = {MapData.TileType.BERRY_BUSH: 0, MapData.TileType.GOLD_MINE: 0, MapData.TileType.FOREST: 0}
-			for dy: int in range(-3, 4):
-				for dx: int in range(-3, 4):
+			for dy: int in range(-MapGenerator.EXPANSION_CLEAR_RADIUS, MapGenerator.EXPANSION_CLEAR_RADIUS + 1):
+				for dx: int in range(-MapGenerator.EXPANSION_CLEAR_RADIUS, MapGenerator.EXPANSION_CLEAR_RADIUS + 1):
 					var resource: int = generator.get_tile(pocket + Vector2i(dx, dy))
 					if stocks.has(resource):
 						stocks[resource] += 1
@@ -67,7 +67,7 @@ func _run() -> void:
 							var target_world: Vector2 = expansion_map.call("tile_to_world", resource_tile)
 							var approach: PackedVector2Array = expansion_map.call("get_navigation_world_path", approach_start, target_world, MapData.RESOURCE_GATHER_INTERACTION_RADIUS_WORLD)
 							_expect(not approach.is_empty() and approach[-1].distance_to(target_world) <= MapData.RESOURCE_GATHER_INTERACTION_RADIUS_WORLD + 0.1, "seed %d player %d expansion source has a real gather approach around both TC footprints" % [seed_value, player_id])
-			_expect(stocks[MapData.TileType.BERRY_BUSH] == 2 and stocks[MapData.TileType.GOLD_MINE] == 1 and stocks[MapData.TileType.FOREST] == 4, "seed %d finite expansion stocks are present and reflected" % seed_value)
+			_expect(stocks[MapData.TileType.BERRY_BUSH] == 8 and stocks[MapData.TileType.GOLD_MINE] == 4 and stocks[MapData.TileType.FOREST] == 20, "seed %d finite expansion stocks are present and reflected" % seed_value)
 		expansion_map.free()
 		var metrics: Dictionary = probe.call("measure_seed", seed_value)
 		for resource_name: String in ["food", "wood", "gold"]:
@@ -76,7 +76,7 @@ func _run() -> void:
 			var second: Dictionary = sides[1]["resources"][resource_name]
 			_expect(first["reachable"] and second["reachable"] and first["deposit_reachable"] and second["deposit_reachable"], "seed %d %s has an outbound and real deposit route on both starts" % [seed_value, resource_name])
 			_expect(first["local_tiles_in_13_radius"] == second["local_tiles_in_13_radius"], "seed %d %s revealed source count matches" % [seed_value, resource_name])
-			var guaranteed_count: int = {"food": 4, "wood": 8, "gold": 2}[resource_name]
+			var guaranteed_count: int = {"food": 8, "wood": 24, "gold": 4}[resource_name]
 			_expect(int(first["local_tiles_in_13_radius"]) >= guaranteed_count, "seed %d %s guaranteed stock is visible before scouting" % [seed_value, resource_name])
 			# AStar goal ties can select a different equivalent diagonal edge;
 			# allow one tile of travel at 60px/s while rejecting the old 2x trips.
@@ -84,7 +84,7 @@ func _run() -> void:
 	_expect(has_variety, "the fair opening preserves seeded terrain variety")
 	probe.free()
 	if _failures.is_empty():
-		print("[PASS] map_opening_fairness: 64 reproducible varied maps, reflected terrain, intact TC/objective, fair starting deposits and 1792 reachable expansion harvest approaches around real TC footprints")
+		print("[PASS] map_opening_fairness: 64 reproducible varied maps, reflected terrain, intact TC/objective, fair starting deposits and rich reachable expansion harvest approaches around real TC footprints")
 		get_tree().quit(0)
 	else:
 		for failure: String in _failures:

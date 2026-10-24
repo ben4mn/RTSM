@@ -46,13 +46,13 @@ func _process(delta: float) -> bool:
 		0:
 			if sockets.all(func(socket: WebSocketPeer) -> bool: return socket.get_ready_state() == WebSocketPeer.STATE_OPEN):
 				_send(0, {"op": "search", "protocol": 1})
-				_send(1, {"op": "host", "protocol": int(load("res://scripts/network/network_session.gd").get_script_constant_map()["PROTOCOL"]), "map_catalog": 2, "map_archetype": 0, "civilization": 1})
+				_send(1, {"op": "host", "protocol": int(load("res://scripts/network/network_session.gd").get_script_constant_map()["PROTOCOL"]), "map_catalog": int(load("res://scripts/network/network_session.gd").get_script_constant_map()["MAP_CATALOG_VERSION"]), "map_archetype": 0, "civilization": 1})
 				_next(1)
 		1:
 			if not str(states[0].error).is_empty() and not states[1].room.is_empty():
 				_expect(str(states[0].error).contains("Reload"), "old clients receive explicit refresh instruction")
 				_expect(_same_civilizations(states[1].room.civilizations, [1, 0]), "host identity enters lobby")
-				_send(2, {"op": "join", "protocol": int(load("res://scripts/network/network_session.gd").get_script_constant_map()["PROTOCOL"]), "map_catalog": 2, "code": states[1].room.code, "civilization": 2})
+				_send(2, {"op": "join", "protocol": int(load("res://scripts/network/network_session.gd").get_script_constant_map()["PROTOCOL"]), "map_catalog": int(load("res://scripts/network/network_session.gd").get_script_constant_map()["MAP_CATALOG_VERSION"]), "code": states[1].room.code, "civilization": 2})
 				_next(2)
 		2:
 			if not states[2].room.is_empty() and int(states[1].room.players) == 2:
