@@ -4145,6 +4145,8 @@ func update_sacred_site_status(status: Dictionary) -> void:
 		objective_title = "Sacred Site · Contested"
 	elif phase == "neutralizing":
 		objective_title = "Sacred Site · Disrupted"
+	elif phase == "unguarded" and int(status.get("match_mode", SkirmishData.MatchMode.STANDARD)) == SkirmishData.MatchMode.STANDARD:
+		objective_title = "Held · bring a fighter" if int(status.get("owner", -1)) == 0 else "Enemy held · unguarded"
 	if int(status.get("match_mode", SkirmishData.MatchMode.STANDARD)) != SkirmishData.MatchMode.STANDARD:
 		var scoring_state: String = "bank control"
 		if phase == "holding":
@@ -4161,7 +4163,7 @@ func update_sacred_site_status(status: Dictionary) -> void:
 	if phase in ["contested", "neutralizing"]:
 		color = KingdomTheme.RUST
 	elif owner == 0:
-		color = KingdomTheme.TEAL
+		color = KingdomTheme.AMBER if phase == "unguarded" else KingdomTheme.TEAL
 	elif owner == 1:
 		color = KingdomTheme.RUST
 	_sacred_site_label.add_theme_color_override("font_color", color)
@@ -4181,6 +4183,7 @@ func _sacred_site_status_line(status: Dictionary) -> String:
 	match str(status.get("phase", "neutral")):
 		"capturing": return "%s capturing · %d%%" % [owner_name, floori(float(status.get("capture_progress", 0.0)) * 100.0)]
 		"holding": return "%s win in %s" % [owner_name, remaining_text]
+		"unguarded": return "%s %s paused" % [owner_name, remaining_text]
 		"contested": return "%s %s paused" % [owner_name, remaining_text]
 		"neutralizing": return "%s %s paused" % [owner_name, remaining_text]
 	return "Neutral · enter the ring"
@@ -4198,7 +4201,7 @@ func _sacred_site_instructions(status: Dictionary) -> String:
 	if mode != SkirmishData.MatchMode.STANDARD:
 		var scoring_rule: String = "Contests pause scoring. Clear the ring to resume."
 		return "Any living unit can capture. Bank %s of Sacred control to win; each side keeps its earned time across captures. %s Barracks, Range and Stable cost 100 wood; Feudal costs 250 food / 125 gold." % [total_text, scoring_rule]
-	return "Any living unit, including Scouts and villagers, can capture. Keep units inside the ring with no enemies. Send units into an enemy-held ring to pause its clock; clear the defenders to neutralize it. An uncontested hold of %s wins, or destroy the enemy Town Center." % total_text
+	return "Any living unit, including Scouts and villagers, can capture. Keep an armed fighter inside your owned ring with no enemies to advance the %s victory clock. Leaving pauses the clock and keeps its progress; uncontested gold income continues. Enter an enemy-held ring to pause its clock; clear the defenders to neutralize it. Destroying the enemy Town Center also wins." % total_text
 
 
 func show_sacred_site_selection(status: Dictionary) -> void:
@@ -4221,7 +4224,8 @@ func show_sacred_site_selection(status: Dictionary) -> void:
 	var clock: String = "%d:%02d" % [int(remaining / 60.0), remaining % 60]
 	match phase:
 		"capturing": selection_details.text = "%s %d%%\n%s" % [owner_name, floori(float(status.get("capture_progress", 0.0)) * 100.0), "Stay in ring" if int(status.get("owner", -1)) == 0 else "Enter to contest"]
-		"holding": selection_details.text = "%s · %s\n%s" % [owner_name, clock, "Hold to win" if int(status.get("owner", -1)) == 0 else "Enter to pause"]
+		"holding": selection_details.text = "%s · %s\n%s" % [owner_name, clock, "Keep a fighter" if int(status.get("owner", -1)) == 0 else "Enter to pause"]
+		"unguarded": selection_details.text = "%s %s paused\n%s" % [owner_name, clock, "Bring a fighter" if int(status.get("owner", -1)) == 0 else "No enemy fighter"]
 		"contested": selection_details.text = "Contested\nClear enemies"
 		"neutralizing": selection_details.text = "Disrupted\nStay in ring"
 		_: selection_details.text = "Neutral\nEnter ring"

@@ -4,6 +4,7 @@ import json
 import math
 import re
 from pathlib import Path
+from protocol_evidence import protocol_declared
 
 PROFILE = 'beta2-mobile'
 FIGHTERS = (1, 2, 3, 5)
@@ -191,7 +192,7 @@ def native_tap(row):
 
 
 def beta2_gates(folder, invocation, role, slot):
-    gates = {'beta2_profile_declared': invocation.get('acceptance_profile') == PROFILE and invocation.get('input_mode') == 'touch' and invocation.get('protocol') == 2 and invocation.get('scenario') == 'full',
+    gates = {'beta2_profile_declared': invocation.get('acceptance_profile') == PROFILE and invocation.get('input_mode') == 'touch' and protocol_declared(invocation) and invocation.get('scenario') == 'full',
              'beta2_tool_identity_recorded': all(isinstance(invocation.get('beta2_tool_sha256',{}).get(name),str) and re.fullmatch('[a-f0-9]{64}',invocation['beta2_tool_sha256'][name]) for name in ('live_browser_beta2_ui.cjs','live_browser_beta2_receipts.cjs')),
              'beta2_paid_workshop_labor_siege_three_pop':False,'beta2_paid_scout_fighter_route_preserved':False,'beta2_native_reused_contact_and_isolated_windows':False,'beta2_captures_reviewed':False,'beta2_policy_pauses_disclosed':False}
     try:

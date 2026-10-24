@@ -85,6 +85,13 @@ func _run() -> void:
 
 	# Drive the real Sacred Site state machine alongside real unit movement so
 	# the freeze assertion covers both inherited simulation branches.
+	# Standard now needs a real armed occupant. This synthetic pause fixture
+	# supplies its normal scene; clock advancement still comes from Site processing.
+	var armed_guard: Node2D = load("res://scenes/units/infantry.tscn").instantiate()
+	armed_guard.set("player_owner", 0)
+	game_map.get_node("UnitsContainer").add_child(armed_guard)
+	armed_guard.global_position = sacred_site.global_position
+	armed_guard.call("command_stop")
 	sacred_site.set("state", 2) # SacredSite.SiteState.CAPTURED
 	sacred_site.set("owning_player", 0)
 	sacred_site.set("capture_progress", 1.0)

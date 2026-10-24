@@ -117,7 +117,7 @@ func _snapshot_for(slot: int) -> Dictionary:
 	var player: Dictionary = GameManager.players[slot].duplicate()
 	player.erase("units")
 	player.erase("buildings")
-	return {"tick": _snapshot_number, "time": GameManager.game_time, "civilizations": [GameManager.get_player_civilization(0), GameManager.get_player_civilization(1)], "actors": actors, "resources": resources, "bank": ResourceManager.get_all_resources(slot), "player": player, "upgrades": GameManager.player_upgrades[slot], "research": GameManager.researched_upgrades[slot], "stats": main._stats[slot], "battle": main._battle_receipts.get_summary(slot), "site": {"state": site.state, "owner": site.owning_player, "capture": site.capture_progress, "timer": site.victory_timer, "hold": site.victory_hold_time}}
+	return {"tick": _snapshot_number, "time": GameManager.game_time, "civilizations": [GameManager.get_player_civilization(0), GameManager.get_player_civilization(1)], "actors": actors, "resources": resources, "bank": ResourceManager.get_all_resources(slot), "player": player, "upgrades": GameManager.player_upgrades[slot], "research": GameManager.researched_upgrades[slot], "stats": main._stats[slot], "battle": main._battle_receipts.get_summary(slot), "site": {"state": site.state, "owner": site.owning_player, "capture": site.capture_progress, "timer": site.victory_timer, "hold": site.victory_hold_time, "clock_ticking": site.clock_ticking, "garrison_paused": site.garrison_paused, "neutralizing": site._being_neutralized}}
 
 func apply_snapshot(snapshot: Dictionary) -> void:
 	GameManager.game_time = float(snapshot.get("time", 0.0))
@@ -236,13 +236,35 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 		site.victory_timer = float(site_data.timer)
 		site.victory_hold_time = float(site_data.hold)
 		site._update_visuals()
-		main._refresh_sacred_site_status()
+	_apply_site_clock_snapshot(site, site_data)
+	main._refresh_sacred_site_status()
 	main._update_population_display()
 	if not _camera_initialized and is_instance_valid(main._player_town_center):
 		_camera_initialized = true
 		game_map.camera.position = main._get_initial_camera_focus(main._player_town_center.global_position)
 		game_map._clamp_camera()
 		game_map.camera.reset_smoothing()
+
+
+func _apply_site_clock_snapshot(site: Node, data: Dictionary) -> void:
+	# These public objective flags come only from authority. Filtered actor
+	# replicas cannot establish whether an unseen garrison exists. Missing or
+	# malformed values clear earlier flags on every packet, including no site.
+	site.clock_ticking = false
+	site.garrison_paused = false
+	site._being_neutralized = false
+	if int(data.get("state", -1)) != site.SiteState.CAPTURED or int(data.get("owner", -1)) not in [0, 1]:
+		return
+	var neutralizing: Variant = data.get("neutralizing")
+	site._being_neutralized = typeof(neutralizing) == TYPE_BOOL and neutralizing == true
+	if site._being_neutralized:
+		return
+	var paused: Variant = data.get("garrison_paused")
+	site.garrison_paused = site.match_mode == SkirmishData.MatchMode.STANDARD and typeof(paused) == TYPE_BOOL and paused == true
+	var ticking: Variant = data.get("clock_ticking")
+	# A contradictory explicit pause wins; never show a live clock from a
+	# malformed combination. Control race ignores the Standard-only pause.
+	site.clock_ticking = not site.garrison_paused and typeof(ticking) == TYPE_BOOL and ticking == true
 
 func _create_replica(actor: Dictionary) -> Node2D:
 	var owner: int = _local_owner(int(actor.owner))

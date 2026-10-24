@@ -55,9 +55,12 @@ func _check_mode_profile(mode: int, selection: SelectionManager, map: Node2D) ->
 	var cases: int = 0
 	for guided: bool in [false, true]:
 		_profile_hud.call("set_progression_hint", "Guide · capture the site" if guided else "", false)
-		for phase: String in ["neutral", "capturing", "holding", "contested", "neutralizing"]:
+		var phases: Array[String] = ["neutral", "capturing", "holding", "contested", "neutralizing"]
+		if mode == SkirmishData.MatchMode.STANDARD:
+			phases.append("unguarded")
+		for phase: String in phases:
 			for owner: int in ([-1] if phase == "neutral" else [0, 1]):
-				var status := {"match_mode": mode, "phase": phase, "owner": owner, "remaining": 532.1, "total": 600.0 if mode == 0 else 240.0, "capture_progress": 0.42, "control_banks": [93.99, 239.99]}
+				var status := {"match_mode": mode, "phase": phase, "owner": owner, "remaining": 532.1, "total": 600.0 if mode == 0 else 240.0, "capture_progress": 0.42, "control_banks": [93.99, 239.99], "clock_ticking": phase == "holding", "garrison_paused": phase == "unguarded"}
 				_profile_hud.call("update_sacred_site_status", status)
 				_profile_hud.call("show_sacred_site_selection", status)
 				await _profile_frames(3)
@@ -118,7 +121,8 @@ func _expected_text(mode: int, phase: String, owner: int) -> Array[String]:
 		return ["Sacred 4:00 · " + title_state + "\nYou 1:33 · Enemy 3:59", "You 1:33 · Enemy 3:59\nBank 4:00 · " + phase.capitalize()]
 	match phase:
 		"capturing": return ["Sacred Site · tap to view\n" + owner_name + " capturing · 42%", owner_name + " 42%\n" + ("Stay in ring" if owner == 0 else "Enter to contest")]
-		"holding": return ["Sacred Site · tap to view\n" + owner_name + " win in 8:53", owner_name + " · 8:53\n" + ("Hold to win" if owner == 0 else "Enter to pause")]
+		"holding": return ["Sacred Site · tap to view\n" + owner_name + " win in 8:53", owner_name + " · 8:53\n" + ("Keep a fighter" if owner == 0 else "Enter to pause")]
+		"unguarded": return [("Held · bring a fighter" if owner == 0 else "Enemy held · unguarded") + "\n" + owner_name + " 8:53 paused", owner_name + " 8:53 paused\n" + ("Bring a fighter" if owner == 0 else "No enemy fighter")]
 		"contested": return ["Sacred Site · Contested\n" + owner_name + " 8:53 paused", "Contested\nClear enemies"]
 		"neutralizing": return ["Sacred Site · Disrupted\n" + owner_name + " 8:53 paused", "Disrupted\nStay in ring"]
 	return ["Sacred Site · tap to view\nNeutral · enter the ring", "Neutral\nEnter ring"]

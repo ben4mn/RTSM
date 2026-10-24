@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from build_mobile_web_windows import BuildError, allowed_source, output_directory, sanitize_project, stage_committed_source, write_manifest
+from build_mobile_web_windows import BuildError, allowed_source, output_directory, sanitize_project, stage_committed_source, write_manifest, network_protocol
 from verify_mobile_web_artifacts import ABSOLUTE_PATH_PATTERN, installed_template_archive, verify_manifest
 
 
@@ -59,10 +59,14 @@ class WindowsWebBuildTests(unittest.TestCase):
             (self.root / name).mkdir()
         for name in ("assets/a.txt", "scenes/a.tscn", "scripts/main.gd", "web/a.html", "default_bus_layout.tres", "export_presets.cfg", "icon.svg", "icon.svg.import", "project.godot", "tools/render_pwa_icon.gd"):
             (self.root / name).write_text("committed\n", encoding="utf-8")
+        protocol_source = self.root / "scripts/network/network_session.gd"
+        protocol_source.parent.mkdir()
+        protocol_source.write_text("const PROTOCOL := 3\n", encoding="utf-8")
         command("add", ".")
         command("-c", "user.name=Build test", "-c", "user.email=build@example.invalid", "commit", "-qm", "fixture")
         (self.root / "scripts/main.gd").write_text("edited\n", encoding="utf-8")
         (self.root / "scripts/untracked.gd").write_text("untracked\n", encoding="utf-8")
+        protocol_source.write_text("const PROTOCOL := 99\n", encoding="utf-8")
         stage = self.root / "stage"
         stage.mkdir()
         stage_committed_source(self.root, "HEAD", stage, self.root / "helper.gd")
@@ -70,6 +74,26 @@ class WindowsWebBuildTests(unittest.TestCase):
         self.assertFalse((stage / "scripts/untracked.gd").exists())
         self.assertFalse((stage / "tools").exists())
         self.assertTrue((self.root / "helper.gd").is_file())
+        self.assertEqual(network_protocol(stage), 3)
+        self.assertEqual(network_protocol(self.root), 99)
+
+    def test_protocol_metadata_requires_one_positive_literal_from_frozen_source(self):
+        source = self.root / "scripts/network/network_session.gd"
+        source.parent.mkdir(parents=True)
+        with self.assertRaises(BuildError):
+            network_protocol(self.root)
+        for text, value in (("const PROTOCOL := 2\n", 2), ("extends Node\n\nconst PROTOCOL := 3\n", 3), ("const PROTOCOL: int = 3 # exact accepted rules\n", 3)):
+            source.write_text(text, encoding="utf-8")
+            self.assertEqual(network_protocol(self.root), value)
+            self.assertIs(type(network_protocol(self.root)), int)
+        for literal in ("0", "-1", "3.0", "true", '"3"', "2 + 1", "9007199254740992"):
+            source.write_text("const PROTOCOL := " + literal + "\n", encoding="utf-8")
+            with self.subTest(literal=literal), self.assertRaises(BuildError):
+                network_protocol(self.root)
+        for text in ("# const PROTOCOL := 3\n", "const PROTOCOL := 3\nconst PROTOCOL := 3\n", "\tconst PROTOCOL := 3\n"):
+            source.write_text(text, encoding="utf-8")
+            with self.subTest(text=text), self.assertRaises(BuildError):
+                network_protocol(self.root)
 
     def test_template_paths_match_each_platform(self):
         with patch("sys.platform", "win32"), patch.dict(os.environ, {"APPDATA": str(self.root)}):

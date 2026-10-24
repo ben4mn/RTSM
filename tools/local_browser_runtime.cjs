@@ -74,7 +74,18 @@ function verifyPair(artifactDirectory, serverDirectory) {
     compared++;
   }
   if (!compared) throw new Error('No shared runtime inputs in source manifest');
-  return {artifact, server, version, authority, shared_runtime_files: compared, shared_committed_runtime_files: compared-generatedUIDs.length, generated_uid_derivatives: generatedUIDs};
+  // Legacy2 manifests remain readable for historical evidence; live launch below
+  // requires3. New metadata is checked against the exact shared source constant.
+  const protocol = version.network_protocol === undefined ? 2 : version.network_protocol;
+  if (!Number.isInteger(protocol) || ![2,3].includes(protocol) ||
+      (authority.network_protocol === undefined ? protocol !== 2 : authority.network_protocol !== protocol)) throw new Error('Sealed network protocol metadata mismatch');
+  const sessionName='scripts/network/network_session.gd';
+  if (sources[sessionName]) {
+    const source=fs.readFileSync(path.join(server.root,'runtime',sessionName),'utf8');
+    const declarations=[...source.matchAll(/^const PROTOCOL\s*:=\s*(\d+)\s*$/gm)];
+    if(declarations.length!==1 || Number(declarations[0][1])!==protocol) throw new Error('Sealed source protocol constant mismatch');
+  } else if(protocol===3) throw new Error('Protocol3 requires a manifest-bound NetworkSession source');
+  return {artifact, server, version, authority, network_protocol: protocol, shared_runtime_files: compared, shared_committed_runtime_files: compared-generatedUIDs.length, generated_uid_derivatives: generatedUIDs};
 }
 
 async function freePort() {
@@ -123,6 +134,7 @@ function createArtifactServer(artifact, output) {
 async function startLocalRuntime({artifactDirectory, serverDirectory, godot, output}) {
   if (!artifactDirectory || !serverDirectory || !godot) throw new Error('--local requires --artifact-dir, --server-context and --godot');
   const pair = verifyPair(artifactDirectory, serverDirectory);
+  if(pair.network_protocol!==3) throw new Error('Live paired acceptance requires sealed protocol3 artifacts');
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'pocket-local-browser-'));
   const runtime = path.join(temp, 'runtime');
   fs.cpSync(path.join(pair.server.root, 'runtime'), runtime, {recursive: true});
@@ -180,7 +192,7 @@ async function startLocalRuntime({artifactDirectory, serverDirectory, godot, out
     }
     await new Promise((resolve,reject)=>{web.once('error',reject);web.listen(0,'127.0.0.1',resolve);});
     const ready=/AOEM_MATCH_SERVER_READY port=(\d+) protocol=(\d+)/.exec(fs.readFileSync(authorityLog,'utf8'));
-    if(!ready||Number(ready[1])!==port||Number(ready[2])!==2)throw new Error('Authority ready endpoint/protocol does not match the protocol2 witness');
+    if(!ready||Number(ready[1])!==port||Number(ready[2])!==pair.network_protocol)throw new Error('Authority ready endpoint/protocol does not match the sealed witness');
     fs.writeFileSync(path.join(output,'local-authority-ready.json'),JSON.stringify({unix:Date.now(),match_url:matchUrl,pid:child.pid,port:Number(ready[1]),protocol:Number(ready[2]),source_revision:pair.authority.source_revision,private_project_sha256:projectHash},null,2)+'\n');
     return {url:`http://127.0.0.1:${web.address().port}/`,matchUrl,source:initial,stop};
   } catch(error) {await stop();throw error;}

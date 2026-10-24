@@ -10,7 +10,9 @@ signal match_ended(winner: int, reason: String)
 
 # Civilization identities affect base combat stats and must agree on both ends.
 # Version 1 clients cannot display them correctly and must refresh before play.
-const PROTOCOL := 2
+## Protocol3 requires authoritative Standard Sacred clock eligibility flags.
+## Older clients cannot explain an owned-but-unguarded paused clock.
+const PROTOCOL := 3
 # Version 2 places River/Woodland resources after carving their routes.
 # A different catalog must use unchanged Open Plains on either server version.
 const MAP_CATALOG_VERSION := 2
@@ -278,6 +280,9 @@ func _client_packet(packet: Dictionary) -> void:
 		return
 	if packet.has("match") and (not _whole_number(packet.match) or (str(packet.op) != "matched" and int(packet.match) != match_id)):
 		return
+	if str(packet.get("op", "")) in ["room", "matched"] and (not _whole_number(packet.get("protocol")) or int(packet.protocol) != PROTOCOL):
+		_fail("Game version changed. Reload to play online.")
+		return
 	match str(packet.get("op", "")):
 		"queued":
 			_set_status("searching", "Waiting for an arena…" if bool(packet.get("busy", false)) else "Searching for an opponent…")
@@ -513,7 +518,7 @@ func _begin_match(peers: Array[int], selected_map: int = -1) -> void:
 	GameManager.selected_population_limit = SkirmishData.DEFAULT_POPULATION_LIMIT
 	_set_status("loading", "")
 	for slot: int in 2:
-		_send_peer(_players[slot], {"op": "matched", "slot": slot, "seed": match_seed, "map_archetype": match_map_archetype, "civilizations": match_civilizations, "match": match_id})
+		_send_peer(_players[slot], {"op": "matched", "protocol": PROTOCOL, "slot": slot, "seed": match_seed, "map_archetype": match_map_archetype, "civilizations": match_civilizations, "match": match_id})
 	get_tree().call_deferred("change_scene_to_file", "res://scenes/main/main.tscn")
 
 
@@ -657,7 +662,7 @@ func _publish_room(code: String) -> void:
 	var civilizations: Array[int] = [int(_peers.get(int(room.host), {}).get("civilization", 0)), int(_peers.get(int(room.guest), {}).get("civilization", 0))]
 	for id: int in [int(room.host), int(room.guest)]:
 		if id > 0:
-			_send_peer(id, {"op": "room", "code": code, "host": id == int(room.host), "players": 2 if int(room.guest) > 0 else 1, "map_archetype": int(room.map), "civilizations": civilizations})
+			_send_peer(id, {"op": "room", "protocol": PROTOCOL, "code": code, "host": id == int(room.host), "players": 2 if int(room.guest) > 0 else 1, "map_archetype": int(room.map), "civilizations": civilizations})
 
 func _valid_civilization(value: Variant) -> bool:
 	return _whole_number(value) and CivilizationData.is_valid(int(value))

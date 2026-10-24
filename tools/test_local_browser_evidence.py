@@ -14,7 +14,7 @@ class LocalBrowserEvidenceTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         self.endpoint = 'ws://127.0.0.1:12345/match'
-        self.invocation = {'match_url': self.endpoint}
+        self.invocation = {'match_url': self.endpoint, 'protocol': 2}
         hashes = {name: '1' * 64 for name in ('index.js', 'index.pck', 'index.wasm')}
         self.write('local-source-initial.json', {'artifact': {'files': hashes}, 'authority': {'source_revision': 'abcdef'}, 'server_pid': 71})
         self.write('local-source-final.json', {'completed': True, 'production_artifacts_unchanged': True, 'private_runtime_unchanged': True, 'artifact_failures': []})
@@ -270,7 +270,7 @@ class LocalBrowserEvidenceTests(unittest.TestCase):
         self.kingdom_fixture()
         self.assertTrue(all(civilization_gates(self.root, self.invocation, 'host').values()))
         self.rows('host-sent.jsonl', [{'packet': {'op': 'host', 'protocol': 1, 'civilization': 1}}])
-        self.assertFalse(civilization_gates(self.root, self.invocation, 'host')['protocol2_actual_civilization_request'])
+        self.assertFalse(civilization_gates(self.root, self.invocation, 'host')['actual_protocol_civilization_request'])
         self.rows('host-civilization-identity.jsonl', [])
         self.assertFalse(civilization_gates(self.root, self.invocation, 'host')['reviewed_picker_matches_received_civilization'])
 

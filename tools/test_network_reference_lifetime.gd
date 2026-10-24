@@ -14,7 +14,7 @@ func _run() -> void:
 	var session: Node = root.get_node("NetworkSession")
 	root.get_node("AudioManager").set_all_enabled(false)
 	session.set_process(false)
-	session._client_packet({"op": "matched", "slot": 1, "seed": 101, "match": 41, "civilizations": [0, 0]})
+	session._client_packet({"op": "matched", "protocol": session.PROTOCOL, "slot": 1, "seed": 101, "match": 41, "civilizations": [0, 0]})
 	for frame: int in 600:
 		await process_frame
 		if is_instance_valid(session.adapter):

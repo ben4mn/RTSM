@@ -121,7 +121,7 @@ const HINTS: Array = [
 	{"time": 42.0, "text": "Drag on open terrain to pan camera. Tap the minimap to jump view.", "color": Color(0.7, 0.8, 1.0)},
 	{"time": 75.0, "text": "Tap ground to move. Attack fights on the way. Double-tap ground to clear selection.", "color": Color(0.65, 0.82, 1.0)},
 	{"time": 105.0, "context": "scout", "text": "Train a scout from your Town Center to reveal more map quickly.", "color": Color(0.7, 0.8, 1.0)},
-	{"time": 180.0, "text": "Sacred Site is at map center. Complete its control clock to win, or destroy the enemy Town Center.", "color": Color(0.85, 0.7, 1.0)},
+	{"time": 180.0, "context": "sacred", "text": "Sacred Site is at map center. Complete its control clock to win, or destroy the enemy Town Center.", "color": Color(0.85, 0.7, 1.0)},
 ]
 var _milestone_first_house: bool = false
 var _milestone_first_military_building: bool = false
@@ -741,9 +741,11 @@ func _on_sacred_site_captured(player_id: int) -> void:
 	if player_id == 0:
 		var remaining_seconds: int = ceili(_sacred_last_remaining if _sacred_last_remaining >= 0.0 else SkirmishData.SACRED_VICTORY_HOLD_SECONDS)
 		var remaining_text: String = "%d:%02d" % [int(remaining_seconds / 60.0), remaining_seconds % 60]
-		hud.show_notification("Sacred Site secured! Hold %s more to win." % remaining_text, Color(0.9, 0.8, 0.2))
+		var claim_message: String = "Sacred claimed. Keep a fighter in the ring · %s to win." if GameManager.get_match_mode() == SkirmishData.MatchMode.STANDARD else "Sacred Site secured! Hold %s more to win."
+		hud.show_notification(claim_message % remaining_text, Color(0.9, 0.8, 0.2))
 	else:
-		hud.show_notification("Enemy holds Sacred Site. Enter its ring to pause victory. Tap to view.", Color(1.0, 0.4, 0.2), 8.0, Callable(self, "_on_sacred_site_pressed"))
+		var enemy_claim: String = "Enemy claimed Sacred. Its clock needs a fighter; enter the ring to contest." if GameManager.get_match_mode() == SkirmishData.MatchMode.STANDARD else "Enemy holds Sacred Site. Enter its ring to pause victory. Tap to view."
+		hud.show_notification(enemy_claim, Color(1.0, 0.4, 0.2), 8.0, Callable(self, "_on_sacred_site_pressed"))
 	_refresh_sacred_site_status()
 
 
@@ -2933,7 +2935,8 @@ func _on_age_up_requested() -> void:
 		_update_population_display()
 		var new_age: int = GameManager.get_player_age(0)
 		var age_name: String = GameManager.get_age_name(new_age)
-		var age_message: String = "%s is the final age. Siege breaks bases; holding Sacred wins." % age_name if new_age == GameManager.MAX_AGE else "Advancing to %s!" % age_name
+		var final_age_copy: String = "%s is the final age. Siege breaks bases; guard Sacred with a fighter to win." if GameManager.get_match_mode() == SkirmishData.MatchMode.STANDARD else "%s is the final age. Siege breaks bases; holding Sacred wins."
+		var age_message: String = final_age_copy % age_name if new_age == GameManager.MAX_AGE else "Advancing to %s!" % age_name
 		hud.show_notification(age_message, Color(1.0, 0.85, 0.2), 8.0 if new_age == GameManager.MAX_AGE else 3.0)
 		if new_age >= 2 and not _milestone_first_age_up:
 			_milestone_first_age_up = true
@@ -3357,8 +3360,14 @@ func _update_timed_hints(delta: float) -> void:
 	while _hints_shown < HINTS.size() and _hint_timer >= HINTS[_hints_shown]["time"]:
 		var hint: Dictionary = HINTS[_hints_shown]
 		if _is_timed_hint_relevant(hint):
-			hud.show_notification(hint["text"], hint["color"])
+			hud.show_notification(_timed_hint_text(hint), hint["color"])
 		_hints_shown += 1
+
+
+func _timed_hint_text(hint: Dictionary) -> String:
+	if str(hint.get("context", "")) == "sacred" and GameManager.get_match_mode() == SkirmishData.MatchMode.STANDARD:
+		return "Claim Sacred at map center. Keep a fighter in its ring to advance the victory clock, or destroy the enemy Town Center."
+	return str(hint.get("text", ""))
 
 
 func _is_timed_hint_relevant(hint: Dictionary) -> bool:

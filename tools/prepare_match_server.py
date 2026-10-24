@@ -22,7 +22,7 @@ import tarfile
 
 from build_mobile_web_windows import (
     BuildError, DEV_PATTERNS, allowed_source, git, output_directory, run_godot,
-    sanitize_project, write_manifest,
+    sanitize_project, write_manifest, network_protocol,
 )
 from verify_mobile_web_artifacts import inspect_tree, sha256, verify_manifest
 
@@ -129,6 +129,7 @@ def prepare(root: Path, revision: str, godot: Path, requested_output: str) -> di
     target.mkdir()
     originals = extract_committed_archive(payload, target)
     runtime = target / "runtime"
+    protocol = network_protocol(runtime)
     project = runtime / "project.godot"
     project.write_text(sanitize_server_project(project.read_text(encoding="utf-8"), commit[:12]), encoding="utf-8", newline="\n")
     project_hash = sha256(project)
@@ -137,6 +138,7 @@ def prepare(root: Path, revision: str, godot: Path, requested_output: str) -> di
     verify_imported_sources(target, originals, project_hash)
     receipt = {
         "format": "pocket.match-server.v1", "source_revision": commit, "source_dirty": False,
+        "network_protocol": protocol,
         "prepared_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
         "source_file_count": len(originals), "all_committed_runtime_sources_match": True,
         "project_sanitization_verified": True, "staged_project_sha256": project_hash,
@@ -146,7 +148,7 @@ def prepare(root: Path, revision: str, godot: Path, requested_output: str) -> di
     (target / "SERVER_SOURCE.json").write_text(json.dumps(receipt, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
     write_manifest(target, target / "SHA256SUMS.txt")
     count, manifest = verify_manifest(target)
-    return {"status": "PASS", "context": str(target), "source_revision": commit,
+    return {"status": "PASS", "context": str(target), "source_revision": commit, "network_protocol": protocol,
             "manifest_sha256": manifest, "context_files": count,
             "runtime_sources": len(originals), "import_log": str(log)}
 

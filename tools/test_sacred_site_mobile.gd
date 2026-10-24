@@ -70,6 +70,23 @@ func _run() -> void:
 	_expect("You win in 3:00" in label.text, "capture starts the actual three-minute hold")
 	site.call("_process", 12.0)
 	_expect("2:48" in label.text, "holding countdown follows authoritative time")
+	var gold_before: int = ResourceManager.get_resource(0, "gold")
+	friendly.position = site.global_position + Vector2(500, 0)
+	site.call("_process", 5.0)
+	_expect("Held · bring a fighter" in label.text and "2:48 paused" in label.text, "unguarded Standard clock visibly pauses without losing progress")
+	_expect("Bring a fighter" in (hud.get("selection_details") as Label).text, "inspector explains paused garrison clock")
+	_expect(int(site.get("owning_player")) == 0 and is_equal_approx(float(site.get("capture_progress")), 1.0) and ResourceManager.get_resource(0, "gold") == gold_before + 10, "leaving preserves ownership/capture and normal gold income")
+	_expect("gold income continues" in button.tooltip_text, "inspection states the unchanged income rule")
+	friendly.position = site.global_position
+	site.call("_process", 0.0)
+	_expect("You win in 2:48" in label.text, "returning fighter resumes feedback immediately")
+	var hint := {"context": "sacred", "text": "Control unchanged"}
+	_expect("Keep a fighter" in str(_match_scene.call("_timed_hint_text", hint)), "Standard guide describes guarded clock")
+	# Copy-only fixture: inspect both latched rules without initializing a second match.
+	var original_mode: int = GameManager.get_match_mode()
+	GameManager.set("_match_mode", SkirmishData.MatchMode.QUICK_CONTROL)
+	_expect(str(_match_scene.call("_timed_hint_text", hint)) == "Control unchanged", "Control guide copy remains unchanged")
+	GameManager.set("_match_mode", original_mode)
 	enemy.position = site.global_position + Vector2(10, 0)
 	site.call("_process", 0.5)
 	_expect("Contested" in label.text and "2:48 paused" in label.text, "contest explicitly pauses the preserved clock")
@@ -99,7 +116,11 @@ func _run() -> void:
 	# progress alone must not make the UI claim the clock is still paused.
 	friendly.position = site.global_position + Vector2(500, 0)
 	site.call("_process", 1.0)
-	_expect("Enemy win in 2:57" in label.text, "attacker retreat resumes partial-control hold feedback")
+	_expect("Enemy held · unguarded" in label.text and "2:58 paused" in label.text, "attacker retreat leaves an unguarded enemy clock paused")
+	enemy.position = site.global_position
+	site.call("_process", 1.0)
+	_expect("Enemy win in 2:57" in label.text, "returning enemy guard resumes the preserved clock")
+	enemy.position = site.global_position + Vector2(500, 0)
 	friendly.position = site.global_position
 	site.call("_process", 30.0)
 	_expect("Neutral" in label.text and panel.visible, "neutralization preserves the locator")
@@ -144,11 +165,12 @@ func _run() -> void:
 
 
 func _participant(position: Vector2, player_id: int) -> Node2D:
-	var participant := Node2D.new()
+	# A real armed unit supplies the Standard guard; no synthetic guard flag.
+	var participant := preload("res://scenes/units/infantry.tscn").instantiate() as UnitBase
+	participant.player_owner = player_id
 	participant.position = position
-	participant.set_meta("player_id", player_id)
 	root.add_child(participant)
-	participant.add_to_group("units")
+	participant.set_process(false)
 	return participant
 
 
@@ -165,7 +187,7 @@ func _check_phone_status_layout() -> void:
 	await get_tree().process_frame
 	for guided: bool in [false, true]:
 		hud.call("set_progression_hint", "Guide · capture the site" if guided else "", false)
-		for phase: String in ["neutral", "capturing", "holding", "contested", "neutralizing"]:
+		for phase: String in ["neutral", "capturing", "holding", "unguarded", "contested", "neutralizing"]:
 			hud.call("update_sacred_site_status", {"phase": phase, "owner": 1, "remaining": 532.1, "total": 600.0, "capture_progress": 0.42})
 			hud.call("apply_mobile_layout", logical_size, safe_area)
 			await get_tree().process_frame

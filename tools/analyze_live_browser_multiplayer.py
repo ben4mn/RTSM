@@ -9,6 +9,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 from beta2_browser_evidence import PROFILE as BETA2_PROFILE, beta2_gates
 from march_browser_evidence import march_gates
+from protocol_evidence import protocol_number, protocol_declared, sealed_protocol
 
 
 def read(path, default=None):
@@ -89,7 +90,7 @@ def civilization_gates(folder, invocation, role):
                  for purpose in ('civilization_picker_open', 'civilization_picker_choice', 'civilization_picker_confirm'))
     return {
         'reviewed_picker_matches_received_civilization': valid_declared and picker and reviewed and clicks,
-        'protocol2_actual_civilization_request': valid_declared and invocation.get('protocol') == 2 and bool(handshakes) and all(p.get('protocol') == 2 for p in handshakes) and requests[-1].get('civilization') == declared.get('id'),
+        'actual_protocol_civilization_request': valid_declared and protocol_declared(invocation) and bool(handshakes) and all(protocol_number(p.get('protocol')) == protocol_number(invocation.get('protocol')) for p in handshakes) and requests[-1].get('civilization') == declared.get('id'),
         'civilization_identity_stable_through_terminal': valid_declared and slot in (0, 1) and matched.get('civilizations') == expected_ids and expected_ids[slot] == declared.get('id') and bool(rooms) and rooms[-1].get('civilizations') == expected_ids and bool(snapshots) and all(p.get('civilizations') == expected_ids and p.get('player', {}).get('civilization') == declared.get('id') for p in snapshots),
     }
 
@@ -216,7 +217,7 @@ def local_gates(folder, invocation, role):
         valid_attack |= matching_origin and matching_wire and safe_screenshots and actual_clicks
     return {
         'sealed_local_source_unchanged': final.get('completed') is True and final.get('production_artifacts_unchanged') is True and final.get('private_runtime_unchanged') is True,
-        'owned_authority_endpoint': loopback_endpoint and ready.get('protocol') == 2 and ready.get('match_url') == endpoint and ready.get('source_revision') == initial.get('authority', {}).get('source_revision') and ready.get('pid') == initial.get('server_pid'),
+        'owned_authority_endpoint': loopback_endpoint and protocol_declared(invocation) and protocol_number(ready.get('protocol')) == protocol_number(invocation.get('protocol')) and sealed_protocol(folder, invocation, expected) and (protocol_number(invocation.get('protocol')) == 2 or initial.get('authority', {}).get('network_protocol') == 3) and ready.get('match_url') == endpoint and ready.get('source_revision') == initial.get('authority', {}).get('source_revision') and ready.get('pid') == initial.get('server_pid'),
         'no_owned_artifact_server_failure': final.get('artifact_failures') == [],
         'exact_endpoint_redirection': bool(routes) and all(row.get('blocked') is False and row.get('resolved') == endpoint and row.get('requested') in ('wss://game.4mn.org/match', endpoint) for row in routes),
         'no_unapproved_socket_reached_browser_transport': bool(guards) and all(row.get('allowed') is True and row.get('url') == endpoint for row in guards),
@@ -255,18 +256,45 @@ def public_gates(folder, invocation, role):
     opens = [row for row in lines(folder / f'{role}-transport.jsonl') if row.get('event') == 'open']
     return {
         'public_exact_endpoint_no_redirect': invocation.get('url') == 'https://game.4mn.org/' and invocation.get('match_url') == 'wss://game.4mn.org/match' and bool(opens) and all(row.get('url') == 'wss://game.4mn.org/match' for row in opens) and not lines(folder / f'{role}-socket_route.jsonl'),
-        'public_postflight_matches_sealed_artifacts': invocation.get('protocol') == 2 and revision_valid and {'index.js', 'version.json', 'index.wasm', 'index.pck'} <= expected.keys() and all(valid_digest(value) for value in expected.values()) and request.get('protocol') == 2 and valid_digest(proof.get('artifact', {}).get('manifest_sha256')) and valid_digest(request.get('web_manifest_sha256')) and proof['artifact']['manifest_sha256'] == request['web_manifest_sha256'] and postflight.get('status') == 'PASS_READ_ONLY_POSTFLIGHT' and bool(expected) and all(postflight.get('public_files', {}).get(name, {}).get('sha256') == sha for name, sha in expected.items()),
+        'public_postflight_matches_sealed_artifacts': protocol_declared(invocation) and sealed_protocol(folder, invocation, expected) and revision_valid and {'index.js', 'version.json', 'index.wasm', 'index.pck'} <= expected.keys() and all(valid_digest(value) for value in expected.values()) and protocol_number(request.get('protocol')) == protocol_number(invocation.get('protocol')) and valid_digest(proof.get('artifact', {}).get('manifest_sha256')) and valid_digest(request.get('web_manifest_sha256')) and proof['artifact']['manifest_sha256'] == request['web_manifest_sha256'] and postflight.get('status') == 'PASS_READ_ONLY_POSTFLIGHT' and bool(expected) and all(postflight.get('public_files', {}).get(name, {}).get('sha256') == sha for name, sha in expected.items()),
         'public_loaded_version_and_javascript_bytes_verified': not mismatched_body and {'index.js', 'version.json'} <= loaded,
         'public_engine_response_provenance': not mismatched_body and {'index.js', 'index.wasm', 'index.pck'} <= (loaded | correlated),
     }
 
 
-def analyze(folder, require_beta2=False, require_cohesion=False):
+def protocol3_gates(folder, invocation, role):
+    terminal = read(folder / f'{role}-terminal.json', {})
+    matched = terminal.get('matched', {})
+    sent = [row.get('packet', {}) for row in lines(folder / f'{role}-sent.jsonl')]
+    requests = [packet for packet in sent if packet.get('op') in ('host', 'join', 'search')]
+    transport = [row.get('packet', {}) for row in lines(folder / f'{role}-transport.jsonl')]
+    rooms = [packet for packet in transport if packet.get('op') == 'room']
+    starts = [packet for packet in transport if packet.get('op') == 'matched']
+    packets = [row.get('packet', {}) for row in lines(folder / f'{role}-snapshots.jsonl')] + [terminal.get('last', {})]
+    sites = [packet.get('site', {}) for packet in packets]
+    flags = ('clock_ticking', 'garrison_paused', 'neutralizing')
+    current_match = matched.get('match')
+    actual_current_match = (type(current_match) is int and current_match > 0
+                            and type(matched.get('slot')) is int and matched['slot'] in (0, 1)
+                            and isinstance(matched.get('civilizations'), list) and len(matched['civilizations']) == 2
+                            and any(packet == matched for packet in starts))
+    return {
+        'protocol3_actual_bidirectional_handshake': protocol_declared(invocation) and invocation.get('protocol') == 3 and bool(requests) and all(protocol_number(p.get('protocol')) == 3 for p in requests) and bool(rooms) and all(protocol_number(p.get('protocol')) == 3 for p in rooms) and actual_current_match and all(protocol_number(p.get('protocol')) == 3 for p in starts) and protocol_number(matched.get('protocol')) == 3,
+        'protocol3_authoritative_public_clock_flags': bool(sites) and type(current_match) is int and current_match > 0 and all(packet.get('match') == current_match for packet in packets) and all(all(type(site.get(key)) is bool for key in flags) and not (site['clock_ticking'] and (site['garrison_paused'] or site['neutralizing'])) and not (site['garrison_paused'] and site['neutralizing']) and (not (site['clock_ticking'] or site['garrison_paused']) or (type(site.get('state')) is int and site['state'] == 2 and type(site.get('owner')) is int and site['owner'] in (0, 1))) for site in sites),
+    }
+
+
+def analyze(folder, require_beta2=False, require_cohesion=False, expected_protocol=None):
     require_beta2 = require_beta2 or require_cohesion
     failures, mismatches, clients, records = [], [], {}, {}
     invocation = read(folder / 'invocation.json', {})
     scenario = invocation.get('scenario', 'full')
     profile = invocation.get('acceptance_profile', 'legacy')
+    if not protocol_declared(invocation):
+        failures.append('missing or invalid explicit protocol declaration')
+    if expected_protocol is not None and (protocol_number(expected_protocol) is None or protocol_number(invocation.get('protocol')) != protocol_number(expected_protocol)):
+        failures.append('required release protocol mismatch')
+    modern_acceptance = profile == BETA2_PROFILE or invocation.get('mode') in ('local-sealed', 'public') or protocol_number(invocation.get('protocol')) in (2, 3)
     if profile not in ('legacy', BETA2_PROFILE):
         failures.append('unrecognized acceptance profile')
     if require_beta2 and profile != BETA2_PROFILE:
@@ -367,7 +395,7 @@ def analyze(folder, require_beta2=False, require_cohesion=False):
             gates.update(touch_gates(folder, invocation, role))
         if invocation.get('mode') == 'local-sealed':
             gates.update(local_gates(folder, invocation, role))
-        if invocation.get('protocol') == 2 or invocation.get('mode') == 'public':
+        if modern_acceptance:
             gates['actual_attack_hud_generated_attack_move'] = local_gates(folder, invocation, role)['actual_attack_hud_generated_attack_move']
             gates.update(civilization_gates(folder, invocation, role))
             gates.update(screen_gates(folder, role))
@@ -379,6 +407,8 @@ def analyze(folder, require_beta2=False, require_cohesion=False):
                 gates['signature_ordinary_cost_and_affordable_request'] = any(row.get('sent') is True and row.get('command') == 'train' and row.get('payload', {}).get('type') == signature_type and row.get('expected_cost') == cost and all(row.get('bank_before', {}).get(key, -1) >= amount for key, amount in cost.items()) and any(wire.get('packet', {}).get('command') == 'train' and wire['packet'].get('type') == signature_type and wire['packet'].get('target') == row['payload'].get('target') and wire['packet'].get('match') == matched.get('match') and abs(wire.get('unix', 0) - row.get('unix', 0)) < 5000 for wire in sent) for row in policy)
         if invocation.get('mode') == 'public':
             gates.update(public_gates(folder, invocation, role))
+        if protocol_number(invocation.get('protocol')) == 3:
+            gates.update(protocol3_gates(folder, invocation, role))
         if require_beta2 or profile == BETA2_PROFILE:
             gates.update(beta2_gates(folder, invocation, role, slot))
         if require_cohesion or invocation.get('cohesion_acceptance') is True:
@@ -395,7 +425,7 @@ def analyze(folder, require_beta2=False, require_cohesion=False):
                          'artifact_owned_server_response_proof': lines(folder / f'{role}-asset-server-proof.jsonl'),
                          'rejections': [row for row in transport if row.get('packet', {}).get('op') == 'rejected'],
                          'ui_checks': ui, 'commands_sent': len(commands)}
-    if scenario != 'objective' and (invocation.get('protocol') == 2 or invocation.get('mode') == 'public'):
+    if scenario != 'objective' and modern_acceptance:
         for role, opposite in (('host', 'guest'), ('guest', 'host')):
             matched = clients[role].get('matched', {})
             slot = matched.get('slot')
@@ -412,7 +442,7 @@ def analyze(folder, require_beta2=False, require_cohesion=False):
     host, guest = clients['host'], clients['guest']
     agreement = {}
     identity_keys = ['match', 'seed', 'map_archetype']
-    if invocation.get('protocol') == 2 or invocation.get('mode') == 'local-sealed':
+    if modern_acceptance:
         identity_keys.append('civilizations')
     for key in identity_keys:
         a, b = (client.get('matched') or {} for client in (host, guest))
@@ -452,7 +482,7 @@ def analyze(folder, require_beta2=False, require_cohesion=False):
     controller_errors = lines(folder / 'controller-errors.jsonl')
     if controller_errors:
         failures.append('controller errors recorded')
-    report = {'passed': not failures, 'failures': failures, 'scenario': scenario, 'acceptance_profile': profile, 'beta2_required': require_beta2, 'identity_and_result_agreement': agreement,
+    report = {'passed': not failures, 'failures': failures, 'scenario': scenario, 'acceptance_profile': profile, 'beta2_required': require_beta2, 'expected_protocol': expected_protocol, 'protocol_evidence_mode': 'historical2' if protocol_number(invocation.get('protocol')) == 2 else 'live3', 'identity_and_result_agreement': agreement,
               'same_tick_comparison': counters, 'same_tick_mismatches': mismatches[:100], 'clients': clients,
               'controller_errors': controller_errors,
               'scope': invocation.get('scope', 'Two actual deployed browser contexts. UI lobby and recorded keyboard actions; test-only ordinary paid WebSocket gameplay policy. Evidence is passive transport, rendered screenshots and operator UI checks. No direct browser-replica inspection, physical phone test or performance claim.'),
@@ -464,6 +494,8 @@ def analyze(folder, require_beta2=False, require_cohesion=False):
     report['beta2_evidence_helper_sha256'] = hashlib.sha256(Path(__file__).with_name('beta2_browser_evidence.py').read_bytes()).hexdigest()
     report['cohesion_required'] = require_cohesion
     report['march_evidence_helper_sha256'] = hashlib.sha256(Path(__file__).with_name('march_browser_evidence.py').read_bytes()).hexdigest()
+    report['protocol_evidence_helper_sha256'] = hashlib.sha256(Path(__file__).with_name('protocol_evidence.py').read_bytes()).hexdigest()
+    report['protocol3_clock_scope'] = 'Strict authority flags and actual matching handshake; no additional rendered online paused-copy claim. Root paid offline UI and separate replica/profile fixtures remain distinct.' if protocol_number(invocation.get('protocol')) == 3 else None
     (folder / 'analysis.json').write_text(json.dumps(report, indent=2) + '\n')
     return report
 
@@ -473,7 +505,8 @@ if __name__ == '__main__':
     parser.add_argument('output', type=Path)
     parser.add_argument('--require-beta2', action='store_true', help='Fail unless both clients meet every paid Siege/fighter/native-touch beta2 gate')
     parser.add_argument('--require-cohesion', action='store_true', help='Also require paid mixed march, private status, and explicit Move release for both slots')
+    parser.add_argument('--expected-protocol', type=int, choices=(2, 3), help='Required release protocol; use3 for new live acceptance,2 only for historical receipt analysis')
     args = parser.parse_args()
-    result = analyze(args.output, require_beta2=args.require_beta2, require_cohesion=args.require_cohesion)
+    result = analyze(args.output, require_beta2=args.require_beta2, require_cohesion=args.require_cohesion, expected_protocol=args.expected_protocol)
     print(json.dumps({key: result[key] for key in ('passed', 'failures', 'identity_and_result_agreement', 'same_tick_comparison')}, indent=2))
     sys.exit(0 if result['passed'] else 1)

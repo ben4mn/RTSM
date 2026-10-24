@@ -141,7 +141,7 @@ func _test_guest_terminal_snapshot(server_snapshot: Dictionary) -> void:
 	# Feed real server serializer output through the ordinary client packet path.
 	# Transport is synthetic here; no socket/private-opponent-data claim is made.
 	var session: Node = get_node("/root/NetworkSession")
-	session.call("_client_packet", {"op": "matched", "slot": 1, "seed": 42, "match": 91, "civilizations": [1, 2]})
+	session.call("_client_packet", {"op": "matched", "protocol": session.PROTOCOL, "slot": 1, "seed": 42, "match": 91, "civilizations": [1, 2]})
 	for _i in 900:
 		await get_tree().process_frame
 		if is_instance_valid(session.adapter):

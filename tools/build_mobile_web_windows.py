@@ -49,6 +49,21 @@ def git(root: Path, *arguments: str) -> bytes:
     return subprocess.check_output(["git", "-C", str(root), *arguments], stderr=subprocess.PIPE)
 
 
+def network_protocol(root: Path) -> int:
+    """Read one literal protocol from the frozen runtime, never the checkout."""
+    path = root / "scripts/network/network_session.gd"
+    if path.is_symlink() or not path.is_file():
+        raise BuildError("Frozen network protocol source is missing or special")
+    source = path.read_text(encoding="utf-8")
+    declarations = re.findall(r"^[ \t]*const[ \t]+PROTOCOL\b[^\r\n]*$", source, re.MULTILINE)
+    if len(declarations) != 1:
+        raise BuildError("Expected one frozen network protocol declaration")
+    match = re.fullmatch(r"const\s+PROTOCOL\s*(?::\s*int\s*=|:=|=)\s*([1-9][0-9]*)\s*(?:#[^\r\n]*)?", declarations[0])
+    if not match or int(match.group(1)) > 9007199254740991:
+        raise BuildError("Frozen network protocol must be a positive exact JSON integer literal")
+    return int(match.group(1))
+
+
 def allowed_source(relative: str) -> bool:
     path = PurePosixPath(relative)
     if path.is_absolute() or ".." in path.parts or "\\" in relative:
@@ -215,6 +230,7 @@ def build(args: argparse.Namespace) -> Path:
             stage_working_source(root, stage, helper)
         else:
             stage_committed_source(root, commit, stage, helper)
+        protocol = network_protocol(stage)
         project = stage / "project.godot"
         project.write_text(sanitize_project(project.read_text(encoding="utf-8"), revision), encoding="utf-8", newline="\n")
         verify_stage(stage)
@@ -237,6 +253,7 @@ def build(args: argparse.Namespace) -> Path:
             raise BuildError("Product version is missing")
         version = {
             "product": "Pocket Kingdoms", "version": product.group(1), "channel": "internal-mobile-web-beta",
+            "network_protocol": protocol,
             "source_revision": revision, "source_dirty": bool(args.working_tree), "source_tree_sha256": source_hash,
             "source_manifest": "SOURCE_SHA256SUMS.txt", "built_at_utc": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "godot": engine, "entrypoint": "index.html",
@@ -266,7 +283,7 @@ def build(args: argparse.Namespace) -> Path:
             raise BuildError("Output changed during build")
         exported.rename(output)
         verify_payload(output)
-        receipt = {"status": "PASS", "source_commit": commit, "source_mode": "working-tree-local-only" if args.working_tree else "committed-archive", "builder_sha256": sha256(Path(__file__)), "source_tree_sha256": source_hash, "payload_manifest_sha256": sha256(output / "SHA256SUMS.txt"), "output": str(output), "godot": engine}
+        receipt = {"status": "PASS", "source_commit": commit, "network_protocol": protocol, "source_mode": "working-tree-local-only" if args.working_tree else "committed-archive", "builder_sha256": sha256(Path(__file__)), "source_tree_sha256": source_hash, "payload_manifest_sha256": sha256(output / "SHA256SUMS.txt"), "output": str(output), "godot": engine}
         (work / "build-receipt.json").write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
         print(json.dumps(receipt, indent=2), flush=True)
         print(f"Build logs and receipt: {work}", flush=True)

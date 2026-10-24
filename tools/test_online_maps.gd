@@ -33,7 +33,7 @@ func _initialize() -> void:
 		session.set("_peers", {1: {"map_catalog": pair[0]}, 2: {"map_catalog": pair[1]}})
 		_expect(session.call("_choose_match_archetype", peers, 1) == MapData.MapArchetype.OPEN_PLAINS, "old, absent or unknown peer catalog falls back safely: " + str(pair))
 	for invalid_map: Variant in [-1, 3, 1.5, "1", [], {}]:
-		session.call("_client_packet", {"op": "matched", "slot": 0, "seed": 101, "match": 41, "map_archetype": invalid_map, "civilizations": [0, 0]})
+		session.call("_client_packet", {"op": "matched", "protocol": session.PROTOCOL, "slot": 0, "seed": 101, "match": 41, "map_archetype": invalid_map, "civilizations": [0, 0]})
 		_expect(session.get("state") == "error", "unsupported map is rejected before terrain loading")
 	session.free()
 	_begin_round()
@@ -63,7 +63,7 @@ func _process(delta: float) -> bool:
 		if socket.get_ready_state() != WebSocketPeer.STATE_OPEN:
 			continue
 		if not states[index].searched:
-			var search: Dictionary = {"op": "search", "protocol": 2}
+			var search: Dictionary = {"op": "search", "protocol": int(load("res://scripts/network/network_session.gd").get_script_constant_map()["PROTOCOL"])}
 			var declared_catalog: int = int(catalog_pairs[round_index][index])
 			if declared_catalog > 0:
 				search["map_catalog"] = declared_catalog

@@ -46,6 +46,10 @@ var capture_progress: float = 0.0
 var victory_timer: float = 0.0
 var match_mode: int = SkirmishData.MatchMode.STANDARD
 var control_banks: Array[float] = [0.0, 0.0]
+## Public objective facts; replicas receive these from the authority, never fog actors.
+var clock_ticking: bool = false
+var garrison_paused: bool = false
+var _armed_nearby_counts: Array[int] = [0, 0]
 
 
 func configure_match_mode(mode: int) -> void:
@@ -53,6 +57,8 @@ func configure_match_mode(mode: int) -> void:
 	victory_hold_time = SkirmishData.get_sacred_target(match_mode)
 	control_banks = [0.0, 0.0]
 	victory_timer = 0.0
+	clock_ticking = false
+	garrison_paused = false
 
 
 func _reset_or_restore_timer() -> void:
@@ -62,6 +68,7 @@ func _reset_or_restore_timer() -> void:
 func _advance_victory(delta: float) -> void:
 	if owning_player not in [0, 1]:
 		return
+	clock_ticking = true
 	victory_timer += delta
 	if match_mode != SkirmishData.MatchMode.STANDARD:
 		control_banks[owning_player] = victory_timer
@@ -90,6 +97,8 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	_being_neutralized = false
+	clock_ticking = false
+	garrison_paused = false
 	var nearby := _count_nearby_players()
 	var p1_count: int = nearby[0]
 	var p2_count: int = nearby[1]
@@ -100,7 +109,8 @@ func _process(delta: float) -> void:
 		SiteState.CAPTURING:
 			_handle_capturing(p1_count, p2_count, delta)
 		SiteState.CAPTURED:
-			_handle_captured(p1_count, p2_count, delta)
+			var armed_friendly: int = _armed_nearby_counts[owning_player] if owning_player in [0, 1] else 0
+			_handle_captured(p1_count, p2_count, delta, armed_friendly)
 		SiteState.CONTESTED:
 			_handle_contested(p1_count, p2_count, delta)
 	if state != SiteState.CAPTURED:
@@ -151,8 +161,10 @@ func _handle_capturing(p1: int, p2: int, delta: float) -> void:
 		captured.emit(owning_player)
 
 
-func _handle_captured(p1: int, p2: int, delta: float) -> void:
+func _handle_captured(p1: int, p2: int, delta: float, armed_friendly: int = 0) -> void:
 	_being_neutralized = false
+	clock_ticking = false
+	garrison_paused = false
 	var enemy := p2 if owning_player == 0 else p1
 	var friendly := p1 if owning_player == 0 else p2
 
@@ -177,8 +189,12 @@ func _handle_captured(p1: int, p2: int, delta: float) -> void:
 	# Generate gold for the owning player.
 	_generate_gold(delta)
 
-	# Tick victory timer.
-	_advance_victory(delta)
+	# Standard asks an army to occupy the ground it wants to win from. Scouts
+	# and workers retain capture, contest and income utility. Control race keeps
+	# its established banked-ownership rules. Leaving pauses; it never resets.
+	garrison_paused = match_mode == SkirmishData.MatchMode.STANDARD and armed_friendly <= 0
+	if not garrison_paused:
+		_advance_victory(delta)
 
 
 func _handle_contested(p1: int, p2: int, delta: float) -> void:
@@ -237,6 +253,7 @@ func _reset_gold_accumulator() -> void:
 ## Count how many units each player has within the capture radius.
 func _count_nearby_players() -> Array[int]:
 	var counts: Array[int] = [0, 0]
+	_armed_nearby_counts = [0, 0]
 	for unit in get_tree().get_nodes_in_group("units"):
 		if not is_instance_valid(unit) or not unit is Node2D:
 			continue
@@ -255,7 +272,13 @@ func _count_nearby_players() -> Array[int]:
 				pid = unit_node.get_meta("player_id")
 			if pid >= 0 and pid <= 1:
 				counts[pid] += 1
+				if unit is UnitBase and is_armed_garrison_unit(unit as UnitBase):
+					_armed_nearby_counts[pid] += 1
 	return counts
+
+
+static func is_armed_garrison_unit(unit: UnitBase) -> bool:
+	return is_instance_valid(unit) and unit.current_state != UnitBase.State.DEAD and unit.hp > 0.0 and unit.damage > 0.0 and unit.unit_type not in [UnitData.UnitType.VILLAGER, UnitData.UnitType.SCOUT]
 
 
 func _update_visuals() -> void:
@@ -332,7 +355,7 @@ func get_status() -> Dictionary:
 	var phase: String = "neutral"
 	match state:
 		SiteState.CAPTURING: phase = "capturing"
-		SiteState.CAPTURED: phase = "neutralizing" if _being_neutralized else "holding"
+		SiteState.CAPTURED: phase = "neutralizing" if _being_neutralized else ("unguarded" if garrison_paused else "holding")
 		SiteState.CONTESTED: phase = "contested"
 	return {
 		"phase": phase,
@@ -343,6 +366,8 @@ func get_status() -> Dictionary:
 		"gold_per_second": gold_per_second,
 		"match_mode": match_mode,
 		"control_banks": control_banks.duplicate(),
+		"clock_ticking": clock_ticking,
+		"garrison_paused": garrison_paused,
 	}
 
 
@@ -350,7 +375,7 @@ func _publish_status() -> void:
 	# Refresh immediately when the phase/owner changes, and only on visible
 	# second/percentage boundaries while a timer advances.
 	var status: Dictionary = get_status()
-	var key: String = "%s:%d:%d:%d" % [status["phase"], owning_player, floori(capture_progress * 100.0), ceili(float(status["remaining"]))]
+	var key: String = "%s:%d:%d:%d:%s:%s" % [status["phase"], owning_player, floori(capture_progress * 100.0), ceili(float(status["remaining"])), clock_ticking, garrison_paused]
 	if key == _last_status_key:
 		return
 	_last_status_key = key

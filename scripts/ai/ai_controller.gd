@@ -67,6 +67,7 @@ var _objective_scout_sent: bool = false
 # ordinary raids while they capture or guard the Sacred Site.
 var _objective_mode: ObjectiveMode = ObjectiveMode.NONE
 var _objective_units: Array = []
+var _sacred_armed_guard: UnitBase = null
 var _objective_order_time: float = -INF
 var _enemy_memory: Dictionary = {}  # instance_id -> last fair sighting
 var _rebuild_requests: Dictionary = {}  # building_type -> replacements owed
@@ -2293,6 +2294,7 @@ func _check_sacred_site_strategy() -> bool:
 		_is_sacred_timing_ready()
 		or enemy_claiming
 		or active_contest
+		or (own_claim and site_state == SITE_CAPTURED and GameManager.get_match_mode() == SkirmishData.MatchMode.STANDARD)
 	)
 
 	if not policy_ready:
@@ -2408,6 +2410,7 @@ func _assign_objective_force(
 			selected.append(candidate)
 			if candidate.unit_type != UnitData.UnitType.SCOUT:
 				fighter_room -= 1
+	selected = _ensure_standard_sacred_guard(selected, all_military, reserve, sacred_site, desired_force)
 	_objective_units = selected
 	for unit in _objective_units:
 		if is_instance_valid(unit) and unit is UnitBase:
@@ -2420,6 +2423,88 @@ func _assign_objective_force(
 		# a newly selected objective squad after its tracking array is cleared.
 		_recall_easy_unassigned_units(_objective_units + _attack_wave_units)
 	_issue_objective_orders(sacred_site, urgent, mode_changed, site_threats)
+
+
+func _ensure_standard_sacred_guard(selected: Array, military: Array, reserve: Array, site: Node2D, desired_force: int) -> Array:
+	_sacred_armed_guard = null
+	if GameManager.get_match_mode() != SkirmishData.MatchMode.STANDARD or _objective_mode != ObjectiveMode.DEFEND:
+		return selected
+	if int(site.get("owning_player")) != player_id or int(site.get("state")) != 2:
+		return selected
+	# Home danger has priority even when this helper is called outside the normal
+	# defense-first decision seam. Never borrow a current home reserve.
+	if _has_recent_defense_threat() or not _find_defense_threats().is_empty():
+		return selected
+	var room: int = 64
+	if _uses_easy_learning_policy():
+		room = maxi(0, SkirmishData.get_easy_pressure_squad_size(_game_time) - _get_attack_wave_survivors().size())
+	var guard: UnitBase = null
+	if room > 0:
+		for candidate in selected:
+			if _is_armed_sacred_guard(candidate):
+				guard = candidate as UnitBase
+				break
+		if guard == null:
+			var healthy: Array = []
+			var wounded: Array = []
+			for candidate in military:
+				if not _is_armed_sacred_guard(candidate) or candidate in reserve or candidate in _attack_wave_units:
+					continue
+				if candidate.hp / maxf(1.0, candidate.max_hp) > 0.4:
+					healthy.append(candidate)
+				else:
+					wounded.append(candidate)
+			var available: Array = healthy if not healthy.is_empty() else wounded
+			available.sort_custom(func(a: UnitBase, b: UnitBase) -> bool:
+				return _objective_candidate_score(a, site.global_position) > _objective_candidate_score(b, site.global_position)
+			)
+			if not available.is_empty():
+				guard = available[0] as UnitBase
+	# A full army cannot train its way out of a Scout-only guard while every
+	# fighter is tracked by a raid. Recall at most one nearest eligible raider.
+	if guard == null and not GameManager.can_reserve_population(player_id, 1):
+		var raiders: Array = []
+		for candidate in _attack_wave_units:
+			if _is_armed_sacred_guard(candidate) and candidate not in reserve:
+				raiders.append(candidate)
+		raiders.sort_custom(func(a: UnitBase, b: UnitBase) -> bool:
+			return a.global_position.distance_squared_to(site.global_position) < b.global_position.distance_squared_to(site.global_position)
+		)
+		if not raiders.is_empty():
+			guard = raiders[0] as UnitBase
+			_attack_wave_units.erase(guard)
+			if _attack_wave_units.is_empty():
+				_clear_attack_wave()
+	if guard == null:
+		return selected
+	_sacred_armed_guard = guard
+	selected.erase(guard)
+	selected.push_front(guard)
+	selected = selected.slice(0, desired_force)
+	if _uses_easy_learning_policy():
+		room = maxi(0, SkirmishData.get_easy_pressure_squad_size(_game_time) - _get_attack_wave_survivors().size())
+		var bounded: Array = []
+		for candidate in selected:
+			if _is_armed_sacred_guard(candidate):
+				if room <= 0:
+					continue
+				room -= 1
+			bounded.append(candidate)
+		selected = bounded
+	return selected
+
+
+func _is_armed_sacred_guard(unit: Variant) -> bool:
+	return is_instance_valid(unit) and unit is UnitBase and unit.player_owner == player_id and unit.current_state != UnitBase.State.DEAD and unit.hp > 0.0 and unit.damage > 0.0 and unit.unit_type not in [UnitData.UnitType.SCOUT, UnitData.UnitType.VILLAGER]
+
+
+func _may_keep_wounded_sacred_guard(unit: UnitBase) -> bool:
+	if unit != _sacred_armed_guard or unit not in _objective_units or _objective_mode != ObjectiveMode.DEFEND:
+		return false
+	if GameManager.get_match_mode() != SkirmishData.MatchMode.STANDARD:
+		return false
+	var site: Node2D = _get_sacred_site()
+	return site != null and int(site.get("owning_player")) == player_id and int(site.get("state")) == 2 and _get_visible_site_threats(site).is_empty() and not _has_recent_defense_threat() and _find_defense_threats().is_empty()
 
 
 func _objective_candidate_score(unit: UnitBase, site_position: Vector2) -> float:
@@ -2501,6 +2586,7 @@ func _get_sacred_site() -> Node2D:
 
 func _release_objective_units() -> void:
 	_objective_units.clear()
+	_sacred_armed_guard = null
 	_objective_mode = ObjectiveMode.NONE
 	_objective_order_time = -INF
 
@@ -2517,6 +2603,8 @@ func _micro_damaged_units() -> void:
 		var hp_ratio: float = unit.hp / maxf(1.0, unit.max_hp)
 		if hp_ratio > 0.35:
 			continue
+		if _may_keep_wounded_sacred_guard(unit):
+			continue  # No healing exists; a safe guard must not retreat forever.
 		if unit.global_position.distance_to(fallback_point) < 48.0:
 			continue
 		unit.command_move(fallback_point)

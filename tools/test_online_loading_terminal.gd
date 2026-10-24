@@ -14,7 +14,7 @@ func _run() -> void:
 	var manager: Node = root.get_node("GameManager")
 	var connection_failure: bool = "--connection-failure" in OS.get_cmdline_user_args()
 	var reason: String = "Connection lost during loading" if connection_failure else "Opponent disconnected during loading"
-	session._client_packet({"op": "matched", "slot": 0, "seed": 101, "match": 41, "civilizations": [0, 0]})
+	session._client_packet({"op": "matched", "protocol": session.PROTOCOL, "slot": 0, "seed": 101, "match": 41, "civilizations": [0, 0]})
 	session._client_packet({"op": "snapshot", "match": 41, "time": 7.5, "player": {"is_defeated": false}, "actors": []})
 	if connection_failure:
 		session._fail(reason)
@@ -45,4 +45,12 @@ func _run() -> void:
 	session._client_packet({"op": "started"})
 	_check(session.state == ("error" if connection_failure else "ended"), "Late start reopened terminal match")
 	print("ONLINE_LOADING_TERMINAL_VERIFIED failure=%s failures=%s" % [connection_failure, failures])
+	# Let the asynchronously attached Main release its resources before exit.
+	var match_scene: Node = current_scene
+	session.leave_match()
+	paused = false
+	if is_instance_valid(match_scene):
+		match_scene.queue_free()
+	await process_frame
+	await process_frame
 	quit(0 if failures.is_empty() else 1)

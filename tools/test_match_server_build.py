@@ -37,10 +37,11 @@ class MatchServerBuildTests(unittest.TestCase):
     def command(self, *args):
         return subprocess.check_output(["git", "-C", str(self.root), *args], stderr=subprocess.PIPE)
 
-    def repository(self):
+    def repository(self, protocol=3):
         self.command("init", "-q")
         files = {
             "assets/art.svg": "committed art\n", "scripts/main.gd": "committed script\n",
+            "scripts/network/network_session.gd": "const PROTOCOL := %d\n" % protocol,
             "scripts/ui/debug_bootstrap.gd": "developer only\n",
             "scenes/network/server_lobby.tscn": "committed scene\n",
             "default_bus_layout.tres": "bus\n", "icon.svg": "icon\n",
@@ -82,6 +83,7 @@ class MatchServerBuildTests(unittest.TestCase):
         commit = self.command("rev-parse", "HEAD").decode().strip()
         (self.root / "scripts/main.gd").write_text("uncommitted edit\n")
         (self.root / "scripts/untracked.gd").write_text("untracked\n")
+        (self.root / "scripts/network/network_session.gd").write_text("const PROTOCOL := 99\n")
         result = self.prepare_fixture()
         target = Path(result["context"])
         self.assertEqual((target / "runtime/scripts/main.gd").read_text(), files["scripts/main.gd"])
@@ -90,11 +92,27 @@ class MatchServerBuildTests(unittest.TestCase):
         source = json.loads((target / "SERVER_SOURCE.json").read_text())
         self.assertEqual(source["source_revision"], commit)
         self.assertFalse(source["source_dirty"])
+        self.assertIs(type(source["network_protocol"]), int)
+        self.assertEqual(source["network_protocol"], 3)
+        self.assertEqual(result["network_protocol"], 3)
         self.assertEqual(source["committed_source_sha256"]["runtime/project.godot"], hashlib.sha256(PROJECT.encode()).hexdigest())
         self.assertEqual(result["manifest_sha256"], verify_manifest(target)[1])
         (target / "runtime/extra.gd").write_text("unmanifested\n")
         with self.assertRaises(RuntimeError):
             verify_manifest(target)
+
+    def test_legacy_protocol_two_is_derived_and_bad_protocol_never_imports(self):
+        self.repository(protocol=2)
+        result = self.prepare_fixture()
+        self.assertEqual(json.loads((Path(result["context"]) / "SERVER_SOURCE.json").read_text())["network_protocol"], 2)
+        source = self.root / "scripts/network/network_session.gd"
+        source.write_text("const PROTOCOL := true\n")
+        self.command("add", "scripts/network/network_session.gd")
+        self.command("-c", "user.name=Server build test", "-c", "user.email=build@example.invalid", "commit", "-qm", "invalid protocol fixture")
+        with self.assertRaisesRegex(BuildError, "positive exact JSON integer"):
+            self.prepare_fixture(output="build/invalid-protocol")
+        self.assertFalse((self.root / "build/invalid-protocol-import.log").exists())
+        self.assertFalse((self.root / "build/invalid-protocol/SERVER_SOURCE.json").exists())
 
     def test_import_rewriting_committed_input_never_gets_a_success_receipt(self):
         self.repository()

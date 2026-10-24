@@ -101,6 +101,26 @@ function seal(root){const entries=[];function visit(dir,relative=''){for(const e
 function fixture(){const root=fs.mkdtempSync(path.join(os.tmpdir(),'pocket-harness-unit-'));const web=path.join(root,'web'),server=path.join(root,'server');const source='extends Node\n',hash=digest(Buffer.from(source));write(web,'index.html','local export');write(web,'version.json',JSON.stringify({source_revision:'abcdef123456',source_dirty:false}));write(web,'SOURCE_SHA256SUMS.txt',hash+'  ./scripts/unit.gd\n');write(server,'runtime/scripts/unit.gd',source);write(server,'runtime/project.godot','[application]\n');write(server,'SERVER_SOURCE.json',JSON.stringify({source_revision:'abcdef1234560000000000000000000000000000',source_dirty:false,all_committed_runtime_sources_match:true,committed_source_sha256:{'runtime/scripts/unit.gd':hash}}));seal(web);seal(server);return {root,web,server};}
 function dispose(root){const resolved=path.resolve(root),prefix=path.resolve(os.tmpdir())+path.sep+'pocket-harness-unit-';assert(resolved.startsWith(prefix));fs.rmSync(resolved,{recursive:true});}
 
+test('protocol3 sealed metadata must match the exact shared source constant',()=>{
+  const f=fixture();
+  try {
+    const name='scripts/network/network_session.gd',source='extends Node\nconst PROTOCOL := 3\n',hash=digest(Buffer.from(source));
+    const version=JSON.parse(fs.readFileSync(path.join(f.web,'version.json'))),authority=JSON.parse(fs.readFileSync(path.join(f.server,'SERVER_SOURCE.json')));
+    write(f.server,'runtime/'+name,source);
+    write(f.web,'SOURCE_SHA256SUMS.txt',fs.readFileSync(path.join(f.web,'SOURCE_SHA256SUMS.txt'),'utf8')+hash+'  ./'+name+'\n');
+    authority.committed_source_sha256['runtime/'+name]=hash;
+    const set=(webValue,serverValue)=>{const a={...version},b={...authority};if(webValue!==undefined)a.network_protocol=webValue;if(serverValue!==undefined)b.network_protocol=serverValue;write(f.web,'version.json',JSON.stringify(a));write(f.server,'SERVER_SOURCE.json',JSON.stringify(b));seal(f.web);seal(f.server);};
+    set(3,3);assert.equal(verifyPair(f.web,f.server).network_protocol,3);
+    for(const values of [[undefined,undefined],[2,2],[3,2],[3,undefined],['3',3],[true,3],[3.5,3.5]]){
+      set(...values);assert.throws(()=>verifyPair(f.web,f.server),/protocol/i);
+    }
+    set(3,3);
+    const sources=fs.readFileSync(path.join(f.web,'SOURCE_SHA256SUMS.txt'),'utf8');
+    write(f.web,'SOURCE_SHA256SUMS.txt',sources.split('\n').filter(line=>!line.endsWith(name)).join('\n'));seal(f.web);
+    assert.throws(()=>verifyPair(f.web,f.server),/NetworkSession/);
+  } finally {dispose(f.root);}
+});
+
 test('source binding accepts identical committed inputs and rejects extra, changed or mismatched files',()=>{
   const f=fixture();try{
     const before=fs.readFileSync(path.join(f.web,'index.html'));assert.equal(verifyPair(f.web,f.server).shared_runtime_files,1);assert.deepEqual(fs.readFileSync(path.join(f.web,'index.html')),before);
