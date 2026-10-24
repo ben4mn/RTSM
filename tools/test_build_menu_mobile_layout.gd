@@ -102,7 +102,7 @@ func _run() -> void:
 	_expect(float(close_diag.get("height", 0.0)) >= MIN_TOUCH_TARGET, "Close is shorter than 48px")
 	_expect(bool(close_diag.get("visible", false)), "Close is not visible while the sheet is open")
 
-	# Groups are real touch targets; unlocked choices precede future buildings.
+	# Groups are real touch targets; each building keeps its familiar slot.
 	var categories: Dictionary = build_menu.get("_category_buttons")
 	_expect_eq(categories.size(), 3, "three build categories are accessible")
 	for category_button: Button in categories.values():
@@ -137,7 +137,7 @@ func _run() -> void:
 	build_menu.free()
 	phone_viewport.free()
 	if _failures.is_empty():
-		print("[PASS] build_menu_mobile_layout: 12 phone profiles, grouped header, readable cards, full touch targets; narrow five-card Army row scrolls to Castle Siege")
+		print("[PASS] build_menu_mobile_layout: 12 phone profiles, stable age-unlock slots, grouped header, readable cards, full touch targets; narrow five-card Army row scrolls to Castle Siege")
 		get_tree().quit(0)
 		return
 	for failure: String in _failures:
@@ -209,6 +209,7 @@ func _check_category_density(phone_size: Vector2i, ui_scale: float, notched: boo
 	menu.call("set_safe_area_rect", safe_area)
 	menu.call("open_menu")
 	var profile: String = "%s scale %.3f notch %s" % [phone_size, ui_scale, notched]
+	await _check_age_slot_stability(menu, profile)
 	for repeat_available: bool in [false, true]:
 		menu.set("_last_selected_building_type", BuildingData.BuildingType.HOUSE if repeat_available else -1)
 		menu.call("set_placement_mode", false)
@@ -315,6 +316,52 @@ func _check_category_density(phone_size: Vector2i, ui_scale: float, notched: boo
 	await get_tree().process_frame
 
 
+func _check_age_slot_stability(menu: PanelContainer, profile: String) -> void:
+	var original_age: int = int(menu.get("_current_age"))
+	var original_resources: Dictionary = (menu.get("_current_resources") as Dictionary).duplicate()
+	var original_category: String = str(menu.get("_active_category"))
+	# Independent expectations preserve ordinary House access and the Castle
+	# Army row. An age-up must not replace a remembered House tap with a TC.
+	var expected_categories: Dictionary = {
+		"Economy": [BuildingData.BuildingType.HOUSE, BuildingData.BuildingType.FARM, BuildingData.BuildingType.RESOURCE_CAMP, BuildingData.BuildingType.TOWN_CENTER],
+		"Army": [BuildingData.BuildingType.BARRACKS, BuildingData.BuildingType.ARCHERY_RANGE, BuildingData.BuildingType.STABLE, BuildingData.BuildingType.SIEGE_WORKSHOP, BuildingData.BuildingType.BLACKSMITH],
+	}
+	menu.call("update_resources", {"food": 5000, "wood": 5000, "gold": 5000})
+	for category: String in expected_categories:
+		menu.call("_on_category_pressed", category)
+		var reference_rects: Dictionary = {}
+		for age: int in [1, 2, 3]:
+			menu.call("update_age", age)
+			for frame: int in 4:
+				await get_tree().process_frame
+			var cards: Array[Button] = []
+			for card: Button in (menu.get("grid") as GridContainer).get_children():
+				if card.visible:
+					cards.append(card)
+			var expected: Array = expected_categories[category]
+			_expect_eq(cards.size(), expected.size(), "%s %s age%d keeps all building slots" % [profile, category, age])
+			for index: int in mini(cards.size(), expected.size()):
+				var building_type: int = int(expected[index])
+				var card: Button = (menu.get("_button_map") as Dictionary)[building_type]
+				var context: String = "%s %s age%d %s" % [profile, category, age, card.name]
+				_expect(cards[index] == card, context + " changes the remembered card order")
+				var rect: Rect2 = card.get_global_rect()
+				if age == 1:
+					reference_rects[building_type] = rect
+				else:
+					var reference: Rect2 = reference_rects[building_type]
+					_expect(rect.position.distance_to(reference.position) <= 0.5 and rect.size.distance_to(reference.size) <= 0.5, context + " moves or resizes after an age unlock")
+				var required_age: int = int(BuildingData.get_building_stats(building_type).get("age_required", 0))
+				_expect(card.disabled == (required_age > age), context + " loses its funded age gate")
+				if required_age > age:
+					_expect(card.text.contains(GameManager.get_age_name(required_age)), context + " loses the named age requirement")
+	menu.call("update_age", original_age)
+	menu.call("update_resources", original_resources)
+	menu.call("_on_category_pressed", original_category)
+	for frame: int in 4:
+		await get_tree().process_frame
+
+
 func _check_army_scroll_resize() -> void:
 	var viewport := SubViewport.new()
 	viewport.size = Vector2i(733, 339)
@@ -338,6 +385,16 @@ func _check_army_scroll_resize() -> void:
 	for frame: int in 4:
 		await get_tree().process_frame
 	_expect(scroll.scroll_horizontal > 0 and scroll.get_global_rect().encloses(last.get_global_rect()), "narrow Castle row must scroll to its actual last Blacksmith card")
+	var stable_offset: int = scroll.scroll_horizontal
+	var stable_last_rect: Rect2 = last.get_global_rect()
+	for age: int in [1, 2, 3]:
+		menu.call("update_age", age)
+		for frame: int in 4:
+			await get_tree().process_frame
+		last = (menu.get("_button_map") as Dictionary)[BuildingData.BuildingType.BLACKSMITH]
+		_expect(scroll.scroll_horizontal == stable_offset, "scrolled Army age%d must preserve its still-valid horizontal offset" % age)
+		_expect(scroll.get_global_rect().encloses(last.get_global_rect()), "scrolled Army age%d must keep Blacksmith fully reachable" % age)
+		_expect(last.get_global_rect().position.distance_to(stable_last_rect.position) <= 0.5, "scrolled Army age%d must keep the remembered Blacksmith target" % age)
 	viewport.size = Vector2i(932, 430)
 	host.size = Vector2(viewport.size)
 	menu.call("set_safe_area_rect", Rect2(Vector2.ZERO, Vector2(viewport.size)))

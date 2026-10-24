@@ -49,7 +49,7 @@ const CARD_HEIGHT := 94.0
 const CARD_GAP := 8.0
 const BUILDING_CATEGORIES: Dictionary = {
 	"Economy": [BuildingData.BuildingType.HOUSE, BuildingData.BuildingType.FARM, BuildingData.BuildingType.RESOURCE_CAMP, BuildingData.BuildingType.TOWN_CENTER],
-	"Army": [BuildingData.BuildingType.BARRACKS, BuildingData.BuildingType.ARCHERY_RANGE, BuildingData.BuildingType.STABLE, BuildingData.BuildingType.BLACKSMITH, BuildingData.BuildingType.SIEGE_WORKSHOP],
+	"Army": [BuildingData.BuildingType.BARRACKS, BuildingData.BuildingType.ARCHERY_RANGE, BuildingData.BuildingType.STABLE, BuildingData.BuildingType.SIEGE_WORKSHOP, BuildingData.BuildingType.BLACKSMITH],
 	"Defence": [BuildingData.BuildingType.WATCH_TOWER],
 }
 const BUILDING_PURPOSES: Dictionary = {
@@ -403,14 +403,11 @@ func _rebuild_grid() -> void:
 		child.free()
 	_button_map.clear()
 
-	var all_types: Array = BuildingData.BUILDINGS.keys()
-	all_types.sort_custom(func(a: int, b: int) -> bool:
-		var a_locked: bool = int(BuildingData.BUILDINGS[a].get("age_required", 0)) > _current_age
-		var b_locked: bool = int(BuildingData.BUILDINGS[b].get("age_required", 0)) > _current_age
-		if a_locked != b_locked:
-			return not a_locked
-		return a < b
-	)
+	# Keep familiar targets in place as ages unlock additional buildings.
+	# Category order is also display order; locks change the card, not its slot.
+	var all_types: Array = []
+	for category_types: Array in BUILDING_CATEGORIES.values():
+		all_types.append_array(category_types)
 
 	for building_type in all_types:
 		var stats: Dictionary = BuildingData.get_building_stats(building_type, player_owner)
