@@ -20,6 +20,42 @@ PURPOSES = {
     'fighter_find': ['beta2_find_army_open', 'beta2_find_groups_open', 'beta2_find_fighters'],
     'fighter_attack': ['observed_attack_hud_button', 'attack_move_ground_destination']}
 
+# Reviewed c0f8 controller starts each client with policy=false and policyEver=false.
+# This exception is source-bound; a future controller requires independent review.
+INITIAL_OFF_HARNESS = 'd675e143bf8ee83cc4b7780919291da0847136f9e189be40095a81eaa8c30ca5'
+
+
+def initial_scout_policy_off(row, starts, policy, origins, wire, invocation):
+    """Prove never-started Scout setup, not a missing pause after policy ran."""
+    try:
+        assert row.get('action') in ('scout_train', 'scout_birth') and row.get('policy_held') is True
+        assert invocation.get('harness_sha256') == INITIAL_OFF_HARNESS
+        assert integer(row.get('started_unix'), 1) and integer(row.get('finished_unix'), 1)
+        assert row['finished_unix'] >= row['started_unix']
+        assert starts and all(integer(event.get('unix'), 1) for event in starts)
+        first = min(event['unix'] for event in starts)
+        assert row['finished_unix'] < first
+        # Corroborate the entire initial prefix, not only the isolated purchase.
+        assert all(integer(event.get('unix'), 1) and event['unix'] >= first for event in policy)
+        commands = [event for event in wire if event.get('packet', {}).get('op') == 'command']
+        assert all(integer(event.get('unix'), 1) for event in commands)
+        for event in commands:
+            if event['unix'] >= first:
+                continue
+            packet = event['packet']
+            assert integer(packet.get('sequence'), 1)
+            matching = [origin for origin in origins if origin.get('packet') == packet and origin.get('serial') == packet['sequence']]
+            assert len(matching) == 1 and matching[0].get('source') == 'game_ui_or_engine'
+        # An undated policy origin cannot be hidden by dropping its wire event.
+        for origin in origins:
+            if origin.get('source') != 'paid_policy':
+                continue
+            matching = [event for event in commands if event['packet'] == origin.get('packet') and event['packet'].get('sequence') == origin.get('serial')]
+            assert len(matching) == 1 and matching[0]['unix'] >= first
+        return True
+    except (AssertionError, KeyError, TypeError, ValueError):
+        return False
+
 
 def lines(path):
     return [json.loads(line) for line in path.read_text().splitlines() if line.strip()] if path.exists() else []
@@ -201,7 +237,7 @@ def beta2_gates(folder, invocation, role, slot):
         assert integer(match,1) and terminal['matched']['slot']==slot and terminal['ended']['match']==terminal['last']['match']==match
         rows=lines(folder/f'{role}-beta2-ui.jsonl'); inputs=lines(folder/f'{role}-browser-input.jsonl'); wire=lines(folder/f'{role}-sent.jsonl')
         origins=lines(folder/f'{role}-command_origin.jsonl'); full=lines(folder/f'{role}-authority-full.jsonl'); transport=lines(folder/f'{role}-transport.jsonl'); captures=lines(folder/f'{role}-captures.jsonl')
-        pauses=lines(folder/'policy-pauses.jsonl'); starts=lines(folder/'policy-starts.jsonl'); prior={}
+        pauses=lines(folder/'policy-pauses.jsonl'); starts=lines(folder/'policy-starts.jsonl'); policy=lines(folder/f'{role}-policy.jsonl'); prior={}
         successful=[row for row in rows if row.get('passed') is True and row.get('action') in ACTIONS]
         assert successful
         for row in successful:
@@ -252,8 +288,11 @@ def beta2_gates(folder, invocation, role, slot):
         assert observed['select_caption']=='Select fighters' and observed['fighter_count']==prior['fighter_attack']['verified']['fighter_count'] and observed['find_frames_fighters'] is True and observed['scout_excluded_from_selection'] is True
         gates['beta2_captures_reviewed']=True
         assert pauses and starts and all(isinstance(row.get('reason'),str) and len(row['reason'].strip())>=12 for row in pauses+starts)
+        assert all(integer(event.get('unix'),1) for event in pauses+starts)
         for row in prior.values():
             earlier=[event for event in pauses if event['unix']<=row['started_unix']]
+            if not earlier and initial_scout_policy_off(row, starts, policy, origins, wire, invocation):
+                continue
             assert earlier and not any(max(event['unix'] for event in earlier)<event['unix']<=row['finished_unix'] for event in starts)
         phases=lines(folder/'beta2-policy-phases.jsonl')
         assert any(row.get('role')==role and row.get('phase')=='saving-for-touch-workshop-and-siege' for row in phases)

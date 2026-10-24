@@ -7,7 +7,7 @@ import re
 import sys
 from pathlib import Path
 from urllib.parse import urlsplit
-from beta2_browser_evidence import PROFILE as BETA2_PROFILE, beta2_gates
+from beta2_browser_evidence import PROFILE as BETA2_PROFILE, beta2_gates, native_tap
 from march_browser_evidence import march_gates
 from garrison_browser_evidence import garrison_gates
 from protocol_evidence import protocol_number, protocol_declared, sealed_protocol
@@ -117,6 +117,39 @@ def screen_gates(folder, role):
     return {'reviewed_result_counts_and_eligible_lesson': result, 'reviewed_visible_menu_return': menu}
 
 
+def lobby_tap_actions(role, inputs, wire, strict_native=False):
+    """Known operator labels still require the real native contact and causal wire op."""
+    actions = [(('lobby_create', 'create_private_room'), 'host'),
+               (('lobby_start', 'start_matched_game'), 'room_start')] if role == 'host' else [
+               (('lobby_join', 'join_private_room'), 'join')]
+    if role not in ('host', 'guest'):
+        return False
+    for labels, operation in actions:
+        found = False
+        for row in inputs:
+            if row.get('kind') != 'tap' or row.get('purpose') not in (labels if strict_native else labels[:1]):
+                continue
+            if strict_native:
+                try:
+                    native_tap(row)
+                except (AssertionError, KeyError, TypeError, ValueError):
+                    continue
+            for sent in wire:
+                if sent.get('packet', {}).get('op') != operation:
+                    continue
+                if type(sent.get('unix')) is not int or type(row.get('unix')) is not int:
+                    continue
+                delta = sent['unix'] - row['unix']
+                if (0 <= delta <= 5000) if strict_native else (abs(delta) <= 5000):
+                    found = True
+                    break
+            if found:
+                break
+        if not found:
+            return False
+    return True
+
+
 def touch_gates(folder, invocation, role):
     """Touch acceptance is native browser input plus passive paid authority facts."""
     if invocation.get('input_mode') != 'touch':
@@ -164,8 +197,7 @@ def touch_gates(folder, invocation, role):
         images_valid = len(images) == 2 and all(image in captures and image_matches(folder, image) for image in images)
         valid_purchase |= (slot in (0, 1) and attempt.get('passed') is True and attempt.get('input_mode') == 'touch' and attempt.get('policy_ever') is False
                            and cost_valid and reservation_valid and queue_valid and timing_valid and matching_transport and actual_tap and exact_snapshots and reviewed and images_valid)
-    lobby = [('lobby_create', 'host'), ('lobby_start', 'room_start')] if role == 'host' else [('lobby_join', 'join')]
-    lobby_taps = all(any(row.get('kind') == 'tap' and row.get('purpose') == purpose and any(sent.get('packet', {}).get('op') == op and abs(sent.get('unix', 0)-row.get('unix', -10000)) <= 5000 for sent in wire) for row in inputs) for purpose, op in lobby)
+    lobby_taps = lobby_tap_actions(role, inputs, wire, invocation.get('acceptance_profile') == BETA2_PROFILE)
     terminal = read(folder / f'{role}-terminal.json', {})
     terminal_at = terminal.get('received_unix')
     menus = [row for row in lines(folder / f'{role}-screen-reviews.jsonl') if row.get('check') == 'menu_return' and row.get('passed') is True]
