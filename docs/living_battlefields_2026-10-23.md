@@ -98,9 +98,11 @@ This observed improvement at comparable counts supports the controlled profiling
 
 Postflight at `22:40:22 UTC` confirms unchanged identities, zero non-LISTEN match sockets/restarts/OOM, 796 runtime hashes, 40 public payloads and 13 private-path denials. The release worktree is archived; canonical/reproduced/server artifacts remain in ignored `build/deployed-beta12-*`.
 
-Native Godot was restarted normally from the primary checkout, with release `7681103` runtime and `res://scenes/ui/main_menu.tscn` entry. Startup has zero errors/warnings. **Visual handoff confirmation is blocked because the Mac is locked.** Unlock was requested; no alternate capture or unlock bypass was attempted. Godot remains running.
+Native Godot was restarted normally from the primary checkout, with release `7681103` runtime and `res://scenes/ui/main_menu.tscn` entry. Startup has zero errors/warnings. Visual confirmation was initially blocked because the Mac was locked; no alternate capture or unlock bypass was attempted. After the user unlocked the Mac, CUA visually confirmed the native main menu at `2026-10-24T00:30:31Z`, showing Settings, New Game and Join a friend. The same native process remains running at the menu, with unchanged runtime and clean logs.
 
-The [iteration archive](evidence/iteration-20261023.json.gz) preserves 249 exact UTF-8 receipts and 115 external image hashes, including failed attempts and timing analysis, and links three committed component archives. Its SHA-256 is `030118f54d739bd12a85ef1e2c4d18290f9c9fcd57bcc77513cfad77e8233ede`. The blocked native visual check remains explicit.
+![Confirmed native main menu after unlock](images/beta12-native-menu-20261023.jpg)
+
+The [iteration archive](evidence/iteration-20261023.json.gz) preserves 249 exact UTF-8 receipts and 115 external image hashes, including failed attempts and timing analysis, and links three committed component archives. Its SHA-256 is `030118f54d739bd12a85ef1e2c4d18290f9c9fcd57bcc77513cfad77e8233ede`. It retains the initial blocked native check unchanged. The separate [native handoff addendum](evidence/native-handoff-beta12-20261023.json.gz) preserves the earlier receipt, subsequent confirmation, current log and screenshot hash; its SHA-256 is `bc9f354b4b50fa7cecb5637fda595d77171057a779e677f16afc1ade972cb529`.
 
 ## Scope
 
