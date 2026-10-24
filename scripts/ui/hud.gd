@@ -2913,8 +2913,10 @@ func _building_purpose(building_ref: Node2D) -> String:
 				return "Unlimited food\nWorker assigned" if is_instance_valid(building.get_assigned_worker()) else "Unlimited food\nNeeds 1 worker"
 			return "Unlimited food\n1 worker capacity"
 		BuildingData.BuildingType.BARRACKS: return "Trains Warriors"
-		BuildingData.BuildingType.ARCHERY_RANGE: return "Trains Archers"
-		BuildingData.BuildingType.STABLE: return "Trains Horsemen"
+		BuildingData.BuildingType.ARCHERY_RANGE: return "Trains %ss" % UnitData.get_unit_name(UnitData.UnitType.ARCHER, building.player_owner)
+		BuildingData.BuildingType.STABLE:
+			var unit_name: String = UnitData.get_unit_name(UnitData.UnitType.CAVALRY, building.player_owner)
+			return "Trains %s" % ("Horsemen" if unit_name == "Horseman" else unit_name + "s")
 		BuildingData.BuildingType.BLACKSMITH: return "Unit + worker\nupgrades"
 		BuildingData.BuildingType.WATCH_TOWER: return "Base defence"
 	return ""
@@ -4636,7 +4638,7 @@ func _selection_information() -> Dictionary:
 		lines.append(selection_details.text)
 	if _selection_kind == "unit":
 		if _selection_is_scout:
-			lines.append("Scouts are unarmed: they reveal ground and can capture or contest the Sacred Site, but cannot fight back. Move away from attackers and reinforce with Warriors or Archers.")
+			lines.append("Scouts are unarmed: they reveal ground and can capture or contest the Sacred Site, but cannot fight back. Move away from attackers and reinforce with Warriors or %ss." % UnitData.get_unit_name(UnitData.UnitType.ARCHER, 0))
 		lines.append("Arrow: Move to a destination. Sword: Attack-move; armed units fight on the way. A highlighted icon means the command is armed; tap it again to cancel.")
 		lines.append("Up chevron: expand Stop, Stance and %s. Hold the chevron, slide to preview, release to choose; return to the center to cancel." % ("Patrol" if _unit_commands_have_military else "Idle workers"))
 	elif is_instance_valid(_selected_building_ref):
@@ -4864,7 +4866,7 @@ func _repeat_information() -> Dictionary:
 			unit_type = int(queue.get("auto_queue_unit_type"))
 			enabled = bool(queue.get("auto_queue_enabled"))
 	var unit_name: String = UnitData.get_unit_name(unit_type, 0) if unit_type >= 0 else "the last unit trained"
-	var body: String = "Repeat is %s.\nRepeats %s through the normal paid training queue.\nEach unit costs %s.\nWaits for resources or population space.\nCurrent status: %s\nTap to toggle. Holding only inspects." % ["ON" if enabled else "OFF", unit_name, _full_cost_text(UnitData.get_unit_cost(unit_type)) if unit_type >= 0 else "its normal resource cost", _get_repeat_wait_reason()]
+	var body: String = "Repeat is %s.\nRepeats %s through the normal paid training queue.\nEach unit costs %s.\nWaits for resources or population space.\nTurning Repeat OFF leaves paid units queued. Clear & stop refunds them.\nCurrent status: %s\nTap to toggle. Holding only inspects." % ["ON" if enabled else "OFF", unit_name, _full_cost_text(UnitData.get_unit_cost(unit_type)) if unit_type >= 0 else "its normal resource cost", _get_repeat_wait_reason()]
 	return {"title": "Repeat training", "body": body}
 
 

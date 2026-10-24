@@ -11,7 +11,10 @@ func _initialize() -> void:
 
 
 func _run() -> void:
+	var session: Node = root.get_node("NetworkSession")
 	var examples: Array[Dictionary] = [
+		{"player_civilization": 1, "opponent_civilization": 2, "battle": {"losses_by_matchup": [[2, 3, 7]]}, "victory_reason": "Sacred Site held for 6:00", "ai_sacred_control_seconds": 360, "learning": {"objective_contests": 8}, "expect": "Outriders landed final blows on 7 of your Longbows"},
+		{"player_civilization": 2, "opponent_civilization": 1, "battle": {"losses_by_matchup": [[3, 1, 9999]]}, "expect": "Warriors landed final blows on 9999 of your Outriders"},
 		{"match_mode": SkirmishData.MatchMode.QUICK_CONTROL, "victory_reason": "Sacred control banked for 4:00", "is_victory": false, "ai_sacred_control_seconds": 240, "learning": {"objective_contests": 4}, "expect": "Both sides keep earned time"},
 		{"victory_reason": "Sacred Site held for 10:00", "learning": {"paid_army": 0}, "expect": "No fighting troops"},
 		{"learning": {"paid_army": 3, "worker_losses": 2, "worker_replacements": 1}, "expect": "Workers lost 2; paid replacements 1"},
@@ -55,6 +58,25 @@ func _run() -> void:
 						var button: Button = screen.get_node("GameOverPanel/Margin/VBox/ButtonRow/" + name)
 						_expect(button.size.x >= 48.0 and button.size.y >= 48.0, "Result action preserves 48 logical px")
 					paused = false
+				# Exercise the actual online visibility branch on each phone profile.
+				session.online = true
+				screen.show_defeat(examples[0])
+				screen.call("_fit_panel_to_size", logical, safe)
+				await process_frame
+				await process_frame
+				var online_label: Label = screen.get("_debrief_label")
+				_expect(online_label.visible and "Outriders landed final blows" in online_label.text, "Online phone result displays the recipient's authority lesson")
+				_expect(online_label.get_line_count() <= 3, "Online authority lesson fits three phone lines")
+				var online_rect: Rect2 = panel.get_global_rect()
+				_expect(online_rect.position.x >= safe.position.x - 0.5 and online_rect.position.y >= safe.position.y - 0.5 and online_rect.end.x <= safe.end.x + 0.5 and online_rect.end.y <= safe.end.y + 0.5, "Online result with lesson fits safe bounds")
+				_expect(not screen.score_bar.visible and not screen.panel.get_node("Margin/VBox/StatsHeader/Right").visible, "Online lesson never exposes opponent comparisons")
+				for name: String in ["PlayAgainButton", "MainMenuButton", "ReportButton"]:
+					var online_button: Button = screen.get_node("GameOverPanel/Margin/VBox/ButtonRow/" + name)
+					_expect(online_button.size.x >= 48.0 and online_button.size.y >= 48.0, "Online result preserves 48 logical px actions")
+				screen.show_defeat({"learning": {"paid_army": 0}})
+				_expect(not online_label.visible, "No trusted online battle receipt means no invented local lesson")
+				session.online = false
+				paused = false
 				records.append({"physical": str(physical), "scale": scale_value, "notched": notched, "panel": str(panel.get_global_rect()), "max_lines": max_lines})
 				viewport.free()
 				await process_frame

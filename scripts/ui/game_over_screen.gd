@@ -189,7 +189,16 @@ func _show_result(text: String, color: Color, stats: Dictionary) -> void:
 	if not _online_result:
 		_add_stat_row("Sacred Control", stats.get("sacred_control_seconds", 0), stats.get("ai_sacred_control_seconds", 0))
 
-	_debrief_label.text = "" if _online_result else MATCH_DEBRIEF.describe(stats)
+	var debrief_stats: Dictionary = stats
+	if _online_result:
+		# Only the recipient's authority receipts and public kingdom identities
+		# are complete online. Never infer lessons from client-local learning.
+		debrief_stats = {
+			"battle": stats.get("battle", {}),
+			"player_civilization": stats.get("player_civilization", 0),
+			"opponent_civilization": stats.get("opponent_civilization", 0),
+		}
+	_debrief_label.text = MATCH_DEBRIEF.describe(debrief_stats)
 	_debrief_label.visible = not _debrief_label.text.is_empty()
 	summary_diagnostics["debrief"] = _debrief_label.text
 	_fit_panel_to_viewport()

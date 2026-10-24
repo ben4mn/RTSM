@@ -58,8 +58,6 @@ const BUILDING_PURPOSES: Dictionary = {
 	BuildingData.BuildingType.RESOURCE_CAMP: "All resource drop-off",
 	BuildingData.BuildingType.TOWN_CENTER: "Train workers",
 	BuildingData.BuildingType.BARRACKS: "Train Warriors",
-	BuildingData.BuildingType.ARCHERY_RANGE: "Train archers",
-	BuildingData.BuildingType.STABLE: "Train Horsemen",
 	BuildingData.BuildingType.BLACKSMITH: "Unit and worker upgrades",
 	BuildingData.BuildingType.SIEGE_WORKSHOP: "Siege production",
 	BuildingData.BuildingType.WATCH_TOWER: "Base defence",
@@ -481,7 +479,13 @@ func _compact_building_name(building_name: String) -> String:
 func _format_tooltip(stats: Dictionary, building_type: int) -> String:
 	var lines: PackedStringArray = PackedStringArray()
 	lines.append(stats["name"])
-	lines.append(BUILDING_PURPOSES.get(building_type, "Expand your settlement"))
+	if building_type == BuildingData.BuildingType.ARCHERY_RANGE:
+		lines.append("Train %ss" % UnitData.get_unit_name(UnitData.UnitType.ARCHER, player_owner))
+	elif building_type == BuildingData.BuildingType.STABLE:
+		var unit_name: String = UnitData.get_unit_name(UnitData.UnitType.CAVALRY, player_owner)
+		lines.append("Train %s" % ("Horsemen" if unit_name == "Horseman" else unit_name + "s"))
+	else:
+		lines.append(BUILDING_PURPOSES.get(building_type, "Expand your settlement"))
 	var costs: PackedStringArray = []
 	for resource: String in ["food", "wood", "gold"]:
 		var amount: int = int(stats.get("cost", {}).get(resource, 0))

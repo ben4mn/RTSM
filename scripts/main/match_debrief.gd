@@ -2,8 +2,16 @@ extends RefCounted
 ## A measured fact and a suggested next action; never infers combat causality
 ## from final score. The match supplies only its own human receipt telemetry.
 
+const BATTLE_RECEIPTS := preload("res://scripts/main/battle_receipts.gd")
+
 
 static func describe(stats: Dictionary) -> String:
+	# The result header already gives the authoritative win condition. When
+	# available, prefer a witnessed tactical fact to generic reinforcement advice.
+	var counter_lesson: Dictionary = BATTLE_RECEIPTS.get_counter_lesson(
+		stats.get("battle", {}), int(stats.get("player_civilization", 0)), int(stats.get("opponent_civilization", 0)))
+	if not counter_lesson.is_empty():
+		return str(counter_lesson["text"])
 	var learning: Dictionary = stats.get("learning", {})
 	if learning.is_empty():
 		return ""

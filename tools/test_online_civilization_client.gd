@@ -131,6 +131,19 @@ func _ended(winner: int, reason: String) -> void:
 	session.leave_match()
 	_expect(manager.selected_civilization == civilization and manager.selected_opponent_civilization == (civilization + 1) % 3, "online match preserves next solo preferences")
 	print("ONLINE_CIV_RESULT civ=%d winner=%d reason=%s verified=%s enemy=%s combat=%s checks=%d failures=%s" % [civilization, winner, reason, verified, enemy_verified, saw_combat, checks, failures])
+	call_deferred("_finish_fixture")
+
+func _finish_fixture() -> void:
+	# Results start an alert sound. Immediate process exit can leave the audio
+	# mixer's WAV/playback references alive even after the scene is freed.
+	# Stop and drain the fixture explicitly; this changes no match outcome.
+	root.get_node("AudioManager").stop_all()
+	paused = false
+	if is_instance_valid(current_scene):
+		current_scene.queue_free()
+		current_scene = null
+	await process_frame
+	await create_timer(0.15, true, false, true).timeout
 	quit(0 if failures.is_empty() else 1)
 
 func _status(value: String, message: String) -> void:

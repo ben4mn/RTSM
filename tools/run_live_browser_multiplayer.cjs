@@ -9,18 +9,38 @@ const path = require('node:path');
 const http = require('node:http');
 const crypto = require('node:crypto');
 const assert = require('node:assert/strict');
+const os = require('node:os');
+const {startLocalRuntime, digest} = require('./local_browser_runtime.cjs');
 
-function installWitness() {
+function installWitness(configuration = {}) {
   const Native = window.WebSocket;
   const sockets = [];
   const state = {room: null, matched: null, last: null, ended: null, startedWall: null,
-    messages: [], sends: [], counters: {}, ready: false};
+    messages: [], sends: [], counters: {}, ready: false, routes: [], commandSerial: 0};
+  let policySending = false;
+  const expectedEndpoint = 'wss://game.4mn.org/match';
+  if (configuration.local) {
+    const target = new URL(configuration.matchUrl);
+    if (target.protocol !== 'ws:' || target.hostname !== '127.0.0.1' || !target.port || target.pathname !== '/match' || target.username || target.password || target.search || target.hash) throw new Error('Local witness requires an exact loopback /match URL');
+  }
+  function witnessEvent(event) {
+    if (typeof window.__pocketHarnessEvent === 'function') window.__pocketHarnessEvent(event).catch(() => {});
+  }
   function parse(data) {
     try { return JSON.parse(typeof data === 'string' ? data : new TextDecoder().decode(data)); }
     catch (_) { return null; }
   }
   class WitnessSocket extends Native {
     constructor(...args) {
+      const requested = String(args[0]);
+      if (configuration.local) {
+        const allowed = requested === expectedEndpoint || requested === configuration.matchUrl;
+        const route = {requested, resolved:allowed ? configuration.matchUrl : null, blocked:!allowed, unix:Date.now()};
+        state.routes.push(route); if(state.routes.length > 64)state.routes.shift();
+        witnessEvent({kind:'socket_route',...route});
+        if (!allowed) throw new Error('Local witness blocked an unapproved WebSocket endpoint');
+        args[0] = configuration.matchUrl;
+      }
       super(...args); this.witnessSequence = 0; this.witnessMatch = null;
       if (!String(args[0]).includes('/match')) return;
       sockets.push(this);
@@ -48,7 +68,9 @@ function installWitness() {
         packet.sequence = ++this.witnessSequence;
         const encoded = JSON.stringify(packet);
         data = typeof data === 'string' ? encoded : new TextEncoder().encode(encoded);
-        state.sends.push({wall: performance.now(), originalSequence, packet});
+        const event = {serial:++state.commandSerial,wall: performance.now(), originalSequence, packet, source:policySending ? 'paid_policy' : 'game_ui_or_engine'};
+        state.sends.push(event);
+        witnessEvent({kind:'command_origin',...event});
         if (state.sends.length > 500) state.sends.shift();
       }
       return super.send(data);
@@ -62,10 +84,22 @@ function installWitness() {
       if (!allowed.includes(command) || !state.ready || !state.matched || state.ended) return false;
       const socket = sockets.find(s => s.witnessMatch === state.matched.match && s.readyState === Native.OPEN);
       if (!socket) return false;
-      socket.send(JSON.stringify({...payload, op: 'command', command, sequence: 0, match: state.matched.match}));
+      policySending = true;
+      try {socket.send(JSON.stringify({...payload, op: 'command', command, sequence: 0, match: state.matched.match}));}
+      finally {policySending = false;}
       return true;
     },
   };
+}
+
+async function configureLocalGuards(context, matchUrl, pageUrl, record) {
+  if(typeof context.routeWebSocket!=='function')throw new Error('Local mode requires Playwright routeWebSocket for a second fail-closed socket guard');
+  await context.routeWebSocket('**/*',route=>{
+    const permitted=route.url()===matchUrl;
+    record({unix:Date.now(),url:route.url(),allowed:permitted});
+    if(permitted)route.connectToServer();else route.close({code:1008,reason:'Local witness blocks nonlocal sockets'});
+  });
+  await context.route('**/*',route=>new URL(route.request().url()).origin===new URL(pageUrl).origin?route.continue():route.abort('blockedbyclient'));
 }
 
 const unitCosts = {0:{food:50},1:{food:50,wood:20},2:{food:25,wood:45},3:{food:90,wood:30},4:{food:40,gold:10},5:{wood:150,gold:100}};
@@ -163,30 +197,49 @@ async function main() {
     socket.send(JSON.stringify({op:'command',sequence:1,match:7,command:'train'}));socket.send(JSON.stringify({op:'command',sequence:1,match:7,command:'train'}));
     assert.deepEqual(socket.wire.map(p=>p.sequence),[1,2]);console.log('Witness sequence normalization and paid-policy arithmetic checks passed. No browser or network launched.');return;
   }
-  if(!process.argv.includes('--allow-public'))throw new Error('Root must explicitly launch with --allow-public after deployment readiness.');
+  const localMode=process.argv.includes('--local');
+  if(localMode && (process.argv.includes('--allow-public') || arg('url')))throw new Error('--local owns both verified endpoints; do not combine it with --allow-public or --url.');
+  if(!localMode && !process.argv.includes('--allow-public'))throw new Error('Use --local for sealed local artifacts, or --allow-public only after deployment readiness.');
   let modulePath=arg('playwright-module');
   if(!modulePath){try{modulePath=require.resolve('playwright');}catch(_){
-    const cache=path.join(process.env.HOME,'.npm/_npx');
-    modulePath=fs.readdirSync(cache).map(n=>path.join(cache,n,'node_modules/playwright')).find(p=>fs.existsSync(path.join(p,'package.json')));
+    const candidates=[path.join(os.homedir(),'.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright')];
+    for(const cache of [path.join(os.homedir(),'.npm/_npx'),path.join(os.homedir(),'AppData/Local/npm-cache/_npx')])if(fs.existsSync(cache))candidates.push(...fs.readdirSync(cache).map(n=>path.join(cache,n,'node_modules/playwright')));
+    modulePath=candidates.find(p=>fs.existsSync(path.join(p,'package.json')));
   }}
   const {chromium}=require(modulePath);
   const out=path.resolve(arg('output')||'output/playwright/live-multiplayer');
   fs.mkdirSync(out,{recursive:true});if(fs.existsSync(path.join(out,'invocation.json')))throw new Error('Use a new output directory.');
-  const url=arg('url')||'https://game.4mn.org/',port=Number(arg('port')||8876),clients={};
-  const browser=await chromium.launch({channel:'chrome',headless:false,args:['--disable-background-timer-throttling','--disable-backgrounding-occluded-windows','--disable-renderer-backgrounding']});
+  if(localMode&&fs.readdirSync(out).length)throw new Error('Local witness output must be empty so failed receipts cannot be overwritten.');
+  const local=localMode ? await startLocalRuntime({artifactDirectory:arg('artifact-dir'),serverDirectory:arg('server-context'),godot:arg('godot')||process.env.GODOT_BIN,output:out}) : null;
+  const url=local?.url||arg('url')||'https://game.4mn.org/',port=Number(arg('port')||8876),clients={};
+  let browser,controllerTimer,controllerServer;
+  try {
+  browser=await chromium.launch({channel:'chrome',headless:false,args:['--disable-background-timer-throttling','--disable-backgrounding-occluded-windows','--disable-renderer-backgrounding']});
   const save=(name,value)=>fs.writeFileSync(path.join(out,name),JSON.stringify(value,null,2)+'\n');
   const append=(name,value)=>fs.appendFileSync(path.join(out,name),JSON.stringify(value)+'\n');
   const objectiveOnly=process.argv.includes('--objective-only');
-  save('invocation.json',{url,port,started:new Date().toISOString(),headless:false,scenario:objectiveOnly?'objective':'full',harness_sha256:crypto.createHash('sha256').update(fs.readFileSync(__filename)).digest('hex'),browser_version:browser.version(),scope:'Two isolated actual deployed-browser contexts; UI lobby/keyboard actions plus disclosed test-only ordinary paid WebSocket policy. Only command sequence is normalized. No direct gameplay state, grants, time changes or forced result.'});
+  save('invocation.json',{url,port,started:new Date().toISOString(),headless:false,scenario:objectiveOnly?'objective':'full',mode:localMode?'local-sealed':'public',match_url:local?.matchUrl||null,source_revision:local?.source.version.source_revision||null,harness_sha256:digest(fs.readFileSync(__filename)),local_runtime_helper_sha256:digest(fs.readFileSync(require.resolve('./local_browser_runtime.cjs'))),browser_version:browser.version(),scope:localMode?'Automated browser fixture using two fresh contexts of a byte-verified export and matching local authority. Canvas inputs and disclosed ordinary paid protocol policy are separate from root CUA play. Exact endpoint redirected to loopback; command sequence normalized; no state, grants, time or result injected.':'Two isolated actual deployed-browser contexts; UI lobby/keyboard actions plus disclosed test-only ordinary paid WebSocket policy. Only command sequence is normalized. No direct gameplay state, grants, time changes or forced result.'});
+  const assetTasks=[];
   for(const role of ['host','guest']) {
-    const context=await browser.newContext({viewport:{width:Number(arg('width')||1600),height:Number(arg('height')||900)},deviceScaleFactor:1});
-    await context.addInitScript(installWitness);const page=await context.newPage();
+    const context=await browser.newContext({viewport:{width:Number(arg('width')||(localMode?844:1600)),height:Number(arg('height')||(localMode?390:900))},deviceScaleFactor:1,...(localMode?{serviceWorkers:'block'}:{})});
+    if(localMode) {
+      await configureLocalGuards(context,local.matchUrl,url,event=>append(role+'-endpoint-guard.jsonl',event));
+    }
+    await context.exposeBinding('__pocketHarnessEvent',(_source,event)=>{if(['socket_route','command_origin'].includes(event.kind))append(role+'-'+event.kind+'.jsonl',event);});
+    await context.addInitScript(installWitness,{local:localMode,matchUrl:local?.matchUrl});const page=await context.newPage();
     const client=clients[role]={role,page,context,objectiveOnly,policy:false,last:null,matched:null,room:null,ended:null,started:0,
       errors:[],warnings:[],rejections:[],lastBuild:-10,lastArmy:-60,demolished:false,rejectedPlacements:new Set(),pendingPlace:null,uiChecks:[]};
     page.on('console',message=>{const entry={type:message.type(),text:message.text(),unix:Date.now()};append(role+'-console.jsonl',entry);if(entry.type==='error')client.errors.push(entry);if(entry.type==='warning')client.warnings.push(entry);});
     page.on('pageerror',error=>{const entry={type:'pageerror',text:String(error),unix:Date.now()};client.errors.push(entry);append(role+'-console.jsonl',entry);});
     page.on('response',response=>{if(response.status()>=400)append(role+'-http-errors.jsonl',{url:response.url(),status:response.status()});
-      if(/\.(pck|wasm|js)(\?|$)|\/build-info\.json(\?|$)/.test(response.url()))append(role+'-assets.jsonl',{url:response.url(),status:response.status(),unix:Date.now(),from_service_worker:response.fromServiceWorker(),headers:response.headers()});});
+      if(/\.(pck|wasm|js)(\?|$)|\/(build-info|version)\.json(\?|$)/.test(response.url())) {
+        append(role+'-assets.jsonl',{url:response.url(),status:response.status(),unix:Date.now(),from_service_worker:response.fromServiceWorker(),headers:response.headers()});
+        if(localMode&&response.status()===200)assetTasks.push(response.body().then(bytes=>{
+          const name=decodeURIComponent(new URL(response.url()).pathname).slice(1),sha256=digest(bytes),expected=local.source.artifact.files[name];
+          const record={unix:Date.now(),url:response.url(),file:name,bytes:bytes.length,sha256,expected,match:sha256===expected};
+          append(role+'-asset-bytes.jsonl',record);if(!record.match)client.errors.push({type:'artifact-bytes',...record});
+        }).catch(error=>append(role+'-asset-body-failures.jsonl',{unix:Date.now(),url:response.url(),error:String(error)})));
+      }});
     page.on('requestfinished',request=>{if(/\.(pck|wasm|js)(\?|$)/.test(request.url()))append(role+'-asset-finished.jsonl',{url:request.url(),unix:Date.now()});});
     page.on('framenavigated',frame=>{if(frame===page.mainFrame())append(role+'-navigation.jsonl',{url:frame.url(),unix:Date.now()});});
     page.on('requestfailed',request=>append(role+'-request-failures.jsonl',{url:request.url(),error:request.failure(),unix:Date.now()}));
@@ -206,14 +259,14 @@ async function main() {
     await page.goto(url,{waitUntil:'domcontentloaded'});
   }
   let running=false;
-  const timer=setInterval(async()=>{if(running)return;running=true;try{for(const c of Object.values(clients))for(const cmd of planPolicy(c)) {
+  const timer=controllerTimer=setInterval(async()=>{if(running)return;running=true;try{for(const c of Object.values(clients))for(const cmd of planPolicy(c)) {
     const sent=await c.page.evaluate(({command,payload})=>window.__aoemLiveWitness.sendCommand(command,payload),cmd);
     append(c.role+'-policy.jsonl',{unix:Date.now(),game_seconds:c.last?.time,...cmd,sent});
   }}catch(error){append('controller-errors.jsonl',{unix:Date.now(),error:String(error)});}finally{running=false;}},2000);
   const status=()=>Object.fromEntries(Object.values(clients).map(c=>[c.role,{room:c.room,matched:c.matched,ended:c.ended,
-    game_seconds:c.last?.time,wall:c.started?(performance.now()-c.started)/1000:0,bank:c.last?.bank,player:c.last?.player,stats:c.last?.stats,
+    game_seconds:c.last?.time,wall:c.started?(performance.now()-c.started)/1000:0,bank:c.last?.bank,player:c.last?.player,stats:c.last?.stats,battle:c.last?.battle,
     policy:c.policy,errors:c.errors,warnings:c.warnings.slice(-8),rejections:c.rejections.length,pendingPlace:c.pendingPlace,uiChecks:c.uiChecks}]));
-  const server=http.createServer(async(req,res)=>{try{
+  const server=controllerServer=http.createServer(async(req,res)=>{try{
     let body='';for await(const chunk of req)body+=chunk;const data=body?JSON.parse(body):{};const c=clients[data.role||'host'];let result;
     if(req.url==='/state')result=status();
     else if(req.url==='/viewport'){await c.page.setViewportSize({width:Number(data.width),height:Number(data.height)});append(c.role+'-browser-input.jsonl',{unix:Date.now(),kind:'viewport',...data});result={resized:true};}
@@ -222,18 +275,43 @@ async function main() {
     else if(req.url==='/input') {if(data.kind==='click')await c.page.mouse.click(data.x,data.y,{button:data.button||'left'});
       else if(data.kind==='press')await c.page.keyboard.press(data.key);else if(data.kind==='type')await c.page.keyboard.type(data.text);
       else if(data.kind==='scroll')await c.page.mouse.wheel(data.x||0,data.y||0);else throw new Error('Unknown input kind');append(c.role+'-browser-input.jsonl',{unix:Date.now(),...data});result={sent:true};}
+    else if(req.url==='/attack-ui') {
+      if(Object.values(clients).some(client=>client.policy)||!c.matched||c.ended)throw new Error('Stop paid policy and select a living armed unit before the Attack HUD check');
+      for(const point of [data.button,data.destination])if(!point||!Number.isFinite(point.x)||!Number.isFinite(point.y))throw new Error('Supply observed Attack-button and ground coordinates');
+      const before=await c.page.evaluate(()=>window.__aoemLiveWitness.state.commandSerial);
+      const label='attack-hud-'+Date.now();
+      await c.page.screenshot({path:path.join(out,c.role+'-'+label+'-before.png')});
+      await c.page.mouse.click(data.button.x,data.button.y);
+      append(c.role+'-browser-input.jsonl',{unix:Date.now(),kind:'click',purpose:'observed_attack_hud_button',...data.button});
+      await c.page.screenshot({path:path.join(out,c.role+'-'+label+'-armed.png')});
+      await c.page.mouse.click(data.destination.x,data.destination.y);
+      append(c.role+'-browser-input.jsonl',{unix:Date.now(),kind:'click',purpose:'attack_move_ground_destination',...data.destination});
+      let evidence;
+      for(let retry=0;retry<60;retry++) {
+        evidence=await c.page.evaluate(start=>window.__aoemLiveWitness.state.sends.find(e=>e.serial>start&&e.source==='game_ui_or_engine'&&e.packet.command==='attack_move'),before);
+        if(evidence)break;await new Promise(resolve=>setTimeout(resolve,50));
+      }
+      await c.page.screenshot({path:path.join(out,c.role+'-'+label+'-after.png')});
+      const receipt={check:'attack_hud',passed:!!evidence,unix:Date.now(),scope:'Automated browser canvas clicks at observed HUD/ground coordinates; actual game-generated command verified; distinct from root CUA play',evidence,screenshots:[c.role+'-'+label+'-before.png',c.role+'-'+label+'-armed.png',c.role+'-'+label+'-after.png']};
+      c.uiChecks.push(receipt);append(c.role+'-attack-ui.jsonl',receipt);
+      if(!evidence)throw new Error('HUD clicks produced no game-generated attack_move command; A key or ordinary movement is not accepted');
+      result=receipt;
+    }
     else if(req.url==='/start-policy'){if(!Object.values(clients).every(c=>c.matched&&c.last&&!c.ended))throw new Error('Both real UI-created clients must be playing first');Object.values(clients).forEach(c=>c.policy=true);result={started:true};}
     else if(req.url==='/stop-policy'){Object.values(clients).forEach(c=>c.policy=false);result={stopped:true};}
     else if(req.url==='/ui-check'){c.uiChecks.push({...data,unix:Date.now(),scope:'Operator screenshot/input verification'});result={recorded:true};}
-    else if(req.url==='/save'){save('controller-state.json',status());result={saved:true};}
-    else if(req.url==='/shutdown'){Object.values(clients).forEach(c=>c.policy=false);save('controller-state.json',status());clearInterval(timer);await browser.close();result={closed:true};setImmediate(()=>server.close());}
+    else if(req.url==='/save'){await Promise.allSettled(assetTasks);save('controller-state.json',status());result={saved:true};}
+    else if(req.url==='/shutdown'){Object.values(clients).forEach(c=>c.policy=false);await Promise.allSettled(assetTasks);save('controller-state.json',status());clearInterval(timer);await browser.close();if(local)await local.stop();result={closed:true};setImmediate(()=>server.close());}
     else throw new Error('Unknown endpoint');
     res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify(result));
   }catch(error){res.writeHead(400,{'Content-Type':'application/json'});res.end(JSON.stringify({error:String(error)}));}});
-  await new Promise(resolve=>server.listen(port,'127.0.0.1',resolve));
+  await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(port,'127.0.0.1',resolve);});
   console.log(JSON.stringify({ready:true,controller:`http://127.0.0.1:${port}`,output:out,scope:'No match or policy starts automatically. Use actual browser inputs for the lobby.'}));
-  process.on('SIGTERM',async()=>{clearInterval(timer);save('controller-state.json',status());await browser.close();server.close();});
+  let stopping=false;
+  const stop=async()=>{if(stopping)return;stopping=true;clearInterval(timer);save('controller-state.json',status());await browser.close();server.close();if(local)await local.stop();};
+  process.on('SIGTERM',stop);process.on('SIGINT',stop);
+  } catch(error) {if(controllerTimer)clearInterval(controllerTimer);if(controllerServer?.listening)controllerServer.close();if(browser)await browser.close();if(local)await local.stop();throw error;}
 }
 
 if(require.main===module)main().catch(error=>{console.error(error);process.exitCode=1;});
-module.exports={installWitness,planPolicy,placementCandidate};
+module.exports={installWitness,planPolicy,placementCandidate,configureLocalGuards};

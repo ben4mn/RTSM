@@ -9,8 +9,10 @@ var _map: Node2D
 var _overview: StrategyOverview
 var _elapsed: float = 0.0
 var _food_gap_started: float = -1.0
+var _food_low_started: float = -1.0
 const FOOD_ALERT_STARTUP_GRACE := 12.0
 const FOOD_ALERT_GAP_GRACE := 6.0
+const FOOD_LOW_GRACE := 3.0
 
 
 func setup(main: Node, hud: CanvasLayer, map: Node2D) -> void:
@@ -105,7 +107,8 @@ func _refresh() -> void:
 				queued_workers += 1
 		if UnitData.UnitType.VILLAGER in building.trainable_units and building.state == BuildingBase.State.ACTIVE:
 			active_worker_producer = true
-		var status: String = building.building_name
+		# queue[0] is the paid unit already training, so include it in this total.
+		var status: String = "%s · %d in queue" % [building.building_name, queue.queue.size()]
 		if building.state != BuildingBase.State.ACTIVE:
 			status += " · under construction"
 		elif queue.queue.is_empty():
@@ -155,11 +158,12 @@ func _refresh() -> void:
 				selected_military += 1
 	var economy_facts: Dictionary = _observed_food_stock(own_workers)
 	economy_facts.merge({"workers": own_workers.size(), "recovering": int(workers.recovering), "food_workers": int(workers.food), "queued_workers": queued_workers, "refund_food": refund_food, "active_worker_producer": active_worker_producer, "food": ResourceManager.get_resource(0, "food"), "free_population": maxi(0, cap - committed), "reserved_population": maxi(0, committed - pop), "population_room_after_refunds": maxi(0, cap - pop)}, true)
+	var economy: Dictionary = ECONOMY_ASSESSMENT.describe(economy_facts)
 	var farm_missing: Dictionary = ResourceManager.get_missing_resources(0, BuildingData.get_building_cost(BuildingData.BuildingType.FARM))
 	var farm_blocker: String = "Needs a free worker; builders and recovering workers keep their orders." if available_builders == 0 else ("Need %d more wood to build a Farm." % int(farm_missing.get("wood", 0)) if not farm_missing.is_empty() else "Builder starts farming when finished. One worker per Farm.")
 	var barracks_missing: Dictionary = ResourceManager.get_missing_resources(0, BuildingData.get_building_cost(BuildingData.BuildingType.BARRACKS))
 	var barracks_blocker: String = "Needs a free worker. Builders and recovering workers keep their orders." if available_builders == 0 else ("Need %d more wood to build a Barracks." % int(barracks_missing.get("wood", 0)) if not barracks_missing.is_empty() else "Choose a location, then confirm to pay. Train Warriors when construction finishes.")
-	_overview.update_snapshot({"workers": workers, "military": military, "fighters": fighters, "producers": producers, "population_text": population_text, "groups": groups, "group_has_buildings": group_has_buildings, "selection_count": selection_count, "selected_military": selected_military, "economy": ECONOMY_ASSESSMENT.describe(economy_facts), "economy_facts": economy_facts, "food_attention_ready": _update_food_attention(own_workers.size(), int(workers.food), int(workers.recovering)), "can_plan_farm": available_builders > 0 and farm_missing.is_empty(), "farm_blocker": farm_blocker, "can_plan_barracks": available_builders > 0 and barracks_missing.is_empty(), "barracks_blocker": barracks_blocker})
+	_overview.update_snapshot({"workers": workers, "military": military, "fighters": fighters, "producers": producers, "population_text": population_text, "groups": groups, "group_has_buildings": group_has_buildings, "selection_count": selection_count, "selected_military": selected_military, "economy": economy, "economy_facts": economy_facts, "food_attention_ready": _update_food_attention(own_workers.size(), int(workers.food), int(workers.recovering)), "food_low_attention_ready": _update_food_low_attention(economy, int(workers.recovering)), "can_plan_farm": available_builders > 0 and farm_missing.is_empty(), "farm_blocker": farm_blocker, "can_plan_barracks": available_builders > 0 and barracks_missing.is_empty(), "barracks_blocker": barracks_blocker})
 
 
 func _update_food_attention(workers: int, food_workers: int, recovering: int) -> bool:
@@ -171,6 +175,17 @@ func _update_food_attention(workers: int, food_workers: int, recovering: int) ->
 	if _food_gap_started < 0.0 or GameManager.game_time < _food_gap_started:
 		_food_gap_started = GameManager.game_time
 	return GameManager.game_time >= FOOD_ALERT_STARTUP_GRACE and GameManager.game_time - _food_gap_started >= FOOD_ALERT_GAP_GRACE
+
+
+func _update_food_low_attention(economy: Dictionary, recovering: int) -> bool:
+	# Reuse the assessment of visible, actually worked food. A new healthy
+	# source, staffed Farm, loss of food work or recovery clears the grace.
+	if not _playing() or recovering > 0 or str(economy.get("attention", "")) != "Food low!":
+		_food_low_started = -1.0
+		return false
+	if _food_low_started < 0.0 or GameManager.game_time < _food_low_started:
+		_food_low_started = GameManager.game_time
+	return GameManager.game_time >= FOOD_ALERT_STARTUP_GRACE and GameManager.game_time - _food_low_started >= FOOD_LOW_GRACE
 
 
 func _observed_food_stock(workers: Array[Villager]) -> Dictionary:
@@ -363,10 +378,12 @@ func _set_repeat(building: Node2D, enabled: bool) -> void:
 		return
 	if NetworkSession.is_client():
 		var sent: bool = NetworkSession.send_command("repeat", {"target": NetworkSession.entity_id(building), "enabled": enabled})
-		_overview.show_feedback("Repeat %s requested." % ("ON" if enabled else "OFF") if sent else "Connection unavailable. Try again.", sent)
+		var message: String = "Repeat ON requested." if enabled else "Repeat OFF requested. Paid units stay queued."
+		_overview.show_feedback(message if sent else "Connection unavailable. Try again.", sent)
 		_refresh()
 		return
 	queue.auto_queue_enabled = enabled
+	_overview.show_feedback("Repeat ON. New units are paid as space opens." if enabled else "Repeat OFF. Paid units stay queued.")
 	_refresh()
 
 

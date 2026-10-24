@@ -13,7 +13,7 @@ func _run() -> void:
 	var session: Node = root.get_node("NetworkSession")
 	var manager: Node = root.get_node("GameManager")
 	session.set_process(false)
-	session._client_packet({"op": "matched", "slot": 1, "seed": 101, "match": 41})
+	session._client_packet({"op": "matched", "slot": 1, "seed": 101, "match": 41, "civilizations": [0, 0]})
 	for frame: int in 600:
 		await process_frame
 		if is_instance_valid(session.adapter):

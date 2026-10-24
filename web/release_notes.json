@@ -9,8 +9,10 @@
       "changes": [
         "Choose Crownlands for a flexible army and full-strength defenses, Verdant League for a stronger wood economy and long-range Longbows, or Sunstride Clans for faster food harvesting and swift Outriders. Each specialty brings a real tradeoff.",
         "Choose your solo rival's kingdom, or bring your own into an online lobby. Original crests and signature-unit artwork make each choice recognizable. Both online players need this release.",
-        "Army now includes Recruit alongside Groups. Train reinforcements and manage repeat production without finding each military building on the battlefield.",
-        "A worker who finishes a Farm starts farming immediately and keeps any resources already carried. Economy names a sustained food-work gap and explains how to restore production.",
+        "Army now includes Recruit alongside Groups. Train reinforcements without finding each military building. See the full paid queue, understand Repeat and rally choices, and switch pages without moving the shared controls.",
+        "A worker who finishes a Farm starts farming immediately and keeps any resources already carried. Economy warns when worked food runs low and names a sustained food-work gap.",
+        "Solo matches pause when the app or tab goes into the background and wait for you to resume. Online matches keep running.",
+        "Results can explain repeated, witnessed counter-unit losses and suggest a better army mix, using your kingdom's troop names.",
         "The opponent can invest in worker protection, hauling and a useful second Resource Camp when its economy can support them. Army choices consider its kingdom as well as enemies it has seen.",
         "Tapping a visible building roof now selects the building more reliably, while nearby units and transparent space keep their existing selection rules."
       ]

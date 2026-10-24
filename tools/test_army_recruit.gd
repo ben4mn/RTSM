@@ -121,6 +121,8 @@ func _recruit_journey(phone: Vector2i, interface_scale: float) -> void:
 	var first_row: Dictionary = (overview.get("_producer_rows") as Dictionary)[first.get_instance_id()]
 	var train: Button = first_row.train[UnitData.UnitType.INFANTRY]
 	_expect(train.is_visible_in_tree() and train.disabled and not (overview.get("_recruit_empty") as Control).is_visible_in_tree(), "new foundation must appear with disabled training")
+	_expect((first_row.rally as Button).disabled and (first_row.rally as Button).text == "Finish building\nfirst", "foundation Rally must explain that construction must finish")
+	_check_caption_fit(first_row.rally)
 	first.complete_instantly()
 	controller.call("_refresh")
 	await _frames(3)
@@ -203,8 +205,27 @@ func _check_food_alert(controller: Node, overview: StrategyOverview) -> void:
 	GameManager.game_time = 107.0
 	_expect(bool(controller.call("_update_food_attention", 3, 0, 0)), "sustained late food loss must alert")
 	_expect(not bool(controller.call("_update_food_attention", 3, 0, 1)), "sheltering workers must not be mislabeled as neglected food work")
+	var low_facts: Dictionary = {"workers": 3, "food_workers": 1, "worked_food": 20, "visible_food": 20}
+	var low: Dictionary = EconomyAssessment.describe(low_facts)
+	controller.set("_food_low_started", -1.0)
+	GameManager.game_time = 110.0
+	_expect(not bool(controller.call("_update_food_low_attention", low, 0)), "finite worked food must receive a sustained grace before the closed warning")
+	GameManager.game_time = 112.9
+	_expect(not bool(controller.call("_update_food_low_attention", low, 0)), "low-food grace must last three gameplay seconds")
+	GameManager.game_time = 113.0
+	_expect(bool(controller.call("_update_food_low_attention", low, 0)), "sustained low worked food must warn before depletion")
+	for change: Dictionary in [{"worked_food": 500}, {"permanent_food_worked": true}, {"food_workers": 0}, {"workers": 0}]:
+		var recovered: Dictionary = low_facts.duplicate()
+		recovered.merge(change, true)
+		_expect(not bool(controller.call("_update_food_low_attention", EconomyAssessment.describe(recovered), 0)), "retargeting, staffed Farm, no-food or lost-workforce assessment must clear low-food warning: " + str(change))
+		_expect(not bool(controller.call("_update_food_low_attention", low, 0)), "a renewed low-food condition must receive a fresh grace")
+		GameManager.game_time += 3.0
+		_expect(bool(controller.call("_update_food_low_attention", low, 0)), "renewed low-food condition did not mature")
+	_expect(not bool(controller.call("_update_food_low_attention", low, 1)), "recovery must suppress the lower-priority food stock warning")
+	_expect(not bool(controller.call("_update_food_low_attention", low, 0)), "ending recovery must restart the low-food grace")
 	GameManager.game_time = held_time
 	controller.set("_food_gap_started", -1.0)
+	controller.set("_food_low_started", -1.0)
 	var original: Dictionary = (overview.get("_snapshot") as Dictionary).duplicate(true)
 	var alert: Dictionary = original.duplicate(true)
 	alert["food_attention_ready"] = true
@@ -230,6 +251,27 @@ func _check_food_alert(controller: Node, overview: StrategyOverview) -> void:
 	await _capture("closed-no-food")
 	overview.update_snapshot(original)
 	_expect(economy.text == "Economy", "resumed food income must restore the ordinary rail label")
+	var low_alert: Dictionary = original.duplicate(true)
+	low_alert["food_attention_ready"] = false
+	low_alert["food_low_attention_ready"] = true
+	low_alert["economy"] = low
+	overview.update_snapshot(low_alert)
+	_expect(economy.text == "Food low" and economy.icon == CommandIcons.get_icon("food"), "closed rail must surface the sustained finite-food warning")
+	caption_size = economy.get_theme_font("font").get_string_size(economy.text, HORIZONTAL_ALIGNMENT_LEFT, -1, economy.get_theme_font_size("font_size"))
+	_expect(caption_size.x + padding.x <= economy.size.x and caption_size.y + 20.0 + padding.y + 1.0 <= economy.size.y, "Food low must fit the existing 48px rail")
+	await _button(economy)
+	await _button(overview.get("_workers_tab"))
+	_expect(summary.is_visible_in_tree() and summary.text == "Worked food running low\nScout berries or plan a Farm." and summary.get_line_count() <= 2, "Workers must show the proactive food lesson in two lines")
+	_expect(scroll.get_global_rect().encloses(summary.get_global_rect()) and scroll.get_global_rect().encloses((overview.get("_farm_button") as Button).get_global_rect()), "low-food guidance must fit alongside the paid Farm action")
+	_expect((_hud.call("get_world_safe_rect") as Rect2).encloses(overview.panel.get_global_rect()), "low-food guidance must fit the phone safe area")
+	await _capture("workers-food-low")
+	await _button(economy)
+	_expect(economy.text == "Food low", "closing Workers must restore the sustained low-food label")
+	low_alert["food_attention_ready"] = true
+	overview.update_snapshot(low_alert)
+	_expect(economy.text == "No food", "missing food income takes priority over low stock")
+	overview.update_snapshot(original)
+	_expect(economy.text == "Economy", "resolved finite-food warning must restore the ordinary rail label")
 
 
 func _check_recruit_bounds(overview: StrategyOverview) -> void:

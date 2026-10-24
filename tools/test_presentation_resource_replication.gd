@@ -38,7 +38,7 @@ func _run() -> void:
 func _case(archetype: int, slot: int) -> void:
 	session.leave_match()
 	var match_id: int = 90 + archetype * 2 + slot
-	session._client_packet({"op": "matched", "slot": slot, "seed": 101, "match": match_id, "map_archetype": archetype})
+	session._client_packet({"op": "matched", "slot": slot, "seed": 101, "match": match_id, "map_archetype": archetype, "civilizations": [0, 0]})
 	for frame: int in range(900):
 		await process_frame
 		if is_instance_valid(session.adapter): break

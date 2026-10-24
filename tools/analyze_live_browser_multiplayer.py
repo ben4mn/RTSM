@@ -5,6 +5,7 @@ import hashlib
 import json
 import sys
 from pathlib import Path
+from urllib.parse import urlsplit
 
 
 def read(path, default=None):
@@ -13,6 +14,48 @@ def read(path, default=None):
 
 def lines(path):
     return [json.loads(line) for line in path.read_text().splitlines() if line.strip()] if path.exists() else []
+
+
+def local_gates(folder, invocation, role):
+    """Local claims require actual routing, artifact bytes and rendered input receipts."""
+    initial = read(folder / 'local-source-initial.json', {})
+    final = read(folder / 'local-source-final.json', {})
+    ready = read(folder / 'local-authority-ready.json', {})
+    endpoint = invocation.get('match_url')
+    try:
+        parsed_endpoint = urlsplit(endpoint or '')
+        loopback_endpoint = parsed_endpoint.scheme == 'ws' and parsed_endpoint.hostname == '127.0.0.1' and parsed_endpoint.port is not None and parsed_endpoint.path == '/match' and not (parsed_endpoint.username or parsed_endpoint.password or parsed_endpoint.query or parsed_endpoint.fragment)
+    except (TypeError, ValueError):
+        loopback_endpoint = False
+    routes = lines(folder / f'{role}-socket_route.jsonl')
+    guards = lines(folder / f'{role}-endpoint-guard.jsonl')
+    bodies = lines(folder / f'{role}-asset-bytes.jsonl')
+    expected = initial.get('artifact', {}).get('files', {})
+    verified_files = {row.get('file') for row in bodies if isinstance(expected.get(row.get('file')), str) and len(expected[row['file']]) == 64 and row.get('expected') == expected[row['file']] and row.get('sha256') == expected[row['file']] and row.get('bytes', 0) > 0}
+    attacks = lines(folder / f'{role}-attack-ui.jsonl')
+    origins = lines(folder / f'{role}-command_origin.jsonl')
+    wire = lines(folder / f'{role}-sent.jsonl')
+    inputs = lines(folder / f'{role}-browser-input.jsonl')
+    valid_attack = False
+    for check in attacks:
+        evidence = check.get('evidence') or {}
+        command = evidence.get('packet', {})
+        if not (check.get('passed') is True and evidence.get('source') == 'game_ui_or_engine' and command.get('command') == 'attack_move' and command.get('ids')):
+            continue
+        matching_origin = any(row.get('serial') == evidence.get('serial') and row.get('packet') == command and row.get('source') == 'game_ui_or_engine' for row in origins)
+        matching_wire = any(row.get('packet') == command for row in wire)
+        screenshots = check.get('screenshots', [])
+        safe_screenshots = len(screenshots) == 3 and all(isinstance(name, str) and Path(name).name == name and (folder / name).is_file() for name in screenshots)
+        actual_clicks = all(any(row.get('kind') == 'click' and row.get('purpose') == purpose for row in inputs) for purpose in ('observed_attack_hud_button', 'attack_move_ground_destination'))
+        valid_attack |= matching_origin and matching_wire and safe_screenshots and actual_clicks
+    return {
+        'sealed_local_source_unchanged': final.get('completed') is True and final.get('production_artifacts_unchanged') is True and final.get('private_runtime_unchanged') is True,
+        'owned_authority_endpoint': loopback_endpoint and ready.get('match_url') == endpoint and ready.get('source_revision') == initial.get('authority', {}).get('source_revision') and ready.get('pid') == initial.get('server_pid'),
+        'exact_endpoint_redirection': bool(routes) and all(row.get('blocked') is False and row.get('resolved') == endpoint and row.get('requested') in ('wss://game.4mn.org/match', endpoint) for row in routes),
+        'no_unapproved_socket_reached_browser_transport': bool(guards) and all(row.get('allowed') is True and row.get('url') == endpoint for row in guards),
+        'loaded_engine_bytes_match_sealed_export': {'index.js', 'index.wasm', 'index.pck'} <= verified_files,
+        'actual_attack_hud_generated_attack_move': valid_attack,
+    }
 
 
 def analyze(folder):
@@ -99,6 +142,8 @@ def analyze(folder):
             for key in ('built', 'damage', 'enemy_visible', 'age_progression', 'research', 'unit_destruction', 'building_destruction_including_paid_demolition'):
                 gates.pop(key)
             gates['paid_scout_observed'] = '4' in coverage['units']
+        if invocation.get('mode') == 'local-sealed':
+            gates.update(local_gates(folder, invocation, role))
         failures.extend(f'{role}: {key}' for key, value in gates.items() if not value)
         clients[role] = {'matched': matched, 'ended': terminal.get('ended'),
                          'last_game_seconds': latest.get('time'),
@@ -146,7 +191,7 @@ def analyze(folder):
     report = {'passed': not failures, 'failures': failures, 'scenario': scenario, 'identity_and_result_agreement': agreement,
               'same_tick_comparison': counters, 'same_tick_mismatches': mismatches[:100], 'clients': clients,
               'controller_errors': controller_errors,
-              'scope': 'Two actual deployed browser contexts. UI lobby and recorded keyboard actions; test-only ordinary paid WebSocket gameplay policy. Evidence is passive transport, rendered screenshots and operator UI checks. No direct browser-replica inspection, physical phone test or performance claim.',
+              'scope': invocation.get('scope', 'Two actual deployed browser contexts. UI lobby and recorded keyboard actions; test-only ordinary paid WebSocket gameplay policy. Evidence is passive transport, rendered screenshots and operator UI checks. No direct browser-replica inspection, physical phone test or performance claim.'),
               'private_state_scope': 'Each owner bank/player/research is retained from that client authority packet; opposite private banks are not expected to match. Farm claims, exact worker resource/dropoff target IDs and physical spacing are not exposed by this protocol.'}
     report['raw_evidence_sha256'] = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(folder.iterdir()) if p.is_file() and p.name != 'analysis.json'}
     (folder / 'analysis.json').write_text(json.dumps(report, indent=2) + '\n')

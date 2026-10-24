@@ -56,6 +56,7 @@ func _exercise(phone: Vector2i, scale: float, notched: bool) -> void:
 	_profile_size = Vector2(size)
 	_profile_safe = safe
 	var tag := "%s %.3f notch=%s" % [phone, scale, notched]
+	_check_civilization_copy(hud, tag)
 	hud.call("set_selection_context_revision", 1)
 	hud.call("show_unit_selection", "Scout", 110, 110, "Idle", 2, {"unit_type": UnitData.UnitType.SCOUT})
 	hud.call("configure_unit_commands", true, true)
@@ -135,6 +136,7 @@ func _exercise(phone: Vector2i, scale: float, notched: bool) -> void:
 	var train: Button = (hud.get("_train_buttons_container") as Control).get_node("TrainButton_0")
 	var train_info: Dictionary = (train.get_meta("hud_hold_control") as Node).call("get_info")
 	var repeat_info: Dictionary = hud.call("_repeat_information")
+	_expect(str(repeat_info.body).contains("Repeat OFF leaves paid units queued") and str(repeat_info.body).contains("Clear & stop refunds them"), tag + " Repeat Info must distinguish stopping future orders from refunding paid units")
 	_expect(body.contains(str(train_info.body)), tag + " tap Info omitted full Train inspection")
 	_expect(body.contains(str(repeat_info.body)), tag + " tap Info omitted Repeat cost/wait inspection")
 	_expect(body.contains("Refunds the full paid resource cost and releases reserved population."), tag + " tap Info omitted refund inspection")
@@ -233,6 +235,38 @@ func _drag(view: SubViewport, index: int, point: Vector2) -> void:
 	event.relative = Vector2(30, 10)
 	view.push_input(event, true)
 	await _frames()
+
+
+func _check_civilization_copy(hud: CanvasLayer, tag: String) -> void:
+	var original_own: int = int(GameManager.players[0].civilization)
+	var original_enemy: int = int(GameManager.players[1].civilization)
+	var palette := preload("res://scripts/ui/build_menu.gd").new()
+	var building := BuildingBase.new()
+	building.state = BuildingBase.State.ACTIVE
+	for civilization: int in CivilizationData.ORDERED_IDS:
+		GameManager.players[0].civilization = civilization
+		GameManager.players[1].civilization = (civilization + 1) % CivilizationData.ORDERED_IDS.size()
+		for owner: int in [0, 1]:
+			building.player_owner = owner
+			building.building_type = BuildingData.BuildingType.ARCHERY_RANGE
+			var archers: String = "Longbows" if GameManager.get_player_civilization(owner) == CivilizationData.Civilization.VERDANT_LEAGUE else "Archers"
+			_expect(hud.call("_building_purpose", building) == "Trains " + archers, tag + " Range purpose must name its owner's actual troops")
+			building.building_type = BuildingData.BuildingType.STABLE
+			var cavalry: String = "Outriders" if GameManager.get_player_civilization(owner) == CivilizationData.Civilization.SUNSTRIDE_CLANS else "Horsemen"
+			_expect(hud.call("_building_purpose", building) == "Trains " + cavalry, tag + " Stable purpose must name its owner's actual troops with the correct plural")
+			palette.player_owner = owner
+			var tooltip: String = palette.call("_format_tooltip", BuildingData.get_building_stats(BuildingData.BuildingType.STABLE, owner), BuildingData.BuildingType.STABLE)
+			_expect(tooltip.contains("Train " + cavalry) and not tooltip.contains("Horsemans"), tag + " Stable build information must use its owner's cavalry name")
+			tooltip = palette.call("_format_tooltip", BuildingData.get_building_stats(BuildingData.BuildingType.ARCHERY_RANGE, owner), BuildingData.BuildingType.ARCHERY_RANGE)
+			_expect(tooltip.contains("Train " + archers), tag + " Range build information must use its owner's archer name")
+		hud.call("show_unit_selection", "Scout", 110, 110, "Idle", 1, {"unit_type": UnitData.UnitType.SCOUT, "player_owner": 0})
+		var info: Dictionary = hud.call("_selection_information")
+		var own_archers: String = "Longbows" if civilization == CivilizationData.Civilization.VERDANT_LEAGUE else "Archers"
+		_expect(str(info.body).contains("reinforce with Warriors or " + own_archers), tag + " Scout advice must name available own-civilization reinforcements")
+	GameManager.players[0].civilization = original_own
+	GameManager.players[1].civilization = original_enemy
+	building.free()
+	palette.free()
 
 
 func _frames() -> void:

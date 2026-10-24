@@ -325,7 +325,7 @@ func _build_army() -> void:
 func _build_army_notes() -> void:
 	# A deliberate Info page: tactics stay available without another field banner.
 	var notes: Array[Dictionary] = [
-		{"icon": "move", "title": "01  Assemble", "body": "Tap ground to assemble. Let Warriors catch up with Horsemen."},
+		{"icon": "move", "title": "01  Assemble", "body": "Tap ground to assemble. Let Warriors catch up with cavalry."},
 		{"icon": "attack", "title": "02  Commit together", "body": "Hold ground to attack-move. Fight enemies along your route."},
 		{"icon": "rally", "title": "03  Preserve your army", "body": "Tap safe ground to withdraw. Rally fresh recruits nearby."},
 	]
@@ -387,7 +387,9 @@ func update_snapshot(snapshot: Dictionary) -> void:
 	_summary.text = "%d workers · %d building · %d recovering" % [worker_count, int(workers.get("build", 0)), int(workers.get("recovering", 0))]
 	if bool(snapshot.get("food_attention_ready", false)):
 		_summary.text = "No food income\nAssign food workers or build a Farm."
-	_summary.add_theme_color_override("font_color", KingdomTheme.PARCHMENT if warnings.is_empty() else KingdomTheme.AMBER)
+	elif bool(snapshot.get("food_low_attention_ready", false)):
+		_summary.text = "Worked food running low\nScout berries or plan a Farm."
+	_summary.add_theme_color_override("font_color", KingdomTheme.AMBER if not warnings.is_empty() or bool(snapshot.get("food_low_attention_ready", false)) else KingdomTheme.PARCHMENT)
 	_economy_health.text = ""
 	if int(economy.get("severity", 0)) > 0:
 		_economy_health.text = "%s\n%s" % [str(economy.get("title", "")), str(economy.get("detail", ""))]
@@ -452,7 +454,8 @@ func _refresh_producers(producers: Array) -> void:
 		row["military"] = bool(producer.get("military", false))
 		(row.status as Label).text = str(producer.get("status", ""))
 		var queue: Array = producer.get("queue", [])
-		(row.paid as Label).text = "Paid queue: " + (" / ".join(queue) if not queue.is_empty() else "empty")
+		(row.paid as Label).text = "Repeat ON pays for new units automatically." if bool(producer.get("repeat_enabled", false)) else "Repeat OFF keeps paid units queued."
+		(row.paid as Label).tooltip_text = "Turning Repeat OFF stops future purchases. Already-paid units keep training; Clear & stop refunds them."
 		var repeat_type: int = int(producer.get("repeat_type", -1))
 		var repeat_button: Button = row.repeat
 		apply_repeat_caption(repeat_button, repeat_type, bool(producer.get("repeat_enabled", false)))
@@ -460,11 +463,20 @@ func _refresh_producers(producers: Array) -> void:
 		repeat_button.disabled = repeat_type < 0 or not bool(producer.get("active", false))
 		(row.undo as Button).disabled = queue.is_empty()
 		(row.clear as Button).disabled = queue.is_empty() and not bool(producer.get("repeat_enabled", false))
-		(row.rally as Button).disabled = int(_snapshot.get("selected_military", 0)) <= 0 or not bool(producer.get("active", false))
+		var rally: Button = row.rally
+		var active: bool = bool(producer.get("active", false))
+		var army_selected: bool = int(_snapshot.get("selected_military", 0)) > 0
+		rally.disabled = not army_selected or not active
+		var rally_caption: String = "Rally to army" if army_selected else "Select army\nfirst"
+		var rally_help: String = "Rally future recruits to the selected army's current location. Existing units keep their orders." if army_selected else "Select your own troops first, then rally future recruits to their current location."
+		if not active:
+			rally_caption = "Finish building\nfirst"
+			rally_help = "Rally becomes available when this building is complete. Select your own troops to choose their location."
+		CommandIcons.apply(rally, "rally", rally_help, rally_caption)
 		(row.sacred as Button).disabled = not bool(producer.get("sacred_available", false)) or not bool(producer.get("active", false))
 		(row.rally_status as Label).text = str(producer.get("rally_status", ""))
 		row["queue_size"] = queue.size()
-		(row.status as Label).tooltip_text = "%s\n%s\n%s" % [str(producer.get("status", "")), " / ".join(queue), str(producer.get("rally_status", ""))]
+		(row.status as Label).tooltip_text = "%s\nQueue includes the unit currently training.\n%s\n%s" % [str(producer.get("status", "")), " / ".join(queue), str(producer.get("rally_status", ""))]
 		for unit_type: int in row.train:
 			var button: Button = row.train[unit_type]
 			button.disabled = not bool(producer.get("active", false))
@@ -487,7 +499,7 @@ static func apply_repeat_caption(button: Button, unit_type: int, enabled: bool) 
 	var full_name: String = UnitData.get_unit_name(unit_type, 0) if unit_type >= 0 else "Train first"
 	# The recruitment card and accessible action retain the full unit name.
 	var caption: String = "Siege" if unit_type == UnitData.UnitType.SIEGE else full_name
-	CommandIcons.apply(button, "repeat", "Repeat %s: %s. Each training order is paid." % [full_name, state], "%s\n%s" % [caption, state])
+	CommandIcons.apply(button, "repeat", "Repeat %s: %s. Each training order is paid. Turning Repeat OFF leaves paid units queued; Clear & stop refunds them." % [full_name, state], "%s\n%s" % [caption, state])
 
 
 func _create_producer(producer: Dictionary) -> void:
@@ -505,8 +517,9 @@ func _create_producer(producer: Dictionary) -> void:
 	status.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	content.add_child(status)
 	var paid := _label("", 12)
+	paid.autowrap_mode = TextServer.AUTOWRAP_OFF
+	paid.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	content.add_child(paid)
-	paid.hide()
 	var training := HBoxContainer.new()
 	training.add_theme_constant_override("separation", 6)
 	content.add_child(training)
@@ -673,9 +686,10 @@ func _refresh_pages() -> void:
 	var ids: Array[int] = _visible_producer_ids()
 	var empty_recruit: bool = recruiting and ids.is_empty()
 	var food_alert: bool = bool(_snapshot.get("food_attention_ready", false)) and not economy_open
-	var economy_caption: String = "No food" if food_alert else "Economy"
+	var food_low_alert: bool = bool(_snapshot.get("food_low_attention_ready", false)) and not economy_open
+	var economy_caption: String = "No food" if food_alert else "Food low" if food_low_alert else "Economy"
 	if _economy_button.text != economy_caption:
-		CommandIcons.apply_labeled(_economy_button, "food" if food_alert else "economy", _economy_button.accessibility_name, economy_caption)
+		CommandIcons.apply_labeled(_economy_button, "food" if food_alert or food_low_alert else "economy", _economy_button.accessibility_name, economy_caption)
 	_economy.visible = (economy_open or recruiting) and not _details_page and not empty_recruit
 	_details.visible = (economy_open or recruiting) and _details_page and not empty_recruit
 	_army.visible = army_open and not _army_recruit_page and not _details_page
@@ -819,7 +833,8 @@ func apply_layout(safe: Rect2, field_visible: bool, card_area: Rect2, dock_heigh
 	var card_right: float = minf(card_area.end.x - 8.0, rail.position.x - 8.0)
 	_sheet_width = minf(SHEET_MAX_WIDTH, card_right - card_left)
 	_fit_economy_rows(_sheet_width)
-	var card_height: float = minf(310.0, card_area.size.y - 16.0)
+	var sheet_slot_height: float = minf(310.0, card_area.size.y - 16.0)
+	var card_height: float = sheet_slot_height
 	if (_surface == "economy" or _army_recruit_page) and _details_page:
 		card_height = minf(card_height, 240.0)
 	if _surface == "army":
@@ -832,7 +847,10 @@ func apply_layout(safe: Rect2, field_visible: bool, card_area: Rect2, dock_heigh
 	card_height = maxf(card_height, _last_panel_minimum.y)
 	var card_size := Vector2(_sheet_width, card_height)
 	var centered: Vector2 = card_area.position + (card_area.size - card_size) * 0.5
-	panel.position = Vector2(clampf(centered.x, card_left, card_right - card_size.x), clampf(centered.y, safe.position.y, maxf(safe.position.y, safe.end.y - card_size.y)))
+	# Keep the tabs and close button at one vertical anchor while changing pages.
+	# Compact pages still expose more battlefield below their shorter body.
+	var header_top: float = card_area.position.y + (card_area.size.y - sheet_slot_height) * 0.5
+	panel.position = Vector2(clampf(centered.x, card_left, card_right - card_size.x), clampf(header_top, safe.position.y, maxf(safe.position.y, safe.end.y - card_size.y)))
 	panel.size = card_size
 	panel.visible = field_visible and _surface in ["economy", "army"]
 
@@ -886,6 +904,6 @@ func _on_gui_contact(event: InputEvent) -> void:
 
 
 func set_attention(action: String, pulse: float) -> void:
-	var economy_color: Color = KingdomTheme.AMBER if bool(_snapshot.get("food_attention_ready", false)) and _surface != "economy" else Color.WHITE
+	var economy_color: Color = KingdomTheme.AMBER if (bool(_snapshot.get("food_attention_ready", false)) or bool(_snapshot.get("food_low_attention_ready", false))) and _surface != "economy" else Color.WHITE
 	_economy_button.modulate = Color(1.0, pulse, 0.62) if action == "idle_button" else economy_color
 	_army_button.modulate = Color(1.0, pulse, 0.62) if action == "military_button" else Color.WHITE

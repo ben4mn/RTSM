@@ -115,7 +115,7 @@ func _snapshot_for(slot: int) -> Dictionary:
 	var player: Dictionary = GameManager.players[slot].duplicate()
 	player.erase("units")
 	player.erase("buildings")
-	return {"tick": _snapshot_number, "time": GameManager.game_time, "civilizations": [GameManager.get_player_civilization(0), GameManager.get_player_civilization(1)], "actors": actors, "resources": resources, "bank": ResourceManager.get_all_resources(slot), "player": player, "upgrades": GameManager.player_upgrades[slot], "research": GameManager.researched_upgrades[slot], "stats": main._stats[slot], "site": {"state": site.state, "owner": site.owning_player, "capture": site.capture_progress, "timer": site.victory_timer, "hold": site.victory_hold_time}}
+	return {"tick": _snapshot_number, "time": GameManager.game_time, "civilizations": [GameManager.get_player_civilization(0), GameManager.get_player_civilization(1)], "actors": actors, "resources": resources, "bank": ResourceManager.get_all_resources(slot), "player": player, "upgrades": GameManager.player_upgrades[slot], "research": GameManager.researched_upgrades[slot], "stats": main._stats[slot], "battle": main._battle_receipts.get_summary(slot), "site": {"state": site.state, "owner": site.owning_player, "capture": site.capture_progress, "timer": site.victory_timer, "hold": site.victory_hold_time}}
 
 func apply_snapshot(snapshot: Dictionary) -> void:
 	GameManager.game_time = float(snapshot.get("time", 0.0))
@@ -132,6 +132,9 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 	GameManager.player_upgrades[0] = snapshot.get("upgrades", {})
 	GameManager.researched_upgrades[0] = snapshot.get("research", [])
 	main._stats[0] = snapshot.get("stats", main._stats[0])
+	# These are only this recipient's observed losses. No opponent receipt or
+	# hidden attacker identity crosses the authority boundary.
+	main._battle_receipts.apply_local_summary(snapshot.get("battle", {}))
 	var bank: Dictionary = snapshot.get("bank", {})
 	for resource: String in ResourceManager.RESOURCE_NAMES:
 		var amount: int = int(bank.get(resource, 0))

@@ -4,6 +4,8 @@ extends Node2D
 
 const WEB_SHELL_BRIDGE := preload("res://scripts/ui/web_shell_bridge.gd")
 const GROUP_ORDER_PLANNER := preload("res://scripts/main/group_order_planner.gd")
+const MATCH_BACKGROUND_GUARD := preload("res://scripts/main/match_background_guard.gd")
+var _match_background_guard: Node = null
 
 # --- Unit scenes ---
 var _unit_scenes: Dictionary = {
@@ -114,10 +116,10 @@ var _hints_shown: int = 0
 var _guided_opening_active: bool = true
 var _guided_stage: GuidedOpeningStage = GuidedOpeningStage.GATHER_FOOD
 const HINTS: Array = [
-	{"time": 14.0, "text": "Pause any time from the top-right button if you need to stop and reorient.", "color": Color(0.95, 0.86, 0.56)},
+	{"time": 14.0, "context": "pause", "text": "Pause any time from the top-right button if you need to stop and reorient.", "color": Color(0.95, 0.86, 0.56)},
 	{"time": 42.0, "text": "Drag on open terrain to pan camera. Tap the minimap to jump view.", "color": Color(0.7, 0.8, 1.0)},
 	{"time": 75.0, "text": "Tap ground to move. Attack fights on the way. Double-tap ground to clear selection.", "color": Color(0.65, 0.82, 1.0)},
-	{"time": 105.0, "text": "Train a scout from your Town Center to reveal more map quickly.", "color": Color(0.7, 0.8, 1.0)},
+	{"time": 105.0, "context": "scout", "text": "Train a scout from your Town Center to reveal more map quickly.", "color": Color(0.7, 0.8, 1.0)},
 	{"time": 180.0, "text": "Sacred Site is at map center. Complete its control clock to win, or destroy the enemy Town Center.", "color": Color(0.85, 0.7, 1.0)},
 ]
 var _milestone_first_house: bool = false
@@ -148,7 +150,9 @@ var _military_shortcut_selected_count: int = 0
 var _military_shortcut_selected_paths: Array[String] = []
 
 const MATCH_LEARNING_SCRIPT := preload("res://scripts/main/match_learning.gd")
+const BATTLE_RECEIPTS_SCRIPT := preload("res://scripts/main/battle_receipts.gd")
 var _match_learning: RefCounted = MATCH_LEARNING_SCRIPT.new()
+var _battle_receipts: RefCounted = BATTLE_RECEIPTS_SCRIPT.new()
 @export var match_learning_diagnostics: Dictionary = {}
 
 # --- First-session telemetry (read via MCP node.get_properties on /root/Main) ---
@@ -206,9 +210,16 @@ func _ready() -> void:
 	GameManager.game_state_changed.connect(_on_game_state_changed)
 	# Wait for map generation to finish.
 	game_map.map_ready.connect(_on_map_ready)
+	_match_background_guard = MATCH_BACKGROUND_GUARD.new()
+	_match_background_guard.background_changed.connect(_on_match_background_changed)
+	add_child(_match_background_guard)
 
 
 func _on_game_state_changed(state: int) -> void:
+	if state == GameManager.GameState.PLAYING:
+		# set_state emits before it updates SceneTree.paused. A nested pause
+		# here would otherwise be overwritten by the outer PLAYING transition.
+		_pause_offline_if_backgrounded.call_deferred()
 	var is_modal: bool = state == GameManager.GameState.PAUSED or state == GameManager.GameState.GAME_OVER or state == GameManager.GameState.MENU
 	WEB_SHELL_BRIDGE.set_controls_visible(is_modal)
 	if is_modal:
@@ -217,6 +228,21 @@ func _on_game_state_changed(state: int) -> void:
 			game_map.selection_mgr.cancel_touch_gesture()
 		if _building_placement != null:
 			_building_placement.cancel_touch_gesture()
+
+
+func _on_match_background_changed(backgrounded: bool) -> void:
+	if backgrounded:
+		_pause_offline_if_backgrounded()
+
+
+func _pause_offline_if_backgrounded() -> void:
+	if not is_instance_valid(_match_background_guard) or not _match_background_guard.backgrounded:
+		return
+	if NetworkSession.is_network_match() or NetworkSession.server_mode:
+		return
+	if GameManager.current_state != GameManager.GameState.PLAYING or _building_placement == null:
+		return
+	_on_pause_requested()
 
 
 func _resolve_ai_difficulty() -> int:
@@ -476,6 +502,7 @@ func _on_map_ready(map_gen: MapGenerator) -> void:
 	_sacred_control_owner = -1
 	_sacred_last_remaining = -1.0
 	_match_learning = MATCH_LEARNING_SCRIPT.new()
+	_battle_receipts = BATTLE_RECEIPTS_SCRIPT.new()
 	match_learning_diagnostics = {}
 	_guided_opening_active = bool(GameManager.guided_opening_enabled) and not NetworkSession.is_network_match()
 	_guided_stage = GuidedOpeningStage.GATHER_FOOD
@@ -903,6 +930,8 @@ func _on_pause_requested() -> void:
 
 func _on_resume_requested() -> void:
 	if GameManager.current_state != GameManager.GameState.PAUSED:
+		return
+	if not NetworkSession.is_network_match() and is_instance_valid(_match_background_guard) and _match_background_guard.backgrounded:
 		return
 	GameManager.set_paused(false)
 	_sync_hud_modal_state()
@@ -1447,6 +1476,7 @@ func _spawn_unit(
 
 	# Track unit death.
 	unit.unit_died.connect(_on_unit_died.bind(player_id))
+	unit.attack_landed.connect(_on_unit_attack_landed)
 
 	# Under-attack detection for player units.
 	if player_id == 0:
@@ -1462,6 +1492,21 @@ func _spawn_unit(
 		ai_controller.register_unit(unit)
 
 	return unit
+
+
+func _on_unit_attack_landed(attacker: UnitBase, defender: UnitBase, hp_loss: float, _counter_bonus: float) -> void:
+	# Only real lethal impacts observed by the victim's side become a lesson.
+	# A final score or a hidden enemy never supplies a guessed killer.
+	if NetworkSession.is_client() or not is_instance_valid(attacker) or not is_instance_valid(defender):
+		return
+	if hp_loss <= 0.0 or defender.hp > 0.0 or attacker.player_owner == defender.player_owner:
+		return
+	if attacker.player_owner not in [0, 1] or defender.player_owner not in [0, 1]:
+		return
+	if attacker.unit_type not in BATTLE_RECEIPTS_SCRIPT.CORE_TYPES or defender.unit_type not in BATTLE_RECEIPTS_SCRIPT.CORE_TYPES:
+		return
+	var observed: bool = is_instance_valid(game_map) and game_map.is_entity_visible_to_player(attacker, defender.player_owner)
+	_battle_receipts.record_loss(defender.player_owner, defender.unit_type, attacker.unit_type, observed)
 
 
 func _on_unit_trained(unit_type: int, player_id: int, source_queue: ProductionQueue) -> void:
@@ -3274,6 +3319,30 @@ func _on_ai_attack_launched(_units: Array, _target_pos: Vector2) -> void:
 var _minimap_timer: float = 0.0
 var _selection_refresh_timer: float = 0.0
 
+func _update_timed_hints(delta: float) -> void:
+	if _hints_shown >= HINTS.size():
+		return
+	_hint_timer += delta
+	while _hints_shown < HINTS.size() and _hint_timer >= HINTS[_hints_shown]["time"]:
+		var hint: Dictionary = HINTS[_hints_shown]
+		if _is_timed_hint_relevant(hint):
+			hud.show_notification(hint["text"], hint["color"])
+		_hints_shown += 1
+
+
+func _is_timed_hint_relevant(hint: Dictionary) -> bool:
+	match str(hint.get("context", "")):
+		"pause":
+			return _pause_open_count == 0
+		"scout":
+			if _opening_scout_queued or _has_queued_unit(BuildingData.BuildingType.TOWN_CENTER, UnitData.UnitType.SCOUT):
+				return false
+			for unit: UnitBase in _player_units[0]:
+				if is_instance_valid(unit) and unit.current_state != UnitBase.State.DEAD and unit.unit_type == UnitData.UnitType.SCOUT:
+					return false
+	return true
+
+
 func _process(delta: float) -> void:
 	if GameManager.current_state != GameManager.GameState.PLAYING:
 		return
@@ -3301,12 +3370,7 @@ func _process(delta: float) -> void:
 	# Tick under-attack cooldown
 	if _under_attack_cooldown > 0.0:
 		_under_attack_cooldown -= delta
-	# Early game hints
-	if _hints_shown < HINTS.size():
-		_hint_timer += delta
-		while _hints_shown < HINTS.size() and _hint_timer >= HINTS[_hints_shown]["time"]:
-			hud.show_notification(HINTS[_hints_shown]["text"], HINTS[_hints_shown]["color"])
-			_hints_shown += 1
+	_update_timed_hints(delta)
 	# Update minimap, idle count, and score once per second
 	_minimap_timer += delta
 	if _minimap_timer >= 1.0:
@@ -3665,6 +3729,9 @@ func _show_game_over() -> void:
 		"sacred_control_seconds": int(round(_sacred_control_seconds[0])),
 		"ai_sacred_control_seconds": int(round(_sacred_control_seconds[1])),
 		"learning": _match_learning.get_summary(),
+		"battle": _battle_receipts.get_summary(0),
+		"player_civilization": GameManager.get_player_civilization(0),
+		"opponent_civilization": GameManager.get_player_civilization(1),
 	}
 	match_summary_diagnostics = stats.duplicate(true)
 	match_summary_diagnostics["winner_id"] = winner_id

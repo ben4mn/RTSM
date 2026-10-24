@@ -133,6 +133,7 @@ func _strategy_journey(phone: Vector2i, interface_scale: float, notched: bool, l
 	_expect(overview.panel.get_global_rect().end.x <= overview.rail.get_global_rect().position.x - 7.5, "sheet minimum consumes the reserved 8px launcher gap")
 	_expect(overview.panel.size.x <= 480.5, "management sheet exceeds the compact 480px maximum")
 	var economy_height: float = overview.panel.size.y
+	var management_header_top: float = overview.panel.get_global_rect().position.y
 	var farm_button: Button = overview.get("_farm_button")
 	_expect(farm_button.text.contains("75W") and farm_button.text.contains("Unlimited food"), "Farm loses its visible paid cost and permanent food")
 	_expect((overview.get("_farm_blocker") as Label).text == str(snapshot.get("farm_blocker", "")), "Farm blocker or paid-placement instruction was discarded")
@@ -146,6 +147,21 @@ func _strategy_journey(phone: Vector2i, interface_scale: float, notched: bool, l
 	var rows: Dictionary = overview.get("_producer_rows")
 	var row: Dictionary = rows[tc.get_instance_id()]
 	var train: Button = row.train[UnitData.UnitType.VILLAGER]
+	_expect((row.status as Label).text.contains("0 in queue"), "idle producer must state that no paid units remain")
+	_selection.deselect_all()
+	controller.call("_refresh")
+	await _frames(2)
+	_expect((row.rally as Button).disabled and (row.rally as Button).text == "Select army\nfirst" and (row.rally as Button).tooltip_text.contains("your own troops"), "disabled Rally must visibly explain the own-army selection requirement")
+	_check_caption_fit(row.rally)
+	_selection.select_single(_main.get("_player_units")[0][0])
+	controller.call("_refresh")
+	_expect((row.rally as Button).disabled, "selecting a worker must not imply that an army rally is available")
+	_selection.select_single(scout)
+	controller.call("_refresh")
+	_expect(not (row.rally as Button).disabled and (row.rally as Button).text == "Rally to army", "own military selection must restore Rally's usable caption")
+	# Deliberate selection changes close management; reopen through its real rail.
+	await _button(economy_button)
+	_expect(_hud.call("get_secondary_surface_name") == "economy", "returning from rally selection must reopen Economy normally")
 	_expect((row.repeat as Button).text.contains("Scout") and (row.repeat as Button).text.contains("OFF"), "Repeat must visibly identify the previously paid Scout and its OFF state")
 	var villager_food_cost: int = int(UnitData.get_unit_cost(UnitData.UnitType.VILLAGER).get("food", 0))
 	_expect(train.icon != null and train.text.contains("Villager") and train.text.contains("%dF" % villager_food_cost), "remote producer loses unit portrait, name or paid cost")
@@ -176,12 +192,28 @@ func _strategy_journey(phone: Vector2i, interface_scale: float, notched: bool, l
 	await _button(overview.get("_production_tab"))
 	await _frames(3)
 	_expect(not (overview.get("_farm_button") as Control).is_visible_in_tree(), "Train page failed to hide worker actions")
+	_expect(is_equal_approx(overview.panel.get_global_rect().position.y, management_header_top), "Workers and Train must keep their tab header in place")
+	var paid_hint: Label = row.paid
+	_expect(paid_hint.is_visible_in_tree() and paid_hint.text.contains("Repeat OFF keeps paid units queued"), "producer must visibly explain retained paid units without hover or Info")
+	var paid_hint_width: float = paid_hint.get_theme_font("font").get_string_size(paid_hint.text, HORIZONTAL_ALIGNMENT_LEFT, -1, paid_hint.get_theme_font_size("font_size")).x
+	_expect(paid_hint_width <= paid_hint.size.x and scroll.get_global_rect().encloses(paid_hint.get_global_rect()), "paid-queue explanation must fit the visible phone producer card")
 	await _overview_button(overview, train)
 	var bank_after_train: int = ResourceManager.get_resource(0, "food")
 	_expect(queue.queue == [UnitData.UnitType.VILLAGER] and int(GameManager.players[0].population_reserved) == 1, "overview Train must pay and reserve one unit")
+	_expect((row.status as Label).text.contains("1 in queue"), "paid queue count must include the active training item")
+	await _overview_button(overview, train)
+	_expect(queue.queue.size() == 2 and (row.status as Label).text.contains("2 in queue"), "producer must show the total active-plus-waiting paid backlog")
+	await _overview_button(overview, row.undo)
+	_expect(queue.queue.size() == 1 and (row.status as Label).text.contains("1 in queue") and ResourceManager.get_resource(0, "food") == bank_after_train, "Undo must update the total and refund the last paid item")
 	await _check_info_page(overview, true)
 	await _overview_button(overview, row.repeat)
 	_expect(queue.auto_queue_enabled, "overview Repeat did not turn on")
+	_expect(paid_hint.text.contains("Repeat ON pays"), "producer explanation must match enabled automatic purchases")
+	await _overview_button(overview, row.repeat)
+	_expect(not queue.auto_queue_enabled and queue.queue.size() == 1 and ResourceManager.get_resource(0, "food") == bank_after_train and int(GameManager.players[0].population_reserved) == 1, "Repeat OFF must preserve already-paid training and its reservation")
+	_expect(paid_hint.text.contains("Repeat OFF keeps"), "producer explanation must show retained paid units when repeat is disabled")
+	_expect((overview.get("_feedback") as Label).text.contains("Paid units stay queued") and (row.repeat as Button).tooltip_text.contains("OFF leaves paid units queued"), "Repeat OFF must explain why paid units remain")
+	await _overview_button(overview, row.repeat)
 	await _overview_button(overview, row.rally)
 	_expect(tc.has_custom_rally_point() and _map.world_to_tile(tc.rally_point) == _map.world_to_tile(scout.global_position), "Rally to army did not use selected army position")
 	await _overview_button(overview, row.clear)
@@ -209,7 +241,9 @@ func _strategy_journey(phone: Vector2i, interface_scale: float, notched: bool, l
 	_expect(_hud.call("get_secondary_surface_name") == "none", "outside contact did not close economy")
 	await _button(overview.rail.get_node("ArmyButton"))
 	_expect((overview.get("_recruit_tab") as Button).button_pressed and (overview.get("_recruit_empty") as Control).is_visible_in_tree(), "Army must offer recruitment when only an unarmed Scout exists")
+	var army_header_top: float = overview.panel.get_global_rect().position.y
 	await _button(overview.get("_groups_tab"))
+	_expect(is_equal_approx(overview.panel.get_global_rect().position.y, army_header_top), "Recruit and Groups must not move their shared header")
 	_expect(army_button.button_pressed and not economy_button.button_pressed, "expanded Army lacks exclusive selected state")
 	_expect(overview.panel.size.y < economy_height and overview.panel.size.y <= 260.0, "Army sheet retains the tall Economy height instead of fitting its rows")
 	_expect(safe.encloses(overview.panel.get_global_rect()) and not overview.panel.get_global_rect().intersects(overview.rail.get_global_rect()), "compact Army sheet must stay safe and leave launchers reachable")
@@ -235,11 +269,13 @@ func _strategy_journey(phone: Vector2i, interface_scale: float, notched: bool, l
 
 func _check_info_page(overview: StrategyOverview, production: bool) -> void:
 	var info: Button = overview.get("_info_button")
+	var header_top: float = overview.panel.get_global_rect().position.y
 	_expect(info.size.is_equal_approx(Vector2(48, 48)) and info.icon != null, "Info must be a 48px touch target")
 	await _button(info)
 	await _frames(3)
 	var details: Control = overview.get("_details")
 	_expect(details.is_visible_in_tree() and not (overview.get("_economy") as Control).is_visible_in_tree(), "Info must replace action rows with details")
+	_expect(is_equal_approx(overview.panel.get_global_rect().position.y, header_top), "Info must keep the return control at the same vertical anchor")
 	_expect(info.button_pressed and info.tooltip_text == "Back to actions", "Info must identify its return action")
 	var safe: Rect2 = _hud.call("get_world_safe_rect")
 	_expect(safe.encloses(overview.panel.get_global_rect()) and overview.panel.size.y <= 240.5, "details page must remain bounded within 240px and the safe area")

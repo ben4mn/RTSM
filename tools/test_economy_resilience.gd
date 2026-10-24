@@ -188,11 +188,21 @@ func _scene_economy_facts(controller: Node, overview: StrategyOverview, tc: Buil
 		var stock: int = food_target.remaining
 		workers[0].command_gather(food_target)
 		food_target.remaining = 20
+		var held_time: float = GameManager.game_time
+		GameManager.game_time = 100.0
+		controller.set("_food_low_started", -1.0)
 		controller.call("_refresh")
 		_expect(str((overview.get("_economy_health") as Label).text).contains("running low"), "worked source exhaustion warning arrived too late")
+		_expect(not bool((overview.get("_snapshot") as Dictionary).get("food_low_attention_ready", false)), "actual worked-source warning must respect the sustained grace")
+		GameManager.game_time = 103.0
+		controller.call("_refresh")
+		_expect(bool((overview.get("_snapshot") as Dictionary).get("food_low_attention_ready", false)), "actual observed low stock must reach the visible warning through the normal controller snapshot")
 		(overview.get("_scroll") as ScrollContainer).scroll_vertical = 0
 		await _capture("food-running-low")
 		food_target.remaining = stock
+		controller.call("_refresh")
+		_expect(not bool((overview.get("_snapshot") as Dictionary).get("food_low_attention_ready", false)), "healthy worked stock must immediately clear the normal snapshot warning")
+		GameManager.game_time = held_time
 	var own: Array = (_main.get("_player_units") as Array)[0]
 	var saved_units: Array = own.duplicate()
 	own.clear()

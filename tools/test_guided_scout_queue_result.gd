@@ -59,6 +59,15 @@ func _run() -> void:
 	_expect_eq(queue.get("queue"), [UNIT_VILLAGER, UNIT_SCOUT], "Scout remains queued behind the existing Villager")
 	_expect_eq(match_scene.get("_last_train_request_result"), "queued", "successful enqueue keeps the queued result")
 	_expect_eq(match_scene.get("_last_train_feedback"), "", "queued Scout has no failure feedback")
+	# A scheduled reminder must not overwrite useful command feedback after
+	# the player already paid for the requested Scout.
+	var notification_feed: Node = match_scene.get_node("HUD").get("_notification_container")
+	var notifications_before: int = notification_feed.get_child_count()
+	match_scene.set("_hint_timer", 104.0)
+	match_scene.set("_hints_shown", 3)
+	match_scene.call("_update_timed_hints", 1.0)
+	_expect_eq(notification_feed.get_child_count(), notifications_before, "queued Scout suppresses redundant timed reminder")
+	_expect_eq(match_scene.get("_hints_shown"), 4, "skipped reminder still advances the schedule")
 
 	# The same onboarding shortcut still completes immediately when Scout is the head.
 	_expect(bool(queue.call("cancel_unit", 1)), "queued Scout cleanup succeeds")
@@ -70,6 +79,9 @@ func _run() -> void:
 	_expect_eq(match_scene.get("_last_train_request_result"), "fast_track_completed", "head Scout still fast-tracks")
 	_expect_eq(queue.call("get_queue_size"), 0, "fast-tracked Scout leaves no queue entry")
 	_expect_eq(player_units.size(), units_before + 1, "fast-tracked Scout spawns exactly once")
+	# Replicated Scouts can arrive without the local queue-request flag.
+	match_scene.set("_opening_scout_queued", false)
+	_expect(not bool(match_scene.call("_is_timed_hint_relevant", {"context": "scout"})), "existing Scout suppresses the reminder without a local queue flag")
 
 	# The guided Scout is auto-selected. The Select Military shortcut must still
 	# execute, replace that partial selection with the complete army, and retain

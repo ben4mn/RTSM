@@ -44,3 +44,15 @@ python tools/prepare_match_server.py --revision COMMIT --godot GODOT_BINARY --ou
 The promoted tool reproduced all 466 original input hashes and the sanitized project from the beta.13 baseline commit `ebdd07f539a9`. Separately, the existing sealed baseline context passed a disposable Linux Docker smoke in candidate `windows-baseline-smoke-20261024022103-1a897e0e`. All 799 runtime hashes and the exact file set matched. The server reported ready and exited 0, with no runtime errors or OOM, under UID 10002, no network, read-only root, dropped capabilities, no-new-privileges, 768 MiB, 1.5 CPUs and 128 PIDs. Both deployment locks were held. The disposable container was removed; live container identities/start times, live image tag, release pointers and Compose hashes stayed unchanged. Evidence: `output/windows-baseline-server-smoke-20261024/`.
 
 That smoke validates the Windows-to-Linux packaging path for the old baseline, **not** the draft kingdom release. Final committed-source exports, paired online acceptance, public browser validation, match-duration assessment and guarded deployment remain integration work.
+
+## Follow-up checkpoint (development, not deployed)
+
+The committed93582e322396 frontend was built twice and passed substantive reproducibility, sealed file-set, production-exclusion and stock-WASM checks. Its matching server context passed a separate Linux smoke with all831runtime files matched and protocol2ready. Production remains beta.13; no cutover has occurred.
+
+The next development checkpoint adds witnessed counter-unit loss advice to results (including recipient-private online results), offline background pausing with explicit Resume, context-aware opening reminders, visible paid-queue counts, clearer Repeat/rally explanations, kingdom-aware producer copy, an earlier Food low cue from existing observed food facts, and stable management-tab positions. Focused battle/online-result and lifecycle checks have passed; the expanded mobile UI suite and full integrated acceptance are still pending. These are not release acceptance claims.
+
+A completed935 browser match used only visible controls at932x430: Sunstride vs Crownlands, Medium, Woodland Flanks, natural Defeat11:07,21contests,135vs180seconds of Sacred control,32vs39troops produced,31vs29lost,6230vs7427resources gathered, both sides ending in Castle Age. All buildings, units and upgrades used ordinary costs. This is one tool-paced rendered match, not a physical-device test or a duration average. Earlier notes describing keyboard A as attack-move were corrected: A pans the camera; the completed11:07 match used the actual Attack control.
+
+The local two-client browser harness now verifies matching committed artifacts, redirects only the exact shipped socket endpoint to its own loopback authority, rejects public sockets, and records source/transport/cleanup receipts. Lightweight guard/provenance tests and short authority startup/cleanup pass; full paired gameplay is pending.
+
+Late AI scouting and mixed-army marching are separate experiments. Neither is part of this stable development checkpoint.
