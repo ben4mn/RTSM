@@ -12,18 +12,63 @@
     <path d="M75 63 109 47 109 93 75 108Z" fill="#9cae92" stroke="#344a3e" stroke-width="1.5"/>
     <path d="M26 60 48 65 48 99 26 94Z M53 67 71 71 71 105 53 101Z" fill="#365146"/>
     <path d="M80 68 103 57 103 90 80 101Z" fill="#47684f"/>
-    <path d="M21 53 75 66 109 49 109 56 75 73 21 60Z" fill="#7a8664"/>
+    <path d="M21 53 75 66 109 49 109 56 75 73 21 60Z" fill="#8d785b"/>
     <path d="M22 59 27 60 27 96 22 95 M47 65 53 66 53 102 47 101 M70 71 75 72 75 109 70 108 M104 57 109 55 109 93 104 95" fill="#c1c4a3" stroke="#6c805d" stroke-width=".9"/>
     <!-- An offset long roof and hay-loft dormer give a stable silhouette. -->
     <path d="M12 48 43 22 83 17 117 43 76 70Z" fill="#51433e" stroke="#293d39" stroke-width="1.8"/>
     <path d="M12 48 43 22 83 17 76 63Z" fill="#b77d62"/>
+    <!-- Broad overlapping roof courses: baked facets, no runtime material. -->
+    <path d="M43 22 83 17 81.25 28.5 35.25 28.5Z" fill="#c59679" opacity=".14"/>
+    <path d="M36.09 27.8 81.44 27.26 81.25 28.5 35.25 28.5Z" fill="#51433e" opacity=".32"/>
+    <path d="M43 22 83 17" fill="none" stroke="#dac2a0" stroke-width=".65" opacity=".48"/>
+    <path d="M53.8 20.65 47.67 28.5" stroke="#51433e" stroke-width=".7" opacity=".22"/>
+    <path d="M69 18.75 65.15 28.5" stroke="#51433e" stroke-width=".7" opacity=".22"/>
+    <path d="M28.34 34.3 79.69 38.76 79.5 40 27.5 35Z" fill="#51433e" opacity=".32"/>
+    <path d="M35.25 28.5 81.25 28.5" fill="none" stroke="#dac2a0" stroke-width=".65" opacity=".48"/>
+    <path d="M55.03 28.5 49.86 37.15" stroke="#51433e" stroke-width=".7" opacity=".22"/>
+    <path d="M72.97 28.5 70.14 39.1" stroke="#51433e" stroke-width=".7" opacity=".22"/>
+    <path d="M27.5 35 79.5 40 77.75 51.5 19.75 41.5Z" fill="#c59679" opacity=".14"/>
+    <path d="M20.59 40.8 77.94 50.26 77.75 51.5 19.75 41.5Z" fill="#51433e" opacity=".32"/>
+    <path d="M27.5 35 79.5 40" fill="none" stroke="#dac2a0" stroke-width=".65" opacity=".48"/>
+    <path d="M41.54 36.35 35.41 44.2" stroke="#51433e" stroke-width=".7" opacity=".22"/>
+    <path d="M61.3 38.25 57.45 48" stroke="#51433e" stroke-width=".7" opacity=".22"/>
+    <path d="M12.84 47.3 76.19 61.76 76 63 12 48Z" fill="#51433e" opacity=".32"/>
+    <path d="M19.75 41.5 77.75 51.5" fill="none" stroke="#dac2a0" stroke-width=".65" opacity=".48"/>
+    <path d="M44.69 45.8 39.52 54.45" stroke="#51433e" stroke-width=".7" opacity=".22"/>
+    <path d="M67.31 49.7 64.48 60.3" stroke="#51433e" stroke-width=".7" opacity=".22"/>
     <path d="M83 17 117 43 76 63Z" fill="#8b5c4e"/>
+    <!-- Broad overlapping roof courses: baked facets, no runtime material. -->
+    <path d="M83 17 83 17 91.5 23.5 81.25 28.5Z" fill="#c59679" opacity=".14"/>
+    <path d="M81.44 27.26 90.58 22.8 91.5 23.5 81.25 28.5Z" fill="#51433e" opacity=".32"/>
+    <path d="M83 17 83 17" fill="none" stroke="#dac2a0" stroke-width=".65" opacity=".48"/>
+    <path d="M83 17 84.02 27.15" stroke="#51433e" stroke-width=".7" opacity=".22"/>
+    <path d="M83 17 87.91 25.25" stroke="#51433e" stroke-width=".7" opacity=".22"/>
+    <path d="M79.69 38.76 99.08 29.3 100 30 79.5 40Z" fill="#51433e" opacity=".32"/>
+    <path d="M81.25 28.5 91.5 23.5" fill="none" stroke="#dac2a0" stroke-width=".65" opacity=".48"/>
+    <path d="M85.66 26.35 88.31 35.7" stroke="#51433e" stroke-width=".7" opacity=".22"/>
+    <path d="M89.66 24.4 96.31 31.8" stroke="#51433e" stroke-width=".7" opacity=".22"/>
+    <path d="M79.5 40 100 30 108.5 36.5 77.75 51.5Z" fill="#c59679" opacity=".14"/>
+    <path d="M77.94 50.26 107.58 35.8 108.5 36.5 77.75 51.5Z" fill="#51433e" opacity=".32"/>
+    <path d="M79.5 40 100 30" fill="none" stroke="#dac2a0" stroke-width=".65" opacity=".48"/>
+    <path d="M85.03 37.3 86.05 47.45" stroke="#51433e" stroke-width=".7" opacity=".22"/>
+    <path d="M92.83 33.5 97.74 41.75" stroke="#51433e" stroke-width=".7" opacity=".22"/>
+    <path d="M76.19 61.76 116.08 42.3 117 43 76 63Z" fill="#51433e" opacity=".32"/>
+    <path d="M77.75 51.5 108.5 36.5" fill="none" stroke="#dac2a0" stroke-width=".65" opacity=".48"/>
+    <path d="M90.97 45.05 93.63 54.4" stroke="#51433e" stroke-width=".7" opacity=".22"/>
+    <path d="M102.97 39.2 109.62 46.6" stroke="#51433e" stroke-width=".7" opacity=".22"/>
     <path d="M12 49 76 64 117 43 114 49 76 72 13 56Z" fill="#95634f"/>
     <path d="M13 49 76 65 116 44 M43 22 83 17" fill="none" stroke="#dac2a0" stroke-width="1.5"/>
     <path d="M29 49 52 27 M46 53 65 25 M62 57 77 25" stroke="#c59679" stroke-width="1.3"/>
     <path d="M33 34 46 24 61 35 46 42Z" fill="#b77d62" stroke="#3a5847" stroke-width="1.2"/>
     <path d="M34 34 46 38 59 33 59 46 46 52 34 48Z" fill="#d8d2b1" stroke="#59744f" stroke-width="1.2"/>
     <path d="M39 38 44 40 44 47 39 45 M48 40 54 37 54 44 48 47" fill="#71865e"/>
+    <!-- Broad timber braces, open bays and the projecting hay loft remain
+         the stable's reading; roof materials never turn it into an armory. -->
+    <path d="M23 62 32 74 M48 69 41 78 M72 75 65 83 M106 59 98 72" stroke="#8d785b" stroke-width="2.8"/>
+    <path d="M34 36 46 40 59 35 59 38 46 43 34 39Z" fill="#4c5742" opacity=".42"/>
+    <path d="M46 40 46 50 M35 45 44 48 M49 47 57 43" stroke="#8d785b" stroke-width="1.7"/>
+    <path d="M36 47 44 49 M49 48 57 44" stroke="#ccb789" stroke-width="1.5"/>
+
     <!-- A bone horseshoe badge, broad enough to read above the open bay. -->
     <path d="M84 71 96 65 96 81 84 87Z" fill="#a47255" stroke="#49694d" stroke-width="1"/>
     <path d="M87 72 87 79 Q90 85 93 77 L93 69" fill="none" stroke="#e4d9af" stroke-width="2.8"/>
@@ -47,6 +92,11 @@
     <path d="M54 96 72 100 72 106 54 102Z" fill="#909974" stroke="#526d4c" stroke-width="1.1"/>
     <path d="M28 80 46 84 46 90 28 86Z M28 91 46 95 46 101 28 97Z" fill="#b1b08b" stroke="#687b56" stroke-width="1.1"/>
     <path d="M30 98 43 85" stroke="#87966b" stroke-width="2"/>
+    <path d="M55 98 71 102 M55 101 71 105" stroke="#c8b488" stroke-width="1.1"/>
+    <path d="M79 89 102 78 M79 96 102 85" stroke="#9e9871" stroke-width="2.7"/>
+    <path d="M87 88 99 91" stroke="#8d785b" stroke-width="2"/>
+    <path d="M15 105 25 108 M44 113 60 116 M78 115 89 110" stroke="#8e9b7e" stroke-width="1.2"/>
+
     <!-- Hay bales and a water trough convey practical husbandry. -->
     <path d="M91 99 103 94 115 98 103 105Z" fill="#d2c697" stroke="#77865b" stroke-width="1.1"/>
     <path d="M91 99 103 105 103 113 91 108Z" fill="#b6b181" stroke="#77865b" stroke-width="1.1"/>

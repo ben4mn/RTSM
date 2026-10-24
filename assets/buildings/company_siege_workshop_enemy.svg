@@ -14,12 +14,56 @@
     <path d="M77 66 97 57 97 91 77 100Z" fill="#4b6650"/>
     <path d="M14 46 43 21 78 23 109 44 70 67Z" fill="#51433e" stroke="#293d39" stroke-width="1.9"/>
     <path d="M14 46 43 21 78 23 70 60Z" fill="#b77d62"/>
+    <!-- Broad overlapping roof courses: baked facets, no runtime material. -->
+    <path d="M43 21 78 23 76 32.25 35.75 27.25Z" fill="#c59679" opacity=".14"/>
+    <path d="M36.53 26.57 76.22 31.25 76 32.25 35.75 27.25Z" fill="#51433e" opacity=".32"/>
+    <path d="M43 21 78 23" fill="none" stroke="#dac2a0" stroke-width=".65" opacity=".48"/>
+    <path d="M52.45 21.54 46.62 28.6" stroke="#51433e" stroke-width=".7" opacity=".22"/>
+    <path d="M65.75 22.3 61.91 30.5" stroke="#51433e" stroke-width=".7" opacity=".22"/>
+    <path d="M29.28 32.83 74.22 40.5 74 41.5 28.5 33.5Z" fill="#51433e" opacity=".32"/>
+    <path d="M35.75 27.25 76 32.25" fill="none" stroke="#dac2a0" stroke-width=".65" opacity=".48"/>
+    <path d="M53.06 29.4 48.06 36.94" stroke="#51433e" stroke-width=".7" opacity=".22"/>
+    <path d="M68.75 31.35 65.81 40.06" stroke="#51433e" stroke-width=".7" opacity=".22"/>
+    <path d="M28.5 33.5 74 41.5 72 50.75 21.25 39.75Z" fill="#c59679" opacity=".14"/>
+    <path d="M22.03 39.08 72.22 49.75 72 50.75 21.25 39.75Z" fill="#51433e" opacity=".32"/>
+    <path d="M28.5 33.5 74 41.5" fill="none" stroke="#dac2a0" stroke-width=".65" opacity=".48"/>
+    <path d="M40.78 35.66 34.95 42.72" stroke="#51433e" stroke-width=".7" opacity=".22"/>
+    <path d="M58.08 38.7 54.24 46.9" stroke="#51433e" stroke-width=".7" opacity=".22"/>
+    <path d="M14.78 45.33 70.22 59 70 60 14 46Z" fill="#51433e" opacity=".32"/>
+    <path d="M21.25 39.75 72 50.75" fill="none" stroke="#dac2a0" stroke-width=".65" opacity=".48"/>
+    <path d="M43.07 44.48 38.08 52.02" stroke="#51433e" stroke-width=".7" opacity=".22"/>
+    <path d="M62.86 48.77 59.92 57.48" stroke="#51433e" stroke-width=".7" opacity=".22"/>
     <path d="M78 23 109 44 70 60Z" fill="#8b5c4e"/>
+    <!-- Broad overlapping roof courses: baked facets, no runtime material. -->
+    <path d="M78 23 78 23 85.75 28.25 76 32.25Z" fill="#c59679" opacity=".14"/>
+    <path d="M76.22 31.25 84.91 27.68 85.75 28.25 76 32.25Z" fill="#51433e" opacity=".32"/>
+    <path d="M78 23 78 23" fill="none" stroke="#dac2a0" stroke-width=".65" opacity=".48"/>
+    <path d="M78 23 78.63 31.17" stroke="#51433e" stroke-width=".7" opacity=".22"/>
+    <path d="M78 23 82.34 29.65" stroke="#51433e" stroke-width=".7" opacity=".22"/>
+    <path d="M74.22 40.5 92.66 32.93 93.5 33.5 74 41.5Z" fill="#51433e" opacity=".32"/>
+    <path d="M76 32.25 85.75 28.25" fill="none" stroke="#dac2a0" stroke-width=".65" opacity=".48"/>
+    <path d="M80.19 30.53 82.39 38.06" stroke="#51433e" stroke-width=".7" opacity=".22"/>
+    <path d="M84 28.97 89.99 34.94" stroke="#51433e" stroke-width=".7" opacity=".22"/>
+    <path d="M74 41.5 93.5 33.5 101.25 38.75 72 50.75Z" fill="#c59679" opacity=".14"/>
+    <path d="M72.22 49.75 100.41 38.18 101.25 38.75 72 50.75Z" fill="#51433e" opacity=".32"/>
+    <path d="M74 41.5 93.5 33.5" fill="none" stroke="#dac2a0" stroke-width=".65" opacity=".48"/>
+    <path d="M79.27 39.34 79.9 47.51" stroke="#51433e" stroke-width=".7" opacity=".22"/>
+    <path d="M86.67 36.3 91.01 42.95" stroke="#51433e" stroke-width=".7" opacity=".22"/>
+    <path d="M70.22 59 108.16 43.43 109 44 70 60Z" fill="#51433e" opacity=".32"/>
+    <path d="M72 50.75 101.25 38.75" fill="none" stroke="#dac2a0" stroke-width=".65" opacity=".48"/>
+    <path d="M84.58 45.59 86.77 53.12" stroke="#51433e" stroke-width=".7" opacity=".22"/>
+    <path d="M95.98 40.91 101.98 46.88" stroke="#51433e" stroke-width=".7" opacity=".22"/>
     <path d="M14 47 70 61 108 44 107 50 70 68 15 54Z" fill="#95634f"/>
     <path d="M15 47 70 62 108 45 M43 21 78 23" fill="none" stroke="#dac2a0" stroke-width="1.5"/>
     <path d="M29 46 50 27 M46 50 63 29 M61 54 75 31" stroke="#c59679" stroke-width="1.2"/>
     <path d="M21 57 26 59 26 94 21 93 M65 67 71 69 71 105 65 103 M97 55 103 52 103 92 97 95" fill="#b5b493" stroke="#637b58" stroke-width="1"/>
-    <path d="M27 66 62 95 M29 92 62 73" stroke="#7b8a64" stroke-width="2.2"/>
+    <path d="M27 66 62 95 M29 92 62 73" stroke="#8d785b" stroke-width="2.2"/>
+    <!-- Split timbers and pegged braces give this open mechanical shed
+         a warmer frame than the masonry civic and defensive buildings. -->
+    <path d="M23 60 32 74 M68 72 59 82 M100 59 92 71" stroke="#8d785b" stroke-width="3"/>
+    <path d="M24 61 24 92 M68 74 68 103 M100 60 100 91" stroke="#d3be94" stroke-width="1.2"/>
+    <path d="M26 65 64 74 64 78 26 69Z" fill="#263c36" opacity=".32"/>
+
     <!-- An offset timber jib makes the siege silhouette larger and mechanical. -->
     <path d="M88 22 94 20 94 94 88 97Z" fill="#a69d74" stroke="#415b45" stroke-width="1.6"/>
     <path d="M92 23 115 8 120 13 96 30 80 34 76 29Z" fill="#bcb18a" stroke="#415b45" stroke-width="1.8"/>
@@ -38,7 +82,7 @@
       <path d="M58 88 65 70 70 72 67 90 M78 91 83 74 88 76 86 94" fill="#a89f76" stroke="#405b45" stroke-width="1.3"/>
       <path d="M63 72 84 77" stroke="#dbc9a0" stroke-width="3"/>
       <!-- Wheel diameters stay 10–15 world pixels, like the mobile engine. -->
-      <g id="workshop-near-wheel" transform="translate(72 104) scale(.45) translate(-72 -104)">
+      <g id="workshop-near-wheel" transform="translate(72 104) scale(.70) translate(-72 -104)">
         <!-- The near wheel reads as a broad ring even at the default phone zoom. -->
         <ellipse cx="72" cy="104" rx="13" ry="16" fill="#445e48" stroke="#2d473a" stroke-width="1.6"/>
         <ellipse cx="72" cy="103" rx="9" ry="12" fill="#bfb28a"/>

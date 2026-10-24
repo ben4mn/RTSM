@@ -44,6 +44,48 @@ var _sprite_visual_rect: Rect2 = Rect2()
 var _visual_top: float = -48.0
 var _construction_dust_timer: float = 0.0
 var _damage_smoke_timer: float = 0.0
+var _construction_frame: ConstructionFrame = null
+var _construction_material: ShaderMaterial = null
+var _damage_flash_tween: Tween = null
+
+const CONSTRUCTION_REVEAL_SHADER: Shader = preload("res://assets/buildings/construction_reveal.gdshader")
+const DAMAGE_FLASH_COLOR := Color(1.0, 0.69, 0.50)
+const DAMAGE_FLASH_SECONDS: float = 0.18
+
+
+## A temporary timber surround, attached at the same ground sort point as the
+## building sprite. Completed buildings have no extra material or frame node.
+class ConstructionFrame extends Node2D:
+	var half_width: float = 40.0
+	var half_depth: float = 20.0
+	var full_height: float = 64.0
+	var stage: int = -1
+
+	func get_frame_bounds() -> Rect2:
+		return Rect2(-half_width - 4.0, -full_height - 4.0, half_width * 2.0 + 8.0, full_height + half_depth + 8.0)
+
+	func _draw() -> void:
+		var left := Vector2(-half_width, 0.0)
+		var front := Vector2(0.0, half_depth)
+		var right := Vector2(half_width, 0.0)
+		var height: float = 12.0 if stage == 0 else full_height * 0.65 if stage == 1 else full_height
+		var rise := Vector2(0.0, -height)
+		var outline := Color("4b4b39")
+		var wood := Color("b7a078")
+		var lit_edge := Color("dcc8a0")
+		for foot: Vector2 in [left, front, right]:
+			draw_line(foot + Vector2(-4.0, 1.0), foot + Vector2(4.0, -1.0), outline, 4.0, true)
+			draw_line(foot, foot + rise, outline, 5.0, true)
+			draw_line(foot, foot + rise, wood, 2.6, true)
+			draw_line(foot + Vector2(-0.8, -1.0), foot + rise, lit_edge, 0.8, true)
+		for edge: Vector2 in [left, right]:
+			draw_line(edge + rise, front + rise, outline, 5.0, true)
+			draw_line(edge + rise, front + rise, wood, 2.6, true)
+			if stage > 0:
+				draw_line(edge + rise * 0.2, front + rise * 0.85, outline, 3.2, true)
+				draw_line(edge + rise * 0.2, front + rise * 0.85, wood, 1.8, true)
+		for foot: Vector2 in [left, front, right]:
+			draw_line(foot + rise + Vector2(-2.5, 1.0), foot + rise + Vector2(2.5, -1.0), lit_edge, 1.2, true)
 
 # Defensive building weapons. Names preserve the existing tower damage API.
 var tower_attack_damage: int = 0
@@ -300,6 +342,8 @@ static func get_footprint_center_offset(size_in_tiles: Vector2i, map_node: Node 
 
 func get_visual_bounds(include_ground: bool = true) -> Rect2:
 	var bounds: Rect2 = _sprite_visual_rect
+	if is_instance_valid(_construction_frame):
+		bounds = bounds.merge(_construction_frame.transform * _construction_frame.get_frame_bounds())
 	if include_ground and is_selected:
 		var ground_size := Vector2(footprint.x * MapData.TILE_WIDTH, footprint.y * MapData.TILE_HEIGHT)
 		bounds = bounds.merge(Rect2(_footprint_center - ground_size * 0.5, ground_size).grow(2.0))
@@ -324,9 +368,10 @@ func _update_sprite_appearance() -> void:
 	var base_color: Color = Color(1.0, 0.55, 0.55) if legacy_enemy_tint else Color.WHITE
 	match state:
 		State.CONSTRUCTING:
-			# Darken and make semi-transparent during construction, lerp to full
+			# Earlier work stays subdued; it grows clearer toward completion.
+			# A separate reveal material shows where the structure is built.
 			var progress_alpha := lerpf(0.4, 1.0, build_progress)
-			var progress_dark := lerpf(0.4, 0.0, 1.0 - build_progress)
+			var progress_dark := lerpf(0.18, 0.0, build_progress)
 			_sprite.modulate = Color(base_color.r - progress_dark, base_color.g - progress_dark, base_color.b - progress_dark, progress_alpha)
 		State.DESTROYED:
 			_sprite.modulate = Color(0.3, 0.3, 0.3, 0.5)
@@ -334,6 +379,44 @@ func _update_sprite_appearance() -> void:
 			_sprite.modulate = base_color
 		_:
 			_sprite.modulate = base_color
+	_update_construction_presentation()
+	if GameManager.reduced_flashes:
+		_clear_damage_flash()
+
+
+func _update_construction_presentation() -> void:
+	if state != State.CONSTRUCTING:
+		if is_instance_valid(_construction_frame):
+			_construction_frame.hide()
+			_construction_frame.queue_free()
+			_construction_frame = null
+		_sprite.material = null
+		_construction_material = null
+		return
+	if _construction_material == null:
+		_construction_material = ShaderMaterial.new()
+		_construction_material.shader = CONSTRUCTION_REVEAL_SHADER
+		if _sprite.texture != null:
+			var ink: Rect2i = _sprite.texture.get_image().get_used_rect()
+			var texture_height: float = _sprite.texture.get_height()
+			_construction_material.set_shader_parameter("ink_top", float(ink.position.y) / texture_height)
+			_construction_material.set_shader_parameter("ink_bottom", float(ink.end.y) / texture_height)
+		_sprite.material = _construction_material
+	_construction_material.set_shader_parameter("construction_progress", clampf(build_progress, 0.0, 1.0))
+	if not is_instance_valid(_construction_frame):
+		_construction_frame = ConstructionFrame.new()
+		_construction_frame.name = "ConstructionFrame"
+		_construction_frame.position = _footprint_center
+		_construction_frame.half_width = footprint.x * MapData.TILE_WIDTH * 0.34
+		_construction_frame.half_depth = footprint.y * MapData.TILE_HEIGHT * 0.30
+		_construction_frame.full_height = clampf(_sprite_visual_rect.size.y * 0.65, 18.0, 100.0)
+		if building_type == BuildingData.BuildingType.FARM:
+			_construction_frame.full_height = 14.0
+		add_child(_construction_frame)
+	var stage: int = 0 if build_progress < 0.25 else 1 if build_progress < 0.6 else 2
+	if _construction_frame.stage != stage:
+		_construction_frame.stage = stage
+		_construction_frame.queue_redraw()
 
 
 func _draw() -> void:
@@ -515,23 +598,35 @@ func take_damage(amount: int) -> void:
 	health_changed.emit(hp, max_hp)
 	if hp < previous_hp:
 		damage_received.emit(self, previous_hp - hp)
-	_flash_damage()
+		_flash_damage()
 	if hp <= 0:
 		_destroy()
 	queue_redraw()
 
 
 func _flash_damage() -> void:
+	_clear_damage_flash()
 	if _sprite == null or GameManager.reduced_flashes:
 		return
-	var original: Color = _sprite.modulate
-	_sprite.modulate = Color(1.0, 1.0, 1.0)  # White flash — visible on both player and enemy buildings
-	var tween := create_tween()
-	tween.tween_property(_sprite, "modulate", original, 0.15)
+	# A restrained warm hit is visible on neutral art. self_modulate is separate
+	# from ownership/construction/death alpha, so its tween cannot restore an old
+	# building state or accumulate tint after repeated hits.
+	_sprite.self_modulate = DAMAGE_FLASH_COLOR
+	_damage_flash_tween = create_tween()
+	_damage_flash_tween.tween_property(_sprite, "self_modulate", Color.WHITE, DAMAGE_FLASH_SECONDS)
+
+
+func _clear_damage_flash() -> void:
+	if _damage_flash_tween != null and _damage_flash_tween.is_valid():
+		_damage_flash_tween.kill()
+	_damage_flash_tween = null
+	if _sprite != null:
+		_sprite.self_modulate = Color.WHITE
 
 
 func _destroy() -> void:
 	state = State.DESTROYED
+	_clear_damage_flash()
 	_assigned_farmer_ref = null
 	_update_sprite_appearance()
 	building_destroyed.emit(self)

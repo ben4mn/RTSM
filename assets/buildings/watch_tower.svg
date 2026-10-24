@@ -11,6 +11,12 @@
     <path d="M47 52 63 60 M47 72 63 80 M47 92 63 100 M65 61 81 53 M65 81 81 73 M65 101 81 93" stroke="#899e86" stroke-width="1.1"/>
     <path d="M54 55V64 M54 75V84 M73 57V66 M73 77V86 M73 98V107" stroke="#aab69b" stroke-width="1"/>
     <path d="M47 35 51 37 51 112 47 110 M78 35 81 33 81 110 78 112" fill="#bdc3a6"/>
+    <!-- Broad alternate stone blocks and a narrow plinth weather the shaft
+         without changing its one-tile profile or rampart firing point. -->
+    <path d="M47 44 54 47 54 54 47 51 M55 64 63 68 63 76 55 72 M47 82 54 86 54 93 47 89 M65 48 72 45 72 52 65 56 M74 64 81 60 81 67 74 71 M65 83 72 80 72 87 65 91" fill="#c0c5a9" opacity=".68"/>
+    <path d="M48 49 62 56 M48 69 62 76 M48 89 62 96 M66 57 80 50 M66 77 80 70 M66 97 80 90" stroke="#e0d8bc" stroke-width=".7" opacity=".65"/>
+    <path d="M46 105 64 114 82 105 82 112 64 121 46 112Z" fill="#82937b" opacity=".4"/>
+
     <!-- Door is 24 source pixels high: 30 world pixels at runtime. -->
     <path d="M52 90 61 94 61 118 52 114Z" fill="#3a5548" stroke="#6b7c60" stroke-width="1.1"/>
     <path d="M54 93 59 95 59 115 54 113Z" fill="#8e8c68"/>
@@ -32,7 +38,7 @@
     <path d="M78 26V3" stroke="#475e4c" stroke-width="1.7"/>
     <path d="M79 4 86 7 79 13Z" fill="#6c9890" stroke="#3a5847" stroke-width="1"/>
     <path d="M79 6 83 7" stroke="#bed0b2" stroke-width="1"/>
-    <path d="M66 48 76 43 76 58 71 64 66 62Z" fill="#6c9890" stroke="#4e7058" stroke-width="1"/>
-    <path d="M70 49V58L73 56" fill="none" stroke="#dcd1a8" stroke-width="1.3"/>
+    <path d="M66 48 77 42 77 62 71 69 66 66Z" fill="#6c9890" stroke="#4e7058" stroke-width="1"/>
+    <path d="M70 50V61L74 59" fill="none" stroke="#dcd1a8" stroke-width="1.3"/>
   </g>
 </svg>

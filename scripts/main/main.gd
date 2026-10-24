@@ -1966,11 +1966,15 @@ func _on_selection_changed(selected_units: Array[Node2D]) -> void:
 					role_counts[role_type] = int(role_counts.get(role_type, 0)) + 1
 			stats["role_counts"] = role_counts
 		if not mixed_selection and not (u is Villager):
+			# Enemy research is deliberately absent from client snapshots. Do not
+			# present locally absent (or stale) enemy bonuses as observed stats.
+			var stats_are_base: bool = NetworkSession.is_client() and u.player_owner != 0
 			stats = {
 				"unit_type": u.unit_type,
-				"damage": int(Combat.get_effective_attack(u)),
-				"armor": int(Combat.get_effective_armor(u)),
+				"damage": int(u.damage if stats_are_base else Combat.get_effective_attack(u)),
+				"armor": int(u.armor if stats_are_base else Combat.get_effective_armor(u)),
 				"range": int(round(MapData.world_to_range_tiles(u.attack_range))),
+				"stats_are_base": stats_are_base,
 			}
 			var stance_name: String = "Stand Ground" if u.stance == UnitBase.Stance.STAND_GROUND else "Aggressive"
 			stats["stance"] = stance_name

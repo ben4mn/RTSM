@@ -11,12 +11,50 @@
     <!-- Limewash gable front and dark return wall. -->
     <path d="M22 59 48 33 72 72 72 114 22 104Z" fill="#e6dfc6" stroke="#344a43" stroke-width="1.8"/>
     <path d="M72 72 108 53 108 98 72 114Z" fill="#9eb09a" stroke="#344a43" stroke-width="1.5"/>
-    <path d="M23 63 72 74 72 80 23 69 M25 70 29 71 29 104 25 103 M65 78 69 79 69 113 65 112" fill="#7c8066"/>
-    <path d="M77 78 81 76 81 110 77 112 M101 65 105 63 105 100 101 102" fill="#587363"/>
+    <path d="M23 63 72 74 72 80 23 69 M25 70 29 71 29 104 25 103 M65 78 69 79 69 113 65 112" fill="#8d785b"/>
+    <path d="M77 78 81 76 81 110 77 112 M101 65 105 63 105 100 101 102" fill="#655f4b"/>
     <!-- The broad roof is shaped as individual folded planes, no texture noise. -->
     <path d="M16 61 47 21 87 31 114 55 73 77Z" fill="#344f4b" stroke="#293d39" stroke-width="2"/>
     <path d="M16 61 47 21 87 31 73 72Z" fill="#7aa196"/>
+    <!-- Broad overlapping roof courses: baked facets, no runtime material. -->
+    <path d="M47 21 87 31 83.5 41.25 39.25 31Z" fill="#88aaa0" opacity=".14"/>
+    <path d="M40.09 29.92 83.88 40.14 83.5 41.25 39.25 31Z" fill="#344f4b" opacity=".32"/>
+    <path d="M47 21 87 31" fill="none" stroke="#bed0b2" stroke-width=".65" opacity=".48"/>
+    <path d="M57.8 23.7 51.2 33.77" stroke="#344f4b" stroke-width=".7" opacity=".22"/>
+    <path d="M73 27.5 68.01 37.66" stroke="#344f4b" stroke-width=".7" opacity=".22"/>
+    <path d="M32.34 39.92 80.38 50.39 80 51.5 31.5 41Z" fill="#344f4b" opacity=".32"/>
+    <path d="M39.25 31 83.5 41.25" fill="none" stroke="#bed0b2" stroke-width=".65" opacity=".48"/>
+    <path d="M58.28 35.41 52.36 45.52" stroke="#344f4b" stroke-width=".7" opacity=".22"/>
+    <path d="M75.53 39.41 71.27 49.61" stroke="#344f4b" stroke-width=".7" opacity=".22"/>
+    <path d="M31.5 41 80 51.5 76.5 61.75 23.75 51Z" fill="#88aaa0" opacity=".14"/>
+    <path d="M24.59 49.92 76.88 60.64 76.5 61.75 23.75 51Z" fill="#344f4b" opacity=".32"/>
+    <path d="M31.5 41 80 51.5" fill="none" stroke="#bed0b2" stroke-width=".65" opacity=".48"/>
+    <path d="M44.59 43.84 37.99 53.9" stroke="#344f4b" stroke-width=".7" opacity=".22"/>
+    <path d="M63.03 47.83 58.04 57.99" stroke="#344f4b" stroke-width=".7" opacity=".22"/>
+    <path d="M16.84 59.92 73.38 70.89 73 72 16 61Z" fill="#344f4b" opacity=".32"/>
+    <path d="M23.75 51 76.5 61.75" fill="none" stroke="#bed0b2" stroke-width=".65" opacity=".48"/>
+    <path d="M46.43 55.62 40.51 65.73" stroke="#344f4b" stroke-width=".7" opacity=".22"/>
+    <path d="M67 59.81 62.74 70.02" stroke="#344f4b" stroke-width=".7" opacity=".22"/>
     <path d="M47 21 87 31 114 55 73 72Z" fill="#537f73"/>
+    <!-- Broad overlapping roof courses: baked facets, no runtime material. -->
+    <path d="M47 21 87 31 93.75 37 53.5 33.75Z" fill="#88aaa0" opacity=".14"/>
+    <path d="M52.8 32.37 93.02 36.35 93.75 37 53.5 33.75Z" fill="#344f4b" opacity=".32"/>
+    <path d="M47 21 87 31" fill="none" stroke="#bed0b2" stroke-width=".65" opacity=".48"/>
+    <path d="M57.8 23.7 64.37 34.63" stroke="#344f4b" stroke-width=".7" opacity=".22"/>
+    <path d="M73 27.5 79.66 35.86" stroke="#344f4b" stroke-width=".7" opacity=".22"/>
+    <path d="M59.3 45.12 99.77 42.35 100.5 43 60 46.5Z" fill="#344f4b" opacity=".32"/>
+    <path d="M53.5 33.75 93.75 37" fill="none" stroke="#bed0b2" stroke-width=".65" opacity=".48"/>
+    <path d="M70.81 35.15 77.41 44.99" stroke="#344f4b" stroke-width=".7" opacity=".22"/>
+    <path d="M86.5 36.41 93.21 43.63" stroke="#344f4b" stroke-width=".7" opacity=".22"/>
+    <path d="M60 46.5 100.5 43 107.25 49 66.5 59.25Z" fill="#88aaa0" opacity=".14"/>
+    <path d="M65.8 57.87 106.52 48.35 107.25 49 66.5 59.25Z" fill="#344f4b" opacity=".32"/>
+    <path d="M60 46.5 100.5 43" fill="none" stroke="#bed0b2" stroke-width=".65" opacity=".48"/>
+    <path d="M70.94 45.55 77.5 56.48" stroke="#344f4b" stroke-width=".7" opacity=".22"/>
+    <path d="M86.33 44.23 92.99 52.59" stroke="#344f4b" stroke-width=".7" opacity=".22"/>
+    <path d="M72.3 70.62 113.27 54.35 114 55 73 72Z" fill="#344f4b" opacity=".32"/>
+    <path d="M66.5 59.25 107.25 49" fill="none" stroke="#bed0b2" stroke-width=".65" opacity=".48"/>
+    <path d="M84.02 54.84 90.63 64.69" stroke="#344f4b" stroke-width=".7" opacity=".22"/>
+    <path d="M99.91 50.84 106.62 58.06" stroke="#344f4b" stroke-width=".7" opacity=".22"/>
     <path d="M47 21 87 31" stroke="#c0c8ae" stroke-width="2"/>
     <path d="M30 60 52 28 M45 64 63 31 M60 68 74 34 M90 40 102 53" fill="none" stroke="#9ebbad" stroke-width="1.3" opacity=".65"/>
     <path d="M17 62 73 73 113 55" fill="none" stroke="#bbcab0" stroke-width="1.6"/>
@@ -26,6 +64,11 @@
     <path d="M75 12 84 8 96 10 87 16Z" fill="#e7dfc9" stroke="#536858" stroke-width="1.3"/>
     <path d="M81 12 86 10 91 11 86 13Z" fill="#4c6456"/>
     <path d="M80 21 86 22 M88 26 93 23" stroke="#b0b9a1" stroke-width="1"/>
+    <!-- A warm half-timber face and shutter recess give the dwelling scale. -->
+    <path d="M28 73 35 81 M62 82 56 88 M79 80 88 94 M96 71 83 95" stroke="#8d785b" stroke-width="2"/>
+    <path d="M24 69 71 79 71 82 24 72Z" fill="#475445" opacity=".34"/>
+    <path d="M25 101 35 103 M57 108 68 111 M77 111 90 105" stroke="#b8b69a" stroke-width="2.2"/>
+
     <!-- Door and shuttered hearth window. -->
     <path d="M37 82 52 85 52 111 37 108Z" fill="#415b4b"/>
     <path d="M39 85 49 87 49 109 39 107Z" fill="#8f9170"/>
@@ -37,6 +80,11 @@
     <path d="M84 79 96 73 96 87 84 93Z" fill="#3b5a4a"/>
     <path d="M87 80 93 77 93 86 87 89Z" fill="#cbb481"/>
     <path d="M90 79 90 88 M87 84 93 81" stroke="#57705b" stroke-width="1.5"/>
+    <path d="M81 80 84 79 84 94 81 95 M96 73 99 71 99 86 96 88" fill="#8d785b" stroke="#59634c" stroke-width=".8"/>
+    <path d="M83 95 97 88 97 91 83 98Z" fill="#b8ab82"/>
+    <path d="M25 113 34 115 M58 120 69 122 M80 120 89 117 M98 114 105 111" stroke="#8c9b83" stroke-width="1"/>
+    <path d="M29 114 29 117 M62 120 62 123 M91 115 91 118" stroke="#a6ae94" stroke-width=".9"/>
+
     <!-- A tidy wood stack is a readable material cue, not decoration clutter. -->
     <path d="M93 102 105 96 110 99 98 105Z M93 107 105 101 110 104 98 110Z" fill="#7b8261" stroke="#526850" stroke-width="1"/>
     <path d="M93 102 98 105 98 110 93 107Z" fill="#b8ab7c"/>

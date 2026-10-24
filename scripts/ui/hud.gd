@@ -179,6 +179,9 @@ var _selection_full_name: String = ""
 var _selection_action_text: String = ""
 var _selection_cargo_text: String = ""
 var _selection_role_text: String = ""
+var _selection_unit_information: String = ""
+var _selection_roster: Array[int] = []
+var _selection_role_counts: Dictionary = {}
 
 # Train buttons
 var _train_buttons_container: HBoxContainer = null
@@ -2618,28 +2621,27 @@ func show_unit_selection(unit_name: String, current_hp: int, max_hp: int, action
 	else:
 		selection_name.text = unit_name
 	_selection_full_name = selection_name.text
-	_set_selection_meter(current_hp, max_hp, "HP %d / %d" % [current_hp, max_hp], "Health %d / %d" % [current_hp, max_hp])
+	if count > 1:
+		var health_percent: int = roundi(float(current_hp) / maxf(1.0, float(max_hp)) * 100.0)
+		_set_selection_meter(current_hp, max_hp, "HP %d%%" % health_percent, "Combined health %d / %d across %d selected units" % [current_hp, max_hp, count])
+	else:
+		_set_selection_meter(current_hp, max_hp, "HP %d / %d" % [current_hp, max_hp], "Health %d / %d" % [current_hp, max_hp])
 	_update_hp_bar_color(current_hp, max_hp)
-	# Show stats line + action text
-	var stats_line := ""
-	if not unit_stats.is_empty():
-		var parts: PackedStringArray = PackedStringArray()
-		if unit_stats.has("damage"):
-			parts.append("Atk:%d" % unit_stats["damage"])
-		if unit_stats.has("armor"):
-			parts.append("Arm:%d" % unit_stats["armor"])
-		if unit_stats.has("range") and unit_stats["range"] > 1:
-			parts.append("Rng:%d" % unit_stats["range"])
-		if unit_stats.has("stance"):
-			parts.append("[%s]" % unit_stats["stance"])
-		if parts.size() > 0:
-			stats_line = " | ".join(parts)
-	selection_name.tooltip_text = "%s\n%s\n%s" % [_selection_full_name, stats_line, action_text]
 	_selection_action_text = action_text.capitalize()
 	_selection_cargo_text = ""
 	if int(unit_stats.get("cargo_amount", 0)) > 0:
 		_selection_cargo_text = "%s %d/%d" % [str(unit_stats.get("cargo_resource", "mixed")).capitalize(), int(unit_stats["cargo_amount"]), int(unit_stats.get("cargo_capacity", 0))]
 	_selection_role_text = ""
+	_selection_role_counts = unit_stats.get("role_counts", {}).duplicate()
+	_selection_roster.clear()
+	for role_type: int in _selection_role_counts:
+		if UnitData.UNITS.has(role_type) and int(_selection_role_counts[role_type]) > 0:
+			_selection_roster.append(role_type)
+	# Stable ordering prevents the roster jumping when selection order changes.
+	_selection_roster.sort_custom(func(a: int, b: int) -> bool:
+		var a_count: int = int(_selection_role_counts[a])
+		var b_count: int = int(_selection_role_counts[b])
+		return a_count > b_count if a_count != b_count else a < b)
 	var selected_type: int = int(unit_stats.get("unit_type", -1))
 	if selected_type < 0:
 		for candidate_type: int in UnitData.UNITS:
@@ -2651,13 +2653,13 @@ func show_unit_selection(unit_name: String, current_hp: int, max_hp: int, action
 	_selection_is_worker = selected_type == UnitData.UnitType.VILLAGER
 	_selection_is_scout = selected_type == UnitData.UnitType.SCOUT
 	if selected_type >= 0:
-		_selection_role_text = UnitData.get_unit_counter_description(selected_type)
-	if unit_stats.has("role_counts") and selected_type < 0:
-		var role_parts: PackedStringArray = []
-		for role_type: int in unit_stats["role_counts"]:
-			var short_name: String = UnitData.get_unit_name(role_type).left(3)
-			role_parts.append("%s %d" % [short_name, int(unit_stats["role_counts"][role_type])])
-		_selection_role_text = " · ".join(role_parts)
+		var counter: String = UnitData.get_unit_counter_name(selected_type)
+		_selection_role_text = "Bonus: " + counter if not counter.is_empty() else ""
+		if _selection_is_scout:
+			_selection_role_text = "Unarmed scout"
+	_selection_unit_information = _unit_selection_information(selected_type, unit_stats, count)
+	selection_name.tooltip_text = _selection_full_name + "\n" + _selection_unit_information
+	selection_details.tooltip_text = _selection_unit_information
 	_refresh_unit_selection_details()
 	queue_container.visible = false
 	_last_queue_items = []
@@ -2800,6 +2802,21 @@ func _refresh_unit_selection_details() -> void:
 		action = "Tap attack-move"
 	elif _unit_command_mode == "patrol":
 		action = "Tap to patrol"
+	if not _selection_roster.is_empty():
+		# Main supplies a composition, not a shared order/stat, for mixed units.
+		# Use the two existing lines; the Info target keeps every role accessible.
+		if _unit_command_mode in ["move", "attack_move", "patrol"]:
+			selection_details.text = action + "\n%d types · Info" % _selection_roster.size()
+		else:
+			var first: int = _selection_roster[0]
+			var first_line: String = _compact_roster_entry(first)
+			var second_line: String = ""
+			if _selection_roster.size() == 2:
+				second_line = _compact_roster_entry(_selection_roster[1])
+			elif _selection_roster.size() > 2:
+				second_line = "+%d other types" % (_selection_roster.size() - 1)
+			selection_details.text = first_line + ("\n" + second_line if not second_line.is_empty() else "")
+		return
 	# Cargo is useful worker information, but fits its own complete line.
 	var cargo_start: int = action.find(" (")
 	if not _selection_cargo_text.is_empty() and _selection_is_worker:
@@ -2808,6 +2825,57 @@ func _refresh_unit_selection_details() -> void:
 		selection_details.text = action.left(cargo_start) + "\nCargo " + action.substr(cargo_start + 2).trim_suffix(")")
 	else:
 		selection_details.text = action + ("\n" + _selection_role_text if not _selection_role_text.is_empty() else "")
+
+
+func _compact_roster_entry(unit_type: int) -> String:
+	# The full name is in Info. Siege's two-word name otherwise consumes the
+	# entire 96px minimum identity column before its count can be read.
+	var unit_name: String = "Siege" if unit_type == UnitData.UnitType.SIEGE else UnitData.get_unit_name(unit_type)
+	return "%s ×%d" % [unit_name, int(_selection_role_counts[unit_type])]
+
+
+func _unit_selection_information(selected_type: int, unit_stats: Dictionary, count: int) -> String:
+	var lines: PackedStringArray = []
+	if not _selection_roster.is_empty():
+		lines.append("Selection composition")
+		for role_type: int in _selection_roster:
+			lines.append("%s ×%d — %s" % [UnitData.get_unit_name(role_type), int(_selection_role_counts[role_type]), _unit_role_information(role_type)])
+		lines.append("Select one type to inspect its attack, armor and current order. Scouts cannot attack.")
+	else:
+		var role: String = _unit_role_information(selected_type)
+		if not role.is_empty():
+			lines.append(role)
+		# Use only the current selection payload. No roster-wide scan, hidden
+		# target lookup or inferred technology bonuses are needed by inspection.
+		var stats: PackedStringArray = []
+		var stats_are_base: bool = bool(unit_stats.get("stats_are_base", false))
+		if unit_stats.has("damage"):
+			stats.append(("Base attack %d" if stats_are_base else "Attack %d") % int(unit_stats.damage))
+		if unit_stats.has("armor"):
+			stats.append(("Base armor %d" if stats_are_base else "Armor %d") % int(unit_stats.armor))
+		if unit_stats.has("range"):
+			var attack_range: int = int(unit_stats.range)
+			stats.append("Range %d %s" % [attack_range, "tile" if attack_range == 1 else "tiles"])
+		if not stats.is_empty():
+			lines.append(" · ".join(stats))
+		if stats_are_base:
+			lines.append("Enemy research is not shown online.")
+		if unit_stats.has("stance"):
+			lines.append(("First unit stance: " if count > 1 else "Stance: ") + str(unit_stats.stance))
+		lines.append(("First unit order: " if count > 1 and not _selection_is_worker else "Current order: ") + _selection_action_text)
+		if not _selection_cargo_text.is_empty():
+			lines.append("Cargo: " + _selection_cargo_text)
+	return "\n".join(lines)
+
+
+func _unit_role_information(unit_type: int) -> String:
+	if unit_type == UnitData.UnitType.VILLAGER:
+		return "Worker · gathers and builds"
+	if unit_type == UnitData.UnitType.SCOUT:
+		return "Reconnaissance · unarmed"
+	var role: String = UnitData.get_unit_role_description(unit_type)
+	var counter: String = UnitData.get_unit_counter_name(unit_type)
+	return role + (" · damage bonus against " + counter if not counter.is_empty() else "")
 
 
 func _building_purpose(building_ref: Node2D) -> String:
@@ -4558,7 +4626,9 @@ func _selection_information() -> Dictionary:
 	var lines: PackedStringArray = []
 	if not _selection_meter_information.is_empty():
 		lines.append(_selection_meter_information)
-	if not selection_details.text.is_empty():
+	if _selection_kind == "unit" and not _selection_unit_information.is_empty():
+		lines.append(_selection_unit_information)
+	elif not selection_details.text.is_empty():
 		lines.append(selection_details.text)
 	if _selection_kind == "unit":
 		if _selection_is_scout:

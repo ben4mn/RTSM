@@ -193,8 +193,11 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 			if node is UnitBase:
 				(node as UnitBase)._health_feedback_remaining = 2.0
 			if not GameManager.reduced_flashes:
-				node.modulate = Color(1.16, 1.12, 1.04)
-				_hit_flashes[id] = 0.15
+				# Inert replicas cannot advance a building-bound tween. Reuse
+				# its presentation palette through the adapter's visual clock;
+				# the sprite keeps its own construction/ownership modulation.
+				node.modulate = BuildingBase.DAMAGE_FLASH_COLOR if node is BuildingBase else Color(1.16, 1.12, 1.04)
+				_hit_flashes[id] = BuildingBase.DAMAGE_FLASH_SECONDS if node is BuildingBase else 0.15
 			AudioManager.play_world("attack_hit", node)
 		node.hp = actor.hp
 		node.max_hp = actor.max_hp

@@ -1,6 +1,20 @@
 {
   "releases": [
     {
+      "id": "2026-10-24-read-the-battle",
+      "version": "0.2.0-beta.13",
+      "date": "2026-10-24",
+      "title": "Read the battle",
+      "summary": "Distinct mounted troops, richer buildings and army information within a tap.",
+      "changes": [
+        "Horsemen and siege engines gain clearer equipment, material contrast and team cloth. Siege carriages stay grounded as they move and recoil when firing.",
+        "Roof eaves, timber frames, stone foundations and building-specific details make your settlement easier to recognize. Construction rises from the ground behind temporary scaffolding.",
+        "Building hits use a brief warm pulse that preserves team and construction colors, including online play. Reduced flashes still suppresses it.",
+        "Mixed armies show readable unit counts. Tap selection Info for the full composition, combined health, roles and available attack, armor, range and stance details.",
+        "Attack poses follow the existing weapon release timing. Unit sizes, combat strength, costs and building footprints are unchanged."
+      ]
+    },
+    {
       "id": "2026-10-23-living-battlefields",
       "version": "0.2.0-beta.12",
       "date": "2026-10-23",

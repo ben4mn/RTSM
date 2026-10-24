@@ -934,8 +934,14 @@ func _update_sprite_motion(delta: float) -> void:
 		var mounted: bool = unit_type in [UnitData.UnitType.CAVALRY, UnitData.UnitType.SCOUT]
 		var gait_rate: float = 17.0 if mounted else 12.0
 		var stride: float = sin(_animation_clock * gait_rate)
-		sprite_offset.y = -absf(stride) * (1.6 if mounted else 2.0)
-		_sprite.rotation = stride * (0.014 if mounted else 0.025)
+		if unit_type == UnitData.UnitType.SIEGE:
+			# A low wheel roll keeps the heavy carriage grounded; infantry's
+			# two-unit hop makes the same art appear to walk on its wheels.
+			sprite_offset.y = -absf(stride) * 0.35
+			_sprite.rotation = stride * 0.006
+		else:
+			sprite_offset.y = -absf(stride) * (1.6 if mounted else 2.0)
+			_sprite.rotation = stride * (0.014 if mounted else 0.025)
 	elif current_state in [State.GATHERING, State.BUILDING]:
 		var work_stroke: float = sin(_animation_clock * 7.5)
 		_sprite.rotation = work_stroke * 0.04
@@ -943,13 +949,31 @@ func _update_sprite_motion(delta: float) -> void:
 	else:
 		_sprite.rotation = 0.0
 	if _attack_animation_remaining > 0.0:
-		var phase: float = 1.0 - _attack_animation_remaining / _attack_animation_duration
-		# Brief anticipation then a clear stroke/recoil, around the ground foot
-		# anchor. This reads from the existing windup without changing hit timing.
-		var thrust: float = -sin(phase / 0.3 * PI) * 0.25 if phase < 0.3 else sin((phase - 0.3) / 0.7 * PI)
-		sprite_offset += _attack_animation_direction * thrust * (-2.0 if is_ranged else 5.0)
-		_sprite.rotation += thrust * (0.035 if is_ranged else 0.06) * (-1.0 if _sprite.flip_h else 1.0)
+		# Both the server and inert replicas already carry duration/remaining.
+		# Derive the release from that visual clock; never read a replica's
+		# simulation windup or change the actual damage/projectile schedule.
+		var elapsed: float = _attack_animation_duration - _attack_animation_remaining
+		var windup: float = maxf(0.001, _attack_animation_duration - 0.16)
+		if unit_type == UnitData.UnitType.SIEGE:
+			# Recoil starts at release, then settles along the firing direction.
+			var recoil: float = sin(clampf((elapsed - windup) / 0.16, 0.0, 1.0) * PI)
+			sprite_offset -= _attack_animation_direction * recoil * 3.5
+			_sprite.rotation += recoil * 0.012 * (-1.0 if _sprite.flip_h else 1.0)
+		else:
+			var thrust: float = _attack_pose_strength(elapsed, windup)
+			sprite_offset += _attack_animation_direction * thrust * (-2.0 if is_ranged else 5.0)
+			_sprite.rotation += thrust * (0.035 if is_ranged else 0.06) * (-1.0 if _sprite.flip_h else 1.0)
 	_sprite.position = sprite_offset
+
+
+func _attack_pose_strength(elapsed: float, windup: float) -> float:
+	## Anticipate, strike at the existing release, then recover in 160 ms.
+	var preparation: float = windup * 0.4
+	if elapsed < preparation:
+		return -sin(maxf(0.0, elapsed) / preparation * PI) * 0.2
+	if elapsed < windup:
+		return sin((elapsed - preparation) / (windup - preparation) * PI * 0.5)
+	return cos(clampf((elapsed - windup) / 0.16, 0.0, 1.0) * PI * 0.5)
 
 
 # Freed Object handles fail typed Object parameters before the body can run.

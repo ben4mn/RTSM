@@ -1,31 +1,66 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <!-- Horse guard: pale angular mount, armored rider, a forward lance. -->
-  <path fill="#5C655C" d="m38 70-13 8-6 13 11-6 13-9z"/>
-  <path fill="#ADB5A4" d="m40 78 3 21-4 5h12l4-23zm37 1 5 21-3 4h14l-4-26z"/>
-  <path fill="#D9DAC7" d="m33 70 15-9 34 3 10 13-8 16-39-2-15-10z"/>
-  <path fill="#B8C1AE" d="m33 70 12 5 36 8 8-4-5 14-39-2-15-10z"/>
-  <path fill="#E8E5DB" d="m78 74 5-23 9-12 10 5 12 15-5 9-12 1-8 17z"/>
-  <path fill="#9CAA9A" d="m82 50 2-11 7 7 7-10 5 8-12 13-7 18-7-1z"/>
-  <path fill="#354341" d="m100 49 3 3-2 3-3-2z"/>
-  <path d="m92 56 16 7-36 3" fill="none" stroke="#8B8971" stroke-width="1.5"/>
-  <path fill="#406861" d="m43 69 34 2 5 11-14 13-23-7z"/>
-  <path fill="#6E9C94" d="m46 71 27 3 1 10-8 7-16-6z"/>
-  <path d="m50 78 18 4" stroke="#A9C7BB" stroke-width="2"/>
-  <path fill="#BBC8BC" d="m48 38 12-6 13 6 5 24-14 10-18-8z"/>
-  <path fill="#6E9C94" d="m57 36 9 4 5 24-10 3-7-10z"/>
-  <path fill="#65776C" d="m63 61 8 1 2 17 9 6-5 4-12-8z"/>
-  <path fill="#CBD3C3" d="m70 41 12 10 9-7 4 5-13 11-16-12z"/>
-  <path d="m79 70 29-55" stroke="#7F7960" stroke-width="3"/>
-  <path fill="#E8E5DB" d="m105 18 9-13-1 17z"/>
-  <path fill="#DDE1D5" d="m49 23 9-11 15 4 7 12-7 13-19-1-7-9z"/>
-  <path fill="#A8B7AB" d="m49 23 7-9 2 25-4 1-7-9z"/>
-  <path fill="#31413E" d="m51 27 25-1-4 8-17 2z"/>
-  <path fill="#D8D1B9" d="m31 42 14-3 13 8-3 24-13 13-13-12-4-18z"/>
-  <path fill="#6E9C94" d="m34 45 10-2 10 6-3 21-9 9-10-10-3-15z"/>
-  <path fill="#406861" d="m34 45 4-1-1 23 5 12-10-10-3-15z"/>
-  <path fill="#C9B394" d="m55 34 17-1-2 8-12 3-5-5z"/>
-  <path fill="#7D7158" d="m55 37 8 4 8-4-1 6-10 3-6-5z"/>
-  <path d="m58 29 5 1m6-2 4 1" stroke="#E8E5DB" stroke-width="1.5"/>
-  <path fill="#AAB9AF" d="m64 24 3 1 2 12-4 1z"/>
-  <path fill="#E8E5DB" d="m39 52 9 1-1 3-9-1zm2 6 5 1-1 8-4-1z"/>
+  <!-- Company horse guard: pale bay mount, bone steel and a broad route shield.
+       The unarmored Scout retains a dark pony. Shared y104 hoof anchor. -->
+  <path fill="#49483B" d="m39 68-16 9-8 16 11-6 12-10 9-1z"/>
+  <path fill="#9B9276" d="m39 72-13 11-5 6 13-6 10-8z"/>
+  <path fill="#969A85" d="m43 78 6 16-3 8h10l5-21zm32 0 9 16-1 8h10l-1-15-9-12z"/>
+  <path fill="#44483E" d="m47 99 9-1 1 6H43zm36 0 9-1 4 6H81z"/>
+  <!-- Broad light and shadow planes on the unarmored horse. -->
+  <path fill="#D7D4BA" d="m31 71 15-11 31 3 16 11-3 15-14 6-32-5-14-9z"/>
+  <path fill="#EEE7CF" d="m34 70 13-7 27 3 13 9-12 9-29-5z"/>
+  <path fill="#ACAE93" d="m31 77 15 4 29 4 16-10-2 14-14 6-31-5-14-9z"/>
+  <path fill="#D7D4BA" d="m36 78 12 4-4 17 3 5H34l2-10zm43 5 10-5-1 18 8 6-2 2H81l-4-11z"/>
+  <path fill="#F0EAD4" d="m39 84 4 1-3 13-4 1zm43 1 4-3-1 14 5 5-5-1-4-7z"/>
+  <path fill="#44483E" d="m35 100 10-1 2 5H33zm47 0 9 1 5 2-2 1H81z"/>
+  <path fill="#D7D4BA" d="m77 80 5-26 10-14 12 5 12 15-4 10-12 1-10 19-8 3z"/>
+  <path fill="#EEE7CF" d="m87 57 8-12 7 3 10 13-9 5-7-3-8 18-6 3z"/>
+  <path fill="#626751" d="m81 58 2-18 7 5 7-11 5 9-10 10-8 21-7 8z"/>
+  <path fill="#F7F0DF" d="m99 48 5 2 9 11-5 5-6-10z"/>
+  <path fill="#AAA68B" d="m105 64 10-3-3 9-9 1z"/>
+  <path fill="#303D35" d="m98 53 3 1-1 3-3-1z"/>
+  <path d="m91 54 14 12m-1-4-30 7" fill="none" stroke="#67553C" stroke-width="3.5" stroke-linecap="round"/>
+  <path d="m91 54 14 12m-1-4-30 7" fill="none" stroke="#C4A77C" stroke-width="1.4"/>
+  <!-- Team saddle cloth and neutral leather saddle. -->
+  <path fill="#406861" d="m43 65 32 4 7 14-14 14-26-9-5-13z"/>
+  <path fill="#6E9C94" d="m45 69 27 3 5 10-11 11-20-8z"/>
+  <path d="m47 84 19 7 9-9" fill="none" stroke="#A9C7BB" stroke-width="2.4"/>
+  <path fill="#554635" d="m47 62 23 2 6 8-26-2z"/>
+  <!-- Seated armored rider, leather belt and bent boot. -->
+  <path fill="#626C61" d="m48 37 14-6 13 9 2 22-13 12-21-10z"/>
+  <path fill="#D4D7C5" d="m52 38 10-4 11 7-1 20-11 7-14-8z"/>
+  <path fill="#F0EDDD" d="m54 38 8-3 8 7-4 10-15-4z"/>
+  <path fill="#A2AF9D" d="m49 50 18 5 6-9-1 15-11 7-14-8z"/>
+  <path fill="#66533D" d="m47 60 24 1 3 6-24 3z"/>
+  <path fill="#CEB685" d="m61 62 8 1v4l-8-1z"/>
+  <path fill="#6F7867" d="m62 66 9-3 3 14 8 7-5 6-12-8z"/>
+  <path fill="#D4D7C5" d="m64 66 5-1 2 12-5 2z"/>
+  <path fill="#403A31" d="m67 78 6-1 7 6 5 2-1 6-8 1-10-9z"/>
+  <path fill="#B7A17A" d="m76 88 8-1-1 3-7 1z"/>
+  <!-- Forward lance and braced gauntlet. -->
+  <path fill="#9BA794" d="m70 40 13 11 8-7 5 5-14 13-17-13z"/>
+  <path fill="#E2E3D0" d="m72 40 12 10-4 5-11-9z"/>
+  <path d="m78 76 30-61" stroke="#554633" stroke-width="4.5" stroke-linecap="round"/>
+  <path d="m80 73 29-58" stroke="#BA9A65" stroke-width="1.8"/>
+  <path fill="#879787" d="m105 18 10-14-1 19z"/>
+  <path fill="#F0EDDD" d="m115 4-8 15 7 4z"/>
+  <path fill="#406861" d="m101 27 6 3 5 13-9-6-5-3z"/>
+  <path fill="#A9C7BB" d="m101 27 6 3 1 4-9-3z"/>
+  <path fill="#D4D7C5" d="m88 44 6-2 5 6-4 7-7-4z"/>
+  <!-- Open bone-steel helmet, warm face and folded company scarf. -->
+  <path fill="#B68258" d="m53 23 17-1 7 9-5 11-12 5-9-10z"/>
+  <path fill="#DDB083" d="m61 24 9 1 5 6-3 8-10 3-3-9z"/>
+  <path fill="#57412E" d="m55 34 7 5 10-4-2 8-10 4-7-5z"/>
+  <path d="m63 30 7-1" stroke="#493A2D" stroke-width="2" stroke-linecap="round"/>
+  <path fill="#94A28F" d="m47 26 4-12 12-8 13 8 5 13-7 5-4-11-13 1-5 10 1 7-6-3z"/>
+  <path fill="#D4D7C5" d="m49 25 5-11 10-6 10 7 4 10-8-4-14 1-5 9z"/>
+  <path fill="#F0EDDD" d="m54 14 10-6 2 12-10 2-5 7z"/>
+  <path fill="#B6C1AC" d="m64 8 3 12 7 4-2 9-5-1-1-11-10 1z"/>
+  <path fill="#406861" d="m51 39 10 5 12-4 2 7-14 8-12-7z"/>
+  <path fill="#6E9C94" d="m51 39 10 5 12-4 1 4-13 6-11-6z"/>
+  <!-- High-contrast route shield matches the infantry company. -->
+  <path fill="#C5BB98" d="m29 46 15-5 15 9-3 24-14 13-14-12-5-17z"/>
+  <path fill="#F0EDDD" d="m29 46 15-5 15 9-2 4-14-9-12 5-4 11-4-3z"/>
+  <path fill="#406861" d="m32 50 12-4 11 7-3 20-10 10-11-11-4-14z"/>
+  <path fill="#6E9C94" d="m37 48 7-2 11 7-3 20-10 10-4-7z"/>
+  <path d="m46 52 1 10-7 2 2 7 6 3" fill="none" stroke="#E8E5DB" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
