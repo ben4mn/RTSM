@@ -78,7 +78,28 @@ On iPhone, open the URL in Safari and use Share → Add to Home Screen. Enable *
 
 This is a rough public preview. Desktop browser automation does not certify physical-phone touch behavior, safe areas, audio, or prolonged performance.
 
-## Latest release — 2026-10-23 living battlefields
+## Latest release — 2026-10-24 read the battle
+
+Published `0.2.0-beta.13` by atomic static switch at `2026-10-24T01:08:55.912368+00:00`. Runtime `e2359dd57283eea5ca8edffbbb841e2f9bdbeaae` adds mounted-unit/building presentation, construction stages and army inspection. Canonical and reproduced exports are `build/deployed-beta13-20261024` and `build/deployed-beta13-reproduced-20261024`; the sealed local server context is `build/deployed-beta13-match-server-20261024`.
+
+| Release identity | Value |
+| --- | --- |
+| Source tree SHA-256 | `10c5365c11ffad5855942b330e1739619bfb2b561220901ef139485a70244595` |
+| Static target | `releases/beta13-e2359dd57283-c5f84fcde0-e6754b0fc7` |
+| Server-context manifest SHA-256 | `c5f84fcde0ce72d71ff543b6e1d72c12fded5851966de75b6dbee9aa911f868f` |
+| Web manifest SHA-256 | `e6754b0fc73f5eac4eb6b426904993842139c9281de1a84190be02e62fab0309` |
+| Server image | `sha256:0bab19c5837b2bac8861e2c7a00c96ec0b078d482af06e19deec220686a1657d` |
+| Online container | `f340155a5e0eadd90d79ab0ace657cf88f420b6467fcd01359c4807848102e8c` |
+
+The remote context is `/home/ben/aoem/deployment-candidates/beta13-e2359dd57283-c5f84fcde0-e6754b0fc7/context`. Its **800 payload hashes** include **462 committed runtime sources** and derived import data; all **798 runtime files** match in both the built image and running container. Isolated no-network startup passed with the production user, read-only filesystem, security options and 1.5-CPU/768-MiB limits; its disposable smoke container was removed.
+
+The guard observed zero port-9080 sockets in **every non-LISTEN state** at `01:08:42.119271 UTC`, before replacing only `online`. The new container started at `2026-10-24T01:08:53.102113809Z`. Nginx `69b9c83cc44f`, diagnostics `77e08af5a56b` and tunnel `b8041fda214f` retain exact prior identities/start times; diagnostics is healthy. Reviewed Compose/Nginx configuration and existing infrastructure remain unchanged. The guard/replacement retains a small admission race; no traffic gate was added. Trusted public HTTPS verifies all 40 files, required MIME/cache/isolation headers and 13 denied private paths.
+
+Rollback retains beta.12 static `releases/beta12-7681103e077c-33643af275-238d377893` and image `sha256:9c19932fc36ff1995158e7d18ca35fb1f602f1643d6d7b91e1e218e7d0df5db5`, tagged `aoem-online:rollback-beta13-e2359dd57283-c5f84fcde0-e6754b0fc7`. All **796 previous runtime files** matched its sealed context `/home/ben/aoem/deployment-candidates/beta12-7681103e077c-33643af275-238d377893/context`, manifest `33643af2755c4b703629568a59de45c247b5e8b3ea9a03cc6726b6380a14f46b`. Backup `/home/ben/aoem/deployment-backups/beta13-e2359dd57283-c5f84fcde0-e6754b0fc7` contains `previous-context.tgz`, `previous-state.json`, reviewed configurations and the nominal inventory. Unlike the earlier beta.12 cutover, the nominal context was already a sealed symlink matching the verified rollback source. Old image/static/context remain intact; review live identities and the idle guard before explicit recovery.
+
+[Cutover receipt](../output/iteration-2026-10-24/beta13-deployment/cutover-receipt.json), [staging receipt](../output/iteration-2026-10-24/beta13-deployment/stage-receipt.json) and [public HTTPS receipt](../output/iteration-2026-10-24/beta13-deployment/cutover-https/receipt.json) retain exact identities and checks. See [the iteration report](read_the_battle_2026-10-24.md) for validation scope. The full two-browser River match ended naturally at 14:37 and both results/menu returns passed. The final 98.92 game seconds took 98.94–99.02 collector wall seconds (observational, not a render benchmark). Postflight at `01:26:48 UTC` reconfirmed runtime/public hashes, unchanged identities, zero non-LISTEN match sockets and zero restarts/OOM. Receipts are under `output/iteration-2026-10-24/beta13-postflight/` and in the iteration evidence archive. Test browsers are closed; the updated native game was visually confirmed and left at its main menu.
+
+## Previous release — 2026-10-23 living battlefields
 
 Published `0.2.0-beta.12` by atomic static switch at `2026-10-23T22:20:20.436206Z`. Target: `releases/beta12-7681103e077c-33643af275-238d377893`; clean runtime revision `7681103e077ce404d0741c178b21491b972bf6ed`; source tree SHA-256 `cbfe0006847624736fc1ffa06140124a59fa8fc1ac719a27a4d077ee6bc4f946`. Canonical/reproduced exports are `build/deployed-beta12-20261023` and `build/deployed-beta12-reproduced-20261023`; the local server context is `build/deployed-beta12-match-server-20261023`.
 
