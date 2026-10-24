@@ -373,7 +373,7 @@ func execute_command(owner: int, packet: Dictionary) -> String:
 				else:
 					unit.command_move_path(order.path) if order.path.size() > 1 else unit.command_move(order.destination)
 			if operation == "attack_move":
-				ATTACK_MARCH.attach_orders(orders)
+				ATTACK_MARCH.attach_compact_orders(orders)
 		"stop", "stance":
 			for unit: UnitBase in units:
 				if operation == "stop":

@@ -18,6 +18,105 @@ var _cached_speed: float = 0.0
 var member_scans: int = 0
 
 
+## Partition only the initial geometry of one explicit recipient batch. The
+## original route admission below remains authoritative for every candidate.
+## This never pulls in nearby unselected actors or joins a moving cohort later.
+static func spatial_candidates(entries: Array) -> Array:
+	# Bound the TOTAL submitted work before filtering unarmed recipients. A
+	# duplicate or mixed-owner batch cannot manufacture separate valid cohorts.
+	if entries.size() < 2 or entries.size() > MAX_MEMBERS:
+		return []
+	var units: Array[UnitBase] = []
+	var seen: Dictionary = {}
+	var owner: int = -1
+	for entry: Variant in entries:
+		if not is_instance_valid(entry) or not entry is UnitBase:
+			return []
+		var unit := entry as UnitBase
+		var id: int = unit.get_instance_id()
+		if seen.has(id) or unit.player_owner not in [0, 1] or (owner >= 0 and unit.player_owner != owner):
+			return []
+		seen[id] = true
+		owner = unit.player_owner
+		if not unit.global_position.is_finite():
+			return []
+		if unit.unit_type in [UnitData.UnitType.VILLAGER, UnitData.UnitType.SCOUT] or unit.damage <= 0.0:
+			continue
+		# Keep armed bad-route/non-MOVING members. The unchanged route/pending
+		# admission must reject their candidate; do not silently rescue it here.
+		units.append(unit)
+	if units.size() < 2:
+		return []
+	var neighbors: Array[PackedByteArray] = []
+	var counts := PackedInt32Array()
+	counts.resize(units.size())
+	for index: int in units.size():
+		var row := PackedByteArray()
+		row.resize(units.size())
+		neighbors.append(row)
+	for a: int in units.size():
+		for b: int in range(a + 1, units.size()):
+			if units[a].global_position.distance_squared_to(units[b].global_position) <= START_DIAMETER * START_DIAMETER:
+				neighbors[a][b] = 1
+				neighbors[b][a] = 1
+				counts[a] += 1
+				counts[b] += 1
+	var order: Array[int] = []
+	for index: int in units.size():
+		order.append(index)
+	# Dense cores are considered before a fringe reinforcement. Stable actor
+	# IDs break ties, making membership independent of input iteration order.
+	order.sort_custom(func(a: int, b: int) -> bool:
+		return counts[a] > counts[b] if counts[a] != counts[b] else units[a].get_instance_id() < units[b].get_instance_id()
+	)
+	var groups: Array = []
+	for index: int in order:
+		var placed := false
+		for group: Array in groups:
+			var fits := true
+			for member: int in group:
+				if neighbors[index][member] == 0:
+					fits = false
+					break
+			if fits:
+				group.append(index)
+				placed = true
+				break
+		if not placed:
+			groups.append([index])
+	var result: Array = []
+	for group: Array in groups:
+		var members: Array[UnitBase] = []
+		for index: int in group:
+			members.append(units[index])
+		result.append(members)
+	return result
+
+
+static func attach_compact_orders(orders: Array[Dictionary]) -> Array[RefCounted]:
+	var result: Array[RefCounted] = []
+	if orders.size() > MAX_MEMBERS:
+		return result
+	var entries: Array = []
+	var by_id: Dictionary = {}
+	for order: Dictionary in orders:
+		var unit: Variant = order.get("unit")
+		if not is_instance_valid(unit) or not unit is UnitBase:
+			return result
+		entries.append(unit)
+		by_id[unit.get_instance_id()] = order
+	for members: Array in spatial_candidates(entries):
+		var candidate: Array[Dictionary] = []
+		for unit: UnitBase in members:
+			candidate.append(by_id[unit.get_instance_id()])
+		# No retry or route-based subdivision if these exact accepted routes
+		# fail. A singleton/homogeneous group simply retains native movement.
+		var march: RefCounted = attach_orders(candidate)
+		if march != null:
+			result.append(march)
+	return result
+
+
 static func attach_orders(orders: Array[Dictionary]) -> RefCounted:
 	var units: Array[UnitBase] = []
 	var samples: Array[PackedVector2Array] = []

@@ -2162,7 +2162,7 @@ func _on_move_command(target_tile: Vector2i) -> void:
 				unit.command_move(world_pos)
 
 	if issue_attack_move and not issue_patrol:
-		ATTACK_MARCH.attach_orders(orders)
+		ATTACK_MARCH.attach_compact_orders(orders)
 	if issue_patrol:
 		VFX.move_indicator(get_tree(), game_map.tile_to_world(target_tile))
 		hud.show_notification("Patrol route set", Color(0.95, 0.8, 0.4))

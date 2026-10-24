@@ -13,6 +13,17 @@ var _started: float = 0.0
 var _closed: bool = false
 
 
+## Only fresh waves partition, before any pending token owns its members.
+## Each token retains all-original-member generation/contact/expiry checks.
+static func watch_compact_waves(units: Array, target: Vector2, owner: int) -> Array[RefCounted]:
+	var result: Array[RefCounted] = []
+	for members: Array in MARCH.spatial_candidates(units):
+		var pending: RefCounted = watch_wave(members, target, owner)
+		if pending != null:
+			result.append(pending)
+	return result
+
+
 static func watch_wave(units: Array, target: Vector2, owner: int) -> RefCounted:
 	var participants: Array[UnitBase] = []
 	var slowest: float = INF

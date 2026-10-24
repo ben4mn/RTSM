@@ -3094,7 +3094,7 @@ func _send_attack(units: Array, target: Vector2) -> void:
 	_issue_attack_orders(units, target)
 	# Only a fresh wave may cohere, after lazy navigation accepts its routes.
 	# Retarget/objective refreshes do not pass this seam or re-form a token.
-	PENDING_ATTACK_MARCH.watch_wave(units, target, player_id)
+	PENDING_ATTACK_MARCH.watch_compact_waves(units, target, player_id)
 	ai_attack_launched.emit(units, target)
 
 
