@@ -32,6 +32,16 @@ func _run() -> void:
 			await get_tree().process_frame
 		_expect(_main.get("_building_placement") != null, "main initialized")
 		if _main.get("_building_placement") == null: break
+		# This fixture freezes and relocates actors solely for static pictures.
+		# Disconnect its background pause UI; live gameplay/audio fixtures retain
+		# the production lifecycle guard unchanged.
+		var guard: Node = _main.get("_match_background_guard")
+		if is_instance_valid(guard):
+			guard.background_changed.disconnect(_main._on_match_background_changed)
+			guard.queue_free()
+			_main.set("_match_background_guard", null)
+		if GameManager.current_state == GameManager.GameState.PAUSED:
+			_main.call("_on_resume_requested")
 		_main.ai_controller.set_process(false)
 		_main.ai_controller.get("_decision_timer").stop()
 		_main.set_process(false) # Freeze staged positions/vision while rendering evidence.
