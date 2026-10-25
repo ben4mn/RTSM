@@ -20,6 +20,8 @@ var ghost_position: Vector2 = Vector2.ZERO
 var is_valid_placement: bool = false
 var _invalid_reason: String = ""
 var _invalid_tiles: Array[Vector2i] = []
+var _clearance_tiles: Array[Vector2i] = []
+var _clearance_areas: Array[Rect2i] = []
 var _player_owner: int = 0
 var _ghost_sprite: Sprite2D = null
 var _ghost_art_rect: Rect2 = Rect2()
@@ -46,6 +48,12 @@ const GENERIC_INVALID_REASON := "Invalid placement"
 const FOG_INVALID_REASON := "Move all tiles into sight"
 const PLACEMENT_GRID_COLOR := Color(0.90, 0.92, 0.83, 0.18)
 const PLACEMENT_GRID_WIDTH_PX := 0.9
+const FOOTPRINT_INK := Color("f4eddd")
+const FOOTPRINT_GOLD := Color("e8bf77")
+const FOOTPRINT_BLOCKED := Color("df947f")
+const PREVIEW_VALID_TINT := Color(1.0, 1.0, 1.0, 0.78)
+const PREVIEW_INVALID_TINT := Color(1.0, 0.80, 0.75, 0.72)
+const PREVIEW_LAYER: int = 8
 
 
 class PlacementGrid extends Node2D:
@@ -58,6 +66,10 @@ class PlacementGrid extends Node2D:
 
 
 func _ready() -> void:
+	# A preview is a planning overlay, not a world actor. Canopies must not hide
+	# its reserved cells or blocked marks; the actual fog layer remains above it.
+	z_as_relative = false
+	z_index = PREVIEW_LAYER
 	set_process(false)
 	# Observe real input before GUI routing, including the Build card that
 	# starts placement. Viewport size does not identify the active input device.
@@ -182,7 +194,7 @@ func _setup_ghost_sprite() -> void:
 	if _ghost_sprite.texture != null:
 		var ink: Rect2 = KingdomArt.ink_rect(_ghost_sprite.texture)
 		_ghost_art_rect = Rect2(_ghost_sprite.get_rect().position + Vector2(ink.position), Vector2(ink.size))
-	_ghost_sprite.modulate = Color(0.4, 1.0, 0.4, 0.6)
+	_ghost_sprite.modulate = PREVIEW_VALID_TINT
 	# Keep the exact cell edges and blocked marks readable over the translucent art.
 	_ghost_sprite.show_behind_parent = true
 	add_child(_ghost_sprite)
@@ -229,6 +241,8 @@ func find_visible_space(safe_rect: Rect2, occlusions: Array[Rect2]) -> bool:
 	)
 	var previous_reason: String = _invalid_reason
 	var previous_tiles: Array[Vector2i] = _invalid_tiles.duplicate()
+	var previous_clearance_tiles: Array[Vector2i] = _clearance_tiles.duplicate()
+	var previous_clearance_areas: Array[Rect2i] = _clearance_areas.duplicate()
 	var examined: int = 0
 	for candidate: Dictionary in candidates:
 		var tile: Vector2i = candidate["tile"]
@@ -258,21 +272,16 @@ func find_visible_space(safe_rect: Rect2, occlusions: Array[Rect2]) -> bool:
 	# ordinary invalid-cell explanation with the last rejected candidate.
 	_invalid_reason = previous_reason
 	_invalid_tiles = previous_tiles
+	_clearance_tiles = previous_clearance_tiles
+	_clearance_areas = previous_clearance_areas
 	return false
 
 
 func _find_space_preview_screen_rect(tile: Vector2i) -> Rect2:
 	var canvas: Transform2D = get_canvas_transform()
 	var origin: Vector2 = _tile_to_world(tile)
-	var half_w: float = float(MapData.TILE_WIDTH) * 0.5
-	var half_h: float = float(MapData.TILE_HEIGHT) * 0.5
-	# The four outer diamond corners enclose every rendered footprint cell.
-	var points: Array[Vector2] = [
-		origin + Vector2(0.0, -half_h),
-		_tile_to_world(tile + Vector2i(current_footprint.x - 1, 0)) + Vector2(half_w, 0.0),
-		_tile_to_world(tile + current_footprint - Vector2i.ONE) + Vector2(0.0, half_h),
-		_tile_to_world(tile + Vector2i(0, current_footprint.y - 1)) - Vector2(half_w, 0.0),
-	]
+	var points: Array[Vector2] = []
+	points.assign(_footprint_world_polygon(tile, current_footprint))
 	if _ghost_sprite != null and _ghost_sprite.texture != null:
 		var art: Rect2 = _ghost_art_rect
 		for corner: Vector2 in [art.position, art.position + Vector2(art.size.x, 0.0), art.end, art.position + Vector2(0.0, art.size.y)]:
@@ -285,6 +294,10 @@ func _find_space_preview_screen_rect(tile: Vector2i) -> Rect2:
 			return Rect2()
 		minimum = minimum.min(screen)
 		maximum = maximum.max(screen)
+	# The short name and state badge belong to the preview too. Assistance must
+	# not tuck them beneath HUD controls while the artwork itself happens to fit.
+	minimum.y -= 24.0
+	maximum.y += 28.0
 	return Rect2(minimum, maximum - minimum).grow(FIND_SPACE_SCREEN_MARGIN)
 
 
@@ -321,8 +334,8 @@ func _initial_preview_fits_world_area(tile: Vector2i, world_pos: Vector2, world_
 		for corner: Vector2 in [art.position, art.position + Vector2(art.size.x, 0.0), art.end, art.position + Vector2(0.0, art.size.y)]:
 			if not world_area.has_point(canvas * (world_pos + _ghost_sprite.transform * corner)):
 				return false
-	for offset: Vector2i in [Vector2i.ZERO, Vector2i(current_footprint.x, 0), current_footprint, Vector2i(0, current_footprint.y)]:
-		if not world_area.has_point(canvas * _tile_to_world(tile + offset)):
+	for point: Vector2 in _footprint_world_polygon(tile, current_footprint):
+		if not world_area.has_point(canvas * point):
 			return false
 	return true
 
@@ -543,9 +556,9 @@ func _refresh_preview_state(force_signal: bool = false) -> void:
 	# Update ghost sprite tint
 	if _ghost_sprite != null:
 		if is_valid_placement:
-			_ghost_sprite.modulate = Color(0.4, 1.0, 0.4, 0.6)
+			_ghost_sprite.modulate = PREVIEW_VALID_TINT
 		else:
-			_ghost_sprite.modulate = Color(1.0, 0.3, 0.3, 0.6)
+			_ghost_sprite.modulate = PREVIEW_INVALID_TINT
 
 	queue_redraw()
 	if force_signal or was_valid != is_valid_placement or previous_reason != _invalid_reason:
@@ -610,6 +623,8 @@ func revalidate_confirmation(building_type: int, world_pos: Vector2, player_owne
 	if stats.is_empty():
 		_invalid_reason = GENERIC_INVALID_REASON
 		_invalid_tiles.clear()
+		_clearance_tiles.clear()
+		_clearance_areas.clear()
 		return false
 	var footprint: Vector2i = stats.get("footprint", Vector2i(2, 2))
 	return _check_footprint_validity(_world_to_tile(world_pos), footprint, player_owner)
@@ -626,6 +641,8 @@ func _check_footprint_validity(
 ) -> bool:
 	_invalid_reason = ""
 	_invalid_tiles.clear()
+	_clearance_tiles.clear()
+	_clearance_areas.clear()
 	var has_buildable_check: bool = false
 	var has_walkable_check: bool = false
 	var game_map := get_parent()
@@ -712,6 +729,7 @@ func _mark_owned_clearance_conflicts(origin: Vector2i, footprint: Vector2i, owne
 		var protected_ground := occupied.grow(BuildingData.BUILDING_CLEARANCE_TILES)
 		if not candidate.intersects(protected_ground):
 			continue
+		_clearance_areas.append(protected_ground)
 		if _invalid_reason == "":
 			_invalid_reason = "Leave 1 tile between buildings for a path"
 		for dx: int in footprint.x:
@@ -719,6 +737,8 @@ func _mark_owned_clearance_conflicts(origin: Vector2i, footprint: Vector2i, owne
 				var tile: Vector2i = origin + Vector2i(dx, dy)
 				if protected_ground.has_point(tile) and tile not in _invalid_tiles:
 					_invalid_tiles.append(tile)
+					if not occupied.has_point(tile):
+						_clearance_tiles.append(tile)
 
 
 func _has_building_at_tile(tile_pos: Vector2i) -> bool:
@@ -767,7 +787,7 @@ func _confirm_placement() -> void:
 	is_valid_placement = _check_validity()
 	if not is_valid_placement:
 		if _ghost_sprite != null:
-			_ghost_sprite.modulate = Color(1.0, 0.3, 0.3, 0.6)
+			_ghost_sprite.modulate = PREVIEW_INVALID_TINT
 		queue_redraw()
 		preview_changed.emit(false, get_invalid_reason())
 		_emit_invalid_feedback()
@@ -790,70 +810,91 @@ func _confirm_placement() -> void:
 	queue_redraw()
 
 
+func _footprint_world_polygon(origin: Vector2i, footprint: Vector2i) -> PackedVector2Array:
+	# Derive all corners from the terrain's real basis, including its layout and
+	# half-cell origin. The same polygon serves drawing and assisted-placement bounds.
+	var center: Vector2 = _tile_to_world(origin)
+	var axis_x: Vector2 = _tile_to_world(origin + Vector2i(1, 0)) - center
+	var axis_y: Vector2 = _tile_to_world(origin + Vector2i(0, 1)) - center
+	var first: Vector2 = center - (axis_x + axis_y) * 0.5
+	return PackedVector2Array([first, first + axis_x * footprint.x, first + axis_x * footprint.x + axis_y * footprint.y, first + axis_y * footprint.y])
+
+
+func _footprint_local_polygon(origin: Vector2i, footprint: Vector2i) -> PackedVector2Array:
+	var points := PackedVector2Array()
+	for point: Vector2 in _footprint_world_polygon(origin, footprint):
+		points.append(to_local(point))
+	return points
+
+
+func get_preview_state_label() -> String:
+	if is_valid_placement:
+		return "Fits"
+	if _invalid_reason == FOG_INVALID_REASON:
+		return "Needs sight"
+	if not _clearance_tiles.is_empty() and _clearance_tiles.size() == _invalid_tiles.size():
+		return "Keep a path gap"
+	return "Blocked"
+
+
+func _draw_polygon_edges(points: PackedVector2Array, color: Color, width: float, dashed: bool = false) -> void:
+	for i: int in points.size():
+		if dashed:
+			draw_dashed_line(points[i], points[(i + 1) % points.size()], color, width, width * 3.0)
+		else:
+			draw_line(points[i], points[(i + 1) % points.size()], color, width, true)
+
+
 func _draw() -> void:
 	if not active:
 		return
+	var origin_tile: Vector2i = _get_ghost_tile()
+	var pixel: float = 1.0 / maxf(0.01, get_global_transform_with_canvas().x.length())
+	# Dashed boundaries belong to existing friendly buildings' spacing rule,
+	# not to a larger proposed footprint or an invented terrain restriction.
+	for area: Rect2i in _clearance_areas:
+		_draw_polygon_edges(_footprint_local_polygon(area.position, area.size), Color(FOOTPRINT_GOLD, 0.72), 1.3 * pixel, true)
+	for dx: int in current_footprint.x:
+		for dy: int in current_footprint.y:
+			var tile: Vector2i = origin_tile + Vector2i(dx, dy)
+			var points: PackedVector2Array = _footprint_local_polygon(tile, Vector2i.ONE)
+			var invalid: bool = tile in _invalid_tiles
+			var clearance: bool = tile in _clearance_tiles
+			var color: Color = FOOTPRINT_GOLD if not invalid or clearance else FOOTPRINT_BLOCKED
+			draw_colored_polygon(points, Color(color, 0.18 if invalid else 0.08))
+			_draw_polygon_edges(points, Color(color, 0.88 if invalid else 0.50), (1.4 if invalid else 0.75) * pixel, clearance)
+			if invalid:
+				var center: Vector2 = to_local(_tile_to_world(tile))
+				# A double bar means reserved path spacing; an X means blocked
+				# ground. Both remain readable without interpreting tint alone.
+				if clearance:
+					for y: float in [-2.5, 2.5]:
+						draw_line(center + Vector2(-5.0, y) * pixel, center + Vector2(5.0, y) * pixel, FOOTPRINT_INK, 2.0 * pixel, true)
+				else:
+					draw_line(center + Vector2(-5, -5) * pixel, center + Vector2(5, 5) * pixel, FOOTPRINT_INK, 2.0 * pixel, true)
+					draw_line(center + Vector2(-5, 5) * pixel, center + Vector2(5, -5) * pixel, FOOTPRINT_INK, 2.0 * pixel, true)
+	var boundary: PackedVector2Array = _footprint_local_polygon(origin_tile, current_footprint)
+	_draw_polygon_edges(boundary, FOOTPRINT_GOLD if is_valid_placement else FOOTPRINT_BLOCKED, 2.2 * pixel)
+	var bounds := Rect2(boundary[0], Vector2.ZERO)
+	for point: Vector2 in boundary:
+		bounds = bounds.expand(point)
+	var center: Vector2 = bounds.get_center()
+	var font: Font = KingdomTheme.FONT_MEDIUM
+	var font_size: int = maxi(1, roundi(14.0 * pixel))
+	var name_text: String = BuildingData.get_building_name(current_building_type)
+	var label_y: float = bounds.position.y - 10.0 * pixel
+	if _ghost_sprite != null:
+		label_y = minf(label_y, (_ghost_sprite.transform * _ghost_art_rect).position.y - 10.0 * pixel)
+	_draw_preview_label(font, font_size, name_text, Vector2(center.x, label_y), FOOTPRINT_INK, pixel)
+	_draw_preview_label(font, font_size, get_preview_state_label(), Vector2(center.x, bounds.end.y + 20.0 * pixel), FOOTPRINT_INK, pixel)
+	if is_valid_placement:
+		var tick_center := Vector2(center.x - 24.0 * pixel, bounds.end.y + 15.0 * pixel)
+		draw_line(tick_center + Vector2(-4, 0) * pixel, tick_center + Vector2(-1, 3) * pixel, FOOTPRINT_INK, 2.2 * pixel, true)
+		draw_line(tick_center + Vector2(-1, 3) * pixel, tick_center + Vector2(5, -4) * pixel, FOOTPRINT_INK, 2.2 * pixel, true)
 
-	var origin_tile := _get_ghost_tile()
-	var half_w: float = float(MapData.TILE_WIDTH) * 0.5
-	var half_h: float = float(MapData.TILE_HEIGHT) * 0.5
 
-	# Per-tile footprint overlay makes blocked cells clear on touch devices.
-	for dx in current_footprint.x:
-		for dy in current_footprint.y:
-			var tile_pos := origin_tile + Vector2i(dx, dy)
-			var local_center := to_local(_tile_to_world(tile_pos))
-			var tile_points := PackedVector2Array([
-				local_center + Vector2(0, -half_h),
-				local_center + Vector2(half_w, 0),
-				local_center + Vector2(0, half_h),
-				local_center + Vector2(-half_w, 0),
-			])
-			var tile_invalid: bool = tile_pos in _invalid_tiles
-			var fill := Color(0.30, 0.90, 0.45, 0.22)
-			var stroke := Color(0.90, 1.0, 0.68, 0.92)
-			if tile_invalid:
-				fill = Color(1.0, 0.20, 0.20, 0.34)
-				stroke = Color(1.0, 0.45, 0.35, 0.96)
-			draw_colored_polygon(tile_points, fill)
-			for i in tile_points.size():
-				var next_i := (i + 1) % tile_points.size()
-				draw_line(tile_points[i], tile_points[next_i], stroke, 2.0)
-			if tile_invalid:
-				# Shape as well as color distinguishes the blocked square.
-				var cross_color := Color(1.0, 0.76, 0.62, 1.0)
-				draw_line(local_center + Vector2(-8, -4), local_center + Vector2(8, 4), cross_color, 2.0, true)
-				draw_line(local_center + Vector2(-8, 4), local_center + Vector2(8, -4), cross_color, 2.0, true)
-
-	var pixel_w: float = current_footprint.x * MapData.TILE_WIDTH
-	var pixel_h: float = current_footprint.y * MapData.TILE_HEIGHT
-
-	# Match the reserved cells, whose origin is their first tile.
-	var center: Vector2 = _ghost_sprite.position if _ghost_sprite != null else Vector2.ZERO
-	var points := PackedVector2Array([
-		center + Vector2(0, -pixel_h * 0.5),
-		center + Vector2(pixel_w * 0.5, 0),
-		center + Vector2(0, pixel_h * 0.5),
-		center + Vector2(-pixel_w * 0.5, 0),
-	])
-
-	var outline := Color(1.0, 0.94, 0.70, 0.85) if is_valid_placement else Color(1.0, 0.3, 0.3, 0.75)
-	for i in points.size():
-		var next_i := (i + 1) % points.size()
-		draw_line(points[i], points[next_i], outline, 2.2)
-
-	# Building name label
-	var bname := BuildingData.get_building_name(current_building_type)
-	var font := ThemeDB.fallback_font
-	var fsize := ThemeDB.fallback_font_size
-	if font:
-		if bname != "Unknown":
-			var label_y: float = -pixel_h * 0.5 - 20
-			if _ghost_sprite != null:
-				label_y = (_ghost_sprite.transform * _ghost_art_rect).position.y - 12.0
-			var text_pos := Vector2(center.x - pixel_w * 0.25, label_y)
-			draw_string(font, text_pos, bname, HORIZONTAL_ALIGNMENT_CENTER, pixel_w, fsize, Color.WHITE)
-		# Show reason when placement is invalid
-		if not is_valid_placement and _invalid_reason != "":
-			var reason_pos := center + Vector2(-pixel_w * 0.25, pixel_h * 0.5 + 14)
-			draw_string(font, reason_pos, _invalid_reason, HORIZONTAL_ALIGNMENT_CENTER, pixel_w, fsize, Color(1.0, 0.4, 0.3))
+func _draw_preview_label(font: Font, font_size: int, text: String, anchor: Vector2, color: Color, pixel: float) -> void:
+	var text_size: Vector2 = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
+	var position: Vector2 = anchor - Vector2(text_size.x * 0.5, 0.0)
+	draw_string_outline(font, position, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, maxi(1, roundi(3.0 * pixel)), Color("1d302c"))
+	draw_string(font, position, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, color)
