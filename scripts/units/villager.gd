@@ -242,6 +242,16 @@ func _check_visible_economic_threats() -> void:
 
 
 func _get_visible_economic_threats() -> Array[UnitBase]:
+	var game_map := _get_navigation_map()
+	if game_map != null and game_map.has_method("get_visible_enemy_units_for_player"):
+		var threats: Array[UnitBase] = []
+		for enemy: UnitBase in game_map.get_visible_enemy_units_for_player(player_owner):
+			# Neither damage upgrades nor a worker's attacking state invalidate
+			# visibility. Read them now, even between queries in the same frame.
+			if not is_instance_valid(enemy) or enemy.player_owner == player_owner or enemy.current_state == State.DEAD or enemy.damage <= 0.0: continue
+			if enemy is Villager and enemy.current_state != State.ATTACKING: continue
+			threats.append(enemy)
+		return threats
 	var candidates: Array[UnitBase] = []
 	for candidate: Node in get_tree().get_nodes_in_group("units"):
 		if not candidate is UnitBase or candidate == self:
@@ -255,7 +265,6 @@ func _get_visible_economic_threats() -> Array[UnitBase]:
 	var visible: Array[UnitBase] = []
 	if candidates.is_empty():
 		return visible
-	var game_map := _get_navigation_map()
 	if game_map == null or not game_map.has_method("get_visible_tiles_for_player"):
 		for enemy: UnitBase in candidates:
 			if _can_track_entity(enemy):

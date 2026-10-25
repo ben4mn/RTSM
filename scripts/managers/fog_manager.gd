@@ -5,6 +5,8 @@ extends Node2D
 
 ## The fog grid — Array[Array] of MapData.FogState (row-major).
 var fog_grid: Array = []
+## Changes whenever the canonical visible grid changes, independent of frames.
+var visibility_revision: int = 0
 
 ## Reference to the fog overlay TileMapLayer (set by GameMap).
 var fog_layer: TileMapLayer
@@ -39,6 +41,7 @@ func _ready() -> void:
 
 
 func _init_fog_grid() -> void:
+	visibility_revision += 1
 	fog_grid.clear()
 	_previously_visible.clear()
 	_visibility_cache_valid = false
@@ -112,6 +115,8 @@ func _update_visibility() -> void:
 			fog_grid[pos.y][pos.x] = MapData.FogState.VISIBLE
 			_dirty_cells.append(pos)
 	_previously_visible.assign(_next_visible.keys())
+	if not _dirty_cells.is_empty():
+		visibility_revision += 1
 
 
 ## Reveal a circle of tiles around a position.
@@ -181,12 +186,27 @@ func is_revealed_by_scout(pos: Vector2i) -> bool:
 
 ## Reveal the entire map (cheat / debug).
 func reveal_all() -> void:
+	visibility_revision += 1
 	_visibility_cache_valid = false
 	_previously_visible.clear()
 	for y in range(MapData.MAP_HEIGHT):
 		for x in range(MapData.MAP_WIDTH):
 			fog_grid[y][x] = MapData.FogState.VISIBLE
 			_previously_visible.append(Vector2i(x, y))
+
+
+## Diagnostic overrides must invalidate readers just like normal fog updates.
+func set_debug_tile_state(pos: Vector2i, state: MapData.FogState) -> void:
+	if not _in_bounds(pos) or fog_grid[pos.y][pos.x] == state:
+		return
+	fog_grid[pos.y][pos.x] = state
+	_visibility_cache_valid = false
+	visibility_revision += 1
+	if state == MapData.FogState.VISIBLE:
+		if not _previously_visible.has(pos): _previously_visible.append(pos)
+	else:
+		_previously_visible.erase(pos)
+	_dirty_cells.append(pos)
 
 
 func _in_bounds(pos: Vector2i) -> bool:

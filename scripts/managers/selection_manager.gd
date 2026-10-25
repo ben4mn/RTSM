@@ -26,6 +26,10 @@ signal touch_context_closed()
 ## Currently selected units/buildings.
 var selected: Array[Node2D] = []
 var _emitting_selection_cleanup: bool = false
+var _selection_batch_depth: int = 0
+var _selection_batch_changed: bool = false
+var _selection_batch_cleared: bool = false
+var _emitting_selection_replacement: bool = false
 ## Main mirrors its one-shot Move/A-Move/Patrol state here so a world tap cannot
 ## be reinterpreted as gather, construction, attack, or building reselection.
 var unit_command_armed: bool = false
@@ -761,6 +765,7 @@ func _handle_double_tap(screen_pos: Vector2, is_touch_input: bool) -> void:
 	else:
 		return
 
+	_begin_selection_batch()
 	_clear_selection()
 
 	for node in get_tree().get_nodes_in_group("units"):
@@ -775,6 +780,7 @@ func _handle_double_tap(screen_pos: Vector2, is_touch_input: bool) -> void:
 			n_type = node.get_meta("unit_type")
 		if n_type == unit_type and _is_on_screen(node as Node2D):
 			_add_to_selection(node as Node2D)
+	_end_selection_batch()
 	_record_touch_input(screen_pos, world_pos, "double_tap_select_type", tapped_node, null)
 
 
@@ -782,6 +788,7 @@ func _handle_double_tap(screen_pos: Vector2, is_touch_input: bool) -> void:
 
 func _finish_drag_select() -> void:
 	_drag_rect = Rect2(_drag_start, _drag_end - _drag_start).abs()
+	_begin_selection_batch()
 	_clear_selection()
 
 	for node in get_tree().get_nodes_in_group("units"):
@@ -792,6 +799,7 @@ func _finish_drag_select() -> void:
 			# Only select own units during drag.
 			if not _is_enemy(node as Node2D):
 				_add_to_selection(node as Node2D)
+	_end_selection_batch()
 	_playtest_record("selection_area_result", {
 		"screen_start": [_drag_start.x, _drag_start.y],
 		"screen_end": [_drag_end.x, _drag_end.y],
@@ -808,7 +816,28 @@ func is_selection_cleanup() -> bool:
 	return _emitting_selection_cleanup
 
 
+## A replacement retains the old clear-selection command reset, while observers
+## see the completed army once instead of every intermediate one-unit addition.
+func is_selection_replacement() -> bool:
+	return _emitting_selection_replacement
+
+func _begin_selection_batch() -> void:
+	_selection_batch_depth += 1
+
+func _end_selection_batch() -> void:
+	_selection_batch_depth -= 1
+	if _selection_batch_depth > 0 or not _selection_batch_changed: return
+	var previous_replacement: bool = _emitting_selection_replacement
+	_emitting_selection_replacement = _selection_batch_cleared
+	_selection_batch_changed = false
+	_selection_batch_cleared = false
+	_emit_selection_changed()
+	_emitting_selection_replacement = previous_replacement
+
 func _emit_selection_changed(automatic_cleanup: bool = false) -> void:
+	if _selection_batch_depth > 0:
+		_selection_batch_changed = true
+		return
 	var previous_cleanup: bool = _emitting_selection_cleanup
 	_emitting_selection_cleanup = automatic_cleanup
 	selection_changed.emit(selected)
@@ -817,6 +846,7 @@ func _emit_selection_changed(automatic_cleanup: bool = false) -> void:
 
 func _clear_selection() -> void:
 	var changed := not selected.is_empty()
+	if changed and _selection_batch_depth > 0: _selection_batch_cleared = true
 	# A typed Object array may retain a Variant that points to an already-freed
 	# instance. Iterate by index in reverse and validate before dereferencing.
 	for index in range(selected.size() - 1, -1, -1):
@@ -829,7 +859,7 @@ func _clear_selection() -> void:
 
 
 func _add_to_selection(node: Node2D) -> void:
-	_prune_stale_selection()
+	if _selection_batch_depth == 0: _prune_stale_selection()
 	if not _is_current_selection_entry(node):
 		return
 	if node not in selected:
@@ -853,12 +883,14 @@ func _remove_from_selection(node: Node2D) -> void:
 func select_all_own_units() -> void:
 	set_touch_area_selection_armed(false)
 	_last_tap_time = 0.0
+	_begin_selection_batch()
 	_clear_selection()
 	for node in get_tree().get_nodes_in_group("units"):
 		if not _is_current_selection_entry(node):
 			continue
 		if not _is_enemy(node as Node2D):
 			_add_to_selection(node as Node2D)
+	_end_selection_batch()
 
 
 func select_single(node: Node2D) -> void:
@@ -873,11 +905,13 @@ func select_single(node: Node2D) -> void:
 func select_many(nodes: Array[Node2D]) -> void:
 	set_touch_area_selection_armed(false)
 	_last_tap_time = 0.0
+	_begin_selection_batch()
 	_clear_selection()
 	for node in nodes:
 		if not _is_current_selection_entry(node):
 			continue
 		_add_to_selection(node)
+	_end_selection_batch()
 
 
 func deselect_all() -> void:

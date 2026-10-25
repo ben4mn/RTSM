@@ -1957,6 +1957,8 @@ func _on_world_context_opened() -> void:
 
 
 func _on_selection_changed(selected_units: Array[Node2D]) -> void:
+	if game_map.selection_mgr.is_selection_replacement():
+		_clear_armed_unit_commands(false)
 	# Identity and authority change independently of the half-second status refresh.
 	var identities: PackedStringArray = []
 	for node: Node2D in selected_units:
@@ -1967,7 +1969,10 @@ func _on_selection_changed(selected_units: Array[Node2D]) -> void:
 	if context_key != _selection_context_key:
 		_selection_context_key = context_key
 		_selection_context_revision += 1
-		game_map.selection_mgr.cancel_touch_gesture(true)
+		# Losing one selected soldier must not cancel a held destination tap for
+		# the survivors. Explicit reselection still retires the old gesture.
+		if not game_map.selection_mgr.is_selection_cleanup():
+			game_map.selection_mgr.cancel_touch_gesture(true)
 		hud.set_selection_context_revision(_selection_context_revision, game_map.selection_mgr.is_selection_cleanup())
 	if selected_units.is_empty():
 		_clear_armed_unit_commands(false)

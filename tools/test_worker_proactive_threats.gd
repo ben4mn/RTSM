@@ -53,11 +53,11 @@ func _proactive_case(name: String) -> void:
 		enemy.set_state(UnitBase.State.ATTACKING if name == "hidden" else UnitBase.State.MOVING)
 		var tile: Vector2i = _map.world_to_tile(enemy.global_position)
 		var fog: FogManager = _map.get_node("FogOfWar") as FogManager
-		fog.fog_grid[tile.y][tile.x] = MapData.FogState.EXPLORED
+		fog.set_debug_tile_state(tile, MapData.FogState.EXPLORED)
 		_step(0.3)
 		_expect(not _worker.is_auto_recovering() and not _worker.get("_observed_worker_threat_distances").has(enemy.get_instance_id()), "hidden live enemy affected protection or remained cached")
 		if name == "hide_reveal":
-			fog.fog_grid[tile.y][tile.x] = MapData.FogState.VISIBLE
+			fog.set_debug_tile_state(tile, MapData.FogState.VISIBLE)
 			_step(0.3)
 			_expect(not _worker.is_auto_recovering(), "reveal compared against stale unseen motion")
 			enemy.global_position = _worker.global_position + Vector2(60, 0)

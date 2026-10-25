@@ -101,6 +101,8 @@ const NAVIGATION_MAX_PATH_CHECKS := 32
 
 
 func _ready() -> void:
+	# Node-owned connection disconnects with this map; the index is RefCounted.
+	get_tree().tree_changed.connect(_on_unit_tree_changed)
 	# Share depth sorting across all world entities so a person can walk
 	# behind a building or tree rather than floating over its roof.
 	y_sort_enabled = true
@@ -958,6 +960,9 @@ func _find_unoccluded_focus(subjects: Array[Rect2], field: Rect2, obstacles: Arr
 ## Live broad-phase index. Exact predicates remain with their existing callers.
 var _live_unit_index: RefCounted = preload("res://scripts/map/live_unit_index.gd").new(self)
 
+func _on_unit_tree_changed() -> void:
+	_live_unit_index.invalidate_order()
+
 func register_spatial_unit(unit: UnitBase) -> RefCounted:
 	_live_unit_index.update(unit)
 	return _live_unit_index
@@ -1193,6 +1198,41 @@ func get_visible_tiles_for_player(tile_positions: Array[Vector2i], viewer_player
 	for tile: Vector2i in tile_positions:
 		if tile.x >= 0 and tile.y >= 0 and tile.x < MapData.MAP_WIDTH and tile.y < MapData.MAP_HEIGHT and _are_tiles_visible_from_live_sources([tile], viewer_player_id):
 			visible[tile] = true
+	return visible
+
+
+var _visible_enemy_rosters: Dictionary = {}
+
+## Borrowed ordered roster; callers must not mutate it. Visibility is shared
+## across workers of one owner, while combat state/damage stay live at callers.
+## No frame timer: movement, fog, ownership and lifetime revisions are exact.
+func get_visible_enemy_units_for_player(viewer_player_id: int) -> Array[UnitBase]:
+	if not is_inside_tree(): return []
+	_live_unit_index._refresh_parent_transforms()
+	var building_sources: Array[Vector3i] = []
+	var local_fog: bool = is_instance_valid(fog_of_war) and fog_of_war.owning_player == viewer_player_id
+	if not local_fog:
+		for node: Node in get_tree().get_nodes_in_group("buildings"):
+			if not node is BuildingBase or not is_ancestor_of(node): continue
+			var building := node as BuildingBase
+			if building.player_owner != viewer_player_id or building.state == BuildingBase.State.DESTROYED: continue
+			var tile: Vector2i = world_to_tile(building.global_position)
+			building_sources.append(Vector3i(tile.x, tile.y, int(BuildingData.get_building_stats(building.building_type).get("vision_radius", 3))))
+	var signature: Array = [_live_unit_index.vision_revision, _live_unit_index.order_revision, fog_of_war.get_instance_id() if is_instance_valid(fog_of_war) else 0, fog_of_war.owning_player if is_instance_valid(fog_of_war) else -1, fog_of_war.visibility_revision if local_fog else -1, building_sources]
+	var cached: Dictionary = _visible_enemy_rosters.get(viewer_player_id, {})
+	if cached.get("signature") == signature and not cached.get("foreign_targets", false):
+		return cached.units
+	var visible: Array[UnitBase] = []
+	var foreign_targets: bool = false
+	for node: Node in get_tree().get_nodes_in_group("units"):
+		if not node is UnitBase: continue
+		var unit := node as UnitBase
+		# The original worker query visits the global group. Foreign-map targets
+		# are rare diagnostic setups and have another index's movement epoch.
+		if not is_ancestor_of(unit): foreign_targets = true
+		if unit.player_owner != viewer_player_id and unit.current_state != UnitBase.State.DEAD and is_entity_visible_to_player(unit, viewer_player_id):
+			visible.append(unit)
+	_visible_enemy_rosters[viewer_player_id] = {"signature": signature, "units": visible, "foreign_targets": foreign_targets}
 	return visible
 
 

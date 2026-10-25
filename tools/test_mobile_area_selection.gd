@@ -44,6 +44,8 @@ func _run() -> void:
 	_selection.move_command.connect(func(_tile: Vector2i) -> void: _orders += 1)
 	await _frames(4)
 	var worker: Villager = _main.get("_player_units")[0][0] as Villager
+	# Area includes the starting Scout; same-type double tap includes workers only.
+	var worker_count: int = (_main.get("_player_units")[0] as Array).filter(func(unit: UnitBase) -> bool: return unit is Villager).size()
 	var camera: Camera2D = _map.get("camera")
 	var army_center := Vector2.ZERO
 	for unit: Node2D in _main.get("_player_units")[0]:
@@ -75,7 +77,7 @@ func _run() -> void:
 	await _tap(21, points[0])
 	_expect(_selection.selected == [worker] and _orders == 0, "first unit tap did not switch area selection to one worker")
 	await _tap(23, points[0])
-	_expect(_selection.selected.size() == points.size() and _orders == 0, "same-type double-tap selection was broken by ground-clear gesture")
+	_expect(_selection.selected.size() == worker_count and _orders == 0, "same-type double-tap selection was broken by ground-clear gesture")
 	_expect_clean("same-type double tap after area")
 	# A first unit tap also changes identity from no selection; its synchronous
 	# HUD revision must leave the completed tap available for the second tap.
@@ -83,7 +85,7 @@ func _run() -> void:
 	await _tap(25, points[0])
 	_expect(_selection.selected == [worker] and _orders == 0, "first unit tap from empty selection did not select one worker")
 	await _tap(27, points[0])
-	_expect(_selection.selected.size() == points.size() and _orders == 0, "same-type double tap from empty selection lost its first tap")
+	_expect(_selection.selected.size() == worker_count and _orders == 0, "same-type double tap from empty selection lost its first tap")
 	_expect_clean("same-type double tap from empty selection")
 
 	# A second contact aborts the box; neither finger may command on release.
