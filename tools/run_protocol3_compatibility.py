@@ -89,9 +89,15 @@ def main(args):
         connection.send(json.dumps(packet, allow_nan=False))
         events.append({'label': label, 'direction': 'sent', 'packet': packet, 'wall': time.time()})
     def receive(connection, label, operations):
-        deadline = time.monotonic() + 8
+        # Match initialization has the authority's existing 30-second loading
+        # deadline. A cold native fixture can legitimately exceed one 4s read.
+        deadline = time.monotonic() + (30 if 'started' in operations else 8)
         while time.monotonic() < deadline:
-            packet = json.loads(connection.recv())
+            connection.settimeout(min(4, max(.01, deadline - time.monotonic())))
+            try:
+                packet = json.loads(connection.recv())
+            except websocket.WebSocketTimeoutException:
+                continue
             events.append({'label': label, 'direction': 'received', 'packet': packet, 'wall': time.time()})
             if packet.get('op') in operations:
                 return packet

@@ -121,7 +121,7 @@ func _snapshot_for(slot: int) -> Dictionary:
 	var player: Dictionary = GameManager.players[slot].duplicate()
 	player.erase("units")
 	player.erase("buildings")
-	return {"tick": _snapshot_number, "time": GameManager.game_time, "civilizations": [GameManager.get_player_civilization(0), GameManager.get_player_civilization(1)], "actors": actors, "resources": resources, "bank": ResourceManager.get_all_resources(slot), "player": player, "upgrades": GameManager.player_upgrades[slot], "research": GameManager.researched_upgrades[slot], "stats": main._stats[slot], "battle": main._battle_receipts.get_summary(slot), "site": {"state": site.state, "owner": site.owning_player, "capture": site.capture_progress, "timer": site.victory_timer, "hold": site.victory_hold_time, "clock_ticking": site.clock_ticking, "garrison_paused": site.garrison_paused, "neutralizing": site._being_neutralized}}
+	return {"worker_undo": main._worker_order_undo.status(slot), "worker_undo_result": main._worker_order_undo.result(slot), "tick": _snapshot_number, "time": GameManager.game_time, "civilizations": [GameManager.get_player_civilization(0), GameManager.get_player_civilization(1)], "actors": actors, "resources": resources, "bank": ResourceManager.get_all_resources(slot), "player": player, "upgrades": GameManager.player_upgrades[slot], "research": GameManager.researched_upgrades[slot], "stats": main._stats[slot], "battle": main._battle_receipts.get_summary(slot), "site": {"state": site.state, "owner": site.owning_player, "capture": site.capture_progress, "timer": site.victory_timer, "hold": site.victory_hold_time, "clock_ticking": site.clock_ticking, "garrison_paused": site.garrison_paused, "neutralizing": site._being_neutralized}}
 
 func apply_snapshot(snapshot: Dictionary) -> void:
 	GameManager.game_time = float(snapshot.get("time", 0.0))
@@ -141,6 +141,7 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 	# These are only this recipient's observed losses. No opponent receipt or
 	# hidden attacker identity crosses the authority boundary.
 	main._battle_receipts.apply_local_summary(snapshot.get("battle", {}))
+	main._apply_network_worker_undo(snapshot.get("worker_undo", {}), snapshot.get("worker_undo_result", {}))
 	var bank: Dictionary = snapshot.get("bank", {})
 	for resource: String in ResourceManager.RESOURCE_NAMES:
 		var amount: int = int(bank.get(resource, 0))
@@ -343,9 +344,12 @@ func _owned(id: int, owner: int) -> Node2D:
 func _valid_packet(packet: Dictionary) -> bool:
 	if packet.has("enabled") and typeof(packet.enabled) != TYPE_BOOL:
 		return false
-	for key: String in ["target", "type", "index", "sequence", "match"]:
+	for key: String in ["target", "type", "index", "sequence", "match", "undo_id"]:
 		if packet.has(key) and typeof(packet[key]) not in [TYPE_INT, TYPE_FLOAT]:
 			return false
+	if packet.has("undo_id"):
+		var undo_id: float = float(packet.undo_id)
+		if not is_finite(undo_id) or undo_id <= 0.0 or undo_id != floor(undo_id) or undo_id > 9007199254740991.0: return false
 	for key: String in ["command", "research", "source", "destination"]:
 		if packet.has(key) and not packet[key] is String:
 			return false
@@ -381,7 +385,13 @@ func execute_command(owner: int, packet: Dictionary) -> String:
 	var tile: Vector2i = game_map.world_to_tile(position)
 	if operation in ["move", "attack_move", "patrol", "rally", "place"] and (tile.x < 0 or tile.y < 0 or tile.x >= MapData.MAP_WIDTH or tile.y >= MapData.MAP_HEIGHT):
 		return "Outside map"
+	var worker_before: Array[Dictionary] = []
+	if operation in ["move", "gather", "build"]: worker_before = main._worker_order_undo.capture(owner, units)
+	var affected_workers: Array = []
 	match operation:
+		"undo_workers":
+			var undo_result: Dictionary = main._worker_order_undo.restore(owner, int(packet.get("undo_id", 0)), game_map)
+			return str(undo_result.get("error", ""))
 		"allocate":
 			var result: Dictionary = main.get_node("StrategyController").try_allocate_worker(owner, str(packet.get("source", "")), str(packet.get("destination", "")))
 			return str(result.get("error", ""))
@@ -393,6 +403,7 @@ func execute_command(owner: int, packet: Dictionary) -> String:
 			var orders: Array[Dictionary] = PLANNER.plan(game_map, units, tile, main._player_units[owner], owner)
 			for order: Dictionary in orders:
 				var unit: UnitBase = order.unit
+				affected_workers.append(unit)
 				if operation == "attack_move":
 					unit.command_attack_move_path(order.path) if order.path.size() > 1 else unit.command_attack_move(order.destination)
 				elif operation == "patrol":
@@ -402,6 +413,7 @@ func execute_command(owner: int, packet: Dictionary) -> String:
 			if operation == "attack_move":
 				ATTACK_MARCH.attach_compact_orders(orders)
 		"stop", "stance":
+			affected_workers = units
 			for unit: UnitBase in units:
 				if operation == "stop":
 					unit.command_stop()
@@ -410,6 +422,7 @@ func execute_command(owner: int, packet: Dictionary) -> String:
 		"attack":
 			if target == null or target.player_owner == owner or not game_map.is_entity_visible_to_player(target, owner):
 				return "Target no longer visible"
+			affected_workers = units
 			for unit: UnitBase in units:
 				if target is UnitBase:
 					unit.command_attack(target)
@@ -426,6 +439,7 @@ func execute_command(owner: int, packet: Dictionary) -> String:
 				if unit is Villager:
 					var gathered: bool = unit.command_gather(target)
 					gathered_any = gathered or gathered_any
+					if gathered: affected_workers.append(unit)
 					if not gathered and target is BuildingBase and target.provides_food and not target.is_available_to_worker(unit):
 						occupied_farm_rejected = true
 			if occupied_farm_rejected and not gathered_any:
@@ -436,6 +450,7 @@ func execute_command(owner: int, packet: Dictionary) -> String:
 			for unit: UnitBase in units:
 				if unit is Villager:
 					unit.command_build(target)
+					if unit.has_active_build_order() and unit.build_target == target: affected_workers.append(unit)
 		"age":
 			if not GameManager.try_advance_age(owner):
 				return "Cannot advance age yet"
@@ -475,6 +490,7 @@ func execute_command(owner: int, packet: Dictionary) -> String:
 					target.take_damage(target.max_hp + 1)
 		_:
 			return "Unknown order"
+	main._worker_order_undo.remember(owner, worker_before, affected_workers)
 	return ""
 
 func _place_building(owner: int, type: int, position: Vector2, selected: Array[UnitBase]) -> String:
@@ -503,4 +519,5 @@ func _place_building(owner: int, type: int, position: Vector2, selected: Array[U
 	var building: BuildingBase = main._spawn_building(type, owner, game_map.world_to_tile(position))
 	building.start_construction()
 	builder.command_build(building)
+	main._worker_order_undo.supersede(owner, [builder])
 	return ""

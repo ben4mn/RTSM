@@ -119,6 +119,7 @@ func _run() -> void:
 	_expect_clean("GUI-consumed release")
 
 	await _arm_area()
+	await _tap(80, (_hud.get("_camera_view_button") as Button).get_global_rect().get_center())
 	await _tap(81, (_hud.get("_select_area_button") as Button).get_global_rect().get_center())
 	_expect(not _selection.touch_area_selection_armed, "Cancel area button did not cancel the mode")
 	await _arm_area()
@@ -179,6 +180,7 @@ func _run() -> void:
 
 
 func _arm_area() -> void:
+	await _tap(6, (_hud.get("_camera_view_button") as Button).get_global_rect().get_center())
 	await _tap(7, (_hud.get("_select_area_button") as Button).get_global_rect().get_center())
 	_expect(_selection.touch_area_selection_armed, "real GUI Select area did not arm")
 	_expect((_hud.get("_progression_hint_label") as Label).text.contains("Drag to select") and (_hud.get("_progression_hint_panel") as Control).visible, "armed area lacks a persistent instruction")

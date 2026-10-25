@@ -127,6 +127,7 @@ func _echo_reselection() -> void:
 	await _center(_scout.global_position)
 	_overlay.call("_process", 0.2)
 	_selection.select_single(_fighter)
+	await _frames(3)
 	var sprite: Sprite2D = _scout.get("_sprite")
 	var ink: Rect2 = KingdomArt.ink_rect(sprite.texture)
 	ink.position += sprite.get_rect().position
@@ -135,6 +136,12 @@ func _echo_reselection() -> void:
 		for x: int in 20:
 			var local: Vector2 = ink.position + ink.size * Vector2(float(x) / 19.0, float(y) / 19.0)
 			var world: Vector2 = sprite.to_global(local)
+			var screen: Vector2 = _selection._world_to_screen(world)
+			if not _main.hud.get_hold_safe_rect().has_point(screen): continue
+			var occluded: bool = false
+			for rect: Rect2 in _main.hud.get_world_occlusion_rects():
+				if rect.has_point(screen): occluded = true
+			if occluded: continue
 			if sprite.is_pixel_opaque(local) and not _selection._is_touch_on_unit_body(_scout, world) and _selection._world_to_screen(world).distance_to(_selection._world_to_screen(_scout.global_position)) > 25.0 and _selection._get_node_at(world, true) == _scout:
 				point = _selection._world_to_screen(world)
 				break
@@ -142,7 +149,7 @@ func _echo_reselection() -> void:
 	_expect(point.is_finite(), "visible silhouette has deliberate outer pixel")
 	if point.is_finite():
 		await _quick_tap(point)
-		_expect(_selection.selected == [_scout], "opaque silhouette reselects with another unit already selected")
+		_expect(_selection.selected == [_scout], "opaque silhouette reselects with another unit already selected: point=%s action=%s" % [point, _selection.touch_input_diagnostics.get("action", "")])
 
 func _open_route() -> Array[Vector2]:
 	for x: int in range(30, 51):

@@ -7,6 +7,12 @@ const GROUP_ORDER_PLANNER := preload("res://scripts/main/group_order_planner.gd"
 const ATTACK_MARCH := preload("res://scripts/main/attack_march_cohesion.gd")
 const MATCH_BACKGROUND_GUARD := preload("res://scripts/main/match_background_guard.gd")
 var _match_background_guard: Node = null
+const WORKER_ORDER_UNDO := preload("res://scripts/main/worker_order_undo.gd")
+var _worker_order_undo: RefCounted = WORKER_ORDER_UNDO.new()
+var _network_worker_undo: Dictionary = {}
+var _network_worker_undo_until: int = 0
+var _last_network_worker_undo_result: int = 0
+var _requested_network_worker_undo_id: int = 0
 
 # --- Unit scenes ---
 var _unit_scenes: Dictionary = {
@@ -1134,6 +1140,8 @@ func _stop_selected_units() -> void:
 		return
 	_clear_armed_unit_commands(false)
 	var selected: Array = game_map.selection_mgr.selected
+	_worker_order_undo.supersede(0, selected)
+	_refresh_worker_undo_hud()
 	var stopped: int = 0
 	for node in selected:
 		if node is UnitBase and node.player_owner == 0:
@@ -1178,6 +1186,8 @@ func _toggle_stance() -> void:
 	var selected: Array = game_map.selection_mgr.selected
 	if selected.is_empty():
 		return
+	_worker_order_undo.supersede(0, selected)
+	_refresh_worker_undo_hud()
 	var toggled: int = 0
 	for node in selected:
 		if node is UnitBase and node.player_owner == 0:
@@ -2166,6 +2176,8 @@ func _on_move_command(target_tile: Vector2i) -> void:
 		_opening_military_move_complete = true
 		call_deferred("_refresh_guided_opening_stage")
 
+	var worker_before: Array[Dictionary] = []
+	if issue_force_move: worker_before = _worker_order_undo.capture(0, moveable)
 	var orders: Array[Dictionary] = GROUP_ORDER_PLANNER.plan(game_map, moveable, target_tile, _player_units[0])
 	for order: Dictionary in orders:
 		var unit: UnitBase = order["unit"]
@@ -2195,6 +2207,9 @@ func _on_move_command(target_tile: Vector2i) -> void:
 			else:
 				unit.command_move(world_pos)
 
+	var ordered_units: Array = orders.map(func(order: Dictionary) -> UnitBase: return order.unit)
+	_worker_order_undo.remember(0, worker_before, ordered_units)
+	_refresh_worker_undo_hud()
 	if issue_attack_move and not issue_patrol:
 		ATTACK_MARCH.attach_compact_orders(orders)
 	if issue_patrol:
@@ -2231,6 +2246,8 @@ func _on_attack_command(target: Node2D) -> void:
 		VFX.attack_move_indicator(get_tree(), target.global_position)
 		return
 	var accepted: bool = false
+	_worker_order_undo.supersede(0, selected)
+	_refresh_worker_undo_hud()
 	for node in selected:
 		if node is UnitBase and node.player_owner == 0:
 			if target is UnitBase:
@@ -2271,14 +2288,19 @@ func _on_gather_command(resource_node: Node2D) -> void:
 			hud.show_notification("Villager rally: gather %s" % resource_node.get_resource_type(), Color(0.58, 0.82, 1.0))
 			_on_selection_changed(game_map.selection_mgr.selected)
 		return
+	var worker_before: Array[Dictionary] = _worker_order_undo.capture(0, selected)
+	var assigned_workers: Array = []
 	var assigned_any: bool = false
 	var occupied_farm_rejections: int = 0
 	for node in selected:
 		if node is UnitBase and node.player_owner == 0 and node.has_method("command_gather"):
 			var accepted: bool = bool(node.call("command_gather", resource_node))
 			assigned_any = accepted or assigned_any
+			if accepted: assigned_workers.append(node)
 			if not accepted and resource_node is BuildingBase and resource_node.provides_food and not resource_node.is_available_to_worker(node):
 				occupied_farm_rejections += 1
+	_worker_order_undo.remember(0, worker_before, assigned_workers)
+	_refresh_worker_undo_hud()
 	if assigned_any:
 		VFX.gather_indicator(get_tree(), resource_node.global_position)
 	if occupied_farm_rejections > 0:
@@ -2304,9 +2326,14 @@ func _on_build_command(building: Node2D) -> void:
 		_send_network_selection("build", NetworkSession.target_payload(building))
 		return
 	var selected: Array = game_map.selection_mgr.selected
+	var worker_before: Array[Dictionary] = _worker_order_undo.capture(0, selected)
+	var assigned_workers: Array = []
 	for node in selected:
 		if node is Villager and node.player_owner == 0:
 			node.command_build(building)
+			if node.has_active_build_order() and node.build_target == building: assigned_workers.append(node)
+	_worker_order_undo.remember(0, worker_before, assigned_workers)
+	_refresh_worker_undo_hud()
 	_refresh_unit_command_hud()
 
 
@@ -2718,6 +2745,7 @@ func _setup_hud() -> void:
 	hud.unit_attack_move_requested.connect(_arm_attack_move_command)
 	hud.unit_patrol_requested.connect(_arm_patrol_command)
 	hud.unit_stop_requested.connect(_stop_selected_units)
+	hud.worker_order_undo_requested.connect(_on_worker_order_undo)
 	hud.unit_stance_requested.connect(_toggle_stance)
 	hud.deselect_requested.connect(_deselect_from_hud)
 	hud.select_area_requested.connect(_toggle_touch_area_selection)
@@ -3070,6 +3098,8 @@ func _send_villager_to_build(building: BuildingBase) -> bool:
 				continue
 			candidate.command_build(building)
 			if candidate.current_state == UnitBase.State.BUILDING and candidate.build_target == building:
+				_worker_order_undo.supersede(0, [candidate])
+				_refresh_worker_undo_hud()
 				return true
 	return false
 
@@ -3476,6 +3506,7 @@ func _process(delta: float) -> void:
 	_selection_refresh_timer += delta
 	if _selection_refresh_timer >= 0.5:
 		_selection_refresh_timer = 0.0
+		_refresh_worker_undo_hud()
 		if not game_map.selection_mgr.selected.is_empty():
 			_on_selection_changed(game_map.selection_mgr.selected)
 
@@ -3893,3 +3924,48 @@ func _send_network_selection(operation: String, payload: Dictionary = {}) -> boo
 	payload["ids"] = NetworkSession.selection_ids(game_map.selection_mgr.selected)
 	NetworkSession.send_command(operation, payload)
 	return true
+
+
+func _apply_network_worker_undo(status: Dictionary, result: Dictionary = {}) -> void:
+	if int(result.get("id", 0)) > _last_network_worker_undo_result:
+		_last_network_worker_undo_result = int(result.id)
+		hud.show_notification(_worker_undo_result_message(result))
+	_network_worker_undo = status.duplicate() if int(status.get("id", 0)) != _requested_network_worker_undo_id else {}
+	_network_worker_undo_until = Time.get_ticks_msec() + clampi(int(status.get("remaining_ms", 0)), 0, WORKER_ORDER_UNDO.LIFETIME_MS)
+	_refresh_worker_undo_hud()
+
+
+func _refresh_worker_undo_hud() -> void:
+	var status: Dictionary = _worker_order_undo.status(0)
+	if NetworkSession.is_client():
+		status = _network_worker_undo.duplicate()
+		status["remaining_ms"] = maxi(0, _network_worker_undo_until - Time.get_ticks_msec())
+	if is_instance_valid(hud): hud.set_worker_order_undo(status)
+
+
+func _on_worker_order_undo(record_id: int) -> void:
+	if GameManager.current_state != GameManager.GameState.PLAYING: return
+	_clear_armed_unit_commands()
+	if NetworkSession.is_client():
+		if NetworkSession.send_command("undo_workers", {"undo_id": record_id}):
+			_requested_network_worker_undo_id = record_id
+			_network_worker_undo.clear()
+			_refresh_worker_undo_hud()
+		return
+	var result: Dictionary = _worker_order_undo.restore(0, record_id, game_map)
+	_refresh_worker_undo_hud()
+	_refresh_unit_command_hud()
+	hud.show_notification(_worker_undo_result_message(result))
+
+
+func _worker_undo_result_message(result: Dictionary) -> String:
+	var message: String = str(result.get("error", ""))
+	if message.is_empty():
+		message = "Restored %d worker orders" % int(result.get("restored", 0))
+		if int(result.get("stopped", 0)) > 0: message += "; %d stopped because their old work is unavailable" % int(result.stopped)
+	return message
+
+
+func _supersede_worker_orders(owner: int, units: Array) -> void:
+	_worker_order_undo.supersede(owner, units)
+	_refresh_worker_undo_hud()

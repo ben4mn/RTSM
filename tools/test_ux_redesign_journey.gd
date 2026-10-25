@@ -95,6 +95,7 @@ func _journey(phone: Vector2i,interface_scale: float,notched: bool) -> void:
 	await _button(clear)
 	_expect(queue.get_queue_size() == 0 and not queue.auto_queue_enabled,"Clear did not cancel queue and repeat")
 	_expect(ResourceManager.get_all_resources(0) == bank,"queue Clear did not fully refund actual paid units")
+	await _button(_hud.get("_camera_view_button"))
 	await _button(_hud.get("_selection_back_button"))
 	await _button(_hud.get("build_menu_button"))
 	var palette: Node = _main.get("_build_menu")

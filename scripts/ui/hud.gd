@@ -19,6 +19,7 @@ signal unit_move_requested()
 signal unit_attack_move_requested()
 signal unit_patrol_requested()
 signal unit_stop_requested()
+signal worker_order_undo_requested(record_id: int)
 signal unit_stance_requested()
 signal deselect_requested()
 signal select_area_requested()
@@ -201,6 +202,10 @@ var _queue_navigation_revision: int = 0
 
 # Notification feed
 var _notification_container: VBoxContainer = null
+var _worker_undo_button: Button = null
+var _worker_undo_id: int = 0
+var _worker_undo_count: int = 0
+var _worker_undo_until: int = 0
 var _battlefield_alerts_active: bool = false
 const MAX_NOTIFICATIONS: int = 3
 const NOTIFICATION_DURATION: float = 3.5
@@ -276,7 +281,8 @@ var _placement_mode_active: bool = false
 var _selection_context_active: bool = false
 var _minimap_frame: Panel = null
 var _command_dock: Panel = null
-var _navigation_controls: HBoxContainer = null
+var _navigation_controls: VBoxContainer = null
+var _navigation_actions: HBoxContainer = null
 var _worker_idle_button: Button = null
 var _world_safe_rect := Rect2()
 
@@ -493,6 +499,7 @@ func _process(_delta: float) -> void:
 	var gm: Node = _get_game_manager()
 	if gm and gm.current_state == gm.GameState.PLAYING:
 		game_time_label.text = gm.get_formatted_time()
+	_update_worker_undo_button()
 	_focus_pulse_time += _delta
 	_refresh_primary_action_visuals()
 	var now_msec: int = Time.get_ticks_msec()
@@ -576,7 +583,7 @@ func _create_camera_controls() -> void:
 	_camera_view_button.add_theme_font_size_override("font_size", 12)
 	KingdomTheme.apply_secondary(_camera_view_button)
 	_camera_view_button.toggle_mode = true
-	_camera_view_button.tooltip_text = "Show camera zoom controls"
+	_camera_view_button.tooltip_text = "Show map navigation and camera controls"
 	for style_name: String in ["normal", "hover", "pressed", "disabled"]:
 		var view_style: StyleBox = _camera_view_button.get_theme_stylebox(style_name).duplicate()
 		view_style.set_content_margin(SIDE_LEFT, 4.0)
@@ -631,7 +638,10 @@ func _create_camera_controls() -> void:
 	_selection_back_button.custom_minimum_size = Vector2(48, 48)
 	_selection_back_button.add_theme_font_size_override("font_size", 14)
 	_selection_back_button.tooltip_text = "Clear selection and return to kingdom controls"
-	_selection_back_button.pressed.connect(func() -> void: deselect_requested.emit())
+	_selection_back_button.pressed.connect(func() -> void:
+		close_secondary_surface()
+		deselect_requested.emit()
+	)
 	$Root/BottomRight.add_child(_selection_back_button)
 	_selection_back_button.visible = false
 	_select_area_button = Button.new()
@@ -642,19 +652,31 @@ func _create_camera_controls() -> void:
 	_select_area_button.toggle_mode = true
 	_select_area_button.focus_mode = Control.FOCUS_NONE
 	_select_area_button.tooltip_text = "Select area, then drag around your units. Tap again to cancel."
-	_select_area_button.pressed.connect(func() -> void: select_area_requested.emit())
-	_navigation_controls = HBoxContainer.new()
+	_select_area_button.pressed.connect(func() -> void:
+		close_secondary_surface()
+		select_area_requested.emit()
+	)
+	_navigation_controls = VBoxContainer.new()
 	_navigation_controls.name = "MapNavigation"
 	_navigation_controls.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_navigation_controls.add_theme_constant_override("separation", 6)
 	_navigation_controls.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
 	$Root.add_child(_navigation_controls)
-	_navigation_controls.add_child(_select_area_button)
-	_selection_back_button.reparent(_navigation_controls)
+	_navigation_actions = HBoxContainer.new()
+	_navigation_actions.name = "MapNavigationActions"
+	_navigation_actions.add_theme_constant_override("separation", 6)
+	_navigation_actions.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_navigation_controls.add_child(_navigation_actions)
+	_camera_view_button.reparent(_navigation_actions)
+	_navigation_actions.add_child(_select_area_button)
+	_selection_back_button.reparent(_navigation_actions)
 	_selection_back_button.text = "Clear"
 	_selection_back_button.add_theme_font_size_override("font_size", 12)
 	_camera_controls.reparent(_navigation_controls)
+	_navigation_controls.move_child(_camera_controls, 0)
 	_camera_controls.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	_camera_controls.hide()
+	_select_area_button.hide()
 	_select_area_button.text = "Select area"
 	KingdomTheme.apply_secondary(_select_area_button)
 
@@ -793,7 +815,7 @@ func _refresh_command_icons() -> void:
 	# Closed launchers are compact; their expanded choices retain short captions.
 	var definitions: Array = [
 		[_pause_button, "resume" if _ui_modal_state == UIModalState.PAUSE_MENU else "pause", "Resume" if _ui_modal_state == UIModalState.PAUSE_MENU else "Pause"],
-		[_camera_view_button, "view", "Camera controls"],
+		[_camera_view_button, "view", "Map navigation and camera controls"],
 		[_select_area_button, "select_area", "Drag to select; tap again to cancel" if _area_selection_armed else "Select area"],
 		[_selection_back_button, "back", "Clear selection"],
 		[_unit_move_button, "move", "Move"],
@@ -1234,7 +1256,7 @@ func get_world_occlusion_rects() -> Array[Rect2]:
 	var build_menu_panel: Control = get_node_or_null("BuildMenu") as Control
 	for control: Control in [top_bar, minimap_bg, _command_dock, _navigation_controls,
 		_progression_hint_panel, _sacred_site_panel, _advanced_command_panel, _placement_status_panel,
-		_hotkey_panel, _info_panel, build_menu_panel]:
+		_hotkey_panel, _info_panel, _worker_undo_button, build_menu_panel]:
 		if control != null and control.is_visible_in_tree() and control.size.x > 0.0 and control.size.y > 0.0:
 			obstacles.append(control.get_global_rect())
 	if _placement_mode_active and _mobile_action_panel.is_visible_in_tree():
@@ -1811,19 +1833,21 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 
 	if _camera_controls:
 		_navigation_controls.visible = standard_field_chrome_visible and _ui_modal_state == UIModalState.NONE
-		_camera_controls.visible = _navigation_controls.visible
+		_camera_controls.visible = _navigation_controls.visible and _camera_controls_expanded
 		var phone_camera: bool = minf(viewport_size.x, viewport_size.y) <= 520.0
-		_camera_view_button.visible = phone_camera
+		_camera_view_button.visible = true
 		_camera_view_button.set_pressed_no_signal(_camera_controls_expanded)
 		for zoom_button: Button in [_camera_zoom_out_button, _camera_zoom_in_button, _camera_zoom_reset_button, _camera_center_button]:
-			zoom_button.visible = not phone_camera or _camera_controls_expanded
+			zoom_button.visible = _camera_controls_expanded
 		_navigation_controls.offset_left = metrics["minimap_left"]
-		var camera_width: float = _production_row_width(_camera_controls)
+		var camera_width: float = _production_row_width(_camera_controls) if _camera_controls_expanded else 0.0
 		_camera_center_button.disabled = not _selection_context_active or _ui_modal_state != UIModalState.NONE
-		var nav_width: float = camera_width + (54.0 if _select_area_button.visible else 0.0) + (54.0 if _selection_back_button.visible else 0.0)
+		var nav_width: float = maxf(camera_width, _production_row_width(_navigation_actions))
+		var nav_height: float = 102.0 if _camera_controls_expanded else 48.0
 		_navigation_controls.offset_right = metrics["minimap_left"] + nav_width
 		_navigation_controls.offset_bottom = metrics["minimap_top"] - 8.0
-		_navigation_controls.offset_top = _navigation_controls.offset_bottom - 48.0
+		_navigation_controls.offset_top = _navigation_controls.offset_bottom - nav_height
+		_navigation_controls.size = Vector2(nav_width, nav_height)
 		metrics["camera_zoom_left"] = metrics["minimap_left"]
 		metrics["camera_zoom_right"] = metrics["minimap_left"] + nav_width
 		metrics["camera_zoom_top"] = viewport_size.y + _navigation_controls.offset_top
@@ -1931,7 +1955,10 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 				notification_right = minf(notification_right, hint_left - 8.0)
 			_notification_container.offset_left = notification_left
 			_notification_container.offset_right = maxf(notification_left, notification_right)
-			_notification_container.offset_top = metrics["safe_top"] + MOBILE_TOP_RAIL_HEIGHT + 8.0
+			if _worker_undo_button:
+				_worker_undo_button.position = Vector2(notification_left, metrics["safe_top"] + MOBILE_TOP_RAIL_HEIGHT + 8.0)
+				_worker_undo_button.size = Vector2(128, 48)
+			_notification_container.offset_top = metrics["safe_top"] + MOBILE_TOP_RAIL_HEIGHT + 8.0 + (54.0 if _worker_undo_button != null and _worker_undo_button.visible else 0.0)
 			_notification_container.offset_bottom = minf(viewport_size.y - 96.0, metrics["safe_top"] + 188.0)
 			if _camera_controls and _camera_controls.visible:
 				_notification_container.offset_bottom = minf(_notification_container.offset_bottom, metrics["camera_zoom_top"] - 8.0)
@@ -1996,9 +2023,9 @@ func _apply_context_actions(viewport_size: Vector2) -> void:
 	var can_advance: bool = gm == null or not gm.get_age_up_cost(0, gm.get_player_age(0) + 1).is_empty()
 	# The optional opener can suggest a next step without hiding a paid action.
 	age_up_button.visible = field_mode and can_advance and town_center
-	_selection_back_button.visible = field_mode and _selection_context_active and _selection_kind != "unit" and (not _camera_controls_expanded or _strategy_overview == null)
+	_selection_back_button.visible = field_mode and _camera_controls_expanded and _selection_context_active and _selection_kind != "unit"
 	_selection_back_button.text = "Back"
-	_select_area_button.visible = field_mode
+	_select_area_button.visible = field_mode and _camera_controls_expanded
 	_select_area_button.disabled = _ui_modal_state != UIModalState.NONE
 	_town_center_button.visible = _strategy_overview == null and field_mode and unselected
 	_idle_villager_button.visible = _strategy_overview == null and field_mode and _last_idle_villager_count > 0 and unselected
@@ -4016,6 +4043,19 @@ func _create_notification_feed() -> void:
 	_notification_container.add_theme_constant_override("separation", 2)
 	_notification_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root_ctrl.add_child(_notification_container)
+	_worker_undo_button = Button.new()
+	_worker_undo_button.name = "WorkerOrderUndoButton"
+	_worker_undo_button.custom_minimum_size = Vector2(128, 48)
+	_worker_undo_button.focus_mode = Control.FOCUS_NONE
+	_worker_undo_button.add_theme_font_size_override("font_size", 14)
+	root_ctrl.add_child(_worker_undo_button)
+	KingdomTheme.apply_primary(_worker_undo_button)
+	CommandIcons.apply(_worker_undo_button, "undo", "Undo the last group worker order", "Undo")
+	_worker_undo_button.pressed.connect(func() -> void:
+		if Time.get_ticks_msec() < _worker_undo_until and _worker_undo_id > 0:
+			worker_order_undo_requested.emit(_worker_undo_id)
+	)
+	_worker_undo_button.hide()
 
 
 func show_notification(text: String, color: Color = Color.WHITE, duration: float = NOTIFICATION_DURATION, action: Callable = Callable()) -> void:
@@ -5135,3 +5175,23 @@ func get_strategy_overview_bounds() -> Array[Rect2]:
 
 func get_base_navigation_button() -> Button:
 	return _strategy_overview.rail.get_node("BaseButton") as Button if _strategy_overview else _town_center_button
+
+
+func set_worker_order_undo(status: Dictionary) -> void:
+	_worker_undo_id = int(status.get("id", 0))
+	_worker_undo_count = maxi(0, int(status.get("count", 0)))
+	_worker_undo_until = Time.get_ticks_msec() + clampi(int(status.get("remaining_ms", 0)), 0, 10000)
+	_update_worker_undo_button()
+
+
+func _update_worker_undo_button() -> void:
+	if _worker_undo_button == null: return
+	var seconds: int = ceili(float(_worker_undo_until - Time.get_ticks_msec()) / 1000.0)
+	var available: bool = seconds > 0 and _worker_undo_id > 0 and _worker_undo_count > 0 and _ui_modal_state == UIModalState.NONE and _secondary_surface == SecondarySurface.NONE
+	if _worker_undo_button.visible != available:
+		_worker_undo_button.visible = available
+		_queue_mobile_layout_refresh()
+	if available:
+		_worker_undo_button.text = "Undo %d · %ds" % [_worker_undo_count, seconds]
+		_worker_undo_button.tooltip_text = "Restore %d workers' previous orders (%ds left). Current cargo is kept. Unavailable old jobs stop safely." % [_worker_undo_count, seconds]
+		_worker_undo_button.accessibility_name = _worker_undo_button.tooltip_text

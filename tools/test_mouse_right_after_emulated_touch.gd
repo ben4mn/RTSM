@@ -95,6 +95,7 @@ func _profile(phone: Vector2i,scale_factor: float) -> void:
 	# must not become an order or a selection change at its generated release.
 	before = _world_orders
 	var back: Button = hud.get("_selection_back_button")
+	await _touch((hud.get("_camera_view_button") as Button).get_global_rect().get_center())
 	await _touch(back.get_global_rect().get_center())
 	_expect(selection.selected.is_empty(),profile+" HUD Back touch did not clear")
 	_expect(_world_orders==before,profile+" GUI touch/generated mouse ordered world")

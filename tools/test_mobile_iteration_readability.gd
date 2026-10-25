@@ -115,7 +115,7 @@ func _profile(phone: Vector2i, scale_factor: float, notched: bool) -> void:
     await _selection_name_readable(hud,logical,safe,label)
     _text_fits(hud.get("selection_details"),label)
     _expect(not (hud.get("build_menu_button") as Button).visible and not (hud.get("_town_center_button") as Button).visible and not (hud.get("_select_military_button") as Button).visible,"%s TC retains irrelevant kingdom controls" % label)
-    _expect((hud.get("age_up_button") as Button).visible and (hud.get("_selection_back_button") as Button).visible,"%s TC loses Age or Back" % label)
+    _expect((hud.get("age_up_button") as Button).visible and not (hud.get("_selection_back_button") as Button).visible and (hud.get("_camera_view_button") as Button).visible,"%s TC loses Age or collapsed navigation" % label)
     var queue_navigation: Button = hud.get("_queue_navigation_button")
     _button_text_fits(queue_navigation,label+" queue navigation")
     _expect(queue_navigation.visible and not queue_navigation.disabled,"%s queue navigation missing or disabled" % label)
@@ -379,7 +379,7 @@ func _non_production_shelf_density(hud: Node,logical: Vector2i,safe: Rect2,profi
         if context == "foundation":
             _expect(not scroll.visible,context_profile+" retains an empty command viewport")
             _expect(panel.size.x <= 168.0,context_profile+" retains empty width")
-            _expect((hud.get("_selection_back_button") as Button).visible,context_profile+" loses Back")
+            _expect(not (hud.get("_selection_back_button") as Button).visible and (hud.get("_camera_view_button") as Button).visible,context_profile+" loses collapsed navigation")
         else:
             var commands: HBoxContainer = hud.get("_unit_command_container")
             _expect(commands.get_child_count() == 4,context_profile+" loses an action")

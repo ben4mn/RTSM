@@ -76,6 +76,7 @@ func _profile(phone: Vector2i,scale_factor: float) -> void:
     await _settle()
     _expect((hud.get("age_up_button") as Button).is_visible_in_tree() and not (hud.get("build_menu_button") as Button).is_visible_in_tree(),profile+" Town Center context is wrong")
     before=_orders
+    await _tap((hud.get("_camera_view_button") as Button).get_global_rect().get_center())
     await _tap((hud.get("_selection_back_button") as Button).get_global_rect().get_center())
     _expect(not bool(hud.get("_selection_context_active")) and (hud.call("get_base_navigation_button") as Button).is_visible_in_tree(),profile+" Back does not restore kingdom controls")
     _expect(_orders==before,profile+" Back leaks world order")

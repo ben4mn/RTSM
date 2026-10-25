@@ -84,6 +84,7 @@ func _hold_journey(phone: Vector2i,interface_scale: float,notched: bool) -> void
 	await _button(_hud.get("_queue_navigation_button"))
 	await _button(_hud.get("queue_container").get_node("QueueClearAllButton"))
 	_expect(queue.get_queue_size()==0 and ResourceManager.get_all_resources(0)==bank,"paid queue refund changed")
+	await _button(_hud.get("_camera_view_button"))
 	await _button(_hud.get("_selection_back_button"))
 	await _button(_hud.get("build_menu_button"))
 	var palette: Node = _main.get("_build_menu")

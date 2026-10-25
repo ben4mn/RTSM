@@ -362,6 +362,8 @@ func try_allocate_worker(owner: int, source: String, destination: String) -> Dic
 	for worker: Villager in candidates:
 		var target: Node2D = _map.get_nearest_reachable_resource_node(destination, worker.global_position, owner, {}, worker)
 		if target != null and worker.command_gather(target):
+			if _main.has_method("_supersede_worker_orders"):
+				_main.call("_supersede_worker_orders", owner, [worker])
 			return {"worker": worker}
 	return {"error": "No %s worker is available." % source if candidates.is_empty() else "No visible, reachable %s work is available. Scout a deposit%s." % [destination, " or build another Farm" if destination == "food" else ""]}
 

@@ -4,12 +4,18 @@
       "id": "2026-10-25-welcome-and-audio-startup",
       "date": "2026-10-25",
       "version": "0.3.0-beta.9.1",
-      "title": "A smoother welcome",
-      "summary": "More reliable sound startup and a coordinated main-menu toolbar.",
+      "title": "Steadier hands, richer groves",
+      "summary": "More reliable startup, easier orders and clearer room to build.",
       "changes": [
         "Sound modules now load through the current page's verified game cache before the engine starts, avoiding a separate module download that could fail in Safari's installed app. Genuine errors still keep their recovery controls.",
         "Play solo and Play online have new pennant and paired-kingdom icons. What's new and Full screen share a rounded forest toolbar aligned with Settings, including smaller screens.",
-        "Your saved sound and control preferences, cached Solo, match settings and gameplay rules stay the same."
+        "Battlefield choices now expand from one selected-map card. Camera and navigation tools above the minimap open from one compact View button.",
+        "After moving or reassigning a group of villagers, a temporary Undo restores their previous work or movement orders for ten seconds. It keeps current cargo and progress; unavailable old jobs stop safely. A newer worker order replaces that opportunity.",
+        "Panning retires stale double taps, and a moving unit keeps the tap that began on it. Visible silhouettes remain selectable when another unit is already selected.",
+        "New movement orders skip an unnecessary step back to the current tile center when the next segment is clear. Obstacle checks, speed and combat timing remain unchanged.",
+        "Opening berry groves and both side expansion groves contain 12 bushes instead of 8: 2,400 food per grove, adding 2,400 food per player across those guaranteed sites. Gathering rates and unit costs remain unchanged.",
+        "Building previews stay readable over trees. A solid outline shows the footprint, with distinct markings for blocked ground and the access space needed beside other buildings.",
+        "Both online players must reload for the updated maps. Saved sound and control preferences and cached Solo remain available."
       ]
     },
     {

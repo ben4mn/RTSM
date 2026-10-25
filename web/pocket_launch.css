@@ -1,7 +1,7 @@
 @font-face { font-family: Barlow; src: url("Barlow-Regular.ttf") format("truetype"); font-weight: 400; font-display: swap; }
 @font-face { font-family: Barlow; src: url("Barlow-Medium.ttf") format("truetype"); font-weight: 500 800; font-display: swap; }
 @font-face { font-family: "Barlow Condensed"; src: url("BarlowCondensed-SemiBold.ttf") format("truetype"); font-weight: 600; font-display: swap; }
-:root { --pk-ink: #10282b; --pk-paper: #f4eddd; --pk-muted: #aabfba; --pk-gold: #e7ba67; --pk-border: #365557; }
+:root { --pk-ink: #1d302c; --pk-paper: #f4eddd; --pk-muted: #b8c5b8; --pk-gold: #e8bf77; --pk-border: #617467; }
 body { font-family: Barlow, sans-serif; }
 body.pocket-welcome { overflow: auto; touch-action: auto; background: var(--pk-ink); color: var(--pk-paper); }
 body.pocket-welcome #pocket-app { visibility: hidden; pointer-events: none; }
@@ -17,9 +17,9 @@ body.pocket-welcome #pocket-app { visibility: hidden; pointer-events: none; }
 .pk-hero h1 { font: 600 clamp(52px, 6vw, 82px)/.96 Barlow, sans-serif; letter-spacing: -2.5px; margin: 0 0 24px; }
 .pk-description { color: var(--pk-muted); font-size: 17px; line-height: 1.5; max-width: 490px; margin: 0 0 26px; }
 .pk-actions { display: flex; flex-wrap: wrap; gap: 10px; }
-.pk-button { min-height: 52px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 10px; padding: 12px 20px; border: 1px solid var(--pk-border); border-radius: 12px; background: #19383b; color: var(--pk-paper); font: 600 18px/1.2 Barlow, sans-serif; cursor: pointer; touch-action: manipulation; text-decoration: none; }
-.pk-button:hover { background: #24494b; border-color: #6a9188; }
-.pk-button:active { background: #2d5657; }
+.pk-button { min-height: 52px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 10px; padding: 12px 20px; border: 1px solid var(--pk-border); border-radius: 12px; background: #3b5548; color: var(--pk-paper); font: 600 18px/1.2 Barlow, sans-serif; cursor: pointer; touch-action: manipulation; text-decoration: none; }
+.pk-button:hover { background: #4a6553; border-color: var(--pk-gold); }
+.pk-button:active { background: #566d5b; }
 .pk-primary { background: var(--pk-gold); border-color: var(--pk-gold); color: var(--pk-ink); box-shadow: 0 4px 0 #775c2c; }
 .pk-primary:hover { background: #f0cb87; border-color: #f0cb87; }
 .pk-primary:active { background: #d8aa57; transform: translateY(2px); box-shadow: 0 2px 0 #775c2c; }
@@ -38,7 +38,7 @@ body.pocket-welcome #pocket-app { visibility: hidden; pointer-events: none; }
 .pk-loop h2 { font-size: 17px; margin: 0 0 9px; }
 .pk-loop p { color: var(--pk-muted); font-size: 14px; line-height: 1.65; margin: 0; }
 .pk-loop .pk-number { display: block; color: var(--pk-gold); font-size: 12px; margin-bottom: 10px; }
-.pk-install { display: grid; grid-template-columns: .9fr 1.1fr; gap: 46px; align-items: start; padding: 28px; margin-bottom: 48px; background: #19383b; border: 1px solid var(--pk-border); border-radius: 12px; scroll-margin-top: 20px; }
+.pk-install { display: grid; grid-template-columns: .9fr 1.1fr; gap: 46px; align-items: start; padding: 28px; margin-bottom: 48px; background: #29433b; border: 1px solid var(--pk-border); border-radius: 12px; scroll-margin-top: 20px; }
 .pk-install h2, .pk-updates h2 { font: 600 34px/1.1 "Barlow Condensed", sans-serif; letter-spacing: 0; margin: 0 0 15px; }
 .pk-install p { color: var(--pk-muted); font-size: 15px; line-height: 1.65; margin: 0 0 14px; }
 .pk-platforms { display: flex; gap: 6px; margin-bottom: 18px; flex-wrap: wrap; }
@@ -73,14 +73,14 @@ body.pocket-welcome #pocket-app { visibility: hidden; pointer-events: none; }
 #pocket-screen-control { position: static; }
 #pocket-shell-links { display: flex; }
 @media (max-width: 680px) { #pocket-menu-tools { --pocket-tools-button-width: 48px; } #pocket-menu-tools [data-shell-label] { display: none; } }
-.pk-dialog { position: fixed; inset: 0; z-index: 45; padding: max(12px,var(--pocket-safe-top)) max(12px,var(--pocket-safe-right)) max(12px,var(--pocket-safe-bottom)) max(12px,var(--pocket-safe-left)); box-sizing: border-box; display: grid; place-items: center; background: #10282bf2; color: var(--pk-paper); touch-action: pan-y; }
+.pk-dialog { position: fixed; inset: 0; z-index: 45; padding: max(12px,var(--pocket-safe-top)) max(12px,var(--pocket-safe-right)) max(12px,var(--pocket-safe-bottom)) max(12px,var(--pocket-safe-left)); box-sizing: border-box; display: grid; place-items: center; background: #1d302cf2; color: var(--pk-paper); touch-action: pan-y; }
 .pk-dialog-card { display: flex; flex-direction: column; width: min(700px,100%); max-height: 100%; box-sizing: border-box; background: var(--pk-ink); border: 1px solid var(--pk-border); border-radius: 12px; overflow: hidden; }
 .pk-dialog-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 22px; border-bottom: 1px solid var(--pk-border); flex-shrink: 0; }
 .pk-dialog-head h2 { font: 600 30px "Barlow Condensed",sans-serif; margin: 0; }
 .pk-dialog-body { overflow: auto; overscroll-behavior: contain; padding: 10px 24px 20px; }
 .pk-dialog-body .pk-release:first-child { border-top: 0; }
 .pk-dialog-body > p { color: var(--pk-muted); font-size: 14px; line-height: 1.6; }
-#pocket-update-blocker { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; background: #10282bf5; color: var(--pk-paper); font: 600 18px Barlow,sans-serif; text-align: center; padding: 28px; }
+#pocket-update-blocker { position: fixed; inset: 0; z-index: 70; display: grid; place-items: center; background: #1d302cf5; color: var(--pk-paper); font: 600 18px Barlow,sans-serif; text-align: center; padding: 28px; }
 #pocket-boot { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: var(--pk-ink); color: var(--pk-paper); text-align: center; padding: 28px; box-sizing: border-box; }
 #pocket-boot img { border-radius: 12px; } #pocket-boot h1 { font: 600 32px "Barlow Condensed",sans-serif; } #pocket-boot p { color: var(--pk-muted); font: 15px/1.6 Barlow,sans-serif; }
 body.pocket-shell-modal { touch-action: pan-y; }
@@ -123,6 +123,7 @@ body.pocket-shell-modal #pocket-screen-control, body.pocket-shell-modal #pocket-
 
 /* The surrounding web controls share the game's typography and palette. */
 .pocket-help-card { border-radius: 12px; border-color: var(--pk-border); background: var(--pk-ink); color: var(--pk-paper); font-family: Barlow, sans-serif; }
+#pocket-screen-help { background: #1d302cf2; }
 .pocket-button:focus-visible { outline-color: var(--pk-gold); }
 
 /* Browser-owned recovery remains reachable over the portrait prompt, below

@@ -62,10 +62,10 @@ func _exercise_profile(phone: Vector2i, ui_scale: float, notched: bool) -> void:
 	_expect(not selection.visible, profile + " unselected context leaves an empty shelf")
 	_expect(dock.visible, profile + " kingdom dock is missing")
 	_expect((hud.get("_town_center_button") as Button).is_visible_in_tree(), profile + " Home is missing")
-	_expect((hud.get("_select_area_button") as Button).is_visible_in_tree(), profile + " stable area selection is missing")
+	_expect(not (hud.get("_select_area_button") as Button).is_visible_in_tree(), profile + " collapsed navigation exposes area selection")
 	_expect(top_rail.size.y <= 56.5, profile + " top rail exceeds56")
 	_expect(minimap.size.x <= 120.5, profile + " minimap exceeds120")
-	for key: String in ["_town_center_button", "_idle_villager_button", "_select_military_button", "build_menu_button", "_select_area_button", "_camera_view_button", "_pause_button", "_speed_button"]:
+	for key: String in ["_town_center_button", "_idle_villager_button", "_select_military_button", "build_menu_button", "_camera_view_button", "_pause_button", "_speed_button"]:
 		_target(hud.get(key), safe, profile)
 	_assert_field(hud, safe, profile + " kingdom")
 
