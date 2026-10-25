@@ -1144,7 +1144,11 @@ func is_entity_visible_to_player(entity: Node2D, viewer_player_id: int = 0) -> b
 	if entity == null or not is_instance_valid(entity):
 		return false
 	var entity_owner: int = -1
-	if entity.has_method("get_player_id"):
+	if entity is UnitBase:
+		entity_owner = (entity as UnitBase).player_owner
+	elif entity is BuildingBase:
+		entity_owner = (entity as BuildingBase).player_owner
+	elif entity.has_method("get_player_id"):
 		entity_owner = int(entity.call("get_player_id"))
 	elif entity.has_method("get_player_owner"):
 		entity_owner = int(entity.call("get_player_owner"))
@@ -1152,6 +1156,10 @@ func is_entity_visible_to_player(entity: Node2D, viewer_player_id: int = 0) -> b
 		return true
 
 	var origin_tile: Vector2i = world_to_tile(entity.global_position)
+	# A unit/resource has one visibility tile; avoid constructing an array for
+	# every battlefield visibility probe. Buildings retain footprint semantics.
+	if not entity is BuildingBase and fog_of_war != null and viewer_player_id == fog_of_war.owning_player:
+		return fog_of_war.is_tile_visible(origin_tile)
 	var target_tiles: Array[Vector2i] = []
 	if entity is BuildingBase:
 		var building := entity as BuildingBase
@@ -1218,7 +1226,8 @@ func get_visible_enemy_units_for_player(viewer_player_id: int) -> Array[UnitBase
 			if building.player_owner != viewer_player_id or building.state == BuildingBase.State.DESTROYED: continue
 			var tile: Vector2i = world_to_tile(building.global_position)
 			building_sources.append(Vector3i(tile.x, tile.y, int(BuildingData.get_building_stats(building.building_type).get("vision_radius", 3))))
-	var signature: Array = [_live_unit_index.vision_revision, _live_unit_index.order_revision, fog_of_war.get_instance_id() if is_instance_valid(fog_of_war) else 0, fog_of_war.owning_player if is_instance_valid(fog_of_war) else -1, fog_of_war.visibility_revision if local_fog else -1, building_sources]
+	var unit_revision: int = _live_unit_index.enemy_position_revision(viewer_player_id) if local_fog else _live_unit_index.vision_revision
+	var signature: Array = [unit_revision, _live_unit_index.order_revision, fog_of_war.get_instance_id() if is_instance_valid(fog_of_war) else 0, fog_of_war.owning_player if is_instance_valid(fog_of_war) else -1, fog_of_war.visibility_revision if local_fog else -1, building_sources]
 	var cached: Dictionary = _visible_enemy_rosters.get(viewer_player_id, {})
 	if cached.get("signature") == signature and not cached.get("foreign_targets", false):
 		return cached.units

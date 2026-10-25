@@ -25,16 +25,22 @@ static func get_icon(key: String) -> Texture2D:
 	return _textures[key] as Texture2D
 
 
-static func apply(button: Button, key: String, accessible_label: String, caption: String = "") -> void:
+static func apply(button: Button, key: String, accessible_label: String, caption: String = "", labeled: bool = false) -> void:
 	button.icon = get_icon(key)
 	button.text = caption
 	button.tooltip_text = accessible_label
 	button.accessibility_name = accessible_label
 	button.alignment = HORIZONTAL_ALIGNMENT_CENTER
-	button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER if caption.is_empty() else HORIZONTAL_ALIGNMENT_LEFT
+	button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER if labeled or caption.is_empty() else HORIZONTAL_ALIGNMENT_LEFT
+	button.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP if labeled else VERTICAL_ALIGNMENT_CENTER
 	button.expand_icon = false
-	button.add_theme_constant_override("icon_max_width", GLYPH_SIZE)
-	button.add_theme_constant_override("h_separation", GAP)
+	var width: int = 20 if labeled else GLYPH_SIZE
+	var gap: int = 1 if labeled else GAP
+	if button.get_theme_constant("icon_max_width") != width: button.add_theme_constant_override("icon_max_width", width)
+	if button.get_theme_constant("h_separation") != gap: button.add_theme_constant_override("h_separation", gap)
+	if labeled and button.get_theme_font_size("font_size") != 10: button.add_theme_font_size_override("font_size", 10)
+	var horizontal: float = 3.0 if labeled else 6.0
+	var vertical: float = 2.0 if labeled else 4.0
 	# Before tree entry, Control lookups can still return the engine fallback
 	# even when theme is assigned. Read that resource directly for entries the
 	# caller has not overridden; otherwise decoration would freeze the fallback.
@@ -45,38 +51,28 @@ static func apply(button: Button, key: String, accessible_label: String, caption
 		var font_color: Color = button.get_theme_color(font_key)
 		if pending_theme != null and not button.has_theme_color_override(font_key) and pending_theme.has_color(font_key, "Button"):
 			font_color = pending_theme.get_color(font_key, "Button")
-		button.add_theme_color_override("icon_%s_color" % state, font_color)
+		if button.get_theme_color("icon_%s_color" % state) != font_color:
+			button.add_theme_color_override("icon_%s_color" % state, font_color)
 		var style: StyleBox = button.get_theme_stylebox(state)
 		if pending_theme != null and not button.has_theme_stylebox_override(state) and pending_theme.has_stylebox(state, "Button"):
 			style = pending_theme.get_stylebox(state, "Button")
 		var corner_radius: int = 24 if key in ["close", "back", "info", "pause", "resume", "zoom_in", "zoom_out", "more", "repeat"] else CORNER_RADIUS
-		if style.get_content_margin(SIDE_LEFT) == 6.0 and style.get_content_margin(SIDE_TOP) == 4.0 and style is StyleBoxFlat and (style as StyleBoxFlat).corner_radius_top_left == corner_radius:
+		if style.get_content_margin(SIDE_LEFT) == horizontal and style.get_content_margin(SIDE_RIGHT) == horizontal and style.get_content_margin(SIDE_TOP) == vertical and style.get_content_margin(SIDE_BOTTOM) == vertical and style is StyleBoxFlat and (style as StyleBoxFlat).corner_radius_top_left == corner_radius:
 			continue
 		var compact: StyleBox = style.duplicate()
-		compact.set_content_margin(SIDE_LEFT, 6.0)
-		compact.set_content_margin(SIDE_RIGHT, 6.0)
-		compact.set_content_margin(SIDE_TOP, 4.0)
-		compact.set_content_margin(SIDE_BOTTOM, 4.0)
+		compact.set_content_margin(SIDE_LEFT, horizontal)
+		compact.set_content_margin(SIDE_RIGHT, horizontal)
+		compact.set_content_margin(SIDE_TOP, vertical)
+		compact.set_content_margin(SIDE_BOTTOM, vertical)
 		if compact is StyleBoxFlat:
 			(compact as StyleBoxFlat).set_corner_radius_all(corner_radius)
 		button.add_theme_stylebox_override(state, compact)
 
 
 static func apply_labeled(button: Button, key: String, accessible_label: String, caption: String) -> void:
-	## A visible word makes the everyday command discoverable on touch screens.
-	apply(button, key, accessible_label, caption)
-	button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	button.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
-	button.add_theme_constant_override("icon_max_width", 20)
-	button.add_theme_constant_override("h_separation", 1)
-	button.add_theme_font_size_override("font_size", 10)
-	for state: String in ["normal", "hover", "pressed", "disabled", "focus", "hover_pressed"]:
-		var compact := button.get_theme_stylebox(state).duplicate() as StyleBox
-		compact.set_content_margin(SIDE_LEFT, 3.0)
-		compact.set_content_margin(SIDE_RIGHT, 3.0)
-		compact.set_content_margin(SIDE_TOP, 2.0)
-		compact.set_content_margin(SIDE_BOTTOM, 2.0)
-		button.add_theme_stylebox_override(state, compact)
+	# Decorate directly at the final size. Repeated live count/caption updates
+	# must not alternate compact styles and rebuild twelve resources per button.
+	apply(button, key, accessible_label, caption, true)
 
 
 static func set_badge(button: Button, text: String, attention: bool = false) -> void:

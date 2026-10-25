@@ -10,6 +10,7 @@ var _vision_cells: Dictionary = {}
 var _parents: Dictionary = {}
 var _unit_vision_cache: Dictionary = {}
 var vision_revision: int = 0
+var _movement_by_owner: Dictionary = {}
 var order_revision: int = 0
 var _order_dirty: bool = true
 var _ordered_units: Array[UnitBase] = []
@@ -27,14 +28,19 @@ func update(unit: UnitBase) -> void:
 	var last := Vector2i((Vector2(tile + Vector2i(radius, radius)) / VISION_CELL_TILES).floor())
 	if not _entries.has(id):
 		invalidate_order()
-		_entries[id] = {"unit": unit, "cell": cell, "first": first, "last": last, "tile": tile, "radius": radius, "parent": unit.get_parent()}
+		_entries[id] = {"unit": unit, "position": unit.global_position, "cell": cell, "first": first, "last": last, "tile": tile, "radius": radius, "parent": unit.get_parent()}
 		invalidate_vision()
 		_insert(_cells, cell, unit)
 		_vision_change(unit, first, last, true)
 	else:
 		var entry: Dictionary = _entries[id]
+		entry.position = unit.global_position
 		if entry.tile != tile or entry.radius != radius:
-			invalidate_vision()
+			# Only source neighborhoods touched by this movement lose cached vision.
+			vision_revision += 1
+			_movement_by_owner[unit.player_owner] = int(_movement_by_owner.get(unit.player_owner, 0)) + 1
+			_clear_vision_region(entry.first, entry.last)
+			_clear_vision_region(first, last)
 			entry.tile = tile
 			entry.radius = radius
 		if entry.cell != cell:
@@ -65,20 +71,33 @@ func invalidate_vision() -> void:
 	vision_revision += 1
 	_unit_vision_cache.clear()
 
+func enemy_position_revision(viewer: int) -> int:
+	# A local FogManager owns source visibility. Moving its own workers does
+	# not change which enemy positions land in that already-published grid.
+	return vision_revision - int(_movement_by_owner.get(viewer, 0))
+
 func units_reveal(tile: Vector2i, owner: int) -> bool:
 	_refresh_parent_transforms()
+	var cell := Vector2i((Vector2(tile) / VISION_CELL_TILES).floor())
+	if not _unit_vision_cache.has(cell): _unit_vision_cache[cell] = {}
+	var cache: Dictionary = _unit_vision_cache[cell]
 	var key := Vector3i(tile.x, tile.y, owner)
-	if _unit_vision_cache.has(key): return _unit_vision_cache[key]
+	if cache.has(key): return cache[key]
 	var visible: bool = false
-	for unit: UnitBase in _vision_cells.get(Vector2i((Vector2(tile) / VISION_CELL_TILES).floor()), []):
+	for unit: UnitBase in _vision_cells.get(cell, []):
 		if not is_instance_valid(unit) or not unit.is_inside_tree() or unit.player_owner != owner or unit.current_state == UnitBase.State.DEAD: continue
 		var entry: Dictionary = _entries[unit.get_instance_id()]
 		var offset: Vector2i = tile - entry.tile
 		if offset.x * offset.x + offset.y * offset.y <= entry.radius * entry.radius:
 			visible = true
 			break
-	_unit_vision_cache[key] = visible
+	cache[key] = visible
 	return visible
+
+func _clear_vision_region(first: Vector2i, last: Vector2i) -> void:
+	for y: int in range(first.y, last.y + 1):
+		for x: int in range(first.x, last.x + 1):
+			_unit_vision_cache.erase(Vector2i(x, y))
 
 func near(position: Vector2, radius: float) -> Array[UnitBase]:
 	_refresh_parent_transforms()
@@ -90,8 +109,11 @@ func near(position: Vector2, radius: float) -> Array[UnitBase]:
 	for y: int in range(first.y, last.y + 1):
 		for x: int in range(first.x, last.x + 1):
 			for unit: UnitBase in _cells.get(Vector2i(x, y), []):
-				if is_instance_valid(unit) and unit.is_inside_tree() and unit.current_state != UnitBase.State.DEAD and unit.global_position.distance_to(position) <= radius:
-					ranks.append(_entries[unit.get_instance_id()].rank)
+				var entry: Dictionary = _entries[unit.get_instance_id()]
+				# Membership is removed synchronously on tree exit; positions are
+				# refreshed by local notifications and the parent check above.
+				if unit.current_state != UnitBase.State.DEAD and (entry.position as Vector2).distance_to(position) <= radius:
+					ranks.append(entry.rank)
 	# Native integer sorting preserves exact SceneTree order without a script
 	# callback for every comparison in every unit neighborhood query.
 	ranks.sort()
