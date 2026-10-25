@@ -1,18 +1,25 @@
 extends Node
-## Bounded medieval feedback palette. World cues require visible, nearby sources;
+## Original felt, wood and cloth feedback palette. World cues require visible, nearby sources;
 ## owned alerts and interface responses use a separate, reserved voice pool.
 
 const SAMPLE_RATE: int = 22050
 const WORLD_VOICES: int = 8
 const UI_VOICES: int = 4
 const ALERT_SOUNDS: Array[String] = ["under_attack", "unit_trained", "building_complete", "age_up", "victory", "defeat"]
-const COOLDOWNS := {"button_click": 0.055, "select_unit": 0.14, "command_move": 0.14, "command_attack": 0.18, "attack_hit": 0.10, "unit_death": 0.22, "gather_food": 0.8, "gather_wood": 0.55, "gather_gold": 0.65, "construction_work": 0.7, "under_attack": 1.2, "unit_trained": 0.4, "building_complete": 0.5, "age_up": 1.0, "victory": 2.0, "defeat": 2.0}
-const GAINS := {"button_click": -9.0, "select_unit": -8.0, "command_move": -9.0, "command_attack": -8.0, "attack_hit": -12.0, "unit_death": -11.0, "gather_food": -17.0, "gather_wood": -16.0, "gather_gold": -17.0, "construction_work": -15.0, "under_attack": -3.0, "age_up": -5.0, "victory": -4.0, "defeat": -5.0}
+const COOLDOWNS := {"button_click": 0.08, "select_unit": 0.18, "command_move": 0.20, "command_attack": 0.24, "attack_hit": 0.20, "unit_death": 0.50, "gather_food": 1.3, "gather_wood": 1.0, "gather_gold": 1.2, "construction_work": 1.1, "under_attack": 6.0, "unit_trained": 0.65, "building_complete": 0.8, "age_up": 2.0, "victory": 3.0, "defeat": 3.0}
+const GAINS := {"button_click": -13.0, "select_unit": -11.0, "command_move": -10.0, "command_attack": -10.0, "attack_hit": -15.0, "unit_death": -18.0, "gather_food": -20.0, "gather_wood": -19.0, "gather_gold": -20.0, "construction_work": -18.0, "building_place": -10.0, "building_invalid": -13.0, "unit_trained": -9.0, "building_complete": -8.0, "under_attack": -6.0, "age_up": -7.0, "victory": -5.0, "defeat": -7.0}
+const GROUPS := {"gather_food": "work", "gather_wood": "work", "gather_gold": "work", "construction_work": "work", "attack_hit": "combat", "unit_death": "combat", "command_move": "orders", "command_attack": "orders"}
+const GROUP_COOLDOWNS := {"work": 0.65, "combat": 0.18, "orders": 0.18}
+const PRIORITIES := {"button_click": 0, "select_unit": 1, "command_move": 2, "command_attack": 2, "building_place": 2, "building_invalid": 2, "unit_trained": 3, "building_complete": 3, "under_attack": 4, "age_up": 4, "victory": 5, "defeat": 5}
 var sfx_enabled: bool = true
 var ui_enabled: bool = true
 var music_enabled: bool = false # There is no score; no inert music control is exposed.
 var _sounds: Dictionary = {}
 var _cooldowns: Dictionary = {}
+var _group_cooldowns: Dictionary = {}
+var _last_variants: Dictionary = {}
+var _last_intent_time: float = -100.0
+var _web_activated: bool = false
 var _world_players: Array[AudioStreamPlayer] = []
 var _ui_players: Array[AudioStreamPlayer] = []
 var _rng := RandomNumberGenerator.new()
@@ -27,6 +34,7 @@ var _suppressed: Dictionary = {}
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_rng.seed = 73109 # Sound construction must never perturb gameplay random state.
+	_web_activated = not OS.has_feature("web")
 	_ensure_bus("World", "Master")
 	_ensure_bus("UIAlerts", "Master")
 	_create_players(_world_players, WORLD_VOICES, "World")
@@ -40,6 +48,13 @@ func _ready() -> void:
 	GameManager.game_over.connect(func(winner: int) -> void: play_ui("victory" if winner == 0 else "defeat"))
 	get_tree().node_added.connect(_on_node_added)
 	_install_web_lifecycle()
+
+
+func _input(event: InputEvent) -> void:
+	# Discard pre-gesture cues rather than accumulating a burst behind autoplay.
+	# The browser/Godot driver remains responsible for unlocking its AudioContext.
+	if (event is InputEventMouseButton or event is InputEventScreenTouch or event is InputEventKey) and event.is_pressed():
+		_web_activated = true
 
 
 func _ensure_bus(bus_name: String, parent_bus: String) -> void:
@@ -154,9 +169,21 @@ func _set_volume(bus_name: String, volume: float) -> void:
 
 func _play(sound_name: String, pool: Array[AudioStreamPlayer], attenuation: float = 0.0) -> void:
 	if not _sounds.has(sound_name): return
+	if not _web_activated:
+		_suppress("activation")
+		return
 	var now: float = Time.get_ticks_msec() / 1000.0
+	# A successful order/selection already supplies tactile feedback. The button
+	# hookup must not layer a second click over that same gesture.
+	if sound_name == "button_click" and now - _last_intent_time < 0.07:
+		_suppress("gesture")
+		return
 	if now - float(_cooldowns.get(sound_name, -100.0)) < float(COOLDOWNS.get(sound_name, 0.15)):
 		_suppress("cooldown")
+		return
+	var group: String = str(GROUPS.get(sound_name, ""))
+	if not group.is_empty() and now - float(_group_cooldowns.get(group, -100.0)) < float(GROUP_COOLDOWNS[group]):
+		_suppress("group_cooldown")
 		return
 	var voice: AudioStreamPlayer
 	# The last two interface voices are reserved for alerts. Click storms cannot
@@ -169,14 +196,31 @@ func _play(sound_name: String, pool: Array[AudioStreamPlayer], attenuation: floa
 			voice = pool[i]
 			break
 	if voice == null:
-		if alert:
-			voice = pool[pool.size() - 1]
-		else:
+		# Only a more important cue may displace another. Recruitment cannot cut
+		# off an attack warning, and nothing may cut off a victory/defeat cadence.
+		var priority: int = int(PRIORITIES.get(sound_name, 0))
+		var lowest: int = priority
+		for i: int in pool.size():
+			if pool == _ui_players and not alert and i >= UI_VOICES - 2: continue
+			var candidate: int = int(pool[i].get_meta("priority", 0))
+			if candidate < lowest:
+				voice = pool[i]
+				lowest = candidate
+		if voice == null:
 			_suppress("voice_limit")
 			return
 	_cooldowns[sound_name] = now
+	if not group.is_empty(): _group_cooldowns[group] = now
+	if pool == _ui_players and sound_name != "button_click": _last_intent_time = now
 	voice.stop()
-	voice.stream = _sounds[sound_name]
+	var bank: Array = _sounds[sound_name]
+	var variant: int = _rng.randi_range(0, bank.size() - 1)
+	if bank.size() > 1 and variant == int(_last_variants.get(sound_name, -1)):
+		variant = (variant + 1) % bank.size()
+	_last_variants[sound_name] = variant
+	voice.stream = bank[variant]
+	voice.set_meta("priority", int(PRIORITIES.get(sound_name, 0)))
+	voice.set_meta("cue", sound_name)
 	voice.volume_db = float(GAINS.get(sound_name, -8.0)) + attenuation
 	voice.pitch_scale = 1.0
 	voice.play()
@@ -196,7 +240,7 @@ func _suppress(reason: String) -> void:
 
 
 func get_audio_diagnostics() -> Dictionary:
-	return {"active_voices": _active_voices(), "voice_limit": WORLD_VOICES + UI_VOICES, "peak_active_voices": _peak_active_voices, "backgrounded": _backgrounded, "played": _played.duplicate(), "suppressed": _suppressed.duplicate(), "master_volume": GameManager.master_volume, "sfx_volume": GameManager.sfx_volume, "ui_alert_volume": GameManager.ui_alert_volume, "enabled": sfx_enabled}
+	return {"active_voices": _active_voices(), "voice_limit": WORLD_VOICES + UI_VOICES, "peak_active_voices": _peak_active_voices, "backgrounded": _backgrounded, "activated": _web_activated, "variants": _last_variants.duplicate(), "played": _played.duplicate(), "suppressed": _suppressed.duplicate(), "master_volume": GameManager.master_volume, "sfx_volume": GameManager.sfx_volume, "ui_alert_volume": GameManager.ui_alert_volume, "enabled": sfx_enabled}
 
 
 func _stop_pool(pool: Array[AudioStreamPlayer]) -> void:
@@ -209,6 +253,8 @@ func stop_all() -> void:
 	_stop_pool(_world_players)
 	_stop_pool(_ui_players)
 	_cooldowns.clear()
+	_group_cooldowns.clear()
+	_last_intent_time = -100.0
 
 
 func _on_game_state_changed(_state: int) -> void:
@@ -259,85 +305,4 @@ func preview() -> void:
 
 
 func _generate_all_sounds() -> void:
-	_sounds["button_click"] = _gen_texture(410.0, 0.065, 0.25, 0.32)
-	_sounds["select_unit"] = _gen_texture(310.0, 0.13, 0.08, 0.12)
-	_sounds["command_move"] = _gen_chord([246.94, 369.99], 0.16)
-	_sounds["command_attack"] = _gen_horn([196.0, 246.94], 0.26)
-	_sounds["attack_hit"] = _gen_texture(170.0, 0.17, 0.42, 0.68)
-	_sounds["unit_death"] = _gen_texture(90.0, 0.30, 0.48, 0.06)
-	_sounds["gather_food"] = _gen_texture(260.0, 0.10, 0.55, 0.02)
-	_sounds["gather_wood"] = _gen_texture(125.0, 0.12, 0.25, 0.05)
-	_sounds["gather_gold"] = _gen_texture(690.0, 0.18, 0.08, 0.62)
-	_sounds["construction_work"] = _gen_texture(150.0, 0.16, 0.30, 0.18)
-	_sounds["building_place"] = _gen_texture(100.0, 0.23, 0.35, 0.12)
-	_sounds["building_complete"] = _gen_chord([392.0, 493.88, 587.33], 0.5)
-	_sounds["building_invalid"] = _gen_horn([174.61, 146.83], 0.22)
-	_sounds["unit_trained"] = _gen_chord([392.0, 587.33], 0.25)
-	_sounds["age_up"] = _gen_horn([261.63, 329.63, 392.0], 0.8)
-	_sounds["under_attack"] = _gen_horn([196.0, 293.66, 196.0], 0.64)
-	_sounds["victory"] = _gen_horn([261.63, 329.63, 392.0, 523.25], 1.2)
-	_sounds["defeat"] = _gen_horn([246.94, 196.0, 146.83], 1.15)
-
-
-func _gen_texture(freq: float, duration: float, noise_mix: float, metal_mix: float) -> AudioStreamWAV:
-	var count: int = int(duration * SAMPLE_RATE)
-	var samples := PackedFloat32Array()
-	samples.resize(count)
-	var softened_noise: float = 0.0
-	for i: int in count:
-		var t: float = float(i) / SAMPLE_RATE
-		var tail: float = 1.0 - t / duration
-		var onset: float = minf(1.0, t / 0.003)
-		softened_noise = lerpf(softened_noise, _rng.randf_range(-1.0, 1.0), 0.25)
-		var body: float = sin(TAU * freq * t) * exp(-t * 22.0)
-		var ring: float = (sin(TAU * freq * 2.71 * t) + sin(TAU * freq * 4.13 * t) * 0.35) * exp(-t * 13.0)
-		samples[i] = (body * 0.48 + softened_noise * noise_mix + ring * metal_mix * 0.35) * tail * onset * 0.72
-	return _make_stream(samples)
-
-
-func _gen_horn(notes: Array, duration: float) -> AudioStreamWAV:
-	var count: int = int(duration * SAMPLE_RATE)
-	var samples := PackedFloat32Array()
-	samples.resize(count)
-	var note_duration: float = duration / notes.size()
-	for i: int in count:
-		var t: float = float(i) / SAMPLE_RATE
-		var index: int = mini(int(t / note_duration), notes.size() - 1)
-		var local_t: float = t - float(index) * note_duration
-		var envelope: float = minf(1.0, local_t / 0.024) * minf(1.0, (note_duration - local_t) / 0.07)
-		var phase: float = TAU * float(notes[index]) * local_t
-		samples[i] = (sin(phase) + sin(phase * 2.0) * 0.25 + sin(phase * 3.0) * 0.10) * envelope * 0.28
-	return _make_stream(samples)
-
-
-func _make_stream(samples: PackedFloat32Array) -> AudioStreamWAV:
-	var wav := AudioStreamWAV.new()
-	wav.format = AudioStreamWAV.FORMAT_16_BITS
-	wav.mix_rate = SAMPLE_RATE
-	wav.stereo = false
-	# Convert float samples to 16-bit PCM bytes
-	var data := PackedByteArray()
-	data.resize(samples.size() * 2)
-	for i in samples.size():
-		var s: float = clampf(samples[i], -1.0, 1.0)
-		@warning_ignore("narrowing_conversion")
-		var val: int = int(s * 32767.0)
-		data[i * 2] = val & 0xFF
-		data[i * 2 + 1] = (val >> 8) & 0xFF
-	wav.data = data
-	return wav
-
-
-func _gen_chord(freqs: Array, duration: float) -> AudioStreamWAV:
-	var count: int = int(duration * SAMPLE_RATE)
-	var samples := PackedFloat32Array()
-	samples.resize(count)
-	var amp: float = 0.3 / freqs.size()
-	for i in count:
-		var t: float = float(i) / SAMPLE_RATE
-		var envelope: float = 1.0 - (t / duration)
-		var val: float = 0.0
-		for freq in freqs:
-			val += sin(TAU * freq * t)
-		samples[i] = val * amp * envelope
-	return _make_stream(samples)
+	_sounds = preload("res://scripts/audio/tactile_palette.gd").build()
