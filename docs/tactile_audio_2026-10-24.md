@@ -70,3 +70,12 @@ concurrency was two. The economy segment included paid recruitment completion,
 house completion, eight construction taps and nineteen gathering cues. These
 are objective mix/event results, not subjective listening. Physical speakers,
 Safari and perceived timbral balance still require human/device review.
+
+The corresponding 1280×720 controlled native run completed successfully with
+57.675 seconds of PCM and no script errors, dropped frames or clipped samples.
+Peak was 0.12613 (−17.98 dBFS), RMS 0.008098. Its 25.351-second battle generated
+156 landed hits, 49 audible impacts (1.93/second), three attack warnings and one
+death cue, with a peak of two simultaneous voices. Paid recruitment/house
+completion, seven construction taps and twenty gathering cues were also
+recorded. This has the same explicit foreground-lifecycle bypass and subjective
+listening limitations as the phone-viewport controlled run.
