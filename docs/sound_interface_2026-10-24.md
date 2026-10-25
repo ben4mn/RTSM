@@ -32,4 +32,16 @@ Browser viewport checks and native renders do not certify physical phones, brows
 
 ## Release checkpoint
 
-Implementation is being saved in focused commits. Publication is pending at this checkpoint. The established release workflow exports one committed revision twice, verifies matching sealed payloads, smoke-tests the matching Linux server, stages without replacing live state, checks active/closing match connections immediately before replacement, retains beta6 rollback bytes and then verifies public HTTPS and active runtime identity.
+The release candidate is committed source `1f2efe48f9d1173151759ca86bf708a95eb85f66` (0.3.0-beta.7, protocol 5). Two independent Web exports passed substantive-file/source-manifest reproducibility, checksum closure, shell checks and content scanning. The matching Linux server passed its disposable smoke check, with the live service unchanged. Publication and public acceptance are pending below.
+
+Completed verification includes:
+
+- 969 starting-Scout checks across maps, civilizations, both owners and authority/client roles; online protocol-5 startup agreement on all maps.
+- 493 population checks across all civilizations and both modes, including paid Houses 15→25→35→100, final partial gain, reserve housing, loss, refunds and queue reservations. These use stepped clocks and synthetic near-cap pressure, not natural pacing.
+- 216 real engine ScreenTouch assertions for head/body taps behind roofs, trees and enemies, Move, Attack-move, direct enemy attack and fog rejection. Existing touch-dispatch, zoom, facade, selection-dock and command tests also pass.
+- Settings at 12 viewport/scale/safe-area profiles with four tabs, expanded Guide, paused state and contrast assertions; HUD at 13 profiles and selection-dock geometry at 848 assertions.
+- 26 Web shell/export unit tests and 21 guarded-deployment tests. Six combat/presentation suites plus the five-case Sacred/result/navigation preservation batch pass. A stale pre-beta6 SVG defensive-fire fixture was corrected in test-only commit `773ff78`; the revised 544 checks cover legacy SVGs and all three illustrated civilizations, both owners and transforms. The original failure is retained in local evidence.
+- Controlled native gameplay recordings at 844×390 and 1280×720: respectively 145/156 actual battle hits produced 48/49 audible impacts over about 25 seconds, peak two voices, zero dropped audio frames and zero clipped samples. Overall peaks are about −18 dBFS. Original synthesis recipes/provenance remain documented separately.
+- Actual Chrome journeys at 844×390 and 1280×720 verified solo setup, 100 default, starting Scout, paid recruitment, Scout Move, two paid Houses raising capacity to 35, selection without the large Town Center range circle and pause-preserving resize. The final Guide contrast fix was checked in the exported `1f2efe4` build. Mouse/browser viewport checks are distinct from engine ScreenTouch fixtures and physical-device testing. Browser warning/error logs were empty in these checks.
+
+Natural paid automated rounds and the final publication receipt are recorded below. The existing release guard checks active/closing match connections immediately before replacement and retains the previous static bytes, server context and image for rollback. It has an existing short admission race between the socket check and replacement; no force bypass is used.
