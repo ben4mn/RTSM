@@ -56,6 +56,7 @@ var _right_mouse_max_displacement := 0.0
 var _last_tap_time := 0.0
 var _last_tap_position := Vector2.ZERO
 var _last_tap_was_ground_move := false
+var _last_tap_canvas_transform := Transform2D.IDENTITY
 var _double_tap_interval := 0.35  # seconds
 var _double_tap_radius := 30.0  # pixels
 
@@ -96,6 +97,9 @@ var _released_world_touch_indices: Dictionary = {}
 ## Browser contact identifiers need not start at zero or be reused. The first
 ## unhandled world press owns this gesture until every admitted contact lifts.
 var _primary_touch_index: int = -1
+## Keep the unit actually touched while it moves beneath a stationary finger.
+## This never owns a pan, a hold, or an explicit command destination.
+var _touch_press_unit: WeakRef = null
 var _last_touch_input_msec: int = 0
 var _last_tap_target_id: int = 0
 var _next_touch_target_refresh_msec: int = 0
@@ -121,6 +125,7 @@ const MOUSE_AFTER_TOUCH_IGNORE_MS: int = 1500
 
 func set_unit_command_armed(armed: bool) -> void:
 	unit_command_armed = armed
+	_touch_press_unit = null
 	if armed:
 		set_touch_area_selection_armed(false)
 		# The destination tap starts a new one-shot gesture; it must not combine
@@ -167,6 +172,7 @@ func cancel_touch_gesture(preserve_completed_tap: bool = false) -> void:
 	_active_touch_indices.clear()
 	_released_world_touch_indices.clear()
 	_primary_touch_index = -1
+	_touch_press_unit = null
 	_is_dragging = false
 	_mouse_contact_tokens.clear()
 	_left_mouse_max_displacement = 0.0
@@ -283,6 +289,7 @@ func _finish_released_touch(index: int) -> void:
 			touch_area_selection_changed.emit(false)
 		_touch_area_gesture = false
 		_primary_touch_index = -1
+		_touch_press_unit = null
 		_touch_hold_active = false
 		_touch_hold_elapsed = 0.0
 		_touch_hold_started_at_msec = 0
@@ -315,6 +322,7 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 		if _active_touch_indices.is_empty():
 			world_gesture_started.emit(event.index, event.position)
 			_primary_touch_index = event.index
+			_touch_press_unit = null
 			_touch_pan_gesture = false
 		_active_touch_indices[event.index] = true
 		if _active_touch_indices.size() > 1:
@@ -345,6 +353,10 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 		_touch_long_press_consumed = false
 		_touch_hold_canceled = _touch_pan_gesture or _touch_area_gesture
 		_touch_max_displacement_px = 0.0
+		if not unit_command_armed and not _touch_pan_gesture and not _touch_area_gesture:
+			var pressed_node: Node2D = _get_node_at(_screen_to_world(event.position), true)
+			if pressed_node is UnitBase and (not _has_selected_units() or _is_enemy(pressed_node) or _is_direct_friendly_unit_reselection(pressed_node, event.position)):
+				_touch_press_unit = weakref(pressed_node)
 		if _touch_area_gesture:
 			get_viewport().set_input_as_handled()
 			queue_redraw()
@@ -426,7 +438,8 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 			return
 		if _active_touch_indices.is_empty() and not _touch_pan_gesture and _touch_max_displacement_px < touch_tap_slop_px:
 			_playtest_classify_contact(event.index, "tap", "below_tap_slop")
-			_handle_tap(event.position, true)
+			var pressed_unit: Node2D = _touch_press_unit.get_ref() as Node2D if _touch_press_unit != null else null
+			_handle_tap(event.position, true, pressed_unit)
 		elif _touch_pan_gesture:
 			_playtest_classify_contact(event.index, "pan" if _active_touch_indices.is_empty() else "pinch", "camera_owned_movement")
 		else:
@@ -479,6 +492,10 @@ func _touch_hold_has_elapsed(now_msec: int) -> bool:
 
 
 func _cancel_pending_touch_hold() -> void:
+	# A pan/pinch separates taps even if the next tap uses the same screen
+	# coordinates. Its destination belongs to the newly rendered map view.
+	_last_tap_time = 0.0
+	_touch_press_unit = null
 	_touch_hold_active = false
 	_touch_hold_canceled = true
 	_touch_hold_started_at_msec = 0
@@ -550,14 +567,21 @@ func _handle_mouse_motion(event: InputEventMouseMotion) -> void:
 
 ## --- Tap / click logic ---
 
-func _handle_tap(screen_pos: Vector2, is_touch_input: bool) -> void:
+func _handle_tap(screen_pos: Vector2, is_touch_input: bool, pressed_unit: Node2D = null) -> void:
 	_playtest_pointer_source = "touch" if is_touch_input else "mouse"
 	_prune_stale_selection()
 	var consumed: bool = false
 	var world_pos := _screen_to_world(screen_pos)
 	var tapped_node: Node2D = _get_node_at(world_pos, is_touch_input)
+	var retained_unit: bool = is_touch_input and not unit_command_armed and pressed_unit is UnitBase and _is_current_selection_entry(pressed_unit) and _is_visible_to_local_player(pressed_unit)
+	if retained_unit:
+		tapped_node = pressed_unit
 	var resource_node: Node2D = _get_resource_at(world_pos, is_touch_input)
 	var tap_target_id: int = tapped_node.get_instance_id() if tapped_node != null else 0
+	# Camera movement between contacts starts a new intent even when it came
+	# from a minimap, keyboard, or zoom rather than a world pan gesture.
+	if is_touch_input and not _last_tap_canvas_transform.is_equal_approx(get_viewport().get_canvas_transform()):
+		_last_tap_time = 0.0
 	# Check double-tap.
 	var now := Time.get_ticks_msec() / 1000.0
 	if is_touch_input and not unit_command_armed and _has_selected_units() \
@@ -575,13 +599,14 @@ func _handle_tap(screen_pos: Vector2, is_touch_input: bool) -> void:
 			and _last_tap_time > 0.0 \
 			and now - _last_tap_time < _double_tap_interval \
 			and screen_pos.distance_to(_last_tap_position) < _double_tap_radius:
-		_handle_double_tap(screen_pos, is_touch_input)
+		_handle_double_tap(screen_pos, is_touch_input, tapped_node)
 		_last_tap_time = 0.0
 		if is_touch_input:
 			get_viewport().set_input_as_handled()
 		return
 	_last_tap_time = now
 	_last_tap_position = screen_pos
+	_last_tap_canvas_transform = get_viewport().get_canvas_transform()
 	_last_tap_target_id = tap_target_id
 	_last_tap_was_ground_move = false
 
@@ -619,7 +644,7 @@ func _handle_tap(screen_pos: Vector2, is_touch_input: bool) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
-	if is_touch_input and has_selected_units and _is_direct_friendly_unit_reselection(tapped_node, screen_pos):
+	if is_touch_input and has_selected_units and ((retained_unit and not _is_enemy(tapped_node)) or _is_direct_friendly_unit_reselection(tapped_node, screen_pos)):
 		_clear_selection()
 		_add_to_selection(tapped_node)
 		_record_touch_input(screen_pos, world_pos, "select_unit", tapped_node, resource_node)
@@ -750,9 +775,9 @@ func _handle_tap(screen_pos: Vector2, is_touch_input: bool) -> void:
 		get_viewport().set_input_as_handled()
 
 
-func _handle_double_tap(screen_pos: Vector2, is_touch_input: bool) -> void:
+func _handle_double_tap(screen_pos: Vector2, is_touch_input: bool, preferred_target: Node2D = null) -> void:
 	var world_pos := _screen_to_world(screen_pos)
-	var tapped_node: Node2D = _get_node_at(world_pos, is_touch_input)
+	var tapped_node: Node2D = preferred_target if preferred_target != null else _get_node_at(world_pos, is_touch_input)
 	if tapped_node == null:
 		return
 
@@ -1015,7 +1040,7 @@ func _get_node_at(world_pos: Vector2, use_touch_radius: bool = false) -> Node2D:
 		# the broad feet/body discovery regions. Echoes remain noninteractive;
 		# canonical visibility is checked here again before selecting the actor.
 		var echo: Sprite2D = (node as Node2D).get_node_or_null("OccludedUnitEcho") as Sprite2D
-		if echo != null and echo.is_visible_in_tree() and _is_visible_to_local_player(node) and echo.is_pixel_opaque(echo.to_local(world_pos)):
+		if _is_touch_on_unit_echo(node as Node2D, world_pos):
 			var echo_distance: float = echo.to_global(echo.get_rect().get_center()).distance_to(world_pos)
 			if echo_distance < best_echo_distance:
 				best_echo_distance = echo_distance
@@ -1263,7 +1288,13 @@ func _is_direct_friendly_unit_reselection(entry: Variant, screen_pos: Vector2) -
 	return (
 		_world_to_screen(unit.global_position).distance_to(screen_pos) <= maxf(12.0, touch_unit_hit_radius_px)
 		or _is_touch_on_unit_body(unit, _screen_to_world(screen_pos))
+		or _is_touch_on_unit_echo(unit, _screen_to_world(screen_pos))
 	)
+
+
+func _is_touch_on_unit_echo(unit: Node2D, world_pos: Vector2) -> bool:
+	var echo: Sprite2D = unit.get_node_or_null("OccludedUnitEcho") as Sprite2D
+	return echo != null and echo.is_visible_in_tree() and _is_visible_to_local_player(unit) and echo.is_pixel_opaque(echo.to_local(world_pos))
 
 
 func _is_touch_on_unit_body(unit: Node2D, world_pos: Vector2) -> bool:
