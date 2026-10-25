@@ -1,0 +1,90 @@
+{
+  "version": "0.3.0-beta.9",
+  "source_commit": "e6735a63b536d261783b23de4079b008ca552e59",
+  "release_id": "v030beta9-e6735a63b536-9ba9e88a73-44fcca2141",
+  "public_url": "https://game.4mn.org/",
+  "protocol": 6,
+  "map_catalog": 3,
+  "replacement_started_utc": "2026-10-25T21:52:09.596522+00:00",
+  "restart_started_at": "2026-10-25T21:52:20.675902313Z",
+  "server_image": "sha256:1ad39b16aa6c5db5519942779456f231388c1a208a1778c6aa4a63d7c09b68eb",
+  "web_manifest_sha256": "9ba9e88a738318f7cc9fc880f8406760b7a8a9ca11611cde3d75993f80382e2e",
+  "server_manifest_sha256": "44fcca2141a796aefd07acbba9e888924ca7f54e6ab5626b7f04af3586beaa4d",
+  "initial_connections": 0,
+  "replacement_connections": 0,
+  "rollback_web": "releases/v030beta8-9176284ece56-1449ffe952-a1e2823fae",
+  "rollback_tag": "aoem-online:rollback-v030beta9-e6735a63b536-9ba9e88a73-44fcca2141",
+  "rollback_context_archive_sha256": "4975b47c1e2034547adb8046ee27c2a406877cc115fb6749ba6954b77067f37e",
+  "public_files_verified": 40,
+  "public_room_checks": 40,
+  "public_browser_acceptance": {
+    "format": "pocket.public-browser-acceptance.v1",
+    "status": "PASS",
+    "verified_at_utc": "2026-10-25T22:01:09.279Z",
+    "url": "https://game.4mn.org/",
+    "source_revision": "e6735a63b536d261783b23de4079b008ca552e59",
+    "browser": "Chrome extension browser 3",
+    "public_viewports": [
+      [
+        1280,
+        720
+      ],
+      [
+        844,
+        390
+      ],
+      [
+        932,
+        430
+      ]
+    ],
+    "checks": [
+      "Existing beta8 cache updated through ordinary welcome flow to beta9; Solo saved for offline label visible.",
+      "Public Home, Solo setup and civilization selection inspected.",
+      "All four public Settings tabs inspected at desktop size.",
+      "Exact released artifact all four Settings tabs, expanded Guide, Home/setup and Match options inspected at 844\u00d7390.",
+      "Public English River Crossings Solo started at 844\u00d7390, max 100, four Villagers plus Scout.",
+      "Tapped Scout selected, then moved to tapped ground and arrived.",
+      "Paid 50-food Villager queued and completed; population became 6/15.",
+      "Invalid House placement rejected without charging; valid placement charged 50 wood and completed, population capacity became 25.",
+      "Food, wood and gold gathering totals increased.",
+      "Public pause and its Audio Settings use shared theme with visible accessible Done/Resume.",
+      "Paused match resized to 932\u00d7430 then 1280\u00d7720; controls remained contained; Resume continued timer and play.",
+      "Returned normally to the main menu after the test."
+    ],
+    "public_browser_warnings_errors": [],
+    "limits": [
+      "Browser viewport and pointer/keyboard testing, not physical-phone touch testing.",
+      "Public cache update observed; origin-stopped offline proof is separately recorded, not repeated against the public server.",
+      "No subjective audio listening acceptance."
+    ],
+    "screenshots": [
+      "live-desktop-home.png",
+      "live-desktop-audio.png",
+      "live-desktop-controls.png",
+      "live-desktop-display.png",
+      "live-desktop-guide.png",
+      "live-desktop-setup.png",
+      "live-civilizations.png",
+      "live-phone-home.png",
+      "live-phone-setup.png",
+      "live-phone-start.png",
+      "live-phone-scout-move.png",
+      "live-phone-paid-recruit.png",
+      "live-phone-construction.png",
+      "live-phone-house-complete.png",
+      "live-phone-pause.png",
+      "live-phone-pause-settings.png",
+      "live-paused-resize-932.png",
+      "live-paused-resize-1280.png",
+      "live-resumed-1280.png"
+    ]
+  },
+  "limits": [
+    "Physical devices and human audio listening not tested.",
+    "Residual native battle frame outliers remain; no stable 60 FPS claim.",
+    "Changed PCK downloads in full; warm cached Solo does not save an unfinished match.",
+    "Browser battle functional checks passed; throttled/concurrent browser timing excluded.",
+    "TCP idle check is immediately before replacement, not atomic admission closure."
+  ]
+}

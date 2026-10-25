@@ -1,6 +1,6 @@
 # Beta9 — Room to command — 25 October 2026
 
-Release candidate: production runtime checkpoint `26ce388`, with version/release metadata committed afterward. Publishing and public verification are pending at this checkpoint; beta8 remains live until the guarded activation succeeds.
+Published **0.3.0-beta.9**, source `e6735a63b536d261783b23de4079b008ca552e59`, at [game.4mn.org](https://game.4mn.org/). The matching game service restarted on 25 October 2026 at 21:52 UTC. Beta8 is retained for rollback. The [release receipt](releases/beta9-2026-10-25.json) binds source, Web/server manifests, image, restart and public acceptance.
 
 ## Changes
 
@@ -50,3 +50,16 @@ Separate 69-unit selection measurements dropped from 110–122 ms and 69 refresh
 ## Limits
 
 Physical phones, human audio listening and browser storage longevity remain untested. Viewport/input injection is distinct from physical-device testing. Warm cached Solo is supported; an unfinished match is not saved across reloads. A changed monolithic PCK still downloads in full. Gameplay balance, ordinary human match duration and late-game economic diversity are not established by this stress fixture. Existing fog-aware occlusion silhouettes and touch targeting remain enabled.
+
+
+## Published acceptance
+
+Two independent committed-source Web exports reproduce all substantive payloads and source manifests. The production package passes artifact closure/content inspection and matches the stock engine. The matching Linux image passes a disposable server smoke; the disposable container is removed and live service is unchanged during that stage. The guarded activation finds zero connections both initially and immediately before replacement, retains the beta8 Web files/server context/image, replaces the match service and verifies its exact runtime. Other service identities/configuration remain unchanged. Read-only public postflight verifies all 40 public files and their hashes/MIME. As before, the final TCP check is not an atomic barrier against a new admission in the following instant.
+
+Public WSS `/match` private-room acceptance passes 40 checks across all three maps, host authority, guest replacement and cancellation, initial populations, snapshots and disconnect results. An initial operator invocation used `/ws` and received HTTP 404; that preserved failed harness log is not counted as product acceptance. The corrected run uses the endpoint declared by NetworkSession.
+
+Chrome's existing beta8 cache updated to beta9 through the ordinary welcome flow and reported Solo saved for offline play. Public browser inspection covered Home/setup/civilization choice and every Settings tab at desktop size; the exact release artifact's four Settings tabs, expanded Guide, Home/setup and Match options were also checked at 844×390. A dedicated public 844×390 viewport launched an English River Crossings Solo with maximum population 100, four Villagers and a Scout. The Scout selected and reached tapped ground; a Villager costing 50 food completed; a House costing 50 wood completed after rejecting an overly close position without charging. Gathering delivered food, wood and gold. Pause→Settings retained the new theme, and resizing a paused match preserved usable controls. Public warning/error capture was empty. Browser pointer/keyboard interaction and viewport emulation are not physical-phone touch tests.
+
+The separate Web stress fixture with production features enabled at runtime `26ce388` (same gameplay files as the released source) also passes 84/84 inputs with 100 living actors per owner. It ends with 30 working Villagers per side and 48/55 actively attacking actors. Concurrent release work and browser render throttling stretched 337.3 seconds of wall time over 43.1 seconds of simulation; its frame/latency figures are excluded. The final game viewport was 844×474 as the browser window was resized during review. The stock benchmark shell logs missing optional PocketWebShell/PocketPlaytestDiagnostics interfaces; those fixture-only messages are separate from the clean public production shell.
+
+Task outputs contain the live before/after Settings screenshots, native 96-view gallery, raw native timelines, browser stress result, private-room logs, artifact/activation/postflight receipts and the self-contained `beta9-verification-report.html`. The original warm-cache origin-stopped proof remains separately scoped in the offline record. Physical-device and subjective audio acceptance remain open.
