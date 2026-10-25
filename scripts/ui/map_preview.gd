@@ -23,14 +23,14 @@ func refresh(map_archetype: int, seed_value: int = 101) -> void:
 	var image := Image.create(MapData.MAP_WIDTH, MapData.MAP_HEIGHT, false, Image.FORMAT_RGBA8)
 	for y: int in MapData.MAP_HEIGHT:
 		for x: int in MapData.MAP_WIDTH:
-			var color := Color("76846d")
+			var color := Color("a5b58a")
 			match int(generator.grid[y][x]):
-				MapData.TileType.WATER: color = Color("446e8a")
-				MapData.TileType.FOREST: color = Color("314f48")
+				MapData.TileType.WATER: color = Color("8eb4bb")
+				MapData.TileType.FOREST: color = Color("5d8060")
 				MapData.TileType.GOLD_MINE: color = THEME.GOLD
-				MapData.TileType.BERRY_BUSH: color = Color("9b7159")
-				MapData.TileType.GRASS_ALT: color = Color("7d8b72")
-				MapData.TileType.GRASS_DARK: color = Color("6d7b64")
+				MapData.TileType.BERRY_BUSH: color = Color("b18874")
+				MapData.TileType.GRASS_ALT: color = Color("adb991")
+				MapData.TileType.GRASS_DARK: color = Color("96aa80")
 				MapData.TileType.SACRED_SITE: color = THEME.PARCHMENT
 			image.set_pixel(x, y, color)
 	_terrain = ImageTexture.create_from_image(image)
@@ -43,13 +43,20 @@ func _draw() -> void:
 	# A top-down tactical map keeps crossings and side lanes readable at phone size.
 	var side: float = minf(size.x - 4, size.y - 4)
 	var rect := Rect2((size - Vector2.ONE * side) * 0.5, Vector2.ONE * side)
-	draw_rect(Rect2(Vector2.ZERO, size), THEME.INK)
+	# Warm chart paper keeps the tactical preview part of the illustrated war table.
+	draw_style_box(THEME.panel_style(Color("d9d3b9"), Color("c5c5a8"), 8), Rect2(Vector2.ZERO, size))
 	draw_texture_rect(_terrain, rect, false)
 	draw_rect(rect, THEME.BORDER, false, 1.0)
 	for i: int in _spawns.size():
 		var marker: Vector2 = project_tile_to_preview(Vector2(_spawns[i]) + Vector2(2, 2), rect)
-		draw_circle(marker, maxf(3, side * 0.035), THEME.INK)
-		draw_circle(marker, maxf(2, side * 0.023), THEME.TEAL if i == 0 else THEME.RUST)
+		var radius: float = maxf(3, side * 0.035)
+		if i == 0:
+			draw_circle(marker, radius, THEME.INK)
+			draw_circle(marker, maxf(2, side * 0.023), THEME.TEAL)
+		else:
+			# Shape remains distinct when the player cannot distinguish team colors.
+			draw_rect(Rect2(marker - Vector2.ONE * radius, Vector2.ONE * radius * 2), THEME.INK)
+			draw_rect(Rect2(marker - Vector2.ONE * radius * 0.6, Vector2.ONE * radius * 1.2), THEME.RUST)
 	var center: Vector2 = rect.get_center()
 	var diamond := PackedVector2Array([center + Vector2(0, -4), center + Vector2(4, 0), center + Vector2(0, 4), center + Vector2(-4, 0)])
 	draw_colored_polygon(diamond, THEME.PARCHMENT)

@@ -1,18 +1,21 @@
 extends Control
-## One game-creation journey: battlefield, opponent, shared room, then battle.
+## A small war table: clear play intent, a visible match draft and optional detail.
 
 const THEME := preload("res://scripts/ui/kingdom_theme.gd")
 const DIORAMA := preload("res://scripts/ui/menu_diorama.gd")
 const MAP_PREVIEW := preload("res://scripts/ui/map_preview.gd")
 const WEB_SHELL_BRIDGE := preload("res://scripts/ui/web_shell_bridge.gd")
-const INK := Color("10282b")
-const PANEL := Color("19383b")
-const PANEL_LIGHT := Color("25474a")
+const INK := Color("1d302c")
+const PANEL := Color("2b4239")
+const PANEL_LIGHT := Color("3b5548")
 const IVORY := Color("f4eddd")
-const MUTED := Color("aabfba")
-const GOLD := Color("e7ba67")
-const TEAL := Color("8cc5b5")
-const BORDER := Color("3d5d60")
+const MUTED := Color("bec9b8")
+const GOLD := Color("e8bf77")
+const TEAL := Color("b1ceb4")
+const BORDER := Color("617467")
+const PAPER := Color("e7dfc9")
+const PAPER_INK := Color("354638")
+const PAPER_MUTED := Color("59604b")
 const DIFFICULTY_NAMES: Array[String] = ["Easy", "Medium", "Hard"]
 const DIFFICULTY_DESCRIPTIONS: Array[String] = ["Time to build. Light pressure.", "Regular raids. Balanced pressure.", "Early raids. Relentless pressure."]
 const MAP_TRAITS: Array[String] = ["Room to manoeuvre", "Control the crossings", "Find the side routes"]
@@ -83,6 +86,9 @@ var difficulty_description: Label
 var guided_opening_toggle: CheckButton
 var _population_buttons: Array[Button] = []
 var _rules_option: OptionButton
+var _rules_description: Label
+var _advanced_button: Button
+var _advanced_options: VBoxContainer
 var seed_input: LineEdit
 var random_seed_button: Button
 var _host_button: Button
@@ -156,6 +162,8 @@ func _build_interface() -> void:
 	_header.add_theme_constant_override("separation", 16)
 	_shell.add_child(_header)
 	_back_button = _button("Back", "BackButton", _on_back_pressed)
+	_back_button.icon = load("res://assets/ui/icons/back.svg")
+	_back_button.add_theme_constant_override("icon_max_width", 18)
 	_header.add_child(_back_button)
 	_page_title = _label("POCKET KINGDOMS", 22)
 	_apply_heading(_page_title, 22)
@@ -221,13 +229,17 @@ func _build_home() -> void:
 	_home_intro = _label("Gather, build and rally your army.\nClaim the Sacred Site or the rival town.", 16, true)
 	_home_intro.add_theme_color_override("font_color", MUTED)
 	_home_actions.add_child(_home_intro)
-	_new_game_button = _button("New Game", "NewGameButton", _open_new_game.bind("solo"))
+	_new_game_button = _button("Play solo", "NewGameButton", _open_new_game.bind("solo"))
+	_new_game_button.icon = load("res://assets/ui/icons/play_dark.svg")
+	_new_game_button.add_theme_constant_override("icon_max_width", 22)
 	_new_game_button.custom_minimum_size.y = 58
 	_apply_primary(_new_game_button)
 	_home_actions.add_child(_new_game_button)
-	_online_button = _button("Join a friend", "JoinFriendButton", _open_new_game.bind("multiplayer"))
+	_online_button = _button("Play online", "JoinFriendButton", _open_new_game.bind("multiplayer"))
+	_online_button.icon = load("res://assets/ui/icons/online.svg")
+	_online_button.add_theme_constant_override("icon_max_width", 22)
 	_home_actions.add_child(_online_button)
-	_home_note = _label("Solo skirmish  ·  Private 1v1 rooms", 13)
+	_home_note = _label("Solo against AI · Friends or quick match online", 13, true)
 	_home_note.add_theme_color_override("font_color", MUTED)
 	_home_actions.add_child(_home_note)
 
@@ -242,8 +254,8 @@ func _build_setup() -> void:
 	_tabs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_tabs.add_theme_constant_override("separation", 8)
 	_setup.add_child(_tabs)
-	_solo_tab = _button("Solo skirmish", "SoloTab", _set_mode.bind("solo"))
-	_online_tab = _button("Multiplayer", "MultiplayerTab", _set_mode.bind("multiplayer"))
+	_solo_tab = _button("Solo", "SoloTab", _set_mode.bind("solo"))
+	_online_tab = _button("Online 1v1", "MultiplayerTab", _set_mode.bind("multiplayer"))
 	for button: Button in [_solo_tab, _online_tab]:
 		button.toggle_mode = true
 		button.custom_minimum_size.x = 160
@@ -271,7 +283,7 @@ func _build_setup() -> void:
 	_map_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_map_panel.add_theme_constant_override("separation", 8)
 	_map_scroll.add_child(_map_panel)
-	_map_heading = _label("CHOOSE YOUR BATTLEFIELD", 12)
+	_map_heading = _label("YOUR BATTLEFIELD", 12)
 	THEME.apply_eyebrow(_map_heading)
 	_map_panel.add_child(_map_heading)
 	_map_cards = HBoxContainer.new()
@@ -286,7 +298,14 @@ func _build_setup() -> void:
 		button.accessibility_name = MapData.get_archetype_name(archetype) + ". " + button.tooltip_text
 		button.toggle_mode = true
 		button.button_group = group
-		var selected_style: StyleBoxFlat = THEME.panel_style(PANEL_LIGHT, GOLD, 12)
+		var card_style: StyleBoxFlat = THEME.panel_style(PAPER, Color("a9b29a"), 16)
+		card_style.set_content_margin_all(8)
+		button.add_theme_stylebox_override("normal", card_style)
+		var hover_style: StyleBoxFlat = card_style.duplicate()
+		hover_style.bg_color = Color("f2ead8")
+		hover_style.border_color = GOLD
+		button.add_theme_stylebox_override("hover", hover_style)
+		var selected_style: StyleBoxFlat = THEME.panel_style(Color("f1e4c3"), GOLD, 16)
 		selected_style.set_border_width_all(2)
 		button.add_theme_stylebox_override("pressed", selected_style)
 		button.add_theme_stylebox_override("hover_pressed", selected_style)
@@ -313,7 +332,7 @@ func _build_setup() -> void:
 		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		stack.add_child(name_label)
 		_map_names.append(name_label)
-		var badge := _label("SELECT", 11)
+		var badge := _label("", 11)
 		badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		badge.add_theme_color_override("font_color", MUTED)
 		stack.add_child(badge)
@@ -321,7 +340,7 @@ func _build_setup() -> void:
 	map_summary_label = _label("", 15, true)
 	map_summary_label.custom_minimum_size.y = 36
 	_map_panel.add_child(map_summary_label)
-	_map_note = _label("Blue / red starts · diamond marks the Sacred Site", 12)
+	_map_note = _label("Circle / square: starting towns · diamond: Sacred Site", 12)
 	_map_note.add_theme_color_override("font_color", MUTED)
 	_map_panel.add_child(_map_note)
 	_build_options()
@@ -370,12 +389,11 @@ func _build_options() -> void:
 	difficulty_description = _label("", 13, true)
 	difficulty_description.add_theme_color_override("font_color", MUTED)
 	_solo_options.add_child(difficulty_description)
-	var opponent_note := _label("Your rival’s kingdom is chosen automatically.", 13, true)
-	opponent_note.add_theme_color_override("font_color", MUTED)
-	_solo_options.add_child(opponent_note)
 	guided_opening_toggle = CheckButton.new()
 	guided_opening_toggle.name = "GuidedOpeningToggle"
-	guided_opening_toggle.text = "Guide my opening"
+	guided_opening_toggle.text = "Opening tips"
+	guided_opening_toggle.tooltip_text = "Optional goals for your first villagers, buildings and army."
+	guided_opening_toggle.accessibility_name = "Opening tips. Optional goals for your first villagers, buildings and army."
 	guided_opening_toggle.custom_minimum_size.y = 48
 	guided_opening_toggle.add_theme_font_size_override("font_size", 14)
 	guided_opening_toggle.set_pressed_no_signal(GameManager.guided_opening_enabled)
@@ -395,20 +413,32 @@ func _build_options() -> void:
 		_refresh_selection()
 	)
 	_solo_options.add_child(_rules_option)
-	_solo_options.add_child(_label("Population per player", 14))
+	_rules_description = _label("", 13, true)
+	_rules_description.add_theme_color_override("font_color", MUTED)
+	_solo_options.add_child(_rules_description)
+	_advanced_button = _button("More options  ›", "MoreOptionsButton", _toggle_advanced_options)
+	_advanced_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_advanced_button.add_theme_font_size_override("font_size", 14)
+	_solo_options.add_child(_advanced_button)
+	_advanced_options = VBoxContainer.new()
+	_advanced_options.name = "AdvancedMatchOptions"
+	_advanced_options.add_theme_constant_override("separation", 8)
+	_advanced_options.hide()
+	_solo_options.add_child(_advanced_options)
+	_advanced_options.add_child(_label("Population per player", 14))
 	var population := HBoxContainer.new()
 	population.add_theme_constant_override("separation", 6)
-	_solo_options.add_child(population)
+	_advanced_options.add_child(population)
 	for limit: int in SkirmishData.POPULATION_OPTIONS:
 		var button := _button(str(limit), "Population%dButton" % limit, _on_population_selected.bind(limit))
 		button.toggle_mode = true
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		population.add_child(button)
 		_population_buttons.append(button)
-	_solo_options.add_child(_label("Map seed (optional)", 14))
+	_advanced_options.add_child(_label("Map seed (optional)", 14))
 	var seed_row := HBoxContainer.new()
 	seed_row.add_theme_constant_override("separation", 6)
-	_solo_options.add_child(seed_row)
+	_advanced_options.add_child(seed_row)
 	seed_input = LineEdit.new()
 	seed_input.name = "MapSeedInput"
 	seed_input.placeholder_text = "Random"
@@ -419,6 +449,9 @@ func _build_options() -> void:
 	seed_row.add_child(seed_input)
 	random_seed_button = _button("Random", "RandomSeedButton", _on_random_seed_pressed)
 	seed_row.add_child(random_seed_button)
+	var opponent_note := _label("Your rival’s kingdom is chosen automatically when the match begins.", 13, true)
+	opponent_note.add_theme_color_override("font_color", MUTED)
+	_advanced_options.add_child(opponent_note)
 	_build_multiplayer_options()
 
 
@@ -427,10 +460,10 @@ func _build_multiplayer_options() -> void:
 	_multiplayer_options.name = "MultiplayerSetup"
 	_multiplayer_options.add_theme_constant_override("separation", 10)
 	_options_body.add_child(_multiplayer_options)
-	var heading := _label("PLAY WITH A FRIEND", 12)
+	var heading := _label("A ROOM FOR TWO", 12)
 	THEME.apply_eyebrow(heading)
 	_multiplayer_options.add_child(heading)
-	_multiplayer_options.add_child(_label("Choose a battlefield, then share your room code.", 15, true))
+	_multiplayer_options.add_child(_label("Host on this battlefield, or join by code.", 15, true))
 	_host_button = _button("Create room", "HostGameButton", _host_game)
 	_apply_primary(_host_button)
 	_multiplayer_options.add_child(_host_button)
@@ -528,7 +561,7 @@ func _menu_button_style(kind: String = "secondary", state: String = "normal") ->
 	style.border_color = GOLD if kind == "primary" else BORDER
 	match state:
 		"hover":
-			style.bg_color = Color("f0cb86") if kind == "primary" else Color("30595b")
+			style.bg_color = Color("f0cb86") if kind == "primary" else Color("4a6553")
 			style.border_color = GOLD
 		"disabled":
 			style.bg_color = PANEL
@@ -632,7 +665,7 @@ func _show_screen(screen: String) -> void:
 	_footer.visible = screen != "home"
 	_tabs.visible = screen != "home"
 	_back_button.visible = screen != "home"
-	_page_title.text = "Pocket Kingdoms" if screen == "home" else "New game"
+	_page_title.text = "Pocket Kingdoms" if screen == "home" else "Prepare your kingdom"
 	_refresh_selection()
 	if changed and not GameManager.reduced_motion:
 		if _transition != null:
@@ -672,13 +705,15 @@ func _refresh_selection() -> void:
 	for i: int in _map_buttons.size():
 		_map_buttons[i].set_pressed_no_signal(i == archetype)
 		_map_buttons[i].disabled = guest or _network_search_active or _room_waiting
-		_map_names[i].add_theme_color_override("font_color", IVORY)
-		_map_buttons[i].add_theme_stylebox_override("disabled", _map_buttons[i].get_theme_stylebox("pressed") if i == archetype else _menu_button_style())
-		_map_badges[i].text = "SELECTED" if i == archetype else "SELECT"
-		_map_badges[i].add_theme_color_override("font_color", GOLD if i == archetype else MUTED)
-	_map_heading.text = "HOST’S BATTLEFIELD" if guest else "CHOOSE YOUR BATTLEFIELD"
+		_map_names[i].add_theme_color_override("font_color", PAPER_INK)
+		_map_buttons[i].add_theme_stylebox_override("disabled", _map_buttons[i].get_theme_stylebox("pressed") if i == archetype else _map_buttons[i].get_theme_stylebox("normal"))
+		_map_badges[i].text = "✓ SELECTED" if i == archetype else MAP_TRAITS[i]
+		_map_badges[i].add_theme_color_override("font_color", PAPER_INK if i == archetype else PAPER_MUTED)
+	_map_heading.text = "HOST’S BATTLEFIELD" if guest else "YOUR BATTLEFIELD"
 	map_summary_label.text = MapData.get_archetype_description(archetype)
-	_selection_summary.text = "%s\n%s" % [MapData.get_archetype_name(archetype), "Shared battlefield · Standard rules" if online else "%s opponent · %d population" % [DIFFICULTY_NAMES[_selected_difficulty], _selected_population_limit]]
+	_selection_summary.text = "%s\n%s" % [MapData.get_archetype_name(archetype), "Shared battlefield · Standard rules" if online else "%s · %s AI · %d population" % [SkirmishData.get_mode_name(GameManager.selected_match_mode), DIFFICULTY_NAMES[_selected_difficulty], _selected_population_limit]]
+	_rules_description.text = "Hold the Sacred Site with fighters, or defeat the rival town." if GameManager.selected_match_mode == SkirmishData.MatchMode.STANDARD else "Faster Feudal advance. The Sacred Site clock runs while you own it."
+	_advanced_button.text = "Fewer options  ‹" if _advanced_options.visible else "More options  ·  %d population  ›" % _selected_population_limit
 	_refresh_civilizations(room)
 	_solo_tab.set_pressed_no_signal(not online)
 	_online_tab.set_pressed_no_signal(online)
@@ -690,7 +725,7 @@ func _refresh_selection() -> void:
 	_network_status.visible = online and not _network_status.text.is_empty()
 	_leave_button.visible = room or _network_search_active
 	start_button.visible = not online or room
-	start_button.text = "Start game" if not room else ("Start match" if not guest else "Waiting for host")
+	start_button.text = "Begin skirmish" if not room else ("Start match" if not guest else "Waiting for host")
 	start_button.disabled = _network_search_active or _room_waiting or (room and (guest or int(_session.get("room_players")) < 2))
 	_host_button.disabled = _network_search_active
 	_quick_match_button.disabled = _network_search_active
@@ -825,6 +860,12 @@ func _on_population_selected(limit: int) -> void:
 	_selected_population_limit = SkirmishData.normalize_population_limit(limit)
 	GameManager.selected_population_limit = _selected_population_limit
 	_refresh_selection()
+
+
+func _toggle_advanced_options() -> void:
+	_advanced_options.visible = not _advanced_options.visible
+	_refresh_selection()
+	call_deferred("_refresh_responsive_layout")
 
 
 func _on_guided_opening_toggled(enabled: bool) -> void:

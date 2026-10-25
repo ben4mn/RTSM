@@ -6,11 +6,12 @@ signal closed()
 
 const THEME := preload("res://scripts/ui/kingdom_theme.gd")
 const WEB := preload("res://scripts/ui/web_shell_bridge.gd")
-const INK := Color("10282b")
-const PANEL := Color("19383b")
+const INK := Color("24392e")
+const PANEL := Color("e7dfc9")
 const IVORY := Color("f4eddd")
-const GOLD := Color("e7ba67")
-const BORDER := Color("3d5d60")
+const GOLD := Color("e8bf77")
+const BORDER := Color("a6ae94")
+const PLAY_STYLES: Array[String] = ["Flexible armies", "Woodcraft & longbows", "Food & fast riders"]
 var selected: int = 0
 var heading: String = "Choose your kingdom"
 var _panel: PanelContainer
@@ -42,17 +43,21 @@ func _ready() -> void:
 	mouse_force_pass_scroll_events = false
 	color = Color(INK, 0.97)
 	theme = THEME.create_theme()
-	theme.set_color("font_color", "Label", IVORY)
+	theme.set_color("font_color", "Label", INK)
 	for state: String in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
 		var button_style: StyleBoxFlat = THEME.button_style("secondary", "pressed" if state == "hover_pressed" else state)
 		button_style.set_corner_radius_all(10)
 		button_style.border_width_bottom = 1
-		button_style.bg_color = GOLD if state in ["pressed", "hover_pressed"] else PANEL
-		button_style.border_color = GOLD if state in ["pressed", "hover_pressed", "hover"] else BORDER
+		button_style.bg_color = Color("3b5548") if state in ["pressed", "hover_pressed"] else Color("f3eddd")
+		button_style.border_color = Color("617467") if state in ["pressed", "hover_pressed", "hover"] else BORDER
 		if state == "focus":
 			button_style.bg_color = Color.TRANSPARENT
 			button_style.border_color = IVORY
 		theme.set_stylebox(state, "Button", button_style)
+	for state: String in ["font_color", "font_hover_color", "font_focus_color"]:
+		theme.set_color(state, "Button", INK)
+	theme.set_color("font_pressed_color", "Button", IVORY)
+	theme.set_color("font_hover_pressed_color", "Button", IVORY)
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_panel = PanelContainer.new()
 	_panel.name = "KingdomComparison"
@@ -179,14 +184,17 @@ func select_civilization(id: int) -> void:
 	selected = CivilizationData.normalize(id)
 	var definition: Dictionary = CivilizationData.get_definition(selected)
 	for index: int in _cards.size():
-		_cards[index].set_pressed_no_signal(CivilizationData.ORDERED_IDS[index] == selected)
+		var is_selected: bool = CivilizationData.ORDERED_IDS[index] == selected
+		_cards[index].set_pressed_no_signal(is_selected)
+		_cards[index].text = ("✓ " if is_selected else "") + CivilizationData.get_civilization_name(CivilizationData.ORDERED_IDS[index])
 	var strengths: Variant = definition.get("strengths", "")
 	var strength_text: String = " · ".join(strengths) if strengths is Array or strengths is PackedStringArray else str(strengths)
-	_tagline.text = str(definition.tagline)
-	_detail.text = "%s\n\nStrengths: %s\nTradeoff: %s\n\nSignature: %s" % [definition.description, strength_text, definition.weakness, definition.signature]
-	# Identity uses the same three crests as match setup, not old-theme portraits.
-	_portrait.texture = load(str(definition.icon_path))
-	_confirm.text = "Confirm kingdom"
+	_tagline.text = PLAY_STYLES[selected]
+	_detail.text = "Strengths\n%s\n\nTradeoff\n%s\n\nSignature: %s\n\n%s\n%s" % [strength_text, definition.weakness, definition.signature, definition.tagline, definition.description]
+	# The crest identifies the choice; its actual illustrated town connects it to play.
+	var town_path: String = KingdomArt.building_path(selected, 0)
+	_portrait.texture = load(town_path if not town_path.is_empty() else str(definition.icon_path))
+	_confirm.text = "Choose " + str(definition.name)
 	_confirm.accessibility_name = "Confirm " + str(definition.name)
 	_scroll.scroll_vertical = 0
 
