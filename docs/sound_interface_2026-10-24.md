@@ -32,7 +32,7 @@ Browser viewport checks and native renders do not certify physical phones, brows
 
 ## Release checkpoint
 
-The release candidate is committed source `1f2efe48f9d1173151759ca86bf708a95eb85f66` (0.3.0-beta.7, protocol 5). Two independent Web exports passed substantive-file/source-manifest reproducibility, checksum closure, shell checks and content scanning. The matching Linux server passed its disposable smoke check, with the live service unchanged. Publication and public acceptance are pending below.
+The published build is committed source `1f2efe48f9d1173151759ca86bf708a95eb85f66` (0.3.0-beta.7, protocol 5). Two independent Web exports passed substantive-file/source-manifest reproducibility, checksum closure, shell checks and content scanning. The matching Linux server passed its disposable smoke check before activation.
 
 Completed verification includes:
 
@@ -45,3 +45,17 @@ Completed verification includes:
 - Actual Chrome journeys at 844×390 and 1280×720 verified solo setup, 100 default, starting Scout, paid recruitment, Scout Move, two paid Houses raising capacity to 35, selection without the large Town Center range circle and pause-preserving resize. The final Guide contrast fix was checked in the exported `1f2efe4` build. Mouse/browser viewport checks are distinct from engine ScreenTouch fixtures and physical-device testing. Browser warning/error logs were empty in these checks.
 
 Natural paid automated rounds and the final publication receipt are recorded below. The existing release guard checks active/closing match connections immediately before replacement and retains the previous static bytes, server context and image for rollback. It has an existing short admission race between the socket check and replacement; no force bypass is used.
+
+## Published and verified
+
+[Play Pocket Kingdoms](https://game.4mn.org/). Release `v030beta7-1f2efe48f9d1-d23fe63667-e8c58739d2` activated at 03:53 UTC on 25 October (22:53 Chicago, 24 October). The immediate pre-replacement TCP check found zero non-listening connections. The match service was replaced/restarted with the matching image; static, tunnel and diagnostics container identities and configuration were preserved.
+
+Beta6 static release `v030beta6-a1aabfeb94fe-90136bbe63-a56bbb6f91` remains available with its server context archive and image tag `aoem-online:rollback-v030beta7-1f2efe48f9d1-d23fe63667-e8c58739d2`. No rollback was needed.
+
+The fresh read-only postflight passed public file hashes/MIME checks, 935 active runtime files, protocol 5, hardening and unchanged live identities. Its first attempt rejected an obsolete embedded deployment-helper checksum. A new verifier changed only that checksum to the reviewed protocol-5 guard, passed 15 independent binding/rejection checks, and completed without service mutations; both attempts are retained in local evidence.
+
+Public WSS acceptance passed 40 checks across all three maps using only freshly created private test rooms: host/join, authority rejection, full-room rejection, leave/rejoin, settings/map agreement, both owners' 100 maximum and four workers plus Scout, match snapshots, disconnect results and host cancellation. All test sockets closed. Separately, two independent-client civilization pairings passed 104 checks for French/English and Mongol/French paid advancement, buildings, signature units, replicas, combat and agreed surrender results. This bounded test used the supported 3× clock; it is not a 1× human pacing measurement.
+
+Chrome public acceptance exercised the ordinary cached-beta6-to-beta7 update, Mongol civilization selection, Woodland setup, the normal 100 limit, a free starting Scout, paid Villager recruitment, Scout Move, pause, Settings > Guide expansion and return to the main menu. The Guide title remained readable and browser warning/error logs were empty. Screenshots and WAVs are included in the accompanying local verification report. [Paid simulation outcomes and scope](beta7_paid_rounds_2026-10-24.md) distinguish complete ordinary-cost rounds from superseded partial traces and synthetic capacity tests.
+
+Remaining validation limits: no physical phone/tablet was tested; no subjective audio listening sign-off was possible; the 200-actor observer CPU probe is not a full-game mobile GPU/FPS benchmark. Estimated 100-population build times remain planning estimates rather than measured human build orders.
