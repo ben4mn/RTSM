@@ -53,7 +53,11 @@ func _snapshot(data: Dictionary) -> void:
 	var workers: Array[int] = []
 	var bank: Dictionary = data.bank
 	var age: int = int(data.player.age)
-	if not age_sent and age == 1 and int(bank.food) >= 250 and int(bank.gold) >= 125:
+	var age_cost: Dictionary = manager.get_age_up_cost(0, 2)
+	var age_affordable: bool = true
+	for resource: String in age_cost:
+		age_affordable = age_affordable and int(bank.get(resource, 0)) >= int(age_cost[resource])
+	if not age_sent and age == 1 and age_affordable:
 		session.send_command("age")
 		age_sent = true
 	for actor: Dictionary in data.actors:
