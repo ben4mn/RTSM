@@ -15,6 +15,9 @@ var _sum_squares: float = 0.0
 
 
 func _ready() -> void:
+	# The recorder must continue collecting actual silence while the normal
+	# background guard pauses the game. Main is explicitly PAUSABLE below.
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	_run.call_deferred()
 
 
@@ -56,11 +59,14 @@ func _run() -> void:
 	GameManager.ui_alert_muted = false
 	AudioManager.apply_preferences()
 	_capture = AudioEffectCapture.new()
-	_capture.buffer_length = 1.0
+	# Synchronous map/art setup can take several seconds before the first frame.
+	# Preserve the actual boot mix too; steady-state draining remains per-frame.
+	_capture.buffer_length = 8.0
 	AudioServer.add_bus_effect(0, _capture)
 	_start_ms = Time.get_ticks_msec()
 	_recording = true
 	_main = load("res://scenes/main/main.tscn").instantiate()
+	_main.process_mode = Node.PROCESS_MODE_PAUSABLE
 	add_child(_main)
 	for frame: int in 900:
 		if _main.get("_building_placement") != null: break
@@ -172,6 +178,15 @@ func _finish() -> void:
 	_report.discarded_capture_frames = _capture.get_discarded_frames()
 	_report.audio_driver = AudioServer.get_driver_name()
 	_report.final_audio = AudioManager.get_audio_diagnostics()
+	if _capture.get_discarded_frames() > 0: _report.failures.append("Capture dropped mixer frames; recording is incomplete")
+	for event: Dictionary in _report.focus_events:
+		if not bool(event.focused):
+			_report.failures.append("Native window lost focus during capture; no complete foreground gameplay claim")
+			break
+	var played: Dictionary = _report.final_audio.played
+	if int(played.get("unit_trained", 0)) < 1: _report.failures.append("Paid recruitment completion was not audible")
+	if int(played.get("construction_work", 0)) < 1: _report.failures.append("Natural construction work was not audible")
+	if int(played.get("building_complete", 0)) < 2: _report.failures.append("Paid house completion was not audible")
 	if _sample_peak <= 0.00001: _report.failures.append("Captured signal is silent")
 	if _sample_peak >= 0.99: _report.failures.append("Captured signal approaches clipping")
 	var file := FileAccess.open(_output.path_join("gameplay-audio.json"), FileAccess.WRITE)
