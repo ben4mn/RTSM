@@ -1,7 +1,7 @@
 extends RefCounted
 ## Broad-phase only. Callers retain exact distance, ownership, death and fog rules.
 ## Local transform notifications update immediately, including paused teleports.
-const CELL_SIZE: float = 64.0
+const CELL_SIZE: float = 32.0
 const VISION_CELL_TILES: float = 4.0
 var _map: Node2D
 var _entries: Dictionary = {}
@@ -9,6 +9,10 @@ var _cells: Dictionary = {}
 var _vision_cells: Dictionary = {}
 var _parents: Dictionary = {}
 var _unit_vision_cache: Dictionary = {}
+var vision_revision: int = 0
+var order_revision: int = 0
+var _order_dirty: bool = true
+var _ordered_units: Array[UnitBase] = []
 
 func _init(map: Node2D) -> void:
 	_map = map
@@ -22,6 +26,7 @@ func update(unit: UnitBase) -> void:
 	var first := Vector2i((Vector2(tile - Vector2i(radius, radius)) / VISION_CELL_TILES).floor())
 	var last := Vector2i((Vector2(tile + Vector2i(radius, radius)) / VISION_CELL_TILES).floor())
 	if not _entries.has(id):
+		invalidate_order()
 		_entries[id] = {"unit": unit, "cell": cell, "first": first, "last": last, "tile": tile, "radius": radius, "parent": unit.get_parent()}
 		invalidate_vision()
 		_insert(_cells, cell, unit)
@@ -53,9 +58,11 @@ func remove(unit: UnitBase) -> void:
 	_remove(_cells, entry.cell, unit)
 	_vision_change(unit, entry.first, entry.last, false)
 	_entries.erase(id)
+	invalidate_order()
 	invalidate_vision()
 
 func invalidate_vision() -> void:
+	vision_revision += 1
 	_unit_vision_cache.clear()
 
 func units_reveal(tile: Vector2i, owner: int) -> bool:
@@ -75,6 +82,8 @@ func units_reveal(tile: Vector2i, owner: int) -> bool:
 
 func near(position: Vector2, radius: float) -> Array[UnitBase]:
 	_refresh_parent_transforms()
+	_refresh_order()
+	var ranks := PackedInt32Array()
 	var result: Array[UnitBase] = []
 	var first := Vector2i(((position - Vector2.ONE * radius) / CELL_SIZE).floor())
 	var last := Vector2i(((position + Vector2.ONE * radius) / CELL_SIZE).floor())
@@ -82,10 +91,25 @@ func near(position: Vector2, radius: float) -> Array[UnitBase]:
 		for x: int in range(first.x, last.x + 1):
 			for unit: UnitBase in _cells.get(Vector2i(x, y), []):
 				if is_instance_valid(unit) and unit.is_inside_tree() and unit.current_state != UnitBase.State.DEAD and unit.global_position.distance_to(position) <= radius:
-					result.append(unit)
-	# Match SceneTree group order, preserving equal-distance targets and sums.
-	result.sort_custom(func(a: UnitBase, b: UnitBase) -> bool: return b.is_greater_than(a))
+					ranks.append(_entries[unit.get_instance_id()].rank)
+	# Native integer sorting preserves exact SceneTree order without a script
+	# callback for every comparison in every unit neighborhood query.
+	ranks.sort()
+	for rank: int in ranks: result.append(_ordered_units[rank])
 	return result
+
+func invalidate_order() -> void:
+	order_revision += 1
+	_order_dirty = true
+
+func _refresh_order() -> void:
+	if not _order_dirty: return
+	_order_dirty = false
+	_ordered_units.clear()
+	for node: Node in _map.get_tree().get_nodes_in_group("units"):
+		if node is UnitBase and _entries.has(node.get_instance_id()):
+			_entries[node.get_instance_id()].rank = _ordered_units.size()
+			_ordered_units.append(node)
 
 func _refresh_parent_transforms() -> void:
 	for id: int in _parents.keys():
