@@ -6,9 +6,27 @@ const SCENES: Array[PackedScene] = [
 	preload("res://scenes/buildings/town_center.tscn"),
 	preload("res://scenes/buildings/watch_tower.tscn"),
 ]
-# Independent chosen art landmarks: TC front lookout window; Tower open rampart.
+# Legacy SVG landmarks: TC front lookout window; Tower open rampart.
 const SOURCE_POINTS: Array[Vector2] = [Vector2(101, 72), Vector2(64, 21)]
 const SOURCE_COLORS: Array[Color] = [Color("34554b"), Color("6c8069")]
+# Independent snapshots of beta6 atlas release pixels and grounded offsets.
+# Measured from the six source PNG crops, not the runtime origin method. Their
+# soft illustrated roof/tower surfaces replaced the old flat SVG windows.
+const ILLUSTRATED_POINTS: Array = [
+	[Vector2(211.75,148.26), Vector2(148.5,131.88)],
+	[Vector2(210.65,142.38), Vector2(133.65,125.16)],
+	[Vector2(220.0,143.22), Vector2(169.95,128.52)],
+]
+const ILLUSTRATED_COLORS: Array = [
+	[Color("4c75a7fd"), Color("fde6c0fd")],
+	[Color("fdd46dfd"), Color("63391afd")],
+	[Color("f8e1b4fd"), Color("472b0ffd")],
+]
+const ILLUSTRATED_OFFSETS: Array = [
+	[Vector2(9.270538,-13.517847), Vector2(2.752,-26.117499)],
+	[Vector2(9.603245,-12.187021), Vector2(2.752,-28.140616)],
+	[Vector2(9.970674,-10.717302), Vector2(2.752,-20.605266)],
+]
 var failures: Array[String] = []
 var checks: int = 0
 var records: Array[Dictionary] = []
@@ -24,26 +42,33 @@ func _run() -> void:
 		if argument.begins_with("--output="):
 			output = argument.trim_prefix("--output=")
 	AudioManager.set_all_enabled(false)
-	GameManager.initialize_game(2)
 	GameManager.set_process(false)
 	get_tree().current_scene = null
-	for kind: int in SCENES.size():
-		for owner: int in 2:
-			for transformed: bool in [false, true]:
-				_check_building(kind, owner, transformed)
+	for civilization: int in [-1,0,1,2]:
+		GameManager.selected_civilization=maxi(0,civilization)
+		GameManager.selected_opponent_civilization=maxi(0,civilization)
+		GameManager.initialize_game(2)
+		for kind: int in SCENES.size():
+			for owner: int in 2:
+				for transformed: bool in [false, true]:
+					_check_building(kind, owner, transformed, civilization)
 	DirAccess.make_dir_recursive_absolute(output)
 	var hashes: Dictionary = {}
 	for path: String in ["scripts/buildings/building_base.gd", "scripts/data/building_data.gd", "scripts/units/combat.gd", "assets/buildings/company_town_center.svg", "assets/buildings/watch_tower.svg", "assets/buildings/company_town_center.svg.import", "assets/buildings/company_town_center_enemy.svg", "assets/buildings/company_town_center_enemy.svg.import", "assets/buildings/watch_tower.svg.import", "assets/buildings/watch_tower_enemy.svg", "assets/buildings/watch_tower_enemy.svg.import", "tools/test_defensive_fire_presentation.gd"]:
 		hashes[path] = FileAccess.get_sha256("res://" + path)
-	FileAccess.open(output.path_join("receipt.json"), FileAccess.WRITE).store_string(JSON.stringify({"scope": "Headless source-pixel transforms and actual defense scheduling; eight local-owner/transform cases. No native pixels or performance claim.", "checks": checks, "records": records, "source_sha256": hashes, "failures": failures}, "  "))
+	for civilization: String in ["crownlands","verdant","sunstride"]:
+		for suffix: String in ["_buildings.png", "/building_town_center.tres", "/building_watch_tower.tres"]:
+			var path: String="assets/kingdoms/"+civilization+suffix
+			hashes[path]=FileAccess.get_sha256("res://"+path)
+	FileAccess.open(output.path_join("receipt.json"), FileAccess.WRITE).store_string(JSON.stringify({"scope": "Headless source-pixel transforms and actual defense scheduling; 32 legacy/three-civilization/local-owner/transform cases. No native pixels or performance claim.", "checks": checks, "records": records, "source_sha256": hashes, "failures": failures}, "  "))
 	for failure: String in failures:
 		push_error("[FAIL] defensive_fire_presentation: " + failure)
 	if failures.is_empty():
-		print("[PASS] defensive_fire_presentation: %d checks; TC/Tower source landmarks, owners/transforms, shared visual origin, unchanged range/cooldown/flight/damage" % checks)
+		print("[PASS] defensive_fire_presentation: %d checks; TC/Tower legacy SVG and three-civilization atlas anchors, owners/transforms, shared visual origin, unchanged range/cooldown/flight/damage" % checks)
 	get_tree().quit(0 if failures.is_empty() else 1)
 
 
-func _check_building(kind: int, owner: int, transformed: bool) -> void:
+func _check_building(kind: int, owner: int, transformed: bool, civilization: int) -> void:
 	var world := Node2D.new()
 	add_child(world)
 	world.position = Vector2(345, -210) if transformed else Vector2.ZERO
@@ -61,15 +86,25 @@ func _check_building(kind: int, owner: int, transformed: bool) -> void:
 	enemy.set_process(false)
 	enemy.global_position = building.global_position + Vector2(60, 0)
 	var sprite: Sprite2D = building._sprite
+	if civilization < 0:
+		# Keep coverage of the fallback path deliberately, rather than depending
+		# on default civilization textures still being the old SVG artwork.
+		sprite.texture=load((BuildingBase.BUILDING_SPRITES if owner==0 else BuildingBase.COMPANY_ENEMY_SPRITES)[building.building_type])
+		building._refresh_sprite_geometry()
 	var image: Image = sprite.texture.get_image()
 	var landmark: Vector2 = SOURCE_POINTS[kind] * (sprite.texture.get_size() / Vector2(128, 128))
 	var canonical_scale: Vector2 = Vector2(1.70, 1.60) if kind == 0 else Vector2(1.12, 1.12)
 	var canonical_ground: Vector2 = Vector2(64, 104) if kind == 0 else Vector2(64, 116)
 	var canonical_center: Vector2 = Vector2(0, 48) if kind == 0 else Vector2.ZERO
 	var authored_origin: Vector2 = building.to_global(canonical_center + (SOURCE_POINTS[kind] - canonical_ground) * canonical_scale)
+	var expected_color: Color = SOURCE_COLORS[kind]
+	if civilization >= 0:
+		landmark=ILLUSTRATED_POINTS[civilization][kind]
+		expected_color=ILLUSTRATED_COLORS[civilization][kind]
+		authored_origin=building.to_global(ILLUSTRATED_OFFSETS[civilization][kind])
 	var pixel: Color = image.get_pixelv(Vector2i(landmark))
 	_expect(pixel.a > 0.99, "chosen fire landmark lies on opaque source artwork")
-	_expect(pixel.is_equal_approx(SOURCE_COLORS[kind]), "chosen fire landmark lies inside the authored window or open rampart")
+	_expect(pixel.is_equal_approx(expected_color), "fire source matches independently recorded atlas surface or legacy window/rampart")
 	var expected: Vector2 = sprite.global_transform * (sprite.get_rect().position + landmark)
 	_expect(expected.distance_to(authored_origin) < 0.001, "import resolution preserves independently authored world fire point")
 	var has_origin: bool = building.has_method("_get_defensive_fire_position")
@@ -119,7 +154,7 @@ func _check_building(kind: int, owner: int, transformed: bool) -> void:
 		_expect(is_equal_approx(arrow.flight_seconds, 0.2), "art movement cannot change logical flight duration")
 	enemy.global_position = building.global_position + Vector2(building.tower_attack_range + 0.01, 0)
 	_expect(not building._tower_try_attack(), "range remains measured from logical ground origin")
-	records.append({"building": building.building_name, "owner": owner, "transformed": transformed, "source_landmark": str(landmark), "source_pixel": pixel.to_html(), "expected_world_origin": str(expected), "old_world_origin": str(building.global_position + Vector2(0, -52)), "interval": interval, "logical_range": building.tower_attack_range})
+	records.append({"building": building.building_name, "civilization": civilization, "owner": owner, "transformed": transformed, "source_landmark": str(landmark), "source_pixel": pixel.to_html(), "expected_world_origin": str(expected), "old_world_origin": str(building.global_position + Vector2(0, -52)), "interval": interval, "logical_range": building.tower_attack_range})
 	world.free()
 
 
