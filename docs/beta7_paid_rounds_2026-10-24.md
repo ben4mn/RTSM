@@ -1,0 +1,17 @@
+Three bounded ordinary-cost policy rounds exercised the 100-population rules across all three civilizations and maps. Both owners began with four villagers and one Scout. The observer used actual Main scenes, normal gathering and deliveries, paid buildings, queues and age advancement, navigation, combat and Sacred victory. It granted no resources, spawned no extra actors, teleported nobody and forced no winners.
+
+These are headless fixed-60 Hz simulations using the supported 3× development clock, with frozen source copies and private preferences. Game time is simulated time; wall time includes contention and setup. These results are not human play, physical-device testing, rendered performance or 1× pacing measurements. Each round was bounded to 1,200 game seconds and 600 wall seconds.
+
+| Civilizations / map | Policy | Outcome | Game seconds | Wall seconds | Paid units (owners 0 / 1) | Peak committed population (0 / 1) |
+|---|---|---|---:|---:|---:|---:|
+| French / English · Open Plains | Medium versus Medium | French won Sacred 3:00 | 531.72 | 484.49 | 71 / 69 | 80 / 48 |
+| English / Mongols · River Crossings | Hard policy via human transactions versus Easy opponent | Mongols won Sacred 3:00 | 380.92 | 207.94 | 40 / 38 | 34 / 46 |
+| Mongols / French · Woodland Flanks | Hard policy via human transactions versus Easy opponent | Mongols won Sacred 3:00 | 573.67 | 455.94 | 86 / 65 | 86 / 48 |
+
+All completed rounds had no runtime errors or warnings, and their frozen input hashes stayed unchanged. Twenty-game-second observations preserve opening, middle and late state. Housing grew through 15 → 25 → 35 and beyond; maximum observed housing by owner was french-plains-100: 85 / 55; english-river-100: 35 / 55; mongol-woodland-100: 85 / 55. These observations directly cover paid growth beyond the old 30 limit; separate paid housing regressions cover the exact 100 ceiling and building-loss accounting.
+
+Online verification separately passed 104 checks: 16 lobby checks and four independent clients with 22 checks each, covering French/English and Mongol/French pairings. Both clients bought the full-price age advancement, a producer and a signature unit, observed the enemy replica and real damage, then agreed on an intentional surrender result. That surrender is a transport/result check, not one of the natural victories above. The suite used owned loopback WebSockets and the supported 3× clock; source was unchanged and every process had private preferences. Public release verification is recorded separately in [the release record](sound_interface_2026-10-24.md).
+
+Earlier evidence is retained without a completion claim: superseded 50-worker-target traces; two concurrent final-policy probes stopped to free CPU and replaced by the serial rounds; and a 1× online attempt that verified both paid signature units but hit its legacy 300-wall-second limit before combat/result. The online fixture now reads the actual age cost and allows 420 game / 480 wall seconds for ordinary four-worker progression at the full 320 food / 160 gold price. Cleanup after that timeout caused the logged connection-loss messages. The successful two-pair rerun is distinct.
+
+The session artifact `beta7-paid-round-verification.json` contains the compact phase samples, source hashes and receipt locations. Runtime observers: `tools/probe_beta7_rounds.gd` and `tools/probe_civilization_paid_match.gd`. Online runner: `tools/run_online_tests.py --civilizations-only --civilization-pair 0 1 --civilization-pair 2 0`.
