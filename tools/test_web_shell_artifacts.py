@@ -46,6 +46,7 @@ class MobileShellArtifactTests(unittest.TestCase):
             name = f"index.{size}x{size}.png"
             (self.root / name).write_bytes(fixture_png(size))
             self.manifest["icons"].append({"sizes": f"{size}x{size}", "src": name, "type": "image/png"})
+        (self.root / "index.icon.png").write_bytes(fixture_png(128))
         self.write_manifest()
         package_pwa(self.root)
         package_update_worker(self.root)
@@ -57,6 +58,15 @@ class MobileShellArtifactTests(unittest.TestCase):
     def test_source_shell_and_app_manifest_are_valid(self) -> None:
         verify_web_shell(self.root)
         verify_service_worker(self.root)
+
+    def test_cached_boot_copy_and_explicit_local_favicon(self) -> None:
+        boot = re.search(r'<div id="pocket-boot".*?</div></div>', self.html).group(0)
+        self.assertIn("Loading game files", boot)
+        self.assertNotIn("downloads", boot)
+        self.assertIn('<link rel="icon" type="image/png" href="index.icon.png">', self.html)
+        cache = json.loads((self.root / "pocket-cache-manifest.json").read_text())
+        self.assertIn("index.icon.png", cache["files"])
+        self.assertIn("index.icon.png", cache["shell"])
 
     def test_stock_shell_fallback_is_rejected(self) -> None:
         (self.root / "index.html").write_text(self.html.replace('id="pocket-web-shell-script"', 'id="old-shell"'))
