@@ -13,6 +13,7 @@ var _hits: int = 0
 var _sample_peak: float = 0.0
 var _sum_squares: float = 0.0
 var _window_size := Vector2i(1280, 720)
+var _offscreen_capture: bool = false
 
 
 func _ready() -> void:
@@ -38,6 +39,7 @@ func _run() -> void:
 		if argument.begins_with("--output="): _output = argument.trim_prefix("--output=")
 		elif argument.begins_with("--width="): _window_size.x = clampi(int(argument.trim_prefix("--width=")), 640, 2560)
 		elif argument.begins_with("--height="): _window_size.y = clampi(int(argument.trim_prefix("--height=")), 360, 1440)
+		elif argument == "--offscreen-capture": _offscreen_capture = true
 	if _output.is_empty() or DisplayServer.get_name() == "headless":
 		push_error("Requires native rendered game and -- --output=absolute-directory")
 		get_tree().quit(1)
@@ -47,6 +49,11 @@ func _run() -> void:
 	get_window().content_scale_size = _window_size
 	get_window().content_scale_factor = 1.0
 	_report.viewport = {"width": _window_size.x, "height": _window_size.y}
+	_report.controlled_offscreen_capture = _offscreen_capture
+	if _offscreen_capture:
+		_report.scope = "Controlled native simulation recording. Foreground lifecycle bypass for capture only in debug fixture; not foreground/background lifecycle proof. Funded paid house/recruit with natural labor/gathering, explicitly staged free 12-vs-12 armies and unchanged combat; not human/browser/physical-device or subjective listening evidence."
+		AudioManager.set_meta("controlled_audio_capture", true)
+		AudioManager.call("_set_backgrounded", false)
 	get_window().grab_focus()
 	get_window().focus_exited.connect(func() -> void: _report.focus_events.append({"seconds": _elapsed(), "focused": false}))
 	get_window().focus_entered.connect(func() -> void: _report.focus_events.append({"seconds": _elapsed(), "focused": true}))
@@ -79,6 +86,13 @@ func _run() -> void:
 		_report.failures.append("Main initialization timed out")
 		_finish()
 		return
+	if _offscreen_capture:
+		var guard: Node = _main.get("_match_background_guard")
+		if is_instance_valid(guard):
+			guard.background_changed.disconnect(_main._on_match_background_changed)
+			guard.queue_free()
+			_main.set("_match_background_guard", null)
+		if GameManager.current_state == GameManager.GameState.PAUSED: _main.call("_on_resume_requested")
 	_main.ai_controller.set_process(false)
 	_main.ai_controller.get("_decision_timer").stop()
 	GameManager.game_speed = 1.0
@@ -184,7 +198,7 @@ func _finish() -> void:
 	_report.final_audio = AudioManager.get_audio_diagnostics()
 	if _capture.get_discarded_frames() > 0: _report.failures.append("Capture dropped mixer frames; recording is incomplete")
 	for event: Dictionary in _report.focus_events:
-		if not bool(event.focused):
+		if not _offscreen_capture and not bool(event.focused):
 			_report.failures.append("Native window lost focus during capture; no complete foreground gameplay claim")
 			break
 	var played: Dictionary = _report.final_audio.played

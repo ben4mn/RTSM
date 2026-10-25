@@ -262,6 +262,9 @@ func _on_game_state_changed(_state: int) -> void:
 
 
 func _notification(what: int) -> void:
+	# Only the explicit native recording fixture sets this metadata. Release
+	# builds cannot bypass lifecycle handling through this diagnostic hook.
+	if OS.is_debug_build() and bool(get_meta("controlled_audio_capture", false)): return
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
 		_set_backgrounded(true)
 	elif what == NOTIFICATION_APPLICATION_FOCUS_IN:
