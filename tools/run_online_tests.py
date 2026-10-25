@@ -140,8 +140,8 @@ try:
             second_label = f'civilization-{second_civ}-vs-{first_civ}'
             first = launch(first_label, 'test_online_civilization_client', env=first_env)
             second = launch(second_label, 'test_online_civilization_client', env=second_env)
-            check(first_label, first, 300)
-            check(second_label, second, 300)
+            check(first_label, first, 480)
+            check(second_label, second, 480)
     elif args.combat_only:
         pass
     elif args.rooms_only:

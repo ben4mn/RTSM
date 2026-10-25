@@ -39,7 +39,9 @@ func _start() -> void:
 
 func _process(delta: float) -> bool:
 	elapsed += delta
-	if elapsed > 280.0:
+	# The100-population opening pays the full320F/160G Feudal price. Allow
+	# ordinary four-worker gathering plus construction, travel and combat.
+	if elapsed > 420.0:
 		push_error("ONLINE_CIV_TIMEOUT civ=%d slot=%d age=%s placed=%s trained=%s verified=%s enemy=%s combat=%s" % [civilization, session.player_slot, age_sent, placed, trained, verified, enemy_verified, saw_combat])
 		quit(1)
 	return false
