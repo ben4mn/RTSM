@@ -52,7 +52,7 @@ for (const [width, height, logicalWidth, standalone] of [[2560,1234,844,false], 
     bridge.setMenuHeader([NaN,0,1,1]);
     close(parseFloat(tools.style.left),slotLeft+6,'malformed geometry does not replace valid position');
     bridge.clearMenuHeader();
-    for(const property of ['left','top','right','--pocket-tools-height']) equal(tools.style[property],undefined,'leaving MainMenu clears '+property);
+    for(const property of ['left','top','right','--pocket-tools-height','--pocket-tools-scale']) equal(tools.style[property],undefined,'leaving MainMenu clears '+property);
     bridge.setControlsVisible(false);
     equal(screen.hidden,true,'leaving menu hides fullscreen controls');
     close(bridge.getMenuTopClearance(),68/height,'fallback clearance remains independent of control visibility');

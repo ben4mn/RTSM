@@ -412,7 +412,7 @@ body.pocket-report-open { touch-action: auto; }
 		},
 		clearMenuHeader: function () {
 			menuHeader = null;
-			for (const property of ['left', 'top', 'right', '--pocket-tools-height']) menuTools.style.removeProperty(property);
+			for (const property of ['left', 'top', 'right', '--pocket-tools-height', '--pocket-tools-scale']) menuTools.style.removeProperty(property);
 		},
 		getMenuTopClearance: function () {
 			// Read the declared toolbar size even before engineStarted unhides it.
