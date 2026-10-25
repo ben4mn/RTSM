@@ -186,7 +186,7 @@ func select_civilization(id: int) -> void:
 	for index: int in _cards.size():
 		var is_selected: bool = CivilizationData.ORDERED_IDS[index] == selected
 		_cards[index].set_pressed_no_signal(is_selected)
-		_cards[index].text = ("✓ " if is_selected else "") + CivilizationData.get_civilization_name(CivilizationData.ORDERED_IDS[index])
+		_cards[index].text = CivilizationData.get_civilization_name(CivilizationData.ORDERED_IDS[index]) + ("\nSelected" if is_selected else "")
 	var strengths: Variant = definition.get("strengths", "")
 	var strength_text: String = " · ".join(strengths) if strengths is Array or strengths is PackedStringArray else str(strengths)
 	_tagline.text = PLAY_STYLES[selected]

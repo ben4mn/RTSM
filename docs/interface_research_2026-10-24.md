@@ -21,9 +21,9 @@ Bounded interface pass over published beta6; inspected 24 October 2026 (America/
 ## Implemented menu decisions
 
 - “Play solo” and “Play online” state their destinations; online still includes Create room, Join and Quick match.
-- Forest cloth, warm chart paper and honey accents accompany the existing illustrated company. Map cards keep the real generator's tactical layout and show a short terrain trait. A check and “SELECTED” mark the active map. Starting towns use circle/square shapes as well as team colors.
+- Forest cloth, warm chart paper and honey accents accompany the existing illustrated company. Map cards keep the real generator's tactical layout and show a short terrain trait. “SELECTED” marks the active map. Starting towns use circle/square shapes as well as team colors.
 - Difficulty and opening tips lead the solo panel. Rules receive an explanation and appear in the fixed match summary. Population and seed remain under a 48px “More options” control with the population summarized even while collapsed.
-- Civilization choices retain the same draft/confirm/cancel behavior and room locks. Town artwork, short play-style headings, strengths and weaknesses precede flavor text. A check marks the selected civilization, and the confirmation names it.
+- Civilization choices retain the same draft/confirm/cancel behavior and room locks. Town artwork, short play-style headings, strengths and weaknesses precede flavor text. A “Selected” caption marks the selected civilization, and the confirmation names it.
 - Existing safe-area allocation, maximum text scale, compact landscape layout, fixed footer, room roles and late room-change cancellation remain intact.
 
 ## Menu verification at implementation checkpoint

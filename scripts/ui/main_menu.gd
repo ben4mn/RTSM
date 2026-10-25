@@ -707,7 +707,7 @@ func _refresh_selection() -> void:
 		_map_buttons[i].disabled = guest or _network_search_active or _room_waiting
 		_map_names[i].add_theme_color_override("font_color", PAPER_INK)
 		_map_buttons[i].add_theme_stylebox_override("disabled", _map_buttons[i].get_theme_stylebox("pressed") if i == archetype else _map_buttons[i].get_theme_stylebox("normal"))
-		_map_badges[i].text = "✓ SELECTED" if i == archetype else MAP_TRAITS[i]
+		_map_badges[i].text = "SELECTED" if i == archetype else MAP_TRAITS[i]
 		_map_badges[i].add_theme_color_override("font_color", PAPER_INK if i == archetype else PAPER_MUTED)
 	_map_heading.text = "HOST’S BATTLEFIELD" if guest else "YOUR BATTLEFIELD"
 	map_summary_label.text = MapData.get_archetype_description(archetype)
