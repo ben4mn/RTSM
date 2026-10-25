@@ -1,6 +1,6 @@
 # Pocket Kingdoms — a quieter war table
 
-Bounded interface pass over published beta6; inspected 24 October 2026 (America/Chicago). No gameplay data, timings, networking or input bindings change in this pass.
+Interface review of published beta6; inspected 24 October 2026 (America/Chicago). These design decisions preserve input bindings and action timings. Subsequent user-requested starting Scouts, 100-population defaults and protocol compatibility changes are recorded in the integrated [release record](sound_interface_2026-10-24.md).
 
 ## What the existing flow made harder
 
