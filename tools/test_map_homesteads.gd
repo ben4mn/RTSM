@@ -41,7 +41,7 @@ func _run() -> void:
 			for reserved: Vector2i in generator.get("_route_tiles"):
 				_expect(MapData.is_grass(generator.get_tile(reserved)), label + " deposits preserve carved routegrass")
 			for side: Dictionary in measured.openings:
-				_expect(side.food >= 1600 and side.wood >= 6000 and side.gold >= 1600, label + " dependable revealed stock")
+				_expect(side.food >= 2400 and side.wood >= 6000 and side.gold >= 1600, label + " dependable revealed stock with twelve starting berry bushes")
 			var nav := Pathfinding.new(generator)
 			for spawn: Vector2i in generator.spawn_positions: nav.set_area_solid(spawn, Vector2i(4, 4))
 			var start_tile: Vector2i = generator.spawn_positions[0] + Vector2i(5, -5)
@@ -59,7 +59,7 @@ func _run() -> void:
 					for dx: int in range(-2, 3):
 						_expect(MapData.is_grass(generator.get_tile(pocket + Vector2i(dx, dy))), label + " clear5x5 expansion pad")
 				var stock: Dictionary = _stock(generator.grid, pocket, MapGenerator.EXPANSION_CLEAR_RADIUS, false)
-				_expect(stock.food == 1600 and stock.wood == 5000 and stock.gold == 1600, label + " expansion stock")
+				_expect(stock.food == 2400 and stock.wood == 5000 and stock.gold == 1600, label + " expansion stock with twelve berry bushes")
 			var fair: Dictionary = probe.call("measure_seed", seed_value, archetype)
 			for resource: String in ["food", "wood", "gold"]:
 				_expect(float(fair.trip_difference[resource].deposit_seconds) <= 0.60, label + " fair" + resource + " deposit travel")

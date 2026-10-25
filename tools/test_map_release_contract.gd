@@ -17,6 +17,10 @@ func _run() -> void:
 	server.set("_peers", {1: {}})
 	for operation: String in ["search", "host", "join"]:
 		server.sent.clear()
+		server.call("_server_packet", 1, {"op": operation, "protocol": 6, "map_catalog": 3, "map_archetype": 0, "civilization": 0, "code": "ABCDEF"})
+		_expect(server.sent.size() == 1 and server.sent[0].op == "error" and str(server.sent[0].reason).to_lower().contains("reload"), "prior berry layout cannot enter " + operation)
+		_expect((server.get("_queue") as Array).is_empty() and (server.get("_rooms") as Dictionary).is_empty(), "prior berry layout cannot reserve lobby or queue")
+		server.sent.clear()
 		server.call("_server_packet", 1, {"op": operation, "protocol": 4, "map_catalog": 3, "map_archetype": 0, "civilization": 0, "code": "ABCDEF"})
 		_expect(server.sent.size() == 1 and server.sent[0].op == "error" and str(server.sent[0].reason).to_lower().contains("reload"), "30-pop protocol4 cannot enter " + operation)
 		_expect((server.get("_queue") as Array).is_empty() and (server.get("_rooms") as Dictionary).is_empty(), "old population rules cannot reserve lobby or queue")
@@ -24,7 +28,7 @@ func _run() -> void:
 		server.call("_server_packet", 1, {"op": operation, "protocol": 3, "map_catalog": 2, "map_archetype": 0, "civilization": 0, "code": "ABCDEF"})
 		_expect(server.sent.size() == 1 and server.sent[0].op == "error" and str(server.sent[0].reason).to_lower().contains("reload"), "old generator cannot enter " + operation)
 		_expect((server.get("_queue") as Array).is_empty() and (server.get("_rooms") as Dictionary).is_empty(), "old version cannot reserve lobby or queue")
-	for catalog: int in [-1, 2, 99]:
+	for catalog: int in [-1, 2, 3, 99]:
 		server.sent.clear()
 		var packet := {"op": "search", "protocol": NetworkSession.PROTOCOL, "civilization": 0}
 		if catalog >= 0:
@@ -33,7 +37,7 @@ func _run() -> void:
 		_expect(server.sent.size() == 1 and server.sent[0].op == "error", "current protocol still requires current terrain catalog")
 		_expect((server.get("_queue") as Array).is_empty(), "incompatible catalog cannot enter queue")
 	server.sent.clear()
-	server.call("_server_packet", 1, {"op": "search", "protocol": NetworkSession.PROTOCOL, "map_catalog": 3, "civilization": 1})
+	server.call("_server_packet", 1, {"op": "search", "protocol": NetworkSession.PROTOCOL, "map_catalog": NetworkSession.MAP_CATALOG_VERSION, "civilization": 1})
 	_expect(server.sent.size() == 1 and server.sent[0].op == "queued", "current protocol queues normally")
 	server.free()
 	for operation: String in ["room", "matched"]:

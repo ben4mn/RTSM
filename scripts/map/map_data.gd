@@ -42,10 +42,10 @@ enum FogState {
 	VISIBLE,     ## Currently in a unit's line of sight.
 }
 
-## Generator 3 gives towns rear construction room while preserving the previous
-## 59-tile diagonal base separation (88 with edge14, previously72 with edge6).
-## A seed from generator2 is not the same battlefield; online peers must agree.
-const GENERATOR_VERSION := 3
+## Generator4 preserves generator3's 88-tile field and 59-tile base separation,
+## with twelve berry bushes in each guaranteed starting and expansion grove.
+## Older generators give a different battlefield; online peers must agree.
+const GENERATOR_VERSION := 4
 const MAP_WIDTH := 88
 const MAP_HEIGHT := 88
 

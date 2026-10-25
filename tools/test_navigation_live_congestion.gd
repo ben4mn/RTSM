@@ -23,6 +23,7 @@ func _run() -> void:
 	generator.call("_init_grid")
 	var navigation := Pathfinding.new(generator)
 	game_map.set("pathfinding", navigation)
+	_test_mid_stride_retarget(game_map, navigation)
 	# A one-cell opening must be traversed, with units sharing waypoints but
 	# ultimately occupying their own accepted destination slots.
 	for y: int in MapData.MAP_HEIGHT:
@@ -87,6 +88,39 @@ func _run() -> void:
 	if _failures.is_empty():
 		print("[PASS] navigation_live_congestion: 20 real A* movers through a one-cell gap, unique arrivals, live route changes")
 	get_tree().quit(0 if _failures.is_empty() else 1)
+
+func _test_mid_stride_retarget(game_map: Node2D, navigation: Pathfinding) -> void:
+	var mover := INFANTRY.instantiate() as UnitBase
+	mover.set_process(false)
+	game_map.get_node("UnitsContainer").add_child(mover)
+	var center: Vector2 = game_map.tile_to_world(Vector2i(10, 10))
+	var next: Vector2 = game_map.tile_to_world(Vector2i(11, 10))
+	var direction: Vector2 = (next - center).normalized()
+	mover.position = center.lerp(next, 0.38)
+	var goal: Vector2 = game_map.tile_to_world(Vector2i(18, 10))
+	for attempt: int in 12:
+		var before: Vector2 = mover.position
+		mover.command_move(goal)
+		mover._process(1.0 / 30.0)
+		_expect((mover.position - before).dot(direction) > 0.0, "repeated mid-stride retarget continues forward without a center backstep")
+	# A blocked flank must still prevent a diagonal shortcut, even if a caller
+	# supplies that next waypoint. A* itself also disallows this corner.
+	mover.position = center
+	mover.path = PackedVector2Array([center, game_map.tile_to_world(Vector2i(11, 11))])
+	mover.path_index = 0
+	navigation.set_solid(Vector2i(11, 10), true)
+	mover._skip_redundant_start_waypoint(game_map)
+	_expect(mover.path_index == 0, "start trimming cannot cut a blocked diagonal corner")
+	navigation.set_solid(Vector2i(11, 10), false)
+	# A recovered start is a real escape waypoint, not the occupied cell center.
+	mover.path = PackedVector2Array([next, goal])
+	mover.path_index = 0
+	navigation.set_solid(Vector2i(10, 10), true)
+	mover._skip_redundant_start_waypoint(game_map)
+	_expect(mover.path_index == 0, "blocked-origin recovery retains its escape waypoint")
+	navigation.set_solid(Vector2i(10, 10), false)
+	mover.free()
+
 
 func _test_building_far_edge_attack(game_map: Node2D, navigation: Pathfinding) -> void:
 	var anchor := Vector2i(30, 30)

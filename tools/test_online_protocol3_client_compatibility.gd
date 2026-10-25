@@ -16,14 +16,14 @@ func _expect(value: bool, message: String) -> void:
 
 func _run() -> void:
 	session = root.get_node("NetworkSession")
-	_expect(int(session.PROTOCOL) == 6, "actual client source declares Scout-vision protocol6")
-	_expect(int(session.MAP_CATALOG_VERSION) == 3, "terrain catalog3 remains unchanged")
-	for valid: Variant in [6, 6.0]:
-		_expect(bool(session.call("_whole_number", valid)), "integral JSON6/6.0 accepted")
-	for invalid: Variant in [6.5, "6", true, null, INF, NAN]:
+	_expect(int(session.PROTOCOL) == 7, "actual client source declares berry-map protocol7")
+	_expect(int(session.MAP_CATALOG_VERSION) == 4, "richer berry terrain uses catalog4")
+	for valid: Variant in [7, 7.0]:
+		_expect(bool(session.call("_whole_number", valid)), "integral JSON7/7.0 accepted")
+	for invalid: Variant in [7.5, "7", true, null, INF, NAN]:
 		_expect(not bool(session.call("_whole_number", invalid)), "nonintegral/string/bool/nonfinite protocol rejected")
 	for operation: String in ["room", "matched"]:
-		for invalid: Variant in [null, 2, 3, 4, 5, 6.5, "6", true, INF, NAN]:
+		for invalid: Variant in [null, 2, 3, 4, 5, 6, 7.5, "7", true, INF, NAN]:
 			session.leave_match()
 			var packet := {"op": operation, "protocol": invalid}
 			if invalid == null:
@@ -31,8 +31,8 @@ func _run() -> void:
 			session.call("_client_packet", packet)
 			_expect(session.state == "error" and not session.online and str(session.last_error).to_lower().contains("reload"), "invalid/old reply cannot enter lobby/loading")
 	session.leave_match()
-	session.call("_client_packet", {"op": "room", "protocol": 6.0, "code": "ABCDEF", "host": true, "players": 1, "map_archetype": 0, "civilizations": [1, 2]})
-	_expect(session.state == "lobby", "valid integral6.0 room reply enters lobby")
+	session.call("_client_packet", {"op": "room", "protocol": 7.0, "code": "ABCDEF", "host": true, "players": 1, "map_archetype": 0, "civilizations": [1, 2]})
+	_expect(session.state == "lobby", "valid integral7.0 room reply enters lobby")
 	session.leave_match()
 	var endpoint := ""
 	for argument: String in OS.get_cmdline_user_args():
@@ -45,16 +45,16 @@ func _run() -> void:
 		return
 	started = Time.get_ticks_msec()
 	session.host_game(0, endpoint)
-	_expect(int(session.get("_connection_request").protocol) == 6, "real host_game transmits current protocol6 request")
+	_expect(int(session.get("_connection_request").protocol) == 7, "real host_game transmits current protocol7 request")
 
 func _process(_delta: float) -> bool:
 	if started <= 0:
 		return false
 	if session.state == "error":
-		_expect(str(session.last_error).to_lower().contains("reload") and not session.online, "frozen older authority rejects actual new6 client explicitly")
+		_expect(str(session.last_error).to_lower().contains("reload") and not session.online, "frozen older authority rejects actual new7 client explicitly")
 		_finish()
 	elif Time.get_ticks_msec() - started > 10000:
-		_expect(false, "older/new6 actual socket rejection timed out")
+		_expect(false, "older/new7 actual socket rejection timed out")
 		_finish()
 	return false
 

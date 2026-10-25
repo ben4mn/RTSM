@@ -8,11 +8,11 @@ signal room_changed()
 signal snapshot_received(snapshot: Dictionary)
 signal match_ended(winner: int, reason: String)
 
-## Protocol6 agrees on the Scout's 10-tile vision, also computed by clients.
-## Protocol5 clients use 8 tiles and must reload before joining this authority.
-## Terrain catalog3 and the existing 180-second victory clock are unchanged.
-const PROTOCOL := 6
-const MAP_CATALOG_VERSION := 3
+## Protocol7 agrees on richer berry groves and terrain catalog4.
+## Older clients must reload so both peers use the same battlefield and stock.
+## The Scout's 10-tile vision and existing 180-second victory clock are unchanged.
+const PROTOCOL := 7
+const MAP_CATALOG_VERSION := 4
 const DEFAULT_ENDPOINT := "wss://game.4mn.org/match"
 const MAX_CLIENT_PACKET := 8192
 const MAX_SERVER_PACKET := 262144

@@ -476,6 +476,7 @@ func _navigate_toward(
 		if not _request_navigation_path(game_map, target_position, arrival_radius, dynamic_target):
 			return _navigation_failure_result()
 
+	_skip_redundant_start_waypoint(game_map)
 	while path_index < path.size() and (global_position.distance_to(path[path_index]) <= NAVIGATION_POINT_TOLERANCE or _can_pass_occupied_waypoint(game_map)):
 		path_index += 1
 	if path_index >= path.size():
@@ -546,6 +547,19 @@ func _request_navigation_path(
 		var pending: RefCounted = _pending_attack_march
 		pending.call("accept_route", self)
 	return true
+
+
+## A* includes the center of its starting tile. Retargeting mid-stride should
+## continue to the next waypoint when clear, rather than backtrack to that
+## center. Keep recovered starts and every later turn/endpoint intact.
+func _skip_redundant_start_waypoint(game_map: Node2D) -> void:
+	if path_index != 0 or path.size() < 2 or not game_map.has_method("world_to_tile") or not game_map.has_method("is_tile_walkable"):
+		return
+	var current_tile: Vector2i = game_map.call("world_to_tile", global_position)
+	if not bool(game_map.call("is_tile_walkable", current_tile)) or current_tile != game_map.call("world_to_tile", path[0]):
+		return
+	if _is_navigation_segment_clear(global_position, path[1], game_map):
+		path_index = 1
 
 
 func _navigation_failure_result() -> int:

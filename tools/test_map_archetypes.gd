@@ -12,7 +12,7 @@ func _ready() -> void:
 
 func _run() -> void:
 	var probe: Node = FAIRNESS_PROBE.new()
-	_expect(MapData.GENERATOR_VERSION == 3, "map contract version is3")
+	_expect(MapData.GENERATOR_VERSION == 4, "map contract includes richer berry groves")
 	_expect(MapData.normalize_archetype(-1) == MapData.MapArchetype.OPEN_PLAINS and MapData.normalize_archetype(99) == MapData.MapArchetype.OPEN_PLAINS, "unknown archetypes must normalize to classic")
 	var seeds: Array[int] = []
 	for value: int in range(32): seeds.append(value)
@@ -28,7 +28,7 @@ func _run() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(output_path).get_base_dir())
 	FileAccess.open(output_path, FileAccess.WRITE).store_string(JSON.stringify(report, "  "))
 	if _failures.is_empty():
-		print("[PASS] map_archetypes: 105 deterministic symmetric maps, version3 layouts, fair opening stock/deposit routes, connected expansions and three independently viable broad river crossings")
+		print("[PASS] map_archetypes: 105 deterministic symmetric maps, version4 berry layouts, fair opening stock/deposit routes, connected expansions and three independently viable broad river crossings")
 		get_tree().quit(0)
 	else:
 		for failure: String in _failures: push_error("[FAIL] map_archetypes: " + failure)
@@ -103,11 +103,11 @@ func _check_map(seed_value: int, archetype: int, probe: Node) -> void:
 			for dx: int in range(-MapGenerator.EXPANSION_CLEAR_RADIUS, MapGenerator.EXPANSION_CLEAR_RADIUS + 1):
 				var tile_type: int = generator.get_tile(pocket + Vector2i(dx, dy))
 				if stock.has(tile_type): stock[tile_type] += 1
-		_expect(stock[MapData.TileType.BERRY_BUSH] == 8 and stock[MapData.TileType.GOLD_MINE] == 4 and stock[MapData.TileType.FOREST] == 20, label + " expansion lacks promised finite stock")
+		_expect(stock[MapData.TileType.BERRY_BUSH] == 12 and stock[MapData.TileType.GOLD_MINE] == 4 and stock[MapData.TileType.FOREST] == 20, label + " expansion lacks promised finite stock")
 	var fairness: Dictionary = probe.call("measure_seed", seed_value, archetype)
 	var max_trip_difference: float = 0.0
 	for resource: String in ["food", "wood", "gold"]:
-		var required: int = {"food": 8, "wood": 24, "gold": 4}[resource]
+		var required: int = {"food": 12, "wood": 24, "gold": 4}[resource]
 		for side: Dictionary in fairness.sides:
 			var measurement: Dictionary = side.resources[resource]
 			_expect(measurement.reachable and measurement.deposit_reachable, label + " resource route unavailable: " + resource)
