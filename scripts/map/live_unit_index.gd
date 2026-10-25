@@ -78,11 +78,10 @@ func near(position: Vector2, radius: float) -> Array[UnitBase]:
 	var result: Array[UnitBase] = []
 	var first := Vector2i(((position - Vector2.ONE * radius) / CELL_SIZE).floor())
 	var last := Vector2i(((position + Vector2.ONE * radius) / CELL_SIZE).floor())
-	var squared: float = radius * radius
 	for y: int in range(first.y, last.y + 1):
 		for x: int in range(first.x, last.x + 1):
 			for unit: UnitBase in _cells.get(Vector2i(x, y), []):
-				if is_instance_valid(unit) and unit.is_inside_tree() and unit.current_state != UnitBase.State.DEAD and unit.global_position.distance_squared_to(position) <= squared:
+				if is_instance_valid(unit) and unit.is_inside_tree() and unit.current_state != UnitBase.State.DEAD and unit.global_position.distance_to(position) <= radius:
 					result.append(unit)
 	# Match SceneTree group order, preserving equal-distance targets and sums.
 	result.sort_custom(func(a: UnitBase, b: UnitBase) -> bool: return b.is_greater_than(a))
