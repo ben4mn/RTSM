@@ -15,6 +15,8 @@ func _ready() -> void:
 				_test_split(mode, difficulty, fighters)
 	for difficulty in [AI.Difficulty.MEDIUM, AI.Difficulty.HARD]:
 		_test_fresh_surplus(difficulty)
+		for fighters in [2, 3, 5, 8, 9]:
+			_test_opening_commitment(difficulty, fighters)
 	_test_preserved_policies()
 	print("LARGE_ARMY_OBJECTIVES checks=%d failures=%s scope=synthetic-real-actors" % [checks, failures])
 	get_tree().quit(0 if failures.is_empty() else 1)
@@ -152,6 +154,26 @@ func _test_preserved_policies() -> void:
 		_expect(f.ai._check_sacred_site_strategy() and f.ai._objective_units.size() == profile.expected, "preserved profile retains commitment/offense block")
 		f.ai.free()
 		f.map.free()
+
+func _test_opening_commitment(difficulty: int, count: int) -> void:
+	var f := _fixture(100, difficulty, count, SkirmishData.MatchMode.STANDARD)
+	var expected: int = mini(count, maxi(f.ai._get_attack_threshold(), ceili(count * 0.75)))
+	f.ai._check_sacred_site_strategy()
+	_expect(f.ai._objective_units.size() == expected, "opening%d difficulty%d can borrow reserve to fill its contest force" % [count, difficulty])
+	_check_disjoint(f.ai, f.units, "opening commitment ")
+	var generations: Dictionary = {}
+	for unit: UnitBase in f.ai._objective_units:
+		generations[unit] = unit._command_generation
+		_expect(unit.current_state == UnitBase.State.MOVING and unit.move_target.distance_to(f.site.position) < 64.0, "opening committed fighter has an actual center order")
+	f.ai._check_attack_or_defend()
+	for unit: UnitBase in f.ai._objective_units:
+		_expect(unit._command_generation == generations[unit], "opening repeat does not churn accepted center orders")
+	var threat := _actor(0, Vector2(20, 0), f.map)
+	f.ai._check_attack_or_defend()
+	_expect(f.ai._objective_units.is_empty() and f.ai._last_strategy_decision == "base_defense", "borrowed opening reserve still responds to real home danger")
+	threat.free()
+	f.ai.free()
+	f.map.free()
 
 func _expect(condition: bool, label: String) -> void:
 	checks += 1

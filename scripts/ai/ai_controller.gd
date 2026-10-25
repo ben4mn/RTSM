@@ -2403,11 +2403,15 @@ func _assign_objective_force(
 			continue
 		candidates.append(unit)
 
-	# A late hostile hold can pull the normal base reserve as a last resort.
-	if urgent and candidates.size() < desired_force:
+	# A required contest force can borrow the nominal reserve when necessary.
+	# Otherwise a two-fighter opening would reserve both and send nobody. Real
+	# home danger still preempts this entire objective seam before assignment.
+	if (urgent or share_large_contest) and candidates.size() < desired_force:
 		for unit in reserve:
 			if unit not in candidates:
 				candidates.append(unit)
+			if share_large_contest and candidates.size() >= desired_force:
+				break
 
 	candidates.sort_custom(func(a: UnitBase, b: UnitBase) -> bool:
 		return _objective_candidate_score(a, sacred_site.global_position) > _objective_candidate_score(b, sacred_site.global_position)
