@@ -10,7 +10,7 @@ from package_mobile_web_pwa import package_update_worker
 
 class PackageUpdatesTest(unittest.TestCase):
     def make_payload(self, root):
-        for name in ["index.js", "index.wasm", "index.pck", "pocket_updates.js", "playtest_diagnostics.js", "index.offline.html", "release_notes.json"]:
+        for name in ["index.js", "index.wasm", "index.pck", "pocket_updates.js", "pocket_launch.js", "pocket_launch.css", "playtest_diagnostics.js", "index.offline.html", "release_notes.json"]:
             (root / name).write_text(name)
         (root / "index.html").write_text("<script>window.POCKET_RELEASE = /*POCKET_RELEASE*/null;</script>")
         version = {"source_revision": "abcdefabcdef", "source_tree_sha256": "a" * 64, "built_at_utc": "first"}

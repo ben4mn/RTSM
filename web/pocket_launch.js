@@ -222,10 +222,10 @@
     if (release) byId('pocket-build-label').textContent = 'Early access · ' + release.version;
 
     const statusCopy = {
-        unsupported: 'This browser may not support app updates. Reopen online for the latest version.',
-        checking: 'Checking for updates…', downloading: 'Preparing the next release…',
-        ready: 'Your game files are ready.', deferred: 'Update ready. It will apply after open matches return to the main menu.',
-        applying: 'Applying the latest release…', offline: 'You’re offline. Update checks will resume when connected.',
+        unsupported: 'This browser cannot save offline play. Stay online to play.',
+        checking: 'Checking for updates…', downloading: 'Saving game files. Unchanged files are reused…',
+        ready: 'Game files saved. Solo is ready offline on this browser.', deferred: 'Update ready. It will apply after open matches return to the main menu.',
+        applying: 'Applying the latest release…', offline: 'You’re offline. Connect and choose Play once to save the complete game.',
         error: 'Update check unavailable. Your current version is kept; we’ll try again online.',
         idle: 'Updates are checked automatically when you’re online.'
     };
@@ -233,7 +233,11 @@
         if (event.detail.state === 'applying' && (playing || preparing)) {
             try { sessionStorage.setItem('pocket.launch-after-update', '1'); } catch (_) { /* reopening welcome remains safe */ }
         }
-        const text = (event.detail.state === 'deferred' && event.detail.message) || statusCopy[event.detail.state] || event.detail.message || '';
+        let text = (event.detail.state === 'deferred' && event.detail.message) || statusCopy[event.detail.state] || event.detail.message || '';
+        if (event.detail.offlineReady && ['idle', 'offline'].includes(event.detail.state)) {
+            text = navigator.onLine === false ? 'You’re offline. Solo is ready to play; Online 1v1 needs a connection.' : 'Solo is saved for offline play. Updates download only changed files.';
+        }
+        if (event.detail.offlineReady && event.detail.persistence === 'best-effort') text += ' Your browser may clear saved files when storage is low.';
         byId('pocket-update-copy').textContent = text;
         byId('pocket-dialog-update-copy').textContent = text + ' Active matches and results stay open.';
     });
@@ -250,11 +254,11 @@
         if (preparing || bootResolved || held) return;
         preparing = true; play.disabled = true;
         play.textContent = 'Preparing the game…';
-        launchStatus.textContent = 'First launch downloads the game. Keep this page open for a moment.';
+        launchStatus.textContent = window.PocketUpdates.getStatus().offlineReady ? 'Opening the saved game…' : 'First launch saves the complete game for offline Solo. Keep this page open for a moment.';
         try {
             await updatesReady;
             const result = await window.PocketUpdates.prepareForPlay();
-            if (!result.ready) throw new Error('The game isn’t ready yet. Check your connection, then try again.');
+            if (!result.ready) throw new Error(result.offline ? 'The complete game is not saved yet. Connect and choose Play once, then Solo will work offline.' : 'The game isn’t ready yet. Check your connection, then try again.');
             bootResolved = true; playing = true;
             boot.hidden = false;
             showGame();

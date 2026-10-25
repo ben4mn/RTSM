@@ -63,7 +63,7 @@ def package_update_worker(root: Path, template_path: Path | None = None) -> None
             raise ValueError("update payload contains unsupported entries")
         if path.is_file() and path.name not in excluded:
             files[path.name] = hashlib.sha256(path.read_bytes()).hexdigest()
-    required = {"index.html", "index.js", "index.wasm", "index.pck", "pocket_updates.js", "playtest_diagnostics.js", "index.offline.html"}
+    required = {"index.html", "index.js", "index.wasm", "index.pck", "pocket_updates.js", "pocket_launch.js", "pocket_launch.css", "playtest_diagnostics.js", "index.offline.html"}
     if not required.issubset(files):
         raise ValueError("update payload is missing required runtime files")
     identity = hashlib.sha256(json.dumps(files, sort_keys=True, separators=(",", ":")).encode()).hexdigest()

@@ -7,10 +7,11 @@ const createPocketUpdates = require('../web/pocket_updates.js');
 const BASE = 'https://example.test/games/pocket-kingdoms/';
 const pause = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
 const digest = (text) => createHash('sha256').update(text).digest('hex');
+const bindRelease = (release) => ({...release, id: release.revision + '-' + digest(JSON.stringify(Object.fromEntries(Object.entries(release.files).sort()))).slice(0, 20)});
 
 function workerFixture(options = {}) {
-	const content = {'index.html': 'shell', 'index.js': 'engine', 'index.wasm': 'wasm', 'index.pck': 'pack', 'index.offline.html': 'offline', 'release_notes.json': 'notes'};
-	const release = {id: 'new-release', revision: 'abcdefabcdef', sourceTreeSha256: 'a'.repeat(64), files: Object.fromEntries(Object.entries(content).map(([name, value]) => [name, digest(value)])), shell: ['index.html', 'index.offline.html', 'release_notes.json']};
+	const content = {'index.html': 'shell', 'index.js': 'engine', 'index.wasm': 'wasm', 'index.pck': 'pack', 'index.offline.html': 'offline', 'release_notes.json': 'notes', 'pocket_updates.js': 'updates', 'pocket_launch.js': 'launch', 'pocket_launch.css': 'css', 'playtest_diagnostics.js': 'diagnostics', 'Barlow-Regular.ttf': 'font', 'kingdom_company_v2.png': 'art', 'index.manifest.json': 'manifest'};
+	const release = bindRelease({revision: 'abcdefabcdef', sourceTreeSha256: 'a'.repeat(64), files: Object.fromEntries(Object.entries(content).map(([name, value]) => [name, digest(value)])), shell: Object.keys(content).filter((name) => !['index.js', 'index.wasm', 'index.pck'].includes(name))});
 	const storage = new Map();
 	const caches = {
 		async open(name) {
@@ -124,7 +125,7 @@ test('old navigation finishing after activation persists its release for late re
 	await f.worker.stage();
 	f.content['index.pck'] = 'next-pack';
 	f.content['index.html'] = 'next-shell';
-	const nextRelease = {...f.release, id: 'next-release', files: {...f.release.files, 'index.pck': digest('next-pack'), 'index.html': digest('next-shell')}};
+	const nextRelease = bindRelease({...f.release, files: {...f.release.files, 'index.pck': digest('next-pack'), 'index.html': digest('next-shell')}});
 	const successor = createPocketWorker(f.env, nextRelease);
 	await successor.stage();
 	await successor.activate();
@@ -178,6 +179,132 @@ test('legacy stock-worker messages have no activation, navigation, or cache-dele
 	assert.equal(await f.worker.ready(), true);
 });
 
+test('new revision reuses verified unchanged bytes; a changed pack downloads only changed files', async () => {
+	const f = workerFixture();
+	await f.worker.stage();
+	const initial = f.worker.getTransfer();
+	f.requests.length = 0;
+	const same = createPocketWorker(f.env, bindRelease({...f.release, revision: 'bbbbbbbbbbbb'}));
+	assert.equal(await same.stage(), true);
+	assert.deepEqual(f.requests, []);
+	assert.equal(same.getTransfer().reusedBytes, initial.downloadedBytes);
+	f.content['index.pck'] = 'changed-pack';
+	f.content['index.html'] = 'changed-shell';
+	const changed = createPocketWorker(f.env, bindRelease({...f.release, revision: 'cccccccccccc', files: {...f.release.files, 'index.pck': digest('changed-pack'), 'index.html': digest('changed-shell')}}));
+	assert.equal(await changed.stage(), true);
+	assert.deepEqual(f.requests.map((url) => url.slice(BASE.length)).sort(), ['index.html', 'index.pck']);
+	assert.ok(changed.getTransfer().reusedFiles.includes('index.wasm'));
+	assert.equal(changed.getTransfer().downloadedBytes, Buffer.byteLength('changed-packchanged-shell'));
+	console.log('CACHE_TRANSFER ' + JSON.stringify({scope: 'isolated worker with in-memory CacheStorage and mocked fetch; real SHA-256 and Response bytes', initial, unchanged: same.getTransfer(), changed: changed.getTransfer()}));
+});
+
+test('legacy cache migration hashes actual bytes and replaces a corrupt predecessor without deleting it', async () => {
+	const f = workerFixture();
+	const old = await f.env.caches.open('pocket-release-legacy');
+	for (const [name, bytes] of Object.entries(f.content)) await old.put(BASE + name, new Response(name === 'index.wasm' ? 'truncated' : bytes));
+	assert.equal(await f.worker.stage(), true);
+	assert.deepEqual(f.requests.map((url) => url.slice(BASE.length)), ['index.wasm']);
+	assert.equal(await (await old.match(BASE + 'index.wasm')).text(), 'truncated');
+	assert.equal(await f.worker.ready(), true);
+});
+
+test('interrupted update preserves offline predecessor and retries only missing verified content', async () => {
+	const f = workerFixture();
+	await f.worker.stage();
+	await f.worker.fetchResponse({request: {url: BASE, method: 'GET', mode: 'navigate'}, resultingClientId: 'old-match'});
+	f.content['index.pck'] = 'new-pack';
+	const next = createPocketWorker(f.env, bindRelease({...f.release, revision: 'dddddddddddd', files: {...f.release.files, 'index.pck': digest('new-pack')}}));
+	const fetch = f.env.fetch;
+	f.env.fetch = async (request, options) => { if (String(request).endsWith('index.pck')) throw new Error('interrupted'); return fetch(request, options); };
+	assert.equal(await next.stage(), false);
+	assert.equal(await next.ready(), false);
+	f.offline(true);
+	const oldPack = await f.worker.fetchResponse({request: new Request(BASE + 'index.pck'), clientId: 'old-match'});
+	assert.equal(await oldPack.text(), 'pack');
+	f.offline(false); f.env.fetch = fetch; f.requests.length = 0;
+	assert.equal(await next.stage(), true);
+	assert.deepEqual(f.requests.map((url) => url.slice(BASE.length)), ['index.pck']);
+	assert.equal(await f.worker.ready(), true);
+	// Rollback is another immutable release selection and needs no network.
+	f.offline(true); f.requests.length = 0;
+	assert.equal(await f.worker.stage(), true);
+	assert.deepEqual(f.requests, []);
+});
+
+test('truncated manifests, unsafe paths and a false release identity never open a playable cache', async () => {
+	const f = workerFixture();
+	for (const mutate of [
+		(r) => { delete r.files['index.pck']; },
+		(r) => { r.files['../escape'] = 'a'.repeat(64); },
+		(r) => { r.files['index.wasm'] = 'not-a-hash'; },
+		(r) => { r.shell = ['index.html']; },
+		(r) => { r.files['version.json'] = 'a'.repeat(64); },
+	]) {
+		const invalid = structuredClone(f.release); mutate(invalid);
+		assert.throws(() => createPocketWorker(f.env, invalid), /invalid_release_manifest/);
+	}
+	const mismatched = createPocketWorker(f.env, {...f.release, id: 'incorrect-but-well-formed'});
+	assert.equal(await mismatched.stage(), false);
+	assert.equal(f.storage.size, 0);
+	assert.deepEqual(f.requests, []);
+});
+
+test('completion marker binds the entire manifest and corrupt cached entries are reverified on repair', async () => {
+	const f = workerFixture();
+	await f.worker.stage();
+	const cache = await f.env.caches.open(f.worker.cacheName);
+	await cache.put(BASE + '__pocket_complete__', new Response('{truncated'));
+	assert.equal(await f.worker.ready(), false);
+	await cache.put(BASE + 'index.pck', new Response('corrupt-but-present'));
+	f.requests.length = 0;
+	assert.equal(await f.worker.stage(), true);
+	assert.deepEqual(f.requests.map((url) => url.slice(BASE.length)), ['index.pck']);
+	assert.equal(await f.worker.ready(), true);
+	await cache.put(BASE + '__pocket_complete__', new Response(JSON.stringify({release: f.release.id, manifestBinding: 'another-manifest'})));
+	assert.equal(await f.worker.ready(), false);
+	await f.worker.stage();
+	await cache.put(BASE + 'index.wasm', new Response('corrupt body with valid metadata', {headers: {'X-Pocket-Content-SHA256': f.release.files['index.wasm']}}));
+	const restarted = createPocketWorker(f.env, f.release);
+	assert.equal(await restarted.ready(), false);
+	assert.equal(await restarted.stage(), true);
+	assert.equal(await restarted.ready(), true);
+});
+
+test('cold worker restart serves root, install entry, engine, fonts and artwork with no network', async () => {
+	const f = workerFixture();
+	await f.worker.stage();
+	f.offline(true); f.requests.length = 0;
+	const cold = createPocketWorker(f.env, f.release);
+	assert.equal(await cold.ready(), true);
+	for (const entry of ['', 'index.html']) {
+		const response = await cold.fetchResponse({request: {url: BASE + entry, method: 'GET', mode: 'navigate'}, resultingClientId: 'cold-' + entry});
+		assert.equal(await response.text(), 'shell');
+		for (const [name, content] of Object.entries(f.content)) {
+			const asset = await cold.fetchResponse({request: new Request(BASE + name + '?offline-check=1'), clientId: 'cold-' + entry});
+			assert.equal(await asset.text(), content);
+		}
+	}
+	assert.deepEqual(f.requests, []);
+	assert.equal(cold.getTransfer().downloadedBytes, f.worker.getTransfer().downloadedBytes);
+});
+
+test('quota failure keeps the predecessor playable and never marks a partial update complete', async () => {
+	const f = workerFixture();
+	await f.worker.stage();
+	const nextRelease = bindRelease({...f.release, revision: 'eeeeeeeeeeee'});
+	const nextName = 'pocket-release-' + nextRelease.id;
+	const open = f.env.caches.open;
+	f.env.caches.open = async (name) => {
+		const cache = await open(name);
+		return name === nextName ? {...cache, put: async () => { throw new Error('QuotaExceededError'); }} : cache;
+	};
+	const next = createPocketWorker(f.env, nextRelease);
+	assert.equal(await next.stage(), false);
+	assert.equal(await next.ready(), false);
+	assert.equal(await f.worker.ready(), true);
+	assert.equal(f.skipped(), 0);
+});
+
 class DetailEvent extends Event { constructor(type, options) { super(type); this.detail = options.detail; } }
 class Channel {
 	constructor() {
@@ -206,6 +333,7 @@ function browserFixture(options = {}) {
 	sw.register = options.registerFails ? async () => { throw new Error('blocked'); } : async () => registration;
 	if (options.recoverRegistration) sw.getRegistration = async () => registration;
 	Object.assign(host, {navigator: {onLine: options.offline !== true, serviceWorker: options.unsupported ? null : sw}, document: Object.assign(new EventTarget(), {visibilityState: 'visible'}), POCKET_RELEASE: {source_revision: oldInfo.revision, source_tree_sha256: oldInfo.sourceTreeSha256}, MessageChannel: Channel, CustomEvent: DetailEvent, setTimeout, clearTimeout, location: {reload() { reloads++; }}});
+	if ('persistence' in options) host.navigator.storage = {persisted: async () => false, persist: async () => { calls.push('persist'); return options.persistence; }};
 	const api = createPocketUpdates(host);
 	const emit = async (data, source = waiting || active) => { const event = new Event('message'); Object.assign(event, {data: {pocket: 1, ...data}, source}); sw.dispatchEvent(event); await pause(); };
 	return {host, sw, active, waiting, registration, api, calls, oldInfo, nextInfo, emit, reloads: () => reloads};
@@ -311,4 +439,25 @@ test('foreground and online return trigger background checks without changing un
 	await pause();
 	assert.ok(f.calls.filter((call) => call === 'check').length >= before + 2);
 	assert.equal(f.reloads(), 0);
+});
+
+test('offline readiness requires a complete controlled release; denied persistence still plays cached Solo', async () => {
+	for (const persistence of [false, true]) {
+		const f = browserFixture({offline: true, persistence});
+		await f.api.init({safeToReload: true, checkTimeout: 20});
+		assert.equal((await f.api.prepareForPlay()).ready, true);
+		await pause();
+		assert.equal(f.api.getStatus().offlineReady, true);
+		assert.equal(f.api.getStatus().persistence, persistence ? 'granted' : 'best-effort');
+		f.host.dispatchEvent(new Event('offline'));
+		assert.equal(f.api.getStatus().state, 'offline');
+		assert.equal(f.api.getStatus().offlineReady, true);
+		assert.equal(f.reloads(), 0);
+	}
+	const incomplete = browserFixture({offline: true, persistence: true});
+	incomplete.oldInfo.ready = false;
+	await incomplete.api.init({safeToReload: true, checkTimeout: 20});
+	assert.equal((await incomplete.api.prepareForPlay()).ready, false);
+	assert.equal(incomplete.api.getStatus().offlineReady, false);
+	assert.equal(incomplete.calls.includes('persist'), false);
 });

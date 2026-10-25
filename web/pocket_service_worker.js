@@ -3,7 +3,22 @@
 const POCKET_SW_RELEASE = /*POCKET_SW_RELEASE*/null;
 
 function createPocketWorker(env, release, options = {}) {
+	// Reject an incomplete or path-escaping manifest before opening any cache.
+	const required = ['index.html', 'index.js', 'index.wasm', 'index.pck', 'index.offline.html', 'pocket_updates.js', 'pocket_launch.js', 'pocket_launch.css', 'playtest_diagnostics.js'];
+	const validName = (name) => /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(name) && !name.includes('..');
+	if (!release || !/^[a-zA-Z0-9_-]{1,128}$/.test(release.id || '') || !/^[a-f0-9]{12}$/.test(release.revision || '')
+		|| !/^[a-f0-9]{64}$/.test(release.sourceTreeSha256 || '') || !release.files || Array.isArray(release.files)
+		|| !Array.isArray(release.shell) || !required.every((name) => Object.hasOwn(release.files, name))
+		|| !Object.entries(release.files).every(([name, digest]) => validName(name) && /^[a-f0-9]{64}$/.test(digest))
+		|| ['version.json', 'index.service.worker.js'].some((name) => Object.hasOwn(release.files, name))
+		|| release.shell.length !== new Set(release.shell).size
+		|| release.shell.some((name) => !Object.hasOwn(release.files, name) || ['index.js', 'index.wasm', 'index.pck'].includes(name))
+		|| Object.keys(release.files).some((name) => !['index.js', 'index.wasm', 'index.pck'].includes(name) && !release.shell.includes(name))) {
+		throw new Error('invalid_release_manifest');
+	}
+	release = JSON.parse(JSON.stringify(release));
 	const PREFIX = 'pocket-release-';
+	const HASH_HEADER = 'X-Pocket-Content-SHA256';
 	const cacheName = PREFIX + release.id;
 	const base = new URL('./', env.registration.scope);
 	const completeKey = new URL('__pocket_complete__', base).href;
@@ -13,7 +28,10 @@ function createPocketWorker(env, release, options = {}) {
 	let staging = null;
 	let applying = null;
 	let bindings = null;
+	let audited = false;
 	const replies = new Map();
+	let transfer = {downloadedBytes: 0, reusedBytes: 0, downloadedFiles: [], reusedFiles: []};
+	const manifestBinding = JSON.stringify([release.id, release.revision, release.sourceTreeSha256, Object.entries(release.files).sort()]);
 	const absolute = (name) => new URL(name, base).href;
 	const windows = async () => (await env.clients.matchAll({type: 'window', includeUncontrolled: true}))
 		.filter((client) => client.url.startsWith(base.href));
@@ -21,45 +39,105 @@ function createPocketWorker(env, release, options = {}) {
 	const broadcast = async (data) => { for (const client of await windows()) tell(client, data); };
 	const hash = async (bytes) => Array.from(new Uint8Array(await env.crypto.subtle.digest('SHA-256', bytes)))
 		.map((byte) => byte.toString(16).padStart(2, '0')).join('');
+	let identityCheck = null;
+	function validateIdentity() {
+		if (!identityCheck) identityCheck = (async () => {
+			const files = Object.fromEntries(Object.entries(release.files).sort());
+			const fingerprint = await hash(new TextEncoder().encode(JSON.stringify(files)));
+			if (release.id !== release.revision + '-' + fingerprint.slice(0, 20)) throw new Error('invalid_release_identity');
+		})();
+		return identityCheck;
+	}
 	function isolate(response) {
 		const headers = new Headers(response.headers);
 		headers.set('Cross-Origin-Opener-Policy', 'same-origin');
 		headers.set('Cross-Origin-Embedder-Policy', 'require-corp');
 		return new Response(response.body, {status: response.status, statusText: response.statusText, headers});
 	}
+	async function verify(response, name) {
+		if (!response || !response.ok || response.type === 'opaque') return null;
+		const bytes = await response.clone().arrayBuffer();
+		if (await hash(bytes) !== release.files[name]) return null;
+		const headers = new Headers(response.headers);
+		headers.set(HASH_HEADER, release.files[name]);
+		return {response: isolate(new Response(response.body, {status: response.status, statusText: response.statusText, headers})), size: bytes.byteLength};
+	}
 	async function verifiedFetch(name) {
 		const response = await env.fetch(absolute(name), {cache: 'no-store', credentials: 'same-origin', redirect: 'error'});
 		if (!response.ok || response.type === 'opaque') throw new Error('download_failed');
-		if (await hash(await response.clone().arrayBuffer()) !== release.files[name]) throw new Error('release_changed');
-		return isolate(response);
+		const verified = await verify(response, name);
+		if (!verified) throw new Error('release_changed');
+		transfer.downloadedBytes += verified.size;
+		transfer.downloadedFiles.push(name);
+		return verified.response;
 	}
 	async function cacheFiles(names) {
 		const cache = await env.caches.open(cacheName);
+		const predecessors = (await env.caches.keys()).filter((name) => name.startsWith(PREFIX) && name !== cacheName).reverse();
+		const sources = [cache, ...await Promise.all(predecessors.map((name) => env.caches.open(name)))];
 		// A bounded queue avoids fetching several engine packs at once on a phone.
 		let next = 0;
-		await Promise.all(Array.from({length: Math.min(2, names.length)}, async () => {
+		const results = await Promise.allSettled(Array.from({length: Math.min(2, names.length)}, async () => {
 			while (next < names.length) {
 				const name = names[next++];
-				if (!await cache.match(absolute(name))) await cache.put(absolute(name), await verifiedFetch(name));
+				let reused = null;
+				for (const source of sources) {
+					const candidate = await source.match(absolute(name));
+					if (!candidate) continue;
+					const knownHash = candidate.headers.get(HASH_HEADER);
+					if (knownHash && knownHash !== release.files[name]) continue;
+					// Hash actual bytes, including legacy caches without our header.
+					// A marker/header alone never authorizes cross-release reuse.
+					reused = await verify(candidate, name);
+					if (reused) break;
+				}
+				if (reused) {
+					await cache.put(absolute(name), reused.response);
+					transfer.reusedBytes += reused.size;
+					transfer.reusedFiles.push(name);
+				} else await cache.put(absolute(name), await verifiedFetch(name));
 			}
 		}));
+		// Join both queues before reporting a failure, so a retry cannot race an
+		// unfinished writer from the failed attempt.
+		const failure = results.find((result) => result.status === 'rejected');
+		if (failure) throw failure.reason;
 		return cache;
 	}
 	async function ready() {
+		await validateIdentity();
 		const cache = await env.caches.open(cacheName);
 		const marker = await cache.match(completeKey);
 		if (!marker) return false;
+		try {
+			const completed = await marker.json();
+			if (completed.manifestBinding !== manifestBinding) return false;
+			if (!transfer.downloadedFiles.length && !transfer.reusedFiles.length && completed.transfer) transfer = completed.transfer;
+		}
+		catch (_) { return false; }
 		// Cache eviction must not turn a previous completion marker into a promise.
-		for (const name of Object.keys(release.files)) if (!await cache.match(absolute(name))) return false;
+		for (const [name, digest] of Object.entries(release.files)) {
+			const response = await cache.match(absolute(name));
+			if (!response || response.headers.get(HASH_HEADER) !== digest) { audited = false; return false; }
+			// Audit bytes once after a worker restart. Later status polls check
+			// presence and verified metadata without rereading the large engine pack.
+			if (!audited && !await verify(response, name)) return false;
+		}
+		audited = true;
 		return true;
 	}
 	async function stage() {
 		if (staging) return staging;
 		staging = (async () => {
+			await validateIdentity();
+			audited = false;
+			transfer = {downloadedBytes: 0, reusedBytes: 0, downloadedFiles: [], reusedFiles: []};
+			await (await env.caches.open(cacheName)).delete(completeKey);
 			await broadcast({type: 'STATUS', state: 'downloading'});
 			const cache = await cacheFiles(Object.keys(release.files));
-			await cache.put(completeKey, new Response(JSON.stringify({release: release.id})));
-			await broadcast({type: 'STATUS', state: 'ready'});
+			await cache.put(completeKey, new Response(JSON.stringify({release: release.id, manifestBinding, transfer})));
+			audited = true;
+			await broadcast({type: 'STATUS', state: 'ready', offlineReady: true, transfer});
 			return true;
 		})().catch(async (error) => {
 			await broadcast({type: 'STATUS', state: 'error', message: error.message});
@@ -154,8 +232,8 @@ function createPocketWorker(env, release, options = {}) {
 			if (event.ports && event.ports[0]) event.ports[0].postMessage(payload);
 			else tell(client, payload);
 		};
-		if (data.type === 'STATUS') respond({ready: await ready()});
-		else if (data.type === 'STAGE') respond({ready: await stage()});
+		if (data.type === 'STATUS') respond({ready: await ready(), transfer});
+		else if (data.type === 'STAGE') respond({ready: await stage(), transfer});
 		else if (data.type === 'APPLY') respond({applied: await apply()});
 		else if (data.type === 'UNSAFE') {
 			// This also rejects an answer that is still pending in either phase.
@@ -207,6 +285,7 @@ function createPocketWorker(env, release, options = {}) {
 		await broadcast({type: 'ACTIVATED', ready: await ready()});
 	}
 	async function install() {
+		await validateIdentity();
 		// A waiting worker can activate naturally once the last old window closes.
 		// It therefore must already be complete before replacing an existing app,
 		// even if the next launch is offline. First visits download only the shell.
@@ -220,7 +299,7 @@ function createPocketWorker(env, release, options = {}) {
 		env.addEventListener('message', (event) => event.waitUntil(message(event)));
 		env.addEventListener('fetch', (event) => event.respondWith(fetchResponse(event)));
 	}
-	return {installListeners, install, stage, ready, apply, message, fetchResponse, activate, cacheName};
+	return {installListeners, install, stage, ready, apply, message, fetchResponse, activate, cacheName, getTransfer: () => JSON.parse(JSON.stringify(transfer))};
 }
 
 if (typeof module === 'object' && module.exports) module.exports = {createPocketWorker};

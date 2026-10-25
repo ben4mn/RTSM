@@ -103,6 +103,11 @@ func start_hosted_match() -> bool:
 
 func _connect_with_request(request: Dictionary, endpoint: String) -> void:
 	leave_match()
+	# A cached Solo game remains playable without a network. Avoid making an
+	# explicitly offline browser wait for a socket timeout to explain that.
+	if OS.has_feature("web") and bool(JavaScriptBridge.eval("navigator.onLine === false")):
+		_fail("You're offline. Choose Solo to play the saved game; Online 1v1 needs a connection.")
+		return
 	_connection_request = request
 	_heartbeat = 0.0
 	last_error = ""

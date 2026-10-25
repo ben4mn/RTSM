@@ -17,12 +17,15 @@
 	let checking = null;
 	let applying = false;
 	let reloading = false;
+	let offlineReady = false;
+	let persistence = 'unavailable';
+	let persistenceRequested = false;
 	let status = {state: 'idle', release: null, message: ''};
 	let settings = {checkTimeout: 3000, prepareTimeout: 30000, holdTimeout: 10000};
 	const events = ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'mousedown', 'mouseup', 'click', 'keydown', 'keyup', 'wheel'];
 	const emit = (name, detail) => host.dispatchEvent(new host.CustomEvent(name, {detail}));
 	function update(state, data = {}) {
-		status = {state, release: data.release || status.release, message: data.message || ''};
+		status = {state, release: data.release || status.release, message: data.message || '', offlineReady, persistence, transfer: data.transfer || status.transfer || null};
 		emit('pocket-update-status', Object.assign({}, status));
 	}
 	function block(event) {
@@ -83,6 +86,19 @@
 	}
 	function playable(info) {
 		return !!(info && info.ready && sw.controller && pageMatches(info));
+	}
+	async function preserveOfflineCache() {
+		if (!offlineReady || persistenceRequested) return;
+		persistenceRequested = true;
+		const storage = host.navigator.storage;
+		if (!storage || typeof storage.persist !== 'function') return;
+		// Best effort only: denial must never prevent cached Solo play. The browser
+		// can still remove nonpersistent storage under pressure or on user request.
+		try {
+			const already = typeof storage.persisted === 'function' && await storage.persisted();
+			persistence = already || await storage.persist() ? 'granted' : 'best-effort';
+		} catch (_) { persistence = 'best-effort'; }
+		update(status.state, status);
 	}
 	async function maybeApply() {
 		if (!registration || !safe || applying || reloading) return false;
@@ -166,8 +182,10 @@
 			if (!registration) { update('offline', {message: 'Update service unavailable.'}); return status; }
 			registration.addEventListener('updatefound', () => monitor(registration.installing));
 			monitor(registration.installing);
-			await activeStatus();
+			const active = await activeStatus();
+			offlineReady = playable(active);
 			host.addEventListener('online', check);
+			host.addEventListener('offline', () => update('offline'));
 			host.addEventListener('pageshow', check);
 			host.document.addEventListener('visibilitychange', () => { if (host.document.visibilityState === 'visible') check(); });
 			sw.addEventListener('controllerchange', async () => {
@@ -210,10 +228,13 @@
 				}
 				currentCache = info.cache;
 				currentRelease = info.release;
+				offlineReady = true;
 				update('ready', info);
+				preserveOfflineCache();
 				return {ready: !held && !reloading, release: info.release, offline: host.navigator.onLine === false, pendingUpdate: false};
 			}
 			const old = await activeStatus();
+			offlineReady = playable(old);
 			update(host.navigator.onLine === false ? 'offline' : 'error', {message: 'Could not finish downloading. The previous complete game is kept.'});
 			return {ready: playable(old), release: old && old.release, offline: host.navigator.onLine === false, pendingUpdate: !!registration.waiting};
 		} finally { preparing = false; }

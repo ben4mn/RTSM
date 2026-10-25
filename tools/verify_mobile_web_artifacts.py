@@ -227,6 +227,15 @@ def verify_service_worker(root: Path) -> None:
     embedded = re.search(r"const POCKET_SW_RELEASE = /\*POCKET_SW_RELEASE\*/(\{[^\n]+\});", worker)
     if embedded is None or json.loads(embedded.group(1)) != cache_manifest:
         raise VerificationError("worker and update cache manifest disagree")
+    version = json.loads((root / "version.json").read_text(encoding="utf-8"))
+    identity = hashlib.sha256(json.dumps(files, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    if cache_manifest.get("revision") != version.get("source_revision") or cache_manifest.get("sourceTreeSha256") != version.get("source_tree_sha256"):
+        raise VerificationError("update cache source identity disagrees with the exported release")
+    if cache_manifest.get("id") != str(cache_manifest.get("revision")) + "-" + identity[:20]:
+        raise VerificationError("update cache identity is not bound to its content hashes")
+    shell = cache_manifest.get("shell")
+    if not isinstance(shell, list) or len(shell) != len(set(shell)) or set(shell) != set(files) - {"index.js", "index.wasm", "index.pck"}:
+        raise VerificationError("update cache welcome shell is incomplete")
     for name, digest in files.items():
         if not isinstance(name, str) or Path(name).name != name or not re.fullmatch(r"[0-9a-f]{64}", str(digest)):
             raise VerificationError("invalid update cache manifest entry")

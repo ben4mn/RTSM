@@ -153,6 +153,19 @@ class MobileShellArtifactTests(unittest.TestCase):
         with self.assertRaises(VerificationError):
             verify_service_worker(self.root)
 
+    def test_manifest_identity_and_complete_shell_are_required(self) -> None:
+        original = json.loads((self.root / "pocket-cache-manifest.json").read_text())
+        worker = (self.root / "index.service.worker.js").read_text()
+        for key, value in [("id", "wrong-release"), ("revision", "eeeeeeeeeeee"), ("sourceTreeSha256", "b" * 64), ("shell", ["index.html"])]:
+            with self.subTest(key=key):
+                changed = dict(original, **{key: value})
+                serialized = json.dumps(changed, sort_keys=True, separators=(",", ":"))
+                (self.root / "pocket-cache-manifest.json").write_text(serialized)
+                changed_worker = re.sub(r"const POCKET_SW_RELEASE = /\*POCKET_SW_RELEASE\*/\{[^\n]+\};", "const POCKET_SW_RELEASE = /*POCKET_SW_RELEASE*/" + serialized + ";", worker)
+                (self.root / "index.service.worker.js").write_text(changed_worker)
+                with self.assertRaises(VerificationError):
+                    verify_service_worker(self.root)
+
     def test_stock_worker_cannot_replace_update_protocol(self) -> None:
         (self.root / "index.service.worker.js").write_text('const FILES=["index.pck","index.wasm"];')
         with self.assertRaises(VerificationError):
