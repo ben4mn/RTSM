@@ -46,7 +46,7 @@ func _setup(first: int, second: int) -> void:
 func _test_identity_and_baseline() -> void:
 	_setup(0, 1)
 	_expect(CivilizationData.ORDERED_IDS.size() == 3, "three selectable civilizations")
-	_expect(CivilizationData.get_civilization_name(0) == "Bellwick", "civilization name lookup does not shadow Resource.get_name")
+	_expect(CivilizationData.get_civilization_name(0) == "French", "civilization name lookup does not shadow Resource.get_name")
 	for civilization: int in CivilizationData.ORDERED_IDS:
 		var definition: Dictionary = CivilizationData.get_definition(civilization)
 		_expect(not str(definition.weakness).is_empty() and not str(definition.strengths).is_empty(), "strength and weakness disclosed")

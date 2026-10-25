@@ -3,15 +3,16 @@ extends RefCounted
 ## Civilization identity is public match setup, never an undisclosed upgrade.
 ## All values here are shared by the local simulation and online authority.
 
+# Serialized IDs stay stable: French, English, Mongols respectively.
 enum Civilization { CROWNLANDS, VERDANT_LEAGUE, SUNSTRIDE_CLANS }
 
 const ORDERED_IDS: Array[int] = [Civilization.CROWNLANDS, Civilization.VERDANT_LEAGUE, Civilization.SUNSTRIDE_CLANS]
 const CATALOG_VERSION: int = 1
 const DEFINITIONS: Dictionary = {
 	Civilization.CROWNLANDS: {
-		"name": "Bellwick",
-		"tagline": "Bell-founders and millwrights",
-		"description": "A market town built around a bell foundry. Each spring its guilds repair the bridge before sending anyone to war. Its militia carry broad shields; its masons build to last.",
+		"name": "French",
+		"tagline": "Slate roofs and market mornings",
+		"description": "Blue slate roofs rise over pale stone workshops. Bread cools beside the oven; a cooper rolls a barrel into the market. Blue surcoats and a single fleur-de-lis gather this small French town’s defenders.",
 		"strengths": "Balanced armies · full-strength defenses",
 		"weakness": "No specialized economy or signature-unit bonus",
 		"signature": "Flexible combined arms",
@@ -22,9 +23,9 @@ const DEFINITIONS: Dictionary = {
 		"unit_overrides": {},
 	},
 	Civilization.VERDANT_LEAGUE: {
-		"name": "Alderfen",
-		"tagline": "Reed-cutters and bowyers",
-		"description": "Three timber hamlets share a raised road through the alder marsh. Bowyers season their staves for years and cut a maker’s notch into every bow. Their strength travels on foot; their few horses travel light.",
+		"name": "English",
+		"tagline": "Thatched cottages and yew bows",
+		"description": "Warm timber frames and ochre thatch shelter a village green. A bowyer checks a long yew stave while woollen hoods dry by the door. Dusty red cloth and a little rose badge identify the English company.",
 		"strengths": "+20% wood gathering · Longbows have +1 range",
 		"weakness": "Longbows: 30 HP · Horsemen: 65 HP",
 		"signature": "Longbow — long range, fragile at close quarters",
@@ -39,9 +40,9 @@ const DEFINITIONS: Dictionary = {
 		},
 	},
 	Civilization.SUNSTRIDE_CLANS: {
-		"name": "Redbank",
-		"tagline": "Orchard keepers and caravan riders",
-		"description": "Kilns line the old riverbed; orchard walls catch the evening shade. Families lend mounts to the harvest caravans, and those same riders defend the road. They travel light and cannot hold a long siege.",
+		"name": "Mongols",
+		"tagline": "Felt homes and well-kept saddles",
+		"description": "Round felt gers cluster beside timber workshops and a small millet field. Saddle blankets air on a rail; a rider tightens a deel’s sash. Sage cloth and a horsehair standard give this Mongol frontier camp its identity.",
 		"strengths": "+15% food gathering · faster Outriders",
 		"weakness": "Outriders: 70 HP · buildings: −20% HP",
 		"signature": "Outrider — swift flanking cavalry",

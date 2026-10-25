@@ -115,7 +115,7 @@ func _field_gallery() -> void:
 		var overlay := CanvasLayer.new()
 		add_child(overlay)
 		_label(overlay, "THREE KINGDOMS  /  ARCHERS + CAVALRY AT FIELD SCALE", Vector2(18, 12), 17)
-		_label(overlay, "Crownlands                       Verdant League                       Sunstride Clans", Vector2(135, 50), 16)
+		_label(overlay, "French                                 English                                  Mongols", Vector2(135, 50), 16)
 		_label(overlay, "Home above · opponent below · signature equipment retains the shared company materials", Vector2(18, 342), 13)
 		for phone: Vector2i in [Vector2i(844, 390), Vector2i(932, 430)]:
 			get_window().size = phone

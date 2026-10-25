@@ -32,6 +32,10 @@ func _ready() -> void:
 
 func _run() -> void:
 	AudioManager.set_all_enabled(false)
+	# This fixture asserts baseline HP (including 80-HP cavalry). A saved
+	# English/Mongol opponent preference otherwise changes it before any hit.
+	GameManager.selected_civilization = CivilizationData.Civilization.CROWNLANDS
+	GameManager.selected_opponent_civilization = CivilizationData.Civilization.CROWNLANDS
 	GameManager.initialize_game(2)
 	get_tree().current_scene = null
 	_test_shared_role_data()

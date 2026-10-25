@@ -1,11 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 64 64">
-<title>Alderfen — the bowyer’s alder</title>
-<path d="M13 6 49 5 56 13 54 41Q47 53 32 59 17 53 10 41L8 14Z" fill="#293f33" stroke="#a2b58a" stroke-width="2.2"/>
-
-<path d="M16 15q21 0 29 18-1 13-11 19" fill="none" stroke="#d9bf86" stroke-width="3" stroke-linecap="round"/>
-<path d="m16 15 18 37" fill="none" stroke="#ede6ce" stroke-width="1.2"/>
-<path d="m20 46 18-25" fill="none" stroke="#bacb9a" stroke-width="2.3" stroke-linecap="round"/>
-<path d="M28 34q-12-2-10-12 12-1 10 12Zm5-7q0-11 12-10-1 11-12 10Z" fill="#a2b58a" stroke="#203629" stroke-width="1"/>
-<path d="m25 38 4 3m-2-6 4 3" stroke="#ede6ce" stroke-width="1.2"/>
-<path d="m16 49 7-1m17-37 5-1" stroke="#78966b" stroke-width="1.3"/>
+<title>English — the village rose</title>
+<path d="M14 7Q31 4 49 8L53 15 51 38Q46 50 32 57 18 51 12 39L10 16Z" fill="#e0d1ae" stroke="#998767" stroke-width="2.1" stroke-linejoin="round"/>
+<path d="M16 11Q32 8 47 12L49 17" fill="none" stroke="#f0e5cc" stroke-width="2" stroke-linecap="round"/>
+<path d="m32 16 4 9 11-1-6 10 4 10-11-3-9 7-1-12-9-6 12-4Z" fill="#8d9b76"/>
+<path d="M32 20C24 13 19 23 23 28 12 29 16 41 25 38 24 49 37 49 39 40 47 45 53 32 43 28 47 19 37 15 32 20Z" fill="#b66f63" stroke="#95584e" stroke-width="1.3" stroke-linejoin="round"/>
+<path d="M25 23Q28 20 30 23M20 33Q21 30 24 31M28 41Q29 44 32 42" fill="none" stroke="#d29787" stroke-width="1.7" stroke-linecap="round"/>
+<circle cx="32" cy="32" r="5" fill="#ddbc7b"/>
+<circle cx="31" cy="31" r="2" fill="#edd3a1"/>
 </svg>

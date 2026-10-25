@@ -1,6 +1,6 @@
 class_name KingdomArt
 extends RefCounted
-## Presentation-only catalog. Civilization selects the miniature's equipment and
+## Presentation-only catalog. Civilization selects the illustration's equipment and
 ## architecture; local ownership is shown separately by field markers.
 
 const ROOT := "res://assets/kingdoms/"

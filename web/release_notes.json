@@ -1,6 +1,19 @@
 {
   "releases": [
     {
+      "id": "2026-10-24-painted-civilizations",
+      "date": "2026-10-24",
+      "version": "0.3.0-beta.6",
+      "title": "A gentler little world",
+      "summary": "English, French and Mongol villages, painted to belong in the landscape.",
+      "changes": [
+        "All eighteen units and thirty buildings now use soft illustrated shapes, quiet colors and clear silhouettes. English timber and thatch, French limestone and slate, and Mongol felt gers each bring their own everyday details.",
+        "New crests and a painted village welcome you to the game. Portraits, recruitment cards, building cards and construction previews share the same civilization artwork.",
+        "Workers keep their feet planted as they chop, hoe and build; tools follow their hands. Infantry, bowmen, riders and siege engines have gentler windup and recovery poses, with reduced-motion options preserved.",
+        "Existing civilization bonuses, costs, health, damage, movement, collision, gathering speed, combat timing, maps and victory rules are unchanged."
+      ]
+    },
+    {
       "id": "2026-10-24-settled-kingdoms",
       "date": "2026-10-24",
       "version": "0.3.0-beta.5",

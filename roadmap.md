@@ -2,20 +2,13 @@
 
 ## Current checkpoint October 24 2026
 
-The owner authorized a further bounded pass after beta4: fix the redundant kingdom selector, open up the maps and their finite resources, give the kingdoms original local histories and crafts, and animate work and combat. The published beta5 release is documented in [Room to settle](docs/settlements_maps_actions_2026-10-24.md).
+The owner authorized a bounded art redesign, verification, GitHub publication and matching service release. Beta6 **A gentler little world** replaces all 18 unit and 30 building sprites with soft illustrated French, English and Mongol identities, shared by portraits, recruitment, construction previews and cards. Crests, app icon and menu/welcome art follow the same direction. Work poses keep planted feet and attached tools; travel and combat motion are restrained. See [the art and release record](docs/illustrated_civilizations_2026-10-24.md).
 
-- One player kingdom selector; reproducible contrasting solo rival; stale/repeated picker confirmations handled.
-- Bellwick, Alderfen and Redbank, with authored local histories and new high-resolution vector crests. Stable civilization IDs and balance are preserved.
-- 88x88 maps with larger home clearings, stocked expansion compounds and nine-wide routes kept clear of resources. Base separation remains unchanged.
-- Farming, chopping, berry picking, mining, building and role-specific attack poses across all three settlements, including bounded online replica presentation and accessibility settings.
+All balance values, stable IDs, collision footprints, maps, gathering and combat clocks, network protocol 4/map catalog 3 and the 180-second armed Sacred rule are preserved. Local visual/gameplay regression checks passed, including the repaired recruitment dock. Matching publication is pending at this saved implementation checkpoint; the currently published beta5 source is `f905d4a7bce8b83975dcb8091e8c7c8ae47185c8`.
 
-**Beta5 is live:** source `f905d4a7bce8b83975dcb8091e8c7c8ae47185c8`. Focused checks, reproducible exports, Linux smoke, guarded restart, public HTTP/server verification and bounded browser construction/startup checks passed. Beta4 remains available for rollback. The paid-policy match hit its declared wall limit and is recorded only as partial evidence; full-match pacing and physical-phone performance are unproven. Beta5 requires protocol 4/map catalog 3 because the terrain generated from a seed changed. This is separate from the rejected six-minute scoring experiment; the existing 180-second armed Sacred rule is retained.
+This pass ends after the matching build, dedicated game-service restart and public verification. Save completed checkpoints and retain the previous working release for rollback. Check active matches immediately before replacement. Do not start an open-ended development loop.
 
-After this checkpoint, priorities remain the late idle-browser WebGL error, real-phone readability/control/performance checks, terrain/HUD art coherence and recovery after losing an army. The desired ordinary game is around 11 minutes, with an average up to 14 and 20 exceptional; that target remains unproven.
-
-At every completed, verified implementation checkpoint: update this roadmap/handoff, commit and push to GitHub, deploy the matching build and restart the dedicated game service when safe, then check public health. Check active matches before replacement. Preserve a working rollback. Do not resume an open-ended development loop without the owner's next instruction.
-
-Beta3 recovery and the published beta4 artwork remain recorded in [the recovery handoff](docs/recovery_handoff_2026-10-24.md) and [miniature release record](docs/kingdom_miniatures_2026-10-24.md).
+Remaining priorities: physical-phone readability/control/performance; the late idle-browser WebGL error; recovery after losing an army; full-match pacing. The ordinary-game target of roughly 11 minutes remains unproven. Prior releases: [beta5](docs/settlements_maps_actions_2026-10-24.md), [beta4](docs/kingdom_miniatures_2026-10-24.md), [recovery handoff](docs/recovery_handoff_2026-10-24.md).
 
 ## Historical roadmap
 

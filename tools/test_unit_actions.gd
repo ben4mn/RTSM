@@ -51,10 +51,12 @@ func _check_worker(resource: String) -> void:
 	_check(is_equal_approx(work.y, 0.55), "Work phase uses authoritative gather timer")
 	_check(worker.carried_amount == 0, "Anticipation earns no premature resource")
 	worker._update_sprite_motion(0.0)
+	_check_work_attachment(worker)
 	var preparation: Transform2D = worker._sprite.transform
 	var children: int = worker.get_child_count()
 	worker._process_gathering(period * 0.45)
 	worker._update_sprite_motion(0.0)
+	_check_work_attachment(worker)
 	_check(worker.carried_amount == 1, "Exactly one unchanged harvest at release")
 	_check(not preparation.is_equal_approx(worker._sprite.transform), "Lift and contact poses visibly differ")
 	var cargo: int = worker.carried_amount
@@ -103,11 +105,26 @@ func _check_farm() -> void:
 	worker._process_gathering(period * 0.55)
 	_check(int(worker.get_work_presentation().x) == UnitActionPresentation.Action.FARM, "Actual Farm uses a hoe, distinct from a food ResourceNode")
 	worker._update_sprite_motion(0.0)
+	_check_work_attachment(worker)
 	_check(worker._action_presentation.action == UnitActionPresentation.Action.FARM, "Farm pose reaches renderer")
+	# Mirroring the drawing must preserve its grip, not mirror the work target
+	# or alter resource ownership. Check actual transformed sleeve coordinates.
+	worker._sprite.flip_h = true
+	worker._update_sprite_motion(0.0)
+	_check_work_attachment(worker)
 	worker._process_gathering(period * 0.45)
 	_check(worker.carried_amount == 1, "Farm still yields only on the unchanged gather tick")
 	worker.free()
 	farm.free()
+
+
+func _check_work_attachment(worker: Villager) -> void:
+	_check(worker._sprite.position.is_zero_approx(), "Working feet stay planted at the unit origin")
+	var facing: float = -1.0 if worker._sprite.flip_h else 1.0
+	var sleeve := Vector2(0.0, -13.0)
+	var body_sleeve: Vector2 = worker._sprite.to_global(sleeve * Vector2(facing, 1.0) / worker._sprite_rest_scale)
+	var tool_sleeve: Vector2 = worker._action_presentation.to_global(sleeve)
+	_check(body_sleeve.distance_to(tool_sleeve) < 0.01, "Tool sleeve follows body bend and mirrored facing")
 
 
 func _check_attack(role: int) -> void:

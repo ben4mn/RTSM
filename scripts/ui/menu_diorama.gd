@@ -1,5 +1,5 @@
 extends Control
-## A quiet miniature kingdom, shared with the web welcome screen.
+## A quiet illustrated village, shared with the web welcome screen.
 ## Static artwork needs no per-frame redraw or terrain generation in the menu.
 
 const HERO_PNG := "res://assets/ui/kingdom_company_v2.png"

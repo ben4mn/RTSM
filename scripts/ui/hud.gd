@@ -3374,7 +3374,9 @@ func _update_train_buttons(trainable_units: Array) -> void:
 		var icon_path: String = UnitData.get_unit_icon_path(ut, 0)
 		if icon_path != "" and ResourceLoader.exists(icon_path):
 			btn.icon = load(icon_path)
-			btn.expand_icon = false
+			# Portraits have different aspect ratios. Fit both axes inside the
+			# fixed card so a tall villager cannot grow the entire dock offscreen.
+			btn.expand_icon = true
 			btn.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER if compact_producer else HORIZONTAL_ALIGNMENT_LEFT
 			btn.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP if compact_producer else VERTICAL_ALIGNMENT_CENTER
 			btn.add_theme_constant_override("icon_max_width", 24 if compact_producer else 26)

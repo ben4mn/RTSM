@@ -1052,8 +1052,8 @@ func _update_sprite_motion(delta: float) -> void:
 			sprite_offset.y = -absf(stride) * 0.35
 			_sprite.rotation = stride * 0.006
 		else:
-			sprite_offset.y = -absf(stride) * (1.6 if mounted else 2.0)
-			_sprite.rotation = stride * (0.014 if mounted else 0.025)
+			sprite_offset.y = -absf(stride) * (0.9 if mounted else 1.0)
+			_sprite.rotation = stride * (0.010 if mounted else 0.018)
 	var work: Vector3 = get_work_presentation()
 	var action: int = int(work.x)
 	var phase: float = work.y
@@ -1081,6 +1081,10 @@ func _update_sprite_motion(delta: float) -> void:
 			_sprite.scale = _sprite_rest_scale * Vector2(1.0 + pose.w * 0.35, 1.0 - pose.w)
 	_action_presentation.position = sprite_offset
 	_action_presentation.present(action, phase, _art_civilization, facing, GameManager.reduced_motion, GameManager.reduced_flashes)
+	# Tools share the body's foot pivot and small bend. Translating the overlay
+	# alone detached a worker's hands as the illustrated body leaned forward.
+	_action_presentation.rotation = _sprite.rotation
+	_action_presentation.scale = Vector2(facing, 1.0) * (_sprite.scale / _sprite_rest_scale)
 	_sprite.position = sprite_offset
 
 

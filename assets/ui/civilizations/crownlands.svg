@@ -1,11 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 64 64">
-<title>Bellwick — the bridge bell</title>
-<path d="M13 6 49 5 56 13 54 41Q47 53 32 59 17 53 10 41L8 14Z" fill="#224247" stroke="#d6b675" stroke-width="2.2"/>
-
-<path d="m14 15 2 23q5 9 16 15 11-5 16-15l2-23" fill="none" stroke="#78928a" stroke-width="1"/>
-<path d="M25 17q0-5 7-5t7 5l2 17 5 5H18l5-5Z" fill="#d6b675" stroke="#142e32" stroke-width="2" stroke-linejoin="round"/>
-<path d="M29 18v12m-3 5h13" fill="none" stroke="#f3dfaf" stroke-width="2.4" stroke-linecap="round"/>
-<path d="M29 41q3 5 6 0" fill="none" stroke="#d6b675" stroke-width="3"/>
-<path d="M19 46h26M22 49v-3m20 3v-3" fill="none" stroke="#e9e1ca" stroke-width="2" stroke-linecap="round"/>
-<path d="m17 10 3 1m25 29 3 1" stroke="#f3dfaf" stroke-width="1.2"/>
+<title>French — the blue lily</title>
+<path d="M14 7Q31 4 49 8L53 15 51 38Q46 50 32 57 18 51 12 39L10 16Z" fill="#829caf" stroke="#536e82" stroke-width="2.1" stroke-linejoin="round"/>
+<path d="M16 11Q32 8 47 12L49 17" fill="none" stroke="#a8b9c3" stroke-width="2" stroke-linecap="round"/>
+<path d="M32 14Q22 24 29 33L27 39H37L35 33Q42 24 32 14Z" fill="#e6d5a1"/>
+<path d="M28 36Q15 34 18 25 20 21 25 25L30 34M36 36Q49 34 46 25 44 21 39 25L34 34" fill="#e6d5a1"/>
+<path d="M25 37Q32 35 39 37M27 42Q32 48 37 42" fill="none" stroke="#eadab0" stroke-width="3.3" stroke-linecap="round"/>
+<path d="M31 20 30 28M20 27 23 29" stroke="#f2e6c5" stroke-width="1.4" stroke-linecap="round"/>
 </svg>
