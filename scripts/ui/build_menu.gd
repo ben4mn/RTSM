@@ -53,7 +53,7 @@ const BUILDING_CATEGORIES: Dictionary = {
 	"Defence": [BuildingData.BuildingType.WATCH_TOWER],
 }
 const BUILDING_PURPOSES: Dictionary = {
-	BuildingData.BuildingType.HOUSE: "+10 population",
+	BuildingData.BuildingType.HOUSE: "Housing for your growing town",
 	BuildingData.BuildingType.FARM: "Unlimited food · 1 worker",
 	BuildingData.BuildingType.RESOURCE_CAMP: "All resource drop-off",
 	BuildingData.BuildingType.TOWN_CENTER: "Train workers",
@@ -475,6 +475,9 @@ func _format_button_text(stats: Dictionary, age_locked: bool, building_type: int
 		lines.append(_get_age_requirement_text(int(stats.get("age_required", 0))).trim_prefix("Requires "))
 	elif building_type == BuildingData.BuildingType.FARM:
 		lines.append("Unlimited food")
+	elif building_type == BuildingData.BuildingType.HOUSE:
+		var housing: Dictionary = _housing_gain(stats)
+		lines.append("Limit %d reached" % housing.limit if housing.gain == 0 else "+%d housing" % housing.gain)
 	return "\n".join(lines)
 
 
@@ -516,7 +519,15 @@ func _format_tooltip(stats: Dictionary, building_type: int) -> String:
 	if building_type == BuildingData.BuildingType.FARM:
 		lines.append("One worker per Farm. Food must be carried to a Town Center or Resource Camp.")
 	if stats.get("pop_provided", 0) > 0:
-		lines.append("Provides: +%d population" % stats["pop_provided"])
+		var housing: Dictionary = _housing_gain(stats)
+		lines.append("Housing: %d / %d match limit" % [housing.cap, housing.limit])
+		if housing.gain > 0:
+			lines.append("Adds up to %d housing when complete." % housing.gain)
+		else:
+			lines.append("Match limit reached. More Houses cannot raise it during this match.")
+			lines.append("Extra housing is a reserve if another House is destroyed.")
+		if housing.limit < SkirmishData.POPULATION_OPTIONS.max():
+			lines.append("Choose a higher population limit in the next match's More options.")
 	var drop_off: Array = stats.get("drop_off", [])
 	if drop_off.size() > 0:
 		lines.append("Drop-off: %s" % ", ".join(PackedStringArray(drop_off)))
@@ -531,6 +542,20 @@ func _format_tooltip(stats: Dictionary, building_type: int) -> String:
 	if stats.get("attack_damage", 0) > 0:
 		lines.append("Attack: %d (Range: %d)" % [stats["attack_damage"], stats.get("attack_range", 0)])
 	return "\n".join(lines)
+
+
+func _housing_gain(stats: Dictionary) -> Dictionary:
+	var gm: Node = get_node_or_null("/root/GameManager")
+	var limit: int = gm.get_player_population_limit(player_owner) if gm else SkirmishData.DEFAULT_POPULATION_LIMIT
+	var cap: int = int(gm.players.get(player_owner, {}).get("population_cap", 0)) if gm else 0
+	return {"cap": cap, "limit": limit, "gain": mini(int(stats.get("pop_provided", 0)), maxi(0, limit - cap))}
+
+
+func refresh_housing_capacity() -> void:
+	# House completion/destruction can change capacity without changing stock.
+	# Refresh the open sheet immediately instead of waiting for resource income.
+	if visible and is_node_ready():
+		_refresh_affordability()
 
 
 # --- Affordability ---

@@ -149,7 +149,7 @@ var _camera_zoom_current: float = 1.0
 var _camera_zoom_min: float = 0.5
 var _camera_zoom_max: float = 2.5
 var _match_population_label: Label = null
-var _match_population_limit: int = 30
+var _match_population_limit: int = SkirmishData.DEFAULT_POPULATION_LIMIT
 var _mobile_notification_limit: int = MAX_NOTIFICATIONS
 var _game_speed_index: int = 1  # 0=0.5x, 1=1x, 2=2x
 
@@ -663,7 +663,7 @@ func set_area_selection_armed(armed: bool) -> void:
 	_area_selection_armed = armed
 	if _select_area_button:
 		_select_area_button.set_pressed_no_signal(armed)
-		CommandIcons.apply_labeled(_select_area_button, "select_area", "Drag to select; tap again to cancel" if armed else "Select area", "Select")
+		CommandIcons.apply(_select_area_button, "select_area", "Drag to select; tap again to cancel" if armed else "Select area")
 	set_progression_hint("Drag to select" if armed else "")
 	_queue_mobile_layout_refresh()
 
@@ -694,7 +694,7 @@ func _create_match_population_label() -> void:
 	top_bar_hbox.move_child(_match_population_label, pop_label.get_index() + 1)
 	pop_label.tooltip_text = "Current population / housing capacity. Build Houses for more room, up to the match limit."
 	var gm: Node = _get_game_manager()
-	set_match_population_limit(int(gm.call("get_match_population_limit")) if gm and gm.has_method("get_match_population_limit") else 30)
+	set_match_population_limit(int(gm.call("get_match_population_limit")) if gm and gm.has_method("get_match_population_limit") else SkirmishData.DEFAULT_POPULATION_LIMIT)
 
 
 func set_match_population_limit(limit: int) -> void:
@@ -803,13 +803,12 @@ func _refresh_command_icons() -> void:
 	for entry: Array in definitions:
 		var button: Button = entry[0]
 		if is_instance_valid(button):
-			var captions: Dictionary = {"pause": "Menu", "resume": "Resume", "view": "View", "select_area": "Select", "back": "Back", "move": "Move", "attack": "Attack", "more": "Orders", "clear": "Clear", "build": "Build", "close": "Close"}
-			# Familiar utility glyphs need no permanent word. Orders retain their
-			# captions, and every control is covered by tap-access Field Guide.
-			if entry[1] in ["clear", "back", "close"]:
-				CommandIcons.apply(button, entry[1], entry[2])
+			# Familiar field glyphs can be learned through the tap-access Guide.
+			# Only the ambiguous overflow action needs a permanent caption here.
+			if entry[1] == "more":
+				CommandIcons.apply_labeled(button, entry[1], entry[2], "Orders")
 			else:
-				CommandIcons.apply_labeled(button, entry[1], entry[2], captions.get(entry[1], ""))
+				CommandIcons.apply(button, entry[1], entry[2])
 			FieldStyle.soften(button, 24 if entry[1] in ["clear", "back", "close", "more", "pause", "resume"] else 12, button != build_menu_button)
 			button.custom_minimum_size = Vector2(48.0, 48.0)
 			button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -818,8 +817,8 @@ func _refresh_command_icons() -> void:
 		[_camera_zoom_out_button, "zoom_out", "Zoom out", ""],
 		[_camera_zoom_in_button, "zoom_in", "Zoom in", ""],
 		[_camera_zoom_reset_button, "reset", "Reset zoom", "Reset"],
-		[_camera_center_button, "center", "Center selection", "Center"],
-		[_unit_stop_button, "stop", "Stop selected units", "Stop"],
+		[_camera_center_button, "center", "Center selection", ""],
+		[_unit_stop_button, "stop", "Stop selected units", ""],
 		[_unit_patrol_button, "patrol", "Patrol between two points", "Patrol"],
 		[_unit_stance_button, "stance", _unit_stance_button.tooltip_text.trim_suffix(" [G]"), "Guard" if _unit_stance_button.button_pressed else "Aggro"],
 		[_worker_idle_button, "idle", "Find idle worker", "Idle"],
@@ -831,7 +830,7 @@ func _refresh_command_icons() -> void:
 			button.vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER
 			button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER if String(entry[3]).is_empty() else HORIZONTAL_ALIGNMENT_LEFT
 			button.alignment = HORIZONTAL_ALIGNMENT_CENTER if String(entry[3]).is_empty() else HORIZONTAL_ALIGNMENT_LEFT
-			button.custom_minimum_size = Vector2(48.0 if String(entry[3]).is_empty() else 80.0, 48.0)
+			button.custom_minimum_size = Vector2(48.0 if entry[1] in ["zoom_in", "zoom_out"] else 80.0, 48.0)
 			button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			button.add_theme_constant_override("icon_max_width", 24 if String(entry[3]).is_empty() else 20)
 			button.add_theme_font_size_override("font_size", 11)
@@ -2511,9 +2510,10 @@ func update_population(current: int, cap: int) -> void:
 	var population_chip: Control = _resource_chips.get("population")
 	if population_chip != null:
 		(population_chip.get_node("ResourceIcon") as TextureRect).modulate = population_color
+	var current_age: String = ""
 	if _top_bar_compact:
 		var gm: Node = _get_game_manager()
-		var current_age: String = gm.get_age_name(gm.get_player_age(0)) if gm else "Dark Age"
+		current_age = gm.get_age_name(gm.get_player_age(0)) if gm else "Dark Age"
 		if _resource_grid_compact:
 			var age_index: int = clampi(gm.get_player_age(0) if gm else 1, 1, 4)
 			pop_label.text += " · " + ["I", "II", "III", "IV"][age_index - 1]
@@ -2521,6 +2521,20 @@ func update_population(current: int, cap: int) -> void:
 			pop_label.text += "\n" + current_age
 		pop_label.tooltip_text += " · " + current_age
 		pop_label.accessibility_name = pop_label.tooltip_text
+	# Distinguish housing (raised by Houses) from the agreed match maximum.
+	# The compact resource grid has only two rows; keep its Age numeral inline.
+	if _resource_grid_compact:
+		var gm: Node = _get_game_manager()
+		var age_index: int = clampi(gm.get_player_age(0) if gm else 1, 1, 4)
+		pop_label.text = "%d/%d · Max%d · %s" % [current, cap, _match_population_limit, ["I", "II", "III", "IV"][age_index - 1]]
+		pop_label.add_theme_font_size_override("font_size", 12)
+	elif _top_bar_compact:
+		var gm: Node = _get_game_manager()
+		var age_index: int = clampi(gm.get_player_age(0) if gm else 1, 1, 4)
+		pop_label.text = "%d/%d\nMax%d · %s" % [current, cap, _match_population_limit, ["I", "II", "III", "IV"][age_index - 1]]
+		pop_label.add_theme_font_size_override("font_size", 14)
+	else:
+		pop_label.text += "\nMax %d" % _match_population_limit
 
 
 func _population_information() -> Dictionary:
@@ -2529,12 +2543,14 @@ func _population_information() -> Dictionary:
 	var living: int = int(player.get("population", _population_current))
 	var reserved: int = maxi(0, _population_current - living)
 	var limit: int = gm.get_player_population_limit(0) if gm != null else _match_population_limit
-	var lines: PackedStringArray = ["Population: %d of %d" % [_population_current, _population_cap], "%d living · %d paid in queues" % [living, reserved]]
+	var lines: PackedStringArray = ["Population: %d of %d housing" % [_population_current, _population_cap], "%d living · %d paid in queues" % [living, reserved], "Match maximum: %d per player" % limit]
 	if _population_current >= _population_cap:
 		if _population_cap < limit:
 			lines.append("Housing full. Build a House to add room.")
 		else:
-			lines.append("Match population limit reached.")
+			lines.append("Match population limit reached. More Houses cannot raise this limit.")
+			if limit < SkirmishData.POPULATION_OPTIONS.max():
+				lines.append("For a larger next match, choose More options in game setup.")
 		if living < _population_cap:
 			lines.append("Cancel a paid unit in Queue to free its reserved room.")
 		elif _population_cap >= limit:
@@ -4101,18 +4117,7 @@ func _create_hotkey_panel() -> void:
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title)
 	# Ordinary tap-access rows teach symbols without a hover or long press.
-	for entry: Array in [
-		["move", "Move", "Tap a destination. Units travel there."],
-		["attack", "Attack-move", "Armed units fight enemies along the way."],
-		["build", "Build", "Choose a card, preview ground, then Place."],
-		["queue", "Queue", "See paid training. Gold lines mark active progress; Undo refunds a unit."],
-		["repeat", "Repeat", "ON trains the last chosen unit when able."],
-		["stance", "Stance", "Guard holds ground. Aggro pursues."],
-		["info", "Info", "Tap the selection summary for costs and roles."],
-		["food", "F · Food", "Workers and recruitment."],
-		["wood", "W · Wood", "Buildings and equipment."],
-		["gold", "G · Gold", "Specialist units and advancement."],
-	]:
+	for entry: Array in preload("res://scripts/ui/field_guide.gd").ENTRIES:
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 10)
 		row.custom_minimum_size.y = 48

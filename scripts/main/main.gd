@@ -3592,6 +3592,8 @@ func _update_population_display() -> void:
 	var pop: int = GameManager.get_committed_population(0)
 	var cap: int = GameManager.players[0].get("population_cap", 5)
 	hud.update_population(pop, cap)
+	if is_instance_valid(_build_menu):
+		_build_menu.refresh_housing_capacity()
 
 
 func _count_player_buildings_of_type(player_id: int, building_type: int) -> int:

@@ -50,7 +50,7 @@ func _run() -> void:
 	AudioManager.stop_all()
 	await get_tree().create_timer(0.15, true).timeout
 	if _failures.is_empty():
-		print("[PASS] audio_settings: 12 phone/safe-area layouts × 3 tabs, routed wheel containment/scrolling, live preferences/reload/reset, real paused selection/camera, fog, voice bounds, mute/background lifecycle")
+		print("[PASS] audio_settings: 12 phone/safe-area layouts × 4 tabs, expandable Guide, routed wheel containment/scrolling, live preferences/reload/reset, real paused selection/camera, fog, voice bounds, mute/background lifecycle")
 		get_tree().quit(0)
 	else:
 		for failure: String in _failures: push_error("[FAIL] audio_settings: " + failure)
@@ -77,7 +77,7 @@ func _check_layout(physical: Vector2, scale_value: float, notched: bool) -> void
 	var safe := Rect2(Vector2.ZERO, logical)
 	if notched: safe = Rect2(Vector2(44.0 / scale_value, 0), logical - Vector2(88.0 / scale_value, 18.0 / scale_value))
 	panel.call("apply_mobile_layout", logical, safe)
-	for section: int in 3:
+	for section: int in 4:
 		panel.call("_show_section", section)
 		await get_tree().process_frame
 		await get_tree().process_frame
@@ -101,12 +101,16 @@ func _check_layout(physical: Vector2, scale_value: float, notched: bool) -> void
 			pan.item_selected.emit(2)
 			_expect(is_equal_approx(GameManager.camera_speed_scale, 1.25), "pan preference has no behavior value")
 		if section == 3:
-			var quick: Button = panel.find_child("QuickRulesButton", true, false)
-			var standard: Button = panel.find_child("StandardRulesButton", true, false)
-			await _pointer_button(viewport, quick.get_global_rect().get_center(), MOUSE_BUTTON_LEFT)
-			_expect(GameManager.selected_match_mode == SkirmishData.MatchMode.QUICK_CONTROL and quick.button_pressed, "dispatched quick rule choice " + suffix)
-			await _pointer_button(viewport, standard.get_global_rect().get_center(), MOUSE_BUTTON_LEFT)
-			_expect(GameManager.selected_match_mode == SkirmishData.MatchMode.STANDARD and standard.button_pressed, "dispatched standard rule choice " + suffix)
+			var entry: Control = panel.find_child("Guide_move", true, false)
+			var learn: Button = entry.get_node("LearnButton")
+			var explanation: Label = entry.get_node("Explanation")
+			_expect(not explanation.visible and learn.icon != null, "Guide starts folded with visible icon " + suffix)
+			await _pointer_button(viewport, learn.get_global_rect().get_center(), MOUSE_BUTTON_LEFT)
+			_expect(explanation.visible and explanation.text.contains("destination"), "tap opens Guide explanation " + suffix)
+			await _pointer_button(viewport, learn.get_global_rect().get_center(), MOUSE_BUTTON_LEFT)
+			_expect(not explanation.visible, "tap folds Guide explanation " + suffix)
+			for tab: Button in panel.get("_tabs"):
+				_expect(card.get_global_rect().encloses(tab.get_global_rect()) and tab.size.x >= 48, "four Guide tabs fit " + suffix)
 	panel.free()
 	viewport.free()
 
@@ -252,6 +256,11 @@ func _check_match_state() -> void:
 		await _wheel(get_viewport(), scroll.get_global_rect().get_center(), MOUSE_BUTTON_WHEEL_DOWN if bottom else MOUSE_BUTTON_WHEEL_UP)
 		_expect(camera.zoom.is_equal_approx(zoom_before), "paused settings boundary wheel changed camera zoom")
 	await _wheel(get_viewport(), panel.find_child("SettingsDoneButton", true, false).get_global_rect().get_center(), MOUSE_BUTTON_WHEEL_UP)
+	panel.call("_show_section", 3)
+	await get_tree().process_frame
+	var guide: Button = panel.find_child("Guide_move", true, false).get_node("LearnButton")
+	await _pointer_button(get_viewport(), guide.get_global_rect().get_center(), MOUSE_BUTTON_LEFT)
+	_expect(guide.button_pressed and get_tree().paused, "learning an icon must preserve pause")
 	panel.call("close")
 	await get_tree().process_frame
 	_expect(get_tree().paused and GameManager.current_state == GameManager.GameState.PAUSED, "settings resumed match")

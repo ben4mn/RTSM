@@ -193,7 +193,7 @@ func _profile(phone: Vector2i, scale_factor: float) -> void:
 	_expect(house.disabled and house.text.contains("Need %dW" % (house_cost - 15)), profile + " Build card shortage missing")
 	_expect(stable.disabled and stable.text.contains("Feudal Age") and not stable.text.contains("Need"), profile + " shortage hides age lock")
 	build_menu.call("update_resources", {"food": 10000, "wood": 10000, "gold": 10000})
-	_expect(not house.disabled and house.accessibility_name.contains("population") and not house.text.contains("Need"), profile + " affordability does not restore purpose")
+	_expect(not house.disabled and house.accessibility_name.contains("Housing:") and house.text.contains("housing") and not house.text.contains("Need"), profile + " affordability does not restore housing gain")
 	for frame: int in 3:
 		await get_tree().process_frame
 	fixture.free()

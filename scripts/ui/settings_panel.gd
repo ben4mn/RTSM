@@ -4,7 +4,7 @@ extends ColorRect
 signal closed()
 
 const THEME := preload("res://scripts/ui/kingdom_theme.gd")
-const SECTIONS: Array[String] = ["Audio", "Controls", "Display"]
+const SECTIONS: Array[String] = ["Audio", "Controls", "Display", "Guide"]
 const SCALE_VALUES: Array[float] = [1.0, 1.075, 1.15]
 const SENSITIVITY_VALUES: Array[float] = [0.75, 1.0, 1.25]
 var from_match: bool = false
@@ -170,6 +170,40 @@ func _show_section(index: int) -> void:
 		0: _build_audio()
 		1: _build_controls()
 		2: _build_display()
+		3: _build_guide()
+	_status.text = "Tap an icon to learn" if index == 3 else "Changes save automatically"
+	var reset: Button = find_child("ResetDefaultsButton", true, false) as Button
+	if reset != null:
+		reset.visible = index != 3
+
+
+func _build_guide() -> void:
+	_note("Tap any icon to learn its action. Tap again to fold it away.")
+	for entry: Array in preload("res://scripts/ui/field_guide.gd").ENTRIES:
+		var column := VBoxContainer.new()
+		column.name = "Guide_" + str(entry[0])
+		_body.add_child(column)
+		var button := Button.new()
+		button.name = "LearnButton"
+		CommandIcons.apply(button, entry[0], "Learn: " + str(entry[1]), entry[1])
+		button.toggle_mode = true
+		button.custom_minimum_size.y = 48
+		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		button.add_theme_font_size_override("font_size", 15)
+		column.add_child(button)
+		var explanation := Label.new()
+		explanation.name = "Explanation"
+		explanation.text = entry[2]
+		explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		explanation.add_theme_font_size_override("font_size", 14)
+		explanation.add_theme_color_override("font_color", THEME.PARCHMENT)
+		explanation.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		explanation.visible = false
+		column.add_child(explanation)
+		button.toggled.connect(func(expanded: bool) -> void:
+			explanation.visible = expanded
+			button.accessibility_name = ("Hide: " if expanded else "Learn: ") + str(entry[1])
+		)
 
 
 

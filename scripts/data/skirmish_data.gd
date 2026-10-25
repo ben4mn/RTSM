@@ -1,6 +1,6 @@
 class_name SkirmishData
 extends RefCounted
-## Small skirmish budgets for comparing mobile economy and army sizes.
+## Match budgets for comparing mobile economy and army sizes.
 ## Population counts workers and troops; cavalry/siege can consume extra slots.
 
 enum MatchMode { STANDARD, QUICK_CONTROL }
@@ -21,8 +21,9 @@ static func get_sacred_target(mode: int) -> float:
 	return SACRED_VICTORY_HOLD_SECONDS
 
 
-const POPULATION_OPTIONS: Array[int] = [20, 30, 40]
-const DEFAULT_POPULATION_LIMIT: int = 30
+const POPULATION_OPTIONS: Array[int] = [20, 30, 40, 60, 100]
+const DEFAULT_POPULATION_LIMIT: int = 100
+const POPULATION_PREFERENCE_VERSION: int = 1
 const REFERENCE_POPULATION_LIMIT: int = 40
 ## Castle unlocks the siege endgame. Imperial has no skirmish content yet.
 const MAX_AGE: int = 3
@@ -54,12 +55,23 @@ static func normalize_population_limit(value: int) -> int:
 	return value if value in POPULATION_OPTIONS else DEFAULT_POPULATION_LIMIT
 
 
+static func restore_population_limit(value: int, preference_version: int) -> int:
+	# Previous releases saved the implicit 30 default without recording whether
+	# it was an explicit choice. Promote that legacy value once; preserve other
+	# old custom sizes and every explicit choice saved by the new setup.
+	if preference_version < POPULATION_PREFERENCE_VERSION and value == 30:
+		return DEFAULT_POPULATION_LIMIT
+	return normalize_population_limit(value)
+
+
 static func get_economy_target(population_limit: int) -> int:
-	return maxi(4, int(population_limit / 2))
+	# Larger kingdoms leave room for armies instead of automatically assigning
+	# half the limit to workers. Smaller custom budgets retain their old split.
+	return clampi(int(population_limit / 2), 4, 30)
 
 
 static func get_easy_economy_target(population_limit: int) -> int:
-	return maxi(4, int(population_limit * 2 / 5))
+	return clampi(int(population_limit * 2 / 5), 4, 30)
 
 
 static func get_easy_fighter_target(population_limit: int) -> int:
