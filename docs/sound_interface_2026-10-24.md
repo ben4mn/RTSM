@@ -22,7 +22,7 @@ Both solo and authoritative online starts now spawn one Scout per owner through 
 
 The [resource and queue calculations](population_economy_2026-10-24.md) budget a 100-population army with 25 workers, the starting Scout and 74 fighters. It requires about 4,880 additional food, 3,970 wood and 60 gold after the opening bank, including nine Houses, fourteen Farms, three Camps and three production buildings. These are arithmetic estimates, not a promised build order or measured human pace.
 
-The normal match limit is now 100, with 20/30/40/60 still selectable. Housing starts at 15 and grows through paid Houses to the selected ceiling. House cards display the actual remaining gain, including the last five slots, and explain when the ceiling is reached. The population explanation separates housing from the match limit. Large-match AI targets at most 30 workers; the existing smaller-match targets are preserved. This is an explicit scaling adjustment, with no increase to gathering rates or unit strength.
+The normal match limit is now 100, with 20/30/40/60 still selectable. Housing starts at 15 and grows through paid Houses to the selected ceiling. House cards display the actual remaining gain, including the last five slots, and explain when the ceiling is reached. The population explanation separates housing from the match limit. The shared economy helper is capped at 30 workers, but a later branch audit confirmed that 100-population matches retain the pre-existing difficulty/age targets rather than calling that helper. See the corrected population analysis. No live large-match economy scaling adjustment, gathering-rate increase or unit-strength change is claimed.
 
 ## Verification scope
 

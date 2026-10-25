@@ -115,12 +115,17 @@ last siege purchases. Do not interpret this as a measured match duration.
 
 ## AI and performance constraints
 
-The old economy policy used half the population limit (40% on Easy). Extending
-that formula unchanged to 100 would aim for 50 workers, require 46 paid worker
-recruits and 9m12s of Town Center queue time, and leave only half the cap for an
-army. For the new large mode, capping the AI economy target around 25–30 is a
-reasonable policy adjustment to test; retain the old targets for small modes.
-It does not require changing unit costs, work rates, combat strength or timing.
+The compact-mode helper uses half the population limit (40% on Easy), capped
+at 30 workers. Extending an uncapped half-population formula to 100 would require
+46 paid worker recruits and 9m12s of Town Center queue time. That is a hypothetical
+budget, not the actual 100-population AI policy: the compact branch only runs
+below 80 population. Larger matches retain difficulty targets of 12/18/22 workers
+(Easy/Medium/Hard), plus two in Feudal and four more in Castle, adjusted for
+pressure and next-age workforce floors. Beta7 changed the shared helper cap but
+did not change those live large-match economy targets. The earlier statement
+that this implemented a new 25–30-worker large-match policy was inaccurate.
+The beta8 follow-up changes objective commitment only; economy tuning remains
+a separate question. Unit costs, work rates and training times are unchanged.
 
 The new occlusion observer does no work on the headless authority. On a rendered
 client it checks current visibility per unit each frame; screen/depth/spatial
