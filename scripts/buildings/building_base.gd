@@ -820,11 +820,11 @@ func _tower_try_attack() -> bool:
 		var u: UnitBase = node as UnitBase
 		if u.player_owner == player_owner:
 			continue
-		if not _is_tower_target_visible(u):
-			continue
 		if u.current_state == UnitBase.State.DEAD:
 			continue
 		var dist: float = global_position.distance_to(u.global_position)
+		if dist > tower_attack_range or not _is_tower_target_visible(u):
+			continue
 		var priority: int = _defensive_target_priority(u)
 		if dist <= tower_attack_range and (priority < best_unit_priority or (priority == best_unit_priority and dist < best_unit_dist)):
 			best_unit_dist = dist

@@ -69,6 +69,7 @@ func _run() -> void:
 			_expect(scouts.size() == 1, "repeated snapshot creates one own Scout for slot %d civ %d" % [slot, civilization])
 			_expect(int(GameManager.players[0].population) == 5, "replica keeps authoritative five population")
 			if scouts.size() == 1:
+				_expect(is_equal_approx(scouts[0].vision_radius, MapData.range_tiles_to_world(10.0)), "replica Scout preserves ten-tile vision")
 				_expect(not scouts[0].can_process() and scouts[0].player_owner == 0, "replica Scout stays inert and maps to local owner")
 				_expect(scouts[0].get("_sprite").texture.resource_path == KingdomArt.unit_path(GameManager.get_player_civilization(0), UnitData.UnitType.SCOUT), "replica Scout uses its civilization art")
 			_close_match(client)

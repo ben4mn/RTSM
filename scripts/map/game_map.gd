@@ -955,6 +955,17 @@ func _find_unoccluded_focus(subjects: Array[Rect2], field: Rect2, obstacles: Arr
 	return origin - best_pan / zoom if best_pan.is_finite() else Vector2(INF, INF)
 
 
+## Live broad-phase index. Exact predicates remain with their existing callers.
+var _live_unit_index: RefCounted = preload("res://scripts/map/live_unit_index.gd").new(self)
+
+func register_spatial_unit(unit: UnitBase) -> RefCounted:
+	_live_unit_index.update(unit)
+	return _live_unit_index
+
+func get_units_near(position: Vector2, radius: float) -> Array[UnitBase]:
+	return _live_unit_index.near(position, radius)
+
+
 ## --- Public API ---
 
 ## Convert a tile coordinate to world (pixel) position.
@@ -1179,31 +1190,9 @@ func get_visible_tiles_for_player(tile_positions: Array[Vector2i], viewer_player
 		return visible
 	if not is_inside_tree():
 		return visible
-	var sources: Dictionary = {}
-	for node: Node in get_tree().get_nodes_in_group("units"):
-		if not is_instance_valid(node) or not is_ancestor_of(node) or not node is UnitBase:
-			continue
-		var unit := node as UnitBase
-		if unit.player_owner == viewer_player_id and unit.current_state != UnitBase.State.DEAD:
-			var origin: Vector2i = world_to_tile(unit.global_position)
-			var radius: int = maxi(0, int(round(MapData.world_to_range_tiles(unit.vision_radius))))
-			sources[Vector3i(origin.x, origin.y, radius)] = true
-	for node: Node in get_tree().get_nodes_in_group("buildings"):
-		if not is_instance_valid(node) or not is_ancestor_of(node) or not node is BuildingBase:
-			continue
-		var building := node as BuildingBase
-		if building.player_owner == viewer_player_id and building.state != BuildingBase.State.DESTROYED:
-			var origin: Vector2i = world_to_tile(building.global_position)
-			var stats: Dictionary = BuildingData.get_building_stats(building.building_type)
-			sources[Vector3i(origin.x, origin.y, maxi(0, int(stats.get("vision_radius", 3))))] = true
 	for tile: Vector2i in tile_positions:
-		if tile.x < 0 or tile.y < 0 or tile.x >= MapData.MAP_WIDTH or tile.y >= MapData.MAP_HEIGHT:
-			continue
-		for source: Vector3i in sources:
-			var offset := tile - Vector2i(source.x, source.y)
-			if offset.x * offset.x + offset.y * offset.y <= source.z * source.z:
-				visible[tile] = true
-				break
+		if tile.x >= 0 and tile.y >= 0 and tile.x < MapData.MAP_WIDTH and tile.y < MapData.MAP_HEIGHT and _are_tiles_visible_from_live_sources([tile], viewer_player_id):
+			visible[tile] = true
 	return visible
 
 
@@ -1214,16 +1203,8 @@ func _are_tiles_visible_from_live_sources(
 	if target_tiles.is_empty() or not is_inside_tree():
 		return false
 
-	for node: Node in get_tree().get_nodes_in_group("units"):
-		if not is_instance_valid(node) or not is_ancestor_of(node) or not (node is UnitBase):
-			continue
-		var unit := node as UnitBase
-		if unit.player_owner != viewer_player_id or unit.current_state == UnitBase.State.DEAD:
-			continue
-		var unit_tile: Vector2i = world_to_tile(unit.global_position)
-		var unit_vision: int = int(round(MapData.world_to_range_tiles(unit.vision_radius)))
-		if _vision_circle_contains_any(unit_tile, unit_vision, target_tiles):
-			return true
+	for target_tile: Vector2i in target_tiles:
+		if _live_unit_index.units_reveal(target_tile, viewer_player_id): return true
 
 	for node: Node in get_tree().get_nodes_in_group("buildings"):
 		if not is_instance_valid(node) or not is_ancestor_of(node) or not (node is BuildingBase):

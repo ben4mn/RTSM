@@ -21,7 +21,7 @@ static func _nearest_unit(attacker: UnitBase, radius: float) -> UnitBase:
 	var nearest: UnitBase = null
 	var nearest_distance: float = radius
 	var best_priority: int = -1
-	for candidate: Node in attacker.get_tree().get_nodes_in_group("units"):
+	for candidate: Node in attacker.get_nearby_units(radius):
 		if not is_instance_valid(candidate) or not candidate is UnitBase or candidate == attacker:
 			continue
 		var unit: UnitBase = candidate as UnitBase

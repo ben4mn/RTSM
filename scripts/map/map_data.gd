@@ -77,7 +77,7 @@ const FOREST_MOVE_COST := 2.5
 const DEFAULT_VISION_RADIUS := 5
 
 ## Scout vision radius (in tiles).
-const SCOUT_VISION_RADIUS := 8
+const SCOUT_VISION_RADIUS := 10
 
 ## Tile color palette — used as fallback for procedural tiles and minimap.
 const TILE_COLORS: Dictionary = {

@@ -19,19 +19,28 @@ enum NavigationResult { MOVING, ARRIVED, UNREACHABLE }
 
 # --- Stats (overridden per unit type) ---
 @export var unit_type: int = UnitData.UnitType.VILLAGER
-@export var player_owner: int = 0
+@export var player_owner: int = 0:
+	set(value):
+		if player_owner != value and _live_unit_index != null: _live_unit_index.invalidate_vision()
+		player_owner = value
 @export var max_hp: float = 25.0
 @export var hp: float = 25.0
 @export var damage: float = 3.0  # Base stat; Combat adds the owner's live upgrade.
 @export var armor: float = 0.0  # Base stat; Combat adds the owner's live upgrade.
 @export var speed: float = 60.0
 @export var attack_range: float = 10.0
-@export var vision_radius: float = 4.0
+@export var vision_radius: float = 4.0:
+	set(value):
+		vision_radius = value
+		if _live_unit_index != null and is_inside_tree(): _live_unit_index.update(self)
 @export var attack_speed: float = 1.0  # attacks per second
 @export var is_ranged: bool = false
 
 # --- Runtime state ---
-var current_state: int = State.IDLE
+var current_state: int = State.IDLE:
+	set(value):
+		if (current_state == State.DEAD) != (value == State.DEAD) and _live_unit_index != null: _live_unit_index.invalidate_vision()
+		current_state = value
 var stance: int = Stance.AGGRESSIVE
 var move_target: Vector2 = Vector2.ZERO
 var attack_target: UnitBase = null
@@ -106,6 +115,7 @@ const UNIT_SIZES: Dictionary = {
 # World scales share a grounded size system; HUD portraits retain their size.
 const UNIT_SPRITE_SCALES: Dictionary = UnitData.WORLD_SPRITE_SCALES
 
+var _live_unit_index: RefCounted = null
 var _sprite: Sprite2D = null
 var _sprite_team_modulate: Color = Color.WHITE
 var _damage_flash_tween: Tween = null
@@ -153,7 +163,31 @@ func _ready() -> void:
 	_setup_sprite()
 	add_to_group("units")
 	add_to_group("player_%d" % player_owner)
+	_register_live_unit_index()
 	queue_redraw()
+
+
+func _register_live_unit_index() -> void:
+	var map: Node2D = _get_navigation_map()
+	if map != null and map.has_method("register_spatial_unit"):
+		_live_unit_index = map.register_spatial_unit(self)
+		set_notify_local_transform(true)
+		if not tree_exiting.is_connected(_remove_live_unit_index): tree_exiting.connect(_remove_live_unit_index)
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_LOCAL_TRANSFORM_CHANGED and _live_unit_index != null and is_inside_tree():
+		_live_unit_index.update(self)
+	elif what == NOTIFICATION_ENTER_TREE and is_node_ready():
+		_navigation_map = null
+		_register_live_unit_index()
+
+func _remove_live_unit_index() -> void:
+	if _live_unit_index != null: _live_unit_index.remove(self)
+	_live_unit_index = null
+
+func get_nearby_units(radius: float) -> Array:
+	var map: Node2D = _get_navigation_map()
+	return map.get_units_near(global_position, radius) if map != null and map.has_method("get_units_near") else get_tree().get_nodes_in_group("units")
 
 
 func _setup_collision() -> void:
@@ -1399,7 +1433,11 @@ func _update_friendly_separation(movement_direction: Vector2 = Vector2.ZERO) -> 
 	var navigating: bool = current_state in [State.MOVING, State.GATHERING, State.BUILDING] and not movement_direction.is_zero_approx()
 	_combat_spacing_opponents.clear()
 	_navigation_neighbors.clear()
-	for node in get_tree().get_nodes_in_group("units"):
+	# Only travelling units consume the wider crowded-waypoint neighborhood.
+	# 18 is the largest current role radius (Siege); exact role checks follow.
+	var neighborhood: float = maxf(FRIENDLY_SEPARATION_RADIUS, UNIT_SIZES.get(unit_type, 12.0) + 18.0 + 8.0)
+	if navigating: neighborhood += NAVIGATION_CROWDED_WAYPOINT_RADIUS
+	for node in get_nearby_units(neighborhood):
 		if node == self or not (node is UnitBase):
 			continue
 		var other: UnitBase = node as UnitBase

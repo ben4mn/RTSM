@@ -116,7 +116,7 @@ const UNITS: Dictionary = {
 		"speed": 100.0,
 		"cost": { "food": 40, "wood": 0, "gold": 10 },
 		"build_time": 8.0,
-		"vision_radius": 8,
+		"vision_radius": 10,
 		"attack_range": 1,
 		"pop_cost": 1,
 		"can_gather": false,
