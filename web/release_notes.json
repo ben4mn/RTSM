@@ -1,6 +1,21 @@
 {
   "releases": [
     {
+      "id": "2026-10-25-room-to-command",
+      "date": "2026-10-25",
+      "version": "0.3.0-beta.9",
+      "title": "Room to command",
+      "summary": "Faster crowded battles, a consistent illustrated interface and Solo ready to travel offline.",
+      "changes": [
+        "Large armies share precise nearby-unit and vision lookups instead of repeating full-army scans. Movement, attack timing, ownership and fog rules retain their existing behavior.",
+        "Forest cloth, warm paper and honey accents now carry through Settings, pause, results, guides, construction and management screens. Familiar icons keep their tappable explanations.",
+        "Choose your kingdom, then your battlefield, difficulty and rules. A separate More options sheet keeps population, seed and opening tips available; the launch summary keeps the chosen settings visible.",
+        "After one complete download, Solo can launch from the browser cache without a connection. The welcome screen confirms when it is saved for offline play. Updates verify and reuse unchanged files; a changed game pack still downloads as a complete file. Online battles need a connection.",
+        "Scouts now see 10 tiles instead of 8 in every civilization, with the same speed, cost and unarmed role. Both players still start with a Scout and four villagers.",
+        "Both online players must reload for the extended Scout sight. Existing modes, population choices, unit costs and action timing remain available."
+      ]
+    },
+    {
       "id": "2026-10-24-tactical-feedback",
       "date": "2026-10-24",
       "version": "0.3.0-beta.8",
