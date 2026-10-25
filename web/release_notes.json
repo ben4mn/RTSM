@@ -1,6 +1,19 @@
 {
   "releases": [
     {
+      "id": "2026-10-24-sound-and-interface",
+      "date": "2026-10-24",
+      "version": "0.3.0-beta.7",
+      "title": "Small sounds, clearer choices",
+      "summary": "A warm wood-and-cloth sound palette and a clearer path from village plans to battlefield orders.",
+      "changes": [
+        "Soft original wood taps, cloth brushes and felt-like musical accents respond to selection, orders, work and battle. Variations, shared cooldowns and priority limits keep busy scenes restrained. Volume and mute preferences remain available in Settings.",
+        "Play solo and Play online lead to a clearer setup. Paper map cards explain each battlefield, civilization comparisons show their strengths and tradeoffs, and More options keeps population and map seed close at hand.",
+        "Softer command shelves, round utility controls and visible recruitment progress give the battlefield more room. A tap-access field guide explains unfamiliar icons; costs, labels and existing shortcuts remain available.",
+        "The illustrated French, English and Mongol artwork, gameplay balance, action timing, maps and online protocol remain unchanged."
+      ]
+    },
+    {
       "id": "2026-10-24-painted-civilizations",
       "date": "2026-10-24",
       "version": "0.3.0-beta.6",
@@ -198,7 +211,7 @@
       "changes": [
         "Open Army, then Info for three short field notes: assemble slower troops, attack-move together, and withdraw before your next push. Back returns to your groups without changing selection.",
         "Stand Ground troops stop repeatedly choosing enemies beyond their reach and respond when an enemy enters range. Weapon reach, damage and direct orders retain their existing rules.",
-        "The Blacksmith has a limewashed chimney, ember hearth and iron anvil. The Siege Workshop has an open assembly floor, timber crane and carriage wheel. Both use the company’s teal and clay materials."
+        "The Blacksmith has a limewashed chimney, ember hearth and iron anvil. The Siege Workshop has an open assembly floor, timber crane and carriage wheel. Both use the companyâ€™s teal and clay materials."
       ]
     },
     {
@@ -235,7 +248,7 @@
       "summary": "An original cast, bespoke controls and three battlefields with room for different tactics.",
       "changes": [
         "Meet the Builder, Warrior and Archer in a new character-led menu. Custom command plates, equipment-inspired icons and quieter battlefield markers give the game a consistent identity.",
-        "Choose Open Plains, River Crossings or Woodland Flanks in Settings → Map. Save a seed to revisit a battlefield.",
+        "Choose Open Plains, River Crossings or Woodland Flanks in Settings â†’ Map. Save a seed to revisit a battlefield.",
         "River maps have three broad crossings. Woodland maps offer attack lanes around deep forests. Both keep opening resources close and expansions reachable.",
         "Online rivals receive the same map and seed. Updated players can meet on all three styles; matches with older clients retain Open Plains.",
         "Melee fighters make room for allies while attacking, reducing stacks of units on a shared target.",
