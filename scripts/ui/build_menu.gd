@@ -183,10 +183,9 @@ func set_safe_area_rect(safe_area: Rect2) -> void:
 
 func _apply_visual_theme() -> void:
 	theme = KingdomTheme.create_theme()
-	var sheet_style: StyleBoxFlat = KingdomTheme.panel_style(KingdomTheme.INK_PANEL, KingdomTheme.BORDER, 4)
+	var sheet_style: StyleBoxFlat = FieldStyle.surface(16)
 	sheet_style.bg_color.a = 0.98
-	sheet_style.border_width_top = 2
-	sheet_style.border_color = KingdomTheme.GOLD
+	sheet_style.border_width_top = 1
 	sheet_style.set_content_margin_all(2)
 	add_theme_stylebox_override("panel", sheet_style)
 	title_label.text = "Construction"
@@ -207,9 +206,12 @@ func _apply_card_style(button: Button) -> void:
 		style.set_content_margin(SIDE_TOP, 4)
 		style.set_content_margin(SIDE_BOTTOM, 4)
 		button.add_theme_stylebox_override(state, style)
+	FieldStyle.soften(button, 12, true)
 	button.add_theme_color_override("font_color", KingdomTheme.PARCHMENT)
 	button.add_theme_color_override("font_disabled_color", KingdomTheme.MUTED)
-	button.add_theme_color_override("icon_normal_color", KingdomTheme.PARCHMENT)
+	# Painted buildings keep their original palette on cloth and honey states.
+	for state: String in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
+		button.add_theme_color_override("icon_%s_color" % state, Color.WHITE)
 
 
 func _create_category_buttons() -> void:
@@ -252,6 +254,7 @@ func _refresh_categories() -> void:
 		CommandIcons.apply(button, {"Economy": "economy", "Army": "army", "Defence": "stance"}[category], "%s buildings" % category, category)
 		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		button.add_theme_constant_override("icon_max_width", 20)
+		FieldStyle.soften(button, 24, category != _active_category)
 	var visible_count: int = 0
 	for building_type: int in _button_map:
 		var button: Button = _button_map[building_type]
@@ -309,6 +312,8 @@ func _on_info_toggled(enabled: bool) -> void:
 	else:
 		KingdomTheme.apply_secondary(_info_button)
 	CommandIcons.apply(_info_button, "info", "Return to building" if enabled else "Inspect building costs and requirements")
+	CommandIcons.set_badge(_info_button, "ON" if enabled else "")
+	_info_button.accessibility_name = "Inspect mode on. Tap cards for details; tap Info again to build." if enabled else "Inspect mode off. Tap Info to learn about any building."
 	_refresh_affordability()
 
 
@@ -324,6 +329,7 @@ func _build_info(building_type: int) -> Dictionary:
 	if int(stats.get("age_required", 0)) <= _current_age and _can_afford(stats.get("cost", {})):
 		lines.append("Close this panel and turn off Info to choose a placement." if _info_mode else "Tap the card to preview a placement.")
 	lines.append("Place spends the cost; Cancel spends nothing.")
+	lines.append("Card cost key: F = Food · W = Wood · G = Gold.")
 	return {"title": BuildingData.get_building_name(building_type), "body": "\n".join(lines)}
 
 
@@ -367,6 +373,7 @@ func close_menu() -> void:
 		_info_button.set_pressed_no_signal(false)
 		KingdomTheme.apply_secondary(_info_button)
 		CommandIcons.apply(_info_button, "info", "Inspect building costs and requirements")
+		CommandIcons.set_badge(_info_button, "")
 	if _dismiss_shield != null:
 		_dismiss_shield.set_active(false)
 	for component: Node in _hold_components:
@@ -437,7 +444,7 @@ func _rebuild_grid() -> void:
 			btn.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
 			btn.expand_icon = true
 			# Scale icon down within button
-			btn.add_theme_constant_override("icon_max_width", 36)
+			btn.add_theme_constant_override("icon_max_width", 40)
 
 		btn.pressed.connect(_on_building_button_pressed.bind(building_type))
 		grid.add_child(btn)
@@ -557,6 +564,7 @@ func _refresh_affordability() -> void:
 				style.set_content_margin(SIDE_LEFT, 6)
 				style.set_content_margin(SIDE_RIGHT, 6)
 				btn.add_theme_stylebox_override(state, style)
+			FieldStyle.soften(btn, 12)
 	_update_aux_button()
 	_refresh_touch_target_diagnostics()
 

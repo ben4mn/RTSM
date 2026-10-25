@@ -133,7 +133,7 @@ func _profile(phone: Vector2i, scale_factor: float, notched: bool) -> void:
     var queue_items: Array=[{"unit_type":UnitData.UnitType.VILLAGER,"name":"Villager","is_training":true,"progress":0.42}]
     for type: int in [UnitData.UnitType.VILLAGER,UnitData.UnitType.SCOUT]:
         for index: int in 14:
-            queue_items.append({"unit_type":type,"name":UnitData.get_unit_name(type),"is_training":false})
+            queue_items.append({"unit_type":type,"name":UnitData.get_unit_name(type, 0),"is_training":false})
     hud.call("show_building_selection","Town Center",5000,5000,queue_items,[UnitData.UnitType.VILLAGER,UnitData.UnitType.SCOUT],tc)
     await _settle(hud,logical,safe)
     await _tap_control(hud,queue_navigation)
@@ -150,7 +150,7 @@ func _profile(phone: Vector2i, scale_factor: float, notched: bool) -> void:
     var context_shelves: Array[Dictionary] = await _non_production_shelf_density(hud,logical,safe,label)
     for role: int in [UnitData.UnitType.INFANTRY,UnitData.UnitType.ARCHER,UnitData.UnitType.CAVALRY]:
         _publish_selection_change(hud)
-        hud.call("show_unit_selection",UnitData.get_unit_name(role),100,100,"ATTACKING",4,{"unit_type":role})
+        hud.call("show_unit_selection",UnitData.get_unit_name(role, 0),100,100,"ATTACKING",4,{"unit_type":role})
         hud.call("configure_unit_commands",true,true,"Aggressive","smart")
         await _settle(hud,logical,safe)
         await _selection_name_readable(hud,logical,safe,label)
@@ -302,7 +302,7 @@ func _all_production_unit_text(hud: Node,logical: Vector2i,safe: Rect2,profile: 
         queue.auto_queue_unit_type = unit_type
         var pending: Array = []
         for index: int in ProductionQueue.MAX_QUEUE_SIZE:
-            pending.append({"unit_type":unit_type,"name":UnitData.get_unit_name(unit_type),"is_training":false})
+            pending.append({"unit_type":unit_type,"name":UnitData.get_unit_name(unit_type, 0),"is_training":false})
             queue.queue.append(unit_type)
         var trainable: Array = [unit_type]
         if building.building_type == BuildingData.BuildingType.TOWN_CENTER:
@@ -313,16 +313,16 @@ func _all_production_unit_text(hud: Node,logical: Vector2i,safe: Rect2,profile: 
         _publish_selection_change(hud)
         hud.call("show_building_selection",BuildingData.get_building_name(building.building_type),5000,5000,pending,trainable,building)
         await _settle(hud,logical,safe)
-        var unit_profile: String = "%s %s max queue" % [profile,UnitData.get_unit_name(unit_type)]
+        var unit_profile: String = "%s %s max queue" % [profile,UnitData.get_unit_name(unit_type, 0)]
         var recruit: Button = (hud.get("_train_buttons_container") as HBoxContainer).get_node("TrainButton_%d" % unit_type)
-        _expect(recruit.text.contains(UnitData.get_unit_name(unit_type)) and recruit.icon != null and recruit.get_node("CommandIconBadge").text == str(ProductionQueue.MAX_QUEUE_SIZE),unit_profile+" recruitment loses maximum queue badge")
+        _expect(recruit.text.contains(UnitData.get_unit_name(unit_type, 0)) and recruit.icon != null and recruit.get_node("CommandIconBadge").text == str(ProductionQueue.MAX_QUEUE_SIZE),unit_profile+" recruitment loses maximum queue badge")
         _expect(recruit.text.contains("Queue full"),unit_profile+" recruitment loses visible full-queue blocker")
         for resource: String in ["food","wood","gold"]:
             var cost: int = int(UnitData.get_unit_cost(unit_type).get(resource,0))
             if cost > 0:
                 var full_cost := "%d %s" % [cost,resource]
                 _expect(recruit.tooltip_text.contains(full_cost) and recruit.accessibility_name.contains(full_cost),unit_profile+" blocked recruitment loses hover/accessibility "+resource+" cost")
-        var role: String = UnitData.get_unit_counter_description(unit_type)
+        var role: String = UnitData.get_unit_counter_description(unit_type, 0)
         if not role.is_empty():
             _expect(recruit.accessibility_name.contains(role) and str(hud.call("_selection_information")).contains(role),unit_profile+" recruitment loses role")
         for button: Button in (hud.get("_train_buttons_container") as HBoxContainer).get_children():
@@ -334,13 +334,13 @@ func _all_production_unit_text(hud: Node,logical: Vector2i,safe: Rect2,profile: 
         await _settle(hud,logical,safe)
         _expect(hud.call("get_secondary_surface_name") == "queue",unit_profile+" actual Queue tap does not disclose cancellation")
         var group: Button = (hud.get("queue_container") as HBoxContainer).get_node("QueueUnit_%d" % unit_type)
-        _expect(group.text.contains(UnitData.get_unit_name(unit_type)) and group.text.contains("x%d" % ProductionQueue.MAX_QUEUE_SIZE),unit_profile+" queue group loses name/count")
+        _expect(group.text.contains(UnitData.get_unit_name(unit_type, 0)) and group.text.contains("x%d" % ProductionQueue.MAX_QUEUE_SIZE),unit_profile+" queue group loses name/count")
         for button: Control in (hud.get("queue_container") as HBoxContainer).get_children():
             if button.visible and not button.is_queued_for_deletion() and button is Button:
                 _expect(scroll.get_global_rect().encloses(button.get_global_rect()),unit_profile+" queue action clipped: "+String(button.name))
                 _expect(button.size.x>=48.0 and button.size.y>=48.0,unit_profile+" queue target under48px")
                 _button_text_fits(button as Button,unit_profile)
-        evidence.append({"unit":UnitData.get_unit_name(unit_type),"recruit_text":recruit.text,"recruit_size":str(recruit.size),"queue_text":group.text,"queue_size":str(group.size),"queue_shelf":str(scroll.get_global_rect())})
+        evidence.append({"unit":UnitData.get_unit_name(unit_type, 0),"recruit_text":recruit.text,"recruit_size":str(recruit.size),"queue_text":group.text,"queue_size":str(group.size),"queue_shelf":str(scroll.get_global_rect())})
         _publish_selection_change(hud)
         hud.call("clear_selection")
         building.free()
@@ -362,7 +362,7 @@ func _non_production_shelf_density(hud: Node,logical: Vector2i,safe: Rect2,profi
             hud.call("show_building_selection","House",10,1000,[],[],foundation)
         else:
             var unit_type: int = UnitData.UnitType.VILLAGER if context == "worker" else UnitData.UnitType.INFANTRY
-            hud.call("show_unit_selection",UnitData.get_unit_name(unit_type),50,50,"Seeking Food" if context == "worker" else "Attacking",1,{"unit_type":unit_type})
+            hud.call("show_unit_selection",UnitData.get_unit_name(unit_type, 0),50,50,"Seeking Food" if context == "worker" else "Attacking",1,{"unit_type":unit_type})
             hud.call("configure_unit_commands",true,context == "army","Aggressive","smart")
         await _settle(hud,logical,safe)
         # The established HUD gives the counter line its own readable row;

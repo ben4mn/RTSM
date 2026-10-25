@@ -13,7 +13,7 @@ const BADGE_NODE_NAME := "CommandIconBadge"
 const TARGET_SIZE := 48.0
 const GLYPH_SIZE := 24
 const GAP := 6
-const CORNER_RADIUS := 2
+const CORNER_RADIUS := 10
 static var _textures: Dictionary = {}
 
 
@@ -49,7 +49,8 @@ static func apply(button: Button, key: String, accessible_label: String, caption
 		var style: StyleBox = button.get_theme_stylebox(state)
 		if pending_theme != null and not button.has_theme_stylebox_override(state) and pending_theme.has_stylebox(state, "Button"):
 			style = pending_theme.get_stylebox(state, "Button")
-		if style.get_content_margin(SIDE_LEFT) == 6.0 and style.get_content_margin(SIDE_TOP) == 4.0 and style is StyleBoxFlat and (style as StyleBoxFlat).corner_radius_top_left == CORNER_RADIUS:
+		var corner_radius: int = 24 if key in ["close", "back", "info", "pause", "resume", "zoom_in", "zoom_out", "more", "repeat"] else CORNER_RADIUS
+		if style.get_content_margin(SIDE_LEFT) == 6.0 and style.get_content_margin(SIDE_TOP) == 4.0 and style is StyleBoxFlat and (style as StyleBoxFlat).corner_radius_top_left == corner_radius:
 			continue
 		var compact: StyleBox = style.duplicate()
 		compact.set_content_margin(SIDE_LEFT, 6.0)
@@ -57,7 +58,7 @@ static func apply(button: Button, key: String, accessible_label: String, caption
 		compact.set_content_margin(SIDE_TOP, 4.0)
 		compact.set_content_margin(SIDE_BOTTOM, 4.0)
 		if compact is StyleBoxFlat:
-			(compact as StyleBoxFlat).set_corner_radius_all(CORNER_RADIUS)
+			(compact as StyleBoxFlat).set_corner_radius_all(corner_radius)
 		button.add_theme_stylebox_override(state, compact)
 
 

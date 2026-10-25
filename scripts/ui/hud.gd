@@ -507,6 +507,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	var gm: Node = _get_game_manager()
 	if gm == null or gm.current_state not in [gm.GameState.PLAYING, gm.GameState.PAUSED]:
 		return
+	if event.is_action("cancel") and _secondary_surface == SecondarySurface.HELP:
+		close_secondary_surface()
+		get_viewport().set_input_as_handled()
+		return
 	# Main is pausable and cannot receive Escape while the match menu is open.
 	# Settings consumes its own Back in _input, leaving this as the next layer.
 	var menu_back: bool = event.is_action("cancel") and gm.current_state == gm.GameState.PAUSED
@@ -800,7 +804,13 @@ func _refresh_command_icons() -> void:
 		var button: Button = entry[0]
 		if is_instance_valid(button):
 			var captions: Dictionary = {"pause": "Menu", "resume": "Resume", "view": "View", "select_area": "Select", "back": "Back", "move": "Move", "attack": "Attack", "more": "Orders", "clear": "Clear", "build": "Build", "close": "Close"}
-			CommandIcons.apply_labeled(button, entry[1], entry[2], captions.get(entry[1], ""))
+			# Familiar utility glyphs need no permanent word. Orders retain their
+			# captions, and every control is covered by tap-access Field Guide.
+			if entry[1] in ["clear", "back", "close"]:
+				CommandIcons.apply(button, entry[1], entry[2])
+			else:
+				CommandIcons.apply_labeled(button, entry[1], entry[2], captions.get(entry[1], ""))
+			FieldStyle.soften(button, 24 if entry[1] in ["clear", "back", "close", "more", "pause", "resume"] else 12, button != build_menu_button)
 			button.custom_minimum_size = Vector2(48.0, 48.0)
 			button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	CommandIcons.set_badge(_unit_more_button, "•" if _unit_command_mode == "patrol" else "")
@@ -825,6 +835,7 @@ func _refresh_command_icons() -> void:
 			button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			button.add_theme_constant_override("icon_max_width", 24 if String(entry[3]).is_empty() else 20)
 			button.add_theme_font_size_override("font_size", 11)
+			FieldStyle.soften(button, 24 if String(entry[3]).is_empty() else 12, true)
 	CommandIcons.set_badge(_worker_idle_button, str(_last_idle_villager_count) if _last_idle_villager_count > 0 else "")
 	if _unit_move_button:
 		_unit_move_button.tooltip_text = "Move armed: tap a destination; tap again or Esc to cancel" if _unit_command_mode == "move" else "Move: tap here, then a destination"
@@ -973,6 +984,13 @@ func _create_pause_overlay() -> void:
 		load("res://scripts/ui/settings_panel.gd").open(_pause_overlay, true)
 	)
 	utility_row.add_child(sound_btn)
+	var guide_btn := Button.new()
+	guide_btn.name = "FieldGuideButton"
+	guide_btn.custom_minimum_size = Vector2(48, 48)
+	guide_btn.process_mode = Node.PROCESS_MODE_ALWAYS
+	CommandIcons.apply_labeled(guide_btn, "info", "Field guide: learn icons, orders and resource costs", "Guide")
+	guide_btn.pressed.connect(func() -> void: _set_secondary_surface(SecondarySurface.HELP))
+	utility_row.add_child(guide_btn)
 	var report_btn := Button.new()
 	report_btn.name = "ReportProblemButton"
 	report_btn.text = "Report problem"
@@ -1166,9 +1184,8 @@ func _create_command_dock() -> void:
 	_command_dock.name = "CommandDock"
 	_command_dock.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_command_dock.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	var dock_style := KingdomTheme.panel_style(KingdomTheme.INK_PANEL, KingdomTheme.BORDER, 2)
-	dock_style.border_width_top = 2
-	dock_style.border_color = KingdomTheme.GOLD.darkened(0.25)
+	var dock_style := FieldStyle.surface(16)
+	dock_style.border_width_top = 1
 	_command_dock.add_theme_stylebox_override("panel", dock_style)
 	$Root.add_child(_command_dock)
 	$Root.move_child(_command_dock, 0)
@@ -1406,7 +1423,7 @@ func _create_unit_command_buttons() -> void:
 	_advanced_command_panel.name = "AdvancedCommandsPanel"
 	_advanced_command_panel.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	_advanced_command_panel.visible = false
-	_advanced_command_panel.add_theme_stylebox_override("panel", KingdomTheme.panel_style(KingdomTheme.INK_PANEL, KingdomTheme.BORDER, 4))
+	_advanced_command_panel.add_theme_stylebox_override("panel", FieldStyle.surface())
 	$Root.add_child(_advanced_command_panel)
 	_advanced_command_container = HBoxContainer.new()
 	_advanced_command_container.add_theme_constant_override("separation", 6)
@@ -3381,6 +3398,17 @@ func _update_train_buttons(trainable_units: Array) -> void:
 			btn.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP if compact_producer else VERTICAL_ALIGNMENT_CENTER
 			btn.add_theme_constant_override("icon_max_width", 24 if compact_producer else 26)
 		btn.tooltip_text = "%s\n%s" % [information.get("title", unit_name), information.get("body", "")]
+		FieldStyle.soften(btn, 10, true)
+		for state: String in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
+			btn.add_theme_color_override("icon_%s_color" % state, Color.WHITE)
+		# The authoritative queue supplies progress. Keep waiting units unfilled
+		# and retain the numeric queue badge for count rather than conflating it.
+		var training_progress: float = -1.0
+		for queued: Dictionary in _last_queue_items:
+			if bool(queued.get("is_training", false)) and int(queued.get("unit_type", -1)) == ut:
+				training_progress = float(queued.get("progress", 0.0))
+				break
+		FieldStyle.production_meter(btn, training_progress)
 		_train_buttons_container.move_child(btn, child_index)
 		child_index += 1
 
@@ -4062,15 +4090,51 @@ func _create_hotkey_panel() -> void:
 	_hotkey_panel.offset_top = -200
 	_hotkey_panel.offset_bottom = 200
 	_hotkey_panel.visible = false
+	_hotkey_panel.process_mode = Node.PROCESS_MODE_ALWAYS
 
 	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", 2)
 
 	var title := Label.new()
-	title.text = "Hotkeys [F2]"
+	title.text = "Field guide"
 	title.add_theme_font_size_override("font_size", 18)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title)
+	# Ordinary tap-access rows teach symbols without a hover or long press.
+	for entry: Array in [
+		["move", "Move", "Tap a destination. Units travel there."],
+		["attack", "Attack-move", "Armed units fight enemies along the way."],
+		["build", "Build", "Choose a card, preview ground, then Place."],
+		["queue", "Queue", "See paid training. Gold lines mark active progress; Undo refunds a unit."],
+		["repeat", "Repeat", "ON trains the last chosen unit when able."],
+		["stance", "Stance", "Guard holds ground. Aggro pursues."],
+		["info", "Info", "Tap the selection summary for costs and roles."],
+		["food", "F · Food", "Workers and recruitment."],
+		["wood", "W · Wood", "Buildings and equipment."],
+		["gold", "G · Gold", "Specialist units and advancement."],
+	]:
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 10)
+		row.custom_minimum_size.y = 48
+		var glyph := TextureRect.new()
+		glyph.texture = CommandIcons.get_icon(entry[0])
+		glyph.custom_minimum_size = Vector2(26, 26)
+		glyph.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		glyph.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		glyph.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(glyph)
+		var explanation := Label.new()
+		explanation.text = "%s — %s" % [entry[1], entry[2]]
+		explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		explanation.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		explanation.add_theme_font_size_override("font_size", 13)
+		row.add_child(explanation)
+		vbox.add_child(row)
+	var keyboard_heading := Label.new()
+	keyboard_heading.text = "Keyboard shortcuts [F2]"
+	KingdomTheme.apply_eyebrow(keyboard_heading)
+	vbox.add_child(keyboard_heading)
 
 	var hotkeys: Array = [
 		["Q", "Train unit (from selected building)"],
@@ -4121,6 +4185,7 @@ func _create_hotkey_panel() -> void:
 	hold_help.add_theme_font_size_override("font_size", 12)
 	vbox.add_child(hold_help)
 	scroll.add_child(vbox)
+	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_hotkey_panel.add_child(outer)
 	root_ctrl.add_child(_hotkey_panel)
 
@@ -4507,7 +4572,7 @@ func set_world_context_rect(bounds: Rect2) -> void:
 
 
 func _set_secondary_surface(surface: SecondarySurface, preserve_queue_scroll: bool = false, keep_hold: bool = false) -> void:
-	var modal_inspection: bool = surface == SecondarySurface.INFO and (_active_hold_component != null or _info_from_build_menu) and _ui_modal_state == UIModalState.BUILD_MENU
+	var modal_inspection: bool = (surface == SecondarySurface.INFO and (_active_hold_component != null or _info_from_build_menu) and _ui_modal_state == UIModalState.BUILD_MENU) or (surface == SecondarySurface.HELP and _ui_modal_state == UIModalState.PAUSE_MENU)
 	if surface != SecondarySurface.NONE and (_placement_mode_active or (_ui_modal_state != UIModalState.NONE and not modal_inspection)):
 		return
 	if surface == SecondarySurface.MORE and not _unit_commands_authorized:
@@ -4549,6 +4614,7 @@ func _set_secondary_surface(surface: SecondarySurface, preserve_queue_scroll: bo
 		_advanced_command_panel.visible = _advanced_commands_open and not _hold_chooser_active and _unit_commands_authorized
 	if _hotkey_panel:
 		_hotkey_panel.visible = surface == SecondarySurface.HELP
+		_hotkey_panel.z_index = 120 if _ui_modal_state == UIModalState.PAUSE_MENU else 60
 	if _info_panel:
 		_info_panel.visible = surface == SecondarySurface.INFO and _active_hold_component == null
 	if _strategy_overview:
@@ -4981,7 +5047,7 @@ func _get_resource_manager() -> Node:
 func _apply_game_theme() -> void:
 	var root_ctrl: Control = $Root
 	root_ctrl.theme = KingdomTheme.create_theme()
-	var bar_style: StyleBoxFlat = KingdomTheme.panel_style(KingdomTheme.INK_PANEL, KingdomTheme.BORDER, 0)
+	var bar_style: StyleBoxFlat = FieldStyle.surface(0)
 	bar_style.bg_color.a = 0.97
 	bar_style.set_border_width_all(0)
 	bar_style.border_width_bottom = 2
