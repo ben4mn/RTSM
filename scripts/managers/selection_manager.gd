@@ -968,12 +968,24 @@ func _get_node_at(world_pos: Vector2, use_touch_radius: bool = false) -> Node2D:
 	var best_unit_dist := DESKTOP_UNIT_HIT_RADIUS_WORLD
 	var best_body_hit: Node2D = null
 	var best_body_distance: float = INF
+	var best_echo_hit: Node2D = null
+	var best_echo_distance: float = INF
 	if use_touch_radius:
 		best_unit_dist = _screen_px_to_world_radius(touch_unit_hit_radius_px)
 	for node in get_tree().get_nodes_in_group("units"):
 		if not _is_current_selection_entry(node):
 			continue
 		var dist := (node as Node2D).global_position.distance_to(world_pos)
+		# The revealed silhouette is drawn above roofs, trees and other units.
+		# Its actual opaque pixels must win the same tap, including heads outside
+		# the broad feet/body discovery regions. Echoes remain noninteractive;
+		# canonical visibility is checked here again before selecting the actor.
+		var echo: Sprite2D = (node as Node2D).get_node_or_null("OccludedUnitEcho") as Sprite2D
+		if echo != null and echo.is_visible_in_tree() and _is_visible_to_local_player(node) and echo.is_pixel_opaque(echo.to_local(world_pos)):
+			var echo_distance: float = echo.to_global(echo.get_rect().get_center()).distance_to(world_pos)
+			if echo_distance < best_echo_distance:
+				best_echo_distance = echo_distance
+				best_echo_hit = node as Node2D
 		if _is_touch_on_unit_body(node as Node2D, world_pos):
 			# A visible body wins over another unit's broad feet discovery ring.
 			# This matters in compact armies at overview zoom: tapping a head
@@ -989,6 +1001,8 @@ func _get_node_at(world_pos: Vector2, use_touch_radius: bool = false) -> Node2D:
 			best_unit = node as Node2D
 	# The exact ground marker belongs to its unit even when a taller neighbor's
 	# body overlaps it. Keep this deliberate disk much tighter than discovery.
+	if best_echo_hit != null:
+		return best_echo_hit
 	if best_unit != null and best_unit_dist <= 6.0:
 		return best_unit
 	if best_body_hit != null:
