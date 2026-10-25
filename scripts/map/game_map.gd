@@ -157,6 +157,9 @@ func _ready() -> void:
 	# Set up camera bounds.
 	_configure_camera()
 	get_viewport().size_changed.connect(_on_camera_viewport_size_changed)
+	var unit_echoes: Node = preload("res://scripts/ui/unit_occlusion_overlay.gd").new()
+	unit_echoes.name = "UnitOcclusionOverlay"
+	add_child(unit_echoes)
 
 	# Notify others (deferred so parent nodes have connected signals in _ready).
 	call_deferred("_emit_map_ready")

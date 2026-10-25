@@ -12,6 +12,7 @@ var _start_ms: int
 var _hits: int = 0
 var _sample_peak: float = 0.0
 var _sum_squares: float = 0.0
+var _window_size := Vector2i(1280, 720)
 
 
 func _ready() -> void:
@@ -35,14 +36,17 @@ func _process(_delta: float) -> void:
 func _run() -> void:
 	for argument: String in OS.get_cmdline_user_args():
 		if argument.begins_with("--output="): _output = argument.trim_prefix("--output=")
+		elif argument.begins_with("--width="): _window_size.x = clampi(int(argument.trim_prefix("--width=")), 640, 2560)
+		elif argument.begins_with("--height="): _window_size.y = clampi(int(argument.trim_prefix("--height=")), 360, 1440)
 	if _output.is_empty() or DisplayServer.get_name() == "headless":
 		push_error("Requires native rendered game and -- --output=absolute-directory")
 		get_tree().quit(1)
 		return
 	DirAccess.make_dir_recursive_absolute(_output)
-	get_window().size = Vector2i(1280, 720)
-	get_window().content_scale_size = Vector2i(1280, 720)
+	get_window().size = _window_size
+	get_window().content_scale_size = _window_size
 	get_window().content_scale_factor = 1.0
+	_report.viewport = {"width": _window_size.x, "height": _window_size.y}
 	get_window().grab_focus()
 	get_window().focus_exited.connect(func() -> void: _report.focus_events.append({"seconds": _elapsed(), "focused": false}))
 	get_window().focus_entered.connect(func() -> void: _report.focus_events.append({"seconds": _elapsed(), "focused": true}))
