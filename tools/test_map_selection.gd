@@ -54,16 +54,24 @@ func _exercise(phone: Vector2i, scale: float, launch_archetype: int) -> void:
 		return
 	for archetype: int in MapData.MAP_ARCHETYPES:
 		var choice: Button = (menu.get("_map_buttons") as Array)[archetype]
+		# Decorative preview and label children must pass touch to the card.
+		var disclosure_targets: Array[Control] = [menu.get("_selected_map_preview"), menu.get("_selected_map_name"), menu.get("_map_choice_button")]
+		await _tap(disclosure_targets[archetype])
+		_expect(bool(menu.get("_map_picker_expanded")), "touch disclosure opens battlefield alternatives")
+		_expect(choice.is_visible_in_tree() and get_viewport().get_visible_rect().grow(1).encloses(choice.get_global_rect()), "map choice visible without scrolling at %s scale%s" % [phone, scale])
+		_expect((menu.get("_map_scroll") as Control).get_global_rect().end.y <= (menu.get("start_button") as Control).get_global_rect().position.y, "expanded maps do not cover Begin")
 		await _tap(choice)
+		_expect(not bool(menu.get("_map_picker_expanded")), "touch choice collapses battlefield alternatives")
+		_expect(int((menu.get("_selected_map_preview") as Control).get("archetype")) == archetype, "selected preview follows touch choice")
 		_expect(GameManager.selected_map_archetype == archetype and choice.button_pressed, "touch map choice applied " + choice.name)
 		var tactics: Label = menu.get("map_summary_label")
 		_expect(tactics.text == MapData.get_archetype_description(archetype), "tactical description follows choice")
-		_expect(get_viewport().get_visible_rect().grow(1).encloses(choice.get_global_rect()), "map choice visible without scrolling at %s scale%s" % [phone, scale])
 		_expect(choice.size.y >= 48.0, "map touch target at least48")
 		if launch_archetype == 0 and not _capture_dir.is_empty() and DisplayServer.get_name() != "headless":
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png(_capture_dir.path_join("map-%d-%dx%d-%s.png" % [archetype, phone.x, phone.y, scale]))
 	# The real Start action persists the draft and uses that same map and seed.
+	await _tap(menu.get("_map_choice_button"))
 	await _tap((menu.get("_map_buttons") as Array)[launch_archetype])
 	await _tap(menu.get("start_button"))
 	var main: Node = null

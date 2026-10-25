@@ -87,9 +87,9 @@ func _exercise(profile: Dictionary) -> void:
 	_touch(menu.get("start_button"), safe, context + " Start")
 	_footer_bounds(menu, safe, context + " solo")
 	_touch(menu.get("_back_button"), safe, context + " Back")
-	for button: Button in menu.get("_map_buttons"):
-		_touch(button, safe, context + " " + button.name)
-		_bounds(button, (menu.get("_map_scroll") as Control).get_global_rect(), context + " map target initially visible")
+	_expect(not bool(menu.get("_map_picker_expanded")), context + " battlefield starts collapsed")
+	_touch(menu.get("_map_choice_button"), safe, context + " selected battlefield")
+	_bounds(menu.get("_selected_map_preview"), (menu.get("_map_scroll") as Control).get_global_rect(), context + " selected preview visible")
 	if bool(profile.get("scroll_map", false)):
 		var map_scroll: ScrollContainer = menu.get("_map_scroll")
 		map_scroll.scroll_vertical = 10000
@@ -97,7 +97,16 @@ func _exercise(profile: Dictionary) -> void:
 		_bounds(menu.get("map_summary_label"), map_scroll.get_global_rect(), context + " map details reachable by scroll")
 		map_scroll.scroll_vertical = 0
 	for archetype: int in MapData.MAP_ARCHETYPES:
+		(menu.get("_map_choice_button") as Button).pressed.emit()
+		await _settle(menu, logical, safe)
+		_expect(bool(menu.get("_map_picker_expanded")), context + " battlefield choices expand")
+		for button: Button in menu.get("_map_buttons"):
+			_touch(button, safe, context + " " + button.name)
+			_bounds(button, (menu.get("_map_scroll") as Control).get_global_rect(), context + " expanded map target visible")
 		(menu.get("_map_buttons") as Array)[archetype].pressed.emit()
+		await _settle(menu, logical, safe)
+		_expect(not bool(menu.get("_map_picker_expanded")), context + " choosing battlefield collapses choices")
+		_expect((menu.get("_selected_map_name") as Label).text == MapData.get_archetype_name(archetype), context + " selected card names battlefield")
 		_expect(GameManager.selected_map_archetype == archetype, context + " selected map is game draft")
 		_expect((menu.get("_selection_summary") as Label).text.contains(MapData.get_archetype_name(archetype)), context + " footer names selected map")
 		_expect((menu.get("map_summary_label") as Label).text == MapData.get_archetype_description(archetype), context + " selected map tactics")
@@ -147,6 +156,10 @@ func _exercise(profile: Dictionary) -> void:
 	_expect((menu.get("start_button") as Button).disabled, context + " guest cannot start")
 	_footer_bounds(menu, safe, context + " guest")
 	_expect((menu.get("_room_map") as Label).text.contains("River Crossings"), context + " guest sees host map")
+	_expect((menu.get("_map_choice_button") as Button).disabled, context + " guest disclosure is disabled")
+	(menu.get("_map_choice_button") as Button).pressed.emit()
+	_expect(not bool(menu.get("_map_picker_expanded")), context + " guest cannot expand host map choices")
+	_expect((menu.get("_selected_map_name") as Label).text == "River Crossings", context + " guest selected preview follows host")
 	for button: Button in menu.get("_map_buttons"):
 		_expect(button.disabled, context + " guest cannot edit host map")
 	session.set("room_host", true)

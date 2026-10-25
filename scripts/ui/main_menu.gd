@@ -69,6 +69,12 @@ var _columns: BoxContainer
 var _map_scroll: ScrollContainer
 var _map_panel: VBoxContainer
 var _map_cards: HBoxContainer
+var _map_picker_expanded: bool = false
+var _map_choice_button: Button
+var _selected_map_preview: Control
+var _selected_map_name: Label
+var _selected_map_detail: Label
+var _map_disclosure: Control
 var _map_buttons: Array[Button] = []
 var _map_previews: Array[Control] = []
 var _map_names: Array[Label] = []
@@ -303,10 +309,12 @@ func _build_setup() -> void:
 	_map_heading = _label("YOUR BATTLEFIELD", 12)
 	THEME.apply_eyebrow(_map_heading)
 	_map_panel.add_child(_map_heading)
+	_build_selected_map_card()
 	_map_cards = HBoxContainer.new()
 	_map_cards.name = "MapChoices"
 	_map_cards.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_map_cards.add_theme_constant_override("separation", 10)
+	_map_cards.visible = false
 	_map_panel.add_child(_map_cards)
 	var group := ButtonGroup.new()
 	for archetype: int in MapData.MAP_ARCHETYPES:
@@ -361,6 +369,76 @@ func _build_setup() -> void:
 	_map_note.add_theme_color_override("font_color", MUTED)
 	_map_panel.add_child(_map_note)
 	_build_options()
+
+
+func _build_selected_map_card() -> void:
+	_map_choice_button = _button("", "SelectedBattlefieldButton", _toggle_map_picker)
+	_map_choice_button.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var normal: StyleBoxFlat = THEME.panel_style(PAPER, Color("a9b29a"), 16)
+	var hover: StyleBoxFlat = normal.duplicate()
+	hover.bg_color = Color("f2ead8")
+	hover.border_color = GOLD
+	_map_choice_button.add_theme_stylebox_override("normal", normal)
+	_map_choice_button.add_theme_stylebox_override("disabled", normal)
+	_map_choice_button.add_theme_stylebox_override("hover", hover)
+	_map_choice_button.add_theme_stylebox_override("pressed", hover)
+	_map_panel.add_child(_map_choice_button)
+	var row := HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	row.offset_left = 10
+	row.offset_top = 8
+	row.offset_right = -10
+	row.offset_bottom = -8
+	row.add_theme_constant_override("separation", 12)
+	_map_choice_button.add_child(row)
+	_selected_map_preview = MAP_PREVIEW.new()
+	_selected_map_preview.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_selected_map_preview.size_flags_stretch_ratio = 1.0
+	row.add_child(_selected_map_preview)
+	var text := VBoxContainer.new()
+	text.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	text.alignment = BoxContainer.ALIGNMENT_CENTER
+	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text.size_flags_stretch_ratio = 1.35
+	text.add_theme_constant_override("separation", 6)
+	row.add_child(text)
+	_selected_map_name = _label("", 20, true)
+	_selected_map_name.add_theme_font_override("font", THEME.FONT_MEDIUM)
+	_selected_map_name.add_theme_color_override("font_color", PAPER_INK)
+	text.add_child(_selected_map_name)
+	_selected_map_detail = _label("", 13, true)
+	_selected_map_detail.add_theme_color_override("font_color", PAPER_MUTED)
+	text.add_child(_selected_map_detail)
+	_map_disclosure = Control.new()
+	_map_disclosure.custom_minimum_size = Vector2(20, 24)
+	_map_disclosure.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_map_disclosure.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_map_disclosure.draw.connect(func() -> void:
+		var points := PackedVector2Array([Vector2(4, 9), Vector2(10, 15), Vector2(16, 9)])
+		if _map_picker_expanded:
+			points = PackedVector2Array([Vector2(4, 15), Vector2(10, 9), Vector2(16, 15)])
+		_map_disclosure.draw_polyline(points, PAPER_INK, 2.0, true)
+	)
+	row.add_child(_map_disclosure)
+
+
+func _toggle_map_picker() -> void:
+	if _map_choice_button.disabled or is_instance_valid(_shared_settings) or is_instance_valid(_civilization_picker) or _advanced_overlay.visible:
+		return
+	_set_map_picker_expanded(not _map_picker_expanded)
+
+
+func _set_map_picker_expanded(expanded: bool) -> void:
+	_map_picker_expanded = expanded
+	_map_cards.visible = expanded
+	_selected_map_preview.visible = not expanded
+	_selected_map_detail.visible = not expanded
+	_map_disclosure.queue_redraw()
+	_map_scroll.scroll_vertical = 0
+	_refresh_responsive_layout()
+	if not expanded:
+		_map_choice_button.grab_focus()
 
 
 func _build_options() -> void:
@@ -721,6 +799,7 @@ func _small_button_style(state: String) -> StyleBoxFlat:
 
 func _open_new_game(mode: String = "solo") -> void:
 	_set_mode(mode)
+	_set_map_picker_expanded(false)
 	_show_screen("setup")
 
 
@@ -755,12 +834,16 @@ func _set_mode(mode: String) -> void:
 
 
 func _select_map(archetype: int) -> void:
+	if _network_search_active or _room_waiting:
+		return
 	if _is_room_open():
 		if not bool(_session.get("room_host")):
 			return
 		_session.call("set_hosted_map", archetype)
+		_set_map_picker_expanded(false)
 		return
 	GameManager.selected_map_archetype = MapData.normalize_archetype(archetype)
+	_set_map_picker_expanded(false)
 	_refresh_selection()
 
 
@@ -771,6 +854,15 @@ func _refresh_selection() -> void:
 	var online: bool = _mode == "multiplayer" or room
 	var archetype: int = int(_session.get("match_map_archetype")) if room else GameManager.selected_map_archetype
 	var guest: bool = room and not bool(_session.get("room_host"))
+	_map_choice_button.disabled = guest or _network_search_active or _room_waiting
+	if _map_choice_button.disabled and _map_picker_expanded:
+		_set_map_picker_expanded(false)
+	_selected_map_name.text = MapData.get_archetype_name(archetype)
+	_selected_map_detail.text = MAP_TRAITS[archetype]
+	_map_choice_button.accessibility_name = "Battlefield: %s. %s" % [_selected_map_name.text, "Chosen by host." if guest else "Show or hide map choices."]
+	_map_choice_button.tooltip_text = MapData.get_archetype_description(archetype)
+	if int(_selected_map_preview.get("archetype")) != archetype:
+		_selected_map_preview.call("refresh", archetype)
 	for i: int in _map_buttons.size():
 		_map_buttons[i].set_pressed_no_signal(i == archetype)
 		_map_buttons[i].disabled = guest or _network_search_active or _room_waiting
@@ -1070,7 +1162,14 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2, shell_top_cle
 	var short_body: bool = compact and available.size.y < 336.0
 	var minimal_maps: bool = compact and available.size.y < 294.0
 	_map_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO if short_body else ScrollContainer.SCROLL_MODE_DISABLED
-	_map_heading.visible = not short_body
+	_map_heading.visible = not short_body and not _map_picker_expanded
+	_civilization_button.visible = not (_map_picker_expanded and short_body)
+	map_summary_label.visible = not _map_picker_expanded
+	_map_choice_button.custom_minimum_size.y = 48 if _map_picker_expanded else (80 if minimal_maps else (112 if compact else 200))
+	_map_choice_button.size_flags_vertical = Control.SIZE_FILL if _map_picker_expanded else Control.SIZE_EXPAND_FILL
+	_selected_map_preview.custom_minimum_size.x = 90 if compact else 160
+	_selected_map_name.add_theme_font_size_override("font_size", 16 if compact else 22)
+	_selected_map_detail.add_theme_font_size_override("font_size", 12 if compact else 14)
 	var max_width: float = 1280.0
 	if available.size.x > max_width:
 		available.position.x += (available.size.x - max_width) * 0.5
@@ -1141,7 +1240,7 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2, shell_top_cle
 func _get_browser_header_width(viewport_size: Vector2) -> float:
 	if not OS.has_feature("web") or viewport_size.x <= 0.0:
 		return -1.0
-	var normalized: Variant = JavaScriptBridge.eval("window.PocketWebShell && window.PocketWebShell.getMenuHeaderWidth ? window.PocketWebShell.getMenuHeaderWidth() : -1;", true)
+	var normalized: Variant = JavaScriptBridge.eval("window.PocketWebShell && window.PocketWebShell.getMenuHeaderWidth ? window.PocketWebShell.getMenuHeaderWidth(%f) : -1;" % viewport_size.x, true)
 	if not (normalized is float or normalized is int) or not is_finite(float(normalized)) or float(normalized) < 0.0:
 		return -1.0
 	return float(normalized) * viewport_size.x
@@ -1225,7 +1324,8 @@ func _refresh_main_menu_diagnostics() -> void:
 		"settings_button": _control_diag(settings_button), "guided_opening_toggle": _control_diag(guided_opening_toggle),
 		"seed_input": _control_diag(seed_input), "random_seed_button": _control_diag(random_seed_button),
 		"difficulty_option": _control_diag(difficulty_option), "difficulty_choices": _button_diagnostics(_difficulty_buttons),
-		"map_choices": _button_diagnostics(_map_buttons), "population_choices": _button_diagnostics(_population_buttons),
+		"map_choices": _button_diagnostics(_map_buttons), "map_picker_expanded": _map_picker_expanded,
+		"selected_map_button": _control_diag(_map_choice_button), "population_choices": _button_diagnostics(_population_buttons),
 		"settings_open": is_instance_valid(_shared_settings), "room_open": _is_room_open(),
 		"web_update_safe": _web_update_safe,
 	}

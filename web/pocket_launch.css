@@ -67,9 +67,9 @@ body.pocket-welcome #pocket-app { visibility: hidden; pointer-events: none; }
 .pocket-button:hover { background: #4a6553; border-color: #e8bf77; }
 .pocket-button:active { background: #e8bf77; color: #1d302c; border-color: #f4eddd; }
 .pocket-button:focus-visible { outline: 2px solid #f4eddd; outline-offset: 3px; }
-#pocket-menu-tools { position: absolute; z-index: 10; right: calc(var(--pocket-safe-right) + 12px); top: calc(var(--pocket-safe-top) + 12px); display: flex; align-items: center; gap: 8px; --pocket-tools-height: 48px; --pocket-tools-button-width: 132px; }
-#pocket-menu-tools .pocket-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: var(--pocket-tools-button-width); height: var(--pocket-tools-height); padding: 8px 10px; white-space: nowrap; }
-#pocket-menu-tools svg { width: 20px; height: 20px; flex: 0 0 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+#pocket-menu-tools { position: absolute; z-index: 10; right: calc(var(--pocket-safe-right) + 12px); top: calc(var(--pocket-safe-top) + 12px); display: flex; align-items: center; gap: calc(8px * var(--pocket-tools-scale)); --pocket-tools-scale: 1; --pocket-tools-height: 48px; --pocket-tools-button-width: 132px; }
+#pocket-menu-tools .pocket-button { display: inline-flex; align-items: center; justify-content: center; gap: calc(8px * var(--pocket-tools-scale)); width: max(48px, calc(var(--pocket-tools-button-width) * var(--pocket-tools-scale))); height: var(--pocket-tools-height); padding: calc(8px * var(--pocket-tools-scale)) calc(10px * var(--pocket-tools-scale)); font-size: calc(14px * var(--pocket-tools-scale)); border-radius: calc(10px * var(--pocket-tools-scale)); white-space: nowrap; }
+#pocket-menu-tools svg { width: calc(20px * var(--pocket-tools-scale)); height: calc(20px * var(--pocket-tools-scale)); flex: 0 0 calc(20px * var(--pocket-tools-scale)); fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 #pocket-screen-control { position: static; }
 #pocket-shell-links { display: flex; }
 @media (max-width: 680px) { #pocket-menu-tools { --pocket-tools-button-width: 48px; } #pocket-menu-tools [data-shell-label] { display: none; } }
@@ -122,9 +122,6 @@ body.pocket-shell-modal #pocket-screen-control, body.pocket-shell-modal #pocket-
 }
 
 /* The surrounding web controls share the game's typography and palette. */
-.pocket-button { border: 1px solid var(--pk-border); border-radius: 10px; padding: 10px 14px; background: #19383b; color: var(--pk-paper); font: 500 14px/1.2 Barlow, sans-serif; }
-.pocket-button:hover { background: #24494b; border-color: #6a9188; }
-.pocket-button:active { background: #2d5657; }
 .pocket-help-card { border-radius: 12px; border-color: var(--pk-border); background: var(--pk-ink); color: var(--pk-paper); font-family: Barlow, sans-serif; }
 .pocket-button:focus-visible { outline-color: var(--pk-gold); }
 

@@ -396,7 +396,12 @@ body.pocket-report-open { touch-action: auto; }
 	window.PocketWebShell = Object.freeze({
 		// Normalized CSS insets map once into Godot's UI-scaled viewport.
 		getSafeArea: function () { return safeArea.slice(); },
-		getMenuHeaderWidth: function () {
+		getMenuHeaderWidth: function (logicalWidth) {
+			// Godot scales its whole menu; scale browser-owned peers by the same
+			// factor so labels/icons keep their proportions beside Settings.
+			if (Number.isFinite(logicalWidth) && logicalWidth > 0) {
+				menuTools.style.setProperty('--pocket-tools-scale', String(game.getBoundingClientRect().width / logicalWidth));
+			}
 			return menuToolsWidth() / Math.max(1, game.getBoundingClientRect().width);
 		},
 		setMenuHeader: function (rect) {
