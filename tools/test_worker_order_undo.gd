@@ -47,6 +47,7 @@ func _run() -> void:
 		_adapter._register_server_entities()
 		await _solo_touch_journey()
 		_authority_checks()
+		await _freed_build_continuation()
 		_main.free()
 		await _frames(2)
 	for failure: String in _failures: push_error("[FAIL] worker_order_undo: " + failure)
@@ -169,6 +170,37 @@ func _authority_checks() -> void:
 	_expect(_adapter._snapshot_for(0).worker_undo.is_empty(), "host never receives guest availability")
 	_expect(_adapter.execute_command(1, {"command": "undo_workers", "undo_id": guest_status.id}).is_empty(), "guest record restores successfully")
 	for worker: Villager in guests: _expect(worker.has_active_gather_order() and worker.gather_target == guest_job, "guest restores original work")
+
+func _freed_build_continuation() -> void:
+	var survivors: Array = _workers.filter(func(worker: Villager) -> bool: return worker.current_state != UnitBase.State.DEAD)
+	var foundation: BuildingBase = _main._spawn_building(BuildingData.BuildingType.HOUSE, 0, Vector2i(36, 30))
+	foundation.start_construction()
+	for worker: Villager in survivors:
+		_expect(worker.command_gather(_wood), "accept work before saved-resource deletion")
+		worker.command_build(foundation)
+		_expect(worker.get("_saved_gather_target") == _wood, "builder retains prior resource reference")
+	var lost_id: int = _wood.get_instance_id()
+	_wood.harvest(_wood.remaining) # Real depletion clears registry and frees after its fade.
+	await get_tree().create_timer(0.65).timeout
+	await _frames(2)
+	_expect(not is_instance_valid(_wood), "saved resource is actually freed before Undo capture")
+	var selected_workers: Array[Node2D] = []
+	selected_workers.assign(survivors)
+	_selection.select_many(selected_workers)
+	_main._on_move_command(_map.world_to_tile(survivors[0].global_position) + Vector2i(3, 0))
+	var status: Dictionary = _main._worker_order_undo.status(0)
+	_expect(int(status.get("count", 0)) == survivors.size(), "freed saved reference does not abort capture")
+	if status.is_empty(): return
+	_main._on_worker_order_undo(int(status.id))
+	for worker: Villager in survivors:
+		_expect(worker.has_active_build_order() and worker.build_target == foundation, "builder restores with removed prior resource")
+		_expect(worker.get("_saved_gather_target") == null, "removed continuation is safely represented as null")
+	foundation._complete_construction() # Another builder finishes; ordinary worker completion handles the old job.
+	for worker: Villager in survivors:
+		worker._process_building(0.05)
+		_expect(worker.current_state != UnitBase.State.BUILDING, "completion leaves finished building safely")
+		if worker.current_state == UnitBase.State.GATHERING:
+			_expect(is_instance_valid(worker.gather_target) and worker.gather_target.get_instance_id() != lost_id, "completion reacquires a live visible resource")
 
 func _resource(kind: String, owner: int) -> Node2D:
 	for node: ResourceNode in _map.resource_nodes.values():

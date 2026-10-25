@@ -21,7 +21,7 @@ func capture(owner: int, units: Array) -> Array[Dictionary]:
 		if worker.has_active_build_order():
 			intent = {"kind": "build", "target": weakref(worker.build_target), "continuation": {}}
 			for key: String in BUILD_CONTINUATION_KEYS: intent.continuation[key] = worker.get(key)
-			var saved_target: Node2D = worker.get("_saved_gather_target") as Node2D
+			var saved_target: Variant = worker.get("_saved_gather_target")
 			intent.continuation["target"] = weakref(saved_target) if is_instance_valid(saved_target) else null
 		elif worker.has_active_gather_order() or (worker.is_auto_recovering() and worker.get("_recovery_work_state") == UnitBase.State.GATHERING):
 			if is_instance_valid(worker.gather_target):
