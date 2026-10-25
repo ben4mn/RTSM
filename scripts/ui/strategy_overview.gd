@@ -117,7 +117,7 @@ func _ready() -> void:
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	# Header, padding and exhausted scroll gestures belong to the sheet.
 	panel.mouse_force_pass_scroll_events = false
-	panel.add_theme_stylebox_override("panel", KingdomTheme.panel_style(KingdomTheme.INK_PANEL, KingdomTheme.GOLD, 2))
+	panel.add_theme_stylebox_override("panel", FieldStyle.surface(16))
 	panel.gui_input.connect(_on_gui_contact)
 	add_child(panel)
 	panel.minimum_size_changed.connect(_on_panel_minimum_changed)
@@ -148,9 +148,15 @@ func _ready() -> void:
 	_groups_tab.pressed.connect(func() -> void: _set_army_recruit_page(false))
 	header.add_child(_groups_tab)
 	_previous_producer = _button("‹", "PreviousProducer", 48)
+	_previous_producer.add_theme_font_size_override("font_size", 28)
+	_previous_producer.tooltip_text = "Previous production building"
+	_previous_producer.accessibility_name = _previous_producer.tooltip_text
 	_previous_producer.pressed.connect(func() -> void: _step_producer(-1))
 	header.add_child(_previous_producer)
 	_next_producer = _button("›", "NextProducer", 48)
+	_next_producer.add_theme_font_size_override("font_size", 28)
+	_next_producer.tooltip_text = "Next production building"
+	_next_producer.accessibility_name = _next_producer.tooltip_text
 	_next_producer.pressed.connect(func() -> void: _step_producer(1))
 	header.add_child(_next_producer)
 	_info_button = _icon_button("info", "Show current worker or producer details", "StrategyInfo", 48)
@@ -350,7 +356,7 @@ func _build_army_notes() -> void:
 		copy.add_theme_constant_override("separation", 2)
 		row.add_child(copy)
 		var heading: Label = _label(note.title, 18)
-		heading.add_theme_font_override("font", KingdomTheme.FONT_HEADING)
+		heading.add_theme_font_override("font", KingdomTheme.FONT_MEDIUM)
 		copy.add_child(heading)
 		var body: Label = _label(note.body, 13)
 		body.add_theme_color_override("font_color", KingdomTheme.MUTED)
@@ -729,7 +735,7 @@ func _refresh_pages() -> void:
 	_groups_tab.visible = army_open
 	_recruit_tab.set_pressed_no_signal(_army_recruit_page)
 	_groups_tab.set_pressed_no_signal(not _army_recruit_page)
-	_previous_producer.visible = (economy_open or army_open) and production and not empty_recruit
+	_previous_producer.visible = (economy_open or army_open) and production and ids.size() > 1
 	_next_producer.visible = _previous_producer.visible
 	_previous_producer.disabled = ids.size() <= 1
 	_next_producer.disabled = ids.size() <= 1

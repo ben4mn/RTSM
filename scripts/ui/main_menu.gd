@@ -90,6 +90,10 @@ var _rules_option: OptionButton
 var _rules_description: Label
 var _advanced_button: Button
 var _advanced_options: VBoxContainer
+var _advanced_overlay: ColorRect
+var _advanced_card: PanelContainer
+var _advanced_focus_modes: Dictionary = {}
+var _advanced_previous_focus: Control
 var seed_input: LineEdit
 var random_seed_button: Button
 var _host_button: Button
@@ -284,6 +288,9 @@ func _build_setup() -> void:
 	_map_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_map_panel.add_theme_constant_override("separation", 8)
 	_map_scroll.add_child(_map_panel)
+	# Who and where belong together; mode was already chosen on Home.
+	_civilization_button.reparent(_map_panel)
+	_civilization_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_map_heading = _label("YOUR BATTLEFIELD", 12)
 	THEME.apply_eyebrow(_map_heading)
 	_map_panel.add_child(_map_heading)
@@ -368,6 +375,7 @@ func _build_options() -> void:
 	_solo_options.add_theme_constant_override("separation", 8)
 	_options_body.add_child(_solo_options)
 	var label := _label("AI DIFFICULTY", 12)
+	label.name = "DifficultyHeading"
 	THEME.apply_eyebrow(label)
 	_solo_options.add_child(label)
 	_difficulty_row = HBoxContainer.new()
@@ -417,8 +425,7 @@ func _build_options() -> void:
 	_rules_description = _label("", 13, true)
 	_rules_description.add_theme_color_override("font_color", MUTED)
 	_solo_options.add_child(_rules_description)
-	_population_migration_note = _label("Normal battles now allow 100. Smaller limits remain in More options.", 13, true)
-	_solo_options.add_child(_population_migration_note)
+	_population_migration_note = _label("Normal battles now allow 100. Smaller limits remain available here.", 13, true)
 	_advanced_button = _button("More options  ›", "MoreOptionsButton", _toggle_advanced_options)
 	_advanced_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_advanced_button.add_theme_font_size_override("font_size", 14)
@@ -427,7 +434,8 @@ func _build_options() -> void:
 	_advanced_options.name = "AdvancedMatchOptions"
 	_advanced_options.add_theme_constant_override("separation", 8)
 	_advanced_options.hide()
-	_solo_options.add_child(_advanced_options)
+	_build_advanced_sheet()
+	_advanced_options.add_child(_population_migration_note)
 	_advanced_options.add_child(_label("Population per player", 14))
 	var population := GridContainer.new()
 	population.columns = 3
@@ -460,7 +468,51 @@ func _build_options() -> void:
 	var opponent_note := _label("Your rival’s kingdom is chosen automatically when the match begins.", 13, true)
 	opponent_note.add_theme_color_override("font_color", MUTED)
 	_advanced_options.add_child(opponent_note)
+	guided_opening_toggle.reparent(_advanced_options)
+	_advanced_options.add_child(_label("Easy gives you time to build. Medium brings regular raids. Hard brings early, sustained pressure.", 13, true))
 	_build_multiplayer_options()
+
+
+func _build_advanced_sheet() -> void:
+	_advanced_overlay = ColorRect.new()
+	_advanced_overlay.name = "MatchOptionsOverlay"
+	_advanced_overlay.color = Color(THEME.INK, 0.92)
+	_advanced_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_advanced_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+	_advanced_overlay.mouse_force_pass_scroll_events = false
+	_advanced_overlay.z_index = 180
+	_advanced_overlay.hide()
+	add_child(_advanced_overlay)
+	_advanced_card = PanelContainer.new()
+	_advanced_card.name = "MatchOptionsCard"
+	var style := THEME.panel_style(PANEL, BORDER, 18)
+	style.set_content_margin_all(14)
+	_advanced_card.add_theme_stylebox_override("panel", style)
+	_advanced_overlay.add_child(_advanced_card)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 10)
+	_advanced_card.add_child(column)
+	var header := HBoxContainer.new()
+	column.add_child(header)
+	var title := _label("Match options", 22)
+	_apply_heading(title, 22)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(title)
+	var close := _button("", "CloseMatchOptions", _toggle_advanced_options)
+	close.theme = theme
+	CommandIcons.apply(close, "close", "Close match options")
+	header.add_child(close)
+	var scroll := ScrollContainer.new()
+	scroll.name = "MatchOptionsScroll"
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.follow_focus = true
+	column.add_child(scroll)
+	_advanced_options.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(_advanced_options)
+	var done := _button("Done", "MatchOptionsDone", _toggle_advanced_options)
+	_apply_primary(done)
+	column.add_child(done)
 
 
 func _build_multiplayer_options() -> void:
@@ -525,7 +577,7 @@ func _build_multiplayer_options() -> void:
 
 
 func _create_menu_theme() -> Theme:
-	# The menu has its own softer surfaces; the battle HUD keeps its compact theme.
+	# Share the world palette; menu cards retain their generous paper surfaces.
 	var result: Theme = THEME.create_theme()
 	result.set_color("font_color", "Label", IVORY)
 	for control_type: String in ["Button", "OptionButton"]:
@@ -671,9 +723,9 @@ func _show_screen(screen: String) -> void:
 	_home.visible = screen == "home"
 	_setup.visible = screen != "home"
 	_footer.visible = screen != "home"
-	_tabs.visible = screen != "home"
+	_tabs.visible = false
 	_back_button.visible = screen != "home"
-	_page_title.text = "Pocket Kingdoms" if screen == "home" else "Prepare your kingdom"
+	_page_title.text = "" if screen == "home" else ("Solo battle" if _mode == "solo" else "Online 1v1")
 	_refresh_selection()
 	if changed and not GameManager.reduced_motion:
 		if _transition != null:
@@ -686,7 +738,7 @@ func _show_screen(screen: String) -> void:
 
 
 func _set_mode(mode: String) -> void:
-	if _is_room_open() or _network_search_active or is_instance_valid(_civilization_picker) or is_instance_valid(_shared_settings):
+	if _is_room_open() or _network_search_active or is_instance_valid(_civilization_picker) or is_instance_valid(_shared_settings) or _advanced_overlay.visible:
 		return
 	_mode = mode
 	_options_scroll.scroll_vertical = 0
@@ -721,7 +773,8 @@ func _refresh_selection() -> void:
 	map_summary_label.text = MapData.get_archetype_description(archetype)
 	_selection_summary.text = "%s\n%s" % [MapData.get_archetype_name(archetype), "Shared battlefield · Standard rules" if online else "%s · %s AI · %d population" % [SkirmishData.get_mode_name(GameManager.selected_match_mode), DIFFICULTY_NAMES[_selected_difficulty], _selected_population_limit]]
 	_rules_description.text = "Hold the Sacred Site with fighters, or defeat the rival town." if GameManager.selected_match_mode == SkirmishData.MatchMode.STANDARD else "Faster Feudal advance. The Sacred Site clock runs while you own it."
-	_advanced_button.text = "Fewer options  ‹" if _advanced_options.visible else "More options  ·  %d population  ›" % _selected_population_limit
+	_advanced_button.text = "More options  ·  %d population" % _selected_population_limit
+	_page_title.text = "" if _screen == "home" else ("Online 1v1" if online else "Solo battle")
 	_refresh_civilizations(room)
 	_solo_tab.set_pressed_no_signal(not online)
 	_online_tab.set_pressed_no_signal(online)
@@ -782,7 +835,7 @@ func _refresh_civilizations(room: bool) -> void:
 
 
 func _open_civilization_picker() -> void:
-	if _screen != "setup" or is_instance_valid(_civilization_picker) or is_instance_valid(_shared_settings) or _network_search_active or _room_waiting:
+	if _screen != "setup" or is_instance_valid(_civilization_picker) or is_instance_valid(_shared_settings) or _network_search_active or _room_waiting or _advanced_overlay.visible:
 		return
 	var opened_room: String = str(_session.get("room_code")) if _is_room_open() else ""
 	_civilization_picker = preload("res://scripts/ui/civilization_picker.gd").open(self, _draft_civilization())
@@ -850,6 +903,9 @@ func _leave_room() -> void:
 
 
 func _on_back_pressed() -> void:
+	if _advanced_overlay.visible:
+		_toggle_advanced_options()
+		return
 	if is_instance_valid(_civilization_picker):
 		_civilization_picker.call("close")
 		return
@@ -874,6 +930,33 @@ func _on_population_selected(limit: int) -> void:
 
 func _toggle_advanced_options() -> void:
 	_advanced_options.visible = not _advanced_options.visible
+	_advanced_overlay.visible = _advanced_options.visible
+	if _advanced_options.visible:
+		_advanced_previous_focus = get_viewport().gui_get_focus_owner()
+		for control: Control in find_children("*", "Control", true, false):
+			if not _advanced_overlay.is_ancestor_of(control) and control.focus_mode != Control.FOCUS_NONE:
+				_advanced_focus_modes[control] = control.focus_mode
+				control.focus_mode = Control.FOCUS_NONE
+		var focus_order: Array[Control] = [find_child("CloseMatchOptions", true, false)]
+		for button: Button in _population_buttons:
+			focus_order.append(button)
+		focus_order.append_array([seed_input, random_seed_button, guided_opening_toggle, find_child("MatchOptionsDone", true, false)])
+		for index: int in focus_order.size():
+			var control: Control = focus_order[index]
+			control.focus_next = control.get_path_to(focus_order[(index + 1) % focus_order.size()])
+			control.focus_previous = control.get_path_to(focus_order[posmod(index - 1, focus_order.size())])
+		focus_order[0].grab_focus()
+	else:
+		for control: Control in _advanced_focus_modes:
+			if is_instance_valid(control):
+				control.focus_mode = _advanced_focus_modes[control]
+		_advanced_focus_modes.clear()
+		if is_instance_valid(_advanced_previous_focus) and _advanced_previous_focus.is_visible_in_tree():
+			_advanced_previous_focus.grab_focus()
+		else:
+			_advanced_button.grab_focus()
+	WEB_SHELL_BRIDGE.set_controls_visible(not _advanced_options.visible)
+	_refresh_web_update_safety()
 	_refresh_selection()
 	call_deferred("_refresh_responsive_layout")
 
@@ -895,7 +978,7 @@ func _on_random_seed_pressed() -> void:
 
 
 func _on_settings_pressed() -> void:
-	if is_instance_valid(_shared_settings) or is_instance_valid(_civilization_picker):
+	if is_instance_valid(_shared_settings) or is_instance_valid(_civilization_picker) or _advanced_overlay.visible:
 		return
 	_shared_settings = preload("res://scripts/ui/settings_panel.gd").open(self)
 	_shared_settings.closed.connect(_on_settings_closed)
@@ -913,12 +996,12 @@ func _refresh_web_update_safety() -> void:
 	# A waiting room is a live connection too. Status changes and closing Settings
 	# must not let a pending service-worker update reload a room or loading match.
 	var session_state: String = str(_session.get("state")) if _session != null else "idle"
-	_web_update_safe = not is_instance_valid(_shared_settings) and not is_instance_valid(_civilization_picker) and session_state in ["idle", "error"]
+	_web_update_safe = not is_instance_valid(_shared_settings) and not is_instance_valid(_civilization_picker) and not _advanced_options.visible and session_state in ["idle", "error"]
 	WEB_SHELL_BRIDGE.set_update_safe(_web_update_safe)
 
 
 func _on_start_pressed() -> void:
-	if start_button.disabled or is_instance_valid(_civilization_picker) or is_instance_valid(_shared_settings):
+	if start_button.disabled or is_instance_valid(_civilization_picker) or is_instance_valid(_shared_settings) or _advanced_overlay.visible:
 		return
 	if _is_room_open():
 		_session.call("start_hosted_match")
@@ -960,11 +1043,7 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2, shell_top_cle
 	var expanded_frame: Rect2 = _menu_frame_rect(_active_safe_area, 32.0, web_clearance)
 	_compact_layout = expanded_frame.size.y < EXPANDED_LAYOUT_MIN_HEIGHT
 	var compact: bool = _compact_layout
-	var desired_tab_parent: Node = _header if compact else _setup
-	if _tabs.get_parent() != desired_tab_parent:
-		_tabs.reparent(desired_tab_parent)
-		desired_tab_parent.move_child(_tabs, 1 if compact else 0)
-	_page_title.visible = not compact or _screen == "home"
+	_page_title.visible = true
 	_home_intro.visible = not compact
 	_home_note.visible = not compact
 	_home_eyebrow.visible = not compact
@@ -972,7 +1051,8 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2, shell_top_cle
 	var available: Rect2 = _menu_frame_rect(_active_safe_area, margin, web_clearance)
 	# On the shortest UI-scaled phones the browser toolbar leaves less than the
 	# compact body's minimum. Keep actions fixed and scroll battlefield details.
-	var short_body: bool = compact and available.size.y < 302.0
+	var short_body: bool = compact and available.size.y < 336.0
+	var minimal_maps: bool = compact and available.size.y < 294.0
 	_map_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO if short_body else ScrollContainer.SCROLL_MODE_DISABLED
 	_map_heading.visible = not short_body
 	var max_width: float = 1280.0
@@ -988,6 +1068,12 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2, shell_top_cle
 	_map_cards.add_theme_constant_override("separation", 6 if compact else 12)
 	_map_panel.add_theme_constant_override("separation", 4 if compact else 8)
 	_options_panel.custom_minimum_size.x = 236 if compact else 310
+	var options_style: StyleBoxFlat = _options_panel.get_theme_stylebox("panel")
+	options_style.content_margin_top = 8 if compact else 12
+	options_style.content_margin_bottom = 8 if compact else 12
+	_options_body.add_theme_constant_override("separation", 6 if compact else 12)
+	_solo_options.add_theme_constant_override("separation", 4 if compact else 8)
+	difficulty_description.visible = not compact
 	_columns.vertical = available.size.x < 560
 	_page_title.add_theme_font_size_override("font_size", 18 if compact else 22)
 	_header.add_theme_constant_override("separation", 8 if compact else 16)
@@ -1000,7 +1086,7 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2, shell_top_cle
 			tab_style.content_margin_left = 9 if compact else 16
 			tab_style.content_margin_right = 9 if compact else 16
 			button.add_theme_stylebox_override(state, tab_style)
-	_civilization_button.custom_minimum_size = Vector2(204 if compact else 244, 48 if compact else 56)
+	_civilization_button.custom_minimum_size = Vector2(0, 48 if compact else 56)
 	_civilization_name.add_theme_font_size_override("font_size", 14 if compact else 16)
 	settings_button.text = "" if compact else "Settings"
 	settings_button.tooltip_text = "Settings"
@@ -1010,7 +1096,8 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2, shell_top_cle
 	map_summary_label.add_theme_font_size_override("font_size", 13 if compact else 15)
 	map_summary_label.custom_minimum_size.y = 30 if compact else 38
 	for i: int in _map_buttons.size():
-		_map_buttons[i].custom_minimum_size.y = 126 if compact else 240
+		_map_buttons[i].custom_minimum_size.y = 80 if minimal_maps else (126 if compact else 240)
+		_map_previews[i].visible = not minimal_maps
 		_map_previews[i].custom_minimum_size.y = 54 if compact else 144
 		_map_names[i].add_theme_font_size_override("font_size", 14 if compact else 18)
 		_map_badges[i].add_theme_font_size_override("font_size", 10 if compact else 12)
@@ -1022,6 +1109,9 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2, shell_top_cle
 	_selection_summary.add_theme_font_size_override("font_size", 13 if compact else 16)
 	start_button.custom_minimum_size.x = 158 if compact else 200
 	start_button.custom_minimum_size.y = 48 if compact else 56
+	var advanced_size := Vector2(minf(560, _active_safe_area.size.x - 20), minf(520, _active_safe_area.size.y - 16))
+	_advanced_card.position = _active_safe_area.get_center() - advanced_size * 0.5
+	_advanced_card.size = advanced_size
 	if available.size.x < 560:
 		_home.vertical = true
 		_home_actions.custom_minimum_size.x = 0

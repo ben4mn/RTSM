@@ -1,23 +1,25 @@
 class_name KingdomTheme
 extends RefCounted
-## Illuminated command atlas: navy surfaces, parchment type, antique-gold actions.
+## Shared illustrated-world palette: forest cloth, warm paper and honey actions.
 
-const INK := Color("101c2c")
-const INK_PANEL := Color("192a3c")
-const INK_LIGHT := Color("24394c")
-const PARCHMENT := Color("f2e6c9")
-const MUTED := Color("aeb8c0")
+const INK := Color("1d302c")
+const INK_PANEL := Color("2b4239")
+const INK_LIGHT := Color("3b5548")
+const PARCHMENT := Color("f4eddd")
+const MUTED := Color("bec9b8")
 const RUST := Color("df947f")
-const GOLD := Color("d8b36b")
+const GOLD := Color("e8bf77")
 const AMBER := GOLD
-const TEAL := Color("9fc7d0")
-const BORDER := Color("455a6a")
+const TEAL := Color("b1ceb4")
+const BORDER := Color("617467")
+const PAPER := Color("e7dfc9")
+const PAPER_INK := Color("354638")
 const FONT_BODY := preload("res://assets/fonts/Barlow-Regular.ttf")
 const FONT_MEDIUM := preload("res://assets/fonts/Barlow-Medium.ttf")
 const FONT_HEADING := preload("res://assets/fonts/Cinzel.ttf")
 
 
-static func panel_style(background: Color = INK_PANEL, border: Color = BORDER, radius: int = 2) -> StyleBoxFlat:
+static func panel_style(background: Color = INK_PANEL, border: Color = BORDER, radius: int = 12) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = background
 	style.border_color = border
@@ -33,18 +35,18 @@ static func button_style(kind: String = "secondary", state: String = "normal") -
 	var border: Color = AMBER if primary else BORDER
 	match state:
 		"hover":
-			background = Color("edcb85") if primary else Color("304b60")
+			background = Color("f0cb86") if primary else Color("4a6553")
 			border = PARCHMENT if primary else AMBER
 		"pressed":
 			background = Color("b99554") if primary else AMBER
 			border = PARCHMENT
 		"disabled":
-			background = Color("192636")
-			border = Color("354656")
+			background = Color("263a32")
+			border = Color("4f6358")
 		"focus":
 			background = Color.TRANSPARENT
 			border = PARCHMENT
-	var style: StyleBoxFlat = panel_style(background, border, 2)
+	var style: StyleBoxFlat = panel_style(background, border, 10)
 	style.border_width_bottom = 2
 	if state == "focus":
 		style.set_border_width_all(2)
@@ -56,7 +58,7 @@ static func button_style(kind: String = "secondary", state: String = "normal") -
 
 
 static func apply_heading(label: Label, size: int = 24) -> void:
-	label.add_theme_font_override("font", FONT_HEADING)
+	label.add_theme_font_override("font", FONT_MEDIUM)
 	label.add_theme_font_size_override("font_size", size)
 	label.add_theme_color_override("font_color", PARCHMENT)
 
@@ -82,6 +84,15 @@ static func create_theme() -> Theme:
 	theme.default_font_size = 16
 	theme.set_color("font_color", "Label", PARCHMENT)
 	theme.set_stylebox("panel", "PanelContainer", panel_style())
+	theme.set_stylebox("panel", "AcceptDialog", inset_panel())
+	theme.set_constant("buttons_min_width", "AcceptDialog", 104)
+	theme.set_constant("buttons_min_height", "AcceptDialog", 48)
+	var window_frame := panel_style(INK_PANEL, BORDER, 12)
+	window_frame.content_margin_top = 32
+	theme.set_stylebox("embedded_border", "Window", window_frame)
+	theme.set_stylebox("embedded_unfocused_border", "Window", window_frame)
+	theme.set_color("title_color", "Window", PARCHMENT)
+	theme.set_font("title_font", "Window", FONT_MEDIUM)
 	var normal: StyleBoxFlat = button_style()
 	var hover: StyleBoxFlat = button_style("secondary", "hover")
 	var pressed: StyleBoxFlat = button_style("secondary", "pressed")
@@ -100,12 +111,12 @@ static func create_theme() -> Theme:
 		theme.set_color("font_focus_color", control_type, PARCHMENT)
 		theme.set_color("font_pressed_color", control_type, INK)
 		theme.set_color("font_hover_pressed_color", control_type, INK)
-		theme.set_color("font_disabled_color", control_type, Color("747e7f"))
+		theme.set_color("font_disabled_color", control_type, Color("9cae9f"))
 		theme.set_color("icon_normal_color", control_type, Color.WHITE)
 		theme.set_color("icon_hover_color", control_type, Color.WHITE)
 		theme.set_color("icon_pressed_color", control_type, INK)
 		theme.set_color("icon_hover_pressed_color", control_type, INK)
-		theme.set_color("icon_disabled_color", control_type, Color("747e7f"))
+		theme.set_color("icon_disabled_color", control_type, Color("9cae9f"))
 	# Preferences read as a quiet row, with the switch carrying its state.
 	var preference: StyleBoxFlat = panel_style(Color.TRANSPARENT, Color.TRANSPARENT, 0)
 	theme.set_stylebox("normal", "CheckButton", preference)
@@ -116,16 +127,31 @@ static func create_theme() -> Theme:
 	theme.set_color("font_hover_pressed_color", "CheckButton", PARCHMENT)
 	theme.set_icon("checked", "CheckButton", preload("res://assets/ui/atlas_toggle_on.svg"))
 	theme.set_icon("unchecked", "CheckButton", preload("res://assets/ui/atlas_toggle_off.svg"))
-	theme.set_stylebox("normal", "LineEdit", panel_style(INK, BORDER, 3))
-	theme.set_stylebox("focus", "LineEdit", panel_style(INK, TEAL, 3))
+	for state: String in ["normal", "focus", "read_only"]:
+		var input_style: StyleBoxFlat = panel_style(INK, TEAL if state == "focus" else BORDER, 8)
+		input_style.content_margin_left = 12
+		input_style.content_margin_right = 12
+		theme.set_stylebox(state, "LineEdit", input_style)
 	theme.set_color("font_color", "LineEdit", PARCHMENT)
 	theme.set_color("font_placeholder_color", "LineEdit", MUTED)
 	theme.set_color("caret_color", "LineEdit", TEAL)
 	theme.set_stylebox("panel", "PopupMenu", panel_style())
 	theme.set_stylebox("hover", "PopupMenu", hover)
 	theme.set_color("font_color", "PopupMenu", PARCHMENT)
+	theme.set_color("font_hover_color", "PopupMenu", PARCHMENT)
+	theme.set_color("font_disabled_color", "PopupMenu", MUTED)
+	theme.set_color("font_accelerator_color", "PopupMenu", MUTED)
+	theme.set_font("font", "PopupMenu", FONT_MEDIUM)
 	theme.set_font_size("font_size", "PopupMenu", 18)
-	theme.set_constant("v_separation", "PopupMenu", 28)
+	theme.set_constant("v_separation", "PopupMenu", 26)
+	theme.set_constant("h_separation", "PopupMenu", 12)
+	var scroll_track := panel_style(INK, Color.TRANSPARENT, 5)
+	var scroll_grab := panel_style(BORDER, Color.TRANSPARENT, 5)
+	for kind: String in ["VScrollBar", "HScrollBar"]:
+		theme.set_stylebox("scroll", kind, scroll_track)
+		theme.set_stylebox("grabber", kind, scroll_grab)
+		theme.set_stylebox("grabber_highlight", kind, panel_style(TEAL, Color.TRANSPARENT, 5))
+		theme.set_stylebox("grabber_pressed", kind, panel_style(GOLD, Color.TRANSPARENT, 5))
 	var slider_track: StyleBoxFlat = panel_style(BORDER, BORDER, 2)
 	slider_track.content_margin_top = 2.0
 	slider_track.content_margin_bottom = 2.0

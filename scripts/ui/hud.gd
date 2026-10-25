@@ -956,9 +956,7 @@ func _create_pause_overlay() -> void:
 	var title := Label.new()
 	title.text = "The battle continues" if online else "A moment of counsel"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 24)
-	title.add_theme_font_override("font", KingdomTheme.FONT_HEADING)
-	title.add_theme_color_override("font_color", KingdomTheme.PARCHMENT)
+	KingdomTheme.apply_heading(title, 24)
 	vbox.add_child(title)
 
 	var sep := HSeparator.new()
@@ -1007,6 +1005,7 @@ func _create_pause_overlay() -> void:
 	utility_row.add_child(sound_btn)
 	var guide_btn := Button.new()
 	guide_btn.name = "FieldGuideButton"
+	guide_btn.theme = ($Root as Control).theme
 	guide_btn.custom_minimum_size = Vector2(48, 48)
 	guide_btn.process_mode = Node.PROCESS_MODE_ALWAYS
 	CommandIcons.apply_labeled(guide_btn, "info", "Field guide: learn icons, orders and resource costs", "Guide")
@@ -1056,8 +1055,8 @@ func _create_pause_overlay() -> void:
 	var frame := Panel.new()
 	frame.name = "PauseFrame"
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var frame_style := KingdomTheme.panel_style(KingdomTheme.INK_PANEL, KingdomTheme.GOLD, 2)
-	frame_style.border_width_top = 3
+	var frame_style := FieldStyle.surface(18)
+	frame_style.border_width_top = 2
 	frame.add_theme_stylebox_override("panel", frame_style)
 	_pause_overlay.add_child(frame)
 	_pause_overlay.add_child(vbox)
@@ -4122,6 +4121,7 @@ func _fit_notification_feed() -> void:
 func _create_hotkey_panel() -> void:
 	var root_ctrl: Control = $Root
 	_hotkey_panel = PanelContainer.new()
+	_hotkey_panel.add_theme_stylebox_override("panel", FieldStyle.surface(16))
 	_hotkey_panel.set_anchors_preset(Control.PRESET_CENTER)
 	_hotkey_panel.offset_left = -180
 	_hotkey_panel.offset_right = 180
@@ -4135,8 +4135,8 @@ func _create_hotkey_panel() -> void:
 
 	var title := Label.new()
 	title.text = "Field guide"
-	title.add_theme_font_size_override("font_size", 18)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	KingdomTheme.apply_heading(title, 20)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	vbox.add_child(title)
 	# Ordinary tap-access rows teach symbols without a hover or long press.
 	for entry: Array in preload("res://scripts/ui/field_guide.gd").ENTRIES:
@@ -4198,11 +4198,16 @@ func _create_hotkey_panel() -> void:
 		vbox.add_child(hbox)
 
 	var outer := VBoxContainer.new()
+	var guide_header := HBoxContainer.new()
+	outer.add_child(guide_header)
+	title.reparent(guide_header)
 	var close_button := Button.new()
-	close_button.text = "Close Help"
-	close_button.custom_minimum_size = Vector2(104, 48)
+	close_button.name = "CloseFieldGuide"
+	close_button.theme = ($Root as Control).theme
+	CommandIcons.apply(close_button, "close", "Close field guide")
+	close_button.custom_minimum_size = Vector2(48, 48)
 	close_button.pressed.connect(close_secondary_surface)
-	outer.add_child(close_button)
+	guide_header.add_child(close_button)
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED

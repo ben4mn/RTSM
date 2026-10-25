@@ -32,10 +32,10 @@ func _ready() -> void:
 	layer = 20
 	visible = false
 	panel.theme = KingdomTheme.create_theme()
-	var ledger := KingdomTheme.panel_style(KingdomTheme.INK_PANEL, KingdomTheme.GOLD, 2)
-	ledger.border_width_top = 3
+	var ledger := FieldStyle.surface(18)
+	ledger.border_width_top = 2
 	panel.add_theme_stylebox_override("panel", ledger)
-	result_label.add_theme_font_override("font", KingdomTheme.FONT_HEADING)
+	result_label.add_theme_font_override("font", KingdomTheme.FONT_MEDIUM)
 	panel.get_node("Margin/VBox/StatsHeader/Left").add_theme_color_override("font_color", KingdomTheme.TEAL)
 	panel.get_node("Margin/VBox/StatsHeader/Right").add_theme_color_override("font_color", KingdomTheme.RUST)
 	time_label.add_theme_color_override("font_color", KingdomTheme.MUTED)

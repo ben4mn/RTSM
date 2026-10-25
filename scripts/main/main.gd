@@ -991,13 +991,18 @@ func _on_problem_report_requested() -> void:
 	if OS.has_feature("web"):
 		return  # The Web bridge shows its report card while the match stays paused.
 	var dialog := AcceptDialog.new()
+	dialog.name = "PlaytestReportDialog"
+	dialog.theme = KingdomTheme.create_theme()
 	dialog.title = "Playtest log saved"
 	dialog.process_mode = Node.PROCESS_MODE_ALWAYS
 	dialog.dialog_text = "Report code: %s\n\nRecent game inputs were saved on this device.\nAttach playtest-diagnostics.json when reporting the problem." % str(report.get("problem", {}).get("id", ""))
 	dialog.confirmed.connect(dialog.queue_free)
 	dialog.canceled.connect(dialog.queue_free)
 	hud.add_child(dialog)
-	dialog.popup_centered(Vector2i(420, 210))
+	dialog.dialog_autowrap = true
+	KingdomTheme.apply_primary(dialog.get_ok_button())
+	var report_size: Vector2 = get_viewport().get_visible_rect().size - Vector2(32, 64)
+	dialog.popup_centered(Vector2i(minf(460, report_size.x), minf(230, report_size.y)))
 
 
 func _on_quit_to_menu_requested() -> void:

@@ -50,6 +50,32 @@ func _run() -> void:
 		settings.call("close")
 		_expect(bool(menu.get("_web_update_safe")), initial_state + ": closing idle Settings restores updates")
 		await process_frame
+		menu.call("_open_new_game")
+		menu.call("_toggle_advanced_options")
+		_expect(not bool(menu.get("_web_update_safe")), initial_state + ": match options block reload")
+		for backward: bool in [false, true]:
+			for step: int in 12:
+				for pressed: bool in [true, false]:
+					var tab := InputEventKey.new()
+					tab.keycode = KEY_TAB
+					tab.shift_pressed = backward
+					tab.pressed = pressed
+					root.push_input(tab)
+					await process_frame
+				var focused: Control = root.gui_get_focus_owner()
+				_expect(focused != null and (menu.get("_advanced_overlay") as Control).is_ancestor_of(focused), initial_state + ": keyboard traversal remains inside options")
+		menu.call("_on_settings_pressed")
+		menu.call("_open_civilization_picker")
+		menu.call("_set_mode", "multiplayer")
+		menu.call("_on_start_pressed")
+		_expect(menu.get("_shared_settings") == null and menu.get("_civilization_picker") == null, initial_state + ": options cannot stack modal surfaces")
+		_expect(menu.get("_mode") == "solo" and is_instance_valid(menu), initial_state + ": covered launch and mode controls stay blocked")
+		_set_status(session, "idle")
+		_expect(not bool(menu.get("_web_update_safe")), initial_state + ": idle status cannot override options")
+		menu.call("_on_back_pressed")
+		_expect(menu.get("_screen") == "setup" and not (menu.get("_advanced_overlay") as Control).visible, initial_state + ": Back closes options without discarding setup")
+		_expect(bool(menu.get("_web_update_safe")), initial_state + ": closing options restores idle safety")
+		_expect(root.gui_get_focus_owner() == menu.get("_advanced_button"), initial_state + ": options restore launch-page focus")
 		menu.free()
 		await process_frame
 

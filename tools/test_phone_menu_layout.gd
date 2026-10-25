@@ -113,7 +113,9 @@ func _exercise(profile: Dictionary) -> void:
 	_expect((menu.get("_advanced_options") as Control).visible, context + " more options reveals existing settings")
 	(menu.get("_population_buttons") as Array)[0].pressed.emit()
 	_expect(GameManager.selected_population_limit == 20, context + " population applied")
-	var scroll: ScrollContainer = menu.get("_options_scroll")
+	var scroll: ScrollContainer = menu.find_child("MatchOptionsScroll", true, false)
+	_bounds(menu.get("_advanced_card"), safe, context + " dedicated options card")
+	_touch(menu.find_child("MatchOptionsDone", true, false), safe, context + " finish options")
 	_expect(scroll.size.y >= (96.0 if bool(profile.get("scroll_map", false)) else 120.0), context + " useful options scroll viewport")
 	_expect((menu.get("_population_buttons") as Array).size() == 5, context + " all five population limits remain available")
 	for button: Button in menu.get("_population_buttons"):
@@ -122,9 +124,12 @@ func _exercise(profile: Dictionary) -> void:
 		_touch(button, safe, context + " " + button.name)
 		button.pressed.emit()
 		_expect(GameManager.selected_population_limit == int(button.text), context + " chosen population is authoritative draft")
-	scroll.scroll_vertical = 10000
+	scroll.ensure_control_visible(menu.get("seed_input"))
 	await get_tree().process_frame
 	_bounds(menu.get("seed_input"), safe, context + " seed reachable by scroll")
+	menu.call("_toggle_advanced_options")
+	_expect(not (menu.get("_advanced_overlay") as Control).visible, context + " options close before setup continues")
+	_expect((menu.get("_selection_summary") as Label).text.contains("100 population"), context + " current maximum stays visible in launch summary")
 	menu.call("_set_mode", "multiplayer")
 	await _settle(menu, logical, safe)
 	_touch(menu.get("_host_button"), safe, context + " create room")
@@ -167,9 +172,9 @@ func _exercise(profile: Dictionary) -> void:
 	await _settle(menu, logical, safe)
 	var settings: Control = menu.get("_shared_settings")
 	var tabs: Array = settings.get("_tabs")
-	_expect(tabs.size() == 3, context + " settings has only application preference tabs")
+	_expect(tabs.size() == 4, context + " settings has application preferences and tap Guide")
 	_expect(settings.find_child("MapTab", true, false) == null and settings.find_child("MatchTab", true, false) == null, context + " map and match removed from Settings")
-	for i: int in 3:
+	for i: int in 4:
 		settings.call("_show_section", i)
 		await get_tree().process_frame
 		await get_tree().process_frame

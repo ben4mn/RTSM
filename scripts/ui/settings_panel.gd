@@ -16,6 +16,7 @@ var _section: int = 0
 var _status: Label
 var _safe_area: Rect2
 var _closing: bool = false
+var _setting_rows: Array[BoxContainer] = []
 
 
 static func open(parent: Node, in_match: bool = false) -> Control:
@@ -41,7 +42,7 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_panel = PanelContainer.new()
 	_panel.name = "PreferencesCard"
-	var panel_style: StyleBoxFlat = THEME.panel_style()
+	var panel_style: StyleBoxFlat = THEME.panel_style(THEME.INK_PANEL, THEME.BORDER, 18)
 	panel_style.set_content_margin_all(2)
 	_panel.add_theme_stylebox_override("panel", panel_style)
 	_panel.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -52,8 +53,13 @@ func _ready() -> void:
 		margin.add_theme_constant_override("margin_" + edge, 10 if edge in ["left", "right"] else 4)
 	_panel.add_child(margin)
 	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 2)
+	column.add_theme_constant_override("separation", 4)
 	margin.add_child(column)
+	var heading := Label.new()
+	heading.name = "SettingsTitle"
+	heading.text = "Settings & field guide"
+	THEME.apply_heading(heading, 21)
+	column.add_child(heading)
 	var tabs := HBoxContainer.new()
 	tabs.add_theme_constant_override("separation", 5)
 	column.add_child(tabs)
@@ -62,16 +68,18 @@ func _ready() -> void:
 		var button := Button.new()
 		button.name = SECTIONS[i] + "Tab"
 		button.text = SECTIONS[i]
-		button.custom_minimum_size = Vector2(80, 48)
+		button.custom_minimum_size = Vector2(0, 48)
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.add_theme_font_size_override("font_size", 15)
 		button.toggle_mode = true
 		button.button_group = group
-		var tab_normal: StyleBoxFlat = THEME.panel_style(THEME.INK_PANEL, THEME.INK_PANEL, 0)
+		var tab_normal: StyleBoxFlat = THEME.panel_style(THEME.INK_PANEL, THEME.BORDER, 10)
+		tab_normal.content_margin_left = 8
+		tab_normal.content_margin_right = 8
 		var tab_active: StyleBoxFlat = tab_normal.duplicate()
-		tab_active.border_color = THEME.TEAL
-		tab_active.set_border_width_all(0)
-		tab_active.border_width_bottom = 2
+		tab_active.bg_color = THEME.INK_LIGHT
+		tab_active.border_color = THEME.GOLD
+		tab_active.set_border_width_all(2)
 		button.add_theme_stylebox_override("normal", tab_normal)
 		button.add_theme_stylebox_override("pressed", tab_active)
 		button.add_theme_stylebox_override("hover_pressed", tab_active)
@@ -91,12 +99,14 @@ func _ready() -> void:
 	_body = VBoxContainer.new()
 	_body.name = "SectionBody"
 	_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_body.add_theme_constant_override("separation", 2)
+	_body.add_theme_constant_override("separation", 4)
 	_scroll.add_child(_body)
 	var footer := HBoxContainer.new()
 	footer.add_theme_constant_override("separation", 8)
 	column.add_child(footer)
-	var reset := _button("Reset defaults", "ResetDefaultsButton", _reset_application_preferences)
+	var reset := _button("Reset", "ResetDefaultsButton", _reset_application_preferences)
+	reset.accessibility_name = "Reset application settings to defaults"
+	reset.tooltip_text = reset.accessibility_name
 	reset.pressed.connect(func() -> void:
 		_show_section(_section)
 		_status.text = "Defaults restored"
@@ -156,10 +166,14 @@ func apply_mobile_layout(viewport_size: Vector2, safe: Rect2) -> void:
 	var card_size := Vector2(minf(660.0, _safe_area.size.x - 16.0), minf(550.0, _safe_area.size.y - 12.0))
 	_panel.position = _safe_area.position + (_safe_area.size - card_size) * 0.5
 	_panel.size = card_size
+	for row: BoxContainer in _setting_rows:
+		row.vertical = card_size.x < 480
+		(row.get_child(0) as Control).custom_minimum_size.x = 0 if row.vertical else 128
 
 
 func _show_section(index: int) -> void:
 	_section = index
+	_setting_rows.clear()
 	for i: int in _tabs.size():
 		_tabs[i].set_pressed_no_signal(i == index)
 	for child: Node in _body.get_children():
@@ -175,6 +189,12 @@ func _show_section(index: int) -> void:
 	var reset: Button = find_child("ResetDefaultsButton", true, false) as Button
 	if reset != null:
 		reset.visible = index != 3
+	# Keep the safe area supplied by the owning menu/HUD when changing a tab.
+	# A viewport alone cannot recover the browser toolbar or display cutout.
+	if _safe_area.has_area():
+		apply_mobile_layout(get_viewport().get_visible_rect().size, _safe_area)
+	else:
+		_layout()
 
 
 func _build_guide() -> void:
@@ -246,15 +266,20 @@ func _build_display() -> void:
 
 
 func _row(label_text: String) -> HBoxContainer:
-	var row := HBoxContainer.new()
-	row.custom_minimum_size.y = 48
-	row.add_theme_constant_override("separation", 10)
-	_body.add_child(row)
+	var wrapper := BoxContainer.new()
+	wrapper.add_theme_constant_override("separation", 8)
+	_body.add_child(wrapper)
+	_setting_rows.append(wrapper)
 	var label := Label.new()
 	label.text = label_text
-	label.custom_minimum_size.x = 154
+	label.custom_minimum_size.x = 128
 	label.add_theme_font_size_override("font_size", 15)
-	row.add_child(label)
+	wrapper.add_child(label)
+	var row := HBoxContainer.new()
+	row.custom_minimum_size.y = 48
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_theme_constant_override("separation", 6)
+	wrapper.add_child(row)
 	return row
 
 
@@ -276,7 +301,7 @@ func _volume(label: String, property: String) -> void:
 	var row := _row(label)
 	var slider := HSlider.new()
 	slider.name = property.to_pascal_case() + "Slider"
-	slider.custom_minimum_size = Vector2(130, 48)
+	slider.custom_minimum_size = Vector2(72, 48)
 	slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	slider.min_value = 0
 	slider.max_value = 100
@@ -300,7 +325,7 @@ func _volume(label: String, property: String) -> void:
 		var mute := CheckButton.new()
 		mute.name = mute_property.to_pascal_case() + "Toggle"
 		mute.text = "Mute"
-		mute.custom_minimum_size = Vector2(96, 48)
+		mute.custom_minimum_size = Vector2(76, 48)
 		mute.add_theme_font_size_override("font_size", 13)
 		mute.set_pressed_no_signal(bool(GameManager.get(mute_property)))
 		mute.toggled.connect(func(enabled: bool) -> void:

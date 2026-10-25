@@ -30,7 +30,7 @@ func _run() -> void:
 		for direct: bool in [true, false]:
 			await _exercise(profile, direct)
 	if _failures.is_empty():
-		print("[PASS] menu_mode_reflow: %d checks; direct Join friend, Solo/Multiplayer tabs, map changes and Back/reopen without forced layout; four platform geometries" % _checks)
+		print("[PASS] menu_mode_reflow: %d checks; Home Solo/Online choices, map changes and Back/reopen without forced layout; four platform geometries" % _checks)
 	else:
 		for failure: String in _failures:
 			push_error("[FAIL] menu_mode_reflow: " + failure)
@@ -55,13 +55,16 @@ func _exercise(profile: Dictionary, direct: bool) -> void:
 	else:
 		(menu.get("_new_game_button") as Button).pressed.emit()
 		await _settle()
-		(menu.get("_online_tab") as Button).pressed.emit()
+		(menu.get("_back_button") as Button).pressed.emit()
+		(menu.get("_online_button") as Button).pressed.emit()
 	await _settle()
 	_check_online(menu, context + " initial online")
-	(menu.get("_solo_tab") as Button).pressed.emit()
+	(menu.get("_back_button") as Button).pressed.emit()
+	(menu.get("_new_game_button") as Button).pressed.emit()
 	await _settle()
 	_bounds(menu.get("start_button"), menu.modeled_safe_area, context + " solo Start")
-	(menu.get("_online_tab") as Button).pressed.emit()
+	(menu.get("_back_button") as Button).pressed.emit()
+	(menu.get("_online_button") as Button).pressed.emit()
 	for button: Button in menu.get("_map_buttons"):
 		button.pressed.emit()
 		await _settle()

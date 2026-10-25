@@ -3,14 +3,14 @@ extends RefCounted
 ## Quiet cloth surfaces and tactile silhouettes for the illustrated battlefield.
 ## Decoration only: hit rectangles, input ownership and game actions stay intact.
 
-const CLOTH := Color("263c3a")
-const CLOTH_LIGHT := Color("344c46")
-const STITCH := Color("73877a")
+const CLOTH := KingdomTheme.INK_PANEL
+const CLOTH_LIGHT := KingdomTheme.INK_LIGHT
+const STITCH := KingdomTheme.BORDER
 
 
 static func surface(radius: int = 14) -> StyleBoxFlat:
 	var style := KingdomTheme.panel_style(CLOTH, STITCH, radius)
-	style.border_color = Color("6e7d68")
+	style.border_color = STITCH
 	style.shadow_color = Color(0.04, 0.08, 0.07, 0.22)
 	style.shadow_size = 3
 	style.shadow_offset = Vector2(0, 2)
