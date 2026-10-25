@@ -14,7 +14,7 @@ The [original sound recipes and provenance](tactile_audio_2026-10-24.md) documen
 
 ## Requested visibility and opening additions
 
-During the pass, the owner requested readable units behind buildings, trees and other troops, plus a starting Scout for both players. The rendering observer shows a restrained silhouette only through actual overlaps and only for units already in the local player's current vision. It is noninteractive and does not change selection, collision or targets; fog still conceals unseen opponents.
+During the pass, the owner requested readable units behind buildings, trees and other troops, plus a starting Scout for both players. The rendering observer shows a restrained silhouette only through actual overlaps and only for units already in the local player's current vision. The selection system recognizes the silhouette's actual opaque pixels, so a head/body tap can reach the unit behind the obstruction; collision and targets remain unchanged. Fog still conceals unseen opponents. Town Centers now keep their close footprint selection outline without the large defensive-range circle; Watch Towers retain their useful range preview.
 
 Both solo and authoritative online starts now spawn one Scout per owner through the normal connected-space spawn solver, alongside the existing four villagers. Normal population accounting applies (5/15 at the opening); starting resource banks, building queues and unit costs are unchanged. The guide recognizes a living starting Scout and retains its recruitment fallback if the Scout is lost.
 

@@ -443,9 +443,9 @@ func _update_construction_presentation() -> void:
 func _draw() -> void:
 	var pixel_w: float = footprint.x * MapData.TILE_WIDTH
 	var pixel_h: float = footprint.y * MapData.TILE_HEIGHT
-	if is_selected and state == State.ACTIVE and tower_attack_damage > 0:
-		# This circle is the actual world-distance fire limit, independent of
-		# the larger tile-based vision radius or decorative building facade.
+	if is_selected and state == State.ACTIVE and building_type == BuildingData.BuildingType.WATCH_TOWER and tower_attack_damage > 0:
+		# Towers expose their defensive reach. Town Centers keep only the close
+		# footprint selection cue so ordinary recruitment does not cover the map.
 		var range_color := Color(0.70, 0.84, 1.0, 0.42) if player_owner == 0 else Color(1.0, 0.65, 0.50, 0.42)
 		for segment: int in range(32):
 			var angle: float = float(segment) * TAU / 32.0
