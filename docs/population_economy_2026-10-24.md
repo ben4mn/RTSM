@@ -124,11 +124,15 @@ It does not require changing unit costs, work rates, combat strength or timing.
 
 The new occlusion observer does no work on the headless authority. On a rendered
 client it checks current visibility per unit each frame; screen/depth/spatial
-bins reduce overlap candidates, and opaque tests run every 0.1 simulation second.
+bins reduce overlap candidates. It requests a scan after 0.1 simulation seconds,
+processes at most 32 units per frame and completes that scan before starting the
+next. A 200-actor pass therefore spans seven rendered frames.
 At 100 units per side, there are at most 39,800 directed unit pairs before those
 filters. A pair tests at most 15 cached actual body samples; successful overlaps
-stop early. A later bounded optimization processes at most 32 units per frame
-and waits for the prior pass to finish, while retaining immediate per-frame fog
-gating. The isolated 200-actor CPU probe is recorded in
-`docs/unit_occlusion_2026-10-24.md`; it is not a rendered full-battle FPS or
-physical-phone result. A 100-pop ceiling alone does not prove performance.
+stop early. The isolated 200-actor CPU probe measured crowded amortized calls at
+5.29/5.34 ms mean and 8.16/9.71 ms p95 for 844×390/1280×720 viewports, versus
+19–27 ms mean for the prior complete-refresh burst. The two measurements cover
+different work per call; this demonstrates spreading the burst, not a throughput
+speedup. Full scope is recorded in `docs/unit_occlusion_2026-10-24.md`; it is not
+a rendered full-battle FPS or physical-phone result. A 100-pop ceiling alone
+does not prove performance.
