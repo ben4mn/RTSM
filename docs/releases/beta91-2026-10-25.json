@@ -1,0 +1,190 @@
+{
+  "status": "LIVE_VERIFIED",
+  "origin": "https://game.4mn.org/",
+  "source_commit": "0be985cda5ddf7a351ea3c1d6c5962acd3af9d8a",
+  "version": "0.3.0-beta.9.1",
+  "protocol": 7,
+  "map_catalog": 4,
+  "restart_utc": "2026-10-25T22:47:36.734642593Z",
+  "release_id": "v030beta91-0be985cda5dd-f5eb7fb588-3a405fde1c",
+  "web_manifest_sha256": "f5eb7fb588700631ecd12640c2956c132a2fff5ca38b083abd7ddeb524f1cbfe",
+  "server_manifest_sha256": "3a405fde1ce4534d4218daf3b8d8681e204282f48ec90dbcd3b8664750896f38",
+  "checks": [
+    {
+      "name": "Public deployment",
+      "result": "PASS",
+      "scope": "Matching committed web/server; public hashes and 939 runtime files verified. Idle guard twice; beta9 rollback retained."
+    },
+    {
+      "name": "Public multiplayer",
+      "result": "40/40",
+      "scope": "Private test rooms across all three maps; authority, seed/map agreement, replacement guest, cancellation, started snapshots and disconnects. Both players start with four workers and one Scout; maximum 100."
+    },
+    {
+      "name": "Browser journeys",
+      "result": "PASS",
+      "scope": "Windows Chrome, 844×390 and 1280×720 viewports: Home, Settings, Guide, setup, online room, Solo, recruitment, pan/retarget, construction and Undo. Not physical-device tests."
+    },
+    {
+      "name": "Offline exact export",
+      "result": "PASS",
+      "scope": "Final 0be985c preview server stopped; cached reload reached Home and launched Solo. This checks origin availability, not a physical PWA or airplane mode."
+    },
+    {
+      "name": "Audio startup",
+      "result": "PASS within scope",
+      "scope": "Both final-export audio modules reported ready; Preview invoked and no browser warnings/errors. Speaker output and physical Safari/PWA audio not verified."
+    },
+    {
+      "name": "Worker Undo",
+      "result": "294 + 195 checks",
+      "scope": "Authority/expiry/ownership/cargo/freed targets plus independent continuation checks across all three civilizations. Public browser restored four previous jobs."
+    },
+    {
+      "name": "Touch and pathing",
+      "result": "PASS",
+      "scope": "180 native gesture checks across all civilizations and two viewports; seven existing input suites, four navigation suites; retarget and narrow-gap traversal checks."
+    },
+    {
+      "name": "Placement and controls",
+      "result": "PASS",
+      "scope": "1,128 placement checks for 30 civilization buildings; 18 before/18 after native captures. Seven navigation-collapse suites, 776 checks; setup native touch launches on all maps."
+    },
+    {
+      "name": "Map resources",
+      "result": "PASS",
+      "scope": "105 symmetry cases; 25,721 homestead checks and 975 Scout checks. Three guaranteed groves total 7,200 food per player, previously 4,800."
+    },
+    {
+      "name": "100 vs 100 battle comparison",
+      "result": "84/84 actions each",
+      "scope": "One controlled 30-second native A/B: mean frame 71.1→65.3 ms; p95 127.7→116.7 ms. Worst frame 175.4→217.8 ms; occasional spikes and input latency tails remain. Synthetic reinforcements maintain 100 living units each."
+    },
+    {
+      "name": "Protocol compatibility",
+      "result": "PASS",
+      "scope": "Immutable final source: current protocol 7 joins and starts; old protocol 6 rejected clearly. Sources unchanged and owned processes exited."
+    },
+    {
+      "name": "Reproducible release",
+      "result": "PASS",
+      "scope": "Independent reproduction, hash closure, cache/update tests and isolated Linux-server smoke. No unrelated services restarted."
+    }
+  ],
+  "limitations": [
+    "No physical phone, tablet or Safari/PWA speaker test. The previous module-import errors support the startup fix, but the precise WebKit failure and the user’s silent session are not proven resolved on their device.",
+    "The 100-per-player benchmark is a synthetic native workload and one comparison pair, not a sustained 60 FPS claim. Average and p95 frame times improved, but the maximum frame and input-latency tails did not.",
+    "Solo requires one completed download and browser storage retention. Online requires a connection. A changed game pack downloads as one whole file; unchanged files are reused.",
+    "Undo is a ten-second, one-level recovery for eligible explicit group worker orders. It does not rewind resources, damage, position or completed work; unavailable old jobs stop safely.",
+    "The deployment checks for connections immediately before replacement but does not atomically close new admissions. Both observed guards were empty."
+  ],
+  "server_image_sha256": "sha256:369f2ac9e5e797cf0879b97b4a686d6bb9550bf4d2b12985463d907f23d6027b",
+  "replacement": {
+    "initial_connections": 0,
+    "immediate_pre_replacement_connections": 0,
+    "atomic_admission_closure": false,
+    "previous_beta9_retained_for_rollback": true,
+    "rollback_source_commit": "e6735a63b536d261783b23de4079b008ca552e59"
+  },
+  "public_files_verified": 40,
+  "public_room_checks": 40,
+  "public_browser": {
+    "status": "PASS",
+    "browser": "Windows Chrome",
+    "viewport": [
+      844,
+      390
+    ],
+    "physical_device": false,
+    "warnings_errors": [],
+    "journey": [
+      "Normal cached-beta9 update reached beta9.1 before Play.",
+      "Created and left an owned private online room.",
+      "Started Mongol River Crossings Solo with four Villagers, one Scout and maximum population 100.",
+      "Expanded and collapsed camera tools.",
+      "Undo restored four previous worker jobs and preserved displayed mixed cargo 16/60.",
+      "Paid House completed; housing capacity increased from 15 to 25.",
+      "Inspected Audio, Controls, Display and Guide through pause Settings, then returned Home."
+    ],
+    "speaker_output_verified": false,
+    "physical_safari_pwa_verified": false
+  },
+  "exact_export_preview": {
+    "browser": "Windows Chrome",
+    "viewports": [
+      [
+        1280,
+        720
+      ],
+      [
+        844,
+        390
+      ]
+    ],
+    "physical_device": false,
+    "passed": [
+      "Home icons and aligned toolbar",
+      "Settings Audio, Controls, Display, Guide",
+      "Tap-to-expand Move explanation",
+      "What’s new and cached-file status",
+      "Solo compact map picker and expanded choices",
+      "Woodland selection collapses picker",
+      "100 population option and lower Opening tips reachable",
+      "Solo launch, starting Scout, 5/15 Max100",
+      "Collapsed camera View and expanded controls",
+      "Group move exposes Undo and restores 3 previous orders",
+      "Current mixed cargo remains 19/45 across Undo",
+      "Paid Villager recruitment",
+      "Scout move-pan-reselect-retarget",
+      "Phone-to-desktop Pause toolbar resets scale",
+      "Stopped owned origin server, reloaded cached Home and launched Solo"
+    ],
+    "console_errors": [],
+    "both_audio_modules_ready": true,
+    "audio_preview_invoked": true,
+    "speaker_output_verified": false,
+    "offline_method": "Stopped the owned preview origin, reloaded cached Home, then launched Solo.",
+    "global_network_disabled": false
+  },
+  "native_battle_comparison": {
+    "scope": "One quiet sequential native Windows run per whole runtime, approximately 30 seconds per sample; identical fixture, assets, settings and import cache. Synthetic reinforcements maintain 100 living units per player.",
+    "physical_device": false,
+    "browser": false,
+    "sustained_60_fps_claim": false,
+    "runs": {
+      "published": {
+        "source_commit": "e6735a63b536d261783b23de4079b008ca552e59",
+        "sample_wall_seconds": 30.232232,
+        "frame_ms": {
+          "mean": 71.1052305882353,
+          "p95": 127.684,
+          "p99": 162.113,
+          "max": 175.408
+        },
+        "scripted_inputs": 84,
+        "all_inputs_accepted": true,
+        "population_sustained": [
+          100,
+          100
+        ]
+      },
+      "current": {
+        "source_commit": "0be985cda5ddf7a351ea3c1d6c5962acd3af9d8a",
+        "sample_wall_seconds": 30.186665,
+        "frame_ms": {
+          "mean": 65.3111753246753,
+          "p95": 116.694,
+          "p99": 162.138,
+          "max": 217.847
+        },
+        "scripted_inputs": 84,
+        "all_inputs_accepted": true,
+        "population_sustained": [
+          100,
+          100
+        ]
+      }
+    },
+    "conclusion": "Current whole runtime improved mean and p95 frame time in this matched pair; p99 effectively unchanged; single maximum frame worse. Earlier broad recorded regression did not reproduce in this pair. This does not establish smooth frame pacing or physical-device performance."
+  }
+}
