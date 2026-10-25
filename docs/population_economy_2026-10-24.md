@@ -126,9 +126,9 @@ The new occlusion observer does no work on the headless authority. On a rendered
 client it checks current visibility per unit each frame; screen/depth/spatial
 bins reduce overlap candidates, and opaque tests run every 0.1 simulation second.
 At 100 units per side, there are at most 39,800 directed unit pairs before those
-filters. A pair tests at most 15 actual body samples; successful overlaps stop
-early. This is a conservative bound, not a measured frame-cost claim. At faster
-game speeds the refresh rate per wall second rises. A 200-actor rendered crowded
-battle and phone viewport need verification; a 100-pop ceiling alone does not
-prove performance. The existing overlap test checks visibility correctness, not
-large-army performance.
+filters. A pair tests at most 15 cached actual body samples; successful overlaps
+stop early. A later bounded optimization processes at most 32 units per frame
+and waits for the prior pass to finish, while retaining immediate per-frame fog
+gating. The isolated 200-actor CPU probe is recorded in
+`docs/unit_occlusion_2026-10-24.md`; it is not a rendered full-battle FPS or
+physical-phone result. A 100-pop ceiling alone does not prove performance.

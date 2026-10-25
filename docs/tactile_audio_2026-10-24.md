@@ -57,3 +57,16 @@ continues to cover persistent preferences, mute/preview cancellation, fog,
 settings geometry and paused match preservation. Audio signal measurements are
 not a subjective listening claim; release evidence should distinguish live
 gameplay recording, signal analysis and human listening.
+
+A 55.04-second controlled native capture at an 844×390 viewport exercised paid
+recruitment, natural house construction, gathering and staged 12-vs-12 combat.
+The foreground lifecycle was explicitly bypassed only in this debug capture
+fixture after two ordinary foreground attempts correctly paused on focus loss;
+it is not a foreground/background or browser acceptance claim. The capture had
+zero dropped frames and zero clipped PCM samples. Peak was 0.12564 (−18.02 dBFS),
+full-recording RMS 0.007619. In 25.276 seconds of combat, 145 actual landed hits
+produced 48 audible impact cues (1.90/second) and two attack warnings; peak voice
+concurrency was two. The economy segment included paid recruitment completion,
+house completion, eight construction taps and nineteen gathering cues. These
+are objective mix/event results, not subjective listening. Physical speakers,
+Safari and perceived timbral balance still require human/device review.
