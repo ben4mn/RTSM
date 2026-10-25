@@ -228,7 +228,7 @@ func _assert_fresh_match(match_scene: Node, context: String) -> void:
 	if resources != starting or (hud.get("_resource_values") as Dictionary) != resources:
 		_fail("%s: resources or HUD bank did not reset to starting stock" % context)
 	var player: Dictionary = (game_manager.get("players") as Dictionary)[0]
-	if int(player.get("population", 0)) != 4 or int(player.get("population_reserved", -1)) != 0:
+	if int(player.get("population", 0)) != 5 or int(player.get("population_reserved", -1)) != 0:
 		_fail("%s: starting population or reservations did not reset" % context)
 	if int(hud.get("_population_current")) != int(game_manager.call("get_committed_population", 0)) or int(hud.get("_population_cap")) != int(player.get("population_cap", 0)):
 		_fail("%s: HUD population differs from authoritative state" % context)

@@ -81,7 +81,7 @@ func _exercise(phone: Vector2i, scale: float, launch_archetype: int) -> void:
 		_expect(game_map.map_archetype == launch_archetype, "selected archetype reaches actual match")
 		var expected := MapGenerator.new(101, launch_archetype)
 		_expect(game_map.map_generator.grid == expected.generate(), "actual terrain reproduces selected archetype and seed")
-		_expect(GameManager.players[0]["population"] == 4, "map selection preserves ordinary paid opening")
+		_expect(GameManager.players[0]["population"] == 5, "map selection starts four workers and one Scout")
 		main.free()
 	get_tree().current_scene = null
 	GameManager.set_state(GameManager.GameState.MENU)

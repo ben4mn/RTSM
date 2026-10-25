@@ -63,7 +63,7 @@ func _profile(phone_size: Vector2i, seed_value: int, guided: bool) -> void:
 	var tc: BuildingBase = match_scene.get("_player_town_center") as BuildingBase
 	var food: Node2D = map.call("get_nearest_resource_node", "food", tc.global_position, 0)
 	_expect(food != null, "seed %d has a currently visible starting food target" % seed_value)
-	var workers: Array = (match_scene.get("_player_units") as Array)[0]
+	var workers: Array = ((match_scene.get("_player_units") as Array)[0] as Array).filter(func(unit: UnitBase) -> bool: return unit is Villager)
 	var worker: UnitBase = _find_accessible_worker(hud, workers, tc, Rect2(Vector2.ZERO, Vector2(phone_size)))
 	var prefix: String = "%dx%d seed %d guided=%s" % [phone_size.x, phone_size.y, seed_value, guided]
 	_expect((hud.get("_progression_hint_panel") as Control).visible == guided, prefix + " boots the actual Guide state")

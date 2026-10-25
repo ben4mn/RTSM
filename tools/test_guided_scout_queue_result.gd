@@ -52,6 +52,10 @@ func _run() -> void:
 
 	resource_manager.call("add_resource", PLAYER_ID, "food", 500)
 	resource_manager.call("add_resource", PLAYER_ID, "gold", 500)
+	# Exercise the fallback training lesson after the new starting Scout is lost.
+	for unit: Node in ((match_scene.get("_player_units") as Array)[PLAYER_ID] as Array).duplicate():
+		if int(unit.get("unit_type")) == UNIT_SCOUT:
+			unit.call("die")
 	var queue: Node = town_center.call("get_production_queue")
 	_expect(bool(queue.call("enqueue_unit", UNIT_VILLAGER)), "setup Villager occupies the queue head")
 	_arm_guided_scout_step(match_scene)

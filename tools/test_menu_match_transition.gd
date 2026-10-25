@@ -128,7 +128,7 @@ func _assert_fresh_hud(context: String) -> void:
 	if resources != starting or (hud.get("_resource_values") as Dictionary) != resources:
 		_failures.append("%s: initial bank and HUD disagree" % context)
 	var player: Dictionary = (game_manager.get("players") as Dictionary)[0]
-	if int(player.get("population", 0)) != 4 or int(player.get("population_reserved", -1)) != 0 or int(hud.get("_population_current")) != int(game_manager.call("get_committed_population", 0)) or int(hud.get("_population_cap")) != int(player.get("population_cap", 0)):
+	if int(player.get("population", 0)) != 5 or int(player.get("population_reserved", -1)) != 0 or int(hud.get("_population_current")) != int(game_manager.call("get_committed_population", 0)) or int(hud.get("_population_cap")) != int(player.get("population_cap", 0)):
 		_failures.append("%s: initial population and HUD disagree" % context)
 	if float(game_manager.get("game_time")) >= 1.0 or (hud.get("game_time_label") as Label).text != str(game_manager.call("get_formatted_time")) or paused:
 		_failures.append("%s: initial clock or pause state is stale" % context)

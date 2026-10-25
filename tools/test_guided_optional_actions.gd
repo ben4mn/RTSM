@@ -71,7 +71,7 @@ func _guided_journey(phone: Vector2i, interface_scale: float, notched: bool) -> 
 	controller.connect("worker_allocation_accepted", _record_allocation)
 	await _frames(6)
 	_main.call("_update_fog_of_war")
-	var workers: Array = _main.get("_player_units")[0]
+	var workers: Array = (_main.get("_player_units")[0] as Array).filter(func(unit: UnitBase) -> bool: return unit is Villager)
 	var automatic_food: int = 0
 	for worker: Villager in workers:
 		if controller.call("_worker_source", worker) == "food":

@@ -529,7 +529,8 @@ func _on_map_ready(map_gen: MapGenerator) -> void:
 	# Connect resource changes to HUD.
 	ResourceManager.resources_changed.connect(_on_resource_changed)
 
-	# Place starting Town Centers and Villagers.
+	# Place both starting towns, four workers and one Scout. Online clients
+	# receive these actors from authority; they never create a second starter.
 	if not NetworkSession.is_client():
 		_setup_player_start(0, map_gen.spawn_positions[0])
 		_setup_player_start(1, map_gen.spawn_positions[1])
@@ -646,7 +647,7 @@ func _set_guided_stage(new_stage: GuidedOpeningStage) -> void:
 			hud.show_notification("Objective complete: House placed. Next: train a Scout.", Color(0.95, 0.86, 0.42))
 			call_deferred("_select_town_center")
 		GuidedOpeningStage.MOVE_MILITARY:
-			hud.show_notification("Objective complete: Scout queued. Next: move it onto the map.", Color(0.95, 0.86, 0.42))
+			hud.show_notification("Your Scout is ready. Next: move it onto the map." if _has_living_scout(0) else "Objective complete: Scout queued. Next: move it onto the map.", Color(0.95, 0.86, 0.42))
 		GuidedOpeningStage.FREE_PLAY:
 			_guided_opening_active = false
 			hud.set_early_game_ui_state(false)
@@ -708,15 +709,25 @@ func _refresh_guided_opening_stage() -> void:
 		GuidedOpeningStage.BUILD_HOUSE:
 			if _opening_house_complete or _has_player_building_started(0, BuildingData.BuildingType.HOUSE):
 				_opening_house_complete = true
-				_set_guided_stage(GuidedOpeningStage.TRAIN_SCOUT)
+				_set_guided_stage(GuidedOpeningStage.MOVE_MILITARY if _has_living_scout(0) else GuidedOpeningStage.TRAIN_SCOUT)
 		GuidedOpeningStage.TRAIN_SCOUT:
-			if _opening_scout_queued or _has_queued_unit(BuildingData.BuildingType.TOWN_CENTER, UnitData.UnitType.SCOUT):
+			if _has_living_scout(0) or _opening_scout_queued or _has_queued_unit(BuildingData.BuildingType.TOWN_CENTER, UnitData.UnitType.SCOUT):
 				_opening_scout_queued = true
 				_set_guided_stage(GuidedOpeningStage.MOVE_MILITARY)
 		GuidedOpeningStage.MOVE_MILITARY:
 			if _opening_military_move_complete:
 				_set_guided_stage(GuidedOpeningStage.FREE_PLAY)
+			elif not _has_living_scout(0) and not _has_queued_unit(BuildingData.BuildingType.TOWN_CENTER, UnitData.UnitType.SCOUT):
+				_opening_scout_queued = false
+				_set_guided_stage(GuidedOpeningStage.TRAIN_SCOUT)
 	_refresh_first_session_diagnostics()
+
+
+func _has_living_scout(player_id: int) -> bool:
+	for unit: UnitBase in _player_units[player_id]:
+		if is_instance_valid(unit) and not unit.is_queued_for_deletion() and unit.unit_type == UnitData.UnitType.SCOUT and unit.current_state != UnitBase.State.DEAD and unit.hp > 0.0:
+			return true
+	return false
 
 
 # =========================================================================
@@ -1408,6 +1419,17 @@ func _setup_player_start(player_id: int, spawn_tile: Vector2i) -> void:
 		if v:
 			villagers.append(v)
 
+	# A free initial Scout uses ordinary population accounting and the same
+	# connected egress as paid recruits, without overlapping a starting worker.
+	var occupied_tiles: Array[Vector2i] = []
+	for villager: UnitBase in villagers:
+		occupied_tiles.append(game_map.world_to_tile(villager.global_position))
+	var scout_start: Dictionary = _resolve_production_egress(tc, occupied_tiles)
+	if bool(scout_start.get("valid", false)):
+		_spawn_unit(UnitData.UnitType.SCOUT, player_id, scout_start.world_position)
+	else:
+		push_error("Starting town has no connected Scout egress for player %d" % player_id)
+
 	# Auto-assign: food, wood, gold, food (4 villagers).
 	# Use call_deferred so resource nodes are spawned first.
 	call_deferred("_auto_assign_starting_villagers", villagers)
@@ -1584,7 +1606,7 @@ func _on_unit_trained(unit_type: int, player_id: int, source_queue: ProductionQu
 			hud.show_notification("Population almost full (%d/%d)" % [pop, cap], Color(1.0, 0.7, 0.3))
 
 
-func _resolve_production_egress(producer: BuildingBase) -> Dictionary:
+func _resolve_production_egress(producer: BuildingBase, excluded_tiles: Array[Vector2i] = []) -> Dictionary:
 	## Choose the connected battlefield side within the three-ring spawn bound.
 	## A walkable tile can be a tiny pocket sealed off by the producer itself;
 	## spawning there permanently trapped paid units beside boundary buildings.
@@ -1605,7 +1627,7 @@ func _resolve_production_egress(producer: BuildingBase) -> Dictionary:
 				if x != min_x and x != max_x and y != min_y and y != max_y:
 					continue
 				var tile := Vector2i(x, y)
-				if game_map.is_tile_walkable(tile):
+				if tile not in excluded_tiles and game_map.is_tile_walkable(tile):
 					candidates.append(tile)
 		if candidates.is_empty():
 			continue
