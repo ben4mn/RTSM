@@ -49,6 +49,11 @@ def package_update_worker(root: Path, template_path: Path | None = None) -> None
     html = html_path.read_text(encoding="utf-8")
     marker = re.compile(r"window\.POCKET_RELEASE\s*=\s*/\*POCKET_RELEASE\*/(?:null|.*?/\*END_POCKET_RELEASE\*/)\s*;", re.DOTALL)
     loaded_version = {key: value for key, value in version.items() if key != "built_at_utc"}
+    # Bind worklet bytes to this page, even while a newer release is served.
+    loaded_version["audio_worklets"] = {
+        name: hashlib.sha256((root / name).read_bytes()).hexdigest()
+        for name in ("index.audio.worklet.js", "index.audio.position.worklet.js")
+    }
     replacement = "window.POCKET_RELEASE = /*POCKET_RELEASE*/" + json.dumps(loaded_version, sort_keys=True, separators=(",", ":")) + "/*END_POCKET_RELEASE*/;"
     html, count = marker.subn(lambda _: replacement, html)
     if count != 1:

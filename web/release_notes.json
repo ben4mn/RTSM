@@ -1,6 +1,18 @@
 {
   "releases": [
     {
+      "id": "2026-10-25-welcome-and-audio-startup",
+      "date": "2026-10-25",
+      "version": "0.3.0-beta.9.1",
+      "title": "A smoother welcome",
+      "summary": "More reliable sound startup and a coordinated main-menu toolbar.",
+      "changes": [
+        "Sound modules now load through the current page's verified game cache before the engine starts, avoiding a separate module download that could fail in Safari's installed app. Genuine errors still keep their recovery controls.",
+        "Play solo and Play online have new pennant and paired-kingdom icons. What's new and Full screen share a rounded forest toolbar aligned with Settings, including smaller screens.",
+        "Your saved sound and control preferences, cached Solo, match settings and gameplay rules stay the same."
+      ]
+    },
+    {
       "id": "2026-10-25-room-to-command",
       "date": "2026-10-25",
       "version": "0.3.0-beta.9",

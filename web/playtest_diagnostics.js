@@ -363,6 +363,12 @@
     });
     w.addEventListener('error', event => append('browser_error', errorFields(event)));
     w.addEventListener('unhandledrejection', event => append('browser_rejection', errorFields(event, true)));
+    w.addEventListener('pocket-audio-module-status', event => {
+        const detail = event.detail || {};
+        if (['audio_module_ready', 'audio_module_failed'].includes(detail.kind)
+            && ['index.audio.worklet.js', 'index.audio.position.worklet.js'].includes(detail.file))
+            append(detail.kind, {file: detail.file});
+    });
     if (w.console) for (const [method, kind] of [['warn', 'browser_console_warning'], ['error', 'browser_console_error']]) {
         const original = w.console[method]; let last = '', lastAt = 0;
         w.console[method] = function (...args) {

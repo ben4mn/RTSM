@@ -31,7 +31,7 @@ class MobileShellArtifactTests(unittest.TestCase):
         self.html = self.html.replace("$GODOT_URL", "index.js")
         self.html += '<!-- index.service.worker.js -->'
         (self.root / "index.html").write_text(self.html)
-        for name in ("index.js", "index.wasm", "index.pck", "index.offline.html"):
+        for name in ("index.js", "index.wasm", "index.pck", "index.offline.html", "index.audio.worklet.js", "index.audio.position.worklet.js"):
             (self.root / name).write_text("fixture")
         for name in ("playtest_diagnostics.js", "pocket_launch.js", "pocket_launch.css", "pocket_updates.js", "field_atlas.svg", "release_notes.json"):
             (self.root / name).write_bytes((Path(__file__).resolve().parents[1] / "web" / name).read_bytes())

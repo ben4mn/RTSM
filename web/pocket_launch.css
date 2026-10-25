@@ -63,9 +63,16 @@ body.pocket-welcome #pocket-app { visibility: hidden; pointer-events: none; }
 .pk-footer p { margin: 0; }
 #pocket-launch-status { color: var(--pk-gold); }
 #pocket-launch-status:empty { display: none; }
-.pocket-button { min-height: 48px; }
-#pocket-shell-links { position: absolute; z-index: 10; right: calc(var(--pocket-safe-right) + 132px); top: calc(var(--pocket-safe-top) + 12px); display: flex; gap: 8px; }
-#pocket-shell-links .pocket-button { font-size: 14px; }
+.pocket-button { min-height: 48px; border-radius: 10px; border: 1px solid #617467; border-bottom-width: 2px; background: #3b5548; color: #f4eddd; font: 500 14px/1.2 Barlow, sans-serif; }
+.pocket-button:hover { background: #4a6553; border-color: #e8bf77; }
+.pocket-button:active { background: #e8bf77; color: #1d302c; border-color: #f4eddd; }
+.pocket-button:focus-visible { outline: 2px solid #f4eddd; outline-offset: 3px; }
+#pocket-menu-tools { position: absolute; z-index: 10; right: calc(var(--pocket-safe-right) + 12px); top: calc(var(--pocket-safe-top) + 12px); display: flex; align-items: center; gap: 8px; --pocket-tools-height: 48px; --pocket-tools-button-width: 132px; }
+#pocket-menu-tools .pocket-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: var(--pocket-tools-button-width); height: var(--pocket-tools-height); padding: 8px 10px; white-space: nowrap; }
+#pocket-menu-tools svg { width: 20px; height: 20px; flex: 0 0 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+#pocket-screen-control { position: static; }
+#pocket-shell-links { display: flex; }
+@media (max-width: 680px) { #pocket-menu-tools { --pocket-tools-button-width: 48px; } #pocket-menu-tools [data-shell-label] { display: none; } }
 .pk-dialog { position: fixed; inset: 0; z-index: 45; padding: max(12px,var(--pocket-safe-top)) max(12px,var(--pocket-safe-right)) max(12px,var(--pocket-safe-bottom)) max(12px,var(--pocket-safe-left)); box-sizing: border-box; display: grid; place-items: center; background: #10282bf2; color: var(--pk-paper); touch-action: pan-y; }
 .pk-dialog-card { display: flex; flex-direction: column; width: min(700px,100%); max-height: 100%; box-sizing: border-box; background: var(--pk-ink); border: 1px solid var(--pk-border); border-radius: 12px; overflow: hidden; }
 .pk-dialog-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 22px; border-bottom: 1px solid var(--pk-border); flex-shrink: 0; }

@@ -214,7 +214,7 @@ def verify_service_worker(root: Path) -> None:
         raise VerificationError("release-bound update worker or cache manifest missing")
     cache_manifest = json.loads(cache_manifest_path.read_text(encoding="utf-8"))
     files = cache_manifest.get("files", {})
-    required_payload = {"index.html", "index.js", "index.pck", "index.wasm", "pocket_launch.js", "pocket_launch.css",
+    required_payload = {"index.html", "index.js", "index.pck", "index.wasm", "index.audio.worklet.js", "index.audio.position.worklet.js", "pocket_launch.js", "pocket_launch.css",
                         "pocket_updates.js", "field_atlas.svg", "kingdom_company_v2.png", "play_dark.svg",
                         "primary_normal.svg", "primary_hover.svg", "primary_pressed.svg",
                         "secondary_normal.svg", "secondary_hover.svg", "secondary_pressed.svg", "release_notes.json", "playtest_diagnostics.js",
@@ -222,6 +222,11 @@ def verify_service_worker(root: Path) -> None:
                         "barlow-OFL.txt", "barlowcondensed-OFL.txt"}
     if not isinstance(files, dict) or not required_payload.issubset(files):
         raise VerificationError("update cache omits player-facing assets")
+    page_release = re.search(r"/\*POCKET_RELEASE\*/(\{.*?\})/\*END_POCKET_RELEASE\*/", html)
+    if page_release is None or json.loads(page_release.group(1)).get("audio_worklets") != {
+        name: sha256(root / name) for name in ("index.audio.worklet.js", "index.audio.position.worklet.js")
+    }:
+        raise VerificationError("page audio modules do not match this release")
     if "version.json" in files:
         raise VerificationError("served version metadata must remain network-only")
     embedded = re.search(r"const POCKET_SW_RELEASE = /\*POCKET_SW_RELEASE\*/(\{[^\n]+\});", worker)

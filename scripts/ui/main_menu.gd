@@ -45,6 +45,8 @@ var _frame_rect := Rect2()
 var _frame_reflow_queued: bool = false
 var _shell: VBoxContainer
 var _header: HBoxContainer
+var _browser_header_space: Control
+var _browser_header_enabled: bool = false
 var _page_title: Label
 var _back_button: Button
 var settings_button: Button
@@ -137,6 +139,8 @@ func _ready() -> void:
 
 
 func _exit_tree() -> void:
+	if OS.has_feature("web"):
+		JavaScriptBridge.eval("window.PocketWebShell && window.PocketWebShell.clearMenuHeader && window.PocketWebShell.clearMenuHeader();", true)
 	WEB_SHELL_BRIDGE.set_update_safe(false)
 	WEB_SHELL_BRIDGE.set_controls_visible(false)
 
@@ -174,6 +178,11 @@ func _build_interface() -> void:
 	_apply_heading(_page_title, 22)
 	_page_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_header.add_child(_page_title)
+	_browser_header_space = Control.new()
+	_browser_header_space.name = "BrowserHeaderSpace"
+	_browser_header_space.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_browser_header_space.visible = false
+	_header.add_child(_browser_header_space)
 	settings_button = _button("Settings", "SettingsButton", _on_settings_pressed)
 	settings_button.icon = load("res://assets/ui/icons/settings.svg")
 	settings_button.add_theme_constant_override("icon_max_width", 20)
@@ -236,13 +245,13 @@ func _build_home() -> void:
 	_home_actions.add_child(_home_intro)
 	_new_game_button = _button("Play solo", "NewGameButton", _open_new_game.bind("solo"))
 	_new_game_button.icon = load("res://assets/ui/icons/play_dark.svg")
-	_new_game_button.add_theme_constant_override("icon_max_width", 22)
+	_new_game_button.add_theme_constant_override("icon_max_width", 28)
 	_new_game_button.custom_minimum_size.y = 58
 	_apply_primary(_new_game_button)
 	_home_actions.add_child(_new_game_button)
 	_online_button = _button("Play online", "JoinFriendButton", _open_new_game.bind("multiplayer"))
 	_online_button.icon = load("res://assets/ui/icons/online.svg")
-	_online_button.add_theme_constant_override("icon_max_width", 22)
+	_online_button.add_theme_constant_override("icon_max_width", 28)
 	_home_actions.add_child(_online_button)
 	_home_note = _label("Solo against AI · Friends or quick match online", 13, true)
 	_home_note.add_theme_color_override("font_color", MUTED)
@@ -1040,6 +1049,13 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2, shell_top_cle
 	if is_instance_valid(_civilization_picker):
 		_civilization_picker.apply_mobile_layout(viewport_size, _active_safe_area)
 	var web_clearance: float = shell_top_clearance if shell_top_clearance >= 0.0 else WEB_SHELL_BRIDGE.get_menu_top_clearance(viewport_size)
+	var browser_width: float = _get_browser_header_width(viewport_size)
+	_browser_header_enabled = browser_width >= 0.0 and shell_top_clearance < 0.0
+	_browser_header_space.visible = _browser_header_enabled
+	_browser_header_space.custom_minimum_size.x = maxf(0.0, browser_width) if _browser_header_enabled else 0.0
+	if _browser_header_enabled:
+		# Browser actions share this row instead of reserving a second toolbar.
+		web_clearance = 0.0
 	var expanded_frame: Rect2 = _menu_frame_rect(_active_safe_area, 32.0, web_clearance)
 	_compact_layout = expanded_frame.size.y < EXPANDED_LAYOUT_MIN_HEIGHT
 	var compact: bool = _compact_layout
@@ -1119,6 +1135,28 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2, shell_top_cle
 	else:
 		_home.vertical = false
 		_hero_art.custom_minimum_size.y = 0
+	call_deferred("_sync_browser_header")
+
+
+func _get_browser_header_width(viewport_size: Vector2) -> float:
+	if not OS.has_feature("web") or viewport_size.x <= 0.0:
+		return -1.0
+	var normalized: Variant = JavaScriptBridge.eval("window.PocketWebShell && window.PocketWebShell.getMenuHeaderWidth ? window.PocketWebShell.getMenuHeaderWidth() : -1;", true)
+	if not (normalized is float or normalized is int) or not is_finite(float(normalized)) or float(normalized) < 0.0:
+		return -1.0
+	return float(normalized) * viewport_size.x
+
+
+func _sync_browser_header() -> void:
+	if not _browser_header_enabled or not is_inside_tree():
+		return
+	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+	if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
+		return
+	var slot: Rect2 = _browser_header_space.get_global_rect()
+	var settings: Rect2 = settings_button.get_global_rect()
+	var bounds: Array[float] = [slot.position.x / viewport_size.x, settings.position.y / viewport_size.y, slot.size.x / viewport_size.x, settings.size.y / viewport_size.y]
+	JavaScriptBridge.eval("window.PocketWebShell && window.PocketWebShell.setMenuHeader && window.PocketWebShell.setMenuHeader(%s);" % JSON.stringify(bounds), true)
 
 
 func _queue_frame_reflow() -> void:
@@ -1136,6 +1174,7 @@ func _restore_frame_size() -> void:
 	# its minimum settles, restore the viewport allocation instead of retaining
 	# that transient height and stretching the map cards off screen.
 	_root_margin.size = _frame_rect.size
+	call_deferred("_sync_browser_header")
 
 
 static func _menu_frame_rect(safe_area: Rect2, margin: float, top_clearance: float) -> Rect2:

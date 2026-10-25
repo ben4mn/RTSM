@@ -15,7 +15,7 @@ function hash(bytes) { return crypto.createHash('sha256').update(bytes).digest('
 let html = fs.readFileSync(path.join(root, 'web/pocket_shell.html'), 'utf8').split('<script id="pocket-web-shell-script">')[0]
     + '<script src="fixture-error.js?token=fixture-private-query"></script></body></html>';
 html = html.replace('$GODOT_HEAD_INCLUDE', '').replace(/\$GODOT_[A-Z_]+/g, 'fixture');
-const updateStub = `window.fixtureSafety=[];window.PocketUpdates={init:async()=>{},prepareForPlay:async()=>({ready:true}),setSafeToReload(value){window.fixtureSafety.push(value);return value;}};`;
+const updateStub = `window.fixtureSafety=[];window.PocketUpdates={getStatus:()=>({offlineReady:true}),init:async()=>{},prepareForPlay:async()=>({ready:true}),setSafeToReload(value){window.fixtureSafety.push(value);return value;}};`;
 const requests = [], posts = [], checks = [], inputs = [], pageErrors = [], blocked = [];
 let server, browser, context;
 const fixtureAssets = {
@@ -46,7 +46,7 @@ async function boot(page, ready = true) {
     await page.goto(origin, {waitUntil: 'networkidle'});
     await page.getByRole('button', {name: 'Play now', exact: true}).tap();
     await page.evaluate(async ready => {
-        await PocketLaunch.ready;
+        await Promise.race([PocketLaunch.ready,new Promise((_,reject)=>setTimeout(()=>reject(new Error('fixture launch timeout')),5000))]);
         window.fixtureGameInputs = [];
         for (const name of ['pointerdown','pointerup','pointermove','touchstart','touchend','mousedown','mouseup','click','keydown','keyup','wheel'])
             window.addEventListener(name, event => window.fixtureGameInputs.push({name, target: event.target.id}));

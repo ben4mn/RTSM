@@ -266,8 +266,10 @@ body.pocket-report-open { touch-action: auto; }
 		</div>
 
 		</div>
-		<button id="pocket-screen-control" class="pocket-button" type="button" hidden>Full screen</button>
-		<div id="pocket-shell-links" hidden><button id="pocket-release-open" class="pocket-button" type="button">What’s new</button></div>
+		<div id="pocket-menu-tools" aria-label="Browser menu actions">
+			<div id="pocket-shell-links" hidden><button id="pocket-release-open" class="pocket-button" type="button" aria-label="What’s new" title="What’s new"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h7l2 2h7v13h-7l-2-2H4zM12 8v9"/><path d="M7 9h2M7 12h2M15 11h2M15 14h2"/></svg><span data-shell-label>What’s new</span></button></div>
+			<button id="pocket-screen-control" class="pocket-button" type="button" aria-label="Full screen" title="Full screen" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4H4v5M15 4h5v5M4 15v5h5M20 15v5h-5"/></svg><span data-shell-label>Full screen</span></button>
+		</div>
 		<div id="pocket-screen-help" role="dialog" aria-modal="true" aria-labelledby="pocket-help-title" hidden>
 			<div class="pocket-help-card">
 				<h1 id="pocket-help-title">Play without browser bars</h1>
@@ -298,6 +300,8 @@ body.pocket-report-open { touch-action: auto; }
 	const safeAreaProbe = document.getElementById('pocket-safe-area');
 	const canvas = document.getElementById('canvas');
 	const screenButton = document.getElementById('pocket-screen-control');
+	const menuTools = document.getElementById('pocket-menu-tools');
+	const releaseButton = document.getElementById('pocket-release-open');
 	const help = document.getElementById('pocket-screen-help');
 	const helpTitle = document.getElementById('pocket-help-title');
 	const helpCopy = document.getElementById('pocket-help-copy');
@@ -308,6 +312,7 @@ body.pocket-report-open { touch-action: auto; }
 	let engineReady = false;
 	let resizeFrame = 0;
 	let safeArea = [0, 0, 0, 0];
+	let menuHeader = null;
 	const safeAreaListeners = new Set();
 
 	function isStandalone() {
@@ -327,7 +332,10 @@ body.pocket-report-open { touch-action: auto; }
 	function updateControl() {
 		// Entered fullscreen can match display-mode:fullscreen; retain its Exit button.
 		screenButton.hidden = !engineReady || !controlsAllowed || (isStandalone() && !fullscreenElement());
-		screenButton.textContent = fullscreenElement() ? 'Exit full screen' : 'Full screen';
+		const label = fullscreenElement() ? 'Exit full screen' : 'Full screen';
+		screenButton.querySelector('[data-shell-label]').textContent = label;
+		screenButton.setAttribute('aria-label', label);
+		screenButton.title = label;
 		if (screenButton.hidden) closeHelp(false);
 	}
 	function showHelp(declined = false) {
@@ -365,6 +373,21 @@ body.pocket-report-open { touch-action: auto; }
 			safeArea = nextSafeArea;
 			for (const listener of safeAreaListeners) listener();
 		}
+		placeMenuTools();
+	}
+	function menuToolsWidth() {
+		const width = element => parseFloat(window.getComputedStyle(element).width) || 132;
+		const gap = parseFloat(window.getComputedStyle(menuTools).gap) || 8;
+		return width(releaseButton) + ((isStandalone() && !fullscreenElement()) ? 0 : gap + width(screenButton));
+	}
+	function placeMenuTools() {
+		if (!menuHeader) return;
+		const rect = game.getBoundingClientRect(), appRect = app.getBoundingClientRect();
+		const height = Math.max(48, menuHeader[3] * rect.height);
+		menuTools.style.left = `${rect.left - appRect.left + menuHeader[0] * rect.width}px`;
+		menuTools.style.top = `${rect.top - appRect.top + (menuHeader[1] + menuHeader[3] / 2) * rect.height - height / 2}px`;
+		menuTools.style.right = 'auto';
+		menuTools.style.setProperty('--pocket-tools-height', `${height}px`);
 	}
 	function scheduleResize() {
 		if (!resizeFrame) resizeFrame = window.requestAnimationFrame(resizeCanvas);
@@ -373,9 +396,22 @@ body.pocket-report-open { touch-action: auto; }
 	window.PocketWebShell = Object.freeze({
 		// Normalized CSS insets map once into Godot's UI-scaled viewport.
 		getSafeArea: function () { return safeArea.slice(); },
+		getMenuHeaderWidth: function () {
+			return menuToolsWidth() / Math.max(1, game.getBoundingClientRect().width);
+		},
+		setMenuHeader: function (rect) {
+			if (!Array.isArray(rect) || rect.length !== 4 || !rect.every(Number.isFinite)
+				|| rect[0] < 0 || rect[1] < 0 || rect[2] <= 0 || rect[3] <= 0) return;
+			menuHeader = rect.slice();
+			placeMenuTools();
+		},
+		clearMenuHeader: function () {
+			menuHeader = null;
+			for (const property of ['left', 'top', 'right', '--pocket-tools-height']) menuTools.style.removeProperty(property);
+		},
 		getMenuTopClearance: function () {
 			// Read the declared toolbar size even before engineStarted unhides it.
-			const style = window.getComputedStyle(screenButton);
+			const style = window.getComputedStyle(menuTools);
 			const bottom = (parseFloat(style.top) || 0) + (parseFloat(style.minHeight) || 48) + 8;
 			return bottom / Math.max(1, game.getBoundingClientRect().height);
 		},
@@ -427,7 +463,7 @@ body.pocket-report-open { touch-action: auto; }
 		}
 	}
 	for (const eventName of ['fullscreenchange', 'webkitfullscreenchange']) {
-		document.addEventListener(eventName, function () { updateControl(); scheduleResize(); });
+		document.addEventListener(eventName, displayModeChanged);
 	}
 	window.addEventListener('resize', scheduleResize);
 	window.addEventListener('orientationchange', scheduleResize);
@@ -436,8 +472,13 @@ body.pocket-report-open { touch-action: auto; }
 		window.visualViewport.addEventListener('scroll', scheduleResize);
 	}
 	for (const query of [standaloneQuery, fullscreenQuery]) {
-		if (query.addEventListener) query.addEventListener('change', updateControl);
-		else if (query.addListener) query.addListener(updateControl);
+		if (query.addEventListener) query.addEventListener('change', displayModeChanged);
+		else if (query.addListener) query.addListener(displayModeChanged);
+	}
+	function displayModeChanged() {
+		updateControl(); scheduleResize();
+		// Installed windows can gain an Exit action without a viewport resize.
+		if (menuHeader) for (const listener of safeAreaListeners) listener();
 	}
 	if (window.ResizeObserver) {
 		const observer = new ResizeObserver(scheduleResize);
@@ -448,12 +489,88 @@ body.pocket-report-open { touch-action: auto; }
 	resizeCanvas();
 }());
 		</script>
+		<script id="pocket-audio-modules-script">
+// Safari can reject AudioWorklet module fetches from an installed/cache-backed
+// page before they reach the origin. Fetch through the owning page instead, so
+// its release binding is preserved, then import those exact bytes as a Blob.
+// The engine and its processors remain unchanged; real failures still reject.
+function createPocketAudioModules(w, timeoutMs) {
+	'use strict';
+	timeoutMs = timeoutMs ?? 15000;
+	const names = ['index.audio.worklet.js', 'index.audio.position.worklet.js'];
+	let prepared = null;
+	function prepare() {
+		if (prepared) return prepared;
+		prepared = (async () => {
+			const prototype = w.AudioWorklet && w.AudioWorklet.prototype;
+			if (!prototype || typeof prototype.addModule !== 'function') return;
+			const original = prototype.addModule;
+			const modules = new Map();
+			const urls = [];
+			const controller = new w.AbortController();
+			const deadline = w.setTimeout(() => controller.abort(), timeoutMs);
+			const record = (kind, file) => {
+				try { w.dispatchEvent(new w.CustomEvent('pocket-audio-module-status', {detail: {kind, file}})); } catch (_) { /* diagnostics must not affect audio */ }
+			};
+			try {
+				for (const name of names) {
+					const expected = w.POCKET_RELEASE?.audio_worklets?.[name];
+					if (!/^[a-f0-9]{64}$/.test(expected || '')) throw new Error('Sound files are missing their release identity. Reload to update.');
+					const url = new w.URL(name, w.document.baseURI);
+					const response = await w.fetch(url.href, {credentials: 'same-origin', redirect: 'error', signal: controller.signal});
+					if (!response.ok) throw new Error('Sound files could not load. Reconnect and reload to try again.');
+					const bytes = await response.arrayBuffer();
+					const actual = Array.from(new Uint8Array(await w.crypto.subtle.digest('SHA-256', bytes)))
+						.map(byte => byte.toString(16).padStart(2, '0')).join('');
+					if (actual !== expected) throw new Error('Sound files do not match this release. Reload to update.');
+					const blob = w.URL.createObjectURL(new w.Blob([bytes], {type: 'text/javascript'}));
+					urls.push(blob);
+					modules.set(url.href, {blob, name});
+				}
+				Object.defineProperty(prototype, 'addModule', {configurable: true, writable: true,
+					value: function (url, options) {
+						let module;
+						try { module = modules.get(new w.URL(url, w.document.baseURI).href); }
+						catch (_) { return original.call(this, url, options); }
+						if (!module) return original.call(this, url, options);
+						return original.call(this, module.blob, options).then(value => {
+							record('audio_module_ready', module.name);
+							return value;
+						}, error => {
+							record('audio_module_failed', module.name);
+							throw error;
+						});
+					}});
+				// Keep the tiny module blobs valid for any later AudioContext and BFCache.
+				w.addEventListener('pagehide', event => {
+					if (!event.persisted) for (const url of urls) w.URL.revokeObjectURL(url);
+				});
+			} catch (error) {
+				for (const url of urls) w.URL.revokeObjectURL(url);
+				if (controller.signal.aborted) throw new Error('Sound files took too long to load. Reconnect and reload to try again.');
+				throw error;
+			} finally {
+				w.clearTimeout(deadline);
+			}
+		})();
+		return prepared;
+	}
+	return Object.freeze({prepare});
+}
+window.PocketAudioModules = createPocketAudioModules(window);
+		</script>
 		<script>
 const GODOT_CONFIG = $GODOT_CONFIG;
 const GODOT_THREADS_ENABLED = $GODOT_THREADS_ENABLED;
 
 (async function () {
 	await window.PocketLaunch.ready;
+	try {
+		await window.PocketAudioModules.prepare();
+	} catch (error) {
+		window.PocketLaunch.showFailure(error.message);
+		return;
+	}
 	const loaded = await new Promise((resolve) => {
 		const script = document.createElement('script');
 		script.src = '$GODOT_URL';
