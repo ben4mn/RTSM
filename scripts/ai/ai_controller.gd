@@ -1614,6 +1614,12 @@ func _uses_compact_population_policy() -> bool:
 	return GameManager.get_player_population_limit(player_id) < 80
 
 
+func _uses_large_army_objective_policy() -> bool:
+	# Only tactical assignment changes for larger Medium/Hard armies. Keep the
+	# legacy economy, opening gates and Easy commitment separate from this rule.
+	return GameManager.get_player_population_limit(player_id) >= 80 and difficulty in [Difficulty.MEDIUM, Difficulty.HARD]
+
+
 func _get_compact_economy_target() -> int:
 	var limit: int = GameManager.get_player_population_limit(player_id)
 	if difficulty == Difficulty.EASY:
@@ -2344,6 +2350,16 @@ func _check_sacred_site_strategy() -> bool:
 			# A contested/near-expiry clock must not silently turn Easy into the
 			# Medium all-army response. A Scout can still capture an empty site.
 			desired_force = mini(desired_force, SkirmishData.get_easy_pressure_squad_size(_game_time))
+	elif _uses_large_army_objective_policy() and new_mode == ObjectiveMode.CONTEST:
+		var fighters: int = _get_fighting_units().size()
+		desired_force = maxi(_get_attack_threshold(), ceili(float(fighters) * 0.75))
+		# A contest needs a real army, but does not own every spare fighter until
+		# the hostile victory clock becomes urgent. The existing field-wave seam
+		# can use only the surplus left after objective and home-reserve assignment.
+		urgent = enemy_claiming and float(sacred_site.get("victory_hold_time")) - float(sacred_site.get("victory_timer")) <= 120.0
+		blocks_offense = urgent
+		if urgent:
+			desired_force = maxi(desired_force, fighters)
 	var mode_changed: bool = new_mode != _objective_mode
 	_objective_mode = new_mode
 	_assign_objective_force(sacred_site, desired_force, urgent, mode_changed, site_threats)
@@ -2368,6 +2384,7 @@ func _assign_objective_force(
 ) -> void:
 	var all_military: Array = _get_military_units()
 	var reserve: Array = _get_base_reserve_units(all_military)
+	var share_large_contest: bool = _uses_large_army_objective_policy() and _objective_mode == ObjectiveMode.CONTEST and not urgent
 	var candidates: Array = []
 	for unit in all_military:
 		if not is_instance_valid(unit):
@@ -2376,13 +2393,13 @@ func _assign_objective_force(
 		# There is no healing system in this iteration. Permanently excluding
 		# wounded units from an urgent contest can immobilize a full-pop army and
 		# prevent both fighting and paid replacements for the rest of the match.
-		if hp_ratio <= 0.4 and not urgent:
+		if hp_ratio <= 0.4 and not urgent and not share_large_contest:
 			continue
 		if _objective_mode == ObjectiveMode.CONTEST and unit.unit_type == UnitData.UnitType.SCOUT and not _get_fighting_units().is_empty():
 			continue
 		if unit in reserve:
 			continue
-		if not urgent and unit in _attack_wave_units:
+		if not urgent and unit in _attack_wave_units and not share_large_contest:
 			continue
 		candidates.append(unit)
 
@@ -2418,6 +2435,20 @@ func _assign_objective_force(
 
 	if urgent and _attack_in_progress:
 		_clear_attack_wave()
+	elif share_large_contest and _attack_in_progress:
+		# Recall only the center's assigned members. Leave the surviving wave's
+		# commands and lifecycle intact instead of resetting all offense each tick.
+		var previous_wave_size: int = _attack_wave_units.size()
+		for unit in _objective_units:
+			_attack_wave_units.erase(unit)
+		if _attack_wave_units.is_empty():
+			_clear_attack_wave()
+		elif _attack_wave_units.size() < previous_wave_size:
+			# The recalled front unit may own the old closest-distance record.
+			# Measure the survivors from here so normal forward travel is not
+			# mistaken for a stalled wave. Unchanged assignments retain the timer.
+			_attack_wave_best_distance = _get_closest_wave_distance(_attack_wave_units, _attack_wave_target_position)
+			_attack_wave_last_progress_time = _game_time
 	if _uses_easy_learning_policy():
 		# A redirect must recall the old wave, not leave it attacking alongside
 		# a newly selected objective squad after its tracking array is cleared.
@@ -2596,7 +2627,7 @@ func _micro_damaged_units() -> void:
 	for unit in _get_military_units():
 		if not is_instance_valid(unit):
 			continue
-		if _uses_compact_population_policy() and _objective_mode == ObjectiveMode.CONTEST and unit in _objective_units:
+		if (_uses_compact_population_policy() or _uses_large_army_objective_policy()) and _objective_mode == ObjectiveMode.CONTEST and unit in _objective_units:
 			continue  # Urgent committed forces must not have every attack canceled by micro.
 		if unit.unit_type == UnitData.UnitType.SIEGE:
 			continue
@@ -3134,6 +3165,8 @@ func _get_base_reserve_units(military: Array) -> Array:
 	var candidates: Array = []
 	for unit in military:
 		if not is_instance_valid(unit) or unit in _objective_units:
+			continue
+		if _uses_large_army_objective_policy() and unit in _attack_wave_units:
 			continue
 		# Scouts remain available for reconnaissance/objective capture. A current
 		# home threat still recalls every unit through _rally_defense(), so this
