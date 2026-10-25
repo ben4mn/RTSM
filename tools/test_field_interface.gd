@@ -29,6 +29,7 @@ func _run() -> void:
 		var queue: Array = [{"unit_type": 0, "name": "Villager", "is_training": true, "progress": 0.35}, {"unit_type": 4, "name": "Scout", "is_training": false}]
 		hud.call("show_building_selection", "Town Center", 5000, 5000, queue, [0, 4], tc)
 		await _settle()
+		_check_command_decoration(hud)
 		var row: HBoxContainer = hud.get("_train_buttons_container")
 		var active: ProgressBar = row.get_node("TrainButton_0/ProductionSeam")
 		var waiting: ProgressBar = row.get_node("TrainButton_4/ProductionSeam")
@@ -67,3 +68,32 @@ func _settle() -> void:
 func _expect(condition: bool, message: String) -> void:
 	if not condition:
 		_failures.append(message)
+
+
+func _check_command_decoration(hud: CanvasLayer) -> void:
+	var move: Button = hud.get("_unit_move_button")
+	var area: Button = hud.get("_select_area_button")
+	var stance: Button = hud.get("_unit_stance_button")
+	for iteration: int in 3:
+		for armed: bool in [true, false]:
+			hud.call("set_area_selection_armed", armed)
+			hud.call("configure_unit_commands", armed, true, "Stand Ground" if armed else "Aggressive", "move" if armed else "smart")
+			_expect(move.disabled == not armed and move.button_pressed == armed, "decoration preserves enabled and armed states")
+			_expect(area.button_pressed == armed and area.accessibility_name.contains("cancel") == armed, "area state updates accessible action without restyling")
+			_expect(stance.text == ("Guard" if armed else "Aggro"), "stance caption follows state transitions")
+			_expect(move.accessibility_name.contains("armed:") == armed, "armed command description stays current")
+			var styles: Array[StyleBox] = []
+			for state: String in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
+				styles.append(move.get_theme_stylebox(state))
+			for repeat: int in 3:
+				hud.call("_refresh_command_icons")
+			var index: int = 0
+			for state: String in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
+				_expect(move.get_theme_stylebox(state) == styles[index], "unchanged command retains styles for " + state)
+				_expect((styles[index] as StyleBoxFlat).corner_radius_top_left == 12, "final tactile radius is preserved for " + state)
+				index += 1
+			_expect(move.custom_minimum_size == Vector2(48, 48), "cached command preserves comfortable target")
+	hud.call("set_pause_display", true)
+	_expect((hud.get("_pause_button") as Button).icon == CommandIcons.get_icon("resume"), "pause transition updates glyph")
+	hud.call("set_pause_display", false)
+	_expect((hud.get("_pause_button") as Button).icon == CommandIcons.get_icon("pause"), "resume transition restores glyph")

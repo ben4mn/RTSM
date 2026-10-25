@@ -670,6 +670,10 @@ func update_age(age: int) -> void:
 
 
 func set_recommended_building(building_type: int) -> void:
+	# Selection/status refreshes repeat the same guidance, including while this
+	# sheet is hidden. Resources, age, housing and opening refresh independently.
+	if _recommended_building_type == building_type:
+		return
 	_recommended_building_type = building_type
 	_refresh_affordability()
 

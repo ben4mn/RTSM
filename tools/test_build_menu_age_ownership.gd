@@ -25,6 +25,20 @@ func _run() -> void:
 	build_menu.call("open_menu")
 	await get_tree().process_frame
 
+	var house: Button = build_menu.get("_button_map")[BuildingData.BuildingType.HOUSE]
+	var cloth_color: Color = (house.get_theme_stylebox("normal") as StyleBoxFlat).bg_color
+	build_menu.call("set_recommended_building", BuildingData.BuildingType.HOUSE)
+	var recommended_style: StyleBox = house.get_theme_stylebox("normal")
+	_expect((recommended_style as StyleBoxFlat).bg_color != cloth_color, "new recommendation highlights the card")
+	for iteration: int in 4:
+		build_menu.call("set_recommended_building", BuildingData.BuildingType.HOUSE)
+		_expect(house.get_theme_stylebox("normal") == recommended_style, "unchanged guidance does not rebuild cards")
+	build_menu.call("update_resources", {"food": 0, "wood": 0, "gold": 0})
+	_expect(house.disabled and house.text.contains("Need"), "resource changes refresh an unchanged recommendation")
+	build_menu.call("update_resources", {"food": 5000, "wood": 5000, "gold": 5000})
+	_expect(not house.disabled, "resource recovery refreshes an unchanged recommendation")
+	build_menu.call("set_recommended_building", -1)
+	_expect((house.get_theme_stylebox("normal") as StyleBoxFlat).bg_color == cloth_color, "clearing recommendation restores cloth")
 	_assert_card_lock(build_menu, BuildingData.BuildingType.ARCHERY_RANGE, true, "initial human Dark Age")
 	_expect_eq(int(build_menu.get("_current_age")), 1, "palette did not initialize from human age")
 	var archery: Button = build_menu.get("_button_map")[BuildingData.BuildingType.ARCHERY_RANGE]

@@ -663,7 +663,9 @@ func set_area_selection_armed(armed: bool) -> void:
 	_area_selection_armed = armed
 	if _select_area_button:
 		_select_area_button.set_pressed_no_signal(armed)
-		CommandIcons.apply(_select_area_button, "select_area", "Drag to select; tap again to cancel" if armed else "Select area")
+		var label: String = "Drag to select; tap again to cancel" if armed else "Select area"
+		_select_area_button.tooltip_text = label
+		_select_area_button.accessibility_name = label
 	set_progression_hint("Drag to select" if armed else "")
 	_queue_mobile_layout_refresh()
 
@@ -805,11 +807,16 @@ func _refresh_command_icons() -> void:
 		if is_instance_valid(button):
 			# Familiar field glyphs can be learned through the tap-access Guide.
 			# Only the ambiguous overflow action needs a permanent caption here.
-			if entry[1] == "more":
-				CommandIcons.apply_labeled(button, entry[1], entry[2], "Orders")
-			else:
-				CommandIcons.apply(button, entry[1], entry[2])
-			FieldStyle.soften(button, 24 if entry[1] in ["clear", "back", "close", "more", "pause", "resume"] else 12, button != build_menu_button)
+			var caption: String = "Orders" if entry[1] == "more" else ""
+			if _command_decoration_changed(button, entry[1], caption):
+				if entry[1] == "more":
+					CommandIcons.apply_labeled(button, entry[1], entry[2], caption)
+				else:
+					CommandIcons.apply(button, entry[1], entry[2])
+				FieldStyle.soften(button, 24 if entry[1] in ["clear", "back", "close", "more", "pause", "resume"] else 12, button != build_menu_button)
+			button.text = caption
+			button.tooltip_text = entry[2]
+			button.accessibility_name = entry[2]
 			button.custom_minimum_size = Vector2(48.0, 48.0)
 			button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	CommandIcons.set_badge(_unit_more_button, "•" if _unit_command_mode == "patrol" else "")
@@ -826,15 +833,19 @@ func _refresh_command_icons() -> void:
 	for entry: Array in expanded:
 		var button: Button = entry[0]
 		if is_instance_valid(button):
-			CommandIcons.apply(button, entry[1], entry[2], entry[3])
+			if _command_decoration_changed(button, entry[1], entry[3]):
+				CommandIcons.apply(button, entry[1], entry[2], entry[3])
+				button.add_theme_constant_override("icon_max_width", 24 if String(entry[3]).is_empty() else 20)
+				button.add_theme_font_size_override("font_size", 11)
+				FieldStyle.soften(button, 24 if String(entry[3]).is_empty() else 12, true)
+			button.text = entry[3]
+			button.tooltip_text = entry[2]
+			button.accessibility_name = entry[2]
 			button.vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER
 			button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER if String(entry[3]).is_empty() else HORIZONTAL_ALIGNMENT_LEFT
 			button.alignment = HORIZONTAL_ALIGNMENT_CENTER if String(entry[3]).is_empty() else HORIZONTAL_ALIGNMENT_LEFT
 			button.custom_minimum_size = Vector2(48.0 if entry[1] in ["zoom_in", "zoom_out"] else 80.0, 48.0)
 			button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-			button.add_theme_constant_override("icon_max_width", 24 if String(entry[3]).is_empty() else 20)
-			button.add_theme_font_size_override("font_size", 11)
-			FieldStyle.soften(button, 24 if String(entry[3]).is_empty() else 12, true)
 	CommandIcons.set_badge(_worker_idle_button, str(_last_idle_villager_count) if _last_idle_villager_count > 0 else "")
 	if _unit_move_button:
 		_unit_move_button.tooltip_text = "Move armed: tap a destination; tap again or Esc to cancel" if _unit_command_mode == "move" else "Move: tap here, then a destination"
@@ -859,6 +870,17 @@ func _refresh_command_icons() -> void:
 		if is_instance_valid(button):
 			var suffix: String = " " + str(shortcuts[button])
 			button.tooltip_text = button.tooltip_text.trim_suffix(suffix) + suffix
+
+
+func _command_decoration_changed(button: Button, key: String, caption: String) -> bool:
+	# Selection/status/layout refreshes run often. Replacing six identical style
+	# resources each time emits theme/minimum-size changes through the whole HUD.
+	# Dynamic labels, badges and pressed state still refresh on every call above.
+	var signature: String = key + ":" + caption
+	if button.get_meta("field_command_decoration", "") == signature and button.icon == CommandIcons.get_icon(key):
+		return false
+	button.set_meta("field_command_decoration", signature)
+	return true
 
 
 func _set_button_icon(button: Button, texture_path: String, max_width: int) -> void:
