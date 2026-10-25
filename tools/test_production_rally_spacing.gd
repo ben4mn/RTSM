@@ -27,6 +27,7 @@ func _run() -> void:
 	var pq: Node = tc.get_production_queue() as Node
 	pq.set_process(false)
 	var units: Array = (main.get("_player_units") as Array)[0]
+	var initial_units: Array = units.duplicate()
 	for player_units: Array in main.get("_player_units"):
 		for old_unit: Node2D in player_units:
 			old_unit.set_process(false)
@@ -60,7 +61,7 @@ func _run() -> void:
 	var scouts: Array[Node2D] = []
 	var destinations: Array[Vector2] = []
 	for unit: Node2D in units:
-		if int(unit.get("unit_type")) == 4:
+		if int(unit.get("unit_type")) == 4 and unit not in initial_units:
 			unit.set_process(false)
 			scouts.append(unit)
 			destinations.append(unit.get("move_target"))
@@ -125,14 +126,14 @@ func _run() -> void:
 		pq.advance(0.05)
 		for unit: Node2D in units:
 			unit.set_process(false)
-			if unit.unit_type == 4:
+			if unit.unit_type == 4 and unit not in initial_units:
 				unit._process(0.05)
 		if step % 100 == 0:
 			await process_frame
 	var positions: Array[Vector2] = []
 	var states: Array[int] = []
 	for unit: Node2D in units:
-		if unit.unit_type == 4:
+		if unit.unit_type == 4 and unit not in initial_units:
 			positions.append(unit.global_position)
 			states.append(unit.current_state)
 	var min_pair: float = INF

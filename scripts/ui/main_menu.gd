@@ -34,7 +34,7 @@ var _compact_layout: bool = false
 var _screen: String = "home"
 var _mode: String = "solo"
 var _selected_difficulty: int = 0
-var _selected_population_limit: int = 30
+var _selected_population_limit: int = SkirmishData.DEFAULT_POPULATION_LIMIT
 var _network_search_active: bool = false
 var _room_waiting: bool = false
 var _web_update_safe: bool = false
@@ -85,6 +85,7 @@ var difficulty_option: OptionButton
 var difficulty_description: Label
 var guided_opening_toggle: CheckButton
 var _population_buttons: Array[Button] = []
+var _population_migration_note: Label
 var _rules_option: OptionButton
 var _rules_description: Label
 var _advanced_button: Button
@@ -416,6 +417,8 @@ func _build_options() -> void:
 	_rules_description = _label("", 13, true)
 	_rules_description.add_theme_color_override("font_color", MUTED)
 	_solo_options.add_child(_rules_description)
+	_population_migration_note = _label("Normal battles now allow 100. Smaller limits remain in More options.", 13, true)
+	_solo_options.add_child(_population_migration_note)
 	_advanced_button = _button("More options  ›", "MoreOptionsButton", _toggle_advanced_options)
 	_advanced_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_advanced_button.add_theme_font_size_override("font_size", 14)
@@ -426,15 +429,20 @@ func _build_options() -> void:
 	_advanced_options.hide()
 	_solo_options.add_child(_advanced_options)
 	_advanced_options.add_child(_label("Population per player", 14))
-	var population := HBoxContainer.new()
-	population.add_theme_constant_override("separation", 6)
+	var population := GridContainer.new()
+	population.columns = 3
+	population.add_theme_constant_override("h_separation", 6)
+	population.add_theme_constant_override("v_separation", 6)
 	_advanced_options.add_child(population)
 	for limit: int in SkirmishData.POPULATION_OPTIONS:
 		var button := _button(str(limit), "Population%dButton" % limit, _on_population_selected.bind(limit))
 		button.toggle_mode = true
+		button.accessibility_name = "%d population per player. Houses raise housing up to this match limit." % limit
+		button.tooltip_text = button.accessibility_name
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		population.add_child(button)
 		_population_buttons.append(button)
+	_advanced_options.add_child(_label("Houses raise housing up to the chosen match limit.", 13, true))
 	_advanced_options.add_child(_label("Map seed (optional)", 14))
 	var seed_row := HBoxContainer.new()
 	seed_row.add_theme_constant_override("separation", 6)
@@ -484,7 +492,7 @@ func _build_multiplayer_options() -> void:
 	_join_button = _button("Join", "JoinGameButton", _join_game)
 	_join_button.disabled = true
 	join_row.add_child(_join_button)
-	_multiplayer_options.add_child(_label("Standard rules · 30 population\nBoth players see the host’s battlefield.", 13, true))
+	_multiplayer_options.add_child(_label("Standard rules · %d population\nBoth players see the host’s battlefield." % SkirmishData.DEFAULT_POPULATION_LIMIT, 13, true))
 	_quick_match_button = _button("Quick match", "QuickMatchButton", func() -> void:
 		if _session != null:
 			_session.call("find_match")
@@ -508,7 +516,7 @@ func _build_multiplayer_options() -> void:
 	_room_details.add_child(_room_civilizations)
 	_room_map = _label("", 15, true)
 	_room_details.add_child(_room_map)
-	_room_details.add_child(_label("Standard rules · 30 population", 13, true))
+	_room_details.add_child(_label("Standard rules · %d population" % SkirmishData.DEFAULT_POPULATION_LIMIT, 13, true))
 	_network_status = _label("", 14, true)
 	_network_status.name = "NetworkStatus"
 	_network_status.add_theme_color_override("font_color", MUTED)
@@ -738,6 +746,7 @@ func _refresh_selection() -> void:
 	difficulty_description.text = DIFFICULTY_DESCRIPTIONS[_selected_difficulty]
 	for button: Button in _population_buttons:
 		button.set_pressed_no_signal(int(button.text) == _selected_population_limit)
+	_population_migration_note.visible = GameManager.population_limit_migrated
 	_refresh_main_menu_diagnostics()
 
 
@@ -859,6 +868,7 @@ func _on_difficulty_changed(index: int) -> void:
 func _on_population_selected(limit: int) -> void:
 	_selected_population_limit = SkirmishData.normalize_population_limit(limit)
 	GameManager.selected_population_limit = _selected_population_limit
+	GameManager.population_limit_migrated = false
 	_refresh_selection()
 
 
@@ -917,6 +927,7 @@ func _on_start_pressed() -> void:
 		return
 	GameManager.selected_difficulty = _selected_difficulty
 	GameManager.selected_population_limit = _selected_population_limit
+	GameManager.population_limit_migrated = false
 	GameManager.guided_opening_enabled = guided_opening_toggle.button_pressed
 	var seed_text: String = seed_input.text.strip_edges()
 	GameManager.selected_map_seed = maxi(-1, int(seed_text)) if seed_text.is_valid_int() else -1

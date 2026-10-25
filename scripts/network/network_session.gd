@@ -8,12 +8,10 @@ signal room_changed()
 signal snapshot_received(snapshot: Dictionary)
 signal match_ended(winner: int, reason: String)
 
-# Civilization identities affect base combat stats and must agree on both ends.
-# Version 1 clients cannot display them correctly and must refresh before play.
-## Protocol4 requires the larger version3 terrain on both clients and authority.
-## Older clients generate different terrain even for Open Plains and must reload.
-## Sacred eligibility and the existing 180-second victory clock are unchanged.
-const PROTOCOL := 4
+## Protocol5 agrees on the 100-population default and starting Scouts.
+## Protocol4 clients normalize this budget to30; they must reload before play.
+## Terrain catalog3 and the existing 180-second victory clock are unchanged.
+const PROTOCOL := 5
 const MAP_CATALOG_VERSION := 3
 const DEFAULT_ENDPOINT := "wss://game.4mn.org/match"
 const MAX_CLIENT_PACKET := 8192

@@ -115,6 +115,13 @@ func _exercise(profile: Dictionary) -> void:
 	_expect(GameManager.selected_population_limit == 20, context + " population applied")
 	var scroll: ScrollContainer = menu.get("_options_scroll")
 	_expect(scroll.size.y >= (96.0 if bool(profile.get("scroll_map", false)) else 120.0), context + " useful options scroll viewport")
+	_expect((menu.get("_population_buttons") as Array).size() == 5, context + " all five population limits remain available")
+	for button: Button in menu.get("_population_buttons"):
+		scroll.ensure_control_visible(button)
+		await get_tree().process_frame
+		_touch(button, safe, context + " " + button.name)
+		button.pressed.emit()
+		_expect(GameManager.selected_population_limit == int(button.text), context + " chosen population is authoritative draft")
 	scroll.scroll_vertical = 10000
 	await get_tree().process_frame
 	_bounds(menu.get("seed_input"), safe, context + " seed reachable by scroll")

@@ -103,6 +103,11 @@ func _process(delta: float) -> bool:
 				_expect(int(states[0].matched.map_archetype) == round_index and int(states[3].matched.map_archetype) == round_index, "started match preserves final map")
 				_expect(states[0].matched.seed == states[3].matched.seed and states[0].matched.match == states[3].matched.match, "clients share match and seed")
 				_expect(int(states[0].matched.slot) == 0 and int(states[3].matched.slot) == 1, "host and guest receive opposite slots")
+				for client_index: int in [0, 3]:
+					var snapshot: Dictionary = states[client_index].snapshot
+					var owner: int = int(states[client_index].matched.slot)
+					var scouts: Array = (snapshot.actors as Array).filter(func(actor: Dictionary) -> bool: return actor.owner == owner and actor.kind == "unit" and actor.type == UnitData.UnitType.SCOUT)
+					_expect(int(snapshot.player.max_population) == 100 and int(snapshot.player.population) == 5 and scouts.size() == 1, "both sockets start with100max, four workers and one Scout")
 				clients[3].close()
 				_next(10)
 		10:
