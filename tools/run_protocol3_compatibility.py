@@ -1,4 +1,4 @@
-"""Bounded loopback frozen-protocol2/current sockets; private source copies."""
+"""Bounded loopback frozen-older/current sockets; private source copies. Historical filename retained."""
 import argparse
 import hashlib
 import importlib.util
@@ -61,20 +61,25 @@ def private_copy(source, destination, cache=None):
 
 
 def main(args):
-    current_protocol = network_constant(ROOT, 'PROTOCOL')
-    current_catalog = network_constant(ROOT, 'MAP_CATALOG_VERSION')
+    current_root = args.current_root.resolve(strict=True)
+    current_protocol = network_constant(current_root, 'PROTOCOL')
+    current_catalog = network_constant(current_root, 'MAP_CATALOG_VERSION')
     current_label = f'new{current_protocol}'
+    old_protocol = network_constant(args.old_root, 'PROTOCOL')
+    old_catalog = network_constant(args.old_root, 'MAP_CATALOG_VERSION')
+    assert old_protocol < current_protocol, 'Legacy source must declare an older protocol'
+    old_label = f'old{old_protocol}'
     output = args.output.resolve()
     output.mkdir(exist_ok=False)
-    runner = load_runner(ROOT)
-    original = runner.runtime_hashes(ROOT)
+    runner = load_runner(current_root)
+    original = runner.runtime_hashes(current_root)
     old_original = runner.runtime_hashes(args.old_root)
     contexts = {}
     processes = []
     streams = []
     connections = []
     events = []
-    report = {'status': 'RUNNING', 'scope': 'Actual owned loopback sockets and real current Godot client; no paid gameplay/browser/public connection.', 'current_protocol': current_protocol, 'current_map_catalog': current_catalog, 'source_sha256': original, 'old_source_sha256': old_original, 'events': events}
+    report = {'status': 'RUNNING', 'scope': 'Actual owned loopback sockets and real current Godot client; no paid gameplay/browser/public connection.', 'current_protocol': current_protocol, 'current_map_catalog': current_catalog, 'old_protocol': old_protocol, 'old_map_catalog': old_catalog, 'source_sha256': original, 'old_source_sha256': old_original, 'events': events}
     def connect(url):
         assert re.fullmatch(r'ws://127\.0\.0\.1:\d+/match', url)
         connection = websocket.create_connection(url, timeout=4, http_proxy_host=None)
@@ -92,7 +97,7 @@ def main(args):
                 return packet
         raise AssertionError('No expected packet: ' + label)
     try:
-        for label, source, protocol in [(current_label, ROOT, current_protocol), ('old2', args.old_root, 2)]:
+        for label, source, protocol in [(current_label, current_root, current_protocol), (old_label, args.old_root, old_protocol)]:
             folder = output / label
             hashes = private_copy(source, folder, args.import_cache)
             contexts[label] = {'directory': str(folder), 'sha256': hashes}
@@ -117,12 +122,12 @@ def main(args):
         assert room.get('protocol') == current_protocol and room.get('players') == 1
         for operation in ('search', 'host', 'join'):
             peer = connect(url)
-            send(peer, {'op': operation, 'protocol': 2, 'map_catalog': 2, 'map_archetype': 0, 'civilization': 2, 'code': room['code']}, 'old2-' + operation)
-            rejected = receive(peer, 'old2-' + operation, ['error', 'room', 'queued', 'matched'])
+            send(peer, {'op': operation, 'protocol': old_protocol, 'map_catalog': old_catalog, 'map_archetype': 0, 'civilization': 2, 'code': room['code']}, old_label + '-' + operation)
+            rejected = receive(peer, old_label + '-' + operation, ['error', 'room', 'queued', 'matched'])
             assert rejected.get('op') == 'error' and 'reload' in rejected.get('reason', '').lower()
             # Same live peer must recover without disconnect-driven cleanup.
-            send(peer, {'op': 'host', 'protocol': current_protocol, 'map_catalog': current_catalog, 'map_archetype': 0, 'civilization': 2}, 'old2-' + operation + '-recover-current')
-            recovered = receive(peer, 'old2-' + operation + '-recover-current', ['room', 'queued', 'matched', 'error'])
+            send(peer, {'op': 'host', 'protocol': current_protocol, 'map_catalog': current_catalog, 'map_archetype': 0, 'civilization': 2}, old_label + '-' + operation + '-recover-current')
+            recovered = receive(peer, old_label + '-' + operation + '-recover-current', ['room', 'queued', 'matched', 'error'])
             assert recovered.get('op') == 'room' and recovered.get('protocol') == current_protocol and recovered.get('players') == 1 and recovered.get('code') != room['code']
             send(host, {'op': 'room_map', 'map_archetype': 0}, 'protected-during-' + operation)
             protected = receive(host, 'protected-during-' + operation, ['room', 'error'])
@@ -161,8 +166,8 @@ def main(args):
             snapshot = receive(peer, label, ['snapshot', 'error'])
             assert snapshot.get('op') == 'snapshot' and snapshot.get('match') == starts[0]['match'] and snapshot.get('actors')
         client_root = output / (current_label + '-client')
-        contexts['client'] = {'directory': str(client_root), 'sha256': private_copy(ROOT, client_root, args.import_cache)}
-        command = [str(args.godot), '--headless', '--path', str(client_root), '--script', 'res://tools/test_online_protocol3_client_compatibility.gd', '--', '--old-url=' + contexts['old2']['endpoint']]
+        contexts['client'] = {'directory': str(client_root), 'sha256': private_copy(current_root, client_root, args.import_cache)}
+        command = [str(args.godot), '--headless', '--path', str(client_root), '--script', 'res://tools/test_online_protocol3_client_compatibility.gd', '--', '--old-url=' + contexts[old_label]['endpoint']]
         client_process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=dict(os.environ, GODOT_AUDIO_DRIVER='Dummy'), start_new_session=os.name != 'nt')
         processes.append(client_process)
         try:
@@ -175,7 +180,7 @@ def main(args):
         (output / (current_label + '-client.log')).write_text(stdout, encoding='utf-8')
         assert client_process.returncode == 0 and 'PROTOCOL3_CLIENT_COMPATIBILITY' in stdout
         assert not re.search(r'(SCRIPT ERROR|ERROR:|Parse Error)', stdout)
-        for label in (current_label, 'old2'):
+        for label in (current_label, old_label):
             assert not re.search(r'(SCRIPT ERROR|ERROR:|Parse Error)', (output / (label + '-server.log')).read_text(encoding='utf-8'))
         report['status'] = 'PASS'
     except Exception as error:
@@ -202,7 +207,7 @@ def main(args):
         report['cleanup_errors'] = cleanup_errors
         report['contexts'] = contexts
         try:
-            report['original_source_unchanged'] = runner.runtime_hashes(ROOT) == original
+            report['original_source_unchanged'] = runner.runtime_hashes(current_root) == original
             report['old_source_unchanged'] = runner.runtime_hashes(args.old_root) == old_original
             report['private_sources_unchanged'] = all(runner.runtime_hashes(Path(item['directory'])) == item['sha256'] for item in contexts.values())
         except Exception as error:
@@ -218,6 +223,7 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--godot', type=Path, required=True)
+    parser.add_argument('--current-root', type=Path, default=ROOT, help='Optional immutable current-source snapshot; defaults to this checkout')
     parser.add_argument('--old-root', type=Path, required=True)
     parser.add_argument('--import-cache', type=Path, required=True, help='Existing Godot import derivatives from matching unchanged assets; copied only into private runtime folders')
     parser.add_argument('--output', type=Path, required=True)
