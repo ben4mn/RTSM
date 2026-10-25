@@ -185,7 +185,17 @@ func _build_guide() -> void:
 		_body.add_child(column)
 		var button := Button.new()
 		button.name = "LearnButton"
+		button.theme = theme
 		CommandIcons.apply(button, entry[0], "Learn: " + str(entry[1]), entry[1])
+		# An expanded learning row stays on cloth, so use parchment for both
+		# label and glyph instead of the gold-action button's dark pressed ink.
+		for state: String in ["pressed", "hover_pressed"]:
+			var active_style: StyleBoxFlat = button.get_theme_stylebox(state).duplicate()
+			active_style.bg_color = THEME.INK_LIGHT
+			active_style.border_color = THEME.TEAL
+			button.add_theme_stylebox_override(state, active_style)
+			button.add_theme_color_override("font_" + state + "_color", THEME.PARCHMENT)
+			button.add_theme_color_override("icon_" + state + "_color", THEME.PARCHMENT)
 		button.toggle_mode = true
 		button.custom_minimum_size.y = 48
 		button.alignment = HORIZONTAL_ALIGNMENT_LEFT

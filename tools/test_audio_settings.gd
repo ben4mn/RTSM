@@ -107,6 +107,7 @@ func _check_layout(physical: Vector2, scale_value: float, notched: bool) -> void
 			_expect(not explanation.visible and learn.icon != null, "Guide starts folded with visible icon " + suffix)
 			await _pointer_button(viewport, learn.get_global_rect().get_center(), MOUSE_BUTTON_LEFT)
 			_expect(explanation.visible and explanation.text.contains("destination"), "tap opens Guide explanation " + suffix)
+			_check_guide_contrast(learn, suffix)
 			await _pointer_button(viewport, learn.get_global_rect().get_center(), MOUSE_BUTTON_LEFT)
 			_expect(not explanation.visible, "tap folds Guide explanation " + suffix)
 			for tab: Button in panel.get("_tabs"):
@@ -261,6 +262,7 @@ func _check_match_state() -> void:
 	var guide: Button = panel.find_child("Guide_move", true, false).get_node("LearnButton")
 	await _pointer_button(get_viewport(), guide.get_global_rect().get_center(), MOUSE_BUTTON_LEFT)
 	_expect(guide.button_pressed and get_tree().paused, "learning an icon must preserve pause")
+	_check_guide_contrast(guide, "paused match")
 	panel.call("close")
 	await get_tree().process_frame
 	_expect(get_tree().paused and GameManager.current_state == GameManager.GameState.PAUSED, "settings resumed match")
@@ -273,3 +275,20 @@ func _check_match_state() -> void:
 
 func _expect(value: bool, message: String) -> void:
 	if not value: _failures.append(message)
+
+
+func _check_guide_contrast(button: Button, context: String) -> void:
+	for state: String in ["pressed", "hover_pressed"]:
+		var background: Color = (button.get_theme_stylebox(state) as StyleBoxFlat).bg_color
+		var label: Color = button.get_theme_color("font_" + state + "_color")
+		var glyph: Color = button.get_theme_color("icon_" + state + "_color")
+		_expect(_contrast(label, background) >= 4.5, "expanded Guide text contrast " + state + " " + context)
+		_expect(_contrast(glyph, background) >= 3.0, "expanded Guide icon contrast " + state + " " + context)
+
+
+func _contrast(first: Color, second: Color) -> float:
+	var a: Color = first.srgb_to_linear()
+	var b: Color = second.srgb_to_linear()
+	var luminance_a: float = a.r * 0.2126 + a.g * 0.7152 + a.b * 0.0722
+	var luminance_b: float = b.r * 0.2126 + b.g * 0.7152 + b.b * 0.0722
+	return (maxf(luminance_a, luminance_b) + 0.05) / (minf(luminance_a, luminance_b) + 0.05)
