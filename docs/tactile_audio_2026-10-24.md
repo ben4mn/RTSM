@@ -19,8 +19,9 @@ generated sounds are supplied under the repository's own applicable terms.
 - Combat: soft wood-and-cloth impacts; a very quiet falling body/rustle.
 - Construction: restrained mallet taps, a low placement thump and a three-note
   completion phrase.
-- Recruitment: a brief ascending pair. Important alerts use the same instrument
-  with a repeated note; advancement and match outcomes get longer cadences.
+- Recruitment: a brief ascending pair. The attack warning uses an original,
+  rounded two-pulse wood/reed texture so danger differs from felt confirmations;
+  advancement and match outcomes get longer cadences.
 
 Frequent tactile sounds and orders each have three small timbral variations;
 the scheduler never repeats the same take consecutively. Important melodies
@@ -57,6 +58,16 @@ continues to cover persistent preferences, mute/preview cancellation, fog,
 settings geometry and paused match preservation. Audio signal measurements are
 not a subjective listening claim; release evidence should distinguish live
 gameplay recording, signal analysis and human listening.
+
+The subsequent AoE reference pass changes only the attack-warning waveform,
+keeping its 430 ms length, -6 dB scheduler gain, six-second audio cooldown and
+priority. `tools/test_tactical_audio.tscn` verifies actual Main damage routing:
+offscreen owned units/buildings still trigger warnings, routine offscreen hits
+stay quiet, repeated damage is restrained, enemy damage is not a local alert,
+and the explicit alert mute wins. See `docs/aoe_sound_reference_2026-10-24.md`
+for primary references, design interpretation and listening limitations. The
+recordings below precede this one-waveform follow-up; its new capture is recorded
+separately rather than relabeling earlier audio as current.
 
 A 55.04-second controlled native capture at an 844×390 viewport exercised paid
 recruitment, natural house construction, gathering and staged 12-vs-12 combat.
