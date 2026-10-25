@@ -1,0 +1,45 @@
+{
+  "version": "0.3.0-beta.6",
+  "runtime_revision": "a1aabfeb94fe0629f46fba82f6643a9856c91a32",
+  "release_id": "v030beta6-a1aabfeb94fe-90136bbe63-a56bbb6f91",
+  "published_utc": "2026-10-25T03:13:20.742562+00:00",
+  "url": "https://game.4mn.org",
+  "protocol": 4,
+  "web_manifest_sha256": "90136bbe63097d02a242cadb7100dadc05e9f4ea61e2f63d6a4461796a18c7da",
+  "server_manifest_sha256": "a56bbb6f91d47ff80249bc09996f8b6bb936774e49e70200bba426a1f7a13336",
+  "runtime_files_verified": 925,
+  "service": "aoem-online",
+  "restart_verified": true,
+  "active_connections_at_replacement_check": 0,
+  "rollback_version": "0.3.0-beta.5",
+  "postflight": "PASS_READ_ONLY_POSTFLIGHT",
+  "browser": {
+    "status": "PASS",
+    "viewport": [
+      844,
+      390
+    ],
+    "local_committed_build": [
+      "new menu and three crests",
+      "English normal skirmish",
+      "paid villager recruitment: 50 food",
+      "paid Farm: 75 wood",
+      "construction completion and gathering",
+      "no captured warnings/errors"
+    ],
+    "public": [
+      "normal Play launch applied cached-page update",
+      "new menu and Mongol selection",
+      "normal Mongol skirmish startup",
+      "return to main menu",
+      "no captured warnings/errors"
+    ],
+    "limits": "Bounded browser and native visual checks; no physical-device performance or full-match pacing claim."
+  },
+  "receipts_sha256": {
+    "validated.json": "6ec15be3c6cb9134608ff2e74c33f0eeb8836e42f9c780326d43f4b482271ef8",
+    "smoke.json": "8dae82ccfdbe94ab331cda0d60e641f1e6194d03b5f51c20b651a3fc6cd9e56f",
+    "activation.json": "60d4aac3a4fddd127bfac50ec846767e66027f08b6e42fbdaab0d338d4cd40ad",
+    "postflight.json": "d2df3a0bb00064b8bc06aa42d0390ef17a458542f8ad33d9f8c1564b48ddb372"
+  }
+}
