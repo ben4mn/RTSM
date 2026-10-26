@@ -32,6 +32,7 @@ var _presentation_working: bool = false
 var _fractional_harvest: float = 0.0
 var dropoff_target: Node2D = null
 var _manual_dropoff: bool = false
+var _manual_dropoff_resume_gather: bool = false
 var _dropoff_retry_timer: float = 0.0
 var _dropoff_route_active: bool = false
 var _gather_last_known_position: Vector2 = Vector2.ZERO
@@ -517,9 +518,11 @@ func _find_and_go_to_dropoff() -> void:
 	# A harvesting cycle is the finite current job. Follow queued destinations
 	# with its cargo before automatically selecting a different depot.
 	if carried_amount > 0 and not _auto_recovering and not queued_orders.is_empty():
+		_manual_dropoff_resume_gather = has_active_gather_order() and gather_type != GatherType.NONE and _has_gather_last_known_position
 		set_state(State.IDLE)
 		if _advance_queued_order():
 			return
+		_manual_dropoff_resume_gather = false
 	var topology_revision: int = _get_dropoff_topology_revision()
 	if topology_revision != _dropoff_topology_revision:
 		_unreachable_dropoff_ids_until.clear()
@@ -582,10 +585,17 @@ func command_dropoff(building: Node2D) -> bool:
 	var route: PackedVector2Array = _get_dropoff_route(building)
 	if route.is_empty():
 		return false
+	# Delivery temporarily changes state to MOVING. Preserve only an active
+	# gather job, never stale knowledge left behind by an explicit Move/Stop.
+	var resume_gather: bool = _manual_dropoff_resume_gather or (has_active_gather_order() and gather_type != GatherType.NONE and _has_gather_last_known_position)
+	var preserve_pending: bool = _preserve_pending_gather_on_command
+	_preserve_pending_gather_on_command = preserve_pending or resume_gather
 	command_move_path(route)
+	_preserve_pending_gather_on_command = preserve_pending
 	dropoff_target = building
 	_dropoff_route_active = true
 	_manual_dropoff = true
+	_manual_dropoff_resume_gather = resume_gather
 	_dropoff_topology_revision = _get_dropoff_topology_revision()
 	_dropoff_buildings_signature = _get_dropoff_buildings_signature()
 	_reserve_service_position(building, route[-1], "dropoff")
@@ -598,11 +608,18 @@ func _on_arrived_for_dropoff(_unit: UnitBase) -> void:
 		return
 	_dropoff_route_active = false
 	_release_service_position()
+	var command_generation: int = get_command_generation()
 	var deposited: bool = _deposit_resources()
+	# Deposit observers may issue a fresh order during the completion signal.
+	if get_command_generation() != command_generation:
+		return
 	if _manual_dropoff:
+		var resume_gather: bool = _manual_dropoff_resume_gather
 		_manual_dropoff = false
+		_manual_dropoff_resume_gather = false
 		set_state(State.IDLE)
-		_advance_queued_order()
+		if not _advance_queued_order() and deposited and resume_gather:
+			_resume_gather_order_or_retarget()
 		return
 	if not deposited and carried_amount > 0:
 		_find_and_go_to_dropoff()
@@ -1691,6 +1708,7 @@ func _before_new_command() -> void:
 
 func _cancel_dropoff_route() -> void:
 	_manual_dropoff = false
+	_manual_dropoff_resume_gather = false
 	if _service_kind == "dropoff":
 		_release_service_position()
 	_dropoff_route_active = false

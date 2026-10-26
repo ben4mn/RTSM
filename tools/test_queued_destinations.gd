@@ -80,6 +80,8 @@ func _run() -> void:
 	_check(worker.dropoff_target == tc and bool(worker.get("_manual_dropoff")), "harvest completion honors queued depot before choosing an automatic drop-off")
 	worker.command_stop()
 
+	_test_gather_depot_resume(worker, tc, first)
+
 	map.selection_mgr.select_single(tc)
 	tc.set_rally_point(first)
 	main._on_queue_order_command(second, null)
@@ -135,6 +137,44 @@ func _run() -> void:
 	_check(worker.queued_orders.is_empty(), "authority clears pending destinations")
 	adapter.free()
 	_finish()
+
+func _test_gather_depot_resume(worker: Villager, depot: BuildingBase, waypoint: Vector2) -> void:
+	var source: Node2D = map.get_nearest_reachable_resource_node("wood", worker.global_position, 0)
+	_check(source != null, "resume fixture has reachable real wood")
+	if source == null: return
+	for mode: String in ["resume", "queued_move", "move", "stop", "deposit_move"]:
+		worker.command_stop()
+		worker.set("_cargo", {})
+		worker.carried_amount = 0
+		_check(worker.command_gather(source), mode + ": accepted original gather job")
+		worker.enqueue_order({"kind": "dropoff", "target_id": depot.get_instance_id(), "position": depot.global_position})
+		for step: int in 3600:
+			worker._process(1.0 / 30.0)
+			if bool(worker.get("_manual_dropoff")): break
+		_check(bool(worker.get("_manual_dropoff")) and worker.carried_amount > 0, mode + ": real harvest begins queued delivery")
+		var cargo: int = worker.carried_amount
+		var bank: int = ResourceManager.get_resource(0, "wood")
+		if mode == "queued_move":
+			worker.enqueue_order({"kind": "move", "position": waypoint})
+		elif mode == "deposit_move":
+			worker.resource_deposited.connect(func(_resource: String, _amount: int) -> void: worker.command_move(waypoint), CONNECT_ONE_SHOT)
+		elif mode in ["move", "stop"]:
+			if mode == "move": worker.command_move(waypoint)
+			else: worker.command_stop()
+			worker._on_arrived_for_dropoff(worker)
+			_check(not bool(worker.get("_manual_dropoff")) and not worker.has_active_gather_order(), mode + ": fresh order cancels gather resumption and stale arrival")
+			_check(worker.carried_amount == cargo and ResourceManager.get_resource(0, "wood") == bank, mode + ": canceled delivery preserves cargo without bank credit")
+			continue
+		for step: int in 3600:
+			worker._process(1.0 / 30.0)
+			if worker.carried_amount == 0: break
+		_check(worker.carried_amount == 0 and ResourceManager.get_resource(0, "wood") == bank + cargo, mode + ": natural queued delivery credits exactly its load")
+		if mode == "resume":
+			_check(worker.current_state == UnitBase.State.GATHERING and worker.gather_target == source, "terminal queued depot resumes original valid gather job")
+		else:
+			_check(worker.current_state == UnitBase.State.MOVING and worker.move_target == waypoint and not worker.has_active_gather_order(), "later queued waypoint takes precedence over original gather job")
+	worker.command_stop()
+
 
 func _check(condition: bool, message: String) -> void:
 	checks += 1
