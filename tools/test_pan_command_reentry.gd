@@ -71,6 +71,8 @@ func _pan_then_command() -> void:
 	_expect(ground != Vector2.ZERO, "empty visible ground on both sides of pan")
 	var before: int = _orders
 	await _quick_tap(ground)
+	await _quick_tap(ground)
+	_expect(_orders == before + 2 and _selection.selected == [_scout], "rapid repeated ground orders retain selected Scout")
 	var old_target: Vector2 = _scout.move_target
 	var camera_before: Vector2 = _map.camera.position
 	_contact_id += 1
@@ -84,9 +86,9 @@ func _pan_then_command() -> void:
 	await _frames(1)
 	await _contact(start + Vector2(40, 0), false)
 	_expect(not _map.camera.position.is_equal_approx(camera_before), "real pan changes camera")
-	_expect(_orders == before + 1 and _selection.selected == [_scout], "pan preserves selection and existing order")
+	_expect(_orders == before + 2 and _selection.selected == [_scout], "pan preserves selection and existing order")
 	await _quick_tap(ground)
-	_expect(_orders == before + 2 and _selection.selected == [_scout], "rapid post-pan ground tap orders instead of clearing")
+	_expect(_orders == before + 3 and _selection.selected == [_scout], "rapid post-pan ground tap orders instead of clearing")
 	_expect(not _scout.move_target.is_equal_approx(old_target), "new camera transform supplies new destination")
 	_expect((_map.get("_touch_points") as Dictionary).is_empty() and (_selection.get("_active_touch_indices") as Dictionary).is_empty(), "pan contacts retire")
 	_scout.command_stop()

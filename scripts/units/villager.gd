@@ -31,6 +31,7 @@ var gather_timer: float = 0.0
 var _presentation_working: bool = false
 var _fractional_harvest: float = 0.0
 var dropoff_target: Node2D = null
+var _manual_dropoff: bool = false
 var _dropoff_retry_timer: float = 0.0
 var _dropoff_route_active: bool = false
 var _gather_last_known_position: Vector2 = Vector2.ZERO
@@ -170,8 +171,11 @@ func take_damage(amount: float) -> void:
 func _process_moving(delta: float) -> void:
 	if not _auto_recovering:
 		if _dropoff_route_active:
+			if _manual_dropoff and not _dropoff_accepts_cargo(dropoff_target):
+				_on_navigation_unreachable(move_target)
+				return
 			_dropoff_recheck_timer -= delta
-			if _dropoff_recheck_timer <= 0.0:
+			if _dropoff_recheck_timer <= 0.0 and not _manual_dropoff:
 				_dropoff_recheck_timer = 1.0
 				if not _dropoff_accepts_cargo(dropoff_target) or _get_dropoff_topology_revision() != _dropoff_topology_revision or _get_dropoff_buildings_signature() != _dropoff_buildings_signature:
 					_unreachable_dropoff_ids_until.clear()
@@ -510,6 +514,12 @@ func _get_dropoff_route(building: Node2D) -> PackedVector2Array:
 
 func _find_and_go_to_dropoff() -> void:
 	_sync_cargo_manifest()
+	# A harvesting cycle is the finite current job. Follow queued destinations
+	# with its cargo before automatically selecting a different depot.
+	if carried_amount > 0 and not _auto_recovering and not queued_orders.is_empty():
+		set_state(State.IDLE)
+		if _advance_queued_order():
+			return
 	var topology_revision: int = _get_dropoff_topology_revision()
 	if topology_revision != _dropoff_topology_revision:
 		_unreachable_dropoff_ids_until.clear()
@@ -565,14 +575,41 @@ func _find_and_go_to_dropoff() -> void:
 		set_state(State.GATHERING)
 
 
+func command_dropoff(building: Node2D) -> bool:
+	_sync_cargo_manifest()
+	if not _dropoff_accepts_cargo(building):
+		return false
+	var route: PackedVector2Array = _get_dropoff_route(building)
+	if route.is_empty():
+		return false
+	command_move_path(route)
+	dropoff_target = building
+	_dropoff_route_active = true
+	_manual_dropoff = true
+	_dropoff_topology_revision = _get_dropoff_topology_revision()
+	_dropoff_buildings_signature = _get_dropoff_buildings_signature()
+	_reserve_service_position(building, route[-1], "dropoff")
+	arrived_at_destination.connect(_on_arrived_for_dropoff, CONNECT_ONE_SHOT)
+	return true
+
+
 func _on_arrived_for_dropoff(_unit: UnitBase) -> void:
 	if not _dropoff_route_active:
 		return
 	_dropoff_route_active = false
 	_release_service_position()
 	var deposited: bool = _deposit_resources()
+	if _manual_dropoff:
+		_manual_dropoff = false
+		set_state(State.IDLE)
+		_advance_queued_order()
+		return
 	if not deposited and carried_amount > 0:
 		_find_and_go_to_dropoff()
+		return
+	if not queued_orders.is_empty():
+		set_state(State.IDLE)
+		_advance_queued_order()
 		return
 	if _activate_pending_gather_order():
 		return
@@ -1632,6 +1669,10 @@ func _gather_type_for_resource(resource_type: String) -> int:
 
 
 func _before_new_command() -> void:
+	var preserve_intent: bool = _preserve_order_intent
+	_preserve_order_intent = preserve_intent or _preserve_pending_gather_on_command or _preserve_recovery_on_command or _preserve_farm_assignment_on_command
+	super._before_new_command()
+	_preserve_order_intent = preserve_intent
 	_release_service_position()
 	if not _preserve_farm_assignment_on_command and not _preserve_pending_gather_on_command and not _preserve_recovery_on_command:
 		_release_assigned_farm()
@@ -1649,6 +1690,7 @@ func _before_new_command() -> void:
 
 
 func _cancel_dropoff_route() -> void:
+	_manual_dropoff = false
 	if _service_kind == "dropoff":
 		_release_service_position()
 	_dropoff_route_active = false
@@ -1658,6 +1700,10 @@ func _cancel_dropoff_route() -> void:
 
 
 func _on_navigation_unreachable(target_position: Vector2) -> void:
+	if _manual_dropoff:
+		_cancel_dropoff_route()
+		super._on_navigation_unreachable(target_position)
+		return
 	if _auto_recovering:
 		_reset_navigation()
 		_recovery_refuge = null

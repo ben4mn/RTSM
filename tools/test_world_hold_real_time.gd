@@ -64,8 +64,8 @@ func _run() -> void:
 	add_child(_blocker)
 	_selection.move_command.connect(func(tile: Vector2i) -> void:
 		_orders.append({"action": "move", "time_msec": Time.get_ticks_msec(), "tile": str(tile)}))
-	_selection.attack_move_command.connect(func(tile: Vector2i) -> void:
-		_orders.append({"action": "attack_move", "time_msec": Time.get_ticks_msec(), "tile": str(tile)}))
+	_selection.queue_order_command.connect(func(position: Vector2, _target: Node2D) -> void:
+		_orders.append({"action": "queue", "time_msec": Time.get_ticks_msec(), "tile": str(position)}))
 	_selection.gather_command.connect(func(_target: Node2D) -> void:
 		_orders.append({"action": "gather", "time_msec": Time.get_ticks_msec()}))
 	_selection.world_gesture_started.connect(func(index: int, _position: Vector2) -> void: _admissions.append(index))
@@ -88,7 +88,7 @@ func _run() -> void:
 			_expect(elapsed >= HOLD_MSEC and elapsed <= 500, "speed %.1f / emulation %s hold elapsed %dms" % [speed, emulate_mouse, elapsed])
 			_contact(41, GROUND, false)
 			await _frames(2)
-			_expect(_orders.size() == 1 and _orders[0]["action"] == "attack_move", "hold release must retain exactly one attack-move command")
+			_expect(_orders.size() == 1 and _orders[0]["action"] == "queue", "hold release must retain exactly one queued destination")
 			_expect(_admissions == [41], "touch gesture was admitted more than once or acquired synthetic mouse ownership")
 			_expect_clean("timed hold")
 			_timing.append({"speed": speed, "mouse_emulation": emulate_mouse, "elapsed_msec": elapsed, "orders": _orders.size()})
@@ -321,8 +321,8 @@ func _test_main_selection_change() -> void:
 	_orders.clear()
 	_selection.move_command.connect(func(tile: Vector2i) -> void:
 		_orders.append({"action": "move", "time_msec": Time.get_ticks_msec(), "tile": str(tile)}))
-	_selection.attack_move_command.connect(func(tile: Vector2i) -> void:
-		_orders.append({"action": "attack_move", "time_msec": Time.get_ticks_msec(), "tile": str(tile)}))
+	_selection.queue_order_command.connect(func(position: Vector2, _target: Node2D) -> void:
+		_orders.append({"action": "queue", "time_msec": Time.get_ticks_msec(), "tile": str(position)}))
 	await _frames(3)
 	_contact(1227, Vector2(350.0, 150.0), true)
 	_expect(_selection.get("_active_touch_indices").has(1227) and bool(_selection.get("_touch_hold_active")), "actual Main did not admit the pending world hold")
@@ -380,7 +380,7 @@ func _test_main_move_intents(main: Node) -> void:
 				_contact(1501, ground, false)
 			elif kind == "hold":
 				await _wait_until(Time.get_ticks_msec() + 390)
-				_expect(_orders.size() == 1 and _orders[0]["action"] == "attack_move", "real Main hold issues exactly one attack-move at threshold")
+				_expect(_orders.size() == 1 and _orders[0]["action"] == "queue", "real Main hold issues exactly one queued destination at threshold")
 				_contact(1501, ground, false)
 			else:
 				if kind == "pan":
@@ -400,7 +400,7 @@ func _test_main_move_intents(main: Node) -> void:
 			if kind == "tap":
 				_expect(_orders.size() == 1 and _orders[0]["action"] == "move" and not scout.attack_move and bool(scout.get("_force_move_active")), "actual phone ground tap delivers passive Move through Main")
 			elif kind == "hold":
-				_expect(_orders.size() == 1 and scout.attack_move and not bool(scout.get("_force_move_active")), "actual phone hold/release delivers one deliberate attack-move through Main")
+				_expect(_orders.size() == 1 and not scout.attack_move and bool(scout.get("_force_move_active")), "actual phone hold/release delivers one queued move through Main")
 			else:
 				_expect(_orders.is_empty() and scout.current_state == UnitBase.State.IDLE, "actual phone %s cannot leak Move or attack-move" % kind)
 			_expect_clean("Main %s %s" % [phone, kind])

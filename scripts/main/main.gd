@@ -553,6 +553,8 @@ func _on_map_ready(map_gen: MapGenerator) -> void:
 	var selection_mgr: Node = game_map.selection_mgr
 	selection_mgr.move_command.connect(_on_move_command)
 	selection_mgr.attack_move_command.connect(_on_touch_attack_move_command)
+	selection_mgr.queue_order_command.connect(_on_queue_order_command)
+	selection_mgr.cancel_queue_command.connect(_on_cancel_queue_command)
 	selection_mgr.attack_command.connect(_on_attack_command)
 	selection_mgr.gather_command.connect(_on_gather_command)
 	selection_mgr.build_command.connect(_on_build_command)
@@ -1681,6 +1683,16 @@ func _resolve_production_egress(producer: BuildingBase, excluded_tiles: Array[Ve
 func _issue_production_rally(unit: UnitBase, requested_rally: Vector2, producer: BuildingBase = null) -> bool:
 	if not is_instance_valid(unit) or game_map == null:
 		return false
+	if is_instance_valid(producer) and not producer.rally_orders.is_empty():
+		for order: Dictionary in producer.rally_orders:
+			var inherited: Dictionary = order.duplicate()
+			if unit.unit_type != UnitData.UnitType.VILLAGER and str(order.get("kind", "")) == "move":
+				var queued_route: PackedVector2Array = game_map.get_navigation_world_path(unit.global_position, order.position, PRODUCTION_RALLY_ARRIVAL_RADIUS)
+				if not queued_route.is_empty():
+					queued_route = _get_unoccupied_production_rally_path(unit, queued_route)
+					inherited["position"] = queued_route[-1]
+			unit.enqueue_order(inherited)
+		return true
 	if unit is Villager and is_instance_valid(producer) and producer.rally_resource_instance_id > 0:
 		var worker: Villager = unit as Villager
 		var accepted: bool = worker.command_gather_last_observed(
@@ -1759,6 +1771,9 @@ func _is_production_rally_slot_free(unit: UnitBase, destination: Vector2) -> boo
 			return false
 		if other.current_state == UnitBase.State.MOVING and other.move_target.distance_to(destination) < PRODUCTION_RALLY_SLOT_CLEARANCE_WORLD:
 			return false
+		for queued: Dictionary in other.queued_orders:
+			if queued.get("kind", "") == "move" and (queued.position as Vector2).distance_to(destination) < PRODUCTION_RALLY_SLOT_CLEARANCE_WORLD:
+				return false
 	return true
 
 
@@ -2132,6 +2147,76 @@ func _on_touch_attack_move_command(target_tile: Vector2i) -> void:
 	_move_command_armed = false
 	_patrol_command_armed = false
 	_on_move_command(target_tile)
+
+
+func _on_cancel_queue_command() -> void:
+	var selected: Array = game_map.selection_mgr.selected
+	if NetworkSession.is_client():
+		if selected.size() == 1 and selected[0] is BuildingBase:
+			NetworkSession.send_command("cancel_orders", {"target": NetworkSession.entity_id(selected[0])})
+		else:
+			_send_network_selection("cancel_orders")
+		return
+	for entry: Node2D in selected:
+		if entry is UnitBase and entry.player_owner == 0:
+			entry.cancel_queued_orders()
+		elif entry is BuildingBase and entry.player_owner == 0:
+			entry.cancel_rally_orders()
+	hud.show_notification("Queued destinations cleared.")
+
+
+func _on_queue_order_command(world_position: Vector2, target: Node2D) -> void:
+	if GameManager.current_state != GameManager.GameState.PLAYING:
+		return
+	if NetworkSession.is_client():
+		var payload: Dictionary = {"position": [world_position.x, world_position.y]}
+		var selected: Array = game_map.selection_mgr.selected
+		if selected.size() == 1 and selected[0] is BuildingBase:
+			payload["target"] = NetworkSession.entity_id(selected[0])
+			NetworkSession.send_command("queue_rally", payload)
+		else:
+			if is_instance_valid(target) and target is BuildingBase:
+				payload["target"] = NetworkSession.entity_id(target)
+			_send_network_selection("queue_dropoff" if payload.has("target") else "queue_move", payload)
+		VFX.move_indicator(get_tree(), world_position)
+		return
+	var tile: Vector2i = game_map.world_to_tile(world_position)
+	if tile.x < 0 or tile.y < 0 or tile.x >= MapData.MAP_WIDTH or tile.y >= MapData.MAP_HEIGHT:
+		return
+	var dropoff: bool = is_instance_valid(target) and target is BuildingBase and target.player_owner == 0 and target.is_in_group("dropoff_buildings")
+	if not dropoff and game_map.is_tile_visible_to_player(tile, 0) and not game_map.is_tile_walkable(tile):
+		hud.show_notification("Destination unavailable. Choose another location.")
+		return
+	var order: Dictionary = {"kind": "dropoff", "target_id": target.get_instance_id(), "position": target.global_position} if dropoff else {"kind": "move", "position": game_map.tile_to_world(tile)}
+	var accepted: int = 0
+	var moveable: Array[UnitBase] = []
+	if not dropoff:
+		for entry: Node2D in game_map.selection_mgr.selected:
+			if entry is UnitBase and entry.player_owner == 0 and entry.current_state != UnitBase.State.DEAD:
+				moveable.append(entry)
+		if moveable.size() > 1:
+			accepted = _queue_movement_orders(moveable, tile, 0)
+	for selected: Node2D in game_map.selection_mgr.selected:
+		if not is_instance_valid(selected) or not (selected is UnitBase or selected is BuildingBase) or selected.player_owner != 0:
+			continue
+		if selected is UnitBase and (not dropoff or selected is Villager):
+			if moveable.size() > 1:
+				continue
+			if selected.enqueue_order(order): accepted += 1
+		elif selected is BuildingBase and selected.can_train() and not dropoff:
+			if selected.enqueue_rally_order(order): accepted += 1
+	if accepted > 0:
+		VFX.move_indicator(get_tree(), world_position)
+		hud.show_notification("Destination queued. A new tap order or Stop clears the queue.")
+
+
+func _queue_movement_orders(units: Array[UnitBase], target_tile: Vector2i, owner: int) -> int:
+	var accepted: int = 0
+	var orders: Array[Dictionary] = GROUP_ORDER_PLANNER.plan(game_map, units, target_tile, _player_units[owner], owner)
+	for order: Dictionary in orders:
+		if order.unit.enqueue_order({"kind": "move", "position": order.destination}):
+			accepted += 1
+	return accepted
 
 
 func _on_move_command(target_tile: Vector2i) -> void:

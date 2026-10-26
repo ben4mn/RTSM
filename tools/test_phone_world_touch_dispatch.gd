@@ -71,7 +71,7 @@ func _scenario(phone: Vector2i, interface_scale: float, mouse_emulation: bool) -
 	_attack_orders=0
 	_events.clear()
 	_selection.move_command.connect(func(_tile: Vector2i) -> void: _orders+=1)
-	_selection.attack_move_command.connect(func(_tile: Vector2i) -> void:
+	_selection.queue_order_command.connect(func(_position: Vector2, _target: Node2D) -> void:
 		_orders+=1
 		_attack_orders+=1)
 	# An earlier menu/HUD gesture used another ID; web contacts need not be0.
@@ -167,7 +167,7 @@ func _scenario(phone: Vector2i, interface_scale: float, mouse_emulation: bool) -
 	var orders_before_hold: int=_orders
 	await _contact(119,ground,true)
 	await _wait_sim_seconds(0.42)
-	_expect(_orders==orders_before_hold+1 and _attack_orders==1 and _worker.attack_move and int(_selection.get("_touch_context_execution_count"))==context_before+1,"nonzero long press did not execute ground attack-move exactly once")
+	_expect(_orders==orders_before_hold+1 and _attack_orders==1 and not _worker.attack_move and int(_selection.get("_touch_context_execution_count"))==context_before+1,"nonzero long press did not queue ground destination exactly once")
 	await _contact(119,ground,false)
 	_expect(_orders==orders_before_hold+1,"nonzero long-press release repeated the action")
 	_expect_clean("long press")

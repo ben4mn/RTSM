@@ -42,6 +42,7 @@ func _run() -> void:
 		unit.set_process(false)
 		unit.command_stop()
 	_selection.move_command.connect(func(_tile: Vector2i) -> void: _orders += 1)
+	_selection.queue_order_command.connect(func(_position: Vector2, _target: Node2D) -> void: _orders += 1)
 	await _frames(4)
 	var worker: Villager = _main.get("_player_units")[0][0] as Villager
 	# Area includes the starting Scout; same-type double tap includes workers only.
@@ -154,8 +155,8 @@ func _run() -> void:
 	await _tap(101, ground)
 	_expect(_orders == 2 and worker.current_state == UnitBase.State.MOVING, "first ground tap did not move the selected worker")
 	await _tap(103, ground)
-	_expect(_selection.selected.is_empty() and _orders == 2, "double-tap ground did not clear without a duplicate order")
-	_expect(worker.current_state == UnitBase.State.MOVING, "clearing selection stopped its existing order")
+	_expect(_selection.selected == [worker] and _orders == 3, "repeated ground tap must remain an order and retain selection")
+	_expect(worker.current_state == UnitBase.State.MOVING, "repeated destination stopped movement")
 	worker.command_stop()
 	_selection.select_single(worker)
 	await _frames(3)
@@ -167,7 +168,7 @@ func _run() -> void:
 	_expect(not _selection.unit_command_armed, "tapping armed Attack did not cancel the mode")
 	await _tap(115, attack.get_global_rect().get_center())
 	await _tap(117, ground)
-	_expect(_orders == 3 and worker.attack_move and not _selection.unit_command_armed, "Attack destination did not execute one-shot attack-move")
+	_expect(_orders == 4 and worker.attack_move and not _selection.unit_command_armed, "Attack destination did not execute one-shot attack-move")
 	_expect(_selection.selected.size() == 1, "attack-move destination unexpectedly cleared selection")
 	_expect(not attack.button_pressed and not (_hud.get("selection_details") as Label).text.contains("Tap attack-move"), "completed Attack retains stale destination instructions")
 
@@ -175,7 +176,7 @@ func _run() -> void:
 	for failure: String in _failures:
 		push_error("[FAIL] mobile_area_selection: " + failure)
 	if _failures.is_empty():
-		print("[PASS] mobile_area_selection: real phone box/one-shot/camera isolation; arbitrary IDs; pinch/OS/GUI/mode cancellation; same-type double tap; tap-away inspection and hold-ground rally; double-tap clear preserves order; primary Attack toggle and destination")
+		print("[PASS] mobile_area_selection: real phone box/one-shot/camera isolation; arbitrary IDs; pinch/OS/GUI/mode cancellation; same-type double tap; tap-away inspection and hold-ground rally; repeated ground orders retain selection; primary Attack toggle and destination")
 	get_tree().quit(0 if _failures.is_empty() else 1)
 
 

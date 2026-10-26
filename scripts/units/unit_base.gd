@@ -54,6 +54,13 @@ var attack_move: bool = false
 var _attack_march: RefCounted = null
 var _pending_attack_march: RefCounted = null
 var _command_generation: int = 0
+var queued_orders: Array[Dictionary] = []
+var _executing_queued_order: bool = false
+var _preserve_order_intent: bool = false
+var _suspended_building_target: WeakRef = null
+var _suspended_building_forced: bool = false
+var _retaliation_ready_at: float = 0.0
+const MAX_QUEUED_ORDERS: int = 16
 var kills: int = 0
 var _auto_attack_timer: float = 0.0  # Throttles enemy scanning (seconds until next scan)
 var _stuck_timer: float = 0.0        # Detects stuck units during movement
@@ -388,6 +395,8 @@ func set_state(new_state: int) -> void:
 
 
 func _process_idle(_delta: float) -> void:
+	if _advance_queued_order():
+		return
 	# Look for nearby enemies to auto-attack (stand ground uses shorter range)
 	_try_auto_attack()
 
@@ -424,6 +433,8 @@ func _on_reached_destination() -> void:
 	attack_move = false
 	set_state(State.IDLE)
 	arrived_at_destination.emit(self)
+	if current_state == State.IDLE:
+		_advance_queued_order()
 
 
 ## Advance along a bounded A* route. `accept_nearest_endpoint` is only for
@@ -683,6 +694,7 @@ func _on_navigation_unreachable(target_position: Vector2) -> void:
 	_force_move_active = false
 	navigation_failed.emit(self, target_position)
 	set_state(State.IDLE)
+	_advance_queued_order()
 
 
 ## Subclasses use this to invalidate task-specific callbacks whenever a fresh
@@ -690,6 +702,46 @@ func _on_navigation_unreachable(target_position: Vector2) -> void:
 func _before_new_command() -> void:
 	_command_generation += 1
 	detach_attack_march()
+	if not _preserve_order_intent:
+		_suspended_building_target = null
+		if not _executing_queued_order:
+			queued_orders.clear()
+
+
+## Append intent, not a stale route. Navigation resolves each leg when started.
+func enqueue_order(order: Dictionary) -> bool:
+	if current_state == State.DEAD or queued_orders.size() >= MAX_QUEUED_ORDERS:
+		return false
+	var kind: String = str(order.get("kind", ""))
+	if kind == "move":
+		if not order.get("position", Vector2.INF) is Vector2 or not (order["position"] as Vector2).is_finite():
+			return false
+	elif kind != "dropoff" or not has_method("command_dropoff") or int(order.get("target_id", 0)) <= 0:
+		return false
+	queued_orders.append(order.duplicate())
+	if current_state == State.IDLE:
+		return _advance_queued_order()
+	return true
+
+
+func cancel_queued_orders() -> void:
+	queued_orders.clear()
+
+
+func _advance_queued_order() -> bool:
+	while not queued_orders.is_empty() and current_state != State.DEAD:
+		var order: Dictionary = queued_orders.pop_front()
+		_executing_queued_order = true
+		if str(order.get("kind", "")) == "move":
+			command_move(order["position"])
+		elif has_method("command_dropoff"):
+			var target: Object = instance_from_id(int(order.get("target_id", 0)))
+			if is_instance_valid(target) and target is Node2D:
+				call("command_dropoff", target)
+		_executing_queued_order = false
+		if current_state != State.IDLE:
+			return true
+	return false
 
 
 func set_attack_march(march: RefCounted) -> void:
@@ -952,22 +1004,32 @@ func can_auto_retaliate() -> bool:
 
 
 func respond_to_attacker(attacker: UnitBase) -> void:
-	# Damage is an autonomous stimulus. It must preserve attack-move/patrol
-	# destinations and cannot replace an explicit unit or building target.
-	if not can_auto_retaliate() or _forced_attack or not _is_valid_target(attacker):
+	if not can_auto_retaliate() or not _is_valid_target(attacker):
+		return
+	# Explicit unit duels stay committed. A building assault can briefly defend
+	# itself, retaining its original target and a cooldown against target churn.
+	var defending_assault: bool = _is_valid_building_target(attack_building_target)
+	if (_forced_attack and not defending_assault) or _simulation_elapsed_seconds < _retaliation_ready_at:
 		return
 	if attacker.player_owner == player_owner or _is_valid_target(attack_target):
 		return
 	if stance == Stance.STAND_GROUND and not attack_move and global_position.distance_to(attacker.global_position) > attack_range + 8.0:
 		return
+	var saved_building: WeakRef = weakref(attack_building_target) if defending_assault else null
+	var saved_forced: bool = _forced_attack
+	_preserve_order_intent = true
 	command_attack(attacker, false, false)
+	_preserve_order_intent = false
+	if defending_assault:
+		_suspended_building_target = saved_building
+		_suspended_building_forced = saved_forced
 
 
 func _consider_nearby_threat() -> void:
 	# Stay committed to a target in weapon range. A normal fighter chasing a
 	# distant target or hitting a building can help an immediate nearby fight;
 	# siege retains its deliberate building role and explicit orders always win.
-	if _forced_attack or _auto_attack_timer > 0.0 or _attack_windup_remaining >= 0.0:
+	if _forced_attack or _suspended_building_target != null or _auto_attack_timer > 0.0 or _attack_windup_remaining >= 0.0:
 		return
 	if _is_valid_target(attack_target) and global_position.distance_to(attack_target.global_position) <= attack_range + 8.0:
 		return
@@ -1286,7 +1348,10 @@ func command_attack(target: UnitBase, force_chase: bool = true, clear_patrol: bo
 	if current_state != State.ATTACKING or _forced_attack or force_chase:
 		_auto_engagement_origin = global_position
 		_auto_chase_elapsed = 0.0
+	var preserve_intent: bool = _preserve_order_intent
+	_preserve_order_intent = preserve_intent or not force_chase
 	_before_new_command()
+	_preserve_order_intent = preserve_intent
 	# Reconfirming the same opponent updates intent without interrupting a
 	# strike already winding up or restarting the route to a moving target.
 	if not same_target:
@@ -1317,7 +1382,10 @@ func command_attack_building(target: BuildingBase, force_chase: bool = true, cle
 	if current_state != State.ATTACKING or _forced_attack or force_chase:
 		_auto_engagement_origin = global_position
 		_auto_chase_elapsed = 0.0
+	var preserve_intent: bool = _preserve_order_intent
+	_preserve_order_intent = preserve_intent or not force_chase
 	_before_new_command()
+	_preserve_order_intent = preserve_intent
 	if not same_target:
 		_cancel_attack_windup()
 		_attack_animation_remaining = 0.0
@@ -1420,6 +1488,17 @@ func _clear_patrol() -> void:
 
 
 func _resume_post_combat_movement() -> bool:
+	if _suspended_building_target != null:
+		var building: Variant = _suspended_building_target.get_ref()
+		_suspended_building_target = null
+		if _is_valid_building_target(building) and building.player_owner != player_owner:
+			attack_target = null
+			attack_building_target = building
+			_forced_attack = _suspended_building_forced
+			_retaliation_ready_at = _simulation_elapsed_seconds + 1.0
+			_reset_navigation()
+			set_state(State.ATTACKING)
+			return true
 	if _patrol_active:
 		var patrol_target: Vector2 = _patrol_point_b if _patrol_to_b else _patrol_point_a
 		if global_position.distance_to(patrol_target) > 5.0:
@@ -1434,6 +1513,9 @@ func _resume_post_combat_movement() -> bool:
 		_reset_navigation()
 		set_state(State.MOVING)
 		return true
+	if not queued_orders.is_empty():
+		set_state(State.IDLE)
+		return _advance_queued_order()
 	return false
 
 

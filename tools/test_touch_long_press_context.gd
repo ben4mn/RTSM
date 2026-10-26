@@ -3,7 +3,7 @@ extends SceneTree
 
 const SELECTION_MANAGER_SCRIPT_PATH := "res://scripts/managers/selection_manager.gd"
 const INFANTRY_SCENE_PATH := "res://scenes/units/infantry.tscn"
-const ATTACK_MOVE_ACTION_ID: int = 106
+const QUEUE_ACTION_ID: int = 107
 
 var _failures: Array[String] = []
 
@@ -39,9 +39,9 @@ func _run() -> void:
 	# frame processing from executing it during the real-time boundary wait.
 	selection_manager.set_process(false)
 
-	var move_tiles: Array[Vector2i] = []
-	selection_manager.connect("attack_move_command", func(tile: Vector2i) -> void:
-		move_tiles.append(tile)
+	var move_tiles: Array[Vector2] = []
+	selection_manager.connect("queue_order_command", func(position: Vector2, _target: Node2D) -> void:
+		move_tiles.append(position)
 	)
 
 	var before: Dictionary = selection_manager.get("touch_context_diagnostics") as Dictionary
@@ -62,8 +62,8 @@ func _run() -> void:
 
 	var after_threshold: Dictionary = selection_manager.get("touch_context_diagnostics") as Dictionary
 	_expect_eq(move_tiles.size(), 1, "threshold crossing executes the single attack-move action once")
-	_expect_eq(String(after_threshold.get("last_executed_action", "")), "Attack-move", "diagnostics identify the executed context action")
-	_expect_eq(int(after_threshold.get("last_executed_action_id", -1)), ATTACK_MOVE_ACTION_ID, "diagnostics retain the attack-move action id")
+	_expect_eq(String(after_threshold.get("last_executed_action", "")), "Queue destination", "diagnostics identify the executed context action")
+	_expect_eq(int(after_threshold.get("last_executed_action_id", -1)), QUEUE_ACTION_ID, "diagnostics retain the queue action id")
 	_expect_eq(int(after_threshold.get("execution_count", -1)), before_count + 1, "diagnostics count one threshold execution")
 	var first_timestamp: int = int(after_threshold.get("last_executed_timestamp_ms", 0))
 	_expect(first_timestamp > 0, "diagnostics include a fresh execution timestamp")
@@ -76,7 +76,7 @@ func _run() -> void:
 
 	selection_manager.call("_refresh_touch_context_diagnostics")
 	var after_refresh: Dictionary = selection_manager.get("touch_context_diagnostics") as Dictionary
-	_expect_eq(String(after_refresh.get("last_executed_action", "")), "Attack-move", "diagnostic refresh retains the last executed action")
+	_expect_eq(String(after_refresh.get("last_executed_action", "")), "Queue destination", "diagnostic refresh retains the last executed action")
 	_expect_eq(int(after_refresh.get("last_executed_timestamp_ms", -1)), first_timestamp, "diagnostic refresh retains the last execution timestamp")
 
 	# Sparse frames can miss the process threshold. The release-time fallback
@@ -89,7 +89,7 @@ func _run() -> void:
 	var after_fallback: Dictionary = selection_manager.get("touch_context_diagnostics") as Dictionary
 	_expect_eq(move_tiles.size(), 2, "release fallback executes one attack-move action")
 	_expect_eq(int(after_fallback.get("execution_count", -1)), before_count + 2, "fallback adds exactly one context execution")
-	_expect_eq(String(after_fallback.get("last_executed_action", "")), "Attack-move", "fallback records fresh attack-move evidence")
+	_expect_eq(String(after_fallback.get("last_executed_action", "")), "Queue destination", "fallback records fresh queue evidence")
 	_expect(int(after_fallback.get("last_executed_timestamp_ms", 0)) >= first_timestamp, "fallback timestamp is not stale")
 
 	game_map.free()

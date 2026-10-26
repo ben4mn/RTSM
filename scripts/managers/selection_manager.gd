@@ -9,6 +9,8 @@ signal selection_changed(selected_units: Array[Node2D])
 signal move_command(target_tile: Vector2i)
 ## Hold ground is the deliberate fighting journey; tap ground is passive.
 signal attack_move_command(target_tile: Vector2i)
+signal queue_order_command(world_position: Vector2, target: Node2D)
+signal cancel_queue_command()
 ## Emitted when an attack command is issued against a target.
 signal attack_command(target: Node2D)
 ## Emitted when a gather command is issued on a resource node.
@@ -64,7 +66,7 @@ var _double_tap_radius := 30.0  # pixels
 var _drag_rect: Rect2 = Rect2()
 
 ## --- Touch long-press context ---
-enum TouchContextAction { MOVE = 100, ATTACK = 101, GATHER = 102, BUILD = 103, SELECT = 104, CLEAR = 105, ATTACK_MOVE = 106 }
+enum TouchContextAction { MOVE = 100, ATTACK = 101, GATHER = 102, BUILD = 103, SELECT = 104, CLEAR = 105, ATTACK_MOVE = 106, QUEUE = 107, CANCEL_QUEUE = 108 }
 var _touch_hold_active := false
 var _touch_hold_elapsed := 0.0
 var _touch_hold_started_at_msec: int = 0
@@ -584,18 +586,9 @@ func _handle_tap(screen_pos: Vector2, is_touch_input: bool, pressed_unit: Node2D
 		_last_tap_time = 0.0
 	# Check double-tap.
 	var now := Time.get_ticks_msec() / 1000.0
-	if is_touch_input and not unit_command_armed and _has_selected_units() \
-			and tapped_node == null and resource_node == null and _last_tap_was_ground_move \
-			and _last_tap_time > 0.0 and now - _last_tap_time < _double_tap_interval \
-			and screen_pos.distance_to(_last_tap_position) < _double_tap_radius:
-		# The first ground tap issues the normal mobile order. A second tap
-		# dismisses the selection without stopping or replacing that order.
-		_last_tap_time = 0.0
-		_record_touch_input(screen_pos, world_pos, "clear", tapped_node, resource_node)
-		_clear_selection()
-		get_viewport().set_input_as_handled()
-		return
-	if not unit_command_armed and tap_target_id != 0 and tap_target_id == _last_tap_target_id \
+	# Repeated destinations remain orders. Double-tap grouping belongs only
+	# to friendly units; a second enemy tap must never replace the army.
+	if not unit_command_armed and tapped_node is UnitBase and not _is_enemy(tapped_node) and tap_target_id != 0 and tap_target_id == _last_tap_target_id \
 			and _last_tap_time > 0.0 \
 			and now - _last_tap_time < _double_tap_interval \
 			and screen_pos.distance_to(_last_tap_position) < _double_tap_radius:
@@ -1022,6 +1015,22 @@ func _world_to_tile(world_pos: Vector2) -> Vector2i:
 
 ## Prefer deliberate hits on people and building facades over discovery rings.
 func _get_node_at(world_pos: Vector2, use_touch_radius: bool = false) -> Node2D:
+	# When issuing orders, visible enemy ink wins over overlapping friendly
+	# discovery rings. Discovery without a selection retains normal hit order.
+	if _has_selected_units() and not unit_command_armed:
+		var enemy_hit: Node2D = null
+		var enemy_distance: float = INF
+		for group: String in ["units", "buildings"]:
+			for entry: Node in get_tree().get_nodes_in_group(group):
+				if not _is_current_selection_entry(entry) or not _is_enemy(entry):
+					continue
+				var enemy: Node2D = entry as Node2D
+				var direct_hit: bool = _is_touch_on_unit_body(enemy, world_pos) or _is_touch_on_unit_echo(enemy, world_pos) if group == "units" else _is_touch_on_building_facade(enemy, world_pos)
+				if direct_hit and enemy.global_position.distance_squared_to(world_pos) < enemy_distance:
+					enemy_distance = enemy.global_position.distance_squared_to(world_pos)
+					enemy_hit = enemy
+			if enemy_hit != null:
+				return enemy_hit
 	# Check units first with a tight radius so clicking near units registers ground clicks.
 	var best_unit: Node2D = null
 	var best_unit_dist := DESKTOP_UNIT_HIT_RADIUS_WORLD
@@ -1384,6 +1393,11 @@ func _build_touch_context_actions(tapped_node: Node2D, resource_node: Node2D) ->
 		return actions
 
 	if has_selection:
+		var selected_producer: bool = selected.size() == 1 and selected[0] is BuildingBase and selected[0].player_owner == 0 and selected[0].can_train()
+		var dropoff: bool = _has_selected_villagers() and tapped_node is BuildingBase and not _is_enemy(tapped_node) and tapped_node.is_in_group("dropoff_buildings")
+		if (tapped_node == null and resource_node == null and (_has_selected_units() or selected_producer)) or dropoff:
+			actions.append({"id": TouchContextAction.QUEUE, "label": "Queue drop-off" if dropoff else ("Queue rally point" if selected_producer else "Queue move")})
+			return actions
 		if tapped_node != null and tapped_node.is_in_group("sacred_sites"):
 			if _has_selected_units():
 				actions.append({"id": TouchContextAction.MOVE, "label": "Move to Sacred Site"})
@@ -1409,6 +1423,10 @@ func _build_touch_context_actions(tapped_node: Node2D, resource_node: Node2D) ->
 			actions.append({"id": TouchContextAction.MOVE, "label": ground_action})
 		elif not _is_enemy(tapped_node):
 			actions.append({"id": TouchContextAction.SELECT, "label": "Select"})
+			for entry: Node2D in selected:
+				if (entry is UnitBase and not entry.queued_orders.is_empty()) or (entry is BuildingBase and not entry.rally_orders.is_empty()):
+					actions.append({"id": TouchContextAction.CANCEL_QUEUE, "label": "Clear queued destinations"})
+					break
 		return actions
 
 	if tapped_node != null or resource_node != null:
@@ -1432,6 +1450,12 @@ func _execute_touch_context_action(action_id: int) -> void:
 	_prune_stale_selection()
 	var executed_action: String = ""
 	match action_id:
+		TouchContextAction.CANCEL_QUEUE:
+			cancel_queue_command.emit()
+			executed_action = "Clear queued destinations"
+		TouchContextAction.QUEUE:
+			queue_order_command.emit(_context_world_pos, _context_target if is_instance_valid(_context_target) else null)
+			executed_action = "Queue destination"
 		TouchContextAction.ATTACK:
 			if _is_current_selection_entry(_context_target) and _is_enemy(_context_target):
 				attack_command.emit(_context_target)

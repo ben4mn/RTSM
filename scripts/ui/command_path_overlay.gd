@@ -111,6 +111,7 @@ func _draw() -> void:
 		return
 	# Keep strokes and targets readable at both overview and detail zoom.
 	var zoom: float = maxf(0.1, get_canvas_transform().x.length())
+	_draw_queued_destinations(zoom)
 	for route: Dictionary in get_display_routes():
 		var world_points: PackedVector2Array = route["points"]
 		var points := PackedVector2Array()
@@ -145,6 +146,44 @@ func _draw() -> void:
 	if not cues.is_empty():
 		draw_multiline(cues, SELECTION_CUE_INK, 3.0 / zoom, true)
 		draw_multiline(cues, SELECTION_CUE_BONE, 1.5 / zoom, true)
+
+
+func get_queued_destination_markers() -> Array[Dictionary]:
+	var groups: Array[Dictionary] = []
+	for entry: Node2D in selection_manager.selected:
+		if not is_instance_valid(entry) or not (entry is UnitBase or entry is BuildingBase) or entry.player_owner != 0:
+			continue
+		var orders: Array[Dictionary] = entry.queued_orders if entry is UnitBase else entry.rally_orders
+		if orders.is_empty():
+			continue
+		var points := PackedVector2Array()
+		for order: Dictionary in orders:
+			if order.has("position"):
+				points.append(order.position)
+		if not points.is_empty():
+			var origin: Vector2 = entry.move_target if entry is UnitBase and entry.current_state == UnitBase.State.MOVING else entry.global_position
+			groups.append({"origin": origin, "points": points})
+		if groups.size() >= MAX_ROUTE_GROUPS:
+			break
+	return groups
+
+
+func _draw_queued_destinations(zoom: float) -> void:
+	# These dotted links describe waypoint order, not a computed navigation path.
+	var font: Font = ThemeDB.fallback_font
+	for group: Dictionary in get_queued_destination_markers():
+		var previous: Vector2 = to_local(group.origin)
+		var index: int = 0
+		for world: Vector2 in group.points:
+			index += 1
+			var point: Vector2 = to_local(world)
+			draw_dashed_line(previous, point, Color(MOVE_COLOR, 0.4), 1.0 / zoom, 3.0 / zoom)
+			draw_circle(point, 9.0 / zoom, Color("293235"))
+			draw_arc(point, 9.0 / zoom, 0, TAU, 24, MOVE_COLOR, 1.5 / zoom, true)
+			draw_set_transform(point, 0.0, Vector2.ONE / zoom)
+			draw_string(font, Vector2(-4, 5), str(index), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, MOVE_COLOR)
+			draw_set_transform(Vector2.ZERO)
+			previous = point
 
 
 func _draw_destination(destination: Vector2, color: Color, zoom: float, attack: bool) -> void:
