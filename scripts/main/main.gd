@@ -1424,8 +1424,8 @@ func _setup_player_start(player_id: int, spawn_tile: Vector2i) -> void:
 
 	# Note: TC production queue is already connected in _spawn_building().
 
-	# Place 4 starting villagers nearby and auto-assign to gather.
-	var offsets: Array[Vector2i] = game_map.map_generator.get_starting_villager_offsets(player_id)
+	# Two workers represent the original four-worker income and population.
+	var offsets: Array[Vector2i] = game_map.map_generator.get_starting_villager_offsets(player_id).slice(0, UnitData.STARTING_VILLAGERS)
 	var villagers: Array[UnitBase] = []
 	for offset in offsets:
 		var vill_tile: Vector2i = spawn_tile + offset
@@ -1445,7 +1445,7 @@ func _setup_player_start(player_id: int, spawn_tile: Vector2i) -> void:
 	else:
 		push_error("Starting town has no connected Scout egress for player %d" % player_id)
 
-	# Auto-assign: food, wood, gold, food (4 villagers).
+	# Initial workers gather food and wood; new workers open the gold assignment.
 	# Use call_deferred so resource nodes are spawned first.
 	call_deferred("_auto_assign_starting_villagers", villagers)
 

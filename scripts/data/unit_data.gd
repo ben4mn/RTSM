@@ -23,11 +23,14 @@ const WORLD_SPRITE_SCALES: Dictionary = {
 	UnitType.SIEGE: Vector2(0.60, 0.60),
 }
 
-# A nearby camp (120 world units away) delivers ~59 food/wood per minute.
+# Two-population workers deliver ~118 food/wood per minute at a 120-unit haul.
+# Double cargo preserves trip frequency; double price/time preserves economic ramp.
 # Shared carry slots preserve mixed cargo on retask; no harvest is discarded.
-const VILLAGER_GATHER_AMOUNT: float = 1.0
+const STARTING_VILLAGERS: int = 2
+const VILLAGER_BUILD_SPEED: float = 2.0
+const VILLAGER_GATHER_AMOUNT: float = 2.0
 const WHEELBARROW_GATHER_BONUS: float = VILLAGER_GATHER_AMOUNT * 0.25
-const VILLAGER_CARRY_CAPACITY: int = 15
+const VILLAGER_CARRY_CAPACITY: int = 30
 const VILLAGER_GATHER_TICK_SECONDS: float = 0.9
 const RESOURCE_GATHER_SPEEDS: Dictionary = {"food": 1.2, "wood": 1.2, "gold": 1.0}
 
@@ -40,15 +43,15 @@ const RESOURCE_GATHER_SPEEDS: Dictionary = {"food": 1.2, "wood": 1.2, "gold": 1.
 const UNITS: Dictionary = {
 	UnitType.VILLAGER: {
 		"name": "Villager",
-		"hp": 25,
-		"damage": 3,
+		"hp": 50,
+		"damage": 6,
 		"armor": 0,
 		"speed": 60.0,
-		"cost": { "food": 50, "wood": 0, "gold": 0 },
-		"build_time": 12.0,
+		"cost": { "food": 100, "wood": 0, "gold": 0 },
+		"build_time": 24.0,
 		"vision_radius": 4,
 		"attack_range": 1,
-		"pop_cost": 1,
+		"pop_cost": 2,
 		"can_gather": true,
 		"can_build": true,
 	},
@@ -56,17 +59,17 @@ const UNITS: Dictionary = {
 		"name": "Warrior",
 		"role": "Spear infantry",
 		"counter_name": "Horsemen",
-		"hp": 60,
-		"damage": 8,
-		"armor": 2,
+		"hp": 120,
+		"damage": 16,
+		"armor": 4,
 		"speed": 55.0,
-		"cost": { "food": 50, "wood": 20, "gold": 0 },
-		"build_time": 10.0,
+		"cost": { "food": 100, "wood": 40, "gold": 0 },
+		"build_time": 20.0,
 		"attack_interval": 1.1,
 		"attack_windup": 0.16,
 		"vision_radius": 4,
 		"attack_range": 1,
-		"pop_cost": 1,
+		"pop_cost": 2,
 		"can_gather": false,
 		"can_build": false,
 	},
@@ -74,18 +77,18 @@ const UNITS: Dictionary = {
 		"name": "Archer",
 		"role": "Ranged infantry",
 		"counter_name": "Warriors",
-		"hp": 35,
-		"damage": 7,
+		"hp": 70,
+		"damage": 14,
 		"armor": 0,
 		"speed": 55.0,
-		"cost": { "food": 25, "wood": 45, "gold": 0 },
-		"build_time": 12.0,
+		"cost": { "food": 50, "wood": 90, "gold": 0 },
+		"build_time": 24.0,
 		"attack_interval": 1.1,
 		"attack_windup": 0.18,
 		"projectile_speed": 300.0,
 		"vision_radius": 6,
 		"attack_range": 5,
-		"pop_cost": 1,
+		"pop_cost": 2,
 		"can_gather": false,
 		"can_build": false,
 	},
@@ -93,17 +96,17 @@ const UNITS: Dictionary = {
 		"name": "Horseman",
 		"role": "Fast cavalry",
 		"counter_name": "Archers",
-		"hp": 80,
-		"damage": 10,
-		"armor": 1,
+		"hp": 160,
+		"damage": 20,
+		"armor": 2,
 		"speed": 95.0,
-		"cost": { "food": 90, "wood": 30, "gold": 0 },
-		"build_time": 14.0,
+		"cost": { "food": 180, "wood": 60, "gold": 0 },
+		"build_time": 28.0,
 		"attack_interval": 1.05,
 		"attack_windup": 0.14,
 		"vision_radius": 5,
 		"attack_range": 1,
-		"pop_cost": 1,
+		"pop_cost": 2,
 		"can_gather": false,
 		"can_build": false,
 	},

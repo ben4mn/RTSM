@@ -651,7 +651,7 @@ func _process_building(delta: float) -> void:
 	_face_work_target(build_target.global_position)
 	build_timer += delta
 	if build_target.has_method("add_build_progress"):
-		build_target.add_build_progress(delta)
+		build_target.add_build_progress(delta * UnitData.VILLAGER_BUILD_SPEED)
 		if not is_instance_valid(build_target):
 			build_target = null
 			_resume_or_idle()

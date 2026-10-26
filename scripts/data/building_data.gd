@@ -36,9 +36,9 @@ const BUILDINGS: Dictionary = {
 		"drop_off": ["food", "wood", "gold"],
 		# One short-range arrow buys retreat time; it does not shelter workers
 		# across the whole resource pocket or replace a defending army.
-		"attack_damage": 6,
+		"attack_damage": 12,
 		"attack_range": 8,
-		"attack_interval": 2.0,
+		"attack_interval": 4.0,
 		"attack_projectile_speed": 300.0,
 		"attack_buildings": false,
 		# Guaranteed spawn resources are placed up to nine Chebyshev tiles
@@ -98,8 +98,8 @@ const BUILDINGS: Dictionary = {
 	BuildingType.FARM: {
 		"name": "Farm",
 		"hp": 300,
-		"cost": { "food": 0, "wood": 75, "gold": 0 },
-		"build_time": 10.0,
+		"cost": { "food": 0, "wood": 150, "gold": 0 },
+		"build_time": 20.0,
 		"pop_provided": 0,
 		"footprint": Vector2i(2, 2),
 		"can_train": [],
@@ -156,9 +156,9 @@ const BUILDINGS: Dictionary = {
 		"age_required": 2,
 		"drop_off": [],
 		"color": Color(0.55, 0.45, 0.35),
-		"attack_damage": 6,
+		"attack_damage": 12,
 		"attack_range": 6,
-		"attack_interval": 1.5,
+		"attack_interval": 3.0,
 		"vision_radius": 8,
 	},
 }
