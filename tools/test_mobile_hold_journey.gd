@@ -57,6 +57,7 @@ func _hold_journey(phone: Vector2i,interface_scale: float,notched: bool) -> void
 	_main.call("_update_minimap")
 	_orders = 0
 	_selection.move_command.connect(func(_tile: Vector2i) -> void: _orders += 1)
+	_selection.queue_order_command.connect(func(_position: Vector2, _target: Node2D) -> void: _orders += 1)
 	await _button(_hud.call("get_base_navigation_button"))
 	var tc: BuildingBase = _hud.get("_selected_building_ref")
 	_expect(tc != null,"Home did not select owned TC")

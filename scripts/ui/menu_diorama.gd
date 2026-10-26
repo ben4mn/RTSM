@@ -24,6 +24,13 @@ func _ready() -> void:
 func _draw() -> void:
 	if _texture == null or size.x < 1.0 or size.y < 1.0:
 		return
+	var center := Vector2(size.x * 0.5, size.y * 0.52)
+	var radius: float = minf(size.x * 0.45, size.y * 0.48)
+	draw_circle(center, radius, Color("324b3b"))
+	draw_arc(center, radius + 7, 0, TAU, 96, Color("65704d"), 1.0, true)
+	for index: int in 12:
+		var direction := Vector2.from_angle(float(index) * TAU / 12.0)
+		draw_line(center + direction * (radius + 11), center + direction * (radius + 15), Color("7b805b"), 1.0, true)
 	var factor: float = minf(size.x / _region.size.x, size.y / _region.size.y)
 	var art_size: Vector2 = _region.size * factor
 	# Fit the whole company and kingdom; no portrait crop hides the illustration.

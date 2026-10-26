@@ -28,6 +28,8 @@ func _run() -> void:
 	_test_stand_ground_building_and_retaliation()
 	_test_bounded_autonomous_chase()
 	_test_threat_priority_and_switching()
+	_test_assault_retaliation_resume_and_cancel()
+	_test_order_queue()
 	for failure: String in _failures:
 		push_error("[FAIL] combat_order_priorities: " + failure)
 	if _failures.is_empty():
@@ -84,7 +86,7 @@ func _test_explicit_attack_priority() -> void:
 	var building := _building(arena, Vector2(100, 0))
 	fighter.command_attack_building(building)
 	Combat.resolve_unit_hit(attacker, fighter, 1.0, 1.0)
-	_expect(fighter.attack_building_target == building and fighter.attack_target == null, "retaliation cannot overwrite explicit building attack")
+	_expect(fighter.attack_building_target == null and fighter.attack_target == attacker, "building assault temporarily fights its actual attacker")
 	arena.free()
 
 func _test_move_survives_actual_damage() -> void:
@@ -161,6 +163,69 @@ func _test_threat_priority_and_switching() -> void:
 	fighter._process(0.1)
 	_expect(fighter.attack_building_target == building, "explicit building attack survives periodic threat checks")
 	arena.free()
+
+func _test_assault_retaliation_resume_and_cancel() -> void:
+	var arena := _arena()
+	var fighter := _unit(arena, 0, Vector2.ZERO)
+	var attacker := _unit(arena, 1, Vector2(32, 0))
+	var building := _building(arena, Vector2(100, 0))
+	fighter.command_attack_building(building)
+	Combat.resolve_unit_hit(attacker, fighter, 1.0, 1.0)
+	_expect(fighter.attack_target == attacker, "assault defends against actual damage")
+	attacker.current_state = UnitBase.State.DEAD
+	fighter._process(0.1)
+	_expect(fighter.attack_building_target == building and bool(fighter.get("_forced_attack")), "retaliation resumes original explicit building assault")
+	attacker.current_state = UnitBase.State.IDLE
+	Combat.resolve_unit_hit(attacker, fighter, 1.0, 1.0)
+	_expect(fighter.attack_building_target == building, "assault has hysteresis before another interruption")
+	fighter.set("_retaliation_ready_at", 0.0)
+	Combat.resolve_unit_hit(attacker, fighter, 1.0, 1.0)
+	attacker.position = Vector2(5000, 0)
+	fighter._process(0.1)
+	_expect(fighter.attack_building_target == building, "retaliation leash returns to original assault")
+	fighter.set("_retaliation_ready_at", 0.0)
+	attacker.position = Vector2(32, 0)
+	Combat.resolve_unit_hit(attacker, fighter, 1.0, 1.0)
+	fighter.command_move(Vector2(0, 200))
+	attacker.current_state = UnitBase.State.DEAD
+	fighter._process(0.1)
+	_expect(fighter.attack_building_target == null and fighter.current_state == UnitBase.State.MOVING and fighter.move_target == Vector2(0, 200), "fresh move cancels suspended assault")
+	fighter.command_attack_building(building)
+	fighter.set("_retaliation_ready_at", 0.0)
+	attacker.current_state = UnitBase.State.IDLE
+	Combat.resolve_unit_hit(attacker, fighter, 1.0, 1.0)
+	building.free()
+	attacker.current_state = UnitBase.State.DEAD
+	fighter._process(0.1)
+	_expect(fighter.attack_building_target == null and fighter.current_state == UnitBase.State.IDLE, "freed assault target is safely discarded")
+	arena.free()
+
+
+func _test_order_queue() -> void:
+	var arena := _arena()
+	var unit := _unit(arena, 0, Vector2.ZERO)
+	unit.command_move(Vector2(60, 0))
+	_expect(unit.enqueue_order({"kind": "move", "position": Vector2(120, 0)}), "append second waypoint")
+	_expect(unit.enqueue_order({"kind": "move", "position": Vector2(180, 0)}), "append third waypoint")
+	_expect(unit.move_target == Vector2(60, 0) and unit.queued_orders.size() == 2, "queue preserves active movement")
+	for step: int in 60:
+		unit._process(0.1)
+		if unit.current_state == UnitBase.State.IDLE: break
+	_expect(unit.position.distance_to(Vector2(180, 0)) <= 4.0 and unit.queued_orders.is_empty(), "queued waypoints complete in order")
+	unit.command_move(Vector2(240, 0))
+	unit.enqueue_order({"kind": "move", "position": Vector2(300, 0)})
+	unit.command_stop()
+	_expect(unit.queued_orders.is_empty() and unit.current_state == UnitBase.State.IDLE, "Stop cancels active movement and pending queue")
+	unit.command_move(Vector2(240, 0))
+	unit.enqueue_order({"kind": "move", "position": Vector2(300, 0)})
+	unit.command_move(Vector2(0, 100))
+	_expect(unit.queued_orders.is_empty() and unit.move_target == Vector2(0, 100), "fresh move replaces all queued intent")
+	unit.enqueue_order({"kind": "move", "position": Vector2(360, 0)})
+	unit._on_navigation_unreachable(unit.move_target)
+	_expect(unit.move_target == Vector2(360, 0), "unreachable leg advances to next queued destination")
+	_expect(not unit.enqueue_order({"kind": "move", "position": Vector2.INF}), "non-finite destination rejected")
+	arena.free()
+
 
 func _expect(condition: bool, message: String) -> void:
 	if not condition:

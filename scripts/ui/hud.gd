@@ -1563,7 +1563,7 @@ func configure_unit_commands(
 		return
 	if authorized and not _movement_controls_hint_shown:
 		_movement_controls_hint_shown = true
-		show_notification("Tap ground: move · Hold ground: attack-move", KingdomTheme.MUTED, 4.0)
+		show_notification("Tap: move · Hold: add waypoint · Swords: attack", KingdomTheme.MUTED, 4.0)
 	_unit_commands_authorized = authorized
 	_unit_commands_have_military = has_military
 	_unit_command_mode = armed_mode
@@ -1867,6 +1867,11 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 	selection_panel.offset_top = metrics["selection_top"]
 	selection_panel.custom_minimum_size = Vector2(metrics["selection_width"], metrics["selection_height"])
 	selection_info_column.custom_minimum_size.x = metrics["selection_info_width"]
+	if float(metrics["selection_info_width"]) < 80.0 and _selection_kind == "building":
+		for item: Dictionary in _last_queue_items:
+			if bool(item.get("is_training", false)):
+				selection_details.text = "%d%%\n%d waiting" % [int(float(item.get("progress", 0.0)) * 100.0), maxi(0, _last_queue_items.size() - 1)]
+				break
 	var compact_tc_info: bool = _is_town_center_production_context()
 	selection_name.add_theme_font_size_override("font_size", 13 if compact_tc_info else 15)
 	selection_details.add_theme_font_size_override("font_size", 11 if compact_tc_info else 12)
@@ -2089,9 +2094,13 @@ func _calculate_mobile_layout_metrics(viewport_size: Vector2, safe_area: Rect2, 
 	if _auto_queue_button != null and _train_buttons_container != null and _train_buttons_container.visible:
 		# Both pages use the same viewport width, so opening or refreshing the
 		# queue cannot clamp its scroll position while the shelf changes size.
-		var page_width: float = maxf(_production_row_width(queue_container), _production_row_width(_train_buttons_container))
+		var page_width: float = _stable_production_page_width()
 		info_width = 88.0 if _is_town_center_production_context() else 108.0
+		var production_chrome: float = 48.0 + (16.0 if phone and _is_town_center_production_context() else 28.0) + 18.0
+		info_width = clampf(selection_zone_width - page_width - production_chrome, 48.0, info_width)
 		selection_width = minf(selection_zone_width, ceilf(info_width + page_width + 48.0 + (16.0 if phone and _is_town_center_production_context() else 28.0) + 16.0) + 2.0)
+	elif phone and _research_container != null and _research_container.visible:
+		info_width = clampf(selection_zone_width - _production_row_width(_research_container) - 46.0, 48.0, 108.0)
 	elif phone and unit_commands_visible:
 		var command_width: float = _production_row_width(_unit_command_container)
 		# Keep every frequent action fully visible at scroll0, including Clear.
@@ -2865,8 +2874,12 @@ func show_building_selection(building_name: String, current_hp: int, max_hp: int
 	if _is_human_owned_building(building_ref):
 		for item: Dictionary in visible_queue:
 			if bool(item.get("is_training", false)):
-				# Compact mobile info keeps the full rally cue and live training visible.
-				selection_details.text += "\n%s %d%%" % [str(item.get("name", "Training")), int(float(item.get("progress", 0.0)) * 100.0)]
+				# Production owns the existing two-line summary while active. Appending
+				# a third line to a building description hid it on small phones.
+				var progress: float = float(item.get("progress", 0.0))
+				var unit_type: int = int(item.get("unit_type", -1))
+				var remaining: int = ceili(float(UnitData.UNITS.get(unit_type, {}).get("build_time", 15.0)) * (1.0 - progress))
+				selection_details.text = "%s %d%%\n%ds · %d waiting" % [str(item.get("name", "Training")), int(progress * 100.0), remaining, maxi(0, visible_queue.size() - 1)]
 				break
 	_update_queue_display(visible_queue)
 	_update_train_buttons(visible_trainable)
@@ -3160,7 +3173,7 @@ func _update_queue_display(queue_items: Array) -> void:
 	queue_units.sort()
 	var desired_names: Dictionary = {}
 	var compact_training: bool = _is_town_center_production_context() or minf(get_viewport().get_visible_rect().size.x, get_viewport().get_visible_rect().size.y) <= 520.0
-	queue_container.add_theme_constant_override("separation", 4 if compact_training else 6)
+	queue_container.add_theme_constant_override("separation", 2 if compact_training else 6)
 	if training_label != "" and not compact_training:
 		desired_names["QueueTrainingChip"] = true
 	for unit_type: int in queue_units:
@@ -3239,9 +3252,11 @@ func _update_queue_display(queue_items: Array) -> void:
 		_attach_hud_hold(btn, _refund_information.bind(unit_type))
 		btn.visible = true
 		btn.mouse_filter = Control.MOUSE_FILTER_STOP
-		btn.text = ("%s\nx%d" if compact_training else "%s x%d") % [UnitData.get_unit_name(unit_type, 0), queue_count]
+		btn.text = ("%s ×%d\nCancel one" if compact_training else "%s ×%d\nCancel one") % [UnitData.get_unit_name(unit_type, 0), queue_count]
+		btn.clip_text = true
+		btn.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		btn.tooltip_text = "Cancel first queued %s; keep the Repeat setting" % UnitData.get_unit_name(unit_type, 0)
-		btn.custom_minimum_size = Vector2(64 if compact_training else 104, 48)
+		btn.custom_minimum_size = Vector2(62 if compact_training else 104, 48)
 		btn.add_theme_font_size_override("font_size", 11 if compact_training else 12)
 		for style_name: String in ["normal", "hover", "pressed", "disabled"]:
 			var queue_style: StyleBox = btn.get_theme_stylebox(style_name).duplicate()
@@ -3278,6 +3293,7 @@ func _update_queue_display(queue_items: Array) -> void:
 	_attach_hud_hold(clear_all, _refund_information.bind(-2))
 	clear_all.mouse_filter = Control.MOUSE_FILTER_STOP
 	clear_all.text = "Clear"
+	clear_all.clip_text = true
 	clear_all.tooltip_text = "Stop repeat training and cancel all queued units"
 	clear_all.custom_minimum_size = Vector2(48 if compact_training else 64, 48)
 	clear_all.add_theme_font_size_override("font_size", 13 if compact_training else 16)
@@ -3402,7 +3418,7 @@ func _update_train_buttons(trainable_units: Array) -> void:
 	var viewport_size_for_cards: Vector2 = get_viewport().get_visible_rect().size
 	var compact_producer: bool = _is_town_center_production_context() or minf(viewport_size_for_cards.x, viewport_size_for_cards.y) <= 520.0
 	var compact_town_center: bool = _is_town_center_production_context() and compact_producer
-	_train_buttons_container.add_theme_constant_override("separation", 3 if compact_town_center else 8)
+	_train_buttons_container.add_theme_constant_override("separation", 2 if compact_town_center else 8)
 	var child_index := 0
 	for ut: int in desired_unit_types:
 		var unit_name: String = UnitData.get_unit_name(ut, 0)
@@ -3435,6 +3451,22 @@ func _update_train_buttons(trainable_units: Array) -> void:
 		var status_text: String = str(availability.get("short", ""))
 		btn.text = "%s\n%s" % [unit_name, status_text if blocked else cost_str] if compact_producer else "%s%s\n%s\n%s" % [unit_name, queue_badge, cost_str, status_text if blocked else role_text]
 		btn.custom_minimum_size = Vector2(76 if compact_town_center else 90, 66) if compact_producer else Vector2(130, 48)
+		# Content cannot grow a preceding card under a resting finger. Costs,
+		# availability, queue counts and civilization names all change live.
+		btn.clip_text = true
+		btn.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		var population_cost: Label = btn.get_node_or_null("PopulationCost") as Label
+		if population_cost == null:
+			population_cost = Label.new()
+			population_cost.name = "PopulationCost"
+			population_cost.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			population_cost.position = Vector2(5, 2)
+			population_cost.add_theme_font_size_override("font_size", 9)
+			population_cost.add_theme_color_override("font_color", KingdomTheme.MUTED)
+			btn.add_child(population_cost)
+		population_cost.visible = compact_producer
+		population_cost.text = "%dp" % int(UnitData.UNITS.get(ut, {}).get("pop_cost", 1))
+		population_cost.tooltip_text = "Population used by one unit"
 		btn.alignment = HORIZONTAL_ALIGNMENT_CENTER if compact_producer else HORIZONTAL_ALIGNMENT_LEFT
 		btn.add_theme_font_size_override("font_size", 11 if compact_producer else 14)
 		# Unavailable cards stay tappable so the existing command path explains
@@ -3488,9 +3520,11 @@ func _update_train_buttons(trainable_units: Array) -> void:
 			_auto_queue_button.toggled.connect(_on_auto_queue_toggled)
 			_train_buttons_container.add_child(_auto_queue_button)
 		_auto_queue_button.visible = true
+		_auto_queue_button.clip_text = true
+		_auto_queue_button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		_attach_hud_hold(_auto_queue_button, _repeat_information)
 		_auto_queue_button.mouse_filter = Control.MOUSE_FILTER_STOP
-		_auto_queue_button.custom_minimum_size = Vector2(74 if compact_town_center else 88, 48) if compact_producer else Vector2(104, 48)
+		_auto_queue_button.custom_minimum_size = Vector2(72 if compact_town_center else 88, 48) if compact_producer else Vector2(104, 48)
 		_auto_queue_button.add_theme_font_size_override("font_size", 11 if compact_producer else 14)
 		for style_name: String in ["normal", "hover", "pressed", "disabled", "focus", "hover_pressed"]:
 			var repeat_style: StyleBox = _auto_queue_button.get_theme_stylebox(style_name).duplicate()
@@ -3525,6 +3559,23 @@ func _layout_queue_page() -> void:
 		if _queue_view_requested:
 			call_deferred("_restore_producer_queue_view", _selected_building_ref, _queue_view_offset, _queue_navigation_revision)
 	_refresh_queue_navigation()
+
+
+func _stable_production_page_width() -> float:
+	# Reserve the complete cancellation page before the first paid order. Using
+	# today's queue width here shifted the right-anchored recruitment shelf when
+	# the first pending item arrived or the last item completed.
+	var compact: bool = _is_town_center_production_context() or minf(get_viewport().get_visible_rect().size.x, get_viewport().get_visible_rect().size.y) <= 520.0
+	var kinds: int = 0
+	for child: Node in _train_buttons_container.get_children():
+		if child is Button and child != _auto_queue_button and child.visible and not child.is_queued_for_deletion():
+			kinds += 1
+	var gap: float = 2.0 if compact else 6.0
+	var cancel_width: float = float(kinds) * (62.0 if compact else 104.0) + (96.0 if compact else 128.0) + gap * float(kinds + 1)
+	if not compact:
+		cancel_width += 132.0 + gap
+	var repeat_wait_width: float = 148.0 + (48.0 if compact else 64.0) + gap
+	return maxf(_production_row_width(_train_buttons_container), maxf(cancel_width, repeat_wait_width))
 
 
 func _on_production_pages_sorted() -> void:
@@ -3785,7 +3836,9 @@ func _update_research_buttons(building_ref: Node2D) -> void:
 		var short_names: Dictionary = {"forging": "Forge", "scale_mail": "Mail"}
 		var short_effects: Dictionary = {"loom": "+15 worker HP"}
 		btn.text = "%s\n%s\n%s" % [short_names.get(research_id, rd["name"]), short_effects.get(research_id, rd["desc"]), " · ".join(costs)]
-		btn.custom_minimum_size = Vector2(84, 64)
+		btn.custom_minimum_size = Vector2(80, 64)
+		btn.clip_text = true
+		btn.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		btn.add_theme_font_size_override("font_size", 11)
 		btn.add_theme_color_override("font_disabled_color", KingdomTheme.MUTED)
 		for state: String in ["normal", "hover", "pressed", "disabled", "focus"]:
@@ -4751,7 +4804,7 @@ func _create_secondary_surface_controls() -> void:
 	selection_name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	var info_handle := TextureRect.new()
 	info_handle.texture = CommandIcons.get_icon("info")
-	info_handle.custom_minimum_size = Vector2(16, 16)
+	info_handle.custom_minimum_size = Vector2(20, 20)
 	info_handle.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	info_handle.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	info_handle.mouse_filter = Control.MOUSE_FILTER_IGNORE

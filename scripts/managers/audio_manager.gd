@@ -1,16 +1,16 @@
 extends Node
-## Original felt, wood and cloth feedback palette. World cues require visible, nearby sources;
+## Licensed Kenney cloth, wood, metal and bell feedback palette. World cues require visible, nearby sources;
 ## owned alerts and interface responses use a separate, reserved voice pool.
 
 const SAMPLE_RATE: int = 22050
-const WORLD_VOICES: int = 8
+const WORLD_VOICES: int = 6
 const UI_VOICES: int = 4
 const ALERT_SOUNDS: Array[String] = ["under_attack", "unit_trained", "building_complete", "age_up", "victory", "defeat"]
 const COOLDOWNS := {"button_click": 0.08, "select_unit": 0.18, "command_move": 0.20, "command_attack": 0.24, "attack_hit": 0.20, "unit_death": 0.50, "gather_food": 1.3, "gather_wood": 1.0, "gather_gold": 1.2, "construction_work": 1.1, "under_attack": 6.0, "unit_trained": 0.65, "building_complete": 0.8, "age_up": 2.0, "victory": 3.0, "defeat": 3.0}
-const GAINS := {"button_click": -13.0, "select_unit": -11.0, "command_move": -10.0, "command_attack": -10.0, "attack_hit": -15.0, "unit_death": -18.0, "gather_food": -20.0, "gather_wood": -19.0, "gather_gold": -20.0, "construction_work": -18.0, "building_place": -10.0, "building_invalid": -13.0, "unit_trained": -9.0, "building_complete": -8.0, "under_attack": -6.0, "age_up": -7.0, "victory": -5.0, "defeat": -7.0}
+const GAINS := {"button_click": -13.0, "select_unit": -11.0, "command_move": -10.0, "command_attack": -10.0, "attack_hit": -15.0, "unit_death": -18.0, "gather_food": -23.0, "gather_wood": -22.0, "gather_gold": -23.0, "construction_work": -21.0, "building_place": -10.0, "building_invalid": -13.0, "unit_trained": -9.0, "building_complete": -8.0, "under_attack": -6.0, "age_up": -7.0, "victory": -5.0, "defeat": -7.0}
 const GROUPS := {"gather_food": "work", "gather_wood": "work", "gather_gold": "work", "construction_work": "work", "attack_hit": "combat", "unit_death": "combat", "command_move": "orders", "command_attack": "orders"}
-const GROUP_COOLDOWNS := {"work": 0.65, "combat": 0.18, "orders": 0.18}
-const PRIORITIES := {"button_click": 0, "select_unit": 1, "command_move": 2, "command_attack": 2, "building_place": 2, "building_invalid": 2, "unit_trained": 3, "building_complete": 3, "under_attack": 4, "age_up": 4, "victory": 5, "defeat": 5}
+const GROUP_COOLDOWNS := {"work": 1.50, "combat": 0.24, "orders": 0.18}
+const PRIORITIES := {"attack_hit": 1, "unit_death": 1, "button_click": 0, "select_unit": 1, "command_move": 2, "command_attack": 2, "building_place": 2, "building_invalid": 2, "unit_trained": 3, "building_complete": 3, "under_attack": 4, "age_up": 4, "victory": 5, "defeat": 5}
 var sfx_enabled: bool = true
 var ui_enabled: bool = true
 var music_enabled: bool = false # There is no score; no inert music control is exposed.
@@ -308,4 +308,4 @@ func preview() -> void:
 
 
 func _generate_all_sounds() -> void:
-	_sounds = preload("res://scripts/audio/tactile_palette.gd").build()
+	_sounds = preload("res://scripts/audio/sample_palette.gd").build()

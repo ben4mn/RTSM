@@ -515,7 +515,7 @@ func _format_tooltip(stats: Dictionary, building_type: int) -> String:
 		lines.append("Ready to place")
 	if age_req > 1 and age_req <= _current_age:
 		lines.append(_get_age_requirement_text(age_req))
-	lines.append("HP %d · Build %ds" % [stats.get("hp", 0), int(stats.get("build_time", 30.0))])
+	lines.append("HP %d · Build %ds" % [stats.get("hp", 0), ceili(float(stats.get("build_time", 30.0)) / UnitData.VILLAGER_BUILD_SPEED)])
 	if building_type == BuildingData.BuildingType.FARM:
 		lines.append("One worker per Farm. Food must be carried to a Town Center or Resource Camp.")
 	if stats.get("pop_provided", 0) > 0:

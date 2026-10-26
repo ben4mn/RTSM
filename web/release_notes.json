@@ -1,6 +1,22 @@
 {
   "releases": [
     {
+      "id": "2026-10-25-fewer-units-clearer-orders",
+      "date": "2026-10-25",
+      "version": "0.3.0-beta.10",
+      "title": "Small kingdoms, deliberate commands",
+      "summary": "Fewer pieces to manage, steadier touch controls and a more welcoming kingdom.",
+      "changes": [
+        "A shared heraldic wordmark, illustrated village medallion and gold action plaques welcome you on the web and in the game.",
+        "Workers carry and produce twice as much. Workers and ordinary soldiers now use two population, cost twice as much and take twice as long to recruit. Two starting workers preserve the opening workforce budget; ordinary soldiers have twice the health, damage and armor. The 100-population ceiling and Sacred victory clock remain.",
+        "Tap a destination repeatedly without losing selection. Hold ground to add a waypoint, or hold a friendly depot to queue a delivery. Production buildings pass their ordered rally destinations to new units. Stop or a new direct order replaces a unit route; Clear queued destinations removes pending waypoints.",
+        "Fighters temporarily defend themselves when a unit attacks them during a building assault, then return to that building if it remains valid. Explicit new player orders take priority.",
+        "Recruitment buttons keep their positions when queues change. Compact progress, waiting counts and explicit cancel controls make production easier to read on small landscape screens.",
+        "Sound effects by Kenney (kenney.nl), CC0, edited for Pocket Kingdoms: 46 recorded variants replace synthesized cues, with quiet work accents, soft fades, variation and bounded overlap. Licenses and source provenance are preserved in the repository.",
+        "Online protocol 8 requires a matching updated server and clients for the new economy and queued commands."
+      ]
+    },
+    {
       "id": "2026-10-25-welcome-and-audio-startup",
       "date": "2026-10-25",
       "version": "0.3.0-beta.9.1",

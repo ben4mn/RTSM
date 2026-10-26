@@ -32,6 +32,7 @@ var _assigned_farmer_ref: WeakRef = null
 
 var rally_point: Vector2 = Vector2.ZERO
 var rally_point_is_custom: bool = false
+var rally_orders: Array[Dictionary] = []
 var rally_resource_type: String = ""
 var rally_resource_instance_id: int = 0
 var rally_resource_is_building: bool = false
@@ -689,6 +690,7 @@ func deselect() -> void:
 
 
 func set_rally_point(pos: Vector2) -> void:
+	rally_orders.clear()
 	rally_point = pos
 	rally_point_is_custom = true
 	rally_resource_type = ""
@@ -708,6 +710,30 @@ func set_resource_rally(resource_node: Node2D) -> void:
 
 func has_custom_rally_point() -> bool:
 	return rally_point_is_custom
+
+
+func enqueue_rally_order(order: Dictionary) -> bool:
+	if state != State.ACTIVE or rally_orders.size() >= UnitBase.MAX_QUEUED_ORDERS:
+		return false
+	if not rally_point_is_custom and rally_orders.is_empty():
+		# The default spawn exit is not a user waypoint.
+		rally_point = order.get("position", rally_point)
+		rally_point_is_custom = true
+		rally_resource_instance_id = 0
+		rally_resource_type = ""
+		rally_resource_is_building = false
+		rally_orders.append(order.duplicate())
+		queue_redraw()
+		return true
+	if rally_orders.is_empty():
+		rally_orders.append({"kind": "move", "position": rally_point})
+	rally_orders.append(order.duplicate())
+	queue_redraw()
+	return true
+
+
+func cancel_rally_orders() -> void:
+	rally_orders.clear()
 
 
 func is_construction_complete() -> bool:

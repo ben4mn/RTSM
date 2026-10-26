@@ -13,13 +13,13 @@ func _ready() -> void:
 func _run() -> void:
 	AudioManager.set_all_enabled(false)
 	Input.emulate_mouse_from_touch = true
-	for phone: Vector2i in [Vector2i(844, 390), Vector2i(932, 430), Vector2i(1100, 700), Vector2i(1280, 720)]:
+	for phone: Vector2i in [Vector2i(667, 375), Vector2i(844, 390), Vector2i(932, 430), Vector2i(1100, 700), Vector2i(1280, 720)]:
 		for scale_factor: float in [1.0, 1.15]:
 			await _profile(phone, scale_factor)
 	for failure: String in _failures:
 		push_error("[FAIL] mobile_production_feedback: " + failure)
 	if _failures.is_empty():
-		print("[PASS] mobile_production_feedback: eight desktop/phone/scale profiles; touch Queue/Train/Undo/Clear, paid refunds and producer scroll lifecycle; repeat food/pop/build waiting and unlocked/locked card shortages")
+		print("[PASS] mobile_production_feedback: ten desktop/phone/scale profiles; touch Queue/Train/Undo/Clear, paid refunds and producer scroll lifecycle; repeat food/pop/build waiting and unlocked/locked card shortages")
 	get_tree().quit(0 if _failures.is_empty() else 1)
 
 
@@ -117,7 +117,7 @@ func _profile(phone: Vector2i, scale_factor: float) -> void:
 	var population_before: int = GameManager.get_committed_population(0)
 	await _tap(viewport, undo.get_global_rect().get_center())
 	_expect(producer.get_queue_size() == 2, profile + " Undo touch failed")
-	_expect(ResourceManager.get_resource(0, "food") == food_before + 50 and GameManager.get_committed_population(0) == population_before - 1, profile + " Undo refund/reservation failed")
+	_expect(ResourceManager.get_resource(0, "food") == food_before + 100 and GameManager.get_committed_population(0) == population_before - 2, profile + " Undo refund/reservation failed")
 	await _tap(viewport, navigation.get_global_rect().get_center())
 	_expect(shelf.scroll_horizontal == 0, profile + " Train return touch failed")
 	await _tap(viewport, navigation.get_global_rect().get_center())
@@ -139,7 +139,7 @@ func _profile(phone: Vector2i, scale_factor: float) -> void:
 	_show(hud, second)
 	await _settle(hud, logical, safe)
 	var military_repeat: Button = hud.get("_auto_queue_button")
-	_expect(military_repeat.text.contains("Need 50F · 20W"), profile + " military Repeat loses a missing resource")
+	_expect(military_repeat.text.contains("Need 100F · 40W"), profile + " military Repeat loses a missing resource")
 	_expect(shelf.get_global_rect().encloses(military_repeat.get_global_rect()), profile + " military resource wait clips Repeat")
 	second_producer.auto_queue_enabled = false
 	ResourceManager.initialize_player(0, saved_resources)
@@ -157,7 +157,7 @@ func _profile(phone: Vector2i, scale_factor: float) -> void:
 	await _settle(hud, logical, safe)
 	var repeat: Button = hud.get("_auto_queue_button")
 	_assert_producer_identity(hud, profile + " repeat waiting")
-	_expect(repeat.text.contains("Need 50F"), profile + " Repeat lacks food shortage")
+	_expect(repeat.text.contains("Need 100F"), profile + " Repeat lacks food shortage")
 	# Fractional Window scaling can place anchored edges up to one logical
 	# pixel apart; allow that rounding while rejecting actual dock growth.
 	var panel_rect: Rect2 = (hud.get("selection_panel") as Control).get_global_rect()

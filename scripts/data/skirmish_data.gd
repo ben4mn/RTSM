@@ -67,19 +67,19 @@ static func restore_population_limit(value: int, preference_version: int) -> int
 static func get_economy_target(population_limit: int) -> int:
 	# Larger kingdoms leave room for armies instead of automatically assigning
 	# half the limit to workers. Smaller custom budgets retain their old split.
-	return clampi(int(population_limit / 2), 4, 30)
+	return clampi(int(population_limit / 4), 2, 15)
 
 
 static func get_easy_economy_target(population_limit: int) -> int:
-	return clampi(int(population_limit * 2 / 5), 4, 30)
+	return clampi(int(population_limit / 5), 2, 15)
 
 
 static func get_easy_fighter_target(population_limit: int) -> int:
-	return maxi(3, int(population_limit / 5))
+	return maxi(2, int(population_limit / 10))
 
 
 static func get_easy_pressure_squad_size(game_time: float) -> int:
-	return 3 if game_time < EASY_LARGER_SQUAD_SECONDS else 4
+	return 2 if game_time < EASY_LARGER_SQUAD_SECONDS else 3
 
 
 static func get_new_worker_weights(age: int) -> Dictionary:

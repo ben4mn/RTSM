@@ -98,6 +98,7 @@ func _snapshot_for(slot: int) -> Dictionary:
 				actor["destination"] = [node.move_target.x, node.move_target.y]
 				actor["attack_move"] = node.attack_move
 				actor["marching"] = node.is_attack_marching()
+				actor["queued_orders"] = _serialize_orders(node.queued_orders)
 			if node is Villager and node.player_owner == slot:
 				actor.merge({"gather": node.gather_type, "cargo": node.carried_amount, "cargo_type": node.carried_resource_type, "cargo_manifest": node.get_carried_resources(), "work": node.get_economy_task(), "work_status": node.get_work_status(), "recovering": node.is_auto_recovering(), "building_order": node.has_active_build_order()})
 		else:
@@ -107,6 +108,7 @@ func _snapshot_for(slot: int) -> Dictionary:
 			if node.player_owner == slot:
 				actor["rally"] = [node.rally_point.x, node.rally_point.y]
 				actor["custom_rally"] = node.rally_point_is_custom
+				actor["rally_orders"] = _serialize_orders(node.rally_orders)
 				var queue: ProductionQueue = node.get_production_queue()
 				if queue != null:
 					actor["queue"] = {"items": queue.queue, "progress": queue.current_progress, "time": queue.current_train_time, "training": queue.is_training, "repeat": queue.auto_queue_enabled, "repeat_type": queue.auto_queue_unit_type}
@@ -172,6 +174,7 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 				var destination: Array = actor.get("destination", [actor.x, actor.y])
 				node.move_target = Vector2(float(destination[0]), float(destination[1]))
 				node.attack_move = bool(actor.get("attack_move", false))
+				node.queued_orders = _deserialize_orders(actor.get("queued_orders", []))
 			# Default false on every packet: missing, non-boolean or enemy values
 			# cannot retain an earlier own status or disclose another cohort.
 			var marching: Variant = actor.get("marching", false)
@@ -201,6 +204,7 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 			if rally.size() == 2:
 				node.rally_point = Vector2(float(rally[0]), float(rally[1]))
 				node.rally_point_is_custom = bool(actor.get("custom_rally", false))
+			node.rally_orders = _deserialize_orders(actor.get("rally_orders", [])) if node.player_owner == 0 else []
 			var queue: ProductionQueue = node.get_production_queue()
 			if queue != null and actor.has("queue"):
 				var data: Dictionary = actor.queue
@@ -341,6 +345,30 @@ func _owned(id: int, owner: int) -> Node2D:
 		return null
 	return node
 
+func _serialize_orders(orders: Array[Dictionary]) -> Array:
+	var serialized: Array = []
+	for order: Dictionary in orders:
+		var position: Vector2 = order.get("position", Vector2.ZERO)
+		if order.get("kind", "") == "dropoff":
+			var target: Object = instance_from_id(int(order.get("target_id", 0)))
+			if not is_instance_valid(target) or not target is Node2D:
+				continue
+			position = target.global_position
+		serialized.append({"kind": str(order.get("kind", "move")), "position": [position.x, position.y]})
+	return serialized
+
+
+func _deserialize_orders(serialized: Variant) -> Array[Dictionary]:
+	var orders: Array[Dictionary] = []
+	if not serialized is Array:
+		return orders
+	for entry: Variant in serialized.slice(0, UnitBase.MAX_QUEUED_ORDERS):
+		if not entry is Dictionary or not entry.get("position", null) is Array or entry.position.size() != 2:
+			continue
+		orders.append({"kind": str(entry.get("kind", "move")), "position": Vector2(float(entry.position[0]), float(entry.position[1]))})
+	return orders
+
+
 func _valid_packet(packet: Dictionary) -> bool:
 	if packet.has("enabled") and typeof(packet.enabled) != TYPE_BOOL:
 		return false
@@ -383,12 +411,40 @@ func execute_command(owner: int, packet: Dictionary) -> String:
 	var position_data: Array = packet.get("position", [0, 0])
 	var position := Vector2(float(position_data[0]), float(position_data[1]))
 	var tile: Vector2i = game_map.world_to_tile(position)
-	if operation in ["move", "attack_move", "patrol", "rally", "place"] and (tile.x < 0 or tile.y < 0 or tile.x >= MapData.MAP_WIDTH or tile.y >= MapData.MAP_HEIGHT):
+	if operation in ["move", "attack_move", "patrol", "rally", "place", "queue_move", "queue_rally"] and (tile.x < 0 or tile.y < 0 or tile.x >= MapData.MAP_WIDTH or tile.y >= MapData.MAP_HEIGHT):
 		return "Outside map"
 	var worker_before: Array[Dictionary] = []
 	if operation in ["move", "gather", "build"]: worker_before = main._worker_order_undo.capture(owner, units)
 	var affected_workers: Array = []
 	match operation:
+		"cancel_orders":
+			if target is BuildingBase and target.player_owner == owner:
+				target.cancel_rally_orders()
+			for unit: UnitBase in units:
+				unit.cancel_queued_orders()
+			return ""
+		"queue_move", "queue_dropoff", "queue_rally":
+			if operation != "queue_dropoff" and (not packet.has("position") or (game_map.is_tile_visible_to_player(tile, owner) and not game_map.is_tile_walkable(tile))):
+				return "Destination unavailable"
+			if operation == "queue_rally":
+				if not target is BuildingBase or target.player_owner != owner or not target.can_train():
+					return "Select your production building"
+				if not target.enqueue_rally_order({"kind": "move", "position": position}):
+					return "Rally queue full"
+				return ""
+			if units.is_empty():
+				return "Select your units"
+			if operation == "queue_move" and units.size() > 1:
+				return "" if main._queue_movement_orders(units, tile, owner) > 0 else "Order queue full or unavailable"
+			if operation == "queue_dropoff" and (not target is BuildingBase or target.player_owner != owner or target.state != BuildingBase.State.ACTIVE or not target.is_in_group("dropoff_buildings")):
+				return "Drop-off unavailable"
+			var queued: bool = false
+			for unit: UnitBase in units:
+				if operation == "queue_dropoff" and not unit is Villager:
+					continue
+				var order: Dictionary = {"kind": "dropoff", "target_id": target.get_instance_id(), "position": target.global_position} if operation == "queue_dropoff" else {"kind": "move", "position": position}
+				queued = unit.enqueue_order(order) or queued
+			return "" if queued else "Order queue full or unavailable"
 		"undo_workers":
 			var undo_result: Dictionary = main._worker_order_undo.restore(owner, int(packet.get("undo_id", 0)), game_map)
 			return str(undo_result.get("error", ""))

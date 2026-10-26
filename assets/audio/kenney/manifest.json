@@ -1,0 +1,422 @@
+{
+  "license": "CC0-1.0",
+  "creator": "Kenney",
+  "sample_rate": 22050,
+  "derivation": "Mono, 22.05kHz resample, gentle 4.2kHz low-pass, peak normalized to 0.48, 5ms attack/35ms release; phrases/pitch edits per tools/build_sample_palette.py",
+  "samples": [
+    {
+      "cue": "button_click",
+      "file": "assets/audio/kenney/cues/button_click_01.wav",
+      "source": "assets/audio/kenney/originals/interface/click_001.ogg",
+      "source_sha256": "ccfb7fa0cccdd9faec0eb16033c732b1e308d139d80f799161495d58f7adcdb9",
+      "sha256": "7b0f39296c5f7099d20cfac031b18235292e8874a1adfb0f9091dcfdbf0dad28",
+      "seconds": 0.1,
+      "peak": 0.48
+    },
+    {
+      "cue": "button_click",
+      "file": "assets/audio/kenney/cues/button_click_02.wav",
+      "source": "assets/audio/kenney/originals/interface/click_002.ogg",
+      "source_sha256": "adcd1f4adc35f1b41bc1b5bbefeff7aa44f2f3f0d96d3199b544140c7c1e761c",
+      "sha256": "01ba626f167d9bf69d4c2e615dccbb8c20ea4ef1ffb67be1a249c78325d3b994",
+      "seconds": 0.065,
+      "peak": 0.48
+    },
+    {
+      "cue": "button_click",
+      "file": "assets/audio/kenney/cues/button_click_03.wav",
+      "source": "assets/audio/kenney/originals/interface/click_003.ogg",
+      "source_sha256": "2fa929138bc3a0f432696588f66eac94b8f6d463905ec8808c6461ce4b054292",
+      "sha256": "c3e1954cf7434d984d9703d9ffe89b8933e3697ce47de74b91577e3ef4569b9b",
+      "seconds": 0.065,
+      "peak": 0.48
+    },
+    {
+      "cue": "select_unit",
+      "file": "assets/audio/kenney/cues/select_unit_01.wav",
+      "source": "assets/audio/kenney/originals/interface/pluck_001.ogg",
+      "source_sha256": "be97ec4893a02d6eccfb678daa76c83e34cb2583b834ec2593d2641def739fa4",
+      "sha256": "e5cf5430b620de4004c4957c58b7e5de1bee9daa507d657f053b1e05c0e22918",
+      "seconds": 0.1205,
+      "peak": 0.48
+    },
+    {
+      "cue": "select_unit",
+      "file": "assets/audio/kenney/cues/select_unit_02.wav",
+      "source": "assets/audio/kenney/originals/interface/pluck_002.ogg",
+      "source_sha256": "c977fe249ff42d1c93a552b33abc13a8399df3879fa510475426e5c4bbac1da9",
+      "sha256": "8ad0369c42dd5057c203a4d86911428e07154c6f2d5d6507995329aeb7f3a1a0",
+      "seconds": 0.18,
+      "peak": 0.48
+    },
+    {
+      "cue": "command_move",
+      "file": "assets/audio/kenney/cues/command_move_01.wav",
+      "source": "assets/audio/kenney/originals/rpg/handleSmallLeather.ogg",
+      "source_sha256": "ae3cbf695aa0a8b98b5a80a835be5a3ccbd5446a24db2235cd4c3cd6fc92ed96",
+      "sha256": "3370d9d692709ba3e36f86797f90aa6f5d0e5f696e9bd78c33b452cc2cf15301",
+      "seconds": 0.3,
+      "peak": 0.48
+    },
+    {
+      "cue": "command_move",
+      "file": "assets/audio/kenney/cues/command_move_02.wav",
+      "source": "assets/audio/kenney/originals/rpg/handleSmallLeather2.ogg",
+      "source_sha256": "a66f6db5918ad016c28a9f2768f127a7f39b5fa04481e5a3b4e78ebe2a1c282d",
+      "sha256": "55b0249d0006df602ec0d31672d12730a4fe24728e6d7987a8a95e879d4356b9",
+      "seconds": 0.3,
+      "peak": 0.48
+    },
+    {
+      "cue": "command_move",
+      "file": "assets/audio/kenney/cues/command_move_03.wav",
+      "source": "assets/audio/kenney/originals/rpg/cloth2.ogg",
+      "source_sha256": "8a7451193c38bc05483aec25dd193e163a15d44cf7fff04ac7912573231b0201",
+      "sha256": "a87212a42eb0c2388a19cee7016e1f2aaf481b93f472c90989129a4bb5629710",
+      "seconds": 0.3,
+      "peak": 0.48
+    },
+    {
+      "cue": "command_attack",
+      "file": "assets/audio/kenney/cues/command_attack_01.wav",
+      "source": "assets/audio/kenney/originals/rpg/drawKnife1.ogg",
+      "source_sha256": "276403e72c3b71c47bc24db3083970c23f8e5551ffa78f436f83483c56f3f0bb",
+      "sha256": "a242cba785a3c8238d9b42f14ae8ef05da8c881ae808298e2b39bca722763937",
+      "seconds": 0.32,
+      "peak": 0.48
+    },
+    {
+      "cue": "command_attack",
+      "file": "assets/audio/kenney/cues/command_attack_02.wav",
+      "source": "assets/audio/kenney/originals/rpg/drawKnife2.ogg",
+      "source_sha256": "d5df6a4130cbb016f97b4883769a418917b9629cb4c21717030b186e0c73281a",
+      "sha256": "8c330c2ac9537f8e40d98d64184da8265df0209f8e0540813f546872dc71528d",
+      "seconds": 0.32,
+      "peak": 0.48
+    },
+    {
+      "cue": "command_attack",
+      "file": "assets/audio/kenney/cues/command_attack_03.wav",
+      "source": "assets/audio/kenney/originals/rpg/drawKnife3.ogg",
+      "source_sha256": "a11ae62fb1a628425769d11a9de394980ad8909c31f4c9a4316f226963e21caf",
+      "sha256": "db362b3a8a4be1629859b2a35530956c83e87716d593fbffdca86de00e0214d4",
+      "seconds": 0.32,
+      "peak": 0.48
+    },
+    {
+      "cue": "attack_hit",
+      "file": "assets/audio/kenney/cues/attack_hit_01.wav",
+      "source": "assets/audio/kenney/originals/impact/impactMetal_light_000.ogg",
+      "source_sha256": "33b5e6e37c6e9d54e07bf5a89b12c76e879f40c1ea83cdd82714df1d6f9fec6d",
+      "sha256": "606f6a0abf7a196609e56ebcf9dfd67fffba67f97cd2eb56e5119ef26b860a3b",
+      "seconds": 0.3,
+      "peak": 0.48
+    },
+    {
+      "cue": "attack_hit",
+      "file": "assets/audio/kenney/cues/attack_hit_02.wav",
+      "source": "assets/audio/kenney/originals/impact/impactMetal_light_001.ogg",
+      "source_sha256": "fba69c467ddd85da7b1d82e259f936b876d9ba6a3d6f1b24bdd10468e46bfe08",
+      "sha256": "c37a6fc595f42488a8045abead1c19cbab0573fc5ddd3ff1fda6a220bbe1e409",
+      "seconds": 0.2518,
+      "peak": 0.48
+    },
+    {
+      "cue": "attack_hit",
+      "file": "assets/audio/kenney/cues/attack_hit_03.wav",
+      "source": "assets/audio/kenney/originals/impact/impactPunch_medium_000.ogg",
+      "source_sha256": "486988aa2d6440ffc4c62a0e8ccf3c23673ba84424bd4723378d451b7255eb5c",
+      "sha256": "2443b6ad059dc495211dbee4f68d22eedddcc3b478185fc2ff0de7284980cb74",
+      "seconds": 0.3,
+      "peak": 0.48
+    },
+    {
+      "cue": "unit_death",
+      "file": "assets/audio/kenney/cues/unit_death_01.wav",
+      "source": "assets/audio/kenney/originals/rpg/dropLeather.ogg",
+      "source_sha256": "097e1d3b74949b0145fda0519d40b7e0773ab82ec4858727f95be830927e1a45",
+      "sha256": "ab95c09fb20098a0c752f3daded15380d4052043316a71db32df4e853d2fc6a3",
+      "seconds": 0.36,
+      "peak": 0.48
+    },
+    {
+      "cue": "unit_death",
+      "file": "assets/audio/kenney/cues/unit_death_02.wav",
+      "source": "assets/audio/kenney/originals/rpg/cloth1.ogg",
+      "source_sha256": "ddb93a3671233f95da0e0b10367f082f7eb42fa6caaddcf776410aa8833c747d",
+      "sha256": "3d26a9d85b821edb17f5ac8d07cc207a27496ac2ac9a4c4db07f526eeafc671d",
+      "seconds": 0.36,
+      "peak": 0.48
+    },
+    {
+      "cue": "unit_death",
+      "file": "assets/audio/kenney/cues/unit_death_03.wav",
+      "source": "assets/audio/kenney/originals/rpg/cloth3.ogg",
+      "source_sha256": "a48632d17a4f1416541d261a32a31612e01267144c407fa3ecab3ff410f0085b",
+      "sha256": "7214cedee1dd88ab51bb81d7d9f539fbb786160ccdd2b805a1cdecc35a570b88",
+      "seconds": 0.36,
+      "peak": 0.48
+    },
+    {
+      "cue": "gather_food",
+      "file": "assets/audio/kenney/cues/gather_food_01.wav",
+      "source": "assets/audio/kenney/originals/rpg/cloth1.ogg",
+      "source_sha256": "ddb93a3671233f95da0e0b10367f082f7eb42fa6caaddcf776410aa8833c747d",
+      "sha256": "a291c64e3c5b4c2bbe1ec4db28616563f90a6f8219a47e106d7099ca9aa4aaff",
+      "seconds": 0.26,
+      "peak": 0.48
+    },
+    {
+      "cue": "gather_food",
+      "file": "assets/audio/kenney/cues/gather_food_02.wav",
+      "source": "assets/audio/kenney/originals/rpg/cloth2.ogg",
+      "source_sha256": "8a7451193c38bc05483aec25dd193e163a15d44cf7fff04ac7912573231b0201",
+      "sha256": "1ae695c4c763c3e495584f317e8af04569ece7ad4888874ef81796e39b6ec35d",
+      "seconds": 0.26,
+      "peak": 0.48
+    },
+    {
+      "cue": "gather_food",
+      "file": "assets/audio/kenney/cues/gather_food_03.wav",
+      "source": "assets/audio/kenney/originals/rpg/cloth4.ogg",
+      "source_sha256": "e7ab9a6c4466dea874196c61f59bf1da05cfe58748f42fadd695d441a154a99b",
+      "sha256": "54031e30cadd3f6328f20fb553cdcf9f78d5c5fd65e895a6ca370365fba0775d",
+      "seconds": 0.26,
+      "peak": 0.48
+    },
+    {
+      "cue": "gather_wood",
+      "file": "assets/audio/kenney/cues/gather_wood_01.wav",
+      "source": "assets/audio/kenney/originals/impact/impactWood_light_000.ogg",
+      "source_sha256": "eb45e35b4bed784d3f120de4afec4b0d6ac09d9e143cce8cfcb7d739e1b1f3c3",
+      "sha256": "e8c7f3d62ce8ec5272ad95890470c40a4deb3793f702f17628a36682fd757156",
+      "seconds": 0.2656,
+      "peak": 0.48
+    },
+    {
+      "cue": "gather_wood",
+      "file": "assets/audio/kenney/cues/gather_wood_02.wav",
+      "source": "assets/audio/kenney/originals/impact/impactWood_light_001.ogg",
+      "source_sha256": "4b76bf3ccc8e60d19188f3165b778a7817786faa6887c55d9049bcbeef3b425f",
+      "sha256": "6a71f80e4536a38428f48b68c5c26c68e81b1acd9bcbb7dd1ff91c054fdb096e",
+      "seconds": 0.2656,
+      "peak": 0.48
+    },
+    {
+      "cue": "gather_wood",
+      "file": "assets/audio/kenney/cues/gather_wood_03.wav",
+      "source": "assets/audio/kenney/originals/impact/impactWood_light_002.ogg",
+      "source_sha256": "b183cf7a5bd783817e0e4b82af34ac6658fa1927049089dadc8b15c2ecc771dc",
+      "sha256": "cca90ecdcedb6ae87fc193573c0ac9faad672291583f5b5923100c0c503a16ba",
+      "seconds": 0.2656,
+      "peak": 0.48
+    },
+    {
+      "cue": "gather_gold",
+      "file": "assets/audio/kenney/cues/gather_gold_01.wav",
+      "source": "assets/audio/kenney/originals/impact/impactMining_000.ogg",
+      "source_sha256": "36b4ea107222d073c67ca64dde26944975609202d5090b2f2021213c1a7e35cd",
+      "sha256": "38fe4b6a562f6668d783ee8f9c290944462fff2951fa74e7ad2a2cb81656a8c5",
+      "seconds": 0.32,
+      "peak": 0.48
+    },
+    {
+      "cue": "gather_gold",
+      "file": "assets/audio/kenney/cues/gather_gold_02.wav",
+      "source": "assets/audio/kenney/originals/impact/impactMining_001.ogg",
+      "source_sha256": "61235a18de3f3d92118235398222dbf51d448f1be70b1c8bc962b10b86f2d9c6",
+      "sha256": "f8f012510392b78b5043bb69186394d574662b693ab3f7ffd3da2939f9c6650a",
+      "seconds": 0.32,
+      "peak": 0.48
+    },
+    {
+      "cue": "gather_gold",
+      "file": "assets/audio/kenney/cues/gather_gold_03.wav",
+      "source": "assets/audio/kenney/originals/impact/impactMining_002.ogg",
+      "source_sha256": "059558ec751115ca6b1441e00f0adc837c1a3eeb0a066b109e0fd879fc5d0b0c",
+      "sha256": "37fad6bd3c131a9c143a270db8d018db6843583c9c32260147c202471efa35f3",
+      "seconds": 0.32,
+      "peak": 0.48
+    },
+    {
+      "cue": "construction_work",
+      "file": "assets/audio/kenney/cues/construction_work_01.wav",
+      "source": "assets/audio/kenney/originals/impact/impactPlank_medium_000.ogg",
+      "source_sha256": "8403cd7a043f0391574c88c55dd205743725b5363d2407f6de145f201690b68f",
+      "sha256": "378e2d0a3b1f68ed6ddcbcc03536df066cc30cb31e9d364e04810d1a6a11435d",
+      "seconds": 0.3,
+      "peak": 0.48
+    },
+    {
+      "cue": "construction_work",
+      "file": "assets/audio/kenney/cues/construction_work_02.wav",
+      "source": "assets/audio/kenney/originals/impact/impactPlank_medium_001.ogg",
+      "source_sha256": "d7c304319f8beac616231b62041fa8da74045b62d7155965516efb9b19303df4",
+      "sha256": "2bd471be4ddc75a9724ee79126613938cec683aae645cbd259f280b5abf8a757",
+      "seconds": 0.3,
+      "peak": 0.48
+    },
+    {
+      "cue": "construction_work",
+      "file": "assets/audio/kenney/cues/construction_work_03.wav",
+      "source": "assets/audio/kenney/originals/impact/impactPlank_medium_002.ogg",
+      "source_sha256": "f6a14da45994229676b4f29e6a35f504b5c2ec2b8166fb1a3b1aa004bc6911ef",
+      "sha256": "2bbf2168e463fbb1b8c52e0fa2ab8bbbdf4485497d638a49368879899f646498",
+      "seconds": 0.3,
+      "peak": 0.48
+    },
+    {
+      "cue": "building_place",
+      "file": "assets/audio/kenney/cues/building_place_01.wav",
+      "source": "assets/audio/kenney/originals/rpg/bookPlace1.ogg",
+      "source_sha256": "26f3ce60fbde85b678b0ad7f6624d80535fe540d88232ad1e38e47a96662d977",
+      "sha256": "2297eaf713b85f0f5c19a9df496b8aa2a99721ac2d14cf7afb56449184b4ecc7",
+      "seconds": 0.2767,
+      "peak": 0.48
+    },
+    {
+      "cue": "building_place",
+      "file": "assets/audio/kenney/cues/building_place_02.wav",
+      "source": "assets/audio/kenney/originals/rpg/bookPlace2.ogg",
+      "source_sha256": "831874e8fd142d4d0a03ff009f1f83966338a7878c0f6f38c613ae5b80dd731e",
+      "sha256": "134766ce0d6b02ea80f74ecbee34f31ee0db527c867cd7e46b504ac04353a162",
+      "seconds": 0.3,
+      "peak": 0.48
+    },
+    {
+      "cue": "building_place",
+      "file": "assets/audio/kenney/cues/building_place_03.wav",
+      "source": "assets/audio/kenney/originals/rpg/bookPlace3.ogg",
+      "source_sha256": "b1afa711e1cabfe5b2c56e20e20e0f9d82142d067727447fa992ddc43dbdb06e",
+      "sha256": "560321172b7e2ed77297af3efd1f96c3a3bbec1b7d5af600b39c1bfb6f18aea3",
+      "seconds": 0.2614,
+      "peak": 0.48
+    },
+    {
+      "cue": "building_invalid",
+      "file": "assets/audio/kenney/cues/building_invalid_01.wav",
+      "source": "assets/audio/kenney/originals/interface/error_001.ogg",
+      "source_sha256": "46e67425d16339772e8d328fb36a49426c9467418686e11beeb71ff84b0f6433",
+      "sha256": "a566ccaaebaa4af8efa422cf42f75d74a28fdcce1111635b6076e04ad00c0150",
+      "seconds": 0.1937,
+      "peak": 0.48
+    },
+    {
+      "cue": "building_invalid",
+      "file": "assets/audio/kenney/cues/building_invalid_02.wav",
+      "source": "assets/audio/kenney/originals/interface/error_002.ogg",
+      "source_sha256": "76810ec365f41078fd0507101da5bb7b8730fe011dde43908329fdabd8575e79",
+      "sha256": "cda27a1c0c4aa641675becd0e24ba364c8d002a01760224309b38065dfa5d6ea",
+      "seconds": 0.1937,
+      "peak": 0.48
+    },
+    {
+      "cue": "unit_trained",
+      "file": "assets/audio/kenney/cues/unit_trained_01.wav",
+      "source": "assets/audio/kenney/originals/interface/confirmation_001.ogg",
+      "source_sha256": "063564703b6094d70718a3e787a55cc9141611e4ecd6b6637f8828f79b4a8c3a",
+      "sha256": "ab5c8a1fafd90d5d9b54c92add35893881b0868f889fb5bbdd64b8d526e953f6",
+      "seconds": 0.3221,
+      "peak": 0.48
+    },
+    {
+      "cue": "unit_trained",
+      "file": "assets/audio/kenney/cues/unit_trained_02.wav",
+      "source": "assets/audio/kenney/originals/interface/confirmation_002.ogg",
+      "source_sha256": "33b17a9a9a2397c62b285c52c33a907fdffb476909c99e42dde603f6a7a8b12c",
+      "sha256": "bf2a26664152603a454c9fbb9b158b370af2b1d375dc1501ec68511f34a7a15c",
+      "seconds": 0.42,
+      "peak": 0.48
+    },
+    {
+      "cue": "building_complete",
+      "file": "assets/audio/kenney/cues/building_complete_01.wav",
+      "source": "assets/audio/kenney/originals/interface/confirmation_003.ogg",
+      "source_sha256": "3091bf0be0497f825769ee0733ca7bdc3bcd59bd6c6e8f2ba8f93d580ff38022",
+      "sha256": "adbcc0ba25d221da5355e6b3c6a4cbdd4616ff958ad62b08a27dd0ae3bad9286",
+      "seconds": 0.3578,
+      "peak": 0.48
+    },
+    {
+      "cue": "building_complete",
+      "file": "assets/audio/kenney/cues/building_complete_02.wav",
+      "source": "assets/audio/kenney/originals/interface/confirmation_004.ogg",
+      "source_sha256": "568967a3d9f8a8f6af54ea01729c4882284308f2a27d78c07ffd7ee0d6951661",
+      "sha256": "6dca3d0adb5bf5603109a10e0bd796143724e0a9d720fb06ca1b00f93e2a389b",
+      "seconds": 0.5,
+      "peak": 0.48
+    },
+    {
+      "cue": "under_attack",
+      "file": "assets/audio/kenney/cues/under_attack_01.wav",
+      "source": "assets/audio/kenney/originals/impact/impactBell_heavy_000.ogg",
+      "source_sha256": "94b8bb5f2d43ab65e4bcc32b28562416e9bc2c51d9fd4be1e333660ee52f977f",
+      "sha256": "0ea7c3eab4ba873728370d60ee29d115a88785258706719c0817d7f2669914a8",
+      "seconds": 0.75,
+      "peak": 0.48
+    },
+    {
+      "cue": "under_attack",
+      "file": "assets/audio/kenney/cues/under_attack_02.wav",
+      "source": "assets/audio/kenney/originals/impact/impactBell_heavy_001.ogg",
+      "source_sha256": "9df61e3ae9a83dc65e5a1fd3ed19d480876f3b22b963a1b9ef6fa293592dcec4",
+      "sha256": "0c6c9a3ee04d04074ef01f67380299d580f5e1d74b2196177d77a1430afe519d",
+      "seconds": 0.75,
+      "peak": 0.48
+    },
+    {
+      "cue": "age_up",
+      "file": "assets/audio/kenney/cues/age_up_01.wav",
+      "source": "assets/audio/kenney/originals/impact/impactBell_heavy_002.ogg",
+      "source_sha256": "a4171ed1a4a17fb858a38de1c59b5b42e50d8f046c525706c0e3ac8671f189f5",
+      "sha256": "2d77c16f5a73a0e632f487f18e3b324e7894e37e852f7d0a32958e89c7b0eb0b",
+      "seconds": 0.9,
+      "peak": 0.48
+    },
+    {
+      "cue": "age_up",
+      "file": "assets/audio/kenney/cues/age_up_02.wav",
+      "source": "assets/audio/kenney/originals/impact/impactBell_heavy_003.ogg",
+      "source_sha256": "5572ccdeb3b62373b86fa955355b3a222c36e815f0636ba16165189a21cf2514",
+      "sha256": "7cecf55a39c186f79dddf13f1e945869482e33fc60f8053957f9f5f8aa98f6eb",
+      "seconds": 0.9,
+      "peak": 0.48
+    },
+    {
+      "cue": "victory",
+      "file": "assets/audio/kenney/cues/victory_01.wav",
+      "source": "assets/audio/kenney/originals/impact/impactBell_heavy_001.ogg",
+      "source_sha256": "9df61e3ae9a83dc65e5a1fd3ed19d480876f3b22b963a1b9ef6fa293592dcec4",
+      "sha256": "92b52c1b546718b8dfef9a73cc84e7c426c8d703c91d78c80a7139229a88501f",
+      "seconds": 1.18,
+      "peak": 0.48
+    },
+    {
+      "cue": "victory",
+      "file": "assets/audio/kenney/cues/victory_02.wav",
+      "source": "assets/audio/kenney/originals/impact/impactBell_heavy_004.ogg",
+      "source_sha256": "49fe4fafa2001bd0d312976796824571ca8429851f285997e1327d17bb34fd00",
+      "sha256": "9bc52b790c16547fbdfd4ee1b65411895a3f23e9994f25833c31332a733bfd21",
+      "seconds": 1.18,
+      "peak": 0.48
+    },
+    {
+      "cue": "defeat",
+      "file": "assets/audio/kenney/cues/defeat_01.wav",
+      "source": "assets/audio/kenney/originals/impact/impactBell_heavy_003.ogg",
+      "source_sha256": "5572ccdeb3b62373b86fa955355b3a222c36e815f0636ba16165189a21cf2514",
+      "sha256": "397626df5f1c220136b59e5d776b4eb9dad15d5c318ef90daff7276725fd65a0",
+      "seconds": 1.05,
+      "peak": 0.48
+    },
+    {
+      "cue": "defeat",
+      "file": "assets/audio/kenney/cues/defeat_02.wav",
+      "source": "assets/audio/kenney/originals/impact/impactBell_heavy_004.ogg",
+      "source_sha256": "49fe4fafa2001bd0d312976796824571ca8429851f285997e1327d17bb34fd00",
+      "sha256": "72299d2c7ef41ed16fc6a15d22df0ea2c0dc291f44ecefbfbdebbb89b396a28d",
+      "seconds": 0.5024,
+      "peak": 0.48
+    }
+  ]
+}

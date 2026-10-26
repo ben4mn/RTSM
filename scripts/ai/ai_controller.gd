@@ -130,15 +130,15 @@ const DECISION_INTERVALS: Dictionary = {
 }
 
 const VILLAGER_TARGETS: Dictionary = {
-	Difficulty.EASY: 12,
-	Difficulty.MEDIUM: 18,
-	Difficulty.HARD: 22,
+	Difficulty.EASY: 6,
+	Difficulty.MEDIUM: 9,
+	Difficulty.HARD: 11,
 }
 
 const ARMY_ATTACK_THRESHOLDS: Dictionary = {
-	Difficulty.EASY: 6,
-	Difficulty.MEDIUM: 8,
-	Difficulty.HARD: 5,
+	Difficulty.EASY: 3,
+	Difficulty.MEDIUM: 4,
+	Difficulty.HARD: 3,
 }
 
 const SCOUT_TARGETS: Dictionary = {
@@ -255,15 +255,15 @@ const AGE_UP_SAVING_LEAD_TIMES: Dictionary = {
 }
 
 const AGE_UP_MIN_VILLAGERS: Dictionary = {
-	Difficulty.EASY: {2: 11, 3: 18},
-	Difficulty.MEDIUM: {2: 12, 3: 16},
-	Difficulty.HARD: {2: 12, 3: 14},
+	Difficulty.EASY: {2: 6, 3: 9},
+	Difficulty.MEDIUM: {2: 6, 3: 8},
+	Difficulty.HARD: {2: 6, 3: 7},
 }
 
 const AGE_UP_MIN_MILITARY: Dictionary = {
-	Difficulty.EASY: {2: 2, 3: 4},
-	Difficulty.MEDIUM: {2: 3, 3: 5},
-	Difficulty.HARD: {2: 4, 3: 5},
+	Difficulty.EASY: {2: 1, 3: 2},
+	Difficulty.MEDIUM: {2: 2, 3: 3},
+	Difficulty.HARD: {2: 2, 3: 3},
 }
 
 
@@ -639,9 +639,9 @@ func _update_ai_state() -> void:
 	var age: int = GameManager.get_player_age(player_id)
 	var military_count: int = _get_military_units().size()
 
-	if age >= 3 or military_count >= 20:
+	if age >= 3 or military_count >= 10:
 		_ai_state = AIState.LATE_GAME
-	elif age >= 2 or military_count >= 5:
+	elif age >= 2 or military_count >= 3:
 		_ai_state = AIState.MID_GAME
 	else:
 		_ai_state = AIState.EARLY_GAME
@@ -1175,7 +1175,7 @@ func _needs_feudal_wood_infrastructure() -> bool:
 func _needs_compact_worker_recovery() -> bool:
 	if not _uses_compact_population_policy() or _game_time < 90.0:
 		return false
-	var recovery_floor: int = maxi(4, ceili(float(_get_target_villager_count()) * 0.60))
+	var recovery_floor: int = maxi(2, ceili(float(_get_target_villager_count()) * 0.60))
 	# Paid pending workers cannot gather or defend themselves yet. Preserve the
 	# recovery policy until real completions restore this live workforce floor.
 	return _get_villagers().size() < recovery_floor
@@ -1430,7 +1430,7 @@ func _check_military_production() -> void:
 		# so they count toward the floor exactly like completed units.
 		if military_count + queued_military_count >= _get_min_military_for_age_up(target_age):
 			return
-	elif _saving_for_age_up and not _is_under_pressure and military_count >= 4:
+	elif _saving_for_age_up and not _is_under_pressure and military_count >= 2:
 		return
 
 	# Scouts are maintained as a real production choice. Hard fields a second
@@ -1456,7 +1456,7 @@ func _check_military_production() -> void:
 	if _uses_compact_population_policy() and GameManager.get_player_age(player_id) <= 1 and not _is_under_pressure:
 		if military_count + queued_military_count >= _get_attack_threshold() + 1:
 			return
-	if _ai_state == AIState.EARLY_GAME and not _is_under_pressure and military_count >= 5:
+	if _ai_state == AIState.EARLY_GAME and not _is_under_pressure and military_count >= 3:
 		return  # In early game, cap military production
 
 	var resources: Dictionary = ResourceManager.get_all_resources(player_id)
@@ -1547,7 +1547,7 @@ func _check_age_up() -> void:
 		min_military += 1
 
 	if target_age == 2 and _game_time >= timing_target:
-		min_villagers_to_age = maxi(8, min_villagers_to_age - 2)
+		min_villagers_to_age = maxi(4, min_villagers_to_age - 1)
 		min_military = maxi(0, min_military - 1)
 
 	if _get_villagers().size() < min_villagers_to_age:
@@ -1576,12 +1576,12 @@ func _get_age_up_target_time(target_age: int) -> float:
 
 func _get_min_villagers_for_age_up(target_age: int) -> int:
 	var by_age: Dictionary = AGE_UP_MIN_VILLAGERS.get(difficulty, {})
-	var fallback: int = 10 if target_age == 2 else 16
+	var fallback: int = 5 if target_age == 2 else 8
 	var minimum: int = int(by_age.get(target_age, fallback))
 	if _uses_compact_population_policy():
 		var economy_target: int = _get_compact_economy_target()
 		minimum = mini(minimum, economy_target - (2 if target_age == 2 else 1))
-	return maxi(4, minimum)
+	return maxi(2, minimum)
 
 
 func _get_min_military_for_age_up(target_age: int) -> int:
@@ -1643,7 +1643,7 @@ func _get_feudal_farm_capacity_target() -> int:
 func _get_attack_threshold() -> int:
 	var threshold: int = int(ARMY_ATTACK_THRESHOLDS.get(difficulty, 8))
 	if _uses_compact_population_policy():
-		threshold = mini(threshold, clampi(int(GameManager.get_player_population_limit(player_id) / 8), 3, 6))
+		threshold = mini(threshold, clampi(int(GameManager.get_player_population_limit(player_id) / 16), 2, 3))
 		if _uses_easy_learning_policy():
 			threshold = mini(threshold, SkirmishData.get_easy_pressure_squad_size(_game_time))
 	return threshold
@@ -1657,21 +1657,21 @@ func _get_target_villager_count() -> int:
 		# Its paid workforce must still grow; otherwise repeated defense casualties
 		# leave the economy permanently at the opening target with no unlock bank.
 		var economy_ready: bool = current_age >= 2
-		var target: int = economy_target if economy_ready else maxi(6, ceili(float(economy_target) * 0.70))
+		var target: int = economy_target if economy_ready else maxi(3, ceili(float(economy_target) * 0.70))
 		if current_age <= 2 and (current_age == 1 or _has_launched_field_attack):
 			var progression_floor: int = _get_min_villagers_for_age_up(current_age + 1)
 			if _is_under_pressure:
 				progression_floor += 1
 			target = maxi(target, progression_floor)
 		return mini(economy_target, target)
-	var base_target: int = VILLAGER_TARGETS.get(difficulty, 18)
+	var base_target: int = VILLAGER_TARGETS.get(difficulty, 9)
 	var age: int = GameManager.get_player_age(player_id)
 	if age >= 2:
-		base_target += 2
+		base_target += 1
 	if age >= 3:
-		base_target += 4
+		base_target += 2
 	if _is_under_pressure:
-		base_target = maxi(10, base_target - 3)
+		base_target = maxi(5, base_target - 2)
 	var next_age: int = age + 1
 	if not GameManager.get_age_up_cost(player_id, next_age).is_empty():
 		# Difficulty population targets must never make their own next-age gate
@@ -1740,7 +1740,7 @@ func _get_target_building_counts(age: int) -> Dictionary:
 		BuildingData.BuildingType.TOWN_CENTER: 1,
 	}
 
-	if age >= 3 and villagers >= 18 and not _is_under_pressure:
+	if age >= 3 and villagers >= 9 and not _is_under_pressure:
 		targets[BuildingData.BuildingType.TOWN_CENTER] = 2
 	if difficulty == Difficulty.HARD and age >= 3:
 		targets[BuildingData.BuildingType.ARCHERY_RANGE] = maxi(targets[BuildingData.BuildingType.ARCHERY_RANGE], 2)
@@ -1979,11 +1979,11 @@ func _check_research() -> void:
 		# invest in throughput without spending the next worker/Archer's bank.
 		if _is_under_pressure:
 			research_plan.push_front("loom")
-		elif _can_invest_in_economy() and _get_villagers().size() >= 10:
+		elif _can_invest_in_economy() and _get_villagers().size() >= 5:
 			var wheelbarrow_cost: Dictionary = TechData.get_research_definition("wheelbarrow").get("cost", {})
 			if ResourceManager.get_resource(player_id, "food") >= int(wheelbarrow_cost.get("food", 0)) + 50 and ResourceManager.get_resource(player_id, "wood") >= int(wheelbarrow_cost.get("wood", 0)) + 45:
 				research_plan.push_front("wheelbarrow")
-		if _get_villagers().size() >= 8 and "loom" not in research_plan:
+		if _get_villagers().size() >= 4 and "loom" not in research_plan:
 			research_plan.append("loom")
 	for research_id: String in research_plan:
 		if GameManager.try_research(player_id, blacksmith, research_id):
@@ -1995,7 +1995,7 @@ func _can_invest_in_economy() -> bool:
 		return false
 	if _is_under_pressure or _saving_for_age_up or _needs_compact_worker_recovery():
 		return false
-	if _get_villagers().size() < 8 or _get_fighting_units().size() < _get_attack_threshold():
+	if _get_villagers().size() < 4 or _get_fighting_units().size() < _get_attack_threshold():
 		return false
 	if _get_compact_missing_role_building() >= 0:
 		return false

@@ -97,7 +97,7 @@ func _test_multi_slot_reservations() -> void:
 
 
 func _test_cancellation_releases_exact_reservations() -> void:
-	_reset_state(2, 5)
+	_reset_state(2, 2 + 3 * _pop_cost(UNIT_INFANTRY))
 	var fixture: Dictionary = _make_fixture(BARRACKS_SCENE_PATH)
 	var building: Node = fixture["building"]
 	var production_queue: Node = fixture["queue"]
@@ -105,15 +105,15 @@ func _test_cancellation_releases_exact_reservations() -> void:
 
 	for index in 3:
 		_expect(bool(production_queue.call("enqueue_unit", UNIT_INFANTRY)), "cancellation setup enqueue %d succeeds" % index)
-	_expect_eq(_reserved(), 3, "three queued infantry reserve three slots")
+	_expect_eq(_reserved(), 3 * _pop_cost(UNIT_INFANTRY), "three queued infantry reserve their population")
 	_expect_spending(bank_before, UNIT_INFANTRY, 3, "three queued Warriors each spend their cost once")
 	production_queue.set("current_progress", 5.0)
 	_expect(bool(production_queue.call("cancel_unit", 1)), "cancelling a non-head entry succeeds")
-	_expect_eq(_reserved(), 2, "non-head cancellation releases one slot")
+	_expect_eq(_reserved(), 2 * _pop_cost(UNIT_INFANTRY), "non-head cancellation releases one recruit")
 	_expect_spending(bank_before, UNIT_INFANTRY, 2, "non-head cancellation refunds exactly its own cost")
 	_expect_eq(production_queue.get("current_progress"), 5.0, "non-head cancellation preserves head progress")
 	_expect(bool(production_queue.call("cancel_unit", 0)), "cancelling the head entry succeeds")
-	_expect_eq(_reserved(), 1, "head cancellation releases only its slot")
+	_expect_eq(_reserved(), _pop_cost(UNIT_INFANTRY), "head cancellation releases only its population")
 	_expect_spending(bank_before, UNIT_INFANTRY, 1, "head cancellation refunds exactly its own cost")
 	_expect_eq(production_queue.get("current_progress"), 0.0, "new head restarts at zero progress")
 	_expect(bool(production_queue.call("cancel_unit", 0)), "cancelling the final entry succeeds")
@@ -187,7 +187,7 @@ func _test_completion_consumes_once() -> void:
 
 
 func _test_building_and_queue_destruction_release_reservations() -> void:
-	_reset_state(2, 5)
+	_reset_state(2, 2 + 3 * _pop_cost(UNIT_INFANTRY))
 	var fixture: Dictionary = _make_fixture(BARRACKS_SCENE_PATH)
 	var building: Node = fixture["building"]
 	var production_queue: Node = fixture["queue"]
@@ -205,7 +205,7 @@ func _test_building_and_queue_destruction_release_reservations() -> void:
 	var replacement_queue: Node = replacement_fixture["queue"]
 	for index in 3:
 		_expect(bool(replacement_queue.call("enqueue_unit", UNIT_INFANTRY)), "replacement queue reuses released slot %d" % index)
-	_expect_eq(_reserved(), 3, "replacement queue owns all available reservations")
+	_expect_eq(_reserved(), 3 * _pop_cost(UNIT_INFANTRY), "replacement queue owns all available reservations")
 	replacement_queue.free()
 	_expect_eq(_reserved(), 0, "freeing only the queue releases all of its reservations")
 	replacement_building.free()
@@ -224,13 +224,13 @@ func _test_stale_queue_cannot_release_a_new_match_reservation() -> void:
 	var fresh_queue: Node = fresh_fixture["queue"]
 	_expect(bool(fresh_queue.call("enqueue_unit", UNIT_INFANTRY)), "new match queue reserves one slot")
 	stale_building.free()
-	_expect_eq(_reserved(), 1, "stale queue cleanup cannot release a new match reservation")
+	_expect_eq(_reserved(), _pop_cost(UNIT_INFANTRY), "stale queue cleanup cannot release a new match reservation")
 	fresh_building.free()
 	_expect_eq(_reserved(), 0, "fresh queue releases its own reservation")
 
 
 func _test_direct_spawn_and_unclaimed_completion() -> void:
-	_reset_state(4, 5)
+	_reset_state(5 - _pop_cost(UNIT_VILLAGER), 5)
 	var fixture: Dictionary = _make_fixture(TOWN_CENTER_SCENE_PATH)
 	var building: Node = fixture["building"]
 	var production_queue: Node = fixture["queue"]
@@ -240,11 +240,11 @@ func _test_direct_spawn_and_unclaimed_completion() -> void:
 	var detached_main: Node = main_scene.instantiate()
 	var blocked_spawn: Variant = detached_main.call("_spawn_unit", UNIT_VILLAGER, PLAYER_ID, Vector2.ZERO)
 	_expect(blocked_spawn == null, "direct spawn is rejected while the final slot is reserved")
-	_expect_eq(_population(), 4, "rejected direct spawn leaves live population unchanged")
-	_expect_eq(_reserved(), 1, "rejected direct spawn leaves the queue reservation intact")
+	_expect_eq(_population(), 5 - _pop_cost(UNIT_VILLAGER), "rejected direct spawn leaves live population unchanged")
+	_expect_eq(_reserved(), _pop_cost(UNIT_VILLAGER), "rejected direct spawn leaves the queue reservation intact")
 
 	production_queue.call("_complete_current_unit")
-	_expect_eq(_population(), 4, "an unclaimed completion never commits live population")
+	_expect_eq(_population(), 5 - _pop_cost(UNIT_VILLAGER), "an unclaimed completion never commits live population")
 	_expect_eq(_reserved(), 0, "an unclaimed completion releases its reservation")
 	_expect_spending(bank_before, UNIT_VILLAGER, 0, "an unclaimed completion refunds its cost and preserves unrelated resources")
 	building.free()

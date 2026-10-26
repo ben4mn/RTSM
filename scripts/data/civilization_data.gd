@@ -27,7 +27,7 @@ const DEFINITIONS: Dictionary = {
 		"tagline": "Thatched cottages and yew bows",
 		"description": "Warm timber frames and ochre thatch shelter a village green. A bowyer checks a long yew stave while woollen hoods dry by the door. Dusty red cloth and a little rose badge identify the English company.",
 		"strengths": "+20% wood gathering · Longbows have +1 range",
-		"weakness": "Longbows: 30 HP · Horsemen: 65 HP",
+		"weakness": "Longbows: 60 HP · Horsemen: 130 HP",
 		"signature": "Longbow — long range, fragile at close quarters",
 		"preview_unit_icon": "res://assets/units/longbow.svg",
 		"icon_path": "res://assets/ui/civilizations/verdant_league.svg",
@@ -35,8 +35,8 @@ const DEFINITIONS: Dictionary = {
 		"building_hp_multiplier": 1.0,
 		# Stable unit IDs: 2 Archer, 3 Cavalry. Avoid a cyclic data dependency.
 		"unit_overrides": {
-			2: {"name": "Longbow", "role": "Long-range bow infantry", "hp": 30, "attack_range": 6, "vision_radius": 7, "civilization_icon": "res://assets/units/longbow.svg"},
-			3: {"hp": 65},
+			2: {"name": "Longbow", "role": "Long-range bow infantry", "hp": 60, "attack_range": 6, "vision_radius": 7, "civilization_icon": "res://assets/units/longbow.svg"},
+			3: {"hp": 130},
 		},
 	},
 	Civilization.SUNSTRIDE_CLANS: {
@@ -44,14 +44,14 @@ const DEFINITIONS: Dictionary = {
 		"tagline": "Felt homes and well-kept saddles",
 		"description": "Round felt gers cluster beside timber workshops and a small millet field. Saddle blankets air on a rail; a rider tightens a deel’s sash. Sage cloth and a horsehair standard give this Mongol frontier camp its identity.",
 		"strengths": "+15% food gathering · faster Outriders",
-		"weakness": "Outriders: 70 HP · buildings: −20% HP",
+		"weakness": "Outriders: 140 HP · buildings: −20% HP",
 		"signature": "Outrider — swift flanking cavalry",
 		"preview_unit_icon": "res://assets/units/outrider.svg",
 		"icon_path": "res://assets/ui/civilizations/sunstride_clans.svg",
 		"gather_multipliers": {"food": 1.15},
 		"building_hp_multiplier": 0.8,
 		"unit_overrides": {
-			3: {"name": "Outrider", "role": "Swift flanking cavalry", "hp": 70, "speed": 110.0, "civilization_icon": "res://assets/units/outrider.svg"},
+			3: {"name": "Outrider", "role": "Swift flanking cavalry", "hp": 140, "speed": 110.0, "civilization_icon": "res://assets/units/outrider.svg"},
 		},
 	},
 }

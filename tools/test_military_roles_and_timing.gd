@@ -32,7 +32,7 @@ func _ready() -> void:
 
 func _run() -> void:
 	AudioManager.set_all_enabled(false)
-	# This fixture asserts baseline HP (including 80-HP cavalry). A saved
+	# This fixture asserts baseline HP (including baseline cavalry health). A saved
 	# English/Mongol opponent preference otherwise changes it before any hit.
 	GameManager.selected_civilization = CivilizationData.Civilization.CROWNLANDS
 	GameManager.selected_opponent_civilization = CivilizationData.Civilization.CROWNLANDS
@@ -58,7 +58,7 @@ func _test_shared_role_data() -> void:
 		var arena := VisibleArena.new()
 		add_child(arena)
 		var unit: UnitBase = _spawn(arena, role, 0, Vector2.ZERO)
-		_expect(int(UnitData.UNITS[role]["pop_cost"]) == 1, "compact military role takes one population")
+		_expect(int(UnitData.UNITS[role]["pop_cost"]) == 2, "household military role takes two population")
 		_expect(is_equal_approx(unit.attack_speed, 1.0 / float(UnitData.UNITS[role]["attack_interval"])), "runtime cadence reads shared role data")
 		_expect(not UnitData.get_unit_counter_description(role).is_empty(), "military role exposes its counter explanation")
 		arena.free()
@@ -76,22 +76,22 @@ func _test_windup_and_projectile_impact() -> void:
 	var target: UnitBase = _spawn(arena, UnitData.UnitType.INFANTRY, 1, Vector2.ZERO)
 	archer.command_attack(target)
 	archer._process(0.01)
-	_expect(is_equal_approx(target.hp, 60.0), "bow windup does not apply damage")
+	_expect(is_equal_approx(target.hp, target.max_hp), "bow windup does not apply damage")
 	archer._process(0.19)
 	var projectile: Node = _find_projectile(arena)
 	_expect(projectile != null, "bow release creates a moving projectile")
-	_expect(is_equal_approx(target.hp, 60.0), "arrow release does not pre-apply HP loss")
+	_expect(is_equal_approx(target.hp, target.max_hp), "arrow release does not pre-apply HP loss")
 	if projectile != null:
 		arena.targets_visible = false
 		projectile.call("advance_projectile", 0.05)
-		_expect(is_equal_approx(target.hp, 60.0), "arrow in flight does not apply HP loss")
+		_expect(is_equal_approx(target.hp, target.max_hp), "arrow in flight does not apply HP loss")
 		_expect(not bool(projectile.get("visible")), "arrow rendering cannot reveal a flight into hidden fog")
 		# A shot already released survives the archer's removal.
 		archer.free()
 		projectile.call("advance_projectile", 0.4)
-		_expect(is_equal_approx(target.hp, 48.0), "arrow arrival applies exactly one twelve-point counter hit")
+		_expect(is_equal_approx(target.hp, 96.0), "arrow arrival applies exactly one twenty-four-point counter hit")
 		projectile.call("advance_projectile", 0.4)
-		_expect(is_equal_approx(target.hp, 48.0), "completed projectile cannot apply damage twice")
+		_expect(is_equal_approx(target.hp, 96.0), "completed projectile cannot apply damage twice")
 	arena.free()
 
 
@@ -129,7 +129,7 @@ func _test_retreat_and_stop_cancel_unreleased_attacks() -> void:
 		else:
 			warrior.command_stop()
 		warrior._process(0.2)
-		_expect(is_equal_approx(target.hp, 80.0), "%s cancels spear windup before impact" % command)
+		_expect(is_equal_approx(target.hp, target.max_hp), "%s cancels spear windup before impact" % command)
 		_expect(warrior.attack_target == null, "%s immediately clears the combat target" % command)
 		if command == "retreat":
 			_expect(warrior.global_position.x > 20.0 and not warrior.can_auto_retaliate(), "retreat moves away without auto retaliation")
@@ -153,7 +153,7 @@ func _test_fog_and_post_kill_acquisition() -> void:
 	warrior._process(0.01)
 	arena.targets_visible = false
 	warrior._process(0.2)
-	_expect(is_equal_approx(target.hp, 80.0), "unreleased spear attack cancels after loss of vision")
+	_expect(is_equal_approx(target.hp, target.max_hp), "unreleased spear attack cancels after loss of vision")
 	arena.targets_visible = true
 	warrior.command_attack(target)
 	target.die()

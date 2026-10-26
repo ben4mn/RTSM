@@ -61,7 +61,7 @@ func remember(owner: int, before: Array[Dictionary], accepted: Array) -> void:
 		if _worker(worker, owner) and worker in accepted:
 			entry["revision"] = int(worker.get_meta(REVISION_META, 0))
 			entries.append(entry)
-	if entries.size() < 2: return
+	if entries.is_empty(): return
 	_records[owner] = {"id": _next_id, "until": Time.get_ticks_msec() + LIFETIME_MS, "entries": entries}
 	_next_id += 1
 

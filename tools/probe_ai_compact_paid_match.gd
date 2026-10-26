@@ -58,6 +58,9 @@ func _ready() -> void:
 func _run() -> void:
 	AudioManager.set_all_enabled(false)
 	GameManager.guided_opening_enabled = false
+	# Pin both civilizations so saved preferences cannot contaminate comparisons.
+	GameManager.selected_civilization = CivilizationData.Civilization.CROWNLANDS
+	GameManager.selected_opponent_civilization = CivilizationData.Civilization.CROWNLANDS
 	GameManager.selected_match_mode = SkirmishData.MatchMode.STANDARD
 	GameManager.selected_difficulty = 1
 	GameManager.selected_population_limit = 30

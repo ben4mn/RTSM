@@ -9,7 +9,7 @@ func _ready() -> void:
 
 
 func _run() -> void:
-	var bank: Dictionary = preload("res://scripts/audio/tactile_palette.gd").build()
+	var bank: Dictionary = preload("res://scripts/audio/sample_palette.gd").build()
 	_expect(bank.size() == 18, "complete action palette")
 	for cue: String in bank:
 		var hashes: Array[int] = []
