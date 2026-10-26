@@ -335,7 +335,7 @@ func _build_army_notes() -> void:
 	# A deliberate Info page: tactics stay available without another field banner.
 	var notes: Array[Dictionary] = [
 		{"icon": "move", "title": "01  Assemble", "body": "Tap ground to assemble. Let Warriors catch up with cavalry."},
-		{"icon": "attack", "title": "02  Commit together", "body": "Hold ground to attack-move. Fight enemies along your route."},
+		{"icon": "attack", "title": "02  Commit together", "body": "Tap the swords, then ground to attack-move. Hold ground to add a movement waypoint."},
 		{"icon": "rally", "title": "03  Preserve your army", "body": "Tap safe ground to withdraw. Rally fresh recruits nearby."},
 	]
 	for note: Dictionary in notes:

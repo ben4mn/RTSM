@@ -54,6 +54,7 @@ var _home: BoxContainer
 var _hero: VBoxContainer
 var _home_eyebrow: Label
 var title_label: Label
+var _brand_logo: TextureRect
 var promise_label: Label
 var _hero_art: Control
 var _home_actions: VBoxContainer
@@ -166,6 +167,18 @@ func _build_interface() -> void:
 	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(background)
+	var atmosphere := Control.new()
+	atmosphere.name = "WarTableAtmosphere"
+	atmosphere.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	atmosphere.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	atmosphere.draw.connect(func() -> void:
+		var canvas: Vector2 = atmosphere.size
+		atmosphere.draw_circle(Vector2(canvas.x * 0.24, canvas.y * 0.54), canvas.y * 0.56, Color("223b32"))
+		atmosphere.draw_arc(Vector2(canvas.x * 0.24, canvas.y * 0.54), canvas.y * 0.47, 0, TAU, 100, Color("3b5140"), 1.0, true)
+		atmosphere.draw_line(Vector2(22, canvas.y - 20), Vector2(canvas.x - 22, canvas.y - 20), Color("405341"), 1.0, true)
+	)
+	atmosphere.resized.connect(atmosphere.queue_redraw)
+	add_child(atmosphere)
 	_root_margin = MarginContainer.new()
 	_root_margin.name = "MenuFrame"
 	add_child(_root_margin)
@@ -192,6 +205,8 @@ func _build_interface() -> void:
 	settings_button = _button("Settings", "SettingsButton", _on_settings_pressed)
 	settings_button.icon = load("res://assets/ui/icons/settings.svg")
 	settings_button.add_theme_constant_override("icon_max_width", 20)
+	_apply_pill(settings_button)
+	_apply_pill(_back_button)
 	_header.add_child(settings_button)
 	var rule := HSeparator.new()
 	var rule_style := StyleBoxLine.new()
@@ -226,12 +241,21 @@ func _build_home() -> void:
 	_hero.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_hero.add_theme_constant_override("separation", 6)
 	_home.add_child(_hero)
-	_home_eyebrow = _label("A LITTLE KINGDOM. A GRAND PLAN.", 12)
+	_home_eyebrow = _label("YOUR NEXT GREAT LITTLE CONQUEST", 12)
 	THEME.apply_eyebrow(_home_eyebrow)
 	_hero.add_child(_home_eyebrow)
 	title_label = _label("Pocket\nKingdoms", 52)
 	_apply_heading(title_label, 52)
 	_hero.add_child(title_label)
+	title_label.visible = false
+	_brand_logo = TextureRect.new()
+	_brand_logo.name = "KingdomWordmark"
+	_brand_logo.texture = preload("res://assets/ui/pocket_kingdoms_logo.svg")
+	_brand_logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_brand_logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_brand_logo.custom_minimum_size.y = 138
+	_brand_logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hero.add_child(_brand_logo)
 	_hero_art = Control.new()
 	_hero_art.set_script(DIORAMA)
 	_hero_art.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -243,10 +267,11 @@ func _build_home() -> void:
 	_home_actions.custom_minimum_size.x = 290
 	_home_actions.add_theme_constant_override("separation", 12)
 	_home.add_child(_home_actions)
-	promise_label = _label("Small kingdoms.\nGrand plans.", 28)
+	promise_label = _label("Your kingdom\nawaits.", 28)
 	_apply_heading(promise_label, 28)
+	promise_label.add_theme_font_override("font", THEME.FONT_HEADING)
 	_home_actions.add_child(promise_label)
-	_home_intro = _label("Gather, build and rally your army.\nClaim the Sacred Site or the rival town.", 16, true)
+	_home_intro = _label("Raise a village. Rally your people.\nMake your next great move.", 16, true)
 	_home_intro.add_theme_color_override("font_color", MUTED)
 	_home_actions.add_child(_home_intro)
 	_new_game_button = _button("Play solo", "NewGameButton", _open_new_game.bind("solo"))
@@ -258,8 +283,10 @@ func _build_home() -> void:
 	_online_button = _button("Play online", "JoinFriendButton", _open_new_game.bind("multiplayer"))
 	_online_button.icon = load("res://assets/ui/icons/online.svg")
 	_online_button.add_theme_constant_override("icon_max_width", 28)
+	_online_button.custom_minimum_size.y = 54
+	_apply_pill(_online_button)
 	_home_actions.add_child(_online_button)
-	_home_note = _label("Solo against AI · Friends or quick match online", 13, true)
+	_home_note = _label("English · French · Mongols\nSolo against AI · Friends or quick match", 13, true)
 	_home_note.add_theme_color_override("font_color", MUTED)
 	_home_actions.add_child(_home_note)
 
@@ -695,9 +722,27 @@ func _apply_heading(label: Label, size_value: int) -> void:
 func _apply_primary(button: Button) -> void:
 	THEME.apply_primary(button)
 	for state: String in ["normal", "hover", "pressed"]:
-		button.add_theme_stylebox_override(state, _menu_button_style("primary", state))
+		var plaque := StyleBoxTexture.new()
+		plaque.texture = load("res://assets/ui/plates/primary_%s.svg" % state)
+		plaque.texture_margin_left = 20
+		plaque.texture_margin_right = 20
+		plaque.texture_margin_top = 12
+		plaque.texture_margin_bottom = 12
+		plaque.content_margin_left = 24
+		plaque.content_margin_right = 24
+		plaque.content_margin_top = 10
+		plaque.content_margin_bottom = 12
+		button.add_theme_stylebox_override(state, plaque)
 	for state: String in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
 		button.add_theme_color_override(state, INK)
+
+
+func _apply_pill(button: Button) -> void:
+	for state: String in ["normal", "hover", "pressed", "focus"]:
+		var style: StyleBoxFlat = _menu_button_style("secondary", state)
+		style.set_corner_radius_all(28)
+		style.bg_color = Color("2b4239") if state == "normal" else style.bg_color
+		button.add_theme_stylebox_override(state, style)
 
 
 func _menu_button_style(kind: String = "secondary", state: String = "normal") -> StyleBoxFlat:
@@ -1189,7 +1234,7 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2, shell_top_cle
 	_options_body.add_theme_constant_override("separation", 6 if compact else 12)
 	_solo_options.add_theme_constant_override("separation", 4 if compact else 8)
 	difficulty_description.visible = not compact
-	_columns.vertical = available.size.x < 560
+	_columns.vertical = available.size.x < 500
 	_page_title.add_theme_font_size_override("font_size", 18 if compact else 22)
 	_header.add_theme_constant_override("separation", 8 if compact else 16)
 	_solo_tab.custom_minimum_size.x = 108 if compact else 180
@@ -1218,16 +1263,21 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2, shell_top_cle
 		_map_badges[i].add_theme_font_size_override("font_size", 10 if compact else 12)
 	_home.add_theme_constant_override("separation", 24 if compact else 64)
 	_home_actions.custom_minimum_size.x = minf(310, available.size.x * 0.43)
+	_home_actions.add_theme_constant_override("separation", 8 if compact else 14)
+	_new_game_button.custom_minimum_size.y = 54 if compact else 64
+	_online_button.custom_minimum_size.y = 48 if compact else 54
 	title_label.text = "Pocket Kingdoms" if compact else "Pocket\nKingdoms"
 	title_label.add_theme_font_size_override("font_size", 34 if compact else 60)
+	_brand_logo.custom_minimum_size.y = 86 if compact else 138
 	promise_label.add_theme_font_size_override("font_size", 22 if compact else 30)
+	promise_label.text = "Choose your battle" if compact else "Your kingdom\nawaits."
 	_selection_summary.add_theme_font_size_override("font_size", 13 if compact else 16)
 	start_button.custom_minimum_size.x = 158 if compact else 200
 	start_button.custom_minimum_size.y = 48 if compact else 56
 	var advanced_size := Vector2(minf(560, _active_safe_area.size.x - 20), minf(520, _active_safe_area.size.y - 16))
 	_advanced_card.position = _active_safe_area.get_center() - advanced_size * 0.5
 	_advanced_card.size = advanced_size
-	if available.size.x < 560:
+	if available.size.x < 500:
 		_home.vertical = true
 		_home_actions.custom_minimum_size.x = 0
 		_hero_art.custom_minimum_size.y = 90

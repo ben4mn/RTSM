@@ -2,7 +2,7 @@ extends Node
 ## Actual-control acceptance for the integrated landscape command dock and rail.
 
 const HUD_SCENE := preload("res://scenes/ui/hud.tscn")
-const PHONE_SIZES: Array[Vector2i] = [Vector2i(844, 390), Vector2i(932, 430)]
+const PHONE_SIZES: Array[Vector2i] = [Vector2i(667, 375), Vector2i(844, 390), Vector2i(932, 430)]
 const UI_SCALES: Array[float] = [1.0, 1.075, 1.15]
 const MIN_TOUCH_TARGET := 48.0
 
@@ -22,12 +22,17 @@ func _run() -> void:
 	ResourceManager.reset()
 	ResourceManager.initialize_player(0, {"food": 500, "wood": 500, "gold": 500})
 	for phone: Vector2i in PHONE_SIZES:
+		if "--tiny-only" in OS.get_cmdline_user_args() and phone.x != 667:
+			continue
 		for ui_scale: float in UI_SCALES:
 			for notched: bool in [false, true]:
+				if phone.x == 667 and (notched or is_equal_approx(ui_scale, 1.075)):
+					continue
 				await _exercise_profile(phone, ui_scale, notched)
 	# Effective logical area of the small phone at its largest preference
 	# after the screen-space target floor; distinct from a physical device.
-	await _exercise_profile(Vector2i(632, 356), 1.0, false)
+	if "--tiny-only" not in OS.get_cmdline_user_args():
+		await _exercise_profile(Vector2i(632, 356), 1.0, false)
 	if _failures.is_empty():
 		print("[PASS] mobile_hud_composition: %d phone/scale/notch profiles; integrated rail/dock, guidance/toast separation, contextual targets, paid production pages, placement and pause" % _profiles_checked)
 	else:
@@ -154,8 +159,25 @@ func _exercise_profile(phone: Vector2i, ui_scale: float, notched: bool) -> void:
 	_expect(scroll.scroll_horizontal == 0, profile + " production does not begin on Train page")
 	for button: Button in (hud.get("_train_buttons_container") as HBoxContainer).get_children():
 		_target(button, safe, profile)
-		_expect(scroll.get_global_rect().encloses(button.get_global_rect()), profile + " initial Train/Repeat target is clipped")
+		_expect(scroll.get_global_rect().encloses(button.get_global_rect()), profile + " initial Train/Repeat target is clipped: " + str(scroll.get_global_rect()) + " target " + str(button.get_global_rect()) + " info " + str((hud.get("selection_info_column") as Control).get_global_rect()))
 	var scout: Button = (hud.get("_train_buttons_container") as HBoxContainer).get_node("TrainButton_%d" % UnitData.UnitType.SCOUT)
+	var recruit_bounds: Dictionary = {}
+	for recruit: Button in (hud.get("_train_buttons_container") as HBoxContainer).get_children():
+		recruit_bounds[recruit.name] = recruit.get_global_rect()
+	# A paid queue and changing blocker text must never move the recruit target
+	# after the user has committed a finger to that spot.
+	var saved_resources: Dictionary = ResourceManager.get_all_resources(0).duplicate()
+	ResourceManager.initialize_player(0, {"food": 0, "wood": 0, "gold": 0})
+	hud.call("show_building_selection", "Town Center", 5000, 5000, [], [UnitData.UnitType.VILLAGER, UnitData.UnitType.SCOUT], tc)
+	await _settle(hud, logical, safe)
+	for recruit: Button in (hud.get("_train_buttons_container") as HBoxContainer).get_children():
+		_expect(recruit.get_global_rect().is_equal_approx(recruit_bounds[recruit.name]), profile + " resource/empty queue refresh moved " + str(recruit.name))
+	ResourceManager.initialize_player(0, saved_resources)
+	hud.call("show_building_selection", "Town Center", 5000, 5000, queue_items, [UnitData.UnitType.VILLAGER, UnitData.UnitType.SCOUT], tc)
+	await _settle(hud, logical, safe)
+	for recruit: Button in (hud.get("_train_buttons_container") as HBoxContainer).get_children():
+		_expect(recruit.get_global_rect().is_equal_approx(recruit_bounds[recruit.name]), profile + " paid queue refresh moved " + str(recruit.name))
+	_expect((hud.get("selection_details") as Label).text.contains("2 waiting"), profile + " production summary omits pending count")
 	for resource: String in ["food", "gold"]:
 		_expect(scout.text.contains("%d%s" % [UnitData.get_unit_cost(UnitData.UnitType.SCOUT)[resource], resource.left(1).to_upper()]), profile + " Scout omits cost")
 	_target(hud.get("_queue_navigation_button"), safe, profile)

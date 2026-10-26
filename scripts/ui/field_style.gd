@@ -46,7 +46,7 @@ static func production_meter(button: Button, progress: float) -> void:
 		meter.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
 		meter.offset_left = 10
 		meter.offset_right = -10
-		meter.offset_top = -5
+		meter.offset_top = -6
 		meter.offset_bottom = -2
 		# Border/margins must not set a minimum larger than the three-pixel seam.
 		for state: String in ["background", "fill"]:

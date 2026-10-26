@@ -5,6 +5,8 @@ const MAP_PREVIEW := preload("res://scripts/ui/map_preview.gd")
 var _failures: Array[String] = []
 var _checks: int = 0
 const PROFILES: Array[Dictionary] = [
+	{"size": Vector2(667, 375), "scale": 1.0, "notch": false},
+	{"size": Vector2(667, 375), "scale": 1.15, "notch": false},
 	{"size": Vector2(1280, 720), "scale": 1.0, "notch": false},
 	{"size": Vector2(844, 390), "scale": 1.0, "notch": false},
 	{"size": Vector2(844, 390), "scale": 1.15, "notch": true},

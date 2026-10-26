@@ -251,7 +251,7 @@ func _build_audio() -> void:
 
 
 func _build_controls() -> void:
-	_note("Tap ground: move · Hold ground: attack-move\nDrag: pan · Pinch: zoom")
+	_note("Tap ground: move · Hold: add waypoint\nSwords: attack-move · Drag: pan · Pinch: zoom")
 	_choice("Pan sensitivity", "camera_speed_scale", ["Relaxed", "Standard", "Fast"], SENSITIVITY_VALUES)
 	_choice("Zoom sensitivity", "zoom_sensitivity_scale", ["Relaxed", "Standard", "Fast"], SENSITIVITY_VALUES)
 	_toggle("Optional hold shortcuts", "hold_shortcuts_enabled")
