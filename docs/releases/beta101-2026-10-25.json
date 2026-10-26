@@ -1,0 +1,78 @@
+{
+  "status": "LIVE_VERIFIED",
+  "origin": "https://game.4mn.org/",
+  "version": "0.3.0-beta.10.1",
+  "protocol": 8,
+  "source_commit": "60cb395f03a22635773c40cea5bfbc756a201166",
+  "merged_pull_requests": [
+    4,
+    5
+  ],
+  "release_id": "v030beta101-60cb395f03a2-d426ec0614-1853c44b34",
+  "web_manifest_sha256": "d426ec0614cd3cba90a8c270177bdc632a3ab3a7bfa2be7e63ed45fa54128e9a",
+  "server_manifest_sha256": "1853c44b34fa4984b8aa3f20c95c6207b98eaa0f2bc990c1b18eaa6a4faa3e44",
+  "server_image": "sha256:41e20a4df03e10cb1050e9c558af6dd6bf87ad5fe65098e4877e711b9f877b0b",
+  "online_started_utc": "2026-10-26T03:14:01.396506589Z",
+  "web_restarted_utc": "2026-10-26T03:15:28.785401625Z",
+  "changes": [
+    "Deploy PR4 mobile presentation, audio, reduced-actor economy, queues, controls, pathfinding and combat improvements.",
+    "Queued worker depot deliveries resume the valid gather job after deposit; later waypoints, new orders and Stop retain priority.",
+    "Context help explains depot continuation, rally queues, single-worker Undo and production cancellation."
+  ],
+  "checks": [
+    {
+      "name": "Reproducible committed release",
+      "result": "PASS",
+      "scope": "Two exports matched substantive bytes; closed manifests and exact shared source verified. Protocol 8 Linux smoke and 21 deployment guard checks passed."
+    },
+    {
+      "name": "Deployment and restart",
+      "result": "PASS",
+      "scope": "Matching web/server activated; all public artifact hashes and 1,226 server runtime files checked. Zero active/closing match sockets at replacement and web restart. Previous release and server rollback retained. Tunnel, diagnostics and configuration unchanged."
+    },
+    {
+      "name": "Focused regressions",
+      "result": "3/3 PASS",
+      "scope": "Field interface, queued destinations (49), worker Undo (222). Natural queued-depot regression failed before repair and passed afterward."
+    },
+    {
+      "name": "Hands-on candidate",
+      "result": "PASS",
+      "scope": "667x375 browser: two food delivery/resume cycles, three repeated training taps, cancel-one and clear/refunds, repeated scout moves, zoom/pan and hold waypoints."
+    },
+    {
+      "name": "Hands-on public build",
+      "result": "PASS",
+      "scope": "Ordinary beta9.1 cached reload automatically upgraded without clearing storage. Solo woodland match: food delivery/resume, paid workers, two building rally points inherited by new workers, repeated scout move/zoom/pan/hold. Browser private-room creation and leave. No browser warnings/errors."
+    },
+    {
+      "name": "Public rooms",
+      "result": "40/40 PASS",
+      "scope": "Three maps, room lifecycle and authoritative start/disconnect checks over public WSS."
+    },
+    {
+      "name": "Public paid gameplay clients, first run",
+      "result": "GAMEPLAY_VERIFIED_RESULT_DISCONNECTED",
+      "scope": "Both clients verified map, movement, production, house construction and deposits. Both later reported native mbedTLS -0x6c00 while receiving match result. Server completed surrender and stayed healthy."
+    },
+    {
+      "name": "Public paid gameplay clients, focused repeat",
+      "result": "GAMEPLAY_AND_RESULT_VERIFIED_CLEANUP_WARNING",
+      "scope": "Both clients verified movement, production, construction, deposits, surrender result and preserved Solo preferences. Both exited 0; the strict wrapper failed because one process reported one resource still in use at shutdown. No resource injection. Exact logs preserved."
+    }
+  ],
+  "limitations": [
+    "No physical phone, touch-screen or speaker verification in this follow-up.",
+    "First native WSS paid-client run had a late TLS disconnect; successful gameplay/result witnesses on the repeat do not establish the cause.",
+    "The repeat strict test wrapper failed on an exit-time resource cleanup warning despite both clients exiting 0 with all gameplay and result witnesses. This was not a clean integration-suite pass."
+  ],
+  "evidence": {
+    "activation_receipt_sha256": "7c8582524178706bd7970f1dbcc77cf5bca841b72855aa2685e24b1bd5478125",
+    "guard_sha256": "b381745f35014223d51cec6d622c631c616ee6567656ecb7a2dbf4324ee60823"
+  },
+  "usage": {
+    "weekly_used_percent_start": 56,
+    "weekly_used_percent_last_check": 59,
+    "ultra_policy": "One Astra Ultra follow-up agent, six-minute cap; no ongoing agents."
+  }
+}
