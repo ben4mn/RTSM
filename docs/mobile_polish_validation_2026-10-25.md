@@ -1,6 +1,6 @@
 # Mobile polish validation — beta.10
 
-Work was split into controls/combat (#1), presentation/production (#2), and economy/audio (#3), each in a separate Git worktree. Three Astra Ultra agents worked bounded implementation passes and stopped before integration. Integration used ordinary tooling and actual browser play; no additional Ultra agents were launched. Account-wide weekly usage rose from43% at start to53% at the last integration checkpoint; account usage is not an exact task-token measure.
+Work was split into controls/combat (#1), presentation/production (#2), and economy/audio (#3), each in a separate Git worktree. Three Astra Ultra agents worked bounded implementation passes and stopped before integration. Integration used ordinary tooling and actual browser play; no additional Ultra agents were launched. Account-wide weekly usage rose from43% at start to56% at the final checkpoint; account usage is not an exact task-token measure.
 
 ## Changes
 
@@ -35,3 +35,5 @@ The production export is a committed archive ofcd0f8ca, protocol8, source tree S
 ## Limits
 
 No iPhone/Android hardware, physical pinch gestures, Safari installed-app audio, or speaker/headphone listening judgement was verified. Sound-bank tests establish playback data and scheduling, not subjective quality. No public deployment or public online match was performed; protocol8 needs a matching server rollout. Controlled paid balance runs had a360-second wall-time limit and do not certify late-game pacing, every map, matchup or win rate. The economy report records both encouraging early-contact timing and the observed income/pressure differences.
+
+Final production smoke: fresh launch at667x375, corrected opening punctuation, paid recruitment, queue navigation and the fully visible Clear label verified. No browser warning/error entries were reported for the final origin. PR #4 is open and mergeable; there are no configured GitHub status checks. The local preview remains at http://127.0.0.1:8901/. Older preview and staging servers were stopped.
