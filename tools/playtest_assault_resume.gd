@@ -15,7 +15,7 @@ func _ready() -> void:
 	call_deferred("_setup")
 
 func _setup() -> void:
-	get_window().size = Vector2i(844, 390)
+	get_window().size = Vector2i(667, 375)
 	get_window().title = "Pocket Kingdoms - staged assault playtest"
 	GameManager.guided_opening_enabled = false
 	GameManager.selected_map_seed = 101
@@ -26,10 +26,12 @@ func _setup() -> void:
 	while main.get("_building_placement") == null:
 		await get_tree().process_frame
 	main.ai_controller.set_process(false)
+	main.set_process(false)
 	main.ai_controller.get("_decision_timer").stop()
 	map = main.game_map
 	map.fog_of_war.set_process(false)
 	map.fog_of_war.reveal_all()
+	map.fog_of_war.fog_layer.clear()
 	for unit: UnitBase in get_tree().get_nodes_in_group("units"):
 		unit.command_stop()
 		unit.set_process(false)
@@ -48,6 +50,10 @@ func _setup() -> void:
 	house = main._spawn_building(BuildingData.BuildingType.HOUSE, 1, tile)
 	house.complete_instantly()
 	fighter = main._spawn_unit(UnitData.UnitType.INFANTRY, 0, center + Vector2(-160, 50))
+	fighter.stance = UnitBase.Stance.STAND_GROUND
+	fighter.visible = true
+	house.visible = true
+	map.note_camera_interaction()
 	map.camera.position = center + Vector2(-30, 20)
 	map.camera.zoom = Vector2.ONE
 	map.camera.reset_smoothing()
