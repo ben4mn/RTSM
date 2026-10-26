@@ -2,14 +2,14 @@ extends RefCounted
 ## Shared explanations for Settings and the in-match Field Guide.
 
 const ENTRIES: Array = [
-	["move", "Move", "Select a unit, tap the arrow, then tap its destination. A highlighted arrow is armed; tap it again to cancel. Tapping empty ground also moves selected units."],
+	["move", "Move & waypoints", "Tap ground to move selected units. Hold ground to append a waypoint. A fresh tap or Stop replaces the route; Clear queued destinations removes only pending stops. With a production building selected, hold ground to add rally stops for new units."],
 	["attack", "Attack-move", "Select armed units, tap the swords, then tap a destination. They fight enemies along the way. Tap a visible enemy to attack it directly. Scouts are unarmed."],
 	["select_area", "Select area", "Open Camera, tap the dashed box, then drag around your units. Tap the box again to cancel. A normal drag pans the map."],
 	["clear", "Clear selection", "Open Camera and tap Clear, or use the selection card cross, to deselect. This leaves existing unit orders running."],
 	["build", "Build", "Choose a building card, preview clear ground in sight, then Place building. The card shows its name, cost and availability. Info lets you tap cards to learn before buying."],
 	["queue", "Recruitment & queue", "Tap a unit portrait to recruit. Food, wood and gold costs stay on the card. A gold seam shows active training progress; Queue shows paid units waiting their turn."],
-	["undo", "Undo worker orders", "After sending two or more workers to Move, Gather or Build, a temporary Undo arrow appears for 10 real seconds. Tap it to restore their previous work or movement. Cargo and progress stay as they are. Remembered resource orders return toward their last seen location; unavailable old jobs stop safely. A later worker order replaces Undo. Solo pause does not extend the timer."],
-	["undo", "Cancel queued unit", "Tap a queued unit's Undo action to cancel and refund it. Its reserved population becomes available immediately."],
+	["undo", "Undo worker orders", "After sending workers to Move, Gather or Build, a temporary Undo arrow appears for 10 real seconds, even for one worker. Tap it to restore their previous work or movement. Cargo and progress stay as they are. Unavailable old jobs stop safely. A later worker order replaces Undo. Solo pause does not extend the timer."],
+	["undo", "Cancel queued unit", "Open Queue, then tap Cancel one for the unit type to refund one pending recruit. Undo cancels the newest queued recruit; Clear stops repeat training and refunds every queued recruit. Reserved population becomes available immediately."],
 	["repeat", "Repeat training", "ON keeps recruiting the last chosen unit when resources and housing allow. OFF ends repeating; already paid units keep training."],
 	["more", "More orders", "The chevron opens Stop, Stance, and Patrol or Idle workers. You can tap each choice. Optional hold: hold the chevron, slide to preview, release to choose."],
 	["stop", "Stop", "Stop selected units at their current position. Their stance still decides how they respond to nearby enemies."],
