@@ -4892,6 +4892,8 @@ func _selection_information() -> Dictionary:
 	elif not selection_details.text.is_empty():
 		lines.append(selection_details.text)
 	if _selection_kind == "unit":
+		if _selection_is_worker:
+			lines.append("Hold a friendly Town Center or Resource Camp to queue a delivery. When no later destinations remain, a gathering worker returns to its previous resource. A fresh Move or Stop cancels that return.")
 		if _selection_is_scout:
 			lines.append("Scouts are unarmed: they reveal ground and can capture or contest the Sacred Site, but cannot fight back. Move away from attackers and reinforce with Warriors or %ss." % UnitData.get_unit_name(UnitData.UnitType.ARCHER, 0))
 		lines.append("Arrow: Move to a destination. Sword: Attack-move; armed units fight on the way. A highlighted icon means the command is armed; tap it again to cancel.")

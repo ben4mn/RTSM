@@ -1,6 +1,18 @@
 {
   "releases": [
     {
+      "id": "2026-10-25-return-to-work",
+      "date": "2026-10-25",
+      "version": "0.3.0-beta.10.1",
+      "title": "Back to work",
+      "summary": "A chosen delivery should not leave your worker idle.",
+      "changes": [
+        "Workers return to their active gathering job after the last queued depot delivery. Later waypoints and fresh Move or Stop orders take priority.",
+        "The touch guide now explains queued routes, building rally stops, single-worker Undo and the current queue cancellation controls. Worker Info explains delivery and return behavior.",
+        "Includes the beta.10 kingdom redesign, recorded sound palette, reduced-unit economy and steadier commands. Online requires matching protocol-8 clients and server."
+      ]
+    },
+    {
       "id": "2026-10-25-fewer-units-clearer-orders",
       "date": "2026-10-25",
       "version": "0.3.0-beta.10",
