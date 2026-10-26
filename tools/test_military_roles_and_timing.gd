@@ -76,22 +76,22 @@ func _test_windup_and_projectile_impact() -> void:
 	var target: UnitBase = _spawn(arena, UnitData.UnitType.INFANTRY, 1, Vector2.ZERO)
 	archer.command_attack(target)
 	archer._process(0.01)
-	_expect(is_equal_approx(target.hp, 60.0), "bow windup does not apply damage")
+	_expect(is_equal_approx(target.hp, target.max_hp), "bow windup does not apply damage")
 	archer._process(0.19)
 	var projectile: Node = _find_projectile(arena)
 	_expect(projectile != null, "bow release creates a moving projectile")
-	_expect(is_equal_approx(target.hp, 60.0), "arrow release does not pre-apply HP loss")
+	_expect(is_equal_approx(target.hp, target.max_hp), "arrow release does not pre-apply HP loss")
 	if projectile != null:
 		arena.targets_visible = false
 		projectile.call("advance_projectile", 0.05)
-		_expect(is_equal_approx(target.hp, 60.0), "arrow in flight does not apply HP loss")
+		_expect(is_equal_approx(target.hp, target.max_hp), "arrow in flight does not apply HP loss")
 		_expect(not bool(projectile.get("visible")), "arrow rendering cannot reveal a flight into hidden fog")
 		# A shot already released survives the archer's removal.
 		archer.free()
 		projectile.call("advance_projectile", 0.4)
-		_expect(is_equal_approx(target.hp, 48.0), "arrow arrival applies exactly one twelve-point counter hit")
+		_expect(is_equal_approx(target.hp, 96.0), "arrow arrival applies exactly one twenty-four-point counter hit")
 		projectile.call("advance_projectile", 0.4)
-		_expect(is_equal_approx(target.hp, 48.0), "completed projectile cannot apply damage twice")
+		_expect(is_equal_approx(target.hp, 96.0), "completed projectile cannot apply damage twice")
 	arena.free()
 
 

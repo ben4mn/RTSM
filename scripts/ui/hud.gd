@@ -3292,7 +3292,7 @@ func _update_queue_display(queue_items: Array) -> void:
 	clear_all.visible = true
 	_attach_hud_hold(clear_all, _refund_information.bind(-2))
 	clear_all.mouse_filter = Control.MOUSE_FILTER_STOP
-	clear_all.text = "Stop all"
+	clear_all.text = "Clear"
 	clear_all.clip_text = true
 	clear_all.tooltip_text = "Stop repeat training and cancel all queued units"
 	clear_all.custom_minimum_size = Vector2(48 if compact_training else 64, 48)

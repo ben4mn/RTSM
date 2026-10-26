@@ -40,8 +40,8 @@ var _building_scenes: Dictionary = {
 
 # --- Team colors ---
 const TEAM_COLORS: Array[Color] = [
-	Color("88b7ad"),  # Player 0 â€” mineral teal
-	Color("d69477"),  # Player 1 â€” clay
+	Color("88b7ad"),  # Player 0 — mineral teal
+	Color("d69477"),  # Player 1 — clay
 ]
 
 # --- Node references ---
@@ -634,7 +634,7 @@ func _bootstrap_opening_guidance() -> void:
 	hud.set_guided_military_shortcuts_visible(false)
 	hud.set_pending_military_shortcut(false)
 	# The camera outline needs a visible explanation outside the map drawing.
-	hud.set_minimap_hint("Map Â· tap to view")
+	hud.set_minimap_hint("Map · tap to view")
 	if _guided_opening_active:
 		call_deferred("_update_progression_hint")
 	else:
@@ -760,7 +760,7 @@ func _on_sacred_site_captured(player_id: int) -> void:
 	if player_id == 0:
 		var remaining_seconds: int = ceili(_sacred_last_remaining if _sacred_last_remaining >= 0.0 else SkirmishData.SACRED_VICTORY_HOLD_SECONDS)
 		var remaining_text: String = "%d:%02d" % [int(remaining_seconds / 60.0), remaining_seconds % 60]
-		var claim_message: String = "Sacred claimed. Keep a fighter in the ring Â· %s to win." if GameManager.get_match_mode() == SkirmishData.MatchMode.STANDARD else "Sacred Site secured! Hold %s more to win."
+		var claim_message: String = "Sacred claimed. Keep a fighter in the ring · %s to win." if GameManager.get_match_mode() == SkirmishData.MatchMode.STANDARD else "Sacred Site secured! Hold %s more to win."
 		hud.show_notification(claim_message % remaining_text, Color(0.9, 0.8, 0.2))
 	else:
 		var enemy_claim: String = "Enemy claimed Sacred. Its clock needs a fighter; enter the ring to contest." if GameManager.get_match_mode() == SkirmishData.MatchMode.STANDARD else "Enemy holds Sacred Site. Enter its ring to pause victory. Tap to view."
@@ -2226,7 +2226,7 @@ func _on_move_command(target_tile: Vector2i) -> void:
 	var issue_attack_move: bool = _attack_move_command_armed
 	_clear_armed_unit_commands(false)
 
-	# Check if a production building is selected â€” set rally point
+	# Check if a production building is selected — set rally point
 	if selected.size() == 1 and selected[0] is BuildingBase:
 		var b: BuildingBase = selected[0] as BuildingBase
 		if b.player_owner == 0 and b.trainable_units.size() > 0:
@@ -3008,7 +3008,7 @@ func _on_find_placement_space() -> void:
 	if GameManager.current_state != GameManager.GameState.PLAYING or get_tree().paused:
 		return
 	if not _building_placement.find_visible_space(hud.get_placement_search_safe_rect(), hud.get_world_occlusion_rects()):
-		hud.show_notification("No nearby space Â· pan or scout", Color(1.0, 0.75, 0.3))
+		hud.show_notification("No nearby space · pan or scout", Color(1.0, 0.75, 0.3))
 
 
 func _on_confirm_placement() -> void:
@@ -3031,8 +3031,8 @@ func _on_placement_input_mode_changed(uses_touch: bool) -> void:
 
 func _house_placement_instruction() -> String:
 	if _building_placement != null and _building_placement.uses_touch_input():
-		return "2 / 4 Â· Position your House, then tap Place."
-	return "2 / 4 Â· Click clear ground to place your House."
+		return "2 / 4 · Position your House, then tap Place."
+	return "2 / 4 · Click clear ground to place your House."
 
 
 func _cancel_placement() -> void:
@@ -3667,7 +3667,7 @@ func _update_fog_entity_visibility() -> void:
 		var tile_pos: Vector2i = game_map.world_to_tile(unit.global_position)
 		unit.visible = fog.is_tile_visible(tile_pos)
 
-	# Hide/show enemy buildings â€” visible if ANY tile in footprint is visible.
+	# Hide/show enemy buildings — visible if ANY tile in footprint is visible.
 	for building in _player_buildings[1]:
 		if not is_instance_valid(building):
 			continue
@@ -3752,7 +3752,7 @@ func _update_progression_hint() -> void:
 		_clear_guidance_state()
 		return
 	_refresh_guided_opening_stage()
-	hud.set_minimap_hint("Map Â· tap to view")
+	hud.set_minimap_hint("Map · tap to view")
 
 	var military: int = 0
 	var has_tc_selected: bool = false
@@ -3782,13 +3782,13 @@ func _update_progression_hint() -> void:
 					_build_menu.call("set_recommended_building", -1)
 				if has_villager_selected:
 					_apply_primary_guidance(
-						"1 / 4 Â· Tap a berry bush to gather food.",
+						"1 / 4 · Tap a berry bush to gather food.",
 						"",
 						-1
 					)
 				else:
 					_apply_primary_guidance(
-						"1 / 4 Â· Tap a villager, then a berry bush.",
+						"1 / 4 · Tap a villager, then a berry bush.",
 						"idle_button",
 						-1
 					)
@@ -3801,7 +3801,7 @@ func _update_progression_hint() -> void:
 				if _placement_active and _placement_type == BuildingData.BuildingType.HOUSE:
 					if _last_invalid_placement_reason != "":
 						_apply_primary_guidance(
-							"2 / 4 Â· Move the House onto clear ground.",
+							"2 / 4 · Move the House onto clear ground.",
 							"placement_cancel",
 							-1,
 							BuildingData.BuildingType.HOUSE,
@@ -3815,22 +3815,22 @@ func _update_progression_hint() -> void:
 							BuildingData.BuildingType.HOUSE
 						)
 				elif hud.is_build_menu_open():
-					_apply_primary_guidance("2 / 4 Â· Choose the House in Economy.", "", -1, BuildingData.BuildingType.HOUSE)
+					_apply_primary_guidance("2 / 4 · Choose the House in Economy.", "", -1, BuildingData.BuildingType.HOUSE)
 				else:
-					_apply_primary_guidance("2 / 4 Â· Build a House for room to grow.", "build_button", -1, BuildingData.BuildingType.HOUSE)
+					_apply_primary_guidance("2 / 4 · Build a House for room to grow.", "build_button", -1, BuildingData.BuildingType.HOUSE)
 				return
 			GuidedOpeningStage.TRAIN_SCOUT:
 				if _build_menu and _build_menu.has_method("set_recommended_building"):
 					_build_menu.call("set_recommended_building", -1)
 				if has_tc_selected:
 					_apply_primary_guidance(
-						"3 / 4 Â· Recruit a Scout to explore.",
+						"3 / 4 · Recruit a Scout to explore.",
 						"train_unit",
 						UnitData.UnitType.SCOUT
 					)
 				else:
 					_apply_primary_guidance(
-						"3 / 4 Â· Tap Base, then recruit a Scout.",
+						"3 / 4 · Tap Base, then recruit a Scout.",
 						"",
 						UnitData.UnitType.SCOUT
 					)
@@ -3839,11 +3839,11 @@ func _update_progression_hint() -> void:
 				if _build_menu and _build_menu.has_method("set_recommended_building"):
 					_build_menu.call("set_recommended_building", -1)
 				if military <= 0:
-					_apply_primary_guidance("4 / 4 Â· Your Scout is trainingâ€¦", "military_button", -1)
+					_apply_primary_guidance("4 / 4 · Your Scout is training…", "military_button", -1)
 				elif has_selected_military:
-					_apply_primary_guidance("4 / 4 Â· Tap open ground to explore.", "", -1)
+					_apply_primary_guidance("4 / 4 · Tap open ground to explore.", "", -1)
 				else:
-					_apply_primary_guidance("4 / 4 Â· Tap your Scout, then open ground.", "", -1)
+					_apply_primary_guidance("4 / 4 · Tap your Scout, then open ground.", "", -1)
 				return
 			GuidedOpeningStage.FREE_PLAY:
 				pass

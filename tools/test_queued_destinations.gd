@@ -47,6 +47,14 @@ func _run() -> void:
 	_check(worker.queued_orders.size() == 1, "Main hold queue appends without replacing active move")
 	var overlay: Node = map.get_node("CommandPaths")
 	_check(overlay.get_queued_destination_markers().size() == 1, "selected queue has numbered waypoint feedback")
+	var companion: UnitBase = main._player_units[0][1]
+	companion.queued_orders.assign([{"kind": "move", "position": second + Vector2(24, 0)}])
+	map.selection_mgr.selected.append(companion)
+	_check(overlay.get_queued_destination_markers().size() == 1, "nearby formation waypoints share one numbered route")
+	companion.queued_orders[0]["position"] = second + Vector2(240, 0)
+	_check(overlay.get_queued_destination_markers().size() == 2, "separate destinations retain distinct numbered routes")
+	companion.queued_orders.clear()
+	map.selection_mgr.select_single(worker)
 	main._on_cancel_queue_command()
 	_check(worker.queued_orders.is_empty() and worker.current_state == UnitBase.State.MOVING, "clear queue retains active leg")
 

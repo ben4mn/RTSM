@@ -161,6 +161,23 @@ func get_queued_destination_markers() -> Array[Dictionary]:
 			if order.has("position"):
 				points.append(order.position)
 		if not points.is_empty():
+			# Formation members share a route even though their reserved tiles differ.
+			# Show one numbered sequence instead of stacking labels on tiny screens.
+			var represented: bool = false
+			for group: Dictionary in groups:
+				var existing: PackedVector2Array = group.points
+				if existing.size() != points.size():
+					continue
+				var same_route: bool = true
+				for index: int in points.size():
+					if existing[index].distance_to(points[index]) > FORMATION_GOAL_RADIUS:
+						same_route = false
+						break
+				if same_route:
+					represented = true
+					break
+			if represented:
+				continue
 			var origin: Vector2 = entry.move_target if entry is UnitBase and entry.current_state == UnitBase.State.MOVING else entry.global_position
 			groups.append({"origin": origin, "points": points})
 		if groups.size() >= MAX_ROUTE_GROUPS:

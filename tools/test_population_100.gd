@@ -24,7 +24,7 @@ func _run() -> void:
 		for mode: int in [SkirmishData.MatchMode.STANDARD, SkirmishData.MatchMode.QUICK_CONTROL]:
 			await _match(civ, mode)
 	for failure: String in _failures: push_error("[FAIL] population_100: " + failure)
-	if _failures.is_empty(): print("[PASS] population_100: %d checks; 3 civilizations Ãƒâ€” 2 modes, paid Houses15Ã¢â€ â€™25Ã¢â€ â€™35Ã¢â€ â€™Ã¢â‚¬Â¦Ã¢â€ â€™100, partial/reserve gains, building loss, refunds, queue reservations/completion while overcap, migration and unchanged small budgets" % _checks)
+	if _failures.is_empty(): print("[PASS] population_100: %d checks; 3 civilizations Ãƒ— 2 modes, paid Houses15Ã¢â€ â€™25Ã¢â€ â€™35Ã¢â€ â€™Ã¢â‚¬Â¦Ã¢â€ â€™100, partial/reserve gains, building loss, refunds, queue reservations/completion while overcap, migration and unchanged small budgets" % _checks)
 	get_tree().quit(0 if _failures.is_empty() else 1)
 
 func _match(civ: int, mode: int) -> void:

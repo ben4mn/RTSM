@@ -67,7 +67,7 @@ func _solo_touch_journey() -> void:
 	_selection.select_many(_workers)
 	_main._on_move_command(_map.world_to_tile(_workers[0].global_position) + Vector2i(3, 0))
 	var status: Dictionary = _main._worker_order_undo.status(0)
-	_expect(int(status.get("count", 0)) == 4, "group Move exposes four-worker Undo")
+	_expect(int(status.get("count", 0)) == UnitData.STARTING_VILLAGERS, "group Move exposes initial-worker Undo")
 	_expect(int(status.get("remaining_ms", 0)) > 9000, "ten-second monotonic lifetime")
 	_workers[0].set("_cargo", {"food": 5})
 	_workers[0].carried_amount = 5
@@ -107,10 +107,10 @@ func _authority_checks() -> void:
 	_expect(int(_main._worker_order_undo.status(0).get("id", 0)) == id, "invalid IDs leave valid record intact")
 	_expect(not _adapter.execute_command(1, {"command": "undo_workers", "undo_id": id}).is_empty(), "other owner cannot use record")
 	_expect(_adapter._snapshot_for(1).worker_undo.is_empty(), "other owner's snapshot omits record")
-	_expect(_adapter._snapshot_for(0).worker_undo.count == 4, "own snapshot contains availability only")
+	_expect(_adapter._snapshot_for(0).worker_undo.count == UnitData.STARTING_VILLAGERS, "own snapshot contains availability only")
 	_expect(_adapter.execute_command(0, {"command": "undo_workers", "undo_id": float(id)}).is_empty(), "integral JSON ID accepted")
 	_expect(not _adapter.execute_command(0, {"command": "undo_workers", "undo_id": id}).is_empty(), "replay rejected")
-	_expect(_adapter._snapshot_for(0).worker_undo_result.restored == 4, "authority supplies recipient's result counts")
+	_expect(_adapter._snapshot_for(0).worker_undo_result.restored == UnitData.STARTING_VILLAGERS, "authority supplies recipient's result counts")
 	# A newer single-worker order invalidates the previous group action.
 	_adapter.execute_command(0, move)
 	_adapter.execute_command(0, {"command": "stop", "ids": [ids[0]]})
@@ -136,7 +136,7 @@ func _authority_checks() -> void:
 	var tile: Vector2i = _map.world_to_tile(_wood.global_position)
 	_map.fog_of_war.fog_grid[tile.y][tile.x] = MapData.FogState.EXPLORED
 	_adapter.execute_command(0, {"command": "undo_workers", "undo_id": id})
-	_expect(_main._worker_order_undo.result(0).stopped == 4, "hidden old job stops safely with result feedback")
+	_expect(_main._worker_order_undo.result(0).stopped == UnitData.STARTING_VILLAGERS, "hidden old job stops safely with result feedback")
 	for worker: Villager in _workers: _expect(worker.current_state == UnitBase.State.IDLE, "hidden resource is not reactivated")
 	_map.fog_of_war.reveal_all()
 	# Build intent restores via ordinary commands without changing progress.
@@ -156,7 +156,7 @@ func _authority_checks() -> void:
 	_workers[0].current_state = UnitBase.State.DEAD
 	foundation.free()
 	_adapter.execute_command(0, {"command": "undo_workers", "undo_id": id})
-	_expect(_main._worker_order_undo.result(0).stopped == 3, "dead worker skipped; removed foundation stops survivors")
+	_expect(_main._worker_order_undo.result(0).stopped == UnitData.STARTING_VILLAGERS - 1, "dead worker skipped; removed foundation stops survivors")
 	_expect(_workers[0].current_state == UnitBase.State.DEAD, "Undo never revives workers")
 	var guests: Array = (_main.get("_player_units")[1] as Array).filter(func(unit: UnitBase) -> bool: return unit is Villager)
 	var guest_job: Node2D = _resource("food", 1)
@@ -166,7 +166,7 @@ func _authority_checks() -> void:
 	var guest_destination: Vector2 = _map.tile_to_world(_map.world_to_tile(guests[0].global_position) + Vector2i(-3, 0))
 	_expect(_adapter.execute_command(1, {"command": "move", "ids": guest_ids, "position": [guest_destination.x, guest_destination.y]}).is_empty(), "guest authority group Move accepted")
 	var guest_status: Dictionary = _main._worker_order_undo.status(1)
-	_expect(int(guest_status.get("count", 0)) == 4, "guest authority owns its own record")
+	_expect(int(guest_status.get("count", 0)) == UnitData.STARTING_VILLAGERS, "guest authority owns its own record")
 	_expect(_adapter._snapshot_for(0).worker_undo.is_empty(), "host never receives guest availability")
 	_expect(_adapter.execute_command(1, {"command": "undo_workers", "undo_id": guest_status.id}).is_empty(), "guest record restores successfully")
 	for worker: Villager in guests: _expect(worker.has_active_gather_order() and worker.gather_target == guest_job, "guest restores original work")
