@@ -32,7 +32,7 @@ func _ready() -> void:
 
 func _run() -> void:
 	AudioManager.set_all_enabled(false)
-	# This fixture asserts baseline HP (including 80-HP cavalry). A saved
+	# This fixture asserts baseline HP (including baseline cavalry health). A saved
 	# English/Mongol opponent preference otherwise changes it before any hit.
 	GameManager.selected_civilization = CivilizationData.Civilization.CROWNLANDS
 	GameManager.selected_opponent_civilization = CivilizationData.Civilization.CROWNLANDS
@@ -129,7 +129,7 @@ func _test_retreat_and_stop_cancel_unreleased_attacks() -> void:
 		else:
 			warrior.command_stop()
 		warrior._process(0.2)
-		_expect(is_equal_approx(target.hp, 80.0), "%s cancels spear windup before impact" % command)
+		_expect(is_equal_approx(target.hp, target.max_hp), "%s cancels spear windup before impact" % command)
 		_expect(warrior.attack_target == null, "%s immediately clears the combat target" % command)
 		if command == "retreat":
 			_expect(warrior.global_position.x > 20.0 and not warrior.can_auto_retaliate(), "retreat moves away without auto retaliation")
@@ -153,7 +153,7 @@ func _test_fog_and_post_kill_acquisition() -> void:
 	warrior._process(0.01)
 	arena.targets_visible = false
 	warrior._process(0.2)
-	_expect(is_equal_approx(target.hp, 80.0), "unreleased spear attack cancels after loss of vision")
+	_expect(is_equal_approx(target.hp, target.max_hp), "unreleased spear attack cancels after loss of vision")
 	arena.targets_visible = true
 	warrior.command_attack(target)
 	target.die()
