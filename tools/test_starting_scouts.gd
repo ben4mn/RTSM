@@ -120,7 +120,7 @@ func _check_start(main: Node, context: String) -> void:
 		var units: Array = main.get("_player_units")[owner]
 		var scouts: Array = units.filter(func(unit: UnitBase) -> bool: return unit.unit_type == UnitData.UnitType.SCOUT)
 		var workers: Array = units.filter(func(unit: UnitBase) -> bool: return unit is Villager)
-		_expect(scouts.size() == 1 and workers.size() == 4 and units.size() == 5, context + " four workers plus one Scout for owner %d" % owner)
+		_expect(scouts.size() == 1 and workers.size() == 2 and units.size() == 3, context + " two workers plus one Scout for owner %d" % owner)
 		_expect(int(GameManager.players[owner].population) == 5 and int(GameManager.players[owner].population_reserved) == 0, context + " exact used population without queue reservation")
 		_expect(int(GameManager.players[owner].population_cap) == 15 and GameManager.can_reserve_population(owner, 1), context + " unchanged TC housing leaves recruitment room")
 		_expect(ResourceManager.get_all_resources(owner) == SkirmishData.STARTING_RESOURCES, context + " starting bank unchanged")

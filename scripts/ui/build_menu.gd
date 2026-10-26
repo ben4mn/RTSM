@@ -54,7 +54,7 @@ const BUILDING_CATEGORIES: Dictionary = {
 }
 const BUILDING_PURPOSES: Dictionary = {
 	BuildingData.BuildingType.HOUSE: "Housing for your growing town",
-	BuildingData.BuildingType.FARM: "Unlimited food · 1 worker",
+	BuildingData.BuildingType.FARM: "Unlimited food Â· 1 worker",
 	BuildingData.BuildingType.RESOURCE_CAMP: "All resource drop-off",
 	BuildingData.BuildingType.TOWN_CENTER: "Train workers",
 	BuildingData.BuildingType.BARRACKS: "Train Warriors",
@@ -329,7 +329,7 @@ func _build_info(building_type: int) -> Dictionary:
 	if int(stats.get("age_required", 0)) <= _current_age and _can_afford(stats.get("cost", {})):
 		lines.append("Close this panel and turn off Info to choose a placement." if _info_mode else "Tap the card to preview a placement.")
 	lines.append("Place spends the cost; Cancel spends nothing.")
-	lines.append("Card cost key: F = Food · W = Wood · G = Gold.")
+	lines.append("Card cost key: F = Food Â· W = Wood Â· G = Gold.")
 	return {"title": BuildingData.get_building_name(building_type), "body": "\n".join(lines)}
 
 
@@ -468,7 +468,7 @@ func _format_button_text(stats: Dictionary, age_locked: bool, building_type: int
 		if int(cost.get(resource, 0)) > 0:
 			parts.append("%d%s" % [int(cost[resource]), resource.left(1).to_upper()])
 	var lines: PackedStringArray = [_compact_building_name(String(stats.get("name", "Build")))]
-	lines.append(" · ".join(parts) if not parts.is_empty() else "No cost")
+	lines.append(" Â· ".join(parts) if not parts.is_empty() else "No cost")
 	# Only decision-changing context stays on the compact card. Full purpose,
 	# cost names and effects remain available through Info, hold and accessibility.
 	if age_locked:
@@ -500,22 +500,22 @@ func _format_tooltip(stats: Dictionary, building_type: int) -> String:
 		var amount: int = int(stats.get("cost", {}).get(resource, 0))
 		if amount > 0:
 			costs.append("%d %s" % [amount, resource])
-	lines.append("Cost: " + (" · ".join(costs) if not costs.is_empty() else "No cost"))
+	lines.append("Cost: " + (" Â· ".join(costs) if not costs.is_empty() else "No cost"))
 	var age_req: int = stats.get("age_required", 0)
 	if age_req > _current_age:
-		lines.append("Locked · " + _get_age_requirement_text(age_req))
+		lines.append("Locked Â· " + _get_age_requirement_text(age_req))
 	elif not _can_afford(stats.get("cost", {})):
 		var missing: PackedStringArray = []
 		for resource: String in ["food", "wood", "gold"]:
 			var shortage: int = maxi(0, int(stats.get("cost", {}).get(resource, 0)) - int(_current_resources.get(resource, 0)))
 			if shortage > 0:
 				missing.append("%d %s" % [shortage, resource])
-		lines.append("Need " + " · ".join(missing) + " more")
+		lines.append("Need " + " Â· ".join(missing) + " more")
 	else:
 		lines.append("Ready to place")
 	if age_req > 1 and age_req <= _current_age:
 		lines.append(_get_age_requirement_text(age_req))
-	lines.append("HP %d · Build %ds" % [stats.get("hp", 0), int(stats.get("build_time", 30.0))])
+	lines.append("HP %d Â· Build %ds" % [stats.get("hp", 0), ceili(float(stats.get("build_time", 30.0)) / UnitData.VILLAGER_BUILD_SPEED)])
 	if building_type == BuildingData.BuildingType.FARM:
 		lines.append("One worker per Farm. Food must be carried to a Town Center or Resource Camp.")
 	if stats.get("pop_provided", 0) > 0:

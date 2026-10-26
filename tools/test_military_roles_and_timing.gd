@@ -58,7 +58,7 @@ func _test_shared_role_data() -> void:
 		var arena := VisibleArena.new()
 		add_child(arena)
 		var unit: UnitBase = _spawn(arena, role, 0, Vector2.ZERO)
-		_expect(int(UnitData.UNITS[role]["pop_cost"]) == 1, "compact military role takes one population")
+		_expect(int(UnitData.UNITS[role]["pop_cost"]) == 2, "household military role takes two population")
 		_expect(is_equal_approx(unit.attack_speed, 1.0 / float(UnitData.UNITS[role]["attack_interval"])), "runtime cadence reads shared role data")
 		_expect(not UnitData.get_unit_counter_description(role).is_empty(), "military role exposes its counter explanation")
 		arena.free()

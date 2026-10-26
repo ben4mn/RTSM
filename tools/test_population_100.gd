@@ -17,14 +17,14 @@ func _run() -> void:
 		_expect(SkirmishData.restore_population_limit(old, 0) == (100 if old == 30 else old), "legacy migration %d" % old)
 	for choice: int in SkirmishData.POPULATION_OPTIONS:
 		_expect(SkirmishData.restore_population_limit(choice, 1) == choice, "new explicit choice survives reload %d" % choice)
-	_expect(SkirmishData.get_economy_target(100) == 30 and SkirmishData.get_easy_economy_target(100) == 30, "large target leaves70slots for armies")
+	_expect(SkirmishData.get_economy_target(100) == 15 and SkirmishData.get_easy_economy_target(100) == 15, "large target leaves70slots for armies")
 	for limit: int in [20,30,40]:
-		_expect(SkirmishData.get_economy_target(limit) == int(limit / 2) and SkirmishData.get_easy_economy_target(limit) == int(limit * 2 / 5), "small economy split preserved")
+		_expect(SkirmishData.get_economy_target(limit) == int(limit / 4) and SkirmishData.get_easy_economy_target(limit) == int(limit / 5), "small economy split preserved")
 	for civ: int in CivilizationData.ORDERED_IDS:
 		for mode: int in [SkirmishData.MatchMode.STANDARD, SkirmishData.MatchMode.QUICK_CONTROL]:
 			await _match(civ, mode)
 	for failure: String in _failures: push_error("[FAIL] population_100: " + failure)
-	if _failures.is_empty(): print("[PASS] population_100: %d checks; 3 civilizations × 2 modes, paid Houses15→25→35→…→100, partial/reserve gains, building loss, refunds, queue reservations/completion while overcap, migration and unchanged small budgets" % _checks)
+	if _failures.is_empty(): print("[PASS] population_100: %d checks; 3 civilizations Ãƒâ€” 2 modes, paid Houses15Ã¢â€ â€™25Ã¢â€ â€™35Ã¢â€ â€™Ã¢â‚¬Â¦Ã¢â€ â€™100, partial/reserve gains, building loss, refunds, queue reservations/completion while overcap, migration and unchanged small budgets" % _checks)
 	get_tree().quit(0 if _failures.is_empty() else 1)
 
 func _match(civ: int, mode: int) -> void:
@@ -71,22 +71,22 @@ func _match(civ: int, mode: int) -> void:
 	_expect(house_info.contains("Match limit reached") and house_info.contains("reserve"), "max card explains why extra House cannot increase max")
 	# Explicit synthetic pressure isolates ledger boundaries without recruiting
 	# ninety-four units or changing costs/timing; real paid queues still run.
-	_expect(GameManager.add_population(0,99-int(GameManager.players[0].population)), "pressure fixture fills99living")
+	_expect(GameManager.add_population(0,98-int(GameManager.players[0].population)), "pressure fixture fills98living")
 	var tc: BuildingBase = _main.get("_player_buildings")[0][0]
 	var queue: ProductionQueue = tc.get_production_queue()
 	queue.set_process(false)
 	var bank: Dictionary = ResourceManager.get_all_resources(0).duplicate()
-	_expect(queue.enqueue_unit(UnitData.UnitType.VILLAGER), "lastslot accepts paidreservation")
-	_expect(GameManager.get_committed_population(0)==100 and GameManager.get_reserved_population(0)==1, "queue reserves slot100")
+	_expect(queue.enqueue_unit(UnitData.UnitType.VILLAGER), "last two slots accept paid reservation")
+	_expect(GameManager.get_committed_population(0)==100 and GameManager.get_reserved_population(0)==2, "queue reserves slot100")
 	var paid_bank: Dictionary = ResourceManager.get_all_resources(0).duplicate()
-	_expect(not queue.enqueue_unit(UnitData.UnitType.VILLAGER) and ResourceManager.get_all_resources(0)==paid_bank, "slot101 rejected withoutcharge")
-	_expect(queue.cancel_unit(0) and ResourceManager.get_all_resources(0)==bank and GameManager.get_committed_population(0)==99, "cancel refunds and frees slot")
+	_expect(not queue.enqueue_unit(UnitData.UnitType.VILLAGER) and ResourceManager.get_all_resources(0)==paid_bank, "over-cap recruit rejected without charge")
+	_expect(queue.cancel_unit(0) and ResourceManager.get_all_resources(0)==bank and GameManager.get_committed_population(0)==98, "cancel refunds and frees slot")
 	_expect(queue.enqueue_unit(UnitData.UnitType.VILLAGER), "requeue uses restoredslot")
 	if houses.size()==10:
 		houses[9].take_damage(houses[9].max_hp)
 		_expect(_cap()==100, "first loss absorbed by nominalreserve")
 		houses[8].take_damage(houses[8].max_hp)
-		_expect(_cap()==95 and GameManager.get_reserved_population(0)==1, "second loss reduces95 but preserves paidqueue")
+		_expect(_cap()==95 and GameManager.get_reserved_population(0)==2, "second loss reduces95 but preserves paidqueue")
 		queue.advance(float(UnitData.get_unit_stats(UnitData.UnitType.VILLAGER,0).build_time)+0.1)
 		_expect(int(GameManager.players[0].population)==100 and GameManager.get_reserved_population(0)==0, "paid training finishes overcap")
 		_expect(not queue.enqueue_unit(UnitData.UnitType.VILLAGER), "no newtraining whileovercap")
