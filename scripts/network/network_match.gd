@@ -13,6 +13,10 @@ var _hit_flashes: Dictionary = {}
 var _camera_initialized: bool = false
 var _snapshot_number: int = 0
 var _resource_tiles: Array[Vector2i] = []
+## Last publicly observed enemy footprints, separately for each recipient.
+var _known_enemy_buildings: Dictionary = {0: {}, 1: {}}
+var _forgotten_buildings: Dictionary = {0: [], 1: []}
+var _known_resource_counts: Dictionary = {0: {}, 1: {}}
 
 func setup(controller: Node) -> void:
 	main = controller
@@ -75,6 +79,7 @@ func broadcast_snapshots() -> void:
 
 func _snapshot_for(slot: int) -> Dictionary:
 	var actors: Array = []
+	var observed_buildings: Dictionary = {}
 	for node: Node2D in entities.values():
 		if not is_instance_valid(node) or node.is_queued_for_deletion():
 			continue
@@ -115,17 +120,39 @@ func _snapshot_for(slot: int) -> Dictionary:
 				if queue != null:
 					actor["queue"] = {"items": queue.queue, "progress": queue.current_progress, "time": queue.current_train_time, "training": queue.is_training, "repeat": false, "repeat_type": queue.auto_queue_unit_type}
 		actors.append(actor)
+		if node is BuildingBase and node.player_owner != slot:
+			var id: int = NetworkSession.entity_id(node)
+			observed_buildings[id] = true
+			_known_enemy_buildings[slot][id] = {"tile": game_map.world_to_tile(node.global_position), "footprint": node.footprint, "actor": {"id": id, "owner": node.player_owner, "type": node.building_type, "state": node.state, "progress": node.build_progress, "hp": node.hp, "x": node.global_position.x, "y": node.global_position.y}}
+	# Omission alone means loss of sight, never destruction. Retire a previous
+	# sighting only when its last-known ground is actually scouted and empty.
+	var forgotten_buildings: Array = _forgotten_buildings[slot]
+	for id: int in _known_enemy_buildings[slot].keys():
+		if observed_buildings.has(id): continue
+		var known: Dictionary = _known_enemy_buildings[slot][id]
+		var visible: bool = false
+		for dy: int in known.footprint.y:
+			for dx: int in known.footprint.x:
+				if game_map.is_tile_visible_to_player(known.tile + Vector2i(dx, dy), slot): visible = true
+		if visible:
+			forgotten_buildings.append(id)
+			_known_enemy_buildings[slot].erase(id)
 	var resources: Array = []
 	var visible_resource_tiles: Dictionary = game_map.get_visible_tiles_for_player(_resource_tiles, slot)
 	for tile: Vector2i in _resource_tiles:
 		if visible_resource_tiles.has(tile):
 			var resource: Node2D = game_map.get_resource_node_at(tile)
-			resources.append([tile.x, tile.y, resource.remaining if is_instance_valid(resource) else 0])
+			var amount: int = resource.remaining if is_instance_valid(resource) else 0
+			resources.append([tile.x, tile.y, amount])
+			_known_resource_counts[slot][tile] = amount
+	var memories: Dictionary = {"buildings": [], "resources": []}
+	for known: Dictionary in _known_enemy_buildings[slot].values(): memories.buildings.append(known.actor)
+	for tile: Vector2i in _known_resource_counts[slot]: memories.resources.append([tile.x, tile.y, _known_resource_counts[slot][tile]])
 	var site: Node = game_map.sacred_site
 	var player: Dictionary = GameManager.players[slot].duplicate()
 	player.erase("units")
 	player.erase("buildings")
-	return {"worker_undo": main._worker_order_undo.status(slot), "worker_undo_result": main._worker_order_undo.result(slot), "tick": _snapshot_number, "time": GameManager.game_time, "civilizations": [GameManager.get_player_civilization(0), GameManager.get_player_civilization(1)], "actors": actors, "resources": resources, "bank": ResourceManager.get_all_resources(slot), "player": player, "upgrades": GameManager.player_upgrades[slot], "research": GameManager.researched_upgrades[slot], "stats": main._stats[slot], "battle": main._battle_receipts.get_summary(slot), "site": {"state": site.state, "owner": site.owning_player, "capture": site.capture_progress, "timer": site.victory_timer, "hold": site.victory_hold_time, "clock_ticking": site.clock_ticking, "garrison_paused": site.garrison_paused, "neutralizing": site._being_neutralized}}
+	return {"memories": memories, "forgotten_buildings": forgotten_buildings.duplicate(), "worker_undo": main._worker_order_undo.status(slot), "worker_undo_result": main._worker_order_undo.result(slot), "tick": _snapshot_number, "time": GameManager.game_time, "civilizations": [GameManager.get_player_civilization(0), GameManager.get_player_civilization(1)], "actors": actors, "resources": resources, "bank": ResourceManager.get_all_resources(slot), "player": player, "upgrades": GameManager.player_upgrades[slot], "research": GameManager.researched_upgrades[slot], "stats": main._stats[slot], "battle": main._battle_receipts.get_summary(slot), "site": {"state": site.state, "owner": site.owning_player, "capture": site.capture_progress, "timer": site.victory_timer, "hold": site.victory_hold_time, "clock_ticking": site.clock_ticking, "garrison_paused": site.garrison_paused, "neutralizing": site._being_neutralized}}
 
 func apply_snapshot(snapshot: Dictionary) -> void:
 	GameManager.game_time = float(snapshot.get("time", 0.0))
@@ -233,13 +260,44 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 		node.hp = actor.hp
 		node.max_hp = actor.max_hp
 		node.queue_redraw()
+		if node is BuildingBase and node.player_owner != 0:
+			game_map.remember_visible_building(node)
 	for id: int in entities.keys():
 		if not seen.has(id):
 			_remove_replica(id)
+	# Cumulative observations survive skipped/coalesced snapshots. They only
+	# create inert memory art, never live actors or targetable resources.
+	var memories: Dictionary = snapshot.get("memories", {})
+	for data: Dictionary in memories.get("buildings", []):
+		var local_data: Dictionary = data.duplicate()
+		local_data.owner = _local_owner(int(data.owner))
+		if local_data.owner != 0:
+			game_map._ensure_fog_memory().remember_building(local_data)
+			var remembered: Dictionary = game_map.fog_memory.buildings[int(local_data.id)]
+			for dy: int in remembered.footprint.y:
+				for dx: int in remembered.footprint.x:
+					game_map.fog_of_war.remember_explored(remembered.tile + Vector2i(dx, dy))
+	for data: Array in memories.get("resources", []):
+		var tile := Vector2i(int(data[0]), int(data[1]))
+		var resource: ResourceNode = game_map.get_resource_node_at(tile) as ResourceNode
+		game_map.fog_of_war.remember_explored(tile)
+		if int(data[2]) <= 0:
+			# Zero here was observed by this player, possibly in a skipped
+			# snapshot. It is not a hidden live depletion notification.
+			var memory: Node2D = game_map._ensure_fog_memory()
+			memory._erase(memory.resources, tile)
+			if is_instance_valid(resource):
+				game_map._on_resource_depleted(resource, tile)
+				resource.queue_free()
+		elif is_instance_valid(resource):
+			game_map._ensure_fog_memory().remember_resource(tile, resource.resource_type, int(data[2]))
+	game_map.forget_scouted_buildings(snapshot.get("forgotten_buildings", []))
 	for item: Array in snapshot.get("resources", []):
 		var resource: Node2D = game_map.get_resource_node_at(Vector2i(int(item[0]), int(item[1])))
 		if resource is ResourceNode:
 			resource.remaining = int(item[2])
+			if resource.remaining > 0:
+				game_map.remember_visible_resource(resource)
 			if resource.remaining <= 0:
 				game_map._on_resource_depleted(resource, Vector2i(int(item[0]), int(item[1])))
 				resource.queue_free()

@@ -91,6 +91,9 @@ var _additional_resource_nodes: Array[Node2D] = []
 ## preserves honest memory. Values are the last-seen TileType.
 var _pending_depleted_terrain_tiles: Dictionary = {}
 
+const FOG_MEMORY := preload("res://scripts/map/fog_memory.gd")
+var fog_memory: Node2D = null
+
 ## Reference to the spawned sacred site instance.
 var sacred_site: Node2D = null
 
@@ -1372,9 +1375,34 @@ func _on_resource_depleted(node: Node2D, tile_pos: Vector2i) -> void:
 		_apply_depleted_terrain_visual(tile_pos)
 
 
-## Natural-resource visuals reveal only under current vision. Explored terrain
-## retains terrain memory, never the live presence or depletion state of stock.
+## Live entities require current sight. Separate inert art retains last sightings.
+func _ensure_fog_memory() -> Node2D:
+	if not is_instance_valid(fog_memory):
+		fog_memory = FOG_MEMORY.new()
+		fog_memory.name = "FogMemory"
+		fog_memory.game_map = self
+		fog_memory.y_sort_enabled = true
+		add_child(fog_memory)
+	return fog_memory
+
+
+func remember_visible_building(building: BuildingBase) -> void:
+	_ensure_fog_memory().observe_building(building)
+
+
+func remember_visible_resource(resource: ResourceNode) -> void:
+	_ensure_fog_memory().observe_resource(resource)
+
+
+func forget_scouted_buildings(ids: Array) -> void:
+	_ensure_fog_memory().forget_buildings(ids)
+
+
+## Live resource visibility remains the targetability boundary. Memories never
+## replace registered resources and do not participate in navigation or orders.
 func update_resource_visibility_for_player(viewer_player_id: int = 0) -> void:
+	if not NetworkSession.server_mode:
+		_ensure_fog_memory().refresh(viewer_player_id)
 	for tile_pos: Vector2i in resource_nodes:
 		var resource: Node2D = resource_nodes[tile_pos] as Node2D
 		if resource == null or not is_instance_valid(resource):

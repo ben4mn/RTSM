@@ -184,6 +184,15 @@ func is_revealed_by_scout(pos: Vector2i) -> bool:
 	return false
 
 
+## Preserve an authoritative past sighting when intermediate network snapshots
+## were skipped. This grants explored memory only, never current vision.
+func remember_explored(pos: Vector2i) -> void:
+	if not _in_bounds(pos) or fog_grid[pos.y][pos.x] != MapData.FogState.UNEXPLORED: return
+	fog_grid[pos.y][pos.x] = MapData.FogState.EXPLORED
+	visibility_revision += 1
+	if fog_layer != null: _apply_cell(pos, MapData.FogState.EXPLORED)
+
+
 ## Reveal the entire map (cheat / debug).
 func reveal_all() -> void:
 	visibility_revision += 1
