@@ -1039,6 +1039,9 @@ func _create_pause_overlay() -> void:
 		_save_status_label = Label.new()
 		_save_status_label.name = "SavedStatus"
 		_save_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_save_status_label.custom_minimum_size.x = 320
+		_save_status_label.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		_save_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_save_status_label.add_theme_font_size_override("font_size", 12)
 		vbox.add_child(_save_status_label)
 		set_save_status(_save_status)
@@ -1093,21 +1096,22 @@ func _create_pause_overlay() -> void:
 	departure_row.add_child(_match_learning_button)
 	_match_learning_button.visible = not online
 
-	var quit_btn := Button.new()
-	quit_btn.name = "QuitButton"
-	quit_btn.text = "Leave match" if online else "Main menu"
-	quit_btn.custom_minimum_size = Vector2(144, 48)
-	quit_btn.add_theme_font_size_override("font_size", 14)
-	quit_btn.add_theme_color_override("font_color", KingdomTheme.RUST)
-	quit_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	quit_btn.process_mode = Node.PROCESS_MODE_ALWAYS
-	quit_btn.pressed.connect(func() -> void:
-		if quit_btn.disabled:
-			return
-		quit_btn.disabled = true
-		quit_to_menu_requested.emit()
-	)
-	departure_row.add_child(quit_btn)
+	if online:
+		var quit_btn := Button.new()
+		quit_btn.name = "QuitButton"
+		quit_btn.text = "Leave match"
+		quit_btn.custom_minimum_size = Vector2(144, 48)
+		quit_btn.add_theme_font_size_override("font_size", 14)
+		quit_btn.add_theme_color_override("font_color", KingdomTheme.RUST)
+		quit_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		quit_btn.process_mode = Node.PROCESS_MODE_ALWAYS
+		quit_btn.pressed.connect(func() -> void:
+			if quit_btn.disabled:
+				return
+			quit_btn.disabled = true
+			quit_to_menu_requested.emit()
+		)
+		departure_row.add_child(quit_btn)
 
 	var frame := Panel.new()
 	frame.name = "PauseFrame"
@@ -1117,6 +1121,10 @@ func _create_pause_overlay() -> void:
 	frame.add_theme_stylebox_override("panel", frame_style)
 	_pause_overlay.add_child(frame)
 	_pause_overlay.add_child(vbox)
+	vbox.minimum_size_changed.connect(func() -> void:
+		var current_size: Vector2 = get_viewport().get_visible_rect().size
+		_layout_pause_menu(current_size, _get_safe_area_rect(current_size))
+	, CONNECT_DEFERRED)
 	get_node("Root").add_child(_pause_overlay)
 	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
 	_layout_pause_menu(viewport_size, _get_safe_area_rect(viewport_size))
@@ -4934,8 +4942,13 @@ func set_save_status(status: Dictionary) -> void:
 	if is_instance_valid(_save_exit_button): _save_exit_button.disabled = str(status.get("state", "")) in ["saving", "pending"]
 	if is_instance_valid(_save_status_label):
 		var state: String = str(status.get("state", ""))
-		_save_status_label.text = "Saving…" if state in ["saving", "pending"] else "Save failed" if state in ["error", "failed"] else "Saved" if state in ["saved", "durable"] else ""
-		_save_status_label.tooltip_text = str(status.get("error", ""))
+		var failed: bool = state in ["error", "failed"]
+		var reason: String = str(status.get("error", "")).strip_edges()
+		_save_status_label.text = (reason if not reason.is_empty() else "Save failed. Keep the game open and retry.") if failed else "Saving…" if state in ["saving", "pending"] else "Saved" if state in ["saved", "durable"] else ""
+		_save_status_label.tooltip_text = reason
+		var menu := _save_status_label.get_parent() as VBoxContainer
+		if menu:
+			menu.add_theme_constant_override("separation", 6 if failed else 10)
 
 
 func _layout_summary_info_target() -> void:

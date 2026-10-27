@@ -81,6 +81,7 @@ func _run() -> void:
 		hud._strategy_overview.set_surface("")
 	get_window().size = Vector2i(1280,720)
 	get_window().content_scale_size = Vector2i(1280,720)
+	get_window().content_scale_factor = 1.0
 	await _frames(5)
 	hud.apply_mobile_layout(Vector2(1280,720), Rect2(0,0,1280,720))
 	await _frames(5)
@@ -94,16 +95,35 @@ func _run() -> void:
 	await _capture("worker")
 	get_window().size = Vector2i(844,390)
 	get_window().content_scale_size = Vector2i(844,390)
+	get_window().content_scale_factor = 1.0
 	await _frames(5)
 	hud.set_save_status({"state":"saved"})
 	hud.set_pause_display(true)
 	await _frames(4)
 	_expect(hud._pause_overlay.get_node_or_null("PauseMenu/SaveAndExitButton") != null and hud._save_status_label.text == "Saved", "solo pause offers save-and-exit and saved status")
+	_expect(hud._pause_overlay.get_node_or_null("PauseMenu/DepartureRow/QuitButton") == null, "solo exit has one save-first action")
 	hud.set_save_status({"state":"saving"})
 	_expect(hud._save_exit_button.disabled, "pending save prevents duplicate save-exit requests")
-	hud.set_save_status({"state":"failed", "error":"Storage full"})
-	_expect(not hud._save_exit_button.disabled and hud._save_status_label.tooltip_text == "Storage full", "failed save remains retryable and explains failure")
+	var storage_error := "Could not save. Storage may be full or blocked, or this save changed in another window. Keep the game open and retry; the previous save is kept."
+	hud.set_save_status({"state":"failed", "error":storage_error})
+	await _frames(6)
+	_expect(not hud._save_exit_button.disabled and hud._save_status_label.text == storage_error, "failed save is visibly explained and remains retryable")
+	_expect(hud._save_status_label.size.x <= 320.5 and hud._save_status_label.get_line_count() >= 2, "long failure wraps within 320px")
+	_expect(hud._save_status_label.get_visible_line_count() == hud._save_status_label.get_line_count(), "every failure line is visible")
+	var screen := get_viewport().get_visible_rect()
+	_expect(screen.encloses(hud._pause_overlay.get_node("PauseFrame").get_global_rect()), "phone pause failure frame stays on screen")
+	_expect(screen.encloses(hud._pause_overlay.get_node("PauseMenu/DepartureRow").get_global_rect()), "phone pause failure keeps last action on screen")
 	await _capture("pause-save")
+	hud._pause_overlay.free()
+	hud._pause_overlay = null
+	NetworkSession.online = true
+	hud._create_pause_overlay()
+	await _frames(4)
+	var leave: Button = hud._pause_overlay.get_node_or_null("PauseMenu/DepartureRow/QuitButton")
+	_expect(leave != null and leave.text == "Leave match", "online pause retains Leave match")
+	_expect(hud._pause_overlay.get_node_or_null("PauseMenu/SaveAndExitButton") == null, "online pause does not offer solo save")
+	await _capture("pause-online")
+	NetworkSession.online = false
 	get_tree().paused = false
 	main.queue_free()
 	await _frames(1)
