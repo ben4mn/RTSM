@@ -698,6 +698,11 @@ func _update_age_up_reserve() -> void:
 	var resources: Dictionary = ResourceManager.get_all_resources(player_id)
 	var completion: float = _resource_completion_ratio(resources, cost)
 	var reserve_threshold: float = AGE_UP_RESERVE_THRESHOLDS.get(difficulty, 0.62)
+	if target_age == 3 and _uses_strategy_opening() and not _is_under_pressure:
+		match get_opening_strategy():
+			"castle_priority": reserve_threshold = 0.48
+			"feudal_pressure": reserve_threshold = 0.85
+			"two_tc_boom": reserve_threshold = 0.80 if _town_center_count < 2 else 0.60
 	var target_time: float = _get_age_up_target_time(target_age)
 	if target_age == 2 and _game_time >= target_time - 45.0:
 		reserve_threshold = maxf(0.45, reserve_threshold - 0.18)
@@ -708,6 +713,8 @@ func _update_age_up_reserve() -> void:
 	var military_gate: int = _get_min_military_for_age_up(target_age)
 	if _is_under_pressure:
 		military_gate += 1
+	if target_age == 3 and _uses_strategy_opening() and get_opening_strategy() == "castle_priority" and not _is_under_pressure:
+		military_gate = mini(military_gate, 3)
 	if target_age == 2 and _game_time >= target_time:
 		military_gate = maxi(0, military_gate - 1)
 	var saving_lead: float = float(AGE_UP_SAVING_LEAD_TIMES.get(difficulty, 95.0))
@@ -1099,7 +1106,7 @@ func _get_economy_worker_targets(worker_count: int, resources: Dictionary) -> Di
 		var recovery_wood: int = 1 if worker_count >= 3 else 0
 		return {"food": worker_count - recovery_wood, "wood": recovery_wood, "gold": 0}
 	var age: int = GameManager.get_player_age(player_id)
-	if _saving_for_age_up and (age == 1 or _uses_compact_population_policy()):
+	if _saving_for_age_up and (age == 1 or _uses_compact_population_policy() or _uses_strategy_opening()):
 		var age_cost: Dictionary = GameManager.get_age_up_cost(player_id, age + 1)
 		# Keep one worker on wood for houses/dropoff infrastructure, then allocate
 		# every other worker in proportion to the *remaining* real Feudal cost.
@@ -1197,6 +1204,9 @@ func _get_gold_bank_target() -> int:
 		if _siege_workshop_count == 0: target += int(BuildingData.get_building_cost(BuildingData.BuildingType.SIEGE_WORKSHOP).gold)
 	for research: String in ["forging", "scale_mail"]:
 		if not GameManager.has_research(player_id, research): target += int(TechData.get_research_definition(research).cost.get("gold", 0))
+	# A recurring mixed force now spends gold, unlike the old all-wood army.
+	if age >= 2:
+		target += 2 * int(UnitData.get_unit_cost(UnitData.UnitType.ARCHER).get("gold", 0)) + int(UnitData.get_unit_cost(UnitData.UnitType.CAVALRY).get("gold", 0))
 	return target
 
 
@@ -1382,6 +1392,7 @@ func _check_building_construction() -> void:
 		if b_type not in [BuildingData.BuildingType.HOUSE, BuildingData.BuildingType.FARM, BuildingData.BuildingType.RESOURCE_CAMP] and not _allows_trade_capital_spend(cost):
 			continue
 		if not ResourceManager.can_afford(player_id, cost):
+			if b_type == BuildingData.BuildingType.TOWN_CENTER and not _get_boom_reserve_cost().is_empty(): return
 			if b_type == _get_compact_missing_role_building() and _farm_count > 0:
 				# Preserve the second troop-role unlock. An active paid Farm keeps
 				# food flowing while wood banks; if the last Farm is destroyed, its normal
@@ -1410,7 +1421,8 @@ func _check_building_construction() -> void:
 func _check_trade_economy() -> void:
 	# Invest before the bank is empty. Normal Main transactions still pay every
 	# foundation and recruit; this policy never grants income or reveals terrain.
-	if _game_time < maxf(600.0, _next_trade_decision) or GameManager.get_player_age(player_id) < 2:
+	var earliest: float = 0.0 if _uses_strategy_opening() else 600.0
+	if _game_time < maxf(earliest, _next_trade_decision) or GameManager.get_player_age(player_id) < 2:
 		return
 	_next_trade_decision = _game_time + 20.0
 	_trade_capital.clear()
@@ -1526,7 +1538,10 @@ func _has_productive_known_gold(tc: BuildingBase) -> bool:
 		for building: Node in _my_buildings:
 			if is_instance_valid(building) and building is BuildingBase and building.player_owner == player_id and building.state == BuildingBase.State.ACTIVE and building.is_drop_off_point("gold"):
 				haul = minf(haul, source.global_position.distance_to(building.global_position))
-		if haul <= 600.0 and _visible_expansion_resources(source) >= 150:
+		# About a minute of three miners' raw work leaves time to construct the
+		# post, train and complete a first exposed trip before this pocket ends.
+		var runway: int = 360 if _uses_strategy_opening() else 150
+		if haul <= 600.0 and _visible_expansion_resources(source) >= runway:
 			return true
 	return false
 
@@ -1629,13 +1644,15 @@ func _check_military_production() -> void:
 		var building_type: int = _get_training_building_type_for_unit(unit_type)
 		if building_type < 0:
 			continue
-		if _uses_compact_population_policy() and (_get_fighting_units().size() >= 2 or not _is_under_pressure):
+		if (_uses_compact_population_policy() and (_get_fighting_units().size() >= 2 or not _is_under_pressure)) or (_uses_strategy_opening() and not _is_under_pressure and _get_fighting_units().size() >= 2):
 			# A cheaper fallback must not spend each first 20 wood while the ranked
 			# Archer needs 45, or every first 50 food while the Horseman needs 90.
 			# Wait only for an unlocked, available queue; missing structures never
 			# block the opening, and a wiped army under current home pressure can
 			# still buy an emergency defender. Safe rebuilding can bank the real cost.
 			if _find_trainable_building_of_type(building_type) != null and not ResourceManager.can_afford(player_id, UnitData.get_unit_cost(unit_type)):
+				if _uses_strategy_opening() and ResourceManager.get_resource(player_id, "gold") < int(UnitData.get_unit_cost(unit_type).get("gold", 0)):
+					continue  # No-gold Warrior remains a useful exhausted-mine fallback.
 				return
 		if _try_train_from_building(building_type, unit_type):
 			trains_done += 1
@@ -1657,6 +1674,7 @@ func _try_train_from_building(building_type: int, unit_type: int) -> bool:
 
 	var cost: Dictionary = UnitData.get_unit_cost(unit_type)
 	if not _allows_trade_capital_spend(cost): return false
+	if not _allows_boom_spend(cost): return false
 	if unit_type != UnitData.UnitType.SIEGE and _needs_compact_siege_purchase():
 		var available_slots: int = int(GameManager.players[player_id]["population_cap"]) - GameManager.get_committed_population(player_id)
 		if available_slots - pop_cost < int(UnitData.UNITS[UnitData.UnitType.SIEGE]["pop_cost"]):
@@ -1724,6 +1742,7 @@ func _check_age_up() -> void:
 		)
 		if not allow_feudal_fallback:
 			return
+	if target_age == 3 and not _get_boom_reserve_cost().is_empty(): return
 
 	if ResourceManager.can_afford(player_id, cost) and _allows_trade_capital_spend(cost):
 		_saving_for_age_up = false
@@ -1750,6 +1769,8 @@ func _get_min_military_for_age_up(target_age: int) -> int:
 	var by_age: Dictionary = AGE_UP_MIN_MILITARY.get(difficulty, {})
 	var fallback: int = 1 if target_age == 2 else 5
 	var minimum: int = int(by_age.get(target_age, fallback))
+	if target_age == 3 and _uses_strategy_opening() and get_opening_strategy() == "castle_priority" and not _is_under_pressure:
+		minimum = mini(minimum, 3)
 	if _uses_compact_population_policy():
 		var limit: int = GameManager.get_player_population_limit(player_id)
 		var compact_gate: int = maxi(2, int(limit / 10)) if target_age == 2 else clampi(int(limit / 8), 3, 5)
@@ -1774,6 +1795,31 @@ func _resource_completion_ratio(resources: Dictionary, cost: Dictionary) -> floa
 func _uses_compact_population_policy() -> bool:
 	# Larger legacy scenarios keep their established opening and strategy gates.
 	return GameManager.get_player_population_limit(player_id) < 80
+
+
+func _uses_strategy_opening() -> bool:
+	return not _uses_compact_population_policy() and difficulty != Difficulty.EASY
+
+
+func get_opening_strategy() -> String:
+	if not _uses_strategy_opening(): return "adaptive"
+	var match_seed: int = GameManager.selected_map_seed
+	if is_instance_valid(game_map) and "map_seed" in game_map: match_seed = int(game_map.get("map_seed"))
+	var identity: int = match_seed ^ (player_id * 104729) ^ (GameManager.get_player_civilization(player_id) * 13007)
+	return ["two_tc_boom", "feudal_pressure", "castle_priority"][posmod(identity, 3)]
+
+
+func _get_boom_reserve_cost() -> Dictionary:
+	if not _uses_strategy_opening() or get_opening_strategy() != "two_tc_boom" or _is_under_pressure: return {}
+	if GameManager.get_player_age(player_id) < 2 or _town_center_count >= 2 or _get_villagers().size() < 8 or _get_fighting_units().size() < 2: return {}
+	return BuildingData.get_building_cost(BuildingData.BuildingType.TOWN_CENTER)
+
+
+func _allows_boom_spend(cost: Dictionary) -> bool:
+	var reserve: Dictionary = _get_boom_reserve_cost()
+	for kind: String in reserve:
+		if int(cost.get(kind, 0)) > 0 and ResourceManager.get_resource(player_id, kind) - int(cost[kind]) < int(reserve[kind]): return false
+	return true
 
 
 func _uses_large_army_objective_policy() -> bool:
@@ -1832,6 +1878,11 @@ func _get_target_villager_count() -> int:
 		base_target += 1
 	if age >= 3:
 		base_target += 2
+	if _uses_strategy_opening():
+		var active_towns: int = 0
+		for building: Node in _get_buildings_of_type(BuildingData.BuildingType.TOWN_CENTER):
+			if building.player_owner == player_id and building.state == BuildingBase.State.ACTIVE: active_towns += 1
+		base_target = mini(18, base_target + maxi(0, active_towns - 1) * 6)
 	if _is_under_pressure:
 		base_target = maxi(5, base_target - 2)
 	var next_age: int = age + 1
@@ -1904,6 +1955,7 @@ func _get_target_building_counts(age: int) -> Dictionary:
 
 	if age >= 3 and villagers >= 9 and not _is_under_pressure:
 		targets[BuildingData.BuildingType.TOWN_CENTER] = 2
+	if not _get_boom_reserve_cost().is_empty(): targets[BuildingData.BuildingType.TOWN_CENTER] = 2
 	if difficulty == Difficulty.HARD and age >= 3:
 		targets[BuildingData.BuildingType.ARCHERY_RANGE] = maxi(targets[BuildingData.BuildingType.ARCHERY_RANGE], 2)
 		targets[BuildingData.BuildingType.STABLE] = maxi(targets[BuildingData.BuildingType.STABLE], 2)
@@ -1927,6 +1979,8 @@ func _get_target_building_counts(age: int) -> Dictionary:
 
 
 func _get_build_order(age: int) -> Array:
+	if not _get_boom_reserve_cost().is_empty():
+		return [BuildingData.BuildingType.HOUSE, BuildingData.BuildingType.FARM, BuildingData.BuildingType.TOWN_CENTER, BuildingData.BuildingType.BARRACKS, BuildingData.BuildingType.RESOURCE_CAMP, BuildingData.BuildingType.ARCHERY_RANGE, BuildingData.BuildingType.STABLE, BuildingData.BuildingType.BLACKSMITH]
 	if _uses_compact_population_policy() and age >= 2:
 		# Real drop-offs earn the unlock bank; both combat roles precede optional
 		# support. Under attack, currently visible Archers can put Stable first.
@@ -1985,6 +2039,7 @@ func _is_essential_building_while_saving(building_type: int) -> bool:
 		return true
 	if building_type == BuildingData.BuildingType.HOUSE:
 		return true
+	if building_type == BuildingData.BuildingType.TOWN_CENTER and not _get_boom_reserve_cost().is_empty(): return true
 	# Unlock one real military production queue before reserving the economy for
 	# an age-up. This costs the same 120 wood as it does for the human player;
 	# it only prevents the fair opening from starving its own liveness.
@@ -2017,7 +2072,7 @@ func _get_military_training_plan(resources: Dictionary) -> Array:
 	for unit_type in plan:
 		if _uses_compact_population_policy() and unit_type == UnitData.UnitType.SIEGE:
 			continue
-		if _uses_compact_population_policy():
+		if _uses_compact_population_policy() or _uses_strategy_opening():
 			filtered.append(unit_type)
 			continue
 		var cost: Dictionary = UnitData.get_unit_cost(unit_type)
@@ -2031,7 +2086,7 @@ func _get_military_training_plan(resources: Dictionary) -> Array:
 		filtered.append(unit_type)
 	if not _uses_compact_population_policy() and _ai_state == AIState.LATE_GAME and int(resources.get("wood", 0)) >= 220 and int(resources.get("gold", 0)) >= 130:
 		filtered.append(UnitData.UnitType.SIEGE)
-	if _uses_compact_population_policy():
+	if _uses_compact_population_policy() or _uses_strategy_opening():
 		filtered = _rank_compact_military_plan(filtered)
 	if _needs_compact_siege_purchase() and _find_trainable_building_of_type(BuildingData.BuildingType.SIEGE_WORKSHOP) != null and GameManager.can_reserve_population(player_id, 3):
 		filtered.erase(UnitData.UnitType.SIEGE)
@@ -2150,6 +2205,7 @@ func _check_research() -> void:
 			research_plan.append("loom")
 	for research_id: String in research_plan:
 		if not _allows_trade_capital_spend(TechData.get_research_definition(research_id).get("cost", {})): continue
+		if not _allows_boom_spend(TechData.get_research_definition(research_id).get("cost", {})): continue
 		if GameManager.try_research(player_id, blacksmith, research_id):
 			return  # One paid research per decision.
 
@@ -3537,6 +3593,7 @@ func get_strategy_snapshot() -> Dictionary:
 	## Stable diagnostics for balance harnesses and focused regressions.
 	return {
 		"difficulty": difficulty,
+		"opening_strategy": get_opening_strategy(),
 		"population_limit": GameManager.get_player_population_limit(player_id),
 		"target_villagers": _get_target_villager_count(),
 		"worker_recovery_active": _needs_compact_worker_recovery(),

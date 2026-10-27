@@ -45,7 +45,7 @@ func _run() -> void:
 	_reset()
 	var mine := ResourceNode.new()
 	mine.resource_type = "gold"
-	mine.total_amount = 300
+	mine.total_amount = 600
 	mine.tile_position = Vector2i(10, 8)
 	mine.position = map.tile_to_world(mine.tile_position)
 	fixture.add_child(mine)
