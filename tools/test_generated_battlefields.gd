@@ -20,6 +20,14 @@ func _initialize() -> void:
 				var kind: int = first.get_tile(tile)
 				var key: String = "wood" if kind == MapData.TileType.FOREST else ("food" if kind == MapData.TileType.BERRY_BUSH else "gold")
 				stock[key] += first.get_resource_amount(tile)
+				if first.get_resource_amount(tile) <= 0: failures.append("empty initial resource")
+				if key == "food" and first._is_near_spawn(tile, 12) and first.get_resource_amount(tile) != 90: failures.append("opening food changed")
+			if stock != SkirmishData.NATURAL_RESOURCE_BUDGETS: failures.append("style changed finite budget: %s" % str(stock))
+			if first._resource_amounts != second._resource_amounts: failures.append("non deterministic stock")
+			var rng_state: int = first._rng.state
+			var grid_signature: int = hash(first.grid)
+			first._budget_natural_stock()
+			if first._rng.state != rng_state or hash(first.grid) != grid_signature: failures.append("stock allocation changed terrain or RNG")
 			layouts[str(first._flank_crossings) + str(first._expansion_centers) + str(first._opening_rotation)] = true
 			samples.append({"style": archetype, "seed": seed_value, "stock": stock, "validation": first.validation_report})
 		if layouts.size() < 10: failures.append("insufficient strategic variety")

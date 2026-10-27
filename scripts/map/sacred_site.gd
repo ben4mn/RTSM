@@ -40,7 +40,7 @@ var capture_progress: float = 0.0
 @export var capture_radius: int = 3
 
 ## Time to hold sacred site for a victory (seconds).
-@export var victory_hold_time: float = 180.0  # 3 minutes
+@export var victory_hold_time: float = SkirmishData.SACRED_VICTORY_HOLD_SECONDS
 
 ## Accumulated hold time for the current owner.
 var victory_timer: float = 0.0

@@ -1,6 +1,19 @@
 {
   "releases": [
     {
+      "id": "2026-10-27-room-to-counter",
+      "date": "2026-10-27",
+      "version": "0.3.0-beta.15",
+      "title": "Time to counter, reasons to expand",
+      "summary": "Longer Standard objective battles and a clearer transition to farms and trade.",
+      "changes": [
+        "New Standard matches require six guarded minutes at Sacred. Control race keeps its three-minute bank, and destroying the enemy Town Center can still win immediately.",
+        "Every map style has the same finite stock: 4,000 food, 10,000 wood and 4,000 gold. Opening berries and the stocked timber groves remain useful; distant reserves run out sooner.",
+        "Gathering rates, movement, unit costs and trade income are unchanged. Farms sustain food and protected trader routes provide renewable gold.",
+        "Existing solo saves keep their original resource amounts and victory timer. Both online players must update for the new match rules."
+      ]
+    },
+    {
       "id": "2026-10-27-trade-at-a-glance",
       "date": "2026-10-27",
       "version": "0.3.0-beta.14",

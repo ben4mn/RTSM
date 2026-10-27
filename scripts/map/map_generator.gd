@@ -559,7 +559,8 @@ func validate_layout() -> Dictionary:
 ## groves retain useful haul sizes; remaining woodland shares a finite budget.
 func _budget_natural_stock() -> void:
 	_resource_amounts.clear()
-	var remaining_wood: int = 16000
+	var remaining_wood: int = int(SkirmishData.NATURAL_RESOURCE_BUDGETS.wood)
+	var remaining_food: int = int(SkirmishData.NATURAL_RESOURCE_BUDGETS.food)
 	var outer_wood: Array[Vector2i] = []
 	var food: Array[Vector2i] = []
 	var gold: Array[Vector2i] = []
@@ -573,11 +574,37 @@ func _budget_natural_stock() -> void:
 						_resource_amounts[tile] = amount
 						remaining_wood -= amount
 					else: outer_wood.append(tile)
-				MapData.TileType.BERRY_BUSH: food.append(tile)
+				MapData.TileType.BERRY_BUSH:
+					# Keep the useful opening grove; shorten distant finite reserves.
+					if _is_near_spawn(tile, 12):
+						_resource_amounts[tile] = SkirmishData.OPENING_BERRY_STOCK
+						remaining_food -= SkirmishData.OPENING_BERRY_STOCK
+					else: food.append(tile)
 				MapData.TileType.GOLD_MINE: gold.append(tile)
-	for tile: Vector2i in outer_wood: _resource_amounts[tile] = maxi(1, floori(float(remaining_wood) / maxi(1, outer_wood.size())))
-	for tile: Vector2i in food: _resource_amounts[tile] = maxi(1, floori(8000.0 / maxi(1, food.size())))
-	for tile: Vector2i in gold: _resource_amounts[tile] = maxi(1, floori(6000.0 / maxi(1, gold.size())))
+	_distribute_symmetric_stock(outer_wood, remaining_wood)
+	_distribute_symmetric_stock(food, remaining_food)
+	_distribute_symmetric_stock(gold, int(SkirmishData.NATURAL_RESOURCE_BUDGETS.gold))
+
+
+func _distribute_symmetric_stock(tiles: Array[Vector2i], budget: int) -> void:
+	assert(not tiles.is_empty() and budget >= tiles.size(), "Finite stock must cover every resource node")
+	if tiles.is_empty(): return
+	var per_tile: int = maxi(1, floori(float(budget) / float(tiles.size())))
+	var remainder: int = budget - per_tile * tiles.size()
+	for tile: Vector2i in tiles: _resource_amounts[tile] = per_tile
+	# Row-major generation is stable. Add remainders in reflected pairs so dense
+	# styles do not silently lose stock to rounding or favor one starting side.
+	for tile: Vector2i in tiles:
+		if remainder <= 0: break
+		var mirrored: Vector2i = _mirror_tile(tile)
+		if tile == mirrored and remainder % 2 == 1:
+			_resource_amounts[tile] += 1
+			remainder -= 1
+		elif tile.y * MapData.MAP_WIDTH + tile.x < mirrored.y * MapData.MAP_WIDTH + mirrored.x and remainder >= 2:
+			_resource_amounts[tile] += 1
+			_resource_amounts[mirrored] += 1
+			remainder -= 2
+	assert(remainder == 0, "Finite stock remainder must preserve reflection")
 
 
 func get_resource_amount(tile: Vector2i) -> int:

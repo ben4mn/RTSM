@@ -17,6 +17,10 @@ func _run() -> void:
 	server.set("_peers", {1: {}})
 	for operation: String in ["search", "host", "join"]:
 		server.sent.clear()
+		server.call("_server_packet", 1, {"op": operation, "protocol": 9, "map_catalog": 5, "map_archetype": 0, "civilization": 0, "code": "ABCDEF"})
+		_expect(server.sent.size() == 1 and server.sent[0].op == "error" and str(server.sent[0].reason).to_lower().contains("reload"), "beta14 pacing cannot enter " + operation)
+		_expect((server.get("_queue") as Array).is_empty() and (server.get("_rooms") as Dictionary).is_empty(), "old stock cannot reserve lobby or queue")
+		server.sent.clear()
 		server.call("_server_packet", 1, {"op": operation, "protocol": 6, "map_catalog": 3, "map_archetype": 0, "civilization": 0, "code": "ABCDEF"})
 		_expect(server.sent.size() == 1 and server.sent[0].op == "error" and str(server.sent[0].reason).to_lower().contains("reload"), "prior berry layout cannot enter " + operation)
 		_expect((server.get("_queue") as Array).is_empty() and (server.get("_rooms") as Dictionary).is_empty(), "prior berry layout cannot reserve lobby or queue")
@@ -28,7 +32,7 @@ func _run() -> void:
 		server.call("_server_packet", 1, {"op": operation, "protocol": 3, "map_catalog": 2, "map_archetype": 0, "civilization": 0, "code": "ABCDEF"})
 		_expect(server.sent.size() == 1 and server.sent[0].op == "error" and str(server.sent[0].reason).to_lower().contains("reload"), "old generator cannot enter " + operation)
 		_expect((server.get("_queue") as Array).is_empty() and (server.get("_rooms") as Dictionary).is_empty(), "old version cannot reserve lobby or queue")
-	for catalog: int in [-1, 2, 3, 99]:
+	for catalog: int in [-1, 2, 3, 5, 99]:
 		server.sent.clear()
 		var packet := {"op": "search", "protocol": NetworkSession.PROTOCOL, "civilization": 0}
 		if catalog >= 0:
