@@ -1,0 +1,6 @@
+=== [1/1] test_placement_trade_hint ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+{"checks":21,"failures":[],"scope":"actual native placement component and Town Centers; no route or income simulation","test":"placement_trade_hint"}
+[PASS] test_placement_trade_hint
+FOCUSED_SUITE: 1/1 passed
