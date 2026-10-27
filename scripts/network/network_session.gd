@@ -17,6 +17,8 @@ const MAX_CLIENT_PACKET := 8192
 const MAX_SERVER_PACKET := 262144
 const MAX_CONNECTIONS := 34
 const SNAPSHOT_INTERVAL := 0.1
+const CLIENT_POLL_PACKET_BUDGET := 256
+const CLIENT_POLL_PARSE_BUDGET_USEC := 4000
 const CONNECTION_TIMEOUT := 12.0
 const SILENCE_TIMEOUT := 20.0
 
@@ -245,7 +247,10 @@ func _process(_delta: float) -> void:
 func _poll_client(delta: float) -> void:
 	if _socket == null:
 		return
-	_socket.poll()
+	# Godot can clear its received-message queue while processing a close frame.
+	# Consume messages already handed to us before advancing transport state.
+	if _socket.get_available_packet_count() == 0:
+		_socket.poll()
 	if _socket.get_ready_state() == WebSocketPeer.STATE_OPEN:
 		if state == "connecting":
 			_send(_socket, _connection_request)
@@ -258,8 +263,12 @@ func _poll_client(delta: float) -> void:
 			_send(_socket, {"op": "ping"})
 	# A terminal message may share a poll with the close frame. Drain it before
 	# interpreting CLOSED, including through a TLS reverse proxy.
-	var budget := 32
+	var budget: int = CLIENT_POLL_PACKET_BUDGET
+	var started_usec: int = Time.get_ticks_usec()
+	var latest_snapshot: Dictionary = {}
 	while _socket != null and _socket.get_available_packet_count() > 0 and budget > 0:
+		if budget < CLIENT_POLL_PACKET_BUDGET and Time.get_ticks_usec() - started_usec >= CLIENT_POLL_PARSE_BUDGET_USEC:
+			break
 		budget -= 1
 		var data: PackedByteArray = _socket.get_packet()
 		if data.size() > MAX_SERVER_PACKET:
@@ -268,10 +277,25 @@ func _poll_client(delta: float) -> void:
 		var parsed: Variant = JSON.parse_string(data.get_string_from_utf8())
 		if parsed is Dictionary:
 			_last_receive = _elapsed
-			_client_packet(parsed)
+			# Snapshots replace state. Applying every obsolete frame can create a
+			# permanent backlog on a busy phone. Controls are ordering barriers:
+			# apply the last preceding state before results, feedback or a new match.
+			if parsed.get("op") == "snapshot" and _whole_number(parsed.get("match")) and int(parsed.match) == match_id:
+				latest_snapshot = parsed
+			else:
+				if not latest_snapshot.is_empty():
+					_client_packet(latest_snapshot)
+					latest_snapshot = {}
+				if _socket == null: return
+				_client_packet(parsed)
+	if _socket != null and not latest_snapshot.is_empty():
+		_client_packet(latest_snapshot)
 	if _socket == null:
 		return
 	if _socket.get_ready_state() == WebSocketPeer.STATE_CLOSED:
+		# A terminal frame can remain behind this poll's bounded batch. Keep
+		# draining received data before interpreting the transport close.
+		if _socket.get_available_packet_count() > 0: return
 		if state == "ended":
 			_socket = null
 			return
