@@ -2,6 +2,7 @@ extends Node
 var failures: Array[String] = []
 var checks: int = 0
 var phase: String = "writer"
+var changed_pacing: bool = false
 var main: Node
 func _ready() -> void: call_deferred("_run")
 func check(value: bool, label: String) -> void:
@@ -11,6 +12,7 @@ func _run() -> void:
 	get_tree().current_scene = null
 	for arg: String in OS.get_cmdline_user_args():
 		if arg.begins_with("--phase="): phase = arg.trim_prefix("--phase=")
+		if arg == "--changed-pacing": changed_pacing = true
 	get_tree().root.get_node("AudioManager").set_all_enabled(false)
 	if phase == "writer": await _writer()
 	elif phase == "reader": await _reader()
@@ -49,7 +51,9 @@ func _writer() -> void:
 	var farmer: Villager = units[2]
 	var resource: ResourceNode = worker.gather_target
 	check(resource != null, "starting worker has real gather assignment")
-	resource.remaining -= 17
+	# Distinct from any regenerated default, as an existing match's stock is.
+	resource.total_amount += 137
+	resource.remaining = resource.total_amount - 17
 	worker._cargo = {"food": 4, "gold": 3}
 	worker.carried_amount = 7
 	worker.gather_timer = 0.41
@@ -94,6 +98,7 @@ func _writer() -> void:
 	main.ai_controller._game_time = 123.0
 	main.ai_controller._last_harass_time = 112.0
 	var site: Node = map.sacred_site
+	site.victory_hold_time = 180.0
 	site.state = 2
 	site.owning_player = 0
 	site.victory_timer = 45.75
@@ -130,6 +135,7 @@ func _writer() -> void:
 	check(save.save_current("latest_good"), "latest good checkpoint")
 	check(save.has_save() and save.get_status().durable, "saved status means durable native checkpoint")
 	var expected: Dictionary = {"bank": bank._player_resources.duplicate(true), "population": gm.players[0].population, "reserved": gm.players[0].population_reserved, "cap": gm.players[0].population_cap, "units": main._player_units[0].size(), "buildings": main._player_buildings[0].size(), "deposits": map.resource_nodes.size(), "deleted": deleted_tile, "resource_tile": resource.tile_position, "resource_remaining": resource.remaining, "trade_cargo": trader.carried_gold, "camera": map.camera.position, "defender_hp": defender.hp, "shot_damage": shot.final_damage}
+	expected.resource_total = resource.total_amount
 	var file := FileAccess.open("user://expected.bin", FileAccess.WRITE)
 	file.store_var(expected, false)
 	file.close()
@@ -163,6 +169,11 @@ func _reader() -> void:
 	check(map.resource_nodes.size() == expected.deposits and not map.resource_nodes.has(expected.deleted), "depleted deposit stays depleted")
 	check(not map._pending_depleted_terrain_tiles.has(expected.deleted) and map.terrain_layer.get_cell_atlas_coords(expected.deleted) == map._tile_type_to_atlas(MapData.TileType.GRASS), "revealed depletion keeps grass artwork")
 	check(map.resource_nodes[expected.resource_tile].remaining == expected.resource_remaining, "partly gathered deposit exact")
+	check(map.resource_nodes[expected.resource_tile].total_amount == expected.resource_total, "captured total stock overrides regenerated resource defaults")
+	check(map.resource_nodes[expected.resource_tile].total_amount != map.map_generator.get_resource_amount(expected.resource_tile), "stock assertion exercises a different regenerated default")
+	check(is_equal_approx(map.sacred_site.victory_hold_time, 180.0), "old match retains its captured 180-second Sacred target")
+	if changed_pacing:
+		check(is_equal_approx(SkirmishData.get_sacred_target(SkirmishData.MatchMode.STANDARD), 360.0), "reader uses changed 360-second new-match rules while old save stays 180")
 	var worker: Villager = main._player_units[0][0]
 	var builder: Villager = main._player_units[0][1]
 	var farmer: Villager = main._player_units[0][2]
