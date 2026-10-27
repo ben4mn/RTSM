@@ -10,7 +10,8 @@
         "Five seeded map styles, including Golden Basin and Twin Lakes, vary routes and resource positions while keeping symmetric starts.",
         "Three starting villagers share the same civilization gathering rules as recruits. Gathering is modestly slower; farms sustain food and Traders deliver renewable gold along vulnerable Town Center–Trade Post routes.",
         "Hold a unit card to add a finite paid queue; release or drag away to stop. Queue options and detailed management controls expand when needed.",
-        "Compact age and church controls, local placement previews, clearer movement routes, and responsive movement. Multiplayer runs at a fixed speed with matching protocol9.",
+        "Compact age and church controls, local placement previews, clearer movement routes, and responsive movement. Online matches always run at 1× speed.",
+        "Explored resources and buildings remain dimly visible as last seen. Hidden units and activity stay unseen until you scout again.",
         "Updates and Refresh are available from the menu; active matches defer app updates."
       ]
     },
