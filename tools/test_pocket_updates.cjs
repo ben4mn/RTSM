@@ -412,12 +412,19 @@ test('menu hold captures real input; unsafe transition releases hold and suppres
 
 test('ready activation reloads a held safe menu once, while abort and timeout release input', async () => {
 	const f = browserFixture({waiting: true});
+	// Drive the timeout explicitly. A busy build host can delay these event
+	// turns beyond 20ms, correctly expiring a real hold before ACTIVATED arrives.
+	const timers = new Map();
+	let timerId = 0;
+	f.host.setTimeout = (callback) => { timers.set(++timerId, callback); return timerId; };
+	f.host.clearTimeout = (id) => timers.delete(id);
 	await f.api.init({safeToReload: true, checkTimeout: 20, holdTimeout: 20});
 	await f.emit({type: 'PREPARE', nonce: 'a'});
 	await f.emit({type: 'ABORT', nonce: 'a'});
 	assert.equal(f.api.isHeld(), false);
 	await f.emit({type: 'PREPARE', nonce: 'b'});
-	await pause(25);
+	assert.equal(timers.size, 1, 'only the acknowledged hold timeout remains');
+	[...timers.values()][0]();
 	assert.equal(f.api.isHeld(), false);
 	await f.emit({type: 'PREPARE', nonce: 'c'});
 	await f.emit({type: 'COMMIT', nonce: 'c'});
