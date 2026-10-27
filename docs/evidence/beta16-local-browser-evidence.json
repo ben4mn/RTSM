@@ -1,0 +1,20 @@
+{
+  "result": "PASS",
+  "origin": "http://127.0.0.1:8787/",
+  "runtime_revision": "877abd45ed661ddf851e843407f0ea84b63b5138",
+  "version": "0.3.0-beta.16",
+  "viewport": [667, 375],
+  "scope": "Ordinary browser mouse/keyboard UI on the committed production export, not a physical phone or installed PWA. Short interaction smoke, not a full-match duration sample.",
+  "checks": [
+    "Cached older welcome upgraded to beta16 before play. Release notes collapsed and fresh menu rendered.",
+    "Mongol/Easy/River Crossings Standard100 match started with three villagers and one Scout.",
+    "Town Center portrait bought one100-food Villager, reserving two population. Flag then berry tap through a friendly worker set Villager rally: gather food.",
+    "Paused and saved at0:26 with180F/280W/130G and9/15 committed population, including the pending recruit.",
+    "Updates reported installed beta16 and offline-ready assets. Refresh in the open paused match was refused with the match-protection explanation.",
+    "Save & exit allowed ordinary menu Refresh. No viewport nudge or tab switch was used to recover rendering.",
+    "Resume restored paused0:26 with the same bank and committed population. After continuing, the paid queue completed by0:48; its recruit headed to the food rally and gathering continued.",
+    "Saved and exited again. Browser warning/error logs were empty and the local test tab/server were closed."
+  ],
+  "screenshots": ["beta16-candidate-refreshed-667.jpg", "beta16-candidate-recruit-restored.jpg"],
+  "screenshot_note": "Repeated identical menu images can appear as tiny green patches in tool presentation. The earlier byte-identical full-menu diagnosis is recorded separately; functional UI actions and stored files are the evidence."
+}

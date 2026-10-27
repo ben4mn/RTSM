@@ -1,0 +1,7 @@
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+ONLINE_ROOM_VERIFIED map=0 checks=13
+ERROR: online_rooms timeout phase=9 map=1
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _process (res://tools/test_online_rooms.gd:156)
