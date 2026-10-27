@@ -19,12 +19,15 @@ var _late_sacred: Array[Dictionary] = []
 var _late_sacred_connected: bool = false
 var _late_sacred_key: String = ""
 var _late_performance: Dictionary = {}
+var _sacred_continuation: bool = false
+var _continuation_adapter: RefCounted
 
 func _run() -> void:
 	_late_wall_start = Time.get_ticks_msec()
+	_sacred_continuation = "--sacred-continuation" in OS.get_cmdline_user_args()
 	Engine.set_meta("balance_starting_villagers", 3)
 	stats["late_economy"] = {
-		"scope": "Read-only observations of normal paid AI policies on both sides. Natural victories are unchanged; game time is simulated, not human/browser duration. Whole-map stock is audit-only and never supplied to either policy.",
+		"scope": ("Counterfactual Sacred-only continuation of normal paid AI policies; Town Center defeat retained. " if _sacred_continuation else "Read-only observations of normal paid AI policies on both sides. Natural victories are unchanged. ") + "Game time is simulated, not human/browser duration. Whole-map stock is audit-only and never supplied to either policy.",
 		"food_attribution": "Food delivery while the worker's active gather target is an owned Farm. Reorders can change the target of previously carried food; this is job-at-delivery evidence, not an exact harvest-origin ledger.",
 		"payment_scope": "Foundations originate from existing paid Main construction handlers. Trader queue signals observe accepted normal-price purchases; cancellations are separate. No resources, actors or outcomes are injected.",
 		"events": _late_events, "samples": _late_samples, "totals": _late_totals,
@@ -33,6 +36,7 @@ func _run() -> void:
 		"performance": _late_performance,
 		"measurement_cadence": "Expensive labor/near-enemy summaries sampled at5Hz game time; birth/delivery observations remain every frame and Sacred phase/ticking transitions use the real status signal. Event-driven damage/deposit accounting remains active every frame.",
 		"autosave_disabled_for_pacing": SoloSave.get_script().resource_path == "res://tools/fixtures/pacing_solo_save.gd",
+		"sacred_continuation": {"enabled": _sacred_continuation, "attached": false, "scope": "Counterfactual: only Sacred conclusion suppressed; natural Town Center defeat remains. No resource, unit, AI policy or timer changes. This is not a natural match-duration sample." if _sacred_continuation else "Natural victory rules unchanged."},
 	}
 	await super._run()
 
@@ -40,6 +44,12 @@ func _measure() -> void:
 	var started: int = Time.get_ticks_usec()
 	_late_frames += 1
 	if not _late_sacred_connected:
+		if _sacred_continuation:
+			_continuation_adapter = preload("res://tools/fixtures/pacing_sacred_continuation.gd").new()
+			var attached: bool = _continuation_adapter.attach(match_scene)
+			stats.late_economy.sacred_continuation.attached = attached
+			assert(attached, "Continuation must intercept only the ordinary Sacred callback")
+			stats.late_economy.sacred_continuation.blocked_sacred_windows = _continuation_adapter.windows
 		match_scene.game_map.sacred_site.status_changed.connect(_observe_sacred_transition)
 		_late_sacred_connected = true
 		_observe_sacred_transition()
@@ -155,6 +165,7 @@ func _sample_late(force: bool) -> void:
 	_late_samples.append(sample)
 	print("[LATE_SAMPLE] ", JSON.stringify(sample))
 	_late_performance.merge({"wall_seconds": float(Time.get_ticks_msec() - _late_wall_start) / 1000.0, "game_seconds": GameManager.game_time, "observer_usec": _late_observer_usec, "measure_calls": _late_measure_calls, "frames": _late_frames, "time_scale": Engine.time_scale, "physics_ticks_per_second": Engine.physics_ticks_per_second}, true)
+	if _sacred_continuation: stats.late_economy.sacred_continuation.blocked_tick_count = _continuation_adapter.blocked_tick_count
 	# Keep useful data even if a host timeout interrupts a genuinely long match.
 	# This is a compact observer receipt, not a restorable gameplay checkpoint.
 	var partial: Dictionary = stats.duplicate()

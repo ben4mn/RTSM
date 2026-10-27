@@ -28,9 +28,11 @@ OBSERVER_FILES = (
     "tools/probe_late_economy_pacing.gd",
     "tools/probe_late_economy_pacing.tscn",
     "tools/fixtures/pacing_solo_save.gd",
+    "tools/fixtures/pacing_sacred_continuation.gd",
     "tools/run_late_economy_pacing.py",
 )
 DEFAULT_CASES = ((1, 424242, 1, 1), (4, 7, 1, 1))
+SUCCESS_STATUSES = ("natural_completed", "game_time_cap", "counterfactual_tc_completed", "counterfactual_game_time_cap")
 
 
 def digest(data: bytes) -> str:
@@ -64,6 +66,8 @@ def run_case(project: Path, base_config: str, args: argparse.Namespace,
     name = f"map{style}-seed{seed}-fixed60-scale{scale}"
     if (human_difficulty, enemy_difficulty) != (1, 1):
         name += f"-difficulty{human_difficulty}v{enemy_difficulty}"
+    if args.sacred_continuation:
+        name += "-sacred-continuation"
     report = args.output / (name + ".json")
     log = args.output / (name + ".log")
     partial = Path(str(report) + ".partial.json")
@@ -79,6 +83,8 @@ def run_case(project: Path, base_config: str, args: argparse.Namespace,
                "--pop=100", f"--difficulty={enemy_difficulty}", f"--human-difficulty={human_difficulty}",
                f"--archetype={style}", f"--seed={seed}",
                f"--duration={args.duration}", f"--output={report}"]
+    if args.sacred_continuation:
+        command.append("--sacred-continuation")
     environment = os.environ.copy()
     environment.update(AOEM_AI_DIFFICULTY=str(enemy_difficulty), AOEM_MAP_ARCHETYPE=str(style),
                        AOEM_SIM_TIME_SCALE=str(scale), GODOT_AUDIO_DRIVER="Dummy")
@@ -134,6 +140,8 @@ def run_case(project: Path, base_config: str, args: argparse.Namespace,
     result["log_sha256"] = digest(log.read_bytes())
     if final:
         result["status"] = "natural_completed" if final["end"] == "game over" else "game_time_cap"
+        if args.sacred_continuation:
+            result["status"] = "counterfactual_tc_completed" if final["end"] == "game over" else "counterfactual_game_time_cap"
         result.update(game_seconds=final["time"], winner=final["winner"],
                       victory_reason=final["victory_reason"], age_times=final["age_times"],
                       first_contact=final["first_contact"],
@@ -147,10 +155,15 @@ def run_case(project: Path, base_config: str, args: argparse.Namespace,
                     final["match_mode"] == 0 and
                     final["human_difficulty"] == human_difficulty and
                     final["difficulty"] == enemy_difficulty and
+                    final["late_economy"]["sacred_continuation"]["enabled"] == args.sacred_continuation and
+                    (not args.sacred_continuation or final["late_economy"]["sacred_continuation"]["attached"]) and
+                    (not args.sacred_continuation or final["end"] != "game over" or "destroyed" in final["victory_reason"]) and
                     final["late_economy"]["autosave_disabled_for_pacing"] and
                     final["simulation"]["time_scale"] == scale)
         if not expected:
             result["status"] = "setup_mismatch"
+        elif result["exit"] != 0:
+            result["status"] = "engine_exit_error"
     elif result["status"] == "running":
         result["status"] = "missing_final_report"
     if latest:
@@ -169,25 +182,32 @@ def main() -> int:
     parser.add_argument("--wall-timeout", type=float, default=1800)
     parser.add_argument("--scale", choices=("adaptive", "1", "3"), default="adaptive")
     parser.add_argument("--case", type=parse_case, action="append", help="Repeatable style:seed[:player0_difficulty:player1_difficulty]; defaults River424242 and Golden7, Medium both")
+    parser.add_argument("--sacred-continuation", action="store_true", help="Counterfactual: suppress only Sacred conclusion, retain Town Center defeat; one explicit case, at most1500 game/2400 wall seconds")
     args = parser.parse_args()
     args.output = args.output.resolve()
     if (args.output / "receipt.json").exists():
         parser.error("Output already contains a receipt; choose a fresh directory to preserve earlier evidence")
     args.output.mkdir(parents=True, exist_ok=True)
-    if not 0 < args.duration <= 1800 or not 0 < args.wall_timeout <= 1800:
-        parser.error("Each case is bounded to at most 1800 game and 1800 wall seconds")
+    game_cap, wall_cap = (1500, 2400) if args.sacred_continuation else (1800, 1800)
+    if not 0 < args.duration <= game_cap or not 0 < args.wall_timeout <= wall_cap:
+        parser.error(f"This run is bounded to at most {game_cap} game and {wall_cap} wall seconds")
     if not args.godot.is_file():
         parser.error("Godot executable not found")
     revision = subprocess.check_output(["git", "rev-parse", args.ref], cwd=ROOT, text=True).strip()
     cases = args.case or list(DEFAULT_CASES)
     if len(cases) != len(set(cases)) or len(cases) > 3:
         parser.error("Request at most three distinct cases per bounded invocation")
+    if args.sacred_continuation and (not args.case or len(cases) != 1):
+        parser.error("Counterfactual continuation requires one explicit case")
     observer = {name: (ROOT / name).read_bytes() for name in OBSERVER_FILES}
     receipt = {"runtime_revision": revision, "observer_sha256": {name: digest(data) for name, data in observer.items()},
                "scope": "Sequential paid Standard 100 simulations, three starting workers, Crownlands both; difficulties listed per case and natural victory enabled. Headless/no render. Autosave disabled only by runner autoload override; not persistence, human or phone evidence.",
                "requested_cases": cases,
+               "sacred_continuation": args.sacred_continuation,
                "game_seconds_cap": args.duration, "wall_seconds_cap": args.wall_timeout,
                "runs": []}
+    if args.sacred_continuation:
+        receipt["scope"] = receipt["scope"].replace("natural victory enabled", "only Sacred conclusion suppressed; Town Center defeat retained; counterfactual, not a natural-duration sample")
     def save_receipt() -> None:
         (args.output / "receipt.json").write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
     save_receipt()
@@ -219,13 +239,13 @@ def main() -> int:
             first = run_case(project, config, args, *cases[0], scale, False)
             receipt["runs"].append(first)
             save_receipt()
-        if first["status"] not in ("natural_completed", "game_time_cap") or first["diagnostics"]:
+        if first["status"] not in SUCCESS_STATUSES or first["diagnostics"]:
             return 1
         for case in cases[1:]:
             result = run_case(project, config, args, *case, scale, False)
             receipt["runs"].append(result)
             save_receipt()
-            if result["status"] not in ("natural_completed", "game_time_cap") or result["diagnostics"]:
+            if result["status"] not in SUCCESS_STATUSES or result["diagnostics"]:
                 return 1
     return 0
 
