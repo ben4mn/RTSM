@@ -258,13 +258,14 @@
             try { sessionStorage.setItem('pocket.launch-after-update', '1'); } catch (_) { /* reopening welcome remains safe */ }
         }
         let text = event.detail.message || statusCopy[event.detail.state] || '';
+        if (event.detail.state === 'ready' && event.detail.pendingUpdate) text = statusCopy.deferred;
         if (event.detail.offlineReady && ['idle', 'offline'].includes(event.detail.state) && !event.detail.message) {
             text = navigator.onLine === false ? 'You’re offline. Solo is ready to play; Online 1v1 needs a connection.' : 'Solo is saved for offline play. Updates download only changed files.';
         }
         if (event.detail.offlineReady && event.detail.persistence === 'best-effort') text += ' Your browser may clear saved files when storage is low.';
         byId('pocket-update-copy').textContent = text;
         byId('pocket-dialog-update-copy').textContent = text + ' Active matches and results stay open.';
-        const pending = event.detail.state === 'deferred' || (event.detail.state === 'ready' && !event.detail.offlineReady);
+        const pending = event.detail.pendingUpdate === true;
         releaseOpen.classList.toggle('pk-update-pending', pending);
         releaseOpen.title = pending ? 'Update ready — open Updates at the main menu' : 'Updates and refresh';
     });

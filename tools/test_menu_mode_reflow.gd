@@ -58,7 +58,7 @@ func _exercise(profile: Dictionary, direct: bool) -> void:
 		(menu.get("_back_button") as Button).pressed.emit()
 		(menu.get("_online_button") as Button).pressed.emit()
 	await _settle()
-	_check_online(menu, context + " initial online")
+	await _check_online(menu, context + " initial online")
 	(menu.get("_back_button") as Button).pressed.emit()
 	(menu.get("_new_game_button") as Button).pressed.emit()
 	await _settle()
@@ -69,17 +69,17 @@ func _exercise(profile: Dictionary, direct: bool) -> void:
 		(menu.get("_map_choice_button") as Button).pressed.emit()
 		await _settle()
 		_expect(bool(menu.get("_map_picker_expanded")), context + " disclosure opens")
-		_check_online(menu, context + " expanded " + button.name)
+		await _check_online(menu, context + " expanded " + button.name)
 		button.pressed.emit()
 		await _settle()
 		_expect(not bool(menu.get("_map_picker_expanded")), context + " choice closes disclosure")
-		_check_online(menu, context + " " + button.name)
+		await _check_online(menu, context + " " + button.name)
 	(menu.get("_map_choice_button") as Button).pressed.emit()
 	(menu.get("_back_button") as Button).pressed.emit()
 	await _settle()
 	(menu.get("_online_button") as Button).pressed.emit()
 	await _settle()
-	_check_online(menu, context + " Back/reopen")
+	await _check_online(menu, context + " Back/reopen")
 	_expect(not bool(menu.get("_map_picker_expanded")), context + " reopen starts collapsed")
 	var settled_rect: Rect2 = (menu.get("_root_margin") as Control).get_global_rect()
 	await _settle()
@@ -100,10 +100,14 @@ func _check_online(menu: ShellMenu, context: String) -> void:
 	if bool(menu.get("_map_picker_expanded")):
 		for i: int in (menu.get("_map_buttons") as Array).size():
 			var button: Button = (menu.get("_map_buttons") as Array)[i]
+			(menu.get("_map_scroll") as ScrollContainer).ensure_control_visible(button)
+			await get_tree().process_frame
 			_bounds(button, map_rect, context + " map button")
 			_bounds((menu.get("_map_names") as Array)[i], map_rect, context + " full map name")
-			_bounds((menu.get("_map_badges") as Array)[i], map_rect, context + " selected state")
+			if not bool(menu.get("_compact_layout")):
+				_bounds((menu.get("_map_badges") as Array)[i], map_rect, context + " selected state")
 			_expect(button.size.x >= 48.0 and button.size.y >= 48.0, context + " map touch target")
+		(menu.get("_map_scroll") as ScrollContainer).scroll_vertical = 0
 	else:
 		_bounds(menu.get("_selected_map_preview"), map_rect, context + " selected preview")
 		_bounds(menu.get("_selected_map_name"), map_rect, context + " selected map name")

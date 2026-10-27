@@ -37,7 +37,7 @@ func _run() -> void:
 	for profile: Dictionary in PROFILES:
 		await _exercise(profile)
 	if _failures.is_empty():
-		print("[PASS] phone_menu_layout: %d checks; home, New Game, 3 maps, solo setup, host/guest lobby presentation, preference-only Settings at desktop/phone/max-scale safe areas" % _checks)
+		print("[PASS] phone_menu_layout: %d checks; home, New Game, all map styles, solo setup, host/guest lobby presentation, preference-only Settings at desktop/phone/max-scale safe areas" % _checks)
 		get_tree().quit(0)
 	else:
 		for failure: String in _failures:
@@ -103,8 +103,11 @@ func _exercise(profile: Dictionary) -> void:
 		await _settle(menu, logical, safe)
 		_expect(bool(menu.get("_map_picker_expanded")), context + " battlefield choices expand")
 		for button: Button in menu.get("_map_buttons"):
+			(menu.get("_map_scroll") as ScrollContainer).ensure_control_visible(button)
+			await get_tree().process_frame
 			_touch(button, safe, context + " " + button.name)
-			_bounds(button, (menu.get("_map_scroll") as Control).get_global_rect(), context + " expanded map target visible")
+			_bounds(button, (menu.get("_map_scroll") as Control).get_global_rect(), context + " expanded map target reachable")
+		(menu.get("_map_scroll") as ScrollContainer).scroll_vertical = 0
 		(menu.get("_map_buttons") as Array)[archetype].pressed.emit()
 		await _settle(menu, logical, safe)
 		_expect(not bool(menu.get("_map_picker_expanded")), context + " choosing battlefield collapses choices")

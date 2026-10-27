@@ -18,7 +18,7 @@ const PAPER_INK := Color("354638")
 const PAPER_MUTED := Color("59604b")
 const DIFFICULTY_NAMES: Array[String] = ["Easy", "Medium", "Hard"]
 const DIFFICULTY_DESCRIPTIONS: Array[String] = ["Time to build. Light pressure.", "Regular raids. Balanced pressure.", "Early raids. Relentless pressure."]
-const MAP_TRAITS: Array[String] = ["Room to manoeuvre", "Control the crossings", "Find the side routes"]
+const MAP_TRAITS: Array[String] = ["Room to manoeuvre", "Control the crossings", "Find the side routes", "Raid around the lakes", "Contest the central gold"]
 # Expanded cards, tabs, header and footer need 545px with the current fonts.
 # Leave a little rounding headroom inside the frame, after safe areas and chrome.
 const EXPANDED_LAYOUT_MIN_HEIGHT: float = 560.0
@@ -69,7 +69,7 @@ var _online_tab: Button
 var _columns: BoxContainer
 var _map_scroll: ScrollContainer
 var _map_panel: VBoxContainer
-var _map_cards: HBoxContainer
+var _map_cards: GridContainer
 var _map_picker_expanded: bool = false
 var _map_choice_button: Button
 var _selected_map_preview: Control
@@ -320,7 +320,7 @@ func _build_setup() -> void:
 	_map_scroll = ScrollContainer.new()
 	_map_scroll.name = "BattlefieldScroll"
 	_map_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_map_scroll.size_flags_stretch_ratio = 1.6
+	_map_scroll.size_flags_stretch_ratio = 1.1
 	_map_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_map_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_columns.add_child(_map_scroll)
@@ -337,10 +337,12 @@ func _build_setup() -> void:
 	THEME.apply_eyebrow(_map_heading)
 	_map_panel.add_child(_map_heading)
 	_build_selected_map_card()
-	_map_cards = HBoxContainer.new()
+	_map_cards = GridContainer.new()
+	_map_cards.columns = 3
 	_map_cards.name = "MapChoices"
 	_map_cards.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_map_cards.add_theme_constant_override("separation", 10)
+	_map_cards.add_theme_constant_override("h_separation", 10)
+	_map_cards.add_theme_constant_override("v_separation", 10)
 	_map_cards.visible = false
 	_map_panel.add_child(_map_cards)
 	var group := ButtonGroup.new()
@@ -400,8 +402,8 @@ func _build_setup() -> void:
 
 func _build_selected_map_card() -> void:
 	_map_choice_button = _button("", "SelectedBattlefieldButton", _toggle_map_picker)
-	_map_choice_button.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	var normal: StyleBoxFlat = THEME.panel_style(PAPER, Color("a9b29a"), 16)
+	_map_choice_button.size_flags_vertical = Control.SIZE_FILL
+	var normal: StyleBoxFlat = THEME.panel_style(PAPER, Color("a9b29a"), 8)
 	var hover: StyleBoxFlat = normal.duplicate()
 	hover.bg_color = Color("f2ead8")
 	hover.border_color = GOLD
@@ -903,7 +905,7 @@ func _refresh_selection() -> void:
 	if _map_choice_button.disabled and _map_picker_expanded:
 		_set_map_picker_expanded(false)
 	_selected_map_name.text = MapData.get_archetype_name(archetype)
-	_selected_map_detail.text = MAP_TRAITS[archetype]
+	_selected_map_detail.text = MAP_TRAITS[archetype] + " · Change map"
 	_map_choice_button.accessibility_name = "Battlefield: %s. %s" % [_selected_map_name.text, "Chosen by host." if guest else "Show or hide map choices."]
 	_map_choice_button.tooltip_text = MapData.get_archetype_description(archetype)
 	if int(_selected_map_preview.get("archetype")) != archetype:
@@ -1206,13 +1208,13 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2, shell_top_cle
 	# compact body's minimum. Keep actions fixed and scroll battlefield details.
 	var short_body: bool = compact and available.size.y < 336.0
 	var minimal_maps: bool = compact and available.size.y < 294.0
-	_map_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO if short_body else ScrollContainer.SCROLL_MODE_DISABLED
+	_map_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO if short_body or _map_picker_expanded else ScrollContainer.SCROLL_MODE_DISABLED
 	_map_heading.visible = not short_body and not _map_picker_expanded
-	_civilization_button.visible = not (_map_picker_expanded and short_body)
+	_civilization_button.visible = not (_map_picker_expanded and compact)
 	map_summary_label.visible = not _map_picker_expanded
-	_map_choice_button.custom_minimum_size.y = 48 if _map_picker_expanded else (80 if minimal_maps else (112 if compact else 200))
-	_map_choice_button.size_flags_vertical = Control.SIZE_FILL if _map_picker_expanded else Control.SIZE_EXPAND_FILL
-	_selected_map_preview.custom_minimum_size.x = 90 if compact else 160
+	_map_choice_button.custom_minimum_size.y = 48 if _map_picker_expanded else (80 if minimal_maps else (100 if compact else 144))
+	_map_choice_button.size_flags_vertical = Control.SIZE_FILL
+	_selected_map_preview.custom_minimum_size.x = 72 if compact else 130
 	_selected_map_name.add_theme_font_size_override("font_size", 16 if compact else 22)
 	_selected_map_detail.add_theme_font_size_override("font_size", 12 if compact else 14)
 	var max_width: float = 1280.0
@@ -1225,7 +1227,8 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2, shell_top_cle
 	_shell.add_theme_constant_override("separation", 6 if compact else 14)
 	_setup.add_theme_constant_override("separation", 6 if compact else 14)
 	_columns.add_theme_constant_override("separation", 12 if compact else 24)
-	_map_cards.add_theme_constant_override("separation", 6 if compact else 12)
+	_map_cards.add_theme_constant_override("h_separation", 6 if compact else 12)
+	_map_cards.add_theme_constant_override("v_separation", 6 if compact else 12)
 	_map_panel.add_theme_constant_override("separation", 4 if compact else 8)
 	_options_panel.custom_minimum_size.x = 236 if compact else 310
 	var options_style: StyleBoxFlat = _options_panel.get_theme_stylebox("panel")
@@ -1252,14 +1255,15 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2, shell_top_cle
 	settings_button.tooltip_text = "Settings"
 	settings_button.accessibility_name = "Settings"
 	_tabs.add_theme_constant_override("separation", 6 if compact else 8)
-	_map_note.visible = not compact
+	_map_note.visible = not compact and not _map_picker_expanded
 	map_summary_label.add_theme_font_size_override("font_size", 13 if compact else 15)
 	map_summary_label.custom_minimum_size.y = 30 if compact else 38
 	for i: int in _map_buttons.size():
-		_map_buttons[i].custom_minimum_size.y = 80 if minimal_maps else (126 if compact else 240)
-		_map_previews[i].visible = not minimal_maps
-		_map_previews[i].custom_minimum_size.y = 54 if compact else 144
+		_map_buttons[i].custom_minimum_size.y = 68 if compact else 156
+		_map_previews[i].visible = not compact
+		_map_previews[i].custom_minimum_size.y = 54 if compact else 86
 		_map_names[i].add_theme_font_size_override("font_size", 14 if compact else 18)
+		_map_badges[i].visible = not compact
 		_map_badges[i].add_theme_font_size_override("font_size", 10 if compact else 12)
 	_home.add_theme_constant_override("separation", 24 if compact else 64)
 	_home_actions.custom_minimum_size.x = minf(310, available.size.x * 0.43)

@@ -25,7 +25,7 @@
 	const events = ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'mousedown', 'mouseup', 'click', 'keydown', 'keyup', 'wheel'];
 	const emit = (name, detail) => host.dispatchEvent(new host.CustomEvent(name, {detail}));
 	function update(state, data = {}) {
-		status = {state, release: data.release || status.release, message: data.message || '', offlineReady, persistence, transfer: data.transfer || status.transfer || null};
+		status = {state, release: data.release || status.release, message: data.message || '', pendingUpdate: !!(registration && registration.waiting), offlineReady, persistence, transfer: data.transfer || status.transfer || null};
 		emit('pocket-update-status', Object.assign({}, status));
 	}
 	function block(event) {
