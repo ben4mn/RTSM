@@ -8,11 +8,10 @@ signal room_changed()
 signal snapshot_received(snapshot: Dictionary)
 signal match_ended(winner: int, reason: String)
 
-## Protocol8 agrees on household economy and ordered waypoint/rally commands.
-## Older clients must reload so costs, population and command semantics agree.
-## Terrain catalog4 and the existing 180-second victory clock are unchanged.
-const PROTOCOL := 8
-const MAP_CATALOG_VERSION := 4
+## Protocol9 agrees on seeded terrain catalog5, trade and finite production.
+## Old clients reload before joining so simulation data stays identical.
+const PROTOCOL := 9
+const MAP_CATALOG_VERSION := 5
 const DEFAULT_ENDPOINT := "wss://game.4mn.org/match"
 const MAX_CLIENT_PACKET := 8192
 const MAX_SERVER_PACKET := 262144
@@ -59,6 +58,8 @@ var _finishing: bool = false
 func _ready() -> void:
 	_elapsed = float(Time.get_ticks_msec()) / 1000.0
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	process_priority = -1000
+	process_physics_priority = -1000
 	server_mode = "--aoem-server" in OS.get_cmdline_user_args()
 	if server_mode:
 		GameManager.guided_opening_enabled = false
@@ -221,7 +222,16 @@ func _send(peer: WebSocketPeer, packet: Dictionary) -> bool:
 		return false
 	return peer.send_text(JSON.stringify(packet)) == OK
 
+func enforce_match_speed() -> void:
+	if online or server_mode:
+		Engine.time_scale = 1.0
+		GameManager.game_speed = 1.0
+
+func _physics_process(_delta: float) -> void:
+	enforce_match_speed()
+
 func _process(_delta: float) -> void:
+	enforce_match_speed()
 	# Engine delta can be capped during stalls or scaled for simulation. Socket
 	# deadlines and rate limits belong to elapsed wall time, including loading.
 	var now: float = float(Time.get_ticks_msec()) / 1000.0

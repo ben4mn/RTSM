@@ -22,6 +22,7 @@ var _unit_scenes: Dictionary = {
 	UnitData.UnitType.CAVALRY: preload("res://scenes/units/cavalry.tscn"),
 	UnitData.UnitType.SCOUT: preload("res://scenes/units/scout.tscn"),
 	UnitData.UnitType.SIEGE: preload("res://scenes/units/siege.tscn"),
+	UnitData.UnitType.TRADER: preload("res://scenes/units/trader.tscn"),
 }
 
 # --- Building scenes ---
@@ -36,6 +37,7 @@ var _building_scenes: Dictionary = {
 	BuildingData.BuildingType.SIEGE_WORKSHOP: preload("res://scenes/buildings/siege_workshop.tscn"),
 	BuildingData.BuildingType.BLACKSMITH: preload("res://scenes/buildings/blacksmith.tscn"),
 	BuildingData.BuildingType.WATCH_TOWER: preload("res://scenes/buildings/watch_tower.tscn"),
+	BuildingData.BuildingType.TRADE_POST: preload("res://scenes/buildings/trade_post.tscn"),
 }
 
 # --- Team colors ---
@@ -558,6 +560,7 @@ func _on_map_ready(map_gen: MapGenerator) -> void:
 	selection_mgr.attack_command.connect(_on_attack_command)
 	selection_mgr.gather_command.connect(_on_gather_command)
 	selection_mgr.build_command.connect(_on_build_command)
+	selection_mgr.trade_command.connect(_on_trade_command)
 	selection_mgr.selection_changed.connect(_on_selection_changed)
 	selection_mgr.world_gesture_started.connect(_on_world_gesture_started)
 	selection_mgr.touch_context_opened.connect(_on_world_context_opened)
@@ -1426,8 +1429,8 @@ func _setup_player_start(player_id: int, spawn_tile: Vector2i) -> void:
 
 	# Note: TC production queue is already connected in _spawn_building().
 
-	# Two workers represent the original four-worker income and population.
-	var offsets: Array[Vector2i] = game_map.map_generator.get_starting_villager_offsets(player_id).slice(0, UnitData.STARTING_VILLAGERS)
+	# Every starting worker uses the same per-civilization rates as a paid recruit.
+	var offsets: Array[Vector2i] = game_map.map_generator.get_starting_villager_offsets(player_id).slice(0, UnitData.get_starting_villager_count())
 	var villagers: Array[UnitBase] = []
 	for offset in offsets:
 		var vill_tile: Vector2i = spawn_tile + offset
@@ -1586,7 +1589,9 @@ func _on_unit_trained(unit_type: int, player_id: int, source_queue: ProductionQu
 		and unit is Villager
 		and not producer.has_custom_rally_point()
 	)
-	if not use_default_villager_assignment:
+	if unit is Trader:
+		(unit as Trader).command_trade(producer)
+	elif not use_default_villager_assignment:
 		_issue_production_rally(unit, producer.rally_point, producer)
 	elif player_id != 0 and unit is Villager:
 		_auto_assign_new_villager(unit)
@@ -2021,7 +2026,7 @@ func _on_selection_changed(selected_units: Array[Node2D]) -> void:
 		return
 	if first is UnitBase:
 		var u: UnitBase = first as UnitBase
-		var action_text: String = UnitBase.State.keys()[u.current_state]
+		var action_text: String = u.get_trade_status() if u is Trader else UnitBase.State.keys()[u.current_state]
 		# The worker owns its work intent; cargo never substitutes for status.
 		if u is Villager:
 			var v: Villager = u as Villager
@@ -2401,6 +2406,19 @@ func _on_player_gather_accepted(resource_type: String) -> void:
 	if resource_type == "food":
 		_opening_gather_complete = true
 	_refresh_guided_opening_stage()
+
+
+func _on_trade_command(post: Node2D) -> void:
+	if GameManager.current_state != GameManager.GameState.PLAYING:
+		return
+	if NetworkSession.is_client():
+		_send_network_selection("trade", NetworkSession.target_payload(post))
+		return
+	var accepted: bool = false
+	for unit: Node2D in game_map.selection_mgr.selected:
+		if unit is Trader and unit.player_owner == 0:
+			accepted = unit.command_trade(post) or accepted
+	hud.show_notification("Trade route started." if accepted else "Build your Trade Post farther from a Town Center, with a clear route.")
 
 
 func _on_build_command(building: Node2D) -> void:

@@ -1,6 +1,20 @@
 {
   "releases": [
     {
+      "id": "2026-10-26-trade-and-terrain",
+      "date": "2026-10-26",
+      "version": "0.3.0-beta.11",
+      "title": "New roads, clearer orders",
+      "summary": "Fresh battlefields, exposed trade routes, and a quieter mobile interface.",
+      "changes": [
+        "Five seeded map styles, including Golden Basin and Twin Lakes, vary routes and resource positions while keeping symmetric starts.",
+        "Three starting villagers share the same civilization gathering rules as recruits. Gathering is modestly slower; farms sustain food and Traders deliver renewable gold along vulnerable Town Center–Trade Post routes.",
+        "Hold a unit card to add a finite paid queue; release or drag away to stop. Queue options and detailed management controls expand when needed.",
+        "Compact age and church controls, local placement previews, clearer movement routes, and responsive movement. Multiplayer runs at a fixed speed with matching protocol9.",
+        "Updates and Refresh are available from the menu; active matches defer app updates."
+      ]
+    },
+    {
       "id": "2026-10-25-return-to-work",
       "date": "2026-10-25",
       "version": "0.3.0-beta.10.1",

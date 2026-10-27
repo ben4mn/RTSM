@@ -48,7 +48,7 @@ const CARD_WIDTH := 150.0
 const CARD_HEIGHT := 94.0
 const CARD_GAP := 8.0
 const BUILDING_CATEGORIES: Dictionary = {
-	"Economy": [BuildingData.BuildingType.HOUSE, BuildingData.BuildingType.FARM, BuildingData.BuildingType.RESOURCE_CAMP, BuildingData.BuildingType.TOWN_CENTER],
+	"Economy": [BuildingData.BuildingType.HOUSE, BuildingData.BuildingType.FARM, BuildingData.BuildingType.RESOURCE_CAMP, BuildingData.BuildingType.TRADE_POST, BuildingData.BuildingType.TOWN_CENTER],
 	"Army": [BuildingData.BuildingType.BARRACKS, BuildingData.BuildingType.ARCHERY_RANGE, BuildingData.BuildingType.STABLE, BuildingData.BuildingType.SIEGE_WORKSHOP, BuildingData.BuildingType.BLACKSMITH],
 	"Defence": [BuildingData.BuildingType.WATCH_TOWER],
 }
@@ -57,6 +57,7 @@ const BUILDING_PURPOSES: Dictionary = {
 	BuildingData.BuildingType.FARM: "Unlimited food · 1 worker",
 	BuildingData.BuildingType.RESOURCE_CAMP: "All resource drop-off",
 	BuildingData.BuildingType.TOWN_CENTER: "Train workers",
+	BuildingData.BuildingType.TRADE_POST: "Train traders · distant TC route",
 	BuildingData.BuildingType.BARRACKS: "Train Warriors",
 	BuildingData.BuildingType.BLACKSMITH: "Unit and worker upgrades",
 	BuildingData.BuildingType.SIEGE_WORKSHOP: "Siege production",

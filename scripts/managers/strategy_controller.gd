@@ -398,19 +398,8 @@ func _cancel(building: Node2D, index: int) -> void:
 	_refresh()
 
 
-func _set_repeat(building: Node2D, enabled: bool) -> void:
-	var queue: ProductionQueue = _owned_producer(building)
-	if queue == null or queue.auto_queue_unit_type < 0:
-		return
-	if NetworkSession.is_client():
-		var sent: bool = NetworkSession.send_command("repeat", {"target": NetworkSession.entity_id(building), "enabled": enabled})
-		var message: String = "Repeat ON requested." if enabled else "Repeat OFF requested. Paid units stay queued."
-		_overview.show_feedback(message if sent else "Connection unavailable. Try again.", sent)
-		_refresh()
-		return
-	queue.auto_queue_enabled = enabled
-	_overview.show_feedback("Repeat ON. New units are paid as space opens." if enabled else "Repeat OFF. Paid units stay queued.")
-	_refresh()
+func _set_repeat(_building: Node2D, _enabled: bool) -> void:
+	_overview.show_feedback("Hold a unit card to add to its finite queue.", false)
 
 
 func _save_group(index: int) -> void:

@@ -240,7 +240,10 @@
     }
     for (const button of checkButtons) button.addEventListener('click', checkUpdates);
     byId('pocket-refresh').addEventListener('click', async () => {
-        if (!safeWanted || held) return;
+        if (!safeWanted || held) {
+            byId('pocket-dialog-update-copy').textContent = 'Your match is protected. Return to the main menu to refresh the app.';
+            return;
+        }
         closeReleases(false);
         await window.PocketUpdates.refresh();
     });

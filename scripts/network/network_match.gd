@@ -99,6 +99,8 @@ func _snapshot_for(slot: int) -> Dictionary:
 				actor["attack_move"] = node.attack_move
 				actor["marching"] = node.is_attack_marching()
 				actor["queued_orders"] = _serialize_orders(node.queued_orders)
+			if node is Trader and node.player_owner == slot:
+				actor.merge({"trade_status": node.get_trade_status(), "trade_cargo": node.carried_gold, "trade_income": node.get_trip_income()})
 			if node is Villager and node.player_owner == slot:
 				actor.merge({"gather": node.gather_type, "cargo": node.carried_amount, "cargo_type": node.carried_resource_type, "cargo_manifest": node.get_carried_resources(), "work": node.get_economy_task(), "work_status": node.get_work_status(), "recovering": node.is_auto_recovering(), "building_order": node.has_active_build_order()})
 		else:
@@ -111,7 +113,7 @@ func _snapshot_for(slot: int) -> Dictionary:
 				actor["rally_orders"] = _serialize_orders(node.rally_orders)
 				var queue: ProductionQueue = node.get_production_queue()
 				if queue != null:
-					actor["queue"] = {"items": queue.queue, "progress": queue.current_progress, "time": queue.current_train_time, "training": queue.is_training, "repeat": queue.auto_queue_enabled, "repeat_type": queue.auto_queue_unit_type}
+					actor["queue"] = {"items": queue.queue, "progress": queue.current_progress, "time": queue.current_train_time, "training": queue.is_training, "repeat": false, "repeat_type": queue.auto_queue_unit_type}
 		actors.append(actor)
 	var resources: Array = []
 	var visible_resource_tiles: Dictionary = game_map.get_visible_tiles_for_player(_resource_tiles, slot)
@@ -187,6 +189,10 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 				node._attack_animation_direction = Vector2(float(animation[2]), float(animation[3]))
 				if node._sprite != null:
 					node._sprite.flip_h = bool(animation[4])
+			if node is Trader:
+				node.set_meta("network_trade_status", str(actor.get("trade_status", "")))
+				node.carried_gold = int(actor.get("trade_cargo", 0))
+				node.set_meta("network_trade_income", int(actor.get("trade_income", 0)))
 			if node is Villager:
 				node.gather_type = int(actor.get("gather", 0))
 				node.carried_amount = int(actor.get("cargo", 0))
@@ -212,7 +218,7 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 				queue.current_progress = float(data.progress)
 				queue.current_train_time = float(data.time)
 				queue.is_training = bool(data.training)
-				queue.auto_queue_enabled = bool(data.repeat)
+				queue.auto_queue_enabled = false
 				queue.auto_queue_unit_type = int(data.repeat_type)
 		if was_present and float(actor.hp) < float(node.hp) and node.is_visible_in_tree():
 			if node is UnitBase:
@@ -451,6 +457,13 @@ func execute_command(owner: int, packet: Dictionary) -> String:
 		"allocate":
 			var result: Dictionary = main.get_node("StrategyController").try_allocate_worker(owner, str(packet.get("source", "")), str(packet.get("destination", "")))
 			return str(result.get("error", ""))
+		"trade":
+			if not target is BuildingBase or target.player_owner != owner or target.building_type != BuildingData.BuildingType.TRADE_POST:
+				return "Select your Trade Post"
+			var accepted: bool = false
+			for unit: UnitBase in units:
+				if unit is Trader: accepted = unit.command_trade(target) or accepted
+			if not accepted: return "Trade needs a clear route to a distant Town Center"
 		"surrender":
 			main._conclude_match(1 - owner, "Surrender")
 		"move", "attack_move", "patrol":
@@ -526,8 +539,7 @@ func execute_command(owner: int, packet: Dictionary) -> String:
 						var index: int = int(packet.get("index", -1))
 						queue.cancel_all() if index == -1 else queue.cancel_unit(index)
 				"repeat":
-					if queue != null:
-						queue.auto_queue_enabled = bool(packet.get("enabled", false))
+					return "Hold Train for a finite paid queue"
 				"research":
 					if not GameManager.try_research(owner, target, str(packet.get("research", ""))):
 						return "Research unavailable"

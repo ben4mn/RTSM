@@ -167,6 +167,7 @@ const BUILDING_SPRITES: Dictionary = {
 	BuildingData.BuildingType.RESOURCE_CAMP: "res://assets/buildings/company_resource_camp.svg",
 	BuildingData.BuildingType.SIEGE_WORKSHOP: "res://assets/buildings/company_siege_workshop.svg",
 	BuildingData.BuildingType.BLACKSMITH: "res://assets/buildings/company_blacksmith.svg",
+	BuildingData.BuildingType.TRADE_POST: "res://assets/buildings/trade_post.svg",
 	BuildingData.BuildingType.WATCH_TOWER: "res://assets/buildings/watch_tower.svg",
 }
 

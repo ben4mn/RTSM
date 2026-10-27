@@ -231,8 +231,16 @@ func _button(text: String, control_name: String, width: float = 96.0) -> Button:
 	button.add_theme_font_size_override("font_size", 13)
 	button.mouse_filter = Control.MOUSE_FILTER_STOP
 	KingdomTheme.apply_secondary(button)
+	FieldStyle.soften(button, 10, true)
 	button.gui_input.connect(_on_gui_contact)
 	return button
+
+
+func _attach_repeat(button: Button, action: Callable) -> void:
+	var hold := HUDHoldControl.attach_to(button, self, func() -> Dictionary: return {}, func() -> Variant: return [_surface, _source])
+	hold.repeat_action = action
+	hold.admission_provider = func() -> bool: return panel.visible and GameManager.current_state == GameManager.GameState.PLAYING
+	hold.ownership_started.connect(func(_contact: int) -> void: world_gesture_cancel_requested.emit())
 
 
 func _label(text: String, font_size: int = 13) -> Label:
@@ -279,6 +287,10 @@ func _build_economy() -> void:
 		button.pressed.connect(func() -> void: allocation_requested.emit(_source, resource))
 		_destination_buttons[resource] = button
 		destinations.add_child(button)
+		_attach_repeat(button, func() -> bool:
+			if button.disabled: return false
+			allocation_requested.emit(_source, resource)
+			return true)
 	_idle_button = _icon_button("idle", "Select the next idle worker", "FindIdleButton", JOB_CHIP_WIDTH, "Find\nidle")
 	_idle_button.pressed.connect(func() -> void: idle_requested.emit())
 	destinations.add_child(_idle_button)
@@ -479,15 +491,11 @@ func _refresh_producers(producers: Array) -> void:
 		row["military"] = bool(producer.get("military", false))
 		(row.status as Label).text = str(producer.get("status", ""))
 		var queue: Array = producer.get("queue", [])
-		(row.paid as Label).text = "Repeat ON pays for new units automatically." if bool(producer.get("repeat_enabled", false)) else "Repeat OFF keeps paid units queued."
-		(row.paid as Label).tooltip_text = "Turning Repeat OFF stops future purchases. Already-paid units keep training; Clear & stop refunds them."
-		var repeat_type: int = int(producer.get("repeat_type", -1))
-		var repeat_button: Button = row.repeat
-		apply_repeat_caption(repeat_button, repeat_type, bool(producer.get("repeat_enabled", false)))
-		repeat_button.set_pressed_no_signal(bool(producer.get("repeat_enabled", false)))
-		repeat_button.disabled = repeat_type < 0 or not bool(producer.get("active", false))
+		(row.paid as Label).text = "%d / %d queued · hold a unit to add" % [queue.size(), ProductionQueue.MAX_QUEUE_SIZE]
+		(row.paid as Label).tooltip_text = "Every queued unit is paid. Release to stop adding."
+		(row.repeat as Button).hide()
 		(row.undo as Button).disabled = queue.is_empty()
-		(row.clear as Button).disabled = queue.is_empty() and not bool(producer.get("repeat_enabled", false))
+		(row.clear as Button).disabled = queue.is_empty()
 		var rally: Button = row.rally
 		var active: bool = bool(producer.get("active", false))
 		var army_selected: bool = int(_snapshot.get("selected_military", 0)) > 0
@@ -532,7 +540,7 @@ func _create_producer(producer: Dictionary) -> void:
 	var id: int = building.get_instance_id()
 	var card := PanelContainer.new()
 	card.name = "Producer_%d" % id
-	card.add_theme_stylebox_override("panel", KingdomTheme.panel_style(KingdomTheme.INK, KingdomTheme.BORDER, 8))
+	card.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	_producer_list.add_child(card)
 	var content := VBoxContainer.new()
 	content.add_theme_constant_override("separation", 4)
@@ -571,6 +579,11 @@ func _create_producer(producer: Dictionary) -> void:
 			if is_instance_valid(building):
 				training_requested.emit(building, unit_type))
 		unit_card.add_child(button)
+		_attach_repeat(button, func() -> bool:
+			if not is_instance_valid(building) or button.disabled:
+				return false
+			training_requested.emit(building, unit_type)
+			return true)
 		train_buttons[unit_type] = button
 		var unit_status := _label("", 12)
 		unit_status.name = "TrainingStatus_%d" % unit_type
@@ -580,20 +593,27 @@ func _create_producer(producer: Dictionary) -> void:
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 6)
 	content.add_child(actions)
+	actions.hide()
+	var queue_toggle := _button("Queue options  +", "QueueDisclosure", 150)
+	content.add_child(queue_toggle)
+	queue_toggle.pressed.connect(func() -> void:
+		actions.visible = not actions.visible
+		queue_toggle.text = "Queue options  -" if actions.visible else "Queue options  +")
 	var repeat_button := _icon_button("repeat", "Repeat paid training while resources and population room allow", "Repeat", 120, "Repeat\nOFF")
 	repeat_button.toggle_mode = true
 	repeat_button.toggled.connect(func(enabled: bool) -> void:
 		if is_instance_valid(building):
 			repeat_requested.emit(building, enabled))
 	actions.add_child(repeat_button)
+	repeat_button.hide()
 	var undo := _icon_button("undo", "Refund the last paid unit", "UndoLast", 120, "Undo\nlast")
-	undo.tooltip_text = "Refund the last paid unit and its population reservation. Repeat keeps its current setting."
+	undo.tooltip_text = "Refund the last paid unit and its population reservation."
 	undo.pressed.connect(func() -> void:
 		if is_instance_valid(building) and _producer_rows.has(id):
 			cancellation_requested.emit(building, int(_producer_rows[id].queue_size) - 1))
 	actions.add_child(undo)
-	var clear := _icon_button("clear", "Stop Repeat and refund all queued units", "ClearAndStop", 120, "Clear\n& stop")
-	clear.tooltip_text = "Stop Repeat and refund every paid unit and reserved population slot."
+	var clear := _icon_button("clear", "Refund all queued units", "ClearAndStop", 120, "Clear queue")
+	clear.tooltip_text = "Refund every queued unit and reserved population slot."
 	clear.pressed.connect(func() -> void:
 		if is_instance_valid(building):
 			cancellation_requested.emit(building, ProductionQueue.CANCEL_ALL_INDEX))
@@ -636,7 +656,7 @@ func set_surface(surface: String) -> void:
 	panel.visible = surface in ["economy", "army"]
 	_economy.visible = surface == "economy"
 	_army.visible = surface == "army"
-	_title.text = "Economy & production" if surface == "economy" else "Army & groups"
+	_title.text = "Economy" if surface == "economy" else "Army"
 	_economy_button.set_pressed_no_signal(surface == "economy")
 	_army_button.set_pressed_no_signal(surface == "army")
 	if changed:
@@ -708,6 +728,8 @@ func _refresh_pages() -> void:
 	var army_open: bool = _surface == "army"
 	var recruiting: bool = army_open and _army_recruit_page
 	var production: bool = _showing_production()
+	# Expanded finite queue controls must stay reachable in the bounded sheet.
+	_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO if production and not _details_page else ScrollContainer.SCROLL_MODE_DISABLED
 	var ids: Array[int] = _visible_producer_ids()
 	var empty_recruit: bool = recruiting and ids.is_empty()
 	var food_alert: bool = bool(_snapshot.get("food_attention_ready", false)) and not economy_open
@@ -845,7 +867,7 @@ func _producer_details(producer: Dictionary) -> PackedStringArray:
 	var paid: PackedStringArray = []
 	for unit_name: String in counts:
 		paid.append("%s ×%d" % [unit_name, counts[unit_name]])
-	lines.append("Paid: %s · Repeat %s" % [", ".join(paid) if not paid.is_empty() else "empty", "ON" if bool(producer.get("repeat_enabled", false)) else "OFF"])
+	lines.append("Queue: %s" % [", ".join(paid) if not paid.is_empty() else "empty"])
 	lines.append(str(producer.get("rally_status", "")).replace(" · fixed until changed.", ".").replace(" Includes new Villagers.", " New Villagers too."))
 	return lines
 
@@ -861,14 +883,15 @@ func apply_layout(safe: Rect2, field_visible: bool, card_area: Rect2, dock_heigh
 	_sheet_width = minf(SHEET_MAX_WIDTH, card_right - card_left)
 	_fit_economy_rows(_sheet_width)
 	var sheet_slot_height: float = minf(310.0, card_area.size.y - 16.0)
-	var card_height: float = sheet_slot_height
+	var content_height: float = (_scroll.get_child(0) as Control).get_combined_minimum_size().y
+	var card_height: float = minf(sheet_slot_height, content_height + CommandIcons.TARGET_SIZE + 16.0)
 	if (_surface == "economy" or _army_recruit_page) and _details_page:
 		card_height = minf(card_height, 240.0)
 	if _surface == "army":
 		# Fit the current Army page so recruitment leaves more battlefield visible.
 		# Two pixels absorb container rounding at fractional interface scales.
 		var active_page: Control = _recruit_empty if _recruit_empty.visible else (_details if _details_page else _producer_list) if _army_recruit_page else (_army_notes if _details_page else _army)
-		var content_height: float = active_page.get_combined_minimum_size().y
+		content_height = active_page.get_combined_minimum_size().y
 		card_height = minf(card_height, content_height + CommandIcons.TARGET_SIZE + 14.0)
 	_last_panel_minimum = panel.get_combined_minimum_size()
 	card_height = maxf(card_height, _last_panel_minimum.y)
@@ -911,8 +934,8 @@ func _fit_economy_rows(sheet_width: float) -> void:
 	for row: Dictionary in _producer_rows.values():
 		var producer: PanelContainer = row.card
 		var inner_padding: float = producer.get_theme_stylebox("panel").get_minimum_size().x
-		var action_width: float = minf(120.0, floorf((content_width - inner_padding - CommandIcons.GAP * 2.0) / 3.0))
-		for button: Button in [row.repeat, row.undo, row.clear]:
+		var action_width: float = minf(120.0, floorf((content_width - inner_padding - CommandIcons.GAP) / 2.0))
+		for button: Button in [row.undo, row.clear]:
 			button.custom_minimum_size.x = maxf(CommandIcons.TARGET_SIZE, action_width)
 
 

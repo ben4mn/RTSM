@@ -62,7 +62,7 @@ const MOBILE_SELECTION_COMMAND_WIDTH := 520.0
 const MOBILE_SELECTION_HEIGHT := 80.0
 const MOBILE_UNIT_SELECTION_HEIGHT := 72.0
 const MOBILE_DOCK_CAPTION_HEIGHT := 24.0
-const MOBILE_TOP_RAIL_HEIGHT := 56.0
+const MOBILE_TOP_RAIL_HEIGHT := 48.0
 const MOBILE_UNIT_COMMAND_WIDTH := 48.0
 const MOBILE_GUIDANCE_WIDTH := 360.0
 const MOBILE_GUIDANCE_HEIGHT := 54.0
@@ -567,7 +567,14 @@ func _create_game_control_buttons() -> void:
 	_speed_button.tooltip_text = "Cycle game speed"
 	hbox.add_child(_speed_button)
 
+	var backdrop := Panel.new()
+	backdrop.name = "GameControlsBackdrop"
+	backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	backdrop.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	backdrop.add_theme_stylebox_override("panel", FieldStyle.surface(12))
+	root_ctrl.add_child(backdrop)
 	root_ctrl.add_child(hbox)
+	FieldStyle.soften(_speed_button, 12, true)
 
 
 func _create_camera_controls() -> void:
@@ -724,7 +731,8 @@ func _create_match_population_label() -> void:
 func set_match_population_limit(limit: int) -> void:
 	_match_population_limit = limit
 	if _match_population_label:
-		_match_population_label.text = "Max %d" % limit
+		_match_population_label.text = ""
+		_match_population_label.hide()
 
 
 func _configure_mobile_visuals() -> void:
@@ -835,7 +843,7 @@ func _refresh_command_icons() -> void:
 					CommandIcons.apply_labeled(button, entry[1], entry[2], caption)
 				else:
 					CommandIcons.apply(button, entry[1], entry[2])
-				FieldStyle.soften(button, 24 if entry[1] in ["clear", "back", "close", "more", "pause", "resume"] else 12, button != build_menu_button)
+				FieldStyle.soften(button, 24 if entry[1] in ["clear", "back", "close", "more"] else 12, button != build_menu_button)
 			button.text = caption
 			button.tooltip_text = entry[2]
 			button.accessibility_name = entry[2]
@@ -1799,17 +1807,27 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 	var safe_top: float = metrics["safe_top"]
 	var safe_left: float = metrics["safe_left"]
 	var safe_right: float = metrics["safe_right"]
-	top_bar.offset_top = safe_top
-	top_bar.offset_bottom = safe_top + top_bar.custom_minimum_size.y
+	top_bar.anchor_right = 0.0
+	top_bar.grow_horizontal = Control.GROW_DIRECTION_END
+	top_bar.offset_left = safe_left + 8.0
+	var resource_width: float = _narrow_resource_grid.get_combined_minimum_size().x if _resource_grid_compact else 0.0
+	if not _resource_grid_compact:
+		for chip: Control in _resource_chips.values():
+			resource_width += chip.get_combined_minimum_size().x + 8.0
+		if age_label.visible: resource_width += age_label.get_combined_minimum_size().x + 8.0
+	top_bar.offset_right = top_bar.offset_left + maxf(resource_width + 20.0, top_bar.get_combined_minimum_size().x)
+	top_bar.offset_top = safe_top + 4.0
+	top_bar.offset_bottom = safe_top + 52.0
+	top_bar_hbox.get_node("Spacer").hide()
 	_layout_secondary_cards()
 	if _strategy_overview:
 		_strategy_overview.apply_layout(safe_area, standard_field_chrome_visible and _ui_modal_state == UIModalState.NONE, get_hold_safe_rect(), float(metrics["selection_height"]))
 	var top_bar_margin: MarginContainer = top_bar.get_node_or_null("TopBarMargin")
 	if top_bar_margin:
-		top_bar_margin.add_theme_constant_override("margin_left", int(round(safe_left + 10.0)))
+		top_bar_margin.add_theme_constant_override("margin_left", 10)
 		# Reserve the top-right utility buttons instead of rendering the timer
 		# underneath them at narrow phone widths.
-		top_bar_margin.add_theme_constant_override("margin_right", int(round(safe_right + 368.0)))
+		top_bar_margin.add_theme_constant_override("margin_right", 10)
 
 	var game_controls: Control = get_node_or_null("Root/GameControlButtons")
 	if game_controls:
@@ -1817,6 +1835,12 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 		game_controls.offset_left = game_controls.offset_right - 158.0
 		game_controls.offset_top = safe_top + 4.0
 		game_controls.offset_bottom = safe_top + 52.0
+		var backdrop: Control = get_node_or_null("Root/GameControlsBackdrop")
+		if backdrop:
+			backdrop.offset_left = game_controls.offset_left - 6.0
+			backdrop.offset_right = game_controls.offset_right
+			backdrop.offset_top = game_controls.offset_top
+			backdrop.offset_bottom = game_controls.offset_bottom
 	if _score_label:
 		_refresh_score_visibility(viewport_size)
 		_score_label.offset_left = -safe_right - 290.0
@@ -1986,8 +2010,8 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 
 	if _sacred_site_panel:
 		_sacred_site_panel.visible = not _sacred_site_status.is_empty() and standard_field_chrome_visible
-		var sacred_width: float = 188.0
-		var sacred_left: float = safe_area.end.x - 360.0
+		var sacred_width: float = 112.0 if int(_sacred_site_status.get("owner", -1)) >= 0 else 48.0
+		var sacred_left: float = minf(top_bar.offset_right + 8.0, safe_area.end.x - 172.0 - sacred_width)
 		_sacred_site_panel.offset_left = sacred_left - viewport_size.x * 0.5
 		_sacred_site_panel.offset_right = _sacred_site_panel.offset_left + sacred_width
 		_sacred_site_panel.offset_top = metrics["safe_top"] + 4.0
@@ -2053,7 +2077,7 @@ func _calculate_mobile_layout_metrics(viewport_size: Vector2, safe_area: Rect2, 
 	var bottom_inset: float = maxf(0.0, viewport_size.y - safe_end.y)
 	var short_side: float = minf(safe_area.size.x, safe_area.size.y)
 	var phone: bool = short_side <= MOBILE_TOP_BAR_COMPACT_SHORT_SIDE
-	var side_button_width: float = (88.0 if safe_area.size.x < 650.0 else 104.0) if age_up_button.visible else 48.0
+	var side_button_width: float = 56.0 if age_up_button.visible else 48.0
 	var side_count: int = int(age_up_button.visible) + int(build_menu_button.visible)
 	var side_width: float = side_button_width * float(side_count) + 6.0 * float(maxi(0, side_count - 1))
 	var bottom_right_right: float = -right_inset - MOBILE_ACTION_MARGIN
@@ -2583,15 +2607,15 @@ func update_population(current: int, cap: int) -> void:
 	if _resource_grid_compact:
 		var gm: Node = _get_game_manager()
 		var age_index: int = clampi(gm.get_player_age(0) if gm else 1, 1, 4)
-		pop_label.text = "%d/%d · Max%d · %s" % [current, cap, _match_population_limit, ["I", "II", "III", "IV"][age_index - 1]]
+		pop_label.text = "%d/%d · %s" % [current, cap, ["I", "II", "III", "IV"][age_index - 1]]
 		pop_label.add_theme_font_size_override("font_size", 12)
 	elif _top_bar_compact:
 		var gm: Node = _get_game_manager()
 		var age_index: int = clampi(gm.get_player_age(0) if gm else 1, 1, 4)
-		pop_label.text = "%d/%d\nMax%d · %s" % [current, cap, _match_population_limit, ["I", "II", "III", "IV"][age_index - 1]]
+		pop_label.text = "%d/%d · %s" % [current, cap, ["I", "II", "III", "IV"][age_index - 1]]
 		pop_label.add_theme_font_size_override("font_size", 14)
 	else:
-		pop_label.text += "\nMax %d" % _match_population_limit
+		pass # Match limits live in population Info, not the field banner.
 
 
 func _population_information() -> Dictionary:
@@ -2646,17 +2670,25 @@ func _update_age_display() -> void:
 		var age: int = gm.get_player_age(0)
 		age_label.text = gm.get_age_name(age)
 		var cost: Dictionary = gm.get_age_up_cost(0, age + 1)
-		# Keep costs visible on phones, where hover tooltips are unavailable.
-		age_up_button.icon = null
+		# A single age icon uses a resource-readiness seam; hold/Info shows exact costs.
+		age_up_button.icon = CommandIcons.get_icon("age_up")
+		age_up_button.add_theme_constant_override("icon_max_width", 24)
 		age_up_button.add_theme_font_size_override("font_size", 13)
 		age_up_button.add_theme_color_override("font_disabled_color", KingdomTheme.MUTED)
 		if not cost.is_empty():
 			var rm: Node = _get_resource_manager()
 			var affordable: bool = rm != null and rm.can_afford(0, cost)
-			age_up_button.text = ("Age Up\n%dF·%dG" if _resource_grid_compact else "Age Up\n%dF · %dG") % [int(cost.get("food", 0)), int(cost.get("gold", 0))]
+			age_up_button.text = ["I", "II", "III", "IV"][mini(age, 3)]
+			var stock: Dictionary = rm.get_all_resources(0) if rm else {}
+			var readiness: float = 1.0
+			for resource: String in cost:
+				if float(cost[resource]) > 0:
+					readiness = minf(readiness, float(stock.get(resource, 0)) / float(cost[resource]))
+			FieldStyle.production_meter(age_up_button, clampf(readiness, 0.0, 1.0))
 			age_up_button.tooltip_text = _get_age_up_preview(age + 1)
 			age_up_button.accessibility_name = age_up_button.tooltip_text
 			age_up_button.disabled = not affordable or _ui_modal_state != UIModalState.NONE
+			age_up_button.modulate = Color.WHITE if affordable else Color(0.8, 0.8, 0.8)
 		else:
 			age_up_button.text = "Max Age"
 			age_up_button.tooltip_text = "You have reached the highest age"
@@ -2722,7 +2754,7 @@ func _age_up_information() -> Dictionary:
 	var gm: Node = _get_game_manager()
 	if gm == null or gm.get_player_age(0) >= gm.MAX_AGE:
 		return {"title": "Age Up", "body": "You have reached the highest age."}
-	return {"title": "Age Up", "body": _get_age_up_preview(gm.get_player_age(0) + 1) + "\nTap Age Up to pay and advance. Holding only inspects."}
+	return {"title": "Age Up", "body": _get_age_up_preview(gm.get_player_age(0) + 1) + "\nMeter shows resources saved. Tap to pay and advance instantly. Hold for costs and unlocks."}
 
 
 func _on_game_state_changed(new_state: int) -> void:
@@ -3443,6 +3475,8 @@ func _update_train_buttons(trainable_units: Array) -> void:
 			btn.pressed.connect(_on_train_button_pressed.bind(ut))
 			_train_buttons_container.add_child(btn)
 		_attach_hud_hold(btn, _train_information.bind(ut))
+		if btn.has_meta("hud_hold_control"):
+			(btn.get_meta("hud_hold_control") as HUDHoldControl).repeat_action = _repeat_train.bind(ut)
 		btn.visible = true
 		btn.mouse_filter = Control.MOUSE_FILTER_STOP
 		var role_text: String = UnitData.get_unit_counter_description(ut, 0) if ut != UnitData.UnitType.VILLAGER else ""
@@ -3508,33 +3542,9 @@ func _update_train_buttons(trainable_units: Array) -> void:
 		_train_buttons_container.move_child(btn, child_index)
 		child_index += 1
 
-	# Repeat training is a normal, fully bounded toggle. A CheckButton's
-	# separate indicator can fall outside this horizontally scrolling shelf.
-	if production_queue != null:
-		if _auto_queue_button == null or not is_instance_valid(_auto_queue_button) or _auto_queue_button.get_parent() != _train_buttons_container:
-			_auto_queue_button = _train_buttons_container.get_node_or_null("AutoQueueButton") as Button
-		if _auto_queue_button == null:
-			_auto_queue_button = Button.new()
-			_auto_queue_button.name = "AutoQueueButton"
-			_auto_queue_button.toggle_mode = true
-			_auto_queue_button.toggled.connect(_on_auto_queue_toggled)
-			_train_buttons_container.add_child(_auto_queue_button)
-		_auto_queue_button.visible = true
-		_auto_queue_button.clip_text = true
-		_auto_queue_button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		_attach_hud_hold(_auto_queue_button, _repeat_information)
-		_auto_queue_button.mouse_filter = Control.MOUSE_FILTER_STOP
-		_auto_queue_button.custom_minimum_size = Vector2(72 if compact_town_center else 88, 48) if compact_producer else Vector2(104, 48)
-		_auto_queue_button.add_theme_font_size_override("font_size", 11 if compact_producer else 14)
-		for style_name: String in ["normal", "hover", "pressed", "disabled", "focus", "hover_pressed"]:
-			var repeat_style: StyleBox = _auto_queue_button.get_theme_stylebox(style_name).duplicate()
-			repeat_style.set_content_margin(SIDE_LEFT, 4.0)
-			repeat_style.set_content_margin(SIDE_RIGHT, 4.0)
-			_auto_queue_button.add_theme_stylebox_override(style_name, repeat_style)
-		_refresh_auto_queue_button(production_queue)
-		_train_buttons_container.move_child(_auto_queue_button, child_index)
-	else:
-		_auto_queue_button = null
+	# Finite queues only. Hold a unit card to buy up to the five-slot limit.
+	if is_instance_valid(_auto_queue_button):
+		_auto_queue_button.hide()
 	if _ui_modal_state == UIModalState.BUILD_MENU:
 		_train_buttons_container.visible = false
 	_refresh_primary_action_visuals()
@@ -3543,12 +3553,19 @@ func _update_train_buttons(trainable_units: Array) -> void:
 	call_deferred("_refresh_touch_target_diagnostics")
 
 
+func _repeat_train(unit_type: int) -> bool:
+	if bool(_training_availability(unit_type).get("blocked", true)):
+		return false
+	_on_train_button_pressed(unit_type)
+	return true
+
+
 func _layout_queue_page() -> void:
 	if _queue_page_spacer == null:
 		return
 	var has_queue_page: bool = _train_buttons_container.visible and queue_container.visible and selection_panel.visible
 	_queue_page_spacer.visible = has_queue_page
-	_queue_navigation_button.visible = _train_buttons_container.visible and selection_panel.visible and _auto_queue_button != null
+	_queue_navigation_button.visible = _train_buttons_container.visible and selection_panel.visible and has_queue_page
 	_queue_navigation_button.disabled = not has_queue_page or _ui_modal_state != UIModalState.NONE
 	queue_container.custom_minimum_size.x = command_scroll.size.x if has_queue_page else 0.0
 	if has_queue_page:
@@ -3562,20 +3579,9 @@ func _layout_queue_page() -> void:
 
 
 func _stable_production_page_width() -> float:
-	# Reserve the complete cancellation page before the first paid order. Using
-	# today's queue width here shifted the right-anchored recruitment shelf when
-	# the first pending item arrived or the last item completed.
-	var compact: bool = _is_town_center_production_context() or minf(get_viewport().get_visible_rect().size.x, get_viewport().get_visible_rect().size.y) <= 520.0
-	var kinds: int = 0
-	for child: Node in _train_buttons_container.get_children():
-		if child is Button and child != _auto_queue_button and child.visible and not child.is_queued_for_deletion():
-			kinds += 1
-	var gap: float = 2.0 if compact else 6.0
-	var cancel_width: float = float(kinds) * (62.0 if compact else 104.0) + (96.0 if compact else 128.0) + gap * float(kinds + 1)
-	if not compact:
-		cancel_width += 132.0 + gap
-	var repeat_wait_width: float = 148.0 + (48.0 if compact else 64.0) + gap
-	return maxf(_production_row_width(_train_buttons_container), maxf(cancel_width, repeat_wait_width))
+	# Recruitment stays stable as the finite backlog changes. Its separate
+	# cancellation page already scrolls; it must not reserve empty dock space.
+	return _production_row_width(_train_buttons_container)
 
 
 func _on_production_pages_sorted() -> void:
@@ -4306,7 +4312,7 @@ func _create_hotkey_panel() -> void:
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	outer.add_child(scroll)
 	var hold_help := Label.new()
-	hold_help.text = "Hold action buttons to inspect.\nHold More, slide to preview, release to choose.\nReturn to the center or outside to cancel.\nInfo opens these explanations by tapping.\nDisable hold shortcuts in Settings."
+	hold_help.text = "Hold recruitment to queue; release to stop. Hold Age Up for requirements.\nHold More, slide to preview, release to choose.\nReturn to the center or outside to cancel.\nInfo opens these explanations by tapping.\nDisable hold shortcuts in Settings."
 	hold_help.add_theme_font_size_override("font_size", 12)
 	vbox.add_child(hold_help)
 	scroll.add_child(vbox)
@@ -4337,7 +4343,7 @@ func _create_sacred_site_label() -> void:
 	chip_style.bg_color = KingdomTheme.INK_LIGHT
 	chip_style.border_color = KingdomTheme.BORDER
 	chip_style.set_border_width_all(1)
-	chip_style.set_corner_radius_all(3)
+	chip_style.set_corner_radius_all(12)
 	chip_style.set_content_margin_all(0)
 	_sacred_site_panel.add_theme_stylebox_override("panel", chip_style)
 	_sacred_site_button = Button.new()
@@ -4356,6 +4362,7 @@ func _create_sacred_site_label() -> void:
 	_sacred_site_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_sacred_site_button.add_child(_sacred_site_label)
 	root_ctrl.add_child(_sacred_site_panel)
+	CommandIcons.apply(_sacred_site_button, "sacred", "Sacred Site")
 
 
 func update_sacred_site_timer(player_id: int, remaining: float, total: float) -> void:
@@ -4373,26 +4380,18 @@ func update_sacred_site_timer(player_id: int, remaining: float, total: float) ->
 func update_sacred_site_status(status: Dictionary) -> void:
 	if _sacred_site_label == null:
 		return
-	var first_status: bool = _sacred_site_status.is_empty()
+	var first_status: bool = _sacred_site_status.is_empty() or int(_sacred_site_status.get("owner", -1)) != int(status.get("owner", -1))
 	_sacred_site_status = status.duplicate()
 	var phase: String = str(status.get("phase", "neutral"))
-	var objective_title: String = "Sacred Site · tap to view"
-	if phase == "contested":
-		objective_title = "Sacred Site · Contested"
-	elif phase == "neutralizing":
-		objective_title = "Sacred Site · Disrupted"
-	elif phase == "unguarded" and int(status.get("match_mode", SkirmishData.MatchMode.STANDARD)) == SkirmishData.MatchMode.STANDARD:
-		objective_title = "Held · bring a fighter" if int(status.get("owner", -1)) == 0 else "Enemy held · unguarded"
-	if int(status.get("match_mode", SkirmishData.MatchMode.STANDARD)) != SkirmishData.MatchMode.STANDARD:
-		var scoring_state: String = "bank control"
-		if phase == "holding":
-			scoring_state = "You scoring" if int(status.get("owner", -1)) == 0 else "Enemy scoring"
-		elif phase == "capturing":
-			scoring_state = "capturing"
-		if phase in ["contested", "neutralizing"]:
-			scoring_state = "paused"
-		objective_title = "Sacred %s · %s" % [_sacred_clock(float(status.get("total", 240.0))), scoring_state]
-	_sacred_site_label.text = objective_title + "\n" + _sacred_site_status_line(status)
+	var controlled: bool = int(status.get("owner", -1)) >= 0
+	var clock_text: String = _sacred_clock(float(status.get("remaining", 0.0))) if controlled else ""
+	if controlled and phase != "holding":
+		clock_text += " | |"
+	_sacred_site_label.text = clock_text
+	_sacred_site_label.offset_left = 28.0 if controlled else 0.0
+	_sacred_site_button.icon = CommandIcons.get_icon("sacred")
+	_sacred_site_button.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT if controlled else HORIZONTAL_ALIGNMENT_CENTER
+	_sacred_site_button.add_theme_constant_override("icon_max_width", 28)
 	_sacred_site_button.tooltip_text = _sacred_site_instructions(status)
 	var owner: int = int(status.get("owner", -1))
 	var color := KingdomTheme.PARCHMENT
@@ -5064,7 +5063,7 @@ func _train_information(unit_type: int) -> Dictionary:
 		var trainable: Array = (_selected_building_ref as BuildingBase).trainable_units
 		if not trainable.is_empty() and int(trainable[0]) == unit_type:
 			shortcut = " Shortcut: Q."
-	body += "\nTap to train one.%s Holding only inspects." % shortcut
+	body += "\nTap to train one.%s Hold to queue up to five; release to stop." % shortcut
 	return {"title": UnitData.get_unit_name(unit_type, 0), "body": body}
 
 
@@ -5174,11 +5173,12 @@ func _get_resource_manager() -> Node:
 func _apply_game_theme() -> void:
 	var root_ctrl: Control = $Root
 	root_ctrl.theme = KingdomTheme.create_theme()
-	var bar_style: StyleBoxFlat = FieldStyle.surface(0)
+	var bar_style: StyleBoxFlat = FieldStyle.surface(12)
 	bar_style.bg_color.a = 0.97
+	bar_style.set_content_margin_all(0)
 	bar_style.set_border_width_all(0)
-	bar_style.border_width_bottom = 2
-	bar_style.border_color = KingdomTheme.GOLD.darkened(0.35)
+	bar_style.set_border_width_all(1)
+	bar_style.border_color = KingdomTheme.BORDER
 	top_bar.add_theme_stylebox_override("panel", bar_style)
 	var selection_style: StyleBoxFlat = KingdomTheme.panel_style(KingdomTheme.INK_PANEL, KingdomTheme.BORDER, 2)
 	selection_style.border_width_top = 2

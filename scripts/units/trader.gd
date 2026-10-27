@@ -99,13 +99,15 @@ func command_trade(post: BuildingBase) -> bool:
 
 
 func get_trip_income() -> int:
+	if NetworkSession.is_client(): return int(get_meta("network_trade_income", 0))
 	if not _endpoint_valid(trade_post) or not _endpoint_valid(home_town_center): return 0
 	return clampi(floori(trade_post.global_position.distance_to(home_town_center.global_position) * 0.04), 20, 60)
 
 
 func get_trade_status() -> String:
+	if NetworkSession.is_client(): return str(get_meta("network_trade_status", "Waiting for route"))
 	if _manual_pause: return "Trade paused · tap your Trade Post to resume"
-	if not trade_route_active: return "Needs a Trade Post 500+ world units from a Town Center"
+	if not trade_route_active: return "Build a Trade Post farther from your Town Center"
 	return "%d gold aboard · %d gold per round trip" % [carried_gold, get_trip_income()]
 
 
@@ -142,3 +144,9 @@ func command_stop() -> void:
 	_clear_route()
 	_manual_pause = true
 	super.command_stop()
+
+
+func command_move_path(world_path: PackedVector2Array) -> void:
+	_clear_route()
+	_manual_pause = true
+	super.command_move_path(world_path)

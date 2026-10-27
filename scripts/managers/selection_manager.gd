@@ -17,6 +17,7 @@ signal attack_command(target: Node2D)
 signal gather_command(resource_node: Node2D)
 ## Emitted when a build command is issued on a construction site.
 signal build_command(building: Node2D)
+signal trade_command(building: Node2D)
 ## A phone box gesture is explicit and ends after one selection or cancellation.
 signal touch_area_selection_changed(armed: bool)
 ## Emitted only after a fresh contact is admitted by the world dispatcher.
@@ -649,6 +650,10 @@ func _handle_tap(screen_pos: Vector2, is_touch_input: bool, pressed_unit: Node2D
 		get_viewport().set_input_as_handled()
 		return
 
+	if _try_trade_target(tapped_node):
+		get_viewport().set_input_as_handled()
+		return
+
 	if is_touch_input and has_selected_units and ((retained_unit and not _is_enemy(tapped_node)) or _is_direct_friendly_unit_reselection(tapped_node, screen_pos)):
 		_clear_selection()
 		_add_to_selection(tapped_node)
@@ -1204,6 +1209,9 @@ func _handle_right_click(screen_pos: Vector2) -> void:
 		attack_command.emit(tapped_node)
 		return
 
+	if _try_trade_target(tapped_node):
+		return
+
 	# Check for construction site + villagers → build command
 	if tapped_node != null and _has_selected_villagers() and _is_under_construction(tapped_node):
 		_record_touch_input(screen_pos, world_pos, "build", tapped_node, null)
@@ -1224,6 +1232,16 @@ func _handle_right_click(screen_pos: Vector2) -> void:
 
 
 ## --- Selection helpers ---
+
+func _try_trade_target(target: Node2D) -> bool:
+	if not is_instance_valid(target) or not target is BuildingBase or target.player_owner != 0 or target.building_type != BuildingData.BuildingType.TRADE_POST:
+		return false
+	for unit: Node2D in selected:
+		if unit is Trader and unit.player_owner == 0:
+			trade_command.emit(target)
+			return true
+	return false
+
 
 func _has_selected_villagers() -> bool:
 	for index in range(selected.size() - 1, -1, -1):
