@@ -1291,6 +1291,8 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2, shell_top_cle
 	_map_cards.add_theme_constant_override("v_separation", 6 if compact else 12)
 	_map_panel.add_theme_constant_override("separation", 4 if compact else 8)
 	_options_panel.custom_minimum_size.x = 236 if compact else 310
+	# Frame the settings themselves rather than an empty desktop column.
+	_options_panel.size_flags_vertical = Control.SIZE_FILL if compact else Control.SIZE_SHRINK_BEGIN
 	var options_style: StyleBoxFlat = _options_panel.get_theme_stylebox("panel")
 	options_style.content_margin_top = 8 if compact else 12
 	options_style.content_margin_bottom = 8 if compact else 12

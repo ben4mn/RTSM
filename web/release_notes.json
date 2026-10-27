@@ -1,6 +1,20 @@
 {
   "releases": [
     {
+      "id": "2026-10-27-save-and-return",
+      "date": "2026-10-27",
+      "version": "0.3.0-beta.12",
+      "title": "Save your kingdom",
+      "summary": "Return to your solo battle, rally your recruits, and keep more of the battlefield in view.",
+      "changes": [
+        "Solo battles autosave on this device. Pause and choose Save & Exit, then Resume solo from the main menu—even after closing the app.",
+        "Saves keep the battlefield, workers and cargo, paid production, construction, armies, trade routes, explored map, and opponent progress. Failed writes preserve the previous good save.",
+        "Select a production building and tap its flag, then choose a destination. Town Centers can rally new Villagers straight to a resource, even when another worker stands over it.",
+        "A compact icon dock replaces the lower text panels. Collapse it with the chevron; tap a portrait for details. Economy, Army, and building choices use small expandable icon panels.",
+        "Five illustrated map-style cards show each landscape's character. Every new match still generates a fresh battlefield."
+      ]
+    },
+    {
       "id": "2026-10-26-trade-and-terrain",
       "date": "2026-10-26",
       "version": "0.3.0-beta.11",

@@ -38,7 +38,7 @@ func _run() -> void:
 	_expect(q.enqueue_unit(UnitData.UnitType.INFANTRY), "ordinary starting resources pay for a Warrior")
 	q.advance(q.current_train_time + 0.01)
 	_expect(units.size() == units_before + 1, "Warrior completes exactly once")
-	_expect(ResourceManager.get_resource(0, "food") == food_before - 50 and ResourceManager.get_resource(0, "wood") == wood_before - 20, "real Warrior transaction deducts 50 Food and 20 Wood")
+	_expect(ResourceManager.get_resource(0, "food") == food_before - 100 and ResourceManager.get_resource(0, "wood") == wood_before - 40, "real Warrior transaction deducts 100 Food and 40 Wood")
 	if units.size() == units_before + 1:
 		var fighter: UnitBase = units.back() as UnitBase
 		fighter.set_process(false)
