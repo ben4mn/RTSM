@@ -44,6 +44,7 @@ func _trade_journey(phone: Vector2i) -> void:
 	controller._refresh()
 	await _button(overview._economy_button)
 	_expect(not overview._trade_actions.is_visible_in_tree(), "opening has no trade clutter")
+	var worker_sheet_height: float = overview.panel.size.y
 	var center: Vector2i = _map.map_generator.get_expansion_pocket_centers()[0]
 	var post: BuildingBase = _main._spawn_building(BuildingData.BuildingType.TRADE_POST, 0, center)
 	post.complete_instantly()
@@ -52,6 +53,7 @@ func _trade_journey(phone: Vector2i) -> void:
 	await _frames(4)
 	var finder: Button = overview._trader_button
 	_expect(finder.is_visible_in_tree() and finder.disabled, "post reserves a stable disabled finder before first trader")
+	_expect(overview.panel.size.y <= worker_sheet_height + 1.0, "late trade adds no extra worker row")
 	var finder_rect: Rect2 = finder.get_global_rect()
 	var assign_rect: Rect2 = (overview._destination_buttons.food as Button).get_global_rect()
 	var active: Trader = _main._spawn_unit(UnitData.UnitType.TRADER, 0, post.global_position + Vector2(80, 0))
@@ -71,7 +73,7 @@ func _trade_journey(phone: Vector2i) -> void:
 	_expect(finder.get_node("CommandIconBadge").text == "2" and finder.get_node("CommandIconBadge").get_meta("attention"), "finder displays bounded count with waiting cue")
 	_expect(finder.get_global_rect() == finder_rect and (overview._destination_buttons.food as Button).get_global_rect() == assign_rect, "first birth changes badge without moving targets")
 	_expect(_map.camera.position == camera and _selection.selected == selected, "refresh never moves camera or selection")
-	_expect(overview.panel.get_global_rect().encloses(finder.get_global_rect()) and overview._scroll.get_global_rect().encloses(finder.get_global_rect()), "finder stays inside the visible tiny sheet")
+	_expect(overview.panel.get_global_rect().encloses(finder.get_global_rect()) and overview._header.get_global_rect().encloses(finder.get_global_rect()), "finder stays in the existing tiny worker header")
 	await _capture("trade-workers")
 	await _button(finder)
 	_expect(_selection.selected == [paused] and _map.camera.position.distance_to(paused.global_position) < 1.0, "first explicit contact finds paused trader before older active trader")
@@ -113,6 +115,7 @@ func _trade_journey(phone: Vector2i) -> void:
 	var row: Dictionary = overview._producer_rows[post.get_instance_id()]
 	_expect(not row.rally.is_visible_in_tree() and not row.sacred.is_visible_in_tree(), "post overview hides army and Sacred rally actions")
 	_expect(finder.is_visible_in_tree() and overview._scroll.get_global_rect().encloses(finder.get_global_rect()), "trade production keeps the finder reachable")
+	_expect(row.training.get_global_rect().encloses(finder.get_global_rect()), "production finder shares the existing unit row")
 	await _capture("trade-production")
 	await _button(overview._info_button)
 	var information: String = ""

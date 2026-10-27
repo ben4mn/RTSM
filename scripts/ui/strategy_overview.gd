@@ -34,6 +34,7 @@ const SHEET_MAX_WIDTH := 300.0
 var rail: HBoxContainer
 var panel: PanelContainer
 var _title: Label
+var _header: HBoxContainer
 var _scroll: ScrollContainer
 var _economy: VBoxContainer
 var _army: VBoxContainer
@@ -130,6 +131,7 @@ func _ready() -> void:
 	body.add_theme_constant_override("separation", 4)
 	panel.add_child(body)
 	var header := HBoxContainer.new()
+	_header = header
 	header.add_theme_constant_override("separation", 2)
 	body.add_child(header)
 	_title = _label("Economy & production", 16)
@@ -190,7 +192,7 @@ func _ready() -> void:
 	_build_economy()
 	_trade_actions = HBoxContainer.new()
 	_trade_actions.name = "TradeActions"
-	content.add_child(_trade_actions)
+	header.add_child(_trade_actions)
 	_trader_button = _icon_button("find", "Find your traders", "FindTrader", 48)
 	_trader_button.icon = load(UnitData.get_unit_icon_path(UnitData.UnitType.TRADER, 0))
 	_trader_button.add_theme_constant_override("icon_max_width", 36)
@@ -516,7 +518,8 @@ func _refresh_producers(producers: Array) -> void:
 		if not _producer_rows.has(id):
 			_create_producer(producer)
 		var row: Dictionary = _producer_rows[id]
-		(row.rallies as Control).visible = building.building_type != BuildingData.BuildingType.TRADE_POST
+		row["trade"] = building.building_type == BuildingData.BuildingType.TRADE_POST
+		(row.rallies as Control).visible = not row.trade
 		row["military"] = bool(producer.get("military", false))
 		(row.status as Label).text = str(producer.get("status", ""))
 		var queue: Array = producer.get("queue", [])
@@ -676,7 +679,7 @@ func _create_producer(producer: Dictionary) -> void:
 		if is_instance_valid(building):
 			sacred_rally_requested.emit(building))
 	rallies.add_child(sacred)
-	_producer_rows[id] = {"card": card, "queue_toggle": queue_toggle, "status": status, "paid": paid, "repeat": repeat_button, "undo": undo, "clear": clear, "rally": rally, "sacred": sacred, "rallies": rallies, "rally_status": rally_status, "train": train_buttons, "train_status": train_status, "queue_size": 0}
+	_producer_rows[id] = {"card": card, "training": training, "queue_toggle": queue_toggle, "status": status, "paid": paid, "repeat": repeat_button, "undo": undo, "clear": clear, "rally": rally, "sacred": sacred, "rallies": rallies, "rally_status": rally_status, "train": train_buttons, "train_status": train_status, "queue_size": 0}
 
 
 func show_feedback(message: String, success: bool = true) -> void:
@@ -793,7 +796,6 @@ func _refresh_pages() -> void:
 		CommandIcons.apply(_economy_button, "food" if food_alert or food_low_alert else "economy", _economy_button.accessibility_name)
 	_economy.visible = (economy_open or recruiting) and not _details_page and not empty_recruit
 	_details.visible = (economy_open or recruiting) and _details_page
-	_trade_actions.visible = economy_open and not _details_page and bool(_snapshot.get("has_trade", false))
 	_army.visible = army_open and not _army_recruit_page and not _details_page
 	_army_notes.visible = army_open and not _army_recruit_page and _details_page
 	_recruit_empty.visible = empty_recruit and not _details_page
@@ -837,6 +839,17 @@ func _refresh_pages() -> void:
 	var selected_id: int = _selected_producer_id()
 	for id: int in _producer_rows:
 		(_producer_rows[id].card as Control).visible = id == selected_id
+	var trade_production: bool = production and bool(_producer_rows.get(selected_id, {}).get("trade", false))
+	var trade_parent: HBoxContainer = _producer_rows[selected_id].training if economy_open and trade_production else _header
+	if _trade_actions.get_parent() != trade_parent:
+		_trade_actions.reparent(trade_parent, false)
+	if trade_parent == _header:
+		var before_info: int = _info_button.get_index() - (1 if _trade_actions.get_index() < _info_button.get_index() else 0)
+		_header.move_child(_trade_actions, before_info)
+	_trade_actions.visible = economy_open and not _details_page and bool(_snapshot.get("has_trade", false)) and (not production or trade_production)
+	# Six 48px targets fit the worker header without widening the sheet. Trade
+	# production uses spare room beside its sole unit card, never another row.
+	_header.add_theme_constant_override("separation", 0 if _trade_actions.visible and trade_parent == _header else 2)
 	_refresh_details()
 	var signature: String = "%s:%s:%s:%s:%s" % [_surface, production, selected_id, ids.size(), _details_page]
 	if signature != _page_layout_signature:
