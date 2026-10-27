@@ -4,9 +4,10 @@ func _initialize() -> void:
 	var failures: Array[String] = []
 	var samples: Array[Dictionary] = []
 	var style_signatures: Dictionary = {}
+	_test_reflection_groups(failures)
 	for archetype: int in MapData.MAP_ARCHETYPES:
 		var layouts: Dictionary = {}
-		for seed_value: int in [1, 2, 3, 7, 19, 42, 99, 501, 12345, 424242, 8675309, 2147483646, 1298326314, 1505321194, 108016561]:
+		for seed_value: int in [1, 2, 3, 7, 19, 42, 99, 501, 12345, 424242, 8675309, 2147483646, 1298326314, 1505321194, 108016561, 1888842373]:
 			var first := MapGenerator.new(seed_value, archetype)
 			var second := MapGenerator.new(seed_value, archetype)
 			first.generate()
@@ -34,3 +35,29 @@ func _initialize() -> void:
 	if style_signatures.values().size() != 5 or style_signatures[0] == style_signatures[3]: failures.append("lake style lacks distinctive terrain")
 	print(JSON.stringify({"test": "generated_battlefields", "maps": samples.size(), "failures": failures, "samples": samples}))
 	quit(0 if failures.is_empty() else 1)
+
+
+func _test_reflection_groups(failures: Array[String]) -> void:
+	# Exhaust feasible remainder parities, including multiple diagonal singles
+	# and no pairs. The public failure had three singles, 33 pairs and R=68.
+	for single_count: int in range(5):
+		for pair_count: int in range(5):
+			var tiles: Array[Vector2i] = []
+			for index: int in range(single_count): tiles.append(Vector2i(index, index))
+			for index: int in range(pair_count):
+				tiles.append(Vector2i(index, 10))
+				tiles.append(Vector2i(10, index))
+			if tiles.is_empty(): continue
+			for remainder: int in range(tiles.size()):
+				if single_count == 0 and remainder % 2 == 1: continue
+				var generator := MapGenerator.new(123, 0)
+				var budget: int = 3 * tiles.size() + remainder
+				generator._distribute_symmetric_stock(tiles, budget)
+				var total: int = 0
+				for tile: Vector2i in tiles:
+					var amount: int = generator.get_resource_amount(tile)
+					total += amount
+					if amount not in [3, 4] or amount != generator.get_resource_amount(Vector2i(tile.y, tile.x)):
+						failures.append("invalid reflection-group stock")
+				if total != budget or generator._resource_amounts.size() != tiles.size():
+					failures.append("reflection-group budget lost")

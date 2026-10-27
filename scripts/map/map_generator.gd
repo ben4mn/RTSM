@@ -591,20 +591,29 @@ func _distribute_symmetric_stock(tiles: Array[Vector2i], budget: int) -> void:
 	if tiles.is_empty(): return
 	var per_tile: int = maxi(1, floori(float(budget) / float(tiles.size())))
 	var remainder: int = budget - per_tile * tiles.size()
-	for tile: Vector2i in tiles: _resource_amounts[tile] = per_tile
-	# Row-major generation is stable. Add remainders in reflected pairs so dense
-	# styles do not silently lose stock to rounding or favor one starting side.
+	var members: Dictionary = {}
 	for tile: Vector2i in tiles:
-		if remainder <= 0: break
+		_resource_amounts[tile] = per_tile
+		members[tile] = true
+	var singles: Array[Vector2i] = []
+	var pairs: Array[Vector2i] = []
+	# Reflection across the diagonal leaves several tiles fixed, not just one.
+	# Reserve enough of these neutral tiles before allocating paired extras.
+	for tile: Vector2i in tiles:
 		var mirrored: Vector2i = _mirror_tile(tile)
-		if tile == mirrored and remainder % 2 == 1:
-			_resource_amounts[tile] += 1
-			remainder -= 1
-		elif tile.y * MapData.MAP_WIDTH + tile.x < mirrored.y * MapData.MAP_WIDTH + mirrored.x and remainder >= 2:
-			_resource_amounts[tile] += 1
-			_resource_amounts[mirrored] += 1
-			remainder -= 2
-	assert(remainder == 0, "Finite stock remainder must preserve reflection")
+		assert(members.has(mirrored), "Resource group must contain every reflection")
+		if tile == mirrored: singles.append(tile)
+		elif tile.y * MapData.MAP_WIDTH + tile.x < mirrored.y * MapData.MAP_WIDTH + mirrored.x:
+			pairs.append(tile)
+	var single_extras: int = maxi(0, remainder - 2 * pairs.size())
+	if single_extras % 2 != remainder % 2: single_extras += 1
+	assert(single_extras <= mini(singles.size(), remainder), "Finite stock must fit reflection groups")
+	for index: int in range(single_extras):
+		_resource_amounts[singles[index]] += 1
+	var pair_extras: int = (remainder - single_extras) / 2
+	for index: int in range(pair_extras):
+		_resource_amounts[pairs[index]] += 1
+		_resource_amounts[_mirror_tile(pairs[index])] += 1
 
 
 func get_resource_amount(tile: Vector2i) -> int:
