@@ -104,7 +104,7 @@ func _check_online(menu: ShellMenu, context: String) -> void:
 			await get_tree().process_frame
 			_bounds(button, map_rect, context + " map button")
 			_bounds((menu.get("_map_names") as Array)[i], map_rect, context + " full map name")
-			if not bool(menu.get("_compact_layout")):
+			if ((menu.get("_map_badges") as Array)[i] as Control).visible:
 				_bounds((menu.get("_map_badges") as Array)[i], map_rect, context + " selected state")
 			_expect(button.size.x >= 48.0 and button.size.y >= 48.0, context + " map touch target")
 		(menu.get("_map_scroll") as ScrollContainer).scroll_vertical = 0
