@@ -1,0 +1,16 @@
+{
+  "runtime_revision": "d64bcb675e6fc45be7ad643222b69aa52967f008",
+  "scope": "Hands-on browser controls at844x390, English versus Medium automatic opponent, fresh Open Plains map, Standard100. Solo speed2x selected through UI; times below are displayed game time, not wall time. No injected resources or state.",
+  "result": "Natural defeat at10:24: enemy held Sacred for5:00",
+  "observations": [
+    "Paid six-worker opening with House and Barracks reached Feudal at2:19; opponent at2:18.",
+    "Second Town Center placed in Feudal at5:16 for400W100G and completed by6:10. Four more workers were paid through the original TC queue.",
+    "Opening berries exhausted. Economy panel showed idle workers and no food gatherers; three150W Farms were placed and builders began farming. One exposed Farm was later destroyed in a raid.",
+    "Two rejected Farm positions correctly identified building clearance. Find space found fitting footprints and explicit Place confirmed them.",
+    "Army investment was too late: only three Warriors produced against18 AI troops. A late Archery Range foundation was exposed to enemy fire. The player lost12 units and4 buildings.",
+    "Player gathered4022 resources versus7775 AI; player never captured or contested Sacred. At defeat the player still floated729F790W263G, so this was poor allocation rather than proof that expansion cannot fund an army.",
+    "Browser warning/error logs were empty. One late computer-control right-click timed out before dispatch; by the next observation the remaining Warrior had died. That input was not counted as a successful order."
+  ],
+  "interpretation": "Paid Feudal expansion and renewable food function, but undefended expansion gives away map control and is vulnerable to raids. This single deliberately economy-heavy interaction test, with tool-driven decision delays, is not an average human duration or a strategy win-rate sample.",
+  "screenshot": "beta17-expansion-defeat.jpg"
+}
