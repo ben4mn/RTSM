@@ -251,11 +251,11 @@ body.pocket-report-open { touch-action: auto; }
 						<ol class="pk-steps" data-instructions="desktop"><li>Open this page in <strong>Chrome</strong> or <strong>Edge</strong>.</li><li>Use the address bar’s install icon or the browser menu’s <strong>Install app</strong> option when available.</li><li>On a Mac with Safari, use <strong>File → Add to Dock</strong> if available. You can also keep playing in your browser.</li></ol>
 					</div>
 				</section>
-				<section id="pocket-releases" class="pk-updates" aria-labelledby="pocket-releases-title">
-					<div class="pk-updates-heading"><h2 id="pocket-releases-title">Field notes.</h2><p>Release notes</p></div>
+				<details id="pocket-releases" class="pk-updates">
+					<summary class="pk-updates-heading"><span id="pocket-releases-title">Field notes</span><span>Read release notes</span></summary>
 					<div id="pocket-release-list"><p class="pk-fine">Loading release notes…</p></div>
-				</section>
-				<footer class="pk-footer"><p>Updates apply between matches when you’re online.<br><span id="pocket-update-copy">Open the app online to check for the latest release.</span></p><p id="pocket-build-label">Pocket Kingdoms · Early access</p></footer>
+				</details>
+				<footer class="pk-footer"><div><p>Updates apply between matches when you’re online.<br><span id="pocket-update-copy" role="status">Open the app online to check for the latest release.</span></p><button id="pocket-update-check" class="pk-text-button" type="button">Check for updates</button></div><p id="pocket-build-label">Pocket Kingdoms · Early access</p></footer>
 			</div>
 		</main>
 		<div id="pocket-app">
@@ -277,7 +277,7 @@ body.pocket-report-open { touch-action: auto; }
 
 		</div>
 		<div id="pocket-menu-tools" aria-label="Browser menu actions">
-			<div id="pocket-shell-links" hidden><button id="pocket-release-open" class="pocket-button" type="button" aria-label="What’s new" title="What’s new"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h7l2 2h7v13h-7l-2-2H4zM12 8v9"/><path d="M7 9h2M7 12h2M15 11h2M15 14h2"/></svg><span data-shell-label>What’s new</span></button></div>
+			<div id="pocket-shell-links" hidden><button id="pocket-release-open" class="pocket-button" type="button" aria-label="Updates and refresh" title="Updates and refresh"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M5.3 7a8 8 0 0 1 13-1L20 8M4 16l1.7 2a8 8 0 0 0 13-1"/></svg><span data-shell-label>Updates</span></button></div>
 			<button id="pocket-screen-control" class="pocket-button" type="button" aria-label="Full screen" title="Full screen" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4H4v5M15 4h5v5M4 15v5h5M20 15v5h-5"/></svg><span data-shell-label>Full screen</span></button>
 		</div>
 		<div id="pocket-screen-help" role="dialog" aria-modal="true" aria-labelledby="pocket-help-title" hidden>
@@ -292,8 +292,8 @@ body.pocket-report-open { touch-action: auto; }
 		</div>
 		</div>
 		<div id="pocket-release-dialog" class="pk-dialog" role="dialog" aria-modal="true" aria-labelledby="pocket-release-dialog-title" hidden>
-			<div class="pk-dialog-card"><div class="pk-dialog-head"><h2 id="pocket-release-dialog-title">What’s new</h2><button id="pocket-release-close" class="pk-button" type="button">Back to game</button></div>
-				<div class="pk-dialog-body" tabindex="0" aria-label="Release notes"><p id="pocket-dialog-update-copy">Updates apply at the main menu. Your current match will not be interrupted.</p><div id="pocket-dialog-release-list"></div></div>
+			<div class="pk-dialog-card"><div class="pk-dialog-head"><h2 id="pocket-release-dialog-title">Game updates</h2><button id="pocket-release-close" class="pk-button" type="button">Back to game</button></div>
+				<div class="pk-dialog-body" tabindex="0" aria-label="Release notes"><p id="pocket-dialog-build"></p><p id="pocket-dialog-update-copy" role="status">Updates apply at the main menu. Your current match will not be interrupted.</p><div class="pk-update-actions"><button id="pocket-dialog-update-check" class="pk-button" type="button">Check for updates</button><button id="pocket-refresh" class="pk-text-button" type="button">Refresh app</button></div><details class="pk-release-disclosure"><summary>Release notes</summary><div id="pocket-dialog-release-list"></div></details></div>
 			</div>
 		</div>
 		<div id="pocket-update-blocker" role="status" hidden>Updating Pocket Kingdoms…</div>

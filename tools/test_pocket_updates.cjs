@@ -339,6 +339,45 @@ function browserFixture(options = {}) {
 	return {host, sw, active, waiting, registration, api, calls, oldInfo, nextInfo, emit, reloads: () => reloads};
 }
 
+test('explicit refresh reloads a safe menu but cannot abandon a match or bypass another busy window', async () => {
+	for (const options of [{}, {waiting: true}]) {
+		const f = browserFixture(options);
+		await f.api.init({safeToReload: false, checkTimeout: 20});
+		assert.equal(await f.api.refresh(), false);
+		assert.equal(f.reloads(), 0);
+		f.api.setSafeToReload(true);
+		await pause();
+		assert.equal(await f.api.refresh(), !options.waiting);
+		assert.equal(f.reloads(), options.waiting ? 0 : 1);
+	}
+});
+
+test('refresh rechecks match safety after a slow network check', async () => {
+	const f = browserFixture();
+	await f.api.init({safeToReload: true, checkTimeout: 100});
+	await pause();
+	let finish;
+	f.registration.update = () => new Promise((resolve) => { finish = resolve; });
+	const refresh = f.api.refresh();
+	await pause();
+	f.api.setSafeToReload(false);
+	finish();
+	assert.equal(await refresh, false);
+	assert.equal(f.reloads(), 0);
+});
+
+test('failed or timed-out checks report failure and never claim the latest release or refresh', async () => {
+	for (const action of [() => Promise.reject(new Error('offline')), () => new Promise(() => {})]) {
+		const f = browserFixture();
+		await f.api.init({safeToReload: true, checkTimeout: 10});
+		await pause();
+		f.registration.update = action;
+		assert.equal((await f.api.check()).state, 'error');
+		assert.equal(await f.api.refresh(), false);
+		assert.equal(f.reloads(), 0);
+	}
+});
+
 test('client stays safe-by-default false and never reloads match, paused, or result lifecycle states', async () => {
 	for (let lifecycle = 0; lifecycle < 3; lifecycle++) {
 		const f = browserFixture({waiting: true});

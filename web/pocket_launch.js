@@ -72,6 +72,13 @@
             && !(recovery && !recovery.hidden)
             && !document.body.classList.contains('pocket-report-open'));
     }
+    // Browser refresh/back should warn before abandoning an active game. Mobile
+    // browsers may omit this prompt, so update controls also enforce safety.
+    window.addEventListener('beforeunload', (event) => {
+        if (!playing || safeWanted) return;
+        event.preventDefault();
+        event.returnValue = '';
+    });
     // This escape hatch belongs to the browser, not the engine's input loop.
     // It neither claims the game has stopped nor attempts to repair its state.
     function showRuntimeRecovery() {
@@ -184,9 +191,11 @@
         event.stopPropagation();
         if (event.key === 'Escape') { event.preventDefault(); closeReleases(); }
         if (event.key === 'Tab') {
+            const focusable = [...dialog.querySelectorAll('button:not(:disabled), summary, [tabindex="0"]')];
+            const index = focusable.indexOf(document.activeElement);
+            const next = (index + (event.shiftKey ? -1 : 1) + focusable.length) % focusable.length;
             event.preventDefault();
-            const body = dialog.querySelector('.pk-dialog-body');
-            (document.activeElement === releaseClose ? body : releaseClose).focus();
+            focusable[next].focus();
         }
     });
     // Modal scrolling, buttons and keys never enter Godot's input stream.
@@ -219,7 +228,22 @@
         for (const id of ['pocket-release-list', 'pocket-dialog-release-list']) byId(id).textContent = 'Release notes are unavailable right now. Reopen online to try again.';
     });
     const release = window.POCKET_RELEASE;
-    if (release) byId('pocket-build-label').textContent = 'Early access · ' + release.version;
+    if (release) {
+        byId('pocket-build-label').textContent = 'Early access · ' + release.version;
+        byId('pocket-dialog-build').textContent = 'Installed version · ' + release.version;
+    }
+    const checkButtons = [byId('pocket-update-check'), byId('pocket-dialog-update-check')];
+    async function checkUpdates() {
+        for (const button of checkButtons) button.disabled = true;
+        try { await updatesReady; await window.PocketUpdates.check(); }
+        finally { for (const button of checkButtons) button.disabled = false; }
+    }
+    for (const button of checkButtons) button.addEventListener('click', checkUpdates);
+    byId('pocket-refresh').addEventListener('click', async () => {
+        if (!safeWanted || held) return;
+        closeReleases(false);
+        await window.PocketUpdates.refresh();
+    });
 
     const statusCopy = {
         unsupported: 'This browser cannot save offline play. Stay online to play.',
@@ -233,13 +257,16 @@
         if (event.detail.state === 'applying' && (playing || preparing)) {
             try { sessionStorage.setItem('pocket.launch-after-update', '1'); } catch (_) { /* reopening welcome remains safe */ }
         }
-        let text = (event.detail.state === 'deferred' && event.detail.message) || statusCopy[event.detail.state] || event.detail.message || '';
-        if (event.detail.offlineReady && ['idle', 'offline'].includes(event.detail.state)) {
+        let text = event.detail.message || statusCopy[event.detail.state] || '';
+        if (event.detail.offlineReady && ['idle', 'offline'].includes(event.detail.state) && !event.detail.message) {
             text = navigator.onLine === false ? 'You’re offline. Solo is ready to play; Online 1v1 needs a connection.' : 'Solo is saved for offline play. Updates download only changed files.';
         }
         if (event.detail.offlineReady && event.detail.persistence === 'best-effort') text += ' Your browser may clear saved files when storage is low.';
         byId('pocket-update-copy').textContent = text;
         byId('pocket-dialog-update-copy').textContent = text + ' Active matches and results stay open.';
+        const pending = event.detail.state === 'deferred' || (event.detail.state === 'ready' && !event.detail.offlineReady);
+        releaseOpen.classList.toggle('pk-update-pending', pending);
+        releaseOpen.title = pending ? 'Update ready — open Updates at the main menu' : 'Updates and refresh';
     });
     window.addEventListener('pocket-update-hold', (event) => {
         held = event.detail.held === true;
