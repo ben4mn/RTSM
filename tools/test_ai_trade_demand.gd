@@ -75,6 +75,16 @@ func _run() -> void:
 	ai._game_time = ai._trade_capital_until
 	_expect(ai._allows_trade_capital_spend({"wood": 40}), "stale capital expires after its short decision window")
 	_reset()
+	ResourceManager.initialize_player(1, {"food": 1000, "wood": 260, "gold": 0})
+	ai._check_trade_economy()
+	_expect(builds.is_empty() and ai._allows_trade_capital_spend({"food": 100, "wood": 40}), "zero-gold bootstrap cannot starve an otherwise affordable army")
+	_expect(not ai._allows_trade_capital_spend({"gold": 10}), "unfunded bootstrap can preserve future gold without locking wood")
+	var unfunded_post := _building("trade_post", Vector2i(26, 6))
+	ai._game_time += 20.0
+	ai._check_trade_economy()
+	_expect(trains.is_empty() and ai._allows_trade_capital_spend({"food": 100, "wood": 40}), "existing post also releases wood when replacement Trader lacks gold")
+	unfunded_post.free()
+	_reset()
 	ResourceManager.initialize_player(1, {"food": 1000, "wood": 260, "gold": 40})
 	ai._check_trade_economy()
 	_expect(builds.size() == 1 and builds[0].kind == BuildingData.BuildingType.TRADE_POST, "exact affordable bootstrap requests one post")

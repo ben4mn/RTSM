@@ -1457,6 +1457,9 @@ func _check_trade_economy() -> void:
 			var route: PackedVector2Array = _get_prospective_trade_route(position)
 			if not _trade_route_is_safe(route, threats): continue
 			_trade_capital = {"wood": int(cost.wood) + int(UnitData.get_unit_cost(UnitData.UnitType.TRADER).wood), "gold": int(UnitData.get_unit_cost(UnitData.UnitType.TRADER).gold)}
+			# A depleted gold bank cannot bootstrap trade. Protect incoming gold,
+			# but do not strand usable army wood behind an unfunded caravan.
+			if gold < int(_trade_capital.gold): _trade_capital.wood = 0
 			_trade_capital_until = _game_time + 22.0
 			if ResourceManager.can_afford(player_id, _trade_capital):
 				ai_wants_to_build.emit(BuildingData.BuildingType.TRADE_POST, tile, false)
@@ -1469,6 +1472,7 @@ func _check_trade_economy() -> void:
 	var return_route: PackedVector2Array = _get_prospective_trade_route(post.global_position)
 	if not _trade_route_is_safe(return_route, threats): return
 	_trade_capital = UnitData.get_unit_cost(UnitData.UnitType.TRADER)
+	if gold < int(_trade_capital.gold): _trade_capital.wood = 0
 	_trade_capital_until = _game_time + 22.0
 	if post.state != BuildingBase.State.ACTIVE: return
 	for trader: Trader in traders:
