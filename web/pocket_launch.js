@@ -69,6 +69,7 @@
     }
     function updateSafety() {
         return window.PocketUpdates.setSafeToReload(safeWanted && dialog.hidden && !installPromptOpen
+            && !(window.PocketSoloStorage && window.PocketSoloStorage.isBusy())
             && !(recovery && !recovery.hidden)
             && !document.body.classList.contains('pocket-report-open'));
     }
@@ -79,6 +80,7 @@
         event.preventDefault();
         event.returnValue = '';
     });
+    window.addEventListener('pocket-solo-storage-state', updateSafety);
     // This escape hatch belongs to the browser, not the engine's input loop.
     // It neither claims the game has stopped nor attempts to repair its state.
     function showRuntimeRecovery() {

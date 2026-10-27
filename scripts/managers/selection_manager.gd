@@ -18,6 +18,7 @@ signal gather_command(resource_node: Node2D)
 ## Emitted when a build command is issued on a construction site.
 signal build_command(building: Node2D)
 signal trade_command(building: Node2D)
+signal building_rally_armed_changed(armed: bool)
 ## A phone box gesture is explicit and ends after one selection or cancellation.
 signal touch_area_selection_changed(armed: bool)
 ## Emitted only after a fresh contact is admitted by the world dispatcher.
@@ -36,6 +37,7 @@ var _emitting_selection_replacement: bool = false
 ## Main mirrors its one-shot Move/A-Move/Patrol state here so a world tap cannot
 ## be reinterpreted as gather, construction, attack, or building reselection.
 var unit_command_armed: bool = false
+var _rally_producer: WeakRef = null
 var touch_area_selection_armed: bool = false
 var _touch_area_gesture: bool = false
 
@@ -126,7 +128,42 @@ const MIN_TOUCH_HIT_RADIUS_WORLD := 8.0
 const MOUSE_AFTER_TOUCH_IGNORE_MS: int = 1500
 
 
+func arm_building_rally(building: BuildingBase) -> bool:
+	if _rally_producer != null and _rally_producer.get_ref() == building:
+		cancel_building_rally()
+		return false
+	cancel_building_rally()
+	if GameManager.current_state != GameManager.GameState.PLAYING or not is_instance_valid(building) or building.player_owner != 0 or building.state != BuildingBase.State.ACTIVE or building.trainable_units.is_empty():
+		return false
+	if selected.size() != 1 or selected[0] != building:
+		return false
+	cancel_touch_gesture()
+	unit_command_armed = false
+	_rally_producer = weakref(building)
+	_last_tap_time = 0.0
+	building_rally_armed_changed.emit(true)
+	return true
+
+
+func cancel_building_rally() -> void:
+	if _rally_producer == null:
+		return
+	_rally_producer = null
+	building_rally_armed_changed.emit(false)
+
+
+func is_building_rally_armed() -> bool:
+	if _rally_producer == null:
+		return false
+	var producer: Variant = _rally_producer.get_ref()
+	if not is_instance_valid(producer) or producer.state != BuildingBase.State.ACTIVE or selected.size() != 1 or selected[0] != producer:
+		cancel_building_rally()
+		return false
+	return true
+
+
 func set_unit_command_armed(armed: bool) -> void:
+	if armed: cancel_building_rally()
 	unit_command_armed = armed
 	_touch_press_unit = null
 	if armed:
@@ -580,6 +617,17 @@ func _handle_tap(screen_pos: Vector2, is_touch_input: bool, pressed_unit: Node2D
 	if retained_unit:
 		tapped_node = pressed_unit
 	var resource_node: Node2D = _get_resource_at(world_pos, is_touch_input)
+	# The explicit flag owns one destination, even if a friendly worker stands
+	# on the resource. Existing gather/move handlers retain authority and costs.
+	if is_building_rally_armed():
+		cancel_building_rally()
+		_last_tap_time = 0.0
+		if resource_node != null and _has_selected_villager_producer():
+			gather_command.emit(resource_node)
+		else:
+			move_command.emit(_world_to_tile(world_pos))
+		get_viewport().set_input_as_handled()
+		return
 	# Selected workers keep their resource intent even when another worker's
 	# body or discovery ring sits over the node. Hold > Select remains an
 	# explicit way to inspect that worker; a plain worker away from a resource
@@ -880,6 +928,7 @@ func _emit_selection_changed(automatic_cleanup: bool = false) -> void:
 
 
 func _clear_selection() -> void:
+	cancel_building_rally()
 	var changed := not selected.is_empty()
 	if changed and _selection_batch_depth > 0: _selection_batch_cleared = true
 	# A typed Object array may retain a Variant that points to an already-freed
@@ -1192,6 +1241,7 @@ func _is_on_screen(node: Node2D) -> bool:
 ## --- Right-click command ---
 
 func _handle_right_click(screen_pos: Vector2) -> void:
+	cancel_building_rally()
 	_playtest_pointer_source = "mouse_right"
 	_prune_stale_selection()
 	if selected.is_empty():

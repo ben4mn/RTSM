@@ -39,8 +39,18 @@ func _run() -> void:
 		_finish()
 		return
 	selection.select_single(tc)
+	_expect(selection.arm_building_rally(tc), "the selected Town Center can arm its rally flag")
+	_expect(not selection.arm_building_rally(tc) and not selection.is_building_rally_armed(), "tapping the flag again cancels without issuing an order")
+	_expect(selection.arm_building_rally(tc), "rally can be rearmed")
+	selection.cancel_touch_gesture()
+	_expect(selection.is_building_rally_armed(), "panning or ending a pointer gesture preserves the deliberate rally mode")
+	var overlapping_worker: Villager = (_match.get("_player_units") as Array)[0][0] as Villager
+	var original_worker_position: Vector2 = overlapping_worker.global_position
+	overlapping_worker.global_position = source.global_position
 	selection.call("_handle_tap", selection.call("_world_to_screen", source.global_position), true)
-	_expect(tc.rally_resource_instance_id == source.get_instance_id(), "touch sets the exact observed resource rally")
+	_expect(tc.rally_resource_instance_id == source.get_instance_id(), "armed touch targets the observed resource even behind a friendly worker")
+	_expect(not selection.is_building_rally_armed(), "one destination consumes the armed flag")
+	overlapping_worker.global_position = original_worker_position
 	_expect(tc.rally_resource_type == "wood" and tc.rally_point == source.global_position, "rally retains type and observed position")
 	_expect(selection.selected == [tc], "resource rally keeps the producer selected")
 	var q: ProductionQueue = tc.get_production_queue() as ProductionQueue
@@ -50,7 +60,7 @@ func _run() -> void:
 	_expect(q.enqueue_unit(UnitData.UnitType.VILLAGER), "ordinary starting budget pays for the resource-rallied Villager")
 	q.advance(q.current_train_time + 0.01)
 	_expect(units.size() == units_before + 1, "paid completion produces exactly one Villager")
-	_expect(ResourceManager.get_resource(0, "food") == food_before - 50, "Villager costs exactly 50 Food")
+	_expect(ResourceManager.get_resource(0, "food") == food_before - 100, "Villager costs exactly 100 Food")
 	if units.size() != units_before + 1:
 		_finish()
 		return
@@ -73,9 +83,11 @@ func _run() -> void:
 
 	# Ground orders reset resource intent and retain precise forced movement.
 	var ground: Vector2i = map.world_to_tile(source.global_position) + Vector2i(0, 1)
-	while not map.is_tile_walkable(ground): ground += Vector2i(0, 1)
+	while not map.is_tile_walkable(ground) or selection.call("_get_resource_at", map.tile_to_world(ground), false) != null:
+		ground += Vector2i(0, 1)
 	selection.select_single(tc)
-	_match.call("_on_move_command", ground)
+	_expect(selection.arm_building_rally(tc), "ground destination arms the same flag")
+	selection.call("_handle_tap", selection.call("_world_to_screen", map.tile_to_world(ground)), false)
 	_expect(tc.rally_resource_instance_id == 0 and tc.rally_resource_type.is_empty(), "ordinary ground rally clears resource intent")
 	units_before = units.size()
 	_expect(q.enqueue_unit(UnitData.UnitType.VILLAGER), "a second ordinary paid Villager queues")
@@ -112,6 +124,15 @@ func _run() -> void:
 	fog.fog_grid[source_tile.y][source_tile.x] = MapData.FogState.VISIBLE
 	worker._process_gathering(0.01)
 	_expect(worker.current_state == UnitBase.State.IDLE and worker.gather_target == null, "missing/depleted observation safely idles instead of gathering a phantom")
+	selection.select_single(tc)
+	selection.arm_building_rally(tc)
+	selection.select_single(worker)
+	_expect(not selection.is_building_rally_armed(), "changing selection cancels the previous building's rally")
+	_expect(not selection.arm_building_rally(tc), "a producer must be selected to arm its flag")
+	selection.select_single(tc)
+	GameManager.current_state = GameManager.GameState.PAUSED
+	_expect(not selection.arm_building_rally(tc), "paused games cannot arm a map command")
+	GameManager.current_state = GameManager.GameState.PLAYING
 	_finish()
 
 
@@ -122,7 +143,7 @@ func _expect(condition: bool, message: String) -> void:
 func _finish() -> void:
 	if is_instance_valid(_match): _match.free()
 	if _failures.is_empty():
-		print("[PASS] resource_production_rally: touch/mouse, paid births, natural deposit, ground reset, fog and manual override")
+		print("[PASS] resource_production_rally: armed touch/mouse, overlap, cancel, paid births, natural deposit, ground reset, fog and manual override")
 		get_tree().quit(0)
 	else:
 		for failure: String in _failures: push_error("[FAIL] resource_production_rally: " + failure)

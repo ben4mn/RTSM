@@ -301,6 +301,110 @@ body.pocket-report-open { touch-action: auto; }
 		<script>window.POCKET_RELEASE = /*POCKET_RELEASE*/null;</script>
 		<script src="playtest_diagnostics.js"></script>
 		<script src="pocket_updates.js"></script>
+		<script id="pocket-solo-storage-script">
+'use strict';
+// Match saves have their own database: release-cache cleanup never touches it.
+// Completion means an IndexedDB transaction committed, not a memory write.
+function createPocketSoloStorage(w, timeoutMs = 8000) {
+	const MAX_PAYLOAD = 8 * 1024 * 1024;
+	let db = null, primary = '', backup = '', revision = 0, pending = 0;
+	let failure = '', tail = Promise.resolve();
+	const announce = () => w.dispatchEvent(new w.Event('pocket-solo-storage-state'));
+	const ready = new Promise(resolve => {
+		let finished = false;
+		const finish = (ok, error = '') => {
+			if (finished) return;
+			finished = true; w.clearTimeout(timer); failure = error;
+			if (!ok && db) { db.close(); db = null; }
+			resolve(ok);
+		};
+		const timer = w.setTimeout(() => finish(false, 'Save storage took too long to open. Reopen the app.'), timeoutMs);
+		try {
+			if (!w.indexedDB) throw new Error('Storage unavailable');
+			const open = w.indexedDB.open('pocket-kingdoms-solo-v1', 1);
+			open.onupgradeneeded = () => open.result.createObjectStore('slots');
+			open.onblocked = () => finish(false, 'Close other game windows, then reopen to enable saves.');
+			open.onerror = () => finish(false, 'Save storage is unavailable in this browser.');
+			open.onsuccess = () => {
+				if (finished) { open.result.close(); return; }
+				db = open.result;
+				db.onversionchange = () => { db.close(); db = null; failure = 'Save storage changed. Reopen the app.'; };
+				let transaction;
+				try { transaction = db.transaction('slots', 'readonly'); }
+				catch (_) { finish(false, 'The saved game could not be read. Reopen to retry.'); return; }
+				const store = transaction.objectStore('slots');
+				const current = store.get('current'), prior = store.get('backup');
+				transaction.oncomplete = () => {
+					primary = typeof current.result?.payload === 'string' ? current.result.payload : '';
+					backup = typeof prior.result?.payload === 'string' ? prior.result.payload : '';
+					revision = Number.isSafeInteger(current.result?.revision) ? current.result.revision : 0;
+					finish(true);
+				};
+				transaction.onabort = transaction.onerror = () => finish(false, 'The saved game could not be read. Reopen to retry.');
+			};
+		} catch (_) { finish(false, 'Save storage is unavailable in this browser.'); }
+	});
+	function commit(payload, previous, clear) {
+		return new Promise(resolve => {
+			if (!db) { resolve([false, failure || 'Save storage is unavailable.']); return; }
+			let settled = false, transaction, reason = '';
+			const done = (ok, error = '') => {
+				if (settled) return;
+				settled = true; w.clearTimeout(timer);
+				if (!ok) failure = error;
+				resolve([ok, error]);
+			};
+			const timer = w.setTimeout(() => {
+				reason = 'Saving took too long. Keep the game open and retry.';
+				try { transaction?.abort(); } catch (_) { /* already finished */ }
+				done(false, reason);
+			}, timeoutMs);
+			try {
+				transaction = db.transaction('slots', 'readwrite', {durability: 'strict'});
+				const store = transaction.objectStore('slots');
+				const current = store.get('current');
+				const nextRevision = revision + 1;
+				current.onsuccess = () => {
+					const actual = Number.isSafeInteger(current.result?.revision) ? current.result.revision : 0;
+					if (actual !== revision) {
+						reason = 'This save changed in another window. Reopen to continue.';
+						transaction.abort(); return;
+					}
+					try {
+						store.put({payload, revision: nextRevision}, 'current');
+						if (clear || !previous) store.delete('backup');
+						else store.put({payload: previous}, 'backup');
+					} catch (_) { transaction.abort(); }
+				};
+				transaction.oncomplete = () => {
+					primary = payload; backup = clear ? '' : previous;
+					revision = nextRevision; failure = '';
+					done(true);
+				};
+				transaction.onabort = transaction.onerror = () => done(false, reason || 'Could not save. Storage may be full or blocked; the previous save is kept.');
+			} catch (_) { done(false, 'Could not open save storage. Keep the game open and retry.'); }
+		});
+	}
+	function enqueue(payload, previous, callback, clear = false) {
+		pending++; announce();
+		tail = tail.then(async () => {
+			await ready;
+			let result;
+			if (typeof payload !== 'string' || typeof previous !== 'string' || payload.length > MAX_PAYLOAD || previous.length > MAX_PAYLOAD || (!clear && !payload)) {
+				result = [false, 'The saved game is too large or invalid.'];
+			} else result = await commit(payload, previous, clear);
+			pending--; announce();
+			try { callback(...result); } catch (_) { /* a closing engine may detach its callback */ }
+		});
+		return true;
+	}
+	return Object.freeze({ready, available: () => !!db, error: () => failure,
+		read: () => primary, readBackup: () => backup, isBusy: () => pending > 0,
+		write: (payload, previous, callback) => enqueue(payload, previous, callback),
+		clear: callback => enqueue('', '', callback, true)});
+}
+window.PocketSoloStorage = createPocketSoloStorage(window);
+		</script>
 		<script src="pocket_launch.js"></script>
 		<script id="pocket-web-shell-script">
 (function () {
@@ -580,6 +684,8 @@ const GODOT_THREADS_ENABLED = $GODOT_THREADS_ENABLED;
 
 (async function () {
 	await window.PocketLaunch.ready;
+	// The main menu must see the durable save before offering Continue.
+	await window.PocketSoloStorage.ready;
 	try {
 		await window.PocketAudioModules.prepare();
 	} catch (error) {
