@@ -237,6 +237,7 @@ static func display_scale_for_screen(screen_size: Vector2, base_size: Vector2, p
 func _process(delta: float) -> void:
 	var session: Node = get_node_or_null("/root/NetworkSession")
 	if session != null and bool(session.call("is_network_match")):
+		game_speed = 1.0
 		# Clients use the authoritative snapshot clock. The server must not count
 		# its paused loading barrier as elapsed gameplay.
 		if bool(session.call("is_client")) or str(session.get("state")) != "playing":

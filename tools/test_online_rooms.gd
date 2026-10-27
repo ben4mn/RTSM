@@ -107,7 +107,7 @@ func _process(delta: float) -> bool:
 					var snapshot: Dictionary = states[client_index].snapshot
 					var owner: int = int(states[client_index].matched.slot)
 					var scouts: Array = (snapshot.actors as Array).filter(func(actor: Dictionary) -> bool: return actor.owner == owner and actor.kind == "unit" and actor.type == UnitData.UnitType.SCOUT)
-					_expect(int(snapshot.player.max_population) == 100 and int(snapshot.player.population) == 5 and scouts.size() == 1, "both sockets start with100max, four workers and one Scout")
+					_expect(int(snapshot.player.max_population) == 100 and int(snapshot.player.population) == UnitData.STARTING_VILLAGERS * int(UnitData.UNITS[UnitData.UnitType.VILLAGER].pop_cost) + int(UnitData.UNITS[UnitData.UnitType.SCOUT].pop_cost) and scouts.size() == 1, "both sockets start with the configured workers and one Scout")
 				clients[3].close()
 				_next(10)
 		10:
@@ -122,7 +122,7 @@ func _process(delta: float) -> bool:
 				clients.clear()
 				states.clear()
 				round_index += 1
-				if round_index == 3:
+				if round_index == MapData.MAP_ARCHETYPES.size():
 					_add_client()
 					_next(12)
 				else:

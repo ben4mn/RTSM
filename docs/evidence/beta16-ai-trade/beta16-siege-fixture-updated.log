@@ -1,0 +1,11 @@
+=== [1/2] test_compact_siege_endgame ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] compact_siege_endgame
+[PASS] test_compact_siege_endgame
+=== [2/2] test_easy_siege_budget ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] compact_siege_endgame
+[PASS] test_easy_siege_budget
+FOCUSED_SUITE: 2/2 passed

@@ -1,0 +1,27 @@
+{
+  "result": "PARTIAL_PASS_STARTUP_REDRAW_UNRESOLVED",
+  "origin": "https://game.4mn.org/",
+  "runtime_revision": "3dd7ad997ce0127dba7695a1853d1f928f480bb3",
+  "viewport": [844, 390],
+  "scope": "Ordinary public-browser UI upgraded beta.14 to beta.15 and then beta.15.1. Installed version and offline-ready status were visible. The same River Crossings save resumed paused at0:31 with280F/310W/130G and7/15 population. Refresh during the open paused match was blocked with an explicit match-protection message. Save & exit returned to the checkpoint. Release notes stayed collapsed. No browser warning/error entries were observed. After menu Refresh, however, the in-app browser sometimes displayed a blank green canvas despite the ready toolbar; a one-pixel viewport change recovered it. Final menu and installed version were visible. Physical installed-PWA lifecycle was not exercised.",
+  "restored_save": {"clock": "0:31", "food": 280, "wood": 310, "gold": 130, "population": 7, "population_cap": 15},
+  "updated_version": "0.3.0-beta.15.1",
+  "open_match_refresh_blocked": true,
+  "browser_warning_or_error_entries": 0,
+  "startup_redraw": {
+    "status": "UNRESOLVED",
+    "observed_environment": "Codex in-app browser,844x390 landscape viewport",
+    "recovery_observed": "Change viewport width by one pixel and restore it; switching away and back also showed the menu at final inspection.",
+    "candidate_rejected": "A local-only one-shot canvas backing-width transition passed four mock profiles and packaging checks, but still displayed a blank canvas after a repeat normal Refresh. The experiment was reverted and was never committed or deployed.",
+    "cause": "Not established; browser rendering and screenshot/compositor behavior remain possible. Do not generalize to physical phones."
+  },
+  "limitations": [
+    "Two selected paired AI matches average12:11.29, not a population-wide average. The separate hands-on mobile-viewport match ended at11:00. No new6-9-minute fast-win sample was collected this pass.",
+    "The prolonged experiment intercepted the first Sacred conclusion at18:43.20. Later20/25-minute stock readings are counterfactual continuation data, not a natural completed-match duration; Town Center defeat remained enabled.",
+    "The AI kept large gold banks and did not adopt trade in these matches. Paid route/authority fixtures and hands-on trader route/raid observations are separate evidence.",
+    "Physical-phone performance and an OS-installed PWA lifecycle were not tested. Native ScreenTouch fixtures and browser mobile viewports are separate scopes.",
+    "An intermittent blank menu after Refresh remains unresolved in the in-app browser. Saves and match-refresh protection passed, but complete startup/update reliability is not certified.",
+    "Finite stock is consumed by harvesting, not elapsed time. Unvisited deposits remain; dense styles have lightly stocked outer woodland beyond protected home/expansion groves."
+  ],
+  "screenshots": ["beta151-live-update.png", "beta151-restored-paused.png", "beta151-live-update-protected.png", "beta151-mobile-menu.png", "beta15-mobile-match-result.png"]
+}

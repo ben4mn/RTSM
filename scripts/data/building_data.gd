@@ -15,6 +15,7 @@ enum BuildingType {
 	SIEGE_WORKSHOP = 8,
 	BLACKSMITH = 9,
 	WATCH_TOWER = 10,
+	TRADE_POST = 11,
 }
 
 ## Keep a walkable tile between owned foundations, including their corners.
@@ -27,12 +28,12 @@ const BUILDINGS: Dictionary = {
 	BuildingType.TOWN_CENTER: {
 		"name": "Town Center",
 		"hp": 5000,
-		"cost": { "food": 0, "wood": 400, "gold": 0 },
+		"cost": { "food": 0, "wood": 400, "gold": 100 },
 		"build_time": 60.0,
 		"pop_provided": 10,
 		"footprint": Vector2i(4, 4),
 		"can_train": [UnitData.UnitType.VILLAGER, UnitData.UnitType.SCOUT],
-		"age_required": 3,  # Extra TCs available in Castle Age
+		"age_required": 2,  # Paid expansion competes with saving for Castle.
 		"drop_off": ["food", "wood", "gold"],
 		# One short-range arrow buys retreat time; it does not shelter workers
 		# across the whole resource pocket or replace a defending army.
@@ -145,6 +146,13 @@ const BUILDINGS: Dictionary = {
 		"color": Color(0.45, 0.35, 0.35),
 		"has_research": true,
 	},
+	BuildingType.TRADE_POST: {
+		"name": "Trade Post", "hp": 850, "cost": {"food": 0, "wood": 200, "gold": 0},
+		"build_time": 30.0, "pop_provided": 0, "footprint": Vector2i(2, 2),
+		"can_train": [UnitData.UnitType.TRADER], "age_required": 2, "drop_off": [],
+		"color": Color(0.72, 0.54, 0.22),
+	},
+
 	BuildingType.WATCH_TOWER: {
 		"name": "Watch Tower",
 		"hp": 800,

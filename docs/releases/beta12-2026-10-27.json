@@ -1,0 +1,100 @@
+{
+  "status": "LIVE_VERIFIED",
+  "date": "2026-10-27",
+  "origin": "https://game.4mn.org/",
+  "version": "0.3.0-beta.12",
+  "source_commit": "1bfdfe91e583f858bd80d365bbe9a5c737af8bef",
+  "protocol": 9,
+  "pull_request": "https://github.com/ben4mn/RTSM/pull/6",
+  "release_id": "v030beta12-1bfdfe91e583-a8786cbaaa-44c7aff9c8",
+  "web_manifest_sha256": "a8786cbaaafc3a384a2521137bbb1c458e0645388faa487074f9919392e6cf81",
+  "server_manifest_sha256": "44c7aff9c8ea40b4d6da25528627fc528c847765fcb590abb9d10ebac35741d2",
+  "server_image": "sha256:c698f1398540418230f9670a32e3e41298927c80e51493899b14eae2cc449eb0",
+  "containers": {
+    "aoem-online": {
+      "started_utc": "2026-10-27T05:26:36.311647608Z"
+    },
+    "aoem-game": {
+      "started_utc": "2026-10-27T05:27:42.228404057Z"
+    }
+  },
+  "changes": [
+    "Device-local solo autosave every 15 seconds, pause/background checkpoints, durable Save & exit and paused Resume.",
+    "Versioned validated checkpoints with previous-good fallback; exact runtime state restoration and no online saves.",
+    "Explicit production rally flag, resource targeting through friendly workers and inherited gather orders.",
+    "Five representative illustrated map-style cards, expandable style picker, saved-match replacement notice.",
+    "Collapsible icon dock, portrait details, icon-and-cost tiles and compact Economy/Army sheets."
+  ],
+  "checks": [
+    {
+      "name": "Native save state",
+      "result": "PASS",
+      "checks": 60,
+      "scope": "Four fresh processes; corruption, failed writes, exact banks/reservations/cargo, production, construction, trade, projectile single impact, fog, online exclusion."
+    },
+    {
+      "name": "Browser storage transactions",
+      "result": "PASS",
+      "checks": 8,
+      "scope": "fake-indexeddb transaction implementation: atomic rollback, fresh instance, stale-window overwrite/clear prevention, queue ordering, blocked storage and timeout."
+    },
+    {
+      "name": "Existing browser infrastructure",
+      "result": "PASS",
+      "scope": "29 update tests, 6 audio-loader tests, 20 packaging tests."
+    },
+    {
+      "name": "Compact controls",
+      "result": "PASS",
+      "scope": "27 real-HUD checks; 25 hold/release checks; two narrow/notched Strategy profiles; 15 native render states; 6056 menu layout and 2584 reflow checks."
+    },
+    {
+      "name": "Rally behavior",
+      "result": "PASS",
+      "scope": "Actual paid resource and military rally continuation; 22 both-owner authoritative command/production/snapshot and fixed-speed checks."
+    },
+    {
+      "name": "Hands-on browser",
+      "result": "PASS",
+      "scope": "844x390 paid queues, flag/resource rally, Save & exit, fresh reload, offline cached launch with server stopped, continued production/gathering, app-update persistence, active-match Refresh protection; repeated save/reload/resume on public origin."
+    },
+    {
+      "name": "Public multiplayer",
+      "result": "PASS",
+      "checks": 66,
+      "scope": "Public WSS room host/join, all five map styles, synchronized setup, cancellation and recovery; source-frozen isolated clients."
+    },
+    {
+      "name": "Deployment",
+      "result": "PASS",
+      "scope": "Two reproducible committed exports, matching Linux server smoke, guarded activation, public file/source verification, online server replacement and web restart with no active match connections."
+    }
+  ],
+  "balance": {
+    "changed_in_this_followup": false,
+    "prior_findings": "docs/balance_2026-10-26.md",
+    "population_average_target_proven": false
+  },
+  "limitations": [
+    "No physical iPhone/Android or OS-installed PWA lifecycle test. Cached offline browser reload and resume were observed.",
+    "Saves stay on the same browser/device; clearing site data or browser storage eviction removes them. No cloud synchronization.",
+    "Sudden process termination may return to the most recent completed checkpoint; Save & exit explicitly waits for confirmation.",
+    "No new full-match pacing sample in this follow-up; prior samples do not establish a 12-15-minute average or 20-minute exhaustion."
+  ],
+  "evidence": {
+    "activation.json": "de5fd73f8694392e0cb3d15e54dad275321bd5aac92397a5cba26631525fd34d",
+    "postflight.json": "dff1f0ef2dc82bc5537de1199f3815eda6e8d6e7c80db36fd5649d780c534c9d",
+    "web-restart.json": "4b5e98a6f7ccda2103e98658e5b86b05a92f9c69bd558eb9380cd4e859f431a8"
+  },
+  "usage": {
+    "explicit_task_token_budget": null,
+    "bounded_subagents": 3,
+    "account_weekly_used_percent_at_last_check": 36
+  },
+  "screenshots": [
+    "outputs/beta12-public-mobile.png",
+    "outputs/beta12-map-style.png",
+    "outputs/beta12-offline-resume.png",
+    "outputs/beta12-save-and-exit.png"
+  ]
+}

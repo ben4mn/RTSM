@@ -158,11 +158,26 @@ body.pocket-shell-modal #pocket-runtime-recovery { visibility: hidden; }
 .pk-hero h1 svg { display: block; width: 100%; max-width: 560px; height: auto; overflow: visible; }
 .pk-eyebrow { font-size: 10px; letter-spacing: 2.6px; }
 .pk-description { font-size: 18px; line-height: 1.6; max-width: 420px; }
-.pk-actions { gap: 14px; align-items: center; }
+.pk-actions { gap: 12px; align-items: center; }
 .pk-button { border-radius: 999px; min-height: 56px; padding: 12px 24px; }
-.pk-primary { background: transparent url("primary_normal.svg") center / 100% 100% no-repeat; border: 0; border-radius: 0; padding: 14px 34px 18px; min-height: 64px; box-shadow: none; }
-.pk-primary:hover { background: transparent url("primary_hover.svg") center / 100% 100% no-repeat; }
-.pk-primary:active { background: transparent url("primary_pressed.svg") center / 100% 100% no-repeat; box-shadow: none; transform: translateY(1px); }
+.pk-primary { background: var(--pk-gold); border: 1px solid #f1cf92; border-radius: 16px 5px 16px 5px; padding: 15px 26px; min-height: 58px; box-shadow: 0 3px 0 #775c2c; }
+.pk-primary:hover { background: #f0cb87; }
+.pk-primary:active { background: #d8aa57; box-shadow: 0 1px 0 #775c2c; transform: translateY(2px); }
+#pocket-play { flex: 0 0 auto; min-width: 180px; white-space: nowrap; }
+#pocket-install { background: transparent; min-height: 48px; font-size: 16px; padding: 12px 20px; white-space: nowrap; }
+#pocket-install:hover { background: #3b5548; }
+.pk-updates > summary { cursor: pointer; border-top: 1px solid var(--pk-border); padding: 20px 0; list-style: none; }
+.pk-updates > summary::-webkit-details-marker { display: none; }
+.pk-updates > summary span:first-child { font: 600 28px "Barlow Condensed",sans-serif; }
+.pk-updates > summary span:last-child { color: var(--pk-muted); font-size: 14px; }
+.pk-updates > summary:after { content: "+"; font-size: 26px; color: var(--pk-gold); }
+.pk-updates[open] > summary:after { content: "−"; }
+.pk-update-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin: 16px 0; }
+.pk-text-button { min-height: 48px; padding: 10px 4px; border: 0; background: none; color: var(--pk-gold); text-decoration: underline; text-underline-offset: 4px; font: 500 15px Barlow,sans-serif; cursor: pointer; touch-action: manipulation; }
+.pk-text-button:disabled { opacity: .6; cursor: progress; }
+.pk-text-button:focus-visible, .pk-updates > summary:focus-visible, .pk-release-disclosure > summary:focus-visible { outline: 2px solid var(--pk-gold); outline-offset: 3px; }
+.pk-release-disclosure > summary { padding: 16px 0; min-height: 24px; cursor: pointer; color: var(--pk-paper); font-weight: 600; }
+.pocket-button.pk-update-pending { border-color: var(--pk-gold); box-shadow: inset 0 -3px 0 var(--pk-gold); }
 .pk-art { overflow: visible; }
 .pk-art-stage { aspect-ratio: 1.18; isolation: isolate; }
 .pk-art-stage:before { content: ""; position: absolute; z-index: -1; width: 80%; aspect-ratio: 1; border-radius: 50%; left: 10%; top: 0; background: #3e573f80; border: 1px solid #8e966e88; outline: 1px solid #61746766; outline-offset: 10px; box-shadow: 0 0 80px #9aaa7130 inset; }

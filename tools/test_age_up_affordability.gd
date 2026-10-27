@@ -106,9 +106,8 @@ func _exercise_profile(viewport_size: Vector2i, population_limit: int) -> void:
 
 
 func _assert_authoritative_text(hud: CanvasLayer, button: Button, cost: Dictionary, age: int, context: String) -> void:
-	var expected_cost := "%dF · %dG" % [int(cost["food"]), int(cost["gold"])]
-	_expect(button.text.contains("\n" + expected_cost), context + " actual action label renders authoritative costs")
-	_expect(button.icon == null, context + " costs have the whole button width")
+	_expect(button.text in ["II", "III", "IV"], context + " action shows next-age numeral")
+	_expect(button.icon != null, context + " age action is a single icon button")
 	_expect((hud.get("age_label") as Label).text == String(_game_manager.call("get_age_name", age)), context + " age label matches current state")
 	_expect(button.tooltip_text.begins_with("Advance to " + String(_game_manager.call("get_age_name", age + 1))), context + " preview names the authoritative next age")
 	_expect(button.tooltip_text.contains("%d food · %d gold" % [int(cost["food"]), int(cost["gold"])]), context + " preview includes current population-scaled costs")

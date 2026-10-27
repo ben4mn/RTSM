@@ -1,0 +1,4 @@
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+Vulkan 1.4.341 - Forward Mobile - Using Device #0: NVIDIA - NVIDIA GeForce RTX 3080
+
+{"failures":[],"profiles":2,"scope":"real native ScreenTouch dispatch and Main/HUD with synthetic late-game actors; no paid-match or physical-device claim","test":"trade_management"}

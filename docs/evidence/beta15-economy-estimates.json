@@ -1,0 +1,31 @@
+{
+  "scope": "Calculated estimates only, separate from game-clock simulations and hands-on browser observations.",
+  "assumptions": {
+    "carry_capacity": 30,
+    "worker_speed_world_units_per_second": 60,
+    "one_way_haul_world_units": 120,
+    "formula_delivered_per_minute": "60 * 30 / (30 / raw_harvest_per_second + 2 * 120 / 60)",
+    "excluded": "Worker losses, crowding, blocked paths, exploration, construction, retasking and upgrades. Longer late-game hauls lower delivery rates."
+  },
+  "delivered_per_minute": {
+    "French_food_or_wood": 109.0909,
+    "gold_all_civilizations": 94.7368,
+    "English_wood": 124.8555,
+    "Mongol_food": 121.0526
+  },
+  "half_of_total_map_stock_for_even_split_estimates": {"food": 2000, "wood": 5000, "gold": 2000},
+  "depletion_examples": [
+    {"resource": "wood", "workers": 3, "productive_minutes": 15.2778, "minutes_with_four_minute_ramp_and_80_percent_uptime": 23.0972},
+    {"resource": "gold", "workers": 1, "productive_minutes": 21.1111},
+    {"resource": "gold", "workers": 2, "productive_minutes": 10.5556},
+    {"resource": "natural_food", "workers": 1, "productive_minutes": 18.3333}
+  ],
+  "trade": {
+    "scope": "Straight routes of roughly500 to1500 world units, sustained travel without obstruction. Not an observed human-game return-on-investment figure.",
+    "estimated_gold_per_minute": [59, 74],
+    "trader_cost": {"wood": 60, "gold": 40},
+    "post_cost": {"wood": 200},
+    "limitations": "The40-gold unit component alone takes about33 to41 steady-income seconds. Construction, initial travel, wood opportunity cost, indirect paths and losses extend actual payback. Sacred ownership also yields120 gold per minute and can suppress demand for trade."
+  },
+  "decision": "Keep three starting villagers and current per-civilization gathering rates. Change Standard Sacred hold and finite reserves first; validate actual depletion with paid matches. Unvisited deposits never expire."
+}

@@ -40,7 +40,7 @@ func _start() -> void:
 func _process(delta: float) -> bool:
 	elapsed += delta
 	# The100-population opening pays the full320F/160G Feudal price. Allow
-	# ordinary four-worker gathering plus construction, travel and combat.
+	# ordinary configured-worker gathering plus construction, travel and combat.
 	if elapsed > 420.0:
 		push_error("ONLINE_CIV_TIMEOUT civ=%d slot=%d age=%s placed=%s trained=%s verified=%s enemy=%s combat=%s" % [civilization, session.player_slot, age_sent, placed, trained, verified, enemy_verified, saw_combat])
 		quit(1)
@@ -87,7 +87,7 @@ func _snapshot(data: Dictionary) -> void:
 			workers.append(int(actor.id))
 		elif str(actor.kind) == "building" and int(actor.type) == production_type and int(actor.state) == 2 and not trained:
 			var cost: Dictionary = UnitData.get_unit_cost(signature_type)
-			if int(bank.food) >= int(cost.food) and int(bank.wood) >= int(cost.wood):
+			if int(bank.food) >= int(cost.food) and int(bank.wood) >= int(cost.wood) and int(bank.gold) >= int(cost.gold):
 				session.send_command("train", {"target": int(actor.id), "type": signature_type})
 				trained = true
 		elif str(actor.kind) == "unit" and int(actor.type) == signature_type and not verified:

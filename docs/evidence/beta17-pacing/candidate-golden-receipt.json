@@ -1,0 +1,81 @@
+{
+  "runtime_revision": "d64bcb675e6fc45be7ad643222b69aa52967f008",
+  "observer_sha256": {
+    "tools/probe_ai_compact_paid_match.gd": "c844ec4d3ae9ee09e6a2cda973f69ad339c4bef440107d9f584500a4856f97db",
+    "tools/probe_late_economy_pacing.gd": "a5da07b30b7bd671efd913a7575117367777cad3ec98ef3bd4f42426b01e898f",
+    "tools/probe_late_economy_pacing.tscn": "269df2cbc0f8af175cf6cd9356755acff754cb97649e059fda4d7cfcaf191c7b",
+    "tools/fixtures/pacing_solo_save.gd": "ec06d7a703eea5cc475b85c96c49aa11de0f3a83b1c17670b4dc81e1a8a70082",
+    "tools/fixtures/pacing_sacred_continuation.gd": "f98509cd4399d1e446bd0ea5e650e9bacf63c0498ff30701a2fd5abc516138bf",
+    "tools/run_late_economy_pacing.py": "910c691c4bac4ddcad215c9c6a1b620f969e83f7bd5eb1c99df5c4d88a8efa14"
+  },
+  "scope": "Paid Standard 100 simulations, three starting workers; civilizations and difficulties explicitly recorded, natural victory enabled. Headless/no render. Autosave disabled only by runner autoload override; not persistence, human or phone evidence.",
+  "civilizations": [
+    1,
+    2
+  ],
+  "requested_cases": [
+    [
+      4,
+      7,
+      1,
+      1
+    ]
+  ],
+  "sacred_continuation": false,
+  "game_seconds_cap": 1500.0,
+  "wall_seconds_cap": 1500.0,
+  "runs": [
+    {
+      "case": "map4-seed7-fixed60-scale3-civs1v2",
+      "style": 4,
+      "seed": 7,
+      "scale": 3,
+      "difficulty_player0": 1,
+      "difficulty_player1": 1,
+      "game_step_seconds": 0.05,
+      "command": [
+        "C:\\Users\\ben4m\\Documents\\Codex\\2026-10-23\\i-am-x20\\work\\tools\\godot-4.6\\Godot_v4.6-stable_win64_console.exe",
+        "--headless",
+        "--disable-render-loop",
+        "--fixed-fps",
+        "60",
+        "--max-fps",
+        "0",
+        "--path",
+        "C:\\Users\\ben4m\\Documents\\Codex\\2026-10-26\\improve-pocket-kingdoms-at-game-4mn\\work\\beta17-candidate-golden\\pocket-pacing-frozen-qvctlf57",
+        "res://tools/probe_late_economy_pacing.tscn",
+        "--",
+        "--mode=0",
+        "--pop=100",
+        "--difficulty=1",
+        "--human-difficulty=1",
+        "--archetype=4",
+        "--seed=7",
+        "--duration=1500.0",
+        "--output=C:\\Users\\ben4m\\Documents\\Codex\\2026-10-26\\improve-pocket-kingdoms-at-game-4mn\\work\\beta17-candidate-golden\\map4-seed7-fixed60-scale3-civs1v2.json",
+        "--civilization0=1",
+        "--civilization1=2"
+      ],
+      "user_dir": "pocket-pacing/9c8b2a5491c847399b058a333924d043",
+      "report": "C:\\Users\\ben4m\\Documents\\Codex\\2026-10-26\\improve-pocket-kingdoms-at-game-4mn\\work\\beta17-candidate-golden\\map4-seed7-fixed60-scale3-civs1v2.json",
+      "log": "C:\\Users\\ben4m\\Documents\\Codex\\2026-10-26\\improve-pocket-kingdoms-at-game-4mn\\work\\beta17-candidate-golden\\map4-seed7-fixed60-scale3-civs1v2.log",
+      "partial": "C:\\Users\\ben4m\\Documents\\Codex\\2026-10-26\\improve-pocket-kingdoms-at-game-4mn\\work\\beta17-candidate-golden\\map4-seed7-fixed60-scale3-civs1v2.json.partial.json",
+      "status": "wall_timeout",
+      "exit": 1,
+      "wall_seconds": 1511.469,
+      "diagnostics": [],
+      "log_sha256": "7f68d4e7ca97ee1f3b0530f169c93d17dc3f17f601175d476ac8b97a25bb49d0",
+      "last_persisted_game_seconds": 781.616666666504,
+      "observer_performance": {
+        "frames": 15634,
+        "game_seconds": 781.616666666504,
+        "measure_calls": 3537,
+        "observer_usec": 4399516,
+        "physics_ticks_per_second": 60,
+        "time_scale": 3.0,
+        "wall_seconds": 1366.896
+      }
+    }
+  ],
+  "project_config_sha256_before_private_user_dir": "d7c8c1182dcd7a570f8641e739abe817385b768c539a90cfb82095117e323f51"
+}

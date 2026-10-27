@@ -93,6 +93,7 @@ var _attack_animation_remaining: float = 0.0
 var _attack_animation_duration: float = 0.3
 var _attack_animation_direction: Vector2 = Vector2.RIGHT
 var _animation_clock: float = 0.0
+var _gait_phase: float = 0.0
 var _last_visual_position: Vector2 = Vector2.ZERO
 var _health_feedback_remaining: float = 0.0
 
@@ -1154,16 +1155,20 @@ func _update_sprite_motion(delta: float) -> void:
 		if absf(displacement.x) > 0.01:
 			_sprite.flip_h = displacement.x < 0.0
 		var mounted: bool = unit_type in [UnitData.UnitType.CAVALRY, UnitData.UnitType.SCOUT]
-		var gait_rate: float = 17.0 if mounted else 12.0
-		var stride: float = 0.0 if GameManager.reduced_motion else sin(_animation_clock * gait_rate)
+		# Step by distance, not by the global animation clock: stop/start and
+		# formation speed changes no longer make feet slide or jump phase.
+		# Clamp replica correction jumps so packet interpolation stays calm.
+		var stride_length: float = 44.0 if mounted else 28.0
+		_gait_phase = fposmod(_gait_phase + minf(displacement.length(), 12.0) * TAU / stride_length, TAU)
+		var stride: float = 0.0 if GameManager.reduced_motion else sin(_gait_phase)
 		if unit_type == UnitData.UnitType.SIEGE:
 			# A low wheel roll keeps the heavy carriage grounded; infantry's
 			# two-unit hop makes the same art appear to walk on its wheels.
 			sprite_offset.y = -absf(stride) * 0.35
 			_sprite.rotation = stride * 0.006
 		else:
-			sprite_offset.y = -absf(stride) * (0.9 if mounted else 1.0)
-			_sprite.rotation = stride * (0.010 if mounted else 0.018)
+			sprite_offset.y = -absf(stride) * (1.2 if mounted else 1.6)
+			_sprite.rotation = stride * (0.014 if mounted else 0.024)
 	var work: Vector3 = get_work_presentation()
 	var action: int = int(work.x)
 	var phase: float = work.y

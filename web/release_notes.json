@@ -1,6 +1,123 @@
 {
   "releases": [
     {
+      "id": "2026-10-27-openings-and-gold",
+      "date": "2026-10-27",
+      "version": "0.3.0-beta.17",
+      "title": "Openings and gold",
+      "summary": "Choose early pressure, a second town or a faster Castle age.",
+      "changes": [
+        "Extra Town Centers unlock in Feudal for 400 wood and 100 gold. Expansion competes with your army and Castle savings.",
+        "Archers cost 50 food, 70 wood and 20 gold; Horsemen cost 180 food, 20 wood and 40 gold. Warriors remain gold-free. Gathering rates and civilization bonuses are unchanged.",
+        "Opponents vary their openings, use their civilization and visible counters when recruiting, and prepare trade as safe mines run low.",
+        "New Standard battles require five guarded minutes at Sacred. Control race and the victory timers in existing saves are unchanged.",
+        "Saved production queues retain the exact resources already paid, including refunds for older recruits. Update before playing online."
+      ]
+    },
+    {
+      "id": "2026-10-27-working-trade-roads",
+      "date": "2026-10-27",
+      "version": "0.3.0-beta.16",
+      "title": "Working trade roads",
+      "summary": "Opponents plan a renewable gold economy for longer battles.",
+      "changes": [
+        "Opponents stop over-mining gold once upcoming purchases are covered and put those workers back on food and timber.",
+        "Castle-age armies reserve resources for a siege engine instead of endlessly spending the budget on basic troops.",
+        "When nearby safe gold runs low, opponents can save for a Trade Post and its first Trader. They avoid visibly threatened routes and expand only after a caravan proves its income.",
+        "Gathering rates, movement, map reserves and victory timers are unchanged. Existing solo saves remain compatible."
+      ]
+    },
+    {
+      "id": "2026-10-27-even-stock-on-every-seed",
+      "date": "2026-10-27",
+      "version": "0.3.0-beta.15.1",
+      "title": "Even stock on every seed",
+      "summary": "A rare diagonal-resource layout now receives its full, fair stock.",
+      "changes": [
+        "Fixed a rare Twin Lakes seed that left two wood unallocated on the map's diagonal. Every resource stays mirrored and every map keeps its full finite budget.",
+        "The six-minute Standard hold, gathering rates and tested pacing maps are unchanged. Existing solo saves keep their captured world and timer.",
+        "Both online players must update to use the corrected map allocation."
+      ]
+    },
+    {
+      "id": "2026-10-27-room-to-counter",
+      "date": "2026-10-27",
+      "version": "0.3.0-beta.15",
+      "title": "Time to counter, reasons to expand",
+      "summary": "Longer Standard objective battles and a clearer transition to farms and trade.",
+      "changes": [
+        "New Standard matches require six guarded minutes at Sacred. Control race keeps its three-minute bank, and destroying the enemy Town Center can still win immediately.",
+        "Every map style has the same finite stock: 4,000 food, 10,000 wood and 4,000 gold. Opening berries and the stocked timber groves remain useful; distant reserves run out sooner.",
+        "Gathering rates, movement, unit costs and trade income are unchanged. Farms sustain food and protected trader routes provide renewable gold.",
+        "Existing solo saves keep their original resource amounts and victory timer. Both online players must update for the new match rules."
+      ]
+    },
+    {
+      "id": "2026-10-27-trade-at-a-glance",
+      "date": "2026-10-27",
+      "version": "0.3.0-beta.14",
+      "title": "Keep your caravans moving",
+      "summary": "Find traders quickly, see route problems, and return safely after a battle.",
+      "changes": [
+        "Economy gains a compact trader finder when you have a Trade Post. Tap the cart to find your traders; stopped or blocked routes get attention first.",
+        "Trader details distinguish blocked roads, missing buildings, paused orders and working routes. Trade Posts show only controls their traders use.",
+        "Opponents at the normal population limit now send a worker to look for wood when nearby visible forests run out, instead of leaving their economy stuck on food.",
+        "Solo checkpoints now safely discard defeated targets that were still referenced during combat. Existing saves, gathering rates, trade payouts and online speed remain compatible."
+      ]
+    },
+    {
+      "id": "2026-10-27-solo-traders",
+      "date": "2026-10-27",
+      "version": "0.3.0-beta.13.1",
+      "title": "Traders take the road",
+      "summary": "Trade Posts can now recruit Traders, including posts in existing solo saves.",
+      "changes": [
+        "Fixed a missing production queue that made the Trader button do nothing. Existing saved Trade Posts gain their working queue when resumed.",
+        "Trade placement still previews potential gold and warns about sites too near town. Routes, costs, gathering and combat balance are unchanged."
+      ]
+    },
+    {
+      "id": "2026-10-27-trade-planning",
+      "date": "2026-10-27",
+      "version": "0.3.0-beta.13",
+      "title": "Plan your trade road",
+      "summary": "See a Trade Post's potential before spending wood.",
+      "changes": [
+        "Trade Post previews warn when they are too near town and show potential gold per completed trip farther away. A clear road is still required; traders confirm the actual route.",
+        "Trade guidance fits in the existing placement strip. Building Info explains when gold arrives and why the road needs protection.",
+        "Existing solo saves remain compatible. Movement, gathering rates, production costs, and online speed are unchanged."
+      ]
+    },
+    {
+      "id": "2026-10-27-save-and-return",
+      "date": "2026-10-27",
+      "version": "0.3.0-beta.12",
+      "title": "Save your kingdom",
+      "summary": "Return to your solo battle, rally your recruits, and keep more of the battlefield in view.",
+      "changes": [
+        "Solo battles autosave on this device. Pause and choose Save & Exit, then Resume solo from the main menu—even after closing the app.",
+        "Saves keep the battlefield, workers and cargo, paid production, construction, armies, trade routes, explored map, and opponent progress. Failed writes preserve the previous good save.",
+        "Select a production building and tap its flag, then choose a destination. Town Centers can rally new Villagers straight to a resource, even when another worker stands over it.",
+        "A compact icon dock replaces the lower text panels. Collapse it with the chevron; tap a portrait for details. Economy, Army, and building choices use small expandable icon panels.",
+        "Five illustrated map-style cards show each landscape's character. Every new match still generates a fresh battlefield."
+      ]
+    },
+    {
+      "id": "2026-10-26-trade-and-terrain",
+      "date": "2026-10-26",
+      "version": "0.3.0-beta.11",
+      "title": "New roads, clearer orders",
+      "summary": "Fresh battlefields, exposed trade routes, and a quieter mobile interface.",
+      "changes": [
+        "Five seeded map styles, including Golden Basin and Twin Lakes, vary routes and resource positions while keeping symmetric starts.",
+        "Three starting villagers share the same civilization gathering rules as recruits. Gathering is modestly slower; farms sustain food and Traders deliver renewable gold along vulnerable Town Center–Trade Post routes.",
+        "Hold a unit card to add a finite paid queue; release or drag away to stop. Queue options and detailed management controls expand when needed.",
+        "Compact age and church controls, local placement previews, clearer movement routes, and responsive movement. Online matches always run at 1× speed.",
+        "Explored resources and buildings remain dimly visible as last seen. Hidden units and activity stay unseen until you scout again.",
+        "Updates and Refresh are available from the menu; active matches defer app updates."
+      ]
+    },
+    {
       "id": "2026-10-25-return-to-work",
       "date": "2026-10-25",
       "version": "0.3.0-beta.10.1",

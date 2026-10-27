@@ -1,0 +1,16 @@
+=== [1/3] test_feedback_controls ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] feedback_controls: 25 checks; real touch/emulated release, finite paid queue/resources, repeat feedback, drag/cancel/multitouch/context/disabled holds, authoritative fixed speed
+[PASS] test_feedback_controls
+=== [2/3] test_network_trade_authority ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+{"checks":52,"failures":[],"scope":"actual authority command and simulation; sequential recipient snapshots; no sockets","simulated_first_delivery_seconds":[41.3499999999998,112.499999999996],"test":"network_trade_authority"}
+[PASS] test_network_trade_authority
+=== [3/3] test_solo_trade_production ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+{"checks":46,"failures":[],"scope":"actual Main scenes, paid solo and authority commands, native save/resume; manually advanced queue time; no sockets","test":"solo_trade_production"}
+[PASS] test_solo_trade_production
+FOCUSED_SUITE: 3/3 passed

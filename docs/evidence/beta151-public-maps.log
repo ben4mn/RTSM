@@ -1,0 +1,21 @@
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+ONLINE_MAP_PAIR_BEGIN round=0 catalogs=[0, 0]
+ONLINE_MAP_PAIR_REJECTED round=0 catalogs=[0, 0]
+ONLINE_MAP_PAIR_BEGIN round=1 catalogs=[6, 6]
+ONLINE_MAP_PAIR_REJECTED round=1 catalogs=[6, 6]
+ONLINE_MAP_PAIR_BEGIN round=2 catalogs=[6, 7]
+ONLINE_MAP_PAIR_REJECTED round=2 catalogs=[6, 7]
+ONLINE_MAP_PAIR_BEGIN round=3 catalogs=[7, 6]
+ONLINE_MAP_PAIR_REJECTED round=3 catalogs=[7, 6]
+ONLINE_MAP_PAIR_BEGIN round=4 catalogs=[0, 7]
+ONLINE_MAP_PAIR_REJECTED round=4 catalogs=[0, 7]
+ONLINE_MAP_PAIR_BEGIN round=5 catalogs=[7, 0]
+ONLINE_MAP_PAIR_REJECTED round=5 catalogs=[7, 0]
+ONLINE_MAP_PAIR_BEGIN round=6 catalogs=[999, 7]
+ONLINE_MAP_PAIR_REJECTED round=6 catalogs=[999, 7]
+ONLINE_MAP_PAIR_BEGIN round=7 catalogs=[7, 999]
+ONLINE_MAP_PAIR_REJECTED round=7 catalogs=[7, 999]
+ONLINE_MAP_PAIR_BEGIN round=8 catalogs=[7, 7]
+ONLINE_MAP_PAIR_VERIFIED round=8 catalogs=[7, 7] seed=2121068580 archetype=0
+[PASS] online_maps: nine real absent/old/mixed/unknown/current catalog rounds; incompatible peers rejected before queue or match, current pair matched/started/snapshotted

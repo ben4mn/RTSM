@@ -1,0 +1,108 @@
+{
+  "status": "LIVE_VERIFIED",
+  "date": "2026-10-27",
+  "origin": "https://game.4mn.org/",
+  "version": "0.3.0-beta.13.1",
+  "source_commit": "cb75443e476d5099cd554b1586580bb970fef045",
+  "protocol": 9,
+  "pull_request": "https://github.com/ben4mn/RTSM/pull/6",
+  "release_id": "v030beta131-cb75443e476d-23fea70ef0-7a79b43145",
+  "web_manifest_sha256": "23fea70ef07eae9bc06dd412fa28c83903cc487c011fdb891dffd52b007d21f7",
+  "server_manifest_sha256": "7a79b4314559a7573be77936e881255d6ad1d53730398888a78079dcd54ec32c",
+  "server_image": "sha256:214c021ab76e37ed3141667c8e2ee37d574083855fb08c4479f9f3c55af802b9",
+  "containers": {
+    "aoem-online": {
+      "started_utc": "2026-10-27T06:05:31.600824006Z"
+    },
+    "aoem-game": {
+      "started_utc": "2026-10-27T06:06:14.945791482Z"
+    }
+  },
+  "changes": [
+    "Fixed missing Trade Post production queue. Paid Traders now recruit in solo and online matches; existing saved posts acquire a working empty queue.",
+    "Trade Post placement warns about insufficient distance and estimates potential gold per completed trip before purchase.",
+    "The hint replaces the existing placement instruction; no extra panel. Building Info explains return trips and cargo risk.",
+    "Shared distance and payout rules prevent UI drift. Hints inspect owned active Town Centers, never hidden route occupancy.",
+    "Physical/fog errors take priority. Legal near-town placement remains allowed for future expansion."
+  ],
+  "checks": [
+    {
+      "name": "Trader recruitment",
+      "result": "PASS",
+      "checks": 46,
+      "scope": "All six producer scenes, exact 60W/40G/2-pop transaction, solo/authoritative commands, foreign-owner rejection, one completion, automatic route start, paid queue save/resume and legacy queue-less post migration. Test reproduced the bug before the scene fix. Queue time advanced manually; no sockets or ordinary construction claim."
+    },
+    {
+      "name": "Trade planning",
+      "result": "PASS",
+      "scope": "13 pure rule checks; 21 real placement checks covering TC completion, movement, destruction, ownership, current-map scope, physical/fog priority, no spending and no hidden path queries."
+    },
+    {
+      "name": "Placement regression",
+      "result": "PASS",
+      "scope": "1128 geometry/art checks; 32 bounded visible-space and occlusion checks."
+    },
+    {
+      "name": "HUD and commands",
+      "result": "PASS",
+      "scope": "35 HUD checks at 844x390 and 1280x720, including complete trade text; 25 touch/finite-queue/fixed-speed checks; 22 authoritative resource-rally checks."
+    },
+    {
+      "name": "Trade authority",
+      "result": "PASS",
+      "scope": "52 actual command/simulation/recipient snapshot checks. Controlled route still delivers 39 gold after 41.35 simulated seconds; this is not a human trip-duration observation. This earlier fixture directly spawned Traders and did not test recruitment."
+    },
+    {
+      "name": "Web packaging",
+      "result": "PASS",
+      "scope": "20 shell/packaging tests and 8 Windows build tests. Initial module-style invocation used the wrong Python import path; direct script invocations passed."
+    },
+    {
+      "name": "Public multiplayer",
+      "result": "PASS",
+      "scope": "66 room checks on public WSS, followed by two independent paid Barracks/Warrior clients, replicated combat and clean surrender result/cleanup."
+    },
+    {
+      "name": "Deployment",
+      "result": "PASS",
+      "scope": "Two reproducible committed exports, matching Linux server smoke, idle-only guarded activation, matching public bytes and web container restart."
+    },
+    {
+      "name": "Browser acceptance",
+      "result": "PASS",
+      "scope": "Paid skirmishes, resource rally, construction, combat/raid response, protected app update, old-save resume, trade preview and actual Trader recruitment."
+    }
+  ],
+  "balance": {
+    "rate_or_cost_tuning_in_this_pass": false,
+    "functional_economy_fix": "Recruitment was broken; enabling paid Traders restores the intended renewable-gold option.",
+    "observed_baseline_result": "6:07 defeat by Town Center destruction; 1 army unit produced versus 9 AI, with long gaps between browser actions.",
+    "observed_followup_result": "5:54 Sacred Site defeat; 2 human army units produced versus 8 AI. The exposed Trade Post was destroyed during paid Trader production.",
+    "interpretation": "Interaction evidence only. This pass does not establish average match duration, win rate or late-game resource exhaustion.",
+    "prior_calculations_and_simulations": "docs/balance_2026-10-26.md"
+  },
+  "limitations": [
+    "No physical-phone or OS-installed PWA lifecycle test. Browser cache/update/save behavior was observed.",
+    "The preview is a geometric upper estimate; actual route reachability is checked by the Trader and blocked or destroyed routes may earn nothing.",
+    "Browser acceptance observed the repaired purchase on an old saved post; raiders destroyed it before completion. Actual birth, route start and payout were verified in controlled engine fixtures, not this browser match.",
+    "No representative match-duration or prolonged finite-resource-depletion sample in this pass. Rate and cost tuning is unchanged; working recruitment restores the intended trade option."
+  ],
+  "evidence": {
+    "activation.json": "790cc3fa1fa4253977469c5d8550e6441f1a28ffec623f4319d82f5f1432dca1",
+    "postflight.json": "ca937bd04b5773aa9fbd4f4fd1a79477231d20858d0e0554f3b1f667ac606bf2",
+    "web-restart.json": "db3f8bf3a52e1b9a983b9ffb09ceecfc7d7f48a780643013958fcf5a92ef9dea"
+  },
+  "usage": {
+    "explicit_task_token_budget": null,
+    "bounded_subagents_reused": 2,
+    "account_weekly_used_percent_last_check": 47
+  },
+  "screenshots": [
+    "outputs/beta13-baseline-defeat.png",
+    "outputs/beta13-before-update-save.png",
+    "outputs/beta13-resumed-save.png",
+    "outputs/beta13-trade-warning.png",
+    "outputs/beta13-trade-preview.png",
+    "outputs/beta13-raid-outcome.png"
+  ]
+}

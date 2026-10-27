@@ -22,6 +22,7 @@ var _unit_scenes: Dictionary = {
 	UnitData.UnitType.CAVALRY: preload("res://scenes/units/cavalry.tscn"),
 	UnitData.UnitType.SCOUT: preload("res://scenes/units/scout.tscn"),
 	UnitData.UnitType.SIEGE: preload("res://scenes/units/siege.tscn"),
+	UnitData.UnitType.TRADER: preload("res://scenes/units/trader.tscn"),
 }
 
 # --- Building scenes ---
@@ -36,6 +37,7 @@ var _building_scenes: Dictionary = {
 	BuildingData.BuildingType.SIEGE_WORKSHOP: preload("res://scenes/buildings/siege_workshop.tscn"),
 	BuildingData.BuildingType.BLACKSMITH: preload("res://scenes/buildings/blacksmith.tscn"),
 	BuildingData.BuildingType.WATCH_TOWER: preload("res://scenes/buildings/watch_tower.tscn"),
+	BuildingData.BuildingType.TRADE_POST: preload("res://scenes/buildings/trade_post.tscn"),
 }
 
 # --- Team colors ---
@@ -229,7 +231,13 @@ func _on_game_state_changed(state: int) -> void:
 		_pause_offline_if_backgrounded.call_deferred()
 	var is_modal: bool = state == GameManager.GameState.PAUSED or state == GameManager.GameState.GAME_OVER or state == GameManager.GameState.MENU
 	WEB_SHELL_BRIDGE.set_controls_visible(is_modal)
+	if state == GameManager.GameState.PAUSED:
+		SoloSave.save_current("pause")
+	elif state == GameManager.GameState.GAME_OVER and not NetworkSession.is_network_match():
+		SoloSave.discard_save("match_finished")
 	if is_modal:
+		if is_instance_valid(game_map.selection_mgr) and game_map.selection_mgr.has_method("cancel_building_rally"):
+			game_map.selection_mgr.cancel_building_rally()
 		game_map.cancel_camera_touch_gesture()
 		if game_map.selection_mgr != null:
 			game_map.selection_mgr.cancel_touch_gesture()
@@ -537,7 +545,12 @@ func _on_map_ready(map_gen: MapGenerator) -> void:
 
 	# Place both starting towns, two workers and one Scout. Online clients
 	# receive these actors from authority; they never create a second starter.
-	if not NetworkSession.is_client():
+	var restoring_solo: bool = SoloSave.is_restoring()
+	if restoring_solo:
+		if not SoloSave.restore_world(self):
+			SoloSave.abort_restore("Could not restore this battlefield. Your saved match is still available.")
+			return
+	elif not NetworkSession.is_client():
 		_setup_player_start(0, map_gen.spawn_positions[0])
 		_setup_player_start(1, map_gen.spawn_positions[1])
 	# Establish real current vision before camera framing and deferred economy
@@ -558,6 +571,7 @@ func _on_map_ready(map_gen: MapGenerator) -> void:
 	selection_mgr.attack_command.connect(_on_attack_command)
 	selection_mgr.gather_command.connect(_on_gather_command)
 	selection_mgr.build_command.connect(_on_build_command)
+	selection_mgr.trade_command.connect(_on_trade_command)
 	selection_mgr.selection_changed.connect(_on_selection_changed)
 	selection_mgr.world_gesture_started.connect(_on_world_gesture_started)
 	selection_mgr.touch_context_opened.connect(_on_world_context_opened)
@@ -604,8 +618,10 @@ func _on_map_ready(map_gen: MapGenerator) -> void:
 	_milestone_first_military_building = false
 	_milestone_first_age_up = false
 	_refresh_first_session_diagnostics()
-	_bootstrap_opening_guidance()
+	if not restoring_solo: _bootstrap_opening_guidance()
 	NetworkSession.attach_match(self)
+	SoloSave.attach_match(self)
+	if restoring_solo: return
 	# A bound signal automatically disconnects when this match is freed; no
 	# coroutine survives scene teardown. Run after the next frame's HUD layout.
 	get_tree().process_frame.connect(
@@ -1014,6 +1030,9 @@ func _on_problem_report_requested() -> void:
 
 
 func _on_quit_to_menu_requested() -> void:
+	if not NetworkSession.is_network_match() and GameManager.current_state in [GameManager.GameState.PLAYING, GameManager.GameState.PAUSED]:
+		if not await SoloSave.save_and_wait("exit"):
+			return
 	if NetworkSession.is_client():
 		NetworkSession.leave_match()
 	Engine.time_scale = 1.0
@@ -1426,8 +1445,8 @@ func _setup_player_start(player_id: int, spawn_tile: Vector2i) -> void:
 
 	# Note: TC production queue is already connected in _spawn_building().
 
-	# Two workers represent the original four-worker income and population.
-	var offsets: Array[Vector2i] = game_map.map_generator.get_starting_villager_offsets(player_id).slice(0, UnitData.STARTING_VILLAGERS)
+	# Every starting worker uses the same per-civilization rates as a paid recruit.
+	var offsets: Array[Vector2i] = game_map.map_generator.get_starting_villager_offsets(player_id).slice(0, UnitData.get_starting_villager_count())
 	var villagers: Array[UnitBase] = []
 	for offset in offsets:
 		var vill_tile: Vector2i = spawn_tile + offset
@@ -1472,7 +1491,8 @@ func _spawn_unit(
 	unit_type: int,
 	player_id: int,
 	world_pos: Vector2,
-	source_queue: ProductionQueue = null
+	source_queue: ProductionQueue = null,
+	restore_population: bool = false
 ) -> UnitBase:
 	var pop_cost: int = int(UnitData.UNITS.get(unit_type, {}).get("pop_cost", 1))
 	var scene: PackedScene = _unit_scenes.get(unit_type)
@@ -1488,7 +1508,7 @@ func _spawn_unit(
 		return null
 	var unit: UnitBase = instance as UnitBase
 	var population_committed: bool = false
-	if source_queue == null:
+	if source_queue == null and not restore_population:
 		if not GameManager.add_population(player_id, pop_cost):
 			unit.free()
 			push_warning("No population room to spawn unit type %d for player %d" % [unit_type, player_id])
@@ -1586,7 +1606,9 @@ func _on_unit_trained(unit_type: int, player_id: int, source_queue: ProductionQu
 		and unit is Villager
 		and not producer.has_custom_rally_point()
 	)
-	if not use_default_villager_assignment:
+	if unit is Trader:
+		(unit as Trader).command_trade(producer)
+	elif not use_default_villager_assignment:
 		_issue_production_rally(unit, producer.rally_point, producer)
 	elif player_id != 0 and unit is Villager:
 		_auto_assign_new_villager(unit)
@@ -2021,7 +2043,7 @@ func _on_selection_changed(selected_units: Array[Node2D]) -> void:
 		return
 	if first is UnitBase:
 		var u: UnitBase = first as UnitBase
-		var action_text: String = UnitBase.State.keys()[u.current_state]
+		var action_text: String = u.get_trade_status() if u is Trader else UnitBase.State.keys()[u.current_state]
 		# The worker owns its work intent; cargo never substitutes for status.
 		if u is Villager:
 			var v: Villager = u as Villager
@@ -2401,6 +2423,19 @@ func _on_player_gather_accepted(resource_type: String) -> void:
 	if resource_type == "food":
 		_opening_gather_complete = true
 	_refresh_guided_opening_stage()
+
+
+func _on_trade_command(post: Node2D) -> void:
+	if GameManager.current_state != GameManager.GameState.PLAYING:
+		return
+	if NetworkSession.is_client():
+		_send_network_selection("trade", NetworkSession.target_payload(post))
+		return
+	var accepted: bool = false
+	for unit: Node2D in game_map.selection_mgr.selected:
+		if unit is Trader and unit.player_owner == 0:
+			accepted = unit.command_trade(post) or accepted
+	hud.show_notification("Trade route started." if accepted else "Build your Trade Post farther from a Town Center, with a clear route.")
 
 
 func _on_build_command(building: Node2D) -> void:
@@ -2849,6 +2884,14 @@ func _setup_hud() -> void:
 	hud.pause_requested.connect(_on_pause_requested)
 	hud.resume_requested.connect(_on_resume_requested)
 	hud.quit_to_menu_requested.connect(_on_quit_to_menu_requested)
+	if hud.has_signal("save_and_exit_requested"):
+		hud.save_and_exit_requested.connect(_on_quit_to_menu_requested)
+	if hud.has_method("set_save_status"):
+		SoloSave.status_changed.connect(hud.set_save_status)
+		hud.set_save_status(SoloSave.get_status())
+	if hud.has_signal("building_rally_requested") and game_map.selection_mgr.has_method("arm_building_rally"):
+		hud.building_rally_requested.connect(game_map.selection_mgr.arm_building_rally)
+		game_map.selection_mgr.building_rally_armed_changed.connect(hud.set_rally_armed)
 	hud.guidance_dismissed.connect(_on_guidance_dismissed)
 	hud.match_learning_requested.connect(_toggle_match_learning)
 	hud.problem_report_requested.connect(_on_problem_report_requested)
@@ -2972,6 +3015,8 @@ func _on_build_menu_close_requested() -> void:
 
 
 func _on_building_selected_for_placement(building_type: int) -> void:
+	if is_instance_valid(game_map.selection_mgr) and game_map.selection_mgr.has_method("cancel_building_rally"):
+		game_map.selection_mgr.cancel_building_rally()
 	_placement_active = true
 	_placement_type = building_type
 	_last_invalid_placement_reason = ""
@@ -2983,7 +3028,7 @@ func _on_building_selected_for_placement(building_type: int) -> void:
 	hud.dismiss_build_menu_for_placement()
 	hud.set_placement_input_mode(_building_placement.uses_touch_input())
 	hud.set_placement_mode(true, BuildingData.get_building_name(building_type))
-	_on_placement_preview_changed(_building_placement.is_valid_placement, _building_placement.get_invalid_reason())
+	_on_placement_preview_changed(_building_placement.is_valid_placement, _building_placement.get_preview_hint())
 	_sync_hud_modal_state()
 	if _guided_opening_active and _guided_stage == GuidedOpeningStage.BUILD_HOUSE and building_type == BuildingData.BuildingType.HOUSE:
 		hud.show_notification("House preview ready. Green ground is clear to build.", Color(0.95, 0.86, 0.42))

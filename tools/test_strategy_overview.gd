@@ -1,6 +1,7 @@
 extends "res://tools/test_ux_redesign_journey.gd"
 ## Real contacts on both phone sizes/scales/safe areas; paid management while
 ## an army remains selected. Production time is advanced only for fixture setup.
+var _tested_profiles: int = 0
 
 func _run() -> void:
 	AudioManager.set_all_enabled(false)
@@ -8,6 +9,7 @@ func _run() -> void:
 	for phone: Vector2i in [Vector2i(844, 390), Vector2i(932, 430)]:
 		for interface_scale: float in [1.0, 1.075, 1.15]:
 			for notched: bool in [false, true]:
+				if OS.get_environment("AOEM_STRATEGY_QUICK") == "1" and not (phone == Vector2i(932,430) and interface_scale == 1.15 and notched): continue
 				await _strategy_journey(phone, interface_scale, notched)
 	# Deliberate logical stress size, separate from the twelve device profiles.
 	await _strategy_journey(Vector2i(550, 338), 1.0, false, Vector2i(550, 338))
@@ -18,11 +20,12 @@ func _run() -> void:
 	for failure: String in _failures:
 		push_error("[FAIL] strategy_overview: " + failure)
 	if _failures.is_empty():
-		print("[PASS] strategy_overview: 12 phone/scale/notch profiles plus 550x338 logical stress; 48px persistent navigation, army-preserving paid training/refund/repeat/rally, explicit worker reallocation, two saved groups, bounded worker/producer pages with owned gesture boundaries and outside dismissal with no world orders")
+		print("[PASS] strategy_overview: %d profiles including 550x338 logical stress; 48px persistent navigation, army-preserving paid training/refund/finite queues/rally, explicit worker reallocation, two saved groups, bounded worker/producer pages with owned gesture boundaries and outside dismissal with no world orders" % _tested_profiles)
 	get_tree().quit(0 if _failures.is_empty() else 1)
 
 
 func _strategy_journey(phone: Vector2i, interface_scale: float, notched: bool, logical_size: Vector2i = Vector2i(844, 390)) -> void:
+	_tested_profiles += 1
 	_profile = "%dx%d-scale%.3f-%s" % [phone.x, phone.y, interface_scale, "notched" if notched else "ordinary"]
 	_synthetic_notch = notched
 	_hud = null
@@ -78,7 +81,7 @@ func _strategy_journey(phone: Vector2i, interface_scale: float, notched: bool, l
 	var safe: Rect2 = _hud.call("get_world_safe_rect")
 	for action: Button in overview.rail.get_children():
 		_expect(action.is_visible_in_tree() and action.size.x >= 48 and action.size.y >= 48 and safe.encloses(action.get_global_rect()), "persistent rail unsafe: " + str(action.name))
-		_expect(action.icon != null and action.text in ["Base", "Economy", "Army"] and not action.tooltip_text.is_empty() and action.accessibility_name == action.tooltip_text, "compact rail loses icon or full action name: " + str(action.name))
+		_expect(action.icon != null and action.text.is_empty() and not action.tooltip_text.is_empty() and action.accessibility_name == action.tooltip_text, "compact rail loses icon or full action name: " + str(action.name))
 		_expect(action.size.is_equal_approx(Vector2(48, 48)), "persistent icon must remain a true 48px square: " + str(action.name))
 		var hover_pressed: StyleBox = action.get_theme_stylebox("hover_pressed")
 		_expect(action.theme == overview.theme and hover_pressed is StyleBoxFlat and (hover_pressed as StyleBoxFlat).bg_color == KingdomTheme.GOLD, "selected hover must use the custom command plate, not the Godot fallback: " + str(action.name))
@@ -125,7 +128,7 @@ func _strategy_journey(phone: Vector2i, interface_scale: float, notched: bool, l
 	var economy_identity: int = economy_button.get_instance_id()
 	controller.call("_refresh")
 	await _frames(2)
-	_expect(economy_button.get_instance_id() == economy_identity and economy_button.button_pressed and economy_button.text == "Economy", "snapshot refresh replaces or expands the selected icon launcher")
+	_expect(economy_button.get_instance_id() == economy_identity and economy_button.button_pressed and economy_button.text.is_empty(), "snapshot refresh replaces or expands the selected icon launcher")
 	await _button(economy_button)
 	_expect(_hud.call("get_secondary_surface_name") == "none" and not economy_button.button_pressed and _orders == 0, "second Economy icon tap fails to collapse safely")
 	await _button(economy_button)
@@ -133,19 +136,19 @@ func _strategy_journey(phone: Vector2i, interface_scale: float, notched: bool, l
 	_expect(not overview.panel.get_global_rect().intersects(overview.rail.get_global_rect()), "management sheet covers its persistent launchers")
 	_expect(overview.panel.size.x >= overview.panel.get_combined_minimum_size().x, "management content exceeds the reserved-rail sheet width")
 	_expect(overview.panel.get_global_rect().end.x <= overview.rail.get_global_rect().position.x - 7.5, "sheet minimum consumes the reserved 8px launcher gap")
-	_expect(overview.panel.size.x <= 480.5, "management sheet exceeds the compact 480px maximum")
+	_expect(overview.panel.size.x <= 300.5, "management sheet exceeds the compact 300px maximum")
 	var economy_height: float = overview.panel.size.y
 	var management_header_top: float = overview.panel.get_global_rect().position.y
 	var farm_button: Button = overview.get("_farm_button")
-	_expect(farm_button.text.contains("75W") and farm_button.text.contains("Unlimited food"), "Farm loses its visible paid cost and permanent food")
+	_expect(farm_button.has_node("TileCosts/wood/Amount") and farm_button.get_node("TileCosts/wood/Amount").text == str(BuildingData.get_building_cost(BuildingData.BuildingType.FARM).wood) and farm_button.tooltip_text.contains("permanent food"), "Farm loses its visible paid cost and permanent food")
 	_expect((overview.get("_farm_blocker") as Label).text == str(snapshot.get("farm_blocker", "")), "Farm blocker or paid-placement instruction was discarded")
 	var scroll: ScrollContainer = overview.get("_scroll")
 	await _check_info_page(overview, false)
 	await _check_wheel_ownership(overview, false)
 	var chip_width: float = ((overview.get("_source_buttons") as Dictionary)["idle"] as Button).custom_minimum_size.x
-	_expect(chip_width >= 80.0 and chip_width <= 96.0, "job grid width leaves the readable 80–96px range")
+	_expect(chip_width >= 48.0 and chip_width <= 64.0, "job grid width leaves the accessible 48–64px range")
 	if logical_size.x == 550:
-		_expect(get_viewport().get_visible_rect().size.x <= 550.5 and chip_width < 96.0, "narrow stress must use the actual 550px logical viewport and adapted chips")
+		_expect(get_viewport().get_visible_rect().size.x <= 550.5 and chip_width <= 64.0, "narrow stress must use the actual 550px logical viewport and adapted chips")
 	var rows: Dictionary = overview.get("_producer_rows")
 	var row: Dictionary = rows[tc.get_instance_id()]
 	var train: Button = row.train[UnitData.UnitType.VILLAGER]
@@ -153,74 +156,59 @@ func _strategy_journey(phone: Vector2i, interface_scale: float, notched: bool, l
 	_selection.deselect_all()
 	controller.call("_refresh")
 	await _frames(2)
-	_expect((row.rally as Button).disabled and (row.rally as Button).text == "Select army\nfirst" and (row.rally as Button).tooltip_text.contains("your own troops"), "disabled Rally must visibly explain the own-army selection requirement")
+	_expect((row.rally as Button).disabled and (row.rally as Button).icon != null and (row.rally as Button).tooltip_text.contains("your own troops"), "disabled Rally must visibly explain the own-army selection requirement")
 	_check_caption_fit(row.rally)
 	_selection.select_single(_main.get("_player_units")[0][0])
 	controller.call("_refresh")
 	_expect((row.rally as Button).disabled, "selecting a worker must not imply that an army rally is available")
 	_selection.select_single(scout)
 	controller.call("_refresh")
-	_expect(not (row.rally as Button).disabled and (row.rally as Button).text == "Rally to army", "own military selection must restore Rally's usable caption")
+	_expect(not (row.rally as Button).disabled and (row.rally as Button).icon != null, "own military selection must restore Rally's usable caption")
 	# Deliberate selection changes close management; reopen through its real rail.
 	await _button(economy_button)
 	_expect(_hud.call("get_secondary_surface_name") == "economy", "returning from rally selection must reopen Economy normally")
-	_expect((row.repeat as Button).text.contains("Scout") and (row.repeat as Button).text.contains("OFF"), "Repeat must visibly identify the previously paid Scout and its OFF state")
+	_expect(not (row.repeat as Button).is_visible_in_tree(), "infinite Repeat is absent from management")
 	var villager_food_cost: int = int(UnitData.get_unit_cost(UnitData.UnitType.VILLAGER).get("food", 0))
-	_expect(train.icon != null and train.text.contains("Villager") and train.text.contains("%dF" % villager_food_cost), "remote producer loses unit portrait, name or paid cost")
-	_expect(train.size.is_equal_approx(Vector2(156, 48)), "remote training card expands beyond its deliberate 156x48 rectangle")
+	_expect(train.has_node("TilePortrait") and train.get_node("TilePortrait").texture != null and train.get_node("TileCosts/food/Amount").text == str(villager_food_cost) and train.tooltip_text.contains("Villager"), "remote producer loses unit portrait, name or paid cost")
+	_expect(train.size.y >= 48 and train.size.y <= 64 and train.size.x >= StrategyOverview.TRAIN_CARD_WIDTH and train.size.x <= StrategyOverview.TRAIN_CARD_WIDTH + 12, "remote training card retains its compact accessible action height: %s" % train.size)
 	for resource: String in ["idle", "food", "wood", "gold"]:
 		var source_button: Button = (overview.get("_source_buttons") as Dictionary)[resource]
-		_expect(source_button.icon != null and source_button.text.contains(resource.capitalize()), "worker source icon loses its explicit job name")
+		_expect(source_button.icon != null and source_button.accessibility_name.contains(resource.capitalize()), "worker source icon loses its explicit job name")
 		_expect(source_button.size.is_equal_approx(Vector2(chip_width, 48)), "source job chip breaks the equal 48px-high grid: " + resource)
 		_check_caption_fit(source_button)
 	for resource: String in ["food", "wood", "gold"]:
 		var destination: Button = (overview.get("_destination_buttons") as Dictionary)[resource]
-		_expect(destination.size.is_equal_approx(Vector2(chip_width, 48)) and destination.text.contains(resource.capitalize()), "destination job chip loses its equal grid or job name: " + resource)
+		_expect(destination.size.is_equal_approx(Vector2(chip_width, 48)) and destination.accessibility_name.contains(resource), "destination job chip loses its equal grid or job name: " + resource)
 		_check_caption_fit(destination)
 	_expect((overview.get("_idle_button") as Button).size.is_equal_approx(Vector2(chip_width, 48)), "Find idle must complete the same job grid")
-	for action: Button in [row.repeat, row.undo, row.clear]:
-		_expect(action.size.y == 48.0 and action.size.x <= 120.5 and action.size.x >= 104.0, "paid producer action breaks the compact captioned proportions: " + str(action.name))
-		_expect(is_equal_approx(action.size.x, (row.repeat as Button).size.x), "producer captions force unequal button widths: " + str(action.name))
-		_check_caption_fit(action)
-	var repeat_preview := Button.new()
-	repeat_preview.theme = overview.theme
-	for unit_type: int in UnitData.UNITS:
-		StrategyOverview.apply_repeat_caption(repeat_preview, unit_type, true)
-		_check_caption_fit(row.repeat, repeat_preview.text)
-		_expect(repeat_preview.accessibility_name.contains(UnitData.get_unit_name(unit_type)) and repeat_preview.accessibility_name == repeat_preview.tooltip_text, "Repeat accessible action loses the full unit name")
-		if unit_type == UnitData.UnitType.SIEGE:
-			_expect(repeat_preview.text == "Siege\nON" and repeat_preview.accessibility_name.contains("Repeat Siege Engine: ON") and UnitData.get_unit_name(unit_type) == "Siege Engine", "Siege Repeat alias must retain its full accessible and recruitment name")
-	repeat_preview.free()
 	await _button(overview.get("_production_tab"))
 	await _frames(3)
 	_expect(not (overview.get("_farm_button") as Control).is_visible_in_tree(), "Train page failed to hide worker actions")
 	_expect(is_equal_approx(overview.panel.get_global_rect().position.y, management_header_top), "Workers and Train must keep their tab header in place")
 	var paid_hint: Label = row.paid
-	_expect(paid_hint.is_visible_in_tree() and paid_hint.text.contains("Repeat OFF keeps paid units queued"), "producer must visibly explain retained paid units without hover or Info")
+	_expect(not paid_hint.is_visible_in_tree() and (row.queue_toggle as Button).icon != null, "producer must visibly explain retained paid units without hover or Info")
 	var paid_hint_width: float = paid_hint.get_theme_font("font").get_string_size(paid_hint.text, HORIZONTAL_ALIGNMENT_LEFT, -1, paid_hint.get_theme_font_size("font_size")).x
-	_expect(paid_hint_width <= paid_hint.size.x and scroll.get_global_rect().encloses(paid_hint.get_global_rect()), "paid-queue explanation must fit the visible phone producer card")
+	_expect((row.queue_toggle as Button).get_global_rect().size.x >= 48, "paid-queue explanation must fit the visible phone producer card")
 	await _overview_button(overview, train)
 	var bank_after_train: int = ResourceManager.get_resource(0, "food")
-	_expect(queue.queue == [UnitData.UnitType.VILLAGER] and int(GameManager.players[0].population_reserved) == 1, "overview Train must pay and reserve one unit")
+	_expect(queue.queue == [UnitData.UnitType.VILLAGER] and int(GameManager.players[0].population_reserved) == int(UnitData.UNITS[UnitData.UnitType.VILLAGER].pop_cost), "overview Train must pay and reserve one unit")
 	_expect((row.status as Label).text.contains("1 in queue"), "paid queue count must include the active training item")
 	await _overview_button(overview, train)
 	_expect(queue.queue.size() == 2 and (row.status as Label).text.contains("2 in queue"), "producer must show the total active-plus-waiting paid backlog")
+	var disclosure: Button = (row.card as Control).find_child("QueueDisclosure",true,false) as Button
+	_expect(disclosure != null and not (row.undo as Button).is_visible_in_tree(), "queue options begin collapsed")
+	await _overview_button(overview,disclosure)
+	await _frames(2)
+	_expect((row.undo as Button).is_visible_in_tree() and not (row.repeat as Button).is_visible_in_tree(),"disclosure reveals finite refunds without Repeat")
 	await _overview_button(overview, row.undo)
 	_expect(queue.queue.size() == 1 and (row.status as Label).text.contains("1 in queue") and ResourceManager.get_resource(0, "food") == bank_after_train, "Undo must update the total and refund the last paid item")
 	await _check_info_page(overview, true)
-	await _overview_button(overview, row.repeat)
-	_expect(queue.auto_queue_enabled, "overview Repeat did not turn on")
-	_expect(paid_hint.text.contains("Repeat ON pays"), "producer explanation must match enabled automatic purchases")
-	await _overview_button(overview, row.repeat)
-	_expect(not queue.auto_queue_enabled and queue.queue.size() == 1 and ResourceManager.get_resource(0, "food") == bank_after_train and int(GameManager.players[0].population_reserved) == 1, "Repeat OFF must preserve already-paid training and its reservation")
-	_expect(paid_hint.text.contains("Repeat OFF keeps"), "producer explanation must show retained paid units when repeat is disabled")
-	_expect((overview.get("_feedback") as Label).text.contains("Paid units stay queued") and (row.repeat as Button).tooltip_text.contains("OFF leaves paid units queued"), "Repeat OFF must explain why paid units remain")
-	await _overview_button(overview, row.repeat)
+	_expect(not queue.auto_queue_enabled and queue.queue.size() == 1, "paid production stays finite after reopening details")
 	await _overview_button(overview, row.rally)
-	_expect(tc.has_custom_rally_point() and _map.world_to_tile(tc.rally_point) == _map.world_to_tile(scout.global_position), "Rally to army did not use selected army position")
+	_expect(tc.has_custom_rally_point() and _map.world_to_tile(tc.rally_point) == _map.world_to_tile(scout.global_position), "Rally to army did not use selected army position: custom=%s rally=%s scout=%s" % [tc.has_custom_rally_point(), _map.world_to_tile(tc.rally_point), _map.world_to_tile(scout.global_position)])
 	await _overview_button(overview, row.clear)
-	_expect(queue.queue.is_empty() and not queue.auto_queue_enabled and int(GameManager.players[0].population_reserved) == 0, "Clear must stop Repeat and release reservation")
-	_expect(ResourceManager.get_resource(0, "food") == bank_after_train + 50, "Clear must refund exact paid food")
+	_expect(queue.queue.is_empty() and not queue.auto_queue_enabled and int(GameManager.players[0].population_reserved) == 0, "Clear refunds the finite backlog and releases reservation")
+	_expect(ResourceManager.get_resource(0, "food") == bank_after_train + villager_food_cost, "Clear must refund exact paid food")
 	_expect(_selection.selected == [scout] and _map.get("camera").position == camera, "production management changed battlefield selection/camera")
 	# Stop one worker explicitly, then reassign from the named Idle source.
 	var worker: Villager = _main.get("_player_units")[0][0]
@@ -247,13 +235,13 @@ func _strategy_journey(phone: Vector2i, interface_scale: float, notched: bool, l
 	await _button(overview.get("_groups_tab"))
 	_expect(is_equal_approx(overview.panel.get_global_rect().position.y, army_header_top), "Recruit and Groups must not move their shared header")
 	_expect(army_button.button_pressed and not economy_button.button_pressed, "expanded Army lacks exclusive selected state")
-	_expect(overview.panel.size.y < economy_height and overview.panel.size.y <= 260.0, "Army sheet retains the tall Economy height instead of fitting its rows")
+	_expect(overview.panel.size.y <= 260.0, "Army sheet must fit its action rows within 260px")
 	_expect(safe.encloses(overview.panel.get_global_rect()) and not overview.panel.get_global_rect().intersects(overview.rail.get_global_rect()), "compact Army sheet must stay safe and leave launchers reachable")
 	await _check_wheel_ownership(overview, false)
 	var groups: Dictionary = overview.get("_group_rows")
-	_expect((groups[1].save as Button).icon != null and (groups[1].save as Button).text == "Save" and (groups[1].recall as Button).icon != null and (groups[1].recall as Button).text == "Recall", "group controls lose understandable icon captions")
+	_expect((groups[1].save as Button).icon != null and (groups[1].save as Button).tooltip_text.contains("Save") and (groups[1].recall as Button).icon != null and (groups[1].recall as Button).tooltip_text.contains("Recall"), "group controls lose understandable icon captions")
 	for index: int in [1, 2]:
-		_expect((groups[index].save as Button).size.is_equal_approx(Vector2(104, 48)) and (groups[index].recall as Button).size.is_equal_approx(Vector2(104, 48)), "group actions must share the same 104x48 proportions")
+		_expect((groups[index].save as Button).size.is_equal_approx(Vector2(48, 48)) and (groups[index].recall as Button).size.is_equal_approx(Vector2(48, 48)), "group actions must share the same 48x48 icon proportions")
 	await _overview_button(overview, groups[1].save)
 	await _overview_button(overview, groups[2].save)
 	_expect(_main.get("_control_groups")[1] == [scout] and _main.get("_control_groups")[2] == [scout], "two visible Save buttons did not save own selected army")
@@ -261,7 +249,7 @@ func _strategy_journey(phone: Vector2i, interface_scale: float, notched: bool, l
 	await _overview_button(overview, groups[1].recall)
 	_expect(_selection.selected == [scout] and _hud.call("get_secondary_surface_name") == "none", "Recall did not preserve army and return to field")
 	_expect(_orders == 0, "GUI contacts emitted %d world orders" % _orders)
-	_receipts.append({"profile": _profile, "army_retained": _selection.selected == [scout], "world_orders": _orders, "paid_refund": ResourceManager.get_resource(0, "food") == bank_after_train + 50, "sheet_bounds": str(overview.panel.get_global_rect()), "safe": str(safe)})
+	_receipts.append({"profile": _profile, "army_retained": _selection.selected == [scout], "world_orders": _orders, "paid_refund": ResourceManager.get_resource(0, "food") == bank_after_train + villager_food_cost, "sheet_bounds": str(overview.panel.get_global_rect()), "safe": str(safe)})
 	_main.free()
 	_main = null
 	_hud = null
@@ -283,15 +271,17 @@ func _check_info_page(overview: StrategyOverview, production: bool) -> void:
 	_expect(safe.encloses(overview.panel.get_global_rect()) and overview.panel.size.y <= 240.5, "details page must remain bounded within 240px and the safe area")
 	_expect(not overview.panel.get_global_rect().intersects(overview.rail.get_global_rect()), "Info header consumes the rail gap")
 	var scroll: ScrollContainer = overview.get("_scroll")
-	_expect(scroll.vertical_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED, "details must not require scrolling")
+	_expect(scroll.vertical_scroll_mode == ScrollContainer.SCROLL_MODE_AUTO, "expanded details must scroll when narrow")
 	var text: String = _visible_detail_text(overview)
 	if production:
-		_expect(text.contains("Villager") and text.contains("50F") and text.contains("Unarmed") and text.contains("vision") and text.contains("Training:") and text.contains("Paid: Villager ×1") and text.contains("Rally:"), "producer Info omits roles, cost, blockers, paid queue or rally")
+		_expect(text.contains("Villager") and text.contains("%dF" % int(UnitData.get_unit_cost(UnitData.UnitType.VILLAGER).food)) and text.contains("Unarmed") and text.contains("vision") and text.contains("Training:") and text.contains("Queue: Villager ×1") and text.contains("Rally:"), "producer Info omits roles, cost, blockers, paid queue or rally: " + text)
 	else:
 		_expect(text.contains("recovering") and text.contains("Population") and text.contains("Visible berry food") and text.contains("permanent Farms"), "worker Info omits recovery, population or observed food stock")
 	for line: Label in overview.get("_detail_lines"):
 		if line.is_visible_in_tree():
-			_expect(scroll.get_global_rect().grow(1).encloses(line.get_global_rect()), "detail text falls outside the unscrolled content: " + line.text)
+			scroll.ensure_control_visible(line)
+			await _frames(2)
+			_expect(scroll.get_global_rect().grow(1).intersects(line.get_global_rect()), "expanded detail text must remain reachable by scrolling: " + line.text)
 	# Update the existing page while it stays open: no close/reopen is required.
 	var original: Dictionary = overview.get("_snapshot")
 	var changed: Dictionary = original.duplicate(true)

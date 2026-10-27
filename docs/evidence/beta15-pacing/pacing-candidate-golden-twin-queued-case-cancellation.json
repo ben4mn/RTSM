@@ -1,0 +1,18 @@
+{
+  "reason": "Parent canceled queued Twin Lakes case to bound the pass. Golden clean completion preserved before stopping its Python orchestrator.",
+  "golden_status": "natural_completed",
+  "golden_exit": 0,
+  "golden_diagnostics": [],
+  "queued_case": [
+    3,
+    424242,
+    2,
+    1
+  ],
+  "queued_match_observer_samples_exist": false,
+  "terminated_queued_startup_pids": [
+    1904952,
+    1904968
+  ],
+  "runner_pid": 1892720
+}

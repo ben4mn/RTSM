@@ -1,0 +1,20 @@
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+ONLINE_COMBAT_STATUS slot=0 state=idle elapsed=0.00 message=
+ONLINE_COMBAT_STATUS slot=0 state=connecting elapsed=0.00 message=Connecting…
+ONLINE_COMBAT_STATUS slot=0 state=searching elapsed=0.28 message=Searching for an opponent…
+ONLINE_COMBAT_STATUS slot=0 state=searching elapsed=0.32 message=Searching for an opponent…
+ONLINE_COMBAT_STATUS slot=1 state=loading elapsed=0.33 message=Opponent found · loading…
+SCRIPT ERROR: Assertion failed: Finite stock remainder must preserve reflection
+   at: MapGenerator._distribute_symmetric_stock (res://scripts/map/map_generator.gd:607)
+   GDScript backtrace (most recent call first):
+       [0] _distribute_symmetric_stock (res://scripts/map/map_generator.gd:607)
+       [1] _budget_natural_stock (res://scripts/map/map_generator.gd:584)
+       [2] generate (res://scripts/map/map_generator.gd:70)
+       [3] _ready (res://scripts/map/game_map.gd:137)
+ONLINE_COMBAT_STATUS slot=1 state=playing elapsed=0.46 message=Online match
+ONLINE_COMBAT_PROGRESS slot=1 game=2.77 wall=9.78 seed=1888842373 map=3 snapshots=1 placed=false trained=false ordered=false
+ONLINE_COMBAT_PLACEMENT_SCAN ms=3 placed=true
+ONLINE_COMBAT_STATUS slot=1 state=ended elapsed=5.21 message=Opponent disconnected
+ONLINE_COMBAT_RESULT slot=1 winner=1 reason=Opponent disconnected verified=false game=8.96 wall=16.12
+ONLINE_COMBAT_STATUS slot=1 state=idle elapsed=5.21 message=

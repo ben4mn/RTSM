@@ -40,15 +40,16 @@ var _dismiss_shield: Control = null
 var _hold_components: Array[Node] = []
 @export var touch_target_diagnostics: Dictionary = {}
 
-const SHEET_MAX_WIDTH := 700.0
+const ACTION_TILE := preload("res://scripts/ui/compact_action_tile.gd")
+const SHEET_MAX_WIDTH := 540.0
 const SHEET_VIEWPORT_MARGIN := 16.0
 const SHEET_BOTTOM_MARGIN := 8.0
 const HEADER_HEIGHT := 48.0
-const CARD_WIDTH := 150.0
-const CARD_HEIGHT := 94.0
+const CARD_WIDTH := 94.0
+const CARD_HEIGHT := 76.0
 const CARD_GAP := 8.0
 const BUILDING_CATEGORIES: Dictionary = {
-	"Economy": [BuildingData.BuildingType.HOUSE, BuildingData.BuildingType.FARM, BuildingData.BuildingType.RESOURCE_CAMP, BuildingData.BuildingType.TOWN_CENTER],
+	"Economy": [BuildingData.BuildingType.HOUSE, BuildingData.BuildingType.FARM, BuildingData.BuildingType.RESOURCE_CAMP, BuildingData.BuildingType.TRADE_POST, BuildingData.BuildingType.TOWN_CENTER],
 	"Army": [BuildingData.BuildingType.BARRACKS, BuildingData.BuildingType.ARCHERY_RANGE, BuildingData.BuildingType.STABLE, BuildingData.BuildingType.SIEGE_WORKSHOP, BuildingData.BuildingType.BLACKSMITH],
 	"Defence": [BuildingData.BuildingType.WATCH_TOWER],
 }
@@ -57,6 +58,7 @@ const BUILDING_PURPOSES: Dictionary = {
 	BuildingData.BuildingType.FARM: "Unlimited food · 1 worker",
 	BuildingData.BuildingType.RESOURCE_CAMP: "All resource drop-off",
 	BuildingData.BuildingType.TOWN_CENTER: "Train workers",
+	BuildingData.BuildingType.TRADE_POST: "Train traders · distant TC route",
 	BuildingData.BuildingType.BARRACKS: "Train Warriors",
 	BuildingData.BuildingType.BLACKSMITH: "Unit and worker upgrades",
 	BuildingData.BuildingType.SIEGE_WORKSHOP: "Siege production",
@@ -126,7 +128,7 @@ func _apply_compact_layout() -> void:
 	# Keep every Castle unlock reachable without squeezing its card text.
 	# Narrow Army rows can scroll inside the sheet; other rows still fit.
 	var content_width: float = sheet_width - horizontal_padding
-	_card_width = maxf(120.0, minf(CARD_WIDTH, (content_width - CARD_GAP * float(visible_count - 1)) / float(visible_count)))
+	_card_width = maxf(80.0, minf(CARD_WIDTH, (content_width - CARD_GAP * float(visible_count - 1)) / float(visible_count)))
 	var needs_scroll: bool = _card_width * visible_count + CARD_GAP * (visible_count - 1) > content_width + 0.5
 	# Keep a five-card row scroll-capable even while it fits. Otherwise its old
 	# wider child minimum can expand the panel during a category/scale change.
@@ -326,6 +328,8 @@ func _build_info(building_type: int) -> Dictionary:
 	var stats: Dictionary = BuildingData.get_building_stats(building_type, player_owner)
 	var lines: PackedStringArray = _format_tooltip(stats, building_type).split("\n")
 	lines.remove_at(0)
+	if building_type == BuildingData.BuildingType.TRADE_POST:
+		lines.append("Build away from your Town Center. The preview estimates gold per trip; a clear road is still needed. Train Traders here: gold arrives only after they return to town. Defend the road or lose the cargo.")
 	if int(stats.get("age_required", 0)) <= _current_age and _can_afford(stats.get("cost", {})):
 		lines.append("Close this panel and turn off Info to choose a placement." if _info_mode else "Tap the card to preview a placement.")
 	lines.append("Place spends the cost; Cancel spends nothing.")
@@ -574,6 +578,8 @@ func _refresh_affordability() -> void:
 		btn.tooltip_text = _format_tooltip(stats, building_type)
 		btn.accessibility_name = btn.tooltip_text
 		_apply_card_style(btn)
+		ACTION_TILE.apply(btn, load(BuildingBase.get_sprite_texture_path(building_type, 0)), cost, Vector2(_card_width, CARD_HEIGHT))
+		CommandIcons.set_badge(btn, ["I", "II", "III", "IV"][clampi(int(stats.get("age_required", 1)) - 1, 0, 3)] if age_locked else "")
 		btn.disabled = _placement_mode_active or (not _info_mode and (age_locked or not can_afford))
 		if age_locked:
 			btn.modulate = Color(0.82, 0.85, 0.9, 1.0)

@@ -1,0 +1,168 @@
+{
+  "status": "LIVE_PACING_VERIFIED_BROWSER_STARTUP_LIMITATION",
+  "date": "2026-10-27",
+  "origin": "https://game.4mn.org/",
+  "version": "0.3.0-beta.15.1",
+  "source_commit": "3dd7ad997ce0127dba7695a1853d1f928f480bb3",
+  "protocol": 11,
+  "map_catalog": 7,
+  "save_geometry_version": 5,
+  "pull_request": "https://github.com/ben4mn/RTSM/pull/6",
+  "release_id": "v030beta151-3dd7ad997ce0-9b987a96d5-db9242cb13",
+  "web_manifest_sha256": "9b987a96d5d4b87ecb6c360bf6b388395aead9446be3d917dfd5e7fb8dcdd7b0",
+  "server_manifest_sha256": "db9242cb1377c1db241c105308f4f6a1447cd657ec29607966f819b27ddcf6ad",
+  "server_image": "sha256:3fc6414b241dcda2e24b6cc0ccefca51ed2757749ec50364dc7f42927f6a7c79",
+  "containers": {
+    "aoem-online": {
+      "started_utc": "2026-10-27T18:44:18.65602375Z"
+    },
+    "aoem-game": {
+      "started_utc": "2026-10-27T18:46:04.90734613Z"
+    }
+  },
+  "changes": [
+    "Remainders are allocated across mirrored pairs and neutral diagonal tiles. Twin Lakes seed1888842373 now receives all10000 wood instead of9998; the exact measured pacing maps are unchanged.",
+    "New Standard matches require 360 guarded Sacred seconds. Control race remains 180; Town Center destruction remains immediately available.",
+    "New maps contain exactly 4000 natural food, 10000 wood and 4000 gold. Opening berries retain90 per node and home/expansion groves retain8000 wood; symmetric remainders keep total reserves equal across styles.",
+    "Online protocol 11/catalog 7 requires matching stock and timer rules. Geometry version 5 remains compatible with existing solo saves; their captured resources and victory clock remain unchanged.",
+    "Three starting villagers, per-civilization gathering rates, movement, combat costs and trade payouts are unchanged."
+  ],
+  "checks": [
+    {
+      "name": "Generated maps",
+      "result": "PASS",
+      "cases": 80,
+      "scope": "Exact stock budgets, mirrored amounts, opening stock, seed reproducibility, reachability and unchanged geometry/RNG state."
+    },
+    {
+      "name": "Allocation repair",
+      "result": "PASS",
+      "checks": 36,
+      "scope": "Exact failing public seed reproduced at9998W and repaired to10000W. Full grids, per-tile stocks and RNG remain identical to the383e012 allocator for all three pacing witness maps. Additional reflection-group tests cover feasible remainder parities, multiple diagonal singles and zero pairs."
+    },
+    {
+      "name": "Sacred rules and authority",
+      "result": "PASS",
+      "scope": "Standard 360/Control 180, contest pause, final victory, 42 garrison checks and 121 actual-authority/replica clock checks. An old 179.99-second fixture was corrected to use the current target and rerun successfully."
+    },
+    {
+      "name": "Save compatibility",
+      "result": "PASS",
+      "checks": 66,
+      "scope": "Four fresh processes restore exact old stock and 180-second target despite changed regenerated defaults, plus queues/cargo and corruption fallback."
+    },
+    {
+      "name": "Controls and trade",
+      "result": "PASS",
+      "scope": "Five focused cases: 25 touch/repeat/cancel/finite-queue/fixed-speed checks, 52 authoritative trade checks, mobile ScreenTouch management at two sizes, route payouts/loss and 28 trade-status checks. Authority fixtures here use no sockets."
+    },
+    {
+      "name": "Web packaging",
+      "result": "PASS",
+      "checks": 30,
+      "scope": "PWA updates, web shell artifacts and Windows export packaging."
+    },
+    {
+      "name": "Public multiplayer",
+      "result": "PASS",
+      "scope": "66 real WSS room checks, absent/old/mixed/current catalog pairing and two independent paid combat clients with replicated damage and clean results."
+    },
+    {
+      "name": "Deployment",
+      "result": "PASS",
+      "scope": "Reproduced committed client exports, matching Linux smoke, idle-only guarded activation, exact public bytes and both containers restarted."
+    },
+    {
+      "name": "Public browser update",
+      "result": "PARTIAL_PASS_STARTUP_REDRAW_UNRESOLVED",
+      "scope": "Ordinary public-browser UI upgraded beta.14 to beta.15 and then beta.15.1. Installed version and offline-ready status were visible. The same River Crossings save resumed paused at0:31 with280F/310W/130G and7/15 population. Refresh during the open paused match was blocked with an explicit match-protection message. Save & exit returned to the checkpoint. Release notes stayed collapsed. No browser warning/error entries were observed. After menu Refresh, however, the in-app browser sometimes displayed a blank green canvas despite the ready toolbar; a one-pixel viewport change recovered it. Final menu and installed version were visible. Physical installed-PWA lifecycle was not exercised."
+    }
+  ],
+  "pacing_evidence": "docs/evidence/beta15-pacing-summary.json",
+  "pacing_original_runtime": "383e0127da8349c4ee42d60d590ebf1350949100",
+  "pacing_transfer_scope": "The recorded matches were not rerun after the allocation repair.36 data-only checks prove their exact maps/stocks/RNG are unchanged; rates, costs, AI, movement and victory timers are unchanged. Public integration and update/resume are rerun on the final release.",
+  "initial_public_combat_failure": {
+    "seed": 1888842373,
+    "style": 3,
+    "reason": "Even remainder with multiple diagonal singleton tiles left two wood unallocated.",
+    "preserved_logs": [
+      "docs/evidence/beta15-public-combat-failure-one.log",
+      "docs/evidence/beta15-public-combat-failure-two.log"
+    ]
+  },
+  "pacing_evidence_sha256": "b18ee40a3e86fa8548d4915ba50cae647a8dc8e9d79301b3f015c951935abdec",
+  "manual_match": {
+    "runtime_revision": "383e0127da8349c4ee42d60d590ebf1350949100",
+    "version": "0.3.0-beta.15",
+    "scope": "Hands-on browser match using ordinary UI at 844x390; mouse-driven mobile viewport, not a physical touch-device test. Paused for inspection; times are game clock, not wall clock.",
+    "origin": "http://127.0.0.1:8785/",
+    "map_style": "Open Plains",
+    "seed": 424242,
+    "human_kingdom": "French",
+    "opponent": "Easy AI",
+    "rules": "Standard, population 100, three starting villagers, 1x speed",
+    "result": {
+      "game_clock": "11:00",
+      "winner": "AI",
+      "reason": "Sacred Site held for 6:00",
+      "human_contests": 1,
+      "feudal_clock": [
+        "2:27",
+        "2:58"
+      ],
+      "army_produced": [
+        11,
+        19
+      ],
+      "units_lost": [
+        9,
+        3
+      ],
+      "buildings_lost": [
+        2,
+        0
+      ],
+      "resources_gathered": [
+        3812,
+        5353
+      ]
+    },
+    "observations": [
+      "Paid Barracks, Houses, two Watch Towers, Trade Post, Trader and two Farms through normal production and placement controls.",
+      "Trade Post placed around3:01; Trader bought around5:09 and born around5:31. Selected route advertised34gold per trip. Active route and rising bank were observed; no separate exact manual trade-income ledger was captured.",
+      "Trader was raided around9:14 and absent from the Economy finder by10:09. Route vulnerability was observed in ordinary play.",
+      "Farms placed around6:30 and8:33; staffed farms sustained visible food deposits while the base was attacked.",
+      "Reassigned idle builders with Economy actions and rallied paid replacements; attack-move fighters intercepted town raiders before reaching the Sacred Site.",
+      "A late Scout briefly contested before the six-minute Sacred hold completed. The result screen recorded one contest.",
+      "No browser warning or error messages were recorded. This one inexperienced/greedy defence is not evidence of a population-wide average duration."
+    ],
+    "result_image": "beta15-mobile-match-result.png"
+  },
+  "limitations": [
+    "Two selected paired AI matches average12:11.29, not a population-wide average. The separate hands-on mobile-viewport match ended at11:00. No new6-9-minute fast-win sample was collected this pass.",
+    "The prolonged experiment intercepted the first Sacred conclusion at18:43.20. Later20/25-minute stock readings are counterfactual continuation data, not a natural completed-match duration; Town Center defeat remained enabled.",
+    "The AI kept large gold banks and did not adopt trade in these matches. Paid route/authority fixtures and hands-on trader route/raid observations are separate evidence.",
+    "Physical-phone performance and an OS-installed PWA lifecycle were not tested. Native ScreenTouch fixtures and browser mobile viewports are separate scopes.",
+    "An intermittent blank menu after Refresh remains unresolved in the in-app browser. Saves and match-refresh protection passed, but complete startup/update reliability is not certified.",
+    "Finite stock is consumed by harvesting, not elapsed time. Unvisited deposits remain; dense styles have lightly stocked outer woodland beyond protected home/expansion groves."
+  ],
+  "evidence_sha256": {
+    "activation.json": "afdce8a0f761838702877bbd71060b5dddd452a4f4e68dbf7cf2b8ffbd6d8dc9",
+    "postflight.json": "76db0583c8e225739b9ac02a6ca42e0a89e714848ec9a1657b90925b8d8733fa",
+    "web-restart.json": "731db17a9947ad04578c20261064dc3196eb49bbca0c7b177b9bd573dbd2e6f2"
+  },
+  "usage": {
+    "explicit_task_token_budget": null,
+    "bounded_subagents_reused": 3,
+    "account_weekly_used_percent_start": 59,
+    "account_weekly_used_percent_midpoint": 67,
+    "account_weekly_used_percent_last_checked": 79
+  },
+  "screenshots": [
+    "beta151-live-update.png",
+    "beta151-restored-paused.png",
+    "beta151-live-update-protected.png",
+    "beta151-mobile-menu.png",
+    "beta15-mobile-match-result.png"
+  ]
+}

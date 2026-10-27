@@ -94,20 +94,21 @@ func _test_rules() -> void:
 	fighter.position = Vector2(192, 0)
 	_step(site, 1.0)
 	_expect(is_equal_approx(site.victory_timer, 1.01), "exact boundary fighter resumes retained time")
-	site.victory_timer = 179.99
+	var almost_complete: float = site.victory_hold_time - 0.01
+	site.victory_timer = almost_complete
 	fighter.hp = 0.0
 	_step(site, 1.0)
-	_expect(is_equal_approx(site.victory_timer, 179.99), "zero-HP actor cannot score before its death-state transition")
+	_expect(is_equal_approx(site.victory_timer, almost_complete), "zero-HP actor cannot score before its death-state transition")
 	fighter.set_state(UnitBase.State.DEAD)
 	var before_ticks: int = ticks.size()
 	_step(site, 1.0)
-	_expect(is_equal_approx(site.victory_timer, 179.99) and ticks.size() == before_ticks, "dead fade cannot cross victory boundary")
+	_expect(is_equal_approx(site.victory_timer, almost_complete) and ticks.size() == before_ticks, "dead fade cannot cross victory boundary")
 	fighter.free()
 	var replacement: UnitBase = _actor("infantry", 0, Vector2.ZERO)
 	_step(site, 0.01)
 	_expect(ticks.size() == before_ticks + 1 and is_zero_approx(ticks.back()), "returning live fighter reaches the existing natural victory signal")
 	replacement.free()
-	site.victory_timer = 179.99
+	site.victory_timer = almost_complete
 	var enemy: UnitBase = _actor("scout", 1, Vector2.ZERO)
 	_step(site, 1.0)
 	_expect(site.state == 3 and not site.clock_ticking, "unarmed enemy still contests")

@@ -28,7 +28,11 @@ const REFERENCE_POPULATION_LIMIT: int = 40
 ## Castle unlocks the siege endgame. Imperial has no skirmish content yet.
 const MAX_AGE: int = 3
 const AGE_NAMES: Array[String] = ["Dark Age", "Feudal Age", "Castle Age"]
-const SACRED_VICTORY_HOLD_SECONDS: float = 180.0
+## Standard leaves time to counter a held objective and develop renewable income.
+## Town Center destruction remains available immediately; Control race stays 3m.
+const SACRED_VICTORY_HOLD_SECONDS: float = 300.0
+const NATURAL_RESOURCE_BUDGETS: Dictionary = {"food": 4000, "wood": 10000, "gold": 4000}
+const OPENING_BERRY_STOCK: int = 90
 # The first Barracks (120W), camp (80W), and House (50W) fit the bank;
 # concurrent training still requires food workers and construction opportunity cost.
 const STARTING_RESOURCES: Dictionary = {"food": 250, "wood": 250, "gold": 100}

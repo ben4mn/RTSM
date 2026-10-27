@@ -1,0 +1,6 @@
+=== [1/1] test_compact_dock ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+{"checks":35,"failures":[],"test":"compact_dock"}
+[PASS] test_compact_dock
+FOCUSED_SUITE: 1/1 passed

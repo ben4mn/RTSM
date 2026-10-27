@@ -1,0 +1,32 @@
+{
+  "runtime_revision": "383e0127da8349c4ee42d60d590ebf1350949100",
+  "version": "0.3.0-beta.15",
+  "scope": "Hands-on browser match using ordinary UI at 844x390; mouse-driven mobile viewport, not a physical touch-device test. Paused for inspection; times are game clock, not wall clock.",
+  "origin": "http://127.0.0.1:8785/",
+  "map_style": "Open Plains",
+  "seed": 424242,
+  "human_kingdom": "French",
+  "opponent": "Easy AI",
+  "rules": "Standard, population 100, three starting villagers, 1x speed",
+  "result": {
+    "game_clock": "11:00",
+    "winner": "AI",
+    "reason": "Sacred Site held for 6:00",
+    "human_contests": 1,
+    "feudal_clock": ["2:27", "2:58"],
+    "army_produced": [11, 19],
+    "units_lost": [9, 3],
+    "buildings_lost": [2, 0],
+    "resources_gathered": [3812, 5353]
+  },
+  "observations": [
+    "Paid Barracks, Houses, two Watch Towers, Trade Post, Trader and two Farms through normal production and placement controls.",
+    "Trade Post placed around3:01; Trader bought around5:09 and born around5:31. Selected route advertised34gold per trip. Active route and rising bank were observed; no separate exact manual trade-income ledger was captured.",
+    "Trader was raided around9:14 and absent from the Economy finder by10:09. Route vulnerability was observed in ordinary play.",
+    "Farms placed around6:30 and8:33; staffed farms sustained visible food deposits while the base was attacked.",
+    "Reassigned idle builders with Economy actions and rallied paid replacements; attack-move fighters intercepted town raiders before reaching the Sacred Site.",
+    "A late Scout briefly contested before the six-minute Sacred hold completed. The result screen recorded one contest.",
+    "No browser warning or error messages were recorded. This one inexperienced/greedy defence is not evidence of a population-wide average duration."
+  ],
+  "result_image": "beta15-mobile-match-result.png"
+}

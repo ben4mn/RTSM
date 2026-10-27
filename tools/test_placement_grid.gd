@@ -1,5 +1,5 @@
 extends Node
-## Placement-only geometry: camera coverage, canonical tile edges, constant
+## Placement-only geometry: local candidate coverage, canonical tile edges, constant
 ## screen weight, map bounds, fog neutrality and complete input lifecycle.
 
 var _failures: Array[String] = []
@@ -60,21 +60,22 @@ func _run() -> void:
 		_placement.call("_refresh_placement_grid", true)
 		var points := _world_segments()
 		_expect(not points.is_empty(), "screen-visible tiles have grid lines at zoom %.2f" % zoom)
-		_expect(points.size() <= 2 * (MapData.MAP_WIDTH + MapData.MAP_HEIGHT + 2), "grid uses bounded whole lines rather than per-tile edges")
+		_expect(points.size() <= 20, "House guide stays within one tile of its footprint, even at overview zoom")
 		var pixels: float = float(grid.get("line_width")) * _placement.get_canvas_transform().x.length()
 		_expect(is_equal_approx(pixels, 0.9), "grid stroke remains 0.9 screen pixels at zoom %.2f" % zoom)
 		_check_map_bounds(points)
 		_check_footprint_alignment(points)
-	# Moving the chosen building must not drag the surrounding grid with it.
+	# The small guide follows the chosen footprint while remaining snapped to world tiles.
 	var before_move := _world_segments()
 	_placement.update_preview_at_world(_world.tile_to_world(Vector2i(26, 25)))
-	_expect(_points_match(before_move, _world_segments()), "ghost movement leaves the surrounding world grid fixed")
+	_expect(not _points_match(before_move, _world_segments()), "moving the preview moves its small guide instead of covering the scene")
+	_check_footprint_alignment(_world_segments())
 	var old_bounds: Rect2i = _placement.get("_grid_tile_bounds")
 	_camera.position = _world.tile_to_world(Vector2i(37, 32))
 	_camera.force_update_scroll()
 	await get_tree().process_frame
 	_placement.call("_process", 0.01)
-	_expect(_placement.get("_grid_tile_bounds") != old_bounds, "camera movement refreshes screen-covered tiles without touching the ghost")
+	_expect(_placement.get("_grid_tile_bounds") != old_bounds, "camera movement clips the local guide to the visible scene")
 	# Grid geometry is deliberately ignorant of hidden content and visibility.
 	var before_hidden := _world_segments()
 	_world.visible_tiles = false
@@ -85,6 +86,7 @@ func _run() -> void:
 	_expect(_points_match(before_hidden, _world_segments()), "hidden resources/buildings cannot alter grid geometry")
 	_expect(_world.visibility_queries == 0 and _world.terrain_queries == 0, "grid queries no fog, terrain, occupancy or resources")
 	# The camera can view map corners or empty space beyond the map.
+	_placement.update_preview_at_world(_world.tile_to_world(Vector2i.ZERO))
 	_camera.position = _world.tile_to_world(Vector2i.ZERO)
 	_camera.force_update_scroll()
 	await get_tree().process_frame
@@ -97,6 +99,7 @@ func _run() -> void:
 	await get_tree().process_frame
 	_placement.call("_refresh_placement_grid", true)
 	_expect(_world_segments().is_empty(), "camera outside the map draws no invented tiles")
+	_placement.update_preview_at_world(_world.tile_to_world(Vector2i(24, 24)))
 	_camera.position = _world.tile_to_world(Vector2i(24, 24))
 	_camera.zoom = Vector2.ONE
 	_camera.force_update_scroll()
@@ -108,7 +111,7 @@ func _run() -> void:
 	await get_tree().process_frame
 	_placement.call("_process", 0.01)
 	var desktop_bounds: Rect2i = _placement.get("_grid_tile_bounds")
-	_expect(desktop_bounds.get_area() > phone_bounds.get_area(), "resizing from phone to desktop covers the newly visible map")
+	_expect(desktop_bounds == phone_bounds, "resizing to desktop does not spread guide lines across the battlefield")
 	_placement.cancel_placement()
 	_expect(not grid.is_visible_in_tree() and _world_segments().is_empty(), "Cancel removes the placement grid immediately")
 	_world.visible_tiles = true
@@ -121,7 +124,7 @@ func _run() -> void:
 	for failure: String in _failures:
 		push_error("[FAIL] placement_grid: " + failure)
 	if _failures.is_empty():
-		print("[PASS] placement_grid: canonical footprint alignment, bounded screen grid, zoom/pan/resize, map edges, fog-neutral geometry, layers, Cancel/Place lifecycle")
+		print("[PASS] placement_grid: canonical footprint alignment, bounded local guide, zoom/pan/resize, map edges, fog-neutral geometry, layers, Cancel/Place lifecycle")
 	get_tree().quit(0 if _failures.is_empty() else 1)
 
 func _world_segments() -> PackedVector2Array:

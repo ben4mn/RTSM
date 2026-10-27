@@ -1,0 +1,46 @@
+{
+  "date": "2026-10-27",
+  "checkpoint_runtime": "d57d88297ed900e39a0b3d709673f3e0d5fa7f94",
+  "final_runtime": "1bfdfe91e583f858bd80d365bbe9a5c737af8bef",
+  "public_acceptance": {
+    "origin": "https://game.4mn.org/",
+    "result": "PASS",
+    "checks": [
+      "Existing public beta11 browser cache upgraded normally to beta12.",
+      "Expanded the five-style illustrated picker and selected River Crossings.",
+      "Started an ordinary English Easy match, set the Town Center resource rally to berries and paid for one Villager.",
+      "Saved at 1:02 with food243, wood355, gold160 and population9 including the queued recruit.",
+      "Reloaded the public page, launched again and resumed the same checkpoint paused with the same resources and saved production.",
+      "Final pause UI contains one Save & exit action and no duplicate Main menu button.",
+      "No browser script errors or warnings appeared during the public resume test."
+    ],
+    "screenshots": ["outputs/beta12-public-mobile.png", "outputs/beta12-map-style.png"]
+  },
+  "final_update_checks": [
+    "Normal Updates action staged and activated the final release without clearing the saved1:19 battle.",
+    "Final build restored that checkpoint paused and showed a single Save & exit action, with Saved status.",
+    "Attempting Refresh app during the resumed paused match showed: Your match is protected. Return to the main menu to refresh the app. No reload occurred.",
+    "Save & exit returned safely to the menu after this protection check."
+  ],
+  "browser": "Codex in-app Chromium browser",
+  "viewport": [844, 390],
+  "input_scope": "Browser mouse/held clicks at phone viewport; actual touch gestures covered by native input fixtures separately.",
+  "origin": "http://127.0.0.1:8765/",
+  "checks": [
+    "Existing beta11 service worker cache upgraded to beta12 without clearing browser storage.",
+    "Main menu and illustrated Golden Basin style card rendered cleanly at phone size.",
+    "Started a normal paid Easy solo match as French; generated battlefield differs from representative menu illustration.",
+    "Town Center flag followed by berry resource set the recruit destination. Holding Villager purchased a finite two-unit queue and respected available resources.",
+    "Pause displayed Saved after browser transaction completion. Save & exit returned to primary Resume solo, 0:28, Golden Basin.",
+    "Updates dialog confirmed complete game cached for offline Solo.",
+    "Stopped the owned localhost preview server, reloaded the browser page, and launched all game files from the service worker cache.",
+    "Offline fresh game process still offered Resume solo at0:28. Resume opened paused with food80, wood280, gold130, population11 and two paid Villagers retained.",
+    "Resumed queue completed normally. At1:15, Economy showed3food workers,1wood,1gold and0idle, confirming both recruits inherited their saved berry rally. No second purchase was needed.",
+    "Collapsed and expanded production dock; opened compact Economy panel successfully after restore.",
+    "Saved again offline at1:19 and returned to menu. Desktop1280x720 reload preserved the same checkpoint; browsing New solo and returning did not discard it.",
+    "Browser runtime console showed no script errors during save, offline reload, resume or continued production."
+  ],
+  "observed_state_at_saved_checkpoint": {"game_time_seconds": 28, "food":80,"wood":280,"gold":130,"population_used_including_reservations":11,"queued_villagers":2},
+  "screenshot": "outputs/beta12-offline-resume.png",
+  "not_claimed": ["Physical phone interaction/performance", "OS-installed PWA lifecycle", "Cloud or cross-device saves", "New full-match balance measurements"]
+}

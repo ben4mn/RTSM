@@ -1,0 +1,137 @@
+{
+  "status": "LIVE_VERIFIED",
+  "date": "2026-10-27",
+  "origin": "https://game.4mn.org/",
+  "version": "0.3.0-beta.14",
+  "source_commit": "86c15656fc8b60a8d1f0ab16dd01c7ce3dd0b3a7",
+  "protocol": 9,
+  "pull_request": "https://github.com/ben4mn/RTSM/pull/6",
+  "release_id": "v030beta14-86c15656fc8b-29f4e1aa70-e0d0713d4c",
+  "web_manifest_sha256": "29f4e1aa705fba767b11766728e5af64a6447f39ff7798b07a74f2f610d3c4f8",
+  "server_manifest_sha256": "e0d0713d4cf66a9f0ab6ccb6e336aec6bc8de8ed0cca7c66facf7cb61cb602ca",
+  "server_image": "sha256:5bd403b8ea0c1e1bde0c2eee46e5d96e5d67192358f99df531408b23d7a9bc75",
+  "containers": {
+    "aoem-online": {
+      "started_utc": "2026-10-27T12:52:16.829311663Z"
+    },
+    "aoem-game": {
+      "started_utc": "2026-10-27T12:53:26.058726241Z"
+    }
+  },
+  "changes": [
+    "Economy trader finder uses the existing header and Trade Post training row, with no extra Workers panel height. Stopped/blocked traders receive attention first; finding does not change orders.",
+    "Trade status describes actual cached route failures and activity. Misleading Trade Post rally controls removed. No pathfinding work from status refreshes.",
+    "Solo checkpoint encoding safely handles already-freed combat targets, including nested references.",
+    "Default100 AI uses the existing one-worker wood search when visible wood is unavailable, just as compact-population games already did."
+  ],
+  "checks": [
+    {
+      "name": "Mobile trade management",
+      "result": "PASS",
+      "scope": "Native ScreenTouch fixtures at667x375 and844x390; compact header containment, no added panel height, stable target across first birth, ownership, attention priority, no order/bank mutation. Rendered screenshots inspected."
+    },
+    {
+      "name": "Trade status",
+      "result": "PASS",
+      "checks": 28,
+      "scope": "Real initial/mid-route block and recovery, endpoint loss, Stop/resume, replica metadata.100 getter reads add zero path queries; no extra income."
+    },
+    {
+      "name": "Solo save",
+      "result": "PASS",
+      "checks": 62,
+      "scope": "Four fresh isolated processes; stale direct/nested/weak targets, exact gather state, paid queues and corrupted-save fallback."
+    },
+    {
+      "name": "Integrated controls and trade",
+      "result": "PASS",
+      "checks": 123,
+      "scope": "25 touch/finite-queue/fixed-speed,52 authoritative trade,46 paid solo/authority recruitment and save/resume checks. These native authority fixtures use no sockets."
+    },
+    {
+      "name": "AI wood recovery",
+      "result": "PASS",
+      "checks": 22,
+      "scope": "Failure reproduced at100pop before fix; existing safety fixture also passes. Only one explorer, no hidden resource lookup or resource grants. Full-match pacing improvement not measured."
+    },
+    {
+      "name": "Public multiplayer",
+      "result": "PASS",
+      "scope": "66 public WSS room checks and two independent paid combat clients, replicated damage, result and cleanup."
+    },
+    {
+      "name": "Deployment",
+      "result": "PASS",
+      "scope": "Reproducible committed client exports and matching Linux server, idle-only guarded activation, exact public bytes and both containers restarted."
+    },
+    {
+      "name": "Public browser",
+      "result": "PASS",
+      "scope": "Public https://game.4mn.org at844x390, ordinary paid solo play and UI only. Save & exit at7:32 onbeta13.1, in-app Check for updates/Refresh tobeta14, version confirmed, checkpoint restored paused with430F/495W/195G and30/35 population. Farms, traders and paid production persisted. Native touch fixtures are separate from this mouse-driven mobile-viewport test."
+    }
+  ],
+  "balance": {
+    "rates_costs_speed_or_victory_timer_changed": false,
+    "starting_workers": 3,
+    "manual_match": {
+      "mode": "Standard100, Easy opponent, River Crossings, English player",
+      "game_time": "8:21",
+      "result": "Sacred defeat",
+      "interpretation": "Paid browser interaction test with frequent pauses and underdefended objective; not representative average pacing. Started onbeta13.1 and resumed onbeta14 at7:32."
+    },
+    "automated_completed_match": {
+      "map": "River Crossings",
+      "seed": 424242,
+      "opponents": "Medium vs Medium, Crownlands both",
+      "game_time_seconds": 543.37,
+      "result": "Natural Sacred victory",
+      "farms_per_side": 3,
+      "traders": 0,
+      "remaining_finite_stock": {
+        "food": 5976,
+        "wood": 11804,
+        "gold": 4316
+      },
+      "diagnostics": "Four autosave freed-target errors exposed the bug fixed in9ea68e4; result retained but baseline log is not a clean pass."
+    },
+    "automated_partial_match": {
+      "map": "Golden Basin",
+      "seed": 7,
+      "opponents": "Medium vs Medium, Crownlands both",
+      "last_persisted_game_time_seconds": 480.1,
+      "result": "Unresolved;900-second wall test budget reached",
+      "farms_per_side": 3,
+      "traders": 0,
+      "remaining_finite_stock": {
+        "food": 6395,
+        "wood": 11749,
+        "gold": 4690
+      },
+      "diagnostics": "Clean engine log; original baseline plus only the freed-target save guard. No wood-recovery fix in either pacing run."
+    },
+    "conclusion": "Farm transitions and paid player trade worked. Default100 AI wood search needed a targeted recovery fix; its full-match effect is not measured. Neither automated run reached the600-second AI trade gate. These samples do not establish a12-15-minute average,20+ minute depletion, or natural late-game AI trade. No broader balance tuning inferred. Prior3-vs4-worker calculations remain in docs/balance_2026-10-26.md."
+  },
+  "limitations": [
+    "No physical phone, OS-installed PWA lifecycle or device thermal/performance measurements. Browser mobile viewport and native ScreenTouch tests only.",
+    "The12-15-minute average and20+ minute resource-exhaustion targets remain unverified; one natural AI result and one partial run are not a distribution.",
+    "AI wood fix prevents idle workers falling back to food when visible wood is missing. It does not forcibly redirect a fully employed food workforce restored from an old save.",
+    "Controlled route tests and public multiplayer combat are functional checks, not full-match duration evidence."
+  ],
+  "evidence_sha256": {
+    "activation.json": "2e771d12d4ac7ae5fae0df4361d2533075333a3afe408b786a9a8ac81d5051ac",
+    "postflight.json": "cae0c0774fb4f37d271ec3b252dfe1e7eead328b4dc4a6d02ec1c6c258b49f40",
+    "web-restart.json": "5e4646264692d725a3cdb864cf01e7d6a990c3d6917da3d6877d74e5c6489d7d"
+  },
+  "usage": {
+    "explicit_task_token_budget": null,
+    "bounded_subagents_reused": 3,
+    "account_weekly_used_percent_midpoint": 54
+  },
+  "screenshots": [
+    "outputs/beta14-before-update-save.png",
+    "outputs/beta14-first-trade-delivery.png",
+    "outputs/beta14-live-version.png",
+    "outputs/beta14-mobile-economy.png",
+    "outputs/beta14-match-result.png"
+  ]
+}

@@ -63,7 +63,7 @@ func _test_identity_and_baseline() -> void:
 	_expect(GameManager.get_player_civilization(0) == 0 and GameManager.get_player_civilization(1) == 0, "invalid setup normalizes safely")
 	var mutable: Dictionary = CivilizationData.get_definition(1)
 	mutable.unit_overrides[2].hp = 999
-	_expect(int(CivilizationData.get_definition(1).unit_overrides[2].hp) == 30, "returned metadata cannot mutate shared rules")
+	_expect(int(CivilizationData.get_definition(1).unit_overrides[2].hp) == 60, "returned metadata cannot mutate shared rules")
 
 func _test_actors_and_paid_queue() -> void:
 	_setup(1, 2)
@@ -76,14 +76,14 @@ func _test_actors_and_paid_queue() -> void:
 	var fragile_cavalry: UnitBase = CAVALRY.instantiate()
 	fragile_cavalry.player_owner = 0
 	add_child(fragile_cavalry)
-	_expect(longbow.get_unit_type() == "Longbow" and longbow.hp == 30.0 and longbow.attack_range == MapData.range_tiles_to_world(6), "Longbow actual name, HP and range")
-	_expect(outrider.get_unit_type() == "Outrider" and outrider.hp == 70.0 and outrider.speed == 110.0, "Outrider actual name, HP and speed")
-	_expect(fragile_cavalry.hp == 65.0, "Verdant cavalry weakness applies to actual unit")
+	_expect(longbow.get_unit_type() == "Longbow" and longbow.hp == 60.0 and longbow.attack_range == MapData.range_tiles_to_world(6), "Longbow actual name, HP and range")
+	_expect(outrider.get_unit_type() == "Outrider" and outrider.hp == 140.0 and outrider.speed == 110.0, "Outrider actual name, HP and speed")
+	_expect(fragile_cavalry.hp == 130.0, "Verdant cavalry weakness applies to actual unit")
 	_expect(Combat.get_counter_bonus(UnitData.UnitType.CAVALRY, UnitData.UnitType.ARCHER) == 1.5, "signature units retain familiar counter roles")
 	GameManager.player_upgrades[0]["attack_bonus"] = 2
-	_expect(Combat.get_effective_attack(longbow) == 9.0, "shared research stacks once on signature unit")
+	_expect(Combat.get_effective_attack(longbow) == 16.0, "shared research stacks once on signature unit")
 	var preview: Dictionary = Combat.get_effective_unit_type_stats(UnitData.UnitType.ARCHER, 0)
-	_expect(int(preview.hp) == 30 and int(preview.damage) == 9 and int(preview.attack_range) == 6, "recruitment preview agrees with signature stats and research")
+	_expect(int(preview.hp) == 60 and int(preview.damage) == 16 and int(preview.attack_range) == 6, "recruitment preview agrees with signature stats and research")
 	var house: BuildingBase = HOUSE.instantiate()
 	house.player_owner = 1
 	house.state = BuildingBase.State.ACTIVE
@@ -95,9 +95,11 @@ func _test_actors_and_paid_queue() -> void:
 	add_child(production)
 	var queue: ProductionQueue = production.get_production_queue()
 	var bank_before: Dictionary = ResourceManager.get_all_resources(0)
+	var published_cost: Dictionary = UnitData.get_unit_cost(UnitData.UnitType.ARCHER)
 	_expect(queue.enqueue_unit(UnitData.UnitType.ARCHER), "paid signature recruitment accepted")
-	_expect(ResourceManager.get_resource(0, "food") == int(bank_before.food) - 25 and ResourceManager.get_resource(0, "wood") == int(bank_before.wood) - 45, "signature unit charges ordinary published cost")
-	_expect(str(queue.get_queue_info()[0].name) == "Longbow" and queue.current_train_time == 12.0, "queue names signature unit and retains training time")
+	for resource: String in ["food", "wood", "gold"]:
+		_expect(ResourceManager.get_resource(0, resource) == int(bank_before[resource]) - int(published_cost[resource]), "signature unit charges ordinary published " + resource + " cost")
+	_expect(str(queue.get_queue_info()[0].name) == "Longbow" and queue.current_train_time == 24.0, "queue names signature unit and retains training time")
 	_expect(queue.cancel_unit(0), "signature queue cancellation accepted")
 	_expect(ResourceManager.get_all_resources(0) == bank_before and GameManager.get_reserved_population(0) == 0, "cancellation refunds exactly and releases reservation")
 	production.free()
@@ -125,26 +127,28 @@ func _harvest(civilization: int, resource: String, ticks: int, research_bonus: f
 	worker.gather_target = supply
 	worker.carried_resource_type = resource
 	worker.gather_rate += research_bonus
-	worker.carry_capacity = 100
+	worker.carry_capacity = 1000
 	var gathered: int = 0
 	for tick: int in ticks:
 		var amount: int = worker._harvest_from_target()
 		gathered += amount
 		worker.carried_amount += amount
 	_expect(supply.remaining == 1000 - gathered, "gather bonus removes real resources; no minted income")
-	worker.carried_amount = 99
+	worker.carried_amount = worker.carry_capacity - 1
 	_expect(worker._harvest_from_target() <= 1, "gather bonus respects shared cargo capacity")
 	worker.free()
 	supply.free()
 	return gathered
 
 func _test_gathering() -> void:
-	_expect(_harvest(0, "wood", 20) == 20, "baseline harvesting unchanged")
-	_expect(_harvest(1, "wood", 20) == 24, "Verdant earns exactly +20% wood across fractional ticks")
-	_expect(_harvest(1, "food", 20) == 20, "Verdant bonus does not leak to food")
-	_expect(_harvest(2, "food", 20) == 23, "Sunstride earns exactly +15% food across fractional ticks")
-	_expect(_harvest(2, "gold", 20) == 20, "Sunstride bonus does not leak to gold")
-	_expect(_harvest(1, "wood", 20, UnitData.WHEELBARROW_GATHER_BONUS) == 30, "Wood bonus and Wheelbarrow compose without rounding loss")
+	# The current 1.8/tick baseline needs a longer sample for both civilization
+	# bonuses to land on whole resources. Cargo must not truncate the comparison.
+	_expect(_harvest(0, "wood", 100) == 180, "baseline earns 1.8 resources per tick")
+	_expect(_harvest(1, "wood", 100) == 216, "Verdant earns exactly +20% wood across fractional ticks")
+	_expect(_harvest(1, "food", 100) == 180, "Verdant bonus does not leak to food")
+	_expect(_harvest(2, "food", 100) == 207, "Sunstride earns exactly +15% food across fractional ticks")
+	_expect(_harvest(2, "gold", 100) == 180, "Sunstride bonus does not leak to gold")
+	_expect(_harvest(1, "wood", 100, UnitData.WHEELBARROW_GATHER_BONUS) == 270, "Wood bonus and Wheelbarrow compose without rounding loss")
 
 func _test_network_slot_latching() -> void:
 	GameManager.selected_civilization = 0

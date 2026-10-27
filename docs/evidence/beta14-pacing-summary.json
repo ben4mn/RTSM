@@ -1,0 +1,2119 @@
+{
+  "scope": "Two paid Standard100 Medium-v-Medium automated simulations, Crownlands both,3 starting workers; natural victory enabled. Fixed60Hz/time scale1; not human/browser duration or an average pacing estimate. Food delivery attribution is current farm job at deposit, not a harvest-origin ledger.",
+  "baseline_revision": "c2853bc57250a2010b36e2df5618a8d03c5bdd6f",
+  "case2_runtime_patch": "Only the4-line freed-object guard in solo_match_state.gd from9ea68e4; economic/AI rules unchanged. The later75fc182 wood-search fix is NOT part of these simulations.",
+  "case2_wrapper_receipt": {
+    "source_revision": "c2853bc57250a2010b36e2df5618a8d03c5bdd6f",
+    "save_guard_origin_revision": "9ea68e4845f1174b269e8e30586b36f8ffde84ec",
+    "scope": "Two sequential fixed-60Hz Standard/100 paid Medium-v-Medium simulations, Crownlands both, three workers; natural results enabled; no human/browser duration claim",
+    "runs": [
+      {
+        "case": "map4-seed7",
+        "error": "900-second wall timeout",
+        "exit": 1,
+        "log": "C:\\Users\\ben4m\\Documents\\Codex\\2026-10-26\\improve-pocket-kingdoms-at-game-4mn\\work\\late-economy-beta13.1\\map4-seed7.log",
+        "user_dir": "pocket-late-economy/a30e382e39fd429cadc87fe58d175374"
+      }
+    ],
+    "save_guard_sha256": "58c6ebadce2be0c962909b86ebd8f9f75bf6d57b17b8434e21230f14349240c0"
+  },
+  "observer_commit": "86c1565",
+  "targeted_recovery_commit": "75fc182",
+  "targeted_recovery_evidence": {
+    "before": "../default-wood-before.log: default100 failed2criteria while20pop passed",
+    "after": "../default-wood-after.log:22newchecks + existing deficit-search fixture pass; controlled bank/visibility, no pacing claim"
+  },
+  "runs": [
+    {
+      "case": "map1-seed424242",
+      "log": "C:\\Users\\ben4m\\Documents\\Codex\\2026-10-26\\improve-pocket-kingdoms-at-game-4mn\\work\\late-economy-beta13.1\\map1-seed424242.log",
+      "log_sha256": "94a5de53619fc15a0d89eb919f60bd15ae1c3cdde3f5d2446dbf6dfb0ef19e38",
+      "diagnostics": [
+        "SCRIPT ERROR: Left operand of 'is' is a previously freed instance.",
+        "SCRIPT ERROR: Left operand of 'is' is a previously freed instance.",
+        "SCRIPT ERROR: Left operand of 'is' is a previously freed instance.",
+        "SCRIPT ERROR: Left operand of 'is' is a previously freed instance."
+      ],
+      "samples": [
+        {
+          "players": [
+            {
+              "active_farms": 0,
+              "active_posts": 0,
+              "age": 1,
+              "bank": {
+                "food": 250,
+                "gold": 100,
+                "wood": 250
+              },
+              "lifetime": {
+                "farm_foundations": 0,
+                "farms_completed": 0,
+                "food_deposited_with_farm_job": 0,
+                "post_foundations": 0,
+                "posts_completed": 0,
+                "trade_deliveries": 0,
+                "trade_gold": 0,
+                "traders_born": 0,
+                "traders_cancelled": 0,
+                "traders_queued": 0
+              },
+              "staffed_farms": 0,
+              "trade_policy": {
+                "clock": 0.0,
+                "cursor": 0,
+                "next_check": 0.0,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": []
+            },
+            {
+              "active_farms": 0,
+              "active_posts": 0,
+              "age": 1,
+              "bank": {
+                "food": 250,
+                "gold": 100,
+                "wood": 250
+              },
+              "lifetime": {
+                "farm_foundations": 0,
+                "farms_completed": 0,
+                "food_deposited_with_farm_job": 0,
+                "post_foundations": 0,
+                "posts_completed": 0,
+                "trade_deliveries": 0,
+                "trade_gold": 0,
+                "traders_born": 0,
+                "traders_cancelled": 0,
+                "traders_queued": 0
+              },
+              "staffed_farms": 0,
+              "trade_policy": {
+                "clock": 0.0,
+                "cursor": 0,
+                "next_check": 0.0,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": []
+            }
+          ],
+          "time": 0.0,
+          "whole_map_remaining_audit_only": {
+            "food": 7998,
+            "gold": 5976,
+            "wood": 15904
+          }
+        },
+        {
+          "players": [
+            {
+              "active_farms": 1,
+              "active_posts": 0,
+              "age": 1,
+              "bank": {
+                "food": 68,
+                "gold": 132,
+                "wood": 35
+              },
+              "lifetime": {
+                "farm_foundations": 1,
+                "farms_completed": 1,
+                "food_deposited_with_farm_job": 60,
+                "post_foundations": 0,
+                "posts_completed": 0,
+                "trade_deliveries": 0,
+                "trade_gold": 0,
+                "traders_born": 0,
+                "traders_cancelled": 0,
+                "traders_queued": 0
+              },
+              "staffed_farms": 0,
+              "trade_policy": {
+                "clock": 60.0166666666645,
+                "cursor": 0,
+                "next_check": 0.0,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": []
+            },
+            {
+              "active_farms": 1,
+              "active_posts": 0,
+              "age": 1,
+              "bank": {
+                "food": 40,
+                "gold": 130,
+                "wood": 35
+              },
+              "lifetime": {
+                "farm_foundations": 1,
+                "farms_completed": 1,
+                "food_deposited_with_farm_job": 30,
+                "post_foundations": 0,
+                "posts_completed": 0,
+                "trade_deliveries": 0,
+                "trade_gold": 0,
+                "traders_born": 0,
+                "traders_cancelled": 0,
+                "traders_queued": 0
+              },
+              "staffed_farms": 1,
+              "trade_policy": {
+                "clock": 60.0166666666645,
+                "cursor": 0,
+                "next_check": 0.0,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": []
+            }
+          ],
+          "time": 60.0166666666645,
+          "whole_map_remaining_audit_only": {
+            "food": 7907,
+            "gold": 5893,
+            "wood": 15691
+          }
+        },
+        {
+          "players": [
+            {
+              "active_farms": 1,
+              "active_posts": 0,
+              "age": 1,
+              "bank": {
+                "food": 148,
+                "gold": 162,
+                "wood": 50
+              },
+              "lifetime": {
+                "farm_foundations": 2,
+                "farms_completed": 1,
+                "food_deposited_with_farm_job": 150,
+                "post_foundations": 0,
+                "posts_completed": 0,
+                "trade_deliveries": 0,
+                "trade_gold": 0,
+                "traders_born": 0,
+                "traders_cancelled": 0,
+                "traders_queued": 0
+              },
+              "staffed_farms": 1,
+              "trade_policy": {
+                "clock": 120.033333333328,
+                "cursor": 0,
+                "next_check": 0.0,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": []
+            },
+            {
+              "active_farms": 1,
+              "active_posts": 0,
+              "age": 1,
+              "bank": {
+                "food": 173,
+                "gold": 160,
+                "wood": 35
+              },
+              "lifetime": {
+                "farm_foundations": 2,
+                "farms_completed": 1,
+                "food_deposited_with_farm_job": 180,
+                "post_foundations": 0,
+                "posts_completed": 0,
+                "trade_deliveries": 0,
+                "trade_gold": 0,
+                "traders_born": 0,
+                "traders_cancelled": 0,
+                "traders_queued": 0
+              },
+              "staffed_farms": 1,
+              "trade_policy": {
+                "clock": 120.033333333328,
+                "cursor": 0,
+                "next_check": 0.0,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": []
+            }
+          ],
+          "time": 120.033333333328,
+          "whole_map_remaining_audit_only": {
+            "food": 7695,
+            "gold": 5854,
+            "wood": 15056
+          }
+        },
+        {
+          "players": [
+            {
+              "active_farms": 3,
+              "active_posts": 0,
+              "age": 2,
+              "bank": {
+                "food": 98,
+                "gold": 2,
+                "wood": 19
+              },
+              "lifetime": {
+                "farm_foundations": 3,
+                "farms_completed": 3,
+                "food_deposited_with_farm_job": 425,
+                "post_foundations": 0,
+                "posts_completed": 0,
+                "trade_deliveries": 0,
+                "trade_gold": 0,
+                "traders_born": 0,
+                "traders_cancelled": 0,
+                "traders_queued": 0
+              },
+              "staffed_farms": 2,
+              "trade_policy": {
+                "clock": 180.033333333369,
+                "cursor": 0,
+                "next_check": 0.0,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": []
+            },
+            {
+              "active_farms": 3,
+              "active_posts": 0,
+              "age": 2,
+              "bank": {
+                "food": 33,
+                "gold": 30,
+                "wood": 15
+              },
+              "lifetime": {
+                "farm_foundations": 3,
+                "farms_completed": 3,
+                "food_deposited_with_farm_job": 470,
+                "post_foundations": 0,
+                "posts_completed": 0,
+                "trade_deliveries": 0,
+                "trade_gold": 0,
+                "traders_born": 0,
+                "traders_cancelled": 0,
+                "traders_queued": 0
+              },
+              "staffed_farms": 3,
+              "trade_policy": {
+                "clock": 180.033333333369,
+                "cursor": 0,
+                "next_check": 0.0,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": []
+            }
+          ],
+          "time": 180.033333333369,
+          "whole_map_remaining_audit_only": {
+            "food": 7535,
+            "gold": 5796,
+            "wood": 14695
+          }
+        },
+        {
+          "players": [
+            {
+              "active_farms": 3,
+              "active_posts": 0,
+              "age": 2,
+              "bank": {
+                "food": 56,
+                "gold": 106,
+                "wood": 4
+              },
+              "lifetime": {
+                "farm_foundations": 3,
+                "farms_completed": 3,
+                "food_deposited_with_farm_job": 725,
+                "post_foundations": 0,
+                "posts_completed": 0,
+                "trade_deliveries": 0,
+                "trade_gold": 0,
+                "traders_born": 0,
+                "traders_cancelled": 0,
+                "traders_queued": 0
+              },
+              "staffed_farms": 3,
+              "trade_policy": {
+                "clock": 240.033333333416,
+                "cursor": 0,
+                "next_check": 0.0,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": []
+            },
+            {
+              "active_farms": 3,
+              "active_posts": 0,
+              "age": 2,
+              "bank": {
+                "food": 130,
+                "gold": 96,
+                "wood": 15
+              },
+              "lifetime": {
+                "farm_foundations": 3,
+                "farms_completed": 3,
+                "food_deposited_with_farm_job": 740,
+                "post_foundations": 0,
+                "posts_completed": 0,
+                "trade_deliveries": 0,
+                "trade_gold": 0,
+                "traders_born": 0,
+                "traders_cancelled": 0,
+                "traders_queued": 0
+              },
+              "staffed_farms": 2,
+              "trade_policy": {
+                "clock": 240.033333333416,
+                "cursor": 0,
+                "next_check": 0.0,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": []
+            }
+          ],
+          "time": 240.033333333416,
+          "whole_map_remaining_audit_only": {
+            "food": 7423,
+            "gold": 5528,
+            "wood": 14210
+          }
+        },
+        {
+          "players": [
+            {
+              "active_farms": 3,
+              "active_posts": 0,
+              "age": 2,
+              "bank": {
+                "food": 112,
+                "gold": 247,
+                "wood": 8
+              },
+              "lifetime": {
+                "farm_foundations": 3,
+                "farms_completed": 3,
+                "food_deposited_with_farm_job": 1115,
+                "post_foundations": 0,
+                "posts_completed": 0,
+                "trade_deliveries": 0,
+                "trade_gold": 0,
+                "traders_born": 0,
+                "traders_cancelled": 0,
+                "traders_queued": 0
+              },
+              "staffed_farms": 3,
+              "trade_policy": {
+                "clock": 300.050000000056,
+                "cursor": 0,
+                "next_check": 0.0,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": []
+            },
+            {
+              "active_farms": 3,
+              "active_posts": 0,
+              "age": 2,
+              "bank": {
+                "food": 49,
+                "gold": 95,
+                "wood": 0
+              },
+              "lifetime": {
+                "farm_foundations": 3,
+                "farms_completed": 3,
+                "food_deposited_with_farm_job": 1010,
+                "post_foundations": 0,
+                "posts_completed": 0,
+                "trade_deliveries": 0,
+                "trade_gold": 0,
+                "traders_born": 0,
+                "traders_cancelled": 0,
+                "traders_queued": 0
+              },
+              "staffed_farms": 2,
+              "trade_policy": {
+                "clock": 300.050000000056,
+                "cursor": 0,
+                "next_check": 0.0,
+                "under_pressure": true,
+                "worker_recovery": false
+              },
+              "traders": []
+            }
+          ],
+          "time": 300.050000000056,
+          "whole_map_remaining_audit_only": {
+            "food": 7234,
+            "gold": 5296,
+            "wood": 13583
+          }
+        },
+        {
+          "players": [
+            {
+              "active_farms": 3,
+              "active_posts": 0,
+              "age": 2,
+              "bank": {
+                "food": 32,
+                "gold": 414,
+                "wood": 85
+              },
+              "lifetime": {
+                "farm_foundations": 3,
+                "farms_completed": 3,
+                "food_deposited_with_farm_job": 1445,
+                "post_foundations": 0,
+                "posts_completed": 0,
+                "trade_deliveries": 0,
+                "trade_gold": 0,
+                "traders_born": 0,
+                "traders_cancelled": 0,
+                "traders_queued": 0
+              },
+              "staffed_farms": 3,
+              "trade_policy": {
+                "clock": 360.066666666668,
+                "cursor": 0,
+                "next_check": 0.0,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": []
+            },
+            {
+              "active_farms": 3,
+              "active_posts": 0,
+              "age": 2,
+              "bank": {
+                "food": 100,
+                "gold": 155,
+                "wood": 30
+              },
+              "lifetime": {
+                "farm_foundations": 3,
+                "farms_completed": 3,
+                "food_deposited_with_farm_job": 1310,
+                "post_foundations": 0,
+                "posts_completed": 0,
+                "trade_deliveries": 0,
+                "trade_gold": 0,
+                "traders_born": 0,
+                "traders_cancelled": 0,
+                "traders_queued": 0
+              },
+              "staffed_farms": 2,
+              "trade_policy": {
+                "clock": 360.066666666668,
+                "cursor": 0,
+                "next_check": 0.0,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": []
+            }
+          ],
+          "time": 360.066666666668,
+          "whole_map_remaining_audit_only": {
+            "food": 6988,
+            "gold": 5049,
+            "wood": 12842
+          }
+        },
+        {
+          "players": [
+            {
+              "active_farms": 3,
+              "active_posts": 0,
+              "age": 2,
+              "bank": {
+                "food": 85,
+                "gold": 575,
+                "wood": 20
+              },
+              "lifetime": {
+                "farm_foundations": 3,
+                "farms_completed": 3,
+                "food_deposited_with_farm_job": 1745,
+                "post_foundations": 0,
+                "posts_completed": 0,
+                "trade_deliveries": 0,
+                "trade_gold": 0,
+                "traders_born": 0,
+                "traders_cancelled": 0,
+                "traders_queued": 0
+              },
+              "staffed_farms": 3,
+              "trade_policy": {
+                "clock": 420.08333333328,
+                "cursor": 0,
+                "next_check": 0.0,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": []
+            },
+            {
+              "active_farms": 3,
+              "active_posts": 0,
+              "age": 2,
+              "bank": {
+                "food": 245,
+                "gold": 243,
+                "wood": 10
+              },
+              "lifetime": {
+                "farm_foundations": 3,
+                "farms_completed": 3,
+                "food_deposited_with_farm_job": 1580,
+                "post_foundations": 0,
+                "posts_completed": 0,
+                "trade_deliveries": 0,
+                "trade_gold": 0,
+                "traders_born": 0,
+                "traders_cancelled": 0,
+                "traders_queued": 0
+              },
+              "staffed_farms": 3,
+              "trade_policy": {
+                "clock": 420.08333333328,
+                "cursor": 0,
+                "next_check": 0.0,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": []
+            }
+          ],
+          "time": 420.08333333328,
+          "whole_map_remaining_audit_only": {
+            "food": 6728,
+            "gold": 4778,
+            "wood": 12304
+          }
+        },
+        {
+          "players": [
+            {
+              "active_farms": 3,
+              "active_posts": 0,
+              "age": 2,
+              "bank": {
+                "food": 671,
+                "gold": 719,
+                "wood": 105
+              },
+              "lifetime": {
+                "farm_foundations": 3,
+                "farms_completed": 3,
+                "food_deposited_with_farm_job": 2105,
+                "post_foundations": 0,
+                "posts_completed": 0,
+                "trade_deliveries": 0,
+                "trade_gold": 0,
+                "traders_born": 0,
+                "traders_cancelled": 0,
+                "traders_queued": 0
+              },
+              "staffed_farms": 3,
+              "trade_policy": {
+                "clock": 480.099999999892,
+                "cursor": 0,
+                "next_check": 0.0,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": []
+            },
+            {
+              "active_farms": 3,
+              "active_posts": 0,
+              "age": 2,
+              "bank": {
+                "food": 480,
+                "gold": 399,
+                "wood": 2
+              },
+              "lifetime": {
+                "farm_foundations": 3,
+                "farms_completed": 3,
+                "food_deposited_with_farm_job": 1898,
+                "post_foundations": 0,
+                "posts_completed": 0,
+                "trade_deliveries": 0,
+                "trade_gold": 0,
+                "traders_born": 0,
+                "traders_cancelled": 0,
+                "traders_queued": 0
+              },
+              "staffed_farms": 3,
+              "trade_policy": {
+                "clock": 480.099999999892,
+                "cursor": 0,
+                "next_check": 0.0,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": []
+            }
+          ],
+          "time": 480.099999999892,
+          "whole_map_remaining_audit_only": {
+            "food": 6380,
+            "gold": 4584,
+            "wood": 12132
+          }
+        },
+        {
+          "players": [
+            {
+              "active_farms": 3,
+              "active_posts": 0,
+              "age": 3,
+              "bank": {
+                "food": 30,
+                "gold": 594,
+                "wood": 10
+              },
+              "lifetime": {
+                "farm_foundations": 3,
+                "farms_completed": 3,
+                "food_deposited_with_farm_job": 2525,
+                "post_foundations": 0,
+                "posts_completed": 0,
+                "trade_deliveries": 0,
+                "trade_gold": 0,
+                "traders_born": 0,
+                "traders_cancelled": 0,
+                "traders_queued": 0
+              },
+              "staffed_farms": 3,
+              "trade_policy": {
+                "clock": 540.116666666504,
+                "cursor": 0,
+                "next_check": 0.0,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": []
+            },
+            {
+              "active_farms": 3,
+              "active_posts": 0,
+              "age": 2,
+              "bank": {
+                "food": 826,
+                "gold": 540,
+                "wood": 12
+              },
+              "lifetime": {
+                "farm_foundations": 3,
+                "farms_completed": 3,
+                "food_deposited_with_farm_job": 2288,
+                "post_foundations": 0,
+                "posts_completed": 0,
+                "trade_deliveries": 0,
+                "trade_gold": 0,
+                "traders_born": 0,
+                "traders_cancelled": 0,
+                "traders_queued": 0
+              },
+              "staffed_farms": 3,
+              "trade_policy": {
+                "clock": 540.116666666504,
+                "cursor": 0,
+                "next_check": 0.0,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": []
+            }
+          ],
+          "time": 540.116666666504,
+          "whole_map_remaining_audit_only": {
+            "food": 6002,
+            "gold": 4316,
+            "wood": 11804
+          }
+        },
+        {
+          "players": [
+            {
+              "active_farms": 3,
+              "active_posts": 0,
+              "age": 3,
+              "bank": {
+                "food": 60,
+                "gold": 601,
+                "wood": 63
+              },
+              "lifetime": {
+                "farm_foundations": 3,
+                "farms_completed": 3,
+                "food_deposited_with_farm_job": 2525,
+                "post_foundations": 0,
+                "posts_completed": 0,
+                "trade_deliveries": 0,
+                "trade_gold": 0,
+                "traders_born": 0,
+                "traders_cancelled": 0,
+                "traders_queued": 0
+              },
+              "staffed_farms": 3,
+              "trade_policy": {
+                "clock": 543.349999999834,
+                "cursor": 0,
+                "next_check": 0.0,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": []
+            },
+            {
+              "active_farms": 3,
+              "active_posts": 0,
+              "age": 2,
+              "bank": {
+                "food": 857,
+                "gold": 540,
+                "wood": 12
+              },
+              "lifetime": {
+                "farm_foundations": 3,
+                "farms_completed": 3,
+                "food_deposited_with_farm_job": 2318,
+                "post_foundations": 0,
+                "posts_completed": 0,
+                "trade_deliveries": 0,
+                "trade_gold": 0,
+                "traders_born": 0,
+                "traders_cancelled": 0,
+                "traders_queued": 0
+              },
+              "staffed_farms": 3,
+              "trade_policy": {
+                "clock": 543.349999999834,
+                "cursor": 0,
+                "next_check": 0.0,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": []
+            }
+          ],
+          "time": 543.366666666501,
+          "whole_map_remaining_audit_only": {
+            "food": 5976,
+            "gold": 4316,
+            "wood": 11804
+          }
+        }
+      ],
+      "events": [
+        {
+          "id": 255533781439,
+          "kind": "farm_foundation",
+          "normal_cost": {
+            "food": 0,
+            "gold": 0,
+            "wood": 150
+          },
+          "owner": 0,
+          "position": [
+            -1856.0,
+            1312.0
+          ],
+          "time": 1.51666666666667
+        },
+        {
+          "id": 241860350866,
+          "kind": "farm_foundation",
+          "normal_cost": {
+            "food": 0,
+            "gold": 0,
+            "wood": 150
+          },
+          "owner": 1,
+          "position": [
+            1920.0,
+            1312.0
+          ],
+          "time": 1.51666666666667
+        },
+        {
+          "id": 255533781439,
+          "kind": "farms_completed",
+          "owner": 0,
+          "time": 11.9500000000002
+        },
+        {
+          "id": 241860350866,
+          "kind": "farms_completed",
+          "owner": 1,
+          "time": 11.9500000000002
+        },
+        {
+          "id": 868220933726,
+          "kind": "farm_foundation",
+          "normal_cost": {
+            "food": 0,
+            "gold": 0,
+            "wood": 150
+          },
+          "owner": 1,
+          "position": [
+            2176.0,
+            1408.0
+          ],
+          "time": 108.016666666662
+        },
+        {
+          "id": 906389098880,
+          "kind": "farm_foundation",
+          "normal_cost": {
+            "food": 0,
+            "gold": 0,
+            "wood": 150
+          },
+          "owner": 0,
+          "position": [
+            -1600.0,
+            1408.0
+          ],
+          "time": 112.516666666662
+        },
+        {
+          "id": 868220933726,
+          "kind": "farms_completed",
+          "owner": 1,
+          "time": 122.066666666661
+        },
+        {
+          "id": 906389098880,
+          "kind": "farms_completed",
+          "owner": 0,
+          "time": 125.733333333327
+        },
+        {
+          "id": 1075939645214,
+          "kind": "farm_foundation",
+          "normal_cost": {
+            "food": 0,
+            "gold": 0,
+            "wood": 150
+          },
+          "owner": 0,
+          "position": [
+            -2112.0,
+            1408.0
+          ],
+          "time": 135.016666666666
+        },
+        {
+          "id": 1101743003253,
+          "kind": "farm_foundation",
+          "normal_cost": {
+            "food": 0,
+            "gold": 0,
+            "wood": 150
+          },
+          "owner": 1,
+          "position": [
+            1664.0,
+            1408.0
+          ],
+          "time": 141.016666666671
+        },
+        {
+          "id": 1075939645214,
+          "kind": "farms_completed",
+          "owner": 0,
+          "time": 148.70000000001
+        },
+        {
+          "id": 1101743003253,
+          "kind": "farms_completed",
+          "owner": 1,
+          "time": 154.433333333348
+        }
+      ],
+      "status": "natural_completed",
+      "game_seconds": 543.366666666501,
+      "winner": 0,
+      "reason": "Sacred Site held for 3:00",
+      "first_contact": 183.350000000038,
+      "age_times": [
+        {
+          "1": 0.0,
+          "2": 156.016666666683,
+          "3": 493.516666666546
+        },
+        {
+          "1": 0.0,
+          "2": 150.016666666678
+        }
+      ],
+      "final_totals": [
+        {
+          "farm_foundations": 3,
+          "farms_completed": 3,
+          "food_deposited_with_farm_job": 2525,
+          "post_foundations": 0,
+          "posts_completed": 0,
+          "trade_deliveries": 0,
+          "trade_gold": 0,
+          "traders_born": 0,
+          "traders_cancelled": 0,
+          "traders_queued": 0
+        },
+        {
+          "farm_foundations": 3,
+          "farms_completed": 3,
+          "food_deposited_with_farm_job": 2318,
+          "post_foundations": 0,
+          "posts_completed": 0,
+          "trade_deliveries": 0,
+          "trade_gold": 0,
+          "traders_born": 0,
+          "traders_cancelled": 0,
+          "traders_queued": 0
+        }
+      ],
+      "deposits": [
+        {
+          "food": 3580,
+          "gold": 830,
+          "wood": 2013
+        },
+        {
+          "food": 3247,
+          "gold": 830,
+          "wood": 2062
+        }
+      ],
+      "first_home_damage": [
+        -1.0,
+        -1.0
+      ],
+      "runtime_source_hashes": {
+        "scenes/buildings/trade_post.tscn": "4579a90cb7f2b91b1aeb374bb123c810095634b7ffa0d98d330682ae99382822",
+        "scripts/ai/ai_controller.gd": "d45855adf8bb4044dc1e6bd4339b94f1af44ff1f3629bd4493a1b08d1171353a",
+        "scripts/audio/sample_palette.gd": "ce42fb50d2b55a40469c136e3106305276c60107a51a932514cc3ee2eb3054a9",
+        "scripts/buildings/building_base.gd": "18bdb9b8d42de9d06ded56d5c4ed34db6a43a303c1e0d9ba02344ffba432fd0b",
+        "scripts/buildings/building_placement.gd": "06f1e7ab95d5096684d6ed0f8211af04af8575f4b22a9bde7e5d5173d5758c5d",
+        "scripts/buildings/production_queue.gd": "35e0d9d9a7ff306283d29cf954d7c758e1564d1223d483ee6ff3a3cd39209005",
+        "scripts/data/building_data.gd": "bc08ab5bc72f76cca81b8f6feaf95b433cdea1739b95e6988f2e6718eb7aabee",
+        "scripts/data/civilization_data.gd": "1258a20798310a50beb04f931b00264eb78ff450caeb35a6ad63ef588cadfbee",
+        "scripts/data/kingdom_art.gd": "58000f8f3add30da604836376237ac1525f91817c8eb2d4e98d0baf53905f406",
+        "scripts/data/skirmish_data.gd": "7c512a3e745beb3dac161bf56bde078753da5c0110d8534d98dacb466d9205e0",
+        "scripts/data/tech_data.gd": "35e940a26e7cbed97994136df6ea2c729252d38f25e718dc75b80b4aa7da68c9",
+        "scripts/data/unit_data.gd": "7561ee5e04d95c82b0f88f0e106a8eee09f20b39fc874d3d664fcdd0bff0d322",
+        "scripts/main/attack_march_cohesion.gd": "85da560c0cd9df83fc619c500e8d21a37d122b1651d57d84012d5d14c336efd0",
+        "scripts/main/battle_receipts.gd": "1abec02edd603478d90b5470ac52e6601cb9d10e40bbbbdda8fd97f2db484e1f",
+        "scripts/main/group_order_planner.gd": "def636c72a14639617cb77e57e0f6a2f8a9082cdae8f602579fea4cd810e11d6",
+        "scripts/main/main.gd": "bc30d6b7fb62dc0792f5d0e703327962b9898967339fc9b371f3f8ba0ae70e63",
+        "scripts/main/match_background_guard.gd": "b88548610de9900f395b4b12e4d60dfbb0f709bbc93261a2dfad0b13a961c162",
+        "scripts/main/match_debrief.gd": "de7202438c7a267b812ff8fa53a2340f48dba51b06bbeaf86031b3ebae0cd41c",
+        "scripts/main/match_learning.gd": "0ed0295d5100044ae8725588ed478b8222789881bbbaf305294f8848235df0fc",
+        "scripts/main/pending_attack_march.gd": "818f1012b3c8aa511c504105929e6977ae0886be6120636d4914b84be9a04669",
+        "scripts/main/solo_match_state.gd": "ae31e6e28958a0c67250a485fcd5aa5eae47cb565fa87cc0b7259099ebde5dad",
+        "scripts/main/worker_order_undo.gd": "4dc119225c5ee70f3e2ebcf3f33cc3b39822c1ac4529c0010774d9711fbe0739",
+        "scripts/managers/audio_manager.gd": "61cd23de8966aecd027202b3772494d03f159a081f267b46400fb7143b47ba0b",
+        "scripts/managers/economy_assessment.gd": "8ba53a886326c726e8da428cfd3ef41af63d925c2cab2e5a29f5f4302454e34b",
+        "scripts/managers/fog_manager.gd": "da9cb0dcd1a40afa399d9d91ff149f3847c41180c987ad68afd2692ab1e3105b",
+        "scripts/managers/game_manager.gd": "6f656af08d30ae33ed72ae9ee3a8bb931e6c8f7393a7af08451c4ad36e4a63dd",
+        "scripts/managers/playtest_diagnostics.gd": "cadde648e2c0ffb1ae74037484147884419d05f2029259d62d0feee02ecf8b6d",
+        "scripts/managers/resource_manager.gd": "6aff20fcdd5beda7496b4f5f1bc6d445ca8f2039628ddd110e03c1eea68a3b01",
+        "scripts/managers/runtime_game_bridge.gd": "12937bda0117c376fb0184c770427cd0b367044d6a410e56297f1e22e33c9aa0",
+        "scripts/managers/selection_manager.gd": "747152f30683e2c94cd4749f47aa4683485076d6912eb74d3b8d97ed5dc272d5",
+        "scripts/managers/solo_save.gd": "c40cbb537ce59d67836d683873e2eda696f08aaaffde0412091b7bf15fc9748d",
+        "scripts/managers/strategy_controller.gd": "26e515e5c97808eabd970eb6559e4cb0e8f2da7fcda22cb6e49c902d130a28fe",
+        "scripts/map/fog_memory.gd": "7428340fdf680618de05e19f6621057676706810e3a16bfb874c3ccfc74051c1",
+        "scripts/map/game_map.gd": "f58779f5fca7967e78ce3c952e840a4dcaa6efa66b035bd45f123172acbe4900",
+        "scripts/map/live_unit_index.gd": "5c2f2f06abb7f7f25e802ff4519658d379005ffbd3d7bddd3344fdf285238af5",
+        "scripts/map/map_data.gd": "b6b8a826dcb588c641a43eac11af2bfcb2488c40801c36e6050c675e803d442a",
+        "scripts/map/map_generator.gd": "be8b2bb8bcaef0913efa733e81093aae3094df57686119c0fe0ac81c61937b8c",
+        "scripts/map/pathfinding.gd": "ecebdc72d9e829d4d6ca0c2d6a82755d57f97288bc8ff02a5ea0ac1c8bb872a4",
+        "scripts/map/resource_node.gd": "3063cf25f1eb47372c6eff420d8e6a31d5efd54e2e49abbfb2f83f4f1a77a5d8",
+        "scripts/map/sacred_site.gd": "527cf2633158587ddc85d3b93c5b71d1e94f7fc9f1cd7e3c4e5d0c5f8989bcdc",
+        "scripts/map/tileset_builder.gd": "cafb94f81443c3c0d63b3a6e71d2ee9a6709981bf847df96fcc4ff85b1b429e7",
+        "scripts/network/network_session.gd": "8784f67633078aa81f42535bbb3fff00eb377fdb6b9ee8f879817fe7e185c14a",
+        "scripts/ui/battlefield_feedback.gd": "4c524a6afb903d0202f36caa281883499ef9baec7a182ffcdaf99502f745cf4a",
+        "scripts/ui/build_menu.gd": "53c9ce5cd78389f2b3a7c70a187b9969c50a3868ea9d97e43021b8c3f18c9c54",
+        "scripts/ui/command_icons.gd": "e7e12b7024c4b7f508189d6425cb8b38cd34d4d2652c62cf7865dbce0184ce49",
+        "scripts/ui/command_path_overlay.gd": "63082aec896d89549261efcfb0b06d86018cef8c03cac01e7a5552cd70a0d5d1",
+        "scripts/ui/compact_action_tile.gd": "505da245249db3cc48aec4b9396538df7f956d817e48b7a21c585663e9fcc43e",
+        "scripts/ui/debug_bootstrap.gd": "dcc3a3f6d8ae5f3acfb8d67a19a245aa3f4958e1fbdcf7864f7ba2d88a9dc0f2",
+        "scripts/ui/debug_panel.gd": "9a8ea124cfea6ad985aa058128a7274aaa869f659a402345c6102ad993d31572",
+        "scripts/ui/field_guide.gd": "6039ec7682761050b02a96d7d7f73c6c303228a88619106bd3ca8b3d05e56a5d",
+        "scripts/ui/field_style.gd": "2efcd9c4c44bd1317ca92e7a14d62a54f66ed95110441b64bc0a564cd8e888d6",
+        "scripts/ui/game_over_screen.gd": "40607b881f608d87bd2e5c50b1476850be24d03d83640a320141ce4dcc75091d",
+        "scripts/ui/hud.gd": "9549ab2b131011b7620011bb06d64e5e0bd1c14967d5a9e04da6b8abc75f8c4f",
+        "scripts/ui/hud_hold_control.gd": "309a636e12ebb7b2bfdd61ed4988c9fdd6ad3d9d5fb016a847f8e694ca3a0740",
+        "scripts/ui/kingdom_theme.gd": "fb4395e96a02434e09fc4a9d93f8c5bd1a68f0dc516f8ddefb72b612bbf11c07",
+        "scripts/ui/modal_dismiss_shield.gd": "7a0ac89f1399efbc8083636fe6331d08e0b3609c54d5bfb4fd120ebc0d9246f8",
+        "scripts/ui/strategy_overview.gd": "e8c14b09566654ddd1ff17cd9e659362e3bd1b6cd919eb3d209f0812311b9cae",
+        "scripts/ui/unit_occlusion_overlay.gd": "ac63221941dc8486e13a36a4d2e0cc470475f59918e60b76ab84b2fbffddb9b1",
+        "scripts/ui/web_shell_bridge.gd": "9532494d9ca2ba9d16f9c54736b3323490496a26cf6b40ba228c9120a03adb5b",
+        "scripts/units/auto_targeting.gd": "88b3759030c034c3bbbc3b7ed6d5db6d5fbea4717fcc2c8f3930d817c849eccd",
+        "scripts/units/combat.gd": "93951cb0fc519ab2b7c4cb42ecb3bafc7abb55d8b4beed468ca962359b208fe9",
+        "scripts/units/trade_preview.gd": "dd33ab03c03738952837227701c1649de526e8cca43e098ac42c73f51e0a7a6a",
+        "scripts/units/trader.gd": "42b937533c5427232c89287dca541bd2826136e8d17298257e957a4b4074d724",
+        "scripts/units/unit_action_presentation.gd": "5f9e36ef56b8caf34f4380aa357dec207e247643112ece47fa6b8fa102492df2",
+        "scripts/units/unit_base.gd": "0917ebf1357826abecb72080f9ff671fbbe5cf63b1ede16912ae7782bf5e32fd",
+        "scripts/units/villager.gd": "04896484eedb16430b5a0819ce7e24a8e509dfaa3e033478bc6f38bcd20a30c3",
+        "scripts/vfx/vfx.gd": "c0e38ef08aef3dd6d01707265859d52e458404c0cd8064db1b85cf359f67bf68",
+        "tools/probe_ai_compact_paid_match.gd": "765fa1c13bceafc4754cfb82f15e0ac4ef4a309c5157ac6ffb7ff9ae34e4c68b",
+        "tools/probe_late_economy_pacing.gd": "58bda6d68f9fd4b4fd119017db7af21f568acee40644955ff408613f5d76e5d7"
+      },
+      "report_sha256": "dd1ddb40c76f09f1c4ec8afd24f0c288184c402fb2a3d8518149de39bf5ccf51",
+      "wall_seconds": 507.59,
+      "sacred_sample_resolution_seconds": 20,
+      "sacred_history": [
+        {
+          "time": 0.0,
+          "hold_elapsed": 0.0,
+          "owner": -1,
+          "state": 0
+        },
+        {
+          "time": 20.0000000000001,
+          "hold_elapsed": 0.0,
+          "owner": -1,
+          "state": 0
+        },
+        {
+          "time": 40.0166666666657,
+          "hold_elapsed": 0.0,
+          "owner": -1,
+          "state": 0
+        },
+        {
+          "time": 60.0333333333312,
+          "hold_elapsed": 0.0,
+          "owner": -1,
+          "state": 0
+        },
+        {
+          "time": 80.0499999999967,
+          "hold_elapsed": 0.0,
+          "owner": -1,
+          "state": 0
+        },
+        {
+          "time": 100.066666666662,
+          "hold_elapsed": 0.0,
+          "owner": -1,
+          "state": 0
+        },
+        {
+          "time": 120.083333333328,
+          "hold_elapsed": 0.0,
+          "owner": -1,
+          "state": 0
+        },
+        {
+          "time": 140.083333333337,
+          "hold_elapsed": 0.0,
+          "owner": -1,
+          "state": 0
+        },
+        {
+          "time": 160.083333333353,
+          "hold_elapsed": 0.0,
+          "owner": -1,
+          "state": 0
+        },
+        {
+          "time": 180.083333333369,
+          "hold_elapsed": 0.0,
+          "owner": -1,
+          "state": 0
+        },
+        {
+          "time": 200.083333333385,
+          "hold_elapsed": 0.0,
+          "owner": 0,
+          "state": 1
+        },
+        {
+          "time": 220.083333333401,
+          "hold_elapsed": 0.0,
+          "owner": -1,
+          "state": 0
+        },
+        {
+          "time": 240.083333333417,
+          "hold_elapsed": 0.0,
+          "owner": -1,
+          "state": 0
+        },
+        {
+          "time": 260.083333333425,
+          "hold_elapsed": 0.0,
+          "owner": 1,
+          "state": 1
+        },
+        {
+          "time": 280.100000000074,
+          "hold_elapsed": 0.0,
+          "owner": 1,
+          "state": 3
+        },
+        {
+          "time": 300.116666666722,
+          "hold_elapsed": 0.0,
+          "owner": 1,
+          "state": 3
+        },
+        {
+          "time": 320.133333333371,
+          "hold_elapsed": 0.0,
+          "owner": 0,
+          "state": 1
+        },
+        {
+          "time": 340.150000000019,
+          "hold_elapsed": 9.48333333333338,
+          "owner": 0,
+          "state": 2
+        },
+        {
+          "time": 360.166666666668,
+          "hold_elapsed": 25.6833333333332,
+          "owner": 0,
+          "state": 3
+        },
+        {
+          "time": 380.183333333316,
+          "hold_elapsed": 39.3333333333324,
+          "owner": 0,
+          "state": 2
+        },
+        {
+          "time": 400.199999999965,
+          "hold_elapsed": 55.1499999999982,
+          "owner": 0,
+          "state": 2
+        },
+        {
+          "time": 420.216666666613,
+          "hold_elapsed": 72.0333333333305,
+          "owner": 0,
+          "state": 2
+        },
+        {
+          "time": 440.233333333262,
+          "hold_elapsed": 92.0499999999961,
+          "owner": 0,
+          "state": 2
+        },
+        {
+          "time": 460.24999999991,
+          "hold_elapsed": 104.199999999995,
+          "owner": 0,
+          "state": 2
+        },
+        {
+          "time": 480.266666666559,
+          "hold_elapsed": 122.066666666661,
+          "owner": 0,
+          "state": 2
+        },
+        {
+          "time": 500.283333333207,
+          "hold_elapsed": 142.083333333339,
+          "owner": 0,
+          "state": 2
+        },
+        {
+          "time": 520.299999999855,
+          "hold_elapsed": 156.93333333335,
+          "owner": 0,
+          "state": 2
+        },
+        {
+          "time": 540.316666666504,
+          "hold_elapsed": 176.950000000033,
+          "owner": 0,
+          "state": 2
+        }
+      ],
+      "remaining_percent_at_last_sample": {
+        "food": 74.72,
+        "gold": 72.22,
+        "wood": 74.22
+      }
+    },
+    {
+      "case": "map4-seed7",
+      "log": "C:\\Users\\ben4m\\Documents\\Codex\\2026-10-26\\improve-pocket-kingdoms-at-game-4mn\\work\\late-economy-beta13.1\\map4-seed7.log",
+      "log_sha256": "3611b867112af5da421dab3b111e73d9fd41df4f7a99c998f0b8abc0ea307f19",
+      "diagnostics": [],
+      "samples": [
+        {
+          "players": [
+            {
+              "active_farms": 0,
+              "active_posts": 0,
+              "age": 1,
+              "bank": {
+                "food": 250,
+                "gold": 100,
+                "wood": 250
+              },
+              "lifetime": {
+                "farm_foundations": 0,
+                "farms_completed": 0,
+                "food_deposited_with_farm_job": 0,
+                "post_foundations": 0,
+                "posts_completed": 0,
+                "trade_deliveries": 0,
+                "trade_gold": 0,
+                "traders_born": 0,
+                "traders_cancelled": 0,
+                "traders_queued": 0
+              },
+              "staffed_farms": 0,
+              "trade_policy": {
+                "clock": 0.0,
+                "cursor": 0,
+                "next_check": 0.0,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": []
+            },
+            {
+              "active_farms": 0,
+              "active_posts": 0,
+              "age": 1,
+              "bank": {
+                "food": 250,
+                "gold": 100,
+                "wood": 250
+              },
+              "lifetime": {
+                "farm_foundations": 0,
+                "farms_completed": 0,
+                "food_deposited_with_farm_job": 0,
+                "post_foundations": 0,
+                "posts_completed": 0,
+                "trade_deliveries": 0,
+                "trade_gold": 0,
+                "traders_born": 0,
+                "traders_cancelled": 0,
+                "traders_queued": 0
+              },
+              "staffed_farms": 0,
+              "trade_policy": {
+                "clock": 0.0,
+                "cursor": 0,
+                "next_check": 0.0,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": []
+            }
+          ],
+          "time": 0.0,
+          "whole_map_remaining_audit_only": {
+            "food": 7920,
+            "gold": 5980,
+            "wood": 15686
+          }
+        },
+        {
+          "players": [
+            {
+              "active_farms": 1,
+              "active_posts": 0,
+              "age": 1,
+              "bank": {
+                "food": 68,
+                "gold": 132,
+                "wood": 35
+              },
+              "lifetime": {
+                "farm_foundations": 1,
+                "farms_completed": 1,
+                "food_deposited_with_farm_job": 60,
+                "post_foundations": 0,
+                "posts_completed": 0,
+                "trade_deliveries": 0,
+                "trade_gold": 0,
+                "traders_born": 0,
+                "traders_cancelled": 0,
+                "traders_queued": 0
+              },
+              "staffed_farms": 0,
+              "trade_policy": {
+                "clock": 60.0166666666645,
+                "cursor": 0,
+                "next_check": 0.0,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": []
+            },
+            {
+              "active_farms": 1,
+              "active_posts": 0,
+              "age": 1,
+              "bank": {
+                "food": 40,
+                "gold": 130,
+                "wood": 35
+              },
+              "lifetime": {
+                "farm_foundations": 1,
+                "farms_completed": 1,
+                "food_deposited_with_farm_job": 30,
+                "post_foundations": 0,
+                "posts_completed": 0,
+                "trade_deliveries": 0,
+                "trade_gold": 0,
+                "traders_born": 0,
+                "traders_cancelled": 0,
+                "traders_queued": 0
+              },
+              "staffed_farms": 1,
+              "trade_policy": {
+                "clock": 60.0166666666645,
+                "cursor": 0,
+                "next_check": 0.0,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": []
+            }
+          ],
+          "time": 60.0166666666645,
+          "whole_map_remaining_audit_only": {
+            "food": 7829,
+            "gold": 5897,
+            "wood": 15473
+          }
+        },
+        {
+          "players": [
+            {
+              "active_farms": 1,
+              "active_posts": 0,
+              "age": 1,
+              "bank": {
+                "food": 148,
+                "gold": 162,
+                "wood": 50
+              },
+              "lifetime": {
+                "farm_foundations": 2,
+                "farms_completed": 1,
+                "food_deposited_with_farm_job": 150,
+                "post_foundations": 0,
+                "posts_completed": 0,
+                "trade_deliveries": 0,
+                "trade_gold": 0,
+                "traders_born": 0,
+                "traders_cancelled": 0,
+                "traders_queued": 0
+              },
+              "staffed_farms": 1,
+              "trade_policy": {
+                "clock": 120.033333333328,
+                "cursor": 0,
+                "next_check": 0.0,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": []
+            },
+            {
+              "active_farms": 1,
+              "active_posts": 0,
+              "age": 1,
+              "bank": {
+                "food": 170,
+                "gold": 160,
+                "wood": 35
+              },
+              "lifetime": {
+                "farm_foundations": 2,
+                "farms_completed": 1,
+                "food_deposited_with_farm_job": 180,
+                "post_foundations": 0,
+                "posts_completed": 0,
+                "trade_deliveries": 0,
+                "trade_gold": 0,
+                "traders_born": 0,
+                "traders_cancelled": 0,
+                "traders_queued": 0
+              },
+              "staffed_farms": 1,
+              "trade_policy": {
+                "clock": 120.033333333328,
+                "cursor": 0,
+                "next_check": 0.0,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": []
+            }
+          ],
+          "time": 120.033333333328,
+          "whole_map_remaining_audit_only": {
+            "food": 7618,
+            "gold": 5858,
+            "wood": 14838
+          }
+        },
+        {
+          "players": [
+            {
+              "active_farms": 3,
+              "active_posts": 0,
+              "age": 2,
+              "bank": {
+                "food": 95,
+                "gold": 2,
+                "wood": 19
+              },
+              "lifetime": {
+                "farm_foundations": 3,
+                "farms_completed": 3,
+                "food_deposited_with_farm_job": 425,
+                "post_foundations": 0,
+                "posts_completed": 0,
+                "trade_deliveries": 0,
+                "trade_gold": 0,
+                "traders_born": 0,
+                "traders_cancelled": 0,
+                "traders_queued": 0
+              },
+              "staffed_farms": 2,
+              "trade_policy": {
+                "clock": 180.033333333369,
+                "cursor": 0,
+                "next_check": 0.0,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": []
+            },
+            {
+              "active_farms": 3,
+              "active_posts": 0,
+              "age": 2,
+              "bank": {
+                "food": 0,
+                "gold": 30,
+                "wood": 15
+              },
+              "lifetime": {
+                "farm_foundations": 3,
+                "farms_completed": 3,
+                "food_deposited_with_farm_job": 440,
+                "post_foundations": 0,
+                "posts_completed": 0,
+                "trade_deliveries": 0,
+                "trade_gold": 0,
+                "traders_born": 0,
+                "traders_cancelled": 0,
+                "traders_queued": 0
+              },
+              "staffed_farms": 2,
+              "trade_policy": {
+                "clock": 180.033333333369,
+                "cursor": 0,
+                "next_check": 0.0,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": []
+            }
+          ],
+          "time": 180.033333333369,
+          "whole_map_remaining_audit_only": {
+            "food": 7463,
+            "gold": 5800,
+            "wood": 14462
+          }
+        },
+        {
+          "players": [
+            {
+              "active_farms": 3,
+              "active_posts": 0,
+              "age": 2,
+              "bank": {
+                "food": 50,
+                "gold": 130,
+                "wood": 4
+              },
+              "lifetime": {
+                "farm_foundations": 3,
+                "farms_completed": 3,
+                "food_deposited_with_farm_job": 725,
+                "post_foundations": 0,
+                "posts_completed": 0,
+                "trade_deliveries": 0,
+                "trade_gold": 0,
+                "traders_born": 0,
+                "traders_cancelled": 0,
+                "traders_queued": 0
+              },
+              "staffed_farms": 3,
+              "trade_policy": {
+                "clock": 240.033333333416,
+                "cursor": 0,
+                "next_check": 0.0,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": []
+            },
+            {
+              "active_farms": 3,
+              "active_posts": 0,
+              "age": 2,
+              "bank": {
+                "food": 30,
+                "gold": 95,
+                "wood": 50
+              },
+              "lifetime": {
+                "farm_foundations": 3,
+                "farms_completed": 3,
+                "food_deposited_with_farm_job": 710,
+                "post_foundations": 0,
+                "posts_completed": 0,
+                "trade_deliveries": 0,
+                "trade_gold": 0,
+                "traders_born": 0,
+                "traders_cancelled": 0,
+                "traders_queued": 0
+              },
+              "staffed_farms": 3,
+              "trade_policy": {
+                "clock": 240.033333333416,
+                "cursor": 0,
+                "next_check": 0.0,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": []
+            }
+          ],
+          "time": 240.033333333416,
+          "whole_map_remaining_audit_only": {
+            "food": 7414,
+            "gold": 5556,
+            "wood": 13988
+          }
+        },
+        {
+          "players": [
+            {
+              "active_farms": 3,
+              "active_posts": 0,
+              "age": 2,
+              "bank": {
+                "food": 100,
+                "gold": 235,
+                "wood": 20
+              },
+              "lifetime": {
+                "farm_foundations": 3,
+                "farms_completed": 3,
+                "food_deposited_with_farm_job": 1115,
+                "post_foundations": 0,
+                "posts_completed": 0,
+                "trade_deliveries": 0,
+                "trade_gold": 0,
+                "traders_born": 0,
+                "traders_cancelled": 0,
+                "traders_queued": 0
+              },
+              "staffed_farms": 3,
+              "trade_policy": {
+                "clock": 300.050000000056,
+                "cursor": 0,
+                "next_check": 0.0,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": []
+            },
+            {
+              "active_farms": 3,
+              "active_posts": 0,
+              "age": 2,
+              "bank": {
+                "food": 70,
+                "gold": 265,
+                "wood": 50
+              },
+              "lifetime": {
+                "farm_foundations": 3,
+                "farms_completed": 3,
+                "food_deposited_with_farm_job": 1100,
+                "post_foundations": 0,
+                "posts_completed": 0,
+                "trade_deliveries": 0,
+                "trade_gold": 0,
+                "traders_born": 0,
+                "traders_cancelled": 0,
+                "traders_queued": 0
+              },
+              "staffed_farms": 3,
+              "trade_policy": {
+                "clock": 300.050000000056,
+                "cursor": 0,
+                "next_check": 0.0,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": []
+            }
+          ],
+          "time": 300.050000000056,
+          "whole_map_remaining_audit_only": {
+            "food": 7235,
+            "gold": 5246,
+            "wood": 13371
+          }
+        },
+        {
+          "players": [
+            {
+              "active_farms": 3,
+              "active_posts": 0,
+              "age": 2,
+              "bank": {
+                "food": 50,
+                "gold": 442,
+                "wood": 10
+              },
+              "lifetime": {
+                "farm_foundations": 3,
+                "farms_completed": 3,
+                "food_deposited_with_farm_job": 1445,
+                "post_foundations": 0,
+                "posts_completed": 0,
+                "trade_deliveries": 0,
+                "trade_gold": 0,
+                "traders_born": 0,
+                "traders_cancelled": 0,
+                "traders_queued": 0
+              },
+              "staffed_farms": 3,
+              "trade_policy": {
+                "clock": 360.066666666668,
+                "cursor": 0,
+                "next_check": 0.0,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": []
+            },
+            {
+              "active_farms": 3,
+              "active_posts": 0,
+              "age": 2,
+              "bank": {
+                "food": 50,
+                "gold": 200,
+                "wood": 80
+              },
+              "lifetime": {
+                "farm_foundations": 3,
+                "farms_completed": 3,
+                "food_deposited_with_farm_job": 1370,
+                "post_foundations": 0,
+                "posts_completed": 0,
+                "trade_deliveries": 0,
+                "trade_gold": 0,
+                "traders_born": 0,
+                "traders_cancelled": 0,
+                "traders_queued": 0
+              },
+              "staffed_farms": 3,
+              "trade_policy": {
+                "clock": 360.066666666668,
+                "cursor": 0,
+                "next_check": 0.0,
+                "under_pressure": true,
+                "worker_recovery": false
+              },
+              "traders": []
+            }
+          ],
+          "time": 360.066666666668,
+          "whole_map_remaining_audit_only": {
+            "food": 6996,
+            "gold": 4993,
+            "wood": 12690
+          }
+        },
+        {
+          "players": [
+            {
+              "active_farms": 3,
+              "active_posts": 0,
+              "age": 2,
+              "bank": {
+                "food": 40,
+                "gold": 486,
+                "wood": 10
+              },
+              "lifetime": {
+                "farm_foundations": 3,
+                "farms_completed": 3,
+                "food_deposited_with_farm_job": 1835,
+                "post_foundations": 0,
+                "posts_completed": 0,
+                "trade_deliveries": 0,
+                "trade_gold": 0,
+                "traders_born": 0,
+                "traders_cancelled": 0,
+                "traders_queued": 0
+              },
+              "staffed_farms": 3,
+              "trade_policy": {
+                "clock": 420.08333333328,
+                "cursor": 0,
+                "next_check": 0.0,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": []
+            },
+            {
+              "active_farms": 3,
+              "active_posts": 0,
+              "age": 2,
+              "bank": {
+                "food": 69,
+                "gold": 320,
+                "wood": 34
+              },
+              "lifetime": {
+                "farm_foundations": 3,
+                "farms_completed": 3,
+                "food_deposited_with_farm_job": 1670,
+                "post_foundations": 0,
+                "posts_completed": 0,
+                "trade_deliveries": 0,
+                "trade_gold": 0,
+                "traders_born": 0,
+                "traders_cancelled": 0,
+                "traders_queued": 0
+              },
+              "staffed_farms": 2,
+              "trade_policy": {
+                "clock": 420.08333333328,
+                "cursor": 0,
+                "next_check": 0.0,
+                "under_pressure": true,
+                "worker_recovery": false
+              },
+              "traders": []
+            }
+          ],
+          "time": 420.08333333328,
+          "whole_map_remaining_audit_only": {
+            "food": 6709,
+            "gold": 4859,
+            "wood": 12072
+          }
+        },
+        {
+          "players": [
+            {
+              "active_farms": 3,
+              "active_posts": 0,
+              "age": 2,
+              "bank": {
+                "food": 197,
+                "gold": 696,
+                "wood": 22
+              },
+              "lifetime": {
+                "farm_foundations": 3,
+                "farms_completed": 3,
+                "food_deposited_with_farm_job": 2225,
+                "post_foundations": 0,
+                "posts_completed": 0,
+                "trade_deliveries": 0,
+                "trade_gold": 0,
+                "traders_born": 0,
+                "traders_cancelled": 0,
+                "traders_queued": 0
+              },
+              "staffed_farms": 3,
+              "trade_policy": {
+                "clock": 480.099999999892,
+                "cursor": 0,
+                "next_check": 0.0,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": []
+            },
+            {
+              "active_farms": 3,
+              "active_posts": 0,
+              "age": 2,
+              "bank": {
+                "food": 193,
+                "gold": 420,
+                "wood": 29
+              },
+              "lifetime": {
+                "farm_foundations": 3,
+                "farms_completed": 3,
+                "food_deposited_with_farm_job": 1850,
+                "post_foundations": 0,
+                "posts_completed": 0,
+                "trade_deliveries": 0,
+                "trade_gold": 0,
+                "traders_born": 0,
+                "traders_cancelled": 0,
+                "traders_queued": 0
+              },
+              "staffed_farms": 3,
+              "trade_policy": {
+                "clock": 480.099999999892,
+                "cursor": 0,
+                "next_check": 0.0,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": []
+            }
+          ],
+          "time": 480.099999999892,
+          "whole_map_remaining_audit_only": {
+            "food": 6395,
+            "gold": 4690,
+            "wood": 11749
+          }
+        }
+      ],
+      "events": [
+        {
+          "id": 339923181943,
+          "kind": "farm_foundation",
+          "normal_cost": {
+            "food": 0,
+            "gold": 0,
+            "wood": 150
+          },
+          "owner": 0,
+          "position": [
+            -1856.0,
+            1312.0
+          ],
+          "time": 1.51666666666667
+        },
+        {
+          "id": 326249751370,
+          "kind": "farm_foundation",
+          "normal_cost": {
+            "food": 0,
+            "gold": 0,
+            "wood": 150
+          },
+          "owner": 1,
+          "position": [
+            1920.0,
+            1312.0
+          ],
+          "time": 1.51666666666667
+        },
+        {
+          "id": 339923181943,
+          "kind": "farms_completed",
+          "owner": 0,
+          "time": 11.9500000000002
+        },
+        {
+          "id": 326249751370,
+          "kind": "farms_completed",
+          "owner": 1,
+          "time": 11.9500000000002
+        },
+        {
+          "id": 953247868661,
+          "kind": "farm_foundation",
+          "normal_cost": {
+            "food": 0,
+            "gold": 0,
+            "wood": 150
+          },
+          "owner": 1,
+          "position": [
+            2176.0,
+            1408.0
+          ],
+          "time": 108.016666666662
+        },
+        {
+          "id": 991416033592,
+          "kind": "farm_foundation",
+          "normal_cost": {
+            "food": 0,
+            "gold": 0,
+            "wood": 150
+          },
+          "owner": 0,
+          "position": [
+            -1600.0,
+            1408.0
+          ],
+          "time": 112.516666666662
+        },
+        {
+          "id": 953247868661,
+          "kind": "farms_completed",
+          "owner": 1,
+          "time": 122.566666666661
+        },
+        {
+          "id": 991416033592,
+          "kind": "farms_completed",
+          "owner": 0,
+          "time": 125.733333333327
+        },
+        {
+          "id": 1160966579952,
+          "kind": "farm_foundation",
+          "normal_cost": {
+            "food": 0,
+            "gold": 0,
+            "wood": 150
+          },
+          "owner": 0,
+          "position": [
+            -2112.0,
+            1408.0
+          ],
+          "time": 135.016666666666
+        },
+        {
+          "id": 1186769937928,
+          "kind": "farm_foundation",
+          "normal_cost": {
+            "food": 0,
+            "gold": 0,
+            "wood": 150
+          },
+          "owner": 1,
+          "position": [
+            1664.0,
+            1408.0
+          ],
+          "time": 141.016666666671
+        },
+        {
+          "id": 1160966579952,
+          "kind": "farms_completed",
+          "owner": 0,
+          "time": 148.70000000001
+        },
+        {
+          "id": 1186769937928,
+          "kind": "farms_completed",
+          "owner": 1,
+          "time": 154.433333333348
+        }
+      ],
+      "status": "incomplete_wall_cap",
+      "last_sampled_game_seconds": 480.099999999892,
+      "final_totals_observed": [
+        {
+          "farm_foundations": 3,
+          "farms_completed": 3,
+          "food_deposited_with_farm_job": 2225,
+          "post_foundations": 0,
+          "posts_completed": 0,
+          "trade_deliveries": 0,
+          "trade_gold": 0,
+          "traders_born": 0,
+          "traders_cancelled": 0,
+          "traders_queued": 0
+        },
+        {
+          "farm_foundations": 3,
+          "farms_completed": 3,
+          "food_deposited_with_farm_job": 1850,
+          "post_foundations": 0,
+          "posts_completed": 0,
+          "trade_deliveries": 0,
+          "trade_gold": 0,
+          "traders_born": 0,
+          "traders_cancelled": 0,
+          "traders_queued": 0
+        }
+      ],
+      "first_contact": 183.350000000038,
+      "sacred_sample_resolution_seconds": 120,
+      "sacred_history": [
+        {
+          "time": 0,
+          "owner": -1,
+          "state": 0,
+          "hold_elapsed": 0.0
+        },
+        {
+          "time": 120,
+          "owner": -1,
+          "state": 0,
+          "hold_elapsed": 0.0
+        },
+        {
+          "time": 240,
+          "owner": -1,
+          "state": 0,
+          "hold_elapsed": 0.0
+        },
+        {
+          "time": 360,
+          "owner": 0,
+          "state": 3,
+          "hold_elapsed": 24.3833333333332
+        },
+        {
+          "time": 480,
+          "owner": 0,
+          "state": 2,
+          "hold_elapsed": 137.400000000001
+        }
+      ],
+      "remaining_percent_at_last_sample": {
+        "food": 80.74,
+        "gold": 78.43,
+        "wood": 74.9
+      }
+    }
+  ]
+}

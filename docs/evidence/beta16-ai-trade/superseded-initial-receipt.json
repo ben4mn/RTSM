@@ -1,0 +1,23 @@
+{
+  "runtime_revision": "d614dc81978b1eb8c1508b0fe74119d3f0cfb6ce",
+  "observer_sha256": {
+    "tools/probe_late_economy_pacing.gd": "743a8cf678755fccbb84ad135b072952dd28c294a9880ce6b7eda2577eb4173a",
+    "tools/probe_late_economy_pacing.tscn": "269df2cbc0f8af175cf6cd9356755acff754cb97649e059fda4d7cfcaf191c7b",
+    "tools/fixtures/pacing_solo_save.gd": "ec06d7a703eea5cc475b85c96c49aa11de0f3a83b1c17670b4dc81e1a8a70082",
+    "tools/fixtures/pacing_sacred_continuation.gd": "f98509cd4399d1e446bd0ea5e650e9bacf63c0498ff30701a2fd5abc516138bf",
+    "tools/run_late_economy_pacing.py": "e3afade3e223581ee7e3b88e017e85f8114ac83b3a1a2870999e1b9aeccadf23"
+  },
+  "scope": "Sequential paid Standard 100 simulations, three starting workers, Crownlands both; difficulties listed per case and only Sacred conclusion suppressed; Town Center defeat retained; counterfactual, not a natural-duration sample. Headless/no render. Autosave disabled only by runner autoload override; not persistence, human or phone evidence.",
+  "requested_cases": [
+    [
+      1,
+      424242,
+      2,
+      2
+    ]
+  ],
+  "sacred_continuation": true,
+  "game_seconds_cap": 1500.0,
+  "wall_seconds_cap": 2400.0,
+  "runs": []
+}

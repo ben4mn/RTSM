@@ -19,6 +19,11 @@ const THEME_SCRIPT := preload("res://scripts/ui/kingdom_theme.gd")
 const DISMISS_SHIELD := preload("res://scripts/ui/modal_dismiss_shield.gd")
 const INFO_FOOTER: String = "Release to close · Tap Info for all details"
 
+# Paid finite repetition opts in; world holds keep their existing meaning.
+var repeat_action: Callable = Callable()
+var repeat_interval_msec: int = 240
+var _next_repeat_msec: int = 0
+var _repeat_count: int = 0
 var hold_enabled: bool = true
 var hold_msec: int = HOLD_MSEC
 var move_tolerance: float = MOVE_TOLERANCE
@@ -173,6 +178,10 @@ func _process(_delta: float) -> void:
 		cancel_gesture("invalid_context")
 		return
 	if _canceled:
+		return
+	if _consumed and repeat_action.is_valid():
+		if Time.get_ticks_msec() >= _next_repeat_msec:
+			_repeat_once()
 		return
 	var elapsed: int = Time.get_ticks_msec() - _started_msec
 	if not _consumed:
@@ -468,6 +477,10 @@ func _activate_hold() -> void:
 	_consumed = true
 	_reset_native_button()
 	_hide_progress()
+	if repeat_action.is_valid():
+		_repeat_count = 0
+		_repeat_once()
+		return
 	_info = get_info()
 	_choices.clear()
 	if _choices_provider.is_valid():
@@ -485,6 +498,26 @@ func _activate_hold() -> void:
 		_show_info()
 	else:
 		_show_chooser()
+
+
+func _repeat_once() -> void:
+	_next_repeat_msec = Time.get_ticks_msec() + repeat_interval_msec
+	if not _holds_allowed() or _button.disabled or not _context_valid() or not _button.get_global_rect().has_point(_current_position) or not bool(repeat_action.call()):
+		cancel_gesture("repeat_limit")
+		return
+	_repeat_count += 1
+	if not is_instance_valid(_progress):
+		_show_progress()
+	if is_instance_valid(_progress):
+		_progress.value = 1.0
+	if not is_instance_valid(_preview):
+		_preview = Label.new()
+		_preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_preview.add_theme_font_size_override("font_size", 12)
+		_preview.z_index = 200
+		_preview.position = _button.get_global_rect().position - Vector2(0, 24)
+		add_child(_preview)
+	_preview.text = "+%d queued · release to stop" % _repeat_count
 
 
 func _context_valid() -> bool:
