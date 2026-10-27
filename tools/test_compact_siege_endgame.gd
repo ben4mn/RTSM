@@ -30,18 +30,31 @@ func _run() -> void:
 	GameManager.increase_population_cap(1, 30)
 	ResourceManager.initialize_player(1, {"food": 10000, "wood": 10000, "gold": 10000})
 	var tc: BuildingBase = ai._find_trainable_building_of_type(BuildingData.BuildingType.TOWN_CENTER)
-	for index: int in range(4 if easy_cap_fixture else 6):
+	var limit: int = GameManager.get_player_population_limit(1)
+	var escorts: int = SkirmishData.get_easy_fighter_target(limit) if easy_cap_fixture else maxi(3, ai._get_attack_threshold())
+	var siege_pop: int = int(UnitData.UNITS[UnitData.UnitType.SIEGE].pop_cost)
+	var scout_pop: int = int(UnitData.UNITS[UnitData.UnitType.SCOUT].pop_cost)
+	var worker_pop: int = int(UnitData.UNITS[UnitData.UnitType.VILLAGER].pop_cost)
+	var escort_pop: int = int(UnitData.UNITS[UnitData.UnitType.INFANTRY].pop_cost)
+	# The current roster already owns one Scout. Buy only missing capacity and
+	# leave the real three-pop Siege slot, including at Easy's twenty-pop cap.
+	var desired_workers: int = mini(ai._get_target_villager_count(), floori(float(limit - siege_pop - scout_pop - escorts * escort_pop) / worker_pop))
+	for index: int in maxi(0, desired_workers - ai._get_villagers().size()):
 		_expect(tc.get_production_queue().enqueue_unit(UnitData.UnitType.VILLAGER), "paid workforce trains")
-		tc.get_production_queue().advance(17.0)
-	_expect(tc.get_production_queue().enqueue_unit(UnitData.UnitType.SCOUT), "paid reconnaissance trains")
-	tc.get_production_queue().advance(9.0)
+		_complete_current_queue(tc.get_production_queue())
+	if ai._get_scouts().is_empty():
+		_expect(tc.get_production_queue().enqueue_unit(UnitData.UnitType.SCOUT), "missing paid reconnaissance trains")
+		_complete_current_queue(tc.get_production_queue())
 	for kind: int in [BuildingData.BuildingType.BARRACKS, BuildingData.BuildingType.ARCHERY_RANGE, BuildingData.BuildingType.STABLE]:
 		await _build_paid(kind)
 	var barracks: BuildingBase = ai._find_trainable_building_of_type(BuildingData.BuildingType.BARRACKS)
 	if barracks != null:
-		for index: int in range(SkirmishData.get_easy_fighter_target(20) if easy_cap_fixture else 3):
+		for index: int in escorts:
 			_expect(barracks.get_production_queue().enqueue_unit(UnitData.UnitType.INFANTRY), "paid escort trains")
-			barracks.get_production_queue().advance(13.0)
+			_complete_current_queue(barracks.get_production_queue())
+	_expect(ai._get_fighting_units().size() == escorts, "paid escort queues actually complete before policy is inspected")
+	_expect(not ai._needs_compact_worker_recovery() and GameManager.can_reserve_population(1, siege_pop), "mature paid workforce leaves the real Siege population slot")
+	evidence["paid_roster"] = {"workers": ai._get_villagers().size(), "scouts": ai._get_scouts().size(), "escorts": ai._get_fighting_units().size(), "committed_population": GameManager.get_committed_population(1), "limit": limit}
 	ai._update_ai_state()
 	var targets: Dictionary = ai._get_target_building_counts(3)
 	var plan: Array = ai._get_military_training_plan(ResourceManager.get_all_resources(1))
@@ -59,7 +72,7 @@ func _run() -> void:
 		if queue.get_queue_size() > 0:
 			_expect(ResourceManager.get_resource(1, "wood") == int(bank["wood"]) - 150 and ResourceManager.get_resource(1, "gold") == int(bank["gold"]) - 100, "siege pays exact shared cost")
 			_expect(GameManager.get_committed_population(1) == reserved + 3, "siege reserves three population slots")
-			queue.advance(36.0)
+			_complete_current_queue(queue)
 			evidence["paid_siege"] = ai._count_queued_unit(UnitData.UnitType.SIEGE)
 			var living: int = 0
 			for unit: UnitBase in ai._get_fighting_units():
@@ -120,3 +133,7 @@ func _build_paid(kind: int) -> BuildingBase:
 func _expect(condition: bool, message: String) -> void:
 	if not condition:
 		failures.append(message)
+
+
+func _complete_current_queue(queue: ProductionQueue) -> void:
+	queue.advance(maxf(0.0, queue.current_train_time - queue.current_progress) + 0.01)
