@@ -1,0 +1,26 @@
+=== [1/5] test_feedback_controls ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] feedback_controls: 25 checks; real touch/emulated release, finite paid queue/resources, repeat feedback, drag/cancel/multitouch/context/disabled holds, authoritative fixed speed
+[PASS] test_feedback_controls
+=== [2/5] test_network_trade_authority ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+{"checks":52,"failures":[],"scope":"actual authority command and simulation; sequential recipient snapshots; no sockets","simulated_first_delivery_seconds":[41.3499999999998,112.499999999996],"test":"network_trade_authority"}
+[PASS] test_network_trade_authority
+=== [3/5] test_trade_management ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+{"failures":[],"profiles":2,"scope":"real native ScreenTouch dispatch and Main/HUD with synthetic late-game actors; no paid-match or physical-device claim","test":"trade_management"}
+[PASS] test_trade_management
+=== [4/5] test_trade_routes ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+{"failures":[],"first_delivery_simulated_seconds":41.35,"gold_paid":39,"test":"trade_routes"}
+[PASS] test_trade_routes
+=== [5/5] test_trade_status ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+{"checks":28,"failures":[],"path_queries":16,"test":"trade_status"}
+[PASS] test_trade_status
+FOCUSED_SUITE: 5/5 passed
