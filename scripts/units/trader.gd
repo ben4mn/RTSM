@@ -14,6 +14,10 @@ var _visited_home: bool = false
 var _manual_pause: bool = false
 var _handling_left: float = 0.0
 var _retry_left: float = 0.0
+# Observation from the last route attempt, never a UI-triggered path search.
+# Kept ephemeral: restored routes show Finding route until movement is confirmed.
+enum RouteIssue { NONE, FINDING, MISSING_POST, MISSING_HOME, TOO_CLOSE, BLOCKED }
+var _route_issue: RouteIssue = RouteIssue.FINDING
 
 
 func _ready() -> void:
@@ -29,12 +33,18 @@ func _process(delta: float) -> void:
 	_retry_left = maxf(0.0, _retry_left - delta)
 	if _manual_pause: return
 	if not _endpoint_valid(trade_post) or not _endpoint_valid(home_town_center):
+		if trade_route_active: _route_issue = RouteIssue.FINDING
 		_clear_route()
 		if _retry_left <= 0.0:
 			_retry_left = 2.0
 			_find_route()
 		return
 	if not trade_route_active: return
+	if current_state == State.MOVING:
+		if _navigation_failed_repaths > 0 or _navigation_stall_repaths > 0:
+			_route_issue = RouteIssue.BLOCKED
+		elif path_index < path.size():
+			_route_issue = RouteIssue.NONE
 	if _handling_left > 0.0:
 		_handling_left = maxf(0.0, _handling_left - delta)
 		if _handling_left == 0.0: _depart()
@@ -43,11 +53,13 @@ func _process(delta: float) -> void:
 		var map: Node2D = _get_navigation_map()
 		var distance: float = map.get_building_work_distance(global_position, _destination.global_position, _destination.footprint) if map else INF
 		if distance > 46.0:
+			_route_issue = RouteIssue.BLOCKED
 			# Blockade or unreachable route: no payout, retry at a bounded cadence.
 			if _retry_left <= 0.0:
 				_retry_left = 2.0
 				_travel_to(_destination)
 			return
+		_route_issue = RouteIssue.NONE
 		if _destination == home_town_center:
 			if carried_gold > 0:
 				ResourceManager.add_resource(player_owner, "gold", carried_gold)
@@ -73,6 +85,7 @@ func _find_route() -> void:
 			nearest_distance = distance
 			nearest_post = building
 	if nearest_post != null: command_trade(nearest_post)
+	else: _route_issue = RouteIssue.MISSING_POST
 
 
 func command_trade(post: BuildingBase) -> bool:
@@ -80,16 +93,26 @@ func command_trade(post: BuildingBase) -> bool:
 	var best_home: BuildingBase = null
 	var longest_distance: float = MIN_ROUTE_DISTANCE
 	var map: Node2D = _get_navigation_map()
-	if map == null: return false
+	if map == null:
+		if not trade_route_active: _route_issue = RouteIssue.FINDING
+		return false
+	var has_home: bool = false
+	var has_distant_home: bool = false
 	for building: Node in get_tree().get_nodes_in_group("buildings"):
 		if not _endpoint_valid(building) or building.building_type != BuildingData.BuildingType.TOWN_CENTER: continue
+		has_home = true
 		var distance: float = post.global_position.distance_to(building.global_position)
 		if distance >= longest_distance:
+			has_distant_home = true
 			var route: PackedVector2Array = map.get_building_dropoff_world_path(post.global_position, building.global_position, building.footprint, 36.0)
 			if not route.is_empty():
 				longest_distance = distance
 				best_home = building
-	if best_home == null: return false
+	if best_home == null:
+		# A rejected new order leaves any existing route and its status intact.
+		if not trade_route_active:
+			_route_issue = RouteIssue.MISSING_HOME if not has_home else RouteIssue.TOO_CLOSE if not has_distant_home else RouteIssue.BLOCKED
+		return false
 	_clear_route()
 	trade_post = post
 	home_town_center = best_home
@@ -106,10 +129,31 @@ func get_trip_income() -> int:
 
 
 func get_trade_status() -> String:
-	if NetworkSession.is_client(): return str(get_meta("network_trade_status", "Waiting for route"))
+	if NetworkSession.is_client():
+		var status: String = str(get_meta("network_trade_status", ""))
+		return status if not status.is_empty() else "Finding route"
 	if _manual_pause: return "Trade paused · tap your Trade Post to resume"
-	if not trade_route_active: return "Build a Trade Post farther from your Town Center"
-	return "%d gold aboard · %d gold per round trip" % [carried_gold, get_trip_income()]
+	match _route_issue:
+		RouteIssue.MISSING_POST: return "Needs an active Trade Post"
+		RouteIssue.MISSING_HOME: return "Needs an active Town Center"
+		RouteIssue.TOO_CLOSE: return "Trade Post too close · build farther from Town Center"
+		RouteIssue.BLOCKED: return "Trade route blocked · retrying"
+		RouteIssue.FINDING: return "Finding route"
+	if not trade_route_active or not _endpoint_valid(trade_post) or not _endpoint_valid(home_town_center): return "Finding route"
+	if _handling_left > 0.0:
+		return "Loading · %d gold aboard" % carried_gold if _destination == trade_post else "Preparing next trip · %d gold per round trip" % get_trip_income()
+	if carried_gold > 0: return "Returning · %d gold aboard" % carried_gold
+	return "Travelling to Town Center" if _destination == home_town_center else "Travelling to Trade Post · %d gold per round trip" % get_trip_income()
+
+
+func needs_trade_attention() -> bool:
+	if NetworkSession.is_client():
+		# Replicas have no local route assignment. Interpret the already-sent
+		# authoritative status, including the previous protocol's income text.
+		var status: String = str(get_meta("network_trade_status", ""))
+		if int(get_meta("network_trade_income", 0)) <= 0: return true
+		return not (status.begins_with("Travelling to ") or status.begins_with("Loading · ") or status.begins_with("Returning · ") or status.begins_with("Preparing next trip · ") or status.contains("gold aboard · "))
+	return _manual_pause or not trade_route_active or _route_issue != RouteIssue.NONE or not _endpoint_valid(trade_post) or not _endpoint_valid(home_town_center)
 
 
 func _depart() -> void:
@@ -117,11 +161,16 @@ func _depart() -> void:
 
 
 func _travel_to(endpoint: BuildingBase) -> void:
-	if not _endpoint_valid(endpoint): return
+	if not _endpoint_valid(endpoint):
+		_route_issue = RouteIssue.FINDING
+		return
 	_destination = endpoint
 	var map: Node2D = _get_navigation_map()
-	if map == null: return
+	if map == null:
+		_route_issue = RouteIssue.FINDING
+		return
 	var route: PackedVector2Array = map.get_building_dropoff_world_path(global_position, endpoint.global_position, endpoint.footprint, 36.0)
+	_route_issue = RouteIssue.BLOCKED if route.is_empty() else RouteIssue.NONE
 	if not route.is_empty(): super.command_move_path(route)
 
 
