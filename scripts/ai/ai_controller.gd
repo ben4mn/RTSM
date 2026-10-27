@@ -103,6 +103,8 @@ var _pending_economy_rebalance_deadline: float = -INF
 var _economy_rebalance_deferred_scheduled: bool = false
 var _last_economy_action: String = "none"
 var _build_site_search_cursors: Dictionary = {}  # building_type -> bounded scalar cursor
+var _next_trade_decision: float = 0.0
+var _trade_site_cursor: int = 0
 
 # Build-order tracking (what we have built so far)
 var _town_center_count: int = 0
@@ -315,6 +317,8 @@ func start_ai(base_tile: Vector2i, base_world_pos: Vector2) -> void:
 	_feudal_paid_farm_foundations = 0
 	_feudal_paid_farm_foundation_ids.clear()
 	_build_site_search_cursors.clear()
+	_next_trade_decision = 0.0
+	_trade_site_cursor = 0
 	_base_tile = base_tile
 	_base_position = base_world_pos
 	_reset_economy_recovery()
@@ -597,6 +601,7 @@ func _on_decision_tick() -> void:
 	var rebuilding: bool = _check_rebuilding()
 	if not rebuilding:
 		_check_house_need()
+		_check_trade_economy()
 		_check_building_construction()
 	# Construction transactions need an IDLE/GATHERING builder at synchronous
 	# Main preflight. Only after those intents are dispatched may recovery move
@@ -1368,6 +1373,56 @@ func _check_building_construction() -> void:
 
 		ai_wants_to_build.emit(b_type, pos, false)
 		return  # Only build one thing per tick to stay responsive
+
+
+func _check_trade_economy() -> void:
+	# Invest before the bank is empty. Normal Main transactions still pay every
+	# foundation and recruit; this policy never grants income or reveals terrain.
+	if _game_time < maxf(600.0, _next_trade_decision) or GameManager.get_player_age(player_id) < 2:
+		return
+	_next_trade_decision = _game_time + 20.0
+	if _is_under_pressure or _needs_compact_worker_recovery() or game_map == null:
+		return
+	if not game_map.has_method("get_building_dropoff_world_path"): return
+	if ResourceManager.get_resource(player_id, "gold") > 180:
+		return
+	var tc: BuildingBase = _find_building_of_type(BuildingData.BuildingType.TOWN_CENTER) as BuildingBase
+	if tc == null or tc.state != BuildingBase.State.ACTIVE:
+		return
+	var posts: Array = _get_buildings_of_type(BuildingData.BuildingType.TRADE_POST)
+	if posts.is_empty():
+		var cost: Dictionary = BuildingData.get_building_cost(BuildingData.BuildingType.TRADE_POST)
+		if not ResourceManager.can_afford(player_id, cost): return
+		var footprint := Vector2i(2, 2)
+		var directions: Array[Vector2i] = [Vector2i(1, 0), Vector2i(1, 1), Vector2i(0, 1), Vector2i(-1, 1), Vector2i(-1, 0), Vector2i(-1, -1), Vector2i(0, -1), Vector2i(1, -1)]
+		# Eight candidates per interval; later intervals rotate around the base.
+		var threats: Array = _get_visible_worker_threats()
+		for attempt: int in 8:
+			var index: int = _trade_site_cursor % 32
+			_trade_site_cursor += 1
+			var anchor: Vector2i = _base_tile + directions[index % 8] * (16 + 4 * (index / 8))
+			var tile: Vector2i = _find_build_location_near_tile(anchor, footprint, 1, 3)
+			if tile == Vector2i(-1, -1): continue
+			var position: Vector2 = _tile_to_world(tile)
+			if position.distance_to(tc.global_position) < Trader.MIN_ROUTE_DISTANCE or _is_worker_position_exposed(position, threats): continue
+			var route: PackedVector2Array = game_map.get_building_dropoff_world_path(position, tc.global_position, tc.footprint, 36.0)
+			if route.is_empty(): continue
+			ai_wants_to_build.emit(BuildingData.BuildingType.TRADE_POST, tile, false)
+			return
+		return
+	var post: BuildingBase = posts[0] as BuildingBase
+	if post.state != BuildingBase.State.ACTIVE or post.global_position.distance_to(tc.global_position) < Trader.MIN_ROUTE_DISTANCE:
+		return
+	var return_route: PackedVector2Array = game_map.get_building_dropoff_world_path(post.global_position, tc.global_position, tc.footprint, 36.0)
+	if return_route.is_empty(): return
+	var committed: int = _count_queued_unit(UnitData.UnitType.TRADER)
+	for unit: Node in _my_units:
+		if is_instance_valid(unit) and unit is Trader and unit.current_state != UnitBase.State.DEAD:
+			committed += 1
+			if not unit.trade_route_active: unit.command_trade(post)
+	if committed >= 3 or not GameManager.can_reserve_population(player_id, 2): return
+	if ResourceManager.can_afford(player_id, UnitData.get_unit_cost(UnitData.UnitType.TRADER)):
+		ai_wants_to_train.emit(post, UnitData.UnitType.TRADER)
 
 
 func _check_rebuilding() -> bool:
@@ -3544,7 +3599,7 @@ func _count_queued_military_units() -> int:
 		for entry_variant: Variant in queue.get_queue_info():
 			var entry: Dictionary = entry_variant as Dictionary
 			var unit_type: int = int(entry.get("unit_type", -1))
-			if unit_type >= 0 and unit_type != UnitData.UnitType.VILLAGER:
+			if unit_type >= 0 and unit_type not in [UnitData.UnitType.VILLAGER, UnitData.UnitType.TRADER]:
 				count += 1
 	return count
 
@@ -3587,7 +3642,7 @@ func _get_military_units() -> Array:
 			continue
 		if unit.current_state == UnitBase.State.DEAD:
 			continue
-		if unit.unit_type != UnitData.UnitType.VILLAGER:
+		if unit.unit_type not in [UnitData.UnitType.VILLAGER, UnitData.UnitType.TRADER]:
 			result.append(unit)
 	return result
 
