@@ -28,12 +28,12 @@ const BUILDINGS: Dictionary = {
 	BuildingType.TOWN_CENTER: {
 		"name": "Town Center",
 		"hp": 5000,
-		"cost": { "food": 0, "wood": 400, "gold": 0 },
+		"cost": { "food": 0, "wood": 400, "gold": 100 },
 		"build_time": 60.0,
 		"pop_provided": 10,
 		"footprint": Vector2i(4, 4),
 		"can_train": [UnitData.UnitType.VILLAGER, UnitData.UnitType.SCOUT],
-		"age_required": 3,  # Extra TCs available in Castle Age
+		"age_required": 2,  # Paid expansion competes with saving for Castle.
 		"drop_off": ["food", "wood", "gold"],
 		# One short-range arrow buys retreat time; it does not shelter workers
 		# across the whole resource pocket or replace a defending army.

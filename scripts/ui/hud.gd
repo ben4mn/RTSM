@@ -2766,7 +2766,7 @@ func _get_age_up_preview(next_age: int) -> String:
 		lines.append("Unlocks buildings:")
 		for b_name in new_buildings:
 			lines.append("  + %s" % b_name)
-	# The starting Town Center already recruits Villagers and Scouts. Castle
+	# The starting Town Center already recruits Villagers and Scouts. Feudal
 	# unlocks extra Town Centers, not those opening units a second time.
 	var available_units: Array = []
 	for key in BuildingData.BUILDINGS:

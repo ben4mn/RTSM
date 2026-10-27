@@ -76,6 +76,10 @@ func _run() -> void:
 			GameManager.selected_difficulty = int(argument.trim_prefix("--difficulty="))
 		if argument.begins_with("--archetype="):
 			map_archetype = int(argument.trim_prefix("--archetype="))
+		if argument.begins_with("--civilization0="):
+			GameManager.selected_civilization = CivilizationData.normalize(int(argument.trim_prefix("--civilization0=")))
+		if argument.begins_with("--civilization1="):
+			GameManager.selected_opponent_civilization = CivilizationData.normalize(int(argument.trim_prefix("--civilization1=")))
 	# Work with the frozen pre-archetype baseline too; current builds always set
 	# an explicit map so persisted user preferences cannot contaminate probes.
 	for property: Dictionary in GameManager.get_property_list():
@@ -123,6 +127,7 @@ func _run() -> void:
 	match_scene.ai_controller.ai_attack_launched.connect(_attack.bind(1))
 	GameManager.game_over.connect(func(winner_id: int): ending = "game over"; winner = winner_id)
 	stats["initial_population_limits"] = [GameManager.get_player_population_limit(0), GameManager.get_player_population_limit(1)]
+	stats["civilizations"] = [GameManager.get_player_civilization(0), GameManager.get_player_civilization(1)]
 	stats["initial_resources"] = [ResourceManager.get_all_resources(0).duplicate(), ResourceManager.get_all_resources(1).duplicate()]
 	stats["first_contact"] = -1.0
 	stats["first_loss"] = [-1.0, -1.0]

@@ -1,6 +1,20 @@
 {
   "releases": [
     {
+      "id": "2026-10-27-openings-and-gold",
+      "date": "2026-10-27",
+      "version": "0.3.0-beta.17",
+      "title": "Openings and gold",
+      "summary": "Choose early pressure, a second town or a faster Castle age.",
+      "changes": [
+        "Extra Town Centers unlock in Feudal for 400 wood and 100 gold. Expansion competes with your army and Castle savings.",
+        "Archers cost 50 food, 70 wood and 20 gold; Horsemen cost 180 food, 20 wood and 40 gold. Warriors remain gold-free. Gathering rates and civilization bonuses are unchanged.",
+        "Opponents vary their openings, use their civilization and visible counters when recruiting, and prepare trade as safe mines run low.",
+        "New Standard battles require five guarded minutes at Sacred. Control race and the victory timers in existing saves are unchanged.",
+        "Saved production queues retain the exact resources already paid, including refunds for older recruits. Update before playing online."
+      ]
+    },
+    {
       "id": "2026-10-27-working-trade-roads",
       "date": "2026-10-27",
       "version": "0.3.0-beta.16",

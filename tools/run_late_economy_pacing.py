@@ -25,6 +25,7 @@ from run_focused_tests import freeze_project, terminate_process_tree
 
 ROOT = Path(__file__).resolve().parents[1]
 OBSERVER_FILES = (
+    "tools/probe_ai_compact_paid_match.gd",
     "tools/probe_late_economy_pacing.gd",
     "tools/probe_late_economy_pacing.tscn",
     "tools/fixtures/pacing_solo_save.gd",
@@ -66,6 +67,8 @@ def run_case(project: Path, base_config: str, args: argparse.Namespace,
     name = f"map{style}-seed{seed}-fixed60-scale{scale}"
     if (human_difficulty, enemy_difficulty) != (1, 1):
         name += f"-difficulty{human_difficulty}v{enemy_difficulty}"
+    if args.civilizations != [0, 0]:
+        name += f"-civs{args.civilizations[0]}v{args.civilizations[1]}"
     if args.sacred_continuation:
         name += "-sacred-continuation"
     report = args.output / (name + ".json")
@@ -82,7 +85,8 @@ def run_case(project: Path, base_config: str, args: argparse.Namespace,
                "res://tools/probe_late_economy_pacing.tscn", "--", "--mode=0",
                "--pop=100", f"--difficulty={enemy_difficulty}", f"--human-difficulty={human_difficulty}",
                f"--archetype={style}", f"--seed={seed}",
-               f"--duration={args.duration}", f"--output={report}"]
+               f"--duration={args.duration}", f"--output={report}",
+               f"--civilization0={args.civilizations[0]}", f"--civilization1={args.civilizations[1]}"]
     if args.sacred_continuation:
         command.append("--sacred-continuation")
     environment = os.environ.copy()
@@ -181,6 +185,7 @@ def main() -> int:
     parser.add_argument("--duration", type=float, default=1800)
     parser.add_argument("--wall-timeout", type=float, default=1800)
     parser.add_argument("--scale", choices=("adaptive", "1", "3"), default="adaptive")
+    parser.add_argument("--civilizations", nargs=2, type=int, choices=(0, 1, 2), default=[0, 0], help="Explicit player civilizations; no policy override")
     parser.add_argument("--case", type=parse_case, action="append", help="Repeatable style:seed[:player0_difficulty:player1_difficulty]; defaults River424242 and Golden7, Medium both")
     parser.add_argument("--sacred-continuation", action="store_true", help="Counterfactual: suppress only Sacred conclusion, retain Town Center defeat; one explicit case, at most1500 game/2400 wall seconds")
     args = parser.parse_args()
@@ -201,7 +206,8 @@ def main() -> int:
         parser.error("Counterfactual continuation requires one explicit case")
     observer = {name: (ROOT / name).read_bytes() for name in OBSERVER_FILES}
     receipt = {"runtime_revision": revision, "observer_sha256": {name: digest(data) for name, data in observer.items()},
-               "scope": "Sequential paid Standard 100 simulations, three starting workers, Crownlands both; difficulties listed per case and natural victory enabled. Headless/no render. Autosave disabled only by runner autoload override; not persistence, human or phone evidence.",
+               "scope": "Paid Standard 100 simulations, three starting workers; civilizations and difficulties explicitly recorded, natural victory enabled. Headless/no render. Autosave disabled only by runner autoload override; not persistence, human or phone evidence.",
+               "civilizations": args.civilizations,
                "requested_cases": cases,
                "sacred_continuation": args.sacred_continuation,
                "game_seconds_cap": args.duration, "wall_seconds_cap": args.wall_timeout,
