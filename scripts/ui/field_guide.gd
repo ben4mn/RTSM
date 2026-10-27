@@ -2,11 +2,13 @@ extends RefCounted
 ## Shared explanations for Settings and the in-match Field Guide.
 
 const ENTRIES: Array = [
+	["more", "Compact dock", "Tap the chevron to collapse or expand orders. Tap the selected portrait for its name, health, role and current task. Icon tiles keep costs and progress visible."],
+	["rally", "Rally flag", "Select a production building, tap its flag, then tap ground. Tap a visible resource to send newly trained villagers straight to gathering. Tap the flag again to cancel."],
 	["move", "Move & waypoints", "Tap ground to move selected units. Hold ground to append a waypoint. A fresh tap or Stop replaces the route; Clear queued destinations removes only pending stops. With a production building selected, hold ground to add rally stops for new units."],
 	["attack", "Attack-move", "Select armed units, tap the swords, then tap a destination. They fight enemies along the way. Tap a visible enemy to attack it directly. Scouts are unarmed."],
 	["select_area", "Select area", "Open Camera, tap the dashed box, then drag around your units. Tap the box again to cancel. A normal drag pans the map."],
 	["clear", "Clear selection", "Open Camera and tap Clear, or use the selection card cross, to deselect. This leaves existing unit orders running."],
-	["build", "Build", "Choose a building card, preview clear ground in sight, then Place building. The card shows its name, cost and availability. Info lets you tap cards to learn before buying."],
+	["build", "Build", "Choose a building card, preview clear ground in sight, then Place building. The tile shows artwork and resource costs. Info lets you tap cards to learn before buying."],
 	["queue", "Recruitment & queue", "Tap a unit portrait to recruit one, or hold to queue. Food, wood and gold costs stay on the card. A gold seam shows active training progress; Queue shows paid units waiting their turn."],
 	["undo", "Undo worker orders", "After sending workers to Move, Gather or Build, a temporary Undo arrow appears for 10 real seconds, even for one worker. Tap it to restore their previous work or movement. Cargo and progress stay as they are. Unavailable old jobs stop safely. A later worker order replaces Undo. Solo pause does not extend the timer."],
 	["undo", "Cancel queued unit", "Open Queue, then tap Cancel one for the unit type to refund one pending recruit. Undo cancels the newest queued recruit; Clear refunds every queued recruit. Reserved population becomes available immediately."],
