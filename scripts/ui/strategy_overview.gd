@@ -46,6 +46,7 @@ var _farm_blocker: Label
 var _farm_button: Button
 var _population: Label
 var _feedback: Label
+var _feedback_until_msec: int = 0
 var _source_buttons: Dictionary = {}
 var _destination_buttons: Dictionary = {}
 var _producer_list: VBoxContainer
@@ -380,11 +381,15 @@ func _build_army_notes() -> void:
 
 
 func _choose_source(resource: String) -> void:
+	if _source != resource:
+		_clear_feedback()
 	_source = resource
 	_refresh_allocation_buttons()
 
 
 func update_snapshot(snapshot: Dictionary) -> void:
+	if _feedback_until_msec > 0 and Time.get_ticks_msec() >= _feedback_until_msec:
+		_clear_feedback()
 	_snapshot = snapshot
 	var battle_lesson: Dictionary = snapshot.get("battle_lesson", {})
 	var field_text: String = str(battle_lesson.get("field_text", ""))
@@ -421,7 +426,7 @@ func update_snapshot(snapshot: Dictionary) -> void:
 		worker_count += int(amount)
 	_summary.text = "%d workers · %d building · %d recovering" % [worker_count, int(workers.get("build", 0)), int(workers.get("recovering", 0))]
 	if bool(snapshot.get("food_attention_ready", false)):
-		_summary.text = "No food · assign food workers."
+		_summary.text = "No food income · assign workers."
 	elif bool(snapshot.get("food_low_attention_ready", false)):
 		_summary.text = "Food low · scout or build a Farm."
 	elif idle > 0:
@@ -641,9 +646,17 @@ func _create_producer(producer: Dictionary) -> void:
 
 
 func show_feedback(message: String, success: bool = true) -> void:
+	_feedback_until_msec = Time.get_ticks_msec() + 6000
 	_feedback.text = message
 	_feedback.tooltip_text = message
 	_feedback.add_theme_color_override("font_color", KingdomTheme.TEAL if success else KingdomTheme.AMBER)
+
+
+func _clear_feedback() -> void:
+	_feedback_until_msec = 0
+	_feedback.text = "Choose a job, then a destination."
+	_feedback.tooltip_text = ""
+	_feedback.add_theme_color_override("font_color", KingdomTheme.MUTED)
 
 
 func set_surface(surface: String) -> void:
@@ -660,12 +673,15 @@ func set_surface(surface: String) -> void:
 	_economy_button.set_pressed_no_signal(surface == "economy")
 	_army_button.set_pressed_no_signal(surface == "army")
 	if changed:
+		_clear_feedback()
 		_scroll.scroll_vertical = 0
 		_details_page = false
 	_refresh_pages()
 
 
 func _set_production_page(enabled: bool) -> void:
+	if _production_page != enabled:
+		_clear_feedback()
 	_production_page = enabled
 	_details_page = false
 	_scroll.scroll_vertical = 0
@@ -673,6 +689,8 @@ func _set_production_page(enabled: bool) -> void:
 
 
 func _set_army_recruit_page(enabled: bool) -> void:
+	if _army_recruit_page != enabled:
+		_clear_feedback()
 	_army_recruit_page = enabled
 	_army_page_initialized = true
 	_details_page = false
@@ -714,6 +732,8 @@ func _step_producer(direction: int) -> void:
 		return
 	var current: int = ids.find(_selected_producer_id())
 	var next: int = posmod(current + direction, ids.size())
+	if next != current:
+		_clear_feedback()
 	if _surface == "army":
 		_army_producer_index = next
 		_army_producer_id = ids[next]
