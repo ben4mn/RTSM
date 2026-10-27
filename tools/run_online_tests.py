@@ -21,6 +21,7 @@ parser.add_argument('--url', help='Public WSS endpoint; otherwise start a local 
 parser.add_argument('--combat', action='store_true', help='Also buy armies and verify replicated combat')
 parser.add_argument('--stand-ground-combat', action='store_true', help='Also verify replicated Stand Ground before paid attack-move combat')
 parser.add_argument('--combat-only', action='store_true', help='Run just the two paid combat clients')
+parser.add_argument('--combat-wall-timeout', type=float, default=160.0, help='Wall-clock allowance per combat client; multiplayer remains at fixed 1x speed')
 parser.add_argument('--strategy-only', action='store_true', help='Only exercise real Strategy controls on two clients')
 parser.add_argument('--rooms-only', action='store_true', help='Only exercise host/join lobby, map agreement, cancellation and recovery')
 parser.add_argument('--maps-only', action='store_true', help='Only exercise legacy/mixed/current map catalog pairs')
@@ -28,6 +29,8 @@ parser.add_argument('--civilizations-only', action='store_true', help='Exercise 
 parser.add_argument('--civilization-pair', action='append', nargs=2, type=int, choices=[0, 1, 2], help='Optional pair(s) for --civilizations-only; default covers all three matchups')
 parser.add_argument('--output', default=str(ROOT / 'output' / 'online-tests'))
 args = parser.parse_args()
+if args.combat_wall_timeout <= 0:
+    parser.error('--combat-wall-timeout must be positive')
 godot = os.environ.get('GODOT_BIN', '/Applications/Godot.app/Contents/MacOS/Godot')
 output = Path(args.output)
 output.mkdir(parents=True, exist_ok=True)
@@ -178,8 +181,8 @@ try:
         combat_args = ('--', '--stand-ground') if args.stand_ground_combat else ()
         first = launch('combat-one', 'test_online_combat', extra=combat_args, env=env)
         second = launch('combat-two', 'test_online_combat', extra=combat_args, env=env)
-        check('combat-one', first, 160)
-        check('combat-two', second, 160)
+        check('combat-one', first, args.combat_wall_timeout)
+        check('combat-two', second, args.combat_wall_timeout)
     if server and 'ERROR:' in (output / 'server.log').read_text():
         raise RuntimeError('Server runtime errors; inspect server.log')
     final_hashes = source_hashes()
