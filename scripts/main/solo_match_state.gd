@@ -8,6 +8,15 @@ const AI_FIELDS: Array[String] = ["difficulty", "player_id", "enemy_id", "_decis
 const MAIN_FIELDS: Array[String] = ["_stats", "_age_reached_at", "_sacred_control_seconds", "_sacred_control_owner", "_sacred_last_remaining", "_ai_construction_jobs", "_ai_construction_recovery_elapsed", "_control_groups", "_player_town_center", "_hint_timer", "_hints_shown", "_guided_opening_active", "_guided_stage", "_milestone_first_house", "_milestone_first_military_building", "_milestone_first_age_up", "_opening_gather_complete", "_opening_house_complete", "_opening_scout_queued", "_opening_military_move_complete", "_guidance_dismissed_in_match", "_pause_open_count", "_sacred_site_victory_notified"]
 const MANAGER_FIELDS: Array[String] = ["players", "game_time", "game_speed", "_match_mode", "_match_civilizations", "_match_population_limit", "_population_reservations", "_next_population_reservation_id", "_base_population_caps", "_population_cap_grants", "player_upgrades", "researched_upgrades"]
 const QUEUE_FIELDS: Array[String] = ["queue", "current_progress", "current_train_time", "is_training", "_population_reservation_ids"]
+const LEGACY_QUEUE_COSTS: Dictionary = {
+	UnitData.UnitType.VILLAGER: {"food": 100, "wood": 0, "gold": 0},
+	UnitData.UnitType.INFANTRY: {"food": 100, "wood": 40, "gold": 0},
+	UnitData.UnitType.ARCHER: {"food": 50, "wood": 90, "gold": 0},
+	UnitData.UnitType.CAVALRY: {"food": 180, "wood": 60, "gold": 0},
+	UnitData.UnitType.SCOUT: {"food": 40, "wood": 0, "gold": 10},
+	UnitData.UnitType.SIEGE: {"food": 0, "wood": 150, "gold": 100},
+	UnitData.UnitType.TRADER: {"food": 0, "wood": 60, "gold": 40},
+}
 const SITE_FIELDS: Array[String] = ["state", "owning_player", "capture_progress", "capture_time", "gold_per_second", "capture_radius", "victory_hold_time", "victory_timer", "match_mode", "control_banks", "clock_ticking", "garrison_paused", "_armed_nearby_counts", "_gold_accumulator", "_gold_accumulator_owner", "_being_neutralized"]
 
 const MARCH = preload("res://scripts/main/attack_march_cohesion.gd")
@@ -74,6 +83,36 @@ func _write(object: Object, fields: Array[String], data: Dictionary) -> void:
 		else:
 			object.set(field, value)
 
+func _capture_queue(queue: ProductionQueue) -> Dictionary:
+	var data: Dictionary = _read(queue, QUEUE_FIELDS)
+	# Resource quantities are values, never runtime actor IDs for _decode to remap.
+	data.paid_costs = queue.paid_costs.duplicate(true)
+	return data
+
+func _restore_queue(queue: ProductionQueue, data: Dictionary) -> void:
+	_write(queue, QUEUE_FIELDS, data)
+	queue.paid_costs.clear()
+	if data.has("paid_costs"):
+		queue.paid_costs.assign(data.paid_costs.duplicate(true))
+	else:
+		# Pre-receipt checkpoints paid the beta16 schedule, regardless of today's
+		# catalog. In particular, old Archers/Cavalry never paid refundable gold.
+		for unit_type: int in queue.queue:
+			queue.paid_costs.append(LEGACY_QUEUE_COSTS[unit_type].duplicate(true))
+
+static func _valid_queue_receipts(data: Dictionary) -> bool:
+	if not data.has("paid_costs"):
+		return true
+	if not data.paid_costs is Array or data.paid_costs.size() != data.queue.size():
+		return false
+	for receipt: Variant in data.paid_costs:
+		if not receipt is Dictionary or receipt.size() != 3:
+			return false
+		for resource: String in ["food", "wood", "gold"]:
+			if not receipt.get(resource) is int or receipt[resource] < 0:
+				return false
+	return true
+
 func capture(main: Node) -> Dictionary:
 	_references.clear()
 	var map: Node = main.game_map
@@ -119,7 +158,7 @@ func capture(main: Node) -> Dictionary:
 		if actor is BuildingBase:
 			record.merge({"kind": "building", "type": actor.building_type, "fields": _read(actor, BUILDING_FIELDS)})
 			var queue: Node = actor.get_production_queue()
-			if queue != null: record.queue = _read(queue, QUEUE_FIELDS)
+			if queue != null: record.queue = _capture_queue(queue)
 		else:
 			record.merge({"kind": "unit", "type": actor.unit_type, "fields": _read(actor, UNIT_FIELDS)})
 			if actor is Villager: record.worker = _read(actor, WORKER_FIELDS)
@@ -180,7 +219,7 @@ func restore_world(main: Node, data: Dictionary) -> bool:
 			_write(actor, BUILDING_FIELDS, record.fields)
 			actor._update_sprite_appearance()
 			actor.queue_redraw()
-			if record.has("queue"): _write(actor.get_production_queue(), QUEUE_FIELDS, record.queue)
+			if record.has("queue"): _restore_queue(actor.get_production_queue(), record.queue)
 		else:
 			_write(actor, UNIT_FIELDS, record.fields)
 			if record.has("worker"):
@@ -303,6 +342,7 @@ static func validate(data: Dictionary) -> String:
 			if int(record.type) == BuildingData.BuildingType.TOWN_CENTER: towns[record.owner] += 1
 			if record.has("queue"):
 				if not record.queue is Dictionary or not record.queue.get("queue") is Array or not record.queue.get("_population_reservation_ids") is Array or record.queue.queue.size() > ProductionQueue.MAX_QUEUE_SIZE or record.queue.queue.size() != record.queue._population_reservation_ids.size(): return "Invalid production queue."
+				if not _valid_queue_receipts(record.queue): return "Invalid production payment receipts."
 		else: return "Unknown actor."
 		if record.has("queue"):
 			for index: int in record.queue.queue.size():

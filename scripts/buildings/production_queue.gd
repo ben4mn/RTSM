@@ -15,6 +15,7 @@ const AUTO_QUEUE_RETRY_INTERVAL := 0.5
 const CANCEL_ALL_INDEX := -1
 
 var queue: Array[int] = []  # Array of UnitData.UnitType values
+var paid_costs: Array[Dictionary] = []  # Immutable-by-copy receipts, aligned with queue.
 var current_progress: float = 0.0
 var current_train_time: float = 0.0
 var is_training: bool = false
@@ -22,6 +23,7 @@ var _building: BuildingBase = null
 var _population_reservation_ids: Array[int] = []
 var _pending_completion_reservation_id: int = -1
 var _pending_completion_unit_type: int = -1
+var _pending_completion_paid_cost: Dictionary = {}
 
 # Auto-queue
 var auto_queue_enabled: bool = false
@@ -90,6 +92,7 @@ func enqueue_unit(unit_type: int) -> bool:
 		return false
 
 	queue.append(unit_type)
+	paid_costs.append(cost.duplicate(true))
 	_population_reservation_ids.append(reservation_id)
 	auto_queue_unit_type = unit_type
 	_auto_queue_retry_elapsed = 0.0
@@ -107,27 +110,27 @@ func cancel_unit(index: int) -> bool:
 		return false
 
 	var unit_type: int = queue[index]
-	var cost: Dictionary = UnitData.get_unit_cost(unit_type)
+	var cost: Dictionary = paid_costs[index] if index < paid_costs.size() else {}
 	var reservation_id: int = _population_reservation_ids[index] if index < _population_reservation_ids.size() else -1
 
-	# Refund resources
-	_refund_resources(cost)
-	if reservation_id >= 0:
-		GameManager.release_population_reservation(reservation_id)
-
+	# Remove the paid entry before resource signals can inspect or cancel it again.
 	queue.remove_at(index)
+	if index < paid_costs.size():
+		paid_costs.remove_at(index)
 	if index < _population_reservation_ids.size():
 		_population_reservation_ids.remove_at(index)
-	unit_cancelled.emit(unit_type)
-	queue_changed.emit()
-
 	if index == 0:
 		# Cancelled the currently training unit
 		is_training = false
 		current_progress = 0.0
 		current_train_time = 0.0
-		if not queue.is_empty():
-			_start_next_unit()
+	if reservation_id >= 0:
+		GameManager.release_population_reservation(reservation_id)
+	_refund_resources(cost)
+	unit_cancelled.emit(unit_type)
+	queue_changed.emit()
+	if index == 0 and not queue.is_empty() and not is_training:
+		_start_next_unit()
 
 	return true
 
@@ -145,17 +148,20 @@ func cancel_all() -> void:
 	auto_queue_enabled = false
 	_auto_queue_retry_elapsed = 0.0
 	var cancelled_units: Array[int] = queue.duplicate()
+	var cancelled_costs: Array[Dictionary] = paid_costs.duplicate(true)
 	var reservation_ids: Array[int] = _population_reservation_ids.duplicate()
 	queue.clear()
+	paid_costs.clear()
 	_population_reservation_ids.clear()
 	is_training = false
 	current_progress = 0.0
 	current_train_time = 0.0
 	for reservation_id: int in reservation_ids:
 		GameManager.release_population_reservation(reservation_id)
-	for unit_type: int in cancelled_units:
+	for index: int in cancelled_units.size():
+		var unit_type: int = cancelled_units[index]
 		# Match individual cancellation: even the active unit receives its full cost.
-		_refund_resources(UnitData.get_unit_cost(unit_type))
+		_refund_resources(cancelled_costs[index] if index < cancelled_costs.size() else {})
 		unit_cancelled.emit(unit_type)
 	# Keep auto_queue_unit_type so a deliberate Repeat ON can resume that unit.
 	queue_changed.emit()
@@ -200,7 +206,10 @@ func _complete_current_unit() -> void:
 		return
 	var unit_type: int = queue[0]
 	var reservation_id: int = _population_reservation_ids[0] if not _population_reservation_ids.is_empty() else -1
+	var paid_cost: Dictionary = paid_costs[0] if not paid_costs.is_empty() else {}
 	queue.remove_at(0)
+	if not paid_costs.is_empty():
+		paid_costs.remove_at(0)
 	if not _population_reservation_ids.is_empty():
 		_population_reservation_ids.remove_at(0)
 	is_training = false
@@ -210,7 +219,7 @@ func _complete_current_unit() -> void:
 
 	if reservation_id < 0:
 		push_warning("Discarded trained unit %d because its population reservation was unavailable" % unit_type)
-		_refund_resources(UnitData.get_unit_cost(unit_type))
+		_refund_resources(paid_cost)
 	else:
 		# Signals are synchronous. The spawn callback consumes this reservation
 		# only after it has validated the scene, destination container, and a legal
@@ -218,6 +227,7 @@ func _complete_current_unit() -> void:
 		# match orchestration, so the queue never exposes a rally point as a spawn.
 		_pending_completion_reservation_id = reservation_id
 		_pending_completion_unit_type = unit_type
+		_pending_completion_paid_cost = paid_cost
 		unit_trained.emit(unit_type)
 		# An unclaimed synchronous completion is a failed spawn transaction. Return
 		# both its population slot and unit cost instead of silently losing either.
@@ -270,9 +280,12 @@ func consume_completed_population_reservation() -> bool:
 	if _pending_completion_reservation_id < 0:
 		return false
 	var reservation_id := _pending_completion_reservation_id
+	if not GameManager.consume_population_reservation(reservation_id):
+		return false
 	_pending_completion_reservation_id = -1
 	_pending_completion_unit_type = -1
-	return GameManager.consume_population_reservation(reservation_id)
+	_pending_completion_paid_cost = {}
+	return true
 
 
 func reject_completed_unit() -> bool:
@@ -283,17 +296,20 @@ func reject_completed_unit() -> bool:
 		return false
 	var reservation_id: int = _pending_completion_reservation_id
 	var failed_unit_type: int = _pending_completion_unit_type
+	var paid_cost: Dictionary = _pending_completion_paid_cost
 	_pending_completion_reservation_id = -1
 	_pending_completion_unit_type = -1
+	_pending_completion_paid_cost = {}
 	var released: bool = GameManager.release_population_reservation(reservation_id)
 	if failed_unit_type >= 0:
-		_refund_resources(UnitData.get_unit_cost(failed_unit_type))
+		_refund_resources(paid_cost)
 	return released
 
 
 func _on_building_destroyed(_destroyed_building: BuildingBase) -> void:
 	_release_all_population_reservations()
 	queue.clear()
+	paid_costs.clear()
 	is_training = false
 	current_progress = 0.0
 	current_train_time = 0.0
