@@ -78,10 +78,8 @@ func _own_traders() -> Array[Trader]:
 
 
 func _trader_needs_attention(trader: Trader) -> bool:
-	# Replica income/status comes from authority. Local route fields are absent.
-	if NetworkSession.is_client():
-		return trader.get_trip_income() <= 0
-	return not trader.trade_route_active or (trader.current_state == UnitBase.State.IDLE and trader._handling_left <= 0.0)
+	# This is cached route state (or authority metadata), never a UI path query.
+	return trader.needs_trade_attention()
 
 
 func _find_trader() -> void:

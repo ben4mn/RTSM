@@ -91,7 +91,10 @@ func _trade_journey(phone: Vector2i) -> void:
 	NetworkSession.online = true
 	NetworkSession.server_mode = false
 	active.set_meta("network_trade_income", 32)
+	active.set_meta("network_trade_status", "Travelling to Trade Post · 32 gold per round trip")
 	_expect(not controller._trader_needs_attention(active), "replica route does not look idle because local route fields are absent")
+	active.set_meta("network_trade_status", "Route blocked · retrying")
+	_expect(controller._trader_needs_attention(active), "replica blocked route receives attention despite a known trip value")
 	active.set_meta("network_trade_income", 0)
 	_expect(controller._trader_needs_attention(active), "replica with no confirmed trip income needs attention")
 	NetworkSession.online = old_online
