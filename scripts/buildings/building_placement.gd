@@ -40,6 +40,7 @@ var _grid_world_transform: Transform2D = Transform2D.IDENTITY
 var _grid_view_rect: Rect2 = Rect2()
 var _grid_tile_bounds: Rect2i = Rect2i()
 var _grid_cache_valid: bool = false
+var _grid_preview_tile := Vector2i(-1000, -1000)
 
 const FIND_SPACE_RADIUS: int = 12
 const FIND_SPACE_MAX_CANDIDATES: int = 625
@@ -48,6 +49,7 @@ const GENERIC_INVALID_REASON := "Invalid placement"
 const FOG_INVALID_REASON := "Move all tiles into sight"
 const PLACEMENT_GRID_COLOR := Color(0.90, 0.92, 0.83, 0.18)
 const PLACEMENT_GRID_WIDTH_PX := 0.9
+const PLACEMENT_GRID_MARGIN_TILES: int = 1
 const FOOTPRINT_INK := Color("f4eddd")
 const FOOTPRINT_GOLD := Color("e8bf77")
 const FOOTPRINT_BLOCKED := Color("df947f")
@@ -142,8 +144,10 @@ func _refresh_placement_grid(force: bool = false) -> void:
 	var canvas: Transform2D = get_canvas_transform()
 	var world_transform: Transform2D = _placement_grid.global_transform
 	var view_rect: Rect2 = get_viewport().get_visible_rect()
-	if not force and _grid_cache_valid and canvas == _grid_canvas_transform and world_transform == _grid_world_transform and view_rect == _grid_view_rect:
+	var preview_tile: Vector2i = _get_ghost_tile()
+	if not force and _grid_cache_valid and canvas == _grid_canvas_transform and world_transform == _grid_world_transform and view_rect == _grid_view_rect and preview_tile == _grid_preview_tile:
 		return
+	_grid_preview_tile = preview_tile
 	_grid_canvas_transform = canvas
 	_grid_world_transform = world_transform
 	_grid_view_rect = view_rect
@@ -156,8 +160,10 @@ func _refresh_placement_grid(force: bool = false) -> void:
 		var tile: Vector2i = _world_to_tile(inverse_canvas * corner)
 		minimum = minimum.min(tile - Vector2i.ONE)
 		maximum = maximum.max(tile + Vector2i.ONE)
-	minimum = minimum.max(Vector2i.ZERO)
-	maximum = maximum.min(Vector2i(MapData.MAP_WIDTH - 1, MapData.MAP_HEIGHT - 1))
+	# Keep only a one-tile placement guide around the candidate. The rest of
+	# the battlefield remains unobscured at every screen size and zoom.
+	minimum = minimum.max(preview_tile - Vector2i.ONE * PLACEMENT_GRID_MARGIN_TILES).max(Vector2i.ZERO)
+	maximum = maximum.min(preview_tile + current_footprint - Vector2i.ONE + Vector2i.ONE * PLACEMENT_GRID_MARGIN_TILES).min(Vector2i(MapData.MAP_WIDTH - 1, MapData.MAP_HEIGHT - 1))
 	var segments := PackedVector2Array()
 	_grid_tile_bounds = Rect2i()
 	if minimum.x <= maximum.x and minimum.y <= maximum.y:
@@ -850,10 +856,8 @@ func _draw() -> void:
 		return
 	var origin_tile: Vector2i = _get_ghost_tile()
 	var pixel: float = 1.0 / maxf(0.01, get_global_transform_with_canvas().x.length())
-	# Dashed boundaries belong to existing friendly buildings' spacing rule,
-	# not to a larger proposed footprint or an invented terrain restriction.
-	for area: Rect2i in _clearance_areas:
-		_draw_polygon_edges(_footprint_local_polygon(area.position, area.size), Color(FOOTPRINT_GOLD, 0.72), 1.3 * pixel, true)
+	# Mark collision cells within the proposed footprint only. Drawing entire
+	# neighboring clearance rings made the candidate boundary ambiguous.
 	for dx: int in current_footprint.x:
 		for dy: int in current_footprint.y:
 			var tile: Vector2i = origin_tile + Vector2i(dx, dy)

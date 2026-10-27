@@ -579,6 +579,18 @@ func _handle_tap(screen_pos: Vector2, is_touch_input: bool, pressed_unit: Node2D
 	if retained_unit:
 		tapped_node = pressed_unit
 	var resource_node: Node2D = _get_resource_at(world_pos, is_touch_input)
+	# Selected workers keep their resource intent even when another worker's
+	# body or discovery ring sits over the node. Hold > Select remains an
+	# explicit way to inspect that worker; a plain worker away from a resource
+	# still selects normally. Resolve before double-tap so repeat gathers
+	# never turn into an accidental select-all.
+	if is_touch_input and not unit_command_armed and _has_selected_villagers() \
+			and resource_node != null and tapped_node is Villager and not _is_enemy(tapped_node):
+		_record_touch_input(screen_pos, world_pos, "gather", tapped_node, resource_node)
+		gather_command.emit(resource_node)
+		_last_tap_time = 0.0
+		get_viewport().set_input_as_handled()
+		return
 	var tap_target_id: int = tapped_node.get_instance_id() if tapped_node != null else 0
 	# Camera movement between contacts starts a new intent even when it came
 	# from a minimap, keyboard, or zoom rather than a world pan gesture.
@@ -1406,6 +1418,8 @@ func _build_touch_context_actions(tapped_node: Node2D, resource_node: Node2D) ->
 			return actions
 		if tapped_node != null and _is_enemy(tapped_node):
 			actions.append({"id": TouchContextAction.ATTACK, "label": "Attack"})
+		if resource_node != null and tapped_node is Villager and not _is_enemy(tapped_node) and _has_selected_villagers():
+			actions.append({"id": TouchContextAction.SELECT, "label": "Select worker"})
 		if resource_node != null and (_has_selected_villagers() or _has_selected_villager_producer()):
 			var gather_label: String = "Rally to gather" if _has_selected_villager_producer() else "Gather"
 			actions.append({"id": TouchContextAction.GATHER, "label": gather_label})

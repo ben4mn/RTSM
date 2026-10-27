@@ -21,6 +21,7 @@ func _run() -> void:
 		_check_farm()
 		for role: int in 6:
 			_check_attack(role)
+	_check_walking()
 	for failure: String in failures:
 		push_error("[FAIL] unit_actions: " + failure)
 	if failures.is_empty():
@@ -57,7 +58,7 @@ func _check_worker(resource: String) -> void:
 	worker._process_gathering(period * 0.45)
 	worker._update_sprite_motion(0.0)
 	_check_work_attachment(worker)
-	_check(worker.carried_amount == 1, "Exactly one unchanged harvest at release")
+	_check(worker.carried_amount == floori(UnitData.VILLAGER_GATHER_AMOUNT * CivilizationData.get_gather_multiplier(CivilizationData.for_player(0), resource)), "Exactly one configured harvest tick at release")
 	_check(not preparation.is_equal_approx(worker._sprite.transform), "Lift and contact poses visibly differ")
 	var cargo: int = worker.carried_amount
 	var remaining: int = target.remaining
@@ -113,7 +114,7 @@ func _check_farm() -> void:
 	worker._update_sprite_motion(0.0)
 	_check_work_attachment(worker)
 	worker._process_gathering(period * 0.45)
-	_check(worker.carried_amount == 1, "Farm still yields only on the unchanged gather tick")
+	_check(worker.carried_amount == floori(UnitData.VILLAGER_GATHER_AMOUNT * CivilizationData.get_gather_multiplier(CivilizationData.for_player(0), "food")), "Farm yields exactly one configured harvest tick")
 	worker.free()
 	farm.free()
 
@@ -151,6 +152,30 @@ func _check_attack(role: int) -> void:
 	_check(unit._sprite.position.is_zero_approx() and is_zero_approx(unit._sprite.rotation) and unit._sprite.scale == unit._sprite_rest_scale, "Attack settles to exact rest pose")
 	unit.free()
 	target.free()
+
+
+func _check_walking() -> void:
+	var first: Villager = _worker()
+	var second: Villager = _worker()
+	var children: int = first.get_child_count()
+	for step: int in 3:
+		first.position.x += 3.0
+		first._update_sprite_motion(0.02)
+	second.position.x += 9.0
+	second._update_sprite_motion(0.2)
+	_check(first._sprite.transform.is_equal_approx(second._sprite.transform), "Equal distance gives equal foot pose despite frame timing")
+	_check(first.position.x == 9.0 and first.carried_amount == 0, "Walking presentation cannot move a unit or gather")
+	var phase: float = first._gait_phase
+	first._update_sprite_motion(2.0)
+	_check(first._gait_phase == phase and first._sprite.position.is_zero_approx(), "Stopped units plant feet and preserve step phase")
+	GameManager.reduced_motion = true
+	first.position.x += 5.0
+	first._update_sprite_motion(0.1)
+	_check(first._sprite.position.is_zero_approx() and is_zero_approx(first._sprite.rotation), "Reduced motion disables walking bounce and tilt")
+	_check(first.get_child_count() == children, "Walking animation allocates no new nodes")
+	GameManager.reduced_motion = false
+	first.free()
+	second.free()
 
 
 func _check(condition: bool, message: String) -> void:

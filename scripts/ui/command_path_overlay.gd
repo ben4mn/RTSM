@@ -106,6 +106,31 @@ func get_selected_unit_cue_points() -> PackedVector2Array:
 	return points
 
 
+## Current visible attack targets, capped like route groups. This is a target
+## cue, never a projected path or an enemy-discovery query.
+func get_combat_target_cues() -> Array[Vector2]:
+	var targets: Array[Vector2] = []
+	var seen: Dictionary = {}
+	for entry: Node2D in selection_manager.selected:
+		if not is_instance_valid(entry) or not entry is UnitBase or entry.player_owner != 0:
+			continue
+		var unit := entry as UnitBase
+		if unit.current_state != UnitBase.State.ATTACKING or not unit.is_visible_in_tree():
+			continue
+		var target: Node2D = null
+		if is_instance_valid(unit.attack_target) and unit._is_valid_target(unit.attack_target):
+			target = unit.attack_target
+		elif is_instance_valid(unit.attack_building_target) and unit._is_valid_building_target(unit.attack_building_target):
+			target = unit.attack_building_target
+		if target == null or not target.is_visible_in_tree() or seen.has(target.get_instance_id()):
+			continue
+		seen[target.get_instance_id()] = true
+		targets.append(target.global_position)
+		if targets.size() >= MAX_ROUTE_GROUPS:
+			break
+	return targets
+
+
 func _draw() -> void:
 	if selection_manager == null:
 		return
@@ -119,8 +144,10 @@ func _draw() -> void:
 			points.append(to_local(point))
 		var color: Color = ATTACK_COLOR if route["mode"] == "attack" else (WORK_COLOR if route["mode"] == "work" else MOVE_COLOR)
 		color.a = 0.55 * float(route.get("opacity", 1.0))
-		for index: int in range(1, points.size()):
-			draw_dashed_line(points[index - 1], points[index], color, 1.2 / zoom, 8.0 / zoom, true, true)
+		# One continuous stroke avoids restarting a dash at every tiny A*
+		# segment, which made the same route look jagged at different zooms.
+		if points.size() >= 2:
+			draw_polyline(points, color, 1.25 / zoom, true)
 		_draw_destination(to_local(route["destination"]), color, zoom, route["mode"] == "attack")
 		# Engagement temporarily replaces the live route with a chase. Keep the
 		# attack-move goal marked so the player knows where troops will resume.
@@ -140,6 +167,12 @@ func _draw() -> void:
 				arrow,
 				arrow - direction * 5.0 / zoom - side * 4.0 / zoom,
 			]), color, 2.0 / zoom, true)
+	for target: Vector2 in get_combat_target_cues():
+		var center: Vector2 = to_local(target)
+		for side: float in [-1.0, 1.0]:
+			var bracket := PackedVector2Array([center + Vector2(side * 8, -6) / zoom, center + Vector2(side * 11, -6) / zoom, center + Vector2(side * 11, 4) / zoom, center + Vector2(side * 8, 4) / zoom])
+			draw_polyline(bracket, SELECTION_CUE_INK, 3.0 / zoom, true)
+			draw_polyline(bracket, ATTACK_COLOR, 1.5 / zoom, true)
 	# Persist independently of brief order previews. Only the hollow cue paints
 	# above crowded bodies; unit artwork, world rings and health stay in place.
 	var cues: PackedVector2Array = get_selected_unit_cue_points()
@@ -186,21 +219,19 @@ func get_queued_destination_markers() -> Array[Dictionary]:
 
 
 func _draw_queued_destinations(zoom: float) -> void:
-	# These dotted links describe waypoint order, not a computed navigation path.
+	# A queued destination has no accepted navigation route until that leg
+	# starts. Number the goals without a misleading line through obstacles.
 	var font: Font = ThemeDB.fallback_font
 	for group: Dictionary in get_queued_destination_markers():
-		var previous: Vector2 = to_local(group.origin)
 		var index: int = 0
 		for world: Vector2 in group.points:
 			index += 1
 			var point: Vector2 = to_local(world)
-			draw_dashed_line(previous, point, Color(MOVE_COLOR, 0.4), 1.0 / zoom, 3.0 / zoom)
 			draw_circle(point, 9.0 / zoom, Color("293235"))
 			draw_arc(point, 9.0 / zoom, 0, TAU, 24, MOVE_COLOR, 1.5 / zoom, true)
 			draw_set_transform(point, 0.0, Vector2.ONE / zoom)
 			draw_string(font, Vector2(-4, 5), str(index), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, MOVE_COLOR)
 			draw_set_transform(Vector2.ZERO)
-			previous = point
 
 
 func _draw_destination(destination: Vector2, color: Color, zoom: float, attack: bool) -> void:

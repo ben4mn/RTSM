@@ -144,6 +144,10 @@ func _test_attack_intent() -> void:
 	var accepted_destination: Vector2 = troop.move_target
 	_expect(troop.attack_move and _routes()[0]["mode"] == "attack", "deliberate attack-move must expose attack-move feedback")
 	troop.command_attack(enemy, false)
+	_expect(_overlay.call("get_combat_target_cues") == [enemy.global_position], "selected fighter exposes its actual attack target")
+	enemy.hide()
+	_expect((_overlay.call("get_combat_target_cues") as Array).is_empty(), "hidden target cannot leak through combat cue")
+	enemy.show()
 	_expect(troop.current_state == UnitBase.State.ATTACKING and troop.attack_move, "auto-acquisition discarded attack-move intent")
 	var engaged: Array[Dictionary] = _routes()
 	_expect(engaged.size() == 1, "combat replanning hides the pending attack-move destination")
