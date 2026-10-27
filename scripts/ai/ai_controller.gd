@@ -105,6 +105,10 @@ var _last_economy_action: String = "none"
 var _build_site_search_cursors: Dictionary = {}  # building_type -> bounded scalar cursor
 var _next_trade_decision: float = 0.0
 var _trade_site_cursor: int = 0
+# Recomputed from fair observations; losing this short-lived plan on resume
+# cannot lose resources or duplicate a purchase.
+var _trade_capital: Dictionary = {}
+var _trade_capital_until: float = 0.0
 
 # Build-order tracking (what we have built so far)
 var _town_center_count: int = 0
@@ -873,6 +877,8 @@ func _assign_idle_villagers() -> void:
 			continue
 		var assigned: bool = false
 		for res_type in priority:
+			if res_type == "gold" and int(targets.gold) == 0:
+				continue
 			var resource_node: Node2D = _find_resource_for_villager(res_type, villager)
 			if resource_node != null and _assign_villager_to_resource(villager, resource_node):
 				_remember_resource_sighting(res_type, resource_node.global_position)
@@ -1009,6 +1015,8 @@ func _get_economy_resource_priority(resources: Dictionary) -> Array:
 		for resource_type in priority:
 			var current_ratio: float = float(resources.get(resource_type, 0)) / total
 			scores[resource_type] = float(target_ratio.get(resource_type, 0.0)) - current_ratio
+		if not _uses_compact_population_policy() and age >= 2 and int(resources.get("gold", 0)) >= _get_gold_bank_target():
+			scores.gold = -1.0
 	priority.sort_custom(func(a: String, b: String) -> bool:
 		var a_score: float = float(scores.get(a, 0.0))
 		var b_score: float = float(scores.get(b, 0.0))
@@ -1162,11 +1170,34 @@ func _get_economy_worker_targets(worker_count: int, resources: Dictionary) -> Di
 	var wood_target: int = roundi(float(worker_count) * float(ratios.get("wood", 0.0)))
 	food_target = clampi(food_target, 0, worker_count)
 	wood_target = clampi(wood_target, 0, worker_count - food_target)
+	var gold_target: int = worker_count - food_target - wood_target
+	if age >= 2 and int(resources.get("gold", 0)) >= _get_gold_bank_target():
+		# Mature armies spend food and wood; a percentage-based gold workforce
+		# previously hoarded thousands while every military queue waited for wood.
+		if int(resources.get("wood", 0)) < 350:
+			wood_target += gold_target
+		else:
+			food_target += gold_target
+		gold_target = 0
 	return {
 		"food": food_target,
 		"wood": wood_target,
-		"gold": worker_count - food_target - wood_target,
+		"gold": gold_target,
 	}
+
+
+func _get_gold_bank_target() -> int:
+	# Upcoming paid progression plus a small, explicit replacement reserve.
+	var age: int = GameManager.get_player_age(player_id)
+	var target: int = int(SCOUT_TARGETS.get(difficulty, 1)) * int(UnitData.get_unit_cost(UnitData.UnitType.SCOUT).gold) * 2
+	if age < GameManager.MAX_AGE:
+		target += int(GameManager.get_age_up_cost(player_id, age + 1).get("gold", 0))
+	if age >= 3:
+		target += int(UnitData.get_unit_cost(UnitData.UnitType.SIEGE).gold) * 2
+		if _siege_workshop_count == 0: target += int(BuildingData.get_building_cost(BuildingData.BuildingType.SIEGE_WORKSHOP).gold)
+	for research: String in ["forging", "scale_mail"]:
+		if not GameManager.has_research(player_id, research): target += int(TechData.get_research_definition(research).cost.get("gold", 0))
+	return target
 
 
 func _needs_feudal_wood_infrastructure() -> bool:
@@ -1348,6 +1379,8 @@ func _check_building_construction() -> void:
 			continue
 
 		var cost: Dictionary = BuildingData.get_building_cost(b_type)
+		if b_type not in [BuildingData.BuildingType.HOUSE, BuildingData.BuildingType.FARM, BuildingData.BuildingType.RESOURCE_CAMP] and not _allows_trade_capital_spend(cost):
+			continue
 		if not ResourceManager.can_afford(player_id, cost):
 			if b_type == _get_compact_missing_role_building() and _farm_count > 0:
 				# Preserve the second troop-role unlock. An active paid Farm keeps
@@ -1380,22 +1413,39 @@ func _check_trade_economy() -> void:
 	if _game_time < maxf(600.0, _next_trade_decision) or GameManager.get_player_age(player_id) < 2:
 		return
 	_next_trade_decision = _game_time + 20.0
+	_trade_capital.clear()
+	_trade_capital_until = 0.0
 	if _is_under_pressure or _needs_compact_worker_recovery() or game_map == null:
 		return
+	if _get_villagers().size() < 5: return
 	if not game_map.has_method("get_building_dropoff_world_path"): return
-	if ResourceManager.get_resource(player_id, "gold") > 180:
+	var gold: int = ResourceManager.get_resource(player_id, "gold")
+	if gold >= maxi(80, floori(float(_get_gold_bank_target()) * 0.75)):
 		return
 	var tc: BuildingBase = _find_building_of_type(BuildingData.BuildingType.TOWN_CENTER) as BuildingBase
 	if tc == null or tc.state != BuildingBase.State.ACTIVE:
 		return
+	if not GameManager.can_reserve_population(player_id, 2): return
+	var threats: Array = _get_visible_worker_threats()
+	var traders: Array[Trader] = []
+	var committed: int = _count_queued_unit(UnitData.UnitType.TRADER)
+	var delivered: int = 0
+	for unit: Node in _my_units:
+		if is_instance_valid(unit) and unit is Trader and unit.current_state != UnitBase.State.DEAD:
+			traders.append(unit)
+			delivered += unit.delivered_gold
+			committed += 1
+	# Let the first caravan prove its income before expanding. Two is enough
+	# for replacement siege; scarce wood must not fund three speculative units.
+	var target_traders: int = 2 if delivered > 0 and gold < 60 else 1
+	if committed >= target_traders: return
 	var posts: Array = _get_buildings_of_type(BuildingData.BuildingType.TRADE_POST)
 	if posts.is_empty():
+		if _has_productive_known_gold(tc): return
 		var cost: Dictionary = BuildingData.get_building_cost(BuildingData.BuildingType.TRADE_POST)
-		if not ResourceManager.can_afford(player_id, cost): return
 		var footprint := Vector2i(2, 2)
 		var directions: Array[Vector2i] = [Vector2i(1, 0), Vector2i(1, 1), Vector2i(0, 1), Vector2i(-1, 1), Vector2i(-1, 0), Vector2i(-1, -1), Vector2i(0, -1), Vector2i(1, -1)]
 		# Eight candidates per interval; later intervals rotate around the base.
-		var threats: Array = _get_visible_worker_threats()
 		for attempt: int in 8:
 			var index: int = _trade_site_cursor % 32
 			_trade_site_cursor += 1
@@ -1404,24 +1454,77 @@ func _check_trade_economy() -> void:
 			if tile == Vector2i(-1, -1): continue
 			var position: Vector2 = _tile_to_world(tile)
 			if position.distance_to(tc.global_position) < Trader.MIN_ROUTE_DISTANCE or _is_worker_position_exposed(position, threats): continue
-			var route: PackedVector2Array = game_map.get_building_dropoff_world_path(position, tc.global_position, tc.footprint, 36.0)
-			if route.is_empty(): continue
-			ai_wants_to_build.emit(BuildingData.BuildingType.TRADE_POST, tile, false)
+			var route: PackedVector2Array = _get_prospective_trade_route(position)
+			if not _trade_route_is_safe(route, threats): continue
+			_trade_capital = {"wood": int(cost.wood) + int(UnitData.get_unit_cost(UnitData.UnitType.TRADER).wood), "gold": int(UnitData.get_unit_cost(UnitData.UnitType.TRADER).gold)}
+			_trade_capital_until = _game_time + 22.0
+			if ResourceManager.can_afford(player_id, _trade_capital):
+				ai_wants_to_build.emit(BuildingData.BuildingType.TRADE_POST, tile, false)
+				if not _get_buildings_of_type(BuildingData.BuildingType.TRADE_POST).is_empty(): _trade_capital.wood = int(UnitData.get_unit_cost(UnitData.UnitType.TRADER).wood)
 			return
 		return
 	var post: BuildingBase = posts[0] as BuildingBase
-	if post.state != BuildingBase.State.ACTIVE or post.global_position.distance_to(tc.global_position) < Trader.MIN_ROUTE_DISTANCE:
+	if post.state == BuildingBase.State.DESTROYED or post.global_position.distance_to(tc.global_position) < Trader.MIN_ROUTE_DISTANCE:
 		return
-	var return_route: PackedVector2Array = game_map.get_building_dropoff_world_path(post.global_position, tc.global_position, tc.footprint, 36.0)
-	if return_route.is_empty(): return
-	var committed: int = _count_queued_unit(UnitData.UnitType.TRADER)
-	for unit: Node in _my_units:
-		if is_instance_valid(unit) and unit is Trader and unit.current_state != UnitBase.State.DEAD:
-			committed += 1
-			if not unit.trade_route_active: unit.command_trade(post)
-	if committed >= 3 or not GameManager.can_reserve_population(player_id, 2): return
-	if ResourceManager.can_afford(player_id, UnitData.get_unit_cost(UnitData.UnitType.TRADER)):
+	var return_route: PackedVector2Array = _get_prospective_trade_route(post.global_position)
+	if not _trade_route_is_safe(return_route, threats): return
+	_trade_capital = UnitData.get_unit_cost(UnitData.UnitType.TRADER)
+	_trade_capital_until = _game_time + 22.0
+	if post.state != BuildingBase.State.ACTIVE: return
+	for trader: Trader in traders:
+		if not trader.trade_route_active: trader.command_trade(post)
+	if ResourceManager.can_afford(player_id, _trade_capital):
 		ai_wants_to_train.emit(post, UnitData.UnitType.TRADER)
+		_trade_capital.clear()
+
+
+func _allows_trade_capital_spend(cost: Dictionary) -> bool:
+	if _trade_capital.is_empty() or _game_time >= _trade_capital_until or _is_under_pressure or _needs_compact_worker_recovery(): return true
+	for resource: String in ["wood", "gold"]:
+		if int(cost.get(resource, 0)) > 0 and ResourceManager.get_resource(player_id, resource) - int(cost.get(resource, 0)) < int(_trade_capital.get(resource, 0)):
+			return false
+	return true
+
+
+func _trade_route_is_safe(route: PackedVector2Array, threats: Array) -> bool:
+	if route.is_empty(): return false
+	for threat: Node2D in threats:
+		if not is_instance_valid(threat): continue
+		for index: int in route.size():
+			var nearest: Vector2 = route[index] if index == 0 else Geometry2D.get_closest_point_to_segment(threat.global_position, route[index - 1], route[index])
+			if _is_worker_position_exposed(nearest, [threat]): return false
+	return true
+
+
+func _get_prospective_trade_route(position: Vector2) -> PackedVector2Array:
+	# Match Trader's farthest reachable owned Town Center, including expansions.
+	var best := PackedVector2Array()
+	var longest: float = Trader.MIN_ROUTE_DISTANCE
+	for building: Node in _get_buildings_of_type(BuildingData.BuildingType.TOWN_CENTER):
+		if building.player_owner != player_id or building.state != BuildingBase.State.ACTIVE: continue
+		var distance: float = position.distance_to(building.global_position)
+		if distance < longest: continue
+		var route: PackedVector2Array = game_map.get_building_dropoff_world_path(position, building.global_position, building.footprint, 36.0)
+		if not route.is_empty():
+			longest = distance
+			best = route
+	return best
+
+
+func _has_productive_known_gold(tc: BuildingBase) -> bool:
+	# Normal fog-aware lookup only. Hidden stock is neither enumerated nor read.
+	var workers: Array = _get_villagers()
+	for index: int in mini(3, workers.size()):
+		var source: Node2D = _find_resource_for_villager("gold", workers[index])
+		if not source is ResourceNode: continue
+		if game_map.has_method("is_entity_visible_to_player") and not game_map.is_entity_visible_to_player(source, player_id): continue
+		var haul: float = source.global_position.distance_to(tc.global_position)
+		for building: Node in _my_buildings:
+			if is_instance_valid(building) and building is BuildingBase and building.player_owner == player_id and building.state == BuildingBase.State.ACTIVE and building.is_drop_off_point("gold"):
+				haul = minf(haul, source.global_position.distance_to(building.global_position))
+		if haul <= 600.0 and _visible_expansion_resources(source) >= 150:
+			return true
+	return false
 
 
 func _check_rebuilding() -> bool:
@@ -1500,7 +1603,7 @@ func _check_military_production() -> void:
 		if tc:
 			var scout_cost: Dictionary = UnitData.get_unit_cost(UnitData.UnitType.SCOUT)
 			var scout_pop_cost: int = int(UnitData.UNITS[UnitData.UnitType.SCOUT].get("pop_cost", 1))
-			if GameManager.can_reserve_population(player_id, scout_pop_cost) and ResourceManager.can_afford(player_id, scout_cost):
+			if GameManager.can_reserve_population(player_id, scout_pop_cost) and ResourceManager.can_afford(player_id, scout_cost) and _allows_trade_capital_spend(scout_cost):
 				ai_wants_to_train.emit(tc, UnitData.UnitType.SCOUT)
 				return
 
@@ -1549,6 +1652,7 @@ func _try_train_from_building(building_type: int, unit_type: int) -> bool:
 		return false
 
 	var cost: Dictionary = UnitData.get_unit_cost(unit_type)
+	if not _allows_trade_capital_spend(cost): return false
 	if unit_type != UnitData.UnitType.SIEGE and _needs_compact_siege_purchase():
 		var available_slots: int = int(GameManager.players[player_id]["population_cap"]) - GameManager.get_committed_population(player_id)
 		if available_slots - pop_cost < int(UnitData.UNITS[UnitData.UnitType.SIEGE]["pop_cost"]):
@@ -1617,7 +1721,7 @@ func _check_age_up() -> void:
 		if not allow_feudal_fallback:
 			return
 
-	if ResourceManager.can_afford(player_id, cost):
+	if ResourceManager.can_afford(player_id, cost) and _allows_trade_capital_spend(cost):
 		_saving_for_age_up = false
 		ai_wants_to_age_up.emit()
 
@@ -1925,13 +2029,14 @@ func _get_military_training_plan(resources: Dictionary) -> Array:
 		filtered.append(UnitData.UnitType.SIEGE)
 	if _uses_compact_population_policy():
 		filtered = _rank_compact_military_plan(filtered)
-		if _needs_compact_siege_purchase() and _find_trainable_building_of_type(BuildingData.BuildingType.SIEGE_WORKSHOP) != null and GameManager.can_reserve_population(player_id, 3):
-			filtered.push_front(UnitData.UnitType.SIEGE)
+	if _needs_compact_siege_purchase() and _find_trainable_building_of_type(BuildingData.BuildingType.SIEGE_WORKSHOP) != null and GameManager.can_reserve_population(player_id, 3):
+		filtered.erase(UnitData.UnitType.SIEGE)
+		filtered.push_front(UnitData.UnitType.SIEGE)
 	return filtered
 
 
 func _needs_compact_siege_purchase() -> bool:
-	if not _uses_compact_population_policy() or GameManager.get_player_age(player_id) < 3:
+	if GameManager.get_player_age(player_id) < 3:
 		return false
 	if _is_under_pressure or _needs_compact_worker_recovery() or _get_compact_missing_role_building() >= 0:
 		return false
@@ -2040,6 +2145,7 @@ func _check_research() -> void:
 		if _get_villagers().size() >= 4 and "loom" not in research_plan:
 			research_plan.append("loom")
 	for research_id: String in research_plan:
+		if not _allows_trade_capital_spend(TechData.get_research_definition(research_id).get("cost", {})): continue
 		if GameManager.try_research(player_id, blacksmith, research_id):
 			return  # One paid research per decision.
 

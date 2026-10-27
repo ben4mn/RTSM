@@ -162,6 +162,8 @@ func _sample_late(force: bool) -> void:
 			traders.append({"status": unit.get_trade_status(), "cargo": unit.carried_gold, "delivered": unit.delivered_gold, "route_active": unit.trade_route_active})
 		var brain: AIController = human_bot if owner == 0 else match_scene.ai_controller
 		sample.players.append({"age": GameManager.get_player_age(owner), "bank": ResourceManager.get_all_resources(owner), "active_farms": farms, "staffed_farms": staffed, "active_posts": posts, "traders": traders, "lifetime": _late_totals[owner].duplicate(), "trade_policy": {"clock": brain._game_time, "next_check": brain._next_trade_decision, "under_pressure": brain._is_under_pressure, "worker_recovery": brain._needs_compact_worker_recovery(), "cursor": brain._trade_site_cursor}})
+		if brain.has_method("_get_gold_bank_target"):
+			sample.players[-1].trade_policy.merge({"gold_bank_target": brain._get_gold_bank_target(), "capital": brain._trade_capital.duplicate(), "capital_until": brain._trade_capital_until})
 	_late_samples.append(sample)
 	print("[LATE_SAMPLE] ", JSON.stringify(sample))
 	_late_performance.merge({"wall_seconds": float(Time.get_ticks_msec() - _late_wall_start) / 1000.0, "game_seconds": GameManager.game_time, "observer_usec": _late_observer_usec, "measure_calls": _late_measure_calls, "frames": _late_frames, "time_scale": Engine.time_scale, "physics_ticks_per_second": Engine.physics_ticks_per_second}, true)
