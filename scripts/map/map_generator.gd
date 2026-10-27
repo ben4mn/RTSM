@@ -29,6 +29,9 @@ var _opening_rotation: int = 0
 var _lane_half_width: int = 4
 var validation_report: Dictionary = {}
 var _resource_amounts: Dictionary = {}
+var _expansion_shortfalls: Array[Dictionary] = []
+var _expanded_fringe_count: int = 0
+var _resource_bridge_count: int = 0
 
 
 func _init(seed_value: int = -1, map_archetype: int = MapData.MapArchetype.OPEN_PLAINS) -> void:
@@ -43,6 +46,9 @@ func _init(seed_value: int = -1, map_archetype: int = MapData.MapArchetype.OPEN_
 ## Generate a new map and return the tile grid.
 func generate() -> Array:
 	_init_grid()
+	_expansion_shortfalls.clear()
+	_expanded_fringe_count = 0
+	_resource_bridge_count = 0
 	_place_sacred_site()
 	_place_spawn_positions()
 	_roll_layout()
@@ -59,6 +65,7 @@ func generate() -> Array:
 	_place_guaranteed_near_spawn_resources()
 	_place_contested_mid_resources()
 	_place_expansion_resources()
+	_connect_isolated_resources()
 	_add_grass_variety()
 	_budget_natural_stock()
 	validation_report = validate_layout()
@@ -360,14 +367,23 @@ func _place_expansion_resources() -> void:
 
 func _place_expansion_patch(center: Vector2i, preferred_offset: Vector2i, count: int, tile_type: MapData.TileType) -> void:
 	var candidates: Array[Vector2i] = []
-	for dy: int in range(-EXPANSION_CLEAR_RADIUS, EXPANSION_CLEAR_RADIUS + 1):
-		for dx: int in range(-EXPANSION_CLEAR_RADIUS, EXPANSION_CLEAR_RADIUS + 1):
-			if maxi(absi(dx), absi(dy)) <= 2:
-				continue
-			var tile: Vector2i = center + Vector2i(dx, dy)
-			var mirrored: Vector2i = _mirror_tile(tile)
-			if not _route_tiles.has(tile) and not _route_tiles.has(mirrored) and get_tile(tile) == MapData.TileType.GRASS and get_tile(mirrored) == MapData.TileType.GRASS:
-				candidates.append(tile)
+	# Crossing lanes can consume most of one jittered pocket. Widen its resource
+	# fringe deterministically instead of silently dropping promised deposits.
+	for search_radius: int in [EXPANSION_CLEAR_RADIUS, 12, 16, MapData.MAP_WIDTH]:
+		candidates.clear()
+		var paired_tiles: Dictionary = {}
+		for dy: int in range(-search_radius, search_radius + 1):
+			for dx: int in range(-search_radius, search_radius + 1):
+				var tile: Vector2i = center + Vector2i(dx, dy)
+				var mirrored: Vector2i = _mirror_tile(tile)
+				var pair_key := Vector2i(mini(tile.x, tile.y), maxi(tile.x, tile.y))
+				if paired_tiles.has(pair_key) or _is_resource_pad_reserved(tile): continue
+				if not _route_tiles.has(tile) and not _route_tiles.has(mirrored) and get_tile(tile) == MapData.TileType.GRASS and get_tile(mirrored) == MapData.TileType.GRASS:
+					candidates.append(tile)
+					paired_tiles[pair_key] = true
+		if candidates.size() >= count:
+			if search_radius > EXPANSION_CLEAR_RADIUS: _expanded_fringe_count += 1
+			break
 	var preferred: Vector2i = center + preferred_offset
 	candidates.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
 		var first: int = (a - preferred).length_squared()
@@ -377,7 +393,7 @@ func _place_expansion_patch(center: Vector2i, preferred_offset: Vector2i, count:
 	for index: int in range(mini(count, candidates.size())):
 		_set_symmetric_tile(candidates[index], tile_type)
 	if candidates.size() < count:
-		push_error("Expansion compound lacks its promised resource fringe")
+		_expansion_shortfalls.append({"center": center, "kind": tile_type, "wanted": count, "available": candidates.size()})
 
 
 func _is_in_expansion_clearance(tile: Vector2i) -> bool:
@@ -515,18 +531,8 @@ func get_tile(pos: Vector2i) -> MapData.TileType:
 ## Uses the same ground-obstacle contract as pathfinding, without engine nodes.
 func validate_layout() -> Dictionary:
 	var errors: Array[String] = []
-	var reachable: Dictionary = {}
-	var frontier: Array[Vector2i] = [spawn_positions[0]]
-	reachable[spawn_positions[0]] = true
-	var cursor: int = 0
-	while cursor < frontier.size():
-		var tile: Vector2i = frontier[cursor]
-		cursor += 1
-		for offset: Vector2i in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
-			var next: Vector2i = tile + offset
-			if _in_bounds(next.x, next.y) and not reachable.has(next) and not MapData.is_obstacle(get_tile(next)):
-				reachable[next] = true
-				frontier.append(next)
+	if not _expansion_shortfalls.is_empty(): errors.append("unfilled expansion resource fringe")
+	var reachable: Dictionary = _find_connected_tiles()
 	var resource_counts: Dictionary = {}
 	for y: int in range(MapData.MAP_HEIGHT):
 		for x: int in range(MapData.MAP_WIDTH):
@@ -576,3 +582,52 @@ func _budget_natural_stock() -> void:
 
 func get_resource_amount(tile: Vector2i) -> int:
 	return int(_resource_amounts.get(tile, 0))
+
+
+func _is_resource_pad_reserved(tile: Vector2i) -> bool:
+	if not _in_bounds(tile.x, tile.y) or _is_near_spawn(tile, SPAWN_CLEAR_RADIUS) or _is_near_center(tile, CENTER_CLEAR_RADIUS): return true
+	for center: Vector2i in get_expansion_pocket_centers():
+		for pad: Vector2i in [center, _mirror_tile(center)]:
+			if maxi(absi(tile.x - pad.x), absi(tile.y - pad.y)) <= 2: return true
+	return false
+
+
+func _find_connected_tiles() -> Dictionary:
+	var reachable: Dictionary = {}
+	var frontier: Array[Vector2i] = [spawn_positions[0]]
+	reachable[spawn_positions[0]] = true
+	var cursor: int = 0
+	while cursor < frontier.size():
+		var tile: Vector2i = frontier[cursor]
+		cursor += 1
+		for offset: Vector2i in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
+			var next: Vector2i = tile + offset
+			if _in_bounds(next.x, next.y) and not reachable.has(next) and not MapData.is_obstacle(get_tile(next)):
+				reachable[next] = true
+				frontier.append(next)
+	return reachable
+
+
+## Lake edges can surround a one-tile forest or deposit. Join such islands to
+## the main component without erasing resources or changing either player's
+## route costs relative to the other. Repair consumes no gameplay RNG.
+func _connect_isolated_resources() -> void:
+	var connected: Dictionary = _find_connected_tiles()
+	for y: int in range(MapData.MAP_HEIGHT):
+		for x: int in range(MapData.MAP_WIDTH):
+			var tile := Vector2i(x, y)
+			if connected.has(tile) or get_tile(tile) not in [MapData.TileType.FOREST, MapData.TileType.BERRY_BUSH, MapData.TileType.GOLD_MINE]: continue
+			var nearest: Vector2i = spawn_positions[0]
+			var best_distance: int = 2147483647
+			for candidate: Vector2i in connected:
+				var distance: int = absi(tile.x - candidate.x) + absi(tile.y - candidate.y)
+				if distance < best_distance or (distance == best_distance and (candidate.y < nearest.y or (candidate.y == nearest.y and candidate.x < nearest.x))):
+					best_distance = distance
+					nearest = candidate
+			var cursor: Vector2i = tile
+			while cursor != nearest:
+				if cursor.x != nearest.x: cursor.x += 1 if nearest.x > cursor.x else -1
+				elif cursor.y != nearest.y: cursor.y += 1 if nearest.y > cursor.y else -1
+				if get_tile(cursor) == MapData.TileType.WATER: _set_symmetric_tile(cursor, MapData.TileType.GRASS)
+			_resource_bridge_count += 1
+			connected = _find_connected_tiles()

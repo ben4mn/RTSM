@@ -6,7 +6,7 @@ func _initialize() -> void:
 	var style_signatures: Dictionary = {}
 	for archetype: int in MapData.MAP_ARCHETYPES:
 		var layouts: Dictionary = {}
-		for seed_value: int in [1, 2, 3, 7, 19, 42, 99, 501, 12345, 424242, 8675309, 2147483646]:
+		for seed_value: int in [1, 2, 3, 7, 19, 42, 99, 501, 12345, 424242, 8675309, 2147483646, 1298326314, 1505321194, 108016561]:
 			var first := MapGenerator.new(seed_value, archetype)
 			var second := MapGenerator.new(seed_value, archetype)
 			first.generate()
