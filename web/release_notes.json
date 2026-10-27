@@ -1,6 +1,19 @@
 {
   "releases": [
     {
+      "id": "2026-10-27-working-trade-roads",
+      "date": "2026-10-27",
+      "version": "0.3.0-beta.16",
+      "title": "Working trade roads",
+      "summary": "Opponents plan a renewable gold economy for longer battles.",
+      "changes": [
+        "Opponents stop over-mining gold once upcoming purchases are covered and put those workers back on food and timber.",
+        "Castle-age armies reserve resources for a siege engine instead of endlessly spending the budget on basic troops.",
+        "When nearby safe gold runs low, opponents can save for a Trade Post and its first Trader. They avoid visibly threatened routes and expand only after a caravan proves its income.",
+        "Gathering rates, movement, map reserves and victory timers are unchanged. Existing solo saves remain compatible."
+      ]
+    },
+    {
       "id": "2026-10-27-even-stock-on-every-seed",
       "date": "2026-10-27",
       "version": "0.3.0-beta.15.1",
