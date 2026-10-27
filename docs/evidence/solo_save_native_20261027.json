@@ -1,0 +1,58 @@
+{
+  "date": "2026-10-27",
+  "runtime_commit": "d57d882",
+  "scope": "Native Godot4.6. Four fresh processes share one isolated user directory. Browser durability is verified separately by integration owner.",
+  "result": "PASS",
+  "checks": 60,
+  "phases": [
+    {
+      "checks": 13,
+      "failures": [],
+      "phase": "writer",
+      "test": "solo_save"
+    },
+    {
+      "checks": 36,
+      "failures": [],
+      "phase": "reader",
+      "test": "solo_save"
+    },
+    {
+      "checks": 1,
+      "failures": [],
+      "phase": "online",
+      "test": "solo_save"
+    },
+    {
+      "checks": 10,
+      "failures": [],
+      "phase": "corrupt",
+      "test": "solo_save"
+    }
+  ],
+  "source_sha256": {
+    "scripts/managers/solo_save.gd": "c40cbb537ce59d67836d683873e2eda696f08aaaffde0412091b7bf15fc9748d",
+    "scripts/main/solo_match_state.gd": "ae31e6e28958a0c67250a485fcd5aa5eae47cb565fa87cc0b7259099ebde5dad",
+    "scripts/main/main.gd": "28bdfc4ce6a260daf5ad72d785f9d5445e4e87acd8f633e22df63fef3ce04c8b",
+    "project.godot": "914e0545ab7eabd6c210f04542f452a802c00dab5ed1f36a6ef1793c2b20274e",
+    "tools/test_solo_save.gd": "19a0930944328738d5251a2726e768ebc495b8efc12af400438be48402139cf1",
+    "tools/test_solo_save.tscn": "1a22b0701f12eec47d9ef74fe81d69871f2ab7d4a2839cf2a73d4a09f4b86843",
+    "tools/run_solo_save_tests.py": "4c8e0899cfa3df8126aa86557d5b7d798da96721021775d2db21adec5482acef"
+  },
+  "coverage": [
+    "exact resource balances and population reservations",
+    "no duplicate starter actors",
+    "depleted and partially harvested deposits including revealed grass artwork",
+    "mixed cargo, fractional harvest, jobs and farm assignment",
+    "construction continuation, single housing grant and return to gathering",
+    "finite paid training resumes without duplicate spending",
+    "trade cargo travels and pays exactly once",
+    "in-flight projectile retains target/progress and lands once",
+    "rallies, queued dropoff identities, patrol and control groups",
+    "AI memory/cadence, sacred fractional gold, fog sightings and camera",
+    "next-match preferences preserved; resume starts paused",
+    "active multiplayer cannot save, resume or delete solo checkpoint",
+    "native temporary write failure preserves prior slot byte-for-byte",
+    "checksum/version/size/population validation and corrupt-file fallback"
+  ]
+}
