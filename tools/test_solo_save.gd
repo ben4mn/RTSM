@@ -114,6 +114,15 @@ func _writer() -> void:
 	for child: Node in map.get_node("UnitsContainer").get_children():
 		if child is Combat.RangedProjectile: shot = child
 	shot.advance_projectile(0.05)
+	# A defeated actor can remain in a unit's target until its next process tick.
+	# Capture must remove that identity before applying any GDScript type checks.
+	var defeated := UnitBase.new()
+	worker.attack_target = defeated
+	var weak_defeated: WeakRef = weakref(defeated)
+	defeated.free()
+	var serializer := preload("res://scripts/main/solo_match_state.gd").new()
+	var stale: Dictionary = serializer._encode({"target": defeated, "nested": [defeated, weak_defeated]})
+	check(stale.target == {"$ref": 0} and stale.nested == [{"$ref": 0}, {"$weak": 0}], "freed direct, nested and weak targets encode without engine errors")
 	gm.game_time = 122.0
 	gm.set_paused(true)
 	check(save.save_current("first_good"), "first good checkpoint")
@@ -159,6 +168,7 @@ func _reader() -> void:
 	var farmer: Villager = main._player_units[0][2]
 	check(worker._cargo == {"food": 4, "gold": 3} and worker.carried_amount == 7 and is_equal_approx(worker.gather_timer, 0.41) and is_equal_approx(worker._fractional_harvest, 0.7), "mixed cargo and fractional harvest exact")
 	check(worker.gather_target == map.resource_nodes[expected.resource_tile], "worker resource reference remapped")
+	check(worker.attack_target == null, "defeated target becomes null on fresh-process resume without disturbing gathering")
 	check(is_instance_valid(builder.build_target) and is_equal_approx(builder.build_target.build_progress, 0.37) and builder.build_target.hp == 41, "construction job and health restored")
 	check(farmer.gather_target is BuildingBase and farmer.gather_target.get_assigned_worker() == farmer, "farm has exactly its assigned worker")
 	var tc: BuildingBase = main._player_town_center

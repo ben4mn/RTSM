@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Fresh Godot processes share one isolated device save; user's files are untouched."""
-import json,os,tempfile,uuid
+import argparse,json,os,tempfile,uuid
 from pathlib import Path
 from run_focused_tests import freeze_project,run_case
 ROOT=Path(__file__).resolve().parents[1]
-OUT=ROOT.parent/'solo-save-tests'
+parser=argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--output',type=Path,default=ROOT.parent/'solo-save-tests')
+OUT=parser.parse_args().output.resolve()
 OUT.mkdir(exist_ok=True)
 with tempfile.TemporaryDirectory(prefix='pocket-solo-save-') as folder:
  project=Path(folder)

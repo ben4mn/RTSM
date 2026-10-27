@@ -24,6 +24,10 @@ func _script_fields(object: Object) -> Array[String]:
 	return result
 
 func _encode(value: Variant) -> Variant:
+	# A battle target may have been freed since the last unit update. Godot's
+	# `is` operator itself errors on freed objects, before later guards can run.
+	if typeof(value) == TYPE_OBJECT and not is_instance_valid(value):
+		return {"$ref": 0}
 	if value is WeakRef:
 		var target: Object = value.get_ref()
 		return {"$weak": target.get_instance_id() if is_instance_valid(target) and _references.has(target.get_instance_id()) else 0}
