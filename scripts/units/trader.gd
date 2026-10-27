@@ -1,7 +1,8 @@
 class_name Trader
 extends UnitBase
 ## Paid, exposed gold: no income until a full TC -> Post -> TC trip completes.
-const MIN_ROUTE_DISTANCE: float = 500.0
+const TRADE_PREVIEW = preload("res://scripts/units/trade_preview.gd")
+const MIN_ROUTE_DISTANCE: float = TRADE_PREVIEW.MIN_ROUTE_DISTANCE
 const HANDLING_SECONDS: float = 3.0
 var trade_post: BuildingBase = null
 var home_town_center: BuildingBase = null
@@ -101,7 +102,7 @@ func command_trade(post: BuildingBase) -> bool:
 func get_trip_income() -> int:
 	if NetworkSession.is_client(): return int(get_meta("network_trade_income", 0))
 	if not _endpoint_valid(trade_post) or not _endpoint_valid(home_town_center): return 0
-	return clampi(floori(trade_post.global_position.distance_to(home_town_center.global_position) * 0.04), 20, 60)
+	return TRADE_PREVIEW.income_for_distance(trade_post.global_position.distance_to(home_town_center.global_position))
 
 
 func get_trade_status() -> String:
