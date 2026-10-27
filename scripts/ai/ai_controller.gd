@@ -883,7 +883,6 @@ func _assign_idle_villagers() -> void:
 				break
 			if (
 				res_type == "wood"
-				and _uses_compact_population_policy()
 				and int(counts["wood"]) < int(targets.get("wood", 0))
 				and _get_active_wood_search_worker() == null
 				and _try_order_economy_search(villager, ["wood"])
