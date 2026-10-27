@@ -66,8 +66,9 @@ func _start_match() -> bool:
 	for unit: Node in _main.get("_player_units")[0]:
 		if unit is Villager:
 			_workers.append(unit)
-	_expect(_workers.size() == 4, "ordinary starting roster has four workers")
-	return _workers.size() == 4
+	var expected_workers: int = UnitData.get_starting_villager_count()
+	_expect(_workers.size() == expected_workers, "ordinary starting roster matches the configured worker count")
+	return _workers.size() == expected_workers
 
 
 func _paid_mobile_workshop(population: int) -> void:
@@ -94,7 +95,7 @@ func _paid_mobile_workshop(population: int) -> void:
 	if not cards.has(WORKSHOP):
 		return
 	var card: Button = cards[WORKSHOP]
-	_expect(card.visible and card.disabled and card.text.contains("Castle Age"), label + " Dark card names its Castle requirement")
+	_expect(card.visible and card.disabled and card.tooltip_text.contains(GameManager.get_age_name(3)), label + " locked card exposes its Castle requirement through Info/accessibility")
 	_expect(str(hud.call("_get_age_up_preview", 3)).contains("Siege Engine"), label + " Castle preview promises reachable Siege recruitment")
 	for target_age: int in [2, 3]:
 		var before: Dictionary = ResourceManager.get_all_resources(0).duplicate()
@@ -110,29 +111,29 @@ func _paid_mobile_workshop(population: int) -> void:
 	menu.call("update_resources", ResourceManager.get_all_resources(0))
 	await _frames(4)
 	card = (menu.get("_button_map") as Dictionary)[WORKSHOP]
-	_expect(card.disabled and card.text.contains("Need 1W"), label + " Castle shortage remains visible and unpurchasable")
+	_expect(card.disabled and card.tooltip_text.contains("Need 1 wood"), label + " Castle shortage remains inspectable and unpurchasable")
 	ResourceManager.initialize_player(0, funded)
 	menu.call("update_resources", ResourceManager.get_all_resources(0))
 	await _frames(4)
 	card = (menu.get("_button_map") as Dictionary)[WORKSHOP]
 	var scroll: ScrollContainer = menu.get("scroll_container")
 	_expect(scroll.horizontal_scroll_mode == ScrollContainer.SCROLL_MODE_SHOW_NEVER, label + " large notched Army keeps readable cards in a scrollable row")
-	_expect((menu.get("grid") as GridContainer).size.x > scroll.size.x + 1.0, label + " large notched fixture must actually overflow to exercise its swipe")
+	var overflows: bool = (menu.get("grid") as GridContainer).size.x > scroll.size.x + 1.0
 	var before_camera: Vector2 = map.camera.position
 	var before_scroll: int = scroll.scroll_horizontal
 	await _swipe_left(card.get_global_rect())
-	_expect(scroll.scroll_horizontal > before_scroll, label + " actual touch drag scrolls the five-card Army row")
+	_expect(scroll.scroll_horizontal > before_scroll if overflows else scroll.scroll_horizontal == before_scroll, label + " touch drag scrolls overflow and leaves a fitting icon row stable")
 	_expect(map.camera.position.distance_to(before_camera) < 0.01, label + " Army swipe cannot pan the battlefield")
 	_expect(not placement.active, label + " Army swipe cannot start a building placement")
 	var last_card: Button = (menu.get("_button_map") as Dictionary)[BuildingData.BuildingType.BLACKSMITH]
 	_expect(scroll.get_global_rect().encloses(last_card.get_global_rect()), label + " actual swipe reveals the entire last Castle card (Blacksmith)")
-	if scroll.scroll_horizontal <= before_scroll or not scroll.get_global_rect().encloses(last_card.get_global_rect()):
+	if (overflows and scroll.scroll_horizontal <= before_scroll) or not scroll.get_global_rect().encloses(last_card.get_global_rect()):
 		_input_trace(label + " failed swipe", menu)
 		return
 	_expect(scroll.get_global_rect().encloses(card.get_global_rect()), label + " entire Siege card is reachable by touch")
 	if not scroll.get_global_rect().encloses(card.get_global_rect()):
 		return
-	_expect(card.size.x >= 120.0 and card.size.y >= 48.0, label + " Siege keeps readable card dimensions")
+	_expect(card.size.x >= 48.0 and card.size.y >= 48.0, label + " Siege keeps a usable icon touch target")
 	var before: Dictionary = ResourceManager.get_all_resources(0).duplicate()
 	await _touch_button(card)
 	_expect(placement.active and placement.current_building_type == WORKSHOP, label + " actual Siege card enters Workshop placement")
@@ -162,7 +163,7 @@ func _paid_mobile_workshop(population: int) -> void:
 	_expect(workshop.state == BuildingBase.State.ACTIVE and durations.has(workshop.get_instance_id()), label + " Workshop completes through natural travel/labor")
 	if workshop.state != BuildingBase.State.ACTIVE:
 		return
-	_expect(absf(float(durations[workshop.get_instance_id()]) - workshop.build_time) <= 0.6, label + " Workshop uses unchanged data-defined labor duration")
+	_expect(absf(float(durations[workshop.get_instance_id()]) - workshop.build_time / UnitData.VILLAGER_BUILD_SPEED) <= 0.6, label + " Workshop uses data-defined labor and worker build speed")
 	for worker: Villager in _workers:
 		worker.command_stop()
 	map.selection_mgr.select_single(workshop)
