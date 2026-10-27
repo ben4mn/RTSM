@@ -1,0 +1,7 @@
+=== [1/1] test_ai_trade_sustained ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+{"after_support_bank":{"food":600,"gold":40,"wood":1420},"economic_seconds":300.000000000056,"final_bank":{"food":151,"gold":219,"wood":12},"first_paid_siege_seconds":224.516666666737,"initial_funded_state":{"age":3,"food":1000,"gold":140,"wood":2000,"workers":5},"ordinary_gold_spending":305,"trade_deliveries":22,"trade_gold":484,"traders":2}
+{"checks":15,"failures":[],"scope":"controlled funded Castle economy with finite gold absent; paid support setup, then full _on_decision_tick at normal Medium1.5s cadence and continuous60Hz production/builder/caravan simulation; combat movement excluded; no later grants or natural-duration claim","test":"ai_trade_sustained"}
+[PASS] test_ai_trade_sustained
+FOCUSED_SUITE: 1/1 passed

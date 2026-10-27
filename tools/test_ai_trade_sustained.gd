@@ -40,8 +40,8 @@ func _run() -> void:
 	main.game_map.fog_of_war.reveal_all()
 	for source: ResourceNode in main.game_map.resource_nodes.values():
 		if source.resource_type == "gold": source.remaining = 0
-	# One initial grant, explicitly declared. No subsequent grants, gathering,
-	# Sacred income, forced trade commands, free construction or free recruits.
+	# One initial grant, explicitly declared. Food/wood gathering stays ordinary;
+	# no later grants, Sacred income, forced trade orders or free production.
 	ResourceManager.initialize_player(1, {"food": 1000, "wood": 2000, "gold": 140})
 	var barracks: BuildingBase = _build_support(BuildingData.BuildingType.BARRACKS)
 	var workshop: BuildingBase = _build_support(BuildingData.BuildingType.SIEGE_WORKSHOP)

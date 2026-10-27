@@ -1,0 +1,7 @@
+{
+  "status": "stopped_for_reviewed_runtime_guard",
+  "runtime_revision": "d614dc81978b1eb8c1508b0fe74119d3f0cfb6ce",
+  "reason": "Unfunded trade gold could withhold army wood. Final guard commits300baaf; restart exact final runtime. No natural outcome claimed.",
+  "last_persisted_game_seconds": 240.183333333417,
+  "partial": "map1-seed424242-fixed60-scale1-difficulty2v2-sacred-continuation.json.partial.json"
+}
