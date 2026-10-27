@@ -3133,6 +3133,7 @@ func _building_purpose(building_ref: Node2D) -> String:
 			return "Tap resource\nfor rally"
 		BuildingData.BuildingType.HOUSE: return "+%d housing" % int(BuildingData.BUILDINGS[building.building_type].get("pop_provided", 0))
 		BuildingData.BuildingType.RESOURCE_CAMP: return "Food · wood · gold drop-off"
+		BuildingData.BuildingType.TRADE_POST: return "Automatic trade\nDistant town route"
 		BuildingData.BuildingType.FARM:
 			# Replicas do not include farmer reservations. Missing local data must
 			# never imply availability, nor disclose an opponent's assignment.
@@ -3606,7 +3607,7 @@ func _update_train_buttons(trainable_units: Array) -> void:
 			if is_instance_valid(_selected_building_ref): building_rally_requested.emit(_selected_building_ref))
 		_train_buttons_container.add_child(_building_rally_button)
 		FieldStyle.soften(_building_rally_button, 14, true)
-	_building_rally_button.visible = true
+	_building_rally_button.visible = (_selected_building_ref as BuildingBase).building_type != BuildingData.BuildingType.TRADE_POST
 	_building_rally_button.disabled = not _is_human_owned_building(_selected_building_ref) or (_selected_building_ref as BuildingBase).state != BuildingBase.State.ACTIVE
 	_building_rally_button.set_pressed_no_signal(_rally_armed)
 	_train_buttons_container.move_child(_building_rally_button, -1)
@@ -5030,6 +5031,8 @@ func _selection_information() -> Dictionary:
 	elif is_instance_valid(_selected_building_ref):
 		if _selected_building_ref is BuildingBase and (_selected_building_ref as BuildingBase).provides_food:
 			_append_information(lines, _farm_information(_selected_building_ref as BuildingBase))
+		if _selected_building_ref is BuildingBase and (_selected_building_ref as BuildingBase).building_type == BuildingData.BuildingType.TRADE_POST:
+			lines.append("New traders automatically use a distant reachable Town Center. Gold is delivered on return. Economy's trader icon finds your traders; select one and tap your Trade Post to resume after Move or Stop.")
 		if _is_human_owned_building(_selected_building_ref) and ((_selected_building_ref as BuildingBase).can_train() or (_selected_building_ref as BuildingBase).building_type == BuildingData.BuildingType.HOUSE):
 			_append_information(lines, _population_information())
 		if _is_human_owned_building(_selected_building_ref) and (_selected_building_ref as BuildingBase).building_type == BuildingData.BuildingType.TOWN_CENTER:

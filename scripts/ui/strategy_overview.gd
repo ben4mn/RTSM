@@ -9,6 +9,7 @@ signal base_requested()
 signal army_requested()
 signal army_focus_requested()
 signal idle_requested()
+signal trader_requested()
 signal allocation_requested(source: String, destination: String)
 signal training_requested(building: Node2D, unit_type: int)
 signal cancellation_requested(building: Node2D, index: int)
@@ -45,6 +46,8 @@ var _economy_health: Label
 var _food_stock: Label
 var _farm_blocker: Label
 var _farm_button: Button
+var _trade_actions: HBoxContainer
+var _trader_button: Button
 var _population: Label
 var _feedback: Label
 var _feedback_until_msec: int = 0
@@ -185,6 +188,14 @@ func _ready() -> void:
 	_economy.add_theme_constant_override("separation", int(CommandIcons.GAP))
 	content.add_child(_economy)
 	_build_economy()
+	_trade_actions = HBoxContainer.new()
+	_trade_actions.name = "TradeActions"
+	content.add_child(_trade_actions)
+	_trader_button = _icon_button("find", "Find your traders", "FindTrader", 48)
+	_trader_button.icon = load(UnitData.get_unit_icon_path(UnitData.UnitType.TRADER, 0))
+	_trader_button.add_theme_constant_override("icon_max_width", 36)
+	_trader_button.pressed.connect(func() -> void: trader_requested.emit())
+	_trade_actions.add_child(_trader_button)
 	_recruit_empty = VBoxContainer.new()
 	_recruit_empty.name = "RecruitEmpty"
 	_recruit_empty.add_theme_constant_override("separation", 8)
@@ -213,7 +224,7 @@ func _ready() -> void:
 	_details.name = "StrategyDetails"
 	_details.add_theme_constant_override("separation", 4)
 	content.add_child(_details)
-	for index: int in range(6):
+	for index: int in range(8):
 		var line := _label("", 13)
 		line.name = "Detail%d" % index
 		_details.add_child(line)
@@ -392,6 +403,12 @@ func _choose_source(resource: String) -> void:
 
 
 func update_snapshot(snapshot: Dictionary) -> void:
+	var traders: int = int(snapshot.get("traders", 0))
+	var waiting: int = int(snapshot.get("waiting_traders", 0))
+	_trader_button.disabled = traders == 0
+	_trader_button.tooltip_text = "Find %d traders · %d paused or waiting. Tap to cycle; no orders changed." % [traders, waiting]
+	_trader_button.accessibility_name = _trader_button.tooltip_text
+	CommandIcons.set_badge(_trader_button, str(traders) if traders < 100 else "99+", waiting > 0)
 	if _feedback_until_msec > 0 and Time.get_ticks_msec() >= _feedback_until_msec:
 		_clear_feedback()
 	_snapshot = snapshot
@@ -499,6 +516,7 @@ func _refresh_producers(producers: Array) -> void:
 		if not _producer_rows.has(id):
 			_create_producer(producer)
 		var row: Dictionary = _producer_rows[id]
+		(row.rallies as Control).visible = building.building_type != BuildingData.BuildingType.TRADE_POST
 		row["military"] = bool(producer.get("military", false))
 		(row.status as Label).text = str(producer.get("status", ""))
 		var queue: Array = producer.get("queue", [])
@@ -658,7 +676,7 @@ func _create_producer(producer: Dictionary) -> void:
 		if is_instance_valid(building):
 			sacred_rally_requested.emit(building))
 	rallies.add_child(sacred)
-	_producer_rows[id] = {"card": card, "queue_toggle": queue_toggle, "status": status, "paid": paid, "repeat": repeat_button, "undo": undo, "clear": clear, "rally": rally, "sacred": sacred, "rally_status": rally_status, "train": train_buttons, "train_status": train_status, "queue_size": 0}
+	_producer_rows[id] = {"card": card, "queue_toggle": queue_toggle, "status": status, "paid": paid, "repeat": repeat_button, "undo": undo, "clear": clear, "rally": rally, "sacred": sacred, "rallies": rallies, "rally_status": rally_status, "train": train_buttons, "train_status": train_status, "queue_size": 0}
 
 
 func show_feedback(message: String, success: bool = true) -> void:
@@ -775,6 +793,7 @@ func _refresh_pages() -> void:
 		CommandIcons.apply(_economy_button, "food" if food_alert or food_low_alert else "economy", _economy_button.accessibility_name)
 	_economy.visible = (economy_open or recruiting) and not _details_page and not empty_recruit
 	_details.visible = (economy_open or recruiting) and _details_page
+	_trade_actions.visible = economy_open and not _details_page and bool(_snapshot.get("has_trade", false))
 	_army.visible = army_open and not _army_recruit_page and not _details_page
 	_army_notes.visible = army_open and not _army_recruit_page and _details_page
 	_recruit_empty.visible = empty_recruit and not _details_page
@@ -838,6 +857,9 @@ func _refresh_details() -> void:
 		lines.append(_worker_recovery_hint(economy, facts))
 		lines.append(str(_snapshot.get("population_text", "")).get_slice(" · ", 0).get_slice("\n", 0))
 		lines.append("Visible berry food %d · %d permanent Farms" % [int(facts.get("berry_food", 0)), int(facts.get("permanent_farms", 0))])
+		if bool(_snapshot.get("has_trade", false)):
+			lines.append(_trade_summary())
+			lines.append(_trade_help())
 	else:
 		var producers: Array = _snapshot.get("producers", [])
 		if _visible_producer_ids().is_empty():
@@ -915,8 +937,21 @@ func _producer_details(producer: Dictionary) -> PackedStringArray:
 	for unit_name: String in counts:
 		paid.append("%s ×%d" % [unit_name, counts[unit_name]])
 	lines.append("Queue: %s" % [", ".join(paid) if not paid.is_empty() else "empty"])
-	lines.append(str(producer.get("rally_status", "")).replace(" · fixed until changed.", ".").replace(" Includes new Villagers.", " New Villagers too."))
+	var building: BuildingBase = producer.get("building") as BuildingBase
+	if is_instance_valid(building) and building.building_type == BuildingData.BuildingType.TRADE_POST:
+		lines.append(_trade_summary())
+		lines.append(_trade_help())
+	else:
+		lines.append(str(producer.get("rally_status", "")).replace(" · fixed until changed.", ".").replace(" Includes new Villagers.", " New Villagers too."))
 	return lines
+
+
+func _trade_summary() -> String:
+	return "Traders %d · %d paused or waiting. Trader icon finds them." % [int(_snapshot.get("traders", 0)), int(_snapshot.get("waiting_traders", 0))]
+
+
+func _trade_help() -> String:
+	return "New traders use a distant reachable Town Center automatically. Gold pays on return. Move or Stop pauses trade; select the trader, then tap your Trade Post to resume."
 
 
 func apply_layout(safe: Rect2, field_visible: bool, card_area: Rect2, dock_height: float = 72.0) -> void:

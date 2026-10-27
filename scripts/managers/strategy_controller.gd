@@ -11,6 +11,7 @@ var _hud: CanvasLayer
 var _map: Node2D
 var _overview: StrategyOverview
 var _elapsed: float = 0.0
+var _last_found_trader_id: int = 0
 var _food_gap_started: float = -1.0
 var _food_low_started: float = -1.0
 const FOOD_ALERT_STARTUP_GRACE := 12.0
@@ -29,6 +30,7 @@ func setup(main: Node, hud: CanvasLayer, map: Node2D) -> void:
 	_overview.rally_requested.connect(_rally_to_army)
 	_overview.sacred_rally_requested.connect(_rally_to_sacred)
 	_overview.farm_requested.connect(_plan_farm)
+	_overview.trader_requested.connect(_find_trader)
 	_overview.barracks_requested.connect(_plan_barracks)
 	_overview.save_group_requested.connect(_save_group)
 	_overview.recall_group_requested.connect(_recall_group)
@@ -67,6 +69,42 @@ func _worker_source(worker: Villager) -> String:
 	return "idle" if worker.current_state == UnitBase.State.IDLE else "moving"
 
 
+func _own_traders() -> Array[Trader]:
+	var result: Array[Trader] = []
+	for entry: Variant in (_main.get("_player_units") as Array)[0]:
+		if is_instance_valid(entry) and entry is Trader and entry.player_owner == 0 and entry.hp > 0 and entry.current_state != UnitBase.State.DEAD and entry.is_inside_tree() and not entry.is_queued_for_deletion():
+			result.append(entry as Trader)
+	return result
+
+
+func _trader_needs_attention(trader: Trader) -> bool:
+	# Replica income/status comes from authority. Local route fields are absent.
+	if NetworkSession.is_client():
+		return trader.get_trip_income() <= 0
+	return not trader.trade_route_active or (trader.current_state == UnitBase.State.IDLE and trader._handling_left <= 0.0)
+
+
+func _find_trader() -> void:
+	if not _playing(): return
+	var traders: Array[Trader] = _own_traders()
+	if traders.is_empty(): return
+	traders.sort_custom(func(a: Trader, b: Trader) -> bool:
+		var a_waiting: bool = _trader_needs_attention(a)
+		var b_waiting: bool = _trader_needs_attention(b)
+		return a_waiting if a_waiting != b_waiting else a.get_instance_id() < b.get_instance_id())
+	var next: int = 0
+	for index: int in traders.size():
+		if traders[index].get_instance_id() == _last_found_trader_id:
+			next = (index + 1) % traders.size()
+			break
+	var target: Trader = traders[next]
+	_last_found_trader_id = target.get_instance_id()
+	_hud.call("close_secondary_surface")
+	_map.selection_mgr.select_single(target)
+	_map.note_camera_interaction()
+	_map.camera.position = target.global_position
+
+
 func _can_plan_with_worker(worker: Villager) -> bool:
 	# Match the states Main can automatically assign when placement is paid.
 	# An explicitly fighting villager must not be presented as a free builder.
@@ -86,6 +124,11 @@ func _refresh() -> void:
 			available_builders += 1
 	var military: int = 0
 	var fighters: int = 0
+	var traders: Array[Trader] = _own_traders()
+	var waiting_traders: int = 0
+	for trader: Trader in traders:
+		if _trader_needs_attention(trader): waiting_traders += 1
+	var has_trade: bool = not traders.is_empty()
 	for entry: Variant in (_main.get("_player_units") as Array)[0]:
 		if is_instance_valid(entry) and entry is UnitBase and not entry is Villager and entry.player_owner == 0 and entry.current_state != UnitBase.State.DEAD:
 			military += 1
@@ -100,6 +143,7 @@ func _refresh() -> void:
 		if not is_instance_valid(entry) or not entry is BuildingBase or entry.player_owner != 0 or entry.state == BuildingBase.State.DESTROYED:
 			continue
 		var building := entry as BuildingBase
+		if building.building_type == BuildingData.BuildingType.TRADE_POST: has_trade = true
 		var queue := building.get_production_queue() as ProductionQueue
 		if queue == null or building.trainable_units.is_empty():
 			continue
@@ -171,7 +215,7 @@ func _refresh() -> void:
 	# private recipient summary. It never asks the map for current enemy units.
 	var receipts: RefCounted = _main.get("_battle_receipts")
 	var battle_lesson: Dictionary = BATTLE_RECEIPTS.get_counter_lesson(receipts.call("get_summary", 0), GameManager.get_player_civilization(0), GameManager.get_player_civilization(1)) if receipts != null else {}
-	_overview.update_snapshot({"workers": workers, "military": military, "fighters": fighters, "producers": producers, "population_text": population_text, "groups": groups, "group_has_buildings": group_has_buildings, "selection_count": selection_count, "selected_military": selected_military, "economy": economy, "economy_facts": economy_facts, "battle_lesson": battle_lesson, "food_attention_ready": _update_food_attention(own_workers.size(), int(workers.food), int(workers.recovering)), "food_low_attention_ready": _update_food_low_attention(economy, int(workers.recovering)), "can_plan_farm": available_builders > 0 and farm_missing.is_empty(), "farm_blocker": farm_blocker, "can_plan_barracks": available_builders > 0 and barracks_missing.is_empty(), "barracks_blocker": barracks_blocker})
+	_overview.update_snapshot({"traders": traders.size(), "waiting_traders": waiting_traders, "has_trade": has_trade, "workers": workers, "military": military, "fighters": fighters, "producers": producers, "population_text": population_text, "groups": groups, "group_has_buildings": group_has_buildings, "selection_count": selection_count, "selected_military": selected_military, "economy": economy, "economy_facts": economy_facts, "battle_lesson": battle_lesson, "food_attention_ready": _update_food_attention(own_workers.size(), int(workers.food), int(workers.recovering)), "food_low_attention_ready": _update_food_low_attention(economy, int(workers.recovering)), "can_plan_farm": available_builders > 0 and farm_missing.is_empty(), "farm_blocker": farm_blocker, "can_plan_barracks": available_builders > 0 and barracks_missing.is_empty(), "barracks_blocker": barracks_blocker})
 
 
 func _update_food_attention(workers: int, food_workers: int, recovering: int) -> bool:
@@ -418,6 +462,7 @@ func _recall_group(index: int) -> void:
 func _rally_to_army(building: Node2D) -> void:
 	if _owned_producer(building) == null:
 		return
+	if building.building_type == BuildingData.BuildingType.TRADE_POST: return
 	var center := Vector2.ZERO
 	var count: int = 0
 	for entry: Variant in _map.selection_mgr.selected:
@@ -435,6 +480,7 @@ func _rally_to_army(building: Node2D) -> void:
 func _rally_to_sacred(building: Node2D) -> void:
 	if _owned_producer(building) == null:
 		return
+	if building.building_type == BuildingData.BuildingType.TRADE_POST: return
 	var site: Node2D = _map.get("sacred_site") as Node2D
 	if not is_instance_valid(site):
 		return
