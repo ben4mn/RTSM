@@ -8,7 +8,8 @@ enum UnitType {
 	ARCHER,
 	CAVALRY,
 	SCOUT,
-	SIEGE
+	SIEGE,
+	TRADER
 }
 
 # World presentation is independent of recruitment portraits and combat stats.
@@ -21,14 +22,15 @@ const WORLD_SPRITE_SCALES: Dictionary = {
 	UnitType.CAVALRY: Vector2(0.45, 0.45),
 	UnitType.SCOUT: Vector2(0.43, 0.43),
 	UnitType.SIEGE: Vector2(0.60, 0.60),
+	UnitType.TRADER: Vector2(0.38, 0.38),
 }
 
-# Two-population workers deliver ~118 food/wood per minute at a 120-unit haul.
-# Double cargo preserves trip frequency; double price/time preserves economic ramp.
+# Two-population workers deliver ~109 food/wood per minute at a 120-unit haul.
+# Three opening workers support food, timber and gold without changing per-worker rates.
 # Shared carry slots preserve mixed cargo on retask; no harvest is discarded.
-const STARTING_VILLAGERS: int = 2
+const STARTING_VILLAGERS: int = 3
 const VILLAGER_BUILD_SPEED: float = 2.0
-const VILLAGER_GATHER_AMOUNT: float = 2.0
+const VILLAGER_GATHER_AMOUNT: float = 1.8
 const WHEELBARROW_GATHER_BONUS: float = VILLAGER_GATHER_AMOUNT * 0.25
 const VILLAGER_CARRY_CAPACITY: int = 30
 const VILLAGER_GATHER_TICK_SECONDS: float = 0.9
@@ -125,6 +127,13 @@ const UNITS: Dictionary = {
 		"can_gather": false,
 		"can_build": false,
 	},
+	UnitType.TRADER: {
+		"name": "Trader", "role": "Renewable gold", "hp": 65, "damage": 0,
+		"armor": 0, "speed": 70.0, "cost": {"food": 0, "wood": 60, "gold": 40},
+		"build_time": 22.0, "vision_radius": 4, "attack_range": 0, "pop_cost": 2,
+		"can_gather": false, "can_build": false,
+	},
+
 	UnitType.SIEGE: {
 		"name": "Siege Engine",
 		"role": "Siege artillery",
@@ -160,6 +169,7 @@ const UNIT_ICONS: Dictionary = {
 	UnitType.CAVALRY: "res://assets/units/cavalry.svg",
 	UnitType.SCOUT: "res://assets/units/scout.svg",
 	UnitType.SIEGE: "res://assets/units/siege.svg",
+	UnitType.TRADER: "res://assets/units/trader.svg",
 }
 
 
@@ -215,3 +225,10 @@ static func get_unit_counter_description(unit_type: int, player_id: int = -1) ->
 		return "Unarmed · wide vision"
 	var counter_name: String = get_unit_counter_name(unit_type, player_id)
 	return "Beats %s" % counter_name if not counter_name.is_empty() else ""
+
+
+static func get_starting_villager_count() -> int:
+	# Only headless comparative probes may override; live games share this default.
+	if OS.has_feature("dedicated_server") or not DisplayServer.get_name() == "headless":
+		return STARTING_VILLAGERS
+	return clampi(int(Engine.get_meta("balance_starting_villagers", STARTING_VILLAGERS)), 3, 4)

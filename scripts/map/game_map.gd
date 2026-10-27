@@ -1337,7 +1337,7 @@ func _spawn_resource_nodes() -> void:
 			var info: Dictionary = type_map[tile_type]
 			var node = _resource_node_scene.instantiate()
 			node.resource_type = info["type"]
-			node.total_amount = info["amount"]
+			node.total_amount = map_generator.get_resource_amount(Vector2i(x, y))
 			var tile_pos := Vector2i(x, y)
 			node.tile_position = tile_pos
 			node.global_position = tile_to_world(tile_pos)

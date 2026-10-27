@@ -1,12 +1,14 @@
 class_name MapData
 ## Shared tile/map constants and enums used across the map system.
 
-enum MapArchetype { OPEN_PLAINS, RIVER_CROSSINGS, WOODLAND_FLANKS }
+enum MapArchetype { OPEN_PLAINS, RIVER_CROSSINGS, WOODLAND_FLANKS, TWIN_LAKES, GOLDEN_BASIN }
 
 const MAP_ARCHETYPES: Dictionary = {
 	MapArchetype.OPEN_PLAINS: {"name": "Open Plains", "description": "Roomy homesteads and open approaches. Expand into rich side clearings."},
 	MapArchetype.RIVER_CROSSINGS: {"name": "River Crossings", "description": "Three broad crossings connect rich banks. Build behind one and raid another."},
 	MapArchetype.WOODLAND_FLANKS: {"name": "Woodland Flanks", "description": "Deep woods frame broad routes and sheltered expansion clearings."},
+	MapArchetype.TWIN_LAKES: {"name": "Twin Lakes", "description": "Large lakes frame the middle. Broad outer routes reward raids and exposed trade."},
+	MapArchetype.GOLDEN_BASIN: {"name": "Golden Basin", "description": "A wooded rim surrounds an open basin rich in contested gold. Control the approaches."},
 }
 
 
@@ -42,10 +44,10 @@ enum FogState {
 	VISIBLE,     ## Currently in a unit's line of sight.
 }
 
-## Generator4 preserves generator3's 88-tile field and 59-tile base separation,
-## with twelve berry bushes in each guaranteed starting and expansion grove.
+## Generator5 preserves the roomy 88-tile field and guarantees equal starts,
+## while seeds vary lanes, expansion positions, home groves and finite stock.
 ## Older generators give a different battlefield; online peers must agree.
-const GENERATOR_VERSION := 4
+const GENERATOR_VERSION := 5
 const MAP_WIDTH := 88
 const MAP_HEIGHT := 88
 
