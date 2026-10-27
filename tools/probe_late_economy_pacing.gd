@@ -150,6 +150,7 @@ func _sample_late(force: bool) -> void:
 		var farms: int = 0
 		var staffed: int = 0
 		var posts: int = 0
+		var towns: int = 0
 		var traders: Array[Dictionary] = []
 		for building: BuildingBase in match_scene._player_buildings[owner]:
 			if not is_instance_valid(building) or building.state != BuildingBase.State.ACTIVE: continue
@@ -157,6 +158,7 @@ func _sample_late(force: bool) -> void:
 				farms += 1
 				staffed += int(is_instance_valid(building.get_assigned_worker()))
 			if building.building_type == BuildingData.BuildingType.TRADE_POST: posts += 1
+			if building.building_type == BuildingData.BuildingType.TOWN_CENTER: towns += 1
 		for unit: UnitBase in match_scene._player_units[owner]:
 			if not is_instance_valid(unit) or not unit is Trader or unit.current_state == UnitBase.State.DEAD: continue
 			traders.append({"status": unit.get_trade_status(), "cargo": unit.carried_gold, "delivered": unit.delivered_gold, "route_active": unit.trade_route_active})
@@ -164,6 +166,9 @@ func _sample_late(force: bool) -> void:
 		sample.players.append({"age": GameManager.get_player_age(owner), "bank": ResourceManager.get_all_resources(owner), "active_farms": farms, "staffed_farms": staffed, "active_posts": posts, "traders": traders, "lifetime": _late_totals[owner].duplicate(), "trade_policy": {"clock": brain._game_time, "next_check": brain._next_trade_decision, "under_pressure": brain._is_under_pressure, "worker_recovery": brain._needs_compact_worker_recovery(), "cursor": brain._trade_site_cursor}})
 		if brain.has_method("_get_gold_bank_target"):
 			sample.players[-1].trade_policy.merge({"gold_bank_target": brain._get_gold_bank_target(), "capital": brain._trade_capital.duplicate(), "capital_until": brain._trade_capital_until})
+		sample.players[-1]["active_towns"] = towns
+		if brain.has_method("get_opening_strategy"):
+			sample.players[-1]["opening_strategy"] = brain.get_opening_strategy()
 	_late_samples.append(sample)
 	print("[LATE_SAMPLE] ", JSON.stringify(sample))
 	_late_performance.merge({"wall_seconds": float(Time.get_ticks_msec() - _late_wall_start) / 1000.0, "game_seconds": GameManager.game_time, "observer_usec": _late_observer_usec, "measure_calls": _late_measure_calls, "frames": _late_frames, "time_scale": Engine.time_scale, "physics_ticks_per_second": Engine.physics_ticks_per_second}, true)
