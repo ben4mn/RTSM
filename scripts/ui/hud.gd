@@ -2115,7 +2115,7 @@ func _calculate_mobile_layout_metrics(viewport_size: Vector2, safe_area: Rect2, 
 	var selection_width: float = 166.0
 	if selection_has_commands:
 		selection_width = minf(selection_zone_width, MOBILE_SELECTION_COMMAND_WIDTH)
-	if _auto_queue_button != null and _train_buttons_container != null and _train_buttons_container.visible:
+	if _train_buttons_container != null and _train_buttons_container.visible:
 		# Both pages use the same viewport width, so opening or refreshing the
 		# queue cannot clamp its scroll position while the shelf changes size.
 		var page_width: float = _stable_production_page_width()
