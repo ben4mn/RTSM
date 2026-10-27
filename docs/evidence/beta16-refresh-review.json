@@ -1,0 +1,61 @@
+{
+  "review_date": "2026-10-27",
+  "review_label": "beta16 refresh review of the existing public release",
+  "tested_url": "https://game.4mn.org",
+  "tested_version": "0.3.0-beta.15.1",
+  "tested_source_revision": "3dd7ad997ce0127dba7695a1853d1f928f480bb3",
+  "result": "PASS for the observed refresh and menu flows; earlier blank-menu screenshot interpretation corrected",
+  "runtime_change_required_by_this_review": false,
+  "environment": {
+    "browser": "Codex in-app browser on Windows",
+    "viewport_css_pixels": [844, 390],
+    "refresh_method": "Main menu > Updates > Refresh",
+    "repeat_count": 3,
+    "viewport_nudges_or_tab_changes_between_repeat_refreshes": false
+  },
+  "independent_saved_image_review": {
+    "reviewer": "menus_pwa agent",
+    "method": "Open saved files with view_image; independently decode all JPEGs with Pillow and compare SHA256 hashes",
+    "files_in_task_outputs_directory": [
+      "blank-menu-reproduction.jpg",
+      "beta16-refresh-1.jpg",
+      "beta16-refresh-2.jpg",
+      "beta16-refresh-3.jpg"
+    ],
+    "all_files_byte_identical": true,
+    "shared_sha256": "c8c8c216a5f12d8d843c635686b3663f5a29e4b9fbe146d91ae5102af56ab193",
+    "each_file_bytes": 40461,
+    "each_decoded_format": "JPEG",
+    "each_decoded_mode": "RGB",
+    "each_decoded_dimensions": [844, 390],
+    "visible_content_in_full_image": [
+      "Pocket Kingdoms branding and settlement illustration",
+      "Resume solo: 0:31, River Crossings",
+      "New solo and Play online buttons",
+      "Settings, Updates and Full screen controls"
+    ],
+    "presentation_discrepancy": "The original saved reproduction and first repeat capture displayed the complete menu to this reviewer. In a later batch, the first image displayed fully while byte-identical second and third images appeared as tiny green patches in the tool presentation. Therefore the tiny patch is not the content of those saved JPEG files.",
+    "capture_provenance_limit": "The root agent performed the browser actions and saved the captures. This review independently inspected file contents; byte equality alone does not prove three separate reloads occurred."
+  },
+  "browser_checks_reported_by_root_agent": [
+    {
+      "after_refresh": 1,
+      "observed": "New solo opened correctly; Back returned to the menu."
+    },
+    {
+      "after_refresh": 2,
+      "observed": "Resume restored the paused old checkpoint with 280 food, 310 wood, 130 gold and population 7/15. Save and exit returned to the menu with the 0:31 checkpoint."
+    },
+    {
+      "after_refresh": 3,
+      "observed": "Canvas backing and DOM rectangle were both exactly 844x390; toolbar placement was normal; browser warnings and errors were empty."
+    }
+  ],
+  "correction": {
+    "prior_claim": "A blank green Godot menu after Refresh was treated as a possible product rendering defect.",
+    "updated_assessment": "The saved evidence contains the complete menu, and repeated refreshes preserved functional menu and resume behavior. The earlier screenshot-based claim is a false positive for these observations and should not remain listed as a known product defect.",
+    "uncertainty": "The exact tool/UI presentation failure is not diagnosed. This does not rule out unrelated rendering defects on other devices or establish physical installed-PWA coverage.",
+    "rejected_experiment": "A temporary startup backing-width transition was not accepted and was reverted. No redraw nudge or rendering workaround was added on the basis of these captures."
+  },
+  "remaining_validation": "Root agent will repeat refresh checks after deployment. These captures test public beta15.1, not a later beta16 runtime."
+}
