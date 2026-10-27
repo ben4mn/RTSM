@@ -3028,7 +3028,7 @@ func _on_building_selected_for_placement(building_type: int) -> void:
 	hud.dismiss_build_menu_for_placement()
 	hud.set_placement_input_mode(_building_placement.uses_touch_input())
 	hud.set_placement_mode(true, BuildingData.get_building_name(building_type))
-	_on_placement_preview_changed(_building_placement.is_valid_placement, _building_placement.get_invalid_reason())
+	_on_placement_preview_changed(_building_placement.is_valid_placement, _building_placement.get_preview_hint())
 	_sync_hud_modal_state()
 	if _guided_opening_active and _guided_stage == GuidedOpeningStage.BUILD_HOUSE and building_type == BuildingData.BuildingType.HOUSE:
 		hud.show_notification("House preview ready. Green ground is clear to build.", Color(0.95, 0.86, 0.42))

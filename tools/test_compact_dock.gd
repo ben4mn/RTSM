@@ -79,6 +79,7 @@ func _run() -> void:
 		_expect(hud._strategy_overview.panel.get_global_rect().end.x <= 844.5 and hud._strategy_overview.panel.get_global_rect().end.y <= 390.5, "icon sheet stays inside phone: " + surface)
 		await _capture(surface)
 		hud._strategy_overview.set_surface("")
+	await _check_trade_placement_strip()
 	get_window().size = Vector2i(1280,720)
 	get_window().content_scale_size = Vector2i(1280,720)
 	get_window().content_scale_factor = 1.0
@@ -87,6 +88,7 @@ func _run() -> void:
 	await _frames(5)
 	_expect(hud.command_scroll.get_global_rect().grow(0.5).encloses(hud._building_rally_button.get_global_rect()), "desktop rally flag is fully exposed, not clipped by Queue")
 	await _capture("production")
+	await _check_trade_placement_strip()
 	var worker: UnitBase = main._player_units[0][0]
 	main.game_map.selection_mgr.select_single(worker)
 	await _frames(5)
@@ -130,6 +132,26 @@ func _run() -> void:
 	for failure: String in failures: push_error("[FAIL] compact_dock: " + failure)
 	print(JSON.stringify({"test":"compact_dock", "checks":checks, "failures":failures}))
 	get_tree().quit(0 if failures.is_empty() else 1)
+
+func _check_trade_placement_strip() -> void:
+	hud.set_placement_input_mode(true)
+	hud.set_placement_mode(true, "Trade Post")
+	var hint := "Up to 60 gold / trip · clear road needed"
+	hud.update_placement_preview(true, hint)
+	await _frames(5)
+	var label: Label = hud._placement_status_label
+	var text_width: float = label.get_theme_font("font").get_string_size(hint, HORIZONTAL_ALIGNMENT_LEFT, -1, label.get_theme_font_size("font_size")).x
+	_expect(label.text == hint and text_width <= label.size.x, "complete trade estimate fits existing status strip without ellipsis")
+	_expect(get_viewport().get_visible_rect().encloses(hud._placement_status_panel.get_global_rect()), "trade status strip stays inside viewport")
+	await _capture("trade-preview")
+	hud.update_placement_preview(true, "Move farther from town")
+	_expect(not hud._placement_confirm_button.disabled and label.text == "Move farther from town", "near-town warning stays advisory and does not prohibit legal placement")
+	hud.update_placement_preview(false, "Move all tiles into sight")
+	_expect(hud._placement_confirm_button.disabled and label.text.contains("Move all tiles into sight"), "fog warning replaces estimate and blocks confirmation")
+	hud.set_placement_mode(false)
+	hud.set_placement_input_mode(false)
+	await _frames(3)
+
 func _touch(id: int, point: Vector2, down: bool) -> void:
 	var event := InputEventScreenTouch.new()
 	event.index = id

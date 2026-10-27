@@ -41,6 +41,9 @@ var _grid_view_rect: Rect2 = Rect2()
 var _grid_tile_bounds: Rect2i = Rect2i()
 var _grid_cache_valid: bool = false
 var _grid_preview_tile := Vector2i(-1000, -1000)
+var _trade_preview: Dictionary = {}
+
+const TRADE_PREVIEW = preload("res://scripts/units/trade_preview.gd")
 
 const FIND_SPACE_RADIUS: int = 12
 const FIND_SPACE_MAX_CANDIDATES: int = 625
@@ -556,8 +559,16 @@ func _update_ghost_position(screen_pos: Vector2) -> void:
 func _refresh_preview_state(force_signal: bool = false) -> void:
 	_refresh_placement_grid()
 	var was_valid: bool = is_valid_placement
-	var previous_reason: String = _invalid_reason
+	var previous_hint: String = get_preview_hint()
 	is_valid_placement = _check_validity()
+	_trade_preview.clear()
+	if is_valid_placement and current_building_type == BuildingData.BuildingType.TRADE_POST:
+		var towns: Array = []
+		for node: Node in get_tree().get_nodes_in_group("buildings"):
+			if node is BuildingBase and get_parent().is_ancestor_of(node) and node.building_type == BuildingData.BuildingType.TOWN_CENTER and node.player_owner == _player_owner:
+				towns.append({"position": node.global_position, "owner": node.player_owner, "active": node.state == BuildingBase.State.ACTIVE})
+		# Geometry only. Looking for a path here could disclose unseen blockades.
+		_trade_preview = TRADE_PREVIEW.candidate(ghost_position, _player_owner, towns)
 
 	# Update ghost sprite tint
 	if _ghost_sprite != null:
@@ -567,8 +578,20 @@ func _refresh_preview_state(force_signal: bool = false) -> void:
 			_ghost_sprite.modulate = PREVIEW_INVALID_TINT
 
 	queue_redraw()
-	if force_signal or was_valid != is_valid_placement or previous_reason != _invalid_reason:
-		preview_changed.emit(is_valid_placement, "" if is_valid_placement else get_invalid_reason())
+	if force_signal or was_valid != is_valid_placement or previous_hint != get_preview_hint():
+		preview_changed.emit(is_valid_placement, get_preview_hint())
+
+
+func get_preview_hint() -> String:
+	if not is_valid_placement:
+		return get_invalid_reason()
+	if current_building_type != BuildingData.BuildingType.TRADE_POST:
+		return ""
+	if not _trade_preview.get("has_town_center", false):
+		return "Needs a Town Center"
+	if not _trade_preview.get("usable_distance", false):
+		return "Move farther from town"
+	return "Up to %d gold / trip · clear road needed" % int(_trade_preview.get("payout", 0))
 
 
 ## Called by the explicit touch Place action. Always revalidates the footprint.
@@ -835,6 +858,12 @@ func _footprint_local_polygon(origin: Vector2i, footprint: Vector2i) -> PackedVe
 
 func get_preview_state_label() -> String:
 	if is_valid_placement:
+		if current_building_type == BuildingData.BuildingType.TRADE_POST:
+			if not _trade_preview.get("has_town_center", false):
+				return "Needs town"
+			if not _trade_preview.get("usable_distance", false):
+				return "Too near town"
+			return "Up to %d gold" % int(_trade_preview.get("payout", 0))
 		return "Fits"
 	if _invalid_reason == FOG_INVALID_REASON:
 		return "Needs sight"
@@ -890,8 +919,9 @@ func _draw() -> void:
 	if _ghost_sprite != null:
 		label_y = minf(label_y, (_ghost_sprite.transform * _ghost_art_rect).position.y - 10.0 * pixel)
 	_draw_preview_label(font, font_size, name_text, Vector2(center.x, label_y), FOOTPRINT_INK, pixel)
-	_draw_preview_label(font, font_size, get_preview_state_label(), Vector2(center.x, bounds.end.y + 20.0 * pixel), FOOTPRINT_INK, pixel)
-	if is_valid_placement:
+	var trade_warning: bool = is_valid_placement and current_building_type == BuildingData.BuildingType.TRADE_POST and not _trade_preview.get("usable_distance", false)
+	_draw_preview_label(font, font_size, get_preview_state_label(), Vector2(center.x, bounds.end.y + 20.0 * pixel), FOOTPRINT_GOLD if trade_warning else FOOTPRINT_INK, pixel)
+	if is_valid_placement and current_building_type != BuildingData.BuildingType.TRADE_POST:
 		var tick_center := Vector2(center.x - 24.0 * pixel, bounds.end.y + 15.0 * pixel)
 		draw_line(tick_center + Vector2(-4, 0) * pixel, tick_center + Vector2(-1, 3) * pixel, FOOTPRINT_INK, 2.2 * pixel, true)
 		draw_line(tick_center + Vector2(-1, 3) * pixel, tick_center + Vector2(5, -4) * pixel, FOOTPRINT_INK, 2.2 * pixel, true)

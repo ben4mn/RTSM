@@ -1,6 +1,18 @@
 {
   "releases": [
     {
+      "id": "2026-10-27-trade-planning",
+      "date": "2026-10-27",
+      "version": "0.3.0-beta.13",
+      "title": "Plan your trade road",
+      "summary": "See a Trade Post's potential before spending wood.",
+      "changes": [
+        "Trade Post previews warn when they are too near town and show potential gold per completed trip farther away. A clear road is still required; traders confirm the actual route.",
+        "Trade guidance fits in the existing placement strip. Building Info explains when gold arrives and why the road needs protection.",
+        "Existing solo saves remain compatible. Movement, gathering rates, production costs, and online speed are unchanged."
+      ]
+    },
+    {
       "id": "2026-10-27-save-and-return",
       "date": "2026-10-27",
       "version": "0.3.0-beta.12",

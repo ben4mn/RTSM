@@ -328,6 +328,8 @@ func _build_info(building_type: int) -> Dictionary:
 	var stats: Dictionary = BuildingData.get_building_stats(building_type, player_owner)
 	var lines: PackedStringArray = _format_tooltip(stats, building_type).split("\n")
 	lines.remove_at(0)
+	if building_type == BuildingData.BuildingType.TRADE_POST:
+		lines.append("Build away from your Town Center. The preview estimates gold per trip; a clear road is still needed. Train Traders here: gold arrives only after they return to town. Defend the road or lose the cargo.")
 	if int(stats.get("age_required", 0)) <= _current_age and _can_afford(stats.get("cost", {})):
 		lines.append("Close this panel and turn off Info to choose a placement." if _info_mode else "Tap the card to preview a placement.")
 	lines.append("Place spends the cost; Cancel spends nothing.")

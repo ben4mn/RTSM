@@ -1743,7 +1743,10 @@ func update_placement_preview(valid: bool, reason: String = "") -> void:
 			_placement_confirm_button.text = "Place building"
 	if _placement_status_label:
 		var status: String = ("Tap Place to build" if _placement_uses_touch else ("Click Place to build" if _placement_assisted_preview else "Click ground to build")) if valid else (reason if reason != "" else "Choose clear ground")
-		_placement_status_label.text = "%s · %s" % [_placement_building_name, status] if _placement_building_name != "" else status
+		# Trade planning replaces the generic instruction, keeping one compact
+		# line. The ghost and Place button already identify the building.
+		_placement_status_label.text = reason if valid and not reason.is_empty() else ("%s · %s" % [_placement_building_name, status] if _placement_building_name != "" else status)
+		_placement_status_label.tooltip_text = _placement_status_label.text
 		_placement_status_label.add_theme_color_override("font_color", KingdomTheme.PARCHMENT if valid else Color(1.0, 0.75, 0.55))
 	_refresh_touch_target_diagnostics()
 
