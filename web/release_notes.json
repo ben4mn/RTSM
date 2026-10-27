@@ -1,6 +1,18 @@
 {
   "releases": [
     {
+      "id": "2026-10-27-trade-at-a-glance",
+      "date": "2026-10-27",
+      "version": "0.3.0-beta.14",
+      "title": "Keep your caravans moving",
+      "summary": "Find traders quickly, see route problems, and return safely after a battle.",
+      "changes": [
+        "Economy gains a compact trader finder when you have a Trade Post. Tap the cart to find your traders; stopped or blocked routes get attention first.",
+        "Trader details distinguish blocked roads, missing buildings, paused orders and working routes. Trade Posts show only controls their traders use.",
+        "Solo checkpoints now safely discard defeated targets that were still referenced during combat. Existing saves, gathering rates, trade payouts and online speed remain compatible."
+      ]
+    },
+    {
       "id": "2026-10-27-solo-traders",
       "date": "2026-10-27",
       "version": "0.3.0-beta.13.1",
