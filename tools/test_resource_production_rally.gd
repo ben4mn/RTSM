@@ -60,7 +60,7 @@ func _run() -> void:
 	_expect(q.enqueue_unit(UnitData.UnitType.VILLAGER), "ordinary starting budget pays for the resource-rallied Villager")
 	q.advance(q.current_train_time + 0.01)
 	_expect(units.size() == units_before + 1, "paid completion produces exactly one Villager")
-	_expect(ResourceManager.get_resource(0, "food") == food_before - 100, "Villager costs exactly 100 Food")
+	_expect(ResourceManager.get_resource(0, "food") == food_before - int(UnitData.get_unit_cost(UnitData.UnitType.VILLAGER).food), "Villager costs exactly its listed Food")
 	if units.size() != units_before + 1:
 		_finish()
 		return
@@ -124,6 +124,11 @@ func _run() -> void:
 	fog.fog_grid[source_tile.y][source_tile.x] = MapData.FogState.VISIBLE
 	worker._process_gathering(0.01)
 	_expect(worker.current_state == UnitBase.State.IDLE and worker.gather_target == null, "missing/depleted observation safely idles instead of gathering a phantom")
+	# Training continues long after the rallied tree is gone. A newborn whose
+	# rally resource is visibly exhausted works the nearest wood instead of idling.
+	worker.command_stop()
+	_match.call("_issue_production_rally", worker, tc.rally_point, tc)
+	_expect(worker.current_state != UnitBase.State.IDLE and worker.has_active_gather_order() and worker.carried_resource_type == "wood", "an exhausted rally resource sends the newborn to other wood")
 	selection.select_single(tc)
 	selection.arm_building_rally(tc)
 	selection.select_single(worker)

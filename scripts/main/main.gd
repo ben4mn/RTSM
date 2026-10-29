@@ -1745,10 +1745,13 @@ func _issue_production_rally(unit: UnitBase, requested_rally: Vector2, producer:
 			producer.rally_resource_type, requested_rally,
 			producer.rally_resource_instance_id, producer.rally_resource_is_building
 		)
-		# A paid birth cannot share an occupied Farm. Recover to current-visible,
-		# reachable food without changing hidden or natural-resource rally intent.
-		if accepted and producer.rally_resource_is_building and worker.current_state == UnitBase.State.IDLE:
-			var alternative: Node2D = game_map.get_nearest_reachable_resource_node(producer.rally_resource_type, worker.global_position, worker.player_owner, {}, worker)
+		# The rallied bush, tree or mine runs out long before the player stops
+		# training, and an occupied Farm cannot take a second farmer. Either way
+		# the newborn takes the nearest reachable resource of the same kind,
+		# searched from the rally point so it keeps working where it was sent.
+		if accepted and worker.current_state == UnitBase.State.IDLE:
+			var origin: Vector2 = requested_rally if not producer.rally_resource_is_building else worker.global_position
+			var alternative: Node2D = game_map.get_nearest_reachable_resource_node(producer.rally_resource_type, origin, worker.player_owner, {}, worker)
 			if alternative != null:
 				return worker.command_gather(alternative)
 		return accepted
