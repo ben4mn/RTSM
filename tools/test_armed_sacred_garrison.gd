@@ -52,6 +52,7 @@ func _site(parent_node: Node = null) -> Node2D:
 	parent_node.add_child(site)
 	site.set_process(false)
 	site.configure_match_mode(SkirmishData.MatchMode.STANDARD)
+	site.victory_wake_time = 0.0  # The 8:00 opening has its own test (test_sacred_wake).
 	site.state = 2
 	site.owning_player = 0
 	site.capture_progress = 1.0
@@ -124,6 +125,7 @@ func _test_rules() -> void:
 	siege.free()
 	enemy.free()
 	site.configure_match_mode(SkirmishData.MatchMode.QUICK_CONTROL)
+	site.victory_wake_time = 0.0  # The 8:00 opening has its own test (test_sacred_wake).
 	site.state = 2
 	site.owning_player = 0
 	site.capture_progress = 1.0

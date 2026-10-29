@@ -15,6 +15,8 @@ var _lane: VBoxContainer
 var _buttons: Array[Button] = []
 var _site: Node2D
 var _last_interaction_bounds: Array[Rect2] = []
+var _last_ping_index: int = -1
+var _ping_count: int = 0
 
 
 func setup(hud: CanvasLayer, map: Node2D, focus: Callable) -> void:
@@ -66,6 +68,8 @@ func report_attack(target_name: String, world_position: Vector2) -> bool:
 		fronts.pop_front()
 	fronts.append({"position": world_position, "target": target_name, "last_hit": now, "last_sound": now})
 	_refresh()
+	if _front_kind(target_name) == "BATTLE" and not _is_on_screen(world_position):
+		_ping_front(fronts.size() - 1)
 	return true
 
 
@@ -197,3 +201,25 @@ static func _front_kind(target_name: String) -> String:
 		if str(stats.get("name", "")) == target_name:
 			return "RAID"
 	return "BATTLE"
+
+
+func _is_on_screen(world_position: Vector2) -> bool:
+	var screen: Vector2 = get_viewport().get_canvas_transform() * world_position
+	return get_viewport().get_visible_rect().grow(-24.0).has_point(screen)
+
+
+## A fight you are not looking at must still be noticed: the card swells twice
+## and the phone gives one short buzz where the browser allows it.
+func _ping_front(index: int) -> void:
+	_last_ping_index = index
+	_ping_count += 1
+	if index < 0 or index >= _buttons.size():
+		return
+	var button: Button = _buttons[index]
+	button.pivot_offset = button.size * 0.5
+	var tween: Tween = button.create_tween()
+	for pulse: int in 2:
+		tween.tween_property(button, "scale", Vector2(1.08, 1.08), 0.12)
+		tween.tween_property(button, "scale", Vector2.ONE, 0.16)
+	if OS.has_feature("mobile") or OS.has_feature("web"):
+		Input.vibrate_handheld(80)

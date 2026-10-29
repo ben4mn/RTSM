@@ -15,6 +15,13 @@ static func get_mode_name(mode: int) -> String:
 	return "Standard"
 
 
+## Standard's victory clock opens at this game time. Holding the site earlier
+## still earns gold, so the center is worth fighting over from the start, but
+## no Sacred win can arrive before the armies, ages and economies have grown.
+static func get_sacred_wake_seconds(mode: int) -> float:
+	return SACRED_VICTORY_WAKE_SECONDS if normalize_match_mode(mode) == MatchMode.STANDARD else 0.0
+
+
 static func get_sacred_target(mode: int) -> float:
 	match mode:
 		MatchMode.QUICK_CONTROL: return 180.0
@@ -31,6 +38,7 @@ const AGE_NAMES: Array[String] = ["Dark Age", "Feudal Age", "Castle Age"]
 ## Standard leaves time to counter a held objective and develop renewable income.
 ## Town Center destruction remains available immediately; Control race stays 3m.
 const SACRED_VICTORY_HOLD_SECONDS: float = 300.0
+const SACRED_VICTORY_WAKE_SECONDS: float = 480.0
 const NATURAL_RESOURCE_BUDGETS: Dictionary = {"food": 4000, "wood": 10000, "gold": 4000}
 const OPENING_BERRY_STOCK: int = 90
 # The first Barracks (120W), camp (80W), and House (50W) fit the bank;

@@ -974,7 +974,7 @@ func _refresh_selection() -> void:
 	_selection_summary.text = "%s\n%s" % [MapData.get_archetype_name(archetype), "Shared battlefield · Standard rules" if online else "%s · %s AI · %d population" % [SkirmishData.get_mode_name(GameManager.selected_match_mode), DIFFICULTY_NAMES[_selected_difficulty], _selected_population_limit]]
 	if not online and _has_solo_save():
 		_selection_summary.text = "%s\nReplaces your saved solo" % MapData.get_archetype_name(archetype)
-	_rules_description.text = "Hold the Sacred Site with fighters, or defeat the rival town." if GameManager.selected_match_mode == SkirmishData.MatchMode.STANDARD else "Faster Feudal advance. The Sacred Site clock runs while you own it."
+	_rules_description.text = "Hold the Sacred Site for gold; from 8:00 a held site runs a victory clock. Or defeat the rival town." if GameManager.selected_match_mode == SkirmishData.MatchMode.STANDARD else "Faster Feudal advance. The Sacred Site clock runs while you own it."
 	_advanced_button.text = "More options  ·  %d population" % _selected_population_limit
 	_page_title.text = "" if _screen == "home" else ("Online 1v1" if online else "Solo battle")
 	_refresh_civilizations(room)

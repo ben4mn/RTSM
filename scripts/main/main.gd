@@ -777,11 +777,25 @@ func _on_sacred_site_captured(player_id: int) -> void:
 		var remaining_seconds: int = ceili(_sacred_last_remaining if _sacred_last_remaining >= 0.0 else SkirmishData.SACRED_VICTORY_HOLD_SECONDS)
 		var remaining_text: String = "%d:%02d" % [int(remaining_seconds / 60.0), remaining_seconds % 60]
 		var claim_message: String = "Sacred claimed. Keep a fighter in the ring · %s to win." if GameManager.get_match_mode() == SkirmishData.MatchMode.STANDARD else "Sacred Site secured! Hold %s more to win."
-		hud.show_notification(claim_message % remaining_text, Color(0.9, 0.8, 0.2))
+		var own_text: String = claim_message % remaining_text
+		if _sacred_wake_remaining() > 0.0:
+			own_text = "Sacred claimed: it pays gold now. Its clock opens in %s; then keep a fighter there %s to win." % [_clock_text(_sacred_wake_remaining()), remaining_text]
+		hud.show_notification(own_text, Color(0.9, 0.8, 0.2))
 	else:
 		var enemy_claim: String = "Enemy claimed Sacred. Its clock needs a fighter; enter the ring to contest." if GameManager.get_match_mode() == SkirmishData.MatchMode.STANDARD else "Enemy holds Sacred Site. Enter its ring to pause victory. Tap to view."
+		if _sacred_wake_remaining() > 0.0:
+			enemy_claim = "Enemy claimed Sacred and its gold. Its clock opens in %s; enter the ring to contest. Tap to view." % _clock_text(_sacred_wake_remaining())
 		hud.show_notification(enemy_claim, Color(1.0, 0.4, 0.2), 8.0, Callable(self, "_on_sacred_site_pressed"))
 	_refresh_sacred_site_status()
+
+
+func _sacred_wake_remaining() -> float:
+	return float(game_map.sacred_site.call("victory_wake_remaining")) if game_map != null and game_map.sacred_site != null else 0.0
+
+
+func _clock_text(seconds: float) -> String:
+	var whole: int = maxi(0, ceili(seconds))
+	return "%d:%02d" % [int(whole / 60.0), whole % 60]
 
 
 func _on_sacred_site_neutralized() -> void:

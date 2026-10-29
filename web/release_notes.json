@@ -1,6 +1,19 @@
 {
   "releases": [
     {
+      "id": "2026-10-28-the-center-wakes",
+      "date": "2026-10-28",
+      "version": "0.3.0-beta.19",
+      "title": "The center wakes at eight",
+      "summary": "Standard battles build up: the Sacred Site pays gold from the start, and its victory clock opens at 8:00.",
+      "changes": [
+        "In Standard, holding the Sacred Site earns gold at once, but its five-minute victory clock can only start from 8:00. The chip counts down to the opening.",
+        "Capture messages say when the clock opens. Destroying the rival Town Center still wins at any time.",
+        "When your soldiers are hit away from where you are looking, the BATTLE card pulses and phones that support it give a short buzz.",
+        "Both online players must update."
+      ]
+    },
+    {
       "id": "2026-10-28-hold-to-command",
       "date": "2026-10-28",
       "version": "0.3.0-beta.18",
