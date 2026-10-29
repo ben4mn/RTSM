@@ -53,7 +53,7 @@ const BUILDINGS: Dictionary = {
 		"hp": 500,
 		"cost": { "food": 0, "wood": 50, "gold": 0 },
 		"build_time": 10.0,
-		"pop_provided": 10,
+		"pop_provided": 20,
 		"footprint": Vector2i(2, 2),
 		"can_train": [],
 		"age_required": 0,

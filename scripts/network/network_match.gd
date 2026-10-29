@@ -629,21 +629,30 @@ func _place_building(owner: int, type: int, position: Vector2, selected: Array[U
 		return "Building limit reached"
 	if not main._building_placement.revalidate_confirmation(type, position, owner):
 		return "Choose clear, visible ground"
-	var candidates: Array = selected.duplicate()
-	for unit: Node in main._player_units[owner]:
-		if unit not in candidates:
-			candidates.append(unit)
-	var builder: Villager = null
-	for unit: Node in candidates:
-		if is_instance_valid(unit) and unit is Villager and unit.hp > 0 and main._can_ai_builder_reach(unit, position, definition.get("footprint", Vector2i.ONE)):
-			builder = unit
-			break
-	if builder == null:
+	# Every selected villager that can reach the site builds it, as in solo.
+	# With none selected or none able to reach, the first reachable worker goes.
+	var footprint: Vector2i = definition.get("footprint", Vector2i.ONE)
+	var builders: Array[Villager] = []
+	for unit: Node in selected:
+		if _can_build_at(unit, owner, position, footprint):
+			builders.append(unit as Villager)
+	if builders.is_empty():
+		for unit: Node in main._player_units[owner]:
+			if _can_build_at(unit, owner, position, footprint):
+				builders.append(unit as Villager)
+				break
+	if builders.is_empty():
 		return "No worker can reach this site"
 	if not ResourceManager.try_spend(owner, BuildingData.get_building_cost(type)):
 		return "Not enough resources"
 	var building: BuildingBase = main._spawn_building(type, owner, game_map.world_to_tile(position))
 	building.start_construction()
-	builder.command_build(building)
-	main._worker_order_undo.supersede(owner, [builder])
+	for builder: Villager in builders:
+		builder.command_build(building)
+	main._worker_order_undo.supersede(owner, builders)
 	return ""
+
+
+func _can_build_at(unit: Node, owner: int, position: Vector2, footprint: Vector2i) -> bool:
+	return is_instance_valid(unit) and unit is Villager and (unit as Villager).player_owner == owner \
+		and (unit as Villager).hp > 0 and main._can_ai_builder_reach(unit, position, footprint)

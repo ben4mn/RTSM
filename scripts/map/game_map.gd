@@ -411,6 +411,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event is InputEventScreenTouch and (event as InputEventScreenTouch).pressed:
 			_playtest_camera_record("camera_contact_suppressed", {"finger_id": (event as InputEventScreenTouch).index, "reason": "explicit_area_selection"})
 		return
+	# A world hold that turned into a gesture (box, rally line, attack-move pull)
+	# owns its finger's movement; the release still reaches the camera below.
+	if selection_mgr != null and selection_mgr.is_hold_gesture_active() and event is InputEventScreenDrag:
+		return
 	# --- Multi-touch pinch zoom (mobile) ---
 	if event is InputEventScreenTouch:
 		_touch_input_detected = true

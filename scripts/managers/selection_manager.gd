@@ -76,6 +76,14 @@ var _touch_hold_started_at_msec: int = 0
 var _touch_long_press_consumed := false
 var _touch_hold_canceled := false
 var _touch_max_displacement_px := 0.0
+# A hold that has passed the threshold waits for the finger to lift. Lifting in
+# place runs the hold action (queue, gather, ...); dragging first turns the hold
+# into a gesture: a rally line from a producer, a pull-down attack-move, or a box.
+var _hold_gesture_armed := false
+var _hold_gesture_origin := Vector2.ZERO
+var _hold_gesture_node: WeakRef = null
+@export var hold_gesture_slop_px: float = 18.0
+@export var hold_pull_down_min_px: float = 48.0
 @export var touch_context_enabled: bool = true
 @export var long_press_threshold: float = 0.35
 @export var touch_tap_slop_px: float = 12.0
@@ -202,6 +210,7 @@ func cancel_touch_gesture(preserve_completed_tap: bool = false) -> void:
 		touch_area_selection_armed = false
 		touch_area_selection_changed.emit(false)
 	_touch_area_gesture = false
+	_disarm_hold_gesture()
 	_touch_hold_active = false
 	_touch_hold_elapsed = 0.0
 	_touch_hold_started_at_msec = 0
@@ -264,10 +273,8 @@ func _process(_delta: float) -> void:
 		_playtest_classify_contact(_primary_touch_index, "hold", "real_time_threshold")
 		_touch_hold_active = false
 		_touch_hold_started_at_msec = 0
-		_touch_long_press_consumed = true
 		_is_dragging = false
-		queue_redraw()
-		_open_touch_context(_drag_end)
+		_arm_hold_gesture(_drag_end)
 		get_viewport().set_input_as_handled()
 
 
@@ -415,6 +422,7 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 				_touch_hold_active = false
 				_touch_hold_started_at_msec = 0
 				_touch_long_press_consumed = false
+				_disarm_hold_gesture()
 			if _active_touch_indices.is_empty():
 				_finish_released_touch(event.index)
 			return
@@ -440,6 +448,15 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 				if node != null and node.is_in_group("units") and not _is_enemy(node):
 					_add_to_selection(node)
 			_last_tap_time = 0.0
+			get_viewport().set_input_as_handled()
+			_finish_released_touch(event.index)
+			queue_redraw()
+			return
+		if _hold_gesture_armed:
+			_playtest_classify_contact(event.index, "hold", "hold_gesture_release")
+			_touch_hold_started_at_msec = 0
+			_touch_long_press_consumed = false
+			_finish_hold_gesture(event.position)
 			get_viewport().set_input_as_handled()
 			_finish_released_touch(event.index)
 			queue_redraw()
@@ -503,6 +520,10 @@ func _handle_drag(event: InputEventScreenDrag) -> void:
 		_cancel_pending_touch_hold()
 		return
 	_drag_end = event.position
+	if _hold_gesture_armed:
+		get_viewport().set_input_as_handled()
+		queue_redraw()
+		return
 	if _touch_area_gesture and touch_area_selection_armed:
 		# The visible box owns this one-finger drag; camera pan and the
 		# long-press action must not interpret the same movement.
@@ -539,9 +560,12 @@ func _cancel_pending_touch_hold() -> void:
 	_touch_hold_active = false
 	_touch_hold_canceled = true
 	_touch_hold_started_at_msec = 0
+	_disarm_hold_gesture()
 
 
 func _record_touch_displacement(screen_pos: Vector2) -> void:
+	if _hold_gesture_armed:
+		return
 	_touch_max_displacement_px = maxf(_touch_max_displacement_px, _drag_start.distance_to(screen_pos))
 	if _touch_max_displacement_px >= get_touch_pan_threshold():
 		_touch_pan_gesture = true
@@ -868,6 +892,79 @@ func _handle_double_tap(screen_pos: Vector2, is_touch_input: bool, preferred_tar
 
 
 ## --- Drag-box selection ---
+
+func is_hold_gesture_active() -> bool:
+	return _hold_gesture_armed
+
+
+func _arm_hold_gesture(screen_pos: Vector2) -> void:
+	_hold_gesture_armed = true
+	_hold_gesture_origin = screen_pos
+	var node: Node2D = _get_node_at(_screen_to_world(screen_pos), true)
+	_hold_gesture_node = weakref(node) if node != null else null
+	_playtest_record("hold_gesture_armed", {"screen": [screen_pos.x, screen_pos.y]})
+	queue_redraw()
+
+
+func _disarm_hold_gesture() -> void:
+	if not _hold_gesture_armed:
+		return
+	_hold_gesture_armed = false
+	_hold_gesture_node = null
+	queue_redraw()
+
+
+## What a held finger would do if it lifted at `screen_pos`:
+## "context" (lift in place), "rally", "attack_move" or "box".
+func hold_gesture_kind(screen_pos: Vector2) -> String:
+	var delta: Vector2 = screen_pos - _hold_gesture_origin
+	if delta.length() < hold_gesture_slop_px:
+		return "context"
+	var held: Variant = _hold_gesture_node.get_ref() if _hold_gesture_node != null else null
+	if _is_rally_producer(held):
+		return "rally"
+	if _has_selected_units() and delta.y >= hold_pull_down_min_px and delta.y >= absf(delta.x) * 1.5:
+		return "attack_move"
+	return "box"
+
+
+func _is_rally_producer(node: Variant) -> bool:
+	return node is BuildingBase and is_instance_valid(node) and (node as BuildingBase).player_owner == 0 \
+		and (node as BuildingBase).state == BuildingBase.State.ACTIVE and not (node as BuildingBase).trainable_units.is_empty()
+
+
+func _finish_hold_gesture(release_pos: Vector2) -> void:
+	var kind: String = hold_gesture_kind(release_pos)
+	var origin: Vector2 = _hold_gesture_origin
+	var held: Variant = _hold_gesture_node.get_ref() if _hold_gesture_node != null else null
+	_disarm_hold_gesture()
+	_last_tap_time = 0.0
+	_playtest_record("hold_gesture_finished", {"kind": kind, "start": [origin.x, origin.y], "end": [release_pos.x, release_pos.y]})
+	match kind:
+		"context":
+			_touch_long_press_consumed = true
+			_open_touch_context(origin)
+			_touch_long_press_consumed = false
+		"rally":
+			var producer := held as BuildingBase
+			if selected.size() != 1 or selected[0] != producer:
+				_begin_selection_batch()
+				_clear_selection()
+				_add_to_selection(producer)
+				_end_selection_batch()
+			var world_pos := _screen_to_world(release_pos)
+			var resource_node: Node2D = _get_resource_at(world_pos, true)
+			if resource_node != null and _has_selected_villager_producer():
+				gather_command.emit(resource_node)
+			else:
+				move_command.emit(_world_to_tile(world_pos))
+		"attack_move":
+			attack_move_command.emit(_world_to_tile(_screen_to_world(origin)))
+		_:
+			_drag_start = origin
+			_drag_end = release_pos
+			_finish_drag_select()
+
 
 func _finish_drag_select() -> void:
 	_drag_rect = Rect2(_drag_start, _drag_end - _drag_start).abs()
@@ -2044,6 +2141,8 @@ func _playtest_nearest_visible_target(screen_pos: Vector2) -> Dictionary:
 ## --- Draw drag-box ---
 
 func _draw() -> void:
+	if _hold_gesture_armed:
+		_draw_hold_gesture()
 	if _is_dragging:
 		var rect := Rect2(_drag_start, _drag_end - _drag_start).abs()
 		# Convert screen rect to local coords for drawing.
@@ -2053,3 +2152,25 @@ func _draw() -> void:
 		var local_rect := Rect2(local_start, local_end - local_start)
 		draw_rect(local_rect, Color(0.3, 0.7, 1.0, 0.25), true)
 		draw_rect(local_rect, Color(0.3, 0.7, 1.0, 0.8), false, 1.5)
+
+
+func _draw_hold_gesture() -> void:
+	var canvas_inv: Transform2D = get_viewport().get_canvas_transform().affine_inverse()
+	var origin: Vector2 = canvas_inv * _hold_gesture_origin
+	var finger: Vector2 = canvas_inv * _drag_end
+	var scale_px: float = 1.0 / maxf(0.01, get_viewport().get_canvas_transform().get_scale().x)
+	var kind: String = hold_gesture_kind(_drag_end)
+	var gold := Color(0.95, 0.78, 0.36, 0.95)
+	draw_arc(origin, 22.0 * scale_px, 0.0, TAU, 32, gold, 2.5 * scale_px)
+	match kind:
+		"rally":
+			draw_line(origin, finger, Color(0.55, 0.85, 1.0, 0.9), 3.0 * scale_px)
+			draw_circle(finger, 6.0 * scale_px, Color(0.55, 0.85, 1.0, 0.9))
+		"attack_move":
+			var red := Color(0.95, 0.35, 0.3, 0.95)
+			draw_line(origin, Vector2(origin.x, finger.y), red, 3.0 * scale_px)
+			draw_arc(origin, 30.0 * scale_px, 0.0, TAU, 32, red, 3.0 * scale_px)
+		"box":
+			var rect := Rect2(origin, finger - origin).abs()
+			draw_rect(rect, Color(0.3, 0.7, 1.0, 0.25), true)
+			draw_rect(rect, Color(0.3, 0.7, 1.0, 0.8), false, 1.5 * scale_px)

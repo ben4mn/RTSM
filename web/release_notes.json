@@ -1,6 +1,21 @@
 {
   "releases": [
     {
+      "id": "2026-10-28-hold-to-command",
+      "date": "2026-10-28",
+      "version": "0.3.0-beta.18",
+      "title": "Hold to command",
+      "summary": "Your chosen villagers build, houses shelter twice as many, and a held finger draws boxes, rallies and attack-moves.",
+      "changes": [
+        "The villagers you select build what you place, all of them, whatever they were doing. With none selected, the nearest free villager still goes.",
+        "Houses add 20 housing instead of 10, so fewer houses reach the 100 limit. Houses already standing in saved games keep their housing.",
+        "Hold empty ground until the ring appears, then drag to box-select your units.",
+        "Hold a production building and drag to the ground to set its rally point.",
+        "Hold a spot with soldiers selected and pull your finger down to attack-move there.",
+        "Holding and lifting in place still queues a waypoint, now when you lift rather than while your finger is down. Update before playing online."
+      ]
+    },
+    {
       "id": "2026-10-27-openings-and-gold",
       "date": "2026-10-27",
       "version": "0.3.0-beta.17",

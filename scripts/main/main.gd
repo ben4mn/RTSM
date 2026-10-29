@@ -3196,6 +3196,24 @@ func _on_placement_confirmed(building_type: int, world_pos: Vector2) -> void:
 
 
 func _send_villager_to_build(building: BuildingBase) -> bool:
+	# The villagers the player selected before choosing the building are the
+	# builders, whatever they were doing. Only with none selected (the farm
+	# shortcut, the workers panel) does the nearest free villager go.
+	var selected_builders: Array[Villager] = []
+	var selection: Array = game_map.selection_mgr.selected.duplicate() if game_map != null and game_map.selection_mgr != null else []
+	for node: Variant in selection:
+		if not is_instance_valid(node) or not (node is Villager) or (node as Villager).player_owner != 0:
+			continue
+		var chosen: Villager = node as Villager
+		if chosen.is_auto_recovering() or not _can_ai_builder_reach(chosen, building.global_position, building.footprint):
+			continue
+		chosen.command_build(building)
+		if chosen.current_state == UnitBase.State.BUILDING and chosen.build_target == building:
+			selected_builders.append(chosen)
+	if not selected_builders.is_empty():
+		_worker_order_undo.supersede(0, selected_builders)
+		_refresh_worker_undo_hud()
+		return true
 	# Opening workers often all walk to resources at once. Prefer idle labor,
 	# then gathering labor, then a walking worker rather than leaving a paid
 	# foundation unstaffed. Existing construction orders keep their workers.
