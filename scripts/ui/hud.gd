@@ -1606,7 +1606,7 @@ func configure_unit_commands(
 		return
 	if authorized and not _movement_controls_hint_shown:
 		_movement_controls_hint_shown = true
-		show_notification("Tap: move · Hold: add waypoint · Swords: attack", KingdomTheme.MUTED, 4.0)
+		show_notification("Tap: move · Hold: waypoint · Hold, pull down: attack · Hold, drag: box", KingdomTheme.MUTED, 4.0)
 	_unit_commands_authorized = authorized
 	_unit_commands_have_military = has_military
 	_unit_command_mode = armed_mode

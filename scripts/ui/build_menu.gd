@@ -485,6 +485,11 @@ func _format_button_text(stats: Dictionary, age_locked: bool, building_type: int
 	return "\n".join(lines)
 
 
+## Tile captions share the card's top edge with the age badge; keep them short.
+func _tile_caption(building_name: String) -> String:
+	return {"Trade Post": "Trade", "Town Center": "Town", "Watch Tower": "Tower", "Blacksmith": "Smithy"}.get(building_name, _compact_building_name(building_name))
+
+
 func _compact_building_name(building_name: String) -> String:
 	return {"Resource Camp": "Camp", "Archery Range": "Archery", "Siege Workshop": "Siege", "Town Center": "Town Center"}.get(building_name, building_name)
 
@@ -578,7 +583,7 @@ func _refresh_affordability() -> void:
 		btn.tooltip_text = _format_tooltip(stats, building_type)
 		btn.accessibility_name = btn.tooltip_text
 		_apply_card_style(btn)
-		ACTION_TILE.apply(btn, load(BuildingBase.get_sprite_texture_path(building_type, 0)), cost, Vector2(_card_width, CARD_HEIGHT), _compact_building_name(String(stats.get("name", ""))))
+		ACTION_TILE.apply(btn, load(BuildingBase.get_sprite_texture_path(building_type, 0)), cost, Vector2(_card_width, CARD_HEIGHT), _tile_caption(String(stats.get("name", ""))))
 		CommandIcons.set_badge(btn, ["I", "II", "III", "IV"][clampi(int(stats.get("age_required", 1)) - 1, 0, 3)] if age_locked else "")
 		btn.disabled = _placement_mode_active or (not _info_mode and (age_locked or not can_afford))
 		if age_locked:
