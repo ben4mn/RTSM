@@ -120,7 +120,7 @@ func _snapshot_for(slot: int) -> Dictionary:
 				actor["rally_orders"] = _serialize_orders(node.rally_orders)
 				var queue: ProductionQueue = node.get_production_queue()
 				if queue != null:
-					actor["queue"] = {"items": queue.queue, "progress": queue.current_progress, "time": queue.current_train_time, "training": queue.is_training, "repeat": false, "repeat_type": queue.auto_queue_unit_type}
+					actor["queue"] = {"items": queue.queue, "progress": queue.current_progress, "time": queue.current_train_time, "training": queue.is_training, "repeat": queue.auto_queue_enabled, "repeat_type": queue.auto_queue_unit_type}
 		actors.append(actor)
 		if node is BuildingBase and node.player_owner != slot:
 			var id: int = NetworkSession.entity_id(node)
@@ -247,7 +247,7 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 				queue.current_progress = float(data.progress)
 				queue.current_train_time = float(data.time)
 				queue.is_training = bool(data.training)
-				queue.auto_queue_enabled = false
+				queue.auto_queue_enabled = bool(data.repeat)
 				queue.auto_queue_unit_type = int(data.repeat_type)
 		if was_present and float(actor.hp) < float(node.hp) and node.is_visible_in_tree():
 			if node is UnitBase:
@@ -607,7 +607,11 @@ func execute_command(owner: int, packet: Dictionary) -> String:
 						var index: int = int(packet.get("index", -1))
 						queue.cancel_all() if index == -1 else queue.cancel_unit(index)
 				"repeat":
-					return "Hold Train for a finite paid queue"
+					if queue != null:
+						var repeat_type: int = int(packet.get("type", queue.auto_queue_unit_type))
+						if repeat_type >= 0 and repeat_type in target.trainable_units:
+							queue.auto_queue_unit_type = repeat_type
+						queue.auto_queue_enabled = bool(packet.get("enabled", false)) and queue.auto_queue_unit_type >= 0
 				"research":
 					if not GameManager.try_research(owner, target, str(packet.get("research", ""))):
 						return "Research unavailable"

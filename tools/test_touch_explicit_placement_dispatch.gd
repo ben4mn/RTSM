@@ -43,23 +43,30 @@ func _run() -> void:
     _expect(bool(placement.get("active")),"real House-card touch did not enter preview")
     _expect(int(ResourceManager.get_all_resources(0).get("wood",0))==wood_before,"House-card touch spent before Place")
     var preview_world: Vector2=placement.get("global_position")
-    var preview_screen: Vector2=get_viewport().get_canvas_transform()*preview_world
-    # The bridge sends the same screen touch down/up pair; mouse synthesis is
-    # allowed to run naturally before either unhandled touch callback.
-    await _tap(preview_screen)
-    _expect(bool(placement.get("active")),"world preview tap committed placement")
-    _expect(int(ResourceManager.get_all_resources(0).get("wood",0))==wood_before,"world touch spent wood without explicit Place")
-    _expect(main.get("_player_buildings")[0].size()==buildings_before,"world touch created a foundation without Place")
     var valid_world: Vector2=placement.call("_find_initial_preview_position",preview_world)
+    var house_cost: int=BuildingData.get_building_cost(BuildingData.BuildingType.HOUSE).get("wood",0)
+    # A drag only moves the preview; it never spends.
+    var drag_from: Vector2=get_viewport().get_canvas_transform()*valid_world
+    await _drag(drag_from, drag_from+Vector2(40,20))
+    _expect(bool(placement.get("active")),"a drag in placement mode ended placement")
+    _expect(int(ResourceManager.get_all_resources(0).get("wood",0))==wood_before,"a drag in placement mode spent wood")
+    # A tap on fitting ground places there at once (Build, card, tap).
+    await _tap(get_viewport().get_canvas_transform()*valid_world)
+    _expect(int(ResourceManager.get_all_resources(0).get("wood",0))==wood_before-house_cost,"a tap on fitting ground did not place exactly once")
+    _expect(main.get("_player_buildings")[0].size()==buildings_before+1,"a tap on fitting ground did not create one foundation")
+    _expect(not bool(placement.get("active")),"placement stayed open after a tap placed the House")
+    # The explicit Place button still confirms the preview.
+    main.call("_on_building_selected_for_placement",BuildingData.BuildingType.HOUSE)
+    valid_world=placement.call("_find_initial_preview_position",valid_world+Vector2(-96,48))
     placement.call("update_preview_at_world",valid_world)
     await get_tree().process_frame
     await get_tree().process_frame
     var place_button: Button=hud.get("_placement_confirm_button")
-    _expect(not place_button.disabled,"initial legal preview did not enable Place")
+    _expect(not place_button.disabled,"legal preview did not enable Place")
     await _tap(place_button.get_global_rect().get_center())
-    var house_cost: int=BuildingData.get_building_cost(BuildingData.BuildingType.HOUSE).get("wood",0)
-    _expect(int(ResourceManager.get_all_resources(0).get("wood",0))==wood_before-house_cost,"explicit Place did not spend once")
-    _expect(main.get("_player_buildings")[0].size()==buildings_before+1,"explicit Place did not create one foundation")
+    _expect(int(ResourceManager.get_all_resources(0).get("wood",0))==wood_before-2*house_cost,"explicit Place did not spend once")
+    _expect(main.get("_player_buildings")[0].size()==buildings_before+2,"explicit Place did not create one foundation")
+    buildings_before += 1
     # A real desktop mouse remains a supported direct placement mechanism.
     main.call("_on_building_selected_for_placement",BuildingData.BuildingType.HOUSE)
     valid_world=placement.call("_find_initial_preview_position",valid_world+Vector2(96,48))
@@ -76,7 +83,7 @@ func _run() -> void:
     for failure: String in _failures:
         push_error("[FAIL] touch_explicit_placement_dispatch: "+failure)
     if _failures.is_empty():
-        print("[PASS] touch_explicit_placement_dispatch: Age Up costs/shortfall visible before purchase; touch/card/world dispatch spends zero before Place; explicit Place spends once; genuine mouse still places")
+        print("[PASS] touch_explicit_placement_dispatch: Age Up costs visible; drags never spend; a tap on fitting ground places once; explicit Place spends once; genuine mouse still places")
     get_tree().quit(0 if _failures.is_empty() else 1)
 
 func _tap(position: Vector2) -> void:
@@ -92,3 +99,12 @@ func _tap(position: Vector2) -> void:
 func _expect(condition: bool,message: String) -> void:
     if not condition:
         _failures.append(message)
+
+func _drag(from: Vector2, to: Vector2) -> void:
+    var press:=InputEventScreenTouch.new(); press.index=7; press.position=from; press.pressed=true
+    Input.parse_input_event(press); await get_tree().process_frame
+    for step: int in range(1,6):
+        var move:=InputEventScreenDrag.new(); move.index=7; move.position=from.lerp(to,float(step)/5.0)
+        Input.parse_input_event(move); await get_tree().process_frame
+    var release:=InputEventScreenTouch.new(); release.index=7; release.position=to; release.pressed=false
+    Input.parse_input_event(release); await get_tree().process_frame

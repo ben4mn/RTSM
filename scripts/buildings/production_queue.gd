@@ -64,10 +64,21 @@ func advance(delta: float) -> void:
 		_complete_current_unit()
 
 
-func retry_auto_queue(_delta: float) -> bool:
-	# Legacy call sites remain inert. All purchases require a finite player/AI order.
-	auto_queue_enabled = false
-	return false
+func retry_auto_queue(delta: float) -> bool:
+	## Repeat keeps a producer busy: an empty repeat queue may be waiting for a
+	## deposit or new housing, so it retries the same paid reservation transaction
+	## at most once per interval and stays on until the player turns it off.
+	if not is_instance_valid(_building) or _building.state != BuildingBase.State.ACTIVE:
+		_auto_queue_retry_elapsed = 0.0
+		return false
+	if not auto_queue_enabled or auto_queue_unit_type < 0 or not queue.is_empty():
+		_auto_queue_retry_elapsed = 0.0
+		return false
+	_auto_queue_retry_elapsed += maxf(0.0, delta)
+	if _auto_queue_retry_elapsed < AUTO_QUEUE_RETRY_INTERVAL:
+		return false
+	_auto_queue_retry_elapsed = 0.0
+	return enqueue_unit(auto_queue_unit_type)
 
 
 func enqueue_unit(unit_type: int) -> bool:
@@ -233,6 +244,10 @@ func _complete_current_unit() -> void:
 		# both its population slot and unit cost instead of silently losing either.
 		reject_completed_unit()
 	queue_changed.emit()
+
+	# Repeat buys the next one as soon as this one is out, when affordable.
+	if auto_queue_enabled and auto_queue_unit_type >= 0 and queue.is_empty():
+		enqueue_unit(auto_queue_unit_type)
 
 
 	if not queue.is_empty() and not is_training:

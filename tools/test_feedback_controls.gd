@@ -137,7 +137,10 @@ func _run() -> void:
 	queue.auto_queue_enabled = true
 	queue.auto_queue_unit_type = UnitData.UnitType.VILLAGER
 	queue.retry_auto_queue(10.0)
-	_expect(queue.queue.is_empty() and not queue.auto_queue_enabled,"legacy repeat cannot restart empty production")
+	# Repeat is back (owner request): an empty repeating queue buys the next unit.
+	_expect(queue.queue.size() == 1 and queue.auto_queue_enabled,"repeat restarts empty production with one paid unit")
+	queue.auto_queue_enabled = false
+	queue.cancel_all()
 	_test_speed()
 	queue.cancel_all()
 	layer.free()

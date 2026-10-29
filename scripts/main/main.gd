@@ -2880,6 +2880,7 @@ func _setup_hud() -> void:
 		hud.add_child(_build_menu)
 
 	hud.build_menu_toggled.connect(_on_build_menu_toggled)
+	hud.quick_build_requested.connect(_on_quick_build_requested)
 	hud.age_up_requested.connect(_on_age_up_requested)
 	hud.idle_villager_pressed.connect(_on_idle_villager_pressed)
 	hud.train_unit_requested.connect(_on_train_unit_requested)
@@ -3063,6 +3064,14 @@ func _on_building_selected_for_placement(building_type: int) -> void:
 	_update_progression_hint()
 
 
+func _on_quick_build_requested(building_type: int) -> void:
+	if GameManager.current_state != GameManager.GameState.PLAYING or _placement_active:
+		return
+	if not ResourceManager.can_afford(0, BuildingData.get_building_cost(building_type)):
+		return
+	_on_building_selected_for_placement(building_type)
+
+
 func _on_cancel_placement() -> void:
 	_cancel_placement()
 
@@ -3103,7 +3112,7 @@ func _on_placement_input_mode_changed(uses_touch: bool) -> void:
 
 func _house_placement_instruction() -> String:
 	if _building_placement != null and _building_placement.uses_touch_input():
-		return "2 / 4 · Position your House, then tap Place."
+		return "2 / 4 · Tap open ground to place your House, or tap Place."
 	return "2 / 4 · Click clear ground to place your House."
 
 
@@ -3206,6 +3215,7 @@ func _on_placement_confirmed(building_type: int, world_pos: Vector2) -> void:
 
 	var building := _spawn_building(building_type, 0, tile_pos)
 	building.start_construction()
+	hud.set_last_built_type(building_type)
 	_last_placement_feedback = ""
 	if building_type == BuildingData.BuildingType.HOUSE:
 		_opening_house_complete = true

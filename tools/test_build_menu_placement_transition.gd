@@ -83,7 +83,8 @@ func _run() -> void:
 		_expect(art_bottom.y <= get_viewport().get_visible_rect().size.y - 104.0, "initial House art opened behind bottom actions")
 	var wood_before_preview: int = int(ResourceManager.get_all_resources(0).get("wood", 0))
 	var buildings_before_preview: int = match_scene.get("_player_buildings")[0].size()
-	_push_touch(WORLD_TAP_POSITION, true)
+	# Positioning drag: a tap now places at once (tools/test_touch_explicit_placement_dispatch).
+	_push_touch(WORLD_TAP_POSITION - Vector2(30.0, 0.0), true)
 	await get_tree().process_frame
 	_push_touch(WORLD_TAP_POSITION, false)
 	await get_tree().process_frame

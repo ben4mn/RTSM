@@ -4,6 +4,8 @@ extends CanvasLayer
 ## Connects to GameManager and ResourceManager autoloads for live data.
 
 signal build_menu_toggled(is_open: bool)
+## Hold Build, slide to a building, release: placement starts without the menu.
+signal quick_build_requested(building_type: int)
 signal age_up_requested()
 signal idle_villager_pressed()
 signal train_unit_requested(building: Node2D, unit_type: int)
@@ -205,6 +207,8 @@ var _selection_role_counts: Dictionary = {}
 var _train_buttons_container: HBoxContainer = null
 var _selected_building_ref: Node2D = null
 var _auto_queue_button: Button = null
+var _train_relayout_pending: bool = false
+var _production_width_correction: float = 0.0
 var _queue_page_spacer: Control = null
 var _queue_navigation_button: Button = null
 var _queue_view_requested: bool = false
@@ -1742,7 +1746,7 @@ func update_placement_preview(valid: bool, reason: String = "") -> void:
 		if _placement_confirm_button.text.length() > 20:
 			_placement_confirm_button.text = "Place building"
 	if _placement_status_label:
-		var status: String = ("Tap Place to build" if _placement_uses_touch else ("Click Place to build" if _placement_assisted_preview else "Click ground to build")) if valid else (reason if reason != "" else "Choose clear ground")
+		var status: String = ("Tap ground or Place to build" if _placement_uses_touch else ("Click Place to build" if _placement_assisted_preview else "Click ground to build")) if valid else (reason if reason != "" else "Choose clear ground")
 		# Trade planning replaces the generic instruction, keeping one compact
 		# line. The ghost and Place button already identify the building.
 		_placement_status_label.text = reason if valid and not reason.is_empty() else ("%s · %s" % [_placement_building_name, status] if _placement_building_name != "" else status)
@@ -2158,7 +2162,7 @@ func _calculate_mobile_layout_metrics(viewport_size: Vector2, safe_area: Rect2, 
 	if not _dock_collapsed and _train_buttons_container != null and _train_buttons_container.visible:
 		# Both pages use the same viewport width, so opening or refreshing the
 		# queue cannot clamp its scroll position while the shelf changes size.
-		var page_width: float = _stable_production_page_width()
+		var page_width: float = _stable_production_page_width() + _production_width_correction
 		info_width = 48.0
 		var production_chrome: float = 48.0 + (16.0 if phone and _is_town_center_production_context() else 28.0) + 18.0
 		info_width = clampf(selection_zone_width - page_width - production_chrome, 48.0, info_width)
@@ -2229,7 +2233,9 @@ func _production_row_width(row: HBoxContainer) -> float:
 	var count: int = 0
 	for child: Control in row.get_children():
 		if child.visible and not child.is_queued_for_deletion():
-			width += child.get_combined_minimum_size().x
+			# A card can render wider than its minimum (icon tiles grow to fit
+			# their art); measuring only minimums clipped the row's last button.
+			width += maxf(child.get_combined_minimum_size().x, child.size.x)
 			count += 1
 	return width + float(maxi(0, count - 1)) * float(row.get_theme_constant("separation"))
 
@@ -3611,14 +3617,48 @@ func _update_train_buttons(trainable_units: Array) -> void:
 	_building_rally_button.disabled = not _is_human_owned_building(_selected_building_ref) or (_selected_building_ref as BuildingBase).state != BuildingBase.State.ACTIVE
 	_building_rally_button.set_pressed_no_signal(_rally_armed)
 	_train_buttons_container.move_child(_building_rally_button, -1)
-	# Finite queues only. Hold a unit card to buy up to the five-slot limit.
-	if is_instance_valid(_auto_queue_button):
-		_auto_queue_button.hide()
+	# Repeat keeps a producer busy (owner request, beta 21): after each unit it
+	# buys the next at the normal price, waiting for resources or housing.
+	if production_queue != null:
+		if _auto_queue_button == null or not is_instance_valid(_auto_queue_button) or _auto_queue_button.get_parent() != _train_buttons_container:
+			_auto_queue_button = _train_buttons_container.get_node_or_null("AutoQueueButton") as Button
+		if _auto_queue_button == null:
+			_auto_queue_button = Button.new()
+			_auto_queue_button.name = "AutoQueueButton"
+			_auto_queue_button.toggle_mode = true
+			_auto_queue_button.toggled.connect(_on_auto_queue_toggled)
+			_train_buttons_container.add_child(_auto_queue_button)
+		_auto_queue_button.visible = true
+		_auto_queue_button.clip_text = true
+		_auto_queue_button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		_attach_hud_hold(_auto_queue_button, _repeat_information)
+		_auto_queue_button.mouse_filter = Control.MOUSE_FILTER_STOP
+		_auto_queue_button.custom_minimum_size = Vector2(48, 48) if compact_producer else Vector2(104, 48)
+		_auto_queue_button.add_theme_font_size_override("font_size", 11 if compact_producer else 14)
+		if int(production_queue.get("auto_queue_unit_type")) < 0 and not (_selected_building_ref as BuildingBase).trainable_units.is_empty():
+			production_queue.set("auto_queue_unit_type", (_selected_building_ref as BuildingBase).trainable_units[0])
+		_refresh_auto_queue_button(production_queue)
+		_train_buttons_container.move_child(_auto_queue_button, -1)
 	if _ui_modal_state == UIModalState.BUILD_MENU:
 		_train_buttons_container.visible = false
 	_refresh_primary_action_visuals()
 	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
 	apply_mobile_layout(viewport_size, _get_safe_area_rect(viewport_size))
+	# Tiles settle their real width during the next container sort; lay the dock
+	# out once more after it so the last button (Repeat) is never clipped.
+	if not _train_relayout_pending and is_inside_tree():
+		_train_relayout_pending = true
+		get_tree().process_frame.connect(func() -> void:
+			_train_relayout_pending = false
+			if not is_inside_tree() or not _train_buttons_container.visible:
+				return
+			# Measure what the panel's fixed chrome estimate left out and widen
+			# the dock by exactly that, so the last button is always reachable.
+			var shortfall: float = _production_row_width(_train_buttons_container) - command_scroll.size.x
+			var correction: float = clampf(_production_width_correction + shortfall, 0.0, 48.0)
+			if absf(correction - _production_width_correction) > 0.5:
+				_production_width_correction = correction
+				_apply_mobile_layout_for_current_viewport(), CONNECT_ONE_SHOT)
 	call_deferred("_refresh_touch_target_diagnostics")
 
 
@@ -3767,6 +3807,15 @@ func _refresh_auto_queue_button(production_queue: Node) -> void:
 	_auto_queue_button.add_theme_font_size_override("font_size", 10 if compact_repeat else 12)
 	_auto_queue_button.accessibility_name = "Repeat training: " + _auto_queue_button.text.replace("\n", ". ")
 	if compact_repeat:
+		# Phones: an icon-only 48px toggle beside the rally flag. ON/OFF reads
+		# from its highlight; the unit and any wait reason live in the tooltip
+		# and the hold explanation, so the dock never clips.
+		_auto_queue_button.tooltip_text = "%s · %s" % [_auto_queue_button.text.replace("\n", " "), _auto_queue_button.tooltip_text]
+		_auto_queue_button.text = ""
+		_auto_queue_button.custom_minimum_size = Vector2(48, 48)
+		_auto_queue_button.vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER
+		_auto_queue_button.add_theme_constant_override("icon_max_width", 24)
+	if compact_repeat:
 		# Native stacked icons reserve more height than their visible artwork.
 		# Keep the full icon/text inside the72px production dock.
 		for state: String in ["normal", "hover", "pressed", "disabled", "focus", "hover_pressed"]:
@@ -3810,7 +3859,8 @@ func _on_auto_queue_toggled(pressed: bool) -> void:
 	var session: Node = get_node_or_null("/root/NetworkSession")
 	if session != null and bool(session.call("is_client")):
 		if _is_human_owned_building(_selected_building_ref):
-			session.call("send_command", "repeat", {"target": session.call("entity_id", _selected_building_ref), "enabled": pressed})
+			var repeat_queue: Node = _selected_building_ref.get_production_queue() if _selected_building_ref.has_method("get_production_queue") else null
+			session.call("send_command", "repeat", {"target": session.call("entity_id", _selected_building_ref), "enabled": pressed, "type": int(repeat_queue.get("auto_queue_unit_type")) if repeat_queue != null else -1})
 		return
 	if _is_human_owned_building(_selected_building_ref):
 		var pq: Node = _selected_building_ref.get_production_queue() if _selected_building_ref.has_method("get_production_queue") else null
@@ -4912,6 +4962,7 @@ func _create_secondary_surface_controls() -> void:
 	_hotkey_panel.z_index = 60
 	_attach_hud_hold(_unit_more_button, _selection_information, _more_hold_choices)
 	_attach_hud_hold(age_up_button, _age_up_information)
+	_attach_hud_hold(build_menu_button, _quick_build_information, _quick_build_choices)
 
 
 func _create_compact_dock_controls() -> void:
@@ -5149,7 +5200,47 @@ func _on_hold_surface_closed(component: Node) -> void:
 		_set_secondary_surface(SecondarySurface.NONE)
 
 
+var _last_quick_build_type: int = -1
+
+
+func set_last_built_type(building_type: int) -> void:
+	_last_quick_build_type = building_type
+
+
+func _quick_build_information() -> Dictionary:
+	return {"title": "Build", "body": "Tap to open every building. Hold, slide to a building and release to place it straight away; then tap the ground."}
+
+
+## Four quick choices: the last building placed, then House, Farm and Barracks.
+func _quick_build_choices() -> Array[Dictionary]:
+	var types: Array[int] = []
+	if _last_quick_build_type >= 0:
+		types.append(_last_quick_build_type)
+	for building_type: int in [BuildingData.BuildingType.HOUSE, BuildingData.BuildingType.FARM, BuildingData.BuildingType.BARRACKS, BuildingData.BuildingType.ARCHERY_RANGE]:
+		if building_type not in types:
+			types.append(building_type)
+	var choices: Array[Dictionary] = []
+	var gm: Node = _get_game_manager()
+	var age: int = int(gm.call("get_player_age", 0)) if gm != null else 1
+	for building_type: int in types.slice(0, 4):
+		var stats: Dictionary = BuildingData.get_building_stats(building_type, 0)
+		var cost: Dictionary = BuildingData.get_building_cost(building_type)
+		var resource_manager: Node = _get_resource_manager()
+		var affordable: bool = resource_manager == null or bool(resource_manager.call("can_afford", 0, cost))
+		var unlocked: bool = age >= int(stats.get("age_required", 0))
+		var cost_parts: PackedStringArray = []
+		for resource: String in ["food", "wood", "gold"]:
+			if int(cost.get(resource, 0)) > 0:
+				cost_parts.append("%d %s" % [int(cost[resource]), resource])
+		choices.append({"id": "build:%d" % building_type, "label": str(stats.get("name", "Build")), "description": " · ".join(cost_parts) if unlocked else "Needs a later age", "enabled": affordable and unlocked})
+	return choices
+
+
 func _on_hold_choice_selected(action_id: Variant) -> void:
+	if str(action_id).begins_with("build:"):
+		close_secondary_surface()
+		quick_build_requested.emit(int(str(action_id).trim_prefix("build:")))
+		return
 	match str(action_id):
 		"stop": _on_unit_stop_pressed()
 		"patrol": _on_unit_patrol_pressed()

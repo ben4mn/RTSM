@@ -98,7 +98,8 @@ func _run() -> void:
 	placement.start_placement(BuildingData.BuildingType.HOUSE, 0)
 	_expect(world.is_processing_unhandled_input(), "second placement blocked camera/map navigation")
 	_expect(not selection.is_processing_unhandled_input(), "second placement did not suspend selection input")
-	_push_touch(WORLD_TAP_POSITION, true)
+	# Positioning drag: a tap now places at once (tools/test_touch_explicit_placement_dispatch).
+	_push_touch(WORLD_TAP_POSITION - Vector2(30.0, 0.0), true)
 	await get_tree().process_frame
 	_push_touch(WORLD_TAP_POSITION, false)
 	await get_tree().process_frame

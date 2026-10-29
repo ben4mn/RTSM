@@ -259,12 +259,12 @@ func _test_main_recovery_and_pause() -> void:
 	var game_map: Node = match_scene.get_node("GameMap")
 	game_map.get("selection_mgr").call("select_single", building)
 	var repeat_button: Button = hud.get("_auto_queue_button") as Button
-	_expect(repeat_button != null and repeat_button.button_pressed and repeat_button.text.contains("ON") and repeat_button.accessibility_name.contains("Repeat training"), "selected producer immediately reflects Repeat ON")
+	_expect(repeat_button != null and repeat_button.button_pressed and (repeat_button.text + repeat_button.tooltip_text).contains("ON") and repeat_button.accessibility_name.contains("Repeat training"), "selected producer immediately reflects Repeat ON")
 	queue.current_progress = queue.current_train_time * 0.5
 	hud.call("_on_clear_all_queue_pressed")
 	_expect(not queue.auto_queue_enabled and queue.queue.is_empty() and not queue.is_training, "real HUD Clear atomically stops Repeat and all training")
 	_expect(_reserved() == 0 and _food() == 40 and _gold() == 10, "real HUD Clear refunds the partial Scout and releases its population slot")
-	_expect(repeat_button != null and not repeat_button.button_pressed and repeat_button.text.contains("OFF") and repeat_button.accessibility_name.contains("Repeat training"), "real HUD immediately shows Repeat OFF without another frame")
+	_expect(repeat_button != null and not repeat_button.button_pressed and (repeat_button.text + repeat_button.tooltip_text).contains("OFF") and repeat_button.accessibility_name.contains("Repeat training"), "real HUD immediately shows Repeat OFF without another frame")
 	_expect(int(hud.get("_population_current")) == _committed(), "real HUD immediately drops the cleared reservation")
 	match_scene.call("_advance_production_queues", 30.0)
 	_expect(queue.queue.is_empty() and _food() == 40 and _gold() == 10 and _reserved() == 0, "real Clear stays empty beyond the retry interval")
@@ -275,7 +275,7 @@ func _test_main_recovery_and_pause() -> void:
 	match_scene.call("_advance_production_queues", 0.49)
 	_expect(queue.queue.is_empty() and queue.auto_queue_enabled, "real producer can be waiting with Repeat ON")
 	hud.call("_on_clear_all_queue_pressed")
-	_expect(not queue.auto_queue_enabled and not repeat_button.button_pressed and repeat_button.text.contains("OFF") and repeat_button.accessibility_name.contains("Repeat training"), "real Clear also immediately stops empty waiting repeat")
+	_expect(not queue.auto_queue_enabled and not repeat_button.button_pressed and (repeat_button.text + repeat_button.tooltip_text).contains("OFF") and repeat_button.accessibility_name.contains("Repeat training"), "real Clear also immediately stops empty waiting repeat")
 	_resource_manager.call("add_resource", 0, "food", 40)
 	_resource_manager.call("add_resource", 0, "gold", 10)
 	_game_manager.call("increase_population_cap", 0, 1)

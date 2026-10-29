@@ -11,7 +11,7 @@ signal match_ended(winner: int, reason: String)
 ## Protocol11/catalog7 agrees on pacing and axis-safe stock. Terrain geometry stays
 ## generator5 so existing solo saves can restore their original stock and clock.
 ## Old clients reload before joining so simulation data stays identical.
-const PROTOCOL := 15
+const PROTOCOL := 16
 const MAP_CATALOG_VERSION := 7
 const DEFAULT_ENDPOINT := "wss://game.4mn.org/match"
 const MAX_CLIENT_PACKET := 8192

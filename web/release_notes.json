@@ -1,6 +1,21 @@
 {
   "releases": [
     {
+      "id": "2026-10-29-fewer-taps",
+      "date": "2026-10-29",
+      "version": "0.3.0-beta.21",
+      "title": "Fewer taps, steady towns",
+      "summary": "Place buildings with a tap, keep a Town Center training, and new villagers never stall on an empty bush.",
+      "changes": [
+        "While placing a building, tap open ground to build right there. Dragging still only moves the preview, and Place still works.",
+        "Hold Build, slide to a building and release to start placing it without opening the menu. Your last building leads the list.",
+        "Repeat is back: turn it on beside the rally flag and the building keeps training that unit, waiting for resources or housing instead of switching off.",
+        "Villagers rallied to berries, trees or gold that have run out now work the nearest of the same kind instead of standing idle.",
+        "The production dock widens to fit its last button.",
+        "Both online players must update."
+      ]
+    },
+    {
       "id": "2026-10-29-shrines-and-a-quicker-economy",
       "date": "2026-10-29",
       "version": "0.3.0-beta.20",
