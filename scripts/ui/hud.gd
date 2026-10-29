@@ -4839,7 +4839,7 @@ func _set_secondary_surface(surface: SecondarySurface, preserve_queue_scroll: bo
 	var modal_inspection: bool = (surface == SecondarySurface.INFO and (_active_hold_component != null or _info_from_build_menu) and _ui_modal_state == UIModalState.BUILD_MENU) or (surface == SecondarySurface.HELP and _ui_modal_state == UIModalState.PAUSE_MENU)
 	if surface != SecondarySurface.NONE and (_placement_mode_active or (_ui_modal_state != UIModalState.NONE and not modal_inspection)):
 		return
-	if surface == SecondarySurface.MORE and not _unit_commands_authorized:
+	if surface == SecondarySurface.MORE and not _unit_commands_authorized and not _is_build_hold(_active_hold_component):
 		return
 	if surface == SecondarySurface.QUEUE and (not queue_container.visible or not is_instance_valid(_selected_building_ref)):
 		return
@@ -5177,6 +5177,12 @@ func register_hold_component(component: Node) -> void:
 	component.connect("surface_opened", _on_hold_surface_opened.bind(component))
 	component.connect("surface_closed", _on_hold_surface_closed.bind(component))
 	component.connect("choice_selected", _on_hold_choice_selected)
+
+
+## The Build button's chooser needs no selection: its choices place buildings.
+func _is_build_hold(component: Node) -> bool:
+	return component != null and is_instance_valid(component) and build_menu_button != null \
+		and build_menu_button.has_meta("hud_hold_control") and build_menu_button.get_meta("hud_hold_control") == component
 
 
 func _on_hold_surface_opened(kind: String, component: Node) -> void:
