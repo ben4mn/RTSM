@@ -148,7 +148,7 @@ func _test_partial_provider_retains_nominal_capacity() -> void:
 	_game_manager.call("decrease_population_cap", PLAYER_ID, 10)
 	_expect_eq(_population_cap(), 200, "hidden provider capacity absorbs a ten-slot base reduction")
 	capped_house.call("take_damage", int(capped_house.get("max_hp")))
-	_expect_eq(_population_cap(), 195, "partial House retains all ten nominal slots after rebalance")
+	_expect_eq(_population_cap(), mini(200, 185 + _house_slots()), "partial House retains its full nominal slots after rebalance")
 	partial_house.call("take_damage", int(partial_house.get("max_hp")))
 	_expect_eq(_population_cap(), 185, "removing the partial House removes its full nominal contribution")
 
@@ -161,23 +161,23 @@ func _test_destroyed_house_can_leave_player_over_cap() -> void:
 	if house == null:
 		return
 	house.call("complete_instantly")
-	_expect_eq(_population_cap(), 20, "completed House grants its normal ten slots above the active Town Center")
-	_expect(bool(_game_manager.call("add_population", PLAYER_ID, 19)), "live population can fill nineteen House-supported slots")
+	_expect_eq(_population_cap(), 10 + _house_slots(), "completed House grants its normal slots above the active Town Center")
+	_expect(bool(_game_manager.call("add_population", PLAYER_ID, 9 + _house_slots())), "live population can fill all but one House-supported slot")
 	var existing_reservation: int = int(_game_manager.call("reserve_population", PLAYER_ID, 1))
 	_expect(existing_reservation > 0, "the final supported slot can be reserved")
-	_expect_eq(int(_game_manager.call("get_committed_population", PLAYER_ID)), 20, "live plus reserved population reaches the old cap")
+	_expect_eq(int(_game_manager.call("get_committed_population", PLAYER_ID)), 10 + _house_slots(), "live plus reserved population reaches the old cap")
 
 	house.call("take_damage", int(house.get("max_hp")))
 	_expect_eq(_population_cap(), 10, "House destruction removes its full ten-slot nominal contribution")
-	_expect_eq(_live_population(), 19, "House destruction does not kill existing units")
+	_expect_eq(_live_population(), 9 + _house_slots(), "House destruction does not kill existing units")
 	_expect_eq(int(_game_manager.call("get_reserved_population", PLAYER_ID)), 1, "House destruction does not cancel an existing reservation")
-	_expect_eq(int(_game_manager.call("get_committed_population", PLAYER_ID)), 20, "committed population may remain above the reduced cap")
+	_expect_eq(int(_game_manager.call("get_committed_population", PLAYER_ID)), 10 + _house_slots(), "committed population may remain above the reduced cap")
 	_expect_eq(int(_game_manager.call("reserve_population", PLAYER_ID, 1)), -1, "new reservations are blocked while over cap")
 
 	_expect(bool(_game_manager.call("consume_population_reservation", existing_reservation)), "an existing reservation can still finish while over cap")
-	_expect_eq(_live_population(), 20, "reservation completion converts the slot to live population")
+	_expect_eq(_live_population(), 10 + _house_slots(), "reservation completion converts the slot to live population")
 	_expect_eq(int(_game_manager.call("reserve_population", PLAYER_ID, 1)), -1, "new reservations remain blocked after completion while over cap")
-	_game_manager.call("remove_population", PLAYER_ID, 11)
+	_game_manager.call("remove_population", PLAYER_ID, 1 + _house_slots())
 	var recovered_reservation: int = int(_game_manager.call("reserve_population", PLAYER_ID, 1))
 	_expect(recovered_reservation > 0, "new production resumes once committed population fits the reduced cap")
 	if recovered_reservation > 0:
@@ -247,3 +247,7 @@ func _finish() -> void:
 		return
 	print("[FAIL] population_cap_building_loss: %d assertion(s) failed" % _failures.size())
 	quit(1)
+
+
+func _house_slots() -> int:
+	return int(BuildingData.get_building_stats(BuildingData.BuildingType.HOUSE, 0).get("pop_provided", 0))

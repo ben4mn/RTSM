@@ -121,7 +121,7 @@ func _refresh() -> void:
 			var detail: String = "Under attack" if age < 3 else "%ds ago" % age
 			if int(front.get("losses", 0)) > 0:
 				detail = "%d losses here" % int(front["losses"])
-			button.text = "RAID %d · %s\n%s · view" % [index + 1, str(front["target"]), detail]
+			button.text = "%s %d · %s\n%s · view" % [_front_kind(str(front["target"])), index + 1, str(front["target"]), detail]
 			button.tooltip_text = "Recent attack on your %s. View location without changing selection." % str(front["target"])
 	_hud.call("set_battlefield_alerts_active", not fronts.is_empty())
 	var bounds: Array[Rect2] = get_visible_bounds()
@@ -186,3 +186,14 @@ func _draw() -> void:
 	label_rect.position.x = clampf(label_rect.position.x, safe.position.x, maxf(safe.position.x, safe.end.x - label_rect.size.x))
 	draw_style_box(KingdomTheme.panel_style(Color(KingdomTheme.INK, 0.95), color, 4), label_rect)
 	draw_string(font, label_rect.position + Vector2(6, 17), title, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, color)
+
+
+## Soldiers being hit is a battle you chose; workers, traders and buildings
+## being hit is a raid on you. The word tells which without reading further.
+static func _front_kind(target_name: String) -> String:
+	if target_name in ["Villager", "Trader"]:
+		return "RAID"
+	for stats: Dictionary in BuildingData.BUILDINGS.values():
+		if str(stats.get("name", "")) == target_name:
+			return "RAID"
+	return "BATTLE"

@@ -4449,13 +4449,21 @@ func update_sacred_site_timer(player_id: int, remaining: float, total: float) ->
 func update_sacred_site_status(status: Dictionary) -> void:
 	if _sacred_site_label == null:
 		return
-	var first_status: bool = _sacred_site_status.is_empty() or int(_sacred_site_status.get("owner", -1)) != int(status.get("owner", -1))
+	var first_status_is_empty: bool = _sacred_site_status.is_empty()
+	var first_status: bool = first_status_is_empty or int(_sacred_site_status.get("owner", -1)) != int(status.get("owner", -1))
 	_sacred_site_status = status.duplicate()
 	var phase: String = str(status.get("phase", "neutral"))
 	var controlled: bool = int(status.get("owner", -1)) >= 0
-	var clock_text: String = _sacred_clock(float(status.get("remaining", 0.0))) if controlled else ""
+	# Whose clock it is must read at a glance: the owner's name leads the time.
+	var owner_word: String = "You" if int(status.get("owner", -1)) == 0 else "Rival"
+	var clock_text: String = "%s %s" % [owner_word, _sacred_clock(float(status.get("remaining", 0.0)))] if controlled else ""
 	if controlled and phase != "holding":
 		clock_text += " | |"
+	if not first_status_is_empty and first_status and controlled and int(status.get("match_mode", SkirmishData.MatchMode.STANDARD)) == SkirmishData.MatchMode.STANDARD:
+		if int(status.get("owner", -1)) == 1:
+			show_notification("The rival took the Sacred Site. Their %s clock is running: win it back." % _sacred_clock(float(status.get("remaining", 0.0))), KingdomTheme.RUST, NOTIFICATION_DURATION, func() -> void: sacred_site_pressed.emit())
+		else:
+			show_notification("You hold the Sacred Site. Keep a fighter there for %s to win." % _sacred_clock(float(status.get("remaining", 0.0))), KingdomTheme.TEAL)
 	_sacred_site_label.text = clock_text
 	_sacred_site_label.offset_left = 28.0 if controlled else 0.0
 	_sacred_site_button.icon = CommandIcons.get_icon("sacred")

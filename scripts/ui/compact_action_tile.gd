@@ -1,6 +1,6 @@
 extends RefCounted
 ## Shared icon-and-cost targets. Decorative children never own touch contacts.
-static func apply(button: Button, portrait: Texture2D, cost: Dictionary, extent: Vector2 = Vector2(76, 60)) -> void:
+static func apply(button: Button, portrait: Texture2D, cost: Dictionary, extent: Vector2 = Vector2(76, 60), caption: String = "") -> void:
 	button.text = ""
 	button.icon = null
 	button.custom_minimum_size = extent
@@ -18,6 +18,24 @@ static func apply(button: Button, portrait: Texture2D, cost: Dictionary, extent:
 		art.offset_top = 3
 		art.offset_bottom = -19
 	art.texture = portrait
+	# An optional name line keeps look-alike buildings apart at a glance.
+	var name_label: Label = button.get_node_or_null("TileName")
+	if caption != "" and name_label == null:
+		name_label = Label.new()
+		name_label.name = "TileName"
+		name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		name_label.add_theme_font_size_override("font_size", 10)
+		name_label.add_theme_color_override("font_color", KingdomTheme.PARCHMENT)
+		name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		button.add_child(name_label)
+		name_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+		name_label.offset_top = 1
+		name_label.offset_bottom = 14
+	if name_label != null:
+		name_label.visible = caption != ""
+		name_label.text = caption
+	art.offset_top = 15 if caption != "" else 3
 	var costs: HBoxContainer = button.get_node_or_null("TileCosts")
 	if costs == null:
 		costs = HBoxContainer.new()
