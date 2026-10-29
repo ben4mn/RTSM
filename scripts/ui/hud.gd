@@ -2050,7 +2050,7 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 
 	if _sacred_site_panel:
 		_sacred_site_panel.visible = not _sacred_site_status.is_empty() and standard_field_chrome_visible
-		var sacred_width: float = 112.0 if int(_sacred_site_status.get("owner", -1)) >= 0 else 48.0
+		var sacred_width: float = _sacred_chip_width()
 		var sacred_left: float = minf(top_bar.offset_right + 8.0, safe_area.end.x - 172.0 - sacred_width)
 		_sacred_site_panel.offset_left = sacred_left - viewport_size.x * 0.5
 		_sacred_site_panel.offset_right = _sacred_site_panel.offset_left + sacred_width
@@ -4462,6 +4462,7 @@ func update_sacred_site_status(status: Dictionary) -> void:
 	if wake_remaining > 0.0 and phase not in ["contested", "neutralizing"]:
 		# Before 8:00 the chip counts down to the clock opening, not to a win.
 		clock_text = ("%s · opens %s" % [owner_word, _sacred_clock(wake_remaining)]) if controlled else "Opens %s" % _sacred_clock(wake_remaining)
+	var width_changed: bool = _sacred_site_label.text.length() != clock_text.length()
 	_sacred_site_label.text = clock_text
 	var labelled: bool = clock_text != ""
 	_sacred_site_label.offset_left = 28.0 if labelled else 0.0
@@ -4480,8 +4481,18 @@ func update_sacred_site_status(status: Dictionary) -> void:
 	_sacred_site_label.add_theme_color_override("font_color", color)
 	if _selection_kind == "sacred":
 		show_sacred_site_selection(status)
-	if first_status:
+	if first_status or width_changed:
 		_queue_mobile_layout_refresh()
+
+
+## The chip fits its words: icon only while neutral and silent, wider for
+## "Rival · opens 6:44". The 112px floor keeps owned clocks where they were.
+func _sacred_chip_width() -> float:
+	if _sacred_site_label == null or _sacred_site_label.text == "":
+		return 48.0
+	var font: Font = _sacred_site_label.get_theme_font("font")
+	var text_width: float = font.get_string_size(_sacred_site_label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, _sacred_site_label.get_theme_font_size("font_size")).x
+	return clampf(text_width + 44.0, 112.0, 180.0)
 
 
 func _sacred_site_status_line(status: Dictionary) -> String:
