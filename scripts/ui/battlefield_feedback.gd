@@ -151,6 +151,7 @@ func get_visible_bounds() -> Array[Rect2]:
 func _draw() -> void:
 	if not is_instance_valid(_site) or not is_instance_valid(_map) or not visible:
 		return
+	_draw_shrines()
 	# Render a map annotation above fog. Only this known location and its public
 	# objective state are used; terrain, units and capture participants stay hidden.
 	var center: Vector2 = _site.get_global_transform_with_canvas().origin
@@ -223,3 +224,38 @@ func _ping_front(index: int) -> void:
 		tween.tween_property(button, "scale", Vector2.ONE, 0.16)
 	if OS.has_feature("mobile") or OS.has_feature("web"):
 		Input.vibrate_handheld(80)
+
+
+## Shrines are public map features: a ring in their owner's colour and, while
+## their ground is unseen, a small badge saying what holding one is worth.
+func _draw_shrines() -> void:
+	var shrines: Variant = _map.get("shrines")
+	if not shrines is Array:
+		return
+	var safe: Rect2 = _hud.call("get_world_safe_rect")
+	var camera: Camera2D = _map.get("camera") as Camera2D
+	for shrine: Node2D in shrines:
+		if not is_instance_valid(shrine):
+			continue
+		var center: Vector2 = shrine.get_global_transform_with_canvas().origin
+		if not safe.has_point(center):
+			continue
+		var owner: int = int(shrine.get("owning_player"))
+		var color: Color = KingdomTheme.TEAL if owner == 0 else (KingdomTheme.RUST if owner == 1 else KingdomTheme.PARCHMENT)
+		var radius: float = float(shrine.call("get_capture_radius_world")) * camera.zoom.x
+		draw_arc(center, radius, 0, TAU, 64, Color(color, 0.55), 2.0, true)
+		if bool(_map.call("is_tile_visible_to_player", _map.call("world_to_tile", shrine.global_position), 0)):
+			continue
+		draw_circle(center, 15, Color(KingdomTheme.INK, 0.95))
+		draw_arc(center, 15, 0, TAU, 24, color, 2.0, true)
+		draw_circle(center, 5, color)
+		var title: String = "SHRINE · +%d gold" % roundi(float(shrine.get("gold_per_second")))
+		if owner == 0:
+			title = "YOUR SHRINE"
+		elif owner == 1:
+			title = "RIVAL SHRINE"
+		var font: Font = KingdomTheme.FONT_MEDIUM
+		var text_size: Vector2 = font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, 11)
+		var label_rect := Rect2(center + Vector2(-text_size.x * 0.5 - 5, 18), text_size + Vector2(10, 6))
+		draw_style_box(KingdomTheme.panel_style(Color(KingdomTheme.INK, 0.9), color, 4), label_rect)
+		draw_string(font, label_rect.position + Vector2(5, 14), title, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, color)

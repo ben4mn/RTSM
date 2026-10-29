@@ -520,6 +520,12 @@ func _carve_grass_corridor(from_tile: Vector2i, to_tile: Vector2i, half_width: i
 				_route_tiles[Vector2i(tx, ty)] = true
 
 
+## Two flank shrines stand on the tactical flank crossings. Both lie on the
+## diagonal between the free corners, so each is equally far from both starts.
+func get_shrine_tiles() -> Array[Vector2i]:
+	return _flank_crossings.duplicate()
+
+
 ## Get the tile type at a position.
 func get_tile(pos: Vector2i) -> MapData.TileType:
 	if _in_bounds(pos.x, pos.y):

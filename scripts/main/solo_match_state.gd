@@ -142,6 +142,7 @@ func capture(main: Node) -> Dictionary:
 		"main": _read(main, MAIN_FIELDS), "ai": _read(main.ai_controller, AI_FIELDS),
 		"decision_time_left": main.ai_controller._decision_timer.time_left,
 		"sacred": _read(map.sacred_site, SITE_FIELDS),
+		"shrines": map.shrines.map(func(shrine: Node) -> Dictionary: return _read(shrine, SITE_FIELDS)),
 		"fog": map.fog_of_war.fog_grid.duplicate(true), "visible": map.fog_of_war._previously_visible.duplicate(),
 		"pending_terrain": map._pending_depleted_terrain_tiles.duplicate(),
 		"camera": {"position": map.camera.position, "zoom": map.camera.zoom},
@@ -248,6 +249,10 @@ func restore_context(main: Node, data: Dictionary) -> void:
 	main.ai_controller._economy_rebalance_deferred_scheduled = false
 	main.ai_controller._decision_timer.start(maxf(0.05, float(data.decision_time_left)))
 	_write(map.sacred_site, SITE_FIELDS, data.sacred)
+	# Saves made before shrines existed simply leave them neutral.
+	var saved_shrines: Array = data.get("shrines", [])
+	for index: int in mini(saved_shrines.size(), map.shrines.size()):
+		_write(map.shrines[index], SITE_FIELDS, saved_shrines[index])
 	_write(main._match_learning, _script_fields(main._match_learning), data.learning)
 	_write(main._battle_receipts, _script_fields(main._battle_receipts), data.receipts)
 	map.fog_of_war.fog_grid = data.fog.duplicate(true)

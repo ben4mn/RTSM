@@ -39,6 +39,10 @@ var capture_progress: float = 0.0
 ## Radius in tiles to detect nearby units.
 @export var capture_radius: int = 3
 
+## False for a flank shrine: the same capture ring and gold income, but no
+## victory clock, no objective HUD and no building/objective groups.
+@export var victory_enabled: bool = true
+
 ## Time to hold sacred site for a victory (seconds).
 @export var victory_hold_time: float = SkirmishData.SACRED_VICTORY_HOLD_SECONDS
 
@@ -95,6 +99,9 @@ var _being_neutralized: bool = false
 
 
 func _ready() -> void:
+	if not victory_enabled:
+		add_to_group("shrines")
+		return
 	add_to_group("sacred_sites")
 	add_to_group("buildings")
 
@@ -192,8 +199,8 @@ func _handle_captured(p1: int, p2: int, delta: float, armed_friendly: int = 0) -
 
 	# Generate gold for the owning player.
 	_generate_gold(delta)
-	# Before the clock opens, holding pays gold but cannot advance a victory.
-	if victory_wake_remaining() > 0.0:
+	# Shrines only pay. Before the clock opens, the site pays but cannot win.
+	if not victory_enabled or victory_wake_remaining() > 0.0:
 		return
 
 	# Standard asks an army to occupy the ground it wants to win from. Scouts

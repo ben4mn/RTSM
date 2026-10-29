@@ -588,6 +588,8 @@ func _on_map_ready(map_gen: MapGenerator) -> void:
 		game_map.sacred_site.victory_timer_tick.connect(_on_sacred_site_timer_tick)
 		game_map.sacred_site.status_changed.connect(_refresh_sacred_site_status)
 		_refresh_sacred_site_status()
+	for shrine: Node2D in game_map.shrines:
+		shrine.captured.connect(_on_shrine_captured.bind(shrine))
 
 	# Wire up HUD.
 	_setup_hud()
@@ -787,6 +789,14 @@ func _on_sacred_site_captured(player_id: int) -> void:
 			enemy_claim = "Enemy claimed Sacred and its gold. Its clock opens in %s; enter the ring to contest. Tap to view." % _clock_text(_sacred_wake_remaining())
 		hud.show_notification(enemy_claim, Color(1.0, 0.4, 0.2), 8.0, Callable(self, "_on_sacred_site_pressed"))
 	_refresh_sacred_site_status()
+
+
+func _on_shrine_captured(player_id: int, shrine: Node2D) -> void:
+	var gold: float = float(shrine.get("gold_per_second"))
+	if player_id == 0:
+		hud.show_notification("Shrine taken: +%d gold a second until the rival takes it back." % roundi(gold), Color(0.9, 0.8, 0.2))
+	else:
+		hud.show_notification("The rival took a shrine and its gold. Tap to view.", Color(1.0, 0.4, 0.2), 6.0, _on_minimap_clicked.bind(shrine.global_position))
 
 
 func _sacred_wake_remaining() -> float:

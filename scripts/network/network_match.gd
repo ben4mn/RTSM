@@ -28,6 +28,8 @@ func setup(controller: Node) -> void:
 	main._hints_shown = main.HINTS.size()
 	if NetworkSession.is_client():
 		game_map.sacred_site.set_process(false)
+		for shrine: Node in game_map.shrines:
+			shrine.set_process(false)
 		main._guided_opening_active = false
 		main._clear_guidance_state()
 	else:
@@ -152,7 +154,7 @@ func _snapshot_for(slot: int) -> Dictionary:
 	var player: Dictionary = GameManager.players[slot].duplicate()
 	player.erase("units")
 	player.erase("buildings")
-	return {"memories": memories, "forgotten_buildings": forgotten_buildings.duplicate(), "worker_undo": main._worker_order_undo.status(slot), "worker_undo_result": main._worker_order_undo.result(slot), "tick": _snapshot_number, "time": GameManager.game_time, "civilizations": [GameManager.get_player_civilization(0), GameManager.get_player_civilization(1)], "actors": actors, "resources": resources, "bank": ResourceManager.get_all_resources(slot), "player": player, "upgrades": GameManager.player_upgrades[slot], "research": GameManager.researched_upgrades[slot], "stats": main._stats[slot], "battle": main._battle_receipts.get_summary(slot), "site": {"state": site.state, "owner": site.owning_player, "capture": site.capture_progress, "timer": site.victory_timer, "hold": site.victory_hold_time, "clock_ticking": site.clock_ticking, "garrison_paused": site.garrison_paused, "neutralizing": site._being_neutralized}}
+	return {"memories": memories, "forgotten_buildings": forgotten_buildings.duplicate(), "worker_undo": main._worker_order_undo.status(slot), "worker_undo_result": main._worker_order_undo.result(slot), "tick": _snapshot_number, "time": GameManager.game_time, "civilizations": [GameManager.get_player_civilization(0), GameManager.get_player_civilization(1)], "actors": actors, "resources": resources, "bank": ResourceManager.get_all_resources(slot), "player": player, "upgrades": GameManager.player_upgrades[slot], "research": GameManager.researched_upgrades[slot], "stats": main._stats[slot], "battle": main._battle_receipts.get_summary(slot), "site": {"state": site.state, "owner": site.owning_player, "capture": site.capture_progress, "timer": site.victory_timer, "hold": site.victory_hold_time, "clock_ticking": site.clock_ticking, "garrison_paused": site.garrison_paused, "neutralizing": site._being_neutralized}, "shrines": game_map.shrines.map(func(shrine: Node) -> Array: return [shrine.state, shrine.owning_player, shrine.capture_progress])}
 
 func apply_snapshot(snapshot: Dictionary) -> void:
 	GameManager.game_time = float(snapshot.get("time", 0.0))
@@ -311,6 +313,14 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 		site.victory_hold_time = float(site_data.hold)
 		site._update_visuals()
 	_apply_site_clock_snapshot(site, site_data)
+	var shrine_data: Array = snapshot.get("shrines", [])
+	for index: int in mini(shrine_data.size(), game_map.shrines.size()):
+		var shrine: Node = game_map.shrines[index]
+		var entry: Array = shrine_data[index]
+		shrine.state = int(entry[0])
+		shrine.owning_player = _local_owner(int(entry[1]))
+		shrine.capture_progress = float(entry[2])
+		shrine._update_visuals()
 	main._refresh_sacred_site_status()
 	main._update_population_display()
 	if not _camera_initialized and is_instance_valid(main._player_town_center):
