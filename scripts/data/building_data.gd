@@ -99,7 +99,7 @@ const BUILDINGS: Dictionary = {
 	BuildingType.FARM: {
 		"name": "Farm",
 		"hp": 300,
-		"cost": { "food": 0, "wood": 150, "gold": 0 },
+		"cost": { "food": 0, "wood": 90, "gold": 0 },
 		"build_time": 20.0,
 		"pop_provided": 0,
 		"footprint": Vector2i(2, 2),

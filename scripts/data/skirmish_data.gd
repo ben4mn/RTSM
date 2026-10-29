@@ -59,7 +59,7 @@ const DARK_AGE_WORKER_WEIGHTS: Dictionary = {"food": 0.55, "wood": 0.35, "gold":
 const FEUDAL_WORKER_WEIGHTS: Dictionary = {"food": 0.55, "wood": 0.40, "gold": 0.05}
 const AGE_UP_COSTS: Dictionary = {
 	2: {"food": 320, "gold": 160},
-	3: {"food": 800, "gold": 400},
+	3: {"food": 900, "gold": 450},
 }
 
 

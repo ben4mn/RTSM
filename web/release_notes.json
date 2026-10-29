@@ -1,6 +1,21 @@
 {
   "releases": [
     {
+      "id": "2026-10-29-shrines-and-a-quicker-economy",
+      "date": "2026-10-29",
+      "version": "0.3.0-beta.20",
+      "title": "Shrines and a quicker economy",
+      "summary": "Two flank shrines pay gold while held, and a faster economy puts more battles in every match.",
+      "changes": [
+        "Two shrines stand on the flank lanes, equally far from both towns. Holding one pays 1 gold a second until the rival takes it back. Opponents send a small squad for them.",
+        "Villagers cost 60 food and train in 20 seconds (were 100 and 24). Farms cost 90 wood (were 150).",
+        "Warriors cost 70 food and 30 wood and train in 18 seconds; Archers cost 40 food, 55 wood and 20 gold; Horsemen cost 130 food, 20 wood and 40 gold.",
+        "Castle Age costs 900 food and 450 gold, so a fast Castle is a real choice rather than the default.",
+        "In automated test matches, battles came about twice as often and Standard matches ended in about 13 to 16 minutes.",
+        "Both online players must update."
+      ]
+    },
+    {
       "id": "2026-10-28-the-center-wakes",
       "date": "2026-10-28",
       "version": "0.3.0-beta.19",
