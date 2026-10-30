@@ -101,7 +101,7 @@ func _run() -> void:
 	# Both recruiting cards and the named repeat state must remain completely
 	# visible at the initial scroll position, including after queue refreshes.
 	var queue: Node = selected_building.call("get_production_queue")
-	_expect((repeat_button.text + " " + repeat_button.tooltip_text).replace("\n", " ").strip_edges().begins_with("Scout OFF"), "repeat button does not name the most recently queued Scout: %s" % repeat_button.text)
+	_expect(repeat_button.text == "Scout\nOFF", "repeat button does not name the most recently queued Scout: %s" % repeat_button.text)
 	await get_tree().process_frame
 	await get_tree().process_frame
 	_assert_initial_training_row(scroll, [villager_button, scout_button, repeat_button])
@@ -109,17 +109,17 @@ func _run() -> void:
 	_expect(repeat_button.size.x >= 48.0 and repeat_button.size.y >= 48.0, "repeat toggle is under48px")
 	await _click(repeat_button.get_global_rect().get_center())
 	_expect(bool(queue.get("auto_queue_enabled")) and repeat_button.button_pressed, "repeat pointer click did not turn repetition ON")
-	_expect((repeat_button.text + " " + repeat_button.tooltip_text).replace("\n", " ").strip_edges().begins_with("Scout ON"), "repeat active state is not visible")
+	_expect(repeat_button.text == "Scout\nON", "repeat active state is not visible")
 	var active_style: StyleBoxFlat = repeat_button.get_theme_stylebox("normal") as StyleBoxFlat
 	_expect(active_style != null and active_style.bg_color == KingdomTheme.GOLD and repeat_button.get_theme_color("font_color").is_equal_approx(KingdomTheme.INK), "repeat active state lacks its primary plate and readable ink label")
 	_assert_initial_training_row(scroll, [villager_button, scout_button, repeat_button])
 	await _capture("tc-repeat-on-844x390")
 	await get_tree().process_frame
 	await _click(villager_button.get_global_rect().get_center())
-	_expect((repeat_button.text + " " + repeat_button.tooltip_text).replace("\n", " ").strip_edges().begins_with("Villager ON"), "repeat unit name did not change after queuing a Villager")
+	_expect(repeat_button.text == "Villager\nON", "repeat unit name did not change after queuing a Villager")
 	await get_tree().process_frame
 	await _click(repeat_button.get_global_rect().get_center())
-	_expect(not bool(queue.get("auto_queue_enabled")) and (repeat_button.text + " " + repeat_button.tooltip_text).replace("\n", " ").strip_edges().begins_with("Villager OFF"), "repeat pointer click did not turn repetition OFF")
+	_expect(not bool(queue.get("auto_queue_enabled")) and repeat_button.text == "Villager\nOFF", "repeat pointer click did not turn repetition OFF")
 	Engine.time_scale = 1.0
 	match_scene.free()
 	if _failures.is_empty():

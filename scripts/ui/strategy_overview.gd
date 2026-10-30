@@ -523,7 +523,7 @@ func _refresh_producers(producers: Array) -> void:
 		row["military"] = bool(producer.get("military", false))
 		(row.status as Label).text = str(producer.get("status", ""))
 		var queue: Array = producer.get("queue", [])
-		(row.paid as Label).text = "%d / %d queued · hold a unit to add" % [queue.size(), ProductionQueue.MAX_QUEUE_SIZE]
+		(row.paid as Label).text = "%d queued · hold a unit to add" % queue.size()
 		(row.paid as Label).tooltip_text = "Every queued unit is paid. Release to stop adding."
 		(row.paid as Label).hide()
 		(row.status as Label).hide()

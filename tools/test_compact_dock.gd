@@ -69,7 +69,7 @@ func _run() -> void:
 	var bought: int = queue.queue.size()
 	await _touch(50, point, false)
 	await _frames(3)
-	_expect(bought == ProductionQueue.MAX_QUEUE_SIZE and queue.queue.size() == bought, "actual compact tile hold fills finite queue without release extra buy")
+	_expect(bought > 5 and queue.queue.size() == bought, "actual compact tile hold queues past five without a release extra buy (got %d)" % bought)
 	_expect(ResourceManager.get_resource(0,"food") == before - bought * int(UnitData.get_unit_cost(UnitData.UnitType.VILLAGER).food), "compact hold pays exactly once per queued unit")
 	await _capture("production")
 	for surface: String in ["economy", "army"]:

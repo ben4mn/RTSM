@@ -69,10 +69,11 @@ func _run() -> void:
 	_reset(1000)
 	await _touch(13,center,true)
 	await _wait(1.8)
-	_expect(queue.queue.size() == ProductionQueue.MAX_QUEUE_SIZE,"held production fills only the finite queue")
+	# No five-slot cap: a hold keeps buying while food and housing allow.
+	_expect(queue.queue.size() > 5,"held production keeps queuing past five while affordable (got %d)" % queue.queue.size())
 	var remaining: int = ResourceManager.get_resource(0,"food")
 	await _touch(13,center,false)
-	_expect(remaining == 1000-cost*ProductionQueue.MAX_QUEUE_SIZE and ResourceManager.get_resource(0,"food") == remaining,"full queue rejects purchases without spending")
+	_expect(remaining == 1000-cost*queue.queue.size() and ResourceManager.get_resource(0,"food") == remaining,"every held purchase is paid once and release buys nothing more")
 	_reset(cost*2)
 	await _touch(14,center,true)
 	await _wait(1.1)
@@ -137,10 +138,7 @@ func _run() -> void:
 	queue.auto_queue_enabled = true
 	queue.auto_queue_unit_type = UnitData.UnitType.VILLAGER
 	queue.retry_auto_queue(10.0)
-	# Repeat is back (owner request): an empty repeating queue buys the next unit.
-	_expect(queue.queue.size() == 1 and queue.auto_queue_enabled,"repeat restarts empty production with one paid unit")
-	queue.auto_queue_enabled = false
-	queue.cancel_all()
+	_expect(queue.queue.is_empty() and not queue.auto_queue_enabled,"legacy repeat cannot restart empty production")
 	_test_speed()
 	queue.cancel_all()
 	layer.free()

@@ -3337,12 +3337,13 @@ func _update_queue_display(queue_items: Array) -> void:
 		_attach_hud_hold(btn, _refund_information.bind(unit_type))
 		btn.visible = true
 		btn.mouse_filter = Control.MOUSE_FILTER_STOP
-		btn.text = ("%s ×%d\nCancel one" if compact_training else "%s ×%d\nCancel one") % [UnitData.get_unit_name(unit_type, 0), queue_count]
+		# Phones: name over count, so "×24" never widens the card past Clear.
+		btn.text = ("%s\n×%d" if compact_training else "%s ×%d\nCancel one") % [UnitData.get_unit_name(unit_type, 0), queue_count]
 		btn.clip_text = true
 		btn.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		btn.tooltip_text = "Cancel first queued %s; keep the Repeat setting" % UnitData.get_unit_name(unit_type, 0)
-		btn.custom_minimum_size = Vector2(62 if compact_training else 104, 48)
+		btn.tooltip_text = "Cancel one queued %s and get its cost back" % UnitData.get_unit_name(unit_type, 0)
 		btn.add_theme_font_size_override("font_size", 11 if compact_training else 12)
+		btn.custom_minimum_size = Vector2(62 if compact_training else 104, 48)
 		for style_name: String in ["normal", "hover", "pressed", "disabled"]:
 			var queue_style: StyleBox = btn.get_theme_stylebox(style_name).duplicate()
 			queue_style.set_content_margin(SIDE_LEFT, 4.0 if compact_training else 12.0)
@@ -3617,28 +3618,9 @@ func _update_train_buttons(trainable_units: Array) -> void:
 	_building_rally_button.disabled = not _is_human_owned_building(_selected_building_ref) or (_selected_building_ref as BuildingBase).state != BuildingBase.State.ACTIVE
 	_building_rally_button.set_pressed_no_signal(_rally_armed)
 	_train_buttons_container.move_child(_building_rally_button, -1)
-	# Repeat keeps a producer busy (owner request, beta 21): after each unit it
-	# buys the next at the normal price, waiting for resources or housing.
-	if production_queue != null:
-		if _auto_queue_button == null or not is_instance_valid(_auto_queue_button) or _auto_queue_button.get_parent() != _train_buttons_container:
-			_auto_queue_button = _train_buttons_container.get_node_or_null("AutoQueueButton") as Button
-		if _auto_queue_button == null:
-			_auto_queue_button = Button.new()
-			_auto_queue_button.name = "AutoQueueButton"
-			_auto_queue_button.toggle_mode = true
-			_auto_queue_button.toggled.connect(_on_auto_queue_toggled)
-			_train_buttons_container.add_child(_auto_queue_button)
-		_auto_queue_button.visible = true
-		_auto_queue_button.clip_text = true
-		_auto_queue_button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		_attach_hud_hold(_auto_queue_button, _repeat_information)
-		_auto_queue_button.mouse_filter = Control.MOUSE_FILTER_STOP
-		_auto_queue_button.custom_minimum_size = Vector2(48, 48) if compact_producer else Vector2(104, 48)
-		_auto_queue_button.add_theme_font_size_override("font_size", 11 if compact_producer else 14)
-		if int(production_queue.get("auto_queue_unit_type")) < 0 and not (_selected_building_ref as BuildingBase).trainable_units.is_empty():
-			production_queue.set("auto_queue_unit_type", (_selected_building_ref as BuildingBase).trainable_units[0])
-		_refresh_auto_queue_button(production_queue)
-		_train_buttons_container.move_child(_auto_queue_button, -1)
+	# No automatic production (owner, beta 22): queue as many as you can afford.
+	if is_instance_valid(_auto_queue_button):
+		_auto_queue_button.hide()
 	if _ui_modal_state == UIModalState.BUILD_MENU:
 		_train_buttons_container.visible = false
 	_refresh_primary_action_visuals()
@@ -5313,7 +5295,7 @@ func _train_information(unit_type: int) -> Dictionary:
 		var trainable: Array = (_selected_building_ref as BuildingBase).trainable_units
 		if not trainable.is_empty() and int(trainable[0]) == unit_type:
 			shortcut = " Shortcut: Q."
-	body += "\nTap to train one.%s Hold to queue up to five; release to stop." % shortcut
+	body += "\nTap to train one.%s Hold to keep queuing while you can afford it; release to stop." % shortcut
 	return {"title": UnitData.get_unit_name(unit_type, 0), "body": body}
 
 
@@ -5360,7 +5342,7 @@ func _training_availability(unit_type: int) -> Dictionary:
 			# the plus sign directs players to the full list in hover or Info.
 			var short_text: String = "Need " + short_parts[0] + (" +" if short_parts.size() > 1 else "")
 			return {"blocked": true, "short": short_text, "body": "Need %s more to train." % _full_cost_text(missing)}
-	return {"blocked": false, "short": "Ready", "body": "Ready to train. Queue %d/%d." % [queue_size, ProductionQueue.MAX_QUEUE_SIZE]}
+	return {"blocked": false, "short": "Ready", "body": "Ready to train. %d queued." % queue_size}
 
 
 func _repeat_information() -> Dictionary:

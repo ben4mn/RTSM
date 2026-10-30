@@ -331,7 +331,10 @@ func _scene_economy_facts(controller: Node, overview: StrategyOverview, tc: Buil
 	_expect(str(controller.call("_training_blocker", tc, UnitData.UnitType.VILLAGER)) == "under construction", "inactive producer blocker missing")
 	tc.state = original_state
 	var saved_queue: Array[int] = queue.queue.duplicate()
-	queue.queue.assign([0, 0, 0, 0, 0])
+	var full_queue: Array[int] = []
+	full_queue.resize(ProductionQueue.MAX_QUEUE_SIZE)
+	full_queue.fill(0)
+	queue.queue.assign(full_queue)
 	_expect(str(controller.call("_training_blocker", tc, UnitData.UnitType.VILLAGER)).begins_with("queue full"), "full producer queue blocker missing")
 	queue.queue.assign(saved_queue)
 	_population_guidance_cases(controller, overview, tc)

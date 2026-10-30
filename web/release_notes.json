@@ -1,6 +1,19 @@
 {
   "releases": [
     {
+      "id": "2026-10-29-queue-what-you-can-afford",
+      "date": "2026-10-29",
+      "version": "0.3.0-beta.22",
+      "title": "Queue what you can afford",
+      "summary": "No more five-unit limit: queue as many units as your resources and housing allow.",
+      "changes": [
+        "Production queues are no longer capped at five. Tap or hold a unit to keep queuing while you can afford it and have housing.",
+        "Repeat is gone again: nothing trains on its own. Every unit is one you paid for.",
+        "On phones, queued-unit cards show the name over the count, so long queues still fit beside Clear.",
+        "Both online players must update."
+      ]
+    },
+    {
       "id": "2026-10-29-fewer-taps",
       "date": "2026-10-29",
       "version": "0.3.0-beta.21",
