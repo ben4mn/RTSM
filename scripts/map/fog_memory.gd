@@ -7,14 +7,34 @@ var buildings: Dictionary = {}
 const MEMORY_TINT := Color(0.76, 0.80, 0.87, 1.0)
 
 func observe_resource(source: ResourceNode) -> void:
-	remember_resource(source.tile_position, source.resource_type, source.remaining)
+	remember_resource(source.tile_position, source.resource_type, source.remaining, source.get_instance_id())
 
-func remember_resource(tile: Vector2i, kind: String, amount: int) -> void:
+func remember_resource(tile: Vector2i, kind: String, amount: int, source_id: int = 0) -> void:
 	if amount <= 0: return
 	if resources.has(tile):
 		resources[tile].remaining = amount
+		if source_id > 0: resources[tile].source_id = source_id
 		return
-	resources[tile] = {"tile": tile, "footprint": Vector2i.ONE, "remaining": amount, "resource_type": kind, "visual": null}
+	resources[tile] = {"tile": tile, "footprint": Vector2i.ONE, "remaining": amount, "resource_type": kind, "visual": null, "source_id": source_id}
+
+## Beta 31: the nearest resource of a kind the player has seen but cannot see
+## now. Only the observation is returned (where it was and which one it was);
+## the live node is never consulted, so nothing hidden leaks. A worker sent
+## here re-checks that exact resource once its tile is back in sight.
+func nearest_remembered_resource(kind: String, from: Vector2, viewer: int = 0) -> Dictionary:
+	var best: Dictionary = {}
+	var best_distance: float = INF
+	for record: Dictionary in resources.values():
+		if str(record.resource_type) != kind or int(record.get("source_id", 0)) <= 0:
+			continue
+		if _in_sight(record, viewer) or not _explored(record):
+			continue
+		var position: Vector2 = game_map.tile_to_world(record.tile)
+		var distance: float = from.distance_squared_to(position)
+		if distance < best_distance:
+			best_distance = distance
+			best = {"position": position, "id": int(record.source_id), "tile": record.tile}
+	return best
 
 func observe_building(source: BuildingBase) -> void:
 	if source.player_owner == 0 or source.state == BuildingBase.State.DESTROYED: return

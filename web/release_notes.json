@@ -1,6 +1,221 @@
 {
   "releases": [
     {
+      "id": "2026-10-30-one-tap-army",
+      "date": "2026-10-30",
+      "version": "0.3.0-beta.33",
+      "title": "One tap army",
+      "summary": "Army selects in one tap, and icons say what they do.",
+      "changes": [
+        "Tap Army to select every fighter in the field. Tap it again, or hold it, to open recruiting and groups. With no fighters yet, a tap opens recruiting as before.",
+        "While you place a building, Home and Army stay where they were, dimmed. Tapping there no longer moves or places the building.",
+        "Short labels under icons: Again in the build menu, + Food / + Wood / + Gold and Find idle in the workers panel, Workers, Train, Recruit and Groups on the panel tabs, Select fighters, Find, Save and Recall in the Army panel.",
+        "Hold Build now shows each building's picture, like the build cards, and its hint sits inside the chooser instead of floating over the map.",
+        "Online play is unchanged: beta 32 and 33 can play together."
+      ]
+    },
+    {
+      "id": "2026-10-30-keep-working",
+      "date": "2026-10-30",
+      "version": "0.3.0-beta.32",
+      "title": "Keep working",
+      "summary": "Workers walk on when nearby wood runs out.",
+      "changes": [
+        "When the trees (or gold, or berries) near your workers run out and none are in sight, they now walk to the nearest ones you've already explored instead of standing idle.",
+        "They only go to what you have seen. If it was used up while you weren't looking, they stop there.",
+        "In the workers panel, + does the same: with none in sight it sends a worker to what you've seen. If you've seen none, it says to scout.",
+        "Online play is unchanged: beta 31 and 32 can play together."
+      ]
+    },
+    {
+      "id": "2026-10-30-say-why",
+      "date": "2026-10-30",
+      "version": "0.3.0-beta.31",
+      "title": "Say why",
+      "summary": "A full house now shows on the card.",
+      "changes": [
+        "Warriors and other fighters take 2 housing. When your houses are full, extra taps on a unit used to do nothing you could see. The unit's card now says Need House (or Need 20W, Pop full and so on) where its costs were.",
+        "Holding a unit card to queue several now tells you why it stopped.",
+        "The Army panel's recruit cards show the same reason.",
+        "Every unit that made it into the queue still trains, as before.",
+        "Online play is unchanged: beta 30 and 31 can play together."
+      ]
+    },
+    {
+      "id": "2026-10-30-fewer-fumbles",
+      "date": "2026-10-30",
+      "version": "0.3.0-beta.30",
+      "title": "Fewer fumbles",
+      "summary": "Small fixes from a full playtest.",
+      "changes": [
+        "Hold Build: House, Farm and Barracks now always sit in the same places, so the same slide always picks the same building. Your last other building takes the fourth spot.",
+        "In the workers panel, tapping + under food when every farm and bush is taken starts placing a Farm right away.",
+        "When there is nothing left to gather, the workers panel now says so in a few words instead of a sentence that was cut off.",
+        "If your houses are full but a House is still going up, the warning says so instead of asking you to build another.",
+        "The end-of-match card no longer sits under the browser's Updates and Full screen buttons.",
+        "Online play is unchanged: beta 29 and 30 can play together."
+      ]
+    },
+    {
+      "id": "2026-10-30-a-slimmer-dock",
+      "date": "2026-10-30",
+      "version": "0.3.0-beta.29",
+      "title": "A slimmer dock",
+      "summary": "More map, less panel.",
+      "changes": [
+        "With a building selected, the bottom panel is now as slim as it is for units, so you see a little more of the map.",
+        "Unit and upgrade tiles are a little shorter to fit; costs stay the same size.",
+        "Online play is unchanged: beta 28 and 29 can play together."
+      ]
+    },
+    {
+      "id": "2026-10-30-lessons-joins-the-row",
+      "date": "2026-10-30",
+      "version": "0.3.0-beta.28",
+      "title": "Lessons joins the row",
+      "summary": "A tidier match menu.",
+      "changes": [
+        "In the match menu, Lessons is now a round button beside Settings, Guide and Report instead of sitting alone underneath. It stays lit while lessons are on.",
+        "The menu card is a little shorter as a result.",
+        "Online play is unchanged: beta 27 and 28 can play together."
+      ]
+    },
+    {
+      "id": "2026-10-30-shrines-on-the-map",
+      "date": "2026-10-30",
+      "version": "0.3.0-beta.27",
+      "title": "Shrines on the map",
+      "summary": "The two flank shrines now show on the minimap.",
+      "changes": [
+        "Each flank shrine has a small diamond on the minimap: teal when it is yours, rust when the rival holds it, pale while nobody does.",
+        "The Sacred Site keeps its square marker in the middle, so the three are easy to tell apart.",
+        "Online play is unchanged: beta 26 and 27 can play together."
+      ]
+    },
+    {
+      "id": "2026-10-29-a-warmer-welcome",
+      "date": "2026-10-29",
+      "version": "0.3.0-beta.26",
+      "title": "A warmer welcome",
+      "summary": "A new match menu and livelier start screens.",
+      "changes": [
+        "The match menu is new: your village beside a big Resume, Save & exit, and round Settings, Guide and Report buttons. Lessons is one tap below. It no longer sits under the browser's Updates and Full screen buttons.",
+        "On the start screen the village gently breathes and a gold star twinkles. Turn on Reduced motion in Settings to keep it still.",
+        "Choosing AI difficulty shows one to three pips, and the battle setup has rounder cards and a shorter rules line.",
+        "Online play is unchanged: beta 25 and 26 can play together."
+      ]
+    },
+    {
+      "id": "2026-10-29-softer-simpler",
+      "date": "2026-10-29",
+      "version": "0.3.0-beta.25",
+      "title": "Softer, simpler controls",
+      "summary": "Rounder buttons, fewer words.",
+      "changes": [
+        "Buttons, tiles and panels have rounder, softer corners everywhere.",
+        "Placing a building now shows Place, Find and a round cross instead of long labels, and the hint above them is just a few words.",
+        "Tips and messages are shorter, like \"Need a breather? Pause is top right.\"",
+        "The workers panel says less: an empty Army page just points you to a Barracks.",
+        "Online play is unchanged: beta 24 and 25 can play together."
+      ]
+    },
+    {
+      "id": "2026-10-29-tuck-it-away",
+      "date": "2026-10-29",
+      "version": "0.3.0-beta.24",
+      "title": "Tuck it away",
+      "summary": "Double-tap a panel to get it out of the way and see more of the map.",
+      "changes": [
+        "Double-tap an empty part of the orders dock to shrink it to a small pill. Tap the pill to bring your orders back.",
+        "Double-tap the workers panel or the build menu to tuck it into the button that opened it. That button brings it back where you left it, on the same page or building group.",
+        "Tapping buttons works exactly as before: only the panel's background responds to a double tap.",
+        "Online play is unchanged: beta 23 and 24 can play together."
+      ]
+    },
+    {
+      "id": "2026-10-29-see-every-order",
+      "date": "2026-10-29",
+      "version": "0.3.0-beta.23",
+      "title": "See every order",
+      "summary": "Every unit you send shows its route for a moment, not just the ones you have selected.",
+      "changes": [
+        "New units walking to a rally point, and workers sent from the workers panel or the farm shortcut, show their route briefly, just like a selected Scout.",
+        "Changing or clearing your selection still clears route previews right away.",
+        "Online play is unchanged: beta 22 and 23 can play together."
+      ]
+    },
+    {
+      "id": "2026-10-29-queue-what-you-can-afford",
+      "date": "2026-10-29",
+      "version": "0.3.0-beta.22",
+      "title": "Queue what you can afford",
+      "summary": "No more five-unit limit: queue as many units as your resources and housing allow.",
+      "changes": [
+        "Production queues are no longer capped at five. Tap or hold a unit to keep queuing while you can afford it and have housing.",
+        "Repeat is gone again: nothing trains on its own. Every unit is one you paid for.",
+        "On phones, queued-unit cards show the name over the count, so long queues still fit beside Clear.",
+        "Both online players must update."
+      ]
+    },
+    {
+      "id": "2026-10-29-fewer-taps",
+      "date": "2026-10-29",
+      "version": "0.3.0-beta.21",
+      "title": "Fewer taps, steady towns",
+      "summary": "Place buildings with a tap, keep a Town Center training, and new villagers never stall on an empty bush.",
+      "changes": [
+        "While placing a building, tap open ground to build right there. Dragging still only moves the preview, and Place still works.",
+        "Hold Build, slide to a building and release to start placing it without opening the menu. Your last building leads the list.",
+        "Repeat is back: turn it on beside the rally flag and the building keeps training that unit, waiting for resources or housing instead of switching off.",
+        "Villagers rallied to berries, trees or gold that have run out now work the nearest of the same kind instead of standing idle.",
+        "The production dock widens to fit its last button.",
+        "Both online players must update."
+      ]
+    },
+    {
+      "id": "2026-10-29-shrines-and-a-quicker-economy",
+      "date": "2026-10-29",
+      "version": "0.3.0-beta.20",
+      "title": "Shrines and a quicker economy",
+      "summary": "Two flank shrines pay gold while held, and a faster economy puts more battles in every match.",
+      "changes": [
+        "Two shrines stand on the flank lanes, equally far from both towns. Holding one pays 1 gold a second until the rival takes it back. Opponents send a small squad for them.",
+        "Villagers cost 60 food and train in 20 seconds (were 100 and 24). Farms cost 90 wood (were 150).",
+        "Warriors cost 70 food and 30 wood and train in 18 seconds; Archers cost 40 food, 55 wood and 20 gold; Horsemen cost 130 food, 20 wood and 40 gold.",
+        "Castle Age costs 900 food and 450 gold, so a fast Castle is a real choice rather than the default.",
+        "In automated test matches, battles came about twice as often and Standard matches ended in about 13 to 16 minutes.",
+        "Both online players must update."
+      ]
+    },
+    {
+      "id": "2026-10-28-the-center-wakes",
+      "date": "2026-10-28",
+      "version": "0.3.0-beta.19",
+      "title": "The center wakes at eight",
+      "summary": "Standard battles build up: the Sacred Site pays gold from the start, and its victory clock opens at 8:00.",
+      "changes": [
+        "In Standard, holding the Sacred Site earns gold at once, but its five-minute victory clock can only start from 8:00. The chip counts down to the opening.",
+        "Capture messages say when the clock opens. Destroying the rival Town Center still wins at any time.",
+        "When your soldiers are hit away from where you are looking, the BATTLE card pulses and phones that support it give a short buzz.",
+        "Both online players must update."
+      ]
+    },
+    {
+      "id": "2026-10-28-hold-to-command",
+      "date": "2026-10-28",
+      "version": "0.3.0-beta.18",
+      "title": "Hold to command",
+      "summary": "Your chosen villagers build, houses shelter twice as many, and a held finger draws boxes, rallies and attack-moves.",
+      "changes": [
+        "The villagers you select build what you place, all of them, whatever they were doing. With none selected, the nearest free villager still goes.",
+        "Houses add 20 housing instead of 10, so fewer houses reach the 100 limit. Houses already standing in saved games keep their housing.",
+        "Hold empty ground until the ring appears, then drag to box-select your units.",
+        "Hold a production building and drag to the ground to set its rally point.",
+        "Hold a spot with soldiers selected and pull your finger down to attack-move there.",
+        "Holding and lifting in place still queues a waypoint, now when you lift rather than while your finger is down. Update before playing online."
+      ]
+    },
+    {
       "id": "2026-10-27-openings-and-gold",
       "date": "2026-10-27",
       "version": "0.3.0-beta.17",

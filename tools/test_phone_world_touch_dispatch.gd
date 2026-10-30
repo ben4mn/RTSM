@@ -167,18 +167,20 @@ func _scenario(phone: Vector2i, interface_scale: float, mouse_emulation: bool) -
 	var orders_before_hold: int=_orders
 	await _contact(119,ground,true)
 	await _wait_sim_seconds(0.42)
-	_expect(_orders==orders_before_hold+1 and _attack_orders==1 and not _worker.attack_move and int(_selection.get("_touch_context_execution_count"))==context_before+1,"nonzero long press did not queue ground destination exactly once")
+	# The hold arms at the threshold and acts when the finger lifts in place.
+	_expect(_orders==orders_before_hold and _selection.is_hold_gesture_active(),"nonzero long press acted before the finger lifted")
 	await _contact(119,ground,false)
-	_expect(_orders==orders_before_hold+1,"nonzero long-press release repeated the action")
+	_expect(_orders==orders_before_hold+1 and _attack_orders==1 and not _worker.attack_move and int(_selection.get("_touch_context_execution_count"))==context_before+1,"nonzero long press did not queue ground destination exactly once")
 	_expect_clean("long press")
 	var orders_before_hold_pinch: int=_orders
 	await _contact(127,ground,true)
 	await _wait_sim_seconds(0.42)
 	await _contact(139,ground+Vector2(40,0),true)
 	await _contact(127,ground,false)
-	_expect(bool(_selection.get("_touch_pan_gesture")),"already executed long press lost the later multi-touch latch")
+	_expect(bool(_selection.get("_touch_pan_gesture")),"armed long press lost the later multi-touch latch")
 	await _contact(139,ground,false)
-	_expect(_orders==orders_before_hold_pinch+1 and _attack_orders==2,"long-press-then-pinch release repeated a world order")
+	# A second finger turns an armed hold into a pinch: nothing is ordered.
+	_expect(_orders==orders_before_hold_pinch and _attack_orders==1,"long-press-then-pinch issued a world order")
 	_expect_clean("long press then pinch")
 	_records.append({"profile":_profile,"emulated_mouse":mouse_emulation,"screen":str(screen),"ground":str(ground),"final_transform":str(get_viewport().get_final_transform()),"selected_nonzero":selected,"natural_move_distance":natural_distance,"world_orders":_orders,"touches":_events.duplicate(true),"diagnostics":_selection.touch_input_diagnostics.duplicate(true)})
 	_main.free()

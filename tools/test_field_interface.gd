@@ -90,7 +90,8 @@ func _check_command_decoration(hud: CanvasLayer) -> void:
 			var index: int = 0
 			for state: String in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
 				_expect(move.get_theme_stylebox(state) == styles[index], "unchanged command retains styles for " + state)
-				_expect((styles[index] as StyleBoxFlat).corner_radius_top_left == 12, "final tactile radius is preserved for " + state)
+				# Beta 25 rounds every control: soften(12) now draws an 18px corner.
+				_expect((styles[index] as StyleBoxFlat).corner_radius_top_left == KingdomTheme.soft_radius(12), "final tactile radius is preserved for " + state)
 				index += 1
 			_expect(move.custom_minimum_size == Vector2(48, 48), "cached command preserves comfortable target")
 	hud.call("set_pause_display", true)

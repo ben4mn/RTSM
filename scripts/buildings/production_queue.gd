@@ -10,7 +10,9 @@ signal unit_trained(unit_type: int)
 signal unit_cancelled(unit_type: int)
 signal queue_changed()
 
-const MAX_QUEUE_SIZE := 5
+## Only a safety bound: resources and housing decide how many you can queue.
+## A 100-population match cannot reserve more than 50 two-slot units.
+const MAX_QUEUE_SIZE := 50
 const AUTO_QUEUE_RETRY_INTERVAL := 0.5
 const CANCEL_ALL_INDEX := -1
 

@@ -90,7 +90,7 @@ func _exercise(viewport_size: Vector2i) -> void:
 	_expect(not _placement.uses_touch_input(), "emulated touch changed the real mouse instructions")
 	await _touch(screen, true)
 	await _touch(screen, false)
-	_expect(str(_main.get("_first_session_hint_text")).contains("tap Place"), "House instructions did not switch to explicit touch confirmation")
+	_expect(str(_main.get("_first_session_hint_text")).contains("tap Place") or str(_main.get("_first_session_hint_text")).contains("Tap open ground"), "House instructions did not switch to touch placement")
 	_expect(_placement.active and ResourceManager.get_all_resources(0) == resources_before, "switching House instructions to touch purchased a foundation")
 	await _mouse_motion(screen)
 	_expect(str(_main.get("_first_session_hint_text")).contains("Click clear ground"), "House instructions did not switch back to mouse")
@@ -121,11 +121,13 @@ func _exercise(viewport_size: Vector2i) -> void:
 	valid_world = _placement.call("_find_initial_preview_position", valid_world)
 	_placement.update_preview_at_world(valid_world)
 	await _frames()
-	_expect((_hud.get("_placement_status_label") as Label).text.contains("Tap Place"), "valid touch preview lacks confirmation instructions")
-	await _touch(_placement.get_canvas_transform() * valid_world, true)
+	# Beta 25 shortened the hint to "House · tap a spot"; the Place button beside it confirms.
+	_expect((_hud.get("_placement_status_label") as Label).text.contains("tap a spot") and (_hud.get("_placement_confirm_button") as Button).is_visible_in_tree(), "valid touch preview lacks confirmation instructions")
+	# A positioning drag (not a tap) leaves the preview for the explicit Place.
+	await _touch(_placement.get_canvas_transform() * valid_world - Vector2(30.0, 0.0), true)
 	await _touch(_placement.get_canvas_transform() * valid_world, false)
-	_expect(_placement.active, "world touch confirmed before Place")
-	_expect(ResourceManager.get_all_resources(0) == resources_before, "world touch spent before Place")
+	_expect(_placement.active, "a positioning drag confirmed before Place")
+	_expect(ResourceManager.get_all_resources(0) == resources_before, "a positioning drag spent before Place")
 	await _touch(place_button.get_global_rect().get_center(), true)
 	await _touch(place_button.get_global_rect().get_center(), false)
 	_expect(not _placement.active, "explicit Place did not complete touch placement")
@@ -174,7 +176,8 @@ func _exercise(viewport_size: Vector2i) -> void:
 func _assert_mouse_ui() -> void:
 	_expect(not (_hud.get("_placement_confirm_button") as Button).is_visible_in_tree(), "mouse placement exposes a misleading second Place action")
 	if _placement.is_valid_placement:
-		_expect((_hud.get("_placement_status_label") as Label).text.contains("Click ground"), "valid mouse preview lacks click-to-place instructions")
+		# Beta 25 copy: "House · click a spot" (was "Click ground to build").
+		_expect((_hud.get("_placement_status_label") as Label).text.contains("click a spot"), "valid mouse preview lacks click-to-place instructions")
 
 
 func _assert_cost(before: Dictionary, cost: Dictionary, phase: String) -> void:

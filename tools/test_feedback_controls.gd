@@ -69,10 +69,11 @@ func _run() -> void:
 	_reset(1000)
 	await _touch(13,center,true)
 	await _wait(1.8)
-	_expect(queue.queue.size() == ProductionQueue.MAX_QUEUE_SIZE,"held production fills only the finite queue")
+	# No five-slot cap: a hold keeps buying while food and housing allow.
+	_expect(queue.queue.size() > 5,"held production keeps queuing past five while affordable (got %d)" % queue.queue.size())
 	var remaining: int = ResourceManager.get_resource(0,"food")
 	await _touch(13,center,false)
-	_expect(remaining == 1000-cost*ProductionQueue.MAX_QUEUE_SIZE and ResourceManager.get_resource(0,"food") == remaining,"full queue rejects purchases without spending")
+	_expect(remaining == 1000-cost*queue.queue.size() and ResourceManager.get_resource(0,"food") == remaining,"every held purchase is paid once and release buys nothing more")
 	_reset(cost*2)
 	await _touch(14,center,true)
 	await _wait(1.1)

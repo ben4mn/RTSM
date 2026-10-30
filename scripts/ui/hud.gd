@@ -4,6 +4,8 @@ extends CanvasLayer
 ## Connects to GameManager and ResourceManager autoloads for live data.
 
 signal build_menu_toggled(is_open: bool)
+## Hold Build, slide to a building, release: placement starts without the menu.
+signal quick_build_requested(building_type: int)
 signal age_up_requested()
 signal idle_villager_pressed()
 signal train_unit_requested(building: Node2D, unit_type: int)
@@ -52,6 +54,9 @@ const MOBILE_ACTION_BUTTON_HEIGHT := 48.0
 const MOBILE_ACTION_MIN_BUTTON_WIDTH := 104.0
 const MOBILE_ACTION_MAX_BUTTON_WIDTH := 116.0
 const MOBILE_ACTION_GAP := 6.0
+const PLACEMENT_BUTTON_WIDTHS: Array[float] = [112.0, 100.0, 56.0]
+const PAUSE_MENU_WIDTH := 248.0
+const PAUSE_WEB_TOOLS_WIDTH := 290.0
 const MOBILE_ACTION_MARGIN := 8.0
 const MOBILE_ACTION_INNER_PADDING := 4.0
 const MOBILE_ACTION_VERTICAL_PADDING := 0.0
@@ -61,7 +66,9 @@ const MOBILE_MINIMAP_SHORT_SIDE_RATIO := 0.27
 const MOBILE_TOP_BAR_COMPACT_SHORT_SIDE := 520.0
 const MOBILE_TOP_BAR_COMPACT_WIDTH := 780.0
 const MOBILE_SELECTION_COMMAND_WIDTH := 520.0
-const MOBILE_SELECTION_HEIGHT := 68.0
+## Beta 29: 60 (was 68), the same as the unit dock. Production tiles are 54
+## tall and upgrade tiles 56 so both keep a little cloth around them.
+const MOBILE_SELECTION_HEIGHT := 60.0
 const MOBILE_UNIT_SELECTION_HEIGHT := 60.0
 const MOBILE_DOCK_CAPTION_HEIGHT := 24.0
 const MOBILE_TOP_RAIL_HEIGHT := 48.0
@@ -90,8 +97,10 @@ var _active_hold_component: Node = null
 var _hold_hints_shown: Dictionary = {}
 var _hold_chooser_active: bool = false
 const ACTION_TILE := preload("res://scripts/ui/compact_action_tile.gd")
+const DOUBLE_TAP := preload("res://scripts/ui/double_tap_gesture.gd")
 var _dock_collapsed: bool = false
 var _dock_toggle_button: Button
+var _dock_gesture: RefCounted = null
 var _building_rally_button: Button
 var _rally_armed: bool = false
 var _selection_portrait: Texture2D
@@ -205,6 +214,8 @@ var _selection_role_counts: Dictionary = {}
 var _train_buttons_container: HBoxContainer = null
 var _selected_building_ref: Node2D = null
 var _auto_queue_button: Button = null
+var _train_relayout_pending: bool = false
+var _production_width_correction: float = 0.0
 var _queue_page_spacer: Control = null
 var _queue_navigation_button: Button = null
 var _queue_view_requested: bool = false
@@ -973,6 +984,13 @@ func _toggle_pause_overlay(show: bool) -> void:
 	if _pause_overlay != null:
 		_pause_overlay.visible = show
 		_pause_overlay.mouse_filter = Control.MOUSE_FILTER_STOP if show else Control.MOUSE_FILTER_IGNORE
+		var help := _pause_overlay.get_node_or_null("PauseMenu/PauseHelpLabel") as Label
+		if show and help != null and not NetworkSession.is_client():
+			var clock: String = game_time_label.text.strip_edges() if game_time_label != null else ""
+			help.text = ("%s · Esc or P to resume" % clock) if not clock.is_empty() else "Esc or P to resume"
+		if show:
+			var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+			_layout_pause_menu(viewport_size, _get_safe_area_rect(viewport_size))
 	_refresh_touch_target_diagnostics()
 	if show:
 		call_deferred("_refresh_touch_target_diagnostics")
@@ -982,34 +1000,44 @@ func _create_pause_overlay() -> void:
 	var online: bool = NetworkSession.is_client()
 	_pause_overlay = ColorRect.new()
 	_pause_overlay.name = "PauseOverlay"
-	_pause_overlay.color = Color(KingdomTheme.INK, 0.84)
+	_pause_overlay.color = Color(KingdomTheme.INK, 0.78)
 	_pause_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_pause_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 	_pause_overlay.process_mode = Node.PROCESS_MODE_ALWAYS
 	_pause_overlay.z_index = 100
+	var root_theme: Theme = ($Root as Control).theme
 
 	var vbox := VBoxContainer.new()
 	vbox.name = "PauseMenu"
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	vbox.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	vbox.custom_minimum_size = Vector2(250, 0)
-	vbox.add_theme_constant_override("separation", 10)
+	vbox.custom_minimum_size = Vector2(PAUSE_MENU_WIDTH, 0)
+	vbox.add_theme_constant_override("separation", 6)
 	vbox.process_mode = Node.PROCESS_MODE_ALWAYS
 
 	var title := Label.new()
-	title.text = "The battle continues" if online else "A moment of counsel"
+	title.name = "PauseTitle"
+	title.text = "Match running" if online else "Paused"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	KingdomTheme.apply_heading(title, 24)
+	KingdomTheme.apply_heading(title, 26)
+	title.add_theme_font_override("font", KingdomTheme.FONT_HEADING)
 	vbox.add_child(title)
 
-	var sep := HSeparator.new()
-	vbox.add_child(sep)
+	var pause_help := Label.new()
+	pause_help.name = "PauseHelpLabel"
+	pause_help.text = "Still running · leaving forfeits" if online else "Esc or P to resume"
+	pause_help.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	pause_help.custom_minimum_size = Vector2(PAUSE_MENU_WIDTH, 16)
+	pause_help.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	pause_help.clip_text = true
+	pause_help.add_theme_font_size_override("font_size", 12)
+	pause_help.add_theme_color_override("font_color", KingdomTheme.AMBER)
+	vbox.add_child(pause_help)
 
 	var resume_btn := Button.new()
 	resume_btn.name = "ResumeButton"
-	resume_btn.text = "Return to match" if online else "Resume"
-	resume_btn.tooltip_text = "Return to match [Esc / P]"
-	resume_btn.custom_minimum_size = Vector2(296, 48)
+	resume_btn.theme = root_theme
+	resume_btn.custom_minimum_size = Vector2(PAUSE_MENU_WIDTH, 50)
 	resume_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	resume_btn.process_mode = Node.PROCESS_MODE_ALWAYS
 	resume_btn.pressed.connect(func() -> void:
@@ -1017,86 +1045,63 @@ func _create_pause_overlay() -> void:
 	)
 	vbox.add_child(resume_btn)
 	KingdomTheme.apply_primary(resume_btn)
-
-	var pause_help := Label.new()
-	pause_help.name = "PauseHelpLabel"
-	pause_help.text = "Online match · Play continues. Leaving forfeits." if online else "Battle paused · Esc / P to resume"
-	pause_help.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	pause_help.custom_minimum_size = Vector2(250, 18)
-	pause_help.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	pause_help.clip_text = true
-	pause_help.add_theme_font_size_override("font_size", 13)
-	pause_help.add_theme_color_override("font_color", KingdomTheme.MUTED)
-	vbox.add_child(pause_help)
+	CommandIcons.apply(resume_btn, "resume", "Return to match [Esc / P]", "Back to battle" if online else "Resume")
+	resume_btn.add_theme_font_size_override("font_size", 18)
+	FieldStyle.soften(resume_btn, 24)
 	if not online:
 		_save_exit_button = Button.new()
 		_save_exit_button.name = "SaveAndExitButton"
-		_save_exit_button.text = "Save & exit"
-		_save_exit_button.custom_minimum_size = Vector2(296, 48)
+		_save_exit_button.theme = root_theme
+		_save_exit_button.custom_minimum_size = Vector2(PAUSE_MENU_WIDTH, 48)
 		_save_exit_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		_save_exit_button.pressed.connect(func() -> void: save_and_exit_requested.emit())
 		vbox.add_child(_save_exit_button)
+		CommandIcons.apply(_save_exit_button, "back", "Save the match and return to the menu", "Save & exit")
+		FieldStyle.soften(_save_exit_button, 24, true)
 		_save_status_label = Label.new()
 		_save_status_label.name = "SavedStatus"
 		_save_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		_save_status_label.custom_minimum_size.x = 320
+		_save_status_label.custom_minimum_size.x = PAUSE_MENU_WIDTH
 		_save_status_label.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		_save_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		_save_status_label.add_theme_font_size_override("font_size", 12)
+		_save_status_label.add_theme_font_size_override("font_size", 11)
+		_save_status_label.add_theme_color_override("font_color", KingdomTheme.MUTED)
 		vbox.add_child(_save_status_label)
 		set_save_status(_save_status)
 
-	# Keep reporting reachable without adding another vertical phone menu row.
+	# Small round tools under the two big choices: an icon and one word each.
 	var utility_row := HBoxContainer.new()
 	utility_row.name = "UtilityRow"
 	utility_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	utility_row.add_theme_constant_override("separation", 8)
 	vbox.add_child(utility_row)
-	var sound_btn := Button.new()
-	sound_btn.name = "SettingsButton"
-	sound_btn.text = "Settings"
-	sound_btn.custom_minimum_size = Vector2(128, 48)
-	sound_btn.add_theme_font_size_override("font_size", 15)
-	sound_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	sound_btn.process_mode = Node.PROCESS_MODE_ALWAYS
+	var sound_btn := _pause_tool("SettingsButton", "settings", "Settings: sound, controls and display", "Settings")
 	sound_btn.pressed.connect(func() -> void:
 		load("res://scripts/ui/settings_panel.gd").open(_pause_overlay, true)
 	)
 	utility_row.add_child(sound_btn)
-	var guide_btn := Button.new()
-	guide_btn.name = "FieldGuideButton"
-	guide_btn.theme = ($Root as Control).theme
-	guide_btn.custom_minimum_size = Vector2(48, 48)
-	guide_btn.process_mode = Node.PROCESS_MODE_ALWAYS
-	CommandIcons.apply_labeled(guide_btn, "info", "Field guide: learn icons, orders and resource costs", "Guide")
+	var guide_btn := _pause_tool("FieldGuideButton", "info", "Field guide: learn icons, orders and resource costs", "Guide")
 	guide_btn.pressed.connect(func() -> void: _set_secondary_surface(SecondarySurface.HELP))
 	utility_row.add_child(guide_btn)
-	var report_btn := Button.new()
-	report_btn.name = "ReportProblemButton"
-	report_btn.text = "Report problem"
-	report_btn.custom_minimum_size = Vector2(160, 48)
-	report_btn.add_theme_font_size_override("font_size", 15)
-	report_btn.process_mode = Node.PROCESS_MODE_ALWAYS
+	var report_btn := _pause_tool("ReportProblemButton", "queue", "Report a problem", "Report")
 	report_btn.pressed.connect(func() -> void: problem_report_requested.emit())
 	utility_row.add_child(report_btn)
-	_match_learning_button = Button.new()
-	_match_learning_button.name = "MatchLearningButton"
-	_match_learning_button.text = "Lessons: on" if _match_learning_active else "Battle lessons"
-	_match_learning_button.custom_minimum_size = Vector2(192, 48)
-	_match_learning_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	_match_learning_button.process_mode = Node.PROCESS_MODE_ALWAYS
+	# Lessons is the fourth round tool rather than a lone row of its own; its
+	# pressed (lit) state says lessons are on.
+	_match_learning_button = _pause_tool("MatchLearningButton", "age_up", "Battle lessons", "Lessons")
+	_match_learning_button.toggle_mode = true
+	_match_learning_button.set_pressed_no_signal(_match_learning_active)
 	_match_learning_button.pressed.connect(func() -> void: match_learning_requested.emit())
-	var departure_row := HBoxContainer.new()
-	departure_row.name = "DepartureRow"
-	departure_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	departure_row.add_theme_constant_override("separation", 8)
-	vbox.add_child(departure_row)
-	_match_learning_button.custom_minimum_size.x = 144
-	_match_learning_button.add_theme_font_size_override("font_size", 14)
-	departure_row.add_child(_match_learning_button)
+	utility_row.add_child(_match_learning_button)
 	_match_learning_button.visible = not online
-
+	_refresh_match_learning_button()
 	if online:
+		# Online, Lessons give way to the one way out of the match.
+		var departure_row := HBoxContainer.new()
+		departure_row.name = "DepartureRow"
+		departure_row.alignment = BoxContainer.ALIGNMENT_CENTER
+		departure_row.add_theme_constant_override("separation", 8)
+		utility_row.add_sibling(departure_row)
 		var quit_btn := Button.new()
 		quit_btn.name = "QuitButton"
 		quit_btn.text = "Leave match"
@@ -1116,10 +1121,26 @@ func _create_pause_overlay() -> void:
 	var frame := Panel.new()
 	frame.name = "PauseFrame"
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var frame_style := FieldStyle.surface(18)
+	var frame_style := FieldStyle.surface(22)
 	frame_style.border_width_top = 2
+	frame_style.border_color = Color(KingdomTheme.GOLD, 0.55)
+	frame_style.shadow_size = 18
+	frame_style.shadow_color = Color(0, 0, 0, 0.35)
 	frame.add_theme_stylebox_override("panel", frame_style)
 	_pause_overlay.add_child(frame)
+	# The kingdom's little village sits beside the choices when there is room.
+	var art := Control.new()
+	art.name = "PauseArt"
+	art.set_script(load("res://scripts/ui/menu_diorama.gd"))
+	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_pause_overlay.add_child(art)
+	var crest := TextureRect.new()
+	crest.name = "PauseCrest"
+	crest.texture = load("res://assets/ui/pocket_kingdoms_crest.svg")
+	crest.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	crest.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	crest.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_pause_overlay.add_child(crest)
 	_pause_overlay.add_child(vbox)
 	vbox.minimum_size_changed.connect(func() -> void:
 		var current_size: Vector2 = get_viewport().get_visible_rect().size
@@ -1132,6 +1153,31 @@ func _create_pause_overlay() -> void:
 	call_deferred("_refresh_touch_target_diagnostics")
 
 
+func _pause_tool(node_name: String, icon: String, accessible: String, caption: String) -> Button:
+	var button := Button.new()
+	button.name = node_name
+	button.theme = ($Root as Control).theme
+	# Four tools share the card's width (4 x 56 + 3 x 8 = PAUSE_MENU_WIDTH).
+	button.custom_minimum_size = Vector2(56, 52)
+	button.focus_mode = Control.FOCUS_NONE
+	button.process_mode = Node.PROCESS_MODE_ALWAYS
+	CommandIcons.apply_labeled(button, icon, accessible, caption)
+	if button.icon == null:
+		button.icon = load("res://assets/ui/icons/%s.svg" % icon)
+	button.add_theme_font_size_override("font_size", 11)
+	FieldStyle.soften(button, 18, true)
+	return button
+
+
+func _refresh_match_learning_button() -> void:
+	if not is_instance_valid(_match_learning_button):
+		return
+	_match_learning_button.set_pressed_no_signal(_match_learning_active)
+	_match_learning_button.text = "Lessons on" if _match_learning_active else "Lessons"
+	_match_learning_button.tooltip_text = "Stop battle lessons" if _match_learning_active else "Learn full match: tips through the whole battle"
+	_match_learning_button.accessibility_name = _match_learning_button.tooltip_text
+
+
 func _layout_pause_menu(viewport_size: Vector2, safe_area: Rect2) -> void:
 	if _pause_overlay == null:
 		return
@@ -1141,16 +1187,47 @@ func _layout_pause_menu(viewport_size: Vector2, safe_area: Rect2) -> void:
 	var safe_bounds: Rect2 = safe_area.intersection(Rect2(Vector2.ZERO, viewport_size))
 	if not safe_bounds.has_area():
 		safe_bounds = Rect2(Vector2.ZERO, viewport_size)
+	var web_tools_clearance: float = 0.0
+	if _pause_overlay.visible:
+		# The browser's Updates / Full screen buttons sit in the top-right corner
+		# while the match menu is open. Keep the card clear of them: beside them
+		# on wide screens, below them otherwise.
+		web_tools_clearance = preload("res://scripts/ui/web_shell_bridge.gd").get_menu_top_clearance(viewport_size)
 	var available_size := Vector2(maxf(200.0, safe_bounds.size.x - 16.0), maxf(200.0, safe_bounds.size.y - 16.0))
 	var desired_size: Vector2 = pause_menu.get_combined_minimum_size()
 	desired_size.x = minf(maxf(250.0, desired_size.x), available_size.x)
 	desired_size.y = minf(desired_size.y, available_size.y)
 	pause_menu.size = desired_size
-	pause_menu.position = safe_bounds.position + (safe_bounds.size - desired_size) * 0.5
+	var art := _pause_overlay.get_node_or_null("PauseArt") as Control
+	var crest := _pause_overlay.get_node_or_null("PauseCrest") as Control
+	# Landscape phones get a two-part card: the village on the left, choices on
+	# the right. Narrow screens keep the choices alone.
+	var art_width: float = clampf(desired_size.y * 0.72, 170.0, 230.0)
+	var show_art: bool = available_size.x >= desired_size.x + art_width + 72.0
+	var card_width: float = desired_size.x + (art_width + 24.0 if show_art else 0.0)
+	var card_left: float = safe_bounds.position.x + (safe_bounds.size.x - card_width) * 0.5
+	if web_tools_clearance > 0.0:
+		var beside_tools: float = viewport_size.x - PAUSE_WEB_TOOLS_WIDTH - 24.0 - card_width
+		if beside_tools >= safe_bounds.position.x + 8.0:
+			card_left = minf(card_left, beside_tools)
+		elif web_tools_clearance > safe_bounds.position.y and safe_bounds.end.y - web_tools_clearance >= desired_size.y + 16.0:
+			safe_bounds = Rect2(Vector2(safe_bounds.position.x, web_tools_clearance), Vector2(safe_bounds.size.x, safe_bounds.end.y - web_tools_clearance))
+	pause_menu.position = Vector2(card_left + (art_width + 24.0 if show_art else 0.0), safe_bounds.position.y + (safe_bounds.size.y - desired_size.y) * 0.5)
+	if art:
+		art.visible = show_art
+		var art_height: float = minf(desired_size.y - 52.0, art_width * 0.92)
+		art.size = Vector2(art_width, maxf(80.0, art_height))
+		art.position = Vector2(card_left, pause_menu.position.y + 52.0 + (desired_size.y - 52.0 - art.size.y) * 0.5)
+	if crest:
+		crest.visible = show_art
+		crest.size = Vector2(40, 40)
+		crest.position = Vector2(card_left + art_width * 0.5 - 20.0, pause_menu.position.y + 4.0)
 	var frame := _pause_overlay.get_node_or_null("PauseFrame") as Control
 	if frame:
-		frame.position = pause_menu.position - Vector2(20, 14)
-		frame.size = pause_menu.size + Vector2(40, 28)
+		var inner := Rect2(Vector2(card_left, pause_menu.position.y), Vector2(card_width, desired_size.y))
+		var margin := Vector2(minf(20.0, maxf(0.0, (viewport_size.x - inner.size.x) * 0.5 - 2.0)), minf(14.0, maxf(0.0, (viewport_size.y - inner.size.y) * 0.5 - 2.0)))
+		frame.position = inner.position - margin
+		frame.size = inner.size + margin * 2.0
 
 
 func _set_gameplay_ui_interactable(interactable: bool) -> void:
@@ -1362,20 +1439,21 @@ func _ensure_mobile_action_strip() -> void:
 
 	_placement_confirm_button = Button.new()
 	_placement_confirm_button.name = "PlacementConfirmButton"
-	_placement_confirm_button.text = "Place building"
-	_placement_confirm_button.custom_minimum_size = Vector2(132, MOBILE_ACTION_BUTTON_HEIGHT)
+	_placement_confirm_button.custom_minimum_size = Vector2(PLACEMENT_BUTTON_WIDTHS[0], MOBILE_ACTION_BUTTON_HEIGHT)
 	_placement_confirm_button.disabled = true
 	_placement_confirm_button.visible = false
 	_placement_confirm_button.pressed.connect(func(): placement_confirm_requested.emit())
 	KingdomTheme.apply_primary(_placement_confirm_button)
+	_placement_confirm_button.theme = root_ctrl.theme
+	CommandIcons.apply(_placement_confirm_button, "check", "Place building", "Place")
 	_mobile_action_strip.add_child(_placement_confirm_button)
 
 	_placement_find_space_button = Button.new()
 	_placement_find_space_button.name = "PlacementFindSpaceButton"
-	_placement_find_space_button.text = "Find space"
-	_placement_find_space_button.accessibility_name = "Find visible space for this building"
+	_placement_find_space_button.theme = root_ctrl.theme
+	CommandIcons.apply(_placement_find_space_button, "find", "Find visible space for this building", "Find")
 	_placement_find_space_button.tooltip_text = "Preview nearby clear ground in sight. No building is purchased."
-	_placement_find_space_button.custom_minimum_size = Vector2(132, MOBILE_ACTION_BUTTON_HEIGHT)
+	_placement_find_space_button.custom_minimum_size = Vector2(PLACEMENT_BUTTON_WIDTHS[1], MOBILE_ACTION_BUTTON_HEIGHT)
 	_placement_find_space_button.visible = false
 	_placement_find_space_button.pressed.connect(func(): placement_find_space_requested.emit())
 	_mobile_action_strip.add_child(_placement_find_space_button)
@@ -1395,9 +1473,9 @@ func _ensure_mobile_action_strip() -> void:
 
 	_placement_cancel_button = Button.new()
 	_placement_cancel_button.name = "PlacementCancelButton"
-	_placement_cancel_button.text = "Cancel"
-	_placement_cancel_button.custom_minimum_size = Vector2(MOBILE_ACTION_MIN_BUTTON_WIDTH, MOBILE_ACTION_BUTTON_HEIGHT)
-	_placement_cancel_button.tooltip_text = "Cancel current building placement [Esc]"
+	_placement_cancel_button.theme = root_ctrl.theme
+	CommandIcons.apply(_placement_cancel_button, "close", "Cancel current building placement [Esc]")
+	_placement_cancel_button.custom_minimum_size = Vector2(PLACEMENT_BUTTON_WIDTHS[2], MOBILE_ACTION_BUTTON_HEIGHT)
 	_placement_cancel_button.pressed.connect(func(): placement_cancel_requested.emit())
 	_placement_cancel_button.visible = false
 	_mobile_action_strip.add_child(_placement_cancel_button)
@@ -1606,7 +1684,7 @@ func configure_unit_commands(
 		return
 	if authorized and not _movement_controls_hint_shown:
 		_movement_controls_hint_shown = true
-		show_notification("Tap: move · Hold: add waypoint · Swords: attack", KingdomTheme.MUTED, 4.0)
+		show_notification("Tap: move · Hold: waypoint · Hold, pull down: attack · Hold, drag: box", KingdomTheme.MUTED, 4.0)
 	_unit_commands_authorized = authorized
 	_unit_commands_have_military = has_military
 	_unit_command_mode = armed_mode
@@ -1720,12 +1798,8 @@ func set_placement_mode(active: bool, building_name: String = "") -> void:
 			and not active
 			and _ui_modal_state == UIModalState.NONE
 		)
-	if active and building_name != "":
-		_placement_cancel_button.text = "Cancel"
-		_placement_cancel_button.tooltip_text = "Cancel %s placement" % building_name
-	else:
-		_placement_cancel_button.text = "Cancel"
-		_placement_cancel_button.tooltip_text = "Cancel current building placement [Esc]"
+	_placement_cancel_button.tooltip_text = ("Cancel %s placement" % building_name) if active and building_name != "" else "Cancel current building placement [Esc]"
+	_placement_cancel_button.accessibility_name = _placement_cancel_button.tooltip_text
 	update_idle_villager_count(_last_idle_villager_count)
 	update_military_count(_last_military_count)
 	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
@@ -1737,17 +1811,19 @@ func update_placement_preview(valid: bool, reason: String = "") -> void:
 	_placement_preview_reason = reason
 	if _placement_confirm_button:
 		_placement_confirm_button.disabled = not valid or _ui_modal_state == UIModalState.PAUSE_MENU
-		_placement_confirm_button.text = "Place %s" % _placement_building_name if _placement_building_name != "" else "Place building"
-		# The complete building name lives in the status. The CTA stays readable.
-		if _placement_confirm_button.text.length() > 20:
-			_placement_confirm_button.text = "Place building"
+		# The building name lives in the status line; the button stays one word.
+		_placement_confirm_button.tooltip_text = "Place %s" % _placement_building_name if _placement_building_name != "" else "Place building"
+		_placement_confirm_button.accessibility_name = _placement_confirm_button.tooltip_text
 	if _placement_status_label:
-		var status: String = ("Tap Place to build" if _placement_uses_touch else ("Click Place to build" if _placement_assisted_preview else "Click ground to build")) if valid else (reason if reason != "" else "Choose clear ground")
+		var status: String = ("tap a spot" if _placement_uses_touch else ("click Place" if _placement_assisted_preview else "click a spot")) if valid else (reason if reason != "" else "Choose clear ground")
 		# Trade planning replaces the generic instruction, keeping one compact
 		# line. The ghost and Place button already identify the building.
+		var previous_status: String = _placement_status_label.text
 		_placement_status_label.text = reason if valid and not reason.is_empty() else ("%s · %s" % [_placement_building_name, status] if _placement_building_name != "" else status)
 		_placement_status_label.tooltip_text = _placement_status_label.text
 		_placement_status_label.add_theme_color_override("font_color", KingdomTheme.PARCHMENT if valid else Color(1.0, 0.75, 0.55))
+		if _placement_mode_active and previous_status != _placement_status_label.text:
+			_queue_mobile_layout_refresh()
 	_refresh_touch_target_diagnostics()
 
 
@@ -1814,7 +1890,7 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 	var button_width: float = metrics["button_width"]
 	for button in [_placement_confirm_button, _placement_find_space_button, _placement_cancel_button, _town_center_button, _idle_villager_button, _select_military_button, _find_army_button]:
 		if button:
-			button.custom_minimum_size = Vector2(maxf(button_width, 148.0) if _placement_mode_active else button_width, MOBILE_ACTION_BUTTON_HEIGHT)
+			button.custom_minimum_size = Vector2(_placement_button_width(button) if _placement_mode_active else button_width, MOBILE_ACTION_BUTTON_HEIGHT)
 	if _unit_command_container:
 		for child in _unit_command_container.get_children():
 			if child is Button:
@@ -1859,7 +1935,7 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 	top_bar_hbox.get_node("Spacer").hide()
 	_layout_secondary_cards()
 	if _strategy_overview:
-		_strategy_overview.apply_layout(safe_area, standard_field_chrome_visible and _ui_modal_state == UIModalState.NONE, get_hold_safe_rect(), float(metrics["selection_height"]))
+		_strategy_overview.apply_layout(safe_area, standard_field_chrome_visible and _ui_modal_state == UIModalState.NONE, get_hold_safe_rect(), float(metrics["selection_height"]), _placement_mode_active and not build_sheet_open)
 	var top_bar_margin: MarginContainer = top_bar.get_node_or_null("TopBarMargin")
 	if top_bar_margin:
 		top_bar_margin.add_theme_constant_override("margin_left", 10)
@@ -1994,7 +2070,10 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 			if child is Button:
 				(child as Button).custom_minimum_size = Vector2(80.0, MOBILE_ACTION_BUTTON_HEIGHT)
 	if _placement_status_panel:
-		var status_width: float = minf(420.0, safe_area.size.x - 16.0)
+		# The hint hugs its words, never narrower than the actions below it.
+		var status_font: Font = _placement_status_label.get_theme_font("font")
+		var status_text_width: float = status_font.get_string_size(_placement_status_label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, _placement_status_label.get_theme_font_size("font_size")).x
+		var status_width: float = minf(minf(420.0, safe_area.size.x - 16.0), maxf(float(metrics["action_right"]) - float(metrics["action_left"]), status_text_width + 40.0))
 		_placement_status_panel.offset_left = safe_pos.x + (safe_area.size.x - status_width) * 0.5 - viewport_size.x * 0.5
 		_placement_status_panel.offset_right = _placement_status_panel.offset_left + status_width
 		_placement_status_panel.offset_bottom = metrics["action_top"] - 8.0
@@ -2050,7 +2129,7 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 
 	if _sacred_site_panel:
 		_sacred_site_panel.visible = not _sacred_site_status.is_empty() and standard_field_chrome_visible
-		var sacred_width: float = 112.0 if int(_sacred_site_status.get("owner", -1)) >= 0 else 48.0
+		var sacred_width: float = _sacred_chip_width()
 		var sacred_left: float = minf(top_bar.offset_right + 8.0, safe_area.end.x - 172.0 - sacred_width)
 		_sacred_site_panel.offset_left = sacred_left - viewport_size.x * 0.5
 		_sacred_site_panel.offset_right = _sacred_site_panel.offset_left + sacred_width
@@ -2065,6 +2144,14 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 		mobile_layout_diagnostics = metrics
 		_refresh_mobile_layout_profiles()
 	_refresh_touch_target_diagnostics()
+
+
+func _placement_button_width(button: Button) -> float:
+	# Icon plus one word: Place and Find are short pills, Cancel is a round cross.
+	if button == _placement_confirm_button: return PLACEMENT_BUTTON_WIDTHS[0]
+	if button == _placement_find_space_button: return PLACEMENT_BUTTON_WIDTHS[1]
+	if button == _placement_cancel_button: return PLACEMENT_BUTTON_WIDTHS[2]
+	return MOBILE_ACTION_MIN_BUTTON_WIDTH
 
 
 func _count_visible_mobile_action_buttons() -> int:
@@ -2136,7 +2223,10 @@ func _calculate_mobile_layout_metrics(viewport_size: Vector2, safe_area: Rect2, 
 	var action_bottom: float = bottom_right_bottom
 	var action_top: float = action_bottom - MOBILE_ACTION_BUTTON_HEIGHT
 	if _placement_mode_active:
-		action_width = 148.0 * float(action_button_count) + MOBILE_ACTION_GAP * float(maxi(0, action_button_count - 1)) + MOBILE_ACTION_INNER_PADDING * 2.0
+		action_width = MOBILE_ACTION_INNER_PADDING * 2.0 + MOBILE_ACTION_GAP * float(maxi(0, action_button_count - 1))
+		for placement_button: Button in [_placement_confirm_button, _placement_find_space_button, _placement_cancel_button, _town_center_button, _idle_villager_button, _select_military_button, _find_army_button]:
+			if placement_button != null and placement_button.visible:
+				action_width += _placement_button_width(placement_button)
 		action_left = safe_pos.x + (safe_area.size.x - action_width) * 0.5
 		action_right = action_left + action_width - viewport_size.x
 		action_bottom = -bottom_inset - MOBILE_ACTION_MARGIN
@@ -2158,7 +2248,7 @@ func _calculate_mobile_layout_metrics(viewport_size: Vector2, safe_area: Rect2, 
 	if not _dock_collapsed and _train_buttons_container != null and _train_buttons_container.visible:
 		# Both pages use the same viewport width, so opening or refreshing the
 		# queue cannot clamp its scroll position while the shelf changes size.
-		var page_width: float = _stable_production_page_width()
+		var page_width: float = _stable_production_page_width() + _production_width_correction
 		info_width = 48.0
 		var production_chrome: float = 48.0 + (16.0 if phone and _is_town_center_production_context() else 28.0) + 18.0
 		info_width = clampf(selection_zone_width - page_width - production_chrome, 48.0, info_width)
@@ -2229,7 +2319,9 @@ func _production_row_width(row: HBoxContainer) -> float:
 	var count: int = 0
 	for child: Control in row.get_children():
 		if child.visible and not child.is_queued_for_deletion():
-			width += child.get_combined_minimum_size().x
+			# A card can render wider than its minimum (icon tiles grow to fit
+			# their art); measuring only minimums clipped the row's last button.
+			width += maxf(child.get_combined_minimum_size().x, child.size.x)
 			count += 1
 	return width + float(maxi(0, count - 1)) * float(row.get_theme_constant("separation"))
 
@@ -2455,8 +2547,7 @@ func set_match_learning_active(active: bool) -> void:
 	if _guidance_dismiss_button:
 		_guidance_dismiss_button.visible = active or _early_game_ui_active
 		_guidance_dismiss_button.tooltip_text = "Stop battle lessons" if active else "End guided opener"
-	if _match_learning_button:
-		_match_learning_button.text = "Battle lessons: ON" if active else "Learn full match"
+	_refresh_match_learning_button()
 	_queue_mobile_layout_refresh()
 
 
@@ -3331,12 +3422,13 @@ func _update_queue_display(queue_items: Array) -> void:
 		_attach_hud_hold(btn, _refund_information.bind(unit_type))
 		btn.visible = true
 		btn.mouse_filter = Control.MOUSE_FILTER_STOP
-		btn.text = ("%s ×%d\nCancel one" if compact_training else "%s ×%d\nCancel one") % [UnitData.get_unit_name(unit_type, 0), queue_count]
+		# Phones: name over count, so "×24" never widens the card past Clear.
+		btn.text = ("%s\n×%d" if compact_training else "%s ×%d\nCancel one") % [UnitData.get_unit_name(unit_type, 0), queue_count]
 		btn.clip_text = true
 		btn.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-		btn.tooltip_text = "Cancel first queued %s; keep the Repeat setting" % UnitData.get_unit_name(unit_type, 0)
-		btn.custom_minimum_size = Vector2(62 if compact_training else 104, 48)
+		btn.tooltip_text = "Cancel one queued %s and get its cost back" % UnitData.get_unit_name(unit_type, 0)
 		btn.add_theme_font_size_override("font_size", 11 if compact_training else 12)
+		btn.custom_minimum_size = Vector2(62 if compact_training else 104, 48)
 		for style_name: String in ["normal", "hover", "pressed", "disabled"]:
 			var queue_style: StyleBox = btn.get_theme_stylebox(style_name).duplicate()
 			queue_style.set_content_margin(SIDE_LEFT, 4.0 if compact_training else 12.0)
@@ -3586,10 +3678,14 @@ func _update_train_buttons(trainable_units: Array) -> void:
 			if bool(queued.get("is_training", false)) and int(queued.get("unit_type", -1)) == ut:
 				training_progress = float(queued.get("progress", 0.0))
 				break
-		ACTION_TILE.apply(btn, load(icon_path) if not icon_path.is_empty() else null, cost)
+		# Beta 29: a 54px tile keeps 3px of cloth above and below in the 60px dock.
+		ACTION_TILE.apply(btn, load(icon_path) if not icon_path.is_empty() else null, cost, Vector2(76, 54))
 		population_cost.hide()
 		btn.get_node("TilePortrait").modulate = Color(0.65, 0.65, 0.65) if blocked else Color.WHITE
 		btn.get_node("TileCosts").modulate = KingdomTheme.RUST if blocked else Color.WHITE
+		# Beta 31: a blocked card says why where its costs were. Before, a full
+		# house only greyed the portrait and extra taps seemed to vanish.
+		ACTION_TILE.set_status(btn, status_text if blocked else "")
 		FieldStyle.production_meter(btn, training_progress)
 		_train_buttons_container.move_child(btn, child_index)
 		child_index += 1
@@ -3611,7 +3707,7 @@ func _update_train_buttons(trainable_units: Array) -> void:
 	_building_rally_button.disabled = not _is_human_owned_building(_selected_building_ref) or (_selected_building_ref as BuildingBase).state != BuildingBase.State.ACTIVE
 	_building_rally_button.set_pressed_no_signal(_rally_armed)
 	_train_buttons_container.move_child(_building_rally_button, -1)
-	# Finite queues only. Hold a unit card to buy up to the five-slot limit.
+	# No automatic production (owner, beta 22): queue as many as you can afford.
 	if is_instance_valid(_auto_queue_button):
 		_auto_queue_button.hide()
 	if _ui_modal_state == UIModalState.BUILD_MENU:
@@ -3619,11 +3715,31 @@ func _update_train_buttons(trainable_units: Array) -> void:
 	_refresh_primary_action_visuals()
 	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
 	apply_mobile_layout(viewport_size, _get_safe_area_rect(viewport_size))
+	# Tiles settle their real width during the next container sort; lay the dock
+	# out once more after it so the last button (Repeat) is never clipped.
+	if not _train_relayout_pending and is_inside_tree():
+		_train_relayout_pending = true
+		get_tree().process_frame.connect(func() -> void:
+			_train_relayout_pending = false
+			if not is_inside_tree() or not _train_buttons_container.visible:
+				return
+			# Measure what the panel's fixed chrome estimate left out and widen
+			# the dock by exactly that, so the last button is always reachable.
+			var shortfall: float = _production_row_width(_train_buttons_container) - command_scroll.size.x
+			var correction: float = clampf(_production_width_correction + shortfall, 0.0, 48.0)
+			if absf(correction - _production_width_correction) > 0.5:
+				_production_width_correction = correction
+				_apply_mobile_layout_for_current_viewport(), CONNECT_ONE_SHOT)
 	call_deferred("_refresh_touch_target_diagnostics")
 
 
 func _repeat_train(unit_type: int) -> bool:
 	if bool(_training_availability(unit_type).get("blocked", true)):
+		# Holding to queue stops here. Send the one blocked request so Main
+		# says why (its usual "Population full ... Build a House"), instead
+		# of the hold ending silently.
+		if _is_human_owned_building(_selected_building_ref):
+			train_unit_requested.emit(_selected_building_ref, unit_type)
 		return false
 	_on_train_button_pressed(unit_type)
 	return true
@@ -3767,6 +3883,15 @@ func _refresh_auto_queue_button(production_queue: Node) -> void:
 	_auto_queue_button.add_theme_font_size_override("font_size", 10 if compact_repeat else 12)
 	_auto_queue_button.accessibility_name = "Repeat training: " + _auto_queue_button.text.replace("\n", ". ")
 	if compact_repeat:
+		# Phones: an icon-only 48px toggle beside the rally flag. ON/OFF reads
+		# from its highlight; the unit and any wait reason live in the tooltip
+		# and the hold explanation, so the dock never clips.
+		_auto_queue_button.tooltip_text = "%s · %s" % [_auto_queue_button.text.replace("\n", " "), _auto_queue_button.tooltip_text]
+		_auto_queue_button.text = ""
+		_auto_queue_button.custom_minimum_size = Vector2(48, 48)
+		_auto_queue_button.vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER
+		_auto_queue_button.add_theme_constant_override("icon_max_width", 24)
+	if compact_repeat:
 		# Native stacked icons reserve more height than their visible artwork.
 		# Keep the full icon/text inside the72px production dock.
 		for state: String in ["normal", "hover", "pressed", "disabled", "focus", "hover_pressed"]:
@@ -3810,7 +3935,8 @@ func _on_auto_queue_toggled(pressed: bool) -> void:
 	var session: Node = get_node_or_null("/root/NetworkSession")
 	if session != null and bool(session.call("is_client")):
 		if _is_human_owned_building(_selected_building_ref):
-			session.call("send_command", "repeat", {"target": session.call("entity_id", _selected_building_ref), "enabled": pressed})
+			var repeat_queue: Node = _selected_building_ref.get_production_queue() if _selected_building_ref.has_method("get_production_queue") else null
+			session.call("send_command", "repeat", {"target": session.call("entity_id", _selected_building_ref), "enabled": pressed, "type": int(repeat_queue.get("auto_queue_unit_type")) if repeat_queue != null else -1})
 		return
 	if _is_human_owned_building(_selected_building_ref):
 		var pq: Node = _selected_building_ref.get_production_queue() if _selected_building_ref.has_method("get_production_queue") else null
@@ -3911,7 +4037,7 @@ func _update_research_buttons(building_ref: Node2D) -> void:
 		var short_names: Dictionary = {"forging": "Forge", "scale_mail": "Mail"}
 		var short_effects: Dictionary = {"loom": "+15 worker HP"}
 		btn.text = "%s\n%s\n%s" % [short_names.get(research_id, rd["name"]), short_effects.get(research_id, rd["desc"]), " · ".join(costs)]
-		btn.custom_minimum_size = Vector2(80, 64)
+		btn.custom_minimum_size = Vector2(80, 56)
 		btn.clip_text = true
 		btn.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		btn.add_theme_font_size_override("font_size", 11)
@@ -3966,7 +4092,7 @@ func show_age_up_button(is_shown: bool) -> void:
 
 # --- Minimap ---
 
-func update_minimap(grid: Array, player_units: Array, enemy_units: Array, player_buildings: Array = [], enemy_buildings: Array = [], camera_rect: Rect2 = Rect2(), fog: Node = null) -> void:
+func update_minimap(grid: Array, player_units: Array, enemy_units: Array, player_buildings: Array = [], enemy_buildings: Array = [], camera_rect: Rect2 = Rect2(), fog: Node = null, shrines: Array = []) -> void:
 	if grid.is_empty():
 		return
 
@@ -4058,6 +4184,13 @@ func update_minimap(grid: Array, player_units: Array, enemy_units: Array, player
 	# Objective location is public; terrain and enemies remain fogged.
 	_draw_minimap_marker(Vector2i(sacred_x, sacred_y), sacred_color, 1)
 
+	# Flank shrines are public too (like the Sacred Site), drawn as small
+	# diamonds so they never read as a building square. Online clients get
+	# owning_player from snapshots already mapped to the local seat.
+	for shrine in shrines:
+		if is_instance_valid(shrine) and shrine is Node2D:
+			_draw_minimap_diamond(_world_to_tile_minimap((shrine as Node2D).global_position), minimap_shrine_color(shrine))
+
 	_minimap_texture.update(_minimap_image)
 	minimap_rect.texture = _minimap_texture
 
@@ -4072,6 +4205,32 @@ func _draw_minimap_marker(point: Vector2i, color: Color, radius: int) -> void:
 				continue
 			var border: bool = absi(dx) > radius or absi(dy) > radius
 			_minimap_image.set_pixelv(pixel, KingdomTheme.INK if border else color)
+
+
+## Owner colour for a flank shrine marker: TEAL yours, RUST the rival's,
+## PARCHMENT while nobody holds it.
+static func minimap_shrine_color(shrine: Object) -> Color:
+	var owner_id: int = int(shrine.get("owning_player")) if shrine.get("owning_player") != null else -1
+	var held: bool = int(shrine.get("state")) == 2 if shrine.get("state") != null else owner_id >= 0
+	if not held:
+		return KingdomTheme.PARCHMENT
+	if owner_id == 0:
+		return KingdomTheme.TEAL
+	if owner_id == 1:
+		return KingdomTheme.RUST
+	return KingdomTheme.PARCHMENT
+
+
+func _draw_minimap_diamond(point: Vector2i, color: Color) -> void:
+	for dy: int in range(-2, 3):
+		for dx: int in range(-2, 3):
+			var reach: int = absi(dx) + absi(dy)
+			if reach > 2:
+				continue
+			var pixel: Vector2i = point + Vector2i(dx, dy)
+			if pixel.x < 0 or pixel.y < 0 or pixel.x >= _minimap_image.get_width() or pixel.y >= _minimap_image.get_height():
+				continue
+			_minimap_image.set_pixelv(pixel, KingdomTheme.INK if reach == 2 else color)
 
 
 func _world_to_minimap_point(world_pos: Vector2) -> Vector2:
@@ -4453,13 +4612,21 @@ func update_sacred_site_status(status: Dictionary) -> void:
 	_sacred_site_status = status.duplicate()
 	var phase: String = str(status.get("phase", "neutral"))
 	var controlled: bool = int(status.get("owner", -1)) >= 0
-	var clock_text: String = _sacred_clock(float(status.get("remaining", 0.0))) if controlled else ""
+	# Whose clock it is must read at a glance: the owner's name leads the time.
+	var owner_word: String = "You" if int(status.get("owner", -1)) == 0 else "Rival"
+	var clock_text: String = "%s %s" % [owner_word, _sacred_clock(float(status.get("remaining", 0.0)))] if controlled else ""
 	if controlled and phase != "holding":
 		clock_text += " | |"
+	var wake_remaining: float = float(status.get("wake_remaining", 0.0))
+	if wake_remaining > 0.0 and phase not in ["contested", "neutralizing"]:
+		# Before 8:00 the chip counts down to the clock opening, not to a win.
+		clock_text = ("%s · opens %s" % [owner_word, _sacred_clock(wake_remaining)]) if controlled else "Opens %s" % _sacred_clock(wake_remaining)
+	var width_changed: bool = _sacred_site_label.text.length() != clock_text.length()
 	_sacred_site_label.text = clock_text
-	_sacred_site_label.offset_left = 28.0 if controlled else 0.0
+	var labelled: bool = clock_text != ""
+	_sacred_site_label.offset_left = 28.0 if labelled else 0.0
 	_sacred_site_button.icon = CommandIcons.get_icon("sacred")
-	_sacred_site_button.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT if controlled else HORIZONTAL_ALIGNMENT_CENTER
+	_sacred_site_button.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT if labelled else HORIZONTAL_ALIGNMENT_CENTER
 	_sacred_site_button.add_theme_constant_override("icon_max_width", 28)
 	_sacred_site_button.tooltip_text = _sacred_site_instructions(status)
 	var owner: int = int(status.get("owner", -1))
@@ -4473,8 +4640,18 @@ func update_sacred_site_status(status: Dictionary) -> void:
 	_sacred_site_label.add_theme_color_override("font_color", color)
 	if _selection_kind == "sacred":
 		show_sacred_site_selection(status)
-	if first_status:
+	if first_status or width_changed:
 		_queue_mobile_layout_refresh()
+
+
+## The chip fits its words: icon only while neutral and silent, wider for
+## "Rival · opens 6:44". The 112px floor keeps owned clocks where they were.
+func _sacred_chip_width() -> float:
+	if _sacred_site_label == null or _sacred_site_label.text == "":
+		return 48.0
+	var font: Font = _sacred_site_label.get_theme_font("font")
+	var text_width: float = font.get_string_size(_sacred_site_label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, _sacred_site_label.get_theme_font_size("font_size")).x
+	return clampf(text_width + 44.0, 112.0, 180.0)
 
 
 func _sacred_site_status_line(status: Dictionary) -> String:
@@ -4487,6 +4664,7 @@ func _sacred_site_status_line(status: Dictionary) -> String:
 	match str(status.get("phase", "neutral")):
 		"capturing": return "%s capturing · %d%%" % [owner_name, floori(float(status.get("capture_progress", 0.0)) * 100.0)]
 		"holding": return "%s win in %s" % [owner_name, remaining_text]
+		"waiting": return "%s hold · clock opens %s" % [owner_name, _sacred_clock(float(status.get("wake_remaining", 0.0)))]
 		"unguarded": return "%s %s paused" % [owner_name, remaining_text]
 		"contested": return "%s %s paused" % [owner_name, remaining_text]
 		"neutralizing": return "%s %s paused" % [owner_name, remaining_text]
@@ -4505,7 +4683,7 @@ func _sacred_site_instructions(status: Dictionary) -> String:
 	if mode != SkirmishData.MatchMode.STANDARD:
 		var scoring_rule: String = "Contests pause scoring. Clear the ring to resume."
 		return "Any living unit can capture. Bank %s of Sacred control to win; each side keeps its earned time across captures. %s Barracks, Range and Stable cost 100 wood; Feudal costs 250 food / 125 gold." % [total_text, scoring_rule]
-	return "Any living unit, including Scouts and villagers, can capture. Keep an armed fighter inside your owned ring with no enemies to advance the %s victory clock. Leaving pauses the clock and keeps its progress; uncontested gold income continues. Enter an enemy-held ring to pause its clock; clear the defenders to neutralize it. Destroying the enemy Town Center also wins." % total_text
+	return "Any living unit, including Scouts and villagers, can capture, and the owner earns gold from the start. The victory clock opens at 8:00. Keep an armed fighter inside your owned ring with no enemies to advance the %s victory clock. Leaving pauses the clock and keeps its progress; uncontested gold income continues. Enter an enemy-held ring to pause its clock; clear the defenders to neutralize it. Destroying the enemy Town Center also wins." % total_text
 
 
 func show_sacred_site_selection(status: Dictionary) -> void:
@@ -4531,6 +4709,7 @@ func show_sacred_site_selection(status: Dictionary) -> void:
 		"capturing": selection_details.text = "%s %d%%\n%s" % [owner_name, floori(float(status.get("capture_progress", 0.0)) * 100.0), "Stay in ring" if int(status.get("owner", -1)) == 0 else "Enter to contest"]
 		"holding": selection_details.text = "%s · %s\n%s" % [owner_name, clock, "Keep a fighter" if int(status.get("owner", -1)) == 0 else "Enter to pause"]
 		"unguarded": selection_details.text = "%s %s paused\n%s" % [owner_name, clock, "Bring a fighter" if int(status.get("owner", -1)) == 0 else "No enemy fighter"]
+		"waiting": selection_details.text = "%s · gold\nClock opens %s" % [owner_name, _sacred_clock(float(status.get("wake_remaining", 0.0)))]
 		"contested": selection_details.text = "Contested\nClear enemies"
 		"neutralizing": selection_details.text = "Disrupted\nStay in ring"
 		_: selection_details.text = "Neutral\nEnter ring"
@@ -4769,7 +4948,7 @@ func _set_secondary_surface(surface: SecondarySurface, preserve_queue_scroll: bo
 	var modal_inspection: bool = (surface == SecondarySurface.INFO and (_active_hold_component != null or _info_from_build_menu) and _ui_modal_state == UIModalState.BUILD_MENU) or (surface == SecondarySurface.HELP and _ui_modal_state == UIModalState.PAUSE_MENU)
 	if surface != SecondarySurface.NONE and (_placement_mode_active or (_ui_modal_state != UIModalState.NONE and not modal_inspection)):
 		return
-	if surface == SecondarySurface.MORE and not _unit_commands_authorized:
+	if surface == SecondarySurface.MORE and not _unit_commands_authorized and not _is_build_hold(_active_hold_component):
 		return
 	if surface == SecondarySurface.QUEUE and (not queue_container.visible or not is_instance_valid(_selected_building_ref)):
 		return
@@ -4892,6 +5071,7 @@ func _create_secondary_surface_controls() -> void:
 	_hotkey_panel.z_index = 60
 	_attach_hud_hold(_unit_more_button, _selection_information, _more_hold_choices)
 	_attach_hud_hold(age_up_button, _age_up_information)
+	_attach_hud_hold(build_menu_button, _quick_build_information, _quick_build_choices)
 
 
 func _create_compact_dock_controls() -> void:
@@ -4907,13 +5087,14 @@ func _create_compact_dock_controls() -> void:
 	FieldStyle.soften(_dock_toggle_button, 24, true)
 	row.add_child(_dock_toggle_button)
 	row.move_child(_dock_toggle_button, 0)
-	_dock_toggle_button.pressed.connect(func() -> void:
-		_cancel_hud_holds("dock collapse")
-		_dock_collapsed = not _dock_collapsed
-		_dock_toggle_button.icon = ACTION_TILE.chevron(_dock_collapsed)
-		_dock_toggle_button.tooltip_text = "Expand orders" if _dock_collapsed else "Collapse orders"
-		close_secondary_surface()
-		_queue_mobile_layout_refresh())
+	_dock_toggle_button.pressed.connect(func() -> void: set_dock_collapsed(not _dock_collapsed))
+	# Double-tap the dock's own background to tuck it into a pill; a tap on the
+	# pill brings the orders back. Buttons keep their own taps.
+	_dock_gesture = DOUBLE_TAP.attach([selection_panel, command_scroll, selection_info_column],
+		func() -> void: set_dock_collapsed(not _dock_collapsed),
+		func() -> void:
+			if _dock_collapsed:
+				set_dock_collapsed(false))
 	var portrait_space := Control.new()
 	portrait_space.name = "PortraitSpace"
 	portrait_space.custom_minimum_size = Vector2(48, 42)
@@ -4923,6 +5104,23 @@ func _create_compact_dock_controls() -> void:
 	_selection_info_button.expand_icon = true
 	_selection_info_button.add_theme_constant_override("icon_max_width", 34)
 	_selection_info_button.tooltip_text = "Tap portrait for details"
+
+
+func set_dock_collapsed(collapsed: bool) -> void:
+	if collapsed == _dock_collapsed:
+		return
+	_cancel_hud_holds("dock collapse")
+	_dock_collapsed = collapsed
+	if _dock_gesture != null:
+		_dock_gesture.call("reset")
+	_dock_toggle_button.icon = ACTION_TILE.chevron(_dock_collapsed)
+	_dock_toggle_button.tooltip_text = "Expand orders" if _dock_collapsed else "Collapse orders"
+	close_secondary_surface()
+	_queue_mobile_layout_refresh()
+
+
+func is_dock_collapsed() -> bool:
+	return _dock_collapsed
 
 
 func _refresh_selection_avatar() -> void:
@@ -4952,7 +5150,7 @@ func set_save_status(status: Dictionary) -> void:
 		_save_status_label.tooltip_text = reason
 		var menu := _save_status_label.get_parent() as VBoxContainer
 		if menu:
-			menu.add_theme_constant_override("separation", 6 if failed else 10)
+			menu.add_theme_constant_override("separation", 4 if failed else 6)
 
 
 func _layout_summary_info_target() -> void:
@@ -5108,6 +5306,12 @@ func register_hold_component(component: Node) -> void:
 	component.connect("choice_selected", _on_hold_choice_selected)
 
 
+## The Build button's chooser needs no selection: its choices place buildings.
+func _is_build_hold(component: Node) -> bool:
+	return component != null and is_instance_valid(component) and build_menu_button != null \
+		and build_menu_button.has_meta("hud_hold_control") and build_menu_button.get_meta("hud_hold_control") == component
+
+
 func _on_hold_surface_opened(kind: String, component: Node) -> void:
 	_cancel_hud_holds("replacement hold", component)
 	_active_hold_component = component
@@ -5129,7 +5333,47 @@ func _on_hold_surface_closed(component: Node) -> void:
 		_set_secondary_surface(SecondarySurface.NONE)
 
 
+var _last_quick_build_type: int = -1
+
+
+func set_last_built_type(building_type: int) -> void:
+	_last_quick_build_type = building_type
+
+
+func _quick_build_information() -> Dictionary:
+	return {"title": "Build", "body": "Tap to open every building. Hold, slide to a building and release to place it straight away; then tap the ground."}
+
+
+## Four quick choices in a fixed order so the same slide always picks the same
+## building: House, Farm, Barracks, then the last other building placed
+## (Archery Range until there is one). Beta 30: the last building used to lead,
+## which swapped House and Farm under a player's thumb.
+func _quick_build_choices() -> Array[Dictionary]:
+	var types: Array[int] = [BuildingData.BuildingType.HOUSE, BuildingData.BuildingType.FARM, BuildingData.BuildingType.BARRACKS]
+	types.append(_last_quick_build_type if _last_quick_build_type >= 0 and _last_quick_build_type not in types else BuildingData.BuildingType.ARCHERY_RANGE)
+	var choices: Array[Dictionary] = []
+	var gm: Node = _get_game_manager()
+	var age: int = int(gm.call("get_player_age", 0)) if gm != null else 1
+	for building_type: int in types.slice(0, 4):
+		var stats: Dictionary = BuildingData.get_building_stats(building_type, 0)
+		var cost: Dictionary = BuildingData.get_building_cost(building_type)
+		var resource_manager: Node = _get_resource_manager()
+		var affordable: bool = resource_manager == null or bool(resource_manager.call("can_afford", 0, cost))
+		var unlocked: bool = age >= int(stats.get("age_required", 0))
+		var cost_parts: PackedStringArray = []
+		for resource: String in ["food", "wood", "gold"]:
+			if int(cost.get(resource, 0)) > 0:
+				cost_parts.append("%d %s" % [int(cost[resource]), resource])
+		var art_path: String = BuildingBase.get_sprite_texture_path(building_type, 0)
+		choices.append({"id": "build:%d" % building_type, "label": str(stats.get("name", "Build")), "icon": load(art_path) if not art_path.is_empty() and ResourceLoader.exists(art_path) else null, "description": " · ".join(cost_parts) if unlocked else "Needs a later age", "enabled": affordable and unlocked})
+	return choices
+
+
 func _on_hold_choice_selected(action_id: Variant) -> void:
+	if str(action_id).begins_with("build:"):
+		close_secondary_surface()
+		quick_build_requested.emit(int(str(action_id).trim_prefix("build:")))
+		return
 	match str(action_id):
 		"stop": _on_unit_stop_pressed()
 		"patrol": _on_unit_patrol_pressed()
@@ -5196,7 +5440,7 @@ func _train_information(unit_type: int) -> Dictionary:
 		var trainable: Array = (_selected_building_ref as BuildingBase).trainable_units
 		if not trainable.is_empty() and int(trainable[0]) == unit_type:
 			shortcut = " Shortcut: Q."
-	body += "\nTap to train one.%s Hold to queue up to five; release to stop." % shortcut
+	body += "\nTap to train one.%s Hold to keep queuing while you can afford it; release to stop." % shortcut
 	return {"title": UnitData.get_unit_name(unit_type, 0), "body": body}
 
 
@@ -5226,7 +5470,10 @@ func _training_availability(unit_type: int) -> Dictionary:
 				recovery = "Build a House to add room.\nCanceling queued units alone cannot open a slot."
 			else:
 				recovery = "Match population limit reached.\n" + recovery
-			return {"blocked": true, "short": "Pop %d/%d" % [committed, cap], "body": "Population blocked (%d/%d; this unit needs %d).\nIncluding %d paid slots.\n%s" % [committed, cap, unit_pop, maxi(0, committed - living), recovery]}
+			# A House is the fix whenever the match limit is still above the cap,
+			# even when canceling paid units would also open a slot.
+			var short_pop: String = "Need House" if cap < limit else "Pop %d/%d" % [committed, cap]
+			return {"blocked": true, "short": short_pop, "body": "Population blocked (%d/%d; this unit needs %d).\nIncluding %d paid slots.\n%s" % [committed, cap, unit_pop, maxi(0, committed - living), recovery]}
 	var queue: Node = building.get_production_queue()
 	var queue_size: int = int(queue.call("get_queue_size")) if queue != null else 0
 	if queue_size >= ProductionQueue.MAX_QUEUE_SIZE:
@@ -5243,7 +5490,7 @@ func _training_availability(unit_type: int) -> Dictionary:
 			# the plus sign directs players to the full list in hover or Info.
 			var short_text: String = "Need " + short_parts[0] + (" +" if short_parts.size() > 1 else "")
 			return {"blocked": true, "short": short_text, "body": "Need %s more to train." % _full_cost_text(missing)}
-	return {"blocked": false, "short": "Ready", "body": "Ready to train. Queue %d/%d." % [queue_size, ProductionQueue.MAX_QUEUE_SIZE]}
+	return {"blocked": false, "short": "Ready", "body": "Ready to train. %d queued." % queue_size}
 
 
 func _repeat_information() -> Dictionary:

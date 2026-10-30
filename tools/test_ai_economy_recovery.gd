@@ -1018,7 +1018,9 @@ func _run() -> void:
 	_expect_eq(build_intents.size(), 0, "timed reserve suppresses proactive House 2 when cap covers both liveness floors")
 	game_manager.players[PLAYER_AI]["population_cap"] = 14
 	ai.call("_check_house_need")
-	_expect_eq(build_intents.size(), 1, "timed reserve still requests a House when cap cannot fit both liveness floors")
+	# Cheaper units can make another opening build affordable on the same tick;
+	# the contract is that a House is requested first, not that nothing else is.
+	_expect(build_intents.size() >= 1, "timed reserve still requests a House when cap cannot fit both liveness floors")
 	if not build_intents.is_empty():
 		_expect_eq(int(build_intents[0]), BuildingData.BuildingType.HOUSE, "capacity safety request remains a real House intent")
 	game_manager.players[PLAYER_AI]["population"] = 4
@@ -1034,11 +1036,12 @@ func _run() -> void:
 	if not build_intents.is_empty():
 		_expect_eq(int(build_intents[0]), BuildingData.BuildingType.BARRACKS, "first Barracks precedes Farm 2 for the three-unit floor")
 	_expect_eq(int(resource_manager.call("get_resource", PLAYER_AI, "wood")), 0, "Barracks spends its normal 120 wood cost")
+	var ai_farm_wood: int = int(BuildingData.get_building_cost(BuildingData.BuildingType.FARM).get("wood", 0))
 	ai.set("_barracks_count", 1)
 	build_intents.clear()
 	ai.call("_check_building_construction")
 	_expect_eq(build_intents.size(), 0, "zero wood after Barracks cannot issue Farm 2 or support")
-	resource_manager.call("add_resource", PLAYER_AI, "wood", 75)
+	resource_manager.call("add_resource", PLAYER_AI, "wood", ai_farm_wood)
 	ai.call("_check_building_construction")
 	_expect_eq(build_intents.size(), 1, "opening issues Farm 2 when its exact cost is earned")
 	if not build_intents.is_empty():
@@ -1048,7 +1051,7 @@ func _run() -> void:
 	# foundation count after Farm registration recomputes real fixture counts.
 	ai.set("_barracks_count", 1)
 	build_intents.clear()
-	resource_manager.call("add_resource", PLAYER_AI, "wood", 75)
+	resource_manager.call("add_resource", PLAYER_AI, "wood", ai_farm_wood)
 	ai.call("_check_building_construction")
 	_expect_eq(build_intents.size(), 1, "opening issues Farm 3 when its exact cost is earned")
 	if not build_intents.is_empty():

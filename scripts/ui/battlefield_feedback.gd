@@ -15,6 +15,8 @@ var _lane: VBoxContainer
 var _buttons: Array[Button] = []
 var _site: Node2D
 var _last_interaction_bounds: Array[Rect2] = []
+var _last_ping_index: int = -1
+var _ping_count: int = 0
 
 
 func setup(hud: CanvasLayer, map: Node2D, focus: Callable) -> void:
@@ -66,6 +68,8 @@ func report_attack(target_name: String, world_position: Vector2) -> bool:
 		fronts.pop_front()
 	fronts.append({"position": world_position, "target": target_name, "last_hit": now, "last_sound": now})
 	_refresh()
+	if _front_kind(target_name) == "BATTLE" and not _is_on_screen(world_position):
+		_ping_front(fronts.size() - 1)
 	return true
 
 
@@ -121,7 +125,7 @@ func _refresh() -> void:
 			var detail: String = "Under attack" if age < 3 else "%ds ago" % age
 			if int(front.get("losses", 0)) > 0:
 				detail = "%d losses here" % int(front["losses"])
-			button.text = "RAID %d · %s\n%s · view" % [index + 1, str(front["target"]), detail]
+			button.text = "%s %d · %s\n%s · view" % [_front_kind(str(front["target"])), index + 1, str(front["target"]), detail]
 			button.tooltip_text = "Recent attack on your %s. View location without changing selection." % str(front["target"])
 	_hud.call("set_battlefield_alerts_active", not fronts.is_empty())
 	var bounds: Array[Rect2] = get_visible_bounds()
@@ -147,6 +151,7 @@ func get_visible_bounds() -> Array[Rect2]:
 func _draw() -> void:
 	if not is_instance_valid(_site) or not is_instance_valid(_map) or not visible:
 		return
+	_draw_shrines()
 	# Render a map annotation above fog. Only this known location and its public
 	# objective state are used; terrain, units and capture participants stay hidden.
 	var center: Vector2 = _site.get_global_transform_with_canvas().origin
@@ -186,3 +191,71 @@ func _draw() -> void:
 	label_rect.position.x = clampf(label_rect.position.x, safe.position.x, maxf(safe.position.x, safe.end.x - label_rect.size.x))
 	draw_style_box(KingdomTheme.panel_style(Color(KingdomTheme.INK, 0.95), color, 4), label_rect)
 	draw_string(font, label_rect.position + Vector2(6, 17), title, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, color)
+
+
+## Soldiers being hit is a battle you chose; workers, traders and buildings
+## being hit is a raid on you. The word tells which without reading further.
+static func _front_kind(target_name: String) -> String:
+	if target_name in ["Villager", "Trader"]:
+		return "RAID"
+	for stats: Dictionary in BuildingData.BUILDINGS.values():
+		if str(stats.get("name", "")) == target_name:
+			return "RAID"
+	return "BATTLE"
+
+
+func _is_on_screen(world_position: Vector2) -> bool:
+	var screen: Vector2 = get_viewport().get_canvas_transform() * world_position
+	return get_viewport().get_visible_rect().grow(-24.0).has_point(screen)
+
+
+## A fight you are not looking at must still be noticed: the card swells twice
+## and the phone gives one short buzz where the browser allows it.
+func _ping_front(index: int) -> void:
+	_last_ping_index = index
+	_ping_count += 1
+	if index < 0 or index >= _buttons.size():
+		return
+	var button: Button = _buttons[index]
+	button.pivot_offset = button.size * 0.5
+	var tween: Tween = button.create_tween()
+	for pulse: int in 2:
+		tween.tween_property(button, "scale", Vector2(1.08, 1.08), 0.12)
+		tween.tween_property(button, "scale", Vector2.ONE, 0.16)
+	if OS.has_feature("mobile") or OS.has_feature("web"):
+		Input.vibrate_handheld(80)
+
+
+## Shrines are public map features: a ring in their owner's colour and, while
+## their ground is unseen, a small badge saying what holding one is worth.
+func _draw_shrines() -> void:
+	var shrines: Variant = _map.get("shrines")
+	if not shrines is Array:
+		return
+	var safe: Rect2 = _hud.call("get_world_safe_rect")
+	var camera: Camera2D = _map.get("camera") as Camera2D
+	for shrine: Node2D in shrines:
+		if not is_instance_valid(shrine):
+			continue
+		var center: Vector2 = shrine.get_global_transform_with_canvas().origin
+		if not safe.has_point(center):
+			continue
+		var owner: int = int(shrine.get("owning_player"))
+		var color: Color = KingdomTheme.TEAL if owner == 0 else (KingdomTheme.RUST if owner == 1 else KingdomTheme.PARCHMENT)
+		var radius: float = float(shrine.call("get_capture_radius_world")) * camera.zoom.x
+		draw_arc(center, radius, 0, TAU, 64, Color(color, 0.55), 2.0, true)
+		if bool(_map.call("is_tile_visible_to_player", _map.call("world_to_tile", shrine.global_position), 0)):
+			continue
+		draw_circle(center, 15, Color(KingdomTheme.INK, 0.95))
+		draw_arc(center, 15, 0, TAU, 24, color, 2.0, true)
+		draw_circle(center, 5, color)
+		var title: String = "SHRINE · +%d gold" % roundi(float(shrine.get("gold_per_second")))
+		if owner == 0:
+			title = "YOUR SHRINE"
+		elif owner == 1:
+			title = "RIVAL SHRINE"
+		var font: Font = KingdomTheme.FONT_MEDIUM
+		var text_size: Vector2 = font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, 11)
+		var label_rect := Rect2(center + Vector2(-text_size.x * 0.5 - 5, 18), text_size + Vector2(10, 6))
+		draw_style_box(KingdomTheme.panel_style(Color(KingdomTheme.INK, 0.9), color, 4), label_rect)
+		draw_string(font, label_rect.position + Vector2(5, 14), title, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, color)

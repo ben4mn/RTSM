@@ -96,7 +96,7 @@ func _fighter_journey(phone: Vector2i, scale: float, notched: bool) -> void:
 	var army_button: Button = overview.rail.get_node("ArmyButton")
 	_expect(army_button.get_node("CommandIconBadge").text == "2" and army_button.accessibility_name.contains("2 fighters"), "rail badge and accessibility count armed fighters only")
 	_expect(int(_hud.get("_last_military_count")) == 2, "legacy HUD count matches fighter roster")
-	await _button(army_button)
+	await _hold_open(army_button)
 	if bool(overview.get("_army_recruit_page")):
 		await _button(overview.get("_groups_tab"))
 	var select_button: Button = overview.get("_select_army_button")
@@ -109,12 +109,12 @@ func _fighter_journey(phone: Vector2i, scale: float, notched: bool) -> void:
 	_expect(_intent(scout) == recon and ResourceManager.get_all_resources(0) == bank, "fighter selection leaves accepted Scout intent and bank untouched")
 	var fighter_center: Vector2 = (first.global_position + second.global_position) / 2.0
 	_expect(scout.global_position.distance_to(fighter_center) > 500.0, "Scout is far enough away to expose incorrect averaging")
-	await _button(army_button)
+	await _hold_open(army_button)
 	await _overview_button(overview, overview.get("_focus_army_button"))
 	_expect(camera.position.distance_to(fighter_center) < 1.0, "native Find army frames the fighters instead of the separated Scout")
 	_expect(_intent(scout) == recon and _selection.selected.size() == 2, "Find changes camera only, preserving orders and selection")
 	await _capture("fighters-found-scout-preserved")
-	await _button(army_button)
+	await _hold_open(army_button)
 	await _overview_button(overview, overview.get("_group_rows")[1].recall)
 	_expect(_selection.selected == [scout] and _intent(scout) == recon, "explicit group recall restores the Scout without changing its route")
 	# Explicit Scout control remains available after battle navigation.
@@ -139,7 +139,7 @@ func _fighter_journey(phone: Vector2i, scale: float, notched: bool) -> void:
 	controller.call("_refresh")
 	_main.call("_update_idle_villager_count")
 	_expect(not bool(_main.call("_is_live_owned_fighter", first)) and int(_hud.get("_last_military_count")) == 0, "zero-damage actor setup is not combat-ready")
-	await _button(army_button)
+	await _hold_open(army_button)
 	_expect(select_button.disabled and (overview.get("_focus_army_button") as Button).disabled and army_button.get_node("CommandIconBadge").text == "0", "Scout-only combat roster honestly disables selection and Find")
 	_hud.call("close_secondary_surface")
 	var empty_camera: Vector2 = camera.position
@@ -204,9 +204,28 @@ func _check_replica_fighters(controller: Node, overview: StrategyOverview, bank:
 	controller.call("_refresh")
 	_main.call("_update_idle_villager_count")
 	_expect(int(overview.get("_snapshot").fighters) == 1 and int(_hud.get("_last_military_count")) == 1, "replica controller and HUD counts agree")
-	await _button(overview.rail.get_node("ArmyButton"))
+	await _hold_open(overview.rail.get_node("ArmyButton"))
 	await _overview_button(overview, overview.get("_select_army_button"))
 	_expect(_selection.selected == [fighter], "actual touch fighter shortcut selects own inert replica only")
-	await _button(overview.rail.get_node("ArmyButton"))
+	await _hold_open(overview.rail.get_node("ArmyButton"))
 	await _overview_button(overview, overview.get("_focus_army_button"))
 	_expect((_map.camera as Camera2D).position.distance_to(fighter.global_position) < 1.0, "actual touch Find frames only own inert fighter")
+
+
+## Beta 33: a tap on Army now selects the field army; holding it opens the
+## panel. These checks are about the panel's own actions, so open it by hold.
+func _hold_open(button: Button) -> void:
+	await _frames(3)
+	_expect(button.is_visible_in_tree() and not button.disabled, "unreachable action " + str(button.name))
+	_contact_id += 1
+	var point: Vector2 = get_viewport().get_final_transform() * button.get_global_rect().get_center()
+	for pressed: bool in [true, false]:
+		var event := InputEventScreenTouch.new()
+		event.index = _contact_id
+		event.position = point
+		event.pressed = pressed
+		Input.parse_input_event(event)
+		if pressed:
+			await get_tree().create_timer(0.7).timeout
+		await _frames(3)
+

@@ -53,7 +53,7 @@ const BUILDINGS: Dictionary = {
 		"hp": 500,
 		"cost": { "food": 0, "wood": 50, "gold": 0 },
 		"build_time": 10.0,
-		"pop_provided": 10,
+		"pop_provided": 20,
 		"footprint": Vector2i(2, 2),
 		"can_train": [],
 		"age_required": 0,
@@ -99,7 +99,7 @@ const BUILDINGS: Dictionary = {
 	BuildingType.FARM: {
 		"name": "Farm",
 		"hp": 300,
-		"cost": { "food": 0, "wood": 150, "gold": 0 },
+		"cost": { "food": 0, "wood": 90, "gold": 0 },
 		"build_time": 20.0,
 		"pop_provided": 0,
 		"footprint": Vector2i(2, 2),

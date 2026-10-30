@@ -31,6 +31,11 @@ var _suspended_world_inputs: Array[Dictionary] = []
 var _touch_points: Dictionary = {}
 var _released_touch_inputs: Dictionary = {}
 var _touch_camera_gesture: bool = false
+## Where each placement finger first touched. A finger that lifts close to
+## where it landed is a tap: it places the building there when the ground fits.
+var _touch_starts: Dictionary = {}
+var _tap_place_eligible: Dictionary = {}
+const TAP_TO_PLACE_SLOP_PX: float = 14.0
 var _uses_touch_input: bool = false
 var _assisted_preview_active: bool = false
 var _preview_refresh_elapsed: float = 0.0
@@ -373,6 +378,10 @@ func cancel_touch_gesture() -> void:
 
 
 func _input(event: InputEvent) -> void:
+	# Only a finger that lands while placement already speaks touch may place
+	# by tapping; the touch that switches from mouse just switches.
+	if active and event is InputEventScreenTouch and event.device != InputEvent.DEVICE_ID_EMULATION and (event as InputEventScreenTouch).pressed:
+		_tap_place_eligible[(event as InputEventScreenTouch).index] = _uses_touch_input
 	_observe_input_mode(event)
 	# A world finger can lift over a HUD Control, which owns the release before
 	# unhandled input. Only clear ownership here: never move or confirm a ghost.
@@ -445,6 +454,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		if touch.pressed:
 			_released_touch_inputs.erase(touch.index)
 			_touch_points[touch.index] = touch.position
+			if bool(_tap_place_eligible.get(touch.index, false)):
+				_touch_starts[touch.index] = touch.position
+			_tap_place_eligible.erase(touch.index)
 			if _touch_points.size() > 1:
 				_touch_camera_gesture = true
 		else:
@@ -452,6 +464,19 @@ func _unhandled_input(event: InputEvent) -> void:
 			var was_camera_gesture: bool = bool(_released_touch_inputs.get(touch.index, _touch_camera_gesture))
 			if not touch.canceled and not was_camera_gesture and owned_press:
 				update_preview_at_screen(touch.position)
+				var start: Vector2 = _touch_starts.get(touch.index, Vector2(INF, INF))
+				if start.distance_to(touch.position) <= TAP_TO_PLACE_SLOP_PX and _touch_points.size() <= 1:
+					# Tap: build right here. An unfit spot keeps the preview there
+					# with its reason, so Place or another tap can follow.
+					_touch_starts.erase(touch.index)
+					_released_touch_inputs.erase(touch.index)
+					_touch_points.erase(touch.index)
+					_touch_camera_gesture = false
+					if is_valid_placement:
+						confirm_preview()
+					# The camera must still see this release, or it keeps a stuck finger.
+					return
+			_touch_starts.erase(touch.index)
 			_released_touch_inputs.erase(touch.index)
 			_touch_points.erase(touch.index)
 			if _touch_points.is_empty():

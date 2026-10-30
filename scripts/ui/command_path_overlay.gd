@@ -22,22 +22,46 @@ var _observed_orders: Dictionary = {}
 @onready var selection_manager: SelectionManager = get_parent().get_node("SelectionManager") as SelectionManager
 
 
+## Units the player just ordered without selecting them (workers panel, rally
+## births, farm shortcut). Their route previews like a selected unit's once.
+var _noted_orders: Dictionary = {}  # instance id -> {"unit": WeakRef, "time": seconds}
+
+
+func note_ordered(units: Array) -> void:
+	var now: float = Time.get_ticks_msec() / 1000.0
+	for node: Variant in units:
+		if node is UnitBase and is_instance_valid(node) and (node as UnitBase).player_owner == 0:
+			_noted_orders[(node as UnitBase).get_instance_id()] = {"unit": weakref(node), "time": now}
+	queue_redraw()
+
+
 func _process(_delta: float) -> void:
 	# Updating reads existing paths only; rendering never runs pathfinding.
-	if not selection_manager.selected.is_empty():
+	var now: float = Time.get_ticks_msec() / 1000.0
+	for id: Variant in _noted_orders.keys():
+		if now - float(_noted_orders[id]["time"]) > PREVIEW_SECONDS + FADE_SECONDS + 1.0 or (_noted_orders[id]["unit"] as WeakRef).get_ref() == null:
+			_noted_orders.erase(id)
+	if not selection_manager.selected.is_empty() or not _noted_orders.is_empty():
 		queue_redraw()
 
 
 func _ready() -> void:
 	selection_manager.selection_changed.connect(func(_selection: Array[Node2D]) -> void:
+		# Changing or clearing the selection ends every preview, noted ones too.
 		_observed_orders.clear()
+		_noted_orders.clear()
 		queue_redraw())
 
 
 ## Public for render fixtures and regressions; every route is world-space.
 func get_display_routes() -> Array[Dictionary]:
 	var routes: Array[Dictionary] = []
-	for selected_node: Node2D in selection_manager.selected:
+	var candidates: Array = selection_manager.selected.duplicate()
+	for entry: Dictionary in _noted_orders.values():
+		var noted: Variant = (entry["unit"] as WeakRef).get_ref()
+		if noted != null and noted not in candidates:
+			candidates.append(noted)
+	for selected_node: Variant in candidates:
 		if not is_instance_valid(selected_node) or not (selected_node is UnitBase):
 			continue
 		var unit := selected_node as UnitBase

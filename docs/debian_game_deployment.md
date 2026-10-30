@@ -78,7 +78,17 @@ On iPhone, open the URL in Safari and use Share → Add to Home Screen. Enable *
 
 This is a rough public preview. Desktop browser automation does not certify physical-phone touch behavior, safe areas, audio, or prolonged performance.
 
-## Latest release — 2026-10-24 read the battle
+## Latest release — 2026-10-29 shrines and a quicker economy
+
+`0.3.0-beta.20` (protocol 15) from `fb1e04ccead5`, published with `~/game-review/tools/deploy.sh` from the Mac mini. That script exports the web build and the match-server context with Godot 4.6, stages both under new release IDs, refuses to cut over while any match socket is open, tags the previous image `aoem-online:rollback-<id>`, records `deployment-backups/<id>/previous-state.txt`, replaces only `online`, then switches `site/current`. Earlier the same day it published beta.19 (`v030beta19-2459073dcee4`, then `v030beta19-a002add5da88`): the Sacred clock opens at 8:00 and off-screen battles ping. Rollback for any of these: swap both symlinks to the values in `previous-state.txt`, retag the rollback image as `aoem-online:local`, and run `docker compose -f docker-compose.yml -f docker-compose.online.yml up -d --no-build --no-deps online`.
+
+## Previous release — 2026-10-28 hold to command
+
+Published `0.3.0-beta.18` (protocol 13) from `a2edbd8c8fbb` on 2026-10-28. It adds hold gestures (lift = queue, drag = box, building drag = rally, pull down = attack-move), makes the selected villagers the builders, and gives Houses 20 housing. Static target: `releases/v030beta18-a2edbd8c8fbb`, all `SHA256SUMS.txt` entries verified on Debian. Server context `deployment-candidates/v030beta18-a2edbd8c8fbb/context`, image tagged `aoem-online:v030beta18-a2edbd8c8fbb` and `aoem-online:local`. Before cutover there were zero non-LISTEN sockets on 9080, and only `online` was replaced (it logged `AOEM_MATCH_SERVER_READY port=9080 protocol=13`). Nginx, diagnostics and the tunnel were untouched. Public `version.json` reads beta.18; `index.pck/js/wasm` public bytes match the release; a live browser created an online room.
+
+Rollback: static `releases/v030beta17-d64bcb675e6f-1e18cc4aa2-cd853ca4a8`, server context `deployment-candidates/feedback-d64bcb6-smoke-20261027222945-8c8115a0/context`, image `aoem-online:rollback-v030beta18-a2edbd8c8fbb` (recorded in `deployment-backups/v030beta18-a2edbd8c8fbb/previous-state.txt`). Swap both symlinks back, retag the rollback image as `aoem-online:local` and run `docker compose -f docker-compose.yml -f docker-compose.online.yml up -d --no-build --no-deps online`.
+
+## Previous release — 2026-10-24 read the battle
 
 Published `0.2.0-beta.13` by atomic static switch at `2026-10-24T01:08:55.912368+00:00`. Runtime `e2359dd57283eea5ca8edffbbb841e2f9bdbeaae` adds mounted-unit/building presentation, construction stages and army inspection. Canonical and reproduced exports are `build/deployed-beta13-20261024` and `build/deployed-beta13-reproduced-20261024`; the sealed local server context is `build/deployed-beta13-match-server-20261024`.
 

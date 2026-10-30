@@ -96,6 +96,10 @@ var fog_memory: Node2D = null
 
 ## Reference to the spawned sacred site instance.
 var sacred_site: Node2D = null
+## Flank shrines: capture rings that pay gold while held and never win a match.
+var shrines: Array[Node2D] = []
+const SHRINE_GOLD_PER_SECOND: float = 1.0
+const SHRINE_CAPTURE_RADIUS: int = 2
 
 const NAVIGATION_ENDPOINT_MARGIN_WORLD := 8.0
 const NAVIGATION_MAX_GOAL_RADIUS_TILES := 6
@@ -158,6 +162,7 @@ func _ready() -> void:
 
 	# Spawn harvestable resource nodes on resource tiles.
 	_spawn_resource_nodes()
+	_spawn_shrines()
 
 	# Set up camera bounds.
 	_configure_camera()
@@ -410,6 +415,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			and (event is InputEventScreenTouch or event is InputEventScreenDrag):
 		if event is InputEventScreenTouch and (event as InputEventScreenTouch).pressed:
 			_playtest_camera_record("camera_contact_suppressed", {"finger_id": (event as InputEventScreenTouch).index, "reason": "explicit_area_selection"})
+		return
+	# A world hold that turned into a gesture (box, rally line, attack-move pull)
+	# owns its finger's movement; the release still reaches the camera below.
+	if selection_mgr != null and selection_mgr.is_hold_gesture_active() and event is InputEventScreenDrag:
 		return
 	# --- Multi-touch pinch zoom (mobile) ---
 	if event is InputEventScreenTouch:
@@ -1448,6 +1457,39 @@ func _spawn_sacred_site() -> void:
 	sacred_site.tile_position = center
 	sacred_site.global_position = tile_to_world(center)
 	$SacredSiteContainer.add_child(sacred_site)
+
+
+func _spawn_shrines() -> void:
+	shrines.clear()
+	if map_generator == null or not map_generator.has_method("get_shrine_tiles"):
+		return
+	for crossing: Vector2i in map_generator.get_shrine_tiles():
+		var tile: Vector2i = _open_shrine_tile(crossing)
+		var shrine: Node2D = _sacred_site_scene.instantiate()
+		shrine.set("victory_enabled", false)
+		shrine.set("gold_per_second", SHRINE_GOLD_PER_SECOND)
+		shrine.set("capture_radius", SHRINE_CAPTURE_RADIUS)
+		shrine.name = "Shrine%d" % shrines.size()
+		shrine.set("tile_position", tile)
+		shrine.global_position = tile_to_world(tile)
+		shrine.scale = Vector2(0.75, 0.75)
+		$SacredSiteContainer.add_child(shrine)
+		shrines.append(shrine)
+
+
+## Stay on the free-corner diagonal so a shrine remains equally far from both
+## starts; only if that diagonal is blocked nearby may it step off it.
+func _open_shrine_tile(crossing: Vector2i) -> Vector2i:
+	for step: int in [0, 1, -1, 2, -2, 3, -3]:
+		var candidate: Vector2i = crossing + Vector2i(step, step)
+		if is_tile_buildable(candidate):
+			return candidate
+	for radius: int in range(1, 5):
+		for dy: int in range(-radius, radius + 1):
+			for dx: int in range(-radius, radius + 1):
+				if is_tile_buildable(crossing + Vector2i(dx, dy)):
+					return crossing + Vector2i(dx, dy)
+	return crossing
 
 
 ## Get the resource node at a specific tile, or null.

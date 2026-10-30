@@ -117,7 +117,7 @@ func _profile(phone: Vector2i, scale_factor: float) -> void:
 	var population_before: int = GameManager.get_committed_population(0)
 	await _tap(viewport, undo.get_global_rect().get_center())
 	_expect(producer.get_queue_size() == 2, profile + " Undo touch failed")
-	_expect(ResourceManager.get_resource(0, "food") == food_before + 100 and GameManager.get_committed_population(0) == population_before - 2, profile + " Undo refund/reservation failed")
+	_expect(ResourceManager.get_resource(0, "food") == food_before + int(UnitData.get_unit_cost(UnitData.UnitType.VILLAGER).food) and GameManager.get_committed_population(0) == population_before - 2, profile + " Undo refund/reservation failed")
 	await _tap(viewport, navigation.get_global_rect().get_center())
 	_expect(shelf.scroll_horizontal == 0, profile + " Train return touch failed")
 	await _tap(viewport, navigation.get_global_rect().get_center())
@@ -139,8 +139,8 @@ func _profile(phone: Vector2i, scale_factor: float) -> void:
 	_show(hud, second)
 	await _settle(hud, logical, safe)
 	var military_repeat: Button = hud.get("_auto_queue_button")
-	_expect(military_repeat.text.contains("Need 100F · 40W"), profile + " military Repeat loses a missing resource")
-	_expect(shelf.get_global_rect().encloses(military_repeat.get_global_rect()), profile + " military resource wait clips Repeat")
+	_expect((military_repeat.text + military_repeat.tooltip_text).contains("Need %dF · %dW" % [int(UnitData.get_unit_cost(UnitData.UnitType.INFANTRY).food), int(UnitData.get_unit_cost(UnitData.UnitType.INFANTRY).wood)]), profile + " military Repeat loses a missing resource")
+	_expect(shelf.get_global_rect().encloses(military_repeat.get_global_rect()), profile + " military resource wait clips Repeat: shelf %s repeat %s row %s" % [shelf.get_global_rect(), military_repeat.get_global_rect(), str(military_repeat.get_parent().get_children().filter(func(c: Node) -> bool: return (c as Control).visible).map(func(c: Node) -> String: return "%s@%d+%d" % [c.name, int((c as Control).global_position.x), int((c as Control).size.x)]))])
 	second_producer.auto_queue_enabled = false
 	ResourceManager.initialize_player(0, saved_resources)
 	_show(hud, tc)
@@ -157,7 +157,7 @@ func _profile(phone: Vector2i, scale_factor: float) -> void:
 	await _settle(hud, logical, safe)
 	var repeat: Button = hud.get("_auto_queue_button")
 	_assert_producer_identity(hud, profile + " repeat waiting")
-	_expect(repeat.text.contains("Need 100F"), profile + " Repeat lacks food shortage")
+	_expect((repeat.text + repeat.tooltip_text).contains("Need %dF" % int(UnitData.get_unit_cost(UnitData.UnitType.VILLAGER).food)), profile + " Repeat lacks food shortage")
 	# Fractional Window scaling can place anchored edges up to one logical
 	# pixel apart; allow that rounding while rejecting actual dock growth.
 	var panel_rect: Rect2 = (hud.get("selection_panel") as Control).get_global_rect()
@@ -173,11 +173,11 @@ func _profile(phone: Vector2i, scale_factor: float) -> void:
 	GameManager.players[0]["population_cap"] = 3
 	_show(hud, tc)
 	await _settle(hud, logical, safe)
-	_expect(repeat.text.contains("Pop 3/3"), profile + " Repeat lacks population-cap reason")
+	_expect((repeat.text + repeat.tooltip_text).contains("Pop 3/3"), profile + " Repeat lacks population-cap reason")
 	tc.state = BuildingBase.State.CONSTRUCTING
 	_show(hud, tc)
 	await _settle(hud, logical, safe)
-	_expect(repeat.text.contains("Building"), profile + " Repeat lacks construction reason")
+	_expect((repeat.text + repeat.tooltip_text).contains("Building"), profile + " Repeat lacks construction reason")
 	var host := Control.new()
 	host.size = Vector2(logical)
 	fixture.add_child(host)

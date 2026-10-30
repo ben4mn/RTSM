@@ -215,7 +215,8 @@ func _exercise_profile(phone: Vector2i, ui_scale: float, notched: bool) -> void:
 	_target(hud.get("_placement_cancel_button"), safe, profile)
 	var find_space: Button = hud.get("_placement_find_space_button")
 	_target(find_space, safe, profile)
-	_expect(find_space.text == "Find space" and not find_space.disabled, profile + " Find space action missing")
+	# Beta 25: placement actions are an icon plus one word (Place / Find / cross).
+	_expect(find_space.text == "Find" and find_space.icon != null and not find_space.disabled, profile + " Find space action missing")
 	_expect(place.disabled, profile + " invalid preview can be placed")
 	hud.call("update_placement_preview", true, "")
 	_expect(not place.disabled, profile + " valid preview cannot be placed")
@@ -244,7 +245,8 @@ func _exercise_profile(phone: Vector2i, ui_scale: float, notched: bool) -> void:
 	await _settle(hud, logical, safe)
 	_target(place, safe, profile)
 	_target(find_space, safe, profile)
-	_expect(not place.disabled and (hud.get("_placement_status_label") as Label).text.ends_with("Click Place to build"), profile + " assisted mouse confirmation unavailable")
+	# Beta 25 copy: the assisted mouse hint is "House · click Place" (was "Click Place to build").
+	_expect(not place.disabled and (hud.get("_placement_status_label") as Label).text.ends_with("click Place"), profile + " assisted mouse confirmation unavailable")
 	_label_fits(hud.get("_placement_status_label"), profile + " assisted mouse status")
 	var search_safe: Rect2 = hud.call("get_placement_search_safe_rect")
 	_expect(safe.encloses(search_safe) and search_safe.end.y <= (hud.get("_mobile_action_panel") as Control).get_global_rect().position.y, profile + " search permits bottom action band")
@@ -260,7 +262,9 @@ func _exercise_profile(phone: Vector2i, ui_scale: float, notched: bool) -> void:
 	await _settle(hud, logical, safe)
 	var pause_menu: Control = hud.get("_pause_overlay").get_node("PauseMenu")
 	_expect(safe.encloses(pause_menu.get_global_rect()), profile + " pause leaves safe area")
-	for name: String in ["ResumeButton", "UtilityRow/SettingsButton", "UtilityRow/ReportProblemButton", "DepartureRow/QuitButton", "DepartureRow/MatchLearningButton"]:
+	# Solo pause has no Quit (Save & exit replaced it) and, since beta 27,
+	# Lessons is a round tool in UtilityRow instead of a row of its own.
+	for name: String in ["ResumeButton", "UtilityRow/SettingsButton", "UtilityRow/ReportProblemButton", "UtilityRow/MatchLearningButton"]:
 		_target(pause_menu.get_node(name), safe, profile)
 	hud.call("set_ui_modal_state", 0)
 	_profiles_checked += 1

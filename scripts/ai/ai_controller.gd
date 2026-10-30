@@ -49,6 +49,10 @@ var _staging_point: Vector2 = Vector2.ZERO
 var _attack_in_progress: bool = false
 var _has_launched_field_attack: bool = false
 var _attack_wave_units: Array = []
+## A small detachment that takes flank shrines for their gold.
+var _shrine_units: Array = []
+const SHRINE_START_SECONDS: Dictionary = {Difficulty.EASY: 300.0, Difficulty.MEDIUM: 180.0, Difficulty.HARD: 120.0}
+const SHRINE_SQUAD_SIZE: Dictionary = {Difficulty.EASY: 2, Difficulty.MEDIUM: 3, Difficulty.HARD: 3}
 var _attack_wave_target_position: Vector2 = Vector2(-1, -1)
 var _attack_wave_target_ref: WeakRef = null
 var _attack_wave_best_distance: float = INF
@@ -2899,6 +2903,7 @@ func _check_attack_or_defend() -> void:
 	var reserve: Array = _get_base_reserve_units(_get_military_units())
 	_rally_base_reserve(reserve)
 	var military: Array = _get_field_military(reserve)
+	military = _check_shrine_strategy(military)
 	if _uses_easy_learning_policy():
 		# Keep the already assigned squad coherent. Reserves must not join merely
 		# because the battlefield or a retreating defender came into sight.
@@ -3441,6 +3446,47 @@ func _send_attack(units: Array, target: Vector2) -> void:
 	# Retarget/objective refreshes do not pass this seam or re-form a token.
 	PENDING_ATTACK_MARCH.watch_compact_waves(units, target, player_id)
 	ai_attack_launched.emit(units, target)
+
+
+## Keeps up to SHRINE_SQUAD_SIZE idle field soldiers on the nearest shrine the
+## AI does not own (the rival's first). Returns the field army without them.
+func _check_shrine_strategy(military: Array) -> Array:
+	_shrine_units = _shrine_units.filter(func(unit: Variant) -> bool: return is_instance_valid(unit) and unit in military)
+	var target: Node2D = _pick_shrine_target()
+	if target == null or _game_time < float(SHRINE_START_SECONDS.get(difficulty, 180.0)):
+		_shrine_units.clear()
+		return military
+	var wanted: int = int(SHRINE_SQUAD_SIZE.get(difficulty, 3))
+	for unit: Variant in _get_idle_units_from(military):
+		if _shrine_units.size() >= wanted:
+			break
+		if unit not in _shrine_units and unit not in _attack_wave_units:
+			_shrine_units.append(unit)
+	var destination: Vector2 = target.global_position
+	var to_send: Array = _shrine_units.filter(func(unit: Variant) -> bool:
+		return (unit as UnitBase).current_state == UnitBase.State.IDLE and (unit as Node2D).global_position.distance_to(destination) > 40.0)
+	if not to_send.is_empty():
+		_issue_attack_orders(to_send, destination)
+		_last_strategy_decision = "shrine"
+	return military.filter(func(unit: Variant) -> bool: return unit not in _shrine_units)
+
+
+func _pick_shrine_target() -> Node2D:
+	if game_map == null or not ("shrines" in game_map):
+		return null
+	var best: Node2D = null
+	var best_score: float = INF
+	for shrine: Node2D in game_map.shrines:
+		if not is_instance_valid(shrine) or int(shrine.get("owning_player")) == player_id:
+			continue
+		# The rival's shrine pays them; taking it back outranks a neutral one.
+		var score: float = shrine.global_position.distance_to(_base_position)
+		if int(shrine.get("owning_player")) >= 0:
+			score *= 0.6
+		if score < best_score:
+			best_score = score
+			best = shrine
+	return best
 
 
 func _issue_attack_orders(units: Array, target: Vector2) -> void:

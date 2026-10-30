@@ -17,14 +17,24 @@ const PAPER_INK := Color("354638")
 const FONT_BODY := preload("res://assets/fonts/Barlow-Regular.ttf")
 const FONT_MEDIUM := preload("res://assets/fonts/Barlow-Medium.ttf")
 const FONT_HEADING := preload("res://assets/fonts/Cinzel.ttf")
+## Soft, pebble-like corners: a 48px control reads as a rounded pill, never a box.
+const BUTTON_RADIUS := 18
+const PANEL_RADIUS := 18
+const PILL_RADIUS := 24
 
 
-static func panel_style(background: Color = INK_PANEL, border: Color = BORDER, radius: int = 12) -> StyleBoxFlat:
+## Maps an older tight radius onto the softer scale (10 -> 16, 12 -> 18, 24 -> 24).
+static func soft_radius(radius: int) -> int:
+	return clampi(radius + 6, 16, PILL_RADIUS) if radius > 0 else 0
+
+
+static func panel_style(background: Color = INK_PANEL, border: Color = BORDER, radius: int = PANEL_RADIUS) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = background
 	style.border_color = border
 	style.set_border_width_all(1)
 	style.set_corner_radius_all(radius)
+	style.corner_detail = 10
 	style.set_content_margin_all(4.0)
 	return style
 
@@ -46,12 +56,12 @@ static func button_style(kind: String = "secondary", state: String = "normal") -
 		"focus":
 			background = Color.TRANSPARENT
 			border = PARCHMENT
-	var style: StyleBoxFlat = panel_style(background, border, 10)
+	var style: StyleBoxFlat = panel_style(background, border, BUTTON_RADIUS)
 	style.border_width_bottom = 2
 	if state == "focus":
 		style.set_border_width_all(2)
-	style.content_margin_left = 16.0
-	style.content_margin_right = 16.0
+	style.content_margin_left = 14.0
+	style.content_margin_right = 14.0
 	style.content_margin_top = 8.0
 	style.content_margin_bottom = 8.0
 	return style

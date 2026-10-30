@@ -9,7 +9,7 @@ const STITCH := KingdomTheme.BORDER
 
 
 static func surface(radius: int = 14) -> StyleBoxFlat:
-	var style := KingdomTheme.panel_style(CLOTH, STITCH, radius)
+	var style := KingdomTheme.panel_style(CLOTH, STITCH, radius + 6)
 	style.border_color = STITCH
 	style.shadow_color = Color(0.04, 0.08, 0.07, 0.22)
 	style.shadow_size = 3
@@ -23,7 +23,7 @@ static func soften(button: Button, radius: int = 12, cloth: bool = false) -> voi
 		if not original is StyleBoxFlat:
 			continue
 		var style := original.duplicate() as StyleBoxFlat
-		style.set_corner_radius_all(radius)
+		style.set_corner_radius_all(KingdomTheme.soft_radius(radius))
 		if cloth and state in ["normal", "hover"]:
 			style.bg_color = CLOTH_LIGHT if state == "hover" else CLOTH
 			style.border_color = KingdomTheme.GOLD if state == "hover" else STITCH

@@ -36,6 +36,7 @@ func _run() -> void:
 	var button: Button = hud.get("_sacred_site_button") as Button
 	var panel: PanelContainer = hud.get("_sacred_site_panel") as PanelContainer
 	site.process_mode = Node.PROCESS_MODE_DISABLED
+	site.set("victory_wake_time", 0.0)  # The 8:00 opening has its own test (test_sacred_wake).
 	_match_scene.set_process(false)
 	(_match_scene.get("ai_controller") as Node).process_mode = Node.PROCESS_MODE_DISABLED
 	# Separate the fixture's participants from live starting villagers. Their

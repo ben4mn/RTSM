@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://tools/test_queue_block_reason.gd" id="1"]
+
+[node name="QueueBlockReason" type="Node"]
+script = ExtResource("1")

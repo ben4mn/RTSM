@@ -13,7 +13,7 @@ const BADGE_NODE_NAME := "CommandIconBadge"
 const TARGET_SIZE := 48.0
 const GLYPH_SIZE := 24
 const GAP := 6
-const CORNER_RADIUS := 10
+const CORNER_RADIUS := 16
 static var _textures: Dictionary = {}
 
 

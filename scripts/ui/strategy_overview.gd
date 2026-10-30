@@ -27,6 +27,7 @@ const RAIL_BUTTON_SIZE := CommandIcons.TARGET_SIZE
 const RAIL_GAP := CommandIcons.GAP
 const RAIL_WIDTH := RAIL_BUTTON_SIZE * 3.0 + RAIL_GAP * 2.0
 const ACTION_TILE := preload("res://scripts/ui/compact_action_tile.gd")
+const DOUBLE_TAP := preload("res://scripts/ui/double_tap_gesture.gd")
 const JOB_CHIP_WIDTH := 64.0
 const JOB_CHIP_MIN_WIDTH := 54.0
 const TRAIN_CARD_WIDTH := 84.0
@@ -59,6 +60,14 @@ var _producer_rows: Dictionary = {}
 var _group_rows: Dictionary = {}
 var _economy_button: Button
 var _army_button: Button
+## Beta 32: one tap on Army selects every field fighter; tapping again (or
+## holding) opens the panel. The hold timer and the tap that it consumed.
+const ARMY_HOLD_MSEC: int = 450
+const ARMY_AGAIN_MSEC: int = 4000
+var _army_hold_timer: Timer
+var _army_hold_consumed: bool = false
+var _army_held: bool = false
+var _army_selected_msec: int = -ARMY_AGAIN_MSEC
 var _idle_button: Button
 var _select_army_button: Button
 var _focus_army_button: Button
@@ -88,6 +97,7 @@ var _details: VBoxContainer
 var _detail_lines: Array[Label] = []
 var _details_page: bool = false
 var _last_panel_minimum := Vector2(-1.0, -1.0)
+var _tucking: bool = false
 
 
 func _ready() -> void:
@@ -113,7 +123,9 @@ func _ready() -> void:
 	_army_button = _icon_button("army", "Army: recruit fighters and manage two groups", "ArmyButton", RAIL_BUTTON_SIZE)
 	_army_button.custom_minimum_size.y = RAIL_BUTTON_SIZE
 	_army_button.toggle_mode = true
-	_army_button.pressed.connect(func() -> void: surface_requested.emit("" if _surface == "army" else "army"))
+	_army_button.pressed.connect(_on_army_rail_pressed)
+	_army_button.button_down.connect(_on_army_rail_down)
+	_army_button.button_up.connect(func() -> void: _army_held = false)
 	rail.add_child(_army_button)
 	CommandIcons.apply(_army_button, "army", _army_button.accessibility_name)
 	panel = PanelContainer.new()
@@ -123,7 +135,10 @@ func _ready() -> void:
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	# Header, padding and exhausted scroll gestures belong to the sheet.
 	panel.mouse_force_pass_scroll_events = false
-	panel.add_theme_stylebox_override("panel", FieldStyle.surface(16))
+	var sheet_style: StyleBoxFlat = FieldStyle.surface(16)
+	# A little more cloth around the tiles gives a double tap somewhere to land.
+	sheet_style.set_content_margin_all(8)
+	panel.add_theme_stylebox_override("panel", sheet_style)
 	panel.gui_input.connect(_on_gui_contact)
 	add_child(panel)
 	panel.minimum_size_changed.connect(_on_panel_minimum_changed)
@@ -183,6 +198,9 @@ func _ready() -> void:
 	_scroll.mouse_force_pass_scroll_events = false
 	_scroll.gui_input.connect(_on_gui_contact)
 	body.add_child(_scroll)
+	# Double-tap the sheet's background to tuck it into its launcher; the
+	# launcher brings it back on the same page.
+	DOUBLE_TAP.attach([panel, _scroll, body, header], tuck)
 	var content := VBoxContainer.new()
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_scroll.add_child(content)
@@ -202,11 +220,11 @@ func _ready() -> void:
 	_recruit_empty.name = "RecruitEmpty"
 	_recruit_empty.add_theme_constant_override("separation", 8)
 	content.add_child(_recruit_empty)
-	var recruit_heading: Label = _label("Build your first fighting force", 18)
+	var recruit_heading: Label = _label("No army yet", 18)
 	KingdomTheme.apply_heading(recruit_heading, 18)
 	_recruit_empty.add_child(recruit_heading)
-	_recruit_empty.add_child(_label("A Barracks trains Warriors. Scouts explore but cannot fight."))
-	_barracks_button = _icon_button("build", "Plan a paid Barracks", "PlanBarracks", 200, "Build Barracks · 120W")
+	_recruit_empty.add_child(_label("Barracks train Warriors."))
+	_barracks_button = _icon_button("build", "Plan a paid Barracks", "PlanBarracks", 168, "Barracks · 120W")
 	_barracks_button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	_barracks_button.pressed.connect(func() -> void: barracks_requested.emit())
 	_recruit_empty.add_child(_barracks_button)
@@ -301,6 +319,8 @@ func _build_economy() -> void:
 	_economy.add_child(destinations)
 	for resource: String in RESOURCES:
 		var button := _icon_button(resource, "Move one worker to " + resource, "Assign_" + resource, JOB_CHIP_WIDTH, "+")
+		# Beta 32: a bare "+" read as nothing; say what it adds to.
+		CommandIcons.apply_labeled(button, resource, "Move one worker to " + resource, "+ " + resource.capitalize())
 		button.pressed.connect(func() -> void: allocation_requested.emit(_source, resource))
 		_destination_buttons[resource] = button
 		destinations.add_child(button)
@@ -339,10 +359,10 @@ func _build_army() -> void:
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", int(CommandIcons.GAP))
 	_army.add_child(actions)
-	_select_army_button = _icon_button("army", "Select all armed fighters. Scouts keep their own orders.", "SelectAllArmy", 120, "")
+	_select_army_button = _icon_button("army", "Select all armed fighters. Scouts keep their own orders.", "SelectAllArmy", 120, "Select fighters")
 	_select_army_button.pressed.connect(func() -> void: army_requested.emit())
 	actions.add_child(_select_army_button)
-	_focus_army_button = _icon_button("find", "View your fighters. Scouts keep exploring independently.", "FindArmy", 120, "")
+	_focus_army_button = _icon_button("find", "View your fighters. Scouts keep exploring independently.", "FindArmy", 120, "Find")
 	_focus_army_button.pressed.connect(func() -> void: army_focus_requested.emit())
 	actions.add_child(_focus_army_button)
 	for index: int in [1, 2]:
@@ -353,9 +373,11 @@ func _build_army() -> void:
 		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(label)
 		var save := _icon_button("group_save", "Save current selection to group %d" % index, "SaveGroup%d" % index, 48, "")
+		CommandIcons.apply_labeled(save, "group_save", "Save current selection to group %d" % index, "Save")
 		save.pressed.connect(func() -> void: save_group_requested.emit(index))
 		row.add_child(save)
 		var recall := _icon_button("group_recall", "Recall group %d. Then open Camera and choose Center to view the group." % index, "RecallGroup%d" % index, 48, "")
+		CommandIcons.apply_labeled(recall, "group_recall", "Recall group %d. Then open Camera and choose Center to view the group." % index, "Recall")
 		recall.pressed.connect(func() -> void: recall_group_requested.emit(index))
 		row.add_child(recall)
 		_group_rows[index] = {"label": label, "save": save, "recall": recall}
@@ -474,7 +496,7 @@ func update_snapshot(snapshot: Dictionary) -> void:
 	ACTION_TILE.apply(_barracks_button, load(BuildingBase.get_sprite_texture_path(BuildingData.BuildingType.BARRACKS, 0)), {"wood": barracks_wood}, Vector2(84,68))
 	_barracks_button.disabled = not bool(snapshot.get("can_plan_barracks", false))
 	_population.text = str(snapshot.get("population_text", ""))
-	CommandIcons.apply(_idle_button, "idle", "Find the next of %d idle workers" % idle, "")
+	CommandIcons.apply_labeled(_idle_button, "idle", "Find the next of %d idle workers" % idle, "Find idle")
 	_idle_button.disabled = idle <= 0
 	_select_army_button.disabled = fighters <= 0
 	_focus_army_button.disabled = fighters <= 0
@@ -523,7 +545,7 @@ func _refresh_producers(producers: Array) -> void:
 		row["military"] = bool(producer.get("military", false))
 		(row.status as Label).text = str(producer.get("status", ""))
 		var queue: Array = producer.get("queue", [])
-		(row.paid as Label).text = "%d / %d queued · hold a unit to add" % [queue.size(), ProductionQueue.MAX_QUEUE_SIZE]
+		(row.paid as Label).text = "%d queued · hold a unit to add" % queue.size()
 		(row.paid as Label).tooltip_text = "Every queued unit is paid. Release to stop adding."
 		(row.paid as Label).hide()
 		(row.status as Label).hide()
@@ -559,6 +581,7 @@ func _refresh_producers(producers: Array) -> void:
 			FieldStyle.production_meter(button, paid_queue.get_current_progress() if paid_queue != null and not paid_queue.queue.is_empty() and paid_queue.queue[0] == unit_type else -1.0)
 			button.get_node("TilePortrait").modulate = Color.WHITE if blocker == "ready" else Color(0.65, 0.65, 0.65)
 			status_label.text = role if blocker == "ready" else blocker.capitalize()
+			ACTION_TILE.set_status(button, _short_blocker(blocker))
 			status_label.add_theme_color_override("font_color", KingdomTheme.MUTED if blocker == "ready" else KingdomTheme.AMBER)
 	for id: int in _producer_rows.keys():
 		if id not in live_ids:
@@ -694,6 +717,28 @@ func _clear_feedback() -> void:
 	_feedback.text = ""
 	_feedback.tooltip_text = ""
 	_feedback.add_theme_color_override("font_color", KingdomTheme.MUTED)
+
+
+func tuck() -> void:
+	if _tucking or not panel.visible or _surface.is_empty():
+		return
+	_tucking = true
+	var launcher: Control = _economy_button if _surface == "economy" else _army_button
+	panel.pivot_offset = launcher.get_global_rect().get_center() - panel.get_global_rect().position
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var tween: Tween = create_tween().set_parallel(true).set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	tween.tween_property(panel, "scale", Vector2(0.12, 0.12), 0.16).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+	tween.tween_property(panel, "modulate:a", 0.0, 0.16)
+	tween.chain().tween_callback(func() -> void:
+		_tucking = false
+		panel.scale = Vector2.ONE
+		panel.modulate.a = 1.0
+		panel.mouse_filter = Control.MOUSE_FILTER_STOP
+		surface_requested.emit(""))
+
+
+func is_tucking() -> bool:
+	return _tucking
 
 
 func set_surface(surface: String) -> void:
@@ -833,8 +878,9 @@ func _refresh_pages() -> void:
 	_summary.hide()
 	_farm_blocker.hide()
 	_feedback.visible = Time.get_ticks_msec() < _feedback_until_msec
-	for entry: Array in [[_workers_tab, "economy", "Assign workers"], [_production_tab, "base", "Train workers"], [_recruit_tab, "army", "Recruit fighters"], [_groups_tab, "group_recall", "Army groups"]]:
-		CommandIcons.apply(entry[0], entry[1], entry[2])
+	# Beta 33: each page tab names itself under its icon.
+	for entry: Array in [[_workers_tab, "economy", "Assign workers", "Workers"], [_production_tab, "base", "Train workers", "Train"], [_recruit_tab, "army", "Recruit fighters", "Recruit"], [_groups_tab, "group_recall", "Army groups", "Groups"]]:
+		CommandIcons.apply_labeled(entry[0], entry[1], entry[2], entry[3])
 		(entry[0] as Button).custom_minimum_size.x = 48
 	var selected_id: int = _selected_producer_id()
 	for id: int in _producer_rows:
@@ -967,8 +1013,16 @@ func _trade_help() -> String:
 	return "New traders use a distant reachable Town Center automatically. Gold pays on return. Move or Stop pauses trade; select the trader, then tap your Trade Post to resume."
 
 
-func apply_layout(safe: Rect2, field_visible: bool, card_area: Rect2, dock_height: float = 72.0) -> void:
-	rail.visible = field_visible
+func apply_layout(safe: Rect2, field_visible: bool, card_area: Rect2, dock_height: float = 72.0, placing: bool = false) -> void:
+	# Beta 32: while a building is being placed the rail stays where it was,
+	# dimmed and inert. A tap there used to land on the map and move (or even
+	# place) the preview where Home and Army had just been.
+	var paused: bool = placing and not field_visible
+	rail.visible = field_visible or placing
+	rail.modulate.a = 0.35 if paused else 1.0
+	for button: Node in rail.get_children():
+		if button is BaseButton:
+			(button as BaseButton).disabled = paused
 	var rail_bottom: float = safe.end.y - dock_height - 16.0
 	rail.position = Vector2(safe.end.x - RAIL_WIDTH - 8.0, rail_bottom - RAIL_BUTTON_SIZE)
 	rail.size = Vector2(RAIL_WIDTH, RAIL_BUTTON_SIZE)
@@ -979,7 +1033,9 @@ func apply_layout(safe: Rect2, field_visible: bool, card_area: Rect2, dock_heigh
 	_fit_economy_rows(_sheet_width)
 	var sheet_slot_height: float = minf(310.0, card_area.size.y - 16.0)
 	var content_height: float = (_scroll.get_child(0) as Control).get_combined_minimum_size().y
-	var card_height: float = minf(sheet_slot_height, content_height + CommandIcons.TARGET_SIZE + 16.0)
+	# The sheet's cloth padding grew from 4 to 8px; its height grows with it.
+	var extra_padding: float = maxf(0.0, panel.get_theme_stylebox("panel").get_minimum_size().y - 8.0)
+	var card_height: float = minf(sheet_slot_height, content_height + CommandIcons.TARGET_SIZE + 16.0 + extra_padding)
 	if (_surface == "economy" or _army_recruit_page) and _details_page:
 		card_height = minf(card_height, 240.0)
 	if _surface == "army":
@@ -987,7 +1043,7 @@ func apply_layout(safe: Rect2, field_visible: bool, card_area: Rect2, dock_heigh
 		# Two pixels absorb container rounding at fractional interface scales.
 		var active_page: Control = _recruit_empty if _recruit_empty.visible else (_details if _details_page else _producer_list) if _army_recruit_page else (_army_notes if _details_page else _army)
 		content_height = active_page.get_combined_minimum_size().y
-		card_height = minf(card_height, content_height + CommandIcons.TARGET_SIZE + 14.0)
+		card_height = minf(card_height, content_height + CommandIcons.TARGET_SIZE + 14.0 + extra_padding)
 	_last_panel_minimum = panel.get_combined_minimum_size()
 	card_height = maxf(card_height, _last_panel_minimum.y)
 	var card_size := Vector2(_sheet_width, card_height)
@@ -1052,3 +1108,62 @@ func set_attention(action: String, pulse: float) -> void:
 	var economy_color: Color = KingdomTheme.AMBER if (bool(_snapshot.get("food_attention_ready", false)) or bool(_snapshot.get("food_low_attention_ready", false))) and _surface != "economy" else Color.WHITE
 	_economy_button.modulate = Color(1.0, pulse, 0.62) if action == "idle_button" else economy_color
 	_army_button.modulate = Color(1.0, pulse, 0.62) if action == "military_button" else Color.WHITE
+
+
+static func _short_blocker(blocker: String) -> String:
+	## Beta 31: the tile itself says why a recruit cannot be queued.
+	if blocker == "ready" or blocker.is_empty():
+		return ""
+	if blocker.begins_with("population"):
+		var cap: int = int(GameManager.players.get(0, {}).get("population_cap", 0))
+		return "Need House" if blocker.contains("build a House") or cap < GameManager.get_player_population_limit(0) else "Pop full"
+	if blocker.begins_with("queue full"):
+		return "Queue full"
+	if blocker == "under construction":
+		return "Building…"
+	if blocker.begins_with("need "):
+		var first: String = blocker.trim_prefix("need ").get_slice(",", 0).strip_edges()
+		var amount: String = first.get_slice(" ", 0)
+		var resource: String = first.get_slice(" ", 1)
+		return "Need %s%s" % [amount, resource.left(1).to_upper()]
+	return blocker.capitalize()
+
+
+func _on_army_rail_down() -> void:
+	_army_hold_consumed = false
+	_army_held = true
+	if _army_hold_timer == null:
+		_army_hold_timer = Timer.new()
+		_army_hold_timer.one_shot = true
+		_army_hold_timer.process_mode = Node.PROCESS_MODE_ALWAYS
+		_army_hold_timer.timeout.connect(func() -> void:
+			# Still held: open the panel instead of selecting.
+			if _army_held and _surface != "army":
+				_army_hold_consumed = true
+				surface_requested.emit("army"))
+		add_child(_army_hold_timer)
+	_army_hold_timer.start(ARMY_HOLD_MSEC / 1000.0)
+
+
+func _on_army_rail_pressed() -> void:
+	if _army_hold_timer != null:
+		_army_hold_timer.stop()
+	if _army_hold_consumed:
+		_army_hold_consumed = false
+		_army_button.set_pressed_no_signal(_surface == "army")
+		return
+	if _surface == "army":
+		surface_requested.emit("")
+		return
+	var fighters: int = int(_snapshot.get("fighters", 0))
+	var all_selected: bool = int(_snapshot.get("selected_fighters", 0)) >= fighters
+	var again: bool = Time.get_ticks_msec() - _army_selected_msec <= ARMY_AGAIN_MSEC
+	if fighters > 0 and not all_selected and not again:
+		# First tap: select the field army, keep the panel shut.
+		_army_selected_msec = Time.get_ticks_msec()
+		_army_button.set_pressed_no_signal(false)
+		army_requested.emit()
+		return
+	_army_selected_msec = -ARMY_AGAIN_MSEC
+	surface_requested.emit("army")
+

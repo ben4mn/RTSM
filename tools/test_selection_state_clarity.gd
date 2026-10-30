@@ -129,7 +129,7 @@ func _check_profile(profile: Dictionary) -> void:
 	GameManager.players[0]["population_cap"] = 6
 	_expect(queue.enqueue_unit(UnitData.UnitType.VILLAGER), "first Villager paid")
 	_expect(queue.enqueue_unit(UnitData.UnitType.VILLAGER), "second Villager paid")
-	_expect(ResourceManager.get_resource(0, "food") == 400, "queue used exact normal cost")
+	_expect(ResourceManager.get_resource(0, "food") == 500 - queue.get_queue_size() * int(UnitData.get_unit_cost(UnitData.UnitType.VILLAGER).get("food", 0)), "queue used exact normal cost (food left %d)" % ResourceManager.get_resource(0, "food"))
 	_hud.call("update_population", GameManager.get_committed_population(0), 6)
 	_hud.call("show_building_selection", "Town Center", tc.hp, tc.max_hp, queue.get_queue_info(), tc.trainable_units, tc)
 	await _state("population-reserved", "HP %d / %d" % [tc.hp, tc.max_hp], "4 living · 2 paid in queues")

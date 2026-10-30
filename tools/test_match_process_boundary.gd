@@ -92,6 +92,7 @@ func _run() -> void:
 	game_map.get_node("UnitsContainer").add_child(armed_guard)
 	armed_guard.global_position = sacred_site.global_position
 	armed_guard.call("command_stop")
+	sacred_site.set("victory_wake_time", 0.0)  # The 8:00 opening has its own test (test_sacred_wake).
 	sacred_site.set("state", 2) # SacredSite.SiteState.CAPTURED
 	sacred_site.set("owning_player", 0)
 	sacred_site.set("capture_progress", 1.0)

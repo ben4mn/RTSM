@@ -122,7 +122,9 @@ func _profile(phone: Vector2i, scale_factor: float, notched: bool) -> void:
     _expect(queue_navigation.size.x >= 48.0 and queue_navigation.size.y >= 48.0,"%s queue navigation target under48px" % label)
     _expect((hud.get("selection_panel") as Control).get_global_rect().encloses(queue_navigation.get_global_rect()),"%s queue navigation floats outside shelf" % label)
     _expect((hud.get("selection_panel") as Control).size.y <= 80.5,"%s production shelf grows beyond80px" % label)
-    _expect((hud.get("selection_panel") as Control).size.x <= 420.0,"%s TC recruitment shelf retains empty width: %.1f" % [label,(hud.get("selection_panel") as Control).size.x])
+    # Beta 21 restored Repeat beside the rally flag; the dock now measures its
+    # tiles' real width (they render wider than their minimum), about 446px.
+    _expect((hud.get("selection_panel") as Control).size.x <= 460.0,"%s TC recruitment shelf retains empty width: %.1f" % [label,(hud.get("selection_panel") as Control).size.x])
     _expect(safe.encloses(queue_navigation.get_global_rect()),"%s queue navigation outside safe area" % label)
     _expect(not queue_navigation.get_global_rect().intersects((hud.get("selection_info_column") as Control).get_global_rect()),"%s queue navigation overlaps selection details" % label)
     _expect(queue_navigation.get_node("CommandIconBadge").text == "1","%s initial queue count missing" % label)

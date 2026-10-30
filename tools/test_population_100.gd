@@ -52,18 +52,22 @@ func _match(civ: int, mode: int) -> void:
 	ResourceManager.initialize_player(0, {"food":10000,"wood":10000,"gold":10000})
 	_expect(_cap() == 15 and GameManager.get_player_population_limit(1) == 100, "symmetric100 with initial15housing")
 	var houses: Array[BuildingBase] = []
-	for number: int in 10:
-		var expected: int = mini(100, 15 + number * 10)
+	# Every House adds the same nominal housing; enough of them reach the limit.
+	var per_house: int = int(BuildingData.get_building_stats(BuildingData.BuildingType.HOUSE, 0).get("pop_provided", 0))
+	var house_count: int = ceili(float(100 - 15) / float(per_house))
+	var nominal: int = 15 + house_count * per_house
+	for number: int in house_count:
+		var expected: int = mini(100, 15 + number * per_house)
 		var menu: Control = _main.get("_build_menu")
 		var gain: Dictionary = menu.call("_housing_gain", BuildingData.get_building_stats(BuildingData.BuildingType.HOUSE,0))
-		_expect(gain.gain == mini(10,100-expected), "House shows remaining capacity before house%d" % number)
+		_expect(gain.gain == mini(per_house,100-expected), "House shows remaining capacity before house%d" % number)
 		var house: BuildingBase = _paid_house()
 		if house == null: break
 		houses.append(house)
 		_expect(_cap() == expected, "foundation grants no capacity")
 		house.add_build_progress(house.build_time)
-		_expect(_cap() == mini(100,expected+10), "paid House raises actual capacity beyond30")
-	_expect(houses.size() == 10 and _cap() == 100, "ten paid Houses reach100 withreserve")
+		_expect(_cap() == mini(100,expected+per_house), "paid House raises actual capacity")
+	_expect(houses.size() == house_count and _cap() == 100, "paid Houses reach 100")
 	var hud: Node = _main.get("hud")
 	hud.update_population(GameManager.get_committed_population(0),_cap())
 	_expect(hud.get("pop_label").text.contains("100"), "visible global max")
@@ -82,17 +86,17 @@ func _match(civ: int, mode: int) -> void:
 	_expect(not queue.enqueue_unit(UnitData.UnitType.VILLAGER) and ResourceManager.get_all_resources(0)==paid_bank, "over-cap recruit rejected without charge")
 	_expect(queue.cancel_unit(0) and ResourceManager.get_all_resources(0)==bank and GameManager.get_committed_population(0)==98, "cancel refunds and frees slot")
 	_expect(queue.enqueue_unit(UnitData.UnitType.VILLAGER), "requeue uses restoredslot")
-	if houses.size()==10:
-		houses[9].take_damage(houses[9].max_hp)
-		_expect(_cap()==100, "first loss absorbed by nominalreserve")
-		houses[8].take_damage(houses[8].max_hp)
-		_expect(_cap()==95 and GameManager.get_reserved_population(0)==2, "second loss reduces95 but preserves paidqueue")
+	if houses.size()==house_count:
+		houses[house_count-1].take_damage(houses[house_count-1].max_hp)
+		_expect(_cap()==mini(100, nominal-per_house), "first loss keeps any nominal reserve")
+		houses[house_count-2].take_damage(houses[house_count-2].max_hp)
+		_expect(_cap()==mini(100, nominal-2*per_house) and GameManager.get_reserved_population(0)==2, "second loss reduces the cap but preserves the paid queue")
 		queue.advance(float(UnitData.get_unit_stats(UnitData.UnitType.VILLAGER,0).build_time)+0.1)
 		_expect(int(GameManager.players[0].population)==100 and GameManager.get_reserved_population(0)==0, "paid training finishes overcap")
 		_expect(not queue.enqueue_unit(UnitData.UnitType.VILLAGER), "no newtraining whileovercap")
 		var replacement: BuildingBase = _paid_house()
 		if replacement != null: replacement.add_build_progress(replacement.build_time)
-		_expect(_cap()==100, "paid rebuilding restores100")
+		_expect(_cap()==mini(100, nominal-per_house), "paid rebuilding restores one House of housing")
 	GameManager.selected_population_limit=20
 	_expect(GameManager.get_player_population_limit(0)==100, "setup change cannot mutate active agreedlimit")
 	_main.free()
