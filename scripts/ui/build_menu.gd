@@ -284,7 +284,7 @@ func _create_repeat_button() -> void:
 	_repeat_button.pressed.connect(_on_repeat_pressed)
 	_apply_header_button_style(_repeat_button)
 	header.add_child(_repeat_button)
-	CommandIcons.apply(_repeat_button, "repeat", "Repeat the last selected building")
+	CommandIcons.apply_labeled(_repeat_button, "repeat", "Build the last building again", "Again")
 	header.move_child(_repeat_button, header.get_child_count() - 2)
 
 
@@ -754,7 +754,8 @@ func _update_repeat_button() -> void:
 	var cost: Dictionary = BuildingData.get_building_cost(_last_selected_building_type)
 	_repeat_button.visible = not _placement_mode_active
 	_repeat_button.disabled = _placement_mode_active or not _can_afford(cost)
-	CommandIcons.apply(_repeat_button, "repeat", "Repeat %s" % building_name)
+	# Beta 32: the circular arrows alone were a mystery; name them.
+	CommandIcons.apply_labeled(_repeat_button, "repeat", "Build another %s" % building_name, "Again")
 
 
 func _get_age_requirement_text(age_required: int) -> String:

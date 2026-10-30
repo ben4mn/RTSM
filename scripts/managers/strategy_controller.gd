@@ -197,11 +197,14 @@ func _refresh() -> void:
 					group_has_buildings[index] = true
 	var selection_count: int = 0
 	var selected_military: int = 0
+	var selected_fighters: int = 0
 	for entry: Variant in _map.selection_mgr.selected:
 		if _valid_group_entry(entry):
 			selection_count += 1
 			if entry is UnitBase and not entry is Villager:
 				selected_military += 1
+				if (entry as UnitBase).damage > 0.0 and (entry as UnitBase).unit_type != UnitData.UnitType.SCOUT:
+					selected_fighters += 1
 	var economy_facts: Dictionary = _observed_food_stock(own_workers)
 	economy_facts.merge({"workers": own_workers.size(), "recovering": int(workers.recovering), "food_workers": int(workers.food), "queued_workers": queued_workers, "refund_food": refund_food, "active_worker_producer": active_worker_producer, "food": ResourceManager.get_resource(0, "food"), "free_population": maxi(0, cap - committed), "reserved_population": maxi(0, committed - pop), "population_room_after_refunds": maxi(0, cap - pop)}, true)
 	var economy: Dictionary = ECONOMY_ASSESSMENT.describe(economy_facts)
@@ -213,7 +216,7 @@ func _refresh() -> void:
 	# private recipient summary. It never asks the map for current enemy units.
 	var receipts: RefCounted = _main.get("_battle_receipts")
 	var battle_lesson: Dictionary = BATTLE_RECEIPTS.get_counter_lesson(receipts.call("get_summary", 0), GameManager.get_player_civilization(0), GameManager.get_player_civilization(1)) if receipts != null else {}
-	_overview.update_snapshot({"traders": traders.size(), "waiting_traders": waiting_traders, "has_trade": has_trade, "workers": workers, "military": military, "fighters": fighters, "producers": producers, "population_text": population_text, "groups": groups, "group_has_buildings": group_has_buildings, "selection_count": selection_count, "selected_military": selected_military, "economy": economy, "economy_facts": economy_facts, "battle_lesson": battle_lesson, "food_attention_ready": _update_food_attention(own_workers.size(), int(workers.food), int(workers.recovering)), "food_low_attention_ready": _update_food_low_attention(economy, int(workers.recovering)), "can_plan_farm": available_builders > 0 and farm_missing.is_empty(), "farm_blocker": farm_blocker, "can_plan_barracks": available_builders > 0 and barracks_missing.is_empty(), "barracks_blocker": barracks_blocker})
+	_overview.update_snapshot({"traders": traders.size(), "waiting_traders": waiting_traders, "has_trade": has_trade, "workers": workers, "military": military, "fighters": fighters, "producers": producers, "population_text": population_text, "groups": groups, "group_has_buildings": group_has_buildings, "selection_count": selection_count, "selected_military": selected_military, "selected_fighters": selected_fighters, "economy": economy, "economy_facts": economy_facts, "battle_lesson": battle_lesson, "food_attention_ready": _update_food_attention(own_workers.size(), int(workers.food), int(workers.recovering)), "food_low_attention_ready": _update_food_low_attention(economy, int(workers.recovering)), "can_plan_farm": available_builders > 0 and farm_missing.is_empty(), "farm_blocker": farm_blocker, "can_plan_barracks": available_builders > 0 and barracks_missing.is_empty(), "barracks_blocker": barracks_blocker})
 
 
 func _update_food_attention(workers: int, food_workers: int, recovering: int) -> bool:

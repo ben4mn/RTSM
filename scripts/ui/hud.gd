@@ -1935,7 +1935,7 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 	top_bar_hbox.get_node("Spacer").hide()
 	_layout_secondary_cards()
 	if _strategy_overview:
-		_strategy_overview.apply_layout(safe_area, standard_field_chrome_visible and _ui_modal_state == UIModalState.NONE, get_hold_safe_rect(), float(metrics["selection_height"]))
+		_strategy_overview.apply_layout(safe_area, standard_field_chrome_visible and _ui_modal_state == UIModalState.NONE, get_hold_safe_rect(), float(metrics["selection_height"]), _placement_mode_active and not build_sheet_open)
 	var top_bar_margin: MarginContainer = top_bar.get_node_or_null("TopBarMargin")
 	if top_bar_margin:
 		top_bar_margin.add_theme_constant_override("margin_left", 10)
@@ -5364,7 +5364,8 @@ func _quick_build_choices() -> Array[Dictionary]:
 		for resource: String in ["food", "wood", "gold"]:
 			if int(cost.get(resource, 0)) > 0:
 				cost_parts.append("%d %s" % [int(cost[resource]), resource])
-		choices.append({"id": "build:%d" % building_type, "label": str(stats.get("name", "Build")), "description": " · ".join(cost_parts) if unlocked else "Needs a later age", "enabled": affordable and unlocked})
+		var art_path: String = BuildingBase.get_sprite_texture_path(building_type, 0)
+		choices.append({"id": "build:%d" % building_type, "label": str(stats.get("name", "Build")), "icon": load(art_path) if not art_path.is_empty() and ResourceLoader.exists(art_path) else null, "description": " · ".join(cost_parts) if unlocked else "Needs a later age", "enabled": affordable and unlocked})
 	return choices
 
 

@@ -736,8 +736,16 @@ func _show_chooser() -> void:
 	var count: int = _choices.size()
 	var choice_width: float = 108.0
 	var gap: float = 6.0
+	# Beta 32: choices may carry artwork like the build cards; the hint sits
+	# inside the panel instead of floating over the map above it.
+	var has_icons: bool = false
+	for choice_data: Dictionary in _choices:
+		if choice_data.get("icon") is Texture2D:
+			has_icons = true
+	var choice_height: float = 76.0 if has_icons else 56.0
+	var hint_height: float = 22.0
 	var width: float = count * choice_width + (count - 1) * gap + 16.0
-	var height: float = 98.0
+	var height: float = 25.0 + choice_height + 4.0 + hint_height + 6.0
 	var panel := Panel.new()
 	panel.name = "HoldChooser"
 	panel.theme = THEME_SCRIPT.create_theme()
@@ -755,24 +763,59 @@ func _show_chooser() -> void:
 		choice.text = str(_choices[index].get("label", "Command"))
 		choice.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		choice.focus_mode = Control.FOCUS_NONE
-		choice.size = Vector2(choice_width, 56.0)
+		choice.size = Vector2(choice_width, choice_height)
 		choice.position = Vector2(8.0 + index * (choice_width + gap), 25.0 if index == 0 or index == count - 1 else 8.0)
 		choice.add_theme_font_size_override("font_size", 14)
+		var art: Variant = _choices[index].get("icon")
 		choice.disabled = not bool(_choices[index].get("enabled", true))
 		panel.add_child(choice)
+		if art is Texture2D:
+			# Artwork and name are children that never size the button, so a wide
+			# sprite or "Archery Range" cannot push a choice past the panel.
+			choice.text = ""
+			var picture := TextureRect.new()
+			picture.texture = art
+			picture.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			picture.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			picture.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			choice.add_child(picture)
+			picture.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+			picture.offset_left = 8
+			picture.offset_right = -8
+			picture.offset_top = 4
+			picture.offset_bottom = -22
+			var caption := Label.new()
+			caption.name = "ChoiceCaption"
+			caption.text = str(_choices[index].get("label", "Command"))
+			caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			caption.clip_text = true
+			caption.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+			caption.add_theme_font_size_override("font_size", 12)
+			choice.add_child(caption)
+			caption.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+			caption.offset_left = 4
+			caption.offset_right = -4
+			caption.offset_top = -21
+			caption.offset_bottom = -3
+			if choice.disabled:
+				picture.modulate = Color(1, 1, 1, 0.5)
+				caption.modulate = Color(1, 1, 1, 0.55)
+		choice.size = Vector2(choice_width, choice_height)
 		_choice_controls.append(choice)
 		_choice_rects.append(choice.get_global_rect())
 	_preview = Label.new()
 	_preview.name = "HoldPreview"
 	_preview.text = "Slide to choose · release outside to cancel"
 	_preview.theme = THEME_SCRIPT.create_theme()
-	_preview.add_theme_font_size_override("font_size", 14)
+	_preview.add_theme_font_size_override("font_size", 12)
 	_preview.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_preview.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_preview.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_preview.size = Vector2(width, 24.0)
-	_preview.position = _clamp_position(panel.position - Vector2(0.0, 28.0), _preview.size)
-	_preview.z_index = 201
-	add_child(_preview)
+	_preview.size = Vector2(width - 16.0, hint_height)
+	_preview.position = Vector2(8.0, height - hint_height - 4.0)
+	panel.add_child(_preview)
 	_neutral_rect = Rect2(_press_position - Vector2(24.0, 24.0), Vector2(48.0, 48.0))
 	_preview_choice(_current_position)
 
@@ -790,6 +833,9 @@ func _preview_choice(position: Vector2) -> void:
 			THEME_SCRIPT.apply_primary(control)
 		else:
 			THEME_SCRIPT.apply_secondary(control)
+		var caption: Label = control.get_node_or_null("ChoiceCaption") as Label
+		if caption != null:
+			caption.add_theme_color_override("font_color", control.get_theme_color("font_disabled_color" if control.disabled else "font_color"))
 	if is_instance_valid(_preview):
 		_preview.text = str(_choices[_choice_index].get("description", _choices[_choice_index].get("label", "Command"))) if _choice_index >= 0 else "Return to start or release outside to cancel"
 

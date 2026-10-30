@@ -60,6 +60,14 @@ var _producer_rows: Dictionary = {}
 var _group_rows: Dictionary = {}
 var _economy_button: Button
 var _army_button: Button
+## Beta 32: one tap on Army selects every field fighter; tapping again (or
+## holding) opens the panel. The hold timer and the tap that it consumed.
+const ARMY_HOLD_MSEC: int = 450
+const ARMY_AGAIN_MSEC: int = 4000
+var _army_hold_timer: Timer
+var _army_hold_consumed: bool = false
+var _army_held: bool = false
+var _army_selected_msec: int = -ARMY_AGAIN_MSEC
 var _idle_button: Button
 var _select_army_button: Button
 var _focus_army_button: Button
@@ -115,7 +123,9 @@ func _ready() -> void:
 	_army_button = _icon_button("army", "Army: recruit fighters and manage two groups", "ArmyButton", RAIL_BUTTON_SIZE)
 	_army_button.custom_minimum_size.y = RAIL_BUTTON_SIZE
 	_army_button.toggle_mode = true
-	_army_button.pressed.connect(func() -> void: surface_requested.emit("" if _surface == "army" else "army"))
+	_army_button.pressed.connect(_on_army_rail_pressed)
+	_army_button.button_down.connect(_on_army_rail_down)
+	_army_button.button_up.connect(func() -> void: _army_held = false)
 	rail.add_child(_army_button)
 	CommandIcons.apply(_army_button, "army", _army_button.accessibility_name)
 	panel = PanelContainer.new()
@@ -309,6 +319,8 @@ func _build_economy() -> void:
 	_economy.add_child(destinations)
 	for resource: String in RESOURCES:
 		var button := _icon_button(resource, "Move one worker to " + resource, "Assign_" + resource, JOB_CHIP_WIDTH, "+")
+		# Beta 32: a bare "+" read as nothing; say what it adds to.
+		CommandIcons.apply_labeled(button, resource, "Move one worker to " + resource, "+ " + resource.capitalize())
 		button.pressed.connect(func() -> void: allocation_requested.emit(_source, resource))
 		_destination_buttons[resource] = button
 		destinations.add_child(button)
@@ -347,10 +359,10 @@ func _build_army() -> void:
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", int(CommandIcons.GAP))
 	_army.add_child(actions)
-	_select_army_button = _icon_button("army", "Select all armed fighters. Scouts keep their own orders.", "SelectAllArmy", 120, "")
+	_select_army_button = _icon_button("army", "Select all armed fighters. Scouts keep their own orders.", "SelectAllArmy", 120, "Select fighters")
 	_select_army_button.pressed.connect(func() -> void: army_requested.emit())
 	actions.add_child(_select_army_button)
-	_focus_army_button = _icon_button("find", "View your fighters. Scouts keep exploring independently.", "FindArmy", 120, "")
+	_focus_army_button = _icon_button("find", "View your fighters. Scouts keep exploring independently.", "FindArmy", 120, "Find")
 	_focus_army_button.pressed.connect(func() -> void: army_focus_requested.emit())
 	actions.add_child(_focus_army_button)
 	for index: int in [1, 2]:
@@ -361,9 +373,11 @@ func _build_army() -> void:
 		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(label)
 		var save := _icon_button("group_save", "Save current selection to group %d" % index, "SaveGroup%d" % index, 48, "")
+		CommandIcons.apply_labeled(save, "group_save", "Save current selection to group %d" % index, "Save")
 		save.pressed.connect(func() -> void: save_group_requested.emit(index))
 		row.add_child(save)
 		var recall := _icon_button("group_recall", "Recall group %d. Then open Camera and choose Center to view the group." % index, "RecallGroup%d" % index, 48, "")
+		CommandIcons.apply_labeled(recall, "group_recall", "Recall group %d. Then open Camera and choose Center to view the group." % index, "Recall")
 		recall.pressed.connect(func() -> void: recall_group_requested.emit(index))
 		row.add_child(recall)
 		_group_rows[index] = {"label": label, "save": save, "recall": recall}
@@ -482,7 +496,7 @@ func update_snapshot(snapshot: Dictionary) -> void:
 	ACTION_TILE.apply(_barracks_button, load(BuildingBase.get_sprite_texture_path(BuildingData.BuildingType.BARRACKS, 0)), {"wood": barracks_wood}, Vector2(84,68))
 	_barracks_button.disabled = not bool(snapshot.get("can_plan_barracks", false))
 	_population.text = str(snapshot.get("population_text", ""))
-	CommandIcons.apply(_idle_button, "idle", "Find the next of %d idle workers" % idle, "")
+	CommandIcons.apply_labeled(_idle_button, "idle", "Find the next of %d idle workers" % idle, "Find idle")
 	_idle_button.disabled = idle <= 0
 	_select_army_button.disabled = fighters <= 0
 	_focus_army_button.disabled = fighters <= 0
@@ -864,8 +878,9 @@ func _refresh_pages() -> void:
 	_summary.hide()
 	_farm_blocker.hide()
 	_feedback.visible = Time.get_ticks_msec() < _feedback_until_msec
-	for entry: Array in [[_workers_tab, "economy", "Assign workers"], [_production_tab, "base", "Train workers"], [_recruit_tab, "army", "Recruit fighters"], [_groups_tab, "group_recall", "Army groups"]]:
-		CommandIcons.apply(entry[0], entry[1], entry[2])
+	# Beta 33: each page tab names itself under its icon.
+	for entry: Array in [[_workers_tab, "economy", "Assign workers", "Workers"], [_production_tab, "base", "Train workers", "Train"], [_recruit_tab, "army", "Recruit fighters", "Recruit"], [_groups_tab, "group_recall", "Army groups", "Groups"]]:
+		CommandIcons.apply_labeled(entry[0], entry[1], entry[2], entry[3])
 		(entry[0] as Button).custom_minimum_size.x = 48
 	var selected_id: int = _selected_producer_id()
 	for id: int in _producer_rows:
@@ -998,8 +1013,16 @@ func _trade_help() -> String:
 	return "New traders use a distant reachable Town Center automatically. Gold pays on return. Move or Stop pauses trade; select the trader, then tap your Trade Post to resume."
 
 
-func apply_layout(safe: Rect2, field_visible: bool, card_area: Rect2, dock_height: float = 72.0) -> void:
-	rail.visible = field_visible
+func apply_layout(safe: Rect2, field_visible: bool, card_area: Rect2, dock_height: float = 72.0, placing: bool = false) -> void:
+	# Beta 32: while a building is being placed the rail stays where it was,
+	# dimmed and inert. A tap there used to land on the map and move (or even
+	# place) the preview where Home and Army had just been.
+	var paused: bool = placing and not field_visible
+	rail.visible = field_visible or placing
+	rail.modulate.a = 0.35 if paused else 1.0
+	for button: Node in rail.get_children():
+		if button is BaseButton:
+			(button as BaseButton).disabled = paused
 	var rail_bottom: float = safe.end.y - dock_height - 16.0
 	rail.position = Vector2(safe.end.x - RAIL_WIDTH - 8.0, rail_bottom - RAIL_BUTTON_SIZE)
 	rail.size = Vector2(RAIL_WIDTH, RAIL_BUTTON_SIZE)
@@ -1104,4 +1127,43 @@ static func _short_blocker(blocker: String) -> String:
 		var resource: String = first.get_slice(" ", 1)
 		return "Need %s%s" % [amount, resource.left(1).to_upper()]
 	return blocker.capitalize()
+
+
+func _on_army_rail_down() -> void:
+	_army_hold_consumed = false
+	_army_held = true
+	if _army_hold_timer == null:
+		_army_hold_timer = Timer.new()
+		_army_hold_timer.one_shot = true
+		_army_hold_timer.process_mode = Node.PROCESS_MODE_ALWAYS
+		_army_hold_timer.timeout.connect(func() -> void:
+			# Still held: open the panel instead of selecting.
+			if _army_held and _surface != "army":
+				_army_hold_consumed = true
+				surface_requested.emit("army"))
+		add_child(_army_hold_timer)
+	_army_hold_timer.start(ARMY_HOLD_MSEC / 1000.0)
+
+
+func _on_army_rail_pressed() -> void:
+	if _army_hold_timer != null:
+		_army_hold_timer.stop()
+	if _army_hold_consumed:
+		_army_hold_consumed = false
+		_army_button.set_pressed_no_signal(_surface == "army")
+		return
+	if _surface == "army":
+		surface_requested.emit("")
+		return
+	var fighters: int = int(_snapshot.get("fighters", 0))
+	var all_selected: bool = int(_snapshot.get("selected_fighters", 0)) >= fighters
+	var again: bool = Time.get_ticks_msec() - _army_selected_msec <= ARMY_AGAIN_MSEC
+	if fighters > 0 and not all_selected and not again:
+		# First tap: select the field army, keep the panel shut.
+		_army_selected_msec = Time.get_ticks_msec()
+		_army_button.set_pressed_no_signal(false)
+		army_requested.emit()
+		return
+	_army_selected_msec = -ARMY_AGAIN_MSEC
+	surface_requested.emit("army")
 

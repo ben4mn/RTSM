@@ -1,6 +1,20 @@
 {
   "releases": [
     {
+      "id": "2026-10-30-one-tap-army",
+      "date": "2026-10-30",
+      "version": "0.3.0-beta.33",
+      "title": "One tap army",
+      "summary": "Army selects in one tap, and icons say what they do.",
+      "changes": [
+        "Tap Army to select every fighter in the field. Tap it again, or hold it, to open recruiting and groups. With no fighters yet, a tap opens recruiting as before.",
+        "While you place a building, Home and Army stay where they were, dimmed. Tapping there no longer moves or places the building.",
+        "Short labels under icons: Again in the build menu, + Food / + Wood / + Gold and Find idle in the workers panel, Workers, Train, Recruit and Groups on the panel tabs, Select fighters, Find, Save and Recall in the Army panel.",
+        "Hold Build now shows each building's picture, like the build cards, and its hint sits inside the chooser instead of floating over the map.",
+        "Online play is unchanged: beta 32 and 33 can play together."
+      ]
+    },
+    {
       "id": "2026-10-30-keep-working",
       "date": "2026-10-30",
       "version": "0.3.0-beta.32",
