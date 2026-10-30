@@ -4086,7 +4086,7 @@ func show_age_up_button(is_shown: bool) -> void:
 
 # --- Minimap ---
 
-func update_minimap(grid: Array, player_units: Array, enemy_units: Array, player_buildings: Array = [], enemy_buildings: Array = [], camera_rect: Rect2 = Rect2(), fog: Node = null) -> void:
+func update_minimap(grid: Array, player_units: Array, enemy_units: Array, player_buildings: Array = [], enemy_buildings: Array = [], camera_rect: Rect2 = Rect2(), fog: Node = null, shrines: Array = []) -> void:
 	if grid.is_empty():
 		return
 
@@ -4178,6 +4178,13 @@ func update_minimap(grid: Array, player_units: Array, enemy_units: Array, player
 	# Objective location is public; terrain and enemies remain fogged.
 	_draw_minimap_marker(Vector2i(sacred_x, sacred_y), sacred_color, 1)
 
+	# Flank shrines are public too (like the Sacred Site), drawn as small
+	# diamonds so they never read as a building square. Online clients get
+	# owning_player from snapshots already mapped to the local seat.
+	for shrine in shrines:
+		if is_instance_valid(shrine) and shrine is Node2D:
+			_draw_minimap_diamond(_world_to_tile_minimap((shrine as Node2D).global_position), minimap_shrine_color(shrine))
+
 	_minimap_texture.update(_minimap_image)
 	minimap_rect.texture = _minimap_texture
 
@@ -4192,6 +4199,32 @@ func _draw_minimap_marker(point: Vector2i, color: Color, radius: int) -> void:
 				continue
 			var border: bool = absi(dx) > radius or absi(dy) > radius
 			_minimap_image.set_pixelv(pixel, KingdomTheme.INK if border else color)
+
+
+## Owner colour for a flank shrine marker: TEAL yours, RUST the rival's,
+## PARCHMENT while nobody holds it.
+static func minimap_shrine_color(shrine: Object) -> Color:
+	var owner_id: int = int(shrine.get("owning_player")) if shrine.get("owning_player") != null else -1
+	var held: bool = int(shrine.get("state")) == 2 if shrine.get("state") != null else owner_id >= 0
+	if not held:
+		return KingdomTheme.PARCHMENT
+	if owner_id == 0:
+		return KingdomTheme.TEAL
+	if owner_id == 1:
+		return KingdomTheme.RUST
+	return KingdomTheme.PARCHMENT
+
+
+func _draw_minimap_diamond(point: Vector2i, color: Color) -> void:
+	for dy: int in range(-2, 3):
+		for dx: int in range(-2, 3):
+			var reach: int = absi(dx) + absi(dy)
+			if reach > 2:
+				continue
+			var pixel: Vector2i = point + Vector2i(dx, dy)
+			if pixel.x < 0 or pixel.y < 0 or pixel.x >= _minimap_image.get_width() or pixel.y >= _minimap_image.get_height():
+				continue
+			_minimap_image.set_pixelv(pixel, KingdomTheme.INK if reach == 2 else color)
 
 
 func _world_to_minimap_point(world_pos: Vector2) -> Vector2:

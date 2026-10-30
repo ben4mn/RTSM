@@ -1,6 +1,18 @@
 {
   "releases": [
     {
+      "id": "2026-10-30-shrines-on-the-map",
+      "date": "2026-10-30",
+      "version": "0.3.0-beta.27",
+      "title": "Shrines on the map",
+      "summary": "The two flank shrines now show on the minimap.",
+      "changes": [
+        "Each flank shrine has a small diamond on the minimap: teal when it is yours, rust when the rival holds it, pale while nobody does.",
+        "The Sacred Site keeps its square marker in the middle, so the three are easy to tell apart.",
+        "Online play is unchanged: beta 26 and 27 can play together."
+      ]
+    },
+    {
       "id": "2026-10-29-a-warmer-welcome",
       "date": "2026-10-29",
       "version": "0.3.0-beta.26",

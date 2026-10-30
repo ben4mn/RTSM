@@ -3805,7 +3805,7 @@ func _update_minimap() -> void:
 	var minimap_grid: Array = game_map.map_generator.grid
 	if game_map.has_method("get_minimap_grid_for_player"):
 		minimap_grid = game_map.call("get_minimap_grid_for_player", 0) as Array
-	hud.update_minimap(minimap_grid, _player_units[0], _player_units[1], _player_buildings[0], _player_buildings[1], cam_rect, game_map.fog_of_war)
+	hud.update_minimap(minimap_grid, _player_units[0], _player_units[1], _player_buildings[0], _player_buildings[1], cam_rect, game_map.fog_of_war, game_map.shrines)
 
 
 # =========================================================================
