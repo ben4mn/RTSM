@@ -1,6 +1,18 @@
 {
   "releases": [
     {
+      "id": "2026-10-29-see-every-order",
+      "date": "2026-10-29",
+      "version": "0.3.0-beta.23",
+      "title": "See every order",
+      "summary": "Every unit you send shows its route for a moment, not just the ones you have selected.",
+      "changes": [
+        "New units walking to a rally point, and workers sent from the workers panel or the farm shortcut, show their route briefly, just like a selected Scout.",
+        "Changing or clearing your selection still clears route previews right away.",
+        "Online play is unchanged: beta 22 and 23 can play together."
+      ]
+    },
+    {
       "id": "2026-10-29-queue-what-you-can-afford",
       "date": "2026-10-29",
       "version": "0.3.0-beta.22",

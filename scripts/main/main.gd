@@ -1729,6 +1729,8 @@ func _resolve_production_egress(producer: BuildingBase, excluded_tiles: Array[Ve
 func _issue_production_rally(unit: UnitBase, requested_rally: Vector2, producer: BuildingBase = null) -> bool:
 	if not is_instance_valid(unit) or game_map == null:
 		return false
+	# A newborn walking to its rally shows that route once, like a direct order.
+	_note_player_orders.call_deferred(unit.player_owner, [unit])
 	if is_instance_valid(producer) and not producer.rally_orders.is_empty():
 		for order: Dictionary in producer.rally_orders:
 			var inherited: Dictionary = order.duplicate()
@@ -2881,6 +2883,8 @@ func _setup_hud() -> void:
 
 	hud.build_menu_toggled.connect(_on_build_menu_toggled)
 	hud.quick_build_requested.connect(_on_quick_build_requested)
+	if not _worker_order_undo.player_orders_issued.is_connected(_note_player_orders):
+		_worker_order_undo.player_orders_issued.connect(_note_player_orders)
 	hud.age_up_requested.connect(_on_age_up_requested)
 	hud.idle_villager_pressed.connect(_on_idle_villager_pressed)
 	hud.train_unit_requested.connect(_on_train_unit_requested)
@@ -3287,6 +3291,14 @@ func _send_villager_to_build(building: BuildingBase) -> bool:
 				_refresh_worker_undo_hud()
 				return true
 	return false
+
+
+func _note_player_orders(owner: int, units: Array) -> void:
+	if owner != 0 or game_map == null:
+		return
+	var overlay: Node = game_map.get_node_or_null("CommandPaths")
+	if overlay != null and overlay.has_method("note_ordered"):
+		overlay.call("note_ordered", units)
 
 
 func _screen_to_world(screen_pos: Vector2) -> Vector2:
