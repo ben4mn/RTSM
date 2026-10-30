@@ -54,6 +54,7 @@ const MOBILE_ACTION_BUTTON_HEIGHT := 48.0
 const MOBILE_ACTION_MIN_BUTTON_WIDTH := 104.0
 const MOBILE_ACTION_MAX_BUTTON_WIDTH := 116.0
 const MOBILE_ACTION_GAP := 6.0
+const PLACEMENT_BUTTON_WIDTHS: Array[float] = [112.0, 100.0, 56.0]
 const MOBILE_ACTION_MARGIN := 8.0
 const MOBILE_ACTION_INNER_PADDING := 4.0
 const MOBILE_ACTION_VERTICAL_PADDING := 0.0
@@ -1368,20 +1369,21 @@ func _ensure_mobile_action_strip() -> void:
 
 	_placement_confirm_button = Button.new()
 	_placement_confirm_button.name = "PlacementConfirmButton"
-	_placement_confirm_button.text = "Place building"
-	_placement_confirm_button.custom_minimum_size = Vector2(132, MOBILE_ACTION_BUTTON_HEIGHT)
+	_placement_confirm_button.custom_minimum_size = Vector2(PLACEMENT_BUTTON_WIDTHS[0], MOBILE_ACTION_BUTTON_HEIGHT)
 	_placement_confirm_button.disabled = true
 	_placement_confirm_button.visible = false
 	_placement_confirm_button.pressed.connect(func(): placement_confirm_requested.emit())
 	KingdomTheme.apply_primary(_placement_confirm_button)
+	_placement_confirm_button.theme = root_ctrl.theme
+	CommandIcons.apply(_placement_confirm_button, "check", "Place building", "Place")
 	_mobile_action_strip.add_child(_placement_confirm_button)
 
 	_placement_find_space_button = Button.new()
 	_placement_find_space_button.name = "PlacementFindSpaceButton"
-	_placement_find_space_button.text = "Find space"
-	_placement_find_space_button.accessibility_name = "Find visible space for this building"
+	_placement_find_space_button.theme = root_ctrl.theme
+	CommandIcons.apply(_placement_find_space_button, "find", "Find visible space for this building", "Find")
 	_placement_find_space_button.tooltip_text = "Preview nearby clear ground in sight. No building is purchased."
-	_placement_find_space_button.custom_minimum_size = Vector2(132, MOBILE_ACTION_BUTTON_HEIGHT)
+	_placement_find_space_button.custom_minimum_size = Vector2(PLACEMENT_BUTTON_WIDTHS[1], MOBILE_ACTION_BUTTON_HEIGHT)
 	_placement_find_space_button.visible = false
 	_placement_find_space_button.pressed.connect(func(): placement_find_space_requested.emit())
 	_mobile_action_strip.add_child(_placement_find_space_button)
@@ -1401,9 +1403,9 @@ func _ensure_mobile_action_strip() -> void:
 
 	_placement_cancel_button = Button.new()
 	_placement_cancel_button.name = "PlacementCancelButton"
-	_placement_cancel_button.text = "Cancel"
-	_placement_cancel_button.custom_minimum_size = Vector2(MOBILE_ACTION_MIN_BUTTON_WIDTH, MOBILE_ACTION_BUTTON_HEIGHT)
-	_placement_cancel_button.tooltip_text = "Cancel current building placement [Esc]"
+	_placement_cancel_button.theme = root_ctrl.theme
+	CommandIcons.apply(_placement_cancel_button, "close", "Cancel current building placement [Esc]")
+	_placement_cancel_button.custom_minimum_size = Vector2(PLACEMENT_BUTTON_WIDTHS[2], MOBILE_ACTION_BUTTON_HEIGHT)
 	_placement_cancel_button.pressed.connect(func(): placement_cancel_requested.emit())
 	_placement_cancel_button.visible = false
 	_mobile_action_strip.add_child(_placement_cancel_button)
@@ -1726,12 +1728,8 @@ func set_placement_mode(active: bool, building_name: String = "") -> void:
 			and not active
 			and _ui_modal_state == UIModalState.NONE
 		)
-	if active and building_name != "":
-		_placement_cancel_button.text = "Cancel"
-		_placement_cancel_button.tooltip_text = "Cancel %s placement" % building_name
-	else:
-		_placement_cancel_button.text = "Cancel"
-		_placement_cancel_button.tooltip_text = "Cancel current building placement [Esc]"
+	_placement_cancel_button.tooltip_text = ("Cancel %s placement" % building_name) if active and building_name != "" else "Cancel current building placement [Esc]"
+	_placement_cancel_button.accessibility_name = _placement_cancel_button.tooltip_text
 	update_idle_villager_count(_last_idle_villager_count)
 	update_military_count(_last_military_count)
 	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
@@ -1743,17 +1741,19 @@ func update_placement_preview(valid: bool, reason: String = "") -> void:
 	_placement_preview_reason = reason
 	if _placement_confirm_button:
 		_placement_confirm_button.disabled = not valid or _ui_modal_state == UIModalState.PAUSE_MENU
-		_placement_confirm_button.text = "Place %s" % _placement_building_name if _placement_building_name != "" else "Place building"
-		# The complete building name lives in the status. The CTA stays readable.
-		if _placement_confirm_button.text.length() > 20:
-			_placement_confirm_button.text = "Place building"
+		# The building name lives in the status line; the button stays one word.
+		_placement_confirm_button.tooltip_text = "Place %s" % _placement_building_name if _placement_building_name != "" else "Place building"
+		_placement_confirm_button.accessibility_name = _placement_confirm_button.tooltip_text
 	if _placement_status_label:
-		var status: String = ("Tap ground or Place to build" if _placement_uses_touch else ("Click Place to build" if _placement_assisted_preview else "Click ground to build")) if valid else (reason if reason != "" else "Choose clear ground")
+		var status: String = ("tap a spot" if _placement_uses_touch else ("click Place" if _placement_assisted_preview else "click a spot")) if valid else (reason if reason != "" else "Choose clear ground")
 		# Trade planning replaces the generic instruction, keeping one compact
 		# line. The ghost and Place button already identify the building.
+		var previous_status: String = _placement_status_label.text
 		_placement_status_label.text = reason if valid and not reason.is_empty() else ("%s · %s" % [_placement_building_name, status] if _placement_building_name != "" else status)
 		_placement_status_label.tooltip_text = _placement_status_label.text
 		_placement_status_label.add_theme_color_override("font_color", KingdomTheme.PARCHMENT if valid else Color(1.0, 0.75, 0.55))
+		if _placement_mode_active and previous_status != _placement_status_label.text:
+			_queue_mobile_layout_refresh()
 	_refresh_touch_target_diagnostics()
 
 
@@ -1820,7 +1820,7 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 	var button_width: float = metrics["button_width"]
 	for button in [_placement_confirm_button, _placement_find_space_button, _placement_cancel_button, _town_center_button, _idle_villager_button, _select_military_button, _find_army_button]:
 		if button:
-			button.custom_minimum_size = Vector2(maxf(button_width, 148.0) if _placement_mode_active else button_width, MOBILE_ACTION_BUTTON_HEIGHT)
+			button.custom_minimum_size = Vector2(_placement_button_width(button) if _placement_mode_active else button_width, MOBILE_ACTION_BUTTON_HEIGHT)
 	if _unit_command_container:
 		for child in _unit_command_container.get_children():
 			if child is Button:
@@ -2000,7 +2000,10 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 			if child is Button:
 				(child as Button).custom_minimum_size = Vector2(80.0, MOBILE_ACTION_BUTTON_HEIGHT)
 	if _placement_status_panel:
-		var status_width: float = minf(420.0, safe_area.size.x - 16.0)
+		# The hint hugs its words, never narrower than the actions below it.
+		var status_font: Font = _placement_status_label.get_theme_font("font")
+		var status_text_width: float = status_font.get_string_size(_placement_status_label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, _placement_status_label.get_theme_font_size("font_size")).x
+		var status_width: float = minf(minf(420.0, safe_area.size.x - 16.0), maxf(float(metrics["action_right"]) - float(metrics["action_left"]), status_text_width + 40.0))
 		_placement_status_panel.offset_left = safe_pos.x + (safe_area.size.x - status_width) * 0.5 - viewport_size.x * 0.5
 		_placement_status_panel.offset_right = _placement_status_panel.offset_left + status_width
 		_placement_status_panel.offset_bottom = metrics["action_top"] - 8.0
@@ -2073,6 +2076,14 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 	_refresh_touch_target_diagnostics()
 
 
+func _placement_button_width(button: Button) -> float:
+	# Icon plus one word: Place and Find are short pills, Cancel is a round cross.
+	if button == _placement_confirm_button: return PLACEMENT_BUTTON_WIDTHS[0]
+	if button == _placement_find_space_button: return PLACEMENT_BUTTON_WIDTHS[1]
+	if button == _placement_cancel_button: return PLACEMENT_BUTTON_WIDTHS[2]
+	return MOBILE_ACTION_MIN_BUTTON_WIDTH
+
+
 func _count_visible_mobile_action_buttons() -> int:
 	var count: int = 0
 	for button in [_placement_confirm_button, _placement_find_space_button, _placement_cancel_button, _town_center_button, _idle_villager_button, _select_military_button, _find_army_button]:
@@ -2142,7 +2153,10 @@ func _calculate_mobile_layout_metrics(viewport_size: Vector2, safe_area: Rect2, 
 	var action_bottom: float = bottom_right_bottom
 	var action_top: float = action_bottom - MOBILE_ACTION_BUTTON_HEIGHT
 	if _placement_mode_active:
-		action_width = 148.0 * float(action_button_count) + MOBILE_ACTION_GAP * float(maxi(0, action_button_count - 1)) + MOBILE_ACTION_INNER_PADDING * 2.0
+		action_width = MOBILE_ACTION_INNER_PADDING * 2.0 + MOBILE_ACTION_GAP * float(maxi(0, action_button_count - 1))
+		for placement_button: Button in [_placement_confirm_button, _placement_find_space_button, _placement_cancel_button, _town_center_button, _idle_villager_button, _select_military_button, _find_army_button]:
+			if placement_button != null and placement_button.visible:
+				action_width += _placement_button_width(placement_button)
 		action_left = safe_pos.x + (safe_area.size.x - action_width) * 0.5
 		action_right = action_left + action_width - viewport_size.x
 		action_bottom = -bottom_inset - MOBILE_ACTION_MARGIN

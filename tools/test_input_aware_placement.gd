@@ -121,7 +121,8 @@ func _exercise(viewport_size: Vector2i) -> void:
 	valid_world = _placement.call("_find_initial_preview_position", valid_world)
 	_placement.update_preview_at_world(valid_world)
 	await _frames()
-	_expect((_hud.get("_placement_status_label") as Label).text.contains("Place"), "valid touch preview lacks confirmation instructions")
+	# Beta 25 shortened the hint to "House · tap a spot"; the Place button beside it confirms.
+	_expect((_hud.get("_placement_status_label") as Label).text.contains("tap a spot") and (_hud.get("_placement_confirm_button") as Button).is_visible_in_tree(), "valid touch preview lacks confirmation instructions")
 	# A positioning drag (not a tap) leaves the preview for the explicit Place.
 	await _touch(_placement.get_canvas_transform() * valid_world - Vector2(30.0, 0.0), true)
 	await _touch(_placement.get_canvas_transform() * valid_world, false)
@@ -175,7 +176,8 @@ func _exercise(viewport_size: Vector2i) -> void:
 func _assert_mouse_ui() -> void:
 	_expect(not (_hud.get("_placement_confirm_button") as Button).is_visible_in_tree(), "mouse placement exposes a misleading second Place action")
 	if _placement.is_valid_placement:
-		_expect((_hud.get("_placement_status_label") as Label).text.contains("Click ground"), "valid mouse preview lacks click-to-place instructions")
+		# Beta 25 copy: "House · click a spot" (was "Click ground to build").
+		_expect((_hud.get("_placement_status_label") as Label).text.contains("click a spot"), "valid mouse preview lacks click-to-place instructions")
 
 
 func _assert_cost(before: Dictionary, cost: Dictionary, phase: String) -> void:

@@ -125,11 +125,11 @@ var _hints_shown: int = 0
 var _guided_opening_active: bool = true
 var _guided_stage: GuidedOpeningStage = GuidedOpeningStage.GATHER_FOOD
 const HINTS: Array = [
-	{"time": 14.0, "context": "pause", "text": "Pause any time from the top-right button if you need to stop and reorient.", "color": Color(0.95, 0.86, 0.56)},
-	{"time": 42.0, "text": "Drag on open terrain to pan camera. Tap the minimap to jump view.", "color": Color(0.7, 0.8, 1.0)},
-	{"time": 75.0, "text": "Tap ground to move. Attack fights on the way. Double-tap ground to clear selection.", "color": Color(0.65, 0.82, 1.0)},
-	{"time": 105.0, "context": "scout", "text": "Train a scout from your Town Center to reveal more map quickly.", "color": Color(0.7, 0.8, 1.0)},
-	{"time": 180.0, "context": "sacred", "text": "Sacred Site is at map center. Complete its control clock to win, or destroy the enemy Town Center.", "color": Color(0.85, 0.7, 1.0)},
+	{"time": 14.0, "context": "pause", "text": "Need a breather? Pause is top right.", "color": Color(0.95, 0.86, 0.56)},
+	{"time": 42.0, "text": "Drag to pan. Tap the minimap to jump.", "color": Color(0.7, 0.8, 1.0)},
+	{"time": 75.0, "text": "Tap ground to move. Double-tap ground to deselect.", "color": Color(0.65, 0.82, 1.0)},
+	{"time": 105.0, "context": "scout", "text": "Train a Scout to explore fast.", "color": Color(0.7, 0.8, 1.0)},
+	{"time": 180.0, "context": "sacred", "text": "Hold the central Sacred Site to win, or raze their Town Center.", "color": Color(0.85, 0.7, 1.0)},
 ]
 var _milestone_first_house: bool = false
 var _milestone_first_military_building: bool = false
@@ -668,12 +668,12 @@ func _set_guided_stage(new_stage: GuidedOpeningStage) -> void:
 	hud.set_pending_military_shortcut(false)
 	match new_stage:
 		GuidedOpeningStage.BUILD_HOUSE:
-			hud.show_notification("Objective complete: Villagers are gathering. Next: place a House.", Color(0.95, 0.86, 0.42))
+			hud.show_notification("Gathering · next, a House", Color(0.95, 0.86, 0.42))
 		GuidedOpeningStage.TRAIN_SCOUT:
-			hud.show_notification("Objective complete: House placed. Next: train a Scout.", Color(0.95, 0.86, 0.42))
+			hud.show_notification("House placed · next, a Scout", Color(0.95, 0.86, 0.42))
 			call_deferred("_select_town_center")
 		GuidedOpeningStage.MOVE_MILITARY:
-			hud.show_notification("Your Scout is ready. Next: move it onto the map." if _has_living_scout(0) else "Objective complete: Scout queued. Next: move it onto the map.", Color(0.95, 0.86, 0.42))
+			hud.show_notification("Scout ready · send it out" if _has_living_scout(0) else "Objective complete: Scout queued. Next: move it onto the map.", Color(0.95, 0.86, 0.42))
 		GuidedOpeningStage.FREE_PLAY:
 			_guided_opening_active = false
 			hud.set_early_game_ui_state(false)
@@ -794,9 +794,9 @@ func _on_sacred_site_captured(player_id: int) -> void:
 func _on_shrine_captured(player_id: int, shrine: Node2D) -> void:
 	var gold: float = float(shrine.get("gold_per_second"))
 	if player_id == 0:
-		hud.show_notification("Shrine taken: +%d gold a second until the rival takes it back." % roundi(gold), Color(0.9, 0.8, 0.2))
+		hud.show_notification("Shrine taken · +%d gold/s" % roundi(gold), Color(0.9, 0.8, 0.2))
 	else:
-		hud.show_notification("The rival took a shrine and its gold. Tap to view.", Color(1.0, 0.4, 0.2), 6.0, _on_minimap_clicked.bind(shrine.global_position))
+		hud.show_notification("Rival took a shrine · tap to view", Color(1.0, 0.4, 0.2), 6.0, _on_minimap_clicked.bind(shrine.global_position))
 
 
 func _sacred_wake_remaining() -> float:
@@ -1651,7 +1651,7 @@ func _on_unit_trained(unit_type: int, player_id: int, source_queue: ProductionQu
 			game_map.note_camera_interaction()
 			game_map.camera.position = unit.global_position
 			game_map.camera.reset_smoothing()
-			hud.show_notification("Scout ready: tap open ground to explore.", Color(0.95, 0.86, 0.42))
+			hud.show_notification("Scout ready · tap ground to explore", Color(0.95, 0.86, 0.42))
 			_update_progression_hint()
 		# Auto-assign new villagers to gather the most needed resource
 		if unit and unit_type == UnitData.UnitType.VILLAGER and use_default_villager_assignment:
@@ -1899,7 +1899,7 @@ func _on_player_unit_navigation_failed(unit: UnitBase, _target_position: Vector2
 		return
 	_navigation_feedback_available_msec = now + 3000
 	# Explain the failed order without disclosing unseen terrain or blockers.
-	hud.show_notification("Route blocked. Choose another destination or leave a gap between buildings.", KingdomTheme.RUST)
+	hud.show_notification("Route blocked. Try another spot.", KingdomTheme.RUST)
 
 
 func _on_player_building_damaged(building: BuildingBase, _hp_loss: int) -> void:
@@ -2184,7 +2184,7 @@ func _set_production_rally(building: BuildingBase, target_tile: Vector2i) -> boo
 	# Hidden terrain never changes acceptance. The normal paid birth and rally
 	# path later resolve its legal endpoint without exposing unseen blockers.
 	if not in_bounds or (game_map.is_tile_visible_to_player(target_tile, 0) and not game_map.is_tile_walkable(target_tile)):
-		hud.show_notification("Rally point unavailable. Choose another location.", Color(1.0, 0.62, 0.32))
+		hud.show_notification("Can't rally there", Color(1.0, 0.62, 0.32))
 		return false
 	var world: Vector2 = game_map.tile_to_world(target_tile)
 	building.set_rally_point(world)
@@ -2258,7 +2258,7 @@ func _on_queue_order_command(world_position: Vector2, target: Node2D) -> void:
 			if selected.enqueue_rally_order(order): accepted += 1
 	if accepted > 0:
 		VFX.move_indicator(get_tree(), world_position)
-		hud.show_notification("Destination queued. A new tap order or Stop clears the queue.")
+		hud.show_notification("Waypoint added")
 
 
 func _queue_movement_orders(units: Array[UnitBase], target_tile: Vector2i, owner: int) -> int:
@@ -2374,7 +2374,7 @@ func _on_attack_command(target: Node2D) -> void:
 			if node.damage > 0.0:
 				armed_units += 1
 	if own_units > 0 and armed_units == 0:
-		hud.show_notification("Scouts are unarmed. Move to explore or contest the Sacred Site.", KingdomTheme.RUST)
+		hud.show_notification("Scouts are unarmed · send them exploring", KingdomTheme.RUST)
 		_refresh_unit_command_hud()
 		return
 	if NetworkSession.is_client():
@@ -2464,7 +2464,7 @@ func _on_trade_command(post: Node2D) -> void:
 	for unit: Node2D in game_map.selection_mgr.selected:
 		if unit is Trader and unit.player_owner == 0:
 			accepted = unit.command_trade(post) or accepted
-	hud.show_notification("Trade route started." if accepted else "Build your Trade Post farther from a Town Center, with a clear route.")
+	hud.show_notification("Trade route started." if accepted else "Trade Post too close or blocked")
 
 
 func _on_build_command(building: Node2D) -> void:
@@ -3010,7 +3010,7 @@ func _on_guidance_dismissed() -> void:
 	hud.set_guided_military_shortcuts_visible(false)
 	hud.set_pending_military_shortcut(false)
 	_clear_guidance_state()
-	hud.show_notification("Guided opener dismissed. All controls are available.", Color(0.68, 0.86, 1.0))
+	hud.show_notification("Guide off · everything unlocked", Color(0.68, 0.86, 1.0))
 	_refresh_first_session_diagnostics()
 	_update_progression_hint()
 
@@ -3063,7 +3063,7 @@ func _on_building_selected_for_placement(building_type: int) -> void:
 	_on_placement_preview_changed(_building_placement.is_valid_placement, _building_placement.get_preview_hint())
 	_sync_hud_modal_state()
 	if _guided_opening_active and _guided_stage == GuidedOpeningStage.BUILD_HOUSE and building_type == BuildingData.BuildingType.HOUSE:
-		hud.show_notification("House preview ready. Green ground is clear to build.", Color(0.95, 0.86, 0.42))
+		hud.show_notification("Green ground is clear", Color(0.95, 0.86, 0.42))
 	_refresh_first_session_diagnostics()
 	_update_progression_hint()
 

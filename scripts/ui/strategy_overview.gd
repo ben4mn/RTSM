@@ -210,11 +210,11 @@ func _ready() -> void:
 	_recruit_empty.name = "RecruitEmpty"
 	_recruit_empty.add_theme_constant_override("separation", 8)
 	content.add_child(_recruit_empty)
-	var recruit_heading: Label = _label("Build your first fighting force", 18)
+	var recruit_heading: Label = _label("No army yet", 18)
 	KingdomTheme.apply_heading(recruit_heading, 18)
 	_recruit_empty.add_child(recruit_heading)
-	_recruit_empty.add_child(_label("A Barracks trains Warriors. Scouts explore but cannot fight."))
-	_barracks_button = _icon_button("build", "Plan a paid Barracks", "PlanBarracks", 200, "Build Barracks · 120W")
+	_recruit_empty.add_child(_label("Barracks train Warriors."))
+	_barracks_button = _icon_button("build", "Plan a paid Barracks", "PlanBarracks", 168, "Barracks · 120W")
 	_barracks_button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	_barracks_button.pressed.connect(func() -> void: barracks_requested.emit())
 	_recruit_empty.add_child(_barracks_button)
