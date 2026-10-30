@@ -1,6 +1,19 @@
 {
   "releases": [
     {
+      "id": "2026-10-29-a-warmer-welcome",
+      "date": "2026-10-29",
+      "version": "0.3.0-beta.26",
+      "title": "A warmer welcome",
+      "summary": "A new match menu and livelier start screens.",
+      "changes": [
+        "The match menu is new: your village beside a big Resume, Save & exit, and round Settings, Guide and Report buttons. Lessons is one tap below. It no longer sits under the browser's Updates and Full screen buttons.",
+        "On the start screen the village gently breathes and a gold star twinkles. Turn on Reduced motion in Settings to keep it still.",
+        "Choosing AI difficulty shows one to three pips, and the battle setup has rounder cards and a shorter rules line.",
+        "Online play is unchanged: beta 25 and 26 can play together."
+      ]
+    },
+    {
       "id": "2026-10-29-softer-simpler",
       "date": "2026-10-29",
       "version": "0.3.0-beta.25",

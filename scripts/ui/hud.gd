@@ -55,6 +55,8 @@ const MOBILE_ACTION_MIN_BUTTON_WIDTH := 104.0
 const MOBILE_ACTION_MAX_BUTTON_WIDTH := 116.0
 const MOBILE_ACTION_GAP := 6.0
 const PLACEMENT_BUTTON_WIDTHS: Array[float] = [112.0, 100.0, 56.0]
+const PAUSE_MENU_WIDTH := 248.0
+const PAUSE_WEB_TOOLS_WIDTH := 290.0
 const MOBILE_ACTION_MARGIN := 8.0
 const MOBILE_ACTION_INNER_PADDING := 4.0
 const MOBILE_ACTION_VERTICAL_PADDING := 0.0
@@ -980,6 +982,13 @@ func _toggle_pause_overlay(show: bool) -> void:
 	if _pause_overlay != null:
 		_pause_overlay.visible = show
 		_pause_overlay.mouse_filter = Control.MOUSE_FILTER_STOP if show else Control.MOUSE_FILTER_IGNORE
+		var help := _pause_overlay.get_node_or_null("PauseMenu/PauseHelpLabel") as Label
+		if show and help != null and not NetworkSession.is_client():
+			var clock: String = game_time_label.text.strip_edges() if game_time_label != null else ""
+			help.text = ("%s · Esc or P to resume" % clock) if not clock.is_empty() else "Esc or P to resume"
+		if show:
+			var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+			_layout_pause_menu(viewport_size, _get_safe_area_rect(viewport_size))
 	_refresh_touch_target_diagnostics()
 	if show:
 		call_deferred("_refresh_touch_target_diagnostics")
@@ -989,34 +998,44 @@ func _create_pause_overlay() -> void:
 	var online: bool = NetworkSession.is_client()
 	_pause_overlay = ColorRect.new()
 	_pause_overlay.name = "PauseOverlay"
-	_pause_overlay.color = Color(KingdomTheme.INK, 0.84)
+	_pause_overlay.color = Color(KingdomTheme.INK, 0.78)
 	_pause_overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_pause_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
 	_pause_overlay.process_mode = Node.PROCESS_MODE_ALWAYS
 	_pause_overlay.z_index = 100
+	var root_theme: Theme = ($Root as Control).theme
 
 	var vbox := VBoxContainer.new()
 	vbox.name = "PauseMenu"
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	vbox.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	vbox.custom_minimum_size = Vector2(250, 0)
-	vbox.add_theme_constant_override("separation", 10)
+	vbox.custom_minimum_size = Vector2(PAUSE_MENU_WIDTH, 0)
+	vbox.add_theme_constant_override("separation", 6)
 	vbox.process_mode = Node.PROCESS_MODE_ALWAYS
 
 	var title := Label.new()
-	title.text = "The battle continues" if online else "A moment of counsel"
+	title.name = "PauseTitle"
+	title.text = "Match running" if online else "Paused"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	KingdomTheme.apply_heading(title, 24)
+	KingdomTheme.apply_heading(title, 26)
+	title.add_theme_font_override("font", KingdomTheme.FONT_HEADING)
 	vbox.add_child(title)
 
-	var sep := HSeparator.new()
-	vbox.add_child(sep)
+	var pause_help := Label.new()
+	pause_help.name = "PauseHelpLabel"
+	pause_help.text = "Still running · leaving forfeits" if online else "Esc or P to resume"
+	pause_help.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	pause_help.custom_minimum_size = Vector2(PAUSE_MENU_WIDTH, 16)
+	pause_help.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	pause_help.clip_text = true
+	pause_help.add_theme_font_size_override("font_size", 12)
+	pause_help.add_theme_color_override("font_color", KingdomTheme.AMBER)
+	vbox.add_child(pause_help)
 
 	var resume_btn := Button.new()
 	resume_btn.name = "ResumeButton"
-	resume_btn.text = "Return to match" if online else "Resume"
-	resume_btn.tooltip_text = "Return to match [Esc / P]"
-	resume_btn.custom_minimum_size = Vector2(296, 48)
+	resume_btn.theme = root_theme
+	resume_btn.custom_minimum_size = Vector2(PAUSE_MENU_WIDTH, 50)
 	resume_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	resume_btn.process_mode = Node.PROCESS_MODE_ALWAYS
 	resume_btn.pressed.connect(func() -> void:
@@ -1024,86 +1043,69 @@ func _create_pause_overlay() -> void:
 	)
 	vbox.add_child(resume_btn)
 	KingdomTheme.apply_primary(resume_btn)
-
-	var pause_help := Label.new()
-	pause_help.name = "PauseHelpLabel"
-	pause_help.text = "Online match · Play continues. Leaving forfeits." if online else "Battle paused · Esc / P to resume"
-	pause_help.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	pause_help.custom_minimum_size = Vector2(250, 18)
-	pause_help.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	pause_help.clip_text = true
-	pause_help.add_theme_font_size_override("font_size", 13)
-	pause_help.add_theme_color_override("font_color", KingdomTheme.MUTED)
-	vbox.add_child(pause_help)
+	CommandIcons.apply(resume_btn, "resume", "Return to match [Esc / P]", "Back to battle" if online else "Resume")
+	resume_btn.add_theme_font_size_override("font_size", 18)
+	FieldStyle.soften(resume_btn, 24)
 	if not online:
 		_save_exit_button = Button.new()
 		_save_exit_button.name = "SaveAndExitButton"
-		_save_exit_button.text = "Save & exit"
-		_save_exit_button.custom_minimum_size = Vector2(296, 48)
+		_save_exit_button.theme = root_theme
+		_save_exit_button.custom_minimum_size = Vector2(PAUSE_MENU_WIDTH, 48)
 		_save_exit_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		_save_exit_button.pressed.connect(func() -> void: save_and_exit_requested.emit())
 		vbox.add_child(_save_exit_button)
+		CommandIcons.apply(_save_exit_button, "back", "Save the match and return to the menu", "Save & exit")
+		FieldStyle.soften(_save_exit_button, 24, true)
 		_save_status_label = Label.new()
 		_save_status_label.name = "SavedStatus"
 		_save_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		_save_status_label.custom_minimum_size.x = 320
+		_save_status_label.custom_minimum_size.x = PAUSE_MENU_WIDTH
 		_save_status_label.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		_save_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		_save_status_label.add_theme_font_size_override("font_size", 12)
+		_save_status_label.add_theme_font_size_override("font_size", 11)
+		_save_status_label.add_theme_color_override("font_color", KingdomTheme.MUTED)
 		vbox.add_child(_save_status_label)
 		set_save_status(_save_status)
 
-	# Keep reporting reachable without adding another vertical phone menu row.
+	# Small round tools under the two big choices: an icon and one word each.
 	var utility_row := HBoxContainer.new()
 	utility_row.name = "UtilityRow"
 	utility_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	utility_row.add_theme_constant_override("separation", 8)
 	vbox.add_child(utility_row)
-	var sound_btn := Button.new()
-	sound_btn.name = "SettingsButton"
-	sound_btn.text = "Settings"
-	sound_btn.custom_minimum_size = Vector2(128, 48)
-	sound_btn.add_theme_font_size_override("font_size", 15)
-	sound_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	sound_btn.process_mode = Node.PROCESS_MODE_ALWAYS
+	var sound_btn := _pause_tool("SettingsButton", "settings", "Settings: sound, controls and display", "Settings")
 	sound_btn.pressed.connect(func() -> void:
 		load("res://scripts/ui/settings_panel.gd").open(_pause_overlay, true)
 	)
 	utility_row.add_child(sound_btn)
-	var guide_btn := Button.new()
-	guide_btn.name = "FieldGuideButton"
-	guide_btn.theme = ($Root as Control).theme
-	guide_btn.custom_minimum_size = Vector2(48, 48)
-	guide_btn.process_mode = Node.PROCESS_MODE_ALWAYS
-	CommandIcons.apply_labeled(guide_btn, "info", "Field guide: learn icons, orders and resource costs", "Guide")
+	var guide_btn := _pause_tool("FieldGuideButton", "info", "Field guide: learn icons, orders and resource costs", "Guide")
 	guide_btn.pressed.connect(func() -> void: _set_secondary_surface(SecondarySurface.HELP))
 	utility_row.add_child(guide_btn)
-	var report_btn := Button.new()
-	report_btn.name = "ReportProblemButton"
-	report_btn.text = "Report problem"
-	report_btn.custom_minimum_size = Vector2(160, 48)
-	report_btn.add_theme_font_size_override("font_size", 15)
-	report_btn.process_mode = Node.PROCESS_MODE_ALWAYS
+	var report_btn := _pause_tool("ReportProblemButton", "queue", "Report a problem", "Report")
 	report_btn.pressed.connect(func() -> void: problem_report_requested.emit())
 	utility_row.add_child(report_btn)
-	_match_learning_button = Button.new()
-	_match_learning_button.name = "MatchLearningButton"
-	_match_learning_button.text = "Lessons: on" if _match_learning_active else "Battle lessons"
-	_match_learning_button.custom_minimum_size = Vector2(192, 48)
-	_match_learning_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	_match_learning_button.process_mode = Node.PROCESS_MODE_ALWAYS
-	_match_learning_button.pressed.connect(func() -> void: match_learning_requested.emit())
 	var departure_row := HBoxContainer.new()
 	departure_row.name = "DepartureRow"
 	departure_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	departure_row.add_theme_constant_override("separation", 8)
-	vbox.add_child(departure_row)
-	_match_learning_button.custom_minimum_size.x = 144
+	utility_row.add_sibling(departure_row)
+	_match_learning_button = Button.new()
+	_match_learning_button.name = "MatchLearningButton"
+	_match_learning_button.theme = root_theme
+	_match_learning_button.custom_minimum_size = Vector2(152, 48)
+	_match_learning_button.focus_mode = Control.FOCUS_NONE
+	_match_learning_button.process_mode = Node.PROCESS_MODE_ALWAYS
+	CommandIcons.apply(_match_learning_button, "age_up", "Battle lessons", "Lessons")
 	_match_learning_button.add_theme_font_size_override("font_size", 14)
+	FieldStyle.soften(_match_learning_button, 24, true)
+	_match_learning_button.toggle_mode = true
+	_match_learning_button.set_pressed_no_signal(_match_learning_active)
+	_match_learning_button.pressed.connect(func() -> void: match_learning_requested.emit())
 	departure_row.add_child(_match_learning_button)
 	_match_learning_button.visible = not online
-
+	_refresh_match_learning_button()
 	if online:
+		# Online, Lessons give way to the one way out of the match.
 		var quit_btn := Button.new()
 		quit_btn.name = "QuitButton"
 		quit_btn.text = "Leave match"
@@ -1123,10 +1125,26 @@ func _create_pause_overlay() -> void:
 	var frame := Panel.new()
 	frame.name = "PauseFrame"
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var frame_style := FieldStyle.surface(18)
+	var frame_style := FieldStyle.surface(22)
 	frame_style.border_width_top = 2
+	frame_style.border_color = Color(KingdomTheme.GOLD, 0.55)
+	frame_style.shadow_size = 18
+	frame_style.shadow_color = Color(0, 0, 0, 0.35)
 	frame.add_theme_stylebox_override("panel", frame_style)
 	_pause_overlay.add_child(frame)
+	# The kingdom's little village sits beside the choices when there is room.
+	var art := Control.new()
+	art.name = "PauseArt"
+	art.set_script(load("res://scripts/ui/menu_diorama.gd"))
+	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_pause_overlay.add_child(art)
+	var crest := TextureRect.new()
+	crest.name = "PauseCrest"
+	crest.texture = load("res://assets/ui/pocket_kingdoms_crest.svg")
+	crest.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	crest.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	crest.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_pause_overlay.add_child(crest)
 	_pause_overlay.add_child(vbox)
 	vbox.minimum_size_changed.connect(func() -> void:
 		var current_size: Vector2 = get_viewport().get_visible_rect().size
@@ -1139,6 +1157,30 @@ func _create_pause_overlay() -> void:
 	call_deferred("_refresh_touch_target_diagnostics")
 
 
+func _pause_tool(node_name: String, icon: String, accessible: String, caption: String) -> Button:
+	var button := Button.new()
+	button.name = node_name
+	button.theme = ($Root as Control).theme
+	button.custom_minimum_size = Vector2(72, 52)
+	button.focus_mode = Control.FOCUS_NONE
+	button.process_mode = Node.PROCESS_MODE_ALWAYS
+	CommandIcons.apply_labeled(button, icon, accessible, caption)
+	if button.icon == null:
+		button.icon = load("res://assets/ui/icons/%s.svg" % icon)
+	button.add_theme_font_size_override("font_size", 11)
+	FieldStyle.soften(button, 18, true)
+	return button
+
+
+func _refresh_match_learning_button() -> void:
+	if not is_instance_valid(_match_learning_button):
+		return
+	_match_learning_button.set_pressed_no_signal(_match_learning_active)
+	_match_learning_button.text = "Lessons on" if _match_learning_active else "Lessons"
+	_match_learning_button.tooltip_text = "Stop battle lessons" if _match_learning_active else "Learn full match: tips through the whole battle"
+	_match_learning_button.accessibility_name = _match_learning_button.tooltip_text
+
+
 func _layout_pause_menu(viewport_size: Vector2, safe_area: Rect2) -> void:
 	if _pause_overlay == null:
 		return
@@ -1148,16 +1190,47 @@ func _layout_pause_menu(viewport_size: Vector2, safe_area: Rect2) -> void:
 	var safe_bounds: Rect2 = safe_area.intersection(Rect2(Vector2.ZERO, viewport_size))
 	if not safe_bounds.has_area():
 		safe_bounds = Rect2(Vector2.ZERO, viewport_size)
+	var web_tools_clearance: float = 0.0
+	if _pause_overlay.visible:
+		# The browser's Updates / Full screen buttons sit in the top-right corner
+		# while the match menu is open. Keep the card clear of them: beside them
+		# on wide screens, below them otherwise.
+		web_tools_clearance = preload("res://scripts/ui/web_shell_bridge.gd").get_menu_top_clearance(viewport_size)
 	var available_size := Vector2(maxf(200.0, safe_bounds.size.x - 16.0), maxf(200.0, safe_bounds.size.y - 16.0))
 	var desired_size: Vector2 = pause_menu.get_combined_minimum_size()
 	desired_size.x = minf(maxf(250.0, desired_size.x), available_size.x)
 	desired_size.y = minf(desired_size.y, available_size.y)
 	pause_menu.size = desired_size
-	pause_menu.position = safe_bounds.position + (safe_bounds.size - desired_size) * 0.5
+	var art := _pause_overlay.get_node_or_null("PauseArt") as Control
+	var crest := _pause_overlay.get_node_or_null("PauseCrest") as Control
+	# Landscape phones get a two-part card: the village on the left, choices on
+	# the right. Narrow screens keep the choices alone.
+	var art_width: float = clampf(desired_size.y * 0.72, 170.0, 230.0)
+	var show_art: bool = available_size.x >= desired_size.x + art_width + 72.0
+	var card_width: float = desired_size.x + (art_width + 24.0 if show_art else 0.0)
+	var card_left: float = safe_bounds.position.x + (safe_bounds.size.x - card_width) * 0.5
+	if web_tools_clearance > 0.0:
+		var beside_tools: float = viewport_size.x - PAUSE_WEB_TOOLS_WIDTH - 24.0 - card_width
+		if beside_tools >= safe_bounds.position.x + 8.0:
+			card_left = minf(card_left, beside_tools)
+		elif web_tools_clearance > safe_bounds.position.y and safe_bounds.end.y - web_tools_clearance >= desired_size.y + 16.0:
+			safe_bounds = Rect2(Vector2(safe_bounds.position.x, web_tools_clearance), Vector2(safe_bounds.size.x, safe_bounds.end.y - web_tools_clearance))
+	pause_menu.position = Vector2(card_left + (art_width + 24.0 if show_art else 0.0), safe_bounds.position.y + (safe_bounds.size.y - desired_size.y) * 0.5)
+	if art:
+		art.visible = show_art
+		var art_height: float = minf(desired_size.y - 52.0, art_width * 0.92)
+		art.size = Vector2(art_width, maxf(80.0, art_height))
+		art.position = Vector2(card_left, pause_menu.position.y + 52.0 + (desired_size.y - 52.0 - art.size.y) * 0.5)
+	if crest:
+		crest.visible = show_art
+		crest.size = Vector2(40, 40)
+		crest.position = Vector2(card_left + art_width * 0.5 - 20.0, pause_menu.position.y + 4.0)
 	var frame := _pause_overlay.get_node_or_null("PauseFrame") as Control
 	if frame:
-		frame.position = pause_menu.position - Vector2(20, 14)
-		frame.size = pause_menu.size + Vector2(40, 28)
+		var inner := Rect2(Vector2(card_left, pause_menu.position.y), Vector2(card_width, desired_size.y))
+		var margin := Vector2(minf(20.0, maxf(0.0, (viewport_size.x - inner.size.x) * 0.5 - 2.0)), minf(14.0, maxf(0.0, (viewport_size.y - inner.size.y) * 0.5 - 2.0)))
+		frame.position = inner.position - margin
+		frame.size = inner.size + margin * 2.0
 
 
 func _set_gameplay_ui_interactable(interactable: bool) -> void:
@@ -2477,8 +2550,7 @@ func set_match_learning_active(active: bool) -> void:
 	if _guidance_dismiss_button:
 		_guidance_dismiss_button.visible = active or _early_game_ui_active
 		_guidance_dismiss_button.tooltip_text = "Stop battle lessons" if active else "End guided opener"
-	if _match_learning_button:
-		_match_learning_button.text = "Battle lessons: ON" if active else "Learn full match"
+	_refresh_match_learning_button()
 	_queue_mobile_layout_refresh()
 
 
@@ -5039,7 +5111,7 @@ func set_save_status(status: Dictionary) -> void:
 		_save_status_label.tooltip_text = reason
 		var menu := _save_status_label.get_parent() as VBoxContainer
 		if menu:
-			menu.add_theme_constant_override("separation", 6 if failed else 10)
+			menu.add_theme_constant_override("separation", 4 if failed else 6)
 
 
 func _layout_summary_info_target() -> void:

@@ -201,6 +201,8 @@ func _build_interface() -> void:
 	_header.add_child(_back_button)
 	_page_title = _label("POCKET KINGDOMS", 22)
 	_apply_heading(_page_title, 22)
+	_page_title.add_theme_font_override("font", THEME.FONT_HEADING)
+	_page_title.add_theme_color_override("font_color", GOLD)
 	_page_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_header.add_child(_page_title)
 	_browser_header_space = Control.new()
@@ -404,14 +406,14 @@ func _build_setup() -> void:
 		button.accessibility_name = MapData.get_archetype_name(archetype) + ". " + button.tooltip_text
 		button.toggle_mode = true
 		button.button_group = group
-		var card_style: StyleBoxFlat = THEME.panel_style(PAPER, Color("a9b29a"), 16)
+		var card_style: StyleBoxFlat = THEME.panel_style(PAPER, Color("a9b29a"), 20)
 		card_style.set_content_margin_all(8)
 		button.add_theme_stylebox_override("normal", card_style)
 		var hover_style: StyleBoxFlat = card_style.duplicate()
 		hover_style.bg_color = Color("f2ead8")
 		hover_style.border_color = GOLD
 		button.add_theme_stylebox_override("hover", hover_style)
-		var selected_style: StyleBoxFlat = THEME.panel_style(Color("f1e4c3"), GOLD, 16)
+		var selected_style: StyleBoxFlat = THEME.panel_style(Color("f1e4c3"), GOLD, 20)
 		selected_style.set_border_width_all(2)
 		button.add_theme_stylebox_override("pressed", selected_style)
 		button.add_theme_stylebox_override("hover_pressed", selected_style)
@@ -455,7 +457,7 @@ func _build_setup() -> void:
 func _build_selected_map_card() -> void:
 	_map_choice_button = _button("", "SelectedBattlefieldButton", _toggle_map_picker)
 	_map_choice_button.size_flags_vertical = Control.SIZE_FILL
-	var normal: StyleBoxFlat = THEME.panel_style(PAPER, Color("a9b29a"), 8)
+	var normal: StyleBoxFlat = THEME.panel_style(PAPER, Color("a9b29a"), 18)
 	var hover: StyleBoxFlat = normal.duplicate()
 	hover.bg_color = Color("f2ead8")
 	hover.border_color = GOLD
@@ -529,7 +531,7 @@ func _build_options() -> void:
 	var options_style: StyleBoxFlat = THEME.inset_panel()
 	options_style.bg_color = PANEL
 	options_style.border_color = BORDER
-	options_style.set_corner_radius_all(14)
+	options_style.set_corner_radius_all(20)
 	_options_panel.add_theme_stylebox_override("panel", options_style)
 	_columns.add_child(_options_panel)
 	_options_scroll = ScrollContainer.new()
@@ -561,6 +563,23 @@ func _build_options() -> void:
 		button.add_theme_font_size_override("font_size", 14)
 		button.add_theme_stylebox_override("normal", _small_button_style("normal"))
 		button.add_theme_stylebox_override("pressed", _small_button_style("pressed"))
+		# One to three gold pips show the pressure at a glance.
+		var pips := Control.new()
+		pips.name = "Pips"
+		pips.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		pips.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+		pips.offset_top = -11
+		pips.offset_bottom = -4
+		var level: int = i + 1
+		pips.draw.connect(func() -> void:
+			var pressed: bool = button.button_pressed
+			for pip: int in 3:
+				var center := Vector2(pips.size.x * 0.5 + (float(pip) - 1.0) * 10.0, 3.5)
+				var lit: bool = pip < level
+				pips.draw_circle(center, 3.0, (INK if pressed else GOLD) if lit else Color(MUTED, 0.35))
+		)
+		button.toggled.connect(func(_on: bool) -> void: pips.queue_redraw())
+		button.add_child(pips)
 		_difficulty_row.add_child(button)
 		_difficulty_buttons.append(button)
 	difficulty_description = _label("", 13, true)
@@ -759,9 +778,9 @@ func _create_menu_theme() -> Theme:
 		var style: StyleBoxFlat = result.get_stylebox(state, "LineEdit").duplicate()
 		style.bg_color = INK
 		style.border_color = TEAL if state == "focus" else BORDER
-		style.set_corner_radius_all(8)
-		style.content_margin_left = 12
-		style.content_margin_right = 12
+		style.set_corner_radius_all(16)
+		style.content_margin_left = 14
+		style.content_margin_right = 14
 		result.set_stylebox(state, "LineEdit", style)
 	result.set_stylebox("panel", "PopupMenu", THEME.panel_style(PANEL, BORDER, 10))
 	return result
@@ -801,7 +820,7 @@ func _apply_pill(button: Button) -> void:
 
 func _menu_button_style(kind: String = "secondary", state: String = "normal") -> StyleBoxFlat:
 	var style: StyleBoxFlat = THEME.button_style(kind, state)
-	style.set_corner_radius_all(10)
+	style.set_corner_radius_all(THEME.BUTTON_RADIUS)
 	style.border_width_bottom = 1
 	style.bg_color = GOLD if kind == "primary" or state == "pressed" else PANEL_LIGHT
 	style.border_color = GOLD if kind == "primary" else BORDER
@@ -827,7 +846,7 @@ func _build_civilization_choice() -> Button:
 	button.add_theme_constant_override("icon_max_width", 28)
 	for state: String in ["normal", "hover", "pressed", "disabled"]:
 		var style: StyleBoxFlat = _menu_button_style("secondary", state)
-		style.set_corner_radius_all(10)
+		style.set_corner_radius_all(18)
 		style.content_margin_left = 10
 		style.border_width_bottom = 1
 		if state == "normal":
@@ -889,7 +908,7 @@ func _label(text: String, font_size: int, wrap: bool = false) -> Label:
 
 func _small_button_style(state: String) -> StyleBoxFlat:
 	var style: StyleBoxFlat = _menu_button_style("secondary", state)
-	style.set_corner_radius_all(8)
+	style.set_corner_radius_all(16)
 	style.border_width_bottom = 1
 	style.content_margin_left = 7
 	style.content_margin_right = 7
@@ -921,6 +940,19 @@ func _show_screen(screen: String) -> void:
 		surface.modulate.a = 0.0
 		_transition = create_tween()
 		_transition.tween_property(surface, "modulate:a", 1.0, 0.16)
+		# Choices arrive one after another, settling from slightly small.
+		var lineup: Array[Control] = []
+		for child: Node in (_home_actions if screen == "home" else _columns).get_children() if DisplayServer.get_name() != "headless" else []:
+			if child is Control and (child as Control).visible:
+				lineup.append(child as Control)
+		for index: int in lineup.size():
+			var item: Control = lineup[index]
+			item.pivot_offset = item.size * 0.5
+			item.scale = Vector2(0.94, 0.94)
+			item.modulate.a = 0.0
+			var settle: Tween = create_tween().set_parallel(true)
+			settle.tween_property(item, "modulate:a", 1.0, 0.22).set_delay(0.05 + 0.06 * index)
+			settle.tween_property(item, "scale", Vector2.ONE, 0.28).set_delay(0.05 + 0.06 * index).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	call_deferred("_refresh_responsive_layout")
 
 
@@ -974,7 +1006,7 @@ func _refresh_selection() -> void:
 	_selection_summary.text = "%s\n%s" % [MapData.get_archetype_name(archetype), "Shared battlefield · Standard rules" if online else "%s · %s AI · %d population" % [SkirmishData.get_mode_name(GameManager.selected_match_mode), DIFFICULTY_NAMES[_selected_difficulty], _selected_population_limit]]
 	if not online and _has_solo_save():
 		_selection_summary.text = "%s\nReplaces your saved solo" % MapData.get_archetype_name(archetype)
-	_rules_description.text = "Hold the Sacred Site for gold; from 8:00 a held site runs a victory clock. Or defeat the rival town." if GameManager.selected_match_mode == SkirmishData.MatchMode.STANDARD else "Faster Feudal advance. The Sacred Site clock runs while you own it."
+	_rules_description.text = "Hold the Sacred Site from 8:00, or raze the rival town." if GameManager.selected_match_mode == SkirmishData.MatchMode.STANDARD else "Faster ages. The Sacred Site clock runs while held."
 	_advanced_button.text = "More options  ·  %d population" % _selected_population_limit
 	_page_title.text = "" if _screen == "home" else ("Online 1v1" if online else "Solo battle")
 	_refresh_civilizations(room)
