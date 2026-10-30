@@ -379,7 +379,10 @@ func _allocate_worker(source: String, destination: String) -> void:
 	if result.has("worker"):
 		var worker: Villager = result.worker
 		worker_allocation_accepted.emit(destination)
-		_overview.show_feedback("Moved one worker from %s to %s.%s" % [source, destination, " Cargo kept." if worker.carried_amount > 0 and worker.carried_resource_type != destination else ""])
+		if bool(result.get("remembered", false)):
+			_overview.show_feedback("None in sight. Sent one to %s you've seen." % destination)
+		else:
+			_overview.show_feedback("Moved one worker from %s to %s.%s" % [source, destination, " Cargo kept." if worker.carried_amount > 0 and worker.carried_resource_type != destination else ""])
 		var diagnostics: Node = get_node_or_null("/root/PlaytestDiagnostics")
 		if diagnostics:
 			diagnostics.call("record_event", "economy_reallocation", {"source": source, "destination": destination, "worker": str(worker.get_path()), "cargo": worker.carried_amount})
@@ -412,11 +415,17 @@ func try_allocate_worker(owner: int, source: String, destination: String) -> Dic
 			if _main.has_method("_supersede_worker_orders"):
 				_main.call("_supersede_worker_orders", owner, [worker])
 			return {"worker": worker}
+	# Beta 31: nothing in sight, but the player has explored more of it. Send
+	# the worker to the nearest remembered one (fog-safe, position only).
+	if not candidates.is_empty() and candidates[0].call("_try_remembered_resource", _map, destination):
+		if _main.has_method("_supersede_worker_orders"):
+			_main.call("_supersede_worker_orders", owner, [candidates[0]])
+		return {"worker": candidates[0], "remembered": true}
 	# Short enough for the workers panel's one feedback line (beta 30: the old
 	# sentence was cut off mid-word on phones).
 	if candidates.is_empty():
 		return {"error": "No %s worker is free." % source}
-	return {"error": "No free food. Build a Farm." if destination == "food" else "No %s in sight. Scout for more." % destination, "no_work": true}
+	return {"error": "No free food. Build a Farm." if destination == "food" else "No %s seen yet. Scout for more." % destination, "no_work": true}
 
 
 func _owned_producer(building: Node2D) -> ProductionQueue:

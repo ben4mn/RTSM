@@ -19,7 +19,7 @@ const ENTRIES: Array = [
 	["stop", "Stop", "Stop selected units at their current position. Their stance still decides how they respond to nearby enemies."],
 	["stance", "Stance", "Aggro lets armed units pursue nearby enemies. Guard keeps them in place while fighting enemies within reach. The button always shows the current stance."],
 	["patrol", "Patrol", "Choose Patrol, then tap a destination. Selected armed units travel between their starting position and that point."],
-	["idle", "Idle workers", "Find a worker without a job. The badge counts idle workers. Tap again to cycle through them. In the workers panel, tap + under food when every farm and bush is taken to place a new Farm straight away."],
+	["idle", "Idle workers", "Find a worker without a job. The badge counts idle workers. Tap again to cycle through them. In the workers panel, tap + under food when every farm and bush is taken to place a new Farm straight away. When the wood or gold in sight runs out, workers walk to the nearest you have already explored."],
 	["base", "Home", "Return to your Town Center to recruit workers and Scouts. On desktop, press H."],
 	["view", "Camera", "Tap the camera icon to reveal or collapse navigation tools. Select area and Clear are inside this tray. Plus and minus zoom; the target centers your selection; Reset returns to the starting scale. Drag the battlefield to pan or pinch to zoom."],
 	["pause", "Match menu", "Open Settings, the Guide or match options. Solo matches pause. Online matches keep running for both players."],

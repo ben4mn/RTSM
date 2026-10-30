@@ -1,6 +1,19 @@
 {
   "releases": [
     {
+      "id": "2026-10-30-keep-working",
+      "date": "2026-10-30",
+      "version": "0.3.0-beta.32",
+      "title": "Keep working",
+      "summary": "Workers walk on when nearby wood runs out.",
+      "changes": [
+        "When the trees (or gold, or berries) near your workers run out and none are in sight, they now walk to the nearest ones you've already explored instead of standing idle.",
+        "They only go to what you have seen. If it was used up while you weren't looking, they stop there.",
+        "In the workers panel, + does the same: with none in sight it sends a worker to what you've seen. If you've seen none, it says to scout.",
+        "Online play is unchanged: beta 31 and 32 can play together."
+      ]
+    },
+    {
       "id": "2026-10-30-say-why",
       "date": "2026-10-30",
       "version": "0.3.0-beta.31",

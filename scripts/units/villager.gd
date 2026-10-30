@@ -1445,7 +1445,23 @@ func _try_retarget_resource() -> bool:
 		new_target = _lookup_resource_for_worker(game_map, carried_resource_type, global_position, {}, false)
 	if new_target != null and is_instance_valid(new_target):
 		return command_gather(new_target)
-	return false
+	return _try_remembered_resource(game_map, carried_resource_type)
+
+
+func _try_remembered_resource(game_map: Node2D, resource_type: String) -> bool:
+	## Beta 31: when nothing of this kind is in sight, walk to the nearest one
+	## the player has explored (fog memory) instead of standing idle. This uses
+	## the same position-only order as a rallied resource: the hidden node is
+	## not read until its tile is visible again.
+	if player_owner != 0 or game_map == null or resource_type not in ["food", "wood", "gold"]:
+		return false
+	var memory: Node = game_map.get("fog_memory") as Node
+	if not is_instance_valid(memory) or not memory.has_method("nearest_remembered_resource"):
+		return false
+	var seen: Dictionary = memory.call("nearest_remembered_resource", resource_type, global_position, player_owner)
+	if seen.is_empty():
+		return false
+	return command_gather_last_observed(resource_type, seen.position, int(seen.id), false)
 
 
 func _resume_gather_order_or_retarget() -> void:
