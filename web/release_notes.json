@@ -1,6 +1,18 @@
 {
   "releases": [
     {
+      "id": "2026-10-30-a-slimmer-dock",
+      "date": "2026-10-30",
+      "version": "0.3.0-beta.29",
+      "title": "A slimmer dock",
+      "summary": "More map, less panel.",
+      "changes": [
+        "With a building selected, the bottom panel is now as slim as it is for units, so you see a little more of the map.",
+        "Unit and upgrade tiles are a little shorter to fit; costs stay the same size.",
+        "Online play is unchanged: beta 28 and 29 can play together."
+      ]
+    },
+    {
       "id": "2026-10-30-lessons-joins-the-row",
       "date": "2026-10-30",
       "version": "0.3.0-beta.28",

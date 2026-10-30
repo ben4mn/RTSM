@@ -66,7 +66,9 @@ const MOBILE_MINIMAP_SHORT_SIDE_RATIO := 0.27
 const MOBILE_TOP_BAR_COMPACT_SHORT_SIDE := 520.0
 const MOBILE_TOP_BAR_COMPACT_WIDTH := 780.0
 const MOBILE_SELECTION_COMMAND_WIDTH := 520.0
-const MOBILE_SELECTION_HEIGHT := 68.0
+## Beta 29: 60 (was 68), the same as the unit dock. Production tiles are 54
+## tall and upgrade tiles 56 so both keep a little cloth around them.
+const MOBILE_SELECTION_HEIGHT := 60.0
 const MOBILE_UNIT_SELECTION_HEIGHT := 60.0
 const MOBILE_DOCK_CAPTION_HEIGHT := 24.0
 const MOBILE_TOP_RAIL_HEIGHT := 48.0
@@ -3676,7 +3678,8 @@ func _update_train_buttons(trainable_units: Array) -> void:
 			if bool(queued.get("is_training", false)) and int(queued.get("unit_type", -1)) == ut:
 				training_progress = float(queued.get("progress", 0.0))
 				break
-		ACTION_TILE.apply(btn, load(icon_path) if not icon_path.is_empty() else null, cost)
+		# Beta 29: a 54px tile keeps 3px of cloth above and below in the 60px dock.
+		ACTION_TILE.apply(btn, load(icon_path) if not icon_path.is_empty() else null, cost, Vector2(76, 54))
 		population_cost.hide()
 		btn.get_node("TilePortrait").modulate = Color(0.65, 0.65, 0.65) if blocked else Color.WHITE
 		btn.get_node("TileCosts").modulate = KingdomTheme.RUST if blocked else Color.WHITE
@@ -4026,7 +4029,7 @@ func _update_research_buttons(building_ref: Node2D) -> void:
 		var short_names: Dictionary = {"forging": "Forge", "scale_mail": "Mail"}
 		var short_effects: Dictionary = {"loom": "+15 worker HP"}
 		btn.text = "%s\n%s\n%s" % [short_names.get(research_id, rd["name"]), short_effects.get(research_id, rd["desc"]), " · ".join(costs)]
-		btn.custom_minimum_size = Vector2(80, 64)
+		btn.custom_minimum_size = Vector2(80, 56)
 		btn.clip_text = true
 		btn.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		btn.add_theme_font_size_override("font_size", 11)
