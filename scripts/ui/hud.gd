@@ -92,8 +92,10 @@ var _active_hold_component: Node = null
 var _hold_hints_shown: Dictionary = {}
 var _hold_chooser_active: bool = false
 const ACTION_TILE := preload("res://scripts/ui/compact_action_tile.gd")
+const DOUBLE_TAP := preload("res://scripts/ui/double_tap_gesture.gd")
 var _dock_collapsed: bool = false
 var _dock_toggle_button: Button
+var _dock_gesture: RefCounted = null
 var _building_rally_button: Button
 var _rally_armed: bool = false
 var _selection_portrait: Texture2D
@@ -4960,13 +4962,14 @@ func _create_compact_dock_controls() -> void:
 	FieldStyle.soften(_dock_toggle_button, 24, true)
 	row.add_child(_dock_toggle_button)
 	row.move_child(_dock_toggle_button, 0)
-	_dock_toggle_button.pressed.connect(func() -> void:
-		_cancel_hud_holds("dock collapse")
-		_dock_collapsed = not _dock_collapsed
-		_dock_toggle_button.icon = ACTION_TILE.chevron(_dock_collapsed)
-		_dock_toggle_button.tooltip_text = "Expand orders" if _dock_collapsed else "Collapse orders"
-		close_secondary_surface()
-		_queue_mobile_layout_refresh())
+	_dock_toggle_button.pressed.connect(func() -> void: set_dock_collapsed(not _dock_collapsed))
+	# Double-tap the dock's own background to tuck it into a pill; a tap on the
+	# pill brings the orders back. Buttons keep their own taps.
+	_dock_gesture = DOUBLE_TAP.attach([selection_panel, command_scroll, selection_info_column],
+		func() -> void: set_dock_collapsed(not _dock_collapsed),
+		func() -> void:
+			if _dock_collapsed:
+				set_dock_collapsed(false))
 	var portrait_space := Control.new()
 	portrait_space.name = "PortraitSpace"
 	portrait_space.custom_minimum_size = Vector2(48, 42)
@@ -4976,6 +4979,23 @@ func _create_compact_dock_controls() -> void:
 	_selection_info_button.expand_icon = true
 	_selection_info_button.add_theme_constant_override("icon_max_width", 34)
 	_selection_info_button.tooltip_text = "Tap portrait for details"
+
+
+func set_dock_collapsed(collapsed: bool) -> void:
+	if collapsed == _dock_collapsed:
+		return
+	_cancel_hud_holds("dock collapse")
+	_dock_collapsed = collapsed
+	if _dock_gesture != null:
+		_dock_gesture.call("reset")
+	_dock_toggle_button.icon = ACTION_TILE.chevron(_dock_collapsed)
+	_dock_toggle_button.tooltip_text = "Expand orders" if _dock_collapsed else "Collapse orders"
+	close_secondary_surface()
+	_queue_mobile_layout_refresh()
+
+
+func is_dock_collapsed() -> bool:
+	return _dock_collapsed
 
 
 func _refresh_selection_avatar() -> void:

@@ -27,6 +27,7 @@ const RAIL_BUTTON_SIZE := CommandIcons.TARGET_SIZE
 const RAIL_GAP := CommandIcons.GAP
 const RAIL_WIDTH := RAIL_BUTTON_SIZE * 3.0 + RAIL_GAP * 2.0
 const ACTION_TILE := preload("res://scripts/ui/compact_action_tile.gd")
+const DOUBLE_TAP := preload("res://scripts/ui/double_tap_gesture.gd")
 const JOB_CHIP_WIDTH := 64.0
 const JOB_CHIP_MIN_WIDTH := 54.0
 const TRAIN_CARD_WIDTH := 84.0
@@ -88,6 +89,7 @@ var _details: VBoxContainer
 var _detail_lines: Array[Label] = []
 var _details_page: bool = false
 var _last_panel_minimum := Vector2(-1.0, -1.0)
+var _tucking: bool = false
 
 
 func _ready() -> void:
@@ -123,7 +125,10 @@ func _ready() -> void:
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	# Header, padding and exhausted scroll gestures belong to the sheet.
 	panel.mouse_force_pass_scroll_events = false
-	panel.add_theme_stylebox_override("panel", FieldStyle.surface(16))
+	var sheet_style: StyleBoxFlat = FieldStyle.surface(16)
+	# A little more cloth around the tiles gives a double tap somewhere to land.
+	sheet_style.set_content_margin_all(8)
+	panel.add_theme_stylebox_override("panel", sheet_style)
 	panel.gui_input.connect(_on_gui_contact)
 	add_child(panel)
 	panel.minimum_size_changed.connect(_on_panel_minimum_changed)
@@ -183,6 +188,9 @@ func _ready() -> void:
 	_scroll.mouse_force_pass_scroll_events = false
 	_scroll.gui_input.connect(_on_gui_contact)
 	body.add_child(_scroll)
+	# Double-tap the sheet's background to tuck it into its launcher; the
+	# launcher brings it back on the same page.
+	DOUBLE_TAP.attach([panel, _scroll, body, header], tuck)
 	var content := VBoxContainer.new()
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_scroll.add_child(content)
@@ -696,6 +704,28 @@ func _clear_feedback() -> void:
 	_feedback.add_theme_color_override("font_color", KingdomTheme.MUTED)
 
 
+func tuck() -> void:
+	if _tucking or not panel.visible or _surface.is_empty():
+		return
+	_tucking = true
+	var launcher: Control = _economy_button if _surface == "economy" else _army_button
+	panel.pivot_offset = launcher.get_global_rect().get_center() - panel.get_global_rect().position
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var tween: Tween = create_tween().set_parallel(true).set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	tween.tween_property(panel, "scale", Vector2(0.12, 0.12), 0.16).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+	tween.tween_property(panel, "modulate:a", 0.0, 0.16)
+	tween.chain().tween_callback(func() -> void:
+		_tucking = false
+		panel.scale = Vector2.ONE
+		panel.modulate.a = 1.0
+		panel.mouse_filter = Control.MOUSE_FILTER_STOP
+		surface_requested.emit(""))
+
+
+func is_tucking() -> bool:
+	return _tucking
+
+
 func set_surface(surface: String) -> void:
 	var changed: bool = _surface != surface
 	_surface = surface
@@ -979,7 +1009,9 @@ func apply_layout(safe: Rect2, field_visible: bool, card_area: Rect2, dock_heigh
 	_fit_economy_rows(_sheet_width)
 	var sheet_slot_height: float = minf(310.0, card_area.size.y - 16.0)
 	var content_height: float = (_scroll.get_child(0) as Control).get_combined_minimum_size().y
-	var card_height: float = minf(sheet_slot_height, content_height + CommandIcons.TARGET_SIZE + 16.0)
+	# The sheet's cloth padding grew from 4 to 8px; its height grows with it.
+	var extra_padding: float = maxf(0.0, panel.get_theme_stylebox("panel").get_minimum_size().y - 8.0)
+	var card_height: float = minf(sheet_slot_height, content_height + CommandIcons.TARGET_SIZE + 16.0 + extra_padding)
 	if (_surface == "economy" or _army_recruit_page) and _details_page:
 		card_height = minf(card_height, 240.0)
 	if _surface == "army":
@@ -987,7 +1019,7 @@ func apply_layout(safe: Rect2, field_visible: bool, card_area: Rect2, dock_heigh
 		# Two pixels absorb container rounding at fractional interface scales.
 		var active_page: Control = _recruit_empty if _recruit_empty.visible else (_details if _details_page else _producer_list) if _army_recruit_page else (_army_notes if _details_page else _army)
 		content_height = active_page.get_combined_minimum_size().y
-		card_height = minf(card_height, content_height + CommandIcons.TARGET_SIZE + 14.0)
+		card_height = minf(card_height, content_height + CommandIcons.TARGET_SIZE + 14.0 + extra_padding)
 	_last_panel_minimum = panel.get_combined_minimum_size()
 	card_height = maxf(card_height, _last_panel_minimum.y)
 	var card_size := Vector2(_sheet_width, card_height)

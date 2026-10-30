@@ -2,7 +2,7 @@ extends RefCounted
 ## Shared explanations for Settings and the in-match Field Guide.
 
 const ENTRIES: Array = [
-	["more", "Compact dock", "Tap the chevron to collapse or expand orders. Tap the selected portrait for its name, health, role and current task. Icon tiles keep costs and progress visible."],
+	["more", "Compact dock", "Tap the chevron, or double-tap the dock's background, to tuck orders into a small pill; tap the pill to bring them back. Double-tap the workers panel or the build menu to tuck it into its button. Tap the selected portrait for its name, health, role and current task. Icon tiles keep costs and progress visible."],
 	["rally", "Rally flag", "Select a production building, tap its flag, then tap ground. Or hold the building and drag to the spot, then release. Tap a visible resource to send newly trained villagers straight to gathering. Tap the flag again to cancel."],
 	["move", "Move & waypoints", "Tap ground to move selected units. Hold ground to append a waypoint. A fresh tap or Stop replaces the route; Clear queued destinations removes only pending stops. With a production building selected, hold ground to add rally stops for new units."],
 	["attack", "Attack-move", "Select armed units, tap the swords, then tap a destination. Or hold the destination and pull your finger down, then release. They fight enemies along the way. Tap a visible enemy to attack it directly. Scouts are unarmed."],

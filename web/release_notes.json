@@ -1,6 +1,19 @@
 {
   "releases": [
     {
+      "id": "2026-10-29-tuck-it-away",
+      "date": "2026-10-29",
+      "version": "0.3.0-beta.24",
+      "title": "Tuck it away",
+      "summary": "Double-tap a panel to get it out of the way and see more of the map.",
+      "changes": [
+        "Double-tap an empty part of the orders dock to shrink it to a small pill. Tap the pill to bring your orders back.",
+        "Double-tap the workers panel or the build menu to tuck it into the button that opened it. That button brings it back where you left it, on the same page or building group.",
+        "Tapping buttons works exactly as before: only the panel's background responds to a double tap.",
+        "Online play is unchanged: beta 23 and 24 can play together."
+      ]
+    },
+    {
       "id": "2026-10-29-see-every-order",
       "date": "2026-10-29",
       "version": "0.3.0-beta.23",

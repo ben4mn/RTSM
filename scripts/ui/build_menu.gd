@@ -38,9 +38,12 @@ var _header_action_spacer: Control = null
 var _active_category: String = "Economy"
 var _dismiss_shield: Control = null
 var _hold_components: Array[Node] = []
+var _tucking: bool = false
+var _keep_category_once: bool = false
 @export var touch_target_diagnostics: Dictionary = {}
 
 const ACTION_TILE := preload("res://scripts/ui/compact_action_tile.gd")
+const DOUBLE_TAP := preload("res://scripts/ui/double_tap_gesture.gd")
 const SHEET_MAX_WIDTH := 540.0
 const SHEET_VIEWPORT_MARGIN := 16.0
 const SHEET_BOTTOM_MARGIN := 8.0
@@ -90,6 +93,9 @@ func _ready() -> void:
 		viewport.size_changed.connect(_queue_layout_refresh)
 
 	_create_dismiss_shield()
+	# Double-tap the sheet's background to tuck it into the Build button; Build
+	# brings it back on the same group.
+	DOUBLE_TAP.attach([self, $Margin, $Margin/VBox, header, scroll_container], tuck)
 	_rebuild_grid()
 	_refresh_touch_target_diagnostics()
 
@@ -355,10 +361,12 @@ func open_menu() -> void:
 	var gm: Node = get_node_or_null("/root/GameManager")
 	if gm:
 		_current_age = gm.get_player_age(player_owner)
-	for category: String in BUILDING_CATEGORIES:
-		if _recommended_building_type in BUILDING_CATEGORIES[category]:
-			_active_category = category
-			break
+	if not _keep_category_once:
+		for category: String in BUILDING_CATEGORIES:
+			if _recommended_building_type in BUILDING_CATEGORIES[category]:
+				_active_category = category
+				break
+	_keep_category_once = false
 	visible = true
 	if _dismiss_shield != null:
 		_dismiss_shield.set_active(true)
@@ -384,6 +392,32 @@ func close_menu() -> void:
 		if is_instance_valid(component):
 			component.cancel_gesture("build_closed")
 	_refresh_touch_target_diagnostics()
+
+
+func tuck() -> void:
+	if _tucking or not visible:
+		return
+	_tucking = true
+	_keep_category_once = true
+	var hud_layer: Node = get_parent()
+	var launcher: Control = hud_layer.get("build_menu_button") as Control if hud_layer != null else null
+	var target: Vector2 = launcher.get_global_rect().get_center() if launcher != null else get_global_rect().end
+	pivot_offset = target - get_global_rect().position
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var tween: Tween = create_tween().set_parallel(true).set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	tween.tween_property(self, "scale", Vector2(0.12, 0.12), 0.16).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+	tween.tween_property(self, "modulate:a", 0.0, 0.16)
+	tween.chain().tween_callback(func() -> void:
+		_tucking = false
+		scale = Vector2.ONE
+		modulate.a = 1.0
+		mouse_filter = Control.MOUSE_FILTER_STOP
+		if visible:
+			close_requested.emit())
+
+
+func is_tucking() -> bool:
+	return _tucking
 
 
 func close_for_world_placement() -> void:
