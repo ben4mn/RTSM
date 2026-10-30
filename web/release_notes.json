@@ -1,6 +1,18 @@
 {
   "releases": [
     {
+      "id": "2026-10-30-lessons-joins-the-row",
+      "date": "2026-10-30",
+      "version": "0.3.0-beta.28",
+      "title": "Lessons joins the row",
+      "summary": "A tidier match menu.",
+      "changes": [
+        "In the match menu, Lessons is now a round button beside Settings, Guide and Report instead of sitting alone underneath. It stays lit while lessons are on.",
+        "The menu card is a little shorter as a result.",
+        "Online play is unchanged: beta 27 and 28 can play together."
+      ]
+    },
+    {
       "id": "2026-10-30-shrines-on-the-map",
       "date": "2026-10-30",
       "version": "0.3.0-beta.27",

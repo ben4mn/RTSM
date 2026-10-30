@@ -1084,28 +1084,22 @@ func _create_pause_overlay() -> void:
 	var report_btn := _pause_tool("ReportProblemButton", "queue", "Report a problem", "Report")
 	report_btn.pressed.connect(func() -> void: problem_report_requested.emit())
 	utility_row.add_child(report_btn)
-	var departure_row := HBoxContainer.new()
-	departure_row.name = "DepartureRow"
-	departure_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	departure_row.add_theme_constant_override("separation", 8)
-	utility_row.add_sibling(departure_row)
-	_match_learning_button = Button.new()
-	_match_learning_button.name = "MatchLearningButton"
-	_match_learning_button.theme = root_theme
-	_match_learning_button.custom_minimum_size = Vector2(152, 48)
-	_match_learning_button.focus_mode = Control.FOCUS_NONE
-	_match_learning_button.process_mode = Node.PROCESS_MODE_ALWAYS
-	CommandIcons.apply(_match_learning_button, "age_up", "Battle lessons", "Lessons")
-	_match_learning_button.add_theme_font_size_override("font_size", 14)
-	FieldStyle.soften(_match_learning_button, 24, true)
+	# Lessons is the fourth round tool rather than a lone row of its own; its
+	# pressed (lit) state says lessons are on.
+	_match_learning_button = _pause_tool("MatchLearningButton", "age_up", "Battle lessons", "Lessons")
 	_match_learning_button.toggle_mode = true
 	_match_learning_button.set_pressed_no_signal(_match_learning_active)
 	_match_learning_button.pressed.connect(func() -> void: match_learning_requested.emit())
-	departure_row.add_child(_match_learning_button)
+	utility_row.add_child(_match_learning_button)
 	_match_learning_button.visible = not online
 	_refresh_match_learning_button()
 	if online:
 		# Online, Lessons give way to the one way out of the match.
+		var departure_row := HBoxContainer.new()
+		departure_row.name = "DepartureRow"
+		departure_row.alignment = BoxContainer.ALIGNMENT_CENTER
+		departure_row.add_theme_constant_override("separation", 8)
+		utility_row.add_sibling(departure_row)
 		var quit_btn := Button.new()
 		quit_btn.name = "QuitButton"
 		quit_btn.text = "Leave match"
@@ -1161,7 +1155,8 @@ func _pause_tool(node_name: String, icon: String, accessible: String, caption: S
 	var button := Button.new()
 	button.name = node_name
 	button.theme = ($Root as Control).theme
-	button.custom_minimum_size = Vector2(72, 52)
+	# Four tools share the card's width (4 x 56 + 3 x 8 = PAUSE_MENU_WIDTH).
+	button.custom_minimum_size = Vector2(56, 52)
 	button.focus_mode = Control.FOCUS_NONE
 	button.process_mode = Node.PROCESS_MODE_ALWAYS
 	CommandIcons.apply_labeled(button, icon, accessible, caption)
