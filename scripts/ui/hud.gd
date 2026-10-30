@@ -3683,6 +3683,9 @@ func _update_train_buttons(trainable_units: Array) -> void:
 		population_cost.hide()
 		btn.get_node("TilePortrait").modulate = Color(0.65, 0.65, 0.65) if blocked else Color.WHITE
 		btn.get_node("TileCosts").modulate = KingdomTheme.RUST if blocked else Color.WHITE
+		# Beta 31: a blocked card says why where its costs were. Before, a full
+		# house only greyed the portrait and extra taps seemed to vanish.
+		ACTION_TILE.set_status(btn, status_text if blocked else "")
 		FieldStyle.production_meter(btn, training_progress)
 		_train_buttons_container.move_child(btn, child_index)
 		child_index += 1
@@ -3732,6 +3735,11 @@ func _update_train_buttons(trainable_units: Array) -> void:
 
 func _repeat_train(unit_type: int) -> bool:
 	if bool(_training_availability(unit_type).get("blocked", true)):
+		# Holding to queue stops here. Send the one blocked request so Main
+		# says why (its usual "Population full ... Build a House"), instead
+		# of the hold ending silently.
+		if _is_human_owned_building(_selected_building_ref):
+			train_unit_requested.emit(_selected_building_ref, unit_type)
 		return false
 	_on_train_button_pressed(unit_type)
 	return true
@@ -5461,7 +5469,10 @@ func _training_availability(unit_type: int) -> Dictionary:
 				recovery = "Build a House to add room.\nCanceling queued units alone cannot open a slot."
 			else:
 				recovery = "Match population limit reached.\n" + recovery
-			return {"blocked": true, "short": "Pop %d/%d" % [committed, cap], "body": "Population blocked (%d/%d; this unit needs %d).\nIncluding %d paid slots.\n%s" % [committed, cap, unit_pop, maxi(0, committed - living), recovery]}
+			# A House is the fix whenever the match limit is still above the cap,
+			# even when canceling paid units would also open a slot.
+			var short_pop: String = "Need House" if cap < limit else "Pop %d/%d" % [committed, cap]
+			return {"blocked": true, "short": short_pop, "body": "Population blocked (%d/%d; this unit needs %d).\nIncluding %d paid slots.\n%s" % [committed, cap, unit_pop, maxi(0, committed - living), recovery]}
 	var queue: Node = building.get_production_queue()
 	var queue_size: int = int(queue.call("get_queue_size")) if queue != null else 0
 	if queue_size >= ProductionQueue.MAX_QUEUE_SIZE:

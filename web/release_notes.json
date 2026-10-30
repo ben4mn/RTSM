@@ -1,6 +1,20 @@
 {
   "releases": [
     {
+      "id": "2026-10-30-say-why",
+      "date": "2026-10-30",
+      "version": "0.3.0-beta.31",
+      "title": "Say why",
+      "summary": "A full house now shows on the card.",
+      "changes": [
+        "Warriors and other fighters take 2 housing. When your houses are full, extra taps on a unit used to do nothing you could see. The unit's card now says Need House (or Need 20W, Pop full and so on) where its costs were.",
+        "Holding a unit card to queue several now tells you why it stopped.",
+        "The Army panel's recruit cards show the same reason.",
+        "Every unit that made it into the queue still trains, as before.",
+        "Online play is unchanged: beta 30 and 31 can play together."
+      ]
+    },
+    {
       "id": "2026-10-30-fewer-fumbles",
       "date": "2026-10-30",
       "version": "0.3.0-beta.30",

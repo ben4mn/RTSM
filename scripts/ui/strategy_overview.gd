@@ -567,6 +567,7 @@ func _refresh_producers(producers: Array) -> void:
 			FieldStyle.production_meter(button, paid_queue.get_current_progress() if paid_queue != null and not paid_queue.queue.is_empty() and paid_queue.queue[0] == unit_type else -1.0)
 			button.get_node("TilePortrait").modulate = Color.WHITE if blocker == "ready" else Color(0.65, 0.65, 0.65)
 			status_label.text = role if blocker == "ready" else blocker.capitalize()
+			ACTION_TILE.set_status(button, _short_blocker(blocker))
 			status_label.add_theme_color_override("font_color", KingdomTheme.MUTED if blocker == "ready" else KingdomTheme.AMBER)
 	for id: int in _producer_rows.keys():
 		if id not in live_ids:
@@ -1084,3 +1085,23 @@ func set_attention(action: String, pulse: float) -> void:
 	var economy_color: Color = KingdomTheme.AMBER if (bool(_snapshot.get("food_attention_ready", false)) or bool(_snapshot.get("food_low_attention_ready", false))) and _surface != "economy" else Color.WHITE
 	_economy_button.modulate = Color(1.0, pulse, 0.62) if action == "idle_button" else economy_color
 	_army_button.modulate = Color(1.0, pulse, 0.62) if action == "military_button" else Color.WHITE
+
+
+static func _short_blocker(blocker: String) -> String:
+	## Beta 31: the tile itself says why a recruit cannot be queued.
+	if blocker == "ready" or blocker.is_empty():
+		return ""
+	if blocker.begins_with("population"):
+		var cap: int = int(GameManager.players.get(0, {}).get("population_cap", 0))
+		return "Need House" if blocker.contains("build a House") or cap < GameManager.get_player_population_limit(0) else "Pop full"
+	if blocker.begins_with("queue full"):
+		return "Queue full"
+	if blocker == "under construction":
+		return "Building…"
+	if blocker.begins_with("need "):
+		var first: String = blocker.trim_prefix("need ").get_slice(",", 0).strip_edges()
+		var amount: String = first.get_slice(" ", 0)
+		var resource: String = first.get_slice(" ", 1)
+		return "Need %s%s" % [amount, resource.left(1).to_upper()]
+	return blocker.capitalize()
+

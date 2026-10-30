@@ -75,3 +75,30 @@ static func chevron(collapsed: bool) -> Texture2D:
 	var image := Image.new()
 	image.load_svg_from_string('<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="%s" fill="none" stroke="#eadfbd" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>' % ("M6 15l6-6 6 6" if collapsed else "M6 9l6 6 6-6"))
 	return ImageTexture.create_from_image(image)
+
+
+static func set_status(button: Button, status: String) -> void:
+	## A blocked tile says why in place of its costs ("Need House", "Need 20W").
+	## The portrait stays, so the card is still recognisable at a glance.
+	var label: Label = button.get_node_or_null("TileStatus")
+	if label == null and status != "":
+		label = Label.new()
+		label.name = "TileStatus"
+		label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		label.add_theme_font_size_override("font_size", 10)
+		label.add_theme_color_override("font_color", KingdomTheme.RUST.lightened(0.25))
+		label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
+		label.add_theme_constant_override("outline_size", 3)
+		label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		button.add_child(label)
+		label.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+		label.offset_top = -18
+		label.offset_bottom = -3
+	if label != null:
+		label.text = status
+		label.visible = status != ""
+	var costs: Control = button.get_node_or_null("TileCosts")
+	if costs != null:
+		costs.visible = status == ""
