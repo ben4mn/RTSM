@@ -131,8 +131,15 @@ func _run() -> void:
 			saved_food_visibility[tile] = fog.fog_grid[tile.y][tile.x]
 			fog.fog_grid[tile.y][tile.x] = MapData.FogState.EXPLORED
 	var unavailable: Dictionary = controller.call("try_allocate_worker", 0, "idle", "food")
-	_expect(not unavailable.has("worker") and str(unavailable.get("error", "")).contains("work is available"), "Strategy explains unavailable work when only an occupied Farm is visible")
+	_expect(not unavailable.has("worker") and str(unavailable.get("error", "")).contains("Build a Farm") and bool(unavailable.get("no_work", false)), "Strategy explains unavailable work when only an occupied Farm is visible")  # beta 30: shorter copy
 	_expect(fourth.current_state == UnitBase.State.IDLE, "failed Strategy allocation leaves the idle worker unchanged")
+	# Beta 30: the workers panel's food + starts Farm placement when nothing is free.
+	ResourceManager.add_resource(0, "wood", 200)
+	controller.call("_allocate_worker", "idle", "food")
+	var placement: Node = _main.get("_building_placement")
+	_expect(placement != null and bool(placement.get("active")) and int(placement.get("current_building_type")) == BuildingData.BuildingType.FARM, "food + with no free food starts Farm placement")
+	if placement != null and bool(placement.get("active")):
+		_main.call("_cancel_placement")
 	for tile: Vector2i in saved_food_visibility:
 		fog.fog_grid[tile.y][tile.x] = saved_food_visibility[tile]
 

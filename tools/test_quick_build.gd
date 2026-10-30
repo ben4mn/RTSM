@@ -65,9 +65,15 @@ func _run() -> void:
 	var placement: Node = main.get("_building_placement")
 	_expect(bool(placement.get("active")) and int(placement.get("current_building_type")) == BuildingData.BuildingType.FARM, "choosing Farm starts Farm placement")
 	main.call("_cancel_placement")
-	hud.call("set_last_built_type", BuildingData.BuildingType.BARRACKS)
+	# Beta 30: the order is fixed so a practised slide always lands on the same
+	# building. Placing a Farm must not move it in front of House; another
+	# building placed takes the fourth slot.
+	hud.call("set_last_built_type", BuildingData.BuildingType.FARM)
 	choices = hud.call("_quick_build_choices")
-	_expect(str(choices[0].get("id")) == "build:%d" % BuildingData.BuildingType.BARRACKS, "the last building placed leads the choices")
+	_expect(str(choices[0].get("id")) == "build:%d" % BuildingData.BuildingType.HOUSE and str(choices[1].get("id")) == "build:%d" % BuildingData.BuildingType.FARM, "House and Farm keep their places after a Farm")
+	hud.call("set_last_built_type", BuildingData.BuildingType.BLACKSMITH)
+	choices = hud.call("_quick_build_choices")
+	_expect(str(choices[0].get("id")) == "build:%d" % BuildingData.BuildingType.HOUSE and str(choices[3].get("id")) == "build:%d" % BuildingData.BuildingType.BLACKSMITH, "the last other building takes the fourth slot")
 	ResourceManager.initialize_player(0, {"food": 0, "wood": 0, "gold": 0})
 	choices = hud.call("_quick_build_choices")
 	_expect(not bool(choices[0].get("enabled")), "an unaffordable choice is disabled")
@@ -76,7 +82,7 @@ func _run() -> void:
 	_expect(not bool(placement.get("active")), "an unaffordable quick choice does not start placement")
 	main.free()
 	if _failures.is_empty():
-		print("[PASS] quick_build: four choices, last built first, choice starts placement, unaffordable refused")
+		print("[PASS] quick_build: four choices in a fixed order, last other building fourth, choice starts placement, unaffordable refused")
 		get_tree().quit(0)
 	else:
 		for failure: String in _failures:

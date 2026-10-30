@@ -1,6 +1,8 @@
 extends CanvasLayer
 ## Game over screen. Shows victory/defeat with player vs AI comparison.
 
+## Width of the browser shell's Updates + Full screen buttons (as in HUD).
+const WEB_TOOLS_WIDTH := 290.0
 signal restart_requested()
 signal main_menu_requested()
 signal problem_report_requested()
@@ -74,6 +76,17 @@ func _fit_panel_to_size(viewport_size: Vector2, safe_area: Rect2 = Rect2()) -> v
 		minf(440.0, safe_bounds.size.y - 16.0)
 	)
 	var panel_center: Vector2 = safe_bounds.position + safe_bounds.size * 0.5
+	# Beta 30: the browser's Updates / Full screen buttons sit top-right over
+	# this card on phones. Move the card left of them when it fits, else below.
+	var web_tools_clearance: float = preload("res://scripts/ui/web_shell_bridge.gd").get_menu_top_clearance(viewport_size)
+	if web_tools_clearance > 0.0:
+		var tools_left: float = viewport_size.x - WEB_TOOLS_WIDTH - 16.0
+		if panel_center.x + target_size.x * 0.5 > tools_left:
+			if tools_left - target_size.x >= safe_bounds.position.x + 8.0:
+				panel_center.x = tools_left - target_size.x * 0.5
+			elif safe_bounds.end.y - web_tools_clearance >= 200.0:
+				target_size.y = minf(target_size.y, safe_bounds.end.y - web_tools_clearance - 8.0)
+				panel_center.y = web_tools_clearance + (safe_bounds.end.y - web_tools_clearance) * 0.5
 	var center_offset: Vector2 = panel_center - viewport_size * 0.5
 	panel.custom_minimum_size = target_size
 	panel.offset_left = center_offset.x - target_size.x * 0.5

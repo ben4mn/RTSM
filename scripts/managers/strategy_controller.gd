@@ -384,6 +384,11 @@ func _allocate_worker(source: String, destination: String) -> void:
 		if diagnostics:
 			diagnostics.call("record_event", "economy_reallocation", {"source": source, "destination": destination, "worker": str(worker.get_path()), "cargo": worker.carried_amount})
 		_refresh()
+	elif destination == "food" and bool(result.get("no_work", false)) and ResourceManager.can_afford(0, BuildingData.get_building_cost(BuildingData.BuildingType.FARM)):
+		# Beta 30: no free food means the next step is a Farm. Start placing one
+		# instead of asking the player to find the Farm button themselves.
+		_overview.show_feedback("No free food. Tap ground for a Farm.")
+		_plan_farm()
 	else:
 		_overview.show_feedback(str(result.error), false)
 
@@ -407,7 +412,11 @@ func try_allocate_worker(owner: int, source: String, destination: String) -> Dic
 			if _main.has_method("_supersede_worker_orders"):
 				_main.call("_supersede_worker_orders", owner, [worker])
 			return {"worker": worker}
-	return {"error": "No %s worker is available." % source if candidates.is_empty() else "No visible, reachable %s work is available. Scout a deposit%s." % [destination, " or build another Farm" if destination == "food" else ""]}
+	# Short enough for the workers panel's one feedback line (beta 30: the old
+	# sentence was cut off mid-word on phones).
+	if candidates.is_empty():
+		return {"error": "No %s worker is free." % source}
+	return {"error": "No free food. Build a Farm." if destination == "food" else "No %s in sight. Scout for more." % destination, "no_work": true}
 
 
 func _owned_producer(building: Node2D) -> ProductionQueue:

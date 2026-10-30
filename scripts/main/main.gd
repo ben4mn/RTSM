@@ -2544,7 +2544,10 @@ func _on_train_unit_requested(building: Node2D, unit_type: int) -> void:
 		if cap >= GameManager.get_player_population_limit(0):
 			_last_train_feedback = "Not enough population space (%d/%d). %s needs %d slots." % [pop, cap, UnitData.get_unit_name(unit_type, 0), pop_cost]
 		else:
-			_last_train_feedback = "Population full (%d/%d). Build a House before training %s." % [pop, cap, UnitData.get_unit_name(unit_type, 0)]
+			if _house_under_construction(0):
+				_last_train_feedback = "Population full (%d/%d). Your House is going up; train when it is done." % [pop, cap]
+			else:
+				_last_train_feedback = "Population full (%d/%d). Build a House before training %s." % [pop, cap, UnitData.get_unit_name(unit_type, 0)]
 		hud.show_notification(_last_train_feedback, Color(1.0, 0.6, 0.2))
 		_refresh_first_session_diagnostics()
 		return
@@ -3793,6 +3796,14 @@ func _update_fog_entity_visibility() -> void:
 			if any_visible:
 				break
 		building.visible = any_visible
+
+
+## Beta 30: the housing warning says so when a House is already being built.
+func _house_under_construction(owner: int) -> bool:
+	for building: Node in _player_buildings[owner]:
+		if is_instance_valid(building) and building is BuildingBase and (building as BuildingBase).building_type == BuildingData.BuildingType.HOUSE and (building as BuildingBase).state == BuildingBase.State.CONSTRUCTING:
+			return true
+	return false
 
 
 func _update_minimap() -> void:

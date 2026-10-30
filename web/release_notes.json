@@ -1,6 +1,21 @@
 {
   "releases": [
     {
+      "id": "2026-10-30-fewer-fumbles",
+      "date": "2026-10-30",
+      "version": "0.3.0-beta.30",
+      "title": "Fewer fumbles",
+      "summary": "Small fixes from a full playtest.",
+      "changes": [
+        "Hold Build: House, Farm and Barracks now always sit in the same places, so the same slide always picks the same building. Your last other building takes the fourth spot.",
+        "In the workers panel, tapping + under food when every farm and bush is taken starts placing a Farm right away.",
+        "When there is nothing left to gather, the workers panel now says so in a few words instead of a sentence that was cut off.",
+        "If your houses are full but a House is still going up, the warning says so instead of asking you to build another.",
+        "The end-of-match card no longer sits under the browser's Updates and Full screen buttons.",
+        "Online play is unchanged: beta 29 and 30 can play together."
+      ]
+    },
+    {
       "id": "2026-10-30-a-slimmer-dock",
       "date": "2026-10-30",
       "version": "0.3.0-beta.29",

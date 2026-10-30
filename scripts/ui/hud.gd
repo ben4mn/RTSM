@@ -5336,14 +5336,13 @@ func _quick_build_information() -> Dictionary:
 	return {"title": "Build", "body": "Tap to open every building. Hold, slide to a building and release to place it straight away; then tap the ground."}
 
 
-## Four quick choices: the last building placed, then House, Farm and Barracks.
+## Four quick choices in a fixed order so the same slide always picks the same
+## building: House, Farm, Barracks, then the last other building placed
+## (Archery Range until there is one). Beta 30: the last building used to lead,
+## which swapped House and Farm under a player's thumb.
 func _quick_build_choices() -> Array[Dictionary]:
-	var types: Array[int] = []
-	if _last_quick_build_type >= 0:
-		types.append(_last_quick_build_type)
-	for building_type: int in [BuildingData.BuildingType.HOUSE, BuildingData.BuildingType.FARM, BuildingData.BuildingType.BARRACKS, BuildingData.BuildingType.ARCHERY_RANGE]:
-		if building_type not in types:
-			types.append(building_type)
+	var types: Array[int] = [BuildingData.BuildingType.HOUSE, BuildingData.BuildingType.FARM, BuildingData.BuildingType.BARRACKS]
+	types.append(_last_quick_build_type if _last_quick_build_type >= 0 and _last_quick_build_type not in types else BuildingData.BuildingType.ARCHERY_RANGE)
 	var choices: Array[Dictionary] = []
 	var gm: Node = _get_game_manager()
 	var age: int = int(gm.call("get_player_age", 0)) if gm != null else 1
