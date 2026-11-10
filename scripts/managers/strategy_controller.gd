@@ -260,6 +260,16 @@ func _observed_food_stock(workers: Array[Villager]) -> Dictionary:
 		berries += node.remaining
 		known[node.get_instance_id()] = node.remaining
 		known_berry_positions[node.get_instance_id()] = node.global_position
+	# Wildlife (workstream A): visible sheep the player owns, deer and carcasses
+	# are finite food exactly like berries. A live boar is not counted.
+	if _map.has_method("get_wildlife_nodes"):
+		for animal: Node2D in _map.call("get_wildlife_nodes"):
+			var wildlife := animal as WildlifeNode
+			if wildlife == null or wildlife.is_fighting() or not _map.is_resource_target_visible_to_player(wildlife, 0) or not _map.is_resource_target_valid(wildlife, "food", 0):
+				continue
+			berries += wildlife.remaining
+			known[wildlife.get_instance_id()] = wildlife.remaining
+			known_berry_positions[wildlife.get_instance_id()] = wildlife.global_position
 	for entry: Variant in (_main.get("_player_buildings") as Array)[0]:
 		if not is_instance_valid(entry) or not entry is BuildingBase:
 			continue
