@@ -51,7 +51,7 @@ func register_command(operation: String, handler: Callable, validator: Callable 
 	## Optional validator(packet: Dictionary) -> bool rejects malformed packets.
 	## Built-in operations of network_match.gd always win over a same-named one.
 	if not valid_name(operation) or not handler.is_valid():
-		push_error("MatchExtensions: invalid command registration '%s'" % operation)
+		push_warning("MatchExtensions: invalid command registration '%s'" % operation)
 		return false
 	commands[operation] = {"handler": handler, "validator": validator}
 	return true
@@ -90,16 +90,17 @@ static func valid_packet_shape(packet: Dictionary) -> bool:
 
 
 func run_command(operation: String, owner: int, packet: Dictionary, units: Array, target: Node2D, position: Vector2) -> String:
-	## Unknown, malformed or stale registrations answer exactly like an
-	## unregistered operation did before this seam existed.
-	if not commands.has(operation) or not valid_packet_shape(packet):
+	## An unregistered (or stale) operation answers exactly as it did before
+	## this seam existed. Registered ones first pass the generic shape bound
+	## and their own validator; handlers never see a malformed packet.
+	if not commands.has(operation):
 		return UNKNOWN_COMMAND
 	var entry: Dictionary = commands[operation]
 	var handler: Callable = entry.handler
 	if not handler.is_valid():
 		return UNKNOWN_COMMAND
 	var validator: Callable = entry.validator
-	if validator.is_valid() and validator.call(packet) != true:
+	if not valid_packet_shape(packet) or (validator.is_valid() and validator.call(packet) != true):
 		return "Invalid order"
 	var result: Variant = handler.call(owner, packet, units, target, position)
 	return result if result is String else ""
@@ -113,7 +114,7 @@ func register_snapshot(name: String, provider: Callable, consumer: Callable = Ca
 	## omits the entry). consumer(data: Variant) -> void runs on that client for
 	## every snapshot carrying the entry; owners in `data` are server slots.
 	if not valid_name(name):
-		push_error("MatchExtensions: invalid snapshot name '%s'" % name)
+		push_warning("MatchExtensions: invalid snapshot name '%s'" % name)
 		return false
 	if provider.is_valid():
 		snapshot_providers[name] = provider
@@ -154,7 +155,7 @@ func register_save(name: String, capture: Callable, restore: Callable, finalize:
 	## codec helpers: track(node) -> int, encode(value), bind(saved_id, node),
 	## decode(value). A save without this entry never calls restore/finalize.
 	if not valid_name(name) or not capture.is_valid() or not restore.is_valid():
-		push_error("MatchExtensions: invalid save registration '%s'" % name)
+		push_warning("MatchExtensions: invalid save registration '%s'" % name)
 		return false
 	save_handlers[name] = {"capture": capture, "restore": restore, "finalize": finalize}
 	return true

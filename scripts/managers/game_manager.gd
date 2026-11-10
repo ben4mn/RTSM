@@ -633,7 +633,8 @@ func get_modifier(player_id: int, key: String, default: float = 0.0) -> float:
 func add_modifier(player_id: int, key: String, amount: float) -> float:
 	## Additive: +2 attack twice is +4. Returns the new total. Players that are
 	## not part of the current match are ignored, as the old appliers did.
-	if not player_modifiers.has(player_id) or key.is_empty():
+	## Adding zero writes nothing, so untouched keys never appear in saves.
+	if not player_modifiers.has(player_id) or key.is_empty() or amount == 0.0:
 		return get_modifier(player_id, key)
 	var total: float = get_modifier(player_id, key) + amount
 	player_modifiers[player_id][key] = total
