@@ -423,7 +423,8 @@ func _update_sprite_appearance() -> void:
 
 ## Presentation-only scorch stage (white above two-thirds health).
 func get_damage_tint() -> Color:
-	if max_hp <= 0 or hp >= max_hp:
+	# hp is still 0 while a node is being set up; that is not damage.
+	if max_hp <= 0 or hp <= 0 or hp >= max_hp:
 		return Color.WHITE
 	var wear: float = clampf((0.66 - float(hp) / float(max_hp)) / 0.56, 0.0, 1.0)
 	return Color.WHITE.lerp(Color(0.66, 0.58, 0.54), wear * wear * 0.4 + wear * 0.6)
