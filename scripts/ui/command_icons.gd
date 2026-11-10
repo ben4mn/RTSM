@@ -8,6 +8,7 @@ const ICON_KEYS: PackedStringArray = [
 	"zoom_in", "zoom_out", "reset", "center", "move", "attack", "stop",
 	"patrol", "stance", "idle", "repeat", "queue", "age_up", "info", "close",
 	"check", "group_save", "group_recall", "find", "undo", "rally", "sacred", "farm",
+	"research", "bell", "garrison", "repair",
 ]
 const BADGE_NODE_NAME := "CommandIconBadge"
 const TARGET_SIZE := 48.0

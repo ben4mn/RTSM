@@ -2,6 +2,13 @@ extends RefCounted
 ## Shared explanations for Settings and the in-match Field Guide.
 
 const ENTRIES: Array = [
+	# The newest verbs first, each in a breath.
+	["food", "Sheep & boar", "Scouts claim the sheep they find; sheep walk home. A boar fights back: lure it to the Town Center, then strike together."],
+	["research", "Research", "Each building has its own. Tap a tile on the building (under Tech on a small screen) or open Research on the rail. A ring over the building shows progress. Tap a running one twice to cancel; full refund."],
+	["age_up", "Age up", "Takes time and keeps the Town Center busy. Queue villagers first."],
+	["bell", "Town bell", "Raided? Tap the bell on your Town Center, or Ring town bell under the alert. Villagers shelter inside and add arrows. Tap again for all clear."],
+	["garrison", "Garrison", "With soldiers selected, tap your Town Center or Watch Tower, then the Garrison offer. They heal inside. Out releases them."],
+	["repair", "Repair", "With villagers selected, tap your damaged building. Costs a little wood."],
 	["more", "Compact dock", "Tap the chevron, or double-tap the dock's background, to tuck orders into a small pill; tap the pill to bring them back. Double-tap the workers panel or the build menu to tuck it into its button. Tap the selected portrait for its name, health, role and current task. Icon tiles keep costs and progress visible."],
 	["rally", "Rally flag", "Select a production building, tap its flag, then tap ground. Or hold the building and drag to the spot, then release. Tap a visible resource to send newly trained villagers straight to gathering. Tap the flag again to cancel."],
 	["move", "Move & waypoints", "Tap ground to move selected units. Hold ground to append a waypoint. A fresh tap or Stop replaces the route; Clear queued destinations removes only pending stops. With a production building selected, hold ground to add rally stops for new units."],
@@ -20,7 +27,7 @@ const ENTRIES: Array = [
 	["stance", "Stance", "Aggro lets armed units pursue nearby enemies. Guard keeps them in place while fighting enemies within reach. The button always shows the current stance."],
 	["patrol", "Patrol", "Choose Patrol, then tap a destination. Selected armed units travel between their starting position and that point."],
 	["idle", "Idle workers", "Find a worker without a job. The badge counts idle workers. Tap again to cycle through them. In the workers panel, tap + under food when every farm and bush is taken to place a new Farm straight away. When the wood or gold in sight runs out, workers walk to the nearest you have already explored."],
-	["army", "Army", "Tap Army to select every fighter in the field. Tap it again, or hold it, to open recruiting and groups. Scouts keep their own orders. While you place a building, Home and Army stay dimmed so a stray tap cannot move the preview."],
+	["army", "Army", "Tap Army to select every fighter in the field. Tap it again, or hold it, to open recruiting and groups. Scouts keep their own orders. With mixed units selected, tap a type chip above the dock to keep only that type; double-tap it for every one on the map. While you place a building, Home and Army stay dimmed so a stray tap cannot move the preview."],
 	["base", "Home", "Return to your Town Center to recruit workers and Scouts. On desktop, press H."],
 	["view", "Camera", "Tap the camera icon to reveal or collapse navigation tools. Select area and Clear are inside this tray. Plus and minus zoom; the target centers your selection; Reset returns to the starting scale. Drag the battlefield to pan or pinch to zoom."],
 	["pause", "Match menu", "Open Settings, the Guide or match options. Solo matches pause. Online matches keep running for both players."],
