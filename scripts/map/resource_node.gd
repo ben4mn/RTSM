@@ -72,7 +72,13 @@ const WIND_SWAY: Dictionary = {
 var _sprite: Sprite2D = null
 
 
+## Bumped whenever a deposit enters the tree, so per-frame visibility passes
+## keyed on "nothing changed" notice a node swapped into an existing tile.
+static var spawn_revision: int = 0
+
+
 func _ready() -> void:
+	spawn_revision += 1
 	remaining = total_amount
 	_setup_collision()
 	_setup_sprite()

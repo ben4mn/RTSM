@@ -1538,7 +1538,7 @@ func update_resource_visibility_for_player(viewer_player_id: int = 0) -> void:
 
 
 func _resource_visibility_signature(viewer_player_id: int) -> Array:
-	return [viewer_player_id, fog_of_war.get_instance_id(), fog_of_war.visibility_revision, resource_nodes.size(), _pending_depleted_terrain_tiles.size(), BuildingBase.vision_revision, fog_memory.revision if is_instance_valid(fog_memory) else -1, NetworkSession.server_mode, NetworkSession.is_client()]
+	return [viewer_player_id, fog_of_war.get_instance_id(), fog_of_war.visibility_revision, resource_nodes.size(), ResourceNode.spawn_revision, _pending_depleted_terrain_tiles.size(), BuildingBase.vision_revision, fog_memory.revision if is_instance_valid(fog_memory) else -1, NetworkSession.server_mode, NetworkSession.is_client()]
 
 
 func _update_resource_visibility_now(viewer_player_id: int) -> void:

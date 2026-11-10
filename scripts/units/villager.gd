@@ -132,7 +132,7 @@ func can_auto_retaliate() -> bool:
 	return false
 
 
-## A worker standing at its work (or idle with nothing queued) thinks at 8 Hz.
+## A worker standing at its work thinks at 8 Hz.
 ## Skipped frames bank their time, so gather ticks, build progress and timers
 ## advance by exactly the elapsed total; a reaction (target gone, threat seen,
 ## cargo full) lands at most one interval later. Walking, fleeing and fighting
@@ -144,8 +144,6 @@ var _steady_banked: float = 0.0
 func _is_steady_work() -> bool:
 	if _auto_recovering or NetworkSession.is_client():
 		return false
-	if current_state == State.IDLE:
-		return queued_orders.is_empty() and _pending_gather_resource_type == ""
 	# _presentation_working still holds the previous think's answer here.
 	return (current_state == State.GATHERING or current_state == State.BUILDING) and _presentation_working and not _dropoff_route_active
 

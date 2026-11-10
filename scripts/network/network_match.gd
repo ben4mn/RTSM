@@ -21,10 +21,10 @@ var _known_resource_counts: Dictionary = {0: {}, 1: {}}
 ## A client that coalesces snapshots is at most one keyframe behind on stock
 ## and fog-memory amounts; actors are still complete in every packet.
 const RESOURCE_KEYFRAME_TICKS := 10
-## A unit's position, HP, state and visible pose go out in every snapshot. Its
-## slow fields (kind/type/stance, and for the owner: route, orders, cargo, work
-## text) go out when the recipient first sees it and then every
-## ACTOR_DETAIL_TICKS, staggered by id. The client keeps the last values.
+## Everything public about a unit goes out in every snapshot. The owner-only
+## block (route, destination, orders, cargo, work text) goes out when the unit
+## first appears and then every ACTOR_DETAIL_TICKS, staggered by id; the client
+## keeps the last values in between.
 const ACTOR_DETAIL_TICKS := 5
 var _actor_detail_sent: Dictionary = {0: {}, 1: {}}
 var _actor_detail_tick: Dictionary = {0: -1, 1: -1}
@@ -119,8 +119,7 @@ func _snapshot_for(slot: int) -> Dictionary:
 			var detailed: bool = all_detailed or not detail_sent.has(actor.id) or (_snapshot_number + int(actor.id)) % ACTOR_DETAIL_TICKS == 0
 			detail_now[actor.id] = true
 			actor.merge({"state": node.current_state, "animation": [snappedf(node._attack_animation_remaining, 0.001), snappedf(node._attack_animation_duration, 0.001), snappedf(node._attack_animation_direction.x, 0.001), snappedf(node._attack_animation_direction.y, 0.001), node._sprite.flip_h if node._sprite != null else false]})
-			if detailed:
-				actor.merge({"kind": "unit", "type": node.unit_type, "stance": node.stance})
+			actor.merge({"kind": "unit", "type": node.unit_type, "stance": node.stance})
 			# Only an already-visible actor's observable tool/pose crosses here.
 			# No work target, private order or cargo is included for opponents.
 			var work_pose: Vector3 = node.get_work_presentation()
@@ -234,13 +233,9 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 		seen[id] = true
 		var node: Node2D = entities.get(id) as Node2D
 		var was_present: bool = is_instance_valid(node)
-		# Slow fields ride only on a unit's detail ticks (see ACTOR_DETAIL_TICKS).
-		var detailed: bool = actor.has("kind")
+		# The owner-only block rides on a unit's detail ticks (ACTOR_DETAIL_TICKS).
+		var detailed: bool = actor.has("path")
 		if not is_instance_valid(node):
-			if not detailed:
-				# Its first full record was in a snapshot this client coalesced
-				# away; the next detail tick (under half a second) creates it.
-				continue
 			node = _create_replica(actor)
 			if node == null:
 				continue
@@ -249,8 +244,7 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 		if node is UnitBase:
 			_interpolation[id] = world
 			node.current_state = int(actor.state)
-			if detailed:
-				node.stance = int(actor.stance)
+			node.stance = int(actor.stance)
 			if detailed and node.player_owner == 0:
 				var route := PackedVector2Array()
 				for point: Array in actor.get("path", []):
@@ -263,7 +257,7 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 				node.queued_orders = _deserialize_orders(actor.get("queued_orders", []))
 			# Default false on every packet: missing, non-boolean or enemy values
 			# cannot retain an earlier own status or disclose another cohort.
-			if detailed:
+			if detailed or node.player_owner != 0:
 				var marching: Variant = actor.get("marching", false)
 				node.set_meta("network_attack_march", node.player_owner == 0 and _local_owner(int(actor.owner)) == 0 and typeof(marching) == TYPE_BOOL and marching == true)
 			var animation: Array = actor.get("animation", [])

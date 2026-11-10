@@ -261,7 +261,9 @@ const DROP_OFF_BADGE_COLORS: Dictionary = {
 
 
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_ENTER_TREE or what == NOTIFICATION_EXIT_TREE or what == NOTIFICATION_TRANSFORM_CHANGED:
+	# The local notification is synchronous; the global one is deferred to the
+	# end of the frame, too late for a same-frame visibility query.
+	if what == NOTIFICATION_ENTER_TREE or what == NOTIFICATION_EXIT_TREE or what == NOTIFICATION_LOCAL_TRANSFORM_CHANGED:
 		vision_revision += 1
 
 
@@ -272,7 +274,7 @@ func _ready() -> void:
 	rally_point = global_position + Vector2(footprint.x * MapData.TILE_WIDTH, 0)
 	rally_point_is_custom = false
 	add_to_group("buildings")
-	set_notify_transform(true)
+	set_notify_local_transform(true)
 	vision_revision += 1
 	add_to_group("player_%d_buildings" % player_owner)
 	if drop_off_resources.size() > 0:
