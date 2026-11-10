@@ -4092,6 +4092,8 @@ func show_age_up_button(is_shown: bool) -> void:
 
 # --- Minimap ---
 
+const MINIMAP_PALETTE := preload("res://scripts/ui/minimap_palette.gd")
+
 func update_minimap(grid: Array, player_units: Array, enemy_units: Array, player_buildings: Array = [], enemy_buildings: Array = [], camera_rect: Rect2 = Rect2(), fog: Node = null, shrines: Array = []) -> void:
 	if grid.is_empty():
 		return
@@ -4114,16 +4116,8 @@ func update_minimap(grid: Array, player_units: Array, enemy_units: Array, player
 	# Draw terrain with fog awareness
 	for y in range(map_h):
 		for x in range(map_w):
-			var tile_type: int = grid[y][x]
-			var color: Color = MapData.TILE_COLORS.get(tile_type, Color(0.35, 0.65, 0.25))
-			# Apply fog darkening
-			if fog_grid.size() > 0:
-				var fog_state: int = fog_grid[y][x]
-				if fog_state == MapData.FogState.UNEXPLORED:
-					color = Color(0.025, 0.045, 0.04)
-				elif fog_state == MapData.FogState.EXPLORED:
-					color = color.darkened(0.28)
-			_minimap_image.set_pixel(x, y, color)
+			var fog_state: int = fog_grid[y][x] if fog_grid.size() > 0 else MapData.FogState.VISIBLE
+			_minimap_image.set_pixel(x, y, MINIMAP_PALETTE.terrain(grid[y][x], fog_state, x, y))
 
 	# Draw player units (teal dots) — always visible (own units)
 	for unit in player_units:
@@ -4181,8 +4175,12 @@ func update_minimap(grid: Array, player_units: Array, enemy_units: Array, player
 		sacred_color = KingdomTheme.TEAL
 	elif int(_sacred_site_status.get("owner", -1)) == 1:
 		sacred_color = KingdomTheme.RUST
-	# Objective location is public; terrain and enemies remain fogged.
-	_draw_minimap_marker(Vector2i(sacred_x, sacred_y), sacred_color, 1)
+	# Objective location is public; terrain and enemies remain fogged. A gold
+	# ring sets it apart from every building square and shrine diamond.
+	_draw_minimap_marker(Vector2i(sacred_x, sacred_y), MINIMAP_PALETTE.SACRED_RING, 2)
+	for dy: int in range(-1, 2):
+		for dx: int in range(-1, 2):
+			_minimap_image.set_pixel(sacred_x + dx, sacred_y + dy, sacred_color)
 
 	# Flank shrines are public too (like the Sacred Site), drawn as small
 	# diamonds so they never read as a building square. Online clients get
