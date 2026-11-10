@@ -1,12 +1,16 @@
 extends RefCounted
-## Version-one solo match schema. Only listed gameplay state is persisted.
+## Version-two solo match schema. Only listed gameplay state is persisted.
+## Schema 2 adds `data.ext[name]`, written and read by callables registered on
+## `main.ext` (scripts/main/match_extensions.gd, docs/round2_contracts.md), and
+## stores the GameManager modifier registry in place of `player_upgrades`.
+const SCHEMA := 2
 const UNIT_FIELDS: Array[String] = ["unit_type", "player_owner", "max_hp", "hp", "damage", "armor", "speed", "attack_range", "vision_radius", "attack_speed", "is_ranged", "current_state", "stance", "move_target", "attack_target", "attack_building_target", "attack_cooldown", "path", "path_index", "attack_move", "_attack_march", "_pending_attack_march", "_command_generation", "queued_orders", "_executing_queued_order", "_preserve_order_intent", "_suspended_building_target", "_suspended_building_forced", "_retaliation_ready_at", "kills", "_auto_attack_timer", "_stuck_timer", "_last_move_pos", "_forced_attack", "_force_move_active", "_auto_engagement_origin", "_auto_chase_elapsed", "_patrol_active", "_patrol_point_a", "_patrol_point_b", "_patrol_to_b", "_navigation_active", "_navigation_goal", "_navigation_target_snapshot", "_navigation_repath_cooldown", "_navigation_failed_repaths", "_navigation_stall_repaths", "_ignored_auto_targets_until", "_simulation_elapsed_seconds", "_attack_windup_remaining", "_attack_windup_target", "_attack_windup_building"]
 const WORKER_FIELDS: Array[String] = ["gather_rate", "carry_capacity", "gather_tick_time", "gather_target", "_assigned_farm_ref", "_preserve_farm_assignment_on_command", "gather_type", "carried_resource_type", "carried_amount", "_cargo", "_dropoff_recheck_timer", "_dropoff_topology_revision", "_dropoff_buildings_signature", "gather_timer", "_fractional_harvest", "dropoff_target", "_manual_dropoff", "_manual_dropoff_resume_gather", "_dropoff_retry_timer", "_dropoff_route_active", "_gather_last_known_position", "_has_gather_last_known_position", "_gather_last_known_is_building", "_gather_last_known_instance_id", "_unreachable_resource_ids_until", "_unreachable_dropoff_ids_until", "build_target", "build_timer", "_gather_offset", "_saved_gather_target", "_saved_gather_type", "_saved_carried_resource_type", "_saved_gather_last_known_position", "_saved_has_gather_last_known_position", "_saved_gather_last_known_is_building", "_saved_gather_last_known_instance_id", "_pending_gather_resource_type", "_pending_gather_last_known_position", "_pending_gather_last_known_is_building", "_pending_gather_last_known_instance_id", "_preserve_pending_gather_on_command", "_building_work_target_id", "_building_work_destination", "_service_target_id", "_service_destination", "_service_kind", "_auto_recovering", "_recovery_waiting", "_recovery_work_state", "_recovery_refuge", "_recovery_check_timer", "_recovery_quiet_seconds", "_recovery_damage_remaining", "_recovery_danger_present", "_preserve_recovery_on_command", "_recovery_return_only", "_recovery_alternate_retry_remaining", "_avoid_recovery_dropoff_danger", "_economic_threat_check_timer"]
 const TRADER_FIELDS: Array[String] = ["trade_post", "home_town_center", "carried_gold", "delivered_gold", "trade_route_active", "_destination", "_visited_home", "_manual_pause", "_handling_left", "_retry_left"]
 const BUILDING_FIELDS: Array[String] = ["building_type", "player_owner", "state", "hp", "max_hp", "build_progress", "build_time", "pop_provided", "footprint", "drop_off_resources", "trainable_units", "provides_food", "rally_point", "rally_point_is_custom", "rally_orders", "rally_resource_type", "rally_resource_instance_id", "rally_resource_is_building", "tower_attack_damage", "tower_attack_range", "tower_attack_interval", "tower_attack_projectile_speed", "tower_attack_buildings", "_tower_attack_cooldown", "_assigned_farmer_ref"]
 const AI_FIELDS: Array[String] = ["difficulty", "player_id", "enemy_id", "_decision_interval", "_ai_state", "_my_buildings", "_my_units", "_military_role_last_fielded", "_base_position", "_base_tile", "_staging_point", "_attack_in_progress", "_has_launched_field_attack", "_attack_wave_units", "_attack_wave_target_position", "_attack_wave_target_ref", "_attack_wave_best_distance", "_attack_wave_best_target_hp", "_attack_wave_last_progress_time", "_retreat_threshold", "_game_time", "_last_harass_time", "_last_field_attack_time", "_easy_regroup_until", "_scout_waypoints", "_next_scout_waypoint_index", "_objective_scout_sent", "_objective_mode", "_objective_units", "_sacred_armed_guard", "_objective_order_time", "_enemy_memory", "_rebuild_requests", "_last_defense_threat_position", "_last_defense_threat_time", "_last_strategy_decision", "_resource_memory", "_economy_exploration_waypoints", "_next_economy_exploration_waypoint", "_economy_exploration_revealed", "_economy_exploration_workers", "_economy_exploration_retry_after", "_economy_exploration_route_checks", "_economy_exploration_orders_issued", "_economy_memory_revisit_orders_issued", "_economy_wood_search_orders_issued", "_economy_wood_search_worker", "_economy_resource_assignments", "_economy_rebalance_orders_issued", "_next_economy_rebalance_time", "_pending_economy_rebalance_type", "_pending_economy_rebalance_from_type", "_pending_economy_rebalance_deadline", "_economy_rebalance_deferred_scheduled", "_last_economy_action", "_build_site_search_cursors", "_next_trade_decision", "_trade_site_cursor", "_town_center_count", "_house_count", "_barracks_count", "_archery_range_count", "_stable_count", "_resource_camp_count", "_farm_count", "_feudal_paid_farm_foundations", "_feudal_paid_farm_foundation_ids", "_siege_workshop_count", "_blacksmith_count", "_watch_tower_count", "_is_under_pressure", "_pressure_memory", "_saving_for_age_up", "_timed_age_up_reserve_active"]
 const MAIN_FIELDS: Array[String] = ["_stats", "_age_reached_at", "_sacred_control_seconds", "_sacred_control_owner", "_sacred_last_remaining", "_ai_construction_jobs", "_ai_construction_recovery_elapsed", "_control_groups", "_player_town_center", "_hint_timer", "_hints_shown", "_guided_opening_active", "_guided_stage", "_milestone_first_house", "_milestone_first_military_building", "_milestone_first_age_up", "_opening_gather_complete", "_opening_house_complete", "_opening_scout_queued", "_opening_military_move_complete", "_guidance_dismissed_in_match", "_pause_open_count", "_sacred_site_victory_notified"]
-const MANAGER_FIELDS: Array[String] = ["players", "game_time", "game_speed", "_match_mode", "_match_civilizations", "_match_population_limit", "_population_reservations", "_next_population_reservation_id", "_base_population_caps", "_population_cap_grants", "player_upgrades", "researched_upgrades"]
+const MANAGER_FIELDS: Array[String] = ["players", "game_time", "game_speed", "_match_mode", "_match_civilizations", "_match_population_limit", "_population_reservations", "_next_population_reservation_id", "_base_population_caps", "_population_cap_grants", "player_modifiers", "researched_upgrades"]
 const QUEUE_FIELDS: Array[String] = ["queue", "current_progress", "current_train_time", "is_training", "_population_reservation_ids"]
 const LEGACY_QUEUE_COSTS: Dictionary = {
 	UnitData.UnitType.VILLAGER: {"food": 100, "wood": 0, "gold": 0},
@@ -21,6 +25,7 @@ const SITE_FIELDS: Array[String] = ["state", "owning_player", "capture_progress"
 
 const MARCH = preload("res://scripts/main/attack_march_cohesion.gd")
 const PENDING_MARCH = preload("res://scripts/main/pending_attack_march.gd")
+const EXTENSIONS = preload("res://scripts/main/match_extensions.gd")
 const MAX_ACTORS := 1024
 const MAX_RESOURCES := MapData.MAP_WIDTH * MapData.MAP_HEIGHT
 var _references: Dictionary = {}
@@ -67,6 +72,27 @@ func _decode(value: Variant) -> Variant:
 	# Runtime IDs also appear in queue/rally/fog/AI ledgers, not just references.
 	if value is int and _references.has(value): return _references[value].get_instance_id()
 	return value
+
+# --- Extension codec API (the `codec` argument of registered save callables) ---
+
+func track(node: Object) -> int:
+	## Capture: give `node` a saved identity so encode() and any actor field
+	## that points at it survive the round trip. Returns the id to store.
+	_references[node.get_instance_id()] = node
+	return node.get_instance_id()
+
+func bind(saved_id: int, node: Object) -> void:
+	## Restore: the freshly created `node` is the one saved under `saved_id`.
+	_references[saved_id] = node
+
+func encode(value: Variant) -> Variant:
+	return _encode(value)
+
+func decode(value: Variant) -> Variant:
+	return _decode(value)
+
+static func _extensions(main: Node) -> RefCounted:
+	return main.get("ext") as RefCounted
 
 func _read(object: Object, fields: Array[String]) -> Dictionary:
 	var result: Dictionary = {}
@@ -134,8 +160,13 @@ func capture(main: Node) -> Dictionary:
 			if token != null:
 				_references[token.get_instance_id()] = token
 				tokens[token.get_instance_id()] = {"kind": "march" if key == "_attack_march" else "pending", "object": token}
+	# Extensions run once every built-in identity is known and before any actor
+	# field is encoded, so nodes they track() resolve in those fields too.
+	var extensions: RefCounted = _extensions(main)
+	var extension_data: Dictionary = extensions.capture_saves(self) if extensions != null else {}
 	var data: Dictionary = {
-		"schema": 1, "generator": MapData.GENERATOR_VERSION, "map_id": map.get_instance_id(),
+		"ext": extension_data,
+		"schema": SCHEMA, "generator": MapData.GENERATOR_VERSION, "map_id": map.get_instance_id(),
 		"seed": map.map_seed, "style": map.map_archetype, "difficulty": main.ai_controller.difficulty,
 		"manager": _read(GameManager, MANAGER_FIELDS), "resources": ResourceManager._player_resources.duplicate(true),
 		"actors": [], "deposits": [], "tokens": [], "shots": [],
@@ -214,6 +245,11 @@ func restore_world(main: Node, data: Dictionary) -> bool:
 		var token: RefCounted = _references[int(record.id)]
 		_write(token, _script_fields(token), record.fields)
 		if record.kind == "march": token.set("_scan_frame", -1)
+	# Every saved building, unit and deposit now exists; their fields do not.
+	# Extensions create and bind() their own nodes here so that those fields
+	# (a villager's gather target, say) can resolve to them just below.
+	var extensions: RefCounted = _extensions(main)
+	if extensions != null: extensions.restore_saves(data.get("ext"), self, "restore")
 	for record: Dictionary in data.actors:
 		var actor: Node = _references[int(record.id)]
 		if record.kind == "building":
@@ -274,6 +310,8 @@ func restore_context(main: Node, data: Dictionary) -> void:
 	map.camera.reset_smoothing()
 	map.camera.force_update_scroll()
 	Engine.time_scale = clampf(float(data.speed), 0.5, 3.0)
+	var extensions: RefCounted = _extensions(main)
+	if extensions != null: extensions.restore_saves(data.get("ext"), self, "finalize")
 	main._update_fog_of_war()
 	main._update_fog_entity_visibility()
 	main._refresh_sacred_site_status()
@@ -292,11 +330,14 @@ static func _bounded(value: Variant, depth: int = 0) -> bool:
 	return true
 
 static func validate(data: Dictionary) -> String:
-	if data.get("schema") != 1 or data.get("generator") != MapData.GENERATOR_VERSION: return "This save belongs to a different game version."
+	if data.get("schema") != SCHEMA or data.get("generator") != MapData.GENERATOR_VERSION: return "This save belongs to a different game version."
 	for key: String in ["manager", "resources", "main", "ai", "sacred", "camera", "learning", "receipts", "memories", "pending_terrain"]:
 		if not data.get(key) is Dictionary: return "Incomplete solo save."
 	for key: String in ["actors", "deposits", "tokens", "shots", "fog", "visible"]:
 		if not data.get(key) is Array: return "Incomplete solo save."
+	if not data.get("ext") is Dictionary: return "Incomplete solo save."
+	for name: Variant in data.ext:
+		if not EXTENSIONS.valid_name(name) or not data.ext[name] is Dictionary: return "Invalid extension state."
 	if not _bounded(data): return "Solo save exceeds safe limits."
 	for field: String in MANAGER_FIELDS:
 		if not data.manager.has(field): return "Incomplete player state."
@@ -322,6 +363,9 @@ static func validate(data: Dictionary) -> String:
 		if not data.manager.players[owner] is Dictionary or not data.resources.get(owner) is Dictionary: return "Invalid player state."
 		for resource: String in ["food", "wood", "gold"]:
 			if not data.resources[owner].get(resource) is int or int(data.resources[owner][resource]) < 0: return "Invalid resource bank."
+		if not data.manager.player_modifiers is Dictionary or not data.manager.player_modifiers.get(owner) is Dictionary: return "Invalid player state."
+		for key: Variant in data.manager.player_modifiers[owner]:
+			if not key is String or not data.manager.player_modifiers[owner][key] is float or not is_finite(data.manager.player_modifiers[owner][key]): return "Invalid player state."
 		if not data.manager.players[owner].get("civilization") is int or int(data.manager.players[owner].civilization) not in [0, 1, 2]: return "Invalid civilization."
 	for record: Variant in data.actors:
 		if not record is Dictionary or not record.get("fields") is Dictionary or not record.get("id") is int or ids.has(record.id): return "Invalid actor identity."

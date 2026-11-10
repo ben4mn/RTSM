@@ -9,6 +9,10 @@ const MATCH_BACKGROUND_GUARD := preload("res://scripts/main/match_background_gua
 var _match_background_guard: Node = null
 const WORKER_ORDER_UNDO := preload("res://scripts/main/worker_order_undo.gd")
 var _worker_order_undo: RefCounted = WORKER_ORDER_UNDO.new()
+## Round 2 extension registries (network commands, snapshot and save sections).
+## See docs/round2_contracts.md; streams register in _register_match_extensions().
+const MATCH_EXTENSIONS := preload("res://scripts/main/match_extensions.gd")
+var ext: RefCounted = MATCH_EXTENSIONS.new()
 var _network_worker_undo: Dictionary = {}
 var _network_worker_undo_until: int = 0
 var _last_network_worker_undo_result: int = 0
@@ -501,6 +505,7 @@ func _on_map_ready(map_gen: MapGenerator) -> void:
 	GameManager.initialize_game(2)
 	ResourceManager.initialize_player(0)
 	ResourceManager.initialize_player(1)
+	_register_match_extensions()
 	var playtest: Node = get_node_or_null("/root/PlaytestDiagnostics")
 	if playtest != null:
 		playtest.call("start_match", {
@@ -2841,6 +2846,32 @@ func _on_cancel_queue_requested(building: Node2D, index: int) -> void:
 		_on_selection_changed(game_map.selection_mgr.selected)
 
 
+func _register_match_extensions() -> void:
+	## Round 2 seam. Runs before a solo save is restored and before the network
+	## adapter exists. Each stream adds ONE line here that hands `self` to its
+	## own file, which then calls ext.register_command / register_snapshot /
+	## register_save and BuildingBase.register_context_provider.
+	ext.install(self)
+
+
+func _on_building_action_requested(building: Node2D, action_id: String) -> void:
+	## Every HUD context-row button (BuildingBase.get_context_actions) lands here.
+	if NetworkSession.is_client():
+		NetworkSession.send_command("building_action", {"target": NetworkSession.entity_id(building), "action": action_id})
+		return
+	if action_id.begins_with(BuildingBase.RESEARCH_ACTION_PREFIX):
+		_on_research_requested(building, action_id.trim_prefix(BuildingBase.RESEARCH_ACTION_PREFIX))
+		return
+	if GameManager.current_state != GameManager.GameState.PLAYING:
+		return
+	if not is_instance_valid(building) or not building is BuildingBase or building.player_owner != 0:
+		return
+	var reason: String = (building as BuildingBase).perform_context_action(0, action_id)
+	if not reason.is_empty():
+		hud.show_notification(reason, Color(1.0, 0.4, 0.3))
+	_on_selection_changed(game_map.selection_mgr.selected)
+
+
 func _on_research_requested(building: Node2D, research_id: String) -> void:
 	if NetworkSession.is_client():
 		NetworkSession.send_command("research", {"target": NetworkSession.entity_id(building), "research": research_id})
@@ -2905,7 +2936,9 @@ func _setup_hud() -> void:
 	hud.deselect_requested.connect(_deselect_from_hud)
 	hud.select_area_requested.connect(_toggle_touch_area_selection)
 	game_map.selection_mgr.touch_area_selection_changed.connect(hud.set_area_selection_armed)
-	hud.research_requested.connect(_on_research_requested)
+	# Research buttons are context actions too; the HUD's legacy
+	# research_requested signal is a mirror for older listeners, not connected.
+	hud.building_action_requested.connect(_on_building_action_requested)
 	hud.placement_cancel_requested.connect(_on_cancel_placement)
 	hud.placement_confirm_requested.connect(_on_confirm_placement)
 	hud.placement_find_space_requested.connect(_on_find_placement_space)
