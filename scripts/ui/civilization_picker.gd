@@ -193,7 +193,8 @@ func select_civilization(id: int) -> void:
 	# technology, then the tradeoff: what a player needs before committing.
 	var tech: Dictionary = TechData.get_research_definition(CivilizationData.get_unique_tech(selected))
 	var tech_text: String = "%s (%s, %s) — %s" % [tech.get("name", ""), BuildingData.get_building_name(int(tech.get("building_type", -1))), SkirmishData.AGE_NAMES[clampi(int(tech.get("age_required", 1)) - 1, 0, SkirmishData.AGE_NAMES.size() - 1)], str(tech.get("details", "")).get_slice(". ", 1)] if not tech.is_empty() else ""
-	_detail.text = "Economy\n%s\n\nUnique unit\n%s\n%s\n\nUnique technology\n%s\n\nTradeoff\n%s\n\n%s\n%s" % [strength_text, definition.signature, UnitAbilities.describe_for_civilization(selected), tech_text, definition.weakness, definition.tagline, definition.description]
+	# Compact on purpose: all four facts fit a 390 px tall phone without scrolling.
+	_detail.text = "Economy: %s\nUnique unit: %s\n%s\nUnique technology: %s\nTradeoff: %s\n\n%s\n%s" % [strength_text, definition.signature, UnitAbilities.describe_for_civilization(selected), tech_text, definition.weakness, definition.tagline, definition.description]
 	# The crest identifies the choice; its actual illustrated town connects it to play.
 	var town_path: String = KingdomArt.building_path(selected, 0)
 	_portrait.texture = load(town_path if not town_path.is_empty() else str(definition.icon_path))
