@@ -86,7 +86,8 @@ when you need game time to advance.
 Runs real AI-vs-AI skirmishes (`tools/probe_joy_match.tscn`): player 1 is the normal
 opponent, player 0 is a second `AIController` paying through the human build/train/age
 transactions. No grants. Fixed 60 fps, `Engine.time_scale` 1, as fast as the box allows
-(about 3x real time per process), `--jobs` processes in parallel.
+(measured about 3x real time per process with 1–2 jobs, about 1.4x each with 4 jobs on
+the shared build box), `--jobs` processes in parallel.
 
 ```sh
 bash .claude/dev.sh sync

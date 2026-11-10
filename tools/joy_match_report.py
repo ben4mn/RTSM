@@ -122,7 +122,7 @@ def aggregate(matches: list[dict]) -> dict:
     per_minute = {}
     for minute in (3, 5, 10, 15, 20, 25):
         rows = [row for match in matches for row in at_minute(match, minute, lambda p: (
-            p['villagers'], sum(p['military'].values()), sum(p['resources'].values()), sum(p['gathered_per_minute'].values()), p['idle_villagers']))]
+            p['villagers'], sum(count for unit, count in p['military'].items() if unit != 'scout'), sum(p['resources'].values()), sum(p['gathered_per_minute'].values()), p['idle_villagers']))]
         if rows:
             per_minute[f'{minute}m'] = {'samples': len(rows), 'villagers': mean([r[0] for r in rows]), 'military': mean([r[1] for r in rows]),
                                         'banked': mean([r[2] for r in rows]), 'income_per_minute': mean([r[3] for r in rows]),
