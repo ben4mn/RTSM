@@ -50,8 +50,14 @@ func _test_identity_and_baseline() -> void:
 	for civilization: int in CivilizationData.ORDERED_IDS:
 		var definition: Dictionary = CivilizationData.get_definition(civilization)
 		_expect(not str(definition.weakness).is_empty() and not str(definition.strengths).is_empty(), "strength and weakness disclosed")
+	# Round 2 C: the French are no longer the unmodified baseline; a caller
+	# without a player still reads the published base data.
 	for type: int in UnitData.UNITS:
-		_expect(UnitData.get_unit_stats(type, 0) == UnitData.UNITS[type], "baseline unit unchanged: " + str(type))
+		_expect(UnitData.get_unit_stats(type) == UnitData.UNITS[type], "published base unit unchanged: " + str(type))
+		if type not in [UnitData.UnitType.VILLAGER, UnitData.UnitType.CAVALRY]:
+			_expect(UnitData.get_unit_stats(type, 0) == UnitData.UNITS[type], "French unit without an override unchanged: " + str(type))
+	_expect(UnitData.get_unit_name(UnitData.UnitType.CAVALRY, 0) == "Chevalier" and int(UnitData.get_unit_stats(UnitData.UnitType.CAVALRY, 0).hp) == int(UnitData.UNITS[UnitData.UnitType.CAVALRY].hp), "French cavalry is the Chevalier on Horseman stats")
+	_expect(float(UnitData.get_unit_stats(UnitData.UnitType.VILLAGER, 0).build_time) == float(UnitData.UNITS[UnitData.UnitType.VILLAGER].build_time) * 0.8, "French Villagers train 20% faster")
 	GameManager.selected_civilization = 2
 	GameManager.selected_opponent_civilization = 2
 	_expect(GameManager.get_player_civilization(0) == 0 and GameManager.get_player_civilization(1) == 1, "preferences cannot rewrite live match identities")
@@ -62,8 +68,8 @@ func _test_identity_and_baseline() -> void:
 	_setup(900, -7)
 	_expect(GameManager.get_player_civilization(0) == 0 and GameManager.get_player_civilization(1) == 0, "invalid setup normalizes safely")
 	var mutable: Dictionary = CivilizationData.get_definition(1)
-	mutable.unit_overrides[2].hp = 999
-	_expect(int(CivilizationData.get_definition(1).unit_overrides[2].hp) == 60, "returned metadata cannot mutate shared rules")
+	mutable.unit_overrides[2].hp_mult = 9.0
+	_expect(float(CivilizationData.get_definition(1).unit_overrides[2].hp_mult) < 1.0 and int(CivilizationData.get_unit_stats(UnitData.UNITS[UnitData.UnitType.ARCHER], UnitData.UnitType.ARCHER, 1).hp) == 60, "returned metadata cannot mutate shared rules")
 
 func _test_actors_and_paid_queue() -> void:
 	_setup(1, 2)
@@ -76,14 +82,14 @@ func _test_actors_and_paid_queue() -> void:
 	var fragile_cavalry: UnitBase = CAVALRY.instantiate()
 	fragile_cavalry.player_owner = 0
 	add_child(fragile_cavalry)
-	_expect(longbow.get_unit_type() == "Longbow" and longbow.hp == 60.0 and longbow.attack_range == MapData.range_tiles_to_world(6), "Longbow actual name, HP and range")
+	_expect(longbow.get_unit_type() == "Longbow" and longbow.hp == 60.0 and longbow.attack_range == MapData.range_tiles_to_world(5), "Longbow actual name, HP and (un-emplaced) range")
 	_expect(outrider.get_unit_type() == "Outrider" and outrider.hp == 140.0 and outrider.speed == 110.0, "Outrider actual name, HP and speed")
 	_expect(fragile_cavalry.hp == 130.0, "Verdant cavalry weakness applies to actual unit")
 	_expect(Combat.get_counter_bonus(UnitData.UnitType.CAVALRY, UnitData.UnitType.ARCHER) == 1.5, "signature units retain familiar counter roles")
 	GameManager.set_modifier(0, "attack", 2.0)
 	_expect(Combat.get_effective_attack(longbow) == 16.0, "shared research stacks once on signature unit")
 	var preview: Dictionary = Combat.get_effective_unit_type_stats(UnitData.UnitType.ARCHER, 0)
-	_expect(int(preview.hp) == 60 and int(preview.damage) == 16 and int(preview.attack_range) == 6, "recruitment preview agrees with signature stats and research")
+	_expect(int(preview.hp) == 60 and int(preview.damage) == 16 and int(preview.attack_range) == 5, "recruitment preview agrees with signature stats and research")
 	var house: BuildingBase = HOUSE.instantiate()
 	house.player_owner = 1
 	house.state = BuildingBase.State.ACTIVE
@@ -111,18 +117,23 @@ func _test_actors_and_paid_queue() -> void:
 func _test_public_counter_names() -> void:
 	_setup(0, 2)
 	_expect(UnitData.get_unit_counter_name(UnitData.UnitType.INFANTRY, 0) == "Outriders", "Warrior counter names the opposing Sunstride signature")
-	_expect(UnitData.get_unit_counter_name(UnitData.UnitType.INFANTRY, 1) == "Horsemen", "opponent counter names Crown cavalry from its own perspective")
+	_expect(UnitData.get_unit_counter_name(UnitData.UnitType.INFANTRY, 1) == "Chevaliers", "opponent counter names the French Chevalier from its own perspective")
+	_setup(1, 2)
+	_expect(UnitData.get_unit_counter_name(UnitData.UnitType.INFANTRY, 1) == "Horsemen", "an unnamed cavalry line keeps the grammatical plural")
+	_setup(0, 2)
 	_setup(2, 1)
 	_expect(UnitData.get_unit_counter_description(UnitData.UnitType.CAVALRY, 0) == "Beats Longbows", "cavalry counter names opposing Verdant signature")
 	_expect(UnitData.get_unit_counter_description(UnitData.UnitType.CAVALRY) == "Beats Archers", "baseline counter descriptions remain independent of match setup")
 	_expect(UnitData.get_unit_counter_description(UnitData.UnitType.SCOUT, 0) == "Unarmed · wide vision", "scout remains unarmed across civilizations")
 
-func _harvest(civilization: int, resource: String, ticks: int, research_bonus: float = 0.0) -> int:
+func _harvest(civilization: int, resource: String, ticks: int, research_bonus: float = 0.0, wildlife: bool = false) -> int:
 	_setup(civilization, 0)
 	var worker: Villager = VILLAGER.instantiate()
 	worker.player_owner = 0
 	add_child(worker)
 	var supply := Supply.new()
+	if wildlife:
+		supply.add_to_group(UnitAbilities.WILDLIFE_GROUP)
 	add_child(supply)
 	worker.gather_target = supply
 	worker.carried_resource_type = resource
@@ -146,7 +157,11 @@ func _test_gathering() -> void:
 	_expect(_harvest(0, "wood", 100) == 180, "baseline earns 1.8 resources per tick")
 	_expect(_harvest(1, "wood", 100) == 216, "Verdant earns exactly +20% wood across fractional ticks")
 	_expect(_harvest(1, "food", 100) == 180, "Verdant bonus does not leak to food")
-	_expect(_harvest(2, "food", 100) == 207, "Sunstride earns exactly +15% food across fractional ticks")
+	# Round 2 C: the flat Mongol +15% food became +30% on herds and game only
+	# (a plain supply here stands in for a Farm-like source; see test_civ_abilities).
+	_expect(_harvest(2, "food", 100) == 180, "Mongol flat food bonus is gone for ordinary sources")
+	_expect(_harvest(2, "food", 100, 0.0, true) == 234, "Mongols earn exactly +30% food from wildlife across fractional ticks")
+	_expect(_harvest(1, "food", 100, 0.0, true) == 180, "the wildlife bonus does not leak to other kingdoms")
 	_expect(_harvest(2, "gold", 100) == 180, "Sunstride bonus does not leak to gold")
 	_expect(_harvest(1, "wood", 100, UnitData.WHEELBARROW_GATHER_BONUS) == 270, "Wood bonus and Wheelbarrow compose without rounding loss")
 

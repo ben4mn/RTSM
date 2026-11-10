@@ -15,7 +15,7 @@ const DIFFICULTY_IDS: Dictionary = {"easy": 0, "medium": 1, "hard": 2}
 const MAP_IDS: Dictionary = {"open_plains": 0, "river_crossings": 1, "woodland_flanks": 2}
 const RESOURCES: Array[String] = ["food", "wood", "gold"]
 const UNDER_ATTACK_COOLDOWN: float = 10.0
-const COMMANDS: Array[String] = ["camera_to", "set_speed", "pause", "reveal_map", "give", "spawn", "screenshot_safe_ui"]
+const COMMANDS: Array[String] = ["camera_to", "set_speed", "pause", "reveal_map", "give", "spawn", "age", "build", "screenshot_safe_ui"]
 
 static var _dev_checked: bool = false
 static var _dev_enabled: bool = false
@@ -435,6 +435,47 @@ func _cmd_spawn(arguments: Array, named: Dictionary = {}) -> Dictionary:
 		_dev_spawned[unit.get_instance_id()] = true
 		spawned += 1
 	return {"ok": spawned > 0, "spawned": spawned, "unit": type_name.to_lower(), "player": player_id, "tile": [center.x, center.y]}
+
+
+func _cmd_age(arguments: Array, named: Dictionary = {}) -> Dictionary:
+	## Advance a player to an age at once (no cost, no timer).
+	var target: int = clampi(int(named.get("age", arguments[0] if not arguments.is_empty() else GameManager.MAX_AGE)), 1, GameManager.MAX_AGE)
+	var player_id: int = clampi(int(named.get("player", arguments[1] if arguments.size() > 1 else 0)), 0, 1)
+	while GameManager.get_player_age(player_id) < target and GameManager.advance_age(player_id):
+		pass
+	return {"ok": GameManager.get_player_age(player_id) >= target, "player": player_id, "age": GameManager.get_player_age(player_id)}
+
+
+func _cmd_build(arguments: Array, named: Dictionary = {}) -> Dictionary:
+	## Place a finished building on the nearest free ground (no cost, no builder).
+	var type_name: String = str(named.get("building", arguments[0] if not arguments.is_empty() else "")).to_upper()
+	if not BuildingData.BuildingType.has(type_name):
+		return {"error": "unknown building", "buildings": BuildingData.BuildingType.keys()}
+	var building_type: int = BuildingData.BuildingType[type_name]
+	var player_id: int = clampi(int(named.get("player", arguments[1] if arguments.size() > 1 else 0)), 0, 1)
+	var center: Vector2i = _resolve_tile(named.get("near", arguments[2] if arguments.size() > 2 else "home"), player_id)
+	var game_map: Node2D = match_scene.game_map
+	var footprint: Vector2i = BuildingData.BUILDINGS[building_type].get("footprint", Vector2i.ONE)
+	for radius: int in range(4, 16):
+		for dy: int in range(-radius, radius + 1):
+			for dx: int in range(-radius, radius + 1):
+				if maxi(absi(dx), absi(dy)) != radius:
+					continue
+				var origin: Vector2i = center + Vector2i(dx, dy)
+				var free: bool = true
+				# One spare tile all round keeps paths open between staged buildings.
+				for fy: int in range(-1, footprint.y + 1):
+					for fx: int in range(-1, footprint.x + 1):
+						if not game_map.is_tile_buildable(origin + Vector2i(fx, fy)):
+							free = false
+				if not free:
+					continue
+				var building: BuildingBase = match_scene._spawn_building(building_type, player_id, origin)
+				if building == null:
+					return {"error": "spawn failed"}
+				building.complete_instantly()
+				return {"ok": true, "building": type_name.to_lower(), "player": player_id, "tile": [origin.x, origin.y]}
+	return {"error": "no free ground"}
 
 
 func _cmd_screenshot_safe_ui(arguments: Array, named: Dictionary = {}) -> Dictionary:

@@ -90,7 +90,8 @@ func _run() -> void:
 		players.append({"civ": player.civ, "age": player.age, "age_times": player.age_times, "final_resources": player.resources,
 			"final_units": player.units, "final_buildings": player.buildings, "units_lost": player.units_lost, "units_killed": player.units_killed,
 			"buildings_lost": player.buildings_lost, "resources_gathered": player.resources_gathered,
-			"average_float": average, "peak_float": float_peak[player_id], "totals": player.totals})
+			"average_float": average, "peak_float": float_peak[player_id], "totals": player.totals,
+			"abilities": (UnitAbilities.telemetry.get(player_id, {}) as Dictionary).duplicate()})
 	var sacred_events: Array = hooks.events.filter(func(event: Dictionary) -> bool: return str(event.type).begins_with("sacred_"))
 	var report: Dictionary = {
 		"seed": final.seed, "map": final.map, "difficulty": difficulty, "population_limit": final.population_limit,

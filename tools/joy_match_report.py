@@ -159,7 +159,8 @@ for match in results:
         continue
     sides = ' | '.join(
         f"P{i} {p['civ']} age{p['age']} ages@{p['age_times']} mil1@{p['totals']['first_military_time']:.0f}s peak{p['totals']['peak_army']} "
-        f"lost{p['units_lost']} float~{p['average_float'].get('total', 0):.0f}" for i, p in enumerate(match['players']))
+        f"lost{p['units_lost']} float~{p['average_float'].get('total', 0):.0f} abilities={p.get('abilities', {})} "
+        f"tech={[t for t in p['totals'].get('researched', []) if t in ('chivalry', 'yeomen', 'yam')]}" for i, p in enumerate(match['players']))
     print(f"{match['name']}: winner=P{match['winner']} ({match['win_reason']}) {match['length_seconds']:.0f}s "
           f"x{match['speedup']} combat@{match['first_combat_time']:.0f}s errors={match['script_errors']}\n    {sides}")
 summary = aggregate(good) if good else {}

@@ -69,6 +69,11 @@ const OVERLAY_TEXTURES: Dictionary = {
 }
 
 
+## Balance telemetry, per player: counts since the match started. Read by
+## tools/probe_joy_match.gd; nothing in the simulation depends on it.
+static var telemetry: Dictionary = {}
+
+
 class Overlay extends Sprite2D:
 	## The pennon / stakes / loot sack. Presentation only. It keeps its own
 	## process mode so it also animates on inert network replicas.
@@ -112,6 +117,12 @@ static func install(main: Node) -> void:
 	## Ability state travels in UNIT_FIELDS; this only re-derives the overlays
 	## once a solo save has been restored.
 	main.ext.register_save(SECTION, _capture, _restore, _finalize_restore.bind(main))
+	telemetry = {0: {"charge_hits": 0, "charge_damage": 0, "emplacements": 0, "pillage_gold": 0}, 1: {"charge_hits": 0, "charge_damage": 0, "emplacements": 0, "pillage_gold": 0}}
+
+
+static func _count(player_id: int, key: String, amount: int = 1) -> void:
+	if telemetry.has(player_id):
+		telemetry[player_id][key] = int(telemetry[player_id].get(key, 0)) + amount
 
 
 # --- Data helpers ------------------------------------------------------------
@@ -219,6 +230,7 @@ static func _set_emplaced(unit: UnitBase, emplaced: bool) -> void:
 		return
 	var range_bonus: float = MapData.range_tiles_to_world(EMPLACE_RANGE_TILES)
 	if emplaced:
+		_count(unit.player_owner, "emplacements")
 		unit.attack_range += range_bonus
 		unit.attack_speed /= EMPLACE_INTERVAL_MULTIPLIER
 	else:
@@ -239,6 +251,8 @@ static func melee_bonus_damage(attacker: UnitBase) -> float:
 	if not charged:
 		return 0.0
 	_set_ready(attacker, false)
+	_count(attacker.player_owner, "charge_hits")
+	_count(attacker.player_owner, "charge_damage", int(get_charge_bonus(attacker)))
 	return get_charge_bonus(attacker)
 
 
@@ -271,6 +285,7 @@ static func _pay_pillage(attacker: UnitBase, victim: Node2D, gold: int) -> void:
 	if gold <= 0:
 		return
 	ResourceManager.add_resource(attacker.player_owner, "gold", gold)
+	_count(attacker.player_owner, "pillage_gold", gold)
 	attacker._ability_timer = LOOT_SHOW_SECONDS
 	_set_ready(attacker, true)
 	# The figure belongs to the raider: only its owner's screen shows it.
@@ -369,8 +384,8 @@ static func _create_overlay(unit: UnitBase) -> Overlay:
 		# Planted in the ground in front of the boots: stays put while the
 		# archer's puppet sways, and never mirrors.
 		overlay.offset = Vector2(-size.x * 0.5, -size.y)
-		overlay.rest_scale = Vector2(0.5, 0.5) * UnitData.WORLD_VISUAL_SCALE
-		overlay.anchor = Vector2(0.0, 7.0)
+		overlay.rest_scale = Vector2(0.4, 0.4) * UnitData.WORLD_VISUAL_SCALE
+		overlay.anchor = Vector2(0.0, 6.0)
 		unit.add_child(overlay)
 	else:
 		# Carried: a child of the painted sprite, so it hops, leans and
@@ -378,16 +393,17 @@ static func _create_overlay(unit: UnitBase) -> Overlay:
 		var rest: Vector2 = unit._sprite_rest_scale
 		overlay.host_sprite = sprite
 		overlay.mirrors = true
-		overlay.rest_scale = Vector2(0.5, 0.5) * UnitData.WORLD_VISUAL_SCALE / rest
+		var size_factor: float = 0.34 if unit._ability_kind == Kind.CHARGE else 0.3
+		overlay.rest_scale = Vector2(size_factor, size_factor) * UnitData.WORLD_VISUAL_SCALE / rest
 		if unit._ability_kind == Kind.CHARGE:
 			# Pole foot at the rider's back; the pennon flies behind the lance.
 			overlay.offset = Vector2(-size.x + 5.0, -size.y)
-			overlay.anchor = Vector2(-3.0, top + 15.0) / rest
+			overlay.anchor = Vector2(-4.0, top + 12.0) / rest
 			overlay.flutter = 0.10
 		else:
 			# Loot sack slung behind the saddle.
 			overlay.offset = Vector2(-size.x * 0.5, -size.y)
-			overlay.anchor = Vector2(-12.0, top * 0.42) / rest
+			overlay.anchor = Vector2(-14.0, top * 0.45) / rest
 		sprite.add_child(overlay)
 	unit.set_meta(OVERLAY_NAME, overlay)
 	return overlay

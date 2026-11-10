@@ -226,7 +226,8 @@ static func get_unit_stats(unit_type: int, player_id: int = -1, tier: int = -1) 
 	## `tier` -1 uses the player's researched tier; pass 1..n to preview one.
 	if not UNITS.has(unit_type):
 		return {}
-	var stats: Dictionary = CivilizationData.get_unit_stats(UNITS[unit_type], unit_type, CivilizationData.for_player(player_id))
+	# Without a player this is the published base line, free of any kingdom.
+	var stats: Dictionary = CivilizationData.get_unit_stats(UNITS[unit_type], unit_type, CivilizationData.for_player(player_id)) if player_id >= 0 else (UNITS[unit_type] as Dictionary).duplicate(true)
 	if tier < 0:
 		tier = get_unit_tier(unit_type, player_id)
 	var overlay: Dictionary = UNIT_TIERS.get(unit_type, {}).get(tier, {})
