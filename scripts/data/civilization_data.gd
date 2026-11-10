@@ -27,7 +27,7 @@ const CATALOG_VERSION: int = 2
 ## buildings 5 Farm, 6 Resource Camp. Avoids a cyclic data dependency.
 ## One-line data switch: until herds and game are on the map, the wildlife
 ## gathering bonus also applies to berry bushes (see UnitAbilities.gather_bonus).
-const WILDLIFE_BONUS_INCLUDES_BERRIES: bool = true
+const WILDLIFE_BONUS_INCLUDES_BERRIES: bool = false
 const DEFINITIONS: Dictionary = {
 	Civilization.CROWNLANDS: {
 		"name": "French",
