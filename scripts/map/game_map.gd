@@ -1540,7 +1540,43 @@ func is_resource_target_valid(node: Node2D, type: String = "", player_id: int = 
 func is_resource_target_available_to_worker(node: Node2D, type: String = "", player_id: int = -1, worker: Node2D = null) -> bool:
 	if not is_resource_target_valid(node, type, player_id):
 		return false
+	# Wildlife: autonomous discovery never walks a worker into a live boar.
+	if node is WildlifeNode and not (node as WildlifeNode).is_auto_gather_target():
+		return false
 	return not node is BuildingBase or (node as BuildingBase).is_available_to_worker(worker)
+
+
+## --- Wildlife (workstream A) ---------------------------------------------------
+## Sheep, deer and boar are WildlifeNode harvestables owned by the
+## WildlifeDirector child (scripts/main/wildlife_director.gd). These queries
+## are the stable surface for the AI and HUD; all return live nodes only.
+
+func get_wildlife_director() -> Node:
+	return get_node_or_null("WildlifeDirector")
+
+
+## Every animal or carcass with food left; `kind` is "sheep", "deer", "boar" or "".
+func get_wildlife_nodes(kind: String = "") -> Array[Node2D]:
+	var director: Node = get_wildlife_director()
+	var result: Array[Node2D] = []
+	if director != null:
+		result.assign(director.call("get_nodes", kind))
+	return result
+
+
+## Sheep (alive or opened) that `player_id` owns and may butcher.
+func get_wildlife_for_player(player_id: int) -> Array[Node2D]:
+	var director: Node = get_wildlife_director()
+	var result: Array[Node2D] = []
+	if director != null:
+		result.assign(director.call("get_owned_nodes", player_id))
+	return result
+
+
+## Nearest-food ordering: owned sheep and open carcasses count as much closer.
+func _resource_discovery_distance(node: Node2D, from: Vector2, player_id: int) -> float:
+	var distance: float = from.distance_to(node.global_position)
+	return (node as WildlifeNode).discovery_distance(distance, player_id) if node is WildlifeNode else distance
 
 
 ## Resource discovery is fog-aware whenever a concrete player is supplied.
@@ -1569,7 +1605,7 @@ func get_nearest_resource_node(type: String, from: Vector2, player_id: int = -1,
 			continue
 		if not is_resource_target_available_to_worker(node, type, player_id, worker):
 			continue
-		var dist: float = from.distance_to(node.global_position)
+		var dist: float = _resource_discovery_distance(node, from, player_id)
 		if dist < best_dist:
 			best_dist = dist
 			best_node = node
@@ -1608,7 +1644,7 @@ func get_nearest_reachable_resource_node(
 		):
 			candidates.append(additional_node)
 	candidates.sort_custom(func(a: Node2D, b: Node2D) -> bool:
-		return from.distance_squared_to(a.global_position) < from.distance_squared_to(b.global_position)
+		return _resource_discovery_distance(a, from, player_id) < _resource_discovery_distance(b, from, player_id)
 	)
 	var checked: int = 0
 	for candidate: Node2D in candidates:

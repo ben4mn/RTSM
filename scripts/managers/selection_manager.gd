@@ -829,7 +829,8 @@ func _handle_tap(screen_pos: Vector2, is_touch_input: bool, pressed_unit: Node2D
 			_record_touch_input(screen_pos, world_pos, "move", tapped_node, resource_node, resource_tile_pos)
 			move_command.emit(resource_tile_pos)
 			consumed = true
-		elif selected.is_empty():
+		elif selected.is_empty() or _has_selected_wildlife():
+			# Wildlife: tapping from one inspected animal to the next reselects.
 			_clear_selection()
 			_add_to_selection(resource_node)
 			_record_touch_input(screen_pos, world_pos, "select_resource", tapped_node, resource_node)
@@ -844,6 +845,13 @@ func _handle_tap(screen_pos: Vector2, is_touch_input: bool, pressed_unit: Node2D
 		var tile_pos := _world_to_tile(world_pos)
 		_record_touch_input(screen_pos, world_pos, "move", tapped_node, resource_node, tile_pos)
 		move_command.emit(tile_pos)
+		consumed = true
+	elif _has_selected_herd():
+		# Wildlife: a ground tap with own sheep selected herds them there. Main
+		# turns this destination into the `herd` order; nothing else listens.
+		var herd_tile := _world_to_tile(world_pos)
+		_record_touch_input(screen_pos, world_pos, "herd", tapped_node, resource_node, herd_tile)
+		move_command.emit(herd_tile)
 		consumed = true
 	elif not shift_held:
 		# An inspected building, resource, or objective needs no ground order.
@@ -1403,6 +1411,18 @@ func _has_selected_villager_producer() -> bool:
 		return false
 	var producer: BuildingBase = selected[0] as BuildingBase
 	return producer.player_owner == 0 and UnitData.UnitType.VILLAGER in producer.trainable_units
+
+
+## Wildlife (workstream A): own live sheep can be herded with a ground tap.
+func _has_selected_herd() -> bool:
+	for entry: Variant in selected:
+		if _is_current_selection_entry(entry) and entry is WildlifeNode and (entry as WildlifeNode).is_herdable_by(0):
+			return true
+	return false
+
+
+func _has_selected_wildlife() -> bool:
+	return selected.size() == 1 and _is_current_selection_entry(selected[0]) and selected[0] is WildlifeNode
 
 
 func _has_selected_units() -> bool:

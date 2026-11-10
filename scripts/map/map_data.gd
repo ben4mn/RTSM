@@ -47,7 +47,9 @@ enum FogState {
 ## Generator5 preserves the roomy 88-tile field and guarantees equal starts,
 ## while seeds vary lanes, expansion positions, home groves and finite stock.
 ## Older generators give a different battlefield; online peers must agree.
-const GENERATOR_VERSION := 5
+## Generator6: six opening berry bushes, plus the wildlife placement pass
+## (scripts/map/wildlife_placement.gd) that both peers derive from the seed.
+const GENERATOR_VERSION := 6
 const MAP_WIDTH := 88
 const MAP_HEIGHT := 88
 
