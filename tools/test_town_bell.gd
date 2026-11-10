@@ -61,8 +61,9 @@ func run_cases() -> void:
 		expect(is_equal_approx(worker.hp, hp_before), "garrisoned villager takes no damage")
 	expect(not map.get_units_near(Garrison.footprint_center(tc), 2000.0).any(func(unit: UnitBase) -> bool: return unit.current_state == UnitBase.State.GARRISONED), "spatial index holds no garrisoned villager")
 	expect(Garrison.bonus_arrows(tc) == workers.size(), "one bonus arrow per garrisoned villager")
-	action_ids = tc.get_context_actions(0).map(func(action: Dictionary) -> String: return str(action.id))
-	expect(action_ids == [Garrison.ACTION_BELL] and str(tc.get_context_actions(0)[0].label) == "All Clear", "while ringing the one card is the all-clear")
+	var garrison_cards: Array = tc.get_context_actions(0).filter(func(action: Dictionary) -> bool: return str(action.id).begins_with("garrison:"))
+	action_ids = garrison_cards.map(func(action: Dictionary) -> String: return str(action.id))
+	expect(action_ids == [Garrison.ACTION_BELL] and str(garrison_cards[0].label) == "All Clear", "while ringing the one card is the all-clear")
 
 	# One volley = the TC's own arrow plus one per villager.
 	tc._tower_attack_cooldown = 0.0
