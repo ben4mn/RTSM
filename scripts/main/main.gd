@@ -8,6 +8,7 @@ const ATTACK_MARCH := preload("res://scripts/main/attack_march_cohesion.gd")
 const MATCH_BACKGROUND_GUARD := preload("res://scripts/main/match_background_guard.gd")
 var _match_background_guard: Node = null
 const WORKER_ORDER_UNDO := preload("res://scripts/main/worker_order_undo.gd")
+const DEV_HOOKS := preload("res://scripts/managers/dev_hooks.gd")
 var _worker_order_undo: RefCounted = WORKER_ORDER_UNDO.new()
 var _network_worker_undo: Dictionary = {}
 var _network_worker_undo_until: int = 0
@@ -623,6 +624,7 @@ func _on_map_ready(map_gen: MapGenerator) -> void:
 	if not restoring_solo: _bootstrap_opening_guidance()
 	NetworkSession.attach_match(self)
 	SoloSave.attach_match(self)
+	DEV_HOOKS.attach(self)  # Inert outside localhost ?dev=1 sessions.
 	if restoring_solo: return
 	# A bound signal automatically disconnects when this match is freed; no
 	# coroutine survives scene teardown. Run after the next frame's HUD layout.

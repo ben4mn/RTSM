@@ -149,6 +149,7 @@ func _ready() -> void:
 	WEB_SHELL_BRIDGE.set_controls_visible(true)
 	_refresh_web_update_safety()
 	call_deferred("_refresh_responsive_layout")
+	preload("res://scripts/managers/dev_hooks.gd").menu_ready(self)  # Inert outside localhost ?dev=1 sessions.
 
 
 func _exit_tree() -> void:

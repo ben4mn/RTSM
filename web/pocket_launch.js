@@ -327,5 +327,8 @@
     });
     // Installed windows skip the introduction, but first boot may still need
     // a download; keep the explanatory status visible until it is ready.
-    if (installedWindow() || resumeLaunch) { showGame(); boot.hidden = false; start(); }
+    // Local developer harness only: localhost ?dev=1&autostart=1 skips the welcome gate.
+    const devAutostart = ['localhost', '127.0.0.1'].includes(window.location.hostname)
+        && /[?&]dev=1(&|$)/.test(window.location.search) && /[?&]autostart=1(&|$)/.test(window.location.search);
+    if (installedWindow() || resumeLaunch || devAutostart) { showGame(); boot.hidden = false; start(); }
 }());
