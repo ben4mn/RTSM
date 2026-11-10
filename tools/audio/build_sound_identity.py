@@ -510,7 +510,7 @@ AMBIENCE = {
 
 
 def encode_ogg(wav: Path, ogg: Path, quality: str, channels: int) -> None:
-    subprocess.run([FFMPEG, "-hide_banner", "-loglevel", "error", "-y", "-i", str(wav), "-map_metadata", "-1", "-ac", str(channels), "-ar", str(RATE), "-c:a", "libvorbis", "-q:a", quality, str(ogg)], check=True)
+    subprocess.run([FFMPEG, "-hide_banner", "-loglevel", "error", "-y", "-i", str(wav), "-map_metadata", "-1", "-ac", str(channels), "-ar", str(RATE), "-c:a", "libvorbis", "-q:a", quality, "-fflags", "+bitexact", str(ogg)], check=True)
 
 
 def build_ambience(manifest: dict) -> None:
@@ -559,7 +559,7 @@ MUSIC = {
     "peace_bards_tale": ("medieval-the-bards-tale:The_Bards_Tale.mp3", 0.0, None, 0.0, -20.0),
     "peace_kings_feast": ("medieval-kings-feast:Kings_Feast.mp3", 0.0, None, 0.0, -20.0),
     "peace_market_day": ("medieval-market-day:Market_Day.mp3", 0.0, None, 0.0, -21.0),
-    "menu_exploration": ("medieval-exploration:Exploration.mp3", 0.0, 150.0, 6.0, -20.0),
+    "menu_exploration": ("medieval-exploration:Exploration.mp3", 0.0, 120.0, 6.0, -20.0),
     "battle": ("medieval-battle:battle_7.mp3", 0.0, None, 0.0, -18.0),
     "stinger_victory": ("medieval-victory-theme:victory.wav", 0.0, None, 0.0, -17.0),
     "stinger_defeat": ("medieval-defeat-theme:defeat.wav", 0.0, 32.0, 5.0, -18.0),
@@ -594,7 +594,7 @@ def build_music(manifest: dict) -> None:
             filters += ",afade=t=out:st=%.2f:d=%.2f" % (duration - fade_out, fade_out)
         filters += ",afade=t=in:st=0:d=0.02"
         out = folder / (name + ".ogg")
-        subprocess.run([FFMPEG, "-hide_banner", "-loglevel", "error", "-y", "-i", str(tmp), "-map_metadata", "-1", "-af", filters, "-c:a", "libvorbis", "-q:a", MUSIC_QUALITY, str(out)], check=True)
+        subprocess.run([FFMPEG, "-hide_banner", "-loglevel", "error", "-y", "-i", str(tmp), "-map_metadata", "-1", "-af", filters, "-c:a", "libvorbis", "-q:a", MUSIC_QUALITY, "-fflags", "+bitexact", str(out)], check=True)
         final_i, final_peak = measure_lufs(out)
         rel = out.relative_to(ROOT).as_posix()
         total += out.stat().st_size

@@ -84,7 +84,7 @@ const SIEGE_BUILDING_HIT_HP: int = 45
 ## decays continuously; the thresholds and holds stop the score from flapping.
 const BATTLE_HEAT_ENTER: float = 9.0
 const BATTLE_HEAT_EXIT: float = 1.5
-const BATTLE_HEAT_MAX: float = 30.0
+const BATTLE_HEAT_MAX: float = 14.0
 const BATTLE_HEAT_DECAY: float = 1.1
 const BATTLE_MIN_SECONDS: float = 14.0
 const BATTLE_CALM_SECONDS: float = 8.0

@@ -195,12 +195,15 @@ func _run() -> void:
 	await get_tree().process_frame
 	_expect(bool(_music().playing) and is_equal_approx(AudioServer.get_bus_volume_db(AudioServer.get_bus_index("Music")), linear_to_db(0.25)), "unmute resumes at the chosen level")
 	for _frame: int in 20: await get_tree().process_frame
-	AudioManager.call("_set_backgrounded", true)
+	var held_track: String = str(_music().track)
 	var held_at: float = float(_music().position)
-	for _frame: int in 20: await get_tree().process_frame
-	_expect(bool(_music().held) and not bool(_music().playing) and is_equal_approx(float(_music().position), held_at), "hidden tab holds the music in place")
+	AudioManager.call("_set_backgrounded", true)
+	await get_tree().create_timer(0.6).timeout
+	_expect(bool(_music().held) and not bool(_music().playing), "hidden tab silences the music")
 	AudioManager.call("_set_backgrounded", false)
-	_expect(bool(_music().playing), "music resumes when visible again")
+	await get_tree().process_frame
+	var resumed_at: float = float(_music().position)
+	_expect(bool(_music().playing) and str(_music().track) == held_track and resumed_at >= held_at - 0.05 and resumed_at < held_at + 0.4, "music resumes in place when visible again (%.2f -> %.2f)" % [held_at, resumed_at])
 
 	# Result stinger.
 	GameManager.game_over.emit(0)

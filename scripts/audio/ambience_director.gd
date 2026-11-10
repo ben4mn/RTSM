@@ -8,7 +8,7 @@ const LAYERS: Array[String] = ["day_bed", "forest", "water", "town"]
 ## Layer trims in dB at full weight. Files are level-matched (see the audio doc).
 const TRIM := {"day_bed": -9.0, "forest": -11.0, "water": -10.0, "town": -7.0}
 const SAMPLE_INTERVAL: float = 0.5
-const GRID := Vector2i(5, 3)
+const GRID := Vector2i(9, 5)
 const BATTLE_DUCK: float = 0.3
 const RISE_PER_SECOND: float = 0.45
 const FALL_PER_SECOND: float = 0.6
@@ -137,8 +137,8 @@ func _sample_screen() -> void:
 		if int(building.get("player_owner")) == 0 and building.is_inside_tree() and grown.has_point(canvas * building.global_position):
 			town += 1
 	_target["day_bed"] = 1.0 if known > 0 else 0.4
-	_target["forest"] = smoothstep(0.06, 0.45, forest / total)
-	_target["water"] = smoothstep(0.06, 0.40, water / total)
+	_target["forest"] = smoothstep(0.01, 0.15, forest / total)
+	_target["water"] = smoothstep(0.01, 0.15, water / total)
 	_target["town"] = clampf((town - 1) / (TOWN_FULL_BUILDINGS - 1.0), 0.0, 1.0)
 	_last_sample = {"forest_tiles": forest, "water_tiles": water, "explored": known, "own_buildings": town}
 

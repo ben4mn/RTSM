@@ -8,8 +8,8 @@
    "peak_dbfs": -12.67,
    "loop_seam_step": 0.00388,
    "loop_seam_rms_dbfs": -33.02,
-   "sha256": "7aa073227458d80748aa22444127115af2703853799283ad46c898093fe2a232",
-   "bytes": 216408,
+   "sha256": "ce7a874e8a3d78173e9290317a4469cf1e6c5cdbaa291aebb8a5730bcbca5c71",
+   "bytes": 216393,
    "processing": "mono 32 kHz; high-pass; layers RMS-balanced; 3.0 s equal-power crossfade of the following material into the loop head; RMS normalised to -30 dBFS; Vorbis q2",
    "layers": [
     {
@@ -39,8 +39,8 @@
    "peak_dbfs": -7.48,
    "loop_seam_step": 0.0046,
    "loop_seam_rms_dbfs": -31.23,
-   "sha256": "0792949a77b9d1ee52ec6814fa29855ecb61043b7d19abbb31d19d19f10bb536",
-   "bytes": 160059,
+   "sha256": "85dea9f20c565b201920e913b794c8e963e1493543a31efe10ef093565f3a1b0",
+   "bytes": 160044,
    "processing": "mono 32 kHz; high-pass; layers RMS-balanced; 2.5 s equal-power crossfade of the following material into the loop head; RMS normalised to -30 dBFS; Vorbis q2",
    "layers": [
     {
@@ -70,8 +70,8 @@
    "peak_dbfs": -11.44,
    "loop_seam_step": 0.0,
    "loop_seam_rms_dbfs": -240.0,
-   "sha256": "2cff49c0b492997321f2b9a96e08da5bdb6a7fc407e47832364fbd2d489fe37d",
-   "bytes": 71763,
+   "sha256": "3f3a878272af549ffc93f3036fe3cc742ae88b10e00ea756164c3218ff80836d",
+   "bytes": 71748,
    "processing": "mono 32 kHz; events placed on a silent 24 s timeline; 3.8 kHz low-pass; RMS normalised to -34 dBFS; Vorbis q2",
    "layers": [
     {
@@ -95,8 +95,8 @@
    "peak_dbfs": -14.52,
    "loop_seam_step": 0.01092,
    "loop_seam_rms_dbfs": -29.92,
-   "sha256": "cd5248537c7339bdd2162eabb35aa739cddbfde3e2d389cc6d672b5f85b1915b",
-   "bytes": 146181,
+   "sha256": "fe1c06e9f378dfa367f37d57f4750869a6c075bf5eeb596e98b9add9875081df",
+   "bytes": 146166,
    "processing": "mono 32 kHz; high-pass; layers RMS-balanced; 2.5 s equal-power crossfade of the following material into the loop head; RMS normalised to -30 dBFS; Vorbis q2",
    "layers": [
     {
@@ -115,8 +115,8 @@
    "seconds": 71.21,
    "integrated_lufs": -18.0,
    "true_peak_dbfs": -4.5,
-   "sha256": "6fc0947911d7af815d6be556a053552184515bd6c10d0e01c5d8cdb3ca23e236",
-   "bytes": 541204,
+   "sha256": "01f101dba3cbc984db8eb0965b604b85349ef11bac402b5061b4246d9b3ef0d9",
+   "bytes": 541189,
    "processing": "stereo 32 kHz; leading/trailing digital silence removed; source 0.0-end s; linear gain -4.50 dB to -18 LUFS (no compression or limiting); Vorbis q0.3",
    "layers": [
     {
@@ -128,12 +128,12 @@
   },
   "assets/audio/identity/music/menu_exploration.ogg": {
    "kind": "music",
-   "seconds": 150.0,
+   "seconds": 120.0,
    "integrated_lufs": -20.2,
-   "true_peak_dbfs": -2.5,
-   "sha256": "899170933c59e47ead3bf7308fc53312cabe162aeb5670ab0c028c2c48883c07",
-   "bytes": 990922,
-   "processing": "stereo 32 kHz; leading/trailing digital silence removed; source 0.0-150.0 s; linear gain +1.80 dB to -20 LUFS (no compression or limiting); 6 s fade-out; Vorbis q0.3",
+   "true_peak_dbfs": -1.9,
+   "sha256": "1b353494de4e72cfd5f89e9d40e8f9f5f8cf29224d48846ac8dc659bec936126",
+   "bytes": 784323,
+   "processing": "stereo 32 kHz; leading/trailing digital silence removed; source 0.0-120.0 s; linear gain +2.20 dB to -20 LUFS (no compression or limiting); 6 s fade-out; Vorbis q0.3",
    "layers": [
     {
      "source": "medieval-exploration",
@@ -147,8 +147,8 @@
    "seconds": 150.21,
    "integrated_lufs": -20.0,
    "true_peak_dbfs": -5.0,
-   "sha256": "bf1dbdd53deab4b60ef8a608aeaddd3162a251bf82ef8e36f485c1e8e3881980",
-   "bytes": 1020780,
+   "sha256": "ff55436f984cbf908e7941dcdafb598918819e52e9446cd337ad037fb3400f34",
+   "bytes": 1020765,
    "processing": "stereo 32 kHz; leading/trailing digital silence removed; source 0.0-end s; linear gain -2.40 dB to -20 LUFS (no compression or limiting); Vorbis q0.3",
    "layers": [
     {
@@ -163,8 +163,8 @@
    "seconds": 129.05,
    "integrated_lufs": -20.0,
    "true_peak_dbfs": -5.0,
-   "sha256": "ba6bfe5ab60dd8e8cd48ea22ea27d2fb92c1c71e8f05e3656db1cb5fa19207d2",
-   "bytes": 920133,
+   "sha256": "1a2dc80946d2094777df02b6e423d96b284f7ef726ec7ea92777a468163ae3fd",
+   "bytes": 920118,
    "processing": "stereo 32 kHz; leading/trailing digital silence removed; source 0.0-end s; linear gain -5.90 dB to -20 LUFS (no compression or limiting); Vorbis q0.3",
    "layers": [
     {
@@ -179,8 +179,8 @@
    "seconds": 134.7,
    "integrated_lufs": -21.1,
    "true_peak_dbfs": -11.7,
-   "sha256": "e60eb7d1e71a0176e5a4022af0a4c8b506000a00c9c7e27a5e5facbf7798ff91",
-   "bytes": 916687,
+   "sha256": "4ae31a7c209ce5966100606f274eacea0124809d502508c0ec6c5ee0f99c7018",
+   "bytes": 916672,
    "processing": "stereo 32 kHz; leading/trailing digital silence removed; source 0.0-end s; linear gain -12.90 dB to -21 LUFS (no compression or limiting); Vorbis q0.3",
    "layers": [
     {
@@ -195,8 +195,8 @@
    "seconds": 97.04,
    "integrated_lufs": -20.1,
    "true_peak_dbfs": -4.8,
-   "sha256": "93d5e4f8ccb5ce3da7f2cdc6fbe83502b30c19c59b171cd805cf22da9bb73ad9",
-   "bytes": 687436,
+   "sha256": "31a13a28f707c36c1a6bf07cbf9c8b41fe1ad1336f3b4a46283ef45af33fa772",
+   "bytes": 687421,
    "processing": "stereo 32 kHz; leading/trailing digital silence removed; source 0.0-end s; linear gain -2.70 dB to -20 LUFS (no compression or limiting); Vorbis q0.3",
    "layers": [
     {
@@ -211,8 +211,8 @@
    "seconds": 32.0,
    "integrated_lufs": -18.0,
    "true_peak_dbfs": -7.8,
-   "sha256": "35e7d8ddd7a0d829b2864c269bda58b0f9c8e56d09a14d6a487e4d1a55b0ee7a",
-   "bytes": 216369,
+   "sha256": "632eaa1d8b4d42e82762601c0878d80e4b8b15a3b2d167473b01b143015db885",
+   "bytes": 216354,
    "processing": "stereo 32 kHz; leading/trailing digital silence removed; source 0.0-32.0 s; linear gain -9.00 dB to -18 LUFS (no compression or limiting); 5 s fade-out; Vorbis q0.3",
    "layers": [
     {
@@ -227,8 +227,8 @@
    "seconds": 30.74,
    "integrated_lufs": -17.1,
    "true_peak_dbfs": -5.6,
-   "sha256": "eb920b187a287741bb05e0e2bd106c84a91665b9dd1158b644d4023b8c79f965",
-   "bytes": 219998,
+   "sha256": "c15d93736ef0c5ae4062a66056937d72e2e3f24ed02375e937c5968d4314b13e",
+   "bytes": 219983,
    "processing": "stereo 32 kHz; leading/trailing digital silence removed; source 0.0-end s; linear gain -6.80 dB to -17 LUFS (no compression or limiting); Vorbis q0.3",
    "layers": [
     {

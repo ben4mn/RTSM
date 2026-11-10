@@ -35,7 +35,7 @@ var _log: Array[String] = []
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	_rng.seed = 40911 # Presentation-only stream; gameplay random state is never touched.
+	_rng.randomize() # Own generator: the playlist order never touches gameplay random state.
 	for index: int in 2:
 		var deck := AudioStreamPlayer.new()
 		deck.name = "MusicDeck%d" % index
