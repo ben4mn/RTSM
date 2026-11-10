@@ -1243,8 +1243,10 @@ func get_visible_tiles_for_player(tile_positions: Array[Vector2i], viewer_player
 		return visible
 	if not is_inside_tree():
 		return visible
+	# Same per-tile answer as _are_tiles_visible_from_live_sources([tile]).
+	var building_grid: PackedByteArray = _building_vision_grid(viewer_player_id)
 	for tile: Vector2i in tile_positions:
-		if tile.x >= 0 and tile.y >= 0 and tile.x < MapData.MAP_WIDTH and tile.y < MapData.MAP_HEIGHT and _are_tiles_visible_from_live_sources([tile], viewer_player_id):
+		if tile.x >= 0 and tile.y >= 0 and tile.x < MapData.MAP_WIDTH and tile.y < MapData.MAP_HEIGHT and (building_grid[tile.y * MapData.MAP_WIDTH + tile.x] != 0 or _live_unit_index.units_reveal(tile, viewer_player_id)):
 			visible[tile] = true
 	return visible
 
