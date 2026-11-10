@@ -133,6 +133,7 @@ func can_auto_retaliate() -> bool:
 
 
 func _process(delta: float) -> void:
+	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
 	_presentation_working = false
 	if not _auto_recovering and _has_active_economic_work():
 		_economic_threat_check_timer -= delta
@@ -144,6 +145,7 @@ func _process(delta: float) -> void:
 		_economic_threat_check_timer = float(posmod(get_index(), 5)) * 0.05
 	if _auto_recovering and current_state != State.DEAD:
 		_process_recovery(delta)
+	if PerfProbe.on: PerfProbe.add(&"villager.pre", _pp)
 	super._process(delta)
 	# AI also reads these exclusions while a worker is idle. Expire them from
 	# the inherited simulation clock even when no gather/drop-off retry runs.

@@ -110,7 +110,9 @@ func _process(delta: float) -> void:
 	_being_neutralized = false
 	clock_ticking = false
 	garrison_paused = false
+	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
 	var nearby := _count_nearby_players()
+	if PerfProbe.on: PerfProbe.add(&"site.count", _pp)
 	var p1_count: int = nearby[0]
 	var p2_count: int = nearby[1]
 

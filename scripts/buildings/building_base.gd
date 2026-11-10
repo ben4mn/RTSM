@@ -599,7 +599,9 @@ func _process(delta: float) -> void:
 	if state == State.ACTIVE and tower_attack_damage > 0:
 		_tower_attack_cooldown -= delta
 		if _tower_attack_cooldown <= 0.0:
+			var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
 			_tower_attack_cooldown = tower_attack_interval if _tower_try_attack() else DEFENSIVE_TARGET_SCAN_INTERVAL
+			if PerfProbe.on: PerfProbe.add(&"building.tower", _pp)
 	if is_selected or had_shot_flash:
 		queue_redraw()
 	if had_shot_flash and _defensive_flash != null:

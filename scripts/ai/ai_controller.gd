@@ -594,6 +594,7 @@ func _on_decision_tick() -> void:
 		_decision_timer.stop()
 		return
 
+	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
 	# Clean stale references
 	_cleanup_references()
 	_update_enemy_memory()
@@ -621,6 +622,7 @@ func _on_decision_tick() -> void:
 	_check_scouting()
 	_micro_damaged_units()
 	_check_attack_or_defend()
+	if PerfProbe.on: PerfProbe.add(&"ai.tick", _pp)
 
 
 func _build_scout_waypoints(map_center: Vector2) -> void:

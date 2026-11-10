@@ -1043,6 +1043,7 @@ func get_navigation_world_path(
 ) -> PackedVector2Array:
 	if pathfinding == null:
 		return PackedVector2Array()
+	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
 	var from_tile: Vector2i = world_to_tile(from_world)
 	var target_tile: Vector2i = world_to_tile(target_world)
 	var radius_from_range: int = int(ceil(
@@ -1083,6 +1084,7 @@ func get_navigation_world_path(
 	var world_path := PackedVector2Array()
 	for tile: Vector2i in tile_path:
 		world_path.append(tile_to_world(tile))
+	if PerfProbe.on: PerfProbe.add(&"path.nav", _pp)
 	return world_path
 
 
@@ -1108,6 +1110,7 @@ func get_building_work_world_path(
 ) -> PackedVector2Array:
 	if pathfinding == null:
 		return PackedVector2Array()
+	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
 	var origin: Vector2i = world_to_tile(anchor_world)
 	var size := Vector2i(maxi(1, footprint.x), maxi(1, footprint.y))
 	var candidates: Array[Vector2i] = []
@@ -1152,6 +1155,7 @@ func get_building_work_world_path(
 	var world_path := PackedVector2Array()
 	for tile: Vector2i in tile_path:
 		world_path.append(tile_to_world(tile))
+	if PerfProbe.on: PerfProbe.add(&"path.work", _pp)
 	return world_path
 
 

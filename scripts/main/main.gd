@@ -3707,14 +3707,19 @@ func _process(delta: float) -> void:
 				"selection_count": game_map.selection_mgr.selected.size(),
 				"secondary_surface": hud.get_secondary_surface_name(),
 			})
+	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
 	if not NetworkSession.is_client():
 		_advance_production_queues(delta)
 		_process_ai_construction_recovery(delta)
+	if PerfProbe.on: _pp = PerfProbe.add(&"main.production", _pp)
 	_update_fog_of_war()
+	if PerfProbe.on: _pp = PerfProbe.add(&"main.fog_sources", _pp)
 	_update_fog_entity_visibility()
+	if PerfProbe.on: _pp = PerfProbe.add(&"main.fog_entities", _pp)
 	# Main refreshes fog before the child SelectionManager processes. Prune now
 	# so the later HUD refresh cannot read a just-hidden enemy or resource.
 	game_map.selection_mgr.call("_prune_stale_selection")
+	if PerfProbe.on: _pp = PerfProbe.add(&"main.prune_selection", _pp)
 	# Tick under-attack cooldown
 	if _under_attack_cooldown > 0.0:
 		_under_attack_cooldown -= delta
@@ -3730,6 +3735,7 @@ func _process(delta: float) -> void:
 		_update_progression_hint()
 		if not OS.has_feature("production"):
 			_refresh_first_session_diagnostics()
+	if PerfProbe.on: _pp = PerfProbe.add(&"main.second_tick", _pp)
 	# Keep editor-only balance telemetry fresh for MCP polling without making
 	# the production Web build scan AI collections every second.
 	if not OS.has_feature("production"):
@@ -3744,6 +3750,7 @@ func _process(delta: float) -> void:
 		_refresh_worker_undo_hud()
 		if not game_map.selection_mgr.selected.is_empty():
 			_on_selection_changed(game_map.selection_mgr.selected)
+	if PerfProbe.on: PerfProbe.add(&"main.selection_refresh", _pp)
 
 
 func _advance_production_queues(delta: float) -> void:

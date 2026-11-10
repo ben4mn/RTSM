@@ -338,6 +338,7 @@ func _process(delta: float) -> void:
 	_navigation_repath_cooldown = maxf(0.0, _navigation_repath_cooldown - delta)
 	_advance_attack_windup(delta)
 
+	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
 	match current_state:
 		State.IDLE:
 			_process_idle(delta)
@@ -349,7 +350,9 @@ func _process(delta: float) -> void:
 			_process_gathering(delta)
 		State.BUILDING:
 			_process_building(delta)
+	if PerfProbe.on: _pp = PerfProbe.add(&"unit.state", _pp)
 	_update_sprite_motion(delta)
+	if PerfProbe.on: PerfProbe.add(&"unit.sprite", _pp)
 
 	# Continuous redraw for pulsing selection
 	if is_selected:
@@ -1034,7 +1037,9 @@ func _try_auto_attack() -> void:
 	search_radius = _get_auto_unit_acquisition_radius(search_radius)
 	var building_radius: float = maxf(search_radius * 0.5, attack_range + 24.0)
 	var buildings_first: bool = bool(UnitData.UNITS.get(unit_type, {}).get("auto_target_buildings_first", false))
+	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
 	var target: Node2D = UnitAutoTargeting.find_target(self, search_radius, building_radius, buildings_first)
+	if PerfProbe.on: PerfProbe.add(&"unit.state.autotarget", _pp)
 	if target is UnitBase:
 		command_attack(target as UnitBase, false, false)
 	elif target is BuildingBase:
@@ -1089,7 +1094,9 @@ func _consider_nearby_threat() -> void:
 		return
 	_auto_attack_timer = 0.3
 	var threat_radius: float = _get_auto_unit_acquisition_radius(maxf(vision_radius, attack_range + 8.0))
+	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
 	var threat: UnitBase = UnitAutoTargeting.find_nearby_threat(self, threat_radius)
+	if PerfProbe.on: PerfProbe.add(&"unit.state.autotarget", _pp)
 	if threat != null and threat != attack_target:
 		command_attack(threat, false, false)
 
@@ -1530,6 +1537,7 @@ func _update_friendly_separation(movement_direction: Vector2 = Vector2.ZERO) -> 
 	if _separation_timer > 0.0:
 		return
 	_separation_timer = FRIENDLY_SEPARATION_REFRESH
+	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
 	var repel := Vector2.ZERO
 	# Workers use GATHERING/BUILDING even while following a work route. The
 	# supplied direction distinguishes actual travel from standing work/combat.
@@ -1603,6 +1611,7 @@ func _update_friendly_separation(movement_direction: Vector2 = Vector2.ZERO) -> 
 		)
 	else:
 		_separation_vector = Vector2.ZERO
+	if PerfProbe.on: PerfProbe.add(&"unit.state.separation", _pp)
 
 
 # --- Health ---
