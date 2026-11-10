@@ -123,7 +123,8 @@ func _check_work_attachment(worker: Villager) -> void:
 	_check(worker._sprite.position.is_zero_approx(), "Working feet stay planted at the unit origin")
 	var facing: float = -1.0 if worker._sprite.flip_h else 1.0
 	var sleeve := Vector2(0.0, -13.0)
-	var body_sleeve: Vector2 = worker._sprite.to_global(sleeve * Vector2(facing, 1.0) / worker._sprite_rest_scale)
+	# The tool overlay is enlarged with the figure (UnitData.WORLD_VISUAL_SCALE).
+	var body_sleeve: Vector2 = worker._sprite.to_global(sleeve * UnitData.WORLD_VISUAL_SCALE * Vector2(facing, 1.0) / worker._sprite_rest_scale)
 	var tool_sleeve: Vector2 = worker._action_presentation.to_global(sleeve)
 	_check(body_sleeve.distance_to(tool_sleeve) < 0.01, "Tool sleeve follows body bend and mirrored facing")
 

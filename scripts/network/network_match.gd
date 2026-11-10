@@ -262,7 +262,9 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 				queue.auto_queue_unit_type = int(data.repeat_type)
 		if was_present and float(actor.hp) < float(node.hp) and node.is_visible_in_tree():
 			if node is UnitBase:
-				(node as UnitBase)._health_feedback_remaining = 2.0
+				(node as UnitBase).present_hit(float(node.hp) - float(actor.hp))
+			else:
+				BattleFX.building_damaged(node as BuildingBase, float(node.hp) - float(actor.hp))
 			if not GameManager.reduced_flashes:
 				# Inert replicas cannot advance a building-bound tween. Reuse
 				# its presentation palette through the adapter's visual clock;
@@ -410,6 +412,7 @@ func _remove_replica(id: int) -> void:
 		game_map.remove_building_obstacle(game_map.world_to_tile(node.global_position), node.footprint)
 		if node.provides_food:
 			game_map.unregister_harvestable(node)
+	BattleFX.replica_removed(node)
 	node.queue_free()
 
 func show_feedback(message: String) -> void:

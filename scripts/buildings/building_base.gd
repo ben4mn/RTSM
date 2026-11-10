@@ -116,6 +116,11 @@ class DefensiveArrow extends Node2D:
 	var flight_seconds: float = 0.2
 	var finished: bool = false
 	var _heading: Vector2 = Vector2.RIGHT
+	# Presentation only: see Combat.RangedProjectile.
+	var _arc: float = 12.0
+	var _lift: float = 0.0
+	var _phase: float = 0.0
+	var _aim: Vector2 = Vector2.ZERO
 
 	func _process(delta: float) -> void:
 		advance_projectile(delta)
@@ -126,14 +131,19 @@ class DefensiveArrow extends Node2D:
 		var defender: UnitBase = defender_ref.get_ref() as UnitBase
 		if not is_instance_valid(defender) or defender.current_state == UnitBase.State.DEAD:
 			finished = true
+			if visible and _aim != Vector2.ZERO:
+				BattleFX.stray_arrow(start_position, _aim, _phase, flight_seconds)
 			queue_free()
 			return
 		elapsed += delta
 		var phase: float = minf(1.0, elapsed / flight_seconds)
-		var previous: Vector2 = global_position
-		global_position = start_position.lerp(defender.global_position + Vector2(0.0, -16.0), phase)
-		global_position.y -= sin(phase * PI) * 12.0
-		_heading = (global_position - previous).normalized()
+		_aim = defender.global_position + Vector2(0.0, -16.0 * UnitData.WORLD_VISUAL_SCALE)
+		if _phase <= 0.0:
+			_arc = BattleFX.arrow_arc(start_position.distance_to(_aim)) * 0.8
+		_phase = phase
+		global_position = start_position.lerp(_aim, phase)
+		_lift = sin(phase * PI) * _arc
+		_heading = BattleFX.shot_heading(start_position, _aim, _arc, phase)
 		# Flight can finish after a target leaves vision; its rendering never
 		# reveals that target or an unseen enemy Town Center to the human.
 		var visibility_map: Node2D = visibility_map_ref.get_ref() as Node2D if visibility_map_ref != null else null
@@ -144,17 +154,18 @@ class DefensiveArrow extends Node2D:
 		queue_redraw()
 		if phase >= 1.0:
 			finished = true
+			if visible:
+				BattleFX.arrow_arrived(defender, _heading, false)
 			defender.take_damage(final_damage)
-			if get_tree().current_scene != null and defender.visible:
+			if BattleFX.get_fx() != null:
+				if defender.visible:
+					BattleFX.unit_struck_by_arrow(defender, start_position)
+			elif get_tree().current_scene != null and defender.visible:
 				VFX.hit_burst(get_tree(), defender.global_position + Vector2(0.0, -14.0), Color(0.92, 0.78, 0.42))
 			queue_free()
 
 	func _draw() -> void:
-		draw_line(-_heading * 10.0, _heading * 4.0, Color(1.0, 0.86, 0.48), 2.4, true)
-		var normal := Vector2(-_heading.y, _heading.x)
-		draw_colored_polygon(PackedVector2Array([
-			_heading * 6.0, normal * 2.5, -normal * 2.5
-		]), Color(1.0, 0.98, 0.80))
+		BattleFX.draw_arrow(self, Vector2(0.0, -_lift), _heading, minf(1.0, _phase * 4.0), true)
 
 ## Original Company SVGs for civic, military and farming buildings.
 const BUILDING_SPRITES: Dictionary = {
@@ -400,12 +411,22 @@ func _update_sprite_appearance() -> void:
 		State.DESTROYED:
 			_sprite.modulate = Color(0.3, 0.3, 0.3, 0.5)
 		State.ACTIVE:
-			_sprite.modulate = base_color
+			# Staged damage: walls darken toward a scorched tone as HP drops.
+			# BattleFX adds the matching smoke and fire for locals and replicas.
+			_sprite.modulate = base_color * get_damage_tint()
 		_:
 			_sprite.modulate = base_color
 	_update_construction_presentation()
 	if GameManager.reduced_flashes:
 		_clear_damage_flash()
+
+
+## Presentation-only scorch stage (white above two-thirds health).
+func get_damage_tint() -> Color:
+	if max_hp <= 0 or hp >= max_hp:
+		return Color.WHITE
+	var wear: float = clampf((0.66 - float(hp) / float(max_hp)) / 0.56, 0.0, 1.0)
+	return Color.WHITE.lerp(Color(0.66, 0.58, 0.54), wear * wear * 0.4 + wear * 0.6)
 
 
 func _update_construction_presentation() -> void:
@@ -557,13 +578,13 @@ func _process(delta: float) -> void:
 		_construction_dust_timer += delta
 		if _construction_dust_timer >= 0.8:
 			_construction_dust_timer = 0.0
-			if get_tree() and get_tree().current_scene:
+			if BattleFX.get_fx() == null and get_tree() and get_tree().current_scene:
 				VFX.construction_dust(get_tree(), global_position)
 		queue_redraw()
 	elif state == State.ACTIVE and hp < max_hp:
 		# Damage smoke/fire effects
 		var hp_ratio := float(hp) / float(max_hp) if max_hp > 0 else 1.0
-		if hp_ratio < 0.5 and get_tree() and get_tree().current_scene:
+		if hp_ratio < 0.5 and BattleFX.get_fx() == null and get_tree() and get_tree().current_scene:
 			_damage_smoke_timer += delta
 			var interval := 1.2 if hp_ratio > 0.25 else 0.6
 			if _damage_smoke_timer >= interval:
@@ -620,7 +641,7 @@ func _complete_construction() -> void:
 	hp = max_hp
 	build_progress = 1.0
 	_update_sprite_appearance()
-	if get_tree() and get_tree().current_scene:
+	if BattleFX.get_fx() == null and get_tree() and get_tree().current_scene:
 		VFX.building_complete(get_tree(), global_position)
 	construction_complete.emit(self)
 	queue_redraw()
@@ -636,6 +657,9 @@ func take_damage(amount: int) -> void:
 	if hp < previous_hp:
 		damage_received.emit(self, previous_hp - hp)
 		_flash_damage()
+		BattleFX.building_damaged(self, float(previous_hp - hp))
+		if state == State.ACTIVE:
+			_update_sprite_appearance()
 	if hp <= 0:
 		_destroy()
 	queue_redraw()
@@ -668,8 +692,11 @@ func _destroy() -> void:
 	_update_sprite_appearance()
 	building_destroyed.emit(self)
 	# Destruction smoke puff
-	if get_tree() and get_tree().current_scene:
+	if BattleFX.get_fx() == null and get_tree() and get_tree().current_scene:
 		VFX.death_puff(get_tree(), global_position)
+	# The collapse, dust, shake and rubble play on a BattleFX copy of the art;
+	# this node keeps its existing one-second lifetime.
+	BattleFX.building_collapse(self)
 	queue_redraw()
 	# Fade out and remove
 	var tween := create_tween()
@@ -979,7 +1006,9 @@ func _tower_try_attack() -> bool:
 			best_building = b
 	if best_building != null:
 		Combat.deal_tower_damage_to_building(self, best_building)
-		if get_tree().current_scene != null and best_building.visible:
+		if BattleFX.get_fx() != null:
+			BattleFX.tower_shot(self, best_building)
+		elif get_tree().current_scene != null and best_building.visible:
 			VFX.hit_burst(get_tree(), best_building.global_position, Color(0.8, 0.6, 0.2))
 		defensive_attack_fired.emit(best_building)
 		return true
