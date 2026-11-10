@@ -35,6 +35,11 @@ func setup(controller: Node) -> void:
 	else:
 		GameManager.game_over.connect(_on_server_game_over)
 
+func _extensions() -> RefCounted:
+	## Round 2 seam (docs/round2_contracts.md). Fixtures may drive this adapter
+	## with a stand-in main that has no registry; they simply get no extensions.
+	return main.get("ext") as RefCounted if is_instance_valid(main) else null
+
 func _on_server_game_over(winner: int) -> void:
 	NetworkSession.call_deferred("end_match", winner, main._victory_reason)
 
@@ -154,7 +159,8 @@ func _snapshot_for(slot: int) -> Dictionary:
 	var player: Dictionary = GameManager.players[slot].duplicate()
 	player.erase("units")
 	player.erase("buildings")
-	return {"memories": memories, "forgotten_buildings": forgotten_buildings.duplicate(), "worker_undo": main._worker_order_undo.status(slot), "worker_undo_result": main._worker_order_undo.result(slot), "tick": _snapshot_number, "time": GameManager.game_time, "civilizations": [GameManager.get_player_civilization(0), GameManager.get_player_civilization(1)], "actors": actors, "resources": resources, "bank": ResourceManager.get_all_resources(slot), "player": player, "upgrades": GameManager.player_upgrades[slot], "research": GameManager.researched_upgrades[slot], "stats": main._stats[slot], "battle": main._battle_receipts.get_summary(slot), "site": {"state": site.state, "owner": site.owning_player, "capture": site.capture_progress, "timer": site.victory_timer, "hold": site.victory_hold_time, "clock_ticking": site.clock_ticking, "garrison_paused": site.garrison_paused, "neutralizing": site._being_neutralized}, "shrines": game_map.shrines.map(func(shrine: Node) -> Array: return [shrine.state, shrine.owning_player, shrine.capture_progress])}
+	var extensions: RefCounted = _extensions()
+	return {"ext": extensions.build_snapshot(slot) if extensions != null else {}, "modifiers": GameManager.player_modifiers[slot], "memories": memories, "forgotten_buildings": forgotten_buildings.duplicate(), "worker_undo": main._worker_order_undo.status(slot), "worker_undo_result": main._worker_order_undo.result(slot), "tick": _snapshot_number, "time": GameManager.game_time, "civilizations": [GameManager.get_player_civilization(0), GameManager.get_player_civilization(1)], "actors": actors, "resources": resources, "bank": ResourceManager.get_all_resources(slot), "player": player, "research": GameManager.researched_upgrades[slot], "stats": main._stats[slot], "battle": main._battle_receipts.get_summary(slot), "site": {"state": site.state, "owner": site.owning_player, "capture": site.capture_progress, "timer": site.victory_timer, "hold": site.victory_hold_time, "clock_ticking": site.clock_ticking, "garrison_paused": site.garrison_paused, "neutralizing": site._being_neutralized}, "shrines": game_map.shrines.map(func(shrine: Node) -> Array: return [shrine.state, shrine.owning_player, shrine.capture_progress])}
 
 func apply_snapshot(snapshot: Dictionary) -> void:
 	GameManager.game_time = float(snapshot.get("time", 0.0))
@@ -168,7 +174,12 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 	for key: String in ["age", "population", "population_reserved", "population_cap", "max_population", "is_defeated"]:
 		if player.has(key):
 			GameManager.players[0][key] = player[key]
-	GameManager.player_upgrades[0] = snapshot.get("upgrades", {})
+	if snapshot.get("modifiers") is Dictionary:
+		GameManager.player_modifiers[0] = snapshot.modifiers
+	else:
+		# Pre-registry shape, still produced by older fixtures.
+		GameManager.player_modifiers[0] = {}
+		GameManager.import_legacy_upgrades(0, snapshot.get("upgrades", {}))
 	GameManager.researched_upgrades[0] = snapshot.get("research", [])
 	main._stats[0] = snapshot.get("stats", main._stats[0])
 	# These are only this recipient's observed losses. No opponent receipt or
@@ -321,6 +332,9 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 		shrine.owning_player = _local_owner(int(entry[1]))
 		shrine.capture_progress = float(entry[2])
 		shrine._update_visuals()
+	var extensions: RefCounted = _extensions()
+	if extensions != null:
+		extensions.apply_snapshot(snapshot.get("ext"))
 	main._refresh_sacred_site_status()
 	main._update_population_display()
 	if not _camera_initialized and is_instance_valid(main._player_town_center):
@@ -452,7 +466,7 @@ func _valid_packet(packet: Dictionary) -> bool:
 	if packet.has("undo_id"):
 		var undo_id: float = float(packet.undo_id)
 		if not is_finite(undo_id) or undo_id <= 0.0 or undo_id != floor(undo_id) or undo_id > 9007199254740991.0: return false
-	for key: String in ["command", "research", "source", "destination"]:
+	for key: String in ["command", "research", "source", "destination", "action"]:
 		if packet.has(key) and not packet[key] is String:
 			return false
 	if packet.has("ids"):
@@ -625,7 +639,12 @@ func execute_command(owner: int, packet: Dictionary) -> String:
 						ResourceManager.add_resource(owner, resource, int(BuildingData.get_building_cost(target.building_type)[resource] * 0.5))
 					target.take_damage(target.max_hp + 1)
 		_:
-			return "Unknown order"
+			# Round 2 seam: every operation without a branch above belongs to a
+			# registered extension, or is rejected exactly as before.
+			var extensions: RefCounted = _extensions()
+			if extensions == null:
+				return "Unknown order"
+			return extensions.run_command(operation, owner, packet, units, target, position if packet.has("position") else Vector2.ZERO)
 	main._worker_order_undo.remember(owner, worker_before, affected_workers)
 	return ""
 

@@ -10,6 +10,33 @@ signal game_over(winner_id: int)
 signal research_completed(player_id: int, research_id: String)
 signal preferences_changed()
 
+# --- Round 2 contract signals (docs/round2_contracts.md) ---
+# Presentation (VFX/audio/HUD) consumes only these plus `age_advanced` and
+# `research_completed` above. All fire on the simulation authority (solo and
+# the match server); online clients are driven by snapshots instead.
+# `duration` is in game seconds; 0.0 means the effect lands in the same frame,
+# which is how every research and age-up behaves until timed research ships.
+@warning_ignore("unused_signal")
+signal research_started(player_id: int, building: Node2D, research_id: String, duration: float)
+@warning_ignore("unused_signal")
+signal research_cancelled(player_id: int, building: Node2D, research_id: String)
+@warning_ignore("unused_signal")
+signal age_advance_started(player_id: int, target_age: int, duration: float)
+@warning_ignore("unused_signal")
+signal age_advance_cancelled(player_id: int)
+## Town bell rung (`active` true) or all-clear (`active` false) at one Town Center.
+@warning_ignore("unused_signal")
+signal town_bell_changed(player_id: int, town_center: Node2D, active: bool)
+## A stray wildlife node (sheep) now belongs to `player_id`.
+@warning_ignore("unused_signal")
+signal wildlife_claimed(player_id: int, node: Node2D)
+## A boar became a carcass; `player_id` owns the killing blow (-1 if nobody).
+@warning_ignore("unused_signal")
+signal boar_felled(player_id: int, world_pos: Vector2)
+## A unit line reached a new tier (1 = base). `unit_type` is UnitData.UnitType.
+@warning_ignore("unused_signal")
+signal unit_tier_changed(player_id: int, unit_type: int, tier: int)
+
 enum GameState {
 	MENU,
 	LOADING,
@@ -75,9 +102,20 @@ var _base_population_caps: Dictionary = {}  # player_id -> nominal amount
 var _population_cap_grants: Dictionary = {}  # provider_id -> {player_id, nominal_amount}
 
 
-# --- Upgrade tracking per player ---
-# Keys: "attack_bonus", "armor_bonus" — global military buffs
-var player_upgrades: Dictionary = {}  # player_id -> { "attack_bonus": int, "armor_bonus": int }
+# --- Modifier registry (docs/round2_contracts.md) ---
+# player_id -> { key: float }. One additive number per key and player; every
+# research, tier and civilization effect reads and writes through
+# get_modifier/add_modifier/set_modifier below instead of a bespoke field.
+var player_modifiers: Dictionary = {}
+## Legacy names of the four original upgrade fields and their registry keys.
+const LEGACY_UPGRADE_KEYS: Dictionary = {"attack_bonus": "attack", "armor_bonus": "armor", "gather_bonus": "gather_all", "villager_hp_bonus": "villager_hp"}
+## Read-only legacy alias of `player_modifiers` in the pre-registry shape
+## (player_id -> {"attack_bonus": int, "armor_bonus": int, "gather_bonus":
+## float, "villager_hp_bonus": int}). It is rebuilt on every read, so writing
+## into the returned dictionaries changes nothing; assigning a whole dictionary
+## in that shape imports it.
+var player_upgrades: Dictionary:
+	get = _get_legacy_player_upgrades, set = _set_legacy_player_upgrades
 var researched_upgrades: Dictionary = {}  # player_id -> Array of completed research IDs
 var _research_transactions: Dictionary = {}  # player_id -> in-flight purchase
 var _age_transactions: Dictionary = {}  # player_id -> in-flight purchase
@@ -257,7 +295,7 @@ func initialize_game(num_players: int = 2) -> void:
 	_base_population_caps.clear()
 	_population_cap_grants.clear()
 	players.clear()
-	player_upgrades.clear()
+	player_modifiers.clear()
 	researched_upgrades.clear()
 	_research_transactions.clear()
 	_age_transactions.clear()
@@ -267,7 +305,7 @@ func initialize_game(num_players: int = 2) -> void:
 		var player_data: Dictionary = _create_player_data(i)
 		players[i] = player_data
 		_base_population_caps[i] = int(player_data.get("population_cap", 0))
-		player_upgrades[i] = {"attack_bonus": 0, "armor_bonus": 0, "gather_bonus": 0.0, "villager_hp_bonus": 0}
+		player_modifiers[i] = {}
 		researched_upgrades[i] = []
 
 	set_state(GameState.PLAYING)
@@ -365,9 +403,12 @@ func try_advance_age(player_id: int) -> bool:
 	if not bool(resource_manager.call("try_spend", player_id, cost)):
 		_age_transactions.erase(player_id)
 		return false
+	# Paid and committed; today the advance lands in this same call (duration 0).
+	age_advance_started.emit(player_id, get_player_age(player_id) + 1, 0.0)
 	var advanced: bool = advance_age(player_id)
 	if not advanced:
 		resource_manager.call("refund", player_id, cost)
+		age_advance_cancelled.emit(player_id)
 	_age_transactions.erase(player_id)
 	return advanced
 
@@ -579,48 +620,99 @@ func get_formatted_time() -> String:
 	return "%02d:%02d" % [minutes, seconds]
 
 
+# --- Modifier registry -------------------------------------------------------
+
+func get_modifier(player_id: int, key: String, default: float = 0.0) -> float:
+	## Current additive total for `key`, or `default` when nothing ever set it.
+	var modifiers: Variant = player_modifiers.get(player_id)
+	if modifiers is Dictionary and modifiers.has(key):
+		return float(modifiers[key])
+	return default
+
+
+func add_modifier(player_id: int, key: String, amount: float) -> float:
+	## Additive: +2 attack twice is +4. Returns the new total. Players that are
+	## not part of the current match are ignored, as the old appliers did.
+	## Adding zero writes nothing, so untouched keys never appear in saves.
+	if not player_modifiers.has(player_id) or key.is_empty() or amount == 0.0:
+		return get_modifier(player_id, key)
+	var total: float = get_modifier(player_id, key) + amount
+	player_modifiers[player_id][key] = total
+	return total
+
+
+func set_modifier(player_id: int, key: String, value: float) -> void:
+	## Absolute write for level-like keys such as `tier_<unit_type>`.
+	if player_modifiers.has(player_id) and not key.is_empty():
+		player_modifiers[player_id][key] = value
+
+
+func get_modifier_multiplier(player_id: int, key: String) -> float:
+	## Percentage keys store additive fractions (+0.2 and +0.15 make 0.35);
+	## this is the factor to multiply a base value by: 1.0 + the stored total.
+	return 1.0 + get_modifier(player_id, key)
+
+
+func _get_legacy_player_upgrades() -> Dictionary:
+	var legacy: Dictionary = {}
+	for player_id: Variant in player_modifiers:
+		legacy[player_id] = {
+			"attack_bonus": int(get_modifier(player_id, "attack")),
+			"armor_bonus": int(get_modifier(player_id, "armor")),
+			"gather_bonus": get_modifier(player_id, "gather_all"),
+			"villager_hp_bonus": int(get_modifier(player_id, "villager_hp")),
+		}
+	return legacy
+
+
+func _set_legacy_player_upgrades(value: Dictionary) -> void:
+	for player_id: Variant in value:
+		import_legacy_upgrades(int(player_id), value[player_id])
+
+
+func import_legacy_upgrades(player_id: int, legacy: Variant) -> void:
+	## Accepts one player's pre-registry upgrade dictionary (old snapshots/tests).
+	if not legacy is Dictionary:
+		return
+	if not player_modifiers.has(player_id):
+		player_modifiers[player_id] = {}
+	for legacy_key: String in LEGACY_UPGRADE_KEYS:
+		if typeof(legacy.get(legacy_key)) in [TYPE_INT, TYPE_FLOAT]:
+			player_modifiers[player_id][LEGACY_UPGRADE_KEYS[legacy_key]] = float(legacy[legacy_key])
+
+
+# Thin wrappers kept for existing callers (combat, villagers, AI, tests).
+
 func get_attack_bonus(player_id: int) -> int:
-	if player_upgrades.has(player_id):
-		return player_upgrades[player_id].get("attack_bonus", 0)
-	return 0
+	return int(get_modifier(player_id, "attack"))
 
 
 func get_armor_bonus(player_id: int) -> int:
-	if player_upgrades.has(player_id):
-		return player_upgrades[player_id].get("armor_bonus", 0)
-	return 0
+	return int(get_modifier(player_id, "armor"))
 
 
 func apply_attack_upgrade(player_id: int, amount: int) -> void:
-	if player_upgrades.has(player_id):
-		player_upgrades[player_id]["attack_bonus"] += amount
+	add_modifier(player_id, "attack", float(amount))
 
 
 func apply_armor_upgrade(player_id: int, amount: int) -> void:
-	if player_upgrades.has(player_id):
-		player_upgrades[player_id]["armor_bonus"] += amount
+	add_modifier(player_id, "armor", float(amount))
 
 
 func apply_gather_upgrade(player_id: int, amount: float) -> void:
-	if player_upgrades.has(player_id):
-		player_upgrades[player_id]["gather_bonus"] += amount
+	add_modifier(player_id, "gather_all", amount)
 
 
 func get_gather_bonus(player_id: int) -> float:
-	if player_upgrades.has(player_id):
-		return player_upgrades[player_id].get("gather_bonus", 0.0)
-	return 0.0
+	return get_modifier(player_id, "gather_all")
 
 
 func apply_villager_hp_upgrade(player_id: int, amount: int) -> void:
-	if player_upgrades.has(player_id):
-		player_upgrades[player_id]["villager_hp_bonus"] += amount
+	add_modifier(player_id, "villager_hp", float(amount))
 
 
 func get_villager_hp_bonus(player_id: int) -> int:
-	if player_upgrades.has(player_id):
-		return player_upgrades[player_id].get("villager_hp_bonus", 0)
-	return 0
+	return int(get_modifier(player_id, "villager_hp"))
 
 
 func has_research(player_id: int, research_id: String) -> bool:
@@ -690,6 +782,8 @@ func try_research(player_id: int, building: Node2D, research_id: String) -> bool
 		resource_manager.call("refund", player_id, definition["cost"])
 		_research_transactions.erase(player_id)
 		return false
+	# Paid and committed; today the effect lands in this same call (duration 0).
+	research_started.emit(player_id, building, research_id, 0.0)
 	complete_research(player_id, research_id)
 	apply_attack_upgrade(player_id, int(definition.get("attack_bonus", 0)))
 	apply_armor_upgrade(player_id, int(definition.get("armor_bonus", 0)))

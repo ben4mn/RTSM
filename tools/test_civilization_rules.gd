@@ -80,7 +80,7 @@ func _test_actors_and_paid_queue() -> void:
 	_expect(outrider.get_unit_type() == "Outrider" and outrider.hp == 140.0 and outrider.speed == 110.0, "Outrider actual name, HP and speed")
 	_expect(fragile_cavalry.hp == 130.0, "Verdant cavalry weakness applies to actual unit")
 	_expect(Combat.get_counter_bonus(UnitData.UnitType.CAVALRY, UnitData.UnitType.ARCHER) == 1.5, "signature units retain familiar counter roles")
-	GameManager.player_upgrades[0]["attack_bonus"] = 2
+	GameManager.set_modifier(0, "attack", 2.0)
 	_expect(Combat.get_effective_attack(longbow) == 16.0, "shared research stacks once on signature unit")
 	var preview: Dictionary = Combat.get_effective_unit_type_stats(UnitData.UnitType.ARCHER, 0)
 	_expect(int(preview.hp) == 60 and int(preview.damage) == 16 and int(preview.attack_range) == 6, "recruitment preview agrees with signature stats and research")

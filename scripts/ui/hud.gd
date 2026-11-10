@@ -28,6 +28,9 @@ signal unit_stance_requested()
 signal deselect_requested()
 signal select_area_requested()
 signal center_selection_requested()
+## Any building context-action card was tapped (BuildingBase.get_context_actions).
+signal building_action_requested(building: Node2D, action_id: String)
+## Legacy mirror of building_action_requested for "research:<id>" actions.
 signal research_requested(building: Node2D, research_id: String)
 signal placement_cancel_requested()
 signal placement_confirm_requested()
@@ -3972,9 +3975,28 @@ func _retire_dynamic_control(child: Node) -> void:
 	child.queue_free()
 
 
-# --- Research buttons (Blacksmith) ---
+# --- Building context actions (research and anything else a building offers) ---
+# The row renders BuildingBase.get_context_actions(); see docs/round2_contracts.md.
+# Research actions keep their historical "ResearchButton_<id>" node names.
 
 const RESEARCH_DEFS: Array = TechData.RESEARCH_DEFS
+const CONTEXT_ACTION_SHORT_LABELS: Dictionary = {"research:forging": "Forge", "research:scale_mail": "Mail"}
+const CONTEXT_ACTION_SHORT_EFFECTS: Dictionary = {"research:loom": "+15 worker HP"}
+
+
+func _context_actions_for(building_ref: Node2D) -> Array[Dictionary]:
+	if building_ref == null or not is_instance_valid(building_ref) or not building_ref is BuildingBase:
+		return []
+	var building: BuildingBase = building_ref as BuildingBase
+	if building.player_owner != 0 or building.is_queued_for_deletion():
+		return []
+	return building.get_context_actions(0)
+
+
+static func _context_action_button_name(action_id: String) -> String:
+	if action_id.begins_with(BuildingBase.RESEARCH_ACTION_PREFIX):
+		return "ResearchButton_%s" % action_id.trim_prefix(BuildingBase.RESEARCH_ACTION_PREFIX)
+	return "ActionButton_%s" % action_id.validate_node_name()
 
 
 func _update_research_buttons(building_ref: Node2D) -> void:
@@ -3987,56 +4009,62 @@ func _update_research_buttons(building_ref: Node2D) -> void:
 		if parent_vbox:
 			parent_vbox.add_child(_research_container)
 
-	# Only show for Blacksmith
-	var b: BuildingBase = building_ref as BuildingBase if building_ref is BuildingBase else null
-	var valid_blacksmith: bool = (
-		b != null
-		and is_instance_valid(b)
-		and b.player_owner == 0
-		and b.building_type == BuildingData.BuildingType.BLACKSMITH
-		and b.state == BuildingBase.State.ACTIVE
-	)
+	var actions: Array[Dictionary] = _context_actions_for(building_ref)
 	var desired_names: Dictionary = {}
-	if valid_blacksmith:
-		for research_def: Dictionary in RESEARCH_DEFS:
-			desired_names["ResearchButton_%s" % str(research_def["id"])] = true
+	for action: Dictionary in actions:
+		desired_names[_context_action_button_name(str(action["id"]))] = true
 	for child: Node in _research_container.get_children():
 		if child.is_queued_for_deletion():
 			continue
 		if not desired_names.has(String(child.name)):
 			_retire_dynamic_control(child)
 
-	if not valid_blacksmith:
+	if actions.is_empty():
 		_research_container.visible = false
 		_refresh_touch_target_diagnostics()
 		return
 
 	_research_container.visible = true
-	var gm: Node = _get_game_manager()
 	var child_index := 0
-	for rd: Dictionary in RESEARCH_DEFS:
-		var research_id := String(rd["id"])
-		var button_name := "ResearchButton_%s" % research_id
+	for action: Dictionary in actions:
+		var action_id: String = str(action["id"])
+		var button_name: String = _context_action_button_name(action_id)
 		var btn: Button = _research_container.get_node_or_null(NodePath(button_name)) as Button
 		if btn == null:
 			btn = Button.new()
 			btn.name = button_name
-			btn.set_meta("research_id", research_id)
-			btn.pressed.connect(_on_research_pressed.bind(research_id))
+			btn.set_meta("action_id", action_id)
+			if action_id.begins_with(BuildingBase.RESEARCH_ACTION_PREFIX):
+				btn.set_meta("research_id", action_id.trim_prefix(BuildingBase.RESEARCH_ACTION_PREFIX))
+			btn.pressed.connect(_on_context_action_pressed.bind(action_id))
 			_research_container.add_child(btn)
-		_attach_hud_hold(btn, _research_information.bind(research_id))
+		_attach_hud_hold(btn, _context_action_information.bind(action_id))
 		btn.visible = true
 		btn.mouse_filter = Control.MOUSE_FILTER_STOP
 		var costs: PackedStringArray = []
+		var action_cost: Dictionary = action.get("cost", {})
 		for resource: String in ["food", "wood", "gold"]:
-			var amount: int = int(rd["cost"].get(resource, 0))
+			var amount: int = int(action_cost.get(resource, 0))
 			if amount > 0:
 				costs.append("%d%s" % [amount, resource.left(1).to_upper()])
-		# Four upgrades share the fixed command shelf. Separate name, effect and
+		# The cards share the fixed command shelf. Separate name, effect and
 		# cost so each remains readable without widening an unreachable scroll row.
-		var short_names: Dictionary = {"forging": "Forge", "scale_mail": "Mail"}
-		var short_effects: Dictionary = {"loom": "+15 worker HP"}
-		btn.text = "%s\n%s\n%s" % [short_names.get(research_id, rd["name"]), short_effects.get(research_id, rd["desc"]), " · ".join(costs)]
+		var done: bool = bool(action.get("done", false))
+		var progress: float = float(action.get("progress", -1.0))
+		var status_line: String = " · ".join(costs)
+		if done:
+			status_line = "Complete"
+		elif progress >= 0.0:
+			status_line = "%d%%" % int(clampf(progress, 0.0, 1.0) * 100.0)
+		var lines: PackedStringArray = []
+		for line: String in [
+			str(CONTEXT_ACTION_SHORT_LABELS.get(action_id, action.get("short", action.get("label", action_id)))),
+			str(CONTEXT_ACTION_SHORT_EFFECTS.get(action_id, action.get("desc", ""))),
+			status_line,
+		]:
+			if not line.is_empty():
+				lines.append(line)
+		btn.text = "\n".join(lines)
 		btn.custom_minimum_size = Vector2(80, 56)
 		btn.clip_text = true
 		btn.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -4049,13 +4077,15 @@ func _update_research_buttons(building_ref: Node2D) -> void:
 			style.set_content_margin(SIDE_TOP, 3.0)
 			style.set_content_margin(SIDE_BOTTOM, 3.0)
 			btn.add_theme_stylebox_override(state, style)
-		var already_done: bool = false
-		if gm and gm.has_method("has_research"):
-			already_done = gm.has_research(b.player_owner, research_id)
-		if already_done:
-			btn.text = "%s\n%s\nComplete" % [short_names.get(research_id, rd["name"]), short_effects.get(research_id, rd["desc"])]
-		btn.disabled = already_done or gm == null or not gm.can_research(b.player_owner, b, research_id)
-		var information: Dictionary = _research_information(research_id)
+		var icon_path: String = str(action.get("icon", ""))
+		if icon_path.is_empty() or not ResourceLoader.exists(icon_path):
+			btn.icon = null
+		else:
+			btn.icon = load(icon_path) as Texture2D
+			btn.expand_icon = true
+			btn.add_theme_constant_override("icon_max_width", 18)
+		btn.disabled = done or not str(action.get("disabled_reason", "")).is_empty()
+		var information: Dictionary = _context_action_information(action_id)
 		btn.tooltip_text = "%s\n%s" % [information.get("title", "Research"), information.get("body", "")]
 		btn.accessibility_name = btn.tooltip_text.replace("\n", ". ")
 		_research_container.move_child(btn, child_index)
@@ -4064,9 +4094,44 @@ func _update_research_buttons(building_ref: Node2D) -> void:
 	_refresh_touch_target_diagnostics()
 
 
+func _on_context_action_pressed(action_id: String) -> void:
+	if not _is_human_owned_building(_selected_building_ref):
+		return
+	building_action_requested.emit(_selected_building_ref, action_id)
+	if action_id.begins_with(BuildingBase.RESEARCH_ACTION_PREFIX):
+		# Legacy mirror for listeners that predate context actions.
+		research_requested.emit(_selected_building_ref, action_id.trim_prefix(BuildingBase.RESEARCH_ACTION_PREFIX))
+
+
 func _on_research_pressed(research_id: String) -> void:
-	if _is_human_owned_building(_selected_building_ref):
-		research_requested.emit(_selected_building_ref, research_id)
+	_on_context_action_pressed(BuildingBase.RESEARCH_ACTION_PREFIX + research_id)
+
+
+func _context_action_information(action_id: String) -> Dictionary:
+	if action_id.begins_with(BuildingBase.RESEARCH_ACTION_PREFIX):
+		return _research_information(action_id.trim_prefix(BuildingBase.RESEARCH_ACTION_PREFIX))
+	for action: Dictionary in _context_actions_for(_selected_building_ref):
+		if str(action.get("id", "")) != action_id:
+			continue
+		var lines: PackedStringArray = []
+		for line: String in [str(action.get("desc", "")), str(action.get("details", ""))]:
+			if not line.is_empty():
+				lines.append(line)
+		var cost: Dictionary = action.get("cost", {})
+		if not _full_cost_text(cost).is_empty():
+			lines.append("Cost: " + _full_cost_text(cost))
+		if float(action.get("time", 0.0)) > 0.0:
+			lines.append("Takes %d seconds." % ceili(float(action["time"])))
+		var blocked: String = str(action.get("disabled_reason", ""))
+		if bool(action.get("done", false)):
+			lines.append("Complete.")
+		elif float(action.get("progress", -1.0)) >= 0.0:
+			lines.append("In progress: %d%%." % int(clampf(float(action["progress"]), 0.0, 1.0) * 100.0))
+		elif not blocked.is_empty():
+			lines.append(blocked)
+		lines.append("Tap to use. Holding only inspects.")
+		return {"title": str(action.get("label", "Action")), "body": "\n".join(lines)}
+	return {"title": "Action", "body": "Unavailable in this context."}
 
 
 # --- Build menu toggle ---
