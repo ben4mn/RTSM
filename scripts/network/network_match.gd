@@ -603,8 +603,10 @@ func execute_command(owner: int, packet: Dictionary) -> String:
 					unit.command_build(target)
 					if unit.has_active_build_order() and unit.build_target == target: affected_workers.append(unit)
 		"age":
-			if not GameManager.try_advance_age(owner):
-				return "Cannot advance age yet"
+			# Timed (Round 2 B): starts the age-up in an idle Town Center slot.
+			if not GameManager.try_start_age_up(owner):
+				var age_blocked: String = GameManager.describe_age_up_failure(owner)
+				return age_blocked if not age_blocked.is_empty() else "Cannot advance age yet"
 		"place":
 			return _place_building(owner, int(packet.get("type", -1)), position, units)
 		"train", "cancel", "repeat", "research", "rally", "delete":
@@ -623,8 +625,10 @@ func execute_command(owner: int, packet: Dictionary) -> String:
 				"repeat":
 					return "Hold Train for a finite paid queue"
 				"research":
-					if not GameManager.try_research(owner, target, str(packet.get("research", ""))):
-						return "Research unavailable"
+					# Timed (Round 2 B): same start-or-cancel as the context card.
+					var research_blocked: String = target.perform_research_action(owner, str(packet.get("research", "")))
+					if not research_blocked.is_empty():
+						return research_blocked
 				"rally":
 					if target.state != BuildingBase.State.ACTIVE or target.trainable_units.is_empty():
 						return "Rally unavailable"

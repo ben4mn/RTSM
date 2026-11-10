@@ -388,8 +388,12 @@ func advance_age(player_id: int) -> bool:
 
 
 func try_advance_age(player_id: int) -> bool:
-	## Shared human/AI purchase. A signal emitted during spending cannot buy twice.
+	## Instant paid age-up for scripted setups and fixtures: no timer and no
+	## building prerequisites. Live play uses try_start_age_up (timed, in a Town
+	## Center slot). A signal emitted during spending cannot buy twice.
 	if current_state != GameState.PLAYING or not players.has(player_id):
+		return false
+	if not get_age_up_state(player_id).is_empty():
 		return false
 	if bool(players[player_id].get("is_defeated", false)) or _age_transactions.has(player_id) or _research_transactions.has(player_id):
 		return false
@@ -721,13 +725,98 @@ func has_research(player_id: int, research_id: String) -> bool:
 	return false
 
 
+# =========================================================================
+#  TIMED RESEARCH AND AGE-UP (Round 2 workstream B)
+# =========================================================================
+# Every research, including the age-up (`age_2`, `age_3`), occupies the single
+# research slot of one building: paid at start, refunded in full on cancel or
+# when the building dies, and applied through the modifier registry when the
+# slot's timer completes (BuildingBase.advance_research, driven by main on the
+# authority). `try_research` and `try_advance_age` remain as instant paid
+# completions for scripted setups and regression fixtures; live play, the AI
+# and the match server use `try_start_research` / `try_start_age_up`.
+
+const RESEARCH_FAILURE_COPY: Dictionary = {
+	"match_inactive": "Return to the match",
+	"invalid_player": "Unavailable",
+	"invalid_building": "Select your building",
+	"not_owned": "Select your building",
+	"building_incomplete": "Finish the building",
+	"unknown_research": "Unavailable",
+	"wrong_building": "Wrong building",
+	"already_researched": "Complete",
+	"in_progress": "In progress",
+	"building_busy": "Building is busy",
+	"purchase_in_progress": "One moment",
+	"max_age": "Final age reached",
+	"no_town_center": "Need a Town Center",
+}
+
+
+func _building_script() -> Script:
+	# Load at request time, after every autoload exists. A BuildingBase type on
+	# this first autoload would compile combat's AudioManager dependency early.
+	return load("res://scripts/buildings/building_base.gd")
+
+
+func get_player_buildings(player_id: int) -> Array[Node2D]:
+	## Living buildings of one player, from the group every BuildingBase joins.
+	var result: Array[Node2D] = []
+	if not is_inside_tree():
+		return result
+	var destroyed: int = int(_building_script().State.DESTROYED)
+	for node: Node in get_tree().get_nodes_in_group("player_%d_buildings" % player_id):
+		if is_instance_valid(node) and not node.is_queued_for_deletion() and int(node.get("state")) != destroyed:
+			result.append(node as Node2D)
+	return result
+
+
+func count_active_buildings(player_id: int, building_types: Array) -> int:
+	var count: int = 0
+	var active: int = int(_building_script().State.ACTIVE)
+	for building: Node2D in get_player_buildings(player_id):
+		if int(building.get("state")) == active and int(building.get("building_type")) in building_types:
+			count += 1
+	return count
+
+
+func find_researching_building(player_id: int, research_id: String) -> Node2D:
+	for building: Node2D in get_player_buildings(player_id):
+		if str(building.get("research_id")) == research_id:
+			return building
+	return null
+
+
+func get_research_definition(player_id: int, research_id: String) -> Dictionary:
+	## TechData row, or a synthesized one for `age_<n>` with this player's cost.
+	if not TechData.is_age_research(research_id):
+		return TechData.get_research_definition(research_id)
+	var target_age: int = TechData.age_research_target(research_id)
+	if target_age < 2 or target_age > MAX_AGE:
+		return {}
+	var cost: Dictionary = get_age_up_cost(player_id, target_age)
+	if cost.is_empty():
+		return {}
+	return {
+		"id": research_id, "name": get_age_name(target_age), "short": get_age_name(target_age).trim_suffix(" Age"),
+		"desc": "Advance to the next age", "details": "Unlocks the %s buildings, units and research." % get_age_name(target_age),
+		"cost": cost, "time": float(TechData.AGE_UP_TIMES.get(target_age, 0.0)),
+		"building_type": BuildingData.BuildingType.TOWN_CENTER, "age_required": target_age - 1,
+		"icon": TechData.ICON_DIR + "age_up.svg", "target_age": target_age,
+	}
+
+
 func get_research_failure_reason(player_id: int, building: Node2D, research_id: String) -> String:
+	## "" when `building` can start `research_id` right now, else a reason code
+	## (see RESEARCH_FAILURE_COPY and describe_research_failure).
 	var requirement_failure: String = _get_research_requirement_failure_reason(player_id, building, research_id)
 	if not requirement_failure.is_empty():
 		return requirement_failure
 	if _research_transactions.has(player_id) or _age_transactions.has(player_id):
 		return "purchase_in_progress"
-	var definition: Dictionary = TechData.get_research_definition(research_id)
+	if not str(building.get("research_id")).is_empty():
+		return "building_busy"
+	var definition: Dictionary = get_research_definition(player_id, research_id)
 	var resource_manager: Node = get_node_or_null("/root/ResourceManager")
 	if resource_manager == null or not bool(resource_manager.call("can_afford", player_id, definition["cost"])):
 		return "unaffordable"
@@ -741,34 +830,157 @@ func _get_research_requirement_failure_reason(player_id: int, building: Node2D, 
 		return "invalid_player"
 	if not is_instance_valid(building) or building.is_queued_for_deletion() or not building.is_inside_tree():
 		return "invalid_building"
-	# Load at request time, after every autoload exists. A BuildingBase type on
-	# this first autoload would compile combat's AudioManager dependency early.
-	var building_script: Script = load("res://scripts/buildings/building_base.gd")
+	var building_script: Script = _building_script()
 	if not is_instance_of(building, building_script):
 		return "invalid_building"
 	if int(building.get("player_owner")) != player_id:
 		return "not_owned"
 	if int(building.get("state")) != int(building_script.State.ACTIVE) or int(building.get("hp")) <= 0:
 		return "building_incomplete"
-	var definition: Dictionary = TechData.get_research_definition(research_id)
+	var definition: Dictionary = get_research_definition(player_id, research_id)
 	if definition.is_empty():
-		return "unknown_research"
+		return "max_age" if TechData.is_age_research(research_id) and get_player_age(player_id) >= MAX_AGE else "unknown_research"
 	if int(building.get("building_type")) != int(definition["building_type"]):
 		return "wrong_building"
-	if get_player_age(player_id) < int(definition["age_required"]):
-		return "age_required"
-	if has_research(player_id, research_id):
-		return "already_researched"
+	if definition.has("target_age"):
+		var target_age: int = int(definition["target_age"])
+		if get_player_age(player_id) >= target_age:
+			return "already_researched"
+		if get_player_age(player_id) < target_age - 1:
+			return "age_required"
+	else:
+		if has_research(player_id, research_id):
+			return "already_researched"
+		if get_player_age(player_id) < int(definition["age_required"]):
+			return "age_required"
+		var required: String = str(definition.get("requires", ""))
+		if not required.is_empty() and not has_research(player_id, required):
+			return "requires_research"
+	if find_researching_building(player_id, research_id) != null:
+		return "in_progress"
+	if definition.has("target_age") and not is_age_requirement_met(player_id, int(definition["target_age"])):
+		return "needs_building"
 	return ""
+
+
+func is_age_requirement_met(player_id: int, target_age: int) -> bool:
+	var requirement: Dictionary = TechData.AGE_UP_REQUIREMENTS.get(target_age, {})
+	return requirement.is_empty() or count_active_buildings(player_id, requirement["types"]) >= int(requirement["count"])
+
+
+func describe_research_failure(player_id: int, research_id: String, reason: String) -> String:
+	## Short card copy in the "Need X" style for a reason code; "" when ready.
+	if reason.is_empty():
+		return ""
+	var definition: Dictionary = get_research_definition(player_id, research_id)
+	match reason:
+		"unaffordable":
+			var resource_manager: Node = get_node_or_null("/root/ResourceManager")
+			var parts: PackedStringArray = []
+			if resource_manager != null:
+				var missing: Dictionary = resource_manager.call("get_missing_resources", player_id, definition.get("cost", {}))
+				for resource: String in ["food", "wood", "gold"]:
+					if int(missing.get(resource, 0)) > 0:
+						parts.append("%d%s" % [int(missing[resource]), resource.left(1).to_upper()])
+			return "Need " + " ".join(parts) if not parts.is_empty() else "Need resources"
+		"age_required":
+			return "Need %s" % get_age_name(int(definition.get("age_required", 1))) if not definition.is_empty() else "Need next age"
+		"requires_research":
+			return "Need %s" % TechData.get_research_name(str(definition.get("requires", "")))
+		"needs_building":
+			return TechData.describe_age_requirement(int(definition.get("target_age", 0)))
+	return str(RESEARCH_FAILURE_COPY.get(reason, "Unavailable"))
 
 
 func can_research(player_id: int, building: Node2D, research_id: String) -> bool:
 	return get_research_failure_reason(player_id, building, research_id).is_empty()
 
 
-func try_research(player_id: int, building: Node2D, research_id: String) -> bool:
-	## Validate, pay and apply one technology through the same owner transaction.
+func try_start_research(player_id: int, building: Node2D, research_id: String) -> bool:
+	## Validate, pay and begin one timed research in `building`'s slot.
 	if not can_research(player_id, building, research_id):
+		return false
+	var definition: Dictionary = get_research_definition(player_id, research_id)
+	var cost: Dictionary = (definition["cost"] as Dictionary).duplicate()
+	var resource_manager: Node = get_node_or_null("/root/ResourceManager")
+	_research_transactions[player_id] = true
+	if not bool(resource_manager.call("try_spend", player_id, cost)):
+		_research_transactions.erase(player_id)
+		return false
+	# Resource notifications may synchronously end the match or destroy the
+	# building. Such a cancelled purchase returns its full payment.
+	if not _get_research_requirement_failure_reason(player_id, building, research_id).is_empty() or not str(building.get("research_id")).is_empty():
+		resource_manager.call("refund", player_id, cost)
+		_research_transactions.erase(player_id)
+		return false
+	_research_transactions.erase(player_id)
+	var duration: float = maxf(0.0, float(definition.get("time", 0.0)))
+	building.call("begin_research", research_id, duration, cost)
+	research_started.emit(player_id, building, research_id, duration)
+	if definition.has("target_age"):
+		age_advance_started.emit(player_id, int(definition["target_age"]), duration)
+	if duration <= 0.0:
+		complete_building_research(building)
+	return true
+
+
+func cancel_research(player_id: int, building: Node2D) -> bool:
+	## Stops the building's research and returns everything that was paid.
+	## A destroyed building takes the same path (BuildingBase watches itself).
+	if not is_instance_valid(building) or not is_instance_of(building, _building_script()) or int(building.get("player_owner")) != player_id:
+		return false
+	var research_id: String = str(building.get("research_id"))
+	if research_id.is_empty():
+		return false
+	var paid: Dictionary = (building.get("research_paid_cost") as Dictionary).duplicate()
+	# Clear before refunding so a resource listener cannot cancel twice.
+	building.call("clear_research")
+	var resource_manager: Node = get_node_or_null("/root/ResourceManager")
+	if resource_manager != null and not paid.is_empty():
+		resource_manager.call("refund", player_id, paid)
+	research_cancelled.emit(player_id, building, research_id)
+	if TechData.is_age_research(research_id):
+		age_advance_cancelled.emit(player_id)
+	return true
+
+
+func complete_building_research(building: Node2D) -> void:
+	## Called by the building when its research timer runs out.
+	if not is_instance_valid(building):
+		return
+	var player_id: int = int(building.get("player_owner"))
+	var research_id: String = str(building.get("research_id"))
+	if research_id.is_empty():
+		return
+	building.call("clear_research")
+	if TechData.is_age_research(research_id):
+		if get_player_age(player_id) == TechData.age_research_target(research_id) - 1:
+			advance_age(player_id)
+		return
+	_finish_research(player_id, research_id)
+
+
+func _finish_research(player_id: int, research_id: String) -> void:
+	if has_research(player_id, research_id):
+		return
+	var definition: Dictionary = TechData.get_research_definition(research_id)
+	complete_research(player_id, research_id)
+	var effects: Dictionary = definition.get("effects", {})
+	for key: String in effects:
+		add_modifier(player_id, key, float(effects[key]))
+	var tier: Dictionary = definition.get("tier", {})
+	if not tier.is_empty():
+		set_modifier(player_id, UnitData.tier_modifier_key(int(tier["unit_type"])), float(tier["tier"]))
+	# Listeners (main) bring living units and buildings up to the registry.
+	research_completed.emit(player_id, research_id)
+	if not tier.is_empty():
+		unit_tier_changed.emit(player_id, int(tier["unit_type"]), int(tier["tier"]))
+
+
+func try_research(player_id: int, building: Node2D, research_id: String) -> bool:
+	## Instant paid completion (no timer) for scripted setups and fixtures.
+	## Same validation and payment as try_start_research; ages are not accepted.
+	if TechData.is_age_research(research_id) or not can_research(player_id, building, research_id):
 		return false
 	var definition: Dictionary = TechData.get_research_definition(research_id)
 	var resource_manager: Node = get_node_or_null("/root/ResourceManager")
@@ -776,21 +988,13 @@ func try_research(player_id: int, building: Node2D, research_id: String) -> bool
 	if not bool(resource_manager.call("try_spend", player_id, definition["cost"])):
 		_research_transactions.erase(player_id)
 		return false
-	# Resource notifications may synchronously end the match or destroy the
-	# building. Such a cancelled purchase returns its full payment.
 	if not _get_research_requirement_failure_reason(player_id, building, research_id).is_empty():
 		resource_manager.call("refund", player_id, definition["cost"])
 		_research_transactions.erase(player_id)
 		return false
-	# Paid and committed; today the effect lands in this same call (duration 0).
 	research_started.emit(player_id, building, research_id, 0.0)
-	complete_research(player_id, research_id)
-	apply_attack_upgrade(player_id, int(definition.get("attack_bonus", 0)))
-	apply_armor_upgrade(player_id, int(definition.get("armor_bonus", 0)))
-	apply_gather_upgrade(player_id, float(definition.get("gather_bonus", 0.0)))
-	apply_villager_hp_upgrade(player_id, int(definition.get("villager_hp_bonus", 0)))
 	_research_transactions.erase(player_id)
-	research_completed.emit(player_id, research_id)
+	_finish_research(player_id, research_id)
 	return true
 
 
@@ -799,6 +1003,59 @@ func complete_research(player_id: int, research_id: String) -> void:
 		researched_upgrades[player_id] = []
 	if research_id not in researched_upgrades[player_id]:
 		researched_upgrades[player_id].append(research_id)
+
+
+# --- Age-up through the Town Center research slot ---
+
+func get_age_up_state(player_id: int) -> Dictionary:
+	## {} while idle, else {"building", "target_age", "progress" 0..1, "duration"}.
+	for building: Node2D in get_player_buildings(player_id):
+		var research_id: String = str(building.get("research_id"))
+		if TechData.is_age_research(research_id):
+			return {"building": building, "target_age": TechData.age_research_target(research_id), "progress": float(building.call("get_research_ratio")), "duration": float(building.get("research_duration"))}
+	return {}
+
+
+func get_age_up_town_center(player_id: int) -> Node2D:
+	## The Town Center that would take the age-up: an idle one if any, else a
+	## busy one (so the caller can say why), else null.
+	var busy: Node2D = null
+	var active: int = int(_building_script().State.ACTIVE)
+	for building: Node2D in get_player_buildings(player_id):
+		if int(building.get("building_type")) != BuildingData.BuildingType.TOWN_CENTER or int(building.get("state")) != active:
+			continue
+		if str(building.get("research_id")).is_empty():
+			return building
+		busy = building
+	return busy
+
+
+func get_age_up_failure_reason(player_id: int) -> String:
+	## "" when the next age can start now, else a reason code.
+	if get_player_age(player_id) >= MAX_AGE or get_age_up_cost(player_id, get_player_age(player_id) + 1).is_empty():
+		return "max_age"
+	if not get_age_up_state(player_id).is_empty():
+		return "in_progress"
+	var town_center: Node2D = get_age_up_town_center(player_id)
+	if town_center == null:
+		return "no_town_center"
+	return get_research_failure_reason(player_id, town_center, TechData.age_research_id(get_player_age(player_id) + 1))
+
+
+func describe_age_up_failure(player_id: int) -> String:
+	return describe_research_failure(player_id, TechData.age_research_id(get_player_age(player_id) + 1), get_age_up_failure_reason(player_id))
+
+
+func try_start_age_up(player_id: int) -> bool:
+	## Shared human/AI/online request: pay and start the timed age-up.
+	if not get_age_up_failure_reason(player_id).is_empty():
+		return false
+	return try_start_research(player_id, get_age_up_town_center(player_id), TechData.age_research_id(get_player_age(player_id) + 1))
+
+
+func cancel_age_up(player_id: int) -> bool:
+	var state: Dictionary = get_age_up_state(player_id)
+	return not state.is_empty() and cancel_research(player_id, state["building"])
 
 
 func toggle_pause() -> void:

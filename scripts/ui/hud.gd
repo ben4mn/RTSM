@@ -529,6 +529,11 @@ func _process(_delta: float) -> void:
 	_update_worker_undo_button()
 	_focus_pulse_time += _delta
 	_refresh_primary_action_visuals()
+	_age_refresh_elapsed += _delta
+	if _age_refresh_elapsed >= 0.25:
+		_age_refresh_elapsed = 0.0
+		if gm and (not _age_up_was_idle or not gm.get_age_up_state(0).is_empty()):
+			_update_age_display()
 	var now_msec: int = Time.get_ticks_msec()
 	if not OS.has_feature("production") and now_msec >= _next_touch_diagnostics_refresh_msec:
 		_next_touch_diagnostics_refresh_msec = now_msec + 250
@@ -2181,7 +2186,9 @@ func _apply_context_actions(viewport_size: Vector2) -> void:
 	var gm: Node = _get_game_manager()
 	var can_advance: bool = gm == null or not gm.get_age_up_cost(0, gm.get_player_age(0) + 1).is_empty()
 	# The optional opener can suggest a next step without hiding a paid action.
-	age_up_button.visible = field_mode and can_advance and town_center
+	# Round 2 B: a running age-up keeps its meter on screen for every selection.
+	var age_in_progress: bool = gm != null and not gm.get_age_up_state(0).is_empty()
+	age_up_button.visible = field_mode and can_advance and (town_center or age_in_progress)
 	_selection_back_button.visible = field_mode and _camera_controls_expanded and _selection_context_active and _selection_kind != "unit"
 	_selection_back_button.text = "Back"
 	_select_area_button.visible = field_mode and _camera_controls_expanded
@@ -2810,9 +2817,27 @@ func _update_age_display() -> void:
 		age_up_button.add_theme_constant_override("icon_max_width", 24)
 		age_up_button.add_theme_font_size_override("font_size", 13)
 		age_up_button.add_theme_color_override("font_disabled_color", KingdomTheme.MUTED)
-		if not cost.is_empty():
+		var advancing: Dictionary = gm.get_age_up_state(0)
+		if advancing.is_empty() != _age_up_was_idle:
+			_age_up_was_idle = advancing.is_empty()
+			_queue_mobile_layout_refresh()
+		if not advancing.is_empty():
+			# Timed age-up in progress: the seam is the research meter and a
+			# tap jumps to the Town Center (cancel there, full refund).
+			var seconds_left: int = ceili(float(advancing["duration"]) * (1.0 - float(advancing["progress"])))
+			age_up_button.text = "%ds" % seconds_left
+			FieldStyle.production_meter(age_up_button, float(advancing["progress"]))
+			age_up_button.tooltip_text = "Advancing to %s: %d s left.\nTap to view the Town Center. Tap its age card to cancel for a full refund." % [gm.get_age_name(int(advancing["target_age"])), seconds_left]
+			age_up_button.accessibility_name = age_up_button.tooltip_text
+			age_up_button.disabled = _ui_modal_state != UIModalState.NONE
+			age_up_button.modulate = Color.WHITE
+		elif not cost.is_empty():
 			var rm: Node = _get_resource_manager()
 			var affordable: bool = rm != null and rm.can_afford(0, cost)
+			var reason: String = str(gm.get_age_up_failure_reason(0))
+			# A missing building (or busy Town Center) is said on the button and
+			# explained on tap; a resource shortage keeps the readiness seam.
+			var blocked_copy: String = "" if reason in ["", "unaffordable", "match_inactive", "purchase_in_progress"] else str(gm.describe_age_up_failure(0))
 			age_up_button.text = ["I", "II", "III", "IV"][mini(age, 3)]
 			var stock: Dictionary = rm.get_all_resources(0) if rm else {}
 			var readiness: float = 1.0
@@ -2822,15 +2847,58 @@ func _update_age_display() -> void:
 			FieldStyle.production_meter(age_up_button, clampf(readiness, 0.0, 1.0))
 			age_up_button.tooltip_text = _get_age_up_preview(age + 1)
 			age_up_button.accessibility_name = age_up_button.tooltip_text
-			age_up_button.disabled = not affordable or _ui_modal_state != UIModalState.NONE
-			age_up_button.modulate = Color.WHITE if affordable else Color(0.8, 0.8, 0.8)
+			age_up_button.disabled = (not affordable and blocked_copy.is_empty()) or _ui_modal_state != UIModalState.NONE
+			age_up_button.modulate = Color.WHITE if affordable and blocked_copy.is_empty() else Color(0.8, 0.8, 0.8)
+			_set_age_blocked_note(blocked_copy)
 		else:
 			age_up_button.text = "Max Age"
 			age_up_button.tooltip_text = "You have reached the highest age"
 			age_up_button.accessibility_name = age_up_button.tooltip_text
 			age_up_button.disabled = true
+		if not advancing.is_empty() or cost.is_empty():
+			_set_age_blocked_note("")
 	else:
 		age_label.text = "Dark Age"
+
+
+var _age_up_was_idle: bool = true
+var _age_refresh_elapsed: float = 0.0
+
+
+func refresh_age_display() -> void:
+	_update_age_display()
+
+
+func _set_age_blocked_note(copy: String) -> void:
+	## "Need a Barracks or Resource Camp" above the age button, in the blocked
+	## card voice. Only shown while the button itself is on screen.
+	var note := age_up_button.get_node_or_null("AgeBlockedNote") as Label
+	if copy.is_empty():
+		if note != null:
+			note.visible = false
+		return
+	if note == null:
+		note = Label.new()
+		note.name = "AgeBlockedNote"
+		note.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		note.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		note.add_theme_font_size_override("font_size", 11)
+		note.add_theme_color_override("font_color", KingdomTheme.RUST)
+		var note_style: StyleBoxFlat = KingdomTheme.panel_style(Color(KingdomTheme.INK, 0.92), Color.TRANSPARENT, 8)
+		note_style.set_content_margin_all(0)
+		note_style.content_margin_left = 7.0
+		note_style.content_margin_right = 7.0
+		note_style.content_margin_top = 2.0
+		note_style.content_margin_bottom = 3.0
+		note.add_theme_stylebox_override("normal", note_style)
+		age_up_button.add_child(note)
+		note.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+		note.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+		note.grow_vertical = Control.GROW_DIRECTION_BEGIN
+		note.offset_bottom = -4.0
+		note.offset_top = -4.0
+	note.text = copy
+	note.visible = true
 
 
 func _get_age_up_preview(next_age: int) -> String:
@@ -2849,7 +2917,11 @@ func _get_age_up_preview(next_age: int) -> String:
 			else:
 				lines.append("Need +%d food · +%d gold" % [int(missing.get("food", 0)), int(missing.get("gold", 0))])
 	lines.append("")
-	lines.append("Advances immediately after payment. Unlocks buildings and recruitment; unit HP, Attack and Armor stay the same.")
+	if gm:
+		var requirement: String = TechData.describe_age_requirement(next_age)
+		if not requirement.is_empty():
+			lines.append("%s (%s)" % [requirement, "ready" if gm.is_age_requirement_met(0, next_age) else "missing"])
+	lines.append("Takes %d seconds in your Town Center, which trains nothing meanwhile. Cancel there for a full refund. Unlocks buildings, recruitment and research." % ceili(TechData.get_research_time(TechData.age_research_id(next_age))))
 	# Find buildings that unlock at this age
 	var new_buildings: PackedStringArray = PackedStringArray()
 	for key in BuildingData.BUILDINGS:
@@ -2889,7 +2961,7 @@ func _age_up_information() -> Dictionary:
 	var gm: Node = _get_game_manager()
 	if gm == null or gm.get_player_age(0) >= gm.MAX_AGE:
 		return {"title": "Age Up", "body": "You have reached the highest age."}
-	return {"title": "Age Up", "body": _get_age_up_preview(gm.get_player_age(0) + 1) + "\nMeter shows resources saved. Tap to pay and advance instantly. Hold for costs and unlocks."}
+	return {"title": "Age Up", "body": _get_age_up_preview(gm.get_player_age(0) + 1) + "\nMeter shows resources saved, then research progress. Tap to pay and start; tap again to jump to the Town Center. Hold for costs and unlocks."}
 
 
 func _on_game_state_changed(new_state: int) -> void:
@@ -3990,7 +4062,14 @@ func _context_actions_for(building_ref: Node2D) -> Array[Dictionary]:
 	var building: BuildingBase = building_ref as BuildingBase
 	if building.player_owner != 0 or building.is_queued_for_deletion():
 		return []
-	return building.get_context_actions(0)
+	var actions: Array[Dictionary] = []
+	for action: Dictionary in building.get_context_actions(0):
+		# The age button beside the shelf starts the age-up; its card joins the
+		# row only while it runs, as the meter that cancels it.
+		if str(action.get("id", "")).begins_with(BuildingBase.RESEARCH_ACTION_PREFIX + TechData.AGE_RESEARCH_PREFIX) and float(action.get("progress", -1.0)) < 0.0:
+			continue
+		actions.append(action)
+	return actions
 
 
 static func _context_action_button_name(action_id: String) -> String:
@@ -4051,11 +4130,16 @@ func _update_research_buttons(building_ref: Node2D) -> void:
 		# cost so each remains readable without widening an unreachable scroll row.
 		var done: bool = bool(action.get("done", false))
 		var progress: float = float(action.get("progress", -1.0))
+		var blocked_reason: String = str(action.get("disabled_reason", ""))
 		var status_line: String = " · ".join(costs)
 		if done:
 			status_line = "Complete"
 		elif progress >= 0.0:
-			status_line = "%d%%" % int(clampf(progress, 0.0, 1.0) * 100.0)
+			status_line = "%d%% · Cancel" % int(clampf(progress, 0.0, 1.0) * 100.0) if bool(action.get("cancel", false)) else "%d%%" % int(clampf(progress, 0.0, 1.0) * 100.0)
+		elif not blocked_reason.is_empty():
+			# Beta 31 voice: a blocked card says why where its cost was.
+			status_line = blocked_reason
+		FieldStyle.production_meter(btn, progress if not done else -1.0)
 		var lines: PackedStringArray = []
 		for line: String in [
 			str(CONTEXT_ACTION_SHORT_LABELS.get(action_id, action.get("short", action.get("label", action_id)))),
@@ -4069,7 +4153,7 @@ func _update_research_buttons(building_ref: Node2D) -> void:
 		btn.clip_text = true
 		btn.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		btn.add_theme_font_size_override("font_size", 11)
-		btn.add_theme_color_override("font_disabled_color", KingdomTheme.MUTED)
+		btn.add_theme_color_override("font_disabled_color", KingdomTheme.MUTED if done else KingdomTheme.RUST.lerp(KingdomTheme.MUTED, 0.45))
 		for state: String in ["normal", "hover", "pressed", "disabled", "focus"]:
 			var style: StyleBox = KingdomTheme.button_style("secondary", state)
 			style.set_content_margin(SIDE_LEFT, 4.0)
@@ -4084,7 +4168,7 @@ func _update_research_buttons(building_ref: Node2D) -> void:
 			btn.icon = load(icon_path) as Texture2D
 			btn.expand_icon = true
 			btn.add_theme_constant_override("icon_max_width", 18)
-		btn.disabled = done or not str(action.get("disabled_reason", "")).is_empty()
+		btn.disabled = done or (not blocked_reason.is_empty() and progress < 0.0)
 		var information: Dictionary = _context_action_information(action_id)
 		btn.tooltip_text = "%s\n%s" % [information.get("title", "Research"), information.get("body", "")]
 		btn.accessibility_name = btn.tooltip_text.replace("\n", ". ")
@@ -5572,24 +5656,33 @@ func _repeat_information() -> Dictionary:
 
 
 func _research_information(research_id: String) -> Dictionary:
-	for research: Dictionary in RESEARCH_DEFS:
-		if str(research.get("id", "")) == research_id:
-			var status := "Requires your active Blacksmith."
-			var gm: Node = _get_game_manager()
-			if gm != null:
-				match str(gm.get_research_failure_reason(0, _selected_building_ref, research_id)):
-					"": status = "Ready to research."
-					"already_researched": status = "Researched. This upgrade can be purchased only once."
-					"unaffordable":
-						var rm: Node = _get_resource_manager()
-						if rm != null:
-							status = "Need %s more." % _full_cost_text(rm.get_missing_resources(0, research.get("cost", {})))
-					"age_required": status = "Requires %s." % gm.get_age_name(int(research.get("age_required", 1)))
-					"building_incomplete": status = "Finish your Blacksmith before researching."
-					"purchase_in_progress": status = "Another purchase is being processed."
-					"match_inactive": status = "Return to the match to research."
-			return {"title": research.get("name", "Research"), "body": "%s\nCost: %s\n%s\n%s\nTap to research. Holding only inspects." % [research.get("desc", ""), _full_cost_text(research.get("cost", {})), research.get("details", "Completed research cannot be bought again."), status]}
-	return {"title": "Research", "body": "Unavailable in this context."}
+	var gm: Node = _get_game_manager()
+	var research: Dictionary = gm.get_research_definition(0, research_id) if gm != null else TechData.get_research_definition(research_id)
+	if research.is_empty():
+		return {"title": "Research", "body": "Unavailable in this context."}
+	var building_name: String = BuildingData.get_building_name(int(research.get("building_type", -1)))
+	var status: String = "Requires your active %s." % building_name
+	var running: bool = is_instance_valid(_selected_building_ref) and _selected_building_ref is BuildingBase and (_selected_building_ref as BuildingBase).research_id == research_id
+	if running:
+		status = "In progress: %d%%. Tap to cancel for a full refund." % int((_selected_building_ref as BuildingBase).get_research_ratio() * 100.0)
+	elif gm != null:
+		var reason: String = str(gm.get_research_failure_reason(0, _selected_building_ref, research_id))
+		match reason:
+			"": status = "Ready to research."
+			"already_researched": status = "Researched. This upgrade can be purchased only once."
+			"unaffordable":
+				var rm: Node = _get_resource_manager()
+				if rm != null:
+					status = "Need %s more." % _full_cost_text(rm.get_missing_resources(0, research.get("cost", {})))
+			"age_required": status = "Requires %s." % gm.get_age_name(int(research.get("age_required", 1)))
+			"requires_research": status = "Requires %s first." % TechData.get_research_name(str(research.get("requires", "")))
+			"needs_building": status = "%s." % TechData.describe_age_requirement(int(research.get("target_age", 0)))
+			"building_busy": status = "This %s is already researching. One research at a time per building." % building_name
+			"in_progress": status = "Already being researched in another %s." % building_name
+			"building_incomplete": status = "Finish your %s before researching." % building_name
+			"purchase_in_progress": status = "Another purchase is being processed."
+			"match_inactive": status = "Return to the match to research."
+	return {"title": research.get("name", "Research"), "body": "%s\nCost: %s · %d seconds\n%s\nThe building trains no units while it researches.\n%s\nTap to research. Holding only inspects." % [research.get("desc", ""), _full_cost_text(research.get("cost", {})), ceili(float(research.get("time", 0.0))), research.get("details", "Completed research cannot be bought again."), status]}
 
 
 func _refund_information(unit_type: int) -> Dictionary:
@@ -5657,6 +5750,10 @@ func setup_strategy_overview() -> StrategyOverview:
 		close_secondary_surface()
 		find_army_pressed.emit())
 	_strategy_overview.idle_requested.connect(_on_idle_villager_pressed)
+	# Round 2 B: the Research page starts techs through the same context-action
+	# route as a building's own card (solo and online).
+	_strategy_overview.research_requested.connect(func(building: Node2D, research_id: String) -> void:
+		building_action_requested.emit(building, BuildingBase.RESEARCH_ACTION_PREFIX + research_id))
 	_queue_mobile_layout_refresh()
 	return _strategy_overview
 

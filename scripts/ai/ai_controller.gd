@@ -1720,6 +1720,11 @@ func _check_age_up() -> void:
 	if cost.is_empty():
 		_saving_for_age_up = false
 		return
+	# Round 2 B: the age-up is timed (already running: nothing to decide) and
+	# needs its prerequisite buildings, which the normal build order supplies.
+	if not GameManager.get_age_up_state(player_id).is_empty() or not GameManager.is_age_requirement_met(player_id, target_age):
+		_saving_for_age_up = false
+		return
 
 	var resources: Dictionary = ResourceManager.get_all_resources(player_id)
 	var completion: float = _resource_completion_ratio(resources, cost)
@@ -2044,6 +2049,10 @@ func _is_essential_building_while_saving(building_type: int) -> bool:
 	if building_type == BuildingData.BuildingType.HOUSE:
 		return true
 	if building_type == BuildingData.BuildingType.TOWN_CENTER and not _get_boom_reserve_cost().is_empty(): return true
+	# Round 2 B: a building the next age requires is never deferred by saving.
+	var next_age: int = GameManager.get_player_age(player_id) + 1
+	if not GameManager.is_age_requirement_met(player_id, next_age) and building_type in TechData.AGE_UP_REQUIREMENTS.get(next_age, {}).get("types", []):
+		return true
 	# Unlock one real military production queue before reserving the economy for
 	# an age-up. This costs the same 120 wood as it does for the human player;
 	# it only prevents the fair opening from starving its own liveness.
@@ -2187,30 +2196,54 @@ func _get_training_building_type_for_unit(unit_type: int) -> int:
 func _check_research() -> void:
 	if _needs_compact_worker_recovery():
 		return
-	var blacksmith: Node = _find_trainable_building_of_type(BuildingData.BuildingType.BLACKSMITH)
-	if blacksmith == null:
-		return
 	if _saving_for_age_up and not _is_under_pressure:
 		return
 
-	# The human and opponent share completed-building legality, payment and
-	# once-only upgrade effects. Foundations never grant technology.
-	var research_plan: Array[String] = ["forging", "scale_mail"]
-	if _uses_compact_population_policy():
-		# Protect workers during a real home threat. Safe mature economies can
-		# invest in throughput without spending the next worker/Archer's bank.
-		if _is_under_pressure:
-			research_plan.push_front("loom")
-		elif _can_invest_in_economy() and _get_villagers().size() >= 5:
-			var wheelbarrow_cost: Dictionary = TechData.get_research_definition("wheelbarrow").get("cost", {})
-			if ResourceManager.get_resource(player_id, "food") >= int(wheelbarrow_cost.get("food", 0)) + 50 and ResourceManager.get_resource(player_id, "wood") >= int(wheelbarrow_cost.get("wood", 0)) + 45:
-				research_plan.push_front("wheelbarrow")
-		if _get_villagers().size() >= 4 and "loom" not in research_plan:
-			research_plan.append("loom")
-	for research_id: String in research_plan:
-		if not _allows_trade_capital_spend(TechData.get_research_definition(research_id).get("cost", {})): continue
-		if not _allows_boom_spend(TechData.get_research_definition(research_id).get("cost", {})): continue
-		if GameManager.try_research(player_id, blacksmith, research_id):
+	# Round 2 B (minimal port): research is timed and occupies one building's
+	# slot, so walk TechData.AI_PRIORITY over this player's own idle, completed
+	# buildings. The human and opponent share legality, payment and effects
+	# (GameManager.try_start_research). Easy and Medium keep one research
+	# running at a time; Hard may use several buildings at once.
+	var idle_by_type: Dictionary = {}
+	for building: Variant in _my_buildings:
+		if not is_instance_valid(building) or not building is BuildingBase or building.state != BuildingBase.State.ACTIVE:
+			continue
+		if building.is_researching():
+			if TechData.is_age_research(building.research_id):
+				continue
+			if difficulty != Difficulty.HARD:
+				return
+			continue
+		if not idle_by_type.has(building.building_type):
+			idle_by_type[building.building_type] = building
+	if idle_by_type.is_empty():
+		return
+	var villager_count: int = _get_villagers().size()
+	var economy_ready: bool = _can_invest_in_economy() and villager_count >= 5
+	for research_id: String in TechData.AI_PRIORITY:
+		if difficulty == Difficulty.EASY and research_id not in TechData.AI_EASY_IDS:
+			continue
+		if GameManager.has_research(player_id, research_id):
+			continue
+		var definition: Dictionary = TechData.get_research_definition(research_id)
+		var building: Node2D = idle_by_type.get(int(definition.get("building_type", -1))) as Node2D
+		if building == null:
+			continue
+		var cost: Dictionary = definition.get("cost", {})
+		if research_id == "loom":
+			# Protect workers during a real home threat, or once the village is up.
+			if not _is_under_pressure and villager_count < 4:
+				continue
+		elif (definition.get("tier", {}) as Dictionary).is_empty() and int(definition["building_type"]) in [BuildingData.BuildingType.TOWN_CENTER, BuildingData.BuildingType.RESOURCE_CAMP]:
+			# Throughput techs wait for a safe, mature economy and never spend
+			# the next worker's or Archer's bank.
+			if not economy_ready:
+				continue
+			if ResourceManager.get_resource(player_id, "food") < int(cost.get("food", 0)) + 50 or ResourceManager.get_resource(player_id, "wood") < int(cost.get("wood", 0)) + 45:
+				continue
+		if not _allows_trade_capital_spend(cost): continue
+		if not _allows_boom_spend(cost): continue
+		if GameManager.try_start_research(player_id, building, research_id):
 			return  # One paid research per decision.
 
 

@@ -700,6 +700,8 @@ func _set_guided_stage(new_stage: GuidedOpeningStage) -> void:
 func _on_age_advanced_for_summary(player_id: int, new_age: int) -> void:
 	if player_id < 0 or player_id >= _age_reached_at.size():
 		return
+	ResearchEffects.on_age_advanced(self, player_id, new_age)
+	_announce_age_reached(player_id, new_age)
 	if not _age_reached_at[player_id].has(new_age):
 		_age_reached_at[player_id][new_age] = GameManager.game_time
 
@@ -1565,16 +1567,9 @@ func _spawn_unit(
 	units_container.add_child(unit)
 	_player_units[player_id].append(unit)
 
-	# Economic/villager upgrades alter the live unit. Combat attack and armor
-	# upgrades remain dynamic base-stat modifiers in Combat for every unit.
-	if unit is Villager:
-		var gather_bonus: float = GameManager.get_gather_bonus(player_id)
-		var hp_bonus: int = GameManager.get_villager_hp_bonus(player_id)
-		if gather_bonus > 0.0:
-			(unit as Villager).gather_rate += gather_bonus
-		if hp_bonus > 0:
-			unit.max_hp += hp_bonus
-			unit.hp += hp_bonus
+	# Researched bonuses reach a new unit as it loads its stats
+	# (ResearchEffects.apply_unit_bonuses); gathering, attack and armor are
+	# read from the modifier registry when used.
 
 	# Track unit death.
 	unit.unit_died.connect(_on_unit_died.bind(player_id))
@@ -2854,15 +2849,13 @@ func _register_match_extensions() -> void:
 	## own file, which then calls ext.register_command / register_snapshot /
 	## register_save and BuildingBase.register_context_provider.
 	ext.install(self)
+	ResearchEffects.install(self)
 
 
 func _on_building_action_requested(building: Node2D, action_id: String) -> void:
 	## Every HUD context-row button (BuildingBase.get_context_actions) lands here.
 	if NetworkSession.is_client():
 		NetworkSession.send_command("building_action", {"target": NetworkSession.entity_id(building), "action": action_id})
-		return
-	if action_id.begins_with(BuildingBase.RESEARCH_ACTION_PREFIX):
-		_on_research_requested(building, action_id.trim_prefix(BuildingBase.RESEARCH_ACTION_PREFIX))
 		return
 	if GameManager.current_state != GameManager.GameState.PLAYING:
 		return
@@ -2882,25 +2875,15 @@ func _on_research_requested(building: Node2D, research_id: String) -> void:
 		return
 	if not is_instance_valid(building) or not building is BuildingBase or building.player_owner != 0:
 		return
-	if not GameManager.try_research(0, building, research_id):
-		hud.show_notification(GameManager.get_research_failure_reason(0, building, research_id), Color(1.0, 0.4, 0.3))
-		return
-	var definition: Dictionary = TechData.get_research_definition(research_id)
-	hud.show_notification("Research complete: %s" % str(definition.get("desc", research_id)), Color(0.5, 0.8, 1.0))
+	var reason: String = (building as BuildingBase).perform_context_action(0, BuildingBase.RESEARCH_ACTION_PREFIX + research_id)
+	if not reason.is_empty():
+		hud.show_notification(reason, Color(1.0, 0.4, 0.3))
 	_on_selection_changed(game_map.selection_mgr.selected)
 
 
 func _on_research_completed(player_id: int, research_id: String) -> void:
-	if player_id < 0 or player_id >= _player_units.size():
-		return
-	var definition: Dictionary = TechData.get_research_definition(research_id)
-	var gather_bonus: float = float(definition.get("gather_bonus", 0.0))
-	var hp_bonus: int = int(definition.get("villager_hp_bonus", 0))
-	for unit in _player_units[player_id]:
-		if is_instance_valid(unit) and unit is Villager and unit.current_state != UnitBase.State.DEAD:
-			(unit as Villager).gather_rate += gather_bonus
-			unit.max_hp += hp_bonus
-			unit.hp += hp_bonus
+	ResearchEffects.on_research_completed(self, player_id, research_id)
+	_on_selection_changed(game_map.selection_mgr.selected)
 
 
 # =========================================================================
@@ -3200,6 +3183,12 @@ func _on_placement_invalid(reason: String) -> void:
 
 
 func _on_age_up_requested() -> void:
+	# Round 2 B: the age-up is a timed research in a Town Center. A second tap
+	# while it runs jumps to that Town Center (cancel there, with full refund).
+	var running: Dictionary = GameManager.get_age_up_state(0)
+	if not running.is_empty():
+		_focus_age_up_town_center(running.get("building") as Node2D)
+		return
 	if NetworkSession.is_client():
 		NetworkSession.send_command("age")
 		return
@@ -3210,21 +3199,45 @@ func _on_age_up_requested() -> void:
 	if cost.is_empty():
 		return
 
-	if GameManager.try_advance_age(0):
-		_update_population_display()
-		var new_age: int = GameManager.get_player_age(0)
-		var age_name: String = GameManager.get_age_name(new_age)
-		var final_age_copy: String = "%s is the final age. Siege breaks bases; guard Sacred with a fighter to win." if GameManager.get_match_mode() == SkirmishData.MatchMode.STANDARD else "%s is the final age. Siege breaks bases; holding Sacred wins."
-		var age_message: String = final_age_copy % age_name if new_age == GameManager.MAX_AGE else "Advancing to %s!" % age_name
-		hud.show_notification(age_message, Color(1.0, 0.85, 0.2), 8.0 if new_age == GameManager.MAX_AGE else 3.0)
-		if new_age >= 2 and not _milestone_first_age_up:
-			_milestone_first_age_up = true
-			hud.show_notification("Milestone: First Age Up reached.", Color(1.0, 0.9, 0.45))
+	if GameManager.try_start_age_up(0):
+		hud.show_notification("Advancing to %s… %d s" % [GameManager.get_age_name(age + 1), ceili(TechData.get_research_time(TechData.age_research_id(age + 1)))], Color(1.0, 0.85, 0.2), 3.0)
 	else:
-		var resources: Dictionary = ResourceManager.get_all_resources(0)
-		var need_food: int = maxi(0, cost.get("food", 0) - int(resources.get("food", 0)))
-		var need_gold: int = maxi(0, cost.get("gold", 0) - int(resources.get("gold", 0)))
-		hud.show_notification("Need +%d food and +%d gold to age up." % [need_food, need_gold], Color(1.0, 0.5, 0.35))
+		var reason: String = GameManager.get_age_up_failure_reason(0)
+		var copy: String = GameManager.describe_age_up_failure(0)
+		if reason == "unaffordable":
+			var missing: Dictionary = ResourceManager.get_missing_resources(0, cost)
+			copy = "Need +%d food and +%d gold to age up." % [int(missing.get("food", 0)), int(missing.get("gold", 0))]
+		elif reason == "building_busy":
+			copy = "Town Center is researching. Wait or cancel it first."
+		elif reason == "needs_building":
+			copy += " to advance."
+		hud.show_notification(copy, Color(1.0, 0.5, 0.35))
+	hud.refresh_age_display()
+	_update_progression_hint()
+
+
+func _focus_age_up_town_center(town_center: Node2D) -> void:
+	if not is_instance_valid(town_center):
+		return
+	game_map.note_camera_interaction()
+	game_map.selection_mgr.select_single(town_center)
+	game_map.camera.position = _get_initial_camera_focus(town_center.global_position)
+	game_map._clamp_camera()
+
+
+func _announce_age_reached(player_id: int, new_age: int) -> void:
+	## Fired from age_advanced (authority) when a timed age-up completes.
+	var age_name: String = GameManager.get_age_name(new_age)
+	if player_id != 0:
+		hud.show_notification("Enemy reached the %s!" % age_name, Color(1.0, 0.4, 0.2))
+		return
+	_update_population_display()
+	if new_age == GameManager.MAX_AGE:
+		var final_age_copy: String = "%s is the final age. Siege breaks bases; guard Sacred with a fighter to win." if GameManager.get_match_mode() == SkirmishData.MatchMode.STANDARD else "%s is the final age. Siege breaks bases; holding Sacred wins."
+		hud.show_notification(final_age_copy % age_name, Color(1.0, 0.85, 0.2), 8.0)
+	if new_age >= 2 and not _milestone_first_age_up:
+		_milestone_first_age_up = true
+		hud.show_notification("Milestone: First Age Up reached.", Color(1.0, 0.9, 0.45))
 	_update_progression_hint()
 
 
@@ -3640,10 +3653,8 @@ func _on_ai_wants_to_age_up() -> void:
 	var cost: Dictionary = GameManager.get_age_up_cost(ai_controller.player_id, age + 1)
 	if cost.is_empty():
 		return
-	if GameManager.try_advance_age(ai_controller.player_id):
-		var new_age: int = GameManager.get_player_age(ai_controller.player_id)
-		var age_name: String = GameManager.get_age_name(new_age)
-		hud.show_notification("Enemy advancing to %s!" % age_name, Color(1.0, 0.4, 0.2))
+	# Timed since Round 2 B; `_announce_age_reached` reports the completion.
+	GameManager.try_start_age_up(ai_controller.player_id)
 
 
 func _on_ai_attack_launched(_units: Array, _target_pos: Vector2) -> void:
@@ -3754,6 +3765,10 @@ func _advance_production_queues(delta: float) -> void:
 			if not is_instance_valid(building):
 				continue
 			if building.state != BuildingBase.State.ACTIVE:
+				continue
+			# Round 2 B: one research slot per building; its unit queue waits.
+			if building.is_researching():
+				building.advance_research(delta)
 				continue
 			var pq: ProductionQueue = building.get_production_queue() as ProductionQueue
 			if pq == null:

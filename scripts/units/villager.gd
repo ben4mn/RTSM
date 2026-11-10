@@ -451,7 +451,7 @@ func _harvest_from_target() -> int:
 	if remaining_capacity <= 0:
 		return 0
 	var civilization_multiplier: float = CivilizationData.get_gather_multiplier(CivilizationData.for_player(player_owner), carried_resource_type)
-	_fractional_harvest += maxf(0.0, gather_rate) * civilization_multiplier
+	_fractional_harvest += maxf(0.0, gather_rate) * civilization_multiplier * ResearchEffects.gather_multiplier(player_owner, carried_resource_type, gather_target)
 	var whole_work: int = floori(_fractional_harvest + 0.0000001)
 	_fractional_harvest = maxf(0.0, _fractional_harvest - float(whole_work))
 	var amount_requested: int = mini(whole_work, remaining_capacity)
