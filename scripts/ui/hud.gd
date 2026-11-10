@@ -3072,6 +3072,7 @@ func show_unit_selection(unit_name: String, current_hp: int, max_hp: int, action
 				break
 	if unit_stats.has("role_counts"):
 		selected_type = -1
+	_selection_uniform_type = selected_type
 	_selection_portrait = load(UnitData.get_unit_icon_path(selected_type, _selection_unit_owner)) if selected_type >= 0 else CommandIcons.get_icon("army")
 	_selection_is_worker = selected_type == UnitData.UnitType.VILLAGER
 	_selection_is_scout = selected_type == UnitData.UnitType.SCOUT
@@ -3277,14 +3278,24 @@ var _selection_type_chips: HBoxContainer = null
 var _selection_type_chip_signature: Array = []
 var _selection_chip_grace_type: int = -1
 var _selection_chip_grace_until: int = 0
-var _selection_chip_grace_x: float = 0.0
+var _selection_uniform_type: int = -1
 
 
 func _refresh_selection_type_chips() -> void:
 	var own_units: bool = _selection_kind == "unit" and _selection_unit_owner == 0 and selection_panel.visible and _unit_command_mode not in ["move", "attack_move", "patrol"]
-	var grace: bool = own_units and _selection_roster.size() == 1 and int(_selection_roster[0]) == _selection_chip_grace_type and Time.get_ticks_msec() < _selection_chip_grace_until
+	# After a chip narrowed the selection (a one-type selection has no roster),
+	# the row stays exactly where it was for a moment with only that chip lit.
+	var grace: bool = own_units and _selection_roster.is_empty() and _selection_uniform_type == _selection_chip_grace_type and _selection_type_chips != null \
+		and Time.get_ticks_msec() < _selection_chip_grace_until and _selection_type_chips.has_node("TypeChip%d" % _selection_chip_grace_type)
+	if grace and not _advanced_commands_open:
+		for chip: Node in _selection_type_chips.get_children():
+			var kept: bool = String(chip.name) == "TypeChip%d" % _selection_chip_grace_type
+			(chip as Button).modulate.a = 1.0 if kept else 0.0
+			(chip as Button).disabled = not kept
+		_selection_type_chips.visible = true
+		return
 	# The More tray (Stop, Stance, Patrol) opens in the same strip above the dock.
-	var wanted: bool = own_units and (_selection_roster.size() >= 2 or grace) and not _advanced_commands_open
+	var wanted: bool = own_units and _selection_roster.size() >= 2 and not _advanced_commands_open
 	if not wanted:
 		if _selection_type_chips != null:
 			_selection_type_chips.visible = false
@@ -3327,6 +3338,9 @@ func _refresh_selection_type_chips() -> void:
 			chip.pressed.connect(_on_selection_type_chip_pressed.bind(role_type))
 			chip.button_down.connect(func() -> void: world_gesture_cancel_requested.emit())
 			_selection_type_chips.add_child(chip)
+	for chip: Node in _selection_type_chips.get_children():
+		(chip as Button).modulate.a = 1.0
+		(chip as Button).disabled = false
 	_selection_type_chips.visible = true
 	_selection_type_chips.reset_size()
 	# Left-aligned with the panel and resting on its top edge; kept on screen
@@ -3337,19 +3351,15 @@ func _refresh_selection_type_chips() -> void:
 	var right_limit: float = get_viewport().get_visible_rect().size.x / view_scale - 4.0
 	if _strategy_overview != null and _strategy_overview.rail.is_visible_in_tree():
 		right_limit = minf(right_limit, _strategy_overview.rail.global_position.x - 6.0)
-	var chip_x: float = _selection_chip_grace_x if grace else anchor.x
-	_selection_type_chips.global_position = Vector2(clampf(chip_x, 4.0, maxf(4.0, right_limit - row_size.x)), anchor.y - row_size.y - 4.0)
+	_selection_type_chips.global_position = Vector2(clampf(anchor.x, 4.0, maxf(4.0, right_limit - row_size.x)), anchor.y - row_size.y - 4.0)
 
 
 func _on_selection_type_chip_pressed(unit_type: int) -> void:
 	AudioManager.play_ui("button_click")
-	var chip := _selection_type_chips.get_node_or_null("TypeChip%d" % unit_type) as Control if _selection_type_chips != null else null
 	# Keep this chip where it is while the selection narrows, so the second tap
 	# of a double tap lands on it (and asks for the whole map), not on the field.
 	_selection_chip_grace_type = unit_type
 	_selection_chip_grace_until = Time.get_ticks_msec() + SELECTION_TYPE_CHIP_GRACE_MSEC
-	if chip != null and _selection_roster.size() >= 2:
-		_selection_chip_grace_x = chip.global_position.x
 	selection_type_requested.emit(unit_type)
 
 
