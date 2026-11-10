@@ -201,7 +201,9 @@ func _register_live_unit_index() -> void:
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_LOCAL_TRANSFORM_CHANGED and _live_unit_index != null and is_inside_tree():
+		var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
 		_live_unit_index.update(self)
+		if PerfProbe.on: PerfProbe.add(&"unit.index_update", _pp)
 	elif what == NOTIFICATION_ENTER_TREE and is_node_ready():
 		_navigation_map = null
 		_register_live_unit_index()
@@ -343,6 +345,9 @@ func get_last_hit_direction() -> Vector2:
 	return _puppet.last_hit_direction() if _puppet != null else Vector2.ZERO
 
 
+const PERF_STATE_KEYS: Array[StringName] = [&"unit.state.m_idle", &"unit.state.m_moving", &"unit.state.m_attacking", &"unit.state.m_gathering", &"unit.state.m_building", &"unit.state.m_dead", &"unit.state.m_garrisoned", &"unit.state.v_idle", &"unit.state.v_moving", &"unit.state.v_attacking", &"unit.state.v_gathering", &"unit.state.v_building", &"unit.state.v_dead", &"unit.state.v_garrisoned"]
+
+
 func _process(delta: float) -> void:
 	if current_state == State.DEAD:
 		return
@@ -358,6 +363,7 @@ func _process(delta: float) -> void:
 	_advance_attack_windup(delta)
 
 	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
+	var _pp_state: int = current_state
 	match current_state:
 		State.IDLE:
 			_process_idle(delta)
@@ -369,7 +375,9 @@ func _process(delta: float) -> void:
 			_process_gathering(delta)
 		State.BUILDING:
 			_process_building(delta)
-	if PerfProbe.on: _pp = PerfProbe.add(&"unit.state", _pp)
+	if PerfProbe.on:
+		PerfProbe.add(PERF_STATE_KEYS[_pp_state + (7 if unit_type == UnitData.UnitType.VILLAGER else 0)], _pp)
+		_pp = PerfProbe.add(&"unit.state", _pp)
 	# A subclass that banks several frames into one think (Villager) still
 	# animates with this frame's time only.
 	_update_sprite_motion(delta if _presentation_delta < 0.0 else _presentation_delta)
@@ -589,7 +597,9 @@ func _navigate_toward(
 		return _navigation_failure_result()
 
 	var direction: Vector2 = path[path_index] - global_position
+	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
 	_move_in_direction(direction, delta, game_map)
+	if PerfProbe.on: PerfProbe.add(&"unit.state.step", _pp)
 
 	if global_position.distance_to(_last_move_pos) > 2.0:
 		_stuck_timer = 0.0

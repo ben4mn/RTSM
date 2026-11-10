@@ -19,7 +19,7 @@ const VILLAGER_SHARE: float = 0.4
 const FIELD_SHARE: float = 0.4
 const ARMY_MIX: Array[int] = [UnitData.UnitType.INFANTRY, UnitData.UnitType.ARCHER, UnitData.UnitType.INFANTRY, UnitData.UnitType.CAVALRY, UnitData.UnitType.ARCHER]
 
-var options: Dictionary = {"bodies": "60", "seconds": "30", "seed": "100", "net": "1", "select": "0", "presentation": "0", "output": "", "label": ""}
+var options: Dictionary = {"bodies": "60", "seconds": "30", "seed": "100", "net": "1", "select": "0", "presentation": "0", "output": "", "label": "", "save": "0", "micro": "0"}
 var match_scene: Node
 var game_map: Node2D
 var bot: AIController
@@ -142,6 +142,8 @@ func _run() -> void:
 		last_usec = now
 	PerfProbe.on = false
 	var cpu_seconds: float = _process_cpu_seconds() - started_cpu
+	if int(options["micro"]) > 0:
+		_micro()
 	# Outcome fingerprint: equal before/after a change means the simulation ran
 	# the same way (positions to 0.01 px, HP, state, banked resources).
 	var fingerprint: Array = []
@@ -154,6 +156,24 @@ func _run() -> void:
 			if is_instance_valid(building):
 				fingerprint.append([building.building_type, building.hp, building.state])
 	var wall_usec: int = Time.get_ticks_usec() - started_usec - harness_usec
+	# `--save=1`: one solo checkpoint of the final state, timed stage by stage.
+	var save_report: Dictionary = {}
+	if int(options["save"]) > 0:
+		var codec: RefCounted = SoloSave.STATE.new()
+		var mark: int = Time.get_ticks_usec()
+		var data: Dictionary = codec.capture(match_scene)
+		save_report["capture_ms"] = snappedf(float(Time.get_ticks_usec() - mark) / 1000.0, 0.01)
+		mark = Time.get_ticks_usec()
+		save_report["valid"] = SoloSave.STATE.validate(data)
+		save_report["validate_ms"] = snappedf(float(Time.get_ticks_usec() - mark) / 1000.0, 0.01)
+		mark = Time.get_ticks_usec()
+		var payload: String = SoloSave._envelope(data, 1)
+		save_report["envelope_ms"] = snappedf(float(Time.get_ticks_usec() - mark) / 1000.0, 0.01)
+		save_report["payload_bytes"] = payload.length()
+		mark = Time.get_ticks_usec()
+		var parsed: Dictionary = SoloSave._unpack(payload)
+		save_report["unpack_ms"] = snappedf(float(Time.get_ticks_usec() - mark) / 1000.0, 0.01)
+		save_report["unpack_ok"] = not parsed.is_empty()
 	var game_seconds: float = GameManager.game_time - started_game
 	frame_usec.sort()
 	var systems: Dictionary = {}
@@ -188,6 +208,7 @@ func _run() -> void:
 		"state_hash": JSON.stringify(fingerprint).md5_text().substr(0, 12),
 		"unattributed_share": snappedf(1.0 - float(top_level_usec) / float(maxi(1, wall_usec)), 0.001),
 		"systems": systems,
+		"save": save_report,
 	}
 	if str(options["output"]) != "":
 		var file: FileAccess = FileAccess.open(str(options["output"]), FileAccess.WRITE)
@@ -197,6 +218,95 @@ func _run() -> void:
 	print("BENCH_SCALE ", JSON.stringify(report))
 	match_scene.free()
 	get_tree().quit()
+
+
+## `--micro=1`: cost of the primitives the movement path is built from, in
+## microseconds per call on the live end-of-run state. Read-only except for the
+## separation throttle of the sampled units.
+func _micro() -> void:
+	var movers: Array[UnitBase] = []
+	for player_id: int in 2:
+		for unit: UnitBase in match_scene._player_units[player_id]:
+			if is_instance_valid(unit) and unit.is_inside_tree() and unit.current_state != UnitBase.State.DEAD:
+				movers.append(unit)
+	if movers.is_empty():
+		return
+	var rounds: int = 20
+	var count: int = movers.size() * rounds
+	var results: Dictionary = {}
+	var mark: int = Time.get_ticks_usec()
+	for round_index: int in rounds:
+		for unit: UnitBase in movers:
+			pass
+	var empty_loop: int = Time.get_ticks_usec() - mark
+	mark = Time.get_ticks_usec()
+	for round_index: int in rounds:
+		for unit: UnitBase in movers:
+			game_map.world_to_tile(unit.global_position)
+	results["world_to_tile"] = Time.get_ticks_usec() - mark
+	mark = Time.get_ticks_usec()
+	for round_index: int in rounds:
+		for unit: UnitBase in movers:
+			game_map.is_navigation_segment_clear(unit.global_position, unit.global_position + Vector2(1.5, 0.5), 4.0)
+	results["segment_clear_short"] = Time.get_ticks_usec() - mark
+	mark = Time.get_ticks_usec()
+	for round_index: int in rounds:
+		for unit: UnitBase in movers:
+			game_map.is_navigation_segment_clear(unit.global_position, unit.global_position + Vector2(40.0, 12.0), 4.0)
+	results["segment_clear_40px"] = Time.get_ticks_usec() - mark
+	mark = Time.get_ticks_usec()
+	for round_index: int in rounds:
+		for unit: UnitBase in movers:
+			game_map._live_unit_index.update(unit)
+	results["index_update_same_pos"] = Time.get_ticks_usec() - mark
+	mark = Time.get_ticks_usec()
+	for round_index: int in rounds:
+		for unit: UnitBase in movers:
+			game_map.get_units_near(unit.global_position, 58.0)
+	results["near_58px"] = Time.get_ticks_usec() - mark
+	mark = Time.get_ticks_usec()
+	for round_index: int in rounds:
+		for unit: UnitBase in movers:
+			game_map.get_units_near(unit.global_position, 320.0)
+	results["near_320px"] = Time.get_ticks_usec() - mark
+	mark = Time.get_ticks_usec()
+	for round_index: int in rounds:
+		for unit: UnitBase in movers:
+			unit._separation_timer = 0.0
+			unit._update_friendly_separation(Vector2.RIGHT)
+	results["separation_navigating"] = Time.get_ticks_usec() - mark
+	mark = Time.get_ticks_usec()
+	for round_index: int in rounds:
+		for unit: UnitBase in movers:
+			game_map.is_entity_visible_to_player(unit, 1 - unit.player_owner)
+	results["entity_visible_to_enemy"] = Time.get_ticks_usec() - mark
+	mark = Time.get_ticks_usec()
+	for round_index: int in rounds:
+		for unit: UnitBase in movers:
+			unit._is_valid_target(unit)
+	results["is_valid_target_self"] = Time.get_ticks_usec() - mark
+	mark = Time.get_ticks_usec()
+	for round_index: int in rounds:
+		for unit: UnitBase in movers:
+			unit._update_sprite_motion(0.0)
+	results["sprite_motion"] = Time.get_ticks_usec() - mark
+	mark = Time.get_ticks_usec()
+	for round_index: int in rounds:
+		for unit: UnitBase in movers:
+			unit.global_position = unit.global_position
+	results["set_same_position"] = Time.get_ticks_usec() - mark
+	mark = Time.get_ticks_usec()
+	for round_index: int in rounds:
+		for unit: UnitBase in movers:
+			unit.global_position += Vector2(0.001, 0.0)
+	results["set_new_position"] = Time.get_ticks_usec() - mark
+	for round_index: int in rounds:
+		for unit: UnitBase in movers:
+			unit.global_position -= Vector2(0.001, 0.0)
+	var line: String = "BENCH_MICRO units=%d" % movers.size()
+	for key: String in results:
+		line += "  %s=%.2f" % [key, float(int(results[key]) - empty_loop) / float(count)]
+	print(line)
 
 
 ## utime + stime of this process from /proc (clock ticks are 1/100 s on Linux).
