@@ -1,0 +1,4060 @@
+{
+ "license": "CC0-1.0",
+ "files": {
+  "assets/audio/identity/ambience/day_bed.ogg": {
+   "kind": "ambience",
+   "seconds": 30.0,
+   "rms_dbfs": -30.0,
+   "peak_dbfs": -12.67,
+   "loop_seam_step": 0.00388,
+   "loop_seam_rms_dbfs": -33.02,
+   "sha256": "7aa073227458d80748aa22444127115af2703853799283ad46c898093fe2a232",
+   "bytes": 216408,
+   "processing": "mono 32 kHz; high-pass; layers RMS-balanced; 3.0 s equal-power crossfade of the following material into the loop head; RMS normalised to -30 dBFS; Vorbis q2",
+   "layers": [
+    {
+     "source": "amb-morning-sounds-perfect-loop",
+     "file": "amb-morning-sounds-perfect-loop/amb_morning.ogg",
+     "sha256": "f49f9470038fcbd75742ca88a9914de0e7fe515340cfddaf3a7614e42678b4a7",
+     "start": 4.0,
+     "seconds": 33.0,
+     "gain": 0.0,
+     "hp": 150.0
+    },
+    {
+     "source": "park-ambiences",
+     "file": "park-ambiences/park_ambience_wind.wav",
+     "sha256": "5c381856745b4706e7eba55eb9271a61a530e90c05df8126adb2db89ecfa6c5a",
+     "start": 112.0,
+     "seconds": 33.0,
+     "gain": -9.0,
+     "hp": 120.0
+    }
+   ]
+  },
+  "assets/audio/identity/ambience/forest.ogg": {
+   "kind": "ambience",
+   "seconds": 22.0,
+   "rms_dbfs": -30.0,
+   "peak_dbfs": -7.48,
+   "loop_seam_step": 0.0046,
+   "loop_seam_rms_dbfs": -31.23,
+   "sha256": "0792949a77b9d1ee52ec6814fa29855ecb61043b7d19abbb31d19d19f10bb536",
+   "bytes": 160059,
+   "processing": "mono 32 kHz; high-pass; layers RMS-balanced; 2.5 s equal-power crossfade of the following material into the loop head; RMS normalised to -30 dBFS; Vorbis q2",
+   "layers": [
+    {
+     "source": "ambient-bird-sounds",
+     "file": "ambient-bird-sounds/birds-isaiah658.ogg",
+     "sha256": "359e4e3f9da9d75aac64cede511c7e3ef8b461f9d9f8c230f8f80e44c4b3e35f",
+     "start": 0.3,
+     "seconds": 24.5,
+     "gain": 0.0,
+     "hp": 300.0
+    },
+    {
+     "source": "park-ambiences",
+     "file": "park-ambiences/park_ambience_birds.wav",
+     "sha256": "dc1a5ac34b89cab7f8f261b53a23da7c1c5e3cc895aae4cb6fb4a1a04001b2af",
+     "start": 60.0,
+     "seconds": 24.5,
+     "gain": -8.0,
+     "hp": 400.0
+    }
+   ]
+  },
+  "assets/audio/identity/ambience/town.ogg": {
+   "kind": "ambience",
+   "seconds": 24.0,
+   "rms_dbfs": -34.0,
+   "peak_dbfs": -11.44,
+   "loop_seam_step": 0.0,
+   "loop_seam_rms_dbfs": -240.0,
+   "sha256": "2cff49c0b492997321f2b9a96e08da5bdb6a7fc407e47832364fbd2d489fe37d",
+   "bytes": 71763,
+   "processing": "mono 32 kHz; events placed on a silent 24 s timeline; 3.8 kHz low-pass; RMS normalised to -34 dBFS; Vorbis q2",
+   "layers": [
+    {
+     "note": "sparse composite of anvil, hammer, saw, door and wood-knock recordings; see town_bed() in tools/audio/build_sound_identity.py",
+     "sources": [
+      "hammer-on-anvil",
+      "blacksmiths-hammer",
+      "30-cc0-sfx-loops",
+      "100-cc0-sfx",
+      "80-cc0-rpg-sfx",
+      "75-cc0-breaking-falling-hit-sfx",
+      "rpg-sound-pack"
+     ]
+    }
+   ]
+  },
+  "assets/audio/identity/ambience/water.ogg": {
+   "kind": "ambience",
+   "seconds": 20.0,
+   "rms_dbfs": -30.0,
+   "peak_dbfs": -14.52,
+   "loop_seam_step": 0.01092,
+   "loop_seam_rms_dbfs": -29.92,
+   "sha256": "cd5248537c7339bdd2162eabb35aa739cddbfde3e2d389cc6d672b5f85b1915b",
+   "bytes": 146181,
+   "processing": "mono 32 kHz; high-pass; layers RMS-balanced; 2.5 s equal-power crossfade of the following material into the loop head; RMS normalised to -30 dBFS; Vorbis q2",
+   "layers": [
+    {
+     "source": "park-ambiences",
+     "file": "park-ambiences/park_ambience_river.wav",
+     "sha256": "da0c0c9b1249a83a1611cc116d5737b0864a8db9f45f1ae8dcc079d0f7c0bbbf",
+     "start": 120.0,
+     "seconds": 22.5,
+     "gain": 0.0,
+     "hp": 180.0
+    }
+   ]
+  },
+  "assets/audio/identity/music/battle.ogg": {
+   "kind": "music",
+   "seconds": 71.21,
+   "integrated_lufs": -18.0,
+   "true_peak_dbfs": -4.5,
+   "sha256": "6fc0947911d7af815d6be556a053552184515bd6c10d0e01c5d8cdb3ca23e236",
+   "bytes": 541204,
+   "processing": "stereo 32 kHz; leading/trailing digital silence removed; source 0.0-end s; linear gain -4.50 dB to -18 LUFS (no compression or limiting); Vorbis q0.3",
+   "layers": [
+    {
+     "source": "medieval-battle",
+     "file": "medieval-battle/battle_7.mp3",
+     "sha256": "0e7b681b9c29657deb31b96a19b716e339e0d11535dbd4f12641597b4c95522f"
+    }
+   ]
+  },
+  "assets/audio/identity/music/menu_exploration.ogg": {
+   "kind": "music",
+   "seconds": 150.0,
+   "integrated_lufs": -20.2,
+   "true_peak_dbfs": -2.5,
+   "sha256": "899170933c59e47ead3bf7308fc53312cabe162aeb5670ab0c028c2c48883c07",
+   "bytes": 990922,
+   "processing": "stereo 32 kHz; leading/trailing digital silence removed; source 0.0-150.0 s; linear gain +1.80 dB to -20 LUFS (no compression or limiting); 6 s fade-out; Vorbis q0.3",
+   "layers": [
+    {
+     "source": "medieval-exploration",
+     "file": "medieval-exploration/Exploration.mp3",
+     "sha256": "7e412350d4f4a777981285ca36b1c1a30feb7e5e255d7774ce61480e99daa8d9"
+    }
+   ]
+  },
+  "assets/audio/identity/music/peace_bards_tale.ogg": {
+   "kind": "music",
+   "seconds": 150.21,
+   "integrated_lufs": -20.0,
+   "true_peak_dbfs": -5.0,
+   "sha256": "bf1dbdd53deab4b60ef8a608aeaddd3162a251bf82ef8e36f485c1e8e3881980",
+   "bytes": 1020780,
+   "processing": "stereo 32 kHz; leading/trailing digital silence removed; source 0.0-end s; linear gain -2.40 dB to -20 LUFS (no compression or limiting); Vorbis q0.3",
+   "layers": [
+    {
+     "source": "medieval-the-bards-tale",
+     "file": "medieval-the-bards-tale/The_Bards_Tale.mp3",
+     "sha256": "6e93e8e8215bea17a209c321c182111058e024c53e3ad775ce1481ca1d1fcfc2"
+    }
+   ]
+  },
+  "assets/audio/identity/music/peace_kings_feast.ogg": {
+   "kind": "music",
+   "seconds": 129.05,
+   "integrated_lufs": -20.0,
+   "true_peak_dbfs": -5.0,
+   "sha256": "ba6bfe5ab60dd8e8cd48ea22ea27d2fb92c1c71e8f05e3656db1cb5fa19207d2",
+   "bytes": 920133,
+   "processing": "stereo 32 kHz; leading/trailing digital silence removed; source 0.0-end s; linear gain -5.90 dB to -20 LUFS (no compression or limiting); Vorbis q0.3",
+   "layers": [
+    {
+     "source": "medieval-kings-feast",
+     "file": "medieval-kings-feast/Kings_Feast.mp3",
+     "sha256": "62be996d03d996fb72e2d395613ca3c83851b889fca1b13ecd6bba730ce72a34"
+    }
+   ]
+  },
+  "assets/audio/identity/music/peace_market_day.ogg": {
+   "kind": "music",
+   "seconds": 134.7,
+   "integrated_lufs": -21.1,
+   "true_peak_dbfs": -11.7,
+   "sha256": "e60eb7d1e71a0176e5a4022af0a4c8b506000a00c9c7e27a5e5facbf7798ff91",
+   "bytes": 916687,
+   "processing": "stereo 32 kHz; leading/trailing digital silence removed; source 0.0-end s; linear gain -12.90 dB to -21 LUFS (no compression or limiting); Vorbis q0.3",
+   "layers": [
+    {
+     "source": "medieval-market-day",
+     "file": "medieval-market-day/Market_Day.mp3",
+     "sha256": "2ee59b8898adae044f29e490efabe0d5972606f93edceb501f892b3fe6613d49"
+    }
+   ]
+  },
+  "assets/audio/identity/music/peace_old_tower_inn.ogg": {
+   "kind": "music",
+   "seconds": 97.04,
+   "integrated_lufs": -20.1,
+   "true_peak_dbfs": -4.8,
+   "sha256": "93d5e4f8ccb5ce3da7f2cdc6fbe83502b30c19c59b171cd805cf22da9bb73ad9",
+   "bytes": 687436,
+   "processing": "stereo 32 kHz; leading/trailing digital silence removed; source 0.0-end s; linear gain -2.70 dB to -20 LUFS (no compression or limiting); Vorbis q0.3",
+   "layers": [
+    {
+     "source": "medieval-the-old-tower-inn",
+     "file": "medieval-the-old-tower-inn/The_Old_Tower_Inn.mp3",
+     "sha256": "3fe4070015b880b591c79a7fca31156a0083a8768d88a39da39ab6c54f2f014d"
+    }
+   ]
+  },
+  "assets/audio/identity/music/stinger_defeat.ogg": {
+   "kind": "music",
+   "seconds": 32.0,
+   "integrated_lufs": -18.0,
+   "true_peak_dbfs": -7.8,
+   "sha256": "35e7d8ddd7a0d829b2864c269bda58b0f9c8e56d09a14d6a487e4d1a55b0ee7a",
+   "bytes": 216369,
+   "processing": "stereo 32 kHz; leading/trailing digital silence removed; source 0.0-32.0 s; linear gain -9.00 dB to -18 LUFS (no compression or limiting); 5 s fade-out; Vorbis q0.3",
+   "layers": [
+    {
+     "source": "medieval-defeat-theme",
+     "file": "medieval-defeat-theme/defeat.wav",
+     "sha256": "832a9062921000cde7044f18838d11682c578067db0c60a124d95473bb122fc8"
+    }
+   ]
+  },
+  "assets/audio/identity/music/stinger_victory.ogg": {
+   "kind": "music",
+   "seconds": 30.74,
+   "integrated_lufs": -17.1,
+   "true_peak_dbfs": -5.6,
+   "sha256": "eb920b187a287741bb05e0e2bd106c84a91665b9dd1158b644d4023b8c79f965",
+   "bytes": 219998,
+   "processing": "stereo 32 kHz; leading/trailing digital silence removed; source 0.0-end s; linear gain -6.80 dB to -17 LUFS (no compression or limiting); Vorbis q0.3",
+   "layers": [
+    {
+     "source": "medieval-victory-theme",
+     "file": "medieval-victory-theme/victory.wav",
+     "sha256": "91f35879d31091cdeb38721fb4d985a0e7363c0caa97d738ec879bf96e8538f4"
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/age_up_fanfare_01.wav": {
+   "kind": "sfx",
+   "cue": "age_up_fanfare",
+   "loudness_class": "alert",
+   "seconds": 4.882,
+   "peak_dbfs": -2.56,
+   "active_rms_dbfs": -17.0,
+   "sha256": "953e598457fecd8bad89bc54f45f12510b2666a1762ce727ad0b26de43cc3bcd",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "trumpet-fanfare",
+     "file": "trumpet-fanfare/castlefanfare.ogg",
+     "sha256": "a7d37b48477f22f6699eacffebade031079fa0649d0d3b3fbe2bd2da4f6c71eb",
+     "start": 0.0,
+     "end": 2.3
+    },
+    {
+     "source": "freesound-633208",
+     "file": "freesound-633208/633208.mp3",
+     "sha256": "7bded1f853a5f2376be8cce1ea41960adae1d6866a41f3f540102fe4a1981ca9",
+     "start": 0.0,
+     "end": 3.2,
+     "gain": -7
+    },
+    {
+     "source": "freesound-73678",
+     "file": "freesound-73678/73678.mp3",
+     "sha256": "b543a96bf788ac932f2dbf0a0d5fe47bad6a2ea5d23b5a56d798e8cd19f1a615",
+     "start": 0.0,
+     "end": 3.6,
+     "gain": -3,
+     "delay": 1.75
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/age_up_fanfare_02.wav": {
+   "kind": "sfx",
+   "cue": "age_up_fanfare",
+   "loudness_class": "alert",
+   "seconds": 4.819,
+   "peak_dbfs": -2.25,
+   "active_rms_dbfs": -17.0,
+   "sha256": "52e309b902b43ea9bce63e40a401294bf4918810271e9eaebcbeef4e4875afe3",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "classic-fanfare-lick",
+     "file": "classic-fanfare-lick/fanfare_3.ogg",
+     "sha256": "160682a8f5a50380fa875809cd628c1f892e419a194803de4ae11f7babcbc8e0",
+     "start": 0.18,
+     "end": 2.4
+    },
+    {
+     "source": "freesound-633208",
+     "file": "freesound-633208/633208.mp3",
+     "sha256": "7bded1f853a5f2376be8cce1ea41960adae1d6866a41f3f540102fe4a1981ca9",
+     "start": 0.0,
+     "end": 3.2,
+     "gain": -7
+    },
+    {
+     "source": "freesound-569356",
+     "file": "freesound-569356/569356.mp3",
+     "sha256": "7624e7029cb46e76ffeae1a8f3dd14719888c0067370b51f6b028728da9d0d5d",
+     "start": 0.0,
+     "end": 3.6,
+     "gain": -3,
+     "delay": 1.85
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/alert_army_01.wav": {
+   "kind": "sfx",
+   "cue": "alert_army",
+   "loudness_class": "alert",
+   "seconds": 2.508,
+   "peak_dbfs": -2.9,
+   "active_rms_dbfs": -17.0,
+   "sha256": "bebb5923b2c02718b15d59325af702d00be4a9c0cb624d25322b39408c5c3f20",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "freesound-392180",
+     "file": "freesound-392180/392180.mp3",
+     "sha256": "d6a796854db10f8d94f4bc456289aff1c5c63cb8a8f65feac00c5904fbbd94dc",
+     "start": 0.06,
+     "end": 2.7
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/alert_army_02.wav": {
+   "kind": "sfx",
+   "cue": "alert_army",
+   "loudness_class": "alert",
+   "seconds": 2.516,
+   "peak_dbfs": -6.09,
+   "active_rms_dbfs": -17.0,
+   "sha256": "76e5185eedb5f8c5e21333a4cb33a78e8b30ed2447a828a6a835870f0219388b",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "freesound-539956",
+     "file": "freesound-539956/539956.mp3",
+     "sha256": "15cee2dbc4123f3f3f77feaec39effb7371bc4938d634c9134e3c1091de95042",
+     "start": 0.05,
+     "end": 2.7
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/alert_town_01.wav": {
+   "kind": "sfx",
+   "cue": "alert_town",
+   "loudness_class": "alert",
+   "seconds": 1.863,
+   "peak_dbfs": -2.86,
+   "active_rms_dbfs": -17.0,
+   "sha256": "1d0cb33636f08bffd7c4488c00acd50dc2ab10a59857cbc7b7a1baff06e652ea",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "freesound-748269",
+     "file": "freesound-748269/748269.mp3",
+     "sha256": "dfa3d5b02951c8fe5a2d4def619e860c8513d5270b0035973b7965417d7ddce7",
+     "start": 0.0,
+     "end": 1.0
+    },
+    {
+     "source": "freesound-748269",
+     "file": "freesound-748269/748269.mp3",
+     "sha256": "dfa3d5b02951c8fe5a2d4def619e860c8513d5270b0035973b7965417d7ddce7",
+     "start": 0.0,
+     "end": 1.0,
+     "delay": 0.27
+    },
+    {
+     "source": "freesound-748269",
+     "file": "freesound-748269/748269.mp3",
+     "sha256": "dfa3d5b02951c8fe5a2d4def619e860c8513d5270b0035973b7965417d7ddce7",
+     "start": 0.0,
+     "end": 1.0,
+     "delay": 0.54
+    },
+    {
+     "source": "freesound-633208",
+     "file": "freesound-633208/633208.mp3",
+     "sha256": "7bded1f853a5f2376be8cce1ea41960adae1d6866a41f3f540102fe4a1981ca9",
+     "start": 0.0,
+     "end": 2.0,
+     "gain": -8
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/alert_town_02.wav": {
+   "kind": "sfx",
+   "cue": "alert_town",
+   "loudness_class": "alert",
+   "seconds": 1.981,
+   "peak_dbfs": -3.55,
+   "active_rms_dbfs": -17.06,
+   "sha256": "72da11d222c5b053fcd7f929456c80c8919ba9abbb92922d8b5185022a48f636",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "freesound-748269",
+     "file": "freesound-748269/748269.mp3",
+     "sha256": "dfa3d5b02951c8fe5a2d4def619e860c8513d5270b0035973b7965417d7ddce7",
+     "start": 0.0,
+     "end": 1.0,
+     "pitch": 0.94
+    },
+    {
+     "source": "freesound-748269",
+     "file": "freesound-748269/748269.mp3",
+     "sha256": "dfa3d5b02951c8fe5a2d4def619e860c8513d5270b0035973b7965417d7ddce7",
+     "start": 0.0,
+     "end": 1.0,
+     "pitch": 0.94,
+     "delay": 0.25
+    },
+    {
+     "source": "freesound-748269",
+     "file": "freesound-748269/748269.mp3",
+     "sha256": "dfa3d5b02951c8fe5a2d4def619e860c8513d5270b0035973b7965417d7ddce7",
+     "start": 0.0,
+     "end": 1.0,
+     "pitch": 0.94,
+     "delay": 0.5
+    },
+    {
+     "source": "freesound-633208",
+     "file": "freesound-633208/633208.mp3",
+     "sha256": "7bded1f853a5f2376be8cce1ea41960adae1d6866a41f3f540102fe4a1981ca9",
+     "start": 0.0,
+     "end": 2.0,
+     "pitch": 0.94,
+     "gain": -8
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/arrow_impact_01.wav": {
+   "kind": "sfx",
+   "cue": "arrow_impact",
+   "loudness_class": "combat",
+   "seconds": 0.22,
+   "peak_dbfs": -3.0,
+   "active_rms_dbfs": -20.32,
+   "sha256": "92d2759d78b21ad1717e29849aff07d7775c71d7d419f6cc2f79f284013c373f",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "freesound-708223",
+     "file": "freesound-708223/708223.mp3",
+     "sha256": "33b436a74988fe5ad589aa424dee45d59b734151d8ddb02ffe32dde04bb64103",
+     "start": 0.4,
+     "end": 0.8
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/arrow_impact_02.wav": {
+   "kind": "sfx",
+   "cue": "arrow_impact",
+   "loudness_class": "combat",
+   "seconds": 0.259,
+   "peak_dbfs": -6.69,
+   "active_rms_dbfs": -20.0,
+   "sha256": "18313b472cc344e07c7d9851130d43d785501b0e52db0cfef5f1e72c90030b12",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "freesound-534956",
+     "file": "freesound-534956/534956.mp3",
+     "sha256": "a7b42f31b88718f504ad5f06f17f29f0886112f3455b5a7928820d4f0cdcb152",
+     "start": 0.09,
+     "end": 0.5
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/arrow_impact_03.wav": {
+   "kind": "sfx",
+   "cue": "arrow_impact",
+   "loudness_class": "combat",
+   "seconds": 0.322,
+   "peak_dbfs": -3.02,
+   "active_rms_dbfs": -20.1,
+   "sha256": "1569aaa772eafd24c2626aafbd8a28768469ff102ba29cf26eaa06f2db8e11f0",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "freesound-205938",
+     "file": "freesound-205938/205938.mp3",
+     "sha256": "06461ca4d33d78c9651a5c4e13dbc2b6f2cba4c543f0d6cefdabf6f2546a60e9",
+     "start": 0.03,
+     "end": 0.36,
+     "lp": 6500
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/arrow_impact_04.wav": {
+   "kind": "sfx",
+   "cue": "arrow_impact",
+   "loudness_class": "combat",
+   "seconds": 0.265,
+   "peak_dbfs": -7.59,
+   "active_rms_dbfs": -18.76,
+   "sha256": "ad40f4e3eac8b03f5e1560a4bc53be835883f04dd82d3c535c28083f64c5b270",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "freesound-536066",
+     "file": "freesound-536066/536066.mp3",
+     "sha256": "c39d76431f2f598ee3e0a9122ae854318b04d11dad9515392c03ffc7d70fbd5b",
+     "start": 0.0,
+     "end": 0.3
+    },
+    {
+     "source": "freesound-708223",
+     "file": "freesound-708223/708223.mp3",
+     "sha256": "33b436a74988fe5ad589aa424dee45d59b734151d8ddb02ffe32dde04bb64103",
+     "start": 0.4,
+     "end": 0.7,
+     "pitch": 1.1,
+     "gain": -8
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/bow_release_01.wav": {
+   "kind": "sfx",
+   "cue": "bow_release",
+   "loudness_class": "combat",
+   "seconds": 0.262,
+   "peak_dbfs": -3.23,
+   "active_rms_dbfs": -20.11,
+   "sha256": "91be1fd55f33271780db2092e199625664f73f70a0fa2dcc373cb8673cf2b24e",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "battle-sound-effects",
+     "file": "_x/battle-sound-effects/battle_sound_effects_0/battle_sound_effects/Bow.wav",
+     "sha256": "0dc8cf132cf583563936ac3a4d776e196210d5f6703b4ebdd7c68e8f35b9f3e3",
+     "start": 0.0
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/bow_release_02.wav": {
+   "kind": "sfx",
+   "cue": "bow_release",
+   "loudness_class": "combat",
+   "seconds": 0.371,
+   "peak_dbfs": -3.1,
+   "active_rms_dbfs": -20.16,
+   "sha256": "2b80c21abcaf843dc5c2cbe6bd32a92470be80ba647dc3f004bc1b13e6439fbc",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "battle-sound-effects",
+     "file": "_x/battle-sound-effects/battle_sound_effects_0/battle_sound_effects/Bow.wav",
+     "sha256": "0dc8cf132cf583563936ac3a4d776e196210d5f6703b4ebdd7c68e8f35b9f3e3",
+     "start": 0.0,
+     "pitch": 0.9
+    },
+    {
+     "source": "battle-sound-effects",
+     "file": "_x/battle-sound-effects/battle_sound_effects_0/battle_sound_effects/swish_2.wav",
+     "sha256": "690725fd44a99a4abd32d59c0efe8e28486afb564d3f5710cca75a2c786cf0f1",
+     "start": 0.0,
+     "gain": -14,
+     "hp": 800
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/bow_release_03.wav": {
+   "kind": "sfx",
+   "cue": "bow_release",
+   "loudness_class": "combat",
+   "seconds": 0.23,
+   "peak_dbfs": -10.3,
+   "active_rms_dbfs": -21.22,
+   "sha256": "a09761ebff07ee3fa665b1eccba30f8c647f7687e87ba503eef46c500b9b4ef7",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "freesound-384918",
+     "file": "freesound-384918/384918.mp3",
+     "sha256": "f3f0a008f52be6858aa94f0bb046c2e7796baba1a1011cdadf7213edd2a94a08",
+     "start": 0.05,
+     "end": 0.4
+    },
+    {
+     "source": "battle-sound-effects",
+     "file": "_x/battle-sound-effects/battle_sound_effects_0/battle_sound_effects/swish_4.wav",
+     "sha256": "a53382f21d9c7e4d7a1d6e8cddc9ce9779740f9ad2ba4d9012ee20318c04f24c",
+     "start": 0.0,
+     "gain": -12,
+     "delay": 0.02,
+     "hp": 800
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/bow_release_04.wav": {
+   "kind": "sfx",
+   "cue": "bow_release",
+   "loudness_class": "combat",
+   "seconds": 0.394,
+   "peak_dbfs": -3.0,
+   "active_rms_dbfs": -20.53,
+   "sha256": "e63bd20f42fc59d5186e039cb0259b225ef7ae722419de035db22e6a605af88c",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "freesound-394180",
+     "file": "freesound-394180/394180.mp3",
+     "sha256": "0ff3ad91f9a6b3018dc0260ffeeff5b29a99d03ab893ac7c4b3e5f72de484e56",
+     "start": 0.0,
+     "end": 0.4,
+     "lp": 8000
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/building_collapse_01.wav": {
+   "kind": "sfx",
+   "cue": "building_collapse",
+   "loudness_class": "heavy",
+   "seconds": 2.771,
+   "peak_dbfs": -6.84,
+   "active_rms_dbfs": -18.0,
+   "sha256": "41a2d6cbe4266a71da485a41720033f88fd62f028dbbaf1f37341f1f5ca696ac",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "freesound-712918",
+     "file": "freesound-712918/712918.mp3",
+     "sha256": "98c73bbe05328c87ac18452c642baed19a81a5986d88912f26a2863452e0e19b",
+     "start": 0.0,
+     "end": 2.9
+    },
+    {
+     "source": "75-cc0-breaking-falling-hit-sfx",
+     "file": "_x/75-cc0-breaking-falling-hit-sfx/sfx_breaking_and_falling/bfh1_wood_breaking_03.ogg",
+     "sha256": "0d230f703fe558b61e93cbd4d7cc6ebb5b73e752bcdd13f5c4347c013b405ca7",
+     "start": 0.0,
+     "gain": -6,
+     "delay": 0.05
+    },
+    {
+     "source": "75-cc0-breaking-falling-hit-sfx",
+     "file": "_x/75-cc0-breaking-falling-hit-sfx/sfx_breaking_and_falling/bfh1_falling_04.ogg",
+     "sha256": "e6b64465a5f48147dfa9b0ce1d25b8401799acfced320c167c9438790d436048",
+     "start": 0.0,
+     "gain": -8,
+     "delay": 0.5
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/building_collapse_02.wav": {
+   "kind": "sfx",
+   "cue": "building_collapse",
+   "loudness_class": "heavy",
+   "seconds": 2.918,
+   "peak_dbfs": -3.39,
+   "active_rms_dbfs": -18.0,
+   "sha256": "98eb8fa936c00b06b6fd34c21bb75825a931dc4f2aefaefee59da6c8ebd0df13",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "cave-in",
+     "file": "cave-in/cave_in_-_starninjas.ogg",
+     "sha256": "345472d1ebf1517018463b9e314b9d99290881d587e543e7bb08219eb3a007b8",
+     "start": 0.29,
+     "end": 3.2,
+     "pitch": 0.8,
+     "lp": 5000
+    },
+    {
+     "source": "75-cc0-breaking-falling-hit-sfx",
+     "file": "_x/75-cc0-breaking-falling-hit-sfx/sfx_breaking_and_falling/bfh1_wood_falling_01.ogg",
+     "sha256": "36e5d8905268c641c3d391c10f0297b9c46ba30d3b551e24d59eafcf33643a10",
+     "start": 0.0,
+     "gain": -5
+    },
+    {
+     "source": "75-cc0-breaking-falling-hit-sfx",
+     "file": "_x/75-cc0-breaking-falling-hit-sfx/sfx_breaking_and_falling/bfh1_rock_falling_01.ogg",
+     "sha256": "9e58d2d3302c1bad27267cef6a2b3b47bb636f49f77d8e4b986ac81a26e80d7b",
+     "start": 0.0,
+     "gain": -7,
+     "delay": 0.7
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/building_collapse_03.wav": {
+   "kind": "sfx",
+   "cue": "building_collapse",
+   "loudness_class": "heavy",
+   "seconds": 2.904,
+   "peak_dbfs": -6.77,
+   "active_rms_dbfs": -18.03,
+   "sha256": "05131e2a897f2138fd616a32ec95409ab1b6d570060ebc8494ef3aaa3aa62276",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "freesound-712918",
+     "file": "freesound-712918/712918.mp3",
+     "sha256": "98c73bbe05328c87ac18452c642baed19a81a5986d88912f26a2863452e0e19b",
+     "start": 0.0,
+     "end": 2.9,
+     "pitch": 0.88
+    },
+    {
+     "source": "75-cc0-breaking-falling-hit-sfx",
+     "file": "_x/75-cc0-breaking-falling-hit-sfx/sfx_breaking_and_falling/bfh1_breaking_01.ogg",
+     "sha256": "a714412c46a3409b0de3f10c681f780f534eb81b4b95522ab1f666ec3cbcf900",
+     "start": 0.0,
+     "gain": -6,
+     "delay": 0.1
+    },
+    {
+     "source": "75-cc0-breaking-falling-hit-sfx",
+     "file": "_x/75-cc0-breaking-falling-hit-sfx/sfx_breaking_and_falling/bfh1_falling_07.ogg",
+     "sha256": "9f369662ba8d6877740f443f404ed6f3505923c6bf17b2381548c6914054b5bf",
+     "start": 0.0,
+     "gain": -8,
+     "delay": 0.8
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/building_complete_chime_01.wav": {
+   "kind": "sfx",
+   "cue": "building_complete_chime",
+   "loudness_class": "event",
+   "seconds": 1.176,
+   "peak_dbfs": -4.67,
+   "active_rms_dbfs": -18.16,
+   "sha256": "18b7fe6430f120a59cb36aee20a7a90639db2b291ac862f4e29aa09fffe51029",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "100-cc0-sfx",
+     "file": "_x/100-cc0-sfx/100-CC0-SFX_0/wooden_01.ogg",
+     "sha256": "e7f7b1243ecd6ff3487eee1540de56f38fac606fe6218bdd49a91efc29ae1b9a",
+     "start": 0.0,
+     "gain": -3
+    },
+    {
+     "source": "100-cc0-sfx",
+     "file": "_x/100-cc0-sfx/100-CC0-SFX_0/wooden_01.ogg",
+     "sha256": "e7f7b1243ecd6ff3487eee1540de56f38fac606fe6218bdd49a91efc29ae1b9a",
+     "start": 0.0,
+     "pitch": 1.05,
+     "gain": -2,
+     "delay": 0.17
+    },
+    {
+     "source": "kenney-interface",
+     "file": "assets/audio/kenney/originals/interface/confirmation_003.ogg",
+     "sha256": "3091bf0be0497f825769ee0733ca7bdc3bcd59bd6c6e8f2ba8f93d580ff38022",
+     "start": 0.0,
+     "delay": 0.36
+    },
+    {
+     "source": "100-cc0-sfx",
+     "file": "_x/100-cc0-sfx/100-CC0-SFX_0/bell_01.ogg",
+     "sha256": "b29cf8f3885eb2a266a16455227288dd3e004ea0414d2823b1a8677915f862d1",
+     "start": 0.0,
+     "gain": -9,
+     "delay": 0.4,
+     "lp": 7000
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/building_complete_chime_02.wav": {
+   "kind": "sfx",
+   "cue": "building_complete_chime",
+   "loudness_class": "event",
+   "seconds": 1.076,
+   "peak_dbfs": -6.23,
+   "active_rms_dbfs": -18.0,
+   "sha256": "7798ba89d270af503d1f4a46fbbf994dff5a318b9bd79cef7baa72ec36b28b5d",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "75-cc0-breaking-falling-hit-sfx",
+     "file": "_x/75-cc0-breaking-falling-hit-sfx/sfx_breaking_and_falling/bfh1_wood_hit_02.ogg",
+     "sha256": "16851c45e3d7add9f7ff8fe18d7b43e2d7d368b9bd1260d198127851b17af6d7",
+     "start": 0.0,
+     "gain": -3
+    },
+    {
+     "source": "75-cc0-breaking-falling-hit-sfx",
+     "file": "_x/75-cc0-breaking-falling-hit-sfx/sfx_breaking_and_falling/bfh1_wood_hit_02.ogg",
+     "sha256": "16851c45e3d7add9f7ff8fe18d7b43e2d7d368b9bd1260d198127851b17af6d7",
+     "start": 0.0,
+     "pitch": 1.05,
+     "gain": -2,
+     "delay": 0.17
+    },
+    {
+     "source": "kenney-interface",
+     "file": "assets/audio/kenney/originals/interface/confirmation_004.ogg",
+     "sha256": "568967a3d9f8a8f6af54ea01729c4882284308f2a27d78c07ffd7ee0d6951661",
+     "start": 0.0,
+     "delay": 0.36
+    },
+    {
+     "source": "100-cc0-sfx",
+     "file": "_x/100-cc0-sfx/100-CC0-SFX_0/bell_01.ogg",
+     "sha256": "b29cf8f3885eb2a266a16455227288dd3e004ea0414d2823b1a8677915f862d1",
+     "start": 0.0,
+     "pitch": 1.12,
+     "gain": -9,
+     "delay": 0.4,
+     "lp": 7000
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/building_hit_01.wav": {
+   "kind": "sfx",
+   "cue": "building_hit",
+   "loudness_class": "combat",
+   "seconds": 0.239,
+   "peak_dbfs": -6.73,
+   "active_rms_dbfs": -20.0,
+   "sha256": "b1b56a3221ee1d4c4ceb14c90e2e08bb89692420be13910bc3c182f54a0b461d",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "75-cc0-breaking-falling-hit-sfx",
+     "file": "_x/75-cc0-breaking-falling-hit-sfx/sfx_breaking_and_falling/bfh1_wood_hit_02.ogg",
+     "sha256": "16851c45e3d7add9f7ff8fe18d7b43e2d7d368b9bd1260d198127851b17af6d7",
+     "start": 0.0,
+     "pitch": 0.8
+    },
+    {
+     "source": "80-cc0-rpg-sfx",
+     "file": "_x/80-cc0-rpg-sfx/80-CC0-RPG-SFX_0/stones_04.ogg",
+     "sha256": "66f1cef820f66d86414d481b37a48a7b7ea11f4a5d7358372ebcfb506af0e652",
+     "start": 0.0,
+     "gain": -12,
+     "delay": 0.04
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/building_hit_02.wav": {
+   "kind": "sfx",
+   "cue": "building_hit",
+   "loudness_class": "combat",
+   "seconds": 0.139,
+   "peak_dbfs": -6.75,
+   "active_rms_dbfs": -20.0,
+   "sha256": "ad4dee5b11631af73d38c172f8d36c9b4bfe39b2aa38f126f94bf0f78e7cea47",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "75-cc0-breaking-falling-hit-sfx",
+     "file": "_x/75-cc0-breaking-falling-hit-sfx/sfx_breaking_and_falling/bfh1_wood_hit_01.ogg",
+     "sha256": "841caeb101eeaebcb88afed9cd64db0de1b00c7f3b06835daefaabc95b970337",
+     "start": 0.0,
+     "pitch": 0.75
+    },
+    {
+     "source": "75-cc0-breaking-falling-hit-sfx",
+     "file": "_x/75-cc0-breaking-falling-hit-sfx/sfx_breaking_and_falling/bfh1_rock_hit_01.ogg",
+     "sha256": "a9c0d7e562bdcc7619bb100206305ac2300f9bb7e4533bdfbae46da4289fe994",
+     "start": 0.0,
+     "gain": -10,
+     "delay": 0.02
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/building_hit_03.wav": {
+   "kind": "sfx",
+   "cue": "building_hit",
+   "loudness_class": "combat",
+   "seconds": 0.339,
+   "peak_dbfs": -7.91,
+   "active_rms_dbfs": -20.0,
+   "sha256": "a2cf15b42c046359c6f6e243e2adf8444dbcbff0dddc67c1cbfe6172e1dbe04e",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "100-cc0-sfx",
+     "file": "_x/100-cc0-sfx/100-CC0-SFX_0/wooden_01.ogg",
+     "sha256": "e7f7b1243ecd6ff3487eee1540de56f38fac606fe6218bdd49a91efc29ae1b9a",
+     "start": 0.0,
+     "pitch": 0.85
+    },
+    {
+     "source": "75-cc0-breaking-falling-hit-sfx",
+     "file": "_x/75-cc0-breaking-falling-hit-sfx/sfx_breaking_and_falling/bfh1_rock_falling_07.ogg",
+     "sha256": "66a659f0082ab3a282804a3ce5c42f096d41706fff1fa24a5328905fe41883fc",
+     "start": 0.0,
+     "gain": -13,
+     "delay": 0.05
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/building_hit_04.wav": {
+   "kind": "sfx",
+   "cue": "building_hit",
+   "loudness_class": "combat",
+   "seconds": 0.226,
+   "peak_dbfs": -11.11,
+   "active_rms_dbfs": -20.0,
+   "sha256": "5db20e89ae7a9eaa69dac5e7ec745254c2d28c2c11e70e2b4a09d654b06dbcb2",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "kenney-impact",
+     "file": "assets/audio/kenney/originals/impact/impactPlank_medium_001.ogg",
+     "sha256": "d7c304319f8beac616231b62041fa8da74045b62d7155965516efb9b19303df4",
+     "start": 0.0,
+     "pitch": 0.8
+    },
+    {
+     "source": "80-cc0-rpg-sfx",
+     "file": "_x/80-cc0-rpg-sfx/80-CC0-RPG-SFX_0/item_stone_02.ogg",
+     "sha256": "bc9d36c83f44415b16411878f460a5005bea1ede42259daeb179f59d82a754b5",
+     "start": 0.0,
+     "gain": -12,
+     "delay": 0.04
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/cavalry_hit_01.wav": {
+   "kind": "sfx",
+   "cue": "cavalry_hit",
+   "loudness_class": "combat",
+   "seconds": 0.572,
+   "peak_dbfs": -4.21,
+   "active_rms_dbfs": -20.0,
+   "sha256": "3c3bed2b8428745108811aed120e4878260d6acd1b6316b15c53fa7963151f64",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "freesound-564628",
+     "file": "freesound-564628/564628.mp3",
+     "sha256": "d78f640c99a46b9804af12c9a9832246a11f396616e093c60e456ab7c4cb4ce4",
+     "start": 2.0,
+     "end": 2.55,
+     "gain": -3
+    },
+    {
+     "source": "20-sword-sound-effects-attacks-and-clashes",
+     "file": "_x/20-sword-sound-effects-attacks-and-clashes/sword_clash_-_starninjas_0/sword_clash.4.ogg",
+     "sha256": "4c2c962f8703882b8a6f863c1f5a35c6ae518d0281755fac9a13e63a73b86fa5",
+     "start": 0.0,
+     "gain": -4,
+     "delay": 0.12,
+     "lp": 7000
+    },
+    {
+     "source": "75-cc0-breaking-falling-hit-sfx",
+     "file": "_x/75-cc0-breaking-falling-hit-sfx/sfx_breaking_and_falling/bfh1_hit_02.ogg",
+     "sha256": "a3bd154c391e65947dcd700dfa64b927676253a2e1d229e63443f0ef5f955474",
+     "start": 0,
+     "end": 0.35,
+     "gain": -6,
+     "delay": 0.13,
+     "lp": 900
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/cavalry_hit_02.wav": {
+   "kind": "sfx",
+   "cue": "cavalry_hit",
+   "loudness_class": "combat",
+   "seconds": 0.588,
+   "peak_dbfs": -5.67,
+   "active_rms_dbfs": -20.0,
+   "sha256": "e9d3a0e857c3d8098433f28e31d8af4ff6183aa3f5c06959a48f72a4a5389f3e",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "freesound-564628",
+     "file": "freesound-564628/564628.mp3",
+     "sha256": "d78f640c99a46b9804af12c9a9832246a11f396616e093c60e456ab7c4cb4ce4",
+     "start": 4.1,
+     "end": 4.65,
+     "gain": -3
+    },
+    {
+     "source": "20-sword-sound-effects-attacks-and-clashes",
+     "file": "_x/20-sword-sound-effects-attacks-and-clashes/sword_clash_-_starninjas_0/sword_clash.7.ogg",
+     "sha256": "6763e519e7b31250a78f514d2b8b4f4e73a3bb105c980844ea687d698364b80c",
+     "start": 0.0,
+     "gain": -4,
+     "delay": 0.12,
+     "lp": 7000
+    },
+    {
+     "source": "100-cc0-sfx",
+     "file": "_x/100-cc0-sfx/100-CC0-SFX_0/wooden_01.ogg",
+     "sha256": "e7f7b1243ecd6ff3487eee1540de56f38fac606fe6218bdd49a91efc29ae1b9a",
+     "start": 0,
+     "end": 0.3,
+     "pitch": 0.8,
+     "gain": -8,
+     "delay": 0.13
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/cavalry_hit_03.wav": {
+   "kind": "sfx",
+   "cue": "cavalry_hit",
+   "loudness_class": "combat",
+   "seconds": 0.658,
+   "peak_dbfs": -6.75,
+   "active_rms_dbfs": -20.0,
+   "sha256": "9a44835be2ee37e359b5cbf29b282e0f4c9e1bb42a11568a9b95743d2a1805c1",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "freesound-564628",
+     "file": "freesound-564628/564628.mp3",
+     "sha256": "d78f640c99a46b9804af12c9a9832246a11f396616e093c60e456ab7c4cb4ce4",
+     "start": 6.2,
+     "end": 6.75,
+     "gain": -3
+    },
+    {
+     "source": "20-sword-sound-effects-attacks-and-clashes",
+     "file": "_x/20-sword-sound-effects-attacks-and-clashes/sword_clash_-_starninjas_0/sword_clash.9.ogg",
+     "sha256": "aabd55ad99a1d171b50d741923077488a1021460fab35adf4fb7f36def49adc0",
+     "start": 0.0,
+     "gain": -4,
+     "delay": 0.12,
+     "lp": 7000
+    },
+    {
+     "source": "kenney-impact",
+     "file": "assets/audio/kenney/originals/impact/impactPunch_medium_000.ogg",
+     "sha256": "486988aa2d6440ffc4c62a0e8ccf3c23673ba84424bd4723378d451b7255eb5c",
+     "start": 0.0,
+     "gain": -5,
+     "delay": 0.13
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/death_cavalry_01.wav": {
+   "kind": "sfx",
+   "cue": "death_cavalry",
+   "loudness_class": "death",
+   "seconds": 1.283,
+   "peak_dbfs": -6.78,
+   "active_rms_dbfs": -21.0,
+   "sha256": "c080e8e735e821c39eda9fd3607cb1779f36dca25ec7f51b42eec1d79a5913ba",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "freesound-149024",
+     "file": "freesound-149024/149024.mp3",
+     "sha256": "0ef831ba521c880b40e2294fd4a9a4b8387a170e07337dce21649709003ef7a4",
+     "start": 3.49,
+     "end": 4.75
+    },
+    {
+     "source": "75-cc0-breaking-falling-hit-sfx",
+     "file": "_x/75-cc0-breaking-falling-hit-sfx/sfx_breaking_and_falling/bfh1_hit_02.ogg",
+     "sha256": "a3bd154c391e65947dcd700dfa64b927676253a2e1d229e63443f0ef5f955474",
+     "start": 0.0,
+     "pitch": 0.8,
+     "gain": -3,
+     "delay": 0.75,
+     "lp": 800
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/death_cavalry_02.wav": {
+   "kind": "sfx",
+   "cue": "death_cavalry",
+   "loudness_class": "death",
+   "seconds": 1.429,
+   "peak_dbfs": -8.1,
+   "active_rms_dbfs": -20.94,
+   "sha256": "c8b49d98b43f458f315830da941aadf0daf45fb6f9c6e50f6acf4ed4d709ee40",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "freesound-437110",
+     "file": "freesound-437110/437110.mp3",
+     "sha256": "608e8729ca413bc1a901868900895a0f1cd89459331614a1918953451c6b9079",
+     "start": 10.76,
+     "end": 12.2
+    },
+    {
+     "source": "100-cc0-sfx",
+     "file": "_x/100-cc0-sfx/100-CC0-SFX_0/wooden_03.ogg",
+     "sha256": "864c68b8622eaf900f2b9932d2998cc9840dc95b61a148e37550ddb382c92777",
+     "start": 0.0,
+     "pitch": 0.6,
+     "gain": -4,
+     "delay": 0.85,
+     "lp": 900
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/death_cavalry_03.wav": {
+   "kind": "sfx",
+   "cue": "death_cavalry",
+   "loudness_class": "death",
+   "seconds": 1.16,
+   "peak_dbfs": -6.47,
+   "active_rms_dbfs": -20.89,
+   "sha256": "191e9b44b979d9510502667055cbdccb3ac91063197185ff2b2ced9c897bb024",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "freesound-149024",
+     "file": "freesound-149024/149024.mp3",
+     "sha256": "0ef831ba521c880b40e2294fd4a9a4b8387a170e07337dce21649709003ef7a4",
+     "start": 2.28,
+     "end": 2.62
+    },
+    {
+     "source": "freesound-149024",
+     "file": "freesound-149024/149024.mp3",
+     "sha256": "0ef831ba521c880b40e2294fd4a9a4b8387a170e07337dce21649709003ef7a4",
+     "start": 5.5,
+     "end": 6.05,
+     "gain": -4,
+     "delay": 0.3
+    },
+    {
+     "source": "75-cc0-breaking-falling-hit-sfx",
+     "file": "_x/75-cc0-breaking-falling-hit-sfx/sfx_breaking_and_falling/bfh1_hit_02.ogg",
+     "sha256": "a3bd154c391e65947dcd700dfa64b927676253a2e1d229e63443f0ef5f955474",
+     "start": 0.0,
+     "pitch": 0.8,
+     "gain": -3,
+     "delay": 0.6,
+     "lp": 800
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/death_infantry_01.wav": {
+   "kind": "sfx",
+   "cue": "death_infantry",
+   "loudness_class": "death",
+   "seconds": 0.528,
+   "peak_dbfs": -7.49,
+   "active_rms_dbfs": -20.79,
+   "sha256": "3da5dc8448ece705f9b5981947ce04821e95a461a833f3fd3917184453c51e19",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "75-cc0-breaking-falling-hit-sfx",
+     "file": "_x/75-cc0-breaking-falling-hit-sfx/sfx_breaking_and_falling/bfh1_metal_falling_03.ogg",
+     "sha256": "968284eeb6838bd6f41ec721a763d12eab5130b541f120aa1887008b0b1c73ae",
+     "start": 0.0,
+     "gain": -3,
+     "lp": 7000
+    },
+    {
+     "source": "75-cc0-breaking-falling-hit-sfx",
+     "file": "_x/75-cc0-breaking-falling-hit-sfx/sfx_breaking_and_falling/bfh1_hit_02.ogg",
+     "sha256": "a3bd154c391e65947dcd700dfa64b927676253a2e1d229e63443f0ef5f955474",
+     "start": 0.0,
+     "delay": 0.05,
+     "lp": 900
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/death_infantry_02.wav": {
+   "kind": "sfx",
+   "cue": "death_infantry",
+   "loudness_class": "death",
+   "seconds": 0.481,
+   "peak_dbfs": -4.36,
+   "active_rms_dbfs": -21.03,
+   "sha256": "d8a21b3bf97b3680e9c36ddfdade709e57b77b45454a3a708eee9385dfd17847",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "rpg-sound-pack",
+     "file": "_x/rpg-sound-pack/rpg_sound_pack/RPG Sound Pack/inventory/chainmail2.wav",
+     "sha256": "74b5e34233ea69fd76b6f016bae74f3432d7ca1921fa403c32f6c45cab2fdfa8",
+     "start": 0.0,
+     "gain": -4
+    },
+    {
+     "source": "100-cc0-sfx",
+     "file": "_x/100-cc0-sfx/100-CC0-SFX_0/wooden_03.ogg",
+     "sha256": "864c68b8622eaf900f2b9932d2998cc9840dc95b61a148e37550ddb382c92777",
+     "start": 0.0,
+     "pitch": 0.7,
+     "delay": 0.08,
+     "lp": 1000
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/death_infantry_03.wav": {
+   "kind": "sfx",
+   "cue": "death_infantry",
+   "loudness_class": "death",
+   "seconds": 0.539,
+   "peak_dbfs": -7.44,
+   "active_rms_dbfs": -21.0,
+   "sha256": "9b6fea38aa901d168b3cfc4de21b4ceee809cc31b6d166cc6de66b500d3e6b1d",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "75-cc0-breaking-falling-hit-sfx",
+     "file": "_x/75-cc0-breaking-falling-hit-sfx/sfx_breaking_and_falling/bfh1_metal_falling_05.ogg",
+     "sha256": "476c97d3a5011977a01e3ed2774d1a879cb009879294a013976eb50d4864cb20",
+     "start": 0.0,
+     "gain": -3,
+     "lp": 7000
+    },
+    {
+     "source": "rpg-sound-pack",
+     "file": "_x/rpg-sound-pack/rpg_sound_pack/RPG Sound Pack/inventory/armor-light.wav",
+     "sha256": "1600329c7607eede7a441f66152f0626dd84e4b13f84ccd07887d020ba1c6b9e",
+     "start": 0.0,
+     "gain": -8,
+     "delay": 0.1
+    },
+    {
+     "source": "75-cc0-breaking-falling-hit-sfx",
+     "file": "_x/75-cc0-breaking-falling-hit-sfx/sfx_breaking_and_falling/bfh1_hit_02.ogg",
+     "sha256": "a3bd154c391e65947dcd700dfa64b927676253a2e1d229e63443f0ef5f955474",
+     "start": 0.0,
+     "delay": 0.06,
+     "lp": 900
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/death_siege_01.wav": {
+   "kind": "sfx",
+   "cue": "death_siege",
+   "loudness_class": "death",
+   "seconds": 0.766,
+   "peak_dbfs": -4.06,
+   "active_rms_dbfs": -21.28,
+   "sha256": "f9d8cdf509a98158b10f4ed620a1fa68c1701acb44867203cce5851cabdfa527",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "75-cc0-breaking-falling-hit-sfx",
+     "file": "_x/75-cc0-breaking-falling-hit-sfx/sfx_breaking_and_falling/bfh1_wood_breaking_03.ogg",
+     "sha256": "0d230f703fe558b61e93cbd4d7cc6ebb5b73e752bcdd13f5c4347c013b405ca7",
+     "start": 0.0,
+     "pitch": 0.8
+    },
+    {
+     "source": "75-cc0-breaking-falling-hit-sfx",
+     "file": "_x/75-cc0-breaking-falling-hit-sfx/sfx_breaking_and_falling/bfh1_wood_falling_01.ogg",
+     "sha256": "36e5d8905268c641c3d391c10f0297b9c46ba30d3b551e24d59eafcf33643a10",
+     "start": 0.0,
+     "gain": -3,
+     "delay": 0.2
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/death_siege_02.wav": {
+   "kind": "sfx",
+   "cue": "death_siege",
+   "loudness_class": "death",
+   "seconds": 0.557,
+   "peak_dbfs": -4.01,
+   "active_rms_dbfs": -20.92,
+   "sha256": "18db838e1b3bba82777fb60b0a2d02a5fddd26940d70b17cb06a2595bc1529ee",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "75-cc0-breaking-falling-hit-sfx",
+     "file": "_x/75-cc0-breaking-falling-hit-sfx/sfx_breaking_and_falling/bfh1_wood_breaking_04.ogg",
+     "sha256": "11b697d90021f7e1639bb26c61465aa9bc03838a7b605d917a638dd92ee40ce8",
+     "start": 0.0,
+     "pitch": 0.75
+    },
+    {
+     "source": "75-cc0-breaking-falling-hit-sfx",
+     "file": "_x/75-cc0-breaking-falling-hit-sfx/sfx_breaking_and_falling/bfh1_wood_falling_02.ogg",
+     "sha256": "8f72d144e2cd9058ee8e81ff6f27f936e5d33008b3580d6b6c02d58fa4268a59",
+     "start": 0.0,
+     "gain": -3,
+     "delay": 0.18
+    },
+    {
+     "source": "75-cc0-breaking-falling-hit-sfx",
+     "file": "_x/75-cc0-breaking-falling-hit-sfx/sfx_breaking_and_falling/bfh1_breaking_02.ogg",
+     "sha256": "ca1807a8008c74472042b8e1cc06ad723e00ff80a603879ebd7c2e5ba08573c4",
+     "start": 0.0,
+     "gain": -8,
+     "delay": 0.35
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/death_siege_03.wav": {
+   "kind": "sfx",
+   "cue": "death_siege",
+   "loudness_class": "death",
+   "seconds": 0.749,
+   "peak_dbfs": -4.36,
+   "active_rms_dbfs": -21.0,
+   "sha256": "49cebec0f8379c6cab7537a0656141025ca37a646f59d125042e00f4d940c56b",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "75-cc0-breaking-falling-hit-sfx",
+     "file": "_x/75-cc0-breaking-falling-hit-sfx/sfx_breaking_and_falling/bfh1_breaking_03.ogg",
+     "sha256": "3ad487a133b2d9641c92f8d7041c23f4e342eb6e5f89cdf35348c2486c25f1f1",
+     "start": 0.0,
+     "pitch": 0.8
+    },
+    {
+     "source": "75-cc0-breaking-falling-hit-sfx",
+     "file": "_x/75-cc0-breaking-falling-hit-sfx/sfx_breaking_and_falling/bfh1_wood_hit_02.ogg",
+     "sha256": "16851c45e3d7add9f7ff8fe18d7b43e2d7d368b9bd1260d198127851b17af6d7",
+     "start": 0.0,
+     "pitch": 0.7,
+     "gain": -2,
+     "delay": 0.05
+    },
+    {
+     "source": "75-cc0-breaking-falling-hit-sfx",
+     "file": "_x/75-cc0-breaking-falling-hit-sfx/sfx_breaking_and_falling/bfh1_wood_falling_01.ogg",
+     "sha256": "36e5d8905268c641c3d391c10f0297b9c46ba30d3b551e24d59eafcf33643a10",
+     "start": 0.0,
+     "gain": -5,
+     "delay": 0.3
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/death_soft_01.wav": {
+   "kind": "sfx",
+   "cue": "death_soft",
+   "loudness_class": "death",
+   "seconds": 0.517,
+   "peak_dbfs": -8.03,
+   "active_rms_dbfs": -22.35,
+   "sha256": "79ad72d6db9d9b09a7475d088fca0bd13013add461987313575b17013cb4dfbf",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "rpg-sound-pack",
+     "file": "_x/rpg-sound-pack/rpg_sound_pack/RPG Sound Pack/inventory/cloth-heavy.wav",
+     "sha256": "73bbbd383b5bbc8b8313f6fee84040aecc1de09714afbe51ba4e5162cbac3528",
+     "start": 0.0,
+     "gain": -3
+    },
+    {
+     "source": "75-cc0-breaking-falling-hit-sfx",
+     "file": "_x/75-cc0-breaking-falling-hit-sfx/sfx_breaking_and_falling/bfh1_hit_02.ogg",
+     "sha256": "a3bd154c391e65947dcd700dfa64b927676253a2e1d229e63443f0ef5f955474",
+     "start": 0.0,
+     "delay": 0.06,
+     "lp": 800
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/death_soft_02.wav": {
+   "kind": "sfx",
+   "cue": "death_soft",
+   "loudness_class": "death",
+   "seconds": 0.449,
+   "peak_dbfs": -7.83,
+   "active_rms_dbfs": -21.0,
+   "sha256": "52ed160c2cc378ea5e997b66c9a093ae36ae7964acca2ec63951e3f8697b1787",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "kenney-rpg",
+     "file": "assets/audio/kenney/originals/rpg/dropLeather.ogg",
+     "sha256": "097e1d3b74949b0145fda0519d40b7e0773ab82ec4858727f95be830927e1a45",
+     "start": 0.0,
+     "gain": -2
+    },
+    {
+     "source": "100-cc0-sfx",
+     "file": "_x/100-cc0-sfx/100-CC0-SFX_0/wooden_03.ogg",
+     "sha256": "864c68b8622eaf900f2b9932d2998cc9840dc95b61a148e37550ddb382c92777",
+     "start": 0.0,
+     "pitch": 0.7,
+     "gain": -2,
+     "delay": 0.05,
+     "lp": 900
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/death_soft_03.wav": {
+   "kind": "sfx",
+   "cue": "death_soft",
+   "loudness_class": "death",
+   "seconds": 0.287,
+   "peak_dbfs": -10.7,
+   "active_rms_dbfs": -21.49,
+   "sha256": "17d6210695fb10d791fa43480a0a48a33412e80a5a4c9756b0329f1167d1f69b",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "rpg-sound-pack",
+     "file": "_x/rpg-sound-pack/rpg_sound_pack/RPG Sound Pack/inventory/cloth.wav",
+     "sha256": "d829b5ed7a47086771c639495713498e44ce28814f4ea6ddf30cb1f18c085c3f",
+     "start": 0.0,
+     "gain": -3
+    },
+    {
+     "source": "kenney-impact",
+     "file": "assets/audio/kenney/originals/impact/impactPunch_medium_000.ogg",
+     "sha256": "486988aa2d6440ffc4c62a0e8ccf3c23673ba84424bd4723378d451b7255eb5c",
+     "start": 0.0,
+     "pitch": 0.8,
+     "delay": 0.05
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/melee_hit_01.wav": {
+   "kind": "sfx",
+   "cue": "melee_hit",
+   "loudness_class": "combat",
+   "seconds": 0.394,
+   "peak_dbfs": -5.21,
+   "active_rms_dbfs": -20.0,
+   "sha256": "c3f49029fafff109870d882f3881bb83323804a04dc306e8af22739560debdb6",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "20-sword-sound-effects-attacks-and-clashes",
+     "file": "_x/20-sword-sound-effects-attacks-and-clashes/sword_clash_-_starninjas_0/sword_clash.2.ogg",
+     "sha256": "e09f222b70d53f2967514d076e2ae50c21526ac640fe4919965f964af043da1a",
+     "start": 0.0,
+     "lp": 7500
+    },
+    {
+     "source": "75-cc0-breaking-falling-hit-sfx",
+     "file": "_x/75-cc0-breaking-falling-hit-sfx/sfx_breaking_and_falling/bfh1_hit_02.ogg",
+     "sha256": "a3bd154c391e65947dcd700dfa64b927676253a2e1d229e63443f0ef5f955474",
+     "start": 0,
+     "end": 0.35,
+     "gain": -7,
+     "delay": 0.012,
+     "lp": 900
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/melee_hit_02.wav": {
+   "kind": "sfx",
+   "cue": "melee_hit",
+   "loudness_class": "combat",
+   "seconds": 0.55,
+   "peak_dbfs": -5.05,
+   "active_rms_dbfs": -19.66,
+   "sha256": "78bc261a36b0b5f374b96b4cd0cea4997ec50fde60a895c5418158fbedf3776c",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "20-sword-sound-effects-attacks-and-clashes",
+     "file": "_x/20-sword-sound-effects-attacks-and-clashes/sword_clash_-_starninjas_0/sword_clash.3.ogg",
+     "sha256": "6c588bc79b7e4fe202e3b65fa849954d684d2d2342f6ad04813540854c421663",
+     "start": 0.0,
+     "lp": 7500
+    },
+    {
+     "source": "kenney-impact",
+     "file": "assets/audio/kenney/originals/impact/impactPunch_medium_000.ogg",
+     "sha256": "486988aa2d6440ffc4c62a0e8ccf3c23673ba84424bd4723378d451b7255eb5c",
+     "start": 0,
+     "end": 0.3,
+     "gain": -6,
+     "delay": 0.01
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/melee_hit_03.wav": {
+   "kind": "sfx",
+   "cue": "melee_hit",
+   "loudness_class": "combat",
+   "seconds": 0.408,
+   "peak_dbfs": -5.23,
+   "active_rms_dbfs": -19.99,
+   "sha256": "6202e1b67890304b9cc49d9372a259331ac2965182be90bf4e963818634b076d",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "20-sword-sound-effects-attacks-and-clashes",
+     "file": "_x/20-sword-sound-effects-attacks-and-clashes/sword_clash_-_starninjas_0/sword_clash.5.ogg",
+     "sha256": "09e36369f2556e6a234ce78ec797447518ef7671f8224fc64747a7fa66ea229a",
+     "start": 0.0,
+     "lp": 7500
+    },
+    {
+     "source": "100-cc0-sfx",
+     "file": "_x/100-cc0-sfx/100-CC0-SFX_0/wooden_01.ogg",
+     "sha256": "e7f7b1243ecd6ff3487eee1540de56f38fac606fe6218bdd49a91efc29ae1b9a",
+     "start": 0,
+     "end": 0.3,
+     "pitch": 0.8,
+     "gain": -9,
+     "delay": 0.012,
+     "lp": 1200
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/melee_hit_04.wav": {
+   "kind": "sfx",
+   "cue": "melee_hit",
+   "loudness_class": "combat",
+   "seconds": 0.364,
+   "peak_dbfs": -3.33,
+   "active_rms_dbfs": -20.31,
+   "sha256": "ff5e1da83806555cb17ac5bf6fc608507db6aadf13d380609728129a56eae423",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "20-sword-sound-effects-attacks-and-clashes",
+     "file": "_x/20-sword-sound-effects-attacks-and-clashes/sword_clash_-_starninjas_0/sword_clash.8.ogg",
+     "sha256": "1466349e10779cfede4538657031bd87f3757d6cf5139cfad6552fa859007172",
+     "start": 0.0,
+     "lp": 7500
+    },
+    {
+     "source": "75-cc0-breaking-falling-hit-sfx",
+     "file": "_x/75-cc0-breaking-falling-hit-sfx/sfx_breaking_and_falling/bfh1_hit_02.ogg",
+     "sha256": "a3bd154c391e65947dcd700dfa64b927676253a2e1d229e63443f0ef5f955474",
+     "start": 0,
+     "end": 0.35,
+     "gain": -7,
+     "delay": 0.012,
+     "lp": 900
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/melee_hit_05.wav": {
+   "kind": "sfx",
+   "cue": "melee_hit",
+   "loudness_class": "combat",
+   "seconds": 0.567,
+   "peak_dbfs": -3.55,
+   "active_rms_dbfs": -20.0,
+   "sha256": "8f192ab35761345a77e3cae15c054d4dcdc10957b48c38c2eb827ae0d60bdab2",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "20-sword-sound-effects-attacks-and-clashes",
+     "file": "_x/20-sword-sound-effects-attacks-and-clashes/sword_clash_-_starninjas_0/sword_clash.10.ogg",
+     "sha256": "61d40c241c5df7722249983938109564a8470245116fe34d23d2a35324d3a4f1",
+     "start": 0.0,
+     "lp": 7500
+    },
+    {
+     "source": "kenney-impact",
+     "file": "assets/audio/kenney/originals/impact/impactPunch_medium_000.ogg",
+     "sha256": "486988aa2d6440ffc4c62a0e8ccf3c23673ba84424bd4723378d451b7255eb5c",
+     "start": 0,
+     "end": 0.3,
+     "gain": -6,
+     "delay": 0.01
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/melee_hit_06.wav": {
+   "kind": "sfx",
+   "cue": "melee_hit",
+   "loudness_class": "combat",
+   "seconds": 0.588,
+   "peak_dbfs": -3.01,
+   "active_rms_dbfs": -20.47,
+   "sha256": "9a2dec1f906a2e37d15f651dd351980ddf4666e22bbe2eeeec118aea61123cac",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "fantasy-weapons-and-apparel-sfx-library",
+     "file": "_x/fantasy-weapons-and-apparel-sfx-library/weapons-apparel/sfx/sword-knife-clash-07.wav",
+     "sha256": "17a430a74ee96afc777182e5f15fb6059f369de39b7185d414e7fa739593b6a7",
+     "start": 0.0,
+     "lp": 7500
+    },
+    {
+     "source": "100-cc0-sfx",
+     "file": "_x/100-cc0-sfx/100-CC0-SFX_0/wooden_01.ogg",
+     "sha256": "e7f7b1243ecd6ff3487eee1540de56f38fac606fe6218bdd49a91efc29ae1b9a",
+     "start": 0,
+     "end": 0.3,
+     "pitch": 0.8,
+     "gain": -9,
+     "delay": 0.012,
+     "lp": 1200
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/order_archer_01.wav": {
+   "kind": "sfx",
+   "cue": "order_archer",
+   "loudness_class": "ack",
+   "seconds": 0.499,
+   "peak_dbfs": -6.0,
+   "active_rms_dbfs": -24.34,
+   "sha256": "5206bb49db7cc61487fa42c9f85c499b32b8d4ac0bde3ce00d99a58f68cb2cb3",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "fantasy-weapons-and-apparel-sfx-library",
+     "file": "_x/fantasy-weapons-and-apparel-sfx-library/weapons-apparel/sfx/arrow-grab-from-quiver-02.wav",
+     "sha256": "bc5ad937c67f5e2968d462025c52c204e6168ede2e1b056bd27ea95730b481b9",
+     "start": 0.0
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/order_archer_02.wav": {
+   "kind": "sfx",
+   "cue": "order_archer",
+   "loudness_class": "ack",
+   "seconds": 0.495,
+   "peak_dbfs": -6.48,
+   "active_rms_dbfs": -24.66,
+   "sha256": "46a96cadbcdc9852b59a03b9242597a02295b162f659234af04a2aa2968abce2",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "fantasy-weapons-and-apparel-sfx-library",
+     "file": "_x/fantasy-weapons-and-apparel-sfx-library/weapons-apparel/sfx/arrow-grab-from-quiver-05.wav",
+     "sha256": "4c3f0a918e54a333c42a8d8455c322544f6d4db4c36000308f48c5f284d02938",
+     "start": 0.0
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/order_archer_03.wav": {
+   "kind": "sfx",
+   "cue": "order_archer",
+   "loudness_class": "ack",
+   "seconds": 0.473,
+   "peak_dbfs": -6.42,
+   "active_rms_dbfs": -24.05,
+   "sha256": "3ea5226585c3013fa6459335a9840be4a7b34dce93002ca8ea0c6f877bd4dc10",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "fantasy-weapons-and-apparel-sfx-library",
+     "file": "_x/fantasy-weapons-and-apparel-sfx-library/weapons-apparel/sfx/boots-leather-step-02.wav",
+     "sha256": "923d9b9e09947dc8354b39e113f3cdb04e61dc09ecf87543e8813f408c2e60df",
+     "start": 0.0
+    },
+    {
+     "source": "fantasy-weapons-and-apparel-sfx-library",
+     "file": "_x/fantasy-weapons-and-apparel-sfx-library/weapons-apparel/sfx/arrow-feathers-01.wav",
+     "sha256": "15493cd9a472a426602ab46fa27b5f012aa0b678dbf07fae0c1f68967ce96f5c",
+     "start": 0.0,
+     "gain": -4,
+     "delay": 0.08
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/order_attack_archer_01.wav": {
+   "kind": "sfx",
+   "cue": "order_attack_archer",
+   "loudness_class": "ack",
+   "seconds": 0.599,
+   "peak_dbfs": -6.06,
+   "active_rms_dbfs": -24.05,
+   "sha256": "aaf4a4d558191dff6040582167659b4cc0739390e6db392a124d03f0a70183d7",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "fantasy-weapons-and-apparel-sfx-library",
+     "file": "_x/fantasy-weapons-and-apparel-sfx-library/weapons-apparel/sfx/arrow-grab-from-quiver-03.wav",
+     "sha256": "f8a1383b5b39e293cff785622031baf275cae2840bf9acaef53f596047e2db05",
+     "start": 0.0
+    },
+    {
+     "source": "fantasy-weapons-and-apparel-sfx-library",
+     "file": "_x/fantasy-weapons-and-apparel-sfx-library/weapons-apparel/sfx/quiver-leather-squeeze-05.wav",
+     "sha256": "e6c1f778db402d02aa20cbbb904fe4f7192fddda91d89ff70d818444a91bdc58",
+     "start": 0.0,
+     "gain": -3,
+     "delay": 0.22
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/order_attack_archer_02.wav": {
+   "kind": "sfx",
+   "cue": "order_attack_archer",
+   "loudness_class": "ack",
+   "seconds": 0.597,
+   "peak_dbfs": -6.63,
+   "active_rms_dbfs": -24.0,
+   "sha256": "7f852d30f64def5972e9d3c767db8926787eb38bf9bf83b3eab127f8233eed12",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "fantasy-weapons-and-apparel-sfx-library",
+     "file": "_x/fantasy-weapons-and-apparel-sfx-library/weapons-apparel/sfx/arrow-grab-from-quiver-06.wav",
+     "sha256": "0de0190d0bb6ec7b054392ab2a0c72b0f85a7f7da79021f579300851ab025af7",
+     "start": 0.0
+    },
+    {
+     "source": "fantasy-weapons-and-apparel-sfx-library",
+     "file": "_x/fantasy-weapons-and-apparel-sfx-library/weapons-apparel/sfx/quiver-leather-squeeze-10.wav",
+     "sha256": "4fa1f9d014a8c9f2a1b6c3e1ef80dfde49b50027a3a59901c495c7dc8da3eb07",
+     "start": 0.0,
+     "gain": -3,
+     "delay": 0.22
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/order_attack_cavalry_01.wav": {
+   "kind": "sfx",
+   "cue": "order_attack_cavalry",
+   "loudness_class": "ack",
+   "seconds": 0.72,
+   "peak_dbfs": -9.68,
+   "active_rms_dbfs": -24.0,
+   "sha256": "7a27f8cc092bb18fef71f62f3dc942911ec98570d816ab1b6afda0d383aa7b8b",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "freesound-149024",
+     "file": "freesound-149024/149024.mp3",
+     "sha256": "0ef831ba521c880b40e2294fd4a9a4b8387a170e07337dce21649709003ef7a4",
+     "start": 2.28,
+     "end": 2.62
+    },
+    {
+     "source": "freesound-564628",
+     "file": "freesound-564628/564628.mp3",
+     "sha256": "d78f640c99a46b9804af12c9a9832246a11f396616e093c60e456ab7c4cb4ce4",
+     "start": 8.4,
+     "end": 8.95,
+     "gain": -5,
+     "delay": 0.2
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/order_attack_cavalry_02.wav": {
+   "kind": "sfx",
+   "cue": "order_attack_cavalry",
+   "loudness_class": "ack",
+   "seconds": 0.762,
+   "peak_dbfs": -8.65,
+   "active_rms_dbfs": -24.0,
+   "sha256": "032d5187936324584ae0e3cacecb3f7acfa8333a100d00623e575cae4f278902",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "freesound-437111",
+     "file": "freesound-437111/437111.mp3",
+     "sha256": "a700da65f76e52e914ef7214dd207b49067f313d3d2f8a857e64b6f9bb6b8ac0",
+     "start": 4.04,
+     "end": 4.6
+    },
+    {
+     "source": "freesound-564628",
+     "file": "freesound-564628/564628.mp3",
+     "sha256": "d78f640c99a46b9804af12c9a9832246a11f396616e093c60e456ab7c4cb4ce4",
+     "start": 9.3,
+     "end": 9.85,
+     "gain": -4,
+     "delay": 0.25
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/order_attack_melee_01.wav": {
+   "kind": "sfx",
+   "cue": "order_attack_melee",
+   "loudness_class": "ack",
+   "seconds": 0.328,
+   "peak_dbfs": -10.68,
+   "active_rms_dbfs": -24.0,
+   "sha256": "157ad1ae84f2871e0674f10d0ae3201c297359ba3f9e4285afc93922891d3f88",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "rpg-sound-pack",
+     "file": "_x/rpg-sound-pack/rpg_sound_pack/RPG Sound Pack/battle/sword-unsheathe.wav",
+     "sha256": "2cc0518b65d3a11b4f7cf22a5be6700d36fa1e681491dfb71b87ae5bce2296f6",
+     "start": 0.0,
+     "lp": 7500
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/order_attack_melee_02.wav": {
+   "kind": "sfx",
+   "cue": "order_attack_melee",
+   "loudness_class": "ack",
+   "seconds": 0.309,
+   "peak_dbfs": -9.15,
+   "active_rms_dbfs": -24.0,
+   "sha256": "112965b99fe5e89ac2d1ad0f0647890fd213f3bef8aa4fcb5deae689a5bebf80",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "rpg-sound-pack",
+     "file": "_x/rpg-sound-pack/rpg_sound_pack/RPG Sound Pack/battle/sword-unsheathe3.wav",
+     "sha256": "4a1a54402789bd08278c332086ed427805dc5d42c3e7c3fce0f30d1e19e20c91",
+     "start": 0.0,
+     "lp": 7500
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/order_attack_melee_03.wav": {
+   "kind": "sfx",
+   "cue": "order_attack_melee",
+   "loudness_class": "ack",
+   "seconds": 0.293,
+   "peak_dbfs": -10.37,
+   "active_rms_dbfs": -24.37,
+   "sha256": "6e77d78a96ae2aeb29bee79002225984da0fa9cadb9898ed76e41758fadaf9a6",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "rpg-sound-pack",
+     "file": "_x/rpg-sound-pack/rpg_sound_pack/RPG Sound Pack/battle/sword-unsheathe5.wav",
+     "sha256": "7a6a08b555cd0948a7460b26f411448fbd28c03d0ef1baa3443008c0fb52efb7",
+     "start": 0.0,
+     "lp": 7500
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/order_attack_siege_01.wav": {
+   "kind": "sfx",
+   "cue": "order_attack_siege",
+   "loudness_class": "ack",
+   "seconds": 0.659,
+   "peak_dbfs": -6.0,
+   "active_rms_dbfs": -25.2,
+   "sha256": "4dde1e17b99a2a4ef9bd41e6914ad6727e847daddffa549329680a10c2f298c5",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "tree-creaking",
+     "file": "tree-creaking/tree_creak.flac",
+     "sha256": "9bab7c7f68850136c43fb91216c7c1760ac2bda22b2a31659905c559a464d422",
+     "start": 0.47,
+     "end": 1.1
+    },
+    {
+     "source": "80-cc0-rpg-sfx",
+     "file": "_x/80-cc0-rpg-sfx/80-CC0-RPG-SFX_0/chain_03.ogg",
+     "sha256": "ae2247dc68aa85bca15d87355353b5858441644b6a65172e9659f4d0819b42d6",
+     "start": 0.0,
+     "gain": -10,
+     "delay": 0.1,
+     "lp": 6000
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/order_attack_siege_02.wav": {
+   "kind": "sfx",
+   "cue": "order_attack_siege",
+   "loudness_class": "ack",
+   "seconds": 0.534,
+   "peak_dbfs": -6.0,
+   "active_rms_dbfs": -25.17,
+   "sha256": "240ea3fbc9fc470927d3cfb9dff712535d9c72c7a82d65640209c5a6842dad53",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "tree-creaking",
+     "file": "tree-creaking/tree_creak.flac",
+     "sha256": "9bab7c7f68850136c43fb91216c7c1760ac2bda22b2a31659905c559a464d422",
+     "start": 2.87,
+     "end": 3.42
+    },
+    {
+     "source": "80-cc0-rpg-sfx",
+     "file": "_x/80-cc0-rpg-sfx/80-CC0-RPG-SFX_0/chain_01.ogg",
+     "sha256": "d376caf0f61384b1d2e0b447f64f06be56d0ee0622ba70dd01cfdd78b3a10687",
+     "start": 0.0,
+     "gain": -10,
+     "delay": 0.15,
+     "lp": 6000
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/order_attack_villager_01.wav": {
+   "kind": "sfx",
+   "cue": "order_attack_villager",
+   "loudness_class": "ack",
+   "seconds": 0.45,
+   "peak_dbfs": -6.03,
+   "active_rms_dbfs": -24.08,
+   "sha256": "221ddea6396c3ef8797df5ca73a1ac2aefe86702921f08c58140b3c9b802ea99",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "fantasy-weapons-and-apparel-sfx-library",
+     "file": "_x/fantasy-weapons-and-apparel-sfx-library/weapons-apparel/sfx/knife-unsheathe-01.wav",
+     "sha256": "f45eadbedf4ee8e03b071b118eb8aff586bede999a8a83b1e3dd088fdbda808d",
+     "start": 0.0,
+     "lp": 7500
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/order_attack_villager_02.wav": {
+   "kind": "sfx",
+   "cue": "order_attack_villager",
+   "loudness_class": "ack",
+   "seconds": 0.447,
+   "peak_dbfs": -6.51,
+   "active_rms_dbfs": -24.02,
+   "sha256": "1ef5140f922e334191b1bae33f99b30dbe46331a4b1aa398727bbd4c761e621d",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "fantasy-weapons-and-apparel-sfx-library",
+     "file": "_x/fantasy-weapons-and-apparel-sfx-library/weapons-apparel/sfx/knife-unsheathe-03.wav",
+     "sha256": "318d993aaa79db1d351bfd59323d53e9ff245ecd77e51cac01bc2bc473234bbe",
+     "start": 0.0,
+     "lp": 7500
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/order_cavalry_01.wav": {
+   "kind": "sfx",
+   "cue": "order_cavalry",
+   "loudness_class": "ack",
+   "seconds": 0.529,
+   "peak_dbfs": -6.64,
+   "active_rms_dbfs": -23.73,
+   "sha256": "adc5010cc3828303c47f3d460780d60b31881c457cdd72acc3da5971f2e40861",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "freesound-564628",
+     "file": "freesound-564628/564628.mp3",
+     "sha256": "d78f640c99a46b9804af12c9a9832246a11f396616e093c60e456ab7c4cb4ce4",
+     "start": 3.0,
+     "end": 3.55
+    },
+    {
+     "source": "80-cc0-rpg-sfx",
+     "file": "_x/80-cc0-rpg-sfx/80-CC0-RPG-SFX_0/chain_02.ogg",
+     "sha256": "dd3b753e54fd4e6ed94c36231d1950fafd681ff4a93462cfa3980099a6454ecb",
+     "start": 0.0,
+     "gain": -16,
+     "delay": 0.05,
+     "lp": 6000
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/order_cavalry_02.wav": {
+   "kind": "sfx",
+   "cue": "order_cavalry",
+   "loudness_class": "ack",
+   "seconds": 0.535,
+   "peak_dbfs": -8.67,
+   "active_rms_dbfs": -24.0,
+   "sha256": "b4f640c0fb9be7f3304a54d187b65065350e5772304916d160a41aa47c5331a6",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "freesound-564628",
+     "file": "freesound-564628/564628.mp3",
+     "sha256": "d78f640c99a46b9804af12c9a9832246a11f396616e093c60e456ab7c4cb4ce4",
+     "start": 5.1,
+     "end": 5.65
+    },
+    {
+     "source": "80-cc0-rpg-sfx",
+     "file": "_x/80-cc0-rpg-sfx/80-CC0-RPG-SFX_0/chain_01.ogg",
+     "sha256": "d376caf0f61384b1d2e0b447f64f06be56d0ee0622ba70dd01cfdd78b3a10687",
+     "start": 0.0,
+     "gain": -16,
+     "delay": 0.05,
+     "lp": 6000
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/order_cavalry_03.wav": {
+   "kind": "sfx",
+   "cue": "order_cavalry",
+   "loudness_class": "ack",
+   "seconds": 0.523,
+   "peak_dbfs": -9.68,
+   "active_rms_dbfs": -24.0,
+   "sha256": "96c49f745dd7c7442716728a680aecc2d002c97d2273514f1963a83910d95d16",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "freesound-564628",
+     "file": "freesound-564628/564628.mp3",
+     "sha256": "d78f640c99a46b9804af12c9a9832246a11f396616e093c60e456ab7c4cb4ce4",
+     "start": 7.3,
+     "end": 7.85
+    },
+    {
+     "source": "freesound-475483",
+     "file": "freesound-475483/475483.mp3",
+     "sha256": "a104c79024b41b3825c533ef1c31bd72cd7ad7b92777df7d27e1e893d541bc49",
+     "start": 0.0,
+     "end": 0.4,
+     "gain": -8,
+     "delay": 0.1
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/order_infantry_01.wav": {
+   "kind": "sfx",
+   "cue": "order_infantry",
+   "loudness_class": "ack",
+   "seconds": 0.416,
+   "peak_dbfs": -7.1,
+   "active_rms_dbfs": -24.0,
+   "sha256": "fcfad3e7bdaa307d90511705e2b25da0743b066d2617483800ea46444878c273",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "fantasy-weapons-and-apparel-sfx-library",
+     "file": "_x/fantasy-weapons-and-apparel-sfx-library/weapons-apparel/sfx/boots-leather-step-01.wav",
+     "sha256": "5b0de415a95f7ad5ef4541d8142415587b2898c43ac26a45862cf14756894a06",
+     "start": 0.0
+    },
+    {
+     "source": "rpg-sound-pack",
+     "file": "_x/rpg-sound-pack/rpg_sound_pack/RPG Sound Pack/inventory/armor-light.wav",
+     "sha256": "1600329c7607eede7a441f66152f0626dd84e4b13f84ccd07887d020ba1c6b9e",
+     "start": 0.0,
+     "gain": -6,
+     "delay": 0.03,
+     "lp": 7000
+    },
+    {
+     "source": "fantasy-weapons-and-apparel-sfx-library",
+     "file": "_x/fantasy-weapons-and-apparel-sfx-library/weapons-apparel/sfx/boots-leather-step-02.wav",
+     "sha256": "923d9b9e09947dc8354b39e113f3cdb04e61dc09ecf87543e8813f408c2e60df",
+     "start": 0.0,
+     "gain": -3,
+     "delay": 0.18
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/order_infantry_02.wav": {
+   "kind": "sfx",
+   "cue": "order_infantry",
+   "loudness_class": "ack",
+   "seconds": 0.433,
+   "peak_dbfs": -6.02,
+   "active_rms_dbfs": -24.66,
+   "sha256": "0bf771d5b08d85fb44c4266c11e845615172f45db62d141a3e4f22abc59b58cb",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "fantasy-weapons-and-apparel-sfx-library",
+     "file": "_x/fantasy-weapons-and-apparel-sfx-library/weapons-apparel/sfx/belt-buckle-02.wav",
+     "sha256": "3010680ff66c07718cea1f62898356d3978ddbf74faed7316dacd3d2d7073e9f",
+     "start": 0.0
+    },
+    {
+     "source": "rpg-sound-pack",
+     "file": "_x/rpg-sound-pack/rpg_sound_pack/RPG Sound Pack/inventory/chainmail1.wav",
+     "sha256": "44d4d6b0cda8138c9d5545ba4f434f53b7817ba32d98ddfdf5bff6ae7acdefdf",
+     "start": 0.0,
+     "gain": -6,
+     "delay": 0.06,
+     "lp": 7000
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/order_infantry_03.wav": {
+   "kind": "sfx",
+   "cue": "order_infantry",
+   "loudness_class": "ack",
+   "seconds": 0.363,
+   "peak_dbfs": -7.94,
+   "active_rms_dbfs": -24.0,
+   "sha256": "90c74c681edbfaed8094fbe020ca36b18ea6faba057e0009c3bb5cf236be75a9",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "fantasy-weapons-and-apparel-sfx-library",
+     "file": "_x/fantasy-weapons-and-apparel-sfx-library/weapons-apparel/sfx/boots-leather-step-03.wav",
+     "sha256": "f63cc8613d927915c691257d8c12e3b62e1badd5079f503aa155f33c2d91c7e5",
+     "start": 0.0
+    },
+    {
+     "source": "rpg-sound-pack",
+     "file": "_x/rpg-sound-pack/rpg_sound_pack/RPG Sound Pack/inventory/chainmail2.wav",
+     "sha256": "74b5e34233ea69fd76b6f016bae74f3432d7ca1921fa403c32f6c45cab2fdfa8",
+     "start": 0,
+     "end": 0.4,
+     "gain": -6,
+     "delay": 0.04,
+     "lp": 7000
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/order_siege_01.wav": {
+   "kind": "sfx",
+   "cue": "order_siege",
+   "loudness_class": "ack",
+   "seconds": 0.791,
+   "peak_dbfs": -10.36,
+   "active_rms_dbfs": -24.0,
+   "sha256": "f6b68de4401aaf1eebb6f180f2fbdde5fd4a1100418b38aa394dfca6970b339b",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "30-cc0-sfx-loops",
+     "file": "_x/30-cc0-sfx-loops/sfx_loops/rolling.ogg",
+     "sha256": "24b5fd290b2008de9b087687ae41db833068a86ef7c0f1b230ce8bf0859b7291",
+     "start": 0.0,
+     "end": 0.8
+    },
+    {
+     "source": "tree-creaking",
+     "file": "tree-creaking/tree_creak.flac",
+     "sha256": "9bab7c7f68850136c43fb91216c7c1760ac2bda22b2a31659905c559a464d422",
+     "start": 0.47,
+     "end": 0.9,
+     "gain": -6,
+     "delay": 0.05
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/order_siege_02.wav": {
+   "kind": "sfx",
+   "cue": "order_siege",
+   "loudness_class": "ack",
+   "seconds": 0.874,
+   "peak_dbfs": -10.31,
+   "active_rms_dbfs": -24.0,
+   "sha256": "c2a6d83a14c45d5701f7b3d1eacdeb2286fc706c855088f00fb40ff5f78a6e0b",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "30-cc0-sfx-loops",
+     "file": "_x/30-cc0-sfx-loops/sfx_loops/rolling.ogg",
+     "sha256": "24b5fd290b2008de9b087687ae41db833068a86ef7c0f1b230ce8bf0859b7291",
+     "start": 0.2,
+     "end": 1.0,
+     "pitch": 0.9
+    },
+    {
+     "source": "80-cc0-rpg-sfx",
+     "file": "_x/80-cc0-rpg-sfx/80-CC0-RPG-SFX_0/wood_04.ogg",
+     "sha256": "bd5dc8469c4f1cb3abff35e2e01b541d4c97d58033f67dfe1c8e3b62ad5350ba",
+     "start": 0.0,
+     "gain": -6,
+     "delay": 0.1
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/order_villager_01.wav": {
+   "kind": "sfx",
+   "cue": "order_villager",
+   "loudness_class": "ack",
+   "seconds": 0.358,
+   "peak_dbfs": -10.03,
+   "active_rms_dbfs": -24.66,
+   "sha256": "572b6535dddfb203b0fea864f73e5742b06b6a85af871abb1c601a931402df7d",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "fantasy-weapons-and-apparel-sfx-library",
+     "file": "_x/fantasy-weapons-and-apparel-sfx-library/weapons-apparel/sfx/boots-leather-step-01.wav",
+     "sha256": "5b0de415a95f7ad5ef4541d8142415587b2898c43ac26a45862cf14756894a06",
+     "start": 0.0
+    },
+    {
+     "source": "fantasy-weapons-and-apparel-sfx-library",
+     "file": "_x/fantasy-weapons-and-apparel-sfx-library/weapons-apparel/sfx/boots-leather-step-03.wav",
+     "sha256": "f63cc8613d927915c691257d8c12e3b62e1badd5079f503aa155f33c2d91c7e5",
+     "start": 0.0,
+     "gain": -3,
+     "delay": 0.16
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/order_villager_02.wav": {
+   "kind": "sfx",
+   "cue": "order_villager",
+   "loudness_class": "ack",
+   "seconds": 0.357,
+   "peak_dbfs": -6.52,
+   "active_rms_dbfs": -24.04,
+   "sha256": "e599ba385c415b376c87c377b11c976e83f7de8d4bace502749039040793b6d3",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "fantasy-weapons-and-apparel-sfx-library",
+     "file": "_x/fantasy-weapons-and-apparel-sfx-library/weapons-apparel/sfx/boots-leather-step-02.wav",
+     "sha256": "923d9b9e09947dc8354b39e113f3cdb04e61dc09ecf87543e8813f408c2e60df",
+     "start": 0.0
+    },
+    {
+     "source": "rpg-sound-pack",
+     "file": "_x/rpg-sound-pack/rpg_sound_pack/RPG Sound Pack/inventory/cloth.wav",
+     "sha256": "d829b5ed7a47086771c639495713498e44ce28814f4ea6ddf30cb1f18c085c3f",
+     "start": 0.0,
+     "gain": -9,
+     "delay": 0.1
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/order_villager_03.wav": {
+   "kind": "sfx",
+   "cue": "order_villager",
+   "loudness_class": "ack",
+   "seconds": 0.359,
+   "peak_dbfs": -9.46,
+   "active_rms_dbfs": -23.44,
+   "sha256": "268818d183275eb8bfd6d206c5c32ad1caa064044d12e5067a5ad192d0d8bf11",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "fantasy-weapons-and-apparel-sfx-library",
+     "file": "_x/fantasy-weapons-and-apparel-sfx-library/weapons-apparel/sfx/boots-leather-step-04.wav",
+     "sha256": "1924af86e3f5ca2a8515ac9c731c2eb7a7430392c645a7141a52b0dd079b977c",
+     "start": 0.0
+    },
+    {
+     "source": "fantasy-weapons-and-apparel-sfx-library",
+     "file": "_x/fantasy-weapons-and-apparel-sfx-library/weapons-apparel/sfx/boots-leather-step-01.wav",
+     "sha256": "5b0de415a95f7ad5ef4541d8142415587b2898c43ac26a45862cf14756894a06",
+     "start": 0.0,
+     "gain": -3,
+     "delay": 0.17
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/research_complete_01.wav": {
+   "kind": "sfx",
+   "cue": "research_complete",
+   "loudness_class": "event",
+   "seconds": 1.298,
+   "peak_dbfs": -2.82,
+   "active_rms_dbfs": -18.0,
+   "sha256": "3c631f6276cd2ce545d1e9aa66807cd4355e5a52264df0e0a84612f7d31db619",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "80-cc0-rpg-sfx",
+     "file": "_x/80-cc0-rpg-sfx/80-CC0-RPG-SFX_0/book_01.ogg",
+     "sha256": "39b2d652dc8de9d4100ae8a1d23364077fff39bf1c90009b0c0d72af8c47d0d4",
+     "start": 0.0,
+     "gain": -5
+    },
+    {
+     "source": "100-cc0-sfx",
+     "file": "_x/100-cc0-sfx/100-CC0-SFX_0/bell_01.ogg",
+     "sha256": "b29cf8f3885eb2a266a16455227288dd3e004ea0414d2823b1a8677915f862d1",
+     "start": 0.0,
+     "delay": 0.3,
+     "lp": 7000
+    },
+    {
+     "source": "kenney-interface",
+     "file": "assets/audio/kenney/originals/interface/confirmation_004.ogg",
+     "sha256": "568967a3d9f8a8f6af54ea01729c4882284308f2a27d78c07ffd7ee0d6951661",
+     "start": 0.0,
+     "pitch": 1.2,
+     "gain": -6,
+     "delay": 0.32
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/research_complete_02.wav": {
+   "kind": "sfx",
+   "cue": "research_complete",
+   "loudness_class": "event",
+   "seconds": 1.241,
+   "peak_dbfs": -2.55,
+   "active_rms_dbfs": -18.31,
+   "sha256": "a1ff45a88bc1d486de3b450ebd8096d86bb6e24259e83475b29c65d5020ed3ef",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "80-cc0-rpg-sfx",
+     "file": "_x/80-cc0-rpg-sfx/80-CC0-RPG-SFX_0/book_02.ogg",
+     "sha256": "a3f87cfd37a452231a05ceebf746ae2459849c2e20f7b244e4a9b7dbc1d9e76b",
+     "start": 0.0,
+     "gain": -5
+    },
+    {
+     "source": "100-cc0-sfx",
+     "file": "_x/100-cc0-sfx/100-CC0-SFX_0/bell_01.ogg",
+     "sha256": "b29cf8f3885eb2a266a16455227288dd3e004ea0414d2823b1a8677915f862d1",
+     "start": 0.0,
+     "pitch": 1.12,
+     "delay": 0.35,
+     "lp": 7000
+    },
+    {
+     "source": "kenney-interface",
+     "file": "assets/audio/kenney/originals/interface/confirmation_003.ogg",
+     "sha256": "3091bf0be0497f825769ee0733ca7bdc3bcd59bd6c6e8f2ba8f93d580ff38022",
+     "start": 0.0,
+     "pitch": 1.2,
+     "gain": -6,
+     "delay": 0.37
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/sacred_captured_01.wav": {
+   "kind": "sfx",
+   "cue": "sacred_captured",
+   "loudness_class": "alert",
+   "seconds": 2.865,
+   "peak_dbfs": -4.14,
+   "active_rms_dbfs": -17.0,
+   "sha256": "d6d9983c14510860345755f39d2e2a975d3bea4b5371e4171b0d4c063a6d6782",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "freesound-633208",
+     "file": "freesound-633208/633208.mp3",
+     "sha256": "7bded1f853a5f2376be8cce1ea41960adae1d6866a41f3f540102fe4a1981ca9",
+     "start": 0.0,
+     "end": 3.2
+    },
+    {
+     "source": "freesound-748269",
+     "file": "freesound-748269/748269.mp3",
+     "sha256": "dfa3d5b02951c8fe5a2d4def619e860c8513d5270b0035973b7965417d7ddce7",
+     "start": 0.0,
+     "end": 1.0,
+     "gain": -5,
+     "delay": 0.55
+    },
+    {
+     "source": "100-cc0-sfx",
+     "file": "_x/100-cc0-sfx/100-CC0-SFX_0/bell_03.ogg",
+     "sha256": "9440896c5ffbc85d045b88953057d12019ddbf052f3694615216d83161a9e2d9",
+     "start": 0.0,
+     "gain": -9,
+     "delay": 0.95,
+     "lp": 7000
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/sacred_captured_02.wav": {
+   "kind": "sfx",
+   "cue": "sacred_captured",
+   "loudness_class": "alert",
+   "seconds": 2.549,
+   "peak_dbfs": -3.08,
+   "active_rms_dbfs": -17.0,
+   "sha256": "a6077b98457a5fb7d92ddac01ddd5855a1266a8457c835c78634cdd70bdccb36",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "freesound-633208",
+     "file": "freesound-633208/633208.mp3",
+     "sha256": "7bded1f853a5f2376be8cce1ea41960adae1d6866a41f3f540102fe4a1981ca9",
+     "start": 0.0,
+     "end": 3.2,
+     "pitch": 1.12
+    },
+    {
+     "source": "freesound-748269",
+     "file": "freesound-748269/748269.mp3",
+     "sha256": "dfa3d5b02951c8fe5a2d4def619e860c8513d5270b0035973b7965417d7ddce7",
+     "start": 0.0,
+     "end": 1.0,
+     "gain": -5,
+     "delay": 0.5
+    },
+    {
+     "source": "100-cc0-sfx",
+     "file": "_x/100-cc0-sfx/100-CC0-SFX_0/bell_03.ogg",
+     "sha256": "9440896c5ffbc85d045b88953057d12019ddbf052f3694615216d83161a9e2d9",
+     "start": 0.0,
+     "pitch": 1.12,
+     "gain": -9,
+     "delay": 0.9,
+     "lp": 7000
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/sacred_lost_01.wav": {
+   "kind": "sfx",
+   "cue": "sacred_lost",
+   "loudness_class": "alert",
+   "seconds": 2.477,
+   "peak_dbfs": -2.57,
+   "active_rms_dbfs": -17.0,
+   "sha256": "de0f80b9a2fa281d4e21d651480ae87eb5872ca63e36dd3d2ce225fc7da54324",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "100-cc0-sfx",
+     "file": "_x/100-cc0-sfx/100-CC0-SFX_0/gong_02.ogg",
+     "sha256": "eb53bd74d92ed2422568ed5770615b177b0a4d281f55959e6aa263d756412524",
+     "start": 0.0,
+     "pitch": 0.7
+    },
+    {
+     "source": "freesound-328541",
+     "file": "freesound-328541/328541.mp3",
+     "sha256": "8e305ba4ebb65353f4992b4db484d67698a909d7568d6780c9d5ef885dcbbc2f",
+     "start": 0.04,
+     "end": 2.6,
+     "gain": -4,
+     "delay": 0.05
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/select_archer_01.wav": {
+   "kind": "sfx",
+   "cue": "select_archer",
+   "loudness_class": "ack",
+   "seconds": 0.496,
+   "peak_dbfs": -7.28,
+   "active_rms_dbfs": -23.56,
+   "sha256": "06fe3745389ee05520841abcbc52abfd077f0f275017bb10318ad88a97a26f83",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "fantasy-weapons-and-apparel-sfx-library",
+     "file": "_x/fantasy-weapons-and-apparel-sfx-library/weapons-apparel/sfx/quiver-leather-squeeze-03.wav",
+     "sha256": "319957fc1690cd80fa19f35683fa4bc2eb80978644d3bf28502345e9175d9e9f",
+     "start": 0.0
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/select_archer_02.wav": {
+   "kind": "sfx",
+   "cue": "select_archer",
+   "loudness_class": "ack",
+   "seconds": 0.309,
+   "peak_dbfs": -6.12,
+   "active_rms_dbfs": -24.07,
+   "sha256": "884ebd80d3b9b272b4895d24364aa9e30734d1d5373cb7a64647b365f2570853",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "fantasy-weapons-and-apparel-sfx-library",
+     "file": "_x/fantasy-weapons-and-apparel-sfx-library/weapons-apparel/sfx/quiver-leather-squeeze-08.wav",
+     "sha256": "866895d141cd7eb159d433bf01837ead34de0c1be0809ab793a740d49eaaa092",
+     "start": 0.0
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/select_archer_03.wav": {
+   "kind": "sfx",
+   "cue": "select_archer",
+   "loudness_class": "ack",
+   "seconds": 0.497,
+   "peak_dbfs": -7.2,
+   "active_rms_dbfs": -23.7,
+   "sha256": "31c13fa660711bf0fbdf4683f3eddd5e29c65bb462c6e388c689e548993d930b",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "fantasy-weapons-and-apparel-sfx-library",
+     "file": "_x/fantasy-weapons-and-apparel-sfx-library/weapons-apparel/sfx/arrow-feathers-02.wav",
+     "sha256": "5e2974eade6ba7238642a5993114d46d10fd28912e044cacebff0b9e18c0b4e2",
+     "start": 0.0
+    },
+    {
+     "source": "fantasy-weapons-and-apparel-sfx-library",
+     "file": "_x/fantasy-weapons-and-apparel-sfx-library/weapons-apparel/sfx/quiver-leather-squeeze-12.wav",
+     "sha256": "dc291ab8cc0ba38138494487039efe2f5b708a6dc1dfdda05aaefed71ec6ac67",
+     "start": 0.0,
+     "gain": -8,
+     "delay": 0.05
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/select_archery_range_01.wav": {
+   "kind": "sfx",
+   "cue": "select_archery_range",
+   "loudness_class": "building",
+   "seconds": 0.344,
+   "peak_dbfs": -11.31,
+   "active_rms_dbfs": -25.23,
+   "sha256": "0fbfcff4754868a241e021a09b7b070512f41846d9de5e3e897bbf1fa8ba3685",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "battle-sound-effects",
+     "file": "_x/battle-sound-effects/battle_sound_effects_0/battle_sound_effects/Bow.wav",
+     "sha256": "0dc8cf132cf583563936ac3a4d776e196210d5f6703b4ebdd7c68e8f35b9f3e3",
+     "start": 0.0,
+     "gain": -3
+    },
+    {
+     "source": "freesound-536066",
+     "file": "freesound-536066/536066.mp3",
+     "sha256": "c39d76431f2f598ee3e0a9122ae854318b04d11dad9515392c03ffc7d70fbd5b",
+     "start": 0.0,
+     "end": 0.3,
+     "delay": 0.22
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/select_archery_range_02.wav": {
+   "kind": "sfx",
+   "cue": "select_archery_range",
+   "loudness_class": "building",
+   "seconds": 0.433,
+   "peak_dbfs": -11.04,
+   "active_rms_dbfs": -24.0,
+   "sha256": "f164a403ed0d02abb66fe7143fbe1335e12730b39d57ebde44aba4087ed126f7",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "freesound-384918",
+     "file": "freesound-384918/384918.mp3",
+     "sha256": "f3f0a008f52be6858aa94f0bb046c2e7796baba1a1011cdadf7213edd2a94a08",
+     "start": 0.05,
+     "end": 0.35,
+     "gain": -3
+    },
+    {
+     "source": "freesound-534956",
+     "file": "freesound-534956/534956.mp3",
+     "sha256": "a7b42f31b88718f504ad5f06f17f29f0886112f3455b5a7928820d4f0cdcb152",
+     "start": 0.09,
+     "end": 0.45,
+     "delay": 0.22
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/select_barracks_01.wav": {
+   "kind": "sfx",
+   "cue": "select_barracks",
+   "loudness_class": "building",
+   "seconds": 0.427,
+   "peak_dbfs": -12.03,
+   "active_rms_dbfs": -24.0,
+   "sha256": "0f74d0f9c6cde7de86416a9c1f362e6836c2f212ba010e6baa097f404f6d1195",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "rpg-sound-pack",
+     "file": "_x/rpg-sound-pack/rpg_sound_pack/RPG Sound Pack/inventory/metal-ringing.wav",
+     "sha256": "55b1ba32e57070ef150c3fe88e1e04f0a4dc382f47e0bfc77249d1ac62dba517",
+     "start": 0.0,
+     "lp": 7000
+    },
+    {
+     "source": "rpg-sound-pack",
+     "file": "_x/rpg-sound-pack/rpg_sound_pack/RPG Sound Pack/inventory/armor-light.wav",
+     "sha256": "1600329c7607eede7a441f66152f0626dd84e4b13f84ccd07887d020ba1c6b9e",
+     "start": 0.0,
+     "gain": -8,
+     "delay": 0.05
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/select_barracks_02.wav": {
+   "kind": "sfx",
+   "cue": "select_barracks",
+   "loudness_class": "building",
+   "seconds": 0.536,
+   "peak_dbfs": -6.35,
+   "active_rms_dbfs": -24.04,
+   "sha256": "cb63343b50a6286bbfab9698ebcd46195a9d8c60d9e93b9cc5fd8430dd8af8bd",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "fantasy-weapons-and-apparel-sfx-library",
+     "file": "_x/fantasy-weapons-and-apparel-sfx-library/weapons-apparel/sfx/sword-knife-clash-12.wav",
+     "sha256": "f0ee6e1b869f8c3b4c38f2fa624c55ccabe9b52eb026f0f70f89ab23c6db47ec",
+     "start": 0.0,
+     "lp": 7000
+    },
+    {
+     "source": "rpg-sound-pack",
+     "file": "_x/rpg-sound-pack/rpg_sound_pack/RPG Sound Pack/inventory/chainmail1.wav",
+     "sha256": "44d4d6b0cda8138c9d5545ba4f434f53b7817ba32d98ddfdf5bff6ae7acdefdf",
+     "start": 0.0,
+     "gain": -8,
+     "delay": 0.06
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/select_blacksmith_01.wav": {
+   "kind": "sfx",
+   "cue": "select_blacksmith",
+   "loudness_class": "building",
+   "seconds": 0.953,
+   "peak_dbfs": -8.15,
+   "active_rms_dbfs": -24.0,
+   "sha256": "36568a65dbf8ef727e22b6a7c65f468e6d7f94b2464ae7ac077e9f63ce0d7167",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "hammer-on-anvil",
+     "file": "hammer-on-anvil/forger.ogg",
+     "sha256": "c62556be3d4148586100b657c97e5a30499fdc80a917bd1a2e2d1cddf5098f39",
+     "start": 0.05,
+     "end": 1.05
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/select_blacksmith_02.wav": {
+   "kind": "sfx",
+   "cue": "select_blacksmith",
+   "loudness_class": "building",
+   "seconds": 0.654,
+   "peak_dbfs": -10.6,
+   "active_rms_dbfs": -24.0,
+   "sha256": "9a75eb1daec50ef78e6a56a5b557a11411271a67559d8d443f89631d51aa044a",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "blacksmiths-hammer",
+     "file": "blacksmiths-hammer/blacksmithhammer.wav",
+     "sha256": "a26c2e964e468fb7e68c8adf2b1c1d6e6778fe6e5ef4842463ae211e55ec7ae2",
+     "start": 0.0
+    },
+    {
+     "source": "blacksmiths-hammer",
+     "file": "blacksmiths-hammer/blacksmithhammer.wav",
+     "sha256": "a26c2e964e468fb7e68c8adf2b1c1d6e6778fe6e5ef4842463ae211e55ec7ae2",
+     "start": 0.0,
+     "pitch": 1.06,
+     "gain": -4,
+     "delay": 0.3
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/select_cavalry_01.wav": {
+   "kind": "sfx",
+   "cue": "select_cavalry",
+   "loudness_class": "ack",
+   "seconds": 0.409,
+   "peak_dbfs": -7.56,
+   "active_rms_dbfs": -24.0,
+   "sha256": "d04b59aa0122f81d7559fa3e7f1d709036f00e01b06275ec6ba2e252e732f7e1",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "freesound-437111",
+     "file": "freesound-437111/437111.mp3",
+     "sha256": "a700da65f76e52e914ef7214dd207b49067f313d3d2f8a857e64b6f9bb6b8ac0",
+     "start": 2.03,
+     "end": 2.45
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/select_cavalry_02.wav": {
+   "kind": "sfx",
+   "cue": "select_cavalry",
+   "loudness_class": "ack",
+   "seconds": 0.432,
+   "peak_dbfs": -7.21,
+   "active_rms_dbfs": -24.0,
+   "sha256": "2da99eed5f7e7b0488be4d4880b743ca5df0172ce9e68ea30bc6e96cec125a95",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "freesound-475483",
+     "file": "freesound-475483/475483.mp3",
+     "sha256": "a104c79024b41b3825c533ef1c31bd72cd7ad7b92777df7d27e1e893d541bc49",
+     "start": 0.0,
+     "end": 0.46
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/select_cavalry_03.wav": {
+   "kind": "sfx",
+   "cue": "select_cavalry",
+   "loudness_class": "ack",
+   "seconds": 0.456,
+   "peak_dbfs": -9.68,
+   "active_rms_dbfs": -24.0,
+   "sha256": "54a76422ef13f20cabbc54fba33000d52434637a94d5cf482c6431c8ebd6400f",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "freesound-437111",
+     "file": "freesound-437111/437111.mp3",
+     "sha256": "a700da65f76e52e914ef7214dd207b49067f313d3d2f8a857e64b6f9bb6b8ac0",
+     "start": 8.52,
+     "end": 9.04
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/select_farm_01.wav": {
+   "kind": "sfx",
+   "cue": "select_farm",
+   "loudness_class": "building",
+   "seconds": 0.358,
+   "peak_dbfs": -6.19,
+   "active_rms_dbfs": -24.13,
+   "sha256": "7333c486eec43582f8996084ca758db0d4db4107eb67da6c14fbf8f9d70b5c42",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "80-cc0-rpg-sfx",
+     "file": "_x/80-cc0-rpg-sfx/80-CC0-RPG-SFX_0/stones_04.ogg",
+     "sha256": "66f1cef820f66d86414d481b37a48a7b7ea11f4a5d7358372ebcfb506af0e652",
+     "start": 0.0,
+     "pitch": 0.8
+    },
+    {
+     "source": "rpg-sound-pack",
+     "file": "_x/rpg-sound-pack/rpg_sound_pack/RPG Sound Pack/inventory/cloth.wav",
+     "sha256": "d829b5ed7a47086771c639495713498e44ce28814f4ea6ddf30cb1f18c085c3f",
+     "start": 0.0,
+     "gain": -6,
+     "delay": 0.1
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/select_farm_02.wav": {
+   "kind": "sfx",
+   "cue": "select_farm",
+   "loudness_class": "building",
+   "seconds": 0.316,
+   "peak_dbfs": -7.93,
+   "active_rms_dbfs": -24.0,
+   "sha256": "1cd7a86cd2ea88cfe33820f9893483b353858179df9825f27abd8203320f8022",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "kenney-rpg",
+     "file": "assets/audio/kenney/originals/rpg/cloth2.ogg",
+     "sha256": "8a7451193c38bc05483aec25dd193e163a15d44cf7fff04ac7912573231b0201",
+     "start": 0.0
+    },
+    {
+     "source": "80-cc0-rpg-sfx",
+     "file": "_x/80-cc0-rpg-sfx/80-CC0-RPG-SFX_0/item_wood_02.ogg",
+     "sha256": "2de39fd5be0ab8a6089bad92847fa725b3afa2195a5f6220c9b4c5424777cefd",
+     "start": 0.0,
+     "gain": -6,
+     "delay": 0.12
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/select_house_01.wav": {
+   "kind": "sfx",
+   "cue": "select_house",
+   "loudness_class": "building",
+   "seconds": 0.317,
+   "peak_dbfs": -8.21,
+   "active_rms_dbfs": -23.63,
+   "sha256": "fd6feb599787d09af53bc665ee9a58b0a8b99fb64bcd32f1d7f6c3318265dfc1",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "100-cc0-sfx",
+     "file": "_x/100-cc0-sfx/100-CC0-SFX_0/door_close_03.ogg",
+     "sha256": "36f3e2337d7e606c431049f12704f42b9f2582a5b9149b7f682fcd2ee42fe4b4",
+     "start": 0.0
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/select_house_02.wav": {
+   "kind": "sfx",
+   "cue": "select_house",
+   "loudness_class": "building",
+   "seconds": 0.27,
+   "peak_dbfs": -7.97,
+   "active_rms_dbfs": -24.0,
+   "sha256": "0344d5faed497f3c5d8979c53b7cb947d379d60a50048216b68144fed707a80c",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "100-cc0-sfx",
+     "file": "_x/100-cc0-sfx/100-CC0-SFX_0/door_close_04.ogg",
+     "sha256": "db9247416558f6758aef358342ae5f96eb2be6ad3b9e39a230e7c46174ed733a",
+     "start": 0.0
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/select_infantry_01.wav": {
+   "kind": "sfx",
+   "cue": "select_infantry",
+   "loudness_class": "ack",
+   "seconds": 0.379,
+   "peak_dbfs": -6.51,
+   "active_rms_dbfs": -24.0,
+   "sha256": "958d3b7e887d852dc198d20d81b7972fbec8963aa326e9d23f66bc97f960aae3",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "rpg-sound-pack",
+     "file": "_x/rpg-sound-pack/rpg_sound_pack/RPG Sound Pack/inventory/chainmail1.wav",
+     "sha256": "44d4d6b0cda8138c9d5545ba4f434f53b7817ba32d98ddfdf5bff6ae7acdefdf",
+     "start": 0.0,
+     "lp": 7000
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/select_infantry_02.wav": {
+   "kind": "sfx",
+   "cue": "select_infantry",
+   "loudness_class": "ack",
+   "seconds": 0.337,
+   "peak_dbfs": -6.7,
+   "active_rms_dbfs": -24.0,
+   "sha256": "b2cc05d691528a5b1a6bf64fd6655916a9aedfe4f09a5683a0ce22d327f527b8",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "rpg-sound-pack",
+     "file": "_x/rpg-sound-pack/rpg_sound_pack/RPG Sound Pack/inventory/armor-light.wav",
+     "sha256": "1600329c7607eede7a441f66152f0626dd84e4b13f84ccd07887d020ba1c6b9e",
+     "start": 0.0,
+     "lp": 7000
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/select_infantry_03.wav": {
+   "kind": "sfx",
+   "cue": "select_infantry",
+   "loudness_class": "ack",
+   "seconds": 0.4,
+   "peak_dbfs": -8.58,
+   "active_rms_dbfs": -24.0,
+   "sha256": "c86fa3657771349fdddc0c7f0f6006fa33b2f113951435dc1354fb6b874fd1e8",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "rpg-sound-pack",
+     "file": "_x/rpg-sound-pack/rpg_sound_pack/RPG Sound Pack/inventory/chainmail2.wav",
+     "sha256": "74b5e34233ea69fd76b6f016bae74f3432d7ca1921fa403c32f6c45cab2fdfa8",
+     "start": 0,
+     "end": 0.5,
+     "lp": 7000
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/select_resource_camp_01.wav": {
+   "kind": "sfx",
+   "cue": "select_resource_camp",
+   "loudness_class": "building",
+   "seconds": 0.493,
+   "peak_dbfs": -6.13,
+   "active_rms_dbfs": -24.25,
+   "sha256": "c95274ac5e76a0012393c266051b765f40c5a6ffff8e7ee5ab93073984426f45",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "kenney-impact",
+     "file": "assets/audio/kenney/originals/impact/impactWood_light_000.ogg",
+     "sha256": "eb45e35b4bed784d3f120de4afec4b0d6ac09d9e143cce8cfcb7d739e1b1f3c3",
+     "start": 0.0
+    },
+    {
+     "source": "80-cc0-rpg-sfx",
+     "file": "_x/80-cc0-rpg-sfx/80-CC0-RPG-SFX_0/item_wood_01.ogg",
+     "sha256": "86c961b9d266911d76e307486bee3c3a7734a200e2e59db10c59e5fc80181e45",
+     "start": 0.0,
+     "gain": -5,
+     "delay": 0.14
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/select_resource_camp_02.wav": {
+   "kind": "sfx",
+   "cue": "select_resource_camp",
+   "loudness_class": "building",
+   "seconds": 0.497,
+   "peak_dbfs": -9.17,
+   "active_rms_dbfs": -24.0,
+   "sha256": "4a8a3417d877d9eb0da6d4c80158cc68a21f8d139f2fdd9fae1e635f78a8d05b",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "kenney-impact",
+     "file": "assets/audio/kenney/originals/impact/impactMining_001.ogg",
+     "sha256": "61235a18de3f3d92118235398222dbf51d448f1be70b1c8bc962b10b86f2d9c6",
+     "start": 0.0
+    },
+    {
+     "source": "80-cc0-rpg-sfx",
+     "file": "_x/80-cc0-rpg-sfx/80-CC0-RPG-SFX_0/item_wood_03.ogg",
+     "sha256": "a1f62c20ac2c294309966037fe66fbd5cddbee5df7ae6d6c29e4b2607a0db1e4",
+     "start": 0.0,
+     "gain": -5,
+     "delay": 0.14
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/select_siege_01.wav": {
+   "kind": "sfx",
+   "cue": "select_siege",
+   "loudness_class": "ack",
+   "seconds": 0.514,
+   "peak_dbfs": -6.01,
+   "active_rms_dbfs": -25.54,
+   "sha256": "ec4b890401f57060072c83bd8dcb4d082726c85ad2319ff34263ed04aeb14521",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "tree-creaking",
+     "file": "tree-creaking/tree_creak.flac",
+     "sha256": "9bab7c7f68850136c43fb91216c7c1760ac2bda22b2a31659905c559a464d422",
+     "start": 0.47,
+     "end": 1.0
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/select_siege_02.wav": {
+   "kind": "sfx",
+   "cue": "select_siege",
+   "loudness_class": "ack",
+   "seconds": 0.531,
+   "peak_dbfs": -6.01,
+   "active_rms_dbfs": -25.29,
+   "sha256": "a322adc95b389ed3d80a074a76c9dbf8158940ff22bc5c6f17276cbd3bdfef33",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "tree-creaking",
+     "file": "tree-creaking/tree_creak.flac",
+     "sha256": "9bab7c7f68850136c43fb91216c7c1760ac2bda22b2a31659905c559a464d422",
+     "start": 2.87,
+     "end": 3.42
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/select_siege_03.wav": {
+   "kind": "sfx",
+   "cue": "select_siege",
+   "loudness_class": "ack",
+   "seconds": 0.335,
+   "peak_dbfs": -6.01,
+   "active_rms_dbfs": -24.34,
+   "sha256": "8906c993331f88aece84aa29657bbe340018def7551a6257e17e7f459b98dc57",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "80-cc0-rpg-sfx",
+     "file": "_x/80-cc0-rpg-sfx/80-CC0-RPG-SFX_0/wood_04.ogg",
+     "sha256": "bd5dc8469c4f1cb3abff35e2e01b541d4c97d58033f67dfe1c8e3b62ad5350ba",
+     "start": 0.0
+    },
+    {
+     "source": "80-cc0-rpg-sfx",
+     "file": "_x/80-cc0-rpg-sfx/80-CC0-RPG-SFX_0/chain_02.ogg",
+     "sha256": "dd3b753e54fd4e6ed94c36231d1950fafd681ff4a93462cfa3980099a6454ecb",
+     "start": 0.0,
+     "gain": -14,
+     "delay": 0.08,
+     "lp": 6000
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/select_siege_workshop_01.wav": {
+   "kind": "sfx",
+   "cue": "select_siege_workshop",
+   "loudness_class": "building",
+   "seconds": 0.857,
+   "peak_dbfs": -8.27,
+   "active_rms_dbfs": -24.0,
+   "sha256": "47121795994d2dd67a615a26d6fc55c38d8ee16a8e7bd019e941b94609e8c974",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "30-cc0-sfx-loops",
+     "file": "_x/30-cc0-sfx-loops/sfx_loops/saw.ogg",
+     "sha256": "395788a09e2916c25caa1e45a06e955ff4429d811a3d63d3bed2a7b3764bf261",
+     "start": 0.0,
+     "end": 0.75
+    },
+    {
+     "source": "100-cc0-sfx",
+     "file": "_x/100-cc0-sfx/100-CC0-SFX_0/wooden_02.ogg",
+     "sha256": "a6f6edf91a63c5af9059f70df0ac4e3fcee2c57342dc41dd3a166810365392fd",
+     "start": 0.0,
+     "gain": -4,
+     "delay": 0.62
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/select_siege_workshop_02.wav": {
+   "kind": "sfx",
+   "cue": "select_siege_workshop",
+   "loudness_class": "building",
+   "seconds": 0.801,
+   "peak_dbfs": -7.4,
+   "active_rms_dbfs": -24.0,
+   "sha256": "2fd879c18c83b1724d68ec37701ecab25089e717550712de349b7ceb7230239e",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "30-cc0-sfx-loops",
+     "file": "_x/30-cc0-sfx-loops/sfx_loops/saw.ogg",
+     "sha256": "395788a09e2916c25caa1e45a06e955ff4429d811a3d63d3bed2a7b3764bf261",
+     "start": 1.1,
+     "end": 1.85,
+     "pitch": 0.93
+    },
+    {
+     "source": "75-cc0-breaking-falling-hit-sfx",
+     "file": "_x/75-cc0-breaking-falling-hit-sfx/sfx_breaking_and_falling/bfh1_wood_hit_03.ogg",
+     "sha256": "3b9f304e4de3a54624cfa9e2b2326cfe4c202d3e368dd899e7dacb0d0be78f57",
+     "start": 0.0,
+     "gain": -4,
+     "delay": 0.62
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/select_stable_01.wav": {
+   "kind": "sfx",
+   "cue": "select_stable",
+   "loudness_class": "building",
+   "seconds": 0.785,
+   "peak_dbfs": -8.93,
+   "active_rms_dbfs": -24.0,
+   "sha256": "dbfe1dcb2df8cdc7b010c48e135113f31d4eee1e839db9082447e665ce1b61a9",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "freesound-437111",
+     "file": "freesound-437111/437111.mp3",
+     "sha256": "a700da65f76e52e914ef7214dd207b49067f313d3d2f8a857e64b6f9bb6b8ac0",
+     "start": 4.04,
+     "end": 4.9
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/select_stable_02.wav": {
+   "kind": "sfx",
+   "cue": "select_stable",
+   "loudness_class": "building",
+   "seconds": 0.898,
+   "peak_dbfs": -10.14,
+   "active_rms_dbfs": -24.0,
+   "sha256": "44e7198f982024966432929eebc84039646b598ad4c317aec00b21ec0c862470",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "freesound-437111",
+     "file": "freesound-437111/437111.mp3",
+     "sha256": "a700da65f76e52e914ef7214dd207b49067f313d3d2f8a857e64b6f9bb6b8ac0",
+     "start": 5.77,
+     "end": 6.7
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/select_town_center_01.wav": {
+   "kind": "sfx",
+   "cue": "select_town_center",
+   "loudness_class": "building",
+   "seconds": 0.858,
+   "peak_dbfs": -9.52,
+   "active_rms_dbfs": -24.0,
+   "sha256": "87589eead169627790d4c73c3a49dd5ce5760263e3fc922cb37bb54c1bffbd7f",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "freesound-748269",
+     "file": "freesound-748269/748269.mp3",
+     "sha256": "dfa3d5b02951c8fe5a2d4def619e860c8513d5270b0035973b7965417d7ddce7",
+     "start": 0.0,
+     "end": 1.0
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/select_town_center_02.wav": {
+   "kind": "sfx",
+   "cue": "select_town_center",
+   "loudness_class": "building",
+   "seconds": 0.877,
+   "peak_dbfs": -10.09,
+   "active_rms_dbfs": -24.0,
+   "sha256": "e8869a9a6ee5508420a68ee8b66cabfdb69ea4063fa551411d01740c2d8a202a",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "freesound-748269",
+     "file": "freesound-748269/748269.mp3",
+     "sha256": "dfa3d5b02951c8fe5a2d4def619e860c8513d5270b0035973b7965417d7ddce7",
+     "start": 0.0,
+     "end": 1.0,
+     "pitch": 0.89
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/select_villager_01.wav": {
+   "kind": "sfx",
+   "cue": "select_villager",
+   "loudness_class": "ack",
+   "seconds": 0.294,
+   "peak_dbfs": -6.16,
+   "active_rms_dbfs": -24.0,
+   "sha256": "1fe19fd173b85e97ede127b485211ea79e3248865be19dc5dcfd7879d70aff42",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "rpg-sound-pack",
+     "file": "_x/rpg-sound-pack/rpg_sound_pack/RPG Sound Pack/inventory/cloth.wav",
+     "sha256": "d829b5ed7a47086771c639495713498e44ce28814f4ea6ddf30cb1f18c085c3f",
+     "start": 0.0
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/select_villager_02.wav": {
+   "kind": "sfx",
+   "cue": "select_villager",
+   "loudness_class": "ack",
+   "seconds": 0.291,
+   "peak_dbfs": -6.2,
+   "active_rms_dbfs": -24.16,
+   "sha256": "89b141d64e7aa0d7053bcce9e8a9c06debae69d9c2c2b6f7ff0ecd25262e2bf6",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "rpg-sound-pack",
+     "file": "_x/rpg-sound-pack/rpg_sound_pack/RPG Sound Pack/inventory/wood-small.wav",
+     "sha256": "679184e2a0c37e68450f8f2b511daca8ce187af306789215197dc73c0193386e",
+     "start": 0.0
+    },
+    {
+     "source": "rpg-sound-pack",
+     "file": "_x/rpg-sound-pack/rpg_sound_pack/RPG Sound Pack/inventory/cloth-heavy.wav",
+     "sha256": "73bbbd383b5bbc8b8313f6fee84040aecc1de09714afbe51ba4e5162cbac3528",
+     "start": 0.0,
+     "gain": -10,
+     "delay": 0.05
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/select_villager_03.wav": {
+   "kind": "sfx",
+   "cue": "select_villager",
+   "loudness_class": "ack",
+   "seconds": 0.221,
+   "peak_dbfs": -6.29,
+   "active_rms_dbfs": -24.2,
+   "sha256": "fd61ea70917b00dae8295fdca680755e9f4e36e2428a500040aa4656adb66744",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "kenney-rpg",
+     "file": "assets/audio/kenney/originals/rpg/handleSmallLeather.ogg",
+     "sha256": "ae3cbf695aa0a8b98b5a80a835be5a3ccbd5446a24db2235cd4c3cd6fc92ed96",
+     "start": 0,
+     "end": 0.4
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/select_watch_tower_01.wav": {
+   "kind": "sfx",
+   "cue": "select_watch_tower",
+   "loudness_class": "building",
+   "seconds": 0.609,
+   "peak_dbfs": -6.3,
+   "active_rms_dbfs": -24.29,
+   "sha256": "c29de75a6e9a605c4652f6a932f0467173986de3ba871ff1c394c8b02fefee89",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "100-cc0-sfx",
+     "file": "_x/100-cc0-sfx/100-CC0-SFX_0/door_close_02.ogg",
+     "sha256": "3f4ce43f7a676d8907258908c90e88caecffd4526fce43e40df6726bf67ed91b",
+     "start": 0.0
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/select_watch_tower_02.wav": {
+   "kind": "sfx",
+   "cue": "select_watch_tower",
+   "loudness_class": "building",
+   "seconds": 0.686,
+   "peak_dbfs": -6.61,
+   "active_rms_dbfs": -24.0,
+   "sha256": "d88de0b986317cd558d050d6d38c54a241bd207a7de13b47b386848f7debcc0d",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "rpg-sound-pack",
+     "file": "_x/rpg-sound-pack/rpg_sound_pack/RPG Sound Pack/world/door.wav",
+     "sha256": "a49cc72a835c1cbdb60877f8b926400e06d544a8d44f5eea2a7686a5f120a32d",
+     "start": 0.1,
+     "end": 0.9,
+     "gain": -2
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/siege_impact_01.wav": {
+   "kind": "sfx",
+   "cue": "siege_impact",
+   "loudness_class": "heavy",
+   "seconds": 0.783,
+   "peak_dbfs": -4.71,
+   "active_rms_dbfs": -18.13,
+   "sha256": "20a06d1e929b8953cca0c8c86955aeca652e272c82810ecb812e5ce7433353e0",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "breaking-rock",
+     "file": "breaking-rock/rock_break.ogg",
+     "sha256": "b645f35d21194e7855dd4a5405b1e8e6bec070731b92df6abcb202676b8e9f2e",
+     "start": 0.0,
+     "pitch": 0.6
+    },
+    {
+     "source": "75-cc0-breaking-falling-hit-sfx",
+     "file": "_x/75-cc0-breaking-falling-hit-sfx/sfx_breaking_and_falling/bfh1_hit_02.ogg",
+     "sha256": "a3bd154c391e65947dcd700dfa64b927676253a2e1d229e63443f0ef5f955474",
+     "start": 0.0,
+     "pitch": 0.6,
+     "gain": -1,
+     "lp": 700
+    },
+    {
+     "source": "75-cc0-breaking-falling-hit-sfx",
+     "file": "_x/75-cc0-breaking-falling-hit-sfx/sfx_breaking_and_falling/bfh1_rock_falling_01.ogg",
+     "sha256": "9e58d2d3302c1bad27267cef6a2b3b47bb636f49f77d8e4b986ac81a26e80d7b",
+     "start": 0.0,
+     "gain": -9,
+     "delay": 0.12
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/siege_impact_02.wav": {
+   "kind": "sfx",
+   "cue": "siege_impact",
+   "loudness_class": "heavy",
+   "seconds": 1.036,
+   "peak_dbfs": -3.29,
+   "active_rms_dbfs": -18.0,
+   "sha256": "7a6faf8c056a96458562962f547411daee11afd3bccd0f3de0c1dc7022b09160",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "75-cc0-breaking-falling-hit-sfx",
+     "file": "_x/75-cc0-breaking-falling-hit-sfx/sfx_breaking_and_falling/bfh1_rock_breaking_02.ogg",
+     "sha256": "3e06b794511f693b6aaca5eee1d47491bab74d814746a68de6c8bf4eec744ccc",
+     "start": 0.0,
+     "pitch": 0.7
+    },
+    {
+     "source": "100-cc0-sfx",
+     "file": "_x/100-cc0-sfx/100-CC0-SFX_0/wooden_01.ogg",
+     "sha256": "e7f7b1243ecd6ff3487eee1540de56f38fac606fe6218bdd49a91efc29ae1b9a",
+     "start": 0.0,
+     "pitch": 0.5,
+     "gain": -2,
+     "lp": 700
+    },
+    {
+     "source": "75-cc0-breaking-falling-hit-sfx",
+     "file": "_x/75-cc0-breaking-falling-hit-sfx/sfx_breaking_and_falling/bfh1_rock_falling_03.ogg",
+     "sha256": "16080f9bc90924b0e4ede52922529e30e34e72af32a505b39bdfc5ebcbb9248c",
+     "start": 0.0,
+     "gain": -10,
+     "delay": 0.15
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/siege_impact_03.wav": {
+   "kind": "sfx",
+   "cue": "siege_impact",
+   "loudness_class": "heavy",
+   "seconds": 0.956,
+   "peak_dbfs": -4.1,
+   "active_rms_dbfs": -18.13,
+   "sha256": "6c0950643a1167e079553a566f8f6ef2ca32fed7652c05c8c753d149dad8b444",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "75-cc0-breaking-falling-hit-sfx",
+     "file": "_x/75-cc0-breaking-falling-hit-sfx/sfx_breaking_and_falling/bfh1_rock_breaking_01.ogg",
+     "sha256": "970cac3139e1530009ca87f8ee0dd800dc4da61917a5e62bdc83d475a9bf4da7",
+     "start": 0.0,
+     "pitch": 0.65
+    },
+    {
+     "source": "75-cc0-breaking-falling-hit-sfx",
+     "file": "_x/75-cc0-breaking-falling-hit-sfx/sfx_breaking_and_falling/bfh1_hit_02.ogg",
+     "sha256": "a3bd154c391e65947dcd700dfa64b927676253a2e1d229e63443f0ef5f955474",
+     "start": 0.0,
+     "pitch": 0.5,
+     "gain": -1,
+     "lp": 700
+    },
+    {
+     "source": "80-cc0-rpg-sfx",
+     "file": "_x/80-cc0-rpg-sfx/80-CC0-RPG-SFX_0/stones_03.ogg",
+     "sha256": "b86d143d7ef4974c2b97fda9e5d1861482646eec754e15935eeb3680ea0d71da",
+     "start": 0.0,
+     "gain": -10,
+     "delay": 0.12
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/siege_launch_01.wav": {
+   "kind": "sfx",
+   "cue": "siege_launch",
+   "loudness_class": "heavy",
+   "seconds": 0.906,
+   "peak_dbfs": -4.44,
+   "active_rms_dbfs": -18.0,
+   "sha256": "5169dc581320c0194a8d20d25d6ac4d632c330d0874f099cabf84ff54338ab9b",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "tree-creaking",
+     "file": "tree-creaking/tree_creak.flac",
+     "sha256": "9bab7c7f68850136c43fb91216c7c1760ac2bda22b2a31659905c559a464d422",
+     "start": 2.87,
+     "end": 3.3,
+     "gain": -4
+    },
+    {
+     "source": "battle-sound-effects",
+     "file": "_x/battle-sound-effects/battle_sound_effects_0/battle_sound_effects/swish_3.wav",
+     "sha256": "7767c7b6ba063d8d5de6e05ba29c037af5c4a19d02b00b6b5ff398f72732e1c9",
+     "start": 0.0,
+     "pitch": 0.55,
+     "gain": -2,
+     "delay": 0.22
+    },
+    {
+     "source": "75-cc0-breaking-falling-hit-sfx",
+     "file": "_x/75-cc0-breaking-falling-hit-sfx/sfx_breaking_and_falling/bfh1_wood_hit_02.ogg",
+     "sha256": "16851c45e3d7add9f7ff8fe18d7b43e2d7d368b9bd1260d198127851b17af6d7",
+     "start": 0.0,
+     "pitch": 0.7,
+     "delay": 0.3
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/siege_launch_02.wav": {
+   "kind": "sfx",
+   "cue": "siege_launch",
+   "loudness_class": "heavy",
+   "seconds": 0.987,
+   "peak_dbfs": -3.45,
+   "active_rms_dbfs": -18.0,
+   "sha256": "7a4d92f9e1eeae47af75d2aa3f48fc51f660760467cb8aab0a7f1106de471248",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "tree-creaking",
+     "file": "tree-creaking/tree_creak.flac",
+     "sha256": "9bab7c7f68850136c43fb91216c7c1760ac2bda22b2a31659905c559a464d422",
+     "start": 0.47,
+     "end": 0.95,
+     "gain": -5
+    },
+    {
+     "source": "battle-sound-effects",
+     "file": "_x/battle-sound-effects/battle_sound_effects_0/battle_sound_effects/swish_3.wav",
+     "sha256": "7767c7b6ba063d8d5de6e05ba29c037af5c4a19d02b00b6b5ff398f72732e1c9",
+     "start": 0.0,
+     "pitch": 0.5,
+     "gain": -2,
+     "delay": 0.25
+    },
+    {
+     "source": "75-cc0-breaking-falling-hit-sfx",
+     "file": "_x/75-cc0-breaking-falling-hit-sfx/sfx_breaking_and_falling/bfh1_wood_hit_01.ogg",
+     "sha256": "841caeb101eeaebcb88afed9cd64db0de1b00c7f3b06835daefaabc95b970337",
+     "start": 0.0,
+     "pitch": 0.65,
+     "delay": 0.34
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/siege_launch_03.wav": {
+   "kind": "sfx",
+   "cue": "siege_launch",
+   "loudness_class": "heavy",
+   "seconds": 1.008,
+   "peak_dbfs": -5.76,
+   "active_rms_dbfs": -18.0,
+   "sha256": "fe467c9a9b65c1b814247cda863de51feacc271d44f1dd9f42a7e162e55db24e",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "freesound-479921",
+     "file": "freesound-479921/479921.mp3",
+     "sha256": "20c597fee35a3b7c60233d37080010877c7002b712ec1f492968bc9fd1d0f306",
+     "start": 0.08,
+     "end": 1.1
+    },
+    {
+     "source": "75-cc0-breaking-falling-hit-sfx",
+     "file": "_x/75-cc0-breaking-falling-hit-sfx/sfx_breaking_and_falling/bfh1_wood_hit_02.ogg",
+     "sha256": "16851c45e3d7add9f7ff8fe18d7b43e2d7d368b9bd1260d198127851b17af6d7",
+     "start": 0.0,
+     "pitch": 0.75,
+     "gain": -3,
+     "delay": 0.05
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/town_bell_01.wav": {
+   "kind": "sfx",
+   "cue": "town_bell",
+   "loudness_class": "alert",
+   "seconds": 3.091,
+   "peak_dbfs": -4.76,
+   "active_rms_dbfs": -17.0,
+   "sha256": "5051c9ac65dc96f06c11dc5ad174a43711743d976b7b646490a82e45ab5a17bc",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "freesound-73678",
+     "file": "freesound-73678/73678.mp3",
+     "sha256": "b543a96bf788ac932f2dbf0a0d5fe47bad6a2ea5d23b5a56d798e8cd19f1a615",
+     "start": 0.0,
+     "end": 3.4
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/town_bell_02.wav": {
+   "kind": "sfx",
+   "cue": "town_bell",
+   "loudness_class": "alert",
+   "seconds": 4.175,
+   "peak_dbfs": -5.25,
+   "active_rms_dbfs": -17.0,
+   "sha256": "586ee599f3376ffca95aa1d7ed5ff5f3db837a02b2d0e956b8fc6398c2dce93f",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "freesound-73678",
+     "file": "freesound-73678/73678.mp3",
+     "sha256": "b543a96bf788ac932f2dbf0a0d5fe47bad6a2ea5d23b5a56d798e8cd19f1a615",
+     "start": 0.0,
+     "end": 3.4
+    },
+    {
+     "source": "freesound-73678",
+     "file": "freesound-73678/73678.mp3",
+     "sha256": "b543a96bf788ac932f2dbf0a0d5fe47bad6a2ea5d23b5a56d798e8cd19f1a615",
+     "start": 0.0,
+     "end": 3.4,
+     "delay": 1.15
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/trained_military_01.wav": {
+   "kind": "sfx",
+   "cue": "trained_military",
+   "loudness_class": "event",
+   "seconds": 0.711,
+   "peak_dbfs": -2.74,
+   "active_rms_dbfs": -18.02,
+   "sha256": "2c4ff2f0bffa7969687c87c90fb85c4428131b65a99ae11dcafd1d259f9ba3a7",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "rpg-sound-pack",
+     "file": "_x/rpg-sound-pack/rpg_sound_pack/RPG Sound Pack/battle/sword-unsheathe2.wav",
+     "sha256": "1df8bdb5e4f852821a9b5b7cf27b2c1c516c3a6382cb14b2865005d786503b0a",
+     "start": 0.0,
+     "lp": 7500
+    },
+    {
+     "source": "rpg-sound-pack",
+     "file": "_x/rpg-sound-pack/rpg_sound_pack/RPG Sound Pack/inventory/chainmail2.wav",
+     "sha256": "74b5e34233ea69fd76b6f016bae74f3432d7ca1921fa403c32f6c45cab2fdfa8",
+     "start": 0.0,
+     "gain": -7,
+     "delay": 0.12,
+     "lp": 7000
+    },
+    {
+     "source": "kenney-interface",
+     "file": "assets/audio/kenney/originals/interface/confirmation_002.ogg",
+     "sha256": "33b17a9a9a2397c62b285c52c33a907fdffb476909c99e42dde603f6a7a8b12c",
+     "start": 0.0,
+     "pitch": 0.8,
+     "gain": -8,
+     "delay": 0.2
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/trained_military_02.wav": {
+   "kind": "sfx",
+   "cue": "trained_military",
+   "loudness_class": "event",
+   "seconds": 0.507,
+   "peak_dbfs": -2.79,
+   "active_rms_dbfs": -18.01,
+   "sha256": "745a2adcd689d5d80e40a433054dfcf5cb81a07a56d8e9b8d2e992cae59f21dc",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "rpg-sound-pack",
+     "file": "_x/rpg-sound-pack/rpg_sound_pack/RPG Sound Pack/battle/sword-unsheathe4.wav",
+     "sha256": "89202f82cfac83bdadbf41c88998cd5f60c00609a53c1ae769c00bf1031cd272",
+     "start": 0.0,
+     "lp": 7500
+    },
+    {
+     "source": "rpg-sound-pack",
+     "file": "_x/rpg-sound-pack/rpg_sound_pack/RPG Sound Pack/inventory/armor-light.wav",
+     "sha256": "1600329c7607eede7a441f66152f0626dd84e4b13f84ccd07887d020ba1c6b9e",
+     "start": 0.0,
+     "gain": -7,
+     "delay": 0.12,
+     "lp": 7000
+    },
+    {
+     "source": "kenney-interface",
+     "file": "assets/audio/kenney/originals/interface/confirmation_001.ogg",
+     "sha256": "063564703b6094d70718a3e787a55cc9141611e4ecd6b6637f8828f79b4a8c3a",
+     "start": 0.0,
+     "pitch": 0.8,
+     "gain": -8,
+     "delay": 0.2
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/trained_villager_01.wav": {
+   "kind": "sfx",
+   "cue": "trained_villager",
+   "loudness_class": "event",
+   "seconds": 0.347,
+   "peak_dbfs": -7.84,
+   "active_rms_dbfs": -18.0,
+   "sha256": "317a69c12d23966f286c6f80013dd6d04165fabfdb795f535c790a3769f7e61b",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "rpg-sound-pack",
+     "file": "_x/rpg-sound-pack/rpg_sound_pack/RPG Sound Pack/inventory/wood-small.wav",
+     "sha256": "679184e2a0c37e68450f8f2b511daca8ce187af306789215197dc73c0193386e",
+     "start": 0.0,
+     "gain": -5
+    },
+    {
+     "source": "kenney-interface",
+     "file": "assets/audio/kenney/originals/interface/confirmation_001.ogg",
+     "sha256": "063564703b6094d70718a3e787a55cc9141611e4ecd6b6637f8828f79b4a8c3a",
+     "start": 0.0,
+     "delay": 0.1
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/trained_villager_02.wav": {
+   "kind": "sfx",
+   "cue": "trained_villager",
+   "loudness_class": "event",
+   "seconds": 0.512,
+   "peak_dbfs": -6.13,
+   "active_rms_dbfs": -18.26,
+   "sha256": "07aceacebd3df13386466542255ae399f229e6b977260526b37e8b1501098e58",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "rpg-sound-pack",
+     "file": "_x/rpg-sound-pack/rpg_sound_pack/RPG Sound Pack/inventory/cloth.wav",
+     "sha256": "d829b5ed7a47086771c639495713498e44ce28814f4ea6ddf30cb1f18c085c3f",
+     "start": 0.0,
+     "gain": -6
+    },
+    {
+     "source": "kenney-interface",
+     "file": "assets/audio/kenney/originals/interface/confirmation_002.ogg",
+     "sha256": "33b17a9a9a2397c62b285c52c33a907fdffb476909c99e42dde603f6a7a8b12c",
+     "start": 0.0,
+     "delay": 0.1
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/villager_hit_01.wav": {
+   "kind": "sfx",
+   "cue": "villager_hit",
+   "loudness_class": "combat",
+   "seconds": 0.301,
+   "peak_dbfs": -3.44,
+   "active_rms_dbfs": -21.05,
+   "sha256": "bf24ff5d89276b66274bc4abf99222dbc47e6ac15b3a10f5ab0f003adbefcdda",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "75-cc0-breaking-falling-hit-sfx",
+     "file": "_x/75-cc0-breaking-falling-hit-sfx/sfx_breaking_and_falling/bfh1_wood_hit_01.ogg",
+     "sha256": "841caeb101eeaebcb88afed9cd64db0de1b00c7f3b06835daefaabc95b970337",
+     "start": 0.0,
+     "gain": -2
+    },
+    {
+     "source": "rpg-sound-pack",
+     "file": "_x/rpg-sound-pack/rpg_sound_pack/RPG Sound Pack/inventory/cloth.wav",
+     "sha256": "d829b5ed7a47086771c639495713498e44ce28814f4ea6ddf30cb1f18c085c3f",
+     "start": 0.0,
+     "gain": -10
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/villager_hit_02.wav": {
+   "kind": "sfx",
+   "cue": "villager_hit",
+   "loudness_class": "combat",
+   "seconds": 0.249,
+   "peak_dbfs": -4.93,
+   "active_rms_dbfs": -20.0,
+   "sha256": "2bf5678db28daf660d32f8357f96814806190904cd2a247e50d82d6cbaadf63b",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "75-cc0-breaking-falling-hit-sfx",
+     "file": "_x/75-cc0-breaking-falling-hit-sfx/sfx_breaking_and_falling/bfh1_wood_hit_03.ogg",
+     "sha256": "3b9f304e4de3a54624cfa9e2b2326cfe4c202d3e368dd899e7dacb0d0be78f57",
+     "start": 0.0,
+     "gain": -2
+    },
+    {
+     "source": "kenney-impact",
+     "file": "assets/audio/kenney/originals/impact/impactPunch_medium_000.ogg",
+     "sha256": "486988aa2d6440ffc4c62a0e8ccf3c23673ba84424bd4723378d451b7255eb5c",
+     "start": 0.0,
+     "gain": -6
+    }
+   ]
+  },
+  "assets/audio/identity/sfx/villager_hit_03.wav": {
+   "kind": "sfx",
+   "cue": "villager_hit",
+   "loudness_class": "combat",
+   "seconds": 0.337,
+   "peak_dbfs": -4.92,
+   "active_rms_dbfs": -20.0,
+   "sha256": "2c0ddfed9dc4a72552f5d7bbda6200e0901957edfb2fb50885291a10065a18a0",
+   "processing": "mono 32 kHz; layers peak-normalised then mixed at listed gain/pitch/delay/filters; trimmed; faded; active-RMS normalised to class target with soft peak ceiling",
+   "layers": [
+    {
+     "source": "100-cc0-sfx",
+     "file": "_x/100-cc0-sfx/100-CC0-SFX_0/wooden_02.ogg",
+     "sha256": "a6f6edf91a63c5af9059f70df0ac4e3fcee2c57342dc41dd3a166810365392fd",
+     "start": 0.0,
+     "gain": -2
+    },
+    {
+     "source": "rpg-sound-pack",
+     "file": "_x/rpg-sound-pack/rpg_sound_pack/RPG Sound Pack/inventory/cloth-heavy.wav",
+     "sha256": "73bbbd383b5bbc8b8313f6fee84040aecc1de09714afbe51ba4e5162cbac3528",
+     "start": 0.0,
+     "gain": -10
+    }
+   ]
+  }
+ },
+ "sources": {
+  "100-cc0-sfx": {
+   "url": "https://opengameart.org/content/100-cc0-sfx",
+   "title": "100 CC0 SFX",
+   "author": "rubberduck",
+   "licences_on_page": [
+    "CC0"
+   ],
+   "retrieved": "2026-11-09"
+  },
+  "20-sword-sound-effects-attacks-and-clashes": {
+   "url": "https://opengameart.org/content/20-sword-sound-effects-attacks-and-clashes",
+   "title": "20 Sword Sound Effects (Attacks and Clashes)",
+   "author": "StarNinjas",
+   "licences_on_page": [
+    "CC0"
+   ],
+   "retrieved": "2026-11-09"
+  },
+  "30-cc0-sfx-loops": {
+   "url": "https://opengameart.org/content/30-cc0-sfx-loops",
+   "title": "30 CC0 SFX loops",
+   "author": "rubberduck",
+   "licences_on_page": [
+    "CC0"
+   ],
+   "retrieved": "2026-11-09"
+  },
+  "75-cc0-breaking-falling-hit-sfx": {
+   "url": "https://opengameart.org/content/75-cc0-breaking-falling-hit-sfx",
+   "title": "75 CC0 breaking / falling / hit sfx",
+   "author": "rubberduck",
+   "licences_on_page": [
+    "CC0"
+   ],
+   "retrieved": "2026-11-09"
+  },
+  "80-cc0-rpg-sfx": {
+   "url": "https://opengameart.org/content/80-cc0-rpg-sfx",
+   "title": "80 CC0 RPG SFX",
+   "author": "rubberduck",
+   "licences_on_page": [
+    "CC0"
+   ],
+   "retrieved": "2026-11-09"
+  },
+  "amb-morning-sounds-perfect-loop": {
+   "url": "https://opengameart.org/content/amb-morning-sounds-perfect-loop",
+   "title": "AMB Morning Sounds (Perfect Loop)",
+   "author": "Kresiek The Furry",
+   "licences_on_page": [
+    "CC0"
+   ],
+   "retrieved": "2026-11-09"
+  },
+  "ambient-bird-sounds": {
+   "url": "https://opengameart.org/content/ambient-bird-sounds",
+   "title": "Ambient Bird Sounds",
+   "author": "isaiah658",
+   "licences_on_page": [
+    "CC0"
+   ],
+   "retrieved": "2026-11-09"
+  },
+  "battle-sound-effects": {
+   "url": "https://opengameart.org/content/battle-sound-effects",
+   "title": "Battle Sound Effects",
+   "author": "artisticdude",
+   "licences_on_page": [
+    "CC-BY 3.0",
+    "CC-BY-SA 3.0",
+    "GPL 3.0",
+    "GPL 2.0",
+    "CC0"
+   ],
+   "retrieved": "2026-11-09"
+  },
+  "blacksmiths-hammer": {
+   "url": "https://opengameart.org/content/blacksmiths-hammer",
+   "title": "Blacksmith's Hammer",
+   "author": "VishwaJai",
+   "licences_on_page": [
+    "CC0"
+   ],
+   "retrieved": "2026-11-09"
+  },
+  "breaking-rock": {
+   "url": "https://opengameart.org/content/breaking-rock",
+   "title": "Breaking Rock",
+   "author": "themightyglider",
+   "licences_on_page": [
+    "CC0"
+   ],
+   "retrieved": "2026-11-09"
+  },
+  "cave-in": {
+   "url": "https://opengameart.org/content/cave-in",
+   "title": "Cave In",
+   "author": "StarNinjas",
+   "licences_on_page": [
+    "CC0"
+   ],
+   "retrieved": "2026-11-09"
+  },
+  "classic-fanfare-lick": {
+   "url": "https://opengameart.org/content/classic-fanfare-lick",
+   "title": "Classic fanfare lick",
+   "author": "fvcalderan",
+   "licences_on_page": [
+    "CC0"
+   ],
+   "retrieved": "2026-11-09"
+  },
+  "fantasy-weapons-and-apparel-sfx-library": {
+   "url": "https://opengameart.org/content/fantasy-weapons-and-apparel-sfx-library",
+   "title": "Fantasy Weapons and Apparel SFX Library",
+   "author": "Vehicle",
+   "licences_on_page": [
+    "CC0"
+   ],
+   "retrieved": "2026-11-09"
+  },
+  "freesound-149024": {
+   "url": "https://freesound.org/people/foxen10/sounds/149024/",
+   "title": "Horse_Whinny.wav",
+   "author": "foxen10",
+   "licences_on_page": [
+    "CC0"
+   ],
+   "licence_url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "retrieved": "2026-11-09"
+  },
+  "freesound-205938": {
+   "url": "https://freesound.org/people/Twisted_Euphoria/sounds/205938/",
+   "title": "Arrow Impact",
+   "author": "Twisted_Euphoria",
+   "licences_on_page": [
+    "CC0"
+   ],
+   "licence_url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "retrieved": "2026-11-09"
+  },
+  "freesound-328541": {
+   "url": "https://freesound.org/people/Vendarro/sounds/328541/",
+   "title": "Deep Horn",
+   "author": "Vendarro",
+   "licences_on_page": [
+    "CC0"
+   ],
+   "licence_url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "retrieved": "2026-11-09"
+  },
+  "freesound-384918": {
+   "url": "https://freesound.org/people/Ali_6868/sounds/384918/",
+   "title": "Bow Release (Bow and Arrow) 3",
+   "author": "Ali_6868",
+   "licences_on_page": [
+    "CC0"
+   ],
+   "licence_url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "retrieved": "2026-11-09"
+  },
+  "freesound-392180": {
+   "url": "https://freesound.org/people/kirmm/sounds/392180/",
+   "title": "Battle_horn_1.wav",
+   "author": "kirmm",
+   "licences_on_page": [
+    "CC0"
+   ],
+   "licence_url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "retrieved": "2026-11-09"
+  },
+  "freesound-394180": {
+   "url": "https://freesound.org/people/saturdaysoundguy/sounds/394180/",
+   "title": "Arrow Loose and Flyby",
+   "author": "saturdaysoundguy",
+   "licences_on_page": [
+    "CC0"
+   ],
+   "licence_url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "retrieved": "2026-11-09"
+  },
+  "freesound-437110": {
+   "url": "https://freesound.org/people/craigsmith/sounds/437110/",
+   "title": "G38-15-Perfect Horse Whinny.wav",
+   "author": "craigsmith",
+   "licences_on_page": [
+    "CC0"
+   ],
+   "licence_url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "retrieved": "2026-11-09"
+  },
+  "freesound-437111": {
+   "url": "https://freesound.org/people/craigsmith/sounds/437111/",
+   "title": "G38-16-Four Horse Snorts.wav",
+   "author": "craigsmith",
+   "licences_on_page": [
+    "CC0"
+   ],
+   "licence_url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "retrieved": "2026-11-09"
+  },
+  "freesound-475483": {
+   "url": "https://freesound.org/people/o_ciz/sounds/475483/",
+   "title": "Horse(snort)_3.wav",
+   "author": "o_ciz",
+   "licences_on_page": [
+    "CC0"
+   ],
+   "licence_url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "retrieved": "2026-11-09"
+  },
+  "freesound-479921": {
+   "url": "https://freesound.org/people/craigsmith/sounds/479921/",
+   "title": "R01-03-Catapult Launch and Hit Target.wav",
+   "author": "craigsmith",
+   "licences_on_page": [
+    "CC0"
+   ],
+   "licence_url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "retrieved": "2026-11-09"
+  },
+  "freesound-534956": {
+   "url": "https://freesound.org/people/JoeDinesSound/sounds/534956/",
+   "title": "ARROW_WOOD_IMPACT_SINGLE_ARCHERY_01.wav",
+   "author": "JoeDinesSound",
+   "licences_on_page": [
+    "CC0"
+   ],
+   "licence_url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "retrieved": "2026-11-09"
+  },
+  "freesound-536066": {
+   "url": "https://freesound.org/people/EminYILDIRIM/sounds/536066/",
+   "title": "Bow Impact",
+   "author": "EminYILDIRIM",
+   "licences_on_page": [
+    "CC0"
+   ],
+   "licence_url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "retrieved": "2026-11-09"
+  },
+  "freesound-539956": {
+   "url": "https://freesound.org/people/adharca/sounds/539956/",
+   "title": "war horn.wav",
+   "author": "adharca",
+   "licences_on_page": [
+    "CC0"
+   ],
+   "licence_url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "retrieved": "2026-11-09"
+  },
+  "freesound-564628": {
+   "url": "https://freesound.org/people/D4XX/sounds/564628/",
+   "title": "Single Horse Galopp",
+   "author": "D4XX",
+   "licences_on_page": [
+    "CC0"
+   ],
+   "licence_url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "retrieved": "2026-11-09"
+  },
+  "freesound-569356": {
+   "url": "https://freesound.org/people/MVMTech/sounds/569356/",
+   "title": "Church Bell.wav",
+   "author": "MVMTech",
+   "licences_on_page": [
+    "CC0"
+   ],
+   "licence_url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "retrieved": "2026-11-09"
+  },
+  "freesound-633208": {
+   "url": "https://freesound.org/people/igroglaz/sounds/633208/",
+   "title": "Old Church Bell (no noise)",
+   "author": "igroglaz",
+   "licences_on_page": [
+    "CC0"
+   ],
+   "licence_url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "retrieved": "2026-11-09"
+  },
+  "freesound-708223": {
+   "url": "https://freesound.org/people/Mythmazter/sounds/708223/",
+   "title": "Arrow_Hit_1",
+   "author": "Mythmazter",
+   "licences_on_page": [
+    "CC0"
+   ],
+   "licence_url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "retrieved": "2026-11-09"
+  },
+  "freesound-712918": {
+   "url": "https://freesound.org/people/greyfeather/sounds/712918/",
+   "title": "building collapse / demolition",
+   "author": "greyfeather",
+   "licences_on_page": [
+    "CC0"
+   ],
+   "licence_url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "retrieved": "2026-11-09"
+  },
+  "freesound-73678": {
+   "url": "https://freesound.org/people/daytripper/sounds/73678/",
+   "title": "TollBell.wav",
+   "author": "daytripper",
+   "licences_on_page": [
+    "CC0"
+   ],
+   "licence_url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "retrieved": "2026-11-09"
+  },
+  "freesound-748269": {
+   "url": "https://freesound.org/people/tomoan74/sounds/748269/",
+   "title": "Church Bell, Treble",
+   "author": "tomoan74",
+   "licences_on_page": [
+    "CC0"
+   ],
+   "licence_url": "http://creativecommons.org/publicdomain/zero/1.0/",
+   "retrieved": "2026-11-09"
+  },
+  "hammer-on-anvil": {
+   "url": "https://opengameart.org/content/hammer-on-anvil",
+   "title": "Hammer on Anvil",
+   "author": "themightyglider",
+   "licences_on_page": [
+    "CC0"
+   ],
+   "retrieved": "2026-11-09"
+  },
+  "medieval-battle": {
+   "url": "https://opengameart.org/content/medieval-battle",
+   "title": "Medieval: Battle",
+   "author": "RandomMind",
+   "licences_on_page": [
+    "CC0"
+   ],
+   "retrieved": "2026-11-09"
+  },
+  "medieval-defeat-theme": {
+   "url": "https://opengameart.org/content/medieval-defeat-theme",
+   "title": "Medieval: Defeat Theme",
+   "author": "RandomMind",
+   "licences_on_page": [
+    "CC0"
+   ],
+   "retrieved": "2026-11-09"
+  },
+  "medieval-exploration": {
+   "url": "https://opengameart.org/content/medieval-exploration",
+   "title": "Medieval: Exploration",
+   "author": "RandomMind",
+   "licences_on_page": [
+    "CC0"
+   ],
+   "retrieved": "2026-11-09"
+  },
+  "medieval-kings-feast": {
+   "url": "https://opengameart.org/content/medieval-kings-feast",
+   "title": "Medieval: King's Feast",
+   "author": "RandomMind",
+   "licences_on_page": [
+    "CC0"
+   ],
+   "retrieved": "2026-11-09"
+  },
+  "medieval-market-day": {
+   "url": "https://opengameart.org/content/medieval-market-day",
+   "title": "Medieval: Market Day",
+   "author": "RandomMind",
+   "licences_on_page": [
+    "CC0"
+   ],
+   "retrieved": "2026-11-09"
+  },
+  "medieval-the-bards-tale": {
+   "url": "https://opengameart.org/content/medieval-the-bards-tale",
+   "title": "Medieval: The Bard's Tale",
+   "author": "RandomMind",
+   "licences_on_page": [
+    "CC0"
+   ],
+   "retrieved": "2026-11-09"
+  },
+  "medieval-the-old-tower-inn": {
+   "url": "https://opengameart.org/content/medieval-the-old-tower-inn",
+   "title": "Medieval: The Old Tower Inn",
+   "author": "RandomMind",
+   "licences_on_page": [
+    "CC0"
+   ],
+   "retrieved": "2026-11-09"
+  },
+  "medieval-victory-theme": {
+   "url": "https://opengameart.org/content/medieval-victory-theme",
+   "title": "Medieval: Victory Theme",
+   "author": "RandomMind",
+   "licences_on_page": [
+    "CC0"
+   ],
+   "retrieved": "2026-11-09"
+  },
+  "park-ambiences": {
+   "url": "https://opengameart.org/content/park-ambiences",
+   "title": "Park ambiences",
+   "author": "Thimras",
+   "licences_on_page": [
+    "CC0"
+   ],
+   "retrieved": "2026-11-09"
+  },
+  "rpg-sound-pack": {
+   "url": "https://opengameart.org/content/rpg-sound-pack",
+   "title": "RPG Sound Pack",
+   "author": "artisticdude",
+   "licences_on_page": [
+    "CC0"
+   ],
+   "retrieved": "2026-11-09"
+  },
+  "tree-creaking": {
+   "url": "https://opengameart.org/content/tree-creaking",
+   "title": "Tree Creaking",
+   "author": "AntumDeluge",
+   "licences_on_page": [
+    "CC0"
+   ],
+   "retrieved": "2026-11-09"
+  },
+  "trumpet-fanfare": {
+   "url": "https://opengameart.org/content/trumpet-fanfare",
+   "title": "Trumpet Fanfare",
+   "author": "gchoc",
+   "licences_on_page": [
+    "CC0"
+   ],
+   "retrieved": "2026-11-09"
+  }
+ }
+}
