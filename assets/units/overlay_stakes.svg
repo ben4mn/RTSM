@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="40" viewBox="0 0 96 40">
+  <title>Longbow emplaced stakes</title>
+  <ellipse cx="48" cy="33" rx="42" ry="6" fill="#4a3a26" opacity=".32"/>
+  <g stroke="#293235" stroke-width="2.2" stroke-linejoin="round">
+    <path d="M14 35L4 8l9 5 8 21z" fill="#8a6238"/>
+    <path d="M33 36L27 5l8 6 5 24z" fill="#9a7042"/>
+    <path d="M56 36l5-31 3 8-1 23z" fill="#8a6238"/>
+    <path d="M75 35l9-27 3 9-5 19z" fill="#9a7042"/>
+  </g>
+  <g fill="#ecd9ae">
+    <path d="M5.5 10.5l6 3.4-2.4 2.1z"/>
+    <path d="M28.3 7.6l5.4 4-3.4 1.8z"/>
+    <path d="M60.8 8.2l1.700 4.600-2.900.6z"/>
+    <path d="M83.600 11l1.800 5-3.400.4z"/>
+  </g>
+  <g stroke="#c49a61" stroke-width="1.4" stroke-linecap="round" opacity=".75" fill="none">
+    <path d="M12 18l5 13M32 15l4 17M60 16l-2 16M82 19l-4 13"/>
+  </g>
+  <path d="M6 35c8-3 16 2 26 0s16-2 26 0 20 2 32 0" fill="none" stroke="#6f7f4b" stroke-width="3" stroke-linecap="round" opacity=".8"/>
+</svg>

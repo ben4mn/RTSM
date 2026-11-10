@@ -769,7 +769,7 @@ func _check_villager_production() -> void:
 	if tc == null:
 		return
 
-	var cost: Dictionary = UnitData.get_unit_cost(UnitData.UnitType.VILLAGER)
+	var cost: Dictionary = UnitData.get_unit_cost(UnitData.UnitType.VILLAGER, player_id)
 	if ResourceManager.can_afford(player_id, cost):
 		ai_wants_to_train.emit(tc, UnitData.UnitType.VILLAGER)
 
@@ -824,7 +824,7 @@ func _check_house_need() -> void:
 	if _has_building_under_construction(BuildingData.BuildingType.HOUSE):
 		return
 
-	var cost: Dictionary = BuildingData.get_building_cost(BuildingData.BuildingType.HOUSE)
+	var cost: Dictionary = BuildingData.get_building_cost(BuildingData.BuildingType.HOUSE, player_id)
 	if ResourceManager.can_afford(player_id, cost):
 		var pos: Vector2i = _find_build_location(BuildingData.BuildingType.HOUSE)
 		if pos != Vector2i(-1, -1):
@@ -1200,17 +1200,17 @@ func _get_economy_worker_targets(worker_count: int, resources: Dictionary) -> Di
 func _get_gold_bank_target() -> int:
 	# Upcoming paid progression plus a small, explicit replacement reserve.
 	var age: int = GameManager.get_player_age(player_id)
-	var target: int = int(SCOUT_TARGETS.get(difficulty, 1)) * int(UnitData.get_unit_cost(UnitData.UnitType.SCOUT).gold) * 2
+	var target: int = int(SCOUT_TARGETS.get(difficulty, 1)) * int(UnitData.get_unit_cost(UnitData.UnitType.SCOUT, player_id).gold) * 2
 	if age < GameManager.MAX_AGE:
 		target += int(GameManager.get_age_up_cost(player_id, age + 1).get("gold", 0))
 	if age >= 3:
-		target += int(UnitData.get_unit_cost(UnitData.UnitType.SIEGE).gold) * 2
-		if _siege_workshop_count == 0: target += int(BuildingData.get_building_cost(BuildingData.BuildingType.SIEGE_WORKSHOP).gold)
+		target += int(UnitData.get_unit_cost(UnitData.UnitType.SIEGE, player_id).gold) * 2
+		if _siege_workshop_count == 0: target += int(BuildingData.get_building_cost(BuildingData.BuildingType.SIEGE_WORKSHOP, player_id).gold)
 	for research: String in ["forging", "scale_mail"]:
 		if not GameManager.has_research(player_id, research): target += int(TechData.get_research_definition(research).cost.get("gold", 0))
 	# A recurring mixed force now spends gold, unlike the old all-wood army.
 	if age >= 2:
-		target += 2 * int(UnitData.get_unit_cost(UnitData.UnitType.ARCHER).get("gold", 0)) + int(UnitData.get_unit_cost(UnitData.UnitType.CAVALRY).get("gold", 0))
+		target += 2 * int(UnitData.get_unit_cost(UnitData.UnitType.ARCHER, player_id).get("gold", 0)) + int(UnitData.get_unit_cost(UnitData.UnitType.CAVALRY, player_id).get("gold", 0))
 	return target
 
 
@@ -1352,7 +1352,7 @@ func _check_building_construction() -> void:
 		if int(_rebuild_requests.get(BuildingData.BuildingType.BARRACKS, 0)) > 0:
 			return
 		var barracks_cost: Dictionary = BuildingData.get_building_cost(
-			BuildingData.BuildingType.BARRACKS
+			BuildingData.BuildingType.BARRACKS, player_id
 		)
 		if not ResourceManager.can_afford(player_id, barracks_cost):
 			return
@@ -1392,7 +1392,7 @@ func _check_building_construction() -> void:
 		if _saving_for_age_up and not _is_essential_building_while_saving(b_type):
 			continue
 
-		var cost: Dictionary = BuildingData.get_building_cost(b_type)
+		var cost: Dictionary = BuildingData.get_building_cost(b_type, player_id)
 		if b_type not in [BuildingData.BuildingType.HOUSE, BuildingData.BuildingType.FARM, BuildingData.BuildingType.RESOURCE_CAMP] and not _allows_trade_capital_spend(cost):
 			continue
 		if not ResourceManager.can_afford(player_id, cost):
@@ -1458,7 +1458,7 @@ func _check_trade_economy() -> void:
 	var posts: Array = _get_buildings_of_type(BuildingData.BuildingType.TRADE_POST)
 	if posts.is_empty():
 		if _has_productive_known_gold(tc): return
-		var cost: Dictionary = BuildingData.get_building_cost(BuildingData.BuildingType.TRADE_POST)
+		var cost: Dictionary = BuildingData.get_building_cost(BuildingData.BuildingType.TRADE_POST, player_id)
 		var footprint := Vector2i(2, 2)
 		var directions: Array[Vector2i] = [Vector2i(1, 0), Vector2i(1, 1), Vector2i(0, 1), Vector2i(-1, 1), Vector2i(-1, 0), Vector2i(-1, -1), Vector2i(0, -1), Vector2i(1, -1)]
 		# Eight candidates per interval; later intervals rotate around the base.
@@ -1472,14 +1472,14 @@ func _check_trade_economy() -> void:
 			if position.distance_to(tc.global_position) < Trader.MIN_ROUTE_DISTANCE or _is_worker_position_exposed(position, threats): continue
 			var route: PackedVector2Array = _get_prospective_trade_route(position)
 			if not _trade_route_is_safe(route, threats): continue
-			_trade_capital = {"wood": int(cost.wood) + int(UnitData.get_unit_cost(UnitData.UnitType.TRADER).wood), "gold": int(UnitData.get_unit_cost(UnitData.UnitType.TRADER).gold)}
+			_trade_capital = {"wood": int(cost.wood) + int(UnitData.get_unit_cost(UnitData.UnitType.TRADER, player_id).wood), "gold": int(UnitData.get_unit_cost(UnitData.UnitType.TRADER, player_id).gold)}
 			# A depleted gold bank cannot bootstrap trade. Protect incoming gold,
 			# but do not strand usable army wood behind an unfunded caravan.
 			if gold < int(_trade_capital.gold): _trade_capital.wood = 0
 			_trade_capital_until = _game_time + 22.0
 			if ResourceManager.can_afford(player_id, _trade_capital):
 				ai_wants_to_build.emit(BuildingData.BuildingType.TRADE_POST, tile, false)
-				if not _get_buildings_of_type(BuildingData.BuildingType.TRADE_POST).is_empty(): _trade_capital.wood = int(UnitData.get_unit_cost(UnitData.UnitType.TRADER).wood)
+				if not _get_buildings_of_type(BuildingData.BuildingType.TRADE_POST).is_empty(): _trade_capital.wood = int(UnitData.get_unit_cost(UnitData.UnitType.TRADER, player_id).wood)
 			return
 		return
 	var post: BuildingBase = posts[0] as BuildingBase
@@ -1487,7 +1487,7 @@ func _check_trade_economy() -> void:
 		return
 	var return_route: PackedVector2Array = _get_prospective_trade_route(post.global_position)
 	if not _trade_route_is_safe(return_route, threats): return
-	_trade_capital = UnitData.get_unit_cost(UnitData.UnitType.TRADER)
+	_trade_capital = UnitData.get_unit_cost(UnitData.UnitType.TRADER, player_id)
 	if gold < int(_trade_capital.gold): _trade_capital.wood = 0
 	_trade_capital_until = _game_time + 22.0
 	if post.state != BuildingBase.State.ACTIVE: return
@@ -1569,7 +1569,7 @@ func _check_rebuilding() -> bool:
 			continue
 		if _has_building_under_construction(building_type):
 			continue
-		var cost: Dictionary = BuildingData.get_building_cost(building_type)
+		var cost: Dictionary = BuildingData.get_building_cost(building_type, player_id)
 		if not ResourceManager.can_afford(player_id, cost):
 			continue
 		var build_position: Vector2i = _find_build_location(building_type)
@@ -1599,7 +1599,7 @@ func _check_military_production() -> void:
 		# The Town Center worker transaction runs first in this same decision.
 		# Preserve one earned worker cost while food is below it; do not let a
 		# cheaper troop repeatedly consume the bank before replacement is possible.
-		var worker_cost: Dictionary = UnitData.get_unit_cost(UnitData.UnitType.VILLAGER)
+		var worker_cost: Dictionary = UnitData.get_unit_cost(UnitData.UnitType.VILLAGER, player_id)
 		if _find_building_of_type(BuildingData.BuildingType.TOWN_CENTER) != null and not ResourceManager.can_afford(player_id, worker_cost):
 			return
 	if _timed_age_up_reserve_active and not _is_under_pressure:
@@ -1624,7 +1624,7 @@ func _check_military_production() -> void:
 	if living_scouts + queued_scouts < scout_target:
 		var tc: Node = _find_trainable_building_of_type(BuildingData.BuildingType.TOWN_CENTER)
 		if tc:
-			var scout_cost: Dictionary = UnitData.get_unit_cost(UnitData.UnitType.SCOUT)
+			var scout_cost: Dictionary = UnitData.get_unit_cost(UnitData.UnitType.SCOUT, player_id)
 			var scout_pop_cost: int = int(UnitData.UNITS[UnitData.UnitType.SCOUT].get("pop_cost", 1))
 			if GameManager.can_reserve_population(player_id, scout_pop_cost) and ResourceManager.can_afford(player_id, scout_cost) and _allows_trade_capital_spend(scout_cost):
 				ai_wants_to_train.emit(tc, UnitData.UnitType.SCOUT)
@@ -1654,8 +1654,8 @@ func _check_military_production() -> void:
 			# Wait only for an unlocked, available queue; missing structures never
 			# block the opening, and a wiped army under current home pressure can
 			# still buy an emergency defender. Safe rebuilding can bank the real cost.
-			if _find_trainable_building_of_type(building_type) != null and not ResourceManager.can_afford(player_id, UnitData.get_unit_cost(unit_type)):
-				if _uses_strategy_opening() and ResourceManager.get_resource(player_id, "gold") < int(UnitData.get_unit_cost(unit_type).get("gold", 0)):
+			if _find_trainable_building_of_type(building_type) != null and not ResourceManager.can_afford(player_id, UnitData.get_unit_cost(unit_type, player_id)):
+				if _uses_strategy_opening() and ResourceManager.get_resource(player_id, "gold") < int(UnitData.get_unit_cost(unit_type, player_id).get("gold", 0)):
 					continue  # No-gold Warrior remains a useful exhausted-mine fallback.
 				return
 		if _try_train_from_building(building_type, unit_type):
@@ -1676,7 +1676,7 @@ func _try_train_from_building(building_type: int, unit_type: int) -> bool:
 	if not GameManager.can_reserve_population(player_id, pop_cost):
 		return false
 
-	var cost: Dictionary = UnitData.get_unit_cost(unit_type)
+	var cost: Dictionary = UnitData.get_unit_cost(unit_type, player_id)
 	if not _allows_trade_capital_spend(cost): return false
 	if not _allows_boom_spend(cost): return false
 	if unit_type != UnitData.UnitType.SIEGE and _needs_compact_siege_purchase():
@@ -1685,14 +1685,14 @@ func _try_train_from_building(building_type: int, unit_type: int) -> bool:
 			return false
 		# Keep paid escorts, but stop optional replacements from spending every
 		# wood deposit before the Castle finishing tool can be purchased.
-		var reserve_cost: Dictionary = BuildingData.get_building_cost(BuildingData.BuildingType.SIEGE_WORKSHOP) if _siege_workshop_count == 0 else UnitData.get_unit_cost(UnitData.UnitType.SIEGE)
+		var reserve_cost: Dictionary = BuildingData.get_building_cost(BuildingData.BuildingType.SIEGE_WORKSHOP, player_id) if _siege_workshop_count == 0 else UnitData.get_unit_cost(UnitData.UnitType.SIEGE, player_id)
 		for resource_type: String in ["wood", "gold"]:
 			if int(cost.get(resource_type, 0)) > 0 and ResourceManager.get_resource(player_id, resource_type) - int(cost.get(resource_type, 0)) < int(reserve_cost.get(resource_type, 0)):
 				return false
 	var role_unlock: int = _get_compact_missing_role_building()
 	var committed_fighters: int = _get_fighting_units().size() + _count_queued_military_units() - _count_queued_unit(UnitData.UnitType.SCOUT)
 	if role_unlock >= 0 and committed_fighters >= _get_attack_threshold():
-		var unlock_wood: int = int(BuildingData.get_building_cost(role_unlock).get("wood", 0))
+		var unlock_wood: int = int(BuildingData.get_building_cost(role_unlock, player_id).get("wood", 0))
 		if int(cost.get("wood", 0)) > 0 and ResourceManager.get_resource(player_id, "wood") - int(cost.get("wood", 0)) < unlock_wood:
 			return false
 	if ResourceManager.can_afford(player_id, cost):
@@ -1821,7 +1821,7 @@ func get_opening_strategy() -> String:
 func _get_boom_reserve_cost() -> Dictionary:
 	if not _uses_strategy_opening() or get_opening_strategy() != "two_tc_boom" or _is_under_pressure: return {}
 	if GameManager.get_player_age(player_id) < 2 or _town_center_count >= 2 or _get_villagers().size() < 8 or _get_fighting_units().size() < 2: return {}
-	return BuildingData.get_building_cost(BuildingData.BuildingType.TOWN_CENTER)
+	return BuildingData.get_building_cost(BuildingData.BuildingType.TOWN_CENTER, player_id)
 
 
 func _allows_boom_spend(cost: Dictionary) -> bool:
@@ -2088,7 +2088,7 @@ func _get_military_training_plan(resources: Dictionary) -> Array:
 		if _uses_compact_population_policy() or _uses_strategy_opening():
 			filtered.append(unit_type)
 			continue
-		var cost: Dictionary = UnitData.get_unit_cost(unit_type)
+		var cost: Dictionary = UnitData.get_unit_cost(unit_type, player_id)
 		var affordable: bool = true
 		for resource_type in cost:
 			if int(resources.get(resource_type, 0)) < int(cost[resource_type]):
@@ -2226,6 +2226,8 @@ func _check_research() -> void:
 		if GameManager.has_research(player_id, research_id):
 			continue
 		var definition: Dictionary = TechData.get_research_definition(research_id)
+		if not TechData.is_available_to(definition, GameManager.get_player_civilization(player_id)):
+			continue  # Another kingdom's unique technology.
 		var building: Node2D = idle_by_type.get(int(definition.get("building_type", -1))) as Node2D
 		if building == null:
 			continue
@@ -2269,7 +2271,7 @@ func _get_expansion_camp_anchor() -> Vector2i:
 		return Vector2i(-1, -1)
 	if _find_trainable_building_of_type(BuildingData.BuildingType.RESOURCE_CAMP) == null:
 		return Vector2i(-1, -1)
-	var camp_cost: Dictionary = BuildingData.get_building_cost(BuildingData.BuildingType.RESOURCE_CAMP)
+	var camp_cost: Dictionary = BuildingData.get_building_cost(BuildingData.BuildingType.RESOURCE_CAMP, player_id)
 	if ResourceManager.get_resource(player_id, "wood") < int(camp_cost.get("wood", 0)) + EXPANSION_CAMP_WOOD_RESERVE:
 		return Vector2i(-1, -1)
 	var worked_sources: Array[ResourceNode] = []

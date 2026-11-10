@@ -3127,7 +3127,7 @@ func show_building_selection(building_name: String, current_hp: int, max_hp: int
 				# a third line to a building description hid it on small phones.
 				var progress: float = float(item.get("progress", 0.0))
 				var unit_type: int = int(item.get("unit_type", -1))
-				var remaining: int = ceili(float(UnitData.UNITS.get(unit_type, {}).get("build_time", 15.0)) * (1.0 - progress))
+				var remaining: int = ceili(float(UnitData.get_unit_stats(unit_type, 0).get("build_time", 15.0)) * (1.0 - progress))
 				selection_details.text = "%s %d%%\n%ds · %d waiting" % [str(item.get("name", "Training")), int(progress * 100.0), remaining, maxi(0, visible_queue.size() - 1)]
 				break
 	_update_queue_display(visible_queue)
@@ -3280,7 +3280,8 @@ func _unit_role_information(unit_type: int) -> String:
 		return "Reconnaissance · unarmed"
 	var role: String = UnitData.get_unit_role_description(unit_type, _selection_unit_owner)
 	var counter: String = UnitData.get_unit_counter_name(unit_type, _selection_unit_owner)
-	return role + (" · damage bonus against " + counter if not counter.is_empty() else "")
+	var ability: String = UnitAbilities.card_line(unit_type, _selection_unit_owner)  # Round 2 C
+	return role + (" · damage bonus against " + counter if not counter.is_empty() else "") + ("\n" + ability if not ability.is_empty() else "")
 
 
 func _building_purpose(building_ref: Node2D) -> String:
@@ -3413,7 +3414,7 @@ func _update_queue_display(queue_items: Array) -> void:
 		if bool(item.get("is_training", false)):
 			var progress: float = float(item.get("progress", 0.0))
 			var pct: int = int(progress * 100.0)
-			var train_time: float = UnitData.UNITS.get(unit_type, {}).get("build_time", 15.0)
+			var train_time: float = UnitData.get_unit_stats(unit_type, 0).get("build_time", 15.0)
 			var remaining: float = maxf(0.0, train_time * (1.0 - progress))
 			training_label = "%s %d%%  %ds" % [name_str, pct, int(remaining)]
 		else:
@@ -3679,7 +3680,7 @@ func _update_train_buttons(trainable_units: Array) -> void:
 	var child_index := 0
 	for ut: int in desired_unit_types:
 		var unit_name: String = UnitData.get_unit_name(ut, 0)
-		var cost: Dictionary = UnitData.get_unit_cost(ut)
+		var cost: Dictionary = UnitData.get_unit_cost(ut, 0)
 		var availability: Dictionary = _training_availability(ut)
 		var blocked: bool = bool(availability.get("blocked", false))
 		var cost_parts: PackedStringArray = []
@@ -4006,7 +4007,7 @@ func _get_repeat_wait_reason() -> String:
 			return "Pop %d/%d" % [committed, cap]
 	var rm: Node = _get_resource_manager()
 	if rm:
-		var missing: Dictionary = rm.get_missing_resources(building.player_owner, UnitData.get_unit_cost(unit_type))
+		var missing: Dictionary = rm.get_missing_resources(building.player_owner, UnitData.get_unit_cost(unit_type, building.player_owner))
 		var shortages: PackedStringArray = []
 		for resource: String in ["food", "wood", "gold"]:
 			if int(missing.get(resource, 0)) > 0:
@@ -5554,7 +5555,7 @@ func _quick_build_choices() -> Array[Dictionary]:
 	var age: int = int(gm.call("get_player_age", 0)) if gm != null else 1
 	for building_type: int in types.slice(0, 4):
 		var stats: Dictionary = BuildingData.get_building_stats(building_type, 0)
-		var cost: Dictionary = BuildingData.get_building_cost(building_type)
+		var cost: Dictionary = BuildingData.get_building_cost(building_type, 0)
 		var resource_manager: Node = _get_resource_manager()
 		var affordable: bool = resource_manager == null or bool(resource_manager.call("can_afford", 0, cost))
 		var unlocked: bool = age >= int(stats.get("age_required", 0))
@@ -5624,13 +5625,16 @@ func _train_information(unit_type: int) -> Dictionary:
 	var player_id: int = (_selected_building_ref as BuildingBase).player_owner if _is_human_owned_building(_selected_building_ref) else 0
 	var stats: Dictionary = Combat.get_effective_unit_type_stats(unit_type, player_id)
 	var availability: Dictionary = _training_availability(unit_type)
-	var body: String = "%s\nCost: %s\nPopulation: %d · Training: %ds\nHP %d · Attack %d · Armor %d" % [availability.get("body", ""), _full_cost_text(UnitData.get_unit_cost(unit_type)), int(stats.get("pop_cost", 1)), int(stats.get("build_time", 15)), int(stats.get("hp", 0)), int(stats.get("damage", 0)), int(stats.get("armor", 0))]
+	var body: String = "%s\nCost: %s\nPopulation: %d · Training: %ds\nHP %d · Attack %d · Armor %d" % [availability.get("body", ""), _full_cost_text(UnitData.get_unit_cost(unit_type, 0)), int(stats.get("pop_cost", 1)), int(stats.get("build_time", 15)), int(stats.get("hp", 0)), int(stats.get("damage", 0)), int(stats.get("armor", 0))]
 	body += "\nSpeed %d" % int(stats.get("speed", 50))
 	if int(stats.get("attack_range", 1)) > 1:
 		body += " · Range %d" % int(stats.get("attack_range", 1))
 	var role: String = UnitData.get_unit_counter_description(unit_type, player_id)
 	if not role.is_empty():
 		body += "\n" + role
+	var ability: String = UnitAbilities.card_line(unit_type, player_id)  # Round 2 C
+	if not ability.is_empty():
+		body += "\n" + ability
 	if unit_type == UnitData.UnitType.SCOUT:
 		body += "\nReveals ground and contests the Sacred Site.\nCannot attack or fight back; retreat from enemies."
 	var shortcut: String = ""
@@ -5678,7 +5682,7 @@ func _training_availability(unit_type: int) -> Dictionary:
 		return {"blocked": true, "short": "Queue full", "body": "Queue full (%d/%d).\nWait for training or use Queue to cancel a unit." % [queue_size, ProductionQueue.MAX_QUEUE_SIZE]}
 	var rm: Node = _get_resource_manager()
 	if rm != null:
-		var missing: Dictionary = rm.get_missing_resources(building.player_owner, UnitData.get_unit_cost(unit_type))
+		var missing: Dictionary = rm.get_missing_resources(building.player_owner, UnitData.get_unit_cost(unit_type, building.player_owner))
 		var short_parts: PackedStringArray = []
 		for resource: String in ["food", "wood", "gold"]:
 			if int(missing.get(resource, 0)) > 0:
@@ -5700,7 +5704,7 @@ func _repeat_information() -> Dictionary:
 			unit_type = int(queue.get("auto_queue_unit_type"))
 			enabled = bool(queue.get("auto_queue_enabled"))
 	var unit_name: String = UnitData.get_unit_name(unit_type, 0) if unit_type >= 0 else "the last unit trained"
-	var body: String = "Repeat is %s.\nRepeats %s through the normal paid training queue.\nEach unit costs %s.\nWaits for resources or population space.\nTurning Repeat OFF leaves paid units queued. Clear & stop refunds them.\nCurrent status: %s\nTap to toggle. Holding only inspects." % ["ON" if enabled else "OFF", unit_name, _full_cost_text(UnitData.get_unit_cost(unit_type)) if unit_type >= 0 else "its normal resource cost", _get_repeat_wait_reason()]
+	var body: String = "Repeat is %s.\nRepeats %s through the normal paid training queue.\nEach unit costs %s.\nWaits for resources or population space.\nTurning Repeat OFF leaves paid units queued. Clear & stop refunds them.\nCurrent status: %s\nTap to toggle. Holding only inspects." % ["ON" if enabled else "OFF", unit_name, _full_cost_text(UnitData.get_unit_cost(unit_type, 0)) if unit_type >= 0 else "its normal resource cost", _get_repeat_wait_reason()]
 	return {"title": "Repeat training", "body": body}
 
 
@@ -5742,7 +5746,7 @@ func _refund_information(unit_type: int) -> Dictionary:
 	elif unit_type == -1:
 		body += "Cancels the last queue item. Repeat stays at its current setting."
 	else:
-		body += "Cancels the first waiting unit of this type; current training continues. Repeat stays at its current setting.\nRefund: " + _full_cost_text(UnitData.get_unit_cost(unit_type))
+		body += "Cancels the first waiting unit of this type; current training continues. Repeat stays at its current setting.\nRefund: " + _full_cost_text(UnitData.get_unit_cost(unit_type, 0))
 	body += "\nTap to cancel. Holding only inspects and refunds nothing."
 	return {"title": title, "body": body}
 

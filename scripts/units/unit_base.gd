@@ -96,6 +96,13 @@ var _animation_clock: float = 0.0
 var _gait_phase: float = 0.0
 var _last_visual_position: Vector2 = Vector2.ZERO
 var _health_feedback_remaining: float = 0.0
+# Round 2 C: kingdom unit ability (scripts/units/unit_abilities.gd). The kind
+# comes from data; timer and ready are saved (UNIT_FIELDS) and `ready` is the
+# visible flag (pennon / stakes / loot sack) sent to clients.
+var _ability_kind: int = 0
+var _ability_timer: float = 0.0
+var _ability_ready: bool = false
+var _ability_anchor: Vector2 = Vector2.INF
 
 # --- Node references ---
 @onready var collision_shape: CollisionShape2D = $CollisionShape2D
@@ -223,6 +230,7 @@ func _load_stats_from_data() -> void:
 	is_ranged = stats.get("attack_range", 1) > 1
 	attack_speed = 1.0 / maxf(0.1, float(stats.get("attack_interval", 1.0)))
 	ResearchEffects.apply_unit_bonuses(self)  # Round 2 B: researched bonuses + tier chevron.
+	UnitAbilities.setup(self)  # Round 2 C: kingdom unit ability.
 
 
 func _setup_sprite() -> void:
@@ -338,6 +346,8 @@ func _process(delta: float) -> void:
 	_separation_timer = maxf(0.0, _separation_timer - delta)
 	_navigation_repath_cooldown = maxf(0.0, _navigation_repath_cooldown - delta)
 	_advance_attack_windup(delta)
+	if _ability_kind != 0:
+		UnitAbilities.tick(self, delta)
 
 	match current_state:
 		State.IDLE:

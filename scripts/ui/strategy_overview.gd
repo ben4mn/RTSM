@@ -499,12 +499,12 @@ func update_snapshot(snapshot: Dictionary) -> void:
 	_economy_health.add_theme_color_override("font_color", KingdomTheme.AMBER if int(economy.get("severity", 0)) > 0 else KingdomTheme.PARCHMENT)
 	_food_stock.text = str(economy.get("stock", ""))
 	_farm_blocker.text = str(snapshot.get("farm_blocker", ""))
-	var farm_wood: int = int(BuildingData.get_building_cost(BuildingData.BuildingType.FARM).get("wood", 75))
+	var farm_wood: int = int(BuildingData.get_building_cost(BuildingData.BuildingType.FARM, 0).get("wood", 75))
 	CommandIcons.apply(_farm_button, "farm", "Plan a Farm: %d wood, permanent food. %s" % [farm_wood, _farm_blocker.text])
 	ACTION_TILE.apply(_farm_button, CommandIcons.get_icon("farm"), {"wood": farm_wood}, Vector2(48,48))
 	_farm_button.disabled = not bool(snapshot.get("can_plan_farm", false))
 	_barracks_blocker.text = str(snapshot.get("barracks_blocker", ""))
-	var barracks_wood: int = int(BuildingData.get_building_cost(BuildingData.BuildingType.BARRACKS).get("wood", 120))
+	var barracks_wood: int = int(BuildingData.get_building_cost(BuildingData.BuildingType.BARRACKS, 0).get("wood", 120))
 	CommandIcons.apply(_barracks_button, "build", "Plan a Barracks: %d wood. %s" % [barracks_wood, _barracks_blocker.text])
 	ACTION_TILE.apply(_barracks_button, load(BuildingBase.get_sprite_texture_path(BuildingData.BuildingType.BARRACKS, 0)), {"wood": barracks_wood}, Vector2(84,68))
 	_barracks_button.disabled = not bool(snapshot.get("can_plan_barracks", false))
@@ -636,7 +636,7 @@ func _create_producer(producer: Dictionary) -> void:
 	var train_buttons: Dictionary = {}
 	var train_status: Dictionary = {}
 	for unit_type: int in producer.get("trainable", []):
-		var cost: Dictionary = UnitData.get_unit_cost(unit_type)
+		var cost: Dictionary = UnitData.get_unit_cost(unit_type, 0)
 		var costs: PackedStringArray = []
 		for resource: String in RESOURCES:
 			if int(cost.get(resource, 0)) > 0:
@@ -842,7 +842,7 @@ func _build_research() -> void:
 		if building_type == BuildingData.BuildingType.TOWN_CENTER:
 			keys.append(RESEARCH_AGE_KEY)
 		for definition: Dictionary in TechData.RESEARCH_DEFS:
-			if int(definition["building_type"]) == building_type:
+			if int(definition["building_type"]) == building_type and TechData.is_available_to(definition, GameManager.get_player_civilization(0)):
 				keys.append(str(definition["id"]))
 		for key: String in keys:
 			var tile: Button = _button("", "ResearchTile_" + key, RESEARCH_TILE_SIZE.x)
@@ -1103,8 +1103,8 @@ func _refresh_details() -> void:
 func _worker_recovery_hint(economy: Dictionary, facts: Dictionary) -> String:
 	var population_full: bool = int(facts.get("free_population", 1)) <= 0
 	var living_full: bool = int(facts.get("population_room_after_refunds", 1)) <= 0
-	var worker_food: int = int(UnitData.get_unit_cost(UnitData.UnitType.VILLAGER).get("food", 50))
-	var farm_wood: int = int(BuildingData.get_building_cost(BuildingData.BuildingType.FARM).get("wood", 75))
+	var worker_food: int = int(UnitData.get_unit_cost(UnitData.UnitType.VILLAGER, 0).get("food", 50))
+	var farm_wood: int = int(BuildingData.get_building_cost(BuildingData.BuildingType.FARM, 0).get("wood", 75))
 	match str(economy.get("title", "")):
 		"Replacement already paid":
 			return "Keep the paid Villager's producer safe."
@@ -1133,7 +1133,7 @@ func _producer_details(producer: Dictionary) -> PackedStringArray:
 	var blockers: PackedStringArray = []
 	var named_blockers: PackedStringArray = []
 	for unit_type: int in producer.get("trainable", []):
-		var cost: Dictionary = UnitData.get_unit_cost(unit_type)
+		var cost: Dictionary = UnitData.get_unit_cost(unit_type, 0)
 		var costs: PackedStringArray = []
 		for resource: String in RESOURCES:
 			if int(cost.get(resource, 0)) > 0:

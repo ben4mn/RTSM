@@ -175,13 +175,14 @@ const BUILDINGS: Dictionary = {
 static func get_building_stats(building_type: int, player_id: int = -1) -> Dictionary:
 	if BUILDINGS.has(building_type):
 		var stats: Dictionary = BUILDINGS[building_type].duplicate(true)
-		stats["cost"] = get_building_cost(building_type)
+		stats["cost"] = get_building_cost(building_type, player_id)
 		stats["hp"] = roundi(float(stats["hp"]) * CivilizationData.get_building_hp_multiplier(CivilizationData.for_player(player_id)))
 		return stats
 	return {}
 
 
-static func get_building_cost(building_type: int) -> Dictionary:
+static func get_building_cost(building_type: int, player_id: int = -1) -> Dictionary:
+	## `player_id` applies that player's kingdom price (French Farms, English Camps).
 	if BUILDINGS.has(building_type):
 		var cost: Dictionary = BUILDINGS[building_type]["cost"].duplicate()
 		# SceneTree --script fixtures can compile data before autoload symbols exist.
@@ -194,6 +195,8 @@ static func get_building_cost(building_type: int) -> Dictionary:
 				match_mode = int(game_manager.call("get_match_mode"))
 		if match_mode != SkirmishData.MatchMode.STANDARD and building_type in [BuildingType.BARRACKS, BuildingType.ARCHERY_RANGE, BuildingType.STABLE]:
 			cost["wood"] = 100
+		if player_id >= 0:
+			CivilizationData.scale_cost(cost, CivilizationData.get_building_cost_multiplier(CivilizationData.for_player(player_id), building_type))
 		return cost
 	return { "food": 0, "wood": 0, "gold": 0 }
 

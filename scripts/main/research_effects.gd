@@ -30,6 +30,7 @@ static func gather_multiplier(player_id: int, resource_type: String, target: Nod
 		total += GameManager.get_modifier(player_id, "gather_gold")
 	elif resource_type == "food" and target is BuildingBase:
 		total += GameManager.get_modifier(player_id, "gather_food_farm")
+	total += UnitAbilities.gather_bonus(player_id, resource_type, target)  # Round 2 C: kingdom herd/game bonus.
 	return maxf(0.0, total)
 
 

@@ -11,7 +11,6 @@ const PANEL := Color("e7dfc9")
 const IVORY := Color("f4eddd")
 const GOLD := Color("e8bf77")
 const BORDER := Color("a6ae94")
-const PLAY_STYLES: Array[String] = ["Flexible armies", "Woodcraft & longbows", "Food & fast riders"]
 var selected: int = 0
 var heading: String = "Choose your kingdom"
 var _panel: PanelContainer
@@ -189,8 +188,12 @@ func select_civilization(id: int) -> void:
 		_cards[index].text = CivilizationData.get_civilization_name(CivilizationData.ORDERED_IDS[index]) + ("\nSelected" if is_selected else "")
 	var strengths: Variant = definition.get("strengths", "")
 	var strength_text: String = " · ".join(strengths) if strengths is Array or strengths is PackedStringArray else str(strengths)
-	_tagline.text = PLAY_STYLES[selected]
-	_detail.text = "Strengths\n%s\n\nTradeoff\n%s\n\nSignature: %s\n\n%s\n%s" % [strength_text, definition.weakness, definition.signature, definition.tagline, definition.description]
+	_tagline.text = str(definition.get("play_style", definition.tagline))
+	# Economy bonus, the unique unit with what its ability does, the unique
+	# technology, then the tradeoff: what a player needs before committing.
+	var tech: Dictionary = TechData.get_research_definition(CivilizationData.get_unique_tech(selected))
+	var tech_text: String = "%s (%s, %s) — %s" % [tech.get("name", ""), BuildingData.get_building_name(int(tech.get("building_type", -1))), SkirmishData.AGE_NAMES[clampi(int(tech.get("age_required", 1)) - 1, 0, SkirmishData.AGE_NAMES.size() - 1)], str(tech.get("details", "")).get_slice(". ", 1)] if not tech.is_empty() else ""
+	_detail.text = "Economy\n%s\n\nUnique unit\n%s\n%s\n\nUnique technology\n%s\n\nTradeoff\n%s\n\n%s\n%s" % [strength_text, definition.signature, UnitAbilities.describe_for_civilization(selected), tech_text, definition.weakness, definition.tagline, definition.description]
 	# The crest identifies the choice; its actual illustrated town connects it to play.
 	var town_path: String = KingdomArt.building_path(selected, 0)
 	_portrait.texture = load(town_path if not town_path.is_empty() else str(definition.icon_path))

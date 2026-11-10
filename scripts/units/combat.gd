@@ -23,6 +23,7 @@ class CommittedMeleeHit extends Node:
 	var defender_ref: WeakRef
 	var final_damage: float = 0.0
 	var counter_bonus: float = 1.0
+	var charged: bool = false
 	var finished: bool = false
 
 	func _ready() -> void:
@@ -34,7 +35,7 @@ class CommittedMeleeHit extends Node:
 		if finished:
 			return
 		finished = true
-		Combat.resolve_unit_hit(attacker_ref.get_ref() as UnitBase, defender_ref.get_ref() as UnitBase, final_damage, counter_bonus)
+		Combat.resolve_unit_hit(attacker_ref.get_ref() as UnitBase, defender_ref.get_ref() as UnitBase, final_damage, counter_bonus, charged)
 		queue_free()
 
 
@@ -195,6 +196,10 @@ static func queue_melee_attack(attacker: UnitBase, defender: UnitBase) -> void:
 	hit.defender_ref = weakref(defender)
 	hit.final_damage = calculate_unit_damage(attacker, defender)
 	hit.counter_bonus = get_counter_bonus(attacker.unit_type, defender.unit_type)
+	# Round 2 C: a rested Chevalier's Charge rides on this blow.
+	var ability_bonus: float = UnitAbilities.melee_bonus_damage(attacker)
+	hit.final_damage += ability_bonus
+	hit.charged = ability_bonus > 0.0
 	attacker.get_parent().add_child(hit)
 
 
@@ -218,7 +223,7 @@ static func launch_ranged_attack(attacker: UnitBase, defender: UnitBase) -> void
 	projectile.visible = attacker.visible
 
 
-static func resolve_unit_hit(attacker: UnitBase, defender: UnitBase, final_damage: float, counter_bonus: float) -> void:
+static func resolve_unit_hit(attacker: UnitBase, defender: UnitBase, final_damage: float, counter_bonus: float, charged: bool = false) -> void:
 	if not is_instance_valid(defender) or defender.current_state == UnitBase.State.DEAD:
 		return
 	var was_alive: bool = defender.hp > 0.0
@@ -244,6 +249,8 @@ static func resolve_unit_hit(attacker: UnitBase, defender: UnitBase, final_damag
 	# Track kill
 	if is_instance_valid(attacker) and was_alive and defender.hp <= 0.0:
 		attacker.kills += 1
+	# Round 2 C: Charge impact and Pillage payout.
+	UnitAbilities.on_unit_hit(attacker, defender, charged, was_alive and defender.hp <= 0.0)
 
 	# UnitBase owns intent priority, including passive movement, explicit
 	# building attacks, stand ground and resuming attack-move after retaliation.
@@ -256,7 +263,8 @@ static func resolve_unit_hit(attacker: UnitBase, defender: UnitBase, final_damag
 
 
 static func deal_damage_to_building(attacker: UnitBase, defender: BuildingBase) -> void:
-	defender.take_damage(calculate_building_damage(attacker))
+	# Round 2 C: a spent Charge adds damage; an Outrider's hit pillages gold.
+	defender.take_damage(calculate_building_damage(attacker) + UnitAbilities.on_building_hit(attacker, defender))
 
 
 static func deal_tower_damage(attacker: BuildingBase, defender: UnitBase) -> void:

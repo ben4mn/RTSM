@@ -605,7 +605,7 @@ func refresh_housing_capacity() -> void:
 
 func _refresh_affordability() -> void:
 	for building_type in _button_map:
-		var cost: Dictionary = BuildingData.get_building_cost(building_type)
+		var cost: Dictionary = BuildingData.get_building_cost(building_type, 0)
 		var can_afford: bool = _can_afford(cost)
 		var btn: Button = _button_map[building_type]
 		var age_locked: bool = bool(btn.get_meta("age_locked", false))
@@ -681,7 +681,7 @@ func _on_cancel_pressed() -> void:
 func _on_repeat_pressed() -> void:
 	if _last_selected_building_type < 0:
 		return
-	var cost: Dictionary = BuildingData.get_building_cost(_last_selected_building_type)
+	var cost: Dictionary = BuildingData.get_building_cost(_last_selected_building_type, 0)
 	if not _can_afford(cost):
 		return
 	set_placement_mode(true)
@@ -751,7 +751,7 @@ func _update_repeat_button() -> void:
 		_repeat_button.disabled = true
 		return
 	var building_name: String = BuildingData.get_building_name(_last_selected_building_type)
-	var cost: Dictionary = BuildingData.get_building_cost(_last_selected_building_type)
+	var cost: Dictionary = BuildingData.get_building_cost(_last_selected_building_type, 0)
 	_repeat_button.visible = not _placement_mode_active
 	_repeat_button.disabled = _placement_mode_active or not _can_afford(cost)
 	# Beta 32: the circular arrows alone were a mystery; name them.

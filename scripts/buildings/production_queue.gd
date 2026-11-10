@@ -82,7 +82,7 @@ func enqueue_unit(unit_type: int) -> bool:
 
 	# Resource spending and population reservation form one transaction. If
 	# either side rejects the unit, roll the other side back before returning.
-	var cost: Dictionary = UnitData.get_unit_cost(unit_type)
+	var cost: Dictionary = UnitData.get_unit_cost(unit_type, _building.player_owner)
 	if not _can_afford(cost):
 		return false
 	var pop_cost: int = int(UnitData.UNITS.get(unit_type, {}).get("pop_cost", 1))

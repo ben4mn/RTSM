@@ -1017,7 +1017,7 @@ func get_research_actions(player_id: int) -> Array[Dictionary]:
 	if building_type == BuildingData.BuildingType.TOWN_CENTER and GameManager.get_player_age(player_id) < GameManager.MAX_AGE:
 		ids.append(TechData.age_research_id(GameManager.get_player_age(player_id) + 1))
 	for definition: Dictionary in TechData.RESEARCH_DEFS:
-		if int(definition["building_type"]) != building_type:
+		if int(definition["building_type"]) != building_type or not TechData.is_available_to(definition, GameManager.get_player_civilization(player_id)):
 			continue
 		var id: String = str(definition["id"])
 		var required: String = str(definition.get("requires", ""))

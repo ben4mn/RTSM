@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="44" height="72" viewBox="0 0 44 72">
+  <title>Chevalier charge pennon (ready)</title>
+  <path d="M39 70V6" stroke="#293235" stroke-width="6" stroke-linecap="round"/>
+  <path d="M39 70V6" stroke="#8a6238" stroke-width="3.2" stroke-linecap="round"/>
+  <path d="M38.2 66V8" stroke="#c49a61" stroke-width="1" stroke-linecap="round" opacity=".7"/>
+  <path d="M39 1.5l3.2 6.5h-6.4z" fill="#e8e5db" stroke="#293235" stroke-width="1.6" stroke-linejoin="round"/>
+  <path d="M37 9C28 7 20 13 3 9c3 4 6 6 9 7.5C8.5 19 5.5 21.5 2 26c17-3 25 3 35-1z" fill="#f2c95c" stroke="#293235" stroke-width="2.2" stroke-linejoin="round"/>
+  <path d="M36 10.8C29 9.5 22 13.5 9 11.6" fill="none" stroke="#fff3c9" stroke-width="1.6" stroke-linecap="round" opacity=".85"/>
+  <path d="M36 21.5c-9 2.5-17-1.5-28 1.2" fill="none" stroke="#c98f2e" stroke-width="1.6" stroke-linecap="round" opacity=".8"/>
+  <circle cx="27" cy="16.5" r="3.2" fill="#3f6ea3" stroke="#293235" stroke-width="1.2"/>
+</svg>
