@@ -833,6 +833,97 @@ func set_production_queue(queue: Node) -> void:
 	_production_queue = queue
 
 
+# =========================================================================
+#  CONTEXT ACTIONS (Round 2 contract, docs/round2_contracts.md)
+# =========================================================================
+# What a selected building offers beyond training units. The HUD renders this
+# list as one row of cards and never needs to know what an action does.
+
+const RESEARCH_ACTION_PREFIX: String = "research:"
+## provider name -> {"actions": Callable, "perform": Callable}. Callables must
+## be static functions: the table outlives any single match.
+static var _context_providers: Dictionary = {}
+
+
+static func register_context_provider(provider_name: String, actions: Callable, perform: Callable) -> void:
+	## actions(building: BuildingBase, player_id: int) -> Array of action
+	## dictionaries (see get_context_actions); return [] for other buildings.
+	## perform(building: BuildingBase, player_id: int, action_id: String) -> String
+	## returns "" on success or a short player-facing reason. Prefix ids with the
+	## provider name ("bell:ring"). Registering the same name again replaces it.
+	_context_providers[provider_name] = {"actions": actions, "perform": perform}
+
+
+static func unregister_context_provider(provider_name: String) -> void:
+	_context_providers.erase(provider_name)
+
+
+func get_context_actions(player_id: int) -> Array[Dictionary]:
+	## Each entry: {id: String, label: String, icon: String (res:// path or ""),
+	## cost: Dictionary, time: float seconds (0 = instant), progress: float
+	## (-1 = not running, else 0..1), disabled_reason: String ("" = usable)}.
+	## Optional: short (compact card title), desc (one effect line), details
+	## (long Info text), done (bool, bought/finished for good).
+	var actions: Array[Dictionary] = []
+	if player_id != player_owner or state == State.DESTROYED:
+		return actions
+	if state == State.ACTIVE:
+		for definition: Dictionary in TechData.RESEARCH_DEFS:
+			if int(definition["building_type"]) != building_type:
+				continue
+			var research_id: String = str(definition["id"])
+			actions.append({
+				"id": RESEARCH_ACTION_PREFIX + research_id,
+				"label": str(definition.get("name", research_id)),
+				"icon": str(definition.get("icon", "")),
+				"cost": (definition.get("cost", {}) as Dictionary).duplicate(),
+				"time": float(definition.get("time", 0.0)),
+				"progress": -1.0,
+				"disabled_reason": str(GameManager.get_research_failure_reason(player_id, self, research_id)),
+				"desc": str(definition.get("desc", "")),
+				"details": str(definition.get("details", "")),
+				"done": bool(GameManager.has_research(player_id, research_id)),
+			})
+	for provider: Dictionary in _context_providers.values():
+		var actions_source: Callable = provider.actions
+		if not actions_source.is_valid():
+			continue
+		var provided: Variant = actions_source.call(self, player_id)
+		if provided is Array:
+			for action: Variant in provided:
+				if action is Dictionary and action.get("id") is String:
+					actions.append(action)
+	return actions
+
+
+func perform_context_action(player_id: int, action_id: String) -> String:
+	## Authority-side execution (solo and match server). Returns "" on success,
+	## otherwise a short player-facing reason. Everything is re-validated here;
+	## callers only need to know who is asking.
+	if player_id != player_owner or state == State.DESTROYED or hp <= 0:
+		return "Select your building"
+	if action_id.begins_with(RESEARCH_ACTION_PREFIX):
+		if GameManager.try_research(player_id, self, action_id.trim_prefix(RESEARCH_ACTION_PREFIX)):
+			return ""
+		return "Research unavailable"
+	for provider: Dictionary in _context_providers.values():
+		var actions_source: Callable = provider.actions
+		var perform: Callable = provider.perform
+		if not actions_source.is_valid() or not perform.is_valid():
+			continue
+		var provided: Variant = actions_source.call(self, player_id)
+		if not provided is Array:
+			continue
+		for action: Variant in provided:
+			if action is Dictionary and action.get("id") == action_id:
+				var blocked: String = str(action.get("disabled_reason", ""))
+				if not blocked.is_empty():
+					return blocked
+				var result: Variant = perform.call(self, player_id, action_id)
+				return result if result is String else ""
+	return "Action unavailable"
+
+
 func _tower_try_attack() -> bool:
 	if state != State.ACTIVE or hp <= 0 or tower_attack_damage <= 0:
 		return false
