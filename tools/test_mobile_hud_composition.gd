@@ -158,6 +158,10 @@ func _exercise_profile(phone: Vector2i, ui_scale: float, notched: bool) -> void:
 	var scroll: ScrollContainer = hud.get("command_scroll")
 	_expect(scroll.scroll_horizontal == 0, profile + " production does not begin on Train page")
 	for button: Button in (hud.get("_train_buttons_container") as HBoxContainer).get_children():
+		# HUD pass: a paged row keeps its Tech tiles and page buttons for the
+		# other page; only what this page shows must be a reachable target.
+		if not button.visible and (button.has_meta("action_id") or button.has_meta("row_nav") or button.name == "BuildingRallyButton" or String(button.name).begins_with("TrainButton_")):
+			continue
 		_target(button, safe, profile)
 		_expect(scroll.get_global_rect().encloses(button.get_global_rect()), profile + " initial Train/Repeat target is clipped: " + str(scroll.get_global_rect()) + " target " + str(button.get_global_rect()) + " info " + str((hud.get("selection_info_column") as Control).get_global_rect()))
 	var scout: Button = (hud.get("_train_buttons_container") as HBoxContainer).get_node("TrainButton_%d" % UnitData.UnitType.SCOUT)

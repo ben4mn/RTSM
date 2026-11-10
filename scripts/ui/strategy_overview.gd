@@ -27,7 +27,8 @@ const SOURCES: PackedStringArray = ["idle", "food", "wood", "gold"]
 const RESOURCES: PackedStringArray = ["food", "wood", "gold"]
 const RAIL_BUTTON_SIZE := CommandIcons.TARGET_SIZE
 const RAIL_GAP := CommandIcons.GAP
-const RAIL_WIDTH := RAIL_BUTTON_SIZE * 3.0 + RAIL_GAP * 2.0
+const RAIL_BUTTON_COUNT := 4
+const RAIL_WIDTH := RAIL_BUTTON_SIZE * RAIL_BUTTON_COUNT + RAIL_GAP * (RAIL_BUTTON_COUNT - 1)
 const ACTION_TILE := preload("res://scripts/ui/compact_action_tile.gd")
 const DOUBLE_TAP := preload("res://scripts/ui/double_tap_gesture.gd")
 const JOB_CHIP_WIDTH := 64.0
@@ -62,6 +63,10 @@ var _producer_rows: Dictionary = {}
 var _group_rows: Dictionary = {}
 var _economy_button: Button
 var _army_button: Button
+## Research has its own launcher: one tap opens every technology and the
+## age-up. Its badge counts what could be started right now.
+var _research_button: Button
+var _research_ready: int = 0
 ## Beta 32: one tap on Army selects every field fighter; tapping again (or
 ## holding) opens the panel. The hold timer and the tap that it consumed.
 const ARMY_HOLD_MSEC: int = 450
@@ -87,7 +92,6 @@ var _economy_producer_id: int = 0
 var _army_producer_id: int = 0
 var _workers_tab: Button
 var _production_tab: Button
-var _research_tab: Button
 var _research_page: bool = false
 var _research_list: VBoxContainer
 var _research_tiles: Dictionary = {}  # research id ("age" for the age-up) -> Button
@@ -116,6 +120,13 @@ func _ready() -> void:
 	rail.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	rail.add_theme_constant_override("separation", int(RAIL_GAP))
 	add_child(rail)
+	# Leftmost, so Base, Economy and Army keep their places from the right edge.
+	_research_button = _icon_button("research", "Research: technologies and the next age", "ResearchButton", RAIL_BUTTON_SIZE)
+	_research_button.custom_minimum_size.y = RAIL_BUTTON_SIZE
+	_research_button.toggle_mode = true
+	_research_button.pressed.connect(_on_research_rail_pressed)
+	rail.add_child(_research_button)
+	CommandIcons.apply(_research_button, "research", _research_button.accessibility_name)
 	var base := _icon_button("base", "Base: select and view your Town Center", "BaseButton", RAIL_BUTTON_SIZE)
 	base.custom_minimum_size.y = RAIL_BUTTON_SIZE
 	base.pressed.connect(func() -> void: base_requested.emit())
@@ -124,7 +135,7 @@ func _ready() -> void:
 	_economy_button = _icon_button("economy", "Economy: manage workers and paid production", "EconomyButton", RAIL_BUTTON_SIZE)
 	_economy_button.custom_minimum_size.y = RAIL_BUTTON_SIZE
 	_economy_button.toggle_mode = true
-	_economy_button.pressed.connect(func() -> void: surface_requested.emit("" if _surface == "economy" else "economy"))
+	_economy_button.pressed.connect(_on_economy_rail_pressed)
 	rail.add_child(_economy_button)
 	CommandIcons.apply(_economy_button, "economy", _economy_button.accessibility_name)
 	_army_button = _icon_button("army", "Army: recruit fighters and manage two groups", "ArmyButton", RAIL_BUTTON_SIZE)
@@ -168,10 +179,6 @@ func _ready() -> void:
 	_production_tab.toggle_mode = true
 	_production_tab.pressed.connect(func() -> void: _set_production_page(true))
 	header.add_child(_production_tab)
-	_research_tab = _button("Research", "ResearchTab", 48)
-	_research_tab.toggle_mode = true
-	_research_tab.pressed.connect(func() -> void: _set_research_page(true))
-	header.add_child(_research_tab)
 	_recruit_tab = _button("Recruit", "RecruitTab", 68)
 	_recruit_tab.toggle_mode = true
 	_recruit_tab.pressed.connect(func() -> void: _set_army_recruit_page(true))
@@ -736,7 +743,7 @@ func tuck() -> void:
 	if _tucking or not panel.visible or _surface.is_empty():
 		return
 	_tucking = true
-	var launcher: Control = _economy_button if _surface == "economy" else _army_button
+	var launcher: Control = _research_button if _showing_research() else (_economy_button if _surface == "economy" else _army_button)
 	panel.pivot_offset = launcher.get_global_rect().get_center() - panel.get_global_rect().position
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var tween: Tween = create_tween().set_parallel(true).set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
@@ -764,8 +771,12 @@ func set_surface(surface: String) -> void:
 	panel.visible = surface in ["economy", "army"]
 	_economy.visible = surface == "economy"
 	_army.visible = surface == "army"
+	if surface != "economy":
+		# Research is a page of the economy sheet with its own launcher; closing
+		# the sheet returns the Economy launcher to Workers.
+		_research_page = false
+		_cancel_armed_key = ""
 	_title.text = "Economy" if surface == "economy" else "Army"
-	_economy_button.set_pressed_no_signal(surface == "economy")
 	_army_button.set_pressed_no_signal(surface == "army")
 	if changed:
 		_clear_feedback()
@@ -798,13 +809,84 @@ func _showing_production() -> bool:
 	return _army_recruit_page if _surface == "army" else (_production_page and not _research_page)
 
 
-# --- Research page (Round 2 workstream B) ------------------------------------
-# Every technology, grouped by the building that researches it, with one-tap
-# start in an idle building of that type. Running research shows its meter;
-# cancelling stays on the building's own card so a double tap cannot undo it.
+# --- Research page -------------------------------------------------------------
+# Opened in one tap from its own rail launcher. Every technology, grouped by
+# the building that researches it, with one-tap start in an idle building of
+# that type; the age-up is the wide gold tile at the top. Running research
+# shows its meter and is cancelled by two separate taps (the first arms the
+# tile: "Cancel?"), so neither a double tap nor a stray thumb can undo it.
 
-const RESEARCH_TILE_SIZE := Vector2(66, 58)
+const RESEARCH_TILE_SIZE := Vector2(66, 54)
+const RESEARCH_AGE_TILE_SIZE := Vector2(136, 54)
+const RESEARCH_HEADING_WIDTH := 52.0
+const RESEARCH_ROW_GAP := 4
+## Building types with a row of their own; the rest share the last row.
+const RESEARCH_OWN_ROWS := 3
+## Heading, age tile and two tiles (or four tiles), plus the sheet's padding.
+const RESEARCH_SHEET_WIDTH := RESEARCH_HEADING_WIDTH + 4.0 + 66.0 * 4.0 + 4.0 * 3.0 + 16.0
+var _research_group_headings: Array[Dictionary] = []
+var _research_notice_text: String = ""
+var _research_notice_until_msec: int = 0
 const RESEARCH_AGE_KEY: String = "age"
+var _cancel_armed_key: String = ""
+
+
+func _on_research_rail_pressed() -> void:
+	if _showing_research():
+		surface_requested.emit("")
+		return
+	_research_page = true
+	_details_page = false
+	if _surface == "economy":
+		_set_research_page(true)
+	else:
+		surface_requested.emit("economy")
+		# The HUD may refuse a sheet (pause, placement): do not stay latched.
+		if _surface != "economy":
+			_research_page = false
+			_research_button.set_pressed_no_signal(false)
+
+
+func _on_economy_rail_pressed() -> void:
+	if _showing_research():
+		# Same sheet, other page: Economy means Workers.
+		_set_production_page(false)
+		return
+	surface_requested.emit("" if _surface == "economy" else "economy")
+
+
+func open_research() -> void:
+	if not _showing_research():
+		_on_research_rail_pressed()
+
+
+## Researches (and the age-up) that could be started this instant.
+func count_ready_research() -> int:
+	var ready: int = 0
+	var keys: Array = _research_tiles.keys()
+	for key: String in keys:
+		var research_id: String = _research_id_for(key)
+		var definition: Dictionary = GameManager.get_research_definition(0, research_id)
+		if definition.is_empty() or (key == RESEARCH_AGE_KEY and GameManager.get_player_age(0) >= GameManager.MAX_AGE):
+			continue
+		var building: Node2D = _research_building_for(research_id, int(definition["building_type"]))
+		if building == null or str(building.get("research_id")) == research_id:
+			continue
+		if str(GameManager.get_research_failure_reason(0, building, research_id)).is_empty():
+			ready += 1
+	return ready
+
+
+func _refresh_research_badge() -> void:
+	if _research_button == null:
+		return
+	_research_ready = count_ready_research() if GameManager.current_state == GameManager.GameState.PLAYING else 0
+	CommandIcons.set_badge(_research_button, str(_research_ready) if _research_ready > 0 else "", true)
+	var label: String = "Research: technologies and the next age"
+	if _research_ready > 0:
+		label += " · %d ready" % _research_ready
+	_research_button.tooltip_text = label
+	_research_button.accessibility_name = label
 
 
 func _set_research_page(enabled: bool) -> void:
@@ -822,33 +904,88 @@ func _showing_research() -> bool:
 
 
 func _build_research() -> void:
+	## Four rows that fit a phone without scrolling: Town Center, Resource
+	## Camp, Blacksmith, and the three military buildings together. Each row
+	## is named at its left; a chain (Forging, then Iron Casting) is one tile.
 	_research_list = VBoxContainer.new()
 	_research_list.name = "ResearchList"
-	_research_list.add_theme_constant_override("separation", 2)
+	_research_list.add_theme_constant_override("separation", RESEARCH_ROW_GAP)
 	_economy.add_child(_research_list)
+	var groups: Array = []
+	var military: Array[int] = []
 	for building_type: int in TechData.RESEARCH_BUILDING_ORDER:
-		var heading: Label = _label(BuildingData.get_building_name(building_type), 11)
-		heading.name = "ResearchHeading_%d" % building_type
-		heading.autowrap_mode = TextServer.AUTOWRAP_OFF
+		if groups.size() < RESEARCH_OWN_ROWS:
+			groups.append([building_type])
+		else:
+			military.append(building_type)
+	if not military.is_empty():
+		groups.append(military)
+	for group: Array in groups:
+		var row := HBoxContainer.new()
+		row.name = "ResearchRow_%d" % int(group[0])
+		row.add_theme_constant_override("separation", 4)
+		_research_list.add_child(row)
+		var heading: Label = _label("", 10)
+		heading.name = "ResearchHeading_%d" % int(group[0])
+		heading.custom_minimum_size = Vector2(RESEARCH_HEADING_WIDTH, RESEARCH_TILE_SIZE.y)
+		heading.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		heading.add_theme_constant_override("line_spacing", -1)
 		heading.add_theme_color_override("font_color", KingdomTheme.MUTED)
-		_research_list.add_child(heading)
-		_research_headings[building_type] = heading
-		var flow := HFlowContainer.new()
-		flow.name = "ResearchRow_%d" % building_type
-		flow.add_theme_constant_override("h_separation", 4)
-		flow.add_theme_constant_override("v_separation", 4)
-		_research_list.add_child(flow)
-		var keys: Array[String] = []
-		if building_type == BuildingData.BuildingType.TOWN_CENTER:
-			keys.append(RESEARCH_AGE_KEY)
+		row.add_child(heading)
+		_research_group_headings.append({"label": heading, "types": group})
+		for building_type: int in group:
+			_research_headings[building_type] = heading
+			var keys: Array[String] = []
+			if building_type == BuildingData.BuildingType.TOWN_CENTER:
+				keys.append(RESEARCH_AGE_KEY)
+			for definition: Dictionary in TechData.RESEARCH_DEFS:
+				if int(definition["building_type"]) == building_type:
+					keys.append(str(definition["id"]))
+			for key: String in keys:
+				var tile: Button = _button("", "ResearchTile_" + key, _research_tile_size(key).x)
+				tile.pressed.connect(_on_research_tile_pressed.bind(key))
+				row.add_child(tile)
+				_research_tiles[key] = tile
+
+
+static func _research_group_name(types: Array) -> String:
+	if types.size() > 1:
+		return "Military"
+	match int(types[0]):
+		BuildingData.BuildingType.TOWN_CENTER: return "Town Center"
+		BuildingData.BuildingType.RESOURCE_CAMP: return "Resource Camp"
+	return BuildingData.get_building_name(int(types[0]))
+
+
+func _research_tile_hidden(key: String) -> bool:
+	## One tile per chain: a finished tier makes way for its successor, and a
+	## successor waits out of sight until its predecessor is done.
+	if key == RESEARCH_AGE_KEY:
+		return false
+	var requires: String = str(TechData.get_research_definition(key).get("requires", ""))
+	if not requires.is_empty() and not GameManager.has_research(0, requires):
+		return true
+	if GameManager.has_research(0, key):
 		for definition: Dictionary in TechData.RESEARCH_DEFS:
-			if int(definition["building_type"]) == building_type:
-				keys.append(str(definition["id"]))
-		for key: String in keys:
-			var tile: Button = _button("", "ResearchTile_" + key, RESEARCH_TILE_SIZE.x)
-			tile.pressed.connect(_on_research_tile_pressed.bind(key))
-			flow.add_child(tile)
-			_research_tiles[key] = tile
+			if str(definition.get("requires", "")) == key:
+				return true
+	return false
+
+
+func _research_notice(message: String) -> void:
+	## Research feedback lives in the sheet's title line, so the four rows
+	## never move under the thumb.
+	_research_notice_text = message
+	_research_notice_until_msec = Time.get_ticks_msec() + CommandRow.CANCEL_ARM_MSEC
+	_title.text = message
+
+
+func _research_tile_size(key: String) -> Vector2:
+	return RESEARCH_AGE_TILE_SIZE if key == RESEARCH_AGE_KEY else RESEARCH_TILE_SIZE
+
+
+func _research_cancel_key(building: Node2D, research_id: String) -> String:
+	return CommandRow.cancel_key(building, research_id)
 
 
 func _research_id_for(key: String) -> String:
@@ -875,18 +1012,26 @@ func _research_building_for(research_id: String, building_type: int) -> Node2D:
 
 
 func _refresh_research() -> void:
+	_refresh_research_badge()
 	if _research_list == null or not _showing_research():
 		return
-	for building_type: int in TechData.RESEARCH_BUILDING_ORDER:
-		var built: bool = GameManager.count_active_buildings(0, [building_type]) > 0
-		var heading: Label = _research_headings[building_type]
-		heading.text = BuildingData.get_building_name(building_type) if built else "%s · not built" % BuildingData.get_building_name(building_type)
+	for group: Dictionary in _research_group_headings:
+		var built: bool = GameManager.count_active_buildings(0, group.types) > 0
+		var heading: Label = group.label
+		heading.text = _research_group_name(group.types)
+		heading.add_theme_color_override("font_color", KingdomTheme.PARCHMENT if built else KingdomTheme.MUTED.darkened(0.2))
+	if not _research_notice_text.is_empty() and Time.get_ticks_msec() >= _research_notice_until_msec:
+		_research_notice_text = ""
+		_title.text = "Research"
 	for key: String in _research_tiles:
 		var tile: Button = _research_tiles[key]
+		tile.visible = not _research_tile_hidden(key)
+		if not tile.visible:
+			continue
 		var research_id: String = _research_id_for(key)
 		var definition: Dictionary = GameManager.get_research_definition(0, research_id)
 		if definition.is_empty() or (key == RESEARCH_AGE_KEY and GameManager.get_player_age(0) >= GameManager.MAX_AGE):
-			ACTION_TILE.apply(tile, CommandIcons.get_icon("age_up"), {}, RESEARCH_TILE_SIZE, GameManager.get_age_name(GameManager.get_player_age(0)).trim_suffix(" Age"))
+			ACTION_TILE.apply(tile, CommandIcons.get_icon("age_up"), {}, _research_tile_size(key), GameManager.get_age_name(GameManager.get_player_age(0)))
 			ACTION_TILE.set_status(tile, "Final age")
 			FieldStyle.production_meter(tile, -1.0)
 			tile.disabled = true
@@ -898,9 +1043,10 @@ func _refresh_research() -> void:
 		var reason: String = "" if running else ("needs_host" if building == null else str(GameManager.get_research_failure_reason(0, building, research_id)))
 		var status: String = ""
 		var blocked_copy: String = ""
+		var cancel_armed: bool = running and _cancel_armed_key == _research_cancel_key(building, research_id) and CommandRow.is_cancel_armed(_cancel_armed_key)
 		if running:
-			status = "%d%%" % int(float(building.call("get_research_ratio")) * 100.0)
-			blocked_copy = "In progress in your %s. Cancel on that building's card." % host_name
+			status = "Cancel?" if cancel_armed else "%d%%" % int(float(building.call("get_research_ratio")) * 100.0)
+			blocked_copy = "In progress in your %s. Tap, then tap again to cancel for a full refund." % host_name
 		elif reason in ["needs_host", "building_incomplete"]:
 			status = "Not built"
 			blocked_copy = "Build a %s first." % host_name
@@ -914,13 +1060,35 @@ func _refresh_research() -> void:
 				"age_required": status = status.trim_suffix(" Age")
 		var icon_path: String = str(definition.get("icon", ""))
 		var icon: Texture2D = load(icon_path) as Texture2D if not icon_path.is_empty() and ResourceLoader.exists(icon_path) else null
-		ACTION_TILE.apply(tile, icon, definition.get("cost", {}), RESEARCH_TILE_SIZE, str(definition.get("short", definition.get("name", research_id))))
+		var caption: String = str(definition.get("short", definition.get("name", research_id)))
+		if key == RESEARCH_AGE_KEY:
+			# The age-up is the headline of the page: wide, gold-rimmed, named in full.
+			caption = GameManager.get_age_name(mini(GameManager.get_player_age(0) + 1, GameManager.MAX_AGE))
+			if icon == null:
+				icon = CommandIcons.get_icon("age_up")
+		ACTION_TILE.apply(tile, icon, definition.get("cost", {}), _research_tile_size(key), caption)
 		ACTION_TILE.set_status(tile, status)
+		if key == RESEARCH_AGE_KEY:
+			_gild_age_tile(tile, reason.is_empty() or running)
 		FieldStyle.production_meter(tile, float(building.call("get_research_ratio")) if running else -1.0)
-		tile.disabled = running or not reason.is_empty()
+		tile.disabled = not running and not reason.is_empty()
 		(tile.get_node("TilePortrait") as CanvasItem).modulate = Color.WHITE if reason.is_empty() or running or reason == "already_researched" else Color(0.6, 0.6, 0.6)
 		tile.tooltip_text = "%s\n%s\n%d seconds · %s" % [str(definition.get("name", research_id)), str(definition.get("desc", "")), ceili(float(definition.get("time", 0.0))), blocked_copy if not blocked_copy.is_empty() else "Tap to research"]
 		tile.accessibility_name = tile.tooltip_text.replace("\n", ". ")
+
+
+func _gild_age_tile(tile: Button, lit: bool) -> void:
+	for state: String in ["normal", "hover", "disabled"]:
+		var style := tile.get_theme_stylebox(state) as StyleBoxFlat
+		if style == null:
+			continue
+		style = style.duplicate() as StyleBoxFlat
+		style.border_color = KingdomTheme.GOLD if lit else KingdomTheme.GOLD.darkened(0.45)
+		style.set_border_width_all(2)
+		tile.add_theme_stylebox_override(state, style)
+	var name_label := tile.get_node_or_null("TileName") as Label
+	if name_label != null:
+		name_label.add_theme_color_override("font_color", KingdomTheme.GOLD if lit else KingdomTheme.MUTED)
 
 
 func _on_research_tile_pressed(key: String) -> void:
@@ -929,11 +1097,23 @@ func _on_research_tile_pressed(key: String) -> void:
 	if definition.is_empty():
 		return
 	var building: Node2D = _research_building_for(research_id, int(definition["building_type"]))
+	if building != null and str(building.get("research_id")) == research_id:
+		# Running: the first tap arms, a second separate tap cancels.
+		var cancel_key: String = _research_cancel_key(building, research_id)
+		if CommandRow.tap_cancel(cancel_key):
+			_cancel_armed_key = ""
+			research_requested.emit(building, research_id)
+			_research_notice("%s cancelled · refunded" % str(definition.get("name", research_id)))
+		else:
+			_cancel_armed_key = cancel_key
+			_research_notice("Tap again to cancel")
+		_refresh_research.call_deferred()
+		return
 	if building == null or not GameManager.can_research(0, building, research_id):
-		show_feedback("%s: unavailable" % str(definition.get("name", research_id)), false)
+		_research_notice("%s: unavailable" % str(definition.get("name", research_id)))
 		return
 	research_requested.emit(building, research_id)
-	show_feedback("Researching %s · %d s" % [str(definition.get("name", research_id)), ceili(float(definition.get("time", 0.0)))])
+	_research_notice("%s · %d s" % [str(definition.get("name", research_id)), ceili(float(definition.get("time", 0.0)))])
 	_refresh_research.call_deferred()
 
 
@@ -1008,21 +1188,21 @@ func _refresh_pages() -> void:
 	CommandIcons.apply(_info_button, "back" if _details_page else "info", "Back to actions" if _details_page else info_description)
 	if army_open:
 		_title.text = "Army field notes" if _details_page else "Army & groups"
-	_title.visible = false
-	_workers_tab.visible = economy_open
-	_production_tab.visible = economy_open
+	var research: bool = _showing_research()
+	if research:
+		_title.text = _research_notice_text if not _research_notice_text.is_empty() and Time.get_ticks_msec() < _research_notice_until_msec else "Research"
+	_title.visible = research
+	_workers_tab.visible = economy_open and not research
+	_production_tab.visible = economy_open and not research
+	_economy_button.set_pressed_no_signal(economy_open and not research)
+	_research_button.set_pressed_no_signal(research)
 	_recruit_tab.visible = army_open
 	_groups_tab.visible = army_open
 	_recruit_tab.set_pressed_no_signal(_army_recruit_page)
 	_groups_tab.set_pressed_no_signal(not _army_recruit_page)
-	var research: bool = _showing_research()
-	# The Workers header is full at 300px (Workers, Farm, Train, Info, Close are
-	# five 48px targets), so Research sits beside Train on the Train and
-	# Research pages. There a single wrapping "next" steps through production
-	# buildings, keeping that header at six targets as before.
-	_research_tab.visible = economy_open and (production or research)
-	_research_tab.set_pressed_no_signal(research)
-	_previous_producer.visible = army_open and production and ids.size() > 1
+	# Research has its own rail launcher, so the Train header has room for both
+	# producer arrows again (Workers, Train, previous, next, Info, Close).
+	_previous_producer.visible = (economy_open or army_open) and production and ids.size() > 1
 	_next_producer.visible = (economy_open or army_open) and production and ids.size() > 1
 	_previous_producer.disabled = ids.size() <= 1
 	_next_producer.disabled = ids.size() <= 1
@@ -1040,9 +1220,9 @@ func _refresh_pages() -> void:
 	_population.hide()
 	_summary.hide()
 	_farm_blocker.hide()
-	_feedback.visible = Time.get_ticks_msec() < _feedback_until_msec
+	_feedback.visible = Time.get_ticks_msec() < _feedback_until_msec and not research
 	# Beta 33: each page tab names itself under its icon.
-	for entry: Array in [[_workers_tab, "economy", "Assign workers", "Workers"], [_production_tab, "base", "Train workers", "Train"], [_research_tab, "age_up", "Research technologies", "Research"], [_recruit_tab, "army", "Recruit fighters", "Recruit"], [_groups_tab, "group_recall", "Army groups", "Groups"]]:
+	for entry: Array in [[_workers_tab, "economy", "Assign workers", "Workers"], [_production_tab, "base", "Train workers", "Train"], [_recruit_tab, "army", "Recruit fighters", "Recruit"], [_groups_tab, "group_recall", "Army groups", "Groups"]]:
 		CommandIcons.apply_labeled(entry[0], entry[1], entry[2], entry[3])
 		(entry[0] as Button).custom_minimum_size.x = 48
 	var selected_id: int = _selected_producer_id()
@@ -1192,7 +1372,7 @@ func apply_layout(safe: Rect2, field_visible: bool, card_area: Rect2, dock_heigh
 	# The sheet leaves its launchers reachable for switching and tap-to-collapse.
 	var card_left: float = card_area.position.x + 8.0
 	var card_right: float = minf(card_area.end.x - 8.0, rail.position.x - 8.0)
-	_sheet_width = minf(220.0 if _recruit_empty.visible else SHEET_MAX_WIDTH, card_right - card_left)
+	_sheet_width = minf(220.0 if _recruit_empty.visible else (RESEARCH_SHEET_WIDTH if _showing_research() else SHEET_MAX_WIDTH), card_right - card_left)
 	_fit_economy_rows(_sheet_width)
 	var sheet_slot_height: float = minf(310.0, card_area.size.y - 16.0)
 	var content_height: float = (_scroll.get_child(0) as Control).get_combined_minimum_size().y
