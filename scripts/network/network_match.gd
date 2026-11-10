@@ -90,7 +90,7 @@ func _snapshot_for(slot: int) -> Dictionary:
 	for node: Node2D in entities.values():
 		if not is_instance_valid(node) or node.is_queued_for_deletion():
 			continue
-		if node.player_owner != slot and not game_map.is_entity_visible_to_player(node, slot):
+		if node.player_owner != slot and (not game_map.is_entity_visible_to_player(node, slot) or Garrison.hidden_from_enemy(node)):
 			continue
 		var actor: Dictionary = {"id": NetworkSession.entity_id(node), "owner": node.player_owner, "x": node.global_position.x, "y": node.global_position.y, "hp": node.hp, "max_hp": node.max_hp}
 		if node is UnitBase:

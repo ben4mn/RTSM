@@ -2854,6 +2854,7 @@ func _register_match_extensions() -> void:
 	## own file, which then calls ext.register_command / register_snapshot /
 	## register_save and BuildingBase.register_context_provider.
 	ext.install(self)
+	Garrison.install(self)  # D1: town bell, garrison, repair, healing at home
 
 
 func _on_building_action_requested(building: Node2D, action_id: String) -> void:

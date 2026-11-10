@@ -155,7 +155,7 @@ func _process(delta: float) -> void:
 ## movement retain control; another command also cancels any deferred recovery.
 func take_damage(amount: float) -> void:
 	super.take_damage(amount)
-	if current_state == State.DEAD:
+	if current_state == State.DEAD or current_state == State.GARRISONED:
 		return
 	if _auto_recovering:
 		_recovery_damage_remaining = RECOVERY_DAMAGE_DELAY
@@ -360,7 +360,7 @@ func get_work_status() -> String:
 			return ("Gathering " if distance <= radius else "Seeking ") + carried_resource_type
 		return "Seeking " + carried_resource_type
 	match current_state:
-		State.BUILDING: return "Building"
+		State.BUILDING: return "Repairing" if Garrison.needs_repair(build_target) else "Building"
 		State.MOVING: return "Moving"
 		State.ATTACKING: return "Attacking"
 	return "Idle"
@@ -699,6 +699,19 @@ func _process_building(delta: float) -> void:
 			_resume_or_idle()
 		return
 	_reset_navigation()
+
+	# Round 2 D1: a finished, damaged building is repaired (garrison.gd owns the
+	# rate and the wood cost); out of wood, the villager waits at the wall.
+	if build_target is BuildingBase and (build_target as BuildingBase).state == BuildingBase.State.ACTIVE:
+		_face_work_target(build_target.global_position)
+		var repair: int = Garrison.repair_step(build_target as BuildingBase, delta)
+		if repair == Garrison.Repair.WORKING:
+			_presentation_working = true
+			build_timer += delta
+		elif repair == Garrison.Repair.DONE:
+			build_target = null
+			_resume_or_idle()
+		return
 
 	# We are at the building, construct
 	_presentation_working = true
@@ -1423,6 +1436,7 @@ func _resume_after_recovery() -> void:
 
 
 func _clear_recovery() -> void:
+	_garrison_target = null
 	_auto_recovering = false
 	_recovery_waiting = false
 	_recovery_work_state = State.IDLE
@@ -1808,7 +1822,8 @@ func _is_build_target_valid(building_site: Variant) -> bool:
 		return false
 	if building_site is BuildingBase:
 		var building := building_site as BuildingBase
-		return building.player_owner == player_owner and building.state == BuildingBase.State.CONSTRUCTING
+		# Round 2 D1: the build order also covers repairing a damaged building.
+		return building.player_owner == player_owner and (building.state == BuildingBase.State.CONSTRUCTING or Garrison.needs_repair(building))
 	return building_site.has_method("add_build_progress")
 
 
@@ -1884,3 +1899,32 @@ func _draw() -> void:
 		draw_rect(Rect2(center + Vector2(-7, 5.5), Vector2(14, 4)), ink)
 		draw_rect(Rect2(center + Vector2(-6, 6.5), Vector2(12 * ratio, 2)), paper)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+# =========================================================================
+#  GARRISON (Round 2 D1 — rules live in scripts/buildings/garrison.gd)
+# =========================================================================
+
+## Walk to `building` and shelter inside it. This is the ordinary raid
+## recovery with a chosen refuge, so the interrupted job is remembered and
+## _resume_after_recovery() restores it when the villager comes back out.
+func command_garrison(building: BuildingBase) -> bool:
+	if current_state == State.DEAD or current_state == State.GARRISONED:
+		return false
+	if not is_instance_valid(building) or building.player_owner != player_owner or building.state != BuildingBase.State.ACTIVE:
+		return false
+	var route: PackedVector2Array = _get_refuge_world_path(building, _get_visible_recovery_threats())
+	var already_there: bool = route.is_empty() and _building_work_distance(building) <= Garrison.ENTER_DISTANCE
+	if route.is_empty() and not already_there:
+		return false
+	if not _auto_recovering:
+		_begin_recovery()
+	_recovery_refuge = building
+	if already_there:
+		_reset_navigation()
+		_recovery_waiting = true
+		set_state(State.MOVING)
+	else:
+		_move_for_recovery(route)
+	_garrison_target = building
+	return true

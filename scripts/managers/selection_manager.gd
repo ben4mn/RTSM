@@ -18,6 +18,9 @@ signal gather_command(resource_node: Node2D)
 ## Emitted when a build command is issued on a construction site.
 signal build_command(building: Node2D)
 signal trade_command(building: Node2D)
+## Round 2 D1: selected units should shelter in this own Town Center / Watch
+## Tower. Consumed by scripts/buildings/garrison.gd.
+signal garrison_command(building: Node2D)
 signal building_rally_armed_changed(armed: bool)
 ## A phone box gesture is explicit and ends after one selection or cancellation.
 signal touch_area_selection_changed(armed: bool)
@@ -69,7 +72,7 @@ var _double_tap_radius := 30.0  # pixels
 var _drag_rect: Rect2 = Rect2()
 
 ## --- Touch long-press context ---
-enum TouchContextAction { MOVE = 100, ATTACK = 101, GATHER = 102, BUILD = 103, SELECT = 104, CLEAR = 105, ATTACK_MOVE = 106, QUEUE = 107, CANCEL_QUEUE = 108 }
+enum TouchContextAction { MOVE = 100, ATTACK = 101, GATHER = 102, BUILD = 103, SELECT = 104, CLEAR = 105, ATTACK_MOVE = 106, QUEUE = 107, CANCEL_QUEUE = 108, GARRISON = 109 }
 var _touch_hold_active := false
 var _touch_hold_elapsed := 0.0
 var _touch_hold_started_at_msec: int = 0
@@ -1416,8 +1419,27 @@ func _has_selected_units() -> bool:
 func _is_under_construction(entry: Variant) -> bool:
 	if _is_current_selection_entry(entry) and entry is BuildingBase:
 		var building := entry as BuildingBase
-		return building.state == BuildingBase.State.CONSTRUCTING and not _is_enemy(building)
+		# Round 2 D1: a damaged own building takes the same villager order (repair).
+		return (building.state == BuildingBase.State.CONSTRUCTING or Garrison.needs_repair(building)) and not _is_enemy(building)
 	return false
+
+
+## Round 2 D1: holding an own Town Center / Watch Tower offers "Garrison" to
+## selected soldiers. A villagers-only hold on a drop-off keeps its one-step
+## "Queue drop-off"; the town bell is how villagers take shelter there.
+func _can_offer_garrison(target: Variant) -> bool:
+	if not _is_current_selection_entry(target) or not target is BuildingBase or _is_enemy(target) or not Garrison.accepts(target):
+		return false
+	var soldier_selected: bool = false
+	var villager_selected: bool = false
+	for entry: Variant in selected:
+		if not _is_current_selection_entry(entry) or not Garrison.can_garrison_unit(entry, target as BuildingBase):
+			continue
+		if entry is Villager:
+			villager_selected = true
+		else:
+			soldier_selected = true
+	return soldier_selected or (villager_selected and not (target as BuildingBase).is_in_group("dropoff_buildings"))
 
 
 func _is_direct_friendly_building_reselection(entry: Variant, screen_pos: Vector2) -> bool:
@@ -1574,6 +1596,8 @@ func _build_touch_context_actions(tapped_node: Node2D, resource_node: Node2D) ->
 		var dropoff: bool = _has_selected_villagers() and tapped_node is BuildingBase and not _is_enemy(tapped_node) and tapped_node.is_in_group("dropoff_buildings")
 		if (tapped_node == null and resource_node == null and (_has_selected_units() or selected_producer)) or dropoff:
 			actions.append({"id": TouchContextAction.QUEUE, "label": "Queue drop-off" if dropoff else ("Queue rally point" if selected_producer else "Queue move")})
+			if dropoff and _can_offer_garrison(tapped_node):
+				actions.append({"id": TouchContextAction.GARRISON, "label": "Garrison"})
 			return actions
 		if tapped_node != null and tapped_node.is_in_group("sacred_sites"):
 			if _has_selected_units():
@@ -1589,7 +1613,9 @@ func _build_touch_context_actions(tapped_node: Node2D, resource_node: Node2D) ->
 			var gather_label: String = "Rally to gather" if _has_selected_villager_producer() else "Gather"
 			actions.append({"id": TouchContextAction.GATHER, "label": gather_label})
 		if tapped_node != null and _has_selected_villagers() and _is_under_construction(tapped_node):
-			actions.append({"id": TouchContextAction.BUILD, "label": "Build"})
+			actions.append({"id": TouchContextAction.BUILD, "label": "Repair" if Garrison.needs_repair(tapped_node) else "Build"})
+		if _can_offer_garrison(tapped_node):
+			actions.append({"id": TouchContextAction.GARRISON, "label": "Garrison"})
 		if tapped_node == null and resource_node == null and _has_selected_units():
 			actions.append({"id": TouchContextAction.ATTACK_MOVE, "label": "Attack-move"})
 			return actions
@@ -1651,6 +1677,10 @@ func _execute_touch_context_action(action_id: int) -> void:
 			if _is_current_selection_entry(_context_target) and _has_selected_villagers() and _is_under_construction(_context_target):
 				build_command.emit(_context_target)
 				executed_action = "Build"
+		TouchContextAction.GARRISON:
+			if _can_offer_garrison(_context_target):
+				garrison_command.emit(_context_target)
+				executed_action = "Garrison"
 		TouchContextAction.ATTACK_MOVE:
 			if _has_selected_units():
 				attack_move_command.emit(_world_to_tile(_context_world_pos))

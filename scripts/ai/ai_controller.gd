@@ -616,6 +616,7 @@ func _on_decision_tick() -> void:
 	# idle workers or rebalance their current gather jobs.
 	_rebalance_gathering_villagers()
 	_assign_idle_villagers()
+	_check_repairs()  # Round 2 D1 (garrison.gd)
 	_check_military_production()
 	_check_research()
 	_check_scouting()
@@ -3294,6 +3295,7 @@ func _rally_defense(threats: Array = []) -> void:
 		var target_enemy: UnitBase = _choose_counter_target(unit, threats, target_allocations)
 		if is_instance_valid(target_enemy) and not (unit.current_state == UnitBase.State.ATTACKING and unit.attack_target == target_enemy):
 			unit.command_attack(target_enemy)
+	_ring_bell_if_outmatched(threats, military)  # Round 2 D1 (garrison.gd)
 
 	# Evacuate villagers actually exposed to the remembered threat, including
 	# gatherers; limiting this by proximity avoids idling the whole economy.
@@ -3330,6 +3332,58 @@ func _rally_defense(threats: Array = []) -> void:
 	for scout in _get_scouts():
 		if _is_worker_position_exposed(scout.global_position, threats):
 			scout.command_move(safe_position)
+
+
+# --- Round 2 D1 additions (town bell and repair; rules in scripts/buildings/garrison.gd) ---
+
+func _ring_bell_if_outmatched(threats: Array, defenders: Array) -> void:
+	## A visible raid worth more than 1.2x the defenders sends villagers into
+	## the Town Center. Garrison stands the bell down by itself.
+	var threat_strength: float = _evaluate_units_strength(threats)
+	if threat_strength <= 0.0 or threat_strength <= 1.2 * _evaluate_units_strength(defenders):
+		return
+	for entry: Variant in _get_buildings_of_type(BuildingData.BuildingType.TOWN_CENTER):
+		var town_center: BuildingBase = entry as BuildingBase
+		if not is_instance_valid(town_center) or town_center.bell_active or town_center.state != BuildingBase.State.ACTIVE:
+			continue
+		for threat: Variant in threats:
+			if threat is UnitBase and Garrison.tile_distance(town_center, (threat as UnitBase).global_position) <= Garrison.BELL_RADIUS_TILES:
+				Garrison.ring(town_center)
+				break
+
+
+func _check_repairs() -> void:
+	## One villager (two below half health) mends the worst-damaged building
+	## while home is quiet and there is wood to pay for it.
+	if _is_under_pressure or ResourceManager.get_resource(player_id, "wood") < 60:
+		return
+	var worst: BuildingBase = null
+	var worst_ratio: float = 0.9
+	for entry: Variant in _my_buildings:
+		if not is_instance_valid(entry) or not entry is BuildingBase or not Garrison.needs_repair(entry):
+			continue
+		var ratio: float = float((entry as BuildingBase).hp) / float(maxi(1, (entry as BuildingBase).max_hp))
+		if ratio < worst_ratio:
+			worst_ratio = ratio
+			worst = entry as BuildingBase
+	if worst == null:
+		return
+	var wanted: int = 2 if worst_ratio < 0.5 else 1
+	var candidates: Array = []
+	for entry: Variant in _get_villagers():
+		var villager: Villager = entry as Villager
+		if villager == null or _is_worker_retreating(villager):
+			continue
+		if villager.current_state == UnitBase.State.BUILDING and villager.build_target == worst:
+			wanted -= 1
+		elif villager.current_state in [UnitBase.State.IDLE, UnitBase.State.GATHERING]:
+			candidates.append(villager)
+	if wanted <= 0 or candidates.is_empty():
+		return
+	candidates.sort_custom(func(a: Villager, b: Villager) -> bool:
+		return a.global_position.distance_squared_to(worst.global_position) < b.global_position.distance_squared_to(worst.global_position)
+	)
+	Garrison.order_repair(candidates.slice(0, wanted), worst)
 
 
 func _choose_counter_target(unit: UnitBase, threats: Array, allocations: Dictionary) -> UnitBase:
