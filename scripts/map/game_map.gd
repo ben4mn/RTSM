@@ -94,6 +94,11 @@ var _pending_depleted_terrain_tiles: Dictionary = {}
 const FOG_MEMORY := preload("res://scripts/map/fog_memory.gd")
 var fog_memory: Node2D = null
 
+## Painted ground, batched props, the soft fog veil and ambient life. Purely
+## presentational, derived from the finished map; absent on a dedicated server.
+const WORLD_DRESSING := preload("res://scripts/map/world_dressing.gd")
+var world_dressing: Node2D = null
+
 ## Reference to the spawned sacred site instance.
 var sacred_site: Node2D = null
 ## Flank shrines: capture rings that pay gold while held and never win a match.
@@ -150,8 +155,8 @@ func _ready() -> void:
 	# Set up pathfinding.
 	pathfinding = Pathfinding.new(map_generator)
 
-	# Configure fog of war.
-	fog_of_war.fog_layer = $FogLayer
+	# Configure fog of war. FogLayer no longer holds per-tile fog cells: it
+	# hosts the FogVeil quad, so hiding or showing it still toggles all fog.
 	fog_of_war.owning_player = 0
 
 	# Configure selection manager.
@@ -167,6 +172,11 @@ func _ready() -> void:
 	# Set up camera bounds.
 	_configure_camera()
 	get_viewport().size_changed.connect(_on_camera_viewport_size_changed)
+	if not NetworkSession.server_mode:
+		world_dressing = WORLD_DRESSING.new()
+		world_dressing.name = "WorldDressing"
+		add_child(world_dressing)
+		world_dressing.setup(self)
 	var unit_echoes: Node = preload("res://scripts/ui/unit_occlusion_overlay.gd").new()
 	unit_echoes.name = "UnitOcclusionOverlay"
 	add_child(unit_echoes)
@@ -1429,6 +1439,8 @@ func update_resource_visibility_for_player(viewer_player_id: int = 0) -> void:
 func _apply_depleted_terrain_visual(tile_pos: Vector2i) -> void:
 	if terrain_layer != null:
 		terrain_layer.set_cell(tile_pos, 0, _tile_type_to_atlas(MapData.TileType.GRASS))
+	if world_dressing != null:
+		world_dressing.clear_forest_tile(tile_pos)
 	_pending_depleted_terrain_tiles.erase(tile_pos)
 
 
