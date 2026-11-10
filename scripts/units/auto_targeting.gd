@@ -3,6 +3,8 @@ extends RefCounted
 ## Current-vision acquisition shared by idle, patrol and attack-move orders.
 ## Explicit target orders keep their authority in UnitBase.
 
+const FOOTPRINT_REACH_PER_TILE: float = float(maxi(MapData.TILE_WIDTH, MapData.TILE_HEIGHT)) * 0.5
+
 
 static func find_target(attacker: UnitBase, unit_radius: float, building_radius: float, buildings_first: bool) -> Node2D:
 	if buildings_first:
@@ -21,6 +23,9 @@ static func _nearest_unit(attacker: UnitBase, radius: float) -> UnitBase:
 	var nearest: UnitBase = null
 	var nearest_distance: float = radius
 	var best_priority: int = -1
+	# Most scans find nobody: armies wait at home and march through empty land.
+	if attacker._index_listed and not attacker._live_unit_index.other_owner_near(attacker.global_position, radius, attacker.player_owner):
+		return null
 	for candidate: Node in attacker.get_nearby_units(radius):
 		if not is_instance_valid(candidate) or not candidate is UnitBase or candidate == attacker:
 			continue
@@ -65,6 +70,11 @@ static func _nearest_building(attacker: UnitBase, radius: float) -> BuildingBase
 			continue
 		var building: BuildingBase = candidate as BuildingBase
 		if building.player_owner == attacker.player_owner:
+			continue
+		# The work distance is measured to footprint tiles, none of which is
+		# farther from the anchor than this reach; a building that cannot beat
+		# the current best skips the per-tile measurement.
+		if attacker.global_position.distance_to(building.global_position) - float(building.footprint.x + building.footprint.y + 1) * FOOTPRINT_REACH_PER_TILE - 1.0 >= nearest_distance:
 			continue
 		var distance: float = attacker._get_building_attack_distance(building)
 		if distance < nearest_distance:

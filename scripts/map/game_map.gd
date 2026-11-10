@@ -998,6 +998,11 @@ func get_units_near(position: Vector2, radius: float) -> Array[UnitBase]:
 func get_unit_vision_revision() -> int:
 	return _live_unit_index.vision_revision
 
+## As above, ignoring other owners' units crossing tiles (their sight is not
+## `owner`'s sight).
+func get_own_unit_vision_revision(owner: int) -> int:
+	return _live_unit_index.own_vision_revision(owner)
+
 ## How many units the index holds; equal to the "units" group size when every
 ## unit in the tree belongs to this map (callers use that to trust the index).
 func get_spatial_unit_count() -> int:
@@ -1182,7 +1187,18 @@ func is_entity_visible_to_player(entity: Node2D, viewer_player_id: int = 0) -> b
 		return false
 	var entity_owner: int = -1
 	if entity is UnitBase:
-		entity_owner = (entity as UnitBase).player_owner
+		var unit := entity as UnitBase
+		if unit.player_owner == viewer_player_id:
+			return true
+		# Same answer as below from the tile the unit index recorded at this
+		# unit's last move (the guard covers a moved container or another map).
+		if unit._index_listed and unit._live_unit_index == _live_unit_index and unit._index_position == unit.global_position:
+			var seen_tile: Vector2i = unit._index_tile
+			if fog_of_war != null and viewer_player_id == fog_of_war.owning_player:
+				return fog_of_war.is_tile_visible(seen_tile)
+			if is_inside_tree() and seen_tile.x >= 0 and seen_tile.y >= 0 and seen_tile.x < MapData.MAP_WIDTH and seen_tile.y < MapData.MAP_HEIGHT:
+				return _live_unit_index.units_reveal(seen_tile, viewer_player_id) or _building_vision_grid(viewer_player_id)[seen_tile.y * MapData.MAP_WIDTH + seen_tile.x] != 0
+		entity_owner = unit.player_owner
 	elif entity is BuildingBase:
 		entity_owner = (entity as BuildingBase).player_owner
 	elif entity.has_method("get_player_id"):

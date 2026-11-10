@@ -25,6 +25,8 @@ var _codec: RefCounted = STATE.new()
 var _elapsed: float = 0.0
 var _web_callbacks: Dictionary = {}
 var _web_storage: JavaScriptObject
+var _staged: Dictionary = {}
+var _written: Dictionary = {}
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -52,7 +54,10 @@ func _summarize(data: Dictionary, saved_at: int, recovered: bool = false) -> Dic
 
 func _envelope(data: Dictionary, generation: int) -> String:
 	var bytes: PackedByteArray = var_to_bytes(data)
-	return JSON.stringify({"format": "PocketKingdomsSolo", "version": 1, "generation": generation, "saved_at": int(Time.get_unix_time_from_system()), "sha256": bytes.hex_encode().sha256_text(), "payload": Marshalls.raw_to_base64(bytes)})
+	return _envelope_text(generation, int(Time.get_unix_time_from_system()), bytes.hex_encode().sha256_text(), Marshalls.raw_to_base64(bytes))
+
+func _envelope_text(generation: int, saved_at: int, sha256: String, payload: String) -> String:
+	return JSON.stringify({"format": "PocketKingdomsSolo", "version": 1, "generation": generation, "saved_at": saved_at, "sha256": sha256, "payload": payload})
 
 func _unpack(payload: String) -> Dictionary:
 	if payload.is_empty() or payload.to_utf8_buffer().size() > MAX_BYTES: return {}
@@ -165,16 +170,57 @@ func save_current(reason: String = "manual") -> bool:
 	var main: Node = _main_ref.get_ref() if _main_ref != null else null
 	if not is_instance_valid(main) or main.is_queued_for_deletion() or GameManager.current_state not in [GameManager.GameState.PLAYING, GameManager.GameState.PAUSED]: return false
 	if not GameManager._research_transactions.is_empty() or not GameManager._age_transactions.is_empty(): return false
+	# The periodic checkpoint is spread over several frames (see _advance_staged);
+	# every other reason must be on disk before this call returns, and replaces
+	# an autosave still in flight.
+	_staged.clear()
 	var data: Dictionary = _codec.capture(main)
+	if reason == "autosave":
+		_staged = {"stage": 0, "data": data, "bytes": var_to_bytes(data), "epoch": _epoch}
+		return true
 	var validation: String = STATE.validate(data)
 	if not validation.is_empty():
 		_set_status("failed", validation)
 		return false
 	var generation: int = _generation + 1
-	var payload: String = _envelope(data, generation)
+	var saved_at: int = int(Time.get_unix_time_from_system())
+	var bytes: PackedByteArray = var_to_bytes(data)
+	return _commit(data, _envelope_text(generation, saved_at, bytes.hex_encode().sha256_text(), Marshalls.raw_to_base64(bytes)), generation, saved_at, reason)
+
+## One step per frame of an autosave whose capture already happened: check,
+## hash, encode, then the same write as any other save. The captured state is
+## exactly what a single-frame save at the capture frame would have written.
+func _advance_staged() -> void:
+	if int(_staged.epoch) != _epoch:
+		_staged.clear()
+		return
+	match int(_staged.stage):
+		0:
+			var validation: String = STATE.validate(_staged.data)
+			if not validation.is_empty():
+				_staged.clear()
+				_set_status("failed", validation)
+				return
+		1:
+			_staged.sha256 = (_staged.bytes as PackedByteArray).hex_encode().sha256_text()
+		2:
+			_staged.payload = Marshalls.raw_to_base64(_staged.bytes)
+			_staged.erase("bytes")
+		_:
+			var job: Dictionary = _staged
+			_staged = {}
+			var generation: int = _generation + 1
+			var saved_at: int = int(Time.get_unix_time_from_system())
+			_commit(job.data, _envelope_text(generation, saved_at, job.sha256, job.payload), generation, saved_at, "autosave")
+			return
+	_staged.stage = int(_staged.stage) + 1
+
+func _commit(data: Dictionary, payload: String, generation: int, saved_at: int, reason: String) -> bool:
 	if payload.to_utf8_buffer().size() > MAX_BYTES:
 		_set_status("failed", "This match is too large to save.")
 		return false
+	# _complete_write summarises from the state it was given, not a re-parse.
+	_written = {"generation": generation, "data": data, "saved_at": saved_at}
 	_pending = true
 	_generation = generation
 	_set_status("saving")
@@ -217,7 +263,8 @@ func _complete_write(arguments: Array, generation: int, epoch: int, payload: Str
 	var success: bool = bool(arguments[0]) if not arguments.is_empty() else native_success
 	var error: String = str(arguments[1]) if arguments.size() > 1 else native_error
 	if success:
-		var parsed: Dictionary = _unpack(payload)
+		var parsed: Dictionary = _written if int(_written.get("generation", -1)) == generation else _unpack(payload)
+		_written = {}
 		_last_good_payload = payload
 		_saved_data = parsed.data
 		_summary = _summarize(parsed.data, int(parsed.saved_at))
@@ -239,6 +286,7 @@ func discard_save(reason: String = "new_match") -> void:
 	if _online(): return
 	_epoch += 1
 	_pending = false
+	_staged.clear()
 	_pending_restore.clear()
 	_saved_data.clear()
 	_last_good_payload = ""
@@ -264,6 +312,9 @@ func _clear_finished(arguments: Array, epoch: int) -> void:
 
 func _process(delta: float) -> void:
 	if _online() or is_restoring() or _pending or GameManager.current_state != GameManager.GameState.PLAYING: return
+	if not _staged.is_empty():
+		_advance_staged()
+		return
 	_elapsed += delta / maxf(0.01, Engine.time_scale)
 	if _elapsed >= AUTOSAVE_SECONDS:
 		_elapsed = 0.0

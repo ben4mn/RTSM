@@ -101,6 +101,7 @@ const ECONOMIC_THREAT_CHECK_INTERVAL: float = 0.25
 const ECONOMIC_THREAT_MIN_DISTANCE: float = 80.0
 const ECONOMIC_THREAT_RANGE_MARGIN: float = 48.0
 const ECONOMIC_THREAT_CLOSING_STEP: float = 4.0
+const ECONOMIC_THREAT_SCAN_REACH: float = 640.0
 const RECOVERY_QUIET_SECONDS: float = 3.0
 const RECOVERY_DAMAGE_DELAY: float = 4.0
 const RECOVERY_THREAT_MARGIN: float = 56.0
@@ -288,6 +289,12 @@ func _check_visible_economic_threats() -> void:
 	# dictionary drops any enemy no longer in this owner's current vision.
 	var observed: Dictionary = {}
 	var threatened: bool = false
+	# Nobody else's unit anywhere near (several samples of travel beyond any
+	# warning distance): nothing can threaten now or count as closing at the
+	# next sample, so the visible-enemy roster is not walked at all.
+	if _index_listed and not _live_unit_index.other_owner_near(global_position, ECONOMIC_THREAT_SCAN_REACH, player_owner):
+		_observed_worker_threat_distances = observed
+		return
 	for enemy: UnitBase in _get_visible_economic_threats():
 		var distance: float = global_position.distance_to(enemy.global_position)
 		var instance_id: int = enemy.get_instance_id()
@@ -817,8 +824,16 @@ func _building_work_distance(building: Node2D) -> float:
 	return global_position.distance_to(building.global_position)
 
 
+## The answer for the last map asked about (a script's methods do not change).
+var _service_map_checked: Node2D = null
+var _service_map_supported: bool = false
+
 func _supports_service_positions(game_map: Node2D) -> bool:
-	return game_map != null and game_map.has_method("tile_to_world") and game_map.has_method("world_to_tile") and game_map.has_method("is_tile_walkable") and game_map.has_method("get_navigation_world_path")
+	if game_map != null and game_map == _service_map_checked:
+		return _service_map_supported
+	_service_map_checked = game_map
+	_service_map_supported = game_map != null and game_map.has_method("tile_to_world") and game_map.has_method("world_to_tile") and game_map.has_method("is_tile_walkable") and game_map.has_method("get_navigation_world_path")
+	return _service_map_supported
 
 
 func _advance_economic_work_position(target: Node2D, radius: float, delta: float) -> int:
@@ -1733,11 +1748,21 @@ func _is_world_position_visible(world_position: Vector2) -> bool:
 	return false
 
 
+## Asked several times per frame by a walking worker: remember the map found
+## above the current parent instead of walking the ancestors every time.
+var _resource_map_parent: Node = null
+var _resource_map_found: Node2D = null
+
 func _find_resource_game_map() -> Node2D:
 	var parent: Node = get_parent()
+	if parent != null and parent == _resource_map_parent and is_instance_valid(_resource_map_found) and _resource_map_found.is_inside_tree() == is_inside_tree():
+		return _resource_map_found
+	var direct_parent: Node = parent
 	while parent != null:
 		if parent.has_method("get_nearest_resource_node"):
-			return parent as Node2D
+			_resource_map_parent = direct_parent
+			_resource_map_found = parent as Node2D
+			return _resource_map_found
 		parent = parent.get_parent()
 	return null
 

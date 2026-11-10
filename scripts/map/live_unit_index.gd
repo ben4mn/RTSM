@@ -25,16 +25,27 @@ func _init(map: Node2D) -> void:
 
 func update(unit: UnitBase) -> void:
 	if not is_instance_valid(unit) or not unit.is_inside_tree(): return
-	var id: int = unit.get_instance_id()
 	var cell := Vector2i((unit.global_position / CELL_SIZE).floor())
 	var tile: Vector2i = _map.world_to_tile(unit.global_position)
+	# Almost every call is a step inside the same tile and cell with the same
+	# sight: only the recorded position moves. (`_index_listed` is cleared by
+	# remove(), `_index_vision` is the sight radius the stamp was made with.)
+	if unit._index_listed and tile == unit._index_tile and cell == unit._index_cell and unit.vision_radius == unit._index_vision:
+		unit._index_position = unit.global_position
+		return
+	var id: int = unit.get_instance_id()
 	var radius: int = maxi(0, int(round(MapData.world_to_range_tiles(unit.vision_radius))))
+	unit._index_listed = true
+	unit._index_tile = tile
+	unit._index_cell = cell
+	unit._index_vision = unit.vision_radius
 	if not _entries.has(id):
 		invalidate_order()
 		unit._index_position = unit.global_position
-		_entries[id] = {"unit": unit, "position": unit.global_position, "cell": cell, "tile": tile, "radius": radius, "parent": unit.get_parent(), "stamped": false, "stamp_owner": 0}
+		_entries[id] = {"unit": unit, "position": unit.global_position, "cell": cell, "tile": tile, "radius": radius, "parent": unit.get_parent(), "stamped": false, "stamp_owner": 0, "presence_owner": unit.player_owner}
 		vision_revision += 1
 		_insert(_cells, cell, unit)
+		_count_presence(unit.player_owner, cell, 1)
 		_restamp(_entries[id], unit)
 	else:
 		var entry: Dictionary = _entries[id]
@@ -50,6 +61,8 @@ func update(unit: UnitBase) -> void:
 		if entry.cell != cell:
 			_remove(_cells, entry.cell, unit)
 			_insert(_cells, cell, unit)
+			_count_presence(entry.presence_owner, entry.cell, -1)
+			_count_presence(entry.presence_owner, cell, 1)
 			entry.cell = cell
 		entry.parent = unit.get_parent()
 	var parent: Node2D = unit.get_parent() as Node2D
@@ -58,9 +71,11 @@ func update(unit: UnitBase) -> void:
 
 func remove(unit: UnitBase) -> void:
 	var id: int = unit.get_instance_id()
+	unit._index_listed = false
 	if not _entries.has(id): return
 	var entry: Dictionary = _entries[id]
 	_remove(_cells, entry.cell, unit)
+	_count_presence(entry.presence_owner, entry.cell, -1)
 	_unstamp(entry)
 	_entries.erase(id)
 	invalidate_order()
@@ -71,12 +86,52 @@ func remove(unit: UnitBase) -> void:
 func invalidate_vision(unit: UnitBase = null) -> void:
 	vision_revision += 1
 	if unit != null and _entries.has(unit.get_instance_id()):
-		_restamp(_entries[unit.get_instance_id()], unit)
+		var entry: Dictionary = _entries[unit.get_instance_id()]
+		_restamp(entry, unit)
+		if entry.presence_owner != unit.player_owner:
+			_count_presence(entry.presence_owner, entry.cell, -1)
+			entry.presence_owner = unit.player_owner
+			_count_presence(entry.presence_owner, entry.cell, 1)
+
+## How many indexed units (living or dying) each owner has in each block of
+## 8x8 cells. near() can only return another owner's unit from a block that
+## holds one, so an empty neighbourhood is answered without walking cells.
+var _presence: Dictionary = {}
+
+func _count_presence(owner: int, cell: Vector2i, change: int) -> void:
+	if not _presence.has(owner): _presence[owner] = {}
+	var blocks: Dictionary = _presence[owner]
+	var block := Vector2i(cell.x >> 3, cell.y >> 3)
+	var count: int = int(blocks.get(block, 0)) + change
+	if count > 0: blocks[block] = count
+	else: blocks.erase(block)
+
+## False only when near(position, radius) holds no unit of another owner.
+func other_owner_near(position: Vector2, radius: float, owner: int) -> bool:
+	_refresh_parent_transforms()
+	var first := Vector2i(((position - Vector2.ONE * radius) / CELL_SIZE).floor())
+	var last := Vector2i(((position + Vector2.ONE * radius) / CELL_SIZE).floor())
+	for other: int in _presence:
+		if other == owner: continue
+		var blocks: Dictionary = _presence[other]
+		if blocks.is_empty(): continue
+		for y: int in range(first.y >> 3, (last.y >> 3) + 1):
+			for x: int in range(first.x >> 3, (last.x >> 3) + 1):
+				if blocks.has(Vector2i(x, y)): return true
+	return false
 
 func enemy_position_revision(viewer: int) -> int:
 	# A local FogManager owns source visibility. Moving its own workers does
 	# not change which enemy positions land in that already-published grid.
 	return vision_revision - int(_movement_by_owner.get(viewer, 0))
+
+## Moves whenever `owner`'s own sight sources may have changed: every revision
+## step except another owner's unit crossing a tile.
+func own_vision_revision(owner: int) -> int:
+	var foreign_moves: int = 0
+	for other: int in _movement_by_owner:
+		if other != owner: foreign_moves += int(_movement_by_owner[other])
+	return vision_revision - foreign_moves
 
 func units_reveal(tile: Vector2i, owner: int) -> bool:
 	_refresh_parent_transforms()
@@ -189,6 +244,13 @@ func _refresh_order() -> void:
 func _refresh_parent_transforms() -> void:
 	# Called on every visibility probe: no key-array copy in the usual case
 	# (one live container that has not moved).
+	var settled: bool = true
+	for id: int in _parents:
+		var record: Dictionary = _parents[id]
+		if not is_instance_valid(record.node) or (record.node as Node2D).global_transform != record.transform:
+			settled = false
+			break
+	if settled: return
 	var stale: Array = []
 	var moved: Array = []
 	for id: int in _parents:
