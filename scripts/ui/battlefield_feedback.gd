@@ -17,6 +17,8 @@ var _site: Node2D
 var _last_interaction_bounds: Array[Rect2] = []
 var _last_ping_index: int = -1
 var _ping_count: int = 0
+## Response shortcuts under the alert cards: id -> {"button": Button, "action": Callable}.
+var _responses: Dictionary = {}
 
 
 func setup(hud: CanvasLayer, map: Node2D, focus: Callable) -> void:
@@ -37,7 +39,13 @@ func setup(hud: CanvasLayer, map: Node2D, focus: Callable) -> void:
 		button.custom_minimum_size = Vector2(0, 48)
 		button.focus_mode = Control.FOCUS_NONE
 		button.add_theme_font_size_override("font_size", 12)
-		button.add_theme_stylebox_override("normal", KingdomTheme.button_style())
+		# Slim side padding: the card keeps its two lines unclipped when a
+		# response plate takes the end of the column.
+		for state: String in ["normal", "hover", "pressed"]:
+			var card_style: StyleBoxFlat = KingdomTheme.button_style("secondary", state)
+			card_style.content_margin_left = 8.0
+			card_style.content_margin_right = 8.0
+			button.add_theme_stylebox_override(state, card_style)
 		button.add_theme_color_override("font_color", KingdomTheme.RUST)
 		button.pressed.connect(_view_front.bind(index))
 		button.button_down.connect(func() -> void:
@@ -81,6 +89,101 @@ func _process(_delta: float) -> void:
 	queue_redraw()
 
 
+# --- Response shortcuts (supported hook) --------------------------------------
+# A stream that can answer an attack with one tap (the town bell) offers a
+# button here instead of reaching into the lane. It stands beside the alert
+# cards as one gold plate as tall as they are (so the column never grows into
+# the map controls below), and is gone the moment it is withdrawn, used, or
+# the cards themselves expire.
+
+const RESPONSE_WIDTH: float = 58.0
+const RESPONSE_GAP: float = 4.0
+var _response_slot_held: bool = false
+
+
+func offer_response(id: String, label: String, icon: Texture2D, action: Callable, hint: String = "") -> void:
+	if _lane == null or not action.is_valid():
+		return
+	var entry: Dictionary = _responses.get(id, {})
+	var button: Button = entry.get("button") as Button
+	if not is_instance_valid(button):
+		button = Button.new()
+		button.name = "Response_%s" % id.validate_node_name()
+		button.custom_minimum_size = Vector2(RESPONSE_WIDTH, 48)
+		button.focus_mode = Control.FOCUS_NONE
+		button.visible = false
+		button.add_theme_font_size_override("font_size", 11)
+		button.add_theme_constant_override("line_spacing", -2)
+		button.expand_icon = true
+		button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		button.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
+		button.add_theme_constant_override("icon_max_width", 24)
+		button.add_theme_constant_override("h_separation", 0)
+		KingdomTheme.apply_primary(button)
+		FieldStyle.soften(button, 12)
+		for state: String in ["normal", "hover", "pressed"]:
+			var style: StyleBox = button.get_theme_stylebox(state).duplicate()
+			style.set_content_margin_all(3.0)
+			button.add_theme_stylebox_override(state, style)
+		for state: String in ["icon_normal_color", "icon_hover_color", "icon_pressed_color"]:
+			button.add_theme_color_override(state, KingdomTheme.INK)
+		button.pressed.connect(_on_response_pressed.bind(id))
+		button.button_down.connect(func() -> void:
+			if is_instance_valid(_hud) and _hud.has_signal("world_gesture_cancel_requested"):
+				_hud.emit_signal("world_gesture_cancel_requested")
+		)
+		add_child(button)
+		entry = {"button": button, "offered": false}
+		_responses[id] = entry
+	entry["action"] = action
+	button.text = label
+	button.icon = icon
+	button.tooltip_text = hint
+	button.accessibility_name = label.replace("\n", " ") if hint.is_empty() else "%s. %s" % [label.replace("\n", " "), hint]
+	if not bool(entry.get("offered", false)):
+		entry["offered"] = true
+		_refresh()
+
+
+func withdraw_response(id: String) -> void:
+	var entry: Dictionary = _responses.get(id, {})
+	if bool(entry.get("offered", false)):
+		entry["offered"] = false
+		_refresh()
+
+
+func has_response(id: String) -> bool:
+	var button: Button = (_responses.get(id, {}) as Dictionary).get("button") as Button
+	return is_instance_valid(button) and button.visible
+
+
+func _on_response_pressed(id: String) -> void:
+	var entry: Dictionary = _responses.get(id, {})
+	var action: Callable = entry.get("action", Callable())
+	withdraw_response(id)
+	if GameManager.current_state == GameManager.GameState.PLAYING and action.is_valid():
+		action.call()
+
+
+func _offered_response() -> Button:
+	## One response at a time: the first still on offer.
+	for entry: Dictionary in _responses.values():
+		var button: Button = entry.get("button") as Button
+		if is_instance_valid(button) and bool(entry.get("offered", false)):
+			return button
+	return null
+
+
+## World positions of raid fronts (workers, traders or buildings hit) whose
+## last hit is at most `max_age` game seconds old.
+func get_live_raid_positions(max_age: float) -> Array[Vector2]:
+	var positions: Array[Vector2] = []
+	for front: Dictionary in fronts:
+		if _front_kind(str(front.get("target", ""))) == "RAID" and GameManager.game_time - float(front.get("last_hit", -100.0)) <= max_age:
+			positions.append(front.get("position", Vector2.INF))
+	return positions
+
+
 func report_loss(target_name: String, world_position: Vector2) -> void:
 	report_attack(target_name, world_position)
 	for front: Dictionary in fronts:
@@ -115,7 +218,27 @@ func _refresh() -> void:
 		var rail: Control = overview.get("rail")
 		_lane.position.x = rail.get_global_rect().position.x
 		width = rail.size.x
-	_lane.size = Vector2(maxf(120.0, width), 100)
+	width = maxf(120.0, width)
+	# A response plate takes the right end of the column; the cards make room.
+	var cards: int = mini(fronts.size(), _buttons.size())
+	var response: Button = _offered_response() if cards > 0 else null
+	for entry: Dictionary in _responses.values():
+		var plate: Button = entry.get("button") as Button
+		if is_instance_valid(plate):
+			plate.visible = plate == response
+	# Once a plate has stood beside these cards its slot stays empty after it
+	# goes: a card never grows under a thumb that was reaching for the plate.
+	if cards == 0:
+		_response_slot_held = false
+	elif response != null:
+		_response_slot_held = true
+	if _response_slot_held:
+		width -= RESPONSE_WIDTH + RESPONSE_GAP
+	if response != null:
+		var separation: float = 0.0 if compact else 4.0
+		response.position = _lane.position + Vector2(width + RESPONSE_GAP, 0.0)
+		response.size = Vector2(RESPONSE_WIDTH, float(cards) * 48.0 + float(cards - 1) * separation)
+	_lane.size = Vector2(width, 100)
 	for index: int in _buttons.size():
 		var button: Button = _buttons[index]
 		button.visible = index < fronts.size()
@@ -145,6 +268,10 @@ func get_visible_bounds() -> Array[Rect2]:
 	for button: Button in _buttons:
 		if button.is_visible_in_tree():
 			result.append(button.get_global_rect())
+	for entry: Dictionary in _responses.values():
+		var response: Button = entry.get("button") as Button
+		if is_instance_valid(response) and response.is_visible_in_tree():
+			result.append(response.get_global_rect())
 	return result
 
 

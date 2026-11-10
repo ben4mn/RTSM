@@ -76,8 +76,19 @@ func _scenario(phone: Vector2i, scale_factor: float, notched: bool) -> void:
 	hud.call("apply_mobile_layout", view, safe)
 	await _settle()
 	var bounds: Array[Rect2] = feedback.call("get_visible_bounds")
-	_expect(bounds.size() == 2, profile + " lost an attack front")
-	_expect(not (hud.get("_notification_container") as Control).is_visible_in_tree(), profile + " ordinary toast replaced raid priority")
+	var field_cards: int = 0
+	for card: Button in feedback.get("_buttons"):
+		if card.is_visible_in_tree():
+			field_cards += 1
+	_expect(field_cards == 2 and bounds.size() >= 2, profile + " lost an attack front")
+	# HUD pass: toasts keep their own lane during a raid; they never cover a card.
+	var toast_lane: Control = hud.get("_notification_container") as Control
+	_expect(toast_lane.is_visible_in_tree(), profile + " raid cards hid the toast lane")
+	for toast: Node in toast_lane.get_children():
+		if toast is Control and (toast as Control).visible and not toast.is_queued_for_deletion():
+			_expect(safe.grow(0.5).encloses((toast as Control).get_global_rect()), profile + " toast leaves the safe area")
+			for card: Rect2 in bounds:
+				_expect(not card.intersects((toast as Control).get_global_rect()), profile + " toast covers a raid card")
 	_expect(not bool(map.call("is_tile_visible_to_player", site.get("tile_position"), 0)), profile + " site fixture is not fogged")
 	var siblings: Array[Dictionary] = []
 	for property: String in ["_progression_hint_panel", "_sacred_site_panel", "_camera_controls", "_command_dock", "_navigation_controls"]:
@@ -107,7 +118,12 @@ func _scenario(phone: Vector2i, scale_factor: float, notched: bool) -> void:
 		hud.call("apply_mobile_layout", view, safe)
 		await _settle()
 		var management_bounds: Array[Rect2] = feedback.call("get_visible_bounds")
-		_expect(management_bounds.size() == 2, profile + " " + surface + " lost an attack front")
+		# HUD pass: the bounds also carry the bell response plate when it is offered.
+		var front_cards: int = 0
+		for card: Button in feedback.get("_buttons"):
+			if card.is_visible_in_tree():
+				front_cards += 1
+		_expect(front_cards == 2 and management_bounds.size() >= 2, profile + " " + surface + " lost an attack front")
 		var panel: Control = overview.get("panel")
 		var rail: Control = overview.get("rail")
 		for rectangle: Rect2 in management_bounds:

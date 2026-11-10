@@ -58,6 +58,33 @@ func _run() -> void:
 	match_scene.set("_under_attack_cooldown", 0.0)
 	villager.call("heal", 2.0)
 	_expect((feedback.get("fronts") as Array).is_empty(), "healing never creates under-attack alerts")
+	# HUD pass: a boar's bite is wildlife, not a raid. It still hurts.
+	var hp_before_bite: float = float(villager.get("hp"))
+	villager.call("take_wildlife_damage", 2.0)
+	_expect((feedback.get("fronts") as Array).is_empty() and float(villager.get("hp")) < hp_before_bite, "a boar bite wounds without raising a RAID alert")
+	_expect(not bool(villager.get("wildlife_hit")), "the wildlife marker only lasts for the bite itself")
+	villager.call("take_damage", 2.0)
+	_expect((feedback.get("fronts") as Array).size() == 1, "a real attack after a bite still alerts")
+	# HUD pass: the alert lane's response hook (the town bell shortcut uses it).
+	# The plate stands beside the cards, as tall as they are, never below them.
+	var answered: Array[int] = [0]
+	var probe_answer := func() -> void: answered[0] += 1
+	feedback.call("offer_response", "probe", "Ring bell", null, probe_answer, "Probe")
+	var response: Button = feedback.get_node_or_null("Response_probe") as Button
+	var alert_card: Button = feed.get_child(0) as Button
+	_expect(response != null and response.visible and response.size.x >= 48.0 and response.size.y >= 48.0 and response.text == "Ring bell", "an offered response is a 48px target beside the alert card")
+	_expect(response != null and response.position.x >= feed.position.x + feed.size.x and is_equal_approx(response.position.y, feed.position.y) and not response.get_global_rect().intersects(alert_card.get_global_rect()), "the response stands beside the card without covering it")
+	_expect(bool(feedback.call("has_response", "probe")) and (feedback.call("get_visible_bounds") as Array).has(response.get_global_rect()), "an offered response is part of the lane's touch bounds")
+	response.pressed.emit()
+	_expect(answered[0] == 1 and not response.visible and not bool(feedback.call("has_response", "probe")), "one tap answers and retires the response")
+	feedback.call("offer_response", "probe", "Ring bell", null, probe_answer)
+	feedback.call("withdraw_response", "probe")
+	_expect(not response.visible and answered[0] == 1, "a withdrawn response disappears without firing")
+	feedback.call("offer_response", "probe", "Ring bell", null, probe_answer)
+	_clear_fronts(feedback)
+	feedback.call("_refresh")
+	_expect(not response.visible, "a response never outlives the alert cards")
+	feedback.call("withdraw_response", "probe")
 	tc.call("take_damage", 0)
 	tc.call("take_damage", -10)
 	_expect((feedback.get("fronts") as Array).is_empty(), "zero or negative building damage creates no attack alert")
@@ -69,7 +96,14 @@ func _run() -> void:
 	_expect((feedback.get("fronts") as Array).size() == 2, "separate fronts survive global audio throttling")
 	hud.call("show_notification", "Warrior trained")
 	feedback.call("_process", 0.0)
-	_expect((feedback.get("fronts") as Array).size() == 2 and not (hud.get("_notification_container") as Control).visible, "ordinary production cannot replace either raid card")
+	# HUD pass: toasts have their own lane beside the alert column, so a raid
+	# no longer hides them (the bell's "villagers take shelter" must be seen).
+	var toast_lane: Control = hud.get("_notification_container") as Control
+	_expect((feedback.get("fronts") as Array).size() == 2 and toast_lane.visible, "ordinary production cannot replace either raid card, and its toast still shows")
+	for toast: Node in toast_lane.get_children():
+		if toast is Control and (toast as Control).visible and not toast.is_queued_for_deletion():
+			for card: Rect2 in feedback.call("get_visible_bounds"):
+				_expect(not card.intersects((toast as Control).get_global_rect()), "a toast never covers a raid card")
 	await _test_phone_alert_layout(game_map)
 	_finish(match_scene)
 

@@ -46,7 +46,10 @@ const RAID_SHORTCUT_SECONDS: float = 6.0
 const HEAL_PULSE_INTERVAL: float = 1.0
 const MAX_HEAL_MARKS: int = 24
 
-const ONE_CARD: bool = true
+## The Town Center row is planned by scripts/ui/command_row.gd (bell pinned,
+## everything else paged when it does not fit), so the bell and "Out" are two
+## cards. True restores the single state-driven card.
+const ONE_CARD: bool = false
 const ACTION_BELL: String = "garrison:bell"
 const ACTION_RELEASE: String = "garrison:release"
 const ICON_BELL: String = "res://assets/ui/icons/bell.svg"
@@ -55,6 +58,7 @@ const ICON_GARRISON: String = "res://assets/ui/icons/garrison.svg"
 const ICON_REPAIR: String = "res://assets/ui/icons/repair.svg"
 const TEXT_BELL: String = "Town bell — villagers take shelter"
 const TEXT_ALL_CLEAR: String = "All clear"
+const RESPONSE_BELL: String = "town_bell"
 
 enum Repair { DONE, WORKING, PAUSED }
 
@@ -68,9 +72,13 @@ var _calm: Dictionary = {}  # unit instance id -> {"hp": float, "quiet": float}
 var _next_pulse: Dictionary = {}  # instance id -> game time of the next "+"
 var _replica_hp: Dictionary = {}  # client only: instance id -> last seen hp
 var _marks: Array[HealMark] = []
-var _raid_button: Button = null
 var _raid_target: WeakRef = null
 var _selection_hooked: bool = false
+const OFFER_WINDOW_MSEC: int = 400
+var _recent_soldiers: Array[WeakRef] = []
+var _recent_soldiers_held: bool = false
+var _recent_soldiers_dropped_msec: int = 0
+var _offer_text: String = ""
 
 
 # =============================================================================
@@ -621,11 +629,10 @@ static func repair_step(building: BuildingBase, delta: float) -> int:
 # =============================================================================
 
 static func _context_actions(building: BuildingBase, _player_id: int) -> Array:
-	## ONE card per building. The Town Center row has room for a single card
-	## beside its train buttons and does not scroll, so the card follows the
-	## state: Bell -> All clear while ringing -> Send out while soldiers remain.
-	## (With soldiers inside and no bell, a raid still offers "Ring town bell"
-	## under the alert card.) Set ONE_CARD false once the row can scroll.
+	## The Town Center always offers its bell (pinned beside the unit cards by
+	## the HUD's CommandRow, so it is one tap away on every page). "Out" joins
+	## it only when All Clear would leave somebody inside: soldiers garrisoned
+	## by hand, or anyone inside while the bell is silent.
 	var actions: Array = []
 	if building.state != BuildingBase.State.ACTIVE or capacity_of(building) <= 0:
 		return actions
@@ -634,14 +641,13 @@ static func _context_actions(building: BuildingBase, _player_id: int) -> Array:
 		"id": ACTION_BELL, "label": "All Clear" if building.bell_active else "Town Bell",
 		"icon": ICON_BELL_CLEAR if building.bell_active else ICON_BELL, "cost": {}, "time": 0.0, "progress": -1.0,
 		"disabled_reason": "",
-		# Icon only, like the rally flag beside it: half of this card sits
-		# under the age button at phone width.
+		# Icon only, like the rally flag beside it.
 		"short": "", "desc": "",
 		"details": "Villagers within %d tiles run inside the Town Center (up to %d). Each one adds an arrow to its volley and heals. Tap again for all clear; the bell also stands down by itself %d seconds after the last raider leaves." % [int(BELL_RADIUS_TILES), capacity_of(building), int(ALL_CLEAR_SECONDS)],
 	}
 	var release_card: Dictionary = {
 		"id": ACTION_RELEASE, "label": "Ungarrison", "icon": ICON_GARRISON, "cost": {}, "time": 0.0, "progress": -1.0,
-		"disabled_reason": "", "short": "Out", "desc": "%d in" % inside,
+		"disabled_reason": "", "short": "Out · %d" % inside, "desc": "",
 		"details": "Send everyone inside back out. Villagers return to their previous work.",
 	}
 	var is_town_center: bool = building.building_type == BuildingData.BuildingType.TOWN_CENTER
@@ -653,9 +659,21 @@ static func _context_actions(building: BuildingBase, _player_id: int) -> Array:
 		return actions
 	if is_town_center:
 		actions.append(bell_card)
-	if inside > 0:
+	if inside > 0 and (not building.bell_active or _soldiers_inside(building) > 0):
 		actions.append(release_card)
 	return actions
+
+
+static func _soldiers_inside(building: BuildingBase) -> int:
+	## Units All Clear leaves inside. A client replica only knows the total, so
+	## it errs on the side of offering "Out".
+	if building.has_meta("network_garrison"):
+		return int(building.get_meta("network_garrison"))
+	var soldiers: int = 0
+	for unit: UnitBase in garrisoned_units(building):
+		if not unit is Villager:
+			soldiers += 1
+	return soldiers
 
 
 static func _perform_context_action(building: BuildingBase, _player_id: int, action_id: String) -> String:
@@ -784,6 +802,90 @@ func _hook_selection() -> void:
 		return
 	_selection_hooked = true
 	selection.connect("garrison_command", _on_player_garrison_command)
+	if selection.has_signal("selection_changed"):
+		selection.connect("selection_changed", _on_selection_changed)
+
+
+# --- "Garrison n" offer --------------------------------------------------------
+# A tap on an own Town Center / Watch Tower selects it, as every tap on an own
+# building does. When soldiers were selected a moment before and stand nearby,
+# that tap also raises one tappable pill, "Garrison 6 · tap", so sheltering an
+# army no longer needs the hold menu. Nothing about the tap itself changes.
+
+func _on_selection_changed(selected: Array) -> void:
+	# A tap that replaces the selection may report an empty selection first;
+	# the soldiers stay "just selected" for a moment after they are dropped.
+	var soldiers: Array[WeakRef] = []
+	for entry: Variant in selected:
+		if is_instance_valid(entry) and entry is UnitBase and not entry is Villager and (entry as UnitBase).player_owner == 0 \
+				and (entry as UnitBase).current_state != UnitBase.State.DEAD:
+			soldiers.append(weakref(entry))
+	var now: int = Time.get_ticks_msec()
+	var previous: Array[WeakRef] = []
+	if not _recent_soldiers.is_empty() and (_recent_soldiers_held or now - _recent_soldiers_dropped_msec <= OFFER_WINDOW_MSEC):
+		previous = _recent_soldiers
+	if not soldiers.is_empty():
+		_recent_soldiers = soldiers
+		_recent_soldiers_held = true
+	elif _recent_soldiers_held:
+		_recent_soldiers_held = false
+		_recent_soldiers_dropped_msec = now
+	var hud: Node = main.get("hud") as Node if is_instance_valid(main) else null
+	if not is_instance_valid(hud) or not hud.has_method("show_notification"):
+		return
+	if not _offer_text.is_empty():
+		hud.call("dismiss_notification", _offer_text)
+		_offer_text = ""
+	if selected.size() != 1 or not accepts(selected[0]) or (selected[0] as BuildingBase).player_owner != 0 or previous.is_empty():
+		return
+	var building := selected[0] as BuildingBase
+	var candidates: Array = _offer_candidates(previous, building)
+	if candidates.is_empty():
+		return
+	var room: int = maxi(0, capacity_of(building) - count(building))
+	var number: int = mini(candidates.size(), room)
+	if number <= 0:
+		return
+	_offer_text = "Garrison %d in the %s · tap" % [number, building.building_name]
+	hud.call("show_notification", _offer_text, KingdomTheme.GOLD, 5.0, _accept_offer.bind(weakref(building), previous), 2)
+
+
+func _offer_candidates(soldiers: Array[WeakRef], building: BuildingBase) -> Array:
+	var candidates: Array = []
+	var anyone_near: bool = false
+	for reference: WeakRef in soldiers:
+		var unit: UnitBase = reference.get_ref() as UnitBase
+		if not can_garrison_unit(unit, building) or not unit.is_inside_tree():
+			continue
+		candidates.append(unit)
+		if tile_distance(building, unit.global_position) <= BELL_RADIUS_TILES:
+			anyone_near = true
+	if not anyone_near:
+		candidates.clear()
+	return candidates
+
+
+func _accept_offer(building_ref: WeakRef, soldiers: Array[WeakRef]) -> void:
+	var hud: Node = main.get("hud") as Node if is_instance_valid(main) else null
+	if is_instance_valid(hud) and not _offer_text.is_empty():
+		hud.call("dismiss_notification", _offer_text)
+	_offer_text = ""
+	var building: BuildingBase = building_ref.get_ref() as BuildingBase
+	if not accepts(building) or GameManager.current_state != GameManager.GameState.PLAYING:
+		return
+	var candidates: Array = _offer_candidates(soldiers, building)
+	if candidates.is_empty():
+		return
+	if NetworkSession.is_client():
+		var ids: Array = []
+		for unit: UnitBase in candidates:
+			ids.append(NetworkSession.entity_id(unit))
+		NetworkSession.send_command("garrison", {"ids": ids.slice(0, 64), "target": NetworkSession.entity_id(building)})
+		AudioManager.play_ui("command_move")
+	elif order_garrison(candidates, building) > 0:
+		AudioManager.play_ui("command_move")
+	elif is_instance_valid(hud):
+		hud.call("show_notification", "%s is full" % building.building_name if free_slots(building) <= 0 else "Cannot garrison there", KingdomTheme.RUST)
 
 
 func _advance_pending_arrows(delta: float) -> void:
@@ -930,62 +1032,31 @@ func _pulse(source: Object, world_position: Vector2) -> void:
 
 
 func _offer_raid_prompt() -> void:
-	## One-tap "Ring town bell" under the RAID alert cards. Toasts are hidden
-	## while those cards are up, so the shortcut lives in their lane: a raid
-	## front (workers or buildings hit) within bell range of a silent Town Center.
+	## One-tap "Ring town bell" under the RAID alert cards (the alert lane's
+	## response hook): offered while a raid front is live within bell range of a
+	## silent Town Center, withdrawn as soon as that stops being true.
 	var feedback: Node = main.get("_battlefield_feedback") as Node
-	var lane: Control = feedback.get("_lane") as Control if is_instance_valid(feedback) else null
-	if not is_instance_valid(lane):
+	if not is_instance_valid(feedback) or not feedback.has_method("offer_response"):
 		return
 	var target: BuildingBase = null
-	var fronts: Variant = feedback.get("fronts")
-	if fronts is Array:
-		for front: Variant in fronts:
-			if not front is Dictionary or str(feedback.call("_front_kind", str(front.get("target", "")))) != "RAID":
-				continue
-			# Only while the raid is live; the card itself lingers for 20 s.
-			if GameManager.game_time - float(front.get("last_hit", -100.0)) > RAID_SHORTCUT_SECONDS:
-				continue
-			for entry: Variant in main._player_buildings[0]:
-				if accepts(entry) and (entry as BuildingBase).building_type == BuildingData.BuildingType.TOWN_CENTER and not (entry as BuildingBase).bell_active 						and tile_distance(entry as BuildingBase, front.get("position", Vector2.INF)) <= BELL_RADIUS_TILES:
-					target = entry as BuildingBase
-					break
-			if target != null:
+	for raid_position: Vector2 in feedback.call("get_live_raid_positions", RAID_SHORTCUT_SECONDS):
+		for entry: Variant in main._player_buildings[0]:
+			if accepts(entry) and (entry as BuildingBase).building_type == BuildingData.BuildingType.TOWN_CENTER and not (entry as BuildingBase).bell_active 					and tile_distance(entry as BuildingBase, raid_position) <= BELL_RADIUS_TILES:
+				target = entry as BuildingBase
 				break
+		if target != null:
+			break
 	if target == null:
-		if is_instance_valid(_raid_button):
-			_raid_button.visible = false
+		feedback.call("withdraw_response", RESPONSE_BELL)
 		return
-	if not is_instance_valid(_raid_button):
-		_raid_button = Button.new()
-		_raid_button.name = "RingBellShortcut"
-		_raid_button.text = "Ring town bell"
-		_raid_button.tooltip_text = "Villagers near the Town Center shelter inside and add arrows."
-		_raid_button.custom_minimum_size = Vector2(0, 44)
-		_raid_button.focus_mode = Control.FOCUS_NONE
-		_raid_button.add_theme_font_size_override("font_size", 13)
-		_raid_button.add_theme_stylebox_override("normal", KingdomTheme.button_style())
-		_raid_button.add_theme_color_override("font_color", KingdomTheme.GOLD)
-		_raid_button.icon = _icon(ICON_BELL)
-		_raid_button.expand_icon = true
-		_raid_button.add_theme_constant_override("icon_max_width", 20)
-		_raid_button.pressed.connect(_on_raid_button_pressed)
-		_raid_button.button_down.connect(func() -> void:
-			var hud: Node = main.get("hud") as Node
-			if is_instance_valid(hud) and hud.has_signal("world_gesture_cancel_requested"):
-				hud.emit_signal("world_gesture_cancel_requested")
-		)
-		lane.add_child(_raid_button)
 	_raid_target = weakref(target)
-	_raid_button.visible = true
+	feedback.call("offer_response", RESPONSE_BELL, "Ring bell", _icon(ICON_BELL), _on_raid_button_pressed, "Ring the town bell: villagers near the Town Center shelter inside and add arrows.")
 
 
 func _on_raid_button_pressed() -> void:
 	var target: BuildingBase = _raid_target.get_ref() as BuildingBase if _raid_target != null else null
 	if is_instance_valid(target):
 		request_bell(main, target)
-	if is_instance_valid(_raid_button):
-		_raid_button.visible = false
 
 
 static func _refresh_badge(building: BuildingBase) -> void:
