@@ -3833,7 +3833,7 @@ func _update_fog_of_war() -> void:
 	# vision revision), building sources and the two rosters. When none moved,
 	# the list registered last frame is still exact and FogManager's own
 	# per-frame refresh keeps answering from it.
-	var source_key: Array = [fog.get_instance_id(), game_map.get_unit_vision_revision(), BuildingBase.vision_revision, _player_units[0].size(), _player_buildings[0].size(), fog.get_vision_source_count()]
+	var source_key: Array = [fog.get_instance_id(), game_map.get_own_unit_vision_revision(0), BuildingBase.vision_revision, _player_units[0].size(), _player_buildings[0].size(), fog.get_vision_source_count()]
 	if source_key == _fog_source_key:
 		return
 

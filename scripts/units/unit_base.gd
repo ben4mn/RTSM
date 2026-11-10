@@ -134,6 +134,10 @@ var _presentation_delta: float = -1.0
 ## Written by LiveUnitIndex only (its record for this unit, kept on the unit).
 var _index_position: Vector2 = Vector2.ZERO
 var _index_rank: int = 0
+var _index_listed: bool = false
+var _index_tile: Vector2i = Vector2i.ZERO
+var _index_cell: Vector2i = Vector2i.ZERO
+var _index_vision: float = -1.0
 ## The real GameMap answers whole movement checks in one typed call; fixture
 ## maps without those helpers keep the per-tile duck-typed path.
 var _navigation_map_typed: bool = false
@@ -214,6 +218,8 @@ func _remove_live_unit_index() -> void:
 
 func get_nearby_units(radius: float) -> Array:
 	var map: Node2D = _get_navigation_map()
+	if _navigation_map_typed:
+		return map.get_units_near(global_position, radius)
 	return map.get_units_near(global_position, radius) if map != null and map.has_method("get_units_near") else get_tree().get_nodes_in_group("units")
 
 
@@ -737,13 +743,22 @@ func _move_in_direction(direction: Vector2, delta: float, game_map: Node2D) -> v
 	# Passing must keep the next route point reachable as well. Otherwise a
 	# later sideways step can tuck behind a solid corner after a safe shortcut.
 	var keeps_route_visible: bool = not intermediate_waypoint or move_dir.is_equal_approx(desired_dir) or _is_navigation_segment_clear(proposed_position, global_position + direction, game_map)
-	if not keeps_route_visible or not _is_navigation_segment_clear(global_position, proposed_position, game_map):
+	if not keeps_route_visible or not _is_step_clear(proposed_position, game_map):
 		# Check the entire actual steered step, including solid corners. A clear
 		# lookahead segment alone cannot make a later sideways step safe.
 		proposed_position = global_position + desired_dir * step_distance
-		if not _is_navigation_segment_clear(global_position, proposed_position, game_map):
+		if not _is_step_clear(proposed_position, game_map):
 			return
 	global_position = proposed_position
+
+
+## _is_navigation_segment_clear(global_position, to_position). A step that ends
+## in the tile this unit already stands on is clear by that rule whether or not
+## the tile is walkable, and the unit index recorded that tile at the last move.
+func _is_step_clear(to_position: Vector2, game_map: Node2D) -> bool:
+	if _index_listed and _navigation_map_typed and game_map == _navigation_map and _index_position == global_position and game_map.world_to_tile(to_position) == _index_tile:
+		return true
+	return _is_navigation_segment_clear(global_position, to_position, game_map)
 
 
 func _get_navigation_map() -> Node2D:
@@ -753,7 +768,7 @@ func _get_navigation_map() -> Node2D:
 	while ancestor != null:
 		if ancestor is Node2D and ancestor.has_method("get_navigation_world_path"):
 			_navigation_map = ancestor as Node2D
-			_navigation_map_typed = ancestor.has_method("is_navigation_segment_clear") and ancestor.has_method("is_world_point_walkable")
+			_navigation_map_typed = ancestor.has_method("is_navigation_segment_clear") and ancestor.has_method("is_world_point_walkable") and ancestor.has_method("is_entity_visible_to_player") and ancestor.has_method("get_units_near")
 			return _navigation_map
 		ancestor = ancestor.get_parent()
 	return null
@@ -1018,7 +1033,10 @@ func _relax_combat_spacing(delta: float, target_position: Vector2) -> void:
 		if proposed.distance_squared_to(opponent.global_position) < minimum_distance * minimum_distance:
 			return
 	var game_map: Node2D = _get_navigation_map()
-	if game_map != null and game_map.has_method("is_tile_walkable") and game_map.has_method("world_to_tile"):
+	if _navigation_map_typed:
+		if not game_map.is_world_point_walkable(proposed):
+			return
+	elif game_map != null and game_map.has_method("is_tile_walkable") and game_map.has_method("world_to_tile"):
 		if not bool(game_map.call("is_tile_walkable", game_map.call("world_to_tile", proposed))):
 			return
 	global_position = proposed
@@ -1316,6 +1334,8 @@ func _is_valid_building_target(target: Variant) -> bool:
 
 func _can_track_entity(entity: Node2D) -> bool:
 	var game_map := _get_navigation_map()
+	if _navigation_map_typed:
+		return game_map.is_entity_visible_to_player(entity, player_owner)
 	if game_map != null and game_map.has_method("is_entity_visible_to_player"):
 		return bool(game_map.call("is_entity_visible_to_player", entity, player_owner))
 	return true
@@ -1595,7 +1615,9 @@ func _update_friendly_separation(movement_direction: Vector2 = Vector2.ZERO) -> 
 	_navigation_neighbors.clear()
 	# Only travelling units consume the wider crowded-waypoint neighborhood.
 	# 18 is the largest current role radius (Siege); exact role checks follow.
-	var neighborhood: float = maxf(FRIENDLY_SEPARATION_RADIUS, UNIT_SIZES.get(unit_type, 12.0) + 18.0 + 8.0)
+	var own_size: float = UNIT_SIZES.get(unit_type, 12.0)
+	var own_position: Vector2 = global_position
+	var neighborhood: float = maxf(FRIENDLY_SEPARATION_RADIUS, own_size + 18.0 + 8.0)
 	if navigating: neighborhood += NAVIGATION_CROWDED_WAYPOINT_RADIUS
 	for node in get_nearby_units(neighborhood):
 		if node == self or not (node is UnitBase):
@@ -1603,9 +1625,9 @@ func _update_friendly_separation(movement_direction: Vector2 = Vector2.ZERO) -> 
 		var other: UnitBase = node as UnitBase
 		if not is_instance_valid(other) or other.current_state == State.DEAD:
 			continue
-		var offset: Vector2 = global_position - other.global_position
+		var offset: Vector2 = own_position - other.global_position
 		var dist: float = offset.length()
-		var desired_spacing: float = UNIT_SIZES.get(unit_type, 12.0) + UNIT_SIZES.get(other.unit_type, 12.0) + 8.0
+		var desired_spacing: float = own_size + UNIT_SIZES.get(other.unit_type, 12.0) + 8.0
 		var separation_radius: float = maxf(FRIENDLY_SEPARATION_RADIUS, desired_spacing)
 		# Reuse the throttled neighborhood scan for crowded waypoint handling.
 		# The extra margin includes allies beside the upcoming route center.

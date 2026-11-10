@@ -809,8 +809,16 @@ func _building_work_distance(building: Node2D) -> float:
 	return global_position.distance_to(building.global_position)
 
 
+## The answer for the last map asked about (a script's methods do not change).
+var _service_map_checked: Node2D = null
+var _service_map_supported: bool = false
+
 func _supports_service_positions(game_map: Node2D) -> bool:
-	return game_map != null and game_map.has_method("tile_to_world") and game_map.has_method("world_to_tile") and game_map.has_method("is_tile_walkable") and game_map.has_method("get_navigation_world_path")
+	if game_map != null and game_map == _service_map_checked:
+		return _service_map_supported
+	_service_map_checked = game_map
+	_service_map_supported = game_map != null and game_map.has_method("tile_to_world") and game_map.has_method("world_to_tile") and game_map.has_method("is_tile_walkable") and game_map.has_method("get_navigation_world_path")
+	return _service_map_supported
 
 
 func _advance_economic_work_position(target: Node2D, radius: float, delta: float) -> int:
@@ -1725,11 +1733,21 @@ func _is_world_position_visible(world_position: Vector2) -> bool:
 	return false
 
 
+## Asked several times per frame by a walking worker: remember the map found
+## above the current parent instead of walking the ancestors every time.
+var _resource_map_parent: Node = null
+var _resource_map_found: Node2D = null
+
 func _find_resource_game_map() -> Node2D:
 	var parent: Node = get_parent()
+	if parent != null and parent == _resource_map_parent and is_instance_valid(_resource_map_found) and _resource_map_found.is_inside_tree() == is_inside_tree():
+		return _resource_map_found
+	var direct_parent: Node = parent
 	while parent != null:
 		if parent.has_method("get_nearest_resource_node"):
-			return parent as Node2D
+			_resource_map_parent = direct_parent
+			_resource_map_found = parent as Node2D
+			return _resource_map_found
 		parent = parent.get_parent()
 	return null
 

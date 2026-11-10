@@ -11,6 +11,22 @@ var walkability_revision: int = 0
 ## is_walkable several times per unit per frame; this keeps it to one read.
 var _solid := PackedByteArray()
 
+## Routes are a pure function of (start, goal, grid). Workers ask for the same
+## resource <-> drop-off pairs trip after trip, and a builder's reachability
+## check is followed by the same request when it sets off: remember answers
+## until any tile's solidity or weight changes.
+const ROUTE_CACHE_LIMIT := 2048
+var _route_cache: Dictionary = {}
+var _route_epoch: int = 0
+var _route_cache_epoch: int = -1
+var _route_failures: int = 0
+## 4-connected region id per tile (0 = not flooded this epoch). The grid's
+## diagonal rule needs both orthogonal neighbours open, so two tiles are joined
+## by a route exactly when they share a region. Flooded lazily, only after
+## searches have already failed twice on this grid.
+var _regions := PackedInt32Array()
+var _region_count: int = 0
+
 const DEFAULT_MAX_PATH_CHECKS := 32
 const DEFAULT_START_RECOVERY_RADIUS := 4
 
@@ -90,9 +106,9 @@ func get_tile_path_to_any(
 		var destination_best: Array[Vector2i] = []
 		for start: Vector2i in starts:
 			if checks >= max_path_checks:
-				return destination_best
+				return destination_best.duplicate()
 			checks += 1
-			var candidate: Array[Vector2i] = _astar.get_id_path(start, destination)
+			var candidate: Array[Vector2i] = _route(start, destination)
 			if candidate.is_empty():
 				continue
 			if destination_best.is_empty() or candidate.size() < destination_best.size():
@@ -100,8 +116,69 @@ func get_tile_path_to_any(
 		# Destinations are ordered by desirability, so return the best recovered
 		# start route to the first destination that can actually be reached.
 		if not destination_best.is_empty():
-			return destination_best
+			return destination_best.duplicate()
 	return []
+
+
+## _astar.get_id_path(start, destination) for two walkable tiles, remembered.
+## The returned array is shared: callers copy before handing it out.
+func _route(start: Vector2i, destination: Vector2i) -> Array[Vector2i]:
+	if _route_cache_epoch != _route_epoch:
+		_route_cache_epoch = _route_epoch
+		_route_cache.clear()
+		_route_failures = 0
+		_region_count = 0
+	var width: int = MapData.MAP_WIDTH
+	var start_index: int = start.y * width + start.x
+	var destination_index: int = destination.y * width + destination.x
+	if _region_count > 0:
+		if _regions[start_index] == 0:
+			_flood_region(start)
+		if _regions[start_index] != _regions[destination_index]:
+			return []
+	var key: int = start_index * width * MapData.MAP_HEIGHT + destination_index
+	var known: Variant = _route_cache.get(key)
+	if known != null:
+		return known
+	var found: Array[Vector2i] = _astar.get_id_path(start, destination)
+	if found.is_empty() and start != destination:
+		_route_failures += 1
+		if _route_failures == 2:
+			_regions.resize(width * MapData.MAP_HEIGHT)
+			_regions.fill(0)
+			_flood_region(start)
+	if _route_cache.size() >= ROUTE_CACHE_LIMIT:
+		_route_cache.clear()
+	_route_cache[key] = found
+	return found
+
+
+func _flood_region(origin: Vector2i) -> void:
+	var width: int = MapData.MAP_WIDTH
+	var height: int = MapData.MAP_HEIGHT
+	_region_count += 1
+	var region: int = _region_count
+	var frontier := PackedInt32Array([origin.y * width + origin.x])
+	_regions[frontier[0]] = region
+	var next: int = 0
+	while next < frontier.size():
+		var index: int = frontier[next]
+		next += 1
+		@warning_ignore("integer_division")
+		var y: int = index / width
+		var x: int = index - y * width
+		if x > 0 and _solid[index - 1] == 0 and _regions[index - 1] == 0:
+			_regions[index - 1] = region
+			frontier.append(index - 1)
+		if x < width - 1 and _solid[index + 1] == 0 and _regions[index + 1] == 0:
+			_regions[index + 1] = region
+			frontier.append(index + 1)
+		if y > 0 and _solid[index - width] == 0 and _regions[index - width] == 0:
+			_regions[index - width] = region
+			frontier.append(index - width)
+		if y < height - 1 and _solid[index + width] == 0 and _regions[index + width] == 0:
+			_regions[index + width] = region
+			frontier.append(index + width)
 
 
 ## Return walkable tiles around `center`, nearest first. Search and output are
@@ -133,6 +210,7 @@ func set_solid(pos: Vector2i, solid: bool = true) -> void:
 		_astar.set_point_solid(pos, solid)
 		_solid[pos.y * MapData.MAP_WIDTH + pos.x] = 1 if solid else 0
 		walkability_revision += 1
+		_route_epoch += 1
 
 
 ## Mark a rectangular area as solid (for buildings).
@@ -150,6 +228,7 @@ func update_tile(pos: Vector2i, tile_type: MapData.TileType) -> void:
 		set_solid(pos, true)
 	else:
 		set_solid(pos, false)
+		_route_epoch += 1
 		if tile_type == MapData.TileType.FOREST:
 			_astar.set_point_weight_scale(pos, MapData.FOREST_MOVE_COST)
 		else:
