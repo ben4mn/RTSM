@@ -1016,10 +1016,12 @@ func _refresh_pages() -> void:
 	_recruit_tab.set_pressed_no_signal(_army_recruit_page)
 	_groups_tab.set_pressed_no_signal(not _army_recruit_page)
 	var research: bool = _showing_research()
-	_research_tab.visible = economy_open
+	# The Workers header is full at 300px (Workers, Farm, Train, Info, Close are
+	# five 48px targets), so Research sits beside Train on the Train and
+	# Research pages. There a single wrapping "next" steps through production
+	# buildings, keeping that header at six targets as before.
+	_research_tab.visible = economy_open and (production or research)
 	_research_tab.set_pressed_no_signal(research)
-	# The economy header holds six targets: with the Research tab present a
-	# single wrapping "next" steps through its production buildings.
 	_previous_producer.visible = army_open and production and ids.size() > 1
 	_next_producer.visible = (economy_open or army_open) and production and ids.size() > 1
 	_previous_producer.disabled = ids.size() <= 1

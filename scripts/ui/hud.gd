@@ -2890,6 +2890,7 @@ func _set_age_blocked_note(copy: String) -> void:
 		note_style.content_margin_top = 2.0
 		note_style.content_margin_bottom = 3.0
 		_age_blocked_note.add_theme_stylebox_override("normal", note_style)
+		_age_blocked_note.z_index = 50  # A pinned tab over the shelf edge, never under it.
 		($Root as Control).add_child(_age_blocked_note)
 	_age_blocked_note.text = copy
 	_place_age_blocked_note()
@@ -2905,7 +2906,7 @@ func _place_age_blocked_note() -> void:
 	var root_control: Control = $Root as Control
 	var anchor: Rect2 = root_control.get_global_transform().affine_inverse() * age_up_button.get_global_rect()
 	var note_size: Vector2 = _age_blocked_note.get_combined_minimum_size()
-	_age_blocked_note.position = Vector2(clampf(anchor.end.x - note_size.x, 4.0, maxf(4.0, root_control.size.x - note_size.x - 4.0)), anchor.position.y - note_size.y - 5.0)
+	_age_blocked_note.position = Vector2(clampf(anchor.end.x - note_size.x, 4.0, maxf(4.0, root_control.size.x - note_size.x - 4.0)), anchor.position.y - note_size.y + 3.0)
 
 
 func _get_age_up_preview(next_age: int) -> String:
@@ -4201,13 +4202,27 @@ func _update_research_buttons(building_ref: Node2D) -> void:
 			style.set_content_margin(SIDE_TOP, 3.0)
 			style.set_content_margin(SIDE_BOTTOM, 3.0)
 			btn.add_theme_stylebox_override(state, style)
+		# The three text lines need the card's full width, so the glyph is a
+		# small corner mark rather than an inline icon that would squeeze them.
+		btn.icon = null
 		var icon_path: String = str(action.get("icon", ""))
+		var glyph := btn.get_node_or_null("CardGlyph") as TextureRect
 		if icon_path.is_empty() or not ResourceLoader.exists(icon_path):
-			btn.icon = null
+			if glyph != null:
+				glyph.visible = false
 		else:
-			btn.icon = load(icon_path) as Texture2D
-			btn.expand_icon = true
-			btn.add_theme_constant_override("icon_max_width", 18)
+			if glyph == null:
+				glyph = TextureRect.new()
+				glyph.name = "CardGlyph"
+				glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				glyph.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+				glyph.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+				btn.add_child(glyph)
+				glyph.position = Vector2(7.0, 5.0)
+				glyph.size = Vector2(13.0, 13.0)
+			glyph.texture = load(icon_path) as Texture2D
+			glyph.visible = true
+			glyph.modulate = Color(1.0, 1.0, 1.0, 0.45 if btn.disabled else 0.9)
 		_research_container.move_child(btn, child_index)
 		child_index += 1
 	_queue_mobile_layout_refresh()
