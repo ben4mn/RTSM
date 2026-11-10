@@ -176,10 +176,72 @@ const UNIT_ICONS: Dictionary = {
 }
 
 
-static func get_unit_stats(unit_type: int, player_id: int = -1) -> Dictionary:
-	if UNITS.has(unit_type):
-		return CivilizationData.get_unit_stats(UNITS[unit_type], unit_type, CivilizationData.for_player(player_id))
-	return {}
+# --- Unit line tiers (Round 2 workstream B) ---
+# A tier is an overlay on the SAME UnitType, bought as research (TechData
+# "tier" rows) and stored per player in the modifier registry as
+# `tier_<unit_type>` (1 = base). Values are ratios of the line's own stats, so
+# they stay right when the base numbers are rescaled: at today's stats they
+# give Man-at-Arms 150/19/5, Champion 190/23/6, Crossbowman 85/17 and Knight
+# 210/25/4; at the halved scale 75/10/3, 95/12/3, 43/9 and 105/13/2.
+# The ratios apply on top of civilization overrides, and a civilization's own
+# unit name (Longbow, Outrider) wins over the tier name.
+const UNIT_TIERS: Dictionary = {
+	UnitType.INFANTRY: {
+		2: {"name": "Man-at-Arms", "hp_mult": 1.25, "damage_mult": 1.2, "armor_mult": 1.25},
+		3: {"name": "Champion", "hp_mult": 1.5834, "damage_mult": 1.45, "armor_mult": 1.5},
+	},
+	UnitType.ARCHER: {
+		2: {"name": "Crossbowman", "hp_mult": 1.22, "damage_mult": 1.22},
+	},
+	UnitType.CAVALRY: {
+		2: {"name": "Knight", "hp_mult": 1.3125, "damage_mult": 1.25, "armor_mult": 2.0},
+	},
+}
+const TIER_ICONS: Dictionary = {2: "res://assets/ui/icons/tier2.svg", 3: "res://assets/ui/icons/tier3.svg"}
+
+
+static func tier_modifier_key(unit_type: int) -> String:
+	return "tier_%d" % unit_type
+
+
+static func get_max_tier(unit_type: int) -> int:
+	var best: int = 1
+	for tier: int in UNIT_TIERS.get(unit_type, {}):
+		best = maxi(best, tier)
+	return best
+
+
+static func get_unit_tier(unit_type: int, player_id: int) -> int:
+	## The player's researched tier for this line; 1 when none or unknown.
+	if player_id < 0 or not UNIT_TIERS.has(unit_type):
+		return 1
+	var scene_tree: SceneTree = Engine.get_main_loop() as SceneTree
+	var gm: Node = scene_tree.root.get_node_or_null("GameManager") if scene_tree != null else null
+	if gm == null:
+		return 1
+	return clampi(int(gm.get_modifier(player_id, tier_modifier_key(unit_type), 1.0)), 1, get_max_tier(unit_type))
+
+
+static func get_unit_stats(unit_type: int, player_id: int = -1, tier: int = -1) -> Dictionary:
+	## `tier` -1 uses the player's researched tier; pass 1..n to preview one.
+	if not UNITS.has(unit_type):
+		return {}
+	var stats: Dictionary = CivilizationData.get_unit_stats(UNITS[unit_type], unit_type, CivilizationData.for_player(player_id))
+	if tier < 0:
+		tier = get_unit_tier(unit_type, player_id)
+	var overlay: Dictionary = UNIT_TIERS.get(unit_type, {}).get(tier, {})
+	if overlay.is_empty():
+		return stats
+	for stat: String in ["hp", "damage", "armor"]:
+		if overlay.has(stat + "_mult"):
+			stats[stat] = int(round(float(stats.get(stat, 0)) * float(overlay[stat + "_mult"])))
+	stats["tier"] = tier
+	if str(stats.get("name", "")) == str(UNITS[unit_type].get("name", "")):
+		stats["name"] = str(overlay.get("name", stats["name"]))
+	else:
+		# A civilization's own unit keeps its name and wears the tier as a rank.
+		stats["name"] = "%s %s" % [str(stats["name"]), "I".repeat(mini(tier, 3))]
+	return stats
 
 
 static func get_unit_cost(unit_type: int) -> Dictionary:
@@ -218,7 +280,8 @@ static func get_unit_counter_name(unit_type: int, player_id: int = -1) -> String
 			UnitType.ARCHER: target_type = UnitType.INFANTRY
 			UnitType.CAVALRY: target_type = UnitType.ARCHER
 		if target_type >= 0:
-			var target_name: String = get_unit_name(target_type, 1 - player_id)
+			# The base line name: counters are about the line, not its tier.
+			var target_name: String = str(get_unit_stats(target_type, 1 - player_id, 1)["name"])
 			return "Horsemen" if target_name == "Horseman" else target_name + "s"
 	return str(UNITS.get(unit_type, {}).get("counter_name", ""))
 

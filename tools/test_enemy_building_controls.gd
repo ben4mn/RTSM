@@ -161,7 +161,11 @@ func _run() -> void:
 		var human_food_before: int = int(resource_manager.call("get_resource", PLAYER_HUMAN, "food"))
 		var human_gold_before: int = int(resource_manager.call("get_resource", PLAYER_HUMAN, "gold"))
 		var attack_before: int = int((game_manager.get("player_upgrades") as Dictionary)[PLAYER_HUMAN]["attack_bonus"])
+		# Round 2 B: Forging is a Feudal, timed research in the Blacksmith's slot.
+		(game_manager.get("players") as Dictionary)[PLAYER_HUMAN]["age"] = 2
 		match_scene.call("_on_research_requested", human_blacksmith, "forging")
+		_expect(str(human_blacksmith.get("research_id")) == "forging" and not game_manager.call("has_research", PLAYER_HUMAN, "forging"), "friendly Blacksmith research starts its timer")
+		human_blacksmith.call("advance_research", 30.5)
 		_expect(game_manager.call("has_research", PLAYER_HUMAN, "forging"), "friendly Blacksmith research remains functional")
 		_expect_eq(int(resource_manager.call("get_resource", PLAYER_HUMAN, "food")), human_food_before - 100, "friendly research spends food")
 		_expect_eq(int(resource_manager.call("get_resource", PLAYER_HUMAN, "gold")), human_gold_before - 50, "friendly research spends gold")

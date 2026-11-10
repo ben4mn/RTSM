@@ -1,5 +1,8 @@
 extends SceneTree
 ## Real HUD controls must expose authoritative age costs and affordability.
+## Round 2 B: the age-up is a timed research in the Town Center with light
+## building prerequisites; the button says why it is blocked, then becomes the
+## progress meter, and a cancel refunds everything.
 
 const HUD_SCENE := "res://scenes/ui/hud.tscn"
 const VIEWPORT_SIZES: Array[Vector2i] = [Vector2i(1280, 720), Vector2i(844, 390)]
@@ -26,7 +29,7 @@ func _run() -> void:
 	root.get_node("AudioManager").call("stop_all")
 	await create_timer(0.15, true).timeout
 	if _failures.is_empty():
-		print("[PASS] age_up_affordability: six desktop/phone population profiles expose live Dark/Feudal costs, deposit/spend availability, pause/resume guards, supported-age boundary, and fitted button text")
+		print("[PASS] age_up_affordability: desktop/phone population profiles expose live Dark/Feudal costs, deposit/spend availability, pause/resume guards, building prerequisites, timed start/meter/cancel/complete, supported-age boundary, and fitted button text")
 		quit(0)
 	else:
 		for failure: String in _failures:
@@ -75,6 +78,20 @@ func _exercise_profile(viewport_size: Vector2i, population_limit: int) -> void:
 		_expect(button.disabled, context + " food-only deposit cannot enable while gold is missing")
 		_resource_manager.call("add_resource", 0, "gold", 1)
 		_expect(not button.disabled and button.tooltip_text.contains("Ready to advance"), context + " exact-cost deposit immediately enables and updates preview")
+		# Prerequisite buildings: the blocked reason is on screen until they stand.
+		var requirement: Dictionary = TechData.AGE_UP_REQUIREMENTS.get(age + 1, {})
+		var note: Label = hud.get("_age_blocked_note") as Label
+		_expect(String(_game_manager.call("get_age_up_failure_reason", 0)) == "needs_building" and not bool(_game_manager.call("try_start_age_up", 0)), context + " needs its prerequisite buildings")
+		_expect(note != null and note.text == TechData.describe_age_requirement(age + 1) and note.text.begins_with("Need "), context + " says which building is missing: " + (note.text if note != null else "no note"))
+		_expect(button.tooltip_text.contains(TechData.describe_age_requirement(age + 1) + " (missing)"), context + " preview lists the missing prerequisite")
+		for index: int in int(requirement.get("count", 0)):
+			var prerequisite: Node2D = (load("res://scripts/buildings/building_base.gd") as GDScript).new() as Node2D
+			prerequisite.set("building_type", (requirement["types"] as Array)[index])
+			prerequisite.set("player_owner", 0)
+			prerequisite.set("state", BUILDING_STATE_ACTIVE)
+			viewport.add_child(prerequisite)
+		hud.call("refresh_age_display")
+		_expect(String(_game_manager.call("get_age_up_failure_reason", 0)) == "" and note.text == "" and button.tooltip_text.contains("(ready)"), context + " completed prerequisites clear the blocked note")
 		_expect(bool(_resource_manager.call("try_spend", 0, {"food": 1})), context + " fixture can spend one food")
 		_expect(button.disabled and button.tooltip_text.contains("Need +1 food · +0 gold"), context + " spending immediately disables and updates missing cost")
 		_game_manager.call("set_state", 3)
@@ -88,8 +105,26 @@ func _exercise_profile(viewport_size: Vector2i, population_limit: int) -> void:
 		await process_frame
 		await process_frame
 		_assert_button_layout(button, viewport_size, context)
-		_expect(bool(_resource_manager.call("try_spend", 0, cost)), context + " advancement fixture pays authoritative costs")
-		_expect(bool(_game_manager.call("advance_age", 0)), context + " advancement emits authoritative age refresh")
+		# Timed age-up: pay at start, meter on the button, cancel refunds, completion advances.
+		var duration: float = TechData.get_research_time(TechData.age_research_id(age + 1))
+		var bank: Dictionary = (_resource_manager.call("get_all_resources", 0) as Dictionary).duplicate()
+		_expect(bool(_game_manager.call("try_start_age_up", 0)) and int(_game_manager.call("get_player_age", 0)) == age and String(town_center.get("research_id")) == TechData.age_research_id(age + 1), context + " age-up starts as timed Town Center research")
+		_expect(int(_resource_manager.call("get_resource", 0, "food")) == int(bank["food"]) - int(cost["food"]) and int(_resource_manager.call("get_resource", 0, "gold")) == int(bank["gold"]) - int(cost["gold"]), context + " age-up is paid at start")
+		town_center.call("advance_research", duration * 0.5)
+		hud.call("refresh_age_display")
+		var meter: ProgressBar = button.get_node_or_null("ProductionSeam") as ProgressBar
+		_expect(button.text == "%ds" % ceili(duration * 0.5) and not button.disabled and button.tooltip_text.begins_with("Advancing to " + String(_game_manager.call("get_age_name", age + 1))), context + " button counts down while advancing: " + button.text)
+		_expect(meter != null and meter.visible and is_equal_approx(meter.value, 0.5), context + " button meter shows research progress")
+		_expect(button.is_visible_in_tree(), context + " progress stays visible")
+		_assert_button_layout(button, viewport_size, context + " advancing")
+		_expect(bool(_game_manager.call("cancel_age_up", 0)) and _resource_manager.call("get_all_resources", 0) == bank and int(_game_manager.call("get_player_age", 0)) == age, context + " cancelling refunds the full cost")
+		hud.call("refresh_age_display")
+		_expect(button.text in ["II", "III", "IV"] and not button.disabled, context + " button returns to the ready state after a cancel")
+		_expect(bool(_game_manager.call("try_start_age_up", 0)), context + " age-up starts again")
+		town_center.call("advance_research", duration - 0.5)
+		_expect(int(_game_manager.call("get_player_age", 0)) == age, context + " not advanced before the timer ends")
+		town_center.call("advance_research", 1.0)
+		_expect(int(_game_manager.call("get_player_age", 0)) == age + 1 and String(town_center.get("research_id")) == "", context + " advancement lands when the research completes")
 		ages_tested += 1
 		await process_frame
 	_expect(ages_tested > 0, prefix + " tests at least one supported advancement")

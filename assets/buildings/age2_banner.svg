@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="64" viewBox="0 0 48 64">
+  <title>Feudal Age banner</title>
+  <path d="M8 4v58" stroke="#5a452e" stroke-width="4" stroke-linecap="round"/>
+  <path d="M8 4v58" stroke="#8a6b46" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="8" cy="4" r="3.500" fill="#d9b25a" stroke="#5a452e" stroke-width="1.400"/>
+  <path d="M10 8h30l-7 10 7 10H10z" fill="#c9a04c" stroke="#5a452e" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M12 10.500h23l-5 7.500 5 7.500H12z" fill="#e3c57a"/>
+  <path d="M16 18h11M21.500 13v10" stroke="#8c5a3c" stroke-width="2.600" stroke-linecap="round"/>
+</svg>

@@ -222,6 +222,7 @@ func _load_stats_from_data() -> void:
 	vision_radius = MapData.range_tiles_to_world(float(stats.get("vision_radius", vision_radius)))
 	is_ranged = stats.get("attack_range", 1) > 1
 	attack_speed = 1.0 / maxf(0.1, float(stats.get("attack_interval", 1.0)))
+	ResearchEffects.apply_unit_bonuses(self)  # Round 2 B: researched bonuses + tier chevron.
 
 
 func _setup_sprite() -> void:

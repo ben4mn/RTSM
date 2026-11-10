@@ -23,6 +23,7 @@ func _run() -> void:
 	# Research controls follow live shared legality, including match state and
 	# available resources. This is an isolated HUD fixture, not a Main match.
 	GameManager.initialize_game(2)
+	GameManager.players[0]["age"] = 2  # Round 2 B: Blacksmith research starts in the Feudal Age.
 	ResourceManager.initialize_player(0, {"food": 200, "wood": 200, "gold": 100})
 	var viewport := SubViewport.new()
 	viewport.size = PHONE_SIZE

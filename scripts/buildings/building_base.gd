@@ -286,6 +286,7 @@ func _load_stats() -> void:
 	tower_attack_interval = maxf(0.1, float(stats.get("attack_interval", 1.5)))
 	tower_attack_projectile_speed = maxf(0.0, float(stats.get("attack_projectile_speed", 0.0)))
 	tower_attack_buildings = bool(stats.get("attack_buildings", true))
+	ResearchEffects.apply_building_bonuses(self)  # Round 2 B: researched bonuses + age dressing.
 
 
 func _setup_collision() -> void:
@@ -896,22 +897,7 @@ func get_context_actions(player_id: int) -> Array[Dictionary]:
 	if player_id != player_owner or state == State.DESTROYED:
 		return actions
 	if state == State.ACTIVE:
-		for definition: Dictionary in TechData.RESEARCH_DEFS:
-			if int(definition["building_type"]) != building_type:
-				continue
-			var research_id: String = str(definition["id"])
-			actions.append({
-				"id": RESEARCH_ACTION_PREFIX + research_id,
-				"label": str(definition.get("name", research_id)),
-				"icon": str(definition.get("icon", "")),
-				"cost": (definition.get("cost", {}) as Dictionary).duplicate(),
-				"time": float(definition.get("time", 0.0)),
-				"progress": -1.0,
-				"disabled_reason": str(GameManager.get_research_failure_reason(player_id, self, research_id)),
-				"desc": str(definition.get("desc", "")),
-				"details": str(definition.get("details", "")),
-				"done": bool(GameManager.has_research(player_id, research_id)),
-			})
+		actions.append_array(get_research_actions(player_id))
 	for provider: Dictionary in _context_providers.values():
 		var actions_source: Callable = provider.actions
 		if not actions_source.is_valid():
@@ -930,10 +916,10 @@ func perform_context_action(player_id: int, action_id: String) -> String:
 	## callers only need to know who is asking.
 	if player_id != player_owner or state == State.DESTROYED or hp <= 0:
 		return "Select your building"
+	if action_id == CANCEL_RESEARCH_ACTION:
+		return "" if GameManager.cancel_research(player_id, self) else "Nothing to cancel"
 	if action_id.begins_with(RESEARCH_ACTION_PREFIX):
-		if GameManager.try_research(player_id, self, action_id.trim_prefix(RESEARCH_ACTION_PREFIX)):
-			return ""
-		return "Research unavailable"
+		return perform_research_action(player_id, action_id.trim_prefix(RESEARCH_ACTION_PREFIX))
 	for provider: Dictionary in _context_providers.values():
 		var actions_source: Callable = provider.actions
 		var perform: Callable = provider.perform
@@ -950,6 +936,169 @@ func perform_context_action(player_id: int, action_id: String) -> String:
 				var result: Variant = perform.call(self, player_id, action_id)
 				return result if result is String else ""
 	return "Action unavailable"
+
+
+# =========================================================================
+#  RESEARCH SLOT, AGE DRESSING (Round 2 workstream B)
+# =========================================================================
+# One timed research at a time per building (TechData rows for this building
+# type, plus the age-up in a Town Center). GameManager owns the rules and the
+# money; the building only holds the slot, which is saved with the building
+# and sent to its owner in network snapshots. While the slot is busy the
+# building's unit queue waits (main._advance_production_queues).
+
+const CANCEL_RESEARCH_ACTION: String = "cancel_research"
+const AGE_BANNER_TEXTURES: Dictionary = {
+	2: "res://assets/buildings/age2_banner.svg",
+	3: "res://assets/buildings/age3_banner.svg",
+}
+
+var research_id: String = ""
+var research_progress: float = 0.0  # Game seconds spent.
+var research_duration: float = 0.0
+var research_paid_cost: Dictionary = {}  # Receipt: exactly what a cancel returns.
+var _research_watched: bool = false
+var _age_banner: Sprite2D = null
+var _age_dressing: int = 1
+
+
+func is_researching() -> bool:
+	return not research_id.is_empty()
+
+
+func get_research_ratio() -> float:
+	if research_id.is_empty():
+		return -1.0
+	return clampf(research_progress / research_duration, 0.0, 1.0) if research_duration > 0.0 else 1.0
+
+
+func begin_research(id: String, duration: float, paid_cost: Dictionary) -> void:
+	## Authority only, through GameManager.try_start_research (already paid).
+	research_id = id
+	research_progress = 0.0
+	research_duration = maxf(0.0, duration)
+	research_paid_cost = paid_cost.duplicate()
+	_watch_research()
+
+
+func clear_research() -> void:
+	research_id = ""
+	research_progress = 0.0
+	research_duration = 0.0
+	research_paid_cost = {}
+
+
+func advance_research(delta: float) -> void:
+	## Authority only, once per simulation frame for ACTIVE buildings.
+	if research_id.is_empty() or state != State.ACTIVE:
+		return
+	_watch_research()  # Also re-arms the refund after a save is restored.
+	research_progress += delta
+	if research_progress >= research_duration:
+		GameManager.complete_building_research(self)
+
+
+func _watch_research() -> void:
+	if not _research_watched:
+		_research_watched = true
+		building_destroyed.connect(_refund_research_on_destruction)
+
+
+func _refund_research_on_destruction(_building: BuildingBase) -> void:
+	GameManager.cancel_research(player_owner, self)
+
+
+func get_research_actions(player_id: int) -> Array[Dictionary]:
+	## Research cards for the context row. A follow-up (Iron Casting) stays
+	## hidden until its predecessor is done and then takes that card's place.
+	## Extra keys: `reason` (GameManager code), `cancel` (tap cancels, refunds).
+	var actions: Array[Dictionary] = []
+	var ids: Array[String] = []
+	if building_type == BuildingData.BuildingType.TOWN_CENTER and GameManager.get_player_age(player_id) < GameManager.MAX_AGE:
+		ids.append(TechData.age_research_id(GameManager.get_player_age(player_id) + 1))
+	for definition: Dictionary in TechData.RESEARCH_DEFS:
+		if int(definition["building_type"]) != building_type:
+			continue
+		var id: String = str(definition["id"])
+		var required: String = str(definition.get("requires", ""))
+		if not required.is_empty() and not GameManager.has_research(player_id, required):
+			continue
+		if GameManager.has_research(player_id, id) and not TechData.get_successor_id(id).is_empty():
+			continue
+		ids.append(id)
+	for id: String in ids:
+		var definition: Dictionary = GameManager.get_research_definition(player_id, id)
+		if definition.is_empty():
+			continue
+		var running: bool = research_id == id
+		var reason: String = "" if running else str(GameManager.get_research_failure_reason(player_id, self, id))
+		actions.append({
+			"id": RESEARCH_ACTION_PREFIX + id,
+			"label": str(definition.get("name", id)),
+			"short": str(definition.get("short", definition.get("name", id))),
+			"icon": str(definition.get("icon", "")),
+			"cost": (definition.get("cost", {}) as Dictionary).duplicate(),
+			"time": float(definition.get("time", 0.0)),
+			"progress": get_research_ratio() if running else -1.0,
+			"disabled_reason": str(GameManager.describe_research_failure(player_id, id, reason)),
+			"reason": reason,
+			"cancel": running,
+			"desc": str(definition.get("desc", "")),
+			"details": str(definition.get("details", "")),
+			"done": reason == "already_researched",
+		})
+	return actions
+
+
+func perform_research_action(player_id: int, id: String) -> String:
+	## Tap on a research card: start it, or cancel it (full refund) if it is
+	## the one this building is researching.
+	if research_id == id:
+		return "" if GameManager.cancel_research(player_id, self) else "Research unavailable"
+	if GameManager.try_start_research(player_id, self, id):
+		return ""
+	var reason: String = str(GameManager.get_research_failure_reason(player_id, self, id))
+	if reason in ["already_researched", "unknown_research", "wrong_building", ""]:
+		return "Research unavailable"
+	return str(GameManager.describe_research_failure(player_id, id, reason))
+
+
+func set_age_dressing(age: int, celebrate: bool = false) -> void:
+	## Ceremony hook: called for every building of a player when their age is
+	## known or advances. Today a Town Center flies the age banner and, with
+	## `celebrate`, every building glows gold for a moment. Presentation only.
+	_age_dressing = age
+	if building_type == BuildingData.BuildingType.TOWN_CENTER and _sprite != null:
+		var banner_path: String = str(AGE_BANNER_TEXTURES.get(age, ""))
+		if banner_path.is_empty() or not ResourceLoader.exists(banner_path):
+			if _age_banner != null:
+				_age_banner.visible = false
+		else:
+			if _age_banner == null:
+				_age_banner = Sprite2D.new()
+				_age_banner.name = "AgeBanner"
+				_age_banner.z_index = 1
+				add_child(_age_banner)
+			_age_banner.texture = load(banner_path)
+			_age_banner.visible = true
+			_age_banner.scale = Vector2(0.6, 0.6)
+			# Planted on the right shoulder of the roofline, clear of the civ's own flag.
+			_age_banner.position = _sprite_visual_rect.position + _sprite_visual_rect.size * Vector2(0.84, 0.30)
+	if celebrate and _sprite != null and _sprite.texture != null and state != State.DESTROYED and not GameManager.reduced_flashes:
+		var glow := Sprite2D.new()
+		glow.name = "AgeGlow"
+		glow.texture = _sprite.texture
+		glow.centered = _sprite.centered
+		glow.offset = _sprite.offset
+		var blend := CanvasItemMaterial.new()
+		blend.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+		glow.material = blend
+		glow.modulate = Color(1.0, 0.82, 0.38, 0.0)
+		_sprite.add_child(glow)
+		var tween: Tween = glow.create_tween()
+		tween.tween_property(glow, "modulate:a", 0.55, 0.25)
+		tween.tween_property(glow, "modulate:a", 0.0, 0.9)
+		tween.tween_callback(glow.queue_free)
 
 
 func _tower_try_attack() -> bool:
