@@ -35,26 +35,27 @@ static func plan(generator: MapGenerator, seed_value: int = -1) -> Array[Diction
 	var home_tiles: Array[Vector2i] = _choose(generator, reachable, taken, spawn, home_center, WildlifeData.HOME_SHEEP, 1.0, 1,
 		func(tile: Vector2i) -> bool:
 			var ring: int = _ring_from_town_center(tile, spawn)
-			return ring >= WildlifeData.HOME_RING_MIN and ring <= WildlifeData.HOME_RING_MAX)
+			return ring >= WildlifeData.HOME_RING_MIN and ring <= WildlifeData.HOME_RING_MAX,
+		1.5, base_seed)
 	for tile: Vector2i in home_tiles:
 		rows.append({"kind": WildlifeData.SHEEP, "tile": tile, "owner": 0, "group": "home"})
 
 	var deer_heading: float = forward + deg_to_rad(rng.randf_range(-22.0, 22.0))
-	var deer_tiles: Array[Vector2i] = _choose_band(generator, reachable, taken, spawn, deer_heading, WildlifeData.DEER_DISTANCE, WildlifeData.DEER_COUNT, 1.4, 2)
+	var deer_tiles: Array[Vector2i] = _choose_band(generator, reachable, taken, spawn, deer_heading, WildlifeData.DEER_DISTANCE, WildlifeData.DEER_COUNT, 1.4, 2, 2.5, base_seed + 1)
 	for tile: Vector2i in deer_tiles:
 		rows.append({"kind": WildlifeData.DEER, "tile": tile, "owner": -1, "group": "deer"})
 
 	for index: int in WildlifeData.BOAR_COUNT:
 		var flank: float = side if index == 0 else -side
 		var heading: float = forward + flank * deg_to_rad(rng.randf_range(34.0, 62.0))
-		var tiles: Array[Vector2i] = _choose_band(generator, reachable, taken, spawn, heading, WildlifeData.BOAR_DISTANCE, 1, 1.0, 3)
+		var tiles: Array[Vector2i] = _choose_band(generator, reachable, taken, spawn, heading, WildlifeData.BOAR_DISTANCE, 1, 1.0, 3, 0.01, base_seed + 2)
 		for tile: Vector2i in tiles:
 			rows.append({"kind": WildlifeData.BOAR, "tile": tile, "owner": -1, "group": "boar"})
 
 	for index: int in WildlifeData.STRAY_PAIRS:
 		var flank: float = -side if index == 0 else side
 		var heading: float = forward + flank * deg_to_rad(rng.randf_range(38.0, 72.0))
-		var tiles: Array[Vector2i] = _choose_band(generator, reachable, taken, spawn, heading, WildlifeData.STRAY_DISTANCE, 2, 1.0, 3)
+		var tiles: Array[Vector2i] = _choose_band(generator, reachable, taken, spawn, heading, WildlifeData.STRAY_DISTANCE, 2, 1.0, 3, 0.01, base_seed + 3)
 		for tile: Vector2i in tiles:
 			rows.append({"kind": WildlifeData.SHEEP, "tile": tile, "owner": -1, "group": "stray_a" if index == 0 else "stray_b"})
 
@@ -72,15 +73,16 @@ static func plan(generator: MapGenerator, seed_value: int = -1) -> Array[Diction
 
 
 ## Tiles in a distance band from the start, nearest to a point on `heading`.
-static func _choose_band(generator: MapGenerator, reachable: Dictionary, taken: Dictionary, spawn: Vector2i, heading: float, band: Vector2, count: int, spacing: float, clearance: int) -> Array[Vector2i]:
+static func _choose_band(generator: MapGenerator, reachable: Dictionary, taken: Dictionary, spawn: Vector2i, heading: float, band: Vector2, count: int, spacing: float, clearance: int, scatter: float = 0.0, scatter_seed: int = 0) -> Array[Vector2i]:
 	var center: Vector2 = Vector2(spawn) + Vector2.from_angle(heading) * ((band.x + band.y) * 0.5)
 	return _choose(generator, reachable, taken, spawn, center, count, spacing, clearance,
 		func(tile: Vector2i) -> bool:
 			var distance: float = Vector2(tile - spawn).length()
-			return distance >= band.x and distance <= band.y)
+			return distance >= band.x and distance <= band.y,
+		scatter, scatter_seed)
 
 
-static func _choose(generator: MapGenerator, reachable: Dictionary, taken: Dictionary, spawn: Vector2i, center: Vector2, count: int, spacing: float, clearance: int, accept: Callable) -> Array[Vector2i]:
+static func _choose(generator: MapGenerator, reachable: Dictionary, taken: Dictionary, spawn: Vector2i, center: Vector2, count: int, spacing: float, clearance: int, accept: Callable, scatter: float = 0.0, scatter_seed: int = 0) -> Array[Vector2i]:
 	var candidates: Array[Vector2i] = []
 	for y: int in range(EDGE_MARGIN, MapData.MAP_HEIGHT - EDGE_MARGIN):
 		for x: int in range(EDGE_MARGIN, MapData.MAP_WIDTH - EDGE_MARGIN):
@@ -93,10 +95,15 @@ static func _choose(generator: MapGenerator, reachable: Dictionary, taken: Dicti
 				continue
 			if _near_taken(taken, tile, clearance):
 				continue
+			# Animals graze in the open, not pressed against a mine or grove.
+			if scatter > 0.0 and not _has_open_neighbours(generator, tile):
+				continue
 			candidates.append(tile)
+	# `scatter` loosens a herd: a per-tile hash nudges the ordering so the
+	# chosen tiles form an irregular group instead of a neat diamond.
 	candidates.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
-		var first: float = (Vector2(a) - center).length_squared()
-		var second: float = (Vector2(b) - center).length_squared()
+		var first: float = (Vector2(a) - center).length_squared() + _tile_noise(a, scatter_seed) * scatter
+		var second: float = (Vector2(b) - center).length_squared() + _tile_noise(b, scatter_seed) * scatter
 		return first < second if not is_equal_approx(first, second) else (a.y < b.y or (a.y == b.y and a.x < b.x)))
 	var chosen: Array[Vector2i] = []
 	for tile: Vector2i in candidates:
@@ -118,6 +125,35 @@ static func _is_open(generator: MapGenerator, reachable: Dictionary, tile: Vecto
 	if not reachable.has(tile) or not MapData.is_grass(generator.get_tile(tile)):
 		return false
 	return _ring_from_town_center(tile, generator.spawn_positions[0]) >= 1 and _ring_from_town_center(tile, generator.spawn_positions[1]) >= 1
+
+
+static func _has_open_neighbours(generator: MapGenerator, tile: Vector2i) -> bool:
+	for dy: int in range(-1, 2):
+		for dx: int in range(-1, 2):
+			if not MapData.is_grass(generator.get_tile(tile + Vector2i(dx, dy))):
+				return false
+	return true
+
+
+## Stable 0..1 value for a tile; integer mixing only.
+static func _tile_noise(tile: Vector2i, salt: int) -> float:
+	var mixed: int = ((tile.x * 73856093) ^ (tile.y * 19349663) ^ (salt * 83492791)) & 0x7fffffff
+	mixed = ((mixed >> 13) ^ mixed) * 1274126177 & 0x7fffffff
+	return float(mixed & 0xffff) / 65535.0
+
+
+## Where an animal stands inside its tile and which way it faces, so a herd
+## does not look stamped onto the grid. `side` 1 is the reflection of side 0
+## (the map mirror flips world x), so both players see the same picture.
+static func presentation(row: Dictionary, salt: int) -> Dictionary:
+	var tile: Vector2i = row.tile
+	var base: Vector2i = tile if int(row.get("side", 0)) == 0 else Vector2i(tile.y, tile.x)
+	var offset := Vector2((_tile_noise(base, salt) - 0.5) * 18.0, (_tile_noise(base, salt + 7) - 0.5) * 8.0)
+	var facing_left: bool = _tile_noise(base, salt + 13) < 0.5
+	if int(row.get("side", 0)) == 1:
+		offset.x = -offset.x
+		facing_left = not facing_left
+	return {"offset": offset, "facing_left": facing_left}
 
 
 static func _near_taken(taken: Dictionary, tile: Vector2i, clearance: int) -> bool:

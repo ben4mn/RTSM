@@ -25,7 +25,7 @@ const TEXTURES: Dictionary = {
 	"carcass": "res://assets/resources/carcass.svg",
 }
 ## Authored on a 128px canvas with the feet on y104, like the unit sprites.
-const SPRITE_SCALES: Dictionary = {"sheep": 0.36, "deer": 0.44, "boar": 0.46, "carcass": 0.40}
+const SPRITE_SCALES: Dictionary = {"sheep": 0.33, "deer": 0.37, "boar": 0.44, "carcass": 0.38}
 const SPRITE_FOOT_OFFSET := Vector2(0.0, -40.0)
 const ROUTE_REFRESH_SECONDS: float = 1.0
 const CHASE_REPATH_SECONDS: float = 0.35

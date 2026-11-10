@@ -307,7 +307,8 @@ func _check_network() -> void:
 	main.ext.register_snapshot("probe", func(slot: int) -> Dictionary: return {"slot": slot, "n": 3}, func(section: Variant) -> void: _consumed.append(section))
 	main.ext.register_snapshot("probe_empty", func(_slot: int) -> Variant: return null)
 	var snapshot: Dictionary = server._snapshot_for(0)
-	check(snapshot.get("ext") == {"probe": {"slot": 0, "n": 3}} and server._snapshot_for(1).ext.probe.slot == 1, "snapshot.ext carries each provider's per-recipient section and omits null")
+	# Gameplay streams register their own sections (wildlife today); this fixture owns only its probes.
+	check(snapshot.get("ext") is Dictionary and snapshot.ext.get("probe") == {"slot": 0, "n": 3} and not snapshot.ext.has("probe_empty") and server._snapshot_for(1).ext.probe.slot == 1, "snapshot.ext carries each provider's per-recipient section and omits null")
 	check(snapshot.get("modifiers") == GameManager.player_modifiers[0] and not snapshot.has("upgrades") and snapshot.modifiers.get("attack") == 2.0, "snapshot replicates the owner's modifier registry")
 	var wire: Variant = JSON.parse_string(JSON.stringify({"ext": snapshot.ext, "modifiers": snapshot.modifiers}))
 	check(wire is Dictionary and wire.ext.probe.n == 3.0, "extension sections survive the JSON wire format")

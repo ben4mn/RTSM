@@ -80,7 +80,9 @@ func spawn_planned() -> void:
 	var rows: Array[Dictionary] = WildlifePlacement.plan(game_map.map_generator, int(game_map.get("map_seed")))
 	for index: int in rows.size():
 		var row: Dictionary = rows[index]
-		spawn(index, str(row.kind), game_map.tile_to_world(row.tile), int(row.owner))
+		var pose: Dictionary = WildlifePlacement.presentation(row, int(game_map.get("map_seed")))
+		var node: WildlifeNode = spawn(index, str(row.kind), game_map.tile_to_world(row.tile) + (pose.offset as Vector2), int(row.owner))
+		node._facing_left = bool(pose.facing_left)
 
 
 func spawn(wildlife_id: int, kind: String, world_position: Vector2, owner_id: int = -1, as_replica: bool = false) -> WildlifeNode:
@@ -585,13 +587,13 @@ static func _context_actions(building: BuildingBase, player_id: int) -> Array:
 	return [{
 		"id": ACTION_WALK_HOME,
 		"label": "Sheep walk home",
-		"short": "Sheep home",
+		"short": "Sheep",
 		"icon": "res://assets/resources/sheep.svg",
 		"cost": {},
 		"time": 0.0,
 		"progress": -1.0,
 		"disabled_reason": "",
-		"desc": "On · tap to herd by hand" if enabled else "Off · tap to turn on",
+		"desc": "Home: On" if enabled else "Home: Off",
 		"details": "Claimed sheep walk to this Town Center by themselves. Turn it off to herd every sheep by hand: select a sheep, then tap the ground.",
 	}]
 
@@ -646,7 +648,8 @@ func _snapshot_rows(slot: int) -> Variant:
 
 ## Client, every snapshot: create, update and retire inert replicas.
 func _apply_snapshot_rows(data: Variant) -> void:
-	if not data is Dictionary or not data.get("rows") is Array:
+	# Only a client holds replicas; the authority's animals are never overwritten.
+	if not NetworkSession.is_client() or not data is Dictionary or not data.get("rows") is Array:
 		return
 	walk_home[0] = bool(data.get("walk_home", true))
 	var seen: Dictionary = {}

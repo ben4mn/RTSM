@@ -3954,13 +3954,13 @@ func _update_progression_hint() -> void:
 					_build_menu.call("set_recommended_building", -1)
 				if has_villager_selected:
 					_apply_primary_guidance(
-						"1 / 4 · Tap a berry bush to gather food.",
+						"1 / 4 · Tap a sheep or berry bush to gather food.",
 						"",
 						-1
 					)
 				else:
 					_apply_primary_guidance(
-						"1 / 4 · Tap a villager, then a berry bush.",
+						"1 / 4 · Tap a villager, then a sheep or berry bush.",
 						"idle_button",
 						-1
 					)

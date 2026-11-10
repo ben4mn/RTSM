@@ -23,6 +23,7 @@ func _run() -> void:
 	_herding()
 	_gather_bonus_and_spoilage(home)
 	_food_preference(home)
+	_network_replicas(home)
 	finish("wildlife_claim")
 
 
@@ -188,3 +189,49 @@ func _food_preference(home: Vector2i) -> void:
 		targets[unit.gather_target] = true
 		expect(unit.get_economy_task() == "food", "every opening villager starts on food")
 	expect(targets.size() == 1 and targets.keys()[0] is WildlifeNode, "all opening villagers share one sheep")
+
+
+## The `wildlife` snapshot section: what the server sends one recipient, and
+## the inert replicas a client builds from it (owners remapped to local ids).
+func _network_replicas(home: Vector2i) -> void:
+	clear_workers()
+	clear_animals()
+	var sheep: WildlifeNode = animal(60, WildlifeData.SHEEP, home + Vector2i(6, 0), 1)
+	var boar: WildlifeNode = animal(61, WildlifeData.BOAR, home + Vector2i(10, 0))
+	director.walk_home[1] = false
+	var authority_copy: Variant = director._snapshot_rows(1)
+	director._apply_snapshot_rows(authority_copy)
+	expect(not sheep.replica and director.nodes.size() == 2 and director.walk_home[0], "the authority ignores an incoming wildlife section")
+	expect(authority_copy is Dictionary and authority_copy.rows.size() == 2 and authority_copy.walk_home == false, "the section lists the visible animals and the recipient's assist setting")
+	var wire: Variant = JSON.parse_string(JSON.stringify(authority_copy))
+	expect(wire is Dictionary and wire.rows.size() == 2 and wire.rows[0].size() == 11, "rows survive the JSON wire format")
+	clear_animals()
+	NetworkSession.online = true
+	NetworkSession.server_mode = false
+	NetworkSession.player_slot = 1
+	director._apply_snapshot_rows(wire)
+	var sheep_replica: WildlifeNode = director.by_id.get(60) as WildlifeNode
+	var boar_replica: WildlifeNode = director.by_id.get(61) as WildlifeNode
+	expect(sheep_replica != null and sheep_replica.replica and sheep_replica.owner_id == 0 and sheep_replica.is_harvestable_by(0) and not director.walk_home[0], "the client builds a replica owned by its local player 0")
+	expect(boar_replica != null and boar_replica.kind == WildlifeData.BOAR and boar_replica.is_fighting() and boar_replica.hp == WildlifeData.BOAR_MAX_HP and boar_replica.remaining == int(WildlifeData.FOOD[WildlifeData.BOAR]), "the boar replica carries health and stock")
+	expect(world.is_resource_target_valid(sheep_replica, "food", 0) and world.get_wildlife_for_player(0) == [sheep_replica], "replicas are registered harvestables for local input")
+	var villager: Villager = worker(home + Vector2i(9, 0), 0)
+	expect(not sheep_replica.walk_to(sheep_replica.global_position + Vector2(64.0, 0.0)) and not boar_replica.absorb_strike(villager) and boar_replica.hp == WildlifeData.BOAR_MAX_HP, "a replica never simulates")
+	var before: Vector2 = sheep_replica.global_position
+	wire.rows[0][2] = float(wire.rows[0][2]) + 64.0
+	wire.rows[0][6] = 0.0
+	wire.rows[1][7] = float(WildlifeNode.Phase.CARCASS)
+	wire.rows[1][9] = 0.0
+	wire.rows[1][4] = 300.0
+	director._apply_snapshot_rows(wire)
+	for tick: int in 30:
+		sheep_replica._process(STEP)
+	expect(sheep_replica.global_position.x > before.x + 40.0 and sheep_replica.owner_id == 1 and not sheep_replica.is_harvestable_by(0), "a replica eases to the new position and follows an ownership change")
+	expect(boar_replica.phase == WildlifeNode.Phase.CARCASS and not boar_replica.is_fighting() and boar_replica.remaining == 300, "a felled boar becomes a carcass on the client")
+	wire.rows.remove_at(0)
+	director._apply_snapshot_rows(wire)
+	expect(not director.by_id.has(60) and not world.get_wildlife_nodes().has(sheep_replica) and director.by_id.has(61), "an animal that leaves sight is retired")
+	NetworkSession.online = false
+	NetworkSession.player_slot = 0
+	clear_workers()
+	clear_animals()
