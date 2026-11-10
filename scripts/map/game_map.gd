@@ -180,6 +180,7 @@ func _ready() -> void:
 	var unit_echoes: Node = preload("res://scripts/ui/unit_occlusion_overlay.gd").new()
 	unit_echoes.name = "UnitOcclusionOverlay"
 	add_child(unit_echoes)
+	add_child(BattleFX.new()) # Pooled combat presentation + BattleFX.shake().
 
 	# Notify others (deferred so parent nodes have connected signals in _ready).
 	call_deferred("_emit_map_ready")

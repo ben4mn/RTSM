@@ -1839,8 +1839,8 @@ func _resource_marker_type() -> String:
 func get_visual_bounds() -> Rect2:
 	var bounds: Rect2 = super.get_visual_bounds()
 	if _resource_marker_type() != "":
-		var size: float = UNIT_SIZES.get(unit_type, 8.0)
-		bounds = bounds.merge(global_transform * Rect2(size - 3.0, -8.0, 14.0, 17.0))
+		var size: float = get_visual_radius()
+		bounds = bounds.merge(global_transform * Rect2(size - 5.0, -10.0, 18.0, 21.0))
 	return bounds
 
 
@@ -1849,8 +1849,11 @@ func _draw() -> void:
 	var kind: String = _resource_marker_type()
 	if kind == "":
 		return
-	var size: float = UNIT_SIZES.get(unit_type, 8.0)
-	var center := Vector2(size + 4.0, -1.0)
+	# The badge keeps its authored shapes; one transform enlarges it with the
+	# figure and parks it beside the wider body.
+	var badge_scale: float = 1.2
+	draw_set_transform(Vector2(get_visual_radius() + 4.0, -1.0), 0.0, Vector2(badge_scale, badge_scale))
+	var center := Vector2.ZERO
 	var ink := Color("293b3e")
 	var paper := Color("e4ddbf")
 	# Compact shaped cargo stays legible at ordinary zoom. Quiet mineral colors
@@ -1880,3 +1883,4 @@ func _draw() -> void:
 		var ratio: float = clampf(float(carried_amount) / maxf(1.0, carry_capacity), 0.0, 1.0)
 		draw_rect(Rect2(center + Vector2(-7, 5.5), Vector2(14, 4)), ink)
 		draw_rect(Rect2(center + Vector2(-6, 6.5), Vector2(12 * ratio, 2)), paper)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)

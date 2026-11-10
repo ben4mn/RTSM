@@ -134,13 +134,17 @@ var _art_civilization: int = 0
 var _network_work_pose: Vector3 = Vector3.ZERO
 var _uses_network_work_pose: bool = false
 var _health_bar_y: float = -43.0
+var _puppet: UnitPuppet = null
 static var _sprite_opaque_rect_cache: Dictionary = {}
 
 # Artwork shares a y104 foot baseline in a 128px canvas. Movement/attack
 # excursion is included in framing, so a moving miniature stays in the field.
 const UNIT_FOOT_OFFSET: Vector2 = Vector2(0.0, -40.0)
-const UNIT_VISUAL_GAIT_MARGIN: float = 4.0
-const UNIT_VISUAL_ATTACK_MARGIN: float = 10.0
+const UNIT_VISUAL_GAIT_MARGIN: float = 6.0
+const UNIT_VISUAL_ATTACK_MARGIN: float = 16.0
+## Visual follow-through after the release. The release itself stays at the
+## data-defined windup, so damage timing is untouched.
+const ATTACK_RECOVERY_SECONDS: float = 0.16
 
 const FRIENDLY_SEPARATION_RADIUS: float = 34.0
 const FRIENDLY_SEPARATION_WEIGHT: float = 1.15
@@ -251,13 +255,14 @@ func _setup_sprite() -> void:
 	_action_presentation.name = "ActionPresentation"
 	_action_presentation.visible = false
 	add_child(_action_presentation)
+	_puppet = UnitPuppet.new()
 	_last_visual_position = global_position
 
 
 func get_visual_bounds() -> Rect2:
 	## World bounds of visible artwork and markers, including the maximum
 	## small pose excursion. Opaque texture bounds are cached at sprite setup.
-	var size: float = UNIT_SIZES.get(unit_type, 10.0)
+	var size: float = get_visual_radius()
 	var local_bounds := Rect2(-size - 2.5, 3.0 - size * 0.48 - 1.5, (size + 2.5) * 2.0, size * 0.96 + 3.0)
 	if _sprite != null and _sprite.texture != null:
 		var sprite_rect := Rect2(_sprite_opaque_rect.position - _sprite.texture.get_size() * 0.5 + _sprite.offset, _sprite_opaque_rect.size)
@@ -275,8 +280,48 @@ func get_visual_bounds() -> Rect2:
 	if stance == Stance.STAND_GROUND:
 		local_bounds = local_bounds.merge(Rect2(size, -6.5, 8.0, 9.0))
 	if _action_presentation != null and _action_presentation.visible:
-		local_bounds = local_bounds.merge(Rect2(-24.0, -43.0, 48.0, 49.0))
+		local_bounds = local_bounds.merge(Rect2(Vector2(-24.0, -43.0) * UnitData.WORLD_VISUAL_SCALE, Vector2(48.0, 49.0) * UnitData.WORLD_VISUAL_SCALE))
 	return global_transform * local_bounds
+
+
+## Presentation radius of the ground ring. Collision and separation keep the
+## canonical UNIT_SIZES value.
+func get_visual_radius() -> float:
+	return float(UNIT_SIZES.get(unit_type, 10.0)) * UnitData.WORLD_VISUAL_SCALE
+
+
+func get_health_bar_y() -> float:
+	return _health_bar_y
+
+
+## Where a bow or throwing arm releases, for sim and cosmetic projectiles.
+func get_projectile_origin(toward: Vector2) -> Vector2:
+	var direction: Vector2 = (toward - global_position).normalized()
+	var height: float = 26.0 if unit_type == UnitData.UnitType.SIEGE else 18.0
+	return global_position + (direction * 14.0 + Vector2(0.0, -height)) * UnitData.WORLD_VISUAL_SCALE
+
+
+## Visible reaction to lost HP: flash, flinch and a floating figure. Shared by
+## simulated units and inert network replicas; never changes any state the
+## simulation reads.
+func present_hit(hp_loss: float) -> void:
+	_health_feedback_remaining = 2.0
+	if _puppet != null:
+		_puppet.hit(not GameManager.reduced_flashes)
+	BattleFX.unit_damaged(self, hp_loss)
+
+
+func present_recoil(direction: Vector2) -> void:
+	if _puppet != null:
+		_puppet.recoil(direction)
+
+
+func get_seconds_since_hit() -> float:
+	return _puppet.seconds_since_hit() if _puppet != null else 99.0
+
+
+func get_last_hit_direction() -> Vector2:
+	return _puppet.last_hit_direction() if _puppet != null else Vector2.ZERO
 
 
 func _process(delta: float) -> void:
@@ -312,7 +357,7 @@ func _process(delta: float) -> void:
 
 
 func _draw() -> void:
-	var size: float = UNIT_SIZES.get(unit_type, 10.0)
+	var size: float = get_visual_radius()
 
 	# One quiet contact shadow. Team cloth supplies the normal ownership cue;
 	# only selected figures receive a surrounding ring.
@@ -320,11 +365,11 @@ func _draw() -> void:
 	for i in range(33):
 		var angle: float = float(i) / 32.0 * TAU
 		ground_ring.append(Vector2(cos(angle) * (size + 1.0), sin(angle) * size * 0.48 + 3.0))
-	draw_colored_polygon(ground_ring, Color(0.09, 0.13, 0.13, 0.12))
+	draw_colored_polygon(ground_ring, Color(0.09, 0.13, 0.13, 0.14))
 	var contact_shadow := PackedVector2Array()
 	for point: Vector2 in ground_ring:
 		contact_shadow.append(Vector2(point.x * 0.72, (point.y - 3.0) * 0.58 + 2.0))
-	draw_colored_polygon(contact_shadow, Color(0.09, 0.13, 0.13, 0.12))
+	draw_colored_polygon(contact_shadow, Color(0.09, 0.13, 0.13, 0.20))
 
 	# Civilization palette never substitutes for ownership: retain a compact
 	# local-player bar / rival chevron with the new shared miniature sheets.
@@ -344,20 +389,26 @@ func _draw() -> void:
 	# A stable ivory selection line stays readable without permanent bright
 	# team rings or pulsing graphics beneath every miniature.
 	if is_selected:
-		draw_polyline(ground_ring, Color("e8e5db"), 1.5, true)
+		draw_polyline(ground_ring, Color("293235", 0.55), 3.4, true)
+		draw_polyline(ground_ring, Color("e8e5db"), 1.8, true)
 
 	var hp_ratio: float = hp / max_hp if max_hp > 0 else 0.0
 
-	# Recent damage, selection and critical health remain visible. A healthy
-	# idle army needs neither floating meters nor permanent status badges.
-	var bar_width: float = size * 2.3
-	var bar_height: float = 2.0
+	# Wounded, selected and just-struck units carry a bar; a healthy idle army
+	# has none. A wound that is no longer fresh dims, and a healed bar fades.
+	var bar_width: float = float(UNIT_SIZES.get(unit_type, 10.0)) * 2.3
+	var bar_height: float = 3.0
 	var bar_y: float = _health_bar_y
 
-	if is_selected or _health_feedback_remaining > 0.0 or hp_ratio <= 0.35:
-		draw_rect(Rect2(-bar_width / 2.0, bar_y, bar_width, bar_height), Color("293235"))
-		var hp_color := Color("e8e5db") if hp_ratio > 0.35 else Color("d69477")
-		draw_rect(Rect2(-bar_width / 2.0, bar_y, bar_width * hp_ratio, bar_height), hp_color)
+	if current_state != State.DEAD and (is_selected or _health_feedback_remaining > 0.0 or hp < max_hp):
+		var bar_alpha: float = 1.0
+		if not is_selected and hp_ratio > 0.35:
+			bar_alpha = clampf(_health_feedback_remaining / 0.5, 0.0, 1.0) if hp >= max_hp else lerpf(0.62, 1.0, clampf(_health_feedback_remaining / 0.5, 0.0, 1.0))
+		draw_rect(Rect2(-bar_width / 2.0 - 1.0, bar_y - 1.0, bar_width + 2.0, bar_height + 2.0), Color("293235", bar_alpha))
+		var hp_color := Color("9fd08a") if hp_ratio > 0.6 else Color("e6cf7a") if hp_ratio > 0.35 else Color("e5846a")
+		if player_owner != 0:
+			hp_color = Color("e8e5db") if hp_ratio > 0.35 else Color("e5846a")
+		draw_rect(Rect2(-bar_width / 2.0, bar_y, bar_width * hp_ratio, bar_height), Color(hp_color, bar_alpha))
 
 	# Stance indicator: shield icon for Stand Ground
 	if stance == Stance.STAND_GROUND:
@@ -1090,7 +1141,7 @@ func _begin_attack_windup(target: Node2D, building_target: bool) -> void:
 	_attack_windup_remaining = maxf(0.0, float(stats.get("attack_windup", 0.12)))
 	_attack_windup_target = target
 	_attack_windup_building = building_target
-	_attack_animation_duration = _attack_windup_remaining + 0.16
+	_attack_animation_duration = _attack_windup_remaining + ATTACK_RECOVERY_SECONDS
 	_attack_animation_remaining = _attack_animation_duration
 	_attack_animation_direction = (target.global_position - global_position).normalized()
 	if _sprite != null and absf(_attack_animation_direction.x) > 0.01:
@@ -1115,7 +1166,9 @@ func _advance_attack_windup(delta: float) -> void:
 		if _get_building_attack_distance(building) > attack_range + 28.0:
 			return
 		Combat.deal_damage_to_building(self, building)
-		if get_tree().current_scene != null:
+		if BattleFX.get_fx() != null:
+			BattleFX.building_struck(self, building)
+		elif get_tree().current_scene != null:
 			VFX.hit_burst(get_tree(), building.global_position, Color(1.0, 0.7, 0.3))
 	else:
 		var unit := target as UnitBase
@@ -1140,7 +1193,7 @@ func _update_sprite_motion(delta: float) -> void:
 		return
 	if _health_feedback_remaining > 0.0:
 		_health_feedback_remaining = maxf(0.0, _health_feedback_remaining - delta)
-		if _health_feedback_remaining <= 0.0:
+		if _health_feedback_remaining <= 0.5:
 			queue_redraw()
 	_animation_clock += delta
 	_attack_animation_remaining = maxf(0.0, _attack_animation_remaining - delta)
@@ -1148,59 +1201,8 @@ func _update_sprite_motion(delta: float) -> void:
 		_network_work_pose.y = fposmod(_network_work_pose.y + maxf(0.0, delta) / _network_work_pose.z, 1.0)
 	var displacement: Vector2 = global_position - _last_visual_position
 	_last_visual_position = global_position
-	var sprite_offset := Vector2.ZERO
-	_sprite.rotation = 0.0
-	_sprite.scale = _sprite_rest_scale
-	if displacement.length_squared() > 0.001:
-		if absf(displacement.x) > 0.01:
-			_sprite.flip_h = displacement.x < 0.0
-		var mounted: bool = unit_type in [UnitData.UnitType.CAVALRY, UnitData.UnitType.SCOUT]
-		# Step by distance, not by the global animation clock: stop/start and
-		# formation speed changes no longer make feet slide or jump phase.
-		# Clamp replica correction jumps so packet interpolation stays calm.
-		var stride_length: float = 44.0 if mounted else 28.0
-		_gait_phase = fposmod(_gait_phase + minf(displacement.length(), 12.0) * TAU / stride_length, TAU)
-		var stride: float = 0.0 if GameManager.reduced_motion else sin(_gait_phase)
-		if unit_type == UnitData.UnitType.SIEGE:
-			# A low wheel roll keeps the heavy carriage grounded; infantry's
-			# two-unit hop makes the same art appear to walk on its wheels.
-			sprite_offset.y = -absf(stride) * 0.35
-			_sprite.rotation = stride * 0.006
-		else:
-			sprite_offset.y = -absf(stride) * (1.2 if mounted else 1.6)
-			_sprite.rotation = stride * (0.014 if mounted else 0.024)
-	var work: Vector3 = get_work_presentation()
-	var action: int = int(work.x)
-	var phase: float = work.y
-	if _attack_animation_remaining > 0.0:
-		# Both the server and inert replicas already carry duration/remaining.
-		# Derive the release from that visual clock; never read a replica's
-		# simulation windup or change the actual damage/projectile schedule.
-		var elapsed: float = _attack_animation_duration - _attack_animation_remaining
-		var windup: float = maxf(0.001, _attack_animation_duration - 0.16)
-		phase = UnitActionPresentation.RELEASE * elapsed / windup if elapsed <= windup else UnitActionPresentation.RELEASE + (1.0 - UnitActionPresentation.RELEASE) * (elapsed - windup) / 0.16
-		action = UnitActionPresentation.Action.MELEE
-		if unit_type == UnitData.UnitType.SIEGE:
-			action = UnitActionPresentation.Action.SIEGE
-		elif is_ranged:
-			action = UnitActionPresentation.Action.BOW
-		elif unit_type == UnitData.UnitType.CAVALRY or unit_type == UnitData.UnitType.SCOUT:
-			action = UnitActionPresentation.Action.MOUNTED
-	var facing: float = -1.0 if _sprite.flip_h else 1.0
-	if action != UnitActionPresentation.Action.NONE:
-		var pose: Vector4 = UnitActionPresentation.pose(action, phase, _art_civilization)
-		if not GameManager.reduced_motion:
-			var direction: Vector2 = _attack_animation_direction if _attack_animation_remaining > 0.0 else Vector2(facing, 0.0)
-			sprite_offset += direction * pose.x + Vector2(0.0, pose.y)
-			_sprite.rotation += pose.z * facing
-			_sprite.scale = _sprite_rest_scale * Vector2(1.0 + pose.w * 0.35, 1.0 - pose.w)
-	_action_presentation.position = sprite_offset
-	_action_presentation.present(action, phase, _art_civilization, facing, GameManager.reduced_motion, GameManager.reduced_flashes)
-	# Tools share the body's foot pivot and small bend. Translating the overlay
-	# alone detached a worker's hands as the illustrated body leaned forward.
-	_action_presentation.rotation = _sprite.rotation
-	_action_presentation.scale = Vector2(facing, 1.0) * (_sprite.scale / _sprite_rest_scale)
-	_sprite.position = sprite_offset
+	# The pose itself (gait, idle, strike, flinch) lives in UnitPuppet.
+	_puppet.update(self, delta, displacement)
 
 
 func get_work_presentation() -> Vector3:
@@ -1616,10 +1618,10 @@ func take_damage(amount: float) -> void:
 	if hp < previous_hp:
 		_release_attack_march_for_combat()
 		damage_received.emit(self, previous_hp - hp)
-		_health_feedback_remaining = 2.0
+		present_hit(previous_hp - hp)
 	_flash_damage()
-	# Floating damage number
-	if is_selected and get_tree() and get_tree().current_scene and AudioManager.is_source_visible(self):
+	# Floating damage number (pooled by BattleFX whenever a map exists).
+	if BattleFX.get_fx() == null and is_selected and get_tree() and get_tree().current_scene and AudioManager.is_source_visible(self):
 		VFX.damage_float(get_tree(), global_position, actual_damage)
 	AudioManager.play_world("attack_hit", self)
 	queue_redraw()
@@ -1643,7 +1645,10 @@ func _flash_damage() -> void:
 func heal(amount: float) -> void:
 	if current_state == State.DEAD:
 		return
+	var was_wounded: bool = hp < max_hp
 	hp = minf(max_hp, hp + amount)
+	if was_wounded and hp >= max_hp:
+		_health_feedback_remaining = maxf(_health_feedback_remaining, 0.5)
 	health_changed.emit(self, hp, max_hp)
 	queue_redraw()
 
@@ -1656,6 +1661,9 @@ func die() -> void:
 	if get_tree() and get_tree().current_scene and AudioManager.is_source_visible(self):
 		VFX.death_puff(get_tree(), global_position)
 	AudioManager.play_world("unit_death", self)
+	# The fall and the lingering body are drawn by BattleFX from a copy of this
+	# artwork; this node keeps its existing 0.3 s lifetime.
+	BattleFX.unit_death(self)
 	# Brief delay before removal for death animation opportunity
 	var tween := create_tween()
 	tween.tween_property(self, "modulate:a", 0.0, 0.3)

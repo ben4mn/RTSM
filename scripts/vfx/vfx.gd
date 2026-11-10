@@ -5,7 +5,7 @@ extends RefCounted
 
 
 static func hit_burst(tree: SceneTree, pos: Vector2, color: Color = Color("e8e5db")) -> void:
-	if GameManager.reduced_motion:
+	if GameManager.reduced_motion or BattleFX.puff("hit", pos, color):
 		return
 	var p := CPUParticles2D.new()
 	p.emitting = false
@@ -28,7 +28,7 @@ static func hit_burst(tree: SceneTree, pos: Vector2, color: Color = Color("e8e5d
 
 
 static func death_puff(tree: SceneTree, pos: Vector2) -> void:
-	if GameManager.reduced_motion:
+	if GameManager.reduced_motion or BattleFX.puff("death", pos):
 		return
 	var p := CPUParticles2D.new()
 	p.emitting = false
@@ -66,6 +66,8 @@ static func gather_particles(tree: SceneTree, pos: Vector2, resource_type: Strin
 			color = Color(0.4, 0.7, 0.25)
 		_:
 			color = Color(0.6, 0.6, 0.6)
+	if BattleFX.puff("gather", pos, color):
+		return
 	var p := CPUParticles2D.new()
 	p.emitting = false
 	p.one_shot = true
@@ -87,7 +89,7 @@ static func gather_particles(tree: SceneTree, pos: Vector2, resource_type: Strin
 
 
 static func construction_dust(tree: SceneTree, pos: Vector2) -> void:
-	if GameManager.reduced_motion:
+	if GameManager.reduced_motion or BattleFX.puff("construction", pos):
 		return
 	var p := CPUParticles2D.new()
 	p.emitting = false
@@ -303,7 +305,7 @@ static func counter_bonus_float(tree: SceneTree, pos: Vector2, text: String) -> 
 
 
 static func building_complete(tree: SceneTree, pos: Vector2) -> void:
-	if GameManager.reduced_motion:
+	if GameManager.reduced_motion or BattleFX.puff("complete", pos):
 		return
 	var p := CPUParticles2D.new()
 	p.emitting = false

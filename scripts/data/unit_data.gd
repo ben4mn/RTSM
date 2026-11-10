@@ -15,14 +15,17 @@ enum UnitType {
 # World presentation is independent of recruitment portraits and combat stats.
 # At the shared y104 foot anchor, infantry stands about 28–30 world pixels
 # tall; mounted roles read taller and wider, and siege keeps its carriage size.
+## Presentation-only enlargement shared by sprites, rings, bars, tool overlays
+## and projectile origins. Collision, separation and ranges never read it.
+const WORLD_VISUAL_SCALE: float = 1.3
 const WORLD_SPRITE_SCALES: Dictionary = {
-	UnitType.VILLAGER: Vector2(0.30, 0.30),
-	UnitType.INFANTRY: Vector2(0.31, 0.31),
-	UnitType.ARCHER: Vector2(0.30, 0.30),
-	UnitType.CAVALRY: Vector2(0.45, 0.45),
-	UnitType.SCOUT: Vector2(0.43, 0.43),
-	UnitType.SIEGE: Vector2(0.60, 0.60),
-	UnitType.TRADER: Vector2(0.38, 0.38),
+	UnitType.VILLAGER: Vector2(0.30, 0.30) * WORLD_VISUAL_SCALE,
+	UnitType.INFANTRY: Vector2(0.31, 0.31) * WORLD_VISUAL_SCALE,
+	UnitType.ARCHER: Vector2(0.30, 0.30) * WORLD_VISUAL_SCALE,
+	UnitType.CAVALRY: Vector2(0.45, 0.45) * WORLD_VISUAL_SCALE,
+	UnitType.SCOUT: Vector2(0.43, 0.43) * WORLD_VISUAL_SCALE,
+	UnitType.SIEGE: Vector2(0.60, 0.60) * WORLD_VISUAL_SCALE,
+	UnitType.TRADER: Vector2(0.38, 0.38) * WORLD_VISUAL_SCALE,
 }
 
 # Two-population workers deliver ~109 food/wood per minute at a 120-unit haul.
