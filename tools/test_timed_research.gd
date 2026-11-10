@@ -97,7 +97,8 @@ func _run() -> void:
 
 
 func _check_data() -> void:
-	var ids: Array = TechData.RESEARCH_DEFS.map(func(definition: Dictionary) -> String: return definition.id)
+	# Round 2 C: unique technologies carry a "civilization" key and are not generic.
+	var ids: Array = TechData.RESEARCH_DEFS.filter(func(definition: Dictionary) -> bool: return not definition.has("civilization")).map(func(definition: Dictionary) -> String: return definition.id)
 	check(ids.size() == 16 and ids.has("loom") and ids.has("hand_cart") and ids.has("stone_keep") and ids.has("knight"), "sixteen generic techs are defined: " + str(ids))
 	for definition: Dictionary in TechData.RESEARCH_DEFS:
 		check(float(definition.get("time", 0.0)) > 0.0 and not (definition.cost as Dictionary).is_empty() and ResourceLoader.exists(str(definition.get("icon", ""))), "%s has a time, a cost and an authored icon" % definition.id)
