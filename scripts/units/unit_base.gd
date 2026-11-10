@@ -130,6 +130,10 @@ const UNIT_SIZES: Dictionary = {
 const UNIT_SPRITE_SCALES: Dictionary = UnitData.WORLD_SPRITE_SCALES
 
 var _live_unit_index: RefCounted = null
+var _presentation_delta: float = -1.0
+## Written by LiveUnitIndex only (its record for this unit, kept on the unit).
+var _index_position: Vector2 = Vector2.ZERO
+var _index_rank: int = 0
 ## The real GameMap answers whole movement checks in one typed call; fixture
 ## maps without those helpers keep the per-tile duck-typed path.
 var _navigation_map_typed: bool = false
@@ -365,7 +369,10 @@ func _process(delta: float) -> void:
 		State.BUILDING:
 			_process_building(delta)
 	if PerfProbe.on: _pp = PerfProbe.add(&"unit.state", _pp)
-	_update_sprite_motion(delta)
+	# A subclass that banks several frames into one think (Villager) still
+	# animates with this frame's time only.
+	_update_sprite_motion(delta if _presentation_delta < 0.0 else _presentation_delta)
+	_presentation_delta = -1.0
 	if PerfProbe.on: PerfProbe.add(&"unit.sprite", _pp)
 
 	# Continuous redraw for pulsing selection
@@ -656,7 +663,7 @@ func _can_pass_occupied_waypoint(game_map: Node2D) -> bool:
 	# Intermediate tile centers describe a route, not places every traveller
 	# must occupy. Keep final service/Move arrival semantics, but let a unit
 	# pass an occupied center when the following segment is still walkable.
-	if current_state not in [State.MOVING, State.GATHERING, State.BUILDING] or path_index >= path.size() - 1:
+	if (current_state != State.MOVING and current_state != State.GATHERING and current_state != State.BUILDING) or path_index >= path.size() - 1:
 		return false
 	var waypoint: Vector2 = path[path_index]
 	if global_position.distance_to(waypoint) > NAVIGATION_CROWDED_WAYPOINT_RADIUS:
@@ -710,7 +717,7 @@ func _move_in_direction(direction: Vector2, delta: float, game_map: Node2D) -> v
 	var desired_dir: Vector2 = direction.normalized()
 	_update_friendly_separation(desired_dir)
 	var move_dir: Vector2 = desired_dir
-	var intermediate_waypoint: bool = current_state in [State.MOVING, State.GATHERING, State.BUILDING] and path_index < path.size() - 1
+	var intermediate_waypoint: bool = (current_state == State.MOVING or current_state == State.GATHERING or current_state == State.BUILDING) and path_index < path.size() - 1
 	if (intermediate_waypoint or direction.length() > 10.0) and _separation_vector.length() > 0.0:
 		move_dir = (desired_dir + _separation_vector).normalized()
 	var separation_drag: float = clampf(_separation_vector.length() * 0.16, 0.0, 0.18)
@@ -1566,7 +1573,7 @@ func _update_friendly_separation(movement_direction: Vector2 = Vector2.ZERO) -> 
 	var repel := Vector2.ZERO
 	# Workers use GATHERING/BUILDING even while following a work route. The
 	# supplied direction distinguishes actual travel from standing work/combat.
-	var navigating: bool = current_state in [State.MOVING, State.GATHERING, State.BUILDING] and not movement_direction.is_zero_approx()
+	var navigating: bool = (current_state == State.MOVING or current_state == State.GATHERING or current_state == State.BUILDING) and not movement_direction.is_zero_approx()
 	_combat_spacing_opponents.clear()
 	_navigation_neighbors.clear()
 	# Only travelling units consume the wider crowded-waypoint neighborhood.

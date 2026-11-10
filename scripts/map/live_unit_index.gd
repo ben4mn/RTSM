@@ -1,7 +1,9 @@
 extends RefCounted
 ## Broad-phase only. Callers retain exact distance, ownership, death and fog rules.
 ## Local transform notifications update immediately, including paused teleports.
-const CELL_SIZE: float = 32.0
+## Broad-phase only, so the size changes cost, never results: 64 px keeps a
+## separation query to ~9 cells and an acquisition query to ~100.
+const CELL_SIZE: float = 64.0
 var _map: Node2D
 var _entries: Dictionary = {}
 var _cells: Dictionary = {}
@@ -29,6 +31,7 @@ func update(unit: UnitBase) -> void:
 	var radius: int = maxi(0, int(round(MapData.world_to_range_tiles(unit.vision_radius))))
 	if not _entries.has(id):
 		invalidate_order()
+		unit._index_position = unit.global_position
 		_entries[id] = {"unit": unit, "position": unit.global_position, "cell": cell, "tile": tile, "radius": radius, "parent": unit.get_parent(), "stamped": false, "stamp_owner": 0}
 		vision_revision += 1
 		_insert(_cells, cell, unit)
@@ -36,6 +39,7 @@ func update(unit: UnitBase) -> void:
 	else:
 		var entry: Dictionary = _entries[id]
 		entry.position = unit.global_position
+		unit._index_position = unit.global_position
 		if entry.tile != tile or entry.radius != radius:
 			vision_revision += 1
 			_movement_by_owner[unit.player_owner] = int(_movement_by_owner.get(unit.player_owner, 0)) + 1
@@ -124,12 +128,15 @@ func near(position: Vector2, radius: float) -> Array[UnitBase]:
 	var last := Vector2i(((position + Vector2.ONE * radius) / CELL_SIZE).floor())
 	for y: int in range(first.y, last.y + 1):
 		for x: int in range(first.x, last.x + 1):
-			for unit: UnitBase in _cells.get(Vector2i(x, y), []):
-				var entry: Dictionary = _entries[unit.get_instance_id()]
+			var cell: Variant = _cells.get(Vector2i(x, y))
+			if cell == null: continue
+			for unit: UnitBase in cell:
 				# Membership is removed synchronously on tree exit; positions are
 				# refreshed by local notifications and the parent check above.
-				if unit.current_state != UnitBase.State.DEAD and (entry.position as Vector2).distance_to(position) <= radius:
-					ranks.append(entry.rank)
+				# The unit carries its own index record (position as of its last
+				# transform notification, tree rank) to avoid a lookup per candidate.
+				if unit.current_state != UnitBase.State.DEAD and unit._index_position.distance_to(position) <= radius:
+					ranks.append(unit._index_rank)
 	# Native integer sorting preserves exact SceneTree order without a script
 	# callback for every comparison in every unit neighborhood query.
 	ranks.sort()
@@ -176,6 +183,7 @@ func _refresh_order() -> void:
 	for node: Node in _map.get_tree().get_nodes_in_group("units"):
 		if node is UnitBase and _entries.has(node.get_instance_id()):
 			_entries[node.get_instance_id()].rank = _ordered_units.size()
+			(node as UnitBase)._index_rank = _ordered_units.size()
 			_ordered_units.append(node)
 
 func _refresh_parent_transforms() -> void:
