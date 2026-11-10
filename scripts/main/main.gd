@@ -2039,6 +2039,16 @@ func _on_world_context_opened() -> void:
 		game_map.selection_mgr.close_touch_context()
 
 
+## Tapping a type chip of a mixed selection keeps only that unit type.
+func _on_selection_type_requested(unit_type: int) -> void:
+	var kept: Array[Node2D] = []
+	for node: Node2D in game_map.selection_mgr.selected:
+		if is_instance_valid(node) and node is UnitBase and (node as UnitBase).player_owner == 0 and (node as UnitBase).unit_type == unit_type and (node as UnitBase).current_state != UnitBase.State.DEAD:
+			kept.append(node)
+	if not kept.is_empty():
+		game_map.selection_mgr.select_many(kept)
+
+
 func _on_selection_changed(selected_units: Array[Node2D]) -> void:
 	if game_map.selection_mgr.is_selection_replacement():
 		_clear_armed_unit_commands(false)
@@ -2936,6 +2946,7 @@ func _setup_hud() -> void:
 	hud.worker_order_undo_requested.connect(_on_worker_order_undo)
 	hud.unit_stance_requested.connect(_toggle_stance)
 	hud.deselect_requested.connect(_deselect_from_hud)
+	hud.selection_type_requested.connect(_on_selection_type_requested)
 	hud.select_area_requested.connect(_toggle_touch_area_selection)
 	game_map.selection_mgr.touch_area_selection_changed.connect(hud.set_area_selection_armed)
 	# Research buttons are context actions too; the HUD's legacy

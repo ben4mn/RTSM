@@ -26,6 +26,8 @@ signal unit_stop_requested()
 signal worker_order_undo_requested(record_id: int)
 signal unit_stance_requested()
 signal deselect_requested()
+## A type chip of a mixed own selection was tapped: keep only that unit type.
+signal selection_type_requested(unit_type: int)
 signal select_area_requested()
 signal center_selection_requested()
 ## Any building context-action card was tapped (BuildingBase.get_context_actions).
@@ -527,6 +529,8 @@ func _process(_delta: float) -> void:
 	if gm and gm.current_state == gm.GameState.PLAYING:
 		game_time_label.text = gm.get_formatted_time()
 	_update_worker_undo_button()
+	if _selection_type_chips != null and _selection_type_chips.visible:
+		_refresh_selection_type_chips()
 	_focus_pulse_time += _delta
 	_refresh_primary_action_visuals()
 	var now_msec: int = Time.get_ticks_msec()
@@ -2972,6 +2976,7 @@ func show_unit_selection(unit_name: String, current_hp: int, max_hp: int, action
 	selection_name.tooltip_text = _selection_full_name + "\n" + _selection_unit_information
 	selection_details.tooltip_text = _selection_unit_information
 	_refresh_unit_selection_details()
+	_refresh_selection_type_chips()
 	queue_container.visible = false
 	_last_queue_items = []
 	_queue_counts_by_unit.clear()
@@ -3149,6 +3154,68 @@ func _refresh_unit_selection_details() -> void:
 		selection_details.text = action + ("\n" + _selection_role_text if not _selection_role_text.is_empty() else "")
 
 
+# --- Selection type chips (workstream F) ---------------------------------
+# A mixed own selection is summarised by type, never one card per unit: one
+# chip per unit type with its count, sitting just above the selection panel.
+# Tapping a chip narrows the selection to that type. The row is rebuilt only
+# when the composition changes, so the half-second refresh costs nothing.
+const SELECTION_TYPE_CHIP_SIZE := Vector2(58.0, 40.0)
+var _selection_type_chips: HBoxContainer = null
+var _selection_type_chip_signature: Array = []
+
+
+func _refresh_selection_type_chips() -> void:
+	var wanted: bool = _selection_kind == "unit" and _selection_unit_owner == 0 and _selection_roster.size() >= 2 and selection_panel.visible and _unit_command_mode not in ["move", "attack_move", "patrol"]
+	if not wanted:
+		if _selection_type_chips != null:
+			_selection_type_chips.visible = false
+		return
+	if _selection_type_chips == null:
+		_selection_type_chips = HBoxContainer.new()
+		_selection_type_chips.name = "SelectionTypeChips"
+		_selection_type_chips.add_theme_constant_override("separation", 4)
+		_selection_type_chips.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		selection_panel.get_parent().add_child(_selection_type_chips)
+	var signature: Array = []
+	for role_type: int in _selection_roster:
+		signature.append(role_type)
+		signature.append(int(_selection_role_counts[role_type]))
+	if signature != _selection_type_chip_signature:
+		_selection_type_chip_signature = signature
+		for child: Node in _selection_type_chips.get_children():
+			_selection_type_chips.remove_child(child)
+			child.queue_free()
+		for role_type: int in _selection_roster:
+			var chip := Button.new()
+			chip.name = "TypeChip%d" % role_type
+			chip.custom_minimum_size = SELECTION_TYPE_CHIP_SIZE
+			chip.focus_mode = Control.FOCUS_NONE
+			chip.icon = load(UnitData.get_unit_icon_path(role_type, _selection_unit_owner))
+			chip.expand_icon = true
+			chip.text = "×%d" % int(_selection_role_counts[role_type])
+			chip.add_theme_font_size_override("font_size", 14)
+			chip.add_theme_constant_override("icon_max_width", 26)
+			var style: StyleBox = KingdomTheme.button_style()
+			style.set_content_margin(SIDE_LEFT, 5.0)
+			style.set_content_margin(SIDE_RIGHT, 6.0)
+			chip.add_theme_stylebox_override("normal", style)
+			chip.tooltip_text = "Select only the %d %s" % [int(_selection_role_counts[role_type]), UnitData.get_unit_name(role_type, _selection_unit_owner)]
+			chip.pressed.connect(_on_selection_type_chip_pressed.bind(role_type))
+			_selection_type_chips.add_child(chip)
+	_selection_type_chips.visible = true
+	_selection_type_chips.reset_size()
+	# Left-aligned with the panel and resting on its top edge; kept on screen.
+	var anchor: Vector2 = selection_panel.global_position
+	var row_size: Vector2 = _selection_type_chips.get_combined_minimum_size()
+	var viewport_width: float = get_viewport().get_visible_rect().size.x / maxf(0.01, _selection_type_chips.get_global_transform().get_scale().x)
+	_selection_type_chips.global_position = Vector2(clampf(anchor.x, 4.0, maxf(4.0, viewport_width - row_size.x - 4.0)), anchor.y - row_size.y - 4.0)
+
+
+func _on_selection_type_chip_pressed(unit_type: int) -> void:
+	AudioManager.play_ui("button_click")
+	selection_type_requested.emit(unit_type)
+
+
 func _compact_roster_entry(unit_type: int) -> String:
 	# The full name is in Info. Siege's two-word name otherwise consumes the
 	# entire 96px minimum identity column before its count can be read.
@@ -3310,6 +3377,7 @@ func clear_selection() -> void:
 	_selection_is_worker = false
 	_hide_unit_commands()
 	selection_panel.visible = false
+	_refresh_selection_type_chips()
 	_selected_building_ref = null
 	_last_queue_items = []
 	_queue_counts_by_unit.clear()
