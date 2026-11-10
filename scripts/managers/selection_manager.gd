@@ -262,7 +262,7 @@ func _process(_delta: float) -> void:
 	# selection consumer can observe a stale Object reference.
 	_prune_stale_selection()
 	var now_msec: int = Time.get_ticks_msec()
-	if not OS.has_feature("production") and now_msec >= _next_touch_target_refresh_msec:
+	if not OS.has_feature("production") and not NetworkSession.server_mode and now_msec >= _next_touch_target_refresh_msec:
 		_next_touch_target_refresh_msec = now_msec + 250
 		_refresh_touch_target_diagnostics()
 	if not _holds_allowed() or not _touch_hold_active:

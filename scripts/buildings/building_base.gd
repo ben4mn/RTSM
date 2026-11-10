@@ -13,10 +13,23 @@ signal defensive_attack_fired(target: Node2D)
 
 enum State { PLACING, CONSTRUCTING, ACTIVE, DESTROYED }
 
-@export var building_type: int = BuildingData.BuildingType.HOUSE
-@export var player_owner: int = 0
+## Bumped whenever any building's vision source may have changed (type, owner,
+## state, position, tree membership). GameMap keys its per-player building
+## vision grid on it instead of rescanning every building per visibility query.
+static var vision_revision: int = 0
+@export var building_type: int = BuildingData.BuildingType.HOUSE:
+	set(value):
+		building_type = value
+		vision_revision += 1
+@export var player_owner: int = 0:
+	set(value):
+		player_owner = value
+		vision_revision += 1
 
-var state: int = State.PLACING
+var state: int = State.PLACING:
+	set(value):
+		state = value
+		vision_revision += 1
 var hp: int = 0
 var max_hp: int = 500
 var build_progress: float = 0.0
@@ -247,6 +260,13 @@ const DROP_OFF_BADGE_COLORS: Dictionary = {
 }
 
 
+func _notification(what: int) -> void:
+	# The local notification is synchronous; the global one is deferred to the
+	# end of the frame, too late for a same-frame visibility query.
+	if what == NOTIFICATION_ENTER_TREE or what == NOTIFICATION_EXIT_TREE or what == NOTIFICATION_LOCAL_TRANSFORM_CHANGED:
+		vision_revision += 1
+
+
 func _ready() -> void:
 	_load_stats()
 	_setup_collision()
@@ -254,6 +274,8 @@ func _ready() -> void:
 	rally_point = global_position + Vector2(footprint.x * MapData.TILE_WIDTH, 0)
 	rally_point_is_custom = false
 	add_to_group("buildings")
+	set_notify_local_transform(true)
+	vision_revision += 1
 	add_to_group("player_%d_buildings" % player_owner)
 	if drop_off_resources.size() > 0:
 		add_to_group("dropoff_buildings")
@@ -600,7 +622,9 @@ func _process(delta: float) -> void:
 	if state == State.ACTIVE and tower_attack_damage > 0:
 		_tower_attack_cooldown -= delta
 		if _tower_attack_cooldown <= 0.0:
+			var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
 			_tower_attack_cooldown = tower_attack_interval if _tower_try_attack() else DEFENSIVE_TARGET_SCAN_INTERVAL
+			if PerfProbe.on: PerfProbe.add(&"building.tower", _pp)
 	if is_selected or had_shot_flash:
 		queue_redraw()
 	if had_shot_flash and _defensive_flash != null:
@@ -1109,7 +1133,11 @@ func _tower_try_attack() -> bool:
 	var best_unit: UnitBase = null
 	var best_unit_dist: float = INF
 	var best_unit_priority: int = 3
-	for node in get_tree().get_nodes_in_group("units"):
+	# Same candidates in the same order as the whole-group scan, limited to the
+	# cells this tower can reach.
+	var tower_map: Node = get_parent().get_parent() if get_parent() != null else null
+	var tower_candidates: Array = tower_map.get_units_near(global_position, tower_attack_range) if tower_map != null and tower_map.has_method("get_units_near") and get_tree().get_node_count_in_group("units") == tower_map.get_spatial_unit_count() else get_tree().get_nodes_in_group("units")
+	for node in tower_candidates:
 		if not is_instance_valid(node) or not (node is UnitBase):
 			continue
 		var u: UnitBase = node as UnitBase

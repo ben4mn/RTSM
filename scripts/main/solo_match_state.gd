@@ -202,6 +202,7 @@ func capture(main: Node) -> Dictionary:
 			if kind.is_empty() or bool(node.get("finished")) or node.is_queued_for_deletion(): continue
 			data.shots.append({"kind": kind, "fields": _read(node, _script_fields(node)), "position": node.global_position if node is Node2D else Vector2.ZERO})
 	if is_instance_valid(map.fog_memory):
+		map.fog_memory.sync_sighted()
 		for record: Dictionary in map.fog_memory.resources.values():
 			data.memories.resources.append({"tile": record.tile, "kind": record.resource_type, "remaining": record.remaining})
 		for record: Dictionary in map.fog_memory.buildings.values():

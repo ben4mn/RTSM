@@ -4,6 +4,11 @@ extends Node2D
 var game_map: Node2D
 var resources: Dictionary = {}
 var buildings: Dictionary = {}
+## Bumped when a record is added, redrawn or erased, so GameMap can skip the
+## per-frame refresh while fog, sources and records are all unchanged.
+var revision: int = 0
+var _sighted_resources: Array[ResourceNode] = []
+var _sighted_buildings: Array[BuildingBase] = []
 const MEMORY_TINT := Color(0.76, 0.80, 0.87, 1.0)
 
 func observe_resource(source: ResourceNode) -> void:
@@ -15,6 +20,7 @@ func remember_resource(tile: Vector2i, kind: String, amount: int, source_id: int
 		resources[tile].remaining = amount
 		if source_id > 0: resources[tile].source_id = source_id
 		return
+	revision += 1
 	resources[tile] = {"tile": tile, "footprint": Vector2i.ONE, "remaining": amount, "resource_type": kind, "visual": null, "source_id": source_id}
 
 ## Beta 31: the nearest resource of a kind the player has seen but cannot see
@@ -47,6 +53,7 @@ func remember_building(data: Dictionary) -> void:
 	if buildings.has(id) and buildings[id].signature == signature:
 		buildings[id].hp = int(data.hp)
 		return
+	revision += 1
 	var record: Dictionary = buildings.get(id, {"visual": null, "material": null})
 	record.merge(data, true)
 	record.signature = signature
@@ -119,13 +126,30 @@ func _draw_building(record: Dictionary) -> void:
 		sprite.material = null
 		if frame != null: frame.hide()
 
+## Stock and health drift while something stays in sight. Refresh no longer
+## runs on frames where nothing about fog changed, so bring those records up to
+## date before sight changes (and before a save reads them).
+func sync_sighted() -> void:
+	if NetworkSession.is_client(): return
+	for resource: ResourceNode in _sighted_resources:
+		if is_instance_valid(resource) and not resource.is_queued_for_deletion(): observe_resource(resource)
+	for building: BuildingBase in _sighted_buildings:
+		if is_instance_valid(building) and not building.is_queued_for_deletion(): observe_building(building)
+
 func refresh(viewer: int = 0) -> void:
 	if viewer != 0: return
 	if not NetworkSession.is_client():
+		sync_sighted()
+		_sighted_resources.clear()
+		_sighted_buildings.clear()
 		for resource: Node2D in game_map.resource_nodes.values():
-			if is_instance_valid(resource) and resource is ResourceNode and game_map.is_tile_visible_to_player(resource.tile_position, viewer): observe_resource(resource)
+			if is_instance_valid(resource) and resource is ResourceNode and game_map.is_tile_visible_to_player(resource.tile_position, viewer):
+				observe_resource(resource)
+				_sighted_resources.append(resource)
 		for building: Node in game_map.get_node("BuildingsContainer").get_children():
-			if building is BuildingBase and building.player_owner != viewer and game_map.is_entity_visible_to_player(building, viewer): observe_building(building)
+			if building is BuildingBase and building.player_owner != viewer and game_map.is_entity_visible_to_player(building, viewer):
+				observe_building(building)
+				_sighted_buildings.append(building)
 	for tile: Vector2i in resources.keys():
 		var record: Dictionary = resources[tile]
 		var in_sight: bool = _in_sight(record, viewer)
@@ -167,6 +191,7 @@ func _explored(record: Dictionary) -> bool:
 
 func _erase(records: Dictionary, key: Variant) -> void:
 	if not records.has(key): return
+	revision += 1
 	var visual: Node2D = records[key].visual
 	if is_instance_valid(visual):
 		visual.hide()

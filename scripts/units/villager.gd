@@ -133,7 +133,37 @@ func can_auto_retaliate() -> bool:
 	return false
 
 
+## A worker standing at its work thinks at 8 Hz.
+## Skipped frames bank their time, so gather ticks, build progress and timers
+## advance by exactly the elapsed total; a reaction (target gone, threat seen,
+## cargo full) lands at most one interval later. Walking, fleeing and fighting
+## stay per-frame. 0.125 s keeps the 0.25 s threat sample on its cadence.
+const STEADY_WORK_THINK_INTERVAL: float = 0.125
+var _steady_banked: float = 0.0
+
+
+func _is_steady_work() -> bool:
+	if _auto_recovering or NetworkSession.is_client():
+		return false
+	# _presentation_working still holds the previous think's answer here.
+	return (current_state == State.GATHERING or current_state == State.BUILDING) and _presentation_working and not _dropoff_route_active
+
+
 func _process(delta: float) -> void:
+	if current_state != State.DEAD:
+		if _is_steady_work():
+			_steady_banked += maxf(0.0, delta)
+			if _steady_banked + 0.000001 < STEADY_WORK_THINK_INTERVAL:
+				_update_sprite_motion(delta)
+				if is_selected:
+					queue_redraw()
+				return
+			_presentation_delta = delta
+			delta = _steady_banked
+		# Leaving steady work by an order or a hit: this frame moves by its own
+		# time only (a banked remainder would be a visible jump).
+		_steady_banked = 0.0
+	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
 	_presentation_working = false
 	if not _auto_recovering and _has_active_economic_work():
 		_economic_threat_check_timer -= delta
@@ -145,6 +175,7 @@ func _process(delta: float) -> void:
 		_economic_threat_check_timer = float(posmod(get_index(), 5)) * 0.05
 	if _auto_recovering and current_state != State.DEAD:
 		_process_recovery(delta)
+	if PerfProbe.on: PerfProbe.add(&"villager.pre", _pp)
 	super._process(delta)
 	# AI also reads these exclusions while a worker is idle. Expire them from
 	# the inherited simulation clock even when no gather/drop-off retry runs.
@@ -333,7 +364,7 @@ func get_work_presentation() -> Vector3:
 	if not _presentation_working or _auto_recovering or _dropoff_route_active:
 		return Vector3.ZERO
 	if current_state == State.BUILDING:
-		return Vector3(UnitActionPresentation.Action.BUILD, fposmod(build_timer / 0.8, 1.0), 0.8)
+		return Vector3(UnitActionPresentation.Action.BUILD, fposmod((build_timer + _steady_banked) / 0.8, 1.0), 0.8)
 	if current_state != State.GATHERING:
 		return Vector3.ZERO
 	var kind: int = UnitActionPresentation.Action.FORAGE
@@ -344,7 +375,7 @@ func get_work_presentation() -> Vector3:
 	elif carried_resource_type == "food" and is_instance_valid(gather_target) and gather_target is BuildingBase and (gather_target as BuildingBase).building_type == BuildingData.BuildingType.FARM and (gather_target as BuildingBase).provides_food:
 		kind = UnitActionPresentation.Action.FARM
 	var period: float = gather_tick_time / float(UnitData.RESOURCE_GATHER_SPEEDS.get(carried_resource_type, 1.0))
-	return Vector3(kind, clampf(gather_timer / period, 0.0, 1.0), period)
+	return Vector3(kind, clampf((gather_timer + _steady_banked) / period, 0.0, 1.0), period)
 
 
 func get_economy_task() -> String:
@@ -1806,6 +1837,8 @@ func _remember_unreachable_target(target: Node2D, cache: Dictionary) -> void:
 
 
 func _prune_expired_unreachable_targets(cache: Dictionary) -> void:
+	if cache.is_empty():
+		return
 	var now: float = _simulation_elapsed_seconds
 	for instance_id: Variant in cache.keys():
 		if now >= float(cache[instance_id]):

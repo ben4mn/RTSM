@@ -17,6 +17,18 @@ var _resource_tiles: Array[Vector2i] = []
 var _known_enemy_buildings: Dictionary = {0: {}, 1: {}}
 var _forgotten_buildings: Dictionary = {0: [], 1: []}
 var _known_resource_counts: Dictionary = {0: {}, 1: {}}
+## Resource stock is sent in full once a second and as changes in between.
+## A client that coalesces snapshots is at most one keyframe behind on stock
+## and fog-memory amounts; actors are still complete in every packet.
+const RESOURCE_KEYFRAME_TICKS := 10
+## Everything public about a unit goes out in every snapshot. The owner-only
+## block (route, destination, orders, cargo, work text) goes out when the unit
+## first appears and then every ACTOR_DETAIL_TICKS, staggered by id; the client
+## keeps the last values in between.
+const ACTOR_DETAIL_TICKS := 5
+var _actor_detail_sent: Dictionary = {0: {}, 1: {}}
+var _actor_detail_tick: Dictionary = {0: -1, 1: -1}
+var _resource_keyframe_tick: Dictionary = {0: -1, 1: -1}
 
 func setup(controller: Node) -> void:
 	main = controller
@@ -87,33 +99,44 @@ func broadcast_snapshots() -> void:
 func _snapshot_for(slot: int) -> Dictionary:
 	var actors: Array = []
 	var observed_buildings: Dictionary = {}
+	# Re-serialising the same tick (fixtures, the final broadcast) sends every
+	# unit in full, so a direct call still returns complete actors.
+	var all_detailed: bool = _snapshot_number <= int(_actor_detail_tick[slot])
+	_actor_detail_tick[slot] = _snapshot_number
+	var detail_sent: Dictionary = _actor_detail_sent[slot]
+	var detail_now: Dictionary = {}
 	for node: Node2D in entities.values():
 		if not is_instance_valid(node) or node.is_queued_for_deletion():
 			continue
 		if node.player_owner != slot and (not game_map.is_entity_visible_to_player(node, slot) or Garrison.hidden_from_enemy(node)):
 			continue
-		var actor: Dictionary = {"id": NetworkSession.entity_id(node), "owner": node.player_owner, "x": node.global_position.x, "y": node.global_position.y, "hp": node.hp, "max_hp": node.max_hp}
+		# Tenth-of-a-pixel positions and HP: far below anything a replica shows,
+		# and a third of the digits for the encoder and the wire.
+		var actor: Dictionary = {"id": NetworkSession.entity_id(node), "owner": node.player_owner, "x": snappedf(node.global_position.x, 0.1), "y": snappedf(node.global_position.y, 0.1), "hp": snappedf(node.hp, 0.1) if node is UnitBase else node.hp, "max_hp": node.max_hp}
 		if node is UnitBase:
 			if node.current_state == UnitBase.State.DEAD:
 				continue
-			actor.merge({"kind": "unit", "type": node.unit_type, "state": node.current_state, "stance": node.stance, "animation": [node._attack_animation_remaining, node._attack_animation_duration, node._attack_animation_direction.x, node._attack_animation_direction.y, node._sprite.flip_h if node._sprite != null else false]})
+			var detailed: bool = all_detailed or not detail_sent.has(actor.id) or (_snapshot_number + int(actor.id)) % ACTOR_DETAIL_TICKS == 0
+			detail_now[actor.id] = true
+			actor.merge({"state": node.current_state, "animation": [snappedf(node._attack_animation_remaining, 0.001), snappedf(node._attack_animation_duration, 0.001), snappedf(node._attack_animation_direction.x, 0.001), snappedf(node._attack_animation_direction.y, 0.001), node._sprite.flip_h if node._sprite != null else false]})
+			actor.merge({"kind": "unit", "type": node.unit_type, "stance": node.stance})
 			# Only an already-visible actor's observable tool/pose crosses here.
 			# No work target, private order or cargo is included for opponents.
 			var work_pose: Vector3 = node.get_work_presentation()
-			actor["work_pose"] = [int(work_pose.x), work_pose.y, work_pose.z]
-			if node.player_owner == slot:
+			actor["work_pose"] = [int(work_pose.x), snappedf(work_pose.y, 0.001), snappedf(work_pose.z, 0.001)]
+			if detailed and node.player_owner == slot:
 				var points: Array = []
 				var route: PackedVector2Array = node.get_remaining_navigation_path()
-				for point: Vector2 in route.slice(0, mini(route.size(), 12)):
-					points.append([point.x, point.y])
+				for index: int in mini(route.size(), 12):
+					points.append([snappedf(route[index].x, 0.1), snappedf(route[index].y, 0.1)])
 				actor["path"] = points
-				actor["destination"] = [node.move_target.x, node.move_target.y]
+				actor["destination"] = [snappedf(node.move_target.x, 0.1), snappedf(node.move_target.y, 0.1)]
 				actor["attack_move"] = node.attack_move
 				actor["marching"] = node.is_attack_marching()
 				actor["queued_orders"] = _serialize_orders(node.queued_orders)
-			if node is Trader and node.player_owner == slot:
+			if detailed and node is Trader and node.player_owner == slot:
 				actor.merge({"trade_status": node.get_trade_status(), "trade_cargo": node.carried_gold, "trade_income": node.get_trip_income()})
-			if node is Villager and node.player_owner == slot:
+			if detailed and node is Villager and node.player_owner == slot:
 				actor.merge({"gather": node.gather_type, "cargo": node.carried_amount, "cargo_type": node.carried_resource_type, "cargo_manifest": node.get_carried_resources(), "work": node.get_economy_task(), "work_status": node.get_work_status(), "recovering": node.is_auto_recovering(), "building_order": node.has_active_build_order()})
 		else:
 			if node.state == BuildingBase.State.DESTROYED:
@@ -131,6 +154,7 @@ func _snapshot_for(slot: int) -> Dictionary:
 			var id: int = NetworkSession.entity_id(node)
 			observed_buildings[id] = true
 			_known_enemy_buildings[slot][id] = {"tile": game_map.world_to_tile(node.global_position), "footprint": node.footprint, "actor": {"id": id, "owner": node.player_owner, "type": node.building_type, "state": node.state, "progress": node.build_progress, "hp": node.hp, "x": node.global_position.x, "y": node.global_position.y}}
+	_actor_detail_sent[slot] = detail_now
 	# Omission alone means loss of sight, never destruction. Retire a previous
 	# sighting only when its last-known ground is actually scouted and empty.
 	var forgotten_buildings: Array = _forgotten_buildings[slot]
@@ -145,16 +169,28 @@ func _snapshot_for(slot: int) -> Dictionary:
 			forgotten_buildings.append(id)
 			_known_enemy_buildings[slot].erase(id)
 	var resources: Array = []
+	var memories: Dictionary = {"buildings": [], "resources": []}
+	# Re-serialising the same tick (fixtures, the final broadcast) is always a
+	# keyframe, so a direct call still returns the complete lists.
+	var last_keyframe: int = _resource_keyframe_tick[slot]
+	var keyframe: bool = last_keyframe < 0 or _snapshot_number <= last_keyframe or _snapshot_number - last_keyframe >= RESOURCE_KEYFRAME_TICKS
+	if keyframe:
+		_resource_keyframe_tick[slot] = _snapshot_number
+	var known_counts: Dictionary = _known_resource_counts[slot]
 	var visible_resource_tiles: Dictionary = game_map.get_visible_tiles_for_player(_resource_tiles, slot)
 	for tile: Vector2i in _resource_tiles:
 		if visible_resource_tiles.has(tile):
 			var resource: Node2D = game_map.get_resource_node_at(tile)
 			var amount: int = resource.remaining if is_instance_valid(resource) else 0
-			resources.append([tile.x, tile.y, amount])
-			_known_resource_counts[slot][tile] = amount
-	var memories: Dictionary = {"buildings": [], "resources": []}
+			if keyframe:
+				resources.append([tile.x, tile.y, amount])
+			elif int(known_counts.get(tile, -1)) != amount:
+				resources.append([tile.x, tile.y, amount])
+				memories.resources.append([tile.x, tile.y, amount])
+			known_counts[tile] = amount
 	for known: Dictionary in _known_enemy_buildings[slot].values(): memories.buildings.append(known.actor)
-	for tile: Vector2i in _known_resource_counts[slot]: memories.resources.append([tile.x, tile.y, _known_resource_counts[slot][tile]])
+	if keyframe:
+		for tile: Vector2i in known_counts: memories.resources.append([tile.x, tile.y, known_counts[tile]])
 	var site: Node = game_map.sacred_site
 	var player: Dictionary = GameManager.players[slot].duplicate()
 	player.erase("units")
@@ -197,6 +233,8 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 		seen[id] = true
 		var node: Node2D = entities.get(id) as Node2D
 		var was_present: bool = is_instance_valid(node)
+		# The owner-only block rides on a unit's detail ticks (ACTOR_DETAIL_TICKS).
+		var detailed: bool = actor.has("path")
 		if not is_instance_valid(node):
 			node = _create_replica(actor)
 			if node == null:
@@ -207,7 +245,7 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 			_interpolation[id] = world
 			node.current_state = int(actor.state)
 			node.stance = int(actor.stance)
-			if node.player_owner == 0:
+			if detailed and node.player_owner == 0:
 				var route := PackedVector2Array()
 				for point: Array in actor.get("path", []):
 					route.append(Vector2(float(point[0]), float(point[1])))
@@ -219,8 +257,9 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 				node.queued_orders = _deserialize_orders(actor.get("queued_orders", []))
 			# Default false on every packet: missing, non-boolean or enemy values
 			# cannot retain an earlier own status or disclose another cohort.
-			var marching: Variant = actor.get("marching", false)
-			node.set_meta("network_attack_march", node.player_owner == 0 and _local_owner(int(actor.owner)) == 0 and typeof(marching) == TYPE_BOOL and marching == true)
+			if detailed or node.player_owner != 0:
+				var marching: Variant = actor.get("marching", false)
+				node.set_meta("network_attack_march", node.player_owner == 0 and _local_owner(int(actor.owner)) == 0 and typeof(marching) == TYPE_BOOL and marching == true)
 			var animation: Array = actor.get("animation", [])
 			node.apply_work_presentation(actor.get("work_pose", []))
 			if animation.size() == 5:
@@ -229,11 +268,11 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 				node._attack_animation_direction = Vector2(float(animation[2]), float(animation[3]))
 				if node._sprite != null:
 					node._sprite.flip_h = bool(animation[4])
-			if node is Trader:
+			if detailed and node is Trader:
 				node.set_meta("network_trade_status", str(actor.get("trade_status", "")))
 				node.carried_gold = int(actor.get("trade_cargo", 0))
 				node.set_meta("network_trade_income", int(actor.get("trade_income", 0)))
-			if node is Villager:
+			if detailed and node is Villager:
 				node.gather_type = int(actor.get("gather", 0))
 				node.carried_amount = int(actor.get("cargo", 0))
 				node.carried_resource_type = str(actor.get("cargo_type", ""))

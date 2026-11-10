@@ -72,12 +72,21 @@ const WIND_SWAY: Dictionary = {
 var _sprite: Sprite2D = null
 
 
+## Bumped whenever a deposit enters the tree, so per-frame visibility passes
+## keyed on "nothing changed" notice a node swapped into an existing tile.
+static var spawn_revision: int = 0
+
+
 func _ready() -> void:
+	spawn_revision += 1
 	remaining = total_amount
 	_setup_collision()
 	_setup_sprite()
 	_assign_group()
 	add_to_group("resources")
+	# _process only repaints the selection ring; hundreds of unselected
+	# deposits do not need a per-frame callback.
+	set_process(is_selected)
 	queue_redraw()
 
 
@@ -171,11 +180,13 @@ var is_selected: bool = false
 
 func select() -> void:
 	is_selected = true
+	set_process(true)
 	queue_redraw()
 
 
 func deselect() -> void:
 	is_selected = false
+	set_process(false)
 	queue_redraw()
 
 

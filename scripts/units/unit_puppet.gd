@@ -61,6 +61,14 @@ static func _ease(value: float) -> float:
 	return t * t * (3.0 - 2.0 * t)
 
 
+## Unseen units (fogged, off-screen, or on an authority with no display) keep
+## only what other systems read: the hit clock and the travel facing.
+func tick_unseen(unit: UnitBase, delta: float, displacement: Vector2) -> void:
+	_since_hit += maxf(0.0, delta)
+	if displacement.length_squared() > 0.001 and absf(displacement.x) > 0.01:
+		unit._sprite.flip_h = displacement.x < 0.0
+
+
 func update(unit: UnitBase, delta: float, displacement: Vector2) -> void:
 	var sprite: Sprite2D = unit._sprite
 	var reduced: bool = GameManager.reduced_motion

@@ -97,9 +97,11 @@ func _process(_delta: float) -> void:
 ## once after spawning starting vision sources so initial fog-aware assignments
 ## never need an omniscient first-frame fallback.
 func refresh_visibility_now() -> void:
+	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
 	_dirty_cells.clear()
 	_update_visibility()
 	_apply_fog_delta()
+	if PerfProbe.on: PerfProbe.add(&"fog.refresh", _pp)
 
 
 ## Register a vision source (unit). Call this when a unit spawns or moves.
@@ -109,6 +111,10 @@ func register_vision_source(tile_pos: Vector2i, vision_radius: int, is_scout: bo
 		"vision_radius": vision_radius,
 		"is_scout": is_scout,
 	})
+
+
+func get_vision_source_count() -> int:
+	return _vision_sources.size()
 
 
 ## Clear all vision sources — call at start of each frame before re-registering.

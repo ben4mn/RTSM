@@ -17,12 +17,17 @@ enum State { IDLE, MOVING, ATTACKING, GATHERING, BUILDING, DEAD, GARRISONED }  #
 enum Stance { AGGRESSIVE, STAND_GROUND }
 enum NavigationResult { MOVING, ARRIVED, UNREACHABLE }
 
+## False on a headless authority (match server, scale benchmark): unit pose
+## animation is then skipped entirely. Never read by the simulation.
+static var presentation_enabled: bool = true
+
 # --- Stats (overridden per unit type) ---
 @export var unit_type: int = UnitData.UnitType.VILLAGER
 @export var player_owner: int = 0:
 	set(value):
-		if player_owner != value and _live_unit_index != null: _live_unit_index.invalidate_vision()
+		var owner_changed: bool = player_owner != value
 		player_owner = value
+		if owner_changed and _live_unit_index != null: _live_unit_index.invalidate_vision(self)
 @export var max_hp: float = 25.0
 @export var hp: float = 25.0
 @export var damage: float = 3.0  # Base stat; Combat adds the owner's live upgrade.
@@ -39,8 +44,9 @@ enum NavigationResult { MOVING, ARRIVED, UNREACHABLE }
 # --- Runtime state ---
 var current_state: int = State.IDLE:
 	set(value):
-		if (current_state == State.DEAD) != (value == State.DEAD) and _live_unit_index != null: _live_unit_index.invalidate_vision()
+		var life_changed: bool = (current_state == State.DEAD) != (value == State.DEAD)
 		current_state = value
+		if life_changed and _live_unit_index != null: _live_unit_index.invalidate_vision(self)
 var stance: int = Stance.AGGRESSIVE
 var move_target: Vector2 = Vector2.ZERO
 var attack_target: UnitBase = null
@@ -124,6 +130,13 @@ const UNIT_SIZES: Dictionary = {
 const UNIT_SPRITE_SCALES: Dictionary = UnitData.WORLD_SPRITE_SCALES
 
 var _live_unit_index: RefCounted = null
+var _presentation_delta: float = -1.0
+## Written by LiveUnitIndex only (its record for this unit, kept on the unit).
+var _index_position: Vector2 = Vector2.ZERO
+var _index_rank: int = 0
+## The real GameMap answers whole movement checks in one typed call; fixture
+## maps without those helpers keep the per-tile duck-typed path.
+var _navigation_map_typed: bool = false
 var _sprite: Sprite2D = null
 var _sprite_team_modulate: Color = Color.WHITE
 var _damage_flash_tween: Tween = null
@@ -206,6 +219,11 @@ func _setup_collision() -> void:
 	var shape := CircleShape2D.new()
 	shape.radius = UNIT_SIZES.get(unit_type, 10.0)
 	collision_shape.shape = shape
+	# Nothing reads Area2D overlaps (spacing and targeting use the live unit
+	# index). Left on, the physics server pairs every unit with every neighbour
+	# in a crowd on each step.
+	monitoring = false
+	monitorable = false
 
 
 func _load_stats_from_data() -> void:
@@ -339,6 +357,7 @@ func _process(delta: float) -> void:
 	_navigation_repath_cooldown = maxf(0.0, _navigation_repath_cooldown - delta)
 	_advance_attack_windup(delta)
 
+	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
 	match current_state:
 		State.IDLE:
 			_process_idle(delta)
@@ -350,7 +369,12 @@ func _process(delta: float) -> void:
 			_process_gathering(delta)
 		State.BUILDING:
 			_process_building(delta)
-	_update_sprite_motion(delta)
+	if PerfProbe.on: _pp = PerfProbe.add(&"unit.state", _pp)
+	# A subclass that banks several frames into one think (Villager) still
+	# animates with this frame's time only.
+	_update_sprite_motion(delta if _presentation_delta < 0.0 else _presentation_delta)
+	_presentation_delta = -1.0
+	if PerfProbe.on: PerfProbe.add(&"unit.sprite", _pp)
 
 	# Continuous redraw for pulsing selection
 	if is_selected:
@@ -527,9 +551,13 @@ func _navigate_toward(
 		path = PackedVector2Array()
 		path_index = 0
 
-	if not path.is_empty() and path_index < path.size() and game_map.has_method("world_to_tile") and game_map.has_method("is_tile_walkable"):
-		var waypoint_tile: Vector2i = game_map.call("world_to_tile", path[path_index])
-		if not bool(game_map.call("is_tile_walkable", waypoint_tile)):
+	if not path.is_empty() and path_index < path.size():
+		var waypoint_blocked: bool = false
+		if _navigation_map_typed:
+			waypoint_blocked = not game_map.is_world_point_walkable(path[path_index])
+		elif game_map.has_method("world_to_tile") and game_map.has_method("is_tile_walkable"):
+			waypoint_blocked = not bool(game_map.call("is_tile_walkable", game_map.call("world_to_tile", path[path_index])))
+		if waypoint_blocked:
 			path = PackedVector2Array()
 			path_index = 0
 			_navigation_repath_cooldown = 0.0
@@ -636,7 +664,7 @@ func _can_pass_occupied_waypoint(game_map: Node2D) -> bool:
 	# Intermediate tile centers describe a route, not places every traveller
 	# must occupy. Keep final service/Move arrival semantics, but let a unit
 	# pass an occupied center when the following segment is still walkable.
-	if current_state not in [State.MOVING, State.GATHERING, State.BUILDING] or path_index >= path.size() - 1:
+	if (current_state != State.MOVING and current_state != State.GATHERING and current_state != State.BUILDING) or path_index >= path.size() - 1:
 		return false
 	var waypoint: Vector2 = path[path_index]
 	if global_position.distance_to(waypoint) > NAVIGATION_CROWDED_WAYPOINT_RADIUS:
@@ -651,6 +679,8 @@ func _can_pass_occupied_waypoint(game_map: Node2D) -> bool:
 
 
 func _is_navigation_segment_clear(from_position: Vector2, to_position: Vector2, game_map: Node2D) -> bool:
+	if _navigation_map_typed and game_map == _navigation_map:
+		return game_map.is_navigation_segment_clear(from_position, to_position, NAVIGATION_SEGMENT_SAMPLE_DISTANCE)
 	if game_map == null or not game_map.has_method("world_to_tile") or not game_map.has_method("is_tile_walkable"):
 		return true
 	var previous_tile: Vector2i = game_map.call("world_to_tile", from_position)
@@ -688,7 +718,7 @@ func _move_in_direction(direction: Vector2, delta: float, game_map: Node2D) -> v
 	var desired_dir: Vector2 = direction.normalized()
 	_update_friendly_separation(desired_dir)
 	var move_dir: Vector2 = desired_dir
-	var intermediate_waypoint: bool = current_state in [State.MOVING, State.GATHERING, State.BUILDING] and path_index < path.size() - 1
+	var intermediate_waypoint: bool = (current_state == State.MOVING or current_state == State.GATHERING or current_state == State.BUILDING) and path_index < path.size() - 1
 	if (intermediate_waypoint or direction.length() > 10.0) and _separation_vector.length() > 0.0:
 		move_dir = (desired_dir + _separation_vector).normalized()
 	var separation_drag: float = clampf(_separation_vector.length() * 0.16, 0.0, 0.18)
@@ -713,6 +743,7 @@ func _get_navigation_map() -> Node2D:
 	while ancestor != null:
 		if ancestor is Node2D and ancestor.has_method("get_navigation_world_path"):
 			_navigation_map = ancestor as Node2D
+			_navigation_map_typed = ancestor.has_method("is_navigation_segment_clear") and ancestor.has_method("is_world_point_walkable")
 			return _navigation_map
 		ancestor = ancestor.get_parent()
 	return null
@@ -1041,7 +1072,9 @@ func _try_auto_attack() -> void:
 	search_radius = _get_auto_unit_acquisition_radius(search_radius)
 	var building_radius: float = maxf(search_radius * 0.5, attack_range + 24.0)
 	var buildings_first: bool = bool(UnitData.UNITS.get(unit_type, {}).get("auto_target_buildings_first", false))
+	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
 	var target: Node2D = UnitAutoTargeting.find_target(self, search_radius, building_radius, buildings_first)
+	if PerfProbe.on: PerfProbe.add(&"unit.state.autotarget", _pp)
 	if target is UnitBase:
 		command_attack(target as UnitBase, false, false)
 	elif target is BuildingBase:
@@ -1096,7 +1129,9 @@ func _consider_nearby_threat() -> void:
 		return
 	_auto_attack_timer = 0.3
 	var threat_radius: float = _get_auto_unit_acquisition_radius(maxf(vision_radius, attack_range + 8.0))
+	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
 	var threat: UnitBase = UnitAutoTargeting.find_nearby_threat(self, threat_radius)
+	if PerfProbe.on: PerfProbe.add(&"unit.state.autotarget", _pp)
 	if threat != null and threat != attack_target:
 		command_attack(threat, false, false)
 
@@ -1208,8 +1243,12 @@ func _update_sprite_motion(delta: float) -> void:
 		_network_work_pose.y = fposmod(_network_work_pose.y + maxf(0.0, delta) / _network_work_pose.z, 1.0)
 	var displacement: Vector2 = global_position - _last_visual_position
 	_last_visual_position = global_position
-	# The pose itself (gait, idle, strike, flinch) lives in UnitPuppet.
-	_puppet.update(self, delta, displacement)
+	# The pose itself (gait, idle, strike, flinch) lives in UnitPuppet. It is
+	# skipped where nobody can see it; the next visible frame blends back in.
+	if presentation_enabled and visible and (BattleFX.get_fx() == null or BattleFX.get_fx().on_screen(global_position, 96.0)):
+		_puppet.update(self, delta, displacement)
+	else:
+		_puppet.tick_unseen(self, delta, displacement)
 
 
 func get_work_presentation() -> Vector3:
@@ -1537,10 +1576,11 @@ func _update_friendly_separation(movement_direction: Vector2 = Vector2.ZERO) -> 
 	if _separation_timer > 0.0:
 		return
 	_separation_timer = FRIENDLY_SEPARATION_REFRESH
+	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
 	var repel := Vector2.ZERO
 	# Workers use GATHERING/BUILDING even while following a work route. The
 	# supplied direction distinguishes actual travel from standing work/combat.
-	var navigating: bool = current_state in [State.MOVING, State.GATHERING, State.BUILDING] and not movement_direction.is_zero_approx()
+	var navigating: bool = (current_state == State.MOVING or current_state == State.GATHERING or current_state == State.BUILDING) and not movement_direction.is_zero_approx()
 	_combat_spacing_opponents.clear()
 	_navigation_neighbors.clear()
 	# Only travelling units consume the wider crowded-waypoint neighborhood.
@@ -1610,6 +1650,7 @@ func _update_friendly_separation(movement_direction: Vector2 = Vector2.ZERO) -> 
 		)
 	else:
 		_separation_vector = Vector2.ZERO
+	if PerfProbe.on: PerfProbe.add(&"unit.state.separation", _pp)
 
 
 # --- Health ---

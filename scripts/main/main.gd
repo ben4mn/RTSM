@@ -2038,6 +2038,16 @@ func _on_world_context_opened() -> void:
 		game_map.selection_mgr.close_touch_context()
 
 
+## Tapping a type chip of a mixed selection keeps only that unit type.
+func _on_selection_type_requested(unit_type: int) -> void:
+	var kept: Array[Node2D] = []
+	for node: Node2D in game_map.selection_mgr.selected:
+		if is_instance_valid(node) and node is UnitBase and (node as UnitBase).player_owner == 0 and (node as UnitBase).unit_type == unit_type and (node as UnitBase).current_state != UnitBase.State.DEAD:
+			kept.append(node)
+	if not kept.is_empty():
+		game_map.selection_mgr.select_many(kept)
+
+
 func _on_selection_changed(selected_units: Array[Node2D]) -> void:
 	if game_map.selection_mgr.is_selection_replacement():
 		_clear_armed_unit_commands(false)
@@ -2934,6 +2944,7 @@ func _setup_hud() -> void:
 	hud.worker_order_undo_requested.connect(_on_worker_order_undo)
 	hud.unit_stance_requested.connect(_toggle_stance)
 	hud.deselect_requested.connect(_deselect_from_hud)
+	hud.selection_type_requested.connect(_on_selection_type_requested)
 	hud.select_area_requested.connect(_toggle_touch_area_selection)
 	game_map.selection_mgr.touch_area_selection_changed.connect(hud.set_area_selection_armed)
 	# Research buttons are context actions too; the HUD's legacy
@@ -3733,14 +3744,19 @@ func _process(delta: float) -> void:
 				"selection_count": game_map.selection_mgr.selected.size(),
 				"secondary_surface": hud.get_secondary_surface_name(),
 			})
+	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
 	if not NetworkSession.is_client():
 		_advance_production_queues(delta)
 		_process_ai_construction_recovery(delta)
+	if PerfProbe.on: _pp = PerfProbe.add(&"main.production", _pp)
 	_update_fog_of_war()
+	if PerfProbe.on: _pp = PerfProbe.add(&"main.fog_sources", _pp)
 	_update_fog_entity_visibility()
+	if PerfProbe.on: _pp = PerfProbe.add(&"main.fog_entities", _pp)
 	# Main refreshes fog before the child SelectionManager processes. Prune now
 	# so the later HUD refresh cannot read a just-hidden enemy or resource.
 	game_map.selection_mgr.call("_prune_stale_selection")
+	if PerfProbe.on: _pp = PerfProbe.add(&"main.prune_selection", _pp)
 	# Tick under-attack cooldown
 	if _under_attack_cooldown > 0.0:
 		_under_attack_cooldown -= delta
@@ -3754,11 +3770,12 @@ func _process(delta: float) -> void:
 		_update_idle_villager_count()
 		hud.update_score(_calculate_score(0), _calculate_score(1))
 		_update_progression_hint()
-		if not OS.has_feature("production"):
+		if not OS.has_feature("production") and not NetworkSession.server_mode:
 			_refresh_first_session_diagnostics()
+	if PerfProbe.on: _pp = PerfProbe.add(&"main.second_tick", _pp)
 	# Keep editor-only balance telemetry fresh for MCP polling without making
 	# the production Web build scan AI collections every second.
-	if not OS.has_feature("production"):
+	if not OS.has_feature("production") and not NetworkSession.server_mode:
 		_balance_snapshot_timer += delta
 		if _balance_snapshot_timer >= BALANCE_SNAPSHOT_INTERVAL:
 			_balance_snapshot_timer = 0.0
@@ -3770,6 +3787,7 @@ func _process(delta: float) -> void:
 		_refresh_worker_undo_hud()
 		if not game_map.selection_mgr.selected.is_empty():
 			_on_selection_changed(game_map.selection_mgr.selected)
+	if PerfProbe.on: PerfProbe.add(&"main.selection_refresh", _pp)
 
 
 func _advance_production_queues(delta: float) -> void:
@@ -3805,9 +3823,18 @@ func _advance_production_queues(delta: float) -> void:
 				pq._complete_current_unit()
 
 
+var _fog_source_key: Array = []
+
 func _update_fog_of_war() -> void:
 	var fog: FogManager = game_map.fog_of_war
 	if fog == null:
+		return
+	# The source list is a function of unit tiles/radii/deaths (the unit index's
+	# vision revision), building sources and the two rosters. When none moved,
+	# the list registered last frame is still exact and FogManager's own
+	# per-frame refresh keeps answering from it.
+	var source_key: Array = [fog.get_instance_id(), game_map.get_unit_vision_revision(), BuildingBase.vision_revision, _player_units[0].size(), _player_buildings[0].size(), fog.get_vision_source_count()]
+	if source_key == _fog_source_key:
 		return
 
 	fog.clear_vision_sources()
@@ -3826,12 +3853,13 @@ func _update_fog_of_war() -> void:
 		if not is_instance_valid(building) or building.state == BuildingBase.State.DESTROYED:
 			continue
 		var tile_pos: Vector2i = game_map.world_to_tile(building.global_position)
-		var building_stats: Dictionary = BuildingData.get_building_stats(building.building_type)
-		var vision_radius: int = int(building_stats.get("vision_radius", 3))
+		var vision_radius: int = BuildingData.get_vision_radius(building.building_type)
 		fog.register_vision_source(tile_pos, vision_radius, false)
 
 	# Visibility consumers below must observe the sources from this same frame.
 	fog.refresh_visibility_now()
+	source_key[5] = fog.get_vision_source_count()
+	_fog_source_key = source_key
 
 
 func _update_fog_entity_visibility() -> void:

@@ -993,6 +993,16 @@ func register_spatial_unit(unit: UnitBase) -> RefCounted:
 func get_units_near(position: Vector2, radius: float) -> Array[UnitBase]:
 	return _live_unit_index.near(position, radius)
 
+## Moves whenever any unit's sight tile, sight radius, owner, life or presence
+## in the tree changes.
+func get_unit_vision_revision() -> int:
+	return _live_unit_index.vision_revision
+
+## How many units the index holds; equal to the "units" group size when every
+## unit in the tree belongs to this map (callers use that to trust the index).
+func get_spatial_unit_count() -> int:
+	return _live_unit_index.size()
+
 
 ## --- Public API ---
 
@@ -1043,6 +1053,7 @@ func get_navigation_world_path(
 ) -> PackedVector2Array:
 	if pathfinding == null:
 		return PackedVector2Array()
+	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
 	var from_tile: Vector2i = world_to_tile(from_world)
 	var target_tile: Vector2i = world_to_tile(target_world)
 	var radius_from_range: int = int(ceil(
@@ -1083,6 +1094,7 @@ func get_navigation_world_path(
 	var world_path := PackedVector2Array()
 	for tile: Vector2i in tile_path:
 		world_path.append(tile_to_world(tile))
+	if PerfProbe.on: PerfProbe.add(&"path.nav", _pp)
 	return world_path
 
 
@@ -1108,6 +1120,7 @@ func get_building_work_world_path(
 ) -> PackedVector2Array:
 	if pathfinding == null:
 		return PackedVector2Array()
+	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
 	var origin: Vector2i = world_to_tile(anchor_world)
 	var size := Vector2i(maxi(1, footprint.x), maxi(1, footprint.y))
 	var candidates: Array[Vector2i] = []
@@ -1152,6 +1165,7 @@ func get_building_work_world_path(
 	var world_path := PackedVector2Array()
 	for tile: Vector2i in tile_path:
 		world_path.append(tile_to_world(tile))
+	if PerfProbe.on: PerfProbe.add(&"path.work", _pp)
 	return world_path
 
 
@@ -1183,6 +1197,9 @@ func is_entity_visible_to_player(entity: Node2D, viewer_player_id: int = 0) -> b
 	# every battlefield visibility probe. Buildings retain footprint semantics.
 	if not entity is BuildingBase and fog_of_war != null and viewer_player_id == fog_of_war.owning_player:
 		return fog_of_war.is_tile_visible(origin_tile)
+	# Same single-tile answer as the generic path below, without the array.
+	if not entity is BuildingBase and is_inside_tree() and origin_tile.x >= 0 and origin_tile.y >= 0 and origin_tile.x < MapData.MAP_WIDTH and origin_tile.y < MapData.MAP_HEIGHT:
+		return _live_unit_index.units_reveal(origin_tile, viewer_player_id) or _building_vision_grid(viewer_player_id)[origin_tile.y * MapData.MAP_WIDTH + origin_tile.x] != 0
 	var target_tiles: Array[Vector2i] = []
 	if entity is BuildingBase:
 		var building := entity as BuildingBase
@@ -1226,8 +1243,10 @@ func get_visible_tiles_for_player(tile_positions: Array[Vector2i], viewer_player
 		return visible
 	if not is_inside_tree():
 		return visible
+	# Same per-tile answer as _are_tiles_visible_from_live_sources([tile]).
+	var building_grid: PackedByteArray = _building_vision_grid(viewer_player_id)
 	for tile: Vector2i in tile_positions:
-		if tile.x >= 0 and tile.y >= 0 and tile.x < MapData.MAP_WIDTH and tile.y < MapData.MAP_HEIGHT and _are_tiles_visible_from_live_sources([tile], viewer_player_id):
+		if tile.x >= 0 and tile.y >= 0 and tile.x < MapData.MAP_WIDTH and tile.y < MapData.MAP_HEIGHT and (building_grid[tile.y * MapData.MAP_WIDTH + tile.x] != 0 or _live_unit_index.units_reveal(tile, viewer_player_id)):
 			visible[tile] = true
 	return visible
 
@@ -1248,7 +1267,7 @@ func get_visible_enemy_units_for_player(viewer_player_id: int) -> Array[UnitBase
 			var building := node as BuildingBase
 			if building.player_owner != viewer_player_id or building.state == BuildingBase.State.DESTROYED: continue
 			var tile: Vector2i = world_to_tile(building.global_position)
-			building_sources.append(Vector3i(tile.x, tile.y, int(BuildingData.get_building_stats(building.building_type).get("vision_radius", 3))))
+			building_sources.append(Vector3i(tile.x, tile.y, BuildingData.get_vision_radius(building.building_type)))
 	var unit_revision: int = _live_unit_index.enemy_position_revision(viewer_player_id) if local_fog else _live_unit_index.vision_revision
 	var signature: Array = [unit_revision, _live_unit_index.order_revision, fog_of_war.get_instance_id() if is_instance_valid(fog_of_war) else 0, fog_of_war.owning_player if is_instance_valid(fog_of_war) else -1, fog_of_war.visibility_revision if local_fog else -1, building_sources]
 	var cached: Dictionary = _visible_enemy_rosters.get(viewer_player_id, {})
@@ -1256,6 +1275,14 @@ func get_visible_enemy_units_for_player(viewer_player_id: int) -> Array[UnitBase
 		return cached.units
 	var visible: Array[UnitBase] = []
 	var foreign_targets: bool = false
+	# Common case: every unit in the group belongs to this map, so the index's
+	# tree-ordered list is the same sequence without a group copy or an
+	# ancestor walk per unit. Same per-unit rule either way.
+	var ordered: Array[UnitBase] = _live_unit_index.ordered_units()
+	if ordered.size() == get_tree().get_node_count_in_group("units"):
+		_live_unit_index.collect_visible_enemies(viewer_player_id, fog_of_war if local_fog else null, _building_vision_grid(viewer_player_id), visible)
+		_visible_enemy_rosters[viewer_player_id] = {"signature": signature, "units": visible, "foreign_targets": false}
+		return visible
 	for node: Node in get_tree().get_nodes_in_group("units"):
 		if not node is UnitBase: continue
 		var unit := node as UnitBase
@@ -1278,6 +1305,19 @@ func _are_tiles_visible_from_live_sources(
 	for target_tile: Vector2i in target_tiles:
 		if _live_unit_index.units_reveal(target_tile, viewer_player_id): return true
 
+	# Building sources change rarely: answer from a per-player tile grid that is
+	# rebuilt only when BuildingBase.vision_revision moves. Off-map probes keep
+	# the exact per-building circle test below.
+	var grid: PackedByteArray = _building_vision_grid(viewer_player_id)
+	var all_on_map: bool = true
+	for target_tile: Vector2i in target_tiles:
+		if target_tile.x < 0 or target_tile.y < 0 or target_tile.x >= MapData.MAP_WIDTH or target_tile.y >= MapData.MAP_HEIGHT:
+			all_on_map = false
+		elif grid[target_tile.y * MapData.MAP_WIDTH + target_tile.x] != 0:
+			return true
+	if all_on_map:
+		return false
+
 	for node: Node in get_tree().get_nodes_in_group("buildings"):
 		if not is_instance_valid(node) or not is_ancestor_of(node) or not (node is BuildingBase):
 			continue
@@ -1288,11 +1328,43 @@ func _are_tiles_visible_from_live_sources(
 		):
 			continue
 		var building_tile: Vector2i = world_to_tile(building.global_position)
-		var stats: Dictionary = BuildingData.get_building_stats(building.building_type)
-		var building_vision: int = int(stats.get("vision_radius", 3))
+		var building_vision: int = BuildingData.get_vision_radius(building.building_type)
 		if _vision_circle_contains_any(building_tile, building_vision, target_tiles):
 			return true
 	return false
+
+
+var _building_vision_grids: Dictionary = {}
+var _building_vision_grid_revision: int = -1
+
+## Tiles inside any living building's vision circle, per owner. Same sources and
+## circle rule as the loop above; one byte per map tile.
+func _building_vision_grid(viewer_player_id: int) -> PackedByteArray:
+	if _building_vision_grid_revision != BuildingBase.vision_revision:
+		_building_vision_grid_revision = BuildingBase.vision_revision
+		_building_vision_grids.clear()
+	if _building_vision_grids.has(viewer_player_id):
+		return _building_vision_grids[viewer_player_id]
+	var grid := PackedByteArray()
+	grid.resize(MapData.MAP_WIDTH * MapData.MAP_HEIGHT)
+	for node: Node in get_tree().get_nodes_in_group("buildings"):
+		if not is_instance_valid(node) or not is_ancestor_of(node) or not (node is BuildingBase):
+			continue
+		var building := node as BuildingBase
+		if building.player_owner != viewer_player_id or building.state == BuildingBase.State.DESTROYED:
+			continue
+		var centre: Vector2i = world_to_tile(building.global_position)
+		var radius: int = maxi(0, BuildingData.get_vision_radius(building.building_type))
+		var radius_squared: int = radius * radius
+		for y: int in range(maxi(0, centre.y - radius), mini(MapData.MAP_HEIGHT - 1, centre.y + radius) + 1):
+			var dy: int = y - centre.y
+			var row: int = y * MapData.MAP_WIDTH
+			for x: int in range(maxi(0, centre.x - radius), mini(MapData.MAP_WIDTH - 1, centre.x + radius) + 1):
+				var dx: int = x - centre.x
+				if dx * dx + dy * dy <= radius_squared:
+					grid[row + x] = 1
+	_building_vision_grids[viewer_player_id] = grid
+	return grid
 
 
 func _vision_circle_contains_any(
@@ -1311,6 +1383,38 @@ func _vision_circle_contains_any(
 ## Check if a tile is walkable.
 func is_tile_walkable(tile_pos: Vector2i) -> bool:
 	return pathfinding.is_walkable(tile_pos)
+
+
+func is_world_point_walkable(world_pos: Vector2) -> bool:
+	return pathfinding.is_walkable(world_to_tile(world_pos))
+
+
+## UnitBase._is_navigation_segment_clear, with typed map access: one call per
+## movement check instead of a dynamic call per sampled tile. Same rule.
+func is_navigation_segment_clear(from_position: Vector2, to_position: Vector2, sample_distance: float) -> bool:
+	var previous_tile: Vector2i = world_to_tile(from_position)
+	if not pathfinding.is_walkable(previous_tile):
+		return true
+	var target_tile: Vector2i = world_to_tile(to_position)
+	if not pathfinding.is_walkable(target_tile):
+		return false
+	var tile_delta: Vector2i = (target_tile - previous_tile).abs()
+	if tile_delta.x <= 1 and tile_delta.y <= 1:
+		if tile_delta.x == 0 or tile_delta.y == 0:
+			return true
+		return pathfinding.is_walkable(Vector2i(target_tile.x, previous_tile.y)) and pathfinding.is_walkable(Vector2i(previous_tile.x, target_tile.y))
+	var samples: int = maxi(1, int(ceil(from_position.distance_to(to_position) / sample_distance)))
+	for sample: int in range(1, samples + 1):
+		var tile: Vector2i = world_to_tile(from_position.lerp(to_position, float(sample) / samples))
+		if tile == previous_tile:
+			continue
+		if not pathfinding.is_walkable(tile):
+			return false
+		if tile.x != previous_tile.x and tile.y != previous_tile.y:
+			if not pathfinding.is_walkable(Vector2i(tile.x, previous_tile.y)) or not pathfinding.is_walkable(Vector2i(previous_tile.x, tile.y)):
+				return false
+		previous_tile = tile
+	return true
 
 
 ## Canonical structure-placement terrain contract. Movement permits forests and
@@ -1420,7 +1524,24 @@ func forget_scouted_buildings(ids: Array) -> void:
 
 ## Live resource visibility remains the targetability boundary. Memories never
 ## replace registered resources and do not participate in navigation or orders.
+var _resource_visibility_key: Array = []
+
 func update_resource_visibility_for_player(viewer_player_id: int = 0) -> void:
+	# Called every frame for the local player. Everything below is a function of
+	# the fog grid, the resource set, building sources and the remembered
+	# records; when none of them moved since the last pass there is nothing to do.
+	var keyed: bool = is_instance_valid(fog_of_war) and fog_of_war.owning_player == viewer_player_id
+	if keyed and _resource_visibility_key == _resource_visibility_signature(viewer_player_id):
+		return
+	_update_resource_visibility_now(viewer_player_id)
+	_resource_visibility_key = _resource_visibility_signature(viewer_player_id) if keyed else []
+
+
+func _resource_visibility_signature(viewer_player_id: int) -> Array:
+	return [viewer_player_id, fog_of_war.get_instance_id(), fog_of_war.visibility_revision, resource_nodes.size(), ResourceNode.spawn_revision, _pending_depleted_terrain_tiles.size(), BuildingBase.vision_revision, fog_memory.revision if is_instance_valid(fog_memory) else -1, NetworkSession.server_mode, NetworkSession.is_client()]
+
+
+func _update_resource_visibility_now(viewer_player_id: int) -> void:
 	if not NetworkSession.server_mode:
 		_ensure_fog_memory().refresh(viewer_player_id)
 	for tile_pos: Vector2i in resource_nodes:

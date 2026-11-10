@@ -172,6 +172,11 @@ const BUILDINGS: Dictionary = {
 }
 
 
+## Vision radius in tiles without copying the whole stat block (hot path).
+static func get_vision_radius(building_type: int) -> int:
+	return int(BUILDINGS[building_type].get("vision_radius", 3)) if BUILDINGS.has(building_type) else 3
+
+
 static func get_building_stats(building_type: int, player_id: int = -1) -> Dictionary:
 	if BUILDINGS.has(building_type):
 		var stats: Dictionary = BUILDINGS[building_type].duplicate(true)
