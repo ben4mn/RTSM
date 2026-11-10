@@ -45,14 +45,15 @@ const CARCASS_DECAY_PER_SECOND: float = 0.25
 # (50 HP, speed 60, one gather tick every 0.75 s on food). When villagers are
 # rescaled to 25 HP, halve BOAR_MAX_HP, BOAR_BITE_DAMAGE, BOAR_VILLAGER_STRIKE
 # and BOAR_ARROW_DAMAGE together and the outcomes below stay the same:
-#   - a lone villager who stands and fights dies (about 9 s) long before the
-#     boar does (about 28 s);
-#   - three villagers lose one, four win with the bitten one badly hurt;
-#   - a 12-tile lure costs two or three bites (a running villager is bitten far
+#   - a lone villager who stands and fights dies (about 10 s) long before the
+#     boar does (about 22 s);
+#   - three villagers win with the bitten one nearly dead, four win cleanly;
+#   - a 12-tile lure costs two to four bites (a running villager is bitten far
 #     less often than a standing one, see BOAR_BITE_RECOIL_SECONDS);
-#   - under a Town Center or tower the boar falls in about 7 s on its own.
-const BOAR_MAX_HP: float = 150.0
-const BOAR_BITE_DAMAGE: float = 9.0
+#   - near a Town Center or tower the boar falls in about 4 s on its own.
+# tools/test_boar_fight.gd pins these outcomes and prints the measured values.
+const BOAR_MAX_HP: float = 120.0
+const BOAR_BITE_DAMAGE: float = 8.0
 const BOAR_BITE_INTERVAL: float = 1.5
 ## After a bite the boar gathers itself; a fleeing villager opens a gap here.
 const BOAR_BITE_RECOIL_SECONDS: float = 0.4
@@ -66,7 +67,7 @@ const BOAR_VILLAGER_STRIKE: float = 4.0
 ## A villager ordered to gather a boar enrages it once this close.
 const BOAR_AGGRO_RANGE: float = 56.0
 ## Town Centers and towers in range each loose one hunting arrow per interval.
-const BOAR_ARROW_DAMAGE: float = 22.0
+const BOAR_ARROW_DAMAGE: float = 30.0
 const BOAR_ARROW_INTERVAL: float = 1.0
 const BOAR_RETARGET_RADIUS_TILES: float = 4.0
 ## The boar gives up and walks home when its target gets this far away.

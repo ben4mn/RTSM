@@ -414,7 +414,7 @@ static func assign_opening_villagers(match_main: Node, villagers: Array) -> bool
 		if sheep == null:
 			var best: float = INF
 			for candidate: WildlifeNode in director.get_owned_nodes(villager.player_owner):
-				var distance: float = candidate.global_position.distance_to(villager.global_position)
+				var distance: float = candidate.discovery_distance(candidate.global_position.distance_to(villager.global_position), villager.player_owner)
 				if distance < best:
 					best = distance
 					sheep = candidate

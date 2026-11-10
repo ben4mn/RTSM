@@ -78,6 +78,12 @@ func _finalize_probe(saved: Dictionary, codec: RefCounted) -> void:
 	_finalized = {"marker": codec.decode({"$ref": int(saved.marker)})}
 
 
+## Gameplay streams add their own Town Center actions (the wildlife assist,
+## later the bell); this fixture only owns the research rows.
+func _research_ids(building: BuildingBase) -> Array:
+	return building.get_context_actions(0).filter(func(action: Dictionary) -> bool: return str(action.id).begins_with(BuildingBase.RESEARCH_ACTION_PREFIX))
+
+
 func _smith_hp(main_node: Node) -> int:
 	for building: BuildingBase in main_node._player_buildings[0]:
 		if building.building_type == BuildingData.BuildingType.BLACKSMITH: return building.hp
@@ -166,7 +172,7 @@ func _check_context_actions() -> void:
 		check(action.label == definition.name and action.cost == definition.cost and action.time == 0.0 and action.progress == -1.0, action.id + " mirrors its tech definition")
 		check(action.disabled_reason == "unaffordable" and action.done == false, action.id + " reports why it is blocked")
 	check(smith.get_context_actions(1).is_empty(), "the opponent is offered nothing on this building")
-	check(main._player_town_center.get_context_actions(0).is_empty(), "buildings without techs or providers have no actions")
+	check(_research_ids(main._player_town_center).is_empty() and main._player_buildings[1][0].get_context_actions(0).is_empty(), "buildings without techs offer no research, and a rival's building offers nothing")
 	ResourceManager.initialize_player(0, {"food": 2000, "wood": 2000, "gold": 2000})
 	check(smith.get_context_actions(0).all(func(action: Dictionary) -> bool: return action.disabled_reason == ""), "funded techs are enabled")
 	GameManager.research_started.connect(func(player_id: int, building: Node2D, research_id: String, duration: float) -> void: _events.append("started:%d:%s:%s:%s" % [player_id, research_id, building == _smith(), duration]))
@@ -195,7 +201,7 @@ func _check_context_actions() -> void:
 	check(GameManager.has_research(0, "scale_mail") and GameManager.get_armor_bonus(0) == 1 and ResourceManager.get_all_resources(0) == {"food": 1800, "wood": 2000, "gold": 1900}, "pressing a card buys through building_action_requested exactly once")
 	# A later stream's provider needs no HUD or BuildingBase edit.
 	BuildingBase.register_context_provider("probe", probe_actions, probe_perform)
-	check(smith.get_context_actions(0).size() == 5 and smith.get_context_actions(0)[4].id == "probe:ping" and main._player_town_center.get_context_actions(0).is_empty(), "registered provider appends its action to matching buildings only")
+	check(smith.get_context_actions(0).size() == 5 and smith.get_context_actions(0)[4].id == "probe:ping" and not main._player_town_center.get_context_actions(0).any(func(action: Dictionary) -> bool: return str(action.id).begins_with("probe:")), "registered provider appends its action to matching buildings only")
 	hud.show_building_selection("Blacksmith", smith.hp, smith.max_hp, [], [], smith)
 	var ping: Button = row.get_node_or_null("ActionButton_probe_ping") as Button
 	check(ping != null and not ping.disabled and ping.text == "Ping\nTest action\n5W", "HUD renders a provider action generically: " + (ping.text if ping != null else "missing"))

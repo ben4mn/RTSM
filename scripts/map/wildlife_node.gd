@@ -250,6 +250,9 @@ func _plan_route(goal: Vector2) -> PackedVector2Array:
 	# The first waypoint is the centre of the tile already underfoot.
 	if route.size() > 1 and route[0].distance_to(global_position) < float(MapData.TILE_WIDTH) * 0.5:
 		route.remove_at(0)
+	# Finish on the exact spot inside the last tile, not on its centre.
+	if not route.is_empty() and game_map.has_method("world_to_tile") and game_map.call("world_to_tile", route[route.size() - 1]) == game_map.call("world_to_tile", goal) and not route[route.size() - 1].is_equal_approx(goal):
+		route.append(goal)
 	return route
 
 
@@ -296,7 +299,7 @@ func enrage(target: UnitBase) -> void:
 	_target_ref = weakref(target)
 	_route_refresh = 0.0
 	if not was_enraged:
-		_bite_cooldown = WildlifeData.BOAR_BITE_INTERVAL * 0.5
+		_bite_cooldown = WildlifeData.BOAR_BITE_INTERVAL
 		_refresh_texture()
 		enraged.emit(self, target)
 
@@ -415,7 +418,7 @@ func _take_defensive_fire(delta: float) -> void:
 		var building := node as BuildingBase
 		if building == null or building.tower_attack_damage <= 0 or building.state != BuildingBase.State.ACTIVE or building.hp <= 0:
 			continue
-		if building.global_position.distance_to(global_position) > building.tower_attack_range:
+		if distance_to_building(building) > building.tower_attack_range:
 			continue
 		var id: int = building.get_instance_id()
 		if _clock < float(_arrow_ready.get(id, 0.0)):
@@ -426,6 +429,15 @@ func _take_defensive_fire(delta: float) -> void:
 		_take_hit(WildlifeData.BOAR_ARROW_DAMAGE)
 		if not is_fighting():
 			return
+
+
+## Distance to the nearest part of a building's footprint. Defensive fire on a
+## boar is measured from the walls, so "lure it to the Town Center" works from
+## every side instead of only near the footprint's anchor corner.
+func distance_to_building(building: BuildingBase) -> float:
+	if game_map != null and game_map.has_method("get_building_work_distance"):
+		return float(game_map.call("get_building_work_distance", global_position, building.global_position, building.footprint))
+	return global_position.distance_to(building.global_position)
 
 
 # --- Frame update -------------------------------------------------------------
