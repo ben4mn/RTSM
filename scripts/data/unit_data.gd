@@ -260,6 +260,11 @@ static func _apply_line_modifiers(stats: Dictionary, unit_type: int, player_id: 
 	var gm: Node = scene_tree.root.get_node_or_null("GameManager") if scene_tree != null and scene_tree.root != null else null
 	if gm == null:
 		return
+	# Called often (cards, AI, combat): skip the key formatting until this
+	# player has researched anything at all.
+	var modifiers: Variant = gm.get("player_modifiers").get(player_id)
+	if not modifiers is Dictionary or (modifiers as Dictionary).is_empty():
+		return
 	var hp_bonus: float = float(gm.get_modifier(player_id, line_modifier_key("hp", unit_type)))
 	if hp_bonus != 0.0:
 		stats["hp"] = int(round(float(stats.get("hp", 0)) * (1.0 + hp_bonus)))
