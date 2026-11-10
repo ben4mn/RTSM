@@ -87,7 +87,9 @@ func _check_data() -> void:
 		check(_scaled(entry[4], overlay) == entry[5], "%s matches the revision 2 stats at the halved scale: %s" % [overlay.name, str(_scaled(entry[4], overlay))])
 		var base: Dictionary = UnitData.UNITS[entry[0]]
 		check(_stats(entry[0], 0, entry[1]) == _scaled([int(base.hp), int(base.damage), int(base.armor)], overlay), "%s preview derives from today's base unit" % overlay.name)
-		check(str(UnitData.get_unit_stats(entry[0], 0, entry[1]).name) == str(overlay.name), "tier preview is named " + str(overlay.name))
+		# Round 2 C: the French player's cavalry is the Chevalier, which wears a rank.
+		var expected_name: String = "Chevalier II" if entry[0] == cavalry else str(overlay.name)
+		check(str(UnitData.get_unit_stats(entry[0], 0, entry[1]).name) == expected_name and str(UnitData.get_unit_stats(entry[0], -1, entry[1]).name) == str(overlay.name), "tier preview is named " + expected_name)
 	check(UnitData.get_max_tier(infantry) == 3 and UnitData.get_max_tier(archer) == 2 and UnitData.get_max_tier(UnitData.UnitType.VILLAGER) == 1, "lines know their top tier")
 	for tier: int in UnitData.TIER_ICONS:
 		check(ResourceLoader.exists(str(UnitData.TIER_ICONS[tier])), "tier %d chevron is authored" % tier)
@@ -135,7 +137,7 @@ func _check_upgrade() -> void:
 	var archer: UnitBase = _unit(UnitData.UnitType.ARCHER, 0, Vector2(0, 40))
 	var rider: UnitBase = _unit(UnitData.UnitType.CAVALRY, 0, Vector2(0, 64))
 	check(GameManager.try_research(0, _building(BuildingData.BuildingType.ARCHERY_RANGE, Vector2i(8, 0)), "crossbowman") and GameManager.try_research(0, _building(BuildingData.BuildingType.STABLE, Vector2i(-8, 0)), "knight"), "Crossbowman and Knight research at their own buildings")
-	check(archer.max_hp == float(_stats(UnitData.UnitType.ARCHER, 0, 2)[0]) and UnitData.get_unit_name(UnitData.UnitType.ARCHER, 0) == "Crossbowman" and rider.armor == float(_stats(UnitData.UnitType.CAVALRY, 0, 2)[2]) and UnitData.get_unit_name(UnitData.UnitType.CAVALRY, 0) == "Knight", "archers and cavalry upgrade as their own lines")
+	check(archer.max_hp == float(_stats(UnitData.UnitType.ARCHER, 0, 2)[0]) and UnitData.get_unit_name(UnitData.UnitType.ARCHER, 0) == "Crossbowman" and rider.armor == float(_stats(UnitData.UnitType.CAVALRY, 0, 2)[2]) and UnitData.get_unit_name(UnitData.UnitType.CAVALRY, 0) == "Chevalier II", "archers and cavalry upgrade as their own lines")
 	check(not GameManager.try_research(0, barracks, "knight") and UnitData.get_unit_tier(UnitData.UnitType.SCOUT, 0) == 1, "line upgrades belong to their building and their line")
 
 
@@ -151,7 +153,7 @@ func _check_civilization_and_client() -> void:
 	check(str(tiered.name) == "Longbow II" and int(tiered.hp) == int(round(int(longbow_base.hp) * 1.22)) and int(tiered.attack_range) == int(longbow_base.attack_range), "a civilization unit keeps its name, with the tier applied on its own stats: %s %d" % [tiered.name, tiered.hp])
 	check(longbow.get_node_or_null("TierBadge") != null and (longbow.get_node("TierBadge") as Sprite2D).visible, "the client shows the opponent's chevron")
 	check(GameManager.get_player_age(1) == 3 and main._player_buildings[1][0].get_node_or_null("AgeBanner") != null, "and the banner of a visible enemy Town Center")
-	check(UnitData.get_unit_counter_name(UnitData.UnitType.INFANTRY, 1) == "Horsemen", "counter copy stays grammatical: " + UnitData.get_unit_counter_name(UnitData.UnitType.INFANTRY, 1))
+	check(UnitData.get_unit_counter_name(UnitData.UnitType.INFANTRY, 1) == "Chevaliers", "counter copy names the French base line: " + UnitData.get_unit_counter_name(UnitData.UnitType.INFANTRY, 1))
 	check(UnitData.get_unit_counter_name(UnitData.UnitType.CAVALRY, 0) == "Longbows", "counter copy names the base line: " + UnitData.get_unit_counter_name(UnitData.UnitType.CAVALRY, 0))
 
 

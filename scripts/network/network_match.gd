@@ -124,6 +124,8 @@ func _snapshot_for(slot: int) -> Dictionary:
 			# No work target, private order or cargo is included for opponents.
 			var work_pose: Vector3 = node.get_work_presentation()
 			actor["work_pose"] = [int(work_pose.x), snappedf(work_pose.y, 0.001), snappedf(work_pose.z, 0.001)]
+			if node._ability_ready:
+				actor["ability"] = true  # Round 2 C: pennon / stakes / loot sack.
 			if detailed and node.player_owner == slot:
 				var points: Array = []
 				var route: PackedVector2Array = node.get_remaining_navigation_path()
@@ -262,6 +264,7 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 				node.set_meta("network_attack_march", node.player_owner == 0 and _local_owner(int(actor.owner)) == 0 and typeof(marching) == TYPE_BOOL and marching == true)
 			var animation: Array = actor.get("animation", [])
 			node.apply_work_presentation(actor.get("work_pose", []))
+			UnitAbilities.set_replica_ready(node, actor.get("ability", false) == true)
 			if animation.size() == 5:
 				node._attack_animation_remaining = float(animation[0])
 				node._attack_animation_duration = maxf(0.01, float(animation[1]))
@@ -681,8 +684,8 @@ func execute_command(owner: int, packet: Dictionary) -> String:
 				"delete":
 					if target.building_type == BuildingData.BuildingType.TOWN_CENTER:
 						return "Cannot demolish Town Center"
-					for resource: String in BuildingData.get_building_cost(target.building_type):
-						ResourceManager.add_resource(owner, resource, int(BuildingData.get_building_cost(target.building_type)[resource] * 0.5))
+					for resource: String in BuildingData.get_building_cost(target.building_type, owner):
+						ResourceManager.add_resource(owner, resource, int(BuildingData.get_building_cost(target.building_type, owner)[resource] * 0.5))
 					target.take_damage(target.max_hp + 1)
 		_:
 			# Round 2 seam: every operation without a branch above belongs to a
@@ -718,7 +721,7 @@ func _place_building(owner: int, type: int, position: Vector2, selected: Array[U
 				break
 	if builders.is_empty():
 		return "No worker can reach this site"
-	if not ResourceManager.try_spend(owner, BuildingData.get_building_cost(type)):
+	if not ResourceManager.try_spend(owner, BuildingData.get_building_cost(type, owner)):
 		return "Not enough resources"
 	var building: BuildingBase = main._spawn_building(type, owner, game_map.world_to_tile(position))
 	building.start_construction()

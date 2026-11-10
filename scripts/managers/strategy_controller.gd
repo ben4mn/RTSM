@@ -148,7 +148,7 @@ func _refresh() -> void:
 		var paid: Array[String] = []
 		for unit_type: int in queue.queue:
 			paid.append(UnitData.get_unit_name(unit_type, 0))
-			refund_food += int(UnitData.get_unit_cost(unit_type).get("food", 0))
+			refund_food += int(UnitData.get_unit_cost(unit_type, 0).get("food", 0))
 			if unit_type == UnitData.UnitType.VILLAGER and building.state == BuildingBase.State.ACTIVE:
 				queued_workers += 1
 		if UnitData.UnitType.VILLAGER in building.trainable_units and building.state == BuildingBase.State.ACTIVE:
@@ -208,9 +208,9 @@ func _refresh() -> void:
 	var economy_facts: Dictionary = _observed_food_stock(own_workers)
 	economy_facts.merge({"workers": own_workers.size(), "recovering": int(workers.recovering), "food_workers": int(workers.food), "queued_workers": queued_workers, "refund_food": refund_food, "active_worker_producer": active_worker_producer, "food": ResourceManager.get_resource(0, "food"), "free_population": maxi(0, cap - committed), "reserved_population": maxi(0, committed - pop), "population_room_after_refunds": maxi(0, cap - pop)}, true)
 	var economy: Dictionary = ECONOMY_ASSESSMENT.describe(economy_facts)
-	var farm_missing: Dictionary = ResourceManager.get_missing_resources(0, BuildingData.get_building_cost(BuildingData.BuildingType.FARM))
+	var farm_missing: Dictionary = ResourceManager.get_missing_resources(0, BuildingData.get_building_cost(BuildingData.BuildingType.FARM, 0))
 	var farm_blocker: String = "Needs a free worker; builders and recovering workers keep their orders." if available_builders == 0 else ("Need %d more wood to build a Farm." % int(farm_missing.get("wood", 0)) if not farm_missing.is_empty() else "Builder starts farming when finished. One worker per Farm.")
-	var barracks_missing: Dictionary = ResourceManager.get_missing_resources(0, BuildingData.get_building_cost(BuildingData.BuildingType.BARRACKS))
+	var barracks_missing: Dictionary = ResourceManager.get_missing_resources(0, BuildingData.get_building_cost(BuildingData.BuildingType.BARRACKS, 0))
 	var barracks_blocker: String = "Needs a free worker. Builders and recovering workers keep their orders." if available_builders == 0 else ("Need %d more wood to build a Barracks." % int(barracks_missing.get("wood", 0)) if not barracks_missing.is_empty() else "Choose a location, then confirm to pay. Train Warriors when construction finishes.")
 	# This history contains only locally witnessed lethal hits, or the server's
 	# private recipient summary. It never asks the map for current enemy units.
@@ -345,7 +345,7 @@ func _training_blocker(building: BuildingBase, unit_type: int) -> String:
 		if cap < GameManager.get_player_population_limit(0) and population + pop_cost <= GameManager.get_player_population_limit(0) and not _own_workers().is_empty():
 			return "population blocked — build a House; refunds alone cannot help"
 		return "population blocked — living units must free a slot"
-	var missing: Dictionary = ResourceManager.get_missing_resources(0, UnitData.get_unit_cost(unit_type))
+	var missing: Dictionary = ResourceManager.get_missing_resources(0, UnitData.get_unit_cost(unit_type, 0))
 	var parts: PackedStringArray = []
 	for resource: String in ["food", "wood", "gold"]:
 		if int(missing.get(resource, 0)) > 0:
@@ -369,8 +369,8 @@ func _plan_building(building_type: int) -> void:
 		if _can_plan_with_worker(worker):
 			available = true
 			break
-	if not available or not ResourceManager.can_afford(0, BuildingData.get_building_cost(building_type)):
-		_overview.show_feedback("A %s needs %d wood and a free worker. Builders and recovering workers keep their orders." % [BuildingData.get_building_name(building_type), int(BuildingData.get_building_cost(building_type).get("wood", 0))], false)
+	if not available or not ResourceManager.can_afford(0, BuildingData.get_building_cost(building_type, 0)):
+		_overview.show_feedback("A %s needs %d wood and a free worker. Builders and recovering workers keep their orders." % [BuildingData.get_building_name(building_type), int(BuildingData.get_building_cost(building_type, 0).get("wood", 0))], false)
 		_refresh()
 		return
 	# Enter the same placement flow as the Build palette. Planning spends
@@ -400,7 +400,7 @@ func _allocate_worker(source: String, destination: String) -> void:
 		if diagnostics:
 			diagnostics.call("record_event", "economy_reallocation", {"source": source, "destination": destination, "worker": str(worker.get_path()), "cargo": worker.carried_amount})
 		_refresh()
-	elif destination == "food" and bool(result.get("no_work", false)) and ResourceManager.can_afford(0, BuildingData.get_building_cost(BuildingData.BuildingType.FARM)):
+	elif destination == "food" and bool(result.get("no_work", false)) and ResourceManager.can_afford(0, BuildingData.get_building_cost(BuildingData.BuildingType.FARM, 0)):
 		# Beta 30: no free food means the next step is a Farm. Start placing one
 		# instead of asking the player to find the Farm button themselves.
 		_overview.show_feedback("No free food. Tap ground for a Farm.")

@@ -1226,7 +1226,7 @@ func _delete_selected_building() -> void:
 		hud.show_notification("Cannot delete Town Center!", Color(1.0, 0.4, 0.3))
 		return
 	# Refund 50% of building cost
-	var cost: Dictionary = BuildingData.get_building_cost(b.building_type)
+	var cost: Dictionary = BuildingData.get_building_cost(b.building_type, 0)
 	for res_type in cost:
 		ResourceManager.add_resource(0, res_type, int(cost[res_type] * 0.5))
 	hud.show_notification("Building demolished (50%% refund)", Color(0.8, 0.7, 0.5))
@@ -2584,7 +2584,7 @@ func _on_train_unit_requested(building: Node2D, unit_type: int) -> void:
 			hud.show_notification(_last_train_feedback, Color(1.0, 0.6, 0.2))
 			_refresh_first_session_diagnostics()
 			return
-		var cost: Dictionary = UnitData.get_unit_cost(unit_type)
+		var cost: Dictionary = UnitData.get_unit_cost(unit_type, 0)
 		var missing: Dictionary = ResourceManager.get_missing_resources(0, cost)
 		if not missing.is_empty():
 			_last_train_request_result = "resources_missing"
@@ -2875,6 +2875,7 @@ func _register_match_extensions() -> void:
 	ResearchEffects.install(self)
 	WildlifeDirector.install(self)  # Workstream A: sheep, deer, boar.
 	Garrison.install(self)  # D1: town bell, garrison, repair, healing at home
+	UnitAbilities.install(self)
 
 
 func _on_building_action_requested(building: Node2D, action_id: String) -> void:
@@ -2908,6 +2909,7 @@ func _on_research_requested(building: Node2D, research_id: String) -> void:
 
 func _on_research_completed(player_id: int, research_id: String) -> void:
 	ResearchEffects.on_research_completed(self, player_id, research_id)
+	UnitAbilities.on_research_completed(self, player_id, research_id)
 	_on_selection_changed(game_map.selection_mgr.selected)
 
 
@@ -3118,7 +3120,7 @@ func _on_building_selected_for_placement(building_type: int) -> void:
 func _on_quick_build_requested(building_type: int) -> void:
 	if GameManager.current_state != GameManager.GameState.PLAYING or _placement_active:
 		return
-	if not ResourceManager.can_afford(0, BuildingData.get_building_cost(building_type)):
+	if not ResourceManager.can_afford(0, BuildingData.get_building_cost(building_type, 0)):
 		return
 	_on_building_selected_for_placement(building_type)
 
@@ -3277,7 +3279,7 @@ func _on_placement_confirmed(building_type: int, world_pos: Vector2) -> void:
 		_cancel_placement()
 		return
 	var tile_pos: Vector2i = game_map.world_to_tile(world_pos)
-	var cost: Dictionary = BuildingData.get_building_cost(building_type)
+	var cost: Dictionary = BuildingData.get_building_cost(building_type, 0)
 	# The preview owns the first confirmation check, but fog/occupancy can change
 	# before this synchronous gameplay transaction begins. Revalidate against the
 	# authoritative map immediately before spending or spawning.
@@ -3407,7 +3409,7 @@ func _setup_ai(map_gen: MapGenerator) -> void:
 
 
 func _on_ai_wants_to_build(building_type: int, tile_pos: Vector2i, is_rebuild: bool) -> void:
-	var cost: Dictionary = BuildingData.get_building_cost(building_type)
+	var cost: Dictionary = BuildingData.get_building_cost(building_type, ai_controller.player_id)
 	# Revalidate the AI's proposal at the transaction boundary. Bounds and the
 	# complete current-vision footprint are checked before walkability, keeping
 	# stale or synthetic signals from probing hidden terrain or spending.

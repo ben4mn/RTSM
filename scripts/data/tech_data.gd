@@ -45,11 +45,20 @@ const RESEARCH_DEFS: Array[Dictionary] = [
 	{"id": "champion", "name": "Champion", "short": "Champion", "desc": "Elite infantry", "details": "Upgrades your infantry line again: elite HP, attack and armor. Living units upgrade on the spot.", "cost": {"food": 300, "gold": 150}, "time": 45.0, "building_type": BuildingData.BuildingType.BARRACKS, "age_required": 3, "requires": "man_at_arms", "icon": ICON_DIR + "tier3.svg", "tier": {"unit_type": UnitData.UnitType.INFANTRY, "tier": 3}},
 	{"id": "crossbowman", "name": "Crossbowman", "short": "Crossbow", "desc": "Stronger archers", "details": "Upgrades your archer line: more HP and attack. Living units upgrade on the spot and keep their health percentage.", "cost": {"food": 200, "gold": 125}, "time": 45.0, "building_type": BuildingData.BuildingType.ARCHERY_RANGE, "age_required": 3, "icon": ICON_DIR + "tier2.svg", "tier": {"unit_type": UnitData.UnitType.ARCHER, "tier": 2}},
 	{"id": "knight", "name": "Knight", "short": "Knight", "desc": "Stronger cavalry", "details": "Upgrades your cavalry line: more HP, attack and armor. Living units upgrade on the spot and keep their health percentage.", "cost": {"food": 400, "gold": 200}, "time": 50.0, "building_type": BuildingData.BuildingType.STABLE, "age_required": 3, "icon": ICON_DIR + "tier2.svg", "tier": {"unit_type": UnitData.UnitType.CAVALRY, "tier": 2}},
+	# --- Unique technologies (Round 2 workstream C) ---
+	# "civilization" limits a row to one kingdom: it is hidden from, and cannot
+	# be researched by, anyone else (TechData.is_available_to). Effects use the
+	# registry: `civ_*` keys are read by UnitAbilities, `<stat>_mult_<unit type>`
+	# fractions by UnitData.get_unit_stats.
+	{"id": "chivalry", "name": "Chivalry", "short": "Chivalry", "desc": "Charge twice as often", "details": "French unique technology. Chevaliers recover their Charge in 5 seconds instead of 10 and gain 12% maximum HP. Living Chevaliers improve on the spot.", "cost": {"food": 200, "gold": 150}, "time": 40.0, "building_type": BuildingData.BuildingType.STABLE, "age_required": 3, "civilization": CivilizationData.Civilization.CROWNLANDS, "icon": ICON_DIR + "tech_chivalry.svg", "effects": {"civ_charge_recharge": -5.0, "hp_mult_3": 0.12}},
+	{"id": "yeomen", "name": "Yeomen", "short": "Yeomen", "desc": "+1 Range", "details": "English unique technology. +1 range for your Longbows, Watch Towers and Town Centers, on top of Fletching and of emplaced stakes.", "cost": {"wood": 150, "gold": 150}, "time": 40.0, "building_type": BuildingData.BuildingType.ARCHERY_RANGE, "age_required": 3, "civilization": CivilizationData.Civilization.VERDANT_LEAGUE, "icon": ICON_DIR + "tech_yeomen.svg", "effects": {"range_ranged": 1.0}},
+	{"id": "yam", "name": "Yam", "short": "Yam", "desc": "Riders +10% speed, Pillage x2", "details": "Mongol unique technology. Scouts and Outriders move 10% faster and Pillage pays double gold. Living riders improve on the spot.", "cost": {"food": 150, "gold": 100}, "time": 30.0, "building_type": BuildingData.BuildingType.STABLE, "age_required": 2, "civilization": CivilizationData.Civilization.SUNSTRIDE_CLANS, "icon": ICON_DIR + "tech_yam.svg", "effects": {"speed_mult_3": 0.10, "speed_mult_4": 0.10, "civ_pillage": 1.0}},
 ]
 
+## Unique technologies sit in the same list; an AI skips other kingdoms' rows.
 ## Order an AI works through its own idle buildings (Loom first, then the
 ## line upgrades and economy, then the Blacksmith). Unknown ids are skipped.
-const AI_PRIORITY: Array[String] = ["loom", "man_at_arms", "double_bit_axe", "wheelbarrow", "forging", "horse_collar", "scale_mail", "gold_panning", "fletching", "crossbowman", "knight", "champion", "hand_cart", "iron_casting", "chain_mail", "stone_keep"]
+const AI_PRIORITY: Array[String] = ["loom", "man_at_arms", "double_bit_axe", "wheelbarrow", "forging", "horse_collar", "scale_mail", "gold_panning", "yam", "fletching", "crossbowman", "knight", "chivalry", "yeomen", "champion", "hand_cart", "iron_casting", "chain_mail", "stone_keep"]
 ## The subset an Easy AI may research.
 const AI_EASY_IDS: Array[String] = ["loom", "man_at_arms", "champion", "crossbowman", "knight"]
 
@@ -62,6 +71,11 @@ static func get_research_definition(research_id: String) -> Dictionary:
 		if String(definition["id"]) == research_id:
 			return definition.duplicate(true)
 	return {}
+
+
+static func is_available_to(definition: Dictionary, civilization: int) -> bool:
+	## False only for another kingdom's unique technology.
+	return not definition.has("civilization") or int(definition["civilization"]) == CivilizationData.normalize(civilization)
 
 
 static func get_research_time(research_id: String) -> float:

@@ -313,7 +313,8 @@ func initialize_game(num_players: int = 2) -> void:
 		var player_data: Dictionary = _create_player_data(i)
 		players[i] = player_data
 		_base_population_caps[i] = int(player_data.get("population_cap", 0))
-		player_modifiers[i] = {}
+		# Round 2 C: a kingdom's economy bonus starts in the registry.
+		player_modifiers[i] = CivilizationData.get_starting_modifiers(int(player_data.get("civilization", 0)))
 		researched_upgrades[i] = []
 
 	set_state(GameState.PLAYING)
@@ -798,7 +799,9 @@ func find_researching_building(player_id: int, research_id: String) -> Node2D:
 func get_research_definition(player_id: int, research_id: String) -> Dictionary:
 	## TechData row, or a synthesized one for `age_<n>` with this player's cost.
 	if not TechData.is_age_research(research_id):
-		return TechData.get_research_definition(research_id)
+		# Round 2 C: another kingdom's unique technology does not exist for this player.
+		var definition: Dictionary = TechData.get_research_definition(research_id)
+		return definition if TechData.is_available_to(definition, get_player_civilization(player_id)) else {}
 	var target_age: int = TechData.age_research_target(research_id)
 	if target_age < 2 or target_age > MAX_AGE:
 		return {}

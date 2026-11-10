@@ -66,6 +66,8 @@ func _record_observer_cost(section: String, elapsed_usec: int) -> void:
 func _measure_investments() -> void:
 	if not stats.has("actual_civilizations"):
 		stats["actual_civilizations"] = [int(GameManager.call("get_player_civilization", 0)), int(GameManager.call("get_player_civilization", 1))] if GameManager.has_method("get_player_civilization") else [0, 0]
+	# Round 2 C: Charge / Emplace / Pillage counters per owner (balance evidence).
+	stats["civ_abilities"] = [(UnitAbilities.telemetry.get(0, {}) as Dictionary).duplicate(), (UnitAbilities.telemetry.get(1, {}) as Dictionary).duplicate()]
 	for owner: int in [0, 1]:
 		for research_id: String in GameManager.researched_upgrades.get(owner, []):
 			if not _research_seen[owner].has(research_id):

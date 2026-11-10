@@ -299,6 +299,41 @@ static func unit_struck(attacker: UnitBase, defender: UnitBase, counter_bonus: f
 		fx._mark_counter(defender.get_instance_id(), counter_bonus)
 
 
+## Round 2 C: a rested Chevalier's Charge landed on a unit or a building. Call
+## after the ordinary hit presentation: the figure grows, the ground jumps and
+## the camera takes a small knock.
+static func charge_struck(attacker: UnitBase, target: Node2D) -> void:
+	var fx: BattleFX = get_fx()
+	if fx == null or not is_instance_valid(target) or not is_instance_valid(attacker) or not fx.can_show(target):
+		return
+	var direction: Vector2 = (target.global_position - attacker.global_position).normalized()
+	var contact: Vector2 = target.global_position
+	if target is UnitBase:
+		contact += Vector2(0.0, (target as UnitBase).get_health_bar_y() * 0.45)
+	elif target is BuildingBase:
+		contact = fx.facade_point(target as BuildingBase, attacker.global_position)
+	fx.impact(contact, direction, Weapon.BLADE)
+	fx.impact(contact, direction, Weapon.HOOF)
+	fx.ground_burst(target.global_position if target is UnitBase else contact + Vector2(0.0, 10.0), 0.7)
+	fx.add_shake(0.3, contact)
+	fx._mark_heavy(target.get_instance_id())
+
+
+## Round 2 C: an Outrider pillaged gold. A small golden "+n" rises from the
+## victim (hits on one building within a moment merge into one figure).
+static func loot_gained(raider: UnitBase, victim: Node2D, gold: int) -> void:
+	var fx: BattleFX = get_fx()
+	if fx == null or gold <= 0 or not is_instance_valid(raider) or not fx.can_show(raider):
+		return
+	var from: Vector2 = raider.global_position + Vector2(0.0, raider.get_health_bar_y() - 2.0)
+	if is_instance_valid(victim) and victim is BuildingBase:
+		from = fx.facade_point(victim as BuildingBase, raider.global_position) + Vector2(0.0, -18.0)
+	# A negative host keeps gains apart from damage figures on the same target.
+	fx._number(-raider.get_instance_id(), from, float(gold), Color("ffd45e"), 15.0, 0.5, true)
+	if not GameManager.reduced_motion:
+		fx._emit(from + Vector2(0.0, 6.0), 3, Color(1.0, 0.86, 0.36), Color(1.0, 0.74, 0.2, 0.0), 30.0, 70.0, -PI * 0.5, 0.8, 260.0, 0.4, 2.6, 1.4, true)
+
+
 ## A tower/Town Center arrow landed on a unit.
 static func unit_struck_by_arrow(defender: UnitBase, from: Vector2) -> void:
 	var fx: BattleFX = get_fx()
@@ -686,7 +721,7 @@ func _ring(position: Vector2, radius: float, life: float) -> void:
 # Floating numbers
 # ---------------------------------------------------------------------------
 
-func _number(host: int, position: Vector2, amount: float, color: Color, px: float, merge_window: float = 0.3) -> void:
+func _number(host: int, position: Vector2, amount: float, color: Color, px: float, merge_window: float = 0.3, gain: bool = false) -> void:
 	if not on_screen(position, 10.0):
 		return
 	# Rapid hits on one target merge into one rising figure instead of a stack.
@@ -717,8 +752,8 @@ func _number(host: int, position: Vector2, amount: float, color: Color, px: floa
 	_t_next = (slot + 1) % MAX_TEXTS
 	_t_host[slot] = host
 	_t_amount[slot] = amount
-	_t_bonus[slot] = 1.0
-	_t_text[slot] = _format_number(amount, 1.0)
+	_t_bonus[slot] = -1.0 if gain else 1.0  # Negative marks a gain ("+n").
+	_t_text[slot] = _format_number(amount, _t_bonus[slot])
 	_t_pos[slot] = position + Vector2(_rng.randf_range(-7.0, 7.0), 0.0)
 	_t_age[slot] = 0.0
 	_t_life[slot] = 0.85
@@ -729,9 +764,23 @@ func _number(host: int, position: Vector2, amount: float, color: Color, px: floa
 
 func _format_number(amount: float, bonus: float) -> String:
 	var value: int = maxi(1, roundi(amount))
+	if bonus < 0.0:
+		return "+%d" % value
 	if bonus > 1.0:
 		return ("-%d ×%d" % [value, roundi(bonus)]) if is_equal_approx(bonus, roundf(bonus)) else ("-%d ×%.1f" % [value, bonus])
 	return "-%d" % value
+
+
+func _mark_heavy(host: int) -> void:
+	## The freshest figure on `host` becomes a big one (a Charge landed).
+	for i: int in MAX_TEXTS:
+		if _t_host[i] == host and _t_age[i] < minf(0.3, _t_life[i]):
+			_t_px[i] = maxf(_t_px[i], 21.0)
+			if _t_bonus[i] <= 1.0:
+				_t_color[i] = Color("fff0c4")
+			_t_life[i] = maxf(_t_life[i], 1.1)
+			_t_age[i] = 0.0
+			return
 
 
 func _mark_counter(host: int, bonus: float) -> void:

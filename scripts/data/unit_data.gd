@@ -226,27 +226,60 @@ static func get_unit_stats(unit_type: int, player_id: int = -1, tier: int = -1) 
 	## `tier` -1 uses the player's researched tier; pass 1..n to preview one.
 	if not UNITS.has(unit_type):
 		return {}
-	var stats: Dictionary = CivilizationData.get_unit_stats(UNITS[unit_type], unit_type, CivilizationData.for_player(player_id))
+	# Without a player this is the published base line, free of any kingdom.
+	var stats: Dictionary = CivilizationData.get_unit_stats(UNITS[unit_type], unit_type, CivilizationData.for_player(player_id)) if player_id >= 0 else (UNITS[unit_type] as Dictionary).duplicate(true)
 	if tier < 0:
 		tier = get_unit_tier(unit_type, player_id)
 	var overlay: Dictionary = UNIT_TIERS.get(unit_type, {}).get(tier, {})
-	if overlay.is_empty():
-		return stats
-	for stat: String in ["hp", "damage", "armor"]:
-		if overlay.has(stat + "_mult"):
-			stats[stat] = int(round(float(stats.get(stat, 0)) * float(overlay[stat + "_mult"])))
-	stats["tier"] = tier
-	if str(stats.get("name", "")) == str(UNITS[unit_type].get("name", "")):
-		stats["name"] = str(overlay.get("name", stats["name"]))
-	else:
-		# A civilization's own unit keeps its name and wears the tier as a rank.
-		stats["name"] = "%s %s" % [str(stats["name"]), "I".repeat(mini(tier, 3))]
+	if not overlay.is_empty():
+		for stat: String in ["hp", "damage", "armor"]:
+			if overlay.has(stat + "_mult"):
+				stats[stat] = int(round(float(stats.get(stat, 0)) * float(overlay[stat + "_mult"])))
+		stats["tier"] = tier
+		if str(stats.get("name", "")) == str(UNITS[unit_type].get("name", "")):
+			stats["name"] = str(overlay.get("name", stats["name"]))
+		else:
+			# A civilization's own unit keeps its name and wears the tier as a rank.
+			stats["name"] = "%s %s" % [str(stats["name"]), "I".repeat(mini(tier, 3))]
+	_apply_line_modifiers(stats, unit_type, player_id)
 	return stats
 
 
-static func get_unit_cost(unit_type: int) -> Dictionary:
+static func line_modifier_key(stat: String, unit_type: int) -> String:
+	## Registry key for a researched fraction on one unit line's stat, e.g.
+	## `hp_mult_3` +0.12 (Chivalry) or `speed_mult_4` +0.10 (Yam).
+	return "%s_mult_%d" % [stat, unit_type]
+
+
+static func _apply_line_modifiers(stats: Dictionary, unit_type: int, player_id: int) -> void:
+	## Round 2 C: unique technologies scale a line's HP or speed as a fraction
+	## of its own (civilization- and tier-adjusted) stat.
+	if player_id < 0:
+		return
+	var scene_tree: SceneTree = Engine.get_main_loop() as SceneTree
+	var gm: Node = scene_tree.root.get_node_or_null("GameManager") if scene_tree != null and scene_tree.root != null else null
+	if gm == null:
+		return
+	# Called often (cards, AI, combat): skip the key formatting until this
+	# player has researched anything at all.
+	var modifiers: Variant = gm.get("player_modifiers").get(player_id)
+	if not modifiers is Dictionary or (modifiers as Dictionary).is_empty():
+		return
+	var hp_bonus: float = float(gm.get_modifier(player_id, line_modifier_key("hp", unit_type)))
+	if hp_bonus != 0.0:
+		stats["hp"] = int(round(float(stats.get("hp", 0)) * (1.0 + hp_bonus)))
+	var speed_bonus: float = float(gm.get_modifier(player_id, line_modifier_key("speed", unit_type)))
+	if speed_bonus != 0.0:
+		stats["speed"] = float(stats.get("speed", 0.0)) * (1.0 + speed_bonus)
+
+
+static func get_unit_cost(unit_type: int, player_id: int = -1) -> Dictionary:
+	## `player_id` applies that player's kingdom price (none today; data-driven).
 	if UNITS.has(unit_type):
-		return UNITS[unit_type]["cost"].duplicate()
+		var cost: Dictionary = UNITS[unit_type]["cost"].duplicate()
+		if player_id >= 0:
+			CivilizationData.scale_cost(cost, CivilizationData.get_unit_cost_multiplier(CivilizationData.for_player(player_id), unit_type))
+		return cost
 	return { "food": 0, "wood": 0, "gold": 0 }
 
 
