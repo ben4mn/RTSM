@@ -141,7 +141,7 @@ func _strategy_journey(phone: Vector2i, interface_scale: float, notched: bool, l
 	var economy_height: float = overview.panel.size.y
 	var management_header_top: float = overview.panel.get_global_rect().position.y
 	var farm_button: Button = overview.get("_farm_button")
-	_expect(farm_button.has_node("TileCosts/wood/Amount") and farm_button.get_node("TileCosts/wood/Amount").text == str(BuildingData.get_building_cost(BuildingData.BuildingType.FARM).wood) and farm_button.tooltip_text.contains("permanent food"), "Farm loses its visible paid cost and permanent food")
+	_expect(farm_button.has_node("TileCosts/wood/Amount") and farm_button.get_node("TileCosts/wood/Amount").text == str(BuildingData.get_building_cost(BuildingData.BuildingType.FARM, 0).wood) and farm_button.tooltip_text.contains("permanent food"), "Farm loses its visible paid cost and permanent food")
 	_expect((overview.get("_farm_blocker") as Label).text == str(snapshot.get("farm_blocker", "")), "Farm blocker or paid-placement instruction was discarded")
 	var scroll: ScrollContainer = overview.get("_scroll")
 	await _check_info_page(overview, false)
