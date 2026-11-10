@@ -62,6 +62,13 @@ const RESOURCE_BADGES: Dictionary = {
 	"stone": "S",
 }
 
+## Cosmetic wind: x = lean at the top of the 128px canvas, y = root line (UV).
+const AMBIENT_MOTION := preload("res://scripts/map/ambient_motion.gd")
+const WIND_SWAY: Dictionary = {
+	"wood": Vector2(3.4, 0.84),
+	"food": Vector2(1.6, 0.66),
+}
+
 var _sprite: Sprite2D = null
 
 
@@ -96,6 +103,11 @@ func _setup_sprite() -> void:
 		_sprite.texture = load(tex_path)
 	_sprite.scale = RESOURCE_SCALES.get(resource_type, Vector2(0.25, 0.25))
 	_sprite.offset = RESOURCE_OFFSETS.get(resource_type, Vector2(0, -8))
+	# A slow shared breeze; one material per kind, so groves still batch.
+	# Skipped without a display (dedicated server, headless checks).
+	if WIND_SWAY.has(resource_type) and DisplayServer.get_name() != "headless":
+		var sway: Vector2 = WIND_SWAY[resource_type]
+		_sprite.material = AMBIENT_MOTION.wind_material(sway.x, sway.y)
 	# Sort by Y position so trees overlap correctly
 	_sprite.z_as_relative = true
 	# Keep badges, selection rings and resource feedback above the artwork.
