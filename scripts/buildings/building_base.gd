@@ -13,10 +13,23 @@ signal defensive_attack_fired(target: Node2D)
 
 enum State { PLACING, CONSTRUCTING, ACTIVE, DESTROYED }
 
-@export var building_type: int = BuildingData.BuildingType.HOUSE
-@export var player_owner: int = 0
+## Bumped whenever any building's vision source may have changed (type, owner,
+## state, position, tree membership). GameMap keys its per-player building
+## vision grid on it instead of rescanning every building per visibility query.
+static var vision_revision: int = 0
+@export var building_type: int = BuildingData.BuildingType.HOUSE:
+	set(value):
+		building_type = value
+		vision_revision += 1
+@export var player_owner: int = 0:
+	set(value):
+		player_owner = value
+		vision_revision += 1
 
-var state: int = State.PLACING
+var state: int = State.PLACING:
+	set(value):
+		state = value
+		vision_revision += 1
 var hp: int = 0
 var max_hp: int = 500
 var build_progress: float = 0.0
@@ -247,6 +260,11 @@ const DROP_OFF_BADGE_COLORS: Dictionary = {
 }
 
 
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_ENTER_TREE or what == NOTIFICATION_EXIT_TREE or what == NOTIFICATION_TRANSFORM_CHANGED:
+		vision_revision += 1
+
+
 func _ready() -> void:
 	_load_stats()
 	_setup_collision()
@@ -254,6 +272,8 @@ func _ready() -> void:
 	rally_point = global_position + Vector2(footprint.x * MapData.TILE_WIDTH, 0)
 	rally_point_is_custom = false
 	add_to_group("buildings")
+	set_notify_transform(true)
+	vision_revision += 1
 	add_to_group("player_%d_buildings" % player_owner)
 	if drop_off_resources.size() > 0:
 		add_to_group("dropoff_buildings")

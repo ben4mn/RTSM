@@ -1252,7 +1252,7 @@ func get_visible_enemy_units_for_player(viewer_player_id: int) -> Array[UnitBase
 			var building := node as BuildingBase
 			if building.player_owner != viewer_player_id or building.state == BuildingBase.State.DESTROYED: continue
 			var tile: Vector2i = world_to_tile(building.global_position)
-			building_sources.append(Vector3i(tile.x, tile.y, int(BuildingData.get_building_stats(building.building_type).get("vision_radius", 3))))
+			building_sources.append(Vector3i(tile.x, tile.y, BuildingData.get_vision_radius(building.building_type)))
 	var unit_revision: int = _live_unit_index.enemy_position_revision(viewer_player_id) if local_fog else _live_unit_index.vision_revision
 	var signature: Array = [unit_revision, _live_unit_index.order_revision, fog_of_war.get_instance_id() if is_instance_valid(fog_of_war) else 0, fog_of_war.owning_player if is_instance_valid(fog_of_war) else -1, fog_of_war.visibility_revision if local_fog else -1, building_sources]
 	var cached: Dictionary = _visible_enemy_rosters.get(viewer_player_id, {})
@@ -1282,6 +1282,19 @@ func _are_tiles_visible_from_live_sources(
 	for target_tile: Vector2i in target_tiles:
 		if _live_unit_index.units_reveal(target_tile, viewer_player_id): return true
 
+	# Building sources change rarely: answer from a per-player tile grid that is
+	# rebuilt only when BuildingBase.vision_revision moves. Off-map probes keep
+	# the exact per-building circle test below.
+	var grid: PackedByteArray = _building_vision_grid(viewer_player_id)
+	var all_on_map: bool = true
+	for target_tile: Vector2i in target_tiles:
+		if target_tile.x < 0 or target_tile.y < 0 or target_tile.x >= MapData.MAP_WIDTH or target_tile.y >= MapData.MAP_HEIGHT:
+			all_on_map = false
+		elif grid[target_tile.y * MapData.MAP_WIDTH + target_tile.x] != 0:
+			return true
+	if all_on_map:
+		return false
+
 	for node: Node in get_tree().get_nodes_in_group("buildings"):
 		if not is_instance_valid(node) or not is_ancestor_of(node) or not (node is BuildingBase):
 			continue
@@ -1292,11 +1305,43 @@ func _are_tiles_visible_from_live_sources(
 		):
 			continue
 		var building_tile: Vector2i = world_to_tile(building.global_position)
-		var stats: Dictionary = BuildingData.get_building_stats(building.building_type)
-		var building_vision: int = int(stats.get("vision_radius", 3))
+		var building_vision: int = BuildingData.get_vision_radius(building.building_type)
 		if _vision_circle_contains_any(building_tile, building_vision, target_tiles):
 			return true
 	return false
+
+
+var _building_vision_grids: Dictionary = {}
+var _building_vision_grid_revision: int = -1
+
+## Tiles inside any living building's vision circle, per owner. Same sources and
+## circle rule as the loop above; one byte per map tile.
+func _building_vision_grid(viewer_player_id: int) -> PackedByteArray:
+	if _building_vision_grid_revision != BuildingBase.vision_revision:
+		_building_vision_grid_revision = BuildingBase.vision_revision
+		_building_vision_grids.clear()
+	if _building_vision_grids.has(viewer_player_id):
+		return _building_vision_grids[viewer_player_id]
+	var grid := PackedByteArray()
+	grid.resize(MapData.MAP_WIDTH * MapData.MAP_HEIGHT)
+	for node: Node in get_tree().get_nodes_in_group("buildings"):
+		if not is_instance_valid(node) or not is_ancestor_of(node) or not (node is BuildingBase):
+			continue
+		var building := node as BuildingBase
+		if building.player_owner != viewer_player_id or building.state == BuildingBase.State.DESTROYED:
+			continue
+		var centre: Vector2i = world_to_tile(building.global_position)
+		var radius: int = maxi(0, BuildingData.get_vision_radius(building.building_type))
+		var radius_squared: int = radius * radius
+		for y: int in range(maxi(0, centre.y - radius), mini(MapData.MAP_HEIGHT - 1, centre.y + radius) + 1):
+			var dy: int = y - centre.y
+			var row: int = y * MapData.MAP_WIDTH
+			for x: int in range(maxi(0, centre.x - radius), mini(MapData.MAP_WIDTH - 1, centre.x + radius) + 1):
+				var dx: int = x - centre.x
+				if dx * dx + dy * dy <= radius_squared:
+					grid[row + x] = 1
+	_building_vision_grids[viewer_player_id] = grid
+	return grid
 
 
 func _vision_circle_contains_any(
@@ -1424,7 +1469,24 @@ func forget_scouted_buildings(ids: Array) -> void:
 
 ## Live resource visibility remains the targetability boundary. Memories never
 ## replace registered resources and do not participate in navigation or orders.
+var _resource_visibility_key: Array = []
+
 func update_resource_visibility_for_player(viewer_player_id: int = 0) -> void:
+	# Called every frame for the local player. Everything below is a function of
+	# the fog grid, the resource set, building sources and the remembered
+	# records; when none of them moved since the last pass there is nothing to do.
+	var keyed: bool = is_instance_valid(fog_of_war) and fog_of_war.owning_player == viewer_player_id
+	if keyed and _resource_visibility_key == _resource_visibility_signature(viewer_player_id):
+		return
+	_update_resource_visibility_now(viewer_player_id)
+	_resource_visibility_key = _resource_visibility_signature(viewer_player_id) if keyed else []
+
+
+func _resource_visibility_signature(viewer_player_id: int) -> Array:
+	return [viewer_player_id, fog_of_war.get_instance_id(), fog_of_war.visibility_revision, resource_nodes.size(), _pending_depleted_terrain_tiles.size(), BuildingBase.vision_revision, fog_memory.revision if is_instance_valid(fog_memory) else -1, NetworkSession.server_mode, NetworkSession.is_client()]
+
+
+func _update_resource_visibility_now(viewer_player_id: int) -> void:
 	if not NetworkSession.server_mode:
 		_ensure_fog_memory().refresh(viewer_player_id)
 	for tile_pos: Vector2i in resource_nodes:

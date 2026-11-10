@@ -21,8 +21,9 @@ enum NavigationResult { MOVING, ARRIVED, UNREACHABLE }
 @export var unit_type: int = UnitData.UnitType.VILLAGER
 @export var player_owner: int = 0:
 	set(value):
-		if player_owner != value and _live_unit_index != null: _live_unit_index.invalidate_vision()
+		var owner_changed: bool = player_owner != value
 		player_owner = value
+		if owner_changed and _live_unit_index != null: _live_unit_index.invalidate_vision(self)
 @export var max_hp: float = 25.0
 @export var hp: float = 25.0
 @export var damage: float = 3.0  # Base stat; Combat adds the owner's live upgrade.
@@ -39,8 +40,9 @@ enum NavigationResult { MOVING, ARRIVED, UNREACHABLE }
 # --- Runtime state ---
 var current_state: int = State.IDLE:
 	set(value):
-		if (current_state == State.DEAD) != (value == State.DEAD) and _live_unit_index != null: _live_unit_index.invalidate_vision()
+		var life_changed: bool = (current_state == State.DEAD) != (value == State.DEAD)
 		current_state = value
+		if life_changed and _live_unit_index != null: _live_unit_index.invalidate_vision(self)
 var stance: int = Stance.AGGRESSIVE
 var move_target: Vector2 = Vector2.ZERO
 var attack_target: UnitBase = null
@@ -206,6 +208,11 @@ func _setup_collision() -> void:
 	var shape := CircleShape2D.new()
 	shape.radius = UNIT_SIZES.get(unit_type, 10.0)
 	collision_shape.shape = shape
+	# Nothing reads Area2D overlaps (spacing and targeting use the live unit
+	# index). Left on, the physics server pairs every unit with every neighbour
+	# in a crowd on each step.
+	monitoring = false
+	monitorable = false
 
 
 func _load_stats_from_data() -> void:

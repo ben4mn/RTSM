@@ -3733,12 +3733,12 @@ func _process(delta: float) -> void:
 		_update_idle_villager_count()
 		hud.update_score(_calculate_score(0), _calculate_score(1))
 		_update_progression_hint()
-		if not OS.has_feature("production"):
+		if not OS.has_feature("production") and not NetworkSession.server_mode:
 			_refresh_first_session_diagnostics()
 	if PerfProbe.on: _pp = PerfProbe.add(&"main.second_tick", _pp)
 	# Keep editor-only balance telemetry fresh for MCP polling without making
 	# the production Web build scan AI collections every second.
-	if not OS.has_feature("production"):
+	if not OS.has_feature("production") and not NetworkSession.server_mode:
 		_balance_snapshot_timer += delta
 		if _balance_snapshot_timer >= BALANCE_SNAPSHOT_INTERVAL:
 			_balance_snapshot_timer = 0.0
@@ -3803,8 +3803,7 @@ func _update_fog_of_war() -> void:
 		if not is_instance_valid(building) or building.state == BuildingBase.State.DESTROYED:
 			continue
 		var tile_pos: Vector2i = game_map.world_to_tile(building.global_position)
-		var building_stats: Dictionary = BuildingData.get_building_stats(building.building_type)
-		var vision_radius: int = int(building_stats.get("vision_radius", 3))
+		var vision_radius: int = BuildingData.get_vision_radius(building.building_type)
 		fog.register_vision_source(tile_pos, vision_radius, false)
 
 	# Visibility consumers below must observe the sources from this same frame.

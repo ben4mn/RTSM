@@ -71,6 +71,8 @@ func _run() -> void:
 	_register_bot_entities()
 	bot.start_ai(spawn, game_map.tile_to_world(spawn))
 	for player_id: int in 2:
+		# The shipped limit is 100 slots (50 bodies); the benchmark measures beyond it.
+		GameManager.players[player_id]["max_population"] = 100000
 		ResourceManager.add_resource(player_id, "food", 4000)
 		ResourceManager.add_resource(player_id, "wood", 4000)
 		ResourceManager.add_resource(player_id, "gold", 2000)
@@ -94,6 +96,7 @@ func _run() -> void:
 	PerfProbe.on = true
 	var started_game: float = GameManager.game_time
 	var started_usec: int = Time.get_ticks_usec()
+	var started_cpu: float = _process_cpu_seconds()
 	var frame_usec := PackedInt32Array()
 	var last_usec: int = started_usec
 	var next_snapshot: float = started_game
@@ -134,6 +137,18 @@ func _run() -> void:
 		frame_usec.append(now - last_usec)
 		last_usec = now
 	PerfProbe.on = false
+	var cpu_seconds: float = _process_cpu_seconds() - started_cpu
+	# Outcome fingerprint: equal before/after a change means the simulation ran
+	# the same way (positions to 0.01 px, HP, state, banked resources).
+	var fingerprint: Array = []
+	for player_id: int in 2:
+		fingerprint.append(ResourceManager.get_all_resources(player_id))
+		for unit: UnitBase in match_scene._player_units[player_id]:
+			if is_instance_valid(unit):
+				fingerprint.append([unit.unit_type, roundi(unit.global_position.x * 100.0), roundi(unit.global_position.y * 100.0), roundi(unit.hp * 10.0), unit.current_state])
+		for building: BuildingBase in match_scene._player_buildings[player_id]:
+			if is_instance_valid(building):
+				fingerprint.append([building.building_type, building.hp, building.state])
 	var wall_usec: int = Time.get_ticks_usec() - started_usec - harness_usec
 	var game_seconds: float = GameManager.game_time - started_game
 	frame_usec.sort()
@@ -152,6 +167,11 @@ func _run() -> void:
 		"label": str(options["label"]), "bodies_per_side": bodies, "net": adapter != null, "selected": int(options["select"]),
 		"game_seconds": snappedf(game_seconds, 0.01), "wall_seconds": snappedf(float(wall_usec) / 1000000.0, 0.01),
 		"realtime_ratio": snappedf(game_seconds / maxf(0.000001, float(wall_usec) / 1000000.0), 0.01),
+		# Process CPU time (Linux only, -1 elsewhere) is insensitive to other jobs on
+		# a shared box; the simulation is single-threaded, so this is the ratio an
+		# idle core would give.
+		"cpu_seconds": snappedf(cpu_seconds, 0.01),
+		"cpu_realtime_ratio": snappedf(game_seconds / cpu_seconds, 0.01) if cpu_seconds > 0.0 else -1.0,
 		"frames": frames,
 		"frame_ms": {"mean": snappedf(float(wall_usec) / 1000.0 / maxf(1.0, float(frames)), 0.01),
 			"p50": snappedf(float(frame_usec[frames / 2]) / 1000.0, 0.01) if frames > 0 else 0.0,
@@ -161,6 +181,7 @@ func _run() -> void:
 		"average_attacking": snappedf(float(fighting_total) / maxf(1.0, float(body_samples)), 0.1),
 		"buildings": get_tree().get_nodes_in_group("buildings").size(),
 		"snapshot_bytes_mean": int(float(snapshot_bytes) / maxf(1.0, float(snapshots))),
+		"state_hash": JSON.stringify(fingerprint).md5_text().substr(0, 12),
 		"unattributed_share": snappedf(1.0 - float(top_level_usec) / float(maxi(1, wall_usec)), 0.001),
 		"systems": systems,
 	}
@@ -172,6 +193,16 @@ func _run() -> void:
 	print("BENCH_SCALE ", JSON.stringify(report))
 	match_scene.free()
 	get_tree().quit()
+
+
+## utime + stime of this process from /proc (clock ticks are 1/100 s on Linux).
+func _process_cpu_seconds() -> float:
+	var output: Array = []
+	if OS.get_name() != "Linux" or OS.execute("cat", ["/proc/%d/stat" % OS.get_process_id()], output) != 0 or output.is_empty():
+		return -1.0
+	var text: String = str(output[0])
+	var fields: PackedStringArray = text.substr(text.rfind(")") + 2).split(" ")
+	return (float(fields[11]) + float(fields[12])) / 100.0 if fields.size() > 12 else -1.0
 
 
 func _register_bot_entities() -> void:

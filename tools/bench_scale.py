@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Run tools/bench_scale.tscn at several body counts and print a comparison table.
 
-Each (bodies) case runs `--repeats` times serially and keeps the best wall/game
-ratio (the build box is shared, so the best run is the least disturbed one).
+Each (bodies) case runs `--repeats` times serially and keeps the run with the
+best game-seconds per process-CPU-second (the build box is shared; CPU time is
+far less sensitive to other jobs than wall time). `state` is an outcome
+fingerprint: equal values mean the simulation played out identically.
 
   GODOT_BIN=~/aoem-dev/bin/godot python3 tools/bench_scale.py --bodies 30,60,120       --seconds 30 --repeats 3 --label before --out output/bench/before.json
 """
@@ -52,21 +54,19 @@ for bodies in [int(value) for value in args.bodies.split(',') if value.strip()]:
                 continue
             data = json.loads(report.read_text())
             data['script_errors'] = (completed.stdout + completed.stderr).count('SCRIPT ERROR')
-        ratios.append(data['realtime_ratio'])
-        if best is None or data['realtime_ratio'] > best['realtime_ratio']:
+        ratios.append(data['cpu_realtime_ratio'])
+        if best is None or data['cpu_realtime_ratio'] > best['cpu_realtime_ratio']:
             best = data
     if best is None:
         continue
     best['all_ratios'] = ratios
     results.append(best)
     frame = best['frame_ms']
-    print(f"
-== {args.label} bodies/side={bodies} total~{best['average_living_bodies']:.0f} attacking~{best['average_attacking']:.0f} "
+    print(f"== {args.label} bodies/side={bodies} total~{best['average_living_bodies']:.0f} attacking~{best['average_attacking']:.0f} "
           f"buildings={best['buildings']} net={best['net']} ==")
-    print(f"realtime x{best['realtime_ratio']:.2f} (runs {ratios})  frame ms mean {frame['mean']} p50 {frame['p50']} p95 {frame['p95']} max {frame['max']}  "
+    print(f"realtime by CPU x{best['cpu_realtime_ratio']:.2f} (runs {ratios}), by wall x{best['realtime_ratio']:.2f}  state {best['state_hash']}  frame ms mean {frame['mean']} p50 {frame['p50']} p95 {frame['p95']} max {frame['max']}  "
           f"snapshot {best['snapshot_bytes_mean']} B  script_errors {best['script_errors']}  unattributed {best['unattributed_share']:.1%}")
     for name, row in list(best['systems'].items())[:args.top]:
         print(f"  {name:<28} {row['ms_per_game_second']:>9.2f} ms/game-s  {row['share']:>6.1%}  calls {row['calls']}")
 out.write_text(json.dumps({'label': args.label, 'results': results}, indent=1))
-print(f'
-wrote {out}')
+print(f'wrote {out}')
