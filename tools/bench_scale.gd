@@ -303,6 +303,20 @@ func _micro() -> void:
 	for round_index: int in rounds:
 		for unit: UnitBase in movers:
 			unit.global_position -= Vector2(0.001, 0.0)
+	# One deposit by the local player (HUD and build menu listen), per call.
+	mark = Time.get_ticks_usec()
+	for index: int in 200:
+		ResourceManager.add_resource(0, "food", 1)
+	results["local_deposit"] = empty_loop + (Time.get_ticks_usec() - mark) * count / 200
+	# One group order for every living soldier of the local player.
+	var soldiers: Array[UnitBase] = []
+	for unit: UnitBase in match_scene._player_units[0]:
+		if is_instance_valid(unit) and unit.current_state != UnitBase.State.DEAD and unit.unit_type != UnitData.UnitType.VILLAGER:
+			soldiers.append(unit)
+	var planner: GDScript = load("res://scripts/main/group_order_planner.gd")
+	mark = Time.get_ticks_usec()
+	planner.plan(game_map, soldiers, game_map.world_to_tile(game_map.sacred_site.global_position), match_scene._player_units[0], 0)
+	results["group_order_%d_units_total" % soldiers.size()] = empty_loop + (Time.get_ticks_usec() - mark) * count
 	var line: String = "BENCH_MICRO units=%d" % movers.size()
 	for key: String in results:
 		line += "  %s=%.2f" % [key, float(int(results[key]) - empty_loop) / float(count)]

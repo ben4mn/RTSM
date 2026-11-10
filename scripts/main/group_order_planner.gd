@@ -81,6 +81,7 @@ static func plan(
 	var settled_slots: Dictionary = {}
 	var reserved_slots: Dictionary = {}
 	var component_ids: Dictionary = {}
+	var slot_regions: Dictionary = {}
 	var components: Array[Dictionary] = []
 	var compact_slot_count: int = mini(pending.size(), candidates.size())
 	for unit: UnitBase in pending:
@@ -115,7 +116,9 @@ static func plan(
 				var region: int = navigation.region_of(from_tile)
 				var reachable: Array[Vector2i] = []
 				for candidate: Vector2i in available:
-					if navigation.region_of(candidate) == region:
+					if not slot_regions.has(candidate):
+						slot_regions[candidate] = navigation.region_of(candidate)
+					if slot_regions[candidate] == region:
 						reachable.append(candidate)
 				available = reachable
 			else:
