@@ -112,7 +112,7 @@ func _check_research_slot() -> void:
 	var town_center: BuildingBase = main._player_town_center
 	var villager: UnitBase = main._player_units[0][0]
 	var villager_hp: float = villager.max_hp
-	var actions: Array = town_center.get_context_actions(0).map(func(action: Dictionary) -> String: return action.id)
+	var actions: Array = town_center.get_context_actions(0).map(func(action: Dictionary) -> String: return action.id).filter(func(id: String) -> bool: return id.begins_with("research:"))
 	check(actions == ["research:age_2", "research:loom", "research:wheelbarrow"], "Town Center offers the age-up, Loom and Wheelbarrow (Hand Cart waits for it): " + str(actions))
 	check(GameManager.get_research_failure_reason(0, town_center, "wheelbarrow") == "age_required" and GameManager.describe_research_failure(0, "wheelbarrow", "age_required") == "Need Feudal Age", "a later-age tech says which age it needs")
 	check(GameManager.get_research_failure_reason(0, town_center, "hand_cart") == "age_required", "Hand Cart is gated twice (age first)")
@@ -159,7 +159,7 @@ func _check_research_slot() -> void:
 	var recruit: UnitBase = main._spawn_unit(UnitData.UnitType.VILLAGER, 0, villager.global_position + Vector2(24, 0))
 	check(recruit != null and recruit.max_hp == villager_hp + 15.0 and recruit.hp == recruit.max_hp, "new villagers spawn with the Loom HP")
 	check(_bank().gold == bank_before.gold - 50 and not GameManager.try_start_research(0, town_center, "loom") and GameManager.get_research_failure_reason(0, town_center, "loom") == "already_researched", "a finished research cannot be bought again")
-	var done_ids: Array = town_center.get_context_actions(0).filter(func(action: Dictionary) -> bool: return action.done).map(func(action: Dictionary) -> String: return action.id)
+	var done_ids: Array = town_center.get_context_actions(0).filter(func(action: Dictionary) -> bool: return bool(action.get("done", false))).map(func(action: Dictionary) -> String: return action.id)
 	check(done_ids == ["research:loom"], "the finished card reports done: " + str(done_ids))
 	check(not GameManager.try_start_research(1, town_center, "wheelbarrow") and not GameManager.try_start_research(0, main._player_buildings[1][0], "loom"), "research needs the owner's own building")
 	ResourceManager.initialize_player(0, {"food": 0, "wood": 0, "gold": 0})
@@ -247,7 +247,7 @@ func _check_effects_and_destruction() -> void:
 	check(is_equal_approx(archer.attack_range, archer_range + MapData.range_tiles_to_world(1.0)) and is_equal_approx(town_center.tower_attack_range, tower_range + MapData.range_tiles_to_world(1.0)), "Fletching: +1 range for archers and the Town Center")
 	check(is_equal_approx(ResearchEffects.gather_multiplier(0, "wood", null), 1.2) and is_equal_approx(ResearchEffects.gather_multiplier(0, "gold", null), 1.0) and is_equal_approx(ResearchEffects.gather_multiplier(1, "wood", null), 1.0), "Double-Bit Axe: +20% wood for its owner only")
 	check(int(villager.get("carry_capacity")) == int(round(UnitData.VILLAGER_CARRY_CAPACITY * 1.34)) and int(villager.get("carry_capacity")) > carry and is_equal_approx(villager.speed, speed * 1.1), "Wheelbarrow: more carry and +10%% walking speed (%d, %.1f)" % [int(villager.get("carry_capacity")), villager.speed])
-	check(town_center.get_context_actions(0).map(func(action: Dictionary) -> String: return action.id) == ["research:loom", "research:hand_cart"], "at the final age the Town Center row is Loom and Hand Cart")
+	check(town_center.get_context_actions(0).map(func(action: Dictionary) -> String: return action.id).filter(func(id: String) -> bool: return id.begins_with("research:")) == ["research:loom", "research:hand_cart"], "at the final age the Town Center row is Loom and Hand Cart")
 	check(GameManager.try_start_research(0, camp, "horse_collar"), "Horse Collar starts")
 	_tick(25.5)
 	var farm: BuildingBase = _spawn(BuildingData.BuildingType.FARM)
