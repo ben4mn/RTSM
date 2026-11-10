@@ -2864,6 +2864,7 @@ func _register_match_extensions() -> void:
 	ext.install(self)
 	ResearchEffects.install(self)
 	WildlifeDirector.install(self)  # Workstream A: sheep, deer, boar.
+	Garrison.install(self)  # D1: town bell, garrison, repair, healing at home
 
 
 func _on_building_action_requested(building: Node2D, action_id: String) -> void:

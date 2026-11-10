@@ -13,7 +13,7 @@ signal state_changed(unit: UnitBase, new_state: int)
 signal arrived_at_destination(unit: UnitBase)
 signal navigation_failed(unit: UnitBase, target_position: Vector2)
 
-enum State { IDLE, MOVING, ATTACKING, GATHERING, BUILDING, DEAD }
+enum State { IDLE, MOVING, ATTACKING, GATHERING, BUILDING, DEAD, GARRISONED }  # append only: saved as ints
 enum Stance { AGGRESSIVE, STAND_GROUND }
 enum NavigationResult { MOVING, ARRIVED, UNREACHABLE }
 
@@ -753,6 +753,12 @@ func _on_navigation_unreachable(target_position: Vector2) -> void:
 ## Subclasses use this to invalidate task-specific callbacks whenever a fresh
 ## player/AI command supersedes the old intent.
 func _before_new_command() -> void:
+	# Round 2 D1: an order brings a garrisoned unit out; any other order drops
+	# a pending walk to shelter (scripts/buildings/garrison.gd).
+	if current_state == State.GARRISONED:
+		Garrison.release_unit(self)
+	elif not _preserve_order_intent:
+		_garrison_target = null
 	_command_generation += 1
 	detach_attack_march()
 	if not _preserve_order_intent:
@@ -1247,7 +1253,7 @@ func _is_valid_target(target: Variant) -> bool:
 	var unit := target as UnitBase
 	if not _can_track_entity(unit):
 		return false
-	return unit.current_state != State.DEAD
+	return unit.current_state != State.DEAD and unit.current_state != State.GARRISONED
 
 
 func _is_valid_building_target(target: Variant) -> bool:
@@ -1610,7 +1616,7 @@ func _update_friendly_separation(movement_direction: Vector2 = Vector2.ZERO) -> 
 
 func take_damage(amount: float) -> void:
 	## `amount` is final HP loss. Armor and upgrades are resolved once by Combat.
-	if current_state == State.DEAD:
+	if current_state == State.DEAD or current_state == State.GARRISONED:
 		return
 	var actual_damage: float = maxf(1.0, amount)
 	var previous_hp: float = hp
@@ -1699,3 +1705,10 @@ func get_player_id() -> int:
 
 func get_unit_type() -> String:
 	return UnitData.get_unit_name(unit_type, player_owner)
+
+
+# =========================================================================
+#  GARRISON (Round 2 D1 — logic lives in scripts/buildings/garrison.gd)
+# =========================================================================
+## The shelter this unit is walking to, or is inside while GARRISONED.
+var _garrison_target: BuildingBase = null

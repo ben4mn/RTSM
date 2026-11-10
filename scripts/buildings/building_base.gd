@@ -1224,3 +1224,17 @@ func _get_defensive_visibility_map() -> Node2D:
 			return ancestor as Node2D
 		ancestor = ancestor.get_parent()
 	return null
+
+
+# =========================================================================
+#  GARRISON / TOWN BELL / REPAIR STATE (Round 2 D1)
+# =========================================================================
+# Plain saved state only; the rules live in scripts/buildings/garrison.gd.
+## Instance ids of the units inside (UnitBase.State.GARRISONED).
+var garrisoned_ids: Array[int] = []
+var bell_active: bool = false
+## Seconds since an armed enemy was last seen near a ringing Town Center.
+var _bell_quiet: float = 0.0
+## Hit points of repair already paid for in wood, and the fraction in hand.
+var repair_credit: float = 0.0
+var _repair_fraction: float = 0.0
