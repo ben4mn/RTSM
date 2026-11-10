@@ -33,6 +33,16 @@ static func plan(
 		clampi(target_tile.y, 0, MapData.MAP_HEIGHT - 1)
 	)
 	var target_world: Vector2 = game_map.tile_to_world(center_tile)
+	# Only friendly units that could be within clearance of some slot matter
+	# to the occupancy test below; the slot square is at most this far out.
+	var slot_reach: float = float((MAX_SLOT_RADIUS_TILES + 1) * (MapData.TILE_WIDTH + MapData.TILE_HEIGHT)) + FRIENDLY_CLEARANCE_WORLD
+	var blockers: Array = []
+	for entry: Variant in friendly_units:
+		if not is_instance_valid(entry) or not entry is UnitBase:
+			continue
+		var blocker := entry as UnitBase
+		if blocker.global_position.distance_to(target_world) <= slot_reach or (blocker.current_state == UnitBase.State.MOVING and blocker.move_target.distance_to(target_world) <= slot_reach):
+			blockers.append(blocker)
 	var candidates: Array[Vector2i] = []
 	for dy: int in range(-MAX_SLOT_RADIUS_TILES, MAX_SLOT_RADIUS_TILES + 1):
 		for dx: int in range(-MAX_SLOT_RADIUS_TILES, MAX_SLOT_RADIUS_TILES + 1):
@@ -44,7 +54,7 @@ static func plan(
 			# The default human group order retains its full existing search area.
 			if destination_filter.is_valid() and not bool(destination_filter.call(destination)):
 				continue
-			if _is_occupied_by_other_friendly(destination, friendly_units, selected_ids, player_owner):
+			if _is_occupied_by_other_friendly(destination, blockers, selected_ids, player_owner):
 				continue
 			candidates.append(candidate)
 	candidates.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
@@ -99,18 +109,28 @@ static func plan(
 			# otherwise floods the same region up to16 times for every member.
 			# Actual routes still come from canonical A*. Four-neighbor connectivity
 			# matches its diagonal policy (both orthogonal neighbors must be open).
-			if not component_ids.has(from_tile):
-				var connected: Dictionary = _collect_connected_tiles(game_map, from_tile)
-				var component_id: int = components.size()
-				components.append(connected)
-				for tile: Vector2i in connected:
-					component_ids[tile] = component_id
-			var connected: Dictionary = components[int(component_ids[from_tile])]
-			var reachable: Array[Vector2i] = []
-			for candidate: Vector2i in available:
-				if connected.has(candidate):
-					reachable.append(candidate)
-			available = reachable
+			var navigation: Pathfinding = game_map.pathfinding as Pathfinding
+			if navigation != null:
+				# The same 4-connected regions, kept by the grid until it changes.
+				var region: int = navigation.region_of(from_tile)
+				var reachable: Array[Vector2i] = []
+				for candidate: Vector2i in available:
+					if navigation.region_of(candidate) == region:
+						reachable.append(candidate)
+				available = reachable
+			else:
+				if not component_ids.has(from_tile):
+					var connected: Dictionary = _collect_connected_tiles(game_map, from_tile)
+					var component_id: int = components.size()
+					components.append(connected)
+					for tile: Vector2i in connected:
+						component_ids[tile] = component_id
+				var connected: Dictionary = components[int(component_ids[from_tile])]
+				var reachable: Array[Vector2i] = []
+				for candidate: Vector2i in available:
+					if connected.has(candidate):
+						reachable.append(candidate)
+				available = reachable
 		var tile_path: Array[Vector2i] = game_map.pathfinding.get_tile_path_to_any(
 			from_tile, available, MAX_PATH_CHECKS_PER_UNIT
 		)

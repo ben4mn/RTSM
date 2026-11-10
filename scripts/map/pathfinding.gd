@@ -153,6 +153,25 @@ func _route(start: Vector2i, destination: Vector2i) -> Array[Vector2i]:
 	return found
 
 
+## 4-connected region id of a walkable tile on the current grid (0 for a solid
+## or off-map tile). Equal ids mean a route exists.
+func region_of(tile: Vector2i) -> int:
+	if not is_walkable(tile):
+		return 0
+	if _route_cache_epoch != _route_epoch:
+		_route_cache_epoch = _route_epoch
+		_route_cache.clear()
+		_route_failures = 0
+		_region_count = 0
+	if _region_count == 0:
+		_regions.resize(MapData.MAP_WIDTH * MapData.MAP_HEIGHT)
+		_regions.fill(0)
+	var index: int = tile.y * MapData.MAP_WIDTH + tile.x
+	if _regions[index] == 0:
+		_flood_region(tile)
+	return _regions[index]
+
+
 func _flood_region(origin: Vector2i) -> void:
 	var width: int = MapData.MAP_WIDTH
 	var height: int = MapData.MAP_HEIGHT
