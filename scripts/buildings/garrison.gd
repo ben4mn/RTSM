@@ -42,6 +42,7 @@ const WORK_DISTANCE: float = 40.0
 const TICK_SECONDS: float = 0.25
 ## A rival who watched a unit walk in keeps its replica this long (online).
 const ENEMY_REVEAL_GRACE: float = 0.35
+const RAID_SHORTCUT_SECONDS: float = 6.0
 const HEAL_PULSE_INTERVAL: float = 1.0
 const MAX_HEAL_MARKS: int = 24
 
@@ -941,6 +942,9 @@ func _offer_raid_prompt() -> void:
 	if fronts is Array:
 		for front: Variant in fronts:
 			if not front is Dictionary or str(feedback.call("_front_kind", str(front.get("target", "")))) != "RAID":
+				continue
+			# Only while the raid is live; the card itself lingers for 20 s.
+			if GameManager.game_time - float(front.get("last_hit", -100.0)) > RAID_SHORTCUT_SECONDS:
 				continue
 			for entry: Variant in main._player_buildings[0]:
 				if accepts(entry) and (entry as BuildingBase).building_type == BuildingData.BuildingType.TOWN_CENTER and not (entry as BuildingBase).bell_active 						and tile_distance(entry as BuildingBase, front.get("position", Vector2.INF)) <= BELL_RADIUS_TILES:
