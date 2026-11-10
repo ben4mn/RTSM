@@ -246,6 +246,7 @@ func _build_audio() -> void:
 	toggle.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(_button("Preview", "AudioPreviewButton", AudioManager.preview))
 	_volume("Master", "master_volume")
+	_volume("Music", "music_volume")
 	_volume("World effects", "sfx_volume")
 	_volume("UI & alerts", "ui_alert_volume")
 
@@ -321,7 +322,7 @@ func _volume(label: String, property: String) -> void:
 	)
 	slider.drag_ended.connect(func(_changed: bool) -> void: _save())
 	if property != "master_volume":
-		var mute_property: String = "sfx_muted" if property == "sfx_volume" else "ui_alert_muted"
+		var mute_property: String = str({"sfx_volume": "sfx_muted", "music_volume": "music_muted"}.get(property, "ui_alert_muted"))
 		var mute := CheckButton.new()
 		mute.name = mute_property.to_pascal_case() + "Toggle"
 		mute.text = "Mute"
