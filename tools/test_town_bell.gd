@@ -62,7 +62,7 @@ func run_cases() -> void:
 	expect(not map.get_units_near(Garrison.footprint_center(tc), 2000.0).any(func(unit: UnitBase) -> bool: return unit.current_state == UnitBase.State.GARRISONED), "spatial index holds no garrisoned villager")
 	expect(Garrison.bonus_arrows(tc) == workers.size(), "one bonus arrow per garrisoned villager")
 	action_ids = tc.get_context_actions(0).map(func(action: Dictionary) -> String: return str(action.id))
-	expect(Garrison.ACTION_RELEASE in action_ids, "Ungarrison appears while units are inside")
+	expect(action_ids == [Garrison.ACTION_BELL] and str(tc.get_context_actions(0)[0].label) == "All Clear", "while ringing the one card is the all-clear")
 
 	# One volley = the TC's own arrow plus one per villager.
 	tc._tower_attack_cooldown = 0.0

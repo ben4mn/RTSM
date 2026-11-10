@@ -166,7 +166,8 @@ func _check_context_actions() -> void:
 		check(action.label == definition.name and action.cost == definition.cost and action.time == 0.0 and action.progress == -1.0, action.id + " mirrors its tech definition")
 		check(action.disabled_reason == "unaffordable" and action.done == false, action.id + " reports why it is blocked")
 	check(smith.get_context_actions(1).is_empty(), "the opponent is offered nothing on this building")
-	check(main._player_town_center.get_context_actions(0).is_empty(), "buildings without techs or providers have no actions")
+	# D1 (garrison.gd) is a built-in provider: the Town Center offers its bell and nothing else.
+	check(main._player_town_center.get_context_actions(0).map(func(offered: Dictionary) -> String: return str(offered.id)) == ["garrison:bell"], "a building without techs offers only its own providers' actions")
 	ResourceManager.initialize_player(0, {"food": 2000, "wood": 2000, "gold": 2000})
 	check(smith.get_context_actions(0).all(func(action: Dictionary) -> bool: return action.disabled_reason == ""), "funded techs are enabled")
 	GameManager.research_started.connect(func(player_id: int, building: Node2D, research_id: String, duration: float) -> void: _events.append("started:%d:%s:%s:%s" % [player_id, research_id, building == _smith(), duration]))
@@ -195,7 +196,7 @@ func _check_context_actions() -> void:
 	check(GameManager.has_research(0, "scale_mail") and GameManager.get_armor_bonus(0) == 1 and ResourceManager.get_all_resources(0) == {"food": 1800, "wood": 2000, "gold": 1900}, "pressing a card buys through building_action_requested exactly once")
 	# A later stream's provider needs no HUD or BuildingBase edit.
 	BuildingBase.register_context_provider("probe", probe_actions, probe_perform)
-	check(smith.get_context_actions(0).size() == 5 and smith.get_context_actions(0)[4].id == "probe:ping" and main._player_town_center.get_context_actions(0).is_empty(), "registered provider appends its action to matching buildings only")
+	check(smith.get_context_actions(0).size() == 5 and smith.get_context_actions(0)[4].id == "probe:ping" and not main._player_town_center.get_context_actions(0).any(func(offered: Dictionary) -> bool: return str(offered.id).begins_with("probe:")), "registered provider appends its action to matching buildings only")
 	hud.show_building_selection("Blacksmith", smith.hp, smith.max_hp, [], [], smith)
 	var ping: Button = row.get_node_or_null("ActionButton_probe_ping") as Button
 	check(ping != null and not ping.disabled and ping.text == "Ping\nTest action\n5W", "HUD renders a provider action generically: " + (ping.text if ping != null else "missing"))
@@ -301,7 +302,7 @@ func _check_network() -> void:
 	main.ext.register_snapshot("probe", func(slot: int) -> Dictionary: return {"slot": slot, "n": 3}, func(section: Variant) -> void: _consumed.append(section))
 	main.ext.register_snapshot("probe_empty", func(_slot: int) -> Variant: return null)
 	var snapshot: Dictionary = server._snapshot_for(0)
-	check(snapshot.get("ext") == {"probe": {"slot": 0, "n": 3}} and server._snapshot_for(1).ext.probe.slot == 1, "snapshot.ext carries each provider's per-recipient section and omits null")
+	check(snapshot.ext.get("probe") == {"slot": 0, "n": 3} and not snapshot.ext.has("probe_empty") and server._snapshot_for(1).ext.probe.slot == 1, "snapshot.ext carries each provider's per-recipient section and omits null")
 	check(snapshot.get("modifiers") == GameManager.player_modifiers[0] and not snapshot.has("upgrades") and snapshot.modifiers.get("attack") == 2.0, "snapshot replicates the owner's modifier registry")
 	var wire: Variant = JSON.parse_string(JSON.stringify({"ext": snapshot.ext, "modifiers": snapshot.modifiers}))
 	check(wire is Dictionary and wire.ext.probe.n == 3.0, "extension sections survive the JSON wire format")

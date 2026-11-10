@@ -44,9 +44,26 @@ func run_cases() -> void:
 	expect(home.visible and get_tree().get_nodes_in_group("units").has(home), "released soldier is a normal unit again")
 
 	# --- Ungarrison action and the ext command.
-	expect(Garrison.order_garrison([home], tc) == 1, "soldier garrisons again")
+	# --- Touch flow: hold an own shelter with soldiers selected -> "Garrison".
+	var selection: Node = map.selection_mgr
+	var label_of: Callable = func(offered: Dictionary) -> String: return str(offered.label)
+	var worker: Villager = own_villagers()[0]
+	selection.select_single(worker)
+	expect(selection._build_touch_context_actions(tc, null).map(label_of) == ["Queue drop-off"], "villagers alone keep the one-step Queue drop-off on the Town Center")
+	var mixed: Array[Node2D] = [home, worker]
+	selection.select_many(mixed)
+	expect(selection._build_touch_context_actions(tc, null).map(label_of) == ["Queue drop-off", "Garrison"], "a mixed selection is offered both")
+	selection.select_single(home)
+	var soldier_menu: Array = selection._build_touch_context_actions(tc, null).map(label_of)
+	expect(soldier_menu.has("Garrison") and soldier_menu.has("Select"), "soldiers are offered Garrison beside Select: " + str(soldier_menu))
+	expect(not selection._build_touch_context_actions(main._player_buildings[1][0], null).map(label_of).has("Garrison"), "never on a rival building")
+	selection._context_target = tc
+	selection._execute_touch_context_action(selection.TouchContextAction.GARRISON)
+	expect(home._garrison_target == tc, "choosing Garrison sends the selected soldier to the Town Center")
 	await step_until(func() -> bool: return home.current_state == UnitBase.State.GARRISONED, 20.0)
+	expect(tc.get_context_actions(0).size() == 1 and str(tc.get_context_actions(0)[0].id) == Garrison.ACTION_RELEASE, "with soldiers inside and no bell the one card is Ungarrison")
 	expect(tc.perform_context_action(0, Garrison.ACTION_RELEASE) == "", "Ungarrison action accepted")
+	expect(str(tc.get_context_actions(0)[0].id) == Garrison.ACTION_BELL, "an empty Town Center offers the bell again")
 	expect(home.is_inside_tree() and home.current_state == UnitBase.State.IDLE, "Ungarrison puts the soldier outside, idle")
 	expect(main.ext.run_command("ungarrison", 0, {"target": 1}, [], tc, Vector2.ZERO) == "Nobody inside", "ungarrison on an empty building explains itself")
 	expect(main.ext.run_command("garrison", 1, {"target": 1, "ids": [1]}, [home], tc, Vector2.ZERO) == "Cannot garrison there", "the rival cannot use this Town Center")

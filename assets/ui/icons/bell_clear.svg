@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <title>Field company — all clear</title>
+  <path d="M11 2h4v4h-4z" fill="#88b7ad"/><path d="M13 5c5 0 8 4 8 9v6l3 4v2H2v-2l3-4v-6c0-5 3-9 8-9z" fill="#e8e5db"/><path d="M10 27h6v1a3 3 0 0 1-6 0z" fill="#88b7ad"/><path d="M5 21h16" fill="none" stroke="#171c1d" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"/><circle cx="23" cy="22" r="8" fill="#171c1d"/><path d="M18.500 22l3.500 3.500 6-7" fill="none" stroke="#88b7ad" stroke-width="3" stroke-linecap="square" stroke-linejoin="miter"/>
+</svg>

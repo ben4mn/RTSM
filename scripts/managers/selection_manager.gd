@@ -1368,6 +1368,12 @@ func _handle_right_click(screen_pos: Vector2) -> void:
 		build_command.emit(tapped_node)
 		return
 
+	# Round 2 D1: right-clicking an own Town Center / Watch Tower garrisons soldiers.
+	if _can_offer_garrison(tapped_node):
+		_record_touch_input(screen_pos, world_pos, "garrison", tapped_node, null)
+		garrison_command.emit(tapped_node)
+		return
+
 	# Check for resource node → gather command
 	var resource_node: Node2D = _get_resource_at(world_pos, false)
 	if resource_node != null:

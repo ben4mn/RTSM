@@ -42,13 +42,14 @@ const WORK_DISTANCE: float = 40.0
 const TICK_SECONDS: float = 0.25
 ## A rival who watched a unit walk in keeps its replica this long (online).
 const ENEMY_REVEAL_GRACE: float = 0.35
-const RAID_PROMPT_COOLDOWN: float = 25.0
 const HEAL_PULSE_INTERVAL: float = 1.0
 const MAX_HEAL_MARKS: int = 24
 
+const ONE_CARD: bool = true
 const ACTION_BELL: String = "garrison:bell"
 const ACTION_RELEASE: String = "garrison:release"
 const ICON_BELL: String = "res://assets/ui/icons/bell.svg"
+const ICON_BELL_CLEAR: String = "res://assets/ui/icons/bell_clear.svg"
 const ICON_GARRISON: String = "res://assets/ui/icons/garrison.svg"
 const ICON_REPAIR: String = "res://assets/ui/icons/repair.svg"
 const TEXT_BELL: String = "Town bell — villagers take shelter"
@@ -66,7 +67,8 @@ var _calm: Dictionary = {}  # unit instance id -> {"hp": float, "quiet": float}
 var _next_pulse: Dictionary = {}  # instance id -> game time of the next "+"
 var _replica_hp: Dictionary = {}  # client only: instance id -> last seen hp
 var _marks: Array[HealMark] = []
-var _raid_prompt_ready_at: float = 0.0
+var _raid_button: Button = null
+var _raid_target: WeakRef = null
 var _selection_hooked: bool = false
 
 
@@ -618,25 +620,40 @@ static func repair_step(building: BuildingBase, delta: float) -> int:
 # =============================================================================
 
 static func _context_actions(building: BuildingBase, _player_id: int) -> Array:
+	## ONE card per building. The Town Center row has room for a single card
+	## beside its train buttons and does not scroll, so the card follows the
+	## state: Bell -> All clear while ringing -> Send out while soldiers remain.
+	## (With soldiers inside and no bell, a raid still offers "Ring town bell"
+	## under the alert card.) Set ONE_CARD false once the row can scroll.
 	var actions: Array = []
 	if building.state != BuildingBase.State.ACTIVE or capacity_of(building) <= 0:
 		return actions
 	var inside: int = count(building)
-	if building.building_type == BuildingData.BuildingType.TOWN_CENTER:
-		actions.append({
-			"id": ACTION_BELL, "label": "Town Bell", "icon": ICON_BELL, "cost": {}, "time": 0.0, "progress": -1.0,
-			"disabled_reason": "",
-			# The card is narrow beside the Town Center's train buttons.
-			"short": "All clear" if building.bell_active else "Bell",
-			"desc": "Release" if building.bell_active else "Shelter",
-			"details": "Villagers within %d tiles run inside the Town Center (up to %d). Each one adds an arrow to its volley and heals. The bell stands down by itself %d seconds after the last raider leaves." % [int(BELL_RADIUS_TILES), capacity_of(building), int(ALL_CLEAR_SECONDS)],
-		})
+	var bell_card: Dictionary = {
+		"id": ACTION_BELL, "label": "All Clear" if building.bell_active else "Town Bell",
+		"icon": ICON_BELL_CLEAR if building.bell_active else ICON_BELL, "cost": {}, "time": 0.0, "progress": -1.0,
+		"disabled_reason": "",
+		# Icon only, like the rally flag beside it: half of this card sits
+		# under the age button at phone width.
+		"short": "", "desc": "",
+		"details": "Villagers within %d tiles run inside the Town Center (up to %d). Each one adds an arrow to its volley and heals. Tap again for all clear; the bell also stands down by itself %d seconds after the last raider leaves." % [int(BELL_RADIUS_TILES), capacity_of(building), int(ALL_CLEAR_SECONDS)],
+	}
+	var release_card: Dictionary = {
+		"id": ACTION_RELEASE, "label": "Ungarrison", "icon": ICON_GARRISON, "cost": {}, "time": 0.0, "progress": -1.0,
+		"disabled_reason": "", "short": "Out", "desc": "%d in" % inside,
+		"details": "Send everyone inside back out. Villagers return to their previous work.",
+	}
+	var is_town_center: bool = building.building_type == BuildingData.BuildingType.TOWN_CENTER
+	if ONE_CARD:
+		if is_town_center and (building.bell_active or inside <= 0):
+			actions.append(bell_card)
+		elif inside > 0:
+			actions.append(release_card)
+		return actions
+	if is_town_center:
+		actions.append(bell_card)
 	if inside > 0:
-		actions.append({
-			"id": ACTION_RELEASE, "label": "Ungarrison", "icon": ICON_GARRISON, "cost": {}, "time": 0.0, "progress": -1.0,
-			"disabled_reason": "", "short": "Ungarrison", "desc": "%d inside" % inside,
-			"details": "Send everyone inside back out. Villagers return to their previous work.",
-		})
+		actions.append(release_card)
 	return actions
 
 
@@ -650,11 +667,12 @@ static func _perform_context_action(building: BuildingBase, _player_id: int, act
 
 
 static func request_bell(match_main: Node, town_center: BuildingBase) -> void:
-	## One-tap shortcut (raid toast). Same route as the building card.
+	## One-tap shortcut under the raid alert card.
 	if not is_instance_valid(town_center) or town_center.player_owner != 0:
 		return
 	if NetworkSession.is_client():
-		NetworkSession.send_command("building_action", {"target": NetworkSession.entity_id(town_center), "action": ACTION_BELL})
+		if not town_center.bell_active:
+			NetworkSession.send_command("bell", {"target": NetworkSession.entity_id(town_center)})
 	elif not town_center.bell_active and GameManager.current_state == GameManager.GameState.PLAYING:
 		ring(town_center)
 	if is_instance_valid(match_main) and match_main.has_method("_on_selection_changed") and is_instance_valid(match_main.get("game_map")):
@@ -911,35 +929,59 @@ func _pulse(source: Object, world_position: Vector2) -> void:
 
 
 func _offer_raid_prompt() -> void:
-	## A raid on workers offers the bell in one tap (see report: the alert card
-	## itself is a single "view" button, so this uses a tappable toast).
-	if GameManager.game_time < _raid_prompt_ready_at:
+	## One-tap "Ring town bell" under the RAID alert cards. Toasts are hidden
+	## while those cards are up, so the shortcut lives in their lane: a raid
+	## front (workers or buildings hit) within bell range of a silent Town Center.
+	var feedback: Node = main.get("_battlefield_feedback") as Node
+	var lane: Control = feedback.get("_lane") as Control if is_instance_valid(feedback) else null
+	if not is_instance_valid(lane):
 		return
-	var hud: Node = main.get("hud") as Node
-	if not is_instance_valid(hud) or not hud.has_method("show_notification"):
-		return
-	for entry: Variant in main._player_buildings[0]:
-		if not accepts(entry) or (entry as BuildingBase).building_type != BuildingData.BuildingType.TOWN_CENTER or (entry as BuildingBase).bell_active:
-			continue
-		var town_center := entry as BuildingBase
-		var raider_near: bool = false
-		for enemy: Variant in main._player_units[1]:
-			if is_instance_valid(enemy) and enemy is UnitBase and not enemy is Villager and (enemy as UnitBase).visible and (enemy as UnitBase).is_inside_tree() \
-					and (enemy as UnitBase).damage > 0.0 and (enemy as UnitBase).current_state != UnitBase.State.DEAD \
-					and tile_distance(town_center, (enemy as UnitBase).global_position) <= BELL_RADIUS_TILES:
-				raider_near = true
-				break
-		if not raider_near:
-			continue
-		for unit: Variant in main._player_units[0]:
-			if not is_instance_valid(unit) or not unit is Villager or not (unit as Villager).is_inside_tree():
+	var target: BuildingBase = null
+	var fronts: Variant = feedback.get("fronts")
+	if fronts is Array:
+		for front: Variant in fronts:
+			if not front is Dictionary or str(feedback.call("_front_kind", str(front.get("target", "")))) != "RAID":
 				continue
-			var villager := unit as Villager
-			var fleeing: bool = bool(villager.get_meta("network_recovering", false)) or villager.is_retreating()
-			if fleeing and tile_distance(town_center, villager.global_position) <= BELL_RADIUS_TILES:
-				_raid_prompt_ready_at = GameManager.game_time + RAID_PROMPT_COOLDOWN
-				hud.call("show_notification", "Raid on your villagers — tap to ring the bell", KingdomTheme.RUST, 6.0, request_bell.bind(main, town_center))
-				return
+			for entry: Variant in main._player_buildings[0]:
+				if accepts(entry) and (entry as BuildingBase).building_type == BuildingData.BuildingType.TOWN_CENTER and not (entry as BuildingBase).bell_active 						and tile_distance(entry as BuildingBase, front.get("position", Vector2.INF)) <= BELL_RADIUS_TILES:
+					target = entry as BuildingBase
+					break
+			if target != null:
+				break
+	if target == null:
+		if is_instance_valid(_raid_button):
+			_raid_button.visible = false
+		return
+	if not is_instance_valid(_raid_button):
+		_raid_button = Button.new()
+		_raid_button.name = "RingBellShortcut"
+		_raid_button.text = "Ring town bell"
+		_raid_button.tooltip_text = "Villagers near the Town Center shelter inside and add arrows."
+		_raid_button.custom_minimum_size = Vector2(0, 44)
+		_raid_button.focus_mode = Control.FOCUS_NONE
+		_raid_button.add_theme_font_size_override("font_size", 13)
+		_raid_button.add_theme_stylebox_override("normal", KingdomTheme.button_style())
+		_raid_button.add_theme_color_override("font_color", KingdomTheme.GOLD)
+		_raid_button.icon = _icon(ICON_BELL)
+		_raid_button.expand_icon = true
+		_raid_button.add_theme_constant_override("icon_max_width", 20)
+		_raid_button.pressed.connect(_on_raid_button_pressed)
+		_raid_button.button_down.connect(func() -> void:
+			var hud: Node = main.get("hud") as Node
+			if is_instance_valid(hud) and hud.has_signal("world_gesture_cancel_requested"):
+				hud.emit_signal("world_gesture_cancel_requested")
+		)
+		lane.add_child(_raid_button)
+	_raid_target = weakref(target)
+	_raid_button.visible = true
+
+
+func _on_raid_button_pressed() -> void:
+	var target: BuildingBase = _raid_target.get_ref() as BuildingBase if _raid_target != null else null
+	if is_instance_valid(target):
+		request_bell(main, target)
+	if is_instance_valid(_raid_button):
+		_raid_button.visible = false
 
 
 static func _refresh_badge(building: BuildingBase) -> void:
@@ -976,6 +1018,11 @@ class Badge extends Node2D:
 	var inside: int = 0
 	var repairing: bool = false
 	var _phase: float = 0.0
+	## Authored at 1x; drawn larger so it reads at the default phone zoom.
+	const DRAW_SCALE: float = 1.4
+
+	func _init() -> void:
+		scale = Vector2(DRAW_SCALE, DRAW_SCALE)
 
 	func refresh() -> void:
 		if not is_instance_valid(building):
@@ -1004,7 +1051,7 @@ class Badge extends Node2D:
 		if not is_instance_valid(building):
 			return
 		# Above the health bar and the drop-off letters of a selected building.
-		var anchor := Vector2(building._footprint_center.x, building._visual_top - 44.0)
+		var anchor := Vector2(building._footprint_center.x, building._visual_top - 46.0) / DRAW_SCALE
 		var ink := Color("1d2b2c")
 		var paper := Color("e8e5db")
 		if bell:
@@ -1042,7 +1089,7 @@ class Badge extends Node2D:
 		if repairing:
 			# Hammer beside the health bar, tapping while work is under way.
 			var bar_width: float = float(building.footprint.x) * MapData.TILE_WIDTH * 0.6
-			var spot := Vector2(building._footprint_center.x - bar_width * 0.5 - 11.0, building._visual_top - 7.0)
+			var spot := Vector2(building._footprint_center.x - bar_width * 0.5 - 13.0, building._visual_top - 7.0) / DRAW_SCALE
 			var tap: float = 0.0 if GameManager.reduced_motion else absf(sin(_phase * 7.0)) * 0.5
 			draw_circle(spot, 8.5, Color(ink, 0.9))
 			draw_set_transform(spot, -0.6 + tap, Vector2.ONE)
