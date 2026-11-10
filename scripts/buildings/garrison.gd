@@ -626,8 +626,9 @@ static func _context_actions(building: BuildingBase, _player_id: int) -> Array:
 		actions.append({
 			"id": ACTION_BELL, "label": "Town Bell", "icon": ICON_BELL, "cost": {}, "time": 0.0, "progress": -1.0,
 			"disabled_reason": "",
-			"short": "All Clear" if building.bell_active else "Ring Bell",
-			"desc": "Back to work" if building.bell_active else "Villagers shelter",
+			# The card is narrow beside the Town Center's train buttons.
+			"short": "All clear" if building.bell_active else "Bell",
+			"desc": "Release" if building.bell_active else "Shelter",
 			"details": "Villagers within %d tiles run inside the Town Center (up to %d). Each one adds an arrow to its volley and heals. The bell stands down by itself %d seconds after the last raider leaves." % [int(BELL_RADIUS_TILES), capacity_of(building), int(ALL_CLEAR_SECONDS)],
 		})
 	if inside > 0:
@@ -1002,7 +1003,8 @@ class Badge extends Node2D:
 	func _draw() -> void:
 		if not is_instance_valid(building):
 			return
-		var anchor := Vector2(building._footprint_center.x, building._visual_top - 30.0)
+		# Above the health bar and the drop-off letters of a selected building.
+		var anchor := Vector2(building._footprint_center.x, building._visual_top - 44.0)
 		var ink := Color("1d2b2c")
 		var paper := Color("e8e5db")
 		if bell:
