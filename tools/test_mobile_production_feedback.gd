@@ -76,6 +76,8 @@ func _profile(phone: Vector2i, scale_factor: float) -> void:
 	_expect(safe.encloses(navigation.get_global_rect()), profile + " Queue outside safe area")
 	_expect((hud.get("selection_panel") as Control).get_global_rect().encloses(navigation.get_global_rect()), profile + " Queue does not share production shelf")
 	for recruit: Button in (hud.get("_train_buttons_container") as HBoxContainer).get_children():
+		if not recruit.visible:
+			continue  # HUD pass: the other page of a paged row.
 		_expect(shelf.get_global_rect().encloses(recruit.get_global_rect()), profile + " inline pager clips " + String(recruit.name))
 		_expect(recruit.size.x >= 48.0 and recruit.size.y >= 48.0, profile + " recruit/repeat target under48px")
 	var repeat_toggle: Button = hud.get("_auto_queue_button")

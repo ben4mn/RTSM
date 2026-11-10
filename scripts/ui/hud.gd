@@ -1879,8 +1879,10 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 	_refresh_progression_hint_visibility()
 	_refresh_notification_visibility()
 	_apply_context_actions(viewport_size)
-	if _train_buttons_container != null and _train_buttons_container.visible and _row_capacity_planned >= 0.0 and not is_equal_approx(_production_row_capacity(), _row_capacity_planned):
-		# The row was planned for another width (rotation, cutout, UI scale).
+	if _train_buttons_container != null and _train_buttons_container.visible and _row_capacity_planned >= 0.0 and _production_row_capacity() < _row_capacity_planned - 0.5:
+		# The row was planned for a wider shelf (a cutout or UI scale arrived).
+		# It only ever tightens while one building stays selected, so layout
+		# passes with different safe areas cannot flip it back and forth.
 		_arrange_production_row(_context_actions_for(_selected_building_ref))
 	_refresh_command_icons()
 	var action_count: int = _count_visible_mobile_action_buttons()
@@ -3146,6 +3148,7 @@ func show_building_selection(building_name: String, current_hp: int, max_hp: int
 	# producer preserve the player's queue inspection position.
 	if _selected_building_ref != building_ref:
 		_row_page = 0
+		_row_capacity_planned = -1.0
 		CommandRow.disarm_cancel()
 		_queue_view_requested = false
 		_queue_view_offset = 0
@@ -4466,7 +4469,8 @@ func _arrange_production_row(actions: Array[Dictionary]) -> void:
 		else:
 			tail.append(entry)
 	var layout: Dictionary = {"paged": false, "train": [], "pages": [], "hidden": [], "unit_width": 0.0, "tile_width": CommandRow.TILE_SIZE.x, "width": 0.0}
-	_row_capacity_planned = _production_row_capacity()
+	var row_capacity: float = _production_row_capacity()
+	_row_capacity_planned = row_capacity if _row_capacity_planned < 0.0 else minf(_row_capacity_planned, row_capacity)
 	if not unit_widths.is_empty():
 		layout = CommandRow.plan(unit_widths, pinned, _building_rally_button.custom_minimum_size.x if rally_wanted else 0.0, tail, _row_capacity_planned, gap)
 	var pages: Array = layout.pages
