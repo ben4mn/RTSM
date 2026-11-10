@@ -2073,15 +2073,27 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 	command_scroll.scroll_deadzone = 1000000
 	_layout_queue_page()
 	if _advanced_command_panel:
-		for child in _advanced_command_container.get_children():
-			if child is Button:
-				(child as Button).custom_minimum_size = Vector2(80.0, MOBILE_ACTION_BUTTON_HEIGHT)
-		var advanced_width: float = _production_row_width(_advanced_command_container) + 8.0
+		# The tray shares the rail's row, between the minimap and the rail. When
+		# that gap is short (a narrow screen and four launchers) its icon-only
+		# buttons slim to 48px; only if that is still not enough does it stand
+		# above the rail instead of covering either neighbour.
 		var advanced_right: float = _strategy_overview.rail.position.x - 8.0 if _strategy_overview else metrics["selection_right"]
 		var advanced_bottom: float = metrics["selection_top"] - 4.0
-		if _strategy_overview and advanced_right - advanced_width < float(metrics["minimap_right"]) + 8.0:
-			# No room between the minimap and the four-launcher rail on a narrow
-			# screen: the tray stands above the rail instead of covering either.
+		var advanced_room: float = advanced_right - (float(metrics["minimap_right"]) + 8.0)
+		var advanced_separation: float = float(_advanced_command_container.get_theme_constant("separation"))
+		var advanced_width: float = 0.0
+		for slim: bool in [false, true]:
+			advanced_width = 8.0 - advanced_separation
+			for child in _advanced_command_container.get_children():
+				if child is Button:
+					var tray_button := child as Button
+					tray_button.custom_minimum_size = Vector2(48.0 if slim and tray_button.text.is_empty() else 80.0, MOBILE_ACTION_BUTTON_HEIGHT)
+					if tray_button.visible:
+						tray_button.size.x = tray_button.custom_minimum_size.x
+						advanced_width += tray_button.custom_minimum_size.x + advanced_separation
+			if advanced_width <= advanced_room or _strategy_overview == null:
+				break
+		if _strategy_overview and advanced_width > advanced_room:
 			advanced_right = _strategy_overview.rail.position.x + _strategy_overview.rail.size.x
 			advanced_bottom = _strategy_overview.rail.position.y - 6.0 - viewport_size.y
 		_advanced_command_panel.offset_left = advanced_right - advanced_width - viewport_size.x * 0.5
@@ -3256,11 +3268,11 @@ func _refresh_unit_selection_details() -> void:
 # A mixed own selection is summarised by type, never one card per unit: one
 # chip per unit type with its count, sitting just above the selection panel.
 # Tapping a chip narrows the selection to that type; the chip then stays under
-# the finger for a moment, and a second tap (a double tap) selects every unit
+# the finger for two seconds, and a second tap (a double tap) selects every unit
 # of that type on the map. The row is rebuilt only when the composition
 # changes, so the half-second refresh costs nothing.
 const SELECTION_TYPE_CHIP_SIZE := Vector2(60.0, 44.0)
-const SELECTION_TYPE_CHIP_GRACE_MSEC := 700
+const SELECTION_TYPE_CHIP_GRACE_MSEC := 2000
 var _selection_type_chips: HBoxContainer = null
 var _selection_type_chip_signature: Array = []
 var _selection_chip_grace_type: int = -1
