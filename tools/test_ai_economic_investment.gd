@@ -50,29 +50,51 @@ func _ready() -> void:
 func _run() -> void:
 	AudioManager.set_all_enabled(false)
 	_setup()
+	# Round 2 B: research is timed, one slot per building, chosen from
+	# TechData.AI_PRIORITY over the AI's own idle buildings.
 	ai._is_under_pressure = true
 	var bank: Dictionary = ResourceManager.get_all_resources(1).duplicate()
 	ai._check_research()
-	_expect(GameManager.has_research(1, "loom"), "visible home pressure chooses paid Loom for vulnerable workers")
+	_expect(_researching() == ["loom"] and not GameManager.has_research(1, "loom"), "visible home pressure starts paid Loom for vulnerable workers: " + str(_researching()))
 	_expect(ResourceManager.get_resource(1, "gold") == int(bank.gold) - 50 and ResourceManager.get_resource(1, "food") == int(bank.food), "Loom uses the exact normal 50-gold transaction")
-	_expect(GameManager.researched_upgrades[1].size() == 1, "one decision buys at most one technology")
-	_setup()
 	ai._check_research()
-	_expect(GameManager.has_research(1, "wheelbarrow"), "safe mature workforce invests in Wheelbarrow")
-	_expect(ResourceManager.get_resource(1, "food") == 825 and ResourceManager.get_resource(1, "wood") == 950, "economic research pays its normal food/wood cost")
-	_expect(is_equal_approx(GameManager.get_gather_bonus(1), UnitData.WHEELBARROW_GATHER_BONUS), "shared transaction applies the real gather upgrade")
+	_expect(_researching() == ["loom"], "Medium keeps one research running at a time")
+	_finish_research()
+	_expect(GameManager.has_research(1, "loom") and GameManager.researched_upgrades[1].size() == 1, "the timed research completes through the shared path")
 	_setup()
-	ResourceManager.initialize_player(1, {"food": 224, "wood": 200, "gold": 200})
-	ai._check_research()
-	_expect(not GameManager.has_research(1, "wheelbarrow"), "investment preserves the next worker's food")
+	var decisions: Array[String] = []
+	var wheelbarrow_bank: Dictionary = {}
+	for decision: int in 4:
+		var before: Dictionary = ResourceManager.get_all_resources(1).duplicate()
+		ai._check_research()
+		decisions.append_array(_researching())
+		if _researching() == ["wheelbarrow"]:
+			wheelbarrow_bank = {"food": int(before.food) - ResourceManager.get_resource(1, "food"), "wood": int(before.wood) - ResourceManager.get_resource(1, "wood")}
+		_finish_research()
+	_expect(decisions == ["loom", "man_at_arms", "double_bit_axe", "wheelbarrow"], "a safe mature workforce works down the shared priority list, one at a time: " + str(decisions))
+	_expect(wheelbarrow_bank == {"food": 175, "wood": 50}, "economic research pays its normal food/wood cost: " + str(wheelbarrow_bank))
+	_expect(is_equal_approx(GameManager.get_modifier(1, "carry"), 0.34) and UnitData.get_unit_tier(UnitData.UnitType.INFANTRY, 1) == 2, "shared completion applies the real upgrades")
 	_setup()
-	blacksmith.state = BuildingBase.State.CONSTRUCTING
+	for done: String in ["loom", "man_at_arms"]:
+		GameManager.complete_research(1, done)
+	ResourceManager.initialize_player(1, {"food": 120, "wood": 200, "gold": 0})
 	ai._check_research()
-	_expect(GameManager.researched_upgrades[1].is_empty(), "unfinished Blacksmith grants no technology")
+	_expect(_researching().is_empty() and ResourceManager.get_resource(1, "food") == 120, "investment preserves the next worker's food")
+	_setup()
+	for building: BuildingBase in ai._my_buildings:
+		building.state = BuildingBase.State.CONSTRUCTING
+	ai._check_research()
+	_expect(_researching().is_empty() and GameManager.researched_upgrades[1].is_empty(), "unfinished buildings grant no technology")
 	_setup()
 	ai._saving_for_age_up = true
 	ai._check_research()
-	_expect(GameManager.researched_upgrades[1].is_empty(), "safe age saving remains ahead of optional research")
+	_expect(_researching().is_empty() and GameManager.researched_upgrades[1].is_empty(), "safe age saving remains ahead of optional research")
+	_setup()
+	ai.difficulty = AIController.Difficulty.EASY
+	for decision: int in 6:
+		ai._check_research()
+		_finish_research()
+	_expect(GameManager.researched_upgrades[1].all(func(id: String) -> bool: return id in TechData.AI_EASY_IDS) and GameManager.has_research(1, "man_at_arms"), "Easy researches Loom and line upgrades only: " + str(GameManager.researched_upgrades[1]))
 	_setup()
 	if not ai.has_method("_get_expansion_camp_anchor"):
 		_expect(false, "compact economy can identify a worked remote expansion")
@@ -85,7 +107,7 @@ func _run() -> void:
 	for failure: String in failures:
 		push_error("[FAIL] ai_economic_investment: " + failure)
 	if failures.is_empty():
-		print("[PASS] ai_economic_investment: paid Loom/Wheelbarrow, reserves, active building, age saving, visible worked expansion, danger, resources, spacing, two-camp limit and fair civilization counters")
+		print("[PASS] ai_economic_investment: timed Loom/line/economy research in priority order, reserves, active building, age saving, Easy subset, visible worked expansion, danger, resources, spacing, two-camp limit and fair civilization counters")
 	get_tree().quit(0 if failures.is_empty() else 1)
 
 
@@ -165,6 +187,20 @@ func _test_civilization_mix() -> void:
 	plan = ai._rank_compact_military_plan([1, 2, 3])
 	_expect(int(plan[0]) == UnitData.UnitType.ARCHER, "hidden composition never overrides civilization strategy")
 	enemy.free()
+
+
+func _researching() -> Array[String]:
+	var ids: Array[String] = []
+	for building: BuildingBase in ai._my_buildings:
+		if building.is_researching():
+			ids.append(building.research_id)
+	return ids
+
+
+func _finish_research() -> void:
+	for building: BuildingBase in ai._my_buildings:
+		if building.is_researching():
+			GameManager.complete_building_research(building)
 
 
 func _setup() -> void:

@@ -805,11 +805,6 @@ func _showing_production() -> bool:
 
 const RESEARCH_TILE_SIZE := Vector2(66, 58)
 const RESEARCH_AGE_KEY: String = "age"
-const RESEARCH_HOST_SHORT_NAMES: Dictionary = {
-	BuildingData.BuildingType.TOWN_CENTER: "TC",
-	BuildingData.BuildingType.RESOURCE_CAMP: "Camp",
-	BuildingData.BuildingType.ARCHERY_RANGE: "Range",
-}
 
 
 func _set_research_page(enabled: bool) -> void:
@@ -907,7 +902,7 @@ func _refresh_research() -> void:
 			status = "%d%%" % int(float(building.call("get_research_ratio")) * 100.0)
 			blocked_copy = "In progress in your %s. Cancel on that building's card." % host_name
 		elif reason in ["needs_host", "building_incomplete"]:
-			status = "Need " + str(RESEARCH_HOST_SHORT_NAMES.get(host_type, host_name))
+			status = "Not built"
 			blocked_copy = "Build a %s first." % host_name
 		elif not reason.is_empty():
 			blocked_copy = str(GameManager.describe_research_failure(0, research_id, reason))

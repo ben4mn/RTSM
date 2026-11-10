@@ -155,47 +155,59 @@ func _check_context_actions() -> void:
 	smith.start_construction()
 	check(smith.get_context_actions(0).is_empty(), "a foundation offers no research")
 	smith.complete_instantly()
+	# Round 2 B: Blacksmith research is timed and starts in the Feudal Age.
+	GameManager.players[0]["age"] = 2
 	ResourceManager.initialize_player(0, {"food": 0, "wood": 0, "gold": 0})
 	var actions: Array[Dictionary] = smith.get_context_actions(0)
 	var ids: Array = actions.map(func(action: Dictionary) -> String: return action.id)
-	check(ids == ["research:forging", "research:scale_mail", "research:wheelbarrow", "research:loom"], "Blacksmith exposes its four techs in shelf order: " + str(ids))
+	check(ids == ["research:forging", "research:scale_mail", "research:fletching", "research:stone_keep"], "Blacksmith exposes its first-tier techs in shelf order: " + str(ids))
 	for action: Dictionary in actions:
 		for key: String in ACTION_KEYS:
 			check(action.has(key), "%s carries %s" % [action.id, key])
 		var definition: Dictionary = TechData.get_research_definition(str(action.id).trim_prefix("research:"))
-		check(action.label == definition.name and action.cost == definition.cost and action.time == 0.0 and action.progress == -1.0, action.id + " mirrors its tech definition")
-		check(action.disabled_reason == "unaffordable" and action.done == false, action.id + " reports why it is blocked")
+		check(action.label == definition.name and action.cost == definition.cost and action.time == definition.time and action.time > 0.0 and action.progress == -1.0, action.id + " mirrors its tech definition")
+		check(action.reason == ("age_required" if action.id == "research:stone_keep" else "unaffordable") and action.disabled_reason.begins_with("Need ") and action.done == false, action.id + " reports why it is blocked: " + action.disabled_reason)
 	check(smith.get_context_actions(1).is_empty(), "the opponent is offered nothing on this building")
-	check(main._player_town_center.get_context_actions(0).is_empty(), "buildings without techs or providers have no actions")
+	check(main._player_buildings[0].filter(func(building: BuildingBase) -> bool: return building.building_type == BuildingData.BuildingType.HOUSE).all(func(house: BuildingBase) -> bool: return house.get_context_actions(0).is_empty()) and main._player_town_center.get_context_actions(0).any(func(action: Dictionary) -> bool: return action.id == "research:loom"), "only buildings with techs or providers have actions")
 	ResourceManager.initialize_player(0, {"food": 2000, "wood": 2000, "gold": 2000})
-	check(smith.get_context_actions(0).all(func(action: Dictionary) -> bool: return action.disabled_reason == ""), "funded techs are enabled")
+	check(smith.get_context_actions(0).slice(0, 3).all(func(action: Dictionary) -> bool: return action.disabled_reason == ""), "funded techs of the current age are enabled")
 	GameManager.research_started.connect(func(player_id: int, building: Node2D, research_id: String, duration: float) -> void: _events.append("started:%d:%s:%s:%s" % [player_id, research_id, building == _smith(), duration]))
 	GameManager.research_completed.connect(func(player_id: int, research_id: String) -> void: _events.append("completed:%d:%s" % [player_id, research_id]))
 	check(smith.perform_context_action(1, "research:forging") == "Select your building" and not GameManager.has_research(1, "forging") and not GameManager.has_research(0, "forging"), "another player cannot use the building")
 	check(ResourceManager.get_all_resources(0) == {"food": 2000, "wood": 2000, "gold": 2000}, "a rejected action spends nothing")
 	# Solo path: exactly what the HUD row emits.
 	main._on_building_action_requested(smith, "research:forging")
-	check(GameManager.has_research(0, "forging") and GameManager.get_modifier(0, "attack") == 2.0 and GameManager.get_attack_bonus(0) == 2, "context action researches Forge Weapons into the registry")
+	check(smith.research_id == "forging" and not GameManager.has_research(0, "forging") and smith.get_context_actions(0)[0].progress == 0.0, "the context action starts the timed research")
+	main._advance_production_queues(30.5)
+	check(GameManager.has_research(0, "forging") and GameManager.get_modifier(0, "attack") == 2.0 and GameManager.get_attack_bonus(0) == 2, "context action researches Forging into the registry")
 	check(ResourceManager.get_all_resources(0) == {"food": 1900, "wood": 2000, "gold": 1950}, "research charges its exact cost once")
-	check(_events == ["started:0:forging:true:0.0", "completed:0:forging"], "research_started (duration 0) precedes research_completed: " + str(_events))
+	check(_events == ["started:0:forging:true:30.0", "completed:0:forging"], "research_started (with its duration) precedes research_completed: " + str(_events))
 	check(smith.perform_context_action(0, "research:forging") == "Research unavailable" and ResourceManager.get_resource(0, "food") == 1900, "a completed tech cannot be bought twice")
 	var forging: Dictionary = smith.get_context_actions(0)[0]
-	check(forging.done == true and forging.disabled_reason == "already_researched", "completed tech is reported done")
+	check(forging.id == "research:iron_casting" and forging.reason == "age_required" and forging.done == false, "a finished tech hands its card to its follow-up")
+	GameManager.complete_research(0, "fletching")
+	forging = smith.get_context_actions(0)[2]
+	check(forging.id == "research:fletching" and forging.done == true and forging.reason == "already_researched", "completed tech is reported done")
+	GameManager.researched_upgrades[0].erase("fletching")
 	check(smith.perform_context_action(0, "bogus:thing") == "Action unavailable" and smith.perform_context_action(0, "research:nope") == "Research unavailable", "unknown actions are rejected")
 	# The real HUD row, on the real Main.
 	var hud: CanvasLayer = main.hud
 	hud.show_building_selection("Blacksmith", smith.hp, smith.max_hp, [], [], smith)
 	var row: HBoxContainer = hud.get("_research_container")
 	check(row != null and row.visible and row.get_child_count() == 4, "HUD renders four action cards for the Blacksmith")
-	var forge_card: Button = row.get_node_or_null("ResearchButton_forging") as Button
+	var forge_card: Button = row.get_node_or_null("ResearchButton_iron_casting") as Button
 	var mail_card: Button = row.get_node_or_null("ResearchButton_scale_mail") as Button
-	check(forge_card != null and forge_card.disabled and forge_card.text == "Forge\n+2 Attack\nComplete", "completed card keeps the shelf copy: " + (forge_card.text if forge_card != null else "missing"))
+	check(forge_card != null and forge_card.disabled and forge_card.text == "Iron Cast\n+2 Attack\nNeed Castle", "a blocked card says why where its cost was: " + (forge_card.text if forge_card != null else "missing"))
 	check(mail_card != null and not mail_card.disabled and mail_card.text == "Mail\n+1 Armor\n100F · 50G", "available card keeps name, effect and cost: " + (mail_card.text if mail_card != null else "missing"))
 	if mail_card != null: mail_card.pressed.emit()
+	hud.show_building_selection("Blacksmith", smith.hp, smith.max_hp, [], [], smith)
+	mail_card = row.get_node_or_null("ResearchButton_scale_mail") as Button
+	check(smith.research_id == "scale_mail" and mail_card != null and not mail_card.disabled and mail_card.text == "Mail\n+1 Armor\nCancel", "a running card is the cancel meter: " + (mail_card.text if mail_card != null else "missing"))
+	main._advance_production_queues(30.5)
 	check(GameManager.has_research(0, "scale_mail") and GameManager.get_armor_bonus(0) == 1 and ResourceManager.get_all_resources(0) == {"food": 1800, "wood": 2000, "gold": 1900}, "pressing a card buys through building_action_requested exactly once")
 	# A later stream's provider needs no HUD or BuildingBase edit.
 	BuildingBase.register_context_provider("probe", probe_actions, probe_perform)
-	check(smith.get_context_actions(0).size() == 5 and smith.get_context_actions(0)[4].id == "probe:ping" and main._player_town_center.get_context_actions(0).is_empty(), "registered provider appends its action to matching buildings only")
+	check(smith.get_context_actions(0).size() == 5 and smith.get_context_actions(0)[4].id == "probe:ping" and not main._player_town_center.get_context_actions(0).any(func(action: Dictionary) -> bool: return action.id == "probe:ping"), "registered provider appends its action to matching buildings only")
 	hud.show_building_selection("Blacksmith", smith.hp, smith.max_hp, [], [], smith)
 	var ping: Button = row.get_node_or_null("ActionButton_probe_ping") as Button
 	check(ping != null and not ping.disabled and ping.text == "Ping\nTest action\n5W", "HUD renders a provider action generically: " + (ping.text if ping != null else "missing"))
@@ -288,20 +300,25 @@ func _check_network() -> void:
 	# Generic building_action: the HUD row's online route, validated on the authority.
 	ResourceManager.initialize_player(0, {"food": 1000, "wood": 1000, "gold": 1000})
 	ResourceManager.initialize_player(1, {"food": 1000, "wood": 1000, "gold": 1000})
-	var action: Dictionary = {"command": "building_action", "target": smith_id, "action": "research:wheelbarrow"}
+	var tc_id: int = NetworkSession.entity_id(main._player_town_center)
+	var action: Dictionary = {"command": "building_action", "target": tc_id, "action": "research:wheelbarrow"}
 	check(server.execute_command(1, action) == "Select your building" and not GameManager.has_research(0, "wheelbarrow") and not GameManager.has_research(1, "wheelbarrow"), "authority rejects another player's building")
 	check(server.execute_command(0, {"command": "building_action", "target": smith_id, "action": 5}) == "Invalid order" and server.execute_command(0, {"command": "building_action", "target": smith_id}) == "Invalid order", "authority rejects a malformed action id")
 	check(server.execute_command(0, {"command": "building_action", "target": smith_id, "action": "research:nope"}) == "Research unavailable" and server.execute_command(0, {"command": "building_action", "target": smith_id, "action": "bogus"}) == "Action unavailable" and server.execute_command(0, {"command": "building_action", "target": NetworkSession.entity_id(main._player_units[0][0]), "action": "research:wheelbarrow"}) == "Select your building", "authority rejects unknown actions and non-building targets")
 	check(ResourceManager.get_all_resources(0) == {"food": 1000, "wood": 1000, "gold": 1000} and ResourceManager.get_all_resources(1) == {"food": 1000, "wood": 1000, "gold": 1000}, "rejected building actions spend nothing")
-	check(server.execute_command(0, action) == "" and GameManager.has_research(0, "wheelbarrow") and ResourceManager.get_all_resources(0) == {"food": 825, "wood": 950, "gold": 1000}, "authority researches Wheelbarrow through building_action at its exact cost")
-	check(is_equal_approx(GameManager.get_modifier(0, "gather_all"), UnitData.WHEELBARROW_GATHER_BONUS) and is_equal_approx(GameManager.get_gather_bonus(0), UnitData.WHEELBARROW_GATHER_BONUS), "its effect lands in the registry")
+	check(server.execute_command(0, action) == "" and not GameManager.has_research(0, "wheelbarrow") and ResourceManager.get_all_resources(0) == {"food": 825, "wood": 950, "gold": 1000}, "authority starts Wheelbarrow through building_action at its exact cost")
+	main._advance_production_queues(35.5)
+	check(GameManager.has_research(0, "wheelbarrow"), "the timed research completes on the authority")
+	check(is_equal_approx(GameManager.get_modifier(0, "carry"), 0.34) and is_equal_approx(GameManager.get_modifier(0, "villager_speed"), 0.1) and GameManager.get_modifier(0, "gather_all") == 0.0, "its effect lands in the registry")
 	check(server.execute_command(0, action) == "Research unavailable" and ResourceManager.get_resource(0, "food") == 825, "authority refuses a repeat purchase")
-	check(server.execute_command(0, {"command": "research", "target": smith_id, "research": "loom"}) == "" and GameManager.get_villager_hp_bonus(0) == 15, "the original research command still works")
+	check(server.execute_command(0, {"command": "research", "target": tc_id, "research": "loom"}) == "" and GameManager.get_villager_hp_bonus(0) == 0, "the original research command starts a timed research")
+	main._advance_production_queues(15.5)
+	check(GameManager.get_villager_hp_bonus(0) == 15, "and it completes")
 	# Snapshot sections.
 	main.ext.register_snapshot("probe", func(slot: int) -> Dictionary: return {"slot": slot, "n": 3}, func(section: Variant) -> void: _consumed.append(section))
 	main.ext.register_snapshot("probe_empty", func(_slot: int) -> Variant: return null)
 	var snapshot: Dictionary = server._snapshot_for(0)
-	check(snapshot.get("ext") == {"probe": {"slot": 0, "n": 3}} and server._snapshot_for(1).ext.probe.slot == 1, "snapshot.ext carries each provider's per-recipient section and omits null")
+	check(snapshot.get("ext", {}).get("probe") == {"slot": 0, "n": 3} and not snapshot.ext.has("probe_empty") and snapshot.ext.has("research") and server._snapshot_for(1).ext.probe.slot == 1, "snapshot.ext carries each provider's per-recipient section and omits null")
 	check(snapshot.get("modifiers") == GameManager.player_modifiers[0] and not snapshot.has("upgrades") and snapshot.modifiers.get("attack") == 2.0, "snapshot replicates the owner's modifier registry")
 	var wire: Variant = JSON.parse_string(JSON.stringify({"ext": snapshot.ext, "modifiers": snapshot.modifiers}))
 	check(wire is Dictionary and wire.ext.probe.n == 3.0, "extension sections survive the JSON wire format")

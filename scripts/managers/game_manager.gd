@@ -882,7 +882,8 @@ func describe_research_failure(player_id: int, research_id: String, reason: Stri
 				for resource: String in ["food", "wood", "gold"]:
 					if int(missing.get(resource, 0)) > 0:
 						parts.append("%d%s" % [int(missing[resource]), resource.left(1).to_upper()])
-			return "Need " + " ".join(parts) if not parts.is_empty() else "Need resources"
+			# A compact first shortage, as on the unit cards; Info lists them all.
+			return "Need %s%s" % [parts[0], " +" if parts.size() > 1 else ""] if not parts.is_empty() else "Need resources"
 		"age_required":
 			return "Need %s" % get_age_name(int(definition.get("age_required", 1))) if not definition.is_empty() else "Need next age"
 		"requires_research":

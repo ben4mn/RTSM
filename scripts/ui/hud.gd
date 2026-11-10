@@ -529,6 +529,7 @@ func _process(_delta: float) -> void:
 	_update_worker_undo_button()
 	_focus_pulse_time += _delta
 	_refresh_primary_action_visuals()
+	_place_age_blocked_note()
 	_age_refresh_elapsed += _delta
 	if _age_refresh_elapsed >= 0.25:
 		_age_refresh_elapsed = 0.0
@@ -2847,7 +2848,7 @@ func _update_age_display() -> void:
 			FieldStyle.production_meter(age_up_button, clampf(readiness, 0.0, 1.0))
 			age_up_button.tooltip_text = _get_age_up_preview(age + 1)
 			age_up_button.accessibility_name = age_up_button.tooltip_text
-			age_up_button.disabled = (not affordable and blocked_copy.is_empty()) or _ui_modal_state != UIModalState.NONE
+			age_up_button.disabled = not affordable or _ui_modal_state != UIModalState.NONE
 			age_up_button.modulate = Color.WHITE if affordable and blocked_copy.is_empty() else Color(0.8, 0.8, 0.8)
 			_set_age_blocked_note(blocked_copy)
 		else:
@@ -2862,6 +2863,7 @@ func _update_age_display() -> void:
 
 
 var _age_up_was_idle: bool = true
+var _age_blocked_note: Label = null
 var _age_refresh_elapsed: float = 0.0
 
 
@@ -2871,34 +2873,39 @@ func refresh_age_display() -> void:
 
 func _set_age_blocked_note(copy: String) -> void:
 	## "Need a Barracks or Resource Camp" above the age button, in the blocked
-	## card voice. Only shown while the button itself is on screen.
-	var note := age_up_button.get_node_or_null("AgeBlockedNote") as Label
-	if copy.is_empty():
-		if note != null:
-			note.visible = false
+	## card voice. It lives on the HUD root so no shelf can clip it and is only
+	## shown while the button itself is on screen (see _place_age_blocked_note).
+	if copy.is_empty() and _age_blocked_note == null:
 		return
-	if note == null:
-		note = Label.new()
-		note.name = "AgeBlockedNote"
-		note.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		note.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		note.add_theme_font_size_override("font_size", 11)
-		note.add_theme_color_override("font_color", KingdomTheme.RUST)
+	if _age_blocked_note == null:
+		_age_blocked_note = Label.new()
+		_age_blocked_note.name = "AgeBlockedNote"
+		_age_blocked_note.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_age_blocked_note.add_theme_font_size_override("font_size", 11)
+		_age_blocked_note.add_theme_color_override("font_color", KingdomTheme.RUST)
 		var note_style: StyleBoxFlat = KingdomTheme.panel_style(Color(KingdomTheme.INK, 0.92), Color.TRANSPARENT, 8)
 		note_style.set_content_margin_all(0)
 		note_style.content_margin_left = 7.0
 		note_style.content_margin_right = 7.0
 		note_style.content_margin_top = 2.0
 		note_style.content_margin_bottom = 3.0
-		note.add_theme_stylebox_override("normal", note_style)
-		age_up_button.add_child(note)
-		note.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-		note.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-		note.grow_vertical = Control.GROW_DIRECTION_BEGIN
-		note.offset_bottom = -4.0
-		note.offset_top = -4.0
-	note.text = copy
-	note.visible = true
+		_age_blocked_note.add_theme_stylebox_override("normal", note_style)
+		($Root as Control).add_child(_age_blocked_note)
+	_age_blocked_note.text = copy
+	_place_age_blocked_note()
+
+
+func _place_age_blocked_note() -> void:
+	if _age_blocked_note == null:
+		return
+	_age_blocked_note.visible = not _age_blocked_note.text.is_empty() and age_up_button.is_visible_in_tree() and _ui_modal_state == UIModalState.NONE
+	if not _age_blocked_note.visible:
+		return
+	_age_blocked_note.reset_size()
+	var root_control: Control = $Root as Control
+	var anchor: Rect2 = root_control.get_global_transform().affine_inverse() * age_up_button.get_global_rect()
+	var note_size: Vector2 = _age_blocked_note.get_combined_minimum_size()
+	_age_blocked_note.position = Vector2(clampf(anchor.end.x - note_size.x, 4.0, maxf(4.0, root_control.size.x - note_size.x - 4.0)), anchor.position.y - note_size.y - 5.0)
 
 
 func _get_age_up_preview(next_age: int) -> String:
@@ -3649,6 +3656,8 @@ func _update_train_buttons(trainable_units: Array) -> void:
 	for child: Node in _train_buttons_container.get_children():
 		if child.is_queued_for_deletion():
 			continue
+		if child.has_meta("action_id"):
+			continue  # Context tiles belong to _update_research_buttons.
 		if not desired_names.has(String(child.name)):
 			if child == _auto_queue_button:
 				_auto_queue_button = null
@@ -3781,7 +3790,7 @@ func _update_train_buttons(trainable_units: Array) -> void:
 	_building_rally_button.visible = (_selected_building_ref as BuildingBase).building_type != BuildingData.BuildingType.TRADE_POST
 	_building_rally_button.disabled = not _is_human_owned_building(_selected_building_ref) or (_selected_building_ref as BuildingBase).state != BuildingBase.State.ACTIVE
 	_building_rally_button.set_pressed_no_signal(_rally_armed)
-	_train_buttons_container.move_child(_building_rally_button, -1)
+	_train_buttons_container.move_child(_building_rally_button, child_index)
 	# No automatic production (owner, beta 22): queue as many as you can afford.
 	if is_instance_valid(_auto_queue_button):
 		_auto_queue_button.hide()
@@ -4089,26 +4098,33 @@ func _update_research_buttons(building_ref: Node2D) -> void:
 			parent_vbox.add_child(_research_container)
 
 	var actions: Array[Dictionary] = _context_actions_for(building_ref)
+	# Round 2 B: a building that trains units shows its techs as tiles in that
+	# same row, after the rally flag; a pure research building keeps its own
+	# row of three-line cards.
+	var in_train_row: bool = not actions.is_empty() and _train_buttons_container != null and _train_buttons_container.visible
+	var host: HBoxContainer = _train_buttons_container if in_train_row else _research_container
 	var desired_names: Dictionary = {}
 	for action: Dictionary in actions:
 		desired_names[_context_action_button_name(str(action["id"]))] = true
-	for child: Node in _research_container.get_children():
-		if child.is_queued_for_deletion():
+	for container: HBoxContainer in [_research_container, _train_buttons_container]:
+		if container == null:
 			continue
-		if not desired_names.has(String(child.name)):
-			_retire_dynamic_control(child)
+		for child: Node in container.get_children():
+			if child.is_queued_for_deletion() or not child.has_meta("action_id"):
+				continue
+			if container != host or not desired_names.has(String(child.name)):
+				_retire_dynamic_control(child)
 
+	_research_container.visible = not actions.is_empty() and not in_train_row
 	if actions.is_empty():
-		_research_container.visible = false
 		_refresh_touch_target_diagnostics()
 		return
 
-	_research_container.visible = true
 	var child_index := 0
 	for action: Dictionary in actions:
 		var action_id: String = str(action["id"])
 		var button_name: String = _context_action_button_name(action_id)
-		var btn: Button = _research_container.get_node_or_null(NodePath(button_name)) as Button
+		var btn: Button = host.get_node_or_null(NodePath(button_name)) as Button
 		if btn == null:
 			btn = Button.new()
 			btn.name = button_name
@@ -4116,7 +4132,7 @@ func _update_research_buttons(building_ref: Node2D) -> void:
 			if action_id.begins_with(BuildingBase.RESEARCH_ACTION_PREFIX):
 				btn.set_meta("research_id", action_id.trim_prefix(BuildingBase.RESEARCH_ACTION_PREFIX))
 			btn.pressed.connect(_on_context_action_pressed.bind(action_id))
-			_research_container.add_child(btn)
+			host.add_child(btn)
 		_attach_hud_hold(btn, _context_action_information.bind(action_id))
 		btn.visible = true
 		btn.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -4131,14 +4147,38 @@ func _update_research_buttons(building_ref: Node2D) -> void:
 		var done: bool = bool(action.get("done", false))
 		var progress: float = float(action.get("progress", -1.0))
 		var blocked_reason: String = str(action.get("disabled_reason", ""))
+		# Card-sized reason: "Need Feudal", "Need 50G +", "Busy".
+		var blocked_short: String = "Busy" if str(action.get("reason", "")) == "building_busy" else blocked_reason.trim_suffix(" Age")
 		var status_line: String = " · ".join(costs)
 		if done:
 			status_line = "Complete"
 		elif progress >= 0.0:
-			status_line = "%d%% · Cancel" % int(clampf(progress, 0.0, 1.0) * 100.0) if bool(action.get("cancel", false)) else "%d%%" % int(clampf(progress, 0.0, 1.0) * 100.0)
+			# The seam under the card is the meter; the line says what a tap does.
+			status_line = "Cancel" if bool(action.get("cancel", false)) else "%d%%" % int(clampf(progress, 0.0, 1.0) * 100.0)
 		elif not blocked_reason.is_empty():
 			# Beta 31 voice: a blocked card says why where its cost was.
-			status_line = blocked_reason
+			status_line = blocked_short
+		var information: Dictionary = _context_action_information(action_id)
+		btn.tooltip_text = "%s\n%s" % [information.get("title", "Research"), information.get("body", "")]
+		btn.accessibility_name = btn.tooltip_text.replace("\n", ". ")
+		btn.disabled = done or (not blocked_reason.is_empty() and progress < 0.0)
+		if in_train_row:
+			# Same tile as the unit cards beside it: icon, name, cost or reason.
+			var tile_icon_path: String = str(action.get("icon", ""))
+			var tile_status: String = ""
+			if done:
+				tile_status = "Done"
+			elif progress >= 0.0:
+				tile_status = "Cancel" if bool(action.get("cancel", false)) else "%d%%" % int(clampf(progress, 0.0, 1.0) * 100.0)
+			elif not blocked_reason.is_empty():
+				tile_status = blocked_short
+			ACTION_TILE.apply(btn, load(tile_icon_path) as Texture2D if not tile_icon_path.is_empty() and ResourceLoader.exists(tile_icon_path) else null, action_cost, Vector2(66, 54), str(action.get("short", action.get("label", action_id))))
+			ACTION_TILE.set_status(btn, tile_status)
+			(btn.get_node("TilePortrait") as CanvasItem).modulate = Color.WHITE if blocked_reason.is_empty() or done or progress >= 0.0 else Color(0.6, 0.6, 0.6)
+			FieldStyle.production_meter(btn, progress if not done else -1.0)
+			host.move_child(btn, host.get_child_count() - 1)
+			child_index += 1
+			continue
 		FieldStyle.production_meter(btn, progress if not done else -1.0)
 		var lines: PackedStringArray = []
 		for line: String in [
@@ -4168,10 +4208,6 @@ func _update_research_buttons(building_ref: Node2D) -> void:
 			btn.icon = load(icon_path) as Texture2D
 			btn.expand_icon = true
 			btn.add_theme_constant_override("icon_max_width", 18)
-		btn.disabled = done or (not blocked_reason.is_empty() and progress < 0.0)
-		var information: Dictionary = _context_action_information(action_id)
-		btn.tooltip_text = "%s\n%s" % [information.get("title", "Research"), information.get("body", "")]
-		btn.accessibility_name = btn.tooltip_text.replace("\n", ". ")
 		_research_container.move_child(btn, child_index)
 		child_index += 1
 	_queue_mobile_layout_refresh()

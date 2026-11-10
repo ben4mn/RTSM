@@ -1053,9 +1053,9 @@ func set_age_dressing(age: int, celebrate: bool = false) -> void:
 				add_child(_age_banner)
 			_age_banner.texture = load(banner_path)
 			_age_banner.visible = true
-			_age_banner.scale = Vector2(0.5, 0.5)
-			var bounds: Rect2 = get_visual_bounds(false)
-			_age_banner.position = Vector2(bounds.position.x + bounds.size.x * 0.24, bounds.position.y + 6.0)
+			_age_banner.scale = Vector2(0.6, 0.6)
+			# Planted on the right shoulder of the roofline, clear of the civ's own flag.
+			_age_banner.position = _sprite_visual_rect.position + _sprite_visual_rect.size * Vector2(0.84, 0.30)
 	if celebrate and _sprite != null and _sprite.texture != null and state != State.DESTROYED and not GameManager.reduced_flashes:
 		var glow := Sprite2D.new()
 		glow.name = "AgeGlow"

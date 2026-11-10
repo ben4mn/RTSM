@@ -98,7 +98,7 @@ static func on_research_completed(main: Node, player_id: int, research_id: Strin
 				building.hp += hp_bonus if building.state == BuildingBase.State.ACTIVE else int(hp_bonus * building.build_progress)
 			building.tower_attack_damage += int(effects.get("tower_damage", 0.0))
 			building.queue_redraw()
-	if player_id == 0 and main.get("hud") != null:
+	if player_id == 0 and main.get("hud") != null and not NetworkSession.server_mode:
 		main.hud.show_notification("Research complete: %s" % str(definition.get("name", research_id)), Color(0.5, 0.8, 1.0))
 
 
@@ -159,7 +159,7 @@ static func on_age_advanced(main: Node, player_id: int, new_age: int) -> void:
 			building.set_age_dressing(new_age, true)
 		elif is_instance_valid(building):
 			building.set_age_dressing(new_age)
-	if player_id == 0 and main.get("hud") != null:
+	if player_id == 0 and main.get("hud") != null and not NetworkSession.server_mode:
 		AGE_CEREMONY_SCRIPT.play(main.hud, new_age)
 
 
