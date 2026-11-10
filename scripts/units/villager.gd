@@ -101,6 +101,7 @@ const ECONOMIC_THREAT_CHECK_INTERVAL: float = 0.25
 const ECONOMIC_THREAT_MIN_DISTANCE: float = 80.0
 const ECONOMIC_THREAT_RANGE_MARGIN: float = 48.0
 const ECONOMIC_THREAT_CLOSING_STEP: float = 4.0
+const ECONOMIC_THREAT_SCAN_REACH: float = 640.0
 const RECOVERY_QUIET_SECONDS: float = 3.0
 const RECOVERY_DAMAGE_DELAY: float = 4.0
 const RECOVERY_THREAT_MARGIN: float = 56.0
@@ -280,6 +281,12 @@ func _check_visible_economic_threats() -> void:
 	# dictionary drops any enemy no longer in this owner's current vision.
 	var observed: Dictionary = {}
 	var threatened: bool = false
+	# Nobody else's unit anywhere near (several samples of travel beyond any
+	# warning distance): nothing can threaten now or count as closing at the
+	# next sample, so the visible-enemy roster is not walked at all.
+	if _index_listed and not _live_unit_index.other_owner_near(global_position, ECONOMIC_THREAT_SCAN_REACH, player_owner):
+		_observed_worker_threat_distances = observed
+		return
 	for enemy: UnitBase in _get_visible_economic_threats():
 		var distance: float = global_position.distance_to(enemy.global_position)
 		var instance_id: int = enemy.get_instance_id()
