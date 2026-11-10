@@ -4300,13 +4300,17 @@ func _find_build_location_near_tile(
 	maximum_ring: int,
 	search_cursor: int = 0
 ) -> Vector2i:
+	if search_cursor < 0:
+		return Vector2i(-1, -1)
+	# Only candidates[search_cursor] is read: stop the ring scan once it exists.
 	var candidates: Array[Vector2i] = _collect_build_locations_near_tile(
 		anchor_tile,
 		footprint,
 		minimum_ring,
-		maximum_ring
+		maximum_ring,
+		search_cursor + 1
 	)
-	if search_cursor < 0 or search_cursor >= candidates.size():
+	if search_cursor >= candidates.size():
 		return Vector2i(-1, -1)
 	return candidates[search_cursor]
 
@@ -4315,7 +4319,8 @@ func _collect_build_locations_near_tile(
 	anchor_tile: Vector2i,
 	footprint: Vector2i,
 	minimum_ring: int,
-	maximum_ring: int
+	maximum_ring: int,
+	limit: int = -1
 ) -> Array[Vector2i]:
 	var candidates: Array[Vector2i] = []
 	for ring in range(minimum_ring, maximum_ring):
@@ -4326,6 +4331,8 @@ func _collect_build_locations_near_tile(
 				var tile := Vector2i(anchor_tile.x + dx, anchor_tile.y + dy)
 				if _is_valid_build_spot(tile, footprint):
 					candidates.append(tile)
+					if limit >= 0 and candidates.size() >= limit:
+						return candidates
 	return candidates
 
 

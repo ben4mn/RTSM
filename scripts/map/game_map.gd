@@ -993,6 +993,16 @@ func register_spatial_unit(unit: UnitBase) -> RefCounted:
 func get_units_near(position: Vector2, radius: float) -> Array[UnitBase]:
 	return _live_unit_index.near(position, radius)
 
+## Moves whenever any unit's sight tile, sight radius, owner, life or presence
+## in the tree changes.
+func get_unit_vision_revision() -> int:
+	return _live_unit_index.vision_revision
+
+## How many units the index holds; equal to the "units" group size when every
+## unit in the tree belongs to this map (callers use that to trust the index).
+func get_spatial_unit_count() -> int:
+	return _live_unit_index.size()
+
 
 ## --- Public API ---
 
@@ -1187,6 +1197,9 @@ func is_entity_visible_to_player(entity: Node2D, viewer_player_id: int = 0) -> b
 	# every battlefield visibility probe. Buildings retain footprint semantics.
 	if not entity is BuildingBase and fog_of_war != null and viewer_player_id == fog_of_war.owning_player:
 		return fog_of_war.is_tile_visible(origin_tile)
+	# Same single-tile answer as the generic path below, without the array.
+	if not entity is BuildingBase and is_inside_tree() and origin_tile.x >= 0 and origin_tile.y >= 0 and origin_tile.x < MapData.MAP_WIDTH and origin_tile.y < MapData.MAP_HEIGHT:
+		return _live_unit_index.units_reveal(origin_tile, viewer_player_id) or _building_vision_grid(viewer_player_id)[origin_tile.y * MapData.MAP_WIDTH + origin_tile.x] != 0
 	var target_tiles: Array[Vector2i] = []
 	if entity is BuildingBase:
 		var building := entity as BuildingBase
@@ -1260,6 +1273,14 @@ func get_visible_enemy_units_for_player(viewer_player_id: int) -> Array[UnitBase
 		return cached.units
 	var visible: Array[UnitBase] = []
 	var foreign_targets: bool = false
+	# Common case: every unit in the group belongs to this map, so the index's
+	# tree-ordered list is the same sequence without a group copy or an
+	# ancestor walk per unit. Same per-unit rule either way.
+	var ordered: Array[UnitBase] = _live_unit_index.ordered_units()
+	if ordered.size() == get_tree().get_node_count_in_group("units"):
+		_live_unit_index.collect_visible_enemies(viewer_player_id, fog_of_war if local_fog else null, _building_vision_grid(viewer_player_id), visible)
+		_visible_enemy_rosters[viewer_player_id] = {"signature": signature, "units": visible, "foreign_targets": false}
+		return visible
 	for node: Node in get_tree().get_nodes_in_group("units"):
 		if not node is UnitBase: continue
 		var unit := node as UnitBase
@@ -1360,6 +1381,38 @@ func _vision_circle_contains_any(
 ## Check if a tile is walkable.
 func is_tile_walkable(tile_pos: Vector2i) -> bool:
 	return pathfinding.is_walkable(tile_pos)
+
+
+func is_world_point_walkable(world_pos: Vector2) -> bool:
+	return pathfinding.is_walkable(world_to_tile(world_pos))
+
+
+## UnitBase._is_navigation_segment_clear, with typed map access: one call per
+## movement check instead of a dynamic call per sampled tile. Same rule.
+func is_navigation_segment_clear(from_position: Vector2, to_position: Vector2, sample_distance: float) -> bool:
+	var previous_tile: Vector2i = world_to_tile(from_position)
+	if not pathfinding.is_walkable(previous_tile):
+		return true
+	var target_tile: Vector2i = world_to_tile(to_position)
+	if not pathfinding.is_walkable(target_tile):
+		return false
+	var tile_delta: Vector2i = (target_tile - previous_tile).abs()
+	if tile_delta.x <= 1 and tile_delta.y <= 1:
+		if tile_delta.x == 0 or tile_delta.y == 0:
+			return true
+		return pathfinding.is_walkable(Vector2i(target_tile.x, previous_tile.y)) and pathfinding.is_walkable(Vector2i(previous_tile.x, target_tile.y))
+	var samples: int = maxi(1, int(ceil(from_position.distance_to(to_position) / sample_distance)))
+	for sample: int in range(1, samples + 1):
+		var tile: Vector2i = world_to_tile(from_position.lerp(to_position, float(sample) / samples))
+		if tile == previous_tile:
+			continue
+		if not pathfinding.is_walkable(tile):
+			return false
+		if tile.x != previous_tile.x and tile.y != previous_tile.y:
+			if not pathfinding.is_walkable(Vector2i(tile.x, previous_tile.y)) or not pathfinding.is_walkable(Vector2i(previous_tile.x, tile.y)):
+				return false
+		previous_tile = tile
+	return true
 
 
 ## Canonical structure-placement terrain contract. Movement permits forests and

@@ -136,6 +136,35 @@ func near(position: Vector2, radius: float) -> Array[UnitBase]:
 	for rank: int in ranks: result.append(_ordered_units[rank])
 	return result
 
+## Enemy units `viewer` currently sees, in tree order, appended to `into`.
+## Per unit this is GameMap.is_entity_visible_to_player: the local FogManager
+## grid when `fog` is given, otherwise living-unit sight counts or the building
+## vision grid; off-map poses go through the map's exact query.
+func collect_visible_enemies(viewer: int, fog: FogManager, building_grid: PackedByteArray, into: Array[UnitBase]) -> void:
+	_refresh_order()
+	var slot: int = _vision_slots.get(viewer, -1)
+	var width: int = MapData.MAP_WIDTH
+	for unit: UnitBase in _ordered_units:
+		if unit.player_owner == viewer or unit.current_state == UnitBase.State.DEAD: continue
+		var tile: Vector2i = _entries[unit.get_instance_id()].tile
+		var seen: bool = false
+		if fog != null:
+			seen = fog.is_tile_visible(tile)
+		elif tile.x >= 0 and tile.y >= 0 and tile.x < width and tile.y < MapData.MAP_HEIGHT:
+			var index: int = tile.y * width + tile.x
+			seen = (slot >= 0 and _vision_counts[slot + index] > 0) or building_grid[index] != 0
+		else:
+			seen = _map.is_entity_visible_to_player(unit, viewer)
+		if seen: into.append(unit)
+
+func size() -> int:
+	return _entries.size()
+
+## Living and dying units of this map in SceneTree order. Borrowed: do not mutate.
+func ordered_units() -> Array[UnitBase]:
+	_refresh_order()
+	return _ordered_units
+
 func invalidate_order() -> void:
 	order_revision += 1
 	_order_dirty = true
@@ -150,15 +179,23 @@ func _refresh_order() -> void:
 			_ordered_units.append(node)
 
 func _refresh_parent_transforms() -> void:
-	for id: int in _parents.keys():
-		if not is_instance_valid(_parents[id].node):
-			_parents.erase(id)
-			continue
+	# Called on every visibility probe: no key-array copy in the usual case
+	# (one live container that has not moved).
+	var stale: Array = []
+	var moved: Array = []
+	for id: int in _parents:
+		var record: Dictionary = _parents[id]
+		if not is_instance_valid(record.node):
+			stale.append(id)
+		elif (record.node as Node2D).global_transform != record.transform:
+			moved.append(id)
+	for id: int in stale:
+		_parents.erase(id)
+	for id: int in moved:
 		var parent: Node2D = _parents[id].node
-		if parent.global_transform != _parents[id].transform:
-			_parents[id].transform = parent.global_transform
-			for entry: Dictionary in _entries.values():
-				if is_instance_valid(entry.unit) and entry.unit.get_parent() == parent: update(entry.unit)
+		_parents[id].transform = parent.global_transform
+		for entry: Dictionary in _entries.values():
+			if is_instance_valid(entry.unit) and entry.unit.get_parent() == parent: update(entry.unit)
 
 func _insert(cells: Dictionary, cell: Vector2i, unit: UnitBase) -> void:
 	if not cells.has(cell): cells[cell] = []

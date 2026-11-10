@@ -18,6 +18,7 @@ const MAX_CLIENT_PACKET := 8192
 const MAX_SERVER_PACKET := 262144
 const MAX_CONNECTIONS := 34
 const SNAPSHOT_INTERVAL := 0.1
+const SERVER_TICK_HZ := 30
 const CLIENT_POLL_PACKET_BUDGET := 256
 const CLIENT_POLL_PARSE_BUDGET_USEC := 4000
 const CONNECTION_TIMEOUT := 12.0
@@ -65,6 +66,12 @@ func _ready() -> void:
 	process_physics_priority = -1000
 	server_mode = "--aoem-server" in OS.get_cmdline_user_args()
 	if server_mode:
+		# The authority used to spin an uncapped headless loop: one core at 100%
+		# even in an empty lobby, and a variable tick. A fixed 30 Hz tick halves
+		# the simulation cost per game second against a 60 Hz client frame;
+		# snapshots stay at 10 Hz. It has no display, so no pose animation.
+		Engine.max_fps = SERVER_TICK_HZ
+		UnitBase.presentation_enabled = false
 		GameManager.guided_opening_enabled = false
 		call_deferred("_start_server")
 

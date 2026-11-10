@@ -113,6 +113,10 @@ func register_vision_source(tile_pos: Vector2i, vision_radius: int, is_scout: bo
 	})
 
 
+func get_vision_source_count() -> int:
+	return _vision_sources.size()
+
+
 ## Clear all vision sources — call at start of each frame before re-registering.
 func clear_vision_sources() -> void:
 	_vision_sources.clear()

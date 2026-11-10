@@ -7,6 +7,9 @@ var _astar := AStarGrid2D.new()
 var _map_generator: MapGenerator
 ## Consumers can invalidate failed destinations after a route opens/closes.
 var walkability_revision: int = 0
+## Byte mirror of the grid's solid flags (1 = solid), row-major. Movement asks
+## is_walkable several times per unit per frame; this keeps it to one read.
+var _solid := PackedByteArray()
 
 const DEFAULT_MAX_PATH_CHECKS := 32
 const DEFAULT_START_RECOVERY_RADIUS := 4
@@ -25,6 +28,8 @@ func _setup_grid() -> void:
 	_astar.default_compute_heuristic = AStarGrid2D.HEURISTIC_EUCLIDEAN
 	_astar.default_estimate_heuristic = AStarGrid2D.HEURISTIC_EUCLIDEAN
 	_astar.update()
+	_solid.resize(MapData.MAP_WIDTH * MapData.MAP_HEIGHT)
+	_solid.fill(0)
 
 	for y in range(MapData.MAP_HEIGHT):
 		for x in range(MapData.MAP_WIDTH):
@@ -33,6 +38,7 @@ func _setup_grid() -> void:
 
 			if MapData.is_obstacle(tile_type):
 				_astar.set_point_solid(pos, true)
+				_solid[y * MapData.MAP_WIDTH + x] = 1
 			elif tile_type == MapData.TileType.FOREST:
 				_astar.set_point_weight_scale(pos, MapData.FOREST_MOVE_COST)
 
@@ -118,13 +124,14 @@ func get_walkable_tiles_near(center: Vector2i, radius: int, max_results: int = 3
 
 ## Check if a tile position is walkable.
 func is_walkable(pos: Vector2i) -> bool:
-	return not _is_solid(pos)
+	return pos.x >= 0 and pos.y >= 0 and pos.x < MapData.MAP_WIDTH and pos.y < MapData.MAP_HEIGHT and _solid[pos.y * MapData.MAP_WIDTH + pos.x] == 0
 
 
 ## Mark a tile as solid (e.g., when a building is placed).
 func set_solid(pos: Vector2i, solid: bool = true) -> void:
 	if _in_bounds(pos) and _astar.is_point_solid(pos) != solid:
 		_astar.set_point_solid(pos, solid)
+		_solid[pos.y * MapData.MAP_WIDTH + pos.x] = 1 if solid else 0
 		walkability_revision += 1
 
 

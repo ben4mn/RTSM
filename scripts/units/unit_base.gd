@@ -17,6 +17,10 @@ enum State { IDLE, MOVING, ATTACKING, GATHERING, BUILDING, DEAD }
 enum Stance { AGGRESSIVE, STAND_GROUND }
 enum NavigationResult { MOVING, ARRIVED, UNREACHABLE }
 
+## False on a headless authority (match server, scale benchmark): unit pose
+## animation is then skipped entirely. Never read by the simulation.
+static var presentation_enabled: bool = true
+
 # --- Stats (overridden per unit type) ---
 @export var unit_type: int = UnitData.UnitType.VILLAGER
 @export var player_owner: int = 0:
@@ -126,6 +130,9 @@ const UNIT_SIZES: Dictionary = {
 const UNIT_SPRITE_SCALES: Dictionary = UnitData.WORLD_SPRITE_SCALES
 
 var _live_unit_index: RefCounted = null
+## The real GameMap answers whole movement checks in one typed call; fixture
+## maps without those helpers keep the per-tile duck-typed path.
+var _navigation_map_typed: bool = false
 var _sprite: Sprite2D = null
 var _sprite_team_modulate: Color = Color.WHITE
 var _damage_flash_tween: Tween = null
@@ -536,9 +543,13 @@ func _navigate_toward(
 		path = PackedVector2Array()
 		path_index = 0
 
-	if not path.is_empty() and path_index < path.size() and game_map.has_method("world_to_tile") and game_map.has_method("is_tile_walkable"):
-		var waypoint_tile: Vector2i = game_map.call("world_to_tile", path[path_index])
-		if not bool(game_map.call("is_tile_walkable", waypoint_tile)):
+	if not path.is_empty() and path_index < path.size():
+		var waypoint_blocked: bool = false
+		if _navigation_map_typed:
+			waypoint_blocked = not game_map.is_world_point_walkable(path[path_index])
+		elif game_map.has_method("world_to_tile") and game_map.has_method("is_tile_walkable"):
+			waypoint_blocked = not bool(game_map.call("is_tile_walkable", game_map.call("world_to_tile", path[path_index])))
+		if waypoint_blocked:
 			path = PackedVector2Array()
 			path_index = 0
 			_navigation_repath_cooldown = 0.0
@@ -660,6 +671,8 @@ func _can_pass_occupied_waypoint(game_map: Node2D) -> bool:
 
 
 func _is_navigation_segment_clear(from_position: Vector2, to_position: Vector2, game_map: Node2D) -> bool:
+	if _navigation_map_typed and game_map == _navigation_map:
+		return game_map.is_navigation_segment_clear(from_position, to_position, NAVIGATION_SEGMENT_SAMPLE_DISTANCE)
 	if game_map == null or not game_map.has_method("world_to_tile") or not game_map.has_method("is_tile_walkable"):
 		return true
 	var previous_tile: Vector2i = game_map.call("world_to_tile", from_position)
@@ -722,6 +735,7 @@ func _get_navigation_map() -> Node2D:
 	while ancestor != null:
 		if ancestor is Node2D and ancestor.has_method("get_navigation_world_path"):
 			_navigation_map = ancestor as Node2D
+			_navigation_map_typed = ancestor.has_method("is_navigation_segment_clear") and ancestor.has_method("is_world_point_walkable")
 			return _navigation_map
 		ancestor = ancestor.get_parent()
 	return null
@@ -1215,8 +1229,12 @@ func _update_sprite_motion(delta: float) -> void:
 		_network_work_pose.y = fposmod(_network_work_pose.y + maxf(0.0, delta) / _network_work_pose.z, 1.0)
 	var displacement: Vector2 = global_position - _last_visual_position
 	_last_visual_position = global_position
-	# The pose itself (gait, idle, strike, flinch) lives in UnitPuppet.
-	_puppet.update(self, delta, displacement)
+	# The pose itself (gait, idle, strike, flinch) lives in UnitPuppet. It is
+	# skipped where nobody can see it; the next visible frame blends back in.
+	if presentation_enabled and visible and (BattleFX.get_fx() == null or BattleFX.get_fx().on_screen(global_position, 96.0)):
+		_puppet.update(self, delta, displacement)
+	else:
+		_puppet.tick_unseen(self, delta, displacement)
 
 
 func get_work_presentation() -> Vector3:

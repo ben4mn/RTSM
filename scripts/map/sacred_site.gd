@@ -270,7 +270,11 @@ func _reset_gold_accumulator() -> void:
 func _count_nearby_players() -> Array[int]:
 	var counts: Array[int] = [0, 0]
 	_armed_nearby_counts = [0, 0]
-	for unit in get_tree().get_nodes_in_group("units"):
+	# The map's unit index returns the same units in the same order as the group
+	# scan would within this radius; sites outside a GameMap keep the scan.
+	var map: Node = get_parent().get_parent() if get_parent() != null else null
+	var candidates: Array = map.get_units_near(global_position, get_capture_radius_world()) if map != null and map.has_method("get_units_near") and get_tree().get_node_count_in_group("units") == map.get_spatial_unit_count() else get_tree().get_nodes_in_group("units")
+	for unit in candidates:
 		if not is_instance_valid(unit) or not unit is Node2D:
 			continue
 		# Unit death fades for a short time before queue_free. The visual remnant

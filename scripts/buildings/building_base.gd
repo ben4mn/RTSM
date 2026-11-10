@@ -982,7 +982,11 @@ func _tower_try_attack() -> bool:
 	var best_unit: UnitBase = null
 	var best_unit_dist: float = INF
 	var best_unit_priority: int = 3
-	for node in get_tree().get_nodes_in_group("units"):
+	# Same candidates in the same order as the whole-group scan, limited to the
+	# cells this tower can reach.
+	var tower_map: Node = get_parent().get_parent() if get_parent() != null else null
+	var tower_candidates: Array = tower_map.get_units_near(global_position, tower_attack_range) if tower_map != null and tower_map.has_method("get_units_near") and get_tree().get_node_count_in_group("units") == tower_map.get_spatial_unit_count() else get_tree().get_nodes_in_group("units")
+	for node in tower_candidates:
 		if not is_instance_valid(node) or not (node is UnitBase):
 			continue
 		var u: UnitBase = node as UnitBase

@@ -7,6 +7,8 @@ extends Node
 ##   godot --headless --fixed-fps 60 res://tools/bench_scale.tscn -- --bodies=120 --seconds=30 --net=1
 ## `--net=1` also builds and JSON-encodes both authority snapshots at 10 Hz.
 ## `--select=N` keeps N own units selected so the HUD refresh path is exercised.
+## `--presentation=1` keeps unit pose animation on (a solo client); the default
+## matches the match server, which has no display.
 
 const DEV_HOOKS := preload("res://scripts/managers/dev_hooks.gd")
 const NETWORK_MATCH := preload("res://scripts/network/network_match.gd")
@@ -17,7 +19,7 @@ const VILLAGER_SHARE: float = 0.4
 const FIELD_SHARE: float = 0.4
 const ARMY_MIX: Array[int] = [UnitData.UnitType.INFANTRY, UnitData.UnitType.ARCHER, UnitData.UnitType.INFANTRY, UnitData.UnitType.CAVALRY, UnitData.UnitType.ARCHER]
 
-var options: Dictionary = {"bodies": "60", "seconds": "30", "seed": "100", "net": "1", "select": "0", "output": "", "label": ""}
+var options: Dictionary = {"bodies": "60", "seconds": "30", "seed": "100", "net": "1", "select": "0", "presentation": "0", "output": "", "label": ""}
 var match_scene: Node
 var game_map: Node2D
 var bot: AIController
@@ -40,6 +42,8 @@ func _run() -> void:
 	var bodies: int = maxi(4, int(options["bodies"]))
 	var seconds: float = float(options["seconds"])
 	AudioManager.set_all_enabled(false)
+	# Like the match server (NetworkSession server mode): no pose animation.
+	UnitBase.presentation_enabled = int(options["presentation"]) > 0
 	GameManager.guided_opening_enabled = false
 	GameManager.selected_civilization = CivilizationData.normalize(0)
 	GameManager.selected_opponent_civilization = CivilizationData.normalize(1)

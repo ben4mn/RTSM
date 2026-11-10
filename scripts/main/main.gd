@@ -3782,9 +3782,18 @@ func _advance_production_queues(delta: float) -> void:
 				pq._complete_current_unit()
 
 
+var _fog_source_key: Array = []
+
 func _update_fog_of_war() -> void:
 	var fog: FogManager = game_map.fog_of_war
 	if fog == null:
+		return
+	# The source list is a function of unit tiles/radii/deaths (the unit index's
+	# vision revision), building sources and the two rosters. When none moved,
+	# the list registered last frame is still exact and FogManager's own
+	# per-frame refresh keeps answering from it.
+	var source_key: Array = [fog.get_instance_id(), game_map.get_unit_vision_revision(), BuildingBase.vision_revision, _player_units[0].size(), _player_buildings[0].size(), fog.get_vision_source_count()]
+	if source_key == _fog_source_key:
 		return
 
 	fog.clear_vision_sources()
@@ -3808,6 +3817,8 @@ func _update_fog_of_war() -> void:
 
 	# Visibility consumers below must observe the sources from this same frame.
 	fog.refresh_visibility_now()
+	source_key[5] = fog.get_vision_source_count()
+	_fog_source_key = source_key
 
 
 func _update_fog_entity_visibility() -> void:
