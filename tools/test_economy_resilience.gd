@@ -291,6 +291,11 @@ func _scene_economy_facts(controller: Node, overview: StrategyOverview, tc: Buil
 			if entry is ResourceNode and _map.is_resource_target_visible_to_player(entry, 0) and _map.is_resource_target_valid(entry, "food", 0):
 				visible_stocks[entry] = entry.remaining
 				entry.remaining = 0
+		# Wildlife is observed food too: empty the visible flock and herd as well.
+		for entry: Node2D in _map.get_wildlife_nodes():
+			if entry is ResourceNode and _map.is_resource_target_visible_to_player(entry, 0) and _map.is_resource_target_valid(entry, "food", 0):
+				visible_stocks[entry] = entry.remaining
+				entry.remaining = 0
 		food_target.remaining = 20
 		_expect(workers[0].command_gather(food_target), "depletion fixture must retain a valid actual food order")
 		var held_time: float = GameManager.game_time

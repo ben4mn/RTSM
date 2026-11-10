@@ -318,7 +318,8 @@ func _place_blob(cx: int, cy: int, size: int, tile_type: MapData.TileType) -> vo
 func _place_guaranteed_near_spawn_resources() -> void:
 	var spawn: Vector2i = spawn_positions[0]
 	# Add a rear row, preserving the nearest approaches and open village core.
-	_place_resource_rectangle(spawn + Vector2i(-9, -6), Vector2i(4, 3), MapData.TileType.BERRY_BUSH)
+	# Six bushes: the home flock, deer and boar now carry the opening's food.
+	_place_resource_rectangle(spawn + Vector2i(-8, -5), Vector2i(3, 2), MapData.TileType.BERRY_BUSH)
 	_place_resource_rectangle(spawn + Vector2i(6, 4), Vector2i(4, 6), MapData.TileType.FOREST)
 	_place_resource_rectangle(spawn + Vector2i(-7, 7), Vector2i(2, 2), MapData.TileType.GOLD_MINE)
 	_place_resource_rectangle(spawn + Vector2i(-8, 4), Vector2i(2, 1), MapData.TileType.STONE)

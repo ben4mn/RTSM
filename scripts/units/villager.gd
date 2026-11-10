@@ -77,6 +77,7 @@ var _service_target_id: int = 0
 var _service_destination: Vector2 = Vector2.ZERO
 var _service_kind: String = ""
 const SERVICE_SPACING: float = 22.0
+const WILDLIFE_FOLLOW_DISTANCE: float = 10.0
 
 # Automatic raid recovery retains the economic order independently of the
 # movement state. A fresh player/AI command always supersedes this intent.
@@ -167,6 +168,26 @@ func take_damage(amount: float) -> void:
 	if current_state in [State.GATHERING, State.BUILDING, State.IDLE] or _dropoff_route_active:
 		_begin_recovery()
 		_flee_to_safety()
+
+
+# --- Wildlife (workstream A) ---------------------------------------------------
+
+## A boar's bite. It takes the ordinary damage path (flash, alert, death) but
+## never starts the economic auto-flee: the player is luring the boar on
+## purpose and must stay in control of where this villager runs.
+func take_wildlife_damage(amount: float) -> void:
+	super.take_damage(amount)
+
+
+## Animals move. Keep the fog-safe "last known" order position and the
+## reserved standing point on the animal instead of where it was first tapped.
+func _follow_wildlife_target(animal: WildlifeNode) -> void:
+	if animal.global_position.distance_to(_gather_last_known_position) <= WILDLIFE_FOLLOW_DISTANCE:
+		return
+	_gather_last_known_position = animal.global_position
+	if _service_kind == "work":
+		_release_service_position()
+	_reset_navigation()
 
 
 func _process_moving(delta: float) -> void:
@@ -408,6 +429,8 @@ func _process_gathering(delta: float) -> void:
 			set_state(State.IDLE)
 		return
 
+	if gather_target is WildlifeNode:
+		_follow_wildlife_target(gather_target as WildlifeNode)
 	var resource_position: Vector2 = gather_target.global_position
 	var approach_distance: float = BUILD_APPROACH_DISTANCE if gather_target is BuildingBase else GATHER_APPROACH_DISTANCE
 	var is_farm: bool = gather_target is BuildingBase and (gather_target as BuildingBase).provides_food
@@ -450,8 +473,15 @@ func _harvest_from_target() -> int:
 	var remaining_capacity: int = maxi(0, carry_capacity - carried_amount)
 	if remaining_capacity <= 0:
 		return 0
+	# Wildlife: a live boar takes the blow instead of yielding food, and every
+	# animal is worked faster than berries (the node's gather_multiplier).
+	var wildlife_multiplier: float = 1.0
+	if gather_target is WildlifeNode:
+		if (gather_target as WildlifeNode).absorb_strike(self):
+			return 0
+		wildlife_multiplier = (gather_target as WildlifeNode).gather_multiplier
 	var civilization_multiplier: float = CivilizationData.get_gather_multiplier(CivilizationData.for_player(player_owner), carried_resource_type)
-	_fractional_harvest += maxf(0.0, gather_rate) * civilization_multiplier * ResearchEffects.gather_multiplier(player_owner, carried_resource_type, gather_target)
+	_fractional_harvest += maxf(0.0, gather_rate) * civilization_multiplier * ResearchEffects.gather_multiplier(player_owner, carried_resource_type, gather_target) * wildlife_multiplier
 	var whole_work: int = floori(_fractional_harvest + 0.0000001)
 	_fractional_harvest = maxf(0.0, _fractional_harvest - float(whole_work))
 	var amount_requested: int = mini(whole_work, remaining_capacity)

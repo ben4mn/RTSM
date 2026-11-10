@@ -78,6 +78,12 @@ func _finalize_probe(saved: Dictionary, codec: RefCounted) -> void:
 	_finalized = {"marker": codec.decode({"$ref": int(saved.marker)})}
 
 
+## Gameplay streams add their own Town Center actions (the wildlife assist,
+## later the bell); this fixture only owns the research rows.
+func _research_ids(building: BuildingBase) -> Array:
+	return building.get_context_actions(0).filter(func(action: Dictionary) -> bool: return str(action.id).begins_with(BuildingBase.RESEARCH_ACTION_PREFIX))
+
+
 func _smith_hp(main_node: Node) -> int:
 	for building: BuildingBase in main_node._player_buildings[0]:
 		if building.building_type == BuildingData.BuildingType.BLACKSMITH: return building.hp
@@ -207,7 +213,7 @@ func _check_context_actions() -> void:
 	check(GameManager.has_research(0, "scale_mail") and GameManager.get_armor_bonus(0) == 1 and ResourceManager.get_all_resources(0) == {"food": 1800, "wood": 2000, "gold": 1900}, "pressing a card buys through building_action_requested exactly once")
 	# A later stream's provider needs no HUD or BuildingBase edit.
 	BuildingBase.register_context_provider("probe", probe_actions, probe_perform)
-	check(smith.get_context_actions(0).size() == 5 and smith.get_context_actions(0)[4].id == "probe:ping" and not main._player_town_center.get_context_actions(0).any(func(action: Dictionary) -> bool: return action.id == "probe:ping"), "registered provider appends its action to matching buildings only")
+	check(smith.get_context_actions(0).size() == 5 and smith.get_context_actions(0)[4].id == "probe:ping" and not main._player_town_center.get_context_actions(0).any(func(action: Dictionary) -> bool: return str(action.id).begins_with("probe:")), "registered provider appends its action to matching buildings only")
 	hud.show_building_selection("Blacksmith", smith.hp, smith.max_hp, [], [], smith)
 	var ping: Button = row.get_node_or_null("ActionButton_probe_ping") as Button
 	check(ping != null and not ping.disabled and ping.text == "Ping\nTest action\n5W", "HUD renders a provider action generically: " + (ping.text if ping != null else "missing"))

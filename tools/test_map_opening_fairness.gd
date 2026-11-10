@@ -76,7 +76,9 @@ func _run() -> void:
 			var second: Dictionary = sides[1]["resources"][resource_name]
 			_expect(first["reachable"] and second["reachable"] and first["deposit_reachable"] and second["deposit_reachable"], "seed %d %s has an outbound and real deposit route on both starts" % [seed_value, resource_name])
 			_expect(first["local_tiles_in_13_radius"] == second["local_tiles_in_13_radius"], "seed %d %s revealed source count matches" % [seed_value, resource_name])
-			var guaranteed_count: int = {"food": 8, "wood": 24, "gold": 4}[resource_name]
+			# Six berry bushes since the opening flock, deer and boar carry the food
+			# (wildlife symmetry: tools/test_wildlife_placement.gd).
+			var guaranteed_count: int = {"food": 6, "wood": 24, "gold": 4}[resource_name]
 			_expect(int(first["local_tiles_in_13_radius"]) >= guaranteed_count, "seed %d %s guaranteed stock is visible before scouting" % [seed_value, resource_name])
 			# AStar goal ties can select a different equivalent diagonal edge;
 			# allow one tile of travel at 60px/s while rejecting the old 2x trips.

@@ -1505,6 +1505,10 @@ func _setup_player_start(player_id: int, spawn_tile: Vector2i) -> void:
 
 
 func _auto_assign_starting_villagers(villagers: Array) -> void:
+	# Workstream A: the opening is the home flock, so every starting villager
+	# begins on one sheep. Maps without wildlife keep the old split below.
+	if WildlifeDirector.assign_opening_villagers(self, villagers):
+		return
 	var assignments: Array[String] = ["food", "wood", "gold", "food"]
 	for i in villagers.size():
 		var v: UnitBase = villagers[i] as UnitBase
@@ -2064,6 +2068,11 @@ func _on_selection_changed(selected_units: Array[Node2D]) -> void:
 		hud.show_sacred_site_selection(first.get_status())
 		_update_progression_hint()
 		return
+	if first is WildlifeNode:  # Workstream A: animals describe themselves.
+		_clear_armed_unit_commands(false)
+		WildlifeDirector.show_selection(hud, first as WildlifeNode)
+		_update_progression_hint()
+		return
 	if first is ResourceNode:
 		_clear_armed_unit_commands(false)
 		var r: ResourceNode = first as ResourceNode
@@ -2273,6 +2282,8 @@ func _queue_movement_orders(units: Array[UnitBase], target_tile: Vector2i, owner
 
 
 func _on_move_command(target_tile: Vector2i) -> void:
+	if WildlifeDirector.try_herd_selection(self, target_tile):  # Workstream A: herd selected sheep.
+		return
 	var selected: Array = game_map.selection_mgr.selected
 	var issue_patrol: bool = _patrol_command_armed
 	var issue_force_move: bool = not _attack_move_command_armed and not _patrol_command_armed
@@ -2403,6 +2414,8 @@ func _on_gather_command(resource_node: Node2D) -> void:
 		return
 	_clear_armed_unit_commands(false)
 	if NetworkSession.is_client():
+		if WildlifeDirector.send_network_gather(self, resource_node):  # Workstream A: `hunt` ext command.
+			return
 		var selection: Array = game_map.selection_mgr.selected
 		if selection.size() == 1 and selection[0] is BuildingBase:
 			var payload: Dictionary = NetworkSession.target_payload(selection[0])
@@ -2850,6 +2863,7 @@ func _register_match_extensions() -> void:
 	## register_save and BuildingBase.register_context_provider.
 	ext.install(self)
 	ResearchEffects.install(self)
+	WildlifeDirector.install(self)  # Workstream A: sheep, deer, boar.
 
 
 func _on_building_action_requested(building: Node2D, action_id: String) -> void:
@@ -3955,13 +3969,13 @@ func _update_progression_hint() -> void:
 					_build_menu.call("set_recommended_building", -1)
 				if has_villager_selected:
 					_apply_primary_guidance(
-						"1 / 4 · Tap a berry bush to gather food.",
+						"1 / 4 · Tap a sheep or berry bush to gather food.",
 						"",
 						-1
 					)
 				else:
 					_apply_primary_guidance(
-						"1 / 4 · Tap a villager, then a berry bush.",
+						"1 / 4 · Tap a villager, then a sheep or berry bush.",
 						"idle_button",
 						-1
 					)
