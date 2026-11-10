@@ -52,6 +52,8 @@ var sfx_volume: float = 0.75
 var sfx_muted: bool = false
 var ui_alert_muted: bool = false
 var ui_alert_volume: float = 0.9
+var music_volume: float = 0.5
+var music_muted: bool = false
 var zoom_sensitivity_scale: float = 1.0
 var reduced_motion: bool = false
 var reduced_flashes: bool = false
@@ -126,6 +128,8 @@ func _load_preferences() -> void:
 	sfx_muted = bool(config.get_value("audio", "sfx_muted", sfx_muted))
 	ui_alert_muted = bool(config.get_value("audio", "ui_alert_muted", ui_alert_muted))
 	ui_alert_volume = clampf(float(config.get_value("audio", "ui_alert_volume", ui_alert_volume)), 0.0, 1.0)
+	music_volume = clampf(float(config.get_value("audio", "music_volume", music_volume)), 0.0, 1.0)
+	music_muted = bool(config.get_value("audio", "music_muted", music_muted))
 	zoom_sensitivity_scale = clampf(float(config.get_value("controls", "zoom_sensitivity_scale", zoom_sensitivity_scale)), 0.75, 1.25)
 	reduced_motion = bool(config.get_value("accessibility", "reduced_motion", reduced_motion))
 	reduced_flashes = bool(config.get_value("accessibility", "reduced_flashes", reduced_flashes))
@@ -153,6 +157,8 @@ func save_preferences() -> bool:
 	config.set_value("audio", "sfx_muted", sfx_muted)
 	config.set_value("audio", "ui_alert_muted", ui_alert_muted)
 	config.set_value("audio", "ui_alert_volume", ui_alert_volume)
+	config.set_value("audio", "music_volume", music_volume)
+	config.set_value("audio", "music_muted", music_muted)
 	config.set_value("controls", "zoom_sensitivity_scale", zoom_sensitivity_scale)
 	config.set_value("accessibility", "reduced_motion", reduced_motion)
 	config.set_value("accessibility", "reduced_flashes", reduced_flashes)
@@ -176,6 +182,8 @@ func reset_preferences() -> void:
 	sfx_muted = false
 	ui_alert_muted = false
 	ui_alert_volume = 0.9
+	music_volume = 0.5
+	music_muted = false
 	camera_speed_scale = 1.0
 	zoom_sensitivity_scale = 1.0
 	ui_scale = 1.0

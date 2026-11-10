@@ -5,7 +5,7 @@ extends Node
 var _failures: Array[String] = []
 const PHONE_SIZES: Array[Vector2] = [Vector2(844, 390), Vector2(932, 430)]
 const SCALES: Array[float] = [1.0, 1.075, 1.15]
-const PREFS: Array[String] = ["audio_enabled", "master_volume", "sfx_volume", "sfx_muted", "ui_alert_muted", "ui_alert_volume", "camera_speed_scale", "zoom_sensitivity_scale", "ui_scale", "hold_shortcuts_enabled", "reduced_motion", "reduced_flashes", "clearer_player_markers", "selected_difficulty", "selected_population_limit", "selected_map_seed", "selected_match_mode", "guided_opening_enabled"]
+const PREFS: Array[String] = ["audio_enabled", "master_volume", "sfx_volume", "sfx_muted", "ui_alert_muted", "ui_alert_volume", "music_volume", "music_muted", "camera_speed_scale", "zoom_sensitivity_scale", "ui_scale", "hold_shortcuts_enabled", "reduced_motion", "reduced_flashes", "clearer_player_markers", "selected_difficulty", "selected_population_limit", "selected_map_seed", "selected_match_mode", "guided_opening_enabled"]
 var _saved: Dictionary = {}
 var _had_file: bool = false
 var _file_contents: PackedByteArray
@@ -92,10 +92,17 @@ func _check_layout(physical: Vector2, scale_value: float, notched: bool) -> void
 		_expect(scroll.size.y >= 80, "insufficient scroll area " + suffix)
 		await _check_wheel_ownership(viewport, panel, sink, suffix)
 		if section == 0:
-			scroll.scroll_vertical = 1000
-			await get_tree().process_frame
+			# The audio tab now has a Music row, so the list scrolls further than one
+			# row on the smallest phones: every control must be reachable by scrolling.
 			var preview: Control = panel.find_child("AudioPreviewButton", true, false)
-			_expect(scroll.get_global_rect().grow(1).intersects(preview.get_global_rect()), "preview unreachable by scroll " + suffix)
+			var music: Control = panel.find_child("MusicVolumeSlider", true, false)
+			var music_mute: Control = panel.find_child("MusicMutedToggle", true, false)
+			_expect(music != null and music_mute != null, "music volume and mute controls exist " + suffix)
+			for target: Control in [panel.find_child("UiAlertVolumeSlider", true, false), music, music_mute, preview]:
+				if target == null: continue
+				scroll.ensure_control_visible(target)
+				await get_tree().process_frame
+				_expect(scroll.get_global_rect().grow(1).encloses(target.get_global_rect()), str(target.name) + " unreachable by scroll " + suffix)
 		if section == 1:
 			var pan: OptionButton = panel.find_child("CameraSpeedScaleOption", true, false)
 			pan.item_selected.emit(2)
@@ -206,8 +213,10 @@ func _check_audio() -> void:
 	for cue: String in ["button_click", "select_unit", "command_move", "under_attack", "unit_trained", "age_up", "attack_hit", "unit_death", "gather_food", "gather_gold"]:
 		for repeat: int in 50: AudioManager.play_sfx(cue)
 	var diag: Dictionary = AudioManager.get_audio_diagnostics()
-	_expect(int(diag.active_voices) <= 12 and int(diag.peak_active_voices) <= 12, "audio voices exceeded pool")
-	_expect(AudioManager.get_child_count() == 12, "audio player accumulation")
+	var pool: int = AudioManager.WORLD_VOICES + AudioManager.UI_VOICES
+	_expect(int(diag.active_voices) <= pool and int(diag.peak_active_voices) <= pool, "audio voices exceeded pool")
+	# Fixed pools plus the music and ambience directors; nothing is spawned per cue.
+	_expect(AudioManager.get_child_count() == pool + 2, "audio player accumulation")
 	GameManager.set_state(GameManager.GameState.PAUSED)
 	_expect(int(AudioManager.get_audio_diagnostics().active_voices) == 0, "pause retained battle sound")
 	AudioManager.preview()
