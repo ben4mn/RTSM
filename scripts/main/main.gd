@@ -134,7 +134,11 @@ const HINTS: Array = [
 	{"time": 42.0, "text": "Drag to pan. Tap the minimap to jump.", "color": Color(0.7, 0.8, 1.0)},
 	{"time": 75.0, "text": "Tap ground to move. Double-tap ground to deselect.", "color": Color(0.65, 0.82, 1.0)},
 	{"time": 105.0, "context": "scout", "text": "Train a Scout to explore fast.", "color": Color(0.7, 0.8, 1.0)},
+	{"time": 122.0, "context": "sheep", "text": "Scouts claim sheep they find. Sheep walk home.", "color": Color(0.80, 0.92, 0.70)},
+	{"time": 150.0, "context": "research", "text": "Every building has research. Try Loom at the Town Center.", "color": Color(0.5, 0.8, 1.0)},
 	{"time": 180.0, "context": "sacred", "text": "Hold the central Sacred Site to win, or raze their Town Center.", "color": Color(0.85, 0.7, 1.0)},
+	{"time": 215.0, "context": "bell", "text": "Raided? Ring the town bell at the Town Center.", "color": Color(0.95, 0.86, 0.56)},
+	{"time": 250.0, "context": "repair", "text": "Villagers repair: select them, tap a damaged building.", "color": Color(0.7, 0.8, 1.0)},
 ]
 var _milestone_first_house: bool = false
 var _milestone_first_military_building: bool = false
@@ -1846,7 +1850,10 @@ func _on_unit_died(unit: UnitBase, player_id: int) -> void:
 	var enemy_id: int = 1 if player_id == 0 else 0
 	_stats[enemy_id]["units_killed"] += 1
 	if player_id == 0:
-		if is_instance_valid(_battlefield_feedback):
+		if unit.get("wildlife_hit") == true:
+			if hud != null:
+				hud.show_notification("A boar killed a Villager", KingdomTheme.RUST, 4.0)
+		elif is_instance_valid(_battlefield_feedback):
 			_battlefield_feedback.call("report_loss", UnitData.get_unit_name(unit.unit_type, unit.player_owner), unit.global_position)
 
 
@@ -1884,6 +1891,8 @@ func _auto_assign_new_villager(villager: UnitBase) -> void:
 
 
 func _on_player_unit_damaged(unit: UnitBase, _hp_loss: float) -> void:
+	if unit.get("wildlife_hit") == true:
+		return  # A boar bite is not a raid; WildlifeDirector warns about the boar.
 	_match_learning.observe_damage(unit, GameManager.game_time)
 	_show_under_attack_alert(UnitData.get_unit_name(unit.unit_type, unit.player_owner), unit.global_position)
 
@@ -2044,6 +2053,14 @@ func _on_selection_type_requested(unit_type: int) -> void:
 	for node: Node2D in game_map.selection_mgr.selected:
 		if is_instance_valid(node) and node is UnitBase and (node as UnitBase).player_owner == 0 and (node as UnitBase).unit_type == unit_type and (node as UnitBase).current_state != UnitBase.State.DEAD:
 			kept.append(node)
+	if kept.size() == game_map.selection_mgr.selected.size() and not kept.is_empty():
+		# Already only this type (the second tap of a double tap on its chip):
+		# take every one of them on the map.
+		kept.clear()
+		for unit: Variant in _player_units[0]:
+			if is_instance_valid(unit) and unit is UnitBase and (unit as UnitBase).unit_type == unit_type and (unit as UnitBase).is_inside_tree() \
+					and (unit as UnitBase).current_state != UnitBase.State.DEAD and (unit as UnitBase).current_state != UnitBase.State.GARRISONED:
+				kept.append(unit)
 	if not kept.is_empty():
 		game_map.selection_mgr.select_many(kept)
 
@@ -2876,6 +2893,7 @@ func _register_match_extensions() -> void:
 	WildlifeDirector.install(self)  # Workstream A: sheep, deer, boar.
 	Garrison.install(self)  # D1: town bell, garrison, repair, healing at home
 	UnitAbilities.install(self)
+	ResearchPips.install(self)  # HUD pass: world progress ring over researching buildings
 
 
 func _on_building_action_requested(building: Node2D, action_id: String) -> void:
@@ -3727,6 +3745,18 @@ func _is_timed_hint_relevant(hint: Dictionary) -> bool:
 			for unit: UnitBase in _player_units[0]:
 				if is_instance_valid(unit) and unit.current_state != UnitBase.State.DEAD and unit.unit_type == UnitData.UnitType.SCOUT:
 					return false
+		"sheep":
+			# Only while there are sheep left to find.
+			if game_map == null or not game_map.has_method("get_wildlife_nodes"):
+				return false
+			for sheep: Variant in game_map.get_wildlife_nodes("sheep"):
+				if is_instance_valid(sheep) and int(sheep.get("owner_id")) < 0:
+					return true
+			return false
+		"research":
+			return (GameManager.researched_upgrades.get(0, []) as Array).is_empty()
+		"bell":
+			return GameManager.get_age_up_town_center(0) != null
 	return true
 
 
@@ -4059,7 +4089,7 @@ func _update_progression_hint() -> void:
 				if military <= 0:
 					_apply_primary_guidance("4 / 4 · Your Scout is training…", "military_button", -1)
 				elif has_selected_military:
-					_apply_primary_guidance("4 / 4 · Tap open ground to explore.", "", -1)
+					_apply_primary_guidance("4 / 4 · Tap open ground to explore. Scouts claim sheep.", "", -1)
 				else:
 					_apply_primary_guidance("4 / 4 · Tap your Scout, then open ground.", "", -1)
 				return

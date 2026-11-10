@@ -208,7 +208,12 @@ func _check_context_actions() -> void:
 	if mail_card != null: mail_card.pressed.emit()
 	hud.show_building_selection("Blacksmith", smith.hp, smith.max_hp, [], [], smith)
 	mail_card = row.get_node_or_null("ResearchButton_scale_mail") as Button
-	check(smith.research_id == "scale_mail" and mail_card != null and not mail_card.disabled and mail_card.text == "Mail\n+1 Armor\nCancel", "a running card is the cancel meter: " + (mail_card.text if mail_card != null else "missing"))
+	check(smith.research_id == "scale_mail" and mail_card != null and not mail_card.disabled and mail_card.text == "Mail\n+1 Armor\n0%", "a running card is the meter: " + (mail_card.text if mail_card != null else "missing"))
+	# HUD pass: cancelling is deliberate. One tap only arms the card ("Cancel?").
+	if mail_card != null: mail_card.pressed.emit()
+	mail_card = row.get_node_or_null("ResearchButton_scale_mail") as Button
+	check(smith.research_id == "scale_mail" and mail_card != null and mail_card.text == "Mail\n+1 Armor\nCancel?", "one tap on a running card arms the cancel and does not cancel: " + (mail_card.text if mail_card != null else "missing"))
+	CommandRow.disarm_cancel()
 	main._advance_production_queues(30.5)
 	check(GameManager.has_research(0, "scale_mail") and GameManager.get_armor_bonus(0) == 1 and ResourceManager.get_all_resources(0) == {"food": 1800, "wood": 2000, "gold": 1900}, "pressing a card buys through building_action_requested exactly once")
 	# A later stream's provider needs no HUD or BuildingBase edit.

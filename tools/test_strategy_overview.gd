@@ -88,7 +88,8 @@ func _strategy_journey(phone: Vector2i, interface_scale: float, notched: bool, l
 		_expect(action.get_theme_color("font_hover_pressed_color").is_equal_approx(KingdomTheme.INK) and action.get_theme_color("icon_hover_pressed_color").is_equal_approx(KingdomTheme.INK), "selected hover text and icon must contrast with the selected plate: " + str(action.name))
 		var focus: StyleBox = action.get_theme_stylebox("focus")
 		_expect(focus is StyleBoxFlat and (focus as StyleBoxFlat).border_color == KingdomTheme.PARCHMENT, "strategy icon focus must use the custom outline: " + str(action.name))
-	_expect(overview.rail.size.is_equal_approx(Vector2(156, 48)), "strategy rail must use three 48px squares with 6px gaps")
+	# HUD pass: Research is the fourth launcher (leftmost).
+	_expect(overview.rail.size.is_equal_approx(Vector2(210, 48)) and overview.rail.get_child(0).name == "ResearchButton", "strategy rail must use four 48px squares with 6px gaps, Research first")
 	_expect(overview.get_visible_bounds().has(overview.rail.get_global_rect()), "compact rail omitted from camera occlusion")
 	# The rail follows both dock heights rather than keeping a producer-sized gap.
 	var held_area: Rect2 = _hud.call("get_hold_safe_rect")

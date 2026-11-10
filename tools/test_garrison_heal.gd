@@ -61,7 +61,8 @@ func run_cases() -> void:
 	selection._execute_touch_context_action(selection.TouchContextAction.GARRISON)
 	expect(home._garrison_target == tc, "choosing Garrison sends the selected soldier to the Town Center")
 	await step_until(func() -> bool: return home.current_state == UnitBase.State.GARRISONED, 20.0)
-	expect(tc.get_context_actions(0).filter(func(a: Dictionary) -> bool: return str(a.id).begins_with("garrison:")).size() == 1 and str(tc.get_context_actions(0).filter(func(a: Dictionary) -> bool: return str(a.id).begins_with("garrison:"))[0].id) == Garrison.ACTION_RELEASE, "with soldiers inside and no bell the one card is Ungarrison")
+	# HUD pass: the row is paged by CommandRow, so the bell stays and "Out" joins it.
+	expect(tc.get_context_actions(0).filter(func(a: Dictionary) -> bool: return str(a.id).begins_with("garrison:")).map(func(a: Dictionary) -> String: return str(a.id)) == [Garrison.ACTION_BELL, Garrison.ACTION_RELEASE], "with soldiers inside and no bell the Town Center offers the bell and Ungarrison")
 	expect(tc.perform_context_action(0, Garrison.ACTION_RELEASE) == "", "Ungarrison action accepted")
 	expect(str(tc.get_context_actions(0).filter(func(a: Dictionary) -> bool: return str(a.id).begins_with("garrison:"))[0].id) == Garrison.ACTION_BELL, "an empty Town Center offers the bell again")
 	expect(home.is_inside_tree() and home.current_state == UnitBase.State.IDLE, "Ungarrison puts the soldier outside, idle")

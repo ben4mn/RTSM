@@ -229,7 +229,7 @@ var _queue_view_offset: int = 0
 var _queue_navigation_revision: int = 0
 
 # Notification feed
-var _notification_container: VBoxContainer = null
+var _notification_container: ToastLane = null
 var _worker_undo_button: Button = null
 var _worker_undo_id: int = 0
 var _worker_undo_count: int = 0
@@ -1879,6 +1879,11 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 	_refresh_progression_hint_visibility()
 	_refresh_notification_visibility()
 	_apply_context_actions(viewport_size)
+	if _train_buttons_container != null and _train_buttons_container.visible and _row_capacity_planned >= 0.0 and _production_row_capacity() < _row_capacity_planned - 0.5:
+		# The row was planned for a wider shelf (a cutout or UI scale arrived).
+		# It only ever tightens while one building stays selected, so layout
+		# passes with different safe areas cannot flip it back and forth.
+		_arrange_production_row(_context_actions_for(_selected_building_ref))
 	_refresh_command_icons()
 	var action_count: int = _count_visible_mobile_action_buttons()
 	var metrics: Dictionary = _calculate_mobile_layout_metrics(viewport_size, safe_area, action_count)
@@ -1985,7 +1990,6 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 	if _camera_controls:
 		_navigation_controls.visible = standard_field_chrome_visible and _ui_modal_state == UIModalState.NONE
 		_camera_controls.visible = _navigation_controls.visible and _camera_controls_expanded
-		var phone_camera: bool = minf(viewport_size.x, viewport_size.y) <= 520.0
 		_camera_view_button.visible = true
 		_camera_view_button.set_pressed_no_signal(_camera_controls_expanded)
 		for zoom_button: Button in [_camera_zoom_out_button, _camera_zoom_in_button, _camera_zoom_reset_button, _camera_center_button]:
@@ -2003,7 +2007,6 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 		metrics["camera_zoom_right"] = metrics["minimap_left"] + nav_width
 		metrics["camera_zoom_top"] = viewport_size.y + _navigation_controls.offset_top
 		metrics["camera_zoom_bottom"] = viewport_size.y + _navigation_controls.offset_bottom
-		_mobile_notification_limit = 1 if phone_camera else MAX_NOTIFICATIONS
 	var bottom_right: Control = get_node_or_null("Root/BottomRight")
 	if bottom_right:
 		bottom_right.visible = standard_field_chrome_visible and (age_up_button.visible or build_menu_button.visible)
@@ -2072,16 +2075,34 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 	command_scroll.scroll_deadzone = 1000000
 	_layout_queue_page()
 	if _advanced_command_panel:
-		var advanced_width: float = _production_row_width(_advanced_command_container) + 8.0
+		# The tray shares the rail's row, between the minimap and the rail. When
+		# that gap is short (a narrow screen and four launchers) its icon-only
+		# buttons slim to 48px; only if that is still not enough does it stand
+		# above the rail instead of covering either neighbour.
 		var advanced_right: float = _strategy_overview.rail.position.x - 8.0 if _strategy_overview else metrics["selection_right"]
+		var advanced_bottom: float = metrics["selection_top"] - 4.0
+		var advanced_room: float = advanced_right - (float(metrics["minimap_right"]) + 8.0)
+		var advanced_separation: float = float(_advanced_command_container.get_theme_constant("separation"))
+		var advanced_width: float = 0.0
+		for slim: bool in [false, true]:
+			advanced_width = 8.0 - advanced_separation
+			for child in _advanced_command_container.get_children():
+				if child is Button:
+					var tray_button := child as Button
+					tray_button.custom_minimum_size = Vector2(48.0 if slim and tray_button.text.is_empty() else 80.0, MOBILE_ACTION_BUTTON_HEIGHT)
+					if tray_button.visible:
+						tray_button.size.x = tray_button.custom_minimum_size.x
+						advanced_width += tray_button.custom_minimum_size.x + advanced_separation
+			if advanced_width <= advanced_room or _strategy_overview == null:
+				break
+		if _strategy_overview and advanced_width > advanced_room:
+			advanced_right = _strategy_overview.rail.position.x + _strategy_overview.rail.size.x
+			advanced_bottom = _strategy_overview.rail.position.y - 6.0 - viewport_size.y
 		_advanced_command_panel.offset_left = advanced_right - advanced_width - viewport_size.x * 0.5
 		_advanced_command_panel.offset_right = _advanced_command_panel.offset_left + advanced_width
-		_advanced_command_panel.offset_bottom = metrics["selection_top"] - 4.0
+		_advanced_command_panel.offset_bottom = advanced_bottom
 		_advanced_command_panel.offset_top = _advanced_command_panel.offset_bottom - 56.0
 		_advanced_command_panel.visible = _advanced_commands_open and not _hold_chooser_active and _unit_command_container.visible and standard_field_chrome_visible
-		for child in _advanced_command_container.get_children():
-			if child is Button:
-				(child as Button).custom_minimum_size = Vector2(80.0, MOBILE_ACTION_BUTTON_HEIGHT)
 	if _placement_status_panel:
 		# The hint hugs its words, never narrower than the actions below it.
 		var status_font: Font = _placement_status_label.get_theme_font("font")
@@ -2108,37 +2129,28 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 		metrics["guidance_top"] = _progression_hint_panel.offset_top
 		metrics["guidance_bottom"] = _progression_hint_panel.offset_bottom
 		if _notification_container:
-			var notification_left: float = safe_pos.x + 8.0
-			# Prefer the full toast lane, but never force a minimum width through
-			# the centered guidance card on a notched phone with Large UI enabled.
-			var notification_right: float = notification_left + MOBILE_NOTIFICATION_MAX_WIDTH
-			if _progression_hint_panel.visible:
-				notification_right = minf(notification_right, hint_left - 8.0)
-			_notification_container.offset_left = notification_left
-			_notification_container.offset_right = maxf(notification_left, notification_right)
+			# Alerts own the left column (Undo, RAID cards, the bell shortcut);
+			# toasts have their own centred lane, clear of it and of the guide.
+			var alert_left: float = safe_pos.x + 8.0
+			var alert_right: float = alert_left + minf(MOBILE_NOTIFICATION_MAX_WIDTH, safe_area.size.x * 0.34)
+			var toast_left: float = alert_right + 8.0
 			if _worker_undo_button:
-				_worker_undo_button.position = Vector2(notification_left, metrics["safe_top"] + MOBILE_TOP_RAIL_HEIGHT + 8.0)
+				# Undo normally heads the alert column. While raid cards hold that
+				# spot it steps beside them, and toasts start after it.
+				var undo_left: float = alert_right + 8.0 if _battlefield_alerts_active else alert_left
+				_worker_undo_button.position = Vector2(undo_left, metrics["safe_top"] + MOBILE_TOP_RAIL_HEIGHT + 8.0)
 				_worker_undo_button.size = Vector2(128, 48)
-			_notification_container.offset_top = metrics["safe_top"] + MOBILE_TOP_RAIL_HEIGHT + 8.0 + (54.0 if _worker_undo_button != null and _worker_undo_button.visible else 0.0)
-			_notification_container.offset_bottom = minf(viewport_size.y - 96.0, metrics["safe_top"] + 188.0)
-			if _camera_controls and _camera_controls.visible:
-				_notification_container.offset_bottom = minf(_notification_container.offset_bottom, metrics["camera_zoom_top"] - 8.0)
-			metrics["notification_left"] = _notification_container.offset_left
-			metrics["notification_right"] = _notification_container.offset_right
-			metrics["notification_top"] = _notification_container.offset_top
-			metrics["notification_bottom"] = _notification_container.offset_bottom
-			metrics["notification_guidance_gap"] = hint_left - _notification_container.offset_right
-			metrics["notification_guidance_overlap"] = Rect2(
-				Vector2(_notification_container.offset_left, _notification_container.offset_top),
-				Vector2(
-					_notification_container.offset_right - _notification_container.offset_left,
-					_notification_container.offset_bottom - _notification_container.offset_top
-				)
-			).intersects(
-				Rect2(Vector2(hint_left, _progression_hint_panel.offset_top), Vector2(hint_width, MOBILE_GUIDANCE_HEIGHT)),
-				true
-			)
-			_fit_notification_feed()
+				if _battlefield_alerts_active and _worker_undo_button.visible:
+					toast_left = undo_left + 128.0 + 8.0
+			var guidance_rect := Rect2(Vector2(hint_left, _progression_hint_panel.offset_top), Vector2(hint_width, MOBILE_GUIDANCE_HEIGHT)) if _progression_hint_panel.visible else Rect2()
+			_notification_container.place(safe_area, metrics["safe_top"] + MOBILE_TOP_RAIL_HEIGHT + 8.0, toast_left, guidance_rect)
+			var toast_rect := Rect2(_notification_container.position, Vector2(_notification_container.size.x, ToastLane.ACTION_HEIGHT * 2.0 + 4.0))
+			metrics["notification_left"] = toast_rect.position.x
+			metrics["notification_right"] = toast_rect.end.x
+			metrics["notification_top"] = toast_rect.position.y
+			metrics["notification_bottom"] = toast_rect.end.y
+			metrics["notification_guidance_gap"] = hint_left - toast_rect.end.x
+			metrics["notification_guidance_overlap"] = guidance_rect.has_area() and toast_rect.intersects(guidance_rect, true)
 
 	if _sacred_site_panel:
 		_sacred_site_panel.visible = not _sacred_site_status.is_empty() and standard_field_chrome_visible
@@ -2889,12 +2901,24 @@ func _set_age_blocked_note(copy: String) -> void:
 		_age_blocked_note.add_theme_color_override("font_color", KingdomTheme.RUST)
 		var note_style: StyleBoxFlat = KingdomTheme.panel_style(Color(KingdomTheme.INK, 0.92), Color.TRANSPARENT, 8)
 		note_style.set_content_margin_all(0)
-		note_style.content_margin_left = 7.0
+		note_style.content_margin_left = 23.0
 		note_style.content_margin_right = 7.0
 		note_style.content_margin_top = 2.0
 		note_style.content_margin_bottom = 3.0
 		_age_blocked_note.add_theme_stylebox_override("normal", note_style)
 		_age_blocked_note.z_index = 50  # A pinned tab over the shelf edge, never under it.
+		# The age glyph says what the note is about now that it sits beside,
+		# not on, the age button.
+		var note_glyph := TextureRect.new()
+		note_glyph.name = "AgeGlyph"
+		note_glyph.texture = CommandIcons.get_icon("age_up")
+		note_glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		note_glyph.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		note_glyph.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		note_glyph.modulate = KingdomTheme.RUST
+		note_glyph.position = Vector2(6.0, 2.0)
+		note_glyph.size = Vector2(13.0, 13.0)
+		_age_blocked_note.add_child(note_glyph)
 		($Root as Control).add_child(_age_blocked_note)
 	_age_blocked_note.text = copy
 	_place_age_blocked_note()
@@ -2910,7 +2934,13 @@ func _place_age_blocked_note() -> void:
 	var root_control: Control = $Root as Control
 	var anchor: Rect2 = root_control.get_global_transform().affine_inverse() * age_up_button.get_global_rect()
 	var note_size: Vector2 = _age_blocked_note.get_combined_minimum_size()
-	_age_blocked_note.position = Vector2(clampf(anchor.end.x - note_size.x, 4.0, maxf(4.0, root_control.size.x - note_size.x - 4.0)), anchor.position.y - note_size.y + 3.0)
+	# Resting on the dock's top edge, left of the strategy rail: it covers
+	# neither a tile's name in the row nor a launcher above it.
+	var note_right: float = anchor.end.x
+	if _strategy_overview != null and _strategy_overview.rail.is_visible_in_tree():
+		var rail_rect: Rect2 = root_control.get_global_transform().affine_inverse() * _strategy_overview.rail.get_global_rect()
+		note_right = minf(note_right, rail_rect.position.x - 8.0)
+	_age_blocked_note.position = Vector2(clampf(note_right - note_size.x, 4.0, maxf(4.0, root_control.size.x - note_size.x - 4.0)), anchor.position.y - note_size.y - 8.0)
 
 
 func _get_age_up_preview(next_age: int) -> String:
@@ -3044,6 +3074,7 @@ func show_unit_selection(unit_name: String, current_hp: int, max_hp: int, action
 				break
 	if unit_stats.has("role_counts"):
 		selected_type = -1
+	_selection_uniform_type = selected_type
 	_selection_portrait = load(UnitData.get_unit_icon_path(selected_type, _selection_unit_owner)) if selected_type >= 0 else CommandIcons.get_icon("army")
 	_selection_is_worker = selected_type == UnitData.UnitType.VILLAGER
 	_selection_is_scout = selected_type == UnitData.UnitType.SCOUT
@@ -3116,6 +3147,9 @@ func show_building_selection(building_name: String, current_hp: int, max_hp: int
 	# A new producer always starts at recruitment. Live updates of the same
 	# producer preserve the player's queue inspection position.
 	if _selected_building_ref != building_ref:
+		_row_page = 0
+		_row_capacity_planned = -1.0
+		CommandRow.disarm_cancel()
 		_queue_view_requested = false
 		_queue_view_offset = 0
 		_queue_navigation_revision += 1
@@ -3237,15 +3271,34 @@ func _refresh_unit_selection_details() -> void:
 # --- Selection type chips (workstream F) ---------------------------------
 # A mixed own selection is summarised by type, never one card per unit: one
 # chip per unit type with its count, sitting just above the selection panel.
-# Tapping a chip narrows the selection to that type. The row is rebuilt only
-# when the composition changes, so the half-second refresh costs nothing.
-const SELECTION_TYPE_CHIP_SIZE := Vector2(58.0, 40.0)
+# Tapping a chip narrows the selection to that type; the chip then stays under
+# the finger for two seconds, and a second tap (a double tap) selects every unit
+# of that type on the map. The row is rebuilt only when the composition
+# changes, so the half-second refresh costs nothing.
+const SELECTION_TYPE_CHIP_SIZE := Vector2(60.0, 44.0)
+const SELECTION_TYPE_CHIP_GRACE_MSEC := 2000
 var _selection_type_chips: HBoxContainer = null
 var _selection_type_chip_signature: Array = []
+var _selection_chip_grace_type: int = -1
+var _selection_chip_grace_until: int = 0
+var _selection_uniform_type: int = -1
 
 
 func _refresh_selection_type_chips() -> void:
-	var wanted: bool = _selection_kind == "unit" and _selection_unit_owner == 0 and _selection_roster.size() >= 2 and selection_panel.visible and _unit_command_mode not in ["move", "attack_move", "patrol"]
+	var own_units: bool = _selection_kind == "unit" and _selection_unit_owner == 0 and selection_panel.visible and _unit_command_mode not in ["move", "attack_move", "patrol"]
+	# After a chip narrowed the selection (a one-type selection has no roster),
+	# the row stays exactly where it was for a moment with only that chip lit.
+	var grace: bool = own_units and _selection_roster.is_empty() and _selection_uniform_type == _selection_chip_grace_type and _selection_type_chips != null \
+		and Time.get_ticks_msec() < _selection_chip_grace_until and _selection_type_chips.has_node("TypeChip%d" % _selection_chip_grace_type)
+	if grace and not _advanced_commands_open:
+		for chip: Node in _selection_type_chips.get_children():
+			var kept: bool = String(chip.name) == "TypeChip%d" % _selection_chip_grace_type
+			(chip as Button).modulate.a = 1.0 if kept else 0.0
+			(chip as Button).disabled = not kept
+		_selection_type_chips.visible = true
+		return
+	# The More tray (Stop, Stance, Patrol) opens in the same strip above the dock.
+	var wanted: bool = own_units and _selection_roster.size() >= 2 and not _advanced_commands_open
 	if not wanted:
 		if _selection_type_chips != null:
 			_selection_type_chips.visible = false
@@ -3273,26 +3326,43 @@ func _refresh_selection_type_chips() -> void:
 			chip.icon = load(UnitData.get_unit_icon_path(role_type, _selection_unit_owner))
 			chip.expand_icon = true
 			chip.text = "×%d" % int(_selection_role_counts[role_type])
+			chip.clip_text = true
 			chip.add_theme_font_size_override("font_size", 14)
 			chip.add_theme_constant_override("icon_max_width", 26)
-			var style: StyleBox = KingdomTheme.button_style()
-			style.set_content_margin(SIDE_LEFT, 5.0)
-			style.set_content_margin(SIDE_RIGHT, 6.0)
-			chip.add_theme_stylebox_override("normal", style)
-			chip.tooltip_text = "Select only the %d %s" % [int(_selection_role_counts[role_type]), UnitData.get_unit_name(role_type, _selection_unit_owner)]
+			chip.add_theme_constant_override("h_separation", 2)
+			for state: String in ["normal", "hover", "pressed"]:
+				var style: StyleBox = KingdomTheme.button_style("secondary", state)
+				style.set_content_margin(SIDE_LEFT, 5.0)
+				style.set_content_margin(SIDE_RIGHT, 6.0)
+				chip.add_theme_stylebox_override(state, style)
+			var chip_name: String = UnitData.get_unit_name(role_type, _selection_unit_owner)
+			chip.tooltip_text = "Select only the %d %s. Double-tap: every %s on the map." % [int(_selection_role_counts[role_type]), chip_name, chip_name]
+			chip.accessibility_name = chip.tooltip_text
 			chip.pressed.connect(_on_selection_type_chip_pressed.bind(role_type))
+			chip.button_down.connect(func() -> void: world_gesture_cancel_requested.emit())
 			_selection_type_chips.add_child(chip)
+	for chip: Node in _selection_type_chips.get_children():
+		(chip as Button).modulate.a = 1.0
+		(chip as Button).disabled = false
 	_selection_type_chips.visible = true
 	_selection_type_chips.reset_size()
-	# Left-aligned with the panel and resting on its top edge; kept on screen.
+	# Left-aligned with the panel and resting on its top edge; kept on screen
+	# and clear of the strategy rail on the right.
 	var anchor: Vector2 = selection_panel.global_position
 	var row_size: Vector2 = _selection_type_chips.get_combined_minimum_size()
-	var viewport_width: float = get_viewport().get_visible_rect().size.x / maxf(0.01, _selection_type_chips.get_global_transform().get_scale().x)
-	_selection_type_chips.global_position = Vector2(clampf(anchor.x, 4.0, maxf(4.0, viewport_width - row_size.x - 4.0)), anchor.y - row_size.y - 4.0)
+	var view_scale: float = maxf(0.01, _selection_type_chips.get_global_transform().get_scale().x)
+	var right_limit: float = get_viewport().get_visible_rect().size.x / view_scale - 4.0
+	if _strategy_overview != null and _strategy_overview.rail.is_visible_in_tree():
+		right_limit = minf(right_limit, _strategy_overview.rail.global_position.x - 6.0)
+	_selection_type_chips.global_position = Vector2(clampf(anchor.x, 4.0, maxf(4.0, right_limit - row_size.x)), anchor.y - row_size.y - 4.0)
 
 
 func _on_selection_type_chip_pressed(unit_type: int) -> void:
 	AudioManager.play_ui("button_click")
+	# Keep this chip where it is while the selection narrows, so the second tap
+	# of a double tap lands on it (and asks for the whole map), not on the field.
+	_selection_chip_grace_type = unit_type
+	_selection_chip_grace_until = Time.get_ticks_msec() + SELECTION_TYPE_CHIP_GRACE_MSEC
 	selection_type_requested.emit(unit_type)
 
 
@@ -3726,8 +3796,8 @@ func _update_train_buttons(trainable_units: Array) -> void:
 	for child: Node in _train_buttons_container.get_children():
 		if child.is_queued_for_deletion():
 			continue
-		if child.has_meta("action_id"):
-			continue  # Context tiles belong to _update_research_buttons.
+		if child.has_meta("action_id") or child.has_meta("row_nav"):
+			continue  # Context tiles and page buttons belong to _update_research_buttons.
 		if not desired_names.has(String(child.name)):
 			if child == _auto_queue_button:
 				_auto_queue_button = null
@@ -3771,7 +3841,8 @@ func _update_train_buttons(trainable_units: Array) -> void:
 		_attach_hud_hold(btn, _train_information.bind(ut))
 		if btn.has_meta("hud_hold_control"):
 			(btn.get_meta("hud_hold_control") as HUDHoldControl).repeat_action = _repeat_train.bind(ut)
-		btn.visible = true
+		# On the Tech page of a paged row the unit cards stay tucked away.
+		btn.visible = not _row_paged or _row_page == 0
 		btn.mouse_filter = Control.MOUSE_FILTER_STOP
 		var role_text: String = UnitData.get_unit_counter_description(ut, 0) if ut != UnitData.UnitType.VILLAGER else ""
 		if compact_town_center and ut == UnitData.UnitType.SCOUT:
@@ -3879,7 +3950,7 @@ func _update_train_buttons(trainable_units: Array) -> void:
 				return
 			# Measure what the panel's fixed chrome estimate left out and widen
 			# the dock by exactly that, so the last button is always reachable.
-			var shortfall: float = _production_row_width(_train_buttons_container) - command_scroll.size.x
+			var shortfall: float = _stable_production_page_width() - command_scroll.size.x
 			var correction: float = clampf(_production_width_correction + shortfall, 0.0, 48.0)
 			if absf(correction - _production_width_correction) > 0.5:
 				_production_width_correction = correction
@@ -3920,7 +3991,9 @@ func _layout_queue_page() -> void:
 func _stable_production_page_width() -> float:
 	# Recruitment stays stable as the finite backlog changes. Its separate
 	# cancellation page already scrolls; it must not reserve empty dock space.
-	return _production_row_width(_train_buttons_container)
+	# A paged row (Train | Tech) keeps the width of its widest page, so turning
+	# the page never resizes the dock under the thumb.
+	return maxf(_production_row_width(_train_buttons_container), _row_page_width if _row_paged else 0.0)
 
 
 func _on_production_pages_sorted() -> void:
@@ -4168,9 +4241,9 @@ func _update_research_buttons(building_ref: Node2D) -> void:
 			parent_vbox.add_child(_research_container)
 
 	var actions: Array[Dictionary] = _context_actions_for(building_ref)
-	# Round 2 B: a building that trains units shows its techs as tiles in that
-	# same row, after the rally flag; a pure research building keeps its own
-	# row of three-line cards.
+	# A building that trains units shows its actions as tiles in that same row
+	# (planned by CommandRow: one row when it fits, Train | Tech pages when it
+	# does not); a pure research building keeps its own row of three-line cards.
 	var in_train_row: bool = not actions.is_empty() and _train_buttons_container != null and _train_buttons_container.visible
 	var host: HBoxContainer = _train_buttons_container if in_train_row else _research_container
 	var desired_names: Dictionary = {}
@@ -4187,8 +4260,10 @@ func _update_research_buttons(building_ref: Node2D) -> void:
 
 	_research_container.visible = not actions.is_empty() and not in_train_row
 	if actions.is_empty():
+		_arrange_production_row(actions)
 		_refresh_touch_target_diagnostics()
 		return
+	var research_running: String = (building_ref as BuildingBase).research_id if building_ref is BuildingBase else ""
 
 	var child_index := 0
 	for action: Dictionary in actions:
@@ -4220,11 +4295,13 @@ func _update_research_buttons(building_ref: Node2D) -> void:
 		# Card-sized reason: "Need Feudal", "Need 50G +", "Busy".
 		var blocked_short: String = "Busy" if str(action.get("reason", "")) == "building_busy" else blocked_reason.trim_suffix(" Age")
 		var status_line: String = " · ".join(costs)
+		# Cancelling takes two separate taps: the first arms the card.
+		var cancel_armed: bool = progress >= 0.0 and bool(action.get("cancel", false)) and not research_running.is_empty() and CommandRow.is_cancel_armed(CommandRow.cancel_key(building_ref, research_running))
 		if done:
 			status_line = "Complete"
 		elif progress >= 0.0:
-			# The seam under the card is the meter; the line says what a tap does.
-			status_line = "Cancel" if bool(action.get("cancel", false)) else "%d%%" % int(clampf(progress, 0.0, 1.0) * 100.0)
+			# The seam under the card is the meter; an armed card asks to confirm.
+			status_line = "Cancel?" if cancel_armed else "%d%%" % int(clampf(progress, 0.0, 1.0) * 100.0)
 		elif not blocked_reason.is_empty():
 			# Beta 31 voice: a blocked card says why where its cost was.
 			status_line = blocked_short
@@ -4239,14 +4316,26 @@ func _update_research_buttons(building_ref: Node2D) -> void:
 			if done:
 				tile_status = "Done"
 			elif progress >= 0.0:
-				tile_status = "Cancel" if bool(action.get("cancel", false)) else "%d%%" % int(clampf(progress, 0.0, 1.0) * 100.0)
+				tile_status = "Cancel?" if cancel_armed else "%d%%" % int(clampf(progress, 0.0, 1.0) * 100.0)
 			elif not blocked_reason.is_empty():
 				tile_status = blocked_short
-			ACTION_TILE.apply(btn, load(tile_icon_path) as Texture2D if not tile_icon_path.is_empty() and ResourceLoader.exists(tile_icon_path) else null, action_cost, Vector2(66, 54), str(action.get("short", action.get("label", action_id))))
-			ACTION_TILE.set_status(btn, tile_status)
+			var tile_icon: Texture2D = load(tile_icon_path) as Texture2D if not tile_icon_path.is_empty() and ResourceLoader.exists(tile_icon_path) else null
+			var tile_caption: String = str(action.get("short", action.get("label", action_id)))
+			if CommandRow.is_pinned(action_id) and tile_caption.is_empty():
+				# The bell: a 48px icon tile beside the unit cards, lit while ringing.
+				ACTION_TILE.apply(btn, tile_icon, {}, CommandRow.PINNED_SIZE)
+				CommandRow.center_tile_icon(btn, str(action.get("icon", "")) == Garrison.ICON_BELL_CLEAR)
+			else:
+				ACTION_TILE.apply(btn, tile_icon, action_cost, CommandRow.TILE_SIZE, tile_caption)
+			var tile_note: String = str(action.get("desc", "")) if tile_status.is_empty() and action_cost.is_empty() and not tile_caption.is_empty() else ""
+			if tile_note.is_empty():
+				CommandRow.set_note(btn, "")
+				ACTION_TILE.set_status(btn, tile_status)
+			else:
+				# A free toggle says its state where a cost would be ("Home: On").
+				CommandRow.set_note(btn, tile_note)
 			(btn.get_node("TilePortrait") as CanvasItem).modulate = Color.WHITE if blocked_reason.is_empty() or done or progress >= 0.0 else Color(0.6, 0.6, 0.6)
 			FieldStyle.production_meter(btn, progress if not done else -1.0)
-			host.move_child(btn, host.get_child_count() - 1)
 			child_index += 1
 			continue
 		FieldStyle.production_meter(btn, progress if not done else -1.0)
@@ -4294,13 +4383,148 @@ func _update_research_buttons(building_ref: Node2D) -> void:
 			glyph.modulate = Color(1.0, 1.0, 1.0, 0.45 if btn.disabled else 0.9)
 		_research_container.move_child(btn, child_index)
 		child_index += 1
+	var row_actions: Array[Dictionary] = []
+	if in_train_row:
+		row_actions = actions
+	_arrange_production_row(row_actions)
 	_queue_mobile_layout_refresh()
 	_refresh_touch_target_diagnostics()
+
+
+# --- Production row pages (see scripts/ui/command_row.gd) ---
+var _row_page: int = 0  # 0 = Train; 1.. = Tech pages (only while the row is paged).
+var _row_paged: bool = false
+var _row_page_width: float = 0.0
+var _row_page_count: int = 1
+var _row_capacity_planned: float = -1.0
+
+
+func _production_row_capacity() -> float:
+	## Width the row may use before anything would sit under the age button.
+	# The safe area of the last layout pass (a rotation or a cutout re-plans).
+	var safe: Rect2 = get_world_safe_rect()
+	var minimap: float = clampf(minf(safe.size.y * 0.26, safe.size.x * 0.15), MOBILE_MINIMAP_MIN_SIZE, MOBILE_MINIMAP_MAX_SIZE)
+	var side: float = 64.0 if age_up_button.visible else (56.0 if build_menu_button.visible else 0.0)
+	return safe.size.x - MOBILE_ACTION_MARGIN * 2.0 - minimap - 12.0 - side - CommandRow.CHROME_WIDTH
+
+
+func _row_nav_button(button_name: String) -> Button:
+	var button: Button = _train_buttons_container.get_node_or_null(NodePath(button_name)) as Button
+	if button == null:
+		button = Button.new()
+		button.name = button_name
+		button.theme = ($Root as Control).theme
+		button.set_meta("row_nav", true)
+		button.focus_mode = Control.FOCUS_NONE
+		button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		KingdomTheme.apply_secondary(button)
+		_train_buttons_container.add_child(button)
+		FieldStyle.soften(button, 14, true)
+		button.pressed.connect(_on_row_nav_pressed.bind(button_name))
+	return button
+
+
+func _on_row_nav_pressed(button_name: String) -> void:
+	AudioManager.play_ui("button_click")
+	match button_name:
+		CommandRow.MORE_BUTTON_NAME:
+			_row_page = 1
+		CommandRow.NEXT_BUTTON_NAME:
+			_row_page = _row_page + 1 if _row_page + 1 < _row_page_count else 1
+		_:
+			_row_page = 0
+	_arrange_production_row(_context_actions_for(_selected_building_ref))
+	_queue_mobile_layout_refresh()
+	_refresh_touch_target_diagnostics()
+
+
+func _arrange_production_row(actions: Array[Dictionary]) -> void:
+	## Order, size and page the unit cards, pinned actions, rally flag and tiles
+	## as CommandRow.plan decides.
+	var row: HBoxContainer = _train_buttons_container
+	if row == null:
+		return
+	var gap: float = float(row.get_theme_constant("separation"))
+	var controls: Dictionary = {}  # item key -> Control
+	var unit_widths: Array = []
+	for child: Node in row.get_children():
+		if child.is_queued_for_deletion() or not child is Control:
+			continue
+		if child.has_meta("action_id"):
+			controls[str(child.get_meta("action_id"))] = child
+		elif String(child.name).begins_with("TrainButton_"):
+			controls[CommandRow.unit_key(unit_widths.size())] = child
+			unit_widths.append((child as Control).custom_minimum_size.x)
+	var rally_wanted: bool = is_instance_valid(_building_rally_button) and _building_rally_button.get_parent() == row and _selected_building_ref is BuildingBase and (_selected_building_ref as BuildingBase).building_type != BuildingData.BuildingType.TRADE_POST
+	if rally_wanted:
+		controls[CommandRow.RALLY_KEY] = _building_rally_button
+	var pinned: Array = []
+	var tail: Array = []
+	for action: Dictionary in actions:
+		var id: String = str(action.get("id", ""))
+		if not controls.has(id):
+			continue
+		var entry: Dictionary = {"id": id, "width": (controls[id] as Control).custom_minimum_size.x}
+		if CommandRow.is_pinned(id):
+			pinned.append(entry)
+		else:
+			tail.append(entry)
+	var layout: Dictionary = {"paged": false, "train": [], "pages": [], "hidden": [], "unit_width": 0.0, "tile_width": CommandRow.TILE_SIZE.x, "width": 0.0}
+	var row_capacity: float = _production_row_capacity()
+	_row_capacity_planned = row_capacity if _row_capacity_planned < 0.0 else minf(_row_capacity_planned, row_capacity)
+	if not unit_widths.is_empty():
+		layout = CommandRow.plan(unit_widths, pinned, _building_rally_button.custom_minimum_size.x if rally_wanted else 0.0, tail, _row_capacity_planned, gap)
+	var pages: Array = layout.pages
+	_row_paged = bool(layout.paged)
+	_row_page_width = float(layout.width)
+	_row_page_count = pages.size() + 1 if _row_paged else 1
+	_row_page = clampi(_row_page, 0, _row_page_count - 1) if _row_paged else 0
+	var on_train: bool = _row_page == 0
+	for index: int in unit_widths.size():
+		(controls[CommandRow.unit_key(index)] as Control).custom_minimum_size.x = float(layout.unit_width)
+	for entry: Dictionary in tail:
+		(controls[str(entry.id)] as Control).custom_minimum_size.x = minf(float(entry.width), float(layout.tile_width))
+	# This page, in order: [units] [pinned] [rally] [tiles] [Tech]  or
+	# [Back] [pinned] [tiles] [Next].
+	var shown: Array[Control] = []
+	if on_train:
+		for key: String in layout.train:
+			if controls.has(key):
+				shown.append(controls[key])
+		if _row_paged:
+			var more: Button = _row_nav_button(CommandRow.MORE_BUTTON_NAME)
+			CommandRow.style_more_button(more, CommandRow.summarize_tail(actions))
+			shown.append(more)
+	else:
+		var back: Button = _row_nav_button(CommandRow.BACK_BUTTON_NAME)
+		CommandRow.style_back_button(back)
+		shown.append(back)
+		if bool(layout.get("pinned_on_tech", true)):
+			for entry: Dictionary in pinned:
+				shown.append(controls[str(entry.id)])
+		for key: String in pages[_row_page - 1]:
+			if controls.has(key):
+				shown.append(controls[key])
+		if _row_page_count > 2:
+			var next: Button = _row_nav_button(CommandRow.NEXT_BUTTON_NAME)
+			CommandRow.style_next_button(next)
+			shown.append(next)
+	for child: Node in row.get_children():
+		if child is Control and not child.is_queued_for_deletion() and (controls.values().has(child) or child.has_meta("row_nav") or child == _building_rally_button):
+			(child as Control).visible = shown.has(child)
+	for index: int in shown.size():
+		row.move_child(shown[index], index)
 
 
 func _on_context_action_pressed(action_id: String) -> void:
 	if not _is_human_owned_building(_selected_building_ref):
 		return
+	var running: String = (_selected_building_ref as BuildingBase).research_id
+	if not running.is_empty() and action_id == BuildingBase.RESEARCH_ACTION_PREFIX + running:
+		# A running research is cancelled by a second, separate tap ("Cancel?").
+		if not CommandRow.tap_cancel(CommandRow.cancel_key(_selected_building_ref, running)):
+			_update_research_buttons(_selected_building_ref)
+			return
 	building_action_requested.emit(_selected_building_ref, action_id)
 	if action_id.begins_with(BuildingBase.RESEARCH_ACTION_PREFIX):
 		# Legacy mirror for listeners that predate context actions.
@@ -4588,14 +4812,8 @@ func _world_to_tile_minimap(world_pos: Vector2) -> Vector2i:
 
 func _create_notification_feed() -> void:
 	var root_ctrl: Control = $Root
-	_notification_container = VBoxContainer.new()
-	_notification_container.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	_notification_container.offset_left = 8
-	_notification_container.offset_top = 48
-	_notification_container.offset_right = 232
-	_notification_container.offset_bottom = 188
-	_notification_container.add_theme_constant_override("separation", 2)
-	_notification_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Placement, priority and the two-pill limit live in scripts/ui/toast_lane.gd.
+	_notification_container = ToastLane.new()
 	root_ctrl.add_child(_notification_container)
 	_worker_undo_button = Button.new()
 	_worker_undo_button.name = "WorkerOrderUndoButton"
@@ -4612,64 +4830,24 @@ func _create_notification_feed() -> void:
 	_worker_undo_button.hide()
 
 
-func show_notification(text: String, color: Color = Color.WHITE, duration: float = NOTIFICATION_DURATION, action: Callable = Callable()) -> void:
+func show_notification(text: String, color: Color = Color.WHITE, duration: float = NOTIFICATION_DURATION, action: Callable = Callable(), priority: int = -1) -> void:
+	## `priority` is a ToastLane.Priority; -1 infers it (tappable or long-lived
+	## messages are HIGH). The lane shows at most two and queues the rest.
 	if _notification_container == null:
 		return
-	# Cap at max visible
-	var overflow_count: int = maxi(0, _notification_container.get_child_count() - _mobile_notification_limit + 1)
-	for child_index: int in range(overflow_count):
-		_retire_dynamic_control(_notification_container.get_child(child_index))
-
-	var panel := PanelContainer.new()
-	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if action.is_valid():
-		panel.mouse_filter = Control.MOUSE_FILTER_STOP
-		panel.custom_minimum_size.y = MOBILE_ACTION_BUTTON_HEIGHT
-		panel.gui_input.connect(func(event: InputEvent) -> void:
-			# Godot may deliver the same contact again as an emulated pointer.
-			if event.device == InputEvent.DEVICE_ID_EMULATION:
-				panel.accept_event()
-				return
-			if (event is InputEventScreenTouch and event.pressed and not event.canceled) or (
-				event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed
-			):
-				action.call()
-				panel.accept_event()
-		)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color(KingdomTheme.INK, 0.94)
-	style.border_color = color
-	style.border_width_left = 3
-	style.set_content_margin_all(3)
-	style.content_margin_left = 7
-	style.set_corner_radius_all(3)
-	panel.add_theme_stylebox_override("panel", style)
-
-	var lbl := Label.new()
-	lbl.text = text
-	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	lbl.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
-	lbl.clip_text = false
-	lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	lbl.add_theme_font_size_override("font_size", 13)
-	lbl.add_theme_font_override("font", KingdomTheme.FONT_BODY)
-	lbl.add_theme_constant_override("line_spacing", 0)
-	lbl.add_theme_color_override("font_color", KingdomTheme.PARCHMENT)
-	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	panel.add_child(lbl)
-
-	_notification_container.add_child(panel)
+	_notification_container.push(text, color, duration, action, priority)
 	_refresh_notification_visibility()
-	_fit_notification_feed()
 
-	# Auto-fade and remove after duration
-	var tween := create_tween()
-	tween.tween_interval(duration)
-	tween.tween_property(panel, "modulate:a", 0.0, 0.5)
-	tween.tween_callback(panel.queue_free)
+
+func dismiss_notification(text: String) -> void:
+	## Retire a toast early (an offer that was taken or no longer applies).
+	if _notification_container != null:
+		_notification_container.dismiss(text)
 
 
 func set_battlefield_alerts_active(active: bool) -> void:
+	if active != _battlefield_alerts_active and _worker_undo_button != null and _worker_undo_button.visible:
+		_queue_mobile_layout_refresh()
 	_battlefield_alerts_active = active
 	_refresh_notification_visibility()
 
@@ -4681,33 +4859,8 @@ func _refresh_notification_visibility() -> void:
 	# still-current feedback returns on close; raid cards retain their own lane.
 	# Compact View/More/Queue controls keep their contextual gesture feedback.
 	var sheet_open: bool = _secondary_surface in [SecondarySurface.ECONOMY, SecondarySurface.ARMY, SecondarySurface.INFO, SecondarySurface.HELP, SecondarySurface.WORLD_CONTEXT]
-	_notification_container.visible = not _battlefield_alerts_active and not sheet_open and _ui_modal_state == UIModalState.NONE
-
-
-func _fit_notification_feed() -> void:
-	if _notification_container == null:
-		return
-	var width: float = maxf(1.0, _notification_container.offset_right - _notification_container.offset_left - 10.0)
-	var lane_height: float = maxf(32.0, _notification_container.offset_bottom - _notification_container.offset_top)
-	var active_panels: Array[Control] = []
-	var total_height: float = 0.0
-	for child: Node in _notification_container.get_children():
-		if child.is_queued_for_deletion() or not (child as Control).visible:
-			continue
-		var panel := child as Control
-		var label := panel.get_child(0) as Label
-		var font: Font = label.get_theme_font("font")
-		var font_size: int = 12 if width < 150.0 else 13
-		label.add_theme_font_size_override("font_size", font_size)
-		# clip_text makes a wrapping Label report a 1px minimum height. Measure
-		# the actual message at its lane width so VBox never collapses the text.
-		label.custom_minimum_size.y = ceilf(font.get_multiline_string_size(label.text, HORIZONTAL_ALIGNMENT_LEFT, width, font_size, -1, TextServer.BREAK_MANDATORY | TextServer.BREAK_WORD_BOUND | TextServer.BREAK_ADAPTIVE).y)
-		active_panels.append(panel)
-		total_height += maxf(panel.custom_minimum_size.y, label.custom_minimum_size.y + 6.0) + 2.0
-	while active_panels.size() > 1 and total_height - 2.0 > lane_height:
-		var oldest: Control = active_panels.pop_front()
-		total_height -= maxf(oldest.custom_minimum_size.y, (oldest.get_child(0) as Label).custom_minimum_size.y + 6.0) + 2.0
-		_retire_dynamic_control(oldest)
+	# Raid cards live in the alert column; toasts have their own lane beside it.
+	_notification_container.visible = not sheet_open and _ui_modal_state == UIModalState.NONE
 
 
 # --- Hotkey Reference Panel ---

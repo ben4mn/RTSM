@@ -110,6 +110,8 @@ func _profile(phone: Vector2i, scale_factor: float, notched: bool) -> void:
     await _settle(hud,logical,safe)
     var scroll: ScrollContainer = hud.get("command_scroll")
     for button: Button in (hud.get("_train_buttons_container") as HBoxContainer).get_children():
+        if not button.visible:
+            continue  # HUD pass: the other page of a paged row.
         _expect(scroll.get_global_rect().encloses(button.get_global_rect()),"%s initial TC action clipped: %s" % [label,button.name])
         _button_text_fits(button,label)
     await _selection_name_readable(hud,logical,safe,label)

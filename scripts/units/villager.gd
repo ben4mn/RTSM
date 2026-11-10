@@ -203,11 +203,19 @@ func take_damage(amount: float) -> void:
 
 # --- Wildlife (workstream A) ---------------------------------------------------
 
-## A boar's bite. It takes the ordinary damage path (flash, alert, death) but
-## never starts the economic auto-flee: the player is luring the boar on
-## purpose and must stay in control of where this villager runs.
+## True only while a boar bite is being applied, so listeners of the ordinary
+## damage and death signals can tell an animal from a raid (no RAID card, no
+## under-attack sting, no battle music).
+var wildlife_hit: bool = false
+
+
+## A boar's bite. It takes the ordinary damage path (flash, death) but never
+## starts the economic auto-flee: the player is luring the boar on purpose and
+## must stay in control of where this villager runs.
 func take_wildlife_damage(amount: float) -> void:
+	wildlife_hit = true
 	super.take_damage(amount)
+	wildlife_hit = false
 
 
 ## Animals move. Keep the fog-safe "last known" order position and the

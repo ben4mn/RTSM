@@ -98,6 +98,9 @@ func _notification_journey(phone: Vector2i, interface_scale: float) -> void:
 	await _button(_hud.get("_pause_overlay").get_node("PauseMenu/ResumeButton"))
 	_expect(feed.is_visible_in_tree(), "Resume leaves feed hidden")
 	await _button(overview.rail.get_node("EconomyButton"))
+	# HUD pass: the lane now holds two pills; start this step from an empty one.
+	feed.call("clear")
+	await _frames(2)
 	_hud.call("show_notification", "Already expired", KingdomTheme.MUTED, 0.05)
 	await get_tree().create_timer(0.7).timeout
 	await _frames(3)
