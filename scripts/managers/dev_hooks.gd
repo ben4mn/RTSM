@@ -15,7 +15,7 @@ const DIFFICULTY_IDS: Dictionary = {"easy": 0, "medium": 1, "hard": 2}
 const MAP_IDS: Dictionary = {"open_plains": 0, "river_crossings": 1, "woodland_flanks": 2}
 const RESOURCES: Array[String] = ["food", "wood", "gold"]
 const UNDER_ATTACK_COOLDOWN: float = 10.0
-const COMMANDS: Array[String] = ["camera_to", "set_speed", "pause", "reveal_map", "give", "spawn", "age", "build", "screenshot_safe_ui", "perf"]
+const COMMANDS: Array[String] = ["camera_to", "set_speed", "pause", "reveal_map", "give", "spawn", "age", "build", "screenshot_safe_ui", "perf", "motion", "order"]
 
 static var _dev_checked: bool = false
 static var _dev_enabled: bool = false
@@ -175,6 +175,7 @@ func _process(_delta: float) -> void:
 	if _reveal_map:
 		_apply_reveal()
 	if PerfProbe.on: PerfProbe.add(&"dev.scan", _pp)
+	_record_motion()
 
 
 func _scan_entities() -> void:
@@ -537,7 +538,9 @@ func _cmd_perf(arguments: Array, named: Dictionary = {}) -> Dictionary:
 	var start: bool = bool(named.get("on", arguments[0] if not arguments.is_empty() else true))
 	if start:
 		PerfProbe.reset()
-		PerfProbe.on = true
+		# `{on: true, probes: false}` keeps only the frame phases and draw
+		# calls, so the scoped probes' own cost does not inflate the frame.
+		PerfProbe.on = bool(named.get("probes", true))
 		_perf_started_frame = Engine.get_process_frames()
 		_perf_install_markers()
 		return {"ok": true}
@@ -583,6 +586,75 @@ func _cmd_perf(arguments: Array, named: Dictionary = {}) -> Dictionary:
 		"units_in_view": units_in_view,
 		"zoom": snappedf(match_scene.game_map.camera.zoom.x, 0.01) if match_scene.game_map.camera != null else 0.0,
 	}
+
+
+## Motion smoothness sampler. `cmd('motion', {unit: id})` (or no unit: the
+## player-0 military unit nearest the camera) starts recording, once per
+## rendered frame after every unit has updated, the unit's drawn position
+## (node + interpolation offset) and simulated position; `cmd('motion',
+## {stop: true})` returns the samples as rows [frame, real_ms, game_s, drawn_x,
+## drawn_y, sim_x, sim_y, state]. `legacy: true|false` toggles the pre-F4 ease
+## for A/B comparison.
+var _motion_unit: WeakRef = null
+var _motion_rows: Array = []
+
+
+func _cmd_motion(arguments: Array, named: Dictionary = {}) -> Dictionary:
+	if named.has("legacy"):
+		UnitBase.legacy_interpolation_hold = bool(named.legacy)
+	if bool(named.get("stop", false)):
+		var rows: Array = _motion_rows
+		_motion_rows = []
+		_motion_unit = null
+		return {"ok": true, "rows": rows, "legacy": UnitBase.legacy_interpolation_hold}
+	var unit: UnitBase = _unit_by_id(named.get("unit", arguments[0] if not arguments.is_empty() and not arguments[0] is Dictionary else null))
+	if unit == null:
+		var focus: Vector2 = match_scene.game_map.camera.position if match_scene.game_map.camera != null else Vector2.ZERO
+		var best: float = INF
+		for candidate: UnitBase in match_scene._player_units[0]:
+			if is_instance_valid(candidate) and candidate.current_state != UnitBase.State.DEAD and not candidate is Villager:
+				var distance: float = candidate.global_position.distance_squared_to(focus)
+				if distance < best:
+					best = distance
+					unit = candidate
+	if unit == null:
+		return {"error": "no unit"}
+	_motion_unit = weakref(unit)
+	_motion_rows = []
+	return {"ok": true, "unit": unit.get_instance_id(), "legacy": UnitBase.legacy_interpolation_hold}
+
+
+func _record_motion() -> void:
+	if _motion_unit == null:
+		return
+	var unit: UnitBase = _motion_unit.get_ref() as UnitBase
+	if unit == null or _motion_rows.size() >= 3600:
+		return
+	var drawn: Vector2 = unit.get_visual_position()
+	_motion_rows.append([Engine.get_process_frames(), snappedf(Time.get_ticks_usec() / 1000.0, 0.01), snappedf(GameManager.game_time, 0.0001),
+		snappedf(drawn.x, 0.001), snappedf(drawn.y, 0.001), snappedf(unit.global_position.x, 0.001), snappedf(unit.global_position.y, 0.001), unit.current_state])
+
+
+## `cmd('order', {unit: id, move: [tile_x, tile_y]})` or `{unit: id, stop: true}`.
+func _cmd_order(arguments: Array, named: Dictionary = {}) -> Dictionary:
+	var unit: UnitBase = _unit_by_id(named.get("unit", null))
+	if unit == null:
+		return {"error": "no unit"}
+	if bool(named.get("stop", false)):
+		unit.command_stop()
+		return {"ok": true, "stopped": unit.get_instance_id()}
+	if named.has("move"):
+		var tile: Vector2i = _resolve_tile(named.move, unit.player_owner)
+		unit.command_move(match_scene.game_map.tile_to_world(tile))
+		return {"ok": true, "unit": unit.get_instance_id(), "tile": [tile.x, tile.y]}
+	return {"error": "nothing to do"}
+
+
+func _unit_by_id(id: Variant) -> UnitBase:
+	if id == null or not (id is float or id is int):
+		return null
+	var node: Object = instance_from_id(int(id))
+	return node as UnitBase if is_instance_valid(node) and node is UnitBase else null
 
 
 func _cmd_screenshot_safe_ui(arguments: Array, named: Dictionary = {}) -> Dictionary:

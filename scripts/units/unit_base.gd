@@ -159,6 +159,9 @@ static var sim_base_step: float = SIM_STEP
 static var view_rect: Rect2 = Rect2(-1e7, -1e7, 2e7, 2e7)
 ## Units inside view_rect on the previous frame (GameMap rolls the counter).
 static var crowd_on_screen: int = 0
+## Dev A/B switch (PocketDev cmd('motion', {legacy: true})): the F3 ease that
+## paused on think frames. Never set in play.
+static var legacy_interpolation_hold: bool = false
 static var _seen_counting: int = 0
 const CROWD_POSE_UNITS: int = 60
 static var _sim_phase_serial: int = 0
@@ -171,12 +174,26 @@ var _sim_driven: bool = false
 ## Game seconds since the last think (0 while a fixture drives `_process`).
 var _think_pending: float = 0.0
 var _present_pending: float = 0.0
-## Drawn position minus simulated position; decays to zero over one step.
+## Drawn position minus simulated position (see `_ease_drawn_position`).
 var _visual_offset: Vector2 = Vector2.ZERO
 var _visual_offset_start: Vector2 = Vector2.ZERO
 var _visual_elapsed: float = 0.0
 var _visual_span: float = SIM_STEP
 const VISUAL_SNAP_DISTANCE_SQUARED: float = 48.0 * 48.0
+## The last three simulated positions and the unit clock at which each was
+## reached (index 2 newest). The drawn position replays this path a fixed
+## `interpolation_delay` behind the unit clock, so it moves at the simulated
+## speed on every frame however the 20 Hz thinks fall between frames.
+var _trail_p0: Vector2 = Vector2.ZERO
+var _trail_p1: Vector2 = Vector2.ZERO
+var _trail_p2: Vector2 = Vector2.ZERO
+var _trail_t0: float = 0.0
+var _trail_t1: float = 0.0
+var _trail_t2: float = 0.0
+## Game seconds the drawn position trails the simulation by: one step plus a
+## frame, so there are always two simulated positions to blend between.
+## GameMap keeps it from the step and a smoothed frame time.
+static var interpolation_delay: float = SIM_STEP * 1.5
 ## Written by LiveUnitIndex only (its record for this unit, kept on the unit).
 var _index_position: Vector2 = Vector2.ZERO
 var _index_rank: int = 0
@@ -466,17 +483,22 @@ func _sim_frame(delta: float) -> void:
 		_sim_slots = maxi(1, ceili(_think_interval() / sim_step - 0.01))
 		_sim_next_think += sim_step * maxf(float(_sim_slots), floorf((_sim_clock - _sim_next_think) / sim_step) + 1.0)
 		_think_pending = 0.0
-		var offset: Vector2 = drawn - global_position
-		if seen and delta > 0.0 and not offset.is_zero_approx() and offset.length_squared() < VISUAL_SNAP_DISTANCE_SQUARED:
-			_visual_offset_start = offset
-			_visual_elapsed = 0.0
-			# The drawn position arrives on the frame of the next think.
-			_visual_span = ceilf((_sim_next_think - _sim_clock - 0.000001) / delta) * delta
-			_visual_offset = offset
-			_apply_visual_offset()
-		elif _visual_offset != Vector2.ZERO:
-			_visual_offset = Vector2.ZERO
-			_apply_visual_offset()
+		if legacy_interpolation_hold:
+			# Pre-F4 ease, kept for A/B measurement only: the drawn position
+			# held still on every think frame (a 20 Hz judder).
+			var offset: Vector2 = drawn - global_position
+			if seen and delta > 0.0 and not offset.is_zero_approx() and offset.length_squared() < VISUAL_SNAP_DISTANCE_SQUARED:
+				_visual_offset_start = offset
+				_visual_elapsed = 0.0
+				_visual_span = ceilf((_sim_next_think - _sim_clock - 0.000001) / delta) * delta
+				_visual_offset = offset
+				_apply_visual_offset()
+			elif _visual_offset != Vector2.ZERO:
+				_visual_offset = Vector2.ZERO
+				_apply_visual_offset()
+		else:
+			_record_trail()
+			_ease_drawn_position(seen, true)
 		if current_state == State.DEAD:
 			_sim_engine_frame = Engine.get_process_frames()
 			return
@@ -484,10 +506,13 @@ func _sim_frame(delta: float) -> void:
 		_present_pending = 0.0
 	else:
 		_think_pending = _sim_clock - _sim_last_think
-		if _visual_offset != Vector2.ZERO:
-			_visual_elapsed += delta
-			_visual_offset = _visual_offset_start * (1.0 - _visual_elapsed / _visual_span) if _visual_elapsed + 0.000001 < _visual_span else Vector2.ZERO
-			_apply_visual_offset()
+		if legacy_interpolation_hold:
+			if _visual_offset != Vector2.ZERO:
+				_visual_elapsed += delta
+				_visual_offset = _visual_offset_start * (1.0 - _visual_elapsed / _visual_span) if _visual_elapsed + 0.000001 < _visual_span else Vector2.ZERO
+				_apply_visual_offset()
+		else:
+			_ease_drawn_position(seen, false)
 		# Unseen units settle their presentation clocks at think time only.
 		# In a crowd, a figure doing nothing but breathing is posed at its
 		# thinks (20 per real second); anything that moves, strikes, flinches
@@ -498,6 +523,41 @@ func _sim_frame(delta: float) -> void:
 	if seen:
 		_seen_counting += 1
 	_sim_engine_frame = Engine.get_process_frames()
+
+
+## After a think: the position just simulated joins the trail. A jump (spawn,
+## garrison exit, a fixture or replica placing the node) restarts it there.
+func _record_trail() -> void:
+	var now: Vector2 = global_position
+	if now.distance_squared_to(_trail_p2) > VISUAL_SNAP_DISTANCE_SQUARED:
+		_trail_p0 = now
+		_trail_p1 = now
+		_trail_t0 = _sim_clock - sim_step * 2.0
+		_trail_t1 = _sim_clock - sim_step
+	else:
+		_trail_p0 = _trail_p1
+		_trail_t0 = _trail_t1
+		_trail_p1 = _trail_p2
+		_trail_t1 = _trail_t2
+	_trail_p2 = now
+	_trail_t2 = _sim_clock
+
+
+## Every frame for a seen unit: draw where the trail was `interpolation_delay`
+## ago. Unseen units draw at the simulated position.
+func _ease_drawn_position(seen: bool, moved: bool) -> void:
+	var offset := Vector2.ZERO
+	if seen and global_position == _trail_p2 and not (_trail_p0 == _trail_p2 and _trail_p1 == _trail_p2):
+		var at: float = _sim_clock - interpolation_delay
+		var drawn: Vector2 = _trail_p2
+		if at < _trail_t1:
+			drawn = _trail_p0.lerp(_trail_p1, clampf((at - _trail_t0) / maxf(0.000001, _trail_t1 - _trail_t0), 0.0, 1.0))
+		elif at < _trail_t2:
+			drawn = _trail_p1.lerp(_trail_p2, (at - _trail_t1) / maxf(0.000001, _trail_t2 - _trail_t1))
+		offset = drawn - _trail_p2
+	if offset != _visual_offset or (moved and offset != Vector2.ZERO):
+		_visual_offset = offset
+		_apply_visual_offset()
 
 
 ## The node keeps the simulated position (targeting, spacing, fog and saves read

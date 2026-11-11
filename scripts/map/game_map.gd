@@ -297,6 +297,9 @@ func _get_camera_half_view_world() -> Vector2:
 	return Vector2(viewport_size.x * 0.5 / zoom, viewport_size.y * 0.5 / zoom)
 
 
+var _frame_game_seconds: float = 0.0
+
+
 func _process(delta: float) -> void:
 	# F3: units think on a fixed game-time step (UnitBase._sim_frame). Faster
 	# game speeds widen the step instead of thinking more often per frame;
@@ -308,6 +311,10 @@ func _process(delta: float) -> void:
 		UnitBase.set_marker_view(1.0 / maxf(0.5, camera.zoom.x), GameManager.clearer_player_markers)
 		UnitBase.crowd_on_screen = UnitBase._seen_counting
 		UnitBase._seen_counting = 0
+	# Drawn units trail the simulation by one step plus a (smoothed) frame.
+	if delta > 0.0:
+		_frame_game_seconds = lerpf(_frame_game_seconds, minf(delta, 0.25), 0.05) if _frame_game_seconds > 0.0 else delta
+	UnitBase.interpolation_delay = maxf(UnitBase.sim_step * 1.5, UnitBase.sim_step + _frame_game_seconds * 1.15)
 	_update_camera_pan(delta)
 	_update_camera_zoom(delta / maxf(0.001, Engine.time_scale))
 
