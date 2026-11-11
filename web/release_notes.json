@@ -1,6 +1,17 @@
 {
   "releases": [
     {
+      "id": "2026-11-11-room-to-grow",
+      "date": "2026-11-11",
+      "version": "0.4.0-beta.2",
+      "title": "Room to grow",
+      "summary": "Find always lands on ground you can build on, and Easy gives you much longer to settle in.",
+      "changes": [
+        "Find now always picks a spot Place accepts. When nothing fits on screen it walks out from your Town Center, moves the view there and keeps the spot steady while you reach for Place. If there truly is no room, it says so.",
+        "Easy is gentler: no attacks, raids or shrine squads before 14:00, then small waves that grow slowly, five minutes apart, that turn back sooner. It keeps a smaller army, ages up later and leaves your Town Center alone until 25:00."
+      ]
+    },
+    {
       "id": "2026-11-11-a-living-kingdom",
       "date": "2026-11-11",
       "version": "0.4.0-beta.1",
