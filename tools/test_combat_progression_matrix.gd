@@ -129,7 +129,8 @@ func _test_state(age: int, masks: Array[int]) -> void:
 		var tc: BuildingBase = _building(arena, TC, owner)
 		for kind: int in [0, 1, 2, 3, 5]:
 			var attacker: UnitBase = existing[owner][kind]
-			var expected: int = int((BASE_ATTACK[kind] + (2.0 if masks[owner] & 1 else 0.0)) * (3.0 if kind == 5 else 1.0))
+			# Round 2 E2: each line carries its own data multiplier vs buildings.
+			var expected: int = maxi(1, roundi((BASE_ATTACK[kind] + (2.0 if masks[owner] & 1 else 0.0)) * float(UnitData.UNITS[kind].get("bonus_vs_buildings", 1.0))))
 			house.hp = house.max_hp
 			Combat.deal_damage_to_building(attacker, house)
 			_expect(house.max_hp - house.hp == expected, "unit-to-building impact has attack bonus, siege multiplier and no armor")

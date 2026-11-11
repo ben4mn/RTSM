@@ -12,7 +12,7 @@ func _ready() -> void:
 
 func _run() -> void:
 	AudioManager.set_all_enabled(false)
-	_expect(SkirmishData.DEFAULT_POPULATION_LIMIT == 100, "normal default100")
+	_expect(SkirmishData.DEFAULT_POPULATION_LIMIT == 80, "normal default 80 (Round 2 E2)")
 	for old: int in [20, 30, 40]:
 		_expect(SkirmishData.restore_population_limit(old, 0) == (100 if old == 30 else old), "legacy migration %d" % old)
 	for choice: int in SkirmishData.POPULATION_OPTIONS:

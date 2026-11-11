@@ -68,7 +68,8 @@ func _run() -> void:
 		var queue: ProductionQueue = post.get_production_queue()
 		check(queue.queue == [UnitData.UnitType.TRADER], "AI intent enqueues the real Main Trade Post")
 		check(ResourceManager.get_all_resources(1) == {"food": 0, "wood": 0, "gold": 0}, "Trader pays exact 60 wood and 40 gold once")
-		check(GameManager.get_reserved_population(1) == 2 and int(GameManager.players[1].population) == population, "paid finite queue reserves two population before spawn")
+		var trader_pop: int = int(UnitData.UNITS[UnitData.UnitType.TRADER].get("pop_cost", 1))  # Round 2 E: one body per Trader
+		check(GameManager.get_reserved_population(1) == trader_pop and int(GameManager.players[1].population) == population, "paid finite queue reserves the Trader population before spawn")
 		ai._game_time += 20.0
 		ai._check_trade_economy()
 		check(queue.queue.size() == 1, "queued supply prevents a second purchase")
@@ -77,7 +78,7 @@ func _run() -> void:
 		for unit: UnitBase in main._player_units[1]:
 			if unit is Trader: traders.append(unit)
 		check(traders.size() == 1 and queue.queue.is_empty(), "ordinary finite completion spawns exactly one Trader")
-		check(GameManager.get_reserved_population(1) == 0 and int(GameManager.players[1].population) == population + 2, "birth converts reservation into exactly two live population")
+		check(GameManager.get_reserved_population(1) == 0 and int(GameManager.players[1].population) == population + trader_pop, "birth converts the reservation into live population")
 		if traders.size() == 1:
 			var trader: Trader = traders[0]
 			check(trader.trade_route_active, "Main assigns completed Trader to its producer's reachable route")

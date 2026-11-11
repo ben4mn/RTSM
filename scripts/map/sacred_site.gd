@@ -57,6 +57,10 @@ var control_banks: Array[float] = [0.0, 0.0]
 var clock_ticking: bool = false
 var garrison_paused: bool = false
 var _armed_nearby_counts: Array[int] = [0, 0]
+const CENSUS_INTERVAL: float = 0.2
+## Not saved: a restored site recounts on its first frame.
+var _census_cooldown: float = 0.0
+var _census: Array[int] = [0, 0]
 
 
 func configure_match_mode(mode: int) -> void:
@@ -81,6 +85,25 @@ func _advance_victory(delta: float) -> void:
 	if match_mode != SkirmishData.MatchMode.STANDARD:
 		control_banks[owning_player] = victory_timer
 	victory_timer_tick.emit(owning_player, victory_hold_time - victory_timer, victory_hold_time)
+
+
+## Standard only (Round 2 E2): an owned clock that nobody guards, or that an
+## enemy is standing in, loses held time instead of pausing.
+func _drain_victory(delta: float) -> void:
+	if match_mode != SkirmishData.MatchMode.STANDARD or owning_player not in [0, 1] or victory_timer <= 0.0:
+		return
+	victory_timer = maxf(0.0, victory_timer - delta * SkirmishData.SACRED_DRAIN_RATE)
+	victory_timer_tick.emit(owning_player, victory_hold_time - victory_timer, victory_hold_time)
+
+
+## True while an owned Standard clock is losing held time (derived from the
+## replicated fields, so clients agree without a protocol change).
+func is_draining() -> bool:
+	if match_mode != SkirmishData.MatchMode.STANDARD or owning_player not in [0, 1] or victory_timer <= 0.0:
+		return false
+	if state == SiteState.CONTESTED:
+		return true
+	return state == SiteState.CAPTURED and (garrison_paused or _being_neutralized)
 
 
 ## ResourceManager stores whole resources. Preserve sub-resource income between
@@ -111,7 +134,13 @@ func _process(delta: float) -> void:
 	clock_ticking = false
 	garrison_paused = false
 	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
-	var nearby := _count_nearby_players()
+	# Round 2 E2 (perf): the ring census runs at about 5 Hz, not every frame.
+	# A long step (tests, a hitch) always recounts.
+	_census_cooldown -= delta
+	if _census_cooldown <= 0.0 or delta >= CENSUS_INTERVAL:
+		_census_cooldown = CENSUS_INTERVAL
+		_census = _count_nearby_players()
+	var nearby: Array[int] = _census
 	if PerfProbe.on: PerfProbe.add(&"site.count", _pp)
 	var p1_count: int = nearby[0]
 	var p2_count: int = nearby[1]
@@ -189,6 +218,7 @@ func _handle_captured(p1: int, p2: int, delta: float, armed_friendly: int = 0) -
 	if enemy > 0 and friendly == 0:
 		# Enemy is de-capturing.
 		_being_neutralized = true
+		_drain_victory(delta)
 		capture_progress -= (delta / capture_time) * (minf(enemy, 5) * 0.5 + 0.5)
 		if capture_progress <= 0.0:
 			capture_progress = 0.0
@@ -207,9 +237,12 @@ func _handle_captured(p1: int, p2: int, delta: float, armed_friendly: int = 0) -
 
 	# Standard asks an army to occupy the ground it wants to win from. Scouts
 	# and workers retain capture, contest and income utility. Control race keeps
-	# its established banked-ownership rules. Leaving pauses; it never resets.
+	# its established banked-ownership rules. Round 2 E2: leaving drains the
+	# held time at SACRED_DRAIN_RATE; losing the site resets it.
 	garrison_paused = match_mode == SkirmishData.MatchMode.STANDARD and armed_friendly <= 0
-	if not garrison_paused:
+	if garrison_paused:
+		_drain_victory(delta)
+	else:
 		_advance_victory(delta)
 
 
@@ -240,7 +273,10 @@ func _handle_contested(p1: int, p2: int, delta: float) -> void:
 				_reset_or_restore_timer()
 				state = SiteState.CAPTURING
 		return
-	# Both players present — pause control in both rule sets.
+	# Both players present: Control race pauses; Standard drains the owner's
+	# held time once the clock is open (Round 2 E2).
+	if victory_enabled and victory_wake_remaining() <= 0.0:
+		_drain_victory(delta)
 
 
 func _generate_gold(delta: float) -> void:
@@ -414,6 +450,7 @@ func get_status() -> Dictionary:
 		"control_banks": control_banks.duplicate(),
 		"clock_ticking": clock_ticking,
 		"garrison_paused": garrison_paused,
+		"draining": is_draining(),
 		"wake_remaining": wake_remaining,
 	}
 
@@ -422,7 +459,7 @@ func _publish_status() -> void:
 	# Refresh immediately when the phase/owner changes, and only on visible
 	# second/percentage boundaries while a timer advances.
 	var status: Dictionary = get_status()
-	var key: String = "%s:%d:%d:%d:%s:%s:%d" % [status["phase"], owning_player, floori(capture_progress * 100.0), ceili(float(status["remaining"])), clock_ticking, garrison_paused, ceili(float(status["wake_remaining"]))]
+	var key: String = "%s:%d:%d:%d:%s:%s:%d:%s" % [status["phase"], owning_player, floori(capture_progress * 100.0), ceili(float(status["remaining"])), clock_ticking, garrison_paused, ceili(float(status["wake_remaining"])), status["draining"]]
 	if key == _last_status_key:
 		return
 	_last_status_key = key

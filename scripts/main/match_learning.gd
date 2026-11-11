@@ -178,7 +178,7 @@ func _choose_lesson(buildings: Array, site_status: Dictionary) -> Dictionary:
 	else:
 		lesson = "objective"
 		if str(site_status.get("phase", "")) == "contested":
-			text = "Sacred · Both sides are in the ring. The victory clock is paused; reinforce."
+			text = "Sacred · Both sides are in the ring. The held time is draining; reinforce."
 		elif int(site_status.get("owner", -1)) == 0:
 			if int(site_status.get("match_mode", SkirmishData.MatchMode.STANDARD)) != SkirmishData.MatchMode.STANDARD:
 				text = "Sacred · Bank control across captures. Rally paid replacements and protect your workers."

@@ -5046,7 +5046,9 @@ func update_sacred_site_status(status: Dictionary) -> void:
 	# Whose clock it is must read at a glance: the owner's name leads the time.
 	var owner_word: String = "You" if int(status.get("owner", -1)) == 0 else "Rival"
 	var clock_text: String = "%s %s" % [owner_word, _sacred_clock(float(status.get("remaining", 0.0)))] if controlled else ""
-	if controlled and phase != "holding":
+	if controlled and bool(status.get("draining", false)):
+		clock_text += " · fading"  # Round 2 E2: an unguarded or contested clock drains.
+	elif controlled and phase != "holding":
 		clock_text += " | |"
 	var wake_remaining: float = float(status.get("wake_remaining", 0.0))
 	if wake_remaining > 0.0 and phase not in ["contested", "neutralizing"]:
@@ -5096,9 +5098,9 @@ func _sacred_site_status_line(status: Dictionary) -> String:
 		"capturing": return "%s capturing · %d%%" % [owner_name, floori(float(status.get("capture_progress", 0.0)) * 100.0)]
 		"holding": return "%s win in %s" % [owner_name, remaining_text]
 		"waiting": return "%s hold · clock opens %s" % [owner_name, _sacred_clock(float(status.get("wake_remaining", 0.0)))]
-		"unguarded": return "%s %s paused" % [owner_name, remaining_text]
-		"contested": return "%s %s paused" % [owner_name, remaining_text]
-		"neutralizing": return "%s %s paused" % [owner_name, remaining_text]
+		"unguarded": return "%s %s fading" % [owner_name, remaining_text]
+		"contested": return "%s %s fading" % [owner_name, remaining_text]
+		"neutralizing": return "%s %s fading" % [owner_name, remaining_text]
 	return "Neutral · enter the ring"
 
 
@@ -5114,7 +5116,7 @@ func _sacred_site_instructions(status: Dictionary) -> String:
 	if mode != SkirmishData.MatchMode.STANDARD:
 		var scoring_rule: String = "Contests pause scoring. Clear the ring to resume."
 		return "Any living unit can capture. Bank %s of Sacred control to win; each side keeps its earned time across captures. %s Barracks, Range and Stable cost 100 wood; Feudal costs 250 food / 125 gold." % [total_text, scoring_rule]
-	return "Any living unit, including Scouts and villagers, can capture, and the owner earns gold from the start. The victory clock opens at 8:00. Keep an armed fighter inside your owned ring with no enemies to advance the %s victory clock. Leaving pauses the clock and keeps its progress; uncontested gold income continues. Enter an enemy-held ring to pause its clock; clear the defenders to neutralize it. Destroying the enemy Town Center also wins." % total_text
+	return "Destroy every enemy Town Center to win. The Sacred Site is the late tiebreaker: any living unit, including Scouts and villagers, can capture it, and the owner earns gold from the start. Its victory clock opens at %s. Keep an armed fighter inside your owned ring with no enemies to advance the %s clock. Leaving the ring, or letting an enemy in, drains the held time; losing the site resets it." % [_sacred_clock(SkirmishData.SACRED_VICTORY_WAKE_SECONDS), total_text]
 
 
 func show_sacred_site_selection(status: Dictionary) -> void:
@@ -5138,8 +5140,8 @@ func show_sacred_site_selection(status: Dictionary) -> void:
 	var clock: String = "%d:%02d" % [int(remaining / 60.0), remaining % 60]
 	match phase:
 		"capturing": selection_details.text = "%s %d%%\n%s" % [owner_name, floori(float(status.get("capture_progress", 0.0)) * 100.0), "Stay in ring" if int(status.get("owner", -1)) == 0 else "Enter to contest"]
-		"holding": selection_details.text = "%s · %s\n%s" % [owner_name, clock, "Keep a fighter" if int(status.get("owner", -1)) == 0 else "Enter to pause"]
-		"unguarded": selection_details.text = "%s %s paused\n%s" % [owner_name, clock, "Bring a fighter" if int(status.get("owner", -1)) == 0 else "No enemy fighter"]
+		"holding": selection_details.text = "%s · %s\n%s" % [owner_name, clock, "Keep a fighter" if int(status.get("owner", -1)) == 0 else "Enter to drain"]
+		"unguarded": selection_details.text = "%s %s fading\n%s" % [owner_name, clock, "Bring a fighter" if int(status.get("owner", -1)) == 0 else "No enemy fighter"]
 		"waiting": selection_details.text = "%s · gold\nClock opens %s" % [owner_name, _sacred_clock(float(status.get("wake_remaining", 0.0)))]
 		"contested": selection_details.text = "Contested\nClear enemies"
 		"neutralizing": selection_details.text = "Disrupted\nStay in ring"

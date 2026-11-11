@@ -66,6 +66,8 @@ const UNITS: Dictionary = {
 		"name": "Warrior",
 		"role": "Spear infantry",
 		"counter_name": "Horsemen",
+		# Round 2 E2: masonry shrugs off blades and arrows; siege razes towns.
+		"bonus_vs_buildings": 0.5,
 		"hp": 60,
 		"damage": 8,
 		"armor": 2,
@@ -84,6 +86,7 @@ const UNITS: Dictionary = {
 		"name": "Archer",
 		"role": "Ranged infantry",
 		"counter_name": "Warriors",
+		"bonus_vs_buildings": 0.3,
 		"hp": 35,
 		"damage": 7,
 		"armor": 0,
@@ -103,6 +106,7 @@ const UNITS: Dictionary = {
 		"name": "Horseman",
 		"role": "Fast cavalry",
 		"counter_name": "Archers",
+		"bonus_vs_buildings": 0.4,
 		"hp": 80,
 		"damage": 10,
 		"armor": 1,
@@ -148,7 +152,7 @@ const UNITS: Dictionary = {
 		"damage": 30,
 		"armor": 3,
 		"speed": 30.0,
-		"cost": { "food": 0, "wood": 150, "gold": 100 },
+		"cost": { "food": 0, "wood": 100, "gold": 150 },  # Round 2 E2: gold-heavy finishing tool
 		"build_time": 25.0,
 		"vision_radius": 3,
 		"attack_range": 7,

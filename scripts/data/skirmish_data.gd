@@ -31,20 +31,26 @@ static func get_sacred_target(mode: int) -> float:
 ## Bodies per player (Round 2 E: one population per ordinary unit). The default
 ## is the one constant to change if performance work recommends another size.
 const POPULATION_OPTIONS: Array[int] = [30, 40, 60, 80, 100, 120]
-const DEFAULT_POPULATION_LIMIT: int = 100
+const DEFAULT_POPULATION_LIMIT: int = 80
 ## Version 2: limits are bodies. A limit saved by an older build counted two
-## slots per unit, so it is reset to the default once.
-const POPULATION_PREFERENCE_VERSION: int = 2
+## slots per unit, so it is reset to the default once. Version 3 (Round 2 E2):
+## the default fell from 100 to 80 bodies (phone frame rate in a full clash),
+## so a saved limit is reset to it once; 100 and 120 stay selectable.
+const POPULATION_PREFERENCE_VERSION: int = 3
 const REFERENCE_POPULATION_LIMIT: int = 60
 ## Castle unlocks the siege endgame. Imperial has no skirmish content yet.
 const MAX_AGE: int = 3
 const AGE_NAMES: Array[String] = ["Dark Age", "Feudal Age", "Castle Age"]
-## Standard wakes the victory clock at 9:00 and then asks for a 3:00 hold, so
-## the earliest Sacred win is 12:00 and a held site can still be answered.
-## Town Center destruction remains available immediately. Control race keeps
-## the same 3:00 hold but its clock is awake from the first capture.
-const SACRED_VICTORY_HOLD_SECONDS: float = 180.0
-const SACRED_VICTORY_WAKE_SECONDS: float = 540.0
+## Round 2 E2: the main win is destroying every enemy Town Center. The Sacred
+## Site is a late tiebreaker: its clock wakes at 12:00 and then asks for a 5:00
+## hold, so the earliest Sacred win is 17:00. The clock runs only while the
+## owner has an armed soldier in the ring and no enemy is inside; an unguarded
+## or contested clock drains at SACRED_DRAIN_RATE, and losing the site resets
+## it. Control race keeps its banked 3:00 rules, awake from the first capture.
+const SACRED_VICTORY_HOLD_SECONDS: float = 300.0
+const SACRED_VICTORY_WAKE_SECONDS: float = 720.0
+## Standard only: held seconds lost per second while unguarded or contested.
+const SACRED_DRAIN_RATE: float = 1.0
 const NATURAL_RESOURCE_BUDGETS: Dictionary = {"food": 4000, "wood": 10000, "gold": 4000}
 const OPENING_BERRY_STOCK: int = 90
 # Four Villagers, two Houses and a Resource Camp fit the bank; everything after

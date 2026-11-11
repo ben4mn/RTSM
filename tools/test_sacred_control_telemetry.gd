@@ -63,31 +63,33 @@ func _run() -> void:
 	_expect_approx(float(sacred_site.get("victory_timer")), 12.0, "site timer advances before contest")
 	sacred_site.call("_handle_captured", 1, 0, 8.0, 0)
 	_expect_approx(_control_seconds(match_scene, 0), 12.0, "Scout-only ownership does not accrue scoring telemetry")
-	_expect_approx(float(sacred_site.get("victory_timer")), 12.0, "unguarded hold retains progress before contest")
+	var held: float = maxf(0.0, 12.0 - 8.0 * SkirmishData.SACRED_DRAIN_RATE)  # Round 2 E2: an unguarded clock drains.
+	_expect_approx(float(sacred_site.get("victory_timer")), held, "unguarded hold drains its progress before contest")
 
 	# Both players contest the site. Once the original owner is alone again,
-	# SacredSite deliberately preserves its twelve-second victory timer and
+	# SacredSite preserves its remaining (drained) victory timer and
 	# emits captured for that same owner.
 	sacred_site.call("_handle_captured", 1, 1, 0.5)
 	_expect_eq(int(sacred_site.get("state")), SITE_STATE_CONTESTED, "both players enter contested state")
 	_expect_approx(_control_seconds(match_scene, 0), 12.0, "contest adds no control time")
 	sacred_site.call("_handle_contested", 1, 0, 0.5)
 	_expect_eq(int(sacred_site.get("state")), SITE_STATE_CAPTURING, "same owner resumes capture")
-	_expect_approx(float(sacred_site.get("victory_timer")), 12.0, "contest preserves the site victory timer")
+	_expect_approx(float(sacred_site.get("victory_timer")), held, "a contest that clears at once keeps the site victory timer")
 	sacred_site.call("_handle_capturing", 1, 0, 0.0)
 	_expect_eq(int(sacred_site.get("state")), SITE_STATE_CAPTURED, "same owner recaptures the site")
 	_expect_approx(
 		float(match_scene.get("_sacred_last_remaining")),
-		HOLD_TIME - 12.0,
+		HOLD_TIME - held,
 		"recapture baseline follows the preserved site timer"
 	)
-	_expect_eq(_latest_notification(match_scene), "Sacred claimed. Keep a fighter in the ring · 9:48 to win.", "recapture feedback reports the remaining duration")
+	var left: int = ceili(HOLD_TIME - held)
+	_expect_eq(_latest_notification(match_scene), "Sacred claimed. Keep a fighter in the ring · %d:%02d to win." % [int(left / 60.0), left % 60], "recapture feedback reports the remaining duration")
 
 	# Five more seconds should produce seventeen cumulative seconds, not the
 	# twenty-nine seconds caused by restarting telemetry at 180 on recapture.
 	sacred_site.call("_handle_captured", 1, 0, 5.0, 1)
 	_expect_approx(_control_seconds(match_scene, 0), 17.0, "post-recapture hold time is not double-counted")
-	_expect_approx(float(sacred_site.get("victory_timer")), 17.0, "victory mechanics continue from preserved time")
+	_expect_approx(float(sacred_site.get("victory_timer")), held + 5.0, "victory mechanics continue from preserved time")
 	_expect_eq(int(game_manager.get("current_state")), GAME_STATE_PLAYING, "partial hold does not conclude the match")
 
 	# An opposing player must earn a fresh hold timer. Put the original owner one

@@ -580,7 +580,7 @@ func _get_dropoff_buildings_signature() -> int:
 	return hash(identities)
 
 
-func _dropoff_accepts_cargo(building: Node2D) -> bool:
+func _dropoff_accepts_cargo(building: Variant) -> bool:  # Variant: a freed drop-off must not error (E2)
 	if not is_instance_valid(building) or not building.has_method("get_player_owner") or int(building.call("get_player_owner")) != player_owner:
 		return false
 	if building is BuildingBase and (building as BuildingBase).state != BuildingBase.State.ACTIVE:

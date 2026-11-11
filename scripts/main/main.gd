@@ -797,7 +797,7 @@ func _on_sacred_site_captured(player_id: int) -> void:
 			own_text = "Sacred claimed: it pays gold now. Its clock opens in %s; then keep a fighter there %s to win." % [_clock_text(_sacred_wake_remaining()), remaining_text]
 		hud.show_notification(own_text, Color(0.9, 0.8, 0.2))
 	else:
-		var enemy_claim: String = "Enemy claimed Sacred. Its clock needs a fighter; enter the ring to contest." if GameManager.get_match_mode() == SkirmishData.MatchMode.STANDARD else "Enemy holds Sacred Site. Enter its ring to pause victory. Tap to view."
+		var enemy_claim: String = "Enemy claimed Sacred. Enter its ring to drain their clock." if GameManager.get_match_mode() == SkirmishData.MatchMode.STANDARD else "Enemy holds Sacred Site. Enter its ring to pause victory. Tap to view."
 		if _sacred_wake_remaining() > 0.0:
 			enemy_claim = "Enemy claimed Sacred and its gold. Its clock opens in %s; enter the ring to contest. Tap to view." % _clock_text(_sacred_wake_remaining())
 		hud.show_notification(enemy_claim, Color(1.0, 0.4, 0.2), 8.0, Callable(self, "_on_sacred_site_pressed"))
@@ -838,13 +838,15 @@ func _on_sacred_site_timer_tick(player_id: int, remaining: float, total: float) 
 	if remaining <= 0.0:
 		var victory_rule: String = "Sacred control banked for %s" if GameManager.get_match_mode() != SkirmishData.MatchMode.STANDARD else "Sacred Site held for %s"
 		_conclude_match(player_id, victory_rule % _format_duration_seconds(total))
+	elif remaining > 90.0:
+		_sacred_site_victory_notified = false  # Round 2 E2: a drained clock warns again.
 	# Warn at 60 seconds remaining
 	elif remaining <= 60.0 and not _sacred_site_victory_notified:
 		_sacred_site_victory_notified = true
 		if player_id == 0:
 			hud.show_notification("Sacred Site victory in 1 minute!", Color(0.9, 0.8, 0.2))
 		else:
-			hud.show_notification("Enemy victory in 1:00! Enter Sacred ring to pause. Tap to view.", Color(1.0, 0.3, 0.2), 8.0, Callable(self, "_on_sacred_site_pressed"))
+			hud.show_notification("Enemy Sacred win in 1:00! Enter the ring to drain it. Tap to view." if GameManager.get_match_mode() == SkirmishData.MatchMode.STANDARD else "Enemy victory in 1:00! Enter Sacred ring to pause. Tap to view.", Color(1.0, 0.3, 0.2), 8.0, Callable(self, "_on_sacred_site_pressed"))
 
 
 func _refresh_sacred_site_status() -> void:
@@ -2027,7 +2029,8 @@ func _on_building_destroyed(building: BuildingBase, player_id: int, tile_pos: Ve
 	if building.building_type == BuildingData.BuildingType.TOWN_CENTER:
 		var has_tc := false
 		for b in _player_buildings[player_id]:
-			if is_instance_valid(b) and b.building_type == BuildingData.BuildingType.TOWN_CENTER:
+			# Round 2 E2: an unfinished foundation does not keep a broken kingdom alive.
+			if is_instance_valid(b) and b.building_type == BuildingData.BuildingType.TOWN_CENTER and b.state == BuildingBase.State.ACTIVE:
 				has_tc = true
 				break
 		if not has_tc:
@@ -3778,7 +3781,7 @@ func _update_timed_hints(delta: float) -> void:
 
 func _timed_hint_text(hint: Dictionary) -> String:
 	if str(hint.get("context", "")) == "sacred" and GameManager.get_match_mode() == SkirmishData.MatchMode.STANDARD:
-		return "Claim Sacred at map center. Keep a fighter in its ring to advance the victory clock, or destroy the enemy Town Center."
+		return "Destroy the enemy Town Center to win. Late on, a fighter held in the Sacred ring can also win."
 	return str(hint.get("text", ""))
 
 

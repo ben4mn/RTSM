@@ -68,7 +68,7 @@ func _run() -> void:
 	_expect(builds.is_empty() and ai._trade_capital == {"wood": 260, "gold": 40}, "post waits for its complete paid first-caravan budget")
 	_expect(ResourceManager.get_all_resources(1) == bank, "capital reservation never grants or spends money")
 	_expect(not ai._try_train_from_building(BuildingData.BuildingType.BARRACKS, UnitData.UnitType.INFANTRY), "optional military cannot consume trade bootstrap wood")
-	_expect(not ai._allows_trade_capital_spend(UnitData.get_unit_cost(UnitData.UnitType.SCOUT)), "scout replacement preserves the last bootstrap gold")
+	_expect(not ai._allows_trade_capital_spend(UnitData.get_unit_cost(UnitData.UnitType.ARCHER)), "optional gold troop preserves the last bootstrap gold (Round 2 E: Scouts cost no gold)")
 	ai._is_under_pressure = true
 	_expect(ai._allows_trade_capital_spend({"wood": 40}), "current pressure immediately releases optional capital")
 	ai._is_under_pressure = false
@@ -140,6 +140,7 @@ func _run() -> void:
 	ai._check_trade_economy()
 	_expect(trains.size() == 2, "proven income with ongoing deficit permits one second caravan")
 	_reset()
+	ResourceManager.initialize_player(1, {"food": 1000, "wood": 500, "gold": 300})  # Round 2 E2: a Siege Engine costs 150 gold
 	while ai._get_fighting_units().size() < ai._get_attack_threshold(): ai._my_units.append(_unit("infantry", 1))
 	var workshop: BuildingBase = _building("siege_workshop", Vector2i(20, 14))
 	ai._update_building_counts()

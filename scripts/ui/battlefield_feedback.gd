@@ -311,7 +311,7 @@ func _draw() -> void:
 	draw_colored_polygon(PackedVector2Array([center + Vector2(-4,-13),center + Vector2(13,-7),center + Vector2(-4,0)]), color)
 	var title: String = "SACRED SITE · enter ring"
 	if phase == "contested" or phase == "neutralizing":
-		title = "SACRED SITE · clock paused"
+		title = "SACRED SITE · clock fading"
 	elif phase == "holding":
 		title = "SACRED SITE · " + ("defend" if owner == 0 else "enter to contest")
 	var font: Font = KingdomTheme.FONT_MEDIUM
