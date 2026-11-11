@@ -3637,16 +3637,29 @@ func _check_attack_or_defend() -> void:
 	# map objectives and offense. This prevents armies from marching away while
 	# production, population, or drop-off infrastructure is being dismantled.
 	var defense_threats: Array = _find_defense_threats()
+	# Round 2 E2: a raid that the soldiers already at home can answer does not
+	# recall a field army (a lone rider used to pull 30 soldiers back home).
+	var home_defenders: Array = []
+	if not _uses_compact_population_policy() and (_attack_in_progress or not _objective_units.is_empty()):
+		home_defenders = _get_fighting_units().filter(func(unit: Variant) -> bool: return unit not in _attack_wave_units and unit not in _objective_units)
+	var local_defense: bool = not home_defenders.is_empty() and _evaluate_units_strength(home_defenders) >= 1.5 * _evaluate_units_strength(defense_threats)
 	if not defense_threats.is_empty():
-		_clear_attack_wave()
-		_release_objective_units()
-		_rally_defense(defense_threats)
-		_last_strategy_decision = "base_defense"
-		return
-	if _has_recent_defense_threat():
-		_rally_defense([])
-		_last_strategy_decision = "search_last_base_threat"
-		return
+		if local_defense:
+			_rally_defense(defense_threats, home_defenders)
+			_last_strategy_decision = "local_defense"
+		else:
+			_clear_attack_wave()
+			_release_objective_units()
+			_rally_defense(defense_threats)
+			_last_strategy_decision = "base_defense"
+			return
+	elif _has_recent_defense_threat():
+		if local_defense or (not _uses_compact_population_policy() and _attack_in_progress):
+			_rally_defense([], home_defenders)
+		else:
+			_rally_defense([])
+			_last_strategy_decision = "search_last_base_threat"
+			return
 	if _uses_easy_learning_policy() and _game_time < _easy_regroup_until:
 		_clear_attack_wave()
 		_release_objective_units()
@@ -4062,8 +4075,9 @@ func _has_recent_defense_threat() -> bool:
 	return _game_time - _last_defense_threat_time <= DEFENSE_MEMORY_SECONDS
 
 
-func _rally_defense(threats: Array = []) -> void:
-	var military: Array = _get_fighting_units()
+func _rally_defense(threats: Array = [], defenders: Variant = null) -> void:
+	## `defenders` (Round 2 E2): only these soldiers answer; null = every fighter.
+	var military: Array = _get_fighting_units() if defenders == null else (defenders as Array)
 	if _uses_easy_learning_policy():
 		for unit: UnitBase in military:
 			unit.stance = UnitBase.Stance.AGGRESSIVE
