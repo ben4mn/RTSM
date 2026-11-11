@@ -225,8 +225,8 @@ static var marks_revision: int = 0
 static var marker_inverse_zoom: float = 1.0
 static var markers_clearer: bool = true
 var _marks_revision: int = -1
-var _ground_shadow: Sprite2D = null
-var _owner_marker: Sprite2D = null
+var _ground_shadow: Node2D = null
+var _owner_marker: Node2D = null
 var _health_bar: Node2D = null
 
 # Artwork shares a y104 foot baseline in a 128px canvas. Movement/attack
@@ -477,7 +477,9 @@ func _sim_frame(delta: float) -> void:
 		var drawn: Vector2 = global_position + _visual_offset
 		_sim_engine_frame = -1
 		_sim_driven = true
+		var _pt: int = Time.get_ticks_usec() if PerfProbe.on else 0
 		_process(step)
+		if PerfProbe.on: PerfProbe.add(&"unit.think", _pt)
 		_sim_driven = false
 		# Keep the per-unit phase: skip whole steps after a long frame.
 		_sim_slots = maxi(1, ceili(_think_interval() / sim_step - 0.01))
@@ -686,21 +688,20 @@ func _draw_health_bar() -> void:
 
 func _setup_ground_marks() -> void:
 	var size: float = get_visual_radius()
-	_ground_shadow = Sprite2D.new()
+	# Plain canvas items drawing one textured rect each (drawn once; not
+	# Sprite2D, so code that frames a unit by its Sprite2D children still
+	# sees only the figure).
+	_ground_shadow = Node2D.new()
 	_ground_shadow.name = "GroundShadow"
-	_ground_shadow.texture = UnitGroundMarks.texture()
-	_ground_shadow.region_enabled = true
-	_ground_shadow.region_rect = UnitGroundMarks.SHADOW_RECT
+	_ground_shadow.draw.connect(UnitGroundMarks.draw_cell.bind(_ground_shadow, UnitGroundMarks.SHADOW_RECT))
 	_ground_shadow.position = UnitGroundMarks.shadow_offset()
 	_ground_shadow.scale = UnitGroundMarks.shadow_scale(size)
 	_ground_shadow.z_as_relative = false
 	_ground_shadow.z_index = GROUND_MARK_Z
 	add_child(_ground_shadow)
-	_owner_marker = Sprite2D.new()
+	_owner_marker = Node2D.new()
 	_owner_marker.name = "OwnerMarker"
-	_owner_marker.texture = _ground_shadow.texture
-	_owner_marker.region_enabled = true
-	_owner_marker.region_rect = UnitGroundMarks.MARKER_BAR_RECT if player_owner == 0 else UnitGroundMarks.MARKER_CHEVRON_RECT
+	_owner_marker.draw.connect(UnitGroundMarks.draw_cell.bind(_owner_marker, UnitGroundMarks.MARKER_BAR_RECT if player_owner == 0 else UnitGroundMarks.MARKER_CHEVRON_RECT))
 	_owner_marker.position = Vector2(0.0, 6.5)
 	_owner_marker.z_as_relative = false
 	_owner_marker.z_index = GROUND_MARK_Z

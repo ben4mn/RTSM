@@ -313,7 +313,9 @@ func _clear_finished(arguments: Array, epoch: int) -> void:
 func _process(delta: float) -> void:
 	if _online() or is_restoring() or _pending or GameManager.current_state != GameManager.GameState.PLAYING: return
 	if not _staged.is_empty():
+		var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
 		_advance_staged()
+		if PerfProbe.on: PerfProbe.add(&"save.staged", _pp)
 		return
 	_elapsed += delta / maxf(0.01, Engine.time_scale)
 	if _elapsed >= AUTOSAVE_SECONDS:

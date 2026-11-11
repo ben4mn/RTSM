@@ -594,6 +594,7 @@ func _draw_drop_off_badges(pixel_w: float, _pixel_h: float) -> void:
 
 
 func _process(delta: float) -> void:
+	var _pb: int = Time.get_ticks_usec() if PerfProbe.on else 0
 	var had_shot_flash: bool = _defensive_shot_flash_remaining > 0.0
 	_defensive_shot_flash_remaining = maxf(0.0, _defensive_shot_flash_remaining - delta)
 	if state == State.CONSTRUCTING:
@@ -629,6 +630,7 @@ func _process(delta: float) -> void:
 		queue_redraw()
 	if had_shot_flash and _defensive_flash != null:
 		_defensive_flash.queue_redraw()
+	if PerfProbe.on: PerfProbe.add(&"building.process", _pb)
 
 
 ## Called by villagers to add construction progress.

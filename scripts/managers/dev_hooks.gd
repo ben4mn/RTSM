@@ -561,6 +561,11 @@ func _cmd_perf(arguments: Array, named: Dictionary = {}) -> Dictionary:
 		if spent >= 0.05:
 			spikes[str(key)] = snappedf(spent, 0.01)
 	spikes["frames"] = PerfProbe.spike_frames
+	var spike_process: float = 0.0
+	for value: float in PerfProbe.frame_process:
+		if value > PerfProbe.SPIKE_MS:
+			spike_process += value
+	spikes["process_mean"] = snappedf(spike_process / float(maxi(1, PerfProbe.spike_frames)), 0.01)
 	var units_total: int = 0
 	var units_in_view: int = 0
 	for player_units: Array in match_scene._player_units:

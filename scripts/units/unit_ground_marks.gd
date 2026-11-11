@@ -33,6 +33,12 @@ static func shadow_scale(size: float) -> Vector2:
 	return Vector2((size + 1.0) / 32.0, size * 0.48 / 16.0)
 
 
+## Draws one cell of the shared texture centred on `item` (its own scale and
+## position place it). Consecutive cells from many units batch as rects.
+static func draw_cell(item: CanvasItem, cell: Rect2) -> void:
+	item.draw_texture_rect_region(texture(), Rect2(-cell.size * 0.5, cell.size), cell)
+
+
 static func shadow_offset() -> Vector2:
 	return Vector2(0.0, 3.0)
 
