@@ -680,6 +680,20 @@ func revalidate_confirmation(building_type: int, world_pos: Vector2, player_owne
 		_clearance_tiles.clear()
 		_clearance_areas.clear()
 		return false
+	# Round 2 E: a kingdom holds a limited number of some buildings (three
+	# Town Centers). Foundations count; ruins do not.
+	var max_count: int = BuildingData.get_max_count(building_type)
+	if max_count > 0:
+		var owned: int = 0
+		for building: Node in get_tree().get_nodes_in_group("player_%d_buildings" % player_owner):
+			if building is BuildingBase and (building as BuildingBase).building_type == building_type and (building as BuildingBase).state != BuildingBase.State.DESTROYED:
+				owned += 1
+		if owned >= max_count:
+			_invalid_reason = "Limit reached: %d %ss" % [max_count, str(stats.get("name", "building"))]
+			_invalid_tiles.clear()
+			_clearance_tiles.clear()
+			_clearance_areas.clear()
+			return false
 	var footprint: Vector2i = stats.get("footprint", Vector2i(2, 2))
 	return _check_footprint_validity(_world_to_tile(world_pos), footprint, player_owner)
 

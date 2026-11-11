@@ -28,14 +28,16 @@ const WORLD_SPRITE_SCALES: Dictionary = {
 	UnitType.TRADER: Vector2(0.38, 0.38) * WORLD_VISUAL_SCALE,
 }
 
-# Two-population workers deliver ~109 food/wood per minute at a 120-unit haul.
-# Three opening workers support food, timber and gold without changing per-worker rates.
+# Round 2 E (AoE2 scale): every ordinary unit is one population body. A worker
+# gathers 1 per tick and hauls 15, about 59 food/wood per minute including the
+# walk; wildlife is worked 1.3x faster (WildlifeData.GATHER_MULTIPLIER).
+# Five opening workers start on the home flock; the economy grows to dozens.
 # Shared carry slots preserve mixed cargo on retask; no harvest is discarded.
-const STARTING_VILLAGERS: int = 3
+const STARTING_VILLAGERS: int = 5
 const VILLAGER_BUILD_SPEED: float = 2.0
-const VILLAGER_GATHER_AMOUNT: float = 1.8
+const VILLAGER_GATHER_AMOUNT: float = 1.0
 const WHEELBARROW_GATHER_BONUS: float = VILLAGER_GATHER_AMOUNT * 0.25
-const VILLAGER_CARRY_CAPACITY: int = 30
+const VILLAGER_CARRY_CAPACITY: int = 15
 const VILLAGER_GATHER_TICK_SECONDS: float = 0.9
 const RESOURCE_GATHER_SPEEDS: Dictionary = {"food": 1.2, "wood": 1.2, "gold": 1.0}
 
@@ -48,15 +50,15 @@ const RESOURCE_GATHER_SPEEDS: Dictionary = {"food": 1.2, "wood": 1.2, "gold": 1.
 const UNITS: Dictionary = {
 	UnitType.VILLAGER: {
 		"name": "Villager",
-		"hp": 50,
-		"damage": 6,
+		"hp": 25,
+		"damage": 3,
 		"armor": 0,
 		"speed": 60.0,
-		"cost": { "food": 60, "wood": 0, "gold": 0 },
-		"build_time": 20.0,
+		"cost": { "food": 50, "wood": 0, "gold": 0 },
+		"build_time": 14.0,
 		"vision_radius": 4,
 		"attack_range": 1,
-		"pop_cost": 2,
+		"pop_cost": 1,
 		"can_gather": true,
 		"can_build": true,
 	},
@@ -64,17 +66,17 @@ const UNITS: Dictionary = {
 		"name": "Warrior",
 		"role": "Spear infantry",
 		"counter_name": "Horsemen",
-		"hp": 120,
-		"damage": 16,
-		"armor": 4,
+		"hp": 60,
+		"damage": 8,
+		"armor": 2,
 		"speed": 55.0,
-		"cost": { "food": 70, "wood": 30, "gold": 0 },
-		"build_time": 18.0,
+		"cost": { "food": 50, "wood": 20, "gold": 0 },
+		"build_time": 12.0,
 		"attack_interval": 1.1,
 		"attack_windup": 0.16,
 		"vision_radius": 4,
 		"attack_range": 1,
-		"pop_cost": 2,
+		"pop_cost": 1,
 		"can_gather": false,
 		"can_build": false,
 	},
@@ -82,18 +84,18 @@ const UNITS: Dictionary = {
 		"name": "Archer",
 		"role": "Ranged infantry",
 		"counter_name": "Warriors",
-		"hp": 70,
-		"damage": 14,
+		"hp": 35,
+		"damage": 7,
 		"armor": 0,
 		"speed": 55.0,
-		"cost": { "food": 40, "wood": 55, "gold": 20 },
-		"build_time": 24.0,
+		"cost": { "food": 25, "wood": 40, "gold": 10 },
+		"build_time": 14.0,
 		"attack_interval": 1.1,
 		"attack_windup": 0.18,
 		"projectile_speed": 300.0,
 		"vision_radius": 6,
 		"attack_range": 5,
-		"pop_cost": 2,
+		"pop_cost": 1,
 		"can_gather": false,
 		"can_build": false,
 	},
@@ -101,17 +103,17 @@ const UNITS: Dictionary = {
 		"name": "Horseman",
 		"role": "Fast cavalry",
 		"counter_name": "Archers",
-		"hp": 160,
-		"damage": 20,
-		"armor": 2,
+		"hp": 80,
+		"damage": 10,
+		"armor": 1,
 		"speed": 95.0,
-		"cost": { "food": 130, "wood": 20, "gold": 40 },
-		"build_time": 28.0,
+		"cost": { "food": 65, "wood": 10, "gold": 20 },
+		"build_time": 16.0,
 		"attack_interval": 1.05,
 		"attack_windup": 0.14,
 		"vision_radius": 5,
 		"attack_range": 1,
-		"pop_cost": 2,
+		"pop_cost": 1,
 		"can_gather": false,
 		"can_build": false,
 	},
@@ -122,7 +124,7 @@ const UNITS: Dictionary = {
 		"damage": 0,
 		"armor": 0,
 		"speed": 100.0,
-		"cost": { "food": 40, "wood": 0, "gold": 10 },
+		"cost": { "food": 30, "wood": 0, "gold": 0 },
 		"build_time": 8.0,
 		"vision_radius": 10,
 		"attack_range": 1,
@@ -131,9 +133,9 @@ const UNITS: Dictionary = {
 		"can_build": false,
 	},
 	UnitType.TRADER: {
-		"name": "Trader", "role": "Renewable gold", "hp": 65, "damage": 0,
+		"name": "Trader", "role": "Renewable gold", "hp": 35, "damage": 0,
 		"armor": 0, "speed": 70.0, "cost": {"food": 0, "wood": 60, "gold": 40},
-		"build_time": 22.0, "vision_radius": 4, "attack_range": 0, "pop_cost": 2,
+		"build_time": 22.0, "vision_radius": 4, "attack_range": 0, "pop_cost": 1,
 		"can_gather": false, "can_build": false,
 	},
 
@@ -150,7 +152,7 @@ const UNITS: Dictionary = {
 		"build_time": 25.0,
 		"vision_radius": 3,
 		"attack_range": 7,
-		"pop_cost": 3,
+		"pop_cost": 2,
 		"can_gather": false,
 		"can_build": false,
 		"bonus_vs_buildings": 3.0,
@@ -180,9 +182,9 @@ const UNIT_ICONS: Dictionary = {
 # A tier is an overlay on the SAME UnitType, bought as research (TechData
 # "tier" rows) and stored per player in the modifier registry as
 # `tier_<unit_type>` (1 = base). Values are ratios of the line's own stats, so
-# they stay right when the base numbers are rescaled: at today's stats they
-# give Man-at-Arms 150/19/5, Champion 190/23/6, Crossbowman 85/17 and Knight
-# 210/25/4; at the halved scale 75/10/3, 95/12/3, 43/9 and 105/13/2.
+# they stay right when the base numbers are rescaled: at the Round 2 E scale
+# they give Man-at-Arms 75/10/3, Champion 95/12/3, Crossbowman 43/9 and Knight
+# 105/13/2 (tools/test_unit_tiers pins the ratios, not the numbers).
 # The ratios apply on top of civilization overrides, and a civilization's own
 # unit name (Longbow, Outrider) wins over the tier name.
 const UNIT_TIERS: Dictionary = {
@@ -330,4 +332,4 @@ static func get_starting_villager_count() -> int:
 	# Only headless comparative probes may override; live games share this default.
 	if OS.has_feature("dedicated_server") or not DisplayServer.get_name() == "headless":
 		return STARTING_VILLAGERS
-	return clampi(int(Engine.get_meta("balance_starting_villagers", STARTING_VILLAGERS)), 3, 4)
+	return clampi(int(Engine.get_meta("balance_starting_villagers", STARTING_VILLAGERS)), 3, STARTING_VILLAGERS)

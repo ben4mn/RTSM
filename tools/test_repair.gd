@@ -59,7 +59,7 @@ func run_cases() -> void:
 	expect(mason.current_state == UnitBase.State.BUILDING and mason.build_target == house, "villager keeps the order and waits")
 	expect(int(ResourceManager.get_resource(0, "wood")) == 0, "nothing was charged")
 	ResourceManager.add_resource(0, "wood", 4)
-	await step(4.0)
+	await step(80.0 / Garrison.REPAIR_HP_PER_SECOND + 1.5)
 	var bought: int = house.hp - (house.max_hp - 200)
 	expect(bought == 79 or bought == 80, "4 wood buys 80 HP and not a point more (got %d)" % bought)
 	expect(int(ResourceManager.get_resource(0, "wood")) == 0, "the 4 wood were spent")

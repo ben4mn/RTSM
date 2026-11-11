@@ -10,7 +10,9 @@ const ORDERED_IDS: Array[int] = [Civilization.CROWNLANDS, Civilization.VERDANT_L
 ## Version 2 (Round 2 workstream C): every kingdom has an economy bonus, a
 ## unique unit with a passive ability (scripts/units/unit_abilities.gd) and a
 ## unique technology (TechData rows carrying a "civilization" key).
-const CATALOG_VERSION: int = 2
+## Version 3 (Round 2 E): the AoE2-scale rebalance (one population per unit,
+## finite Farms, new prices) and the Mongols' two extra home sheep are live.
+const CATALOG_VERSION: int = 3
 
 ## Definition keys that carry rules (everything else is menu copy):
 ##   "modifiers": {registry key: amount} written to the GameManager modifier
@@ -21,7 +23,8 @@ const CATALOG_VERSION: int = 2
 ##   "unit_cost_multipliers" / "building_cost_multipliers": {type: factor} on
 ##       every resource of the published price (rounded to 5). Both players and
 ##       the AI pay through UnitData.get_unit_cost / BuildingData.get_building_cost.
-##   "extra_home_sheep": reserved for the wildlife stream (not read yet).
+##   "extra_home_sheep": extra pre-claimed sheep beside the first Town Center
+##       (WildlifePlacement.plan appends them after the shared mirrored herd).
 ##   "unique_tech": TechData research id only this kingdom can research.
 ## Stable ids used below: units 0 Villager, 2 Archer, 3 Cavalry, 4 Scout;
 ## buildings 5 Farm, 6 Resource Camp. Avoids a cyclic data dependency.
@@ -77,7 +80,7 @@ const DEFINITIONS: Dictionary = {
 		"name": "Mongols",
 		"tagline": "Felt homes and well-kept saddles",
 		"description": "Round felt gers cluster beside timber workshops and a small millet field. Saddle blankets air on a rail; a rider tightens a deel’s sash. Sage cloth and a horsehair standard give this Mongol frontier camp its identity.",
-		"strengths": "+30% food from herds, game and berries",
+		"strengths": "+30% food from herds and game · 2 extra home sheep",
 		"weakness": "Lighter Outriders · buildings have 20% less HP",
 		"signature": "Outrider — swift raider that pillages gold",
 		"play_style": "Herds & raiding riders",
@@ -161,7 +164,7 @@ static func scale_cost(cost: Dictionary, multiplier: float) -> Dictionary:
 
 
 static func get_extra_home_sheep(civilization: int) -> int:
-	## Reserved for the wildlife stream: extra pre-claimed sheep at the start.
+	## Extra pre-claimed sheep at the start (a published kingdom bonus).
 	return int(DEFINITIONS[normalize(civilization)].get("extra_home_sheep", 0))
 
 

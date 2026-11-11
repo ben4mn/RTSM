@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="64" viewBox="0 0 128 64">
+  <!-- Fallow field overlay for a spent Farm (Round 2 E). Drawn over the
+       painted farm on its 2x2 ground diamond: a dry earth wash, bare furrows
+       and cut stubble. Soft edges so it sits on any kingdom's field. -->
+  <defs>
+    <radialGradient id="dry" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#8d7652" stop-opacity=".78"/>
+      <stop offset=".72" stop-color="#8d7652" stop-opacity=".62"/>
+      <stop offset="1" stop-color="#8d7652" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <path d="M6 32 64 3 122 32 64 61Z" fill="url(#dry)"/>
+  <g fill="none" stroke-linecap="round">
+    <!-- Bare furrows, running with the long axis of the plot. -->
+    <path d="M24 31 62 50 M35 25.5 73 44.5 M46 20 84 39 M57 14.5 95 33.5 M68 9 104 27" stroke="#5f4d36" stroke-width="3" opacity=".72"/>
+    <path d="M24 29.6 62 48.6 M35 24.1 73 43.1 M46 18.6 84 37.6 M57 13.1 95 32.1 M68 7.6 104 25.6" stroke="#b39b6f" stroke-width="1.1" opacity=".8"/>
+    <!-- Cut stubble: short pale stalks between the furrows. -->
+    <path d="M30 31v-4 M36 34v-4 M42 37v-4 M48 40v-4 M54 43v-4 M41 26v-4 M47 29v-4 M53 32v-4 M59 35v-4 M65 38v-4 M71 41v-3 M52 20.500v-4 M58 23.500v-4 M64 26.500v-4 M70 29.500v-4 M76 32.500v-4 M82 35.500v-3 M63 15v-4 M69 18v-4 M75 21v-4 M81 24v-4 M87 27v-4 M93 30v-3" stroke="#d8c690" stroke-width="1.5"/>
+    <path d="M33 33.500v-2.500 M45 39.500v-2.500 M50 31.500v-2.500 M62 37.500v-2.500 M61 26v-2.500 M73 32v-2.500 M72 20.500v-2.500 M84 26.500v-2.500" stroke="#8a744c" stroke-width="1.2"/>
+  </g>
+  <!-- A few clods and a dropped sheaf give the bare ground some texture. -->
+  <g fill="#6b573d" opacity=".85">
+    <ellipse cx="27" cy="34.500" rx="2.200" ry="1.200"/><ellipse cx="88" cy="40" rx="2.400" ry="1.300"/><ellipse cx="100" cy="30.500" rx="2" ry="1.100"/><ellipse cx="58" cy="52" rx="2.200" ry="1.200"/>
+  </g>
+  <path d="M76 49l7-3.500 2 1.600-7 3.600z" fill="#cdb878" stroke="#7d6a45" stroke-width=".9" stroke-linejoin="round"/>
+  <path d="M79.500 47.300v3.300" stroke="#7d6a45" stroke-width="1.100"/>
+</svg>

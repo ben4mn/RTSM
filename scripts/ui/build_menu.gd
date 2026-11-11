@@ -58,7 +58,7 @@ const BUILDING_CATEGORIES: Dictionary = {
 }
 const BUILDING_PURPOSES: Dictionary = {
 	BuildingData.BuildingType.HOUSE: "Housing for your growing town",
-	BuildingData.BuildingType.FARM: "Unlimited food · 1 worker",
+	BuildingData.BuildingType.FARM: "Food for 1 worker · reseed when fallow",
 	BuildingData.BuildingType.RESOURCE_CAMP: "All resource drop-off",
 	BuildingData.BuildingType.TOWN_CENTER: "Train workers",
 	BuildingData.BuildingType.TRADE_POST: "Train traders · distant TC route",
@@ -512,7 +512,7 @@ func _format_button_text(stats: Dictionary, age_locked: bool, building_type: int
 	if age_locked:
 		lines.append(_get_age_requirement_text(int(stats.get("age_required", 0))).trim_prefix("Requires "))
 	elif building_type == BuildingData.BuildingType.FARM:
-		lines.append("Unlimited food")
+		lines.append("%d food" % FarmPlots.capacity_for(player_owner))
 	elif building_type == BuildingData.BuildingType.HOUSE:
 		var housing: Dictionary = _housing_gain(stats)
 		lines.append("Limit %d reached" % housing.limit if housing.gain == 0 else "+%d housing" % housing.gain)
@@ -560,7 +560,7 @@ func _format_tooltip(stats: Dictionary, building_type: int) -> String:
 		lines.append(_get_age_requirement_text(age_req))
 	lines.append("HP %d · Build %ds" % [stats.get("hp", 0), ceili(float(stats.get("build_time", 30.0)) / UnitData.VILLAGER_BUILD_SPEED)])
 	if building_type == BuildingData.BuildingType.FARM:
-		lines.append("One worker per Farm. Food must be carried to a Town Center or Resource Camp.")
+		lines.append("One worker per Farm. Holds %d food, then lies fallow: reseed for %d wood. Food must be carried to a Town Center or Resource Camp." % [FarmPlots.capacity_for(player_owner), int(BuildingData.get_reseed_cost(building_type, player_owner).get("wood", 0))])
 	if stats.get("pop_provided", 0) > 0:
 		var housing: Dictionary = _housing_gain(stats)
 		lines.append("Housing: %d / %d match limit" % [housing.cap, housing.limit])

@@ -7,13 +7,20 @@ extends RefCounted
 ## player 0's layout across the map diagonal, like every other start feature.
 ##
 ## Each row: {"kind": String, "tile": Vector2i, "owner": int (-1 neutral),
-## "group": String ("home", "stray_a", "stray_b", "deer", "boar"), "side": int}.
+## "group": String ("home", "stray_a", "stray_b", "deer", "boar", "home_extra"), "side": int}.
+##
+## `extra_home_sheep` is a published kingdom bonus (CivilizationData
+## "extra_home_sheep": Mongols 2), one count per side. Bonus sheep are chosen
+## after everything else and appended after the mirrored rows, so the shared
+## layout, its fairness audit and every wildlife id are the same with or
+## without them; only the bonus rows themselves may lack a reflected twin.
 
 const EDGE_MARGIN: int = 3
 const TOWN_CENTER_SIZE: int = 4
+const GROUP_HOME_EXTRA: String = "home_extra"
 
 
-static func plan(generator: MapGenerator, seed_value: int = -1) -> Array[Dictionary]:
+static func plan(generator: MapGenerator, seed_value: int = -1, extra_home_sheep: Array = []) -> Array[Dictionary]:
 	var rows: Array[Dictionary] = []
 	if generator == null or generator.spawn_positions.size() < 2 or generator.grid.is_empty():
 		return rows
@@ -69,6 +76,22 @@ static func plan(generator: MapGenerator, seed_value: int = -1) -> Array[Diction
 		twin["side"] = 1
 		mirrored.append(twin)
 	rows.append_array(mirrored)
+
+	var most_extra: int = 0
+	for count: Variant in extra_home_sheep:
+		most_extra = maxi(most_extra, int(count))
+	if most_extra > 0:
+		var extra_tiles: Array[Vector2i] = _choose(generator, reachable, taken, spawn, home_center, most_extra, 1.0, 1,
+			func(tile: Vector2i) -> bool:
+				var ring: int = _ring_from_town_center(tile, spawn)
+				return ring >= WildlifeData.HOME_RING_MIN and ring <= WildlifeData.HOME_RING_MAX,
+			1.5, base_seed + 4)
+		for side_index: int in 2:
+			var wanted: int = int(extra_home_sheep[side_index]) if side_index < extra_home_sheep.size() else 0
+			for index: int in mini(wanted, extra_tiles.size()):
+				var tile: Vector2i = extra_tiles[index]
+				rows.append({"kind": WildlifeData.SHEEP, "tile": tile if side_index == 0 else Vector2i(tile.y, tile.x),
+					"owner": side_index, "group": GROUP_HOME_EXTRA, "side": side_index})
 	return rows
 
 
@@ -192,7 +215,7 @@ static func audit(generator: MapGenerator, rows: Array[Dictionary]) -> Array[Str
 		if Vector2(tile - rival).length() <= distance:
 			problems.append("%s at %s is nearer the other start" % [row.kind, tile])
 		match str(row.group):
-			"home":
+			"home", GROUP_HOME_EXTRA:
 				var ring: int = _ring_from_town_center(tile, spawn)
 				if ring < WildlifeData.HOME_RING_MIN or ring > WildlifeData.HOME_RING_MAX or int(row.owner) != side:
 					problems.append("home sheep at %s is outside the pasture ring" % tile)
@@ -207,6 +230,8 @@ static func audit(generator: MapGenerator, rows: Array[Dictionary]) -> Array[Str
 					problems.append("stray sheep at %s is %.1f tiles from its start" % [tile, distance])
 	for row: Dictionary in rows:
 		var twin: Vector2i = Vector2i(row.tile.y, row.tile.x)
+		if str(row.group) == GROUP_HOME_EXTRA:
+			continue  # A kingdom bonus: only that kingdom's side has it.
 		if not by_tile.has(twin) or by_tile[twin].kind != row.kind or by_tile[twin].group != row.group or int(by_tile[twin].side) == int(row.side):
 			problems.append("%s at %s has no reflected twin" % [row.kind, row.tile])
 	var expected: Dictionary = {"home": WildlifeData.HOME_SHEEP, "stray_a": 2, "stray_b": 2, "deer": WildlifeData.DEER_COUNT, "boar": WildlifeData.BOAR_COUNT}

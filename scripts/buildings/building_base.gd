@@ -42,6 +42,11 @@ var trainable_units: Array = []
 var building_color: Color = Color(0.6, 0.45, 0.3)
 var provides_food: bool = false
 var _assigned_farmer_ref: WeakRef = null
+# Finite Farms (Round 2 E; rules in scripts/buildings/farm_plots.gd).
+var farm_food_total: int = 0  # 0 = not sown yet; sown on first use.
+var farm_food_remaining: int = 0
+var farm_fallow: bool = false
+var _farm_last_worker_ref: WeakRef = null
 
 var rally_point: Vector2 = Vector2.ZERO
 var rally_point_is_custom: bool = false
@@ -436,7 +441,7 @@ func _update_sprite_appearance() -> void:
 		State.ACTIVE:
 			# Staged damage: walls darken toward a scorched tone as HP drops.
 			# BattleFX adds the matching smoke and fire for locals and replicas.
-			_sprite.modulate = base_color * get_damage_tint()
+			_sprite.modulate = base_color * get_damage_tint() * FarmPlots.field_tint(self)
 		_:
 			_sprite.modulate = base_color
 	_update_construction_presentation()
@@ -818,7 +823,8 @@ func can_train() -> bool:
 	return state == State.ACTIVE and trainable_units.size() > 0
 
 
-# --- Farm support: permanent food, one assigned worker including delivery ---
+# --- Farm support: one assigned worker including delivery; the food itself is
+# finite and reseeded (scripts/buildings/farm_plots.gd) ---
 
 func get_resource_type() -> String:
 	if provides_food:
@@ -847,7 +853,9 @@ func get_assigned_worker() -> UnitBase:
 
 
 func is_available_to_worker(worker: Node2D = null) -> bool:
-	if not is_harvestable_by():
+	# A fallow Farm is still its owner's (an order can reseed it) but offers
+	# no work until it is replanted.
+	if not is_harvestable_by() or farm_fallow:
 		return false
 	var assigned: UnitBase = get_assigned_worker()
 	return assigned == null or assigned == worker
@@ -875,7 +883,7 @@ func harvest(amount: int, worker: UnitBase = null) -> int:
 	var assigned: UnitBase = get_assigned_worker()
 	if (worker != null and assigned != worker) or (worker == null and assigned != null):
 		return 0
-	return maxi(0, amount)
+	return FarmPlots.take(self, maxi(0, amount), worker)
 
 
 func get_production_queue() -> Node:

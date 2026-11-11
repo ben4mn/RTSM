@@ -60,7 +60,7 @@ func _strategy_journey(phone: Vector2i, interface_scale: float, notched: bool, l
 	var queue: ProductionQueue = tc.get_production_queue() as ProductionQueue
 	var before_house: int = ResourceManager.get_resource(0, "wood")
 	var house: BuildingBase = _paid_house()
-	_expect(house != null and ResourceManager.get_resource(0, "wood") == before_house - 50, "House fixture must use paid legal placement")
+	_expect(house != null and ResourceManager.get_resource(0, "wood") == before_house - int(BuildingData.get_building_cost(BuildingData.BuildingType.HOUSE, 0).get("wood", 0)), "House fixture must use paid legal placement")
 	if house:
 		house.complete_instantly()
 	_main.call("_on_train_unit_requested", tc, UnitData.UnitType.SCOUT)

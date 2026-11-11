@@ -476,10 +476,16 @@ func _process_gathering(delta: float) -> void:
 
 	if not _is_new_gather_target_currently_visible(gather_target) or not _is_gather_target_valid(gather_target):
 		# Resource depleted or removed
+		# Round 2 E: the farmer of a fallow Farm delivers and then waits idle
+		# (reseeding recalls him) instead of wandering to other food.
+		var fallow_farm: bool = FarmPlots.is_fallow(gather_target)
 		_clear_gather_target_knowledge()
 		if carried_amount > 0:
+			if fallow_farm:
+				_recovery_return_only = true
+				gather_type = GatherType.NONE
 			_find_and_go_to_dropoff()
-		elif not _try_retarget_resource():
+		elif fallow_farm or not _try_retarget_resource():
 			set_state(State.IDLE)
 		return
 
@@ -1571,6 +1577,11 @@ func _try_remembered_resource(game_map: Node2D, resource_type: String) -> bool:
 
 
 func _resume_gather_order_or_retarget() -> void:
+	if FarmPlots.is_fallow(gather_target):  # Round 2 E: wait by the fallow Farm.
+		_clear_gather_target_knowledge()
+		gather_type = GatherType.NONE
+		set_state(State.IDLE)
+		return
 	if _has_gather_last_known_position and not _is_gather_order_position_visible():
 		gather_target = null
 		_cancel_dropoff_route()

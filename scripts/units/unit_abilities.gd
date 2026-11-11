@@ -32,7 +32,7 @@ const KIND_BY_ID: Dictionary = {"charge": Kind.CHARGE, "emplace": Kind.EMPLACE, 
 ## Seconds without attacking before a Chevalier's Charge is ready.
 const CHARGE_RECHARGE_SECONDS: float = 10.0
 ## Bonus HP loss of a charged hit, as a ratio of the attacker's own base
-## damage: +25 at 20 damage today, +13 at the planned 10.
+## damage: +13 at the Chevalier's 10 damage (+16 as a Knight).
 const CHARGE_DAMAGE_RATIO: float = 1.25
 ## Registry key: seconds added to the recharge (Chivalry writes -5).
 const CHARGE_RECHARGE_KEY: String = "civ_charge_recharge"
@@ -45,10 +45,9 @@ const EMPLACE_INTERVAL_MULTIPLIER: float = 0.8
 ## World pixels of jostling (formation spacing) that do not break the stakes.
 const EMPLACE_DRIFT: float = 10.0
 
-## Gold per Outrider hit on a building / per Villager slain. At the planned
-## halved scale the spec asks for 2 and 10.
-const PILLAGE_GOLD_PER_BUILDING_HIT: int = 4
-const PILLAGE_GOLD_PER_VILLAGER_KILL: int = 20
+## Gold per Outrider hit on a building / per Villager slain (Round 2 E scale).
+const PILLAGE_GOLD_PER_BUILDING_HIT: int = 2
+const PILLAGE_GOLD_PER_VILLAGER_KILL: int = 10
 ## Registry key: fraction added to both payouts (Yam writes +1.0 = doubled).
 const PILLAGE_KEY: String = "civ_pillage"
 const LOOT_SHOW_SECONDS: float = 1.6

@@ -185,7 +185,7 @@ func _check_context_actions() -> void:
 	main._on_building_action_requested(smith, "research:forging")
 	check(smith.research_id == "forging" and not GameManager.has_research(0, "forging") and smith.get_context_actions(0)[0].progress == 0.0, "the context action starts the timed research")
 	main._advance_production_queues(30.5)
-	check(GameManager.has_research(0, "forging") and GameManager.get_modifier(0, "attack") == 2.0 and GameManager.get_attack_bonus(0) == 2, "context action researches Forging into the registry")
+	check(GameManager.has_research(0, "forging") and GameManager.get_modifier(0, "attack") == 1.0 and GameManager.get_attack_bonus(0) == 1, "context action researches Forging into the registry")
 	check(ResourceManager.get_all_resources(0) == {"food": 1900, "wood": 2000, "gold": 1950}, "research charges its exact cost once")
 	check(_events == ["started:0:forging:true:30.0", "completed:0:forging"], "research_started (with its duration) precedes research_completed: " + str(_events))
 	check(smith.perform_context_action(0, "research:forging") == "Research unavailable" and ResourceManager.get_resource(0, "food") == 1900, "a completed tech cannot be bought twice")
@@ -203,7 +203,7 @@ func _check_context_actions() -> void:
 	check(row != null and row.visible and row.get_child_count() == 4, "HUD renders four action cards for the Blacksmith")
 	var forge_card: Button = row.get_node_or_null("ResearchButton_iron_casting") as Button
 	var mail_card: Button = row.get_node_or_null("ResearchButton_scale_mail") as Button
-	check(forge_card != null and forge_card.disabled and forge_card.text == "Iron Cast\n+2 Attack\nNeed Castle", "a blocked card says why where its cost was: " + (forge_card.text if forge_card != null else "missing"))
+	check(forge_card != null and forge_card.disabled and forge_card.text == "Iron Cast\n+1 Attack\nNeed Castle", "a blocked card says why where its cost was: " + (forge_card.text if forge_card != null else "missing"))
 	check(mail_card != null and not mail_card.disabled and mail_card.text == "Mail\n+1 Armor\n100F · 50G", "available card keeps name, effect and cost: " + (mail_card.text if mail_card != null else "missing"))
 	if mail_card != null: mail_card.pressed.emit()
 	hud.show_building_selection("Blacksmith", smith.hp, smith.max_hp, [], [], smith)
@@ -241,8 +241,8 @@ func _check_save_round_trip() -> bool:
 	smith.hp -= 37
 	var data: Dictionary = STATE.new().capture(main)
 	check(STATE.validate(data).is_empty(), "schema-2 capture validates: " + STATE.validate(data))
-	check(data.schema == 2 and data.ext is Dictionary and data.ext.get("probe", {}).get("counter") == 41, "capture stores the registered extension section")
-	check(data.manager.player_modifiers == {0: {"attack": 2.0, "armor": 1.0, "tier_1": 2.0}, 1: {"gather_wood": 0.2}} and not data.manager.has("player_upgrades"), "capture stores the modifier registry: " + str(data.manager.player_modifiers))
+	check(data.schema == 3 and data.ext is Dictionary and data.ext.get("probe", {}).get("counter") == 41, "capture stores the registered extension section")
+	check(data.manager.player_modifiers == {0: {"attack": 1.0, "armor": 1.0, "tier_1": 2.0}, 1: {"gather_wood": 0.2}} and not data.manager.has("player_upgrades"), "capture stores the modifier registry: " + str(data.manager.player_modifiers))
 	var old: Dictionary = data.duplicate(true)
 	old.schema = 1
 	check(STATE.validate(old) == "This save belongs to a different game version.", "schema-1 checkpoints are rejected with the existing message")
@@ -268,8 +268,8 @@ func _check_save_round_trip() -> bool:
 	check(_restored.get("counter") == 41 and _restored.get("tc") == main._player_town_center and main._player_town_center != null, "extension data and actor references round-trip")
 	check(int(_restored.get("units", 0)) == main._player_units[0].size() and int(_restored.get("smith_hp", -1)) != -1, "restore phase already sees every spawned actor: " + str(_restored))
 	check(_finalized.get("marker") == _marker and is_instance_valid(_marker) and _marker.get_parent() == main, "a node bound by the extension resolves by its saved identity")
-	check(GameManager.player_modifiers == {0: {"attack": 2.0, "armor": 1.0, "tier_1": 2.0}, 1: {"gather_wood": 0.2}}, "modifier registry round-trips: " + str(GameManager.player_modifiers))
-	check(GameManager.get_attack_bonus(0) == 2 and GameManager.get_armor_bonus(0) == 1 and GameManager.has_research(0, "forging") and GameManager.has_research(0, "scale_mail"), "restored research still applies through the legacy getters")
+	check(GameManager.player_modifiers == {0: {"attack": 1.0, "armor": 1.0, "tier_1": 2.0}, 1: {"gather_wood": 0.2}}, "modifier registry round-trips: " + str(GameManager.player_modifiers))
+	check(GameManager.get_attack_bonus(0) == 1 and GameManager.get_armor_bonus(0) == 1 and GameManager.has_research(0, "forging") and GameManager.has_research(0, "scale_mail"), "restored research still applies through the legacy getters")
 	check(_smith() != null and _smith().hp == smith_full_hp() - 37, "restored Blacksmith keeps its saved state")
 	GameManager.set_paused(false)
 	return true
@@ -324,13 +324,13 @@ func _check_network() -> void:
 	check(server.execute_command(0, action) == "Research unavailable" and ResourceManager.get_resource(0, "food") == 825, "authority refuses a repeat purchase")
 	check(server.execute_command(0, {"command": "research", "target": tc_id, "research": "loom"}) == "" and GameManager.get_villager_hp_bonus(0) == 0, "the original research command starts a timed research")
 	main._advance_production_queues(15.5)
-	check(GameManager.get_villager_hp_bonus(0) == 15, "and it completes")
+	check(GameManager.get_villager_hp_bonus(0) == 10, "and it completes")
 	# Snapshot sections.
 	main.ext.register_snapshot("probe", func(slot: int) -> Dictionary: return {"slot": slot, "n": 3}, func(section: Variant) -> void: _consumed.append(section))
 	main.ext.register_snapshot("probe_empty", func(_slot: int) -> Variant: return null)
 	var snapshot: Dictionary = server._snapshot_for(0)
 	check(snapshot.get("ext", {}).get("probe") == {"slot": 0, "n": 3} and not snapshot.ext.has("probe_empty") and snapshot.ext.has("research") and server._snapshot_for(1).ext.probe.slot == 1, "snapshot.ext carries each provider's per-recipient section and omits null")
-	check(snapshot.get("modifiers") == GameManager.player_modifiers[0] and not snapshot.has("upgrades") and snapshot.modifiers.get("attack") == 2.0, "snapshot replicates the owner's modifier registry")
+	check(snapshot.get("modifiers") == GameManager.player_modifiers[0] and not snapshot.has("upgrades") and snapshot.modifiers.get("attack") == 1.0, "snapshot replicates the owner's modifier registry")
 	var wire: Variant = JSON.parse_string(JSON.stringify({"ext": snapshot.ext, "modifiers": snapshot.modifiers}))
 	check(wire is Dictionary and wire.ext.probe.n == 3.0, "extension sections survive the JSON wire format")
 	# Client side: a fresh replica adapter applying what the wire delivered.

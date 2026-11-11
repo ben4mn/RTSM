@@ -1593,8 +1593,9 @@ func _spawn_unit(
 		unit.resource_deposited.connect(_on_resource_deposited.bind(player_id))
 
 	# Register with AI if it's the AI's unit.
-	if player_id == ai_controller.player_id and not NetworkSession.is_network_match():
-		ai_controller.register_unit(unit)
+	var unit_ai: AIController = _ai_for(player_id)
+	if unit_ai != null and not NetworkSession.is_network_match():
+		unit_ai.register_unit(unit)
 
 	return unit
 
@@ -1639,6 +1640,7 @@ func _on_unit_trained(unit_type: int, player_id: int, source_queue: ProductionQu
 		(player_id == 0 or NetworkSession.server_mode)
 		and unit is Villager
 		and not producer.has_custom_rally_point()
+		and not _seat_ai.has(player_id)
 	)
 	if unit is Trader:
 		(unit as Trader).command_trade(producer)
@@ -1971,14 +1973,15 @@ func _spawn_building(building_type: int, player_id: int, tile_pos: Vector2i) -> 
 			pq.connect("queue_changed", _update_population_display)
 
 	# Register with AI.
-	if player_id == ai_controller.player_id and not NetworkSession.is_network_match():
-		ai_controller.register_building(building)
+	var building_ai: AIController = _ai_for(player_id)
+	if building_ai != null and not NetworkSession.is_network_match():
+		building_ai.register_building(building)
 
 	return building
 
 
 func _on_building_constructed(building: BuildingBase, player_id: int) -> void:
-	if player_id == ai_controller.player_id:
+	if _ai_for(player_id) != null:
 		_ai_construction_jobs.erase(building.get_instance_id())
 	if building.pop_provided > 0:
 		GameManager.grant_population_cap(player_id, building.get_instance_id(), building.pop_provided)
@@ -2002,7 +2005,7 @@ func _on_building_constructed(building: BuildingBase, player_id: int) -> void:
 
 
 func _on_building_destroyed(building: BuildingBase, player_id: int, tile_pos: Vector2i) -> void:
-	if player_id == ai_controller.player_id:
+	if _ai_for(player_id) != null:
 		# Combat destruction is a real loss (and AIController records a rebuild),
 		# so stop recovery without refunding this construction transaction.
 		_ai_construction_jobs.erase(building.get_instance_id())
@@ -2440,6 +2443,8 @@ func _on_gather_command(resource_node: Node2D) -> void:
 	if _route_armed_unit_command_to_target(resource_node):
 		return
 	_clear_armed_unit_commands(false)
+	if not FarmPlots.prepare_player_gather(self, resource_node):  # Round 2 E: the order reseeds a fallow Farm.
+		return
 	if NetworkSession.is_client():
 		if WildlifeDirector.send_network_gather(self, resource_node):  # Workstream A: `hunt` ext command.
 			return
@@ -2584,7 +2589,7 @@ func _on_train_unit_requested(building: Node2D, unit_type: int) -> void:
 	if pop + pop_cost > cap:
 		_last_train_request_result = "population_blocked"
 		if cap >= GameManager.get_player_population_limit(0):
-			_last_train_feedback = "Not enough population space (%d/%d). %s needs %d slots." % [pop, cap, UnitData.get_unit_name(unit_type, 0), pop_cost]
+			_last_train_feedback = "Not enough population space (%d/%d). %s needs %d population." % [pop, cap, UnitData.get_unit_name(unit_type, 0), pop_cost]
 		else:
 			if _house_under_construction(0):
 				_last_train_feedback = "Population full (%d/%d). Your House is going up; train when it is done." % [pop, cap]
@@ -2894,6 +2899,7 @@ func _register_match_extensions() -> void:
 	Garrison.install(self)  # D1: town bell, garrison, repair, healing at home
 	UnitAbilities.install(self)
 	ResearchPips.install(self)  # HUD pass: world progress ring over researching buildings
+	FarmPlots.install(self)  # Round 2 E: finite Farms, reseed, auto-reseed
 
 
 func _on_building_action_requested(building: Node2D, action_id: String) -> void:
@@ -3415,9 +3421,9 @@ func _setup_ai(map_gen: MapGenerator) -> void:
 	ai_controller.game_map = game_map
 
 	# Connect AI signals.
-	ai_controller.ai_wants_to_build.connect(_on_ai_wants_to_build)
+	ai_controller.ai_wants_to_build.connect(_on_ai_wants_to_build.bind(ai_controller))
 	ai_controller.ai_wants_to_train.connect(_on_ai_wants_to_train)
-	ai_controller.ai_wants_to_age_up.connect(_on_ai_wants_to_age_up)
+	ai_controller.ai_wants_to_age_up.connect(_on_ai_wants_to_age_up.bind(ai_controller))
 	ai_controller.ai_attack_launched.connect(_on_ai_attack_launched)
 
 	# Start AI with its base position.
@@ -3426,39 +3432,66 @@ func _setup_ai(map_gen: MapGenerator) -> void:
 	ai_controller.start_ai(ai_spawn, ai_world_pos)
 
 
-func _on_ai_wants_to_build(building_type: int, tile_pos: Vector2i, is_rebuild: bool) -> void:
-	var cost: Dictionary = BuildingData.get_building_cost(building_type, ai_controller.player_id)
+## Seats driven by an AIController (player id -> controller). A solo match has
+## the one opponent; AI-vs-AI telemetry (tools/probe_joy_match.gd) attaches a
+## second controller here so both seats pay through exactly the same code.
+var _seat_ai: Dictionary = {}
+
+
+func attach_seat_ai(controller: AIController) -> void:
+	_seat_ai[controller.player_id] = controller
+	controller.ai_wants_to_build.connect(_on_ai_wants_to_build.bind(controller))
+	controller.ai_wants_to_train.connect(_on_ai_wants_to_train)
+	controller.ai_wants_to_age_up.connect(_on_ai_wants_to_age_up.bind(controller))
+	for unit: Node in _player_units[controller.player_id]:
+		if is_instance_valid(unit):
+			controller.register_unit(unit)
+	for building: Node in _player_buildings[controller.player_id]:
+		if is_instance_valid(building):
+			controller.register_building(building)
+
+
+func _ai_for(player_id: int) -> AIController:
+	var seat: Variant = _seat_ai.get(player_id)
+	if is_instance_valid(seat):
+		return seat as AIController
+	return ai_controller if player_id == ai_controller.player_id else null
+
+
+func _on_ai_wants_to_build(building_type: int, tile_pos: Vector2i, is_rebuild: bool, controller: AIController = null) -> void:
+	var ai_player: int = controller.player_id if is_instance_valid(controller) else ai_controller.player_id
+	var cost: Dictionary = BuildingData.get_building_cost(building_type, ai_player)
 	# Revalidate the AI's proposal at the transaction boundary. Bounds and the
 	# complete current-vision footprint are checked before walkability, keeping
 	# stale or synthetic signals from probing hidden terrain or spending.
-	if not _is_ai_build_site_currently_valid(building_type, tile_pos):
-		_restore_ai_rebuild_request(building_type, is_rebuild)
+	if not _is_ai_build_site_currently_valid(building_type, tile_pos, ai_player):
+		_restore_ai_rebuild_request(building_type, is_rebuild, ai_player)
 		return
 	var build_position: Vector2 = game_map.tile_to_world(tile_pos)
 	var footprint: Vector2i = BuildingData.get_building_stats(building_type).get("footprint", Vector2i.ONE)
 	# Preflight before spending or spawning. This is repeated after the
 	# foundation becomes a pathfinding obstacle so an optimistic route through
 	# the future footprint cannot silently consume resources.
-	if _find_available_ai_builder(build_position, {}, footprint) == null:
-		_restore_ai_rebuild_request(building_type, is_rebuild)
+	if _find_available_ai_builder(build_position, {}, footprint, ai_player) == null:
+		_restore_ai_rebuild_request(building_type, is_rebuild, ai_player)
 		return
-	if not ResourceManager.try_spend(ai_controller.player_id, cost):
-		_restore_ai_rebuild_request(building_type, is_rebuild)
+	if not ResourceManager.try_spend(ai_player, cost):
+		_restore_ai_rebuild_request(building_type, is_rebuild, ai_player)
 		return
-	var building: BuildingBase = _spawn_building(building_type, ai_controller.player_id, tile_pos)
+	var building: BuildingBase = _spawn_building(building_type, ai_player, tile_pos)
 	if building == null:
-		ResourceManager.refund(ai_controller.player_id, cost)
-		_restore_ai_rebuild_request(building_type, is_rebuild)
+		ResourceManager.refund(ai_player, cost)
+		_restore_ai_rebuild_request(building_type, is_rebuild, ai_player)
 		return
 	building.start_construction()
 
-	var builder: Villager = _find_available_ai_builder(building.global_position, {}, building.footprint)
+	var builder: Villager = _find_available_ai_builder(building.global_position, {}, building.footprint, ai_player)
 	if builder == null:
-		_cancel_ai_foundation(building, tile_pos, cost, building_type, is_rebuild)
+		_cancel_ai_foundation(building, tile_pos, cost, building_type, is_rebuild, ai_player)
 		return
 	builder.command_build(building)
 	if not _is_ai_builder_working_on(builder, building):
-		_cancel_ai_foundation(building, tile_pos, cost, building_type, is_rebuild)
+		_cancel_ai_foundation(building, tile_pos, cost, building_type, is_rebuild, ai_player)
 		return
 
 	_ai_construction_jobs[building.get_instance_id()] = {
@@ -3471,10 +3504,13 @@ func _on_ai_wants_to_build(building_type: int, tile_pos: Vector2i, is_rebuild: b
 		"failed_builder_ids": {},
 		"failed_recovery_ticks": 0,
 		"reassignments": 0,
+		"player_id": ai_player,
 	}
 
 
-func _is_ai_build_site_currently_valid(building_type: int, tile_pos: Vector2i) -> bool:
+func _is_ai_build_site_currently_valid(building_type: int, tile_pos: Vector2i, ai_player: int = -1) -> bool:
+	if ai_player < 0:
+		ai_player = ai_controller.player_id
 	if game_map == null or not game_map.has_method("is_tile_visible_to_player"):
 		return false
 	var stats: Dictionary = BuildingData.get_building_stats(building_type)
@@ -3491,7 +3527,7 @@ func _is_ai_build_site_currently_valid(building_type: int, tile_pos: Vector2i) -
 				or check_tile.y >= MapData.MAP_HEIGHT
 			):
 				return false
-			if not bool(game_map.call("is_tile_visible_to_player", check_tile, ai_controller.player_id)):
+			if not bool(game_map.call("is_tile_visible_to_player", check_tile, ai_player)):
 				return false
 	if not game_map.has_method("is_tile_buildable"):
 		return false
@@ -3502,10 +3538,10 @@ func _is_ai_build_site_currently_valid(building_type: int, tile_pos: Vector2i) -
 	return true
 
 
-func _find_available_ai_builder(build_position: Vector2, excluded_ids: Dictionary = {}, footprint: Vector2i = Vector2i.ONE) -> Villager:
+func _find_available_ai_builder(build_position: Vector2, excluded_ids: Dictionary = {}, footprint: Vector2i = Vector2i.ONE, ai_player: int = -1) -> Villager:
 	var idle_candidates: Array[Villager] = []
 	var gathering_candidates: Array[Villager] = []
-	for unit in _player_units[ai_controller.player_id]:
+	for unit in _player_units[ai_player if ai_player >= 0 else ai_controller.player_id]:
 		if not is_instance_valid(unit) or not (unit is Villager):
 			continue
 		var villager := unit as Villager
@@ -3577,9 +3613,10 @@ func _is_ai_builder_working_on(builder: Villager, building: BuildingBase) -> boo
 	)
 
 
-func _restore_ai_rebuild_request(building_type: int, is_rebuild: bool) -> void:
-	if is_rebuild and is_instance_valid(ai_controller):
-		ai_controller.restore_rebuild_request(building_type)
+func _restore_ai_rebuild_request(building_type: int, is_rebuild: bool, ai_player: int = -1) -> void:
+	var controller: AIController = _ai_for(ai_player) if ai_player >= 0 else ai_controller
+	if is_rebuild and is_instance_valid(controller):
+		controller.restore_rebuild_request(building_type)
 
 
 func _cancel_ai_foundation(
@@ -3587,11 +3624,15 @@ func _cancel_ai_foundation(
 	tile_pos: Vector2i,
 	cost: Dictionary,
 	building_type: int,
-	is_rebuild: bool
+	is_rebuild: bool,
+	ai_player: int = -1
 ) -> void:
+	if ai_player < 0:
+		ai_player = ai_controller.player_id
+	var controller: AIController = _ai_for(ai_player)
 	if is_instance_valid(building):
 		_ai_construction_jobs.erase(building.get_instance_id())
-		for unit in _player_units[ai_controller.player_id]:
+		for unit in _player_units[ai_player]:
 			if not is_instance_valid(unit) or not (unit is Villager):
 				continue
 			var builder := unit as Villager
@@ -3600,14 +3641,15 @@ func _cancel_ai_foundation(
 			builder.build_target = null
 			if builder.current_state == UnitBase.State.BUILDING:
 				builder.command_stop()
-		_player_buildings[ai_controller.player_id].erase(building)
+		_player_buildings[ai_player].erase(building)
 		if building.provides_food:
 			game_map.unregister_harvestable(building)
 		game_map.remove_building_obstacle(tile_pos, building.footprint)
-		ai_controller.unregister_building(building)
+		if is_instance_valid(controller):
+			controller.unregister_building(building)
 		building.queue_free()
-	ResourceManager.refund(ai_controller.player_id, cost)
-	_restore_ai_rebuild_request(building_type, is_rebuild)
+	ResourceManager.refund(ai_player, cost)
+	_restore_ai_rebuild_request(building_type, is_rebuild, ai_player)
 
 
 func _process_ai_construction_recovery(delta: float) -> void:
@@ -3620,12 +3662,13 @@ func _process_ai_construction_recovery(delta: float) -> void:
 		if not _ai_construction_jobs.has(job_id):
 			continue
 		var job: Dictionary = _ai_construction_jobs[job_id]
+		var job_player: int = int(job.get("player_id", ai_controller.player_id))
 		var building_ref: WeakRef = job.get("building_ref")
 		var building: BuildingBase = building_ref.get_ref() as BuildingBase if building_ref != null else null
 		if building == null:
 			_ai_construction_jobs.erase(job_id)
-			ResourceManager.refund(ai_controller.player_id, job.get("cost", {}))
-			_restore_ai_rebuild_request(int(job.get("building_type", -1)), bool(job.get("is_rebuild", false)))
+			ResourceManager.refund(job_player, job.get("cost", {}))
+			_restore_ai_rebuild_request(int(job.get("building_type", -1)), bool(job.get("is_rebuild", false)), job_player)
 			continue
 		if building.state == BuildingBase.State.ACTIVE or building.state == BuildingBase.State.DESTROYED:
 			_ai_construction_jobs.erase(job_id)
@@ -3636,7 +3679,8 @@ func _process_ai_construction_recovery(delta: float) -> void:
 				job.get("tile_pos", Vector2i.ZERO),
 				job.get("cost", {}),
 				int(job.get("building_type", -1)),
-				bool(job.get("is_rebuild", false))
+				bool(job.get("is_rebuild", false)),
+				job_player
 			)
 			continue
 
@@ -3657,11 +3701,12 @@ func _process_ai_construction_recovery(delta: float) -> void:
 				job.get("tile_pos", Vector2i.ZERO),
 				job.get("cost", {}),
 				int(job.get("building_type", -1)),
-				bool(job.get("is_rebuild", false))
+				bool(job.get("is_rebuild", false)),
+				job_player
 			)
 			continue
 
-		var replacement: Villager = _find_available_ai_builder(building.global_position, failed_builder_ids, building.footprint)
+		var replacement: Villager = _find_available_ai_builder(building.global_position, failed_builder_ids, building.footprint, job_player)
 		if replacement != null:
 			replacement.command_build(building)
 			if _is_ai_builder_working_on(replacement, building):
@@ -3678,7 +3723,8 @@ func _process_ai_construction_recovery(delta: float) -> void:
 				job.get("tile_pos", Vector2i.ZERO),
 				job.get("cost", {}),
 				int(job.get("building_type", -1)),
-				bool(job.get("is_rebuild", false))
+				bool(job.get("is_rebuild", false)),
+				job_player
 			)
 		else:
 			_ai_construction_jobs[job_id] = job
@@ -3692,15 +3738,16 @@ func _on_ai_wants_to_train(building: Node, unit_type: int) -> void:
 		pq.enqueue_unit(unit_type)
 
 
-func _on_ai_wants_to_age_up() -> void:
+func _on_ai_wants_to_age_up(controller: AIController = null) -> void:
 	if GameManager.current_state != GameManager.GameState.PLAYING:
 		return
-	var age: int = GameManager.get_player_age(ai_controller.player_id)
-	var cost: Dictionary = GameManager.get_age_up_cost(ai_controller.player_id, age + 1)
+	var ai_player: int = controller.player_id if is_instance_valid(controller) else ai_controller.player_id
+	var age: int = GameManager.get_player_age(ai_player)
+	var cost: Dictionary = GameManager.get_age_up_cost(ai_player, age + 1)
 	if cost.is_empty():
 		return
 	# Timed since Round 2 B; `_announce_age_reached` reports the completion.
-	GameManager.try_start_age_up(ai_controller.player_id)
+	GameManager.try_start_age_up(ai_player)
 
 
 func _on_ai_attack_launched(_units: Array, _target_pos: Vector2) -> void:

@@ -69,7 +69,7 @@ func _test_identity_and_baseline() -> void:
 	_expect(GameManager.get_player_civilization(0) == 0 and GameManager.get_player_civilization(1) == 0, "invalid setup normalizes safely")
 	var mutable: Dictionary = CivilizationData.get_definition(1)
 	mutable.unit_overrides[2].hp_mult = 9.0
-	_expect(float(CivilizationData.get_definition(1).unit_overrides[2].hp_mult) < 1.0 and int(CivilizationData.get_unit_stats(UnitData.UNITS[UnitData.UnitType.ARCHER], UnitData.UnitType.ARCHER, 1).hp) == 60, "returned metadata cannot mutate shared rules")
+	_expect(float(CivilizationData.get_definition(1).unit_overrides[2].hp_mult) < 1.0 and int(CivilizationData.get_unit_stats(UnitData.UNITS[UnitData.UnitType.ARCHER], UnitData.UnitType.ARCHER, 1).hp) < int(UnitData.UNITS[UnitData.UnitType.ARCHER].hp), "returned metadata cannot mutate shared rules")
 
 func _test_actors_and_paid_queue() -> void:
 	_setup(1, 2)
@@ -82,14 +82,14 @@ func _test_actors_and_paid_queue() -> void:
 	var fragile_cavalry: UnitBase = CAVALRY.instantiate()
 	fragile_cavalry.player_owner = 0
 	add_child(fragile_cavalry)
-	_expect(longbow.get_unit_type() == "Longbow" and longbow.hp == 60.0 and longbow.attack_range == MapData.range_tiles_to_world(5), "Longbow actual name, HP and (un-emplaced) range")
-	_expect(outrider.get_unit_type() == "Outrider" and outrider.hp == 140.0 and outrider.speed == 110.0, "Outrider actual name, HP and speed")
-	_expect(fragile_cavalry.hp == 130.0, "Verdant cavalry weakness applies to actual unit")
+	_expect(longbow.get_unit_type() == "Longbow" and longbow.hp == float(UnitData.get_unit_stats(UnitData.UnitType.ARCHER, 0).hp) and longbow.hp < float(UnitData.UNITS[UnitData.UnitType.ARCHER].hp) and longbow.attack_range == MapData.range_tiles_to_world(5), "Longbow actual name, HP and (un-emplaced) range")
+	_expect(outrider.get_unit_type() == "Outrider" and outrider.hp == float(UnitData.get_unit_stats(UnitData.UnitType.CAVALRY, 1).hp) and outrider.hp < float(UnitData.UNITS[UnitData.UnitType.CAVALRY].hp) and outrider.speed == 110.0, "Outrider actual name, HP and speed")
+	_expect(fragile_cavalry.hp == float(UnitData.get_unit_stats(UnitData.UnitType.CAVALRY, 0).hp) and fragile_cavalry.hp < float(UnitData.UNITS[UnitData.UnitType.CAVALRY].hp), "Verdant cavalry weakness applies to actual unit")
 	_expect(Combat.get_counter_bonus(UnitData.UnitType.CAVALRY, UnitData.UnitType.ARCHER) == 1.5, "signature units retain familiar counter roles")
 	GameManager.set_modifier(0, "attack", 2.0)
-	_expect(Combat.get_effective_attack(longbow) == 16.0, "shared research stacks once on signature unit")
+	_expect(Combat.get_effective_attack(longbow) == float(UnitData.UNITS[UnitData.UnitType.ARCHER].damage) + 2.0, "shared research stacks once on signature unit")
 	var preview: Dictionary = Combat.get_effective_unit_type_stats(UnitData.UnitType.ARCHER, 0)
-	_expect(int(preview.hp) == 60 and int(preview.damage) == 16 and int(preview.attack_range) == 5, "recruitment preview agrees with signature stats and research")
+	_expect(int(preview.hp) == int(longbow.max_hp) and int(preview.damage) == int(UnitData.UNITS[UnitData.UnitType.ARCHER].damage) + 2 and int(preview.attack_range) == 5, "recruitment preview agrees with signature stats and research")
 	var house: BuildingBase = HOUSE.instantiate()
 	house.player_owner = 1
 	house.state = BuildingBase.State.ACTIVE
@@ -105,7 +105,7 @@ func _test_actors_and_paid_queue() -> void:
 	_expect(queue.enqueue_unit(UnitData.UnitType.ARCHER), "paid signature recruitment accepted")
 	for resource: String in ["food", "wood", "gold"]:
 		_expect(ResourceManager.get_resource(0, resource) == int(bank_before[resource]) - int(published_cost[resource]), "signature unit charges ordinary published " + resource + " cost")
-	_expect(str(queue.get_queue_info()[0].name) == "Longbow" and queue.current_train_time == 24.0, "queue names signature unit and retains training time")
+	_expect(str(queue.get_queue_info()[0].name) == "Longbow" and queue.current_train_time == float(UnitData.UNITS[UnitData.UnitType.ARCHER].build_time), "queue names signature unit and retains training time")
 	_expect(queue.cancel_unit(0), "signature queue cancellation accepted")
 	_expect(ResourceManager.get_all_resources(0) == bank_before and GameManager.get_reserved_population(0) == 0, "cancellation refunds exactly and releases reservation")
 	production.free()
@@ -152,18 +152,18 @@ func _harvest(civilization: int, resource: String, ticks: int, research_bonus: f
 	return gathered
 
 func _test_gathering() -> void:
-	# The current 1.8/tick baseline needs a longer sample for both civilization
+	# The 1.0/tick baseline (Round 2 E) needs a longer sample for both civilization
 	# bonuses to land on whole resources. Cargo must not truncate the comparison.
-	_expect(_harvest(0, "wood", 100) == 180, "baseline earns 1.8 resources per tick")
-	_expect(_harvest(1, "wood", 100) == 216, "Verdant earns exactly +20% wood across fractional ticks")
-	_expect(_harvest(1, "food", 100) == 180, "Verdant bonus does not leak to food")
+	_expect(_harvest(0, "wood", 100) == 100, "baseline earns 1.0 resources per tick")
+	_expect(_harvest(1, "wood", 100) == 120, "Verdant earns exactly +20% wood across fractional ticks")
+	_expect(_harvest(1, "food", 100) == 100, "Verdant bonus does not leak to food")
 	# Round 2 C: the flat Mongol +15% food became +30% on herds and game only
 	# (a plain supply here stands in for a Farm-like source; see test_civ_abilities).
-	_expect(_harvest(2, "food", 100) == 180, "Mongol flat food bonus is gone for ordinary sources")
-	_expect(_harvest(2, "food", 100, 0.0, true) == 234, "Mongols earn exactly +30% food from wildlife across fractional ticks")
-	_expect(_harvest(1, "food", 100, 0.0, true) == 180, "the wildlife bonus does not leak to other kingdoms")
-	_expect(_harvest(2, "gold", 100) == 180, "Sunstride bonus does not leak to gold")
-	_expect(_harvest(1, "wood", 100, UnitData.WHEELBARROW_GATHER_BONUS) == 270, "Wood bonus and Wheelbarrow compose without rounding loss")
+	_expect(_harvest(2, "food", 100) == 100, "Mongol flat food bonus is gone for ordinary sources")
+	_expect(_harvest(2, "food", 100, 0.0, true) == 130, "Mongols earn exactly +30% food from wildlife across fractional ticks")
+	_expect(_harvest(1, "food", 100, 0.0, true) == 100, "the wildlife bonus does not leak to other kingdoms")
+	_expect(_harvest(2, "gold", 100) == 100, "Sunstride bonus does not leak to gold")
+	_expect(_harvest(1, "wood", 100, UnitData.WHEELBARROW_GATHER_BONUS) == 150, "Wood bonus and Wheelbarrow compose without rounding loss")
 
 func _test_network_slot_latching() -> void:
 	GameManager.selected_civilization = 0

@@ -1,7 +1,7 @@
 class_name SkirmishData
 extends RefCounted
 ## Match budgets for comparing mobile economy and army sizes.
-## Population counts workers and troops; cavalry/siege can consume extra slots.
+## Population counts bodies: every Villager and soldier is one, a Siege Engine two.
 
 enum MatchMode { STANDARD, QUICK_CONTROL }
 
@@ -28,22 +28,28 @@ static func get_sacred_target(mode: int) -> float:
 	return SACRED_VICTORY_HOLD_SECONDS
 
 
-const POPULATION_OPTIONS: Array[int] = [20, 30, 40, 60, 100]
+## Bodies per player (Round 2 E: one population per ordinary unit). The default
+## is the one constant to change if performance work recommends another size.
+const POPULATION_OPTIONS: Array[int] = [30, 40, 60, 80, 100, 120]
 const DEFAULT_POPULATION_LIMIT: int = 100
-const POPULATION_PREFERENCE_VERSION: int = 1
-const REFERENCE_POPULATION_LIMIT: int = 40
+## Version 2: limits are bodies. A limit saved by an older build counted two
+## slots per unit, so it is reset to the default once.
+const POPULATION_PREFERENCE_VERSION: int = 2
+const REFERENCE_POPULATION_LIMIT: int = 60
 ## Castle unlocks the siege endgame. Imperial has no skirmish content yet.
 const MAX_AGE: int = 3
 const AGE_NAMES: Array[String] = ["Dark Age", "Feudal Age", "Castle Age"]
-## Standard leaves time to counter a held objective and develop renewable income.
-## Town Center destruction remains available immediately; Control race stays 3m.
-const SACRED_VICTORY_HOLD_SECONDS: float = 300.0
-const SACRED_VICTORY_WAKE_SECONDS: float = 480.0
+## Standard wakes the victory clock at 9:00 and then asks for a 3:00 hold, so
+## the earliest Sacred win is 12:00 and a held site can still be answered.
+## Town Center destruction remains available immediately. Control race keeps
+## the same 3:00 hold but its clock is awake from the first capture.
+const SACRED_VICTORY_HOLD_SECONDS: float = 180.0
+const SACRED_VICTORY_WAKE_SECONDS: float = 540.0
 const NATURAL_RESOURCE_BUDGETS: Dictionary = {"food": 4000, "wood": 10000, "gold": 4000}
 const OPENING_BERRY_STOCK: int = 90
-# The first Barracks (120W), camp (80W), and House (50W) fit the bank;
-# concurrent training still requires food workers and construction opportunity cost.
-const STARTING_RESOURCES: Dictionary = {"food": 250, "wood": 250, "gold": 100}
+# Four Villagers, two Houses and a Resource Camp fit the bank; everything after
+# that is earned by the opening flock.
+const STARTING_RESOURCES: Dictionary = {"food": 200, "wood": 200, "gold": 100}
 # Difficulty changes planning time, never costs, income or unit strength.
 # Home defense remains immediate. Easy gives a learner time to explore the
 # objective, then sends small coherent squads with a visible recovery interval.
@@ -58,9 +64,13 @@ const EASY_LARGER_SQUAD_SECONDS: float = 480.0
 const DARK_AGE_WORKER_WEIGHTS: Dictionary = {"food": 0.55, "wood": 0.35, "gold": 0.10}
 const FEUDAL_WORKER_WEIGHTS: Dictionary = {"food": 0.55, "wood": 0.40, "gold": 0.05}
 const AGE_UP_COSTS: Dictionary = {
-	2: {"food": 320, "gold": 160},
-	3: {"food": 900, "gold": 450},
+	2: {"food": 500},
+	3: {"food": 800, "gold": 200},
 }
+## Control race is a short mode: its Feudal Age is cheaper.
+const QUICK_CONTROL_FEUDAL_COST: Dictionary = {"food": 300}
+## The smallest population budgets never pay less than this share of an age.
+const AGE_UP_MIN_SCALE: float = 0.5
 
 
 static func normalize_population_limit(value: int) -> int:
@@ -71,27 +81,26 @@ static func restore_population_limit(value: int, preference_version: int) -> int
 	# Previous releases saved the implicit 30 default without recording whether
 	# it was an explicit choice. Promote that legacy value once; preserve other
 	# old custom sizes and every explicit choice saved by the new setup.
-	if preference_version < POPULATION_PREFERENCE_VERSION and value == 30:
+	if preference_version < POPULATION_PREFERENCE_VERSION:
 		return DEFAULT_POPULATION_LIMIT
 	return normalize_population_limit(value)
 
 
 static func get_economy_target(population_limit: int) -> int:
-	# Larger kingdoms leave room for armies instead of automatically assigning
-	# half the limit to workers. Smaller custom budgets retain their old split.
-	return clampi(int(population_limit / 4), 2, 15)
+	# About two fifths of the bodies work; the rest is room for an army.
+	return clampi(int(population_limit * 2 / 5), 4, 45)
 
 
 static func get_easy_economy_target(population_limit: int) -> int:
-	return clampi(int(population_limit / 5), 2, 15)
+	return clampi(int(population_limit / 5), 4, 20)
 
 
 static func get_easy_fighter_target(population_limit: int) -> int:
-	return maxi(2, int(population_limit / 10))
+	return maxi(4, int(population_limit / 6))
 
 
 static func get_easy_pressure_squad_size(game_time: float) -> int:
-	return 2 if game_time < EASY_LARGER_SQUAD_SECONDS else 3
+	return 4 if game_time < EASY_LARGER_SQUAD_SECONDS else 6
 
 
 static func get_new_worker_weights(age: int) -> Dictionary:
@@ -100,17 +109,13 @@ static func get_new_worker_weights(age: int) -> Dictionary:
 
 static func get_age_up_cost(target_age: int, population_limit: int, mode: int = MatchMode.STANDARD) -> Dictionary:
 	if mode != MatchMode.STANDARD and target_age == 2:
-		return {"food": 250, "gold": 125}
+		return QUICK_CONTROL_FEUDAL_COST.duplicate()
 	var base_cost: Dictionary = AGE_UP_COSTS.get(target_age, {})
 	var cost: Dictionary = {}
-	# The existing 40-pop economy remains the reference. Legacy large match
-	# fixtures retain their costs; only the smaller mobile budgets scale down.
-	var scale: float = minf(1.0, float(population_limit) / float(REFERENCE_POPULATION_LIMIT))
+	# A 60-body kingdom or larger pays the published price. Smaller budgets
+	# scale down with their economy, but never below half: even the smallest
+	# duel must gather well beyond its starting stock before advancing.
+	var scale: float = clampf(float(population_limit) / float(REFERENCE_POPULATION_LIMIT), AGE_UP_MIN_SCALE, 1.0)
 	for resource: String in base_cost:
-		cost[resource] = int(roundf(float(base_cost[resource]) * scale))
-	if target_age == 2 and not cost.is_empty():
-		# Even the smallest duel must gather beyond its starting stock before
-		# advancing; otherwise Feudal is available the instant the match starts.
-		cost["food"] = maxi(250, int(cost.get("food", 0)))
-		cost["gold"] = maxi(125, int(cost.get("gold", 0)))
+		cost[resource] = int(roundf(float(base_cost[resource]) * scale / 5.0)) * 5
 	return cost
