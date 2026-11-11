@@ -66,6 +66,9 @@ func _fighter_journey(phone: Vector2i, scale: float, notched: bool) -> void:
 	_hud.call("set_early_game_ui_state", false)
 	_hud.call("set_progression_hint", "")
 	_hud.set("_movement_controls_hint_shown", true)
+	# Five villagers and a Scout nearly fill the opening housing.
+	GameManager.increase_population_cap(0, 10)
+	GameManager.increase_population_cap(1, 10)
 	var scout: UnitBase = _spawn_frozen(UnitData.UnitType.SCOUT, 0, _walkable_near(Vector2i(20, 20)))
 	var first: UnitBase = _spawn_frozen(UnitData.UnitType.INFANTRY, 0, _walkable_near(Vector2i(42, 42)))
 	var second: UnitBase = _spawn_frozen(UnitData.UnitType.CAVALRY, 0, _walkable_near(Vector2i(43, 42)))

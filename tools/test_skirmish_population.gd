@@ -41,7 +41,8 @@ func _run() -> void:
 				break
 			await get_tree().process_frame
 		_expect(match_scene.get("_building_placement") != null, "%d: match initialization timed out" % limit)
-		_expect(int(GameManager.players[0]["population_cap"]) == 15, "%d: starting Town Center housing changed" % limit)
+		var tc_housing: int = 5 + int(BuildingData.get_building_stats(BuildingData.BuildingType.TOWN_CENTER, 0).get("pop_provided", 0))
+		_expect(int(GameManager.players[0]["population_cap"]) == tc_housing, "%d: starting Town Center housing changed" % limit)
 		_expect(GameManager.get_player_population_limit(1) == limit, "%d: AI match limit wrong" % limit)
 		var cost: Dictionary = GameManager.get_age_up_cost(0, 2)
 		var before: Dictionary = ResourceManager.get_all_resources(0)
@@ -50,11 +51,19 @@ func _run() -> void:
 		for resource: String in cost:
 			var missing: int = maxi(0, int(cost[resource]) - int(before.get(resource, 0)))
 			ResourceManager.add_resource(0, resource, missing)
+		# Round 2 B: Feudal needs a completed Barracks or Resource Camp and is a
+		# timed Town Center research, paid when it starts.
+		var camp: BuildingBase = match_scene.call("_spawn_building", BuildingData.BuildingType.RESOURCE_CAMP, 0, game_map_tile_near_pocket(match_scene))
+		camp.complete_instantly()
 		before = ResourceManager.get_all_resources(0)
 		match_scene.call("_on_age_up_requested")
-		_expect(GameManager.get_player_age(0) == 2, "%d: affordable human age-up failed" % limit)
 		for resource: String in cost:
 			_expect(ResourceManager.get_resource(0, resource) == int(before[resource]) - int(cost[resource]), "%d: human spent wrong %s age cost" % [limit, resource])
+		var age_state: Dictionary = GameManager.get_age_up_state(0)
+		_expect(not age_state.is_empty() and GameManager.get_player_age(0) == 1, "%d: affordable human age-up did not start" % limit)
+		if not age_state.is_empty():
+			(age_state["building"] as BuildingBase).advance_research(float(age_state["duration"]) + 0.1)
+		_expect(GameManager.get_player_age(0) == 2, "%d: affordable human age-up failed" % limit)
 		var hud: Node = match_scene.get_node("HUD")
 		var game_map: Node = match_scene.get("game_map")
 		for frame: int in range(4):
@@ -79,12 +88,16 @@ func _run() -> void:
 		GameManager.set_state(GameManager.GameState.MENU)
 		await get_tree().process_frame
 	if _failures.is_empty():
-		print("[PASS] skirmish_population: 20/30/40 fair budgets, housing/queue limits, real age spending, GUI zoom/reset")
+		print("[PASS] skirmish_population: every population option: fair budgets, housing/queue limits, real age spending, GUI zoom/reset")
 		get_tree().quit(0)
 	else:
 		for failure: String in _failures:
 			push_error("[FAIL] skirmish_population: %s" % failure)
 		get_tree().quit(1)
+
+
+func game_map_tile_near_pocket(match_scene: Node) -> Vector2i:
+	return match_scene.get("game_map").map_generator.get_expansion_pocket_centers()[0] + Vector2i(0, 9)
 
 
 func _click(position: Vector2) -> void:

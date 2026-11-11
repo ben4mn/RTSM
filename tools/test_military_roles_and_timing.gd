@@ -58,7 +58,8 @@ func _test_shared_role_data() -> void:
 		var arena := VisibleArena.new()
 		add_child(arena)
 		var unit: UnitBase = _spawn(arena, role, 0, Vector2.ZERO)
-		_expect(int(UnitData.UNITS[role]["pop_cost"]) == 2, "household military role takes two population")
+		# Joy pass: one population per soldier (only Siege takes two).
+		_expect(int(UnitData.UNITS[role]["pop_cost"]) == 1, "military role takes one population")
 		_expect(is_equal_approx(unit.attack_speed, 1.0 / float(UnitData.UNITS[role]["attack_interval"])), "runtime cadence reads shared role data")
 		_expect(not UnitData.get_unit_counter_description(role).is_empty(), "military role exposes its counter explanation")
 		arena.free()
@@ -87,11 +88,12 @@ func _test_windup_and_projectile_impact() -> void:
 		_expect(is_equal_approx(target.hp, target.max_hp), "arrow in flight does not apply HP loss")
 		_expect(not bool(projectile.get("visible")), "arrow rendering cannot reveal a flight into hidden fog")
 		# A shot already released survives the archer's removal.
+		var hit_hp: float = target.max_hp - Combat.calculate_unit_damage(archer, target)
 		archer.free()
 		projectile.call("advance_projectile", 0.4)
-		_expect(is_equal_approx(target.hp, 96.0), "arrow arrival applies exactly one twenty-four-point counter hit")
+		_expect(target.hp < target.max_hp and is_equal_approx(target.hp, hit_hp), "arrow arrival applies exactly one counter hit")
 		projectile.call("advance_projectile", 0.4)
-		_expect(is_equal_approx(target.hp, 96.0), "completed projectile cannot apply damage twice")
+		_expect(is_equal_approx(target.hp, hit_hp), "completed projectile cannot apply damage twice")
 	arena.free()
 
 

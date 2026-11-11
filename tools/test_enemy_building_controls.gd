@@ -171,7 +171,7 @@ func _run() -> void:
 		_expect_eq(int(resource_manager.call("get_resource", PLAYER_HUMAN, "gold")), human_gold_before - 50, "friendly research spends gold")
 		_expect_eq(
 			int((game_manager.get("player_upgrades") as Dictionary)[PLAYER_HUMAN]["attack_bonus"]),
-			attack_before + 2,
+			attack_before + int(TechData.get_research_definition("forging")["effects"]["attack"]),
 			"friendly research applies its upgrade"
 		)
 

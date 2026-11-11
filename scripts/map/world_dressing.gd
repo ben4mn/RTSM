@@ -507,8 +507,11 @@ func _on_building_entered(node: Node) -> void:
 	_track_building.call_deferred(node)
 
 
-func _track_building(node: Node) -> void:
-	if not is_instance_valid(node) or not node is BuildingBase or not node.is_inside_tree():
+func _track_building(node: Variant) -> void:
+	# Untyped: a building freed before this deferred call (a cancelled
+	# foundation, a match teardown) arrives as a freed Object, which a typed
+	# Node parameter rejects with an engine error before this guard runs.
+	if not is_instance_valid(node) or not node is BuildingBase or not (node as Node).is_inside_tree():
 		return
 	var building := node as BuildingBase
 	var record: Dictionary = {

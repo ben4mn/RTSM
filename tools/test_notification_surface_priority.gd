@@ -112,10 +112,18 @@ func _notification_journey(phone: Vector2i, interface_scale: float) -> void:
 	_expect(action.is_visible_in_tree() and action.size.y >= 48.0, "field action lost its touch target")
 	await _tap(action.get_global_rect().get_center())
 	_expect(_notification_actions == 1, "one touch must invoke the notification once: " + str(_notification_actions))
+	# H: a tapped toast is answered (later contacts on it do nothing) and
+	# retires after a short fade; each later contact gets a fresh toast.
+	_expect(bool(action.get_meta("toast_answered", false)), "tapped toast is answered")
+	await get_tree().create_timer(0.5).timeout
+	await _frames(2)
+	_expect(not is_instance_valid(action) or action.is_queued_for_deletion() or not action.is_visible_in_tree(), "tapped toast retires")
+	action = await _fresh_action(feed)
 	Input.emulate_touch_from_mouse = true
 	await _physical_mouse_tap(action.get_global_rect().get_center())
 	Input.emulate_touch_from_mouse = false
 	_expect(_notification_actions == 2, "one physical mouse contact must invoke once despite touch emulation: " + str(_notification_actions))
+	action = await _fresh_action(feed)
 	var canceled := InputEventScreenTouch.new()
 	canceled.index = _contact_id + 1
 	canceled.position = get_viewport().get_final_transform() * action.get_global_rect().get_center()
@@ -136,6 +144,16 @@ func _notification_journey(phone: Vector2i, interface_scale: float) -> void:
 	_hud = null
 	GameManager.set_state(GameManager.GameState.MENU)
 	await _frames(3)
+
+
+func _fresh_action(feed: Control) -> Control:
+	feed.call("clear")
+	await _frames(2)
+	_hud.call("show_notification", "Sacred Site · tap to view", KingdomTheme.AMBER, 30.0, func() -> void: _notification_actions += 1)
+	await _frames(4)
+	var fresh: Control = feed.get_child(feed.get_child_count() - 1)
+	_expect(fresh.is_visible_in_tree() and fresh.size.y >= 48.0, "fresh field action lost its touch target")
+	return fresh
 
 
 func _check_hidden(feed: Control, feedback: Control, context: String) -> void:

@@ -126,12 +126,12 @@ func _exercise(profile: Dictionary) -> void:
 	await _settle(menu, logical, safe)
 	_expect((menu.get("_advanced_options") as Control).visible, context + " more options reveals existing settings")
 	(menu.get("_population_buttons") as Array)[0].pressed.emit()
-	_expect(GameManager.selected_population_limit == 20, context + " population applied")
+	_expect(GameManager.selected_population_limit == SkirmishData.POPULATION_OPTIONS[0], context + " population applied")
 	var scroll: ScrollContainer = menu.find_child("MatchOptionsScroll", true, false)
 	_bounds(menu.get("_advanced_card"), safe, context + " dedicated options card")
 	_touch(menu.find_child("MatchOptionsDone", true, false), safe, context + " finish options")
 	_expect(scroll.size.y >= (96.0 if bool(profile.get("scroll_map", false)) else 120.0), context + " useful options scroll viewport")
-	_expect((menu.get("_population_buttons") as Array).size() == 5, context + " all five population limits remain available")
+	_expect((menu.get("_population_buttons") as Array).size() == SkirmishData.POPULATION_OPTIONS.size(), context + " every population limit remains available")
 	for button: Button in menu.get("_population_buttons"):
 		scroll.ensure_control_visible(button)
 		await get_tree().process_frame
@@ -143,7 +143,7 @@ func _exercise(profile: Dictionary) -> void:
 	_bounds(menu.get("seed_input"), safe, context + " seed reachable by scroll")
 	menu.call("_toggle_advanced_options")
 	_expect(not (menu.get("_advanced_overlay") as Control).visible, context + " options close before setup continues")
-	_expect((menu.get("_selection_summary") as Label).text.contains("100 population"), context + " current maximum stays visible in launch summary")
+	_expect((menu.get("_selection_summary") as Label).text.contains("%d population" % SkirmishData.POPULATION_OPTIONS.max()), context + " current maximum stays visible in launch summary")
 	menu.call("_set_mode", "multiplayer")
 	await _settle(menu, logical, safe)
 	_touch(menu.get("_host_button"), safe, context + " create room")

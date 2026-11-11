@@ -18,7 +18,7 @@ func _run() -> void:
 	GameManager.guided_opening_enabled = false
 	GameManager.selected_map_seed = 424242
 	root.size = Vector2i(844, 390)
-	_expect(int(BuildingData.get_building_stats(BuildingData.BuildingType.HOUSE).get("pop_provided", 0)) == 20, "a House should house 20")
+	_expect(int(BuildingData.get_building_stats(BuildingData.BuildingType.HOUSE).get("pop_provided", 0)) == 10, "a House should house 10 (one body per unit)")
 	if await _start_match():
 		await _test_selected_busy_worker_builds()
 	await _close_match()
@@ -30,7 +30,7 @@ func _run() -> void:
 	await _close_match()
 	Engine.time_scale = original_time_scale
 	if _failures.is_empty():
-		print("[PASS] selected_builder: selected busy worker builds, all selected build, no selection falls back, House houses 20")
+		print("[PASS] selected_builder: selected busy worker builds, all selected build, no selection falls back, House houses 10")
 		get_tree().quit(0)
 	else:
 		for failure: String in _failures:

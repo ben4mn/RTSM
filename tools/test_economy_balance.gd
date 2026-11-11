@@ -35,20 +35,27 @@ func _run() -> void:
 		food_worker.call("_process_gathering", 0.1)
 		wood_worker.call("_process_gathering", 0.1)
 		gold_worker.call("_process_gathering", 0.1)
-	_expect(int(food_worker.get("carried_amount")) == 18 and int(wood_worker.get("carried_amount")) == 18 and int(gold_worker.get("carried_amount")) == 14, "7.5 seconds earns eighteen food/wood or fourteen gold at source for either player")
-	_expect(int(food.get("remaining")) == 182 and int(wood.get("remaining")) == 182 and int(gold.get("remaining")) == 186, "each cargo unit is removed from its finite real source")
+	# Round 2 E: 1 per tick (0.9 s, food/wood worked 1.2x faster), 15 carried.
+	var food_load: int = _expected_load("food", 75, 0.1)
+	var gold_load: int = _expected_load("gold", 75, 0.1)
+	_expect(food_load > gold_load and gold_load > 0, "fixture: food/wood outpace gold")
+	_expect(int(food_worker.get("carried_amount")) == food_load and int(wood_worker.get("carried_amount")) == food_load and int(gold_worker.get("carried_amount")) == gold_load, "7.5 seconds earns %d food/wood or %d gold at source for either player (got %d/%d/%d)" % [food_load, gold_load, int(food_worker.get("carried_amount")), int(wood_worker.get("carried_amount")), int(gold_worker.get("carried_amount"))])
+	_expect(int(food.get("remaining")) == 200 - food_load and int(wood.get("remaining")) == 200 - food_load and int(gold.get("remaining")) == 200 - gold_load, "each cargo unit is removed from its finite real source")
 	food_worker.set("gather_rate", UnitData.VILLAGER_GATHER_AMOUNT + UnitData.WHEELBARROW_GATHER_BONUS)
 	food_worker.set("carried_amount", 0)
 	var before_upgrade_stock: int = int(food.get("remaining"))
 	var upgrade_yield: int = 0
 	for _tick: int in range(4):
 		upgrade_yield += int(food_worker.call("_harvest_from_target"))
-	_expect(upgrade_yield == 9, "Wheelbarrow's promised 25% bonus produces nine actual units over four ticks")
-	_expect(before_upgrade_stock - int(food.get("remaining")) == 9, "fractional upgrade harvest is paid by actual source depletion")
-	food_worker.set("carried_amount", 29)
+	var upgraded: int = floori(4.0 * (UnitData.VILLAGER_GATHER_AMOUNT + UnitData.WHEELBARROW_GATHER_BONUS) + 0.0000001)
+	_expect(upgraded > floori(4.0 * UnitData.VILLAGER_GATHER_AMOUNT) and upgrade_yield == upgraded, "Wheelbarrow's promised 25%% bonus produces %d actual units over four ticks (got %d)" % [upgraded, upgrade_yield])
+	_expect(before_upgrade_stock - int(food.get("remaining")) == upgraded, "fractional upgrade harvest is paid by actual source depletion")
+	var capacity: int = int(food_worker.get("carry_capacity"))
+	_expect(capacity == UnitData.VILLAGER_CARRY_CAPACITY, "worker hauls the shared carry capacity")
+	food_worker.set("carried_amount", capacity - 1)
 	var capped_yield: int = int(food_worker.call("_harvest_from_target"))
-	food_worker.set("carried_amount", 29 + capped_yield)
-	_expect(capped_yield == 1 and int(food_worker.call("_harvest_from_target")) == 0, "harvest fills the thirtieth carry slot without exceeding capacity")
+	food_worker.set("carried_amount", capacity - 1 + capped_yield)
+	_expect(capped_yield == 1 and int(food_worker.call("_harvest_from_target")) == 0, "harvest fills the last carry slot without exceeding capacity")
 	food_worker.set("carried_amount", 0)
 	food_worker.set("gather_rate", 1.5)
 	food_worker.set("_fractional_harvest", 0.5)
@@ -64,7 +71,7 @@ func _run() -> void:
 	_expect(bool(food_worker.call("command_return_resources")), "partial cargo receives a normal real drop-off order")
 	food_worker.set("global_position", tc.get("global_position"))
 	food_worker.call("_on_arrived_for_dropoff", food_worker)
-	_expect(int(rm.call("get_resource", 0, "wood")) == 257 and int(food_worker.get("carried_amount")) == 0, "a real friendly Town Center deposits exact cargo into the lower starting bank")
+	_expect(int(rm.call("get_resource", 0, "wood")) == int(SkirmishData.STARTING_RESOURCES["wood"]) + 7 and int(food_worker.get("carried_amount")) == 0, "a real friendly Town Center deposits exact cargo into the lower starting bank")
 	_world.free()
 	current_scene = null
 	if _failures.is_empty():
@@ -74,6 +81,24 @@ func _run() -> void:
 		for failure: String in _failures:
 			push_error("[FAIL] economy_balance: %s" % failure)
 		quit(1)
+
+
+## Units a worker carries after `steps` gathering calls of `delta` seconds,
+## mirroring Villager's tick clock (gather_tick_time / resource speed).
+func _expected_load(resource_type: String, steps: int, delta: float) -> int:
+	var tick: float = UnitData.VILLAGER_GATHER_TICK_SECONDS / float(UnitData.RESOURCE_GATHER_SPEEDS.get(resource_type, 1.0))
+	var timer: float = 0.0
+	var harvested: float = 0.0
+	var carried: int = 0
+	for _step: int in steps:
+		timer += delta
+		if timer + 0.000001 >= tick:
+			timer = maxf(0.0, timer - tick)
+			harvested += UnitData.VILLAGER_GATHER_AMOUNT
+			var whole: int = floori(harvested + 0.0000001)
+			harvested -= float(whole)
+			carried = mini(UnitData.VILLAGER_CARRY_CAPACITY, carried + whole)
+	return carried
 
 
 func _make_worker(player_id: int) -> Node:

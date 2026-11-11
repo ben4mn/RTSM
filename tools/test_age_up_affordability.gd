@@ -66,17 +66,21 @@ func _exercise_profile(viewport_size: Vector2i, population_limit: int) -> void:
 		var age: int = int(_game_manager.call("get_player_age", 0))
 		var cost: Dictionary = _game_manager.call("get_age_up_cost", 0, age + 1)
 		var context := "%s %s" % [prefix, _game_manager.call("get_age_name", age)]
-		_expect(cost.has("food") and cost.has("gold"), context + " fixture requires food and gold costs")
+		# Round 2 E2: Feudal costs food only; Castle costs food and gold.
+		_expect(cost.has("food"), context + " fixture requires a food cost")
+		var gold_cost: int = int(cost.get("gold", 0))
+		var gold_short: int = 1 if gold_cost > 0 else 0
 		_resource_manager.call("reset")
-		_resource_manager.call("initialize_player", 0, {"food": int(cost["food"]) - 1, "wood": 0, "gold": int(cost["gold"]) - 1})
+		_resource_manager.call("initialize_player", 0, {"food": int(cost["food"]) - 1, "wood": 0, "gold": gold_cost - gold_short})
 		hud.call("refresh_match_state")
 		_expect(button.is_visible_in_tree(), context + " Town Center exposes age action")
 		_assert_authoritative_text(hud, button, cost, age, context)
-		_expect(button.disabled, context + " action is disabled below both costs")
-		_expect(button.tooltip_text.contains("Need +1 food · +1 gold"), context + " preview explains both missing resources")
+		_expect(button.disabled, context + " action is disabled below its cost")
+		_expect(button.tooltip_text.contains("Need +1 food · +%d gold" % gold_short), context + " preview explains every missing resource")
 		_resource_manager.call("add_resource", 0, "food", 1)
-		_expect(button.disabled, context + " food-only deposit cannot enable while gold is missing")
-		_resource_manager.call("add_resource", 0, "gold", 1)
+		if gold_cost > 0:
+			_expect(button.disabled, context + " food-only deposit cannot enable while gold is missing")
+			_resource_manager.call("add_resource", 0, "gold", 1)
 		_expect(not button.disabled and button.tooltip_text.contains("Ready to advance"), context + " exact-cost deposit immediately enables and updates preview")
 		# Prerequisite buildings: the blocked reason is on screen until they stand.
 		var requirement: Dictionary = TechData.AGE_UP_REQUIREMENTS.get(age + 1, {})
@@ -97,10 +101,12 @@ func _exercise_profile(viewport_size: Vector2i, population_limit: int) -> void:
 		_game_manager.call("set_state", 3)
 		_resource_manager.call("add_resource", 0, "food", 1)
 		_expect(button.disabled, context + " affordable resource changes cannot enable a paused action")
-		_expect(bool(_resource_manager.call("try_spend", 0, {"gold": 1})), context + " fixture can spend while paused")
+		var paused_resource: String = "gold" if gold_cost > 0 else "food"
+		_expect(bool(_resource_manager.call("try_spend", 0, {paused_resource: 1})), context + " fixture can spend while paused")
 		_game_manager.call("set_state", 2)
-		_expect(button.disabled and button.tooltip_text.contains("Need +0 food · +1 gold"), context + " resume reflects current cost shortage")
-		_resource_manager.call("add_resource", 0, "gold", 1)
+		var shortage: String = "Need +0 food · +1 gold" if gold_cost > 0 else "Need +1 food · +0 gold"
+		_expect(button.disabled and button.tooltip_text.contains(shortage), context + " resume reflects current cost shortage")
+		_resource_manager.call("add_resource", 0, paused_resource, 1)
 		_expect(not button.disabled, context + " post-resume deposit enables the action")
 		await process_frame
 		await process_frame
@@ -109,7 +115,7 @@ func _exercise_profile(viewport_size: Vector2i, population_limit: int) -> void:
 		var duration: float = TechData.get_research_time(TechData.age_research_id(age + 1))
 		var bank: Dictionary = (_resource_manager.call("get_all_resources", 0) as Dictionary).duplicate()
 		_expect(bool(_game_manager.call("try_start_age_up", 0)) and int(_game_manager.call("get_player_age", 0)) == age and String(town_center.get("research_id")) == TechData.age_research_id(age + 1), context + " age-up starts as timed Town Center research")
-		_expect(int(_resource_manager.call("get_resource", 0, "food")) == int(bank["food"]) - int(cost["food"]) and int(_resource_manager.call("get_resource", 0, "gold")) == int(bank["gold"]) - int(cost["gold"]), context + " age-up is paid at start")
+		_expect(int(_resource_manager.call("get_resource", 0, "food")) == int(bank["food"]) - int(cost["food"]) and int(_resource_manager.call("get_resource", 0, "gold")) == int(bank["gold"]) - gold_cost, context + " age-up is paid at start")
 		town_center.call("advance_research", duration * 0.5)
 		hud.call("refresh_age_display")
 		var meter: ProgressBar = button.get_node_or_null("ProductionSeam") as ProgressBar
@@ -145,7 +151,7 @@ func _assert_authoritative_text(hud: CanvasLayer, button: Button, cost: Dictiona
 	_expect(button.icon != null, context + " age action is a single icon button")
 	_expect((hud.get("age_label") as Label).text == String(_game_manager.call("get_age_name", age)), context + " age label matches current state")
 	_expect(button.tooltip_text.begins_with("Advance to " + String(_game_manager.call("get_age_name", age + 1))), context + " preview names the authoritative next age")
-	_expect(button.tooltip_text.contains("%d food · %d gold" % [int(cost["food"]), int(cost["gold"])]), context + " preview includes current population-scaled costs")
+	_expect(button.tooltip_text.contains("%d food · %d gold" % [int(cost.get("food", 0)), int(cost.get("gold", 0))]), context + " preview includes current population-scaled costs")
 
 
 func _assert_button_layout(button: Button, viewport_size: Vector2i, context: String) -> void:
