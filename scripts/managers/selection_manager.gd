@@ -1227,7 +1227,7 @@ func _get_node_at(world_pos: Vector2, use_touch_radius: bool = false) -> Node2D:
 	for node in get_tree().get_nodes_in_group("units"):
 		if not _is_current_selection_entry(node):
 			continue
-		var dist := _pick_position(node as Node2D, world_pos).distance_to(world_pos)
+		var dist := _unit_figure_distance(node as Node2D, world_pos)
 		# The revealed silhouette is drawn above roofs, trees and other units.
 		# Its actual opaque pixels must win the same tap, including heads outside
 		# the broad feet/body discovery regions. Echoes remain noninteractive;
@@ -1260,6 +1260,11 @@ func _get_node_at(world_pos: Vector2, use_touch_radius: bool = false) -> Node2D:
 		return best_unit
 	if best_body_hit != null:
 		return best_body_hit
+	# A tap right beside a figure (half the touch radius from its outline
+	# spine) is that unit even when a roof is drawn behind it.
+	if use_touch_radius and not legacy_picking and best_unit != null \
+			and best_unit_dist <= _screen_px_to_world_radius(touch_unit_hit_radius_px * 0.5):
+		return best_unit
 
 	# The central visible wall is a deliberate building target. A nearby unit's
 	# broad feet ring must not steal production buildings from the player.
@@ -1531,7 +1536,7 @@ func _is_direct_friendly_unit_reselection(entry: Variant, screen_pos: Vector2) -
 	if _is_enemy(unit):
 		return false
 	return (
-		_world_to_screen(_pick_position(unit, _screen_to_world(screen_pos))).distance_to(screen_pos) <= maxf(12.0, touch_unit_hit_radius_px)
+		_unit_figure_distance(unit, _screen_to_world(screen_pos)) <= _screen_px_to_world_radius(maxf(12.0, touch_unit_hit_radius_px))
 		or _is_touch_on_unit_body(unit, _screen_to_world(screen_pos))
 		or _is_touch_on_unit_echo(unit, _screen_to_world(screen_pos))
 	)
@@ -1551,6 +1556,21 @@ func _is_touch_on_unit_body(unit: Node2D, world_pos: Vector2) -> bool:
 	var body_rect: Rect2 = _unit_touch_body_rect(sprite)
 	var anchor: Vector2 = sprite.to_global(body_rect.get_center()) - unit.global_position
 	return body_rect.has_point(sprite.to_local(world_pos - _pick_position(unit, world_pos, anchor) + unit.global_position))
+
+
+## Distance from a tap to the unit's drawn figure: the line from its feet up
+## to the middle of its body (a capsule with the touch radius), so a thumb on
+## the torso or head counts as much as one on the feet. Uses the recent drawn
+## path while walking. Legacy picking measures to the feet only.
+func _unit_figure_distance(node: Node2D, world_pos: Vector2) -> float:
+	var anchor: Vector2 = Vector2.ZERO
+	var sprite: Sprite2D = node.get_node_or_null("UnitSprite") as Sprite2D
+	if not legacy_picking and node is UnitBase and sprite != null and sprite.texture != null:
+		anchor = sprite.to_global(_unit_touch_body_rect(sprite).get_center()) - node.global_position
+	var feet: Vector2 = _pick_position(node, world_pos, anchor * 0.5)
+	if anchor == Vector2.ZERO:
+		return feet.distance_to(world_pos)
+	return Geometry2D.get_closest_point_to_segment(world_pos, feet, feet + anchor).distance_to(world_pos)
 
 
 func _drawn_position(node: Node2D) -> Vector2:

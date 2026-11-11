@@ -77,9 +77,22 @@ func _run() -> void:
 	# Tap routing end to end: nothing selected, tap behind the walker selects it.
 	selection_manager.call("_handle_tap", selection_manager.call("_world_to_screen", behind_3x), true)
 	_expect(selection_manager.selected == [walker], "tap behind a walking villager selects it")
-	# A standing unit's pick area is unchanged.
+	# A standing unit's feet ring is unchanged...
 	var beside: Vector2 = stander.get_visual_position() - Vector2(radius + 4.0, 0.0)
-	_expect(selection_manager.call("_get_node_at", beside, true) != stander, "standing unit keeps the plain radius")
+	_expect(selection_manager.call("_get_node_at", beside, true) != stander, "standing unit keeps the plain radius at its feet")
+	# ...but a thumb beside its torso (outside the narrow body box and beyond
+	# the feet radius) now counts: the figure is a capsule from feet to body.
+	var stander_sprite: Sprite2D = stander.get_node("UnitSprite") as Sprite2D
+	var stander_rect: Rect2 = selection_manager.call("_unit_touch_body_rect", stander_sprite)
+	var stander_torso: Vector2 = stander_sprite.to_global(stander_rect.get_center())
+	var beside_torso: Vector2 = stander_torso - Vector2(radius * 0.85, 0.0)
+	_expect(stander.get_visual_position().distance_to(beside_torso) > radius, "fixture: beside-torso tap is outside the feet radius (%.1f vs %.1f)" % [stander.get_visual_position().distance_to(beside_torso), radius])
+	_expect(not bool(selection_manager.call("_is_touch_on_unit_body", stander, beside_torso)), "fixture: beside-torso tap is outside the body box")
+	_expect(selection_manager.call("_get_node_at", beside_torso, true) == stander, "a tap beside the torso picks the standing unit")
+	SelectionManager.legacy_picking = true
+	var legacy_pick: Variant = selection_manager.call("_get_node_at", beside_torso, true)
+	SelectionManager.legacy_picking = false
+	_expect(legacy_pick != stander or stander.get_visual_position().distance_to(beside_torso) <= radius, "legacy picking missed the beside-torso tap (fixture sanity)")
 
 	Engine.time_scale = previous_time_scale
 	game_map.free()
