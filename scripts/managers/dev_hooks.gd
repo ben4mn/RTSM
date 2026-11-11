@@ -406,6 +406,20 @@ func _cmd_probe(arguments: Array, named: Dictionary = {}) -> Dictionary:
 			var body_px: Vector2 = to_screen * head
 			var state: Variant = body.get("current_state")
 			var velocity_px: Vector2 = to_screen.basis_xform((body as UnitBase).get_drawn_velocity() * Engine.time_scale) if body is UnitBase else Vector2.ZERO
+			if body is WildlifeNode:
+				var animal := body as WildlifeNode
+				var target: UnitBase = animal.get_target()
+				rows.append({"id": body.get_instance_id(), "type": animal.kind, "owner": owner_id,
+					"feet": [roundi(feet_px.x), roundi(feet_px.y)], "body": [roundi(body_px.x), roundi(body_px.y)],
+					"phase": int(animal.phase), "mood": int(animal.mood), "hp": animal.hp, "remaining": animal.remaining,
+					"target": target.get_instance_id() if target != null else 0,
+					"route": [int(animal.get("_route_index")), (animal.get("_route") as PackedVector2Array).size()],
+					"tile": _tile_of(animal.global_position), "home": _tile_of(animal.home_position),
+					"walkable": bool(game_map.pathfinding.is_walkable(game_map.world_to_tile(animal.global_position))),
+					"region": game_map.pathfinding.region_of(game_map.world_to_tile(animal.global_position)),
+					"target_region": game_map.pathfinding.region_of(game_map.world_to_tile(target.global_position)) if target != null else -1,
+					"nav": game_map.get_navigation_world_path(animal.global_position, target.global_position, 4.0).size() if target != null else -1})
+				continue
 			rows.append({"id": body.get_instance_id(), "type": (body.call("get_unit_type") if body.has_method("get_unit_type") else str(body.get("kind"))),
 				"owner": owner_id, "feet": [roundi(feet_px.x), roundi(feet_px.y)], "body": [roundi(body_px.x), roundi(body_px.y)],
 				"state": int(state) if state != null else -1, "vel": [roundi(velocity_px.x), roundi(velocity_px.y)]})

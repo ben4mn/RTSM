@@ -91,6 +91,15 @@ func _ready() -> void:
 	_last_position = global_position
 	_anim = float(posmod(wildlife_id * 37, 100)) * 0.13
 	_refresh_texture()
+	# ResourceNode only processes while selected (a perf pass for static
+	# deposits). An animal walks, chases, bites, spoils and animates in
+	# _process, so it always runs; without this a boar never chased a lurer.
+	set_process(true)
+
+
+func deselect() -> void:
+	super.deselect()
+	set_process(true)
 
 
 func _setup_sprite() -> void:
