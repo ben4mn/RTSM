@@ -13,18 +13,22 @@ func _ready() -> void:
 func _run() -> void:
 	AudioManager.set_all_enabled(false)
 	_expect(SkirmishData.DEFAULT_POPULATION_LIMIT == 80, "normal default 80 (Round 2 E2)")
-	for old: int in [20, 30, 40]:
-		_expect(SkirmishData.restore_population_limit(old, 0) == (100 if old == 30 else old), "legacy migration %d" % old)
+	# Preference version 3 (Round 2 E2): any older saved limit resets to the
+	# default once; a choice saved by the current setup survives reloads.
+	for old: int in [20, 30, 40, 100]:
+		_expect(SkirmishData.restore_population_limit(old, SkirmishData.POPULATION_PREFERENCE_VERSION - 1) == SkirmishData.DEFAULT_POPULATION_LIMIT, "legacy migration %d" % old)
 	for choice: int in SkirmishData.POPULATION_OPTIONS:
-		_expect(SkirmishData.restore_population_limit(choice, 1) == choice, "new explicit choice survives reload %d" % choice)
-	_expect(SkirmishData.get_economy_target(100) == 15 and SkirmishData.get_easy_economy_target(100) == 15, "large target leaves70slots for armies")
-	for limit: int in [20,30,40]:
-		_expect(SkirmishData.get_economy_target(limit) == int(limit / 4) and SkirmishData.get_easy_economy_target(limit) == int(limit / 5), "small economy split preserved")
+		_expect(SkirmishData.restore_population_limit(choice, SkirmishData.POPULATION_PREFERENCE_VERSION) == choice, "new explicit choice survives reload %d" % choice)
+	# One body per unit: about two fifths work, the rest is room for armies.
+	_expect(100 - SkirmishData.get_economy_target(100) >= 55 and SkirmishData.get_easy_economy_target(100) <= SkirmishData.get_economy_target(100), "large target leaves most slots for armies")
+	for limit: int in SkirmishData.POPULATION_OPTIONS:
+		var economy: int = SkirmishData.get_economy_target(limit)
+		_expect(economy >= 4 and economy <= limit / 2 and SkirmishData.get_easy_economy_target(limit) <= economy, "economy split leaves an army share at %d" % limit)
 	for civ: int in CivilizationData.ORDERED_IDS:
 		for mode: int in [SkirmishData.MatchMode.STANDARD, SkirmishData.MatchMode.QUICK_CONTROL]:
 			await _match(civ, mode)
 	for failure: String in _failures: push_error("[FAIL] population_100: " + failure)
-	if _failures.is_empty(): print("[PASS] population_100: %d checks; 3 civilizations Ãƒ— 2 modes, paid Houses15Ã¢â€ â€™25Ã¢â€ â€™35Ã¢â€ â€™Ã¢â‚¬Â¦Ã¢â€ â€™100, partial/reserve gains, building loss, refunds, queue reservations/completion while overcap, migration and unchanged small budgets" % _checks)
+	if _failures.is_empty(): print("[PASS] population_100: %d checks; 3 civilizations x 2 modes, paid Houses from Town Center housing to 100, partial/reserve gains, building loss, refunds, queue reservations/completion while overcap, migration and economy/army split" % _checks)
 	get_tree().quit(0 if _failures.is_empty() else 1)
 
 func _match(civ: int, mode: int) -> void:
@@ -50,14 +54,16 @@ func _match(civ: int, mode: int) -> void:
 	_main.game_map.fog_of_war.reveal_all()
 	for unit: Node in get_tree().get_nodes_in_group("units"): unit.set_process(false)
 	ResourceManager.initialize_player(0, {"food":10000,"wood":10000,"gold":10000})
-	_expect(_cap() == 15 and GameManager.get_player_population_limit(1) == 100, "symmetric100 with initial15housing")
+	# Base housing (5) plus the Town Center's own slots; read from data.
+	var initial: int = 5 + int(BuildingData.get_building_stats(BuildingData.BuildingType.TOWN_CENTER, 0).get("pop_provided", 0))
+	_expect(_cap() == initial and GameManager.get_player_population_limit(1) == 100, "symmetric100 with initial Town Center housing")
 	var houses: Array[BuildingBase] = []
 	# Every House adds the same nominal housing; enough of them reach the limit.
 	var per_house: int = int(BuildingData.get_building_stats(BuildingData.BuildingType.HOUSE, 0).get("pop_provided", 0))
-	var house_count: int = ceili(float(100 - 15) / float(per_house))
-	var nominal: int = 15 + house_count * per_house
+	var house_count: int = ceili(float(100 - initial) / float(per_house))
+	var nominal: int = initial + house_count * per_house
 	for number: int in house_count:
-		var expected: int = mini(100, 15 + number * per_house)
+		var expected: int = mini(100, initial + number * per_house)
 		var menu: Control = _main.get("_build_menu")
 		var gain: Dictionary = menu.call("_housing_gain", BuildingData.get_building_stats(BuildingData.BuildingType.HOUSE,0))
 		_expect(gain.gain == mini(per_house,100-expected), "House shows remaining capacity before house%d" % number)

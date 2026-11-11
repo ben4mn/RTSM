@@ -1,6 +1,6 @@
 extends Node
 ## Beta 31 regression: "queued 7 Warriors, some never trained". Warriors use
-## two housing; the paid queue took four and the rest were refused with a
+## housing (pop_cost); the paid queue took four and the rest were refused with a
 ## transient toast while the tile only greyed out. Every accepted unit must
 ## train, and a blocked Barracks tile must say why where its costs were.
 
@@ -41,7 +41,8 @@ func _run() -> void:
 	_expect(barracks.building_type == BuildingData.BuildingType.BARRACKS, "fixture Barracks placed")
 	barracks.complete_instantly()
 	var queue: ProductionQueue = barracks.get_production_queue()
-	var room: int = (int(GameManager.players[0].population_cap) - GameManager.get_committed_population(0)) / 2
+	var warrior_pop: int = int(UnitData.UNITS[UnitData.UnitType.INFANTRY]["pop_cost"])
+	var room: int = (int(GameManager.players[0].population_cap) - GameManager.get_committed_population(0)) / warrior_pop
 	var results: Array[String] = []
 	for tap: int in 7:
 		main.call("_on_train_unit_requested", barracks, UnitData.UnitType.INFANTRY)

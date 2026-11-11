@@ -2,6 +2,8 @@ extends Node
 ## Routes preview for units the player ordered without selecting them
 ## (rally births, workers panel), just like a selected unit's route.
 
+const SIM_STEPS := preload("res://tools/sim_steps.gd")
+
 var _failures: Array[String] = []
 
 
@@ -40,7 +42,8 @@ func _run() -> void:
 	# A workers-panel style order goes through the worker Undo record.
 	villagers[1].command_move(map.tile_to_world(map.world_to_tile(tc.global_position) + Vector2i(-6, 6)))
 	main.get("_worker_order_undo").call("supersede", 0, [villagers[1]])
-	await get_tree().process_frame
+	# The route is planned on the worker's next fixed simulation step.
+	await SIM_STEPS.advance(get_tree(), 2)
 	_expect(overlay.call("get_display_routes").size() >= 2, "an unselected worker order previews its route too")
 	var started: int = Time.get_ticks_msec()
 	while Time.get_ticks_msec() - started < 2400:
