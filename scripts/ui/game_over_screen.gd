@@ -169,9 +169,10 @@ func _show_result(text: String, color: Color, stats: Dictionary) -> void:
 	var p_age_name: String = age_names[clampi(player_age, 1, 3)]
 	var a_age_name: String = age_names[clampi(ai_age, 1, 3)]
 	var reason: String = str(stats.get("victory_reason", "Match concluded"))
-	var player_feudal: String = _format_timing(float(stats.get("player_feudal_seconds", -1.0)))
-	var ai_feudal: String = _format_timing(float(stats.get("ai_feudal_seconds", -1.0)))
-	time_label.text = "%s  •  %s\nFeudal %s vs %s  •  End %s vs %s" % [time_str, reason, player_feudal, ai_feudal, p_age_name, a_age_name]
+	# H: say what each side reached and when ("Feudal — vs —" read as broken).
+	time_label.text = "%s  •  %s\nYou: %s  •  Rival: %s" % [time_str, reason,
+		_age_line(player_age, float(stats.get("player_feudal_seconds", -1.0)), float(stats.get("player_castle_seconds", -1.0))),
+		_age_line(ai_age, float(stats.get("ai_feudal_seconds", -1.0)), float(stats.get("ai_castle_seconds", -1.0)))]
 	if _online_result:
 		time_label.text = "%s  •  %s\nYour age: %s" % [time_str, reason, p_age_name]
 	# Opponent economy and statistics remain private during online play.
@@ -218,6 +219,14 @@ func _show_result(text: String, color: Color, stats: Dictionary) -> void:
 	visible = true
 	get_tree().paused = true
 	_animate_in()
+
+
+func _age_line(age: int, feudal_seconds: float, castle_seconds: float) -> String:
+	if age >= 3 and castle_seconds >= 0.0:
+		return "Castle Age at %s" % _format_timing(castle_seconds)
+	if age >= 2 and feudal_seconds >= 0.0:
+		return "Feudal Age at %s" % _format_timing(feudal_seconds)
+	return ["", "Dark Age", "Feudal Age", "Castle Age"][clampi(age, 1, 3)]
 
 
 func _format_timing(seconds_value: float) -> String:

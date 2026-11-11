@@ -120,16 +120,16 @@ func _check_boar() -> void:
 	ai._boars_handled = 0
 	ai._check_boar_hunt()
 	expect(ai._get_boar_target() == null, "Easy skips the boar")
-	# Medium sends a party of four.
+	# H: Medium lures too. With live wildlife a party fighting a boar in the
+	# open lost about two villagers a match; under the Town Center none died.
 	_with(1)
 	ai._check_boar_hunt()
-	var hunters: int = 0
-	for villager: Variant in ai._get_villagers():
-		if (villager as Villager).gather_target == boar:
-			hunters += 1
-	expect(ai._get_boar_target() == boar and hunters == ai.BOAR_PARTY_SIZE and ai._boar_lure_id == 0, "Medium hunts the boar with %d villagers (got %d)" % [ai.BOAR_PARTY_SIZE, hunters])
+	expect(ai._get_boar_target() == boar and ai._boar_lure_id != 0 and ai._boar_hunter_ids.size() == 1, "Medium sends one villager to lure the boar")
 	for villager: Variant in ai._get_villagers():
 		(villager as Villager).command_stop()
+	ai._boar_target_ref = null
+	ai._boar_hunter_ids.clear()
+	ai._boar_lure_id = 0
 	# Hard lures it with one villager.
 	_with(2)
 	ai._boar_target_ref = null

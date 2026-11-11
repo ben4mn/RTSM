@@ -220,6 +220,9 @@ var _train_buttons_container: HBoxContainer = null
 var _selected_building_ref: Node2D = null
 var _auto_queue_button: Button = null
 var _train_relayout_pending: bool = false
+var _train_tap_streak: int = 0
+var _train_tap_msec: int = -10000
+var _train_hold_hint_shown: bool = false
 var _production_width_correction: float = 0.0
 var _queue_page_spacer: Control = null
 var _queue_navigation_button: Button = null
@@ -3970,6 +3973,7 @@ func _update_train_buttons(trainable_units: Array) -> void:
 
 
 func _repeat_train(unit_type: int) -> bool:
+	_train_hold_hint_shown = true  # H: they found the hold; no tip needed.
 	if bool(_training_availability(unit_type).get("blocked", true)):
 		# Holding to queue stops here. Send the one blocked request so Main
 		# says why (its usual "Population full ... Build a House"), instead
@@ -4084,6 +4088,14 @@ func _on_train_button_pressed(unit_type: int) -> void:
 		if not OS.has_feature("production"):
 			train_action_diagnostics["request_emitted"] = true
 		train_unit_requested.emit(_selected_building_ref, unit_type)
+		# H: the third quick tap teaches the hold (once per match): holding a
+		# card keeps queueing until released, so 10 recruits is one gesture.
+		var now_msec: int = Time.get_ticks_msec()
+		_train_tap_streak = _train_tap_streak + 1 if now_msec - _train_tap_msec < 900 else 1
+		_train_tap_msec = now_msec
+		if _train_tap_streak >= 3 and not _train_hold_hint_shown:
+			_train_hold_hint_shown = true
+			show_notification("Tip: hold the card to queue many", KingdomTheme.PARCHMENT, 3.5)
 
 
 func _refresh_auto_queue_button(production_queue: Node) -> void:

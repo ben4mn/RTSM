@@ -138,6 +138,8 @@ var _boar_target_ref: WeakRef = null
 var _boar_hunter_ids: Array = []
 var _boar_lure_id: int = 0
 var _boar_lure_returning: bool = false
+var _boar_party_assembling: bool = false
+const BOAR_MUSTER_DISTANCE: float = 110.0
 var _boar_started_at: float = -INF
 var _boars_handled: int = 0
 var _raid_units: Array = []
@@ -440,6 +442,7 @@ func start_ai(base_tile: Vector2i, base_world_pos: Vector2) -> void:
 	_boar_lure_returning = false
 	_boar_started_at = -INF
 	_boars_handled = 0
+	_boar_party_assembling = false
 	_raid_units.clear()
 	_last_raid_time = -INF
 	_feudal_paid_farm_foundations = 0
@@ -3462,17 +3465,25 @@ func _check_boar_hunt() -> void:
 			best = node
 	if best == null:
 		return
-	var hunters: Array = _pick_boar_hunters(best, 1 if difficulty == Difficulty.HARD else BOAR_PARTY_SIZE)
+	var hunters: Array = _pick_boar_hunters(best, 1 if difficulty != Difficulty.EASY else BOAR_PARTY_SIZE)
 	if hunters.is_empty():
 		return
 	_boar_target_ref = weakref(best)
 	_boar_started_at = _game_time
 	_boar_hunter_ids.clear()
 	_boar_lure_returning = false
-	_boar_lure_id = (hunters[0] as UnitBase).get_instance_id() if difficulty == Difficulty.HARD else 0
+	_boar_lure_id = (hunters[0] as UnitBase).get_instance_id() if difficulty != Difficulty.EASY else 0
+	# H: a party walks up together and strikes together. Ordered straight onto
+	# the boar, the first to arrive fought alone and often died (live wildlife
+	# telemetry: ~2 AI villagers per match).
+	_boar_party_assembling = _boar_lure_id == 0
+	var muster: Vector2 = best.global_position + (_base_position - best.global_position).normalized() * BOAR_MUSTER_DISTANCE
 	for hunter: Variant in hunters:
 		_boar_hunter_ids.append((hunter as UnitBase).get_instance_id())
-		(hunter as Villager).command_gather(best)
+		if _boar_party_assembling:
+			(hunter as Villager).command_move(muster)
+		else:
+			(hunter as Villager).command_gather(best)
 	_last_economy_action = "boar_lure" if _boar_lure_id != 0 else "boar_hunt"
 
 
@@ -3522,6 +3533,21 @@ func _manage_boar_hunt(boar: WildlifeNode) -> void:
 		_boars_handled += 1
 		return
 	if _boar_lure_id == 0:
+		if _boar_party_assembling:
+			# Medium: strike once every hunter has mustered (or the boar woke).
+			var party: Array[Villager] = []
+			var waiting: bool = false
+			for hunter_id: Variant in _boar_hunter_ids:
+				var hunter: Villager = _boar_villager(int(hunter_id))
+				if hunter == null:
+					continue
+				party.append(hunter)
+				if hunter.current_state == UnitBase.State.MOVING:
+					waiting = true
+			if not waiting or boar.mood == WildlifeNode.Mood.ENRAGED or _game_time - _boar_started_at > 25.0:
+				_boar_party_assembling = false
+				for hunter: Villager in party:
+					hunter.command_gather(boar)
 		return  # Medium: the party fights it where it stands.
 	var lurer: Villager = _boar_villager(_boar_lure_id)
 	if lurer == null:

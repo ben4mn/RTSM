@@ -21,6 +21,10 @@ signal trade_command(building: Node2D)
 ## Round 2 D1: selected units should shelter in this own Town Center / Watch
 ## Tower. Consumed by scripts/buildings/garrison.gd.
 signal garrison_command(building: Node2D)
+## H: villagers tapped onto an own drop-off with cargo deliver it now and go
+## back to work; villagers fighting a boar run to the Town Center (the lure).
+signal dropoff_command(building: Node2D)
+signal lure_command(building: Node2D)
 signal building_rally_armed_changed(armed: bool)
 ## A phone box gesture is explicit and ends after one selection or cancellation.
 signal touch_area_selection_changed(armed: bool)
@@ -67,6 +71,14 @@ var _last_tap_was_ground_move := false
 var _last_tap_canvas_transform := Transform2D.IDENTITY
 var _double_tap_interval := 0.35  # seconds
 var _double_tap_radius := 30.0  # pixels
+## H: a plain ground tap sends soldiers as an attack-move; a second tap on the
+## same spot right after turns that order into a plain move (fall back, ignore
+## enemies on the way). Set only while `move_command` is emitted for a plain
+## touch ground tap: "attack", "retreat" or "" (plain move).
+var ground_tap_order: String = ""
+## H: soldiers' default ground order. Main reads it; tests and settings may
+## turn it off to restore the older plain-move tap.
+var ground_tap_attack_move: bool = true
 
 ## Visual drag-box rectangle.
 var _drag_rect: Rect2 = Rect2()
@@ -137,6 +149,14 @@ const DESKTOP_BUILDING_HIT_RADIUS_WORLD := 36.0
 const DESKTOP_RESOURCE_HIT_RADIUS_WORLD := 28.0
 const MIN_TOUCH_HIT_RADIUS_WORLD := 8.0
 const MOUSE_AFTER_TOUCH_IGNORE_MS: int = 1500
+## Real seconds of a walking unit's drawn path that still count as the unit
+## for a tap (eye-to-finger lag), capped in screen pixels so a fast rider at
+## 3x does not sweep a long lane through a crowd.
+const TAP_TRAIL_SECONDS := 0.25
+const TAP_TRAIL_MAX_PX := 48.0
+## Dev A/B switch (PocketDev cmd('probe', {legacy_pick: true})): the pre-G1
+## picking against the current drawn position only. Never set in play.
+static var legacy_picking: bool = false
 
 
 func arm_building_rally(building: BuildingBase) -> bool:
@@ -646,6 +666,19 @@ func _handle_tap(screen_pos: Vector2, is_touch_input: bool, pressed_unit: Node2D
 	if retained_unit:
 		tapped_node = pressed_unit
 	var resource_node: Node2D = _get_resource_at(world_pos, is_touch_input)
+	# H (G1): with a group selected, a tap that lands on one of its own members
+	# (a crowd, a walker crossing the spot) is an order to that spot, not a
+	# request to shrink the army to that one soldier. Type chips and double
+	# tap still narrow the selection on purpose.
+	if is_touch_input and not unit_command_armed and selected.size() >= 2 and tapped_node is UnitBase \
+			and selected.has(tapped_node) and not _is_enemy(tapped_node) and not (tapped_node is Villager and resource_node != null):
+		var group_soldiers: int = 0
+		for entry: Node2D in selected:
+			if entry is UnitBase and not entry is Villager:
+				group_soldiers += 1
+		if group_soldiers >= 2:
+			tapped_node = null
+			retained_unit = false
 	# The explicit flag owns one destination, even if a friendly worker stands
 	# on the resource. Existing gather/move handlers retain authority and costs.
 	if is_building_rally_armed():
@@ -687,6 +720,11 @@ func _handle_tap(screen_pos: Vector2, is_touch_input: bool, pressed_unit: Node2D
 		if is_touch_input:
 			get_viewport().set_input_as_handled()
 		return
+	var repeated_ground_tap: bool = (
+		_last_tap_was_ground_move and tapped_node == null and _last_tap_time > 0.0
+		and now - _last_tap_time < _double_tap_interval * 1.4
+		and screen_pos.distance_to(_last_tap_position) < _double_tap_radius
+	)
 	_last_tap_time = now
 	_last_tap_position = screen_pos
 	_last_tap_canvas_transform = get_viewport().get_canvas_transform()
@@ -719,8 +757,10 @@ func _handle_tap(screen_pos: Vector2, is_touch_input: bool, pressed_unit: Node2D
 			get_viewport().set_input_as_handled()
 		return
 
+	# H: with a Town Center selected, a resource tap is its rally even when a
+	# worker stands on the sheep or bush (that worker can be held > Select).
 	if is_touch_input and resource_node != null and _has_selected_villager_producer() \
-			and (tapped_node == null or tapped_node == resource_node):
+			and (tapped_node == null or tapped_node == resource_node or (tapped_node is Villager and not _is_enemy(tapped_node))):
 		_record_touch_input(screen_pos, world_pos, "resource_rally", tapped_node, resource_node)
 		gather_command.emit(resource_node)
 		_last_tap_time = 0.0
@@ -745,9 +785,19 @@ func _handle_tap(screen_pos: Vector2, is_touch_input: bool, pressed_unit: Node2D
 		# A visible wall is deliberate production/construction intent, even
 		# when an adjacent resource has a generous overview discovery ring.
 		# A Farm that is itself the resource keeps its normal gather meaning.
+		var home_order: String = _home_building_order(tapped_node) if has_selected_villagers and not _is_under_construction(tapped_node) else ""
 		if has_selected_villagers and _is_under_construction(tapped_node):
 			_record_touch_input(screen_pos, world_pos, "build", tapped_node, resource_node)
 			build_command.emit(tapped_node)
+		elif home_order == "garrison":
+			_record_touch_input(screen_pos, world_pos, "garrison", tapped_node, resource_node)
+			garrison_command.emit(tapped_node)
+		elif home_order == "dropoff":
+			_record_touch_input(screen_pos, world_pos, "dropoff", tapped_node, resource_node)
+			dropoff_command.emit(tapped_node)
+		elif home_order == "lure":
+			_record_touch_input(screen_pos, world_pos, "lure", tapped_node, resource_node)
+			lure_command.emit(tapped_node)
 		else:
 			_clear_selection()
 			_add_to_selection(tapped_node)
@@ -780,6 +830,14 @@ func _handle_tap(screen_pos: Vector2, is_touch_input: bool, pressed_unit: Node2D
 		return
 
 	if tapped_node != null:
+		if is_touch_input and tapped_node is BuildingBase and selected.size() == 1 and selected[0] == tapped_node:
+			# H: tapping the selected building again puts it away. On a phone a
+			# ground tap with a producer selected sets its rally, so this is the
+			# one-tap way back to the Build button.
+			_record_touch_input(screen_pos, world_pos, "deselect", tapped_node, resource_node)
+			_clear_selection()
+			get_viewport().set_input_as_handled()
+			return
 		if selected.size() > 0 and _is_enemy(tapped_node):
 			# Attack command.
 			_record_touch_input(screen_pos, world_pos, "attack", tapped_node, resource_node)
@@ -789,6 +847,16 @@ func _handle_tap(screen_pos: Vector2, is_touch_input: bool, pressed_unit: Node2D
 			# Send selected villagers to build.
 			_record_touch_input(screen_pos, world_pos, "build", tapped_node, resource_node)
 			build_command.emit(tapped_node)
+			consumed = true
+		elif is_touch_input and has_selected_villagers and _home_building_order(tapped_node) != "":
+			var order: String = _home_building_order(tapped_node)
+			_record_touch_input(screen_pos, world_pos, order, tapped_node, resource_node)
+			if order == "garrison":
+				garrison_command.emit(tapped_node)
+			elif order == "lure":
+				lure_command.emit(tapped_node)
+			else:
+				dropoff_command.emit(tapped_node)
 			consumed = true
 		elif is_touch_input and has_selected_units and _is_direct_friendly_building_reselection(tapped_node, screen_pos):
 			# A deliberate tap near the center of an owned building changes context
@@ -846,10 +914,13 @@ func _handle_tap(screen_pos: Vector2, is_touch_input: bool, pressed_unit: Node2D
 
 	if is_touch_input and has_selected_units:
 		# Touch parity: tapping empty ground while selected issues a move command.
-		_last_tap_was_ground_move = true
+		# Soldiers attack-move; tapping the same spot again falls back instead.
+		_last_tap_was_ground_move = not repeated_ground_tap
 		var tile_pos := _world_to_tile(world_pos)
-		_record_touch_input(screen_pos, world_pos, "move", tapped_node, resource_node, tile_pos)
+		_record_touch_input(screen_pos, world_pos, "retreat" if repeated_ground_tap else "move", tapped_node, resource_node, tile_pos)
+		ground_tap_order = "retreat" if repeated_ground_tap else ("attack" if ground_tap_attack_move else "")
 		move_command.emit(tile_pos)
+		ground_tap_order = ""
 		consumed = true
 	elif _has_selected_herd():
 		# Wildlife: a ground tap with own sheep selected herds them there. Main
@@ -1219,7 +1290,7 @@ func _get_node_at(world_pos: Vector2, use_touch_radius: bool = false) -> Node2D:
 	for node in get_tree().get_nodes_in_group("units"):
 		if not _is_current_selection_entry(node):
 			continue
-		var dist := _drawn_position(node as Node2D).distance_to(world_pos)
+		var dist := _unit_figure_distance(node as Node2D, world_pos)
 		# The revealed silhouette is drawn above roofs, trees and other units.
 		# Its actual opaque pixels must win the same tap, including heads outside
 		# the broad feet/body discovery regions. Echoes remain noninteractive;
@@ -1235,7 +1306,8 @@ func _get_node_at(world_pos: Vector2, use_touch_radius: bool = false) -> Node2D:
 			# This matters in compact armies at overview zoom: tapping a head
 			# must not select the soldier standing just above that person.
 			var sprite: Sprite2D = (node as Node2D).get_node("UnitSprite") as Sprite2D
-			var body_center: Vector2 = sprite.to_global(_unit_touch_body_rect(sprite).get_center()) + _drawn_position(node as Node2D) - (node as Node2D).global_position
+			var body_anchor: Vector2 = sprite.to_global(_unit_touch_body_rect(sprite).get_center()) - (node as Node2D).global_position
+			var body_center: Vector2 = body_anchor + _pick_position(node as Node2D, world_pos, body_anchor)
 			var body_distance: float = body_center.distance_to(world_pos)
 			if body_distance < best_body_distance:
 				best_body_distance = body_distance
@@ -1251,6 +1323,11 @@ func _get_node_at(world_pos: Vector2, use_touch_radius: bool = false) -> Node2D:
 		return best_unit
 	if best_body_hit != null:
 		return best_body_hit
+	# A tap right beside a figure (half the touch radius from its outline
+	# spine) is that unit even when a roof is drawn behind it.
+	if use_touch_radius and not legacy_picking and best_unit != null \
+			and best_unit_dist <= _screen_px_to_world_radius(touch_unit_hit_radius_px * 0.5):
+		return best_unit
 
 	# The central visible wall is a deliberate building target. A nearby unit's
 	# broad feet ring must not steal production buildings from the player.
@@ -1470,6 +1547,36 @@ func _can_offer_garrison(target: Variant) -> bool:
 	return soldier_selected or (villager_selected and not (target as BuildingBase).is_in_group("dropoff_buildings"))
 
 
+## H (AoE2-like): what a tap on an own building means for the selected
+## villagers instead of selecting it. "garrison" while its bell rings,
+## "lure" when one of them is fighting a boar and the building is a Town
+## Center, "dropoff" when one carries cargo the building takes; else "".
+func _home_building_order(building: Variant) -> String:
+	if not building is BuildingBase or _is_enemy(building) or (building as BuildingBase).state != BuildingBase.State.ACTIVE:
+		return ""
+	var home := building as BuildingBase
+	if home.bell_active and Garrison.accepts(home):
+		for entry: Node2D in selected:
+			if entry is Villager and _is_current_selection_entry(entry) and Garrison.can_garrison_unit(entry, home):
+				return "garrison"
+	var carries: bool = false
+	for entry: Node2D in selected:
+		if not entry is Villager or not _is_current_selection_entry(entry):
+			continue
+		var villager := entry as Villager
+		if home.building_type == BuildingData.BuildingType.TOWN_CENTER and villager.gather_target is WildlifeNode \
+				and is_instance_valid(villager.gather_target) and (villager.gather_target as WildlifeNode).kind == "boar" \
+				and (villager.gather_target as WildlifeNode).phase == WildlifeNode.Phase.ALIVE:
+			return "lure"
+		if villager.carried_amount > 0 and home.is_in_group("dropoff_buildings"):
+			var accepts: bool = true
+			for resource: String in villager.get_carried_resources():
+				if not home.has_method("is_drop_off_point") or not bool(home.call("is_drop_off_point", resource)):
+					accepts = false
+			carries = carries or accepts
+	return "dropoff" if carries else ""
+
+
 func _is_direct_friendly_building_reselection(entry: Variant, screen_pos: Vector2) -> bool:
 	if not _is_current_selection_entry(entry) or not entry is BuildingBase:
 		return false
@@ -1522,7 +1629,7 @@ func _is_direct_friendly_unit_reselection(entry: Variant, screen_pos: Vector2) -
 	if _is_enemy(unit):
 		return false
 	return (
-		_world_to_screen(unit.get_visual_position()).distance_to(screen_pos) <= maxf(12.0, touch_unit_hit_radius_px)
+		_unit_figure_distance(unit, _screen_to_world(screen_pos)) <= _screen_px_to_world_radius(maxf(12.0, touch_unit_hit_radius_px))
 		or _is_touch_on_unit_body(unit, _screen_to_world(screen_pos))
 		or _is_touch_on_unit_echo(unit, _screen_to_world(screen_pos))
 	)
@@ -1537,12 +1644,49 @@ func _is_touch_on_unit_body(unit: Node2D, world_pos: Vector2) -> bool:
 	var sprite: Sprite2D = unit.get_node_or_null("UnitSprite") as Sprite2D
 	if sprite == null or sprite.texture == null:
 		return false
-	# Taps hit where the unit is drawn (interpolated between simulation steps).
-	return _unit_touch_body_rect(sprite).has_point(sprite.to_local(world_pos - _drawn_position(unit) + unit.global_position))
+	# Taps hit where the unit is drawn (interpolated between simulation steps),
+	# or where it was drawn a reaction time ago while it walks.
+	var body_rect: Rect2 = _unit_touch_body_rect(sprite)
+	var anchor: Vector2 = sprite.to_global(body_rect.get_center()) - unit.global_position
+	return body_rect.has_point(sprite.to_local(world_pos - _pick_position(unit, world_pos, anchor) + unit.global_position))
+
+
+## Distance from a tap to the unit's drawn figure: the line from its feet up
+## to the middle of its body (a capsule with the touch radius), so a thumb on
+## the torso or head counts as much as one on the feet. Uses the recent drawn
+## path while walking. Legacy picking measures to the feet only.
+func _unit_figure_distance(node: Node2D, world_pos: Vector2) -> float:
+	var anchor: Vector2 = Vector2.ZERO
+	var sprite: Sprite2D = node.get_node_or_null("UnitSprite") as Sprite2D
+	if not legacy_picking and node is UnitBase and sprite != null and sprite.texture != null:
+		anchor = sprite.to_global(_unit_touch_body_rect(sprite).get_center()) - node.global_position
+	var feet: Vector2 = _pick_position(node, world_pos, anchor * 0.5)
+	if anchor == Vector2.ZERO:
+		return feet.distance_to(world_pos)
+	return Geometry2D.get_closest_point_to_segment(world_pos, feet, feet + anchor).distance_to(world_pos)
 
 
 func _drawn_position(node: Node2D) -> Vector2:
 	return (node as UnitBase).get_visual_position() if node is UnitBase else node.global_position
+
+
+## Where a walking unit counts as being for a tap at `world_pos`: the point on
+## its recent drawn path (the last TAP_TRAIL_SECONDS of real time, capped on
+## screen) that best matches the tap. A finger lands where the eye last saw
+## the figure; at 2x-3x speed a walker crosses its own width in that time.
+## `anchor` is the part of the figure being matched (feet = zero, body
+## centre = its offset from the feet). Standing units use the drawn position.
+func _pick_position(node: Node2D, world_pos: Vector2, anchor: Vector2 = Vector2.ZERO) -> Vector2:
+	var drawn: Vector2 = _drawn_position(node)
+	if legacy_picking or not node is UnitBase:
+		return drawn
+	var trail: Vector2 = (node as UnitBase).get_drawn_velocity() * Engine.time_scale * TAP_TRAIL_SECONDS
+	if trail.is_zero_approx():
+		return drawn
+	trail = trail.limit_length(TAP_TRAIL_MAX_PX / _get_camera_zoom_scalar())
+	# Slide the figure back along its path toward the tap, at most `trail`.
+	var back: float = clampf((drawn + anchor - world_pos).dot(trail) / trail.length_squared(), 0.0, 1.0)
+	return drawn - trail * back
 
 
 func _unit_touch_body_rect(sprite: Sprite2D) -> Rect2:
