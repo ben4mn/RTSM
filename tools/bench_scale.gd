@@ -19,7 +19,7 @@ const VILLAGER_SHARE: float = 0.4
 const FIELD_SHARE: float = 0.4
 const ARMY_MIX: Array[int] = [UnitData.UnitType.INFANTRY, UnitData.UnitType.ARCHER, UnitData.UnitType.INFANTRY, UnitData.UnitType.CAVALRY, UnitData.UnitType.ARCHER]
 
-var options: Dictionary = {"bodies": "60", "seconds": "30", "seed": "100", "net": "1", "select": "0", "presentation": "0", "output": "", "label": "", "save": "0", "micro": "0"}
+var options: Dictionary = {"bodies": "60", "seconds": "30", "seed": "100", "net": "1", "select": "0", "presentation": "0", "output": "", "label": "", "save": "0", "micro": "0", "sim_hz": "0"}
 var match_scene: Node
 var game_map: Node2D
 var bot: AIController
@@ -44,6 +44,8 @@ func _run() -> void:
 	AudioManager.set_all_enabled(false)
 	# Like the match server (NetworkSession server mode): no pose animation.
 	UnitBase.presentation_enabled = int(options["presentation"]) > 0
+	if float(options["sim_hz"]) > 0.0:
+		UnitBase.sim_base_step = 1.0 / float(options["sim_hz"])
 	GameManager.guided_opening_enabled = false
 	GameManager.selected_civilization = CivilizationData.normalize(0)
 	GameManager.selected_opponent_civilization = CivilizationData.normalize(1)

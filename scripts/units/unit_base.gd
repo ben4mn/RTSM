@@ -152,6 +152,8 @@ const SIM_STEP: float = 0.05
 ## Game seconds between thinks. GameMap widens it with game speed (2x/3x think
 ## as often per rendered frame as 1x, with a larger step).
 static var sim_step: float = SIM_STEP
+## The 1x step (benchmarks may override it; GameMap scales it with speed).
+static var sim_base_step: float = SIM_STEP
 ## World rectangle (already padded) in which unit poses are animated and
 ## positions interpolated. GameMap refreshes it from the camera every frame.
 static var view_rect: Rect2 = Rect2(-1e7, -1e7, 2e7, 2e7)
@@ -234,7 +236,7 @@ func _ready() -> void:
 	add_to_group("player_%d" % player_owner)
 	_register_live_unit_index()
 	_sim_phase_serial += 1
-	_sim_next_think = SIM_STEP * fposmod(float(_sim_phase_serial) * 0.6180339887, 1.0)
+	_sim_next_think = sim_base_step * fposmod(float(_sim_phase_serial) * 0.6180339887, 1.0)
 	set_process_internal(true)
 	queue_redraw()
 
@@ -248,7 +250,9 @@ func _register_live_unit_index() -> void:
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_INTERNAL_PROCESS:
+		var _ps: int = Time.get_ticks_usec() if PerfProbe.on else 0
 		_sim_frame(get_process_delta_time())
+		if PerfProbe.on: PerfProbe.add(&"unit.sim_frame", _ps)
 	elif what == NOTIFICATION_LOCAL_TRANSFORM_CHANGED and _live_unit_index != null and is_inside_tree():
 		var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
 		_live_unit_index.update(self)
@@ -1407,10 +1411,13 @@ func _update_sprite_motion(delta: float) -> void:
 	_last_visual_position = drawn_position
 	# The pose itself (gait, idle, strike, flinch) lives in UnitPuppet. It is
 	# skipped where nobody can see it; the next visible frame blends back in.
+	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
 	if presentation_enabled and visible and view_rect.has_point(global_position):
 		_puppet.update(self, delta, displacement)
+		if PerfProbe.on: PerfProbe.add(&"unit.puppet", _pp)
 	else:
 		_puppet.tick_unseen(self, delta, displacement)
+		if PerfProbe.on: PerfProbe.add(&"unit.puppet_unseen", _pp)
 
 
 func get_work_presentation() -> Vector3:

@@ -27,6 +27,7 @@ parser.add_argument('--select', type=int, default=0, help='keep this many own un
 parser.add_argument('--seed', type=int, default=100)
 parser.add_argument('--save', type=int, default=0, help='1 = also time one solo checkpoint of the final state')
 parser.add_argument('--fps', type=int, default=60, help='fixed simulation rate (the match server ticks at 30)')
+parser.add_argument('--sim-hz', type=float, default=0.0, help='unit think rate override (0 = the game default)')
 parser.add_argument('--label', default='')
 parser.add_argument('--top', type=int, default=14, help='systems to print per case')
 parser.add_argument('--out', type=Path, required=True)
@@ -48,7 +49,7 @@ for bodies in [int(value) for value in args.bodies.split(',') if value.strip()]:
             environment.update(XDG_DATA_HOME=home, XDG_CONFIG_HOME=home)
             command = [godot, '--headless', '--fixed-fps', str(args.fps), '--path', str(ROOT), 'res://tools/bench_scale.tscn', '--',
                        f'--bodies={bodies}', f'--seconds={args.seconds}', f'--seed={args.seed}', f'--net={args.net}',
-                       f'--select={args.select}', f'--save={args.save}', f'--label={args.label}', f'--output={report}']
+                       f'--select={args.select}', f'--save={args.save}', f'--sim_hz={args.sim_hz}', f'--label={args.label}', f'--output={report}']
             completed = subprocess.run(command, capture_output=True, text=True, errors='replace', env=environment,
                                        timeout=max(600.0, args.seconds * 40))
             if not report.exists():

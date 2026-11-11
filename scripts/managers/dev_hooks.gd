@@ -15,7 +15,7 @@ const DIFFICULTY_IDS: Dictionary = {"easy": 0, "medium": 1, "hard": 2}
 const MAP_IDS: Dictionary = {"open_plains": 0, "river_crossings": 1, "woodland_flanks": 2}
 const RESOURCES: Array[String] = ["food", "wood", "gold"]
 const UNDER_ATTACK_COOLDOWN: float = 10.0
-const COMMANDS: Array[String] = ["camera_to", "set_speed", "pause", "reveal_map", "give", "spawn", "age", "build", "screenshot_safe_ui"]
+const COMMANDS: Array[String] = ["camera_to", "set_speed", "pause", "reveal_map", "give", "spawn", "age", "build", "screenshot_safe_ui", "perf"]
 
 static var _dev_checked: bool = false
 static var _dev_enabled: bool = false
@@ -480,6 +480,26 @@ func _cmd_build(arguments: Array, named: Dictionary = {}) -> Dictionary:
 				building.complete_instantly()
 				return {"ok": true, "building": type_name.to_lower(), "player": player_id, "tile": [origin.x, origin.y]}
 	return {"error": "no free ground"}
+
+
+## `cmd('perf', true)` starts PerfProbe; `cmd('perf', false)` stops it and
+## returns ms per rendered frame per probe plus the engine's process time.
+var _perf_started_frame: int = 0
+var _perf_process_ms: float = 0.0
+
+func _cmd_perf(arguments: Array, named: Dictionary = {}) -> Dictionary:
+	var start: bool = bool(named.get("on", arguments[0] if not arguments.is_empty() else true))
+	if start:
+		PerfProbe.reset()
+		PerfProbe.on = true
+		_perf_started_frame = Engine.get_process_frames()
+		return {"ok": true}
+	PerfProbe.on = false
+	var frames: int = maxi(1, Engine.get_process_frames() - _perf_started_frame)
+	var rows: Dictionary = {}
+	for key: StringName in PerfProbe.usec:
+		rows[str(key)] = snappedf(float(PerfProbe.usec[key]) / 1000.0 / float(frames), 0.01)
+	return {"ok": true, "frames": frames, "ms_per_frame": rows, "process_ms_now": snappedf(Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0, 0.01)}
 
 
 func _cmd_screenshot_safe_ui(arguments: Array, named: Dictionary = {}) -> Dictionary:
