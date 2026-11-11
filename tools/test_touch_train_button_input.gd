@@ -228,7 +228,7 @@ func _run() -> void:
 		_expect_eq(_research_requests, 1, "one research touch submits exactly one request")
 		_expect(_research_accepted and GameManager.has_research(0, "forging"), "preserved research gesture must complete the shared transaction")
 		_expect(ResourceManager.get_resource(0, "food") == int(research_bank_before["food"]) - 100 and ResourceManager.get_resource(0, "gold") == int(research_bank_before["gold"]) - 50 and ResourceManager.get_resource(0, "wood") == int(research_bank_before["wood"]), "research gesture must pay Forging once without spending Wood")
-		_expect_eq(GameManager.get_attack_bonus(0), 2, "research gesture applies the Forging effect once")
+		_expect_eq(GameManager.get_attack_bonus(0), int(TechData.get_research_definition("forging")["effects"]["attack"]), "research gesture applies the Forging effect once")
 
 	viewport.free()
 	GameManager.set_state(GameManager.GameState.MENU)

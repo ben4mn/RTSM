@@ -1,5 +1,5 @@
 extends SceneTree
-## Standalone headless regression for farms as permanent, owner-scoped food resources.
+## Standalone headless regression for farms as finite (fallow, reseedable), owner-scoped food resources.
 ##
 ## Run with:
 ##   Godot --headless --path . --script tools/test_farm_economy.gd
@@ -191,11 +191,20 @@ func _test_human_input_targeting(game_map: Node2D) -> void:
 
 
 func _test_harvest_depletion() -> void:
+	# Round 2 E: a sown Farm is finite; at zero it lies fallow until reseeded.
+	FarmPlots.set_auto_reseed(0, false)
 	var farm: Node2D = _make_farm(0, Vector2(600.0, 0.0), BUILDING_ACTIVE)
-	for _load: int in range(1000):
-		_expect_eq(farm.call("harvest", 15), 15, "every harvest respects the requested load without exhaustion")
-	_expect_eq(farm.get("state"), BUILDING_ACTIVE, "15,000 food does not exhaust a permanent farm")
-	_expect(bool(farm.call("is_harvestable_by", 0)), "permanent farm remains harvestable")
+	var capacity: int = FarmPlots.capacity_for(0)
+	var harvested: int = 0
+	for _load: int in range(capacity / 15):
+		var taken: int = int(farm.call("harvest", 15))
+		_expect_eq(taken, 15, "every harvest respects the requested load before exhaustion")
+		harvested += taken
+	harvested += int(farm.call("harvest", 15))
+	_expect_eq(harvested, capacity, "a sown farm yields exactly its finite stock")
+	_expect(FarmPlots.is_fallow(farm), "an exhausted farm lies fallow")
+	_expect_eq(farm.call("harvest", 15), 0, "a fallow farm yields nothing until reseeded")
+	_expect_eq(farm.get("state"), BUILDING_ACTIVE, "a fallow farm remains a standing building")
 	_expect_eq(farm.call("harvest", -5), 0, "negative requests cannot create negative cargo")
 	farm.set("state", BUILDING_DESTROYED)
 	_expect_eq(farm.call("harvest", 1), 0, "destroyed farm cannot provide food")
