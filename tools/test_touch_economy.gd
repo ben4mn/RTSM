@@ -21,6 +21,7 @@ func run_cases() -> void:
 	await _ground_taps()
 	await _town_center_taps(economy)
 	await _group_chips()
+	await _selection_taps()
 
 
 func _wood_worker() -> Villager:
@@ -184,6 +185,37 @@ func _group_chips() -> void:
 	overview._group_chip_consumed = false
 	overview._on_group_chip_pressed(3)
 	expect(map.selection_mgr.selected.size() == 3, "tapping the chip selects the group")
+
+
+func _selection_taps() -> void:
+	var selection: Node = map.selection_mgr
+	var canvas: Transform2D = map.get_viewport().get_canvas_transform()
+	# Tapping the selected Town Center again puts it away.
+	map.note_camera_interaction()
+	map.camera.position = tc.global_position
+	await step(0.2)
+	canvas = map.get_viewport().get_canvas_transform()
+	selection.select_single(tc)
+	selection.set("_last_tap_time", 0.0)
+	selection.call("_handle_tap", canvas * tc.global_position, true)
+	expect(selection.selected.is_empty(), "tapping the selected Town Center again deselects it")
+	# A tap on a member of a selected army orders that spot.
+	var soldiers: Array[Node2D] = []
+	for index: int in 3:
+		soldiers.append(spawn(UnitData.UnitType.INFANTRY, 0, Vector2i(-4, 4), index))
+	await step(0.3)
+	selection.select_many(soldiers)
+	selection.set("_last_tap_time", 0.0)
+	canvas = map.get_viewport().get_canvas_transform()
+	var member: UnitBase = soldiers[1] as UnitBase
+	selection.call("_handle_tap", canvas * member.global_position, true)
+	expect(selection.selected.size() == 3, "a tap on one member keeps the whole army selected (%d)" % selection.selected.size())
+	var ordered: int = 0
+	for soldier: Node2D in soldiers:
+		if (soldier as UnitBase).current_state == UnitBase.State.MOVING or (soldier as UnitBase).attack_move:
+			ordered += 1
+	expect(ordered >= 2, "and the army is ordered to that spot (%d moving)" % ordered)
+	selection.deselect_all()
 
 
 func _count(building_type: int) -> int:
