@@ -20,6 +20,8 @@ const PENDING_LIFETIME_MSEC: int = 5000
 const FADE_SECONDS: float = 0.4
 const ACTION_HEIGHT: float = 48.0
 const FONT_SIZE: int = 13
+const KEEP_CHECK_SECONDS: float = 0.5
+const KEEP_MAX_SECONDS: float = 90.0
 
 var _pending: Array[Dictionary] = []
 var _lane_width: float = MAX_WIDTH
@@ -33,12 +35,16 @@ func _init() -> void:
 
 
 ## `priority` < 0 infers it: tappable or long-lived messages are HIGH.
-func push(text: String, color: Color = Color.WHITE, duration: float = 3.5, action: Callable = Callable(), priority: int = -1) -> void:
+## I2: `keep_while` (optional): once `duration` has passed the pill stays for as
+## long as it returns true (checked every KEEP_CHECK_SECONDS, at most
+## KEEP_MAX_SECONDS in all), so an offer that still applies does not vanish
+## before a slow thumb reaches it.
+func push(text: String, color: Color = Color.WHITE, duration: float = 3.5, action: Callable = Callable(), priority: int = -1, keep_while: Callable = Callable()) -> void:
 	if text.is_empty():
 		return
 	if priority < 0:
 		priority = Priority.HIGH if action.is_valid() or duration > 3.75 else Priority.NORMAL
-	var entry: Dictionary = {"text": text, "color": color, "duration": maxf(0.05, duration), "action": action, "priority": priority, "queued_msec": Time.get_ticks_msec()}
+	var entry: Dictionary = {"text": text, "color": color, "duration": maxf(0.05, duration), "action": action, "priority": priority, "queued_msec": Time.get_ticks_msec(), "keep_while": keep_while}
 	for pill: PanelContainer in _live_pills():
 		if str(pill.get_meta("toast_text", "")) == text:
 			_restart(pill, entry)
@@ -181,6 +187,7 @@ func _show(entry: Dictionary) -> void:
 	panel.set_meta("toast_priority", int(entry.priority))
 	panel.set_meta("toast_shown_msec", Time.get_ticks_msec())
 	panel.set_meta("toast_tappable", action.is_valid())
+	panel.set_meta("toast_keep_while", entry.get("keep_while", Callable()))
 	add_child(panel)
 	# H: tappable offers sit above plain messages, so an expiring note never
 	# slides an offer up from under the finger that is about to tap it.
@@ -198,6 +205,9 @@ func _show(entry: Dictionary) -> void:
 
 func _restart(pill: PanelContainer, entry: Dictionary) -> void:
 	pill.set_meta("toast_priority", maxi(int(pill.get_meta("toast_priority", 0)), int(entry.priority)))
+	var keep: Callable = entry.get("keep_while", Callable())
+	if keep.is_valid():
+		pill.set_meta("toast_keep_while", keep)
 	_schedule(pill, float(entry.duration), false)
 
 
@@ -211,9 +221,32 @@ func _schedule(pill: PanelContainer, duration: float, fade_in: bool) -> void:
 	else:
 		pill.modulate.a = 1.0
 	tween.tween_interval(duration)
-	tween.tween_property(pill, "modulate:a", 0.0, FADE_SECONDS)
-	tween.tween_callback(_expire.bind(pill))
+	tween.tween_callback(_hold_or_fade.bind(pill))
 	pill.set_meta("toast_tween", tween)
+
+
+## I2: a pill whose `keep_while` still holds waits on; otherwise it fades out.
+func _hold_or_fade(pill: PanelContainer) -> void:
+	if not is_instance_valid(pill) or bool(pill.get_meta("toast_retired", false)):
+		return
+	var keep: Variant = pill.get_meta("toast_keep_while", Callable())
+	var age: float = float(Time.get_ticks_msec() - int(pill.get_meta("toast_shown_msec", 0))) / 1000.0
+	var tween: Tween = pill.create_tween()
+	if keep is Callable and (keep as Callable).is_valid() and age < KEEP_MAX_SECONDS and bool((keep as Callable).call()):
+		tween.tween_interval(KEEP_CHECK_SECONDS)
+		tween.tween_callback(_hold_or_fade.bind(pill))
+	else:
+		tween.tween_property(pill, "modulate:a", 0.0, FADE_SECONDS)
+		tween.tween_callback(_expire.bind(pill))
+	pill.set_meta("toast_tween", tween)
+
+
+## I2: whether a pill with this text is showing (tests, offers).
+func is_showing(text: String) -> bool:
+	for pill: PanelContainer in _live_pills():
+		if str(pill.get_meta("toast_text", "")) == text:
+			return true
+	return false
 
 
 func _expire(pill: PanelContainer) -> void:

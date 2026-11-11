@@ -35,6 +35,8 @@ func setup(main: Node, hud: CanvasLayer, map: Node2D) -> void:
 	_overview.farm_requested.connect(_plan_farm)
 	_overview.trader_requested.connect(_find_trader)
 	_overview.barracks_requested.connect(_plan_barracks)
+	_overview.build_requested.connect(_build_from_economy)
+	_overview.back_to_work_requested.connect(_back_to_work)
 	_overview.save_group_requested.connect(_save_group)
 	_overview.recall_group_requested.connect(_recall_group)
 	_overview.training_requested.connect(_train)
@@ -386,6 +388,51 @@ func _plan_farm() -> void:
 
 func _plan_barracks() -> void:
 	_plan_building(BuildingData.BuildingType.BARRACKS)
+
+
+## I2: Economy's build row. Whatever is selected, building is two taps away:
+## a selection without villagers (a Town Center, soldiers) steps aside so the
+## nearest free worker builds; selected villagers stay the builders.
+func _build_from_economy(building_type: int) -> void:
+	if not _playing():
+		return
+	var keeps_builders: bool = false
+	for entry: Variant in _map.selection_mgr.selected:
+		if is_instance_valid(entry) and entry is Villager and (entry as Villager).player_owner == 0:
+			keeps_builders = true
+			break
+	if not keeps_builders and not (_map.selection_mgr.selected as Array).is_empty():
+		_map.selection_mgr.deselect_all()
+	if building_type >= 0:
+		_plan_building(building_type)
+		return
+	_hud.call("close_secondary_surface")
+	_hud.call("open_build_menu")
+
+
+## I2 (EconomyHints): the Economy sheet's own paths, callable from a toast.
+func plan_building(building_type: int) -> void:
+	_plan_building(building_type)
+
+
+func allocate_workers(source: String, destination: String, count: int) -> int:
+	var before: int = 0
+	for worker: Villager in _own_workers():
+		if _worker_source(worker) == destination:
+			before += 1
+	for _index: int in count:
+		_allocate_worker(source, destination)
+	var after: int = 0
+	for worker: Villager in _own_workers():
+		if _worker_source(worker) == destination:
+			after += 1
+	return maxi(0, after - before) if not NetworkSession.is_client() else count
+
+
+func _back_to_work() -> void:
+	var economy: Node = TouchEconomy.of(_main)
+	if economy != null:
+		economy.call("request_back_to_work")
 
 
 func _plan_building(building_type: int) -> void:

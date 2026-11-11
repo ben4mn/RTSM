@@ -18,6 +18,12 @@ signal rally_requested(building: Node2D)
 signal sacred_rally_requested(building: Node2D)
 signal farm_requested()
 signal barracks_requested()
+## I2: the Economy sheet's build row. `building_type` < 0 opens the full Build
+## menu; otherwise that building goes straight to placement. The nearest free
+## worker builds unless villagers are selected.
+signal build_requested(building_type: int)
+## I2: the persistent "back to work" chip beside the idle chip.
+signal back_to_work_requested()
 signal save_group_requested(index: int)
 signal recall_group_requested(index: int)
 ## Research page (Round 2 B): one tap starts `research_id` in `building`.
@@ -35,6 +41,7 @@ const JOB_CHIP_WIDTH := 64.0
 const JOB_CHIP_MIN_WIDTH := 54.0
 const TRAIN_CARD_WIDTH := 84.0
 const SHEET_MAX_WIDTH := 300.0
+const BUILD_TILE_SIZE := Vector2(76, 56)
 var rail: HBoxContainer
 var panel: PanelContainer
 var _title: Label
@@ -128,6 +135,14 @@ var _chips_fit: bool = false
 ## worker; tap again before an order: every idle worker).
 var idle_chip: Button
 var _idle_count: int = 0
+## I2: villagers that could go back to a remembered job (fled a raid, rang the
+## bell, sheltered, or idled beside an exhausted resource). Fed by TouchEconomy.
+var work_chip: Button
+var _work_count: int = 0
+var _build_row: HBoxContainer
+var _build_menu_button: Button
+var _build_house_button: Button
+var _build_camp_button: Button
 
 
 func _ready() -> void:
@@ -369,6 +384,21 @@ func _build_economy() -> void:
 	_idle_button = _icon_button("idle", "Select the next idle worker", "FindIdleButton", JOB_CHIP_WIDTH, "")
 	_idle_button.pressed.connect(func() -> void: idle_requested.emit())
 	destinations.add_child(_idle_button)
+	# I2: building is reachable from Economy at any time, whatever is selected.
+	_build_row = HBoxContainer.new()
+	_build_row.name = "BuildRow"
+	_build_row.add_theme_constant_override("separation", 6)
+	_economy.add_child(_build_row)
+	_build_menu_button = _icon_button("build", "Open the Build menu. The nearest free worker builds unless villagers are selected.", "EconomyBuild", BUILD_TILE_SIZE.x, "Build")
+	_build_menu_button.custom_minimum_size = BUILD_TILE_SIZE
+	_build_menu_button.pressed.connect(func() -> void: build_requested.emit(-1))
+	_build_row.add_child(_build_menu_button)
+	_build_house_button = _button("", "EconomyHouse", BUILD_TILE_SIZE.x)
+	_build_house_button.pressed.connect(func() -> void: build_requested.emit(BuildingData.BuildingType.HOUSE))
+	_build_row.add_child(_build_house_button)
+	_build_camp_button = _button("", "EconomyCamp", BUILD_TILE_SIZE.x)
+	_build_camp_button.pressed.connect(func() -> void: build_requested.emit(BuildingData.BuildingType.RESOURCE_CAMP))
+	_build_row.add_child(_build_camp_button)
 	_feedback = _label("", 12)
 	_feedback.autowrap_mode = TextServer.AUTOWRAP_OFF
 	_feedback.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -542,6 +572,15 @@ func update_snapshot(snapshot: Dictionary, light: bool = false) -> void:
 	CommandIcons.apply(_barracks_button, "build", "Plan a Barracks: %d wood. %s" % [barracks_wood, _barracks_blocker.text])
 	ACTION_TILE.apply(_barracks_button, load(BuildingBase.get_sprite_texture_path(BuildingData.BuildingType.BARRACKS, 0)), {"wood": barracks_wood}, Vector2(84,68))
 	_barracks_button.disabled = not bool(snapshot.get("can_plan_barracks", false))
+	for entry: Array in [[_build_house_button, BuildingData.BuildingType.HOUSE], [_build_camp_button, BuildingData.BuildingType.RESOURCE_CAMP]]:
+		var tile_type: int = int(entry[1])
+		var tile_button: Button = entry[0]
+		var tile_cost: Dictionary = BuildingData.get_building_cost(tile_type, 0)
+		var tile_name: String = BuildingData.get_building_name(tile_type)
+		ACTION_TILE.apply(tile_button, load(BuildingBase.get_sprite_texture_path(tile_type, 0)), tile_cost, BUILD_TILE_SIZE)
+		tile_button.tooltip_text = "Place a %s; the nearest free worker builds it unless villagers are selected." % tile_name
+		tile_button.accessibility_name = tile_button.tooltip_text
+		tile_button.disabled = not ResourceManager.can_afford(0, tile_cost)
 	_population.text = str(snapshot.get("population_text", ""))
 	CommandIcons.apply_labeled(_idle_button, "idle", "Find the next of %d idle workers · tap again before giving an order to select them all" % idle, "Find idle")
 	_idle_button.disabled = idle <= 0
@@ -1411,6 +1450,11 @@ func apply_layout(safe: Rect2, field_visible: bool, card_area: Rect2, dock_heigh
 	idle_chip.size = GROUP_CHIP_SIZE
 	idle_chip.position = Vector2(rail.position.x + (RAIL_BUTTON_SIZE + RAIL_GAP) * 2.0 + (RAIL_BUTTON_SIZE - GROUP_CHIP_SIZE.x) * 0.5, rail.position.y - 8.0 - GROUP_CHIP_SIZE.y)
 	idle_chip.visible = _idle_count > 0 and _chips_field_visible
+	# I2: "back to work" lives beside the idle chip (above Base) while anyone
+	# could resume a remembered job, so a raid's aftermath has a fixed home.
+	work_chip.size = work_chip.custom_minimum_size
+	work_chip.position = Vector2(idle_chip.position.x - RAIL_GAP - work_chip.size.x, idle_chip.position.y)
+	work_chip.visible = _work_count > 0 and _chips_field_visible
 	# The sheet leaves its launchers reachable for switching and tap-to-collapse.
 	var card_left: float = card_area.position.x + 8.0
 	var card_right: float = minf(card_area.end.x - 8.0, rail.position.x - 8.0)
@@ -1517,6 +1561,17 @@ func _build_group_chips() -> void:
 	idle_chip.visible = false
 	idle_chip.pressed.connect(func() -> void: idle_requested.emit())
 	add_child(idle_chip)
+	work_chip = _button("", "BackToWorkChip", GROUP_CHIP_SIZE.x + 12.0)
+	work_chip.custom_minimum_size = Vector2(GROUP_CHIP_SIZE.x + 12.0, GROUP_CHIP_SIZE.y)
+	work_chip.icon = CommandIcons.get_icon("economy")
+	work_chip.expand_icon = true
+	work_chip.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	work_chip.add_theme_constant_override("icon_max_width", 20)
+	work_chip.add_theme_font_size_override("font_size", 13)
+	KingdomTheme.apply_primary(work_chip)
+	work_chip.visible = false
+	work_chip.pressed.connect(func() -> void: back_to_work_requested.emit())
+	add_child(work_chip)
 	_group_chip_timer = Timer.new()
 	_group_chip_timer.one_shot = true
 	_group_chip_timer.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -1582,6 +1637,21 @@ func _refresh_group_chips() -> void:
 	idle_chip.visible = _idle_count > 0 and _chips_field_visible
 
 
+## I2: how many villagers "Back to work" would send (0 hides the chip).
+func set_back_to_work_count(count: int) -> void:
+	if count == _work_count:
+		return
+	_work_count = maxi(0, count)
+	work_chip.text = "Work %d" % _work_count if _work_count < 100 else "Work 99+"
+	work_chip.tooltip_text = "Back to work: send %d villager%s back to their last jobs" % [_work_count, "" if _work_count == 1 else "s"]
+	work_chip.accessibility_name = work_chip.tooltip_text
+	work_chip.visible = _work_count > 0 and _chips_field_visible
+
+
+func get_back_to_work_count() -> int:
+	return _work_count
+
+
 func get_visible_bounds() -> Array[Rect2]:
 	var bounds: Array[Rect2] = []
 	if rail.is_visible_in_tree():
@@ -1590,6 +1660,8 @@ func get_visible_bounds() -> Array[Rect2]:
 		bounds.append(group_chips.get_global_rect())
 	if idle_chip != null and idle_chip.is_visible_in_tree():
 		bounds.append(idle_chip.get_global_rect())
+	if work_chip != null and work_chip.is_visible_in_tree():
+		bounds.append(work_chip.get_global_rect())
 	if panel.is_visible_in_tree():
 		bounds.append(panel.get_global_rect())
 	return bounds

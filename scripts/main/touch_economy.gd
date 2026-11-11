@@ -53,6 +53,7 @@ var _offer_text: String = ""
 var _offer_count: int = 0
 var _offer_msec: int = -OFFER_COOLDOWN_MSEC
 var _offer_pending_seconds: float = 0.0
+var _waiting_count: int = 0
 var _house_warned_cap: int = -1
 var _house_toast: String = ""
 var _house_toast_until_msec: int = 0
@@ -77,6 +78,7 @@ static func install(match_main: Node) -> void:
 	node.z_index = 89
 	node.process_mode = Node.PROCESS_MODE_PAUSABLE
 	match_main.add_child(node)
+	preload("res://scripts/main/economy_hints.gd").install(match_main)  # I2: running-out and bottleneck hints
 	match_main.ext.register_command("back_to_work", node._command_back_to_work, func(p: Dictionary) -> bool: return p.get("ids") is Array)
 	match_main.ext.register_command("dropoff", node._command_dropoff, func(p: Dictionary) -> bool: return p.get("ids") is Array and p.has("target"))
 	match_main.ext.register_command("lure", node._command_lure, func(p: Dictionary) -> bool: return p.get("ids") is Array and p.has("target"))
@@ -369,6 +371,11 @@ func _waiting_workers() -> Array[Villager]:
 func _refresh_back_to_work_offer(step: float) -> void:
 	var hud: Node = main.get("hud") as Node
 	var count: int = _waiting_workers().size()
+	_waiting_count = count
+	# I2: the offer has a persistent home on the "Work" chip beside the idle chip.
+	var overview: Variant = hud.get("_strategy_overview") if is_instance_valid(hud) else null
+	if overview is StrategyOverview:
+		(overview as StrategyOverview).set_back_to_work_count(count)
 	if count < OFFER_MIN_IDLE:
 		_offer_pending_seconds = 0.0
 		_offer_count = 0
@@ -386,7 +393,9 @@ func _refresh_back_to_work_offer(step: float) -> void:
 	_offer_count = count
 	_offer_msec = now
 	_offer_text = BACK_TO_WORK_TEXT % count
-	hud.call("show_notification", _offer_text, KingdomTheme.GOLD, 8.0, request_back_to_work, 2)
+	var shown: String = _offer_text
+	hud.call("show_notification", _offer_text, KingdomTheme.GOLD, 8.0, request_back_to_work, 2,
+		func() -> bool: return _offer_text == shown and _waiting_count >= OFFER_MIN_IDLE)
 
 
 func _retire_offer(hud: Node) -> void:
@@ -539,7 +548,7 @@ func _refresh_house_warning() -> void:
 	# Houses going up count as room already; a big queue can still outrun one.
 	var incoming: int = _houses_under_construction() * int(BuildingData.get_building_stats(BuildingData.BuildingType.HOUSE).get("pop_provided", 10))
 	if GameManager.game_time < HOUSE_WARNING_GRACE_SECONDS or cap >= limit or committed < cap + incoming - HOUSE_WARNING_SLOTS:
-		if live:
+		if not _house_toast.is_empty():
 			hud.call("dismiss_notification", _house_toast)
 		_house_toast = ""
 		if committed < cap - HOUSE_WARNING_SLOTS - 1:
@@ -563,7 +572,10 @@ func _refresh_house_warning() -> void:
 	var duration: float = 14.0 if housed else 9.0
 	if ResourceManager.can_afford(0, house_cost):
 		_house_toast = "%s · tap: House" % housing
-		hud.call("show_notification", _house_toast, KingdomTheme.AMBER, duration, request_auto_house, 2)
+		var shown: String = _house_toast
+		# I2: the offer stays while it still applies (no House started, still affordable).
+		hud.call("show_notification", _house_toast, KingdomTheme.AMBER, duration, request_auto_house, 2,
+			func() -> bool: return _house_toast == shown and ResourceManager.can_afford(0, house_cost))
 	else:
 		var missing: Dictionary = ResourceManager.get_missing_resources(0, house_cost)
 		_house_toast = "%s · House needs %dW more" % [housing, int(missing.get("wood", 0))]

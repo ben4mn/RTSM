@@ -2208,7 +2208,10 @@ func _apply_context_actions(viewport_size: Vector2) -> void:
 	var human_building: bool = is_instance_valid(_selected_building_ref) and _is_human_owned_building(_selected_building_ref)
 	var town_center: bool = human_building and (_selected_building_ref as BuildingBase).building_type == BuildingData.BuildingType.TOWN_CENTER
 	var worker: bool = _selection_kind == "unit" and _selection_is_worker and _unit_commands_authorized and not _unit_commands_have_military
-	build_menu_button.visible = field_mode and (unselected or worker)
+	# I2: a mixed selection that holds villagers can build too (they are the builders).
+	var mixed_workers: bool = _selection_kind == "unit" and _unit_commands_authorized and _selection_unit_owner == 0 \
+		and int(_selection_role_counts.get(UnitData.UnitType.VILLAGER, 0)) > 0
+	build_menu_button.visible = field_mode and (unselected or worker or mixed_workers)
 	var gm: Node = _get_game_manager()
 	var can_advance: bool = gm == null or not gm.get_age_up_cost(0, gm.get_player_age(0) + 1).is_empty()
 	# The optional opener can suggest a next step without hiding a paid action.
@@ -2696,6 +2699,12 @@ func is_placement_cancel_visible() -> bool:
 
 func close_build_menu() -> void:
 	if _build_menu_open:
+		_on_build_menu_pressed()
+
+
+## I2: the Economy sheet's Build tile opens the same menu as the Build button.
+func open_build_menu() -> void:
+	if not _build_menu_open:
 		_on_build_menu_pressed()
 
 
@@ -4853,12 +4862,14 @@ func _create_notification_feed() -> void:
 	_worker_undo_button.hide()
 
 
-func show_notification(text: String, color: Color = Color.WHITE, duration: float = NOTIFICATION_DURATION, action: Callable = Callable(), priority: int = -1) -> void:
+func show_notification(text: String, color: Color = Color.WHITE, duration: float = NOTIFICATION_DURATION, action: Callable = Callable(), priority: int = -1, keep_while: Callable = Callable()) -> void:
 	## `priority` is a ToastLane.Priority; -1 infers it (tappable or long-lived
 	## messages are HIGH). The lane shows at most two and queues the rest.
+	## I2: `keep_while` (optional) keeps the toast after `duration` for as long
+	## as it returns true (bounded by ToastLane.KEEP_MAX_SECONDS).
 	if _notification_container == null:
 		return
-	_notification_container.push(text, color, duration, action, priority)
+	_notification_container.push(text, color, duration, action, priority, keep_while)
 	_refresh_notification_visibility()
 
 
