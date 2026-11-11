@@ -116,19 +116,44 @@ func _known(node: ResourceNode) -> bool:
 	return bool(fog.call("is_explored", node.tile_position))
 
 
-## Facts for one resource: workers on it, the stock left around their patches
-## and the nearest explored patch beyond them (null when none is known).
+## Idle, unselected villagers whose remembered job (TouchEconomy) was
+## `resource`, with where that job was: a crew whose patch ran out.
+func stranded(resource: String, workers: Array[Villager] = []) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var economy: TouchEconomy = TouchEconomy.of(main)
+	if economy == null:
+		return result
+	if workers.is_empty():
+		workers = _workers()
+	for worker: Villager in workers:
+		if worker.current_state != UnitBase.State.IDLE or worker.is_selected or not worker.queued_orders.is_empty() or worker.is_auto_recovering():
+			continue
+		var job: Dictionary = economy._jobs.get(worker.get_instance_id(), {})
+		if str(job.get("resource", "")) != resource or job.get("build") is WeakRef and is_instance_valid((job["build"] as WeakRef).get_ref()):
+			continue
+		result.append({"worker": worker, "position": job.get("position", worker.global_position)})
+	return result
+
+
+## Facts for one resource: workers on it (and idle ones whose patch ran out),
+## the stock left around their patches and the nearest explored patch beyond
+## them (null when none is known).
 func assess(resource: String, workers: Array[Villager] = []) -> Dictionary:
 	if workers.is_empty():
 		workers = _workers()
 	var anchors: Array[Vector2] = []
 	var on_it: int = 0
+	var points: Array[Vector2] = []
 	for worker: Villager in workers:
 		if worker.get_economy_task() != resource:
 			continue
 		on_it += 1
 		var target: Variant = worker.gather_target
-		var anchor: Vector2 = (target as Node2D).global_position if is_instance_valid(target) and target is Node2D else worker.global_position
+		points.append((target as Node2D).global_position if is_instance_valid(target) and target is Node2D else worker.global_position)
+	var idle_crew: Array[Dictionary] = stranded(resource, workers)
+	for entry: Dictionary in idle_crew:
+		points.append(entry.position)
+	for anchor: Vector2 in points:
 		var duplicate: bool = false
 		for existing: Vector2 in anchors:
 			if existing.distance_squared_to(anchor) < 1600.0:
@@ -160,8 +185,12 @@ func assess(resource: String, workers: Array[Villager] = []) -> Dictionary:
 		if distance < next_distance:
 			next_distance = distance
 			next_node = node
-	var limit: int = maxi(RUNNING_OUT_FLOOR, on_it * RUNNING_OUT_PER_WORKER)
-	return {"workers": on_it, "local": local, "running_out": on_it > 0 and local < limit, "next": next_node}
+	var crew: int = on_it + idle_crew.size()
+	var limit: int = maxi(RUNNING_OUT_FLOOR, crew * RUNNING_OUT_PER_WORKER)
+	# A lone parked villager is the player's choice; two or more idle from one
+	# job is a crew whose patch ran out.
+	var stranded_crew: bool = idle_crew.size() >= 2
+	return {"workers": on_it, "stranded": idle_crew, "local": local, "running_out": (on_it > 0 or stranded_crew) and local < limit, "ran_out": stranded_crew and local < limit, "next": next_node}
 
 
 func _refresh_running_out(resource: String, workers: Array[Villager]) -> void:
@@ -175,22 +204,30 @@ func _refresh_running_out(resource: String, workers: Array[Villager]) -> void:
 		# Stock recovered (a new patch is worked): the next shortage may warn again.
 		if int(facts.local) >= maxi(RUNNING_OUT_FLOOR, int(facts.workers) * RUNNING_OUT_PER_WORKER) * 2:
 			_running_out_msec.erase(resource)
+			_running_out_msec.erase(resource + ":out")
+		return
+	# A shown "running out" gives way to "ran out" once the crew stands idle.
+	if not showing.is_empty() and (bool(showing.get("ran_out", false)) or not bool(facts.ran_out)):
 		return
 	if not showing.is_empty():
-		return
+		hud.call("dismiss_notification", str(showing.text))
+		_running_out.erase(resource)
 	var now: int = Time.get_ticks_msec()
-	if _running_out_msec.has(resource) and now - int(_running_out_msec[resource]) < RUNNING_OUT_COOLDOWN_MSEC:
+	var key: String = resource + (":out" if bool(facts.ran_out) else "")
+	if _running_out_msec.has(key) and now - int(_running_out_msec[key]) < RUNNING_OUT_COOLDOWN_MSEC:
 		return
-	_running_out_msec[resource] = now
+	_running_out_msec[key] = now
 	var next: ResourceNode = facts.next as ResourceNode
+	var idle: int = (facts.stranded as Array).size()
+	var opening: String = "%s ran out · %d idle" % [resource.capitalize(), idle] if bool(facts.ran_out) else "%s is running out" % resource.capitalize()
 	var text: String
 	if next == null:
-		text = "%s is running out · scout for more" % resource.capitalize()
+		text = "%s · scout for more" % opening
 		hud.call("show_notification", text, KingdomTheme.AMBER, 6.0, Callable(), 1)
-		_running_out[resource] = {"text": text, "target": null}
+		_running_out[resource] = {"text": text, "target": null, "ran_out": bool(facts.ran_out)}
 		return
-	text = "%s is running out · tap: next %s" % [resource.capitalize(), resource]
-	_running_out[resource] = {"text": text, "target": weakref(next)}
+	text = "%s · tap: %s" % [opening, "send them to the next %s" % resource if bool(facts.ran_out) else "next %s" % resource]
+	_running_out[resource] = {"text": text, "target": weakref(next), "ran_out": bool(facts.ran_out)}
 	hud.call("show_notification", text, KingdomTheme.AMBER, 8.0, show_next_patch.bind(resource), 2,
 		func() -> bool: return _running_out.has(resource) and str((_running_out[resource] as Dictionary).text) == text)
 
@@ -208,6 +245,21 @@ func show_next_patch(resource: String) -> bool:
 		return false
 	if main.has_method("_on_minimap_clicked"):
 		main.call("_on_minimap_clicked", target.global_position)
+	# A crew whose patch ran out walks to the next one (online: selected, so the
+	# player's next tap on the patch or a Camp spot is their order).
+	var crew: Array[Node2D] = []
+	for idle_entry: Dictionary in stranded(resource):
+		crew.append(idle_entry.worker as Node2D)
+	var map: Node2D = _map()
+	if not crew.is_empty() and not NetworkSession.is_client():
+		var in_sight: bool = map != null and bool(map.call("is_resource_target_visible_to_player", target, 0))
+		for worker: Node2D in crew:
+			var villager := worker as Villager
+			# Out of sight the order is the fog-safe remembered one (position only).
+			if not (in_sight and villager.command_gather(target)):
+				villager.call("_try_remembered_resource", map, resource)
+	if not crew.is_empty() and map != null and map.get("selection_mgr") != null:
+		map.selection_mgr.select_many(crew)
 	if needs_camp_near(target.global_position) and ResourceManager.can_afford(0, BuildingData.get_building_cost(BuildingData.BuildingType.RESOURCE_CAMP, 0)):
 		var strategy: Node = main.get_node_or_null("StrategyController")
 		if strategy != null and strategy.has_method("plan_building"):

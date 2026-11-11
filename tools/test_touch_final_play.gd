@@ -142,7 +142,33 @@ func _running_out() -> void:
 	if hints.needs_camp_near(target.global_position):
 		expect(bool(main.get("_placement_active")) and int(main.get("_placement_type")) == BuildingData.BuildingType.RESOURCE_CAMP, "and a Camp placement starts there")
 	main._cancel_placement()
-	miner.command_stop()
+	lane.clear()
+	# A crew whose patch ran out stands idle: "ran out", and one tap sends it on.
+	var crew: Array[Villager] = [miner, own_villagers()[3]]
+	crew[1].command_gather(gold)
+	await step_until(func() -> bool: return crew[1].current_state == UnitBase.State.GATHERING, 20.0)
+	await step(2.5)
+	for worker: Villager in crew:
+		worker.command_stop()
+	map.selection_mgr.deselect_all()
+	await step(0.3)
+	var stranded: Dictionary = hints.assess("gold")
+	expect(bool(stranded.ran_out) and (stranded.stranded as Array).size() >= 2, "an idle crew from a mined-out patch counts as ran out (%s)" % str(stranded))
+	hints._running_out.clear()
+	hints._running_out_msec.clear()
+	hints.refresh()
+	expect(str((hints._running_out.get("gold", {}) as Dictionary).get("text", "")).begins_with("Gold ran out · "), "the toast says it ran out (%s)" % str(hints._running_out.get("gold", {})))
+	expect(hints.show_next_patch("gold"), "a tap sends the crew on (out of sight: the remembered patch)")
+	await step(0.3)
+	var moving: int = 0
+	for worker: Villager in crew:
+		if worker.current_state != UnitBase.State.IDLE:
+			moving += 1
+	expect(moving == crew.size(), "the whole crew walks to the next gold (%d of %d)" % [moving, crew.size()])
+	main._cancel_placement()
+	map.selection_mgr.deselect_all()
+	for worker: Villager in crew:
+		worker.command_stop()
 	lane.clear()
 	await step(0.2)
 

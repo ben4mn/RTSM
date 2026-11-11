@@ -138,6 +138,7 @@ var _boar_target_ref: WeakRef = null
 var _boar_hunter_ids: Array = []
 var _boar_lure_id: int = 0
 var _boar_lure_returning: bool = false
+var _boar_shelter: Vector2 = Vector2.ZERO
 var _boar_party_assembling: bool = false
 const BOAR_MUSTER_DISTANCE: float = 110.0
 var _boar_started_at: float = -INF
@@ -3561,8 +3562,14 @@ func _manage_boar_hunt(boar: WildlifeNode) -> void:
 	if town_center == null:
 		return
 	if boar.mood == WildlifeNode.Mood.ENRAGED and boar.get_target() == lurer:
-		var toward: Vector2 = boar.global_position - town_center.global_position
-		var shelter: Vector2 = town_center.global_position + (toward.normalized() if toward.length() > 1.0 else Vector2.DOWN) * float(MapData.TILE_WIDTH) * 1.8
+		# I2: run to the Town Center's own doorstep on the boar's side (the
+		# player's lure path). A point 1.8 tiles from the footprint's anchor
+		# corner stood ~140 px off the far walls for seat 0's spawn side, out
+		# of arrow range, and that lurer died fighting alone (~1 villager a
+		# match, always seat 0: part of the seat-0 deficit in mirror matches).
+		if not _boar_lure_returning:
+			_boar_shelter = Garrison._pick_exit(town_center as BuildingBase, game_map, boar.global_position, {}) if town_center is BuildingBase else town_center.global_position
+		var shelter: Vector2 = _boar_shelter
 		if not _boar_lure_returning or (lurer.current_state != UnitBase.State.MOVING and lurer.global_position.distance_to(shelter) > 40.0):
 			_boar_lure_returning = true
 			lurer.command_move(shelter)
