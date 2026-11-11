@@ -44,7 +44,9 @@ var _touch_starts: Dictionary = {}
 ## finger to the ghost anchor). They carry the ghost instead of the camera.
 var _ghost_grabs: Dictionary = {}
 var _ghost_dragging: Dictionary = {}
-const TAP_TO_PLACE_SLOP_PX: float = 18.0
+## Same as the camera pan deadzone and the selection tap slop (12 px): a
+## finger that pans the map is never also a tap.
+const TAP_TO_PLACE_SLOP_PX: float = 12.0
 const GHOST_DRAG_SLOP_PX: float = 6.0
 ## Extra screen pixels around the drawn ghost that still count as "on it".
 const GHOST_HIT_MARGIN_PX: float = 8.0
@@ -645,7 +647,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			_ghost_dragging.erase(touch.index)
 			if _touch_points.is_empty():
 				_touch_camera_gesture = false
-			var is_tap: bool = start.distance_to(touch.position) <= TAP_TO_PLACE_SLOP_PX
+			var is_tap: bool = start.distance_to(touch.position) < TAP_TO_PLACE_SLOP_PX
 			if not touch.canceled and not was_camera_gesture and owned_press and not dragged_ghost and is_tap and _touch_points.is_empty():
 				if grabbed:
 					# Tap on the ghost: build it exactly where it is drawn.
@@ -809,8 +811,26 @@ func get_ghost_footprint_screen_rect() -> Rect2:
 func is_screen_point_on_ghost(screen_pos: Vector2) -> bool:
 	if not active:
 		return false
-	var rect: Rect2 = get_ghost_screen_rect()
-	return rect.has_area() and rect.grow(GHOST_HIT_MARGIN_PX).has_point(screen_pos)
+	var canvas: Transform2D = get_canvas_transform()
+	# The drawn walls (their inked bounds, not the transparent texture)...
+	if _ghost_sprite != null and _ghost_sprite.texture != null:
+		var art: Rect2 = _ghost_art_rect
+		var first: Vector2 = canvas * (ghost_position + _ghost_sprite.transform * art.position)
+		var art_rect := Rect2(first, Vector2.ZERO).expand(canvas * (ghost_position + _ghost_sprite.transform * art.end))
+		if art_rect.grow(GHOST_HIT_MARGIN_PX).has_point(screen_pos):
+			return true
+	# ...or the ground diamond it will take.
+	var polygon := PackedVector2Array()
+	var center := Vector2.ZERO
+	for point: Vector2 in _footprint_world_polygon(_get_ghost_tile(), current_footprint):
+		polygon.append(canvas * point)
+		center += canvas * point
+	center /= float(maxi(1, polygon.size()))
+	for index: int in polygon.size():
+		# Grow the diamond a little so its tips stay easy to hit.
+		var away: Vector2 = polygon[index] - center
+		polygon[index] += away.normalized() * GHOST_HIT_MARGIN_PX
+	return Geometry2D.is_point_in_polygon(screen_pos, polygon)
 
 
 ## Shift+click asked to keep the same building in hand after this one.

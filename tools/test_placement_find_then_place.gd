@@ -1,5 +1,6 @@
 extends Node
-## K: after "Find", "Place" must accept the preview. Real Input dispatch (touch
+## K, L2: the ghost a building opens with (the old Find search, now automatic)
+## must be one Build accepts. Real Input dispatch (touch
 ## with synthesized mouse, and a desktop mouse) on a crowded home base, for
 ## several building types, for the on-screen search and for the fallback that
 ## moves the camera beside your own buildings.
@@ -60,7 +61,7 @@ func _run() -> void:
 			await _find_then_place(building_type, "touch", "%dx%d fallback" % [size.x, size.y])
 	main.free()
 	if _failures.is_empty():
-		print("[PASS] placement_find_then_place: %d checks; Find always leaves a preview that Place accepts (touch and mouse, on-screen and camera fallback, 844x390 and 667x375)" % _checks)
+		print("[PASS] placement_find_then_place: %d checks; the opening ghost is always one Build accepts (touch and mouse, on-screen and camera fallback, 844x390 and 667x375)" % _checks)
 	else:
 		for failure: String in _failures:
 			push_error("[FAIL] placement_find_then_place: " + failure)
@@ -68,67 +69,38 @@ func _run() -> void:
 
 
 func _find_then_place(building_type: int, input: String, label: String) -> void:
+	# L2: there is no Find button any more; picking the building runs the same
+	# search (on screen first, then beside your buildings with the camera
+	# following). The ghost it opens must be one Build accepts.
 	var name: String = "%s %s" % [label, BuildingData.get_building_name(building_type)]
 	var count_before: int = (main.get("_player_buildings")[0] as Array).size()
+	await _real_wait(400)
 	main.call("_on_building_selected_for_placement", building_type)
-	await _frames(2)
-	if input == "mouse":
-		# A real mouse is noticed as soon as it moves, before any click; the
-		# action strip then shows its mouse layout.
-		var nudge := InputEventMouseMotion.new()
-		nudge.device = 0
-		nudge.position = Vector2(get_viewport().get_visible_rect().size.x * 0.5, 160.0)
-		nudge.global_position = nudge.position
-		nudge.relative = Vector2(3.0, 0.0)
-		get_viewport().push_input(nudge, true)
-		await _frames(3)
-	# Start from a blocked preview: right on the Town Center.
-	var town_center: BuildingBase = main.get("_player_buildings")[0][0]
-	placement.update_preview_at_world(town_center.global_position)
-	_expect(not placement.is_valid_placement, "%s: fixture preview starts blocked" % name)
-	var find_button: Button = hud.get("_placement_find_space_button")
-	_expect(find_button != null and find_button.is_visible_in_tree() and not find_button.disabled, "%s: Find is available" % name)
-	if find_button == null:
-		return
-	if input == "touch":
-		await _tap(find_button.get_global_rect().get_center())
-	else:
-		await _click(find_button.get_global_rect().get_center())
 	await _frames(3)
 	var ghost_tile: Vector2i = map.world_to_tile(placement.ghost_position)
-	_expect(placement.active and placement.is_valid_placement, "%s: Find leaves a preview Place accepts (reason '%s', tile %s)" % [name, placement.get_invalid_reason(), str(ghost_tile)])
-	_expect(not _overlaps_any_building(ghost_tile, placement.current_footprint), "%s: the found footprint %s touches no building" % [name, str(ghost_tile)])
-	_expect(placement.has_assisted_preview(), "%s: the found preview is held as assisted" % name)
+	_expect(placement.active and placement.is_valid_placement, "%s: the opening ghost is one Build accepts (reason '%s', tile %s)" % [name, placement.get_invalid_reason(), str(ghost_tile)])
+	_expect(not _overlaps_any_building(ghost_tile, placement.current_footprint), "%s: the opening footprint %s touches no building" % [name, str(ghost_tile)])
+	var view: Rect2 = get_viewport().get_visible_rect()
+	_expect(view.has_point(placement.get_ghost_footprint_screen_rect().get_center()) and (view.encloses(placement.get_ghost_footprint_screen_rect()) or map.camera.zoom.x > 2.0), "%s: the opening ghost is on screen (whole unless zoomed right in) (%s in %s, zoom %s)" % [name, placement.get_ghost_footprint_screen_rect(), view, map.camera.zoom])
+	var find_button: Button = hud.get("_placement_find_space_button")
 	var place_button: Button = hud.get("_placement_confirm_button")
-	_expect(place_button != null and place_button.is_visible_in_tree() and not place_button.disabled, "%s: Place is shown and enabled after Find" % name)
-	if input == "mouse":
-		# The pointer travels from Find to Place over the world; it must not drag
-		# the found preview with it.
-		var from: Vector2 = find_button.get_global_rect().get_center()
-		var to: Vector2 = place_button.get_global_rect().get_center()
-		for step: int in range(1, 9):
-			var motion := InputEventMouseMotion.new()
-			motion.device = 0
-			motion.position = from.lerp(to, float(step) / 8.0) + Vector2(0.0, -40.0 * sin(PI * float(step) / 8.0))
-			motion.global_position = motion.position
-			motion.relative = Vector2(4.0, -2.0)
-			get_viewport().push_input(motion, true)
-			await get_tree().process_frame
-		_expect(map.world_to_tile(placement.ghost_position) == ghost_tile, "%s: moving the mouse to Place keeps the found preview" % name)
-	if place_button == null or not place_button.is_visible_in_tree():
-		placement.cancel_placement()
-		main.call("_cancel_placement")
-		return
-	if input == "touch":
-		await _tap(place_button.get_global_rect().get_center())
+	_expect(not find_button.is_visible_in_tree() and not place_button.is_visible_in_tree(), "%s: no Find or bottom Place" % name)
+	if input == "touch" and placement.uses_touch_input():
+		var card: PlacementGhostCard = hud.call("get_placement_ghost_card")
+		_expect(card.is_build_visible(), "%s: Build rides on the ghost" % name)
+		await _tap(card.get_build_button_rect().get_center())
+	elif input == "touch":
+		# The first touch after a mouse: a tap on the ghost itself builds.
+		await _tap(placement.get_ghost_footprint_screen_rect().get_center())
 	else:
-		await _click(place_button.get_global_rect().get_center())
+		await _click(placement.get_ghost_footprint_screen_rect().get_center())
 	await _frames(2)
 	var count_after: int = (main.get("_player_buildings")[0] as Array).size()
-	_expect(count_after == count_before + 1 and not placement.active, "%s: Place after Find founds exactly one building (%d -> %d)" % [name, count_before, count_after])
+	_expect(count_after == count_before + 1 and not placement.active, "%s: Build founds exactly one building (%d -> %d)" % [name, count_before, count_after])
 	if placement.active:
 		main.call("_cancel_placement")
 		await _frames(1)
+	(hud.call("get_placement_ghost_card") as PlacementGhostCard).dismiss_repeat()
 
 
 func _overlaps_any_building(origin: Vector2i, footprint: Vector2i) -> bool:
@@ -214,3 +186,10 @@ func _expect(condition: bool, message: String) -> void:
 ## Events enter in window pixels; HUD rects are in the stretched viewport.
 func _to_window(viewport_position: Vector2) -> Vector2:
 	return get_viewport().get_screen_transform() * viewport_position
+
+
+## Real (wall-clock) time: the 0.35 s double-confirm guard is measured in it.
+func _real_wait(msec: int) -> void:
+	var until: int = Time.get_ticks_msec() + msec
+	while Time.get_ticks_msec() < until:
+		await get_tree().process_frame

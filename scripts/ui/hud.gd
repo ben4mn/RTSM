@@ -1871,6 +1871,10 @@ func update_placement_preview(valid: bool, reason: String = "") -> void:
 		_placement_status_label.add_theme_color_override("font_color", KingdomTheme.PARCHMENT if valid else Color(1.0, 0.75, 0.55))
 		if _placement_mode_active and previous_status != _placement_status_label.text:
 			_queue_mobile_layout_refresh()
+	if _placement_status_panel:
+		# On touch the Build button on the ghost says it all while the ground
+		# fits; the line returns to explain a red footprint (or trade yield).
+		_placement_status_panel.visible = _placement_mode_active and (not _placement_uses_touch or not valid or not reason.is_empty())
 	_refresh_touch_target_diagnostics()
 
 
@@ -1883,7 +1887,11 @@ func _sync_placement_bar_buttons() -> void:
 	if _placement_find_space_button:
 		_placement_find_space_button.visible = false
 	if _placement_cancel_button:
-		_placement_cancel_button.visible = _placement_mode_active and not _placement_uses_touch
+		var wanted: bool = _placement_mode_active and not _placement_uses_touch
+		# A finger that switches a mouse placement to touch may be pressing this
+		# very Cancel: never pull it out from under the press mid-placement.
+		if wanted or not (_placement_mode_active and _placement_cancel_button.visible):
+			_placement_cancel_button.visible = wanted
 
 
 func set_placement_assisted_preview(active: bool) -> void:
@@ -4899,10 +4907,7 @@ func _create_notification_feed() -> void:
 	root_ctrl.add_child(_worker_undo_button)
 	KingdomTheme.apply_primary(_worker_undo_button)
 	CommandIcons.apply(_worker_undo_button, "undo", "Undo the last group worker order", "Undo")
-	_worker_undo_button.pressed.connect(func() -> void:
-		if Time.get_ticks_msec() < _worker_undo_until and _worker_undo_id > 0:
-			worker_order_undo_requested.emit(_worker_undo_id)
-	)
+	_worker_undo_button.pressed.connect(_on_undo_button_pressed)
 	_worker_undo_button.hide()
 
 
@@ -6128,7 +6133,47 @@ func get_base_navigation_button() -> Button:
 	return _strategy_overview.rail.get_node("BaseButton") as Button if _strategy_overview else _town_center_button
 
 
+## L2: one Undo button for the latest undoable thing. A placement (House
+## placed) and a group worker order share the same top-left pill; the newer
+## one wins.
+var _action_undo: Callable = Callable()
+var _action_undo_label: String = ""
+var _action_undo_until: int = 0
+
+
+func show_action_undo(label: String, seconds: float, callback: Callable) -> void:
+	_action_undo = callback
+	_action_undo_label = label
+	_action_undo_until = Time.get_ticks_msec() + int(seconds * 1000.0)
+	_update_worker_undo_button()
+
+
+func has_action_undo() -> bool:
+	return _action_undo.is_valid() and Time.get_ticks_msec() < _action_undo_until
+
+
+func clear_action_undo() -> void:
+	_action_undo = Callable()
+	_action_undo_until = 0
+	_update_worker_undo_button()
+
+
+func _on_undo_button_pressed() -> void:
+	if has_action_undo():
+		var callback: Callable = _action_undo
+		clear_action_undo()
+		callback.call()
+		return
+	if Time.get_ticks_msec() < _worker_undo_until and _worker_undo_id > 0:
+		worker_order_undo_requested.emit(_worker_undo_id)
+
+
 func set_worker_order_undo(status: Dictionary) -> void:
+	var new_id: int = int(status.get("id", 0))
+	if new_id > 0 and new_id != _worker_undo_id:
+		# A newer worker order replaces a placement's Undo.
+		_action_undo = Callable()
+		_action_undo_until = 0
 	_worker_undo_id = int(status.get("id", 0))
 	_worker_undo_count = maxi(0, int(status.get("count", 0)))
 	_worker_undo_until = Time.get_ticks_msec() + clampi(int(status.get("remaining_ms", 0)), 0, 10000)
@@ -6137,8 +6182,22 @@ func set_worker_order_undo(status: Dictionary) -> void:
 
 func _update_worker_undo_button() -> void:
 	if _worker_undo_button == null: return
+	var surfaces_clear: bool = _ui_modal_state == UIModalState.NONE and _secondary_surface == SecondarySurface.NONE
+	if has_action_undo():
+		var action_seconds: int = ceili(float(_action_undo_until - Time.get_ticks_msec()) / 1000.0)
+		if _worker_undo_button.visible != surfaces_clear:
+			_worker_undo_button.visible = surfaces_clear
+			_queue_mobile_layout_refresh()
+		var action_text: String = "Undo %s · %ds" % [_action_undo_label, action_seconds]
+		if _worker_undo_button.text != action_text:
+			_worker_undo_button.text = action_text
+			_worker_undo_button.tooltip_text = "Undo: %s, full refund (%ds left)" % [_action_undo_label, action_seconds]
+			_worker_undo_button.accessibility_name = _worker_undo_button.tooltip_text
+		return
+	elif _action_undo.is_valid():
+		_action_undo = Callable()
 	var seconds: int = ceili(float(_worker_undo_until - Time.get_ticks_msec()) / 1000.0)
-	var available: bool = seconds > 0 and _worker_undo_id > 0 and _worker_undo_count > 0 and _ui_modal_state == UIModalState.NONE and _secondary_surface == SecondarySurface.NONE
+	var available: bool = seconds > 0 and _worker_undo_id > 0 and _worker_undo_count > 0 and surfaces_clear
 	if _worker_undo_button.visible != available:
 		_worker_undo_button.visible = available
 		_queue_mobile_layout_refresh()

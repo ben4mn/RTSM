@@ -83,10 +83,17 @@ func _run() -> void:
 		_expect(art_bottom.y <= get_viewport().get_visible_rect().size.y - 104.0, "initial House art opened behind bottom actions")
 	var wood_before_preview: int = int(ResourceManager.get_all_resources(0).get("wood", 0))
 	var buildings_before_preview: int = match_scene.get("_player_buildings")[0].size()
-	# Positioning drag: a tap now places at once (tools/test_touch_explicit_placement_dispatch).
-	_push_touch(WORLD_TAP_POSITION - Vector2(30.0, 0.0), true)
+	# L2: a tap away from the ghost moves it there and never builds.
+	# Inside the former menu footprint, but off the ghost itself.
+	var tap_position: Vector2 = WORLD_TAP_POSITION
+	for offset: Vector2 in [Vector2.ZERO, Vector2(-160.0, 40.0), Vector2(160.0, 40.0), Vector2(-240.0, 60.0), Vector2(240.0, 60.0)]:
+		tap_position = WORLD_TAP_POSITION + offset
+		if not bool(placement.call("is_screen_point_on_ghost", tap_position)):
+			break
+	_expect(not bool(placement.call("is_screen_point_on_ghost", tap_position)), "fixture: the world tap lands off the ghost")
+	_push_touch(tap_position, true)
 	await get_tree().process_frame
-	_push_touch(WORLD_TAP_POSITION, false)
+	_push_touch(tap_position, false)
 	await get_tree().process_frame
 	_expect(
 		_preview_event_count > previews_before,
@@ -118,8 +125,12 @@ func _run() -> void:
 
 	# Return to the useful initial location and exercise the actual HUD action.
 	placement.call("update_preview_at_world", initial_preview_position)
-	var confirm_button: Button = hud.get("_placement_confirm_button") as Button
-	_expect(confirm_button != null and confirm_button.is_visible_in_tree() and not confirm_button.disabled, "Place is unavailable for a legal preview")
+	await get_tree().process_frame
+	# L2: the Build button rides on the ghost (no bottom-bar check).
+	var card: PlacementGhostCard = hud.call("get_placement_ghost_card")
+	var confirm_button: Button = card.build_button if card != null else null
+	_expect(confirm_button != null and bool(placement.get("is_valid_placement")) and not confirm_button.disabled, "Build is unavailable for a legal preview")
+	_expect(not (hud.get("_placement_confirm_button") as Button).is_visible_in_tree(), "the old bottom-bar Place is gone")
 	var wood_before_place: int = int(ResourceManager.get_all_resources(0).get("wood", 0))
 	if confirm_button != null:
 		confirm_button.pressed.emit()

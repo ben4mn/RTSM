@@ -17,11 +17,11 @@ signal cancel_requested()
 signal repeat_requested(building_type: int, anchor: Node2D)
 
 const BUTTON_HEIGHT: float = 48.0
-const CANCEL_SIZE: float = 44.0
+const CANCEL_SIZE: float = 48.0
 const GAP: float = 8.0
 const GHOST_GAP: float = 10.0
 const EDGE_MARGIN: float = 8.0
-const REPEAT_SECONDS: float = 5.0
+const REPEAT_SECONDS: float = 6.0
 ## Buildings people usually place several of in a row.
 const REPEATABLE: Array[int] = [BuildingData.BuildingType.HOUSE, BuildingData.BuildingType.FARM, BuildingData.BuildingType.WATCH_TOWER]
 

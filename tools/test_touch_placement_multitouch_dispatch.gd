@@ -1,6 +1,6 @@
 extends Node
 ## Real phone-style Input dispatch: world/HUD finger ownership, pinch + pan,
-## sticky navigation releases and a normal paid explicit placement afterward.
+## sticky navigation releases and a normal paid placement from the ghost's Build button afterward.
 
 var _failures: Array[String] = []
 var _confirmed: int = 0
@@ -109,15 +109,16 @@ func _run() -> void:
 	_expect_pending(wood_before, buildings_before, "pinch releases")
 
 	# A fresh one-finger contact now owns preview movement again.
-	await _touch(93, p0, true)
-	await _drag(93, p0 + Vector2(48.0, 16.0), Vector2(48.0, 16.0))
+	# (L2: the finger must land on the ghost to carry it.)
+	var ghost_screen: Vector2 = _footprint_center_screen(_map.call("world_to_tile", ghost_before))
+	await _touch(93, ghost_screen, true)
+	await _drag(93, ghost_screen + Vector2(48.0, 16.0), Vector2(48.0, 16.0))
 	_expect(_placement.ghost_position != ghost_before, "fresh arbitrary-ID finger could not reposition the preview")
-	await _touch(93, p0 + Vector2(48.0, 16.0), false)
+	await _touch(93, ghost_screen + Vector2(48.0, 16.0), false)
 	_expect_pending(wood_before, buildings_before, "fresh preview gesture")
 
 	# A HUD-owned press that drags into the world remains HUD-owned. A live
 	# world finger alongside it must still be a single preview finger.
-	var hud_button: Button = hud.get("_placement_confirm_button") as Button
 	var hud_position: Vector2 = gui_guard.get_global_rect().get_center()
 	_hide_gui_after_press = true
 	await _touch(105, hud_position, true)
@@ -157,42 +158,32 @@ func _run() -> void:
 	_expect(not bool(_placement.get("_touch_camera_gesture")), "fresh preview press retained the pinch navigation latch")
 	ghost_before = _placement.ghost_position
 	camera_before = _camera.position
-	# A fixed 40px drag can snap onto the previous ghost tile after zooming.
-	# Project a distinct neighboring tile through the current canvas so this
-	# assertion measures preview ownership independently of zoom and rounding.
+	# L2: a finger that lands on the ghost carries it. Lift the probe finger
+	# and press again on the ghost itself, then drag it one tile over.
+	await _touch(180, p0, false, true)
 	var preview_tile_before: Vector2i = _map.call("world_to_tile", ghost_before)
+	var grab_screen: Vector2 = _footprint_center_screen(preview_tile_before)
 	var preview_target_tile: Vector2i = preview_tile_before
 	var preview_target_screen := Vector2.ZERO
-	var canvas: Transform2D = _placement.get_canvas_transform()
 	var world_screen_rect: Rect2 = get_viewport().get_visible_rect().grow(-1.0)
 	var hud_obstacles: Array[Rect2] = hud.call("get_world_occlusion_rects")
 	for neighbor: Vector2i in [Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT, Vector2i.UP]:
 		var candidate_tile: Vector2i = preview_tile_before + neighbor
-		if candidate_tile.x < 0 or candidate_tile.y < 0 or candidate_tile.x >= MapData.MAP_WIDTH or candidate_tile.y >= MapData.MAP_HEIGHT:
-			continue
-		var candidate_world: Vector2 = _map.call("tile_to_world", candidate_tile)
-		var candidate_screen: Vector2 = canvas * candidate_world
-		if not world_screen_rect.has_point(candidate_screen) or gui_guard.get_global_rect().has_point(candidate_screen):
-			continue
-		var blocked_by_hud := false
-		for obstacle: Rect2 in hud_obstacles:
-			if obstacle.has_point(candidate_screen):
-				blocked_by_hud = true
-				break
-		if blocked_by_hud:
+		var candidate_screen: Vector2 = _footprint_center_screen(candidate_tile)
+		if not world_screen_rect.has_point(candidate_screen) or gui_guard.get_global_rect().has_point(candidate_screen) or _blocked(candidate_screen, hud_obstacles):
 			continue
 		preview_target_tile = candidate_tile
 		preview_target_screen = candidate_screen
 		break
 	_expect(preview_target_tile != preview_tile_before, "could not project a distinct on-screen world tile outside the HUD")
-	var predicted_target_tile: Vector2i = _map.call("world_to_tile", canvas.affine_inverse() * preview_target_screen)
-	_expect(predicted_target_tile == preview_target_tile and predicted_target_tile != preview_tile_before, "fresh drag target did not predict a distinct tile at the current zoom")
-	await _drag(180, preview_target_screen, preview_target_screen - p0)
+	_expect(_placement.is_screen_point_on_ghost(grab_screen), "the ghost centre counts as on the ghost")
+	await _touch(181, grab_screen, true)
+	await _drag(181, preview_target_screen, preview_target_screen - grab_screen)
 	_expect(_placement.ghost_position != ghost_before, "phantom pinch prevented the next preview gesture")
 	_expect(_map.call("world_to_tile", _placement.ghost_position) == preview_target_tile, "fresh admitted drag did not move the preview to its predicted tile")
-	_expect((_placement.get("_touch_points") as Dictionary).has(180), "fresh drag lost its admitted preview finger")
+	_expect((_placement.get("_touch_points") as Dictionary).has(181), "fresh drag lost its admitted preview finger")
 	_expect(_camera.position == camera_before and not bool(_placement.get("_touch_camera_gesture")), "fresh preview drag navigated the camera after the consumed release")
-	await _touch(180, preview_target_screen, false, true)
+	await _touch(181, preview_target_screen, false, true)
 	_expect_pending(wood_before, buildings_before, "OS-canceled contact")
 
 	# Reverse the release order: the original preview finger lifts first and
@@ -213,26 +204,16 @@ func _run() -> void:
 	var released_inputs: Variant = _placement.get("_released_touch_inputs")
 	_expect(released_inputs is Dictionary and (released_inputs as Dictionary).is_empty(), "consumed release snapshots accumulated after dispatch")
 	_expect(_placement.ghost_position == ghost_before, "consumed final release moved the preview")
-	# The reverse pan changed the canvas again. Project a distinct tile rather
-	# than assume an arbitrary screen offset cannot hit the current ghost tile.
+	# The reverse pan changed the canvas again. A tap well away from the ghost
+	# moves it there (L2: it never builds).
 	preview_tile_before = _map.call("world_to_tile", ghost_before)
 	preview_target_tile = preview_tile_before
 	preview_target_screen = Vector2.ZERO
-	canvas = _placement.get_canvas_transform()
 	hud_obstacles = hud.call("get_world_occlusion_rects")
-	for neighbor: Vector2i in [Vector2i.RIGHT, Vector2i.DOWN, Vector2i.LEFT, Vector2i.UP]:
+	for neighbor: Vector2i in [Vector2i(4, 0), Vector2i(0, 4), Vector2i(-4, 0), Vector2i(0, -4), Vector2i(3, 3), Vector2i(-3, -3)]:
 		var candidate_tile: Vector2i = preview_tile_before + neighbor
-		if candidate_tile.x < 0 or candidate_tile.y < 0 or candidate_tile.x >= MapData.MAP_WIDTH or candidate_tile.y >= MapData.MAP_HEIGHT:
-			continue
-		var candidate_screen: Vector2 = canvas * (_map.call("tile_to_world", candidate_tile) as Vector2)
-		if not world_screen_rect.has_point(candidate_screen) or gui_guard.get_global_rect().has_point(candidate_screen):
-			continue
-		var blocked_by_hud := false
-		for obstacle: Rect2 in hud_obstacles:
-			if obstacle.has_point(candidate_screen):
-				blocked_by_hud = true
-				break
-		if blocked_by_hud:
+		var candidate_screen: Vector2 = _footprint_center_screen(candidate_tile)
+		if not world_screen_rect.has_point(candidate_screen) or gui_guard.get_global_rect().has_point(candidate_screen) or _blocked(candidate_screen, hud_obstacles) or _placement.is_screen_point_on_ghost(candidate_screen):
 			continue
 		preview_target_tile = candidate_tile
 		preview_target_screen = candidate_screen
@@ -248,8 +229,9 @@ func _run() -> void:
 	# the real explicit HUD action for exactly one ordinary paid House.
 	_placement.update_preview_at_world(valid_world)
 	await _frames()
-	_expect(not hud_button.disabled, "original legal preview no longer enables explicit Place")
-	hud_position = hud_button.get_global_rect().get_center()
+	var card: PlacementGhostCard = hud.call("get_placement_ghost_card")
+	_expect(card.is_build_visible() and _placement.is_valid_placement, "original legal preview no longer shows Build on the ghost")
+	hud_position = card.get_build_button_rect().get_center()
 	await _touch(221, hud_position, true)
 	await _touch(221, hud_position, false)
 	_expect(_confirmed == 1, "explicit Place did not confirm exactly once")
@@ -258,6 +240,20 @@ func _run() -> void:
 	_expect(int(ResourceManager.get_all_resources(0).get("wood", 0)) == wood_before - house_cost, "explicit Place did not charge exactly the normal House cost")
 	_expect((_main.get("_player_buildings")[0] as Array).size() == buildings_before + 1, "explicit Place did not create exactly one foundation")
 	_finish()
+
+
+func _footprint_center_screen(origin: Vector2i) -> Vector2:
+	var center: Vector2 = _map.call("tile_to_world", origin)
+	var axis_x: Vector2 = (_map.call("tile_to_world", origin + Vector2i(1, 0)) as Vector2) - center
+	var axis_y: Vector2 = (_map.call("tile_to_world", origin + Vector2i(0, 1)) as Vector2) - center
+	return _placement.get_canvas_transform() * (center + (axis_x + axis_y) * 0.5)
+
+
+func _blocked(point: Vector2, obstacles: Array[Rect2]) -> bool:
+	for obstacle: Rect2 in obstacles:
+		if obstacle.has_point(point):
+			return true
+	return false
 
 
 func _expect_pending(wood_before: int, buildings_before: int, phase: String) -> void:

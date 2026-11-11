@@ -190,7 +190,7 @@ func _five_farms(label: String) -> void:
 			break
 		_expect(placement.is_valid_placement, "%s: farm %d ghost is valid ('%s')" % [name, farm + 1, placement.get_invalid_reason()])
 		# Human pace: a confirm within 0.35 s of the last one is ignored on purpose.
-		await get_tree().create_timer(0.4).timeout
+		await _real_wait(400)
 		await _tap(card.get_build_button_rect().get_center())
 		if farm < 4:
 			_expect(card.is_repeat_visible(), "%s: +1 Farm after farm %d" % [name, farm + 1])
@@ -214,7 +214,7 @@ func _barracks_at_spot(label: String) -> void:
 	await _frames(2)
 	if not placement.is_valid_placement:
 		# Nudge until it fits, like a player would.
-		for offset: Vector2 in [Vector2(40, 0), Vector2(-80, 0), Vector2(0, 30), Vector2(0, -60)]:
+		for offset: Vector2 in [Vector2(40, 0), Vector2(-80, 0), Vector2(0, 30), Vector2(0, -60), Vector2(140, 20), Vector2(-200, 0), Vector2(60, 60), Vector2(200, -40)]:
 			var from: Vector2 = placement.get_ghost_footprint_screen_rect().get_center()
 			await _drag(from, from + offset)
 			if placement.is_valid_placement:
@@ -400,3 +400,10 @@ func _expect(condition: bool, message: String) -> void:
 
 func _to_window(viewport_position: Vector2) -> Vector2:
 	return get_viewport().get_screen_transform() * viewport_position
+
+
+## Real (wall-clock) time: the 0.35 s double-confirm guard is measured in it.
+func _real_wait(msec: int) -> void:
+	var until: int = Time.get_ticks_msec() + msec
+	while Time.get_ticks_msec() < until:
+		await get_tree().process_frame

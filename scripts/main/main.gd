@@ -3246,6 +3246,9 @@ func _on_find_placement_space() -> void:
 		game_map.note_camera_interaction()
 		game_map.camera.position = game_map.tile_to_world(site as Vector2i)
 		game_map._clamp_camera()
+		# L2: centre the whole ghost (and so its Build button) in the free band.
+		game_map.camera.force_update_scroll()
+		_frame_placement_ghost()
 
 
 func _on_confirm_placement() -> void:
@@ -3279,10 +3282,15 @@ func _snap_placement_to_best_spot(building_type: int, anchor: Node2D = null) -> 
 ## Keeps a ghost that was found off to one side fully in view.
 func _frame_placement_ghost() -> void:
 	var ghost_rect: Rect2 = _building_placement.get_ghost_screen_rect()
-	var safe: Rect2 = hud.get_placement_search_safe_rect()
-	if not ghost_rect.has_area() or safe.encloses(ghost_rect):
+	# Below the top bar and above the bottom placement band.
+	var safe: Rect2 = hud.get_placement_search_safe_rect().intersection(hud.get_hold_safe_rect())
+	if not ghost_rect.has_area() or safe.grow(-6.0).encloses(ghost_rect):
 		return
 	var offset_screen: Vector2 = ghost_rect.get_center() - safe.get_center()
+	if ghost_rect.size.y > safe.size.y - 8.0:
+		# Too tall to frame whole (zoomed right in): keep the ground it takes
+		# and the Build button under it in view; the roof may be cut.
+		offset_screen.y = ghost_rect.end.y - (safe.end.y - 64.0)
 	game_map.note_camera_interaction()
 	game_map.camera.position += offset_screen / game_map.camera.zoom
 	game_map._clamp_camera()
@@ -3324,6 +3332,16 @@ func _placement_resource_anchors(building_type: int) -> Array:
 				best = node
 		if best != null:
 			anchors.append(best)
+	else:
+		# Houses beside Houses, Barracks beside Barracks: a tidy town, as long
+		# as one of them is in view.
+		for node: Variant in _player_buildings[0]:
+			if is_instance_valid(node) and node is BuildingBase and (node as BuildingBase).building_type == building_type \
+					and (node as BuildingBase).state != BuildingBase.State.DESTROYED and view.has_point(canvas * (node as Node2D).global_position):
+				anchors.append(node)
+		anchors.sort_custom(func(a: Node2D, b: Node2D) -> bool:
+			return a.global_position.distance_squared_to(view_center) < b.global_position.distance_squared_to(view_center))
+		anchors = anchors.slice(0, 3)
 	return anchors
 
 

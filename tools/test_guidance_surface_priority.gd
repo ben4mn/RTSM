@@ -97,7 +97,11 @@ func _guidance_journey(phone: Vector2i, interface_scale: float) -> void:
 	_expect(build_menu.visible and not banner.visible, "Build palette leaves lesson visible")
 	await _button(build_menu.get("_button_map")[BuildingData.BuildingType.HOUSE])
 	_expect(_main.get("_building_placement").active and banner.visible, "placement loses field guidance")
-	await _button(_hud.get("_placement_cancel_button"))
+	# L2: touch cancels with the x on the ghost; a mouse keeps the bottom one.
+	await _frames(2)
+	var ghost_card: PlacementGhostCard = _hud.call("get_placement_ghost_card")
+	await _button(ghost_card.cancel_button if ghost_card.is_cancel_visible() else _hud.get("_placement_cancel_button"))
+	_expect(not _main.get("_building_placement").active, "placement Cancel did not cancel")
 	await _button(_hud.get("_pause_button"))
 	_expect(GameManager.current_state == GameManager.GameState.PAUSED and not banner.visible, "Pause leaves lesson visible")
 	await _capture("pause-hidden-guide")
