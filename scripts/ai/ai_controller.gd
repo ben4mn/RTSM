@@ -1302,7 +1302,10 @@ func _get_economy_worker_targets(worker_count: int, resources: Dictionary) -> Di
 		var recovery_wood: int = 1 if worker_count >= 3 else 0
 		return {"food": worker_count - recovery_wood, "wood": recovery_wood, "gold": 0}
 	var age: int = GameManager.get_player_age(player_id)
-	if _saving_for_age_up and (age == 1 or _uses_compact_population_policy() or _uses_strategy_opening()):
+	# Round 2 E2: at the large scale the Castle save uses the ordinary ratios and
+	# bank rebalancing; the proportional split put 21 of 30 workers on gold for
+	# a 53-gold shortfall and starved the army (telemetry trace, Mongols).
+	if _saving_for_age_up and (age == 1 or _uses_compact_population_policy() or (_uses_strategy_opening() and age == 1)):
 		var age_cost: Dictionary = GameManager.get_age_up_cost(player_id, age + 1)
 		# Keep one worker on wood for houses/dropoff infrastructure, then allocate
 		# every other worker in proportion to the *remaining* real Feudal cost.
@@ -2167,6 +2170,8 @@ func _get_target_resource_ratio() -> Dictionary:
 			Difficulty.HARD:
 				return {"food": 0.54, "wood": 0.18, "gold": 0.28}
 	if _saving_for_age_up and age == 2:
+		if not _uses_compact_population_policy():
+			return {"food": 0.44, "wood": 0.36, "gold": 0.20}  # E2: keep the army and Farms in wood
 		return {"food": 0.56, "wood": 0.14, "gold": 0.30}
 	if not _uses_compact_population_policy():
 		# Round 2 E: Farms, reseeds, Houses and every line unit cost wood; wood
