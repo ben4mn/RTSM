@@ -123,6 +123,12 @@ func _check_boar() -> void:
 	# Medium sends a party of four.
 	_with(1)
 	ai._check_boar_hunt()
+	# H: the party musters a few steps short of the boar, then strikes together.
+	expect(ai._boar_party_assembling and ai._boar_hunter_ids.size() == ai.BOAR_PARTY_SIZE, "Medium musters a party of %d before striking" % ai.BOAR_PARTY_SIZE)
+	var struck: bool = await step_until(func() -> bool:
+		ai._check_boar_hunt()
+		return not ai._boar_party_assembling, 30.0)
+	expect(struck, "the mustered party strikes")
 	var hunters: int = 0
 	for villager: Variant in ai._get_villagers():
 		if (villager as Villager).gather_target == boar:
