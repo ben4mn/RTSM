@@ -85,7 +85,7 @@ func _process(delta: float) -> bool:
 					_expect(int(states[index].snapshot.player.civilization) == [2, 0][slot], "own player snapshot identity matches server slot")
 					for actor: Dictionary in states[index].snapshot.actors:
 						if str(actor.kind) == "building" and int(actor.type) == 0 and int(actor.owner) == slot:
-							_expect(int(actor.max_hp) == (4000 if slot == 0 else 5000), "actual starting Town Center uses authority civilization HP")
+							_expect(int(actor.max_hp) == roundi(float(BuildingData.BUILDINGS[BuildingData.BuildingType.TOWN_CENTER].hp) * CivilizationData.get_building_hp_multiplier([2, 0][slot])), "actual starting Town Center uses authority civilization HP")
 				_send(2, {"op": "command", "command": "surrender", "sequence": 1, "match": int(states[2].matched.match)})
 				_next(6)
 		6:

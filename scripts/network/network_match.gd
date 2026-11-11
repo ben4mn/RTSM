@@ -90,6 +90,14 @@ func _register_server_entities() -> void:
 		if not is_instance_valid(entities[id]) or entities[id].is_queued_for_deletion():
 			entities.erase(id)
 
+func reset_recipient(slot: int) -> void:
+	## A resumed seat: the next snapshot carries every owner-only detail block
+	## and the full resource list again, whatever the old transport delivered.
+	if slot in [0, 1]:
+		_actor_detail_sent[slot] = {}
+		_actor_detail_tick[slot] = -1
+		_resource_keyframe_tick[slot] = -1
+
 func broadcast_snapshots() -> void:
 	_register_server_entities()
 	_snapshot_number += 1
@@ -292,7 +300,12 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 			if rally.size() == 2:
 				node.rally_point = Vector2(float(rally[0]), float(rally[1]))
 				node.rally_point_is_custom = bool(actor.get("custom_rally", false))
-			node.rally_orders = _deserialize_orders(actor.get("rally_orders", [])) if node.player_owner == 0 else []
+			# rally_orders is Array[Dictionary]: an untyped [] literal for an enemy
+			# building is a script error that aborted the rest of this snapshot.
+			if node.player_owner == 0:
+				node.rally_orders = _deserialize_orders(actor.get("rally_orders", []))
+			else:
+				node.rally_orders.clear()
 			var queue: ProductionQueue = node.get_production_queue()
 			if queue != null and actor.has("queue"):
 				var data: Dictionary = actor.queue

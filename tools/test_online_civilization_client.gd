@@ -9,6 +9,10 @@ var opponent_civilization: int = 0
 var elapsed: float = 0.0
 var placed: bool = false
 var age_sent: bool = false
+var age_sent_at: float = -100.0
+var camp_sent: bool = false
+var camp_sent_at: float = 0.0
+var camp_attempt: int = 0
 var trained: bool = false
 var verified: bool = false
 var verified_at: float = 0.0
@@ -59,9 +63,22 @@ func _snapshot(data: Dictionary) -> void:
 	var age_affordable: bool = true
 	for resource: String in age_cost:
 		age_affordable = age_affordable and int(bank.get(resource, 0)) >= int(age_cost[resource])
-	if not age_sent and age == 1 and age_affordable:
+	# The timed age needs a finished Barracks or Resource Camp first.
+	var camp_ready: bool = false
+	var camp_started: bool = false
+	for actor: Dictionary in data.actors:
+		if int(actor.owner) == slot and str(actor.kind) == "building" and int(actor.type) == BuildingData.BuildingType.RESOURCE_CAMP:
+			camp_started = true
+			camp_ready = camp_ready or int(actor.state) == 2
+	if not camp_started and not camp_sent and float(data.time) >= 2.0 and int(bank.wood) >= int(BuildingData.get_building_cost(BuildingData.BuildingType.RESOURCE_CAMP).wood):
+		_place_near_spawn(map, slot, BuildingData.BuildingType.RESOURCE_CAMP, data)
+		camp_sent = true
+	elif not camp_started and camp_sent and float(data.time) - camp_sent_at > 10.0:
+		camp_sent = false  # Rejected or blocked: try another spot.
+	if age == 1 and camp_ready and age_affordable and float(data.time) - age_sent_at > 10.0:
 		session.send_command("age")
 		age_sent = true
+		age_sent_at = float(data.time)
 	for actor: Dictionary in data.actors:
 		if int(actor.owner) != slot:
 			var opponent_type: int = 3 if opponent_civilization == 2 else 2
@@ -108,7 +125,7 @@ func _snapshot(data: Dictionary) -> void:
 				_expect(replica.get("_sprite").texture.resource_path == KingdomArt.unit_path(civilization, signature_type), "replica signature artwork follows selected kingdom")
 			for owned_actor: Dictionary in data.actors:
 				if int(owned_actor.owner) == slot and str(owned_actor.kind) == "building":
-					var expected_hp: float = float(BuildingData.BUILDINGS[int(owned_actor.type)].hp) * CivilizationData.get_building_hp_multiplier(civilization)
+					var expected_hp: float = float(roundi(float(BuildingData.BUILDINGS[int(owned_actor.type)].hp) * CivilizationData.get_building_hp_multiplier(civilization)))
 					_expect(float(owned_actor.max_hp) == expected_hp, "authoritative building HP includes real civilization weakness")
 			_expect(int(data.stats.resources_gathered) > 0 and age >= 2, "ordinary delivered resources paid for age progression")
 			verified = true
@@ -157,6 +174,28 @@ func _status(value: String, message: String) -> void:
 	if value == "error":
 		push_error("ONLINE_CIV_TRANSPORT_FAILURE " + message)
 		quit(1)
+
+func _place_near_spawn(map: Node, slot: int, type: int, data: Dictionary) -> void:
+	var workers: Array[int] = []
+	for actor: Dictionary in data.actors:
+		if int(actor.owner) == slot and str(actor.kind) == "unit" and int(actor.type) == 0:
+			workers.append(int(actor.id))
+	if workers.is_empty():
+		return
+	var spawn: Vector2i = map.map_generator.spawn_positions[slot]
+	var skip: int = camp_attempt * 3
+	camp_attempt += 1
+	camp_sent_at = float(data.time)
+	for radius: int in range(4, 12):
+		for dx: int in range(-radius, radius + 1):
+			for dy: int in [-radius, radius]:
+				var world: Vector2 = map.tile_to_world(spawn + Vector2i(dx, dy))
+				if current_scene._building_placement.revalidate_confirmation(type, world, 0):
+					if skip > 0:
+						skip -= 1
+						continue
+					session.send_command("place", {"type": type, "ids": [workers[-1]], "position": [world.x, world.y]})
+					return
 
 func _expect(condition: bool, message: String) -> void:
 	checks += 1

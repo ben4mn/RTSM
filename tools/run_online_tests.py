@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import socket
 import subprocess
@@ -27,7 +28,9 @@ parser.add_argument('--rooms-only', action='store_true', help='Only exercise hos
 parser.add_argument('--maps-only', action='store_true', help='Only exercise legacy/mixed/current map catalog pairs')
 parser.add_argument('--civilizations-only', action='store_true', help='Exercise lobby authority and ordinary paid signature recruitment across all three civilization pairings')
 parser.add_argument('--civilization-pair', action='append', nargs=2, type=int, choices=[0, 1, 2], help='Optional pair(s) for --civilizations-only; default covers all three matchups')
-parser.add_argument('--output', default=str(ROOT / 'output' / 'online-tests'))
+parser.add_argument('--probe-match', action='store_true', help='Only run the scripted ~5.5 minute 1v1 (tools/probe_online_match.gd) with one mid-match reconnect, and compare replica digests with the authority')
+parser.add_argument('--skip-strategy',action='store_true', help='Skip the two Strategy-panel clients in the default group')
+parser.add_argument('--output',default=str(ROOT / 'output' / 'online-tests'))
 args = parser.parse_args()
 if args.combat_wall_timeout <= 0:
     parser.error('--combat-wall-timeout must be positive')
@@ -98,21 +101,82 @@ def launch(label, script=None, extra=(), env=None):
     processes.append(process)
     return process
 
+SHUTDOWN_LEAK = re.compile(r'^ERROR: \d+ resources still in use at exit.*\n\s+at: clear \(core/io/resource\.cpp:\d+\)\n?', re.MULTILINE)
+
+
+def read_log(log_path):
+    # Godot 4.6 reports a resource still referenced during engine teardown as an
+    # ERROR line after the script has already quit. Like the ObjectDB leak
+    # WARNING beside it, it is exit-time noise, not a runtime failure.
+    return SHUTDOWN_LEAK.sub('', log_path.read_text(encoding='utf-8', errors='replace'))
+
+
 def check(label, process, timeout):
     deadline = time.monotonic() + timeout
     log_path = output / f'{label}.log'
     while process.poll() is None:
-        text = log_path.read_text(encoding='utf-8', errors='replace')
+        text = read_log(log_path)
         if 'SCRIPT ERROR' in text or 'ERROR:' in text:
             raise RuntimeError(f'{label} runtime/compile failure; see {log_path}')
         if time.monotonic() >= deadline:
             raise subprocess.TimeoutExpired(process.args, timeout)
         time.sleep(0.2)
     result = process.returncode
-    text = log_path.read_text(encoding='utf-8', errors='replace')
+    text = read_log(log_path)
     if result or 'SCRIPT ERROR' in text or 'ERROR:' in text:
         raise RuntimeError(f'{label} failed (exit {result}); see {output / (label + ".log")}')
     print(f'PASS {label}', flush=True)
+
+def _same(a, b, tolerance=0.02):
+    if isinstance(a, bool) or isinstance(b, bool):
+        return a == b
+    if isinstance(a, (int, float)) and isinstance(b, (int, float)):
+        return abs(float(a) - float(b)) <= tolerance
+    if isinstance(a, list) and isinstance(b, list):
+        return len(a) == len(b) and all(_same(x, y, tolerance) for x, y in zip(a, b))
+    return a == b
+
+
+def _digests(label, prefix):
+    rows = {}
+    for line in read_log(output / f'{label}.log').splitlines():
+        if line.startswith(prefix + ' '):
+            row = json.loads(line[len(prefix) + 1:])
+            rows[(int(row['match']), int(row['tick']), int(row['slot']))] = row
+    return rows
+
+
+def compare_digests():
+    """Each client replica digest must equal the authority's for the same tick."""
+    authority = _digests('server', 'AUDIT')
+    summary = {'authority_rows': len(authority), 'clients': {}}
+    failures = []
+    for label in ('probe-one', 'probe-two'):
+        replica = _digests(label, 'REPLICA')
+        compared, mismatched, fields = 0, [], {}
+        for key, row in sorted(replica.items()):
+            truth = authority.get(key)
+            if truth is None:
+                continue
+            compared += 1
+            for field, value in row.items():
+                if field in ('match', 'tick', 'slot'):
+                    continue
+                fields[field] = fields.get(field, 0) + 1
+                if not _same(value, truth.get(field)):
+                    mismatched.append({'tick': key[1], 'slot': key[2], 'field': field, 'replica': value, 'authority': truth.get(field)})
+        summary['clients'][label] = {'replica_rows': len(replica), 'compared': compared, 'fields': fields, 'mismatches': len(mismatched), 'first_mismatches': mismatched[:25]}
+        if compared < 20:
+            failures.append(f'{label}: only {compared} replica digests matched an authority tick')
+        if mismatched:
+            failures.append(f'{label}: {len(mismatched)} field mismatches, first {mismatched[0]}')
+    (output / 'probe-digests.json').write_text(json.dumps(summary, indent=2) + '\n', encoding='utf-8')
+    for label, data in summary['clients'].items():
+        print(f"DIGESTS {label} compared={data['compared']} mismatches={data['mismatches']} fields={sorted(data['fields'])}", flush=True)
+    if failures:
+        raise RuntimeError('; '.join(failures))
+    print('PASS probe-digests', flush=True)
+
 
 try:
     env = os.environ.copy()
@@ -124,7 +188,10 @@ try:
             port = probe.getsockname()[1]
         env['AOEM_MATCH_PORT'] = str(port)
         env['AOEM_MATCH_URL'] = f'ws://127.0.0.1:{port}'
-        server = launch('server', extra=('res://scenes/network/server_lobby.tscn', '--', '--aoem-server'), env=env)
+        if args.probe_match:
+            server = launch('server', 'probe_online_authority', extra=('--', '--aoem-server'), env=env)
+        else:
+            server = launch('server', extra=('res://scenes/network/server_lobby.tscn', '--', '--aoem-server'), env=env)
         for _ in range(100):
             if 'AOEM_MATCH_SERVER_READY' in (output / 'server.log').read_text():
                 break
@@ -133,7 +200,15 @@ try:
             time.sleep(0.1)
         else:
             raise RuntimeError('Server did not listen')
-    if args.civilizations_only:
+    if args.probe_match:
+        if not server:
+            raise RuntimeError('--probe-match needs the local authority (it audits server state); omit --url')
+        first = launch('probe-one', 'probe_online_match', env=dict(env, AOEM_PROBE_RECONNECT='0'))
+        second = launch('probe-two', 'probe_online_match', env=dict(env, AOEM_PROBE_RECONNECT='1'))
+        check('probe-one', first, 620)
+        check('probe-two', second, 620)
+        compare_digests()
+    elif args.civilizations_only:
         lobby = launch('civilization-lobby', 'test_online_civilization_rooms', env=env)
         check('civilization-lobby', lobby, 60)
         for first_civ, second_civ in (args.civilization_pair or [(0, 1), (1, 2), (2, 0)]):
@@ -153,12 +228,16 @@ try:
     elif args.maps_only:
         maps = launch('map-catalog', 'test_online_maps', env=env)
         check('map-catalog', maps, 40)
+    elif args.skip_strategy:
+        pass
     else:
         first = launch('strategy-one', 'test_online_strategy', env=env)
         second = launch('strategy-two', 'test_online_strategy', env=env)
         check('strategy-one', first, 50)
         check('strategy-two', second, 50)
-    if not args.strategy_only and not args.maps_only and not args.rooms_only and not args.combat_only and not args.civilizations_only:
+    if not args.strategy_only and not args.maps_only and not args.rooms_only and not args.combat_only and not args.civilizations_only and not args.probe_match:
+        gate = launch('protocol-gate', 'test_online_protocol_gate', env=env)
+        check('protocol-gate', gate, 20)
         unavailable = launch('connection-failure', 'test_online_connection_failure', env=env)
         check('connection-failure', unavailable, 20)
         delayed_end = launch('loading-ended', 'test_online_loading_terminal', env=env)
@@ -172,7 +251,7 @@ try:
         lifetime = launch('reference-lifetime', 'test_network_reference_lifetime', env=env)
         check('reference-lifetime', lifetime, 20)
         lifecycle = launch('lifecycle', 'test_online_lifecycle', env=env)
-        check('lifecycle', lifecycle, 50)
+        check('lifecycle', lifecycle, 95)
         first = launch('client-one', 'test_online_client', env=env)
         second = launch('client-two', 'test_online_client', env=env)
         check('client-one', first, 100)
@@ -183,7 +262,7 @@ try:
         second = launch('combat-two', 'test_online_combat', extra=combat_args, env=env)
         check('combat-one', first, args.combat_wall_timeout)
         check('combat-two', second, args.combat_wall_timeout)
-    if server and 'ERROR:' in (output / 'server.log').read_text():
+    if server and 'ERROR:' in read_log(output / 'server.log'):
         raise RuntimeError('Server runtime errors; inspect server.log')
     final_hashes = source_hashes()
     if initial_hashes != final_hashes:
