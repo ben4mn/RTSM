@@ -19,6 +19,23 @@ func run_cases() -> void:
 	await _work_chip(overview)
 	await _running_out()
 	await _bottleneck()
+	await _idle_town_center_offer()
+
+
+func _idle_town_center_offer() -> void:
+	var economy: TouchEconomy = TouchEconomy.of(main)
+	var queue: ProductionQueue = tc.get_production_queue()
+	while queue.get_queue_size() > 0:
+		queue.cancel_unit(queue.get_queue_size() - 1)
+	var player: Dictionary = GameManager.players[0]
+	player["population_cap"] = maxi(int(player.population_cap), GameManager.get_committed_population(0) + 5)
+	var offered: bool = await step_until(func() -> bool: return economy._tc_offer_text.begins_with("Town Center idle"), 12.0)
+	expect(offered, "an idle Town Center offers Villagers (%s)" % economy._tc_offer_text)
+	var queued: int = economy.train_at_idle_center(weakref(tc))
+	await step(0.2)
+	expect(queued >= 1 and queue.get_queue_size() >= 1, "one tap queues them (%d, queue %d)" % [queued, queue.get_queue_size()])
+	var cleared: bool = await step_until(func() -> bool: return economy._tc_offer_text.is_empty(), 2.0)
+	expect(cleared, "the offer leaves once the Town Center works")
 
 
 func _economy_build(overview: StrategyOverview) -> void:
@@ -64,6 +81,11 @@ func _mixed_selection_build() -> void:
 
 func _sticky_toast() -> void:
 	var lane: ToastLane = main.hud.get("_notification_container") as ToastLane
+	# Live offers (idle Town Center, housing) would compete for the two slots.
+	TouchEconomy.of(main).process_mode = Node.PROCESS_MODE_DISABLED
+	EconomyHints.of(main).process_mode = Node.PROCESS_MODE_DISABLED
+	lane.clear()
+	await _real_wait(0.1)
 	var holding: Array = [true]
 	main.hud.show_notification("Sticky test offer", Color.WHITE, 0.3, func() -> void: pass, 2, func() -> bool: return bool(holding[0]))
 	main.hud.show_notification("Plain test note", Color.WHITE, 0.3)
@@ -77,6 +99,8 @@ func _sticky_toast() -> void:
 		main.hud.show_notification("Stack %d" % index, Color.WHITE, 3.0, func() -> void: pass, 2)
 	expect(lane.visible_count() <= 2, "never more than two toasts (%d)" % lane.visible_count())
 	lane.clear()
+	TouchEconomy.of(main).process_mode = Node.PROCESS_MODE_PAUSABLE
+	EconomyHints.of(main).process_mode = Node.PROCESS_MODE_PAUSABLE
 
 
 func _real_wait(seconds: float) -> void:
@@ -158,6 +182,7 @@ func _running_out() -> void:
 	hints._running_out_msec.clear()
 	hints.refresh()
 	expect(str((hints._running_out.get("gold", {}) as Dictionary).get("text", "")).begins_with("Gold ran out · "), "the toast says it ran out (%s)" % str(hints._running_out.get("gold", {})))
+	expect(hints.stranded("gold").size() >= 2, "both idle miners count as the stranded crew")
 	expect(hints.show_next_patch("gold"), "a tap sends the crew on (out of sight: the remembered patch)")
 	await step(0.3)
 	var moving: int = 0

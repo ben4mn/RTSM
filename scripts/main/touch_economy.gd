@@ -29,6 +29,10 @@ const HOUSE_WARNING_SLOTS: int = 2
 const HOUSE_WARNING_GRACE_SECONDS: float = 20.0
 const HOUSE_REPEAT_MSEC: int = 15000
 const TC_IDLE_GRACE_SECONDS: float = 2.0
+const TC_IDLE_OFFER_SECONDS: float = 6.0
+const TC_IDLE_OFFER_MAX: int = 3
+const TC_IDLE_TEXT: String = "Town Center idle · tap: +%d Villager%s"
+var _tc_offer_text: String = ""
 const SITE_SEARCH_RADIUS: int = 7
 const MAX_SITE_ANCHORS: int = 6
 const MAX_SITE_CHECKS: int = 140
@@ -795,6 +799,62 @@ func _refresh_idle_centers() -> void:
 		var base: Button = hud.call("get_base_navigation_button") as Button
 		if base != null:
 			CommandIcons.set_badge(base, "zz" if not _idle_centers.is_empty() else "", false)
+	_refresh_idle_center_offer(hud)
+
+
+## I2: an idle Town Center is the costliest silent mistake on a phone (playtest:
+## minutes of no villagers while the player fought or built). After a short
+## grace, a tappable toast queues up to three Villagers; it stays while the
+## Town Center stays idle and the offer is affordable.
+func _refresh_idle_center_offer(hud: Node) -> void:
+	if hud == null:
+		return
+	var center: BuildingBase = null
+	for building: BuildingBase in _idle_centers:
+		if is_instance_valid(building) and GameManager.game_time - float(_tc_busy_at.get(building.get_instance_id(), GameManager.game_time)) >= TC_IDLE_OFFER_SECONDS:
+			center = building
+			break
+	var count: int = _idle_offer_count(center)
+	if center == null or count <= 0:
+		if not _tc_offer_text.is_empty():
+			hud.call("dismiss_notification", _tc_offer_text)
+			_tc_offer_text = ""
+		return
+	var text: String = TC_IDLE_TEXT % [count, "" if count == 1 else "s"]
+	if text == _tc_offer_text:
+		return
+	if not _tc_offer_text.is_empty():
+		hud.call("dismiss_notification", _tc_offer_text)
+	_tc_offer_text = text
+	var center_ref: WeakRef = weakref(center)
+	hud.call("show_notification", text, KingdomTheme.GOLD, 8.0, train_at_idle_center.bind(center_ref), 2,
+		func() -> bool: return _tc_offer_text == text)
+
+
+func _idle_offer_count(center: BuildingBase) -> int:
+	if center == null or not UnitData.UnitType.VILLAGER in center.trainable_units:
+		return 0
+	var cost: int = maxi(1, int(UnitData.get_unit_cost(UnitData.UnitType.VILLAGER, 0).get("food", 50)))
+	var by_food: int = ResourceManager.get_resource(0, "food") / cost
+	var cap: int = int(GameManager.players.get(0, {}).get("population_cap", 0))
+	var room: int = cap - GameManager.get_committed_population(0)
+	return clampi(mini(by_food, room), 0, TC_IDLE_OFFER_MAX)
+
+
+## Tap: queue up to three Villagers at that Town Center through the normal
+## (paid, online-safe) training request.
+func train_at_idle_center(center_ref: WeakRef) -> int:
+	_tc_offer_text = ""
+	var center: BuildingBase = center_ref.get_ref() as BuildingBase
+	var hud: Node = main.get("hud") as Node
+	if center == null or hud == null or GameManager.current_state != GameManager.GameState.PLAYING:
+		return 0
+	var count: int = _idle_offer_count(center)
+	for _index: int in count:
+		hud.emit_signal("train_unit_requested", center, UnitData.UnitType.VILLAGER)
+	if count > 0:
+		_tc_busy_at[center.get_instance_id()] = GameManager.game_time
+	return count
 
 
 func get_idle_town_centers() -> Array[BuildingBase]:
