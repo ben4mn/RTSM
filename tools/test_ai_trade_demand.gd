@@ -140,6 +140,7 @@ func _run() -> void:
 	ai._check_trade_economy()
 	_expect(trains.size() == 2, "proven income with ongoing deficit permits one second caravan")
 	_reset()
+	ResourceManager.initialize_player(1, {"food": 1000, "wood": 500, "gold": 300})  # Round 2 E2: a Siege Engine costs 150 gold
 	while ai._get_fighting_units().size() < ai._get_attack_threshold(): ai._my_units.append(_unit("infantry", 1))
 	var workshop: BuildingBase = _building("siege_workshop", Vector2i(20, 14))
 	ai._update_building_counts()

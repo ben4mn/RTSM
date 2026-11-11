@@ -28,7 +28,10 @@ func _with(level: int) -> void:
 
 
 func _check_villager_targets() -> void:
-	var expected: Dictionary = {0: [12, 18], 1: [16, 32], 2: [18, 42]}
+	# Round 2 E2: read the tables (Easy 10/14, Medium 16/30, Hard 18/34 at the 80-body default).
+	var expected: Dictionary = {}
+	for level: int in [0, 1, 2]:
+		expected[level] = [maxi(int(ai.VILLAGER_TARGETS[level]), int(ai.AGE_UP_MIN_VILLAGERS[level][2])), maxi(int(ai.MATURE_VILLAGER_TARGETS[level]), int(ai.AGE_UP_MIN_VILLAGERS[level][3]))]  # never below the next age's villager gate
 	for level: int in expected:
 		_with(level)
 		var dark: int = ai._get_target_villager_count()
@@ -187,5 +190,6 @@ func _check_wave_sizes() -> void:
 		ai._has_launched_field_attack = true
 		later.append(ai._get_attack_threshold())
 	ai._has_launched_field_attack = false
-	expect(first == [6, 12, 10] and int(later[1]) >= 20 and int(later[2]) >= 20, "first waves 6/12/10, later waves of 20+ (%s / %s)" % [str(first), str(later)])
+	var first_expected: Array = [int(ai.ARMY_ATTACK_THRESHOLDS[0]), int(ai.ARMY_ATTACK_THRESHOLDS[1]), int(ai.ARMY_ATTACK_THRESHOLDS[2])]
+	expect(first == first_expected and int(later[1]) > int(first[1]) and int(later[2]) > int(first[2]) and int(later[0]) <= int(later[1]), "first waves from ARMY_ATTACK_THRESHOLDS, later waves larger, Easy smallest (%s / %s)" % [str(first), str(later)])
 	expect(is_equal_approx(float(ai.AGE_UP_TARGET_TIMES[1]), 180.0) and is_equal_approx(float(ai.CASTLE_TARGET_TIMES[1]), 470.0), "Medium clicks Feudal at 3:00 and Castle at 7:50")
