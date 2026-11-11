@@ -107,6 +107,7 @@ var _info_button: Button
 var _details: VBoxContainer
 var _detail_lines: Array[Label] = []
 var _details_page: bool = false
+var _sheet_stale: bool = true
 var _last_panel_minimum := Vector2(-1.0, -1.0)
 var _tucking: bool = false
 
@@ -497,6 +498,12 @@ func update_snapshot(snapshot: Dictionary) -> void:
 	elif idle > 0:
 		_summary.text = "%d idle · choose Idle, then a job." % idle
 	_summary.add_theme_color_override("font_color", KingdomTheme.AMBER if idle > 0 or not warnings.is_empty() or bool(snapshot.get("food_low_attention_ready", false)) else KingdomTheme.PARCHMENT)
+	if not panel.visible:
+		# Perf (Round 2 E2): a closed sheet only needs the rail badges above;
+		# set_surface re-applies the stored snapshot when it opens.
+		_sheet_stale = true
+		return
+	_sheet_stale = false
 	_economy_health.text = ""
 	if int(economy.get("severity", 0)) > 0:
 		_economy_health.text = "%s\n%s" % [str(economy.get("title", "")), str(economy.get("detail", ""))]
@@ -778,6 +785,8 @@ func set_surface(surface: String) -> void:
 		_cancel_armed_key = ""
 	_title.text = "Economy" if surface == "economy" else "Army"
 	_army_button.set_pressed_no_signal(surface == "army")
+	if panel.visible and _sheet_stale and not _snapshot.is_empty():
+		update_snapshot(_snapshot)
 	if changed:
 		_clear_feedback()
 		_scroll.scroll_vertical = 0

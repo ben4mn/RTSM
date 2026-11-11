@@ -57,6 +57,10 @@ var control_banks: Array[float] = [0.0, 0.0]
 var clock_ticking: bool = false
 var garrison_paused: bool = false
 var _armed_nearby_counts: Array[int] = [0, 0]
+const CENSUS_INTERVAL: float = 0.2
+## Not saved: a restored site recounts on its first frame.
+var _census_cooldown: float = 0.0
+var _census: Array[int] = [0, 0]
 
 
 func configure_match_mode(mode: int) -> void:
@@ -130,7 +134,13 @@ func _process(delta: float) -> void:
 	clock_ticking = false
 	garrison_paused = false
 	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
-	var nearby := _count_nearby_players()
+	# Round 2 E2 (perf): the ring census runs at about 5 Hz, not every frame.
+	# A long step (tests, a hitch) always recounts.
+	_census_cooldown -= delta
+	if _census_cooldown <= 0.0 or delta >= CENSUS_INTERVAL:
+		_census_cooldown = CENSUS_INTERVAL
+		_census = _count_nearby_players()
+	var nearby: Array[int] = _census
 	if PerfProbe.on: PerfProbe.add(&"site.count", _pp)
 	var p1_count: int = nearby[0]
 	var p2_count: int = nearby[1]

@@ -31,10 +31,12 @@ static func get_sacred_target(mode: int) -> float:
 ## Bodies per player (Round 2 E: one population per ordinary unit). The default
 ## is the one constant to change if performance work recommends another size.
 const POPULATION_OPTIONS: Array[int] = [30, 40, 60, 80, 100, 120]
-const DEFAULT_POPULATION_LIMIT: int = 100
+const DEFAULT_POPULATION_LIMIT: int = 80
 ## Version 2: limits are bodies. A limit saved by an older build counted two
-## slots per unit, so it is reset to the default once.
-const POPULATION_PREFERENCE_VERSION: int = 2
+## slots per unit, so it is reset to the default once. Version 3 (Round 2 E2):
+## the default fell from 100 to 80 bodies (phone frame rate in a full clash),
+## so a saved limit is reset to it once; 100 and 120 stay selectable.
+const POPULATION_PREFERENCE_VERSION: int = 3
 const REFERENCE_POPULATION_LIMIT: int = 60
 ## Castle unlocks the siege endgame. Imperial has no skirmish content yet.
 const MAX_AGE: int = 3
