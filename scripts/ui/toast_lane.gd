@@ -139,10 +139,19 @@ func _show(entry: Dictionary) -> void:
 				event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed
 			):
 				panel.accept_event()
-				# H: a tapped offer has been answered; it leaves at once.
-				if is_instance_valid(panel) and panel.get_parent() == self:
-					_retire(panel)
+				if bool(panel.get_meta("toast_answered", false)):
+					return
+				# H: a tapped offer has been answered: it fades and leaves once
+				# the finger has lifted (the pill keeps owning that release so it
+				# cannot fall through to the map as a ground tap).
+				panel.set_meta("toast_answered", true)
+				panel.modulate.a = 0.45
+				get_tree().create_timer(0.35, true, false, true).timeout.connect(func() -> void:
+					if is_instance_valid(panel) and panel.get_parent() == self:
+						_retire(panel))
 				action.call()
+			elif (event is InputEventScreenTouch or event is InputEventMouseButton) and not event.pressed:
+				panel.accept_event()
 		)
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(KingdomTheme.INK, 0.94)
