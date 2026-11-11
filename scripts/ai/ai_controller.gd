@@ -1347,6 +1347,24 @@ func _get_economy_worker_targets(worker_count: int, resources: Dictionary) -> Di
 		else:
 			food_target += gold_target
 		gold_target = 0
+	if not _uses_compact_population_policy():
+		# Round 2 E: shift labor from a resource piling up in the bank to one
+		# that is running dry (food floods while wood starves at this scale).
+		var targets: Dictionary = {"food": food_target, "wood": wood_target, "gold": gold_target}
+		var rich: String = ""
+		var poor: String = ""
+		for resource_type: String in ["food", "wood", "gold"]:
+			var banked: int = int(resources.get(resource_type, 0))
+			if banked >= 500 and (rich == "" or banked > int(resources.get(rich, 0))):
+				rich = resource_type
+			if banked < 150 and (poor == "" or banked < int(resources.get(poor, 0))):
+				poor = resource_type
+		if rich != "" and poor != "" and rich != poor:
+			var moved: int = mini(int(targets[rich]) - 1, maxi(1, roundi(float(targets[rich]) * 0.3)))
+			if moved > 0:
+				targets[rich] = int(targets[rich]) - moved
+				targets[poor] = int(targets[poor]) + moved
+		return targets
 	return {
 		"food": food_target,
 		"wood": wood_target,
@@ -3252,7 +3270,7 @@ func _compute_prefers_town_center_targets() -> bool:
 	for unit: UnitBase in fighters:
 		if unit.unit_type == UnitData.UnitType.SIEGE:
 			return true
-	return fighters.size() >= int(LATER_WAVE_THRESHOLDS.get(difficulty, 20)) and _evaluate_units_strength(fighters) > 1.3 * _evaluate_enemy_visible_strength()
+	return fighters.size() >= 14 and _evaluate_units_strength(fighters) > 1.5 * _evaluate_enemy_visible_strength()
 
 
 func _check_farm_reseeds() -> void:
