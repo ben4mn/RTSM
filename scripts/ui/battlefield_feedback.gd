@@ -82,10 +82,12 @@ func report_attack(target_name: String, world_position: Vector2) -> bool:
 
 
 func _process(_delta: float) -> void:
+	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
 	for index: int in range(fronts.size() - 1, -1, -1):
 		if GameManager.game_time - float(fronts[index]["last_hit"]) > FRONT_LIFETIME:
 			fronts.remove_at(index)
 	_refresh()
+	if PerfProbe.on: PerfProbe.add(&"feedback.process", _pp)
 	queue_redraw()
 
 

@@ -170,9 +170,11 @@ func events_since(index: int) -> Dictionary:
 func _process(_delta: float) -> void:
 	if not is_instance_valid(match_scene):
 		return
+	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
 	_scan_entities()
 	if _reveal_map:
 		_apply_reveal()
+	if PerfProbe.on: PerfProbe.add(&"dev.scan", _pp)
 
 
 func _scan_entities() -> void:
@@ -483,9 +485,53 @@ func _cmd_build(arguments: Array, named: Dictionary = {}) -> Dictionary:
 
 
 ## `cmd('perf', true)` starts PerfProbe; `cmd('perf', false)` stops it and
-## returns ms per rendered frame per probe plus the engine's process time.
+## returns ms per rendered frame per probe, per-frame phase percentiles
+## (wall / process / late / render, see PerfProbe) and draw-call counts.
+## The game must be advancing in between (front the tab or use raf_hack.js);
+## a start and stop inside one synchronous script call sees zero frames.
 var _perf_started_frame: int = 0
-var _perf_process_ms: float = 0.0
+var _perf_markers: Array[Node] = []
+
+
+class PerfFrameMarker extends Node:
+	var begins: bool = true
+
+	func _process(_delta: float) -> void:
+		if begins:
+			PerfProbe.frame_begin()
+		else:
+			PerfProbe.frame_process_end()
+
+
+func _perf_install_markers() -> void:
+	if not _perf_markers.is_empty():
+		return
+	for begins: bool in [true, false]:
+		var marker := PerfFrameMarker.new()
+		marker.begins = begins
+		marker.name = "PerfFrameBegin" if begins else "PerfFrameEnd"
+		marker.process_mode = Node.PROCESS_MODE_ALWAYS
+		marker.process_priority = -1000000 if begins else 1000000
+		get_tree().root.add_child(marker)
+		_perf_markers.append(marker)
+	RenderingServer.frame_pre_draw.connect(PerfProbe.frame_pre_draw)
+	RenderingServer.frame_post_draw.connect(PerfProbe.frame_post_draw)
+
+
+func _perf_remove_markers() -> void:
+	for marker: Node in _perf_markers:
+		if is_instance_valid(marker):
+			marker.queue_free()
+	_perf_markers.clear()
+	if RenderingServer.frame_pre_draw.is_connected(PerfProbe.frame_pre_draw):
+		RenderingServer.frame_pre_draw.disconnect(PerfProbe.frame_pre_draw)
+		RenderingServer.frame_post_draw.disconnect(PerfProbe.frame_post_draw)
+
+
+func _exit_tree() -> void:
+	PerfProbe.on = false
+	_perf_remove_markers()
+
 
 func _cmd_perf(arguments: Array, named: Dictionary = {}) -> Dictionary:
 	var start: bool = bool(named.get("on", arguments[0] if not arguments.is_empty() else true))
@@ -493,13 +539,50 @@ func _cmd_perf(arguments: Array, named: Dictionary = {}) -> Dictionary:
 		PerfProbe.reset()
 		PerfProbe.on = true
 		_perf_started_frame = Engine.get_process_frames()
+		_perf_install_markers()
 		return {"ok": true}
 	PerfProbe.on = false
+	_perf_remove_markers()
 	var frames: int = maxi(1, Engine.get_process_frames() - _perf_started_frame)
 	var rows: Dictionary = {}
 	for key: StringName in PerfProbe.usec:
 		rows[str(key)] = snappedf(float(PerfProbe.usec[key]) / 1000.0 / float(frames), 0.01)
-	return {"ok": true, "frames": frames, "ms_per_frame": rows, "process_ms_now": snappedf(Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0, 0.01)}
+	var counted: Dictionary = {}
+	for key: StringName in PerfProbe.calls:
+		counted[str(key) + "#"] = snappedf(float(PerfProbe.calls[key]) / float(frames), 0.1)
+	for key: StringName in PerfProbe.counts:
+		counted[str(key)] = snappedf(float(PerfProbe.counts[key]) / float(frames), 0.1)
+	var spikes: Dictionary = {}
+	for key: StringName in PerfProbe.spike_usec:
+		var spent: float = float(PerfProbe.spike_usec[key]) / 1000.0 / float(maxi(1, PerfProbe.spike_frames))
+		if spent >= 0.05:
+			spikes[str(key)] = snappedf(spent, 0.01)
+	spikes["frames"] = PerfProbe.spike_frames
+	var units_total: int = 0
+	var units_in_view: int = 0
+	for player_units: Array in match_scene._player_units:
+		for unit: Variant in player_units:
+			if is_instance_valid(unit) and (unit as UnitBase).current_state != UnitBase.State.DEAD:
+				units_total += 1
+				if UnitBase.view_rect.has_point((unit as UnitBase).global_position):
+					units_in_view += 1
+	return {
+		"ok": true,
+		"frames": frames,
+		"ms_per_frame": rows,
+		"per_frame_counts": counted,
+		"spike_ms_per_frame": spikes,
+		"wall": PerfProbe.percentiles(PerfProbe.frame_wall),
+		"process": PerfProbe.percentiles(PerfProbe.frame_process),
+		"late": PerfProbe.percentiles(PerfProbe.frame_late),
+		"render": PerfProbe.percentiles(PerfProbe.frame_render),
+		"draw_calls": PerfProbe.percentiles(PerfProbe.frame_draw_calls),
+		"objects": PerfProbe.percentiles(PerfProbe.frame_objects),
+		"primitives": PerfProbe.percentiles(PerfProbe.frame_primitives),
+		"units": units_total,
+		"units_in_view": units_in_view,
+		"zoom": snappedf(match_scene.game_map.camera.zoom.x, 0.01) if match_scene.game_map.camera != null else 0.0,
+	}
 
 
 func _cmd_screenshot_safe_ui(arguments: Array, named: Dictionary = {}) -> Dictionary:

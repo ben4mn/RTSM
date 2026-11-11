@@ -525,6 +525,12 @@ func _create_resource_node_legend() -> void:
 
 
 func _process(_delta: float) -> void:
+	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
+	_process_hud(_delta)
+	if PerfProbe.on: PerfProbe.add(&"hud.process", _pp)
+
+
+func _process_hud(_delta: float) -> void:
 	var gm: Node = _get_game_manager()
 	if gm and gm.current_state == gm.GameState.PLAYING:
 		game_time_label.text = gm.get_formatted_time()

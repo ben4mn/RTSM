@@ -16,6 +16,7 @@ var _scan_cursor: int = 0
 var _sample_cache: Dictionary = {}
 var last_candidate_checks: int = 0
 var allow_headless_fixture: bool = false
+static var _materials: Array[ShaderMaterial] = [null, null]
 
 
 func _ready() -> void:
@@ -26,6 +27,8 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	if DisplayServer.get_name() == "headless" and not allow_headless_fixture: return
+	if PerfProbe.on: PerfProbe.count(&"occlusion.echoes", _entries.size())
+	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
 	_elapsed += delta
 	if _elapsed >= REFRESH_SECONDS and _scan_cursor >= _pending.size():
 		_elapsed = 0.0
@@ -50,8 +53,11 @@ func _process(delta: float) -> void:
 			if echo.flip_v != source.flip_v: echo.flip_v = source.flip_v
 			var edge: float = clampf(1.6 / maxf(0.05, absf(source.scale.x)), 3.0, 12.0)
 			if not is_equal_approx(edge, float(entry.edge)):
-				(echo.material as ShaderMaterial).set_shader_parameter("edge_pixels", edge)
+				# Per-echo edge rides in self_modulate (see the shader), so the
+				# echoes share one material per owner and batch.
+				echo.self_modulate = Color(edge / 16.0, 1.0, 1.0, 1.0)
 				entry.edge = edge
+	if PerfProbe.on: PerfProbe.add(&"occlusion.process", _pp)
 
 
 func _unit_revealed(unit: UnitBase) -> bool:
@@ -141,10 +147,13 @@ func _create_echo(unit: UnitBase) -> void:
 	echo.z_as_relative = false
 	echo.z_index = ECHO_Z
 	echo.visible = false
-	var material := ShaderMaterial.new()
-	material.shader = OUTLINE
-	material.set_shader_parameter("body_color", Color("335b58") if unit.player_owner == 0 else Color("854f42"))
-	echo.material = material
+	var owner_index: int = 0 if unit.player_owner == 0 else 1
+	if _materials[owner_index] == null:
+		var material := ShaderMaterial.new()
+		material.shader = OUTLINE
+		material.set_shader_parameter("body_color", Color("335b58") if owner_index == 0 else Color("854f42"))
+		_materials[owner_index] = material
+	echo.material = _materials[owner_index]
 	unit.add_child(echo)
 	_entries[unit.get_instance_id()] = {"unit": weakref(unit), "echo": weakref(echo), "occluded": true, "edge": 0.0}
 

@@ -301,9 +301,11 @@ func _process(delta: float) -> void:
 	# F3: units think on a fixed game-time step (UnitBase._sim_frame). Faster
 	# game speeds widen the step instead of thinking more often per frame;
 	# 0.5x narrows it so thinks stay ~20 per real second.
+	if PerfProbe.on: PerfProbe.count(&"map.frames")
 	UnitBase.sim_step = UnitBase.sim_base_step * clampf(Engine.time_scale, 0.5, 2.0)
 	if camera != null and UnitBase.presentation_enabled:
 		UnitBase.view_rect = (get_canvas_transform().affine_inverse() * get_viewport_rect()).grow(96.0)
+		UnitBase.set_marker_view(1.0 / maxf(0.5, camera.zoom.x), GameManager.clearer_player_markers)
 	_update_camera_pan(delta)
 	_update_camera_zoom(delta / maxf(0.001, Engine.time_scale))
 
