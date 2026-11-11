@@ -30,11 +30,15 @@ const HOUSE_WARNING_GRACE_SECONDS: float = 20.0
 const HOUSE_REPEAT_MSEC: int = 15000
 const TC_IDLE_GRACE_SECONDS: float = 2.0
 const SITE_SEARCH_RADIUS: int = 7
+const MAX_SITE_ANCHORS: int = 6
+const MAX_SITE_CHECKS: int = 140
 const FARM_RING_RADIUS: int = 6
 const UNDO_SECONDS: float = 7.0
 const FARM_AFTER_WORK_SECONDS: float = 30.0
 ## No automatic Farm while this much food is already banked (wood is scarcer).
 const FARM_FOOD_BANK_LIMIT: int = 800
+## Automatic Farms leave this much wood for the player's own plans.
+const FARM_WOOD_RESERVE: int = 100
 const BACK_TO_WORK_TEXT: String = "Back to work · %d · tap"
 const INK := Color("1d2b2c")
 const AMBER := Color("e8bf77")
@@ -57,6 +61,9 @@ var _idle_centers: Array[BuildingBase] = []
 var _tc_busy_at: Dictionary = {}  # instance id -> game_time last seen busy
 var _auto_reseed_applied: bool = false
 var _selection_hooked: bool = false
+var _farm_note_msec: int = -100000
+var _farm_retry_at: float = 0.0
+const RESUME_CACHE_SECONDS: float = 3.0
 var _lures: Array[Dictionary] = []  # {"worker": WeakRef, "boar": WeakRef, "until": game seconds}
 var _lure_poll: float = 0.0
 const LURE_SECONDS: float = 25.0
@@ -170,6 +177,7 @@ func _remember_jobs() -> void:
 				job["target"] = weakref(worker.gather_target) if is_instance_valid(worker.gather_target) else null
 				job["position"] = worker.gather_target.global_position if is_instance_valid(worker.gather_target) else worker.global_position
 				job["worked_at"] = GameManager.game_time
+				job.erase("replacement")
 			else:
 				if worker.current_state == UnitBase.State.IDLE and not job.is_empty():
 					_maybe_found_farm(worker, job)
@@ -201,11 +209,23 @@ func _maybe_found_farm(worker: Villager, job: Dictionary) -> void:
 	if ResourceManager.get_resource(worker.player_owner, "food") >= FARM_FOOD_BANK_LIMIT:
 		job["worked_at"] = -100.0
 		return  # Food is floating: the wood is better spent; this one waits as idle.
-	if not ResourceManager.can_afford(worker.player_owner, BuildingData.get_building_cost(BuildingData.BuildingType.FARM, worker.player_owner)):
-		return  # Retried each second while wood may still arrive.
+	var farm_cost: Dictionary = BuildingData.get_building_cost(BuildingData.BuildingType.FARM, worker.player_owner).duplicate()
+	farm_cost["wood"] = int(farm_cost.get("wood", 0)) + FARM_WOOD_RESERVE
+	if not ResourceManager.can_afford(worker.player_owner, farm_cost):
+		return  # Retried each second while wood may still arrive; never the last of it.
 	job["worked_at"] = -100.0
+	if GameManager.game_time < _farm_retry_at:
+		return  # A crowded base found no ring spot lately; do not search every second.
 	if worker.player_owner == 0:
-		place_farm_for(worker)
+		var placed: bool = place_farm_for(worker)
+		if not placed:
+			_farm_retry_at = GameManager.game_time + 15.0
+		if placed and not NetworkSession.server_mode:
+			var hud: Node = main.get("hud") as Node
+			var now: int = Time.get_ticks_msec()
+			if hud != null and now - _farm_note_msec > 20000:
+				_farm_note_msec = now
+				hud.call("show_notification", "Food ran out · a Farm is going up", Color(0.62, 0.86, 0.6), 3.0)
 	else:
 		_place_for_seat(worker)
 
@@ -253,14 +273,21 @@ func resumable_job(worker: Villager) -> Dictionary:
 	var target: Variant = (job["target"] as WeakRef).get_ref() if job.get("target") is WeakRef else null
 	if is_instance_valid(target) and not FarmPlots.is_fallow(target) and _harvestable(target, worker):
 		return {"kind": "gather", "target": target}
+	# The replacement search walks paths; idle crews are asked about every
+	# half second, so the answer is kept for a few seconds.
+	var cached: Variant = job.get("replacement")
+	if cached is Dictionary and GameManager.game_time - float((cached as Dictionary).get("t", -100.0)) < RESUME_CACHE_SECONDS:
+		var kept: Variant = ((cached as Dictionary)["ref"] as WeakRef).get_ref() if (cached as Dictionary).get("ref") is WeakRef else null
+		return {"kind": "gather", "target": kept} if is_instance_valid(kept) else {}
 	var map: Node2D = _map()
 	if map == null or not map.has_method("get_nearest_reachable_resource_node"):
 		return {}
 	var origin: Vector2 = job.get("position", worker.global_position)
 	var replacement: Node2D = map.call("get_nearest_reachable_resource_node", resource, origin, worker.player_owner, {}, worker) as Node2D
-	if replacement == null or replacement.global_position.distance_to(origin) > 12.0 * MapData.TILE_WIDTH:
-		return {}
-	return {"kind": "gather", "target": replacement}
+	if replacement != null and replacement.global_position.distance_to(origin) > 12.0 * MapData.TILE_WIDTH:
+		replacement = null
+	job["replacement"] = {"t": GameManager.game_time, "ref": weakref(replacement) if replacement != null else null}
+	return {"kind": "gather", "target": replacement} if replacement != null else {}
 
 
 func _harvestable(target: Node2D, worker: Villager) -> bool:
@@ -640,11 +667,10 @@ func find_site(building_type: int, owner: int, anchors: Array = []) -> Variant:
 		for entry: Variant in _buildings_of(owner):
 			if is_instance_valid(entry) and entry is BuildingBase and (entry as BuildingBase).building_type == BuildingData.BuildingType.TOWN_CENTER and (entry as BuildingBase).state == BuildingBase.State.ACTIVE:
 				anchors.append(entry)
-	var best: Variant = null
-	var best_score: float = INF
+	var candidates: Array = []
 	var seen: Dictionary = {}
 	var anchor_rank: int = 0
-	for anchor: Variant in anchors:
+	for anchor: Variant in anchors.slice(0, MAX_SITE_ANCHORS):
 		if not is_instance_valid(anchor):
 			continue
 		var origin: Vector2i = map.call("world_to_tile", (anchor as Node2D).global_position)
@@ -653,20 +679,35 @@ func find_site(building_type: int, owner: int, anchors: Array = []) -> Variant:
 		for dy: int in range(-SITE_SEARCH_RADIUS - footprint.y, anchor_size.y + SITE_SEARCH_RADIUS + 1):
 			for dx: int in range(-SITE_SEARCH_RADIUS - footprint.x, anchor_size.x + SITE_SEARCH_RADIUS + 1):
 				var tile: Vector2i = origin + Vector2i(dx, dy)
-				if seen.has(tile):
-					continue
-				seen[tile] = true
 				var gap: float = _rect_gap(Rect2i(origin, anchor_size), Rect2i(tile, footprint))
-				var score: float = gap + rank_penalty + float(anchor_rank) * 0.25 + _clutter_penalty(map, tile, footprint)
-				if score >= best_score:
+				if gap < float(BuildingData.BUILDING_CLEARANCE_TILES):
+					continue  # Overlaps the anchor or its path ring.
+				var score: float = gap + rank_penalty + float(anchor_rank) * 0.25
+				if seen.has(tile) and float(seen[tile]) <= score:
 					continue
-				if not bool(placement.call("revalidate_confirmation", building_type, map.call("tile_to_world", tile), owner)):
-					continue
-				best_score = score
-				best = tile
+				seen[tile] = score
 		anchor_rank += 1
-		if best != null and anchor_rank >= 4:
+	for tile: Variant in seen:
+		candidates.append([float(seen[tile]), tile])
+	candidates.sort_custom(func(a: Array, b: Array) -> bool: return a[0] < b[0])
+	# Cheapest first; the expensive placement check runs on a bounded number
+	# of the best-scored tiles (a crowded base must never stall a frame).
+	var best: Variant = null
+	var best_score: float = INF
+	var checks: int = 0
+	for entry: Array in candidates:
+		var base_score: float = entry[0]
+		if base_score >= best_score or checks >= MAX_SITE_CHECKS:
 			break
+		var tile: Vector2i = entry[1]
+		var score: float = base_score + _clutter_penalty(map, tile, footprint)
+		if score >= best_score:
+			continue
+		checks += 1
+		if not bool(placement.call("revalidate_confirmation", building_type, map.call("tile_to_world", tile), owner)):
+			continue
+		best_score = score
+		best = tile
 	return best
 
 
