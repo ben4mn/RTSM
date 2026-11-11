@@ -141,6 +141,8 @@ func _run() -> void:
 	if fallow == null or growing == null:
 		await _finish()
 		return
+	# Auto-reseed is on by default for the player (H); a fallow field needs it off.
+	FarmPlots.set_auto_reseed(0, false)
 	FarmPlots.take(fallow, fallow.farm_food_remaining)
 	check(fallow.farm_fallow and fallow.farm_food_remaining == 0, "the first Farm is fallow")
 	FarmPlots.take(growing, 41)
