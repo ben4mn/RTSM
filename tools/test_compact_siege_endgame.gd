@@ -13,7 +13,9 @@ func _ready() -> void:
 func _run() -> void:
 	AudioManager.set_all_enabled(false)
 	GameManager.guided_opening_enabled = false
-	GameManager.selected_population_limit = 20 if easy_cap_fixture else 30
+	# Easy's fixture uses the smallest offered cap (20 is no longer an option
+	# and would fall back to the 80-body default, outside the compact policy).
+	GameManager.selected_population_limit = SkirmishData.POPULATION_OPTIONS.min() if easy_cap_fixture else 30
 	GameManager.selected_difficulty = 0 if easy_cap_fixture else 1
 	GameManager.selected_map_seed = 42
 	main = load("res://scenes/main/main.tscn").instantiate()
@@ -37,7 +39,7 @@ func _run() -> void:
 	var worker_pop: int = int(UnitData.UNITS[UnitData.UnitType.VILLAGER].pop_cost)
 	var escort_pop: int = int(UnitData.UNITS[UnitData.UnitType.INFANTRY].pop_cost)
 	# The current roster already owns one Scout. Buy only missing capacity and
-	# leave the real three-pop Siege slot, including at Easy's twenty-pop cap.
+	# leave the real Siege population slot, including at Easy's smallest cap.
 	var desired_workers: int = mini(ai._get_target_villager_count(), floori(float(limit - siege_pop - scout_pop - escorts * escort_pop) / worker_pop))
 	for index: int in maxi(0, desired_workers - ai._get_villagers().size()):
 		_expect(tc.get_production_queue().enqueue_unit(UnitData.UnitType.VILLAGER), "paid workforce trains")

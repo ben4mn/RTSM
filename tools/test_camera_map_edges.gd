@@ -101,14 +101,21 @@ func _run() -> void:
 				_expect(int(game_map.call("get_camera_interaction_revision")) == revision + 1, "real Center input increments interaction revision exactly once")
 				var top: float = (hud.get_node("Root/TopBar") as Control).get_global_rect().end.y + 8.0
 				var selection_panel: Control = hud.get("selection_panel")
-				var field_bottom: float = minf(safe.end.y - 80.0, selection_panel.get_global_rect().position.y - 8.0)
+				# Joy pass: five 1.3x workers. The playable field is the safe area
+				# below the top rail and above the selection card; every actual
+				# HUD card (dock, minimap, toasts) must also leave each worker clear.
+				var field_bottom: float = minf(safe.end.y - 8.0, selection_panel.get_global_rect().position.y - 4.0)
 				var field := Rect2(Vector2(safe.position.x + 8.0, top), Vector2(safe.size.x - 16.0, field_bottom - top))
+				var occluders: Array[Rect2] = hud.call("get_world_occlusion_rects")
 				var visible: int = 0
 				var bounds: Array[String] = []
 				for worker: Node2D in workers:
 					var projected: Rect2 = _visual_bounds(worker)
 					bounds.append(str(projected))
-					if field.grow(0.5).encloses(projected):
+					var covered: bool = false
+					for occluder: Rect2 in occluders:
+						covered = covered or occluder.intersects(projected)
+					if field.grow(0.5).encloses(projected) and not covered:
 						visible += 1
 				_expect(visible == workers.size(), "Center must fit all selected worker sprites/rings in playable field at %s scale%.2f zoom%.2f: %s in %s" % [phone, interface_scale, zoom, bounds, field])
 				_records.append({"phone": str(phone), "ui_scale": interface_scale, "synthetic_notch": interface_scale > 1.0, "safe_area": str(safe), "hud_safe_left": metrics["safe_left"], "hud_safe_right": metrics["safe_right"], "build_control": str(build_button.get_global_rect()), "zoom": zoom, "field": str(field), "worker_bounds": bounds, "workers_fully_inside": visible, "workers": workers.size(), "desired_center": str(_worker_center(workers)), "target_focus": str(camera.position), "rendered_focus": str(camera.get_screen_center_position()), "physical_limits": [camera.limit_left, camera.limit_top, camera.limit_right, camera.limit_bottom]})
@@ -128,7 +135,7 @@ func _run() -> void:
 		hashes[path] = FileAccess.get_sha256("res://" + path)
 	var mode: String = "native" if _render else "headless"
 	var file := FileAccess.open(OUTPUT + "/" + _phase + "-" + mode + "-camera-edges.json", FileAccess.WRITE)
-	file.store_string(JSON.stringify({"scope": "Real Main natural 4-worker corner arrival; actual Center input, keyboard pan via runtime handler; live window resize; all runtime limits intact. Synthetic phone/notch/layout; no physical-device or human result.", "source_sha256": hashes, "rendered": _render, "records": _records, "pan_records": _pan_records, "resize_records": _resize_records, "failures": _failures}, "  "))
+	file.store_string(JSON.stringify({"scope": "Real Main natural 5-worker corner arrival; actual Center input, keyboard pan via runtime handler; live window resize; all runtime limits intact. Synthetic phone/notch/layout; no physical-device or human result.", "source_sha256": hashes, "rendered": _render, "records": _records, "pan_records": _pan_records, "resize_records": _resize_records, "failures": _failures}, "  "))
 	for failure: String in _failures:
 		push_error("[FAIL] camera_map_edges: " + failure)
 	if _failures.is_empty():

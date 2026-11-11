@@ -122,7 +122,13 @@ func _guidance_journey(phone: Vector2i, interface_scale: float) -> void:
 func _check_raid_lane(feedback: Control, overview: StrategyOverview) -> void:
 	var safe: Rect2 = _hud.call("get_world_safe_rect")
 	var bounds: Array[Rect2] = feedback.call("get_visible_bounds")
-	_expect(bounds.size() == 2, "management lost an attack location")
+	# Two attack cards, plus the town bell's response plate beside them when
+	# it is offered (garrison/bell); every one must stay reachable.
+	var plates: int = 0
+	for entry: Dictionary in (feedback.get("_responses") as Dictionary).values():
+		if is_instance_valid(entry.get("button")) and (entry.get("button") as Button).is_visible_in_tree():
+			plates += 1
+	_expect((feedback.get("fronts") as Array).size() == 2 and bounds.size() == 2 + plates, "management lost an attack location: %d bounds, %d fronts, %d plates" % [bounds.size(), (feedback.get("fronts") as Array).size(), plates])
 	for rectangle: Rect2 in bounds:
 		_expect(safe.encloses(rectangle) and rectangle.size.x >= 48.0 and rectangle.size.y >= 48.0, "raid response target is unsafe or too small")
 		_expect(not rectangle.intersects(overview.panel.get_global_rect()) and not rectangle.intersects(overview.rail.get_global_rect()), "management covers a raid response target")

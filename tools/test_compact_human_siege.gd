@@ -42,7 +42,7 @@ func _run() -> void:
 	for failure: String in _failures:
 		push_error("[FAIL] compact_human_siege: " + failure)
 	if _failures.is_empty():
-		print("[PASS] compact_human_siege: %d checks;20/30/40 population; Dark/Feudal locked Castle card, shortage guard, actual touch swipe/card/Place/Train; paid natural Workshop labor and one Siege/3-pop reservation per match" % _checks)
+		print("[PASS] compact_human_siege: %d checks;20/30/40 population; Dark/Feudal locked Castle card, shortage guard, actual touch swipe/card/Place/Train; paid natural Workshop labor and one Siege pop-cost reservation per match" % _checks)
 	get_tree().quit(0 if _failures.is_empty() else 1)
 
 
@@ -179,13 +179,14 @@ func _paid_mobile_workshop(population: int) -> void:
 	await _touch_button(recruit)
 	_check_spend(before, UnitData.get_unit_cost(UnitData.UnitType.SIEGE), label + " Siege queue")
 	_expect(workshop.get_production_queue().get_queue_size() == 1, label + " real Train touch buys exactly one queue item")
-	_expect(GameManager.get_committed_population(0) == before_committed + 3, label + " paid Siege reserves three population")
+	var siege_pop: int = int(UnitData.UNITS[UnitData.UnitType.SIEGE]["pop_cost"])
+	_expect(GameManager.get_committed_population(0) == before_committed + siege_pop, label + " paid Siege reserves its population cost")
 	var deadline: float = GameManager.game_time + 60.0
 	var wall_deadline: int = Time.get_ticks_msec() + 20000
 	while _role_count(UnitData.UnitType.SIEGE) == before_units and GameManager.game_time < deadline and Time.get_ticks_msec() < wall_deadline:
 		await get_tree().process_frame
 	_expect(_role_count(UnitData.UnitType.SIEGE) == before_units + 1, label + " unchanged normal queue births exactly one Siege")
-	_expect(GameManager.get_committed_population(0) == before_committed + 3, label + " birth converts reservation without extra population")
+	_expect(GameManager.get_committed_population(0) == before_committed + siege_pop, label + " birth converts reservation without extra population")
 	for unit: Node in _main.get("_player_units")[0]:
 		if unit.unit_type == UnitData.UnitType.SIEGE:
 			_expect(map.is_tile_walkable(map.world_to_tile(unit.global_position)), label + " paid Siege emerges on walkable ground")

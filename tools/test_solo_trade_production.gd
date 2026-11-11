@@ -32,6 +32,11 @@ func _post() -> BuildingBase:
 		if building.building_type == BuildingData.BuildingType.TRADE_POST: return building
 	return null
 
+## Population one Trader occupies (read from data; one body since Round 2 E).
+func _pop() -> int:
+	return int(UnitData.UNITS[UnitData.UnitType.TRADER]["pop_cost"])
+
+
 func _traders() -> Array[Trader]:
 	var result: Array[Trader] = []
 	for unit: UnitBase in main._player_units[0]:
@@ -67,6 +72,10 @@ func _run() -> void:
 	check(ResourceManager.try_spend(0, BuildingData.get_building_cost(BuildingData.BuildingType.TRADE_POST)), "post costs its normal 200 wood")
 	var post: BuildingBase = main._spawn_building(BuildingData.BuildingType.TRADE_POST, 0, center)
 	post.complete_instantly()
+	# Five Villagers and a Scout nearly fill the opening housing; one real
+	# House (saved like any building) makes room for the three Traders.
+	var house: BuildingBase = main._spawn_building(BuildingData.BuildingType.HOUSE, 0, center + Vector2i(0, 6))
+	house.complete_instantly()
 	var queue: ProductionQueue = post.get_production_queue() as ProductionQueue
 	var bank: Dictionary = ResourceManager.get_all_resources(0)
 	var population: int = int(GameManager.players[0].population)
@@ -81,12 +90,12 @@ func _run() -> void:
 	paid_bank.gold -= 40
 	check(ResourceManager.get_all_resources(0) == paid_bank, "Trader charges exactly 60 wood and 40 gold once")
 	check(queue.queue == [UnitData.UnitType.TRADER] and queue.is_training, "finite queue starts the actual Trader")
-	check(int(GameManager.players[0].population) == population and GameManager.get_reserved_population(0) == 2, "queued Trader reserves two population without spawning")
+	check(int(GameManager.players[0].population) == population and GameManager.get_reserved_population(0) == _pop(), "queued Trader reserves its population without spawning")
 	main._advance_production_queues(queue.current_train_time - 0.01)
 	check(_traders().is_empty(), "Trader cannot spawn before production completes")
 	main._advance_production_queues(0.02)
 	check(_traders().size() == 1, "normal Main queue advancement spawns exactly one actual Trader")
-	check(int(GameManager.players[0].population) == population + 2 and GameManager.get_reserved_population(0) == 0, "completion converts reservation into exactly two live population")
+	check(int(GameManager.players[0].population) == population + _pop() and GameManager.get_reserved_population(0) == 0, "completion converts reservation into exactly its live population")
 	check(ResourceManager.get_all_resources(0) == paid_bank and queue.queue.is_empty(), "completion neither charges again nor retains a repeat order")
 	if not _traders().is_empty():
 		check(_traders()[0].trade_route_active, "new Trader automatically starts the producer's reachable trade route")
@@ -105,13 +114,13 @@ func _run() -> void:
 	post = _post()
 	queue = post.get_production_queue() as ProductionQueue if post != null else null
 	check(queue != null and queue.queue.size() == 1 and is_equal_approx(queue.current_progress, 7.0), "resumed Trade Post retains exact paid queue progress")
-	check(_traders().size() == 1 and ResourceManager.get_all_resources(0) == paid_bank and GameManager.get_reserved_population(0) == 2, "resume does not respawn, repay or lose reserved population")
+	check(_traders().size() == 1 and ResourceManager.get_all_resources(0) == paid_bank and GameManager.get_reserved_population(0) == _pop(), "resume does not respawn, repay or lose reserved population")
 	if queue == null:
 		await _finish()
 		return
 	main._advance_production_queues(queue.current_train_time - queue.current_progress + 0.01)
 	main._advance_production_queues(100.0)
-	check(_traders().size() == 2 and int(GameManager.players[0].population) == population + 4 and GameManager.get_reserved_population(0) == 0, "resumed paid Trader completes once with exact population")
+	check(_traders().size() == 2 and int(GameManager.players[0].population) == population + 2 * _pop() and GameManager.get_reserved_population(0) == 0, "resumed paid Trader completes once with exact population")
 	check(ResourceManager.get_all_resources(0) == paid_bank, "resumed production never repurchases the Trader")
 	# beta.13 and earlier checkpoints contain a valid post record without a queue.
 	var legacy: Dictionary = STATE.new().capture(main)
@@ -129,7 +138,7 @@ func _run() -> void:
 	check(queue != null and queue.queue.is_empty(), "old saved post acquires the fixed scene's empty production queue")
 	check(_traders().size() == 2 and ResourceManager.get_all_resources(0) == paid_bank, "legacy restore preserves existing Traders and bank")
 	main._on_train_unit_requested(post, UnitData.UnitType.TRADER)
-	check(main._last_train_request_result == "queued" and GameManager.get_reserved_population(0) == 2, "previously saved post can buy a new Trader normally")
+	check(main._last_train_request_result == "queued" and GameManager.get_reserved_population(0) == _pop(), "previously saved post can buy a new Trader normally")
 	if queue != null: queue.cancel_all()
 	check(ResourceManager.get_all_resources(0) == paid_bank and GameManager.get_reserved_population(0) == 0, "cancelling restored post's finite purchase refunds exact cost and population")
 	# The authoritative command adapter uses the same scene queue. This is an
@@ -152,10 +161,10 @@ func _run() -> void:
 	check(server.execute_command(0, command).is_empty(), "authority accepts owned post's actual paid training command")
 	paid_bank.wood -= 60
 	paid_bank.gold -= 40
-	check(ResourceManager.get_all_resources(0) == paid_bank and queue.queue.size() == 1 and GameManager.get_reserved_population(0) == 2, "authority charges one normal Trader purchase with two reserved population")
+	check(ResourceManager.get_all_resources(0) == paid_bank and queue.queue.size() == 1 and GameManager.get_reserved_population(0) == _pop(), "authority charges one normal Trader purchase with its reserved population")
 	main._advance_production_queues(queue.current_train_time + 0.01)
 	main._advance_production_queues(100.0)
-	check(_traders().size() == 3 and int(GameManager.players[0].population) == population + 6 and GameManager.get_reserved_population(0) == 0, "authority queue completion spawns one Trader without repeat or lost population")
+	check(_traders().size() == 3 and int(GameManager.players[0].population) == population + 3 * _pop() and GameManager.get_reserved_population(0) == 0, "authority queue completion spawns one Trader without repeat or lost population")
 	check(ResourceManager.get_all_resources(0) == paid_bank and ResourceManager.get_all_resources(1) == other_bank, "authority completion has no second charge or foreign bank effects")
 	NetworkSession.online = false
 	NetworkSession.server_mode = false

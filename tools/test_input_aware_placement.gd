@@ -75,12 +75,16 @@ func _exercise(viewport_size: Vector2i) -> void:
 	_expect(bool(palette.get("visible")), "mouse Build did not open the palette")
 	await _mouse_click((palette.get("_button_map")[BuildingData.BuildingType.HOUSE] as Button).get_global_rect().get_center())
 	_expect(_placement.active, "mouse House card did not begin placement")
-	_expect(not _placement.uses_touch_input(), "mouse card's emulated touch changed input mode")
-	_assert_mouse_ui()
-	_expect(str(_main.get("_first_session_hint_text")).contains("Click clear ground"), "House guide does not say mouse click places immediately")
 	_expect(ResourceManager.get_all_resources(0) == resources_before, "House card spent resources before placement")
+	# H (G1): placement starts in the device's touch language whenever touch is
+	# available (Godot reports it under mouse-to-touch emulation too); the first
+	# real mouse movement switches it to mouse instructions.
 	var valid_world: Vector2 = _placement.ghost_position
 	var screen: Vector2 = _placement.get_canvas_transform() * valid_world
+	await _mouse_motion(screen)
+	_expect(not _placement.uses_touch_input(), "genuine mouse movement did not switch the card's placement to mouse")
+	_assert_mouse_ui()
+	_expect(str(_main.get("_first_session_hint_text")).contains("Click clear ground"), "House guide does not say mouse click places immediately")
 	var emulated_touch := InputEventScreenTouch.new()
 	emulated_touch.device = InputEvent.DEVICE_ID_EMULATION
 	emulated_touch.pressed = true
@@ -88,36 +92,25 @@ func _exercise(viewport_size: Vector2i) -> void:
 	get_viewport().push_input(emulated_touch, true)
 	await _frames()
 	_expect(not _placement.uses_touch_input(), "emulated touch changed the real mouse instructions")
+	_expect(_placement.active and ResourceManager.get_all_resources(0) == resources_before, "emulated touch purchased a foundation")
+	# H (G1): the first real ground tap places, even the one that switches from mouse.
 	await _touch(screen, true)
 	await _touch(screen, false)
-	_expect(str(_main.get("_first_session_hint_text")).contains("tap Place") or str(_main.get("_first_session_hint_text")).contains("Tap open ground"), "House instructions did not switch to touch placement")
-	_expect(_placement.active and ResourceManager.get_all_resources(0) == resources_before, "switching House instructions to touch purchased a foundation")
-	await _mouse_motion(screen)
-	_expect(str(_main.get("_first_session_hint_text")).contains("Click clear ground"), "House instructions did not switch back to mouse")
-	await _mouse_click(screen)
-	_expect(not _placement.active, "one instructed mouse click did not finish placement")
-	_expect(_main.get("_player_buildings")[0].size() == buildings_before + 1, "one mouse click did not create exactly one foundation")
-	_assert_cost(resources_before, house_cost, "mouse click")
-	_expect(production.get_queue_size() == 0, "literal mouse instructions accidentally trained a unit")
+	_expect(not _placement.active, "first real ground tap did not place")
+	_expect(_main.get("_player_buildings")[0].size() == buildings_before + 1, "first ground tap did not create exactly one foundation")
+	_assert_cost(resources_before, house_cost, "first ground tap")
+	_expect(production.get_queue_size() == 0, "placement tap accidentally trained a unit")
 
-	# Switch from mouse to touch while a preview is active. The first touch is
-	# at the future Place button position, which was invisible at touch-down.
+	# Touch placement with the explicit Place button: a positioning drag moves
+	# the preview without buying; Place confirms exactly once.
 	_main.call("_on_building_selected_for_placement", BuildingData.BuildingType.HOUSE)
-	_assert_mouse_ui()
 	resources_before = ResourceManager.get_all_resources(0).duplicate()
 	buildings_before = _main.get("_player_buildings")[0].size()
 	var place_button: Button = _hud.get("_placement_confirm_button") as Button
-	_hud.call("set_placement_input_mode", true)
 	await _frames()
-	var future_button_position: Vector2 = place_button.get_global_rect().get_center()
-	_hud.call("set_placement_input_mode", false)
-	await _frames()
-	await _touch(future_button_position, true)
-	await _touch(future_button_position, false)
-	_expect(_placement.uses_touch_input(), "touch did not switch the active input")
+	_expect(_placement.uses_touch_input(), "touch placement forgot its last touch input")
 	_expect(place_button.is_visible_in_tree(), "touch did not expose explicit Place")
-	_expect(_placement.active and _main.get("_player_buildings")[0].size() == buildings_before, "first touch activated an initially invisible Place action")
-	_expect(ResourceManager.get_all_resources(0) == resources_before, "first touch purchased a foundation")
+	_expect(_placement.active and ResourceManager.get_all_resources(0) == resources_before, "starting touch placement purchased a foundation")
 	valid_world = _placement.call("_find_initial_preview_position", valid_world)
 	_placement.update_preview_at_world(valid_world)
 	await _frames()
@@ -162,6 +155,9 @@ func _exercise(viewport_size: Vector2i) -> void:
 	_placement.update_preview_at_world(_map.call("tile_to_world", Vector2i(-2, -2)))
 	_expect(not _placement.confirm_preview(), "invalid ground confirmed")
 	_expect(_placement.active, "invalid confirmation canceled the inspectable preview")
+	# The placement bar relayouts when its Place button appears; tap Cancel
+	# where it is drawn after that frame, as a player would.
+	await _frames()
 	await _touch((_hud.get("_placement_cancel_button") as Button).get_global_rect().get_center(), true)
 	await _touch((_hud.get("_placement_cancel_button") as Button).get_global_rect().get_center(), false)
 	_expect(not _placement.active, "Cancel failed after input switching")
