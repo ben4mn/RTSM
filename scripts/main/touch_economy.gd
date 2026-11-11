@@ -33,6 +33,8 @@ const SITE_SEARCH_RADIUS: int = 7
 const FARM_RING_RADIUS: int = 6
 const UNDO_SECONDS: float = 7.0
 const FARM_AFTER_WORK_SECONDS: float = 30.0
+## No automatic Farm while this much food is already banked (wood is scarcer).
+const FARM_FOOD_BANK_LIMIT: int = 800
 const BACK_TO_WORK_TEXT: String = "Back to work · %d · tap"
 const INK := Color("1d2b2c")
 const AMBER := Color("e8bf77")
@@ -196,6 +198,9 @@ func _maybe_found_farm(worker: Villager, job: Dictionary) -> void:
 		return  # Reseeding (FarmPlots) owns a fallow Farm's farmer.
 	if not resumable_job(worker).is_empty():
 		return
+	if ResourceManager.get_resource(worker.player_owner, "food") >= FARM_FOOD_BANK_LIMIT:
+		job["worked_at"] = -100.0
+		return  # Food is floating: the wood is better spent; this one waits as idle.
 	if not ResourceManager.can_afford(worker.player_owner, BuildingData.get_building_cost(BuildingData.BuildingType.FARM, worker.player_owner)):
 		return  # Retried each second while wood may still arrive.
 	job["worked_at"] = -100.0

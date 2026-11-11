@@ -666,6 +666,19 @@ func _handle_tap(screen_pos: Vector2, is_touch_input: bool, pressed_unit: Node2D
 	if retained_unit:
 		tapped_node = pressed_unit
 	var resource_node: Node2D = _get_resource_at(world_pos, is_touch_input)
+	# H (G1): with a group selected, a tap that lands on one of its own members
+	# (a crowd, a walker crossing the spot) is an order to that spot, not a
+	# request to shrink the army to that one soldier. Type chips and double
+	# tap still narrow the selection on purpose.
+	if is_touch_input and not unit_command_armed and selected.size() >= 2 and tapped_node is UnitBase \
+			and selected.has(tapped_node) and not _is_enemy(tapped_node) and not (tapped_node is Villager and resource_node != null):
+		var group_soldiers: int = 0
+		for entry: Node2D in selected:
+			if entry is UnitBase and not entry is Villager:
+				group_soldiers += 1
+		if group_soldiers >= 2:
+			tapped_node = null
+			retained_unit = false
 	# The explicit flag owns one destination, even if a friendly worker stands
 	# on the resource. Existing gather/move handlers retain authority and costs.
 	if is_building_rally_armed():
@@ -817,6 +830,14 @@ func _handle_tap(screen_pos: Vector2, is_touch_input: bool, pressed_unit: Node2D
 		return
 
 	if tapped_node != null:
+		if is_touch_input and tapped_node is BuildingBase and selected.size() == 1 and selected[0] == tapped_node:
+			# H: tapping the selected building again puts it away. On a phone a
+			# ground tap with a producer selected sets its rally, so this is the
+			# one-tap way back to the Build button.
+			_record_touch_input(screen_pos, world_pos, "deselect", tapped_node, resource_node)
+			_clear_selection()
+			get_viewport().set_input_as_handled()
+			return
 		if selected.size() > 0 and _is_enemy(tapped_node):
 			# Attack command.
 			_record_touch_input(screen_pos, world_pos, "attack", tapped_node, resource_node)
