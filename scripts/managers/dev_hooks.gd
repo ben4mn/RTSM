@@ -15,9 +15,9 @@ const DIFFICULTY_IDS: Dictionary = {"easy": 0, "medium": 1, "hard": 2}
 const MAP_IDS: Dictionary = {"open_plains": 0, "river_crossings": 1, "woodland_flanks": 2}
 const RESOURCES: Array[String] = ["food", "wood", "gold"]
 const UNDER_ATTACK_COOLDOWN: float = 10.0
-const COMMANDS: Array[String] = ["camera_to", "set_speed", "pause", "reveal_map", "give", "spawn", "age", "build", "screenshot_safe_ui", "perf", "motion", "order", "probe"]
+const COMMANDS: Array[String] = ["camera_to", "set_speed", "pause", "reveal_map", "give", "spawn", "age", "build", "screenshot_safe_ui", "perf", "motion", "order", "probe", "wildlife"]
 ## Read-only commands that are polled often and stay out of the event log.
-const QUIET_COMMANDS: Array[String] = ["probe"]
+const QUIET_COMMANDS: Array[String] = ["probe", "wildlife"]
 
 static var _dev_checked: bool = false
 static var _dev_enabled: bool = false
@@ -376,6 +376,22 @@ func run_command(command: String, arguments: Array) -> Dictionary:
 	if not QUIET_COMMANDS.has(command):
 		log_event("dev_cmd", {"cmd": command})
 	return result
+
+
+## Read-only herd state (L1): every live animal as {id, kind, tile, owner,
+## pastured, following, leader (unit instance id or 0), slot, walking}.
+func _cmd_wildlife(_arguments: Array, named: Dictionary = {}) -> Dictionary:
+	var director: WildlifeDirector = WildlifeDirector.of(match_scene.game_map)
+	if director == null:
+		return {"error": "no wildlife"}
+	var kind: String = str(named.get("kind", ""))
+	var rows: Array = []
+	for node: WildlifeNode in director.get_nodes(kind):
+		var leader: UnitBase = node.get_leader()
+		rows.append({"id": node.wildlife_id, "kind": node.kind, "tile": _tile_of(node.global_position), "owner": node.owner_id,
+			"pastured": node.pasture_owner == node.owner_id and node.owner_id >= 0, "following": node.is_following(),
+			"leader": leader.get_instance_id() if leader != null else 0, "slot": node.follow_slot, "walking": node.is_walking()})
+	return {"ok": true, "animals": rows}
 
 
 ## Read-only: where things are drawn on the page (CSS pixels) plus the last

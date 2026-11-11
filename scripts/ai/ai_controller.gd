@@ -154,6 +154,11 @@ static var _TRACE: bool = OS.get_environment("AOEM_AI_TRACE") == "1"  # telemetr
 var _trace_bucket: int = -1
 var _last_scout_order_time: float = -INF
 const SCOUT_REPLACEMENT_SECONDS: float = 120.0
+## L1 herding: the Scout looks for stray sheep this long into the match, this
+## many tiles from home (strays are placed 15-19 tiles out).
+const SHEEP_SWEEP_SECONDS: float = 300.0
+const SHEEP_SWEEP_RADIUS_TILES: float = 24.0
+var _sheep_sweep_target: WeakRef = null
 
 # ── Difficulty tuning tables ─────────────────────────────────────────────
 const DECISION_INTERVALS: Dictionary = {
@@ -2780,6 +2785,10 @@ func _check_scouting() -> void:
 		# base defense still releases this list and recalls every military unit.
 		_objective_units = scouts.duplicate()
 	for unit in scouts:
+		# L1 herding: early on the Scout first rounds up stray sheep it can see
+		# near home and leads them back (the flock follows it in by itself).
+		if _herd_sheep_with_scout(unit as UnitBase):
+			continue
 		if hold_before_objective:
 			_objective_scout_sent = true
 			_objective_mode = ObjectiveMode.SCOUT
@@ -2807,6 +2816,57 @@ func _check_scouting() -> void:
 		var target: Vector2 = _scout_waypoints[_next_scout_waypoint_index % _scout_waypoints.size()]
 		_next_scout_waypoint_index = (_next_scout_waypoint_index + 1) % _scout_waypoints.size()
 		unit.command_move(target)
+
+
+## Returns true while the Scout is busy herding. It walks to the nearest stray
+## sheep it can currently see on its own half (claiming makes it follow), and
+## with a flock in tow rides home until the director hands the flock over at
+## the Town Center. Searching stops after SHEEP_SWEEP_SECONDS or under
+## pressure; a flock already in tow is always brought home.
+func _herd_sheep_with_scout(scout: UnitBase) -> bool:
+	if scout == null or not is_instance_valid(scout) or scout.current_state == UnitBase.State.DEAD or game_map == null:
+		return false
+	var director: WildlifeDirector = WildlifeDirector.of(game_map)
+	if director == null or _base_position == Vector2.ZERO:
+		return false
+	if director.count_followers(scout) > 0:
+		if _is_under_pressure:
+			return false
+		if WildlifeData.tile_distance(scout.global_position, _base_position) > float(WildlifeData.FOLLOW_DELIVER_RADIUS_TILES):
+			if scout.current_state == UnitBase.State.IDLE or scout.move_target.distance_to(_base_position) > 96.0:
+				scout.command_move(_base_position)
+			return true
+		_sheep_sweep_target = null
+		return false
+	if _game_time > SHEEP_SWEEP_SECONDS or _is_under_pressure:
+		return false
+	var target: WildlifeNode = _sheep_sweep_target.get_ref() as WildlifeNode if _sheep_sweep_target != null else null
+	if target == null or not is_instance_valid(target) or target.owner_id >= 0 or not target.is_alive():
+		target = _find_sweep_sheep(director, scout)
+		_sheep_sweep_target = weakref(target) if target != null else null
+	if target == null:
+		return false
+	if scout.current_state == UnitBase.State.IDLE or scout.move_target.distance_to(target.global_position) > 48.0:
+		scout.command_move(target.global_position)
+	return true
+
+
+func _find_sweep_sheep(director: WildlifeDirector, scout: UnitBase) -> WildlifeNode:
+	var enemy_base: Vector2 = _tile_to_world(_get_symmetric_enemy_spawn_tile()) if map_generator else Vector2(INF, INF)
+	var best: WildlifeNode = null
+	var best_distance: float = INF
+	for node: WildlifeNode in director.get_nodes(WildlifeData.SHEEP):
+		if node.owner_id >= 0 or not node.is_alive() or not game_map.is_resource_target_visible_to_player(node, player_id):
+			continue
+		var from_home: float = WildlifeData.tile_distance(node.global_position, _base_position)
+		# Only our own side of the map: never a race into the rival's pasture.
+		if from_home > SHEEP_SWEEP_RADIUS_TILES or node.global_position.distance_to(enemy_base) < node.global_position.distance_to(_base_position):
+			continue
+		var distance: float = scout.global_position.distance_to(node.global_position)
+		if distance < best_distance:
+			best_distance = distance
+			best = node
+	return best
 
 
 func _is_sacred_timing_ready() -> bool:

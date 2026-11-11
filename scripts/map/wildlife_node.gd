@@ -51,6 +51,14 @@ var manual_stay: bool = false
 var pasture_owner: int = -1
 var team_color: Color = Color.WHITE
 var last_striker_owner: int = -1
+## Herding (sheep): the director sets the unit this sheep follows and its
+## place in that flock (0 = right behind the leader). Authority only; replicas
+## carry `following_replica` from the snapshot instead.
+var follow_slot: int = 0
+var following_replica: bool = false
+var walk_speed: float = WildlifeData.SHEEP_SPEED
+var _leader_ref: WeakRef = null
+var _follow_stop: float = 0.0
 
 var move_goal: Vector2 = Vector2.ZERO
 var has_goal: bool = false
@@ -271,6 +279,57 @@ func _stop() -> void:
 	_route_index = 0
 
 
+# --- Herding (sheep) ------------------------------------------------------------
+
+func get_leader() -> UnitBase:
+	if _leader_ref == null:
+		return null
+	var leader: Variant = _leader_ref.get_ref()
+	return leader as UnitBase if is_instance_valid(leader) else null
+
+
+func is_following() -> bool:
+	return following_replica if replica else get_leader() != null
+
+
+func start_following(leader: UnitBase, slot: int) -> void:
+	if replica or leader == null:
+		return
+	_leader_ref = weakref(leader)
+	follow_slot = slot
+	manual_stay = false
+	pasture_owner = -1
+
+
+## Leave the flock. `halt` stops on the spot (the leader fell or went inside).
+func stop_following(halt: bool = true) -> void:
+	_leader_ref = null
+	walk_speed = WildlifeData.SHEEP_SPEED
+	_follow_stop = 0.0
+	if halt:
+		_stop()
+
+
+## Head for `goal` at `speed`, stopping as soon as the leader is within
+## `stop_distance` (checked every frame, so the trail never stutters between
+## the director's thinks). A clear straight line skips the route search.
+func follow_to(goal: Vector2, speed: float, stop_distance: float) -> void:
+	if replica or phase != Phase.ALIVE:
+		return
+	walk_speed = speed
+	_follow_stop = stop_distance
+	if is_walking() and move_goal.distance_to(goal) < 10.0:
+		return
+	if game_map != null and game_map.has_method("is_navigation_segment_clear") and bool(game_map.call("is_navigation_segment_clear", global_position, goal, 4.0)):
+		move_goal = goal
+		has_goal = true
+		_route = PackedVector2Array([goal])
+		_route_index = 0
+		_route_refresh = ROUTE_REFRESH_SECONDS
+	elif not walk_to(goal):
+		_stop()
+
+
 func is_walking() -> bool:
 	return has_goal and _route_index < _route.size()
 
@@ -459,14 +518,18 @@ func _process(delta: float) -> void:
 		if kind == WildlifeData.BOAR:
 			_process_boar(delta)
 		elif has_goal and not tended:
-			_route_refresh -= delta
-			if _route_refresh <= 0.0:
-				# A new building may have closed the old route.
-				_route_refresh = ROUTE_REFRESH_SECONDS
-				var goal: Vector2 = move_goal
-				if not walk_to(goal):
-					_stop()
-			_advance_route(delta, WildlifeData.SHEEP_SPEED)
+			var leader: UnitBase = get_leader()
+			if leader != null and global_position.distance_to(leader.global_position) <= _follow_stop:
+				_stop()  # Caught up with the flock's leader: wait here.
+			else:
+				_route_refresh -= delta
+				if _route_refresh <= 0.0:
+					# A new building may have closed the old route.
+					_route_refresh = ROUTE_REFRESH_SECONDS
+					var goal: Vector2 = move_goal
+					if not walk_to(goal):
+						_stop()
+				_advance_route(delta, walk_speed)
 	var travelled: Vector2 = global_position - _last_position
 	_moving = travelled.length() > delta * 2.0 and phase == Phase.ALIVE
 	if _moving and absf(travelled.x) > 0.01 and mood != Mood.ENRAGED:
