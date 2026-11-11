@@ -89,6 +89,8 @@ var camera_speed_scale: float = 1.0
 var ui_scale: float = 1.0
 var _display_window_size: Vector2i = Vector2i.ZERO
 var hold_shortcuts_enabled: bool = true
+## L2: short taps of vibration on key confirmations, where the browser allows.
+var haptics_enabled: bool = true
 var _match_population_limit: int = SkirmishData.DEFAULT_POPULATION_LIMIT
 
 # Population committed to production queues. Reservations are tracked by an
@@ -158,6 +160,7 @@ func _load_preferences() -> void:
 	audio_enabled = bool(config.get_value("accessibility", "audio_enabled", audio_enabled))
 	camera_speed_scale = clampf(float(config.get_value("controls", "camera_speed_scale", camera_speed_scale)), 0.75, 1.25)
 	hold_shortcuts_enabled = bool(config.get_value("controls", "hold_shortcuts_enabled", hold_shortcuts_enabled))
+	haptics_enabled = bool(config.get_value("controls", "haptics_enabled", haptics_enabled))
 	# Mobile controls are authored at a 48px minimum. Scaling below 100% made
 	# those targets physically smaller than the interaction contract.
 	ui_scale = clampf(float(config.get_value("accessibility", "ui_scale", ui_scale)), 1.0, 1.15)
@@ -189,6 +192,7 @@ func save_preferences() -> bool:
 	config.set_value("accessibility", "audio_enabled", audio_enabled)
 	config.set_value("controls", "camera_speed_scale", camera_speed_scale)
 	config.set_value("controls", "hold_shortcuts_enabled", hold_shortcuts_enabled)
+	config.set_value("controls", "haptics_enabled", haptics_enabled)
 	config.set_value("accessibility", "ui_scale", clampf(ui_scale, 1.0, 1.15))
 	config.set_value("audio", "master_volume", master_volume)
 	config.set_value("audio", "sfx_volume", sfx_volume)
@@ -226,6 +230,7 @@ func reset_preferences() -> void:
 	zoom_sensitivity_scale = 1.0
 	ui_scale = 1.0
 	hold_shortcuts_enabled = true
+	haptics_enabled = true
 	reduced_motion = false
 	reduced_flashes = false
 	clearer_player_markers = true

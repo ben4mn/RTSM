@@ -252,10 +252,11 @@ func _build_audio() -> void:
 
 
 func _build_controls() -> void:
-	_note("Tap ground: move · Hold: add waypoint\nHold, pull down: attack-move · Hold, drag: select box\nHold a building, drag: rally · Drag: pan · Pinch: zoom")
+	_note("Tap ground: move · Hold: add waypoint\nHold, pull down: attack-move · Hold, drag: select box\nHold a building, drag: rally · Drag: pan · Pinch: zoom\nBuilding: tap Build under the ghost · drag the ghost to move it")
 	_choice("Pan sensitivity", "camera_speed_scale", ["Relaxed", "Standard", "Fast"], SENSITIVITY_VALUES)
 	_choice("Zoom sensitivity", "zoom_sensitivity_scale", ["Relaxed", "Standard", "Fast"], SENSITIVITY_VALUES)
 	_toggle("Optional hold shortcuts", "hold_shortcuts_enabled")
+	_toggle("Vibration on taps", "haptics_enabled")
 
 
 

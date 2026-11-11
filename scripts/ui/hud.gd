@@ -37,6 +37,7 @@ signal research_requested(building: Node2D, research_id: String)
 signal placement_cancel_requested()
 signal placement_confirm_requested()
 signal placement_find_space_requested()
+signal placement_repeat_requested(building_type: int, anchor: Node2D)
 signal pause_requested()
 signal resume_requested()
 signal quit_to_menu_requested()
@@ -191,6 +192,7 @@ var _placement_cancel_button: Button = null
 var _placement_confirm_button: Button = null
 var _placement_find_space_button: Button = null
 var _placement_assisted_preview: bool = false
+var _placement_ghost_card: PlacementGhostCard = null
 var _placement_status_panel: PanelContainer = null
 var _placement_status_label: Label = null
 var _placement_preview_valid: bool = false
@@ -1504,6 +1506,29 @@ func _ensure_mobile_action_strip() -> void:
 
 	root_ctrl.add_child(_mobile_action_panel)
 
+	# L2: on touch, Build and Cancel ride on the ghost itself.
+	_placement_ghost_card = PlacementGhostCard.new(self)
+	_placement_ghost_card.theme = root_ctrl.theme
+	_placement_ghost_card.confirm_requested.connect(func(): placement_confirm_requested.emit())
+	_placement_ghost_card.cancel_requested.connect(func(): placement_cancel_requested.emit())
+	_placement_ghost_card.repeat_requested.connect(func(building_type: int, anchor: Node2D): placement_repeat_requested.emit(building_type, anchor))
+	root_ctrl.add_child(_placement_ghost_card)
+
+
+func set_placement_ghost_source(placement: BuildingPlacement) -> void:
+	if _placement_ghost_card != null:
+		_placement_ghost_card.set_placement_source(placement)
+
+
+## "+1 House" on a foundation the player just placed (see PlacementGhostCard).
+func offer_placement_repeat(building_type: int, anchor: Node2D) -> void:
+	if _placement_ghost_card != null:
+		_placement_ghost_card.offer_repeat(building_type, anchor)
+
+
+func get_placement_ghost_card() -> PlacementGhostCard:
+	return _placement_ghost_card
+
 
 func _create_idle_villager_button() -> void:
 	_ensure_mobile_action_strip()
@@ -1788,11 +1813,9 @@ func set_placement_mode(active: bool, building_name: String = "") -> void:
 		close_secondary_surface()
 		_cancel_hud_holds("placement")
 	_placement_mode_active = active
-	_placement_cancel_button.visible = active
-	_placement_find_space_button.visible = active
 	if not active:
 		_placement_assisted_preview = false
-	_placement_confirm_button.visible = active and (_placement_uses_touch or _placement_assisted_preview)
+	_sync_placement_bar_buttons()
 	_placement_status_panel.visible = active
 	if _town_center_button:
 		_town_center_button.visible = not active
@@ -1837,7 +1860,9 @@ func update_placement_preview(valid: bool, reason: String = "") -> void:
 		_placement_confirm_button.tooltip_text = "Place %s" % _placement_building_name if _placement_building_name != "" else "Place building"
 		_placement_confirm_button.accessibility_name = _placement_confirm_button.tooltip_text
 	if _placement_status_label:
-		var status: String = ("tap a spot" if _placement_uses_touch else ("click Place" if _placement_assisted_preview else "click a spot")) if valid else (reason if reason != "" else "Choose clear ground")
+		# L2: touch builds from the ghost (its Build button or the ghost itself);
+		# a mouse clicks where the ghost follows it.
+		var status: String = ("tap Build or drag it" if _placement_uses_touch else "click to build · Shift+click for more") if valid else (reason if reason != "" else "Choose clear ground")
 		# Trade planning replaces the generic instruction, keeping one compact
 		# line. The ghost and Place button already identify the building.
 		var previous_status: String = _placement_status_label.text
@@ -1849,10 +1874,21 @@ func update_placement_preview(valid: bool, reason: String = "") -> void:
 	_refresh_touch_target_diagnostics()
 
 
+## L2: the bottom bar no longer carries Place (green check) or Find: the ghost
+## opens on a good spot and its own Build button confirms. A mouse, whose
+## ghost follows the cursor, keeps a bottom Cancel; touch cancels on the ghost.
+func _sync_placement_bar_buttons() -> void:
+	if _placement_confirm_button:
+		_placement_confirm_button.visible = false
+	if _placement_find_space_button:
+		_placement_find_space_button.visible = false
+	if _placement_cancel_button:
+		_placement_cancel_button.visible = _placement_mode_active and not _placement_uses_touch
+
+
 func set_placement_assisted_preview(active: bool) -> void:
 	_placement_assisted_preview = active
-	if _placement_confirm_button:
-		_placement_confirm_button.visible = _placement_mode_active and (_placement_uses_touch or active)
+	_sync_placement_bar_buttons()
 	update_placement_preview(_placement_preview_valid, _placement_preview_reason)
 	if _placement_mode_active:
 		var viewport_size: Vector2 = get_viewport().get_visible_rect().size
@@ -1871,8 +1907,7 @@ func get_placement_search_safe_rect() -> Rect2:
 
 func set_placement_input_mode(uses_touch: bool) -> void:
 	_placement_uses_touch = uses_touch
-	if _placement_confirm_button:
-		_placement_confirm_button.visible = _placement_mode_active and (uses_touch or _placement_assisted_preview)
+	_sync_placement_bar_buttons()
 	update_placement_preview(_placement_preview_valid, _placement_preview_reason)
 	if _placement_mode_active:
 		var viewport_size: Vector2 = get_viewport().get_visible_rect().size
@@ -2506,6 +2541,9 @@ func _refresh_touch_target_diagnostics() -> void:
 	diag["match_population_label"] = _match_population_label.text if _match_population_label else ""
 	diag["advanced_command_buttons"] = _collect_button_diags(_advanced_command_container, "advanced_command")
 	diag["placement_cancel_button"] = _control_touch_diag(_placement_cancel_button, "placement_cancel_button")
+	if _placement_ghost_card != null and _placement_ghost_card.build_button != null:
+		diag["placement_ghost_build_button"] = _control_touch_diag(_placement_ghost_card.build_button, "placement_ghost_build_button")
+		diag["placement_ghost_cancel_button"] = _control_touch_diag(_placement_ghost_card.cancel_button, "placement_ghost_cancel_button")
 	diag["mobile_action_buttons"] = _collect_button_diags(_mobile_action_strip, "mobile_action")
 	diag["unit_command_buttons"] = _collect_button_diags(_unit_command_container, "unit_command")
 	diag["queue_cancel_buttons"] = _collect_button_diags(queue_container, "queue_cancel")
@@ -2654,6 +2692,8 @@ func _refresh_primary_action_visuals() -> void:
 		_find_army_button.modulate = Color.WHITE
 	if _placement_cancel_button:
 		_placement_cancel_button.modulate = Color.WHITE
+	if _placement_ghost_card != null and _placement_ghost_card.cancel_button != null:
+		_placement_ghost_card.cancel_button.modulate = Color.WHITE
 	if _minimap_hint_label:
 		_minimap_hint_label.modulate = Color(1.0, 1.0, 1.0, 1.0 if bool(GameManager.get("reduced_motion")) or bool(GameManager.get("reduced_flashes")) else 0.82 + 0.18 * sin(_focus_pulse_time * 4.0))
 	minimap_bg.color = KingdomTheme.INK_PANEL
@@ -2675,6 +2715,8 @@ func _refresh_primary_action_visuals() -> void:
 			_find_army_button.modulate = Color(1.0, pulse, 0.62, 1.0)
 	elif _primary_action_focus == "placement_cancel" and _placement_cancel_button:
 		_placement_cancel_button.modulate = Color(1.0, pulse, 0.62, 1.0)
+		if _placement_ghost_card != null and _placement_ghost_card.cancel_button != null:
+			_placement_ghost_card.cancel_button.modulate = Color(1.0, pulse, 0.62, 1.0)
 	elif _primary_action_focus == "minimap":
 		minimap_bg.color = Color(0.16, 0.13, 0.055, 0.92)
 
@@ -2694,6 +2736,8 @@ func is_build_menu_open() -> bool:
 
 
 func is_placement_cancel_visible() -> bool:
+	if _placement_ghost_card != null and _placement_ghost_card.is_cancel_visible():
+		return true
 	return _placement_cancel_button != null and _placement_cancel_button.is_visible_in_tree()
 
 

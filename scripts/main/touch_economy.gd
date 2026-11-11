@@ -641,10 +641,24 @@ func place_at(building_type: int, tile: Vector2i, builder: Villager = null, offe
 		main.call("_send_villager_to_build", building)
 	VFX.move_indicator(get_tree(), building.global_position)
 	AudioManager.play_ui("button_click")
-	if offer_undo and hud != null:
-		_undo_toast = "%s placed · tap to undo" % BuildingData.get_building_name(building_type)
-		hud.call("show_notification", _undo_toast, Color(0.62, 0.86, 0.6), UNDO_SECONDS, _undo_placement.bind(weakref(building), tile, cost), 2)
+	if offer_undo:
+		offer_placement_undo(building, tile, cost)
+		# L2: same language as a hand-placed one: "+1 House" on the foundation.
+		if hud != null and hud.has_method("offer_placement_repeat"):
+			hud.call("offer_placement_repeat", building_type, building)
 	return true
+
+
+## L2: every placement by the player (one-tap offers and the ghost) gets the
+## same "tap to undo" toast for a few seconds; undo refunds in full.
+func offer_placement_undo(building: BuildingBase, tile: Vector2i, cost: Dictionary) -> void:
+	var hud: Node = main.get("hud") as Node
+	if hud == null or not is_instance_valid(building):
+		return
+	if not _undo_toast.is_empty():
+		hud.call("dismiss_notification", _undo_toast)
+	_undo_toast = "%s placed · tap to undo" % BuildingData.get_building_name(building.building_type)
+	hud.call("show_notification", _undo_toast, Color(0.62, 0.86, 0.6), UNDO_SECONDS, _undo_placement.bind(weakref(building), tile, cost), 2)
 
 
 func _undo_placement(building_ref: WeakRef, tile: Vector2i, cost: Dictionary) -> void:

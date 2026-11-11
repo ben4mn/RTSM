@@ -338,7 +338,7 @@ func _build_info(building_type: int) -> Dictionary:
 		lines.append("Build away from your Town Center. The preview estimates gold per trip; a clear road is still needed. Train Traders here: gold arrives only after they return to town. Defend the road or lose the cargo.")
 	if int(stats.get("age_required", 0)) <= _current_age and _can_afford(stats.get("cost", {})):
 		lines.append("Close this panel and turn off Info to choose a placement." if _info_mode else "Tap the card to preview a placement.")
-	lines.append("Place spends the cost; Cancel spends nothing.")
+	lines.append("Build spends the cost; Cancel spends nothing.")
 	lines.append("Card cost key: F = Food · W = Wood · G = Gold.")
 	return {"title": BuildingData.get_building_name(building_type), "body": "\n".join(lines)}
 

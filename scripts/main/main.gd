@@ -3077,6 +3077,8 @@ func _setup_hud() -> void:
 	_building_placement.preview_changed.connect(_on_placement_preview_changed)
 	_building_placement.input_mode_changed.connect(_on_placement_input_mode_changed)
 	_building_placement.assisted_preview_changed.connect(hud.set_placement_assisted_preview)
+	hud.set_placement_ghost_source(_building_placement)
+	hud.placement_repeat_requested.connect(_on_placement_repeat_requested)
 	_sync_hud_modal_state()
 	var strategy := preload("res://scripts/managers/strategy_controller.gd").new()
 	strategy.name = "StrategyController"
@@ -3175,7 +3177,7 @@ func _on_build_menu_close_requested() -> void:
 	_update_progression_hint()
 
 
-func _on_building_selected_for_placement(building_type: int) -> void:
+func _on_building_selected_for_placement(building_type: int, anchor: Node2D = null) -> void:
 	if is_instance_valid(game_map.selection_mgr) and game_map.selection_mgr.has_method("cancel_building_rally"):
 		game_map.selection_mgr.cancel_building_rally()
 	_placement_active = true
@@ -3189,10 +3191,12 @@ func _on_building_selected_for_placement(building_type: int) -> void:
 	hud.dismiss_build_menu_for_placement()
 	hud.set_placement_input_mode(_building_placement.uses_touch_input())
 	hud.set_placement_mode(true, BuildingData.get_building_name(building_type))
-	_on_placement_preview_changed(_building_placement.is_valid_placement, _building_placement.get_preview_hint())
 	_sync_hud_modal_state()
+	# L2: the ghost opens on a good spot, so the common case is one more tap.
+	_snap_placement_to_best_spot(building_type, anchor)
+	_on_placement_preview_changed(_building_placement.is_valid_placement, _building_placement.get_preview_hint())
 	if _guided_opening_active and _guided_stage == GuidedOpeningStage.BUILD_HOUSE and building_type == BuildingData.BuildingType.HOUSE:
-		hud.show_notification("Green ground is clear", Color(0.95, 0.86, 0.42))
+		hud.show_notification("Tap Build to place it · drag to move", Color(0.95, 0.86, 0.42))
 	_refresh_first_session_diagnostics()
 	_update_progression_hint()
 
@@ -3249,6 +3253,99 @@ func _on_confirm_placement() -> void:
 		_building_placement.confirm_preview()
 
 
+## L2: put a freshly picked ghost where the player most likely wants it:
+## beside `anchor` (the "+1" foundation), at the resource or food drop-off the
+## camera is looking at for Camps and Farms, else the nearest clear spot in
+## view; failing that, beside your own buildings (the camera follows).
+func _snap_placement_to_best_spot(building_type: int, anchor: Node2D = null) -> void:
+	if not _placement_active or _building_placement == null or hud == null:
+		return
+	var economy: TouchEconomy = TouchEconomy.of(self)
+	var anchors: Array = []
+	if is_instance_valid(anchor):
+		anchors.append(anchor)
+	else:
+		anchors = _placement_resource_anchors(building_type)
+	if economy != null and not anchors.is_empty():
+		var site: Variant = economy.find_site(building_type, 0, anchors)
+		if site != null and _building_placement.show_found_space(site as Vector2i):
+			_frame_placement_ghost()
+			return
+	if _building_placement.find_visible_space(hud.get_placement_search_safe_rect(), hud.get_world_occlusion_rects()):
+		return
+	_on_find_placement_space()
+
+
+## Keeps a ghost that was found off to one side fully in view.
+func _frame_placement_ghost() -> void:
+	var ghost_rect: Rect2 = _building_placement.get_ghost_screen_rect()
+	var safe: Rect2 = hud.get_placement_search_safe_rect()
+	if not ghost_rect.has_area() or safe.encloses(ghost_rect):
+		return
+	var offset_screen: Vector2 = ghost_rect.get_center() - safe.get_center()
+	game_map.note_camera_interaction()
+	game_map.camera.position += offset_screen / game_map.camera.zoom
+	game_map._clamp_camera()
+
+
+## What a Camp or Farm belongs next to, judged from what the camera shows:
+## a Farm rings the food drop-off nearest the view; a Camp goes by the wood
+## or gold you are looking at (preferring one no drop-off serves yet). Only
+## things on screen count, so picking a building never yanks the camera.
+func _placement_resource_anchors(building_type: int) -> Array:
+	var anchors: Array = []
+	var view: Rect2 = hud.get_placement_search_safe_rect()
+	var canvas: Transform2D = _building_placement.get_canvas_transform()
+	var view_center: Vector2 = canvas.affine_inverse() * view.get_center()
+	var reach: Rect2 = view.grow(view.size.x * 0.15)
+	if building_type == BuildingData.BuildingType.FARM:
+		var drop_offs: Array = []
+		for node: Variant in _player_buildings[0]:
+			if is_instance_valid(node) and node is BuildingBase and (node as BuildingBase).state == BuildingBase.State.ACTIVE \
+					and BuildingData.is_drop_off_for((node as BuildingBase).building_type, "food") \
+					and reach.has_point(canvas * (node as Node2D).global_position):
+				drop_offs.append(node)
+		drop_offs.sort_custom(func(a: Node2D, b: Node2D) -> bool:
+			return a.global_position.distance_squared_to(view_center) < b.global_position.distance_squared_to(view_center))
+		anchors = drop_offs.slice(0, 2)
+	elif building_type == BuildingData.BuildingType.RESOURCE_CAMP:
+		var best: Node2D = null
+		var best_score: float = INF
+		for resource_type: String in ["wood", "gold"]:
+			var node: Node2D = game_map.get_nearest_resource_node(resource_type, view_center, 0)
+			if node == null or not reach.has_point(canvas * node.global_position):
+				continue
+			var score: float = node.global_position.distance_to(view_center)
+			# A resource already beside a drop-off needs no new Camp.
+			if _nearest_drop_off_distance(node.global_position, resource_type) < 5.0 * float(MapData.TILE_WIDTH):
+				score += 4000.0
+			if score < best_score:
+				best_score = score
+				best = node
+		if best != null:
+			anchors.append(best)
+	return anchors
+
+
+func _nearest_drop_off_distance(world: Vector2, resource_type: String) -> float:
+	var best: float = INF
+	for node: Variant in _player_buildings[0]:
+		if is_instance_valid(node) and node is BuildingBase and (node as BuildingBase).state != BuildingBase.State.DESTROYED \
+				and BuildingData.is_drop_off_for((node as BuildingBase).building_type, resource_type):
+			best = minf(best, (node as Node2D).global_position.distance_to(world))
+	return best
+
+
+## "+1 House" on a just-placed foundation: the next ghost opens beside it.
+func _on_placement_repeat_requested(building_type: int, anchor: Node2D) -> void:
+	if GameManager.current_state != GameManager.GameState.PLAYING or _placement_active:
+		return
+	if not ResourceManager.can_afford(0, BuildingData.get_building_cost(building_type, 0)):
+		hud.show_notification("Need %s" % _format_missing_resources(ResourceManager.get_missing_resources(0, BuildingData.get_building_cost(building_type, 0))), Color(1.0, 0.45, 0.35))
+		return
+	_on_building_selected_for_placement(building_type, anchor)
+
+
 func _on_placement_preview_changed(valid: bool, reason: String) -> void:
 	if hud != null:
 		hud.update_placement_preview(valid, reason)
@@ -3264,7 +3361,7 @@ func _on_placement_input_mode_changed(uses_touch: bool) -> void:
 
 func _house_placement_instruction() -> String:
 	if _building_placement != null and _building_placement.uses_touch_input():
-		return "2 / 4 · Tap open ground to place your House, or tap Place."
+		return "2 / 4 · Tap Build under the House. Drag it first to move it."
 	return "2 / 4 · Click clear ground to place your House."
 
 
@@ -3404,13 +3501,24 @@ func _on_placement_confirmed(building_type: int, world_pos: Vector2) -> void:
 	_last_invalid_placement_reason = ""
 	_refresh_guided_opening_stage()
 
+	var economy: TouchEconomy = TouchEconomy.of(self)
 	if _send_villager_to_build(building):
-		hud.show_notification("Placed: %s" % BuildingData.get_building_name(building_type), Color(0.48, 0.86, 0.52))
+		# L2: the same few seconds of "tap to undo" as the one-tap offers.
+		if economy != null:
+			economy.offer_placement_undo(building, tile_pos, cost)
+		else:
+			hud.show_notification("Placed: %s" % BuildingData.get_building_name(building_type), Color(0.48, 0.86, 0.52))
 	else:
 		var command_action: String = "tap" if _building_placement.uses_touch_input() else "right-click"
 		_last_placement_feedback = "Placed %s. Select a free villager, then %s the foundation to build it." % [BuildingData.get_building_name(building_type), command_action]
 		hud.show_notification(_last_placement_feedback, Color(1.0, 0.75, 0.3))
+	var keep_placing: bool = _building_placement.consume_keep_placing() and not _building_placement.uses_touch_input()
 	_cancel_placement()
+	if keep_placing and ResourceManager.can_afford(0, BuildingData.get_building_cost(building_type, 0)):
+		# Shift+click (desktop): the same building stays in hand.
+		_on_building_selected_for_placement(building_type, building)
+	else:
+		hud.offer_placement_repeat(building_type, building)
 	_update_progression_hint()
 
 
