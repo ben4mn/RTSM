@@ -26,6 +26,8 @@ const OFFER_MIN_IDLE: int = 2
 const OFFER_COOLDOWN_MSEC: int = 25000
 const OFFER_SETTLE_SECONDS: float = 2.5
 const HOUSE_WARNING_SLOTS: int = 2
+const HOUSE_WARNING_GRACE_SECONDS: float = 20.0
+const HOUSE_REPEAT_MSEC: int = 15000
 const TC_IDLE_GRACE_SECONDS: float = 2.0
 const SITE_SEARCH_RADIUS: int = 7
 const FARM_RING_RADIUS: int = 6
@@ -46,6 +48,7 @@ var _offer_msec: int = -OFFER_COOLDOWN_MSEC
 var _offer_pending_seconds: float = 0.0
 var _house_warned_cap: int = -1
 var _house_toast: String = ""
+var _house_toast_until_msec: int = 0
 var _undo_toast: String = ""
 var _idle_centers: Array[BuildingBase] = []
 var _tc_busy_at: Dictionary = {}  # instance id -> game_time last seen busy
@@ -494,30 +497,40 @@ func _refresh_house_warning() -> void:
 	var cap: int = int(GameManager.players[0].get("population_cap", 0))
 	var limit: int = GameManager.get_player_population_limit(0)
 	var committed: int = GameManager.get_committed_population(0)
-	if cap >= limit or committed < cap - HOUSE_WARNING_SLOTS or _house_under_construction():
-		if not _house_toast.is_empty() and (cap >= limit or committed < cap - HOUSE_WARNING_SLOTS - 1 or _house_under_construction()):
+	var now: int = Time.get_ticks_msec()
+	var live: bool = not _house_toast.is_empty() and now < _house_toast_until_msec
+	if GameManager.game_time < HOUSE_WARNING_GRACE_SECONDS or cap >= limit or committed < cap - HOUSE_WARNING_SLOTS or _house_under_construction():
+		if live:
 			hud.call("dismiss_notification", _house_toast)
-			_house_toast = ""
+		_house_toast = ""
 		if committed < cap - HOUSE_WARNING_SLOTS - 1:
 			_house_warned_cap = -1
 		return
-	if _house_warned_cap == cap and not _house_toast.is_empty():
+	var housed: bool = committed >= cap
+	var showing_housed: bool = _house_toast.begins_with("Housed")
+	if live and housed == showing_housed:
 		return
-	if _house_warned_cap == cap and committed < cap:
+	# Near the cap: once per cap. Housed: again every so often until fixed.
+	if not housed and _house_warned_cap == cap:
+		return
+	if housed and not live and now - _house_toast_until_msec < HOUSE_REPEAT_MSEC and _house_warned_cap == cap and showing_housed:
 		return
 	_house_warned_cap = cap
-	if not _house_toast.is_empty():
+	if live:
 		hud.call("dismiss_notification", _house_toast)
 	var house_cost: Dictionary = BuildingData.get_building_cost(BuildingData.BuildingType.HOUSE, 0)
 	var room: int = maxi(0, cap - committed)
 	var housing: String = "Housed" if room == 0 else "%d room left" % room
+	var duration: float = 9.0
 	if ResourceManager.can_afford(0, house_cost):
 		_house_toast = "%s · tap: House" % housing
-		hud.call("show_notification", _house_toast, KingdomTheme.AMBER, 9.0, request_auto_house, 2)
+		hud.call("show_notification", _house_toast, KingdomTheme.AMBER, duration, request_auto_house, 2)
 	else:
 		var missing: Dictionary = ResourceManager.get_missing_resources(0, house_cost)
 		_house_toast = "%s · House needs %dW more" % [housing, int(missing.get("wood", 0))]
-		hud.call("show_notification", _house_toast, KingdomTheme.AMBER, 5.0, Callable(), 1)
+		duration = 5.0
+		hud.call("show_notification", _house_toast, KingdomTheme.AMBER, duration, Callable(), 1)
+	_house_toast_until_msec = now + int(duration * 1000.0)
 
 
 func _house_under_construction() -> bool:

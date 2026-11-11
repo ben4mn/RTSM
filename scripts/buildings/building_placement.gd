@@ -266,15 +266,22 @@ func find_visible_space(safe_rect: Rect2, occlusions: Array[Rect2]) -> bool:
 	# drawn building on screen and clear of every HUD panel; on a phone a
 	# Barracks' art is taller than the free band. The second pass only needs
 	# the footprint itself visible and its centre clear of the HUD.
+	# One candidate budget covers both passes; the relaxed pass only visits
+	# tiles the strict pass skipped.
+	var examined: int = 0
+	var strict_fit: Dictionary = {}
 	for strict: bool in [true, false]:
-		var examined: int = 0
 		for candidate: Dictionary in candidates:
 			var tile: Vector2i = candidate["tile"]
 			if examined >= FIND_SPACE_MAX_CANDIDATES:
 				break
-			examined += 1
+			if not strict and strict_fit.has(tile):
+				continue
 			if not _find_space_fits_screen(tile, safe_rect, occlusions, strict):
 				continue
+			if strict:
+				strict_fit[tile] = true
+			examined += 1
 			# This existing validator checks the WHOLE footprint's current visibility
 			# before querying any terrain/occupancy. Do not prefilter hidden terrain.
 			if not _check_footprint_validity(tile, current_footprint, _player_owner):
