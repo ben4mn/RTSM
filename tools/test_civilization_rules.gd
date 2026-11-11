@@ -94,7 +94,8 @@ func _test_actors_and_paid_queue() -> void:
 	house.player_owner = 1
 	house.state = BuildingBase.State.ACTIVE
 	add_child(house)
-	_expect(house.hp == 400 and house.max_hp == 400, "Sunstride actual buildings have 20% less health")
+	var mongol_house_hp: int = roundi(float(BuildingData.BUILDINGS[BuildingData.BuildingType.HOUSE]["hp"]) * CivilizationData.get_building_hp_multiplier(CivilizationData.Civilization.SUNSTRIDE_CLANS))
+	_expect(house.hp == mongol_house_hp and house.max_hp == mongol_house_hp and mongol_house_hp < int(BuildingData.BUILDINGS[BuildingData.BuildingType.HOUSE]["hp"]), "Sunstride actual buildings have less health (data multiplier)")
 	var production: BuildingBase = RANGE.instantiate()
 	production.player_owner = 0
 	production.state = BuildingBase.State.ACTIVE

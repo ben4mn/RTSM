@@ -3591,6 +3591,10 @@ func _check_outrider_raid() -> void:
 		return
 	if GameManager.get_player_age(player_id) < 2 or _is_under_pressure or _game_time - _last_raid_time < RAID_COOLDOWN_SECONDS:
 		return
+	# Round 2 E2: riders raid only from a surplus; the main army keeps its size
+	# (an early raid used to leave the Mongol army short for the first battle).
+	if _get_fighting_units().size() < _get_attack_threshold() + RAID_PARTY_SIZE or _has_recent_defense_threat():
+		return
 	var riders: Array = []
 	for unit: Variant in _get_field_military([]):
 		if (unit as UnitBase).unit_type == UnitData.UnitType.CAVALRY and (unit as UnitBase).current_state == UnitBase.State.IDLE and unit not in _attack_wave_units and (unit as UnitBase).hp >= (unit as UnitBase).max_hp * 0.8:
@@ -3756,6 +3760,9 @@ func _check_attack_or_defend() -> void:
 			force_attack = true
 		if army_size >= threshold:
 			force_attack = true
+		if not _has_launched_field_attack and _game_time < force_attack_time:
+			_last_strategy_decision = "opening_staging"
+			return  # E2: no field wave before the difficulty's first-fight time (Easy 9:00).
 		if difficulty == Difficulty.EASY and _game_time - _last_field_attack_time < EASY_WAVE_REST_SECONDS + 60.0:
 			_last_strategy_decision = "learning_rest"
 			return  # E2: long, visible gaps between Easy's waves.
