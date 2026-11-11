@@ -3226,13 +3226,22 @@ func _on_find_placement_space() -> void:
 		var economy: TouchEconomy = TouchEconomy.of(self)
 		var site: Variant = economy.find_site(_placement_type, 0) if economy != null else null
 		if site == null:
-			hud.show_notification("No nearby space · pan or scout", Color(1.0, 0.75, 0.3))
+			# K: a crowded base can defeat the tidy search; walk out from the
+			# Town Center before saying there is no room.
+			site = _building_placement.find_owned_space()
+		var no_space: String = "No open ground for a %s nearby · pan or scout" % BuildingData.get_building_name(_placement_type)
+		if site == null:
+			hud.show_notification(no_space, Color(1.0, 0.75, 0.3))
 			return
-		var world: Vector2 = game_map.tile_to_world(site as Vector2i)
+		# K: the found spot is shown through the same check Place uses and held
+		# as an assisted preview (it used to be a plain pointer preview, so a
+		# mouse heading for Place dragged it onto whatever lay underneath).
+		if not _building_placement.show_found_space(site as Vector2i):
+			hud.show_notification(no_space, Color(1.0, 0.75, 0.3))
+			return
 		game_map.note_camera_interaction()
-		game_map.camera.position = world
+		game_map.camera.position = game_map.tile_to_world(site as Vector2i)
 		game_map._clamp_camera()
-		_building_placement.update_preview_at_world(world)
 
 
 func _on_confirm_placement() -> void:

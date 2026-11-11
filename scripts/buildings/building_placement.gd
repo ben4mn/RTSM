@@ -53,6 +53,11 @@ const TRADE_PREVIEW = preload("res://scripts/units/trade_preview.gd")
 const FIND_SPACE_RADIUS: int = 12
 const FIND_SPACE_MAX_CANDIDATES: int = 625
 const FIND_SPACE_SCREEN_MARGIN: float = 6.0
+## K: Find's last resort walks outward from your Town Centers this far, with
+## this many full placement checks at most (fogged ground fails on its first
+## lookup, so most rings cost very little).
+const FIND_OWNED_SPACE_RADIUS: int = 18
+const FIND_OWNED_SPACE_MAX_CHECKS: int = 1500
 const GENERIC_INVALID_REASON := "Invalid placement"
 const FOG_INVALID_REASON := "Move all tiles into sight"
 const PLACEMENT_GRID_COLOR := Color(0.90, 0.92, 0.83, 0.18)
@@ -277,6 +282,7 @@ func find_visible_space(safe_rect: Rect2, occlusions: Array[Rect2]) -> bool:
 	# tiles the strict pass skipped.
 	var examined: int = 0
 	var strict_fit: Dictionary = {}
+	var grazed: Variant = null
 	for strict: bool in [true, false]:
 		for candidate: Dictionary in candidates:
 			var tile: Vector2i = candidate["tile"]
@@ -293,17 +299,110 @@ func find_visible_space(safe_rect: Rect2, occlusions: Array[Rect2]) -> bool:
 			# before querying any terrain/occupancy. Do not prefilter hidden terrain.
 			if not _check_footprint_validity(tile, current_footprint, _player_owner):
 				continue
-			_set_assisted_preview(true)
-			ghost_position = _tile_to_world(tile)
-			global_position = ghost_position
-			_refresh_preview_state(true)
-			return true
+			# K: a sheep or deer grazing at the edge walks in a moment later and
+			# Place then refuses ("Animal in the way"). Prefer quiet ground; a
+			# spot beside animals is still better than none.
+			if _wildlife_near_footprint(tile, current_footprint, 1):
+				if grazed == null:
+					grazed = tile
+				continue
+			return show_found_space(tile)
+	if grazed != null and show_found_space(grazed as Vector2i):
+		return true
 	# A failed search must not replace the user's selected footprint or its
 	# ordinary invalid-cell explanation with the last rejected candidate.
 	_invalid_reason = previous_reason
 	_invalid_tiles = previous_tiles
 	_clearance_tiles = previous_clearance_tiles
 	_clearance_areas = previous_clearance_areas
+	return false
+
+
+## K: shows a spot found away from the current view (Find's fallback beside
+## your own buildings) exactly like an on-screen Find result: it must pass the
+## same check Place uses, and it is held as an assisted preview so a mouse
+## travelling to Place cannot drag it away. Returns false, leaving the current
+## preview and its explanation, when the spot does not pass.
+func show_found_space(tile: Vector2i) -> bool:
+	if not active:
+		return false
+	if not _check_footprint_validity(tile, current_footprint, _player_owner):
+		_refresh_preview_state(true)
+		return false
+	_set_assisted_preview(true)
+	ghost_position = _tile_to_world(tile)
+	global_position = ghost_position
+	_refresh_preview_state(true)
+	return is_valid_placement
+
+
+## K: nearest spot Place accepts, ring by ring around your active Town
+## Centers (then any of your buildings), for when nothing fits on screen and
+## the tidy search beside same-kind buildings found nothing. Quiet ground
+## (no animal within a tile) is preferred. Returns a tile or null.
+func find_owned_space() -> Variant:
+	if not active or not is_inside_tree():
+		return null
+	var found: Variant = _search_owned_space()
+	if found == null:
+		# The search leaves the last rejected candidate's explanation behind.
+		_refresh_preview_state(true)
+	return found
+
+
+func _search_owned_space() -> Variant:
+	var anchors: Array[Vector2i] = []
+	var fallback_anchors: Array[Vector2i] = []
+	for node: Node in get_tree().get_nodes_in_group("player_%d_buildings" % _player_owner):
+		if not (node is BuildingBase) or (node as BuildingBase).state == BuildingBase.State.DESTROYED:
+			continue
+		var building := node as BuildingBase
+		var center: Vector2i = _world_to_tile(building.global_position) + building.footprint / 2 - current_footprint / 2
+		if building.building_type == BuildingData.BuildingType.TOWN_CENTER and building.state == BuildingBase.State.ACTIVE:
+			anchors.append(center)
+		elif fallback_anchors.is_empty():
+			fallback_anchors.append(center)
+	if anchors.is_empty():
+		anchors = fallback_anchors
+	var seen: Dictionary = {}
+	var checks: int = 0
+	var grazed: Variant = null
+	for radius: int in range(FIND_OWNED_SPACE_RADIUS + 1):
+		for anchor: Vector2i in anchors:
+			for dx: int in range(-radius, radius + 1):
+				for dy: int in range(-radius, radius + 1):
+					if maxi(absi(dx), absi(dy)) != radius:
+						continue
+					var tile: Vector2i = anchor + Vector2i(dx, dy)
+					if seen.has(tile):
+						continue
+					seen[tile] = true
+					checks += 1
+					if checks > FIND_OWNED_SPACE_MAX_CHECKS:
+						return grazed
+					if not _check_footprint_validity(tile, current_footprint, _player_owner):
+						continue
+					if _wildlife_near_footprint(tile, current_footprint, 1):
+						if grazed == null:
+							grazed = tile
+						continue
+					return tile
+	return grazed
+
+
+func _wildlife_near_footprint(origin: Vector2i, footprint: Vector2i, margin: int) -> bool:
+	var game_map: Node = get_parent()
+	if game_map == null or not game_map.has_method("get_wildlife_nodes"):
+		return false
+	var area := Rect2i(origin, footprint).grow(margin)
+	var can_see: bool = game_map.has_method("is_tile_visible_to_player")
+	for animal: Node2D in game_map.call("get_wildlife_nodes", ""):
+		if not is_instance_valid(animal):
+			continue
+		var tile: Vector2i = _world_to_tile(animal.global_position)
+		# Only animals the player can see may steer the choice (no fog oracle).
+		if area.has_point(tile) and (not can_see or bool(game_map.call("is_tile_visible_to_player", tile, _player_owner))):
+			return true
 	return false
 
 
