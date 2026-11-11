@@ -2709,7 +2709,10 @@ func _on_resources_changed(player_id: int, _resource_type: String, _new_amount: 
 		return
 	var rm: Node = _get_resource_manager()
 	if rm:
-		_update_resource_display(rm.get_all_resources(player_id))
+		var resources: Dictionary = rm.get_all_resources(player_id)
+		# Main also refreshes the bar on the same signal; one update per change.
+		if resources != _resource_values:
+			_update_resource_display(resources)
 
 
 func _update_resource_display(resources: Dictionary) -> void:
