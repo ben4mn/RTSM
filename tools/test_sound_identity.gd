@@ -58,6 +58,8 @@ func _run() -> void:
 	map.camera.reset_smoothing()
 	map.camera.force_update_scroll()
 	var spot: Vector2 = center.global_position + Vector2(60, 40)
+	for owner: int in 2:
+		GameManager.increase_population_cap(owner, 20)  # Round 2 E: the opening cap is 8.
 	var own: UnitBase = main.call("_spawn_unit", UnitData.UnitType.INFANTRY, 0, spot)
 	var own_archer: UnitBase = main.call("_spawn_unit", UnitData.UnitType.ARCHER, 0, spot + Vector2(20, 0))
 	var own_horse: UnitBase = main.call("_spawn_unit", UnitData.UnitType.CAVALRY, 0, spot + Vector2(40, 0))

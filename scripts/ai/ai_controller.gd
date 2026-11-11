@@ -143,6 +143,8 @@ var _boars_handled: int = 0
 var _raid_units: Array = []
 var _last_raid_time: float = -INF
 var _prefer_town_centers: bool = false  # recomputed every decision
+var _last_scout_order_time: float = -INF
+const SCOUT_REPLACEMENT_SECONDS: float = 120.0
 
 # ── Difficulty tuning tables ─────────────────────────────────────────────
 const DECISION_INTERVALS: Dictionary = {
@@ -1797,6 +1799,8 @@ func _check_military_production() -> void:
 		scout_target = 1
 	var living_scouts: int = _get_scouts().size()
 	var queued_scouts: int = _count_queued_unit(UnitData.UnitType.SCOUT)
+	if not _uses_compact_population_policy() and _game_time - _last_scout_order_time < SCOUT_REPLACEMENT_SECONDS:
+		scout_target = 0  # Round 2 E: a lost scout is not replaced in a loop.
 	if living_scouts + queued_scouts < scout_target:
 		var tc: Node = _find_trainable_building_of_type(BuildingData.BuildingType.TOWN_CENTER)
 		if tc:
@@ -1804,6 +1808,7 @@ func _check_military_production() -> void:
 			var scout_pop_cost: int = int(UnitData.UNITS[UnitData.UnitType.SCOUT].get("pop_cost", 1))
 			if GameManager.can_reserve_population(player_id, scout_pop_cost) and ResourceManager.can_afford(player_id, scout_cost) and _allows_trade_capital_spend(scout_cost):
 				ai_wants_to_train.emit(tc, UnitData.UnitType.SCOUT)
+				_last_scout_order_time = _game_time
 				return
 
 	if not _has_easy_compact_fighter_room() and not _needs_compact_siege_purchase():

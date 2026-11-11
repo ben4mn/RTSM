@@ -78,6 +78,7 @@ func _writer() -> void:
 	house.hp = 41
 	builder.command_build(house)
 	check(bank.try_spend(0, UnitData.get_unit_cost(UnitData.UnitType.TRADER)), "trader paid")
+	GameManager.increase_population_cap(0, 10)  # Round 2 E: the opening cap is 8.
 	var trader: Trader = main._spawn_unit(UnitData.UnitType.TRADER, 0, map.tile_to_world(center + Vector2i(-1, 1)))
 	check(trader.command_trade(post), "trade route accepted")
 	trader._visited_home = true
@@ -113,6 +114,7 @@ func _writer() -> void:
 	map.camera.zoom = Vector2(0.8, 0.8)
 	check(bank.try_spend(0, UnitData.get_unit_cost(UnitData.UnitType.ARCHER)), "archer paid")
 	var defender: UnitBase = main._player_units[1][0]
+	GameManager.increase_population_cap(0, 10)  # Round 2 E: the opening cap is 8.
 	var archer: UnitBase = main._spawn_unit(UnitData.UnitType.ARCHER, 0, defender.global_position + Vector2(-100, 0))
 	Combat.launch_ranged_attack(archer, defender)
 	var shot: Combat.RangedProjectile
