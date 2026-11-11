@@ -31,8 +31,8 @@ static func describe(stats: Dictionary) -> String:
 			var contest_action: String = "contest to pause their clock"
 			return "Lost to banked Sacred control. Both sides keep earned time. Rally paid counters; %s, then clear the ring to earn control." % contest_action
 		if contests == 0 and captures == 0:
-			return "Lost to the enemy Sacred hold. No Sacred capture or contest recorded. Next match: use Site, then send troops into its ring to pause the clock."
-		return "Lost to the enemy Sacred hold despite %d contests. Next match: rally paid reinforcements to the ring and keep troops there to pause their clock." % contests
+			return "Lost to the enemy Sacred hold. No Sacred capture or contest recorded. Next match: use Site, then send troops into its ring to drain the clock."
+		return "Lost to the enemy Sacred hold despite %d contests. Next match: rally paid reinforcements to the ring and keep troops there to drain their clock." % contests
 	if lost and ("Town Center" in reason or "Landmark" in reason):
 		return "Your Town Center fell. Next match: tap raid warnings to respond, pull workers behind its arrows and rally reinforcements home."
 	if paid_army == 0:

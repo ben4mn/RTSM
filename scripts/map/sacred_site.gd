@@ -83,6 +83,25 @@ func _advance_victory(delta: float) -> void:
 	victory_timer_tick.emit(owning_player, victory_hold_time - victory_timer, victory_hold_time)
 
 
+## Standard only (Round 2 E2): an owned clock that nobody guards, or that an
+## enemy is standing in, loses held time instead of pausing.
+func _drain_victory(delta: float) -> void:
+	if match_mode != SkirmishData.MatchMode.STANDARD or owning_player not in [0, 1] or victory_timer <= 0.0:
+		return
+	victory_timer = maxf(0.0, victory_timer - delta * SkirmishData.SACRED_DRAIN_RATE)
+	victory_timer_tick.emit(owning_player, victory_hold_time - victory_timer, victory_hold_time)
+
+
+## True while an owned Standard clock is losing held time (derived from the
+## replicated fields, so clients agree without a protocol change).
+func is_draining() -> bool:
+	if match_mode != SkirmishData.MatchMode.STANDARD or owning_player not in [0, 1] or victory_timer <= 0.0:
+		return false
+	if state == SiteState.CONTESTED:
+		return true
+	return state == SiteState.CAPTURED and (garrison_paused or _being_neutralized)
+
+
 ## ResourceManager stores whole resources. Preserve sub-resource income between
 ## frames so a normal 60 FPS update does not truncate every award to zero.
 var _gold_accumulator: float = 0.0
@@ -189,6 +208,7 @@ func _handle_captured(p1: int, p2: int, delta: float, armed_friendly: int = 0) -
 	if enemy > 0 and friendly == 0:
 		# Enemy is de-capturing.
 		_being_neutralized = true
+		_drain_victory(delta)
 		capture_progress -= (delta / capture_time) * (minf(enemy, 5) * 0.5 + 0.5)
 		if capture_progress <= 0.0:
 			capture_progress = 0.0
@@ -207,9 +227,12 @@ func _handle_captured(p1: int, p2: int, delta: float, armed_friendly: int = 0) -
 
 	# Standard asks an army to occupy the ground it wants to win from. Scouts
 	# and workers retain capture, contest and income utility. Control race keeps
-	# its established banked-ownership rules. Leaving pauses; it never resets.
+	# its established banked-ownership rules. Round 2 E2: leaving drains the
+	# held time at SACRED_DRAIN_RATE; losing the site resets it.
 	garrison_paused = match_mode == SkirmishData.MatchMode.STANDARD and armed_friendly <= 0
-	if not garrison_paused:
+	if garrison_paused:
+		_drain_victory(delta)
+	else:
 		_advance_victory(delta)
 
 
@@ -240,7 +263,10 @@ func _handle_contested(p1: int, p2: int, delta: float) -> void:
 				_reset_or_restore_timer()
 				state = SiteState.CAPTURING
 		return
-	# Both players present — pause control in both rule sets.
+	# Both players present: Control race pauses; Standard drains the owner's
+	# held time once the clock is open (Round 2 E2).
+	if victory_enabled and victory_wake_remaining() <= 0.0:
+		_drain_victory(delta)
 
 
 func _generate_gold(delta: float) -> void:
@@ -393,6 +419,7 @@ func get_status() -> Dictionary:
 		"control_banks": control_banks.duplicate(),
 		"clock_ticking": clock_ticking,
 		"garrison_paused": garrison_paused,
+		"draining": is_draining(),
 		"wake_remaining": wake_remaining,
 	}
 
@@ -401,7 +428,7 @@ func _publish_status() -> void:
 	# Refresh immediately when the phase/owner changes, and only on visible
 	# second/percentage boundaries while a timer advances.
 	var status: Dictionary = get_status()
-	var key: String = "%s:%d:%d:%d:%s:%s:%d" % [status["phase"], owning_player, floori(capture_progress * 100.0), ceili(float(status["remaining"])), clock_ticking, garrison_paused, ceili(float(status["wake_remaining"]))]
+	var key: String = "%s:%d:%d:%d:%s:%s:%d:%s" % [status["phase"], owning_player, floori(capture_progress * 100.0), ceili(float(status["remaining"])), clock_ticking, garrison_paused, ceili(float(status["wake_remaining"])), status["draining"]]
 	if key == _last_status_key:
 		return
 	_last_status_key = key
