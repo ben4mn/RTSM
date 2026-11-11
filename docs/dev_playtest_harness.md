@@ -65,6 +65,9 @@ All calls are synchronous and return plain objects.
 | `age` | `cmd('age',3)`, `cmd('age',{age:2,player:1})` | Advance a player to that age at once (no cost, no timer). |
 | `build` | `cmd('build','stable')`, `cmd('build',{building:'watch_tower',player:1,near:'p0'})` | Place a finished building on the nearest free ground (no cost, no builder). Names are `BuildingData.BuildingType` keys in lower case. |
 | `screenshot_safe_ui` | `cmd('screenshot_safe_ui',true)` | `true` hides the HUD for clean captures, `false` restores it. |
+| `perf` | `cmd('perf',true)` … `cmd('perf',false)`; `cmd('perf',{on:true,probes:false})` | Frame profiler. Stop returns per-frame percentiles of `wall`, `process` (all `_process`), `late` (deferred calls and queued `_draw`s), `render` (RenderingServer draw), `draw_calls`/`objects`/`primitives`, ms per frame per PerfProbe scope, calls per frame (`key#`), spike attribution (frames with process > 12 ms) and units in view. `probes:false` keeps only phases and draw calls. The game must advance between start and stop (separate script calls). |
+| `motion` | `cmd('motion',{unit:id})` … `cmd('motion',{stop:true})`; `{legacy:true}` | Records once per frame the unit's drawn position (node + interpolation offset) and simulated position: rows `[frame, real_ms, game_s, drawn_x, drawn_y, sim_x, sim_y, state]`. No unit = the player-0 soldier nearest the camera. `legacy` switches to the pre-F4 ease for A/B. |
+| `order` | `cmd('order',{unit:id,move:[x,y]})`, `cmd('order',{unit:id,stop:true})` | Move a unit to a tile (or stop it). |
 
 `PocketDev.help()` lists commands and parameters.
 
