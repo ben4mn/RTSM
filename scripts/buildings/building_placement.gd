@@ -777,8 +777,29 @@ func _check_footprint_validity(
 			if tile_invalid:
 				_invalid_tiles.append(check_tile)
 
+	_mark_wildlife_conflicts(tile_origin, footprint)
 	_mark_owned_clearance_conflicts(tile_origin, footprint, player_owner)
 	return _invalid_tiles.is_empty()
+
+
+## G1: a footprint over an animal or carcass with food left would bury it (and
+## any villager working it) inside the walls. The footprint is fully visible
+## here, so this reads nothing hidden.
+func _mark_wildlife_conflicts(origin: Vector2i, footprint: Vector2i) -> void:
+	var game_map: Node = get_parent()
+	if game_map == null or not game_map.has_method("get_wildlife_nodes"):
+		return
+	var area := Rect2i(origin, footprint)
+	for animal: Node2D in game_map.call("get_wildlife_nodes", ""):
+		if not is_instance_valid(animal):
+			continue
+		var tile: Vector2i = _world_to_tile(animal.global_position)
+		if not area.has_point(tile):
+			continue
+		if _invalid_reason == "":
+			_invalid_reason = "Animal in the way"
+		if tile not in _invalid_tiles:
+			_invalid_tiles.append(tile)
 
 
 func _mark_owned_clearance_conflicts(origin: Vector2i, footprint: Vector2i, owner: int) -> void:

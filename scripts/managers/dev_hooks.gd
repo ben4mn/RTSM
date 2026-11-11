@@ -15,7 +15,9 @@ const DIFFICULTY_IDS: Dictionary = {"easy": 0, "medium": 1, "hard": 2}
 const MAP_IDS: Dictionary = {"open_plains": 0, "river_crossings": 1, "woodland_flanks": 2}
 const RESOURCES: Array[String] = ["food", "wood", "gold"]
 const UNDER_ATTACK_COOLDOWN: float = 10.0
-const COMMANDS: Array[String] = ["camera_to", "set_speed", "pause", "reveal_map", "give", "spawn", "age", "build", "screenshot_safe_ui", "perf", "motion", "order"]
+const COMMANDS: Array[String] = ["camera_to", "set_speed", "pause", "reveal_map", "give", "spawn", "age", "build", "screenshot_safe_ui", "perf", "motion", "order", "probe"]
+## Read-only commands that are polled often and stay out of the event log.
+const QUIET_COMMANDS: Array[String] = ["probe"]
 
 static var _dev_checked: bool = false
 static var _dev_enabled: bool = false
@@ -366,8 +368,72 @@ func run_command(command: String, arguments: Array) -> Dictionary:
 	# A single object argument supplies named parameters.
 	var named: Dictionary = arguments[0] if arguments.size() == 1 and arguments[0] is Dictionary else {}
 	var result: Dictionary = call("_cmd_" + command, arguments, named)
-	log_event("dev_cmd", {"cmd": command})
+	if not QUIET_COMMANDS.has(command):
+		log_event("dev_cmd", {"cmd": command})
 	return result
+
+
+## Read-only: where things are drawn on the page (CSS pixels) plus the last
+## touch routing record, so a browser tester can tap a moving unit and audit
+## the pick. `filter`: "own" (default), "enemy", "wildlife", "all".
+func _cmd_probe(arguments: Array, named: Dictionary = {}) -> Dictionary:
+	var game_map: Node2D = match_scene.game_map
+	var filter: String = str(named.get("filter", arguments[0] if not arguments.is_empty() and arguments[0] is String else "own"))
+	if named.has("legacy_pick"):
+		SelectionManager.legacy_picking = bool(named.legacy_pick)
+	if named.has("unit_radius_px"):
+		game_map.selection_mgr.touch_unit_hit_radius_px = float(named.unit_radius_px)
+	if bool(named.get("drain_farms", false)):
+		# Staging for the fallow/reseed flow: player 0's sown Farms keep one
+		# food, so the next harvest tick empties them the normal way.
+		for node: Node in game_map.get_tree().get_nodes_in_group("buildings"):
+			var farm := node as BuildingBase
+			if FarmPlots.is_farm(farm) and farm.player_owner == 0 and not farm.farm_fallow and farm.farm_food_remaining > 1:
+				farm.farm_food_remaining = 1
+	var to_screen: Transform2D = game_map.get_viewport().get_final_transform() * game_map.get_viewport().get_canvas_transform()
+	var size: Vector2 = game_map.get_viewport().get_visible_rect().size * game_map.get_viewport().get_final_transform().get_scale()
+	var rows: Array = []
+	var groups: Array = ["wildlife"] if filter == "wildlife" else (["units", "wildlife"] if filter == "all" else ["units"])
+	for group: Variant in groups:
+		for node: Node in game_map.get_tree().get_nodes_in_group(str(group)):
+			var body := node as Node2D
+			if body == null or not body.is_visible_in_tree():
+				continue
+			var owner_id: int = int(body.get("player_owner")) if body is UnitBase else int(body.get("owner_id"))
+			if filter == "own" and owner_id != 0 or filter == "enemy" and (owner_id == 0 or owner_id < 0):
+				continue
+			var drawn: Vector2 = (body as UnitBase).get_visual_position() if body is UnitBase else body.global_position
+			var sprite: Sprite2D = body.get_node_or_null("UnitSprite") as Sprite2D
+			var head: Vector2 = drawn
+			if sprite != null and sprite.texture != null:
+				head = sprite.to_global(sprite.get_rect().get_center()) + drawn - body.global_position
+			var feet_px: Vector2 = to_screen * drawn
+			if feet_px.x < 0.0 or feet_px.y < 0.0 or feet_px.x > size.x or feet_px.y > size.y:
+				continue
+			var body_px: Vector2 = to_screen * head
+			var state: Variant = body.get("current_state")
+			var velocity_px: Vector2 = to_screen.basis_xform((body as UnitBase).get_drawn_velocity() * Engine.time_scale) if body is UnitBase else Vector2.ZERO
+			if body is WildlifeNode:
+				var animal := body as WildlifeNode
+				var target: UnitBase = animal.get_target()
+				rows.append({"id": body.get_instance_id(), "type": animal.kind, "owner": owner_id,
+					"feet": [roundi(feet_px.x), roundi(feet_px.y)], "body": [roundi(body_px.x), roundi(body_px.y)],
+					"phase": int(animal.phase), "mood": int(animal.mood), "hp": animal.hp, "remaining": animal.remaining,
+					"target": target.get_instance_id() if target != null else 0,
+					"route": [int(animal.get("_route_index")), (animal.get("_route") as PackedVector2Array).size()],
+					"tile": _tile_of(animal.global_position), "home": _tile_of(animal.home_position),
+					"walkable": bool(game_map.pathfinding.is_walkable(game_map.world_to_tile(animal.global_position))),
+					"region": game_map.pathfinding.region_of(game_map.world_to_tile(animal.global_position)),
+					"target_region": game_map.pathfinding.region_of(game_map.world_to_tile(target.global_position)) if target != null else -1,
+					"nav": game_map.get_navigation_world_path(animal.global_position, target.global_position, 4.0).size() if target != null else -1})
+				continue
+			rows.append({"id": body.get_instance_id(), "type": (body.call("get_unit_type") if body.has_method("get_unit_type") else str(body.get("kind"))),
+				"owner": owner_id, "feet": [roundi(feet_px.x), roundi(feet_px.y)], "body": [roundi(body_px.x), roundi(body_px.y)],
+				"state": int(state) if state != null else -1, "vel": [roundi(velocity_px.x), roundi(velocity_px.y)]})
+	var selection_mgr: Node = game_map.selection_mgr
+	return {"ok": true, "zoom": game_map.camera.zoom.x, "speed": Engine.time_scale, "legacy_pick": SelectionManager.legacy_picking,
+		"unit_radius_px": selection_mgr.touch_unit_hit_radius_px, "units": rows, "last_tap": selection_mgr.touch_input_diagnostics.duplicate(true),
+		"selected": selection_mgr.selected.map(func(n: Node2D) -> int: return n.get_instance_id() if is_instance_valid(n) else 0)}
 
 
 func _cmd_camera_to(arguments: Array, named: Dictionary = {}) -> Dictionary:

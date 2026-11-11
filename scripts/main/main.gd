@@ -69,6 +69,8 @@ var _player_town_center: BuildingBase = null
 
 # --- Idle villager cycling ---
 var _idle_villager_index: int = 0
+## The worker the last Find idle selected (see _on_idle_villager_pressed).
+var _idle_find_last: WeakRef = null
 var _patrol_command_armed: bool = false
 var _move_command_armed: bool = false
 var _attack_move_command_armed: bool = false
@@ -132,7 +134,7 @@ var _guided_stage: GuidedOpeningStage = GuidedOpeningStage.GATHER_FOOD
 const HINTS: Array = [
 	{"time": 14.0, "context": "pause", "text": "Need a breather? Pause is top right.", "color": Color(0.95, 0.86, 0.56)},
 	{"time": 42.0, "text": "Drag to pan. Tap the minimap to jump.", "color": Color(0.7, 0.8, 1.0)},
-	{"time": 75.0, "text": "Tap ground to move. Double-tap ground to deselect.", "color": Color(0.65, 0.82, 1.0)},
+	{"time": 75.0, "text": "Tap ground to move. The eraser in the card clears the selection.", "color": Color(0.65, 0.82, 1.0)},
 	{"time": 105.0, "context": "scout", "text": "Train a Scout to explore fast.", "color": Color(0.7, 0.8, 1.0)},
 	{"time": 122.0, "context": "sheep", "text": "Scouts claim sheep they find. Sheep walk home.", "color": Color(0.80, 0.92, 0.70)},
 	{"time": 150.0, "context": "research", "text": "Every building has research. Try Loom at the Town Center.", "color": Color(0.5, 0.8, 1.0)},
@@ -1434,11 +1436,27 @@ func _on_idle_villager_pressed() -> void:
 			idle_villagers.append(unit)
 	if idle_villagers.is_empty():
 		return
+	# G1: pressing Find idle again while the worker it found is still selected
+	# and still idle (no order given) gathers every idle worker, so a crew left
+	# idle by a finished berry patch or a raid takes one order instead of one
+	# per worker. Giving the found worker an order keeps one-by-one cycling.
+	var found: Node = _idle_find_last.get_ref() as Node if _idle_find_last != null else null
+	var again: bool = idle_villagers.size() > 1 and found != null and found in idle_villagers \
+		and game_map.selection_mgr.selected.size() == 1 and game_map.selection_mgr.selected[0] == found
+	_idle_find_last = null
+	if again:
+		var crew: Array[Node2D] = []
+		for unit: Variant in idle_villagers:
+			crew.append(unit as Node2D)
+		game_map.selection_mgr.select_many(crew)
+		hud.show_notification("All %d idle workers selected. Tap a resource or a foundation." % crew.size(), KingdomTheme.PARCHMENT, 3.0)
+		return
 	_idle_villager_index = _idle_villager_index % idle_villagers.size()
 	var target: UnitBase = idle_villagers[_idle_villager_index]
 	_idle_villager_index = (_idle_villager_index + 1) % idle_villagers.size()
 	game_map.selection_mgr.deselect_all()
 	game_map.selection_mgr._add_to_selection(target)
+	_idle_find_last = weakref(target)
 	game_map.note_camera_interaction()
 	game_map.camera.position = target.global_position
 
