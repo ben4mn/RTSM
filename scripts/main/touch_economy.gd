@@ -504,27 +504,29 @@ func _refresh_house_warning() -> void:
 	var committed: int = GameManager.get_committed_population(0)
 	var now: int = Time.get_ticks_msec()
 	var live: bool = not _house_toast.is_empty() and now < _house_toast_until_msec
-	if GameManager.game_time < HOUSE_WARNING_GRACE_SECONDS or cap >= limit or committed < cap - HOUSE_WARNING_SLOTS or _house_under_construction():
+	# Houses going up count as room already; a big queue can still outrun one.
+	var incoming: int = _houses_under_construction() * int(BuildingData.get_building_stats(BuildingData.BuildingType.HOUSE).get("pop_provided", 10))
+	if GameManager.game_time < HOUSE_WARNING_GRACE_SECONDS or cap >= limit or committed < cap + incoming - HOUSE_WARNING_SLOTS:
 		if live:
 			hud.call("dismiss_notification", _house_toast)
 		_house_toast = ""
 		if committed < cap - HOUSE_WARNING_SLOTS - 1:
 			_house_warned_cap = -1
 		return
-	var housed: bool = committed >= cap
+	var housed: bool = committed >= cap + incoming
 	var showing_housed: bool = _house_toast.begins_with("Housed")
 	if live and housed == showing_housed:
 		return
 	# Near the cap: once per cap. Housed: again every so often until fixed.
-	if not housed and _house_warned_cap == cap:
+	if not housed and _house_warned_cap == cap + incoming:
 		return
-	if housed and not live and now - _house_toast_until_msec < HOUSE_REPEAT_MSEC and _house_warned_cap == cap and showing_housed:
+	if housed and not live and now - _house_toast_until_msec < HOUSE_REPEAT_MSEC and _house_warned_cap == cap + incoming and showing_housed:
 		return
-	_house_warned_cap = cap
+	_house_warned_cap = cap + incoming
 	if live:
 		hud.call("dismiss_notification", _house_toast)
 	var house_cost: Dictionary = BuildingData.get_building_cost(BuildingData.BuildingType.HOUSE, 0)
-	var room: int = maxi(0, cap - committed)
+	var room: int = maxi(0, cap + incoming - committed)
 	var housing: String = "Housed" if room == 0 else "%d room left" % room
 	var duration: float = 14.0 if housed else 9.0
 	if ResourceManager.can_afford(0, house_cost):
@@ -538,12 +540,13 @@ func _refresh_house_warning() -> void:
 	_house_toast_until_msec = now + int(duration * 1000.0)
 
 
-func _house_under_construction() -> bool:
+func _houses_under_construction() -> int:
+	var count: int = 0
 	for entry: Variant in _buildings_of(0):
 		if is_instance_valid(entry) and entry is BuildingBase and (entry as BuildingBase).building_type == BuildingData.BuildingType.HOUSE \
 				and (entry as BuildingBase).state == BuildingBase.State.CONSTRUCTING:
-			return true
-	return false
+			count += 1
+	return count
 
 
 ## One tap: a House on the nearest good spot beside the other Houses.

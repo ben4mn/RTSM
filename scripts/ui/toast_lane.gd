@@ -180,7 +180,16 @@ func _show(entry: Dictionary) -> void:
 	panel.set_meta("toast_text", entry.text)
 	panel.set_meta("toast_priority", int(entry.priority))
 	panel.set_meta("toast_shown_msec", Time.get_ticks_msec())
+	panel.set_meta("toast_tappable", action.is_valid())
 	add_child(panel)
+	# H: tappable offers sit above plain messages, so an expiring note never
+	# slides an offer up from under the finger that is about to tap it.
+	if action.is_valid():
+		var slot: int = 0
+		for child: Node in get_children():
+			if child != panel and bool(child.get_meta("toast_tappable", false)) and not bool(child.get_meta("toast_retired", false)):
+				slot = maxi(slot, child.get_index() + 1)
+		move_child(panel, mini(slot, get_child_count() - 1))
 	_fit(panel)
 	if not GameManager.reduced_motion:
 		panel.modulate.a = 0.0

@@ -2643,7 +2643,8 @@ func _on_train_unit_requested(building: Node2D, unit_type: int) -> void:
 				# H: the blocked tap offers the House itself (placed beside the others).
 				var economy: TouchEconomy = TouchEconomy.of(self)
 				if economy != null and ResourceManager.can_afford(0, BuildingData.get_building_cost(BuildingData.BuildingType.HOUSE, 0)):
-					hud.show_notification("Housed (%d/%d) · tap: House" % [pop, cap], Color(1.0, 0.6, 0.2), 6.0, economy.request_auto_house, 2)
+					# Same words as TouchEconomy's own warning, so the lane shows one pill.
+					hud.show_notification("Housed · tap: House", KingdomTheme.AMBER, 9.0, economy.request_auto_house, 2)
 					_refresh_first_session_diagnostics()
 					return
 		hud.show_notification(_last_train_feedback, Color(1.0, 0.6, 0.2))
