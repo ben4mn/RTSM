@@ -5,6 +5,8 @@ const THEME := preload("res://scripts/ui/kingdom_theme.gd")
 const DIORAMA := preload("res://scripts/ui/menu_diorama.gd")
 const MAP_PREVIEW := preload("res://scripts/ui/map_preview.gd")
 const WEB_SHELL_BRIDGE := preload("res://scripts/ui/web_shell_bridge.gd")
+const HOME_NOTE := "English · French · Mongols\nSolo against AI · Friends or quick match"
+const OUTDATED_SAVE_NOTE := "Your saved solo battle is from an older version\nand can't be resumed. Start a new one."
 const INK := Color("1d302c")
 const PANEL := Color("2b4239")
 const PANEL_LIGHT := Color("3b5548")
@@ -301,7 +303,7 @@ func _build_home() -> void:
 	_online_button.custom_minimum_size.y = 54
 	_apply_pill(_online_button)
 	_home_actions.add_child(_online_button)
-	_home_note = _label("English · French · Mongols\nSolo against AI · Friends or quick match", 13, true)
+	_home_note = _label(HOME_NOTE, 13, true)
 	_home_note.add_theme_color_override("font_color", MUTED)
 	_home_actions.add_child(_home_note)
 
@@ -310,8 +312,17 @@ func _has_solo_save() -> bool:
 	return is_instance_valid(_save_service) and bool(_save_service.call("has_save"))
 
 
+func _has_outdated_save() -> bool:
+	return is_instance_valid(_save_service) and _save_service.has_method("has_outdated_save") and bool(_save_service.call("has_outdated_save"))
+
+
 func _refresh_resume() -> void:
 	var available: bool = _has_solo_save()
+	# A checkpoint from an older version cannot resume; say so once, here.
+	var outdated: bool = not available and _has_outdated_save()
+	_home_note.text = OUTDATED_SAVE_NOTE if outdated else HOME_NOTE
+	if outdated:
+		_home_note.visible = true
 	_resume_button.visible = available
 	_new_game_button.text = "New solo" if available else "Play solo"
 	if available:
@@ -613,7 +624,7 @@ func _build_options() -> void:
 	_rules_description = _label("", 13, true)
 	_rules_description.add_theme_color_override("font_color", MUTED)
 	_solo_options.add_child(_rules_description)
-	_population_migration_note = _label("Normal battles now allow 100. Smaller limits remain available here.", 13, true)
+	_population_migration_note = _label("Normal battles now allow %d. Other limits remain available here." % SkirmishData.DEFAULT_POPULATION_LIMIT, 13, true)
 	_advanced_button = _button("More options  ›", "MoreOptionsButton", _toggle_advanced_options)
 	_advanced_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_advanced_button.add_theme_font_size_override("font_size", 14)
@@ -1247,7 +1258,7 @@ func _on_start_pressed() -> void:
 		return
 	# Browsing setup or Online never removes a save. This explicit new-start
 	# action is labeled with its replacement effect when a resumable match exists.
-	if _has_solo_save():
+	if _has_solo_save() or _has_outdated_save():
 		_save_service.call("discard_save", "new_match")
 	GameManager.selected_difficulty = _selected_difficulty
 	GameManager.selected_population_limit = _selected_population_limit
@@ -1293,7 +1304,7 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2, shell_top_cle
 	var compact: bool = _compact_layout
 	_page_title.visible = true
 	_home_intro.visible = not compact and not _has_solo_save()
-	_home_note.visible = not compact
+	_home_note.visible = not compact or (_has_outdated_save() and not _has_solo_save())
 	_home_eyebrow.visible = not compact
 	var margin: float = 12.0 if compact else 32.0
 	var available: Rect2 = _menu_frame_rect(_active_safe_area, margin, web_clearance)

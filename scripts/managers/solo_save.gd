@@ -37,6 +37,7 @@ func _online() -> bool:
 	return NetworkSession.is_network_match() or NetworkSession.server_mode or NetworkSession.online
 
 func has_save() -> bool: return bool(_summary.get("available", false))
+func has_outdated_save() -> bool: return bool(_summary.get("outdated", false))
 func get_summary() -> Dictionary: return _summary.duplicate(true)
 func get_status() -> Dictionary:
 	var result: Dictionary = _status.duplicate(true)
@@ -72,6 +73,20 @@ func _unpack(payload: String) -> Dictionary:
 	if not data is Dictionary or not STATE.validate(data).is_empty(): return {}
 	return {"data": data, "generation": int(envelope.generation), "saved_at": int(envelope.get("saved_at", 0))}
 
+## True for an intact checkpoint written by an older game version (an earlier
+## save schema or map generator). It cannot be resumed, but the menu says so
+## instead of the Resume button silently disappearing.
+func _is_outdated(payload: String) -> bool:
+	if payload.is_empty() or payload.to_utf8_buffer().size() > MAX_BYTES: return false
+	var parser := JSON.new()
+	if parser.parse(payload) != OK or not parser.data is Dictionary: return false
+	var envelope: Dictionary = parser.data
+	if envelope.get("format") != "PocketKingdomsSolo" or not envelope.get("payload") is String: return false
+	var bytes: PackedByteArray = Marshalls.base64_to_raw(envelope.payload)
+	if bytes.is_empty() or bytes.size() > MAX_BYTES: return false
+	var data: Variant = bytes_to_var(bytes)
+	return data is Dictionary and (data.get("schema") != STATE.SCHEMA or data.get("generator") != MapData.GENERATOR_VERSION)
+
 func _read_native(path: String) -> String:
 	var file := FileAccess.open(path, FileAccess.READ)
 	if file == null or file.get_length() > MAX_BYTES: return ""
@@ -99,9 +114,12 @@ func reload_save() -> void:
 	_last_good_payload = selected
 	_generation = int(best.get("generation", 0))
 	var recovered: bool = OS.has_feature("web") and selected_index == 1
+	var outdated: bool = false
 	for candidate: String in candidates:
-		if not candidate.is_empty() and _unpack(candidate).is_empty(): recovered = not best.is_empty()
-	_summary = _summarize(_saved_data, int(best.saved_at), recovered) if not best.is_empty() else {"available": false}
+		if not candidate.is_empty() and _unpack(candidate).is_empty():
+			recovered = not best.is_empty()
+			outdated = outdated or (best.is_empty() and _is_outdated(candidate))
+	_summary = _summarize(_saved_data, int(best.saved_at), recovered) if not best.is_empty() else {"available": false, "outdated": outdated}
 	_set_status("saved" if has_save() else "empty")
 	save_changed.emit()
 
@@ -226,6 +244,7 @@ func _commit(data: Dictionary, payload: String, generation: int, saved_at: int, 
 	_set_status("saving")
 	_status.reason = reason
 	save_written.emit(generation)
+	_summary.erase("outdated")  # The new checkpoint replaces the old version's.
 	if OS.has_feature("web"):
 		if _web_storage == null or not bool(_web_storage.available()):
 			_complete_write([], generation, _epoch, payload, false, "Browser storage is unavailable.")
