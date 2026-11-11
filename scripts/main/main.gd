@@ -2339,6 +2339,12 @@ func _on_move_command(target_tile: Vector2i) -> void:
 	var issue_patrol: bool = _patrol_command_armed
 	var issue_force_move: bool = not _attack_move_command_armed and not _patrol_command_armed
 	var issue_attack_move: bool = _attack_move_command_armed
+	# H: a plain touch ground tap sends soldiers as an attack-move (villagers
+	# still walk); tapping the same spot again is a plain move to fall back.
+	var ground_order: String = str(game_map.selection_mgr.get("ground_tap_order"))
+	var soldiers_attack_move: bool = ground_order == "attack" and not _move_command_armed and not issue_attack_move and not issue_patrol
+	if ground_order == "retreat" and _guided_opening_active == false:
+		hud.show_notification("Fall back", Color(0.62, 0.86, 0.6), 1.2)
 	_clear_armed_unit_commands(false)
 
 	# Check if a production building is selected — set rally point
@@ -2350,6 +2356,13 @@ func _on_move_command(target_tile: Vector2i) -> void:
 
 	if NetworkSession.is_client():
 		var world: Vector2 = game_map.tile_to_world(target_tile)
+		if soldiers_attack_move:
+			# One order per packet: an all-soldier selection attack-moves.
+			var only_soldiers: bool = true
+			for node: Variant in selected:
+				if is_instance_valid(node) and node is Villager:
+					only_soldiers = false
+			issue_attack_move = only_soldiers
 		var operation: String = "patrol" if issue_patrol else ("attack_move" if issue_attack_move else "move")
 		_send_network_selection(operation, {"position": [world.x, world.y]})
 		if issue_attack_move:
@@ -2388,6 +2401,12 @@ func _on_move_command(target_tile: Vector2i) -> void:
 		# A ground tap travels without acquiring enemies. Holding ground or the
 		# Attack button explicitly requests engagement along the route.
 		var is_military: bool = unit.unit_type != UnitData.UnitType.VILLAGER
+		if soldiers_attack_move and is_military and unit.damage > 0.0:
+			if world_path.size() > 1:
+				unit.command_attack_move_path(world_path)
+			else:
+				unit.command_attack_move(world_pos)
+			continue
 		if world_path.size() > 1:
 			if issue_patrol and is_military:
 				unit.command_patrol(world_pos)
@@ -2410,7 +2429,15 @@ func _on_move_command(target_tile: Vector2i) -> void:
 	var ordered_units: Array = orders.map(func(order: Dictionary) -> UnitBase: return order.unit)
 	_worker_order_undo.remember(0, worker_before, ordered_units)
 	_refresh_worker_undo_hud()
-	if issue_attack_move and not issue_patrol:
+	if soldiers_attack_move and has_military:
+		var soldier_orders: Array[Dictionary] = []
+		for order: Dictionary in orders:
+			if (order.unit as UnitBase).unit_type != UnitData.UnitType.VILLAGER:
+				soldier_orders.append(order)
+		ATTACK_MARCH.attach_compact_orders(soldier_orders)
+		issue_force_move = false
+		issue_attack_move = true
+	elif issue_attack_move and not issue_patrol:
 		ATTACK_MARCH.attach_compact_orders(orders)
 	if issue_patrol:
 		VFX.move_indicator(get_tree(), game_map.tile_to_world(target_tile))
@@ -2921,6 +2948,7 @@ func _register_match_extensions() -> void:
 	UnitAbilities.install(self)
 	ResearchPips.install(self)  # HUD pass: world progress ring over researching buildings
 	FarmPlots.install(self)  # Round 2 E: finite Farms, reseed, auto-reseed
+	TouchEconomy.install(self)  # H: back to work, housing warning, TC idle mark, farm ring
 
 
 func _on_building_action_requested(building: Node2D, action_id: String) -> void:

@@ -15,6 +15,10 @@ func run_cases() -> void:
 	expect(base_food == 250 and int(BuildingData.BUILDINGS[farm_type].cost.wood) == 60, "a Farm costs 60 wood and holds 250 food")
 	expect(reseed_wood > 0 and reseed_wood <= 40, "reseeding costs at most 40 wood (%d for this kingdom)" % reseed_wood)
 	expect("farm_fallow" in SOLO_STATE.BUILDING_FIELDS and "farm_food_remaining" in SOLO_STATE.BUILDING_FIELDS, "Farm stock is saved with the building")
+	# H: the human seat starts with Auto-reseed on (Farms are finite and a phone
+	# player should not babysit them); this test walks the manual path first.
+	expect(FarmPlots.is_auto_reseed(0) and not FarmPlots.is_auto_reseed(1), "Auto-reseed starts on for the player, not for the AI")
+	FarmPlots.set_auto_reseed(0, false)
 
 	var farm: BuildingBase = main._spawn_building(farm_type, 0, free_tile(tc_tile() + Vector2i(5, 1)))
 	farm.complete_instantly()
@@ -51,7 +55,7 @@ func run_cases() -> void:
 	expect(farm.perform_context_action(0, FarmPlots.ACTION_RESEED) != "", "a growing Farm cannot be reseeded")
 
 	# --- Auto-reseed: off by default, prepaid when the Farm runs out.
-	expect(not FarmPlots.is_auto_reseed(0), "Auto-reseed is off by default")
+	expect(not FarmPlots.is_auto_reseed(0), "Auto-reseed is off after switching it off")
 	expect(farm.perform_context_action(0, FarmPlots.ACTION_AUTO) == "" and FarmPlots.is_auto_reseed(0), "Auto-reseed can be switched on")
 	var wood_before: int = int(ResourceManager.get_resource(0, "wood"))
 	farm.farm_food_remaining = 3

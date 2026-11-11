@@ -21,6 +21,10 @@ signal trade_command(building: Node2D)
 ## Round 2 D1: selected units should shelter in this own Town Center / Watch
 ## Tower. Consumed by scripts/buildings/garrison.gd.
 signal garrison_command(building: Node2D)
+## H: villagers tapped onto an own drop-off with cargo deliver it now and go
+## back to work; villagers fighting a boar run to the Town Center (the lure).
+signal dropoff_command(building: Node2D)
+signal lure_command(building: Node2D)
 signal building_rally_armed_changed(armed: bool)
 ## A phone box gesture is explicit and ends after one selection or cancellation.
 signal touch_area_selection_changed(armed: bool)
@@ -67,6 +71,14 @@ var _last_tap_was_ground_move := false
 var _last_tap_canvas_transform := Transform2D.IDENTITY
 var _double_tap_interval := 0.35  # seconds
 var _double_tap_radius := 30.0  # pixels
+## H: a plain ground tap sends soldiers as an attack-move; a second tap on the
+## same spot right after turns that order into a plain move (fall back, ignore
+## enemies on the way). Set only while `move_command` is emitted for a plain
+## touch ground tap: "attack", "retreat" or "" (plain move).
+var ground_tap_order: String = ""
+## H: soldiers' default ground order. Main reads it; tests and settings may
+## turn it off to restore the older plain-move tap.
+var ground_tap_attack_move: bool = true
 
 ## Visual drag-box rectangle.
 var _drag_rect: Rect2 = Rect2()
@@ -695,6 +707,11 @@ func _handle_tap(screen_pos: Vector2, is_touch_input: bool, pressed_unit: Node2D
 		if is_touch_input:
 			get_viewport().set_input_as_handled()
 		return
+	var repeated_ground_tap: bool = (
+		_last_tap_was_ground_move and tapped_node == null and _last_tap_time > 0.0
+		and now - _last_tap_time < _double_tap_interval * 1.4
+		and screen_pos.distance_to(_last_tap_position) < _double_tap_radius
+	)
 	_last_tap_time = now
 	_last_tap_position = screen_pos
 	_last_tap_canvas_transform = get_viewport().get_canvas_transform()
@@ -753,9 +770,19 @@ func _handle_tap(screen_pos: Vector2, is_touch_input: bool, pressed_unit: Node2D
 		# A visible wall is deliberate production/construction intent, even
 		# when an adjacent resource has a generous overview discovery ring.
 		# A Farm that is itself the resource keeps its normal gather meaning.
+		var home_order: String = _home_building_order(tapped_node) if has_selected_villagers and not _is_under_construction(tapped_node) else ""
 		if has_selected_villagers and _is_under_construction(tapped_node):
 			_record_touch_input(screen_pos, world_pos, "build", tapped_node, resource_node)
 			build_command.emit(tapped_node)
+		elif home_order == "garrison":
+			_record_touch_input(screen_pos, world_pos, "garrison", tapped_node, resource_node)
+			garrison_command.emit(tapped_node)
+		elif home_order == "dropoff":
+			_record_touch_input(screen_pos, world_pos, "dropoff", tapped_node, resource_node)
+			dropoff_command.emit(tapped_node)
+		elif home_order == "lure":
+			_record_touch_input(screen_pos, world_pos, "lure", tapped_node, resource_node)
+			lure_command.emit(tapped_node)
 		else:
 			_clear_selection()
 			_add_to_selection(tapped_node)
@@ -797,6 +824,16 @@ func _handle_tap(screen_pos: Vector2, is_touch_input: bool, pressed_unit: Node2D
 			# Send selected villagers to build.
 			_record_touch_input(screen_pos, world_pos, "build", tapped_node, resource_node)
 			build_command.emit(tapped_node)
+			consumed = true
+		elif is_touch_input and has_selected_villagers and _home_building_order(tapped_node) != "":
+			var order: String = _home_building_order(tapped_node)
+			_record_touch_input(screen_pos, world_pos, order, tapped_node, resource_node)
+			if order == "garrison":
+				garrison_command.emit(tapped_node)
+			elif order == "lure":
+				lure_command.emit(tapped_node)
+			else:
+				dropoff_command.emit(tapped_node)
 			consumed = true
 		elif is_touch_input and has_selected_units and _is_direct_friendly_building_reselection(tapped_node, screen_pos):
 			# A deliberate tap near the center of an owned building changes context
@@ -854,10 +891,13 @@ func _handle_tap(screen_pos: Vector2, is_touch_input: bool, pressed_unit: Node2D
 
 	if is_touch_input and has_selected_units:
 		# Touch parity: tapping empty ground while selected issues a move command.
-		_last_tap_was_ground_move = true
+		# Soldiers attack-move; tapping the same spot again falls back instead.
+		_last_tap_was_ground_move = not repeated_ground_tap
 		var tile_pos := _world_to_tile(world_pos)
-		_record_touch_input(screen_pos, world_pos, "move", tapped_node, resource_node, tile_pos)
+		_record_touch_input(screen_pos, world_pos, "retreat" if repeated_ground_tap else "move", tapped_node, resource_node, tile_pos)
+		ground_tap_order = "retreat" if repeated_ground_tap else ("attack" if ground_tap_attack_move else "")
 		move_command.emit(tile_pos)
+		ground_tap_order = ""
 		consumed = true
 	elif _has_selected_herd():
 		# Wildlife: a ground tap with own sheep selected herds them there. Main
@@ -1482,6 +1522,34 @@ func _can_offer_garrison(target: Variant) -> bool:
 		else:
 			soldier_selected = true
 	return soldier_selected or (villager_selected and not (target as BuildingBase).is_in_group("dropoff_buildings"))
+
+
+## H (AoE2-like): what a tap on an own building means for the selected
+## villagers instead of selecting it. "garrison" while its bell rings,
+## "lure" when one of them is fighting a boar and the building is a Town
+## Center, "dropoff" when one carries cargo the building takes; else "".
+func _home_building_order(building: Variant) -> String:
+	if not building is BuildingBase or _is_enemy(building) or (building as BuildingBase).state != BuildingBase.State.ACTIVE:
+		return ""
+	var home := building as BuildingBase
+	if home.bell_active and _can_offer_garrison(home):
+		return "garrison"
+	var carries: bool = false
+	for entry: Node2D in selected:
+		if not entry is Villager or not _is_current_selection_entry(entry):
+			continue
+		var villager := entry as Villager
+		if home.building_type == BuildingData.BuildingType.TOWN_CENTER and villager.gather_target is WildlifeNode \
+				and is_instance_valid(villager.gather_target) and (villager.gather_target as WildlifeNode).kind == "boar" \
+				and (villager.gather_target as WildlifeNode).phase == WildlifeNode.Phase.ALIVE:
+			return "lure"
+		if villager.carried_amount > 0 and home.is_in_group("dropoff_buildings"):
+			var accepts: bool = true
+			for resource: String in villager.get_carried_resources():
+				if not home.has_method("is_drop_off_point") or not bool(home.call("is_drop_off_point", resource)):
+					accepts = false
+			carries = carries or accepts
+	return "dropoff" if carries else ""
 
 
 func _is_direct_friendly_building_reselection(entry: Variant, screen_pos: Vector2) -> bool:

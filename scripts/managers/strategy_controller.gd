@@ -418,12 +418,29 @@ func _allocate_worker(source: String, destination: String) -> void:
 			diagnostics.call("record_event", "economy_reallocation", {"source": source, "destination": destination, "worker": str(worker.get_path()), "cargo": worker.carried_amount})
 		_refresh()
 	elif destination == "food" and bool(result.get("no_work", false)) and ResourceManager.can_afford(0, BuildingData.get_building_cost(BuildingData.BuildingType.FARM, 0)):
-		# Beta 30: no free food means the next step is a Farm. Start placing one
-		# instead of asking the player to find the Farm button themselves.
-		_overview.show_feedback("No free food. Tap ground for a Farm.")
-		_plan_farm()
+		# H: no free food means the next step is a Farm. Found one on the tidy
+		# ring around the Town Center / Mill for this worker (he farms it when
+		# built); only when no ring spot is free fall back to manual placement.
+		var farmer: Villager = _first_worker_from(source)
+		var economy: TouchEconomy = TouchEconomy.of(_main)
+		if farmer != null and economy != null and economy.place_farm_for(farmer):
+			_overview.show_feedback("No free food · Farm placed by the Town Center.")
+			_refresh()
+		else:
+			_overview.show_feedback("No free food. Tap ground for a Farm.")
+			_plan_farm()
 	else:
 		_overview.show_feedback(str(result.error), false)
+
+
+func _first_worker_from(source: String) -> Villager:
+	var candidates: Array[Villager] = []
+	for worker: Villager in _own_workers():
+		if _worker_source(worker) == source and _can_plan_with_worker(worker):
+			candidates.append(worker)
+	candidates.sort_custom(func(a: Villager, b: Villager) -> bool:
+		return a.get_instance_id() < b.get_instance_id() if a.carried_amount == b.carried_amount else a.carried_amount < b.carried_amount)
+	return candidates[0] if not candidates.is_empty() else null
 
 
 func try_allocate_worker(owner: int, source: String, destination: String) -> Dictionary:
