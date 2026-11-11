@@ -150,12 +150,20 @@ func _is_steady_work() -> bool:
 	return (current_state == State.GATHERING or current_state == State.BUILDING) and _presentation_working and not _dropoff_route_active
 
 
+## F3: the fixed-step driver (UnitBase._sim_frame) asks how long to wait.
+func _think_interval() -> float:
+	return maxf(sim_step, STEADY_WORK_THINK_INTERVAL) if _is_steady_work() else sim_step
+
+
 func _process(delta: float) -> void:
+	if _is_engine_tick():
+		return
 	if current_state != State.DEAD:
 		if _is_steady_work():
 			_steady_banked += maxf(0.0, delta)
 			if _steady_banked + 0.000001 < STEADY_WORK_THINK_INTERVAL:
-				_update_sprite_motion(delta)
+				if not _sim_driven:
+					_update_sprite_motion(delta)
 				if is_selected:
 					queue_redraw()
 				return
@@ -379,7 +387,7 @@ func get_work_presentation() -> Vector3:
 	if not _presentation_working or _auto_recovering or _dropoff_route_active:
 		return Vector3.ZERO
 	if current_state == State.BUILDING:
-		return Vector3(UnitActionPresentation.Action.BUILD, fposmod((build_timer + _steady_banked) / 0.8, 1.0), 0.8)
+		return Vector3(UnitActionPresentation.Action.BUILD, fposmod((build_timer + _steady_banked + _think_pending) / 0.8, 1.0), 0.8)
 	if current_state != State.GATHERING:
 		return Vector3.ZERO
 	var kind: int = UnitActionPresentation.Action.FORAGE
@@ -390,7 +398,7 @@ func get_work_presentation() -> Vector3:
 	elif carried_resource_type == "food" and is_instance_valid(gather_target) and gather_target is BuildingBase and (gather_target as BuildingBase).building_type == BuildingData.BuildingType.FARM and (gather_target as BuildingBase).provides_food:
 		kind = UnitActionPresentation.Action.FARM
 	var period: float = gather_tick_time / float(UnitData.RESOURCE_GATHER_SPEEDS.get(carried_resource_type, 1.0))
-	return Vector3(kind, clampf((gather_timer + _steady_banked) / period, 0.0, 1.0), period)
+	return Vector3(kind, clampf((gather_timer + _steady_banked + _think_pending) / period, 0.0, 1.0), period)
 
 
 func get_economy_task() -> String:

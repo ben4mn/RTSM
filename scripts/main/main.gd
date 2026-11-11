@@ -3781,10 +3781,17 @@ func _process(delta: float) -> void:
 		_advance_production_queues(delta)
 		_process_ai_construction_recovery(delta)
 	if PerfProbe.on: _pp = PerfProbe.add(&"main.production", _pp)
-	_update_fog_of_war()
-	if PerfProbe.on: _pp = PerfProbe.add(&"main.fog_sources", _pp)
-	_update_fog_entity_visibility()
-	if PerfProbe.on: _pp = PerfProbe.add(&"main.fog_entities", _pp)
+	# F3: sight follows the units' fixed simulation step (they move only when
+	# they think), plus at once when either roster changes size.
+	_fog_step_left -= delta
+	var fog_roster: Vector4i = Vector4i(_player_units[0].size(), _player_buildings[0].size(), _player_units[1].size(), _player_buildings[1].size())
+	if _fog_step_left <= 0.0 or fog_roster != _fog_roster:
+		_fog_step_left = UnitBase.sim_step
+		_fog_roster = fog_roster
+		_update_fog_of_war()
+		if PerfProbe.on: _pp = PerfProbe.add(&"main.fog_sources", _pp)
+		_update_fog_entity_visibility()
+		if PerfProbe.on: _pp = PerfProbe.add(&"main.fog_entities", _pp)
 	# Main refreshes fog before the child SelectionManager processes. Prune now
 	# so the later HUD refresh cannot read a just-hidden enemy or resource.
 	game_map.selection_mgr.call("_prune_stale_selection")
@@ -3856,6 +3863,8 @@ func _advance_production_queues(delta: float) -> void:
 
 
 var _fog_source_key: Array = []
+var _fog_step_left: float = 0.0
+var _fog_roster: Vector4i = Vector4i(-1, -1, -1, -1)
 
 func _update_fog_of_war() -> void:
 	var fog: FogManager = game_map.fog_of_war
@@ -3955,7 +3964,9 @@ func _on_resource_changed(player_id: int, _resource_type: String, _new_amount: i
 
 func _refresh_hud_resources(player_id: int) -> void:
 	var resources: Dictionary = ResourceManager.get_all_resources(player_id)
-	hud._update_resource_display(resources)
+	# The HUD listens to the same signal; skip the second identical refresh.
+	if resources != hud._resource_values:
+		hud._update_resource_display(resources)
 	if _build_menu:
 		_build_menu.update_resources(resources)
 

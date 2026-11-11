@@ -851,7 +851,7 @@ func _step_shots(delta: float) -> void:
 			impact(to, heading, Weapon.ARROW)
 			_stick(0, to, heading.angle(), 4.0)
 		elif is_instance_valid(host) and host is Node2D and (host as Node2D).is_inside_tree():
-			_stick(_s_host[i], to - (host as Node2D).global_position, heading.angle(), 2.4)
+			_stick(_s_host[i], to - ((host as UnitBase).get_visual_position() if host is UnitBase else (host as Node2D).global_position), heading.angle(), 2.4)
 		else:
 			_stick(0, to, clampf(heading.angle(), 0.6, 2.5) if heading.y > 0.0 else 1.0, 4.5)
 			dust(to, 1, 0.5)
@@ -946,7 +946,7 @@ func _draw_air() -> void:
 			if not is_instance_valid(host) or not host is Node2D or not (host as Node2D).is_visible_in_tree() or (host is UnitBase and (host as UnitBase).current_state == UnitBase.State.DEAD):
 				_k_age[i] = _k_life[i]
 				continue
-			position += (host as Node2D).global_position
+			position += (host as UnitBase).get_visual_position() if host is UnitBase else (host as Node2D).global_position
 		var fade: float = clampf((_k_life[i] - _k_age[i]) / 0.6, 0.0, 1.0)
 		var wobble: float = sin(_k_age[i] * 38.0) * 0.16 * maxf(0.0, 1.0 - _k_age[i] / 0.35)
 		var heading := Vector2.RIGHT.rotated(_k_angle[i] + wobble)
@@ -1032,7 +1032,7 @@ func _spawn_corpse(unit: UnitBase) -> void:
 	sprite.rotation = 0.0
 	sprite.scale = unit._sprite_rest_scale
 	# Sort slightly behind the spot so survivors standing there draw on top.
-	sprite.global_position = unit.global_position + Vector2(0.0, -3.0)
+	sprite.global_position = unit.get_visual_position() + Vector2(0.0, -3.0)
 	sprite.visible = true
 	if _c_kind[slot] == 0:
 		_c_live += 1

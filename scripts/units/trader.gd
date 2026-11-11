@@ -27,7 +27,7 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	if NetworkSession.is_client(): return
+	if NetworkSession.is_client() or _is_engine_tick(): return
 	super._process(delta)
 	if current_state == State.DEAD or get_tree().paused: return
 	_retry_left = maxf(0.0, _retry_left - delta)

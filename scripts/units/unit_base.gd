@@ -138,6 +138,41 @@ const UNIT_SPRITE_SCALES: Dictionary = UnitData.WORLD_SPRITE_SCALES
 
 var _live_unit_index: RefCounted = null
 var _presentation_delta: float = -1.0
+
+# --- Fixed-rate simulation, per-frame presentation (workstream F3) -----------
+## The engine no longer runs `_process` (one simulation think) on every rendered
+## frame. NOTIFICATION_INTERNAL_PROCESS runs `_sim_frame` each frame instead: it
+## thinks about every `sim_step` game seconds with the elapsed time (so timers,
+## speeds and intervals stay exact in game time), on a per-unit phase so a
+## crowd's thinks are spread evenly over the frames in between, and it eases
+## the drawn position from the previous simulated position to the current one.
+## `unit._process(delta)` called directly is still one immediate think, and
+## `set_process(false)` still freezes a unit, so fixtures drive units as before.
+const SIM_STEP: float = 0.05
+## Game seconds between thinks. GameMap widens it with game speed (2x/3x think
+## as often per rendered frame as 1x, with a larger step).
+static var sim_step: float = SIM_STEP
+## The 1x step (benchmarks may override it; GameMap scales it with speed).
+static var sim_base_step: float = SIM_STEP
+## World rectangle (already padded) in which unit poses are animated and
+## positions interpolated. GameMap refreshes it from the camera every frame.
+static var view_rect: Rect2 = Rect2(-1e7, -1e7, 2e7, 2e7)
+static var _sim_phase_serial: int = 0
+var _sim_clock: float = 0.0
+var _sim_next_think: float = 0.0
+var _sim_last_think: float = 0.0
+var _sim_slots: int = 1
+var _sim_engine_frame: int = -1
+var _sim_driven: bool = false
+## Game seconds since the last think (0 while a fixture drives `_process`).
+var _think_pending: float = 0.0
+var _present_pending: float = 0.0
+## Drawn position minus simulated position; decays to zero over one step.
+var _visual_offset: Vector2 = Vector2.ZERO
+var _visual_offset_start: Vector2 = Vector2.ZERO
+var _visual_elapsed: float = 0.0
+var _visual_span: float = SIM_STEP
+const VISUAL_SNAP_DISTANCE_SQUARED: float = 48.0 * 48.0
 ## Written by LiveUnitIndex only (its record for this unit, kept on the unit).
 var _index_position: Vector2 = Vector2.ZERO
 var _index_rank: int = 0
@@ -200,6 +235,9 @@ func _ready() -> void:
 	add_to_group("units")
 	add_to_group("player_%d" % player_owner)
 	_register_live_unit_index()
+	_sim_phase_serial += 1
+	_sim_next_think = sim_base_step * fposmod(float(_sim_phase_serial) * 0.6180339887, 1.0)
+	set_process_internal(true)
 	queue_redraw()
 
 
@@ -211,7 +249,11 @@ func _register_live_unit_index() -> void:
 		if not tree_exiting.is_connected(_remove_live_unit_index): tree_exiting.connect(_remove_live_unit_index)
 
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_LOCAL_TRANSFORM_CHANGED and _live_unit_index != null and is_inside_tree():
+	if what == NOTIFICATION_INTERNAL_PROCESS:
+		var _ps: int = Time.get_ticks_usec() if PerfProbe.on else 0
+		_sim_frame(get_process_delta_time())
+		if PerfProbe.on: PerfProbe.add(&"unit.sim_frame", _ps)
+	elif what == NOTIFICATION_LOCAL_TRANSFORM_CHANGED and _live_unit_index != null and is_inside_tree():
 		var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
 		_live_unit_index.update(self)
 		if PerfProbe.on: PerfProbe.add(&"unit.index_update", _pp)
@@ -316,7 +358,12 @@ func get_visual_bounds() -> Rect2:
 		local_bounds = local_bounds.merge(Rect2(size, -6.5, 8.0, 9.0))
 	if _action_presentation != null and _action_presentation.visible:
 		local_bounds = local_bounds.merge(Rect2(Vector2(-24.0, -43.0) * UnitData.WORLD_VISUAL_SCALE, Vector2(48.0, 49.0) * UnitData.WORLD_VISUAL_SCALE))
-	return global_transform * local_bounds
+	return global_transform.translated(_visual_offset) * local_bounds
+
+
+## Where the unit is drawn this frame (the simulated position, eased).
+func get_visual_position() -> Vector2:
+	return global_position + _visual_offset
 
 
 ## Presentation radius of the ground ring. Collision and separation keep the
@@ -362,7 +409,86 @@ func get_last_hit_direction() -> Vector2:
 const PERF_STATE_KEYS: Array[StringName] = [&"unit.state.m_idle", &"unit.state.m_moving", &"unit.state.m_attacking", &"unit.state.m_gathering", &"unit.state.m_building", &"unit.state.m_dead", &"unit.state.m_garrisoned", &"unit.state.v_idle", &"unit.state.v_moving", &"unit.state.v_attacking", &"unit.state.v_gathering", &"unit.state.v_building", &"unit.state.v_dead", &"unit.state.v_garrisoned"]
 
 
+## Game seconds until this unit's next think. Villagers at steady work stretch it.
+func _think_interval() -> float:
+	return sim_step
+
+
+## True exactly once per frame, for the engine's own `_process` call that
+## follows `_sim_frame`. Every `_process` override returns at once when it is.
+func _is_engine_tick() -> bool:
+	if _sim_engine_frame != Engine.get_process_frames():
+		return false
+	_sim_engine_frame = -1
+	return true
+
+
+func _sim_frame(delta: float) -> void:
+	if not is_processing():
+		return  # Frozen by a fixture: only direct `_process` calls think.
+	if current_state == State.DEAD:
+		_sim_engine_frame = Engine.get_process_frames()
+		return
+	_sim_clock += delta
+	_present_pending += delta
+	var seen: bool = presentation_enabled and visible and view_rect.has_point(global_position)
+	# A steady worker given an order (or hit) returns to the ordinary cadence.
+	if _sim_slots > 1 and _sim_clock < _sim_next_think and _think_interval() <= sim_step:
+		_sim_next_think -= sim_step * floorf((_sim_next_think - _sim_clock) / sim_step)
+		_sim_slots = 1
+		_sim_last_think = maxf(_sim_last_think, _sim_clock - sim_step)
+	if _sim_clock + 0.000001 >= _sim_next_think:
+		var step: float = _sim_clock - _sim_last_think
+		_sim_last_think = _sim_clock
+		var drawn: Vector2 = global_position + _visual_offset
+		_sim_engine_frame = -1
+		_sim_driven = true
+		_process(step)
+		_sim_driven = false
+		# Keep the per-unit phase: skip whole steps after a long frame.
+		_sim_slots = maxi(1, ceili(_think_interval() / sim_step - 0.01))
+		_sim_next_think += sim_step * maxf(float(_sim_slots), floorf((_sim_clock - _sim_next_think) / sim_step) + 1.0)
+		_think_pending = 0.0
+		var offset: Vector2 = drawn - global_position
+		if seen and delta > 0.0 and not offset.is_zero_approx() and offset.length_squared() < VISUAL_SNAP_DISTANCE_SQUARED:
+			_visual_offset_start = offset
+			_visual_elapsed = 0.0
+			# The drawn position arrives on the frame of the next think.
+			_visual_span = ceilf((_sim_next_think - _sim_clock - 0.000001) / delta) * delta
+			_visual_offset = offset
+			_apply_visual_offset()
+		elif _visual_offset != Vector2.ZERO:
+			_visual_offset = Vector2.ZERO
+			_apply_visual_offset()
+		if current_state == State.DEAD:
+			_sim_engine_frame = Engine.get_process_frames()
+			return
+		_update_sprite_motion(_present_pending)
+		_present_pending = 0.0
+	else:
+		_think_pending = _sim_clock - _sim_last_think
+		if _visual_offset != Vector2.ZERO:
+			_visual_elapsed += delta
+			_visual_offset = _visual_offset_start * (1.0 - _visual_elapsed / _visual_span) if _visual_elapsed + 0.000001 < _visual_span else Vector2.ZERO
+			_apply_visual_offset()
+		# Unseen units settle their presentation clocks at think time only.
+		if seen:
+			_update_sprite_motion(_present_pending)
+			_present_pending = 0.0
+	_sim_engine_frame = Engine.get_process_frames()
+
+
+## The node keeps the simulated position (targeting, spacing, fog and saves read
+## it); only the drawn canvas item, and so its children and y-sort, is shifted.
+func _apply_visual_offset() -> void:
+	var drawn: Transform2D = transform
+	drawn.origin += _visual_offset
+	RenderingServer.canvas_item_set_transform(get_canvas_item(), drawn)
+
+
 func _process(delta: float) -> void:
+	if _is_engine_tick():
+		return
 	if current_state == State.DEAD:
 		return
 	# Exclusion retries use the same elapsed simulation as movement/combat.
@@ -395,8 +521,9 @@ func _process(delta: float) -> void:
 		PerfProbe.add(PERF_STATE_KEYS[_pp_state + (7 if unit_type == UnitData.UnitType.VILLAGER else 0)], _pp)
 		_pp = PerfProbe.add(&"unit.state", _pp)
 	# A subclass that banks several frames into one think (Villager) still
-	# animates with this frame's time only.
-	_update_sprite_motion(delta if _presentation_delta < 0.0 else _presentation_delta)
+	# animates with this frame's time only. `_sim_frame` animates by itself.
+	if not _sim_driven:
+		_update_sprite_motion(delta if _presentation_delta < 0.0 else _presentation_delta)
 	_presentation_delta = -1.0
 	if PerfProbe.on: PerfProbe.add(&"unit.sprite", _pp)
 
@@ -1279,14 +1406,18 @@ func _update_sprite_motion(delta: float) -> void:
 	_attack_animation_remaining = maxf(0.0, _attack_animation_remaining - delta)
 	if _uses_network_work_pose and _network_work_pose.x > 0.0:
 		_network_work_pose.y = fposmod(_network_work_pose.y + maxf(0.0, delta) / _network_work_pose.z, 1.0)
-	var displacement: Vector2 = global_position - _last_visual_position
-	_last_visual_position = global_position
+	var drawn_position: Vector2 = global_position + _visual_offset
+	var displacement: Vector2 = drawn_position - _last_visual_position
+	_last_visual_position = drawn_position
 	# The pose itself (gait, idle, strike, flinch) lives in UnitPuppet. It is
 	# skipped where nobody can see it; the next visible frame blends back in.
-	if presentation_enabled and visible and (BattleFX.get_fx() == null or BattleFX.get_fx().on_screen(global_position, 96.0)):
+	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
+	if presentation_enabled and visible and view_rect.has_point(global_position):
 		_puppet.update(self, delta, displacement)
+		if PerfProbe.on: PerfProbe.add(&"unit.puppet", _pp)
 	else:
 		_puppet.tick_unseen(self, delta, displacement)
+		if PerfProbe.on: PerfProbe.add(&"unit.puppet_unseen", _pp)
 
 
 func get_work_presentation() -> Vector3:

@@ -73,7 +73,8 @@ class RangedProjectile extends Node2D:
 			return
 		elapsed += delta
 		var phase: float = minf(1.0, elapsed / flight_seconds)
-		_aim = defender.global_position + Vector2(0.0, -16.0 * UnitData.WORLD_VISUAL_SCALE)
+		# Aim at where the target is drawn (eased between simulation steps).
+		_aim = defender.get_visual_position() + Vector2(0.0, -16.0 * UnitData.WORLD_VISUAL_SCALE)
 		if _phase <= 0.0:
 			var distance: float = start_position.distance_to(_aim)
 			_arc = clampf(distance * 0.34, 26.0, 78.0) if stone else BattleFX.arrow_arc(distance)

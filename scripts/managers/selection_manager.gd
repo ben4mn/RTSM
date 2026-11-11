@@ -985,7 +985,7 @@ func _finish_drag_select() -> void:
 	for node in get_tree().get_nodes_in_group("units"):
 		if not _is_current_selection_entry(node):
 			continue
-		var screen_pos := _world_to_screen((node as Node2D).global_position)
+		var screen_pos := _world_to_screen(_drawn_position(node as Node2D))
 		if _drag_rect.has_point(screen_pos):
 			# Only select own units during drag.
 			if not _is_enemy(node as Node2D):
@@ -1200,8 +1200,8 @@ func _get_node_at(world_pos: Vector2, use_touch_radius: bool = false) -> Node2D:
 					continue
 				var enemy: Node2D = entry as Node2D
 				var direct_hit: bool = _is_touch_on_unit_body(enemy, world_pos) or _is_touch_on_unit_echo(enemy, world_pos) if group == "units" else _is_touch_on_building_facade(enemy, world_pos)
-				if direct_hit and enemy.global_position.distance_squared_to(world_pos) < enemy_distance:
-					enemy_distance = enemy.global_position.distance_squared_to(world_pos)
+				if direct_hit and _drawn_position(enemy).distance_squared_to(world_pos) < enemy_distance:
+					enemy_distance = _drawn_position(enemy).distance_squared_to(world_pos)
 					enemy_hit = enemy
 			if enemy_hit != null:
 				return enemy_hit
@@ -1217,7 +1217,7 @@ func _get_node_at(world_pos: Vector2, use_touch_radius: bool = false) -> Node2D:
 	for node in get_tree().get_nodes_in_group("units"):
 		if not _is_current_selection_entry(node):
 			continue
-		var dist := (node as Node2D).global_position.distance_to(world_pos)
+		var dist := _drawn_position(node as Node2D).distance_to(world_pos)
 		# The revealed silhouette is drawn above roofs, trees and other units.
 		# Its actual opaque pixels must win the same tap, including heads outside
 		# the broad feet/body discovery regions. Echoes remain noninteractive;
@@ -1233,7 +1233,7 @@ func _get_node_at(world_pos: Vector2, use_touch_radius: bool = false) -> Node2D:
 			# This matters in compact armies at overview zoom: tapping a head
 			# must not select the soldier standing just above that person.
 			var sprite: Sprite2D = (node as Node2D).get_node("UnitSprite") as Sprite2D
-			var body_center: Vector2 = sprite.to_global(_unit_touch_body_rect(sprite).get_center())
+			var body_center: Vector2 = sprite.to_global(_unit_touch_body_rect(sprite).get_center()) + _drawn_position(node as Node2D) - (node as Node2D).global_position
 			var body_distance: float = body_center.distance_to(world_pos)
 			if body_distance < best_body_distance:
 				best_body_distance = body_distance
@@ -1520,7 +1520,7 @@ func _is_direct_friendly_unit_reselection(entry: Variant, screen_pos: Vector2) -
 	if _is_enemy(unit):
 		return false
 	return (
-		_world_to_screen(unit.global_position).distance_to(screen_pos) <= maxf(12.0, touch_unit_hit_radius_px)
+		_world_to_screen(unit.get_visual_position()).distance_to(screen_pos) <= maxf(12.0, touch_unit_hit_radius_px)
 		or _is_touch_on_unit_body(unit, _screen_to_world(screen_pos))
 		or _is_touch_on_unit_echo(unit, _screen_to_world(screen_pos))
 	)
@@ -1528,14 +1528,19 @@ func _is_direct_friendly_unit_reselection(entry: Variant, screen_pos: Vector2) -
 
 func _is_touch_on_unit_echo(unit: Node2D, world_pos: Vector2) -> bool:
 	var echo: Sprite2D = unit.get_node_or_null("OccludedUnitEcho") as Sprite2D
-	return echo != null and echo.is_visible_in_tree() and _is_visible_to_local_player(unit) and echo.is_pixel_opaque(echo.to_local(world_pos))
+	return echo != null and echo.is_visible_in_tree() and _is_visible_to_local_player(unit) and echo.is_pixel_opaque(echo.to_local(world_pos - _drawn_position(unit) + unit.global_position))
 
 
 func _is_touch_on_unit_body(unit: Node2D, world_pos: Vector2) -> bool:
 	var sprite: Sprite2D = unit.get_node_or_null("UnitSprite") as Sprite2D
 	if sprite == null or sprite.texture == null:
 		return false
-	return _unit_touch_body_rect(sprite).has_point(sprite.to_local(world_pos))
+	# Taps hit where the unit is drawn (interpolated between simulation steps).
+	return _unit_touch_body_rect(sprite).has_point(sprite.to_local(world_pos - _drawn_position(unit) + unit.global_position))
+
+
+func _drawn_position(node: Node2D) -> Vector2:
+	return (node as UnitBase).get_visual_position() if node is UnitBase else node.global_position
 
 
 func _unit_touch_body_rect(sprite: Sprite2D) -> Rect2:
