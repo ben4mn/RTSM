@@ -300,8 +300,20 @@ func _count_nearby_players() -> Array[int]:
 	# scan would within this radius; sites outside a GameMap keep the scan.
 	var map: Node = get_parent().get_parent() if get_parent() != null else null
 	var candidates: Array = map.get_units_near(global_position, get_capture_radius_world()) if map != null and map.has_method("get_units_near") and get_tree().get_node_count_in_group("units") == map.get_spatial_unit_count() else get_tree().get_nodes_in_group("units")
+	var radius: float = get_capture_radius_world()
 	for unit in candidates:
 		if not is_instance_valid(unit) or not unit is Node2D:
+			continue
+		# Typed fast path for units (same tests, same order, same result).
+		if unit is UnitBase:
+			var live := unit as UnitBase
+			if live.current_state == UnitBase.State.DEAD or global_position.distance_to(live.global_position) > radius:
+				continue
+			var owner_id: int = live.get_player_id()
+			if owner_id >= 0 and owner_id <= 1:
+				counts[owner_id] += 1
+				if live.hp > 0.0 and live.damage > 0.0 and live.unit_type != UnitData.UnitType.VILLAGER and live.unit_type != UnitData.UnitType.SCOUT:
+					_armed_nearby_counts[owner_id] += 1
 			continue
 		# Unit death fades for a short time before queue_free. The visual remnant
 		# must not capture, contest, or cross a victory boundary during that fade.
@@ -327,10 +339,19 @@ static func is_armed_garrison_unit(unit: UnitBase) -> bool:
 	return is_instance_valid(unit) and unit.current_state != UnitBase.State.DEAD and unit.hp > 0.0 and unit.damage > 0.0 and unit.unit_type not in [UnitData.UnitType.VILLAGER, UnitData.UnitType.SCOUT]
 
 
+var _visual_key: Vector4 = Vector4(-1.0, -1.0, -1.0, -1.0)
+
+
 func _update_visuals() -> void:
 	# Color the sprite based on state.
 	if sprite == null:
 		return
+	# Presentation only: rebuild the bar and redraw the ring when what they
+	# show changed, not on every frame.
+	var key := Vector4(float(state), float(owning_player), capture_progress, victory_timer)
+	if key == _visual_key:
+		return
+	_visual_key = key
 	match state:
 		SiteState.NEUTRAL:
 			sprite.modulate = NEUTRAL_COLOR

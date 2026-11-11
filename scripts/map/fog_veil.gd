@@ -83,6 +83,7 @@ func _process(delta: float) -> void:
 	if not _rendering:
 		_rendering = true
 		_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	if PerfProbe.on: PerfProbe.count(&"fog.veil_render_frames")
 	var real_delta: float = delta / maxf(0.001, Engine.time_scale)
 	_settle -= real_delta
 	var blend: float = 1.0 - exp(-EASE_RATE * real_delta)

@@ -215,14 +215,20 @@ func _ready() -> void:
 	_ground = Node2D.new()
 	_ground.name = "Ground"
 	_ground.z_index = GROUND_Z
-	_ground.draw.connect(_draw_ground)
+	_ground.draw.connect(_timed_draw.bind(_draw_ground, &"fx.draw_ground"))
 	add_child(_ground)
 	_air = Node2D.new()
 	_air.name = "Air"
 	_air.z_index = AIR_Z
-	_air.draw.connect(_draw_air)
+	_air.draw.connect(_timed_draw.bind(_draw_air, &"fx.draw_air"))
 	add_child(_air)
 	_last_ticks = Time.get_ticks_msec()
+
+
+func _timed_draw(draw_layer: Callable, key: StringName) -> void:
+	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
+	draw_layer.call()
+	if PerfProbe.on: PerfProbe.add(key, _pp)
 
 
 # ---------------------------------------------------------------------------
@@ -535,6 +541,12 @@ func facade_point(building: BuildingBase, from: Vector2) -> Vector2:
 # ---------------------------------------------------------------------------
 
 func _process(delta: float) -> void:
+	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
+	_process_fx(delta)
+	if PerfProbe.on: PerfProbe.add(&"fx.process", _pp)
+
+
+func _process_fx(delta: float) -> void:
 	var now: int = Time.get_ticks_msec()
 	var real_delta: float = clampf(float(now - _last_ticks) / 1000.0, 0.0, 0.1)
 	_last_ticks = now

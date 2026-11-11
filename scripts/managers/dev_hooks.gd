@@ -15,7 +15,7 @@ const DIFFICULTY_IDS: Dictionary = {"easy": 0, "medium": 1, "hard": 2}
 const MAP_IDS: Dictionary = {"open_plains": 0, "river_crossings": 1, "woodland_flanks": 2}
 const RESOURCES: Array[String] = ["food", "wood", "gold"]
 const UNDER_ATTACK_COOLDOWN: float = 10.0
-const COMMANDS: Array[String] = ["camera_to", "set_speed", "pause", "reveal_map", "give", "spawn", "age", "build", "screenshot_safe_ui", "perf"]
+const COMMANDS: Array[String] = ["camera_to", "set_speed", "pause", "reveal_map", "give", "spawn", "age", "build", "screenshot_safe_ui", "perf", "motion", "order"]
 
 static var _dev_checked: bool = false
 static var _dev_enabled: bool = false
@@ -170,9 +170,12 @@ func events_since(index: int) -> Dictionary:
 func _process(_delta: float) -> void:
 	if not is_instance_valid(match_scene):
 		return
+	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
 	_scan_entities()
 	if _reveal_map:
 		_apply_reveal()
+	if PerfProbe.on: PerfProbe.add(&"dev.scan", _pp)
+	_record_motion()
 
 
 func _scan_entities() -> void:
@@ -483,23 +486,180 @@ func _cmd_build(arguments: Array, named: Dictionary = {}) -> Dictionary:
 
 
 ## `cmd('perf', true)` starts PerfProbe; `cmd('perf', false)` stops it and
-## returns ms per rendered frame per probe plus the engine's process time.
+## returns ms per rendered frame per probe, per-frame phase percentiles
+## (wall / process / late / render, see PerfProbe) and draw-call counts.
+## The game must be advancing in between (front the tab or use raf_hack.js);
+## a start and stop inside one synchronous script call sees zero frames.
 var _perf_started_frame: int = 0
-var _perf_process_ms: float = 0.0
+var _perf_markers: Array[Node] = []
+
+
+class PerfFrameMarker extends Node:
+	var begins: bool = true
+
+	func _process(_delta: float) -> void:
+		if begins:
+			PerfProbe.frame_begin()
+		else:
+			PerfProbe.frame_process_end()
+
+
+func _perf_install_markers() -> void:
+	if not _perf_markers.is_empty():
+		return
+	for begins: bool in [true, false]:
+		var marker := PerfFrameMarker.new()
+		marker.begins = begins
+		marker.name = "PerfFrameBegin" if begins else "PerfFrameEnd"
+		marker.process_mode = Node.PROCESS_MODE_ALWAYS
+		marker.process_priority = -1000000 if begins else 1000000
+		get_tree().root.add_child(marker)
+		_perf_markers.append(marker)
+	RenderingServer.frame_pre_draw.connect(PerfProbe.frame_pre_draw)
+	RenderingServer.frame_post_draw.connect(PerfProbe.frame_post_draw)
+
+
+func _perf_remove_markers() -> void:
+	for marker: Node in _perf_markers:
+		if is_instance_valid(marker):
+			marker.queue_free()
+	_perf_markers.clear()
+	if RenderingServer.frame_pre_draw.is_connected(PerfProbe.frame_pre_draw):
+		RenderingServer.frame_pre_draw.disconnect(PerfProbe.frame_pre_draw)
+		RenderingServer.frame_post_draw.disconnect(PerfProbe.frame_post_draw)
+
+
+func _exit_tree() -> void:
+	PerfProbe.on = false
+	_perf_remove_markers()
+
 
 func _cmd_perf(arguments: Array, named: Dictionary = {}) -> Dictionary:
 	var start: bool = bool(named.get("on", arguments[0] if not arguments.is_empty() else true))
 	if start:
 		PerfProbe.reset()
-		PerfProbe.on = true
+		# `{on: true, probes: false}` keeps only the frame phases and draw
+		# calls, so the scoped probes' own cost does not inflate the frame.
+		PerfProbe.on = bool(named.get("probes", true))
 		_perf_started_frame = Engine.get_process_frames()
+		_perf_install_markers()
 		return {"ok": true}
 	PerfProbe.on = false
+	_perf_remove_markers()
 	var frames: int = maxi(1, Engine.get_process_frames() - _perf_started_frame)
 	var rows: Dictionary = {}
 	for key: StringName in PerfProbe.usec:
 		rows[str(key)] = snappedf(float(PerfProbe.usec[key]) / 1000.0 / float(frames), 0.01)
-	return {"ok": true, "frames": frames, "ms_per_frame": rows, "process_ms_now": snappedf(Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0, 0.01)}
+	var counted: Dictionary = {}
+	for key: StringName in PerfProbe.calls:
+		counted[str(key) + "#"] = snappedf(float(PerfProbe.calls[key]) / float(frames), 0.1)
+	for key: StringName in PerfProbe.counts:
+		counted[str(key)] = snappedf(float(PerfProbe.counts[key]) / float(frames), 0.1)
+	var spikes: Dictionary = {}
+	for key: StringName in PerfProbe.spike_usec:
+		var spent: float = float(PerfProbe.spike_usec[key]) / 1000.0 / float(maxi(1, PerfProbe.spike_frames))
+		if spent >= 0.05:
+			spikes[str(key)] = snappedf(spent, 0.01)
+	spikes["frames"] = PerfProbe.spike_frames
+	var spike_process: float = 0.0
+	for value: float in PerfProbe.frame_process:
+		if value > PerfProbe.SPIKE_MS:
+			spike_process += value
+	spikes["process_mean"] = snappedf(spike_process / float(maxi(1, PerfProbe.spike_frames)), 0.01)
+	var units_total: int = 0
+	var units_in_view: int = 0
+	for player_units: Array in match_scene._player_units:
+		for unit: Variant in player_units:
+			if is_instance_valid(unit) and (unit as UnitBase).current_state != UnitBase.State.DEAD:
+				units_total += 1
+				if UnitBase.view_rect.has_point((unit as UnitBase).global_position):
+					units_in_view += 1
+	return {
+		"ok": true,
+		"frames": frames,
+		"ms_per_frame": rows,
+		"per_frame_counts": counted,
+		"spike_ms_per_frame": spikes,
+		"wall": PerfProbe.percentiles(PerfProbe.frame_wall),
+		"process": PerfProbe.percentiles(PerfProbe.frame_process),
+		"late": PerfProbe.percentiles(PerfProbe.frame_late),
+		"render": PerfProbe.percentiles(PerfProbe.frame_render),
+		"draw_calls": PerfProbe.percentiles(PerfProbe.frame_draw_calls),
+		"objects": PerfProbe.percentiles(PerfProbe.frame_objects),
+		"primitives": PerfProbe.percentiles(PerfProbe.frame_primitives),
+		"units": units_total,
+		"units_in_view": units_in_view,
+		"zoom": snappedf(match_scene.game_map.camera.zoom.x, 0.01) if match_scene.game_map.camera != null else 0.0,
+	}
+
+
+## Motion smoothness sampler. `cmd('motion', {unit: id})` (or no unit: the
+## player-0 military unit nearest the camera) starts recording, once per
+## rendered frame after every unit has updated, the unit's drawn position
+## (node + interpolation offset) and simulated position; `cmd('motion',
+## {stop: true})` returns the samples as rows [frame, real_ms, game_s, drawn_x,
+## drawn_y, sim_x, sim_y, state]. `legacy: true|false` toggles the pre-F4 ease
+## for A/B comparison.
+var _motion_unit: WeakRef = null
+var _motion_rows: Array = []
+
+
+func _cmd_motion(arguments: Array, named: Dictionary = {}) -> Dictionary:
+	if named.has("legacy"):
+		UnitBase.legacy_interpolation_hold = bool(named.legacy)
+	if bool(named.get("stop", false)):
+		var rows: Array = _motion_rows
+		_motion_rows = []
+		_motion_unit = null
+		return {"ok": true, "rows": rows, "legacy": UnitBase.legacy_interpolation_hold}
+	var unit: UnitBase = _unit_by_id(named.get("unit", arguments[0] if not arguments.is_empty() and not arguments[0] is Dictionary else null))
+	if unit == null:
+		var focus: Vector2 = match_scene.game_map.camera.position if match_scene.game_map.camera != null else Vector2.ZERO
+		var best: float = INF
+		for candidate: UnitBase in match_scene._player_units[0]:
+			if is_instance_valid(candidate) and candidate.current_state != UnitBase.State.DEAD and not candidate is Villager:
+				var distance: float = candidate.global_position.distance_squared_to(focus)
+				if distance < best:
+					best = distance
+					unit = candidate
+	if unit == null:
+		return {"error": "no unit"}
+	_motion_unit = weakref(unit)
+	_motion_rows = []
+	return {"ok": true, "unit": unit.get_instance_id(), "legacy": UnitBase.legacy_interpolation_hold}
+
+
+func _record_motion() -> void:
+	if _motion_unit == null:
+		return
+	var unit: UnitBase = _motion_unit.get_ref() as UnitBase
+	if unit == null or _motion_rows.size() >= 3600:
+		return
+	var drawn: Vector2 = unit.get_visual_position()
+	_motion_rows.append([Engine.get_process_frames(), snappedf(Time.get_ticks_usec() / 1000.0, 0.01), snappedf(GameManager.game_time, 0.0001),
+		snappedf(drawn.x, 0.001), snappedf(drawn.y, 0.001), snappedf(unit.global_position.x, 0.001), snappedf(unit.global_position.y, 0.001), unit.current_state])
+
+
+## `cmd('order', {unit: id, move: [tile_x, tile_y]})` or `{unit: id, stop: true}`.
+func _cmd_order(arguments: Array, named: Dictionary = {}) -> Dictionary:
+	var unit: UnitBase = _unit_by_id(named.get("unit", null))
+	if unit == null:
+		return {"error": "no unit"}
+	if bool(named.get("stop", false)):
+		unit.command_stop()
+		return {"ok": true, "stopped": unit.get_instance_id()}
+	if named.has("move"):
+		var tile: Vector2i = _resolve_tile(named.move, unit.player_owner)
+		unit.command_move(match_scene.game_map.tile_to_world(tile))
+		return {"ok": true, "unit": unit.get_instance_id(), "tile": [tile.x, tile.y]}
+	return {"error": "nothing to do"}
+
+
+func _unit_by_id(id: Variant) -> UnitBase:
+	if id == null or not (id is float or id is int):
+		return null
+	var node: Object = instance_from_id(int(id))
+	return node as UnitBase if is_instance_valid(node) and node is UnitBase else null
 
 
 func _cmd_screenshot_safe_ui(arguments: Array, named: Dictionary = {}) -> Dictionary:
