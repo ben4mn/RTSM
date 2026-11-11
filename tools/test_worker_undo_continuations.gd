@@ -84,9 +84,11 @@ func _remembered_gather() -> void:
 	for worker: Villager in _workers:
 		_expect(worker.has_active_gather_order() and worker.gather_target == null, "Undo retains fog-safe approach before reveal")
 	_map.fog_of_war.reveal_all()
-	for frame: int in 6: _step()
+	# A worker still standing at its work thinks at the steady-work cadence
+	# (Villager.STEADY_WORK_THINK_INTERVAL), so cover at least one such think.
+	for frame: int in maxi(6, ceili(Villager.STEADY_WORK_THINK_INTERVAL / STEP) + 2): _step()
 	for worker: Villager in _workers:
-		_expect(worker.has_active_gather_order() and worker.gather_target == _food, "ordinary gathering process reacquires the exact revealed resource (active=%s target=%s food=%s state=%s)" % [worker.has_active_gather_order(), worker.gather_target, _food, worker.current_state])
+		_expect(worker.has_active_gather_order() and worker.gather_target == _food, "ordinary gathering process reacquires the exact revealed resource")
 
 func _return_only_delivery() -> void:
 	_reset()
@@ -194,10 +196,6 @@ func _nearest_resource(kind: String) -> ResourceNode:
 	var nearest: ResourceNode
 	var distance: float = INF
 	for resource: ResourceNode in _map.resource_nodes.values():
-		# Live wildlife walks off its remembered tile; continuations are about a
-		# fixed observed source (berries, trees, mines).
-		if resource is WildlifeNode:
-			continue
 		if resource.resource_type == kind and resource.global_position.distance_to(_workers[0].global_position) < distance:
 			nearest = resource
 			distance = resource.global_position.distance_to(_workers[0].global_position)
