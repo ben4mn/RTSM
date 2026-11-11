@@ -32,6 +32,7 @@ const TC_IDLE_GRACE_SECONDS: float = 2.0
 const SITE_SEARCH_RADIUS: int = 7
 const FARM_RING_RADIUS: int = 6
 const UNDO_SECONDS: float = 7.0
+const FARM_AFTER_WORK_SECONDS: float = 30.0
 const BACK_TO_WORK_TEXT: String = "Back to work · %d · tap"
 const INK := Color("1d2b2c")
 const AMBER := Color("e8bf77")
@@ -182,18 +183,22 @@ func _remember_jobs() -> void:
 ## allows, instead of standing idle. Only right after the work ended, so a
 ## villager the player deliberately parked is left alone.
 func _maybe_found_farm(worker: Villager, job: Dictionary) -> void:
-	if str(job.get("resource", "")) != "food" or GameManager.game_time - float(job.get("worked_at", -100.0)) > 4.0:
+	# The walk home with the last load can take a while; a worker idle for
+	# longer than this since the work ended is somebody's deliberate choice.
+	var worked_at: float = float(job.get("worked_at", -100.0))
+	if str(job.get("resource", "")) != "food" or worked_at < 0.0 or GameManager.game_time - worked_at > FARM_AFTER_WORK_SECONDS:
 		return
 	if worker.is_selected or worker.is_auto_recovering() or not worker.queued_orders.is_empty() or worker.carried_amount > 0:
 		return
-	job["worked_at"] = -100.0
 	var last_target: Variant = (job["target"] as WeakRef).get_ref() if job.get("target") is WeakRef else null
 	if FarmPlots.is_fallow(last_target):
+		job["worked_at"] = -100.0
 		return  # Reseeding (FarmPlots) owns a fallow Farm's farmer.
 	if not resumable_job(worker).is_empty():
 		return
 	if not ResourceManager.can_afford(worker.player_owner, BuildingData.get_building_cost(BuildingData.BuildingType.FARM, worker.player_owner)):
-		return
+		return  # Retried each second while wood may still arrive.
+	job["worked_at"] = -100.0
 	if worker.player_owner == 0:
 		place_farm_for(worker)
 	else:

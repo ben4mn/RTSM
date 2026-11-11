@@ -124,6 +124,10 @@ var _group_chip_consumed: bool = false
 var _group_chips_wanted: bool = false
 var _chips_field_visible: bool = false
 var _chips_fit: bool = false
+## H: a glanceable idle-worker chip above the Economy button (tap: next idle
+## worker; tap again before an order: every idle worker).
+var idle_chip: Button
+var _idle_count: int = 0
 
 
 func _ready() -> void:
@@ -1403,6 +1407,10 @@ func apply_layout(safe: Rect2, field_visible: bool, card_area: Rect2, dock_heigh
 	group_chips.position = Vector2(safe.end.x - GROUP_CHIP_SIZE.x - 8.0, rail.position.y - 8.0 - chips_height)
 	_chips_fit = group_chips.position.y >= safe.position.y + 52.0
 	group_chips.visible = _group_chips_wanted and _chips_field_visible and _chips_fit
+	# H: the idle chip stands above the Economy button, where workers live.
+	idle_chip.size = GROUP_CHIP_SIZE
+	idle_chip.position = Vector2(rail.position.x + (RAIL_BUTTON_SIZE + RAIL_GAP) * 2.0 + (RAIL_BUTTON_SIZE - GROUP_CHIP_SIZE.x) * 0.5, rail.position.y - 8.0 - GROUP_CHIP_SIZE.y)
+	idle_chip.visible = _idle_count > 0 and _chips_field_visible
 	# The sheet leaves its launchers reachable for switching and tap-to-collapse.
 	var card_left: float = card_area.position.x + 8.0
 	var card_right: float = minf(card_area.end.x - 8.0, rail.position.x - 8.0)
@@ -1423,6 +1431,10 @@ func apply_layout(safe: Rect2, field_visible: bool, card_area: Rect2, dock_heigh
 		card_height = minf(card_height, content_height + CommandIcons.TARGET_SIZE + 14.0 + extra_padding)
 	_last_panel_minimum = panel.get_combined_minimum_size()
 	card_height = maxf(card_height, _last_panel_minimum.y)
+	if _showing_research():
+		# H (G1): the Research page is taller than a phone's free band; it
+		# scrolls inside its slot instead of pushing its last row over the dock.
+		card_height = minf(card_height, sheet_slot_height)
 	var card_size := Vector2(_sheet_width, card_height)
 	var centered: Vector2 = card_area.position + (card_area.size - card_size) * 0.5
 	# Anchor all pages just below the resource bar. Page height and hidden labels'
@@ -1494,6 +1506,17 @@ func _build_group_chips() -> void:
 		chip.add_child(number)
 		group_chips.add_child(chip)
 		_group_chip_buttons.append(chip)
+	idle_chip = _button("", "IdleChip", GROUP_CHIP_SIZE.x)
+	idle_chip.custom_minimum_size = GROUP_CHIP_SIZE
+	idle_chip.icon = CommandIcons.get_icon("idle")
+	idle_chip.expand_icon = true
+	idle_chip.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	idle_chip.add_theme_constant_override("icon_max_width", 20)
+	idle_chip.add_theme_font_size_override("font_size", 15)
+	KingdomTheme.apply_primary(idle_chip)
+	idle_chip.visible = false
+	idle_chip.pressed.connect(func() -> void: idle_requested.emit())
+	add_child(idle_chip)
 	_group_chip_timer = Timer.new()
 	_group_chip_timer.one_shot = true
 	_group_chip_timer.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -1552,6 +1575,11 @@ func _refresh_group_chips() -> void:
 		chip.accessibility_name = chip.tooltip_text
 	_group_chips_wanted = any_group or int(_snapshot.get("fighters", 0)) > 0
 	group_chips.visible = _group_chips_wanted and _chips_field_visible and _chips_fit
+	_idle_count = int((_snapshot.get("workers", {}) as Dictionary).get("idle", 0))
+	idle_chip.text = str(_idle_count) if _idle_count < 100 else "99+"
+	idle_chip.tooltip_text = "%d idle worker%s · tap: the next one · tap again: all of them" % [_idle_count, "" if _idle_count == 1 else "s"]
+	idle_chip.accessibility_name = idle_chip.tooltip_text
+	idle_chip.visible = _idle_count > 0 and _chips_field_visible
 
 
 func get_visible_bounds() -> Array[Rect2]:
@@ -1560,6 +1588,8 @@ func get_visible_bounds() -> Array[Rect2]:
 		bounds.append(rail.get_global_rect())
 	if group_chips != null and group_chips.is_visible_in_tree():
 		bounds.append(group_chips.get_global_rect())
+	if idle_chip != null and idle_chip.is_visible_in_tree():
+		bounds.append(idle_chip.get_global_rect())
 	if panel.is_visible_in_tree():
 		bounds.append(panel.get_global_rect())
 	return bounds

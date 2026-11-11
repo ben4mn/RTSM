@@ -163,6 +163,10 @@ func _town_center_taps(economy: TouchEconomy) -> void:
 func _group_chips() -> void:
 	var overview: StrategyOverview = main.hud.get("_strategy_overview")
 	expect(overview != null and overview._group_chip_buttons.size() == 3, "three group chips exist")
+	var idle_worker: Villager = own_villagers()[2]
+	idle_worker.command_stop()
+	main.get_node("StrategyController").call("_refresh")
+	expect(overview.idle_chip != null and overview._idle_count >= 1 and overview.idle_chip.text == str(overview._idle_count), "the idle chip counts idle workers (%d)" % overview._idle_count)
 	var soldiers: Array[Node2D] = []
 	for index: int in 3:
 		soldiers.append(spawn(UnitData.UnitType.ARCHER, 0, Vector2i(5, 3), index))
