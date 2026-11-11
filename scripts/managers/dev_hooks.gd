@@ -383,6 +383,13 @@ func _cmd_probe(arguments: Array, named: Dictionary = {}) -> Dictionary:
 		SelectionManager.legacy_picking = bool(named.legacy_pick)
 	if named.has("unit_radius_px"):
 		game_map.selection_mgr.touch_unit_hit_radius_px = float(named.unit_radius_px)
+	if bool(named.get("drain_farms", false)):
+		# Staging for the fallow/reseed flow: player 0's sown Farms keep one
+		# food, so the next harvest tick empties them the normal way.
+		for node: Node in game_map.get_tree().get_nodes_in_group("buildings"):
+			var farm := node as BuildingBase
+			if FarmPlots.is_farm(farm) and farm.player_owner == 0 and not farm.farm_fallow and farm.farm_food_remaining > 1:
+				farm.farm_food_remaining = 1
 	var to_screen: Transform2D = game_map.get_viewport().get_final_transform() * game_map.get_viewport().get_canvas_transform()
 	var size: Vector2 = game_map.get_viewport().get_visible_rect().size * game_map.get_viewport().get_final_transform().get_scale()
 	var rows: Array = []

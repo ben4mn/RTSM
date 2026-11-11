@@ -1,7 +1,7 @@
 extends Node
-## G1: Find idle selects the next idle worker; a second press right after
-## selects every idle worker, so a crew left idle by a finished berry patch
-## takes one order. A slow second press keeps cycling one at a time.
+## G1: Find idle selects the next idle worker; pressing it again before the
+## found worker gets an order selects every idle worker, so a crew left idle
+## by a finished berry patch takes one order. An order keeps cycling one.
 
 var _failures: Array[String] = []
 
@@ -40,18 +40,25 @@ func _run() -> void:
 	main.call("_on_idle_villager_pressed")
 	_expect(selection.selected.size() == 1 and selection.selected[0] is Villager, "first Find idle selects one worker")
 	main.call("_on_idle_villager_pressed")
-	_expect(selection.selected.size() == idle, "second quick Find idle selects all %d idle workers (got %d)" % [idle, selection.selected.size()])
-	# The window resets: the next press cycles a single worker again.
+	_expect(selection.selected.size() == idle, "second Find idle with the found worker still selected selects all %d idle workers (got %d)" % [idle, selection.selected.size()])
+	# With the whole crew selected, the next press cycles a single worker again.
 	main.call("_on_idle_villager_pressed")
 	_expect(selection.selected.size() == 1, "after selecting all, the next press cycles one worker")
-	main.set("_idle_find_last_msec", Time.get_ticks_msec() - 5000)
+	# Giving the found worker an order keeps one-by-one cycling.
+	var ordered: Villager = selection.selected[0] as Villager
+	ordered.command_move(ordered.global_position + Vector2(64.0, 0.0))
 	main.call("_on_idle_villager_pressed")
-	_expect(selection.selected.size() == 1, "a slow second press keeps cycling one worker")
+	_expect(selection.selected.size() == 1 and selection.selected[0] != ordered, "after an order, Find idle moves on to the next single worker")
+	# Selecting something else in between also keeps cycling.
+	main.call("_on_idle_villager_pressed")
+	selection.deselect_all()
+	main.call("_on_idle_villager_pressed")
+	_expect(selection.selected.size() == 1, "a changed selection keeps Find idle to one worker")
 
 	main.queue_free()
 	await get_tree().process_frame
 	if _failures.is_empty():
-		print("[PASS] idle_find_all: Find idle cycles one worker; a quick second press selects every idle worker")
+		print("[PASS] idle_find_all: Find idle cycles one worker; pressing again before an order selects every idle worker")
 		get_tree().quit(0)
 		return
 	for failure: String in _failures:

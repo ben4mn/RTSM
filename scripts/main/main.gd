@@ -69,8 +69,8 @@ var _player_town_center: BuildingBase = null
 
 # --- Idle villager cycling ---
 var _idle_villager_index: int = 0
-var _idle_find_last_msec: int = 0
-const IDLE_FIND_ALL_WINDOW_MSEC: int = 1500
+## The worker the last Find idle selected (see _on_idle_villager_pressed).
+var _idle_find_last: WeakRef = null
 var _patrol_command_armed: bool = false
 var _move_command_armed: bool = false
 var _attack_move_command_armed: bool = false
@@ -1436,15 +1436,15 @@ func _on_idle_villager_pressed() -> void:
 			idle_villagers.append(unit)
 	if idle_villagers.is_empty():
 		return
-	# G1: a second Find idle right after the first gathers every idle worker,
-	# so a whole crew left idle by a finished berry patch or a raid takes one
-	# order instead of one per worker.
-	var now_msec: int = Time.get_ticks_msec()
-	var again: bool = idle_villagers.size() > 1 and now_msec - _idle_find_last_msec <= IDLE_FIND_ALL_WINDOW_MSEC \
-		and game_map.selection_mgr.selected.size() == 1 and game_map.selection_mgr.selected[0] in idle_villagers
-	_idle_find_last_msec = now_msec
+	# G1: pressing Find idle again while the worker it found is still selected
+	# and still idle (no order given) gathers every idle worker, so a crew left
+	# idle by a finished berry patch or a raid takes one order instead of one
+	# per worker. Giving the found worker an order keeps one-by-one cycling.
+	var found: Node = _idle_find_last.get_ref() as Node if _idle_find_last != null else null
+	var again: bool = idle_villagers.size() > 1 and found != null and found in idle_villagers \
+		and game_map.selection_mgr.selected.size() == 1 and game_map.selection_mgr.selected[0] == found
+	_idle_find_last = null
 	if again:
-		_idle_find_last_msec = 0
 		var crew: Array[Node2D] = []
 		for unit: Variant in idle_villagers:
 			crew.append(unit as Node2D)
@@ -1456,6 +1456,7 @@ func _on_idle_villager_pressed() -> void:
 	_idle_villager_index = (_idle_villager_index + 1) % idle_villagers.size()
 	game_map.selection_mgr.deselect_all()
 	game_map.selection_mgr._add_to_selection(target)
+	_idle_find_last = weakref(target)
 	game_map.note_camera_interaction()
 	game_map.camera.position = target.global_position
 

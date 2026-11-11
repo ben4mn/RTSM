@@ -523,7 +523,7 @@ func update_snapshot(snapshot: Dictionary, light: bool = false) -> void:
 	ACTION_TILE.apply(_barracks_button, load(BuildingBase.get_sprite_texture_path(BuildingData.BuildingType.BARRACKS, 0)), {"wood": barracks_wood}, Vector2(84,68))
 	_barracks_button.disabled = not bool(snapshot.get("can_plan_barracks", false))
 	_population.text = str(snapshot.get("population_text", ""))
-	CommandIcons.apply_labeled(_idle_button, "idle", "Find the next of %d idle workers · tap again at once to select them all" % idle, "Find idle")
+	CommandIcons.apply_labeled(_idle_button, "idle", "Find the next of %d idle workers · tap again before giving an order to select them all" % idle, "Find idle")
 	_idle_button.disabled = idle <= 0
 	_select_army_button.disabled = fighters <= 0
 	_focus_army_button.disabled = fighters <= 0
