@@ -182,6 +182,8 @@ const LATER_WAVE_THRESHOLDS: Dictionary = {
 	Difficulty.MEDIUM: 20,
 	Difficulty.HARD: 20,
 }
+## Easy never fields more than this many soldiers outside a home defense.
+const EASY_ARMY_CAP: int = 16
 ## Seconds after reaching Feudal before the second Town Center (-1 = never).
 const SECOND_TC_DELAYS: Dictionary = {
 	Difficulty.EASY: -1.0,
@@ -214,9 +216,9 @@ const SACRED_SITE_START_TIMES: Dictionary = {
 }
 
 const SCALE_SACRED_START_TIMES: Dictionary = {
-	Difficulty.EASY: 420.0,
-	Difficulty.MEDIUM: 400.0,
-	Difficulty.HARD: 360.0,
+	Difficulty.EASY: 540.0,
+	Difficulty.MEDIUM: 500.0,
+	Difficulty.HARD: 470.0,
 }
 
 const SACRED_CAPTURE_FORCES: Dictionary = {
@@ -1792,6 +1794,8 @@ func _check_military_production() -> void:
 	if _uses_compact_population_policy() and GameManager.get_player_age(player_id) <= 1 and not _is_under_pressure:
 		if military_count + queued_military_count >= _get_attack_threshold() + 1:
 			return
+	if difficulty == Difficulty.EASY and not _uses_compact_population_policy() and not _is_under_pressure and military_count + queued_military_count >= EASY_ARMY_CAP:
+		return  # Round 2 E: Easy stays beatable for a new player.
 	var early_cap: int = 4 if difficulty == Difficulty.HARD and not _uses_compact_population_policy() else 3
 	if GameManager.get_player_age(player_id) <= 1 and not _is_under_pressure and military_count >= early_cap:
 		return  # In the Dark Age, cap military production
@@ -2098,8 +2102,8 @@ func _get_target_resource_ratio() -> Dictionary:
 		if age <= 1:
 			return {"food": 0.52, "wood": 0.38, "gold": 0.10}
 		if age == 2:
-			return {"food": 0.42, "wood": 0.41, "gold": 0.17}
-		return {"food": 0.40, "wood": 0.38, "gold": 0.22}
+			return {"food": 0.42, "wood": 0.44, "gold": 0.14}
+		return {"food": 0.40, "wood": 0.41, "gold": 0.19}
 	if age <= 1:
 		return {"food": 0.5, "wood": 0.35, "gold": 0.15}
 	if age == 2:
@@ -3547,7 +3551,7 @@ func _check_attack_or_defend() -> void:
 			Difficulty.EASY: force_attack_time = 420.0
 			Difficulty.MEDIUM: force_attack_time = 300.0
 			Difficulty.HARD: force_attack_time = 255.0
-		force_attack = _game_time >= force_attack_time and military.size() >= maxi(5, ceili(float(threshold) * 0.5)) and not _has_launched_field_attack
+		force_attack = _game_time >= force_attack_time and military.size() >= maxi(5, ceili(float(threshold) * 0.75)) and not _has_launched_field_attack
 
 	# Launch full attack if army is strong enough or timed threshold reached
 	if military.size() >= threshold or force_attack:
