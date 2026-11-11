@@ -29,12 +29,14 @@ const ALL_CLEAR_RADIUS_TILES: float = 10.0
 ## or ranged soldier, so a later Town Center retune carries over.
 const MAX_BONUS_ARROWS: int = 8
 const BONUS_ARROW_STAGGER: float = 0.07
+## Round 2 E scale (soldiers have 35-105 HP): a garrisoned Warrior is whole in
+## about 20 s, one resting beside a Town Center in about a minute.
 const GARRISON_HEAL_PER_SECOND: float = 3.0
 const HOME_HEAL_PER_SECOND: float = 1.0
 const HOME_HEAL_RADIUS_TILES: float = 5.0
 const HOME_HEAL_CALM_SECONDS: float = 6.0
 ## Per villager. 1 wood buys REPAIR_HP_PER_WOOD hit points; no wood, no work.
-const REPAIR_HP_PER_SECOND: float = 30.0
+const REPAIR_HP_PER_SECOND: float = 15.0
 const REPAIR_HP_PER_WOOD: float = 20.0
 ## Footprint distance at which a unit walking to shelter steps inside.
 const ENTER_DISTANCE: float = 56.0

@@ -1,14 +1,18 @@
 extends Node
 ## One headless AI-vs-AI skirmish for tools/joy_match_report.py.
-## Player 0 is a second AIController paying through the human build/train/age
-## transactions (same mechanism as probe_ai_compact_paid_match.gd). Nothing is
-## granted or injected; observation reuses scripts/managers/dev_hooks.gd.
+## Player 0 is a second AIController attached with `main.attach_seat_ai`, so
+## both seats build, train and age up through exactly the same transactions
+## (the opponent's). Driving seat 0 through the human placement path instead
+## gave it no stalled-foundation recovery and a different new-villager rule,
+## which showed up as a seat bias. Nothing is granted or injected; observation
+## reuses scripts/managers/dev_hooks.gd. `--swap=1` plays the two kingdoms from
+## the other seats, for seat-fairness checks.
 
 const DEV_HOOKS := preload("res://scripts/managers/dev_hooks.gd")
 const SAMPLE_SECONDS: float = 60.0
 const FLOAT_SAMPLE_SECONDS: float = 5.0
 
-var options: Dictionary = {"seed": "100", "difficulty": "1", "civ": "0", "opp": "1", "map": "0", "pop": "100", "max-seconds": "1800", "output": ""}
+var options: Dictionary = {"seed": "100", "difficulty": "1", "civ": "0", "opp": "1", "map": "0", "pop": "100", "max-seconds": "1800", "output": "", "swap": "0", "difficulty1": "-1"}
 var match_scene: Node
 var bot: AIController
 var hooks: Node
@@ -33,10 +37,13 @@ func _run() -> void:
 	# Pin every match preference so saved player settings cannot leak in.
 	AudioManager.set_all_enabled(false)
 	GameManager.guided_opening_enabled = false
-	GameManager.selected_civilization = CivilizationData.normalize(int(options["civ"]))
-	GameManager.selected_opponent_civilization = CivilizationData.normalize(int(options["opp"]))
+	var swap: bool = int(options["swap"]) == 1
+	GameManager.selected_civilization = CivilizationData.normalize(int(options["opp" if swap else "civ"]))
+	GameManager.selected_opponent_civilization = CivilizationData.normalize(int(options["civ" if swap else "opp"]))
+	# `difficulty1` gives seat 1 its own level (Easy-vs-Hard checks).
+	var seat_one_difficulty: int = clampi(int(options["difficulty1"]), 0, 2) if int(options["difficulty1"]) >= 0 else difficulty
 	GameManager.selected_match_mode = SkirmishData.MatchMode.STANDARD
-	GameManager.selected_difficulty = difficulty
+	GameManager.selected_difficulty = seat_one_difficulty
 	GameManager.selected_population_limit = SkirmishData.normalize_population_limit(int(options["pop"]))
 	GameManager.selected_map_seed = int(options["seed"])
 	GameManager.selected_map_archetype = MapData.normalize_archetype(int(options["map"]))
@@ -55,22 +62,17 @@ func _run() -> void:
 	bot.map_generator = game_map.map_generator
 	bot.pathfinding = game_map.pathfinding
 	match_scene.add_child(bot)
-	bot.ai_wants_to_build.connect(func(building_type: int, tile: Vector2i, _rebuild: bool) -> void:
-		match_scene._on_placement_confirmed(building_type, game_map.tile_to_world(tile)))
-	bot.ai_wants_to_train.connect(func(building: Node, unit_type: int) -> void: match_scene._on_train_unit_requested(building, unit_type))
-	bot.ai_wants_to_age_up.connect(func() -> void: match_scene._on_age_up_requested())
+	match_scene.attach_seat_ai(bot)
 	hooks = DEV_HOOKS.new()
 	match_scene.add_child(hooks)
 	hooks.bind(match_scene)
 	hooks.watch_ai(bot, 0)
-	_register_bot_entities()
 	var spawn: Vector2i = game_map.map_generator.spawn_positions[0]
 	bot.start_ai(spawn, game_map.tile_to_world(spawn))
 	var started_usec: int = Time.get_ticks_usec()
 	var next_sample: float = SAMPLE_SECONDS
 	var next_float: float = FLOAT_SAMPLE_SECONDS
 	while GameManager.current_state == GameManager.GameState.PLAYING and GameManager.game_time < max_seconds:
-		_register_bot_entities()
 		if GameManager.game_time >= next_float:
 			next_float += FLOAT_SAMPLE_SECONDS
 			_sample_float()
@@ -94,7 +96,7 @@ func _run() -> void:
 			"abilities": (UnitAbilities.telemetry.get(player_id, {}) as Dictionary).duplicate()})
 	var sacred_events: Array = hooks.events.filter(func(event: Dictionary) -> bool: return str(event.type).begins_with("sacred_"))
 	var report: Dictionary = {
-		"seed": final.seed, "map": final.map, "difficulty": difficulty, "population_limit": final.population_limit,
+		"seed": final.seed, "map": final.map, "difficulty": difficulty, "difficulty_seat1": seat_one_difficulty, "swap": swap, "population_limit": final.population_limit,
 		"winner": hooks.winner if finished else -1,
 		"win_reason": str(match_scene.get("_victory_reason")) if finished else "unresolved at %ds" % int(max_seconds),
 		"length_seconds": snappedf(GameManager.game_time, 0.1), "wall_seconds": snappedf(wall_seconds, 0.1),
@@ -111,17 +113,6 @@ func _run() -> void:
 	Engine.time_scale = 1.0
 	match_scene.free()
 	get_tree().quit()
-
-
-func _register_bot_entities() -> void:
-	for unit: Node in match_scene._player_units[0]:
-		if is_instance_valid(unit) and not registered.has(unit.get_instance_id()):
-			registered[unit.get_instance_id()] = true
-			bot.register_unit(unit)
-	for building: Node in match_scene._player_buildings[0]:
-		if is_instance_valid(building) and not registered.has(building.get_instance_id()):
-			registered[building.get_instance_id()] = true
-			bot.register_building(building)
 
 
 func _sample_float() -> void:

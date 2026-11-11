@@ -77,7 +77,12 @@ func _ready() -> void:
 
 
 func spawn_planned() -> void:
-	var rows: Array[Dictionary] = WildlifePlacement.plan(game_map.map_generator, int(game_map.get("map_seed")))
+	# A kingdom's extra home sheep (Mongols) are a published bonus; the rows
+	# sit after the shared, mirrored layout.
+	var bonus_sheep: Array = [0, 0]
+	for side: int in 2:
+		bonus_sheep[side] = CivilizationData.get_extra_home_sheep(GameManager.get_player_civilization(side))
+	var rows: Array[Dictionary] = WildlifePlacement.plan(game_map.map_generator, int(game_map.get("map_seed")), bonus_sheep)
 	for index: int in rows.size():
 		var row: Dictionary = rows[index]
 		var pose: Dictionary = WildlifePlacement.presentation(row, int(game_map.get("map_seed")))

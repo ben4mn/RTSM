@@ -27,19 +27,23 @@ const BUILDING_CLEARANCE_TILES: int = 1
 const BUILDINGS: Dictionary = {
 	BuildingType.TOWN_CENTER: {
 		"name": "Town Center",
-		"hp": 5000,
-		"cost": { "food": 0, "wood": 400, "gold": 100 },
+		"hp": 3500,
+		"cost": { "food": 0, "wood": 300, "gold": 100 },
 		"build_time": 60.0,
-		"pop_provided": 10,
+		# The opening five Villagers and Scout leave room for two more Villagers
+		# before the first House.
+		"pop_provided": 8,
+		# One capital and two expansions (BuildingData.get_max_count).
+		"max_count": 3,
 		"footprint": Vector2i(4, 4),
 		"can_train": [UnitData.UnitType.VILLAGER, UnitData.UnitType.SCOUT],
 		"age_required": 2,  # Paid expansion competes with saving for Castle.
 		"drop_off": ["food", "wood", "gold"],
 		# One short-range arrow buys retreat time; it does not shelter workers
 		# across the whole resource pocket or replace a defending army.
-		"attack_damage": 12,
+		"attack_damage": 6,
 		"attack_range": 8,
-		"attack_interval": 4.0,
+		"attack_interval": 2.0,
 		"attack_projectile_speed": 300.0,
 		"attack_buildings": false,
 		# Guaranteed spawn resources are placed up to nine Chebyshev tiles
@@ -51,9 +55,9 @@ const BUILDINGS: Dictionary = {
 	BuildingType.HOUSE: {
 		"name": "House",
 		"hp": 500,
-		"cost": { "food": 0, "wood": 50, "gold": 0 },
+		"cost": { "food": 0, "wood": 30, "gold": 0 },
 		"build_time": 10.0,
-		"pop_provided": 20,
+		"pop_provided": 10,
 		"footprint": Vector2i(2, 2),
 		"can_train": [],
 		"age_required": 0,
@@ -99,14 +103,19 @@ const BUILDINGS: Dictionary = {
 	BuildingType.FARM: {
 		"name": "Farm",
 		"hp": 300,
-		"cost": { "food": 0, "wood": 90, "gold": 0 },
-		"build_time": 20.0,
+		"cost": { "food": 0, "wood": 60, "gold": 0 },
+		"build_time": 15.0,
 		"pop_provided": 0,
 		"footprint": Vector2i(2, 2),
 		"can_train": [],
 		"age_required": 0,
 		"drop_off": [],
 		"provides_food": true,
+		# Round 2 E: a sown Farm holds this much food, then lies fallow until it
+		# is reseeded (scripts/buildings/farm_plots.gd). Horse Collar adds the
+		# `farm_food` registry amount to every later sowing.
+		"farm_food": 250,
+		"reseed_cost": { "food": 0, "wood": 40, "gold": 0 },
 		"color": Color(0.75, 0.7, 0.3),
 	},
 	BuildingType.RESOURCE_CAMP: {
@@ -155,7 +164,7 @@ const BUILDINGS: Dictionary = {
 
 	BuildingType.WATCH_TOWER: {
 		"name": "Watch Tower",
-		"hp": 800,
+		"hp": 600,
 		"cost": { "food": 0, "wood": 100, "gold": 25 },
 		"build_time": 20.0,
 		"pop_provided": 0,
@@ -164,9 +173,9 @@ const BUILDINGS: Dictionary = {
 		"age_required": 2,
 		"drop_off": [],
 		"color": Color(0.55, 0.45, 0.35),
-		"attack_damage": 12,
+		"attack_damage": 6,
 		"attack_range": 6,
-		"attack_interval": 3.0,
+		"attack_interval": 1.5,
 		"vision_radius": 8,
 	},
 }
@@ -204,6 +213,19 @@ static func get_building_cost(building_type: int, player_id: int = -1) -> Dictio
 			CivilizationData.scale_cost(cost, CivilizationData.get_building_cost_multiplier(CivilizationData.for_player(player_id), building_type))
 		return cost
 	return { "food": 0, "wood": 0, "gold": 0 }
+
+
+static func get_max_count(building_type: int) -> int:
+	## Most buildings are unlimited (0); a kingdom holds at most three Town Centers.
+	return int(BUILDINGS.get(building_type, {}).get("max_count", 0))
+
+
+static func get_reseed_cost(building_type: int, player_id: int = -1) -> Dictionary:
+	## What replanting a fallow Farm costs; a kingdom's Farm discount applies in proportion.
+	var cost: Dictionary = (BUILDINGS.get(building_type, {}).get("reseed_cost", {}) as Dictionary).duplicate()
+	if player_id >= 0 and not cost.is_empty():
+		CivilizationData.scale_cost(cost, CivilizationData.get_building_cost_multiplier(CivilizationData.for_player(player_id), building_type))
+	return cost
 
 
 static func get_building_name(building_type: int) -> String:

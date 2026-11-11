@@ -3449,9 +3449,11 @@ func _building_purpose(building_ref: Node2D) -> String:
 		BuildingData.BuildingType.FARM:
 			# Replicas do not include farmer reservations. Missing local data must
 			# never imply availability, nor disclose an opponent's assignment.
+			if building.player_owner == 0 and building.farm_fallow:
+				return "Fallow\nReseed: %d wood" % int(FarmPlots.reseed_cost(building).get("wood", 0))
 			if building.player_owner == 0 and not NetworkSession.is_network_match():
-				return "Unlimited food\nWorker assigned" if is_instance_valid(building.get_assigned_worker()) else "Unlimited food\nNeeds 1 worker"
-			return "Unlimited food\n1 worker capacity"
+				return FarmPlots.summary(building, true) + ("\nWorker assigned" if is_instance_valid(building.get_assigned_worker()) else "\nNeeds 1 worker")
+			return FarmPlots.summary(building, building.player_owner == 0) + "\n1 worker capacity"
 		BuildingData.BuildingType.BARRACKS: return "Trains Warriors"
 		BuildingData.BuildingType.ARCHERY_RANGE: return "Trains %ss" % UnitData.get_unit_name(UnitData.UnitType.ARCHER, building.player_owner)
 		BuildingData.BuildingType.STABLE:
@@ -4205,7 +4207,7 @@ func _retire_dynamic_control(child: Node) -> void:
 
 const RESEARCH_DEFS: Array = TechData.RESEARCH_DEFS
 const CONTEXT_ACTION_SHORT_LABELS: Dictionary = {"research:forging": "Forge", "research:scale_mail": "Mail"}
-const CONTEXT_ACTION_SHORT_EFFECTS: Dictionary = {"research:loom": "+15 worker HP"}
+const CONTEXT_ACTION_SHORT_EFFECTS: Dictionary = {"research:loom": "+10 worker HP"}
 
 
 func _context_actions_for(building_ref: Node2D) -> Array[Dictionary]:
@@ -5674,7 +5676,7 @@ func _selection_information() -> Dictionary:
 
 
 func _farm_information(farm: BuildingBase) -> Dictionary:
-	var body := "Unlimited food for 1 worker at a time.\nFood must be carried to a Town Center or Resource Camp."
+	var body: String = FarmPlots.information(farm)
 	if farm.state == BuildingBase.State.CONSTRUCTING:
 		body += "\nFinish construction before assigning a worker."
 	elif farm.state == BuildingBase.State.ACTIVE and farm.player_owner == 0 and not NetworkSession.is_network_match():

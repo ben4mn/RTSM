@@ -248,7 +248,7 @@ func _place_spawn_positions() -> void:
 ## Preserve each worker's assigned resource approach under the map reflection.
 ## Resolve orientation from the actual spawn so swapped-start probes stay fair.
 func get_starting_villager_offsets(player_id: int) -> Array[Vector2i]:
-	var offsets: Array[Vector2i] = [Vector2i(1, 2), Vector2i(-1, 2), Vector2i(0, 3), Vector2i(2, 1)]
+	var offsets: Array[Vector2i] = [Vector2i(1, 2), Vector2i(-1, 2), Vector2i(0, 3), Vector2i(2, 1), Vector2i(3, 0)]
 	if player_id < 0 or player_id >= spawn_positions.size():
 		return offsets
 	var spawn: Vector2i = spawn_positions[player_id]
