@@ -192,9 +192,12 @@ func _test_human_input_targeting(game_map: Node2D) -> void:
 
 func _test_harvest_depletion() -> void:
 	# Round 2 E: a sown Farm is finite; at zero it lies fallow until reseeded.
-	FarmPlots.set_auto_reseed(0, false)
+	# (FarmPlots' registry key, set through the autoload: a SceneTree script
+	# cannot reference classes that name autoloads at compile time.)
+	var game_manager: Node = root.get_node("GameManager")
+	game_manager.call("set_modifier", 0, "farm_auto_reseed", 0.0)
 	var farm: Node2D = _make_farm(0, Vector2(600.0, 0.0), BUILDING_ACTIVE)
-	var capacity: int = FarmPlots.capacity_for(0)
+	var capacity: int = maxi(1, int(BuildingData.BUILDINGS[BuildingData.BuildingType.FARM].get("farm_food", 0)) + int(game_manager.call("get_modifier", 0, "farm_food")))
 	var harvested: int = 0
 	for _load: int in range(capacity / 15):
 		var taken: int = int(farm.call("harvest", 15))
@@ -202,7 +205,7 @@ func _test_harvest_depletion() -> void:
 		harvested += taken
 	harvested += int(farm.call("harvest", 15))
 	_expect_eq(harvested, capacity, "a sown farm yields exactly its finite stock")
-	_expect(FarmPlots.is_fallow(farm), "an exhausted farm lies fallow")
+	_expect(bool(farm.get("farm_fallow")), "an exhausted farm lies fallow")
 	_expect_eq(farm.call("harvest", 15), 0, "a fallow farm yields nothing until reseeded")
 	_expect_eq(farm.get("state"), BUILDING_ACTIVE, "a fallow farm remains a standing building")
 	_expect_eq(farm.call("harvest", -5), 0, "negative requests cannot create negative cargo")
@@ -285,7 +288,7 @@ func _finish() -> void:
 	if _resource_manager != null:
 		_resource_manager.call("reset")
 	if _failures.is_empty():
-		print("[PASS] farm_economy: discovery, ownership, input, permanence, and deposit loop")
+		print("[PASS] farm_economy: discovery, ownership, input, finite stock and fallow, and deposit loop")
 		quit(0)
 		return
 	for failure: String in _failures:

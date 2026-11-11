@@ -162,7 +162,8 @@ func _run() -> void:
 func _exercise_villager_upgrades(forge: Node2D) -> void:
 	var units: Array = _main.get("_player_units")
 	var worker: Node = units[0][0]
-	var previous_gather: float = float(worker.get("gather_rate"))
+	var previous_carry: int = int(worker.get("carry_capacity"))
+	var previous_speed: float = float(worker.get("speed"))
 	var previous_hp: int = int(worker.get("max_hp"))
 	# Wheelbarrow and Loom are Town Center research, one at a time in its slot.
 	var home: Node2D = (_main.get("_player_buildings") as Array)[0][0]
@@ -172,7 +173,10 @@ func _exercise_villager_upgrades(forge: Node2D) -> void:
 	_finish_research([home])
 	_main.call("_on_research_requested", home, "loom")
 	_finish_research([home])
-	_expect(is_equal_approx(float(worker.get("gather_rate")), previous_gather + UnitData.WHEELBARROW_GATHER_BONUS), "existing worker receives Wheelbarrow once")
+	# Round 2 B: Wheelbarrow carries a third more and walks 10% faster.
+	var barrow: Dictionary = TechData.get_research_definition("wheelbarrow")["effects"]
+	_expect(int(worker.get("carry_capacity")) == int(round(float(UnitData.VILLAGER_CARRY_CAPACITY) * (1.0 + float(barrow["carry"])))) and int(worker.get("carry_capacity")) > previous_carry, "existing worker receives Wheelbarrow carry once")
+	_expect(float(worker.get("speed")) > previous_speed + 0.01, "existing worker receives Wheelbarrow speed")
 	_expect(int(worker.get("max_hp")) == previous_hp + int(TechData.get_research_definition("loom")["effects"]["villager_hp"]), "existing worker receives Loom once")
 	# A paid replacement is produced through the real queue, not debug spawned.
 	_gm.call("increase_population_cap", 0, 10)
@@ -190,13 +194,13 @@ func _exercise_villager_upgrades(forge: Node2D) -> void:
 	if units[0].size() == before_count + 1:
 		var replacement: Node = units[0][-1]
 		replacement.set_process(false)
-		_expect(is_equal_approx(float(replacement.get("gather_rate")), float(worker.get("gather_rate"))), "paid replacement inherits same gathering upgrade")
+		_expect(int(replacement.get("carry_capacity")) == int(worker.get("carry_capacity")) and is_equal_approx(float(replacement.get("speed")), float(worker.get("speed"))), "paid replacement inherits the same Wheelbarrow upgrade")
 		_expect(int(replacement.get("max_hp")) == int(worker.get("max_hp")), "paid replacement inherits same HP upgrade")
 	var before: Dictionary = _snapshot(0)
 	_main.call("_on_research_requested", home, "wheelbarrow")
 	_main.call("_on_research_requested", home, "loom")
 	_expect(_snapshot(0) == before and str(home.get("research_id")).is_empty(), "economic research duplicates neither spend nor stack bonuses")
-	print("Research effects: attack=%d armor=%d; worker gather=%s HP=%s; paid replacement=%s" % [int(_gm.call("get_attack_bonus", 0)), int(_gm.call("get_armor_bonus", 0)), worker.get("gather_rate"), worker.get("max_hp"), units[0].size() - before_count])
+	print("Research effects: attack=%d armor=%d; worker carry=%s HP=%s; paid replacement=%s" % [int(_gm.call("get_attack_bonus", 0)), int(_gm.call("get_armor_bonus", 0)), worker.get("carry_capacity"), worker.get("max_hp"), units[0].size() - before_count])
 
 
 func _exercise_paid_age_transactions() -> void:

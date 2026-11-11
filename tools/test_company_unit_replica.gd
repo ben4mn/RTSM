@@ -58,13 +58,14 @@ func _run() -> void:
 				actor.hp = 75.0
 			manager.reduced_flashes = false
 			adapter.apply_snapshot({"actors": actors})
+			# Units outside the camera view skip posing (presentation culling).
+			# The replicas sit off the opening camera; widen the view for this pass.
+			load("res://scripts/units/unit_base.gd").set("view_rect", Rect2(-1e7, -1e7, 2e7, 2e7))
 			adapter._process(0.1)
 			for actor: Dictionary in actors:
 				var unit: Node = adapter.entities[int(actor.id)]
 				_check(unit._sprite.flip_h, "Snapshot plus interpolated movement preserves left-facing art")
 				_check(unit._attack_animation_remaining > 0.0 and unit._attack_animation_remaining < 0.35, "Visual animation advances on inert replica")
-				if unit._sprite.position.length() <= 0.0 and failures.size() < 3:
-					print("DBG view=%s pos=%s pe=%s vis=%s rem=%s dur=%s dir=%s reduced=%s" % [UnitBase.view_rect, unit.global_position, unit.presentation_enabled, unit.visible, unit._attack_animation_remaining, unit._attack_animation_duration, unit._attack_animation_direction, manager.get("reduced_motion")])
 				_check(unit._sprite.position.length() > 0.0, "Attack snapshot produces actual sprite recoil/lunge")
 				_check(is_equal_approx(unit.hp, 75.0), "Animation does not simulate extra combat damage")
 				_check(unit.process_mode == Node.PROCESS_MODE_DISABLED, "Animated replica remains inert")
