@@ -306,6 +306,8 @@ func _process(delta: float) -> void:
 	if camera != null and UnitBase.presentation_enabled:
 		UnitBase.view_rect = (get_canvas_transform().affine_inverse() * get_viewport_rect()).grow(96.0)
 		UnitBase.set_marker_view(1.0 / maxf(0.5, camera.zoom.x), GameManager.clearer_player_markers)
+		UnitBase.crowd_on_screen = UnitBase._seen_counting
+		UnitBase._seen_counting = 0
 	_update_camera_pan(delta)
 	_update_camera_zoom(delta / maxf(0.001, Engine.time_scale))
 

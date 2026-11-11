@@ -157,6 +157,10 @@ static var sim_base_step: float = SIM_STEP
 ## World rectangle (already padded) in which unit poses are animated and
 ## positions interpolated. GameMap refreshes it from the camera every frame.
 static var view_rect: Rect2 = Rect2(-1e7, -1e7, 2e7, 2e7)
+## Units inside view_rect on the previous frame (GameMap rolls the counter).
+static var crowd_on_screen: int = 0
+static var _seen_counting: int = 0
+const CROWD_POSE_UNITS: int = 60
 static var _sim_phase_serial: int = 0
 var _sim_clock: float = 0.0
 var _sim_next_think: float = 0.0
@@ -485,9 +489,14 @@ func _sim_frame(delta: float) -> void:
 			_visual_offset = _visual_offset_start * (1.0 - _visual_elapsed / _visual_span) if _visual_elapsed + 0.000001 < _visual_span else Vector2.ZERO
 			_apply_visual_offset()
 		# Unseen units settle their presentation clocks at think time only.
-		if seen:
+		# In a crowd, a figure doing nothing but breathing is posed at its
+		# thinks (20 per real second); anything that moves, strikes, flinches
+		# or gestures is posed every frame.
+		if seen and not (crowd_on_screen > CROWD_POSE_UNITS and _visual_offset == Vector2.ZERO and _attack_animation_remaining <= 0.0 and _puppet != null and _puppet.is_resting()):
 			_update_sprite_motion(_present_pending)
 			_present_pending = 0.0
+	if seen:
+		_seen_counting += 1
 	_sim_engine_frame = Engine.get_process_frames()
 
 
