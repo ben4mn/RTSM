@@ -40,6 +40,11 @@ func _script_fields(object: Object) -> Array[String]:
 	return result
 
 func _encode(value: Variant) -> Variant:
+	# Most fields are plain numbers, flags, strings and vectors: only objects and
+	# containers need the checks below.
+	var kind: int = typeof(value)
+	if kind != TYPE_OBJECT and kind != TYPE_ARRAY and kind != TYPE_DICTIONARY:
+		return value
 	# A battle target may have been freed since the last unit update. Godot's
 	# `is` operator itself errors on freed objects, before later guards can run.
 	if typeof(value) == TYPE_OBJECT and not is_instance_valid(value):
@@ -98,7 +103,10 @@ static func _extensions(main: Node) -> RefCounted:
 
 func _read(object: Object, fields: Array[String]) -> Dictionary:
 	var result: Dictionary = {}
-	for field: String in fields: result[field] = _encode(object.get(field))
+	for field: String in fields:
+		var value: Variant = object.get(field)
+		var kind: int = typeof(value)
+		result[field] = _encode(value) if kind == TYPE_OBJECT or kind == TYPE_ARRAY or kind == TYPE_DICTIONARY else value
 	return result
 
 func _write(object: Object, fields: Array[String], data: Dictionary) -> void:

@@ -603,7 +603,22 @@ func refresh_housing_capacity() -> void:
 
 # --- Affordability ---
 
+## What the bank decides on each card: affordable, or which amounts are short.
+## Every deposit and purchase arrives here (twice: Main and the signal); the
+## cards are rebuilt only when one of these answers moved. Age, housing,
+## recommendation and mode changes refresh through their own calls.
+var _bank_signature: Array = []
+
+func _bank_card_signature() -> Array:
+	var signature: Array = []
+	for building_type in _button_map:
+		var cost: Dictionary = BuildingData.get_building_cost(building_type)
+		signature.append("" if _can_afford(cost) else _missing_resource_text(cost))
+	return signature
+
+
 func _refresh_affordability() -> void:
+	_bank_signature = _bank_card_signature()
 	for building_type in _button_map:
 		var cost: Dictionary = BuildingData.get_building_cost(building_type, 0)
 		var can_afford: bool = _can_afford(cost)
@@ -701,12 +716,14 @@ func _on_resources_changed(player_id: int, _resource_type: String, _new_amount: 
 	var rm: Node = get_node_or_null("/root/ResourceManager")
 	if rm:
 		_current_resources = rm.get_all_resources(player_owner)
-		_refresh_affordability()
+		if _bank_card_signature() != _bank_signature:
+			_refresh_affordability()
 
 
 func update_resources(resources: Dictionary) -> void:
 	_current_resources = resources
-	_refresh_affordability()
+	if _bank_card_signature() != _bank_signature:
+		_refresh_affordability()
 
 
 func update_age(age: int) -> void:
