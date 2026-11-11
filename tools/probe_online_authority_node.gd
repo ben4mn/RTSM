@@ -34,6 +34,14 @@ func _on_snapshots(tick: int) -> void:
 		return
 	var main: Node = adapter.main
 	var match_id: int = int(session.match_id)
+	# Audit first: the state this snapshot round was built from. The fixture
+	# nudges below then show up in the next round, like any authority change.
+	if tick % AUDIT_EVERY_TICKS == 0:
+		for slot: int in 2:
+			var digest: Dictionary = authority_digest(main, slot)
+			digest["tick"] = tick
+			digest["match"] = match_id
+			print("AUDIT " + JSON.stringify(digest))
 	for slot: int in 2:
 		var key: String = "%d:%d" % [match_id, slot]
 		if not _granted.has(key):
@@ -49,13 +57,6 @@ func _on_snapshots(tick: int) -> void:
 					_shrunk_farms[key] = NetworkSession.entity_id(building)
 					print("PROBE_AUTHORITY_FARM match=%d slot=%d farm=%d food=%d" % [match_id, slot, _shrunk_farms[key], PROBE_FARM_FOOD])
 					break
-	if tick % AUDIT_EVERY_TICKS != 0:
-		return
-	for slot: int in 2:
-		var digest: Dictionary = authority_digest(main, slot)
-		digest["tick"] = tick
-		digest["match"] = match_id
-		print("AUDIT " + JSON.stringify(digest))
 
 static func authority_digest(main: Node, slot: int) -> Dictionary:
 	var map: Node = main.game_map

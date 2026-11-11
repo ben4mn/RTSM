@@ -441,6 +441,13 @@ func _cmd_spawn(arguments: Array, named: Dictionary = {}) -> Dictionary:
 			break
 		_dev_spawned[unit.get_instance_id()] = true
 		spawned += 1
+		# Optional economy staging: `gather: 'wood'|'food'|'gold'` sends each
+		# spawned villager to the nearest such resource (perf scenes with cargo).
+		var gather: String = str(named.get("gather", ""))
+		if unit is Villager and gather in ["food", "wood", "gold"]:
+			var target: Node2D = game_map.get_nearest_resource_node(gather, unit.global_position, player_id, unit)
+			if target != null:
+				(unit as Villager).command_gather(target)
 	return {"ok": spawned > 0, "spawned": spawned, "unit": type_name.to_lower(), "player": player_id, "tile": [center.x, center.y]}
 
 
