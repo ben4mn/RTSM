@@ -754,7 +754,8 @@ func _on_decision_tick() -> void:
 	_hold_off_town_centers()  # Round 2 E2: no early Town Center kills below Hard
 	if _TRACE and int(_game_time) / 20 != _trace_bucket:
 		_trace_bucket = int(_game_time) / 20
-		print("[AI_TRACE] t=%d p%d %s mil=%d field=%d obj=%d mode=%s thr=%d wave=%s prefTC=%s" % [int(_game_time), player_id, _last_strategy_decision, _get_military_units().size(), _get_field_military(_get_base_reserve_units(_get_military_units())).size(), _objective_units.size(), _objective_mode_name(), _get_attack_threshold(), _attack_in_progress, _prefer_town_centers])
+		var work: Dictionary = _get_economy_work_counts()
+		print("[AI_TRACE] t=%d p%d %s mil=%d field=%d obj=%d mode=%s thr=%d wave=%s prefTC=%s work=%s want=%s bank=%s camps=%d farms=%d" % [int(_game_time), player_id, _last_strategy_decision, _get_military_units().size(), _get_field_military(_get_base_reserve_units(_get_military_units())).size(), _objective_units.size(), _objective_mode_name(), _get_attack_threshold(), _attack_in_progress, _prefer_town_centers, str(work), str(_get_economy_worker_targets(int(work.get("food", 0)) + int(work.get("wood", 0)) + int(work.get("gold", 0)), ResourceManager.get_all_resources(player_id))), str(ResourceManager.get_all_resources(player_id)), _resource_camp_count, _farm_count])
 	if PerfProbe.on: PerfProbe.add(&"ai.tick", _pp)
 
 
@@ -1912,7 +1913,9 @@ func _try_train_from_building(building_type: int, unit_type: int) -> bool:
 	if not _allows_boom_spend(cost): return false
 	if not _uses_compact_population_policy() and not _is_under_pressure and not _respects_age_reserve(cost):
 		return false  # Round 2 E: the age-up's food and gold stay banked.
-	if unit_type != UnitData.UnitType.SIEGE and _needs_compact_siege_purchase():
+	# Round 2 E2: at the large scale only a standing Workshop's engine is banked
+	# for; reserving the Workshop itself froze whole armies when wood ran short.
+	if unit_type != UnitData.UnitType.SIEGE and _needs_compact_siege_purchase() and (_uses_compact_population_policy() or _siege_workshop_count > 0):
 		var available_slots: int = int(GameManager.players[player_id]["population_cap"]) - GameManager.get_committed_population(player_id)
 		if available_slots - pop_cost < int(UnitData.UNITS[UnitData.UnitType.SIEGE]["pop_cost"]):
 			return false
