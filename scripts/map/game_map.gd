@@ -45,6 +45,12 @@ const ZOOM_STEP_FACTOR := 1.12
 const ZOOM_TRANSITION_SECONDS := 0.18
 const CAMERA_FRAME_ZOOM_STEPS := 32
 const NO_ZOOM_ANCHOR := Vector2(-1.0, -1.0)
+## The camera focus may sit this many tiles past the outermost tile centres:
+## enough to frame a unit on the very rim clear of the HUD cards, never so
+## far that the view centres on open sea.
+const CAMERA_EDGE_MARGIN_TILES := 3.0
+## Game seconds of interpolation delay change per game second (see _process).
+const INTERPOLATION_DELAY_SLEW := 0.35
 const CAMERA_PAN_SPEED := 400.0
 const EDGE_SCROLL_MARGIN := 8.0  # Pixels from screen edge to trigger scroll
 const TOUCH_PAN_DEADZONE := 12.0  # Fallback; SelectionManager owns the shared boundary.
@@ -314,7 +320,14 @@ func _process(delta: float) -> void:
 	# Drawn units trail the simulation by one step plus a (smoothed) frame.
 	if delta > 0.0:
 		_frame_game_seconds = lerpf(_frame_game_seconds, minf(delta, 0.25), 0.05) if _frame_game_seconds > 0.0 else delta
-	UnitBase.interpolation_delay = maxf(UnitBase.sim_step * 1.5, UnitBase.sim_step + _frame_game_seconds * 1.15)
+	# A game-speed change resizes the step at once. Moving the delay at once
+	# made every walking figure hop back (or ahead) by a step's travel in one
+	# frame; easing it lets the drawn clock run slightly slow or fast instead.
+	var delay_target: float = maxf(UnitBase.sim_step * 1.5, UnitBase.sim_step + _frame_game_seconds * 1.15)
+	if UnitBase.interpolation_delay <= 0.0 or delta <= 0.0:
+		UnitBase.interpolation_delay = delay_target
+	else:
+		UnitBase.interpolation_delay = move_toward(UnitBase.interpolation_delay, delay_target, delta * INTERPOLATION_DELAY_SLEW)
 	_update_camera_pan(delta)
 	_update_camera_zoom(delta / maxf(0.001, Engine.time_scale))
 
@@ -386,7 +399,36 @@ func get_clamped_camera_focus(focus: Vector2) -> Vector2:
 	var bounds_end: Vector2 = _camera_world_bounds.position + _camera_world_bounds.size
 	focus.x = clampf(focus.x, bounds_pos.x, bounds_end.x)
 	focus.y = clampf(focus.y, bounds_pos.y, bounds_end.y)
+	# The field is a diamond inside that rectangle. Keep the focus over the
+	# field (or its bank) so the rim and sea show at the edge of the view but
+	# the camera never centres on empty water off a corner.
+	var tile: Vector2 = world_to_tile_float(focus)
+	var low: float = -CAMERA_EDGE_MARGIN_TILES
+	var high_x: float = float(MapData.MAP_WIDTH - 1) + CAMERA_EDGE_MARGIN_TILES
+	var high_y: float = float(MapData.MAP_HEIGHT - 1) + CAMERA_EDGE_MARGIN_TILES
+	if tile.x < low or tile.y < low or tile.x > high_x or tile.y > high_y:
+		focus = tile_to_world_float(Vector2(clampf(tile.x, low, high_x), clampf(tile.y, low, high_y)))
 	return focus
+
+
+## Fractional tile coordinates of a world point (tile centres are integers).
+func world_to_tile_float(world_pos: Vector2) -> Vector2:
+	var rel: Vector2 = world_pos - tile_to_world(Vector2i.ZERO)
+	var half_w: float = float(MapData.TILE_WIDTH) * 0.5
+	var half_h: float = float(MapData.TILE_HEIGHT) * 0.5
+	return Vector2((rel.x / half_w + rel.y / half_h) * 0.5, (rel.y / half_h - rel.x / half_w) * 0.5)
+
+
+func tile_to_world_float(tile: Vector2) -> Vector2:
+	var half_w: float = float(MapData.TILE_WIDTH) * 0.5
+	var half_h: float = float(MapData.TILE_HEIGHT) * 0.5
+	return tile_to_world(Vector2i.ZERO) + Vector2((tile.x - tile.y) * half_w, (tile.x + tile.y) * half_h)
+
+
+## The nearest tile inside the field. Orders aimed past the edge (the sea, the
+## dark beyond it) go to the rim instead of being dropped.
+func clamp_tile_to_map(tile: Vector2i) -> Vector2i:
+	return Vector2i(clampi(tile.x, 0, MapData.MAP_WIDTH - 1), clampi(tile.y, 0, MapData.MAP_HEIGHT - 1))
 
 
 func _input(event: InputEvent) -> void:
@@ -1077,7 +1119,9 @@ func get_navigation_world_path(
 		return PackedVector2Array()
 	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
 	var from_tile: Vector2i = world_to_tile(from_world)
-	var target_tile: Vector2i = world_to_tile(target_world)
+	# A goal past the edge searches from the nearest rim tile, so the unit walks
+	# to the coast and stops there instead of standing still.
+	var target_tile: Vector2i = clamp_tile_to_map(world_to_tile(target_world))
 	var radius_from_range: int = int(ceil(
 		(arrival_radius_world + NAVIGATION_ENDPOINT_MARGIN_WORLD) / maxf(1.0, float(MapData.TILE_HEIGHT))
 	)) + 1
