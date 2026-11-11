@@ -246,6 +246,11 @@ func _drive(now: float, data: Dictionary) -> void:
 		_place(BuildingData.BuildingType.FARM, [villagers[3]], home + Vector2i(-2, 3), now)
 	var farms: Array = _own_buildings(BuildingData.BuildingType.FARM, true)
 	checks["farm_built"] = checks["farm_built"] or not farms.is_empty()
+	if not farms.is_empty() and not done.has("auto_reseed_off"):
+		# Auto-reseed starts on for players (H); switch it off from the Farm's
+		# own button so the fallow field and a manual reseed can be seen.
+		done["auto_reseed_off"] = true
+		_send("building_action", {"target": _id(farms[0]), "action": FarmPlots.ACTION_AUTO})
 	for farm: BuildingBase in farms:
 		var id: int = _id(farm)
 		var last: int = int(farm_seen_total.get(id, -1))
