@@ -232,7 +232,7 @@ func _refresh(periodic: bool = false) -> void:
 	var battle_lesson: Dictionary = BATTLE_RECEIPTS.get_counter_lesson(receipts.call("get_summary", 0), GameManager.get_player_civilization(0), GameManager.get_player_civilization(1)) if receipts != null else {}
 	var _pq: int = Time.get_ticks_usec() if PerfProbe.on else 0
 	var snapshot: Dictionary = {"traders": traders.size(), "waiting_traders": waiting_traders, "has_trade": has_trade, "workers": workers, "military": military, "fighters": fighters, "producers": producers, "population_text": population_text, "groups": groups, "group_has_buildings": group_has_buildings, "selection_count": selection_count, "selected_military": selected_military, "selected_fighters": selected_fighters, "economy": economy, "economy_facts": economy_facts, "battle_lesson": battle_lesson, "food_attention_ready": _update_food_attention(own_workers.size(), int(workers.food), int(workers.recovering)), "food_low_attention_ready": _update_food_low_attention(economy, int(workers.recovering)), "can_plan_farm": available_builders > 0 and farm_missing.is_empty(), "farm_blocker": farm_blocker, "can_plan_barracks": available_builders > 0 and barracks_missing.is_empty(), "barracks_blocker": barracks_blocker}
-	_overview.update_snapshot(snapshot)
+	_overview.update_snapshot(snapshot, periodic)  # periodic + closed sheet: rail badges only (E2 perf)
 	if PerfProbe.on: PerfProbe.add(&"strategy.update_snapshot", _pq)
 
 

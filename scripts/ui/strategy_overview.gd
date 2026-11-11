@@ -446,7 +446,7 @@ func _choose_source(resource: String) -> void:
 	_refresh_allocation_buttons()
 
 
-func update_snapshot(snapshot: Dictionary) -> void:
+func update_snapshot(snapshot: Dictionary, light: bool = false) -> void:
 	var traders: int = int(snapshot.get("traders", 0))
 	var waiting: int = int(snapshot.get("waiting_traders", 0))
 	_trader_button.disabled = traders == 0
@@ -498,7 +498,7 @@ func update_snapshot(snapshot: Dictionary) -> void:
 	elif idle > 0:
 		_summary.text = "%d idle · choose Idle, then a job." % idle
 	_summary.add_theme_color_override("font_color", KingdomTheme.AMBER if idle > 0 or not warnings.is_empty() or bool(snapshot.get("food_low_attention_ready", false)) else KingdomTheme.PARCHMENT)
-	if not panel.visible:
+	if light and not panel.visible:
 		# Perf (Round 2 E2): a closed sheet only needs the rail badges above;
 		# set_surface re-applies the stored snapshot when it opens.
 		_sheet_stale = true

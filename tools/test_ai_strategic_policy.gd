@@ -153,7 +153,7 @@ func _test_fair_difficulty_profiles(resource_manager: Node) -> void:
 
 
 func _test_one_scout_capture_policy() -> void:
-	var start_times: Array[float] = [270.0, 150.0, 90.0]
+	var start_times: Array[float] = _scale_sacred_start_times()
 	for difficulty in [DIFFICULTY_EASY, DIFFICULTY_MEDIUM, DIFFICULTY_HARD]:
 		_site.state = SITE_NEUTRAL
 		_site.owning_player = -1
@@ -219,9 +219,10 @@ func _test_opening_military_liveness(resource_manager: Node) -> void:
 	if not requested_buildings.is_empty():
 		_expect_eq(requested_buildings[0], FARM_TYPE, "fair opening secures paid renewable food before its production unlock")
 
-	ai.set("_saving_for_age_up", true)
+	ai.set("_saving_for_age_up", true)  # (cleared below: E's age reserve would veto the 50-food troop)
 	_expect(bool(ai.call("_is_essential_building_while_saving", BARRACKS_TYPE)), "age-up saving cannot suppress the first Barracks")
 
+	ai.set("_saving_for_age_up", false)
 	resource_manager.call("try_spend", PLAYER_AI, BuildingData.get_building_cost(BARRACKS_TYPE))
 	var barracks: Node = _spawn_fixture(BARRACKS_SCENE_PATH, PLAYER_AI, base_position + Vector2(96.0, 32.0))
 	barracks.call("complete_instantly")
@@ -246,7 +247,7 @@ func _test_opening_military_liveness(resource_manager: Node) -> void:
 
 
 func _test_scout_recon_timing_boundary() -> void:
-	var start_times: Array[float] = [270.0, 150.0, 90.0]
+	var start_times: Array[float] = _scale_sacred_start_times()
 	for difficulty in [DIFFICULTY_EASY, DIFFICULTY_MEDIUM, DIFFICULTY_HARD]:
 		var movement_map := StrategyMap.new()
 		root.add_child(movement_map)
@@ -275,6 +276,7 @@ func _test_scout_recon_timing_boundary() -> void:
 		for recon_scout in recon_scouts:
 			ai.call("register_unit", recon_scout)
 		ai.set("_game_time", start_times[difficulty] - 0.01)
+		root.get_node("GameManager").set("game_time", start_times[difficulty] - 0.01)  # the real site reads its wake from the match clock
 
 		# Both injected waypoints are outside the capture disk, but the chord from
 		# the Scout through the far-side waypoint crosses its center. Endpoint-only
@@ -333,6 +335,7 @@ func _test_scout_recon_timing_boundary() -> void:
 		sacred_site.set("capture_progress", 0.0)
 
 		ai.set("_game_time", start_times[difficulty])
+		root.get_node("GameManager").set("game_time", start_times[difficulty])
 		ai.call("_check_sacred_site_strategy")
 		snapshot = ai.call("get_strategy_snapshot")
 		_expect_eq(str(snapshot.get("objective_mode", "")), "capture", "difficulty %d promotes recon at the configured start time" % difficulty)
@@ -374,7 +377,7 @@ func _setup_hard_strategy_fixture() -> void:
 func _test_sacred_site_policy() -> void:
 	_site.state = SITE_NEUTRAL
 	_site.owning_player = -1
-	_ai.set("_game_time", 100.0)
+	_ai.set("_game_time", _scale_sacred_start_times()[DIFFICULTY_HARD] + 1.0)
 	var blocks_offense: bool = bool(_ai.call("_check_sacred_site_strategy"))
 	var snapshot: Dictionary = _ai.call("get_strategy_snapshot")
 	_expect(not blocks_offense, "neutral capture leaves surplus field forces available")
@@ -414,7 +417,7 @@ func _test_base_defense_and_sighting_memory() -> void:
 	_expect(memory_target.get("node") == null, "memory never keeps a hidden enemy as a live command target")
 	_expect_vector_approx(memory_target.get("position", Vector2.ZERO), remembered_position, "memory preserves the last legal sighting")
 
-	_ai.set("_game_time", 200.0)
+	_ai.set("_game_time", float(_ai.get("_game_time")) + 100.0)  # beyond Hard's 75 s memory
 	var expired_target: Dictionary = _ai.call("_find_enemy_target_selection")
 	_expect(expired_target.is_empty(), "Hard sighting memory expires after its bounded lifetime")
 
@@ -479,3 +482,14 @@ func _finish() -> void:
 		quit(0)
 	else:
 		quit(1)
+
+
+## Round 2 E2: large matches turn to the Sacred Site relative to its Standard
+## clock opening (AIController.SCALE_SACRED_START_TIMES), not the old fixed
+## 4:30 / 2:30 / 1:30 compact times.
+func _scale_sacred_start_times() -> Array[float]:
+	var wake: float = SkirmishData.get_sacred_wake_seconds(SkirmishData.MatchMode.STANDARD)
+	var times: Array[float] = []
+	for difficulty: int in [DIFFICULTY_EASY, DIFFICULTY_MEDIUM, DIFFICULTY_HARD]:
+		times.append(wake + float((load(AI_CONTROLLER_SCRIPT_PATH).get_script_constant_map()["SCALE_SACRED_START_TIMES"] as Dictionary)[difficulty]))
+	return times

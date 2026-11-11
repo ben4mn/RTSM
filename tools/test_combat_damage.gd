@@ -100,7 +100,8 @@ func _test_unit_to_building_damage() -> void:
 	var siege := _make_unit(UnitData.UnitType.SIEGE, 0)
 	var building := _make_building(HOUSE_SCENE, 1)
 	_game_manager.call("apply_attack_upgrade", 0, 2)
-	_expect_eq(Combat.calculate_building_damage(infantry), 10, "unit-to-building damage includes +2 attack")
+	var infantry_building_damage: int = roundi((float(UnitData.UNITS[UnitData.UnitType.INFANTRY]["damage"]) + 2.0) * float(UnitData.UNITS[UnitData.UnitType.INFANTRY].get("bonus_vs_buildings", 1.0)))
+	_expect_eq(Combat.calculate_building_damage(infantry), infantry_building_damage, "unit-to-building damage includes +2 attack and the line's building multiplier")
 	_expect_eq(Combat.calculate_building_damage(siege), 96, "siege damage is (30 + 2) * 3")
 	var hp_before: int = building.hp
 	Combat.deal_damage_to_building(siege, building)

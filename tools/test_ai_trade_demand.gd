@@ -68,7 +68,7 @@ func _run() -> void:
 	_expect(builds.is_empty() and ai._trade_capital == {"wood": 260, "gold": 40}, "post waits for its complete paid first-caravan budget")
 	_expect(ResourceManager.get_all_resources(1) == bank, "capital reservation never grants or spends money")
 	_expect(not ai._try_train_from_building(BuildingData.BuildingType.BARRACKS, UnitData.UnitType.INFANTRY), "optional military cannot consume trade bootstrap wood")
-	_expect(not ai._allows_trade_capital_spend(UnitData.get_unit_cost(UnitData.UnitType.SCOUT)), "scout replacement preserves the last bootstrap gold")
+	_expect(not ai._allows_trade_capital_spend(UnitData.get_unit_cost(UnitData.UnitType.ARCHER)), "optional gold troop preserves the last bootstrap gold (Round 2 E: Scouts cost no gold)")
 	ai._is_under_pressure = true
 	_expect(ai._allows_trade_capital_spend({"wood": 40}), "current pressure immediately releases optional capital")
 	ai._is_under_pressure = false

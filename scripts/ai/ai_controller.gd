@@ -145,6 +145,8 @@ var _last_raid_time: float = -INF
 var _prefer_town_centers: bool = false  # recomputed every decision
 var _mass_peak: int = 0  # E2: largest massing army since the last launch
 var _mass_peak_time: float = 0.0
+var _enemy_town_centers: Dictionary = {}  # E2: instance id -> last seen position
+var _enemy_start_cleared: bool = false
 var _last_scout_order_time: float = -INF
 const SCOUT_REPLACEMENT_SECONDS: float = 120.0
 
@@ -1383,12 +1385,15 @@ func _get_economy_worker_targets(worker_count: int, resources: Dictionary) -> Di
 		var poor: String = ""
 		for resource_type: String in ["food", "wood", "gold"]:
 			var banked: int = int(resources.get(resource_type, 0))
-			if banked >= 500 and (rich == "" or banked > int(resources.get(rich, 0))):
+			# Round 2 E2: earlier and firmer (telemetry: food and gold banked in the
+			# thousands while wood sat at zero and blocked siege and production).
+			if banked >= 400 and (rich == "" or banked > int(resources.get(rich, 0))):
 				rich = resource_type
-			if banked < 150 and (poor == "" or banked < int(resources.get(poor, 0))):
+			if banked < 200 and (poor == "" or banked < int(resources.get(poor, 0))):
 				poor = resource_type
 		if rich != "" and poor != "" and rich != poor:
-			var moved: int = mini(int(targets[rich]) - 1, maxi(1, roundi(float(targets[rich]) * 0.3)))
+			var share: float = 0.5 if int(resources.get(rich, 0)) >= 900 else 0.3
+			var moved: int = mini(int(targets[rich]) - 1, maxi(1, roundi(float(targets[rich]) * share)))
 			if moved > 0:
 				targets[rich] = int(targets[rich]) - moved
 				targets[poor] = int(targets[poor]) + moved
@@ -1600,7 +1605,7 @@ func _check_building_construction() -> void:
 			continue
 		if not ResourceManager.can_afford(player_id, cost):
 			if b_type == BuildingData.BuildingType.TOWN_CENTER and (not _get_boom_reserve_cost().is_empty() or not _uses_compact_population_policy()): return
-			if not _uses_compact_population_policy() and age >= 2 and _farm_count >= 3 and current_count == 0 and b_type in [BuildingData.BuildingType.BARRACKS, BuildingData.BuildingType.ARCHERY_RANGE, BuildingData.BuildingType.STABLE]:
+			if not _uses_compact_population_policy() and age >= 2 and _farm_count >= 3 and current_count == 0 and b_type in [BuildingData.BuildingType.BARRACKS, BuildingData.BuildingType.ARCHERY_RANGE, BuildingData.BuildingType.STABLE, BuildingData.BuildingType.SIEGE_WORKSHOP]:
 				return  # Round 2 E2: bank wood for the missing line before more Farms.
 			if b_type == _get_compact_missing_role_building() and _farm_count > 0:
 				# Preserve the second troop-role unlock. An active paid Farm keeps
@@ -2159,8 +2164,8 @@ func _get_target_resource_ratio() -> Dictionary:
 		if age <= 1:
 			return {"food": 0.52, "wood": 0.38, "gold": 0.10}
 		if age == 2:
-			return {"food": 0.42, "wood": 0.44, "gold": 0.14}
-		return {"food": 0.40, "wood": 0.41, "gold": 0.19}
+			return {"food": 0.40, "wood": 0.46, "gold": 0.14}
+		return {"food": 0.36, "wood": 0.46, "gold": 0.18}  # E2: siege and production need wood
 	if age <= 1:
 		return {"food": 0.5, "wood": 0.35, "gold": 0.15}
 	if age == 2:
@@ -2293,6 +2298,19 @@ func _get_build_order(age: int) -> Array:
 			BuildingData.BuildingType.SIEGE_WORKSHOP,
 			BuildingData.BuildingType.TOWN_CENTER,
 		]
+	if age >= 3 and not _uses_compact_population_policy() and _siege_workshop_count == 0:
+		# Round 2 E2: the Siege Workshop is the Castle Age's finishing tool.
+		return [
+			BuildingData.BuildingType.HOUSE,
+			BuildingData.BuildingType.SIEGE_WORKSHOP,
+			BuildingData.BuildingType.RESOURCE_CAMP,
+			BuildingData.BuildingType.FARM,
+			BuildingData.BuildingType.BARRACKS,
+			BuildingData.BuildingType.ARCHERY_RANGE,
+			BuildingData.BuildingType.STABLE,
+			BuildingData.BuildingType.TOWN_CENTER,
+			BuildingData.BuildingType.BLACKSMITH,
+		]
 	if age >= 3:
 		return [
 			BuildingData.BuildingType.HOUSE,
@@ -2311,6 +2329,8 @@ func _get_build_order(age: int) -> Array:
 		# first) comes before more Farms, so the wood is never all planted.
 		var order: Array = [BuildingData.BuildingType.HOUSE]
 		order.append_array(_missing_production_lines())
+		if age >= 3:
+			order.append(BuildingData.BuildingType.SIEGE_WORKSHOP)
 		order.append_array([BuildingData.BuildingType.FARM, BuildingData.BuildingType.RESOURCE_CAMP, BuildingData.BuildingType.TOWN_CENTER, BuildingData.BuildingType.BLACKSMITH])
 		return order
 	if age == 2 and not _uses_compact_population_policy():
@@ -2463,7 +2483,8 @@ func _needs_compact_siege_purchase() -> bool:
 		return false
 	if _is_under_pressure or _needs_compact_worker_recovery() or _get_compact_missing_role_building() >= 0:
 		return false
-	if _get_fighting_units().size() < _get_attack_threshold():
+	# Round 2 E2: a massing Castle army banks its first siege from 12 soldiers.
+	if _get_fighting_units().size() < (_get_attack_threshold() if _uses_compact_population_policy() else mini(12, _get_attack_threshold())):
 		return false
 	if _count_queued_unit(UnitData.UnitType.SIEGE) > 0:
 		return false
@@ -3584,7 +3605,9 @@ func _find_raid_target() -> Vector2:
 	var best: Vector2 = Vector2(-1, -1)
 	var best_score: float = -INF
 	# Round 2 E2: prefer workers away from Town Center and tower arrows.
-	var guarded: Array[Vector2] = [_tile_to_world(_get_symmetric_enemy_spawn_tile())] if map_generator else []
+	var guarded: Array[Vector2] = []
+	if map_generator:
+		guarded.append(_tile_to_world(_get_symmetric_enemy_spawn_tile()))
 	for building: BuildingBase in _get_visible_enemy_buildings():
 		if building.tower_attack_damage > 0 and building.state == BuildingBase.State.ACTIVE:
 			guarded.append(building.global_position)
@@ -4353,6 +4376,13 @@ func _find_enemy_target_selection() -> Dictionary:
 			"source": "visible",
 		}
 
+	# Round 2 E2: an army that is ahead marches on the enemy Town Center it has
+	# seen (or the public start), fighting whatever it meets on the way.
+	if _prefers_town_center_targets() and not _uses_compact_population_policy():
+		var known_tc: Vector2 = _nearest_known_enemy_town_center()
+		if known_tc != Vector2(-1, -1):
+			return {"position": known_tc, "node": null, "source": "town_center_memory"}
+
 	var memory_target: Dictionary = _find_best_enemy_memory()
 	if not memory_target.is_empty():
 		return memory_target
@@ -4414,9 +4444,42 @@ func _score_enemy_node(node: Node) -> float:
 func _update_enemy_memory() -> void:
 	for enemy in _get_visible_enemies():
 		_remember_enemy(enemy)
-	for building in _get_visible_enemy_buildings():
+	var visible_buildings: Array = _get_visible_enemy_buildings()
+	for building in visible_buildings:
 		_remember_enemy(building)
+		if (building as BuildingBase).building_type == BuildingData.BuildingType.TOWN_CENTER:
+			_enemy_town_centers[building.get_instance_id()] = building.global_position
+	# A remembered Town Center is forgotten once its ground is seen without it.
+	for key: Variant in _enemy_town_centers.keys():
+		var position: Vector2 = _enemy_town_centers[key]
+		var node: Object = instance_from_id(int(key))
+		var gone: bool = node == null or not is_instance_valid(node) or (node is BuildingBase and (node as BuildingBase).state == BuildingBase.State.DESTROYED)
+		if gone and _is_tile_currently_visible(_world_to_tile(position)):
+			_enemy_town_centers.erase(key)
 	_prune_enemy_memory()
+
+
+func _nearest_known_enemy_town_center() -> Vector2:
+	## Round 2 E2: remembered enemy Town Centers, else the public enemy start.
+	var best: Vector2 = Vector2(-1, -1)
+	var best_distance: float = INF
+	for position: Vector2 in _enemy_town_centers.values():
+		var distance: float = position.distance_to(_base_position)
+		if distance < best_distance:
+			best_distance = distance
+			best = position
+	if best == Vector2(-1, -1) and map_generator and not _enemy_start_cleared:
+		best = _tile_to_world(_get_symmetric_enemy_spawn_tile())
+		if _is_tile_currently_visible(_get_symmetric_enemy_spawn_tile()):
+			# Seen empty: the start Town Center fell or never stood there.
+			var standing: bool = false
+			for building: BuildingBase in _get_visible_enemy_buildings():
+				if building.building_type == BuildingData.BuildingType.TOWN_CENTER and building.global_position.distance_to(best) < 160.0:
+					standing = true
+			if not standing:
+				_enemy_start_cleared = true
+				return Vector2(-1, -1)
+	return best
 
 
 func _remember_enemy(enemy: Node2D) -> void:
