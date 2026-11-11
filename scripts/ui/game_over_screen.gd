@@ -222,8 +222,10 @@ func _show_result(text: String, color: Color, stats: Dictionary) -> void:
 
 
 func _age_line(age: int, feudal_seconds: float, castle_seconds: float) -> String:
-	if age >= 3 and castle_seconds >= 0.0:
-		return "Castle Age at %s" % _format_timing(castle_seconds)
+	# The age reached comes first: a Castle kingdom whose Castle time is unknown
+	# (e.g. a resumed save) still reads "Castle Age", never its Feudal time.
+	if age >= 3:
+		return "Castle Age at %s" % _format_timing(castle_seconds) if castle_seconds >= 0.0 else "Castle Age"
 	if age >= 2 and feudal_seconds >= 0.0:
 		return "Feudal Age at %s" % _format_timing(feudal_seconds)
 	return ["", "Dark Age", "Feudal Age", "Castle Age"][clampi(age, 1, 3)]
