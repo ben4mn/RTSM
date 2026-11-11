@@ -51,7 +51,7 @@ var _has_launched_field_attack: bool = false
 var _attack_wave_units: Array = []
 ## A small detachment that takes flank shrines for their gold.
 var _shrine_units: Array = []
-const SHRINE_START_SECONDS: Dictionary = {Difficulty.EASY: 300.0, Difficulty.MEDIUM: 180.0, Difficulty.HARD: 120.0}
+const SHRINE_START_SECONDS: Dictionary = {Difficulty.EASY: 840.0, Difficulty.MEDIUM: 180.0, Difficulty.HARD: 120.0}
 const SHRINE_SQUAD_SIZE: Dictionary = {Difficulty.EASY: 2, Difficulty.MEDIUM: 3, Difficulty.HARD: 3}
 var _attack_wave_target_position: Vector2 = Vector2(-1, -1)
 var _attack_wave_target_ref: WeakRef = null
@@ -193,12 +193,12 @@ const ARMY_ATTACK_THRESHOLDS: Dictionary = {
 	Difficulty.HARD: 10,
 }
 const LATER_WAVE_THRESHOLDS: Dictionary = {
-	Difficulty.EASY: 8,
+	Difficulty.EASY: 6,
 	Difficulty.MEDIUM: 16,
 	Difficulty.HARD: 18,
 }
 const CASTLE_WAVE_THRESHOLDS: Dictionary = {
-	Difficulty.EASY: 10,
+	Difficulty.EASY: 8,
 	Difficulty.MEDIUM: 28,
 	Difficulty.HARD: 30,
 }
@@ -208,14 +208,25 @@ const MASS_STALL_SECONDS: float = 75.0
 ## Waves never aim at (and soldiers stop hitting) a Town Center before this game
 ## time, so Medium cannot end a passive player's match in the opening.
 const TC_ASSAULT_START_SECONDS: Dictionary = {
-	Difficulty.EASY: 1200.0,
+	Difficulty.EASY: 1500.0,
 	Difficulty.MEDIUM: 630.0,
 	Difficulty.HARD: 420.0,
 }
-## Easy rests this long after every wave before the next can leave home.
-const EASY_WAVE_REST_SECONDS: float = 150.0
+## Easy rests this long after every wave before the next can leave home
+## (plus one more minute: a wave leaves at most every 5:00).
+const EASY_WAVE_REST_SECONDS: float = 240.0
 ## Easy never fields more than this many soldiers outside a home defense.
-const EASY_ARMY_CAP: int = 12
+const EASY_ARMY_CAP: int = 10
+## K: Easy sends no wave, raid or shrine squad at the player before 14:00.
+const EASY_FIRST_ATTACK_SECONDS: float = 840.0
+## K: Easy's first wave is this small and grows by one soldier every
+## EASY_WAVE_GROWTH_SECONDS of game time after EASY_FIRST_ATTACK_SECONDS.
+const EASY_FIRST_WAVE_SIZE: int = 5
+const EASY_WAVE_GROWTH_SECONDS: float = 300.0
+## K: an Easy wave turns home once it is down to this share of its wave size
+## or visibly outmatched by this ratio.
+const EASY_RETREAT_SHARE: float = 0.6
+const EASY_OUTMATCHED_RATIO: float = 0.8
 ## Seconds after reaching Feudal before the second Town Center (-1 = never).
 const SECOND_TC_DELAYS: Dictionary = {
 	Difficulty.EASY: -1.0,
@@ -340,15 +351,15 @@ const FEUDAL_FARM_CAPACITY_TARGET: int = 3
 # released as soon as all four foundations are registered.
 const FEUDAL_FARM_WOOD_WORKER_RATIO: float = 0.50
 
-## Feudal click times (Round 2 E): 4:00 / 3:00 / 2:30.
+## Feudal click times (Round 2 E; K: Easy later): 5:00 / 3:00 / 2:30.
 const AGE_UP_TARGET_TIMES: Dictionary = {
-	Difficulty.EASY: 240.0,
+	Difficulty.EASY: 300.0,
 	Difficulty.MEDIUM: 180.0,
 	Difficulty.HARD: 150.0,
 }
-## Castle click times: 10:00 / 7:50 / 7:00.
+## Castle click times: 12:00 / 7:50 / 7:00.
 const CASTLE_TARGET_TIMES: Dictionary = {
-	Difficulty.EASY: 600.0,
+	Difficulty.EASY: 720.0,
 	Difficulty.MEDIUM: 470.0,
 	Difficulty.HARD: 420.0,
 }
@@ -2779,7 +2790,10 @@ func _check_scouting() -> void:
 			continue
 		# Once the timer opens (or an enemy preempts it), the objective policy later
 		# in this tick owns the Scout's next order.
-		unit.stance = UnitBase.Stance.AGGRESSIVE
+		# K: an Easy Scout looks but does not chase the player's villagers
+		# before Easy's first attack time.
+		var easy_quiet: bool = difficulty == Difficulty.EASY and _game_time < EASY_FIRST_ATTACK_SECONDS
+		unit.stance = UnitBase.Stance.STAND_GROUND if easy_quiet else UnitBase.Stance.AGGRESSIVE
 		if sacred_site != null:
 			continue
 		if unit.current_state != UnitBase.State.IDLE:
@@ -3747,7 +3761,15 @@ func _check_attack_or_defend() -> void:
 			return
 		# Check if we should retreat
 		var outmatched: bool = visible_enemy_strength > own_strength * 1.2 and visible_enemy_strength > 180.0
-		if military.size() < maxi(2, int(threshold * _retreat_threshold)) or outmatched:
+		var retreat_floor: int = maxi(2, int(threshold * _retreat_threshold))
+		if difficulty == Difficulty.EASY and not _uses_compact_population_policy():
+			# K: Easy judges the wave it sent (not soldiers left at home) and
+			# turns back early, so a new player's defence feels like a win.
+			var wave: Array = _get_attack_wave_survivors()
+			military = wave
+			outmatched = visible_enemy_strength > maxf(1.0, _evaluate_units_strength(wave)) * EASY_OUTMATCHED_RATIO and visible_enemy_strength > 60.0
+			retreat_floor = maxi(2, ceili(float(_get_easy_wave_size()) * EASY_RETREAT_SHARE))
+		if military.size() < retreat_floor or outmatched:
 			_retreat_army()
 			_clear_attack_wave()
 			_last_strategy_decision = "retreat"
@@ -3786,7 +3808,7 @@ func _check_attack_or_defend() -> void:
 			Difficulty.MEDIUM: force_attack_time = 300.0
 			Difficulty.HARD: force_attack_time = 255.0
 		match difficulty:
-			Difficulty.EASY: force_attack_time = 540.0  # E2: Easy's first push comes late.
+			Difficulty.EASY: force_attack_time = EASY_FIRST_ATTACK_SECONDS  # K: Easy's first push waits for 14:00.
 		# Round 2 E2: the threshold measures the whole army (guards, healers and
 		# shrine pickets included); the free field army then marches. Healing
 		# soldiers above HEAL_JOIN_RATIO rejoin for the push.
@@ -3803,16 +3825,21 @@ func _check_attack_or_defend() -> void:
 			force_attack = true
 		if not _has_launched_field_attack and _game_time < force_attack_time:
 			_last_strategy_decision = "opening_staging"
-			return  # E2: no field wave before the difficulty's first-fight time (Easy 9:00).
+			return  # E2: no field wave before the difficulty's first-fight time (Easy 14:00).
 		if difficulty == Difficulty.EASY and _game_time - _last_field_attack_time < EASY_WAVE_REST_SECONDS + 60.0:
 			_last_strategy_decision = "learning_rest"
 			return  # E2: long, visible gaps between Easy's waves.
+		if difficulty == Difficulty.EASY and army_size >= _get_easy_wave_size():
+			force_attack = true  # K: Easy's wave size, not its whole army, sets the launch.
 		if force_attack:
 			for unit: UnitBase in _get_military_units():
 				if _healing_ids.has(unit.get_instance_id()) and unit.hp >= unit.max_hp * HEAL_JOIN_RATIO:
 					_healing_ids.erase(unit.get_instance_id())
 					military.append(unit)
 			military = military.filter(func(unit: Variant) -> bool: return unit not in _shrine_units)
+			if difficulty == Difficulty.EASY:
+				# K: small waves that grow slowly; the rest of the army stays home.
+				military = military.slice(0, _get_easy_wave_size())
 			if military.size() < 4:
 				force_attack = false
 
@@ -3847,6 +3874,12 @@ func _check_attack_or_defend() -> void:
 				_last_field_attack_time = _game_time
 				ai_attack_launched.emit(raiders, target)
 				_last_strategy_decision = "harass"
+
+
+## K: legacy Easy wave size (5 at 14:00, one more every 5:00, capped).
+func _get_easy_wave_size() -> int:
+	var grown: int = int(maxf(0.0, _game_time - EASY_FIRST_ATTACK_SECONDS) / EASY_WAVE_GROWTH_SECONDS)
+	return mini(EASY_FIRST_WAVE_SIZE + grown, EASY_ARMY_CAP)
 
 
 func _uses_easy_learning_policy() -> bool:

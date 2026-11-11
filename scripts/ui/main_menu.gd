@@ -668,7 +668,7 @@ func _build_options() -> void:
 	opponent_note.add_theme_color_override("font_color", MUTED)
 	_advanced_options.add_child(opponent_note)
 	guided_opening_toggle.reparent(_advanced_options)
-	_advanced_options.add_child(_label("Easy gives you time to build. Medium brings regular raids. Hard brings early, sustained pressure.", 13, true))
+	_advanced_options.add_child(_label("Easy gives you time to build and waits until about 14:00 to attack. Medium brings regular raids. Hard brings early, sustained pressure.", 13, true))
 	_build_multiplayer_options()
 
 

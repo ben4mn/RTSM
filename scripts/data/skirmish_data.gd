@@ -57,16 +57,16 @@ const OPENING_BERRY_STOCK: int = 90
 # that is earned by the opening flock.
 const STARTING_RESOURCES: Dictionary = {"food": 200, "wood": 200, "gold": 100}
 # Difficulty changes planning time, never costs, income or unit strength.
-# Home defense remains immediate. Easy gives a learner time to explore the
+# Home defense remains immediate. Easy gives a learner until 14:00 to build and explore the
 # objective, then sends small coherent squads with a visible recovery interval.
-const AI_RAID_START_SECONDS: Dictionary = {0: 300.0, 1: 120.0, 2: 0.0}
-const AI_RAID_COOLDOWN_SECONDS: Dictionary = {0: 150.0, 1: 75.0, 2: 0.0}
+const AI_RAID_START_SECONDS: Dictionary = {0: 840.0, 1: 120.0, 2: 0.0}
+const AI_RAID_COOLDOWN_SECONDS: Dictionary = {0: 300.0, 1: 75.0, 2: 0.0}
 # Respond to an opponent's objective claim before its first victory. This
 # does not advance the separate neutral initiative or ordinary base raids.
 const EASY_SACRED_RESPONSE_SECONDS: float = 150.0
 const EASY_SACRED_INITIATIVE_SECONDS: float = 390.0
 const EASY_REGROUP_SECONDS: float = 45.0
-const EASY_LARGER_SQUAD_SECONDS: float = 480.0
+const EASY_LARGER_SQUAD_SECONDS: float = 1140.0
 const DARK_AGE_WORKER_WEIGHTS: Dictionary = {"food": 0.55, "wood": 0.35, "gold": 0.10}
 const FEUDAL_WORKER_WEIGHTS: Dictionary = {"food": 0.55, "wood": 0.40, "gold": 0.05}
 const AGE_UP_COSTS: Dictionary = {

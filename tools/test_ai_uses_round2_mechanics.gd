@@ -20,6 +20,7 @@ func run_cases() -> void:
 	_check_mixed_army()
 	await _check_healing()
 	_check_wave_sizes()
+	_check_easy_pacing()
 
 
 func _with(level: int) -> void:
@@ -193,3 +194,32 @@ func _check_wave_sizes() -> void:
 	var first_expected: Array = [int(ai.ARMY_ATTACK_THRESHOLDS[0]), int(ai.ARMY_ATTACK_THRESHOLDS[1]), int(ai.ARMY_ATTACK_THRESHOLDS[2])]
 	expect(first == first_expected and int(later[1]) > int(first[1]) and int(later[2]) > int(first[2]) and int(later[0]) <= int(later[1]), "first waves from ARMY_ATTACK_THRESHOLDS, later waves larger, Easy smallest (%s / %s)" % [str(first), str(later)])
 	expect(is_equal_approx(float(ai.AGE_UP_TARGET_TIMES[1]), 180.0) and is_equal_approx(float(ai.CASTLE_TARGET_TIMES[1]), 470.0), "Medium clicks Feudal at 3:00 and Castle at 7:50")
+
+
+## K: Easy waits until 14:00 for any wave, sends small growing waves, keeps a
+## smaller army, rests 5:00 between waves and ages up later than Medium.
+func _check_easy_pacing() -> void:
+	expect(float(ai.EASY_FIRST_ATTACK_SECONDS) >= 840.0 and float(SkirmishData.AI_RAID_START_SECONDS[0]) >= 840.0, "Easy's first wave and compact raid wait for 14:00")
+	expect(float(ai.SHRINE_START_SECONDS[0]) >= 840.0, "Easy sends no shrine squad before 14:00")
+	expect(int(ai.EASY_ARMY_CAP) <= 10 and float(ai.EASY_WAVE_REST_SECONDS) + 60.0 >= 300.0, "Easy caps its army at 10 and waits 5:00 between waves")
+	expect(float(ai.TC_ASSAULT_START_SECONDS[0]) >= 1500.0, "Easy assaults no Town Center before 25:00")
+	expect(float(ai.AGE_UP_TARGET_TIMES[0]) > float(ai.AGE_UP_TARGET_TIMES[1]) and float(ai.CASTLE_TARGET_TIMES[0]) > float(ai.CASTLE_TARGET_TIMES[1]), "Easy ages up later than Medium")
+	expect(int(ai.TC_ASSAULT_START_SECONDS[1]) == 630 and is_equal_approx(float(SkirmishData.AI_RAID_START_SECONDS[1]), 120.0), "Medium keeps its pacing")
+	_with(0)
+	var saved_time: float = ai._game_time
+	ai._game_time = 840.0
+	var first_wave: int = ai._get_easy_wave_size()
+	ai._game_time = 840.0 + 600.0
+	var later_wave: int = ai._get_easy_wave_size()
+	ai._game_time = 5000.0
+	var late_wave: int = ai._get_easy_wave_size()
+	expect(first_wave >= 4 and first_wave <= 6 and later_wave > first_wave and late_wave == int(ai.EASY_ARMY_CAP), "Easy waves start at 4-6 and grow slowly to the cap (%d, %d, %d)" % [first_wave, later_wave, late_wave])
+	if not ai._uses_compact_population_policy():
+		ai._has_launched_field_attack = false
+		ai._attack_in_progress = false
+		ai._last_field_attack_time = -INF
+		ai._game_time = 839.0
+		ai._check_attack_or_defend()
+		expect(not ai._attack_in_progress and not ai._has_launched_field_attack, "Easy launches no field wave at 13:59 (decision %s)" % str(ai._last_strategy_decision))
+	ai._game_time = saved_time
+	_with(1)
