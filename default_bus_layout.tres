@@ -1,4 +1,4 @@
-[gd_resource type="AudioBusLayout" load_steps=3 format=3]
+[gd_resource type="AudioBusLayout" format=3 uid="uid://datjkf5skcoj0"]
 
 [sub_resource type="AudioEffectHardLimiter" id="AudioEffectHardLimiter_master"]
 resource_name = "HardLimiter"
@@ -13,12 +13,6 @@ attack_us = 4000.0
 release_ms = 160.0
 
 [resource]
-bus/0/name = &"Master"
-bus/0/solo = false
-bus/0/mute = false
-bus/0/bypass_fx = false
-bus/0/volume_db = 0.0
-bus/0/send = &""
 bus/0/effect/0/effect = SubResource("AudioEffectHardLimiter_master")
 bus/0/effect/0/enabled = true
 bus/1/name = &"World"
