@@ -134,7 +134,7 @@ var _guided_stage: GuidedOpeningStage = GuidedOpeningStage.GATHER_FOOD
 const HINTS: Array = [
 	{"time": 14.0, "context": "pause", "text": "Need a breather? Pause is top right.", "color": Color(0.95, 0.86, 0.56)},
 	{"time": 42.0, "text": "Drag to pan. Tap the minimap to jump.", "color": Color(0.7, 0.8, 1.0)},
-	{"time": 75.0, "text": "Tap ground to move. Double-tap ground to deselect.", "color": Color(0.65, 0.82, 1.0)},
+	{"time": 75.0, "text": "Tap ground to move. The eraser in the card clears the selection.", "color": Color(0.65, 0.82, 1.0)},
 	{"time": 105.0, "context": "scout", "text": "Train a Scout to explore fast.", "color": Color(0.7, 0.8, 1.0)},
 	{"time": 122.0, "context": "sheep", "text": "Scouts claim sheep they find. Sheep walk home.", "color": Color(0.80, 0.92, 0.70)},
 	{"time": 150.0, "context": "research", "text": "Every building has research. Try Loom at the Town Center.", "color": Color(0.5, 0.8, 1.0)},
