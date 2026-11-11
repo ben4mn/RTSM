@@ -400,6 +400,16 @@ func get_visual_position() -> Vector2:
 	return global_position + _visual_offset
 
 
+## World pixels per game second along the newest simulated step (zero when
+## standing). Touch picking uses it to accept a tap where the figure was drawn
+## a moment ago. Read-only presentation data; never feeds the simulation.
+func get_drawn_velocity() -> Vector2:
+	var span: float = _trail_t2 - _trail_t1
+	if span <= 0.000001 or _trail_p1 == _trail_p2 or current_state == State.DEAD:
+		return Vector2.ZERO
+	return (_trail_p2 - _trail_p1) / span
+
+
 ## Presentation radius of the ground ring. Collision and separation keep the
 ## canonical UNIT_SIZES value.
 func get_visual_radius() -> float:
