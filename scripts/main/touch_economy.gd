@@ -253,7 +253,7 @@ func resumable_job(worker: Villager) -> Dictionary:
 func _harvestable(target: Node2D, worker: Villager) -> bool:
 	var map: Node2D = _map()
 	if map != null and map.has_method("is_resource_target_available_to_worker"):
-		return bool(map.call("is_resource_target_available_to_worker", target, worker.player_owner, worker))
+		return bool(map.call("is_resource_target_available_to_worker", target, "", worker.player_owner, worker))
 	return target.has_method("get_remaining") and int(target.call("get_remaining")) > 0
 
 

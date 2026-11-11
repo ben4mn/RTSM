@@ -3215,7 +3215,17 @@ func _on_find_placement_space() -> void:
 	if GameManager.current_state != GameManager.GameState.PLAYING or get_tree().paused:
 		return
 	if not _building_placement.find_visible_space(hud.get_placement_search_safe_rect(), hud.get_world_occlusion_rects()):
-		hud.show_notification("No nearby space · pan or scout", Color(1.0, 0.75, 0.3))
+		# H: nothing fits on screen; look beside your own buildings and show it.
+		var economy: TouchEconomy = TouchEconomy.of(self)
+		var site: Variant = economy.find_site(_placement_type, 0) if economy != null else null
+		if site == null:
+			hud.show_notification("No nearby space · pan or scout", Color(1.0, 0.75, 0.3))
+			return
+		var world: Vector2 = game_map.tile_to_world(site as Vector2i)
+		game_map.note_camera_interaction()
+		game_map.camera.position = world
+		game_map._clamp_camera()
+		_building_placement.update_preview_at_world(world)
 
 
 func _on_confirm_placement() -> void:

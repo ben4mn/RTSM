@@ -195,14 +195,24 @@ func _refresh(periodic: bool = false) -> void:
 			population_text += "\nLiving units fill available population; a slot must open before training."
 	var groups: Dictionary = {}
 	var group_has_buildings: Dictionary = {}
-	for index: int in [1, 2]:
+	var group_icons: Dictionary = {}
+	for index: int in [1, 2, 3]:
 		groups[index] = 0
 		group_has_buildings[index] = false
+		var type_counts: Dictionary = {}
 		for entry: Variant in (_main.get("_control_groups") as Array)[index]:
 			if _valid_group_entry(entry):
 				groups[index] += 1
 				if entry is BuildingBase:
 					group_has_buildings[index] = true
+				elif entry is UnitBase:
+					var unit_type: int = (entry as UnitBase).unit_type
+					type_counts[unit_type] = int(type_counts.get(unit_type, 0)) + 1
+		var top_type: int = -1
+		for unit_type: int in type_counts:
+			if top_type < 0 or int(type_counts[unit_type]) > int(type_counts[top_type]):
+				top_type = unit_type
+		group_icons[index] = UnitData.get_unit_icon_path(top_type, 0) if top_type >= 0 else ""
 	var selection_count: int = 0
 	var selected_military: int = 0
 	var selected_fighters: int = 0
@@ -231,7 +241,7 @@ func _refresh(periodic: bool = false) -> void:
 	var receipts: RefCounted = _main.get("_battle_receipts")
 	var battle_lesson: Dictionary = BATTLE_RECEIPTS.get_counter_lesson(receipts.call("get_summary", 0), GameManager.get_player_civilization(0), GameManager.get_player_civilization(1)) if receipts != null else {}
 	var _pq: int = Time.get_ticks_usec() if PerfProbe.on else 0
-	var snapshot: Dictionary = {"traders": traders.size(), "waiting_traders": waiting_traders, "has_trade": has_trade, "workers": workers, "military": military, "fighters": fighters, "producers": producers, "population_text": population_text, "groups": groups, "group_has_buildings": group_has_buildings, "selection_count": selection_count, "selected_military": selected_military, "selected_fighters": selected_fighters, "economy": economy, "economy_facts": economy_facts, "battle_lesson": battle_lesson, "food_attention_ready": _update_food_attention(own_workers.size(), int(workers.food), int(workers.recovering)), "food_low_attention_ready": _update_food_low_attention(economy, int(workers.recovering)), "can_plan_farm": available_builders > 0 and farm_missing.is_empty(), "farm_blocker": farm_blocker, "can_plan_barracks": available_builders > 0 and barracks_missing.is_empty(), "barracks_blocker": barracks_blocker}
+	var snapshot: Dictionary = {"traders": traders.size(), "waiting_traders": waiting_traders, "has_trade": has_trade, "workers": workers, "military": military, "fighters": fighters, "producers": producers, "population_text": population_text, "groups": groups, "group_icons": group_icons, "group_has_buildings": group_has_buildings, "selection_count": selection_count, "selected_military": selected_military, "selected_fighters": selected_fighters, "economy": economy, "economy_facts": economy_facts, "battle_lesson": battle_lesson, "food_attention_ready": _update_food_attention(own_workers.size(), int(workers.food), int(workers.recovering)), "food_low_attention_ready": _update_food_low_attention(economy, int(workers.recovering)), "can_plan_farm": available_builders > 0 and farm_missing.is_empty(), "farm_blocker": farm_blocker, "can_plan_barracks": available_builders > 0 and barracks_missing.is_empty(), "barracks_blocker": barracks_blocker}
 	_overview.update_snapshot(snapshot, periodic)  # periodic + closed sheet: rail badges only (E2 perf)
 	if PerfProbe.on: PerfProbe.add(&"strategy.update_snapshot", _pq)
 
@@ -510,13 +520,13 @@ func _set_repeat(_building: Node2D, _enabled: bool) -> void:
 
 
 func _save_group(index: int) -> void:
-	if _playing() and index in [1, 2]:
+	if _playing() and index in [1, 2, 3]:
 		_main.call("_save_control_group", index)
 		_refresh()
 
 
 func _recall_group(index: int) -> void:
-	if _playing() and index in [1, 2]:
+	if _playing() and index in [1, 2, 3]:
 		_main.call("_recall_control_group", index)
 		_hud.call("close_secondary_surface")
 		_refresh()

@@ -1532,8 +1532,10 @@ func _home_building_order(building: Variant) -> String:
 	if not building is BuildingBase or _is_enemy(building) or (building as BuildingBase).state != BuildingBase.State.ACTIVE:
 		return ""
 	var home := building as BuildingBase
-	if home.bell_active and _can_offer_garrison(home):
-		return "garrison"
+	if home.bell_active and Garrison.accepts(home):
+		for entry: Node2D in selected:
+			if entry is Villager and _is_current_selection_entry(entry) and Garrison.can_garrison_unit(entry, home):
+				return "garrison"
 	var carries: bool = false
 	for entry: Node2D in selected:
 		if not entry is Villager or not _is_current_selection_entry(entry):

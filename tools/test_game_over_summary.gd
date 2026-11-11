@@ -44,7 +44,7 @@ func _run() -> void:
 		failures.append("summary omits victory reason")
 	if "12:34" not in time_label.text:
 		failures.append("summary omits match duration")
-	if "Feudal 4:05 vs 5:18" not in time_label.text:
+	if "You: Feudal Age at 4:05" not in time_label.text or "Rival: Castle Age" not in time_label.text:
 		failures.append("summary omits Feudal timing comparison")
 	var diagnostics: Dictionary = screen.get("summary_diagnostics")
 	for required_key in ["victory_reason", "army_trained", "buildings_lost", "resources_gathered", "player_feudal_seconds", "sacred_control_seconds"]:
