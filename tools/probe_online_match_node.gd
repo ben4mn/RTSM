@@ -39,6 +39,7 @@ var initial_villagers: int = -1
 var resumed_train_baseline: int = -1
 var finished: bool = false
 var rejections: Dictionary = {}
+var stopped_ids: Array = []
 var next_train: Dictionary = {}  # building id -> game time of the next top-up
 
 func _ready() -> void:
@@ -52,7 +53,7 @@ func _ready() -> void:
 		rejections[reason] = int(rejections.get(reason, 0)) + 1
 		if int(rejections[reason]) <= 3:
 			print("PROBE_REJECTED slot=%d at=%.1f %s" % [slot, GameManager.game_time, reason]))
-	for name: String in ["map", "villagers_trained", "house", "barracks", "farm_built", "farm_gathered", "loom", "age_research_seen", "age_2", "bell_garrison", "bell_release", "wildlife_hunted", "farm_fallow", "farm_reseeded", "army", "fight", "replica_digests", "result"]:
+	for name: String in ["map", "villagers_trained", "house", "barracks", "farm_built", "farm_gathered", "loom", "age_research_seen", "age_2", "bell_garrison", "bell_release", "wildlife_hunted", "farm_fallow", "farm_reseeded", "army", "fight", "replica_digests", "result", "cmd_dropoff", "cmd_back_to_work", "cmd_lure"]:
 		checks[name] = false
 	if reconnect_client:
 		checks["reconnect"] = false
@@ -310,6 +311,30 @@ func _drive(now: float, data: Dictionary) -> void:
 		_send("bell", {"target": _id(tc)})
 	if done.has("bell_off") and checks["bell_garrison"] and inside == 0 and not tc.bell_active:
 		checks["bell_release"] = true
+	# Touch economy commands (H): deliver cargo now, back to work, lure.
+	if now >= 60.0 and not done.has("dropoff"):
+		var loaded: Array = villagers.filter(func(worker: Node) -> bool: return worker.carried_amount > 0 and worker.current_state != UnitBase.State.GARRISONED)
+		if not loaded.is_empty():
+			done["dropoff"] = now
+			_send("dropoff", {"ids": _ids(loaded.slice(0, 4)), "target": _id(tc)})
+	if done.has("dropoff") and now - float(done["dropoff"]) > 4.0 and not rejections.has("Nothing to deliver") and not rejections.has("Select your building"):
+		checks["cmd_dropoff"] = true
+	if now >= 125.0 and not done.has("stop_two") and villagers.size() >= 8:
+		done["stop_two"] = now
+		stopped_ids = _ids(villagers.slice(5, 7))
+		_send("stop", {"ids": stopped_ids})
+	if done.has("stop_two") and not done.has("back_to_work") and now - float(done["stop_two"]) > 3.0:
+		done["back_to_work"] = now
+		_send("back_to_work", {"ids": stopped_ids})
+	if done.has("back_to_work") and not checks["cmd_back_to_work"] and now - float(done["back_to_work"]) > 2.0 and not rejections.has("Nobody to send back"):
+		for worker: Variant in villagers:
+			if _id(worker) in stopped_ids and worker.current_state != UnitBase.State.IDLE:
+				checks["cmd_back_to_work"] = true
+	if now >= 135.0 and not done.has("lure"):
+		done["lure"] = now
+		_send("lure", {"ids": [_id(villagers[-1])], "target": _id(tc)})
+	if done.has("lure") and now - float(done["lure"]) > 3.0 and not rejections.has("Nobody to send") and not rejections.has("Select your Town Center"):
+		checks["cmd_lure"] = true
 	# Army: Infantry from the Barracks, then into the middle and on to their base.
 	var barracks: Array = _own_buildings(BuildingData.BuildingType.BARRACKS, true)
 	if not barracks.is_empty() and _own_units(UnitData.UnitType.INFANTRY).size() < 8 and now < PUSH_AT:
