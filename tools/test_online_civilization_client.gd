@@ -20,6 +20,7 @@ var enemy_verified: bool = false
 var saw_combat: bool = false
 var surrendered: bool = false
 var checks: int = 0
+var wood_sent: bool = false
 var failures: Array[String] = []
 var signature_type: int = 2
 var production_type: int = 3
@@ -75,6 +76,18 @@ func _snapshot(data: Dictionary) -> void:
 		camp_sent = true
 	elif not camp_started and camp_sent and float(data.time) - camp_sent_at > 10.0:
 		camp_sent = false  # Rejected or blocked: try another spot.
+	# 0.4: every starting worker stays on food, so like a player send two to the
+	# nearest wood once; the signature unit and its building need wood income.
+	if not wood_sent and float(data.time) >= 3.0:
+		var wood_workers: Array[int] = []
+		for actor: Dictionary in data.actors:
+			if int(actor.owner) == slot and str(actor.kind) == "unit" and int(actor.type) == 0 and wood_workers.size() < 2:
+				wood_workers.append(int(actor.id))
+		var home: Vector2 = map.tile_to_world(map.map_generator.spawn_positions[slot])
+		var wood_node: Node2D = map.get_nearest_resource_node("wood", home)
+		if wood_workers.size() == 2 and wood_node != null:
+			session.send_command("gather", {"ids": wood_workers, "position": [wood_node.global_position.x, wood_node.global_position.y]})
+			wood_sent = true
 	if age == 1 and camp_ready and age_affordable and float(data.time) - age_sent_at > 10.0:
 		session.send_command("age")
 		age_sent = true
