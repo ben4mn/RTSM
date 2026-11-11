@@ -78,7 +78,17 @@ On iPhone, open the URL in Safari and use Share → Add to Home Screen. Enable *
 
 This is a rough public preview. Desktop browser automation does not certify physical-phone touch behavior, safe areas, audio, or prolonged performance.
 
-## Latest release — 2026-10-29 shrines and a quicker economy
+## Latest release — 2026-11-11 a living kingdom
+
+`0.4.0-beta.1` (protocol 18, save schema 3) from `0676e3643f2a`, release id `v040beta1-0676e3643f2a`, replacing `0.3.0-beta.33` (protocol 17, `v030beta33-faf853052b64`). `~/game-review/tools/deploy.sh` no longer exists on Debian, so this was published by hand from a clean clone of the commit on the build box (`~/aoem-dev/release/RTSM-0676e3643f2a`, `git status` empty): `tools/build_mobile_web_beta.sh build/v040beta1-0676e3643f2a` (dirty=false) and `tools/prepare_match_server.py --godot ~/aoem-dev/bin/godot --output build/v040beta1-0676e3643f2a-server` (PASS, 2157 context files, manifest `664e5a84109d…`). The prepare step refuses a context whose committed inputs Godot rewrites on import; the hand-written `.import` UIDs and `default_bus_layout.tres` had to be committed in Godot's canonical form first (`09a92fc`).
+
+Steps on Debian (`/home/ben/aoem`): recorded `deployment-backups/v040beta1-0676e3643f2a/previous-state.txt`, tagged the running image `aoem-online:rollback-v040beta1` (and `rollback-v040beta1-0676e3643f2a`); staged `site/releases/v040beta1-0676e3643f2a` and `deployment-candidates/v040beta1-0676e3643f2a/context`, both `sha256sum -c` clean; pointed the `match-server` symlink at the new context; `docker compose -f docker-compose.yml -f docker-compose.online.yml build online` (image `sha256:e64877dc9995…`, also tagged `aoem-online:v040beta1-0676e3643f2a`); confirmed zero non-LISTEN sockets on 9080 inside the container; `up -d --no-build --no-deps online` (logged `AOEM_MATCH_SERVER_READY port=9080 protocol=18`); then switched `site/current` atomically. Nginx, diagnostics and the tunnel kept their containers. `new-state.txt` beside `previous-state.txt` records the result.
+
+Verified: public `version.json` reads 0.4.0-beta.1 / `0676e3643f2a`, all 39 public payloads match `SHA256SUMS.txt`, COOP/COEP/no-store headers unchanged; `run_online_tests.py --url wss://game.4mn.org/match --combat` (14 checks) and `--rooms-only` pass; a fresh browser at 844x390 loaded release `0676e3643f2a`, started a solo match from the menu and played a minute with no console errors; `aoem-online` has no error lines.
+
+Rollback: swap `site/current` back to `releases/v030beta33-faf853052b64` and `match-server` back to `deployment-candidates/v030beta33-faf853052b64/context`, `docker tag aoem-online:rollback-v040beta1 aoem-online:local`, then `docker compose -f docker-compose.yml -f docker-compose.online.yml up -d --no-build --no-deps online` and confirm the protocol 17 READY line.
+
+## Previous release — 2026-10-29 shrines and a quicker economy
 
 `0.3.0-beta.20` (protocol 15) from `fb1e04ccead5`, published with `~/game-review/tools/deploy.sh` from the Mac mini. That script exports the web build and the match-server context with Godot 4.6, stages both under new release IDs, refuses to cut over while any match socket is open, tags the previous image `aoem-online:rollback-<id>`, records `deployment-backups/<id>/previous-state.txt`, replaces only `online`, then switches `site/current`. Earlier the same day it published beta.19 (`v030beta19-2459073dcee4`, then `v030beta19-a002add5da88`): the Sacred clock opens at 8:00 and off-screen battles ping. Rollback for any of these: swap both symlinks to the values in `previous-state.txt`, retag the rollback image as `aoem-online:local`, and run `docker compose -f docker-compose.yml -f docker-compose.online.yml up -d --no-build --no-deps online`.
 
