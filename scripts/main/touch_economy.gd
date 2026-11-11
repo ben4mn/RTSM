@@ -521,7 +521,7 @@ func _refresh_house_warning() -> void:
 	var house_cost: Dictionary = BuildingData.get_building_cost(BuildingData.BuildingType.HOUSE, 0)
 	var room: int = maxi(0, cap - committed)
 	var housing: String = "Housed" if room == 0 else "%d room left" % room
-	var duration: float = 9.0
+	var duration: float = 14.0 if housed else 9.0
 	if ResourceManager.can_afford(0, house_cost):
 		_house_toast = "%s · tap: House" % housing
 		hud.call("show_notification", _house_toast, KingdomTheme.AMBER, duration, request_auto_house, 2)

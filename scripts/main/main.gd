@@ -1692,13 +1692,10 @@ func _on_unit_trained(unit_type: int, player_id: int, source_queue: ProductionQu
 		var player_data: Dictionary = GameManager.players.get(0, {})
 		var pop: int = player_data.get("population", 0)
 		var cap: int = player_data.get("population_cap", 5)
-		if pop >= cap:
-			var message: String = "Population cap reached! Build more Houses."
-			if cap >= GameManager.get_player_population_limit(0):
-				message = "Maximum population reached (%d). Workers and troops share this limit." % cap
-			hud.show_notification(message, Color(1.0, 0.5, 0.2))
-		elif pop >= cap - 2:
-			hud.show_notification("Population almost full (%d/%d)" % [pop, cap], Color(1.0, 0.7, 0.3))
+		# H: housing below the limit is TouchEconomy's one tappable House toast
+		# (it used to be a fresh pill on every birth near the cap).
+		if pop >= cap and cap >= GameManager.get_player_population_limit(0):
+			hud.show_notification("Maximum population reached (%d). Workers and troops share this limit." % cap, Color(1.0, 0.5, 0.2))
 
 
 func _resolve_production_egress(producer: BuildingBase, excluded_tiles: Array[Vector2i] = []) -> Dictionary:
@@ -2643,6 +2640,12 @@ func _on_train_unit_requested(building: Node2D, unit_type: int) -> void:
 				_last_train_feedback = "Population full (%d/%d). Your House is going up; train when it is done." % [pop, cap]
 			else:
 				_last_train_feedback = "Population full (%d/%d). Build a House before training %s." % [pop, cap, UnitData.get_unit_name(unit_type, 0)]
+				# H: the blocked tap offers the House itself (placed beside the others).
+				var economy: TouchEconomy = TouchEconomy.of(self)
+				if economy != null and ResourceManager.can_afford(0, BuildingData.get_building_cost(BuildingData.BuildingType.HOUSE, 0)):
+					hud.show_notification("Housed (%d/%d) · tap: House" % [pop, cap], Color(1.0, 0.6, 0.2), 6.0, economy.request_auto_house, 2)
+					_refresh_first_session_diagnostics()
+					return
 		hud.show_notification(_last_train_feedback, Color(1.0, 0.6, 0.2))
 		_refresh_first_session_diagnostics()
 		return

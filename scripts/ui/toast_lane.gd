@@ -138,8 +138,11 @@ func _show(entry: Dictionary) -> void:
 			if (event is InputEventScreenTouch and event.pressed and not event.canceled) or (
 				event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed
 			):
-				action.call()
 				panel.accept_event()
+				# H: a tapped offer has been answered; it leaves at once.
+				if is_instance_valid(panel) and panel.get_parent() == self:
+					_retire(panel)
+				action.call()
 		)
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(KingdomTheme.INK, 0.94)

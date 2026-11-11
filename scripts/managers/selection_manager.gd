@@ -744,8 +744,10 @@ func _handle_tap(screen_pos: Vector2, is_touch_input: bool, pressed_unit: Node2D
 			get_viewport().set_input_as_handled()
 		return
 
+	# H: with a Town Center selected, a resource tap is its rally even when a
+	# worker stands on the sheep or bush (that worker can be held > Select).
 	if is_touch_input and resource_node != null and _has_selected_villager_producer() \
-			and (tapped_node == null or tapped_node == resource_node):
+			and (tapped_node == null or tapped_node == resource_node or (tapped_node is Villager and not _is_enemy(tapped_node))):
 		_record_touch_input(screen_pos, world_pos, "resource_rally", tapped_node, resource_node)
 		gather_command.emit(resource_node)
 		_last_tap_time = 0.0

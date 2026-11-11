@@ -3973,6 +3973,7 @@ func _update_train_buttons(trainable_units: Array) -> void:
 
 
 func _repeat_train(unit_type: int) -> bool:
+	_train_hold_hint_shown = true  # H: they found the hold; no tip needed.
 	if bool(_training_availability(unit_type).get("blocked", true)):
 		# Holding to queue stops here. Send the one blocked request so Main
 		# says why (its usual "Population full ... Build a House"), instead
