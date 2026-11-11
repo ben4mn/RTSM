@@ -18,11 +18,13 @@
         "The AI masses an army before it attacks and now goes for your Town Center. Easy, Medium and Hard play more differently.",
         "A row of command buttons above the dock puts the selected building's or unit's orders in one place.",
         "Easier economy by touch: when workers stand idle, tap the Back to work note and they return to their jobs. Press Find idle twice to select every idle worker. Tap your Town Center with loaded workers selected to drop off at once, or with boar hunters selected to lure the boar home.",
-        "Out of housing? The warning (or a blocked Train tap) offers a House you place with one tap.",
+        "The Economy sheet has Build, House, Camp and Farm buttons that work with whatever you have selected. The Work chip sends every idle worker back to work.",
+        "When a patch of wood or gold is running out, a hint offers to send the crew to the next one. An idle Town Center offers +3 Villagers in one tap.",
+        "Out of housing? The warning (or a blocked Train tap) offers a House you place with one tap. Offers like these stay on screen while they still apply.",
         "Save an army group by holding its chip; tap it to select the group, tap twice to jump to it. With soldiers selected, a tap on the ground is an attack-move.",
         "Tap a selected building again to put it away. Moving units are easier to pick up with a finger.",
         "Smoother on phones: the game runs at a steady pace and draws crowds of units more cheaply.",
-        "Online: if your connection drops mid-match, the game pauses and reconnects you within 30 seconds instead of ending the match. Your opponent sees that you are reconnecting.",
+        "Online: if your connection drops mid-match, the game pauses and you rejoin within 30 seconds instead of losing the match. Your opponent sees that you are reconnecting.",
         "Online play needs both players on this version. An older copy is asked to reload, which installs the update.",
         "A solo battle saved by an earlier version cannot be resumed; the menu says so, and starting a new battle clears it."
       ]
