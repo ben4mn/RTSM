@@ -69,6 +69,8 @@ var _player_town_center: BuildingBase = null
 
 # --- Idle villager cycling ---
 var _idle_villager_index: int = 0
+var _idle_find_last_msec: int = 0
+const IDLE_FIND_ALL_WINDOW_MSEC: int = 1500
 var _patrol_command_armed: bool = false
 var _move_command_armed: bool = false
 var _attack_move_command_armed: bool = false
@@ -1433,6 +1435,21 @@ func _on_idle_villager_pressed() -> void:
 		if is_instance_valid(unit) and unit is Villager and unit.current_state == UnitBase.State.IDLE:
 			idle_villagers.append(unit)
 	if idle_villagers.is_empty():
+		return
+	# G1: a second Find idle right after the first gathers every idle worker,
+	# so a whole crew left idle by a finished berry patch or a raid takes one
+	# order instead of one per worker.
+	var now_msec: int = Time.get_ticks_msec()
+	var again: bool = idle_villagers.size() > 1 and now_msec - _idle_find_last_msec <= IDLE_FIND_ALL_WINDOW_MSEC \
+		and game_map.selection_mgr.selected.size() == 1 and game_map.selection_mgr.selected[0] in idle_villagers
+	_idle_find_last_msec = now_msec
+	if again:
+		_idle_find_last_msec = 0
+		var crew: Array[Node2D] = []
+		for unit: Variant in idle_villagers:
+			crew.append(unit as Node2D)
+		game_map.selection_mgr.select_many(crew)
+		hud.show_notification("All %d idle workers selected. Tap a resource or a foundation." % crew.size(), KingdomTheme.PARCHMENT, 3.0)
 		return
 	_idle_villager_index = _idle_villager_index % idle_villagers.size()
 	var target: UnitBase = idle_villagers[_idle_villager_index]
