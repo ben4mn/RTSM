@@ -110,6 +110,24 @@ var _details_page: bool = false
 var _sheet_stale: bool = true
 var _last_panel_minimum := Vector2(-1.0, -1.0)
 var _tucking: bool = false
+## H: army group chips above the rail (control groups 1-3, shared with the
+## keyboard and the Army sheet). Tap selects (twice: camera), hold saves the
+## current selection. Shown once the kingdom has fighters or a saved group.
+const GROUP_CHIP_COUNT: int = 3
+const GROUP_CHIP_SIZE := Vector2(52, 40)
+const GROUP_CHIP_HOLD_MSEC: int = 450
+var group_chips: VBoxContainer
+var _group_chip_buttons: Array[Button] = []
+var _group_chip_timer: Timer
+var _group_chip_held: int = -1
+var _group_chip_consumed: bool = false
+var _group_chips_wanted: bool = false
+var _chips_field_visible: bool = false
+var _chips_fit: bool = false
+## H: a glanceable idle-worker chip above the Economy button (tap: next idle
+## worker; tap again before an order: every idle worker).
+var idle_chip: Button
+var _idle_count: int = 0
 
 
 func _ready() -> void:
@@ -147,6 +165,7 @@ func _ready() -> void:
 	_army_button.button_up.connect(func() -> void: _army_held = false)
 	rail.add_child(_army_button)
 	CommandIcons.apply(_army_button, "army", _army_button.accessibility_name)
+	_build_group_chips()
 	panel = PanelContainer.new()
 	panel.name = "StrategyPanel"
 	panel.z_index = 60
@@ -487,6 +506,7 @@ func update_snapshot(snapshot: Dictionary, light: bool = false) -> void:
 	CommandIcons.set_badge(_economy_button, economy_badge, true)
 	CommandIcons.apply(_army_button, "army", "Army: %d fighters. Recruit fighters and manage two groups. Scouts keep their own orders." % fighters)
 	CommandIcons.set_badge(_army_button, str(fighters))
+	_refresh_group_chips()
 	var worker_count: int = 0
 	for amount: Variant in workers.values():
 		worker_count += int(amount)
@@ -890,7 +910,8 @@ func _refresh_research_badge() -> void:
 	if _research_button == null:
 		return
 	_research_ready = count_ready_research() if GameManager.current_state == GameManager.GameState.PLAYING else 0
-	CommandIcons.set_badge(_research_button, str(_research_ready) if _research_ready > 0 else "", true)
+	# H: ink badge (amber is the idle-worker count on Economy beside it).
+	CommandIcons.set_badge(_research_button, str(_research_ready) if _research_ready > 0 else "", false)
 	var label: String = "Research: technologies and the next age"
 	if _research_ready > 0:
 		label += " · %d ready" % _research_ready
@@ -1378,6 +1399,18 @@ func apply_layout(safe: Rect2, field_visible: bool, card_area: Rect2, dock_heigh
 	var rail_bottom: float = safe.end.y - dock_height - 16.0
 	rail.position = Vector2(safe.end.x - RAIL_WIDTH - 8.0, rail_bottom - RAIL_BUTTON_SIZE)
 	rail.size = Vector2(RAIL_WIDTH, RAIL_BUTTON_SIZE)
+	# H: group chips stand in a column above the rail's right end, clear of the
+	# top bar; they step aside while a building is placed.
+	_chips_field_visible = field_visible and not placing
+	var chips_height: float = GROUP_CHIP_SIZE.y * GROUP_CHIP_COUNT + 4.0 * (GROUP_CHIP_COUNT - 1)
+	group_chips.size = Vector2(GROUP_CHIP_SIZE.x, chips_height)
+	group_chips.position = Vector2(safe.end.x - GROUP_CHIP_SIZE.x - 8.0, rail.position.y - 8.0 - chips_height)
+	_chips_fit = group_chips.position.y >= safe.position.y + 52.0
+	group_chips.visible = _group_chips_wanted and _chips_field_visible and _chips_fit
+	# H: the idle chip stands above the Economy button, where workers live.
+	idle_chip.size = GROUP_CHIP_SIZE
+	idle_chip.position = Vector2(rail.position.x + (RAIL_BUTTON_SIZE + RAIL_GAP) * 2.0 + (RAIL_BUTTON_SIZE - GROUP_CHIP_SIZE.x) * 0.5, rail.position.y - 8.0 - GROUP_CHIP_SIZE.y)
+	idle_chip.visible = _idle_count > 0 and _chips_field_visible
 	# The sheet leaves its launchers reachable for switching and tap-to-collapse.
 	var card_left: float = card_area.position.x + 8.0
 	var card_right: float = minf(card_area.end.x - 8.0, rail.position.x - 8.0)
@@ -1398,6 +1431,10 @@ func apply_layout(safe: Rect2, field_visible: bool, card_area: Rect2, dock_heigh
 		card_height = minf(card_height, content_height + CommandIcons.TARGET_SIZE + 14.0 + extra_padding)
 	_last_panel_minimum = panel.get_combined_minimum_size()
 	card_height = maxf(card_height, _last_panel_minimum.y)
+	if _showing_research():
+		# H (G1): the Research page is taller than a phone's free band; it
+		# scrolls inside its slot instead of pushing its last row over the dock.
+		card_height = minf(card_height, sheet_slot_height)
 	var card_size := Vector2(_sheet_width, card_height)
 	var centered: Vector2 = card_area.position + (card_area.size - card_size) * 0.5
 	# Anchor all pages just below the resource bar. Page height and hidden labels'
@@ -1442,10 +1479,117 @@ func _fit_economy_rows(sheet_width: float) -> void:
 			button.custom_minimum_size.x = maxf(CommandIcons.TARGET_SIZE, action_width)
 
 
+func _build_group_chips() -> void:
+	group_chips = VBoxContainer.new()
+	group_chips.name = "GroupChips"
+	group_chips.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	group_chips.add_theme_constant_override("separation", 4)
+	group_chips.visible = false
+	add_child(group_chips)
+	for index: int in range(1, GROUP_CHIP_COUNT + 1):
+		var chip := _button("", "GroupChip%d" % index, GROUP_CHIP_SIZE.x)
+		chip.custom_minimum_size = GROUP_CHIP_SIZE
+		chip.add_theme_font_size_override("font_size", 15)
+		chip.expand_icon = true
+		chip.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		chip.add_theme_constant_override("icon_max_width", 22)
+		chip.button_down.connect(_on_group_chip_down.bind(index))
+		chip.button_up.connect(func() -> void: _group_chip_held = -1)
+		chip.pressed.connect(_on_group_chip_pressed.bind(index))
+		var number := Label.new()
+		number.name = "GroupNumber"
+		number.text = str(index)
+		number.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		number.add_theme_font_size_override("font_size", 10)
+		number.add_theme_color_override("font_color", KingdomTheme.MUTED)
+		number.position = Vector2(4, 1)
+		chip.add_child(number)
+		group_chips.add_child(chip)
+		_group_chip_buttons.append(chip)
+	idle_chip = _button("", "IdleChip", GROUP_CHIP_SIZE.x)
+	idle_chip.custom_minimum_size = GROUP_CHIP_SIZE
+	idle_chip.icon = CommandIcons.get_icon("idle")
+	idle_chip.expand_icon = true
+	idle_chip.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	idle_chip.add_theme_constant_override("icon_max_width", 20)
+	idle_chip.add_theme_font_size_override("font_size", 15)
+	KingdomTheme.apply_primary(idle_chip)
+	idle_chip.visible = false
+	idle_chip.pressed.connect(func() -> void: idle_requested.emit())
+	add_child(idle_chip)
+	_group_chip_timer = Timer.new()
+	_group_chip_timer.one_shot = true
+	_group_chip_timer.process_mode = Node.PROCESS_MODE_ALWAYS
+	_group_chip_timer.timeout.connect(_on_group_chip_hold)
+	add_child(_group_chip_timer)
+
+
+func _on_group_chip_down(index: int) -> void:
+	_group_chip_held = index
+	_group_chip_consumed = false
+	_group_chip_timer.start(GROUP_CHIP_HOLD_MSEC / 1000.0)
+
+
+func _on_group_chip_hold() -> void:
+	if _group_chip_held < 1:
+		return
+	_group_chip_consumed = true
+	var index: int = _group_chip_held
+	if int(_snapshot.get("selection_count", 0)) <= 0:
+		_chip_notice("Select units, then hold %d to save them" % index)
+		return
+	save_group_requested.emit(index)
+
+
+func _on_group_chip_pressed(index: int) -> void:
+	_group_chip_timer.stop()
+	if _group_chip_consumed:
+		_group_chip_consumed = false
+		return
+	var count: int = int((_snapshot.get("groups", {}) as Dictionary).get(index, 0))
+	if count <= 0:
+		_chip_notice("Group %d is empty · hold it to save the selection" % index)
+		return
+	recall_group_requested.emit(index)
+
+
+func _chip_notice(text: String) -> void:
+	var hud: Node = get_parent()
+	if hud != null and hud.has_method("show_notification"):
+		hud.call("show_notification", text, KingdomTheme.PARCHMENT, 2.5)
+
+
+func _refresh_group_chips() -> void:
+	var counts: Dictionary = _snapshot.get("groups", {})
+	var icons: Dictionary = _snapshot.get("group_icons", {})
+	var any_group: bool = false
+	for index: int in range(1, GROUP_CHIP_COUNT + 1):
+		var chip: Button = _group_chip_buttons[index - 1]
+		var count: int = int(counts.get(index, 0))
+		any_group = any_group or count > 0
+		chip.text = str(count) if count > 0 else "+"
+		var icon_path: String = str(icons.get(index, ""))
+		chip.icon = load(icon_path) as Texture2D if count > 0 and not icon_path.is_empty() and ResourceLoader.exists(icon_path) else null
+		chip.modulate.a = 1.0 if count > 0 else 0.62
+		chip.tooltip_text = "Group %d · %s. Tap: select (twice: camera). Hold: save the selection." % [index, "%d units" % count if count > 0 else "empty"]
+		chip.accessibility_name = chip.tooltip_text
+	_group_chips_wanted = any_group or int(_snapshot.get("fighters", 0)) > 0
+	group_chips.visible = _group_chips_wanted and _chips_field_visible and _chips_fit
+	_idle_count = int((_snapshot.get("workers", {}) as Dictionary).get("idle", 0))
+	idle_chip.text = str(_idle_count) if _idle_count < 100 else "99+"
+	idle_chip.tooltip_text = "%d idle worker%s · tap: the next one · tap again: all of them" % [_idle_count, "" if _idle_count == 1 else "s"]
+	idle_chip.accessibility_name = idle_chip.tooltip_text
+	idle_chip.visible = _idle_count > 0 and _chips_field_visible
+
+
 func get_visible_bounds() -> Array[Rect2]:
 	var bounds: Array[Rect2] = []
 	if rail.is_visible_in_tree():
 		bounds.append(rail.get_global_rect())
+	if group_chips != null and group_chips.is_visible_in_tree():
+		bounds.append(group_chips.get_global_rect())
+	if idle_chip != null and idle_chip.is_visible_in_tree():
+		bounds.append(idle_chip.get_global_rect())
 	if panel.is_visible_in_tree():
 		bounds.append(panel.get_global_rect())
 	return bounds

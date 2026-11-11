@@ -138,7 +138,19 @@ func _show(entry: Dictionary) -> void:
 			if (event is InputEventScreenTouch and event.pressed and not event.canceled) or (
 				event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed
 			):
+				panel.accept_event()
+				if bool(panel.get_meta("toast_answered", false)):
+					return
+				# H: a tapped offer has been answered: it fades and leaves once
+				# the finger has lifted (the pill keeps owning that release so it
+				# cannot fall through to the map as a ground tap).
+				panel.set_meta("toast_answered", true)
+				panel.modulate.a = 0.45
+				get_tree().create_timer(0.35, true, false, true).timeout.connect(func() -> void:
+					if is_instance_valid(panel) and panel.get_parent() == self:
+						_retire(panel))
 				action.call()
+			elif (event is InputEventScreenTouch or event is InputEventMouseButton) and not event.pressed:
 				panel.accept_event()
 		)
 	var style := StyleBoxFlat.new()
@@ -168,7 +180,16 @@ func _show(entry: Dictionary) -> void:
 	panel.set_meta("toast_text", entry.text)
 	panel.set_meta("toast_priority", int(entry.priority))
 	panel.set_meta("toast_shown_msec", Time.get_ticks_msec())
+	panel.set_meta("toast_tappable", action.is_valid())
 	add_child(panel)
+	# H: tappable offers sit above plain messages, so an expiring note never
+	# slides an offer up from under the finger that is about to tap it.
+	if action.is_valid():
+		var slot: int = 0
+		for child: Node in get_children():
+			if child != panel and bool(child.get_meta("toast_tappable", false)) and not bool(child.get_meta("toast_retired", false)):
+				slot = maxi(slot, child.get_index() + 1)
+		move_child(panel, mini(slot, get_child_count() - 1))
 	_fit(panel)
 	if not GameManager.reduced_motion:
 		panel.modulate.a = 0.0

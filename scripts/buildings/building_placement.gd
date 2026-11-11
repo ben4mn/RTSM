@@ -107,6 +107,11 @@ func start_placement(building_type: int, player_owner: int = 0) -> void:
 	current_footprint = stats.get("footprint", Vector2i(2, 2))
 	current_color = stats.get("color", Color(0.5, 0.5, 0.5))
 	_player_owner = player_owner
+	# H: start in the device's own language (a phone speaks touch from the
+	# first tap) so the hint and the Place button never flip mid-placement.
+	if DisplayServer.is_touchscreen_available() and not _uses_touch_input:
+		_uses_touch_input = true
+		input_mode_changed.emit(true)
 	active = true
 	visible = true
 	set_process(true)
@@ -257,31 +262,35 @@ func find_visible_space(safe_rect: Rect2, occlusions: Array[Rect2]) -> bool:
 	var previous_tiles: Array[Vector2i] = _invalid_tiles.duplicate()
 	var previous_clearance_tiles: Array[Vector2i] = _clearance_tiles.duplicate()
 	var previous_clearance_areas: Array[Rect2i] = _clearance_areas.duplicate()
+	# H (G1 "No nearby space" over open ground): the first pass wants the whole
+	# drawn building on screen and clear of every HUD panel; on a phone a
+	# Barracks' art is taller than the free band. The second pass only needs
+	# the footprint itself visible and its centre clear of the HUD.
+	# One candidate budget covers both passes; the relaxed pass only visits
+	# tiles the strict pass skipped.
 	var examined: int = 0
-	for candidate: Dictionary in candidates:
-		var tile: Vector2i = candidate["tile"]
-		if examined >= FIND_SPACE_MAX_CANDIDATES:
-			break
-		examined += 1
-		var bounds: Rect2 = _find_space_preview_screen_rect(tile)
-		if not bounds.has_area() or not safe_rect.encloses(bounds):
-			continue
-		var occluded: bool = false
-		for obstacle: Rect2 in occlusions:
-			if obstacle.has_area() and bounds.intersects(obstacle, true):
-				occluded = true
+	var strict_fit: Dictionary = {}
+	for strict: bool in [true, false]:
+		for candidate: Dictionary in candidates:
+			var tile: Vector2i = candidate["tile"]
+			if examined >= FIND_SPACE_MAX_CANDIDATES:
 				break
-		if occluded:
-			continue
-		# This existing validator checks the WHOLE footprint's current visibility
-		# before querying any terrain/occupancy. Do not prefilter hidden terrain.
-		if not _check_footprint_validity(tile, current_footprint, _player_owner):
-			continue
-		_set_assisted_preview(true)
-		ghost_position = _tile_to_world(tile)
-		global_position = ghost_position
-		_refresh_preview_state(true)
-		return true
+			if not strict and strict_fit.has(tile):
+				continue
+			if not _find_space_fits_screen(tile, safe_rect, occlusions, strict):
+				continue
+			if strict:
+				strict_fit[tile] = true
+			examined += 1
+			# This existing validator checks the WHOLE footprint's current visibility
+			# before querying any terrain/occupancy. Do not prefilter hidden terrain.
+			if not _check_footprint_validity(tile, current_footprint, _player_owner):
+				continue
+			_set_assisted_preview(true)
+			ghost_position = _tile_to_world(tile)
+			global_position = ghost_position
+			_refresh_preview_state(true)
+			return true
 	# A failed search must not replace the user's selected footprint or its
 	# ordinary invalid-cell explanation with the last rejected candidate.
 	_invalid_reason = previous_reason
@@ -289,6 +298,30 @@ func find_visible_space(safe_rect: Rect2, occlusions: Array[Rect2]) -> bool:
 	_clearance_tiles = previous_clearance_tiles
 	_clearance_areas = previous_clearance_areas
 	return false
+
+
+func _find_space_fits_screen(tile: Vector2i, safe_rect: Rect2, occlusions: Array[Rect2], strict: bool) -> bool:
+	if strict:
+		var bounds: Rect2 = _find_space_preview_screen_rect(tile)
+		if not bounds.has_area() or not safe_rect.encloses(bounds):
+			return false
+		for obstacle: Rect2 in occlusions:
+			if obstacle.has_area() and bounds.intersects(obstacle, true):
+				return false
+		return true
+	var canvas: Transform2D = get_canvas_transform()
+	var polygon: PackedVector2Array = _footprint_world_polygon(tile, current_footprint)
+	var center := Vector2.ZERO
+	for point: Vector2 in polygon:
+		var screen: Vector2 = canvas * point
+		if not screen.is_finite() or not safe_rect.has_point(screen):
+			return false
+		center += screen
+	center /= float(maxi(1, polygon.size()))
+	for obstacle: Rect2 in occlusions:
+		if obstacle.has_area() and obstacle.has_point(center):
+			return false
+	return true
 
 
 func _find_space_preview_screen_rect(tile: Vector2i) -> Rect2:
@@ -381,7 +414,10 @@ func _input(event: InputEvent) -> void:
 	# Only a finger that lands while placement already speaks touch may place
 	# by tapping; the touch that switches from mouse just switches.
 	if active and event is InputEventScreenTouch and event.device != InputEvent.DEVICE_ID_EMULATION and (event as InputEventScreenTouch).pressed:
-		_tap_place_eligible[(event as InputEventScreenTouch).index] = _uses_touch_input
+		# H (G1): every world tap places, including the very first one after
+		# picking a building (the Build card's touch happened before placement
+		# listened, so the first ground tap used to only switch the mode).
+		_tap_place_eligible[(event as InputEventScreenTouch).index] = true
 	_observe_input_mode(event)
 	# A world finger can lift over a HUD Control, which owns the release before
 	# unhandled input. Only clear ownership here: never move or confirm a ghost.

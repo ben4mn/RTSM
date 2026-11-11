@@ -237,6 +237,11 @@ func _on_attack_landed(attacker: UnitBase, defender: UnitBase, _hp_loss: float, 
 
 func _on_damage(victim: Node2D, _hp_loss: Variant, player_id: int) -> void:
 	var now: float = GameManager.game_time
+	# H: a boar's bite is a hunt, not a battle; name the killer and do not let
+	# it start the first-combat clock or an under-attack event.
+	if victim is Villager and bool((victim as Villager).wildlife_hit):
+		_last_attacker[victim.get_instance_id()] = "boar"
+		return
 	if first_combat_time < 0.0:
 		first_combat_time = now
 	if now - _under_attack_at[player_id] >= UNDER_ATTACK_COOLDOWN:

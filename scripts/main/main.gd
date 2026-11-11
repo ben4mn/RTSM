@@ -1692,13 +1692,10 @@ func _on_unit_trained(unit_type: int, player_id: int, source_queue: ProductionQu
 		var player_data: Dictionary = GameManager.players.get(0, {})
 		var pop: int = player_data.get("population", 0)
 		var cap: int = player_data.get("population_cap", 5)
-		if pop >= cap:
-			var message: String = "Population cap reached! Build more Houses."
-			if cap >= GameManager.get_player_population_limit(0):
-				message = "Maximum population reached (%d). Workers and troops share this limit." % cap
-			hud.show_notification(message, Color(1.0, 0.5, 0.2))
-		elif pop >= cap - 2:
-			hud.show_notification("Population almost full (%d/%d)" % [pop, cap], Color(1.0, 0.7, 0.3))
+		# H: housing below the limit is TouchEconomy's one tappable House toast
+		# (it used to be a fresh pill on every birth near the cap).
+		if pop >= cap and cap >= GameManager.get_player_population_limit(0):
+			hud.show_notification("Maximum population reached (%d). Workers and troops share this limit." % cap, Color(1.0, 0.5, 0.2))
 
 
 func _resolve_production_egress(producer: BuildingBase, excluded_tiles: Array[Vector2i] = []) -> Dictionary:
@@ -2339,6 +2336,12 @@ func _on_move_command(target_tile: Vector2i) -> void:
 	var issue_patrol: bool = _patrol_command_armed
 	var issue_force_move: bool = not _attack_move_command_armed and not _patrol_command_armed
 	var issue_attack_move: bool = _attack_move_command_armed
+	# H: a plain touch ground tap sends soldiers as an attack-move (villagers
+	# still walk); tapping the same spot again is a plain move to fall back.
+	var ground_order: String = str(game_map.selection_mgr.get("ground_tap_order"))
+	var soldiers_attack_move: bool = ground_order == "attack" and not _move_command_armed and not issue_attack_move and not issue_patrol
+	if ground_order == "retreat" and _guided_opening_active == false:
+		hud.show_notification("Fall back", Color(0.62, 0.86, 0.6), 1.2)
 	_clear_armed_unit_commands(false)
 
 	# Check if a production building is selected — set rally point
@@ -2350,6 +2353,13 @@ func _on_move_command(target_tile: Vector2i) -> void:
 
 	if NetworkSession.is_client():
 		var world: Vector2 = game_map.tile_to_world(target_tile)
+		if soldiers_attack_move:
+			# One order per packet: an all-soldier selection attack-moves.
+			var only_soldiers: bool = true
+			for node: Variant in selected:
+				if is_instance_valid(node) and node is Villager:
+					only_soldiers = false
+			issue_attack_move = only_soldiers
 		var operation: String = "patrol" if issue_patrol else ("attack_move" if issue_attack_move else "move")
 		_send_network_selection(operation, {"position": [world.x, world.y]})
 		if issue_attack_move:
@@ -2388,6 +2398,12 @@ func _on_move_command(target_tile: Vector2i) -> void:
 		# A ground tap travels without acquiring enemies. Holding ground or the
 		# Attack button explicitly requests engagement along the route.
 		var is_military: bool = unit.unit_type != UnitData.UnitType.VILLAGER
+		if soldiers_attack_move and is_military and unit.damage > 0.0:
+			if world_path.size() > 1:
+				unit.command_attack_move_path(world_path)
+			else:
+				unit.command_attack_move(world_pos)
+			continue
 		if world_path.size() > 1:
 			if issue_patrol and is_military:
 				unit.command_patrol(world_pos)
@@ -2410,7 +2426,15 @@ func _on_move_command(target_tile: Vector2i) -> void:
 	var ordered_units: Array = orders.map(func(order: Dictionary) -> UnitBase: return order.unit)
 	_worker_order_undo.remember(0, worker_before, ordered_units)
 	_refresh_worker_undo_hud()
-	if issue_attack_move and not issue_patrol:
+	if soldiers_attack_move and has_military:
+		var soldier_orders: Array[Dictionary] = []
+		for order: Dictionary in orders:
+			if (order.unit as UnitBase).unit_type != UnitData.UnitType.VILLAGER:
+				soldier_orders.append(order)
+		ATTACK_MARCH.attach_compact_orders(soldier_orders)
+		issue_force_move = false
+		issue_attack_move = true
+	elif issue_attack_move and not issue_patrol:
 		ATTACK_MARCH.attach_compact_orders(orders)
 	if issue_patrol:
 		VFX.move_indicator(get_tree(), game_map.tile_to_world(target_tile))
@@ -2616,6 +2640,13 @@ func _on_train_unit_requested(building: Node2D, unit_type: int) -> void:
 				_last_train_feedback = "Population full (%d/%d). Your House is going up; train when it is done." % [pop, cap]
 			else:
 				_last_train_feedback = "Population full (%d/%d). Build a House before training %s." % [pop, cap, UnitData.get_unit_name(unit_type, 0)]
+				# H: the blocked tap offers the House itself (placed beside the others).
+				var economy: TouchEconomy = TouchEconomy.of(self)
+				if economy != null and ResourceManager.can_afford(0, BuildingData.get_building_cost(BuildingData.BuildingType.HOUSE, 0)):
+					# Same words as TouchEconomy's own warning, so the lane shows one pill.
+					hud.show_notification("Housed · tap: House", KingdomTheme.AMBER, 9.0, economy.request_auto_house, 2)
+					_refresh_first_session_diagnostics()
+					return
 		hud.show_notification(_last_train_feedback, Color(1.0, 0.6, 0.2))
 		_refresh_first_session_diagnostics()
 		return
@@ -2921,6 +2952,7 @@ func _register_match_extensions() -> void:
 	UnitAbilities.install(self)
 	ResearchPips.install(self)  # HUD pass: world progress ring over researching buildings
 	FarmPlots.install(self)  # Round 2 E: finite Farms, reseed, auto-reseed
+	TouchEconomy.install(self)  # H: back to work, housing warning, TC idle mark, farm ring
 
 
 func _on_building_action_requested(building: Node2D, action_id: String) -> void:
@@ -3187,7 +3219,17 @@ func _on_find_placement_space() -> void:
 	if GameManager.current_state != GameManager.GameState.PLAYING or get_tree().paused:
 		return
 	if not _building_placement.find_visible_space(hud.get_placement_search_safe_rect(), hud.get_world_occlusion_rects()):
-		hud.show_notification("No nearby space · pan or scout", Color(1.0, 0.75, 0.3))
+		# H: nothing fits on screen; look beside your own buildings and show it.
+		var economy: TouchEconomy = TouchEconomy.of(self)
+		var site: Variant = economy.find_site(_placement_type, 0) if economy != null else null
+		if site == null:
+			hud.show_notification("No nearby space · pan or scout", Color(1.0, 0.75, 0.3))
+			return
+		var world: Vector2 = game_map.tile_to_world(site as Vector2i)
+		game_map.note_camera_interaction()
+		game_map.camera.position = world
+		game_map._clamp_camera()
+		_building_placement.update_preview_at_world(world)
 
 
 func _on_confirm_placement() -> void:
