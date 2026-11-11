@@ -98,6 +98,10 @@ func _try_find_terrain_layer() -> void:
 		_terrain_layer = parent.get_node("TerrainLayer") as TileMapLayer
 
 
+## I2: a real (not emulated) touch or mouse press has been observed.
+var _real_pointer_seen: bool = false
+
+
 func start_placement(building_type: int, player_owner: int = 0) -> void:
 	_try_find_terrain_layer()
 	var stats: Dictionary = BuildingData.get_building_stats(building_type)
@@ -109,7 +113,10 @@ func start_placement(building_type: int, player_owner: int = 0) -> void:
 	_player_owner = player_owner
 	# H: start in the device's own language (a phone speaks touch from the
 	# first tap) so the hint and the Place button never flip mid-placement.
-	if DisplayServer.is_touchscreen_available() and not _uses_touch_input:
+	# I2: only before any real pointer was seen. Desktops report a touchscreen
+	# too (mouse-to-touch emulation); a mouse user's last click already set
+	# _uses_touch_input = false and must not get the touch UI flashed at them.
+	if DisplayServer.is_touchscreen_available() and not _uses_touch_input and not _real_pointer_seen:
 		_uses_touch_input = true
 		input_mode_changed.emit(true)
 	active = true
@@ -446,8 +453,10 @@ func _observe_input_mode(event: InputEvent) -> void:
 	var uses_touch: bool = _uses_touch_input
 	if event is InputEventScreenTouch or event is InputEventScreenDrag:
 		uses_touch = true
+		_real_pointer_seen = true
 	elif event is InputEventMouseButton and event.pressed:
 		uses_touch = false
+		_real_pointer_seen = true
 	elif event is InputEventMouseMotion and (event as InputEventMouseMotion).relative != Vector2.ZERO:
 		uses_touch = false
 	if uses_touch == _uses_touch_input:

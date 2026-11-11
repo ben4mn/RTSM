@@ -1785,6 +1785,9 @@ func _issue_production_rally(unit: UnitBase, requested_rally: Vector2, producer:
 			var alternative: Node2D = game_map.get_nearest_reachable_resource_node(producer.rally_resource_type, origin, worker.player_owner, {}, worker)
 			if alternative != null:
 				return worker.command_gather(alternative)
+			# I2: none in sight (a mined-out gold rally): the nearest one seen.
+			if worker.player_owner == 0 and worker._try_remembered_resource(game_map, producer.rally_resource_type):
+				return true
 		return accepted
 	var route: PackedVector2Array = game_map.get_navigation_world_path(
 		unit.global_position,

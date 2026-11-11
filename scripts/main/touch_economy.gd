@@ -29,6 +29,10 @@ const HOUSE_WARNING_SLOTS: int = 2
 const HOUSE_WARNING_GRACE_SECONDS: float = 20.0
 const HOUSE_REPEAT_MSEC: int = 15000
 const TC_IDLE_GRACE_SECONDS: float = 2.0
+const TC_IDLE_OFFER_SECONDS: float = 6.0
+const TC_IDLE_OFFER_MAX: int = 3
+const TC_IDLE_TEXT: String = "Town Center idle · tap: +%d Villager%s"
+var _tc_offer_text: String = ""
 const SITE_SEARCH_RADIUS: int = 7
 const MAX_SITE_ANCHORS: int = 6
 const MAX_SITE_CHECKS: int = 140
@@ -53,6 +57,7 @@ var _offer_text: String = ""
 var _offer_count: int = 0
 var _offer_msec: int = -OFFER_COOLDOWN_MSEC
 var _offer_pending_seconds: float = 0.0
+var _waiting_count: int = 0
 var _house_warned_cap: int = -1
 var _house_toast: String = ""
 var _house_toast_until_msec: int = 0
@@ -77,6 +82,7 @@ static func install(match_main: Node) -> void:
 	node.z_index = 89
 	node.process_mode = Node.PROCESS_MODE_PAUSABLE
 	match_main.add_child(node)
+	preload("res://scripts/main/economy_hints.gd").install(match_main)  # I2: running-out and bottleneck hints
 	match_main.ext.register_command("back_to_work", node._command_back_to_work, func(p: Dictionary) -> bool: return p.get("ids") is Array)
 	match_main.ext.register_command("dropoff", node._command_dropoff, func(p: Dictionary) -> bool: return p.get("ids") is Array and p.has("target"))
 	match_main.ext.register_command("lure", node._command_lure, func(p: Dictionary) -> bool: return p.get("ids") is Array and p.has("target"))
@@ -369,6 +375,11 @@ func _waiting_workers() -> Array[Villager]:
 func _refresh_back_to_work_offer(step: float) -> void:
 	var hud: Node = main.get("hud") as Node
 	var count: int = _waiting_workers().size()
+	_waiting_count = count
+	# I2: the offer has a persistent home on the "Work" chip beside the idle chip.
+	var overview: Variant = hud.get("_strategy_overview") if is_instance_valid(hud) else null
+	if overview is StrategyOverview:
+		(overview as StrategyOverview).set_back_to_work_count(count)
 	if count < OFFER_MIN_IDLE:
 		_offer_pending_seconds = 0.0
 		_offer_count = 0
@@ -386,7 +397,9 @@ func _refresh_back_to_work_offer(step: float) -> void:
 	_offer_count = count
 	_offer_msec = now
 	_offer_text = BACK_TO_WORK_TEXT % count
-	hud.call("show_notification", _offer_text, KingdomTheme.GOLD, 8.0, request_back_to_work, 2)
+	var shown: String = _offer_text
+	hud.call("show_notification", _offer_text, KingdomTheme.GOLD, 8.0, request_back_to_work, 2,
+		func() -> bool: return _offer_text == shown and _waiting_count >= OFFER_MIN_IDLE)
 
 
 func _retire_offer(hud: Node) -> void:
@@ -539,7 +552,7 @@ func _refresh_house_warning() -> void:
 	# Houses going up count as room already; a big queue can still outrun one.
 	var incoming: int = _houses_under_construction() * int(BuildingData.get_building_stats(BuildingData.BuildingType.HOUSE).get("pop_provided", 10))
 	if GameManager.game_time < HOUSE_WARNING_GRACE_SECONDS or cap >= limit or committed < cap + incoming - HOUSE_WARNING_SLOTS:
-		if live:
+		if not _house_toast.is_empty():
 			hud.call("dismiss_notification", _house_toast)
 		_house_toast = ""
 		if committed < cap - HOUSE_WARNING_SLOTS - 1:
@@ -563,7 +576,10 @@ func _refresh_house_warning() -> void:
 	var duration: float = 14.0 if housed else 9.0
 	if ResourceManager.can_afford(0, house_cost):
 		_house_toast = "%s · tap: House" % housing
-		hud.call("show_notification", _house_toast, KingdomTheme.AMBER, duration, request_auto_house, 2)
+		var shown: String = _house_toast
+		# I2: the offer stays while it still applies (no House started, still affordable).
+		hud.call("show_notification", _house_toast, KingdomTheme.AMBER, duration, request_auto_house, 2,
+			func() -> bool: return _house_toast == shown and ResourceManager.can_afford(0, house_cost))
 	else:
 		var missing: Dictionary = ResourceManager.get_missing_resources(0, house_cost)
 		_house_toast = "%s · House needs %dW more" % [housing, int(missing.get("wood", 0))]
@@ -736,7 +752,7 @@ func _clutter_penalty(map: Node2D, tile: Vector2i, footprint: Vector2i) -> float
 
 ## Founds a Farm for `worker` on a ring around the nearest food drop-off
 ## (Town Center or Mill). The worker builds it and then farms it.
-func place_farm_for(worker: Villager) -> bool:
+func place_farm_for(worker: Villager, offer_undo: bool = false) -> bool:
 	if not is_instance_valid(worker):
 		return false
 	var anchors: Array = []
@@ -751,7 +767,7 @@ func place_farm_for(worker: Villager) -> bool:
 	var site: Variant = find_site(BuildingData.BuildingType.FARM, worker.player_owner, anchors.slice(0, 2))
 	if site == null:
 		return false
-	return place_at(BuildingData.BuildingType.FARM, site as Vector2i, worker)
+	return place_at(BuildingData.BuildingType.FARM, site as Vector2i, worker, offer_undo)
 
 
 # =============================================================================
@@ -783,6 +799,62 @@ func _refresh_idle_centers() -> void:
 		var base: Button = hud.call("get_base_navigation_button") as Button
 		if base != null:
 			CommandIcons.set_badge(base, "zz" if not _idle_centers.is_empty() else "", false)
+	_refresh_idle_center_offer(hud)
+
+
+## I2: an idle Town Center is the costliest silent mistake on a phone (playtest:
+## minutes of no villagers while the player fought or built). After a short
+## grace, a tappable toast queues up to three Villagers; it stays while the
+## Town Center stays idle and the offer is affordable.
+func _refresh_idle_center_offer(hud: Node) -> void:
+	if hud == null:
+		return
+	var center: BuildingBase = null
+	for building: BuildingBase in _idle_centers:
+		if is_instance_valid(building) and GameManager.game_time - float(_tc_busy_at.get(building.get_instance_id(), GameManager.game_time)) >= TC_IDLE_OFFER_SECONDS:
+			center = building
+			break
+	var count: int = _idle_offer_count(center)
+	if center == null or count <= 0:
+		if not _tc_offer_text.is_empty():
+			hud.call("dismiss_notification", _tc_offer_text)
+			_tc_offer_text = ""
+		return
+	var text: String = TC_IDLE_TEXT % [count, "" if count == 1 else "s"]
+	if text == _tc_offer_text:
+		return
+	if not _tc_offer_text.is_empty():
+		hud.call("dismiss_notification", _tc_offer_text)
+	_tc_offer_text = text
+	var center_ref: WeakRef = weakref(center)
+	hud.call("show_notification", text, KingdomTheme.GOLD, 8.0, train_at_idle_center.bind(center_ref), 2,
+		func() -> bool: return _tc_offer_text == text)
+
+
+func _idle_offer_count(center: BuildingBase) -> int:
+	if center == null or not UnitData.UnitType.VILLAGER in center.trainable_units:
+		return 0
+	var cost: int = maxi(1, int(UnitData.get_unit_cost(UnitData.UnitType.VILLAGER, 0).get("food", 50)))
+	var by_food: int = ResourceManager.get_resource(0, "food") / cost
+	var cap: int = int(GameManager.players.get(0, {}).get("population_cap", 0))
+	var room: int = cap - GameManager.get_committed_population(0)
+	return clampi(mini(by_food, room), 0, TC_IDLE_OFFER_MAX)
+
+
+## Tap: queue up to three Villagers at that Town Center through the normal
+## (paid, online-safe) training request.
+func train_at_idle_center(center_ref: WeakRef) -> int:
+	_tc_offer_text = ""
+	var center: BuildingBase = center_ref.get_ref() as BuildingBase
+	var hud: Node = main.get("hud") as Node
+	if center == null or hud == null or GameManager.current_state != GameManager.GameState.PLAYING:
+		return 0
+	var count: int = _idle_offer_count(center)
+	for _index: int in count:
+		hud.emit_signal("train_unit_requested", center, UnitData.UnitType.VILLAGER)
+	if count > 0:
+		_tc_busy_at[center.get_instance_id()] = GameManager.game_time
+	return count
 
 
 func get_idle_town_centers() -> Array[BuildingBase]:
