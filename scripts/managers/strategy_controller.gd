@@ -11,6 +11,9 @@ var _hud: CanvasLayer
 var _map: Node2D
 var _overview: StrategyOverview
 var _elapsed: float = 0.0
+var _food_survey: Dictionary = {}
+var _food_survey_msec: int = 0
+const FOOD_SURVEY_SECONDS: float = 1.4
 var _last_found_trader_id: int = 0
 var _food_gap_started: float = -1.0
 var _food_low_started: float = -1.0
@@ -43,7 +46,9 @@ func _process(delta: float) -> void:
 	_elapsed += delta
 	if _elapsed >= 0.35:
 		_elapsed = 0.0
-		_refresh()
+		var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
+		_refresh(true)
+		if PerfProbe.on: PerfProbe.add(&"strategy.refresh", _pp)
 
 
 func _playing() -> bool:
@@ -109,7 +114,10 @@ func _can_plan_with_worker(worker: Villager) -> bool:
 	return _worker_source(worker) not in ["recovering", "build"] and worker.current_state in [UnitBase.State.IDLE, UnitBase.State.GATHERING, UnitBase.State.MOVING]
 
 
-func _refresh() -> void:
+## `periodic` (the 0.35 s timer): the visible-food survey (a walk over every
+## resource node, ~5 ms in the web build) is reused for up to
+## FOOD_SURVEY_SECONDS. Direct calls (setup, orders, fixtures) redo it.
+func _refresh(periodic: bool = false) -> void:
 	if not is_instance_valid(_main) or not is_instance_valid(_overview):
 		return
 	var workers: Dictionary = {"food": 0, "wood": 0, "gold": 0, "idle": 0, "recovering": 0, "build": 0, "moving": 0}
@@ -205,7 +213,13 @@ func _refresh() -> void:
 				selected_military += 1
 				if (entry as UnitBase).damage > 0.0 and (entry as UnitBase).unit_type != UnitData.UnitType.SCOUT:
 					selected_fighters += 1
-	var economy_facts: Dictionary = _observed_food_stock(own_workers)
+	var _pf: int = Time.get_ticks_usec() if PerfProbe.on else 0
+	var now_msec: int = Time.get_ticks_msec()
+	if not periodic or _food_survey.is_empty() or now_msec - _food_survey_msec >= int(FOOD_SURVEY_SECONDS * 1000.0):
+		_food_survey = _observed_food_stock(own_workers)
+		_food_survey_msec = now_msec
+	var economy_facts: Dictionary = _food_survey.duplicate(true)
+	if PerfProbe.on: PerfProbe.add(&"strategy.food_stock", _pf)
 	economy_facts.merge({"workers": own_workers.size(), "recovering": int(workers.recovering), "food_workers": int(workers.food), "queued_workers": queued_workers, "refund_food": refund_food, "active_worker_producer": active_worker_producer, "food": ResourceManager.get_resource(0, "food"), "free_population": maxi(0, cap - committed), "reserved_population": maxi(0, committed - pop), "population_room_after_refunds": maxi(0, cap - pop)}, true)
 	var economy: Dictionary = ECONOMY_ASSESSMENT.describe(economy_facts)
 	var farm_missing: Dictionary = ResourceManager.get_missing_resources(0, BuildingData.get_building_cost(BuildingData.BuildingType.FARM, 0))
@@ -216,7 +230,10 @@ func _refresh() -> void:
 	# private recipient summary. It never asks the map for current enemy units.
 	var receipts: RefCounted = _main.get("_battle_receipts")
 	var battle_lesson: Dictionary = BATTLE_RECEIPTS.get_counter_lesson(receipts.call("get_summary", 0), GameManager.get_player_civilization(0), GameManager.get_player_civilization(1)) if receipts != null else {}
-	_overview.update_snapshot({"traders": traders.size(), "waiting_traders": waiting_traders, "has_trade": has_trade, "workers": workers, "military": military, "fighters": fighters, "producers": producers, "population_text": population_text, "groups": groups, "group_has_buildings": group_has_buildings, "selection_count": selection_count, "selected_military": selected_military, "selected_fighters": selected_fighters, "economy": economy, "economy_facts": economy_facts, "battle_lesson": battle_lesson, "food_attention_ready": _update_food_attention(own_workers.size(), int(workers.food), int(workers.recovering)), "food_low_attention_ready": _update_food_low_attention(economy, int(workers.recovering)), "can_plan_farm": available_builders > 0 and farm_missing.is_empty(), "farm_blocker": farm_blocker, "can_plan_barracks": available_builders > 0 and barracks_missing.is_empty(), "barracks_blocker": barracks_blocker})
+	var _pq: int = Time.get_ticks_usec() if PerfProbe.on else 0
+	var snapshot: Dictionary = {"traders": traders.size(), "waiting_traders": waiting_traders, "has_trade": has_trade, "workers": workers, "military": military, "fighters": fighters, "producers": producers, "population_text": population_text, "groups": groups, "group_has_buildings": group_has_buildings, "selection_count": selection_count, "selected_military": selected_military, "selected_fighters": selected_fighters, "economy": economy, "economy_facts": economy_facts, "battle_lesson": battle_lesson, "food_attention_ready": _update_food_attention(own_workers.size(), int(workers.food), int(workers.recovering)), "food_low_attention_ready": _update_food_low_attention(economy, int(workers.recovering)), "can_plan_farm": available_builders > 0 and farm_missing.is_empty(), "farm_blocker": farm_blocker, "can_plan_barracks": available_builders > 0 and barracks_missing.is_empty(), "barracks_blocker": barracks_blocker}
+	_overview.update_snapshot(snapshot)
+	if PerfProbe.on: PerfProbe.add(&"strategy.update_snapshot", _pq)
 
 
 func _update_food_attention(workers: int, food_workers: int, recovering: int) -> bool:

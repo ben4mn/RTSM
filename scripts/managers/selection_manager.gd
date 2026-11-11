@@ -260,7 +260,9 @@ func _process(_delta: float) -> void:
 	# Selected world objects can disappear independently of input (death,
 	# destruction, depletion, or queue_free). Prune them before any per-frame
 	# selection consumer can observe a stale Object reference.
+	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
 	_prune_stale_selection()
+	if PerfProbe.on: PerfProbe.add(&"selection.prune", _pp)
 	var now_msec: int = Time.get_ticks_msec()
 	if not OS.has_feature("production") and not NetworkSession.server_mode and now_msec >= _next_touch_target_refresh_msec:
 		_next_touch_target_refresh_msec = now_msec + 250

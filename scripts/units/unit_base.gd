@@ -157,6 +157,13 @@ static var sim_base_step: float = SIM_STEP
 ## World rectangle (already padded) in which unit poses are animated and
 ## positions interpolated. GameMap refreshes it from the camera every frame.
 static var view_rect: Rect2 = Rect2(-1e7, -1e7, 2e7, 2e7)
+## Units inside view_rect on the previous frame (GameMap rolls the counter).
+static var crowd_on_screen: int = 0
+## Dev A/B switch (PocketDev cmd('motion', {legacy: true})): the F3 ease that
+## paused on think frames. Never set in play.
+static var legacy_interpolation_hold: bool = false
+static var _seen_counting: int = 0
+const CROWD_POSE_UNITS: int = 60
 static var _sim_phase_serial: int = 0
 var _sim_clock: float = 0.0
 var _sim_next_think: float = 0.0
@@ -167,12 +174,26 @@ var _sim_driven: bool = false
 ## Game seconds since the last think (0 while a fixture drives `_process`).
 var _think_pending: float = 0.0
 var _present_pending: float = 0.0
-## Drawn position minus simulated position; decays to zero over one step.
+## Drawn position minus simulated position (see `_ease_drawn_position`).
 var _visual_offset: Vector2 = Vector2.ZERO
 var _visual_offset_start: Vector2 = Vector2.ZERO
 var _visual_elapsed: float = 0.0
 var _visual_span: float = SIM_STEP
 const VISUAL_SNAP_DISTANCE_SQUARED: float = 48.0 * 48.0
+## The last three simulated positions and the unit clock at which each was
+## reached (index 2 newest). The drawn position replays this path a fixed
+## `interpolation_delay` behind the unit clock, so it moves at the simulated
+## speed on every frame however the 20 Hz thinks fall between frames.
+var _trail_p0: Vector2 = Vector2.ZERO
+var _trail_p1: Vector2 = Vector2.ZERO
+var _trail_p2: Vector2 = Vector2.ZERO
+var _trail_t0: float = 0.0
+var _trail_t1: float = 0.0
+var _trail_t2: float = 0.0
+## Game seconds the drawn position trails the simulation by: one step plus a
+## frame, so there are always two simulated positions to blend between.
+## GameMap keeps it from the step and a smoothed frame time.
+static var interpolation_delay: float = SIM_STEP * 1.5
 ## Written by LiveUnitIndex only (its record for this unit, kept on the unit).
 var _index_position: Vector2 = Vector2.ZERO
 var _index_rank: int = 0
@@ -195,6 +216,18 @@ var _uses_network_work_pose: bool = false
 var _health_bar_y: float = -43.0
 var _puppet: UnitPuppet = null
 static var _sprite_opaque_rect_cache: Dictionary = {}
+## Ground marks (shadow + owner marker) draw in one layer under the y-sorted
+## world; health bars in one layer above it, below occlusion echoes (5 is the
+## echo layer, fog is 10).
+const GROUND_MARK_Z: int = -1
+const HEALTH_BAR_Z: int = 6
+static var marks_revision: int = 0
+static var marker_inverse_zoom: float = 1.0
+static var markers_clearer: bool = true
+var _marks_revision: int = -1
+var _ground_shadow: Node2D = null
+var _owner_marker: Node2D = null
+var _health_bar: Node2D = null
 
 # Artwork shares a y104 foot baseline in a 128px canvas. Movement/attack
 # excursion is included in framing, so a moving miniature stays in the field.
@@ -332,6 +365,7 @@ func _setup_sprite() -> void:
 	_action_presentation.name = "ActionPresentation"
 	_action_presentation.visible = false
 	add_child(_action_presentation)
+	_setup_ground_marks()
 	_puppet = UnitPuppet.new()
 	_last_visual_position = global_position
 
@@ -443,23 +477,30 @@ func _sim_frame(delta: float) -> void:
 		var drawn: Vector2 = global_position + _visual_offset
 		_sim_engine_frame = -1
 		_sim_driven = true
+		var _pt: int = Time.get_ticks_usec() if PerfProbe.on else 0
 		_process(step)
+		if PerfProbe.on: PerfProbe.add(&"unit.think", _pt)
 		_sim_driven = false
 		# Keep the per-unit phase: skip whole steps after a long frame.
 		_sim_slots = maxi(1, ceili(_think_interval() / sim_step - 0.01))
 		_sim_next_think += sim_step * maxf(float(_sim_slots), floorf((_sim_clock - _sim_next_think) / sim_step) + 1.0)
 		_think_pending = 0.0
-		var offset: Vector2 = drawn - global_position
-		if seen and delta > 0.0 and not offset.is_zero_approx() and offset.length_squared() < VISUAL_SNAP_DISTANCE_SQUARED:
-			_visual_offset_start = offset
-			_visual_elapsed = 0.0
-			# The drawn position arrives on the frame of the next think.
-			_visual_span = ceilf((_sim_next_think - _sim_clock - 0.000001) / delta) * delta
-			_visual_offset = offset
-			_apply_visual_offset()
-		elif _visual_offset != Vector2.ZERO:
-			_visual_offset = Vector2.ZERO
-			_apply_visual_offset()
+		if legacy_interpolation_hold:
+			# Pre-F4 ease, kept for A/B measurement only: the drawn position
+			# held still on every think frame (a 20 Hz judder).
+			var offset: Vector2 = drawn - global_position
+			if seen and delta > 0.0 and not offset.is_zero_approx() and offset.length_squared() < VISUAL_SNAP_DISTANCE_SQUARED:
+				_visual_offset_start = offset
+				_visual_elapsed = 0.0
+				_visual_span = ceilf((_sim_next_think - _sim_clock - 0.000001) / delta) * delta
+				_visual_offset = offset
+				_apply_visual_offset()
+			elif _visual_offset != Vector2.ZERO:
+				_visual_offset = Vector2.ZERO
+				_apply_visual_offset()
+		else:
+			_record_trail()
+			_ease_drawn_position(seen, true)
 		if current_state == State.DEAD:
 			_sim_engine_frame = Engine.get_process_frames()
 			return
@@ -467,15 +508,58 @@ func _sim_frame(delta: float) -> void:
 		_present_pending = 0.0
 	else:
 		_think_pending = _sim_clock - _sim_last_think
-		if _visual_offset != Vector2.ZERO:
-			_visual_elapsed += delta
-			_visual_offset = _visual_offset_start * (1.0 - _visual_elapsed / _visual_span) if _visual_elapsed + 0.000001 < _visual_span else Vector2.ZERO
-			_apply_visual_offset()
+		if legacy_interpolation_hold:
+			if _visual_offset != Vector2.ZERO:
+				_visual_elapsed += delta
+				_visual_offset = _visual_offset_start * (1.0 - _visual_elapsed / _visual_span) if _visual_elapsed + 0.000001 < _visual_span else Vector2.ZERO
+				_apply_visual_offset()
+		else:
+			_ease_drawn_position(seen, false)
 		# Unseen units settle their presentation clocks at think time only.
-		if seen:
+		# In a crowd, a figure doing nothing but breathing is posed at its
+		# thinks (20 per real second); anything that moves, strikes, flinches
+		# or gestures is posed every frame.
+		if seen and not (crowd_on_screen > CROWD_POSE_UNITS and _visual_offset == Vector2.ZERO and _attack_animation_remaining <= 0.0 and _puppet != null and _puppet.is_resting()):
 			_update_sprite_motion(_present_pending)
 			_present_pending = 0.0
+	if seen:
+		_seen_counting += 1
 	_sim_engine_frame = Engine.get_process_frames()
+
+
+## After a think: the position just simulated joins the trail. A jump (spawn,
+## garrison exit, a fixture or replica placing the node) restarts it there.
+func _record_trail() -> void:
+	var now: Vector2 = global_position
+	if now.distance_squared_to(_trail_p2) > VISUAL_SNAP_DISTANCE_SQUARED:
+		_trail_p0 = now
+		_trail_p1 = now
+		_trail_t0 = _sim_clock - sim_step * 2.0
+		_trail_t1 = _sim_clock - sim_step
+	else:
+		_trail_p0 = _trail_p1
+		_trail_t0 = _trail_t1
+		_trail_p1 = _trail_p2
+		_trail_t1 = _trail_t2
+	_trail_p2 = now
+	_trail_t2 = _sim_clock
+
+
+## Every frame for a seen unit: draw where the trail was `interpolation_delay`
+## ago. Unseen units draw at the simulated position.
+func _ease_drawn_position(seen: bool, moved: bool) -> void:
+	var offset := Vector2.ZERO
+	if seen and global_position == _trail_p2 and not (_trail_p0 == _trail_p2 and _trail_p1 == _trail_p2):
+		var at: float = _sim_clock - interpolation_delay
+		var drawn: Vector2 = _trail_p2
+		if at < _trail_t1:
+			drawn = _trail_p0.lerp(_trail_p1, clampf((at - _trail_t0) / maxf(0.000001, _trail_t1 - _trail_t0), 0.0, 1.0))
+		elif at < _trail_t2:
+			drawn = _trail_p1.lerp(_trail_p2, (at - _trail_t1) / maxf(0.000001, _trail_t2 - _trail_t1))
+		offset = drawn - _trail_p2
+	if offset != _visual_offset or (moved and offset != Vector2.ZERO):
+		_visual_offset = offset
+		_apply_visual_offset()
 
 
 ## The node keeps the simulated position (targeting, spacing, fog and saves read
@@ -532,59 +616,25 @@ func _process(delta: float) -> void:
 		queue_redraw()
 
 
+## The contact shadow and ownership marker are baked sprites one z layer below
+## the y-sorted world (UnitGroundMarks), and the health bar is its own canvas
+## item above it, so a crowd's marks and bars batch into a few draw calls and
+## this item usually draws nothing (only a selected or stand-ground unit adds
+## commands here). Every existing `queue_redraw()` still refreshes the bar.
 func _draw() -> void:
+	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
 	var size: float = get_visual_radius()
-
-	# One quiet contact shadow. Team cloth supplies the normal ownership cue;
-	# only selected figures receive a surrounding ring.
-	var ground_ring := PackedVector2Array()
-	for i in range(33):
-		var angle: float = float(i) / 32.0 * TAU
-		ground_ring.append(Vector2(cos(angle) * (size + 1.0), sin(angle) * size * 0.48 + 3.0))
-	draw_colored_polygon(ground_ring, Color(0.09, 0.13, 0.13, 0.14))
-	var contact_shadow := PackedVector2Array()
-	for point: Vector2 in ground_ring:
-		contact_shadow.append(Vector2(point.x * 0.72, (point.y - 3.0) * 0.58 + 2.0))
-	draw_colored_polygon(contact_shadow, Color(0.09, 0.13, 0.13, 0.20))
-
-	# Civilization palette never substitutes for ownership: retain a compact
-	# local-player bar / rival chevron with the new shared miniature sheets.
-	if GameManager.clearer_player_markers or KingdomArt.is_kingdom_texture(_sprite.texture):
-		var camera: Camera2D = get_viewport().get_camera_2d()
-		var inverse_zoom: float = 1.0 / maxf(0.5, camera.zoom.x) if camera != null else 1.0
-		var marker_size: float = 3.0 * inverse_zoom
-		var center := Vector2(0, 6.5)
-		if player_owner == 0:
-			draw_line(center - Vector2(marker_size, 0), center + Vector2(marker_size, 0), Color("293235"), 3.0 * inverse_zoom, true)
-			draw_line(center - Vector2(marker_size, 0), center + Vector2(marker_size, 0), Color("88b7ad"), 1.5 * inverse_zoom, true)
-		else:
-			var chevron := PackedVector2Array([center + Vector2(-marker_size, -1.5 * inverse_zoom), center + Vector2(0, 1.5 * inverse_zoom), center + Vector2(marker_size, -1.5 * inverse_zoom)])
-			draw_polyline(chevron, Color("293235"), 3.0 * inverse_zoom, true)
-			draw_polyline(chevron, Color("d69477"), 1.5 * inverse_zoom, true)
+	_refresh_health_bar()
 
 	# A stable ivory selection line stays readable without permanent bright
 	# team rings or pulsing graphics beneath every miniature.
 	if is_selected:
+		var ground_ring := PackedVector2Array()
+		for i in range(33):
+			var angle: float = float(i) / 32.0 * TAU
+			ground_ring.append(Vector2(cos(angle) * (size + 1.0), sin(angle) * size * 0.48 + 3.0))
 		draw_polyline(ground_ring, Color("293235", 0.55), 3.4, true)
 		draw_polyline(ground_ring, Color("e8e5db"), 1.8, true)
-
-	var hp_ratio: float = hp / max_hp if max_hp > 0 else 0.0
-
-	# Wounded, selected and just-struck units carry a bar; a healthy idle army
-	# has none. A wound that is no longer fresh dims, and a healed bar fades.
-	var bar_width: float = float(UNIT_SIZES.get(unit_type, 10.0)) * 2.3
-	var bar_height: float = 3.0
-	var bar_y: float = _health_bar_y
-
-	if current_state != State.DEAD and (is_selected or _health_feedback_remaining > 0.0 or hp < max_hp):
-		var bar_alpha: float = 1.0
-		if not is_selected and hp_ratio > 0.35:
-			bar_alpha = clampf(_health_feedback_remaining / 0.5, 0.0, 1.0) if hp >= max_hp else lerpf(0.62, 1.0, clampf(_health_feedback_remaining / 0.5, 0.0, 1.0))
-		draw_rect(Rect2(-bar_width / 2.0 - 1.0, bar_y - 1.0, bar_width + 2.0, bar_height + 2.0), Color("293235", bar_alpha))
-		var hp_color := Color("9fd08a") if hp_ratio > 0.6 else Color("e6cf7a") if hp_ratio > 0.35 else Color("e5846a")
-		if player_owner != 0:
-			hp_color = Color("e8e5db") if hp_ratio > 0.35 else Color("e5846a")
-		draw_rect(Rect2(-bar_width / 2.0, bar_y, bar_width * hp_ratio, bar_height), Color(hp_color, bar_alpha))
 
 	# Stance indicator: shield icon for Stand Ground
 	if stance == Stance.STAND_GROUND:
@@ -599,6 +649,90 @@ func _draw() -> void:
 		])
 		draw_colored_polygon(shield_pts, Color("293235"))
 		draw_polyline(shield_pts, Color("b7c4ba"), 1.0)
+	if PerfProbe.on: PerfProbe.add(&"unit.draw", _pp)
+
+
+## Wounded, selected and just-struck units carry a bar; a healthy idle army has
+## none (the bar item is hidden, so it costs nothing to draw).
+func _health_bar_shown() -> bool:
+	return current_state != State.DEAD and (is_selected or _health_feedback_remaining > 0.0 or hp < max_hp)
+
+
+func _refresh_health_bar() -> void:
+	if _health_bar == null:
+		return
+	var shown: bool = _health_bar_shown()
+	if _health_bar.visible != shown:
+		_health_bar.visible = shown
+	if shown:
+		_health_bar.queue_redraw()
+
+
+func _draw_health_bar() -> void:
+	if not _health_bar_shown():
+		return
+	var hp_ratio: float = hp / max_hp if max_hp > 0 else 0.0
+	# A wound that is no longer fresh dims, and a healed bar fades.
+	var bar_width: float = float(UNIT_SIZES.get(unit_type, 10.0)) * 2.3
+	var bar_height: float = 3.0
+	var bar_y: float = _health_bar_y
+	var bar_alpha: float = 1.0
+	if not is_selected and hp_ratio > 0.35:
+		bar_alpha = clampf(_health_feedback_remaining / 0.5, 0.0, 1.0) if hp >= max_hp else lerpf(0.62, 1.0, clampf(_health_feedback_remaining / 0.5, 0.0, 1.0))
+	_health_bar.draw_rect(Rect2(-bar_width / 2.0 - 1.0, bar_y - 1.0, bar_width + 2.0, bar_height + 2.0), Color("293235", bar_alpha))
+	var hp_color := Color("9fd08a") if hp_ratio > 0.6 else Color("e6cf7a") if hp_ratio > 0.35 else Color("e5846a")
+	if player_owner != 0:
+		hp_color = Color("e8e5db") if hp_ratio > 0.35 else Color("e5846a")
+	_health_bar.draw_rect(Rect2(-bar_width / 2.0, bar_y, bar_width * hp_ratio, bar_height), Color(hp_color, bar_alpha))
+
+
+func _setup_ground_marks() -> void:
+	var size: float = get_visual_radius()
+	# Plain canvas items drawing one textured rect each (drawn once; not
+	# Sprite2D, so code that frames a unit by its Sprite2D children still
+	# sees only the figure).
+	_ground_shadow = Node2D.new()
+	_ground_shadow.name = "GroundShadow"
+	_ground_shadow.draw.connect(UnitGroundMarks.draw_cell.bind(_ground_shadow, UnitGroundMarks.SHADOW_RECT))
+	_ground_shadow.position = UnitGroundMarks.shadow_offset()
+	_ground_shadow.scale = UnitGroundMarks.shadow_scale(size)
+	_ground_shadow.z_as_relative = false
+	_ground_shadow.z_index = GROUND_MARK_Z
+	add_child(_ground_shadow)
+	_owner_marker = Node2D.new()
+	_owner_marker.name = "OwnerMarker"
+	_owner_marker.draw.connect(UnitGroundMarks.draw_cell.bind(_owner_marker, UnitGroundMarks.MARKER_BAR_RECT if player_owner == 0 else UnitGroundMarks.MARKER_CHEVRON_RECT))
+	_owner_marker.position = Vector2(0.0, 6.5)
+	_owner_marker.z_as_relative = false
+	_owner_marker.z_index = GROUND_MARK_Z
+	add_child(_owner_marker)
+	_health_bar = Node2D.new()
+	_health_bar.name = "HealthBar"
+	_health_bar.z_as_relative = false
+	_health_bar.z_index = HEALTH_BAR_Z
+	_health_bar.visible = false
+	_health_bar.draw.connect(_draw_health_bar)
+	add_child(_health_bar)
+	_refresh_owner_marker()
+
+
+## Civilization palette never substitutes for ownership: a compact local-player
+## bar / rival chevron, kept the same size on screen as the camera zooms in.
+func _refresh_owner_marker() -> void:
+	_marks_revision = marks_revision
+	if _owner_marker == null:
+		return
+	_owner_marker.visible = markers_clearer or KingdomArt.is_kingdom_texture(_sprite.texture)
+	_owner_marker.scale = Vector2.ONE * (marker_inverse_zoom / UnitGroundMarks.MARKER_DENSITY)
+
+
+## GameMap reports the camera zoom and marker setting; units re-read it lazily.
+static func set_marker_view(inverse_zoom: float, clearer: bool) -> void:
+	if is_equal_approx(inverse_zoom, marker_inverse_zoom) and clearer == markers_clearer:
+		return
+	marker_inverse_zoom = inverse_zoom
+	markers_clearer = clearer
+	marks_revision += 1
 
 
 # --- State Machine ---
@@ -1413,6 +1547,8 @@ func _update_sprite_motion(delta: float) -> void:
 	# skipped where nobody can see it; the next visible frame blends back in.
 	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
 	if presentation_enabled and visible and view_rect.has_point(global_position):
+		if _marks_revision != marks_revision:
+			_refresh_owner_marker()
 		_puppet.update(self, delta, displacement)
 		if PerfProbe.on: PerfProbe.add(&"unit.puppet", _pp)
 	else:

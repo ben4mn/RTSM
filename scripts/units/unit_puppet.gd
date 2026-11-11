@@ -26,6 +26,13 @@ var _last_hit_direction: Vector2 = Vector2.ZERO
 var _previous_attack_remaining: float = 0.0
 var _shot_fired: bool = true
 var _flash_applied: bool = false
+## True while the last pose was only idle life (breathing, slow sway): the
+## caller may then pose this unit at a reduced rate (UnitBase._sim_frame).
+var _resting: bool = false
+
+
+func is_resting() -> bool:
+	return _resting
 
 
 func _init() -> void:
@@ -230,15 +237,16 @@ func update(unit: UnitBase, delta: float, displacement: Vector2) -> void:
 		if sprite.material == BattleFX.flash_material():
 			sprite.material = null
 
-	sprite.position = offset
-	sprite.rotation = rotation
-	sprite.scale = unit._sprite_rest_scale * stretch
+	# One transform write per item (position/rotation/scale each push the
+	# whole transform to the RenderingServer).
+	sprite.transform = Transform2D(rotation, unit._sprite_rest_scale * stretch, 0.0, offset)
+	_resting = resting and _gesture <= 0.0 and _flinch <= 0.0 and _flash <= 0.0
 	var overlay: UnitActionPresentation = unit._action_presentation
-	overlay.position = offset
+	if action == UnitActionPresentation.Action.NONE and not overlay.visible:
+		return
 	overlay.present(action, phase, unit._art_civilization, facing, reduced, GameManager.reduced_flashes)
 	# Tools share the body's foot pivot and bend so hands never detach.
-	overlay.rotation = rotation
-	overlay.scale = Vector2(facing, 1.0) * stretch * visual
+	overlay.transform = Transform2D(rotation, Vector2(facing, 1.0) * stretch * visual, 0.0, offset)
 
 
 ## x: travel along the attack direction, y: lift, z: foot-pivot lean (facing
