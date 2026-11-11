@@ -70,8 +70,9 @@ func _run() -> void:
 		var queue: ProductionQueue = workshop.get_production_queue()
 		_expect(queue.get_queue_size() == 1 and queue.queue[0] == UnitData.UnitType.SIEGE, "policy buys a real Siege Engine ahead of more escorts")
 		if queue.get_queue_size() > 0:
-			_expect(ResourceManager.get_resource(1, "wood") == int(bank["wood"]) - 150 and ResourceManager.get_resource(1, "gold") == int(bank["gold"]) - 100, "siege pays exact shared cost")
-			_expect(GameManager.get_committed_population(1) == reserved + 3, "siege reserves three population slots")
+			var siege_cost: Dictionary = UnitData.get_unit_cost(UnitData.UnitType.SIEGE, 1)
+			_expect(ResourceManager.get_resource(1, "wood") == int(bank["wood"]) - int(siege_cost.get("wood", 0)) and ResourceManager.get_resource(1, "gold") == int(bank["gold"]) - int(siege_cost.get("gold", 0)), "siege pays exact shared cost")
+			_expect(GameManager.get_committed_population(1) == reserved + int(UnitData.UNITS[UnitData.UnitType.SIEGE]["pop_cost"]), "siege reserves its population slots")
 			_complete_current_queue(queue)
 			evidence["paid_siege"] = ai._count_queued_unit(UnitData.UnitType.SIEGE)
 			var living: int = 0

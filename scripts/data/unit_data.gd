@@ -152,7 +152,7 @@ const UNITS: Dictionary = {
 		"damage": 30,
 		"armor": 3,
 		"speed": 30.0,
-		"cost": { "food": 0, "wood": 150, "gold": 100 },
+		"cost": { "food": 0, "wood": 100, "gold": 150 },  # Round 2 E2: gold-heavy finishing tool
 		"build_time": 25.0,
 		"vision_radius": 3,
 		"attack_range": 7,

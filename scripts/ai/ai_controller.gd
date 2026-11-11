@@ -147,6 +147,8 @@ var _mass_peak: int = 0  # E2: largest massing army since the last launch
 var _mass_peak_time: float = 0.0
 var _enemy_town_centers: Dictionary = {}  # E2: instance id -> last seen position
 var _enemy_start_cleared: bool = false
+static var _TRACE: bool = OS.get_environment("AOEM_AI_TRACE") == "1"  # telemetry debugging only
+var _trace_bucket: int = -1
 var _last_scout_order_time: float = -INF
 const SCOUT_REPLACEMENT_SECONDS: float = 120.0
 
@@ -222,6 +224,8 @@ const FARM_RESEED_WOOD: int = 100
 ## Units below this HP share walk home to heal and rejoin above HEAL_RESUME_RATIO.
 const HEAL_RETREAT_RATIO: float = 0.35
 const HEAL_RESUME_RATIO: float = 0.85
+## Round 2 E2: a launching wave takes home-healing soldiers above this share.
+const HEAL_JOIN_RATIO: float = 0.6
 ## Boar handling: Hard lures to the Town Center, Medium sends a hunting party.
 const BOAR_HUNT_RADIUS_TILES: float = 16.0
 const BOAR_PARTY_SIZE: int = 4
@@ -748,6 +752,9 @@ func _on_decision_tick() -> void:
 	_check_outrider_raid()  # Round 2 E: Mongol signature pressure
 	_check_attack_or_defend()
 	_hold_off_town_centers()  # Round 2 E2: no early Town Center kills below Hard
+	if _TRACE and int(_game_time) / 20 != _trace_bucket:
+		_trace_bucket = int(_game_time) / 20
+		print("[AI_TRACE] t=%d p%d %s mil=%d field=%d obj=%d mode=%s thr=%d wave=%s prefTC=%s" % [int(_game_time), player_id, _last_strategy_decision, _get_military_units().size(), _get_field_military(_get_base_reserve_units(_get_military_units())).size(), _objective_units.size(), _objective_mode_name(), _get_attack_threshold(), _attack_in_progress, _prefer_town_centers])
 	if PerfProbe.on: PerfProbe.add(&"ai.tick", _pp)
 
 
@@ -3735,17 +3742,31 @@ func _check_attack_or_defend() -> void:
 			Difficulty.HARD: force_attack_time = 255.0
 		match difficulty:
 			Difficulty.EASY: force_attack_time = 540.0  # E2: Easy's first push comes late.
+		# Round 2 E2: the threshold measures the whole army (guards, healers and
+		# shrine pickets included); the free field army then marches. Healing
+		# soldiers above HEAL_JOIN_RATIO rejoin for the push.
+		var army_size: int = _get_fighting_units().size()
 		force_attack = _game_time >= force_attack_time and military.size() >= maxi(4, ceili(float(threshold) * 0.75)) and not _has_launched_field_attack
-		# Round 2 E2: an army that stopped growing below its threshold (housing,
-		# income or losses) goes anyway once it holds 70% of it.
-		if military.size() > _mass_peak:
-			_mass_peak = military.size()
+		# An army that stopped growing below its threshold (housing, income or
+		# losses) goes anyway once it holds 70% of it.
+		if army_size > _mass_peak:
+			_mass_peak = army_size
 			_mass_peak_time = _game_time
-		if _has_launched_field_attack and military.size() >= maxi(6, ceili(float(threshold) * 0.7)) and _game_time - _mass_peak_time >= MASS_STALL_SECONDS:
+		if _has_launched_field_attack and army_size >= maxi(6, ceili(float(threshold) * 0.7)) and _game_time - _mass_peak_time >= MASS_STALL_SECONDS:
+			force_attack = true
+		if army_size >= threshold:
 			force_attack = true
 		if difficulty == Difficulty.EASY and _game_time - _last_field_attack_time < EASY_WAVE_REST_SECONDS + 60.0:
 			_last_strategy_decision = "learning_rest"
 			return  # E2: long, visible gaps between Easy's waves.
+		if force_attack:
+			for unit: UnitBase in _get_military_units():
+				if _healing_ids.has(unit.get_instance_id()) and unit.hp >= unit.max_hp * HEAL_JOIN_RATIO:
+					_healing_ids.erase(unit.get_instance_id())
+					military.append(unit)
+			military = military.filter(func(unit: Variant) -> bool: return unit not in _shrine_units)
+			if military.size() < 4:
+				force_attack = false
 
 	# Launch full attack if army is strong enough or timed threshold reached
 	if military.size() >= threshold or force_attack:

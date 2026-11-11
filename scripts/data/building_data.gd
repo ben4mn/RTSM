@@ -133,7 +133,7 @@ const BUILDINGS: Dictionary = {
 	BuildingType.SIEGE_WORKSHOP: {
 		"name": "Siege Workshop",
 		"hp": 1500,
-		"cost": { "food": 0, "wood": 300, "gold": 100 },
+		"cost": { "food": 0, "wood": 200, "gold": 150 },  # Round 2 E2: gold-heavy; wood starves Castle armies
 		"build_time": 28.0,
 		"pop_provided": 0,
 		"footprint": Vector2i(3, 3),
