@@ -3465,14 +3465,14 @@ func _check_boar_hunt() -> void:
 			best = node
 	if best == null:
 		return
-	var hunters: Array = _pick_boar_hunters(best, 1 if difficulty == Difficulty.HARD else BOAR_PARTY_SIZE)
+	var hunters: Array = _pick_boar_hunters(best, 1 if difficulty != Difficulty.EASY else BOAR_PARTY_SIZE)
 	if hunters.is_empty():
 		return
 	_boar_target_ref = weakref(best)
 	_boar_started_at = _game_time
 	_boar_hunter_ids.clear()
 	_boar_lure_returning = false
-	_boar_lure_id = (hunters[0] as UnitBase).get_instance_id() if difficulty == Difficulty.HARD else 0
+	_boar_lure_id = (hunters[0] as UnitBase).get_instance_id() if difficulty != Difficulty.EASY else 0
 	# H: a party walks up together and strikes together. Ordered straight onto
 	# the boar, the first to arrive fought alone and often died (live wildlife
 	# telemetry: ~2 AI villagers per match).
