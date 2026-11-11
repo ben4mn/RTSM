@@ -429,6 +429,10 @@ func _cmd_spawn(arguments: Array, named: Dictionary = {}) -> Dictionary:
 		# Staged fights may exceed housing; add unowned room rather than fail.
 		if not GameManager.can_reserve_population(player_id, pop_cost):
 			GameManager.increase_population_cap(player_id, pop_cost)
+			if not GameManager.can_reserve_population(player_id, pop_cost):
+				# Scale staging (100 v 100) goes past the match's population limit.
+				GameManager.players[player_id]["max_population"] = int(GameManager.players[player_id].get("max_population", 0)) + pop_cost
+				GameManager._recalculate_population_cap(player_id)
 		var unit: UnitBase = match_scene._spawn_unit(unit_type, player_id, game_map.tile_to_world(tile))
 		if unit == null:
 			break

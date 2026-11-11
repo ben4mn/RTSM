@@ -298,6 +298,11 @@ func _get_camera_half_view_world() -> Vector2:
 
 
 func _process(delta: float) -> void:
+	# F3: units think on a fixed game-time step (UnitBase._sim_frame). Faster
+	# game speeds widen the step instead of thinking more often per frame.
+	UnitBase.sim_step = UnitBase.SIM_STEP * clampf(Engine.time_scale, 1.0, 2.0)
+	if camera != null and UnitBase.presentation_enabled:
+		UnitBase.view_rect = (get_canvas_transform().affine_inverse() * get_viewport_rect()).grow(96.0)
 	_update_camera_pan(delta)
 	_update_camera_zoom(delta / maxf(0.001, Engine.time_scale))
 
