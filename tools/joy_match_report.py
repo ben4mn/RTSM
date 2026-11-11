@@ -36,6 +36,8 @@ parser.add_argument('--pop', type=int, default=100, help='population limit (game
 parser.add_argument('--jobs', type=int, default=4)
 parser.add_argument('--out', type=Path, required=True, help='aggregate JSON; raw per-match files go beside it')
 parser.add_argument('--keep-events', action='store_true', help='keep the full event log in the aggregate file')
+parser.add_argument('--difficulty1', choices=DIFFICULTIES, default=None, help='give seat 1 its own level (e.g. easy vs hard)')
+parser.add_argument('--swap-alternate', action='store_true', help='odd matches play the same kingdoms from swapped seats')
 args = parser.parse_args()
 civs = [name.strip() for name in args.civs.split(',') if name.strip()]
 maps = [name.strip() for name in args.map.split(',') if name.strip()]
@@ -52,14 +54,17 @@ raw_dir.mkdir(parents=True, exist_ok=True)
 
 
 def run_match(index: int) -> dict:
-    civ, opp = civs[index % len(civs)], civs[(index + 1) % len(civs)]
-    map_name, seed = maps[index % len(maps)], args.seed_base + index
-    name = f'match{index:02d}-{civ}-vs-{opp}-{map_name}-seed{seed}'
+    swap = 1 if args.swap_alternate and index % 2 == 1 else 0
+    pair = index // 2 if args.swap_alternate else index
+    civ, opp = civs[pair % len(civs)], civs[(pair + 1) % len(civs)]
+    map_name, seed = maps[pair % len(maps)], args.seed_base + pair
+    name = f'match{index:02d}-{civ}-vs-{opp}-{map_name}-seed{seed}' + ('-swapped' if swap else '')
     report, log = raw_dir / f'{name}.json', raw_dir / f'{name}.log'
     report.unlink(missing_ok=True)
     command = [godot, '--headless', '--fixed-fps', '60', '--path', str(ROOT), 'res://tools/probe_joy_match.tscn', '--',
                f'--seed={seed}', f'--difficulty={DIFFICULTIES[args.difficulty]}', f'--civ={CIVS[civ]}', f'--opp={CIVS[opp]}',
-               f'--map={MAPS[map_name]}', f'--pop={args.pop}', f'--max-seconds={args.max_seconds}', f'--output={report}']
+               f'--map={MAPS[map_name]}', f'--pop={args.pop}', f'--max-seconds={args.max_seconds}', f'--output={report}',
+               f'--swap={swap}', f'--difficulty1={DIFFICULTIES[args.difficulty1] if args.difficulty1 else -1}']
     environment = os.environ.copy()
     # Environment overrides in main.gd/game_manager.gd must not skew a run; a
     # private HOME keeps parallel matches away from saved player preferences.
@@ -120,15 +125,39 @@ def aggregate(matches: list[dict]) -> dict:
     totals = lambda key: {name: sum(player['totals'][key].get(name, 0) for player in players)  # noqa: E731
                           for name in sorted({name for player in players for name in player['totals'][key]})}
     per_minute = {}
-    for minute in (3, 5, 10, 15, 20, 25):
+    for minute in (3, 5, 8, 10, 12, 15, 20):
         rows = [row for match in matches for row in at_minute(match, minute, lambda p: (
             p['villagers'], sum(count for unit, count in p['military'].items() if unit != 'scout'), sum(p['resources'].values()), sum(p['gathered_per_minute'].values()), p['idle_villagers']))]
         if rows:
             per_minute[f'{minute}m'] = {'samples': len(rows), 'villagers': mean([r[0] for r in rows]), 'military': mean([r[1] for r in rows]),
                                         'banked': mean([r[2] for r in rows]), 'income_per_minute': mean([r[3] for r in rows]),
                                         'idle_villagers': mean([r[4] for r in rows])}
+    # Round 2 E telemetry: army mix, Town Center wins, length spread, seats, levels.
+    line_shares = []
+    for player in players:
+        army = {unit: count for unit, count in player['totals']['trained'].items() if unit not in ('villager', 'scout', 'trader')}
+        total = sum(army.values())
+        if total >= 6:
+            line_shares.append(max(army.values()) / total)
+    lengths = sorted(match['length_seconds'] for match in matches)
+    p90 = lengths[min(len(lengths) - 1, int(round(0.9 * (len(lengths) - 1))))] if lengths else None
+    tc_wins = sum(1 for match in decided if 'Town Center' in str(match['win_reason']))
+    plays_by_civ: dict = {}
+    for match in decided:
+        for player in match['players']:
+            plays_by_civ[player['civ']] = plays_by_civ.get(player['civ'], 0) + 1
+    wins_by_level: dict = {}
+    for match in decided:
+        levels = [match.get('difficulty'), match.get('difficulty_seat1', match.get('difficulty'))]
+        level = levels[match['winner']]
+        wins_by_level[str(level)] = wins_by_level.get(str(level), 0) + 1
     return {
         'matches': len(matches), 'decided': len(decided), 'win_reasons': reasons, 'wins_by_civ': wins_by_civ,
+        'civ_win_rate': {civ: round(wins_by_civ.get(civ, 0) / plays, 2) for civ, plays in plays_by_civ.items()},
+        'town_center_win_share': round(tc_wins / len(decided), 2) if decided else None,
+        'match_length_p90': p90,
+        'wins_by_level': wins_by_level,
+        'top_line_share': spread([round(share, 2) for share in line_shares]),
         'wins_by_slot': [sum(1 for match in decided if match['winner'] == slot) for slot in (0, 1)],
         'match_length_seconds': spread([match['length_seconds'] for match in matches]),
         'decided_length_seconds': spread([match['length_seconds'] for match in decided]),

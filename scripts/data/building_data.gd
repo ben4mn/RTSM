@@ -30,9 +30,9 @@ const BUILDINGS: Dictionary = {
 		"hp": 3500,
 		"cost": { "food": 0, "wood": 300, "gold": 100 },
 		"build_time": 60.0,
-		# The opening five Villagers and Scout leave room for two more Villagers
-		# before the first House.
-		"pop_provided": 8,
+		# With the base 5 (GameManager), the opening five Villagers and Scout
+		# leave room for two more Villagers before the first House (cap 8).
+		"pop_provided": 3,
 		# One capital and two expansions (BuildingData.get_max_count).
 		"max_count": 3,
 		"footprint": Vector2i(4, 4),

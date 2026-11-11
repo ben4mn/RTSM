@@ -71,7 +71,7 @@ func _run() -> void:
 		if _researching() == ["wheelbarrow"]:
 			wheelbarrow_bank = {"food": int(before.food) - ResourceManager.get_resource(1, "food"), "wood": int(before.wood) - ResourceManager.get_resource(1, "wood")}
 		_finish_research()
-	_expect(decisions == ["loom", "man_at_arms", "double_bit_axe", "wheelbarrow"], "a safe mature workforce works down the shared priority list, one at a time: " + str(decisions))
+	_expect(decisions == ["loom", "double_bit_axe", "wheelbarrow", "man_at_arms"], "a safe mature workforce works down the shared priority list, one at a time: " + str(decisions))
 	_expect(wheelbarrow_bank == {"food": 175, "wood": 50}, "economic research pays its normal food/wood cost: " + str(wheelbarrow_bank))
 	_expect(is_equal_approx(GameManager.get_modifier(1, "carry"), 0.34) and UnitData.get_unit_tier(UnitData.UnitType.INFANTRY, 1) == 2, "shared completion applies the real upgrades")
 	_setup()

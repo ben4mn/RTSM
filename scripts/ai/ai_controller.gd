@@ -214,9 +214,9 @@ const SACRED_SITE_START_TIMES: Dictionary = {
 }
 
 const SCALE_SACRED_START_TIMES: Dictionary = {
-	Difficulty.EASY: 330.0,
-	Difficulty.MEDIUM: 250.0,
-	Difficulty.HARD: 210.0,
+	Difficulty.EASY: 420.0,
+	Difficulty.MEDIUM: 400.0,
+	Difficulty.HARD: 360.0,
 }
 
 const SACRED_CAPTURE_FORCES: Dictionary = {
@@ -852,6 +852,10 @@ func _check_villager_production() -> void:
 	var villagers: Array = _get_villagers()
 	var target: int = _get_target_villager_count()
 	var queued_villagers: int = _count_queued_unit(UnitData.UnitType.VILLAGER)
+	for unit: Variant in _my_units:
+		# Sheltering villagers still count toward the workforce target.
+		if is_instance_valid(unit) and unit is Villager and (unit as UnitBase).current_state == UnitBase.State.GARRISONED:
+			queued_villagers += 1
 	if _should_pause_villager_production_for_age_up(villagers.size(), queued_villagers):
 		return
 
@@ -1576,7 +1580,8 @@ func _check_building_construction() -> void:
 func _check_trade_economy() -> void:
 	# Invest before the bank is empty. Normal Main transactions still pay every
 	# foundation and recruit; this policy never grants income or reveals terrain.
-	var earliest: float = 0.0 if _uses_strategy_opening() else 600.0
+	# Round 2 E: the bigger economy has ample gold; caravans are a late option.
+	var earliest: float = 0.0 if _uses_strategy_opening() and _uses_compact_population_policy() else 600.0
 	if _game_time < maxf(earliest, _next_trade_decision) or GameManager.get_player_age(player_id) < 2:
 		return
 	_next_trade_decision = _game_time + 20.0
@@ -2093,8 +2098,8 @@ func _get_target_resource_ratio() -> Dictionary:
 		if age <= 1:
 			return {"food": 0.52, "wood": 0.38, "gold": 0.10}
 		if age == 2:
-			return {"food": 0.44, "wood": 0.38, "gold": 0.18}
-		return {"food": 0.42, "wood": 0.34, "gold": 0.24}
+			return {"food": 0.42, "wood": 0.41, "gold": 0.17}
+		return {"food": 0.40, "wood": 0.38, "gold": 0.22}
 	if age <= 1:
 		return {"food": 0.5, "wood": 0.35, "gold": 0.15}
 	if age == 2:
@@ -2228,13 +2233,13 @@ func _get_build_order(age: int) -> Array:
 	if age >= 3:
 		return [
 			BuildingData.BuildingType.HOUSE,
-			BuildingData.BuildingType.TOWN_CENTER,
 			BuildingData.BuildingType.RESOURCE_CAMP,
 			BuildingData.BuildingType.FARM,
 			BuildingData.BuildingType.SIEGE_WORKSHOP,
 			BuildingData.BuildingType.BARRACKS,
 			BuildingData.BuildingType.ARCHERY_RANGE,
 			BuildingData.BuildingType.STABLE,
+			BuildingData.BuildingType.TOWN_CENTER,
 			BuildingData.BuildingType.BLACKSMITH,
 			BuildingData.BuildingType.WATCH_TOWER,
 		]
@@ -2243,12 +2248,12 @@ func _get_build_order(age: int) -> Array:
 		# the Blacksmith (which the Castle Age needs).
 		return [
 			BuildingData.BuildingType.HOUSE,
-			BuildingData.BuildingType.TOWN_CENTER,
 			BuildingData.BuildingType.FARM,
 			BuildingData.BuildingType.RESOURCE_CAMP,
 			BuildingData.BuildingType.BARRACKS,
 			BuildingData.BuildingType.ARCHERY_RANGE,
 			BuildingData.BuildingType.STABLE,
+			BuildingData.BuildingType.TOWN_CENTER,
 			BuildingData.BuildingType.BLACKSMITH,
 			BuildingData.BuildingType.WATCH_TOWER,
 		]
@@ -2893,6 +2898,20 @@ func _check_sacred_site_strategy() -> bool:
 		blocks_offense = urgent
 		if urgent:
 			desired_force = maxi(desired_force, fighters)
+		# Round 2 E: an army that owns the site and clearly outguns the raiders
+		# answers them with a matched force and keeps attacking with the rest; a
+		# side that is clearly outgunned at the site masses at home instead of
+		# feeding soldiers in one at a time, until the hostile clock is urgent.
+		var threat_strength: float = _evaluate_units_strength(site_threats)
+		var own_strength: float = _evaluate_units_strength(_get_fighting_units())
+		if own_claim and threat_strength > 0.0 and own_strength > threat_strength * 2.0:
+			desired_force = clampi(ceili(float(fighters) * minf(1.0, 1.6 * threat_strength / own_strength)), 4, fighters)
+			blocks_offense = false
+		elif enemy_claiming and not urgent and own_strength < threat_strength * 0.9:
+			_release_objective_units()
+			_objective_mode = ObjectiveMode.NONE
+			_last_strategy_decision = "mass_before_contest"
+			return false
 	var mode_changed: bool = new_mode != _objective_mode
 	_objective_mode = new_mode
 	_assign_objective_force(sacred_site, desired_force, urgent, mode_changed, site_threats)
@@ -3543,7 +3562,7 @@ func _check_attack_or_defend() -> void:
 
 	# Harassment raids: send small groups to pressure the enemy
 	var harass_cooldown: float = 60.0 if difficulty == Difficulty.HARD else 90.0
-	if military.size() >= 3 and _game_time - _last_harass_time > harass_cooldown:
+	if military.size() >= (3 if _uses_compact_population_policy() else 8) and _game_time - _last_harass_time > harass_cooldown:
 		# Keep even harassment together as a three-fighter packet.
 		var raid_size: int = mini(3, military.size())
 		var raiders: Array = idle_military.slice(0, raid_size)
@@ -4348,7 +4367,14 @@ func _tile_to_world(tile: Vector2i) -> Vector2:
 	return _base_position
 
 func _cleanup_references() -> void:
-	_remove_invalid_node_references(_my_units)
+	# Round 2 E: a garrisoned unit leaves the scene tree but is still ours; it
+	# must stay registered or the AI never commands it again (and overtrains).
+	for index in range(_my_units.size() - 1, -1, -1):
+		var entry: Variant = _my_units[index]
+		if typeof(entry) == TYPE_OBJECT and is_instance_valid(entry) and entry is UnitBase and (entry as UnitBase).current_state == UnitBase.State.GARRISONED:
+			continue
+		if not _is_live_tree_node(entry):
+			_my_units.remove_at(index)
 	_remove_invalid_node_references(_my_buildings)
 	_remove_invalid_node_references(_attack_wave_units)
 	_remove_invalid_node_references(_objective_units)
@@ -4450,7 +4476,7 @@ func _count_queued_military_units() -> int:
 func _get_villagers() -> Array:
 	var result: Array = []
 	for unit in _my_units:
-		if is_instance_valid(unit) and unit is UnitBase:
+		if is_instance_valid(unit) and unit is UnitBase and unit.is_inside_tree():
 			if unit.unit_type == UnitData.UnitType.VILLAGER and unit.current_state != UnitBase.State.DEAD:
 				result.append(unit)
 	return result
@@ -4481,7 +4507,7 @@ func _get_military_units() -> Array:
 	for unit in _my_units:
 		if not is_instance_valid(unit):
 			continue
-		if not (unit is UnitBase):
+		if not (unit is UnitBase) or not unit.is_inside_tree():
 			continue
 		if unit.current_state == UnitBase.State.DEAD:
 			continue
