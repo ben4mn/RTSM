@@ -61,7 +61,7 @@ All calls are synchronous and return plain objects.
 | `pause` | `cmd('pause',true)` | Opens/closes the normal pause menu. |
 | `reveal_map` | `cmd('reveal_map',true)` | Cosmetic: hides the fog layer and shows enemy units/buildings. The fog simulation and the minimap are unchanged. |
 | `give` | `cmd('give',{food:500,gold:300})`, `cmd('give',{wood:200},1)` | Add resources (second arg = player, default 0). |
-| `spawn` | `cmd('spawn','archer',5,0,'home')`, `cmd('spawn',{unit:'cavalry',count:4,player:1,near:'sacred'})` | Units: `villager infantry archer cavalry scout siege`. `near`: `'home'`/`'enemy'` (relative to that player), `'p0'`, `'p1'`, `'sacred'` or a tile. Adds population room if housing is full. Max 40 per call. |
+| `spawn` | `cmd('spawn','archer',5,0,'home')`, `cmd('spawn',{unit:'cavalry',count:4,player:1,near:'sacred'})` | Units: `villager infantry archer cavalry scout siege`. `near`: `'home'`/`'enemy'` (relative to that player), `'p0'`, `'p1'`, `'sacred'` or a tile. Adds population room if housing is full. Max 40 per call. `gather: 'food'|'wood'|'gold'` sends spawned villagers to the nearest such resource (a working economy for perf). |
 | `age` | `cmd('age',3)`, `cmd('age',{age:2,player:1})` | Advance a player to that age at once (no cost, no timer). |
 | `build` | `cmd('build','stable')`, `cmd('build',{building:'watch_tower',player:1,near:'p0'})` | Place a finished building on the nearest free ground (no cost, no builder). Names are `BuildingData.BuildingType` keys in lower case. |
 | `screenshot_safe_ui` | `cmd('screenshot_safe_ui',true)` | `true` hides the HUD for clean captures, `false` restores it. |

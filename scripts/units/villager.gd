@@ -24,6 +24,9 @@ var carried_amount: int = 0
 # carried_resource_type is the current work assignment; cargo keeps its own
 # accounting type across instant retasks. All types share carry_capacity.
 var _cargo: Dictionary = {}
+## Presentation only: the baked cargo badge child (CargoBadges) and its kind.
+var _cargo_badge: Node2D = null
+var _cargo_badge_kind: String = ""
 var _dropoff_recheck_timer: float = 0.0
 var _dropoff_topology_revision: int = -1
 var _dropoff_buildings_signature: int = 0
@@ -42,6 +45,7 @@ var _gather_last_known_instance_id: int = 0
 var _unreachable_resource_ids_until: Dictionary = {}
 var _unreachable_dropoff_ids_until: Dictionary = {}
 
+const CARGO_BADGES := preload("res://scripts/units/cargo_badges.gd")
 const DROP_OFF_RETRY_INTERVAL: float = 1.0
 const MAX_RECOVERY_PATH_CHECKS: int = 8
 # GameMap preflight and the interaction check share one exact route contract.
@@ -1977,43 +1981,44 @@ func get_visual_bounds() -> Rect2:
 func _draw() -> void:
 	super._draw()
 	var kind: String = _resource_marker_type()
+	_sync_cargo_badge(kind)
 	if kind == "":
 		return
-	# The badge keeps its authored shapes; one transform enlarges it with the
-	# figure and parks it beside the wider body.
+	# The badge itself is a baked sprite on its own layer (CargoBadges); only a
+	# selected villager's load gauge is drawn here. Same transform as the badge.
 	var badge_scale: float = 1.2
 	draw_set_transform(Vector2(get_visual_radius() + 4.0, -1.0), 0.0, Vector2(badge_scale, badge_scale))
 	var center := Vector2.ZERO
 	var ink := Color("293b3e")
 	var paper := Color("e4ddbf")
-	# Compact shaped cargo stays legible at ordinary zoom. Quiet mineral colors
-	# leave team cloth, selection and combat damage as the strongest accents.
-	draw_circle(center, 6.5, Color(0.09, 0.15, 0.17, 0.84))
-	match kind:
-		"food":
-			for offset: Vector2 in [Vector2(-2.2, 0.2), Vector2(2.2, 0.2), Vector2(0, 2.6)]:
-				draw_circle(center + offset, 2.1, Color("cf8d72"))
-			draw_colored_polygon(PackedVector2Array([center + Vector2(-1, -1.7), center + Vector2(0, -4.7), center + Vector2(3.6, -3.5), center + Vector2(1, -1)]), Color("a6b78a"))
-		"wood":
-			for offset: Vector2 in [Vector2(-1.5, -1.6), Vector2(1.1, 1.5)]:
-				var a: Vector2 = center + offset + Vector2(-2, 1.5)
-				var b: Vector2 = center + offset + Vector2(2, -1.5)
-				draw_line(a, b, Color("9c7956"), 3.8, true)
-				draw_circle(a, 1.9, Color("d6bc89"))
-				draw_circle(a, 0.6, ink)
-		"gold":
-			draw_colored_polygon(PackedVector2Array([center + Vector2(-4.5, 2.8), center + Vector2(-2.8, -0.5), center + Vector2(3, -0.5), center + Vector2(4.7, 2.8)]), Color("c7a65c"))
-			draw_line(center + Vector2(-2.6, -0.4), center + Vector2(2.6, -0.4), paper, 1.2, true)
-			draw_colored_polygon(PackedVector2Array([center + Vector2(-2.8, -1.8), center + Vector2(-1.5, -4.1), center + Vector2(1.5, -4.1), center + Vector2(2.8, -1.8)]), Color("e2c37c"))
-		_:
-			# A tied satchel means mixed cargo; it never invents a single type.
-			draw_colored_polygon(PackedVector2Array([center + Vector2(-2, -3.5), center + Vector2(2, -3.5), center + Vector2(1.6, -1.6), center + Vector2(4, 1), center + Vector2(3.5, 4), center + Vector2(-3.5, 4), center + Vector2(-4, 1), center + Vector2(-1.6, -1.6)]), paper)
-			draw_line(center + Vector2(-2, -1.4), center + Vector2(2, -1.4), Color("8b7659"), 1.5, true)
 	if is_selected and carried_amount > 0:
 		var ratio: float = clampf(float(carried_amount) / maxf(1.0, carry_capacity), 0.0, 1.0)
 		draw_rect(Rect2(center + Vector2(-7, 5.5), Vector2(14, 4)), ink)
 		draw_rect(Rect2(center + Vector2(-6, 6.5), Vector2(12 * ratio, 2)), paper)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+## Shows `kind`'s baked cargo badge beside the body, or hides it ("" = none).
+## Created on first use; redrawn only when the kind changes.
+func _sync_cargo_badge(kind: String) -> void:
+	if kind == "" and _cargo_badge == null:
+		return
+	if _cargo_badge == null:
+		_cargo_badge = Node2D.new()
+		_cargo_badge.name = "CargoBadge"
+		_cargo_badge.z_as_relative = false
+		_cargo_badge.z_index = CARGO_BADGES.BADGE_Z
+		_cargo_badge.draw.connect(func() -> void:
+			if _cargo_badge_kind != "":
+				CARGO_BADGES.draw_badge(_cargo_badge, _cargo_badge_kind))
+		add_child(_cargo_badge)
+	_cargo_badge.position = Vector2(get_visual_radius() + 4.0, -1.0)
+	_cargo_badge.scale = Vector2.ONE * (1.2 / CARGO_BADGES.DENSITY)
+	if _cargo_badge.visible != (kind != ""):
+		_cargo_badge.visible = kind != ""
+	if kind != _cargo_badge_kind:
+		_cargo_badge_kind = kind
+		_cargo_badge.queue_redraw()
 
 
 # =========================================================================

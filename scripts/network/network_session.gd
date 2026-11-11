@@ -7,6 +7,10 @@ signal match_found()
 signal room_changed()
 signal snapshot_received(snapshot: Dictionary)
 signal match_ended(winner: int, reason: String)
+## Authority only, right after each snapshot round (test and audit tooling).
+signal snapshots_broadcast(tick: int)
+## Client: the authority refused one of our orders (also shown as a toast).
+signal command_rejected(reason: String)
 
 ## Protocol11/catalog7 agrees on pacing and axis-safe stock. Terrain geometry stays
 ## generator5 so existing solo saves can restore their original stock and clock.
@@ -23,6 +27,12 @@ const CLIENT_POLL_PACKET_BUDGET := 256
 const CLIENT_POLL_PARSE_BUDGET_USEC := 4000
 const CONNECTION_TIMEOUT := 12.0
 const SILENCE_TIMEOUT := 20.0
+## A player whose connection drops mid-match (a phone switching networks, a
+## backgrounded tab) keeps their seat this long. The authority pauses the
+## match meanwhile, so neither side plays on alone. An explicit Leave still
+## forfeits at once.
+const RESUME_GRACE := 30.0
+const RESUME_RETRY_SECONDS := 3.0
 
 var state: String = "idle"
 var status_text: String = ""
@@ -58,6 +68,15 @@ var _match_loading_at: float = 0.0
 var _pending_snapshot: Dictionary = {}
 var _pending_terminal: Dictionary = {}
 var _finishing: bool = false
+# Seat resumption. Server: one secret per slot and the slots waiting for their
+# player. Client: our secret, where to reconnect and the retry schedule.
+var _resume_tokens: Array[String] = ["", ""]
+var _waiting_slots: Dictionary = {}
+var _resume_token: String = ""
+var _endpoint: String = ""
+var _reconnect_deadline: float = 0.0
+var _reconnect_retry_at: float = 0.0
+var _resume_sent: bool = false
 
 func _ready() -> void:
 	_elapsed = float(Time.get_ticks_msec()) / 1000.0
@@ -126,6 +145,7 @@ func _connect_with_request(request: Dictionary, endpoint: String) -> void:
 		endpoint = OS.get_environment("AOEM_MATCH_URL")
 	if endpoint.is_empty():
 		endpoint = DEFAULT_ENDPOINT
+	_endpoint = endpoint
 	_socket = _new_socket()
 	_elapsed = float(Time.get_ticks_msec()) / 1000.0
 	_last_receive = _elapsed
@@ -144,6 +164,8 @@ func leave_match() -> void:
 	_socket = null
 	online = false
 	adapter = null
+	_resume_token = ""
+	_resume_sent = false
 	_pending_snapshot.clear()
 	_pending_terminal.clear()
 	_connection_request.clear()
@@ -253,6 +275,20 @@ func _process(_delta: float) -> void:
 		_poll_client(transport_delta)
 
 func _poll_client(delta: float) -> void:
+	if state == "reconnecting":
+		if _elapsed > _reconnect_deadline:
+			_fail("Connection lost. The match could not be resumed.")
+			return
+		if _socket == null:
+			if _elapsed < _reconnect_retry_at:
+				return
+			_reconnect_retry_at = _elapsed + RESUME_RETRY_SECONDS
+			_resume_sent = false
+			_socket = _new_socket()
+			_last_receive = _elapsed
+			if _socket.connect_to_url(_endpoint) != OK:
+				_socket = null
+				return
 	if _socket == null:
 		return
 	# Godot can clear its received-message queue while processing a close frame.
@@ -265,6 +301,8 @@ func _poll_client(delta: float) -> void:
 			_request_sent_at = _elapsed
 			var operation: String = str(_connection_request.get("op", "search"))
 			_set_status("searching" if operation == "search" else "joining", "Searching for an opponent…" if operation == "search" else "Opening lobby…")
+		elif state == "reconnecting" and not _resume_sent:
+			_resume_sent = _send(_socket, {"op": "resume", "protocol": PROTOCOL, "match": match_id, "slot": player_slot, "token": _resume_token})
 		_heartbeat += delta
 		if _heartbeat > 4.0:
 			_heartbeat = 0.0
@@ -307,8 +345,16 @@ func _poll_client(delta: float) -> void:
 		if state == "ended":
 			_socket = null
 			return
+		if state == "reconnecting":
+			_socket = null  # Retry on the next scheduled attempt.
+			return
+		if _can_resume():
+			_begin_reconnect()
+			return
 		_fail("Connection lost. Return to the menu to search again.")
 		return
+	if state == "reconnecting":
+		return  # The resume deadline above bounds this state.
 	# Old servers reply to pings but do not understand private room requests.
 	# Those replies must not leave the new lobby flow waiting forever.
 	if state == "joining" and _elapsed - _request_sent_at > CONNECTION_TIMEOUT:
@@ -316,7 +362,33 @@ func _poll_client(delta: float) -> void:
 		return
 	var timeout: float = CONNECTION_TIMEOUT if state == "connecting" else SILENCE_TIMEOUT
 	if _elapsed - _last_receive > timeout and state != "ended":
+		if _can_resume():
+			_begin_reconnect()
+			return
 		_fail("Connection timed out. Try again.")
+
+func _can_resume() -> bool:
+	return online and state == "playing" and not _resume_token.is_empty() and is_instance_valid(adapter)
+
+func _begin_reconnect() -> void:
+	# Keep the match scene and replicas; only the transport is replaced. The
+	# authority holds the seat for RESUME_GRACE and sends a complete snapshot.
+	if _socket != null:
+		_socket.close()
+		_socket.poll()  # Flush the close frame so the authority notices now.
+	_socket = null
+	_resume_sent = false
+	_reconnect_deadline = _elapsed + RESUME_GRACE
+	_reconnect_retry_at = _elapsed
+	print("AOEM_CLIENT_RECONNECTING match=%d slot=%d" % [match_id, player_slot])
+	_set_status("reconnecting", "Connection lost · reconnecting…")
+	if is_instance_valid(adapter):
+		adapter.show_feedback("Connection lost · reconnecting…")
+
+## Test seam: drop the transport as a network change would, without Leave.
+func simulate_connection_loss() -> void:
+	if _can_resume():
+		_begin_reconnect()
 
 func _client_packet(packet: Dictionary) -> void:
 	if not packet.get("op", "") is String:
@@ -369,6 +441,8 @@ func _client_packet(packet: Dictionary) -> void:
 				return
 			match_map_archetype = int(received_archetype)
 			match_id = int(packet["match"])
+			var token: Variant = packet.get("resume", "")
+			_resume_token = token if token is String and token.length() <= 64 else ""
 			_sequence = 0
 			GameManager.selected_population_limit = SkirmishData.DEFAULT_POPULATION_LIMIT
 			GameManager.selected_match_mode = SkirmishData.MatchMode.STANDARD
@@ -378,6 +452,18 @@ func _client_packet(packet: Dictionary) -> void:
 		"started":
 			if state not in ["ended", "error"]:
 				_set_status("playing", "Online match")
+		"resumed":
+			if state == "reconnecting":
+				print("AOEM_CLIENT_RESUMED match=%d slot=%d" % [match_id, player_slot])
+				_set_status("playing", "Online match")
+				if is_instance_valid(adapter):
+					adapter.show_feedback("Reconnected")
+		"opponent_reconnecting":
+			if is_instance_valid(adapter):
+				adapter.show_feedback("Opponent lost connection · waiting for them (up to %d s)" % int(RESUME_GRACE))
+		"opponent_resumed":
+			if is_instance_valid(adapter):
+				adapter.show_feedback("Opponent reconnected")
 		"snapshot":
 			if int(packet.get("match", -1)) != match_id:
 				return
@@ -387,6 +473,7 @@ func _client_packet(packet: Dictionary) -> void:
 				_pending_snapshot = packet
 			snapshot_received.emit(packet)
 		"rejected":
+			command_rejected.emit(str(packet.get("reason", "Order unavailable")))
 			if is_instance_valid(adapter):
 				adapter.show_feedback(str(packet.get("reason", "Order unavailable")))
 		"ended":
@@ -474,6 +561,11 @@ func _poll_server(delta: float) -> void:
 				_drop_peer(id, "result_receipt_timeout")
 			elif _elapsed - float(record.last) > SILENCE_TIMEOUT:
 				_drop_peer(id, "silence_timeout")
+	for slot: int in _waiting_slots.keys():
+		if not _finishing and not _players.is_empty() and _elapsed - float(_waiting_slots[slot]) > RESUME_GRACE:
+			_waiting_slots.clear()
+			end_match(1 - slot, "Opponent disconnected")
+			break
 	if _players.is_empty() and not _finishing:
 		var ready_room: String = _ready_room()
 		if not ready_room.is_empty():
@@ -495,18 +587,21 @@ func _poll_server(delta: float) -> void:
 		if _snapshot_elapsed >= SNAPSHOT_INTERVAL:
 			_snapshot_elapsed = 0.0
 			adapter.broadcast_snapshots()
+			snapshots_broadcast.emit(int(adapter._snapshot_number))
 		if GameManager.game_time > 1800.0:
 			end_match(-1, "Time limit reached · draw")
 
 func _server_packet(id: int, packet: Dictionary) -> void:
 	if not packet.get("op", "") is String:
 		return
-	for key: String in ["protocol", "sequence", "match", "map_catalog", "map_archetype", "civilization"]:
+	for key: String in ["protocol", "sequence", "match", "map_catalog", "map_archetype", "civilization", "slot"]:
 		if packet.has(key) and not _whole_number(packet[key]):
 			return
 	match str(packet.get("op", "")):
 		"ping":
 			_send_peer(id, {"op": "pong"})
+		"resume":
+			_resume_request(id, packet)
 		"host", "join":
 			_room_request(id, packet)
 		"room_map", "room_start", "room_civilization":
@@ -561,8 +656,10 @@ func _begin_match(peers: Array[int], selected_map: int = -1) -> void:
 	GameManager.selected_match_mode = SkirmishData.MatchMode.STANDARD
 	GameManager.selected_population_limit = SkirmishData.DEFAULT_POPULATION_LIMIT
 	_set_status("loading", "")
+	_waiting_slots.clear()
 	for slot: int in 2:
-		_send_peer(_players[slot], {"op": "matched", "protocol": PROTOCOL, "slot": slot, "seed": match_seed, "map_archetype": match_map_archetype, "civilizations": match_civilizations, "match": match_id})
+		_resume_tokens[slot] = Crypto.new().generate_random_bytes(16).hex_encode()
+		_send_peer(_players[slot], {"op": "matched", "protocol": PROTOCOL, "slot": slot, "seed": match_seed, "map_archetype": match_map_archetype, "civilizations": match_civilizations, "match": match_id, "resume": _resume_tokens[slot]})
 	get_tree().call_deferred("change_scene_to_file", "res://scenes/main/main.tscn")
 
 
@@ -595,8 +692,54 @@ func _drop_peer(id: int, cause: String = "connection_closed") -> void:
 	if _peers.has(id):
 		(_peers[id].socket as WebSocketPeer).close()
 		_peers.erase(id)
-	if slot >= 0 and not _finishing:
-		end_match(1 - slot, "Opponent disconnected")
+	if slot < 0 or _finishing:
+		return
+	# A lost transport mid-match keeps the seat (see RESUME_GRACE); Leave, a
+	# protocol violation or a second simultaneous loss ends the match as before.
+	var recoverable: bool = cause == "silence_timeout" or cause.begins_with("socket_closed")
+	if state in ["playing", "waiting"] and recoverable and _waiting_slots.is_empty() and is_instance_valid(adapter):
+		_players[slot] = 0
+		_waiting_slots[slot] = _elapsed
+		_set_status("waiting", "")
+		get_tree().paused = true
+		print("AOEM_SEAT_HELD match=%d slot=%d grace=%.0f" % [match_id, slot, RESUME_GRACE])
+		_send_peer(_players[1 - slot], {"op": "opponent_reconnecting", "match": match_id, "seconds": RESUME_GRACE})
+		return
+	if not _waiting_slots.is_empty():
+		_waiting_slots.clear()
+		end_match(-1, "Both players lost connection · no result")
+		return
+	end_match(1 - slot, "Opponent disconnected")
+
+func _resume_request(id: int, packet: Dictionary) -> void:
+	var slot: int = int(packet.get("slot", -1))
+	var token: Variant = packet.get("token", "")
+	var valid: bool = int(packet.get("protocol", -1)) == PROTOCOL and int(packet.get("match", -1)) == match_id and slot in [0, 1] \
+		and not _players.is_empty() and not _finishing and state in ["playing", "waiting"] and token is String \
+		and not _resume_tokens[slot].is_empty() and token == _resume_tokens[slot] and id not in _players and id not in _queue and _peer_room(id).is_empty()
+	if not valid:
+		_send_peer(id, {"op": "error", "reason": "This match has ended or can no longer be resumed."})
+		return
+	var previous: int = _players[slot]
+	if previous > 0:
+		# The authority has not noticed the old transport fail yet (a silent
+		# network switch). The secret proves the same player; retire the old one.
+		_players[slot] = 0
+		if _peers.has(previous):
+			(_peers[previous].socket as WebSocketPeer).close()
+			_peers.erase(previous)
+	_players[slot] = id
+	_waiting_slots.erase(slot)
+	_peers[id]["civilization"] = match_civilizations[slot]
+	if is_instance_valid(adapter):
+		adapter.reset_recipient(slot)
+	print("AOEM_SEAT_RESUMED match=%d slot=%d" % [match_id, slot])
+	_send_peer(id, {"op": "resumed", "match": match_id, "slot": slot})
+	if _waiting_slots.is_empty():
+		get_tree().paused = false
+		_set_status("playing", "")
+		_snapshot_elapsed = SNAPSHOT_INTERVAL  # Send the complete picture at once.
+		_send_peer(_players[1 - slot], {"op": "opponent_resumed", "match": match_id})
 
 func end_match(winner: int, reason: String) -> void:
 	if _finishing or _players.is_empty():
@@ -613,6 +756,8 @@ func end_match(winner: int, reason: String) -> void:
 			_peers[id]["finished_at"] = _elapsed
 			_peers[id]["finished_match"] = match_id
 	_ready_peers.clear()
+	_waiting_slots.clear()
+	_resume_tokens.assign(["", ""])
 	online = false
 	adapter = null
 	get_tree().paused = false

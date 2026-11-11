@@ -33,7 +33,7 @@ const ENTRIES: Array = [
 	["view", "Camera", "Tap the camera icon to reveal or collapse navigation tools. Select area and Clear are inside this tray. Plus and minus zoom; the target centers your selection; Reset returns to the starting scale. Drag the battlefield to pan or pinch to zoom."],
 	["pause", "Match menu", "Open Settings, the Guide or match options. Solo matches pause. Online matches keep running for both players."],
 	["info", "Information", "Tap Info to learn about selected units or buildings, including costs and blockers. Hold Age Up for requirements. Hold recruitment to add units; costs remain visible."],
-	["population", "Population & housing", "The counter shows living units plus paid queues / housing. Houses add up to 20 housing until the match maximum. Normal matches allow 100 per player; smaller custom matches keep their chosen maximum."],
+	["population", "Population & housing", "The counter shows living units plus paid queues / housing. Each unit takes 1. Each House adds 10 housing until the match maximum. Normal matches allow 80 per player; smaller custom matches keep their chosen maximum."],
 	["food", "F · Food", "The apple and F mean food, used for workers, soldiers and age advancement. Workers carry gathered resources to a Town Center or Resource Camp."],
 	["wood", "W · Wood", "The log and W mean wood, used for buildings and equipment. House cards show the housing they can still add."],
 	["gold", "G · Gold", "The ingot and G mean gold, used for specialist units and advancement."],

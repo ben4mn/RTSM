@@ -33,10 +33,15 @@ func _check(condition: bool, message: String) -> void:
 		failures.append(message)
 
 func _jobs(data: Dictionary) -> Dictionary:
+	# Owner-only work text rides on staggered detail ticks (ACTOR_DETAIL_TICKS);
+	# the replica keeps the last authoritative value between them, so read it
+	# from the replica the snapshot was just applied to.
 	var jobs: Dictionary = {}
 	for actor: Dictionary in data.actors:
 		if int(actor.owner) == session.player_slot and actor.kind == "unit" and int(actor.type) == UnitData.UnitType.VILLAGER:
-			jobs[int(actor.id)] = "idle" if int(actor.state) == 0 and str(actor.get("work", "")).is_empty() else str(actor.get("work", ""))
+			var worker: Node = session.adapter.entities.get(int(actor.id))
+			if is_instance_valid(worker):
+				jobs[int(actor.id)] = "idle" if worker.current_state == 0 and worker.get_economy_task().is_empty() else worker.get_economy_task()
 	return jobs
 
 func _bank(data: Dictionary) -> int:
@@ -109,11 +114,8 @@ func _snapshot(data: Dictionary) -> void:
 				var paid: int = int(UnitData.get_unit_cost(UnitData.UnitType.VILLAGER).food)
 				_check(_bank(data) + paid == previous_bank + int(data.stats.resources_gathered) - previous_deposits, "Training payment mismatch")
 				_check(int(data.player.population_reserved) == 1, "Training reservation missing")
-				(row.repeat as Button).toggled.emit(true)
-				_check(not queue.auto_queue_enabled, "Repeat mutated replica queue")
-				phase = 4
-		4:
-			if bool(producer.queue.repeat):
+				# Online Repeat is refused by the authority ("Hold Train for a
+				# finite paid queue"); every queued unit is an explicit purchase.
 				(row.sacred as Button).pressed.emit()
 				_check(not building.rally_point_is_custom, "Rally mutated replica")
 				phase = 5
@@ -124,7 +126,7 @@ func _snapshot(data: Dictionary) -> void:
 				previous_bank = _bank(data)
 				previous_deposits = int(data.stats.resources_gathered)
 				(row.clear as Button).pressed.emit()
-				_check(queue.queue.size() == 1 and queue.auto_queue_enabled, "Clear mutated replica queue")
+				_check(queue.queue.size() == 1, "Clear mutated replica queue")
 				phase = 6
 		6:
 			if producer.queue.items.is_empty() and not bool(producer.queue.repeat):
@@ -133,7 +135,7 @@ func _snapshot(data: Dictionary) -> void:
 				_check(int(data.player.population_reserved) == 0, "Clear retained population reservation")
 				completed = true
 				phase = 7
-				print("ONLINE_STRATEGY_VERIFIED slot=%d allocation_sources=food,wood,gold,idle paid_train=true repeat=true sacred_rally=true clear_refund=true failures=%s" % [session.player_slot, failures])
+				print("ONLINE_STRATEGY_VERIFIED slot=%d allocation_sources=food,wood,gold,idle paid_train=true sacred_rally=true clear_refund=true failures=%s" % [session.player_slot, failures])
 	if completed and session.player_slot == 1 and float(data.time) > 10.0 and not end_sent:
 		end_sent = true
 		session.send_command("surrender")
