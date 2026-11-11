@@ -154,11 +154,11 @@ func _check_research_slot() -> void:
 	_tick(14.5)
 	check(not GameManager.has_research(0, "loom"), "not complete a moment early")
 	_tick(1.0)
-	check(GameManager.has_research(0, "loom") and GameManager.get_modifier(0, "villager_hp") == 15.0 and town_center.research_id == "", "completion lands in the modifier registry and frees the slot")
+	check(GameManager.has_research(0, "loom") and GameManager.get_modifier(0, "villager_hp") == 10.0 and town_center.research_id == "", "completion lands in the modifier registry and frees the slot")
 	check(_events == ["started:0:loom:15", "completed:0:loom"], "research_completed follows the timer: " + str(_events))
-	check(villager.max_hp == villager_hp + 15.0, "living villagers gain the Loom HP")
+	check(villager.max_hp == villager_hp + 10.0, "living villagers gain the Loom HP")
 	var recruit: UnitBase = main._spawn_unit(UnitData.UnitType.VILLAGER, 0, villager.global_position + Vector2(24, 0))
-	check(recruit != null and recruit.max_hp == villager_hp + 15.0 and recruit.hp == recruit.max_hp, "new villagers spawn with the Loom HP")
+	check(recruit != null and recruit.max_hp == villager_hp + 10.0 and recruit.hp == recruit.max_hp, "new villagers spawn with the Loom HP")
 	check(_bank().gold == bank_before.gold - 50 and not GameManager.try_start_research(0, town_center, "loom") and GameManager.get_research_failure_reason(0, town_center, "loom") == "already_researched", "a finished research cannot be bought again")
 	var done_ids: Array = town_center.get_context_actions(0).filter(func(action: Dictionary) -> bool: return bool(action.get("done", false))).map(func(action: Dictionary) -> String: return action.id)
 	check(done_ids == ["research:loom"], "the finished card reports done: " + str(done_ids))
@@ -180,7 +180,7 @@ func _check_age_up() -> void:
 	check(GameManager.get_age_up_failure_reason(0) == "", "a completed Barracks unlocks the Feudal age-up")
 	var bank_before: Dictionary = _bank()
 	check(GameManager.try_start_age_up(0) and GameManager.get_player_age(0) == 1 and town_center.research_id == "age_2", "the age-up starts in the Town Center and takes time")
-	check(_bank().food == bank_before.food - int(cost.food) and _bank().gold == bank_before.gold - int(cost.gold), "the age-up keeps today's cost, paid at start")
+	check(_bank().food == bank_before.food - int(cost.food) and _bank().gold == bank_before.gold - int(cost.get("gold", 0)), "the age-up keeps today's cost, paid at start")
 	check(_events == ["started:0:age_2:35", "age_started:0:2:35"], "age_advance_started carries target and duration: " + str(_events))
 	var state: Dictionary = GameManager.get_age_up_state(0)
 	check(state.get("building") == town_center and state.get("target_age") == 2 and state.get("duration") == 35.0, "age-up state is readable for the HUD")
@@ -231,7 +231,7 @@ func _check_effects_and_destruction() -> void:
 	smith = _spawn(BuildingData.BuildingType.BLACKSMITH)
 	check(GameManager.try_start_research(0, smith, "forging"), "the research is available again in a new Blacksmith")
 	_tick(30.5)
-	check(GameManager.has_research(0, "forging") and GameManager.get_attack_bonus(0) == 2, "Forging completes: +2 attack")
+	check(GameManager.has_research(0, "forging") and GameManager.get_attack_bonus(0) == 1, "Forging completes: +1 attack")
 	smith_ids = smith.get_context_actions(0).map(func(action: Dictionary) -> String: return action.id)
 	check(smith_ids[0] == "research:iron_casting", "Iron Casting takes Forging's place: " + str(smith_ids))
 	# Parallel research in different buildings.
@@ -252,16 +252,16 @@ func _check_effects_and_destruction() -> void:
 	check(GameManager.try_start_research(0, camp, "horse_collar"), "Horse Collar starts")
 	_tick(25.5)
 	var farm: BuildingBase = _spawn(BuildingData.BuildingType.FARM)
-	check(is_equal_approx(ResearchEffects.gather_multiplier(0, "food", farm), 1.2) and is_equal_approx(ResearchEffects.gather_multiplier(0, "food", null), 1.0), "Horse Collar: +20% food from Farms only")
+	check(FarmPlots.capacity_for(0) == int(BuildingData.BUILDINGS[BuildingData.BuildingType.FARM].farm_food) + 75 and FarmPlots.capacity_for(1) == int(BuildingData.BUILDINGS[BuildingData.BuildingType.FARM].farm_food) and is_equal_approx(ResearchEffects.gather_multiplier(0, "food", farm), 1.0), "Horse Collar: +75 food in every Farm sown afterwards (Round 2 E)")
 	# Stone Keep on standing and future towers.
 	var tower: BuildingBase = _spawn(BuildingData.BuildingType.WATCH_TOWER)
 	var tower_hp: int = tower.max_hp
 	var tower_damage: int = tower.tower_attack_damage
 	check(GameManager.try_start_research(0, smith, "stone_keep"), "Stone Keep starts")
 	_tick(40.5)
-	check(tower.max_hp == tower_hp + 400 and tower.hp == tower.max_hp and tower.tower_attack_damage == tower_damage + 6, "Stone Keep upgrades standing towers")
+	check(tower.max_hp == tower_hp + 300 and tower.hp == tower.max_hp and tower.tower_attack_damage == tower_damage + 3, "Stone Keep upgrades standing towers")
 	var later: BuildingBase = _spawn(BuildingData.BuildingType.WATCH_TOWER)
-	check(later.max_hp == tower_hp + 400 and later.tower_attack_damage == tower_damage + 6 and is_equal_approx(later.tower_attack_range, tower.tower_attack_range), "and towers built afterwards")
+	check(later.max_hp == tower_hp + 300 and later.tower_attack_damage == tower_damage + 3 and is_equal_approx(later.tower_attack_range, tower.tower_attack_range), "and towers built afterwards")
 	check(GameManager.get_modifier(1, "tower_hp") == 0.0 and GameManager.researched_upgrades[1].is_empty(), "the opponent gains nothing")
 
 
@@ -296,7 +296,7 @@ func _check_network() -> void:
 	check(server.execute_command(1, {"command": "building_action", "target": enemy_tc_id, "action": "research:loom"}) == "" and enemy_tc.research_id == "" and ResourceManager.get_all_resources(1) == bank_before, "building_action on the running card cancels it")
 	check(server.execute_command(1, {"command": "building_action", "target": enemy_tc_id, "action": "research:loom"}) == "", "and starts it again")
 	_tick(15.5)
-	check(GameManager.has_research(1, "loom") and server._snapshot_for(1).modifiers.get("villager_hp") == 15.0, "completion reaches the owner's replicated modifiers")
+	check(GameManager.has_research(1, "loom") and server._snapshot_for(1).modifiers.get("villager_hp") == 10.0, "completion reaches the owner's replicated modifiers")
 	# Client side: rows land on the local player's building replicas.
 	var town_center: BuildingBase = main._player_town_center
 	ResearchEffects._apply_snapshot({"rows": [[NetworkSession.entity_id(town_center), "hand_cart", 9.0, 45.0]]}, main)

@@ -111,7 +111,7 @@ func _run() -> void:
 func _check_match_start() -> void:
 	check(GameManager.get_modifier(0, "gather_wood") == 0.2 and GameManager.get_modifier(1, "gather_wood") == 0.0, "an English player starts with +20% wood in the modifier registry")
 	check(GameManager.get_modifier(1, UnitAbilities.WILDLIFE_KEY) == 0.3 and GameManager.get_modifier(0, UnitAbilities.WILDLIFE_KEY) == 0.0, "a Mongol player starts with the +30% wildlife key")
-	check(CivilizationData.CATALOG_VERSION == 2, "the civilization catalog version is bumped")
+	check(CivilizationData.CATALOG_VERSION == 3, "the civilization catalog version is bumped")
 	check(CivilizationData.get_gather_multiplier(MONGOLS, "food") == 1.0 and CivilizationData.get_gather_multiplier(ENGLISH, "wood") == 1.0, "the flat multipliers are gone (English wood lives in the registry, Mongol flat food is replaced)")
 	check(CivilizationData.get_extra_home_sheep(MONGOLS) == 2 and CivilizationData.get_extra_home_sheep(FRENCH) == 0, "the home-sheep field is data for the wildlife stream")
 
@@ -149,9 +149,10 @@ func _check_prices_and_train_times() -> void:
 	_become(1, FRENCH)
 	var base_farm: int = int(BuildingData.BUILDINGS[farm].cost.wood)
 	var base_camp: int = int(BuildingData.BUILDINGS[camp].cost.wood)
-	check(int(BuildingData.get_building_cost(farm, 1).wood) == 60 and int(BuildingData.get_building_cost(farm, 0).wood) == base_farm and int(BuildingData.get_building_cost(farm).wood) == base_farm, "French Farms cost 60 wood; everyone else pays %d" % base_farm)
+	var french_farm: int = int(CivilizationData.scale_cost({"wood": base_farm}, CivilizationData.get_building_cost_multiplier(FRENCH, farm)).wood)
+	check(int(BuildingData.get_building_cost(farm, 1).wood) == french_farm and french_farm < base_farm and int(BuildingData.get_building_cost(farm, 0).wood) == base_farm and int(BuildingData.get_building_cost(farm).wood) == base_farm, "French Farms cost %d wood; everyone else pays %d" % [french_farm, base_farm])
 	check(int(BuildingData.get_building_cost(camp, 0).wood) == 40 and int(BuildingData.get_building_cost(camp, 1).wood) == base_camp, "English Resource Camps cost 40 wood; everyone else pays %d" % base_camp)
-	check(int(BuildingData.get_building_stats(farm, 1).cost.wood) == 60 and int(BuildingData.get_building_stats(camp, 0).cost.wood) == 40, "build cards read the same kingdom price")
+	check(int(BuildingData.get_building_stats(farm, 1).cost.wood) == french_farm and int(BuildingData.get_building_stats(camp, 0).cost.wood) == 40, "build cards read the same kingdom price")
 	check(float(UnitData.get_unit_stats(villager, 1).build_time) == float(UnitData.UNITS[villager].build_time) * 0.8 and float(UnitData.get_unit_stats(villager, 0).build_time) == float(UnitData.UNITS[villager].build_time), "French Villagers train 20% faster")
 	check(UnitData.get_unit_cost(villager, 1) == UnitData.get_unit_cost(villager) and UnitData.get_unit_cost(CAVALRY, 1) == UnitData.UNITS[CAVALRY].cost, "no kingdom changes a unit price today")
 	# The AI (player 1, French) pays the French prices through its own transaction.
@@ -167,7 +168,7 @@ func _check_prices_and_train_times() -> void:
 	var wood_before: int = int(ResourceManager.get_resource(1, "wood"))
 	var buildings_before: int = main._player_buildings[1].size()
 	main._on_ai_wants_to_build(farm, site, false)
-	check(main._player_buildings[1].size() == buildings_before + 1 and wood_before - int(ResourceManager.get_resource(1, "wood")) == 60, "the French AI is charged 60 wood for a Farm (paid %d)" % (wood_before - int(ResourceManager.get_resource(1, "wood"))))
+	check(main._player_buildings[1].size() == buildings_before + 1 and wood_before - int(ResourceManager.get_resource(1, "wood")) == french_farm, "the French AI is charged the French Farm price for a Farm (paid %d)" % (wood_before - int(ResourceManager.get_resource(1, "wood"))))
 	# The human (player 0, English) pays through the placement transaction.
 	var home: Vector2i = main.game_map.world_to_tile(main._player_buildings[0][0].global_position)
 	var spot: Vector2 = Vector2.INF
@@ -209,7 +210,7 @@ func _check_charge() -> void:
 	Combat.queue_melee_attack(chevalier, target)
 	await get_tree().process_frame
 	await get_tree().process_frame
-	check(is_equal_approx(before - target.hp, plain + bonus) and bonus == 25.0, "the charged hit deals +%d (%.0f, plain %.0f)" % [int(bonus), before - target.hp, plain])
+	check(is_equal_approx(before - target.hp, plain + bonus) and bonus == roundf(float(UnitData.UNITS[CAVALRY].damage) * UnitAbilities.CHARGE_DAMAGE_RATIO), "the charged hit deals +%d (%.0f, plain %.0f)" % [int(bonus), before - target.hp, plain])
 	check(not chevalier._ability_ready and chevalier._ability_timer == 0.0 and not _overlay_visible(chevalier), "the Charge is spent and the pennon drops")
 	before = target.hp
 	Combat.queue_melee_attack(chevalier, target)
@@ -278,7 +279,7 @@ func _check_emplace() -> void:
 	var archer: UnitBase = _unit(ARCHER, 1, Vector2(-80, 0))
 	var base_range: float = MapData.range_tiles_to_world(float(UnitData.UNITS[ARCHER].attack_range))
 	var base_speed: float = 1.0 / float(UnitData.UNITS[ARCHER].attack_interval)
-	check(longbow._ability_kind == UnitAbilities.Kind.EMPLACE and is_equal_approx(longbow.attack_range, base_range) and longbow.max_hp == 60.0 and archer._ability_kind == UnitAbilities.Kind.NONE, "a Longbow starts at ordinary archer range (%.0f), fragile, with Emplace" % longbow.attack_range)
+	check(longbow._ability_kind == UnitAbilities.Kind.EMPLACE and is_equal_approx(longbow.attack_range, base_range) and longbow.max_hp == float(UnitData.get_unit_stats(ARCHER, 0).hp) and longbow.max_hp < float(UnitData.UNITS[ARCHER].hp) and archer._ability_kind == UnitAbilities.Kind.NONE, "a Longbow starts at ordinary archer range (%.0f), fragile, with Emplace" % longbow.attack_range)
 	_tick(longbow, UnitAbilities.EMPLACE_SECONDS - 0.2)
 	check(not longbow._ability_ready, "not emplaced before 2.5 s")
 	_tick(longbow, 0.3)
@@ -332,7 +333,7 @@ func _check_pillage() -> void:
 	var own_house: BuildingBase = _building(BuildingData.BuildingType.HOUSE, 0)
 	var per_hit: int = UnitAbilities.PILLAGE_GOLD_PER_BUILDING_HIT
 	var per_kill: int = UnitAbilities.PILLAGE_GOLD_PER_VILLAGER_KILL
-	check(outrider._ability_kind == UnitAbilities.Kind.PILLAGE and outrider.speed == 110.0 and outrider.max_hp == 140.0, "the Outrider is fast, light and pillages")
+	check(outrider._ability_kind == UnitAbilities.Kind.PILLAGE and outrider.speed == 110.0 and outrider.max_hp == float(UnitData.get_unit_stats(CAVALRY, 0).hp) and outrider.max_hp < float(UnitData.UNITS[CAVALRY].hp), "the Outrider is fast, light and pillages")
 	var gold: int = _gold(0)
 	var enemy_gold: int = _gold(1)
 	var hp_before: int = house.hp
