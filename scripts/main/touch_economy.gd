@@ -752,7 +752,7 @@ func _clutter_penalty(map: Node2D, tile: Vector2i, footprint: Vector2i) -> float
 
 ## Founds a Farm for `worker` on a ring around the nearest food drop-off
 ## (Town Center or Mill). The worker builds it and then farms it.
-func place_farm_for(worker: Villager) -> bool:
+func place_farm_for(worker: Villager, offer_undo: bool = false) -> bool:
 	if not is_instance_valid(worker):
 		return false
 	var anchors: Array = []
@@ -767,7 +767,7 @@ func place_farm_for(worker: Villager) -> bool:
 	var site: Variant = find_site(BuildingData.BuildingType.FARM, worker.player_owner, anchors.slice(0, 2))
 	if site == null:
 		return false
-	return place_at(BuildingData.BuildingType.FARM, site as Vector2i, worker)
+	return place_at(BuildingData.BuildingType.FARM, site as Vector2i, worker, offer_undo)
 
 
 # =============================================================================

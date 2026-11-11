@@ -54,6 +54,12 @@ func _economy_build(overview: StrategyOverview) -> void:
 	expect(bool(main.get("_placement_active")) and int(main.get("_placement_type")) == BuildingData.BuildingType.HOUSE, "the House tile starts House placement")
 	main._cancel_placement()
 	await step(0.2)
+	# The Farm button founds a Farm on the ring in one tap (twice: two Farms).
+	for round: int in 2:
+		var farms_before: int = _count_type(BuildingData.BuildingType.FARM)
+		overview.farm_requested.emit()
+		await step(0.2)
+		expect(_count_type(BuildingData.BuildingType.FARM) == farms_before + 1 and not bool(main.get("_placement_active")), "Farm tap %d places a Farm directly (%d -> %d)" % [round + 1, farms_before, _count_type(BuildingData.BuildingType.FARM)])
 	# Selected villagers stay the builders.
 	var worker: Villager = own_villagers()[0]
 	map.selection_mgr.select_single(worker)
@@ -64,6 +70,14 @@ func _economy_build(overview: StrategyOverview) -> void:
 	main.hud.close_build_menu()
 	map.selection_mgr.deselect_all()
 	await step(0.2)
+
+
+func _count_type(building_type: int) -> int:
+	var count: int = 0
+	for entry: Variant in main._player_buildings[0]:
+		if is_instance_valid(entry) and entry is BuildingBase and (entry as BuildingBase).building_type == building_type and (entry as BuildingBase).state != BuildingBase.State.DESTROYED:
+			count += 1
+	return count
 
 
 func _mixed_selection_build() -> void:

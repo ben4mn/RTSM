@@ -383,7 +383,35 @@ func _training_blocker(building: BuildingBase, unit_type: int) -> String:
 
 
 func _plan_farm() -> void:
+	# I2: one tap founds a Farm on the tidy ring around the Town Center / Mill
+	# (with Undo), like the House offer; the builder then farms it. Playtest: a
+	# second Farm from this button opened its ghost on the first one, "Blocked".
+	# Manual placement remains the fallback when no ring spot is free.
+	if _playing() and ResourceManager.can_afford(0, BuildingData.get_building_cost(BuildingData.BuildingType.FARM, 0)):
+		var economy: TouchEconomy = TouchEconomy.of(_main)
+		var farmer: Villager = _free_farmer()
+		if economy != null and farmer != null and economy.place_farm_for(farmer, true):
+			_overview.show_feedback("Farm placed by the Town Center · its builder farms it.")
+			_refresh()
+			return
 	_plan_building(BuildingData.BuildingType.FARM)
+
+
+## An idle worker first, else the free worker nearest a food drop-off.
+func _free_farmer() -> Villager:
+	var best: Villager = null
+	var best_distance: float = INF
+	var center: Node2D = _main.get("_player_town_center") as Node2D
+	for worker: Villager in _own_workers():
+		if not _can_plan_with_worker(worker):
+			continue
+		if _worker_source(worker) == "idle":
+			return worker
+		var distance: float = worker.global_position.distance_to(center.global_position) if is_instance_valid(center) else 0.0
+		if distance < best_distance:
+			best_distance = distance
+			best = worker
+	return best
 
 
 func _plan_barracks() -> void:

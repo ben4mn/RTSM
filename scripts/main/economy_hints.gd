@@ -256,7 +256,11 @@ func show_next_patch(resource: String) -> bool:
 		for worker: Node2D in crew:
 			var villager := worker as Villager
 			# Out of sight the order is the fog-safe remembered one (position only).
-			if not (in_sight and villager.command_gather(target)):
+			if in_sight and villager.command_gather(target):
+				continue
+			# The explored patch the hint named (position-only, fog-safe), else
+			# whatever the fog memory offers nearest this worker.
+			if not villager.command_gather_last_observed(resource, target.global_position, target.get_instance_id(), false):
 				villager.call("_try_remembered_resource", map, resource)
 	if not crew.is_empty() and map != null and map.get("selection_mgr") != null:
 		map.selection_mgr.select_many(crew)
