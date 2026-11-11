@@ -42,12 +42,12 @@ const REFERENCE_POPULATION_LIMIT: int = 60
 const MAX_AGE: int = 3
 const AGE_NAMES: Array[String] = ["Dark Age", "Feudal Age", "Castle Age"]
 ## Round 2 E2: the main win is destroying every enemy Town Center. The Sacred
-## Site is a late tiebreaker: its clock wakes at 12:00 and then asks for a 4:00
-## hold, so the earliest Sacred win is 16:00. The clock runs only while the
+## Site is a late tiebreaker: its clock wakes at 12:00 and then asks for a 5:00
+## hold, so the earliest Sacred win is 17:00. The clock runs only while the
 ## owner has an armed soldier in the ring and no enemy is inside; an unguarded
 ## or contested clock drains at SACRED_DRAIN_RATE, and losing the site resets
 ## it. Control race keeps its banked 3:00 rules, awake from the first capture.
-const SACRED_VICTORY_HOLD_SECONDS: float = 240.0
+const SACRED_VICTORY_HOLD_SECONDS: float = 300.0
 const SACRED_VICTORY_WAKE_SECONDS: float = 720.0
 ## Standard only: held seconds lost per second while unguarded or contested.
 const SACRED_DRAIN_RATE: float = 1.0

@@ -3914,6 +3914,19 @@ func _refresh_attack_wave_lifecycle() -> bool:
 		_clear_attack_wave()
 		return false
 
+	if _prefer_town_centers and not _uses_compact_population_policy() and _may_assault_town_centers():
+		# Round 2 E2: a winning wave that comes in sight of a Town Center makes
+		# it the target (Houses and Farms on the way are not the objective).
+		var current: Node = _get_attack_wave_target_node()
+		if not (current is BuildingBase and (current as BuildingBase).building_type == BuildingData.BuildingType.TOWN_CENTER):
+			var wave_center: Vector2 = _average_node_position(survivors)
+			for building: BuildingBase in _get_visible_enemy_buildings():
+				if building.building_type == BuildingData.BuildingType.TOWN_CENTER and building.global_position.distance_to(wave_center) <= 700.0:
+					_attack_wave_target_ref = weakref(building)
+					_attack_wave_target_position = building.global_position
+					_attack_wave_best_target_hp = float(building.hp)
+					_attack_wave_last_progress_time = _game_time
+					break
 	var target_node: Node = _get_attack_wave_target_node()
 	# Losing sight turns a live target into a position-only attack-move. Preserve
 	# the last visible position/HP and discard the weak reference before reading
@@ -3932,6 +3945,7 @@ func _refresh_attack_wave_lifecycle() -> bool:
 
 	if target_node != null:
 		_attack_wave_target_position = target_node.global_position
+		_focus_town_center(target_node, survivors)
 
 	if _has_attack_wave_arrived_or_idled(survivors):
 		# Round 2 E2: a healthy wave that reached its target keeps breaking the
@@ -3962,6 +3976,25 @@ func _refresh_attack_wave_lifecycle() -> bool:
 		_clear_attack_wave()
 		return false
 	return true
+
+
+func _focus_town_center(target_node: Node, survivors: Array) -> void:
+	## Round 2 E2: a wave that is ahead and can see its Town Center target hits
+	## the Town Center itself instead of grinding through Houses and Farms on
+	## attack-move. Soldiers already fighting an enemy unit finish that fight.
+	if _uses_compact_population_policy() or not _prefer_town_centers or not (target_node is BuildingBase):
+		return
+	var town_center: BuildingBase = target_node as BuildingBase
+	if town_center.building_type != BuildingData.BuildingType.TOWN_CENTER or not _may_assault_town_centers():
+		return
+	for entry: Variant in survivors:
+		var unit: UnitBase = entry as UnitBase
+		if unit == null or unit.attack_building_target == town_center:
+			continue
+		if is_instance_valid(unit.attack_target) and unit.attack_target.current_state != UnitBase.State.DEAD:
+			continue
+		if unit.global_position.distance_to(town_center.global_position) <= 640.0:
+			unit.command_attack_building(town_center)
 
 
 func _get_attack_wave_survivors() -> Array:

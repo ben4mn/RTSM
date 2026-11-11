@@ -3,7 +3,7 @@ extends RefCounted
 
 const ENTRIES: Array = [
 	# The newest verbs first, each in a breath.
-	["sacred", "Victory", "Destroy every enemy Town Center to win. From 12:00 the Sacred Site clock opens: keep a fighter in its ring with no enemy inside for 4:00. An empty or contested ring drains the held time."],
+	["sacred", "Victory", "Destroy every enemy Town Center to win. From 12:00 the Sacred Site clock opens: keep a fighter in its ring with no enemy inside for 5:00. An empty or contested ring drains the held time."],
 	["food", "Sheep & boar", "Scouts claim the sheep they find; sheep walk home. A boar fights back: lure it to the Town Center, then strike together."],
 	["research", "Research", "Each building has its own. Tap a tile on the building (under Tech on a small screen) or open Research on the rail. A ring over the building shows progress. Tap a running one twice to cancel; full refund."],
 	["age_up", "Age up", "Takes time and keeps the Town Center busy. Queue villagers first."],
