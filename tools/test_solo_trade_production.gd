@@ -72,6 +72,10 @@ func _run() -> void:
 	check(ResourceManager.try_spend(0, BuildingData.get_building_cost(BuildingData.BuildingType.TRADE_POST)), "post costs its normal 200 wood")
 	var post: BuildingBase = main._spawn_building(BuildingData.BuildingType.TRADE_POST, 0, center)
 	post.complete_instantly()
+	# Five Villagers and a Scout nearly fill the opening housing; one real
+	# House (saved like any building) makes room for the three Traders.
+	var house: BuildingBase = main._spawn_building(BuildingData.BuildingType.HOUSE, 0, center + Vector2i(0, 6))
+	house.complete_instantly()
 	var queue: ProductionQueue = post.get_production_queue() as ProductionQueue
 	var bank: Dictionary = ResourceManager.get_all_resources(0)
 	var population: int = int(GameManager.players[0].population)

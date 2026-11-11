@@ -81,22 +81,23 @@ func _match(civ: int, mode: int) -> void:
 	_expect(house_info.contains("Match limit reached") and house_info.contains("reserve"), "max card explains why extra House cannot increase max")
 	# Explicit synthetic pressure isolates ledger boundaries without recruiting
 	# ninety-four units or changing costs/timing; real paid queues still run.
-	_expect(GameManager.add_population(0,98-int(GameManager.players[0].population)), "pressure fixture fills98living")
+	var vpop: int = int(UnitData.UNITS[UnitData.UnitType.VILLAGER]["pop_cost"])
+	_expect(GameManager.add_population(0,100-vpop-int(GameManager.players[0].population)), "pressure fixture fills all but one Villager of living")
 	var tc: BuildingBase = _main.get("_player_buildings")[0][0]
 	var queue: ProductionQueue = tc.get_production_queue()
 	queue.set_process(false)
 	var bank: Dictionary = ResourceManager.get_all_resources(0).duplicate()
-	_expect(queue.enqueue_unit(UnitData.UnitType.VILLAGER), "last two slots accept paid reservation")
-	_expect(GameManager.get_committed_population(0)==100 and GameManager.get_reserved_population(0)==2, "queue reserves slot100")
+	_expect(queue.enqueue_unit(UnitData.UnitType.VILLAGER), "last slot accepts paid reservation")
+	_expect(GameManager.get_committed_population(0)==100 and GameManager.get_reserved_population(0)==vpop, "queue reserves slot100")
 	var paid_bank: Dictionary = ResourceManager.get_all_resources(0).duplicate()
 	_expect(not queue.enqueue_unit(UnitData.UnitType.VILLAGER) and ResourceManager.get_all_resources(0)==paid_bank, "over-cap recruit rejected without charge")
-	_expect(queue.cancel_unit(0) and ResourceManager.get_all_resources(0)==bank and GameManager.get_committed_population(0)==98, "cancel refunds and frees slot")
+	_expect(queue.cancel_unit(0) and ResourceManager.get_all_resources(0)==bank and GameManager.get_committed_population(0)==100-vpop, "cancel refunds and frees slot")
 	_expect(queue.enqueue_unit(UnitData.UnitType.VILLAGER), "requeue uses restoredslot")
 	if houses.size()==house_count:
 		houses[house_count-1].take_damage(houses[house_count-1].max_hp)
 		_expect(_cap()==mini(100, nominal-per_house), "first loss keeps any nominal reserve")
 		houses[house_count-2].take_damage(houses[house_count-2].max_hp)
-		_expect(_cap()==mini(100, nominal-2*per_house) and GameManager.get_reserved_population(0)==2, "second loss reduces the cap but preserves the paid queue")
+		_expect(_cap()==mini(100, nominal-2*per_house) and GameManager.get_reserved_population(0)==vpop, "second loss reduces the cap but preserves the paid queue")
 		queue.advance(float(UnitData.get_unit_stats(UnitData.UnitType.VILLAGER,0).build_time)+0.1)
 		_expect(int(GameManager.players[0].population)==100 and GameManager.get_reserved_population(0)==0, "paid training finishes overcap")
 		_expect(not queue.enqueue_unit(UnitData.UnitType.VILLAGER), "no newtraining whileovercap")

@@ -74,8 +74,11 @@ func _run() -> void:
 					unit.position = Vector2(250.0, 140.0)
 				# Just inside desktop and touch discovery rings, but outside the
 				# neighbor's actual body column. It must not steal the facade.
-				neighbor.position = facade_world + Vector2(18.0, 8.0)
 				for touch: bool in [true, false]:
+					# Touch: a tap within half the touch radius of a figure is that
+					# unit (G1, "a tap beside it beats a roof behind"), so the
+					# neighbor stands just outside that half radius.
+					neighbor.position = facade_world + _beside_offset(selection, touch)
 					selection.select_single(previous)
 					selection.set("_last_tap_time", 0.0)
 					_attack_target = null
@@ -115,7 +118,7 @@ func _run() -> void:
 			_expect(selection.selected.size() == 1 and selection.selected[0] == building, "%s quick facade tap after an armed destination was discarded" % building_type)
 			selection.select_single(worker)
 			building.state = BuildingBase.State.CONSTRUCTING
-			worker.position = facade_world + Vector2(18.0, 8.0)
+			worker.position = facade_world + _beside_offset(selection, true)
 			selection.set("_last_tap_time", 0.0)
 			var before_builds: int = _build_count
 			_push_tap(selection, selection.call("_world_to_screen", facade_world), true)
@@ -171,6 +174,15 @@ func _spawn_unit(world: Node2D, type: String, owner: int) -> UnitBase:
 	unit.set_process(false)
 	unit.set_physics_process(false)
 	return unit
+
+
+## Offset from the tapped facade to a neighbor that is near but not "beside":
+## outside half the touch radius (screen pixels) and the body column.
+func _beside_offset(selection: SelectionManager, touch: bool) -> Vector2:
+	if not touch:
+		return Vector2(18.0, 8.0)
+	var half_radius_world: float = float(selection.call("_screen_px_to_world_radius", selection.touch_unit_hit_radius_px * 0.5))
+	return Vector2(maxf(18.0, half_radius_world + 6.0), 8.0)
 
 
 func _upper_roof_point(sprite: Sprite2D) -> Vector2:
