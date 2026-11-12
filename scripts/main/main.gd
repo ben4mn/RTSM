@@ -136,7 +136,7 @@ const HINTS: Array = [
 	{"time": 42.0, "text": "Drag to pan. Tap the minimap to jump.", "color": Color(0.7, 0.8, 1.0)},
 	{"time": 75.0, "text": "Tap ground to move. The eraser in the card clears the selection.", "color": Color(0.65, 0.82, 1.0)},
 	{"time": 105.0, "context": "scout", "text": "Train a Scout to explore fast.", "color": Color(0.7, 0.8, 1.0)},
-	{"time": 122.0, "context": "sheep", "text": "Scouts claim sheep they find. Sheep walk home.", "color": Color(0.80, 0.92, 0.70)},
+	{"time": 122.0, "context": "sheep", "text": "Sheep follow the Scout that finds them. Lead them home.", "color": Color(0.80, 0.92, 0.70)},
 	{"time": 150.0, "context": "research", "text": "Every building has research. Try Loom at the Town Center.", "color": Color(0.5, 0.8, 1.0)},
 	{"time": 180.0, "context": "sacred", "text": "Hold the central Sacred Site to win, or raze their Town Center.", "color": Color(0.85, 0.7, 1.0)},
 	{"time": 215.0, "context": "bell", "text": "Raided? Ring the town bell at the Town Center.", "color": Color(0.95, 0.86, 0.56)},
