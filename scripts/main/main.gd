@@ -2333,6 +2333,7 @@ func _queue_movement_orders(units: Array[UnitBase], target_tile: Vector2i, owner
 
 
 func _on_move_command(target_tile: Vector2i) -> void:
+	target_tile = game_map.clamp_tile_to_map(target_tile)  # L1: a tap past the edge goes to the rim.
 	if WildlifeDirector.try_herd_selection(self, target_tile):  # Workstream A: herd selected sheep.
 		return
 	var selected: Array = game_map.selection_mgr.selected

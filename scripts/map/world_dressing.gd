@@ -9,6 +9,7 @@ extends Node2D
 const AMBIENT_MOTION := preload("res://scripts/map/ambient_motion.gd")
 const FOG_VEIL := preload("res://scripts/map/fog_veil.gd")
 const AMBIENT_LIFE := preload("res://scripts/map/ambient_life.gd")
+const MAP_RIM := preload("res://scripts/map/map_rim.gd")
 const PROPS_SHADER: Shader = preload("res://assets/terrain/ground_props.gdshader")
 const PROPS_TEXTURE: Texture2D = preload("res://assets/terrain/ground_props.svg")
 
@@ -42,6 +43,7 @@ const WORN_TABLE: PackedInt32Array = [Prop.PEBBLES_A, 40, Prop.PEBBLES_B, 40, Pr
 var game_map: Node2D
 var fog_veil: Polygon2D = null
 var ambient_life: Node2D = null
+var map_rim: MeshInstance2D = null
 
 var _width: int = MapData.MAP_WIDTH
 var _height: int = MapData.MAP_HEIGHT
@@ -82,6 +84,10 @@ func setup(map: Node2D) -> void:
 	_build_noise(int(generator._rng.seed))
 	_build_ground_data(generator)
 	_bind_ground_materials()
+	# The sea around the field draws first, under the ground props.
+	map_rim = MAP_RIM.new()
+	add_child(map_rim)
+	map_rim.setup(_noise_texture, _origin, _axis_x, _axis_y, _inverse, _width)
 	_build_props(generator)
 	_build_veil()
 	ambient_life = AMBIENT_LIFE.new()

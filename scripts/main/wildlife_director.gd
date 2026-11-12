@@ -16,6 +16,8 @@ const ACTION_WALK_HOME: String = "wildlife:walk_home"
 const TEAM_COLORS: Array[Color] = [Color("88b7ad"), Color("d69477")]
 const HERD_OFFSETS: Array[Vector2] = [Vector2.ZERO, Vector2(26, 9), Vector2(-26, 9), Vector2(0, 19), Vector2(27, -10), Vector2(-27, -10), Vector2(52, 0), Vector2(-52, 0)]
 const KIND_CODES: Array[String] = [WildlifeData.SHEEP, WildlifeData.DEER, WildlifeData.BOAR]
+## Followers fan out behind the leader at these angles (radians, by slot).
+const FOLLOW_ANGLES: Array[float] = [0.0, 0.5, -0.5, 0.9, -0.9, 0.25, -0.25, 0.7]
 
 var main: Node = null
 var game_map: Node2D = null
@@ -189,6 +191,7 @@ func think(elapsed: float = THINK_SECONDS) -> void:
 			nodes.remove_at(index)
 	var workers: Dictionary = _workers_by_animal()
 	var town_centers: Array = _town_center_tiles()
+	_pack_follow_slots()
 	for node: WildlifeNode in nodes.duplicate():
 		if node.remaining <= 0:
 			continue
@@ -239,25 +242,139 @@ func _town_center_tiles() -> Array:
 
 func _think_sheep(sheep: WildlifeNode, town_centers: Array) -> void:
 	var nearest: Array[float] = [INF, INF]
+	# The unit each player would hand a loose sheep to: a Scout first, then a
+	# villager, then anybody, within the pickup radius.
+	var leaders: Array = [null, null]
+	var leader_rank: Array[float] = [INF, INF]
 	var bound: float = WildlifeData.tiles_to_world_bound(WildlifeData.STEAL_GUARD_RADIUS_TILES)
 	for unit: UnitBase in game_map.get_units_near(sheep.global_position, bound):
 		if unit.player_owner < 0 or unit.player_owner > 1 or unit.current_state == UnitBase.State.DEAD:
 			continue
 		var distance: float = WildlifeData.tile_distance(sheep.global_position, unit.global_position)
 		nearest[unit.player_owner] = minf(nearest[unit.player_owner], distance)
+		if distance <= WildlifeData.FOLLOW_PICKUP_RADIUS_TILES and _can_lead(unit, sheep):
+			var rank: float = distance + (0.0 if unit.unit_type == UnitData.UnitType.SCOUT else (3.0 if unit is Villager else 6.0))
+			if rank < leader_rank[unit.player_owner]:
+				leader_rank[unit.player_owner] = rank
+				leaders[unit.player_owner] = unit
 	if sheep.owner_id < 0:
 		var claimer: int = 0 if nearest[0] <= nearest[1] else 1
 		if nearest[claimer] <= WildlifeData.CLAIM_RADIUS_TILES:
-			_claim(sheep, claimer)
+			_claim(sheep, claimer, leaders[claimer] as UnitBase)
 	else:
 		var rival: int = 1 - sheep.owner_id
 		if nearest[rival] <= WildlifeData.STEAL_RADIUS_TILES and nearest[sheep.owner_id] > WildlifeData.STEAL_GUARD_RADIUS_TILES and not _guarded_by_town_center(sheep, town_centers[sheep.owner_id]):
-			_claim(sheep, rival)
-	if sheep.owner_id < 0 or not walk_home[sheep.owner_id] or sheep.manual_stay or sheep.has_goal or sheep.tended:
+			_claim(sheep, rival, leaders[rival] as UnitBase)
+	if sheep.owner_id < 0:
 		return
-	# Not pastured yet, or a blocked route left it short of its slot.
-	if sheep.pasture_owner != sheep.owner_id or sheep.global_position.distance_to(sheep.home_position) > 8.0:
-		_send_home(sheep, town_centers[sheep.owner_id])
+	if sheep.tended:
+		# A villager is coming to butcher it: stand still for them.
+		if sheep.is_following():
+			sheep.stop_following()
+		return
+	if sheep.manual_stay:
+		return
+	var centers: Array = town_centers[sheep.owner_id]
+	if sheep.is_following():
+		_think_follow(sheep, centers)
+		return
+	var home_assist: bool = walk_home[sheep.owner_id]
+	if sheep.pasture_owner == sheep.owner_id:
+		# Pastured: a blocked route may have left it short of its slot.
+		if home_assist and not sheep.has_goal and sheep.global_position.distance_to(sheep.home_position) > 8.0:
+			_send_home(sheep, centers)
+		return
+	# Owned but loose (its leader fell, went inside or left it behind).
+	if sheep.has_goal:
+		return
+	if home_assist and _within_delivery(sheep.global_position, centers):
+		_send_home(sheep, centers)
+	elif leaders[sheep.owner_id] != null:
+		_start_follow(sheep, leaders[sheep.owner_id] as UnitBase)
+
+
+## Steer one follower: trail the leader, hand over at a Town Center, or let go.
+func _think_follow(sheep: WildlifeNode, centers: Array) -> void:
+	var leader: UnitBase = sheep.get_leader()
+	if not _is_valid_leader(leader, sheep.owner_id) or WildlifeData.tile_distance(sheep.global_position, leader.global_position) > WildlifeData.FOLLOW_LEASH_TILES:
+		sheep.stop_following()
+		return
+	if walk_home[sheep.owner_id] and (_within_delivery(leader.global_position, centers) or _within_delivery(sheep.global_position, centers)):
+		# Home: graze beside the Town Center on its own.
+		sheep.stop_following()
+		_home_retry.erase(sheep.get_instance_id())
+		_send_home(sheep, centers)
+		return
+	var trail: float = WildlifeData.FOLLOW_TRAIL_WORLD + WildlifeData.FOLLOW_SPACING_WORLD * float(sheep.follow_slot)
+	var gap: float = sheep.global_position.distance_to(leader.global_position)
+	# Hysteresis: a standing sheep waits until the leader is clearly away.
+	if gap <= trail + (0.0 if sheep.is_walking() else 10.0):
+		return
+	var away: Vector2 = sheep.global_position - leader.global_position
+	away = away / gap if gap > 0.001 else Vector2.DOWN
+	var goal: Vector2 = leader.global_position + away.rotated(FOLLOW_ANGLES[sheep.follow_slot % FOLLOW_ANGLES.size()]) * trail * 0.6
+	var speed: float = maxf(WildlifeData.SHEEP_SPEED, leader.get_movement_speed() * WildlifeData.FOLLOW_SPEED_FACTOR)
+	sheep.follow_to(goal, speed, trail)
+
+
+func _start_follow(sheep: WildlifeNode, leader: UnitBase) -> void:
+	if not _is_valid_leader(leader, sheep.owner_id):
+		return
+	sheep._stop()
+	sheep.start_following(leader, count_followers(leader))
+
+
+## Sheep currently trailing `leader` (authority).
+func count_followers(leader: Node) -> int:
+	var count: int = 0
+	if leader == null:
+		return 0
+	for node: WildlifeNode in nodes:
+		if is_instance_valid(node) and node.remaining > 0 and node.get_leader() == leader:
+			count += 1
+	return count
+
+
+## Re-pack flock slots so a sheep that left does not leave a hole in the line.
+func _pack_follow_slots() -> void:
+	var flocks: Dictionary = {}
+	for node: WildlifeNode in nodes:
+		if not is_instance_valid(node) or node.replica:
+			continue
+		var leader: UnitBase = node.get_leader()
+		if leader == null:
+			continue
+		var id: int = leader.get_instance_id()
+		if not flocks.has(id):
+			flocks[id] = []
+		flocks[id].append(node)
+	for flock: Array in flocks.values():
+		flock.sort_custom(func(a: WildlifeNode, b: WildlifeNode) -> bool: return a.follow_slot < b.follow_slot if a.follow_slot != b.follow_slot else a.wildlife_id < b.wildlife_id)
+		for index: int in flock.size():
+			(flock[index] as WildlifeNode).follow_slot = index
+
+
+func _can_lead(unit: UnitBase, sheep: WildlifeNode) -> bool:
+	# The villager coming to butcher this sheep is not leading it anywhere.
+	return not (unit is Villager and (unit as Villager).gather_target == sheep)
+
+
+func _is_valid_leader(leader: UnitBase, owner_id: int) -> bool:
+	if leader == null or not is_instance_valid(leader) or leader.is_queued_for_deletion() or not leader.is_inside_tree():
+		return false
+	if leader.player_owner != owner_id or leader.current_state == UnitBase.State.DEAD or leader.hp <= 0.0:
+		return false
+	# Garrisoned units leave the tree and the "units" group (garrison.gd).
+	return leader.is_in_group("units") and leader.current_state != int(UnitBase.State.get("GARRISONED", -99))
+
+
+## Inside the hand-over radius of one of these Town Center tiles.
+func _within_delivery(world_position: Vector2, centers: Array) -> bool:
+	var tile: Vector2i = game_map.world_to_tile(world_position)
+	for origin: Vector2i in centers:
+		if WildlifePlacement._ring_from_town_center(tile, origin) <= WildlifeData.FOLLOW_DELIVER_RADIUS_TILES:
+			return true
+	return false
 
 
 func _guarded_by_town_center(sheep: WildlifeNode, centers: Array) -> bool:
@@ -268,13 +385,15 @@ func _guarded_by_town_center(sheep: WildlifeNode, centers: Array) -> bool:
 	return false
 
 
-func _claim(sheep: WildlifeNode, new_owner: int) -> void:
+func _claim(sheep: WildlifeNode, new_owner: int, leader: UnitBase = null) -> void:
 	var previous: int = sheep.owner_id
 	sheep.manual_stay = false
 	sheep.pasture_owner = -1
-	sheep._stop()
+	sheep.stop_following()
 	sheep.set_owner_id(new_owner, _team_color(new_owner))
 	_home_retry.erase(sheep.get_instance_id())
+	if leader != null:
+		_start_follow(sheep, leader)
 	GameManager.wildlife_claimed.emit(new_owner, sheep)
 	_present_claim(sheep, previous, new_owner)
 
@@ -360,6 +479,7 @@ func order_herd(owner_id: int, leaders: Array, world_position: Vector2) -> bool:
 		var goal: Vector2 = world_position + HERD_OFFSETS[index % HERD_OFFSETS.size()]
 		if not game_map.is_tile_walkable(game_map.world_to_tile(goal)):
 			goal = world_position
+		sheep.stop_following(false)
 		if sheep.walk_to(goal):
 			sheep.manual_stay = true
 			sheep.pasture_owner = -1
@@ -453,7 +573,13 @@ static func show_selection(hud: Node, node: WildlifeNode) -> void:
 	elif node.phase == WildlifeNode.Phase.CARCASS:
 		details += "\nSpoils while nobody gathers it"
 	elif node.kind == WildlifeData.SHEEP and node.owner_id == 0:
-		details += "\nTap ground to herd"
+		var leader: UnitBase = node.get_leader()
+		if leader != null:
+			details += "\nFollowing your %s home" % ("Scout" if leader.unit_type == UnitData.UnitType.SCOUT else ("villager" if leader is Villager else "troops"))
+		elif node.is_following():
+			details += "\nFollowing you home"
+		else:
+			details += "\nTap ground to herd"
 	var details_label: Label = hud.get("selection_details") as Label
 	if details_label != null:
 		details_label.text = details
@@ -490,8 +616,11 @@ func _present_claim(sheep: WildlifeNode, previous_owner: int, new_owner: int) ->
 			game_map.camera.position = game_map.get_clamped_camera_focus(focus)
 	if new_owner == 0:
 		var text: String = "Sheep found" if previous_owner < 0 else "Sheep stolen from your rival"
-		if walk_home[0]:
-			text += " · walking home"
+		var leader: UnitBase = sheep.get_leader()
+		if leader != null:
+			text += " · it follows your %s" % ("Scout" if leader.unit_type == UnitData.UnitType.SCOUT else ("villager" if leader is Villager else "troops"))
+		elif sheep.is_following():
+			text += " · it follows you"
 		hud.call("show_notification", text, Color(0.80, 0.92, 0.70), 4.0, jump)
 		VFX.gather_indicator(get_tree(), sheep.global_position)
 	else:
@@ -599,7 +728,7 @@ static func _context_actions(building: BuildingBase, player_id: int) -> Array:
 		"progress": -1.0,
 		"disabled_reason": "",
 		"desc": "Home: On" if enabled else "Home: Off",
-		"details": "Claimed sheep walk to this Town Center by themselves. Turn it off to herd every sheep by hand: select a sheep, then tap the ground.",
+		"details": "Sheep you find follow your Scout (or whoever found them); within %d tiles of a Town Center they walk over and graze there by themselves. Turn it off to keep them following until you herd them by hand: select a sheep, then tap the ground." % WildlifeData.FOLLOW_DELIVER_RADIUS_TILES,
 	}]
 
 
@@ -647,7 +776,7 @@ func _snapshot_rows(slot: int) -> Variant:
 	for node: WildlifeNode in nodes:
 		if not is_instance_valid(node) or node.remaining <= 0 or not game_map.is_entity_visible_to_player(node, slot):
 			continue
-		rows.append([node.wildlife_id, KIND_CODES.find(node.kind), snappedf(node.global_position.x, 0.1), snappedf(node.global_position.y, 0.1), node.remaining, node.total_amount, node.owner_id, node.phase, node.mood, ceili(node.hp), int(node.max_hp)])
+		rows.append([node.wildlife_id, KIND_CODES.find(node.kind), snappedf(node.global_position.x, 0.1), snappedf(node.global_position.y, 0.1), node.remaining, node.total_amount, node.owner_id, node.phase, node.mood, ceili(node.hp), int(node.max_hp), 1 if node.is_following() else 0])
 	return {"rows": rows, "walk_home": walk_home[slot] if slot >= 0 and slot < walk_home.size() else true}
 
 
@@ -680,6 +809,9 @@ func _apply_snapshot_rows(data: Variant) -> void:
 		if float(row[9]) < node.hp and not created:
 			node._flash = 0.14
 		node.hp = float(row[9])
+		# Optional 12th field (L1 herding): the server's follow state, for the
+		# selection card and claim toast. Older rows simply omit it.
+		node.following_replica = row.size() > 11 and int(row[11]) == 1
 		var was_enraged: bool = node.mood == WildlifeNode.Mood.ENRAGED
 		node.mood = int(row[8])
 		if int(row[7]) != node.phase:
@@ -725,6 +857,8 @@ func _capture(codec: RefCounted) -> Dictionary:
 			"target": codec.call("encode", target) if is_instance_valid(target) else null,
 			"bite": node._bite_cooldown, "recoil": node._recoil, "decay": node._decay,
 			"striker": node.last_striker_owner,
+			"leader": codec.call("encode", node.get_leader()) if node.get_leader() != null else null,
+			"follow_slot": node.follow_slot,
 		})
 	return {"walk_home": [walk_home[0], walk_home[1]], "rows": rows}
 
@@ -764,6 +898,10 @@ func _restore(saved: Dictionary, codec: RefCounted) -> void:
 		var target: Variant = codec.call("decode", row.get("target"))
 		if node.mood == WildlifeNode.Mood.ENRAGED and target is UnitBase:
 			node._target_ref = weakref(target)
+		var leader: Variant = codec.call("decode", row.get("leader"))
+		if leader is UnitBase and node.phase == WildlifeNode.Phase.ALIVE:
+			node.start_following(leader as UnitBase, int(row.get("follow_slot", 0)))
+			node.pasture_owner = int(row.get("pasture_owner", -1))
 		if bool(row.get("has_goal", false)) and row.get("goal") is Vector2 and node.phase == WildlifeNode.Phase.ALIVE:
 			node.walk_to(row.goal)
 		node._refresh_texture()

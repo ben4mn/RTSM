@@ -15,9 +15,9 @@ const DIFFICULTY_IDS: Dictionary = {"easy": 0, "medium": 1, "hard": 2}
 const MAP_IDS: Dictionary = {"open_plains": 0, "river_crossings": 1, "woodland_flanks": 2}
 const RESOURCES: Array[String] = ["food", "wood", "gold"]
 const UNDER_ATTACK_COOLDOWN: float = 10.0
-const COMMANDS: Array[String] = ["camera_to", "set_speed", "pause", "reveal_map", "give", "spawn", "age", "build", "screenshot_safe_ui", "perf", "motion", "order", "probe"]
+const COMMANDS: Array[String] = ["camera_to", "set_speed", "pause", "reveal_map", "give", "spawn", "age", "build", "screenshot_safe_ui", "perf", "motion", "order", "probe", "wildlife"]
 ## Read-only commands that are polled often and stay out of the event log.
-const QUIET_COMMANDS: Array[String] = ["probe"]
+const QUIET_COMMANDS: Array[String] = ["probe", "wildlife"]
 
 static var _dev_checked: bool = false
 static var _dev_enabled: bool = false
@@ -378,6 +378,22 @@ func run_command(command: String, arguments: Array) -> Dictionary:
 	return result
 
 
+## Read-only herd state (L1): every live animal as {id, kind, tile, owner,
+## pastured, following, leader (unit instance id or 0), slot, walking}.
+func _cmd_wildlife(_arguments: Array, named: Dictionary = {}) -> Dictionary:
+	var director: WildlifeDirector = WildlifeDirector.of(match_scene.game_map)
+	if director == null:
+		return {"error": "no wildlife"}
+	var kind: String = str(named.get("kind", ""))
+	var rows: Array = []
+	for node: WildlifeNode in director.get_nodes(kind):
+		var leader: UnitBase = node.get_leader()
+		rows.append({"id": node.wildlife_id, "kind": node.kind, "tile": _tile_of(node.global_position), "owner": node.owner_id,
+			"pastured": node.pasture_owner == node.owner_id and node.owner_id >= 0, "following": node.is_following(),
+			"leader": leader.get_instance_id() if leader != null else 0, "slot": node.follow_slot, "walking": node.is_walking()})
+	return {"ok": true, "animals": rows}
+
+
 ## Read-only: where things are drawn on the page (CSS pixels) plus the last
 ## touch routing record, so a browser tester can tap a moving unit and audit
 ## the pick. `filter`: "own" (default), "enemy", "wildlife", "all".
@@ -499,6 +515,7 @@ func _cmd_spawn(arguments: Array, named: Dictionary = {}) -> Dictionary:
 	var tiles: Array[Vector2i] = game_map.pathfinding.get_walkable_tiles_near(center, 6, count)
 	var pop_cost: int = int(UnitData.UNITS.get(unit_type, {}).get("pop_cost", 1))
 	var spawned: int = 0
+	var ids: Array = []
 	for tile: Vector2i in tiles:
 		# Staged fights may exceed housing; add unowned room rather than fail.
 		if not GameManager.can_reserve_population(player_id, pop_cost):
@@ -511,6 +528,7 @@ func _cmd_spawn(arguments: Array, named: Dictionary = {}) -> Dictionary:
 		if unit == null:
 			break
 		_dev_spawned[unit.get_instance_id()] = true
+		ids.append(unit.get_instance_id())
 		spawned += 1
 		# Optional economy staging: `gather: 'wood'|'food'|'gold'` sends each
 		# spawned villager to the nearest such resource (perf scenes with cargo).
@@ -519,7 +537,7 @@ func _cmd_spawn(arguments: Array, named: Dictionary = {}) -> Dictionary:
 			var target: Node2D = game_map.get_nearest_resource_node(gather, unit.global_position, player_id, unit)
 			if target != null:
 				(unit as Villager).command_gather(target)
-	return {"ok": spawned > 0, "spawned": spawned, "unit": type_name.to_lower(), "player": player_id, "tile": [center.x, center.y]}
+	return {"ok": spawned > 0, "spawned": spawned, "unit": type_name.to_lower(), "player": player_id, "tile": [center.x, center.y], "ids": ids}
 
 
 func _cmd_age(arguments: Array, named: Dictionary = {}) -> Dictionary:
@@ -689,7 +707,7 @@ func _cmd_motion(arguments: Array, named: Dictionary = {}) -> Dictionary:
 		var rows: Array = _motion_rows
 		_motion_rows = []
 		_motion_unit = null
-		return {"ok": true, "rows": rows, "legacy": UnitBase.legacy_interpolation_hold}
+		return {"ok": true, "rows": rows, "legacy": UnitBase.legacy_interpolation_hold, "summary": _motion_summary(rows)}
 	var unit: UnitBase = _unit_by_id(named.get("unit", arguments[0] if not arguments.is_empty() and not arguments[0] is Dictionary else null))
 	if unit == null:
 		var focus: Vector2 = match_scene.game_map.camera.position if match_scene.game_map.camera != null else Vector2.ZERO
@@ -704,6 +722,8 @@ func _cmd_motion(arguments: Array, named: Dictionary = {}) -> Dictionary:
 		return {"error": "no unit"}
 	_motion_unit = weakref(unit)
 	_motion_rows = []
+	if bool(named.get("select", false)):
+		match_scene.game_map.selection_mgr.select_single(unit)
 	return {"ok": true, "unit": unit.get_instance_id(), "legacy": UnitBase.legacy_interpolation_hold}
 
 
@@ -714,12 +734,86 @@ func _record_motion() -> void:
 	if unit == null or _motion_rows.size() >= 3600:
 		return
 	var drawn: Vector2 = unit.get_visual_position()
+	# L1: where the overlays that are not children of the unit put their mark
+	# for it, relative to the drawn figure. The selection cue (foot brackets)
+	# and the route's first point should both sit exactly on it.
+	var cue := Vector2(NAN, NAN)
+	var route := Vector2(NAN, NAN)
+	var overlay: Node = match_scene.game_map.get_node_or_null("CommandPaths")
+	if overlay != null and unit.is_selected:
+		var points: PackedVector2Array = overlay.call("get_selected_unit_cue_points")
+		var zoom: float = maxf(0.1, (overlay as CanvasItem).get_canvas_transform().x.length())
+		for index: int in range(0, points.size(), 8):
+			var center := Vector2.ZERO
+			for k: int in 8:
+				center += points[index + k]
+			center = (overlay as Node2D).to_global(center / 8.0 - Vector2(0.0, 2.5 / zoom))
+			if not cue.is_finite() or center.distance_to(drawn) < cue.length():
+				cue = center - drawn
+		for entry: Dictionary in overlay.call("get_display_routes"):
+			var line: PackedVector2Array = entry.points
+			if not line.is_empty() and (not route.is_finite() or line[0].distance_to(drawn) < route.length()):
+				route = line[0] - drawn
 	_motion_rows.append([Engine.get_process_frames(), snappedf(Time.get_ticks_usec() / 1000.0, 0.01), snappedf(GameManager.game_time, 0.0001),
-		snappedf(drawn.x, 0.001), snappedf(drawn.y, 0.001), snappedf(unit.global_position.x, 0.001), snappedf(unit.global_position.y, 0.001), unit.current_state])
+		snappedf(drawn.x, 0.001), snappedf(drawn.y, 0.001), snappedf(unit.global_position.x, 0.001), snappedf(unit.global_position.y, 0.001), unit.current_state,
+		1 if unit._sprite != null and unit._sprite.flip_h else 0,
+		snappedf(cue.length(), 0.01) if cue.is_finite() else -1.0,
+		snappedf(route.length(), 0.01) if route.is_finite() else -1.0])
+
+
+## Glitch counters over a motion recording: per-frame drawn steps (a jump is a
+## step over 2.5x the median moving step), facing flips (a flip-flop is two
+## flips within 10 frames), and the worst cue / route-start offset from the
+## drawn figure in world pixels (-1: never shown).
+static func _motion_summary(rows: Array) -> Dictionary:
+	var steps: Array[float] = []
+	var flips: int = 0
+	var flip_flops: int = 0
+	var last_flip_frame: int = -100
+	var cue_worst: float = -1.0
+	var route_worst: float = -1.0
+	for index: int in range(1, rows.size()):
+		var row: Array = rows[index]
+		var previous: Array = rows[index - 1]
+		steps.append(Vector2(float(row[3]), float(row[4])).distance_to(Vector2(float(previous[3]), float(previous[4]))))
+		if row.size() > 10:
+			if int(row[8]) != int(previous[8]):
+				flips += 1
+				if int(row[0]) - last_flip_frame <= 10:
+					flip_flops += 1
+				last_flip_frame = int(row[0])
+			cue_worst = maxf(cue_worst, float(row[9]))
+			route_worst = maxf(route_worst, float(row[10]))
+	var moving: Array = steps.filter(func(step: float) -> bool: return step > 0.05)
+	moving.sort()
+	@warning_ignore("integer_division")
+	var median: float = float(moving[moving.size() / 2]) if not moving.is_empty() else 0.0
+	var jumps: int = 0
+	var worst: float = 0.0
+	for step: float in steps:
+		worst = maxf(worst, step)
+		if median > 0.0 and step > median * 2.5:
+			jumps += 1
+	return {"frames": rows.size(), "median_step": snappedf(median, 0.001), "max_step": snappedf(worst, 0.001), "jumps": jumps,
+		"flips": flips, "flip_flops": flip_flops, "cue_offset_max": snappedf(cue_worst, 0.01), "route_offset_max": snappedf(route_worst, 0.01)}
 
 
 ## `cmd('order', {unit: id, move: [tile_x, tile_y]})` or `{unit: id, stop: true}`.
 func _cmd_order(arguments: Array, named: Dictionary = {}) -> Dictionary:
+	if named.get("group") is Array and named.has("move"):
+		# A real player group order: select them and send Main's ground move
+		# (formation slots, edge clamp, marker), as a tap on that tile would.
+		var group: Array[Node2D] = []
+		for id: Variant in named.group:
+			var member: UnitBase = _unit_by_id(id)
+			if member != null and member.player_owner == 0:
+				group.append(member)
+		if group.is_empty():
+			return {"error": "no units"}
+		match_scene.game_map.selection_mgr.select_many(group)
+		var goal: Vector2i = _resolve_tile(named.move, 0)
+		match_scene.call("_on_move_command", goal)
+		return {"ok": true, "units": group.size(), "tile": [goal.x, goal.y]}
 	var unit: UnitBase = _unit_by_id(named.get("unit", null))
 	if unit == null:
 		return {"error": "no unit"}

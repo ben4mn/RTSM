@@ -68,6 +68,10 @@ func get_display_routes() -> Array[Dictionary]:
 		if unit.player_owner != 0 or not unit.is_visible_in_tree():
 			continue
 		var points: PackedVector2Array = unit.get_remaining_navigation_path()
+		if not points.is_empty():
+			# The route leaves from the drawn figure, not the 20 Hz simulated
+			# point a step ahead of it (which made the line's tail stutter).
+			points[0] = unit.get_visual_position()
 		var resuming_attack_move: bool = unit.attack_move and unit.current_state == UnitBase.State.ATTACKING
 		if points.is_empty() and not resuming_attack_move:
 			continue
@@ -124,7 +128,7 @@ func get_selected_unit_cue_points() -> PackedVector2Array:
 		var tile: Vector2i = map.call("world_to_tile", unit.global_position)
 		if not bool(map.call("is_tile_visible_to_player", tile, 0)):
 			continue
-		var anchor: Vector2 = to_local(unit.global_position)
+		var anchor: Vector2 = to_local(unit.get_visual_position())
 		for offset: Vector2 in SELECTION_CUE_SEGMENTS:
 			points.append(anchor + offset / zoom)
 	return points
@@ -149,7 +153,7 @@ func get_combat_target_cues() -> Array[Vector2]:
 		if target == null or not target.is_visible_in_tree() or seen.has(target.get_instance_id()):
 			continue
 		seen[target.get_instance_id()] = true
-		targets.append(target.global_position)
+		targets.append((target as UnitBase).get_visual_position() if target is UnitBase else target.global_position)
 		if targets.size() >= MAX_ROUTE_GROUPS:
 			break
 	return targets
