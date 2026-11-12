@@ -39,13 +39,17 @@ func _claim_and_walk_home(home: Vector2i) -> void:
 	step(0.6)
 	expect(stray.owner_id == 0 and mate.owner_id == 0, "the first unit within three tiles claims the pair")
 	expect(_claims.size() == 2 and _claims[0][0] == 0 and (_claims[0][1] == stray or _claims[0][1] == mate), "wildlife_claimed fires once per sheep for the claimer: " + str(_claims.size()))
-	expect(stray.has_goal and stray.pasture_owner == 0 and not stray.manual_stay, "a claimed sheep starts walking home by itself")
+	# L1: a claimed sheep follows its finder (tools/test_wildlife_follow.gd)
+	# and is handed over near the Town Center; it no longer walks home alone
+	# from anywhere on the map.
+	expect(stray.is_following() and stray.get_leader() == scout and stray.pasture_owner == -1 and not stray.manual_stay, "a claimed sheep follows the unit that found it")
 	expect(world.get_wildlife_for_player(0).size() == 2 and world.get_wildlife_for_player(1).is_empty(), "get_wildlife_for_player lists the owner's flock")
+	scout.command_move(world.tile_to_world(home + Vector2i(9, 1)))
 	var start: Vector2 = stray.global_position
 	step(2.0)
 	var speed: float = start.distance_to(stray.global_position) / 2.0
-	expect(speed > 20.0 and speed <= WildlifeData.SHEEP_SPEED + 0.5, "sheep trot at their own speed: %.1f" % speed)
-	step(120.0, func() -> bool: return not stray.has_goal and not mate.has_goal)
+	expect(speed > 20.0 and speed <= scout.get_movement_speed() * WildlifeData.FOLLOW_SPEED_FACTOR + 0.5, "sheep trot after the villager a little slower than it: %.1f" % speed)
+	step(120.0, func() -> bool: return not stray.has_goal and not mate.has_goal and not stray.is_following() and not mate.is_following())
 	for sheep: WildlifeNode in [stray, mate]:
 		var ring: int = WildlifePlacement._ring_from_town_center(world.world_to_tile(sheep.global_position), home)
 		expect(not sheep.has_goal and ring >= WildlifeData.HOME_RING_MIN and ring <= WildlifeData.HOME_RING_MAX + 2, "the sheep arrives in the Town Center pasture ring: ring %d" % ring)
@@ -94,14 +98,19 @@ func _steal_rules(home: Vector2i) -> void:
 	step(1.0)
 	expect(sheep.owner_id == 1 and _claims.size() == 1 and _claims[0][0] == 1, "an unguarded sheep is stolen by a rival unit within two tiles")
 	expect(sheep.is_harvestable_by(1) and not sheep.is_harvestable_by(0), "the thief now owns the butchering rights")
-	expect(not sheep.has_goal, "with the assist off a claimed sheep waits where it stands")
+	expect(sheep.get_leader() == thief, "a stolen sheep follows the thief")
+	# Leave it behind (past the follow leash): it waits where it stands.
+	thief.position = world.tile_to_world(field + Vector2i(1, 1) + Vector2i(18, 0))
+	step(1.0)
+	expect(not sheep.is_following() and not sheep.has_goal, "left behind, a claimed sheep waits where it stands")
 	var pastured: WildlifeNode = animal(21, WildlifeData.SHEEP, home + Vector2i(-2, 1), 0)
 	thief.position = world.tile_to_world(home + Vector2i(-3, 1))
 	step(1.0)
 	expect(pastured.owner_id == 0, "a sheep grazing beside its owner's Town Center cannot be stolen")
 	director.set_walk_home(1, true)
+	thief.position = sheep.global_position + Vector2(40.0, 10.0)
 	step(0.6)
-	expect(sheep.has_goal and sheep.pasture_owner == 1, "turning the assist on sends the waiting sheep to its new owner's Town Center")
+	expect(sheep.get_leader() == thief, "the thief coming back picks the waiting sheep up again")
 	director.set_walk_home(0, true)
 	clear_workers()
 	clear_animals()
@@ -204,7 +213,7 @@ func _network_replicas(home: Vector2i) -> void:
 	expect(not sheep.replica and director.nodes.size() == 2 and director.walk_home[0], "the authority ignores an incoming wildlife section")
 	expect(authority_copy is Dictionary and authority_copy.rows.size() == 2 and authority_copy.walk_home == false, "the section lists the visible animals and the recipient's assist setting")
 	var wire: Variant = JSON.parse_string(JSON.stringify(authority_copy))
-	expect(wire is Dictionary and wire.rows.size() == 2 and wire.rows[0].size() == 11, "rows survive the JSON wire format")
+	expect(wire is Dictionary and wire.rows.size() == 2 and wire.rows[0].size() == 12, "rows survive the JSON wire format")
 	clear_animals()
 	NetworkSession.online = true
 	NetworkSession.server_mode = false

@@ -10,6 +10,9 @@ extends RefCounted
 const FLASH_SECONDS: float = 0.085
 const FLINCH_SECONDS: float = 0.20
 const IDLE_SETTLE_SECONDS: float = 0.7
+## Facing hysteresis (see _steer_facing).
+const TURN_SIDEWAYS_RATIO: float = 0.45
+const TURN_PRESSURE_PIXELS: float = 4.0
 
 static var _shared_rng: RandomNumberGenerator = null
 
@@ -29,6 +32,7 @@ var _flash_applied: bool = false
 ## True while the last pose was only idle life (breathing, slow sway): the
 ## caller may then pose this unit at a reduced rate (UnitBase._sim_frame).
 var _resting: bool = false
+var _turn_pressure: float = 0.0
 
 
 func is_resting() -> bool:
@@ -72,8 +76,24 @@ static func _ease(value: float) -> float:
 ## only what other systems read: the hit clock and the travel facing.
 func tick_unseen(unit: UnitBase, delta: float, displacement: Vector2) -> void:
 	_since_hit += maxf(0.0, delta)
-	if displacement.length_squared() > 0.001 and absf(displacement.x) > 0.01:
-		unit._sprite.flip_h = displacement.x < 0.0
+	if displacement.length_squared() > 0.001:
+		_steer_facing(unit._sprite, displacement)
+
+
+## Travel facing with a little hysteresis. Clearly sideways travel turns the
+## figure at once; the small sideways wobble of a unit walking nearly straight
+## up or down the screen (steering around a neighbour, a replanned corner) has
+## to add up to a few pixels first, so the sprite no longer flips every frame.
+func _steer_facing(sprite: Sprite2D, displacement: Vector2) -> void:
+	if absf(displacement.x) <= 0.01:
+		return
+	if (displacement.x < 0.0) == sprite.flip_h:
+		_turn_pressure = 0.0
+		return
+	_turn_pressure += absf(displacement.x)
+	if (absf(displacement.x) >= displacement.length() * TURN_SIDEWAYS_RATIO and absf(displacement.x) >= 0.35) or _turn_pressure >= TURN_PRESSURE_PIXELS:
+		sprite.flip_h = displacement.x < 0.0
+		_turn_pressure = 0.0
 
 
 func update(unit: UnitBase, delta: float, displacement: Vector2) -> void:
@@ -92,8 +112,8 @@ func update(unit: UnitBase, delta: float, displacement: Vector2) -> void:
 	# --- travel -----------------------------------------------------------
 	var travelled: float = minf(displacement.length(), 14.0)
 	var moving: bool = displacement.length_squared() > 0.001
-	if moving and absf(displacement.x) > 0.01:
-		sprite.flip_h = displacement.x < 0.0
+	if moving:
+		_steer_facing(sprite, displacement)
 	var facing: float = -1.0 if sprite.flip_h else 1.0
 	# Blend in by distance (frame-rate independent foot pose), out by time.
 	_move_blend = move_toward(_move_blend, 1.0, travelled / 5.0) if moving else move_toward(_move_blend, 0.0, step * 6.0)

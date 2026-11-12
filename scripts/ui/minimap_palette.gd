@@ -8,6 +8,9 @@ const UNEXPLORED_ALT := Color("2f403b")
 const MEMORY_TINT := Color("27353a")
 const MEMORY_AMOUNT: float = 0.36
 const SACRED_RING := Color("e8bf77")
+const COAST := Color("d6c995")
+const COAST_AMOUNT: float = 0.55
+const COAST_UNKNOWN_AMOUNT: float = 0.32
 
 const TERRAIN: Dictionary = {
 	MapData.TileType.GRASS: Color("8fae6a"),
@@ -23,10 +26,18 @@ const TERRAIN: Dictionary = {
 
 
 static func terrain(tile_type: int, fog_state: int, x: int, y: int) -> Color:
+	var rim: bool = x == 0 or y == 0 or x == MapData.MAP_WIDTH - 1 or y == MapData.MAP_HEIGHT - 1
 	if fog_state == MapData.FogState.UNEXPLORED:
+		# The field's outline is public (it never changes), so the coast line
+		# shows even before it is explored: the map's edge is always readable.
+		if rim:
+			return UNEXPLORED.lerp(COAST, COAST_UNKNOWN_AMOUNT)
 		# A faint weave keeps a large unknown area from reading as a dead panel.
 		return UNEXPLORED if (x + y) % 2 == 0 else UNEXPLORED_ALT
 	var color: Color = TERRAIN.get(tile_type, TERRAIN[MapData.TileType.GRASS])
+	if rim:
+		# The field's sandy bank, as on the world rim: the coast reads here too.
+		color = color.lerp(COAST, COAST_AMOUNT)
 	if fog_state == MapData.FogState.EXPLORED:
 		return color.lerp(MEMORY_TINT, MEMORY_AMOUNT)
 	return color

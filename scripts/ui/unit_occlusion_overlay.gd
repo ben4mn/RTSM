@@ -108,11 +108,11 @@ func _begin_scan() -> void:
 			if not bool(_map.call("is_entity_visible_to_player", entity, 0)): continue
 			var source: Sprite2D = entity.get("_sprite") as Sprite2D
 			if source == null or source.texture == null or not source.is_visible_in_tree(): continue
-			var rect: Rect2 = source.global_transform * _ink_rect(source)
+			var rect: Rect2 = _drawn_transform(source) * _ink_rect(source)
 			if not screen.intersects(canvas * rect): continue
 			# Buildings expose a y-sorted sprite at their footprint center; trees
 			# and units sort at the entity's ground anchor in the existing world.
-			var depth: float = source.global_position.y if entity is BuildingBase else entity.global_position.y
+			var depth: float = source.global_position.y if entity is BuildingBase else ((entity as UnitBase).get_visual_position().y if entity is UnitBase else (entity as Node2D).global_position.y)
 			var item := {"entity": entity, "sprite": source, "rect": rect, "depth": depth}
 			if entity is UnitBase:
 				unit_items.append(item)
@@ -144,7 +144,7 @@ func _scan_units(budget: int) -> void:
 		_scan_cursor += 1
 		if not is_instance_valid(unit) or not _unit_revealed(unit): continue
 		var source: Sprite2D = unit._sprite
-		var rect: Rect2 = source.global_transform * _ink_rect(source)
+		var rect: Rect2 = _drawn_transform(source) * _ink_rect(source)
 		var body_points: PackedVector2Array = _body_points(source)
 		var checked: Dictionary = {}
 		var occluded: bool = false
@@ -156,7 +156,7 @@ func _scan_units(budget: int) -> void:
 				if not is_instance_valid(other) or not other.is_visible_in_tree(): continue
 				if other == unit or checked.has(other.get_instance_id()): continue
 				checked[other.get_instance_id()] = true
-				if float(candidate.depth) < unit.global_position.y or not rect.intersects(candidate.rect): continue
+				if float(candidate.depth) < unit.get_visual_position().y or not rect.intersects(candidate.rect): continue
 				if not bool(_map.call("is_entity_visible_to_player", other, 0)): continue
 				if not is_instance_valid(candidate.sprite): continue
 				var foreground: Sprite2D = candidate.sprite
@@ -214,16 +214,28 @@ func _body_points(source: Sprite2D) -> PackedVector2Array:
 					if image.get_pixelv(Vector2i(point)).a > 0.1: points.append(point)
 		_sample_cache[key] = points
 	var result := PackedVector2Array()
+	var drawn: Transform2D = _drawn_transform(source)
 	for point: Vector2 in _sample_cache[key]:
 		var local: Vector2 = source.get_rect().position + point
 		if source.flip_h: local.x = -local.x
 		if source.flip_v: local.y = -local.y
-		result.append(source.to_global(local))
+		result.append(drawn * local)
 	return result
 
 
+## A sprite's transform where it is drawn this frame: a unit's canvas item is
+## shifted by its interpolation offset (UnitBase._apply_visual_offset), which
+## Node2D.global_transform does not include. Without it, echoes switched on and
+## off against where the figure would be a 20 Hz step later.
+func _drawn_transform(sprite: Sprite2D) -> Transform2D:
+	var host: Node = sprite.get_parent()
+	if host is UnitBase:
+		return sprite.global_transform.translated((host as UnitBase)._visual_offset)
+	return sprite.global_transform
+
+
 func _points_covered(points: PackedVector2Array, foreground: Sprite2D) -> bool:
-	var inverse: Transform2D = foreground.global_transform.affine_inverse()
+	var inverse: Transform2D = _drawn_transform(foreground).affine_inverse()
 	for point: Vector2 in points:
 		if foreground.is_pixel_opaque(inverse * point): return true
 	return false

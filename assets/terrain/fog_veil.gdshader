@@ -28,14 +28,19 @@ void fragment() {
 
 	vec2 rel = world_position - map_origin;
 	vec2 tile = vec2(dot(rel, map_inverse.xy), dot(rel, map_inverse.zw));
-	vec2 warp = vec2(wisp - 0.5, billow - 0.5) * 1.1;
-	vec2 state = texture(fog_state, (tile + 0.5 + warp) / map_tiles).rg;
-
-	// Beyond the field edge is always cloud, feathered a tile inward.
+	// Beyond the field edge the fog continues the state of the nearest edge
+	// tile (the state texture clamps), so a known coast shows its sea and an
+	// unknown one stays under cloud. The last playable tile is never fogged
+	// by the edge itself; the sea fades back into cloud a few tiles out.
 	vec2 inset = min(tile + 0.5, map_tiles - 0.5 - tile);
-	float inside = smoothstep(-0.3, 1.3, min(inset.x, inset.y) + (wisp - 0.5) * 1.4);
+	float beyond = -min(inset.x, inset.y);
+	// Out over the sea the bank's edges wander more, so the clamped state
+	// does not draw ruler-straight fog bands off the coast.
+	vec2 warp = vec2(wisp - 0.5, billow - 0.5) * (1.1 + clamp(beyond, 0.0, 8.0) * 0.7);
+	vec2 state = texture(fog_state, (tile + 0.5 + warp) / map_tiles).rg;
+	float inside = 1.0 - smoothstep(4.0, 10.0, beyond + (wisp - 0.5) * 2.4);
 	float explored = state.g * inside;
-	float seen = state.r * inside;
+	float seen = state.r * (1.0 - smoothstep(1.5, 6.0, beyond + (wisp - 0.5) * 1.4));
 
 	float cloud_alpha = 1.0 - smoothstep(0.22, 0.72, explored);
 	float body = smoothstep(0.25, 0.75, billow * 0.6 + wisp * 0.4);

@@ -37,6 +37,22 @@ const STEAL_GUARD_RADIUS_TILES: float = 4.0
 const SHEEP_SPEED: float = 40.0
 ## A manual herd order also moves the owner's other live sheep this close.
 const FLOCK_RADIUS_TILES: float = 2.5
+## Herding (AoE2 style): a claimed sheep follows the unit that found it (a
+## Scout first, else a villager, else whoever claimed it) at a short trail,
+## each further sheep of the flock a little further back.
+const FOLLOW_TRAIL_WORLD: float = 30.0
+const FOLLOW_SPACING_WORLD: float = 15.0
+## Sheep walk this fraction of the leader's speed: they lag a little on the
+## move and catch up whenever it stops. Never slower than SHEEP_SPEED.
+const FOLLOW_SPEED_FACTOR: float = 0.85
+## Followers stop following beyond this (stuck behind water, left behind).
+const FOLLOW_LEASH_TILES: float = 14.0
+## Within this many tiles of one of its owner's Town Centers (from the
+## footprint), the leader hands its flock over: they walk to graze there.
+const FOLLOW_DELIVER_RADIUS_TILES: int = 7
+## An owned, unpastured sheep that is not following anybody picks up the
+## first own unit that comes this close.
+const FOLLOW_PICKUP_RADIUS_TILES: float = 3.0
 ## An opened carcass spoils at this rate while no villager is working it.
 const CARCASS_DECAY_PER_SECOND: float = 0.25
 

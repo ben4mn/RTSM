@@ -97,9 +97,17 @@ func _run() -> void:
 	strays.sort_custom(func(a: WildlifeNode, b: WildlifeNode) -> bool: return a.global_position.distance_to(town.global_position) < b.global_position.distance_to(town.global_position))
 	var walker: WildlifeNode = strays[0]
 	var parked: WildlifeNode = strays[2]
-	director._claim(walker, 0)
+	# L1: a claimed stray follows the Scout that found it.
+	var herder: UnitBase = null
+	for unit: Node in main._player_units[0]:
+		if unit is UnitBase and (unit as UnitBase).unit_type == UnitData.UnitType.SCOUT:
+			herder = unit
+	check(herder != null, "player 0 has a Scout to herd with")
+	if herder != null:
+		herder.global_position = walker.global_position + Vector2(64.0, 0.0)
+	director._claim(walker, 0, herder)
 	director.think()
-	check(walker.owner_id == 0 and walker.has_goal, "a claimed stray is walking home")
+	check(walker.owner_id == 0 and walker.has_goal and walker.get_leader() == herder, "a claimed stray follows the Scout")
 	for tick: int in 60:
 		walker._process(1.0 / 30.0)
 	director._claim(parked, 0)
@@ -169,7 +177,8 @@ func _run() -> void:
 			restored_hunter = unit
 	check(restored_boar != null and restored_hunter != null and restored_boar.get_target() == restored_hunter and is_equal_approx(restored_boar._bite_cooldown, 0.9), "the boar still has its villager, and the villager its boar")
 	var restored_walker: WildlifeNode = director.by_id.get(walker_id) as WildlifeNode
-	check(restored_walker != null and restored_walker.is_walking() and restored_walker.pasture_owner == 0, "the claimed stray is still on its way home")
+	var restored_leader: UnitBase = restored_walker.get_leader() if restored_walker != null else null
+	check(restored_leader != null and restored_leader.unit_type == UnitData.UnitType.SCOUT and restored_leader.player_owner == 0 and restored_walker.pasture_owner == -1, "the claimed stray still follows the Scout after the restore")
 	var restored_carcass: WildlifeNode = director.by_id.get(carcass_id) as WildlifeNode
 	check(restored_carcass != null and restored_carcass.phase == WildlifeNode.Phase.CARCASS and restored_carcass.remaining == carcass_stock and is_equal_approx(restored_carcass._decay, 0.5), "the opened carcass keeps its stock and spoilage")
 	var sheep_workers: int = 0
@@ -186,6 +195,10 @@ func _run() -> void:
 			restored_boar._process(1.0 / 30.0)
 		check(restored_hunter.hp < hp_before, "the restored boar bites its restored target")
 		var before: Vector2 = restored_walker.global_position
+		# The follower stands beside its Scout; ride on and it walks after it.
+		if restored_leader != null:
+			restored_leader.global_position += Vector2(160.0, 0.0)
+		director.think()
 		for tick: int in 30:
 			restored_walker._process(1.0 / 30.0)
 		check(restored_walker.global_position != before, "the restored sheep keeps walking")
