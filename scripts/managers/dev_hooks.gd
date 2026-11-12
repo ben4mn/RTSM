@@ -315,6 +315,15 @@ func snapshot() -> Dictionary:
 	var camera: Camera2D = game_map.camera
 	state["camera"] = {"tile": _tile_of(camera.position), "world": [camera.position.x, camera.position.y], "zoom": camera.zoom.x}
 	state["dev"] = {"reveal_map": _reveal_map, "hud_hidden": not match_scene.hud.visible}
+	# L2: where the ghost and its buttons are, for automated taps (screen px).
+	var placement: BuildingPlacement = match_scene.get("_building_placement") as BuildingPlacement
+	var card: Variant = match_scene.hud.call("get_placement_ghost_card") if match_scene.hud.has_method("get_placement_ghost_card") else null
+	if placement != null and card is PlacementGhostCard:
+		var rect_list := func(rect: Rect2) -> Array: return [rect.position.x, rect.position.y, rect.size.x, rect.size.y]
+		state["placement"] = {"active": placement.active, "type": placement.current_building_type, "valid": placement.is_valid_placement,
+			"touch": placement.uses_touch_input(), "ghost": rect_list.call(placement.get_ghost_footprint_screen_rect()),
+			"build": rect_list.call((card as PlacementGhostCard).get_build_button_rect()), "cancel": rect_list.call((card as PlacementGhostCard).get_cancel_button_rect()),
+			"repeat": (card as PlacementGhostCard).is_repeat_visible()}
 	if GameManager.current_state == GameManager.GameState.GAME_OVER:
 		state["result"] = {"winner": winner, "reason": str(match_scene.get("_victory_reason"))}
 	return state

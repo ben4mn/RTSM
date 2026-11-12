@@ -127,8 +127,11 @@ func _tap_moves_never_builds(label: String) -> void:
 	var safe: Rect2 = hud.call("get_placement_search_safe_rect")
 	# A spot well away from the ghost, inside the field.
 	var target := Vector2(safe.position.x + safe.size.x * 0.2, safe.position.y + safe.size.y * 0.6)
-	if ghost_rect.grow(30.0).has_point(target):
+	var card_rect: Rect2 = card.get_build_button_rect().merge(card.get_cancel_button_rect()).grow(20.0)
+	if ghost_rect.grow(30.0).has_point(target) or card_rect.has_point(target):
 		target = Vector2(safe.position.x + safe.size.x * 0.8, safe.position.y + safe.size.y * 0.6)
+	if ghost_rect.grow(30.0).has_point(target) or card_rect.has_point(target):
+		target = Vector2(safe.position.x + safe.size.x * 0.5, safe.position.y + safe.size.y * 0.15)
 	await _tap(target)
 	_expect(placement.active, "%s: tapping other ground keeps placing" % name)
 	_expect(_all_buildings() == count_before, "%s: tapping other ground never builds" % name)
