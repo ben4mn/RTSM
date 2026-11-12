@@ -1,6 +1,20 @@
 {
   "releases": [
     {
+      "id": "2026-11-11-shore-and-shepherd",
+      "date": "2026-11-11",
+      "version": "0.4.0-beta.3",
+      "title": "Shore and shepherd",
+      "summary": "The world ends at a sandy shore, sheep follow whoever finds them, and placing a building is one easy tap.",
+      "changes": [
+        "The map now ends at a sandy coast and open sea, with fog rolling on past it. The view stops at the shore, and orders past the edge take units to the water's edge.",
+        "Selection brackets and route lines stay on units as they walk, and units no longer flip back and forth while turning.",
+        "Sheep follow the Scout or villager that finds them. Lead them within 7 tiles of your Town Center and they walk to its pasture on their own. The AI's Scout herds too.",
+        "Placing is simpler: the preview opens on a good spot with a Build button under it. Tap Build or the preview to place it, tap elsewhere to move it, drag it to carry it, drag the map to look around. House and Farm offer +1 for another, and one Undo takes back the last one.",
+        "Buildings can't go on the shore, and a new setting turns vibration on taps on or off."
+      ]
+    },
+    {
       "id": "2026-11-11-room-to-grow",
       "date": "2026-11-11",
       "version": "0.4.0-beta.2",
