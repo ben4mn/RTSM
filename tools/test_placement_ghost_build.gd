@@ -65,6 +65,12 @@ func _run() -> void:
 	get_window().size = Vector2i(844, 390)
 	await _frames(4)
 	await _mouse_flow()
+	# After L1's coast rim: the outermost tile ring is shore, never a site.
+	main.call("_on_building_selected_for_placement", BuildingData.BuildingType.HOUSE)
+	await _frames(2)
+	for edge: Vector2i in [Vector2i(0, 40), Vector2i(40, 0), Vector2i(MapData.MAP_WIDTH - 2, 40), Vector2i(40, MapData.MAP_HEIGHT - 2)]:
+		_expect(not placement.revalidate_confirmation(BuildingData.BuildingType.HOUSE, map.tile_to_world(edge), 0) and placement.get_invalid_reason() == BuildingPlacement.SHORE_INVALID_REASON, "a House at %s on the shore ring is refused (%s)" % [edge, placement.get_invalid_reason()])
+	main.call("_cancel_placement")
 	main.free()
 	if _failures.is_empty():
 		print("[PASS] placement_ghost_build: %d checks; ghost Build/tap/drag/pan/+1/undo-safe flow at 844x390 and 667x375, mouse click/shift/right-click" % _checks)

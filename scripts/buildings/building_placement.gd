@@ -78,6 +78,7 @@ const FIND_OWNED_SPACE_RADIUS: int = 18
 const FIND_OWNED_SPACE_MAX_CHECKS: int = 1500
 const GENERIC_INVALID_REASON := "Invalid placement"
 const FOG_INVALID_REASON := "Move all tiles into sight"
+const SHORE_INVALID_REASON := "Too close to the shore"
 const PLACEMENT_GRID_COLOR := Color(0.90, 0.92, 0.83, 0.18)
 const PLACEMENT_GRID_WIDTH_PX := 0.9
 const PLACEMENT_GRID_MARGIN_TILES: int = 1
@@ -1011,6 +1012,18 @@ func _check_footprint_validity(
 				if _invalid_reason == "":
 					_invalid_reason = "Out of bounds"
 				_invalid_tiles.append(check_tile)
+	if not _invalid_tiles.is_empty():
+		return false
+	# L2 (after L1's coast rim): the sandy bank is drawn over the outermost
+	# tile ring, so a building there would sit half in the sea. The map edge
+	# is public, so this reads nothing hidden.
+	for dx in footprint.x:
+		for dy in footprint.y:
+			var edge_tile := tile_origin + Vector2i(dx, dy)
+			if edge_tile.x == 0 or edge_tile.y == 0 or edge_tile.x == MapData.MAP_WIDTH - 1 or edge_tile.y == MapData.MAP_HEIGHT - 1:
+				if _invalid_reason == "":
+					_invalid_reason = SHORE_INVALID_REASON
+				_invalid_tiles.append(edge_tile)
 	if not _invalid_tiles.is_empty():
 		return false
 
