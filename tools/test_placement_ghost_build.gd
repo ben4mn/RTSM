@@ -70,6 +70,10 @@ func _run() -> void:
 	await _frames(2)
 	for edge: Vector2i in [Vector2i(0, 40), Vector2i(40, 0), Vector2i(MapData.MAP_WIDTH - 2, 40), Vector2i(40, MapData.MAP_HEIGHT - 2)]:
 		_expect(not placement.revalidate_confirmation(BuildingData.BuildingType.HOUSE, map.tile_to_world(edge), 0) and placement.get_invalid_reason() == BuildingPlacement.SHORE_INVALID_REASON, "a House at %s on the shore ring is refused (%s)" % [edge, placement.get_invalid_reason()])
+	for beyond: Vector2i in [Vector2i(-6, 40), Vector2i(40, MapData.MAP_HEIGHT + 4)]:
+		placement.update_preview_at_world(map.tile_to_world(beyond))
+		var pinned: Vector2i = map.world_to_tile(placement.ghost_position)
+		_expect(pinned.x >= 1 and pinned.y >= 1 and pinned.x + placement.current_footprint.x <= MapData.MAP_WIDTH - 1 and pinned.y + placement.current_footprint.y <= MapData.MAP_HEIGHT - 1, "a ghost dragged past the coast stays on land (%s -> %s)" % [beyond, pinned])
 	main.call("_cancel_placement")
 	main.free()
 	if _failures.is_empty():

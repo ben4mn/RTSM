@@ -850,6 +850,13 @@ func update_preview_at_world(world_pos: Vector2) -> void:
 		return
 	# Snap to tile grid
 	ghost_position = _snap_to_grid(world_pos)
+	# L2: a finger dragging or tapping past the coast pins the ghost to the
+	# last buildable ring instead of losing it under the sea and the void.
+	var tile: Vector2i = _world_to_tile(ghost_position)
+	var lowest := Vector2i.ONE
+	var highest := Vector2i(MapData.MAP_WIDTH - 1, MapData.MAP_HEIGHT - 1) - current_footprint
+	if highest.x >= lowest.x and highest.y >= lowest.y and tile != tile.clamp(lowest, highest):
+		ghost_position = _tile_to_world(tile.clamp(lowest, highest))
 	global_position = ghost_position
 	_refresh_preview_state(true)
 
