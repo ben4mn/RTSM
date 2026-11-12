@@ -35,7 +35,9 @@ Omitted parameters keep the saved menu preference. Autostart settings are not sa
 All calls are synchronous and return plain objects.
 
 - `PocketDev.state()` — snapshot: `time`, `speed`, `paused`, `fps`, `map`, `seed`,
-  `difficulty`, `first_combat_time`, `first_building_lost_time`, `sacred_site`
+  `difficulty`, `first_combat_time`, `first_building_lost_time`, `placement` (`active`,
+  `type`, `valid`, `touch`, and screen rects `[x, y, w, h]` of the `ghost` footprint and its
+  `build`/`cancel` buttons; `repeat` = the "+1" offer is showing), `sacred_site`
   (`phase`, `owner`, `remaining`, `capture_progress`, `tile`…), `selection`, `camera`
   (`tile`, `world`, `zoom`), `result` (`winner`, `reason`; `null` until game over) and
   `players[0..1]`: `civ`, `age`, `age_times`, `resources`, `pop`, `pop_cap`, `units`

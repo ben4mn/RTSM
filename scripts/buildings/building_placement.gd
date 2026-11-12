@@ -1,9 +1,15 @@
 class_name BuildingPlacement
 extends Node2D
 ## Ghost preview system for building placement.
-## Shows a transparent building sprite following the pointer/finger.
-## Touch positions a preview; an explicit Place action confirms it.
-## Desktop left click still places immediately.
+##
+## L2 — one placement language on a phone:
+## - Picking a building shows the ghost already on a valid spot in view.
+## - Tapping the ghost itself (or the Build button attached to it) builds.
+## - Tapping anywhere else moves the ghost there (centred under the finger);
+##   it never builds. Dragging that starts on the ghost carries it; a drag
+##   that starts elsewhere pans the map; two fingers pinch.
+## Mouse keeps the desktop idiom: the ghost follows the cursor, left click
+## builds there, Shift+click builds and keeps placing, right click cancels.
 
 signal placement_confirmed(building_type: int, position: Vector2)
 signal placement_cancelled()
@@ -32,10 +38,21 @@ var _touch_points: Dictionary = {}
 var _released_touch_inputs: Dictionary = {}
 var _touch_camera_gesture: bool = false
 ## Where each placement finger first touched. A finger that lifts close to
-## where it landed is a tap: it places the building there when the ground fits.
+## where it landed is a tap.
 var _touch_starts: Dictionary = {}
-var _tap_place_eligible: Dictionary = {}
-const TAP_TO_PLACE_SLOP_PX: float = 14.0
+## L2: fingers that landed on the ghost (index -> world offset from the
+## finger to the ghost anchor). They carry the ghost instead of the camera.
+var _ghost_grabs: Dictionary = {}
+var _ghost_dragging: Dictionary = {}
+## Same as the camera pan deadzone and the selection tap slop (12 px): a
+## finger that pans the map is never also a tap.
+const TAP_TO_PLACE_SLOP_PX: float = 12.0
+const GHOST_DRAG_SLOP_PX: float = 6.0
+## Extra screen pixels around the drawn ghost that still count as "on it".
+const GHOST_HIT_MARGIN_PX: float = 8.0
+## Ignore a confirm this soon after another one (a nervous double tap).
+const CONFIRM_DEBOUNCE_MSEC: int = 350
+var _last_confirm_msec: int = -100000
 var _uses_touch_input: bool = false
 var _assisted_preview_active: bool = false
 var _preview_refresh_elapsed: float = 0.0
@@ -49,6 +66,7 @@ var _grid_preview_tile := Vector2i(-1000, -1000)
 var _trade_preview: Dictionary = {}
 
 const TRADE_PREVIEW = preload("res://scripts/units/trade_preview.gd")
+const HAPTICS = preload("res://scripts/ui/haptics.gd")
 
 const FIND_SPACE_RADIUS: int = 12
 const FIND_SPACE_MAX_CANDIDATES: int = 625
@@ -60,12 +78,15 @@ const FIND_OWNED_SPACE_RADIUS: int = 18
 const FIND_OWNED_SPACE_MAX_CHECKS: int = 1500
 const GENERIC_INVALID_REASON := "Invalid placement"
 const FOG_INVALID_REASON := "Move all tiles into sight"
+const SHORE_INVALID_REASON := "Too close to the shore"
 const PLACEMENT_GRID_COLOR := Color(0.90, 0.92, 0.83, 0.18)
 const PLACEMENT_GRID_WIDTH_PX := 0.9
 const PLACEMENT_GRID_MARGIN_TILES: int = 1
 const FOOTPRINT_INK := Color("f4eddd")
 const FOOTPRINT_GOLD := Color("e8bf77")
 const FOOTPRINT_BLOCKED := Color("df947f")
+## L2: valid ground reads green at a glance (red stays "no").
+const FOOTPRINT_VALID := Color("b4dc8c")
 const PREVIEW_VALID_TINT := Color(1.0, 1.0, 1.0, 0.78)
 const PREVIEW_INVALID_TINT := Color(1.0, 0.80, 0.75, 0.72)
 const PREVIEW_LAYER: int = 8
@@ -494,6 +515,7 @@ func _initial_preview_fits_world_area(tile: Vector2i, world_pos: Vector2, world_
 
 
 func cancel_placement() -> void:
+	keep_placing_requested = false
 	_set_assisted_preview(false)
 	active = false
 	_hide_placement_grid()
@@ -513,17 +535,13 @@ func cancel_placement() -> void:
 func cancel_touch_gesture() -> void:
 	_touch_points.clear()
 	_released_touch_inputs.clear()
+	_touch_starts.clear()
+	_ghost_grabs.clear()
+	_ghost_dragging.clear()
 	_touch_camera_gesture = false
 
 
 func _input(event: InputEvent) -> void:
-	# Only a finger that lands while placement already speaks touch may place
-	# by tapping; the touch that switches from mouse just switches.
-	if active and event is InputEventScreenTouch and event.device != InputEvent.DEVICE_ID_EMULATION and (event as InputEventScreenTouch).pressed:
-		# H (G1): every world tap places, including the very first one after
-		# picking a building (the Build card's touch happened before placement
-		# listened, so the first ground tap used to only switch the mode).
-		_tap_place_eligible[(event as InputEventScreenTouch).index] = true
 	_observe_input_mode(event)
 	# A world finger can lift over a HUD Control, which owns the release before
 	# unhandled input. Only clear ownership here: never move or confirm a ghost.
@@ -561,11 +579,18 @@ func _observe_input_mode(event: InputEvent) -> void:
 	if uses_touch == _uses_touch_input:
 		return
 	_uses_touch_input = uses_touch
+	queue_redraw()
 	input_mode_changed.emit(uses_touch)
 
 
 func _clear_released_touch_inputs() -> void:
 	_released_touch_inputs.clear()
+	# A finger whose release a HUD Control consumed leaves no other trace.
+	for index: Variant in _touch_starts.keys():
+		if not _touch_points.has(index):
+			_touch_starts.erase(index)
+			_ghost_grabs.erase(index)
+			_ghost_dragging.erase(index)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -586,7 +611,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
-			update_preview_at_screen(mb.position)
+			# A mouse builds where it clicks; the ghost already follows it there.
+			update_preview_centered_at_screen(mb.position)
+			# AoE2 idiom: Shift+click builds and keeps the same building in hand.
+			keep_placing_requested = mb.shift_pressed
 			confirm_preview()
 			get_viewport().set_input_as_handled()
 			return
@@ -598,33 +626,37 @@ func _unhandled_input(event: InputEvent) -> void:
 		if touch.pressed:
 			_released_touch_inputs.erase(touch.index)
 			_touch_points[touch.index] = touch.position
-			if bool(_tap_place_eligible.get(touch.index, false)):
-				_touch_starts[touch.index] = touch.position
-			_tap_place_eligible.erase(touch.index)
+			_touch_starts[touch.index] = touch.position
 			if _touch_points.size() > 1:
 				_touch_camera_gesture = true
+				_ghost_grabs.clear()
+				_ghost_dragging.clear()
+			elif is_screen_point_on_ghost(touch.position):
+				# The finger landed on the ghost: it may carry it or tap it.
+				var finger_world: Vector2 = get_canvas_transform().affine_inverse() * touch.position
+				_ghost_grabs[touch.index] = ghost_position - finger_world
 		else:
 			var owned_press: bool = _touch_points.has(touch.index) or _released_touch_inputs.has(touch.index)
 			var was_camera_gesture: bool = bool(_released_touch_inputs.get(touch.index, _touch_camera_gesture))
-			if not touch.canceled and not was_camera_gesture and owned_press:
-				update_preview_at_screen(touch.position)
-				var start: Vector2 = _touch_starts.get(touch.index, Vector2(INF, INF))
-				if start.distance_to(touch.position) <= TAP_TO_PLACE_SLOP_PX and _touch_points.size() <= 1:
-					# Tap: build right here. An unfit spot keeps the preview there
-					# with its reason, so Place or another tap can follow.
-					_touch_starts.erase(touch.index)
-					_released_touch_inputs.erase(touch.index)
-					_touch_points.erase(touch.index)
-					_touch_camera_gesture = false
-					if is_valid_placement:
-						confirm_preview()
-					# The camera must still see this release, or it keeps a stuck finger.
-					return
+			var start: Vector2 = _touch_starts.get(touch.index, Vector2(INF, INF))
+			var grabbed: bool = _ghost_grabs.has(touch.index)
+			var dragged_ghost: bool = bool(_ghost_dragging.get(touch.index, false))
 			_touch_starts.erase(touch.index)
 			_released_touch_inputs.erase(touch.index)
 			_touch_points.erase(touch.index)
+			_ghost_grabs.erase(touch.index)
+			_ghost_dragging.erase(touch.index)
 			if _touch_points.is_empty():
 				_touch_camera_gesture = false
+			var is_tap: bool = start.distance_to(touch.position) < TAP_TO_PLACE_SLOP_PX
+			if not touch.canceled and not was_camera_gesture and owned_press and not dragged_ghost and is_tap and _touch_points.is_empty():
+				if grabbed:
+					# Tap on the ghost: build it exactly where it is drawn.
+					confirm_preview()
+				else:
+					# Tap elsewhere: the ghost moves there. It never builds.
+					update_preview_centered_at_screen(touch.position)
+			# The camera must still see this release, or it keeps a stuck finger.
 		# Camera needs touch presses/releases to recognize the second finger.
 		# Selection is suspended, so these events cannot issue unit commands.
 		return
@@ -640,13 +672,20 @@ func _unhandled_input(event: InputEvent) -> void:
 		_touch_points[drag.index] = drag.position
 		if _touch_points.size() > 1:
 			_touch_camera_gesture = true
+			_ghost_grabs.clear()
+			_ghost_dragging.clear()
 			# GameMap owns midpoint pan and anchored pinch as one gesture.
 			return
-		if _touch_camera_gesture:
-			# Keep navigation ownership after one pinch finger lifts; a fresh
-			# one-finger gesture may reposition only after every finger ends.
+		if _touch_camera_gesture or not _ghost_grabs.has(drag.index):
+			# A drag that did not start on the ghost pans the map (GameMap).
 			return
-		update_preview_at_screen(drag.position)
+		var start: Vector2 = _touch_starts.get(drag.index, drag.position)
+		if not bool(_ghost_dragging.get(drag.index, false)) and start.distance_to(drag.position) < GHOST_DRAG_SLOP_PX:
+			get_viewport().set_input_as_handled()
+			return
+		_ghost_dragging[drag.index] = true
+		var finger_world: Vector2 = get_canvas_transform().affine_inverse() * drag.position
+		update_preview_at_world(finger_world + (_ghost_grabs[drag.index] as Vector2))
 		get_viewport().set_input_as_handled()
 		return
 
@@ -654,9 +693,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.device == InputEvent.DEVICE_ID_EMULATION:
 			return
 		var motion := event as InputEventMouseMotion
-		if _assisted_preview_active or Input.is_mouse_button_pressed(MOUSE_BUTTON_MIDDLE):
+		# L2: no Place button waits at the bottom any more, so a found spot is
+		# not held: the ghost always follows a real mouse.
+		if Input.is_mouse_button_pressed(MOUSE_BUTTON_MIDDLE):
 			return
-		update_preview_at_screen(motion.position)
+		update_preview_centered_at_screen(motion.position)
 		get_viewport().set_input_as_handled()
 
 
@@ -711,12 +752,112 @@ func update_preview_at_screen(screen_pos: Vector2) -> void:
 	update_preview_at_world(world_pos)
 
 
+## L2: the footprint's centre goes under the finger or cursor (the anchor
+## tile is the footprint's top corner, which sat visibly off to one side).
+func update_preview_centered_at_screen(screen_pos: Vector2) -> void:
+	if not active:
+		return
+	var world_pos: Vector2 = get_canvas_transform().affine_inverse() * screen_pos
+	update_preview_at_world(world_pos - _footprint_center_offset())
+
+
+func _footprint_center_offset() -> Vector2:
+	var origin: Vector2 = _tile_to_world(Vector2i.ZERO)
+	var axis_x: Vector2 = _tile_to_world(Vector2i(1, 0)) - origin
+	var axis_y: Vector2 = _tile_to_world(Vector2i(0, 1)) - origin
+	return (axis_x * float(current_footprint.x - 1) + axis_y * float(current_footprint.y - 1)) * 0.5
+
+
+## Screen rectangle of everything drawn for the ghost: the footprint and the
+## building art. Empty when no ghost is shown.
+func get_ghost_screen_rect() -> Rect2:
+	if not active:
+		return Rect2()
+	return _screen_rect_for(_get_ghost_tile(), ghost_position)
+
+
+## Same rectangle for a footprint at `tile` (the art of the current type).
+func _screen_rect_for(tile: Vector2i, anchor_world: Vector2) -> Rect2:
+	var canvas: Transform2D = get_canvas_transform()
+	var points: Array[Vector2] = []
+	points.assign(_footprint_world_polygon(tile, current_footprint))
+	if _ghost_sprite != null and _ghost_sprite.texture != null:
+		var art: Rect2 = _ghost_art_rect
+		for corner: Vector2 in [art.position, art.position + Vector2(art.size.x, 0.0), art.end, art.position + Vector2(0.0, art.size.y)]:
+			points.append(anchor_world + _ghost_sprite.transform * corner)
+	var minimum: Vector2 = canvas * points[0]
+	var maximum: Vector2 = minimum
+	for point: Vector2 in points:
+		var screen: Vector2 = canvas * point
+		if not screen.is_finite():
+			return Rect2()
+		minimum = minimum.min(screen)
+		maximum = maximum.max(screen)
+	return Rect2(minimum, maximum - minimum)
+
+
+## Screen bounds of the footprint diamond alone (the ground it will take).
+func get_ghost_footprint_screen_rect() -> Rect2:
+	if not active:
+		return Rect2()
+	var canvas: Transform2D = get_canvas_transform()
+	var polygon: PackedVector2Array = _footprint_world_polygon(_get_ghost_tile(), current_footprint)
+	var rect := Rect2(canvas * polygon[0], Vector2.ZERO)
+	for point: Vector2 in polygon:
+		rect = rect.expand(canvas * point)
+	return rect
+
+
+## True when a screen point lands on the drawn ghost (art or footprint).
+func is_screen_point_on_ghost(screen_pos: Vector2) -> bool:
+	if not active:
+		return false
+	var canvas: Transform2D = get_canvas_transform()
+	# The drawn walls (their inked bounds, not the transparent texture)...
+	if _ghost_sprite != null and _ghost_sprite.texture != null:
+		var art: Rect2 = _ghost_art_rect
+		var first: Vector2 = canvas * (ghost_position + _ghost_sprite.transform * art.position)
+		var art_rect := Rect2(first, Vector2.ZERO).expand(canvas * (ghost_position + _ghost_sprite.transform * art.end))
+		if art_rect.grow(GHOST_HIT_MARGIN_PX).has_point(screen_pos):
+			return true
+	# ...or the ground diamond it will take.
+	var polygon := PackedVector2Array()
+	var center := Vector2.ZERO
+	for point: Vector2 in _footprint_world_polygon(_get_ghost_tile(), current_footprint):
+		polygon.append(canvas * point)
+		center += canvas * point
+	center /= float(maxi(1, polygon.size()))
+	for index: int in polygon.size():
+		# Grow the diamond a little so its tips stay easy to hit.
+		var away: Vector2 = polygon[index] - center
+		polygon[index] += away.normalized() * GHOST_HIT_MARGIN_PX
+	return Geometry2D.is_point_in_polygon(screen_pos, polygon)
+
+
+## Shift+click asked to keep the same building in hand after this one.
+var keep_placing_requested: bool = false
+
+
+func consume_keep_placing() -> bool:
+	var value: bool = keep_placing_requested
+	keep_placing_requested = false
+	return value
+
+
 func update_preview_at_world(world_pos: Vector2) -> void:
 	_set_assisted_preview(false)
 	if not active:
 		return
 	# Snap to tile grid
 	ghost_position = _snap_to_grid(world_pos)
+	# L2: a finger dragging or tapping past the coast pins the ghost to the
+	# last buildable ring instead of losing it under the sea and the void.
+	var tile: Vector2i = _world_to_tile(ghost_position)
+	var lowest := Vector2i.ONE
+	var highest := Vector2i(MapData.MAP_WIDTH - 1, MapData.MAP_HEIGHT - 1) - current_footprint
+	var on_real_map: bool = get_parent() != null and get_parent().has_method("tile_to_world")
+	if on_real_map and highest.x >= lowest.x and highest.y >= lowest.y and tile != tile.clamp(lowest, highest):
+		ghost_position = _tile_to_world(tile.clamp(lowest, highest))
 	global_position = ghost_position
 	_refresh_preview_state(true)
 
@@ -766,6 +907,10 @@ func get_preview_hint() -> String:
 ## Called by the explicit touch Place action. Always revalidates the footprint.
 func confirm_preview() -> bool:
 	if not active:
+		return false
+	# A second confirm right after a placement (a double tap that reached a new
+	# ghost) must not buy another building.
+	if _uses_touch_input and Time.get_ticks_msec() - _last_confirm_msec < CONFIRM_DEBOUNCE_MSEC:
 		return false
 	_refresh_preview_state()
 	if not is_valid_placement:
@@ -875,6 +1020,18 @@ func _check_footprint_validity(
 				if _invalid_reason == "":
 					_invalid_reason = "Out of bounds"
 				_invalid_tiles.append(check_tile)
+	if not _invalid_tiles.is_empty():
+		return false
+	# L2 (after L1's coast rim): the sandy bank is drawn over the outermost
+	# tile ring, so a building there would sit half in the sea. The map edge
+	# is public, so this reads nothing hidden.
+	for dx in footprint.x:
+		for dy in footprint.y:
+			var edge_tile := tile_origin + Vector2i(dx, dy)
+			if edge_tile.x == 0 or edge_tile.y == 0 or edge_tile.x == MapData.MAP_WIDTH - 1 or edge_tile.y == MapData.MAP_HEIGHT - 1:
+				if _invalid_reason == "":
+					_invalid_reason = SHORE_INVALID_REASON
+				_invalid_tiles.append(edge_tile)
 	if not _invalid_tiles.is_empty():
 		return false
 
@@ -1009,6 +1166,7 @@ func _emit_invalid_feedback() -> void:
 	_last_invalid_feedback_msec = now
 	var reason: String = get_invalid_reason()
 	placement_invalid.emit(reason)
+	HAPTICS.refuse()
 	AudioManager.play_sfx("building_invalid")
 
 
@@ -1026,6 +1184,7 @@ func _confirm_placement() -> void:
 		_emit_invalid_feedback()
 		return
 	var pos := ghost_position
+	_last_confirm_msec = Time.get_ticks_msec()
 	_set_assisted_preview(false)
 	active = false
 	_hide_placement_grid()
@@ -1037,6 +1196,7 @@ func _confirm_placement() -> void:
 	if _ghost_sprite != null:
 		_ghost_sprite.queue_free()
 		_ghost_sprite = null
+	HAPTICS.tap()
 	placement_confirmed.emit(current_building_type, pos)
 	AudioManager.play_sfx("building_place")
 	current_building_type = -1
@@ -1097,8 +1257,8 @@ func _draw() -> void:
 			var points: PackedVector2Array = _footprint_local_polygon(tile, Vector2i.ONE)
 			var invalid: bool = tile in _invalid_tiles
 			var clearance: bool = tile in _clearance_tiles
-			var color: Color = FOOTPRINT_GOLD if not invalid or clearance else FOOTPRINT_BLOCKED
-			draw_colored_polygon(points, Color(color, 0.18 if invalid else 0.08))
+			var color: Color = FOOTPRINT_VALID if not invalid else (FOOTPRINT_GOLD if clearance else FOOTPRINT_BLOCKED)
+			draw_colored_polygon(points, Color(color, 0.18 if invalid else (0.20 if is_valid_placement else 0.08)))
 			_draw_polygon_edges(points, Color(color, 0.88 if invalid else 0.50), (1.4 if invalid else 0.75) * pixel, clearance)
 			if invalid:
 				var center: Vector2 = to_local(_tile_to_world(tile))
@@ -1111,7 +1271,7 @@ func _draw() -> void:
 					draw_line(center + Vector2(-5, -5) * pixel, center + Vector2(5, 5) * pixel, FOOTPRINT_INK, 2.0 * pixel, true)
 					draw_line(center + Vector2(-5, 5) * pixel, center + Vector2(5, -5) * pixel, FOOTPRINT_INK, 2.0 * pixel, true)
 	var boundary: PackedVector2Array = _footprint_local_polygon(origin_tile, current_footprint)
-	_draw_polygon_edges(boundary, FOOTPRINT_GOLD if is_valid_placement else FOOTPRINT_BLOCKED, 2.2 * pixel)
+	_draw_polygon_edges(boundary, FOOTPRINT_VALID if is_valid_placement else FOOTPRINT_BLOCKED, 2.2 * pixel)
 	var bounds := Rect2(boundary[0], Vector2.ZERO)
 	for point: Vector2 in boundary:
 		bounds = bounds.expand(point)
@@ -1123,6 +1283,10 @@ func _draw() -> void:
 	if _ghost_sprite != null:
 		label_y = minf(label_y, (_ghost_sprite.transform * _ghost_art_rect).position.y - 10.0 * pixel)
 	_draw_preview_label(font, font_size, name_text, Vector2(center.x, label_y), FOOTPRINT_INK, pixel)
+	if _uses_touch_input:
+		# L2: on touch the Build button attached under the ghost carries the
+		# state ("Build" or the reason), so the ground stays uncluttered.
+		return
 	var trade_warning: bool = is_valid_placement and current_building_type == BuildingData.BuildingType.TRADE_POST and not _trade_preview.get("usable_distance", false)
 	_draw_preview_label(font, font_size, get_preview_state_label(), Vector2(center.x, bounds.end.y + 20.0 * pixel), FOOTPRINT_GOLD if trade_warning else FOOTPRINT_INK, pixel)
 	if is_valid_placement and current_building_type != BuildingData.BuildingType.TRADE_POST:

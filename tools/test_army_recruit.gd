@@ -96,7 +96,10 @@ func _recruit_journey(phone: Vector2i, interface_scale: float) -> void:
 	var placement: BuildingPlacement = _main.get("_building_placement")
 	_expect(placement.active and int(_main.get("_placement_type")) == BuildingData.BuildingType.BARRACKS, "Barracks contact must enter canonical placement")
 	_expect(ResourceManager.get_all_resources(0) == bank, "planning a Barracks must not spend resources")
-	await _button(_hud.get("_placement_cancel_button"))
+	# L2: touch cancels with the x on the ghost (a mouse keeps a bottom one).
+	await _frames(2)
+	var ghost_card: PlacementGhostCard = _hud.call("get_placement_ghost_card")
+	await _button(ghost_card.cancel_button if ghost_card.is_cancel_visible() else _hud.get("_placement_cancel_button"))
 	_expect(not placement.active and ResourceManager.get_all_resources(0) == bank, "canceling Barracks planning must be free")
 	await _button(army)
 	await _overview_button(overview, plan)
@@ -104,7 +107,9 @@ func _recruit_journey(phone: Vector2i, interface_scale: float) -> void:
 	_expect(legal != Vector2.ZERO, "paid Barracks needs a legal explored placement")
 	placement.update_preview_at_world(legal)
 	await _frames(3)
-	await _button(_hud.get("_placement_confirm_button"))
+	# L2: Build rides on the ghost.
+	await _frames(2)
+	await _button((_hud.call("get_placement_ghost_card") as PlacementGhostCard).build_button)
 	var first: BuildingBase = _main.get("_player_buildings")[0].back()
 	_expect(first.building_type == BuildingData.BuildingType.BARRACKS and ResourceManager.get_resource(0, "wood") == int(bank.wood) - 120, "Place must create and pay for one Barracks")
 	if first.building_type != BuildingData.BuildingType.BARRACKS:

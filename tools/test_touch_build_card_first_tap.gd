@@ -1,6 +1,7 @@
 extends Node
-## H (G1): the first world tap right after choosing a building on the Build
-## sheet must place it (it used to be swallowed when it came quickly).
+## H (G1), L2: the first world tap right after choosing a building on the Build
+## sheet must count (it used to be swallowed when it came quickly): off the
+## ghost it moves it, on the ghost it builds.
 ## Real phone-style dispatch through Input.parse_input_event.
 
 var _failures: Array[String] = []
@@ -60,29 +61,41 @@ func _attempt(frames_between: int) -> void:
 		return
 	for _f: int in frames_between:
 		await get_tree().process_frame
-	# A clear spot on screen: try a few until the preview reports it fits.
+	# L2: the first world tap after the card is never swallowed. Off the ghost
+	# it moves the ghost there; on the ghost (or its Build button) it builds.
 	var placed: bool = false
-	for spot: Vector2 in [Vector2(200, 120), Vector2(620, 140), Vector2(160, 200), Vector2(650, 220), Vector2(300, 90)]:
+	var ghost_center: Vector2 = _placement.get_ghost_footprint_screen_rect().get_center()
+	for spot: Vector2 in [Vector2(200, 120), Vector2(620, 140), Vector2(160, 200), Vector2(650, 220)]:
+		if _placement.is_screen_point_on_ghost(spot) or (_hud.call("get_placement_ghost_card") as PlacementGhostCard).get_build_button_rect().grow(8.0).has_point(spot):
+			continue
 		await _tap(spot, 2)
 		for _f: int in 3:
 			await get_tree().process_frame
-		if _count_houses() > houses_before:
-			placed = true
-			break
-		if not _placement.active:
-			break
-		# The first tap moved the preview onto blocked ground: that is not the
-		# bug; only a tap with no effect at all is.
-		var ghost_screen: Vector2 = _placement.get_canvas_transform() * _placement.ghost_position
-		if ghost_screen.distance_to(spot) > 60.0:
-			_failures.append("a world tap %d frames after the card neither placed nor moved the preview (ghost %s, tap %s)" % [frames_between, ghost_screen, spot])
-			break
+		_expect_no_build(houses_before, "an off-ghost tap %d frames after the card" % frames_between)
+		var moved_center: Vector2 = _placement.get_ghost_footprint_screen_rect().get_center()
+		if moved_center.distance_to(spot) > 40.0:
+			_failures.append("a world tap %d frames after the card did not move the ghost (ghost %s, tap %s, was %s)" % [frames_between, moved_center, spot, ghost_center])
+		break
+	# Back to a valid spot, then one tap on the ghost builds it.
+	_main.call("_snap_placement_to_best_spot", BuildingData.BuildingType.HOUSE)
+	for _f: int in 3:
+		await get_tree().process_frame
+	await _real_wait(400)
+	await _tap(_placement.get_ghost_footprint_screen_rect().get_center(), 2)
+	for _f: int in 3:
+		await get_tree().process_frame
+	placed = _count_houses() == houses_before + 1
 	if _placement.active:
 		_main.call("_cancel_placement")
 	if not placed:
-		_failures.append("no House placed by tapping (frames %d)" % frames_between)
+		_failures.append("no House placed by tapping the ghost (frames %d)" % frames_between)
 	for _f: int in 10:
 		await get_tree().process_frame
+
+
+func _expect_no_build(houses_before: int, label: String) -> void:
+	if _count_houses() != houses_before:
+		_failures.append("%s built a House" % label)
 
 
 func _tap(position: Vector2, hold_frames: int) -> void:
@@ -115,9 +128,16 @@ func _finish() -> void:
 	if is_instance_valid(_main):
 		_main.free()
 	if _failures.is_empty():
-		print("[PASS] touch_build_card_first_tap: first world tap after a Build card places at 2/6/18 frames")
+		print("[PASS] touch_build_card_first_tap: first world tap after a Build card moves/builds at 2/6/18 frames")
 		get_tree().quit(0)
 	else:
 		for failure: String in _failures:
 			push_error("[FAIL] touch_build_card_first_tap: " + failure)
 		get_tree().quit(1)
+
+
+## Real (wall-clock) time: the 0.35 s double-confirm guard is measured in it.
+func _real_wait(msec: int) -> void:
+	var until: int = Time.get_ticks_msec() + msec
+	while Time.get_ticks_msec() < until:
+		await get_tree().process_frame

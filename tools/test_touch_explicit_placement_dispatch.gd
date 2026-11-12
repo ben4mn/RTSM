@@ -50,29 +50,34 @@ func _run() -> void:
     await _drag(drag_from, drag_from+Vector2(40,20))
     _expect(bool(placement.get("active")),"a drag in placement mode ended placement")
     _expect(int(ResourceManager.get_all_resources(0).get("wood",0))==wood_before,"a drag in placement mode spent wood")
-    # A tap on fitting ground places there at once (Build, card, tap).
-    await _tap(get_viewport().get_canvas_transform()*valid_world)
-    _expect(int(ResourceManager.get_all_resources(0).get("wood",0))==wood_before-house_cost,"a tap on fitting ground did not place exactly once")
-    _expect(main.get("_player_buildings")[0].size()==buildings_before+1,"a tap on fitting ground did not create one foundation")
+    # L2: a tap on the ghost builds it (Build, card, tap the ghost).
+    placement.call("update_preview_at_world",valid_world)
+    await get_tree().process_frame
+    await _tap((placement.call("get_ghost_footprint_screen_rect") as Rect2).get_center())
+    _expect(int(ResourceManager.get_all_resources(0).get("wood",0))==wood_before-house_cost,"a tap on the ghost did not place exactly once")
+    _expect(main.get("_player_buildings")[0].size()==buildings_before+1,"a tap on the ghost did not create one foundation")
     _expect(not bool(placement.get("active")),"placement stayed open after a tap placed the House")
-    # The explicit Place button still confirms the preview.
+    # The Build button on the ghost confirms the preview.
+    (hud.call("get_placement_ghost_card") as PlacementGhostCard).dismiss_repeat()
+    await _real_wait(400)
     main.call("_on_building_selected_for_placement",BuildingData.BuildingType.HOUSE)
     valid_world=placement.call("_find_initial_preview_position",valid_world+Vector2(-96,48))
     placement.call("update_preview_at_world",valid_world)
     await get_tree().process_frame
     await get_tree().process_frame
-    var place_button: Button=hud.get("_placement_confirm_button")
-    _expect(not place_button.disabled,"legal preview did not enable Place")
-    await _tap(place_button.get_global_rect().get_center())
+    var card: PlacementGhostCard=hud.call("get_placement_ghost_card")
+    _expect(card.is_build_visible() and not card.build_button.disabled,"legal preview did not show Build on the ghost")
+    await _tap(card.get_build_button_rect().get_center())
     _expect(int(ResourceManager.get_all_resources(0).get("wood",0))==wood_before-2*house_cost,"explicit Place did not spend once")
     _expect(main.get("_player_buildings")[0].size()==buildings_before+2,"explicit Place did not create one foundation")
     buildings_before += 1
     # A real desktop mouse remains a supported direct placement mechanism.
     main.call("_on_building_selected_for_placement",BuildingData.BuildingType.HOUSE)
     valid_world=placement.call("_find_initial_preview_position",valid_world+Vector2(96,48))
+    placement.call("update_preview_at_world",valid_world)
     var mouse:=InputEventMouseButton.new()
     mouse.device=0
-    mouse.position=get_viewport().get_canvas_transform()*valid_world
+    mouse.position=(placement.call("get_ghost_footprint_screen_rect") as Rect2).get_center()
     mouse.global_position=mouse.position
     mouse.button_index=MOUSE_BUTTON_LEFT
     mouse.pressed=true
@@ -83,7 +88,7 @@ func _run() -> void:
     for failure: String in _failures:
         push_error("[FAIL] touch_explicit_placement_dispatch: "+failure)
     if _failures.is_empty():
-        print("[PASS] touch_explicit_placement_dispatch: Age Up costs visible; drags never spend; a tap on fitting ground places once; explicit Place spends once; genuine mouse still places")
+        print("[PASS] touch_explicit_placement_dispatch: Age Up costs visible; drags never spend; a tap on the ghost places once; Build on the ghost spends once; genuine mouse still places")
     get_tree().quit(0 if _failures.is_empty() else 1)
 
 func _tap(position: Vector2) -> void:
@@ -108,3 +113,10 @@ func _drag(from: Vector2, to: Vector2) -> void:
         Input.parse_input_event(move); await get_tree().process_frame
     var release:=InputEventScreenTouch.new(); release.index=7; release.position=to; release.pressed=false
     Input.parse_input_event(release); await get_tree().process_frame
+
+
+## Real (wall-clock) time: the 0.35 s double-confirm guard is measured in it.
+func _real_wait(msec: int) -> void:
+    var until: int = Time.get_ticks_msec() + msec
+    while Time.get_ticks_msec() < until:
+        await get_tree().process_frame
