@@ -104,7 +104,10 @@ func _journey(phone: Vector2i,interface_scale: float,notched: bool) -> void:
 	var placement: Node2D = _main.get("_building_placement")
 	_expect(placement.active,"House touch did not enter placement")
 	var buildings_before: int = _main.get("_player_buildings")[0].size()
-	await _button(_hud.get("_placement_cancel_button"))
+	# L2: touch cancels with the x on the ghost (a mouse keeps a bottom one).
+	await _frames(2)
+	var ghost_card: PlacementGhostCard = _hud.call("get_placement_ghost_card")
+	await _button(ghost_card.cancel_button if ghost_card.is_cancel_visible() else _hud.get("_placement_cancel_button"))
 	_expect(not placement.active and ResourceManager.get_all_resources(0) == bank,"Cancel placement mutated paid economy")
 	await _button(_hud.get("build_menu_button"))
 	await _button(palette.get("_button_map")[BuildingData.BuildingType.HOUSE])
@@ -112,7 +115,9 @@ func _journey(phone: Vector2i,interface_scale: float,notched: bool) -> void:
 	placement.call("update_preview_at_world",legal)
 	await _frames(4)
 	await _capture("placement")
-	await _button(_hud.get("_placement_confirm_button"))
+	# L2: Build rides on the ghost.
+	await _frames(2)
+	await _button((_hud.call("get_placement_ghost_card") as PlacementGhostCard).build_button)
 	_expect(not placement.active,"Place did not finish placement")
 	_expect(_main.get("_player_buildings")[0].size() == buildings_before + 1,"Place did not create one paid foundation")
 	_expect(int(ResourceManager.get_all_resources(0).wood) == int(bank.wood)-int(BuildingData.get_building_cost(BuildingData.BuildingType.HOUSE).wood),"Place spent incorrect wood")

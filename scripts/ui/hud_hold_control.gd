@@ -837,7 +837,7 @@ func _preview_choice(position: Vector2) -> void:
 		if caption != null:
 			caption.add_theme_color_override("font_color", control.get_theme_color("font_disabled_color" if control.disabled else "font_color"))
 	if is_instance_valid(_preview):
-		_preview.text = str(_choices[_choice_index].get("description", _choices[_choice_index].get("label", "Command"))) if _choice_index >= 0 else "Return to start or release outside to cancel"
+		_preview.text = str(_choices[_choice_index].get("description", _choices[_choice_index].get("label", "Command"))) if _choice_index >= 0 else "Slide to choose · release outside to cancel"
 
 
 func _clamp_position(desired: Vector2, dimensions: Vector2) -> Vector2:

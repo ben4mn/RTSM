@@ -1816,6 +1816,7 @@ func set_placement_mode(active: bool, building_name: String = "") -> void:
 	if not active:
 		_placement_assisted_preview = false
 	_sync_placement_bar_buttons()
+	_refresh_notification_visibility()
 	_placement_status_panel.visible = active
 	if _town_center_button:
 		_town_center_button.visible = not active
@@ -4943,7 +4944,10 @@ func _refresh_notification_visibility() -> void:
 	# Compact View/More/Queue controls keep their contextual gesture feedback.
 	var sheet_open: bool = _secondary_surface in [SecondarySurface.ECONOMY, SecondarySurface.ARMY, SecondarySurface.INFO, SecondarySurface.HELP, SecondarySurface.WORLD_CONTEXT]
 	# Raid cards live in the alert column; toasts have their own lane beside it.
-	_notification_container.visible = not sheet_open and _ui_modal_state == UIModalState.NONE
+	# L2: placing a building owns the field too. Toasts sat right over the ghost
+	# beside the Town Center; a red footprint explains itself on the ghost and
+	# the status line, and the lane returns (lifetimes kept) once it is placed.
+	_notification_container.visible = not sheet_open and _ui_modal_state == UIModalState.NONE and not _placement_mode_active
 
 
 # --- Hotkey Reference Panel ---
@@ -5826,7 +5830,7 @@ func _on_hold_surface_opened(kind: String, component: Node) -> void:
 		_cancel_hud_holds("modal priority")
 	elif not _hold_hints_shown.has(kind):
 		_hold_hints_shown[kind] = true
-		show_notification("Slide to preview. Return to center to cancel." if kind == "chooser" else "Holding only inspects. Release to close.", KingdomTheme.MUTED, 2.5)
+		show_notification("Slide to choose, release to pick · release outside to cancel" if kind == "chooser" else "Holding only inspects. Release to close.", KingdomTheme.MUTED, 2.5)
 
 
 func _on_hold_surface_closed(component: Node) -> void:
