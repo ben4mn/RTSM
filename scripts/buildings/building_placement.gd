@@ -855,7 +855,8 @@ func update_preview_at_world(world_pos: Vector2) -> void:
 	var tile: Vector2i = _world_to_tile(ghost_position)
 	var lowest := Vector2i.ONE
 	var highest := Vector2i(MapData.MAP_WIDTH - 1, MapData.MAP_HEIGHT - 1) - current_footprint
-	if highest.x >= lowest.x and highest.y >= lowest.y and tile != tile.clamp(lowest, highest):
+	var on_real_map: bool = get_parent() != null and get_parent().has_method("tile_to_world")
+	if on_real_map and highest.x >= lowest.x and highest.y >= lowest.y and tile != tile.clamp(lowest, highest):
 		ghost_position = _tile_to_world(tile.clamp(lowest, highest))
 	global_position = ghost_position
 	_refresh_preview_state(true)
