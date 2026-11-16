@@ -33,7 +33,7 @@ const SOURCES: PackedStringArray = ["idle", "food", "wood", "gold"]
 const RESOURCES: PackedStringArray = ["food", "wood", "gold"]
 const RAIL_BUTTON_SIZE := CommandIcons.TARGET_SIZE
 const RAIL_GAP := CommandIcons.GAP
-const RAIL_BUTTON_COUNT := 4
+const RAIL_BUTTON_COUNT := 3
 const RAIL_WIDTH := RAIL_BUTTON_SIZE * RAIL_BUTTON_COUNT + RAIL_GAP * (RAIL_BUTTON_COUNT - 1)
 const ACTION_TILE := preload("res://scripts/ui/compact_action_tile.gd")
 const DOUBLE_TAP := preload("res://scripts/ui/double_tap_gesture.gd")
@@ -41,7 +41,7 @@ const JOB_CHIP_WIDTH := 64.0
 const JOB_CHIP_MIN_WIDTH := 54.0
 const TRAIN_CARD_WIDTH := 84.0
 const SHEET_MAX_WIDTH := 300.0
-const BUILD_TILE_SIZE := Vector2(76, 56)
+const BUILD_TILE_SIZE := Vector2(64, 56)
 var rail: HBoxContainer
 var panel: PanelContainer
 var _title: Label
@@ -70,8 +70,9 @@ var _producer_rows: Dictionary = {}
 var _group_rows: Dictionary = {}
 var _economy_button: Button
 var _army_button: Button
-## Research has its own launcher: one tap opens every technology and the
-## age-up. Its badge counts what could be started right now.
+## Research is a page of the Economy sheet, opened from the Workers page's
+## Tech tile: one launcher fewer on the field. The next age has its own chip
+## in the top bar. The tile's badge counts what could be started right now.
 var _research_button: Button
 var _research_ready: int = 0
 ## Beta 32: one tap on Army selects every field fighter; tapping again (or
@@ -154,13 +155,6 @@ func _ready() -> void:
 	rail.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	rail.add_theme_constant_override("separation", int(RAIL_GAP))
 	add_child(rail)
-	# Leftmost, so Base, Economy and Army keep their places from the right edge.
-	_research_button = _icon_button("research", "Research: technologies and the next age", "ResearchButton", RAIL_BUTTON_SIZE)
-	_research_button.custom_minimum_size.y = RAIL_BUTTON_SIZE
-	_research_button.toggle_mode = true
-	_research_button.pressed.connect(_on_research_rail_pressed)
-	rail.add_child(_research_button)
-	CommandIcons.apply(_research_button, "research", _research_button.accessibility_name)
 	var base := _icon_button("base", "Base: select and view your Town Center", "BaseButton", RAIL_BUTTON_SIZE)
 	base.custom_minimum_size.y = RAIL_BUTTON_SIZE
 	base.pressed.connect(func() -> void: base_requested.emit())
@@ -391,6 +385,8 @@ func _build_economy() -> void:
 	_economy.add_child(_build_row)
 	_build_menu_button = _icon_button("build", "Open the Build menu. The nearest free worker builds unless villagers are selected.", "EconomyBuild", BUILD_TILE_SIZE.x, "Build")
 	_build_menu_button.custom_minimum_size = BUILD_TILE_SIZE
+	# Icon over caption, so four tiles share the job chips' columns.
+	CommandIcons.apply_labeled(_build_menu_button, "build", _build_menu_button.accessibility_name, "Build")
 	_build_menu_button.pressed.connect(func() -> void: build_requested.emit(-1))
 	_build_row.add_child(_build_menu_button)
 	_build_house_button = _button("", "EconomyHouse", BUILD_TILE_SIZE.x)
@@ -399,6 +395,15 @@ func _build_economy() -> void:
 	_build_camp_button = _button("", "EconomyCamp", BUILD_TILE_SIZE.x)
 	_build_camp_button.pressed.connect(func() -> void: build_requested.emit(BuildingData.BuildingType.RESOURCE_CAMP))
 	_build_row.add_child(_build_camp_button)
+	# Research lives here, the fourth tile of the build row (one launcher fewer
+	# on the field; the next age has its own chip in the top bar). Its badge
+	# counts what could start now; the Research page's tabs lead back.
+	_research_button = _icon_button("research", "Research: every technology", "ResearchButton", JOB_CHIP_WIDTH, "Tech")
+	_research_button.custom_minimum_size.y = BUILD_TILE_SIZE.y
+	CommandIcons.apply_labeled(_research_button, "research", _research_button.accessibility_name, "Tech")
+	_research_button.toggle_mode = true
+	_research_button.pressed.connect(_on_research_rail_pressed)
+	_build_row.add_child(_research_button)
 	_feedback = _label("", 12)
 	_feedback.autowrap_mode = TextServer.AUTOWRAP_OFF
 	_feedback.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -809,7 +814,7 @@ func tuck() -> void:
 	if _tucking or not panel.visible or _surface.is_empty():
 		return
 	_tucking = true
-	var launcher: Control = _research_button if _showing_research() else (_economy_button if _surface == "economy" else _army_button)
+	var launcher: Control = _economy_button if _surface == "economy" else _army_button
 	panel.pivot_offset = launcher.get_global_rect().get_center() - panel.get_global_rect().position
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var tween: Tween = create_tween().set_parallel(true).set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
@@ -901,7 +906,7 @@ var _cancel_armed_key: String = ""
 
 func _on_research_rail_pressed() -> void:
 	if _showing_research():
-		surface_requested.emit("")
+		_research_button.set_pressed_no_signal(true)
 		return
 	_research_page = true
 	_details_page = false
@@ -916,10 +921,6 @@ func _on_research_rail_pressed() -> void:
 
 
 func _on_economy_rail_pressed() -> void:
-	if _showing_research():
-		# Same sheet, other page: Economy means Workers.
-		_set_production_page(false)
-		return
 	surface_requested.emit("" if _surface == "economy" else "economy")
 
 
@@ -951,7 +952,7 @@ func _refresh_research_badge() -> void:
 	_research_ready = count_ready_research() if GameManager.current_state == GameManager.GameState.PLAYING else 0
 	# H: ink badge (amber is the idle-worker count on Economy beside it).
 	CommandIcons.set_badge(_research_button, str(_research_ready) if _research_ready > 0 else "", false)
-	var label: String = "Research: technologies and the next age"
+	var label: String = "Research: every technology"
 	if _research_ready > 0:
 		label += " · %d ready" % _research_ready
 	_research_button.tooltip_text = label
@@ -1261,9 +1262,9 @@ func _refresh_pages() -> void:
 	if research:
 		_title.text = _research_notice_text if not _research_notice_text.is_empty() and Time.get_ticks_msec() < _research_notice_until_msec else "Research"
 	_title.visible = research
-	_workers_tab.visible = economy_open and not research
-	_production_tab.visible = economy_open and not research
-	_economy_button.set_pressed_no_signal(economy_open and not research)
+	_workers_tab.visible = economy_open
+	_production_tab.visible = economy_open
+	_economy_button.set_pressed_no_signal(economy_open)
 	_research_button.set_pressed_no_signal(research)
 	_recruit_tab.visible = army_open
 	_groups_tab.visible = army_open
@@ -1448,7 +1449,7 @@ func apply_layout(safe: Rect2, field_visible: bool, card_area: Rect2, dock_heigh
 	group_chips.visible = _group_chips_wanted and _chips_field_visible and _chips_fit
 	# H: the idle chip stands above the Economy button, where workers live.
 	idle_chip.size = GROUP_CHIP_SIZE
-	idle_chip.position = Vector2(rail.position.x + (RAIL_BUTTON_SIZE + RAIL_GAP) * 2.0 + (RAIL_BUTTON_SIZE - GROUP_CHIP_SIZE.x) * 0.5, rail.position.y - 8.0 - GROUP_CHIP_SIZE.y)
+	idle_chip.position = Vector2(rail.position.x + (RAIL_BUTTON_SIZE + RAIL_GAP) * 1.0 + (RAIL_BUTTON_SIZE - GROUP_CHIP_SIZE.x) * 0.5, rail.position.y - 8.0 - GROUP_CHIP_SIZE.y)
 	idle_chip.visible = _idle_count > 0 and _chips_field_visible
 	# I2: "back to work" lives beside the idle chip (above Base) while anyone
 	# could resume a remembered job, so a raid's aftermath has a fixed home.
@@ -1515,6 +1516,9 @@ func _fit_economy_rows(sheet_width: float) -> void:
 	for button: Button in _destination_buttons.values():
 		button.custom_minimum_size.x = chip_width
 	_idle_button.custom_minimum_size.x = chip_width
+	# Build, House, Camp and Tech share the same four columns.
+	for button: Button in [_build_menu_button, _build_house_button, _build_camp_button, _research_button]:
+		button.custom_minimum_size.x = chip_width
 	for row: Dictionary in _producer_rows.values():
 		var producer: PanelContainer = row.card
 		var inner_padding: float = producer.get_theme_stylebox("panel").get_minimum_size().x

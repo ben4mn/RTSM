@@ -101,7 +101,7 @@ func _exercise_profile(phone: Vector2i, ui_scale: float, notched: bool) -> void:
 	var caption: Control = hud.get("_villager_task_hbox")
 	_expect(not caption.visible, profile + " duplicate worker counts add a third field row")
 	_expect((hud.get("_unit_move_button") as Button).button_pressed and (hud.get("_unit_move_button") as Button).icon != null and (hud.get("_unit_move_button") as Button).tooltip_text.contains("armed") and (hud.get("selection_details") as Label).text.contains("Tap to move"), profile + " Move lacks armed cue")
-	_expect(not (hud.get("age_up_button") as Button).visible and (hud.get("build_menu_button") as Button).visible, profile + " worker context is wrong")
+	_expect((hud.get("top_bar") as Control).is_ancestor_of(hud.get("age_up_button")) and (hud.get("build_menu_button") as Button).visible, profile + " worker context is wrong")
 	_expect(not (hud.get("_mobile_action_panel") as Control).visible, profile + " worker leaves detached utility rail")
 	_assert_field(hud, safe, profile + " workers")
 	for mode: String in ["smart", "move", "attack_move"]:

@@ -75,22 +75,25 @@ func _exercise_profile(viewport_size: Vector2i, population_limit: int) -> void:
 		hud.call("refresh_match_state")
 		_expect(button.is_visible_in_tree(), context + " Town Center exposes age action")
 		_assert_authoritative_text(hud, button, cost, age, context)
-		_expect(button.disabled, context + " action is disabled below its cost")
+		# HUD declutter: the top-bar age chip is never disabled for a shortfall
+		# (a tap says what is missing); its ring and metas carry readiness.
+		_expect(not button.disabled and not _affordable(button) and not _chip_ready(button), context + " chip is not ready below its cost")
 		_expect(button.tooltip_text.contains("Need +1 food · +%d gold" % gold_short), context + " preview explains every missing resource")
 		_resource_manager.call("add_resource", 0, "food", 1)
 		if gold_cost > 0:
-			_expect(button.disabled, context + " food-only deposit cannot enable while gold is missing")
+			_expect(not _affordable(button), context + " food-only deposit cannot ready the chip while gold is missing")
 			_resource_manager.call("add_resource", 0, "gold", 1)
-		_expect(not button.disabled and button.tooltip_text.contains("Ready to advance"), context + " exact-cost deposit immediately enables and updates preview")
+		_expect(_affordable(button) and button.tooltip_text.contains("Ready to advance"), context + " exact-cost deposit immediately readies the cost and updates preview")
 		# Prerequisite buildings: the blocked reason is on screen until they stand.
 		var requirement: Dictionary = TechData.AGE_UP_REQUIREMENTS.get(age + 1, {})
-		var note: Label = hud.get("_age_blocked_note") as Label
 		if int(requirement.get("count", 0)) == 0:
 			# Feel pass: Feudal has no building prerequisite, so nothing blocks it.
-			_expect(String(_game_manager.call("get_age_up_failure_reason", 0)) == "" and note != null and note.text == "" and button.tooltip_text.contains("Ready to advance") and not button.tooltip_text.contains("(missing)"), context + " has no prerequisite building to block it")
+			_expect(String(_game_manager.call("get_age_up_failure_reason", 0)) == "" and _chip_ready(button) and button.tooltip_text.contains("Ready to advance") and not button.tooltip_text.contains("(missing)"), context + " has no prerequisite building to block it")
 		else:
 			_expect(String(_game_manager.call("get_age_up_failure_reason", 0)) == "needs_building" and not bool(_game_manager.call("try_start_age_up", 0)), context + " needs its prerequisite buildings")
-			_expect(note != null and note.text == TechData.describe_age_requirement(age + 1) and note.text.begins_with("Need "), context + " says which building is missing: " + (note.text if note != null else "no note"))
+			# The missing building is said on tap (main's toast) and in the preview,
+			# not by a standing note above the dock.
+			_expect(not _chip_ready(button) and hud.get("_age_blocked_note") == null, context + " missing prerequisite keeps the chip unready without a standing note")
 			_expect(button.tooltip_text.contains(TechData.describe_age_requirement(age + 1) + " (missing)"), context + " preview lists the missing prerequisite")
 			for index: int in int(requirement.get("count", 0)):
 				var prerequisite: Node2D = (load("res://scripts/buildings/building_base.gd") as GDScript).new() as Node2D
@@ -99,9 +102,9 @@ func _exercise_profile(viewport_size: Vector2i, population_limit: int) -> void:
 				prerequisite.set("state", BUILDING_STATE_ACTIVE)
 				viewport.add_child(prerequisite)
 			hud.call("refresh_age_display")
-			_expect(String(_game_manager.call("get_age_up_failure_reason", 0)) == "" and note.text == "" and button.tooltip_text.contains("(ready)"), context + " completed prerequisites clear the blocked note")
+			_expect(String(_game_manager.call("get_age_up_failure_reason", 0)) == "" and _chip_ready(button) and button.tooltip_text.contains("(ready)"), context + " completed prerequisites ready the chip")
 		_expect(bool(_resource_manager.call("try_spend", 0, {"food": 1})), context + " fixture can spend one food")
-		_expect(button.disabled and button.tooltip_text.contains("Need +1 food · +0 gold"), context + " spending immediately disables and updates missing cost")
+		_expect(not _chip_ready(button) and button.tooltip_text.contains("Need +1 food · +0 gold"), context + " spending immediately unreadies and updates missing cost")
 		_game_manager.call("set_state", 3)
 		_resource_manager.call("add_resource", 0, "food", 1)
 		_expect(button.disabled, context + " affordable resource changes cannot enable a paused action")
@@ -109,9 +112,9 @@ func _exercise_profile(viewport_size: Vector2i, population_limit: int) -> void:
 		_expect(bool(_resource_manager.call("try_spend", 0, {paused_resource: 1})), context + " fixture can spend while paused")
 		_game_manager.call("set_state", 2)
 		var shortage: String = "Need +0 food · +1 gold" if gold_cost > 0 else "Need +1 food · +0 gold"
-		_expect(button.disabled and button.tooltip_text.contains(shortage), context + " resume reflects current cost shortage")
+		_expect(not button.disabled and not _chip_ready(button) and button.tooltip_text.contains(shortage), context + " resume reflects current cost shortage")
 		_resource_manager.call("add_resource", 0, paused_resource, 1)
-		_expect(not button.disabled, context + " post-resume deposit enables the action")
+		_expect(not button.disabled and _chip_ready(button), context + " post-resume deposit readies the action")
 		await process_frame
 		await process_frame
 		_assert_button_layout(button, viewport_size, context)
@@ -122,9 +125,9 @@ func _exercise_profile(viewport_size: Vector2i, population_limit: int) -> void:
 		_expect(int(_resource_manager.call("get_resource", 0, "food")) == int(bank["food"]) - int(cost["food"]) and int(_resource_manager.call("get_resource", 0, "gold")) == int(bank["gold"]) - gold_cost, context + " age-up is paid at start")
 		town_center.call("advance_research", duration * 0.5)
 		hud.call("refresh_age_display")
-		var meter: ProgressBar = button.get_node_or_null("ProductionSeam") as ProgressBar
-		_expect(button.text == "%ds" % ceili(duration * 0.5) and not button.disabled and button.tooltip_text.begins_with("Advancing to " + String(_game_manager.call("get_age_name", age + 1))), context + " button counts down while advancing: " + button.text)
-		_expect(meter != null and meter.visible and is_equal_approx(meter.value, 0.5), context + " button meter shows research progress")
+		var ring: Control = button.get_node_or_null("AgeRing") as Control
+		_expect(button.text == ["I", "II", "III", "IV"][age] and not button.disabled and button.tooltip_text.begins_with("Advancing to " + String(_game_manager.call("get_age_name", age + 1))) and button.tooltip_text.contains("%d s left" % ceili(duration * 0.5)), context + " chip names the coming age and counts down in its preview: " + button.text)
+		_expect(ring != null and ring.visible and is_equal_approx(float(ring.get("progress")), 0.5), context + " chip ring shows research progress")
 		_expect(button.is_visible_in_tree(), context + " progress stays visible")
 		_assert_button_layout(button, viewport_size, context + " advancing")
 		_expect(bool(_game_manager.call("cancel_age_up", 0)) and _resource_manager.call("get_all_resources", 0) == bank and int(_game_manager.call("get_player_age", 0)) == age, context + " cancelling refunds the full cost")
@@ -138,13 +141,14 @@ func _exercise_profile(viewport_size: Vector2i, population_limit: int) -> void:
 		ages_tested += 1
 		await process_frame
 	_expect(ages_tested > 0, prefix + " tests at least one supported advancement")
-	_expect(button.disabled and button.text == "Max Age", prefix + " empty next-age costs produce disabled Max Age")
+	var final_numeral: String = ["I", "II", "III", "IV"][int(_game_manager.call("get_player_age", 0)) - 1]
+	_expect(button.disabled and button.text == final_numeral and button.tooltip_text.contains("final age"), prefix + " empty next-age costs leave a disabled final-age chip")
 	_resource_manager.call("add_resource", 0, "food", 100000)
 	_resource_manager.call("add_resource", 0, "gold", 100000)
-	_expect(button.disabled and button.text == "Max Age", prefix + " ample resources cannot enable unsupported advancement")
+	_expect(button.disabled and button.text == final_numeral, prefix + " ample resources cannot enable unsupported advancement")
 	hud.call("apply_mobile_layout", Vector2(viewport_size), Rect2(Vector2.ZERO, Vector2(viewport_size)))
 	await process_frame
-	_expect(not button.visible, prefix + " context layout hides an unsupported next-age action")
+	_expect(button.visible and button.disabled, prefix + " the top-bar chip stays as a quiet final-age marker")
 	viewport.free()
 	await process_frame
 	_profiles_checked += 1
@@ -152,7 +156,7 @@ func _exercise_profile(viewport_size: Vector2i, population_limit: int) -> void:
 
 func _assert_authoritative_text(hud: CanvasLayer, button: Button, cost: Dictionary, age: int, context: String) -> void:
 	_expect(button.text in ["II", "III", "IV"], context + " action shows next-age numeral")
-	_expect(button.icon != null, context + " age action is a single icon button")
+	_expect(button.get_node_or_null("AgeRing") != null and (hud.get("top_bar") as Control).is_ancestor_of(button), context + " age action is the top bar's ring chip")
 	_expect((hud.get("age_label") as Label).text == String(_game_manager.call("get_age_name", age)), context + " age label matches current state")
 	_expect(button.tooltip_text.begins_with("Advance to " + String(_game_manager.call("get_age_name", age + 1))), context + " preview names the authoritative next age")
 	_expect(button.tooltip_text.contains("%d food · %d gold" % [int(cost.get("food", 0)), int(cost.get("gold", 0))]), context + " preview includes current population-scaled costs")
@@ -174,6 +178,14 @@ func _assert_button_layout(button: Button, viewport_size: Vector2i, context: Str
 		var text_height: float = font.get_height(font_size) * float(lines.size())
 		_expect(text_height <= content.y + 0.5, "%s %s two-line text fits height (%.1f <= %.1f)" % [context, style_name, text_height, content.y])
 	print("Age cost fit: %s label=%s size=%s font=%d" % [context, button.text.replace("\n", " / "), button.size, font_size])
+
+
+func _chip_ready(button: Button) -> bool:
+	return bool(button.get_meta("age_chip_ready", false))
+
+
+func _affordable(button: Button) -> bool:
+	return bool(button.get_meta("age_chip_affordable", false))
 
 
 func _expect(condition: bool, message: String) -> void:

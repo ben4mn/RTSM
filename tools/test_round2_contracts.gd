@@ -200,10 +200,13 @@ func _check_context_actions() -> void:
 	var hud: CanvasLayer = main.hud
 	hud.show_building_selection("Blacksmith", smith.hp, smith.max_hp, [], [], smith)
 	var row: HBoxContainer = hud.get("_research_container")
-	check(row != null and row.visible and row.get_child_count() == 4, "HUD renders four action cards for the Blacksmith")
+	# HUD declutter: an age-locked tech waits in the Research sheet, so the bar
+	# shows only the cards a tap can act on now.
+	check(row != null and row.visible and row.get_child_count() == smith.get_context_actions(0).filter(func(a: Dictionary) -> bool: return str(a.get("reason", "")) != "age_required").size(), "HUD renders every Blacksmith card except the age-locked ones: " + str(row.get_children().map(func(c: Node) -> String: return str(c.name)) if row != null else []))
 	var forge_card: Button = row.get_node_or_null("ResearchButton_iron_casting") as Button
 	var mail_card: Button = row.get_node_or_null("ResearchButton_scale_mail") as Button
-	check(forge_card != null and forge_card.disabled and forge_card.text == "Iron Cast\n+1 Attack\nNeed Castle", "a blocked card says why where its cost was: " + (forge_card.text if forge_card != null else "missing"))
+	var research_sheet_reason: String = str(hud.call("_research_information", "iron_casting").get("body", ""))
+	check(forge_card == null and research_sheet_reason.contains("Castle"), "an age-locked card leaves the bar; its Info still says which age it needs: " + (forge_card.text if forge_card != null else research_sheet_reason.left(80)))
 	check(mail_card != null and not mail_card.disabled and mail_card.text == "Mail\n+1 Armor\n100F · 50G", "available card keeps name, effect and cost: " + (mail_card.text if mail_card != null else "missing"))
 	if mail_card != null: mail_card.pressed.emit()
 	hud.show_building_selection("Blacksmith", smith.hp, smith.max_hp, [], [], smith)
