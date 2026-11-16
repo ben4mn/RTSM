@@ -170,22 +170,22 @@ const DECISION_INTERVALS: Dictionary = {
 ## Round 2 E (AoE2 scale). Dark Age villager target; the mature target applies
 ## from Feudal, and Castle adds CASTLE_VILLAGER_BONUS (never above
 ## MAX_VILLAGER_SHARE of the population limit).
-## Round 2 E2: sized for the 80-body default (Medium about 38 villagers and
-## 40 soldiers in Castle). Easy keeps a visibly smaller economy.
+## Feel pass: sized for the 80-body default with stronger workers (Medium
+## about 24 villagers and 50+ soldiers in Castle). Easy stays visibly smaller.
 const VILLAGER_TARGETS: Dictionary = {
-	Difficulty.EASY: 10,
-	Difficulty.MEDIUM: 16,
-	Difficulty.HARD: 18,
+	Difficulty.EASY: 8,
+	Difficulty.MEDIUM: 12,
+	Difficulty.HARD: 13,
 }
 const MATURE_VILLAGER_TARGETS: Dictionary = {
-	Difficulty.EASY: 14,
-	Difficulty.MEDIUM: 30,
-	Difficulty.HARD: 34,
+	Difficulty.EASY: 12,
+	Difficulty.MEDIUM: 20,
+	Difficulty.HARD: 22,
 }
 const CASTLE_VILLAGER_BONUS: Dictionary = {
 	Difficulty.EASY: 2,
-	Difficulty.MEDIUM: 8,
-	Difficulty.HARD: 6,
+	Difficulty.MEDIUM: 4,
+	Difficulty.HARD: 4,
 }
 const MAX_VILLAGER_SHARE: float = 0.5
 
