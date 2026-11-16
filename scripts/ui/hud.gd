@@ -2332,6 +2332,13 @@ func _calculate_mobile_layout_metrics(viewport_size: Vector2, safe_area: Rect2, 
 		selection_width = minf(selection_zone_width, ceilf(info_width + command_width + 100.0))
 	var selection_right: float = selection_zone_right
 	var selection_left: float = selection_right - selection_width
+	if _selection_kind == "building" and not _dock_collapsed and selection_has_commands:
+		# A building's bar is anchored at its left edge (beside the minimap) and
+		# grows rightward toward the rail: research tiles that appear or leave
+		# (an age arrives, a tech completes) never move the portrait or the
+		# recruitment tiles from under a repeating thumb.
+		selection_left = selection_zone_left
+		selection_right = selection_left + selection_width
 	var selection_bottom: float = -bottom_inset - MOBILE_ACTION_MARGIN
 	var selection_top: float = selection_bottom - dock_height
 	var selection_rect := Rect2(Vector2(selection_left, viewport_size.y + selection_top), Vector2(selection_width, dock_height))

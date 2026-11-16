@@ -42,6 +42,8 @@ func _run() -> void:
 	_expect(train.text.is_empty() and train.has_node("TilePortrait") and train.has_node("TileCosts"), "recruitment uses portrait and persistent numeric resource chips")
 	_expect(hud.selection_details.is_visible_in_tree() == false and not hud.selection_name.is_visible_in_tree(), "name and task paragraphs live behind portrait Info")
 	_expect(hud.command_scroll.get_global_rect().grow(0.5).encloses(hud._building_rally_button.get_global_rect()), "phone rally flag is fully exposed, not clipped by Queue")
+	await _assert_tiles_stay_put_across_feudal(tc)
+	train = hud._train_buttons_container.get_node("TrainButton_%s" % UnitData.UnitType.VILLAGER)
 	var expanded: float = hud.selection_panel.size.x
 	await _tap(hud._dock_toggle_button)
 	_expect(hud._dock_collapsed and not hud.command_scroll.visible and hud.selection_panel.size.x < expanded, "touch chevron collapses commands into portrait dock")
@@ -174,6 +176,56 @@ func _tap(button: Button) -> void:
 	await _touch(42, button.get_global_rect().get_center(), true)
 	await _touch(42, button.get_global_rect().get_center(), false)
 	await _frames(4)
+## Playtest regression: Feudal added "Barrow" to the Town Center bar and the
+## right-anchored bar grew leftward, so repeated taps on Villager queued Scouts.
+## Recruitment tiles and the portrait keep their screen x when research tiles
+## appear; the same holds for a Barracks gaining Man-at-Arms.
+func _assert_tiles_stay_put_across_feudal(tc: BuildingBase) -> void:
+	var barracks: BuildingBase = load("res://scenes/buildings/barracks.tscn").instantiate()
+	barracks.player_owner = 0
+	barracks.position = tc.position + Vector2(220, 120)
+	main.game_map.add_child(barracks)
+	barracks.state = BuildingBase.State.ACTIVE
+	barracks.set_process(false)
+	var cases: Array = [[tc, [UnitData.UnitType.VILLAGER, UnitData.UnitType.SCOUT]], [barracks, [UnitData.UnitType.INFANTRY]]]
+	var before: Dictionary = {}
+	for entry: Array in cases:
+		main.game_map.selection_mgr.select_single(entry[0])
+		main._on_selection_changed(main.game_map.selection_mgr.selected)
+		await _frames(5)
+		for unit_type: int in entry[1]:
+			before["%s:%d" % [entry[0].name, unit_type]] = (hud._train_buttons_container.get_node("TrainButton_%s" % unit_type) as Control).get_global_rect().position.x
+		before["%s:portrait" % entry[0].name] = (hud.selection_info_column as Control).get_global_rect().position.x
+	var tech_before: Array = [hud._context_actions_for(tc).size(), hud._context_actions_for(barracks).size()]
+	_expect(GameManager.advance_age(0) and GameManager.get_player_age(0) == 2, "fixture reaches Feudal")
+	for entry: Array in cases:
+		main.game_map.selection_mgr.select_single(entry[0])
+		main._on_selection_changed(main.game_map.selection_mgr.selected)
+		await _frames(5)
+		for unit_type: int in entry[1]:
+			var key: String = "%s:%d" % [entry[0].name, unit_type]
+			var after_x: float = (hud._train_buttons_container.get_node("TrainButton_%s" % unit_type) as Control).get_global_rect().position.x
+			_expect(is_equal_approx(after_x, float(before[key])), "%s tile keeps its screen x across Feudal (%.1f -> %.1f)" % [key, float(before[key]), after_x])
+		var portrait_x: float = (hud.selection_info_column as Control).get_global_rect().position.x
+		_expect(is_equal_approx(portrait_x, float(before["%s:portrait" % entry[0].name])), "%s portrait keeps its screen x across Feudal" % entry[0].name)
+	var tech_after: Array = [hud._context_actions_for(tc).size(), hud._context_actions_for(barracks).size()]
+	_expect(tech_after[0] > tech_before[0], "Feudal really added a Town Center bar action (%s -> %s)" % [str(tech_before), str(tech_after)])
+	main.game_map.selection_mgr.select_single(tc)
+	main._on_selection_changed(main.game_map.selection_mgr.selected)
+	await _frames(5)
+	_expect(_research_tiles() > 0, "Town Center bar shows Feudal research")
+
+
+func _research_tiles() -> int:
+	var count: int = 0
+	for container: Node in [hud._train_buttons_container, hud._research_container]:
+		if container != null:
+			for child: Node in container.get_children():
+				if child is Control and (child as Control).visible and str(child.name).begins_with("ResearchButton_"):
+					count += 1
+	return count
+
+
 func _frames(count: int) -> void:
 	for frame: int in count: await get_tree().process_frame
 func _capture(label: String) -> void:
