@@ -1,6 +1,22 @@
 {
   "releases": [
     {
+      "id": "2026-11-16-quicker-ages-calmer-screen",
+      "date": "2026-11-16",
+      "version": "0.5.0-beta.1",
+      "title": "Quicker ages, calmer screen",
+      "summary": "Fewer, stronger villagers, one-tap ages, more room for armies and a quieter, more consistent look.",
+      "changes": [
+        "Advance an age with one tap on the new age ring in the top bar. It fills as you save up and turns gold when you can go.",
+        "Feudal Age costs 500 food and needs no building. Castle Age costs 600 food and 150 gold and needs one Archery Range, Stable or Blacksmith. Ages take 25 and 40 seconds, and your Town Center keeps training Villagers meanwhile.",
+        "Villagers gather 40% faster and carry 20, so about two dozen run a strong economy. Farms hold 350 food. The AI keeps a smaller economy and fields bigger armies.",
+        "The Town Center houses 10 at the start, and Houses hold 15 for 40 wood.",
+        "Easy now sends its first small attack at about 8:00 instead of 14:00.",
+        "One message at a time: hints wait their turn, and tips stop once you turn the guide off. The Town Center bar is shorter, Sheep and later research moved to Info and the Research sheet, and the pause card sits in the middle.",
+        "Menus share one look: the same titles, cards and buttons from the start screen to settings and results. Online play needs the updated server (protocol 19)."
+      ]
+    },
+    {
       "id": "2026-11-11-shore-and-shepherd",
       "date": "2026-11-11",
       "version": "0.4.0-beta.3",
