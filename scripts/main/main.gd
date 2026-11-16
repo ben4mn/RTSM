@@ -132,7 +132,6 @@ var _hints_shown: int = 0
 var _guided_opening_active: bool = true
 var _guided_stage: GuidedOpeningStage = GuidedOpeningStage.GATHER_FOOD
 const HINTS: Array = [
-	{"time": 14.0, "context": "pause", "text": "Need a breather? Pause is top right.", "color": Color(0.95, 0.86, 0.56)},
 	{"time": 42.0, "text": "Drag to pan. Tap the minimap to jump.", "color": Color(0.7, 0.8, 1.0)},
 	{"time": 75.0, "text": "Tap ground to move. The eraser in the card clears the selection.", "color": Color(0.65, 0.82, 1.0)},
 	{"time": 105.0, "context": "scout", "text": "Train a Scout to explore fast.", "color": Color(0.7, 0.8, 1.0)},
@@ -241,7 +240,9 @@ func _on_game_state_changed(state: int) -> void:
 		# here would otherwise be overwritten by the outer PLAYING transition.
 		_pause_offline_if_backgrounded.call_deferred()
 	var is_modal: bool = state == GameManager.GameState.PAUSED or state == GameManager.GameState.GAME_OVER or state == GameManager.GameState.MENU
-	WEB_SHELL_BRIDGE.set_controls_visible(is_modal)
+	# The browser's Updates / Full screen buttons stay hidden while paused in a
+	# match: the pause card is the only surface (updates are unsafe mid-match).
+	WEB_SHELL_BRIDGE.set_controls_visible(is_modal and state != GameManager.GameState.PAUSED)
 	if state == GameManager.GameState.PAUSED:
 		SoloSave.save_current("pause")
 	elif state == GameManager.GameState.GAME_OVER and not NetworkSession.is_network_match():
@@ -2009,7 +2010,9 @@ func _on_building_constructed(building: BuildingBase, player_id: int) -> void:
 	_stats[player_id]["buildings_built"] += 1
 	if player_id == 0:
 		AudioManager.play_sfx("building_complete")
-		hud.show_notification("Building complete: %s" % building.building_name, KingdomTheme.TEAL)
+		# The starting Town Center is placed complete; only real builds announce.
+		if GameManager.game_time > 0.5:
+			hud.show_notification("Building complete: %s" % building.building_name, KingdomTheme.TEAL)
 		if building.building_type == BuildingData.BuildingType.HOUSE and not _milestone_first_house:
 			_milestone_first_house = true
 			hud.show_notification("Milestone: First House complete.", KingdomTheme.PARCHMENT)
@@ -2683,7 +2686,7 @@ func _on_train_unit_requested(building: Node2D, unit_type: int) -> void:
 				and _guided_opening_active
 				and _guided_stage == GuidedOpeningStage.TRAIN_SCOUT
 			)
-			hud.show_notification("Queued: %s" % UnitData.get_unit_name(unit_type, 0), Color(0.48, 0.78, 1.0))
+			# The tile's queue badge confirms the tap; no toast for it.
 			if unit_type == UnitData.UnitType.SCOUT:
 				_opening_scout_queued = true
 			_refresh_guided_opening_stage()
@@ -3974,7 +3977,8 @@ func _update_timed_hints(delta: float) -> void:
 	while _hints_shown < HINTS.size() and _hint_timer >= HINTS[_hints_shown]["time"]:
 		var hint: Dictionary = HINTS[_hints_shown]
 		if _is_timed_hint_relevant(hint):
-			hud.show_notification(_timed_hint_text(hint), hint["color"])
+			# Contextual tips wait behind the guided step and any live message.
+			hud.show_hint(_timed_hint_text(hint), hint["color"])
 		_hints_shown += 1
 
 
@@ -3986,8 +3990,6 @@ func _timed_hint_text(hint: Dictionary) -> String:
 
 func _is_timed_hint_relevant(hint: Dictionary) -> bool:
 	match str(hint.get("context", "")):
-		"pause":
-			return _pause_open_count == 0
 		"scout":
 			if _opening_scout_queued or _has_queued_unit(BuildingData.BuildingType.TOWN_CENTER, UnitData.UnitType.SCOUT):
 				return false

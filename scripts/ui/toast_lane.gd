@@ -1,21 +1,29 @@
 class_name ToastLane
 extends VBoxContainer
-## One-line HUD messages in one consistent, unobstructed place: a centred
-## column just under the top rail (below the guidance card while that shows).
-## It never shares the alert column on the left (RAID cards, Undo, the bell
-## shortcut), the command dock or the minimap.
+## One-line HUD messages in one consistent, unobstructed place: the right-hand
+## column just under the top rail (below the guidance card while that shows),
+## clear of the field centre where the camera frames the selection. It never
+## shares the alert column on the left (RAID cards, Undo, the bell shortcut),
+## the command dock or the minimap.
 ##
-## At most MAX_VISIBLE pills show. A new message of equal or higher priority
-## replaces the oldest of the least important pills at once; a less important
-## one waits for a free slot (only the latest such message is kept, briefly).
-## Repeating a visible message only restarts its timer.
+## One advisory channel: a single pill shows at a time. A new message of equal
+## or higher priority replaces it at once; a less important one waits for the
+## slot (only the latest such message is kept, briefly). Repeating a visible
+## message only restarts its timer.
+##
+## Contextual hints (offers with a `keep_while`, or pushed with `hint = true`)
+## rank below the guided step and below any feedback or alert: they show only
+## while the lane is empty and not held (the HUD holds it while the guidance
+## card shows), and otherwise wait for as long as they still apply.
 ##
 ## Children are PanelContainers whose first child is the message Label.
 
 enum Priority { LOW, NORMAL, HIGH }
 
-const MAX_VISIBLE: int = 2
+const MAX_VISIBLE: int = 1
 const MAX_WIDTH: float = 340.0
+## A plain contextual hint waits this long for the channel before it is dropped.
+const HINT_WAIT_MSEC: int = 20000
 const PENDING_LIFETIME_MSEC: int = 5000
 const FADE_SECONDS: float = 0.4
 const ACTION_HEIGHT: float = 48.0
@@ -24,6 +32,9 @@ const KEEP_CHECK_SECONDS: float = 0.5
 const KEEP_MAX_SECONDS: float = 90.0
 
 var _pending: Array[Dictionary] = []
+## Contextual hints waiting for the channel, oldest first.
+var _waiting_hints: Array[Dictionary] = []
+var _hints_held: bool = false
 var _lane_width: float = MAX_WIDTH
 
 
@@ -39,12 +50,13 @@ func _init() -> void:
 ## long as it returns true (checked every KEEP_CHECK_SECONDS, at most
 ## KEEP_MAX_SECONDS in all), so an offer that still applies does not vanish
 ## before a slow thumb reaches it.
-func push(text: String, color: Color = Color.WHITE, duration: float = 3.5, action: Callable = Callable(), priority: int = -1, keep_while: Callable = Callable()) -> void:
+## `hint` (or a valid `keep_while`) marks a contextual hint: see the class note.
+func push(text: String, color: Color = Color.WHITE, duration: float = 3.5, action: Callable = Callable(), priority: int = -1, keep_while: Callable = Callable(), hint: bool = false) -> void:
 	if text.is_empty():
 		return
 	if priority < 0:
 		priority = Priority.HIGH if action.is_valid() or duration > 3.75 else Priority.NORMAL
-	var entry: Dictionary = {"text": text, "color": color, "duration": maxf(0.05, duration), "action": action, "priority": priority, "queued_msec": Time.get_ticks_msec(), "keep_while": keep_while}
+	var entry: Dictionary = {"text": text, "color": color, "duration": maxf(0.05, duration), "action": action, "priority": priority, "queued_msec": Time.get_ticks_msec(), "keep_while": keep_while, "hint": hint or keep_while.is_valid()}
 	for pill: PanelContainer in _live_pills():
 		if str(pill.get_meta("toast_text", "")) == text:
 			_restart(pill, entry)
@@ -53,11 +65,21 @@ func push(text: String, color: Color = Color.WHITE, duration: float = 3.5, actio
 		if str(waiting.text) == text:
 			return
 	var live: Array[PanelContainer] = _live_pills()
+	if bool(entry.hint):
+		for index: int in range(_waiting_hints.size() - 1, -1, -1):
+			if str(_waiting_hints[index].text) == text:
+				_waiting_hints.remove_at(index)
+		if _hints_held or not live.is_empty():
+			_waiting_hints.append(entry)
+			return
+		_show(entry)
+		return
 	if live.size() < MAX_VISIBLE:
 		_show(entry)
 		return
 	var victim: PanelContainer = _victim_for(live, priority)
 	if victim != null:
+		_park_hint(victim)
 		_retire(victim)
 		_show(entry)
 		return
@@ -70,6 +92,7 @@ func push(text: String, color: Color = Color.WHITE, duration: float = 3.5, actio
 
 func clear() -> void:
 	_pending.clear()
+	_waiting_hints.clear()
 	for pill: PanelContainer in _live_pills():
 		_retire(pill)
 
@@ -78,6 +101,9 @@ func dismiss(text: String) -> void:
 	for index: int in range(_pending.size() - 1, -1, -1):
 		if str(_pending[index].text) == text:
 			_pending.remove_at(index)
+	for index: int in range(_waiting_hints.size() - 1, -1, -1):
+		if str(_waiting_hints[index].text) == text:
+			_waiting_hints.remove_at(index)
 	for pill: PanelContainer in _live_pills():
 		if str(pill.get_meta("toast_text", "")) == text:
 			_expire(pill)
@@ -87,18 +113,54 @@ func visible_count() -> int:
 	return _live_pills().size()
 
 
+## The HUD holds contextual hints while a higher channel (the guided step)
+## shows. A hint already on screen steps back and waits; release lets the
+## next one that still applies through.
+func set_hints_held(held: bool) -> void:
+	if held == _hints_held:
+		return
+	_hints_held = held
+	if held:
+		for pill: PanelContainer in _live_pills():
+			if bool(pill.get_meta("toast_hint", false)):
+				_park_hint(pill)
+				_retire(pill)
+	else:
+		_promote()
+
+
+func are_hints_held() -> bool:
+	return _hints_held
+
+
+## Whether a contextual hint with this text is waiting for the channel.
+func is_hint_waiting(text: String) -> bool:
+	for entry: Dictionary in _waiting_hints:
+		if str(entry.text) == text:
+			return true
+	return false
+
+
+## The single advisory on screen (empty when none), for tests and diagnostics.
+func current_text() -> String:
+	var live: Array[PanelContainer] = _live_pills()
+	return str(live[0].get_meta("toast_text", "")) if not live.is_empty() else ""
+
+
 ## Place the lane. `left_limit` is the right edge of the alert column,
 ## `guidance` the guidance card's rectangle (no area when hidden). Coordinates
 ## are the HUD root's.
 func place(safe: Rect2, top: float, left_limit: float, guidance: Rect2) -> void:
-	var width: float = minf(MAX_WIDTH, safe.size.x - 16.0)
-	var left: float = safe.position.x + (safe.size.x - width) * 0.5
 	var right_limit: float = safe.end.x - 8.0
-	if left < left_limit and left_limit + width <= right_limit:
-		left = left_limit
-	left = clampf(left, safe.position.x + 8.0, maxf(safe.position.x + 8.0, right_limit - width))
+	# Right-aligned with the guidance card: every advisory reads from the same
+	# corner, and the field centre (where the camera frames the selection)
+	# stays clear. Narrow screens give up width before crossing the alerts.
+	var width: float = minf(MAX_WIDTH, safe.size.x - 16.0)
+	if right_limit - width < left_limit:
+		width = maxf(minf(width, 200.0), right_limit - left_limit)
+	var left: float = clampf(right_limit - width, safe.position.x + 8.0, maxf(safe.position.x + 8.0, right_limit - width))
 	var lane_top: float = top
-	if guidance.has_area() and guidance.intersects(Rect2(left, top, width, ACTION_HEIGHT * 2.0 + 4.0)):
+	if guidance.has_area() and guidance.intersects(Rect2(left, top, width, ACTION_HEIGHT + 4.0)):
 		lane_top = guidance.end.y + 6.0
 	set_anchors_preset(Control.PRESET_TOP_LEFT)
 	position = Vector2(left, lane_top)
@@ -119,13 +181,18 @@ func _live_pills() -> Array[PanelContainer]:
 
 func _victim_for(live: Array[PanelContainer], priority: int) -> PanelContainer:
 	## The oldest of the least important pills, if the newcomer matters as much.
+	## A contextual hint always yields to feedback or an alert (it waits to return).
 	var victim: PanelContainer = null
 	for pill: PanelContainer in live:
-		if victim == null or int(pill.get_meta("toast_priority", 0)) < int(victim.get_meta("toast_priority", 0)):
+		if victim == null or _rank(pill) < _rank(victim):
 			victim = pill
-	if victim != null and int(victim.get_meta("toast_priority", 0)) <= priority:
+	if victim != null and _rank(victim) <= priority:
 		return victim
 	return null
+
+
+func _rank(pill: PanelContainer) -> int:
+	return -1 if bool(pill.get_meta("toast_hint", false)) else int(pill.get_meta("toast_priority", 0))
 
 
 func _show(entry: Dictionary) -> void:
@@ -188,6 +255,8 @@ func _show(entry: Dictionary) -> void:
 	panel.set_meta("toast_shown_msec", Time.get_ticks_msec())
 	panel.set_meta("toast_tappable", action.is_valid())
 	panel.set_meta("toast_keep_while", entry.get("keep_while", Callable()))
+	panel.set_meta("toast_hint", bool(entry.get("hint", false)))
+	panel.set_meta("toast_entry", entry)
 	add_child(panel)
 	# H: tappable offers sit above plain messages, so an expiring note never
 	# slides an offer up from under the finger that is about to tap it.
@@ -256,6 +325,47 @@ func _expire(pill: PanelContainer) -> void:
 		var entry: Dictionary = _pending.pop_front()
 		if now - int(entry.queued_msec) <= PENDING_LIFETIME_MSEC:
 			_show(entry)
+	_promote()
+
+
+## A hint pushed aside by feedback (or the guided step) waits to come back if
+## it still applies; a tapped or expired one does not.
+func _park_hint(pill: PanelContainer) -> void:
+	if not bool(pill.get_meta("toast_hint", false)) or bool(pill.get_meta("toast_answered", false)):
+		return
+	var entry: Dictionary = (pill.get_meta("toast_entry", {}) as Dictionary).duplicate()
+	if entry.is_empty():
+		return
+	entry["queued_msec"] = Time.get_ticks_msec()
+	for waiting: Dictionary in _waiting_hints:
+		if str(waiting.text) == str(entry.text):
+			return
+	_waiting_hints.append(entry)
+
+
+func _hint_still_applies(entry: Dictionary, now: int) -> bool:
+	var keep: Callable = entry.get("keep_while", Callable())
+	if keep.is_valid():
+		return now - int(entry.queued_msec) <= int(KEEP_MAX_SECONDS * 1000.0) and bool(keep.call())
+	return now - int(entry.queued_msec) <= HINT_WAIT_MSEC
+
+
+## Show the most important waiting hint that still applies, if the channel is free.
+func _promote() -> void:
+	if _hints_held or not _live_pills().is_empty() or not is_inside_tree():
+		return
+	var now: int = Time.get_ticks_msec()
+	var best: int = -1
+	for index: int in range(_waiting_hints.size() - 1, -1, -1):
+		if not _hint_still_applies(_waiting_hints[index], now):
+			_waiting_hints.remove_at(index)
+	for index: int in _waiting_hints.size():
+		if best < 0 or int(_waiting_hints[index].priority) > int(_waiting_hints[best].priority):
+			best = index
+	if best >= 0:
+		var entry: Dictionary = _waiting_hints[best]
+		_waiting_hints.remove_at(best)
+		_show(entry)
 
 
 func _retire(pill: PanelContainer) -> void:
@@ -267,6 +377,8 @@ func _retire(pill: PanelContainer) -> void:
 	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	pill.name = "RetiredToast_%d" % pill.get_instance_id()
 	pill.queue_free()
+	# The slot is free once this unwinds (a replacement may already be in it).
+	_promote.call_deferred()
 
 
 func _fit(pill: PanelContainer) -> void:
