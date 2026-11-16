@@ -12,7 +12,7 @@ func run_cases() -> void:
 	var farm_type: int = BuildingData.BuildingType.FARM
 	var base_food: int = int(BuildingData.BUILDINGS[farm_type].farm_food)
 	var reseed_wood: int = int(BuildingData.get_reseed_cost(farm_type, 0).get("wood", 0))
-	expect(base_food == 250 and int(BuildingData.BUILDINGS[farm_type].cost.wood) == 60, "a Farm costs 60 wood and holds 250 food")
+	expect(base_food == 350 and int(BuildingData.BUILDINGS[farm_type].cost.wood) == 60, "a Farm costs 60 wood and holds 350 food")
 	expect(reseed_wood > 0 and reseed_wood <= 40, "reseeding costs at most 40 wood (%d for this kingdom)" % reseed_wood)
 	expect("farm_fallow" in SOLO_STATE.BUILDING_FIELDS and "farm_food_remaining" in SOLO_STATE.BUILDING_FIELDS, "Farm stock is saved with the building")
 	# H: the human seat starts with Auto-reseed on (Farms are finite and a phone

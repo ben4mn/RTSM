@@ -85,17 +85,21 @@ func _exercise_profile(viewport_size: Vector2i, population_limit: int) -> void:
 		# Prerequisite buildings: the blocked reason is on screen until they stand.
 		var requirement: Dictionary = TechData.AGE_UP_REQUIREMENTS.get(age + 1, {})
 		var note: Label = hud.get("_age_blocked_note") as Label
-		_expect(String(_game_manager.call("get_age_up_failure_reason", 0)) == "needs_building" and not bool(_game_manager.call("try_start_age_up", 0)), context + " needs its prerequisite buildings")
-		_expect(note != null and note.text == TechData.describe_age_requirement(age + 1) and note.text.begins_with("Need "), context + " says which building is missing: " + (note.text if note != null else "no note"))
-		_expect(button.tooltip_text.contains(TechData.describe_age_requirement(age + 1) + " (missing)"), context + " preview lists the missing prerequisite")
-		for index: int in int(requirement.get("count", 0)):
-			var prerequisite: Node2D = (load("res://scripts/buildings/building_base.gd") as GDScript).new() as Node2D
-			prerequisite.set("building_type", (requirement["types"] as Array)[index])
-			prerequisite.set("player_owner", 0)
-			prerequisite.set("state", BUILDING_STATE_ACTIVE)
-			viewport.add_child(prerequisite)
-		hud.call("refresh_age_display")
-		_expect(String(_game_manager.call("get_age_up_failure_reason", 0)) == "" and note.text == "" and button.tooltip_text.contains("(ready)"), context + " completed prerequisites clear the blocked note")
+		if int(requirement.get("count", 0)) == 0:
+			# Feel pass: Feudal has no building prerequisite, so nothing blocks it.
+			_expect(String(_game_manager.call("get_age_up_failure_reason", 0)) == "" and note != null and note.text == "" and button.tooltip_text.contains("Ready to advance") and not button.tooltip_text.contains("(missing)"), context + " has no prerequisite building to block it")
+		else:
+			_expect(String(_game_manager.call("get_age_up_failure_reason", 0)) == "needs_building" and not bool(_game_manager.call("try_start_age_up", 0)), context + " needs its prerequisite buildings")
+			_expect(note != null and note.text == TechData.describe_age_requirement(age + 1) and note.text.begins_with("Need "), context + " says which building is missing: " + (note.text if note != null else "no note"))
+			_expect(button.tooltip_text.contains(TechData.describe_age_requirement(age + 1) + " (missing)"), context + " preview lists the missing prerequisite")
+			for index: int in int(requirement.get("count", 0)):
+				var prerequisite: Node2D = (load("res://scripts/buildings/building_base.gd") as GDScript).new() as Node2D
+				prerequisite.set("building_type", (requirement["types"] as Array)[index])
+				prerequisite.set("player_owner", 0)
+				prerequisite.set("state", BUILDING_STATE_ACTIVE)
+				viewport.add_child(prerequisite)
+			hud.call("refresh_age_display")
+			_expect(String(_game_manager.call("get_age_up_failure_reason", 0)) == "" and note.text == "" and button.tooltip_text.contains("(ready)"), context + " completed prerequisites clear the blocked note")
 		_expect(bool(_resource_manager.call("try_spend", 0, {"food": 1})), context + " fixture can spend one food")
 		_expect(button.disabled and button.tooltip_text.contains("Need +1 food · +0 gold"), context + " spending immediately disables and updates missing cost")
 		_game_manager.call("set_state", 3)

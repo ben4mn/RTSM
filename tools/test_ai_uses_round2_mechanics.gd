@@ -193,23 +193,23 @@ func _check_wave_sizes() -> void:
 	ai._has_launched_field_attack = false
 	var first_expected: Array = [int(ai.ARMY_ATTACK_THRESHOLDS[0]), int(ai.ARMY_ATTACK_THRESHOLDS[1]), int(ai.ARMY_ATTACK_THRESHOLDS[2])]
 	expect(first == first_expected and int(later[1]) > int(first[1]) and int(later[2]) > int(first[2]) and int(later[0]) <= int(later[1]), "first waves from ARMY_ATTACK_THRESHOLDS, later waves larger, Easy smallest (%s / %s)" % [str(first), str(later)])
-	expect(is_equal_approx(float(ai.AGE_UP_TARGET_TIMES[1]), 180.0) and is_equal_approx(float(ai.CASTLE_TARGET_TIMES[1]), 470.0), "Medium clicks Feudal at 3:00 and Castle at 7:50")
+	expect(is_equal_approx(float(ai.AGE_UP_TARGET_TIMES[1]), 150.0) and is_equal_approx(float(ai.CASTLE_TARGET_TIMES[1]), 380.0), "Medium clicks Feudal at 2:30 and Castle at 6:20")
 
 
-## K: Easy waits until 14:00 for any wave, sends small growing waves, keeps a
+## K: Easy waits until 8:00 for any wave, sends small growing waves, keeps a
 ## smaller army, rests 5:00 between waves and ages up later than Medium.
 func _check_easy_pacing() -> void:
-	expect(float(ai.EASY_FIRST_ATTACK_SECONDS) >= 840.0 and float(SkirmishData.AI_RAID_START_SECONDS[0]) >= 840.0, "Easy's first wave and compact raid wait for 14:00")
-	expect(float(ai.SHRINE_START_SECONDS[0]) >= 840.0, "Easy sends no shrine squad before 14:00")
+	expect(float(ai.EASY_FIRST_ATTACK_SECONDS) >= 480.0 and float(SkirmishData.AI_RAID_START_SECONDS[0]) >= 480.0, "Easy's first wave and compact raid wait for 8:00")
+	expect(float(ai.SHRINE_START_SECONDS[0]) >= 600.0, "Easy sends no shrine squad before 10:00")
 	expect(int(ai.EASY_ARMY_CAP) <= 10 and float(ai.EASY_WAVE_REST_SECONDS) + 60.0 >= 300.0, "Easy caps its army at 10 and waits 5:00 between waves")
 	expect(float(ai.TC_ASSAULT_START_SECONDS[0]) >= 1500.0, "Easy assaults no Town Center before 25:00")
 	expect(float(ai.AGE_UP_TARGET_TIMES[0]) > float(ai.AGE_UP_TARGET_TIMES[1]) and float(ai.CASTLE_TARGET_TIMES[0]) > float(ai.CASTLE_TARGET_TIMES[1]), "Easy ages up later than Medium")
 	expect(int(ai.TC_ASSAULT_START_SECONDS[1]) == 630 and is_equal_approx(float(SkirmishData.AI_RAID_START_SECONDS[1]), 120.0), "Medium keeps its pacing")
 	_with(0)
 	var saved_time: float = ai._game_time
-	ai._game_time = 840.0
+	ai._game_time = float(ai.EASY_FIRST_ATTACK_SECONDS)
 	var first_wave: int = ai._get_easy_wave_size()
-	ai._game_time = 840.0 + 600.0
+	ai._game_time = float(ai.EASY_FIRST_ATTACK_SECONDS) + 600.0
 	var later_wave: int = ai._get_easy_wave_size()
 	ai._game_time = 5000.0
 	var late_wave: int = ai._get_easy_wave_size()

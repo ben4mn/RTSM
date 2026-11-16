@@ -46,17 +46,17 @@ func _run() -> void:
 		_expect(GameManager.get_player_population_limit(1) == limit, "%d: AI match limit wrong" % limit)
 		var cost: Dictionary = GameManager.get_age_up_cost(0, 2)
 		var before: Dictionary = ResourceManager.get_all_resources(0)
+		# Feel pass: Feudal has no building prerequisite and is a timed Town
+		# Center research, paid when it starts.
+		_expect(GameManager.get_age_up_failure_reason(0) in ["", "cannot_afford", "insufficient_resources"] or not TechData.AGE_UP_REQUIREMENTS.has(2), "%d: Feudal has no building prerequisite" % limit)
 		match_scene.call("_on_age_up_requested")
-		_expect(GameManager.get_player_age(0) == 1, "%d: starting stock buys instant Feudal" % limit)
-		for resource: String in cost:
-			var missing: int = maxi(0, int(cost[resource]) - int(before.get(resource, 0)))
-			ResourceManager.add_resource(0, resource, missing)
-		# Round 2 B: Feudal needs a completed Barracks or Resource Camp and is a
-		# timed Town Center research, paid when it starts.
-		var camp: BuildingBase = match_scene.call("_spawn_building", BuildingData.BuildingType.RESOURCE_CAMP, 0, game_map_tile_near_pocket(match_scene))
-		camp.complete_instantly()
-		before = ResourceManager.get_all_resources(0)
-		match_scene.call("_on_age_up_requested")
+		if GameManager.get_age_up_state(0).is_empty():
+			for resource: String in cost:
+				var missing: int = maxi(0, int(cost[resource]) - int(before.get(resource, 0)))
+				ResourceManager.add_resource(0, resource, missing)
+			before = ResourceManager.get_all_resources(0)
+			match_scene.call("_on_age_up_requested")
+		_expect(GameManager.get_player_age(0) == 1, "%d: the age-up is timed, not instant" % limit)
 		for resource: String in cost:
 			_expect(ResourceManager.get_resource(0, resource) == int(before[resource]) - int(cost[resource]), "%d: human spent wrong %s age cost" % [limit, resource])
 		var age_state: Dictionary = GameManager.get_age_up_state(0)
