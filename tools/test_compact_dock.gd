@@ -41,27 +41,25 @@ func _run() -> void:
 	var train: Button = hud._train_buttons_container.get_node("TrainButton_%s" % UnitData.UnitType.VILLAGER)
 	_expect(train.text.is_empty() and train.has_node("TilePortrait") and train.has_node("TileCosts"), "recruitment uses portrait and persistent numeric resource chips")
 	_expect(hud.selection_details.is_visible_in_tree() == false and not hud.selection_name.is_visible_in_tree(), "name and task paragraphs live behind portrait Info")
-	_expect(hud.command_scroll.get_global_rect().grow(0.5).encloses(hud._building_rally_button.get_global_rect()), "phone rally flag is fully exposed, not clipped by Queue")
+	# HUD declutter: no rally-flag tile; a ground/resource tap sets the rally.
+	_expect(not is_instance_valid(hud._building_rally_button), "the dock carries no separate rally flag")
 	await _assert_tiles_stay_put_across_feudal(tc)
 	train = hud._train_buttons_container.get_node("TrainButton_%s" % UnitData.UnitType.VILLAGER)
 	var expanded: float = hud.selection_panel.size.x
-	await _tap(hud._dock_toggle_button)
-	_expect(hud._dock_collapsed and not hud.command_scroll.visible and hud.selection_panel.size.x < expanded, "touch chevron collapses commands into portrait dock")
+	# HUD declutter: no chevron button; collapse stays on the dock's
+	# double-tap (test_panel_collapse_gestures) and the public setter.
+	_expect(hud.find_child("DockToggle", true, false) == null, "the dock carries no chevron button")
+	hud.set_dock_collapsed(true)
+	await _frames(3)
+	_expect(hud._dock_collapsed and not hud.command_scroll.visible and hud.selection_panel.size.x < expanded, "collapse tucks commands into portrait dock")
 	await _capture("collapsed")
-	await _tap(hud._dock_toggle_button)
-	_expect(not hud._dock_collapsed and hud.command_scroll.visible, "touch chevron restores actions")
+	hud.set_dock_collapsed(false)
+	await _frames(3)
+	_expect(not hud._dock_collapsed and hud.command_scroll.visible, "expand restores actions")
 	await _tap(hud._selection_info_button)
 	_expect(hud.get_secondary_surface_name() == "info" and not hud._info_body.text.is_empty(), "portrait tap exposes full name and requirements")
 	hud.close_secondary_surface()
 	await _frames(3)
-	hud.building_rally_requested.connect(func(building: Node2D) -> void:
-		if building == tc: rallies += 1)
-	await _tap(hud._building_rally_button)
-	_expect(rallies == 1, "direct touch flag emits selected production building")
-	hud.set_rally_armed(true)
-	_expect(hud._building_rally_button.button_pressed, "armed rally is visibly selected")
-	hud.set_rally_armed(false)
-	if main.game_map.selection_mgr.has_method("cancel_building_rally"): main.game_map.selection_mgr.cancel_building_rally()
 	Input.emulate_touch_from_mouse = false
 	Input.emulate_mouse_from_touch = true
 	var before: int = ResourceManager.get_resource(0, "food")
@@ -88,7 +86,6 @@ func _run() -> void:
 	await _frames(5)
 	hud.apply_mobile_layout(Vector2(1280,720), Rect2(0,0,1280,720))
 	await _frames(5)
-	_expect(hud.command_scroll.get_global_rect().grow(0.5).encloses(hud._building_rally_button.get_global_rect()), "desktop rally flag is fully exposed, not clipped by Queue")
 	await _capture("production")
 	await _check_trade_placement_strip()
 	var worker: UnitBase = main._player_units[0][0]

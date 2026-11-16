@@ -62,6 +62,7 @@ const MOBILE_ACTION_MAX_BUTTON_WIDTH := 116.0
 const MOBILE_ACTION_GAP := 6.0
 const PLACEMENT_BUTTON_WIDTHS: Array[float] = [112.0, 100.0, 56.0]
 const PAUSE_MENU_WIDTH := 248.0
+const PAUSE_PILL_SIZE := Vector2(92, 48)
 const MOBILE_ACTION_MARGIN := 8.0
 const MOBILE_ACTION_INNER_PADDING := 4.0
 const MOBILE_ACTION_VERTICAL_PADDING := 0.0
@@ -104,12 +105,11 @@ var _hold_chooser_active: bool = false
 const ACTION_TILE := preload("res://scripts/ui/compact_action_tile.gd")
 const DOUBLE_TAP := preload("res://scripts/ui/double_tap_gesture.gd")
 var _dock_collapsed: bool = false
-var _dock_toggle_button: Button
 var _dock_gesture: RefCounted = null
 var _building_rally_button: Button
 var _rally_armed: bool = false
 var _selection_portrait: Texture2D
-var _selection_badge: String = "i"
+var _selection_badge: String = ""  # Group count only; no standing "i" badge.
 var _save_status: Dictionary = {}
 var _save_status_label: Label
 var _save_exit_button: Button
@@ -594,34 +594,25 @@ func _create_game_control_buttons() -> void:
 	hbox.offset_bottom = 50
 	hbox.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 
+	# One compact pill: the match clock rides inside the Pause button, so the
+	# whole pill is one tap target. Game speed lives on the pause card.
 	_pause_button = Button.new()
 	_pause_button.name = "PauseButton"
-	_pause_button.text = "Pause"
+	_pause_button.text = ""
 	_pause_button.add_theme_font_size_override("font_size", 11)
-	_pause_button.custom_minimum_size = Vector2(48, 48)
+	_pause_button.custom_minimum_size = PAUSE_PILL_SIZE
 	_pause_button.pressed.connect(_on_pause_pressed)
 	_pause_button.tooltip_text = "Pause/Resume [P]"
-	game_time_label.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	game_time_label.reparent(hbox)
-	game_time_label.add_theme_font_size_override("font_size", 13)
 	hbox.add_child(_pause_button)
-
-	_speed_button = Button.new()
-	_speed_button.name = "SpeedButton"
-	_speed_button.text = "1x"
-	_speed_button.custom_minimum_size = Vector2(52, 48)
-	_speed_button.pressed.connect(_on_speed_pressed)
-	_speed_button.tooltip_text = "Cycle game speed"
-	hbox.add_child(_speed_button)
-
-	var backdrop := Panel.new()
-	backdrop.name = "GameControlsBackdrop"
-	backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	backdrop.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	backdrop.add_theme_stylebox_override("panel", FieldStyle.surface(12))
-	root_ctrl.add_child(backdrop)
+	game_time_label.reparent(_pause_button)
+	game_time_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	game_time_label.offset_left = 30.0
+	game_time_label.offset_right = -6.0
+	game_time_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	game_time_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	game_time_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	game_time_label.add_theme_font_size_override("font_size", 13)
 	root_ctrl.add_child(hbox)
-	FieldStyle.soften(_speed_button, 12, true)
 
 
 func _create_camera_controls() -> void:
@@ -893,8 +884,10 @@ func _refresh_command_icons() -> void:
 			button.text = caption
 			button.tooltip_text = entry[2]
 			button.accessibility_name = entry[2]
-			button.custom_minimum_size = Vector2(48.0, 48.0)
+			button.custom_minimum_size = PAUSE_PILL_SIZE if button == _pause_button else Vector2(48.0, 48.0)
 			button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	if is_instance_valid(_pause_button):
+		_pause_button.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	CommandIcons.set_badge(_unit_more_button, "•" if _unit_command_mode == "patrol" else "")
 	var expanded: Array = [
 		[_camera_zoom_out_button, "zoom_out", "Zoom out", ""],
@@ -1074,10 +1067,34 @@ func _create_pause_overlay() -> void:
 		_save_exit_button = Button.new()
 		_save_exit_button.name = "SaveAndExitButton"
 		_save_exit_button.theme = root_theme
-		_save_exit_button.custom_minimum_size = Vector2(PAUSE_MENU_WIDTH, 48)
+		var solo_speed: bool = not NetworkSession.is_network_match()
+		_save_exit_button.custom_minimum_size = Vector2(PAUSE_MENU_WIDTH - (56.0 if solo_speed else 0.0), 48)
 		_save_exit_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		_save_exit_button.pressed.connect(func() -> void: save_and_exit_requested.emit())
-		vbox.add_child(_save_exit_button)
+		if solo_speed:
+			# Game speed sits beside Save & exit on the pause card rather than
+			# as a permanent pill on the field (single player only).
+			var exit_row := HBoxContainer.new()
+			exit_row.name = "ExitSpeedRow"
+			exit_row.alignment = BoxContainer.ALIGNMENT_CENTER
+			exit_row.add_theme_constant_override("separation", 8)
+			vbox.add_child(exit_row)
+			exit_row.add_child(_save_exit_button)
+			_speed_button = Button.new()
+			_speed_button.name = "SpeedButton"
+			_speed_button.theme = root_theme
+			_speed_button.text = SPEED_LABELS[_game_speed_index]
+			_speed_button.custom_minimum_size = Vector2(48, 48)
+			_speed_button.focus_mode = Control.FOCUS_NONE
+			_speed_button.process_mode = Node.PROCESS_MODE_ALWAYS
+			_speed_button.tooltip_text = "Game speed: tap to cycle"
+			_speed_button.accessibility_name = _speed_button.tooltip_text
+			_speed_button.pressed.connect(_on_speed_pressed)
+			exit_row.add_child(_speed_button)
+			KingdomTheme.apply_secondary(_speed_button)
+			FieldStyle.soften(_speed_button, 24, true)
+		else:
+			vbox.add_child(_save_exit_button)
 		CommandIcons.apply(_save_exit_button, "back", "Save the match and return to the menu", "Save & exit")
 		FieldStyle.soften(_save_exit_button, 24, true)
 		_save_status_label = Label.new()
@@ -1257,7 +1274,7 @@ func _set_gameplay_ui_interactable(interactable: bool) -> void:
 	minimap_bg.mouse_filter = allow_mouse
 	minimap_rect.mouse_filter = allow_mouse
 	if _speed_button:
-		_speed_button.disabled = not interactable or NetworkSession.is_network_match()
+		_speed_button.disabled = NetworkSession.is_network_match()
 	update_camera_zoom(_camera_zoom_current, _camera_zoom_min, _camera_zoom_max)
 	age_up_button.disabled = not interactable
 	build_menu_button.disabled = not interactable
@@ -1319,8 +1336,6 @@ func set_ui_modal_state(state: int) -> void:
 		_build_menu_open = false
 		build_menu_button.text = "Build"
 		build_menu_toggled.emit(false)
-	if _pause_button:
-		_pause_button.text = ">" if paused else "II"
 	_toggle_pause_overlay(paused)
 	_set_gameplay_ui_interactable(not paused)
 	if not paused:
@@ -2015,15 +2030,9 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 	var game_controls: Control = get_node_or_null("Root/GameControlButtons")
 	if game_controls:
 		game_controls.offset_right = -safe_right - 8.0
-		game_controls.offset_left = game_controls.offset_right - 158.0
+		game_controls.offset_left = game_controls.offset_right - PAUSE_PILL_SIZE.x
 		game_controls.offset_top = safe_top + 4.0
 		game_controls.offset_bottom = safe_top + 52.0
-		var backdrop: Control = get_node_or_null("Root/GameControlsBackdrop")
-		if backdrop:
-			backdrop.offset_left = game_controls.offset_left - 6.0
-			backdrop.offset_right = game_controls.offset_right
-			backdrop.offset_top = game_controls.offset_top
-			backdrop.offset_bottom = game_controls.offset_bottom
 	if _score_label:
 		_refresh_score_visibility(viewport_size)
 		_score_label.offset_left = -safe_right - 290.0
@@ -2203,7 +2212,7 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 			metrics["notification_guidance_overlap"] = guidance_rect.has_area() and toast_rect.intersects(guidance_rect, true)
 
 	if _sacred_site_panel:
-		_sacred_site_panel.visible = not _sacred_site_status.is_empty() and standard_field_chrome_visible
+		_sacred_site_panel.visible = _sacred_chip_relevant() and standard_field_chrome_visible
 		var sacred_width: float = _sacred_chip_width()
 		var sacred_left: float = minf(top_bar.offset_right + 8.0, safe_area.end.x - 172.0 - sacred_width)
 		_sacred_site_panel.offset_left = sacred_left - viewport_size.x * 0.5
@@ -2610,8 +2619,6 @@ func set_early_game_ui_state(active: bool) -> void:
 	_early_game_ui_active = active
 	_apply_context_actions(get_viewport().get_visible_rect().size)
 	_refresh_score_visibility(get_viewport().get_visible_rect().size)
-	if _speed_button:
-		_speed_button.modulate = Color(0.72, 0.72, 0.72, 0.8) if active else Color.WHITE
 	if _guidance_dismiss_button:
 		_guidance_dismiss_button.visible = active or _match_learning_active
 	update_idle_villager_count(_last_idle_villager_count)
@@ -3050,7 +3057,7 @@ func show_unit_selection(unit_name: String, current_hp: int, max_hp: int, action
 		_hide_unit_commands()
 	_selection_context_active = true
 	_selection_kind = "unit"
-	_selection_badge = str(count) if count > 1 else "i"
+	_selection_badge = str(count) if count > 1 else ""
 	selection_panel.visible = not _placement_mode_active and _ui_modal_state != UIModalState.BUILD_MENU
 	if count > 1 and unit_name in ["Army", "Units"]:
 		selection_name.text = "%s · %d" % [unit_name, count]
@@ -3127,7 +3134,7 @@ func show_building_selection(building_name: String, current_hp: int, max_hp: int
 	_hide_unit_commands()
 	_selection_context_active = true
 	_selection_kind = "building"
-	_selection_badge = "i"
+	_selection_badge = ""
 	_selection_is_worker = false
 	selection_panel.visible = not _placement_mode_active and _ui_modal_state != UIModalState.BUILD_MENU
 	selection_name.text = building_name
@@ -3210,7 +3217,7 @@ func show_resource_info(type_name: String, remaining: int, total: int, pct: int)
 	_hide_unit_commands()
 	_selection_context_active = true
 	_selection_kind = "resource"
-	_selection_badge = "i"
+	_selection_badge = ""
 	_selection_portrait = CommandIcons.get_icon(type_name.to_lower())
 	_selection_is_worker = false
 	selection_panel.visible = not _placement_mode_active and _ui_modal_state != UIModalState.BUILD_MENU
@@ -3934,23 +3941,8 @@ func _update_train_buttons(trainable_units: Array) -> void:
 		_train_buttons_container.move_child(btn, child_index)
 		child_index += 1
 
-	if _building_rally_button == null:
-		_building_rally_button = Button.new()
-		_building_rally_button.name = "BuildingRallyButton"
-		_building_rally_button.theme = ($Root as Control).theme
-		KingdomTheme.apply_secondary(_building_rally_button)
-		_building_rally_button.toggle_mode = true
-		_building_rally_button.custom_minimum_size = Vector2(48, 48)
-		_building_rally_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		CommandIcons.apply(_building_rally_button, "rally", "Set rally: tap the flag, then ground or a resource for new villagers")
-		_building_rally_button.pressed.connect(func() -> void:
-			if is_instance_valid(_selected_building_ref): building_rally_requested.emit(_selected_building_ref))
-		_train_buttons_container.add_child(_building_rally_button)
-		FieldStyle.soften(_building_rally_button, 14, true)
-	_building_rally_button.visible = (_selected_building_ref as BuildingBase).building_type != BuildingData.BuildingType.TRADE_POST
-	_building_rally_button.disabled = not _is_human_owned_building(_selected_building_ref) or (_selected_building_ref as BuildingBase).state != BuildingBase.State.ACTIVE
-	_building_rally_button.set_pressed_no_signal(_rally_armed)
-	_train_buttons_container.move_child(_building_rally_button, child_index)
+	# No rally-flag tile: with a producer selected, a ground or resource tap
+	# (or a drag from the building) already sets its rally.
 	# No automatic production (owner, beta 22): queue as many as you can afford.
 	if is_instance_valid(_auto_queue_button):
 		_auto_queue_button.hide()
@@ -5145,7 +5137,10 @@ func update_sacred_site_status(status: Dictionary) -> void:
 	if _sacred_site_label == null:
 		return
 	var first_status: bool = _sacred_site_status.is_empty() or int(_sacred_site_status.get("owner", -1)) != int(status.get("owner", -1))
+	var was_relevant: bool = _sacred_chip_relevant()
 	_sacred_site_status = status.duplicate()
+	if was_relevant != _sacred_chip_relevant():
+		first_status = true
 	var phase: String = str(status.get("phase", "neutral"))
 	var controlled: bool = int(status.get("owner", -1)) >= 0
 	# Whose clock it is must read at a glance: the owner's name leads the time.
@@ -5180,6 +5175,22 @@ func update_sacred_site_status(status: Dictionary) -> void:
 		show_sacred_site_selection(status)
 	if first_status or width_changed:
 		_queue_mobile_layout_refresh()
+
+
+## The Sacred chip earns its place only when the site matters: someone owns
+## or is taking it, a fight is on, or its victory clock opens within two
+## minutes (or already has). A quiet neutral site early on stays off the rail;
+## the site itself and the minimap still show where it is.
+const SACRED_CHIP_LEAD_SECONDS := 120.0
+
+func _sacred_chip_relevant() -> bool:
+	if _sacred_site_status.is_empty():
+		return false
+	if int(_sacred_site_status.get("owner", -1)) >= 0:
+		return true
+	if str(_sacred_site_status.get("phase", "neutral")) != "neutral":
+		return true
+	return float(_sacred_site_status.get("wake_remaining", 0.0)) <= SACRED_CHIP_LEAD_SECONDS
 
 
 ## The chip fits its words: icon only while neutral and silent, wider for
@@ -5300,8 +5311,10 @@ func _create_minimap_hint() -> void:
 	_minimap_hint_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_minimap_hint_label.add_theme_font_size_override("font_size", 11)
 	_minimap_hint_label.add_theme_color_override("font_color", Color(0.98, 0.94, 0.8))
-	_minimap_hint_label.text = "MAP · tap to view"
-	_minimap_hint_label.visible = true
+	# No standing caption: the minimap reads as a map, and a tap moves the
+	# camera there. set_minimap_hint() can still raise a transient line.
+	_minimap_hint_label.text = ""
+	_minimap_hint_label.visible = false
 	_minimap_hint_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	minimap_bg.add_child(_minimap_hint_label)
 
@@ -5621,19 +5634,8 @@ func _create_secondary_surface_controls() -> void:
 
 
 func _create_compact_dock_controls() -> void:
-	var row: HBoxContainer = selection_info_column.get_parent()
-	_dock_toggle_button = Button.new()
-	_dock_toggle_button.name = "DockToggle"
-	_dock_toggle_button.theme = ($Root as Control).theme
-	KingdomTheme.apply_secondary(_dock_toggle_button)
-	_dock_toggle_button.custom_minimum_size = Vector2(48, 48)
-	_dock_toggle_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	_dock_toggle_button.icon = ACTION_TILE.chevron(false)
-	_dock_toggle_button.tooltip_text = "Collapse orders"
-	FieldStyle.soften(_dock_toggle_button, 24, true)
-	row.add_child(_dock_toggle_button)
-	row.move_child(_dock_toggle_button, 0)
-	_dock_toggle_button.pressed.connect(func() -> void: set_dock_collapsed(not _dock_collapsed))
+	# No chevron button: tapping the selected building again deselects it, and
+	# a double-tap on the dock background still tucks it into a pill.
 	# Double-tap the dock's own background to tuck it into a pill; a tap on the
 	# pill brings the orders back. Buttons keep their own taps.
 	_dock_gesture = DOUBLE_TAP.attach([selection_panel, command_scroll, selection_info_column],
@@ -5659,8 +5661,6 @@ func set_dock_collapsed(collapsed: bool) -> void:
 	_dock_collapsed = collapsed
 	if _dock_gesture != null:
 		_dock_gesture.call("reset")
-	_dock_toggle_button.icon = ACTION_TILE.chevron(_dock_collapsed)
-	_dock_toggle_button.tooltip_text = "Expand orders" if _dock_collapsed else "Collapse orders"
 	close_secondary_surface()
 	_queue_mobile_layout_refresh()
 

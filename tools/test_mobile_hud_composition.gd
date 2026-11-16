@@ -70,7 +70,7 @@ func _exercise_profile(phone: Vector2i, ui_scale: float, notched: bool) -> void:
 	_expect(not (hud.get("_select_area_button") as Button).is_visible_in_tree(), profile + " collapsed navigation exposes area selection")
 	_expect(top_rail.size.y <= 56.5, profile + " top rail exceeds56")
 	_expect(minimap.size.x <= 120.5, profile + " minimap exceeds120")
-	for key: String in ["_town_center_button", "_idle_villager_button", "_select_military_button", "build_menu_button", "_camera_view_button", "_pause_button", "_speed_button"]:
+	for key: String in ["_town_center_button", "_idle_villager_button", "_select_military_button", "build_menu_button", "_camera_view_button", "_pause_button"]:  # Speed moved to the pause card.
 		_target(hud.get(key), safe, profile)
 	_assert_field(hud, safe, profile + " kingdom")
 

@@ -143,7 +143,7 @@ func _fighter_journey(phone: Vector2i, scale: float, notched: bool) -> void:
 	_main.call("_update_idle_villager_count")
 	_expect(not bool(_main.call("_is_live_owned_fighter", first)) and int(_hud.get("_last_military_count")) == 0, "zero-damage actor setup is not combat-ready")
 	await _hold_open(army_button)
-	_expect(select_button.disabled and (overview.get("_focus_army_button") as Button).disabled and army_button.get_node("CommandIconBadge").text == "0", "Scout-only combat roster honestly disables selection and Find")
+	_expect(select_button.disabled and (overview.get("_focus_army_button") as Button).disabled and not army_button.get_node("CommandIconBadge").visible, "Scout-only combat roster honestly disables selection and Find")
 	_hud.call("close_secondary_surface")
 	var empty_camera: Vector2 = camera.position
 	await _action("select_all_military")

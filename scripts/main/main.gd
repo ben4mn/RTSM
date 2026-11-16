@@ -664,8 +664,6 @@ func _bootstrap_opening_guidance() -> void:
 	hud.set_early_game_ui_state(_guided_opening_active)
 	hud.set_guided_military_shortcuts_visible(false)
 	hud.set_pending_military_shortcut(false)
-	# The camera outline needs a visible explanation outside the map drawing.
-	hud.set_minimap_hint("Map · tap to view")
 	if _guided_opening_active:
 		call_deferred("_update_progression_hint")
 	else:
@@ -4268,7 +4266,6 @@ func _update_progression_hint() -> void:
 		_clear_guidance_state()
 		return
 	_refresh_guided_opening_stage()
-	hud.set_minimap_hint("Map · tap to view")
 
 	var military: int = 0
 	var has_tc_selected: bool = false

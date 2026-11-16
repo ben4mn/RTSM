@@ -1981,7 +1981,10 @@ func get_visual_bounds() -> Rect2:
 func _draw() -> void:
 	super._draw()
 	var kind: String = _resource_marker_type()
-	_sync_cargo_badge(kind)
+	# Declutter: the job/cargo badge belongs to selected workers only. A crowd
+	# of unselected gatherers reads through their animation and the economy
+	# overview instead of a badge over every head.
+	_sync_cargo_badge(kind if is_selected else "")
 	if kind == "":
 		return
 	# The badge itself is a baked sprite on its own layer (CargoBadges); only a
