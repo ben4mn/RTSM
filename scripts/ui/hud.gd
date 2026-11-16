@@ -1728,7 +1728,7 @@ func configure_unit_commands(
 		return
 	if authorized and not _movement_controls_hint_shown:
 		_movement_controls_hint_shown = true
-		show_notification("Tap: move · Hold: waypoint · Hold, pull down: attack · Hold, drag: box", KingdomTheme.MUTED, 4.0)
+		show_hint("Tap: move · Hold: waypoint · Hold, pull down: attack · Hold, drag: box", KingdomTheme.MUTED, 4.0)
 	_unit_commands_authorized = authorized
 	_unit_commands_have_military = has_military
 	_unit_command_mode = armed_mode
@@ -4093,7 +4093,7 @@ func _on_train_button_pressed(unit_type: int) -> void:
 		_train_tap_msec = now_msec
 		if _train_tap_streak >= 3 and not _train_hold_hint_shown:
 			_train_hold_hint_shown = true
-			show_notification("Tip: hold the card to queue many", KingdomTheme.PARCHMENT, 3.5)
+			show_hint("Tip: hold the card to queue many", KingdomTheme.PARCHMENT, 3.5)
 
 
 func _refresh_auto_queue_button(production_queue: Node) -> void:

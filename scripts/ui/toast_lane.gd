@@ -24,6 +24,9 @@ const MAX_VISIBLE: int = 1
 const MAX_WIDTH: float = 340.0
 ## A plain contextual hint waits this long for the channel before it is dropped.
 const HINT_WAIT_MSEC: int = 20000
+## An untappable message stays at least this long before newer, less
+## important feedback may take its slot.
+const MIN_READ_MSEC: int = 1500
 const PENDING_LIFETIME_MSEC: int = 5000
 const FADE_SECONDS: float = 0.4
 const ACTION_HEIGHT: float = 48.0
@@ -187,6 +190,11 @@ func _victim_for(live: Array[PanelContainer], priority: int) -> PanelContainer:
 		if victim == null or _rank(pill) < _rank(victim):
 			victim = pill
 	if victim != null and _rank(victim) <= priority:
+		return victim
+	# With a single slot, a message that answers the player's latest action
+	# also wins over an older plain (untappable) one already read for a moment.
+	if victim != null and not bool(victim.get_meta("toast_tappable", false)) \
+			and Time.get_ticks_msec() - int(victim.get_meta("toast_shown_msec", 0)) >= MIN_READ_MSEC:
 		return victim
 	return null
 
