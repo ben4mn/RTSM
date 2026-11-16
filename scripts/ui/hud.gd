@@ -62,7 +62,6 @@ const MOBILE_ACTION_MAX_BUTTON_WIDTH := 116.0
 const MOBILE_ACTION_GAP := 6.0
 const PLACEMENT_BUTTON_WIDTHS: Array[float] = [112.0, 100.0, 56.0]
 const PAUSE_MENU_WIDTH := 248.0
-const PAUSE_WEB_TOOLS_WIDTH := 290.0
 const MOBILE_ACTION_MARGIN := 8.0
 const MOBILE_ACTION_INNER_PADDING := 4.0
 const MOBILE_ACTION_VERTICAL_PADDING := 0.0
@@ -121,6 +120,7 @@ var _selection_meter_information: String = ""
 var _info_panel: PanelContainer = null
 var _info_title: Label = null
 var _info_body: Label = null
+var _info_actions: HBoxContainer = null
 var _info_from_build_menu: bool = false
 var _secondary_dismissal_shield: Control = null
 
@@ -168,7 +168,6 @@ var _movement_controls_hint_shown: bool = false
 var _selection_kind: String = "none"
 var _selection_is_worker: bool = false
 var _selection_is_scout: bool = false
-var _age_action_primary: bool = false
 var _camera_zoom_in_button: Button = null
 var _camera_zoom_out_button: Button = null
 var _camera_zoom_reset_button: Button = null
@@ -336,6 +335,7 @@ func _ready() -> void:
 	age_up_button.pressed.connect(_on_age_up_pressed)
 	age_up_button.visible = true
 	age_up_button.tooltip_text = "Advance to next age"
+	_style_age_chip()
 
 	# Apply custom theme
 	_apply_game_theme()
@@ -544,7 +544,6 @@ func _process_hud(_delta: float) -> void:
 		_refresh_selection_type_chips()
 	_focus_pulse_time += _delta
 	_refresh_primary_action_visuals()
-	_place_age_blocked_note()
 	_age_refresh_elapsed += _delta
 	if _age_refresh_elapsed >= 0.25:
 		_age_refresh_elapsed = 0.0
@@ -787,12 +786,11 @@ func _configure_mobile_visuals() -> void:
 	# Reuse the game's own readable silhouettes so the primary controls scan as
 	# game actions rather than anonymous text slabs.
 	_set_button_icon(build_menu_button, BuildingBase.get_sprite_texture_path(BuildingData.BuildingType.HOUSE, 0), 26)
-	_set_button_icon(age_up_button, BuildingBase.get_sprite_texture_path(BuildingData.BuildingType.TOWN_CENTER, 0), 24)
 	_set_button_icon(_idle_villager_button, UnitData.get_unit_icon_path(UnitData.UnitType.VILLAGER, 0), 24)
 	_set_button_icon(_select_military_button, UnitData.get_unit_icon_path(UnitData.UnitType.SCOUT, 0), 24)
 	_set_button_icon(_find_army_button, UnitData.get_unit_icon_path(UnitData.UnitType.SCOUT, 0), 22)
 	_set_button_icon(_town_center_button, BuildingBase.get_sprite_texture_path(BuildingData.BuildingType.TOWN_CENTER, 0), 24)
-	for button in [build_menu_button, age_up_button, _idle_villager_button, _select_military_button, _find_army_button]:
+	for button in [build_menu_button, _idle_villager_button, _select_military_button, _find_army_button]:
 		if button:
 			button.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
 			button.alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -1101,7 +1099,11 @@ func _create_pause_overlay() -> void:
 	vbox.add_child(utility_row)
 	var sound_btn := _pause_tool("SettingsButton", "settings", "Settings: sound, controls and display", "Settings")
 	sound_btn.pressed.connect(func() -> void:
-		load("res://scripts/ui/settings_panel.gd").open(_pause_overlay, true)
+		var settings: Node = load("res://scripts/ui/settings_panel.gd").open(_pause_overlay, true)
+		# Settings restores the browser buttons on close; the pause card keeps
+		# them hidden (see main._on_game_state_changed).
+		if settings != null and settings.has_signal("closed") and not settings.is_connected("closed", _hide_web_tools_while_paused):
+			settings.connect("closed", _hide_web_tools_while_paused)
 	)
 	utility_row.add_child(sound_btn)
 	var guide_btn := _pause_tool("FieldGuideButton", "info", "Field guide: learn icons, orders and resource costs", "Guide")
@@ -1177,6 +1179,11 @@ func _create_pause_overlay() -> void:
 	call_deferred("_refresh_touch_target_diagnostics")
 
 
+func _hide_web_tools_while_paused() -> void:
+	if _ui_modal_state == UIModalState.PAUSE_MENU:
+		preload("res://scripts/ui/web_shell_bridge.gd").set_controls_visible(false)
+
+
 func _pause_tool(node_name: String, icon: String, accessible: String, caption: String) -> Button:
 	var button := Button.new()
 	button.name = node_name
@@ -1211,12 +1218,8 @@ func _layout_pause_menu(viewport_size: Vector2, safe_area: Rect2) -> void:
 	var safe_bounds: Rect2 = safe_area.intersection(Rect2(Vector2.ZERO, viewport_size))
 	if not safe_bounds.has_area():
 		safe_bounds = Rect2(Vector2.ZERO, viewport_size)
-	var web_tools_clearance: float = 0.0
-	if _pause_overlay.visible:
-		# The browser's Updates / Full screen buttons sit in the top-right corner
-		# while the match menu is open. Keep the card clear of them: beside them
-		# on wide screens, below them otherwise.
-		web_tools_clearance = preload("res://scripts/ui/web_shell_bridge.gd").get_menu_top_clearance(viewport_size)
+	# The browser's Updates / Full screen buttons are hidden while paused in a
+	# match, so the card always centres in the safe area.
 	var available_size := Vector2(maxf(200.0, safe_bounds.size.x - 16.0), maxf(200.0, safe_bounds.size.y - 16.0))
 	var desired_size: Vector2 = pause_menu.get_combined_minimum_size()
 	desired_size.x = minf(maxf(250.0, desired_size.x), available_size.x)
@@ -1230,12 +1233,6 @@ func _layout_pause_menu(viewport_size: Vector2, safe_area: Rect2) -> void:
 	var show_art: bool = available_size.x >= desired_size.x + art_width + 72.0
 	var card_width: float = desired_size.x + (art_width + 24.0 if show_art else 0.0)
 	var card_left: float = safe_bounds.position.x + (safe_bounds.size.x - card_width) * 0.5
-	if web_tools_clearance > 0.0:
-		var beside_tools: float = viewport_size.x - PAUSE_WEB_TOOLS_WIDTH - 24.0 - card_width
-		if beside_tools >= safe_bounds.position.x + 8.0:
-			card_left = minf(card_left, beside_tools)
-		elif web_tools_clearance > safe_bounds.position.y and safe_bounds.end.y - web_tools_clearance >= desired_size.y + 16.0:
-			safe_bounds = Rect2(Vector2(safe_bounds.position.x, web_tools_clearance), Vector2(safe_bounds.size.x, safe_bounds.end.y - web_tools_clearance))
 	pause_menu.position = Vector2(card_left + (art_width + 24.0 if show_art else 0.0), safe_bounds.position.y + (safe_bounds.size.y - desired_size.y) * 0.5)
 	if art:
 		art.visible = show_art
@@ -2000,6 +1997,7 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 		for chip: Control in _resource_chips.values():
 			resource_width += chip.get_combined_minimum_size().x + 8.0
 		if age_label.visible: resource_width += age_label.get_combined_minimum_size().x + 8.0
+	if age_up_button.visible: resource_width += age_up_button.get_combined_minimum_size().x + 8.0
 	top_bar.offset_right = top_bar.offset_left + maxf(resource_width + 20.0, top_bar.get_combined_minimum_size().x)
 	top_bar.offset_top = safe_top + 4.0
 	top_bar.offset_bottom = safe_top + 52.0
@@ -2062,7 +2060,7 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 		metrics["camera_zoom_bottom"] = viewport_size.y + _navigation_controls.offset_bottom
 	var bottom_right: Control = get_node_or_null("Root/BottomRight")
 	if bottom_right:
-		bottom_right.visible = standard_field_chrome_visible and (age_up_button.visible or build_menu_button.visible)
+		bottom_right.visible = standard_field_chrome_visible and build_menu_button.visible
 		bottom_right.offset_left = metrics["bottom_right_left"]
 		bottom_right.offset_right = metrics["bottom_right_right"]
 		bottom_right.offset_bottom = metrics["bottom_right_bottom"]
@@ -2166,7 +2164,6 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 		_placement_status_panel.offset_bottom = metrics["action_top"] - 8.0
 		_placement_status_panel.offset_top = _placement_status_panel.offset_bottom - 32.0
 	var side_button_size := Vector2(metrics["side_button_width"], metrics["side_button_height"])
-	age_up_button.custom_minimum_size = side_button_size
 	build_menu_button.custom_minimum_size = side_button_size
 
 	if _progression_hint_panel:
@@ -2197,7 +2194,7 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 					toast_left = undo_left + 128.0 + 8.0
 			var guidance_rect := Rect2(Vector2(hint_left, _progression_hint_panel.offset_top), Vector2(hint_width, MOBILE_GUIDANCE_HEIGHT)) if _progression_hint_panel.visible else Rect2()
 			_notification_container.place(safe_area, metrics["safe_top"] + MOBILE_TOP_RAIL_HEIGHT + 8.0, toast_left, guidance_rect)
-			var toast_rect := Rect2(_notification_container.position, Vector2(_notification_container.size.x, ToastLane.ACTION_HEIGHT * 2.0 + 4.0))
+			var toast_rect := Rect2(_notification_container.position, Vector2(_notification_container.size.x, ToastLane.ACTION_HEIGHT + 4.0))
 			metrics["notification_left"] = toast_rect.position.x
 			metrics["notification_right"] = toast_rect.end.x
 			metrics["notification_top"] = toast_rect.position.y
@@ -2249,19 +2246,15 @@ func _apply_context_actions(viewport_size: Vector2) -> void:
 	var phone: bool = minf(viewport_size.x, viewport_size.y) <= 520.0
 	var field_mode: bool = not _placement_mode_active and _ui_modal_state != UIModalState.BUILD_MENU
 	var unselected: bool = not _selection_context_active
-	var human_building: bool = is_instance_valid(_selected_building_ref) and _is_human_owned_building(_selected_building_ref)
-	var town_center: bool = human_building and (_selected_building_ref as BuildingBase).building_type == BuildingData.BuildingType.TOWN_CENTER
 	var worker: bool = _selection_kind == "unit" and _selection_is_worker and _unit_commands_authorized and not _unit_commands_have_military
 	# I2: a mixed selection that holds villagers can build too (they are the builders).
 	var mixed_workers: bool = _selection_kind == "unit" and _unit_commands_authorized and _selection_unit_owner == 0 \
 		and int(_selection_role_counts.get(UnitData.UnitType.VILLAGER, 0)) > 0
 	build_menu_button.visible = field_mode and (unselected or worker or mixed_workers)
 	var gm: Node = _get_game_manager()
-	var can_advance: bool = gm == null or not gm.get_age_up_cost(0, gm.get_player_age(0) + 1).is_empty()
-	# The optional opener can suggest a next step without hiding a paid action.
-	# Round 2 B: a running age-up keeps its meter on screen for every selection.
-	var age_in_progress: bool = gm != null and not gm.get_age_up_state(0).is_empty()
-	age_up_button.visible = field_mode and can_advance and (town_center or age_in_progress)
+	# The age chip lives in the top bar for every selection: one tap advances
+	# (or says what is missing); a running age-up shows its ring there.
+	age_up_button.visible = gm != null
 	_selection_back_button.visible = field_mode and _camera_controls_expanded and _selection_context_active and _selection_kind != "unit"
 	_selection_back_button.text = "Back"
 	_select_area_button.visible = field_mode and _camera_controls_expanded
@@ -2271,13 +2264,6 @@ func _apply_context_actions(viewport_size: Vector2) -> void:
 	var military_allowed: bool = not _early_game_ui_active or _guided_military_shortcuts_visible
 	_select_military_button.visible = _strategy_overview == null and field_mode and military_allowed and (_last_military_count > 0 or _pending_military_shortcut) and unselected
 	_find_army_button.visible = _strategy_overview == null and field_mode and not phone and military_allowed and _last_military_count > 0 and unselected
-	var primary_age: bool = town_center
-	if primary_age != _age_action_primary:
-		_age_action_primary = primary_age
-		if primary_age:
-			KingdomTheme.apply_primary(age_up_button)
-		else:
-			KingdomTheme.apply_secondary(age_up_button)
 
 
 func _calculate_mobile_layout_metrics(viewport_size: Vector2, safe_area: Rect2, action_button_count: int) -> Dictionary:
@@ -2287,8 +2273,8 @@ func _calculate_mobile_layout_metrics(viewport_size: Vector2, safe_area: Rect2, 
 	var bottom_inset: float = maxf(0.0, viewport_size.y - safe_end.y)
 	var short_side: float = minf(safe_area.size.x, safe_area.size.y)
 	var phone: bool = short_side <= MOBILE_TOP_BAR_COMPACT_SHORT_SIDE
-	var side_button_width: float = 56.0 if age_up_button.visible else 48.0
-	var side_count: int = int(age_up_button.visible) + int(build_menu_button.visible)
+	var side_button_width: float = 48.0
+	var side_count: int = int(build_menu_button.visible)
 	var side_width: float = side_button_width * float(side_count) + 6.0 * float(maxi(0, side_count - 1))
 	var bottom_right_right: float = -right_inset - MOBILE_ACTION_MARGIN
 	var bottom_right_left: float = bottom_right_right - side_width
@@ -2678,6 +2664,7 @@ func _refresh_progression_hint_visibility() -> void:
 	if _progression_hint_panel.visible != show_hint:
 		_progression_hint_panel.visible = show_hint
 		_queue_mobile_layout_refresh()
+	_refresh_advisory_hold()
 
 
 func set_minimap_hint(text: String) -> void:
@@ -2824,31 +2811,10 @@ func update_population(current: int, cap: int) -> void:
 	var population_chip: Control = _resource_chips.get("population")
 	if population_chip != null:
 		(population_chip.get_node("ResourceIcon") as TextureRect).modulate = population_color
-	var current_age: String = ""
+	# The age lives on the top bar's age chip (its numeral, ring and hold info),
+	# so the population chip carries only housing.
 	if _top_bar_compact:
-		var gm: Node = _get_game_manager()
-		current_age = gm.get_age_name(gm.get_player_age(0)) if gm else "Dark Age"
-		if _resource_grid_compact:
-			var age_index: int = clampi(gm.get_player_age(0) if gm else 1, 1, 4)
-			pop_label.text += " · " + ["I", "II", "III", "IV"][age_index - 1]
-		else:
-			pop_label.text += "\n" + current_age
-		pop_label.tooltip_text += " · " + current_age
-		pop_label.accessibility_name = pop_label.tooltip_text
-	# Distinguish housing (raised by Houses) from the agreed match maximum.
-	# The compact resource grid has only two rows; keep its Age numeral inline.
-	if _resource_grid_compact:
-		var gm: Node = _get_game_manager()
-		var age_index: int = clampi(gm.get_player_age(0) if gm else 1, 1, 4)
-		pop_label.text = "%d/%d · %s" % [current, cap, ["I", "II", "III", "IV"][age_index - 1]]
-		pop_label.add_theme_font_size_override("font_size", 12)
-	elif _top_bar_compact:
-		var gm: Node = _get_game_manager()
-		var age_index: int = clampi(gm.get_player_age(0) if gm else 1, 1, 4)
-		pop_label.text = "%d/%d · %s" % [current, cap, ["I", "II", "III", "IV"][age_index - 1]]
-		pop_label.add_theme_font_size_override("font_size", 14)
-	else:
-		pass # Match limits live in population Info, not the field banner.
+		pop_label.add_theme_font_size_override("font_size", 12 if _resource_grid_compact else 14)
 
 
 func _population_information() -> Dictionary:
@@ -2897,124 +2863,94 @@ func _on_age_advanced(_player_id: int, _new_age: int) -> void:
 	update_population(_population_current, _population_cap)
 
 
+const AGE_CHIP_RING := preload("res://scripts/ui/age_chip_ring.gd")
+const AGE_NUMERALS: Array[String] = ["I", "II", "III", "IV"]
+const AGE_CHIP_SIZE := Vector2(48, 48)
+
+
+func _age_numeral(age: int) -> String:
+	return AGE_NUMERALS[clampi(age, 1, AGE_NUMERALS.size()) - 1]
+
+
+func _style_age_chip() -> void:
+	## The top bar's age chip: the next age's numeral inside a ring that fills
+	## as its cost is banked (gold once a tap would start it), then tracks the
+	## running age-up. Tap advances or says what is missing; hold explains.
+	age_up_button.custom_minimum_size = AGE_CHIP_SIZE
+	age_up_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	age_up_button.focus_mode = Control.FOCUS_NONE
+	age_up_button.icon = null
+	age_up_button.clip_text = false
+	age_up_button.alignment = HORIZONTAL_ALIGNMENT_CENTER
+	age_up_button.add_theme_font_override("font", KingdomTheme.FONT_HEADING)
+	age_up_button.add_theme_font_size_override("font_size", 15)
+	var clear := StyleBoxEmpty.new()
+	for state: String in ["normal", "hover", "pressed", "disabled", "focus", "hover_pressed"]:
+		age_up_button.add_theme_stylebox_override(state, clear)
+	if age_up_button.get_node_or_null("AgeRing") == null:
+		var ring: Control = AGE_CHIP_RING.new()
+		age_up_button.add_child(ring)
+		ring.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+
+
+func _paint_age_chip(numeral: String, progress: float, ring_color: Color, text_color: Color) -> void:
+	age_up_button.text = numeral
+	for key: String in ["font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color", "font_focus_color", "font_disabled_color"]:
+		age_up_button.add_theme_color_override(key, text_color)
+	var ring: Control = age_up_button.get_node_or_null("AgeRing") as Control
+	if ring != null:
+		ring.set("progress", progress)
+		ring.set("color", ring_color)
+		ring.set("fill", Color(KingdomTheme.GOLD, 0.22) if ring_color == KingdomTheme.GOLD and progress >= 1.0 else Color(KingdomTheme.INK, 0.94))
+
+
 func _update_age_display() -> void:
 	var gm: Node = _get_game_manager()
-	if gm:
-		var age: int = gm.get_player_age(0)
-		age_label.text = gm.get_age_name(age)
-		var cost: Dictionary = gm.get_age_up_cost(0, age + 1)
-		# A single age icon uses a resource-readiness seam; hold/Info shows exact costs.
-		age_up_button.icon = CommandIcons.get_icon("age_up")
-		age_up_button.add_theme_constant_override("icon_max_width", 24)
-		age_up_button.add_theme_font_size_override("font_size", 13)
-		age_up_button.add_theme_color_override("font_disabled_color", KingdomTheme.MUTED)
-		var advancing: Dictionary = gm.get_age_up_state(0)
-		if advancing.is_empty() != _age_up_was_idle:
-			_age_up_was_idle = advancing.is_empty()
-			_queue_mobile_layout_refresh()
-		if not advancing.is_empty():
-			# Timed age-up in progress: the seam is the research meter and a
-			# tap jumps to the Town Center (cancel there, full refund).
-			var seconds_left: int = ceili(float(advancing["duration"]) * (1.0 - float(advancing["progress"])))
-			age_up_button.text = "%ds" % seconds_left
-			FieldStyle.production_meter(age_up_button, float(advancing["progress"]))
-			age_up_button.tooltip_text = "Advancing to %s: %d s left.\nTap to view the Town Center. Tap its age card to cancel for a full refund." % [gm.get_age_name(int(advancing["target_age"])), seconds_left]
-			age_up_button.accessibility_name = age_up_button.tooltip_text
-			age_up_button.disabled = _ui_modal_state != UIModalState.NONE
-			age_up_button.modulate = Color.WHITE
-		elif not cost.is_empty():
-			var rm: Node = _get_resource_manager()
-			var affordable: bool = rm != null and rm.can_afford(0, cost)
-			var reason: String = str(gm.get_age_up_failure_reason(0))
-			# A missing building (or busy Town Center) is said on the button and
-			# explained on tap; a resource shortage keeps the readiness seam.
-			var blocked_copy: String = "" if reason in ["", "unaffordable", "match_inactive", "purchase_in_progress"] else str(gm.describe_age_up_failure(0))
-			age_up_button.text = ["I", "II", "III", "IV"][mini(age, 3)]
-			var stock: Dictionary = rm.get_all_resources(0) if rm else {}
-			var readiness: float = 1.0
-			for resource: String in cost:
-				if float(cost[resource]) > 0:
-					readiness = minf(readiness, float(stock.get(resource, 0)) / float(cost[resource]))
-			FieldStyle.production_meter(age_up_button, clampf(readiness, 0.0, 1.0))
-			age_up_button.tooltip_text = _get_age_up_preview(age + 1)
-			age_up_button.accessibility_name = age_up_button.tooltip_text
-			age_up_button.disabled = not affordable or _ui_modal_state != UIModalState.NONE
-			age_up_button.modulate = Color.WHITE if affordable and blocked_copy.is_empty() else Color(0.8, 0.8, 0.8)
-			_set_age_blocked_note(blocked_copy)
-		else:
-			age_up_button.text = "Max Age"
-			age_up_button.tooltip_text = "You have reached the highest age"
-			age_up_button.accessibility_name = age_up_button.tooltip_text
-			age_up_button.disabled = true
-		if not advancing.is_empty() or cost.is_empty():
-			_set_age_blocked_note("")
-	else:
+	if gm == null:
 		age_label.text = "Dark Age"
+		return
+	var age: int = gm.get_player_age(0)
+	age_label.text = gm.get_age_name(age)
+	var cost: Dictionary = gm.get_age_up_cost(0, age + 1)
+	var advancing: Dictionary = gm.get_age_up_state(0)
+	if advancing.is_empty() != _age_up_was_idle:
+		_age_up_was_idle = advancing.is_empty()
+		_queue_mobile_layout_refresh()
+	# Never disabled for a shortfall: a tap explains what is missing instead.
+	age_up_button.disabled = _ui_modal_state != UIModalState.NONE
+	age_up_button.set_meta("age_chip_ready", false)
+	age_up_button.set_meta("age_chip_affordable", false)
+	if not advancing.is_empty():
+		# Timed age-up in progress: the ring is the research meter and a tap
+		# jumps to the Town Center (cancel there, full refund).
+		var seconds_left: int = ceili(float(advancing["duration"]) * (1.0 - float(advancing["progress"])))
+		_paint_age_chip(_age_numeral(int(advancing["target_age"])), float(advancing["progress"]), KingdomTheme.TEAL, KingdomTheme.TEAL)
+		age_up_button.tooltip_text = "Advancing to %s: %d s left.\nTap to view the Town Center. Tap its age card to cancel for a full refund." % [gm.get_age_name(int(advancing["target_age"])), seconds_left]
+	elif not cost.is_empty():
+		var rm: Node = _get_resource_manager()
+		var stock: Dictionary = rm.get_all_resources(0) if rm else {}
+		var readiness: float = 1.0
+		for resource: String in cost:
+			if float(cost[resource]) > 0:
+				readiness = minf(readiness, float(stock.get(resource, 0)) / float(cost[resource]))
+		var ready: bool = str(gm.get_age_up_failure_reason(0)) == ""
+		age_up_button.set_meta("age_chip_ready", ready)
+		age_up_button.set_meta("age_chip_affordable", rm != null and rm.can_afford(0, cost))
+		_paint_age_chip(_age_numeral(age + 1), clampf(readiness, 0.0, 1.0), KingdomTheme.GOLD if ready else Color(KingdomTheme.GOLD, 0.55), KingdomTheme.GOLD if ready else KingdomTheme.PARCHMENT)
+		age_up_button.tooltip_text = "%s\nNow: %s" % [_get_age_up_preview(age + 1), gm.get_age_name(age)]
+	else:
+		_paint_age_chip(_age_numeral(age), 1.0, KingdomTheme.BORDER, KingdomTheme.MUTED)
+		age_up_button.tooltip_text = "%s: the final age" % gm.get_age_name(age)
+		age_up_button.disabled = true
+	age_up_button.accessibility_name = age_up_button.tooltip_text
 
 
 var _age_up_was_idle: bool = true
-var _age_blocked_note: Label = null
 var _age_refresh_elapsed: float = 0.0
 
 
 func refresh_age_display() -> void:
 	_update_age_display()
-
-
-func _set_age_blocked_note(copy: String) -> void:
-	## "Need a Barracks or Resource Camp" above the age button, in the blocked
-	## card voice. It lives on the HUD root so no shelf can clip it and is only
-	## shown while the button itself is on screen (see _place_age_blocked_note).
-	if copy.is_empty() and _age_blocked_note == null:
-		return
-	if _age_blocked_note == null:
-		_age_blocked_note = Label.new()
-		_age_blocked_note.name = "AgeBlockedNote"
-		_age_blocked_note.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_age_blocked_note.add_theme_font_size_override("font_size", 11)
-		_age_blocked_note.add_theme_color_override("font_color", KingdomTheme.RUST)
-		var note_style: StyleBoxFlat = KingdomTheme.panel_style(Color(KingdomTheme.INK, 0.92), Color.TRANSPARENT, 8)
-		note_style.set_content_margin_all(0)
-		note_style.content_margin_left = 23.0
-		note_style.content_margin_right = 7.0
-		note_style.content_margin_top = 2.0
-		note_style.content_margin_bottom = 3.0
-		_age_blocked_note.add_theme_stylebox_override("normal", note_style)
-		_age_blocked_note.z_index = 50  # A pinned tab over the shelf edge, never under it.
-		# The age glyph says what the note is about now that it sits beside,
-		# not on, the age button.
-		var note_glyph := TextureRect.new()
-		note_glyph.name = "AgeGlyph"
-		note_glyph.texture = CommandIcons.get_icon("age_up")
-		note_glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		note_glyph.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		note_glyph.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		note_glyph.modulate = KingdomTheme.RUST
-		note_glyph.position = Vector2(6.0, 2.0)
-		note_glyph.size = Vector2(13.0, 13.0)
-		_age_blocked_note.add_child(note_glyph)
-		($Root as Control).add_child(_age_blocked_note)
-	_age_blocked_note.text = copy
-	_place_age_blocked_note()
-
-
-func _place_age_blocked_note() -> void:
-	if _age_blocked_note == null:
-		return
-	_age_blocked_note.visible = not _age_blocked_note.text.is_empty() and age_up_button.is_visible_in_tree() and _ui_modal_state == UIModalState.NONE
-	if not _age_blocked_note.visible:
-		return
-	_age_blocked_note.reset_size()
-	var root_control: Control = $Root as Control
-	var anchor: Rect2 = root_control.get_global_transform().affine_inverse() * age_up_button.get_global_rect()
-	var note_size: Vector2 = _age_blocked_note.get_combined_minimum_size()
-	# Resting on the dock's top edge, left of the strategy rail: it covers
-	# neither a tile's name in the row nor a launcher above it.
-	var note_right: float = anchor.end.x
-	if _strategy_overview != null and _strategy_overview.rail.is_visible_in_tree():
-		var rail_rect: Rect2 = root_control.get_global_transform().affine_inverse() * _strategy_overview.rail.get_global_rect()
-		note_right = minf(note_right, rail_rect.position.x - 8.0)
-	_age_blocked_note.position = Vector2(clampf(note_right - note_size.x, 4.0, maxf(4.0, root_control.size.x - note_size.x - 4.0)), anchor.position.y - note_size.y - 8.0)
 
 
 func _get_age_up_preview(next_age: int) -> String:
@@ -3077,7 +3013,7 @@ func _age_up_information() -> Dictionary:
 	var gm: Node = _get_game_manager()
 	if gm == null or gm.get_player_age(0) >= gm.MAX_AGE:
 		return {"title": "Age Up", "body": "You have reached the highest age."}
-	return {"title": "Age Up", "body": _get_age_up_preview(gm.get_player_age(0) + 1) + "\nMeter shows resources saved, then research progress. Tap to pay and start; tap again to jump to the Town Center. Hold for costs and unlocks."}
+	return {"title": "Age Up", "body": _get_age_up_preview(gm.get_player_age(0) + 1) + "\nThe ring fills as you bank the cost and turns gold when one tap would start it; while it runs, it shows research progress and a tap jumps to the Town Center. Hold for costs and unlocks."}
 
 
 func _on_game_state_changed(new_state: int) -> void:
@@ -4301,12 +4237,72 @@ func _context_actions_for(building_ref: Node2D) -> Array[Dictionary]:
 		return []
 	var actions: Array[Dictionary] = []
 	for action: Dictionary in building.get_context_actions(0):
-		# The age button beside the shelf starts the age-up; its card joins the
-		# row only while it runs, as the meter that cancels it.
+		# The top bar's age chip starts the age-up; its card joins the row only
+		# while it runs, as the meter that cancels it.
 		if str(action.get("id", "")).begins_with(BuildingBase.RESEARCH_ACTION_PREFIX + TechData.AGE_RESEARCH_PREFIX) and float(action.get("progress", -1.0)) < 0.0:
+			continue
+		if not _earns_command_bar_place(building, action):
 			continue
 		actions.append(action)
 	return actions
+
+
+## Settings-like toggles live on the selection's Info card, not the command bar.
+const INFO_CARD_ACTION_IDS: PackedStringArray = [WildlifeDirector.ACTION_WALK_HOME]
+
+
+## Every card on the bar must be something a tap can do now (or is doing):
+## age-locked research waits in the Research sheet, toggles sit on the Info
+## card, and the town bell steps forward while a raid is on (or it is ringing
+## or someone is inside to call out), since the raid alert carries it too.
+func _earns_command_bar_place(building: BuildingBase, action: Dictionary) -> bool:
+	var id: String = str(action.get("id", ""))
+	if id in INFO_CARD_ACTION_IDS:
+		return false
+	if str(action.get("reason", "")) == "age_required" and float(action.get("progress", -1.0)) < 0.0:
+		return false
+	if id == Garrison.ACTION_BELL:
+		return _battlefield_alerts_active or building.bell_active or Garrison.count(building) > 0
+	return true
+
+
+func _info_card_actions_for(building_ref: Node2D) -> Array[Dictionary]:
+	var actions: Array[Dictionary] = []
+	if not _is_human_owned_building(building_ref):
+		return actions
+	for action: Dictionary in (building_ref as BuildingBase).get_context_actions(0):
+		if str(action.get("id", "")) in INFO_CARD_ACTION_IDS:
+			actions.append(action)
+	return actions
+
+
+func _refresh_info_card_actions() -> void:
+	if _info_actions == null:
+		return
+	for child: Node in _info_actions.get_children():
+		_info_actions.remove_child(child)
+		child.queue_free()
+	var actions: Array[Dictionary] = _info_card_actions_for(_selected_building_ref) if _secondary_surface == SecondarySurface.INFO and _selection_context_active else []
+	for action: Dictionary in actions:
+		var button := Button.new()
+		var action_id: String = str(action.get("id", ""))
+		button.name = _context_action_button_name(action_id)
+		button.theme = _info_panel.theme
+		button.focus_mode = Control.FOCUS_NONE
+		button.custom_minimum_size = Vector2(0, 48)
+		button.text = "%s · %s" % [str(action.get("label", "")), str(action.get("desc", ""))] if not str(action.get("desc", "")).is_empty() else str(action.get("label", ""))
+		button.tooltip_text = str(action.get("details", button.text))
+		button.accessibility_name = button.tooltip_text
+		var icon_path: String = str(action.get("icon", ""))
+		if not icon_path.is_empty() and ResourceLoader.exists(icon_path):
+			button.icon = load(icon_path)
+			button.add_theme_constant_override("icon_max_width", 24)
+		KingdomTheme.apply_secondary(button)
+		button.pressed.connect(func() -> void:
+			_on_context_action_pressed(action_id)
+			_refresh_info_card_actions.call_deferred())
+		_info_actions.add_child(button)
+	_info_actions.visible = not actions.is_empty()
 
 
 static func _context_action_button_name(action_id: String) -> String:
@@ -4489,7 +4485,7 @@ func _production_row_capacity() -> float:
 	# The safe area of the last layout pass (a rotation or a cutout re-plans).
 	var safe: Rect2 = get_world_safe_rect()
 	var minimap: float = clampf(minf(safe.size.y * 0.26, safe.size.x * 0.15), MOBILE_MINIMAP_MIN_SIZE, MOBILE_MINIMAP_MAX_SIZE)
-	var side: float = 64.0 if age_up_button.visible else (56.0 if build_menu_button.visible else 0.0)
+	var side: float = 56.0 if build_menu_button.visible else 0.0
 	return safe.size.x - MOBILE_ACTION_MARGIN * 2.0 - minimap - 12.0 - side - CommandRow.CHROME_WIDTH
 
 
@@ -4923,6 +4919,18 @@ func show_notification(text: String, color: Color = Color.WHITE, duration: float
 	_refresh_notification_visibility()
 
 
+## A contextual hint (a tip or an offer): the lowest rung of the one advisory
+## channel. It shows only while the guided step is not on screen and no other
+## message holds the lane, and otherwise waits for as long as it applies
+## (`keep_while`) or ToastLane.HINT_WAIT_MSEC. Offers pushed through
+## show_notification with a `keep_while` are treated the same way.
+func show_hint(text: String, color: Color = KingdomTheme.PARCHMENT, duration: float = 6.0, action: Callable = Callable(), keep_while: Callable = Callable()) -> void:
+	if _notification_container == null:
+		return
+	_notification_container.push(text, color, duration, action, -1, keep_while, true)
+	_refresh_notification_visibility()
+
+
 func dismiss_notification(text: String) -> void:
 	## Retire a toast early (an offer that was taken or no longer applies).
 	if _notification_container != null:
@@ -4932,8 +4940,12 @@ func dismiss_notification(text: String) -> void:
 func set_battlefield_alerts_active(active: bool) -> void:
 	if active != _battlefield_alerts_active and _worker_undo_button != null and _worker_undo_button.visible:
 		_queue_mobile_layout_refresh()
+	var changed: bool = active != _battlefield_alerts_active
 	_battlefield_alerts_active = active
 	_refresh_notification_visibility()
+	# A raid brings the town bell forward on a selected Town Center's bar.
+	if changed and _is_town_center_production_context():
+		_update_research_buttons(_selected_building_ref)
 
 
 func _refresh_notification_visibility() -> void:
@@ -4948,6 +4960,16 @@ func _refresh_notification_visibility() -> void:
 	# beside the Town Center; a red footprint explains itself on the ghost and
 	# the status line, and the lane returns (lifetimes kept) once it is placed.
 	_notification_container.visible = not sheet_open and _ui_modal_state == UIModalState.NONE and not _placement_mode_active
+	_refresh_advisory_hold()
+
+
+## One advisory at a time: the guided step outranks contextual hints, and a
+## hidden lane holds them too, so they wait rather than expire unseen.
+func _refresh_advisory_hold() -> void:
+	if _notification_container == null:
+		return
+	var guidance_showing: bool = _progression_hint_panel != null and _progression_hint_panel.visible
+	_notification_container.set_hints_held(guidance_showing or not _notification_container.visible)
 
 
 # --- Hotkey Reference Panel ---
@@ -5423,6 +5445,9 @@ func set_selection_context_revision(revision: int, automatic_cleanup: bool = fal
 		_cancel_queue_navigation_press()
 	else:
 		close_secondary_surface()
+		# A collapsed dock is a choice about one selection: a fresh selection
+		# opens with its orders showing (casualty cleanup keeps the choice).
+		set_dock_collapsed(false)
 	_cancel_hud_holds("selection changed")
 
 
@@ -5539,6 +5564,11 @@ func _create_secondary_surface_controls() -> void:
 	close_button.custom_minimum_size = Vector2(48, 48)
 	close_button.pressed.connect(close_secondary_surface)
 	header.add_child(close_button)
+	_info_actions = HBoxContainer.new()
+	_info_actions.name = "InfoActions"
+	_info_actions.add_theme_constant_override("separation", 8)
+	_info_actions.visible = false
+	content.add_child(_info_actions)
 	var scroll := ScrollContainer.new()
 	scroll.name = "InfoScroll"
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -5701,6 +5731,7 @@ func _show_selection_information() -> void:
 	if not _selection_context_active:
 		return
 	show_card_information(_selection_information())
+	_refresh_info_card_actions()
 
 
 func show_card_information(info: Dictionary) -> void:
@@ -5712,6 +5743,8 @@ func show_card_information(info: Dictionary) -> void:
 	_info_from_build_menu = _ui_modal_state == UIModalState.BUILD_MENU
 	_info_title.text = str(info.get("title", "Info"))
 	_info_body.text = str(info.get("body", ""))
+	if _info_actions != null:
+		_info_actions.visible = false
 	(_info_panel.find_child("InfoScroll", true, false) as ScrollContainer).scroll_vertical = 0
 	# Native GUI hit testing traverses sibling order. Build is added after HUD
 	# ready, so raise both direct CanvasLayer children whenever Info is opened.

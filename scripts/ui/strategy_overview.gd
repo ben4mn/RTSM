@@ -33,7 +33,7 @@ const SOURCES: PackedStringArray = ["idle", "food", "wood", "gold"]
 const RESOURCES: PackedStringArray = ["food", "wood", "gold"]
 const RAIL_BUTTON_SIZE := CommandIcons.TARGET_SIZE
 const RAIL_GAP := CommandIcons.GAP
-const RAIL_BUTTON_COUNT := 4
+const RAIL_BUTTON_COUNT := 3
 const RAIL_WIDTH := RAIL_BUTTON_SIZE * RAIL_BUTTON_COUNT + RAIL_GAP * (RAIL_BUTTON_COUNT - 1)
 const ACTION_TILE := preload("res://scripts/ui/compact_action_tile.gd")
 const DOUBLE_TAP := preload("res://scripts/ui/double_tap_gesture.gd")
@@ -70,8 +70,9 @@ var _producer_rows: Dictionary = {}
 var _group_rows: Dictionary = {}
 var _economy_button: Button
 var _army_button: Button
-## Research has its own launcher: one tap opens every technology and the
-## age-up. Its badge counts what could be started right now.
+## Research is the Economy sheet's third tab (Workers, Train, Tech): one
+## launcher fewer on the field. The next age has its own chip in the top bar.
+## The tab's badge counts what could be started right now.
 var _research_button: Button
 var _research_ready: int = 0
 ## Beta 32: one tap on Army selects every field fighter; tapping again (or
@@ -154,13 +155,6 @@ func _ready() -> void:
 	rail.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	rail.add_theme_constant_override("separation", int(RAIL_GAP))
 	add_child(rail)
-	# Leftmost, so Base, Economy and Army keep their places from the right edge.
-	_research_button = _icon_button("research", "Research: technologies and the next age", "ResearchButton", RAIL_BUTTON_SIZE)
-	_research_button.custom_minimum_size.y = RAIL_BUTTON_SIZE
-	_research_button.toggle_mode = true
-	_research_button.pressed.connect(_on_research_rail_pressed)
-	rail.add_child(_research_button)
-	CommandIcons.apply(_research_button, "research", _research_button.accessibility_name)
 	var base := _icon_button("base", "Base: select and view your Town Center", "BaseButton", RAIL_BUTTON_SIZE)
 	base.custom_minimum_size.y = RAIL_BUTTON_SIZE
 	base.pressed.connect(func() -> void: base_requested.emit())
@@ -214,6 +208,12 @@ func _ready() -> void:
 	_production_tab.toggle_mode = true
 	_production_tab.pressed.connect(func() -> void: _set_production_page(true))
 	header.add_child(_production_tab)
+	_research_button = _button("Tech", "ResearchButton", 48)
+	_research_button.toggle_mode = true
+	_research_button.accessibility_name = "Research: every technology"
+	_research_button.tooltip_text = _research_button.accessibility_name
+	_research_button.pressed.connect(_on_research_rail_pressed)
+	header.add_child(_research_button)
 	_recruit_tab = _button("Recruit", "RecruitTab", 68)
 	_recruit_tab.toggle_mode = true
 	_recruit_tab.pressed.connect(func() -> void: _set_army_recruit_page(true))
@@ -809,7 +809,7 @@ func tuck() -> void:
 	if _tucking or not panel.visible or _surface.is_empty():
 		return
 	_tucking = true
-	var launcher: Control = _research_button if _showing_research() else (_economy_button if _surface == "economy" else _army_button)
+	var launcher: Control = _economy_button if _surface == "economy" else _army_button
 	panel.pivot_offset = launcher.get_global_rect().get_center() - panel.get_global_rect().position
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var tween: Tween = create_tween().set_parallel(true).set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
@@ -901,7 +901,7 @@ var _cancel_armed_key: String = ""
 
 func _on_research_rail_pressed() -> void:
 	if _showing_research():
-		surface_requested.emit("")
+		_research_button.set_pressed_no_signal(true)
 		return
 	_research_page = true
 	_details_page = false
@@ -916,10 +916,6 @@ func _on_research_rail_pressed() -> void:
 
 
 func _on_economy_rail_pressed() -> void:
-	if _showing_research():
-		# Same sheet, other page: Economy means Workers.
-		_set_production_page(false)
-		return
 	surface_requested.emit("" if _surface == "economy" else "economy")
 
 
@@ -951,7 +947,7 @@ func _refresh_research_badge() -> void:
 	_research_ready = count_ready_research() if GameManager.current_state == GameManager.GameState.PLAYING else 0
 	# H: ink badge (amber is the idle-worker count on Economy beside it).
 	CommandIcons.set_badge(_research_button, str(_research_ready) if _research_ready > 0 else "", false)
-	var label: String = "Research: technologies and the next age"
+	var label: String = "Research: every technology"
 	if _research_ready > 0:
 		label += " · %d ready" % _research_ready
 	_research_button.tooltip_text = label
@@ -1261,9 +1257,10 @@ func _refresh_pages() -> void:
 	if research:
 		_title.text = _research_notice_text if not _research_notice_text.is_empty() and Time.get_ticks_msec() < _research_notice_until_msec else "Research"
 	_title.visible = research
-	_workers_tab.visible = economy_open and not research
-	_production_tab.visible = economy_open and not research
-	_economy_button.set_pressed_no_signal(economy_open and not research)
+	_workers_tab.visible = economy_open
+	_production_tab.visible = economy_open
+	_research_button.visible = economy_open
+	_economy_button.set_pressed_no_signal(economy_open)
 	_research_button.set_pressed_no_signal(research)
 	_recruit_tab.visible = army_open
 	_groups_tab.visible = army_open
@@ -1291,7 +1288,7 @@ func _refresh_pages() -> void:
 	_farm_blocker.hide()
 	_feedback.visible = Time.get_ticks_msec() < _feedback_until_msec and not research
 	# Beta 33: each page tab names itself under its icon.
-	for entry: Array in [[_workers_tab, "economy", "Assign workers", "Workers"], [_production_tab, "base", "Train workers", "Train"], [_recruit_tab, "army", "Recruit fighters", "Recruit"], [_groups_tab, "group_recall", "Army groups", "Groups"]]:
+	for entry: Array in [[_workers_tab, "economy", "Assign workers", "Workers"], [_production_tab, "base", "Train workers", "Train"], [_research_button, "research", _research_button.accessibility_name, "Tech"], [_recruit_tab, "army", "Recruit fighters", "Recruit"], [_groups_tab, "group_recall", "Army groups", "Groups"]]:
 		CommandIcons.apply_labeled(entry[0], entry[1], entry[2], entry[3])
 		(entry[0] as Button).custom_minimum_size.x = 48
 	var selected_id: int = _selected_producer_id()
