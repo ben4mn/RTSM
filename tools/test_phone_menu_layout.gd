@@ -113,7 +113,8 @@ func _exercise(profile: Dictionary) -> void:
 		_expect(not bool(menu.get("_map_picker_expanded")), context + " choosing battlefield collapses choices")
 		_expect((menu.get("_selected_map_name") as Label).text == MapData.get_archetype_name(archetype), context + " selected card names battlefield")
 		_expect(GameManager.selected_map_archetype == archetype, context + " selected map is game draft")
-		_expect((menu.get("_selection_summary") as Label).text.contains(MapData.get_archetype_name(archetype)), context + " footer names selected map")
+		# The selected card already names the map; the footer must not repeat it.
+		_expect(not (menu.get("_selection_summary") as Label).text.contains(MapData.get_archetype_name(archetype)), context + " footer does not repeat selected map")
 		_expect((menu.get("map_summary_label") as Label).text == MapData.get_archetype_description(archetype), context + " selected map tactics")
 		var selected: int = 0
 		for button: Button in menu.get("_map_buttons"):
@@ -143,7 +144,7 @@ func _exercise(profile: Dictionary) -> void:
 	_bounds(menu.get("seed_input"), safe, context + " seed reachable by scroll")
 	menu.call("_toggle_advanced_options")
 	_expect(not (menu.get("_advanced_overlay") as Control).visible, context + " options close before setup continues")
-	_expect((menu.get("_selection_summary") as Label).text.contains("%d population" % SkirmishData.POPULATION_OPTIONS.max()), context + " current maximum stays visible in launch summary")
+	_expect((menu.get("_advanced_button") as Button).text.contains("%d population" % SkirmishData.POPULATION_OPTIONS.max()), context + " current maximum stays visible on the options row")
 	menu.call("_set_mode", "multiplayer")
 	await _settle(menu, logical, safe)
 	_touch(menu.get("_host_button"), safe, context + " create room")

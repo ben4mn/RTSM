@@ -27,7 +27,8 @@ func _draw() -> void:
 	if size.x < 1 or size.y < 1: return
 	var factor: float = minf(size.x / CHART_SIZE.x, size.y / CHART_SIZE.y)
 	draw_set_transform((size - CHART_SIZE * factor) * 0.5, 0, Vector2.ONE * factor)
-	_oval(Vector2(160, 144), Vector2(142, 34), Color("a9aa8f"))
+	# A soft ground shadow: the island sits on the menu's dark cloth cards.
+	_oval(Vector2(160, 146), Vector2(142, 30), Color(0.05, 0.1, 0.08, 0.42))
 	var ground := PackedVector2Array([Vector2(18, 97), Vector2(60, 62), Vector2(151, 43), Vector2(243, 62), Vector2(302, 99), Vector2(268, 143), Vector2(173, 174), Vector2(73, 149)])
 	var shelf := ground.duplicate()
 	for i: int in shelf.size(): shelf[i].y += 9
