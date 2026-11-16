@@ -6,7 +6,7 @@ const ENTRIES: Array = [
 	["sacred", "Victory", "Destroy every enemy Town Center to win. From 12:00 the Sacred Site clock opens: keep a fighter in its ring with no enemy inside for 5:00. An empty or contested ring drains the held time."],
 	["food", "Sheep & boar", "Sheep follow the Scout that finds them; bring it near a Town Center and they graze there. A boar fights back: lure it to the Town Center, then strike together."],
 	["research", "Research", "Each building has its own. Tap a tile on the building (under Tech on a small screen) or open Research on the rail. A ring over the building shows progress. Tap a running one twice to cancel; full refund."],
-	["age_up", "Age up", "Takes time and keeps the Town Center busy. Queue villagers first."],
+	["age_up", "Age up", "Feudal Age costs 400 food. Castle Age costs 600 food and 150 gold, and needs an Archery Range, Stable or Blacksmith. Advancing takes time, but villagers keep training meanwhile."],
 	["bell", "Town bell", "Raided? Tap the bell on your Town Center, or Ring town bell under the alert. Villagers shelter inside and add arrows. Tap again for all clear."],
 	["garrison", "Garrison", "With soldiers selected, tap your Town Center or Watch Tower, then the Garrison offer. They heal inside. Out releases them."],
 	["repair", "Repair", "With villagers selected, tap your damaged building. Costs a little wood."],

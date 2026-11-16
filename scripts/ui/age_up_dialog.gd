@@ -5,8 +5,8 @@ signal age_up_confirmed(age: int, landmark_choice: int)
 signal age_up_cancelled()
 
 const AGE_UP_COSTS: Dictionary = {
-	2: {"food": 400, "gold": 200},
-	3: {"food": 1200, "gold": 600},
+	2: {"food": 400, "gold": 0},
+	3: {"food": 600, "gold": 150},
 }
 
 const LANDMARK_CHOICES: Array = [
