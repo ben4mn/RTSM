@@ -51,7 +51,7 @@ var _has_launched_field_attack: bool = false
 var _attack_wave_units: Array = []
 ## A small detachment that takes flank shrines for their gold.
 var _shrine_units: Array = []
-const SHRINE_START_SECONDS: Dictionary = {Difficulty.EASY: 840.0, Difficulty.MEDIUM: 180.0, Difficulty.HARD: 120.0}
+const SHRINE_START_SECONDS: Dictionary = {Difficulty.EASY: 600.0, Difficulty.MEDIUM: 180.0, Difficulty.HARD: 120.0}
 const SHRINE_SQUAD_SIZE: Dictionary = {Difficulty.EASY: 2, Difficulty.MEDIUM: 3, Difficulty.HARD: 3}
 var _attack_wave_target_position: Vector2 = Vector2(-1, -1)
 var _attack_wave_target_ref: WeakRef = null
@@ -222,8 +222,8 @@ const TC_ASSAULT_START_SECONDS: Dictionary = {
 const EASY_WAVE_REST_SECONDS: float = 240.0
 ## Easy never fields more than this many soldiers outside a home defense.
 const EASY_ARMY_CAP: int = 10
-## K: Easy sends no wave, raid or shrine squad at the player before 14:00.
-const EASY_FIRST_ATTACK_SECONDS: float = 840.0
+## Feel pass: Easy sends no wave or raid at the player before 8:00 (shrine 10:00).
+const EASY_FIRST_ATTACK_SECONDS: float = 480.0
 ## K: Easy's first wave is this small and grows by one soldier every
 ## EASY_WAVE_GROWTH_SECONDS of game time after EASY_FIRST_ATTACK_SECONDS.
 const EASY_FIRST_WAVE_SIZE: int = 5
@@ -356,17 +356,17 @@ const FEUDAL_FARM_CAPACITY_TARGET: int = 3
 # released as soon as all four foundations are registered.
 const FEUDAL_FARM_WOOD_WORKER_RATIO: float = 0.50
 
-## Feudal click times (Round 2 E; K: Easy later): 5:00 / 3:00 / 2:30.
+## Feudal click times (feel pass, cheaper ages): 4:30 / 2:30 / 2:10.
 const AGE_UP_TARGET_TIMES: Dictionary = {
-	Difficulty.EASY: 300.0,
-	Difficulty.MEDIUM: 180.0,
-	Difficulty.HARD: 150.0,
+	Difficulty.EASY: 270.0,
+	Difficulty.MEDIUM: 150.0,
+	Difficulty.HARD: 130.0,
 }
-## Castle click times: 12:00 / 7:50 / 7:00.
+## Castle click times: 10:00 / 6:20 / 5:40.
 const CASTLE_TARGET_TIMES: Dictionary = {
-	Difficulty.EASY: 720.0,
-	Difficulty.MEDIUM: 470.0,
-	Difficulty.HARD: 420.0,
+	Difficulty.EASY: 600.0,
+	Difficulty.MEDIUM: 380.0,
+	Difficulty.HARD: 340.0,
 }
 
 const AGE_UP_RESERVE_THRESHOLDS: Dictionary = {
@@ -393,10 +393,11 @@ const CASTLE_SAVING_LEAD_TIMES: Dictionary = {
 	Difficulty.HARD: 100.0,
 }
 
+## Feel pass: a stronger worker means a smaller, quicker economy.
 const AGE_UP_MIN_VILLAGERS: Dictionary = {
-	Difficulty.EASY: {2: 10, 3: 16},
-	Difficulty.MEDIUM: {2: 13, 3: 24},
-	Difficulty.HARD: {2: 14, 3: 26},
+	Difficulty.EASY: {2: 8, 3: 12},
+	Difficulty.MEDIUM: {2: 10, 3: 16},
+	Difficulty.HARD: {2: 11, 3: 18},
 }
 
 const AGE_UP_MIN_MILITARY: Dictionary = {

@@ -114,7 +114,7 @@ const BUILDINGS: Dictionary = {
 		# Round 2 E: a sown Farm holds this much food, then lies fallow until it
 		# is reseeded (scripts/buildings/farm_plots.gd). Horse Collar adds the
 		# `farm_food` registry amount to every later sowing.
-		"farm_food": 250,
+		"farm_food": 350,  # Feel pass: tracks the stronger worker so reseeds stay rare
 		"reseed_cost": { "food": 0, "wood": 40, "gold": 0 },
 		"color": Color(0.75, 0.7, 0.3),
 	},

@@ -57,21 +57,22 @@ const OPENING_BERRY_STOCK: int = 90
 # that is earned by the opening flock.
 const STARTING_RESOURCES: Dictionary = {"food": 200, "wood": 200, "gold": 100}
 # Difficulty changes planning time, never costs, income or unit strength.
-# Home defense remains immediate. Easy gives a learner until 14:00 to build and explore the
+# Home defense remains immediate. Feel pass: Easy gives a learner until 8:00 to build and explore the
 # objective, then sends small coherent squads with a visible recovery interval.
-const AI_RAID_START_SECONDS: Dictionary = {0: 840.0, 1: 120.0, 2: 0.0}
-const AI_RAID_COOLDOWN_SECONDS: Dictionary = {0: 300.0, 1: 75.0, 2: 0.0}
+const AI_RAID_START_SECONDS: Dictionary = {0: 480.0, 1: 120.0, 2: 0.0}
+const AI_RAID_COOLDOWN_SECONDS: Dictionary = {0: 240.0, 1: 75.0, 2: 0.0}
 # Respond to an opponent's objective claim before its first victory. This
 # does not advance the separate neutral initiative or ordinary base raids.
 const EASY_SACRED_RESPONSE_SECONDS: float = 150.0
 const EASY_SACRED_INITIATIVE_SECONDS: float = 390.0
 const EASY_REGROUP_SECONDS: float = 45.0
-const EASY_LARGER_SQUAD_SECONDS: float = 1140.0
+const EASY_LARGER_SQUAD_SECONDS: float = 900.0
 const DARK_AGE_WORKER_WEIGHTS: Dictionary = {"food": 0.55, "wood": 0.35, "gold": 0.10}
 const FEUDAL_WORKER_WEIGHTS: Dictionary = {"food": 0.55, "wood": 0.40, "gold": 0.05}
+## Feel pass: a smaller, sharper economy reaches each age sooner.
 const AGE_UP_COSTS: Dictionary = {
-	2: {"food": 500},
-	3: {"food": 800, "gold": 200},
+	2: {"food": 400},
+	3: {"food": 600, "gold": 150},
 }
 ## Control race is a short mode: its Feudal Age is cheaper.
 const QUICK_CONTROL_FEUDAL_COST: Dictionary = {"food": 300}
@@ -93,12 +94,13 @@ static func restore_population_limit(value: int, preference_version: int) -> int
 
 
 static func get_economy_target(population_limit: int) -> int:
-	# About two fifths of the bodies work; the rest is room for an army.
-	return clampi(int(population_limit * 2 / 5), 4, 45)
+	# Feel pass: about three tenths of the bodies work (24 of 80); each worker
+	# gathers more, so the rest of the population is room for an army.
+	return clampi(int(population_limit * 3 / 10), 4, 36)
 
 
 static func get_easy_economy_target(population_limit: int) -> int:
-	return clampi(int(population_limit / 5), 4, 20)
+	return clampi(int(population_limit / 6), 4, 16)
 
 
 static func get_easy_fighter_target(population_limit: int) -> int:

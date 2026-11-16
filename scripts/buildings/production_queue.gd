@@ -49,8 +49,10 @@ func advance(delta: float) -> void:
 	if not is_instance_valid(_building):
 		is_training = false
 		return
-	if _building.state != BuildingBase.State.ACTIVE or _building.is_researching():
-		return  # A busy research slot holds this building's training.
+	if _building.state != BuildingBase.State.ACTIVE:
+		return
+	if _building.is_researching() and not TechData.is_age_research(_building.research_id):
+		return  # A busy research slot holds training; an age advance does not.
 	if queue.is_empty():
 		retry_auto_queue(delta)
 		return

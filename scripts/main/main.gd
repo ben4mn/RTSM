@@ -4088,9 +4088,13 @@ func _advance_production_queues(delta: float) -> void:
 			if building.state != BuildingBase.State.ACTIVE:
 				continue
 			# Round 2 B: one research slot per building; its unit queue waits.
+			# Feel pass: an age advance is the exception, so a Town Center keeps
+			# training Villagers while its kingdom moves up an age.
 			if building.is_researching():
+				var aging: bool = TechData.is_age_research(building.research_id)
 				building.advance_research(delta)
-				continue
+				if not aging:
+					continue
 			var pq: ProductionQueue = building.get_production_queue() as ProductionQueue
 			if pq == null:
 				pq = building.get_node_or_null("ProductionQueue") as ProductionQueue

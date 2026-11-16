@@ -35,9 +35,9 @@ const WORLD_SPRITE_SCALES: Dictionary = {
 # Shared carry slots preserve mixed cargo on retask; no harvest is discarded.
 const STARTING_VILLAGERS: int = 5
 const VILLAGER_BUILD_SPEED: float = 2.0
-const VILLAGER_GATHER_AMOUNT: float = 1.0
+const VILLAGER_GATHER_AMOUNT: float = 1.4  # Feel pass: fewer, stronger workers
 const WHEELBARROW_GATHER_BONUS: float = VILLAGER_GATHER_AMOUNT * 0.25
-const VILLAGER_CARRY_CAPACITY: int = 15
+const VILLAGER_CARRY_CAPACITY: int = 20
 const VILLAGER_GATHER_TICK_SECONDS: float = 0.9
 const RESOURCE_GATHER_SPEEDS: Dictionary = {"food": 1.2, "wood": 1.2, "gold": 1.0}
 

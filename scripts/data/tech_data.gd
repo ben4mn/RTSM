@@ -17,11 +17,12 @@ const ICON_DIR: String = "res://assets/ui/icons/"
 ## Age-up is research `age_<target>` in a Town Center slot. Costs stay in
 ## SkirmishData.get_age_up_cost; these are the timed parts.
 const AGE_RESEARCH_PREFIX: String = "age_"
-const AGE_UP_TIMES: Dictionary = {2: 35.0, 3: 50.0}
+const AGE_UP_TIMES: Dictionary = {2: 25.0, 3: 40.0}
 ## target age -> {"count": completed buildings needed, "types": [BuildingType]}.
+## Feel pass (2026-11-16): Feudal needs only food; Castle needs one Feudal
+## building so the player has chosen a direction, not three chores.
 const AGE_UP_REQUIREMENTS: Dictionary = {
-	2: {"count": 1, "types": [BuildingData.BuildingType.BARRACKS, BuildingData.BuildingType.RESOURCE_CAMP]},
-	3: {"count": 2, "types": [BuildingData.BuildingType.ARCHERY_RANGE, BuildingData.BuildingType.STABLE, BuildingData.BuildingType.BLACKSMITH]},
+	3: {"count": 1, "types": [BuildingData.BuildingType.ARCHERY_RANGE, BuildingData.BuildingType.STABLE, BuildingData.BuildingType.BLACKSMITH]},
 }
 
 const RESEARCH_DEFS: Array[Dictionary] = [
