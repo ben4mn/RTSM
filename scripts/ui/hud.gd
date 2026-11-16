@@ -105,6 +105,8 @@ var _hold_chooser_active: bool = false
 const ACTION_TILE := preload("res://scripts/ui/compact_action_tile.gd")
 const DOUBLE_TAP := preload("res://scripts/ui/double_tap_gesture.gd")
 var _dock_collapsed: bool = false
+## Width the removed dock chevron (48px + the row's 8px gap) used to take.
+const DOCK_CHEVRON_ALLOWANCE := 56.0
 var _dock_gesture: RefCounted = null
 var _building_rally_button: Button
 var _rally_armed: bool = false
@@ -976,14 +978,15 @@ func _on_speed_pressed() -> void:
 	_game_speed_index = (_game_speed_index + 1) % GAME_SPEEDS.size()
 	var new_speed: float = GAME_SPEEDS[_game_speed_index]
 	Engine.time_scale = new_speed
-	_speed_button.text = SPEED_LABELS[_game_speed_index]
+	if is_instance_valid(_speed_button):
+		_speed_button.text = SPEED_LABELS[_game_speed_index]
 
 
 func sync_speed_display(speed: float) -> void:
 	for i in GAME_SPEEDS.size():
 		if absf(GAME_SPEEDS[i] - speed) < 0.01:
 			_game_speed_index = i
-			if _speed_button:
+			if is_instance_valid(_speed_button):
 				_speed_button.text = SPEED_LABELS[i]
 			return
 
@@ -1013,6 +1016,7 @@ func _toggle_pause_overlay(show: bool) -> void:
 
 func _create_pause_overlay() -> void:
 	var online: bool = NetworkSession.is_client()
+	_speed_button = null
 	_pause_overlay = ColorRect.new()
 	_pause_overlay.name = "PauseOverlay"
 	_pause_overlay.color = Color(KingdomTheme.INK, 0.78)
@@ -1273,7 +1277,7 @@ func _set_gameplay_ui_interactable(interactable: bool) -> void:
 	selection_panel.mouse_filter = allow_mouse
 	minimap_bg.mouse_filter = allow_mouse
 	minimap_rect.mouse_filter = allow_mouse
-	if _speed_button:
+	if is_instance_valid(_speed_button):
 		_speed_button.disabled = NetworkSession.is_network_match()
 	update_camera_zoom(_camera_zoom_current, _camera_zoom_min, _camera_zoom_max)
 	age_up_button.disabled = not interactable
@@ -2330,15 +2334,15 @@ func _calculate_mobile_layout_metrics(viewport_size: Vector2, safe_area: Rect2, 
 		info_width = 48.0
 		var production_chrome: float = 48.0 + (16.0 if phone and _is_town_center_production_context() else 28.0) + 18.0
 		info_width = clampf(selection_zone_width - page_width - production_chrome, 48.0, info_width)
-		selection_width = minf(selection_zone_width, ceilf(info_width + page_width + 48.0 + (96.0 if phone else 112.0)))
+		selection_width = minf(selection_zone_width, ceilf(info_width + page_width + 48.0 + (96.0 if phone else 112.0) - (DOCK_CHEVRON_ALLOWANCE if _is_town_center_production_context() else 0.0)))
 	elif not _dock_collapsed and _research_container != null and _research_container.visible:
-		selection_width = minf(selection_zone_width, 148.0 + _production_row_width(_research_container))
+		selection_width = minf(selection_zone_width, 148.0 - DOCK_CHEVRON_ALLOWANCE + _production_row_width(_research_container))
 	elif not _dock_collapsed and unit_commands_visible:
 		var command_width: float = _production_row_width(_unit_command_container)
 		# Keep every frequent action fully visible at scroll0, including Clear.
 		# The identity column gives up spare width before any touch target does.
 		info_width = 48.0
-		selection_width = minf(selection_zone_width, ceilf(info_width + command_width + 100.0))
+		selection_width = minf(selection_zone_width, ceilf(info_width + command_width + 100.0 - DOCK_CHEVRON_ALLOWANCE - 8.0))
 	var selection_right: float = selection_zone_right
 	var selection_left: float = selection_right - selection_width
 	if _selection_kind == "building" and not _dock_collapsed and selection_has_commands:
@@ -2529,7 +2533,7 @@ func _refresh_touch_target_diagnostics() -> void:
 	diag["build_button"] = _control_touch_diag(build_menu_button, "build_button")
 	diag["age_up_button"] = _control_touch_diag(age_up_button, "age_up_button")
 	diag["pause_button"] = _control_touch_diag(_pause_button, "pause_button")
-	diag["speed_button"] = _control_touch_diag(_speed_button, "speed_button")
+	diag["speed_button"] = _control_touch_diag(_speed_button if is_instance_valid(_speed_button) else null, "speed_button")
 	diag["guidance_dismiss_button"] = _control_touch_diag(_guidance_dismiss_button, "guidance_dismiss")
 	diag["mobile_action_panel"] = _control_touch_diag(_mobile_action_panel, "mobile_action_panel")
 	diag["placement_confirm_button"] = _control_touch_diag(_placement_confirm_button, "placement_confirm_button")

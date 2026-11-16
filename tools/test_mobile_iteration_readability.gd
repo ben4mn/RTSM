@@ -96,7 +96,9 @@ func _profile(phone: Vector2i, scale_factor: float, notched: bool) -> void:
             if not item.is_visible_in_tree():
                 continue
             _expect(safe.encloses(item.get_global_rect()),"%s bank%d %s outside safe area: %s" % [label,amount,key,item.get_global_rect()])
-            _expect(not item.get_global_rect().intersects(utility.get_global_rect()),"%s bank%d %s overlaps Pause" % [label,amount,key])
+            # HUD declutter: the clock rides inside the Pause pill by design.
+            if not utility.is_ancestor_of(item):
+                _expect(not item.get_global_rect().intersects(utility.get_global_rect()),"%s bank%d %s overlaps Pause" % [label,amount,key])
             _text_fits(item,label+" "+key)
     _expect((hud.get("_camera_view_button") as Button).visible and not (hud.get("_camera_zoom_in_button") as Button).visible,"%s view controls do not start collapsed" % label)
     var tc := BuildingBase.new()

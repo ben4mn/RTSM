@@ -46,6 +46,12 @@ func _run() -> void:
 		unit.remove_from_group("units")
 	var friendly: Node2D = _participant(site.global_position, 0)
 	var enemy: Node2D = _participant(site.global_position + Vector2(500, 0), 1)
+	# HUD declutter: the chip hides while the site is quiet and its clock is
+	# far from opening. With the wake moved to 0:00 the open site is relevant;
+	# republish the status the disabled site would otherwise have emitted.
+	hud.call("update_sacred_site_status", site.call("get_status"))
+	hud.call("_queue_mobile_layout_refresh")
+	await get_tree().process_frame
 	await get_tree().process_frame
 	_expect(panel.visible and button.size.y >= 48.0, "neutral locator is visible and at least 48px tall")
 	_expect("Neutral" in label.text and "tap to view" in label.text, "neutral status explains discovery")

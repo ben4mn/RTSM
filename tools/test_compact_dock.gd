@@ -101,7 +101,7 @@ func _run() -> void:
 	hud.set_save_status({"state":"saved"})
 	hud.set_pause_display(true)
 	await _frames(4)
-	_expect(hud._pause_overlay.get_node_or_null("PauseMenu/SaveAndExitButton") != null and hud._save_status_label.text == "Saved", "solo pause offers save-and-exit and saved status")
+	_expect(hud._pause_overlay.find_child("SaveAndExitButton", true, false) != null and hud._save_status_label.text == "Saved", "solo pause offers save-and-exit and saved status")
 	_expect(hud._pause_overlay.get_node_or_null("PauseMenu/DepartureRow/QuitButton") == null, "solo exit has one save-first action")
 	# Beta 27/28: Lessons is the fourth round tool beside Settings, Guide and
 	# Report, never a lone row of its own.
@@ -132,7 +132,7 @@ func _run() -> void:
 	await _frames(4)
 	var leave: Button = hud._pause_overlay.get_node_or_null("PauseMenu/DepartureRow/QuitButton")
 	_expect(leave != null and leave.text == "Leave match", "online pause retains Leave match")
-	_expect(hud._pause_overlay.get_node_or_null("PauseMenu/SaveAndExitButton") == null, "online pause does not offer solo save")
+	_expect(hud._pause_overlay.find_child("SaveAndExitButton", true, false) == null, "online pause does not offer solo save")
 	await _capture("pause-online")
 	NetworkSession.online = false
 	get_tree().paused = false
