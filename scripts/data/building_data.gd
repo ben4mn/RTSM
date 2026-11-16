@@ -32,7 +32,7 @@ const BUILDINGS: Dictionary = {
 		"build_time": 60.0,
 		# With the base 5 (GameManager), the opening five Villagers and Scout
 		# leave room for two more Villagers before the first House (cap 8).
-		"pop_provided": 3,
+		"pop_provided": 5,  # Feel pass: the first House can wait until about 1:00
 		# One capital and two expansions (BuildingData.get_max_count).
 		"max_count": 3,
 		"footprint": Vector2i(4, 4),
@@ -55,9 +55,9 @@ const BUILDINGS: Dictionary = {
 	BuildingType.HOUSE: {
 		"name": "House",
 		"hp": 500,
-		"cost": { "food": 0, "wood": 30, "gold": 0 },
+		"cost": { "food": 0, "wood": 40, "gold": 0 },
 		"build_time": 10.0,
-		"pop_provided": 10,
+		"pop_provided": 15,  # Feel pass: about five Houses reach 80, not seven
 		"footprint": Vector2i(2, 2),
 		"can_train": [],
 		"age_required": 0,

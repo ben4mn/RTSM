@@ -71,7 +71,7 @@ const DARK_AGE_WORKER_WEIGHTS: Dictionary = {"food": 0.55, "wood": 0.35, "gold":
 const FEUDAL_WORKER_WEIGHTS: Dictionary = {"food": 0.55, "wood": 0.40, "gold": 0.05}
 ## Feel pass: a smaller, sharper economy reaches each age sooner.
 const AGE_UP_COSTS: Dictionary = {
-	2: {"food": 400},
+	2: {"food": 500},
 	3: {"food": 600, "gold": 150},
 }
 ## Control race is a short mode: its Feudal Age is cheaper.

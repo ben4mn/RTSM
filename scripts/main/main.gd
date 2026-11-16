@@ -133,7 +133,6 @@ var _guided_opening_active: bool = true
 var _guided_stage: GuidedOpeningStage = GuidedOpeningStage.GATHER_FOOD
 const HINTS: Array = [
 	{"time": 42.0, "text": "Drag to pan. Tap the minimap to jump.", "color": Color(0.7, 0.8, 1.0)},
-	{"time": 75.0, "text": "Tap ground to move. The eraser in the card clears the selection.", "color": Color(0.65, 0.82, 1.0)},
 	{"time": 105.0, "context": "scout", "text": "Train a Scout to explore fast.", "color": Color(0.7, 0.8, 1.0)},
 	{"time": 122.0, "context": "sheep", "text": "Sheep follow the Scout that finds them. Lead them home.", "color": Color(0.80, 0.92, 0.70)},
 	{"time": 150.0, "context": "research", "text": "Every building has research. Try Loom at the Town Center.", "color": Color(0.5, 0.8, 1.0)},
@@ -3972,6 +3971,9 @@ var _selection_refresh_timer: float = 0.0
 
 func _update_timed_hints(delta: float) -> void:
 	if _hints_shown >= HINTS.size():
+		return
+	# Feel pass: a player who turned the guide off has asked for quiet.
+	if _guidance_dismissed_in_match or not GameManager.guided_opening_enabled:
 		return
 	_hint_timer += delta
 	while _hints_shown < HINTS.size() and _hint_timer >= HINTS[_hints_shown]["time"]:
