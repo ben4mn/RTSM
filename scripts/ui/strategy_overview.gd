@@ -41,7 +41,7 @@ const JOB_CHIP_WIDTH := 64.0
 const JOB_CHIP_MIN_WIDTH := 54.0
 const TRAIN_CARD_WIDTH := 84.0
 const SHEET_MAX_WIDTH := 300.0
-const BUILD_TILE_SIZE := Vector2(76, 56)
+const BUILD_TILE_SIZE := Vector2(64, 56)
 var rail: HBoxContainer
 var panel: PanelContainer
 var _title: Label
@@ -385,6 +385,8 @@ func _build_economy() -> void:
 	_economy.add_child(_build_row)
 	_build_menu_button = _icon_button("build", "Open the Build menu. The nearest free worker builds unless villagers are selected.", "EconomyBuild", BUILD_TILE_SIZE.x, "Build")
 	_build_menu_button.custom_minimum_size = BUILD_TILE_SIZE
+	# Icon over caption, so four tiles share the job chips' columns.
+	CommandIcons.apply_labeled(_build_menu_button, "build", _build_menu_button.accessibility_name, "Build")
 	_build_menu_button.pressed.connect(func() -> void: build_requested.emit(-1))
 	_build_row.add_child(_build_menu_button)
 	_build_house_button = _button("", "EconomyHouse", BUILD_TILE_SIZE.x)
@@ -393,6 +395,15 @@ func _build_economy() -> void:
 	_build_camp_button = _button("", "EconomyCamp", BUILD_TILE_SIZE.x)
 	_build_camp_button.pressed.connect(func() -> void: build_requested.emit(BuildingData.BuildingType.RESOURCE_CAMP))
 	_build_row.add_child(_build_camp_button)
+	# Research lives here, the fourth tile of the build row (one launcher fewer
+	# on the field; the next age has its own chip in the top bar). Its badge
+	# counts what could start now; the Research page's tabs lead back.
+	_research_button = _icon_button("research", "Research: every technology", "ResearchButton", JOB_CHIP_WIDTH, "Tech")
+	_research_button.custom_minimum_size.y = BUILD_TILE_SIZE.y
+	CommandIcons.apply_labeled(_research_button, "research", _research_button.accessibility_name, "Tech")
+	_research_button.toggle_mode = true
+	_research_button.pressed.connect(_on_research_rail_pressed)
+	_build_row.add_child(_research_button)
 	_feedback = _label("", 12)
 	_feedback.autowrap_mode = TextServer.AUTOWRAP_OFF
 	_feedback.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -405,13 +416,6 @@ func _build_economy() -> void:
 	_farm_button.pressed.connect(func() -> void: farm_requested.emit())
 	_workers_tab.get_parent().add_child(_farm_button)
 	_workers_tab.get_parent().move_child(_farm_button, 2)
-	# Research lives on the Workers page (one launcher fewer on the field; the
-	# next age has its own chip in the top bar). Its badge counts what could
-	# start now; the Research page's Workers/Train tabs lead back.
-	_research_button = _icon_button("research", "Research: every technology", "ResearchButton", 96, "Tech")
-	_research_button.toggle_mode = true
-	_research_button.pressed.connect(_on_research_rail_pressed)
-	farm_row.add_child(_research_button)
 	_farm_blocker = _label("", 12)
 	_farm_blocker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	farm_row.add_child(_farm_blocker)
@@ -1512,6 +1516,9 @@ func _fit_economy_rows(sheet_width: float) -> void:
 	for button: Button in _destination_buttons.values():
 		button.custom_minimum_size.x = chip_width
 	_idle_button.custom_minimum_size.x = chip_width
+	# Build, House, Camp and Tech share the same four columns.
+	for button: Button in [_build_menu_button, _build_house_button, _build_camp_button, _research_button]:
+		button.custom_minimum_size.x = chip_width
 	for row: Dictionary in _producer_rows.values():
 		var producer: PanelContainer = row.card
 		var inner_padding: float = producer.get_theme_stylebox("panel").get_minimum_size().x
