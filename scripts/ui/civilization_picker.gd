@@ -6,11 +6,6 @@ signal closed()
 
 const THEME := preload("res://scripts/ui/kingdom_theme.gd")
 const WEB := preload("res://scripts/ui/web_shell_bridge.gd")
-const INK := Color("24392e")
-const PANEL := Color("e7dfc9")
-const IVORY := Color("f4eddd")
-const GOLD := Color("e8bf77")
-const BORDER := Color("a6ae94")
 var selected: int = 0
 var heading: String = "Choose your kingdom"
 var _panel: PanelContainer
@@ -40,36 +35,18 @@ func _ready() -> void:
 	z_index = 200
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	mouse_force_pass_scroll_events = false
-	color = Color(INK, 0.97)
-	theme = THEME.create_theme()
-	theme.set_color("font_color", "Label", INK)
-	for state: String in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
-		var button_style: StyleBoxFlat = THEME.button_style("secondary", "pressed" if state == "hover_pressed" else state)
-		button_style.set_corner_radius_all(10)
-		button_style.border_width_bottom = 1
-		button_style.bg_color = Color("3b5548") if state in ["pressed", "hover_pressed"] else Color("f3eddd")
-		button_style.border_color = Color("617467") if state in ["pressed", "hover_pressed", "hover"] else BORDER
-		if state == "focus":
-			button_style.bg_color = Color.TRANSPARENT
-			button_style.border_color = IVORY
-		theme.set_stylebox(state, "Button", button_style)
-	for state: String in ["font_color", "font_hover_color", "font_focus_color"]:
-		theme.set_color(state, "Button", INK)
-	theme.set_color("font_pressed_color", "Button", IVORY)
-	theme.set_color("font_hover_pressed_color", "Button", IVORY)
+	color = THEME.SCRIM
+	theme = THEME.create_menu_theme()
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_panel = PanelContainer.new()
 	_panel.name = "KingdomComparison"
-	var style: StyleBoxFlat = THEME.panel_style(PANEL, BORDER, 16)
-	style.set_content_margin_all(16)
-	_panel.add_theme_stylebox_override("panel", style)
+	_panel.add_theme_stylebox_override("panel", THEME.modal_style())
 	add_child(_panel)
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 8)
 	_panel.add_child(column)
 	_title = _label(heading, 22)
-	_title.add_theme_font_override("font", THEME.FONT_MEDIUM)
-	column.add_child(_title)
+	column.add_child(THEME.make_header_bar(_title))
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
 	column.add_child(row)
@@ -81,9 +58,7 @@ func _ready() -> void:
 		card.tooltip_text = "%s · %s" % [definition.name, definition.tagline]
 		card.accessibility_name = "Compare " + str(definition.name)
 		card.icon = load(str(definition.icon_path))
-		# Crests are colored illustrations, unlike monochrome command glyphs.
-		card.add_theme_color_override("icon_pressed_color", Color.WHITE)
-		card.add_theme_color_override("icon_hover_pressed_color", Color.WHITE)
+		THEME.apply_choice(card)
 		card.expand_icon = true
 		card.add_theme_constant_override("icon_max_width", 36)
 		card.add_theme_font_size_override("font_size", 15)
@@ -121,35 +96,27 @@ func _ready() -> void:
 	_tagline.name = "KingdomTagline"
 	_tagline.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_tagline.add_theme_font_override("font", THEME.FONT_MEDIUM)
+	_tagline.add_theme_color_override("font_color", THEME.GOLD)
 	details.add_child(_tagline)
 	_detail = _label("", 16)
 	_detail.name = "KingdomTradeoffs"
 	_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_detail.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_detail.add_theme_color_override("font_color", THEME.PARCHMENT)
 	details.add_child(_detail)
-	var footer := HBoxContainer.new()
-	footer.add_theme_constant_override("separation", 8)
-	column.add_child(footer)
 	var cancel := Button.new()
 	cancel.name = "CancelKingdomButton"
 	cancel.text = "Back"
+	cancel.icon = load("res://assets/ui/icons/back.svg")
+	cancel.add_theme_constant_override("icon_max_width", 18)
 	cancel.custom_minimum_size = Vector2(96, 48)
 	cancel.pressed.connect(close)
-	footer.add_child(cancel)
+	THEME.apply_menu_secondary(cancel)
 	_confirm = Button.new()
 	_confirm.name = "ChooseKingdomButton"
-	_confirm.custom_minimum_size.y = 48
-	_confirm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	THEME.apply_primary(_confirm)
-	for state: String in ["normal", "hover", "pressed"]:
-		var confirm_style: StyleBoxFlat = THEME.button_style("primary", state)
-		confirm_style.bg_color = Color("f0cb86") if state == "hover" else GOLD
-		confirm_style.border_color = GOLD
-		confirm_style.set_corner_radius_all(10)
-		confirm_style.border_width_bottom = 1
-		_confirm.add_theme_stylebox_override(state, confirm_style)
+	_confirm.custom_minimum_size = Vector2(220, 48)
 	_confirm.pressed.connect(_choose)
-	footer.add_child(_confirm)
+	column.add_child(THEME.make_footer([cancel], _confirm))
 	var focus_order: Array[Control] = []
 	for card: Button in _cards:
 		focus_order.append(card)
@@ -215,7 +182,7 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 	var compact: bool = height_value < 400 or width_value < 700
 	var panel_style: StyleBoxFlat = _panel.get_theme_stylebox("panel")
 	panel_style.set_content_margin_all(12 if compact else 20)
-	_title.add_theme_font_size_override("font_size", 18 if compact else 24)
+	_title.add_theme_font_size_override("font_size", THEME.TITLE_SIZE_COMPACT if compact else THEME.TITLE_SIZE)
 	_tagline.add_theme_font_size_override("font_size", 17 if compact else 21)
 	_detail.add_theme_font_size_override("font_size", 14 if compact else 16)
 	for card: Button in _cards:
