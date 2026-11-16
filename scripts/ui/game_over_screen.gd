@@ -33,15 +33,20 @@ const HUD_LAYOUT_SCRIPT := preload("res://scripts/ui/hud.gd")
 func _ready() -> void:
 	layer = 20
 	visible = false
-	panel.theme = KingdomTheme.create_theme()
-	var ledger := FieldStyle.surface(18)
-	ledger.border_width_top = 2
-	panel.add_theme_stylebox_override("panel", ledger)
-	result_label.add_theme_font_override("font", KingdomTheme.FONT_MEDIUM)
+	panel.theme = KingdomTheme.create_menu_theme()
+	panel.add_theme_stylebox_override("panel", KingdomTheme.modal_style())
+	var scrim := get_node_or_null("Background") as ColorRect
+	if scrim != null:
+		# Same scrim as Pause: the field stays faintly visible behind the result.
+		scrim.color = Color(KingdomTheme.INK, 0.78)
+	KingdomTheme.apply_title(result_label, 36)
 	panel.get_node("Margin/VBox/StatsHeader/Left").add_theme_color_override("font_color", KingdomTheme.TEAL)
 	panel.get_node("Margin/VBox/StatsHeader/Right").add_theme_color_override("font_color", KingdomTheme.RUST)
-	time_label.add_theme_color_override("font_color", KingdomTheme.MUTED)
-	KingdomTheme.apply_primary(play_again_button)
+	KingdomTheme.apply_note(time_label, 14)
+	# One gold plaque, a cloth pill to leave, and a quiet report link.
+	KingdomTheme.apply_menu_primary(play_again_button)
+	KingdomTheme.apply_menu_secondary(main_menu_button)
+	KingdomTheme.apply_tertiary(report_button)
 	play_again_button.pressed.connect(_on_play_again)
 	main_menu_button.pressed.connect(_on_main_menu)
 	report_button.pressed.connect(_on_report)
