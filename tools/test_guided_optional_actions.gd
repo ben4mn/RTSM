@@ -92,11 +92,13 @@ func _guided_journey(phone: Vector2i, interface_scale: float, notched: bool) -> 
 	_hud.call("set_early_game_ui_state", true)
 	_hud.call("refresh_match_state")
 	await _frames(3)
-	_expect(age_button.is_visible_in_tree() and age_button.disabled, "guide and bank refresh must retain visible, unaffordable Age Up")
-	_expect(age_button.text.contains("250F") and age_button.text.contains("125G"), "Age Up must disclose the authoritative price")
+	# HUD declutter: the top-bar age chip is never disabled for a shortfall;
+	# its readiness meta and preview carry the price.
+	_expect(age_button.is_visible_in_tree() and not bool(age_button.get_meta("age_chip_affordable", true)), "guide and bank refresh must retain visible, unaffordable Age Up")
+	_expect(age_button.tooltip_text.contains("250 food · 125 gold"), "Age Up must disclose the authoritative price")
 	ResourceManager.add_resource(0, "food", 1)
 	await _frames(3)
-	_expect(age_button.is_visible_in_tree() and not age_button.disabled, "final food deposit must enable guided Age Up")
+	_expect(age_button.is_visible_in_tree() and not age_button.disabled and bool(age_button.get_meta("age_chip_affordable", false)), "final food deposit must enable guided Age Up")
 	var safe: Rect2 = _hud.call("get_world_safe_rect")
 	_expect(safe.encloses(age_button.get_global_rect()) and age_button.size.x >= 48.0 and age_button.size.y >= 48.0, "guided Age Up must fit the safe area as a complete touch target")
 	GameManager.set_paused(true)
