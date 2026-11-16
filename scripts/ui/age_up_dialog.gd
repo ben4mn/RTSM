@@ -32,11 +32,28 @@ var _research_duration: float = 30.0  # seconds
 
 func _ready() -> void:
 	visible = false
+	_apply_family_style()
 	confirm_button.pressed.connect(_on_confirm)
 	cancel_button.pressed.connect(_on_cancel)
 	landmark_option_a.pressed.connect(_on_landmark_selected.bind(0))
 	landmark_option_b.pressed.connect(_on_landmark_selected.bind(1))
 	progress_bar.visible = false
+
+
+func _apply_family_style() -> void:
+	theme = KingdomTheme.create_menu_theme()
+	add_theme_stylebox_override("panel", KingdomTheme.modal_style())
+	KingdomTheme.apply_title(title_label, 22)
+	KingdomTheme.apply_note(cost_label, 15)
+	var landmark_heading := landmark_container.get_node_or_null("LandmarkLabel") as Label
+	if landmark_heading != null:
+		landmark_heading.text = "Choose a landmark"
+		KingdomTheme.apply_section_label(landmark_heading)
+	for option: Button in [landmark_option_a, landmark_option_b]:
+		option.toggle_mode = true
+		KingdomTheme.apply_choice(option)
+	KingdomTheme.apply_menu_secondary(cancel_button)
+	KingdomTheme.apply_menu_primary(confirm_button)
 
 
 func _process(delta: float) -> void:
@@ -66,7 +83,11 @@ func show_dialog(current_age: int) -> void:
 	title_label.text = "Advance to %s" % age_name
 
 	var cost: Dictionary = AGE_UP_COSTS.get(_target_age, {})
-	cost_label.text = "Cost: %d Food, %d Gold" % [cost.get("food", 0), cost.get("gold", 0)]
+	var parts: Array[String] = []
+	for resource: String in ["food", "gold"]:
+		if int(cost.get(resource, 0)) > 0:
+			parts.append("%d %s" % [int(cost[resource]), resource.capitalize()])
+	cost_label.text = "Cost: " + ", ".join(parts)
 
 	# Show landmark choices only for Age 3
 	var show_landmarks: bool = _target_age == 3
@@ -89,9 +110,6 @@ func _on_landmark_selected(index: int) -> void:
 	_selected_landmark = index
 	landmark_option_a.button_pressed = (index == 0)
 	landmark_option_b.button_pressed = (index == 1)
-	# Highlight selected
-	landmark_option_a.modulate = Color.WHITE if index == 0 else Color(0.6, 0.6, 0.6)
-	landmark_option_b.modulate = Color.WHITE if index == 1 else Color(0.6, 0.6, 0.6)
 	confirm_button.disabled = false
 
 
