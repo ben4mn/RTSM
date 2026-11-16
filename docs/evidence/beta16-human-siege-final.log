@@ -1,0 +1,9 @@
+=== [1/1] test_compact_human_siege ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+COMPACT_HUMAN_SIEGE {"committed_population":10,"construction_seconds":14.0197351111112,"population":20,"scope":"funded budget,4x engine time, natural labor/queue, actual touch purchases","siege_cost":{"food":0,"gold":100,"wood":150},"workshop_cost":{"food":0,"gold":100,"wood":300}}
+COMPACT_HUMAN_SIEGE {"committed_population":10,"construction_seconds":13.97532,"population":30,"scope":"funded budget,4x engine time, natural labor/queue, actual touch purchases","siege_cost":{"food":0,"gold":100,"wood":150},"workshop_cost":{"food":0,"gold":100,"wood":300}}
+COMPACT_HUMAN_SIEGE {"committed_population":10,"construction_seconds":13.9802495238096,"population":40,"scope":"funded budget,4x engine time, natural labor/queue, actual touch purchases","siege_cost":{"food":0,"gold":100,"wood":150},"workshop_cost":{"food":0,"gold":100,"wood":300}}
+[PASS] compact_human_siege: 156 checks;20/30/40 population; Dark/Feudal locked Castle card, shortage guard, actual touch swipe/card/Place/Train; paid natural Workshop labor and one Siege/3-pop reservation per match
+[PASS] test_compact_human_siege
+FOCUSED_SUITE: 1/1 passed

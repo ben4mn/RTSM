@@ -1,0 +1,21 @@
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+ONLINE_COMBAT_STATUS slot=0 state=idle elapsed=0.00 message=
+ONLINE_COMBAT_STATUS slot=0 state=connecting elapsed=0.00 message=Connecting…
+ONLINE_COMBAT_STATUS slot=0 state=searching elapsed=0.28 message=Searching for an opponent…
+ONLINE_COMBAT_STATUS slot=0 state=searching elapsed=0.30 message=Searching for an opponent…
+ONLINE_COMBAT_STATUS slot=0 state=loading elapsed=1.54 message=Opponent found · loading…
+ONLINE_COMBAT_STATUS slot=0 state=playing elapsed=1.68 message=Online match
+ONLINE_COMBAT_PROGRESS slot=0 game=0.83 wall=10.03 seed=1293461196 map=1 snapshots=1 placed=false trained=false ordered=false
+ONLINE_COMBAT_PLACEMENT_SCAN ms=0 placed=true
+ONLINE_COMBAT_PROGRESS slot=0 game=10.98 wall=20.22 seed=1293461196 map=1 snapshots=48 placed=true trained=false ordered=false
+ONLINE_COMBAT_PROGRESS slot=0 game=21.28 wall=30.60 seed=1293461196 map=1 snapshots=91 placed=true trained=true ordered=false
+ONLINE_COMBAT_PROGRESS slot=0 game=31.48 wall=40.69 seed=1293461196 map=1 snapshots=138 placed=true trained=true ordered=false
+ONLINE_COMBAT_PROGRESS slot=0 game=41.52 wall=50.77 seed=1293461196 map=1 snapshots=185 placed=true trained=true ordered=true
+ONLINE_COMBAT_PROGRESS slot=0 game=51.68 wall=60.94 seed=1293461196 map=1 snapshots=229 placed=true trained=true ordered=true
+ONLINE_COMBAT_PROGRESS slot=0 game=61.72 wall=70.99 seed=1293461196 map=1 snapshots=269 placed=true trained=true ordered=true
+ONLINE_COMBAT_PROGRESS slot=0 game=71.72 wall=80.98 seed=1293461196 map=1 snapshots=312 placed=true trained=true ordered=true
+ONLINE_COMBAT_VERIFIED slot=0 paid_barracks=true paid_infantry=true attack_move=true enemy_visible=true replicated_damage=true stand_ground_requested=false inert_stance_replica=false
+ONLINE_COMBAT_STATUS slot=0 state=ended elapsed=49.59 message=Surrender
+ONLINE_COMBAT_RESULT slot=0 winner=0 reason=Surrender verified=true game=81.52 wall=90.94
+ONLINE_COMBAT_STATUS slot=0 state=idle elapsed=49.59 message=

@@ -76,6 +76,8 @@ def run_case(case):
             'longest_quiet_gap': data['cadence']['longest_quiet_gap_after_contact'],
             'deposits': data['deposited_by_resource'], 'kills': data['kills'],
             'research': investments['research_events'], 'camps': investments['camp_events'],
+            'abilities': data.get('civ_abilities', []),
+            'unique_tech': [event for event in investments['research_events'] if event.get('research') in ('chivalry', 'yeomen', 'yam')],
             'report': str(report), 'log': str(log)}
 
 

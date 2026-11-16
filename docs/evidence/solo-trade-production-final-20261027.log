@@ -1,0 +1,6 @@
+=== [1/1] test_solo_trade_production ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+{"checks":46,"failures":[],"scope":"actual Main scenes, paid solo and authority commands, native save/resume; manually advanced queue time; no sockets","test":"solo_trade_production"}
+[PASS] test_solo_trade_production
+FOCUSED_SUITE: 1/1 passed

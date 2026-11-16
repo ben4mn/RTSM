@@ -1,0 +1,21 @@
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+ONLINE_COMBAT_STATUS slot=0 state=idle elapsed=0.00 message=
+ONLINE_COMBAT_STATUS slot=0 state=connecting elapsed=0.00 message=Connecting…
+ONLINE_COMBAT_STATUS slot=0 state=searching elapsed=0.27 message=Searching for an opponent…
+ONLINE_COMBAT_STATUS slot=0 state=searching elapsed=0.30 message=Searching for an opponent…
+ONLINE_COMBAT_STATUS slot=0 state=loading elapsed=1.63 message=Opponent found · loading…
+ONLINE_COMBAT_STATUS slot=0 state=playing elapsed=1.76 message=Online match
+ONLINE_COMBAT_PROGRESS slot=0 game=0.75 wall=8.87 seed=1638030314 map=4 snapshots=1 placed=false trained=false ordered=false
+ONLINE_COMBAT_PLACEMENT_SCAN ms=1 placed=true
+ONLINE_COMBAT_PROGRESS slot=0 game=10.76 wall=18.77 seed=1638030314 map=4 snapshots=38 placed=true trained=false ordered=false
+ONLINE_COMBAT_PROGRESS slot=0 game=20.90 wall=28.94 seed=1638030314 map=4 snapshots=75 placed=true trained=true ordered=false
+ONLINE_COMBAT_PROGRESS slot=0 game=31.17 wall=39.23 seed=1638030314 map=4 snapshots=116 placed=true trained=true ordered=false
+ONLINE_COMBAT_PROGRESS slot=0 game=41.22 wall=49.34 seed=1638030314 map=4 snapshots=159 placed=true trained=true ordered=true
+ONLINE_COMBAT_PROGRESS slot=0 game=51.43 wall=59.90 seed=1638030314 map=4 snapshots=197 placed=true trained=true ordered=true
+ONLINE_COMBAT_PROGRESS slot=0 game=61.52 wall=69.83 seed=1638030314 map=4 snapshots=233 placed=true trained=true ordered=true
+ONLINE_COMBAT_PROGRESS slot=0 game=71.94 wall=80.41 seed=1638030314 map=4 snapshots=274 placed=true trained=true ordered=true
+ONLINE_COMBAT_VERIFIED slot=0 paid_barracks=true paid_infantry=true attack_move=true enemy_visible=true replicated_damage=true stand_ground_requested=false inert_stance_replica=false
+ONLINE_COMBAT_STATUS slot=0 state=ended elapsed=41.62 message=Surrender
+ONLINE_COMBAT_RESULT slot=0 winner=0 reason=Surrender verified=true game=77.42 wall=86.18
+ONLINE_COMBAT_STATUS slot=0 state=idle elapsed=41.62 message=

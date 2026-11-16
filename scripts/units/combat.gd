@@ -23,6 +23,7 @@ class CommittedMeleeHit extends Node:
 	var defender_ref: WeakRef
 	var final_damage: float = 0.0
 	var counter_bonus: float = 1.0
+	var charged: bool = false
 	var finished: bool = false
 
 	func _ready() -> void:
@@ -34,7 +35,7 @@ class CommittedMeleeHit extends Node:
 		if finished:
 			return
 		finished = true
-		Combat.resolve_unit_hit(attacker_ref.get_ref() as UnitBase, defender_ref.get_ref() as UnitBase, final_damage, counter_bonus)
+		Combat.resolve_unit_hit(attacker_ref.get_ref() as UnitBase, defender_ref.get_ref() as UnitBase, final_damage, counter_bonus, charged)
 		queue_free()
 
 
@@ -48,7 +49,14 @@ class RangedProjectile extends Node2D:
 	var elapsed: float = 0.0
 	var flight_seconds: float = 0.2
 	var finished: bool = false
+	var stone: bool = false
 	var _heading: Vector2 = Vector2.RIGHT
+	# Presentation only: the node travels the straight sight line (fog checks
+	# use it); the drawn shaft rides a visible arc above that line.
+	var _arc: float = 12.0
+	var _lift: float = 0.0
+	var _phase: float = 0.0
+	var _aim: Vector2 = Vector2.ZERO
 
 	func _process(delta: float) -> void:
 		advance_projectile(delta)
@@ -59,14 +67,21 @@ class RangedProjectile extends Node2D:
 		var defender: UnitBase = defender_ref.get_ref() as UnitBase
 		if not is_instance_valid(defender) or defender.current_state == UnitBase.State.DEAD:
 			finished = true
+			if visible and _aim != Vector2.ZERO and not stone:
+				BattleFX.stray_arrow(start_position, _aim, _phase, flight_seconds)
 			queue_free()
 			return
 		elapsed += delta
 		var phase: float = minf(1.0, elapsed / flight_seconds)
-		var previous: Vector2 = global_position
-		global_position = start_position.lerp(defender.global_position + Vector2(0.0, -16.0), phase)
-		global_position.y -= sin(phase * PI) * 12.0
-		_heading = (global_position - previous).normalized()
+		# Aim at where the target is drawn (eased between simulation steps).
+		_aim = defender.get_visual_position() + Vector2(0.0, -16.0 * UnitData.WORLD_VISUAL_SCALE)
+		if _phase <= 0.0:
+			var distance: float = start_position.distance_to(_aim)
+			_arc = clampf(distance * 0.34, 26.0, 78.0) if stone else BattleFX.arrow_arc(distance)
+		_phase = phase
+		global_position = start_position.lerp(_aim, phase)
+		_lift = sin(phase * PI) * _arc
+		_heading = BattleFX.shot_heading(start_position, _aim, _arc, phase)
 		# A shot already released remains valid, but its rendering must not
 		# reveal a target that subsequently enters unexplored fog.
 		var visibility_map: Node2D = visibility_map_ref.get_ref() as Node2D if visibility_map_ref != null else null
@@ -78,15 +93,18 @@ class RangedProjectile extends Node2D:
 		if phase >= 1.0:
 			finished = true
 			var attacker: UnitBase = attacker_ref.get_ref() as UnitBase
+			if visible:
+				BattleFX.arrow_arrived(defender, _heading, stone)
 			Combat.resolve_unit_hit(attacker, defender, final_damage, counter_bonus)
 			queue_free()
 
 	func _draw() -> void:
-		draw_line(-_heading * 7.0, _heading * 3.0, Color(0.88, 0.78, 0.46), 2.0, true)
-		var normal := Vector2(-_heading.y, _heading.x)
-		draw_colored_polygon(PackedVector2Array([
-			_heading * 5.0, normal * 2.0, -normal * 2.0
-		]), Color(0.92, 0.94, 0.80))
+		var point := Vector2(0.0, -_lift)
+		BattleFX.draw_shadow(self, Vector2(0.0, 16.0 * UnitData.WORLD_VISUAL_SCALE * (1.0 - _phase * 0.4)), 5.0 if stone else 3.0, 0.14)
+		if stone:
+			BattleFX.draw_stone(self, point, elapsed * 9.0)
+		else:
+			BattleFX.draw_arrow(self, point, _heading, minf(1.0, _phase * 4.0))
 
 
 static func get_counter_bonus(attacker_type: int, defender_type: int) -> float:
@@ -179,6 +197,10 @@ static func queue_melee_attack(attacker: UnitBase, defender: UnitBase) -> void:
 	hit.defender_ref = weakref(defender)
 	hit.final_damage = calculate_unit_damage(attacker, defender)
 	hit.counter_bonus = get_counter_bonus(attacker.unit_type, defender.unit_type)
+	# Round 2 C: a rested Chevalier's Charge rides on this blow.
+	var ability_bonus: float = UnitAbilities.melee_bonus_damage(attacker)
+	hit.final_damage += ability_bonus
+	hit.charged = ability_bonus > 0.0
 	attacker.get_parent().add_child(hit)
 
 
@@ -192,8 +214,8 @@ static func launch_ranged_attack(attacker: UnitBase, defender: UnitBase) -> void
 		projectile.visibility_map_ref = weakref(visibility_map)
 	projectile.final_damage = calculate_unit_damage(attacker, defender)
 	projectile.counter_bonus = get_counter_bonus(attacker.unit_type, defender.unit_type)
-	var shot_direction: Vector2 = (defender.global_position - attacker.global_position).normalized()
-	projectile.start_position = attacker.global_position + shot_direction * 14.0 + Vector2(0.0, -18.0)
+	projectile.start_position = attacker.get_projectile_origin(defender.global_position)
+	projectile.stone = attacker.unit_type == UnitData.UnitType.SIEGE
 	var projectile_speed: float = float(UnitData.UNITS[attacker.unit_type].get("projectile_speed", 300.0))
 	projectile.flight_seconds = clampf(attacker.global_position.distance_to(defender.global_position) / projectile_speed, 0.10, 0.40)
 	projectile.z_index = 80
@@ -202,17 +224,24 @@ static func launch_ranged_attack(attacker: UnitBase, defender: UnitBase) -> void
 	projectile.visible = attacker.visible
 
 
-static func resolve_unit_hit(attacker: UnitBase, defender: UnitBase, final_damage: float, counter_bonus: float) -> void:
+static func resolve_unit_hit(attacker: UnitBase, defender: UnitBase, final_damage: float, counter_bonus: float, charged: bool = false) -> void:
 	if not is_instance_valid(defender) or defender.current_state == UnitBase.State.DEAD:
 		return
 	var was_alive: bool = defender.hp > 0.0
 	var previous_hp: float = defender.hp
+	if is_instance_valid(attacker):
+		# Presentation only: a flinch (or a fall) goes away from the blow.
+		defender.present_recoil((defender.global_position - attacker.global_position).normalized())
 	defender.take_damage(final_damage)
 	if is_instance_valid(attacker):
 		attacker.attack_landed.emit(attacker, defender, maxf(0.0, previous_hp - maxf(0.0, defender.hp)), counter_bonus)
 
 	var tree := defender.get_tree()
-	if tree and tree.current_scene and defender.visible:
+	if BattleFX.get_fx() != null:
+		# Weapon-class impact, flinch direction and the counter-bonus figure.
+		if defender.visible:
+			BattleFX.unit_struck(attacker, defender, counter_bonus)
+	elif tree and tree.current_scene and defender.visible:
 		VFX.hit_burst(tree, defender.global_position + Vector2(0.0, -14.0))
 		# Show counter bonus text when type advantage applies
 		if counter_bonus > 1.0 and (defender.is_selected or (is_instance_valid(attacker) and attacker.is_selected)):
@@ -221,6 +250,8 @@ static func resolve_unit_hit(attacker: UnitBase, defender: UnitBase, final_damag
 	# Track kill
 	if is_instance_valid(attacker) and was_alive and defender.hp <= 0.0:
 		attacker.kills += 1
+	# Round 2 C: Charge impact and Pillage payout.
+	UnitAbilities.on_unit_hit(attacker, defender, charged, was_alive and defender.hp <= 0.0)
 
 	# UnitBase owns intent priority, including passive movement, explicit
 	# building attacks, stand ground and resuming attack-move after retaliation.
@@ -233,7 +264,8 @@ static func resolve_unit_hit(attacker: UnitBase, defender: UnitBase, final_damag
 
 
 static func deal_damage_to_building(attacker: UnitBase, defender: BuildingBase) -> void:
-	defender.take_damage(calculate_building_damage(attacker))
+	# Round 2 C: a spent Charge adds damage; an Outrider's hit pillages gold.
+	defender.take_damage(calculate_building_damage(attacker) + UnitAbilities.on_building_hit(attacker, defender))
 
 
 static func deal_tower_damage(attacker: BuildingBase, defender: UnitBase) -> void:

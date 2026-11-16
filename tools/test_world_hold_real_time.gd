@@ -80,15 +80,15 @@ func _run() -> void:
 			var start: int = Time.get_ticks_msec()
 			_contact(41, GROUND, true)
 			await _wait_until(start + 300)
-			_expect(_orders.is_empty(), "speed %.1f / emulation %s activated before 350 real ms" % [speed, emulate_mouse])
-			while _orders.is_empty() and Time.get_ticks_msec() < start + 550:
+			_expect(_orders.is_empty() and not _selection.is_hold_gesture_active(), "speed %.1f / emulation %s activated before 350 real ms" % [speed, emulate_mouse])
+			while not _selection.is_hold_gesture_active() and Time.get_ticks_msec() < start + 550:
 				await get_tree().process_frame
-			_expect(_orders.size() == 1, "speed %.1f / emulation %s did not activate one real-time hold" % [speed, emulate_mouse])
-			var elapsed: int = int(_orders[0]["time_msec"]) - start if not _orders.is_empty() else -1
+			var elapsed: int = Time.get_ticks_msec() - start if _selection.is_hold_gesture_active() else -1
+			_expect(_selection.is_hold_gesture_active() and _orders.is_empty(), "speed %.1f / emulation %s did not arm one real-time hold (orders wait for the lift)" % [speed, emulate_mouse])
 			_expect(elapsed >= HOLD_MSEC and elapsed <= 500, "speed %.1f / emulation %s hold elapsed %dms" % [speed, emulate_mouse, elapsed])
 			_contact(41, GROUND, false)
 			await _frames(2)
-			_expect(_orders.size() == 1 and _orders[0]["action"] == "queue", "hold release must retain exactly one queued destination")
+			_expect(_orders.size() == 1 and _orders[0]["action"] == "queue", "hold release must issue exactly one queued destination")
 			_expect(_admissions == [41], "touch gesture was admitted more than once or acquired synthetic mouse ownership")
 			_expect_clean("timed hold")
 			_timing.append({"speed": speed, "mouse_emulation": emulate_mouse, "elapsed_msec": elapsed, "orders": _orders.size()})
@@ -263,17 +263,19 @@ func _test_popup_contract() -> void:
 	var closed_before: int = _popup_close_count
 	_contact(911, _resource.position, true)
 	var popup_deadline: int = Time.get_ticks_msec() + 550
-	while not _selection.is_touch_context_open() and Time.get_ticks_msec() < popup_deadline:
+	while not _selection.is_hold_gesture_active() and Time.get_ticks_msec() < popup_deadline:
 		await get_tree().process_frame
+	_expect(not _selection.is_touch_context_open() and _orders.is_empty(), "a multi-action hold opened or acted before the finger lifted")
+	_contact(911, _resource.position, false)
+	await _frames(2)
 	_expect(_selection.is_touch_context_open() and _popup_open_count == opened_before + 1, "multi-action world hold did not publish one popup opening")
 	_expect(_selection.get_touch_context_rect().has_area(), "visible popup exposed no actual obstacle rectangle")
 	_expect(_orders.is_empty(), "opening multi-action popup executed a command")
 	_selection.close_touch_context()
 	_selection.close_touch_context()
 	_expect(not _selection.is_touch_context_open() and _selection.get_touch_context_rect() == Rect2() and _popup_close_count == closed_before + 1, "idempotent popup close emitted duplicate lifecycle events or retained bounds")
-	_contact(911, _resource.position, false)
 	await _frames(2)
-	_expect(_orders.is_empty(), "closing popup before original release leaked a tap")
+	_expect(_orders.is_empty(), "closing the popup leaked a tap")
 	_reset_case()
 	_selection.set_unit_command_armed(true)
 	_contact(923, _resource.position, true)
@@ -380,7 +382,7 @@ func _test_main_move_intents(main: Node) -> void:
 				_contact(1501, ground, false)
 			elif kind == "hold":
 				await _wait_until(Time.get_ticks_msec() + 390)
-				_expect(_orders.size() == 1 and _orders[0]["action"] == "queue", "real Main hold issues exactly one queued destination at threshold")
+				_expect(_orders.is_empty() and _selection.is_hold_gesture_active(), "real Main hold arms at threshold and waits for the lift")
 				_contact(1501, ground, false)
 			else:
 				if kind == "pan":

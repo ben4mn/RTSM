@@ -1,0 +1,6 @@
+=== [1/1] test_solo_trade_production ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+{"checks":17,"failures":["trainable scene includes a real queue: 11","Main accepts a paid Trader command","Main-spawned Trade Post exposes its scene queue"],"scope":"actual solo Main scenes, paid production, native save/resume; manually advanced queue time","test":"solo_trade_production"}
+[FAIL (exit 1)] test_solo_trade_production
+FOCUSED_SUITE: 0/1 passed; failed: test_solo_trade_production

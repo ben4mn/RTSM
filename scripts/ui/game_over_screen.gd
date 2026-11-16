@@ -1,6 +1,8 @@
 extends CanvasLayer
 ## Game over screen. Shows victory/defeat with player vs AI comparison.
 
+## Width of the browser shell's Updates + Full screen buttons (as in HUD).
+const WEB_TOOLS_WIDTH := 290.0
 signal restart_requested()
 signal main_menu_requested()
 signal problem_report_requested()
@@ -31,15 +33,20 @@ const HUD_LAYOUT_SCRIPT := preload("res://scripts/ui/hud.gd")
 func _ready() -> void:
 	layer = 20
 	visible = false
-	panel.theme = KingdomTheme.create_theme()
-	var ledger := FieldStyle.surface(18)
-	ledger.border_width_top = 2
-	panel.add_theme_stylebox_override("panel", ledger)
-	result_label.add_theme_font_override("font", KingdomTheme.FONT_MEDIUM)
+	panel.theme = KingdomTheme.create_menu_theme()
+	panel.add_theme_stylebox_override("panel", KingdomTheme.modal_style())
+	var scrim := get_node_or_null("Background") as ColorRect
+	if scrim != null:
+		# Same scrim as Pause: the field stays faintly visible behind the result.
+		scrim.color = Color(KingdomTheme.INK, 0.78)
+	KingdomTheme.apply_title(result_label, 36)
 	panel.get_node("Margin/VBox/StatsHeader/Left").add_theme_color_override("font_color", KingdomTheme.TEAL)
 	panel.get_node("Margin/VBox/StatsHeader/Right").add_theme_color_override("font_color", KingdomTheme.RUST)
-	time_label.add_theme_color_override("font_color", KingdomTheme.MUTED)
-	KingdomTheme.apply_primary(play_again_button)
+	KingdomTheme.apply_note(time_label, 14)
+	# One gold plaque, a cloth pill to leave, and a quiet report link.
+	KingdomTheme.apply_menu_primary(play_again_button)
+	KingdomTheme.apply_menu_secondary(main_menu_button)
+	KingdomTheme.apply_tertiary(report_button)
 	play_again_button.pressed.connect(_on_play_again)
 	main_menu_button.pressed.connect(_on_main_menu)
 	report_button.pressed.connect(_on_report)
@@ -74,6 +81,17 @@ func _fit_panel_to_size(viewport_size: Vector2, safe_area: Rect2 = Rect2()) -> v
 		minf(440.0, safe_bounds.size.y - 16.0)
 	)
 	var panel_center: Vector2 = safe_bounds.position + safe_bounds.size * 0.5
+	# Beta 30: the browser's Updates / Full screen buttons sit top-right over
+	# this card on phones. Move the card left of them when it fits, else below.
+	var web_tools_clearance: float = preload("res://scripts/ui/web_shell_bridge.gd").get_menu_top_clearance(viewport_size)
+	if web_tools_clearance > 0.0:
+		var tools_left: float = viewport_size.x - WEB_TOOLS_WIDTH - 16.0
+		if panel_center.x + target_size.x * 0.5 > tools_left:
+			if tools_left - target_size.x >= safe_bounds.position.x + 8.0:
+				panel_center.x = tools_left - target_size.x * 0.5
+			elif safe_bounds.end.y - web_tools_clearance >= 200.0:
+				target_size.y = minf(target_size.y, safe_bounds.end.y - web_tools_clearance - 8.0)
+				panel_center.y = web_tools_clearance + (safe_bounds.end.y - web_tools_clearance) * 0.5
 	var center_offset: Vector2 = panel_center - viewport_size * 0.5
 	panel.custom_minimum_size = target_size
 	panel.offset_left = center_offset.x - target_size.x * 0.5
@@ -156,9 +174,10 @@ func _show_result(text: String, color: Color, stats: Dictionary) -> void:
 	var p_age_name: String = age_names[clampi(player_age, 1, 3)]
 	var a_age_name: String = age_names[clampi(ai_age, 1, 3)]
 	var reason: String = str(stats.get("victory_reason", "Match concluded"))
-	var player_feudal: String = _format_timing(float(stats.get("player_feudal_seconds", -1.0)))
-	var ai_feudal: String = _format_timing(float(stats.get("ai_feudal_seconds", -1.0)))
-	time_label.text = "%s  •  %s\nFeudal %s vs %s  •  End %s vs %s" % [time_str, reason, player_feudal, ai_feudal, p_age_name, a_age_name]
+	# H: say what each side reached and when ("Feudal — vs —" read as broken).
+	time_label.text = "%s  •  %s\nYou: %s  •  Rival: %s" % [time_str, reason,
+		_age_line(player_age, float(stats.get("player_feudal_seconds", -1.0)), float(stats.get("player_castle_seconds", -1.0))),
+		_age_line(ai_age, float(stats.get("ai_feudal_seconds", -1.0)), float(stats.get("ai_castle_seconds", -1.0)))]
 	if _online_result:
 		time_label.text = "%s  •  %s\nYour age: %s" % [time_str, reason, p_age_name]
 	# Opponent economy and statistics remain private during online play.
@@ -205,6 +224,16 @@ func _show_result(text: String, color: Color, stats: Dictionary) -> void:
 	visible = true
 	get_tree().paused = true
 	_animate_in()
+
+
+func _age_line(age: int, feudal_seconds: float, castle_seconds: float) -> String:
+	# The age reached comes first: a Castle kingdom whose Castle time is unknown
+	# (e.g. a resumed save) still reads "Castle Age", never its Feudal time.
+	if age >= 3:
+		return "Castle Age at %s" % _format_timing(castle_seconds) if castle_seconds >= 0.0 else "Castle Age"
+	if age >= 2 and feudal_seconds >= 0.0:
+		return "Feudal Age at %s" % _format_timing(feudal_seconds)
+	return ["", "Dark Age", "Feudal Age", "Castle Age"][clampi(age, 1, 3)]
 
 
 func _format_timing(seconds_value: float) -> String:

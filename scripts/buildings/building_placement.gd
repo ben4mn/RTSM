@@ -1,9 +1,15 @@
 class_name BuildingPlacement
 extends Node2D
 ## Ghost preview system for building placement.
-## Shows a transparent building sprite following the pointer/finger.
-## Touch positions a preview; an explicit Place action confirms it.
-## Desktop left click still places immediately.
+##
+## L2 — one placement language on a phone:
+## - Picking a building shows the ghost already on a valid spot in view.
+## - Tapping the ghost itself (or the Build button attached to it) builds.
+## - Tapping anywhere else moves the ghost there (centred under the finger);
+##   it never builds. Dragging that starts on the ghost carries it; a drag
+##   that starts elsewhere pans the map; two fingers pinch.
+## Mouse keeps the desktop idiom: the ghost follows the cursor, left click
+## builds there, Shift+click builds and keeps placing, right click cancels.
 
 signal placement_confirmed(building_type: int, position: Vector2)
 signal placement_cancelled()
@@ -31,6 +37,22 @@ var _suspended_world_inputs: Array[Dictionary] = []
 var _touch_points: Dictionary = {}
 var _released_touch_inputs: Dictionary = {}
 var _touch_camera_gesture: bool = false
+## Where each placement finger first touched. A finger that lifts close to
+## where it landed is a tap.
+var _touch_starts: Dictionary = {}
+## L2: fingers that landed on the ghost (index -> world offset from the
+## finger to the ghost anchor). They carry the ghost instead of the camera.
+var _ghost_grabs: Dictionary = {}
+var _ghost_dragging: Dictionary = {}
+## Same as the camera pan deadzone and the selection tap slop (12 px): a
+## finger that pans the map is never also a tap.
+const TAP_TO_PLACE_SLOP_PX: float = 12.0
+const GHOST_DRAG_SLOP_PX: float = 6.0
+## Extra screen pixels around the drawn ghost that still count as "on it".
+const GHOST_HIT_MARGIN_PX: float = 8.0
+## Ignore a confirm this soon after another one (a nervous double tap).
+const CONFIRM_DEBOUNCE_MSEC: int = 350
+var _last_confirm_msec: int = -100000
 var _uses_touch_input: bool = false
 var _assisted_preview_active: bool = false
 var _preview_refresh_elapsed: float = 0.0
@@ -40,17 +62,31 @@ var _grid_world_transform: Transform2D = Transform2D.IDENTITY
 var _grid_view_rect: Rect2 = Rect2()
 var _grid_tile_bounds: Rect2i = Rect2i()
 var _grid_cache_valid: bool = false
+var _grid_preview_tile := Vector2i(-1000, -1000)
+var _trade_preview: Dictionary = {}
+
+const TRADE_PREVIEW = preload("res://scripts/units/trade_preview.gd")
+const HAPTICS = preload("res://scripts/ui/haptics.gd")
 
 const FIND_SPACE_RADIUS: int = 12
 const FIND_SPACE_MAX_CANDIDATES: int = 625
 const FIND_SPACE_SCREEN_MARGIN: float = 6.0
+## K: Find's last resort walks outward from your Town Centers this far, with
+## this many full placement checks at most (fogged ground fails on its first
+## lookup, so most rings cost very little).
+const FIND_OWNED_SPACE_RADIUS: int = 18
+const FIND_OWNED_SPACE_MAX_CHECKS: int = 1500
 const GENERIC_INVALID_REASON := "Invalid placement"
 const FOG_INVALID_REASON := "Move all tiles into sight"
+const SHORE_INVALID_REASON := "Too close to the shore"
 const PLACEMENT_GRID_COLOR := Color(0.90, 0.92, 0.83, 0.18)
 const PLACEMENT_GRID_WIDTH_PX := 0.9
+const PLACEMENT_GRID_MARGIN_TILES: int = 1
 const FOOTPRINT_INK := Color("f4eddd")
 const FOOTPRINT_GOLD := Color("e8bf77")
 const FOOTPRINT_BLOCKED := Color("df947f")
+## L2: valid ground reads green at a glance (red stays "no").
+const FOOTPRINT_VALID := Color("b4dc8c")
 const PREVIEW_VALID_TINT := Color(1.0, 1.0, 1.0, 0.78)
 const PREVIEW_INVALID_TINT := Color(1.0, 0.80, 0.75, 0.72)
 const PREVIEW_LAYER: int = 8
@@ -88,6 +124,10 @@ func _try_find_terrain_layer() -> void:
 		_terrain_layer = parent.get_node("TerrainLayer") as TileMapLayer
 
 
+## I2: a real (not emulated) touch or mouse press has been observed.
+var _real_pointer_seen: bool = false
+
+
 func start_placement(building_type: int, player_owner: int = 0) -> void:
 	_try_find_terrain_layer()
 	var stats: Dictionary = BuildingData.get_building_stats(building_type)
@@ -97,6 +137,14 @@ func start_placement(building_type: int, player_owner: int = 0) -> void:
 	current_footprint = stats.get("footprint", Vector2i(2, 2))
 	current_color = stats.get("color", Color(0.5, 0.5, 0.5))
 	_player_owner = player_owner
+	# H: start in the device's own language (a phone speaks touch from the
+	# first tap) so the hint and the Place button never flip mid-placement.
+	# I2: only before any real pointer was seen. Desktops report a touchscreen
+	# too (mouse-to-touch emulation); a mouse user's last click already set
+	# _uses_touch_input = false and must not get the touch UI flashed at them.
+	if DisplayServer.is_touchscreen_available() and not _uses_touch_input and not _real_pointer_seen:
+		_uses_touch_input = true
+		input_mode_changed.emit(true)
 	active = true
 	visible = true
 	set_process(true)
@@ -142,8 +190,10 @@ func _refresh_placement_grid(force: bool = false) -> void:
 	var canvas: Transform2D = get_canvas_transform()
 	var world_transform: Transform2D = _placement_grid.global_transform
 	var view_rect: Rect2 = get_viewport().get_visible_rect()
-	if not force and _grid_cache_valid and canvas == _grid_canvas_transform and world_transform == _grid_world_transform and view_rect == _grid_view_rect:
+	var preview_tile: Vector2i = _get_ghost_tile()
+	if not force and _grid_cache_valid and canvas == _grid_canvas_transform and world_transform == _grid_world_transform and view_rect == _grid_view_rect and preview_tile == _grid_preview_tile:
 		return
+	_grid_preview_tile = preview_tile
 	_grid_canvas_transform = canvas
 	_grid_world_transform = world_transform
 	_grid_view_rect = view_rect
@@ -156,8 +206,10 @@ func _refresh_placement_grid(force: bool = false) -> void:
 		var tile: Vector2i = _world_to_tile(inverse_canvas * corner)
 		minimum = minimum.min(tile - Vector2i.ONE)
 		maximum = maximum.max(tile + Vector2i.ONE)
-	minimum = minimum.max(Vector2i.ZERO)
-	maximum = maximum.min(Vector2i(MapData.MAP_WIDTH - 1, MapData.MAP_HEIGHT - 1))
+	# Keep only a one-tile placement guide around the candidate. The rest of
+	# the battlefield remains unobscured at every screen size and zoom.
+	minimum = minimum.max(preview_tile - Vector2i.ONE * PLACEMENT_GRID_MARGIN_TILES).max(Vector2i.ZERO)
+	maximum = maximum.min(preview_tile + current_footprint - Vector2i.ONE + Vector2i.ONE * PLACEMENT_GRID_MARGIN_TILES).min(Vector2i(MapData.MAP_WIDTH - 1, MapData.MAP_HEIGHT - 1))
 	var segments := PackedVector2Array()
 	_grid_tile_bounds = Rect2i()
 	if minimum.x <= maximum.x and minimum.y <= maximum.y:
@@ -243,30 +295,40 @@ func find_visible_space(safe_rect: Rect2, occlusions: Array[Rect2]) -> bool:
 	var previous_tiles: Array[Vector2i] = _invalid_tiles.duplicate()
 	var previous_clearance_tiles: Array[Vector2i] = _clearance_tiles.duplicate()
 	var previous_clearance_areas: Array[Rect2i] = _clearance_areas.duplicate()
+	# H (G1 "No nearby space" over open ground): the first pass wants the whole
+	# drawn building on screen and clear of every HUD panel; on a phone a
+	# Barracks' art is taller than the free band. The second pass only needs
+	# the footprint itself visible and its centre clear of the HUD.
+	# One candidate budget covers both passes; the relaxed pass only visits
+	# tiles the strict pass skipped.
 	var examined: int = 0
-	for candidate: Dictionary in candidates:
-		var tile: Vector2i = candidate["tile"]
-		if examined >= FIND_SPACE_MAX_CANDIDATES:
-			break
-		examined += 1
-		var bounds: Rect2 = _find_space_preview_screen_rect(tile)
-		if not bounds.has_area() or not safe_rect.encloses(bounds):
-			continue
-		var occluded: bool = false
-		for obstacle: Rect2 in occlusions:
-			if obstacle.has_area() and bounds.intersects(obstacle, true):
-				occluded = true
+	var strict_fit: Dictionary = {}
+	var grazed: Variant = null
+	for strict: bool in [true, false]:
+		for candidate: Dictionary in candidates:
+			var tile: Vector2i = candidate["tile"]
+			if examined >= FIND_SPACE_MAX_CANDIDATES:
 				break
-		if occluded:
-			continue
-		# This existing validator checks the WHOLE footprint's current visibility
-		# before querying any terrain/occupancy. Do not prefilter hidden terrain.
-		if not _check_footprint_validity(tile, current_footprint, _player_owner):
-			continue
-		_set_assisted_preview(true)
-		ghost_position = _tile_to_world(tile)
-		global_position = ghost_position
-		_refresh_preview_state(true)
+			if not strict and strict_fit.has(tile):
+				continue
+			if not _find_space_fits_screen(tile, safe_rect, occlusions, strict):
+				continue
+			if strict:
+				strict_fit[tile] = true
+			examined += 1
+			# This existing validator checks the WHOLE footprint's current visibility
+			# before querying any terrain/occupancy. Do not prefilter hidden terrain.
+			if not _check_footprint_validity(tile, current_footprint, _player_owner):
+				continue
+			# K: a sheep or deer grazing at the edge walks in a moment later and
+			# Place then refuses ("Animal in the way"). Prefer quiet ground; a
+			# spot beside animals is still better than none.
+			if _wildlife_near_footprint(tile, current_footprint, 1):
+				if grazed == null:
+					grazed = tile
+				continue
+			return show_found_space(tile)
+	if grazed != null and show_found_space(grazed as Vector2i):
 		return true
 	# A failed search must not replace the user's selected footprint or its
 	# ordinary invalid-cell explanation with the last rejected candidate.
@@ -275,6 +337,118 @@ func find_visible_space(safe_rect: Rect2, occlusions: Array[Rect2]) -> bool:
 	_clearance_tiles = previous_clearance_tiles
 	_clearance_areas = previous_clearance_areas
 	return false
+
+
+## K: shows a spot found away from the current view (Find's fallback beside
+## your own buildings) exactly like an on-screen Find result: it must pass the
+## same check Place uses, and it is held as an assisted preview so a mouse
+## travelling to Place cannot drag it away. Returns false, leaving the current
+## preview and its explanation, when the spot does not pass.
+func show_found_space(tile: Vector2i) -> bool:
+	if not active:
+		return false
+	if not _check_footprint_validity(tile, current_footprint, _player_owner):
+		_refresh_preview_state(true)
+		return false
+	_set_assisted_preview(true)
+	ghost_position = _tile_to_world(tile)
+	global_position = ghost_position
+	_refresh_preview_state(true)
+	return is_valid_placement
+
+
+## K: nearest spot Place accepts, ring by ring around your active Town
+## Centers (then any of your buildings), for when nothing fits on screen and
+## the tidy search beside same-kind buildings found nothing. Quiet ground
+## (no animal within a tile) is preferred. Returns a tile or null.
+func find_owned_space() -> Variant:
+	if not active or not is_inside_tree():
+		return null
+	var found: Variant = _search_owned_space()
+	if found == null:
+		# The search leaves the last rejected candidate's explanation behind.
+		_refresh_preview_state(true)
+	return found
+
+
+func _search_owned_space() -> Variant:
+	var anchors: Array[Vector2i] = []
+	var fallback_anchors: Array[Vector2i] = []
+	for node: Node in get_tree().get_nodes_in_group("player_%d_buildings" % _player_owner):
+		if not (node is BuildingBase) or (node as BuildingBase).state == BuildingBase.State.DESTROYED:
+			continue
+		var building := node as BuildingBase
+		var center: Vector2i = _world_to_tile(building.global_position) + building.footprint / 2 - current_footprint / 2
+		if building.building_type == BuildingData.BuildingType.TOWN_CENTER and building.state == BuildingBase.State.ACTIVE:
+			anchors.append(center)
+		elif fallback_anchors.is_empty():
+			fallback_anchors.append(center)
+	if anchors.is_empty():
+		anchors = fallback_anchors
+	var seen: Dictionary = {}
+	var checks: int = 0
+	var grazed: Variant = null
+	for radius: int in range(FIND_OWNED_SPACE_RADIUS + 1):
+		for anchor: Vector2i in anchors:
+			for dx: int in range(-radius, radius + 1):
+				for dy: int in range(-radius, radius + 1):
+					if maxi(absi(dx), absi(dy)) != radius:
+						continue
+					var tile: Vector2i = anchor + Vector2i(dx, dy)
+					if seen.has(tile):
+						continue
+					seen[tile] = true
+					checks += 1
+					if checks > FIND_OWNED_SPACE_MAX_CHECKS:
+						return grazed
+					if not _check_footprint_validity(tile, current_footprint, _player_owner):
+						continue
+					if _wildlife_near_footprint(tile, current_footprint, 1):
+						if grazed == null:
+							grazed = tile
+						continue
+					return tile
+	return grazed
+
+
+func _wildlife_near_footprint(origin: Vector2i, footprint: Vector2i, margin: int) -> bool:
+	var game_map: Node = get_parent()
+	if game_map == null or not game_map.has_method("get_wildlife_nodes"):
+		return false
+	var area := Rect2i(origin, footprint).grow(margin)
+	var can_see: bool = game_map.has_method("is_tile_visible_to_player")
+	for animal: Node2D in game_map.call("get_wildlife_nodes", ""):
+		if not is_instance_valid(animal):
+			continue
+		var tile: Vector2i = _world_to_tile(animal.global_position)
+		# Only animals the player can see may steer the choice (no fog oracle).
+		if area.has_point(tile) and (not can_see or bool(game_map.call("is_tile_visible_to_player", tile, _player_owner))):
+			return true
+	return false
+
+
+func _find_space_fits_screen(tile: Vector2i, safe_rect: Rect2, occlusions: Array[Rect2], strict: bool) -> bool:
+	if strict:
+		var bounds: Rect2 = _find_space_preview_screen_rect(tile)
+		if not bounds.has_area() or not safe_rect.encloses(bounds):
+			return false
+		for obstacle: Rect2 in occlusions:
+			if obstacle.has_area() and bounds.intersects(obstacle, true):
+				return false
+		return true
+	var canvas: Transform2D = get_canvas_transform()
+	var polygon: PackedVector2Array = _footprint_world_polygon(tile, current_footprint)
+	var center := Vector2.ZERO
+	for point: Vector2 in polygon:
+		var screen: Vector2 = canvas * point
+		if not screen.is_finite() or not safe_rect.has_point(screen):
+			return false
+		center += screen
+	center /= float(maxi(1, polygon.size()))
+	for obstacle: Rect2 in occlusions:
+		if obstacle.has_area() and obstacle.has_point(center):
+			return false
+	return true
 
 
 func _find_space_preview_screen_rect(tile: Vector2i) -> Rect2:
@@ -341,6 +515,7 @@ func _initial_preview_fits_world_area(tile: Vector2i, world_pos: Vector2, world_
 
 
 func cancel_placement() -> void:
+	keep_placing_requested = false
 	_set_assisted_preview(false)
 	active = false
 	_hide_placement_grid()
@@ -360,6 +535,9 @@ func cancel_placement() -> void:
 func cancel_touch_gesture() -> void:
 	_touch_points.clear()
 	_released_touch_inputs.clear()
+	_touch_starts.clear()
+	_ghost_grabs.clear()
+	_ghost_dragging.clear()
 	_touch_camera_gesture = false
 
 
@@ -392,18 +570,27 @@ func _observe_input_mode(event: InputEvent) -> void:
 	var uses_touch: bool = _uses_touch_input
 	if event is InputEventScreenTouch or event is InputEventScreenDrag:
 		uses_touch = true
+		_real_pointer_seen = true
 	elif event is InputEventMouseButton and event.pressed:
 		uses_touch = false
+		_real_pointer_seen = true
 	elif event is InputEventMouseMotion and (event as InputEventMouseMotion).relative != Vector2.ZERO:
 		uses_touch = false
 	if uses_touch == _uses_touch_input:
 		return
 	_uses_touch_input = uses_touch
+	queue_redraw()
 	input_mode_changed.emit(uses_touch)
 
 
 func _clear_released_touch_inputs() -> void:
 	_released_touch_inputs.clear()
+	# A finger whose release a HUD Control consumed leaves no other trace.
+	for index: Variant in _touch_starts.keys():
+		if not _touch_points.has(index):
+			_touch_starts.erase(index)
+			_ghost_grabs.erase(index)
+			_ghost_dragging.erase(index)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -424,7 +611,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 			return
 		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
-			update_preview_at_screen(mb.position)
+			# A mouse builds where it clicks; the ghost already follows it there.
+			update_preview_centered_at_screen(mb.position)
+			# AoE2 idiom: Shift+click builds and keeps the same building in hand.
+			keep_placing_requested = mb.shift_pressed
 			confirm_preview()
 			get_viewport().set_input_as_handled()
 			return
@@ -436,17 +626,37 @@ func _unhandled_input(event: InputEvent) -> void:
 		if touch.pressed:
 			_released_touch_inputs.erase(touch.index)
 			_touch_points[touch.index] = touch.position
+			_touch_starts[touch.index] = touch.position
 			if _touch_points.size() > 1:
 				_touch_camera_gesture = true
+				_ghost_grabs.clear()
+				_ghost_dragging.clear()
+			elif is_screen_point_on_ghost(touch.position):
+				# The finger landed on the ghost: it may carry it or tap it.
+				var finger_world: Vector2 = get_canvas_transform().affine_inverse() * touch.position
+				_ghost_grabs[touch.index] = ghost_position - finger_world
 		else:
 			var owned_press: bool = _touch_points.has(touch.index) or _released_touch_inputs.has(touch.index)
 			var was_camera_gesture: bool = bool(_released_touch_inputs.get(touch.index, _touch_camera_gesture))
-			if not touch.canceled and not was_camera_gesture and owned_press:
-				update_preview_at_screen(touch.position)
+			var start: Vector2 = _touch_starts.get(touch.index, Vector2(INF, INF))
+			var grabbed: bool = _ghost_grabs.has(touch.index)
+			var dragged_ghost: bool = bool(_ghost_dragging.get(touch.index, false))
+			_touch_starts.erase(touch.index)
 			_released_touch_inputs.erase(touch.index)
 			_touch_points.erase(touch.index)
+			_ghost_grabs.erase(touch.index)
+			_ghost_dragging.erase(touch.index)
 			if _touch_points.is_empty():
 				_touch_camera_gesture = false
+			var is_tap: bool = start.distance_to(touch.position) < TAP_TO_PLACE_SLOP_PX
+			if not touch.canceled and not was_camera_gesture and owned_press and not dragged_ghost and is_tap and _touch_points.is_empty():
+				if grabbed:
+					# Tap on the ghost: build it exactly where it is drawn.
+					confirm_preview()
+				else:
+					# Tap elsewhere: the ghost moves there. It never builds.
+					update_preview_centered_at_screen(touch.position)
+			# The camera must still see this release, or it keeps a stuck finger.
 		# Camera needs touch presses/releases to recognize the second finger.
 		# Selection is suspended, so these events cannot issue unit commands.
 		return
@@ -462,13 +672,20 @@ func _unhandled_input(event: InputEvent) -> void:
 		_touch_points[drag.index] = drag.position
 		if _touch_points.size() > 1:
 			_touch_camera_gesture = true
+			_ghost_grabs.clear()
+			_ghost_dragging.clear()
 			# GameMap owns midpoint pan and anchored pinch as one gesture.
 			return
-		if _touch_camera_gesture:
-			# Keep navigation ownership after one pinch finger lifts; a fresh
-			# one-finger gesture may reposition only after every finger ends.
+		if _touch_camera_gesture or not _ghost_grabs.has(drag.index):
+			# A drag that did not start on the ghost pans the map (GameMap).
 			return
-		update_preview_at_screen(drag.position)
+		var start: Vector2 = _touch_starts.get(drag.index, drag.position)
+		if not bool(_ghost_dragging.get(drag.index, false)) and start.distance_to(drag.position) < GHOST_DRAG_SLOP_PX:
+			get_viewport().set_input_as_handled()
+			return
+		_ghost_dragging[drag.index] = true
+		var finger_world: Vector2 = get_canvas_transform().affine_inverse() * drag.position
+		update_preview_at_world(finger_world + (_ghost_grabs[drag.index] as Vector2))
 		get_viewport().set_input_as_handled()
 		return
 
@@ -476,9 +693,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.device == InputEvent.DEVICE_ID_EMULATION:
 			return
 		var motion := event as InputEventMouseMotion
-		if _assisted_preview_active or Input.is_mouse_button_pressed(MOUSE_BUTTON_MIDDLE):
+		# L2: no Place button waits at the bottom any more, so a found spot is
+		# not held: the ghost always follows a real mouse.
+		if Input.is_mouse_button_pressed(MOUSE_BUTTON_MIDDLE):
 			return
-		update_preview_at_screen(motion.position)
+		update_preview_centered_at_screen(motion.position)
 		get_viewport().set_input_as_handled()
 
 
@@ -533,12 +752,112 @@ func update_preview_at_screen(screen_pos: Vector2) -> void:
 	update_preview_at_world(world_pos)
 
 
+## L2: the footprint's centre goes under the finger or cursor (the anchor
+## tile is the footprint's top corner, which sat visibly off to one side).
+func update_preview_centered_at_screen(screen_pos: Vector2) -> void:
+	if not active:
+		return
+	var world_pos: Vector2 = get_canvas_transform().affine_inverse() * screen_pos
+	update_preview_at_world(world_pos - _footprint_center_offset())
+
+
+func _footprint_center_offset() -> Vector2:
+	var origin: Vector2 = _tile_to_world(Vector2i.ZERO)
+	var axis_x: Vector2 = _tile_to_world(Vector2i(1, 0)) - origin
+	var axis_y: Vector2 = _tile_to_world(Vector2i(0, 1)) - origin
+	return (axis_x * float(current_footprint.x - 1) + axis_y * float(current_footprint.y - 1)) * 0.5
+
+
+## Screen rectangle of everything drawn for the ghost: the footprint and the
+## building art. Empty when no ghost is shown.
+func get_ghost_screen_rect() -> Rect2:
+	if not active:
+		return Rect2()
+	return _screen_rect_for(_get_ghost_tile(), ghost_position)
+
+
+## Same rectangle for a footprint at `tile` (the art of the current type).
+func _screen_rect_for(tile: Vector2i, anchor_world: Vector2) -> Rect2:
+	var canvas: Transform2D = get_canvas_transform()
+	var points: Array[Vector2] = []
+	points.assign(_footprint_world_polygon(tile, current_footprint))
+	if _ghost_sprite != null and _ghost_sprite.texture != null:
+		var art: Rect2 = _ghost_art_rect
+		for corner: Vector2 in [art.position, art.position + Vector2(art.size.x, 0.0), art.end, art.position + Vector2(0.0, art.size.y)]:
+			points.append(anchor_world + _ghost_sprite.transform * corner)
+	var minimum: Vector2 = canvas * points[0]
+	var maximum: Vector2 = minimum
+	for point: Vector2 in points:
+		var screen: Vector2 = canvas * point
+		if not screen.is_finite():
+			return Rect2()
+		minimum = minimum.min(screen)
+		maximum = maximum.max(screen)
+	return Rect2(minimum, maximum - minimum)
+
+
+## Screen bounds of the footprint diamond alone (the ground it will take).
+func get_ghost_footprint_screen_rect() -> Rect2:
+	if not active:
+		return Rect2()
+	var canvas: Transform2D = get_canvas_transform()
+	var polygon: PackedVector2Array = _footprint_world_polygon(_get_ghost_tile(), current_footprint)
+	var rect := Rect2(canvas * polygon[0], Vector2.ZERO)
+	for point: Vector2 in polygon:
+		rect = rect.expand(canvas * point)
+	return rect
+
+
+## True when a screen point lands on the drawn ghost (art or footprint).
+func is_screen_point_on_ghost(screen_pos: Vector2) -> bool:
+	if not active:
+		return false
+	var canvas: Transform2D = get_canvas_transform()
+	# The drawn walls (their inked bounds, not the transparent texture)...
+	if _ghost_sprite != null and _ghost_sprite.texture != null:
+		var art: Rect2 = _ghost_art_rect
+		var first: Vector2 = canvas * (ghost_position + _ghost_sprite.transform * art.position)
+		var art_rect := Rect2(first, Vector2.ZERO).expand(canvas * (ghost_position + _ghost_sprite.transform * art.end))
+		if art_rect.grow(GHOST_HIT_MARGIN_PX).has_point(screen_pos):
+			return true
+	# ...or the ground diamond it will take.
+	var polygon := PackedVector2Array()
+	var center := Vector2.ZERO
+	for point: Vector2 in _footprint_world_polygon(_get_ghost_tile(), current_footprint):
+		polygon.append(canvas * point)
+		center += canvas * point
+	center /= float(maxi(1, polygon.size()))
+	for index: int in polygon.size():
+		# Grow the diamond a little so its tips stay easy to hit.
+		var away: Vector2 = polygon[index] - center
+		polygon[index] += away.normalized() * GHOST_HIT_MARGIN_PX
+	return Geometry2D.is_point_in_polygon(screen_pos, polygon)
+
+
+## Shift+click asked to keep the same building in hand after this one.
+var keep_placing_requested: bool = false
+
+
+func consume_keep_placing() -> bool:
+	var value: bool = keep_placing_requested
+	keep_placing_requested = false
+	return value
+
+
 func update_preview_at_world(world_pos: Vector2) -> void:
 	_set_assisted_preview(false)
 	if not active:
 		return
 	# Snap to tile grid
 	ghost_position = _snap_to_grid(world_pos)
+	# L2: a finger dragging or tapping past the coast pins the ghost to the
+	# last buildable ring instead of losing it under the sea and the void.
+	var tile: Vector2i = _world_to_tile(ghost_position)
+	var lowest := Vector2i.ONE
+	var highest := Vector2i(MapData.MAP_WIDTH - 1, MapData.MAP_HEIGHT - 1) - current_footprint
+	var on_real_map: bool = get_parent() != null and get_parent().has_method("tile_to_world")
+	if on_real_map and highest.x >= lowest.x and highest.y >= lowest.y and tile != tile.clamp(lowest, highest):
+		ghost_position = _tile_to_world(tile.clamp(lowest, highest))
 	global_position = ghost_position
 	_refresh_preview_state(true)
 
@@ -550,8 +869,16 @@ func _update_ghost_position(screen_pos: Vector2) -> void:
 func _refresh_preview_state(force_signal: bool = false) -> void:
 	_refresh_placement_grid()
 	var was_valid: bool = is_valid_placement
-	var previous_reason: String = _invalid_reason
+	var previous_hint: String = get_preview_hint()
 	is_valid_placement = _check_validity()
+	_trade_preview.clear()
+	if is_valid_placement and current_building_type == BuildingData.BuildingType.TRADE_POST:
+		var towns: Array = []
+		for node: Node in get_tree().get_nodes_in_group("buildings"):
+			if node is BuildingBase and get_parent().is_ancestor_of(node) and node.building_type == BuildingData.BuildingType.TOWN_CENTER and node.player_owner == _player_owner:
+				towns.append({"position": node.global_position, "owner": node.player_owner, "active": node.state == BuildingBase.State.ACTIVE})
+		# Geometry only. Looking for a path here could disclose unseen blockades.
+		_trade_preview = TRADE_PREVIEW.candidate(ghost_position, _player_owner, towns)
 
 	# Update ghost sprite tint
 	if _ghost_sprite != null:
@@ -561,13 +888,29 @@ func _refresh_preview_state(force_signal: bool = false) -> void:
 			_ghost_sprite.modulate = PREVIEW_INVALID_TINT
 
 	queue_redraw()
-	if force_signal or was_valid != is_valid_placement or previous_reason != _invalid_reason:
-		preview_changed.emit(is_valid_placement, "" if is_valid_placement else get_invalid_reason())
+	if force_signal or was_valid != is_valid_placement or previous_hint != get_preview_hint():
+		preview_changed.emit(is_valid_placement, get_preview_hint())
+
+
+func get_preview_hint() -> String:
+	if not is_valid_placement:
+		return get_invalid_reason()
+	if current_building_type != BuildingData.BuildingType.TRADE_POST:
+		return ""
+	if not _trade_preview.get("has_town_center", false):
+		return "Needs a Town Center"
+	if not _trade_preview.get("usable_distance", false):
+		return "Move farther from town"
+	return "Up to %d gold / trip · clear road needed" % int(_trade_preview.get("payout", 0))
 
 
 ## Called by the explicit touch Place action. Always revalidates the footprint.
 func confirm_preview() -> bool:
 	if not active:
+		return false
+	# A second confirm right after a placement (a double tap that reached a new
+	# ghost) must not buy another building.
+	if _uses_touch_input and Time.get_ticks_msec() - _last_confirm_msec < CONFIRM_DEBOUNCE_MSEC:
 		return false
 	_refresh_preview_state()
 	if not is_valid_placement:
@@ -626,6 +969,20 @@ func revalidate_confirmation(building_type: int, world_pos: Vector2, player_owne
 		_clearance_tiles.clear()
 		_clearance_areas.clear()
 		return false
+	# Round 2 E: a kingdom holds a limited number of some buildings (three
+	# Town Centers). Foundations count; ruins do not.
+	var max_count: int = BuildingData.get_max_count(building_type)
+	if max_count > 0:
+		var owned: int = 0
+		for building: Node in get_tree().get_nodes_in_group("player_%d_buildings" % player_owner):
+			if building is BuildingBase and (building as BuildingBase).building_type == building_type and (building as BuildingBase).state != BuildingBase.State.DESTROYED:
+				owned += 1
+		if owned >= max_count:
+			_invalid_reason = "Limit reached: %d %ss" % [max_count, str(stats.get("name", "building"))]
+			_invalid_tiles.clear()
+			_clearance_tiles.clear()
+			_clearance_areas.clear()
+			return false
 	var footprint: Vector2i = stats.get("footprint", Vector2i(2, 2))
 	return _check_footprint_validity(_world_to_tile(world_pos), footprint, player_owner)
 
@@ -663,6 +1020,18 @@ func _check_footprint_validity(
 				if _invalid_reason == "":
 					_invalid_reason = "Out of bounds"
 				_invalid_tiles.append(check_tile)
+	if not _invalid_tiles.is_empty():
+		return false
+	# L2 (after L1's coast rim): the sandy bank is drawn over the outermost
+	# tile ring, so a building there would sit half in the sea. The map edge
+	# is public, so this reads nothing hidden.
+	for dx in footprint.x:
+		for dy in footprint.y:
+			var edge_tile := tile_origin + Vector2i(dx, dy)
+			if edge_tile.x == 0 or edge_tile.y == 0 or edge_tile.x == MapData.MAP_WIDTH - 1 or edge_tile.y == MapData.MAP_HEIGHT - 1:
+				if _invalid_reason == "":
+					_invalid_reason = SHORE_INVALID_REASON
+				_invalid_tiles.append(edge_tile)
 	if not _invalid_tiles.is_empty():
 		return false
 
@@ -709,8 +1078,29 @@ func _check_footprint_validity(
 			if tile_invalid:
 				_invalid_tiles.append(check_tile)
 
+	_mark_wildlife_conflicts(tile_origin, footprint)
 	_mark_owned_clearance_conflicts(tile_origin, footprint, player_owner)
 	return _invalid_tiles.is_empty()
+
+
+## G1: a footprint over an animal or carcass with food left would bury it (and
+## any villager working it) inside the walls. The footprint is fully visible
+## here, so this reads nothing hidden.
+func _mark_wildlife_conflicts(origin: Vector2i, footprint: Vector2i) -> void:
+	var game_map: Node = get_parent()
+	if game_map == null or not game_map.has_method("get_wildlife_nodes"):
+		return
+	var area := Rect2i(origin, footprint)
+	for animal: Node2D in game_map.call("get_wildlife_nodes", ""):
+		if not is_instance_valid(animal):
+			continue
+		var tile: Vector2i = _world_to_tile(animal.global_position)
+		if not area.has_point(tile):
+			continue
+		if _invalid_reason == "":
+			_invalid_reason = "Animal in the way"
+		if tile not in _invalid_tiles:
+			_invalid_tiles.append(tile)
 
 
 func _mark_owned_clearance_conflicts(origin: Vector2i, footprint: Vector2i, owner: int) -> void:
@@ -776,6 +1166,7 @@ func _emit_invalid_feedback() -> void:
 	_last_invalid_feedback_msec = now
 	var reason: String = get_invalid_reason()
 	placement_invalid.emit(reason)
+	HAPTICS.refuse()
 	AudioManager.play_sfx("building_invalid")
 
 
@@ -793,6 +1184,7 @@ func _confirm_placement() -> void:
 		_emit_invalid_feedback()
 		return
 	var pos := ghost_position
+	_last_confirm_msec = Time.get_ticks_msec()
 	_set_assisted_preview(false)
 	active = false
 	_hide_placement_grid()
@@ -804,6 +1196,7 @@ func _confirm_placement() -> void:
 	if _ghost_sprite != null:
 		_ghost_sprite.queue_free()
 		_ghost_sprite = null
+	HAPTICS.tap()
 	placement_confirmed.emit(current_building_type, pos)
 	AudioManager.play_sfx("building_place")
 	current_building_type = -1
@@ -829,6 +1222,12 @@ func _footprint_local_polygon(origin: Vector2i, footprint: Vector2i) -> PackedVe
 
 func get_preview_state_label() -> String:
 	if is_valid_placement:
+		if current_building_type == BuildingData.BuildingType.TRADE_POST:
+			if not _trade_preview.get("has_town_center", false):
+				return "Needs town"
+			if not _trade_preview.get("usable_distance", false):
+				return "Too near town"
+			return "Up to %d gold" % int(_trade_preview.get("payout", 0))
 		return "Fits"
 	if _invalid_reason == FOG_INVALID_REASON:
 		return "Needs sight"
@@ -850,18 +1249,16 @@ func _draw() -> void:
 		return
 	var origin_tile: Vector2i = _get_ghost_tile()
 	var pixel: float = 1.0 / maxf(0.01, get_global_transform_with_canvas().x.length())
-	# Dashed boundaries belong to existing friendly buildings' spacing rule,
-	# not to a larger proposed footprint or an invented terrain restriction.
-	for area: Rect2i in _clearance_areas:
-		_draw_polygon_edges(_footprint_local_polygon(area.position, area.size), Color(FOOTPRINT_GOLD, 0.72), 1.3 * pixel, true)
+	# Mark collision cells within the proposed footprint only. Drawing entire
+	# neighboring clearance rings made the candidate boundary ambiguous.
 	for dx: int in current_footprint.x:
 		for dy: int in current_footprint.y:
 			var tile: Vector2i = origin_tile + Vector2i(dx, dy)
 			var points: PackedVector2Array = _footprint_local_polygon(tile, Vector2i.ONE)
 			var invalid: bool = tile in _invalid_tiles
 			var clearance: bool = tile in _clearance_tiles
-			var color: Color = FOOTPRINT_GOLD if not invalid or clearance else FOOTPRINT_BLOCKED
-			draw_colored_polygon(points, Color(color, 0.18 if invalid else 0.08))
+			var color: Color = FOOTPRINT_VALID if not invalid else (FOOTPRINT_GOLD if clearance else FOOTPRINT_BLOCKED)
+			draw_colored_polygon(points, Color(color, 0.18 if invalid else (0.20 if is_valid_placement else 0.08)))
 			_draw_polygon_edges(points, Color(color, 0.88 if invalid else 0.50), (1.4 if invalid else 0.75) * pixel, clearance)
 			if invalid:
 				var center: Vector2 = to_local(_tile_to_world(tile))
@@ -874,7 +1271,7 @@ func _draw() -> void:
 					draw_line(center + Vector2(-5, -5) * pixel, center + Vector2(5, 5) * pixel, FOOTPRINT_INK, 2.0 * pixel, true)
 					draw_line(center + Vector2(-5, 5) * pixel, center + Vector2(5, -5) * pixel, FOOTPRINT_INK, 2.0 * pixel, true)
 	var boundary: PackedVector2Array = _footprint_local_polygon(origin_tile, current_footprint)
-	_draw_polygon_edges(boundary, FOOTPRINT_GOLD if is_valid_placement else FOOTPRINT_BLOCKED, 2.2 * pixel)
+	_draw_polygon_edges(boundary, FOOTPRINT_VALID if is_valid_placement else FOOTPRINT_BLOCKED, 2.2 * pixel)
 	var bounds := Rect2(boundary[0], Vector2.ZERO)
 	for point: Vector2 in boundary:
 		bounds = bounds.expand(point)
@@ -886,8 +1283,13 @@ func _draw() -> void:
 	if _ghost_sprite != null:
 		label_y = minf(label_y, (_ghost_sprite.transform * _ghost_art_rect).position.y - 10.0 * pixel)
 	_draw_preview_label(font, font_size, name_text, Vector2(center.x, label_y), FOOTPRINT_INK, pixel)
-	_draw_preview_label(font, font_size, get_preview_state_label(), Vector2(center.x, bounds.end.y + 20.0 * pixel), FOOTPRINT_INK, pixel)
-	if is_valid_placement:
+	if _uses_touch_input:
+		# L2: on touch the Build button attached under the ghost carries the
+		# state ("Build" or the reason), so the ground stays uncluttered.
+		return
+	var trade_warning: bool = is_valid_placement and current_building_type == BuildingData.BuildingType.TRADE_POST and not _trade_preview.get("usable_distance", false)
+	_draw_preview_label(font, font_size, get_preview_state_label(), Vector2(center.x, bounds.end.y + 20.0 * pixel), FOOTPRINT_GOLD if trade_warning else FOOTPRINT_INK, pixel)
+	if is_valid_placement and current_building_type != BuildingData.BuildingType.TRADE_POST:
 		var tick_center := Vector2(center.x - 24.0 * pixel, bounds.end.y + 15.0 * pixel)
 		draw_line(tick_center + Vector2(-4, 0) * pixel, tick_center + Vector2(-1, 3) * pixel, FOOTPRINT_INK, 2.2 * pixel, true)
 		draw_line(tick_center + Vector2(-1, 3) * pixel, tick_center + Vector2(5, -4) * pixel, FOOTPRINT_INK, 2.2 * pixel, true)

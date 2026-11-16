@@ -1,0 +1,5 @@
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+{"axes":"[(3, 3), (4, 4), (5, 5)]","budget":2000,"final_remainder":2,"kind":2,"nodes":69,"original_remainder":68,"pairs":33,"per_tile":28,"unpaired":"[]"}
+{"axes":"[]","budget":1840,"final_remainder":0,"kind":4,"nodes":64,"original_remainder":48,"pairs":32,"per_tile":28,"unpaired":"[]"}
+{"axes":"[]","budget":4000,"final_remainder":0,"kind":3,"nodes":38,"original_remainder":10,"pairs":19,"per_tile":105,"unpaired":"[]"}

@@ -1,0 +1,208 @@
+{
+  "runtime_revision": "9d1d05b634ac5c3f5641cfac5d7b57ea9a5789f5",
+  "observer_sha256": {
+    "tools/probe_late_economy_pacing.gd": "bc08ce4dd02243e436fa68f2a6317d35d062d0b734e4f222f713644b1248e17c",
+    "tools/probe_late_economy_pacing.tscn": "269df2cbc0f8af175cf6cd9356755acff754cb97649e059fda4d7cfcaf191c7b",
+    "tools/fixtures/pacing_solo_save.gd": "ec06d7a703eea5cc475b85c96c49aa11de0f3a83b1c17670b4dc81e1a8a70082",
+    "tools/run_late_economy_pacing.py": "704796650000fbc8d76f6e62d5d2eb1120f5061f83b58605941000071508ea87"
+  },
+  "scope": "Sequential paid Standard100 Medium-v-Medium simulations,3 starting workers,Crownlands both; natural victory enabled. Headless/no render. Autosave disabled only by runner autoload override; not persistence, human or phone evidence.",
+  "game_seconds_cap": 1800,
+  "wall_seconds_cap": 1800,
+  "runs": [
+    {
+      "case": "map1-seed424242-fixed60-scale1",
+      "style": 1,
+      "seed": 424242,
+      "scale": 1,
+      "game_step_seconds": 0.016666666666666666,
+      "command": [
+        "C:\\Users\\ben4m\\Documents\\Codex\\2026-10-23\\i-am-x20\\work\\tools\\godot-4.6\\Godot_v4.6-stable_win64_console.exe",
+        "--headless",
+        "--disable-render-loop",
+        "--fixed-fps",
+        "60",
+        "--max-fps",
+        "0",
+        "--path",
+        "C:\\Users\\ben4m\\Documents\\Codex\\2026-10-26\\improve-pocket-kingdoms-at-game-4mn\\work\\pacing-beta14-baseline\\pocket-pacing-frozen-oegftclk",
+        "res://tools/probe_late_economy_pacing.tscn",
+        "--",
+        "--mode=0",
+        "--pop=100",
+        "--difficulty=1",
+        "--human-difficulty=1",
+        "--archetype=1",
+        "--seed=424242",
+        "--duration=1800",
+        "--output=C:\\Users\\ben4m\\Documents\\Codex\\2026-10-26\\improve-pocket-kingdoms-at-game-4mn\\work\\pacing-beta14-baseline\\map1-seed424242-fixed60-scale1.json"
+      ],
+      "user_dir": "pocket-pacing/e9949f0e68604dc48205f25cf69aa86d",
+      "report": "C:\\Users\\ben4m\\Documents\\Codex\\2026-10-26\\improve-pocket-kingdoms-at-game-4mn\\work\\pacing-beta14-baseline\\map1-seed424242-fixed60-scale1.json",
+      "log": "C:\\Users\\ben4m\\Documents\\Codex\\2026-10-26\\improve-pocket-kingdoms-at-game-4mn\\work\\pacing-beta14-baseline\\map1-seed424242-fixed60-scale1.log",
+      "partial": "C:\\Users\\ben4m\\Documents\\Codex\\2026-10-26\\improve-pocket-kingdoms-at-game-4mn\\work\\pacing-beta14-baseline\\map1-seed424242-fixed60-scale1.json.partial.json",
+      "status": "natural_completed",
+      "first120_throughput": {
+        "game_seconds": 120.183333333328,
+        "wall_seconds": 73.291,
+        "game_per_wall_second": 1.6398102541011583,
+        "measure_observer_wall_fraction": 0.006589922364273922
+      },
+      "exit": 0,
+      "wall_seconds": 510.156,
+      "diagnostics": [],
+      "log_sha256": "8535c30a621bcde99f701a62d6d5e531254b78b76534c1fd66e6ca925096e734",
+      "game_seconds": 543.183333333168,
+      "winner": 0,
+      "victory_reason": "Sacred Site held for 3:00",
+      "age_times": [
+        {
+          "1": 0.0,
+          "2": 156.016666666683,
+          "3": 493.516666666546
+        },
+        {
+          "1": 0.0,
+          "2": 150.016666666678
+        }
+      ],
+      "first_contact": 183.350000000038,
+      "late_totals": [
+        {
+          "farm_foundations": 3,
+          "farms_completed": 3,
+          "food_deposited_with_farm_job": 2525,
+          "post_foundations": 0,
+          "posts_completed": 0,
+          "trade_deliveries": 0,
+          "trade_gold": 0,
+          "traders_born": 0,
+          "traders_cancelled": 0,
+          "traders_queued": 0
+        },
+        {
+          "farm_foundations": 3,
+          "farms_completed": 3,
+          "food_deposited_with_farm_job": 2390,
+          "post_foundations": 0,
+          "posts_completed": 0,
+          "trade_deliveries": 0,
+          "trade_gold": 0,
+          "traders_born": 0,
+          "traders_cancelled": 0,
+          "traders_queued": 0
+        }
+      ],
+      "final_stock": {
+        "food": 6155,
+        "gold": 4341,
+        "wood": 11834
+      },
+      "report_sha256": "8bb238484a4dc78d5a2336bbac558b12847c5b8398beefc64d3ef2026aa05660",
+      "last_persisted_game_seconds": 543.183333333168,
+      "observer_performance": {
+        "frames": 32591,
+        "game_seconds": 543.183333333168,
+        "measure_calls": 2560,
+        "observer_usec": 3530644,
+        "physics_ticks_per_second": 60,
+        "time_scale": 1.0,
+        "wall_seconds": 504.639
+      }
+    },
+    {
+      "case": "map4-seed7-fixed60-scale1",
+      "style": 4,
+      "seed": 7,
+      "scale": 1,
+      "game_step_seconds": 0.016666666666666666,
+      "command": [
+        "C:\\Users\\ben4m\\Documents\\Codex\\2026-10-23\\i-am-x20\\work\\tools\\godot-4.6\\Godot_v4.6-stable_win64_console.exe",
+        "--headless",
+        "--disable-render-loop",
+        "--fixed-fps",
+        "60",
+        "--max-fps",
+        "0",
+        "--path",
+        "C:\\Users\\ben4m\\Documents\\Codex\\2026-10-26\\improve-pocket-kingdoms-at-game-4mn\\work\\pacing-beta14-baseline\\pocket-pacing-frozen-oegftclk",
+        "res://tools/probe_late_economy_pacing.tscn",
+        "--",
+        "--mode=0",
+        "--pop=100",
+        "--difficulty=1",
+        "--human-difficulty=1",
+        "--archetype=4",
+        "--seed=7",
+        "--duration=1800",
+        "--output=C:\\Users\\ben4m\\Documents\\Codex\\2026-10-26\\improve-pocket-kingdoms-at-game-4mn\\work\\pacing-beta14-baseline\\map4-seed7-fixed60-scale1.json"
+      ],
+      "user_dir": "pocket-pacing/d5da214123764de887434edb916e16a2",
+      "report": "C:\\Users\\ben4m\\Documents\\Codex\\2026-10-26\\improve-pocket-kingdoms-at-game-4mn\\work\\pacing-beta14-baseline\\map4-seed7-fixed60-scale1.json",
+      "log": "C:\\Users\\ben4m\\Documents\\Codex\\2026-10-26\\improve-pocket-kingdoms-at-game-4mn\\work\\pacing-beta14-baseline\\map4-seed7-fixed60-scale1.log",
+      "partial": "C:\\Users\\ben4m\\Documents\\Codex\\2026-10-26\\improve-pocket-kingdoms-at-game-4mn\\work\\pacing-beta14-baseline\\map4-seed7-fixed60-scale1.json.partial.json",
+      "status": "natural_completed",
+      "exit": 0,
+      "wall_seconds": 1224.813,
+      "diagnostics": [],
+      "log_sha256": "bb2d0a3852d4969d1c22b761fe49ebe9b66c389f7540b6b611c8bdbb85010b9c",
+      "game_seconds": 522.86666666652,
+      "winner": 0,
+      "victory_reason": "Sacred Site held for 3:00",
+      "age_times": [
+        {
+          "1": 0.0,
+          "2": 156.016666666683
+        },
+        {
+          "1": 0.0,
+          "2": 148.516666666677
+        }
+      ],
+      "first_contact": 183.350000000038,
+      "late_totals": [
+        {
+          "farm_foundations": 3,
+          "farms_completed": 3,
+          "food_deposited_with_farm_job": 2465,
+          "post_foundations": 0,
+          "posts_completed": 0,
+          "trade_deliveries": 0,
+          "trade_gold": 0,
+          "traders_born": 0,
+          "traders_cancelled": 0,
+          "traders_queued": 0
+        },
+        {
+          "farm_foundations": 3,
+          "farms_completed": 3,
+          "food_deposited_with_farm_job": 2120,
+          "post_foundations": 0,
+          "posts_completed": 0,
+          "trade_deliveries": 0,
+          "trade_gold": 0,
+          "traders_born": 0,
+          "traders_cancelled": 0,
+          "traders_queued": 0
+        }
+      ],
+      "final_stock": {
+        "food": 6228,
+        "gold": 4630,
+        "wood": 11535
+      },
+      "report_sha256": "a87982260097dd30208e7ba17b01c7489758dc68e1a34bcbfedd03f2bc028d09",
+      "last_persisted_game_seconds": 522.86666666652,
+      "observer_performance": {
+        "frames": 31372,
+        "game_seconds": 522.86666666652,
+        "measure_calls": 2466,
+        "observer_usec": 3921267,
+        "physics_ticks_per_second": 60,
+        "time_scale": 1.0,
+        "wall_seconds": 1220.149
+      }
+    }
+  ],
+  "project_config_sha256_before_private_user_dir": "4fbbd8dfd9457b346ac18cd2e9823123bb298806912fb3777b59498f8352be5a"
+}

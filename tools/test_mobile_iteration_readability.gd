@@ -53,7 +53,8 @@ func _narrow_resource_rail() -> void:
         var label: Label = hud.get(key)
         _text_fits(label,"550 resource rail " + key)
         _expect(safe.encloses(label.get_global_rect()),"550 resource label outside safe area: " + key)
-    _expect((hud.get("pop_label") as Label).text.contains(" · I"),"550 resource rail omits Age numeral")
+    # HUD declutter: the age numeral lives on the top bar's age chip, not the population chip.
+    _expect((hud.get("age_up_button") as Button).is_visible_in_tree() and ["I","II","III","IV"].has((hud.get("age_up_button") as Button).text) and safe.encloses((hud.get("age_up_button") as Button).get_global_rect()),"550 resource rail omits the age chip")
     viewport.free()
     await get_tree().process_frame
 
@@ -110,6 +111,8 @@ func _profile(phone: Vector2i, scale_factor: float, notched: bool) -> void:
     await _settle(hud,logical,safe)
     var scroll: ScrollContainer = hud.get("command_scroll")
     for button: Button in (hud.get("_train_buttons_container") as HBoxContainer).get_children():
+        if not button.visible:
+            continue  # HUD pass: the other page of a paged row.
         _expect(scroll.get_global_rect().encloses(button.get_global_rect()),"%s initial TC action clipped: %s" % [label,button.name])
         _button_text_fits(button,label)
     await _selection_name_readable(hud,logical,safe,label)
@@ -122,7 +125,9 @@ func _profile(phone: Vector2i, scale_factor: float, notched: bool) -> void:
     _expect(queue_navigation.size.x >= 48.0 and queue_navigation.size.y >= 48.0,"%s queue navigation target under48px" % label)
     _expect((hud.get("selection_panel") as Control).get_global_rect().encloses(queue_navigation.get_global_rect()),"%s queue navigation floats outside shelf" % label)
     _expect((hud.get("selection_panel") as Control).size.y <= 80.5,"%s production shelf grows beyond80px" % label)
-    _expect((hud.get("selection_panel") as Control).size.x <= 420.0,"%s TC recruitment shelf retains empty width: %.1f" % [label,(hud.get("selection_panel") as Control).size.x])
+    # Beta 21 restored Repeat beside the rally flag; the dock now measures its
+    # tiles' real width (they render wider than their minimum), about 446px.
+    _expect((hud.get("selection_panel") as Control).size.x <= 460.0,"%s TC recruitment shelf retains empty width: %.1f" % [label,(hud.get("selection_panel") as Control).size.x])
     _expect(safe.encloses(queue_navigation.get_global_rect()),"%s queue navigation outside safe area" % label)
     _expect(not queue_navigation.get_global_rect().intersects((hud.get("selection_info_column") as Control).get_global_rect()),"%s queue navigation overlaps selection details" % label)
     _expect(queue_navigation.get_node("CommandIconBadge").text == "1","%s initial queue count missing" % label)
@@ -157,13 +162,13 @@ func _profile(phone: Vector2i, scale_factor: float, notched: bool) -> void:
         _text_fits(hud.get("selection_details"),label)
         _expect((hud.get("selection_panel") as Control).size.y <= 80.5,"%s counter details expand shelf" % label)
         _expect((hud.get("selection_details") as Label).text.contains("Bonus: " + UnitData.get_unit_counter_name(role,0)),"%s missing visible counter" % label)
-        _expect(not (hud.get("build_menu_button") as Button).visible and not (hud.get("age_up_button") as Button).visible and not (hud.get("_mobile_action_panel") as Control).visible,"%s army retains irrelevant controls" % label)
+        _expect(not (hud.get("build_menu_button") as Button).visible and not (hud.get("_mobile_action_panel") as Control).visible,"%s army retains irrelevant controls" % label)
     _publish_selection_change(hud)
     hud.call("show_unit_selection","Villager",50,50,"Gathering Food (19/20)",1,{"unit_type":UnitData.UnitType.VILLAGER})
     hud.call("configure_unit_commands",true,false,"Aggressive","smart")
     await _settle(hud,logical,safe)
     _text_fits(hud.get("selection_details"),label)
-    _expect((hud.get("build_menu_button") as Button).visible and not (hud.get("age_up_button") as Button).visible,"%s worker context loses Build or retains Age" % label)
+    _expect((hud.get("build_menu_button") as Button).visible and (hud.get("top_bar") as Control).is_ancestor_of(hud.get("age_up_button")),"%s worker context loses Build or moves the age chip into the dock" % label)
     (hud.get("_unit_more_button") as Button).pressed.emit()
     await _settle(hud,logical,safe)
     var worker_idle: Button = hud.get("_worker_idle_button")

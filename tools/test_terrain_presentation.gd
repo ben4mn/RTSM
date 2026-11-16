@@ -219,6 +219,7 @@ func _test_depletion_memory(map: Node2D) -> void:
 		if map.map_generator.grid[tile.y][tile.x] == MapData.TileType.WATER:
 			water_before[tile] = map.terrain_layer.get_cell_atlas_coords(tile)
 	map.fog_of_war.fog_grid[resource_tile.y][resource_tile.x] = MapData.FogState.EXPLORED
+	map.fog_of_war.visibility_revision += 1
 	resource.harvest(resource.remaining)
 	_expect(map.map_generator.grid[resource_tile.y][resource_tile.x] == MapData.TileType.GRASS, "depletion changes simulation terrain immediately")
 	_expect(map.terrain_layer.get_cell_atlas_coords(resource_tile) == old_atlas, "hidden depletion retains the observed terrain tile")
@@ -226,6 +227,9 @@ func _test_depletion_memory(map: Node2D) -> void:
 	map.update_resource_visibility_for_player(0)
 	_expect(map.terrain_layer.get_cell_atlas_coords(resource_tile) == old_atlas, "explored-only refresh cannot reveal depletion")
 	map.fog_of_war.fog_grid[resource_tile.y][resource_tile.x] = MapData.FogState.VISIBLE
+	# A direct fog write bypasses FogManager; announce it as the manager does so
+	# the per-frame resource visibility cache refreshes.
+	map.fog_of_war.visibility_revision += 1
 	map.update_resource_visibility_for_player(0)
 	_expect(map.terrain_layer.get_cell_atlas_coords(resource_tile) == Vector2i(MapData.TileType.GRASS, 0), "reveal applies base grass after depletion")
 	_expect(map.get_minimap_grid_for_player(0)[resource_tile.y][resource_tile.x] == MapData.TileType.GRASS, "reveal updates minimap memory")

@@ -7,8 +7,10 @@ const ROOT := "res://assets/kingdoms/"
 const CIVILIZATIONS: Array[String] = ["crownlands", "verdant", "sunstride"]
 const UNIT_NAMES: Array[String] = ["villager", "warrior", "archer", "cavalry", "scout", "siege"]
 const BUILDING_NAMES: Dictionary = {0: "town_center", 1: "house", 2: "barracks", 3: "archery_range", 4: "stable", 5: "farm", 6: "resource_camp", 8: "siege_workshop", 9: "blacksmith", 10: "watch_tower"}
-const UNIT_HEIGHTS: Array[float] = [31.0, 33.0, 32.0, 44.0, 40.0, 43.0]
-const UNIT_WIDTHS: Array[float] = [28.0, 30.0, 29.0, 47.0, 44.0, 55.0]
+# World envelope per role, already including UnitData.WORLD_VISUAL_SCALE (1.3x
+# the original 31/33/32/44/40/43 heights) so a soldier reads on a phone.
+const UNIT_HEIGHTS: Array[float] = [40.3, 42.9, 41.6, 57.2, 52.0, 55.9]
+const UNIT_WIDTHS: Array[float] = [36.4, 39.0, 37.7, 61.1, 57.2, 71.5]
 const BUILDING_HEIGHTS: Dictionary = {0: 170.0, 1: 95.0, 2: 114.0, 3: 105.0, 4: 108.0, 5: 52.0, 6: 82.0, 8: 112.0, 9: 100.0, 10: 145.0}
 static var _available: Dictionary = {}
 static var _ink_cache: Dictionary = {}

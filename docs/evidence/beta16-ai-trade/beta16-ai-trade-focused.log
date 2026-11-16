@@ -1,0 +1,30 @@
+=== [1/5] test_ai_economic_investment ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] ai_economic_investment: paid Loom/Wheelbarrow, reserves, active building, age saving, visible worked expansion, danger, resources, spacing, two-camp limit and fair civilization counters
+[PASS] test_ai_economic_investment
+=== [2/5] test_ai_trade_demand ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+{"checks":29,"failures":[],"scope":"controlled policy fixtures with ordinary queue payments, no natural-match timing claim","test":"ai_trade_demand"}
+[PASS] test_ai_trade_demand
+=== [3/5] test_ai_trade_paid ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+{"fixture_build_seconds":23.6333333333333,"fixture_first_trip_seconds":21.3000000000001,"gold":22}
+{"checks":17,"failures":[],"scope":"controlled starting state, actual AI/Main paid foundation, real 60Hz builder work and caravan travel, manually advanced finite production; not natural match evidence","test":"ai_trade_paid"}
+[PASS] test_ai_trade_paid
+=== [4/5] test_ai_trade_policy ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] ai_trade_policy: paid intents, distance/reachability, cooldown, trader cap, military exclusion
+[PASS] test_ai_trade_policy
+=== [5/5] test_compact_human_siege ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+ERROR: [FAIL] compact_human_siege: ordinary starting roster has four workers
+   at: push_error (core/variant/variant_utility.cpp:1024)
+   GDScript backtrace (most recent call first):
+       [0] _run (res://tools/test_compact_human_siege.gd:43)
+       [1] _close_match (res://tools/test_human_construction_assignment.gd:89)
+[FAIL (exit 1)] test_compact_human_siege
+FOCUSED_SUITE: 4/5 passed; failed: test_compact_human_siege

@@ -15,6 +15,10 @@ var _lane: VBoxContainer
 var _buttons: Array[Button] = []
 var _site: Node2D
 var _last_interaction_bounds: Array[Rect2] = []
+var _last_ping_index: int = -1
+var _ping_count: int = 0
+## Response shortcuts under the alert cards: id -> {"button": Button, "action": Callable}.
+var _responses: Dictionary = {}
 
 
 func setup(hud: CanvasLayer, map: Node2D, focus: Callable) -> void:
@@ -35,7 +39,13 @@ func setup(hud: CanvasLayer, map: Node2D, focus: Callable) -> void:
 		button.custom_minimum_size = Vector2(0, 48)
 		button.focus_mode = Control.FOCUS_NONE
 		button.add_theme_font_size_override("font_size", 12)
-		button.add_theme_stylebox_override("normal", KingdomTheme.button_style())
+		# Slim side padding: the card keeps its two lines unclipped when a
+		# response plate takes the end of the column.
+		for state: String in ["normal", "hover", "pressed"]:
+			var card_style: StyleBoxFlat = KingdomTheme.button_style("secondary", state)
+			card_style.content_margin_left = 8.0
+			card_style.content_margin_right = 8.0
+			button.add_theme_stylebox_override(state, card_style)
 		button.add_theme_color_override("font_color", KingdomTheme.RUST)
 		button.pressed.connect(_view_front.bind(index))
 		button.button_down.connect(func() -> void:
@@ -66,15 +76,114 @@ func report_attack(target_name: String, world_position: Vector2) -> bool:
 		fronts.pop_front()
 	fronts.append({"position": world_position, "target": target_name, "last_hit": now, "last_sound": now})
 	_refresh()
+	if _front_kind(target_name) == "BATTLE" and not _is_on_screen(world_position):
+		_ping_front(fronts.size() - 1)
 	return true
 
 
 func _process(_delta: float) -> void:
+	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
 	for index: int in range(fronts.size() - 1, -1, -1):
 		if GameManager.game_time - float(fronts[index]["last_hit"]) > FRONT_LIFETIME:
 			fronts.remove_at(index)
 	_refresh()
+	if PerfProbe.on: PerfProbe.add(&"feedback.process", _pp)
 	queue_redraw()
+
+
+# --- Response shortcuts (supported hook) --------------------------------------
+# A stream that can answer an attack with one tap (the town bell) offers a
+# button here instead of reaching into the lane. It stands beside the alert
+# cards as one gold plate as tall as they are (so the column never grows into
+# the map controls below), and is gone the moment it is withdrawn, used, or
+# the cards themselves expire.
+
+const RESPONSE_WIDTH: float = 58.0
+const RESPONSE_GAP: float = 4.0
+var _response_slot_held: bool = false
+
+
+func offer_response(id: String, label: String, icon: Texture2D, action: Callable, hint: String = "") -> void:
+	if _lane == null or not action.is_valid():
+		return
+	var entry: Dictionary = _responses.get(id, {})
+	var button: Button = entry.get("button") as Button
+	if not is_instance_valid(button):
+		button = Button.new()
+		button.name = "Response_%s" % id.validate_node_name()
+		button.custom_minimum_size = Vector2(RESPONSE_WIDTH, 48)
+		button.focus_mode = Control.FOCUS_NONE
+		button.visible = false
+		button.add_theme_font_size_override("font_size", 11)
+		button.add_theme_constant_override("line_spacing", -2)
+		button.expand_icon = true
+		button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		button.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
+		button.add_theme_constant_override("icon_max_width", 24)
+		button.add_theme_constant_override("h_separation", 0)
+		KingdomTheme.apply_primary(button)
+		FieldStyle.soften(button, 12)
+		for state: String in ["normal", "hover", "pressed"]:
+			var style: StyleBox = button.get_theme_stylebox(state).duplicate()
+			style.set_content_margin_all(3.0)
+			button.add_theme_stylebox_override(state, style)
+		for state: String in ["icon_normal_color", "icon_hover_color", "icon_pressed_color"]:
+			button.add_theme_color_override(state, KingdomTheme.INK)
+		button.pressed.connect(_on_response_pressed.bind(id))
+		button.button_down.connect(func() -> void:
+			if is_instance_valid(_hud) and _hud.has_signal("world_gesture_cancel_requested"):
+				_hud.emit_signal("world_gesture_cancel_requested")
+		)
+		add_child(button)
+		entry = {"button": button, "offered": false}
+		_responses[id] = entry
+	entry["action"] = action
+	button.text = label
+	button.icon = icon
+	button.tooltip_text = hint
+	button.accessibility_name = label.replace("\n", " ") if hint.is_empty() else "%s. %s" % [label.replace("\n", " "), hint]
+	if not bool(entry.get("offered", false)):
+		entry["offered"] = true
+		_refresh()
+
+
+func withdraw_response(id: String) -> void:
+	var entry: Dictionary = _responses.get(id, {})
+	if bool(entry.get("offered", false)):
+		entry["offered"] = false
+		_refresh()
+
+
+func has_response(id: String) -> bool:
+	var button: Button = (_responses.get(id, {}) as Dictionary).get("button") as Button
+	return is_instance_valid(button) and button.visible
+
+
+func _on_response_pressed(id: String) -> void:
+	var entry: Dictionary = _responses.get(id, {})
+	var action: Callable = entry.get("action", Callable())
+	withdraw_response(id)
+	if GameManager.current_state == GameManager.GameState.PLAYING and action.is_valid():
+		action.call()
+
+
+func _offered_response() -> Button:
+	## One response at a time: the first still on offer.
+	for entry: Dictionary in _responses.values():
+		var button: Button = entry.get("button") as Button
+		if is_instance_valid(button) and bool(entry.get("offered", false)):
+			return button
+	return null
+
+
+## World positions of raid fronts (workers, traders or buildings hit) whose
+## last hit is at most `max_age` game seconds old.
+func get_live_raid_positions(max_age: float) -> Array[Vector2]:
+	var positions: Array[Vector2] = []
+	for front: Dictionary in fronts:
+		if _front_kind(str(front.get("target", ""))) == "RAID" and GameManager.game_time - float(front.get("last_hit", -100.0)) <= max_age:
+			positions.append(front.get("position", Vector2.INF))
+	return positions
 
 
 func report_loss(target_name: String, world_position: Vector2) -> void:
@@ -111,7 +220,27 @@ func _refresh() -> void:
 		var rail: Control = overview.get("rail")
 		_lane.position.x = rail.get_global_rect().position.x
 		width = rail.size.x
-	_lane.size = Vector2(maxf(120.0, width), 100)
+	width = maxf(120.0, width)
+	# A response plate takes the right end of the column; the cards make room.
+	var cards: int = mini(fronts.size(), _buttons.size())
+	var response: Button = _offered_response() if cards > 0 else null
+	for entry: Dictionary in _responses.values():
+		var plate: Button = entry.get("button") as Button
+		if is_instance_valid(plate):
+			plate.visible = plate == response
+	# Once a plate has stood beside these cards its slot stays empty after it
+	# goes: a card never grows under a thumb that was reaching for the plate.
+	if cards == 0:
+		_response_slot_held = false
+	elif response != null:
+		_response_slot_held = true
+	if _response_slot_held:
+		width -= RESPONSE_WIDTH + RESPONSE_GAP
+	if response != null:
+		var separation: float = 0.0 if compact else 4.0
+		response.position = _lane.position + Vector2(width + RESPONSE_GAP, 0.0)
+		response.size = Vector2(RESPONSE_WIDTH, float(cards) * 48.0 + float(cards - 1) * separation)
+	_lane.size = Vector2(width, 100)
 	for index: int in _buttons.size():
 		var button: Button = _buttons[index]
 		button.visible = index < fronts.size()
@@ -121,7 +250,7 @@ func _refresh() -> void:
 			var detail: String = "Under attack" if age < 3 else "%ds ago" % age
 			if int(front.get("losses", 0)) > 0:
 				detail = "%d losses here" % int(front["losses"])
-			button.text = "RAID %d · %s\n%s · view" % [index + 1, str(front["target"]), detail]
+			button.text = "%s %d · %s\n%s · view" % [_front_kind(str(front["target"])), index + 1, str(front["target"]), detail]
 			button.tooltip_text = "Recent attack on your %s. View location without changing selection." % str(front["target"])
 	_hud.call("set_battlefield_alerts_active", not fronts.is_empty())
 	var bounds: Array[Rect2] = get_visible_bounds()
@@ -141,12 +270,17 @@ func get_visible_bounds() -> Array[Rect2]:
 	for button: Button in _buttons:
 		if button.is_visible_in_tree():
 			result.append(button.get_global_rect())
+	for entry: Dictionary in _responses.values():
+		var response: Button = entry.get("button") as Button
+		if is_instance_valid(response) and response.is_visible_in_tree():
+			result.append(response.get_global_rect())
 	return result
 
 
 func _draw() -> void:
 	if not is_instance_valid(_site) or not is_instance_valid(_map) or not visible:
 		return
+	_draw_shrines()
 	# Render a map annotation above fog. Only this known location and its public
 	# objective state are used; terrain, units and capture participants stay hidden.
 	var center: Vector2 = _site.get_global_transform_with_canvas().origin
@@ -177,7 +311,7 @@ func _draw() -> void:
 	draw_colored_polygon(PackedVector2Array([center + Vector2(-4,-13),center + Vector2(13,-7),center + Vector2(-4,0)]), color)
 	var title: String = "SACRED SITE · enter ring"
 	if phase == "contested" or phase == "neutralizing":
-		title = "SACRED SITE · clock paused"
+		title = "SACRED SITE · clock fading"
 	elif phase == "holding":
 		title = "SACRED SITE · " + ("defend" if owner == 0 else "enter to contest")
 	var font: Font = KingdomTheme.FONT_MEDIUM
@@ -186,3 +320,71 @@ func _draw() -> void:
 	label_rect.position.x = clampf(label_rect.position.x, safe.position.x, maxf(safe.position.x, safe.end.x - label_rect.size.x))
 	draw_style_box(KingdomTheme.panel_style(Color(KingdomTheme.INK, 0.95), color, 4), label_rect)
 	draw_string(font, label_rect.position + Vector2(6, 17), title, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, color)
+
+
+## Soldiers being hit is a battle you chose; workers, traders and buildings
+## being hit is a raid on you. The word tells which without reading further.
+static func _front_kind(target_name: String) -> String:
+	if target_name in ["Villager", "Trader"]:
+		return "RAID"
+	for stats: Dictionary in BuildingData.BUILDINGS.values():
+		if str(stats.get("name", "")) == target_name:
+			return "RAID"
+	return "BATTLE"
+
+
+func _is_on_screen(world_position: Vector2) -> bool:
+	var screen: Vector2 = get_viewport().get_canvas_transform() * world_position
+	return get_viewport().get_visible_rect().grow(-24.0).has_point(screen)
+
+
+## A fight you are not looking at must still be noticed: the card swells twice
+## and the phone gives one short buzz where the browser allows it.
+func _ping_front(index: int) -> void:
+	_last_ping_index = index
+	_ping_count += 1
+	if index < 0 or index >= _buttons.size():
+		return
+	var button: Button = _buttons[index]
+	button.pivot_offset = button.size * 0.5
+	var tween: Tween = button.create_tween()
+	for pulse: int in 2:
+		tween.tween_property(button, "scale", Vector2(1.08, 1.08), 0.12)
+		tween.tween_property(button, "scale", Vector2.ONE, 0.16)
+	if OS.has_feature("mobile") or OS.has_feature("web"):
+		Input.vibrate_handheld(80)
+
+
+## Shrines are public map features: a ring in their owner's colour and, while
+## their ground is unseen, a small badge saying what holding one is worth.
+func _draw_shrines() -> void:
+	var shrines: Variant = _map.get("shrines")
+	if not shrines is Array:
+		return
+	var safe: Rect2 = _hud.call("get_world_safe_rect")
+	var camera: Camera2D = _map.get("camera") as Camera2D
+	for shrine: Node2D in shrines:
+		if not is_instance_valid(shrine):
+			continue
+		var center: Vector2 = shrine.get_global_transform_with_canvas().origin
+		if not safe.has_point(center):
+			continue
+		var owner: int = int(shrine.get("owning_player"))
+		var color: Color = KingdomTheme.TEAL if owner == 0 else (KingdomTheme.RUST if owner == 1 else KingdomTheme.PARCHMENT)
+		var radius: float = float(shrine.call("get_capture_radius_world")) * camera.zoom.x
+		draw_arc(center, radius, 0, TAU, 64, Color(color, 0.55), 2.0, true)
+		if bool(_map.call("is_tile_visible_to_player", _map.call("world_to_tile", shrine.global_position), 0)):
+			continue
+		draw_circle(center, 15, Color(KingdomTheme.INK, 0.95))
+		draw_arc(center, 15, 0, TAU, 24, color, 2.0, true)
+		draw_circle(center, 5, color)
+		var title: String = "SHRINE · +%d gold" % roundi(float(shrine.get("gold_per_second")))
+		if owner == 0:
+			title = "YOUR SHRINE"
+		elif owner == 1:
+			title = "RIVAL SHRINE"
+		var font: Font = KingdomTheme.FONT_MEDIUM
+		var text_size: Vector2 = font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, 11)
+		var label_rect := Rect2(center + Vector2(-text_size.x * 0.5 - 5, 18), text_size + Vector2(10, 6))
+		draw_style_box(KingdomTheme.panel_style(Color(KingdomTheme.INK, 0.9), color, 4), label_rect)
+		draw_string(font, label_rect.position + Vector2(5, 14), title, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, color)

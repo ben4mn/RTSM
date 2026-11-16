@@ -1,0 +1,23 @@
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+ONLINE_COMBAT_STATUS slot=0 state=idle elapsed=0.00 message=
+ONLINE_COMBAT_STATUS slot=0 state=connecting elapsed=0.00 message=Connecting…
+ONLINE_COMBAT_STATUS slot=0 state=searching elapsed=0.32 message=Searching for an opponent…
+ONLINE_COMBAT_STATUS slot=0 state=searching elapsed=0.35 message=Searching for an opponent…
+ONLINE_COMBAT_STATUS slot=0 state=loading elapsed=1.87 message=Opponent found · loading…
+ONLINE_COMBAT_STATUS slot=0 state=playing elapsed=2.02 message=Online match
+ONLINE_COMBAT_PROGRESS slot=0 game=0.11 wall=8.74 seed=1670236891 map=1 snapshots=1 placed=false trained=false ordered=false
+ONLINE_COMBAT_PLACEMENT_SCAN ms=8 placed=false
+ONLINE_COMBAT_PLACEMENT_SCAN ms=1 placed=true
+ONLINE_COMBAT_PROGRESS slot=0 game=10.27 wall=18.88 seed=1670236891 map=1 snapshots=38 placed=true trained=false ordered=false
+ONLINE_COMBAT_PROGRESS slot=0 game=20.58 wall=29.24 seed=1670236891 map=1 snapshots=74 placed=true trained=true ordered=false
+ONLINE_COMBAT_PROGRESS slot=0 game=30.64 wall=39.35 seed=1670236891 map=1 snapshots=114 placed=true trained=true ordered=false
+ONLINE_COMBAT_PROGRESS slot=0 game=40.77 wall=49.41 seed=1670236891 map=1 snapshots=160 placed=true trained=true ordered=true
+ONLINE_COMBAT_PROGRESS slot=0 game=50.97 wall=59.54 seed=1670236891 map=1 snapshots=200 placed=true trained=true ordered=true
+ONLINE_COMBAT_PROGRESS slot=0 game=61.00 wall=69.68 seed=1670236891 map=1 snapshots=245 placed=true trained=true ordered=true
+ONLINE_COMBAT_PROGRESS slot=0 game=71.13 wall=79.76 seed=1670236891 map=1 snapshots=291 placed=true trained=true ordered=true
+ONLINE_COMBAT_VERIFIED slot=0 paid_barracks=true paid_infantry=true attack_move=true enemy_visible=true replicated_damage=true stand_ground_requested=false inert_stance_replica=false
+ONLINE_COMBAT_PROGRESS slot=0 game=81.27 wall=89.94 seed=1670236891 map=1 snapshots=338 placed=true trained=true ordered=true
+ONLINE_COMBAT_STATUS slot=0 state=ended elapsed=48.23 message=Surrender
+ONLINE_COMBAT_RESULT slot=0 winner=0 reason=Surrender verified=true game=82.93 wall=91.59
+ONLINE_COMBAT_STATUS slot=0 state=idle elapsed=48.23 message=

@@ -13,10 +13,23 @@ signal defensive_attack_fired(target: Node2D)
 
 enum State { PLACING, CONSTRUCTING, ACTIVE, DESTROYED }
 
-@export var building_type: int = BuildingData.BuildingType.HOUSE
-@export var player_owner: int = 0
+## Bumped whenever any building's vision source may have changed (type, owner,
+## state, position, tree membership). GameMap keys its per-player building
+## vision grid on it instead of rescanning every building per visibility query.
+static var vision_revision: int = 0
+@export var building_type: int = BuildingData.BuildingType.HOUSE:
+	set(value):
+		building_type = value
+		vision_revision += 1
+@export var player_owner: int = 0:
+	set(value):
+		player_owner = value
+		vision_revision += 1
 
-var state: int = State.PLACING
+var state: int = State.PLACING:
+	set(value):
+		state = value
+		vision_revision += 1
 var hp: int = 0
 var max_hp: int = 500
 var build_progress: float = 0.0
@@ -29,6 +42,11 @@ var trainable_units: Array = []
 var building_color: Color = Color(0.6, 0.45, 0.3)
 var provides_food: bool = false
 var _assigned_farmer_ref: WeakRef = null
+# Finite Farms (Round 2 E; rules in scripts/buildings/farm_plots.gd).
+var farm_food_total: int = 0  # 0 = not sown yet; sown on first use.
+var farm_food_remaining: int = 0
+var farm_fallow: bool = false
+var _farm_last_worker_ref: WeakRef = null
 
 var rally_point: Vector2 = Vector2.ZERO
 var rally_point_is_custom: bool = false
@@ -116,6 +134,11 @@ class DefensiveArrow extends Node2D:
 	var flight_seconds: float = 0.2
 	var finished: bool = false
 	var _heading: Vector2 = Vector2.RIGHT
+	# Presentation only: see Combat.RangedProjectile.
+	var _arc: float = 12.0
+	var _lift: float = 0.0
+	var _phase: float = 0.0
+	var _aim: Vector2 = Vector2.ZERO
 
 	func _process(delta: float) -> void:
 		advance_projectile(delta)
@@ -126,14 +149,19 @@ class DefensiveArrow extends Node2D:
 		var defender: UnitBase = defender_ref.get_ref() as UnitBase
 		if not is_instance_valid(defender) or defender.current_state == UnitBase.State.DEAD:
 			finished = true
+			if visible and _aim != Vector2.ZERO:
+				BattleFX.stray_arrow(start_position, _aim, _phase, flight_seconds)
 			queue_free()
 			return
 		elapsed += delta
 		var phase: float = minf(1.0, elapsed / flight_seconds)
-		var previous: Vector2 = global_position
-		global_position = start_position.lerp(defender.global_position + Vector2(0.0, -16.0), phase)
-		global_position.y -= sin(phase * PI) * 12.0
-		_heading = (global_position - previous).normalized()
+		_aim = defender.global_position + Vector2(0.0, -16.0 * UnitData.WORLD_VISUAL_SCALE)
+		if _phase <= 0.0:
+			_arc = BattleFX.arrow_arc(start_position.distance_to(_aim)) * 0.8
+		_phase = phase
+		global_position = start_position.lerp(_aim, phase)
+		_lift = sin(phase * PI) * _arc
+		_heading = BattleFX.shot_heading(start_position, _aim, _arc, phase)
 		# Flight can finish after a target leaves vision; its rendering never
 		# reveals that target or an unseen enemy Town Center to the human.
 		var visibility_map: Node2D = visibility_map_ref.get_ref() as Node2D if visibility_map_ref != null else null
@@ -144,17 +172,18 @@ class DefensiveArrow extends Node2D:
 		queue_redraw()
 		if phase >= 1.0:
 			finished = true
+			if visible:
+				BattleFX.arrow_arrived(defender, _heading, false)
 			defender.take_damage(final_damage)
-			if get_tree().current_scene != null and defender.visible:
+			if BattleFX.get_fx() != null:
+				if defender.visible:
+					BattleFX.unit_struck_by_arrow(defender, start_position)
+			elif get_tree().current_scene != null and defender.visible:
 				VFX.hit_burst(get_tree(), defender.global_position + Vector2(0.0, -14.0), Color(0.92, 0.78, 0.42))
 			queue_free()
 
 	func _draw() -> void:
-		draw_line(-_heading * 10.0, _heading * 4.0, Color(1.0, 0.86, 0.48), 2.4, true)
-		var normal := Vector2(-_heading.y, _heading.x)
-		draw_colored_polygon(PackedVector2Array([
-			_heading * 6.0, normal * 2.5, -normal * 2.5
-		]), Color(1.0, 0.98, 0.80))
+		BattleFX.draw_arrow(self, Vector2(0.0, -_lift), _heading, minf(1.0, _phase * 4.0), true)
 
 ## Original Company SVGs for civic, military and farming buildings.
 const BUILDING_SPRITES: Dictionary = {
@@ -167,6 +196,7 @@ const BUILDING_SPRITES: Dictionary = {
 	BuildingData.BuildingType.RESOURCE_CAMP: "res://assets/buildings/company_resource_camp.svg",
 	BuildingData.BuildingType.SIEGE_WORKSHOP: "res://assets/buildings/company_siege_workshop.svg",
 	BuildingData.BuildingType.BLACKSMITH: "res://assets/buildings/company_blacksmith.svg",
+	BuildingData.BuildingType.TRADE_POST: "res://assets/buildings/trade_post.svg",
 	BuildingData.BuildingType.WATCH_TOWER: "res://assets/buildings/watch_tower.svg",
 }
 
@@ -235,6 +265,13 @@ const DROP_OFF_BADGE_COLORS: Dictionary = {
 }
 
 
+func _notification(what: int) -> void:
+	# The local notification is synchronous; the global one is deferred to the
+	# end of the frame, too late for a same-frame visibility query.
+	if what == NOTIFICATION_ENTER_TREE or what == NOTIFICATION_EXIT_TREE or what == NOTIFICATION_LOCAL_TRANSFORM_CHANGED:
+		vision_revision += 1
+
+
 func _ready() -> void:
 	_load_stats()
 	_setup_collision()
@@ -242,6 +279,8 @@ func _ready() -> void:
 	rally_point = global_position + Vector2(footprint.x * MapData.TILE_WIDTH, 0)
 	rally_point_is_custom = false
 	add_to_group("buildings")
+	set_notify_local_transform(true)
+	vision_revision += 1
 	add_to_group("player_%d_buildings" % player_owner)
 	if drop_off_resources.size() > 0:
 		add_to_group("dropoff_buildings")
@@ -274,6 +313,7 @@ func _load_stats() -> void:
 	tower_attack_interval = maxf(0.1, float(stats.get("attack_interval", 1.5)))
 	tower_attack_projectile_speed = maxf(0.0, float(stats.get("attack_projectile_speed", 0.0)))
 	tower_attack_buildings = bool(stats.get("attack_buildings", true))
+	ResearchEffects.apply_building_bonuses(self)  # Round 2 B: researched bonuses + age dressing.
 
 
 func _setup_collision() -> void:
@@ -399,12 +439,23 @@ func _update_sprite_appearance() -> void:
 		State.DESTROYED:
 			_sprite.modulate = Color(0.3, 0.3, 0.3, 0.5)
 		State.ACTIVE:
-			_sprite.modulate = base_color
+			# Staged damage: walls darken toward a scorched tone as HP drops.
+			# BattleFX adds the matching smoke and fire for locals and replicas.
+			_sprite.modulate = base_color * get_damage_tint() * FarmPlots.field_tint(self)
 		_:
 			_sprite.modulate = base_color
 	_update_construction_presentation()
 	if GameManager.reduced_flashes:
 		_clear_damage_flash()
+
+
+## Presentation-only scorch stage (white above two-thirds health).
+func get_damage_tint() -> Color:
+	# hp is still 0 while a node is being set up; that is not damage.
+	if max_hp <= 0 or hp <= 0 or hp >= max_hp:
+		return Color.WHITE
+	var wear: float = clampf((0.66 - float(hp) / float(max_hp)) / 0.56, 0.0, 1.0)
+	return Color.WHITE.lerp(Color(0.66, 0.58, 0.54), wear * wear * 0.4 + wear * 0.6)
 
 
 func _update_construction_presentation() -> void:
@@ -548,6 +599,7 @@ func _draw_drop_off_badges(pixel_w: float, _pixel_h: float) -> void:
 
 
 func _process(delta: float) -> void:
+	var _pb: int = Time.get_ticks_usec() if PerfProbe.on else 0
 	var had_shot_flash: bool = _defensive_shot_flash_remaining > 0.0
 	_defensive_shot_flash_remaining = maxf(0.0, _defensive_shot_flash_remaining - delta)
 	if state == State.CONSTRUCTING:
@@ -556,13 +608,13 @@ func _process(delta: float) -> void:
 		_construction_dust_timer += delta
 		if _construction_dust_timer >= 0.8:
 			_construction_dust_timer = 0.0
-			if get_tree() and get_tree().current_scene:
+			if BattleFX.get_fx() == null and get_tree() and get_tree().current_scene:
 				VFX.construction_dust(get_tree(), global_position)
 		queue_redraw()
 	elif state == State.ACTIVE and hp < max_hp:
 		# Damage smoke/fire effects
 		var hp_ratio := float(hp) / float(max_hp) if max_hp > 0 else 1.0
-		if hp_ratio < 0.5 and get_tree() and get_tree().current_scene:
+		if hp_ratio < 0.5 and BattleFX.get_fx() == null and get_tree() and get_tree().current_scene:
 			_damage_smoke_timer += delta
 			var interval := 1.2 if hp_ratio > 0.25 else 0.6
 			if _damage_smoke_timer >= interval:
@@ -576,11 +628,14 @@ func _process(delta: float) -> void:
 	if state == State.ACTIVE and tower_attack_damage > 0:
 		_tower_attack_cooldown -= delta
 		if _tower_attack_cooldown <= 0.0:
+			var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
 			_tower_attack_cooldown = tower_attack_interval if _tower_try_attack() else DEFENSIVE_TARGET_SCAN_INTERVAL
+			if PerfProbe.on: PerfProbe.add(&"building.tower", _pp)
 	if is_selected or had_shot_flash:
 		queue_redraw()
 	if had_shot_flash and _defensive_flash != null:
 		_defensive_flash.queue_redraw()
+	if PerfProbe.on: PerfProbe.add(&"building.process", _pb)
 
 
 ## Called by villagers to add construction progress.
@@ -619,7 +674,7 @@ func _complete_construction() -> void:
 	hp = max_hp
 	build_progress = 1.0
 	_update_sprite_appearance()
-	if get_tree() and get_tree().current_scene:
+	if BattleFX.get_fx() == null and get_tree() and get_tree().current_scene:
 		VFX.building_complete(get_tree(), global_position)
 	construction_complete.emit(self)
 	queue_redraw()
@@ -635,6 +690,9 @@ func take_damage(amount: int) -> void:
 	if hp < previous_hp:
 		damage_received.emit(self, previous_hp - hp)
 		_flash_damage()
+		BattleFX.building_damaged(self, float(previous_hp - hp))
+		if state == State.ACTIVE:
+			_update_sprite_appearance()
 	if hp <= 0:
 		_destroy()
 	queue_redraw()
@@ -667,8 +725,11 @@ func _destroy() -> void:
 	_update_sprite_appearance()
 	building_destroyed.emit(self)
 	# Destruction smoke puff
-	if get_tree() and get_tree().current_scene:
+	if BattleFX.get_fx() == null and get_tree() and get_tree().current_scene:
 		VFX.death_puff(get_tree(), global_position)
+	# The collapse, dust, shake and rubble play on a BattleFX copy of the art;
+	# this node keeps its existing one-second lifetime.
+	BattleFX.building_collapse(self)
 	queue_redraw()
 	# Fade out and remove
 	var tween := create_tween()
@@ -764,7 +825,8 @@ func can_train() -> bool:
 	return state == State.ACTIVE and trainable_units.size() > 0
 
 
-# --- Farm support: permanent food, one assigned worker including delivery ---
+# --- Farm support: one assigned worker including delivery; the food itself is
+# finite and reseeded (scripts/buildings/farm_plots.gd) ---
 
 func get_resource_type() -> String:
 	if provides_food:
@@ -793,7 +855,9 @@ func get_assigned_worker() -> UnitBase:
 
 
 func is_available_to_worker(worker: Node2D = null) -> bool:
-	if not is_harvestable_by():
+	# A fallow Farm is still its owner's (an order can reseed it) but offers
+	# no work until it is replanted.
+	if not is_harvestable_by() or farm_fallow:
 		return false
 	var assigned: UnitBase = get_assigned_worker()
 	return assigned == null or assigned == worker
@@ -821,7 +885,7 @@ func harvest(amount: int, worker: UnitBase = null) -> int:
 	var assigned: UnitBase = get_assigned_worker()
 	if (worker != null and assigned != worker) or (worker == null and assigned != null):
 		return 0
-	return maxi(0, amount)
+	return FarmPlots.take(self, maxi(0, amount), worker)
 
 
 func get_production_queue() -> Node:
@@ -832,6 +896,245 @@ func set_production_queue(queue: Node) -> void:
 	_production_queue = queue
 
 
+# =========================================================================
+#  CONTEXT ACTIONS (Round 2 contract, docs/round2_contracts.md)
+# =========================================================================
+# What a selected building offers beyond training units. The HUD renders this
+# list as one row of cards and never needs to know what an action does.
+
+const RESEARCH_ACTION_PREFIX: String = "research:"
+## provider name -> {"actions": Callable, "perform": Callable}. Callables must
+## be static functions: the table outlives any single match.
+static var _context_providers: Dictionary = {}
+
+
+static func register_context_provider(provider_name: String, actions: Callable, perform: Callable) -> void:
+	## actions(building: BuildingBase, player_id: int) -> Array of action
+	## dictionaries (see get_context_actions); return [] for other buildings.
+	## perform(building: BuildingBase, player_id: int, action_id: String) -> String
+	## returns "" on success or a short player-facing reason. Prefix ids with the
+	## provider name ("bell:ring"). Registering the same name again replaces it.
+	_context_providers[provider_name] = {"actions": actions, "perform": perform}
+
+
+static func unregister_context_provider(provider_name: String) -> void:
+	_context_providers.erase(provider_name)
+
+
+func get_context_actions(player_id: int) -> Array[Dictionary]:
+	## Each entry: {id: String, label: String, icon: String (res:// path or ""),
+	## cost: Dictionary, time: float seconds (0 = instant), progress: float
+	## (-1 = not running, else 0..1), disabled_reason: String ("" = usable)}.
+	## Optional: short (compact card title), desc (one effect line), details
+	## (long Info text), done (bool, bought/finished for good).
+	var actions: Array[Dictionary] = []
+	if player_id != player_owner or state == State.DESTROYED:
+		return actions
+	if state == State.ACTIVE:
+		actions.append_array(get_research_actions(player_id))
+	for provider: Dictionary in _context_providers.values():
+		var actions_source: Callable = provider.actions
+		if not actions_source.is_valid():
+			continue
+		var provided: Variant = actions_source.call(self, player_id)
+		if provided is Array:
+			for action: Variant in provided:
+				if action is Dictionary and action.get("id") is String:
+					actions.append(action)
+	return actions
+
+
+func perform_context_action(player_id: int, action_id: String) -> String:
+	## Authority-side execution (solo and match server). Returns "" on success,
+	## otherwise a short player-facing reason. Everything is re-validated here;
+	## callers only need to know who is asking.
+	if player_id != player_owner or state == State.DESTROYED or hp <= 0:
+		return "Select your building"
+	if action_id == CANCEL_RESEARCH_ACTION:
+		return "" if GameManager.cancel_research(player_id, self) else "Nothing to cancel"
+	if action_id.begins_with(RESEARCH_ACTION_PREFIX):
+		return perform_research_action(player_id, action_id.trim_prefix(RESEARCH_ACTION_PREFIX))
+	for provider: Dictionary in _context_providers.values():
+		var actions_source: Callable = provider.actions
+		var perform: Callable = provider.perform
+		if not actions_source.is_valid() or not perform.is_valid():
+			continue
+		var provided: Variant = actions_source.call(self, player_id)
+		if not provided is Array:
+			continue
+		for action: Variant in provided:
+			if action is Dictionary and action.get("id") == action_id:
+				var blocked: String = str(action.get("disabled_reason", ""))
+				if not blocked.is_empty():
+					return blocked
+				var result: Variant = perform.call(self, player_id, action_id)
+				return result if result is String else ""
+	return "Action unavailable"
+
+
+# =========================================================================
+#  RESEARCH SLOT, AGE DRESSING (Round 2 workstream B)
+# =========================================================================
+# One timed research at a time per building (TechData rows for this building
+# type, plus the age-up in a Town Center). GameManager owns the rules and the
+# money; the building only holds the slot, which is saved with the building
+# and sent to its owner in network snapshots. While the slot is busy the
+# building's unit queue waits (main._advance_production_queues).
+
+const CANCEL_RESEARCH_ACTION: String = "cancel_research"
+const AGE_BANNER_TEXTURES: Dictionary = {
+	2: "res://assets/buildings/age2_banner.svg",
+	3: "res://assets/buildings/age3_banner.svg",
+}
+
+var research_id: String = ""
+var research_progress: float = 0.0  # Game seconds spent.
+var research_duration: float = 0.0
+var research_paid_cost: Dictionary = {}  # Receipt: exactly what a cancel returns.
+var _research_watched: bool = false
+var _age_banner: Sprite2D = null
+var _age_dressing: int = 1
+
+
+func is_researching() -> bool:
+	return not research_id.is_empty()
+
+
+func get_research_ratio() -> float:
+	if research_id.is_empty():
+		return -1.0
+	return clampf(research_progress / research_duration, 0.0, 1.0) if research_duration > 0.0 else 1.0
+
+
+func begin_research(id: String, duration: float, paid_cost: Dictionary) -> void:
+	## Authority only, through GameManager.try_start_research (already paid).
+	research_id = id
+	research_progress = 0.0
+	research_duration = maxf(0.0, duration)
+	research_paid_cost = paid_cost.duplicate()
+	_watch_research()
+
+
+func clear_research() -> void:
+	research_id = ""
+	research_progress = 0.0
+	research_duration = 0.0
+	research_paid_cost = {}
+
+
+func advance_research(delta: float) -> void:
+	## Authority only, once per simulation frame for ACTIVE buildings.
+	if research_id.is_empty() or state != State.ACTIVE:
+		return
+	_watch_research()  # Also re-arms the refund after a save is restored.
+	research_progress += delta
+	if research_progress >= research_duration:
+		GameManager.complete_building_research(self)
+
+
+func _watch_research() -> void:
+	if not _research_watched:
+		_research_watched = true
+		building_destroyed.connect(_refund_research_on_destruction)
+
+
+func _refund_research_on_destruction(_building: BuildingBase) -> void:
+	GameManager.cancel_research(player_owner, self)
+
+
+func get_research_actions(player_id: int) -> Array[Dictionary]:
+	## Research cards for the context row. A follow-up (Iron Casting) stays
+	## hidden until its predecessor is done and then takes that card's place.
+	## Extra keys: `reason` (GameManager code), `cancel` (tap cancels, refunds).
+	var actions: Array[Dictionary] = []
+	var ids: Array[String] = []
+	if building_type == BuildingData.BuildingType.TOWN_CENTER and GameManager.get_player_age(player_id) < GameManager.MAX_AGE:
+		ids.append(TechData.age_research_id(GameManager.get_player_age(player_id) + 1))
+	for definition: Dictionary in TechData.RESEARCH_DEFS:
+		if int(definition["building_type"]) != building_type or not TechData.is_available_to(definition, GameManager.get_player_civilization(player_id)):
+			continue
+		var id: String = str(definition["id"])
+		var required: String = str(definition.get("requires", ""))
+		if not required.is_empty() and not GameManager.has_research(player_id, required):
+			continue
+		if GameManager.has_research(player_id, id) and not TechData.get_successor_id(id).is_empty():
+			continue
+		ids.append(id)
+	for id: String in ids:
+		var definition: Dictionary = GameManager.get_research_definition(player_id, id)
+		if definition.is_empty():
+			continue
+		var running: bool = research_id == id
+		var reason: String = "" if running else str(GameManager.get_research_failure_reason(player_id, self, id))
+		actions.append({
+			"id": RESEARCH_ACTION_PREFIX + id,
+			"label": str(definition.get("name", id)),
+			"short": str(definition.get("short", definition.get("name", id))),
+			"icon": str(definition.get("icon", "")),
+			"cost": (definition.get("cost", {}) as Dictionary).duplicate(),
+			"time": float(definition.get("time", 0.0)),
+			"progress": get_research_ratio() if running else -1.0,
+			"disabled_reason": str(GameManager.describe_research_failure(player_id, id, reason)),
+			"reason": reason,
+			"cancel": running,
+			"desc": str(definition.get("desc", "")),
+			"details": str(definition.get("details", "")),
+			"done": reason == "already_researched",
+		})
+	return actions
+
+
+func perform_research_action(player_id: int, id: String) -> String:
+	## Tap on a research card: start it, or cancel it (full refund) if it is
+	## the one this building is researching.
+	if research_id == id:
+		return "" if GameManager.cancel_research(player_id, self) else "Research unavailable"
+	if GameManager.try_start_research(player_id, self, id):
+		return ""
+	var reason: String = str(GameManager.get_research_failure_reason(player_id, self, id))
+	if reason in ["already_researched", "unknown_research", "wrong_building", ""]:
+		return "Research unavailable"
+	return str(GameManager.describe_research_failure(player_id, id, reason))
+
+
+func set_age_dressing(age: int, celebrate: bool = false) -> void:
+	## Ceremony hook: called for every building of a player when their age is
+	## known or advances. Today a Town Center flies the age banner and, with
+	## `celebrate`, every building glows gold for a moment. Presentation only.
+	_age_dressing = age
+	if building_type == BuildingData.BuildingType.TOWN_CENTER and _sprite != null:
+		var banner_path: String = str(AGE_BANNER_TEXTURES.get(age, ""))
+		if banner_path.is_empty() or not ResourceLoader.exists(banner_path):
+			if _age_banner != null:
+				_age_banner.visible = false
+		else:
+			if _age_banner == null:
+				_age_banner = Sprite2D.new()
+				_age_banner.name = "AgeBanner"
+				_age_banner.z_index = 1
+				add_child(_age_banner)
+			_age_banner.texture = load(banner_path)
+			_age_banner.visible = true
+			_age_banner.scale = Vector2(0.6, 0.6)
+			# Planted on the right shoulder of the roofline, clear of the civ's own flag.
+			_age_banner.position = _sprite_visual_rect.position + _sprite_visual_rect.size * Vector2(0.84, 0.30)
+	if celebrate and _sprite != null and _sprite.texture != null and state != State.DESTROYED and not GameManager.reduced_flashes:
+		var glow := Sprite2D.new()
+		glow.name = "AgeGlow"
+		glow.texture = _sprite.texture
+		glow.centered = _sprite.centered
+		glow.offset = _sprite.offset
+		var blend := CanvasItemMaterial.new()
+		blend.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+		glow.material = blend
+		glow.modulate = Color(1.0, 0.82, 0.38, 0.0)
+		_sprite.add_child(glow)
+		var tween: Tween = glow.create_tween()
+		tween.tween_property(glow, "modulate:a", 0.55, 0.25)
+		tween.tween_property(glow, "modulate:a", 0.0, 0.9)
+		tween.tween_callback(glow.queue_free)
+
+
 func _tower_try_attack() -> bool:
 	if state != State.ACTIVE or hp <= 0 or tower_attack_damage <= 0:
 		return false
@@ -840,7 +1143,11 @@ func _tower_try_attack() -> bool:
 	var best_unit: UnitBase = null
 	var best_unit_dist: float = INF
 	var best_unit_priority: int = 3
-	for node in get_tree().get_nodes_in_group("units"):
+	# Same candidates in the same order as the whole-group scan, limited to the
+	# cells this tower can reach.
+	var tower_map: Node = get_parent().get_parent() if get_parent() != null else null
+	var tower_candidates: Array = tower_map.get_units_near(global_position, tower_attack_range) if tower_map != null and tower_map.has_method("get_units_near") and get_tree().get_node_count_in_group("units") == tower_map.get_spatial_unit_count() else get_tree().get_nodes_in_group("units")
+	for node in tower_candidates:
 		if not is_instance_valid(node) or not (node is UnitBase):
 			continue
 		var u: UnitBase = node as UnitBase
@@ -887,7 +1194,9 @@ func _tower_try_attack() -> bool:
 			best_building = b
 	if best_building != null:
 		Combat.deal_tower_damage_to_building(self, best_building)
-		if get_tree().current_scene != null and best_building.visible:
+		if BattleFX.get_fx() != null:
+			BattleFX.tower_shot(self, best_building)
+		elif get_tree().current_scene != null and best_building.visible:
 			VFX.hit_burst(get_tree(), best_building.global_position, Color(0.8, 0.6, 0.2))
 		defensive_attack_fired.emit(best_building)
 		return true
@@ -953,3 +1262,17 @@ func _get_defensive_visibility_map() -> Node2D:
 			return ancestor as Node2D
 		ancestor = ancestor.get_parent()
 	return null
+
+
+# =========================================================================
+#  GARRISON / TOWN BELL / REPAIR STATE (Round 2 D1)
+# =========================================================================
+# Plain saved state only; the rules live in scripts/buildings/garrison.gd.
+## Instance ids of the units inside (UnitBase.State.GARRISONED).
+var garrisoned_ids: Array[int] = []
+var bell_active: bool = false
+## Seconds since an armed enemy was last seen near a ringing Town Center.
+var _bell_quiet: float = 0.0
+## Hit points of repair already paid for in wood, and the fraction in hand.
+var repair_credit: float = 0.0
+var _repair_fraction: float = 0.0

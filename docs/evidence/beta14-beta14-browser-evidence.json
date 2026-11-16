@@ -1,0 +1,28 @@
+{
+  "result": "PASS",
+  "scope": "Public https://game.4mn.org at844x390, ordinary paid solo play and UI only. Save & exit at7:32 onbeta13.1, in-app Check for updates/Refresh tobeta14, version confirmed, checkpoint restored paused with430F/495W/195G and30/35 population. Farms, traders and paid production persisted. Native touch fixtures are separate from this mouse-driven mobile-viewport test.",
+  "observations": [
+    "Two farms built through normal paid placement, builders becoming farmers. A visible30-food deposit occurred from the remaining farm at8:18 while the other farm had been raided.",
+    "Trade Post completed5:53. Two Traders purchased normally at5:57 for120W/80G and4population. First trader visibly active6:22. With zero gold miners, bank105 became135 by6:59,165 by7:18 and195 by7:32: three30-gold deliveries, not a timed throughput benchmark.",
+    "Onbeta14, Economy finder selected/centered a trader and closed the sheet. An extra test click then issued a move, correctly pausing that trader. Info reported Trade paused; tapping the owned Trade Post resumed it, and Info then reported Travelling to Town Center. This was an operator-issued move, not a finder-induced order change.",
+    "Gold increased from195 to255 after restore while the second trader continued its route. Trade was vulnerable: inspected trader had47/65health during raids.",
+    "Compact Economy header showed the2-trader finder without an extra row. Result ended naturally at8:21 by enemy Sacred180-second hold; no scripted surrender in this browser match.",
+    "Refresh on the result screen was blocked with Your match is protected. Returning to Main Menu cleared the completed solo checkpoint. Release notes remained collapsed. Current browser warning/error log was empty after the updated match.",
+    "Viewport override reset and public game tab retained at the end."
+  ],
+  "balance": {
+    "rates_costs_speed_or_victory_timer_changed": false,
+    "starting_workers": 3,
+    "manual_match": {"mode":"Standard100, Easy opponent, River Crossings, English player", "game_time":"8:21", "result":"Sacred defeat", "interpretation":"Paid browser interaction test with frequent pauses and underdefended objective; not representative average pacing. Started onbeta13.1 and resumed onbeta14 at7:32."},
+    "automated_completed_match": {"map":"River Crossings", "seed":424242, "opponents":"Medium vs Medium, Crownlands both", "game_time_seconds":543.37, "result":"Natural Sacred victory", "farms_per_side":3, "traders":0, "remaining_finite_stock":{"food":5976,"wood":11804,"gold":4316}, "diagnostics":"Four autosave freed-target errors exposed the bug fixed in9ea68e4; result retained but baseline log is not a clean pass."},
+    "automated_partial_match": {"map":"Golden Basin", "seed":7, "opponents":"Medium vs Medium, Crownlands both", "last_persisted_game_time_seconds":480.1, "result":"Unresolved;900-second wall test budget reached", "farms_per_side":3, "traders":0, "remaining_finite_stock":{"food":6395,"wood":11749,"gold":4690}, "diagnostics":"Clean engine log; original baseline plus only the freed-target save guard. No wood-recovery fix in either pacing run."},
+    "conclusion":"Farm transitions and paid player trade worked. Default100 AI wood search needed a targeted recovery fix; its full-match effect is not measured. Neither automated run reached the600-second AI trade gate. These samples do not establish a12-15-minute average,20+ minute depletion, or natural late-game AI trade. No broader balance tuning inferred. Prior3-vs4-worker calculations remain in docs/balance_2026-10-26.md."
+  },
+  "limitations": [
+    "No physical phone, OS-installed PWA lifecycle or device thermal/performance measurements. Browser mobile viewport and native ScreenTouch tests only.",
+    "The12-15-minute average and20+ minute resource-exhaustion targets remain unverified; one natural AI result and one partial run are not a distribution.",
+    "AI wood fix prevents idle workers falling back to food when visible wood is missing. It does not forcibly redirect a fully employed food workforce restored from an old save.",
+    "Controlled route tests and public multiplayer combat are functional checks, not full-match duration evidence."
+  ],
+  "screenshots": ["outputs/beta14-before-update-save.png","outputs/beta14-first-trade-delivery.png","outputs/beta14-live-version.png","outputs/beta14-mobile-economy.png","outputs/beta14-match-result.png"]
+}

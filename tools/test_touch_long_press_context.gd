@@ -60,19 +60,21 @@ func _run() -> void:
 		await process_frame
 	selection_manager.call("_process", 0.0)
 
-	var after_threshold: Dictionary = selection_manager.get("touch_context_diagnostics") as Dictionary
-	_expect_eq(move_tiles.size(), 1, "threshold crossing executes the single attack-move action once")
-	_expect_eq(String(after_threshold.get("last_executed_action", "")), "Queue destination", "diagnostics identify the executed context action")
-	_expect_eq(int(after_threshold.get("last_executed_action_id", -1)), QUEUE_ACTION_ID, "diagnostics retain the queue action id")
-	_expect_eq(int(after_threshold.get("execution_count", -1)), before_count + 1, "diagnostics count one threshold execution")
-	var first_timestamp: int = int(after_threshold.get("last_executed_timestamp_ms", 0))
-	_expect(first_timestamp > 0, "diagnostics include a fresh execution timestamp")
+	# The threshold arms the hold; nothing acts until the finger lifts, because a
+	# drag after the ring appears turns the hold into a box, rally or attack-move.
+	_expect_eq(move_tiles.size(), 0, "threshold crossing arms the hold without acting")
+	_expect(bool(selection_manager.call("is_hold_gesture_active")), "threshold crossing arms the hold gesture")
+	_expect_eq(int((selection_manager.get("touch_context_diagnostics") as Dictionary).get("execution_count", -1)), before_count, "arming does not count as an execution")
 
 	selection_manager.call("_handle_touch", _touch_event(empty_ground, false))
-	var after_release: Dictionary = selection_manager.get("touch_context_diagnostics") as Dictionary
-	_expect_eq(move_tiles.size(), 1, "release does not execute attack-move again after threshold dispatch")
-	_expect_eq(int(after_release.get("execution_count", -1)), before_count + 1, "release does not increment context execution count")
-	_expect_eq(int(after_release.get("last_executed_timestamp_ms", -1)), first_timestamp, "release preserves the original execution timestamp")
+	var after_threshold: Dictionary = selection_manager.get("touch_context_diagnostics") as Dictionary
+	_expect_eq(move_tiles.size(), 1, "lifting an armed hold in place executes the single queue action once")
+	_expect_eq(String(after_threshold.get("last_executed_action", "")), "Queue destination", "diagnostics identify the executed context action")
+	_expect_eq(int(after_threshold.get("last_executed_action_id", -1)), QUEUE_ACTION_ID, "diagnostics retain the queue action id")
+	_expect_eq(int(after_threshold.get("execution_count", -1)), before_count + 1, "diagnostics count one hold execution")
+	var first_timestamp: int = int(after_threshold.get("last_executed_timestamp_ms", 0))
+	_expect(first_timestamp > 0, "diagnostics include a fresh execution timestamp")
+	_expect(not bool(selection_manager.call("is_hold_gesture_active")), "release disarms the hold gesture")
 
 	selection_manager.call("_refresh_touch_context_diagnostics")
 	var after_refresh: Dictionary = selection_manager.get("touch_context_diagnostics") as Dictionary

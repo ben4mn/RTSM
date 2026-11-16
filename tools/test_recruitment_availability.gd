@@ -83,15 +83,18 @@ func _run() -> void:
 	_expect(_information(SCOUT).contains("Match population limit reached") and not _information(SCOUT).contains("Build a House"), "match-cap Info does not recommend ineffective housing")
 	GameManager.remove_population(0, limit)
 
+	# The cap is only a safety bound now; fill it directly instead of paying 50 times.
 	for index in ProductionQueue.MAX_QUEUE_SIZE:
-		_expect(_queue.enqueue_unit(VILLAGER), "queue fixture pays for slot %d" % index)
+		_queue.queue.append(VILLAGER)
+		_queue.paid_costs.append({})
+		_queue._population_reservation_ids.append(-1)
 	await _refresh()
 	_expect(_button(SCOUT).text.contains("Queue full"), "full producer queue has a compact visible reason")
-	_expect(_information(SCOUT).contains("Queue full (5/5)") and _information(SCOUT).contains("use Queue to cancel"), "full queue Info offers a concrete recovery")
+	_expect(_information(SCOUT).contains("Queue full (%d/%d)" % [ProductionQueue.MAX_QUEUE_SIZE, ProductionQueue.MAX_QUEUE_SIZE]) and _information(SCOUT).contains("use Queue to cancel"), "full queue Info offers a concrete recovery")
 	await _capture_state("queue-full")
-	_queue.cancel_unit(4)
+	_queue.cancel_unit(ProductionQueue.MAX_QUEUE_SIZE - 1)
 	await _refresh()
-	_expect(_information(SCOUT).contains("Ready to train. Queue 4/5"), "canceling a queue item immediately clears the queue blocker")
+	_expect(_information(SCOUT).contains("Ready to train. %d queued." % (ProductionQueue.MAX_QUEUE_SIZE - 1)), "canceling a queue item immediately clears the queue blocker")
 	_building.state = BuildingBase.State.CONSTRUCTING
 	await _refresh()
 	_expect(_information(SCOUT).contains("Finish construction"), "inactive producer Info explains construction")

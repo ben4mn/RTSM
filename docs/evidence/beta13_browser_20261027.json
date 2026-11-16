@@ -1,0 +1,68 @@
+{
+  "result": "PASS",
+  "origin": "https://game.4mn.org/",
+  "viewport": "844x390",
+  "input": "Browser mouse/keyboard at a mobile landscape viewport; touch event behavior checked separately in native fixtures.",
+  "scope": "Paid skirmishes, resource rally, construction, combat/raid response, protected app update, old-save resume, trade preview and actual Trader recruitment.",
+  "baseline": {
+    "version": "0.3.0-beta.12",
+    "result": "Defeat by Town Center destruction at 6:07",
+    "army_produced": {
+      "human": 1,
+      "ai": 9
+    },
+    "interpretation": "Underdefended interaction test with long gaps between actions; not a representative pacing sample."
+  },
+  "first_update": {
+    "from": "0.3.0-beta.12",
+    "to": "0.3.0-beta.13",
+    "save_time": "2:43",
+    "resume_started_paused": true,
+    "retained_bank": {
+      "food": 2,
+      "wood": 300,
+      "gold": 106
+    },
+    "retained_committed_population": 12,
+    "observed": "Updates showed Update ready, Refresh applied it from the menu, installed version became beta.13, saved solo entry persisted and resumed paused with same bank/army."
+  },
+  "trade_planning": {
+    "near_town": "Too near town / Move farther from town",
+    "distant_site": "Up to 39 gold / trip \u00b7 clear road needed",
+    "whole_line_visible": true,
+    "assisted_placement": "Find space kept the preview and exposed Place Trade Post. The post was purchased and built with normal resources and a worker.",
+    "counterplay": "Enemy raiders attacked the exposed post while another raid threatened the Barracks. Defenders were redirected and lost.",
+    "bug_found": "Trader key/button purchased nothing because the building scene lacked its production queue. The existing trade tests directly spawned Traders and missed this. Saved the affected existing post at 5:10 for the fix acceptance test."
+  },
+  "final_update": {
+    "status": "PASS",
+    "to": "0.3.0-beta.13.1",
+    "installed_version_confirmed_in_updates": true,
+    "save_time": "5:10",
+    "existing_queue_less_post_restored": true,
+    "resume_started_paused": true,
+    "bank_before_purchase": {
+      "food": 434,
+      "wood": 385,
+      "gold": 166
+    },
+    "purchase_observation": "Clicking the restored post's Trader tile now charged gold from 166 to 126. Wood changed from 385 to 340 while a 15-wood delivery also arrived, consistent with 60 wood charged. No other gold spending or gathering occurred.",
+    "training_outcome": "The already badly damaged post was destroyed by raiders before the 22-second training could finish. No Trader birth or delivery is claimed for this browser match; those are verified by the 46-check production and separate route engine fixtures.",
+    "match_end": "5:54 Sacred Site defeat, 2 human army units produced versus 8 AI. Clean return to main menu; completed match save cleared.",
+    "browser_errors_or_warnings": []
+  },
+  "limitations": [
+    "No physical-phone or OS-installed PWA lifecycle test. Browser cache/update/save behavior was observed.",
+    "The preview is a geometric upper estimate; actual route reachability is checked by the Trader and blocked or destroyed routes may earn nothing.",
+    "Browser acceptance observed the repaired purchase on an old saved post; raiders destroyed it before completion. Actual birth, route start and payout were verified in controlled engine fixtures, not this browser match.",
+    "No representative match-duration or prolonged finite-resource-depletion sample in this pass. Rate and cost tuning is unchanged; working recruitment restores the intended trade option."
+  ],
+  "screenshots": [
+    "outputs/beta13-baseline-defeat.png",
+    "outputs/beta13-before-update-save.png",
+    "outputs/beta13-resumed-save.png",
+    "outputs/beta13-trade-warning.png",
+    "outputs/beta13-trade-preview.png",
+    "outputs/beta13-raid-outcome.png"
+  ]
+}

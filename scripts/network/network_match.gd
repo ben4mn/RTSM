@@ -13,6 +13,22 @@ var _hit_flashes: Dictionary = {}
 var _camera_initialized: bool = false
 var _snapshot_number: int = 0
 var _resource_tiles: Array[Vector2i] = []
+## Last publicly observed enemy footprints, separately for each recipient.
+var _known_enemy_buildings: Dictionary = {0: {}, 1: {}}
+var _forgotten_buildings: Dictionary = {0: [], 1: []}
+var _known_resource_counts: Dictionary = {0: {}, 1: {}}
+## Resource stock is sent in full once a second and as changes in between.
+## A client that coalesces snapshots is at most one keyframe behind on stock
+## and fog-memory amounts; actors are still complete in every packet.
+const RESOURCE_KEYFRAME_TICKS := 10
+## Everything public about a unit goes out in every snapshot. The owner-only
+## block (route, destination, orders, cargo, work text) goes out when the unit
+## first appears and then every ACTOR_DETAIL_TICKS, staggered by id; the client
+## keeps the last values in between.
+const ACTOR_DETAIL_TICKS := 5
+var _actor_detail_sent: Dictionary = {0: {}, 1: {}}
+var _actor_detail_tick: Dictionary = {0: -1, 1: -1}
+var _resource_keyframe_tick: Dictionary = {0: -1, 1: -1}
 
 func setup(controller: Node) -> void:
 	main = controller
@@ -24,10 +40,17 @@ func setup(controller: Node) -> void:
 	main._hints_shown = main.HINTS.size()
 	if NetworkSession.is_client():
 		game_map.sacred_site.set_process(false)
+		for shrine: Node in game_map.shrines:
+			shrine.set_process(false)
 		main._guided_opening_active = false
 		main._clear_guidance_state()
 	else:
 		GameManager.game_over.connect(_on_server_game_over)
+
+func _extensions() -> RefCounted:
+	## Round 2 seam (docs/round2_contracts.md). Fixtures may drive this adapter
+	## with a stand-in main that has no registry; they simply get no extensions.
+	return main.get("ext") as RefCounted if is_instance_valid(main) else null
 
 func _on_server_game_over(winner: int) -> void:
 	NetworkSession.call_deferred("end_match", winner, main._victory_reason)
@@ -67,6 +90,14 @@ func _register_server_entities() -> void:
 		if not is_instance_valid(entities[id]) or entities[id].is_queued_for_deletion():
 			entities.erase(id)
 
+func reset_recipient(slot: int) -> void:
+	## A resumed seat: the next snapshot carries every owner-only detail block
+	## and the full resource list again, whatever the old transport delivered.
+	if slot in [0, 1]:
+		_actor_detail_sent[slot] = {}
+		_actor_detail_tick[slot] = -1
+		_resource_keyframe_tick[slot] = -1
+
 func broadcast_snapshots() -> void:
 	_register_server_entities()
 	_snapshot_number += 1
@@ -75,31 +106,47 @@ func broadcast_snapshots() -> void:
 
 func _snapshot_for(slot: int) -> Dictionary:
 	var actors: Array = []
+	var observed_buildings: Dictionary = {}
+	# Re-serialising the same tick (fixtures, the final broadcast) sends every
+	# unit in full, so a direct call still returns complete actors.
+	var all_detailed: bool = _snapshot_number <= int(_actor_detail_tick[slot])
+	_actor_detail_tick[slot] = _snapshot_number
+	var detail_sent: Dictionary = _actor_detail_sent[slot]
+	var detail_now: Dictionary = {}
 	for node: Node2D in entities.values():
 		if not is_instance_valid(node) or node.is_queued_for_deletion():
 			continue
-		if node.player_owner != slot and not game_map.is_entity_visible_to_player(node, slot):
+		if node.player_owner != slot and (not game_map.is_entity_visible_to_player(node, slot) or Garrison.hidden_from_enemy(node)):
 			continue
-		var actor: Dictionary = {"id": NetworkSession.entity_id(node), "owner": node.player_owner, "x": node.global_position.x, "y": node.global_position.y, "hp": node.hp, "max_hp": node.max_hp}
+		# Tenth-of-a-pixel positions and HP: far below anything a replica shows,
+		# and a third of the digits for the encoder and the wire.
+		var actor: Dictionary = {"id": NetworkSession.entity_id(node), "owner": node.player_owner, "x": snappedf(node.global_position.x, 0.1), "y": snappedf(node.global_position.y, 0.1), "hp": snappedf(node.hp, 0.1) if node is UnitBase else node.hp, "max_hp": node.max_hp}
 		if node is UnitBase:
 			if node.current_state == UnitBase.State.DEAD:
 				continue
-			actor.merge({"kind": "unit", "type": node.unit_type, "state": node.current_state, "stance": node.stance, "animation": [node._attack_animation_remaining, node._attack_animation_duration, node._attack_animation_direction.x, node._attack_animation_direction.y, node._sprite.flip_h if node._sprite != null else false]})
+			var detailed: bool = all_detailed or not detail_sent.has(actor.id) or (_snapshot_number + int(actor.id)) % ACTOR_DETAIL_TICKS == 0
+			detail_now[actor.id] = true
+			actor.merge({"state": node.current_state, "animation": [snappedf(node._attack_animation_remaining, 0.001), snappedf(node._attack_animation_duration, 0.001), snappedf(node._attack_animation_direction.x, 0.001), snappedf(node._attack_animation_direction.y, 0.001), node._sprite.flip_h if node._sprite != null else false]})
+			actor.merge({"kind": "unit", "type": node.unit_type, "stance": node.stance})
 			# Only an already-visible actor's observable tool/pose crosses here.
 			# No work target, private order or cargo is included for opponents.
 			var work_pose: Vector3 = node.get_work_presentation()
-			actor["work_pose"] = [int(work_pose.x), work_pose.y, work_pose.z]
-			if node.player_owner == slot:
+			actor["work_pose"] = [int(work_pose.x), snappedf(work_pose.y, 0.001), snappedf(work_pose.z, 0.001)]
+			if node._ability_ready:
+				actor["ability"] = true  # Round 2 C: pennon / stakes / loot sack.
+			if detailed and node.player_owner == slot:
 				var points: Array = []
 				var route: PackedVector2Array = node.get_remaining_navigation_path()
-				for point: Vector2 in route.slice(0, mini(route.size(), 12)):
-					points.append([point.x, point.y])
+				for index: int in mini(route.size(), 12):
+					points.append([snappedf(route[index].x, 0.1), snappedf(route[index].y, 0.1)])
 				actor["path"] = points
-				actor["destination"] = [node.move_target.x, node.move_target.y]
+				actor["destination"] = [snappedf(node.move_target.x, 0.1), snappedf(node.move_target.y, 0.1)]
 				actor["attack_move"] = node.attack_move
 				actor["marching"] = node.is_attack_marching()
 				actor["queued_orders"] = _serialize_orders(node.queued_orders)
-			if node is Villager and node.player_owner == slot:
+			if detailed and node is Trader and node.player_owner == slot:
+				actor.merge({"trade_status": node.get_trade_status(), "trade_cargo": node.carried_gold, "trade_income": node.get_trip_income()})
+			if detailed and node is Villager and node.player_owner == slot:
 				actor.merge({"gather": node.gather_type, "cargo": node.carried_amount, "cargo_type": node.carried_resource_type, "cargo_manifest": node.get_carried_resources(), "work": node.get_economy_task(), "work_status": node.get_work_status(), "recovering": node.is_auto_recovering(), "building_order": node.has_active_build_order()})
 		else:
 			if node.state == BuildingBase.State.DESTROYED:
@@ -111,19 +158,55 @@ func _snapshot_for(slot: int) -> Dictionary:
 				actor["rally_orders"] = _serialize_orders(node.rally_orders)
 				var queue: ProductionQueue = node.get_production_queue()
 				if queue != null:
-					actor["queue"] = {"items": queue.queue, "progress": queue.current_progress, "time": queue.current_train_time, "training": queue.is_training, "repeat": queue.auto_queue_enabled, "repeat_type": queue.auto_queue_unit_type}
+					actor["queue"] = {"items": queue.queue, "progress": queue.current_progress, "time": queue.current_train_time, "training": queue.is_training, "repeat": false, "repeat_type": queue.auto_queue_unit_type}
 		actors.append(actor)
+		if node is BuildingBase and node.player_owner != slot:
+			var id: int = NetworkSession.entity_id(node)
+			observed_buildings[id] = true
+			_known_enemy_buildings[slot][id] = {"tile": game_map.world_to_tile(node.global_position), "footprint": node.footprint, "actor": {"id": id, "owner": node.player_owner, "type": node.building_type, "state": node.state, "progress": node.build_progress, "hp": node.hp, "x": node.global_position.x, "y": node.global_position.y}}
+	_actor_detail_sent[slot] = detail_now
+	# Omission alone means loss of sight, never destruction. Retire a previous
+	# sighting only when its last-known ground is actually scouted and empty.
+	var forgotten_buildings: Array = _forgotten_buildings[slot]
+	for id: int in _known_enemy_buildings[slot].keys():
+		if observed_buildings.has(id): continue
+		var known: Dictionary = _known_enemy_buildings[slot][id]
+		var visible: bool = false
+		for dy: int in known.footprint.y:
+			for dx: int in known.footprint.x:
+				if game_map.is_tile_visible_to_player(known.tile + Vector2i(dx, dy), slot): visible = true
+		if visible:
+			forgotten_buildings.append(id)
+			_known_enemy_buildings[slot].erase(id)
 	var resources: Array = []
+	var memories: Dictionary = {"buildings": [], "resources": []}
+	# Re-serialising the same tick (fixtures, the final broadcast) is always a
+	# keyframe, so a direct call still returns the complete lists.
+	var last_keyframe: int = _resource_keyframe_tick[slot]
+	var keyframe: bool = last_keyframe < 0 or _snapshot_number <= last_keyframe or _snapshot_number - last_keyframe >= RESOURCE_KEYFRAME_TICKS
+	if keyframe:
+		_resource_keyframe_tick[slot] = _snapshot_number
+	var known_counts: Dictionary = _known_resource_counts[slot]
 	var visible_resource_tiles: Dictionary = game_map.get_visible_tiles_for_player(_resource_tiles, slot)
 	for tile: Vector2i in _resource_tiles:
 		if visible_resource_tiles.has(tile):
 			var resource: Node2D = game_map.get_resource_node_at(tile)
-			resources.append([tile.x, tile.y, resource.remaining if is_instance_valid(resource) else 0])
+			var amount: int = resource.remaining if is_instance_valid(resource) else 0
+			if keyframe:
+				resources.append([tile.x, tile.y, amount])
+			elif int(known_counts.get(tile, -1)) != amount:
+				resources.append([tile.x, tile.y, amount])
+				memories.resources.append([tile.x, tile.y, amount])
+			known_counts[tile] = amount
+	for known: Dictionary in _known_enemy_buildings[slot].values(): memories.buildings.append(known.actor)
+	if keyframe:
+		for tile: Vector2i in known_counts: memories.resources.append([tile.x, tile.y, known_counts[tile]])
 	var site: Node = game_map.sacred_site
 	var player: Dictionary = GameManager.players[slot].duplicate()
 	player.erase("units")
 	player.erase("buildings")
-	return {"worker_undo": main._worker_order_undo.status(slot), "worker_undo_result": main._worker_order_undo.result(slot), "tick": _snapshot_number, "time": GameManager.game_time, "civilizations": [GameManager.get_player_civilization(0), GameManager.get_player_civilization(1)], "actors": actors, "resources": resources, "bank": ResourceManager.get_all_resources(slot), "player": player, "upgrades": GameManager.player_upgrades[slot], "research": GameManager.researched_upgrades[slot], "stats": main._stats[slot], "battle": main._battle_receipts.get_summary(slot), "site": {"state": site.state, "owner": site.owning_player, "capture": site.capture_progress, "timer": site.victory_timer, "hold": site.victory_hold_time, "clock_ticking": site.clock_ticking, "garrison_paused": site.garrison_paused, "neutralizing": site._being_neutralized}}
+	var extensions: RefCounted = _extensions()
+	return {"ext": extensions.build_snapshot(slot) if extensions != null else {}, "modifiers": GameManager.player_modifiers[slot], "memories": memories, "forgotten_buildings": forgotten_buildings.duplicate(), "worker_undo": main._worker_order_undo.status(slot), "worker_undo_result": main._worker_order_undo.result(slot), "tick": _snapshot_number, "time": GameManager.game_time, "civilizations": [GameManager.get_player_civilization(0), GameManager.get_player_civilization(1)], "actors": actors, "resources": resources, "bank": ResourceManager.get_all_resources(slot), "player": player, "research": GameManager.researched_upgrades[slot], "stats": main._stats[slot], "battle": main._battle_receipts.get_summary(slot), "site": {"state": site.state, "owner": site.owning_player, "capture": site.capture_progress, "timer": site.victory_timer, "hold": site.victory_hold_time, "clock_ticking": site.clock_ticking, "garrison_paused": site.garrison_paused, "neutralizing": site._being_neutralized}, "shrines": game_map.shrines.map(func(shrine: Node) -> Array: return [shrine.state, shrine.owning_player, shrine.capture_progress])}
 
 func apply_snapshot(snapshot: Dictionary) -> void:
 	GameManager.game_time = float(snapshot.get("time", 0.0))
@@ -137,7 +220,12 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 	for key: String in ["age", "population", "population_reserved", "population_cap", "max_population", "is_defeated"]:
 		if player.has(key):
 			GameManager.players[0][key] = player[key]
-	GameManager.player_upgrades[0] = snapshot.get("upgrades", {})
+	if snapshot.get("modifiers") is Dictionary:
+		GameManager.player_modifiers[0] = snapshot.modifiers
+	else:
+		# Pre-registry shape, still produced by older fixtures.
+		GameManager.player_modifiers[0] = {}
+		GameManager.import_legacy_upgrades(0, snapshot.get("upgrades", {}))
 	GameManager.researched_upgrades[0] = snapshot.get("research", [])
 	main._stats[0] = snapshot.get("stats", main._stats[0])
 	# These are only this recipient's observed losses. No opponent receipt or
@@ -155,6 +243,8 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 		seen[id] = true
 		var node: Node2D = entities.get(id) as Node2D
 		var was_present: bool = is_instance_valid(node)
+		# The owner-only block rides on a unit's detail ticks (ACTOR_DETAIL_TICKS).
+		var detailed: bool = actor.has("path")
 		if not is_instance_valid(node):
 			node = _create_replica(actor)
 			if node == null:
@@ -165,7 +255,7 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 			_interpolation[id] = world
 			node.current_state = int(actor.state)
 			node.stance = int(actor.stance)
-			if node.player_owner == 0:
+			if detailed and node.player_owner == 0:
 				var route := PackedVector2Array()
 				for point: Array in actor.get("path", []):
 					route.append(Vector2(float(point[0]), float(point[1])))
@@ -177,17 +267,23 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 				node.queued_orders = _deserialize_orders(actor.get("queued_orders", []))
 			# Default false on every packet: missing, non-boolean or enemy values
 			# cannot retain an earlier own status or disclose another cohort.
-			var marching: Variant = actor.get("marching", false)
-			node.set_meta("network_attack_march", node.player_owner == 0 and _local_owner(int(actor.owner)) == 0 and typeof(marching) == TYPE_BOOL and marching == true)
+			if detailed or node.player_owner != 0:
+				var marching: Variant = actor.get("marching", false)
+				node.set_meta("network_attack_march", node.player_owner == 0 and _local_owner(int(actor.owner)) == 0 and typeof(marching) == TYPE_BOOL and marching == true)
 			var animation: Array = actor.get("animation", [])
 			node.apply_work_presentation(actor.get("work_pose", []))
+			UnitAbilities.set_replica_ready(node, actor.get("ability", false) == true)
 			if animation.size() == 5:
 				node._attack_animation_remaining = float(animation[0])
 				node._attack_animation_duration = maxf(0.01, float(animation[1]))
 				node._attack_animation_direction = Vector2(float(animation[2]), float(animation[3]))
 				if node._sprite != null:
 					node._sprite.flip_h = bool(animation[4])
-			if node is Villager:
+			if detailed and node is Trader:
+				node.set_meta("network_trade_status", str(actor.get("trade_status", "")))
+				node.carried_gold = int(actor.get("trade_cargo", 0))
+				node.set_meta("network_trade_income", int(actor.get("trade_income", 0)))
+			if detailed and node is Villager:
 				node.gather_type = int(actor.get("gather", 0))
 				node.carried_amount = int(actor.get("cargo", 0))
 				node.carried_resource_type = str(actor.get("cargo_type", ""))
@@ -204,7 +300,12 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 			if rally.size() == 2:
 				node.rally_point = Vector2(float(rally[0]), float(rally[1]))
 				node.rally_point_is_custom = bool(actor.get("custom_rally", false))
-			node.rally_orders = _deserialize_orders(actor.get("rally_orders", [])) if node.player_owner == 0 else []
+			# rally_orders is Array[Dictionary]: an untyped [] literal for an enemy
+			# building is a script error that aborted the rest of this snapshot.
+			if node.player_owner == 0:
+				node.rally_orders = _deserialize_orders(actor.get("rally_orders", []))
+			else:
+				node.rally_orders.clear()
 			var queue: ProductionQueue = node.get_production_queue()
 			if queue != null and actor.has("queue"):
 				var data: Dictionary = actor.queue
@@ -212,11 +313,13 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 				queue.current_progress = float(data.progress)
 				queue.current_train_time = float(data.time)
 				queue.is_training = bool(data.training)
-				queue.auto_queue_enabled = bool(data.repeat)
+				queue.auto_queue_enabled = false
 				queue.auto_queue_unit_type = int(data.repeat_type)
 		if was_present and float(actor.hp) < float(node.hp) and node.is_visible_in_tree():
 			if node is UnitBase:
-				(node as UnitBase)._health_feedback_remaining = 2.0
+				(node as UnitBase).present_hit(float(node.hp) - float(actor.hp))
+			else:
+				BattleFX.building_damaged(node as BuildingBase, float(node.hp) - float(actor.hp))
 			if not GameManager.reduced_flashes:
 				# Inert replicas cannot advance a building-bound tween. Reuse
 				# its presentation palette through the adapter's visual clock;
@@ -227,13 +330,44 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 		node.hp = actor.hp
 		node.max_hp = actor.max_hp
 		node.queue_redraw()
+		if node is BuildingBase and node.player_owner != 0:
+			game_map.remember_visible_building(node)
 	for id: int in entities.keys():
 		if not seen.has(id):
 			_remove_replica(id)
+	# Cumulative observations survive skipped/coalesced snapshots. They only
+	# create inert memory art, never live actors or targetable resources.
+	var memories: Dictionary = snapshot.get("memories", {})
+	for data: Dictionary in memories.get("buildings", []):
+		var local_data: Dictionary = data.duplicate()
+		local_data.owner = _local_owner(int(data.owner))
+		if local_data.owner != 0:
+			game_map._ensure_fog_memory().remember_building(local_data)
+			var remembered: Dictionary = game_map.fog_memory.buildings[int(local_data.id)]
+			for dy: int in remembered.footprint.y:
+				for dx: int in remembered.footprint.x:
+					game_map.fog_of_war.remember_explored(remembered.tile + Vector2i(dx, dy))
+	for data: Array in memories.get("resources", []):
+		var tile := Vector2i(int(data[0]), int(data[1]))
+		var resource: ResourceNode = game_map.get_resource_node_at(tile) as ResourceNode
+		game_map.fog_of_war.remember_explored(tile)
+		if int(data[2]) <= 0:
+			# Zero here was observed by this player, possibly in a skipped
+			# snapshot. It is not a hidden live depletion notification.
+			var memory: Node2D = game_map._ensure_fog_memory()
+			memory._erase(memory.resources, tile)
+			if is_instance_valid(resource):
+				game_map._on_resource_depleted(resource, tile)
+				resource.queue_free()
+		elif is_instance_valid(resource):
+			game_map._ensure_fog_memory().remember_resource(tile, resource.resource_type, int(data[2]))
+	game_map.forget_scouted_buildings(snapshot.get("forgotten_buildings", []))
 	for item: Array in snapshot.get("resources", []):
 		var resource: Node2D = game_map.get_resource_node_at(Vector2i(int(item[0]), int(item[1])))
 		if resource is ResourceNode:
 			resource.remaining = int(item[2])
+			if resource.remaining > 0:
+				game_map.remember_visible_resource(resource)
 			if resource.remaining <= 0:
 				game_map._on_resource_depleted(resource, Vector2i(int(item[0]), int(item[1])))
 				resource.queue_free()
@@ -247,6 +381,17 @@ func apply_snapshot(snapshot: Dictionary) -> void:
 		site.victory_hold_time = float(site_data.hold)
 		site._update_visuals()
 	_apply_site_clock_snapshot(site, site_data)
+	var shrine_data: Array = snapshot.get("shrines", [])
+	for index: int in mini(shrine_data.size(), game_map.shrines.size()):
+		var shrine: Node = game_map.shrines[index]
+		var entry: Array = shrine_data[index]
+		shrine.state = int(entry[0])
+		shrine.owning_player = _local_owner(int(entry[1]))
+		shrine.capture_progress = float(entry[2])
+		shrine._update_visuals()
+	var extensions: RefCounted = _extensions()
+	if extensions != null:
+		extensions.apply_snapshot(snapshot.get("ext"))
 	main._refresh_sacred_site_status()
 	main._update_population_display()
 	if not _camera_initialized and is_instance_valid(main._player_town_center):
@@ -322,6 +467,7 @@ func _remove_replica(id: int) -> void:
 		game_map.remove_building_obstacle(game_map.world_to_tile(node.global_position), node.footprint)
 		if node.provides_food:
 			game_map.unregister_harvestable(node)
+	BattleFX.replica_removed(node)
 	node.queue_free()
 
 func show_feedback(message: String) -> void:
@@ -378,7 +524,7 @@ func _valid_packet(packet: Dictionary) -> bool:
 	if packet.has("undo_id"):
 		var undo_id: float = float(packet.undo_id)
 		if not is_finite(undo_id) or undo_id <= 0.0 or undo_id != floor(undo_id) or undo_id > 9007199254740991.0: return false
-	for key: String in ["command", "research", "source", "destination"]:
+	for key: String in ["command", "research", "source", "destination", "action"]:
 		if packet.has(key) and not packet[key] is String:
 			return false
 	if packet.has("ids"):
@@ -451,6 +597,13 @@ func execute_command(owner: int, packet: Dictionary) -> String:
 		"allocate":
 			var result: Dictionary = main.get_node("StrategyController").try_allocate_worker(owner, str(packet.get("source", "")), str(packet.get("destination", "")))
 			return str(result.get("error", ""))
+		"trade":
+			if not target is BuildingBase or target.player_owner != owner or target.building_type != BuildingData.BuildingType.TRADE_POST:
+				return "Select your Trade Post"
+			var accepted: bool = false
+			for unit: UnitBase in units:
+				if unit is Trader: accepted = unit.command_trade(target) or accepted
+			if not accepted: return "Trade needs a clear route to a distant Town Center"
 		"surrender":
 			main._conclude_match(1 - owner, "Surrender")
 		"move", "attack_move", "patrol":
@@ -508,8 +661,10 @@ func execute_command(owner: int, packet: Dictionary) -> String:
 					unit.command_build(target)
 					if unit.has_active_build_order() and unit.build_target == target: affected_workers.append(unit)
 		"age":
-			if not GameManager.try_advance_age(owner):
-				return "Cannot advance age yet"
+			# Timed (Round 2 B): starts the age-up in an idle Town Center slot.
+			if not GameManager.try_start_age_up(owner):
+				var age_blocked: String = GameManager.describe_age_up_failure(owner)
+				return age_blocked if not age_blocked.is_empty() else "Cannot advance age yet"
 		"place":
 			return _place_building(owner, int(packet.get("type", -1)), position, units)
 		"train", "cancel", "repeat", "research", "rally", "delete":
@@ -526,11 +681,12 @@ func execute_command(owner: int, packet: Dictionary) -> String:
 						var index: int = int(packet.get("index", -1))
 						queue.cancel_all() if index == -1 else queue.cancel_unit(index)
 				"repeat":
-					if queue != null:
-						queue.auto_queue_enabled = bool(packet.get("enabled", false))
+					return "Hold Train for a finite paid queue"
 				"research":
-					if not GameManager.try_research(owner, target, str(packet.get("research", ""))):
-						return "Research unavailable"
+					# Timed (Round 2 B): same start-or-cancel as the context card.
+					var research_blocked: String = target.perform_research_action(owner, str(packet.get("research", "")))
+					if not research_blocked.is_empty():
+						return research_blocked
 				"rally":
 					if target.state != BuildingBase.State.ACTIVE or target.trainable_units.is_empty():
 						return "Rally unavailable"
@@ -541,11 +697,16 @@ func execute_command(owner: int, packet: Dictionary) -> String:
 				"delete":
 					if target.building_type == BuildingData.BuildingType.TOWN_CENTER:
 						return "Cannot demolish Town Center"
-					for resource: String in BuildingData.get_building_cost(target.building_type):
-						ResourceManager.add_resource(owner, resource, int(BuildingData.get_building_cost(target.building_type)[resource] * 0.5))
+					for resource: String in BuildingData.get_building_cost(target.building_type, owner):
+						ResourceManager.add_resource(owner, resource, int(BuildingData.get_building_cost(target.building_type, owner)[resource] * 0.5))
 					target.take_damage(target.max_hp + 1)
 		_:
-			return "Unknown order"
+			# Round 2 seam: every operation without a branch above belongs to a
+			# registered extension, or is rejected exactly as before.
+			var extensions: RefCounted = _extensions()
+			if extensions == null:
+				return "Unknown order"
+			return extensions.run_command(operation, owner, packet, units, target, position if packet.has("position") else Vector2.ZERO)
 	main._worker_order_undo.remember(owner, worker_before, affected_workers)
 	return ""
 
@@ -559,21 +720,30 @@ func _place_building(owner: int, type: int, position: Vector2, selected: Array[U
 		return "Building limit reached"
 	if not main._building_placement.revalidate_confirmation(type, position, owner):
 		return "Choose clear, visible ground"
-	var candidates: Array = selected.duplicate()
-	for unit: Node in main._player_units[owner]:
-		if unit not in candidates:
-			candidates.append(unit)
-	var builder: Villager = null
-	for unit: Node in candidates:
-		if is_instance_valid(unit) and unit is Villager and unit.hp > 0 and main._can_ai_builder_reach(unit, position, definition.get("footprint", Vector2i.ONE)):
-			builder = unit
-			break
-	if builder == null:
+	# Every selected villager that can reach the site builds it, as in solo.
+	# With none selected or none able to reach, the first reachable worker goes.
+	var footprint: Vector2i = definition.get("footprint", Vector2i.ONE)
+	var builders: Array[Villager] = []
+	for unit: Node in selected:
+		if _can_build_at(unit, owner, position, footprint):
+			builders.append(unit as Villager)
+	if builders.is_empty():
+		for unit: Node in main._player_units[owner]:
+			if _can_build_at(unit, owner, position, footprint):
+				builders.append(unit as Villager)
+				break
+	if builders.is_empty():
 		return "No worker can reach this site"
-	if not ResourceManager.try_spend(owner, BuildingData.get_building_cost(type)):
+	if not ResourceManager.try_spend(owner, BuildingData.get_building_cost(type, owner)):
 		return "Not enough resources"
 	var building: BuildingBase = main._spawn_building(type, owner, game_map.world_to_tile(position))
 	building.start_construction()
-	builder.command_build(building)
-	main._worker_order_undo.supersede(owner, [builder])
+	for builder: Villager in builders:
+		builder.command_build(building)
+	main._worker_order_undo.supersede(owner, builders)
 	return ""
+
+
+func _can_build_at(unit: Node, owner: int, position: Vector2, footprint: Vector2i) -> bool:
+	return is_instance_valid(unit) and unit is Villager and (unit as Villager).player_owner == owner \
+		and (unit as Villager).hp > 0 and main._can_ai_builder_reach(unit, position, footprint)

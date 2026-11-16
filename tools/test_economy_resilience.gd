@@ -291,6 +291,11 @@ func _scene_economy_facts(controller: Node, overview: StrategyOverview, tc: Buil
 			if entry is ResourceNode and _map.is_resource_target_visible_to_player(entry, 0) and _map.is_resource_target_valid(entry, "food", 0):
 				visible_stocks[entry] = entry.remaining
 				entry.remaining = 0
+		# Wildlife is observed food too: empty the visible flock and herd as well.
+		for entry: Node2D in _map.get_wildlife_nodes():
+			if entry is ResourceNode and _map.is_resource_target_visible_to_player(entry, 0) and _map.is_resource_target_valid(entry, "food", 0):
+				visible_stocks[entry] = entry.remaining
+				entry.remaining = 0
 		food_target.remaining = 20
 		_expect(workers[0].command_gather(food_target), "depletion fixture must retain a valid actual food order")
 		var held_time: float = GameManager.game_time
@@ -331,7 +336,10 @@ func _scene_economy_facts(controller: Node, overview: StrategyOverview, tc: Buil
 	_expect(str(controller.call("_training_blocker", tc, UnitData.UnitType.VILLAGER)) == "under construction", "inactive producer blocker missing")
 	tc.state = original_state
 	var saved_queue: Array[int] = queue.queue.duplicate()
-	queue.queue.assign([0, 0, 0, 0, 0])
+	var full_queue: Array[int] = []
+	full_queue.resize(ProductionQueue.MAX_QUEUE_SIZE)
+	full_queue.fill(0)
+	queue.queue.assign(full_queue)
 	_expect(str(controller.call("_training_blocker", tc, UnitData.UnitType.VILLAGER)).begins_with("queue full"), "full producer queue blocker missing")
 	queue.queue.assign(saved_queue)
 	_population_guidance_cases(controller, overview, tc)

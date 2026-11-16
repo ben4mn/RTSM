@@ -69,7 +69,10 @@ func _run() -> void:
 	release.position = motion.position
 	release.pressed = false
 	placement.call("_unhandled_input", release)
-	_expect(placement.ghost_position == selected and placement.is_valid_placement and _confirmations == 0, "mouse motion/release cannot overwrite or buy assisted preview")
+	# L2: no Place button waits at the bottom, so a real mouse takes the found
+	# ghost along (it follows the cursor); a release alone still buys nothing.
+	_expect(placement.ghost_position != selected and not placement.has_assisted_preview() and _confirmations == 0, "mouse motion takes the found preview along; a release buys nothing")
+	placement.update_preview_at_world(selected)
 	var obstacle: Rect2 = placement.call("_find_space_preview_screen_rect", Vector2i(17, 20))
 	placement.update_preview_at_world(world.tile_to_world(Vector2i(20, 20)))
 	_expect(placement.find_visible_space(safe, [obstacle]), "search avoids current HUD obstacle")
@@ -122,7 +125,9 @@ func _run() -> void:
 	_expect(not placement.has_assisted_preview(), "new placement does not inherit assist")
 	_expect(placement.find_visible_space(safe, []), "new placement can request assistance")
 	var touch := InputEventScreenTouch.new()
-	touch.position = placement.get_canvas_transform() * world.tile_to_world(Vector2i(21, 20))
+	var away: Vector2i = world.world_to_tile(placement.ghost_position) + Vector2i(6, 6)
+	touch.position = placement.get_canvas_transform() * world.tile_to_world(away)
+	_expect(not placement.is_screen_point_on_ghost(touch.position), "fixture: the touch lands off the ghost")
 	touch.pressed = true
 	placement.call("_unhandled_input", touch)
 	touch.pressed = false

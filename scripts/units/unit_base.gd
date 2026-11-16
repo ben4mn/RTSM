@@ -13,16 +13,21 @@ signal state_changed(unit: UnitBase, new_state: int)
 signal arrived_at_destination(unit: UnitBase)
 signal navigation_failed(unit: UnitBase, target_position: Vector2)
 
-enum State { IDLE, MOVING, ATTACKING, GATHERING, BUILDING, DEAD }
+enum State { IDLE, MOVING, ATTACKING, GATHERING, BUILDING, DEAD, GARRISONED }  # append only: saved as ints
 enum Stance { AGGRESSIVE, STAND_GROUND }
 enum NavigationResult { MOVING, ARRIVED, UNREACHABLE }
+
+## False on a headless authority (match server, scale benchmark): unit pose
+## animation is then skipped entirely. Never read by the simulation.
+static var presentation_enabled: bool = true
 
 # --- Stats (overridden per unit type) ---
 @export var unit_type: int = UnitData.UnitType.VILLAGER
 @export var player_owner: int = 0:
 	set(value):
-		if player_owner != value and _live_unit_index != null: _live_unit_index.invalidate_vision()
+		var owner_changed: bool = player_owner != value
 		player_owner = value
+		if owner_changed and _live_unit_index != null: _live_unit_index.invalidate_vision(self)
 @export var max_hp: float = 25.0
 @export var hp: float = 25.0
 @export var damage: float = 3.0  # Base stat; Combat adds the owner's live upgrade.
@@ -39,8 +44,9 @@ enum NavigationResult { MOVING, ARRIVED, UNREACHABLE }
 # --- Runtime state ---
 var current_state: int = State.IDLE:
 	set(value):
-		if (current_state == State.DEAD) != (value == State.DEAD) and _live_unit_index != null: _live_unit_index.invalidate_vision()
+		var life_changed: bool = (current_state == State.DEAD) != (value == State.DEAD)
 		current_state = value
+		if life_changed and _live_unit_index != null: _live_unit_index.invalidate_vision(self)
 var stance: int = Stance.AGGRESSIVE
 var move_target: Vector2 = Vector2.ZERO
 var attack_target: UnitBase = null
@@ -93,8 +99,16 @@ var _attack_animation_remaining: float = 0.0
 var _attack_animation_duration: float = 0.3
 var _attack_animation_direction: Vector2 = Vector2.RIGHT
 var _animation_clock: float = 0.0
+var _gait_phase: float = 0.0
 var _last_visual_position: Vector2 = Vector2.ZERO
 var _health_feedback_remaining: float = 0.0
+# Round 2 C: kingdom unit ability (scripts/units/unit_abilities.gd). The kind
+# comes from data; timer and ready are saved (UNIT_FIELDS) and `ready` is the
+# visible flag (pennon / stakes / loot sack) sent to clients.
+var _ability_kind: int = 0
+var _ability_timer: float = 0.0
+var _ability_ready: bool = false
+var _ability_anchor: Vector2 = Vector2.INF
 
 # --- Node references ---
 @onready var collision_shape: CollisionShape2D = $CollisionShape2D
@@ -123,6 +137,73 @@ const UNIT_SIZES: Dictionary = {
 const UNIT_SPRITE_SCALES: Dictionary = UnitData.WORLD_SPRITE_SCALES
 
 var _live_unit_index: RefCounted = null
+var _presentation_delta: float = -1.0
+
+# --- Fixed-rate simulation, per-frame presentation (workstream F3) -----------
+## The engine no longer runs `_process` (one simulation think) on every rendered
+## frame. NOTIFICATION_INTERNAL_PROCESS runs `_sim_frame` each frame instead: it
+## thinks about every `sim_step` game seconds with the elapsed time (so timers,
+## speeds and intervals stay exact in game time), on a per-unit phase so a
+## crowd's thinks are spread evenly over the frames in between, and it eases
+## the drawn position from the previous simulated position to the current one.
+## `unit._process(delta)` called directly is still one immediate think, and
+## `set_process(false)` still freezes a unit, so fixtures drive units as before.
+const SIM_STEP: float = 0.05
+## Game seconds between thinks. GameMap widens it with game speed (2x/3x think
+## as often per rendered frame as 1x, with a larger step).
+static var sim_step: float = SIM_STEP
+## The 1x step (benchmarks may override it; GameMap scales it with speed).
+static var sim_base_step: float = SIM_STEP
+## World rectangle (already padded) in which unit poses are animated and
+## positions interpolated. GameMap refreshes it from the camera every frame.
+static var view_rect: Rect2 = Rect2(-1e7, -1e7, 2e7, 2e7)
+## Units inside view_rect on the previous frame (GameMap rolls the counter).
+static var crowd_on_screen: int = 0
+## Dev A/B switch (PocketDev cmd('motion', {legacy: true})): the F3 ease that
+## paused on think frames. Never set in play.
+static var legacy_interpolation_hold: bool = false
+static var _seen_counting: int = 0
+const CROWD_POSE_UNITS: int = 60
+static var _sim_phase_serial: int = 0
+var _sim_clock: float = 0.0
+var _sim_next_think: float = 0.0
+var _sim_last_think: float = 0.0
+var _sim_slots: int = 1
+var _sim_engine_frame: int = -1
+var _sim_driven: bool = false
+## Game seconds since the last think (0 while a fixture drives `_process`).
+var _think_pending: float = 0.0
+var _present_pending: float = 0.0
+## Drawn position minus simulated position (see `_ease_drawn_position`).
+var _visual_offset: Vector2 = Vector2.ZERO
+var _visual_offset_start: Vector2 = Vector2.ZERO
+var _visual_elapsed: float = 0.0
+var _visual_span: float = SIM_STEP
+const VISUAL_SNAP_DISTANCE_SQUARED: float = 48.0 * 48.0
+## The last three simulated positions and the unit clock at which each was
+## reached (index 2 newest). The drawn position replays this path a fixed
+## `interpolation_delay` behind the unit clock, so it moves at the simulated
+## speed on every frame however the 20 Hz thinks fall between frames.
+var _trail_p0: Vector2 = Vector2.ZERO
+var _trail_p1: Vector2 = Vector2.ZERO
+var _trail_p2: Vector2 = Vector2.ZERO
+var _trail_t0: float = 0.0
+var _trail_t1: float = 0.0
+var _trail_t2: float = 0.0
+## Game seconds the drawn position trails the simulation by: one step plus a
+## frame, so there are always two simulated positions to blend between.
+## GameMap keeps it from the step and a smoothed frame time.
+static var interpolation_delay: float = SIM_STEP * 1.5
+## Written by LiveUnitIndex only (its record for this unit, kept on the unit).
+var _index_position: Vector2 = Vector2.ZERO
+var _index_rank: int = 0
+var _index_listed: bool = false
+var _index_tile: Vector2i = Vector2i.ZERO
+var _index_cell: Vector2i = Vector2i.ZERO
+var _index_vision: float = -1.0
+## The real GameMap answers whole movement checks in one typed call; fixture
+## maps without those helpers keep the per-tile duck-typed path.
+var _navigation_map_typed: bool = false
 var _sprite: Sprite2D = null
 var _sprite_team_modulate: Color = Color.WHITE
 var _damage_flash_tween: Tween = null
@@ -133,13 +214,29 @@ var _art_civilization: int = 0
 var _network_work_pose: Vector3 = Vector3.ZERO
 var _uses_network_work_pose: bool = false
 var _health_bar_y: float = -43.0
+var _puppet: UnitPuppet = null
 static var _sprite_opaque_rect_cache: Dictionary = {}
+## Ground marks (shadow + owner marker) draw in one layer under the y-sorted
+## world; health bars in one layer above it, below occlusion echoes (5 is the
+## echo layer, fog is 10).
+const GROUND_MARK_Z: int = -1
+const HEALTH_BAR_Z: int = 6
+static var marks_revision: int = 0
+static var marker_inverse_zoom: float = 1.0
+static var markers_clearer: bool = true
+var _marks_revision: int = -1
+var _ground_shadow: Node2D = null
+var _owner_marker: Node2D = null
+var _health_bar: Node2D = null
 
 # Artwork shares a y104 foot baseline in a 128px canvas. Movement/attack
 # excursion is included in framing, so a moving miniature stays in the field.
 const UNIT_FOOT_OFFSET: Vector2 = Vector2(0.0, -40.0)
-const UNIT_VISUAL_GAIT_MARGIN: float = 4.0
-const UNIT_VISUAL_ATTACK_MARGIN: float = 10.0
+const UNIT_VISUAL_GAIT_MARGIN: float = 6.0
+const UNIT_VISUAL_ATTACK_MARGIN: float = 16.0
+## Visual follow-through after the release. The release itself stays at the
+## data-defined windup, so damage timing is untouched.
+const ATTACK_RECOVERY_SECONDS: float = 0.16
 
 const FRIENDLY_SEPARATION_RADIUS: float = 34.0
 const FRIENDLY_SEPARATION_WEIGHT: float = 1.15
@@ -171,6 +268,9 @@ func _ready() -> void:
 	add_to_group("units")
 	add_to_group("player_%d" % player_owner)
 	_register_live_unit_index()
+	_sim_phase_serial += 1
+	_sim_next_think = sim_base_step * fposmod(float(_sim_phase_serial) * 0.6180339887, 1.0)
+	set_process_internal(true)
 	queue_redraw()
 
 
@@ -182,8 +282,14 @@ func _register_live_unit_index() -> void:
 		if not tree_exiting.is_connected(_remove_live_unit_index): tree_exiting.connect(_remove_live_unit_index)
 
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_LOCAL_TRANSFORM_CHANGED and _live_unit_index != null and is_inside_tree():
+	if what == NOTIFICATION_INTERNAL_PROCESS:
+		var _ps: int = Time.get_ticks_usec() if PerfProbe.on else 0
+		_sim_frame(get_process_delta_time())
+		if PerfProbe.on: PerfProbe.add(&"unit.sim_frame", _ps)
+	elif what == NOTIFICATION_LOCAL_TRANSFORM_CHANGED and _live_unit_index != null and is_inside_tree():
+		var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
 		_live_unit_index.update(self)
+		if PerfProbe.on: PerfProbe.add(&"unit.index_update", _pp)
 	elif what == NOTIFICATION_ENTER_TREE and is_node_ready():
 		_navigation_map = null
 		_register_live_unit_index()
@@ -194,6 +300,8 @@ func _remove_live_unit_index() -> void:
 
 func get_nearby_units(radius: float) -> Array:
 	var map: Node2D = _get_navigation_map()
+	if _navigation_map_typed:
+		return map.get_units_near(global_position, radius)
 	return map.get_units_near(global_position, radius) if map != null and map.has_method("get_units_near") else get_tree().get_nodes_in_group("units")
 
 
@@ -201,6 +309,11 @@ func _setup_collision() -> void:
 	var shape := CircleShape2D.new()
 	shape.radius = UNIT_SIZES.get(unit_type, 10.0)
 	collision_shape.shape = shape
+	# Nothing reads Area2D overlaps (spacing and targeting use the live unit
+	# index). Left on, the physics server pairs every unit with every neighbour
+	# in a crowd on each step.
+	monitoring = false
+	monitorable = false
 
 
 func _load_stats_from_data() -> void:
@@ -217,6 +330,8 @@ func _load_stats_from_data() -> void:
 	vision_radius = MapData.range_tiles_to_world(float(stats.get("vision_radius", vision_radius)))
 	is_ranged = stats.get("attack_range", 1) > 1
 	attack_speed = 1.0 / maxf(0.1, float(stats.get("attack_interval", 1.0)))
+	ResearchEffects.apply_unit_bonuses(self)  # Round 2 B: researched bonuses + tier chevron.
+	UnitAbilities.setup(self)  # Round 2 C: kingdom unit ability.
 
 
 func _setup_sprite() -> void:
@@ -250,13 +365,15 @@ func _setup_sprite() -> void:
 	_action_presentation.name = "ActionPresentation"
 	_action_presentation.visible = false
 	add_child(_action_presentation)
+	_setup_ground_marks()
+	_puppet = UnitPuppet.new()
 	_last_visual_position = global_position
 
 
 func get_visual_bounds() -> Rect2:
 	## World bounds of visible artwork and markers, including the maximum
 	## small pose excursion. Opaque texture bounds are cached at sprite setup.
-	var size: float = UNIT_SIZES.get(unit_type, 10.0)
+	var size: float = get_visual_radius()
 	var local_bounds := Rect2(-size - 2.5, 3.0 - size * 0.48 - 1.5, (size + 2.5) * 2.0, size * 0.96 + 3.0)
 	if _sprite != null and _sprite.texture != null:
 		var sprite_rect := Rect2(_sprite_opaque_rect.position - _sprite.texture.get_size() * 0.5 + _sprite.offset, _sprite_opaque_rect.size)
@@ -274,11 +391,198 @@ func get_visual_bounds() -> Rect2:
 	if stance == Stance.STAND_GROUND:
 		local_bounds = local_bounds.merge(Rect2(size, -6.5, 8.0, 9.0))
 	if _action_presentation != null and _action_presentation.visible:
-		local_bounds = local_bounds.merge(Rect2(-24.0, -43.0, 48.0, 49.0))
-	return global_transform * local_bounds
+		local_bounds = local_bounds.merge(Rect2(Vector2(-24.0, -43.0) * UnitData.WORLD_VISUAL_SCALE, Vector2(48.0, 49.0) * UnitData.WORLD_VISUAL_SCALE))
+	return global_transform.translated(_visual_offset) * local_bounds
+
+
+## Where the unit is drawn this frame (the simulated position, eased).
+func get_visual_position() -> Vector2:
+	return global_position + _visual_offset
+
+
+## World pixels per game second along the newest simulated step (zero when
+## standing). Touch picking uses it to accept a tap where the figure was drawn
+## a moment ago. Read-only presentation data; never feeds the simulation.
+func get_drawn_velocity() -> Vector2:
+	var span: float = _trail_t2 - _trail_t1
+	if span <= 0.000001 or _trail_p1 == _trail_p2 or current_state == State.DEAD:
+		return Vector2.ZERO
+	return (_trail_p2 - _trail_p1) / span
+
+
+## Presentation radius of the ground ring. Collision and separation keep the
+## canonical UNIT_SIZES value.
+func get_visual_radius() -> float:
+	return float(UNIT_SIZES.get(unit_type, 10.0)) * UnitData.WORLD_VISUAL_SCALE
+
+
+func get_health_bar_y() -> float:
+	return _health_bar_y
+
+
+## Where a bow or throwing arm releases, for sim and cosmetic projectiles.
+func get_projectile_origin(toward: Vector2) -> Vector2:
+	var direction: Vector2 = (toward - global_position).normalized()
+	var height: float = 26.0 if unit_type == UnitData.UnitType.SIEGE else 18.0
+	return global_position + (direction * 14.0 + Vector2(0.0, -height)) * UnitData.WORLD_VISUAL_SCALE
+
+
+## Visible reaction to lost HP: flash, flinch and a floating figure. Shared by
+## simulated units and inert network replicas; never changes any state the
+## simulation reads.
+func present_hit(hp_loss: float) -> void:
+	_health_feedback_remaining = 2.0
+	if _puppet != null:
+		_puppet.hit(not GameManager.reduced_flashes)
+	BattleFX.unit_damaged(self, hp_loss)
+
+
+func present_recoil(direction: Vector2) -> void:
+	if _puppet != null:
+		_puppet.recoil(direction)
+
+
+func get_seconds_since_hit() -> float:
+	return _puppet.seconds_since_hit() if _puppet != null else 99.0
+
+
+func get_last_hit_direction() -> Vector2:
+	return _puppet.last_hit_direction() if _puppet != null else Vector2.ZERO
+
+
+const PERF_STATE_KEYS: Array[StringName] = [&"unit.state.m_idle", &"unit.state.m_moving", &"unit.state.m_attacking", &"unit.state.m_gathering", &"unit.state.m_building", &"unit.state.m_dead", &"unit.state.m_garrisoned", &"unit.state.v_idle", &"unit.state.v_moving", &"unit.state.v_attacking", &"unit.state.v_gathering", &"unit.state.v_building", &"unit.state.v_dead", &"unit.state.v_garrisoned"]
+
+
+## Game seconds until this unit's next think. Villagers at steady work stretch it.
+func _think_interval() -> float:
+	return sim_step
+
+
+## True exactly once per frame, for the engine's own `_process` call that
+## follows `_sim_frame`. Every `_process` override returns at once when it is.
+func _is_engine_tick() -> bool:
+	if _sim_engine_frame != Engine.get_process_frames():
+		return false
+	_sim_engine_frame = -1
+	return true
+
+
+func _sim_frame(delta: float) -> void:
+	if not is_processing():
+		return  # Frozen by a fixture: only direct `_process` calls think.
+	if current_state == State.DEAD:
+		_sim_engine_frame = Engine.get_process_frames()
+		return
+	_sim_clock += delta
+	_present_pending += delta
+	var seen: bool = presentation_enabled and visible and view_rect.has_point(global_position)
+	# A steady worker given an order (or hit) returns to the ordinary cadence.
+	if _sim_slots > 1 and _sim_clock < _sim_next_think and _think_interval() <= sim_step:
+		_sim_next_think -= sim_step * floorf((_sim_next_think - _sim_clock) / sim_step)
+		_sim_slots = 1
+		_sim_last_think = maxf(_sim_last_think, _sim_clock - sim_step)
+	if _sim_clock + 0.000001 >= _sim_next_think:
+		var step: float = _sim_clock - _sim_last_think
+		_sim_last_think = _sim_clock
+		var drawn: Vector2 = global_position + _visual_offset
+		_sim_engine_frame = -1
+		_sim_driven = true
+		var _pt: int = Time.get_ticks_usec() if PerfProbe.on else 0
+		_process(step)
+		if PerfProbe.on: PerfProbe.add(&"unit.think", _pt)
+		_sim_driven = false
+		# Keep the per-unit phase: skip whole steps after a long frame.
+		_sim_slots = maxi(1, ceili(_think_interval() / sim_step - 0.01))
+		_sim_next_think += sim_step * maxf(float(_sim_slots), floorf((_sim_clock - _sim_next_think) / sim_step) + 1.0)
+		_think_pending = 0.0
+		if legacy_interpolation_hold:
+			# Pre-F4 ease, kept for A/B measurement only: the drawn position
+			# held still on every think frame (a 20 Hz judder).
+			var offset: Vector2 = drawn - global_position
+			if seen and delta > 0.0 and not offset.is_zero_approx() and offset.length_squared() < VISUAL_SNAP_DISTANCE_SQUARED:
+				_visual_offset_start = offset
+				_visual_elapsed = 0.0
+				_visual_span = ceilf((_sim_next_think - _sim_clock - 0.000001) / delta) * delta
+				_visual_offset = offset
+				_apply_visual_offset()
+			elif _visual_offset != Vector2.ZERO:
+				_visual_offset = Vector2.ZERO
+				_apply_visual_offset()
+		else:
+			_record_trail()
+			_ease_drawn_position(seen, true)
+		if current_state == State.DEAD:
+			_sim_engine_frame = Engine.get_process_frames()
+			return
+		_update_sprite_motion(_present_pending)
+		_present_pending = 0.0
+	else:
+		_think_pending = _sim_clock - _sim_last_think
+		if legacy_interpolation_hold:
+			if _visual_offset != Vector2.ZERO:
+				_visual_elapsed += delta
+				_visual_offset = _visual_offset_start * (1.0 - _visual_elapsed / _visual_span) if _visual_elapsed + 0.000001 < _visual_span else Vector2.ZERO
+				_apply_visual_offset()
+		else:
+			_ease_drawn_position(seen, false)
+		# Unseen units settle their presentation clocks at think time only.
+		# In a crowd, a figure doing nothing but breathing is posed at its
+		# thinks (20 per real second); anything that moves, strikes, flinches
+		# or gestures is posed every frame.
+		if seen and not (crowd_on_screen > CROWD_POSE_UNITS and _visual_offset == Vector2.ZERO and _attack_animation_remaining <= 0.0 and _puppet != null and _puppet.is_resting()):
+			_update_sprite_motion(_present_pending)
+			_present_pending = 0.0
+	if seen:
+		_seen_counting += 1
+	_sim_engine_frame = Engine.get_process_frames()
+
+
+## After a think: the position just simulated joins the trail. A jump (spawn,
+## garrison exit, a fixture or replica placing the node) restarts it there.
+func _record_trail() -> void:
+	var now: Vector2 = global_position
+	if now.distance_squared_to(_trail_p2) > VISUAL_SNAP_DISTANCE_SQUARED:
+		_trail_p0 = now
+		_trail_p1 = now
+		_trail_t0 = _sim_clock - sim_step * 2.0
+		_trail_t1 = _sim_clock - sim_step
+	else:
+		_trail_p0 = _trail_p1
+		_trail_t0 = _trail_t1
+		_trail_p1 = _trail_p2
+		_trail_t1 = _trail_t2
+	_trail_p2 = now
+	_trail_t2 = _sim_clock
+
+
+## Every frame for a seen unit: draw where the trail was `interpolation_delay`
+## ago. Unseen units draw at the simulated position.
+func _ease_drawn_position(seen: bool, moved: bool) -> void:
+	var offset := Vector2.ZERO
+	if seen and global_position == _trail_p2 and not (_trail_p0 == _trail_p2 and _trail_p1 == _trail_p2):
+		var at: float = _sim_clock - interpolation_delay
+		var drawn: Vector2 = _trail_p2
+		if at < _trail_t1:
+			drawn = _trail_p0.lerp(_trail_p1, clampf((at - _trail_t0) / maxf(0.000001, _trail_t1 - _trail_t0), 0.0, 1.0))
+		elif at < _trail_t2:
+			drawn = _trail_p1.lerp(_trail_p2, (at - _trail_t1) / maxf(0.000001, _trail_t2 - _trail_t1))
+		offset = drawn - _trail_p2
+	if offset != _visual_offset or (moved and offset != Vector2.ZERO):
+		_visual_offset = offset
+		_apply_visual_offset()
+
+
+## The node keeps the simulated position (targeting, spacing, fog and saves read
+## it); only the drawn canvas item, and so its children and y-sort, is shifted.
+func _apply_visual_offset() -> void:
+	var drawn: Transform2D = transform
+	drawn.origin += _visual_offset
+	RenderingServer.canvas_item_set_transform(get_canvas_item(), drawn)
 
 
 func _process(delta: float) -> void:
+	if _is_engine_tick():
+		return
 	if current_state == State.DEAD:
 		return
 	# Exclusion retries use the same elapsed simulation as movement/combat.
@@ -291,7 +595,11 @@ func _process(delta: float) -> void:
 	_separation_timer = maxf(0.0, _separation_timer - delta)
 	_navigation_repath_cooldown = maxf(0.0, _navigation_repath_cooldown - delta)
 	_advance_attack_windup(delta)
+	if _ability_kind != 0:
+		UnitAbilities.tick(self, delta)
 
+	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
+	var _pp_state: int = current_state
 	match current_state:
 		State.IDLE:
 			_process_idle(delta)
@@ -303,60 +611,40 @@ func _process(delta: float) -> void:
 			_process_gathering(delta)
 		State.BUILDING:
 			_process_building(delta)
-	_update_sprite_motion(delta)
+	if PerfProbe.on:
+		PerfProbe.add(PERF_STATE_KEYS[_pp_state + (7 if unit_type == UnitData.UnitType.VILLAGER else 0)], _pp)
+		_pp = PerfProbe.add(&"unit.state", _pp)
+	# A subclass that banks several frames into one think (Villager) still
+	# animates with this frame's time only. `_sim_frame` animates by itself.
+	if not _sim_driven:
+		_update_sprite_motion(delta if _presentation_delta < 0.0 else _presentation_delta)
+	_presentation_delta = -1.0
+	if PerfProbe.on: PerfProbe.add(&"unit.sprite", _pp)
 
 	# Continuous redraw for pulsing selection
 	if is_selected:
 		queue_redraw()
 
 
+## The contact shadow and ownership marker are baked sprites one z layer below
+## the y-sorted world (UnitGroundMarks), and the health bar is its own canvas
+## item above it, so a crowd's marks and bars batch into a few draw calls and
+## this item usually draws nothing (only a selected or stand-ground unit adds
+## commands here). Every existing `queue_redraw()` still refreshes the bar.
 func _draw() -> void:
-	var size: float = UNIT_SIZES.get(unit_type, 10.0)
-
-	# One quiet contact shadow. Team cloth supplies the normal ownership cue;
-	# only selected figures receive a surrounding ring.
-	var ground_ring := PackedVector2Array()
-	for i in range(33):
-		var angle: float = float(i) / 32.0 * TAU
-		ground_ring.append(Vector2(cos(angle) * (size + 1.0), sin(angle) * size * 0.48 + 3.0))
-	draw_colored_polygon(ground_ring, Color(0.09, 0.13, 0.13, 0.12))
-	var contact_shadow := PackedVector2Array()
-	for point: Vector2 in ground_ring:
-		contact_shadow.append(Vector2(point.x * 0.72, (point.y - 3.0) * 0.58 + 2.0))
-	draw_colored_polygon(contact_shadow, Color(0.09, 0.13, 0.13, 0.12))
-
-	# Civilization palette never substitutes for ownership: retain a compact
-	# local-player bar / rival chevron with the new shared miniature sheets.
-	if GameManager.clearer_player_markers or KingdomArt.is_kingdom_texture(_sprite.texture):
-		var camera: Camera2D = get_viewport().get_camera_2d()
-		var inverse_zoom: float = 1.0 / maxf(0.5, camera.zoom.x) if camera != null else 1.0
-		var marker_size: float = 3.0 * inverse_zoom
-		var center := Vector2(0, 6.5)
-		if player_owner == 0:
-			draw_line(center - Vector2(marker_size, 0), center + Vector2(marker_size, 0), Color("293235"), 3.0 * inverse_zoom, true)
-			draw_line(center - Vector2(marker_size, 0), center + Vector2(marker_size, 0), Color("88b7ad"), 1.5 * inverse_zoom, true)
-		else:
-			var chevron := PackedVector2Array([center + Vector2(-marker_size, -1.5 * inverse_zoom), center + Vector2(0, 1.5 * inverse_zoom), center + Vector2(marker_size, -1.5 * inverse_zoom)])
-			draw_polyline(chevron, Color("293235"), 3.0 * inverse_zoom, true)
-			draw_polyline(chevron, Color("d69477"), 1.5 * inverse_zoom, true)
+	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
+	var size: float = get_visual_radius()
+	_refresh_health_bar()
 
 	# A stable ivory selection line stays readable without permanent bright
 	# team rings or pulsing graphics beneath every miniature.
 	if is_selected:
-		draw_polyline(ground_ring, Color("e8e5db"), 1.5, true)
-
-	var hp_ratio: float = hp / max_hp if max_hp > 0 else 0.0
-
-	# Recent damage, selection and critical health remain visible. A healthy
-	# idle army needs neither floating meters nor permanent status badges.
-	var bar_width: float = size * 2.3
-	var bar_height: float = 2.0
-	var bar_y: float = _health_bar_y
-
-	if is_selected or _health_feedback_remaining > 0.0 or hp_ratio <= 0.35:
-		draw_rect(Rect2(-bar_width / 2.0, bar_y, bar_width, bar_height), Color("293235"))
-		var hp_color := Color("e8e5db") if hp_ratio > 0.35 else Color("d69477")
-		draw_rect(Rect2(-bar_width / 2.0, bar_y, bar_width * hp_ratio, bar_height), hp_color)
+		var ground_ring := PackedVector2Array()
+		for i in range(33):
+			var angle: float = float(i) / 32.0 * TAU
+			ground_ring.append(Vector2(cos(angle) * (size + 1.0), sin(angle) * size * 0.48 + 3.0))
+		draw_polyline(ground_ring, Color("293235", 0.55), 3.4, true)
+		draw_polyline(ground_ring, Color("e8e5db"), 1.8, true)
 
 	# Stance indicator: shield icon for Stand Ground
 	if stance == Stance.STAND_GROUND:
@@ -371,6 +659,90 @@ func _draw() -> void:
 		])
 		draw_colored_polygon(shield_pts, Color("293235"))
 		draw_polyline(shield_pts, Color("b7c4ba"), 1.0)
+	if PerfProbe.on: PerfProbe.add(&"unit.draw", _pp)
+
+
+## Wounded, selected and just-struck units carry a bar; a healthy idle army has
+## none (the bar item is hidden, so it costs nothing to draw).
+func _health_bar_shown() -> bool:
+	return current_state != State.DEAD and (is_selected or _health_feedback_remaining > 0.0 or hp < max_hp)
+
+
+func _refresh_health_bar() -> void:
+	if _health_bar == null:
+		return
+	var shown: bool = _health_bar_shown()
+	if _health_bar.visible != shown:
+		_health_bar.visible = shown
+	if shown:
+		_health_bar.queue_redraw()
+
+
+func _draw_health_bar() -> void:
+	if not _health_bar_shown():
+		return
+	var hp_ratio: float = hp / max_hp if max_hp > 0 else 0.0
+	# A wound that is no longer fresh dims, and a healed bar fades.
+	var bar_width: float = float(UNIT_SIZES.get(unit_type, 10.0)) * 2.3
+	var bar_height: float = 3.0
+	var bar_y: float = _health_bar_y
+	var bar_alpha: float = 1.0
+	if not is_selected and hp_ratio > 0.35:
+		bar_alpha = clampf(_health_feedback_remaining / 0.5, 0.0, 1.0) if hp >= max_hp else lerpf(0.62, 1.0, clampf(_health_feedback_remaining / 0.5, 0.0, 1.0))
+	_health_bar.draw_rect(Rect2(-bar_width / 2.0 - 1.0, bar_y - 1.0, bar_width + 2.0, bar_height + 2.0), Color("293235", bar_alpha))
+	var hp_color := Color("9fd08a") if hp_ratio > 0.6 else Color("e6cf7a") if hp_ratio > 0.35 else Color("e5846a")
+	if player_owner != 0:
+		hp_color = Color("e8e5db") if hp_ratio > 0.35 else Color("e5846a")
+	_health_bar.draw_rect(Rect2(-bar_width / 2.0, bar_y, bar_width * hp_ratio, bar_height), Color(hp_color, bar_alpha))
+
+
+func _setup_ground_marks() -> void:
+	var size: float = get_visual_radius()
+	# Plain canvas items drawing one textured rect each (drawn once; not
+	# Sprite2D, so code that frames a unit by its Sprite2D children still
+	# sees only the figure).
+	_ground_shadow = Node2D.new()
+	_ground_shadow.name = "GroundShadow"
+	_ground_shadow.draw.connect(UnitGroundMarks.draw_cell.bind(_ground_shadow, UnitGroundMarks.SHADOW_RECT))
+	_ground_shadow.position = UnitGroundMarks.shadow_offset()
+	_ground_shadow.scale = UnitGroundMarks.shadow_scale(size)
+	_ground_shadow.z_as_relative = false
+	_ground_shadow.z_index = GROUND_MARK_Z
+	add_child(_ground_shadow)
+	_owner_marker = Node2D.new()
+	_owner_marker.name = "OwnerMarker"
+	_owner_marker.draw.connect(UnitGroundMarks.draw_cell.bind(_owner_marker, UnitGroundMarks.MARKER_BAR_RECT if player_owner == 0 else UnitGroundMarks.MARKER_CHEVRON_RECT))
+	_owner_marker.position = Vector2(0.0, 6.5)
+	_owner_marker.z_as_relative = false
+	_owner_marker.z_index = GROUND_MARK_Z
+	add_child(_owner_marker)
+	_health_bar = Node2D.new()
+	_health_bar.name = "HealthBar"
+	_health_bar.z_as_relative = false
+	_health_bar.z_index = HEALTH_BAR_Z
+	_health_bar.visible = false
+	_health_bar.draw.connect(_draw_health_bar)
+	add_child(_health_bar)
+	_refresh_owner_marker()
+
+
+## Civilization palette never substitutes for ownership: a compact local-player
+## bar / rival chevron, kept the same size on screen as the camera zooms in.
+func _refresh_owner_marker() -> void:
+	_marks_revision = marks_revision
+	if _owner_marker == null:
+		return
+	_owner_marker.visible = markers_clearer or KingdomArt.is_kingdom_texture(_sprite.texture)
+	_owner_marker.scale = Vector2.ONE * (marker_inverse_zoom / UnitGroundMarks.MARKER_DENSITY)
+
+
+## GameMap reports the camera zoom and marker setting; units re-read it lazily.
+static func set_marker_view(inverse_zoom: float, clearer: bool) -> void:
+	if is_equal_approx(inverse_zoom, marker_inverse_zoom) and clearer == markers_clearer:
+		return
+	marker_inverse_zoom = inverse_zoom
+	markers_clearer = clearer
+	marks_revision += 1
 
 
 # --- State Machine ---
@@ -474,9 +846,13 @@ func _navigate_toward(
 		path = PackedVector2Array()
 		path_index = 0
 
-	if not path.is_empty() and path_index < path.size() and game_map.has_method("world_to_tile") and game_map.has_method("is_tile_walkable"):
-		var waypoint_tile: Vector2i = game_map.call("world_to_tile", path[path_index])
-		if not bool(game_map.call("is_tile_walkable", waypoint_tile)):
+	if not path.is_empty() and path_index < path.size():
+		var waypoint_blocked: bool = false
+		if _navigation_map_typed:
+			waypoint_blocked = not game_map.is_world_point_walkable(path[path_index])
+		elif game_map.has_method("world_to_tile") and game_map.has_method("is_tile_walkable"):
+			waypoint_blocked = not bool(game_map.call("is_tile_walkable", game_map.call("world_to_tile", path[path_index])))
+		if waypoint_blocked:
 			path = PackedVector2Array()
 			path_index = 0
 			_navigation_repath_cooldown = 0.0
@@ -508,7 +884,9 @@ func _navigate_toward(
 		return _navigation_failure_result()
 
 	var direction: Vector2 = path[path_index] - global_position
+	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
 	_move_in_direction(direction, delta, game_map)
+	if PerfProbe.on: PerfProbe.add(&"unit.state.step", _pp)
 
 	if global_position.distance_to(_last_move_pos) > 2.0:
 		_stuck_timer = 0.0
@@ -583,7 +961,7 @@ func _can_pass_occupied_waypoint(game_map: Node2D) -> bool:
 	# Intermediate tile centers describe a route, not places every traveller
 	# must occupy. Keep final service/Move arrival semantics, but let a unit
 	# pass an occupied center when the following segment is still walkable.
-	if current_state not in [State.MOVING, State.GATHERING, State.BUILDING] or path_index >= path.size() - 1:
+	if (current_state != State.MOVING and current_state != State.GATHERING and current_state != State.BUILDING) or path_index >= path.size() - 1:
 		return false
 	var waypoint: Vector2 = path[path_index]
 	if global_position.distance_to(waypoint) > NAVIGATION_CROWDED_WAYPOINT_RADIUS:
@@ -598,6 +976,8 @@ func _can_pass_occupied_waypoint(game_map: Node2D) -> bool:
 
 
 func _is_navigation_segment_clear(from_position: Vector2, to_position: Vector2, game_map: Node2D) -> bool:
+	if _navigation_map_typed and game_map == _navigation_map:
+		return game_map.is_navigation_segment_clear(from_position, to_position, NAVIGATION_SEGMENT_SAMPLE_DISTANCE)
 	if game_map == null or not game_map.has_method("world_to_tile") or not game_map.has_method("is_tile_walkable"):
 		return true
 	var previous_tile: Vector2i = game_map.call("world_to_tile", from_position)
@@ -635,7 +1015,7 @@ func _move_in_direction(direction: Vector2, delta: float, game_map: Node2D) -> v
 	var desired_dir: Vector2 = direction.normalized()
 	_update_friendly_separation(desired_dir)
 	var move_dir: Vector2 = desired_dir
-	var intermediate_waypoint: bool = current_state in [State.MOVING, State.GATHERING, State.BUILDING] and path_index < path.size() - 1
+	var intermediate_waypoint: bool = (current_state == State.MOVING or current_state == State.GATHERING or current_state == State.BUILDING) and path_index < path.size() - 1
 	if (intermediate_waypoint or direction.length() > 10.0) and _separation_vector.length() > 0.0:
 		move_dir = (desired_dir + _separation_vector).normalized()
 	var separation_drag: float = clampf(_separation_vector.length() * 0.16, 0.0, 0.18)
@@ -644,13 +1024,22 @@ func _move_in_direction(direction: Vector2, delta: float, game_map: Node2D) -> v
 	# Passing must keep the next route point reachable as well. Otherwise a
 	# later sideways step can tuck behind a solid corner after a safe shortcut.
 	var keeps_route_visible: bool = not intermediate_waypoint or move_dir.is_equal_approx(desired_dir) or _is_navigation_segment_clear(proposed_position, global_position + direction, game_map)
-	if not keeps_route_visible or not _is_navigation_segment_clear(global_position, proposed_position, game_map):
+	if not keeps_route_visible or not _is_step_clear(proposed_position, game_map):
 		# Check the entire actual steered step, including solid corners. A clear
 		# lookahead segment alone cannot make a later sideways step safe.
 		proposed_position = global_position + desired_dir * step_distance
-		if not _is_navigation_segment_clear(global_position, proposed_position, game_map):
+		if not _is_step_clear(proposed_position, game_map):
 			return
 	global_position = proposed_position
+
+
+## _is_navigation_segment_clear(global_position, to_position). A step that ends
+## in the tile this unit already stands on is clear by that rule whether or not
+## the tile is walkable, and the unit index recorded that tile at the last move.
+func _is_step_clear(to_position: Vector2, game_map: Node2D) -> bool:
+	if _index_listed and _navigation_map_typed and game_map == _navigation_map and _index_position == global_position and game_map.world_to_tile(to_position) == _index_tile:
+		return true
+	return _is_navigation_segment_clear(global_position, to_position, game_map)
 
 
 func _get_navigation_map() -> Node2D:
@@ -660,6 +1049,7 @@ func _get_navigation_map() -> Node2D:
 	while ancestor != null:
 		if ancestor is Node2D and ancestor.has_method("get_navigation_world_path"):
 			_navigation_map = ancestor as Node2D
+			_navigation_map_typed = ancestor.has_method("is_navigation_segment_clear") and ancestor.has_method("is_world_point_walkable") and ancestor.has_method("is_entity_visible_to_player") and ancestor.has_method("get_units_near")
 			return _navigation_map
 		ancestor = ancestor.get_parent()
 	return null
@@ -700,6 +1090,12 @@ func _on_navigation_unreachable(target_position: Vector2) -> void:
 ## Subclasses use this to invalidate task-specific callbacks whenever a fresh
 ## player/AI command supersedes the old intent.
 func _before_new_command() -> void:
+	# Round 2 D1: an order brings a garrisoned unit out; any other order drops
+	# a pending walk to shelter (scripts/buildings/garrison.gd).
+	if current_state == State.GARRISONED:
+		Garrison.release_unit(self)
+	elif not _preserve_order_intent:
+		_garrison_target = null
 	_command_generation += 1
 	detach_attack_march()
 	if not _preserve_order_intent:
@@ -918,7 +1314,10 @@ func _relax_combat_spacing(delta: float, target_position: Vector2) -> void:
 		if proposed.distance_squared_to(opponent.global_position) < minimum_distance * minimum_distance:
 			return
 	var game_map: Node2D = _get_navigation_map()
-	if game_map != null and game_map.has_method("is_tile_walkable") and game_map.has_method("world_to_tile"):
+	if _navigation_map_typed:
+		if not game_map.is_world_point_walkable(proposed):
+			return
+	elif game_map != null and game_map.has_method("is_tile_walkable") and game_map.has_method("world_to_tile"):
 		if not bool(game_map.call("is_tile_walkable", game_map.call("world_to_tile", proposed))):
 			return
 	global_position = proposed
@@ -982,7 +1381,9 @@ func _try_auto_attack() -> void:
 	search_radius = _get_auto_unit_acquisition_radius(search_radius)
 	var building_radius: float = maxf(search_radius * 0.5, attack_range + 24.0)
 	var buildings_first: bool = bool(UnitData.UNITS.get(unit_type, {}).get("auto_target_buildings_first", false))
+	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
 	var target: Node2D = UnitAutoTargeting.find_target(self, search_radius, building_radius, buildings_first)
+	if PerfProbe.on: PerfProbe.add(&"unit.state.autotarget", _pp)
 	if target is UnitBase:
 		command_attack(target as UnitBase, false, false)
 	elif target is BuildingBase:
@@ -1037,7 +1438,9 @@ func _consider_nearby_threat() -> void:
 		return
 	_auto_attack_timer = 0.3
 	var threat_radius: float = _get_auto_unit_acquisition_radius(maxf(vision_radius, attack_range + 8.0))
+	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
 	var threat: UnitBase = UnitAutoTargeting.find_nearby_threat(self, threat_radius)
+	if PerfProbe.on: PerfProbe.add(&"unit.state.autotarget", _pp)
 	if threat != null and threat != attack_target:
 		command_attack(threat, false, false)
 
@@ -1089,7 +1492,7 @@ func _begin_attack_windup(target: Node2D, building_target: bool) -> void:
 	_attack_windup_remaining = maxf(0.0, float(stats.get("attack_windup", 0.12)))
 	_attack_windup_target = target
 	_attack_windup_building = building_target
-	_attack_animation_duration = _attack_windup_remaining + 0.16
+	_attack_animation_duration = _attack_windup_remaining + ATTACK_RECOVERY_SECONDS
 	_attack_animation_remaining = _attack_animation_duration
 	_attack_animation_direction = (target.global_position - global_position).normalized()
 	if _sprite != null and absf(_attack_animation_direction.x) > 0.01:
@@ -1114,7 +1517,9 @@ func _advance_attack_windup(delta: float) -> void:
 		if _get_building_attack_distance(building) > attack_range + 28.0:
 			return
 		Combat.deal_damage_to_building(self, building)
-		if get_tree().current_scene != null:
+		if BattleFX.get_fx() != null:
+			BattleFX.building_struck(self, building)
+		elif get_tree().current_scene != null:
 			VFX.hit_burst(get_tree(), building.global_position, Color(1.0, 0.7, 0.3))
 	else:
 		var unit := target as UnitBase
@@ -1139,63 +1544,26 @@ func _update_sprite_motion(delta: float) -> void:
 		return
 	if _health_feedback_remaining > 0.0:
 		_health_feedback_remaining = maxf(0.0, _health_feedback_remaining - delta)
-		if _health_feedback_remaining <= 0.0:
+		if _health_feedback_remaining <= 0.5:
 			queue_redraw()
 	_animation_clock += delta
 	_attack_animation_remaining = maxf(0.0, _attack_animation_remaining - delta)
 	if _uses_network_work_pose and _network_work_pose.x > 0.0:
 		_network_work_pose.y = fposmod(_network_work_pose.y + maxf(0.0, delta) / _network_work_pose.z, 1.0)
-	var displacement: Vector2 = global_position - _last_visual_position
-	_last_visual_position = global_position
-	var sprite_offset := Vector2.ZERO
-	_sprite.rotation = 0.0
-	_sprite.scale = _sprite_rest_scale
-	if displacement.length_squared() > 0.001:
-		if absf(displacement.x) > 0.01:
-			_sprite.flip_h = displacement.x < 0.0
-		var mounted: bool = unit_type in [UnitData.UnitType.CAVALRY, UnitData.UnitType.SCOUT]
-		var gait_rate: float = 17.0 if mounted else 12.0
-		var stride: float = 0.0 if GameManager.reduced_motion else sin(_animation_clock * gait_rate)
-		if unit_type == UnitData.UnitType.SIEGE:
-			# A low wheel roll keeps the heavy carriage grounded; infantry's
-			# two-unit hop makes the same art appear to walk on its wheels.
-			sprite_offset.y = -absf(stride) * 0.35
-			_sprite.rotation = stride * 0.006
-		else:
-			sprite_offset.y = -absf(stride) * (0.9 if mounted else 1.0)
-			_sprite.rotation = stride * (0.010 if mounted else 0.018)
-	var work: Vector3 = get_work_presentation()
-	var action: int = int(work.x)
-	var phase: float = work.y
-	if _attack_animation_remaining > 0.0:
-		# Both the server and inert replicas already carry duration/remaining.
-		# Derive the release from that visual clock; never read a replica's
-		# simulation windup or change the actual damage/projectile schedule.
-		var elapsed: float = _attack_animation_duration - _attack_animation_remaining
-		var windup: float = maxf(0.001, _attack_animation_duration - 0.16)
-		phase = UnitActionPresentation.RELEASE * elapsed / windup if elapsed <= windup else UnitActionPresentation.RELEASE + (1.0 - UnitActionPresentation.RELEASE) * (elapsed - windup) / 0.16
-		action = UnitActionPresentation.Action.MELEE
-		if unit_type == UnitData.UnitType.SIEGE:
-			action = UnitActionPresentation.Action.SIEGE
-		elif is_ranged:
-			action = UnitActionPresentation.Action.BOW
-		elif unit_type == UnitData.UnitType.CAVALRY or unit_type == UnitData.UnitType.SCOUT:
-			action = UnitActionPresentation.Action.MOUNTED
-	var facing: float = -1.0 if _sprite.flip_h else 1.0
-	if action != UnitActionPresentation.Action.NONE:
-		var pose: Vector4 = UnitActionPresentation.pose(action, phase, _art_civilization)
-		if not GameManager.reduced_motion:
-			var direction: Vector2 = _attack_animation_direction if _attack_animation_remaining > 0.0 else Vector2(facing, 0.0)
-			sprite_offset += direction * pose.x + Vector2(0.0, pose.y)
-			_sprite.rotation += pose.z * facing
-			_sprite.scale = _sprite_rest_scale * Vector2(1.0 + pose.w * 0.35, 1.0 - pose.w)
-	_action_presentation.position = sprite_offset
-	_action_presentation.present(action, phase, _art_civilization, facing, GameManager.reduced_motion, GameManager.reduced_flashes)
-	# Tools share the body's foot pivot and small bend. Translating the overlay
-	# alone detached a worker's hands as the illustrated body leaned forward.
-	_action_presentation.rotation = _sprite.rotation
-	_action_presentation.scale = Vector2(facing, 1.0) * (_sprite.scale / _sprite_rest_scale)
-	_sprite.position = sprite_offset
+	var drawn_position: Vector2 = global_position + _visual_offset
+	var displacement: Vector2 = drawn_position - _last_visual_position
+	_last_visual_position = drawn_position
+	# The pose itself (gait, idle, strike, flinch) lives in UnitPuppet. It is
+	# skipped where nobody can see it; the next visible frame blends back in.
+	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
+	if presentation_enabled and visible and view_rect.has_point(global_position):
+		if _marks_revision != marks_revision:
+			_refresh_owner_marker()
+		_puppet.update(self, delta, displacement)
+		if PerfProbe.on: PerfProbe.add(&"unit.puppet", _pp)
+	else:
+		_puppet.tick_unseen(self, delta, displacement)
+		if PerfProbe.on: PerfProbe.add(&"unit.puppet_unseen", _pp)
 
 
 func get_work_presentation() -> Vector3:
@@ -1239,7 +1607,7 @@ func _is_valid_target(target: Variant) -> bool:
 	var unit := target as UnitBase
 	if not _can_track_entity(unit):
 		return false
-	return unit.current_state != State.DEAD
+	return unit.current_state != State.DEAD and unit.current_state != State.GARRISONED
 
 
 func _is_valid_building_target(target: Variant) -> bool:
@@ -1253,6 +1621,8 @@ func _is_valid_building_target(target: Variant) -> bool:
 
 func _can_track_entity(entity: Node2D) -> bool:
 	var game_map := _get_navigation_map()
+	if _navigation_map_typed:
+		return game_map.is_entity_visible_to_player(entity, player_owner)
 	if game_map != null and game_map.has_method("is_entity_visible_to_player"):
 		return bool(game_map.call("is_entity_visible_to_player", entity, player_owner))
 	return true
@@ -1523,15 +1893,18 @@ func _update_friendly_separation(movement_direction: Vector2 = Vector2.ZERO) -> 
 	if _separation_timer > 0.0:
 		return
 	_separation_timer = FRIENDLY_SEPARATION_REFRESH
+	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
 	var repel := Vector2.ZERO
 	# Workers use GATHERING/BUILDING even while following a work route. The
 	# supplied direction distinguishes actual travel from standing work/combat.
-	var navigating: bool = current_state in [State.MOVING, State.GATHERING, State.BUILDING] and not movement_direction.is_zero_approx()
+	var navigating: bool = (current_state == State.MOVING or current_state == State.GATHERING or current_state == State.BUILDING) and not movement_direction.is_zero_approx()
 	_combat_spacing_opponents.clear()
 	_navigation_neighbors.clear()
 	# Only travelling units consume the wider crowded-waypoint neighborhood.
 	# 18 is the largest current role radius (Siege); exact role checks follow.
-	var neighborhood: float = maxf(FRIENDLY_SEPARATION_RADIUS, UNIT_SIZES.get(unit_type, 12.0) + 18.0 + 8.0)
+	var own_size: float = UNIT_SIZES.get(unit_type, 12.0)
+	var own_position: Vector2 = global_position
+	var neighborhood: float = maxf(FRIENDLY_SEPARATION_RADIUS, own_size + 18.0 + 8.0)
 	if navigating: neighborhood += NAVIGATION_CROWDED_WAYPOINT_RADIUS
 	for node in get_nearby_units(neighborhood):
 		if node == self or not (node is UnitBase):
@@ -1539,9 +1912,9 @@ func _update_friendly_separation(movement_direction: Vector2 = Vector2.ZERO) -> 
 		var other: UnitBase = node as UnitBase
 		if not is_instance_valid(other) or other.current_state == State.DEAD:
 			continue
-		var offset: Vector2 = global_position - other.global_position
+		var offset: Vector2 = own_position - other.global_position
 		var dist: float = offset.length()
-		var desired_spacing: float = UNIT_SIZES.get(unit_type, 12.0) + UNIT_SIZES.get(other.unit_type, 12.0) + 8.0
+		var desired_spacing: float = own_size + UNIT_SIZES.get(other.unit_type, 12.0) + 8.0
 		var separation_radius: float = maxf(FRIENDLY_SEPARATION_RADIUS, desired_spacing)
 		# Reuse the throttled neighborhood scan for crowded waypoint handling.
 		# The extra margin includes allies beside the upcoming route center.
@@ -1596,13 +1969,14 @@ func _update_friendly_separation(movement_direction: Vector2 = Vector2.ZERO) -> 
 		)
 	else:
 		_separation_vector = Vector2.ZERO
+	if PerfProbe.on: PerfProbe.add(&"unit.state.separation", _pp)
 
 
 # --- Health ---
 
 func take_damage(amount: float) -> void:
 	## `amount` is final HP loss. Armor and upgrades are resolved once by Combat.
-	if current_state == State.DEAD:
+	if current_state == State.DEAD or current_state == State.GARRISONED:
 		return
 	var actual_damage: float = maxf(1.0, amount)
 	var previous_hp: float = hp
@@ -1611,10 +1985,10 @@ func take_damage(amount: float) -> void:
 	if hp < previous_hp:
 		_release_attack_march_for_combat()
 		damage_received.emit(self, previous_hp - hp)
-		_health_feedback_remaining = 2.0
+		present_hit(previous_hp - hp)
 	_flash_damage()
-	# Floating damage number
-	if is_selected and get_tree() and get_tree().current_scene and AudioManager.is_source_visible(self):
+	# Floating damage number (pooled by BattleFX whenever a map exists).
+	if BattleFX.get_fx() == null and is_selected and get_tree() and get_tree().current_scene and AudioManager.is_source_visible(self):
 		VFX.damage_float(get_tree(), global_position, actual_damage)
 	AudioManager.play_world("attack_hit", self)
 	queue_redraw()
@@ -1638,7 +2012,10 @@ func _flash_damage() -> void:
 func heal(amount: float) -> void:
 	if current_state == State.DEAD:
 		return
+	var was_wounded: bool = hp < max_hp
 	hp = minf(max_hp, hp + amount)
+	if was_wounded and hp >= max_hp:
+		_health_feedback_remaining = maxf(_health_feedback_remaining, 0.5)
 	health_changed.emit(self, hp, max_hp)
 	queue_redraw()
 
@@ -1651,6 +2028,9 @@ func die() -> void:
 	if get_tree() and get_tree().current_scene and AudioManager.is_source_visible(self):
 		VFX.death_puff(get_tree(), global_position)
 	AudioManager.play_world("unit_death", self)
+	# The fall and the lingering body are drawn by BattleFX from a copy of this
+	# artwork; this node keeps its existing 0.3 s lifetime.
+	BattleFX.unit_death(self)
 	# Brief delay before removal for death animation opportunity
 	var tween := create_tween()
 	tween.tween_property(self, "modulate:a", 0.0, 0.3)
@@ -1685,3 +2065,10 @@ func get_player_id() -> int:
 
 func get_unit_type() -> String:
 	return UnitData.get_unit_name(unit_type, player_owner)
+
+
+# =========================================================================
+#  GARRISON (Round 2 D1 — logic lives in scripts/buildings/garrison.gd)
+# =========================================================================
+## The shelter this unit is walking to, or is inside while GARRISONED.
+var _garrison_target: BuildingBase = null

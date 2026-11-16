@@ -1,0 +1,729 @@
+{
+  "schema": 1,
+  "runtime_revision": "877abd45ed661ddf851e843407f0ea84b63b5138",
+  "policy_commit": "d614dc81978b1eb8c1508b0fe74119d3f0cfb6ce",
+  "starvation_guard_commit": "300baaf",
+  "sustained_fixture_commit": "3d5cd8cbdd2b108402e1ac95ab20151b10170f21",
+  "scope": "Two bounded paid AI simulations plus controlled regression fixtures. No population-average, human-play, device-performance or natural-trade-adoption claim.",
+  "setup": {
+    "style": "River Crossings",
+    "style_id": 1,
+    "seed": 424242,
+    "population": 100,
+    "starting_workers_per_player": 3,
+    "civilizations": [
+      "Crownlands",
+      "Crownlands"
+    ],
+    "game_mode": "Standard",
+    "fixed_fps": 60,
+    "time_scale": 1,
+    "autosave": "Disabled only by the isolated pacing harness; persistence tested separately.",
+    "grants_or_forced_orders_in_full_simulations": false
+  },
+  "medium_natural": {
+    "status": "game_time_cap",
+    "time_seconds": 1000.01666666609,
+    "winner": -1,
+    "victory_reason": "unresolved at 1000s",
+    "first_contact_seconds": 183.350000000038,
+    "age_times": [
+      {
+        "1": 0.0,
+        "2": 156.016666666683,
+        "3": 496.516666666544
+      },
+      {
+        "1": 0.0,
+        "2": 148.516666666677,
+        "3": 592.516666666456
+      }
+    ],
+    "final": {
+      "time": 1000.01666666609,
+      "remaining_finite_resources": {
+        "food": 1458,
+        "gold": 2300,
+        "wood": 3436
+      },
+      "players": [
+        {
+          "active_farms": 4,
+          "active_posts": 0,
+          "age": 3,
+          "bank": {
+            "food": 1907,
+            "gold": 798,
+            "wood": 16
+          },
+          "lifetime": {
+            "farm_foundations": 4,
+            "farms_completed": 4,
+            "food_deposited_with_farm_job": 5705,
+            "post_foundations": 0,
+            "posts_completed": 0,
+            "trade_deliveries": 0,
+            "trade_gold": 0,
+            "traders_born": 0,
+            "traders_cancelled": 0,
+            "traders_queued": 0
+          },
+          "staffed_farms": 4,
+          "trade_policy": {
+            "capital": {},
+            "capital_until": 0.0,
+            "clock": 1000.01666666609,
+            "cursor": 0,
+            "gold_bank_target": 220,
+            "next_check": 1019.01666666609,
+            "under_pressure": false,
+            "worker_recovery": false
+          },
+          "traders": [],
+          "army_trained": 31,
+          "army_types": {
+            "1": 18,
+            "4": 1,
+            "5": 1
+          },
+          "worker_jobs": {
+            "build": 1,
+            "food": 3,
+            "wood": 8
+          }
+        },
+        {
+          "active_farms": 3,
+          "active_posts": 0,
+          "age": 3,
+          "bank": {
+            "food": 422,
+            "gold": 440,
+            "wood": 83
+          },
+          "lifetime": {
+            "farm_foundations": 3,
+            "farms_completed": 3,
+            "food_deposited_with_farm_job": 4880,
+            "post_foundations": 0,
+            "posts_completed": 0,
+            "trade_deliveries": 0,
+            "trade_gold": 0,
+            "traders_born": 0,
+            "traders_cancelled": 0,
+            "traders_queued": 0
+          },
+          "staffed_farms": 3,
+          "trade_policy": {
+            "capital": {},
+            "capital_until": 0.0,
+            "clock": 1000.01666666609,
+            "cursor": 44,
+            "gold_bank_target": 320,
+            "next_check": 1019.01666666609,
+            "under_pressure": false,
+            "worker_recovery": false
+          },
+          "traders": [],
+          "army_trained": 42,
+          "army_types": {
+            "1": 3,
+            "4": 1
+          },
+          "worker_jobs": {
+            "food": 4,
+            "wood": 8
+          }
+        }
+      ]
+    },
+    "previous_beta15_same_case_completed_seconds": 744.883333333,
+    "comparison": "Current case remains unresolved at the 16:40 cap; the previous beta15 case ended at 12:24.88. Current average match duration is not established, and this sample exceeds the requested 12\u201315 minute target."
+  },
+  "hard_continuation": {
+    "status": "counterfactual_game_time_cap",
+    "time_seconds": 1500.01666666563,
+    "winner": -1,
+    "victory_reason": "unresolved at 1500s",
+    "first_contact_seconds": 259.283333333426,
+    "age_times": [
+      {
+        "1": 0.0,
+        "2": 160.000000000019,
+        "3": 523.999999999852
+      },
+      {
+        "1": 0.0,
+        "2": 156.000000000016,
+        "3": 552.999999999826
+      }
+    ],
+    "first_would_be_sacred_win": {
+      "first_time": 1175.74999999926,
+      "last_time": 1185.58333333258,
+      "owner": 0,
+      "required_hold": 360.0,
+      "ticks": 591
+    },
+    "interpretation": "Normal rules are unchanged until the first blocked Sacred conclusion. After that, only Sacred conclusion is suppressed; Town Center defeat remains enabled. The 20- and 25-minute observations are post-intervention and are not natural match-duration samples.",
+    "samples": {
+      "600": {
+        "time": 600.483333333116,
+        "remaining_finite_resources": {
+          "food": 1582,
+          "gold": 2479,
+          "wood": 5471
+        },
+        "players": [
+          {
+            "active_farms": 3,
+            "active_posts": 0,
+            "age": 3,
+            "bank": {
+              "food": 374,
+              "gold": 255,
+              "wood": 28
+            },
+            "lifetime": {
+              "farm_foundations": 3,
+              "farms_completed": 3,
+              "food_deposited_with_farm_job": 2821,
+              "post_foundations": 0,
+              "posts_completed": 0,
+              "trade_deliveries": 0,
+              "trade_gold": 0,
+              "traders_born": 0,
+              "traders_cancelled": 0,
+              "traders_queued": 0
+            },
+            "staffed_farms": 3,
+            "trade_policy": {
+              "capital": {},
+              "capital_until": 0.0,
+              "clock": 600.483333333116,
+              "cursor": 0,
+              "gold_bank_target": 340,
+              "next_check": 0.0,
+              "under_pressure": true,
+              "worker_recovery": false
+            },
+            "traders": [],
+            "army_trained": 19,
+            "army_types": {
+              "1": 1,
+              "2": 1,
+              "4": 2
+            },
+            "worker_jobs": {
+              "food": 5,
+              "gold": 3,
+              "wood": 4
+            }
+          },
+          {
+            "active_farms": 4,
+            "active_posts": 0,
+            "age": 3,
+            "bank": {
+              "food": 224,
+              "gold": 283,
+              "wood": 110
+            },
+            "lifetime": {
+              "farm_foundations": 4,
+              "farms_completed": 4,
+              "food_deposited_with_farm_job": 2578,
+              "post_foundations": 0,
+              "posts_completed": 0,
+              "trade_deliveries": 0,
+              "trade_gold": 0,
+              "traders_born": 0,
+              "traders_cancelled": 0,
+              "traders_queued": 0
+            },
+            "staffed_farms": 4,
+            "trade_policy": {
+              "capital": {},
+              "capital_until": 0.0,
+              "clock": 600.483333333116,
+              "cursor": 0,
+              "gold_bank_target": 340,
+              "next_check": 0.0,
+              "under_pressure": false,
+              "worker_recovery": false
+            },
+            "traders": [],
+            "army_trained": 16,
+            "army_types": {
+              "1": 5,
+              "2": 1,
+              "4": 2
+            },
+            "worker_jobs": {
+              "build": 1,
+              "food": 4,
+              "gold": 3,
+              "wood": 5
+            }
+          }
+        ]
+      },
+      "900": {
+        "time": 900.566666666176,
+        "remaining_finite_resources": {
+          "food": 1196,
+          "gold": 2163,
+          "wood": 3805
+        },
+        "players": [
+          {
+            "active_farms": 3,
+            "active_posts": 0,
+            "age": 3,
+            "bank": {
+              "food": 902,
+              "gold": 749,
+              "wood": 28
+            },
+            "lifetime": {
+              "farm_foundations": 3,
+              "farms_completed": 3,
+              "food_deposited_with_farm_job": 4561,
+              "post_foundations": 0,
+              "posts_completed": 0,
+              "trade_deliveries": 0,
+              "trade_gold": 0,
+              "traders_born": 0,
+              "traders_cancelled": 0,
+              "traders_queued": 0
+            },
+            "staffed_farms": 3,
+            "trade_policy": {
+              "capital": {},
+              "capital_until": 0.0,
+              "clock": 900.566666666176,
+              "cursor": 0,
+              "gold_bank_target": 340,
+              "next_check": 914.999999999515,
+              "under_pressure": true,
+              "worker_recovery": false
+            },
+            "traders": [],
+            "army_trained": 30,
+            "army_types": {
+              "1": 6,
+              "4": 2
+            },
+            "worker_jobs": {
+              "food": 3,
+              "wood": 11
+            }
+          },
+          {
+            "active_farms": 4,
+            "active_posts": 0,
+            "age": 3,
+            "bank": {
+              "food": 1190,
+              "gold": 502,
+              "wood": 64
+            },
+            "lifetime": {
+              "farm_foundations": 4,
+              "farms_completed": 4,
+              "food_deposited_with_farm_job": 4858,
+              "post_foundations": 0,
+              "posts_completed": 0,
+              "trade_deliveries": 0,
+              "trade_gold": 0,
+              "traders_born": 0,
+              "traders_cancelled": 0,
+              "traders_queued": 0
+            },
+            "staffed_farms": 4,
+            "trade_policy": {
+              "capital": {},
+              "capital_until": 0.0,
+              "clock": 900.566666666176,
+              "cursor": 0,
+              "gold_bank_target": 340,
+              "next_check": 914.999999999515,
+              "under_pressure": false,
+              "worker_recovery": false
+            },
+            "traders": [],
+            "army_trained": 29,
+            "army_types": {
+              "1": 2,
+              "4": 2
+            },
+            "worker_jobs": {
+              "food": 5,
+              "wood": 9
+            }
+          }
+        ]
+      },
+      "1200": {
+        "time": 1200.64999999924,
+        "remaining_finite_resources": {
+          "food": 1049,
+          "gold": 2163,
+          "wood": 1878
+        },
+        "players": [
+          {
+            "active_farms": 6,
+            "active_posts": 0,
+            "age": 3,
+            "bank": {
+              "food": 2492,
+              "gold": 1337,
+              "wood": 228
+            },
+            "lifetime": {
+              "farm_foundations": 6,
+              "farms_completed": 6,
+              "food_deposited_with_farm_job": 6751,
+              "post_foundations": 0,
+              "posts_completed": 0,
+              "trade_deliveries": 0,
+              "trade_gold": 0,
+              "traders_born": 0,
+              "traders_cancelled": 0,
+              "traders_queued": 0
+            },
+            "staffed_farms": 6,
+            "trade_policy": {
+              "capital": {},
+              "capital_until": 0.0,
+              "clock": 1200.64999999924,
+              "cursor": 0,
+              "gold_bank_target": 340,
+              "next_check": 1208.99999999925,
+              "under_pressure": false,
+              "worker_recovery": false
+            },
+            "traders": [],
+            "army_trained": 39,
+            "army_types": {
+              "1": 14,
+              "4": 2
+            },
+            "worker_jobs": {
+              "": 5,
+              "food": 6,
+              "wood": 3
+            }
+          },
+          {
+            "active_farms": 5,
+            "active_posts": 0,
+            "age": 3,
+            "bank": {
+              "food": 1583,
+              "gold": 492,
+              "wood": 36
+            },
+            "lifetime": {
+              "farm_foundations": 5,
+              "farms_completed": 5,
+              "food_deposited_with_farm_job": 7228,
+              "post_foundations": 0,
+              "posts_completed": 0,
+              "trade_deliveries": 0,
+              "trade_gold": 0,
+              "traders_born": 0,
+              "traders_cancelled": 0,
+              "traders_queued": 0
+            },
+            "staffed_farms": 5,
+            "trade_policy": {
+              "capital": {},
+              "capital_until": 0.0,
+              "clock": 1200.64999999924,
+              "cursor": 0,
+              "gold_bank_target": 340,
+              "next_check": 1208.99999999925,
+              "under_pressure": false,
+              "worker_recovery": false
+            },
+            "traders": [],
+            "army_trained": 51,
+            "army_types": {
+              "1": 2,
+              "4": 2
+            },
+            "worker_jobs": {
+              "food": 5,
+              "wood": 9
+            }
+          }
+        ]
+      },
+      "1500": {
+        "time": 1500.01666666563,
+        "remaining_finite_resources": {
+          "food": 360,
+          "gold": 2163,
+          "wood": 1059
+        },
+        "players": [
+          {
+            "active_farms": 6,
+            "active_posts": 0,
+            "age": 3,
+            "bank": {
+              "food": 4736,
+              "gold": 1920,
+              "wood": 11
+            },
+            "lifetime": {
+              "farm_foundations": 6,
+              "farms_completed": 6,
+              "food_deposited_with_farm_job": 9991,
+              "post_foundations": 0,
+              "posts_completed": 0,
+              "trade_deliveries": 0,
+              "trade_gold": 0,
+              "traders_born": 0,
+              "traders_cancelled": 0,
+              "traders_queued": 0
+            },
+            "staffed_farms": 6,
+            "trade_policy": {
+              "capital": {},
+              "capital_until": 0.0,
+              "clock": 1500.01666666563,
+              "cursor": 0,
+              "gold_bank_target": 340,
+              "next_check": 1502.99999999898,
+              "under_pressure": false,
+              "worker_recovery": false
+            },
+            "traders": [],
+            "army_trained": 52,
+            "army_types": {
+              "1": 25,
+              "4": 2
+            },
+            "worker_jobs": {
+              "": 1,
+              "food": 13
+            }
+          },
+          {
+            "active_farms": 5,
+            "active_posts": 0,
+            "age": 3,
+            "bank": {
+              "food": 3116,
+              "gold": 452,
+              "wood": 11
+            },
+            "lifetime": {
+              "farm_foundations": 5,
+              "farms_completed": 5,
+              "food_deposited_with_farm_job": 10078,
+              "post_foundations": 0,
+              "posts_completed": 0,
+              "trade_deliveries": 0,
+              "trade_gold": 0,
+              "traders_born": 0,
+              "traders_cancelled": 0,
+              "traders_queued": 0
+            },
+            "staffed_farms": 5,
+            "trade_policy": {
+              "capital": {},
+              "capital_until": 0.0,
+              "clock": 1500.01666666563,
+              "cursor": 0,
+              "gold_bank_target": 340,
+              "next_check": 1502.99999999898,
+              "under_pressure": false,
+              "worker_recovery": false
+            },
+            "traders": [],
+            "army_trained": 70,
+            "army_types": {
+              "4": 1
+            },
+            "worker_jobs": {
+              "": 4,
+              "food": 7,
+              "wood": 3
+            }
+          }
+        ]
+      }
+    },
+    "previous_beta15_first_would_be_sacred_win_seconds": 1123.2
+  },
+  "sustained_controlled_fixture": {
+    "metrics": {
+      "after_support_bank": {
+        "food": 600,
+        "gold": 40,
+        "wood": 1420
+      },
+      "economic_seconds": 300.000000000056,
+      "final_bank": {
+        "food": 151,
+        "gold": 219,
+        "wood": 12
+      },
+      "first_paid_siege_seconds": 224.516666666737,
+      "initial_funded_state": {
+        "age": 3,
+        "food": 1000,
+        "gold": 140,
+        "wood": 2000,
+        "workers": 5
+      },
+      "ordinary_gold_spending": 305,
+      "trade_deliveries": 22,
+      "trade_gold": 484,
+      "traders": 2
+    },
+    "assertions": {
+      "checks": 15,
+      "failures": [],
+      "scope": "controlled funded Castle economy with finite gold absent; paid support setup, then full _on_decision_tick at normal Medium1.5s cadence and continuous60Hz production/builder/caravan simulation; combat movement excluded; no later grants or natural-duration claim",
+      "test": "ai_trade_sustained"
+    },
+    "specific_caveats": [
+      "One explicitly funded Castle-start setup with five workers and1000F/2000W/140G; ordinary paid support infrastructure and escorts are completed before the300-second measurement.",
+      "All finite gold is unavailable. No later grants or Sacred income. Ordinary food/wood gathering remains enabled.",
+      "Full existing AI decision path runs at Medium1.5s cadence; production, builder and caravan movement advance continuously at60Hz. Combat movement is excluded.",
+      "Every positive gold ledger entry matches completed caravan delivery; exact paid Siege150W/100G transaction is additionally covered by the compact/Easy fixtures."
+    ]
+  },
+  "validation": {
+    "demand_policy_checks": 33,
+    "actual_paid_post_and_first_delivery_checks": 17,
+    "sustained_full_decision_checks": 15,
+    "compact_and_easy_paid_siege_cases_passed": 2,
+    "existing_economic_investment_and_trade_policy_cases": "PASS",
+    "natural_simulation_diagnostics": [],
+    "continued_simulation_diagnostics": []
+  },
+  "diagnostic_history": [
+    "Initial human compact fixture assumed four starting workers and old interface/labor details. Root owns its correction and final verification.",
+    "Compact Siege fixtures used17/13-second worker/Warrior advances and overfilled the Easy20-pop roster. Test-only877abd4 derives real queue duration, paid roster and the actual3-pop Siege slot; both corrected cases pass.",
+    "Initial d614dc8 run was stopped after its240.18-second persisted sample to fix a code-review finding: a gold-unfunded trade plan could withhold military wood. Final runs use the guard in300baaf. No natural outcome is claimed for that superseded run.",
+    "Preliminary selected-decision sustained fixture passed14checks, but was strengthened to the full AI decision path and normal cadence; final acceptance is the15-check fixture."
+  ],
+  "findings": [
+    "Neither ordinary simulation purchased trade because banked gold remained above the demand threshold; the policy did not waste scarce wood to satisfy an adoption metric.",
+    "The controlled depleted-gold fixture demonstrates sustained autonomous paid trading and a useful paid Siege purchase from trade income, beyond a single payout.",
+    "Gold-surplus labor moves back to food/wood. Finite gold may remain unused when current demand and Sacred income make more harvesting unnecessary.",
+    "Pacing remains a caveat: this new Medium sample is unfinished at16m40s, and the Hard first Sacred conclusion occurs later than the previous witness. No broad-average target claim follows from these runs.",
+    "Between the 20-minute sample and the 25-minute endpoint, paid army completions rose from 39 to 52 and from 51 to 70. Low wood banks did not produce a complete military-production stall during this observed interval.",
+    "At 25 minutes, finite food and wood were 91% and 89.41% exhausted, respectively. Gold was only 45.925% exhausted; the AI retained unused finite gold instead of mining it into an already ample bank."
+  ],
+  "caveats": [
+    "Food_deposited_with_farm_job means a deposit while the worker currently had a Farm job; it is not exact per-cargo harvest-origin attribution.",
+    "Whole-map finite-resource totals are observer-only audit data; the AI uses current-visible sources and threats.",
+    "The controlled fixture proves demand-triggered functionality, not adoption frequency in ordinary matches.",
+    "No economic prices or finite stock budgets were tuned, and no additional natural-seed searches were run."
+  ],
+  "artifacts": [
+    {
+      "file": "docs/evidence/beta16-ai-trade/hard_continuation-receipt.json",
+      "sha256": "090aebef47f1b6c500e520d4ce6f082edd87b498f68299b4c4c5452c3a9d7ac3",
+      "uncompressed_sha256": "090aebef47f1b6c500e520d4ce6f082edd87b498f68299b4c4c5452c3a9d7ac3",
+      "bytes": 5194
+    },
+    {
+      "file": "docs/evidence/beta16-ai-trade/hard_continuation-report.json.gz",
+      "sha256": "55dbc4690624ce3c017644563162cf70406d298b84bf05cf8fb182c1db882e01",
+      "uncompressed_sha256": "7f9649a4ed37ca4a6e4091692f50de894addc549876e156527b0b9fa85acb628",
+      "bytes": 26550
+    },
+    {
+      "file": "docs/evidence/beta16-ai-trade/hard_continuation-engine.log.gz",
+      "sha256": "ad3a432dd7e4a47edeb1237e0e1fd30ba70e4e745fcfe9d5ef39039c7b6f7e78",
+      "uncompressed_sha256": "445230f45e9baa024f6aea5e61326300023291a7183538b3f4b37230b4924536",
+      "bytes": 17618
+    },
+    {
+      "file": "docs/evidence/beta16-ai-trade/medium_natural-receipt.json",
+      "sha256": "f3b7be0a7a061cb720e4d03d958d6fd296da099d1ec08ef23a4f153d0de42451",
+      "uncompressed_sha256": "f3b7be0a7a061cb720e4d03d958d6fd296da099d1ec08ef23a4f153d0de42451",
+      "bytes": 4897
+    },
+    {
+      "file": "docs/evidence/beta16-ai-trade/medium_natural-report.json.gz",
+      "sha256": "ac0d1bfbc37905ee5e227fd8b589c7f1e7a88bd09647df3fb0ab88ae11eaff52",
+      "uncompressed_sha256": "540ce9d224b66e858daafdd0d79cf40565b5d91ec5532538bc31b3395a92bea1",
+      "bytes": 19921
+    },
+    {
+      "file": "docs/evidence/beta16-ai-trade/medium_natural-engine.log.gz",
+      "sha256": "aab4382b9c7bf56d54e173a08bdfef32f68df0accdf113c92f1bb33f3b92a1e4",
+      "uncompressed_sha256": "89f46c3a77b616204741554a4c32d50f058c72b11bd1fe3d7a10b384a84e5a7f",
+      "bytes": 12655
+    },
+    {
+      "file": "docs/evidence/beta16-ai-trade/beta16-ai-trade-focused.log",
+      "sha256": "3ff785c3f701a183591005f91edfc81dee42695bd08656848b20b48964caa477",
+      "uncompressed_sha256": "3ff785c3f701a183591005f91edfc81dee42695bd08656848b20b48964caa477",
+      "bytes": 1880
+    },
+    {
+      "file": "docs/evidence/beta16-ai-trade/beta16-ai-demand-starvation.log",
+      "sha256": "70531a6f504d9688c34c7ba8363a5d855654d82146392bb5b3fa42f3cb8a610e",
+      "uncompressed_sha256": "70531a6f504d9688c34c7ba8363a5d855654d82146392bb5b3fa42f3cb8a610e",
+      "bytes": 224
+    },
+    {
+      "file": "docs/evidence/beta16-ai-trade/beta16-siege-regression.log",
+      "sha256": "c4225f7f144bfb58e6b68ea8466675304bfe0d54db61e9789e84e42290b61bec",
+      "uncompressed_sha256": "c4225f7f144bfb58e6b68ea8466675304bfe0d54db61e9789e84e42290b61bec",
+      "bytes": 14834
+    },
+    {
+      "file": "docs/evidence/beta16-ai-trade/beta16-siege-fixture-updated.log",
+      "sha256": "b246d0e5214440089ba655f1353b20407d96cdb60da77fe3f8de2059fa8b1450",
+      "uncompressed_sha256": "b246d0e5214440089ba655f1353b20407d96cdb60da77fe3f8de2059fa8b1450",
+      "bytes": 379
+    },
+    {
+      "file": "docs/evidence/beta16-ai-trade/beta16-ai-trade-sustained.log",
+      "sha256": "b8a42cc0ec20a4c8538ca7389c35f0d731bbcfa421eda713775d48d5e94fda04",
+      "uncompressed_sha256": "b8a42cc0ec20a4c8538ca7389c35f0d731bbcfa421eda713775d48d5e94fda04",
+      "bytes": 835
+    },
+    {
+      "file": "docs/evidence/beta16-ai-trade/beta16-ai-trade-sustained-full-decision.log",
+      "sha256": "e3770f4df47047a02c8c5d1a0ee64e9c0f8b71d76df5cd6a44b1f0d1fa091260",
+      "uncompressed_sha256": "e3770f4df47047a02c8c5d1a0ee64e9c0f8b71d76df5cd6a44b1f0d1fa091260",
+      "bytes": 845
+    },
+    {
+      "file": "docs/evidence/beta16-ai-trade/superseded-initial-receipt.json",
+      "sha256": "628bc3108d17d070cab0f26fbe2bbae52f7d1b407bcca15319cd06191d720890",
+      "uncompressed_sha256": "628bc3108d17d070cab0f26fbe2bbae52f7d1b407bcca15319cd06191d720890",
+      "bytes": 1219
+    },
+    {
+      "file": "docs/evidence/beta16-ai-trade/superseded-initial-status.json",
+      "sha256": "845ba138f884c6eeaf672af0d2a9fa90a74bad1af32933657b12095669c6ffc6",
+      "uncompressed_sha256": "845ba138f884c6eeaf672af0d2a9fa90a74bad1af32933657b12095669c6ffc6",
+      "bytes": 422
+    },
+    {
+      "file": "docs/evidence/beta16-ai-trade/superseded-initial-partial.json.gz",
+      "sha256": "ef8836570847abf17bbdeb873eac25e71f402459c5335de8db8cfab9eeff89cc",
+      "uncompressed_sha256": "c0baa72bab4b13245d47b67ce6245825a5d93ca4cb0fef5c00515ae21cf8ab96",
+      "bytes": 7359
+    },
+    {
+      "file": "docs/evidence/beta16-ai-trade/superseded-initial-engine.log.gz",
+      "sha256": "918140b1292dce62328ac6d5f7ff7b2d586aeabcffd60680c139722d1f918b5a",
+      "uncompressed_sha256": "a7b9bb2341e8565d13cc994689e27c07d3b28f6d2a6564d5bb7f8ef9d5ab93cb",
+      "bytes": 1344
+    }
+  ]
+}

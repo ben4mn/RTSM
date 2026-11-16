@@ -1,0 +1,22 @@
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+ONLINE_COMBAT_STATUS slot=0 state=idle elapsed=0.00 message=
+ONLINE_COMBAT_STATUS slot=0 state=connecting elapsed=0.00 message=Connecting…
+ONLINE_COMBAT_STATUS slot=0 state=searching elapsed=0.27 message=Searching for an opponent…
+ONLINE_COMBAT_STATUS slot=0 state=searching elapsed=0.31 message=Searching for an opponent…
+ONLINE_COMBAT_STATUS slot=0 state=loading elapsed=4.03 message=Opponent found · loading…
+ONLINE_COMBAT_STATUS slot=0 state=playing elapsed=4.16 message=Online match
+ONLINE_COMBAT_PROGRESS slot=0 game=0.10 wall=11.08 seed=1359558403 map=3 snapshots=1 placed=false trained=false ordered=false
+ONLINE_COMBAT_PLACEMENT_SCAN ms=9 placed=false
+ONLINE_COMBAT_PLACEMENT_SCAN ms=1 placed=true
+ONLINE_COMBAT_PROGRESS slot=0 game=10.16 wall=21.15 seed=1359558403 map=3 snapshots=41 placed=true trained=false ordered=false
+ONLINE_COMBAT_PROGRESS slot=0 game=20.35 wall=31.53 seed=1359558403 map=3 snapshots=82 placed=true trained=true ordered=false
+ONLINE_COMBAT_PROGRESS slot=0 game=30.54 wall=41.54 seed=1359558403 map=3 snapshots=127 placed=true trained=true ordered=false
+ONLINE_COMBAT_PROGRESS slot=0 game=40.76 wall=51.88 seed=1359558403 map=3 snapshots=164 placed=true trained=true ordered=true
+ONLINE_COMBAT_PROGRESS slot=0 game=51.03 wall=62.05 seed=1359558403 map=3 snapshots=202 placed=true trained=true ordered=true
+ONLINE_COMBAT_PROGRESS slot=0 game=61.20 wall=72.27 seed=1359558403 map=3 snapshots=246 placed=true trained=true ordered=true
+ONLINE_COMBAT_VERIFIED slot=0 paid_barracks=true paid_infantry=true attack_move=true enemy_visible=true replicated_damage=true stand_ground_requested=false inert_stance_replica=false
+ONLINE_COMBAT_PROGRESS slot=0 game=71.27 wall=82.19 seed=1359558403 map=3 snapshots=285 placed=true trained=true ordered=true
+ONLINE_COMBAT_STATUS slot=0 state=ended elapsed=43.95 message=Surrender
+ONLINE_COMBAT_RESULT slot=0 winner=0 reason=Surrender verified=true game=74.66 wall=85.95
+ONLINE_COMBAT_STATUS slot=0 state=idle elapsed=43.95 message=

@@ -88,10 +88,11 @@ func _contracts() -> void:
 			_expect(is_equal_approx(sprite.scale.x, sprite.scale.y) and sprite.scale.x > 0.0, NAMES[role] + " preserves artwork aspect ratio")
 			_expect(sprite.to_global(Vector2(64, 104) - sprite.texture.get_size() * 0.5 + sprite.offset).is_equal_approx(unit.global_position), NAMES[role] + " authored feet meet the actual ground origin")
 			var idle_art: Rect2 = sprite.transform * Rect2(unit._sprite_opaque_rect.position - sprite.texture.get_size() * 0.5 + sprite.offset, unit._sprite_opaque_rect.size)
-			_expect(absf(idle_art.end.y) <= 1.0, NAMES[role] + " opaque feet meet ground without floating or sinking")
+			# 1.5: the 2.5% contact inset grows with UnitData.WORLD_VISUAL_SCALE.
+			_expect(absf(idle_art.end.y) <= 1.5, NAMES[role] + " opaque feet meet ground without floating or sinking")
 			_expect(unit._health_bar_y + 2.0 < idle_art.position.y, NAMES[role] + " idle health bar clears the head and weapons")
 			if role < 3:
-				_expect(ink_size.y >= 24.0 and ink_size.y <= 36.0, NAMES[role] + " foot miniature stays within the grounded human-height band")
+				_expect(ink_size.y >= 24.0 * UnitData.WORLD_VISUAL_SCALE and ink_size.y <= 36.0 * UnitData.WORLD_VISUAL_SCALE, NAMES[role] + " foot miniature stays within the grounded human-height band")
 				_expect(ink_size.x <= RADII[role] * 2.5, NAMES[role] + " equipment silhouette remains close to its unchanged navigation footprint")
 			_expect(sprite.offset == Vector2(0, -40), NAMES[role] + " retains y104 foot anchor")
 			_expect(is_equal_approx((unit.collision_shape.shape as CircleShape2D).radius, RADII[role]), NAMES[role] + " retains collision radius")

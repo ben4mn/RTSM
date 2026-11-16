@@ -52,12 +52,14 @@ func _site(parent_node: Node = null) -> Node2D:
 	parent_node.add_child(site)
 	site.set_process(false)
 	site.configure_match_mode(SkirmishData.MatchMode.STANDARD)
+	site.victory_wake_time = 0.0  # The 8:00 opening has its own test (test_sacred_wake).
 	site.state = 2
 	site.owning_player = 0
 	site.capture_progress = 1.0
 	return site
 
 func _step(site: Node, seconds: float) -> void:
+	site.set("_census_cooldown", 0.0)  # Rules test: recount the ring every step (E2 census runs at 5 Hz).
 	site.call("_process", seconds)
 
 func _test_rules() -> void:
@@ -89,25 +91,29 @@ func _test_rules() -> void:
 	fighter.position = Vector2(193, 0)
 	before_status = statuses.size()
 	_step(site, 0.01)
-	_expect(is_equal_approx(site.victory_timer, 0.01) and site.garrison_paused, "outside192 pauses without reset")
+	_expect(is_zero_approx(site.victory_timer) and site.garrison_paused, "outside192 drains the held time (Round 2 E2)")
 	_expect(statuses.size() > before_status, "departure publishes immediately")
 	fighter.position = Vector2(192, 0)
 	_step(site, 1.0)
-	_expect(is_equal_approx(site.victory_timer, 1.01), "exact boundary fighter resumes retained time")
-	site.victory_timer = 179.99
+	_expect(is_equal_approx(site.victory_timer, 1.0), "exact boundary fighter resumes the clock")
+	var almost_complete: float = site.victory_hold_time - 0.01
+	site.victory_timer = almost_complete
 	fighter.hp = 0.0
 	_step(site, 1.0)
-	_expect(is_equal_approx(site.victory_timer, 179.99), "zero-HP actor cannot score before its death-state transition")
+	# Round 2 E2: an unguarded clock drains, so "cannot score" means it never
+	# rises (and never reaches the victory signal), not that it stands still.
+	_expect(site.victory_timer <= almost_complete and site.garrison_paused, "zero-HP actor cannot score before its death-state transition")
 	fighter.set_state(UnitBase.State.DEAD)
-	var before_ticks: int = ticks.size()
 	_step(site, 1.0)
-	_expect(is_equal_approx(site.victory_timer, 179.99) and ticks.size() == before_ticks, "dead fade cannot cross victory boundary")
+	_expect(site.victory_timer <= almost_complete and ticks.filter(func(remaining: float) -> bool: return remaining <= 0.0).is_empty(), "dead fade cannot cross victory boundary")
 	fighter.free()
+	site.victory_timer = almost_complete
 	var replacement: UnitBase = _actor("infantry", 0, Vector2.ZERO)
+	var before_ticks: int = ticks.size()
 	_step(site, 0.01)
 	_expect(ticks.size() == before_ticks + 1 and is_zero_approx(ticks.back()), "returning live fighter reaches the existing natural victory signal")
 	replacement.free()
-	site.victory_timer = 179.99
+	site.victory_timer = almost_complete
 	var enemy: UnitBase = _actor("scout", 1, Vector2.ZERO)
 	_step(site, 1.0)
 	_expect(site.state == 3 and not site.clock_ticking, "unarmed enemy still contests")
@@ -123,6 +129,7 @@ func _test_rules() -> void:
 	siege.free()
 	enemy.free()
 	site.configure_match_mode(SkirmishData.MatchMode.QUICK_CONTROL)
+	site.victory_wake_time = 0.0  # The 8:00 opening has its own test (test_sacred_wake).
 	site.state = 2
 	site.owning_player = 0
 	site.capture_progress = 1.0

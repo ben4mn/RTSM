@@ -101,7 +101,7 @@ func _exercise_profile(phone: Vector2i, ui_scale: float, notched: bool) -> void:
 	var caption: Control = hud.get("_villager_task_hbox")
 	_expect(not caption.visible, profile + " duplicate worker counts add a third field row")
 	_expect((hud.get("_unit_move_button") as Button).button_pressed and (hud.get("_unit_move_button") as Button).icon != null and (hud.get("_unit_move_button") as Button).tooltip_text.contains("armed") and (hud.get("selection_details") as Label).text.contains("Tap to move"), profile + " Move lacks armed cue")
-	_expect(not (hud.get("age_up_button") as Button).visible and (hud.get("build_menu_button") as Button).visible, profile + " worker context is wrong")
+	_expect((hud.get("top_bar") as Control).is_ancestor_of(hud.get("age_up_button")) and (hud.get("build_menu_button") as Button).visible, profile + " worker context is wrong")
 	_expect(not (hud.get("_mobile_action_panel") as Control).visible, profile + " worker leaves detached utility rail")
 	_assert_field(hud, safe, profile + " workers")
 	for mode: String in ["smart", "move", "attack_move"]:
@@ -158,6 +158,10 @@ func _exercise_profile(phone: Vector2i, ui_scale: float, notched: bool) -> void:
 	var scroll: ScrollContainer = hud.get("command_scroll")
 	_expect(scroll.scroll_horizontal == 0, profile + " production does not begin on Train page")
 	for button: Button in (hud.get("_train_buttons_container") as HBoxContainer).get_children():
+		# HUD pass: a paged row keeps its Tech tiles and page buttons for the
+		# other page; only what this page shows must be a reachable target.
+		if not button.visible and (button.has_meta("action_id") or button.has_meta("row_nav") or button.name == "BuildingRallyButton" or String(button.name).begins_with("TrainButton_")):
+			continue
 		_target(button, safe, profile)
 		_expect(scroll.get_global_rect().encloses(button.get_global_rect()), profile + " initial Train/Repeat target is clipped: " + str(scroll.get_global_rect()) + " target " + str(button.get_global_rect()) + " info " + str((hud.get("selection_info_column") as Control).get_global_rect()))
 	var scout: Button = (hud.get("_train_buttons_container") as HBoxContainer).get_node("TrainButton_%d" % UnitData.UnitType.SCOUT)
@@ -210,17 +214,21 @@ func _exercise_profile(phone: Vector2i, ui_scale: float, notched: bool) -> void:
 	hud.call("set_placement_mode", true, "House")
 	await _settle(hud, logical, safe)
 	_expect(not dock.visible and not selection.visible and not minimap.visible and not navigation.visible, profile + " placement retains field chrome")
+	# L2: Build and x ride on the ghost (tools/test_placement_ghost_build); the
+	# bottom bar keeps no check or Find. Touch keeps only the status line, which
+	# explains a red footprint; a mouse (ghost follows the cursor) gets Cancel.
 	var place: Button = hud.get("_placement_confirm_button")
-	_target(place, safe, profile)
-	_target(hud.get("_placement_cancel_button"), safe, profile)
 	var find_space: Button = hud.get("_placement_find_space_button")
-	_target(find_space, safe, profile)
-	_expect(find_space.text == "Find space" and not find_space.disabled, profile + " Find space action missing")
-	_expect(place.disabled, profile + " invalid preview can be placed")
+	var cancel: Button = hud.get("_placement_cancel_button")
+	var status_panel: Control = hud.get("_placement_status_panel")
+	_expect(not place.visible and not find_space.visible, profile + " bottom-bar Place/Find returned")
+	_expect(not cancel.visible, profile + " touch placement keeps a bottom Cancel beside the ghost's x")
 	hud.call("update_placement_preview", true, "")
-	_expect(not place.disabled, profile + " valid preview cannot be placed")
+	await _settle(hud, logical, safe)
+	_expect(not status_panel.visible, profile + " a fitting touch ghost keeps a redundant status line")
 	hud.call("update_placement_preview", false, "Blocked ground")
-	_expect(place.disabled, profile + " blocked preview leaves Place enabled")
+	await _settle(hud, logical, safe)
+	_expect(status_panel.visible, profile + " a red touch ghost does not explain itself")
 	# Long building names plus the observed-fog explanation remain readable
 	# within the existing status lane; this does not widen field chrome.
 	for building_name: String in ["Archery Range", "Siege Workshop", "Town Center"]:
@@ -230,37 +238,32 @@ func _exercise_profile(phone: Vector2i, ui_scale: float, notched: bool) -> void:
 		var status: Label = hud.get("_placement_status_label")
 		_expect(status.text == building_name + " · Move all tiles into sight", profile + " fog explanation missing")
 		_label_fits(status, profile + " full-footprint sight")
-		_expect(safe.encloses((hud.get("_placement_status_panel") as Control).get_global_rect()), profile + " sight status leaves safe area")
-		_expect(place.disabled, profile + " fog explanation enables Place")
-		_target(place, safe, profile)
-	# Mouse assistance has an explicit, readable purchase action without changing
-	# direct world-click placement. Ordinary touch already had this action.
+		_expect(safe.encloses(status_panel.get_global_rect()), profile + " sight status leaves safe area")
+	# A mouse: the ghost follows the cursor and a click builds; Cancel stays.
 	hud.call("set_placement_input_mode", false)
-	hud.call("set_placement_assisted_preview", false)
-	await _settle(hud, logical, safe)
-	_expect(not place.visible and find_space.visible, profile + " normal mouse placement contract changed")
-	hud.call("set_placement_assisted_preview", true)
 	hud.call("update_placement_preview", true, "")
 	await _settle(hud, logical, safe)
-	_target(place, safe, profile)
-	_target(find_space, safe, profile)
-	_expect(not place.disabled and (hud.get("_placement_status_label") as Label).text.ends_with("Click Place to build"), profile + " assisted mouse confirmation unavailable")
-	_label_fits(hud.get("_placement_status_label"), profile + " assisted mouse status")
+	_expect(not place.visible and not find_space.visible and cancel.visible, profile + " normal mouse placement contract changed")
+	_target(cancel, safe, profile)
+	_expect((hud.get("_placement_status_label") as Label).text.contains("click to build"), profile + " mouse placement instruction missing")
+	_label_fits(hud.get("_placement_status_label"), profile + " mouse status")
 	var search_safe: Rect2 = hud.call("get_placement_search_safe_rect")
 	_expect(safe.encloses(search_safe) and search_safe.end.y <= (hud.get("_mobile_action_panel") as Control).get_global_rect().position.y, profile + " search permits bottom action band")
 	hud.call("set_ui_modal_state", 2)
-	_expect(find_space.disabled and place.disabled, profile + " pause permits placement assistance")
+	_expect(cancel.disabled, profile + " pause permits placement actions")
 	hud.call("set_ui_modal_state", 0)
 	hud.call("set_placement_mode", false)
 	await _settle(hud, logical, safe)
-	_expect(not find_space.visible and not place.visible, profile + " placement actions survive cancel")
+	_expect(not find_space.visible and not place.visible and not cancel.visible, profile + " placement actions survive cancel")
 	_expect(dock.visible and selection.visible and minimap.visible, profile + " placement does not restore context")
 
 	hud.call("set_ui_modal_state", 2)
 	await _settle(hud, logical, safe)
 	var pause_menu: Control = hud.get("_pause_overlay").get_node("PauseMenu")
 	_expect(safe.encloses(pause_menu.get_global_rect()), profile + " pause leaves safe area")
-	for name: String in ["ResumeButton", "UtilityRow/SettingsButton", "UtilityRow/ReportProblemButton", "DepartureRow/QuitButton", "DepartureRow/MatchLearningButton"]:
+	# Solo pause has no Quit (Save & exit replaced it) and, since beta 27,
+	# Lessons is a round tool in UtilityRow instead of a row of its own.
+	for name: String in ["ResumeButton", "UtilityRow/SettingsButton", "UtilityRow/ReportProblemButton", "UtilityRow/MatchLearningButton"]:
 		_target(pause_menu.get_node(name), safe, profile)
 	hud.call("set_ui_modal_state", 0)
 	_profiles_checked += 1

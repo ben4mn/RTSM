@@ -249,8 +249,9 @@ func _hold_journey(phone: Vector2i,interface_scale: float,notched: bool) -> void
 		await _touch_contact(target,true,_contact_id)
 		_expect(str(_hud.call("get_secondary_surface_name"))=="none","Queue did not collapse on admitted rally hold")
 		await _real_wait(390)
-		_expect(_orders==orders_before+1 and _selection.selected.size()==1 and _selection.selected[0]==tc,"Queue world hold did not set exactly one rally at threshold")
+		_expect(_orders==orders_before and _selection.is_hold_gesture_active(),"Queue world hold acted before the finger lifted")
 		await _touch_contact(target,false,_contact_id)
+		_expect(_orders==orders_before+1 and _selection.selected.size()==1 and _selection.selected[0]==tc,"Queue world hold did not set exactly one rally on lift")
 	var intended_rally_orders: int = _orders-orders_before
 	_expect(intended_rally_orders==1 and _selection.selected.size()==1 and _selection.selected[0]==tc and str(_hud.call("get_secondary_surface_name"))=="none","Queue rally hold release duplicated the order or replaced producer selection")
 	if target!=Vector2.ZERO:

@@ -130,12 +130,12 @@ size_flags_vertical = 3
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="PlayAgainButton" type="Button" parent="GameOverPanel/Margin/VBox/ButtonRow"]
+[node name="ReportButton" type="Button" parent="GameOverPanel/Margin/VBox/ButtonRow"]
 unique_name_in_owner = true
 layout_mode = 2
-custom_minimum_size = Vector2(0, 48)
-size_flags_horizontal = 3
-text = "Play Again"
+custom_minimum_size = Vector2(96, 48)
+text = "Report"
+tooltip_text = "Report this match using its private playtest log"
 theme_override_font_sizes/font_size = 18
 
 [node name="MainMenuButton" type="Button" parent="GameOverPanel/Margin/VBox/ButtonRow"]
@@ -143,14 +143,13 @@ unique_name_in_owner = true
 layout_mode = 2
 custom_minimum_size = Vector2(0, 48)
 size_flags_horizontal = 3
-text = "Main Menu"
+text = "Main menu"
 theme_override_font_sizes/font_size = 18
 
-[node name="ReportButton" type="Button" parent="GameOverPanel/Margin/VBox/ButtonRow"]
+[node name="PlayAgainButton" type="Button" parent="GameOverPanel/Margin/VBox/ButtonRow"]
 unique_name_in_owner = true
 layout_mode = 2
-custom_minimum_size = Vector2(48, 48)
+custom_minimum_size = Vector2(0, 48)
 size_flags_horizontal = 3
-text = "Report"
-tooltip_text = "Report this match using its private playtest log"
+text = "Play Again"
 theme_override_font_sizes/font_size = 18

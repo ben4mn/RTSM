@@ -1,0 +1,21 @@
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+ONLINE_COMBAT_STATUS slot=0 state=idle elapsed=0.00 message=
+ONLINE_COMBAT_STATUS slot=0 state=connecting elapsed=0.00 message=Connecting…
+ONLINE_COMBAT_STATUS slot=0 state=searching elapsed=0.28 message=Searching for an opponent…
+ONLINE_COMBAT_STATUS slot=0 state=searching elapsed=0.31 message=Searching for an opponent…
+ONLINE_COMBAT_STATUS slot=1 state=loading elapsed=0.32 message=Opponent found · loading…
+ONLINE_COMBAT_STATUS slot=1 state=playing elapsed=0.47 message=Online match
+ONLINE_COMBAT_PROGRESS slot=1 game=2.70 wall=10.23 seed=1293461196 map=1 snapshots=1 placed=false trained=false ordered=false
+ONLINE_COMBAT_PLACEMENT_SCAN ms=0 placed=true
+ONLINE_COMBAT_PROGRESS slot=1 game=12.96 wall=20.58 seed=1293461196 map=1 snapshots=48 placed=true trained=false ordered=false
+ONLINE_COMBAT_PROGRESS slot=1 game=23.10 wall=30.63 seed=1293461196 map=1 snapshots=91 placed=true trained=true ordered=false
+ONLINE_COMBAT_PROGRESS slot=1 game=33.14 wall=40.90 seed=1293461196 map=1 snapshots=137 placed=true trained=true ordered=false
+ONLINE_COMBAT_PROGRESS slot=1 game=43.18 wall=50.74 seed=1293461196 map=1 snapshots=183 placed=true trained=true ordered=true
+ONLINE_COMBAT_PROGRESS slot=1 game=53.24 wall=60.82 seed=1293461196 map=1 snapshots=226 placed=true trained=true ordered=true
+ONLINE_COMBAT_PROGRESS slot=1 game=63.40 wall=70.93 seed=1293461196 map=1 snapshots=266 placed=true trained=true ordered=true
+ONLINE_COMBAT_PROGRESS slot=1 game=73.49 wall=81.06 seed=1293461196 map=1 snapshots=309 placed=true trained=true ordered=true
+ONLINE_COMBAT_VERIFIED slot=1 paid_barracks=true paid_infantry=true attack_move=true enemy_visible=true replicated_damage=true stand_ground_requested=false inert_stance_replica=false
+ONLINE_COMBAT_STATUS slot=1 state=ended elapsed=48.01 message=Surrender
+ONLINE_COMBAT_RESULT slot=1 winner=0 reason=Surrender verified=true game=81.52 wall=89.29
+ONLINE_COMBAT_STATUS slot=1 state=idle elapsed=48.01 message=

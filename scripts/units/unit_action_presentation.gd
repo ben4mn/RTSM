@@ -83,6 +83,7 @@ func present(kind: int, p: float, civ: int, facing: float, reduced_motion: bool,
 
 
 func _draw() -> void:
+	if PerfProbe.on: PerfProbe.count(&"unit.overlay_draws")
 	var p: float = 0.55 if quiet_motion else phase
 	var trim: Color = PALETTES[civilization]
 	# The new three-head figures carry their hands at the apron/sash line.

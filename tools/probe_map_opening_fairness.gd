@@ -109,8 +109,37 @@ func measure_seed(seed_value: int, archetype: int = MapData.MapArchetype.OPEN_PL
 		var first_deposit: float = sides[0]["resources"][resource_name]["deposit_trip_seconds"]
 		var second_deposit: float = sides[1]["resources"][resource_name]["deposit_trip_seconds"]
 		differences[resource_name] = {"seconds": absf(first - second), "ratio": maxf(first, second) / maxf(0.01, minf(first, second)), "deposit_seconds": absf(first_deposit - second_deposit), "deposit_ratio": maxf(first_deposit, second_deposit) / maxf(0.01, minf(first_deposit, second_deposit))}
+	var wildlife: Dictionary = _measure_wildlife(generator, map)
 	map.free()
-	return {"seed": seed_value, "archetype": archetype, "sides": sides, "trip_difference": differences}
+	return {"seed": seed_value, "archetype": archetype, "sides": sides, "trip_difference": differences, "wildlife": wildlife}
+
+
+## Opening wildlife per player and group: count, straight tile distance from the
+## Town Center and real walking distance, plus the placement audit. Regression:
+## tools/test_wildlife_placement.gd.
+func _measure_wildlife(generator: MapGenerator, map: Node2D) -> Dictionary:
+	if not generator.has_method("validate_layout") or not ResourceLoader.exists("res://scripts/map/wildlife_placement.gd"):
+		return {}
+	var rows: Array[Dictionary] = WildlifePlacement.plan(generator)
+	var sides: Array[Dictionary] = [{}, {}]
+	for row: Dictionary in rows:
+		var side: int = int(row.side)
+		var spawn: Vector2i = generator.spawn_positions[side]
+		var from: Vector2 = map.call("tile_to_world", spawn + (Vector2i(1, 4) if side == 0 else Vector2i(4, 1)))
+		var route: PackedVector2Array = map.call("get_navigation_world_path", from, map.call("tile_to_world", row.tile), 4.0)
+		var group: Dictionary = sides[side].get(row.group, {"kind": row.kind, "count": 0, "tiles": [], "tile_distance": [], "walk_world": 0.0, "reachable": true})
+		group.count += 1
+		group.tiles.append([row.tile.x, row.tile.y])
+		group.tile_distance.append(snappedf(Vector2(row.tile - spawn).length(), 0.01))
+		group.walk_world += _route_length(from, route)
+		group.reachable = group.reachable and not route.is_empty()
+		sides[side][row.group] = group
+	var walk_ratio: Dictionary = {}
+	for group_name: String in sides[0]:
+		var first: float = float(sides[0][group_name].walk_world)
+		var second: float = float(sides[1].get(group_name, {}).get("walk_world", 0.0))
+		walk_ratio[group_name] = maxf(first, second) / maxf(0.01, minf(first, second))
+	return {"sides": sides, "walk_ratio": walk_ratio, "audit": WildlifePlacement.audit(generator, rows)}
 
 
 func _route_length(from: Vector2, route: PackedVector2Array) -> float:
@@ -123,7 +152,7 @@ func _route_length(from: Vector2, route: PackedVector2Array) -> float:
 
 func _source_hashes() -> Dictionary:
 	var hashes: Dictionary = {}
-	for path: String in ["scripts/map/map_generator.gd", "scripts/map/map_data.gd", "scripts/map/pathfinding.gd", "scripts/map/game_map.gd", "scripts/data/building_data.gd", "scripts/data/unit_data.gd", "scripts/main/main.gd", "tools/probe_map_opening_fairness.gd"]:
+	for path: String in ["scripts/map/map_generator.gd", "scripts/map/map_data.gd", "scripts/map/pathfinding.gd", "scripts/map/game_map.gd", "scripts/data/building_data.gd", "scripts/data/unit_data.gd", "scripts/main/main.gd", "tools/probe_map_opening_fairness.gd", "scripts/map/wildlife_placement.gd", "scripts/data/wildlife_data.gd"]:
 		var script: Script = load("res://" + path) as Script
 		hashes[path] = script.source_code.sha256_text()
 	return hashes

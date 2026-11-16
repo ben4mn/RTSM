@@ -1,0 +1,123 @@
+{
+  "runtime_revision": "383e0127da8349c4ee42d60d590ebf1350949100",
+  "observer_sha256": {
+    "tools/probe_late_economy_pacing.gd": "1becd687690e4a30a8c0f65a09fa7c7b60225d8e75077ac95a7f53fb88aa825c",
+    "tools/probe_late_economy_pacing.tscn": "269df2cbc0f8af175cf6cd9356755acff754cb97649e059fda4d7cfcaf191c7b",
+    "tools/fixtures/pacing_solo_save.gd": "ec06d7a703eea5cc475b85c96c49aa11de0f3a83b1c17670b4dc81e1a8a70082",
+    "tools/fixtures/pacing_sacred_continuation.gd": "f98509cd4399d1e446bd0ea5e650e9bacf63c0498ff30701a2fd5abc516138bf",
+    "tools/run_late_economy_pacing.py": "e3afade3e223581ee7e3b88e017e85f8114ac83b3a1a2870999e1b9aeccadf23"
+  },
+  "scope": "Sequential paid Standard 100 simulations, three starting workers, Crownlands both; difficulties listed per case and only Sacred conclusion suppressed; Town Center defeat retained; counterfactual, not a natural-duration sample. Headless/no render. Autosave disabled only by runner autoload override; not persistence, human or phone evidence.",
+  "requested_cases": [
+    [
+      1,
+      424242,
+      2,
+      2
+    ]
+  ],
+  "sacred_continuation": true,
+  "game_seconds_cap": 1500.0,
+  "wall_seconds_cap": 2400.0,
+  "runs": [
+    {
+      "case": "map1-seed424242-fixed60-scale1-difficulty2v2-sacred-continuation",
+      "style": 1,
+      "seed": 424242,
+      "scale": 1,
+      "difficulty_player0": 2,
+      "difficulty_player1": 2,
+      "game_step_seconds": 0.016666666666666666,
+      "command": [
+        "C:\\Users\\ben4m\\Documents\\Codex\\2026-10-23\\i-am-x20\\work\\tools\\godot-4.6\\Godot_v4.6-stable_win64_console.exe",
+        "--headless",
+        "--disable-render-loop",
+        "--fixed-fps",
+        "60",
+        "--max-fps",
+        "0",
+        "--path",
+        "C:\\Users\\ben4m\\Documents\\Codex\\2026-10-26\\improve-pocket-kingdoms-at-game-4mn\\work\\pacing-candidate-prolonged\\pocket-pacing-frozen-8r39vx1m",
+        "res://tools/probe_late_economy_pacing.tscn",
+        "--",
+        "--mode=0",
+        "--pop=100",
+        "--difficulty=2",
+        "--human-difficulty=2",
+        "--archetype=1",
+        "--seed=424242",
+        "--duration=1500.0",
+        "--output=C:\\Users\\ben4m\\Documents\\Codex\\2026-10-26\\improve-pocket-kingdoms-at-game-4mn\\work\\pacing-candidate-prolonged\\map1-seed424242-fixed60-scale1-difficulty2v2-sacred-continuation.json",
+        "--sacred-continuation"
+      ],
+      "user_dir": "pocket-pacing/97a51b4381644f1c89d9af1b94b441a1",
+      "report": "C:\\Users\\ben4m\\Documents\\Codex\\2026-10-26\\improve-pocket-kingdoms-at-game-4mn\\work\\pacing-candidate-prolonged\\map1-seed424242-fixed60-scale1-difficulty2v2-sacred-continuation.json",
+      "log": "C:\\Users\\ben4m\\Documents\\Codex\\2026-10-26\\improve-pocket-kingdoms-at-game-4mn\\work\\pacing-candidate-prolonged\\map1-seed424242-fixed60-scale1-difficulty2v2-sacred-continuation.log",
+      "partial": "C:\\Users\\ben4m\\Documents\\Codex\\2026-10-26\\improve-pocket-kingdoms-at-game-4mn\\work\\pacing-candidate-prolonged\\map1-seed424242-fixed60-scale1-difficulty2v2-sacred-continuation.json.partial.json",
+      "status": "counterfactual_game_time_cap",
+      "exit": 0,
+      "wall_seconds": 1986.844,
+      "diagnostics": [],
+      "log_sha256": "c67b22f833521747b2a0670f964046fcf378fc3ab10bddddd26e8597334eb16c",
+      "game_seconds": 1500.01666666563,
+      "winner": -1,
+      "victory_reason": "unresolved at 1500s",
+      "age_times": [
+        {
+          "1": 0.0,
+          "2": 160.000000000019,
+          "3": 483.999999999888
+        },
+        {
+          "1": 0.0,
+          "2": 156.000000000016,
+          "3": 550.999999999828
+        }
+      ],
+      "first_contact": 259.283333333426,
+      "late_totals": [
+        {
+          "farm_foundations": 3,
+          "farms_completed": 3,
+          "food_deposited_with_farm_job": 8551,
+          "post_foundations": 0,
+          "posts_completed": 0,
+          "trade_deliveries": 0,
+          "trade_gold": 0,
+          "traders_born": 0,
+          "traders_cancelled": 0,
+          "traders_queued": 0
+        },
+        {
+          "farm_foundations": 5,
+          "farms_completed": 5,
+          "food_deposited_with_farm_job": 8458,
+          "post_foundations": 0,
+          "posts_completed": 0,
+          "trade_deliveries": 0,
+          "trade_gold": 0,
+          "traders_born": 0,
+          "traders_cancelled": 0,
+          "traders_queued": 0
+        }
+      ],
+      "final_stock": {
+        "food": 510,
+        "gold": 832,
+        "wood": 1097
+      },
+      "report_sha256": "2146a7cd03a3b6b31525e0c4bb7a4d5ac23524cd3340a1f150c7586aab0a7fc8",
+      "last_persisted_game_seconds": 1500.01666666563,
+      "observer_performance": {
+        "frames": 90001,
+        "game_seconds": 1500.01666666563,
+        "measure_calls": 6976,
+        "observer_usec": 15118919,
+        "physics_ticks_per_second": 60,
+        "time_scale": 1.0,
+        "wall_seconds": 1980.857
+      }
+    }
+  ],
+  "project_config_sha256_before_private_user_dir": "35b3f6f27999f5f70710caaca5da5ecc8f53997eee6d666bb239c1f333cb5d4e"
+}

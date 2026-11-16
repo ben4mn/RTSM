@@ -1,0 +1,238 @@
+extends Node
+## Actual HUD targets and ScreenTouch production. Optional native render states.
+var failures: Array[String] = []
+var checks: int = 0
+var main: Node
+var hud: CanvasLayer
+var output: String = ""
+var rallies: int = 0
+func _ready() -> void: _run.call_deferred()
+func _run() -> void:
+	for argument: String in OS.get_cmdline_user_args():
+		if argument.begins_with("--output="): output = argument.trim_prefix("--output=")
+	AudioManager.set_all_enabled(false)
+	GameManager.guided_opening_enabled = false
+	GameManager.hold_shortcuts_enabled = true
+	GameManager.selected_map_seed = 424242
+	GameManager.selected_population_limit = 100
+	get_window().size = Vector2i(844,390)
+	get_window().content_scale_size = Vector2i(844,390)
+	get_window().content_scale_factor = 1.0
+	main = load("res://scenes/main/main.tscn").instantiate()
+	add_child(main)
+	for frame: int in 900:
+		if main.get("_building_placement") != null: break
+		await get_tree().process_frame
+	await _frames(4)
+	main.set_process(false)
+	main.get_node("AIController").process_mode = Node.PROCESS_MODE_DISABLED
+	main.get_node("StrategyController").set_process(false)
+	main.game_map.set_process(false)
+	for unit: Node in get_tree().get_nodes_in_group("units"): unit.set_process(false)
+	for building: Node in get_tree().get_nodes_in_group("buildings"): building.set_process(false)
+	hud = main.hud
+	var tc: BuildingBase = main._player_town_center
+	var queue: ProductionQueue = tc.get_production_queue()
+	queue.set_process(false)
+	ResourceManager._player_resources[0] = {"food": 10000, "wood": 10000, "gold": 10000}
+	GameManager.increase_population_cap(0, 80)
+	main.game_map.selection_mgr.select_single(tc)
+	await _frames(5)
+	var train: Button = hud._train_buttons_container.get_node("TrainButton_%s" % UnitData.UnitType.VILLAGER)
+	_expect(train.text.is_empty() and train.has_node("TilePortrait") and train.has_node("TileCosts"), "recruitment uses portrait and persistent numeric resource chips")
+	_expect(hud.selection_details.is_visible_in_tree() == false and not hud.selection_name.is_visible_in_tree(), "name and task paragraphs live behind portrait Info")
+	_expect(hud.command_scroll.get_global_rect().grow(0.5).encloses(hud._building_rally_button.get_global_rect()), "phone rally flag is fully exposed, not clipped by Queue")
+	await _assert_tiles_stay_put_across_feudal(tc)
+	train = hud._train_buttons_container.get_node("TrainButton_%s" % UnitData.UnitType.VILLAGER)
+	var expanded: float = hud.selection_panel.size.x
+	await _tap(hud._dock_toggle_button)
+	_expect(hud._dock_collapsed and not hud.command_scroll.visible and hud.selection_panel.size.x < expanded, "touch chevron collapses commands into portrait dock")
+	await _capture("collapsed")
+	await _tap(hud._dock_toggle_button)
+	_expect(not hud._dock_collapsed and hud.command_scroll.visible, "touch chevron restores actions")
+	await _tap(hud._selection_info_button)
+	_expect(hud.get_secondary_surface_name() == "info" and not hud._info_body.text.is_empty(), "portrait tap exposes full name and requirements")
+	hud.close_secondary_surface()
+	await _frames(3)
+	hud.building_rally_requested.connect(func(building: Node2D) -> void:
+		if building == tc: rallies += 1)
+	await _tap(hud._building_rally_button)
+	_expect(rallies == 1, "direct touch flag emits selected production building")
+	hud.set_rally_armed(true)
+	_expect(hud._building_rally_button.button_pressed, "armed rally is visibly selected")
+	hud.set_rally_armed(false)
+	if main.game_map.selection_mgr.has_method("cancel_building_rally"): main.game_map.selection_mgr.cancel_building_rally()
+	Input.emulate_touch_from_mouse = false
+	Input.emulate_mouse_from_touch = true
+	var before: int = ResourceManager.get_resource(0, "food")
+	var point: Vector2 = train.get_global_rect().get_center()
+	await _touch(50, point, true)
+	await get_tree().create_timer(1.8, true, false, true).timeout
+	var bought: int = queue.queue.size()
+	await _touch(50, point, false)
+	await _frames(3)
+	_expect(bought > 5 and queue.queue.size() == bought, "actual compact tile hold queues past five without a release extra buy (got %d)" % bought)
+	_expect(ResourceManager.get_resource(0,"food") == before - bought * int(UnitData.get_unit_cost(UnitData.UnitType.VILLAGER).food), "compact hold pays exactly once per queued unit")
+	await _capture("production")
+	for surface: String in ["economy", "army"]:
+		hud._strategy_overview.set_surface(surface)
+		hud._queue_mobile_layout_refresh()
+		await _frames(5)
+		_expect(hud._strategy_overview.panel.get_global_rect().end.x <= 844.5 and hud._strategy_overview.panel.get_global_rect().end.y <= 390.5, "icon sheet stays inside phone: " + surface)
+		await _capture(surface)
+		hud._strategy_overview.set_surface("")
+	await _check_trade_placement_strip()
+	get_window().size = Vector2i(1280,720)
+	get_window().content_scale_size = Vector2i(1280,720)
+	get_window().content_scale_factor = 1.0
+	await _frames(5)
+	hud.apply_mobile_layout(Vector2(1280,720), Rect2(0,0,1280,720))
+	await _frames(5)
+	_expect(hud.command_scroll.get_global_rect().grow(0.5).encloses(hud._building_rally_button.get_global_rect()), "desktop rally flag is fully exposed, not clipped by Queue")
+	await _capture("production")
+	await _check_trade_placement_strip()
+	var worker: UnitBase = main._player_units[0][0]
+	main.game_map.selection_mgr.select_single(worker)
+	await _frames(5)
+	for child: Node in hud._unit_command_container.get_children():
+		if child is Button and child.visible: _expect(hud.command_scroll.get_global_rect().grow(0.5).encloses(child.get_global_rect()), "desktop unit action fully exposed: " + child.name)
+	await _capture("worker")
+	get_window().size = Vector2i(844,390)
+	get_window().content_scale_size = Vector2i(844,390)
+	get_window().content_scale_factor = 1.0
+	await _frames(5)
+	hud.set_save_status({"state":"saved"})
+	hud.set_pause_display(true)
+	await _frames(4)
+	_expect(hud._pause_overlay.get_node_or_null("PauseMenu/SaveAndExitButton") != null and hud._save_status_label.text == "Saved", "solo pause offers save-and-exit and saved status")
+	_expect(hud._pause_overlay.get_node_or_null("PauseMenu/DepartureRow/QuitButton") == null, "solo exit has one save-first action")
+	# Beta 27/28: Lessons is the fourth round tool beside Settings, Guide and
+	# Report, never a lone row of its own.
+	var lessons: Button = hud._pause_overlay.get_node_or_null("PauseMenu/UtilityRow/MatchLearningButton")
+	var settings_tool: Button = hud._pause_overlay.get_node_or_null("PauseMenu/UtilityRow/SettingsButton")
+	_expect(lessons != null and lessons.visible and hud._pause_overlay.get_node_or_null("PauseMenu/DepartureRow") == null, "solo Lessons sits in the round-tool row")
+	if lessons != null and settings_tool != null:
+		_expect(absf(lessons.get_global_rect().get_center().y - settings_tool.get_global_rect().get_center().y) < 1.0 and lessons.size.y >= 48.0 and lessons.size.x >= 48.0, "Lessons shares the tool row at a 48px target")
+		_expect(hud._pause_overlay.get_node("PauseMenu/UtilityRow").size.x <= hud.PAUSE_MENU_WIDTH + 24.5, "four round tools fit the card width")
+	hud.set_save_status({"state":"saving"})
+	_expect(hud._save_exit_button.disabled, "pending save prevents duplicate save-exit requests")
+	var storage_error := "Could not save. Storage may be full or blocked, or this save changed in another window. Keep the game open and retry; the previous save is kept."
+	hud.set_save_status({"state":"failed", "error":storage_error})
+	await _frames(6)
+	_expect(not hud._save_exit_button.disabled and hud._save_status_label.text == storage_error, "failed save is visibly explained and remains retryable")
+	_expect(hud._save_status_label.size.x <= 320.5 and hud._save_status_label.get_line_count() >= 2, "long failure wraps within 320px")
+	_expect(hud._save_status_label.get_visible_line_count() == hud._save_status_label.get_line_count(), "every failure line is visible")
+	var screen := get_viewport().get_visible_rect()
+	_expect(screen.encloses(hud._pause_overlay.get_node("PauseFrame").get_global_rect()), "phone pause failure frame stays on screen")
+	# Beta 27 folded Lessons into the round-tool row, so solo play has no
+	# DepartureRow; the tool row is now the card's last action row.
+	_expect(screen.encloses(hud._pause_overlay.get_node("PauseMenu/UtilityRow").get_global_rect()), "phone pause failure keeps last action on screen")
+	await _capture("pause-save")
+	hud._pause_overlay.free()
+	hud._pause_overlay = null
+	NetworkSession.online = true
+	hud._create_pause_overlay()
+	await _frames(4)
+	var leave: Button = hud._pause_overlay.get_node_or_null("PauseMenu/DepartureRow/QuitButton")
+	_expect(leave != null and leave.text == "Leave match", "online pause retains Leave match")
+	_expect(hud._pause_overlay.get_node_or_null("PauseMenu/SaveAndExitButton") == null, "online pause does not offer solo save")
+	await _capture("pause-online")
+	NetworkSession.online = false
+	get_tree().paused = false
+	main.queue_free()
+	await _frames(1)
+	for failure: String in failures: push_error("[FAIL] compact_dock: " + failure)
+	print(JSON.stringify({"test":"compact_dock", "checks":checks, "failures":failures}))
+	get_tree().quit(0 if failures.is_empty() else 1)
+
+func _check_trade_placement_strip() -> void:
+	hud.set_placement_input_mode(true)
+	hud.set_placement_mode(true, "Trade Post")
+	var hint := "Up to 60 gold / trip · clear road needed"
+	hud.update_placement_preview(true, hint)
+	await _frames(5)
+	var label: Label = hud._placement_status_label
+	var text_width: float = label.get_theme_font("font").get_string_size(hint, HORIZONTAL_ALIGNMENT_LEFT, -1, label.get_theme_font_size("font_size")).x
+	_expect(label.text == hint and text_width <= label.size.x, "complete trade estimate fits existing status strip without ellipsis")
+	_expect(get_viewport().get_visible_rect().encloses(hud._placement_status_panel.get_global_rect()), "trade status strip stays inside viewport")
+	await _capture("trade-preview")
+	hud.update_placement_preview(true, "Move farther from town")
+	_expect(not hud._placement_confirm_button.disabled and label.text == "Move farther from town", "near-town warning stays advisory and does not prohibit legal placement")
+	hud.update_placement_preview(false, "Move all tiles into sight")
+	_expect(hud._placement_confirm_button.disabled and label.text.contains("Move all tiles into sight"), "fog warning replaces estimate and blocks confirmation")
+	hud.set_placement_mode(false)
+	hud.set_placement_input_mode(false)
+	await _frames(3)
+
+func _touch(id: int, point: Vector2, down: bool) -> void:
+	var event := InputEventScreenTouch.new()
+	event.index = id
+	event.position = get_viewport().get_final_transform() * point
+	event.pressed = down
+	Input.parse_input_event(event)
+	await _frames(2)
+func _tap(button: Button) -> void:
+	Input.emulate_mouse_from_touch = true
+	await _touch(42, button.get_global_rect().get_center(), true)
+	await _touch(42, button.get_global_rect().get_center(), false)
+	await _frames(4)
+## Playtest regression: Feudal added "Barrow" to the Town Center bar and the
+## right-anchored bar grew leftward, so repeated taps on Villager queued Scouts.
+## Recruitment tiles and the portrait keep their screen x when research tiles
+## appear; the same holds for a Barracks gaining Man-at-Arms.
+func _assert_tiles_stay_put_across_feudal(tc: BuildingBase) -> void:
+	var barracks: BuildingBase = load("res://scenes/buildings/barracks.tscn").instantiate()
+	barracks.player_owner = 0
+	barracks.position = tc.position + Vector2(220, 120)
+	main.game_map.add_child(barracks)
+	barracks.state = BuildingBase.State.ACTIVE
+	barracks.set_process(false)
+	var cases: Array = [[tc, [UnitData.UnitType.VILLAGER, UnitData.UnitType.SCOUT]], [barracks, [UnitData.UnitType.INFANTRY]]]
+	var before: Dictionary = {}
+	for entry: Array in cases:
+		main.game_map.selection_mgr.select_single(entry[0])
+		main._on_selection_changed(main.game_map.selection_mgr.selected)
+		await _frames(5)
+		for unit_type: int in entry[1]:
+			before["%s:%d" % [entry[0].name, unit_type]] = (hud._train_buttons_container.get_node("TrainButton_%s" % unit_type) as Control).get_global_rect().position.x
+		before["%s:portrait" % entry[0].name] = (hud.selection_info_column as Control).get_global_rect().position.x
+	var tech_before: Array = [hud._context_actions_for(tc).size(), hud._context_actions_for(barracks).size()]
+	_expect(GameManager.advance_age(0) and GameManager.get_player_age(0) == 2, "fixture reaches Feudal")
+	for entry: Array in cases:
+		main.game_map.selection_mgr.select_single(entry[0])
+		main._on_selection_changed(main.game_map.selection_mgr.selected)
+		await _frames(5)
+		for unit_type: int in entry[1]:
+			var key: String = "%s:%d" % [entry[0].name, unit_type]
+			var after_x: float = (hud._train_buttons_container.get_node("TrainButton_%s" % unit_type) as Control).get_global_rect().position.x
+			_expect(is_equal_approx(after_x, float(before[key])), "%s tile keeps its screen x across Feudal (%.1f -> %.1f)" % [key, float(before[key]), after_x])
+		var portrait_x: float = (hud.selection_info_column as Control).get_global_rect().position.x
+		_expect(is_equal_approx(portrait_x, float(before["%s:portrait" % entry[0].name])), "%s portrait keeps its screen x across Feudal" % entry[0].name)
+	var tech_after: Array = [hud._context_actions_for(tc).size(), hud._context_actions_for(barracks).size()]
+	_expect(tech_after[0] > tech_before[0], "Feudal really added a Town Center bar action (%s -> %s)" % [str(tech_before), str(tech_after)])
+	main.game_map.selection_mgr.select_single(tc)
+	main._on_selection_changed(main.game_map.selection_mgr.selected)
+	await _frames(5)
+	_expect(_research_tiles() > 0, "Town Center bar shows Feudal research")
+
+
+func _research_tiles() -> int:
+	var count: int = 0
+	for container: Node in [hud._train_buttons_container, hud._research_container]:
+		if container != null:
+			for child: Node in container.get_children():
+				if child is Control and (child as Control).visible and str(child.name).begins_with("ResearchButton_"):
+					count += 1
+	return count
+
+
+func _frames(count: int) -> void:
+	for frame: int in count: await get_tree().process_frame
+func _capture(label: String) -> void:
+	if output.is_empty() or DisplayServer.get_name() == "headless": return
+	DirAccess.make_dir_recursive_absolute(output)
+	await RenderingServer.frame_post_draw
+	get_viewport().get_texture().get_image().save_png(output.path_join("%dx%d-%s.png" % [get_window().size.x, get_window().size.y, label]))
+func _expect(ok: bool, message: String) -> void:
+	checks += 1
+	if not ok: failures.append(message)

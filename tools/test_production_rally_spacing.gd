@@ -52,10 +52,13 @@ func _run() -> void:
 	var rm: Node = root.get_node("ResourceManager")
 	var before: Dictionary = {"food":rm.call("get_resource",0,"food"),"wood":rm.call("get_resource",0,"wood"),"gold":rm.call("get_resource",0,"gold")}
 	var cost: Dictionary = UnitData.get_unit_cost(4)
+	# Five villagers and the starting Scout nearly fill the opening housing;
+	# a built House's worth of room isolates the rally under test.
+	root.get_node("GameManager").call("increase_population_cap", 0, 10)
 	var accepted: int = 0
 	for i: int in range(5):
 		if pq.enqueue_unit(4): accepted += 1
-	_expect(accepted == 5, "five Scouts paid from normal initial resources")
+	_expect(accepted == 5, "five Scouts paid from normal initial resources (with one House of room)")
 	for i: int in range(5):
 		pq.advance(float(pq.get("current_train_time")))
 	var scouts: Array[Node2D] = []

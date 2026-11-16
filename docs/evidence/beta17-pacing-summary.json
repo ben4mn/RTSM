@@ -1,0 +1,1191 @@
+{
+  "schema": 1,
+  "candidate_runtime_revision": "d64bcb675e6fc45be7ad643222b69aa52967f008",
+  "scope": "One previous-runtime baseline and three bounded candidate simulations; no human average or exhaustive strategy-balance claim.",
+  "simulation_contract": {
+    "fixed_fps": 60,
+    "time_scale": 3,
+    "effective_step_seconds": 0.05,
+    "population_limit": 100,
+    "starting_workers_per_player": 3,
+    "difficulty_both": "Medium",
+    "game_mode": "Standard",
+    "natural_victory_enabled": true,
+    "private_preferences": true,
+    "autosave_disabled_only_in_pacing_harness": true,
+    "free_income_or_units": false,
+    "forced_orders_or_results": false
+  },
+  "runs": {
+    "baseline-river": {
+      "runtime_revision": "877abd45ed661ddf851e843407f0ea84b63b5138",
+      "observer_sha256": {
+        "tools/probe_ai_compact_paid_match.gd": "c844ec4d3ae9ee09e6a2cda973f69ad339c4bef440107d9f584500a4856f97db",
+        "tools/probe_late_economy_pacing.gd": "743a8cf678755fccbb84ad135b072952dd28c294a9880ce6b7eda2577eb4173a",
+        "tools/probe_late_economy_pacing.tscn": "269df2cbc0f8af175cf6cd9356755acff754cb97649e059fda4d7cfcaf191c7b",
+        "tools/fixtures/pacing_solo_save.gd": "ec06d7a703eea5cc475b85c96c49aa11de0f3a83b1c17670b4dc81e1a8a70082",
+        "tools/fixtures/pacing_sacred_continuation.gd": "f98509cd4399d1e446bd0ea5e650e9bacf63c0498ff30701a2fd5abc516138bf",
+        "tools/run_late_economy_pacing.py": "910c691c4bac4ddcad215c9c6a1b620f969e83f7bd5eb1c99df5c4d88a8efa14"
+      },
+      "status": "natural_completed",
+      "engine_exit": 0,
+      "diagnostics": [],
+      "complete_report": true,
+      "observed_game_seconds": 1132.36666666618,
+      "wall_seconds": 990.344,
+      "game_time_cap_seconds": 1500.0,
+      "wall_time_cap_seconds": 1500.0,
+      "seed": 424242,
+      "style_id": 1,
+      "winner": 1,
+      "victory_reason": "Sacred Site held for 6:00",
+      "duration_interpretation": "Completed natural outcome",
+      "first_contact_seconds": 183.166666666674,
+      "age_times": [
+        {
+          "1": 0.0,
+          "2": 156.016666666668,
+          "3": 624.016666666647
+        },
+        {
+          "1": 0.0,
+          "2": 151.516666666667,
+          "3": 450.016666666735
+        }
+      ],
+      "players": [
+        {
+          "civilization_id": 0,
+          "civilization_name": "French",
+          "opening_strategy": null,
+          "first_post_foundation_seconds": null,
+          "first_completed_post_seconds": null,
+          "first_paid_trader_queue_seconds": null,
+          "first_trader_birth_seconds": null,
+          "first_delivery_seconds": null,
+          "lifetime_totals": {
+            "farm_foundations": 3,
+            "farms_completed": 3,
+            "food_deposited_with_farm_job": 5755,
+            "post_foundations": 0,
+            "posts_completed": 0,
+            "trade_deliveries": 0,
+            "trade_gold": 0,
+            "traders_born": 0,
+            "traders_cancelled": 0,
+            "traders_queued": 0
+          },
+          "final_bank": {
+            "food": 497,
+            "gold": 425,
+            "wood": 18
+          },
+          "final_staffed_farms": 3,
+          "final_active_towns": null,
+          "peak_sampled_active_towns": null,
+          "first_observed_second_active_town_seconds": null,
+          "town_observation_scope": "Missing: baseline observer did not record active Town Centers or opening profiles."
+        },
+        {
+          "civilization_id": 1,
+          "civilization_name": "English",
+          "opening_strategy": null,
+          "first_post_foundation_seconds": null,
+          "first_completed_post_seconds": null,
+          "first_paid_trader_queue_seconds": null,
+          "first_trader_birth_seconds": null,
+          "first_delivery_seconds": null,
+          "lifetime_totals": {
+            "farm_foundations": 4,
+            "farms_completed": 4,
+            "food_deposited_with_farm_job": 6838,
+            "post_foundations": 0,
+            "posts_completed": 0,
+            "trade_deliveries": 0,
+            "trade_gold": 0,
+            "traders_born": 0,
+            "traders_cancelled": 0,
+            "traders_queued": 0
+          },
+          "final_bank": {
+            "food": 3306,
+            "gold": 943,
+            "wood": 5
+          },
+          "final_staffed_farms": 4,
+          "final_active_towns": null,
+          "peak_sampled_active_towns": null,
+          "first_observed_second_active_town_seconds": null,
+          "town_observation_scope": "Missing: baseline observer did not record active Town Centers or opening profiles."
+        }
+      ],
+      "final_sample_seconds": 1132.36666666618,
+      "final_finite_stock": {
+        "food": 1040,
+        "gold": 2217,
+        "wood": 3172
+      },
+      "twenty_minute_or_later_samples": [],
+      "simulation": {
+        "map_height": 88,
+        "map_width": 88,
+        "physics_ticks_per_second": 60,
+        "time_scale": 3.0
+      },
+      "late_performance": {
+        "frames": 22648,
+        "game_seconds": 1132.36666666618,
+        "measure_calls": 4939,
+        "observer_usec": 6874372,
+        "physics_ticks_per_second": 60,
+        "time_scale": 3.0,
+        "wall_seconds": 985.368
+      }
+    },
+    "candidate-river": {
+      "runtime_revision": "d64bcb675e6fc45be7ad643222b69aa52967f008",
+      "observer_sha256": {
+        "tools/probe_ai_compact_paid_match.gd": "c844ec4d3ae9ee09e6a2cda973f69ad339c4bef440107d9f584500a4856f97db",
+        "tools/probe_late_economy_pacing.gd": "a5da07b30b7bd671efd913a7575117367777cad3ec98ef3bd4f42426b01e898f",
+        "tools/probe_late_economy_pacing.tscn": "269df2cbc0f8af175cf6cd9356755acff754cb97649e059fda4d7cfcaf191c7b",
+        "tools/fixtures/pacing_solo_save.gd": "ec06d7a703eea5cc475b85c96c49aa11de0f3a83b1c17670b4dc81e1a8a70082",
+        "tools/fixtures/pacing_sacred_continuation.gd": "f98509cd4399d1e446bd0ea5e650e9bacf63c0498ff30701a2fd5abc516138bf",
+        "tools/run_late_economy_pacing.py": "910c691c4bac4ddcad215c9c6a1b620f969e83f7bd5eb1c99df5c4d88a8efa14"
+      },
+      "status": "game_time_cap",
+      "engine_exit": 0,
+      "diagnostics": [],
+      "complete_report": true,
+      "observed_game_seconds": 1500.01666666585,
+      "wall_seconds": 1458.172,
+      "game_time_cap_seconds": 1500.0,
+      "wall_time_cap_seconds": 1500.0,
+      "seed": 424242,
+      "style_id": 1,
+      "winner": -1,
+      "victory_reason": "unresolved at 1500s",
+      "duration_interpretation": "Censored/unresolved; observed time is not a completed match duration.",
+      "first_contact_seconds": 183.166666666674,
+      "age_times": [
+        {
+          "1": 0.0,
+          "2": 156.016666666668,
+          "3": 564.016666666702
+        },
+        {
+          "1": 0.0,
+          "2": 151.516666666667,
+          "3": 531.016666666732
+        }
+      ],
+      "players": [
+        {
+          "civilization_id": 0,
+          "civilization_name": "French",
+          "opening_strategy": "two_tc_boom",
+          "first_post_foundation_seconds": 366.016666666716,
+          "first_completed_post_seconds": 388.066666666721,
+          "first_paid_trader_queue_seconds": 471.01666666674,
+          "first_trader_birth_seconds": 493.016666666745,
+          "first_delivery_seconds": 524.266666666738,
+          "lifetime_totals": {
+            "farm_foundations": 6,
+            "farms_completed": 6,
+            "food_deposited_with_farm_job": 10975,
+            "post_foundations": 1,
+            "posts_completed": 1,
+            "trade_deliveries": 45,
+            "trade_gold": 1125,
+            "traders_born": 1,
+            "traders_cancelled": 0,
+            "traders_queued": 1
+          },
+          "final_bank": {
+            "food": 4249,
+            "gold": 1118,
+            "wood": 65
+          },
+          "final_staffed_farms": 4,
+          "final_active_towns": 2,
+          "peak_sampled_active_towns": 2,
+          "first_observed_second_active_town_seconds": 360.466666666714,
+          "town_observation_scope": "60-game-second sampled observations; first sighting is not an exact completion timestamp"
+        },
+        {
+          "civilization_id": 1,
+          "civilization_name": "English",
+          "opening_strategy": "feudal_pressure",
+          "first_post_foundation_seconds": null,
+          "first_completed_post_seconds": null,
+          "first_paid_trader_queue_seconds": null,
+          "first_trader_birth_seconds": null,
+          "first_delivery_seconds": null,
+          "lifetime_totals": {
+            "farm_foundations": 4,
+            "farms_completed": 4,
+            "food_deposited_with_farm_job": 9658,
+            "post_foundations": 0,
+            "posts_completed": 0,
+            "trade_deliveries": 0,
+            "trade_gold": 0,
+            "traders_born": 0,
+            "traders_cancelled": 0,
+            "traders_queued": 0
+          },
+          "final_bank": {
+            "food": 2830,
+            "gold": 187,
+            "wood": 146
+          },
+          "final_staffed_farms": 4,
+          "final_active_towns": 1,
+          "peak_sampled_active_towns": 1,
+          "first_observed_second_active_town_seconds": null,
+          "town_observation_scope": "60-game-second sampled observations; first sighting is not an exact completion timestamp"
+        }
+      ],
+      "final_sample_seconds": 1500.01666666585,
+      "final_finite_stock": {
+        "food": 951,
+        "gold": 1357,
+        "wood": 983
+      },
+      "twenty_minute_or_later_samples": [
+        {
+          "players": [
+            {
+              "active_farms": 6,
+              "active_posts": 1,
+              "active_towns": 2,
+              "age": 3,
+              "bank": {
+                "food": 1704,
+                "gold": 773,
+                "wood": 21
+              },
+              "lifetime": {
+                "farm_foundations": 6,
+                "farms_completed": 6,
+                "food_deposited_with_farm_job": 7825,
+                "post_foundations": 1,
+                "posts_completed": 1,
+                "trade_deliveries": 31,
+                "trade_gold": 775,
+                "traders_born": 1,
+                "traders_cancelled": 0,
+                "traders_queued": 1
+              },
+              "opening_strategy": "two_tc_boom",
+              "staffed_farms": 6,
+              "trade_policy": {
+                "capital": {},
+                "capital_until": 0.0,
+                "clock": 1203.36666666612,
+                "cursor": 71,
+                "gold_bank_target": 400,
+                "next_check": 1205.01666666614,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": [
+                {
+                  "cargo": 25,
+                  "delivered": 775,
+                  "route_active": true,
+                  "status": "Returning \u00b7 25 gold aboard"
+                }
+              ]
+            },
+            {
+              "active_farms": 4,
+              "active_posts": 0,
+              "active_towns": 1,
+              "age": 3,
+              "bank": {
+                "food": 2011,
+                "gold": 457,
+                "wood": 46
+              },
+              "lifetime": {
+                "farm_foundations": 4,
+                "farms_completed": 4,
+                "food_deposited_with_farm_job": 7318,
+                "post_foundations": 0,
+                "posts_completed": 0,
+                "trade_deliveries": 0,
+                "trade_gold": 0,
+                "traders_born": 0,
+                "traders_cancelled": 0,
+                "traders_queued": 0
+              },
+              "opening_strategy": "feudal_pressure",
+              "staffed_farms": 4,
+              "trade_policy": {
+                "capital": {},
+                "capital_until": 0.0,
+                "clock": 1203.36666666612,
+                "cursor": 148,
+                "gold_bank_target": 400,
+                "next_check": 1221.51666666612,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": []
+            }
+          ],
+          "time": 1203.36666666612,
+          "whole_map_remaining_audit_only": {
+            "food": 1325,
+            "gold": 1357,
+            "wood": 2022
+          }
+        },
+        {
+          "players": [
+            {
+              "active_farms": 6,
+              "active_posts": 1,
+              "active_towns": 2,
+              "age": 3,
+              "bank": {
+                "food": 2574,
+                "gold": 848,
+                "wood": 21
+              },
+              "lifetime": {
+                "farm_foundations": 6,
+                "farms_completed": 6,
+                "food_deposited_with_farm_job": 8515,
+                "post_foundations": 1,
+                "posts_completed": 1,
+                "trade_deliveries": 34,
+                "trade_gold": 850,
+                "traders_born": 1,
+                "traders_cancelled": 0,
+                "traders_queued": 1
+              },
+              "opening_strategy": "two_tc_boom",
+              "staffed_farms": 6,
+              "trade_policy": {
+                "capital": {},
+                "capital_until": 0.0,
+                "clock": 1263.61666666607,
+                "cursor": 71,
+                "gold_bank_target": 400,
+                "next_check": 1268.01666666608,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": [
+                {
+                  "cargo": 0,
+                  "delivered": 850,
+                  "route_active": true,
+                  "status": "Travelling to Trade Post \u00b7 25 gold per round trip"
+                }
+              ]
+            },
+            {
+              "active_farms": 4,
+              "active_posts": 0,
+              "active_towns": 1,
+              "age": 3,
+              "bank": {
+                "food": 1771,
+                "gold": 347,
+                "wood": 36
+              },
+              "lifetime": {
+                "farm_foundations": 4,
+                "farms_completed": 4,
+                "food_deposited_with_farm_job": 7768,
+                "post_foundations": 0,
+                "posts_completed": 0,
+                "trade_deliveries": 0,
+                "trade_gold": 0,
+                "traders_born": 0,
+                "traders_cancelled": 0,
+                "traders_queued": 0
+              },
+              "opening_strategy": "feudal_pressure",
+              "staffed_farms": 4,
+              "trade_policy": {
+                "capital": {},
+                "capital_until": 0.0,
+                "clock": 1263.61666666607,
+                "cursor": 148,
+                "gold_bank_target": 400,
+                "next_check": 1263.51666666608,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": []
+            }
+          ],
+          "time": 1263.61666666607,
+          "whole_map_remaining_audit_only": {
+            "food": 1111,
+            "gold": 1357,
+            "wood": 1869
+          }
+        },
+        {
+          "players": [
+            {
+              "active_farms": 6,
+              "active_posts": 1,
+              "active_towns": 2,
+              "age": 3,
+              "bank": {
+                "food": 3414,
+                "gold": 1006,
+                "wood": 21
+              },
+              "lifetime": {
+                "farm_foundations": 6,
+                "farms_completed": 6,
+                "food_deposited_with_farm_job": 9175,
+                "post_foundations": 1,
+                "posts_completed": 1,
+                "trade_deliveries": 37,
+                "trade_gold": 925,
+                "traders_born": 1,
+                "traders_cancelled": 0,
+                "traders_queued": 1
+              },
+              "opening_strategy": "two_tc_boom",
+              "staffed_farms": 6,
+              "trade_policy": {
+                "capital": {},
+                "capital_until": 0.0,
+                "clock": 1323.86666666601,
+                "cursor": 71,
+                "gold_bank_target": 400,
+                "next_check": 1331.01666666602,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": [
+                {
+                  "cargo": 0,
+                  "delivered": 925,
+                  "route_active": true,
+                  "status": "Travelling to Trade Post \u00b7 25 gold per round trip"
+                }
+              ]
+            },
+            {
+              "active_farms": 4,
+              "active_posts": 0,
+              "active_towns": 1,
+              "age": 3,
+              "bank": {
+                "food": 2130,
+                "gold": 327,
+                "wood": 66
+              },
+              "lifetime": {
+                "farm_foundations": 4,
+                "farms_completed": 4,
+                "food_deposited_with_farm_job": 8248,
+                "post_foundations": 0,
+                "posts_completed": 0,
+                "trade_deliveries": 0,
+                "trade_gold": 0,
+                "traders_born": 0,
+                "traders_cancelled": 0,
+                "traders_queued": 0
+              },
+              "opening_strategy": "feudal_pressure",
+              "staffed_farms": 4,
+              "trade_policy": {
+                "capital": {},
+                "capital_until": 0.0,
+                "clock": 1323.86666666601,
+                "cursor": 148,
+                "gold_bank_target": 400,
+                "next_check": 1326.51666666603,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": []
+            }
+          ],
+          "time": 1323.86666666601,
+          "whole_map_remaining_audit_only": {
+            "food": 959,
+            "gold": 1357,
+            "wood": 1705
+          }
+        },
+        {
+          "players": [
+            {
+              "active_farms": 6,
+              "active_posts": 1,
+              "active_towns": 2,
+              "age": 3,
+              "bank": {
+                "food": 4058,
+                "gold": 1140,
+                "wood": 137
+              },
+              "lifetime": {
+                "farm_foundations": 6,
+                "farms_completed": 6,
+                "food_deposited_with_farm_job": 9775,
+                "post_foundations": 1,
+                "posts_completed": 1,
+                "trade_deliveries": 39,
+                "trade_gold": 975,
+                "traders_born": 1,
+                "traders_cancelled": 0,
+                "traders_queued": 1
+              },
+              "opening_strategy": "two_tc_boom",
+              "staffed_farms": 5,
+              "trade_policy": {
+                "capital": {},
+                "capital_until": 0.0,
+                "clock": 1384.11666666596,
+                "cursor": 71,
+                "gold_bank_target": 400,
+                "next_check": 1394.01666666597,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": [
+                {
+                  "cargo": 25,
+                  "delivered": 975,
+                  "route_active": true,
+                  "status": "Returning \u00b7 25 gold aboard"
+                }
+              ]
+            },
+            {
+              "active_farms": 4,
+              "active_posts": 0,
+              "active_towns": 1,
+              "age": 3,
+              "bank": {
+                "food": 2100,
+                "gold": 227,
+                "wood": 81
+              },
+              "lifetime": {
+                "farm_foundations": 4,
+                "farms_completed": 4,
+                "food_deposited_with_farm_job": 8728,
+                "post_foundations": 0,
+                "posts_completed": 0,
+                "trade_deliveries": 0,
+                "trade_gold": 0,
+                "traders_born": 0,
+                "traders_cancelled": 0,
+                "traders_queued": 0
+              },
+              "opening_strategy": "feudal_pressure",
+              "staffed_farms": 4,
+              "trade_policy": {
+                "capital": {
+                  "gold": 40,
+                  "wood": 260
+                },
+                "capital_until": 1391.51666666597,
+                "clock": 1384.11666666596,
+                "cursor": 164,
+                "gold_bank_target": 400,
+                "next_check": 1389.51666666597,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": []
+            }
+          ],
+          "time": 1384.11666666596,
+          "whole_map_remaining_audit_only": {
+            "food": 951,
+            "gold": 1357,
+            "wood": 1434
+          }
+        },
+        {
+          "players": [
+            {
+              "active_farms": 6,
+              "active_posts": 1,
+              "active_towns": 2,
+              "age": 3,
+              "bank": {
+                "food": 3677,
+                "gold": 1043,
+                "wood": 8
+              },
+              "lifetime": {
+                "farm_foundations": 6,
+                "farms_completed": 6,
+                "food_deposited_with_farm_job": 10405,
+                "post_foundations": 1,
+                "posts_completed": 1,
+                "trade_deliveries": 42,
+                "trade_gold": 1050,
+                "traders_born": 1,
+                "traders_cancelled": 0,
+                "traders_queued": 1
+              },
+              "opening_strategy": "two_tc_boom",
+              "staffed_farms": 5,
+              "trade_policy": {
+                "capital": {},
+                "capital_until": 0.0,
+                "clock": 1444.3666666659,
+                "cursor": 71,
+                "gold_bank_target": 400,
+                "next_check": 1457.01666666591,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": [
+                {
+                  "cargo": 25,
+                  "delivered": 1050,
+                  "route_active": true,
+                  "status": "Returning \u00b7 25 gold aboard"
+                }
+              ]
+            },
+            {
+              "active_farms": 4,
+              "active_posts": 0,
+              "active_towns": 1,
+              "age": 3,
+              "bank": {
+                "food": 2350,
+                "gold": 187,
+                "wood": 36
+              },
+              "lifetime": {
+                "farm_foundations": 4,
+                "farms_completed": 4,
+                "food_deposited_with_farm_job": 9178,
+                "post_foundations": 0,
+                "posts_completed": 0,
+                "trade_deliveries": 0,
+                "trade_gold": 0,
+                "traders_born": 0,
+                "traders_cancelled": 0,
+                "traders_queued": 0
+              },
+              "opening_strategy": "feudal_pressure",
+              "staffed_farms": 4,
+              "trade_policy": {
+                "capital": {},
+                "capital_until": 0.0,
+                "clock": 1444.3666666659,
+                "cursor": 179,
+                "gold_bank_target": 400,
+                "next_check": 1452.51666666591,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": []
+            }
+          ],
+          "time": 1444.3666666659,
+          "whole_map_remaining_audit_only": {
+            "food": 951,
+            "gold": 1357,
+            "wood": 1138
+          }
+        },
+        {
+          "players": [
+            {
+              "active_farms": 6,
+              "active_posts": 1,
+              "active_towns": 2,
+              "age": 3,
+              "bank": {
+                "food": 4249,
+                "gold": 1118,
+                "wood": 65
+              },
+              "lifetime": {
+                "farm_foundations": 6,
+                "farms_completed": 6,
+                "food_deposited_with_farm_job": 10975,
+                "post_foundations": 1,
+                "posts_completed": 1,
+                "trade_deliveries": 45,
+                "trade_gold": 1125,
+                "traders_born": 1,
+                "traders_cancelled": 0,
+                "traders_queued": 1
+              },
+              "opening_strategy": "two_tc_boom",
+              "staffed_farms": 4,
+              "trade_policy": {
+                "capital": {},
+                "capital_until": 0.0,
+                "clock": 1500.01666666585,
+                "cursor": 71,
+                "gold_bank_target": 400,
+                "next_check": 1520.01666666585,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": [
+                {
+                  "cargo": 0,
+                  "delivered": 1125,
+                  "route_active": true,
+                  "status": "Travelling to Trade Post \u00b7 25 gold per round trip"
+                }
+              ]
+            },
+            {
+              "active_farms": 4,
+              "active_posts": 0,
+              "active_towns": 1,
+              "age": 3,
+              "bank": {
+                "food": 2830,
+                "gold": 187,
+                "wood": 146
+              },
+              "lifetime": {
+                "farm_foundations": 4,
+                "farms_completed": 4,
+                "food_deposited_with_farm_job": 9658,
+                "post_foundations": 0,
+                "posts_completed": 0,
+                "trade_deliveries": 0,
+                "trade_gold": 0,
+                "traders_born": 0,
+                "traders_cancelled": 0,
+                "traders_queued": 0
+              },
+              "opening_strategy": "feudal_pressure",
+              "staffed_farms": 4,
+              "trade_policy": {
+                "capital": {
+                  "gold": 40,
+                  "wood": 260
+                },
+                "capital_until": 1517.51666666585,
+                "clock": 1500.01666666585,
+                "cursor": 195,
+                "gold_bank_target": 400,
+                "next_check": 1515.51666666585,
+                "under_pressure": false,
+                "worker_recovery": false
+              },
+              "traders": []
+            }
+          ],
+          "time": 1500.01666666585,
+          "whole_map_remaining_audit_only": {
+            "food": 951,
+            "gold": 1357,
+            "wood": 983
+          }
+        }
+      ],
+      "simulation": {
+        "map_height": 88,
+        "map_width": 88,
+        "physics_ticks_per_second": 60,
+        "time_scale": 3.0
+      },
+      "late_performance": {
+        "frames": 30001,
+        "game_seconds": 1500.01666666585,
+        "measure_calls": 6410,
+        "observer_usec": 9674982,
+        "physics_ticks_per_second": 60,
+        "time_scale": 3.0,
+        "wall_seconds": 1450.565
+      }
+    },
+    "candidate-golden": {
+      "runtime_revision": "d64bcb675e6fc45be7ad643222b69aa52967f008",
+      "observer_sha256": {
+        "tools/probe_ai_compact_paid_match.gd": "c844ec4d3ae9ee09e6a2cda973f69ad339c4bef440107d9f584500a4856f97db",
+        "tools/probe_late_economy_pacing.gd": "a5da07b30b7bd671efd913a7575117367777cad3ec98ef3bd4f42426b01e898f",
+        "tools/probe_late_economy_pacing.tscn": "269df2cbc0f8af175cf6cd9356755acff754cb97649e059fda4d7cfcaf191c7b",
+        "tools/fixtures/pacing_solo_save.gd": "ec06d7a703eea5cc475b85c96c49aa11de0f3a83b1c17670b4dc81e1a8a70082",
+        "tools/fixtures/pacing_sacred_continuation.gd": "f98509cd4399d1e446bd0ea5e650e9bacf63c0498ff30701a2fd5abc516138bf",
+        "tools/run_late_economy_pacing.py": "910c691c4bac4ddcad215c9c6a1b620f969e83f7bd5eb1c99df5c4d88a8efa14"
+      },
+      "status": "wall_timeout",
+      "engine_exit": 1,
+      "diagnostics": [],
+      "complete_report": false,
+      "observed_game_seconds": 781.616666666504,
+      "wall_seconds": 1511.469,
+      "game_time_cap_seconds": 1500.0,
+      "wall_time_cap_seconds": 1500.0,
+      "seed": 7,
+      "style_id": 4,
+      "winner": null,
+      "victory_reason": null,
+      "duration_interpretation": "Censored/unresolved; observed time is not a completed match duration.",
+      "first_contact_seconds": 183.216666666674,
+      "age_times": [
+        {
+          "1": 0.0,
+          "2": 157.516666666668,
+          "3": 720.01666666656
+        },
+        {
+          "1": 0.0,
+          "2": 138.016666666664,
+          "3": 630.016666666642
+        }
+      ],
+      "players": [
+        {
+          "civilization_id": 1,
+          "civilization_name": "English",
+          "opening_strategy": "feudal_pressure",
+          "first_post_foundation_seconds": null,
+          "first_completed_post_seconds": null,
+          "first_paid_trader_queue_seconds": null,
+          "first_trader_birth_seconds": null,
+          "first_delivery_seconds": null,
+          "lifetime_totals": {
+            "farm_foundations": 3,
+            "farms_completed": 3,
+            "food_deposited_with_farm_job": 3688,
+            "post_foundations": 0,
+            "posts_completed": 0,
+            "trade_deliveries": 0,
+            "trade_gold": 0,
+            "traders_born": 0,
+            "traders_cancelled": 0,
+            "traders_queued": 0
+          },
+          "final_bank": {
+            "food": 616,
+            "gold": 87,
+            "wood": 42
+          },
+          "final_staffed_farms": 3,
+          "final_active_towns": 1,
+          "peak_sampled_active_towns": 1,
+          "first_observed_second_active_town_seconds": null,
+          "town_observation_scope": "60-game-second sampled observations; first sighting is not an exact completion timestamp"
+        },
+        {
+          "civilization_id": 2,
+          "civilization_name": "Mongols",
+          "opening_strategy": "two_tc_boom",
+          "first_post_foundation_seconds": null,
+          "first_completed_post_seconds": null,
+          "first_paid_trader_queue_seconds": null,
+          "first_trader_birth_seconds": null,
+          "first_delivery_seconds": null,
+          "lifetime_totals": {
+            "farm_foundations": 6,
+            "farms_completed": 5,
+            "food_deposited_with_farm_job": 4170,
+            "post_foundations": 0,
+            "posts_completed": 0,
+            "trade_deliveries": 0,
+            "trade_gold": 0,
+            "traders_born": 0,
+            "traders_cancelled": 0,
+            "traders_queued": 0
+          },
+          "final_bank": {
+            "food": 644,
+            "gold": 345,
+            "wood": 45
+          },
+          "final_staffed_farms": 4,
+          "final_active_towns": 2,
+          "peak_sampled_active_towns": 2,
+          "first_observed_second_active_town_seconds": 420.466666666728,
+          "town_observation_scope": "60-game-second sampled observations; first sighting is not an exact completion timestamp"
+        }
+      ],
+      "final_sample_seconds": 781.616666666504,
+      "final_finite_stock": {
+        "food": 1272,
+        "gold": 1770,
+        "wood": 4439
+      },
+      "twenty_minute_or_later_samples": [],
+      "simulation": {
+        "time_scale": 3,
+        "game_step_seconds": 0.05
+      },
+      "late_performance": {
+        "frames": 15634,
+        "game_seconds": 781.616666666504,
+        "measure_calls": 3537,
+        "observer_usec": 4399516,
+        "physics_ticks_per_second": 60,
+        "time_scale": 3.0,
+        "wall_seconds": 1366.896
+      }
+    },
+    "candidate-plains": {
+      "runtime_revision": "d64bcb675e6fc45be7ad643222b69aa52967f008",
+      "observer_sha256": {
+        "tools/probe_ai_compact_paid_match.gd": "c844ec4d3ae9ee09e6a2cda973f69ad339c4bef440107d9f584500a4856f97db",
+        "tools/probe_late_economy_pacing.gd": "a5da07b30b7bd671efd913a7575117367777cad3ec98ef3bd4f42426b01e898f",
+        "tools/probe_late_economy_pacing.tscn": "269df2cbc0f8af175cf6cd9356755acff754cb97649e059fda4d7cfcaf191c7b",
+        "tools/fixtures/pacing_solo_save.gd": "ec06d7a703eea5cc475b85c96c49aa11de0f3a83b1c17670b4dc81e1a8a70082",
+        "tools/fixtures/pacing_sacred_continuation.gd": "f98509cd4399d1e446bd0ea5e650e9bacf63c0498ff30701a2fd5abc516138bf",
+        "tools/run_late_economy_pacing.py": "910c691c4bac4ddcad215c9c6a1b620f969e83f7bd5eb1c99df5c4d88a8efa14"
+      },
+      "status": "natural_completed",
+      "engine_exit": 0,
+      "diagnostics": [],
+      "complete_report": true,
+      "observed_game_seconds": 1079.51666666623,
+      "wall_seconds": 1172.797,
+      "game_time_cap_seconds": 1500.0,
+      "wall_time_cap_seconds": 1500.0,
+      "seed": 1337,
+      "style_id": 0,
+      "winner": 1,
+      "victory_reason": "Sacred Site held for 5:00",
+      "duration_interpretation": "Completed natural outcome",
+      "first_contact_seconds": 183.166666666674,
+      "age_times": [
+        {
+          "1": 0.0,
+          "2": 157.516666666668,
+          "3": 414.016666666727
+        },
+        {
+          "1": 0.0,
+          "2": 150.016666666667,
+          "3": 1077.01666666624
+        }
+      ],
+      "players": [
+        {
+          "civilization_id": 2,
+          "civilization_name": "Mongols",
+          "opening_strategy": "castle_priority",
+          "first_post_foundation_seconds": 367.516666666716,
+          "first_completed_post_seconds": 384.11666666672,
+          "first_paid_trader_queue_seconds": 388.516666666721,
+          "first_trader_birth_seconds": 410.516666666726,
+          "first_delivery_seconds": 435.516666666731,
+          "lifetime_totals": {
+            "farm_foundations": 3,
+            "farms_completed": 3,
+            "food_deposited_with_farm_job": 6300,
+            "post_foundations": 1,
+            "posts_completed": 1,
+            "trade_deliveries": 38,
+            "trade_gold": 760,
+            "traders_born": 1,
+            "traders_cancelled": 0,
+            "traders_queued": 1
+          },
+          "final_bank": {
+            "food": 320,
+            "gold": 459,
+            "wood": 5
+          },
+          "final_staffed_farms": 3,
+          "final_active_towns": 1,
+          "peak_sampled_active_towns": 1,
+          "first_observed_second_active_town_seconds": null,
+          "town_observation_scope": "60-game-second sampled observations; first sighting is not an exact completion timestamp"
+        },
+        {
+          "civilization_id": 0,
+          "civilization_name": "French",
+          "opening_strategy": "two_tc_boom",
+          "first_post_foundation_seconds": 402.016666666724,
+          "first_completed_post_seconds": 430.41666666673,
+          "first_paid_trader_queue_seconds": 444.016666666733,
+          "first_trader_birth_seconds": 466.016666666738,
+          "first_delivery_seconds": 519.166666666742,
+          "lifetime_totals": {
+            "farm_foundations": 5,
+            "farms_completed": 5,
+            "food_deposited_with_farm_job": 5040,
+            "post_foundations": 1,
+            "posts_completed": 1,
+            "trade_deliveries": 15,
+            "trade_gold": 765,
+            "traders_born": 1,
+            "traders_cancelled": 0,
+            "traders_queued": 1
+          },
+          "final_bank": {
+            "food": 83,
+            "gold": 1148,
+            "wood": 95
+          },
+          "final_staffed_farms": 5,
+          "final_active_towns": 2,
+          "peak_sampled_active_towns": 2,
+          "first_observed_second_active_town_seconds": 420.466666666728,
+          "town_observation_scope": "60-game-second sampled observations; first sighting is not an exact completion timestamp"
+        }
+      ],
+      "final_sample_seconds": 1079.51666666623,
+      "final_finite_stock": {
+        "food": 564,
+        "gold": 2270,
+        "wood": 2661
+      },
+      "twenty_minute_or_later_samples": [],
+      "simulation": {
+        "map_height": 88,
+        "map_width": 88,
+        "physics_ticks_per_second": 60,
+        "time_scale": 3.0
+      },
+      "late_performance": {
+        "frames": 21591,
+        "game_seconds": 1079.51666666623,
+        "measure_calls": 4728,
+        "observer_usec": 7126116,
+        "physics_ticks_per_second": 60,
+        "time_scale": 3.0,
+        "wall_seconds": 1167.065
+      }
+    }
+  },
+  "duration_statistics": {
+    "mean": null,
+    "reason": "No average is computed from this small matrix, especially where cases are censored. Completed outcomes and caps are listed individually."
+  },
+  "trade_interpretation": "Post foundations, paid Trader queues, births and completed gold deliveries are distinct events. Natural adoption is claimed only where actual events were recorded.",
+  "tc_interpretation": "Active Town Centers are sampled once per60 game seconds. Baseline active-TC/opening fields are explicitly missing; no missing value is treated as zero.",
+  "validation": {
+    "kind": "Recorded tool-console output excerpts, not full raw log files",
+    "source_revision": "d64bcb675e6fc45be7ad643222b69aa52967f008",
+    "scope": "Both native tests ran against combined candidate data immediately before this commit. The command used Godot4.6 headless with quit-after900. Neither was a natural match.",
+    "results": [
+      {
+        "scene": "res://tools/test_ai_trade_demand.tscn",
+        "checks": 33,
+        "failures": [],
+        "observed_exit": 0
+      },
+      {
+        "scene": "res://tools/test_ai_strategic_openings.tscn",
+        "checks": 36,
+        "failures": [],
+        "observed_exit": 0
+      }
+    ],
+    "total_including_raw_paid_trade_fixture": 86
+  },
+  "caveats": [
+    "50ms accelerated simulation steps may change tactical timing; these results are not direct human/device play measurements or a substitute for1x validation.",
+    "Only the River France-versus-England case has a matched previous-runtime comparison in this pass.",
+    "Food deposited with a Farm job is not exact harvest-origin accounting; a changed order can carry mixed cargo.",
+    "Whole-map finite stock is audit-only data, not information supplied to AI decisions.",
+    "First trade events have game timestamps; first observed second Town Center is a sampled upper bound on completion time.",
+    "Human play, mobile controls, release deployment and public multiplayer acceptance are documented separately by the parent task."
+  ],
+  "artifacts": [
+    {
+      "file": "docs/evidence/beta17-pacing/baseline-river-receipt.json",
+      "sha256": "214ec8053ee4e3bb4ad20b2c5e6e809eb092bf82d01d6447130ed5f2859abca5",
+      "uncompressed_sha256": "214ec8053ee4e3bb4ad20b2c5e6e809eb092bf82d01d6447130ed5f2859abca5",
+      "bytes": 5112
+    },
+    {
+      "file": "docs/evidence/beta17-pacing/baseline-river-report.json.gz",
+      "sha256": "3a351560ad3986d2a760a2974aa646e8a7d303b7095c2e33d3eb6483228045e8",
+      "uncompressed_sha256": "6e9851ee13e39f1c4c1b59138ad6661b623e821a9485da319e5c207f49b6aed8",
+      "bytes": 21720
+    },
+    {
+      "file": "docs/evidence/beta17-pacing/baseline-river-engine.log.gz",
+      "sha256": "374d0d59e0f8ad5a91c64f3892e69937a1840a1563edcce8d8700278a34245f0",
+      "uncompressed_sha256": "f4bd98d8ec070d393a54e3b03a0d9b5915949cdc8857d7a78c51ccfd1838201d",
+      "bytes": 14235
+    },
+    {
+      "file": "docs/evidence/beta17-pacing/candidate-river-receipt.json",
+      "sha256": "3617d852045214161e859298e6d4b26816f4dbcd4d98dbf7de4bc84d2caafe44",
+      "uncompressed_sha256": "3617d852045214161e859298e6d4b26816f4dbcd4d98dbf7de4bc84d2caafe44",
+      "bytes": 5113
+    },
+    {
+      "file": "docs/evidence/beta17-pacing/candidate-river-report.json.gz",
+      "sha256": "fe6272b59cd15fea77ece6cc7911b9d105c5eec24c9c40fb0e83969b16545a13",
+      "uncompressed_sha256": "0fb4ca6a2f69980d644fb143da0eac6fd5f1d33e7fd1cbfc0feedea8d624deb0",
+      "bytes": 26575
+    },
+    {
+      "file": "docs/evidence/beta17-pacing/candidate-river-engine.log.gz",
+      "sha256": "4191a561651db2506d4846f9bba2e7e3bcefba776fa228863f725044be0371c6",
+      "uncompressed_sha256": "c468250ce9095be821fa749a27c17bdbb0d2547dd112d27db15aec9a1993b575",
+      "bytes": 19696
+    },
+    {
+      "file": "docs/evidence/beta17-pacing/candidate-golden-receipt.json",
+      "sha256": "69527b3c64eda2d8555853909e47225cc2d300fb8f34b941a2040ac84f6c6885",
+      "uncompressed_sha256": "69527b3c64eda2d8555853909e47225cc2d300fb8f34b941a2040ac84f6c6885",
+      "bytes": 3714
+    },
+    {
+      "file": "docs/evidence/beta17-pacing/candidate-golden-partial-report.json.gz",
+      "sha256": "254e1cf12cb2fb77ae8ed5b44b8b8f0d499f843ca9388ac687f6987322968461",
+      "uncompressed_sha256": "45a6ed81d1ea2b285ee33e98a02a4ccb3463463210d7c049fea050402e3eb5d9",
+      "bytes": 12943
+    },
+    {
+      "file": "docs/evidence/beta17-pacing/candidate-golden-engine.log.gz",
+      "sha256": "fe9fa4edb393fb44e06f247de82e51f47ca3d452a84add7bd3d9dd16f2564cd6",
+      "uncompressed_sha256": "7f68d4e7ca97ee1f3b0530f169c93d17dc3f17f601175d476ac8b97a25bb49d0",
+      "bytes": 3885
+    },
+    {
+      "file": "docs/evidence/beta17-pacing/candidate-plains-receipt.json",
+      "sha256": "7c21c8de1bce04b4062876f7ddddaea0ac8683ebdcc54fba82b89d2f2c0163ca",
+      "uncompressed_sha256": "7c21c8de1bce04b4062876f7ddddaea0ac8683ebdcc54fba82b89d2f2c0163ca",
+      "bytes": 5113
+    },
+    {
+      "file": "docs/evidence/beta17-pacing/candidate-plains-report.json.gz",
+      "sha256": "cfa14c756fa9a436d587c395b2338ade736b3f06c0191fedfe25c3a769d86158",
+      "uncompressed_sha256": "d9309767b1a8eb03f03f7648c3130a50b350254e7c6a19204206b6d112ead2fb",
+      "bytes": 23335
+    },
+    {
+      "file": "docs/evidence/beta17-pacing/candidate-plains-engine.log.gz",
+      "sha256": "4af26ccc78262d8485e8443ee9d1a326cbedab5a4584b6060a2b9e195d6648a6",
+      "uncompressed_sha256": "4a6c5f9cc2412cea9d1d31b93bfe052576c446fdc177469a206055bf958f5572",
+      "bytes": 17148
+    },
+    {
+      "file": "docs/evidence/beta17-pacing/beta17-ai-paid-trade.log",
+      "sha256": "3fbb6c55eeb38c6279e6f01bb6096f73ab2b3a90eb55dea291a2e2287cf50b8c",
+      "uncompressed_sha256": "3fbb6c55eeb38c6279e6f01bb6096f73ab2b3a90eb55dea291a2e2287cf50b8c",
+      "bytes": 489
+    },
+    {
+      "file": "docs/evidence/beta17-pacing/beta17-ai-paid-trade-receipt.json",
+      "sha256": "f22e01367a5b91a6147405d5f42c2934a4e438fe0043ca3fa4923885c98f08db",
+      "uncompressed_sha256": "f22e01367a5b91a6147405d5f42c2934a4e438fe0043ca3fa4923885c98f08db",
+      "bytes": 206017
+    },
+    {
+      "file": "docs/evidence/beta17-pacing/ai-policy-tool-output-excerpts.json",
+      "sha256": "04324c0130742a891f5d2defcc86fc88310fd905697efc601e44c2749bdf74b1",
+      "bytes": 692
+    }
+  ],
+  "findings": [
+    "Natural AI trade adoption occurred on River and Plains, with paid post construction, paid Trader production, repeated completed deliveries and no economy grants.",
+    "Every candidate boom player reached two sampled active Town Centers; this proves execution of the strategy, not broad balance across matchups.",
+    "The requested12\u201315 minute typical match duration is not established: Plains ended17:59.52, River was unresolved at25:00.02, and Golden was censored by its wall-time limit.",
+    "Golden has no final report. Its13:01.62 timestamp is the last persisted sample, not an exact match ending; exit1 reflects harness termination at the declared wall cap."
+  ]
+}

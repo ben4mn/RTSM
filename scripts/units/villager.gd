@@ -24,6 +24,9 @@ var carried_amount: int = 0
 # carried_resource_type is the current work assignment; cargo keeps its own
 # accounting type across instant retasks. All types share carry_capacity.
 var _cargo: Dictionary = {}
+## Presentation only: the baked cargo badge child (CargoBadges) and its kind.
+var _cargo_badge: Node2D = null
+var _cargo_badge_kind: String = ""
 var _dropoff_recheck_timer: float = 0.0
 var _dropoff_topology_revision: int = -1
 var _dropoff_buildings_signature: int = 0
@@ -42,6 +45,7 @@ var _gather_last_known_instance_id: int = 0
 var _unreachable_resource_ids_until: Dictionary = {}
 var _unreachable_dropoff_ids_until: Dictionary = {}
 
+const CARGO_BADGES := preload("res://scripts/units/cargo_badges.gd")
 const DROP_OFF_RETRY_INTERVAL: float = 1.0
 const MAX_RECOVERY_PATH_CHECKS: int = 8
 # GameMap preflight and the interaction check share one exact route contract.
@@ -77,6 +81,7 @@ var _service_target_id: int = 0
 var _service_destination: Vector2 = Vector2.ZERO
 var _service_kind: String = ""
 const SERVICE_SPACING: float = 22.0
+const WILDLIFE_FOLLOW_DISTANCE: float = 10.0
 
 # Automatic raid recovery retains the economic order independently of the
 # movement state. A fresh player/AI command always supersedes this intent.
@@ -100,6 +105,7 @@ const ECONOMIC_THREAT_CHECK_INTERVAL: float = 0.25
 const ECONOMIC_THREAT_MIN_DISTANCE: float = 80.0
 const ECONOMIC_THREAT_RANGE_MARGIN: float = 48.0
 const ECONOMIC_THREAT_CLOSING_STEP: float = 4.0
+const ECONOMIC_THREAT_SCAN_REACH: float = 640.0
 const RECOVERY_QUIET_SECONDS: float = 3.0
 const RECOVERY_DAMAGE_DELAY: float = 4.0
 const RECOVERY_THREAT_MARGIN: float = 56.0
@@ -132,7 +138,45 @@ func can_auto_retaliate() -> bool:
 	return false
 
 
+## A worker standing at its work thinks at 8 Hz.
+## Skipped frames bank their time, so gather ticks, build progress and timers
+## advance by exactly the elapsed total; a reaction (target gone, threat seen,
+## cargo full) lands at most one interval later. Walking, fleeing and fighting
+## stay per-frame. 0.125 s keeps the 0.25 s threat sample on its cadence.
+const STEADY_WORK_THINK_INTERVAL: float = 0.125
+var _steady_banked: float = 0.0
+
+
+func _is_steady_work() -> bool:
+	if _auto_recovering or NetworkSession.is_client():
+		return false
+	# _presentation_working still holds the previous think's answer here.
+	return (current_state == State.GATHERING or current_state == State.BUILDING) and _presentation_working and not _dropoff_route_active
+
+
+## F3: the fixed-step driver (UnitBase._sim_frame) asks how long to wait.
+func _think_interval() -> float:
+	return maxf(sim_step, STEADY_WORK_THINK_INTERVAL) if _is_steady_work() else sim_step
+
+
 func _process(delta: float) -> void:
+	if _is_engine_tick():
+		return
+	if current_state != State.DEAD:
+		if _is_steady_work():
+			_steady_banked += maxf(0.0, delta)
+			if _steady_banked + 0.000001 < STEADY_WORK_THINK_INTERVAL:
+				if not _sim_driven:
+					_update_sprite_motion(delta)
+				if is_selected:
+					queue_redraw()
+				return
+			_presentation_delta = delta
+			delta = _steady_banked
+		# Leaving steady work by an order or a hit: this frame moves by its own
+		# time only (a banked remainder would be a visible jump).
+		_steady_banked = 0.0
+	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
 	_presentation_working = false
 	if not _auto_recovering and _has_active_economic_work():
 		_economic_threat_check_timer -= delta
@@ -144,6 +188,7 @@ func _process(delta: float) -> void:
 		_economic_threat_check_timer = float(posmod(get_index(), 5)) * 0.05
 	if _auto_recovering and current_state != State.DEAD:
 		_process_recovery(delta)
+	if PerfProbe.on: PerfProbe.add(&"villager.pre", _pp)
 	super._process(delta)
 	# AI also reads these exclusions while a worker is idle. Expire them from
 	# the inherited simulation clock even when no gather/drop-off retry runs.
@@ -155,7 +200,7 @@ func _process(delta: float) -> void:
 ## movement retain control; another command also cancels any deferred recovery.
 func take_damage(amount: float) -> void:
 	super.take_damage(amount)
-	if current_state == State.DEAD:
+	if current_state == State.DEAD or current_state == State.GARRISONED:
 		return
 	if _auto_recovering:
 		_recovery_damage_remaining = RECOVERY_DAMAGE_DELAY
@@ -167,6 +212,34 @@ func take_damage(amount: float) -> void:
 	if current_state in [State.GATHERING, State.BUILDING, State.IDLE] or _dropoff_route_active:
 		_begin_recovery()
 		_flee_to_safety()
+
+
+# --- Wildlife (workstream A) ---------------------------------------------------
+
+## True only while a boar bite is being applied, so listeners of the ordinary
+## damage and death signals can tell an animal from a raid (no RAID card, no
+## under-attack sting, no battle music).
+var wildlife_hit: bool = false
+
+
+## A boar's bite. It takes the ordinary damage path (flash, death) but never
+## starts the economic auto-flee: the player is luring the boar on purpose and
+## must stay in control of where this villager runs.
+func take_wildlife_damage(amount: float) -> void:
+	wildlife_hit = true
+	super.take_damage(amount)
+	wildlife_hit = false
+
+
+## Animals move. Keep the fog-safe "last known" order position and the
+## reserved standing point on the animal instead of where it was first tapped.
+func _follow_wildlife_target(animal: WildlifeNode) -> void:
+	if animal.global_position.distance_to(_gather_last_known_position) <= WILDLIFE_FOLLOW_DISTANCE:
+		return
+	_gather_last_known_position = animal.global_position
+	if _service_kind == "work":
+		_release_service_position()
+	_reset_navigation()
 
 
 func _process_moving(delta: float) -> void:
@@ -228,6 +301,12 @@ func _check_visible_economic_threats() -> void:
 	# dictionary drops any enemy no longer in this owner's current vision.
 	var observed: Dictionary = {}
 	var threatened: bool = false
+	# Nobody else's unit anywhere near (several samples of travel beyond any
+	# warning distance): nothing can threaten now or count as closing at the
+	# next sample, so the visible-enemy roster is not walked at all.
+	if _index_listed and not _live_unit_index.other_owner_near(global_position, ECONOMIC_THREAT_SCAN_REACH, player_owner):
+		_observed_worker_threat_distances = observed
+		return
 	for enemy: UnitBase in _get_visible_economic_threats():
 		var distance: float = global_position.distance_to(enemy.global_position)
 		var instance_id: int = enemy.get_instance_id()
@@ -312,7 +391,7 @@ func get_work_presentation() -> Vector3:
 	if not _presentation_working or _auto_recovering or _dropoff_route_active:
 		return Vector3.ZERO
 	if current_state == State.BUILDING:
-		return Vector3(UnitActionPresentation.Action.BUILD, fposmod(build_timer / 0.8, 1.0), 0.8)
+		return Vector3(UnitActionPresentation.Action.BUILD, fposmod((build_timer + _steady_banked + _think_pending) / 0.8, 1.0), 0.8)
 	if current_state != State.GATHERING:
 		return Vector3.ZERO
 	var kind: int = UnitActionPresentation.Action.FORAGE
@@ -323,7 +402,7 @@ func get_work_presentation() -> Vector3:
 	elif carried_resource_type == "food" and is_instance_valid(gather_target) and gather_target is BuildingBase and (gather_target as BuildingBase).building_type == BuildingData.BuildingType.FARM and (gather_target as BuildingBase).provides_food:
 		kind = UnitActionPresentation.Action.FARM
 	var period: float = gather_tick_time / float(UnitData.RESOURCE_GATHER_SPEEDS.get(carried_resource_type, 1.0))
-	return Vector3(kind, clampf(gather_timer / period, 0.0, 1.0), period)
+	return Vector3(kind, clampf((gather_timer + _steady_banked + _think_pending) / period, 0.0, 1.0), period)
 
 
 func get_economy_task() -> String:
@@ -360,7 +439,7 @@ func get_work_status() -> String:
 			return ("Gathering " if distance <= radius else "Seeking ") + carried_resource_type
 		return "Seeking " + carried_resource_type
 	match current_state:
-		State.BUILDING: return "Building"
+		State.BUILDING: return "Repairing" if Garrison.needs_repair(build_target) else "Building"
 		State.MOVING: return "Moving"
 		State.ATTACKING: return "Attacking"
 	return "Idle"
@@ -401,13 +480,21 @@ func _process_gathering(delta: float) -> void:
 
 	if not _is_new_gather_target_currently_visible(gather_target) or not _is_gather_target_valid(gather_target):
 		# Resource depleted or removed
+		# Round 2 E: the farmer of a fallow Farm delivers and then waits idle
+		# (reseeding recalls him) instead of wandering to other food.
+		var fallow_farm: bool = FarmPlots.is_fallow(gather_target)
 		_clear_gather_target_knowledge()
 		if carried_amount > 0:
+			if fallow_farm:
+				_recovery_return_only = true
+				gather_type = GatherType.NONE
 			_find_and_go_to_dropoff()
-		elif not _try_retarget_resource():
+		elif fallow_farm or not _try_retarget_resource():
 			set_state(State.IDLE)
 		return
 
+	if gather_target is WildlifeNode:
+		_follow_wildlife_target(gather_target as WildlifeNode)
 	var resource_position: Vector2 = gather_target.global_position
 	var approach_distance: float = BUILD_APPROACH_DISTANCE if gather_target is BuildingBase else GATHER_APPROACH_DISTANCE
 	var is_farm: bool = gather_target is BuildingBase and (gather_target as BuildingBase).provides_food
@@ -450,8 +537,15 @@ func _harvest_from_target() -> int:
 	var remaining_capacity: int = maxi(0, carry_capacity - carried_amount)
 	if remaining_capacity <= 0:
 		return 0
+	# Wildlife: a live boar takes the blow instead of yielding food, and every
+	# animal is worked faster than berries (the node's gather_multiplier).
+	var wildlife_multiplier: float = 1.0
+	if gather_target is WildlifeNode:
+		if (gather_target as WildlifeNode).absorb_strike(self):
+			return 0
+		wildlife_multiplier = (gather_target as WildlifeNode).gather_multiplier
 	var civilization_multiplier: float = CivilizationData.get_gather_multiplier(CivilizationData.for_player(player_owner), carried_resource_type)
-	_fractional_harvest += maxf(0.0, gather_rate) * civilization_multiplier
+	_fractional_harvest += maxf(0.0, gather_rate) * civilization_multiplier * ResearchEffects.gather_multiplier(player_owner, carried_resource_type, gather_target) * wildlife_multiplier
 	var whole_work: int = floori(_fractional_harvest + 0.0000001)
 	_fractional_harvest = maxf(0.0, _fractional_harvest - float(whole_work))
 	var amount_requested: int = mini(whole_work, remaining_capacity)
@@ -490,7 +584,7 @@ func _get_dropoff_buildings_signature() -> int:
 	return hash(identities)
 
 
-func _dropoff_accepts_cargo(building: Node2D) -> bool:
+func _dropoff_accepts_cargo(building: Variant) -> bool:  # Variant: a freed drop-off must not error (E2)
 	if not is_instance_valid(building) or not building.has_method("get_player_owner") or int(building.call("get_player_owner")) != player_owner:
 		return false
 	if building is BuildingBase and (building as BuildingBase).state != BuildingBase.State.ACTIVE:
@@ -700,6 +794,19 @@ func _process_building(delta: float) -> void:
 		return
 	_reset_navigation()
 
+	# Round 2 D1: a finished, damaged building is repaired (garrison.gd owns the
+	# rate and the wood cost); out of wood, the villager waits at the wall.
+	if build_target is BuildingBase and (build_target as BuildingBase).state == BuildingBase.State.ACTIVE:
+		_face_work_target(build_target.global_position)
+		var repair: int = Garrison.repair_step(build_target as BuildingBase, delta)
+		if repair == Garrison.Repair.WORKING:
+			_presentation_working = true
+			build_timer += delta
+		elif repair == Garrison.Repair.DONE:
+			build_target = null
+			_resume_or_idle()
+		return
+
 	# We are at the building, construct
 	_presentation_working = true
 	_face_work_target(build_target.global_position)
@@ -735,8 +842,16 @@ func _building_work_distance(building: Node2D) -> float:
 	return global_position.distance_to(building.global_position)
 
 
+## The answer for the last map asked about (a script's methods do not change).
+var _service_map_checked: Node2D = null
+var _service_map_supported: bool = false
+
 func _supports_service_positions(game_map: Node2D) -> bool:
-	return game_map != null and game_map.has_method("tile_to_world") and game_map.has_method("world_to_tile") and game_map.has_method("is_tile_walkable") and game_map.has_method("get_navigation_world_path")
+	if game_map != null and game_map == _service_map_checked:
+		return _service_map_supported
+	_service_map_checked = game_map
+	_service_map_supported = game_map != null and game_map.has_method("tile_to_world") and game_map.has_method("world_to_tile") and game_map.has_method("is_tile_walkable") and game_map.has_method("get_navigation_world_path")
+	return _service_map_supported
 
 
 func _advance_economic_work_position(target: Node2D, radius: float, delta: float) -> int:
@@ -1423,6 +1538,7 @@ func _resume_after_recovery() -> void:
 
 
 func _clear_recovery() -> void:
+	_garrison_target = null
 	_auto_recovering = false
 	_recovery_waiting = false
 	_recovery_work_state = State.IDLE
@@ -1445,10 +1561,31 @@ func _try_retarget_resource() -> bool:
 		new_target = _lookup_resource_for_worker(game_map, carried_resource_type, global_position, {}, false)
 	if new_target != null and is_instance_valid(new_target):
 		return command_gather(new_target)
-	return false
+	return _try_remembered_resource(game_map, carried_resource_type)
+
+
+func _try_remembered_resource(game_map: Node2D, resource_type: String) -> bool:
+	## Beta 31: when nothing of this kind is in sight, walk to the nearest one
+	## the player has explored (fog memory) instead of standing idle. This uses
+	## the same position-only order as a rallied resource: the hidden node is
+	## not read until its tile is visible again.
+	if player_owner != 0 or game_map == null or resource_type not in ["food", "wood", "gold"]:
+		return false
+	var memory: Node = game_map.get("fog_memory") as Node
+	if not is_instance_valid(memory) or not memory.has_method("nearest_remembered_resource"):
+		return false
+	var seen: Dictionary = memory.call("nearest_remembered_resource", resource_type, global_position, player_owner)
+	if seen.is_empty():
+		return false
+	return command_gather_last_observed(resource_type, seen.position, int(seen.id), false)
 
 
 func _resume_gather_order_or_retarget() -> void:
+	if FarmPlots.is_fallow(gather_target):  # Round 2 E: wait by the fallow Farm.
+		_clear_gather_target_knowledge()
+		gather_type = GatherType.NONE
+		set_state(State.IDLE)
+		return
 	if _has_gather_last_known_position and not _is_gather_order_position_visible():
 		gather_target = null
 		_cancel_dropoff_route()
@@ -1634,11 +1771,21 @@ func _is_world_position_visible(world_position: Vector2) -> bool:
 	return false
 
 
+## Asked several times per frame by a walking worker: remember the map found
+## above the current parent instead of walking the ancestors every time.
+var _resource_map_parent: Node = null
+var _resource_map_found: Node2D = null
+
 func _find_resource_game_map() -> Node2D:
 	var parent: Node = get_parent()
+	if parent != null and parent == _resource_map_parent and is_instance_valid(_resource_map_found) and _resource_map_found.is_inside_tree() == is_inside_tree():
+		return _resource_map_found
+	var direct_parent: Node = parent
 	while parent != null:
 		if parent.has_method("get_nearest_resource_node"):
-			return parent as Node2D
+			_resource_map_parent = direct_parent
+			_resource_map_found = parent as Node2D
+			return _resource_map_found
 		parent = parent.get_parent()
 	return null
 
@@ -1746,6 +1893,8 @@ func _remember_unreachable_target(target: Node2D, cache: Dictionary) -> void:
 
 
 func _prune_expired_unreachable_targets(cache: Dictionary) -> void:
+	if cache.is_empty():
+		return
 	var now: float = _simulation_elapsed_seconds
 	for instance_id: Variant in cache.keys():
 		if now >= float(cache[instance_id]):
@@ -1792,7 +1941,8 @@ func _is_build_target_valid(building_site: Variant) -> bool:
 		return false
 	if building_site is BuildingBase:
 		var building := building_site as BuildingBase
-		return building.player_owner == player_owner and building.state == BuildingBase.State.CONSTRUCTING
+		# Round 2 D1: the build order also covers repairing a damaged building.
+		return building.player_owner == player_owner and (building.state == BuildingBase.State.CONSTRUCTING or Garrison.needs_repair(building))
 	return building_site.has_method("add_build_progress")
 
 
@@ -1823,44 +1973,78 @@ func _resource_marker_type() -> String:
 func get_visual_bounds() -> Rect2:
 	var bounds: Rect2 = super.get_visual_bounds()
 	if _resource_marker_type() != "":
-		var size: float = UNIT_SIZES.get(unit_type, 8.0)
-		bounds = bounds.merge(global_transform * Rect2(size - 3.0, -8.0, 14.0, 17.0))
+		var size: float = get_visual_radius()
+		bounds = bounds.merge(global_transform * Rect2(size - 5.0, -10.0, 18.0, 21.0))
 	return bounds
 
 
 func _draw() -> void:
 	super._draw()
 	var kind: String = _resource_marker_type()
+	_sync_cargo_badge(kind)
 	if kind == "":
 		return
-	var size: float = UNIT_SIZES.get(unit_type, 8.0)
-	var center := Vector2(size + 4.0, -1.0)
+	# The badge itself is a baked sprite on its own layer (CargoBadges); only a
+	# selected villager's load gauge is drawn here. Same transform as the badge.
+	var badge_scale: float = 1.2
+	draw_set_transform(Vector2(get_visual_radius() + 4.0, -1.0), 0.0, Vector2(badge_scale, badge_scale))
+	var center := Vector2.ZERO
 	var ink := Color("293b3e")
 	var paper := Color("e4ddbf")
-	# Compact shaped cargo stays legible at ordinary zoom. Quiet mineral colors
-	# leave team cloth, selection and combat damage as the strongest accents.
-	draw_circle(center, 6.5, Color(0.09, 0.15, 0.17, 0.84))
-	match kind:
-		"food":
-			for offset: Vector2 in [Vector2(-2.2, 0.2), Vector2(2.2, 0.2), Vector2(0, 2.6)]:
-				draw_circle(center + offset, 2.1, Color("cf8d72"))
-			draw_colored_polygon(PackedVector2Array([center + Vector2(-1, -1.7), center + Vector2(0, -4.7), center + Vector2(3.6, -3.5), center + Vector2(1, -1)]), Color("a6b78a"))
-		"wood":
-			for offset: Vector2 in [Vector2(-1.5, -1.6), Vector2(1.1, 1.5)]:
-				var a: Vector2 = center + offset + Vector2(-2, 1.5)
-				var b: Vector2 = center + offset + Vector2(2, -1.5)
-				draw_line(a, b, Color("9c7956"), 3.8, true)
-				draw_circle(a, 1.9, Color("d6bc89"))
-				draw_circle(a, 0.6, ink)
-		"gold":
-			draw_colored_polygon(PackedVector2Array([center + Vector2(-4.5, 2.8), center + Vector2(-2.8, -0.5), center + Vector2(3, -0.5), center + Vector2(4.7, 2.8)]), Color("c7a65c"))
-			draw_line(center + Vector2(-2.6, -0.4), center + Vector2(2.6, -0.4), paper, 1.2, true)
-			draw_colored_polygon(PackedVector2Array([center + Vector2(-2.8, -1.8), center + Vector2(-1.5, -4.1), center + Vector2(1.5, -4.1), center + Vector2(2.8, -1.8)]), Color("e2c37c"))
-		_:
-			# A tied satchel means mixed cargo; it never invents a single type.
-			draw_colored_polygon(PackedVector2Array([center + Vector2(-2, -3.5), center + Vector2(2, -3.5), center + Vector2(1.6, -1.6), center + Vector2(4, 1), center + Vector2(3.5, 4), center + Vector2(-3.5, 4), center + Vector2(-4, 1), center + Vector2(-1.6, -1.6)]), paper)
-			draw_line(center + Vector2(-2, -1.4), center + Vector2(2, -1.4), Color("8b7659"), 1.5, true)
 	if is_selected and carried_amount > 0:
 		var ratio: float = clampf(float(carried_amount) / maxf(1.0, carry_capacity), 0.0, 1.0)
 		draw_rect(Rect2(center + Vector2(-7, 5.5), Vector2(14, 4)), ink)
 		draw_rect(Rect2(center + Vector2(-6, 6.5), Vector2(12 * ratio, 2)), paper)
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+## Shows `kind`'s baked cargo badge beside the body, or hides it ("" = none).
+## Created on first use; redrawn only when the kind changes.
+func _sync_cargo_badge(kind: String) -> void:
+	if kind == "" and _cargo_badge == null:
+		return
+	if _cargo_badge == null:
+		_cargo_badge = Node2D.new()
+		_cargo_badge.name = "CargoBadge"
+		_cargo_badge.z_as_relative = false
+		_cargo_badge.z_index = CARGO_BADGES.BADGE_Z
+		_cargo_badge.draw.connect(func() -> void:
+			if _cargo_badge_kind != "":
+				CARGO_BADGES.draw_badge(_cargo_badge, _cargo_badge_kind))
+		add_child(_cargo_badge)
+	_cargo_badge.position = Vector2(get_visual_radius() + 4.0, -1.0)
+	_cargo_badge.scale = Vector2.ONE * (1.2 / CARGO_BADGES.DENSITY)
+	if _cargo_badge.visible != (kind != ""):
+		_cargo_badge.visible = kind != ""
+	if kind != _cargo_badge_kind:
+		_cargo_badge_kind = kind
+		_cargo_badge.queue_redraw()
+
+
+# =========================================================================
+#  GARRISON (Round 2 D1 — rules live in scripts/buildings/garrison.gd)
+# =========================================================================
+
+## Walk to `building` and shelter inside it. This is the ordinary raid
+## recovery with a chosen refuge, so the interrupted job is remembered and
+## _resume_after_recovery() restores it when the villager comes back out.
+func command_garrison(building: BuildingBase) -> bool:
+	if current_state == State.DEAD or current_state == State.GARRISONED:
+		return false
+	if not is_instance_valid(building) or building.player_owner != player_owner or building.state != BuildingBase.State.ACTIVE:
+		return false
+	var route: PackedVector2Array = _get_refuge_world_path(building, _get_visible_recovery_threats())
+	var already_there: bool = route.is_empty() and _building_work_distance(building) <= Garrison.ENTER_DISTANCE
+	if route.is_empty() and not already_there:
+		return false
+	if not _auto_recovering:
+		_begin_recovery()
+	_recovery_refuge = building
+	if already_there:
+		_reset_navigation()
+		_recovery_waiting = true
+		set_state(State.MOVING)
+	else:
+		_move_for_recovery(route)
+	_garrison_target = building
+	return true

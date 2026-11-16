@@ -1,0 +1,6 @@
+=== [1/1] test_armed_sacred_garrison ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+[PASS] armed_sacred_garrison: 42 rule and bounded AI assertions
+[PASS] test_armed_sacred_garrison
+FOCUSED_SUITE: 1/1 passed

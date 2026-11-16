@@ -75,6 +75,9 @@ func _run() -> void:
 	worker.call("_process_building", float(workshop.get("build_time")))
 	_expect(int(workshop.get("state")) == 2, "real worker completes Workshop")
 	workshop.set_process(false)
+	# Round 2 E: a Town Center alone houses only the opening bodies; give the
+	# fixture housing for a 2-body Siege Engine plus a Scout.
+	(_gm.get("players") as Dictionary)[0]["population_cap"] = int(_gm.call("get_committed_population", 0)) + 6
 	var siege: Node2D = _produce(workshop, UnitData.UnitType.SIEGE)
 	var spotter: Node2D = _produce(home, UnitData.UnitType.SCOUT)
 	_expect(siege != null and spotter != null, "paid Siege and Scout actually spawn")

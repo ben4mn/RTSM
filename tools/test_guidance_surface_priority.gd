@@ -97,7 +97,11 @@ func _guidance_journey(phone: Vector2i, interface_scale: float) -> void:
 	_expect(build_menu.visible and not banner.visible, "Build palette leaves lesson visible")
 	await _button(build_menu.get("_button_map")[BuildingData.BuildingType.HOUSE])
 	_expect(_main.get("_building_placement").active and banner.visible, "placement loses field guidance")
-	await _button(_hud.get("_placement_cancel_button"))
+	# L2: touch cancels with the x on the ghost; a mouse keeps the bottom one.
+	await _frames(2)
+	var ghost_card: PlacementGhostCard = _hud.call("get_placement_ghost_card")
+	await _button(ghost_card.cancel_button if ghost_card.is_cancel_visible() else _hud.get("_placement_cancel_button"))
+	_expect(not _main.get("_building_placement").active, "placement Cancel did not cancel")
 	await _button(_hud.get("_pause_button"))
 	_expect(GameManager.current_state == GameManager.GameState.PAUSED and not banner.visible, "Pause leaves lesson visible")
 	await _capture("pause-hidden-guide")
@@ -122,7 +126,13 @@ func _guidance_journey(phone: Vector2i, interface_scale: float) -> void:
 func _check_raid_lane(feedback: Control, overview: StrategyOverview) -> void:
 	var safe: Rect2 = _hud.call("get_world_safe_rect")
 	var bounds: Array[Rect2] = feedback.call("get_visible_bounds")
-	_expect(bounds.size() == 2, "management lost an attack location")
+	# Two attack cards, plus the town bell's response plate beside them when
+	# it is offered (garrison/bell); every one must stay reachable.
+	var plates: int = 0
+	for entry: Dictionary in (feedback.get("_responses") as Dictionary).values():
+		if is_instance_valid(entry.get("button")) and (entry.get("button") as Button).is_visible_in_tree():
+			plates += 1
+	_expect((feedback.get("fronts") as Array).size() == 2 and bounds.size() == 2 + plates, "management lost an attack location: %d bounds, %d fronts, %d plates" % [bounds.size(), (feedback.get("fronts") as Array).size(), plates])
 	for rectangle: Rect2 in bounds:
 		_expect(safe.encloses(rectangle) and rectangle.size.x >= 48.0 and rectangle.size.y >= 48.0, "raid response target is unsafe or too small")
 		_expect(not rectangle.intersects(overview.panel.get_global_rect()) and not rectangle.intersects(overview.rail.get_global_rect()), "management covers a raid response target")

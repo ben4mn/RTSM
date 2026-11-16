@@ -37,7 +37,8 @@ func _process(delta: float) -> bool:
 		if heartbeat > 4.0:
 			_send(i, {"op": "ping"})
 		if not states[i].search:
-			_send(i, {"op": "search", "protocol": int(load("res://scripts/network/network_session.gd").get_script_constant_map()["PROTOCOL"])})
+			var constants: Dictionary = load("res://scripts/network/network_session.gd").get_script_constant_map()
+			_send(i, {"op": "search", "protocol": int(constants["PROTOCOL"]), "map_catalog": int(constants["MAP_CATALOG_VERSION"])})
 			states[i].search = true
 		while socket.get_available_packet_count() > 0:
 			var packet: Variant = JSON.parse_string(socket.get_packet().get_string_from_utf8())
@@ -56,6 +57,8 @@ func _process(delta: float) -> bool:
 				states[i].snapshot = packet
 			if op == "ended":
 				states[i].result = packet
+			if op == "opponent_reconnecting":
+				states[i].held_at = elapsed
 	if heartbeat > 4.0:
 		heartbeat = 0.0
 	match phase:
@@ -100,15 +103,23 @@ func _process(delta: float) -> bool:
 				phase = 4
 		4:
 			if int(states[1].rejections) >= 6:
+				# A dropped transport (no Leave) holds the seat for the resume
+				# grace, then the remaining player wins.
 				clients[2].close()
 				phase = 5
+				phase_started = elapsed
 		5:
 			if states[1].ended:
 				if int(states[1].result.winner) != int(states[1].slot):
 					failures.append("Disconnect winner wrong")
-				print("ONLINE_LIFECYCLE_VERIFIED cancel=true malformed=true malformed_repeat=true authority=true fog=true disconnect=true failures=%s" % [failures])
+				if not states[1].has("held_at"):
+					failures.append("Dropped opponent's seat was not held for a resume")
+				var waited: float = elapsed - phase_started
+				if waited < 25.0:
+					failures.append("Match ended %.1f s after the drop, before the resume grace" % waited)
+				print("ONLINE_LIFECYCLE_VERIFIED cancel=true malformed=true malformed_repeat=true authority=true fog=true disconnect=true seat_held=%s waited=%.1f failures=%s" % [states[1].has("held_at"), waited, failures])
 				quit(0 if failures.is_empty() else 1)
-	if elapsed > 40.0:
+	if elapsed > 80.0:
 		push_error("Lifecycle timed out phase=%d" % phase)
 		quit(1)
 	return false

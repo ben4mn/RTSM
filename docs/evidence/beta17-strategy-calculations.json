@@ -1,0 +1,145 @@
+{
+  "scope": "Calculated estimates, not observed match timings or win rates. Neutral civilization, no upgrades unless stated; continuous work and no combat. Live inputs are hashed below.",
+  "source_sha256": {
+    "scripts/data/unit_data.gd": "367d76d1de3cb8e4e01d1cb6b872dfe1a494ea087b05a9c5ce4d29acd343eace",
+    "scripts/data/building_data.gd": "b01815799d231c1bfe8bbbd3a66dec68faafdfe1f7627b828f75c6cfcdf3a8ab",
+    "scripts/data/skirmish_data.gd": "ae319a312d0ed8199d20e50adc1ce98ca9c16192ad7534cb24c7c88cb60721b2",
+    "scripts/data/civilization_data.gd": "1258a20798310a50beb04f931b00264eb78ff450caeb35a6ad63ef588cadfbee"
+  },
+  "harvest_only_resources_per_worker_second": {
+    "food": 2.4,
+    "wood": 2.4,
+    "gold": 2.0
+  },
+  "cost_transfers": {
+    "Warrior": {
+      "old": {
+        "food": 100,
+        "wood": 40,
+        "gold": 0
+      },
+      "new": {
+        "food": 100,
+        "wood": 40,
+        "gold": 0
+      },
+      "old_harvest_worker_seconds": 58.33333333333334,
+      "new_harvest_worker_seconds": 58.33333333333334,
+      "total_price_unchanged": true
+    },
+    "Archer": {
+      "old": {
+        "food": 50,
+        "wood": 90,
+        "gold": 0
+      },
+      "new": {
+        "food": 50,
+        "wood": 70,
+        "gold": 20
+      },
+      "old_harvest_worker_seconds": 58.333333333333336,
+      "new_harvest_worker_seconds": 60.0,
+      "total_price_unchanged": true
+    },
+    "Horseman": {
+      "old": {
+        "food": 180,
+        "wood": 60,
+        "gold": 0
+      },
+      "new": {
+        "food": 180,
+        "wood": 20,
+        "gold": 40
+      },
+      "old_harvest_worker_seconds": 100.0,
+      "new_harvest_worker_seconds": 103.33333333333333,
+      "total_price_unchanged": true
+    }
+  },
+  "renewable_gold_demand": {
+    "one_archer_plus_one_horseman_per_minute": 60,
+    "scope": "A chosen replacement rate, not measured AI production. Sacred income can cover this for its controller; the opponent must mine or trade."
+  },
+  "expansion": {
+    "town_cost": {
+      "wood": 400,
+      "gold": 100
+    },
+    "age": 2,
+    "four_additional_villagers_cost": {
+      "food": 400
+    },
+    "single_builder_seconds_excluding_travel": 30,
+    "four_villagers_single_queue_seconds": 96,
+    "tradeoff": "Spends wood/gold before Castle and food on workers before troops. Four extra workers occupy eight population. Gains a drop-off and production queue; needs protected work and continual food funding."
+  },
+  "wheelbarrow": {
+    "cost": {
+      "food": 175,
+      "wood": 50
+    },
+    "haul_assumption": "120 world units each way at60 units/s, carry30, food/wood, no crowding or idle time",
+    "before_per_worker_minute": 109.0909090909091,
+    "after_per_worker_minute": 128.57142857142856,
+    "scope": "Illustrative steady-state throughput, not an immediate25% increase in delivered resources."
+  },
+  "openings": [
+    {
+      "name": "Early aggression",
+      "investment": "Dark-age Barracks and gold-free Warriors",
+      "benefit": "Can pressure exposed workers before opponents finish Feudal investment",
+      "cost": "Food competes with new workers; Warriors are slow and vulnerable to bows and Town Center fire"
+    },
+    {
+      "name": "Feudal pressure",
+      "investment": "Archery Range or Stable, mixed food/wood/gold army",
+      "benefit": "Counters enemy composition and contests mines/Sacred without Castle expense",
+      "cost": "Recurring gold demand and delayed siege; poor unsupported attacks into towers"
+    },
+    {
+      "name": "Defensive economy",
+      "investment": "Workers, Wheelbarrow, farms and selective tower coverage",
+      "benefit": "Renewable food and efficient protected production",
+      "cost": "Static defenses cannot defend every mine or caravan; gives the opponent map control"
+    },
+    {
+      "name": "Two Town Centers",
+      "investment": "Feudal expansion plus paid worker queues",
+      "benefit": "Faster workforce growth and another resource drop-off",
+      "cost": "400W100G plus worker food delays army/Castle; extra workers must survive to repay investment"
+    },
+    {
+      "name": "Castle priority",
+      "investment": "800F400G after Feudal, then Workshop and Siege",
+      "benefit": "Long-range building pressure can break entrenched defenses",
+      "cost": "Age adds no free HP/attack scaling; siege needs escorts and is vulnerable to flanks"
+    }
+  ],
+  "civilizations": [
+    {
+      "name": "French",
+      "strength": "Full-strength buildings and160HP Horsemen; balanced unit roster",
+      "tradeoff": "No gathering specialization or ranged reach bonus",
+      "strategy_fit": "Flexible counter army, defended expansion, escorted Castle siege"
+    },
+    {
+      "name": "English",
+      "strength": "+20% wood harvest and +1 Longbow range",
+      "tradeoff": "60HP Longbows and130HP Horsemen; recurring gold still needed",
+      "strategy_fit": "Protected bows, wood-funded expansion and farms; vulnerable to close flanks"
+    },
+    {
+      "name": "Mongols",
+      "strength": "+15% food harvest and110-speed Outriders",
+      "tradeoff": "140HP Outriders and20% weaker buildings",
+      "strategy_fit": "Fast food-funded recruitment, raids or faster worker growth; exposed expansions require mobile defense"
+    }
+  ],
+  "limits": [
+    "No opening is claimed equally strong from calculations alone. Seed/civilization simulations and hands-on checks are recorded separately.",
+    "Finite map stocks and per-civilization villager gathering rates are unchanged. No resource silently expires.",
+    "Standard Sacred hold changes360 to300 seconds only for new matches; actual endings still depend on capture, contest and defending fighters."
+  ]
+}

@@ -64,7 +64,23 @@ func _run() -> void:
 	_expect(not _gm.call("has_research", 0, "forging"), "human foundation cannot research")
 	_expect(not _gm.call("has_research", 1, "forging"), "AI foundation cannot research")
 	_expect(_rm.call("get_all_resources", 0) == human_before, "human foundation spends no research resources")
-	_expect(_rm.call("get_all_resources", 1) == ai_before, "AI foundation spends no research resources")
+	_expect(str(ai_forge.get("research_id")) == "", "AI foundation starts no research")
+	# The AI may start ordinary research in its Town Center (e.g. Loom); only
+	# that spending may leave its bank.
+	var ai_expected: Dictionary = ai_before.duplicate()
+	for building: Node2D in (_main.get("_player_buildings") as Array)[1]:
+		var running: String = str(building.get("research_id"))
+		if running.is_empty():
+			continue
+		var running_cost: Dictionary = _gm.call("get_research_definition", 1, running)["cost"]
+		for resource: String in running_cost:
+			ai_expected[resource] = int(ai_expected[resource]) - int(running_cost[resource])
+	_expect(_rm.call("get_all_resources", 1) == ai_expected, "AI foundation spends no research resources")
+	for building: Node2D in (_main.get("_player_buildings") as Array)[1]:
+		if not str(building.get("research_id")).is_empty():
+			# Cancel (full refund) so later bank checks see only the research under test.
+			_gm.call("cancel_research", 1, building)
+	_expect(_rm.call("get_all_resources", 1) == ai_before, "cancelling unrelated AI research refunds it")
 	for player_id: int in [0, 1]:
 		var forge: Node2D = human_forge if player_id == 0 else ai_forge
 		var units: Array = _main.get("_player_units")
@@ -80,7 +96,10 @@ func _run() -> void:
 		_expect(float(game_map.call("get_building_work_distance", work_position, forge.global_position, forge.get("footprint"))) <= 40.0, "player %d forge endpoint is inside real work reach" % player_id)
 		worker.global_position = work_position
 		worker.call("command_build", forge)
-		worker.call("_process_building", float(forge.get("build_time")) * 0.5)
+		# A Villager builds at VILLAGER_BUILD_SPEED; half the labor is half the
+		# build time divided by that speed.
+		var half_labor: float = float(forge.get("build_time")) * 0.5 / UnitData.VILLAGER_BUILD_SPEED
+		worker.call("_process_building", half_labor)
 		_expect(int(forge.get("state")) == 1 and is_equal_approx(float(forge.get("build_progress")), 0.5), "player %d forge stays incomplete after half paid labor" % player_id)
 		worker.call("_process_building", float(forge.get("build_time")) * 0.5)
 		_expect(int(forge.get("state")) == 2, "player %d actual worker completes forge" % player_id)
@@ -94,10 +113,14 @@ func _run() -> void:
 	_main.call("_on_research_requested", human_forge, "forging")
 	_rm.disconnect("resources_changed", reentry)
 	_expect(not reentry_results.is_empty() and not reentry_results.has(true), "spending signals cannot interleave another research or age purchase")
-	ai.call("_check_research")
+	# Round 2 B: research is timed in the building's slot. The AI buys through
+	# the same GameManager transaction its controller uses.
+	_expect(bool(_gm.call("try_start_research", 1, ai_forge, "forging")), "AI starts the same paid Forging research")
+	_finish_research([human_forge, ai_forge])
+	var forging_attack: int = int(TechData.get_research_definition("forging")["effects"]["attack"])
 	for player_id: int in [0, 1]:
 		_expect(_gm.call("has_research", player_id, "forging"), "player %d completed forge can research" % player_id)
-		_expect(int(_gm.call("get_attack_bonus", player_id)) == 2, "player %d forging applies +2 exactly once" % player_id)
+		_expect(int(_gm.call("get_attack_bonus", player_id)) == forging_attack, "player %d forging applies +%d exactly once" % [player_id, forging_attack])
 		var expected: Dictionary = human_before.duplicate() if player_id == 0 else ai_before.duplicate()
 		expected["food"] -= 100
 		expected["gold"] -= 50
@@ -117,14 +140,15 @@ func _run() -> void:
 	_expect(_snapshot(0) == unaffordable_before, "unaffordable research spends nothing and adds no effect")
 	_rm.call("initialize_player", 0, resource_before)
 	_main.call("_on_research_requested", human_forge, "scale_mail")
-	ai.call("_check_research")
+	_expect(bool(_gm.call("try_start_research", 1, ai_forge, "scale_mail")), "AI starts the same paid Scale Mail research")
+	_finish_research([human_forge, ai_forge])
 	for player_id: int in [0, 1]:
 		_expect(int(_gm.call("get_armor_bonus", player_id)) == 1, "player %d scale mail applies same +1 armor" % player_id)
 	await _exercise_villager_upgrades(human_forge)
 	_expect(_research_events.size() == 6, "six accepted human/AI research purchases emit exactly six completion events")
 	for event_id: String in ["0:forging", "1:forging", "0:scale_mail", "1:scale_mail", "0:wheelbarrow", "0:loom"]:
 		_expect(_research_events.count(event_id) == 1, "research event %s emits exactly once" % event_id)
-	_exercise_interrupted_purchase(ai_forge)
+	_exercise_interrupted_purchase((_main.get("_player_buildings") as Array)[1][0])
 	_exercise_paid_age_transactions()
 	for player_id: int in [0, 1]:
 		var unsupported_cost: Dictionary = _gm.call("get_age_up_cost", player_id, 4)
@@ -138,12 +162,22 @@ func _run() -> void:
 func _exercise_villager_upgrades(forge: Node2D) -> void:
 	var units: Array = _main.get("_player_units")
 	var worker: Node = units[0][0]
-	var previous_gather: float = float(worker.get("gather_rate"))
+	var previous_carry: int = int(worker.get("carry_capacity"))
+	var previous_speed: float = float(worker.get("speed"))
 	var previous_hp: int = int(worker.get("max_hp"))
+	# Wheelbarrow and Loom are Town Center research, one at a time in its slot.
+	var home: Node2D = (_main.get("_player_buildings") as Array)[0][0]
 	_main.call("_on_research_requested", forge, "wheelbarrow")
-	_main.call("_on_research_requested", forge, "loom")
-	_expect(is_equal_approx(float(worker.get("gather_rate")), previous_gather + UnitData.WHEELBARROW_GATHER_BONUS), "existing worker receives Wheelbarrow once")
-	_expect(int(worker.get("max_hp")) == previous_hp + 15, "existing worker receives Loom once")
+	_expect(str(forge.get("research_id")).is_empty(), "a Blacksmith cannot take Town Center research")
+	_main.call("_on_research_requested", home, "wheelbarrow")
+	_finish_research([home])
+	_main.call("_on_research_requested", home, "loom")
+	_finish_research([home])
+	# Round 2 B: Wheelbarrow carries a third more and walks 10% faster.
+	var barrow: Dictionary = TechData.get_research_definition("wheelbarrow")["effects"]
+	_expect(int(worker.get("carry_capacity")) == int(round(float(UnitData.VILLAGER_CARRY_CAPACITY) * (1.0 + float(barrow["carry"])))) and int(worker.get("carry_capacity")) > previous_carry, "existing worker receives Wheelbarrow carry once")
+	_expect(float(worker.get("speed")) > previous_speed + 0.01, "existing worker receives Wheelbarrow speed")
+	_expect(int(worker.get("max_hp")) == previous_hp + int(TechData.get_research_definition("loom")["effects"]["villager_hp"]), "existing worker receives Loom once")
 	# A paid replacement is produced through the real queue, not debug spawned.
 	_gm.call("increase_population_cap", 0, 10)
 	var buildings: Array = _main.get("_player_buildings")
@@ -160,13 +194,13 @@ func _exercise_villager_upgrades(forge: Node2D) -> void:
 	if units[0].size() == before_count + 1:
 		var replacement: Node = units[0][-1]
 		replacement.set_process(false)
-		_expect(is_equal_approx(float(replacement.get("gather_rate")), float(worker.get("gather_rate"))), "paid replacement inherits same gathering upgrade")
+		_expect(int(replacement.get("carry_capacity")) == int(worker.get("carry_capacity")) and is_equal_approx(float(replacement.get("speed")), float(worker.get("speed"))), "paid replacement inherits the same Wheelbarrow upgrade")
 		_expect(int(replacement.get("max_hp")) == int(worker.get("max_hp")), "paid replacement inherits same HP upgrade")
 	var before: Dictionary = _snapshot(0)
-	_main.call("_on_research_requested", forge, "wheelbarrow")
-	_main.call("_on_research_requested", forge, "loom")
-	_expect(_snapshot(0) == before, "economic research duplicates neither spend nor stack bonuses")
-	print("Research effects: attack=2 armor=1; worker gather=%s HP=%s; paid replacement=%s" % [worker.get("gather_rate"), worker.get("max_hp"), units[0].size() - before_count])
+	_main.call("_on_research_requested", home, "wheelbarrow")
+	_main.call("_on_research_requested", home, "loom")
+	_expect(_snapshot(0) == before and str(home.get("research_id")).is_empty(), "economic research duplicates neither spend nor stack bonuses")
+	print("Research effects: attack=%d armor=%d; worker carry=%s HP=%s; paid replacement=%s" % [int(_gm.call("get_attack_bonus", 0)), int(_gm.call("get_armor_bonus", 0)), worker.get("carry_capacity"), worker.get("max_hp"), units[0].size() - before_count])
 
 
 func _exercise_paid_age_transactions() -> void:
@@ -211,6 +245,14 @@ func _exercise_interrupted_purchase(forge: Node2D) -> void:
 	_expect(not bool(_gm.call("try_research", 1, forge, "wheelbarrow")), "destroyed building cannot research")
 	forge.set("state", 2)
 	_expect(_snapshot(1) == before, "dead-building requests leave all player values unchanged")
+
+
+## Run each building's timed research to completion (the authority tick).
+func _finish_research(buildings: Array) -> void:
+	for building: Node2D in buildings:
+		var running: String = str(building.get("research_id"))
+		if not running.is_empty():
+			building.call("advance_research", TechData.get_research_time(running) + 0.1)
 
 
 func _snapshot(player_id: int) -> Dictionary:

@@ -76,6 +76,14 @@ text = "Dark Age"
 theme_override_colors/font_color = Color(0.97, 0.95, 0.9, 1)
 theme_override_font_sizes/font_size = 16
 
+[node name="AgeUpButton" type="Button" parent="Root/TopBar/TopBarMargin/HBox"]
+unique_name_in_owner = true
+layout_mode = 2
+custom_minimum_size = Vector2(44, 44)
+size_flags_vertical = 4
+text = "II"
+theme_override_font_sizes/font_size = 15
+
 [node name="Spacer" type="Control" parent="Root/TopBar/TopBarMargin/HBox"]
 layout_mode = 2
 size_flags_horizontal = 3
@@ -199,13 +207,6 @@ offset_bottom = -8.0
 grow_horizontal = 0
 grow_vertical = 0
 theme_override_constants/separation = 6
-
-[node name="AgeUpButton" type="Button" parent="Root/BottomRight"]
-unique_name_in_owner = true
-layout_mode = 2
-custom_minimum_size = Vector2(108, 48)
-text = "Age Up"
-theme_override_font_sizes/font_size = 13
 
 [node name="BuildMenuButton" type="Button" parent="Root/BottomRight"]
 unique_name_in_owner = true

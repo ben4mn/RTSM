@@ -129,7 +129,7 @@ func _pose_contracts() -> void:
 					_expect(selection._is_touch_on_unit_body(unit, target), role + " pose body touch selection")
 					_expect(selection._get_node_at(target, false) == unit, role + " pose desktop selection")
 					_expect(selection._get_node_at(target, true) == unit, role + " pose touch resolver")
-					_expect(sprite.position.length() <= 5.01 and absf(sprite.rotation) <= 0.061, role + " existing attack excursion envelope")
+					_expect(sprite.position.length() <= 13.0 and absf(sprite.rotation) <= 0.2, role + " attack excursion stays inside the widened puppet envelope")
 					_metrics.pose_checks += 1
 			_expect(unit.hp == health_before and unit.position == position_before and unit.attack_cooldown == cooldown_before, role + " presentation leaves simulation unchanged")
 			if unit.has_method("_attack_pose_strength"):

@@ -39,8 +39,15 @@ var capture_progress: float = 0.0
 ## Radius in tiles to detect nearby units.
 @export var capture_radius: int = 3
 
+## False for a flank shrine: the same capture ring and gold income, but no
+## victory clock, no objective HUD and no building/objective groups.
+@export var victory_enabled: bool = true
+
 ## Time to hold sacred site for a victory (seconds).
-@export var victory_hold_time: float = 180.0  # 3 minutes
+@export var victory_hold_time: float = SkirmishData.SACRED_VICTORY_HOLD_SECONDS
+
+## Game time at which the victory clock may start (Standard: 8:00).
+var victory_wake_time: float = SkirmishData.SACRED_VICTORY_WAKE_SECONDS
 
 ## Accumulated hold time for the current owner.
 var victory_timer: float = 0.0
@@ -50,11 +57,16 @@ var control_banks: Array[float] = [0.0, 0.0]
 var clock_ticking: bool = false
 var garrison_paused: bool = false
 var _armed_nearby_counts: Array[int] = [0, 0]
+const CENSUS_INTERVAL: float = 0.2
+## Not saved: a restored site recounts on its first frame.
+var _census_cooldown: float = 0.0
+var _census: Array[int] = [0, 0]
 
 
 func configure_match_mode(mode: int) -> void:
 	match_mode = SkirmishData.normalize_match_mode(mode)
 	victory_hold_time = SkirmishData.get_sacred_target(match_mode)
+	victory_wake_time = SkirmishData.get_sacred_wake_seconds(match_mode)
 	control_banks = [0.0, 0.0]
 	victory_timer = 0.0
 	clock_ticking = false
@@ -75,6 +87,25 @@ func _advance_victory(delta: float) -> void:
 	victory_timer_tick.emit(owning_player, victory_hold_time - victory_timer, victory_hold_time)
 
 
+## Standard only (Round 2 E2): an owned clock that nobody guards, or that an
+## enemy is standing in, loses held time instead of pausing.
+func _drain_victory(delta: float) -> void:
+	if match_mode != SkirmishData.MatchMode.STANDARD or owning_player not in [0, 1] or victory_timer <= 0.0:
+		return
+	victory_timer = maxf(0.0, victory_timer - delta * SkirmishData.SACRED_DRAIN_RATE)
+	victory_timer_tick.emit(owning_player, victory_hold_time - victory_timer, victory_hold_time)
+
+
+## True while an owned Standard clock is losing held time (derived from the
+## replicated fields, so clients agree without a protocol change).
+func is_draining() -> bool:
+	if match_mode != SkirmishData.MatchMode.STANDARD or owning_player not in [0, 1] or victory_timer <= 0.0:
+		return false
+	if state == SiteState.CONTESTED:
+		return true
+	return state == SiteState.CAPTURED and (garrison_paused or _being_neutralized)
+
+
 ## ResourceManager stores whole resources. Preserve sub-resource income between
 ## frames so a normal 60 FPS update does not truncate every award to zero.
 var _gold_accumulator: float = 0.0
@@ -91,6 +122,9 @@ var _being_neutralized: bool = false
 
 
 func _ready() -> void:
+	if not victory_enabled:
+		add_to_group("shrines")
+		return
 	add_to_group("sacred_sites")
 	add_to_group("buildings")
 
@@ -99,7 +133,15 @@ func _process(delta: float) -> void:
 	_being_neutralized = false
 	clock_ticking = false
 	garrison_paused = false
-	var nearby := _count_nearby_players()
+	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
+	# Round 2 E2 (perf): the ring census runs at about 5 Hz, not every frame.
+	# A long step (tests, a hitch) always recounts.
+	_census_cooldown -= delta
+	if _census_cooldown <= 0.0 or delta >= CENSUS_INTERVAL:
+		_census_cooldown = CENSUS_INTERVAL
+		_census = _count_nearby_players()
+	var nearby: Array[int] = _census
+	if PerfProbe.on: PerfProbe.add(&"site.count", _pp)
 	var p1_count: int = nearby[0]
 	var p2_count: int = nearby[1]
 
@@ -176,6 +218,7 @@ func _handle_captured(p1: int, p2: int, delta: float, armed_friendly: int = 0) -
 	if enemy > 0 and friendly == 0:
 		# Enemy is de-capturing.
 		_being_neutralized = true
+		_drain_victory(delta)
 		capture_progress -= (delta / capture_time) * (minf(enemy, 5) * 0.5 + 0.5)
 		if capture_progress <= 0.0:
 			capture_progress = 0.0
@@ -188,12 +231,18 @@ func _handle_captured(p1: int, p2: int, delta: float, armed_friendly: int = 0) -
 
 	# Generate gold for the owning player.
 	_generate_gold(delta)
+	# Shrines only pay. Before the clock opens, the site pays but cannot win.
+	if not victory_enabled or victory_wake_remaining() > 0.0:
+		return
 
 	# Standard asks an army to occupy the ground it wants to win from. Scouts
 	# and workers retain capture, contest and income utility. Control race keeps
-	# its established banked-ownership rules. Leaving pauses; it never resets.
+	# its established banked-ownership rules. Round 2 E2: leaving drains the
+	# held time at SACRED_DRAIN_RATE; losing the site resets it.
 	garrison_paused = match_mode == SkirmishData.MatchMode.STANDARD and armed_friendly <= 0
-	if not garrison_paused:
+	if garrison_paused:
+		_drain_victory(delta)
+	else:
 		_advance_victory(delta)
 
 
@@ -224,7 +273,10 @@ func _handle_contested(p1: int, p2: int, delta: float) -> void:
 				_reset_or_restore_timer()
 				state = SiteState.CAPTURING
 		return
-	# Both players present — pause control in both rule sets.
+	# Both players present: Control race pauses; Standard drains the owner's
+	# held time once the clock is open (Round 2 E2).
+	if victory_enabled and victory_wake_remaining() <= 0.0:
+		_drain_victory(delta)
 
 
 func _generate_gold(delta: float) -> void:
@@ -254,8 +306,24 @@ func _reset_gold_accumulator() -> void:
 func _count_nearby_players() -> Array[int]:
 	var counts: Array[int] = [0, 0]
 	_armed_nearby_counts = [0, 0]
-	for unit in get_tree().get_nodes_in_group("units"):
+	# The map's unit index returns the same units in the same order as the group
+	# scan would within this radius; sites outside a GameMap keep the scan.
+	var map: Node = get_parent().get_parent() if get_parent() != null else null
+	var candidates: Array = map.get_units_near(global_position, get_capture_radius_world()) if map != null and map.has_method("get_units_near") and get_tree().get_node_count_in_group("units") == map.get_spatial_unit_count() else get_tree().get_nodes_in_group("units")
+	var radius: float = get_capture_radius_world()
+	for unit in candidates:
 		if not is_instance_valid(unit) or not unit is Node2D:
+			continue
+		# Typed fast path for units (same tests, same order, same result).
+		if unit is UnitBase:
+			var live := unit as UnitBase
+			if live.current_state == UnitBase.State.DEAD or global_position.distance_to(live.global_position) > radius:
+				continue
+			var owner_id: int = live.get_player_id()
+			if owner_id >= 0 and owner_id <= 1:
+				counts[owner_id] += 1
+				if live.hp > 0.0 and live.damage > 0.0 and live.unit_type != UnitData.UnitType.VILLAGER and live.unit_type != UnitData.UnitType.SCOUT:
+					_armed_nearby_counts[owner_id] += 1
 			continue
 		# Unit death fades for a short time before queue_free. The visual remnant
 		# must not capture, contest, or cross a victory boundary during that fade.
@@ -281,10 +349,19 @@ static func is_armed_garrison_unit(unit: UnitBase) -> bool:
 	return is_instance_valid(unit) and unit.current_state != UnitBase.State.DEAD and unit.hp > 0.0 and unit.damage > 0.0 and unit.unit_type not in [UnitData.UnitType.VILLAGER, UnitData.UnitType.SCOUT]
 
 
+var _visual_key: Vector4 = Vector4(-1.0, -1.0, -1.0, -1.0)
+
+
 func _update_visuals() -> void:
 	# Color the sprite based on state.
 	if sprite == null:
 		return
+	# Presentation only: rebuild the bar and redraw the ring when what they
+	# show changed, not on every frame.
+	var key := Vector4(float(state), float(owning_player), capture_progress, victory_timer)
+	if key == _visual_key:
+		return
+	_visual_key = key
 	match state:
 		SiteState.NEUTRAL:
 			sprite.modulate = NEUTRAL_COLOR
@@ -351,11 +428,16 @@ func get_capture_radius_world() -> float:
 	return float(capture_radius * MapData.TILE_WIDTH)
 
 
+func victory_wake_remaining() -> float:
+	return maxf(0.0, victory_wake_time - GameManager.game_time)
+
+
 func get_status() -> Dictionary:
 	var phase: String = "neutral"
+	var wake_remaining: float = victory_wake_remaining()
 	match state:
 		SiteState.CAPTURING: phase = "capturing"
-		SiteState.CAPTURED: phase = "neutralizing" if _being_neutralized else ("unguarded" if garrison_paused else "holding")
+		SiteState.CAPTURED: phase = "neutralizing" if _being_neutralized else ("waiting" if wake_remaining > 0.0 else ("unguarded" if garrison_paused else "holding"))
 		SiteState.CONTESTED: phase = "contested"
 	return {
 		"phase": phase,
@@ -368,6 +450,8 @@ func get_status() -> Dictionary:
 		"control_banks": control_banks.duplicate(),
 		"clock_ticking": clock_ticking,
 		"garrison_paused": garrison_paused,
+		"draining": is_draining(),
+		"wake_remaining": wake_remaining,
 	}
 
 
@@ -375,7 +459,7 @@ func _publish_status() -> void:
 	# Refresh immediately when the phase/owner changes, and only on visible
 	# second/percentage boundaries while a timer advances.
 	var status: Dictionary = get_status()
-	var key: String = "%s:%d:%d:%d:%s:%s" % [status["phase"], owning_player, floori(capture_progress * 100.0), ceili(float(status["remaining"])), clock_ticking, garrison_paused]
+	var key: String = "%s:%d:%d:%d:%s:%s:%d:%s" % [status["phase"], owning_player, floori(capture_progress * 100.0), ceili(float(status["remaining"])), clock_ticking, garrison_paused, ceili(float(status["wake_remaining"])), status["draining"]]
 	if key == _last_status_key:
 		return
 	_last_status_key = key

@@ -58,6 +58,9 @@ func _run() -> void:
 				actor.hp = 75.0
 			manager.reduced_flashes = false
 			adapter.apply_snapshot({"actors": actors})
+			# Units outside the camera view skip posing (presentation culling).
+			# The replicas sit off the opening camera; widen the view for this pass.
+			load("res://scripts/units/unit_base.gd").set("view_rect", Rect2(-1e7, -1e7, 2e7, 2e7))
 			adapter._process(0.1)
 			for actor: Dictionary in actors:
 				var unit: Node = adapter.entities[int(actor.id)]

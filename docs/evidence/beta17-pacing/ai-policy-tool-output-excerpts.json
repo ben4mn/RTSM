@@ -1,0 +1,20 @@
+{
+  "kind": "Recorded tool-console output excerpts, not full raw log files",
+  "source_revision": "d64bcb675e6fc45be7ad643222b69aa52967f008",
+  "scope": "Both native tests ran against combined candidate data immediately before this commit. The command used Godot4.6 headless with quit-after900. Neither was a natural match.",
+  "results": [
+    {
+      "scene": "res://tools/test_ai_trade_demand.tscn",
+      "checks": 33,
+      "failures": [],
+      "observed_exit": 0
+    },
+    {
+      "scene": "res://tools/test_ai_strategic_openings.tscn",
+      "checks": 36,
+      "failures": [],
+      "observed_exit": 0
+    }
+  ],
+  "total_including_raw_paid_trade_fixture": 86
+}

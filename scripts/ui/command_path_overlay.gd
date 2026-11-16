@@ -22,28 +22,56 @@ var _observed_orders: Dictionary = {}
 @onready var selection_manager: SelectionManager = get_parent().get_node("SelectionManager") as SelectionManager
 
 
+## Units the player just ordered without selecting them (workers panel, rally
+## births, farm shortcut). Their route previews like a selected unit's once.
+var _noted_orders: Dictionary = {}  # instance id -> {"unit": WeakRef, "time": seconds}
+
+
+func note_ordered(units: Array) -> void:
+	var now: float = Time.get_ticks_msec() / 1000.0
+	for node: Variant in units:
+		if node is UnitBase and is_instance_valid(node) and (node as UnitBase).player_owner == 0:
+			_noted_orders[(node as UnitBase).get_instance_id()] = {"unit": weakref(node), "time": now}
+	queue_redraw()
+
+
 func _process(_delta: float) -> void:
 	# Updating reads existing paths only; rendering never runs pathfinding.
-	if not selection_manager.selected.is_empty():
+	var now: float = Time.get_ticks_msec() / 1000.0
+	for id: Variant in _noted_orders.keys():
+		if now - float(_noted_orders[id]["time"]) > PREVIEW_SECONDS + FADE_SECONDS + 1.0 or (_noted_orders[id]["unit"] as WeakRef).get_ref() == null:
+			_noted_orders.erase(id)
+	if not selection_manager.selected.is_empty() or not _noted_orders.is_empty():
 		queue_redraw()
 
 
 func _ready() -> void:
 	selection_manager.selection_changed.connect(func(_selection: Array[Node2D]) -> void:
+		# Changing or clearing the selection ends every preview, noted ones too.
 		_observed_orders.clear()
+		_noted_orders.clear()
 		queue_redraw())
 
 
 ## Public for render fixtures and regressions; every route is world-space.
 func get_display_routes() -> Array[Dictionary]:
 	var routes: Array[Dictionary] = []
-	for selected_node: Node2D in selection_manager.selected:
+	var candidates: Array = selection_manager.selected.duplicate()
+	for entry: Dictionary in _noted_orders.values():
+		var noted: Variant = (entry["unit"] as WeakRef).get_ref()
+		if noted != null and noted not in candidates:
+			candidates.append(noted)
+	for selected_node: Variant in candidates:
 		if not is_instance_valid(selected_node) or not (selected_node is UnitBase):
 			continue
 		var unit := selected_node as UnitBase
 		if unit.player_owner != 0 or not unit.is_visible_in_tree():
 			continue
 		var points: PackedVector2Array = unit.get_remaining_navigation_path()
+		if not points.is_empty():
+			# The route leaves from the drawn figure, not the 20 Hz simulated
+			# point a step ahead of it (which made the line's tail stutter).
+			points[0] = unit.get_visual_position()
 		var resuming_attack_move: bool = unit.attack_move and unit.current_state == UnitBase.State.ATTACKING
 		if points.is_empty() and not resuming_attack_move:
 			continue
@@ -100,10 +128,35 @@ func get_selected_unit_cue_points() -> PackedVector2Array:
 		var tile: Vector2i = map.call("world_to_tile", unit.global_position)
 		if not bool(map.call("is_tile_visible_to_player", tile, 0)):
 			continue
-		var anchor: Vector2 = to_local(unit.global_position)
+		var anchor: Vector2 = to_local(unit.get_visual_position())
 		for offset: Vector2 in SELECTION_CUE_SEGMENTS:
 			points.append(anchor + offset / zoom)
 	return points
+
+
+## Current visible attack targets, capped like route groups. This is a target
+## cue, never a projected path or an enemy-discovery query.
+func get_combat_target_cues() -> Array[Vector2]:
+	var targets: Array[Vector2] = []
+	var seen: Dictionary = {}
+	for entry: Node2D in selection_manager.selected:
+		if not is_instance_valid(entry) or not entry is UnitBase or entry.player_owner != 0:
+			continue
+		var unit := entry as UnitBase
+		if unit.current_state != UnitBase.State.ATTACKING or not unit.is_visible_in_tree():
+			continue
+		var target: Node2D = null
+		if is_instance_valid(unit.attack_target) and unit._is_valid_target(unit.attack_target):
+			target = unit.attack_target
+		elif is_instance_valid(unit.attack_building_target) and unit._is_valid_building_target(unit.attack_building_target):
+			target = unit.attack_building_target
+		if target == null or not target.is_visible_in_tree() or seen.has(target.get_instance_id()):
+			continue
+		seen[target.get_instance_id()] = true
+		targets.append((target as UnitBase).get_visual_position() if target is UnitBase else target.global_position)
+		if targets.size() >= MAX_ROUTE_GROUPS:
+			break
+	return targets
 
 
 func _draw() -> void:
@@ -119,8 +172,10 @@ func _draw() -> void:
 			points.append(to_local(point))
 		var color: Color = ATTACK_COLOR if route["mode"] == "attack" else (WORK_COLOR if route["mode"] == "work" else MOVE_COLOR)
 		color.a = 0.55 * float(route.get("opacity", 1.0))
-		for index: int in range(1, points.size()):
-			draw_dashed_line(points[index - 1], points[index], color, 1.2 / zoom, 8.0 / zoom, true, true)
+		# One continuous stroke avoids restarting a dash at every tiny A*
+		# segment, which made the same route look jagged at different zooms.
+		if points.size() >= 2:
+			draw_polyline(points, color, 1.25 / zoom, true)
 		_draw_destination(to_local(route["destination"]), color, zoom, route["mode"] == "attack")
 		# Engagement temporarily replaces the live route with a chase. Keep the
 		# attack-move goal marked so the player knows where troops will resume.
@@ -140,6 +195,12 @@ func _draw() -> void:
 				arrow,
 				arrow - direction * 5.0 / zoom - side * 4.0 / zoom,
 			]), color, 2.0 / zoom, true)
+	for target: Vector2 in get_combat_target_cues():
+		var center: Vector2 = to_local(target)
+		for side: float in [-1.0, 1.0]:
+			var bracket := PackedVector2Array([center + Vector2(side * 8, -6) / zoom, center + Vector2(side * 11, -6) / zoom, center + Vector2(side * 11, 4) / zoom, center + Vector2(side * 8, 4) / zoom])
+			draw_polyline(bracket, SELECTION_CUE_INK, 3.0 / zoom, true)
+			draw_polyline(bracket, ATTACK_COLOR, 1.5 / zoom, true)
 	# Persist independently of brief order previews. Only the hollow cue paints
 	# above crowded bodies; unit artwork, world rings and health stay in place.
 	var cues: PackedVector2Array = get_selected_unit_cue_points()
@@ -186,21 +247,19 @@ func get_queued_destination_markers() -> Array[Dictionary]:
 
 
 func _draw_queued_destinations(zoom: float) -> void:
-	# These dotted links describe waypoint order, not a computed navigation path.
+	# A queued destination has no accepted navigation route until that leg
+	# starts. Number the goals without a misleading line through obstacles.
 	var font: Font = ThemeDB.fallback_font
 	for group: Dictionary in get_queued_destination_markers():
-		var previous: Vector2 = to_local(group.origin)
 		var index: int = 0
 		for world: Vector2 in group.points:
 			index += 1
 			var point: Vector2 = to_local(world)
-			draw_dashed_line(previous, point, Color(MOVE_COLOR, 0.4), 1.0 / zoom, 3.0 / zoom)
 			draw_circle(point, 9.0 / zoom, Color("293235"))
 			draw_arc(point, 9.0 / zoom, 0, TAU, 24, MOVE_COLOR, 1.5 / zoom, true)
 			draw_set_transform(point, 0.0, Vector2.ONE / zoom)
 			draw_string(font, Vector2(-4, 5), str(index), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, MOVE_COLOR)
 			draw_set_transform(Vector2.ZERO)
-			previous = point
 
 
 func _draw_destination(destination: Vector2, color: Color, zoom: float, attack: bool) -> void:

@@ -1,0 +1,6 @@
+=== [1/1] test_ai_default_wood_recovery ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+{"cases":[{"bank":{"food":826,"gold":540,"wood":12},"food_jobs":4,"limit":20,"searching":1,"targets":{"food":3,"gold":0,"wood":2}},{"bank":{"food":826,"gold":540,"wood":12},"food_jobs":5,"limit":100,"searching":0,"targets":{"food":2,"gold":1,"wood":2}}],"checks":22,"failures":["100: one idle worker searches for missing wood before all-food fallback","100: exactly one targeted search is owned"],"scope":"controlled visibility, explicit bank and existing real worker search/assignment; no full-match or income claim","test":"ai_default_wood_recovery"}
+[FAIL (exit 1)] test_ai_default_wood_recovery
+FOCUSED_SUITE: 0/1 passed; failed: test_ai_default_wood_recovery

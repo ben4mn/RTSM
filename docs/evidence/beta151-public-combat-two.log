@@ -1,0 +1,21 @@
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+ONLINE_COMBAT_STATUS slot=0 state=idle elapsed=0.00 message=
+ONLINE_COMBAT_STATUS slot=0 state=connecting elapsed=0.00 message=Connecting…
+ONLINE_COMBAT_STATUS slot=0 state=searching elapsed=0.31 message=Searching for an opponent…
+ONLINE_COMBAT_STATUS slot=0 state=searching elapsed=0.34 message=Searching for an opponent…
+ONLINE_COMBAT_STATUS slot=1 state=loading elapsed=0.34 message=Opponent found · loading…
+ONLINE_COMBAT_STATUS slot=1 state=playing elapsed=0.48 message=Online match
+ONLINE_COMBAT_PROGRESS slot=1 game=3.33 wall=10.40 seed=1670236891 map=1 snapshots=1 placed=false trained=false ordered=false
+ONLINE_COMBAT_PLACEMENT_SCAN ms=0 placed=true
+ONLINE_COMBAT_PROGRESS slot=1 game=13.40 wall=20.54 seed=1670236891 map=1 snapshots=40 placed=true trained=false ordered=false
+ONLINE_COMBAT_PROGRESS slot=1 game=23.45 wall=30.50 seed=1670236891 map=1 snapshots=71 placed=true trained=true ordered=false
+ONLINE_COMBAT_PROGRESS slot=1 game=33.49 wall=40.56 seed=1670236891 map=1 snapshots=115 placed=true trained=true ordered=false
+ONLINE_COMBAT_PROGRESS slot=1 game=43.78 wall=50.84 seed=1670236891 map=1 snapshots=160 placed=true trained=true ordered=true
+ONLINE_COMBAT_PROGRESS slot=1 game=53.89 wall=60.88 seed=1670236891 map=1 snapshots=204 placed=true trained=true ordered=true
+ONLINE_COMBAT_PROGRESS slot=1 game=64.04 wall=71.06 seed=1670236891 map=1 snapshots=247 placed=true trained=true ordered=true
+ONLINE_COMBAT_PROGRESS slot=1 game=74.06 wall=81.05 seed=1670236891 map=1 snapshots=297 placed=true trained=true ordered=true
+ONLINE_COMBAT_VERIFIED slot=1 paid_barracks=true paid_infantry=true attack_move=true enemy_visible=true replicated_damage=true stand_ground_requested=false inert_stance_replica=false
+ONLINE_COMBAT_STATUS slot=1 state=ended elapsed=46.82 message=Surrender
+ONLINE_COMBAT_RESULT slot=1 winner=0 reason=Surrender verified=true game=82.93 wall=90.13
+ONLINE_COMBAT_STATUS slot=1 state=idle elapsed=46.82 message=

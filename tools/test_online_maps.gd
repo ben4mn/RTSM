@@ -29,7 +29,9 @@ func _initialize() -> void:
 	var peers: Array[int] = [1, 2]
 	for seed_value: int in range(6):
 		_expect(session.call("_choose_match_archetype", peers, seed_value) == seed_value % MapData.MAP_ARCHETYPES.size(), "all current map types participate")
-	for invalid_map: Variant in [-1, 3, 1.5, "1", [], {}]:
+	for supported_map: int in MapData.MAP_ARCHETYPES:
+		_expect(bool(session.call("_valid_map", supported_map)), "every current style is valid")
+	for invalid_map: Variant in [-1, MapData.MAP_ARCHETYPES.size(), 1.5, "1", [], {}]:
 		session.call("_client_packet", {"op": "matched", "protocol": current_protocol, "slot": 0, "seed": 101, "match": 41, "map_archetype": invalid_map, "civilizations": [0, 0]})
 		_expect(session.get("state") == "error", "unsupported map is rejected before terrain loading")
 	session.free()

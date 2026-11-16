@@ -150,9 +150,10 @@ inside the building, or unit appearing directly at a distant rally as P1.
 
 ## Match Objective and Ending
 
-You can win by destroying the enemy Town Center or by holding the central Sacred Site
-for ten minutes of game time (`10:00`). A contested site does not progress normally;
-its status and remaining time appear in the HUD. The AI can scout, contest, capture,
+You can win by destroying every enemy Town Center or by holding the central Sacred
+Site. The Sacred Site clock opens at `12:00` of game time; from then, keep a fighter
+in its ring with no enemy inside for five minutes (`5:00`). An empty or contested
+ring drains the time already held. Its status and remaining time appear in the HUD. The AI can scout, contest, capture,
 reinforce, and defend the objective.
 
 At an authoritative ending, the summary must show Victory or Defeat, game time, ending

@@ -55,7 +55,7 @@ func _run() -> void:
 	var enemy: Node = _unit(0, Vector2(2000, 1000))
 	for limit: int in [20, 30, 40, 60]:
 		gm.players[1]["max_population"] = limit
-		for moment: float in [301.0, 481.0]:
+		for moment: float in [float(SkirmishData.AI_RAID_START_SECONDS[0]) + 1.0, SkirmishData.EASY_LARGER_SQUAD_SECONDS + 1.0]:
 			ai.set("_game_time", moment)
 			var threshold: int = int(ai.call("_get_attack_threshold"))
 			_expect(threshold >= 3 and threshold <= SkirmishData.get_easy_pressure_squad_size(moment), "%d-pop Easy threshold fits its actual pressure squad at %.0fs" % [limit, moment])
@@ -87,7 +87,7 @@ func _run() -> void:
 		soldier.set("position", Vector2(100, 1000))
 	ai.set("_staging_point", Vector2(100, 1000))
 	enemy.set("position", Vector2(2000, 1000))
-	ai.set("_game_time", 301.0)
+	ai.set("_game_time", float(SkirmishData.AI_RAID_START_SECONDS[0]) + 1.0)
 	ai.call("_check_attack_or_defend")
 	var old_wave: Array = (ai.get("_attack_wave_units") as Array).duplicate()
 	_expect(launches == [3] and old_wave.size() == 3, "six available fighters launch one coherent three-unit early squad")
@@ -115,7 +115,7 @@ func _run() -> void:
 	ai.call("_check_sacred_site_strategy")
 	_expect((ai.get("_objective_units") as Array) == [scout] and (ai.get("_attack_wave_units") as Array).size() == 3, "a zero-damage Scout can guard without consuming or expanding the three-fighter pressure budget")
 	site.owning_player = 0
-	ai.set("_game_time", 301.0)
+	ai.set("_game_time", float(SkirmishData.AI_RAID_START_SECONDS[0]) + 1.0)
 	for soldier: Node in soldiers:
 		soldier.set("position", Vector2(100, 1000) if soldier in old_wave else Vector2(790, 1000))
 	ai.call("_check_attack_or_defend")
@@ -154,7 +154,7 @@ func _run() -> void:
 	ai.set("_game_time", resume_at)
 	ai.call("_check_attack_or_defend")
 	_expect((ai.get("_objective_units") as Array).size() == 3, "regroup expires and a paid surviving squad can contest again")
-	ai.set("_game_time", 481.0)
+	ai.set("_game_time", SkirmishData.EASY_LARGER_SQUAD_SECONDS + 1.0)
 	ai.call("_check_attack_or_defend")
 	_expect((ai.get("_objective_units") as Array).size() == 4, "late Easy pressure grows to four, not its entire economic budget")
 	ai.call("_release_objective_units")
@@ -211,7 +211,7 @@ func _check_reactive_opening(ai: Node, map: TestMap, gm: Node, enemy: Node) -> v
 	for moment: float in [150.0, 299.999, 389.999]:
 		ai.set("_game_time", moment)
 		_expect(bool(ai.call("_should_hold_sacred_recon", site)) and not bool(ai.call("_check_sacred_site_strategy")), "an empty neutral objective remains recon-only at%.3fs" % moment)
-		if moment < 300.0:
+		if moment < float(SkirmishData.AI_RAID_START_SECONDS[0]):
 			ai.call("_check_attack_or_defend")
 			_expect((ai.get("_attack_wave_units") as Array).is_empty(), "reactive eligibility does not advance ordinary raids at%.3fs" % moment)
 	# Public ownership can trigger a response without granting hidden-unit

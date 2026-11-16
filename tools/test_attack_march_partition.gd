@@ -227,6 +227,8 @@ func _test_partition_authority() -> void:
 	container = map.get_node("UnitsContainer")
 	var groups: Array = []
 	for owner: int in 2:
+		# Five villagers and a Scout nearly fill the opening housing.
+		GameManager.increase_population_cap(owner, 10)
 		var units: Array[UnitBase] = []
 		for index: int in 3:
 			var tile := Vector2i(20 + index, 20 + owner * 2) if index < 2 else Vector2i(15, 15 + owner * 2)

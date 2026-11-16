@@ -31,6 +31,11 @@ func _initialize() -> void:
 
 
 func _run() -> void:
+	# Round 2 E2: this fixture checks the wave lifecycle latch with small armies.
+	# At the large-match scale (80+ bodies) waves wait for 10-30 soldiers and a
+	# healthy wave that reaches its target keeps pushing (covered by the match
+	# telemetry), so the lifecycle runs under the compact 60-body policy.
+	root.get_node("GameManager").set("selected_population_limit", 60)
 	var ai_script: Script = load(AI_CONTROLLER_SCRIPT_PATH)
 	var ai: Node = ai_script.new()
 	ai.set("difficulty", DIFFICULTY_HARD)

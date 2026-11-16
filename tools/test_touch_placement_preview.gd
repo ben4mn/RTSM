@@ -60,19 +60,25 @@ func _run() -> void:
 	_expect((selection.get("_active_touch_indices") as Dictionary).is_empty(), "placement clears the previous finger gesture")
 	_expect(world.is_processing_unhandled_input(), "camera input remains available during placement")
 
-	var first_pos: Vector2 = placement.get_canvas_transform() * world.tile_to_world(Vector2i(12, 11))
+	# L2: a tap away from the ghost moves it there (footprint centred under the
+	# finger) and never builds.
+	var first_pos: Vector2 = _footprint_center_screen(placement, world, Vector2i(15, 15))
+	_expect(not placement.is_screen_point_on_ghost(first_pos), "fixture: the tap lands off the ghost")
 	placement.call("_unhandled_input", _touch(0, first_pos, true))
 	_expect_eq(_confirmations, 0, "touch-down never places a building")
 	placement.call("_unhandled_input", _touch(0, first_pos, false))
-	_expect(world.world_to_tile(placement.ghost_position) == Vector2i(12, 11), "a world tap repositions the preview")
-	_expect_eq(_confirmations, 0, "a completed tap still needs explicit Place")
+	_expect(world.world_to_tile(placement.ghost_position) == Vector2i(15, 15), "a world tap repositions the preview")
+	_expect_eq(_confirmations, 0, "a tap off the ghost never builds")
 
-	var dragged_pos: Vector2 = placement.get_canvas_transform() * world.tile_to_world(Vector2i(13, 12))
+	# A drag that starts on the ghost carries it.
+	var dragged_pos: Vector2 = _footprint_center_screen(placement, world, Vector2i(16, 16))
 	placement.call("_unhandled_input", _touch(0, first_pos, true))
 	placement.call("_unhandled_input", _drag(0, dragged_pos, dragged_pos - first_pos))
-	_expect(world.world_to_tile(placement.ghost_position) == Vector2i(13, 12), "drag repositions the ghost")
+	_expect(world.world_to_tile(placement.ghost_position) == Vector2i(16, 16), "drag repositions the ghost")
 	_expect_eq(_confirmations, 0, "drag cannot spend resources")
 	placement.call("_unhandled_input", _touch(0, dragged_pos, false))
+	_expect_eq(_confirmations, 0, "releasing a ghost drag does not build")
+	first_pos = _footprint_center_screen(placement, world, Vector2i(12, 20))
 
 	var ghost_before: Vector2 = placement.ghost_position
 	placement.call("_unhandled_input", _touch(0, first_pos, true))
@@ -94,6 +100,16 @@ func _run() -> void:
 	_expect(selection.is_processing_unhandled_input(), "successful placement restores unit orders")
 	_expect(_preview_events >= 3, "preview state is reported to the HUD")
 
+	# A tap on the ghost itself builds it where it is drawn.
+	placement.start_placement(BuildingData.BuildingType.HOUSE)
+	placement.update_preview_at_world(world.tile_to_world(Vector2i(18, 18)))
+	var on_ghost: Vector2 = _footprint_center_screen(placement, world, Vector2i(18, 18))
+	await _real_wait(400)
+	placement.call("_unhandled_input", _touch(3, on_ghost, true))
+	placement.call("_unhandled_input", _touch(3, on_ghost, false))
+	_expect_eq(_confirmations, 2, "a tap on the ghost builds it (on ghost %s, valid %s, active %s, since %d, pts %s)" % [placement.is_screen_point_on_ghost(on_ghost), placement.is_valid_placement, placement.active, Time.get_ticks_msec() - int(placement.get("_last_confirm_msec")), placement.get("_touch_points")])
+	_confirmations = 1
+
 	# Real desktop clicks keep the existing immediate placement workflow.
 	placement.start_placement(BuildingData.BuildingType.HOUSE)
 	var click := InputEventMouseButton.new()
@@ -111,6 +127,13 @@ func _run() -> void:
 		for failure: String in _failures:
 			push_error("[FAIL] touch_placement_preview: %s" % failure)
 		get_tree().quit(1)
+
+
+func _footprint_center_screen(placement: BuildingPlacement, world: Node2D, origin: Vector2i) -> Vector2:
+	var center: Vector2 = world.call("tile_to_world", origin)
+	var axis_x: Vector2 = (world.call("tile_to_world", origin + Vector2i(1, 0)) as Vector2) - center
+	var axis_y: Vector2 = (world.call("tile_to_world", origin + Vector2i(0, 1)) as Vector2) - center
+	return placement.get_canvas_transform() * (center + (axis_x + axis_y) * 0.5)
 
 
 func _touch(index: int, pos: Vector2, pressed: bool) -> InputEventScreenTouch:
@@ -136,3 +159,10 @@ func _expect(condition: bool, message: String) -> void:
 
 func _expect_eq(actual: Variant, expected: Variant, message: String) -> void:
 	_expect(actual == expected, "%s (expected %s, got %s)" % [message, expected, actual])
+
+
+## Real (wall-clock) time: the 0.35 s double-confirm guard is measured in it.
+func _real_wait(msec: int) -> void:
+	var until: int = Time.get_ticks_msec() + msec
+	while Time.get_ticks_msec() < until:
+		await get_tree().process_frame

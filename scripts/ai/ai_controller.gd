@@ -49,6 +49,10 @@ var _staging_point: Vector2 = Vector2.ZERO
 var _attack_in_progress: bool = false
 var _has_launched_field_attack: bool = false
 var _attack_wave_units: Array = []
+## A small detachment that takes flank shrines for their gold.
+var _shrine_units: Array = []
+const SHRINE_START_SECONDS: Dictionary = {Difficulty.EASY: 600.0, Difficulty.MEDIUM: 180.0, Difficulty.HARD: 120.0}
+const SHRINE_SQUAD_SIZE: Dictionary = {Difficulty.EASY: 2, Difficulty.MEDIUM: 3, Difficulty.HARD: 3}
 var _attack_wave_target_position: Vector2 = Vector2(-1, -1)
 var _attack_wave_target_ref: WeakRef = null
 var _attack_wave_best_distance: float = INF
@@ -103,6 +107,12 @@ var _pending_economy_rebalance_deadline: float = -INF
 var _economy_rebalance_deferred_scheduled: bool = false
 var _last_economy_action: String = "none"
 var _build_site_search_cursors: Dictionary = {}  # building_type -> bounded scalar cursor
+var _next_trade_decision: float = 0.0
+var _trade_site_cursor: int = 0
+# Recomputed from fair observations; losing this short-lived plan on resume
+# cannot lose resources or duplicate a purchase.
+var _trade_capital: Dictionary = {}
+var _trade_capital_until: float = 0.0
 
 # Build-order tracking (what we have built so far)
 var _town_center_count: int = 0
@@ -121,6 +131,34 @@ var _is_under_pressure: bool = false
 var _pressure_memory: float = 0.0
 var _saving_for_age_up: bool = false
 var _timed_age_up_reserve_active: bool = false
+# Round 2 E state.
+var _feudal_reached_at: float = -1.0
+var _healing_ids: Dictionary = {}  # instance id -> true while walking home to heal
+var _boar_target_ref: WeakRef = null
+var _boar_hunter_ids: Array = []
+var _boar_lure_id: int = 0
+var _boar_lure_returning: bool = false
+var _boar_shelter: Vector2 = Vector2.ZERO
+var _boar_party_assembling: bool = false
+const BOAR_MUSTER_DISTANCE: float = 110.0
+var _boar_started_at: float = -INF
+var _boars_handled: int = 0
+var _raid_units: Array = []
+var _last_raid_time: float = -INF
+var _prefer_town_centers: bool = false  # recomputed every decision
+var _mass_peak: int = 0  # E2: largest massing army since the last launch
+var _mass_peak_time: float = 0.0
+var _enemy_town_centers: Dictionary = {}  # E2: instance id -> last seen position
+var _enemy_start_cleared: bool = false
+static var _TRACE: bool = OS.get_environment("AOEM_AI_TRACE") == "1"  # telemetry debugging only
+var _trace_bucket: int = -1
+var _last_scout_order_time: float = -INF
+const SCOUT_REPLACEMENT_SECONDS: float = 120.0
+## L1 herding: the Scout looks for stray sheep this long into the match, this
+## many tiles from home (strays are placed 15-19 tiles out).
+const SHEEP_SWEEP_SECONDS: float = 300.0
+const SHEEP_SWEEP_RADIUS_TILES: float = 24.0
+var _sheep_sweep_target: WeakRef = null
 
 # ── Difficulty tuning tables ─────────────────────────────────────────────
 const DECISION_INTERVALS: Dictionary = {
@@ -129,17 +167,91 @@ const DECISION_INTERVALS: Dictionary = {
 	Difficulty.HARD: 1.0,
 }
 
+## Round 2 E (AoE2 scale). Dark Age villager target; the mature target applies
+## from Feudal, and Castle adds CASTLE_VILLAGER_BONUS (never above
+## MAX_VILLAGER_SHARE of the population limit).
+## Feel pass: sized for the 80-body default with stronger workers (Medium
+## about 24 villagers and 50+ soldiers in Castle). Easy stays visibly smaller.
 const VILLAGER_TARGETS: Dictionary = {
-	Difficulty.EASY: 6,
-	Difficulty.MEDIUM: 9,
-	Difficulty.HARD: 11,
+	Difficulty.EASY: 8,
+	Difficulty.MEDIUM: 12,
+	Difficulty.HARD: 13,
 }
-
-const ARMY_ATTACK_THRESHOLDS: Dictionary = {
-	Difficulty.EASY: 3,
+const MATURE_VILLAGER_TARGETS: Dictionary = {
+	Difficulty.EASY: 12,
+	Difficulty.MEDIUM: 20,
+	Difficulty.HARD: 22,
+}
+const CASTLE_VILLAGER_BONUS: Dictionary = {
+	Difficulty.EASY: 2,
 	Difficulty.MEDIUM: 4,
-	Difficulty.HARD: 3,
+	Difficulty.HARD: 4,
 }
+const MAX_VILLAGER_SHARE: float = 0.5
+
+## First wave size (a Feudal raid on the economy); later Feudal waves wait for
+## LATER_WAVE_THRESHOLDS fighters, Castle waves for CASTLE_WAVE_THRESHOLDS
+## (Round 2 E2: mass a real army, then break the enemy).
+const ARMY_ATTACK_THRESHOLDS: Dictionary = {
+	Difficulty.EASY: 5,
+	Difficulty.MEDIUM: 10,
+	Difficulty.HARD: 10,
+}
+const LATER_WAVE_THRESHOLDS: Dictionary = {
+	Difficulty.EASY: 6,
+	Difficulty.MEDIUM: 16,
+	Difficulty.HARD: 18,
+}
+const CASTLE_WAVE_THRESHOLDS: Dictionary = {
+	Difficulty.EASY: 8,
+	Difficulty.MEDIUM: 28,
+	Difficulty.HARD: 30,
+}
+## A massing army that has not grown for this long launches at 70% of its
+## threshold (housing, income or losses can stall it below the full size).
+const MASS_STALL_SECONDS: float = 75.0
+## Waves never aim at (and soldiers stop hitting) a Town Center before this game
+## time, so Medium cannot end a passive player's match in the opening.
+const TC_ASSAULT_START_SECONDS: Dictionary = {
+	Difficulty.EASY: 1500.0,
+	Difficulty.MEDIUM: 630.0,
+	Difficulty.HARD: 420.0,
+}
+## Easy rests this long after every wave before the next can leave home
+## (plus one more minute: a wave leaves at most every 5:00).
+const EASY_WAVE_REST_SECONDS: float = 240.0
+## Easy never fields more than this many soldiers outside a home defense.
+const EASY_ARMY_CAP: int = 10
+## Feel pass: Easy sends no wave or raid at the player before 8:00 (shrine 10:00).
+const EASY_FIRST_ATTACK_SECONDS: float = 480.0
+## K: Easy's first wave is this small and grows by one soldier every
+## EASY_WAVE_GROWTH_SECONDS of game time after EASY_FIRST_ATTACK_SECONDS.
+const EASY_FIRST_WAVE_SIZE: int = 5
+const EASY_WAVE_GROWTH_SECONDS: float = 300.0
+## K: an Easy wave turns home once it is down to this share of its wave size
+## or visibly outmatched by this ratio.
+const EASY_RETREAT_SHARE: float = 0.6
+const EASY_OUTMATCHED_RATIO: float = 0.8
+## Seconds after reaching Feudal before the second Town Center (-1 = never).
+const SECOND_TC_DELAYS: Dictionary = {
+	Difficulty.EASY: -1.0,
+	Difficulty.MEDIUM: 60.0,
+	Difficulty.HARD: 0.0,
+}
+## A fallow Farm is reseeded once the bank holds this much wood.
+const FARM_RESEED_WOOD: int = 100
+## Units below this HP share walk home to heal and rejoin above HEAL_RESUME_RATIO.
+const HEAL_RETREAT_RATIO: float = 0.35
+const HEAL_RESUME_RATIO: float = 0.85
+## Round 2 E2: a launching wave takes home-healing soldiers above this share.
+const HEAL_JOIN_RATIO: float = 0.6
+## Boar handling: Hard lures to the Town Center, Medium sends a hunting party.
+const BOAR_HUNT_RADIUS_TILES: float = 16.0
+const BOAR_PARTY_SIZE: int = 4
+const BOAR_HUNT_START_SECONDS: float = 45.0
+## Outrider raids (Mongols, Medium/Hard).
+const RAID_PARTY_SIZE: int = 6
+const RAID_COOLDOWN_SECONDS: float = 75.0
 
 const SCOUT_TARGETS: Dictionary = {
 	Difficulty.EASY: 1,
@@ -151,6 +263,14 @@ const SACRED_SITE_START_TIMES: Dictionary = {
 	Difficulty.EASY: 270.0,
 	Difficulty.MEDIUM: 150.0,
 	Difficulty.HARD: 90.0,
+}
+
+## Seconds relative to the Standard Sacred clock opening (Round 2 E2: the site
+## is a late tiebreaker, so armies only turn to it around 12:00).
+const SCALE_SACRED_START_TIMES: Dictionary = {
+	Difficulty.EASY: 180.0,
+	Difficulty.MEDIUM: -45.0,
+	Difficulty.HARD: -75.0,
 }
 
 const SACRED_CAPTURE_FORCES: Dictionary = {
@@ -236,10 +356,17 @@ const FEUDAL_FARM_CAPACITY_TARGET: int = 3
 # released as soon as all four foundations are registered.
 const FEUDAL_FARM_WOOD_WORKER_RATIO: float = 0.50
 
+## Feudal click times (feel pass, cheaper ages): 4:30 / 2:30 / 2:10.
 const AGE_UP_TARGET_TIMES: Dictionary = {
-	Difficulty.EASY: 285.0,
-	Difficulty.MEDIUM: 225.0,
-	Difficulty.HARD: 170.0,
+	Difficulty.EASY: 270.0,
+	Difficulty.MEDIUM: 150.0,
+	Difficulty.HARD: 130.0,
+}
+## Castle click times: 10:00 / 6:20 / 5:40.
+const CASTLE_TARGET_TIMES: Dictionary = {
+	Difficulty.EASY: 600.0,
+	Difficulty.MEDIUM: 380.0,
+	Difficulty.HARD: 340.0,
 }
 
 const AGE_UP_RESERVE_THRESHOLDS: Dictionary = {
@@ -254,16 +381,29 @@ const AGE_UP_SAVING_LEAD_TIMES: Dictionary = {
 	Difficulty.HARD: 85.0,
 }
 
+## Round 2 E runways (seconds before the click time when saving starts).
+const AGE_UP_SAVING_LEAD_TIMES_E: Dictionary = {
+	Difficulty.EASY: 60.0,
+	Difficulty.MEDIUM: 60.0,
+	Difficulty.HARD: 50.0,
+}
+const CASTLE_SAVING_LEAD_TIMES: Dictionary = {
+	Difficulty.EASY: 120.0,
+	Difficulty.MEDIUM: 110.0,
+	Difficulty.HARD: 100.0,
+}
+
+## Feel pass: a stronger worker means a smaller, quicker economy.
 const AGE_UP_MIN_VILLAGERS: Dictionary = {
-	Difficulty.EASY: {2: 6, 3: 9},
-	Difficulty.MEDIUM: {2: 6, 3: 8},
-	Difficulty.HARD: {2: 6, 3: 7},
+	Difficulty.EASY: {2: 8, 3: 12},
+	Difficulty.MEDIUM: {2: 10, 3: 16},
+	Difficulty.HARD: {2: 11, 3: 18},
 }
 
 const AGE_UP_MIN_MILITARY: Dictionary = {
-	Difficulty.EASY: {2: 1, 3: 2},
-	Difficulty.MEDIUM: {2: 2, 3: 3},
-	Difficulty.HARD: {2: 2, 3: 3},
+	Difficulty.EASY: {2: 1, 3: 4},
+	Difficulty.MEDIUM: {2: 2, 3: 6},
+	Difficulty.HARD: {2: 2, 3: 6},
 }
 
 
@@ -312,9 +452,22 @@ func start_ai(base_tile: Vector2i, base_world_pos: Vector2) -> void:
 	_objective_scout_sent = false
 	_saving_for_age_up = false
 	_timed_age_up_reserve_active = false
+	_feudal_reached_at = -1.0
+	_healing_ids.clear()
+	_boar_target_ref = null
+	_boar_hunter_ids.clear()
+	_boar_lure_id = 0
+	_boar_lure_returning = false
+	_boar_started_at = -INF
+	_boars_handled = 0
+	_boar_party_assembling = false
+	_raid_units.clear()
+	_last_raid_time = -INF
 	_feudal_paid_farm_foundations = 0
 	_feudal_paid_farm_foundation_ids.clear()
 	_build_site_search_cursors.clear()
+	_next_trade_decision = 0.0
+	_trade_site_cursor = 0
 	_base_tile = base_tile
 	_base_position = base_world_pos
 	_reset_economy_recovery()
@@ -400,6 +553,8 @@ func _on_unit_died(unit: UnitBase) -> void:
 	_my_units.erase(unit)
 	_attack_wave_units.erase(unit)
 	_objective_units.erase(unit)
+	_raid_units.erase(unit)
+	_healing_ids.erase(unit.get_instance_id())
 
 
 func _on_ai_villager_resource_deposited(resource_type: String, _amount: int) -> void:
@@ -582,6 +737,7 @@ func _on_decision_tick() -> void:
 		_decision_timer.stop()
 		return
 
+	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
 	# Clean stale references
 	_cleanup_references()
 	_update_enemy_memory()
@@ -590,6 +746,9 @@ func _on_decision_tick() -> void:
 	_update_ai_state()
 	_update_pressure_state()
 	_update_age_up_reserve()
+	if _feudal_reached_at < 0.0 and GameManager.get_player_age(player_id) >= 2:
+		_feudal_reached_at = _game_time
+	_prefer_town_centers = _compute_prefers_town_center_targets()
 
 	# Run decision tree in priority order
 	_check_villager_production()
@@ -597,17 +756,28 @@ func _on_decision_tick() -> void:
 	var rebuilding: bool = _check_rebuilding()
 	if not rebuilding:
 		_check_house_need()
+		_check_trade_economy()
 		_check_building_construction()
+	_check_farm_reseeds()  # Round 2 E: finite Farms
+	_check_boar_hunt()  # Round 2 E: Hard lures, Medium hunts with four, Easy skips
 	# Construction transactions need an IDLE/GATHERING builder at synchronous
 	# Main preflight. Only after those intents are dispatched may recovery move
 	# idle workers or rebalance their current gather jobs.
 	_rebalance_gathering_villagers()
 	_assign_idle_villagers()
+	_check_repairs()  # Round 2 D1 (garrison.gd)
 	_check_military_production()
 	_check_research()
 	_check_scouting()
 	_micro_damaged_units()
+	_check_outrider_raid()  # Round 2 E: Mongol signature pressure
 	_check_attack_or_defend()
+	_hold_off_town_centers()  # Round 2 E2: no early Town Center kills below Hard
+	if _TRACE and int(_game_time) / 20 != _trace_bucket:
+		_trace_bucket = int(_game_time) / 20
+		var work: Dictionary = _get_economy_work_counts()
+		print("[AI_TRACE] t=%d p%d %s mil=%d field=%d obj=%d mode=%s thr=%d wave=%s prefTC=%s work=%s want=%s bank=%s camps=%d farms=%d" % [int(_game_time), player_id, _last_strategy_decision, _get_military_units().size(), _get_field_military(_get_base_reserve_units(_get_military_units())).size(), _objective_units.size(), _objective_mode_name(), _get_attack_threshold(), _attack_in_progress, _prefer_town_centers, str(work), str(_get_economy_worker_targets(int(work.get("food", 0)) + int(work.get("wood", 0)) + int(work.get("gold", 0)), ResourceManager.get_all_resources(player_id))), str(ResourceManager.get_all_resources(player_id)), _resource_camp_count, _farm_count])
+	if PerfProbe.on: PerfProbe.add(&"ai.tick", _pp)
 
 
 func _build_scout_waypoints(map_center: Vector2) -> void:
@@ -689,6 +859,11 @@ func _update_age_up_reserve() -> void:
 	var resources: Dictionary = ResourceManager.get_all_resources(player_id)
 	var completion: float = _resource_completion_ratio(resources, cost)
 	var reserve_threshold: float = AGE_UP_RESERVE_THRESHOLDS.get(difficulty, 0.62)
+	if target_age == 3 and _uses_strategy_opening() and not _is_under_pressure:
+		match get_opening_strategy():
+			"castle_priority": reserve_threshold = 0.48
+			"feudal_pressure": reserve_threshold = 0.85
+			"two_tc_boom": reserve_threshold = 0.80 if _town_center_count < 2 else 0.60
 	var target_time: float = _get_age_up_target_time(target_age)
 	if target_age == 2 and _game_time >= target_time - 45.0:
 		reserve_threshold = maxf(0.45, reserve_threshold - 0.18)
@@ -699,6 +874,8 @@ func _update_age_up_reserve() -> void:
 	var military_gate: int = _get_min_military_for_age_up(target_age)
 	if _is_under_pressure:
 		military_gate += 1
+	if target_age == 3 and _uses_strategy_opening() and get_opening_strategy() == "castle_priority" and not _is_under_pressure:
+		military_gate = mini(military_gate, 3)
 	if target_age == 2 and _game_time >= target_time:
 		military_gate = maxi(0, military_gate - 1)
 	var saving_lead: float = float(AGE_UP_SAVING_LEAD_TIMES.get(difficulty, 95.0))
@@ -706,8 +883,11 @@ func _update_age_up_reserve() -> void:
 		# A small economy must establish a fighting force before an early reserve
 		# freezes production; its reduced age transaction needs a shorter runway.
 		saving_lead = minf(saving_lead, 75.0)
+	if not _uses_compact_population_policy():
+		# Round 2 E: a short runway before each click time (Castle included).
+		saving_lead = float((AGE_UP_SAVING_LEAD_TIMES_E if target_age == 2 else CASTLE_SAVING_LEAD_TIMES).get(difficulty, 60.0))
 	var timed_reserve: bool = (
-		target_age == 2
+		(target_age == 2 or not _uses_compact_population_policy())
 		and not _is_under_pressure
 		and _game_time >= target_time - saving_lead
 	)
@@ -733,25 +913,48 @@ func _check_villager_production() -> void:
 	var villagers: Array = _get_villagers()
 	var target: int = _get_target_villager_count()
 	var queued_villagers: int = _count_queued_unit(UnitData.UnitType.VILLAGER)
+	for unit: Variant in _my_units:
+		# Sheltering villagers still count toward the workforce target.
+		if is_instance_valid(unit) and unit is Villager and (unit as UnitBase).current_state == UnitBase.State.GARRISONED:
+			queued_villagers += 1
 	if _should_pause_villager_production_for_age_up(villagers.size(), queued_villagers):
 		return
 
 	if villagers.size() + queued_villagers >= target:
 		return
 
-	# Check pop room
 	var villager_pop_cost: int = int(UnitData.UNITS[UnitData.UnitType.VILLAGER].get("pop_cost", 1))
-	if not GameManager.can_reserve_population(player_id, villager_pop_cost):
-		return  # Need houses first
-
-	# Find the least busy Town Center to train from.
-	var tc: Node = _find_trainable_building_of_type(BuildingData.BuildingType.TOWN_CENTER)
-	if tc == null:
+	var cost: Dictionary = UnitData.get_unit_cost(UnitData.UnitType.VILLAGER, player_id)
+	if _uses_compact_population_policy():
+		# Check pop room
+		if not GameManager.can_reserve_population(player_id, villager_pop_cost):
+			return  # Need houses first
+		# Find the least busy Town Center to train from.
+		var tc: Node = _find_trainable_building_of_type(BuildingData.BuildingType.TOWN_CENTER)
+		if tc == null:
+			return
+		if ResourceManager.can_afford(player_id, cost):
+			ai_wants_to_train.emit(tc, UnitData.UnitType.VILLAGER)
 		return
-
-	var cost: Dictionary = UnitData.get_unit_cost(UnitData.UnitType.VILLAGER)
-	if ResourceManager.can_afford(player_id, cost):
-		ai_wants_to_train.emit(tc, UnitData.UnitType.VILLAGER)
+	# Round 2 E: continuous production. Every active Town Center keeps one
+	# Villager training and at most one waiting, so none sits idle between
+	# decisions and the bank is not tied up in long queues.
+	var missing: int = target - villagers.size() - queued_villagers
+	for entry: Variant in _get_buildings_of_type(BuildingData.BuildingType.TOWN_CENTER):
+		if missing <= 0:
+			return
+		var town_center: BuildingBase = entry as BuildingBase
+		if not is_instance_valid(town_center) or town_center.state != BuildingBase.State.ACTIVE:
+			continue
+		var queue: Node = town_center.get_production_queue()
+		if queue == null or int(queue.get_queue_size()) >= 2:
+			continue
+		if not GameManager.can_reserve_population(player_id, villager_pop_cost):
+			return  # Need houses first
+		if not ResourceManager.can_afford(player_id, cost):
+			return
+		ai_wants_to_train.emit(town_center, UnitData.UnitType.VILLAGER)
+		missing -= 1
 
 
 func _should_pause_villager_production_for_age_up(
@@ -764,6 +967,14 @@ func _should_pause_villager_production_for_age_up(
 	var minimum_for_next_age: int = _get_min_villagers_for_age_up(current_age + 1)
 	if _is_under_pressure:
 		minimum_for_next_age += 1
+	if not _uses_compact_population_policy():
+		# Round 2 E: villagers keep coming while the age is saved for; only an
+		# overdue click that is short of food pauses the Town Centers.
+		if _game_time < _get_age_up_target_time(current_age + 1):
+			return false
+		var age_food: int = int(GameManager.get_age_up_cost(player_id, current_age + 1).get("food", 0))
+		if ResourceManager.get_resource(player_id, "food") >= age_food:
+			return false
 	return villager_count + queued_villagers >= minimum_for_next_age
 
 
@@ -778,7 +989,8 @@ func _check_house_need() -> void:
 	if cap >= GameManager.get_player_population_limit(player_id):
 		return
 	if (
-		_timed_age_up_reserve_active
+		_uses_compact_population_policy()
+		and _timed_age_up_reserve_active
 		and not _is_under_pressure
 		and GameManager.get_player_age(player_id) <= 1
 		and _needs_feudal_wood_infrastructure()
@@ -793,18 +1005,36 @@ func _check_house_need() -> void:
 		if cap >= feudal_floor_capacity and pop <= feudal_floor_capacity:
 			return
 
-	# Build a house when within 2 pop of cap
-	if pop < cap - 2:
-		return
-	if _house_count >= 12:
-		return
-	# Population capacity is not granted until construction completes. Without
-	# this pending-state gate, the corrected real-time construction duration
-	# causes a new House request every decision tick until the first one finishes.
-	if _has_building_under_construction(BuildingData.BuildingType.HOUSE):
-		return
+	if not _uses_compact_population_policy():
+		# Round 2 E: several Town Centers and barracks fill a 10-body House in
+		# well under a minute. Look ahead by the production that can start before
+		# a House finishes, and let a big economy raise two at once.
+		var producers: int = 0
+		for entry: Variant in _my_buildings:
+			if is_instance_valid(entry) and entry is BuildingBase and (entry as BuildingBase).state == BuildingBase.State.ACTIVE and not (entry as BuildingBase).trainable_units.is_empty():
+				producers += 1
+		var lookahead: int = 3 + 2 * producers
+		if pop < cap - lookahead:
+			return
+		var building_houses: int = 0
+		for entry: Variant in _get_buildings_of_type(BuildingData.BuildingType.HOUSE):
+			if is_instance_valid(entry) and (entry as BuildingBase).state == BuildingBase.State.CONSTRUCTING:
+				building_houses += 1
+		if building_houses >= (1 if producers <= 2 else 2):
+			return
+	else:
+		# Build a house when within 2 pop of cap
+		if pop < cap - 2:
+			return
+		if _house_count >= 12:
+			return
+		# Population capacity is not granted until construction completes. Without
+		# this pending-state gate, the corrected real-time construction duration
+		# causes a new House request every decision tick until the first one finishes.
+		if _has_building_under_construction(BuildingData.BuildingType.HOUSE):
+			return
 
-	var cost: Dictionary = BuildingData.get_building_cost(BuildingData.BuildingType.HOUSE)
+	var cost: Dictionary = BuildingData.get_building_cost(BuildingData.BuildingType.HOUSE, player_id)
 	if ResourceManager.can_afford(player_id, cost):
 		var pos: Vector2i = _find_build_location(BuildingData.BuildingType.HOUSE)
 		if pos != Vector2i(-1, -1):
@@ -868,6 +1098,8 @@ func _assign_idle_villagers() -> void:
 			continue
 		var assigned: bool = false
 		for res_type in priority:
+			if res_type == "gold" and int(targets.gold) == 0:
+				continue
 			var resource_node: Node2D = _find_resource_for_villager(res_type, villager)
 			if resource_node != null and _assign_villager_to_resource(villager, resource_node):
 				_remember_resource_sighting(res_type, resource_node.global_position)
@@ -878,7 +1110,6 @@ func _assign_idle_villagers() -> void:
 				break
 			if (
 				res_type == "wood"
-				and _uses_compact_population_policy()
 				and int(counts["wood"]) < int(targets.get("wood", 0))
 				and _get_active_wood_search_worker() == null
 				and _try_order_economy_search(villager, ["wood"])
@@ -1005,6 +1236,8 @@ func _get_economy_resource_priority(resources: Dictionary) -> Array:
 		for resource_type in priority:
 			var current_ratio: float = float(resources.get(resource_type, 0)) / total
 			scores[resource_type] = float(target_ratio.get(resource_type, 0.0)) - current_ratio
+		if not _uses_compact_population_policy() and age >= 2 and int(resources.get("gold", 0)) >= _get_gold_bank_target():
+			scores.gold = -1.0
 	priority.sort_custom(func(a: String, b: String) -> bool:
 		var a_score: float = float(scores.get(a, 0.0))
 		var b_score: float = float(scores.get(b, 0.0))
@@ -1033,9 +1266,12 @@ func _rebalance_gathering_villagers() -> void:
 	if not rapid_correction and _game_time < _next_economy_rebalance_time:
 		return
 	if not rapid_correction:
-		_next_economy_rebalance_time = _game_time + float(
+		# Round 2 E: one donor per interval cannot steer forty workers; the
+		# interval shrinks as the workforce grows (never below 3 s).
+		var workforce_scale: float = maxf(1.0, float(_get_villagers().size()) / 8.0)
+		_next_economy_rebalance_time = _game_time + maxf(3.0, float(
 			ECONOMY_REBALANCE_INTERVALS.get(difficulty, 28.0)
-		)
+		) / workforce_scale)
 	# A parked or temporarily unassignable idle worker cannot fill this deficit.
 	# Do not let it block the existing one-donor, visible-target correction for
 	# the productive workforce (for example 14 Food / 1 Wood late in a match).
@@ -1087,13 +1323,19 @@ func _get_economy_worker_targets(worker_count: int, resources: Dictionary) -> Di
 		var recovery_wood: int = 1 if worker_count >= 3 else 0
 		return {"food": worker_count - recovery_wood, "wood": recovery_wood, "gold": 0}
 	var age: int = GameManager.get_player_age(player_id)
-	if _saving_for_age_up and (age == 1 or _uses_compact_population_policy()):
+	# Round 2 E2: at the large scale the Castle save uses the ordinary ratios and
+	# bank rebalancing; the proportional split put 21 of 30 workers on gold for
+	# a 53-gold shortfall and starved the army (telemetry trace, Mongols).
+	if _saving_for_age_up and (age == 1 or _uses_compact_population_policy() or (_uses_strategy_opening() and age == 1)):
 		var age_cost: Dictionary = GameManager.get_age_up_cost(player_id, age + 1)
 		# Keep one worker on wood for houses/dropoff infrastructure, then allocate
 		# every other worker in proportion to the *remaining* real Feudal cost.
 		# Once gold reaches 200 its target becomes zero, preventing the observed
 		# 598-gold overshoot while food remained just short of 400.
 		var wood_target: int = 1 if worker_count >= 3 else 0
+		if not _uses_compact_population_policy():
+			# Round 2 E: Houses, Farms and camps keep needing wood while saving.
+			wood_target = maxi(wood_target, roundi(float(worker_count) * 0.3))
 		if _timed_age_up_reserve_active and _needs_feudal_wood_infrastructure():
 			# The opening farm is a normal paid building, but finite natural food can
 			# still run out. Preserve enough wood labor until all three paid Farms and
@@ -1158,11 +1400,58 @@ func _get_economy_worker_targets(worker_count: int, resources: Dictionary) -> Di
 	var wood_target: int = roundi(float(worker_count) * float(ratios.get("wood", 0.0)))
 	food_target = clampi(food_target, 0, worker_count)
 	wood_target = clampi(wood_target, 0, worker_count - food_target)
+	var gold_target: int = worker_count - food_target - wood_target
+	if age >= 2 and int(resources.get("gold", 0)) >= _get_gold_bank_target():
+		# Mature armies spend food and wood; a percentage-based gold workforce
+		# previously hoarded thousands while every military queue waited for wood.
+		if int(resources.get("wood", 0)) < 350:
+			wood_target += gold_target
+		else:
+			food_target += gold_target
+		gold_target = 0
+	if not _uses_compact_population_policy():
+		# Round 2 E: shift labor from a resource piling up in the bank to one
+		# that is running dry (food floods while wood starves at this scale).
+		var targets: Dictionary = {"food": food_target, "wood": wood_target, "gold": gold_target}
+		var rich: String = ""
+		var poor: String = ""
+		for resource_type: String in ["food", "wood", "gold"]:
+			var banked: int = int(resources.get(resource_type, 0))
+			# Round 2 E2: earlier and firmer (telemetry: food and gold banked in the
+			# thousands while wood sat at zero and blocked siege and production).
+			if banked >= 400 and (rich == "" or banked > int(resources.get(rich, 0))):
+				rich = resource_type
+			if banked < 200 and (poor == "" or banked < int(resources.get(poor, 0))):
+				poor = resource_type
+		if rich != "" and poor != "" and rich != poor:
+			var share: float = 0.5 if int(resources.get(rich, 0)) >= 900 else 0.3
+			var moved: int = mini(int(targets[rich]) - 1, maxi(1, roundi(float(targets[rich]) * share)))
+			if moved > 0:
+				targets[rich] = int(targets[rich]) - moved
+				targets[poor] = int(targets[poor]) + moved
+		return targets
 	return {
 		"food": food_target,
 		"wood": wood_target,
-		"gold": worker_count - food_target - wood_target,
+		"gold": gold_target,
 	}
+
+
+func _get_gold_bank_target() -> int:
+	# Upcoming paid progression plus a small, explicit replacement reserve.
+	var age: int = GameManager.get_player_age(player_id)
+	var target: int = int(SCOUT_TARGETS.get(difficulty, 1)) * int(UnitData.get_unit_cost(UnitData.UnitType.SCOUT, player_id).gold) * 2
+	if age < GameManager.MAX_AGE:
+		target += int(GameManager.get_age_up_cost(player_id, age + 1).get("gold", 0))
+	if age >= 3:
+		target += int(UnitData.get_unit_cost(UnitData.UnitType.SIEGE, player_id).gold) * 2
+		if _siege_workshop_count == 0: target += int(BuildingData.get_building_cost(BuildingData.BuildingType.SIEGE_WORKSHOP, player_id).gold)
+	for research: String in ["forging", "scale_mail"]:
+		if not GameManager.has_research(player_id, research): target += int(TechData.get_research_definition(research).cost.get("gold", 0))
+	# A recurring mixed force now spends gold, unlike the old all-wood army.
+	if age >= 2:
+		target += 2 * int(UnitData.get_unit_cost(UnitData.UnitType.ARCHER, player_id).get("gold", 0)) + int(UnitData.get_unit_cost(UnitData.UnitType.CAVALRY, player_id).get("gold", 0))
+	return target
 
 
 func _needs_feudal_wood_infrastructure() -> bool:
@@ -1303,7 +1592,7 @@ func _check_building_construction() -> void:
 		if int(_rebuild_requests.get(BuildingData.BuildingType.BARRACKS, 0)) > 0:
 			return
 		var barracks_cost: Dictionary = BuildingData.get_building_cost(
-			BuildingData.BuildingType.BARRACKS
+			BuildingData.BuildingType.BARRACKS, player_id
 		)
 		if not ResourceManager.can_afford(player_id, barracks_cost):
 			return
@@ -1340,11 +1629,16 @@ func _check_building_construction() -> void:
 		if int(_rebuild_requests.get(b_type, 0)) > 0:
 			continue
 
-		if _saving_for_age_up and not _is_essential_building_while_saving(b_type):
+		if _saving_for_age_up and not _is_essential_building_while_saving(b_type) and not _respects_age_reserve(BuildingData.get_building_cost(b_type, player_id)):
 			continue
 
-		var cost: Dictionary = BuildingData.get_building_cost(b_type)
+		var cost: Dictionary = BuildingData.get_building_cost(b_type, player_id)
+		if b_type not in [BuildingData.BuildingType.HOUSE, BuildingData.BuildingType.FARM, BuildingData.BuildingType.RESOURCE_CAMP] and not _allows_trade_capital_spend(cost):
+			continue
 		if not ResourceManager.can_afford(player_id, cost):
+			if b_type == BuildingData.BuildingType.TOWN_CENTER and (not _get_boom_reserve_cost().is_empty() or not _uses_compact_population_policy()): return
+			if not _uses_compact_population_policy() and age >= 2 and _farm_count >= 3 and current_count == 0 and b_type in [BuildingData.BuildingType.BARRACKS, BuildingData.BuildingType.ARCHERY_RANGE, BuildingData.BuildingType.STABLE, BuildingData.BuildingType.SIEGE_WORKSHOP]:
+				return  # Round 2 E2: bank wood for the missing line before more Farms.
 			if b_type == _get_compact_missing_role_building() and _farm_count > 0:
 				# Preserve the second troop-role unlock. An active paid Farm keeps
 				# food flowing while wood banks; if the last Farm is destroyed, its normal
@@ -1370,6 +1664,135 @@ func _check_building_construction() -> void:
 		return  # Only build one thing per tick to stay responsive
 
 
+func _check_trade_economy() -> void:
+	# Invest before the bank is empty. Normal Main transactions still pay every
+	# foundation and recruit; this policy never grants income or reveals terrain.
+	# Round 2 E: the bigger economy has ample gold; caravans are a late option.
+	var earliest: float = 0.0 if _uses_strategy_opening() and _uses_compact_population_policy() else 600.0
+	if _game_time < maxf(earliest, _next_trade_decision) or GameManager.get_player_age(player_id) < 2:
+		return
+	_next_trade_decision = _game_time + 20.0
+	_trade_capital.clear()
+	_trade_capital_until = 0.0
+	if _is_under_pressure or _needs_compact_worker_recovery() or game_map == null:
+		return
+	if _get_villagers().size() < 5: return
+	if not game_map.has_method("get_building_dropoff_world_path"): return
+	var gold: int = ResourceManager.get_resource(player_id, "gold")
+	if gold >= maxi(80, floori(float(_get_gold_bank_target()) * 0.75)):
+		return
+	var tc: BuildingBase = _find_building_of_type(BuildingData.BuildingType.TOWN_CENTER) as BuildingBase
+	if tc == null or tc.state != BuildingBase.State.ACTIVE:
+		return
+	if not GameManager.can_reserve_population(player_id, 2): return
+	var threats: Array = _get_visible_worker_threats()
+	var traders: Array[Trader] = []
+	var committed: int = _count_queued_unit(UnitData.UnitType.TRADER)
+	var delivered: int = 0
+	for unit: Node in _my_units:
+		if is_instance_valid(unit) and unit is Trader and unit.current_state != UnitBase.State.DEAD:
+			traders.append(unit)
+			delivered += unit.delivered_gold
+			committed += 1
+	# Let the first caravan prove its income before expanding. Two is enough
+	# for replacement siege; scarce wood must not fund three speculative units.
+	var target_traders: int = 2 if delivered > 0 and gold < 60 else 1
+	if committed >= target_traders: return
+	var posts: Array = _get_buildings_of_type(BuildingData.BuildingType.TRADE_POST)
+	if posts.is_empty():
+		if _has_productive_known_gold(tc): return
+		var cost: Dictionary = BuildingData.get_building_cost(BuildingData.BuildingType.TRADE_POST, player_id)
+		var footprint := Vector2i(2, 2)
+		var directions: Array[Vector2i] = [Vector2i(1, 0), Vector2i(1, 1), Vector2i(0, 1), Vector2i(-1, 1), Vector2i(-1, 0), Vector2i(-1, -1), Vector2i(0, -1), Vector2i(1, -1)]
+		# Eight candidates per interval; later intervals rotate around the base.
+		for attempt: int in 8:
+			var index: int = _trade_site_cursor % 32
+			_trade_site_cursor += 1
+			var anchor: Vector2i = _base_tile + directions[index % 8] * (16 + 4 * (index / 8))
+			var tile: Vector2i = _find_build_location_near_tile(anchor, footprint, 1, 3)
+			if tile == Vector2i(-1, -1): continue
+			var position: Vector2 = _tile_to_world(tile)
+			if position.distance_to(tc.global_position) < Trader.MIN_ROUTE_DISTANCE or _is_worker_position_exposed(position, threats): continue
+			var route: PackedVector2Array = _get_prospective_trade_route(position)
+			if not _trade_route_is_safe(route, threats): continue
+			_trade_capital = {"wood": int(cost.wood) + int(UnitData.get_unit_cost(UnitData.UnitType.TRADER, player_id).wood), "gold": int(UnitData.get_unit_cost(UnitData.UnitType.TRADER, player_id).gold)}
+			# A depleted gold bank cannot bootstrap trade. Protect incoming gold,
+			# but do not strand usable army wood behind an unfunded caravan.
+			if gold < int(_trade_capital.gold): _trade_capital.wood = 0
+			_trade_capital_until = _game_time + 22.0
+			if ResourceManager.can_afford(player_id, _trade_capital):
+				ai_wants_to_build.emit(BuildingData.BuildingType.TRADE_POST, tile, false)
+				if not _get_buildings_of_type(BuildingData.BuildingType.TRADE_POST).is_empty(): _trade_capital.wood = int(UnitData.get_unit_cost(UnitData.UnitType.TRADER, player_id).wood)
+			return
+		return
+	var post: BuildingBase = posts[0] as BuildingBase
+	if post.state == BuildingBase.State.DESTROYED or post.global_position.distance_to(tc.global_position) < Trader.MIN_ROUTE_DISTANCE:
+		return
+	var return_route: PackedVector2Array = _get_prospective_trade_route(post.global_position)
+	if not _trade_route_is_safe(return_route, threats): return
+	_trade_capital = UnitData.get_unit_cost(UnitData.UnitType.TRADER, player_id)
+	if gold < int(_trade_capital.gold): _trade_capital.wood = 0
+	_trade_capital_until = _game_time + 22.0
+	if post.state != BuildingBase.State.ACTIVE: return
+	for trader: Trader in traders:
+		if not trader.trade_route_active: trader.command_trade(post)
+	if ResourceManager.can_afford(player_id, _trade_capital):
+		ai_wants_to_train.emit(post, UnitData.UnitType.TRADER)
+		_trade_capital.clear()
+
+
+func _allows_trade_capital_spend(cost: Dictionary) -> bool:
+	if _trade_capital.is_empty() or _game_time >= _trade_capital_until or _is_under_pressure or _needs_compact_worker_recovery(): return true
+	for resource: String in ["wood", "gold"]:
+		if int(cost.get(resource, 0)) > 0 and ResourceManager.get_resource(player_id, resource) - int(cost.get(resource, 0)) < int(_trade_capital.get(resource, 0)):
+			return false
+	return true
+
+
+func _trade_route_is_safe(route: PackedVector2Array, threats: Array) -> bool:
+	if route.is_empty(): return false
+	for threat: Node2D in threats:
+		if not is_instance_valid(threat): continue
+		for index: int in route.size():
+			var nearest: Vector2 = route[index] if index == 0 else Geometry2D.get_closest_point_to_segment(threat.global_position, route[index - 1], route[index])
+			if _is_worker_position_exposed(nearest, [threat]): return false
+	return true
+
+
+func _get_prospective_trade_route(position: Vector2) -> PackedVector2Array:
+	# Match Trader's farthest reachable owned Town Center, including expansions.
+	var best := PackedVector2Array()
+	var longest: float = Trader.MIN_ROUTE_DISTANCE
+	for building: Node in _get_buildings_of_type(BuildingData.BuildingType.TOWN_CENTER):
+		if building.player_owner != player_id or building.state != BuildingBase.State.ACTIVE: continue
+		var distance: float = position.distance_to(building.global_position)
+		if distance < longest: continue
+		var route: PackedVector2Array = game_map.get_building_dropoff_world_path(position, building.global_position, building.footprint, 36.0)
+		if not route.is_empty():
+			longest = distance
+			best = route
+	return best
+
+
+func _has_productive_known_gold(tc: BuildingBase) -> bool:
+	# Normal fog-aware lookup only. Hidden stock is neither enumerated nor read.
+	var workers: Array = _get_villagers()
+	for index: int in mini(3, workers.size()):
+		var source: Node2D = _find_resource_for_villager("gold", workers[index])
+		if not source is ResourceNode: continue
+		if game_map.has_method("is_entity_visible_to_player") and not game_map.is_entity_visible_to_player(source, player_id): continue
+		var haul: float = source.global_position.distance_to(tc.global_position)
+		for building: Node in _my_buildings:
+			if is_instance_valid(building) and building is BuildingBase and building.player_owner == player_id and building.state == BuildingBase.State.ACTIVE and building.is_drop_off_point("gold"):
+				haul = minf(haul, source.global_position.distance_to(building.global_position))
+		# About a minute of three miners' raw work leaves time to construct the
+		# post, train and complete a first exposed trip before this pocket ends.
+		var runway: int = 360 if _uses_strategy_opening() else 150
+		if haul <= 600.0 and _visible_expansion_resources(source) >= runway:
+			return true
+	return false
+
+
 func _check_rebuilding() -> bool:
 	## Replaces infrastructure that was actually lost, even when the normal
 	## phase target has since changed. Requests persist through low resources,
@@ -1389,7 +1812,7 @@ func _check_rebuilding() -> bool:
 			continue
 		if _has_building_under_construction(building_type):
 			continue
-		var cost: Dictionary = BuildingData.get_building_cost(building_type)
+		var cost: Dictionary = BuildingData.get_building_cost(building_type, player_id)
 		if not ResourceManager.can_afford(player_id, cost):
 			continue
 		var build_position: Vector2i = _find_build_location(building_type)
@@ -1419,10 +1842,10 @@ func _check_military_production() -> void:
 		# The Town Center worker transaction runs first in this same decision.
 		# Preserve one earned worker cost while food is below it; do not let a
 		# cheaper troop repeatedly consume the bank before replacement is possible.
-		var worker_cost: Dictionary = UnitData.get_unit_cost(UnitData.UnitType.VILLAGER)
+		var worker_cost: Dictionary = UnitData.get_unit_cost(UnitData.UnitType.VILLAGER, player_id)
 		if _find_building_of_type(BuildingData.BuildingType.TOWN_CENTER) != null and not ResourceManager.can_afford(player_id, worker_cost):
 			return
-	if _timed_age_up_reserve_active and not _is_under_pressure:
+	if _timed_age_up_reserve_active and not _is_under_pressure and _uses_compact_population_policy():
 		var target_age: int = GameManager.get_player_age(player_id) + 1
 		# Once the declared safety gate is met, military (including replacement
 		# Scouts) must not consume every earned food deposit ahead of the age-up.
@@ -1430,7 +1853,7 @@ func _check_military_production() -> void:
 		# so they count toward the floor exactly like completed units.
 		if military_count + queued_military_count >= _get_min_military_for_age_up(target_age):
 			return
-	elif _saving_for_age_up and not _is_under_pressure and military_count >= 2:
+	elif _saving_for_age_up and not _is_under_pressure and military_count >= 2 and _uses_compact_population_policy():
 		return
 
 	# Scouts are maintained as a real production choice. Hard fields a second
@@ -1441,13 +1864,16 @@ func _check_military_production() -> void:
 		scout_target = 1
 	var living_scouts: int = _get_scouts().size()
 	var queued_scouts: int = _count_queued_unit(UnitData.UnitType.SCOUT)
+	if not _uses_compact_population_policy() and _game_time - _last_scout_order_time < SCOUT_REPLACEMENT_SECONDS:
+		scout_target = 0  # Round 2 E: a lost scout is not replaced in a loop.
 	if living_scouts + queued_scouts < scout_target:
 		var tc: Node = _find_trainable_building_of_type(BuildingData.BuildingType.TOWN_CENTER)
 		if tc:
-			var scout_cost: Dictionary = UnitData.get_unit_cost(UnitData.UnitType.SCOUT)
+			var scout_cost: Dictionary = UnitData.get_unit_cost(UnitData.UnitType.SCOUT, player_id)
 			var scout_pop_cost: int = int(UnitData.UNITS[UnitData.UnitType.SCOUT].get("pop_cost", 1))
-			if GameManager.can_reserve_population(player_id, scout_pop_cost) and ResourceManager.can_afford(player_id, scout_cost):
+			if GameManager.can_reserve_population(player_id, scout_pop_cost) and ResourceManager.can_afford(player_id, scout_cost) and _allows_trade_capital_spend(scout_cost):
 				ai_wants_to_train.emit(tc, UnitData.UnitType.SCOUT)
+				_last_scout_order_time = _game_time
 				return
 
 	if not _has_easy_compact_fighter_room() and not _needs_compact_siege_purchase():
@@ -1456,25 +1882,36 @@ func _check_military_production() -> void:
 	if _uses_compact_population_policy() and GameManager.get_player_age(player_id) <= 1 and not _is_under_pressure:
 		if military_count + queued_military_count >= _get_attack_threshold() + 1:
 			return
-	if _ai_state == AIState.EARLY_GAME and not _is_under_pressure and military_count >= 3:
-		return  # In early game, cap military production
+	if difficulty == Difficulty.EASY and not _uses_compact_population_policy() and not _is_under_pressure and military_count + queued_military_count >= EASY_ARMY_CAP:
+		return  # Round 2 E: Easy stays beatable for a new player.
+	var early_cap: int = 4 if difficulty == Difficulty.HARD and not _uses_compact_population_policy() else 3
+	if GameManager.get_player_age(player_id) <= 1 and not _is_under_pressure and military_count >= early_cap:
+		return  # In the Dark Age, cap military production
 
 	var resources: Dictionary = ResourceManager.get_all_resources(player_id)
 	var training_plan: Array = _get_military_training_plan(resources)
 	var trains_allowed: int = 2 if _is_under_pressure else 1
+	if not _uses_compact_population_policy():
+		# Round 2 E: every production building may start a unit each decision.
+		var producers: int = 0
+		for building_type: int in [BuildingData.BuildingType.BARRACKS, BuildingData.BuildingType.ARCHERY_RANGE, BuildingData.BuildingType.STABLE, BuildingData.BuildingType.SIEGE_WORKSHOP]:
+			producers += _get_building_count(building_type)
+		trains_allowed = maxi(trains_allowed, producers)
 	var trains_done: int = 0
 
 	for unit_type in training_plan:
 		var building_type: int = _get_training_building_type_for_unit(unit_type)
 		if building_type < 0:
 			continue
-		if _uses_compact_population_policy() and (_get_fighting_units().size() >= 2 or not _is_under_pressure):
+		if (_uses_compact_population_policy() and (_get_fighting_units().size() >= 2 or not _is_under_pressure)) or (_uses_strategy_opening() and not _is_under_pressure and _get_fighting_units().size() >= 2):
 			# A cheaper fallback must not spend each first 20 wood while the ranked
 			# Archer needs 45, or every first 50 food while the Horseman needs 90.
 			# Wait only for an unlocked, available queue; missing structures never
 			# block the opening, and a wiped army under current home pressure can
 			# still buy an emergency defender. Safe rebuilding can bank the real cost.
-			if _find_trainable_building_of_type(building_type) != null and not ResourceManager.can_afford(player_id, UnitData.get_unit_cost(unit_type)):
+			if _find_trainable_building_of_type(building_type) != null and not ResourceManager.can_afford(player_id, UnitData.get_unit_cost(unit_type, player_id)):
+				if _uses_strategy_opening() and ResourceManager.get_resource(player_id, "gold") < int(UnitData.get_unit_cost(unit_type, player_id).get("gold", 0)):
+					continue  # No-gold Warrior remains a useful exhausted-mine fallback.
 				return
 		if _try_train_from_building(building_type, unit_type):
 			trains_done += 1
@@ -1485,7 +1922,8 @@ func _check_military_production() -> void:
 func _try_train_from_building(building_type: int, unit_type: int) -> bool:
 	if unit_type not in [UnitData.UnitType.SCOUT, UnitData.UnitType.SIEGE] and not _has_easy_compact_fighter_room():
 		return false
-	var building: Node = _find_trainable_building_of_type(building_type)
+	# Round 2 E: short queues (one training, one waiting) keep the bank liquid.
+	var building: Node = _find_trainable_building_of_type(building_type, 5 if _uses_compact_population_policy() else 2)
 	if building == null:
 		return false
 
@@ -1494,21 +1932,27 @@ func _try_train_from_building(building_type: int, unit_type: int) -> bool:
 	if not GameManager.can_reserve_population(player_id, pop_cost):
 		return false
 
-	var cost: Dictionary = UnitData.get_unit_cost(unit_type)
-	if unit_type != UnitData.UnitType.SIEGE and _needs_compact_siege_purchase():
+	var cost: Dictionary = UnitData.get_unit_cost(unit_type, player_id)
+	if not _allows_trade_capital_spend(cost): return false
+	if not _allows_boom_spend(cost): return false
+	if not _uses_compact_population_policy() and not _is_under_pressure and not _respects_age_reserve(cost):
+		return false  # Round 2 E: the age-up's food and gold stay banked.
+	# Round 2 E2: at the large scale only a standing Workshop's engine is banked
+	# for; reserving the Workshop itself froze whole armies when wood ran short.
+	if unit_type != UnitData.UnitType.SIEGE and _needs_compact_siege_purchase() and (_uses_compact_population_policy() or _siege_workshop_count > 0):
 		var available_slots: int = int(GameManager.players[player_id]["population_cap"]) - GameManager.get_committed_population(player_id)
 		if available_slots - pop_cost < int(UnitData.UNITS[UnitData.UnitType.SIEGE]["pop_cost"]):
 			return false
 		# Keep paid escorts, but stop optional replacements from spending every
 		# wood deposit before the Castle finishing tool can be purchased.
-		var reserve_cost: Dictionary = BuildingData.get_building_cost(BuildingData.BuildingType.SIEGE_WORKSHOP) if _siege_workshop_count == 0 else UnitData.get_unit_cost(UnitData.UnitType.SIEGE)
+		var reserve_cost: Dictionary = BuildingData.get_building_cost(BuildingData.BuildingType.SIEGE_WORKSHOP, player_id) if _siege_workshop_count == 0 else UnitData.get_unit_cost(UnitData.UnitType.SIEGE, player_id)
 		for resource_type: String in ["wood", "gold"]:
 			if int(cost.get(resource_type, 0)) > 0 and ResourceManager.get_resource(player_id, resource_type) - int(cost.get(resource_type, 0)) < int(reserve_cost.get(resource_type, 0)):
 				return false
 	var role_unlock: int = _get_compact_missing_role_building()
 	var committed_fighters: int = _get_fighting_units().size() + _count_queued_military_units() - _count_queued_unit(UnitData.UnitType.SCOUT)
 	if role_unlock >= 0 and committed_fighters >= _get_attack_threshold():
-		var unlock_wood: int = int(BuildingData.get_building_cost(role_unlock).get("wood", 0))
+		var unlock_wood: int = int(BuildingData.get_building_cost(role_unlock, player_id).get("wood", 0))
 		if int(cost.get("wood", 0)) > 0 and ResourceManager.get_resource(player_id, "wood") - int(cost.get("wood", 0)) < unlock_wood:
 			return false
 	if ResourceManager.can_afford(player_id, cost):
@@ -1536,6 +1980,11 @@ func _check_age_up() -> void:
 	if cost.is_empty():
 		_saving_for_age_up = false
 		return
+	# Round 2 B: the age-up is timed (already running: nothing to decide) and
+	# needs its prerequisite buildings, which the normal build order supplies.
+	if not GameManager.get_age_up_state(player_id).is_empty() or not GameManager.is_age_requirement_met(player_id, target_age):
+		_saving_for_age_up = false
+		return
 
 	var resources: Dictionary = ResourceManager.get_all_resources(player_id)
 	var completion: float = _resource_completion_ratio(resources, cost)
@@ -1546,9 +1995,11 @@ func _check_age_up() -> void:
 		min_villagers_to_age += 1
 		min_military += 1
 
-	if target_age == 2 and _game_time >= timing_target:
+	if (target_age == 2 or not _uses_compact_population_policy()) and _game_time >= timing_target:
 		min_villagers_to_age = maxi(4, min_villagers_to_age - 1)
 		min_military = maxi(0, min_military - 1)
+	if not _uses_compact_population_policy() and _game_time < timing_target - 20.0:
+		return  # Round 2 E: difficulty sets the click time.
 
 	if _get_villagers().size() < min_villagers_to_age:
 		return
@@ -1562,16 +2013,19 @@ func _check_age_up() -> void:
 		)
 		if not allow_feudal_fallback:
 			return
+	if target_age == 3 and not _get_boom_reserve_cost().is_empty(): return
 
-	if ResourceManager.can_afford(player_id, cost):
+	if ResourceManager.can_afford(player_id, cost) and _allows_trade_capital_spend(cost):
 		_saving_for_age_up = false
 		ai_wants_to_age_up.emit()
 
 
 func _get_age_up_target_time(target_age: int) -> float:
+	if target_age == 3 and not _uses_compact_population_policy():
+		return CASTLE_TARGET_TIMES.get(difficulty, 470.0)
 	if target_age != 2:
 		return INF
-	return AGE_UP_TARGET_TIMES.get(difficulty, 225.0)
+	return AGE_UP_TARGET_TIMES.get(difficulty, 180.0)
 
 
 func _get_min_villagers_for_age_up(target_age: int) -> int:
@@ -1588,6 +2042,8 @@ func _get_min_military_for_age_up(target_age: int) -> int:
 	var by_age: Dictionary = AGE_UP_MIN_MILITARY.get(difficulty, {})
 	var fallback: int = 1 if target_age == 2 else 5
 	var minimum: int = int(by_age.get(target_age, fallback))
+	if target_age == 3 and _uses_strategy_opening() and get_opening_strategy() == "castle_priority" and not _is_under_pressure:
+		minimum = mini(minimum, 3)
 	if _uses_compact_population_policy():
 		var limit: int = GameManager.get_player_population_limit(player_id)
 		var compact_gate: int = maxi(2, int(limit / 10)) if target_age == 2 else clampi(int(limit / 8), 3, 5)
@@ -1612,6 +2068,31 @@ func _resource_completion_ratio(resources: Dictionary, cost: Dictionary) -> floa
 func _uses_compact_population_policy() -> bool:
 	# Larger legacy scenarios keep their established opening and strategy gates.
 	return GameManager.get_player_population_limit(player_id) < 80
+
+
+func _uses_strategy_opening() -> bool:
+	return not _uses_compact_population_policy() and difficulty != Difficulty.EASY
+
+
+func get_opening_strategy() -> String:
+	if not _uses_strategy_opening(): return "adaptive"
+	var match_seed: int = GameManager.selected_map_seed
+	if is_instance_valid(game_map) and "map_seed" in game_map: match_seed = int(game_map.get("map_seed"))
+	var identity: int = match_seed ^ (player_id * 104729) ^ (GameManager.get_player_civilization(player_id) * 13007)
+	return ["two_tc_boom", "feudal_pressure", "castle_priority"][posmod(identity, 3)]
+
+
+func _get_boom_reserve_cost() -> Dictionary:
+	if not _uses_strategy_opening() or get_opening_strategy() != "two_tc_boom" or _is_under_pressure: return {}
+	if GameManager.get_player_age(player_id) < 2 or _town_center_count >= 2 or _get_villagers().size() < 8 or _get_fighting_units().size() < 2: return {}
+	return BuildingData.get_building_cost(BuildingData.BuildingType.TOWN_CENTER, player_id)
+
+
+func _allows_boom_spend(cost: Dictionary) -> bool:
+	var reserve: Dictionary = _get_boom_reserve_cost()
+	for kind: String in reserve:
+		if int(cost.get(kind, 0)) > 0 and ResourceManager.get_resource(player_id, kind) - int(cost[kind]) < int(reserve[kind]): return false
+	return true
 
 
 func _uses_large_army_objective_policy() -> bool:
@@ -1646,6 +2127,15 @@ func _get_attack_threshold() -> int:
 		threshold = mini(threshold, clampi(int(GameManager.get_player_population_limit(player_id) / 16), 2, 3))
 		if _uses_easy_learning_policy():
 			threshold = mini(threshold, SkirmishData.get_easy_pressure_squad_size(_game_time))
+	elif _has_launched_field_attack:
+		# Round 2 E: after the first wave, wait for a real army; in Castle the
+		# army masses to CASTLE_WAVE_THRESHOLDS (E2), never above the room the
+		# villager target leaves under the population limit.
+		threshold = int(LATER_WAVE_THRESHOLDS.get(difficulty, 20))
+		if GameManager.get_player_age(player_id) >= 3:
+			threshold = int(CASTLE_WAVE_THRESHOLDS.get(difficulty, 28))
+		var room: int = GameManager.get_player_population_limit(player_id) - _get_target_villager_count() - 4
+		threshold = mini(threshold, maxi(4, room))
 	return threshold
 
 
@@ -1664,12 +2154,16 @@ func _get_target_villager_count() -> int:
 				progression_floor += 1
 			target = maxi(target, progression_floor)
 		return mini(economy_target, target)
-	var base_target: int = VILLAGER_TARGETS.get(difficulty, 9)
+	# Round 2 E: Dark Age target, then the mature target from Feudal, plus a
+	# Castle bonus; never more than MAX_VILLAGER_SHARE of the population limit.
+	var base_target: int = VILLAGER_TARGETS.get(difficulty, 16)
 	var age: int = GameManager.get_player_age(player_id)
 	if age >= 2:
-		base_target += 1
+		base_target = int(MATURE_VILLAGER_TARGETS.get(difficulty, 32))
 	if age >= 3:
-		base_target += 2
+		base_target += int(CASTLE_VILLAGER_BONUS.get(difficulty, 0))
+	var limit: int = GameManager.get_player_population_limit(player_id)
+	base_target = mini(base_target, maxi(10, int(float(limit) * MAX_VILLAGER_SHARE)))
 	if _is_under_pressure:
 		base_target = maxi(5, base_target - 2)
 	var next_age: int = age + 1
@@ -1697,7 +2191,17 @@ func _get_target_resource_ratio() -> Dictionary:
 			Difficulty.HARD:
 				return {"food": 0.54, "wood": 0.18, "gold": 0.28}
 	if _saving_for_age_up and age == 2:
+		if not _uses_compact_population_policy():
+			return {"food": 0.44, "wood": 0.36, "gold": 0.20}  # E2: keep the army and Farms in wood
 		return {"food": 0.56, "wood": 0.14, "gold": 0.30}
+	if not _uses_compact_population_policy():
+		# Round 2 E: Farms, reseeds, Houses and every line unit cost wood; wood
+		# was the bottleneck while food and gold piled up.
+		if age <= 1:
+			return {"food": 0.52, "wood": 0.38, "gold": 0.10}
+		if age == 2:
+			return {"food": 0.40, "wood": 0.46, "gold": 0.14}
+		return {"food": 0.36, "wood": 0.46, "gold": 0.18}  # E2: siege and production need wood
 	if age <= 1:
 		return {"food": 0.5, "wood": 0.35, "gold": 0.15}
 	if age == 2:
@@ -1724,7 +2228,7 @@ func _get_target_building_counts(age: int) -> Dictionary:
 		# free work slot, buy capacity for the existing food-labor target through
 		# the ordinary paid construction path. Hidden resources are not consulted.
 		var worker_targets: Dictionary = _get_economy_worker_targets(villagers, ResourceManager.get_all_resources(player_id))
-		farm_target = maxi(farm_target, clampi(int(worker_targets.get("food", 1)), 1, 12))
+		farm_target = maxi(farm_target, clampi(int(worker_targets.get("food", 1)), 1, 12 if _uses_compact_population_policy() else 22))
 
 	var targets: Dictionary = {
 		# Houses are exclusively demand-driven by _check_house_need().
@@ -1742,6 +2246,7 @@ func _get_target_building_counts(age: int) -> Dictionary:
 
 	if age >= 3 and villagers >= 9 and not _is_under_pressure:
 		targets[BuildingData.BuildingType.TOWN_CENTER] = 2
+	if not _get_boom_reserve_cost().is_empty(): targets[BuildingData.BuildingType.TOWN_CENTER] = 2
 	if difficulty == Difficulty.HARD and age >= 3:
 		targets[BuildingData.BuildingType.ARCHERY_RANGE] = maxi(targets[BuildingData.BuildingType.ARCHERY_RANGE], 2)
 		targets[BuildingData.BuildingType.STABLE] = maxi(targets[BuildingData.BuildingType.STABLE], 2)
@@ -1751,6 +2256,8 @@ func _get_target_building_counts(age: int) -> Dictionary:
 			targets[BuildingData.BuildingType.WATCH_TOWER] = 2
 			targets[BuildingData.BuildingType.ARCHERY_RANGE] = maxi(targets[BuildingData.BuildingType.ARCHERY_RANGE], 1)
 		targets[BuildingData.BuildingType.TOWN_CENTER] = 1
+	if not _uses_compact_population_policy():
+		_apply_scale_building_targets(targets, age, villagers)
 	if _uses_compact_population_policy():
 		# A second TC/production duplicate cannot earn its cost back with a ten
 		# to twenty worker economy and small replacement queues. Spend on troops.
@@ -1764,7 +2271,41 @@ func _get_target_building_counts(age: int) -> Dictionary:
 	return targets
 
 
+func _apply_scale_building_targets(targets: Dictionary, age: int, villagers: int) -> void:
+	## Round 2 E: Town Centers, production buildings and camps grow with the
+	## economy so dozens of villagers have somewhere to spend.
+	var town_centers: int = 1
+	var delay: float = float(SECOND_TC_DELAYS.get(difficulty, -1.0))
+	if delay >= 0.0 and _feudal_reached_at >= 0.0 and _game_time >= _feudal_reached_at + delay:
+		town_centers = 2
+	if age >= 3 and difficulty == Difficulty.HARD and villagers >= 28:
+		town_centers = 3
+	if not _get_boom_reserve_cost().is_empty():
+		town_centers = maxi(town_centers, 2)
+	if _is_under_pressure:
+		town_centers = clampi(_town_center_count, 1, town_centers)
+	targets[BuildingData.BuildingType.TOWN_CENTER] = mini(town_centers, BuildingData.get_max_count(BuildingData.BuildingType.TOWN_CENTER))
+	if age >= 2:
+		# Round 2 E2: enough production to spend a 35-40 villager income on a
+		# massing army (two of each line by about 20 villagers, three in Castle).
+		var lines: int = 1
+		if villagers >= 20:
+			lines = 2
+		if age >= 3 and villagers >= 30 and difficulty != Difficulty.EASY:
+			lines = 3
+		if difficulty == Difficulty.EASY:
+			lines = 1
+		for building_type: int in [BuildingData.BuildingType.BARRACKS, BuildingData.BuildingType.ARCHERY_RANGE, BuildingData.BuildingType.STABLE]:
+			targets[building_type] = maxi(int(targets.get(building_type, 0)), lines)
+	var camps: int = 1 if villagers < 10 else 2
+	if _get_expansion_camp_anchor() != Vector2i(-1, -1):
+		camps = maxi(camps, _resource_camp_count + 1)
+	targets[BuildingData.BuildingType.RESOURCE_CAMP] = mini(5, maxi(int(targets.get(BuildingData.BuildingType.RESOURCE_CAMP, 1)), camps))
+
+
 func _get_build_order(age: int) -> Array:
+	if not _get_boom_reserve_cost().is_empty():
+		return [BuildingData.BuildingType.HOUSE, BuildingData.BuildingType.FARM, BuildingData.BuildingType.TOWN_CENTER, BuildingData.BuildingType.BARRACKS, BuildingData.BuildingType.RESOURCE_CAMP, BuildingData.BuildingType.ARCHERY_RANGE, BuildingData.BuildingType.STABLE, BuildingData.BuildingType.BLACKSMITH]
 	if _uses_compact_population_policy() and age >= 2:
 		# Real drop-offs earn the unlock bank; both combat roles precede optional
 		# support. Under attack, currently visible Archers can put Stable first.
@@ -1793,17 +2334,53 @@ func _get_build_order(age: int) -> Array:
 			BuildingData.BuildingType.SIEGE_WORKSHOP,
 			BuildingData.BuildingType.TOWN_CENTER,
 		]
-	if age >= 3:
+	if age >= 3 and not _uses_compact_population_policy() and _siege_workshop_count == 0:
+		# Round 2 E2: the Siege Workshop is the Castle Age's finishing tool.
 		return [
 			BuildingData.BuildingType.HOUSE,
+			BuildingData.BuildingType.SIEGE_WORKSHOP,
 			BuildingData.BuildingType.RESOURCE_CAMP,
 			BuildingData.BuildingType.FARM,
 			BuildingData.BuildingType.BARRACKS,
 			BuildingData.BuildingType.ARCHERY_RANGE,
 			BuildingData.BuildingType.STABLE,
-			BuildingData.BuildingType.BLACKSMITH,
-			BuildingData.BuildingType.SIEGE_WORKSHOP,
 			BuildingData.BuildingType.TOWN_CENTER,
+			BuildingData.BuildingType.BLACKSMITH,
+		]
+	if age >= 3:
+		return [
+			BuildingData.BuildingType.HOUSE,
+			BuildingData.BuildingType.RESOURCE_CAMP,
+			BuildingData.BuildingType.FARM,
+			BuildingData.BuildingType.SIEGE_WORKSHOP,
+			BuildingData.BuildingType.BARRACKS,
+			BuildingData.BuildingType.ARCHERY_RANGE,
+			BuildingData.BuildingType.STABLE,
+			BuildingData.BuildingType.TOWN_CENTER,
+			BuildingData.BuildingType.BLACKSMITH,
+			BuildingData.BuildingType.WATCH_TOWER,
+		]
+	if age >= 2 and not _uses_compact_population_policy() and not _missing_production_lines().is_empty():
+		# Round 2 E2: one building of every line (the kingdom's signature line
+		# first) comes before more Farms, so the wood is never all planted.
+		var order: Array = [BuildingData.BuildingType.HOUSE]
+		order.append_array(_missing_production_lines())
+		if age >= 3:
+			order.append(BuildingData.BuildingType.SIEGE_WORKSHOP)
+		order.append_array([BuildingData.BuildingType.FARM, BuildingData.BuildingType.RESOURCE_CAMP, BuildingData.BuildingType.TOWN_CENTER, BuildingData.BuildingType.BLACKSMITH])
+		return order
+	if age == 2 and not _uses_compact_population_policy():
+		# Round 2 E: the second Town Center and both counter lines come before
+		# the Blacksmith (which the Castle Age needs).
+		return [
+			BuildingData.BuildingType.HOUSE,
+			BuildingData.BuildingType.FARM,
+			BuildingData.BuildingType.RESOURCE_CAMP,
+			BuildingData.BuildingType.BARRACKS,
+			BuildingData.BuildingType.ARCHERY_RANGE,
+			BuildingData.BuildingType.STABLE,
+			BuildingData.BuildingType.TOWN_CENTER,
+			BuildingData.BuildingType.BLACKSMITH,
 			BuildingData.BuildingType.WATCH_TOWER,
 		]
 	return [
@@ -1818,10 +2395,26 @@ func _get_build_order(age: int) -> Array:
 	]
 
 
+func _missing_production_lines() -> Array:
+	## Round 2 E2: Feudal lines with no building yet, the signature line first.
+	var lines: Array = [BuildingData.BuildingType.BARRACKS, BuildingData.BuildingType.ARCHERY_RANGE, BuildingData.BuildingType.STABLE]
+	match GameManager.get_player_civilization(player_id):
+		CivilizationData.Civilization.SUNSTRIDE_CLANS, CivilizationData.Civilization.CROWNLANDS:
+			lines = [BuildingData.BuildingType.STABLE, BuildingData.BuildingType.BARRACKS, BuildingData.BuildingType.ARCHERY_RANGE]
+		CivilizationData.Civilization.VERDANT_LEAGUE:
+			lines = [BuildingData.BuildingType.ARCHERY_RANGE, BuildingData.BuildingType.BARRACKS, BuildingData.BuildingType.STABLE]
+	return lines.filter(func(building_type: int) -> bool: return _get_building_count(building_type) == 0)
+
+
 func _is_essential_building_while_saving(building_type: int) -> bool:
 	if building_type == _get_compact_missing_role_building():
 		return true
 	if building_type == BuildingData.BuildingType.HOUSE:
+		return true
+	if building_type == BuildingData.BuildingType.TOWN_CENTER and not _get_boom_reserve_cost().is_empty(): return true
+	# Round 2 B: a building the next age requires is never deferred by saving.
+	var next_age: int = GameManager.get_player_age(player_id) + 1
+	if not GameManager.is_age_requirement_met(player_id, next_age) and building_type in TechData.AGE_UP_REQUIREMENTS.get(next_age, {}).get("types", []):
 		return true
 	# Unlock one real military production queue before reserving the economy for
 	# an age-up. This costs the same 120 wood as it does for the human player;
@@ -1851,14 +2444,16 @@ func _get_military_training_plan(resources: Dictionary) -> Array:
 	else:
 		plan = [UnitData.UnitType.INFANTRY, UnitData.UnitType.ARCHER, UnitData.UnitType.CAVALRY, UnitData.UnitType.SIEGE]
 
+	if not _uses_compact_population_policy():
+		return _get_scale_training_plan(plan)
 	var filtered: Array = []
 	for unit_type in plan:
 		if _uses_compact_population_policy() and unit_type == UnitData.UnitType.SIEGE:
 			continue
-		if _uses_compact_population_policy():
+		if _uses_compact_population_policy() or _uses_strategy_opening():
 			filtered.append(unit_type)
 			continue
-		var cost: Dictionary = UnitData.get_unit_cost(unit_type)
+		var cost: Dictionary = UnitData.get_unit_cost(unit_type, player_id)
 		var affordable: bool = true
 		for resource_type in cost:
 			if int(resources.get(resource_type, 0)) < int(cost[resource_type]):
@@ -1869,19 +2464,63 @@ func _get_military_training_plan(resources: Dictionary) -> Array:
 		filtered.append(unit_type)
 	if not _uses_compact_population_policy() and _ai_state == AIState.LATE_GAME and int(resources.get("wood", 0)) >= 220 and int(resources.get("gold", 0)) >= 130:
 		filtered.append(UnitData.UnitType.SIEGE)
-	if _uses_compact_population_policy():
+	if _uses_compact_population_policy() or _uses_strategy_opening():
 		filtered = _rank_compact_military_plan(filtered)
-		if _needs_compact_siege_purchase() and _find_trainable_building_of_type(BuildingData.BuildingType.SIEGE_WORKSHOP) != null and GameManager.can_reserve_population(player_id, 3):
-			filtered.push_front(UnitData.UnitType.SIEGE)
+	if _needs_compact_siege_purchase() and _find_trainable_building_of_type(BuildingData.BuildingType.SIEGE_WORKSHOP) != null and GameManager.can_reserve_population(player_id, 3):
+		filtered.erase(UnitData.UnitType.SIEGE)
+		filtered.push_front(UnitData.UnitType.SIEGE)
 	return filtered
 
 
+## No unit line may hold more than this share of the committed army.
+const MAX_LINE_SHARE: float = 0.5
+
+
+func _get_scale_training_plan(plan: Array) -> Array:
+	## Round 2 E: mixed armies. Lines are ranked by their committed share
+	## (observed counters and the kingdom's signature unit raise a line's
+	## weight, _rank_compact_military_plan); a line already above MAX_LINE_SHARE
+	## waits while another can be trained. Siege comes in small numbers.
+	var lines: Array = []
+	for unit_type: Variant in [UnitData.UnitType.INFANTRY, UnitData.UnitType.ARCHER, UnitData.UnitType.CAVALRY]:
+		if unit_type in plan:
+			lines.append(unit_type)
+	var ranked: Array = _rank_compact_military_plan(lines)
+	var counts: Dictionary = {}
+	var total: int = 0
+	for unit_type: Variant in lines:
+		counts[unit_type] = _count_queued_unit(int(unit_type))
+		total += int(counts[unit_type])
+	var siege: int = _count_queued_unit(UnitData.UnitType.SIEGE)
+	for unit: UnitBase in _get_fighting_units():
+		if counts.has(unit.unit_type):
+			counts[unit.unit_type] = int(counts[unit.unit_type]) + 1
+			total += 1
+		elif unit.unit_type == UnitData.UnitType.SIEGE:
+			siege += 1
+	if total >= 6 and ranked.size() > 1:
+		var open_lines: Array = ranked.filter(func(unit_type: Variant) -> bool:
+			return float(counts.get(unit_type, 0)) / float(total) < MAX_LINE_SHARE and _find_building_of_type(_get_training_building_type_for_unit(int(unit_type))) != null)
+		if not open_lines.is_empty():
+			ranked = open_lines
+	var wanted_siege: int = 0
+	if GameManager.get_player_age(player_id) >= 3:
+		if total >= 10:
+			wanted_siege = 2
+		if total >= 24:
+			wanted_siege = 4
+	if siege < wanted_siege:
+		ranked.push_front(UnitData.UnitType.SIEGE)
+	return ranked
+
+
 func _needs_compact_siege_purchase() -> bool:
-	if not _uses_compact_population_policy() or GameManager.get_player_age(player_id) < 3:
+	if GameManager.get_player_age(player_id) < 3:
 		return false
 	if _is_under_pressure or _needs_compact_worker_recovery() or _get_compact_missing_role_building() >= 0:
 		return false
-	if _get_fighting_units().size() < _get_attack_threshold():
+	# Round 2 E2: a massing Castle army banks its first siege from 12 soldiers.
+	if _get_fighting_units().size() < (_get_attack_threshold() if _uses_compact_population_policy() else mini(12, _get_attack_threshold())):
 		return false
 	if _count_queued_unit(UnitData.UnitType.SIEGE) > 0:
 		return false
@@ -1965,28 +2604,57 @@ func _get_training_building_type_for_unit(unit_type: int) -> int:
 func _check_research() -> void:
 	if _needs_compact_worker_recovery():
 		return
-	var blacksmith: Node = _find_trainable_building_of_type(BuildingData.BuildingType.BLACKSMITH)
-	if blacksmith == null:
-		return
-	if _saving_for_age_up and not _is_under_pressure:
+	if _saving_for_age_up and not _is_under_pressure and _uses_compact_population_policy():
 		return
 
-	# The human and opponent share completed-building legality, payment and
-	# once-only upgrade effects. Foundations never grant technology.
-	var research_plan: Array[String] = ["forging", "scale_mail"]
-	if _uses_compact_population_policy():
-		# Protect workers during a real home threat. Safe mature economies can
-		# invest in throughput without spending the next worker/Archer's bank.
-		if _is_under_pressure:
-			research_plan.push_front("loom")
-		elif _can_invest_in_economy() and _get_villagers().size() >= 5:
-			var wheelbarrow_cost: Dictionary = TechData.get_research_definition("wheelbarrow").get("cost", {})
-			if ResourceManager.get_resource(player_id, "food") >= int(wheelbarrow_cost.get("food", 0)) + 50 and ResourceManager.get_resource(player_id, "wood") >= int(wheelbarrow_cost.get("wood", 0)) + 45:
-				research_plan.push_front("wheelbarrow")
-		if _get_villagers().size() >= 4 and "loom" not in research_plan:
-			research_plan.append("loom")
-	for research_id: String in research_plan:
-		if GameManager.try_research(player_id, blacksmith, research_id):
+	# Round 2 B (minimal port): research is timed and occupies one building's
+	# slot, so walk TechData.AI_PRIORITY over this player's own idle, completed
+	# buildings. The human and opponent share legality, payment and effects
+	# (GameManager.try_start_research). Easy and Medium keep one research
+	# running at a time; Hard may use several buildings at once.
+	var idle_by_type: Dictionary = {}
+	for building: Variant in _my_buildings:
+		if not is_instance_valid(building) or not building is BuildingBase or building.state != BuildingBase.State.ACTIVE:
+			continue
+		if building.is_researching():
+			if TechData.is_age_research(building.research_id):
+				continue
+			if difficulty == Difficulty.EASY or _uses_compact_population_policy():
+				return
+			continue
+		if not idle_by_type.has(building.building_type):
+			idle_by_type[building.building_type] = building
+	if idle_by_type.is_empty():
+		return
+	var villager_count: int = _get_villagers().size()
+	var economy_ready: bool = _can_invest_in_economy() and villager_count >= 5
+	for research_id: String in TechData.AI_PRIORITY:
+		if difficulty == Difficulty.EASY and research_id not in TechData.AI_EASY_IDS:
+			continue
+		if GameManager.has_research(player_id, research_id):
+			continue
+		var definition: Dictionary = TechData.get_research_definition(research_id)
+		if not TechData.is_available_to(definition, GameManager.get_player_civilization(player_id)):
+			continue  # Another kingdom's unique technology.
+		var building: Node2D = idle_by_type.get(int(definition.get("building_type", -1))) as Node2D
+		if building == null:
+			continue
+		var cost: Dictionary = definition.get("cost", {})
+		if research_id == "loom":
+			# Protect workers during a real home threat, or once the village is up.
+			if not _is_under_pressure and villager_count < 4:
+				continue
+		elif (definition.get("tier", {}) as Dictionary).is_empty() and int(definition["building_type"]) in [BuildingData.BuildingType.TOWN_CENTER, BuildingData.BuildingType.RESOURCE_CAMP]:
+			# Throughput techs wait for a safe, mature economy and never spend
+			# the next worker's or Archer's bank.
+			if not economy_ready:
+				continue
+			if ResourceManager.get_resource(player_id, "food") < int(cost.get("food", 0)) + 50 or ResourceManager.get_resource(player_id, "wood") < int(cost.get("wood", 0)) + 45:
+				continue
+		if not _allows_trade_capital_spend(cost): continue
+		if not _allows_boom_spend(cost): continue
+		if not _uses_compact_population_policy() and not _respects_age_reserve(cost): continue
+		if GameManager.try_start_research(player_id, building, research_id):
 			return  # One paid research per decision.
 
 
@@ -1995,7 +2663,7 @@ func _can_invest_in_economy() -> bool:
 		return false
 	if _is_under_pressure or _saving_for_age_up or _needs_compact_worker_recovery():
 		return false
-	if _get_villagers().size() < 4 or _get_fighting_units().size() < _get_attack_threshold():
+	if _get_villagers().size() < 4 or _get_fighting_units().size() < (_get_attack_threshold() if _uses_compact_population_policy() else mini(4, _get_attack_threshold())):
 		return false
 	if _get_compact_missing_role_building() >= 0:
 		return false
@@ -2008,11 +2676,15 @@ func _can_invest_in_economy() -> bool:
 
 
 func _get_expansion_camp_anchor() -> Vector2i:
-	if not _uses_compact_population_policy() or _resource_camp_count != 1 or not _can_invest_in_economy():
+	if _uses_compact_population_policy():
+		if _resource_camp_count != 1 or not _can_invest_in_economy():
+			return Vector2i(-1, -1)
+	elif _resource_camp_count < 1 or _resource_camp_count >= 5 or _game_time < 90.0 or _is_under_pressure:
+		# Round 2 E: a camp beside every worked deer herd, wood line or mine.
 		return Vector2i(-1, -1)
 	if _find_trainable_building_of_type(BuildingData.BuildingType.RESOURCE_CAMP) == null:
 		return Vector2i(-1, -1)
-	var camp_cost: Dictionary = BuildingData.get_building_cost(BuildingData.BuildingType.RESOURCE_CAMP)
+	var camp_cost: Dictionary = BuildingData.get_building_cost(BuildingData.BuildingType.RESOURCE_CAMP, player_id)
 	if ResourceManager.get_resource(player_id, "wood") < int(camp_cost.get("wood", 0)) + EXPANSION_CAMP_WOOD_RESERVE:
 		return Vector2i(-1, -1)
 	var worked_sources: Array[ResourceNode] = []
@@ -2114,6 +2786,10 @@ func _check_scouting() -> void:
 		# base defense still releases this list and recalls every military unit.
 		_objective_units = scouts.duplicate()
 	for unit in scouts:
+		# L1 herding: early on the Scout first rounds up stray sheep it can see
+		# near home and leads them back (the flock follows it in by itself).
+		if _herd_sheep_with_scout(unit as UnitBase):
+			continue
 		if hold_before_objective:
 			_objective_scout_sent = true
 			_objective_mode = ObjectiveMode.SCOUT
@@ -2124,7 +2800,10 @@ func _check_scouting() -> void:
 			continue
 		# Once the timer opens (or an enemy preempts it), the objective policy later
 		# in this tick owns the Scout's next order.
-		unit.stance = UnitBase.Stance.AGGRESSIVE
+		# K: an Easy Scout looks but does not chase the player's villagers
+		# before Easy's first attack time.
+		var easy_quiet: bool = difficulty == Difficulty.EASY and _game_time < EASY_FIRST_ATTACK_SECONDS
+		unit.stance = UnitBase.Stance.STAND_GROUND if easy_quiet else UnitBase.Stance.AGGRESSIVE
 		if sacred_site != null:
 			continue
 		if unit.current_state != UnitBase.State.IDLE:
@@ -2140,11 +2819,66 @@ func _check_scouting() -> void:
 		unit.command_move(target)
 
 
+## Returns true while the Scout is busy herding. It walks to the nearest stray
+## sheep it can currently see on its own half (claiming makes it follow), and
+## with a flock in tow rides home until the director hands the flock over at
+## the Town Center. Searching stops after SHEEP_SWEEP_SECONDS or under
+## pressure; a flock already in tow is always brought home.
+func _herd_sheep_with_scout(scout: UnitBase) -> bool:
+	if scout == null or not is_instance_valid(scout) or scout.current_state == UnitBase.State.DEAD or game_map == null:
+		return false
+	var director: WildlifeDirector = WildlifeDirector.of(game_map)
+	if director == null or _base_position == Vector2.ZERO:
+		return false
+	if director.count_followers(scout) > 0:
+		if _is_under_pressure:
+			return false
+		if WildlifeData.tile_distance(scout.global_position, _base_position) > float(WildlifeData.FOLLOW_DELIVER_RADIUS_TILES):
+			if scout.current_state == UnitBase.State.IDLE or scout.move_target.distance_to(_base_position) > 96.0:
+				scout.command_move(_base_position)
+			return true
+		_sheep_sweep_target = null
+		return false
+	if _game_time > SHEEP_SWEEP_SECONDS or _is_under_pressure:
+		return false
+	var target: WildlifeNode = _sheep_sweep_target.get_ref() as WildlifeNode if _sheep_sweep_target != null else null
+	if target == null or not is_instance_valid(target) or target.owner_id >= 0 or not target.is_alive():
+		target = _find_sweep_sheep(director, scout)
+		_sheep_sweep_target = weakref(target) if target != null else null
+	if target == null:
+		return false
+	if scout.current_state == UnitBase.State.IDLE or scout.move_target.distance_to(target.global_position) > 48.0:
+		scout.command_move(target.global_position)
+	return true
+
+
+func _find_sweep_sheep(director: WildlifeDirector, scout: UnitBase) -> WildlifeNode:
+	var enemy_base: Vector2 = _tile_to_world(_get_symmetric_enemy_spawn_tile()) if map_generator else Vector2(INF, INF)
+	var best: WildlifeNode = null
+	var best_distance: float = INF
+	for node: WildlifeNode in director.get_nodes(WildlifeData.SHEEP):
+		if node.owner_id >= 0 or not node.is_alive() or not game_map.is_resource_target_visible_to_player(node, player_id):
+			continue
+		var from_home: float = WildlifeData.tile_distance(node.global_position, _base_position)
+		# Only our own side of the map: never a race into the rival's pasture.
+		if from_home > SHEEP_SWEEP_RADIUS_TILES or node.global_position.distance_to(enemy_base) < node.global_position.distance_to(_base_position):
+			continue
+		var distance: float = scout.global_position.distance_to(node.global_position)
+		if distance < best_distance:
+			best_distance = distance
+			best = node
+	return best
+
+
 func _is_sacred_timing_ready() -> bool:
 	if _uses_easy_learning_policy():
 		return _game_time >= SkirmishData.EASY_SACRED_INITIATIVE_SECONDS and _game_time >= _easy_regroup_until
 	if _uses_compact_population_policy() and not _has_launched_field_attack:
 		return false
+	if not _uses_compact_population_policy():
+		# Round 2 E: the site wakes at 9:00; the first claim comes with Feudal
+		# armies instead of a Dark Age scout race.
+		return _game_time >= SkirmishData.get_sacred_wake_seconds(GameManager.get_match_mode()) + float(SCALE_SACRED_START_TIMES.get(difficulty, 0.0))
 	return _game_time >= float(SACRED_SITE_START_TIMES.get(difficulty, 150.0))
 
 
@@ -2296,6 +3030,13 @@ func _check_sacred_site_strategy() -> bool:
 	var enemy_claiming: bool = owner == enemy_id and site_state in [SITE_CAPTURING, SITE_CAPTURED, SITE_CONTESTED]
 	var own_claim: bool = owner == player_id and site_state in [SITE_CAPTURING, SITE_CAPTURED, SITE_CONTESTED]
 	var active_contest: bool = site_state == SITE_CONTESTED or not site_threats.is_empty()
+	if not _uses_compact_population_policy() and sacred_site.has_method("victory_wake_remaining") and float(sacred_site.call("victory_wake_remaining")) > 120.0:
+		# Round 2 E2: before the clock nears its opening the site only pays a
+		# little gold. The army masses for the real fight instead of trickling
+		# squads into the centre; a later claim is answered in force.
+		if _objective_mode != ObjectiveMode.SCOUT:
+			_release_objective_units()
+		return false
 	var policy_ready: bool = (
 		_is_sacred_timing_ready()
 		or enemy_claiming
@@ -2360,6 +3101,20 @@ func _check_sacred_site_strategy() -> bool:
 		blocks_offense = urgent
 		if urgent:
 			desired_force = maxi(desired_force, fighters)
+		# Round 2 E: an army that owns the site and clearly outguns the raiders
+		# answers them with a matched force and keeps attacking with the rest; a
+		# side that is clearly outgunned at the site masses at home instead of
+		# feeding soldiers in one at a time, until the hostile clock is urgent.
+		var threat_strength: float = _evaluate_units_strength(site_threats)
+		var own_strength: float = _evaluate_units_strength(_get_fighting_units())
+		if own_claim and threat_strength > 0.0 and own_strength > threat_strength * 2.0:
+			desired_force = clampi(ceili(float(fighters) * minf(1.0, 1.6 * threat_strength / own_strength)), 4, fighters)
+			blocks_offense = false
+		elif enemy_claiming and not urgent and own_strength < threat_strength * 0.9:
+			_release_objective_units()
+			_objective_mode = ObjectiveMode.NONE
+			_last_strategy_decision = "mass_before_contest"
+			return false
 	var mode_changed: bool = new_mode != _objective_mode
 	_objective_mode = new_mode
 	_assign_objective_force(sacred_site, desired_force, urgent, mode_changed, site_threats)
@@ -2628,21 +3383,376 @@ func _release_objective_units() -> void:
 
 func _micro_damaged_units() -> void:
 	var fallback_point: Vector2 = _base_position.lerp(_staging_point, 0.55)
+	var heals_at_home: bool = not _uses_compact_population_policy()
+	if heals_at_home:
+		# Round 2 E: wounded soldiers walk to their Town Center, where calm units
+		# regenerate (Garrison.HOME_HEAL_RADIUS_TILES), and rejoin when whole.
+		var outward: Vector2 = _staging_point - _base_position
+		fallback_point = _base_position + (outward.normalized() if outward.length() > 1.0 else Vector2.DOWN) * float(MapData.TILE_WIDTH) * 2.5
 	for unit in _get_military_units():
 		if not is_instance_valid(unit):
 			continue
+		if unit.unit_type in [UnitData.UnitType.SIEGE, UnitData.UnitType.SCOUT]:
+			continue
+		var unit_id: int = unit.get_instance_id()
+		var hp_ratio: float = unit.hp / maxf(1.0, unit.max_hp)
+		if _healing_ids.has(unit_id):
+			if hp_ratio >= HEAL_RESUME_RATIO:
+				_healing_ids.erase(unit_id)
+			elif unit.current_state == UnitBase.State.IDLE and unit.global_position.distance_to(fallback_point) > 64.0:
+				unit.command_move(fallback_point)
+			continue
 		if (_uses_compact_population_policy() or _uses_large_army_objective_policy()) and _objective_mode == ObjectiveMode.CONTEST and unit in _objective_units:
 			continue  # Urgent committed forces must not have every attack canceled by micro.
-		if unit.unit_type == UnitData.UnitType.SIEGE:
-			continue
-		var hp_ratio: float = unit.hp / maxf(1.0, unit.max_hp)
-		if hp_ratio > 0.35:
+		if hp_ratio > HEAL_RETREAT_RATIO:
 			continue
 		if _may_keep_wounded_sacred_guard(unit):
-			continue  # No healing exists; a safe guard must not retreat forever.
+			continue  # A safe guard must not retreat forever.
+		if heals_at_home:
+			_healing_ids[unit_id] = true
+			_attack_wave_units.erase(unit)
+			_raid_units.erase(unit)
+			_objective_units.erase(unit)
 		if unit.global_position.distance_to(fallback_point) < 48.0:
 			continue
 		unit.command_move(fallback_point)
+
+
+# ═════════════════════════════════════════════════════════════════════════
+#  ROUND 2 E: FARMS, BOAR, RAIDS
+# ═════════════════════════════════════════════════════════════════════════
+
+func _respects_age_reserve(cost: Dictionary) -> bool:
+	## Round 2 E: while saving for an age, a purchase may go ahead if it leaves
+	## the age-up's food and gold untouched (most buildings and many units are
+	## paid in wood). The compact policy keeps its strict freeze (false).
+	if _uses_compact_population_policy():
+		return false
+	if not _saving_for_age_up:
+		return true
+	var age_cost: Dictionary = GameManager.get_age_up_cost(player_id, GameManager.get_player_age(player_id) + 1)
+	for resource: String in age_cost:
+		var spend: int = int(cost.get(resource, 0))
+		if spend > 0 and ResourceManager.get_resource(player_id, resource) - spend < int(age_cost[resource]):
+			return false
+	return true
+
+
+func _prefers_town_center_targets() -> bool:
+	return _prefer_town_centers
+
+
+func _compute_prefers_town_center_targets() -> bool:
+	## An AI that is clearly ahead (siege in the field, or a full later wave
+	## stronger than what it can see) aims its waves at Town Centers.
+	if _uses_compact_population_policy():
+		return false
+	if not _may_assault_town_centers():
+		return false
+	var fighters: Array = _get_fighting_units()
+	for unit: UnitBase in fighters:
+		if unit.unit_type == UnitData.UnitType.SIEGE:
+			return true
+	return fighters.size() >= 14 and _evaluate_units_strength(fighters) > 1.5 * _evaluate_enemy_visible_strength()
+
+
+func _may_assault_town_centers() -> bool:
+	## Round 2 E2: no difficulty below Hard razes a Town Center in the opening.
+	if _uses_compact_population_policy():
+		return true
+	return _game_time >= float(TC_ASSAULT_START_SECONDS.get(difficulty, 630.0))
+
+
+func _hold_off_town_centers() -> void:
+	## Before _may_assault_town_centers(), soldiers that auto-acquired an enemy
+	## Town Center turn to the nearest other visible enemy building, or regroup.
+	if _may_assault_town_centers():
+		return
+	var others: Array = []
+	for building: BuildingBase in _get_visible_enemy_buildings():
+		if building.building_type != BuildingData.BuildingType.TOWN_CENTER and building.state != BuildingBase.State.DESTROYED:
+			others.append(building)
+	for unit: UnitBase in _get_fighting_units():
+		var target: Variant = unit.get("attack_building_target")
+		if not (target is BuildingBase) or not is_instance_valid(target) or (target as BuildingBase).building_type != BuildingData.BuildingType.TOWN_CENTER or (target as BuildingBase).player_owner == player_id:
+			continue
+		var best: BuildingBase = null
+		var best_distance: float = INF
+		for building: BuildingBase in others:
+			var distance: float = building.global_position.distance_to(unit.global_position)
+			if distance < best_distance:
+				best_distance = distance
+				best = building
+		if best != null and best_distance < 520.0:
+			unit.command_attack_building(best)
+		else:
+			_attack_wave_units.erase(unit)
+			unit.command_move(_staging_point)
+
+
+func _check_farm_reseeds() -> void:
+	## Finite Farms: replant one fallow Farm per decision once the bank holds
+	## FARM_RESEED_WOOD. Its idle farmer is recalled by FarmPlots.reseed.
+	if ResourceManager.get_resource(player_id, "wood") < FARM_RESEED_WOOD:
+		return
+	for entry: Variant in _get_buildings_of_type(BuildingData.BuildingType.FARM):
+		var farm: BuildingBase = entry as BuildingBase
+		if not is_instance_valid(farm) or farm.state != BuildingBase.State.ACTIVE or not farm.farm_fallow:
+			continue
+		if FarmPlots.reseed(farm).is_empty():
+			_last_economy_action = "reseed_farm"
+			return
+
+
+func _get_boar_target() -> WildlifeNode:
+	if _boar_target_ref == null:
+		return null
+	var boar: WildlifeNode = _boar_target_ref.get_ref() as WildlifeNode
+	return boar if is_instance_valid(boar) and boar.is_inside_tree() else null
+
+
+func _check_boar_hunt() -> void:
+	## Hard lures a boar under the Town Center with one villager; Medium sends a
+	## party of BOAR_PARTY_SIZE; Easy leaves boars alone (as a new player might).
+	if difficulty == Difficulty.EASY or _uses_compact_population_policy() or game_map == null:
+		return
+	var boar: WildlifeNode = _get_boar_target()
+	if boar != null:
+		_manage_boar_hunt(boar)
+		return
+	_boar_target_ref = null
+	if _game_time < BOAR_HUNT_START_SECONDS or _is_under_pressure or _boars_handled >= WildlifeData.BOAR_COUNT:
+		return
+	if _get_villagers().size() < BOAR_PARTY_SIZE + 3:
+		return
+	var director: WildlifeDirector = WildlifeDirector.of(game_map)
+	if director == null:
+		return
+	var best: WildlifeNode = null
+	var best_distance: float = float(MapData.TILE_WIDTH) * BOAR_HUNT_RADIUS_TILES
+	for node: WildlifeNode in director.get_nodes(WildlifeData.BOAR):
+		if not node.is_fighting() or node.mood == WildlifeNode.Mood.ENRAGED:
+			continue
+		if not bool(game_map.call("is_entity_visible_to_player", node, player_id)):
+			continue
+		var distance: float = node.global_position.distance_to(_base_position)
+		if distance < best_distance:
+			best_distance = distance
+			best = node
+	if best == null:
+		return
+	var hunters: Array = _pick_boar_hunters(best, 1 if difficulty != Difficulty.EASY else BOAR_PARTY_SIZE)
+	if hunters.is_empty():
+		return
+	_boar_target_ref = weakref(best)
+	_boar_started_at = _game_time
+	_boar_hunter_ids.clear()
+	_boar_lure_returning = false
+	_boar_lure_id = (hunters[0] as UnitBase).get_instance_id() if difficulty != Difficulty.EASY else 0
+	# H: a party walks up together and strikes together. Ordered straight onto
+	# the boar, the first to arrive fought alone and often died (live wildlife
+	# telemetry: ~2 AI villagers per match).
+	_boar_party_assembling = _boar_lure_id == 0
+	var muster: Vector2 = best.global_position + (_base_position - best.global_position).normalized() * BOAR_MUSTER_DISTANCE
+	for hunter: Variant in hunters:
+		_boar_hunter_ids.append((hunter as UnitBase).get_instance_id())
+		if _boar_party_assembling:
+			(hunter as Villager).command_move(muster)
+		else:
+			(hunter as Villager).command_gather(best)
+	_last_economy_action = "boar_lure" if _boar_lure_id != 0 else "boar_hunt"
+
+
+func _pick_boar_hunters(boar: WildlifeNode, count: int) -> Array:
+	var candidates: Array = []
+	for entry: Variant in _get_villagers():
+		var villager: Villager = entry as Villager
+		if villager == null or _is_worker_retreating(villager) or villager.carried_amount > 0:
+			continue
+		if villager.current_state not in [UnitBase.State.IDLE, UnitBase.State.GATHERING]:
+			continue
+		candidates.append(villager)
+	candidates.sort_custom(func(a: Villager, b: Villager) -> bool:
+		var a_food: int = 0 if str(a.carried_resource_type) == "food" else 1
+		var b_food: int = 0 if str(b.carried_resource_type) == "food" else 1
+		if a_food != b_food:
+			return a_food < b_food
+		return a.global_position.distance_squared_to(boar.global_position) < b.global_position.distance_squared_to(boar.global_position))
+	return candidates.slice(0, mini(count, candidates.size()))
+
+
+func _boar_villager(instance_id: int) -> Villager:
+	var unit: Villager = instance_from_id(instance_id) as Villager if instance_id != 0 and is_instance_id_valid(instance_id) else null
+	return unit if is_instance_valid(unit) and unit.current_state != UnitBase.State.DEAD else null
+
+
+func _manage_boar_hunt(boar: WildlifeNode) -> void:
+	if not boar.is_fighting():
+		# Felled: a few food workers butcher the carcass, then the hunt is over.
+		var butchers: int = 0
+		for hunter_id: Variant in _boar_hunter_ids:
+			var hunter: Villager = _boar_villager(int(hunter_id))
+			if hunter != null and hunter.gather_target == boar:
+				butchers += 1
+		for extra: Variant in _pick_boar_hunters(boar, maxi(0, 3 - butchers)):
+			(extra as Villager).command_gather(boar)
+		_boar_target_ref = null
+		_boar_hunter_ids.clear()
+		_boar_lure_id = 0
+		_boars_handled += 1
+		return
+	if _game_time - _boar_started_at > 75.0:
+		# Something went wrong (blocked path, lost lurer): give it up for now.
+		_boar_target_ref = null
+		_boar_hunter_ids.clear()
+		_boar_lure_id = 0
+		_boars_handled += 1
+		return
+	if _boar_lure_id == 0:
+		if _boar_party_assembling:
+			# Medium: strike once every hunter has mustered (or the boar woke).
+			var party: Array[Villager] = []
+			var waiting: bool = false
+			for hunter_id: Variant in _boar_hunter_ids:
+				var hunter: Villager = _boar_villager(int(hunter_id))
+				if hunter == null:
+					continue
+				party.append(hunter)
+				if hunter.current_state == UnitBase.State.MOVING:
+					waiting = true
+			if not waiting or boar.mood == WildlifeNode.Mood.ENRAGED or _game_time - _boar_started_at > 25.0:
+				_boar_party_assembling = false
+				for hunter: Villager in party:
+					hunter.command_gather(boar)
+		return  # Medium: the party fights it where it stands.
+	var lurer: Villager = _boar_villager(_boar_lure_id)
+	if lurer == null:
+		# The lurer fell: finish it with a party instead.
+		_boar_lure_id = 0
+		for hunter: Variant in _pick_boar_hunters(boar, BOAR_PARTY_SIZE):
+			_boar_hunter_ids.append((hunter as UnitBase).get_instance_id())
+			(hunter as Villager).command_gather(boar)
+		return
+	var town_center: Node2D = _find_nearest_own_town_center(boar.global_position)
+	if town_center == null:
+		return
+	if boar.mood == WildlifeNode.Mood.ENRAGED and boar.get_target() == lurer:
+		# I2: run to the Town Center's own doorstep on the boar's side (the
+		# player's lure path). A point 1.8 tiles from the footprint's anchor
+		# corner stood ~140 px off the far walls for seat 0's spawn side, out
+		# of arrow range, and that lurer died fighting alone (~1 villager a
+		# match, always seat 0: part of the seat-0 deficit in mirror matches).
+		if not _boar_lure_returning:
+			_boar_shelter = Garrison._pick_exit(town_center as BuildingBase, game_map, boar.global_position, {}) if town_center is BuildingBase else town_center.global_position
+		var shelter: Vector2 = _boar_shelter
+		if not _boar_lure_returning or (lurer.current_state != UnitBase.State.MOVING and lurer.global_position.distance_to(shelter) > 40.0):
+			_boar_lure_returning = true
+			lurer.command_move(shelter)
+		elif lurer.global_position.distance_to(shelter) <= 40.0 and lurer.current_state == UnitBase.State.IDLE:
+			lurer.command_gather(boar)  # Under the arrows: fight back.
+
+
+func _find_nearest_own_town_center(position: Vector2) -> Node2D:
+	var best: Node2D = null
+	var best_distance: float = INF
+	for entry: Variant in _get_buildings_of_type(BuildingData.BuildingType.TOWN_CENTER):
+		var town_center: BuildingBase = entry as BuildingBase
+		if not is_instance_valid(town_center) or town_center.state != BuildingBase.State.ACTIVE:
+			continue
+		var distance: float = town_center.global_position.distance_to(position)
+		if distance < best_distance:
+			best_distance = distance
+			best = town_center
+	return best
+
+
+func _check_outrider_raid() -> void:
+	## Mongols (Medium/Hard) send a pack of Outriders at enemy villagers from
+	## Feudal on; Pillage turns every kill into gold.
+	if difficulty == Difficulty.EASY or _uses_compact_population_policy():
+		return
+	if GameManager.get_player_civilization(player_id) != CivilizationData.Civilization.SUNSTRIDE_CLANS:
+		return
+	_raid_units = _raid_units.filter(func(unit: Variant) -> bool:
+		return is_instance_valid(unit) and (unit as UnitBase).current_state != UnitBase.State.DEAD and not _healing_ids.has((unit as UnitBase).get_instance_id()))
+	if not _raid_units.is_empty():
+		# Round 2 E2: a raid that meets a real defence, or has been worn down,
+		# rides home to heal instead of bleeding riders one by one.
+		var raid_strength: float = _evaluate_units_strength(_raid_units)
+		var raid_center: Vector2 = _average_node_position(_raid_units)
+		var defenders: Array = _get_visible_enemies().filter(func(enemy: Variant) -> bool:
+			return (enemy as UnitBase).damage > 0.0 and (enemy as UnitBase).unit_type != UnitData.UnitType.VILLAGER and (enemy as Node2D).global_position.distance_to(raid_center) <= 320.0)
+		var raid_hp: float = 0.0
+		var raid_max_hp: float = 0.0
+		for unit: Variant in _raid_units:
+			raid_hp += (unit as UnitBase).hp
+			raid_max_hp += (unit as UnitBase).max_hp
+		if _raid_units.size() < 3 or raid_hp < raid_max_hp * 0.55 or _evaluate_units_strength(defenders) > raid_strength * 0.8:
+			for unit: Variant in _raid_units:
+				(unit as UnitBase).command_move(_staging_point)
+			_raid_units.clear()
+			_last_raid_time = _game_time
+			_last_strategy_decision = "raid_retreat"
+			return
+		var idle: int = 0
+		for unit: Variant in _raid_units:
+			if (unit as UnitBase).current_state == UnitBase.State.IDLE:
+				idle += 1
+		if idle * 2 >= _raid_units.size() and _game_time - _last_raid_time > 20.0:
+			var target: Vector2 = _find_raid_target()
+			if target != Vector2(-1, -1) and _raid_units.size() >= 3 and _game_time - _last_raid_time < 60.0:
+				_issue_attack_orders(_raid_units, target)
+			else:
+				_raid_units.clear()  # Back to the army.
+		return
+	if GameManager.get_player_age(player_id) < 2 or _is_under_pressure or _game_time - _last_raid_time < RAID_COOLDOWN_SECONDS:
+		return
+	# Round 2 E2: riders raid only from a surplus; the main army keeps its size
+	# (an early raid used to leave the Mongol army short for the first battle).
+	if _get_fighting_units().size() < _get_attack_threshold() + RAID_PARTY_SIZE or _has_recent_defense_threat():
+		return
+	var riders: Array = []
+	for unit: Variant in _get_field_military([]):
+		if (unit as UnitBase).unit_type == UnitData.UnitType.CAVALRY and (unit as UnitBase).current_state == UnitBase.State.IDLE and unit not in _attack_wave_units and (unit as UnitBase).hp >= (unit as UnitBase).max_hp * 0.8:
+			riders.append(unit)  # E2: only healthy riders go raiding.
+	if riders.size() < RAID_PARTY_SIZE:
+		return
+	var raid_target: Vector2 = _find_raid_target()
+	if raid_target == Vector2(-1, -1):
+		return
+	_raid_units = riders.slice(0, RAID_PARTY_SIZE)
+	_issue_attack_orders(_raid_units, raid_target)
+	_last_raid_time = _game_time
+	ai_attack_launched.emit(_raid_units, raid_target)
+	_last_strategy_decision = "outrider_raid"
+
+
+func _find_raid_target() -> Vector2:
+	## The best remembered enemy villager, else the known enemy start.
+	var best: Vector2 = Vector2(-1, -1)
+	var best_score: float = -INF
+	# Round 2 E2: prefer workers away from Town Center and tower arrows.
+	var guarded: Array[Vector2] = []
+	if map_generator:
+		guarded.append(_tile_to_world(_get_symmetric_enemy_spawn_tile()))
+	for building: BuildingBase in _get_visible_enemy_buildings():
+		if building.tower_attack_damage > 0 and building.state == BuildingBase.State.ACTIVE:
+			guarded.append(building.global_position)
+	for enemy: Variant in _get_visible_enemies():
+		if (enemy as UnitBase).unit_type == UnitData.UnitType.VILLAGER:
+			var score: float = -enemy.global_position.distance_to(_base_position)
+			for anchor: Vector2 in guarded:
+				if enemy.global_position.distance_to(anchor) < float(MapData.TILE_WIDTH) * 7.0:
+					score -= 2000.0
+			if score > best_score:
+				best_score = score
+				best = enemy.global_position
+	if best != Vector2(-1, -1):
+		return best
+	var memory: Dictionary = _find_best_enemy_memory()
+	if not memory.is_empty():
+		return memory.get("position", Vector2(-1, -1))
+	return _tile_to_world(_get_symmetric_enemy_spawn_tile()) if map_generator else Vector2(-1, -1)
 
 
 # ═════════════════════════════════════════════════════════════════════════
@@ -2654,16 +3764,29 @@ func _check_attack_or_defend() -> void:
 	# map objectives and offense. This prevents armies from marching away while
 	# production, population, or drop-off infrastructure is being dismantled.
 	var defense_threats: Array = _find_defense_threats()
+	# Round 2 E2: a raid that the soldiers already at home can answer does not
+	# recall a field army (a lone rider used to pull 30 soldiers back home).
+	var home_defenders: Array = []
+	if not _uses_compact_population_policy() and (_attack_in_progress or not _objective_units.is_empty()):
+		home_defenders = _get_fighting_units().filter(func(unit: Variant) -> bool: return unit not in _attack_wave_units and unit not in _objective_units)
+	var local_defense: bool = not home_defenders.is_empty() and _evaluate_units_strength(home_defenders) >= 1.5 * _evaluate_units_strength(defense_threats)
 	if not defense_threats.is_empty():
-		_clear_attack_wave()
-		_release_objective_units()
-		_rally_defense(defense_threats)
-		_last_strategy_decision = "base_defense"
-		return
-	if _has_recent_defense_threat():
-		_rally_defense([])
-		_last_strategy_decision = "search_last_base_threat"
-		return
+		if local_defense:
+			_rally_defense(defense_threats, home_defenders)
+			_last_strategy_decision = "local_defense"
+		else:
+			_clear_attack_wave()
+			_release_objective_units()
+			_rally_defense(defense_threats)
+			_last_strategy_decision = "base_defense"
+			return
+	elif _has_recent_defense_threat():
+		if local_defense or (not _uses_compact_population_policy() and _attack_in_progress):
+			_rally_defense([], home_defenders)
+		else:
+			_rally_defense([])
+			_last_strategy_decision = "search_last_base_threat"
+			return
 	if _uses_easy_learning_policy() and _game_time < _easy_regroup_until:
 		_clear_attack_wave()
 		_release_objective_units()
@@ -2679,6 +3802,7 @@ func _check_attack_or_defend() -> void:
 	var reserve: Array = _get_base_reserve_units(_get_military_units())
 	_rally_base_reserve(reserve)
 	var military: Array = _get_field_military(reserve)
+	military = _check_shrine_strategy(military)
 	if _uses_easy_learning_policy():
 		# Keep the already assigned squad coherent. Reserves must not join merely
 		# because the battlefield or a retreating defender came into sight.
@@ -2698,7 +3822,15 @@ func _check_attack_or_defend() -> void:
 			return
 		# Check if we should retreat
 		var outmatched: bool = visible_enemy_strength > own_strength * 1.2 and visible_enemy_strength > 180.0
-		if military.size() < maxi(2, int(threshold * _retreat_threshold)) or outmatched:
+		var retreat_floor: int = maxi(2, int(threshold * _retreat_threshold))
+		if difficulty == Difficulty.EASY and not _uses_compact_population_policy():
+			# K: Easy judges the wave it sent (not soldiers left at home) and
+			# turns back early, so a new player's defence feels like a win.
+			var wave: Array = _get_attack_wave_survivors()
+			military = wave
+			outmatched = visible_enemy_strength > maxf(1.0, _evaluate_units_strength(wave)) * EASY_OUTMATCHED_RATIO and visible_enemy_strength > 60.0
+			retreat_floor = maxi(2, ceili(float(_get_easy_wave_size()) * EASY_RETREAT_SHARE))
+		if military.size() < retreat_floor or outmatched:
 			_retreat_army()
 			_clear_attack_wave()
 			_last_strategy_decision = "retreat"
@@ -2730,9 +3862,52 @@ func _check_attack_or_defend() -> void:
 		Difficulty.HARD: force_attack_time = 120.0
 
 	var force_attack: bool = _game_time >= force_attack_time and military.size() >= 3
+	if not _uses_compact_population_policy():
+		# Round 2 E: first fights at about 4-6 minutes, with a real squad.
+		match difficulty:
+			Difficulty.EASY: force_attack_time = 420.0
+			Difficulty.MEDIUM: force_attack_time = 300.0
+			Difficulty.HARD: force_attack_time = 255.0
+		match difficulty:
+			Difficulty.EASY: force_attack_time = EASY_FIRST_ATTACK_SECONDS  # K: Easy's first push waits for 14:00.
+		# Round 2 E2: the threshold measures the whole army (guards, healers and
+		# shrine pickets included); the free field army then marches. Healing
+		# soldiers above HEAL_JOIN_RATIO rejoin for the push.
+		var army_size: int = _get_fighting_units().size()
+		force_attack = _game_time >= force_attack_time and military.size() >= maxi(4, ceili(float(threshold) * 0.75)) and not _has_launched_field_attack
+		# An army that stopped growing below its threshold (housing, income or
+		# losses) goes anyway once it holds 70% of it.
+		if army_size > _mass_peak:
+			_mass_peak = army_size
+			_mass_peak_time = _game_time
+		if _has_launched_field_attack and army_size >= maxi(6, ceili(float(threshold) * 0.7)) and _game_time - _mass_peak_time >= MASS_STALL_SECONDS:
+			force_attack = true
+		if army_size >= threshold:
+			force_attack = true
+		if not _has_launched_field_attack and _game_time < force_attack_time:
+			_last_strategy_decision = "opening_staging"
+			return  # E2: no field wave before the difficulty's first-fight time (Easy 14:00).
+		if difficulty == Difficulty.EASY and _game_time - _last_field_attack_time < EASY_WAVE_REST_SECONDS + 60.0:
+			_last_strategy_decision = "learning_rest"
+			return  # E2: long, visible gaps between Easy's waves.
+		if difficulty == Difficulty.EASY and army_size >= _get_easy_wave_size():
+			force_attack = true  # K: Easy's wave size, not its whole army, sets the launch.
+		if force_attack:
+			for unit: UnitBase in _get_military_units():
+				if _healing_ids.has(unit.get_instance_id()) and unit.hp >= unit.max_hp * HEAL_JOIN_RATIO:
+					_healing_ids.erase(unit.get_instance_id())
+					military.append(unit)
+			military = military.filter(func(unit: Variant) -> bool: return unit not in _shrine_units)
+			if difficulty == Difficulty.EASY:
+				# K: small waves that grow slowly; the rest of the army stays home.
+				military = military.slice(0, _get_easy_wave_size())
+			if military.size() < 4:
+				force_attack = false
 
 	# Launch full attack if army is strong enough or timed threshold reached
 	if military.size() >= threshold or force_attack:
+		_mass_peak = 0
+		_mass_peak_time = _game_time
 		var target_selection: Dictionary = _find_enemy_target_selection()
 		if not target_selection.is_empty():
 			var target: Vector2 = target_selection.get("position", Vector2(-1, -1))
@@ -2744,6 +3919,8 @@ func _check_attack_or_defend() -> void:
 
 	# Harassment raids: send small groups to pressure the enemy
 	var harass_cooldown: float = 60.0 if difficulty == Difficulty.HARD else 90.0
+	if not _uses_compact_population_policy():
+		return  # Round 2 E2: no three-unit trickles; the army masses (Mongol raids aside).
 	if military.size() >= 3 and _game_time - _last_harass_time > harass_cooldown:
 		# Keep even harassment together as a three-fighter packet.
 		var raid_size: int = mini(3, military.size())
@@ -2758,6 +3935,12 @@ func _check_attack_or_defend() -> void:
 				_last_field_attack_time = _game_time
 				ai_attack_launched.emit(raiders, target)
 				_last_strategy_decision = "harass"
+
+
+## K: legacy Easy wave size (5 at 14:00, one more every 5:00, capped).
+func _get_easy_wave_size() -> int:
+	var grown: int = int(maxf(0.0, _game_time - EASY_FIRST_ATTACK_SECONDS) / EASY_WAVE_GROWTH_SECONDS)
+	return mini(EASY_FIRST_WAVE_SIZE + grown, EASY_ARMY_CAP)
 
 
 func _uses_easy_learning_policy() -> bool:
@@ -2866,6 +4049,19 @@ func _refresh_attack_wave_lifecycle() -> bool:
 		_clear_attack_wave()
 		return false
 
+	if _prefer_town_centers and not _uses_compact_population_policy() and _may_assault_town_centers():
+		# Round 2 E2: a winning wave that comes in sight of a Town Center makes
+		# it the target (Houses and Farms on the way are not the objective).
+		var current: Node = _get_attack_wave_target_node()
+		if not (current is BuildingBase and (current as BuildingBase).building_type == BuildingData.BuildingType.TOWN_CENTER):
+			var wave_center: Vector2 = _average_node_position(survivors)
+			for building: BuildingBase in _get_visible_enemy_buildings():
+				if building.building_type == BuildingData.BuildingType.TOWN_CENTER and building.global_position.distance_to(wave_center) <= 700.0:
+					_attack_wave_target_ref = weakref(building)
+					_attack_wave_target_position = building.global_position
+					_attack_wave_best_target_hp = float(building.hp)
+					_attack_wave_last_progress_time = _game_time
+					break
 	var target_node: Node = _get_attack_wave_target_node()
 	# Losing sight turns a live target into a position-only attack-move. Preserve
 	# the last visible position/HP and discard the weak reference before reading
@@ -2884,8 +4080,17 @@ func _refresh_attack_wave_lifecycle() -> bool:
 
 	if target_node != null:
 		_attack_wave_target_position = target_node.global_position
+		_focus_town_center(target_node, survivors)
 
 	if _has_attack_wave_arrived_or_idled(survivors):
+		# Round 2 E2: a healthy wave that reached its target keeps breaking the
+		# enemy (next visible or remembered target) instead of walking home.
+		if not _uses_compact_population_policy() and difficulty != Difficulty.EASY and survivors.size() >= maxi(4, int(float(_get_attack_threshold()) * 0.4)):
+			var previous_target: Vector2 = _attack_wave_target_position
+			var next: Dictionary = _find_enemy_target_selection()
+			var next_position: Vector2 = next.get("position", Vector2(-1, -1))
+			if not next.is_empty() and next_position.distance_to(previous_target) > ATTACK_WAVE_ARRIVAL_RADIUS and _retarget_attack_wave(survivors):
+				return true
 		_clear_attack_wave()
 		return false
 
@@ -2906,6 +4111,25 @@ func _refresh_attack_wave_lifecycle() -> bool:
 		_clear_attack_wave()
 		return false
 	return true
+
+
+func _focus_town_center(target_node: Node, survivors: Array) -> void:
+	## Round 2 E2: a wave that is ahead and can see its Town Center target hits
+	## the Town Center itself instead of grinding through Houses and Farms on
+	## attack-move. Soldiers already fighting an enemy unit finish that fight.
+	if _uses_compact_population_policy() or not _prefer_town_centers or not (target_node is BuildingBase):
+		return
+	var town_center: BuildingBase = target_node as BuildingBase
+	if town_center.building_type != BuildingData.BuildingType.TOWN_CENTER or not _may_assault_town_centers():
+		return
+	for entry: Variant in survivors:
+		var unit: UnitBase = entry as UnitBase
+		if unit == null or unit.attack_building_target == town_center:
+			continue
+		if is_instance_valid(unit.attack_target) and unit.attack_target.current_state != UnitBase.State.DEAD:
+			continue
+		if unit.global_position.distance_to(town_center.global_position) <= 640.0:
+			unit.command_attack_building(town_center)
 
 
 func _get_attack_wave_survivors() -> Array:
@@ -3047,8 +4271,9 @@ func _has_recent_defense_threat() -> bool:
 	return _game_time - _last_defense_threat_time <= DEFENSE_MEMORY_SECONDS
 
 
-func _rally_defense(threats: Array = []) -> void:
-	var military: Array = _get_fighting_units()
+func _rally_defense(threats: Array = [], defenders: Variant = null) -> void:
+	## `defenders` (Round 2 E2): only these soldiers answer; null = every fighter.
+	var military: Array = _get_fighting_units() if defenders == null else (defenders as Array)
 	if _uses_easy_learning_policy():
 		for unit: UnitBase in military:
 			unit.stance = UnitBase.Stance.AGGRESSIVE
@@ -3069,6 +4294,7 @@ func _rally_defense(threats: Array = []) -> void:
 		var target_enemy: UnitBase = _choose_counter_target(unit, threats, target_allocations)
 		if is_instance_valid(target_enemy) and not (unit.current_state == UnitBase.State.ATTACKING and unit.attack_target == target_enemy):
 			unit.command_attack(target_enemy)
+	_ring_bell_if_outmatched(threats, military)  # Round 2 D1 (garrison.gd)
 
 	# Evacuate villagers actually exposed to the remembered threat, including
 	# gatherers; limiting this by proximity avoids idling the whole economy.
@@ -3105,6 +4331,58 @@ func _rally_defense(threats: Array = []) -> void:
 	for scout in _get_scouts():
 		if _is_worker_position_exposed(scout.global_position, threats):
 			scout.command_move(safe_position)
+
+
+# --- Round 2 D1 additions (town bell and repair; rules in scripts/buildings/garrison.gd) ---
+
+func _ring_bell_if_outmatched(threats: Array, defenders: Array) -> void:
+	## A visible raid worth more than 1.2x the defenders sends villagers into
+	## the Town Center. Garrison stands the bell down by itself.
+	var threat_strength: float = _evaluate_units_strength(threats)
+	if threat_strength <= 0.0 or threat_strength <= 1.2 * _evaluate_units_strength(defenders):
+		return
+	for entry: Variant in _get_buildings_of_type(BuildingData.BuildingType.TOWN_CENTER):
+		var town_center: BuildingBase = entry as BuildingBase
+		if not is_instance_valid(town_center) or town_center.bell_active or town_center.state != BuildingBase.State.ACTIVE:
+			continue
+		for threat: Variant in threats:
+			if threat is UnitBase and Garrison.tile_distance(town_center, (threat as UnitBase).global_position) <= Garrison.BELL_RADIUS_TILES:
+				Garrison.ring(town_center)
+				break
+
+
+func _check_repairs() -> void:
+	## One villager (two below half health) mends the worst-damaged building
+	## while home is quiet and there is wood to pay for it.
+	if _is_under_pressure or ResourceManager.get_resource(player_id, "wood") < 60:
+		return
+	var worst: BuildingBase = null
+	var worst_ratio: float = 0.9
+	for entry: Variant in _my_buildings:
+		if not is_instance_valid(entry) or not entry is BuildingBase or not Garrison.needs_repair(entry):
+			continue
+		var ratio: float = float((entry as BuildingBase).hp) / float(maxi(1, (entry as BuildingBase).max_hp))
+		if ratio < worst_ratio:
+			worst_ratio = ratio
+			worst = entry as BuildingBase
+	if worst == null:
+		return
+	var wanted: int = 2 if worst_ratio < 0.5 else 1
+	var candidates: Array = []
+	for entry: Variant in _get_villagers():
+		var villager: Villager = entry as Villager
+		if villager == null or _is_worker_retreating(villager):
+			continue
+		if villager.current_state == UnitBase.State.BUILDING and villager.build_target == worst:
+			wanted -= 1
+		elif villager.current_state in [UnitBase.State.IDLE, UnitBase.State.GATHERING]:
+			candidates.append(villager)
+	if wanted <= 0 or candidates.is_empty():
+		return
+	candidates.sort_custom(func(a: Villager, b: Villager) -> bool:
+		return a.global_position.distance_squared_to(worst.global_position) < b.global_position.distance_squared_to(worst.global_position)
+	)
+	Garrison.order_repair(candidates.slice(0, wanted), worst)
 
 
 func _choose_counter_target(unit: UnitBase, threats: Array, allocations: Dictionary) -> UnitBase:
@@ -3203,6 +4481,8 @@ func _get_field_military(reserve: Array) -> Array:
 			continue
 		if unit in _objective_units or unit in reserve:
 			continue
+		if _healing_ids.has(unit.get_instance_id()) or unit in _raid_units:
+			continue  # Round 2 E: healing at home, or away raiding.
 		field_units.append(unit)
 	return field_units
 
@@ -3221,6 +4501,47 @@ func _send_attack(units: Array, target: Vector2) -> void:
 	# Retarget/objective refreshes do not pass this seam or re-form a token.
 	PENDING_ATTACK_MARCH.watch_compact_waves(units, target, player_id)
 	ai_attack_launched.emit(units, target)
+
+
+## Keeps up to SHRINE_SQUAD_SIZE idle field soldiers on the nearest shrine the
+## AI does not own (the rival's first). Returns the field army without them.
+func _check_shrine_strategy(military: Array) -> Array:
+	_shrine_units = _shrine_units.filter(func(unit: Variant) -> bool: return is_instance_valid(unit) and unit in military)
+	var target: Node2D = _pick_shrine_target()
+	if target == null or _game_time < float(SHRINE_START_SECONDS.get(difficulty, 180.0)):
+		_shrine_units.clear()
+		return military
+	var wanted: int = int(SHRINE_SQUAD_SIZE.get(difficulty, 3))
+	for unit: Variant in _get_idle_units_from(military):
+		if _shrine_units.size() >= wanted:
+			break
+		if unit not in _shrine_units and unit not in _attack_wave_units:
+			_shrine_units.append(unit)
+	var destination: Vector2 = target.global_position
+	var to_send: Array = _shrine_units.filter(func(unit: Variant) -> bool:
+		return (unit as UnitBase).current_state == UnitBase.State.IDLE and (unit as Node2D).global_position.distance_to(destination) > 40.0)
+	if not to_send.is_empty():
+		_issue_attack_orders(to_send, destination)
+		_last_strategy_decision = "shrine"
+	return military.filter(func(unit: Variant) -> bool: return unit not in _shrine_units)
+
+
+func _pick_shrine_target() -> Node2D:
+	if game_map == null or not ("shrines" in game_map):
+		return null
+	var best: Node2D = null
+	var best_score: float = INF
+	for shrine: Node2D in game_map.shrines:
+		if not is_instance_valid(shrine) or int(shrine.get("owning_player")) == player_id:
+			continue
+		# The rival's shrine pays them; taking it back outranks a neutral one.
+		var score: float = shrine.global_position.distance_to(_base_position)
+		if int(shrine.get("owning_player")) >= 0:
+			score *= 0.6
+		if score < best_score:
+			best_score = score
+			best = shrine
+	return best
 
 
 func _issue_attack_orders(units: Array, target: Vector2) -> void:
@@ -3264,6 +4585,13 @@ func _find_enemy_target_selection() -> Dictionary:
 			"node": best_target_node,
 			"source": "visible",
 		}
+
+	# Round 2 E2: an army that is ahead marches on the enemy Town Center it has
+	# seen (or the public start), fighting whatever it meets on the way.
+	if _prefers_town_center_targets() and not _uses_compact_population_policy():
+		var known_tc: Vector2 = _nearest_known_enemy_town_center()
+		if known_tc != Vector2(-1, -1):
+			return {"position": known_tc, "node": null, "source": "town_center_memory"}
 
 	var memory_target: Dictionary = _find_best_enemy_memory()
 	if not memory_target.is_empty():
@@ -3313,6 +4641,10 @@ func _score_enemy_node(node: Node) -> float:
 				score += 240.0
 			BuildingData.BuildingType.TOWN_CENTER:
 				score += 180.0
+				if _prefers_town_center_targets():
+					score += 900.0  # Round 2 E: an army that is ahead goes for the win.
+				elif not _may_assault_town_centers():
+					score -= 900.0  # Round 2 E2: too early to raze a Town Center.
 	var sacred_site: Node2D = _get_sacred_site()
 	if sacred_site != null and node.global_position.distance_to(sacred_site.global_position) <= SACRED_SITE_THREAT_RADIUS:
 		score += 520.0
@@ -3322,9 +4654,42 @@ func _score_enemy_node(node: Node) -> float:
 func _update_enemy_memory() -> void:
 	for enemy in _get_visible_enemies():
 		_remember_enemy(enemy)
-	for building in _get_visible_enemy_buildings():
+	var visible_buildings: Array = _get_visible_enemy_buildings()
+	for building in visible_buildings:
 		_remember_enemy(building)
+		if (building as BuildingBase).building_type == BuildingData.BuildingType.TOWN_CENTER:
+			_enemy_town_centers[building.get_instance_id()] = building.global_position
+	# A remembered Town Center is forgotten once its ground is seen without it.
+	for key: Variant in _enemy_town_centers.keys():
+		var position: Vector2 = _enemy_town_centers[key]
+		var node: Object = instance_from_id(int(key))
+		var gone: bool = node == null or not is_instance_valid(node) or (node is BuildingBase and (node as BuildingBase).state == BuildingBase.State.DESTROYED)
+		if gone and _is_tile_currently_visible(_world_to_tile(position)):
+			_enemy_town_centers.erase(key)
 	_prune_enemy_memory()
+
+
+func _nearest_known_enemy_town_center() -> Vector2:
+	## Round 2 E2: remembered enemy Town Centers, else the public enemy start.
+	var best: Vector2 = Vector2(-1, -1)
+	var best_distance: float = INF
+	for position: Vector2 in _enemy_town_centers.values():
+		var distance: float = position.distance_to(_base_position)
+		if distance < best_distance:
+			best_distance = distance
+			best = position
+	if best == Vector2(-1, -1) and map_generator and not _enemy_start_cleared:
+		best = _tile_to_world(_get_symmetric_enemy_spawn_tile())
+		if _is_tile_currently_visible(_get_symmetric_enemy_spawn_tile()):
+			# Seen empty: the start Town Center fell or never stood there.
+			var standing: bool = false
+			for building: BuildingBase in _get_visible_enemy_buildings():
+				if building.building_type == BuildingData.BuildingType.TOWN_CENTER and building.global_position.distance_to(best) < 160.0:
+					standing = true
+			if not standing:
+				_enemy_start_cleared = true
+				return Vector2(-1, -1)
+	return best
 
 
 func _remember_enemy(enemy: Node2D) -> void:
@@ -3373,6 +4738,7 @@ func get_strategy_snapshot() -> Dictionary:
 	## Stable diagnostics for balance harnesses and focused regressions.
 	return {
 		"difficulty": difficulty,
+		"opening_strategy": get_opening_strategy(),
 		"population_limit": GameManager.get_player_population_limit(player_id),
 		"target_villagers": _get_target_villager_count(),
 		"worker_recovery_active": _needs_compact_worker_recovery(),
@@ -3450,7 +4816,14 @@ func _tile_to_world(tile: Vector2i) -> Vector2:
 	return _base_position
 
 func _cleanup_references() -> void:
-	_remove_invalid_node_references(_my_units)
+	# Round 2 E: a garrisoned unit leaves the scene tree but is still ours; it
+	# must stay registered or the AI never commands it again (and overtrains).
+	for index in range(_my_units.size() - 1, -1, -1):
+		var entry: Variant = _my_units[index]
+		if typeof(entry) == TYPE_OBJECT and is_instance_valid(entry) and entry is UnitBase and (entry as UnitBase).current_state == UnitBase.State.GARRISONED:
+			continue
+		if not _is_live_tree_node(entry):
+			_my_units.remove_at(index)
 	_remove_invalid_node_references(_my_buildings)
 	_remove_invalid_node_references(_attack_wave_units)
 	_remove_invalid_node_references(_objective_units)
@@ -3544,7 +4917,7 @@ func _count_queued_military_units() -> int:
 		for entry_variant: Variant in queue.get_queue_info():
 			var entry: Dictionary = entry_variant as Dictionary
 			var unit_type: int = int(entry.get("unit_type", -1))
-			if unit_type >= 0 and unit_type != UnitData.UnitType.VILLAGER:
+			if unit_type >= 0 and unit_type not in [UnitData.UnitType.VILLAGER, UnitData.UnitType.TRADER]:
 				count += 1
 	return count
 
@@ -3552,7 +4925,7 @@ func _count_queued_military_units() -> int:
 func _get_villagers() -> Array:
 	var result: Array = []
 	for unit in _my_units:
-		if is_instance_valid(unit) and unit is UnitBase:
+		if is_instance_valid(unit) and unit is UnitBase and unit.is_inside_tree():
 			if unit.unit_type == UnitData.UnitType.VILLAGER and unit.current_state != UnitBase.State.DEAD:
 				result.append(unit)
 	return result
@@ -3583,11 +4956,11 @@ func _get_military_units() -> Array:
 	for unit in _my_units:
 		if not is_instance_valid(unit):
 			continue
-		if not (unit is UnitBase):
+		if not (unit is UnitBase) or not unit.is_inside_tree():
 			continue
 		if unit.current_state == UnitBase.State.DEAD:
 			continue
-		if unit.unit_type != UnitData.UnitType.VILLAGER:
+		if unit.unit_type not in [UnitData.UnitType.VILLAGER, UnitData.UnitType.TRADER]:
 			result.append(unit)
 	return result
 
@@ -3718,7 +5091,7 @@ func _find_building_of_type(building_type: int) -> Node:
 	return buildings[0]
 
 
-func _find_trainable_building_of_type(building_type: int) -> Node:
+func _find_trainable_building_of_type(building_type: int, max_queue: int = 5) -> Node:
 	var buildings: Array = _get_buildings_of_type(building_type)
 	if buildings.is_empty():
 		return null
@@ -3735,7 +5108,7 @@ func _find_trainable_building_of_type(building_type: int) -> Node:
 			var pq: Node = b.get_production_queue()
 			if pq and pq.has_method("get_queue_size"):
 				q_size = int(pq.get_queue_size())
-		if q_size >= 5:
+		if q_size >= max_queue:
 			continue
 		if q_size < best_queue:
 			best_queue = q_size
@@ -4031,13 +5404,17 @@ func _find_build_location_near_tile(
 	maximum_ring: int,
 	search_cursor: int = 0
 ) -> Vector2i:
+	if search_cursor < 0:
+		return Vector2i(-1, -1)
+	# Only candidates[search_cursor] is read: stop the ring scan once it exists.
 	var candidates: Array[Vector2i] = _collect_build_locations_near_tile(
 		anchor_tile,
 		footprint,
 		minimum_ring,
-		maximum_ring
+		maximum_ring,
+		search_cursor + 1
 	)
-	if search_cursor < 0 or search_cursor >= candidates.size():
+	if search_cursor >= candidates.size():
 		return Vector2i(-1, -1)
 	return candidates[search_cursor]
 
@@ -4046,7 +5423,8 @@ func _collect_build_locations_near_tile(
 	anchor_tile: Vector2i,
 	footprint: Vector2i,
 	minimum_ring: int,
-	maximum_ring: int
+	maximum_ring: int,
+	limit: int = -1
 ) -> Array[Vector2i]:
 	var candidates: Array[Vector2i] = []
 	for ring in range(minimum_ring, maximum_ring):
@@ -4057,6 +5435,8 @@ func _collect_build_locations_near_tile(
 				var tile := Vector2i(anchor_tile.x + dx, anchor_tile.y + dy)
 				if _is_valid_build_spot(tile, footprint):
 					candidates.append(tile)
+					if limit >= 0 and candidates.size() >= limit:
+						return candidates
 	return candidates
 
 

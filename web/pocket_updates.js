@@ -25,7 +25,7 @@
 	const events = ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'mousedown', 'mouseup', 'click', 'keydown', 'keyup', 'wheel'];
 	const emit = (name, detail) => host.dispatchEvent(new host.CustomEvent(name, {detail}));
 	function update(state, data = {}) {
-		status = {state, release: data.release || status.release, message: data.message || '', offlineReady, persistence, transfer: data.transfer || status.transfer || null};
+		status = {state, release: data.release || status.release, message: data.message || '', pendingUpdate: !!(registration && registration.waiting), offlineReady, persistence, transfer: data.transfer || status.transfer || null};
 		emit('pocket-update-status', Object.assign({}, status));
 	}
 	function block(event) {
@@ -158,10 +158,11 @@
 			if (!registration) return status;
 			if (host.navigator.onLine === false) { update('offline'); return status; }
 			update('checking');
-			await bounded(registration.update(), settings.checkTimeout);
+			const checked = await bounded(Promise.resolve(registration.update()).then(() => true), settings.checkTimeout, false);
+			if (!checked) { update('error', {message: 'Could not reach the update service. Your current game is kept. Try again when connected.'}); return status; }
 			monitor(registration.installing);
 			await observeWaiting();
-			if (status.state === 'checking') update('idle');
+			if (status.state === 'checking') update('idle', {message: 'You have the latest available version.'});
 			return status;
 		})().catch(() => { update('error', {message: 'Update check unavailable; the current game is unchanged.'}); return status; })
 			.finally(() => { checking = null; });
@@ -257,5 +258,14 @@
 		}
 		return !wasHeld;
 	}
-	return Object.freeze({init, check, prepareForPlay, setSafeToReload, isHeld: () => !!held, getStatus: () => Object.assign({}, status)});
+	async function refresh() {
+		// An explicit refresh uses the same safety gate as an automatic update.
+		// A match may have started while the network check was in flight.
+		if (!safe || held || reloading) return false;
+		await check();
+		if (!safe || held || reloading || ['error', 'offline'].includes(status.state)) return false;
+		if (registration && registration.waiting) return maybeApply();
+		return reload();
+	}
+	return Object.freeze({init, check, refresh, prepareForPlay, setSafeToReload, isHeld: () => !!held, getStatus: () => Object.assign({}, status)});
 });

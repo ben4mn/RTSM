@@ -1,0 +1,27 @@
+{
+  "result": "PASS",
+  "origin": "https://game.4mn.org/",
+  "version": "0.3.0-beta.16",
+  "runtime_revision": "877abd45ed661ddf851e843407f0ea84b63b5138",
+  "viewport": [844, 390],
+  "scope": "Ordinary browser controls in a landscape mobile viewport; not a physical phone or OS-installed PWA.",
+  "checks": [
+    "Updates initially reported beta15.1. Check for updates downloaded the new files, then Refresh app installed beta16 and rendered the menu.",
+    "Installed beta16 and offline-ready assets were displayed. Release notes remained collapsed.",
+    "The old 0:31 River Crossings checkpoint resumed paused with 280 food, 310 wood, 130 gold and 7/15 population.",
+    "Refresh while the paused match remained open was blocked with: Your match is protected. Return to the main menu to refresh the app.",
+    "Save & exit returned to the menu retaining the 0:31 checkpoint. A second ordinary menu Refresh succeeded.",
+    "New solo opened the illustrated River Crossings setup after the second refresh. Back returned to the menu without overwriting the saved game.",
+    "Neither refresh required a viewport change, tab switch or rendering workaround. Browser warning/error logs were empty."
+  ],
+  "minor_observation": "The previous match-protected status text remains in Updates after Save & exit until Refresh/check is used. It does not block the menu refresh.",
+  "screenshots": [
+    "beta16-public-refreshed-menu.jpg",
+    "beta16-public-installed.jpg",
+    "beta16-public-resumed.jpg",
+    "beta16-public-protected.jpg",
+    "beta16-public-refreshed-menu-2.jpg",
+    "beta16-public-setup.jpg"
+  ],
+  "screenshot_note": "Repeated identical menu images can appear as a tiny green patch in tool presentation. Saved image files and subsequent working setup/resume controls are the evidence; the earlier correction is documented separately."
+}

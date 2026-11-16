@@ -84,7 +84,9 @@ func _remembered_gather() -> void:
 	for worker: Villager in _workers:
 		_expect(worker.has_active_gather_order() and worker.gather_target == null, "Undo retains fog-safe approach before reveal")
 	_map.fog_of_war.reveal_all()
-	for frame: int in 6: _step()
+	# A worker still standing at its work thinks at the steady-work cadence
+	# (Villager.STEADY_WORK_THINK_INTERVAL), so cover at least one such think.
+	for frame: int in maxi(6, ceili(Villager.STEADY_WORK_THINK_INTERVAL / STEP) + 2): _step()
 	for worker: Villager in _workers:
 		_expect(worker.has_active_gather_order() and worker.gather_target == _food, "ordinary gathering process reacquires the exact revealed resource")
 

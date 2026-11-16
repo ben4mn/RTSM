@@ -48,9 +48,12 @@ func _test_shared_target(blocked: bool) -> void:
 	defender.hp = 10000.0
 	defender.max_hp = 10000.0
 	defender.damage = 0.0
+	defender.armor = 0.0
 	var attackers: Array[UnitBase] = []
 	for index: int in 4:
 		var unit: UnitBase = _spawn(arena, 0, Vector2(-20.0, 0.0))
+		# Cadence fixture deliberately isolates spacing from balance-data changes.
+		unit.damage = 6.0
 		unit.command_attack(defender)
 		attackers.append(unit)
 	for tick: int in 300:

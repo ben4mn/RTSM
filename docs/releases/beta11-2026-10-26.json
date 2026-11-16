@@ -1,0 +1,110 @@
+{
+  "status": "LIVE_VERIFIED",
+  "origin": "https://game.4mn.org/",
+  "version": "0.3.0-beta.11",
+  "protocol": 9,
+  "source_commit": "db57d8aeb89295374738cc192b1f6a96364b5339",
+  "pull_request": "https://github.com/ben4mn/RTSM/pull/6",
+  "release_id": "v030beta11-db57d8aeb892-c58376c6ca-ad4cd0fd6e",
+  "web_manifest_sha256": "c58376c6ca493d4254f230a773b7d35a49b286688a470f59cf855ab4aab83247",
+  "server_manifest_sha256": "ad4cd0fd6e037ab8a3d678d58b5a911c815ab6a5845f35f5e49ca9d6c911e5a8",
+  "server_image": "sha256:8c19ec1ea10876dba349b2e461d03b8c91b323c560217d0b48a42e99e4bb7295",
+  "containers": {
+    "aoem-online": {
+      "started_utc": "2026-10-27T04:45:47.777567682Z"
+    },
+    "aoem-game": {
+      "started_utc": "2026-10-27T04:50:12.298156979Z"
+    }
+  },
+  "changes": [
+    "Compact, consistent menus and HUD; expandable secondary controls; protected refresh and collapsed release notes.",
+    "Five fresh deterministic map styles with symmetric finite resources and validated reachable starts, routes and deposits.",
+    "Three starting villagers, common gathering rules within each civilization, modestly lower gathering rates, farms and exposed paid trade routes.",
+    "Finite held production queues, single age-up icon, fixed authoritative multiplayer speed, clearer paths, movement and targeting.",
+    "Local building placement feedback and consistent resource targeting through friendly villagers.",
+    "Dim last-seen resources and buildings; hidden activity and destruction remain unknown until rescanning; cumulative per-player network memory.",
+    "Snapshot backlog coalescing preserves ordered controls and terminal results under load."
+  ],
+  "checks": [
+    {
+      "name": "Map generation",
+      "result": "PASS",
+      "scope": "75 paired deterministic cases plus 500 broader seed/style cases."
+    },
+    {
+      "name": "Fog memory",
+      "result": "PASS",
+      "scope": "41 checks, both network recipients, skipped sightings and depletion, targeting, rescouting; eight native renders at 844x390/1280x720; hidden mutation/destruction images identical."
+    },
+    {
+      "name": "Trade authority",
+      "result": "PASS",
+      "scope": "52 command, travel, payment, ownership, recipient snapshot, idempotence and speed checks. Sequential recipients, not a socket test."
+    },
+    {
+      "name": "Touch and production",
+      "result": "PASS",
+      "scope": "25 touch/emulated release, finite paid queue, resource, cancellation, drag, multi-contact and authoritative-speed checks; finite management layouts across 13 profiles."
+    },
+    {
+      "name": "Menus and PWA",
+      "result": "PASS",
+      "scope": "29 update tests, 20 packaging tests, 6005 layout checks across 17 profiles and 2684 transition/reflow checks. Cached browser upgrade and paused-match refresh protection observed."
+    },
+    {
+      "name": "Paid economy simulations",
+      "result": "COMPLETE",
+      "scope": "Three workers 9:06.53, four 8:22.73 on seed 424242; Twin Lakes variation 6:46.83. Fixed simulation step, normal paid AI transactions; not human averages."
+    },
+    {
+      "name": "Hands-on browser",
+      "result": "COMPLETE",
+      "scope": "844x390 interaction matches ended 7:29 by Sacred defeat and 9:53 by Town Center defeat. Paid recruitment, rally, age-up, depleted home food, farms, exposed post construction, placement rejection/Find space and protected refresh."
+    },
+    {
+      "name": "Release",
+      "result": "PASS",
+      "scope": "Two committed exports reproduce substantive game files. Matching protocol 9 Linux smoke, inactive-match deployment guard, public artifact hashes and active server source verified. Match server replaced and web container restarted with zero active/closing match connections; tunnel, diagnostics and configuration preserved."
+    },
+    {
+      "name": "Public browser acceptance",
+      "result": "PASS",
+      "scope": "Existing beta.10.1 cache upgraded to beta.11 through normal reload without clearing storage. Deployed main menu, preserved preferences, solo setup, three-worker opening and compact HUD verified at844x390; no browser warnings/errors."
+    },
+    {
+      "name": "Public paid combat pair",
+      "result": "PASS",
+      "scope": "Two independent clients on public WSS verified paid Barracks/infantry, attack-move, visible enemies, replicated damage, identical Surrender result and clean teardown. Golden Basin seed881154954; final snapshot82.61game seconds. This is a scripted microtest, not a natural match duration."
+    },
+    {
+      "name": "Public rooms",
+      "result": "66/66 PASS",
+      "scope": "Host/join, lifecycle, seed agreement, authoritative starts and recovery across all five map styles over public WSS."
+    }
+  ],
+  "balance": {
+    "starting_villagers": 3,
+    "gather_amount": 1.8,
+    "modeled_delivered_rate_reduction_percent": {
+      "food_wood": 7.6,
+      "gold": 7.9
+    },
+    "four_worker_extra_deposits_at_four_minutes_percent": 33.2
+  },
+  "limitations": [
+    "The 12-15 minute population-average match target and largely exhausted finite resources in 20+ minute games are not demonstrated by these samples.",
+    "No physical-phone touch/performance or OS-installed PWA lifecycle test. Browser/service-worker tests do not establish offline cold-launch or cross-window upgrade behavior.",
+    "Hands-on match durations reflect interaction playtests; the three-versus-four comparison is an automated paid simulation, not a human controlled comparison."
+  ],
+  "evidence": {
+    "activation_receipt_sha256": "9a56e51bf3b4810af3315dcccd2ee4c97abedd4940e08034e4f00bb72c024391",
+    "postflight_receipt_sha256": "6adbe4f57a7721482c2882f9410a4697a2e94942cb7ab7227de2dafc1071b917",
+    "web_restart_receipt_sha256": "2edb2221b2056c771b36e4252afbe768d771cb9e408ad20d5a9d72ab39804888"
+  },
+  "usage": {
+    "explicit_task_token_budget": null,
+    "bounded_subagents": 3,
+    "account_weekly_used_percent_last_check": 22
+  }
+}

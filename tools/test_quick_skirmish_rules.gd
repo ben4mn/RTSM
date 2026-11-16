@@ -52,6 +52,8 @@ func _site(mode: int) -> Node2D:
 	return site
 
 func _test_control_bank() -> void:
+	_expect(SkirmishData.get_sacred_target(SkirmishData.MatchMode.STANDARD) == 360.0, "Standard counterplay window is six guarded minutes")
+	_expect(SkirmishData.get_sacred_target(SkirmishData.MatchMode.QUICK_CONTROL) == 180.0, "Control race retains three banked minutes")
 	var site: Node2D = _site(SkirmishData.MatchMode.QUICK_CONTROL)
 	site._handle_captured(2, 0, 100.0)
 	_expect(is_equal_approx(site.victory_timer, 100.0), "exclusive control earns bank")
@@ -81,4 +83,18 @@ func _test_control_bank() -> void:
 	standard._handle_captured(0, 2, 40.0)
 	standard._handle_neutral(1, 0, 0.0)
 	_expect(is_zero_approx(standard.victory_timer), "standard neutralization still resets hold")
+	standard.state = 2
+	standard.owning_player = 0
+	standard.capture_progress = 1.0
+	var remaining_ticks: Array[float] = []
+	standard.victory_timer_tick.connect(func(_owner: int, remaining: float, _total: float) -> void: remaining_ticks.append(remaining))
+	standard._handle_captured(1, 0, 180.0, 1)
+	_expect(remaining_ticks == [180.0], "old Standard boundary no longer ends a new match")
+	standard._handle_captured(1, 1, 30.0, 1)
+	_expect(remaining_ticks == [180.0], "contested time cannot shorten new Standard hold")
+	standard.state = 2
+	standard._handle_captured(1, 0, 179.0, 1)
+	_expect(remaining_ticks.back() == 1.0, "Standard remains live until last guarded second")
+	standard._handle_captured(1, 0, 1.0, 1)
+	_expect(remaining_ticks.back() == 0.0, "six-minute boundary drives existing authoritative victory signal")
 	standard.free()

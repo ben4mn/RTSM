@@ -38,25 +38,30 @@ var _header_action_spacer: Control = null
 var _active_category: String = "Economy"
 var _dismiss_shield: Control = null
 var _hold_components: Array[Node] = []
+var _tucking: bool = false
+var _keep_category_once: bool = false
 @export var touch_target_diagnostics: Dictionary = {}
 
-const SHEET_MAX_WIDTH := 700.0
+const ACTION_TILE := preload("res://scripts/ui/compact_action_tile.gd")
+const DOUBLE_TAP := preload("res://scripts/ui/double_tap_gesture.gd")
+const SHEET_MAX_WIDTH := 540.0
 const SHEET_VIEWPORT_MARGIN := 16.0
 const SHEET_BOTTOM_MARGIN := 8.0
 const HEADER_HEIGHT := 48.0
-const CARD_WIDTH := 150.0
-const CARD_HEIGHT := 94.0
+const CARD_WIDTH := 94.0
+const CARD_HEIGHT := 76.0
 const CARD_GAP := 8.0
 const BUILDING_CATEGORIES: Dictionary = {
-	"Economy": [BuildingData.BuildingType.HOUSE, BuildingData.BuildingType.FARM, BuildingData.BuildingType.RESOURCE_CAMP, BuildingData.BuildingType.TOWN_CENTER],
+	"Economy": [BuildingData.BuildingType.HOUSE, BuildingData.BuildingType.FARM, BuildingData.BuildingType.RESOURCE_CAMP, BuildingData.BuildingType.TRADE_POST, BuildingData.BuildingType.TOWN_CENTER],
 	"Army": [BuildingData.BuildingType.BARRACKS, BuildingData.BuildingType.ARCHERY_RANGE, BuildingData.BuildingType.STABLE, BuildingData.BuildingType.SIEGE_WORKSHOP, BuildingData.BuildingType.BLACKSMITH],
 	"Defence": [BuildingData.BuildingType.WATCH_TOWER],
 }
 const BUILDING_PURPOSES: Dictionary = {
 	BuildingData.BuildingType.HOUSE: "Housing for your growing town",
-	BuildingData.BuildingType.FARM: "Unlimited food · 1 worker",
+	BuildingData.BuildingType.FARM: "Food for 1 worker · reseed when fallow",
 	BuildingData.BuildingType.RESOURCE_CAMP: "All resource drop-off",
 	BuildingData.BuildingType.TOWN_CENTER: "Train workers",
+	BuildingData.BuildingType.TRADE_POST: "Train traders · distant TC route",
 	BuildingData.BuildingType.BARRACKS: "Train Warriors",
 	BuildingData.BuildingType.BLACKSMITH: "Unit and worker upgrades",
 	BuildingData.BuildingType.SIEGE_WORKSHOP: "Siege production",
@@ -88,6 +93,9 @@ func _ready() -> void:
 		viewport.size_changed.connect(_queue_layout_refresh)
 
 	_create_dismiss_shield()
+	# Double-tap the sheet's background to tuck it into the Build button; Build
+	# brings it back on the same group.
+	DOUBLE_TAP.attach([self, $Margin, $Margin/VBox, header, scroll_container], tuck)
 	_rebuild_grid()
 	_refresh_touch_target_diagnostics()
 
@@ -126,7 +134,7 @@ func _apply_compact_layout() -> void:
 	# Keep every Castle unlock reachable without squeezing its card text.
 	# Narrow Army rows can scroll inside the sheet; other rows still fit.
 	var content_width: float = sheet_width - horizontal_padding
-	_card_width = maxf(120.0, minf(CARD_WIDTH, (content_width - CARD_GAP * float(visible_count - 1)) / float(visible_count)))
+	_card_width = maxf(80.0, minf(CARD_WIDTH, (content_width - CARD_GAP * float(visible_count - 1)) / float(visible_count)))
 	var needs_scroll: bool = _card_width * visible_count + CARD_GAP * (visible_count - 1) > content_width + 0.5
 	# Keep a five-card row scroll-capable even while it fits. Otherwise its old
 	# wider child minimum can expand the panel during a category/scale change.
@@ -276,7 +284,7 @@ func _create_repeat_button() -> void:
 	_repeat_button.pressed.connect(_on_repeat_pressed)
 	_apply_header_button_style(_repeat_button)
 	header.add_child(_repeat_button)
-	CommandIcons.apply(_repeat_button, "repeat", "Repeat the last selected building")
+	CommandIcons.apply_labeled(_repeat_button, "repeat", "Build the last building again", "Again")
 	header.move_child(_repeat_button, header.get_child_count() - 2)
 
 
@@ -326,9 +334,11 @@ func _build_info(building_type: int) -> Dictionary:
 	var stats: Dictionary = BuildingData.get_building_stats(building_type, player_owner)
 	var lines: PackedStringArray = _format_tooltip(stats, building_type).split("\n")
 	lines.remove_at(0)
+	if building_type == BuildingData.BuildingType.TRADE_POST:
+		lines.append("Build away from your Town Center. The preview estimates gold per trip; a clear road is still needed. Train Traders here: gold arrives only after they return to town. Defend the road or lose the cargo.")
 	if int(stats.get("age_required", 0)) <= _current_age and _can_afford(stats.get("cost", {})):
 		lines.append("Close this panel and turn off Info to choose a placement." if _info_mode else "Tap the card to preview a placement.")
-	lines.append("Place spends the cost; Cancel spends nothing.")
+	lines.append("Build spends the cost; Cancel spends nothing.")
 	lines.append("Card cost key: F = Food · W = Wood · G = Gold.")
 	return {"title": BuildingData.get_building_name(building_type), "body": "\n".join(lines)}
 
@@ -351,10 +361,12 @@ func open_menu() -> void:
 	var gm: Node = get_node_or_null("/root/GameManager")
 	if gm:
 		_current_age = gm.get_player_age(player_owner)
-	for category: String in BUILDING_CATEGORIES:
-		if _recommended_building_type in BUILDING_CATEGORIES[category]:
-			_active_category = category
-			break
+	if not _keep_category_once:
+		for category: String in BUILDING_CATEGORIES:
+			if _recommended_building_type in BUILDING_CATEGORIES[category]:
+				_active_category = category
+				break
+	_keep_category_once = false
 	visible = true
 	if _dismiss_shield != null:
 		_dismiss_shield.set_active(true)
@@ -380,6 +392,32 @@ func close_menu() -> void:
 		if is_instance_valid(component):
 			component.cancel_gesture("build_closed")
 	_refresh_touch_target_diagnostics()
+
+
+func tuck() -> void:
+	if _tucking or not visible:
+		return
+	_tucking = true
+	_keep_category_once = true
+	var hud_layer: Node = get_parent()
+	var launcher: Control = hud_layer.get("build_menu_button") as Control if hud_layer != null else null
+	var target: Vector2 = launcher.get_global_rect().get_center() if launcher != null else get_global_rect().end
+	pivot_offset = target - get_global_rect().position
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var tween: Tween = create_tween().set_parallel(true).set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	tween.tween_property(self, "scale", Vector2(0.12, 0.12), 0.16).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+	tween.tween_property(self, "modulate:a", 0.0, 0.16)
+	tween.chain().tween_callback(func() -> void:
+		_tucking = false
+		scale = Vector2.ONE
+		modulate.a = 1.0
+		mouse_filter = Control.MOUSE_FILTER_STOP
+		if visible:
+			close_requested.emit())
+
+
+func is_tucking() -> bool:
+	return _tucking
 
 
 func close_for_world_placement() -> void:
@@ -474,11 +512,16 @@ func _format_button_text(stats: Dictionary, age_locked: bool, building_type: int
 	if age_locked:
 		lines.append(_get_age_requirement_text(int(stats.get("age_required", 0))).trim_prefix("Requires "))
 	elif building_type == BuildingData.BuildingType.FARM:
-		lines.append("Unlimited food")
+		lines.append("%d food" % FarmPlots.capacity_for(player_owner))
 	elif building_type == BuildingData.BuildingType.HOUSE:
 		var housing: Dictionary = _housing_gain(stats)
 		lines.append("Limit %d reached" % housing.limit if housing.gain == 0 else "+%d housing" % housing.gain)
 	return "\n".join(lines)
+
+
+## Tile captions share the card's top edge with the age badge; keep them short.
+func _tile_caption(building_name: String) -> String:
+	return {"Trade Post": "Trade", "Town Center": "Town", "Watch Tower": "Tower", "Blacksmith": "Smithy"}.get(building_name, _compact_building_name(building_name))
 
 
 func _compact_building_name(building_name: String) -> String:
@@ -517,7 +560,7 @@ func _format_tooltip(stats: Dictionary, building_type: int) -> String:
 		lines.append(_get_age_requirement_text(age_req))
 	lines.append("HP %d · Build %ds" % [stats.get("hp", 0), ceili(float(stats.get("build_time", 30.0)) / UnitData.VILLAGER_BUILD_SPEED)])
 	if building_type == BuildingData.BuildingType.FARM:
-		lines.append("One worker per Farm. Food must be carried to a Town Center or Resource Camp.")
+		lines.append("One worker per Farm. Holds %d food, then lies fallow: reseed for %d wood. Food must be carried to a Town Center or Resource Camp." % [FarmPlots.capacity_for(player_owner), int(BuildingData.get_reseed_cost(building_type, player_owner).get("wood", 0))])
 	if stats.get("pop_provided", 0) > 0:
 		var housing: Dictionary = _housing_gain(stats)
 		lines.append("Housing: %d / %d match limit" % [housing.cap, housing.limit])
@@ -560,9 +603,24 @@ func refresh_housing_capacity() -> void:
 
 # --- Affordability ---
 
-func _refresh_affordability() -> void:
+## What the bank decides on each card: affordable, or which amounts are short.
+## Every deposit and purchase arrives here (twice: Main and the signal); the
+## cards are rebuilt only when one of these answers moved. Age, housing,
+## recommendation and mode changes refresh through their own calls.
+var _bank_signature: Array = []
+
+func _bank_card_signature() -> Array:
+	var signature: Array = []
 	for building_type in _button_map:
 		var cost: Dictionary = BuildingData.get_building_cost(building_type)
+		signature.append("" if _can_afford(cost) else _missing_resource_text(cost))
+	return signature
+
+
+func _refresh_affordability() -> void:
+	_bank_signature = _bank_card_signature()
+	for building_type in _button_map:
+		var cost: Dictionary = BuildingData.get_building_cost(building_type, 0)
 		var can_afford: bool = _can_afford(cost)
 		var btn: Button = _button_map[building_type]
 		var age_locked: bool = bool(btn.get_meta("age_locked", false))
@@ -574,6 +632,8 @@ func _refresh_affordability() -> void:
 		btn.tooltip_text = _format_tooltip(stats, building_type)
 		btn.accessibility_name = btn.tooltip_text
 		_apply_card_style(btn)
+		ACTION_TILE.apply(btn, load(BuildingBase.get_sprite_texture_path(building_type, 0)), cost, Vector2(_card_width, CARD_HEIGHT), _tile_caption(String(stats.get("name", ""))))
+		CommandIcons.set_badge(btn, ["I", "II", "III", "IV"][clampi(int(stats.get("age_required", 1)) - 1, 0, 3)] if age_locked else "")
 		btn.disabled = _placement_mode_active or (not _info_mode and (age_locked or not can_afford))
 		if age_locked:
 			btn.modulate = Color(0.82, 0.85, 0.9, 1.0)
@@ -636,7 +696,7 @@ func _on_cancel_pressed() -> void:
 func _on_repeat_pressed() -> void:
 	if _last_selected_building_type < 0:
 		return
-	var cost: Dictionary = BuildingData.get_building_cost(_last_selected_building_type)
+	var cost: Dictionary = BuildingData.get_building_cost(_last_selected_building_type, 0)
 	if not _can_afford(cost):
 		return
 	set_placement_mode(true)
@@ -656,12 +716,14 @@ func _on_resources_changed(player_id: int, _resource_type: String, _new_amount: 
 	var rm: Node = get_node_or_null("/root/ResourceManager")
 	if rm:
 		_current_resources = rm.get_all_resources(player_owner)
-		_refresh_affordability()
+		if _bank_card_signature() != _bank_signature:
+			_refresh_affordability()
 
 
 func update_resources(resources: Dictionary) -> void:
 	_current_resources = resources
-	_refresh_affordability()
+	if _bank_card_signature() != _bank_signature:
+		_refresh_affordability()
 
 
 func update_age(age: int) -> void:
@@ -706,10 +768,11 @@ func _update_repeat_button() -> void:
 		_repeat_button.disabled = true
 		return
 	var building_name: String = BuildingData.get_building_name(_last_selected_building_type)
-	var cost: Dictionary = BuildingData.get_building_cost(_last_selected_building_type)
+	var cost: Dictionary = BuildingData.get_building_cost(_last_selected_building_type, 0)
 	_repeat_button.visible = not _placement_mode_active
 	_repeat_button.disabled = _placement_mode_active or not _can_afford(cost)
-	CommandIcons.apply(_repeat_button, "repeat", "Repeat %s" % building_name)
+	# Beta 32: the circular arrows alone were a mystery; name them.
+	CommandIcons.apply_labeled(_repeat_button, "repeat", "Build another %s" % building_name, "Again")
 
 
 func _get_age_requirement_text(age_required: int) -> String:

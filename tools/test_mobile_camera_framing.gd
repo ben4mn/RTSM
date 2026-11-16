@@ -105,10 +105,32 @@ func _profile(phone_size: Vector2i, seed_value: int, guided: bool) -> void:
 		for natural: Node2D in (map.get("resource_nodes") as Dictionary).values():
 			if natural is ResourceNode and natural.resource_type == "food":
 				natural.harvest(natural.remaining)
-		match_scene.call("_select_town_center")
+		# Live wildlife (sheep, deer, boar) is food too; empty it so the
+		# remote Farm is the only known harvestable food.
+		for animal: Node2D in map.call("get_wildlife_nodes", ""):
+			(animal as ResourceNode).remaining = 0
+		# The first Home press opens the Town Center card, which Home then
+		# frames around; measure once that card is up so only the Farm differs.
+		var home_zooms: Array[float] = []
+		for press: int in 3:
+			match_scene.call("_select_town_center")
+			camera.reset_smoothing()
+			camera.force_update_scroll()
+			await get_tree().process_frame
+			await get_tree().process_frame
+			home_zooms.append(camera.zoom.x)
+		_expect(is_equal_approx(home_zooms[1], home_zooms[2]), "repeated Home keeps its framing zoom: %s" % [home_zooms])
 		var local_base_zoom: float = camera.zoom.x
 		var remote_farm: BuildingBase = match_scene.call("_spawn_building", BuildingData.BuildingType.FARM, 0, Vector2i(40, 40)) as BuildingBase
 		remote_farm.complete_instantly()
+		# A finished building can raise a toast; Home rightly frames around
+		# visible toasts, so clear the lane to compare only the Farm's effect.
+		var lane: Node = hud.get("_notification_container")
+		var toasts_before_clear: int = lane.get_child_count() if lane != null else 0
+		if lane != null and lane.has_method("clear"):
+			lane.call("clear")
+		await get_tree().process_frame
+		await get_tree().process_frame
 		_expect(remote_farm.global_position.distance_to(tc.global_position) > 512.0, "depleted-berries fixture has only remote food context")
 		_expect(map.call("get_nearest_resource_node", "food", tc.global_position, 0) == remote_farm, "owned remote Farm is the nearest known harvestable food")
 		match_scene.call("_select_town_center")
@@ -117,7 +139,7 @@ func _profile(phone_size: Vector2i, seed_value: int, guided: bool) -> void:
 		await get_tree().process_frame
 		await get_tree().process_frame
 		_check_accessible(hud, tc, worker, null, Rect2(Vector2.ZERO, Vector2(phone_size)), "Home after local berries deplete")
-		_expect(is_equal_approx(camera.zoom.x, local_base_zoom), "adding a remote Farm leaves local Home framing zoom unchanged")
+		_expect(is_equal_approx(camera.zoom.x, local_base_zoom), "adding a remote Farm leaves local Home framing zoom unchanged: %.4f -> %.4f (toasts cleared: %d)" % [local_base_zoom, camera.zoom.x, toasts_before_clear])
 	map.call("zoom_in")
 	map.call("zoom_in")
 	map.call("_update_camera_zoom", 0.2)

@@ -6,6 +6,9 @@ const REFRESH_SECONDS: float = 0.10
 const CELL_SIZE: float = 128.0
 const ECHO_Z: int = 5 # World=0, fog=10. Never draw on top of fog.
 const UNITS_PER_FRAME: int = 32
+## Units occlude other units only while at most this many are on screen.
+const CROWD_UNIT_OCCLUDERS: int = 40
+const ANCHOR_MARGIN: float = 320.0
 const OUTLINE := preload("res://assets/shaders/unit_occlusion.gdshader")
 var _map: Node2D
 var _elapsed: float = REFRESH_SECONDS
@@ -16,6 +19,7 @@ var _scan_cursor: int = 0
 var _sample_cache: Dictionary = {}
 var last_candidate_checks: int = 0
 var allow_headless_fixture: bool = false
+static var _materials: Array[ShaderMaterial] = [null, null]
 
 
 func _ready() -> void:
@@ -26,11 +30,15 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	if DisplayServer.get_name() == "headless" and not allow_headless_fixture: return
+	if PerfProbe.on: PerfProbe.count(&"occlusion.echoes", _entries.size())
+	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
 	_elapsed += delta
 	if _elapsed >= REFRESH_SECONDS and _scan_cursor >= _pending.size():
 		_elapsed = 0.0
 		_begin_scan()
+		if PerfProbe.on: _pp = PerfProbe.add(&"occlusion.begin_scan", _pp)
 	_scan_units(UNITS_PER_FRAME)
+	if PerfProbe.on: _pp = PerfProbe.add(&"occlusion.scan_units", _pp)
 	for id: int in _entries.keys():
 		var entry: Dictionary = _entries[id]
 		var unit: UnitBase = entry.unit.get_ref() as UnitBase
@@ -38,10 +46,16 @@ func _process(delta: float) -> void:
 		if not is_instance_valid(unit) or not is_instance_valid(echo):
 			_entries.erase(id)
 			continue
+		if not bool(entry.occluded):
+			if echo.visible:
+				echo.visible = false
+			continue
 		# Recheck vision every frame, independently of the bounded overlap scan.
 		# Hidden ancestors and dead/remotely hidden actors can never leave an echo.
-		echo.visible = bool(entry.occluded) and _unit_revealed(unit)
-		if echo.visible:
+		var revealed: bool = _unit_revealed(unit)
+		if echo.visible != revealed:
+			echo.visible = revealed
+		if revealed:
 			var source: Sprite2D = unit._sprite
 			if echo.texture != source.texture: echo.texture = source.texture
 			if echo.transform != source.transform: echo.transform = source.transform
@@ -50,8 +64,11 @@ func _process(delta: float) -> void:
 			if echo.flip_v != source.flip_v: echo.flip_v = source.flip_v
 			var edge: float = clampf(1.6 / maxf(0.05, absf(source.scale.x)), 3.0, 12.0)
 			if not is_equal_approx(edge, float(entry.edge)):
-				(echo.material as ShaderMaterial).set_shader_parameter("edge_pixels", edge)
+				# Per-echo edge rides in self_modulate (see the shader), so the
+				# echoes share one material per owner and batch.
+				echo.self_modulate = Color(edge / 16.0, 1.0, 1.0, 1.0)
 				entry.edge = edge
+	if PerfProbe.on: PerfProbe.add(&"occlusion.sync", _pp)
 
 
 func _unit_revealed(unit: UnitBase) -> bool:
@@ -77,29 +94,47 @@ func _begin_scan() -> void:
 	_pending.clear()
 	_scan_cursor = 0
 	var seen: Dictionary = {}
+	# Cheap reject by anchor before any sprite math: no entity art reaches
+	# further than this from its node position (tallest building ~170).
+	var world_view: Rect2 = (canvas.affine_inverse() * screen).grow(ANCHOR_MARGIN)
+	var unit_items: Array[Dictionary] = []
 	for container_name: String in ["BuildingsContainer", "ResourcesContainer", "UnitsContainer"]:
 		var container: Node = _map.get_node_or_null(NodePath(container_name))
 		if container == null: continue
 		for entity: Node in container.get_children():
-			if not entity is Node2D or not entity.is_visible_in_tree(): continue
+			if not entity is Node2D or not world_view.has_point((entity as Node2D).global_position): continue
+			if not entity.is_visible_in_tree(): continue
 			if entity is UnitBase and not _unit_revealed(entity): continue
 			if not bool(_map.call("is_entity_visible_to_player", entity, 0)): continue
 			var source: Sprite2D = entity.get("_sprite") as Sprite2D
 			if source == null or source.texture == null or not source.is_visible_in_tree(): continue
-			var rect: Rect2 = source.global_transform * _ink_rect(source)
+			var rect: Rect2 = _drawn_transform(source) * _ink_rect(source)
 			if not screen.intersects(canvas * rect): continue
 			# Buildings expose a y-sorted sprite at their footprint center; trees
 			# and units sort at the entity's ground anchor in the existing world.
-			var depth: float = source.global_position.y if entity is BuildingBase else entity.global_position.y
+			var depth: float = source.global_position.y if entity is BuildingBase else ((entity as UnitBase).get_visual_position().y if entity is UnitBase else (entity as Node2D).global_position.y)
 			var item := {"entity": entity, "sprite": source, "rect": rect, "depth": depth}
-			for cell: Vector2i in _cells(rect):
-				if not _bins.has(cell): _bins[cell] = []
-				_bins[cell].append(item)
 			if entity is UnitBase:
+				unit_items.append(item)
 				_pending.append(weakref(entity))
 				seen[entity.get_instance_id()] = true
+				continue
+			_bin(item)
+	# In a crowd every figure is partly behind another; outlining them all is
+	# noise (and the costliest part of this pass). Units then only echo
+	# through buildings and trees, as in a small skirmish they still do
+	# through each other.
+	if unit_items.size() <= CROWD_UNIT_OCCLUDERS:
+		for item: Dictionary in unit_items:
+			_bin(item)
 	for id: int in _entries:
 		if not seen.has(id): _entries[id].occluded = false
+
+
+func _bin(item: Dictionary) -> void:
+	for cell: Vector2i in _cells(item.rect):
+		if not _bins.has(cell): _bins[cell] = []
+		_bins[cell].append(item)
 
 
 func _scan_units(budget: int) -> void:
@@ -109,7 +144,7 @@ func _scan_units(budget: int) -> void:
 		_scan_cursor += 1
 		if not is_instance_valid(unit) or not _unit_revealed(unit): continue
 		var source: Sprite2D = unit._sprite
-		var rect: Rect2 = source.global_transform * _ink_rect(source)
+		var rect: Rect2 = _drawn_transform(source) * _ink_rect(source)
 		var body_points: PackedVector2Array = _body_points(source)
 		var checked: Dictionary = {}
 		var occluded: bool = false
@@ -121,7 +156,7 @@ func _scan_units(budget: int) -> void:
 				if not is_instance_valid(other) or not other.is_visible_in_tree(): continue
 				if other == unit or checked.has(other.get_instance_id()): continue
 				checked[other.get_instance_id()] = true
-				if float(candidate.depth) < unit.global_position.y or not rect.intersects(candidate.rect): continue
+				if float(candidate.depth) < unit.get_visual_position().y or not rect.intersects(candidate.rect): continue
 				if not bool(_map.call("is_entity_visible_to_player", other, 0)): continue
 				if not is_instance_valid(candidate.sprite): continue
 				var foreground: Sprite2D = candidate.sprite
@@ -141,10 +176,13 @@ func _create_echo(unit: UnitBase) -> void:
 	echo.z_as_relative = false
 	echo.z_index = ECHO_Z
 	echo.visible = false
-	var material := ShaderMaterial.new()
-	material.shader = OUTLINE
-	material.set_shader_parameter("body_color", Color("335b58") if unit.player_owner == 0 else Color("854f42"))
-	echo.material = material
+	var owner_index: int = 0 if unit.player_owner == 0 else 1
+	if _materials[owner_index] == null:
+		var material := ShaderMaterial.new()
+		material.shader = OUTLINE
+		material.set_shader_parameter("body_color", Color("335b58") if owner_index == 0 else Color("854f42"))
+		_materials[owner_index] = material
+	echo.material = _materials[owner_index]
 	unit.add_child(echo)
 	_entries[unit.get_instance_id()] = {"unit": weakref(unit), "echo": weakref(echo), "occluded": true, "edge": 0.0}
 
@@ -176,16 +214,28 @@ func _body_points(source: Sprite2D) -> PackedVector2Array:
 					if image.get_pixelv(Vector2i(point)).a > 0.1: points.append(point)
 		_sample_cache[key] = points
 	var result := PackedVector2Array()
+	var drawn: Transform2D = _drawn_transform(source)
 	for point: Vector2 in _sample_cache[key]:
 		var local: Vector2 = source.get_rect().position + point
 		if source.flip_h: local.x = -local.x
 		if source.flip_v: local.y = -local.y
-		result.append(source.to_global(local))
+		result.append(drawn * local)
 	return result
 
 
+## A sprite's transform where it is drawn this frame: a unit's canvas item is
+## shifted by its interpolation offset (UnitBase._apply_visual_offset), which
+## Node2D.global_transform does not include. Without it, echoes switched on and
+## off against where the figure would be a 20 Hz step later.
+func _drawn_transform(sprite: Sprite2D) -> Transform2D:
+	var host: Node = sprite.get_parent()
+	if host is UnitBase:
+		return sprite.global_transform.translated((host as UnitBase)._visual_offset)
+	return sprite.global_transform
+
+
 func _points_covered(points: PackedVector2Array, foreground: Sprite2D) -> bool:
-	var inverse: Transform2D = foreground.global_transform.affine_inverse()
+	var inverse: Transform2D = _drawn_transform(foreground).affine_inverse()
 	for point: Vector2 in points:
 		if foreground.is_pixel_opaque(inverse * point): return true
 	return false

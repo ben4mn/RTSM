@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="64" viewBox="0 0 48 64">
+  <title>Castle Age banner</title>
+  <path d="M8 5v57" stroke="#5a452e" stroke-width="4" stroke-linecap="round"/>
+  <path d="M8 5v57" stroke="#8a6b46" stroke-width="2" stroke-linecap="round"/>
+  <path d="M8 0l3.500 4.500L8 9 4.500 4.500z" fill="#e8cf7a" stroke="#5a452e" stroke-width="1.400" stroke-linejoin="round"/>
+  <path d="M10 9h32v26l-8-5-8 5-8-5-8 5z" fill="#a8483c" stroke="#5a452e" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M12.500 11.500h27v19l-5.500-3.400-8 5-8-5-5.500 3.400z" fill="#c0614f"/>
+  <path d="M19 26v-9h-1.500v-4h3v2h3v-2h4v2h3v-2h3v4H33v9z" fill="#f0dca0" stroke="#5a452e" stroke-width="1.200" stroke-linejoin="round"/>
+</svg>

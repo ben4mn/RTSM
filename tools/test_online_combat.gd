@@ -15,6 +15,9 @@ var end_sent := false
 var stand_ground_check := false
 var stance_sent := false
 var saw_stance_replica := false
+var last_progress: float = -10.0
+var received_snapshots: int = 0
+var last_authority_time: float = 0.0
 
 func _initialize() -> void:
 	call_deferred("_start")
@@ -22,6 +25,7 @@ func _initialize() -> void:
 func _start() -> void:
 	stand_ground_check = "--stand-ground" in OS.get_cmdline_user_args()
 	session = root.get_node("NetworkSession")
+	root.get_node("AudioManager").set_all_enabled(false)
 	session.snapshot_received.connect(_snapshot)
 	session.status_changed.connect(_status)
 	session.match_ended.connect(_ended)
@@ -37,6 +41,11 @@ func _process(delta: float) -> bool:
 func _snapshot(data: Dictionary) -> void:
 	if session.state != "playing" or elapsed < 2.0:
 		return
+	received_snapshots += 1
+	last_authority_time = float(data.time)
+	if float(data.time) - last_progress >= 10.0:
+		last_progress = float(data.time)
+		print("ONLINE_COMBAT_PROGRESS slot=%d game=%.2f wall=%.2f seed=%d map=%d snapshots=%d placed=%s trained=%s ordered=%s" % [session.player_slot, float(data.time), Time.get_ticks_msec() / 1000.0, session.match_seed, session.match_map_archetype, received_snapshots, placed, trained, ordered])
 	var map: Node = current_scene.get_node("GameMap")
 	var own: int = session.player_slot
 	var workers: Array = []
@@ -66,6 +75,7 @@ func _snapshot(data: Dictionary) -> void:
 				if float(actor.hp) < float(actor.max_hp):
 					saw_combat = true
 	if not placed and not workers.is_empty():
+		var placement_started: int = Time.get_ticks_msec()
 		var spawn: Vector2i = map.map_generator.spawn_positions[own]
 		for radius: int in range(4, 9):
 			for dx: int in range(-radius, radius + 1):
@@ -74,6 +84,7 @@ func _snapshot(data: Dictionary) -> void:
 					if not placed and current_scene._building_placement.revalidate_confirmation(2, world, 0):
 						session.send_command("place", {"type": 2, "ids": [workers[0]], "position": [world.x, world.y]})
 						placed = true
+		print("ONLINE_COMBAT_PLACEMENT_SCAN ms=%d placed=%s" % [Time.get_ticks_msec() - placement_started, placed])
 	if saw_enemy and saw_combat and (not stand_ground_check or saw_stance_replica) and not completed:
 		completed = true
 		completed_at = float(data.time)
@@ -83,8 +94,18 @@ func _snapshot(data: Dictionary) -> void:
 		session.send_command("surrender")
 
 func _ended(winner: int, reason: String) -> void:
-	print("ONLINE_COMBAT_RESULT slot=%d winner=%d reason=%s verified=%s" % [session.player_slot, winner, reason, completed])
-	quit(0 if completed else 1)
+	print("ONLINE_COMBAT_RESULT slot=%d winner=%d reason=%s verified=%s game=%.2f wall=%.2f" % [session.player_slot, winner, reason, completed, last_authority_time, Time.get_ticks_msec() / 1000.0])
+	call_deferred("_finish_fixture", 0 if completed else 1)
+
+func _finish_fixture(result: int) -> void:
+	# Let the result callback unwind, then retire replicas and deferred UI work.
+	session.leave_match()
+	if is_instance_valid(current_scene):
+		current_scene.queue_free()
+		current_scene = null
+	await process_frame
+	await process_frame
+	quit(result)
 
 
 func _status(value: String, message: String) -> void:

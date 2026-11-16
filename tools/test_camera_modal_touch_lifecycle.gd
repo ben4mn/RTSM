@@ -106,8 +106,10 @@ func _run() -> void:
 	await _drag(601, p0 + Vector2(60, 0), Vector2(60, 0))
 	_expect(placement.ghost_position == paused_ghost, "old placement finger moves the preview after direct resume")
 	await _touch(601, p0 + Vector2(60, 0), false)
-	await _touch(602, p1, true)
-	await _drag(602, p1 + Vector2(60, 0), Vector2(60, 0))
+	# L2: a fresh finger carries the ghost when it lands on it.
+	var on_ghost: Vector2 = placement.get_ghost_footprint_screen_rect().get_center()
+	await _touch(602, on_ghost, true)
+	await _drag(602, on_ghost + Vector2(60, 0), Vector2(60, 0))
 	_expect(placement.ghost_position != paused_ghost, "fresh placement finger cannot reposition after direct resume")
 	await _touch(602, p1 + Vector2(60, 0), false)
 	main.call("_cancel_placement")

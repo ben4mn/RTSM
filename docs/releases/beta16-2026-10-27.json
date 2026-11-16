@@ -1,0 +1,101 @@
+{
+  "status": "LIVE_VERIFIED",
+  "date": "2026-10-27",
+  "origin": "https://game.4mn.org/",
+  "version": "0.3.0-beta.16",
+  "source_commit": "877abd45ed661ddf851e843407f0ea84b63b5138",
+  "protocol": 11,
+  "map_catalog": 7,
+  "save_geometry_version": 5,
+  "pull_request": "https://github.com/ben4mn/RTSM/pull/6",
+  "release_id": "v030beta16-877abd45ed66-b862ff3261-8feca90e80",
+  "web_manifest_sha256": "b862ff32611c267bf4d55fd150a5b3473e30e673a590c6fa76403dc82cbf7698",
+  "server_manifest_sha256": "8feca90e80cd9ee1f77e9ce0a46db9816e50f6f453c7b7bab6a784f9fa0128ba",
+  "containers": {
+    "aoem-online": {
+      "started_utc": "2026-10-27T20:48:27.533219049Z"
+    },
+    "aoem-game": {
+      "started_utc": "2026-10-27T20:49:03.81814874Z"
+    }
+  },
+  "changes": [
+    "AI gold labor follows upcoming paid costs; excess mining returns to food and wood.",
+    "A supported Castle army saves for one Siege instead of always spending on basic troops.",
+    "Trade considers productive known mines and owned drop-offs, reachable routes, visible threats, real population and paid queued/live traders.",
+    "The first post and trader require a 260W/40G bootstrap. Short-lived capital reservations yield to pressure and cannot withhold army wood when bootstrap gold is absent.",
+    "Only one initial trader is planned; a second requires previous deliveries and renewed gold need.",
+    "The earlier blank-menu report was corrected: actual saved JPEGs contain the complete menu. Repeated refresh/setup/resume passed; no speculative rendering workaround was added."
+  ],
+  "unchanged": [
+    "Gathering rates",
+    "Movement",
+    "Unit and building costs",
+    "Trade payouts",
+    "Finite resource budgets",
+    "Sacred victory timers",
+    "PvP protocol and fixed speed"
+  ],
+  "ai_evidence": "docs/evidence/beta16-ai-trade-summary.json",
+  "ai_evidence_sha256": "c5110e8d37d6f04b3c51e68993baa83661683548530324aacc17fbe96223c930",
+  "refresh_correction": "docs/evidence/beta16-refresh-review.json",
+  "browser_checks": {
+    "result": "PASS",
+    "origin": "https://game.4mn.org/",
+    "version": "0.3.0-beta.16",
+    "runtime_revision": "877abd45ed661ddf851e843407f0ea84b63b5138",
+    "viewport": [
+      844,
+      390
+    ],
+    "scope": "Ordinary browser controls in a landscape mobile viewport; not a physical phone or OS-installed PWA.",
+    "checks": [
+      "Updates initially reported beta15.1. Check for updates downloaded the new files, then Refresh app installed beta16 and rendered the menu.",
+      "Installed beta16 and offline-ready assets were displayed. Release notes remained collapsed.",
+      "The old 0:31 River Crossings checkpoint resumed paused with 280 food, 310 wood, 130 gold and 7/15 population.",
+      "Refresh while the paused match remained open was blocked with: Your match is protected. Return to the main menu to refresh the app.",
+      "Save & exit returned to the menu retaining the 0:31 checkpoint. A second ordinary menu Refresh succeeded.",
+      "New solo opened the illustrated River Crossings setup after the second refresh. Back returned to the menu without overwriting the saved game.",
+      "Neither refresh required a viewport change, tab switch or rendering workaround. Browser warning/error logs were empty."
+    ],
+    "minor_observation": "The previous match-protected status text remains in Updates after Save & exit until Refresh/check is used. It does not block the menu refresh.",
+    "screenshots": [
+      "beta16-public-refreshed-menu.jpg",
+      "beta16-public-installed.jpg",
+      "beta16-public-resumed.jpg",
+      "beta16-public-protected.jpg",
+      "beta16-public-refreshed-menu-2.jpg",
+      "beta16-public-setup.jpg"
+    ],
+    "screenshot_note": "Repeated identical menu images can appear as a tiny green patch in tool presentation. Saved image files and subsequent working setup/resume controls are the evidence; the earlier correction is documented separately."
+  },
+  "test_orchestration_correction": "The first room probe was mistakenly run alongside paid combat against the single-arena server. It timed out waiting for the occupied arena at phase 9/map 1. After both combat clients finished successfully, rooms were rerun alone; the initial timeout log is retained.",
+  "checks": [
+    "Focused AI demand/starvation/visibility/queue-cap regressions and actual paid construction/trade delivery.",
+    "Existing compact/Easy Siege policy fixtures after correction of obsolete queue timing and starting-roster assumptions.",
+    "Paid human Workshop placement, natural labor, recruitment and population via ScreenTouch at 20/30/40 limits with the current compact HUD.",
+    "28 web shell/Windows packaging tests and a 667x375 ordinary browser match with paid recruitment, resource rally, protected Refresh and saved-queue recovery.",
+    "Public WSS: 66 room checks and two paid combat clients with replicated damage and clean results.",
+    "Reproduced committed Web exports, exact source matching Linux smoke, idle-only activation, public payload verification and both game container restarts."
+  ],
+  "limitations": [
+    "The two ordinary AI runs retained surplus gold and did not adopt trade. Sustained trade and trade-funded Siege are demonstrated by the separate funded scarcity fixture, not by these natural matches.",
+    "The Medium comparison was unresolved at its 16:40.02 game-time cap, versus the earlier beta15 case ending 12:24.88. This pass does not establish a 12-15-minute average and may require further pacing tuning.",
+    "Controlled fixtures and AI simulations are not human-match averages. Natural endings and any Sacred-only continuation are labeled in the AI evidence.",
+    "Physical-phone performance and OS-installed PWA lifecycle remain untested; browser viewport and native ScreenTouch scopes are separate.",
+    "Trade needs 40 gold to bootstrap. A completely bankrupt kingdom must mine or capture Sacred income first, under the same costs as the player."
+  ],
+  "evidence_sha256": {
+    "activation.json": "438f6fdcf673ea9102d7865cda067405d8cfb119342388754c945d183975de1d",
+    "postflight.json": "925f12cd1dd65e34f574410aa5596ef39360979b29a85768bdf473000f500574",
+    "web-restart.json": "0f1659adcec23e14f7ba421341640589fe01bb67785ad0b1bba78cf5acc0bb7b"
+  },
+  "screenshots": [
+    "beta16-public-refreshed-menu.jpg",
+    "beta16-public-installed.jpg",
+    "beta16-public-resumed.jpg",
+    "beta16-public-protected.jpg",
+    "beta16-public-refreshed-menu-2.jpg",
+    "beta16-public-setup.jpg"
+  ]
+}

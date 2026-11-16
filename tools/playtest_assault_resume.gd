@@ -31,7 +31,7 @@ func _setup() -> void:
 	map = main.game_map
 	map.fog_of_war.set_process(false)
 	map.fog_of_war.reveal_all()
-	map.fog_of_war.fog_layer.clear()
+	map.get_node("FogLayer").clear()
 	for unit: UnitBase in get_tree().get_nodes_in_group("units"):
 		unit.command_stop()
 		unit.set_process(false)

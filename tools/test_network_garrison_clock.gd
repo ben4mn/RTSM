@@ -53,18 +53,19 @@ func _run() -> void:
 		unit.set_process(false)
 	server.call("_register_server_entities")
 	site.configure_match_mode(SkirmishData.MatchMode.STANDARD)
+	site.victory_wake_time = 0.0  # The 8:00 opening has its own test (test_sacred_wake).
 	site.state = SITE.SiteState.CAPTURED
 	site.owning_player = 0
 	site.capture_progress = 1.0
 	site.victory_timer = 30.0
 	var gold: int = ResourceManager.get_resource(0, "gold")
 	site.call("_process", 1.0)
-	_expect(site.garrison_paused and not site.clock_ticking and site.victory_timer == 30.0, "actual Scout-only Standard site preserves accumulated timer")
+	_expect(site.garrison_paused and not site.clock_ticking and is_equal_approx(site.victory_timer, 30.0 - SkirmishData.SACRED_DRAIN_RATE), "actual Scout-only Standard site drains its accumulated timer (Round 2 E2)")
 	_expect(ResourceManager.get_resource(0, "gold") == gold + 2, "actual paused site retains ordinary captured income")
 	_capture_case("unguarded", SkirmishData.MatchMode.STANDARD, false, true, false)
 	fighter.global_position = site.global_position + Vector2(20, 0)
 	site.call("_process", 1.0)
-	_expect(site.clock_ticking and not site.garrison_paused and site.victory_timer == 31.0, "real armed occupant advances actual authority clock")
+	_expect(site.clock_ticking and not site.garrison_paused and is_equal_approx(site.victory_timer, 31.0 - SkirmishData.SACRED_DRAIN_RATE), "real armed occupant advances actual authority clock")
 	_capture_case("holding", SkirmishData.MatchMode.STANDARD, true, false, false)
 	scout.global_position += Vector2(1000, 0)
 	fighter.global_position += Vector2(1000, 0)
@@ -75,6 +76,7 @@ func _run() -> void:
 	enemy.global_position += Vector2(-1000, 0)
 	scout.global_position = site.global_position
 	site.configure_match_mode(SkirmishData.MatchMode.QUICK_CONTROL)
+	site.victory_wake_time = 0.0  # The 8:00 opening has its own test (test_sacred_wake).
 	site.state = SITE.SiteState.CAPTURED
 	site.owning_player = 0
 	site.capture_progress = 1.0
@@ -91,6 +93,7 @@ func _run() -> void:
 		client.set_process(false)
 		for example: Dictionary in cases:
 			site.configure_match_mode(example.mode)
+			site.victory_wake_time = 0.0  # The 8:00 opening has its own test (test_sacred_wake).
 			var packet: Dictionary = example.packets[slot].duplicate(true)
 			# Deliberately remove all visible actors. Public authority alone must
 			# convey clock eligibility, including an unseen opponent garrison.
@@ -125,6 +128,7 @@ func _capture_case(phase: String, mode: int, ticking: bool, paused: bool, neutra
 
 func _test_adversarial(client: Node, slot: int) -> void:
 	site.configure_match_mode(SkirmishData.MatchMode.STANDARD)
+	site.victory_wake_time = 0.0  # The 8:00 opening has its own test (test_sacred_wake).
 	var original: Dictionary = cases[1].packets[slot].duplicate(true)
 	original.actors = []
 	for field: String in ["clock_ticking", "garrison_paused", "neutralizing"]:
@@ -168,6 +172,7 @@ func _test_adversarial(client: Node, slot: int) -> void:
 	client.apply_snapshot({"actors": []})
 	_expect(not site.clock_ticking and not site.garrison_paused and not site.get("_being_neutralized"), "entire missing site clears previous public flags")
 	site.configure_match_mode(SkirmishData.MatchMode.QUICK_CONTROL)
+	site.victory_wake_time = 0.0  # The 8:00 opening has its own test (test_sacred_wake).
 	contradictory = original.duplicate(true)
 	contradictory.site.clock_ticking = true
 	contradictory.site.garrison_paused = true

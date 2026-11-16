@@ -2,6 +2,9 @@ extends RefCounted
 ## One short-lived, authority-owned worker intent record per player. Restoring
 ## orders never rewinds cargo, resources, construction, health, or position.
 
+## Explicit player worker orders (never automatic work), for route previews.
+signal player_orders_issued(owner: int, units: Array)
+
 const LIFETIME_MS: int = 10000
 const REVISION_META: StringName = &"player_worker_order_revision"
 var _records: Dictionary = {}
@@ -44,6 +47,7 @@ func capture(owner: int, units: Array) -> Array[Dictionary]:
 	return entries
 
 func supersede(owner: int, units: Array) -> void:
+	player_orders_issued.emit(owner, units)
 	var changed: bool = false
 	for node: Variant in units:
 		if not _worker(node, owner): continue

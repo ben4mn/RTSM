@@ -23,7 +23,8 @@ func _run() -> void:
 	KingdomTheme.apply_primary(button)
 	CommandIcons.apply_labeled(button, "army", "Army", "Army")
 	assert(button.get_theme_color("icon_normal_color") == KingdomTheme.INK)
-	assert((button.get_theme_stylebox("normal") as StyleBoxFlat).corner_radius_top_left == 10)
+	# Beta 25 softened every tile: the shared tile radius is now 16 (was 10).
+	assert((button.get_theme_stylebox("normal") as StyleBoxFlat).corner_radius_top_left == CommandIcons.CORNER_RADIUS)
 	CommandIcons.apply(button, "attack", "Attack")
 	assert(button.get_theme_constant("icon_max_width") == CommandIcons.GLYPH_SIZE)
 	assert(button.get_theme_stylebox("normal").get_content_margin(SIDE_LEFT) == 6.0)

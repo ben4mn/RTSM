@@ -37,13 +37,16 @@ func _ready() -> void:
 	z_index = 200
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	mouse_force_pass_scroll_events = false
-	color = Color(THEME.INK, 0.97)
-	theme = THEME.create_theme()
+	color = THEME.SCRIM
+	theme = THEME.create_menu_theme()
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_panel = PanelContainer.new()
 	_panel.name = "PreferencesCard"
-	var panel_style: StyleBoxFlat = THEME.panel_style(THEME.INK_PANEL, THEME.BORDER, 18)
-	panel_style.set_content_margin_all(2)
+	var panel_style: StyleBoxFlat = THEME.modal_style()
+	panel_style.content_margin_top = 6
+	panel_style.content_margin_bottom = 6
+	panel_style.content_margin_left = 4
+	panel_style.content_margin_right = 4
 	_panel.add_theme_stylebox_override("panel", panel_style)
 	_panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	_panel.mouse_force_pass_scroll_events = false
@@ -57,9 +60,10 @@ func _ready() -> void:
 	margin.add_child(column)
 	var heading := Label.new()
 	heading.name = "SettingsTitle"
-	heading.text = "Settings & field guide"
-	THEME.apply_heading(heading, 21)
-	column.add_child(heading)
+	heading.text = "Settings"
+	heading.accessibility_name = "Settings and field guide"
+	column.add_child(THEME.make_header_bar(heading))
+	heading.add_theme_font_size_override("font_size", THEME.TITLE_SIZE_COMPACT)
 	var tabs := HBoxContainer.new()
 	tabs.add_theme_constant_override("separation", 5)
 	column.add_child(tabs)
@@ -73,18 +77,7 @@ func _ready() -> void:
 		button.add_theme_font_size_override("font_size", 15)
 		button.toggle_mode = true
 		button.button_group = group
-		var tab_normal: StyleBoxFlat = THEME.panel_style(THEME.INK_PANEL, THEME.BORDER, 10)
-		tab_normal.content_margin_left = 8
-		tab_normal.content_margin_right = 8
-		var tab_active: StyleBoxFlat = tab_normal.duplicate()
-		tab_active.bg_color = THEME.INK_LIGHT
-		tab_active.border_color = THEME.GOLD
-		tab_active.set_border_width_all(2)
-		button.add_theme_stylebox_override("normal", tab_normal)
-		button.add_theme_stylebox_override("pressed", tab_active)
-		button.add_theme_stylebox_override("hover_pressed", tab_active)
-		button.add_theme_color_override("font_pressed_color", THEME.PARCHMENT)
-		button.add_theme_color_override("font_hover_pressed_color", THEME.PARCHMENT)
+		THEME.apply_choice(button)
 		button.pressed.connect(_show_section.bind(i))
 		tabs.add_child(button)
 		_tabs.append(button)
@@ -101,28 +94,26 @@ func _ready() -> void:
 	_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_body.add_theme_constant_override("separation", 4)
 	_scroll.add_child(_body)
-	var footer := HBoxContainer.new()
-	footer.add_theme_constant_override("separation", 8)
-	column.add_child(footer)
 	var reset := _button("Reset", "ResetDefaultsButton", _reset_application_preferences)
+	THEME.apply_tertiary(reset)
 	reset.accessibility_name = "Reset application settings to defaults"
 	reset.tooltip_text = reset.accessibility_name
 	reset.pressed.connect(func() -> void:
 		_show_section(_section)
 		_status.text = "Defaults restored"
 	)
-	footer.add_child(reset)
 	_status = Label.new()
 	_status.text = "Changes save automatically"
-	_status.add_theme_font_size_override("font_size", 12)
-	_status.add_theme_color_override("font_color", THEME.MUTED)
+	THEME.apply_note(_status, 12)
+	_status.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_status.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	footer.add_child(_status)
 	var done := _button("Done", "SettingsDoneButton", close)
-	done.custom_minimum_size.x = 90
-	THEME.apply_primary(done)
-	footer.add_child(done)
+	done.custom_minimum_size.x = 120
+	var footer: HBoxContainer = THEME.make_footer([reset, _status], done)
+	# The status line takes the room; no extra spacer between it and Done.
+	footer.get_node("FooterSpacer").queue_free()
+	column.add_child(footer)
 	get_viewport().size_changed.connect(_layout)
 	preload("res://scripts/ui/web_shell_bridge.gd").watch_safe_area(self, _layout)
 	_show_section(0)
@@ -207,15 +198,8 @@ func _build_guide() -> void:
 		button.name = "LearnButton"
 		button.theme = theme
 		CommandIcons.apply(button, entry[0], "Learn: " + str(entry[1]), entry[1])
-		# An expanded learning row stays on cloth, so use parchment for both
-		# label and glyph instead of the gold-action button's dark pressed ink.
-		for state: String in ["pressed", "hover_pressed"]:
-			var active_style: StyleBoxFlat = button.get_theme_stylebox(state).duplicate()
-			active_style.bg_color = THEME.INK_LIGHT
-			active_style.border_color = THEME.TEAL
-			button.add_theme_stylebox_override(state, active_style)
-			button.add_theme_color_override("font_" + state + "_color", THEME.PARCHMENT)
-			button.add_theme_color_override("icon_" + state + "_color", THEME.PARCHMENT)
+		# Guide rows are disclosure fields: same soft shape as every dropdown.
+		THEME.apply_field(button)
 		button.toggle_mode = true
 		button.custom_minimum_size.y = 48
 		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -246,15 +230,17 @@ func _build_audio() -> void:
 	toggle.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(_button("Preview", "AudioPreviewButton", AudioManager.preview))
 	_volume("Master", "master_volume")
+	_volume("Music", "music_volume")
 	_volume("World effects", "sfx_volume")
 	_volume("UI & alerts", "ui_alert_volume")
 
 
 func _build_controls() -> void:
-	_note("Tap ground: move · Hold: add waypoint\nSwords: attack-move · Drag: pan · Pinch: zoom")
+	_note("Tap ground: move · Hold: add waypoint\nHold, pull down: attack-move · Hold, drag: select box\nHold a building, drag: rally · Drag: pan · Pinch: zoom\nBuilding: tap Build under the ghost · drag the ghost to move it")
 	_choice("Pan sensitivity", "camera_speed_scale", ["Relaxed", "Standard", "Fast"], SENSITIVITY_VALUES)
 	_choice("Zoom sensitivity", "zoom_sensitivity_scale", ["Relaxed", "Standard", "Fast"], SENSITIVITY_VALUES)
 	_toggle("Optional hold shortcuts", "hold_shortcuts_enabled")
+	_toggle("Vibration on taps", "haptics_enabled")
 
 
 
@@ -321,7 +307,7 @@ func _volume(label: String, property: String) -> void:
 	)
 	slider.drag_ended.connect(func(_changed: bool) -> void: _save())
 	if property != "master_volume":
-		var mute_property: String = "sfx_muted" if property == "sfx_volume" else "ui_alert_muted"
+		var mute_property: String = str({"sfx_volume": "sfx_muted", "music_volume": "music_muted"}.get(property, "ui_alert_muted"))
 		var mute := CheckButton.new()
 		mute.name = mute_property.to_pascal_case() + "Toggle"
 		mute.text = "Mute"

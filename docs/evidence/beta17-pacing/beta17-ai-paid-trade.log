@@ -1,0 +1,7 @@
+=== [1/1] test_ai_trade_paid ===
+Godot Engine v4.6.stable.official.89cea1439 - https://godotengine.org
+
+{"fixture_build_seconds":23.6333333333333,"fixture_first_trip_seconds":21.3000000000001,"gold":22}
+{"checks":17,"failures":[],"scope":"controlled starting state, actual AI/Main paid foundation, real 60Hz builder work and caravan travel, manually advanced finite production; not natural match evidence","test":"ai_trade_paid"}
+[PASS] test_ai_trade_paid
+FOCUSED_SUITE: 1/1 passed

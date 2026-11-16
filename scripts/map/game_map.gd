@@ -45,6 +45,12 @@ const ZOOM_STEP_FACTOR := 1.12
 const ZOOM_TRANSITION_SECONDS := 0.18
 const CAMERA_FRAME_ZOOM_STEPS := 32
 const NO_ZOOM_ANCHOR := Vector2(-1.0, -1.0)
+## The camera focus may sit this many tiles past the outermost tile centres:
+## enough to frame a unit on the very rim clear of the HUD cards, never so
+## far that the view centres on open sea.
+const CAMERA_EDGE_MARGIN_TILES := 3.0
+## Game seconds of interpolation delay change per game second (see _process).
+const INTERPOLATION_DELAY_SLEW := 0.35
 const CAMERA_PAN_SPEED := 400.0
 const EDGE_SCROLL_MARGIN := 8.0  # Pixels from screen edge to trigger scroll
 const TOUCH_PAN_DEADZONE := 12.0  # Fallback; SelectionManager owns the shared boundary.
@@ -91,8 +97,20 @@ var _additional_resource_nodes: Array[Node2D] = []
 ## preserves honest memory. Values are the last-seen TileType.
 var _pending_depleted_terrain_tiles: Dictionary = {}
 
+const FOG_MEMORY := preload("res://scripts/map/fog_memory.gd")
+var fog_memory: Node2D = null
+
+## Painted ground, batched props, the soft fog veil and ambient life. Purely
+## presentational, derived from the finished map; absent on a dedicated server.
+const WORLD_DRESSING := preload("res://scripts/map/world_dressing.gd")
+var world_dressing: Node2D = null
+
 ## Reference to the spawned sacred site instance.
 var sacred_site: Node2D = null
+## Flank shrines: capture rings that pay gold while held and never win a match.
+var shrines: Array[Node2D] = []
+const SHRINE_GOLD_PER_SECOND: float = 1.0
+const SHRINE_CAPTURE_RADIUS: int = 2
 
 const NAVIGATION_ENDPOINT_MARGIN_WORLD := 8.0
 const NAVIGATION_MAX_GOAL_RADIUS_TILES := 6
@@ -143,8 +161,8 @@ func _ready() -> void:
 	# Set up pathfinding.
 	pathfinding = Pathfinding.new(map_generator)
 
-	# Configure fog of war.
-	fog_of_war.fog_layer = $FogLayer
+	# Configure fog of war. FogLayer no longer holds per-tile fog cells: it
+	# hosts the FogVeil quad, so hiding or showing it still toggles all fog.
 	fog_of_war.owning_player = 0
 
 	# Configure selection manager.
@@ -155,13 +173,20 @@ func _ready() -> void:
 
 	# Spawn harvestable resource nodes on resource tiles.
 	_spawn_resource_nodes()
+	_spawn_shrines()
 
 	# Set up camera bounds.
 	_configure_camera()
 	get_viewport().size_changed.connect(_on_camera_viewport_size_changed)
+	if not NetworkSession.server_mode:
+		world_dressing = WORLD_DRESSING.new()
+		world_dressing.name = "WorldDressing"
+		add_child(world_dressing)
+		world_dressing.setup(self)
 	var unit_echoes: Node = preload("res://scripts/ui/unit_occlusion_overlay.gd").new()
 	unit_echoes.name = "UnitOcclusionOverlay"
 	add_child(unit_echoes)
+	add_child(BattleFX.new()) # Pooled combat presentation + BattleFX.shake().
 
 	# Notify others (deferred so parent nodes have connected signals in _ready).
 	call_deferred("_emit_map_ready")
@@ -278,7 +303,31 @@ func _get_camera_half_view_world() -> Vector2:
 	return Vector2(viewport_size.x * 0.5 / zoom, viewport_size.y * 0.5 / zoom)
 
 
+var _frame_game_seconds: float = 0.0
+
+
 func _process(delta: float) -> void:
+	# F3: units think on a fixed game-time step (UnitBase._sim_frame). Faster
+	# game speeds widen the step instead of thinking more often per frame;
+	# 0.5x narrows it so thinks stay ~20 per real second.
+	if PerfProbe.on: PerfProbe.count(&"map.frames")
+	UnitBase.sim_step = UnitBase.sim_base_step * clampf(Engine.time_scale, 0.5, 2.0)
+	if camera != null and UnitBase.presentation_enabled:
+		UnitBase.view_rect = (get_canvas_transform().affine_inverse() * get_viewport_rect()).grow(96.0)
+		UnitBase.set_marker_view(1.0 / maxf(0.5, camera.zoom.x), GameManager.clearer_player_markers)
+		UnitBase.crowd_on_screen = UnitBase._seen_counting
+		UnitBase._seen_counting = 0
+	# Drawn units trail the simulation by one step plus a (smoothed) frame.
+	if delta > 0.0:
+		_frame_game_seconds = lerpf(_frame_game_seconds, minf(delta, 0.25), 0.05) if _frame_game_seconds > 0.0 else delta
+	# A game-speed change resizes the step at once. Moving the delay at once
+	# made every walking figure hop back (or ahead) by a step's travel in one
+	# frame; easing it lets the drawn clock run slightly slow or fast instead.
+	var delay_target: float = maxf(UnitBase.sim_step * 1.5, UnitBase.sim_step + _frame_game_seconds * 1.15)
+	if UnitBase.interpolation_delay <= 0.0 or delta <= 0.0:
+		UnitBase.interpolation_delay = delay_target
+	else:
+		UnitBase.interpolation_delay = move_toward(UnitBase.interpolation_delay, delay_target, delta * INTERPOLATION_DELAY_SLEW)
 	_update_camera_pan(delta)
 	_update_camera_zoom(delta / maxf(0.001, Engine.time_scale))
 
@@ -350,7 +399,36 @@ func get_clamped_camera_focus(focus: Vector2) -> Vector2:
 	var bounds_end: Vector2 = _camera_world_bounds.position + _camera_world_bounds.size
 	focus.x = clampf(focus.x, bounds_pos.x, bounds_end.x)
 	focus.y = clampf(focus.y, bounds_pos.y, bounds_end.y)
+	# The field is a diamond inside that rectangle. Keep the focus over the
+	# field (or its bank) so the rim and sea show at the edge of the view but
+	# the camera never centres on empty water off a corner.
+	var tile: Vector2 = world_to_tile_float(focus)
+	var low: float = -CAMERA_EDGE_MARGIN_TILES
+	var high_x: float = float(MapData.MAP_WIDTH - 1) + CAMERA_EDGE_MARGIN_TILES
+	var high_y: float = float(MapData.MAP_HEIGHT - 1) + CAMERA_EDGE_MARGIN_TILES
+	if tile.x < low or tile.y < low or tile.x > high_x or tile.y > high_y:
+		focus = tile_to_world_float(Vector2(clampf(tile.x, low, high_x), clampf(tile.y, low, high_y)))
 	return focus
+
+
+## Fractional tile coordinates of a world point (tile centres are integers).
+func world_to_tile_float(world_pos: Vector2) -> Vector2:
+	var rel: Vector2 = world_pos - tile_to_world(Vector2i.ZERO)
+	var half_w: float = float(MapData.TILE_WIDTH) * 0.5
+	var half_h: float = float(MapData.TILE_HEIGHT) * 0.5
+	return Vector2((rel.x / half_w + rel.y / half_h) * 0.5, (rel.y / half_h - rel.x / half_w) * 0.5)
+
+
+func tile_to_world_float(tile: Vector2) -> Vector2:
+	var half_w: float = float(MapData.TILE_WIDTH) * 0.5
+	var half_h: float = float(MapData.TILE_HEIGHT) * 0.5
+	return tile_to_world(Vector2i.ZERO) + Vector2((tile.x - tile.y) * half_w, (tile.x + tile.y) * half_h)
+
+
+## The nearest tile inside the field. Orders aimed past the edge (the sea, the
+## dark beyond it) go to the rim instead of being dropped.
+func clamp_tile_to_map(tile: Vector2i) -> Vector2i:
+	return Vector2i(clampi(tile.x, 0, MapData.MAP_WIDTH - 1), clampi(tile.y, 0, MapData.MAP_HEIGHT - 1))
 
 
 func _input(event: InputEvent) -> void:
@@ -407,6 +485,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			and (event is InputEventScreenTouch or event is InputEventScreenDrag):
 		if event is InputEventScreenTouch and (event as InputEventScreenTouch).pressed:
 			_playtest_camera_record("camera_contact_suppressed", {"finger_id": (event as InputEventScreenTouch).index, "reason": "explicit_area_selection"})
+		return
+	# A world hold that turned into a gesture (box, rally line, attack-move pull)
+	# owns its finger's movement; the release still reaches the camera below.
+	if selection_mgr != null and selection_mgr.is_hold_gesture_active() and event is InputEventScreenDrag:
 		return
 	# --- Multi-touch pinch zoom (mobile) ---
 	if event is InputEventScreenTouch:
@@ -970,6 +1052,21 @@ func register_spatial_unit(unit: UnitBase) -> RefCounted:
 func get_units_near(position: Vector2, radius: float) -> Array[UnitBase]:
 	return _live_unit_index.near(position, radius)
 
+## Moves whenever any unit's sight tile, sight radius, owner, life or presence
+## in the tree changes.
+func get_unit_vision_revision() -> int:
+	return _live_unit_index.vision_revision
+
+## As above, ignoring other owners' units crossing tiles (their sight is not
+## `owner`'s sight).
+func get_own_unit_vision_revision(owner: int) -> int:
+	return _live_unit_index.own_vision_revision(owner)
+
+## How many units the index holds; equal to the "units" group size when every
+## unit in the tree belongs to this map (callers use that to trust the index).
+func get_spatial_unit_count() -> int:
+	return _live_unit_index.size()
+
 
 ## --- Public API ---
 
@@ -1020,8 +1117,11 @@ func get_navigation_world_path(
 ) -> PackedVector2Array:
 	if pathfinding == null:
 		return PackedVector2Array()
+	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
 	var from_tile: Vector2i = world_to_tile(from_world)
-	var target_tile: Vector2i = world_to_tile(target_world)
+	# A goal past the edge searches from the nearest rim tile, so the unit walks
+	# to the coast and stops there instead of standing still.
+	var target_tile: Vector2i = clamp_tile_to_map(world_to_tile(target_world))
 	var radius_from_range: int = int(ceil(
 		(arrival_radius_world + NAVIGATION_ENDPOINT_MARGIN_WORLD) / maxf(1.0, float(MapData.TILE_HEIGHT))
 	)) + 1
@@ -1060,6 +1160,7 @@ func get_navigation_world_path(
 	var world_path := PackedVector2Array()
 	for tile: Vector2i in tile_path:
 		world_path.append(tile_to_world(tile))
+	if PerfProbe.on: PerfProbe.add(&"path.nav", _pp)
 	return world_path
 
 
@@ -1085,6 +1186,7 @@ func get_building_work_world_path(
 ) -> PackedVector2Array:
 	if pathfinding == null:
 		return PackedVector2Array()
+	var _pp: int = Time.get_ticks_usec() if PerfProbe.on else 0
 	var origin: Vector2i = world_to_tile(anchor_world)
 	var size := Vector2i(maxi(1, footprint.x), maxi(1, footprint.y))
 	var candidates: Array[Vector2i] = []
@@ -1129,6 +1231,7 @@ func get_building_work_world_path(
 	var world_path := PackedVector2Array()
 	for tile: Vector2i in tile_path:
 		world_path.append(tile_to_world(tile))
+	if PerfProbe.on: PerfProbe.add(&"path.work", _pp)
 	return world_path
 
 
@@ -1145,7 +1248,18 @@ func is_entity_visible_to_player(entity: Node2D, viewer_player_id: int = 0) -> b
 		return false
 	var entity_owner: int = -1
 	if entity is UnitBase:
-		entity_owner = (entity as UnitBase).player_owner
+		var unit := entity as UnitBase
+		if unit.player_owner == viewer_player_id:
+			return true
+		# Same answer as below from the tile the unit index recorded at this
+		# unit's last move (the guard covers a moved container or another map).
+		if unit._index_listed and unit._live_unit_index == _live_unit_index and unit._index_position == unit.global_position:
+			var seen_tile: Vector2i = unit._index_tile
+			if fog_of_war != null and viewer_player_id == fog_of_war.owning_player:
+				return fog_of_war.is_tile_visible(seen_tile)
+			if is_inside_tree() and seen_tile.x >= 0 and seen_tile.y >= 0 and seen_tile.x < MapData.MAP_WIDTH and seen_tile.y < MapData.MAP_HEIGHT:
+				return _live_unit_index.units_reveal(seen_tile, viewer_player_id) or _building_vision_grid(viewer_player_id)[seen_tile.y * MapData.MAP_WIDTH + seen_tile.x] != 0
+		entity_owner = unit.player_owner
 	elif entity is BuildingBase:
 		entity_owner = (entity as BuildingBase).player_owner
 	elif entity.has_method("get_player_id"):
@@ -1160,6 +1274,9 @@ func is_entity_visible_to_player(entity: Node2D, viewer_player_id: int = 0) -> b
 	# every battlefield visibility probe. Buildings retain footprint semantics.
 	if not entity is BuildingBase and fog_of_war != null and viewer_player_id == fog_of_war.owning_player:
 		return fog_of_war.is_tile_visible(origin_tile)
+	# Same single-tile answer as the generic path below, without the array.
+	if not entity is BuildingBase and is_inside_tree() and origin_tile.x >= 0 and origin_tile.y >= 0 and origin_tile.x < MapData.MAP_WIDTH and origin_tile.y < MapData.MAP_HEIGHT:
+		return _live_unit_index.units_reveal(origin_tile, viewer_player_id) or _building_vision_grid(viewer_player_id)[origin_tile.y * MapData.MAP_WIDTH + origin_tile.x] != 0
 	var target_tiles: Array[Vector2i] = []
 	if entity is BuildingBase:
 		var building := entity as BuildingBase
@@ -1203,8 +1320,10 @@ func get_visible_tiles_for_player(tile_positions: Array[Vector2i], viewer_player
 		return visible
 	if not is_inside_tree():
 		return visible
+	# Same per-tile answer as _are_tiles_visible_from_live_sources([tile]).
+	var building_grid: PackedByteArray = _building_vision_grid(viewer_player_id)
 	for tile: Vector2i in tile_positions:
-		if tile.x >= 0 and tile.y >= 0 and tile.x < MapData.MAP_WIDTH and tile.y < MapData.MAP_HEIGHT and _are_tiles_visible_from_live_sources([tile], viewer_player_id):
+		if tile.x >= 0 and tile.y >= 0 and tile.x < MapData.MAP_WIDTH and tile.y < MapData.MAP_HEIGHT and (building_grid[tile.y * MapData.MAP_WIDTH + tile.x] != 0 or _live_unit_index.units_reveal(tile, viewer_player_id)):
 			visible[tile] = true
 	return visible
 
@@ -1225,7 +1344,7 @@ func get_visible_enemy_units_for_player(viewer_player_id: int) -> Array[UnitBase
 			var building := node as BuildingBase
 			if building.player_owner != viewer_player_id or building.state == BuildingBase.State.DESTROYED: continue
 			var tile: Vector2i = world_to_tile(building.global_position)
-			building_sources.append(Vector3i(tile.x, tile.y, int(BuildingData.get_building_stats(building.building_type).get("vision_radius", 3))))
+			building_sources.append(Vector3i(tile.x, tile.y, BuildingData.get_vision_radius(building.building_type)))
 	var unit_revision: int = _live_unit_index.enemy_position_revision(viewer_player_id) if local_fog else _live_unit_index.vision_revision
 	var signature: Array = [unit_revision, _live_unit_index.order_revision, fog_of_war.get_instance_id() if is_instance_valid(fog_of_war) else 0, fog_of_war.owning_player if is_instance_valid(fog_of_war) else -1, fog_of_war.visibility_revision if local_fog else -1, building_sources]
 	var cached: Dictionary = _visible_enemy_rosters.get(viewer_player_id, {})
@@ -1233,6 +1352,14 @@ func get_visible_enemy_units_for_player(viewer_player_id: int) -> Array[UnitBase
 		return cached.units
 	var visible: Array[UnitBase] = []
 	var foreign_targets: bool = false
+	# Common case: every unit in the group belongs to this map, so the index's
+	# tree-ordered list is the same sequence without a group copy or an
+	# ancestor walk per unit. Same per-unit rule either way.
+	var ordered: Array[UnitBase] = _live_unit_index.ordered_units()
+	if ordered.size() == get_tree().get_node_count_in_group("units"):
+		_live_unit_index.collect_visible_enemies(viewer_player_id, fog_of_war if local_fog else null, _building_vision_grid(viewer_player_id), visible)
+		_visible_enemy_rosters[viewer_player_id] = {"signature": signature, "units": visible, "foreign_targets": false}
+		return visible
 	for node: Node in get_tree().get_nodes_in_group("units"):
 		if not node is UnitBase: continue
 		var unit := node as UnitBase
@@ -1255,6 +1382,19 @@ func _are_tiles_visible_from_live_sources(
 	for target_tile: Vector2i in target_tiles:
 		if _live_unit_index.units_reveal(target_tile, viewer_player_id): return true
 
+	# Building sources change rarely: answer from a per-player tile grid that is
+	# rebuilt only when BuildingBase.vision_revision moves. Off-map probes keep
+	# the exact per-building circle test below.
+	var grid: PackedByteArray = _building_vision_grid(viewer_player_id)
+	var all_on_map: bool = true
+	for target_tile: Vector2i in target_tiles:
+		if target_tile.x < 0 or target_tile.y < 0 or target_tile.x >= MapData.MAP_WIDTH or target_tile.y >= MapData.MAP_HEIGHT:
+			all_on_map = false
+		elif grid[target_tile.y * MapData.MAP_WIDTH + target_tile.x] != 0:
+			return true
+	if all_on_map:
+		return false
+
 	for node: Node in get_tree().get_nodes_in_group("buildings"):
 		if not is_instance_valid(node) or not is_ancestor_of(node) or not (node is BuildingBase):
 			continue
@@ -1265,11 +1405,43 @@ func _are_tiles_visible_from_live_sources(
 		):
 			continue
 		var building_tile: Vector2i = world_to_tile(building.global_position)
-		var stats: Dictionary = BuildingData.get_building_stats(building.building_type)
-		var building_vision: int = int(stats.get("vision_radius", 3))
+		var building_vision: int = BuildingData.get_vision_radius(building.building_type)
 		if _vision_circle_contains_any(building_tile, building_vision, target_tiles):
 			return true
 	return false
+
+
+var _building_vision_grids: Dictionary = {}
+var _building_vision_grid_revision: int = -1
+
+## Tiles inside any living building's vision circle, per owner. Same sources and
+## circle rule as the loop above; one byte per map tile.
+func _building_vision_grid(viewer_player_id: int) -> PackedByteArray:
+	if _building_vision_grid_revision != BuildingBase.vision_revision:
+		_building_vision_grid_revision = BuildingBase.vision_revision
+		_building_vision_grids.clear()
+	if _building_vision_grids.has(viewer_player_id):
+		return _building_vision_grids[viewer_player_id]
+	var grid := PackedByteArray()
+	grid.resize(MapData.MAP_WIDTH * MapData.MAP_HEIGHT)
+	for node: Node in get_tree().get_nodes_in_group("buildings"):
+		if not is_instance_valid(node) or not is_ancestor_of(node) or not (node is BuildingBase):
+			continue
+		var building := node as BuildingBase
+		if building.player_owner != viewer_player_id or building.state == BuildingBase.State.DESTROYED:
+			continue
+		var centre: Vector2i = world_to_tile(building.global_position)
+		var radius: int = maxi(0, BuildingData.get_vision_radius(building.building_type))
+		var radius_squared: int = radius * radius
+		for y: int in range(maxi(0, centre.y - radius), mini(MapData.MAP_HEIGHT - 1, centre.y + radius) + 1):
+			var dy: int = y - centre.y
+			var row: int = y * MapData.MAP_WIDTH
+			for x: int in range(maxi(0, centre.x - radius), mini(MapData.MAP_WIDTH - 1, centre.x + radius) + 1):
+				var dx: int = x - centre.x
+				if dx * dx + dy * dy <= radius_squared:
+					grid[row + x] = 1
+	_building_vision_grids[viewer_player_id] = grid
+	return grid
 
 
 func _vision_circle_contains_any(
@@ -1288,6 +1460,38 @@ func _vision_circle_contains_any(
 ## Check if a tile is walkable.
 func is_tile_walkable(tile_pos: Vector2i) -> bool:
 	return pathfinding.is_walkable(tile_pos)
+
+
+func is_world_point_walkable(world_pos: Vector2) -> bool:
+	return pathfinding.is_walkable(world_to_tile(world_pos))
+
+
+## UnitBase._is_navigation_segment_clear, with typed map access: one call per
+## movement check instead of a dynamic call per sampled tile. Same rule.
+func is_navigation_segment_clear(from_position: Vector2, to_position: Vector2, sample_distance: float) -> bool:
+	var previous_tile: Vector2i = world_to_tile(from_position)
+	if not pathfinding.is_walkable(previous_tile):
+		return true
+	var target_tile: Vector2i = world_to_tile(to_position)
+	if not pathfinding.is_walkable(target_tile):
+		return false
+	var tile_delta: Vector2i = (target_tile - previous_tile).abs()
+	if tile_delta.x <= 1 and tile_delta.y <= 1:
+		if tile_delta.x == 0 or tile_delta.y == 0:
+			return true
+		return pathfinding.is_walkable(Vector2i(target_tile.x, previous_tile.y)) and pathfinding.is_walkable(Vector2i(previous_tile.x, target_tile.y))
+	var samples: int = maxi(1, int(ceil(from_position.distance_to(to_position) / sample_distance)))
+	for sample: int in range(1, samples + 1):
+		var tile: Vector2i = world_to_tile(from_position.lerp(to_position, float(sample) / samples))
+		if tile == previous_tile:
+			continue
+		if not pathfinding.is_walkable(tile):
+			return false
+		if tile.x != previous_tile.x and tile.y != previous_tile.y:
+			if not pathfinding.is_walkable(Vector2i(tile.x, previous_tile.y)) or not pathfinding.is_walkable(Vector2i(previous_tile.x, tile.y)):
+				return false
+		previous_tile = tile
+	return true
 
 
 ## Canonical structure-placement terrain contract. Movement permits forests and
@@ -1337,7 +1541,7 @@ func _spawn_resource_nodes() -> void:
 			var info: Dictionary = type_map[tile_type]
 			var node = _resource_node_scene.instantiate()
 			node.resource_type = info["type"]
-			node.total_amount = info["amount"]
+			node.total_amount = map_generator.get_resource_amount(Vector2i(x, y))
 			var tile_pos := Vector2i(x, y)
 			node.tile_position = tile_pos
 			node.global_position = tile_to_world(tile_pos)
@@ -1372,9 +1576,51 @@ func _on_resource_depleted(node: Node2D, tile_pos: Vector2i) -> void:
 		_apply_depleted_terrain_visual(tile_pos)
 
 
-## Natural-resource visuals reveal only under current vision. Explored terrain
-## retains terrain memory, never the live presence or depletion state of stock.
+## Live entities require current sight. Separate inert art retains last sightings.
+func _ensure_fog_memory() -> Node2D:
+	if not is_instance_valid(fog_memory):
+		fog_memory = FOG_MEMORY.new()
+		fog_memory.name = "FogMemory"
+		fog_memory.game_map = self
+		fog_memory.y_sort_enabled = true
+		add_child(fog_memory)
+	return fog_memory
+
+
+func remember_visible_building(building: BuildingBase) -> void:
+	_ensure_fog_memory().observe_building(building)
+
+
+func remember_visible_resource(resource: ResourceNode) -> void:
+	_ensure_fog_memory().observe_resource(resource)
+
+
+func forget_scouted_buildings(ids: Array) -> void:
+	_ensure_fog_memory().forget_buildings(ids)
+
+
+## Live resource visibility remains the targetability boundary. Memories never
+## replace registered resources and do not participate in navigation or orders.
+var _resource_visibility_key: Array = []
+
 func update_resource_visibility_for_player(viewer_player_id: int = 0) -> void:
+	# Called every frame for the local player. Everything below is a function of
+	# the fog grid, the resource set, building sources and the remembered
+	# records; when none of them moved since the last pass there is nothing to do.
+	var keyed: bool = is_instance_valid(fog_of_war) and fog_of_war.owning_player == viewer_player_id
+	if keyed and _resource_visibility_key == _resource_visibility_signature(viewer_player_id):
+		return
+	_update_resource_visibility_now(viewer_player_id)
+	_resource_visibility_key = _resource_visibility_signature(viewer_player_id) if keyed else []
+
+
+func _resource_visibility_signature(viewer_player_id: int) -> Array:
+	return [viewer_player_id, fog_of_war.get_instance_id(), fog_of_war.visibility_revision, resource_nodes.size(), ResourceNode.spawn_revision, _pending_depleted_terrain_tiles.size(), BuildingBase.vision_revision, fog_memory.revision if is_instance_valid(fog_memory) else -1, NetworkSession.server_mode, NetworkSession.is_client()]
+
+
+func _update_resource_visibility_now(viewer_player_id: int) -> void:
+	if not NetworkSession.server_mode:
+		_ensure_fog_memory().refresh(viewer_player_id)
 	for tile_pos: Vector2i in resource_nodes:
 		var resource: Node2D = resource_nodes[tile_pos] as Node2D
 		if resource == null or not is_instance_valid(resource):
@@ -1392,6 +1638,8 @@ func update_resource_visibility_for_player(viewer_player_id: int = 0) -> void:
 func _apply_depleted_terrain_visual(tile_pos: Vector2i) -> void:
 	if terrain_layer != null:
 		terrain_layer.set_cell(tile_pos, 0, _tile_type_to_atlas(MapData.TileType.GRASS))
+	if world_dressing != null:
+		world_dressing.clear_forest_tile(tile_pos)
 	_pending_depleted_terrain_tiles.erase(tile_pos)
 
 
@@ -1420,6 +1668,39 @@ func _spawn_sacred_site() -> void:
 	sacred_site.tile_position = center
 	sacred_site.global_position = tile_to_world(center)
 	$SacredSiteContainer.add_child(sacred_site)
+
+
+func _spawn_shrines() -> void:
+	shrines.clear()
+	if map_generator == null or not map_generator.has_method("get_shrine_tiles"):
+		return
+	for crossing: Vector2i in map_generator.get_shrine_tiles():
+		var tile: Vector2i = _open_shrine_tile(crossing)
+		var shrine: Node2D = _sacred_site_scene.instantiate()
+		shrine.set("victory_enabled", false)
+		shrine.set("gold_per_second", SHRINE_GOLD_PER_SECOND)
+		shrine.set("capture_radius", SHRINE_CAPTURE_RADIUS)
+		shrine.name = "Shrine%d" % shrines.size()
+		shrine.set("tile_position", tile)
+		shrine.global_position = tile_to_world(tile)
+		shrine.scale = Vector2(0.75, 0.75)
+		$SacredSiteContainer.add_child(shrine)
+		shrines.append(shrine)
+
+
+## Stay on the free-corner diagonal so a shrine remains equally far from both
+## starts; only if that diagonal is blocked nearby may it step off it.
+func _open_shrine_tile(crossing: Vector2i) -> Vector2i:
+	for step: int in [0, 1, -1, 2, -2, 3, -3]:
+		var candidate: Vector2i = crossing + Vector2i(step, step)
+		if is_tile_buildable(candidate):
+			return candidate
+	for radius: int in range(1, 5):
+		for dy: int in range(-radius, radius + 1):
+			for dx: int in range(-radius, radius + 1):
+				if is_tile_buildable(crossing + Vector2i(dx, dy)):
+					return crossing + Vector2i(dx, dy)
+	return crossing
 
 
 ## Get the resource node at a specific tile, or null.
@@ -1457,7 +1738,43 @@ func is_resource_target_valid(node: Node2D, type: String = "", player_id: int = 
 func is_resource_target_available_to_worker(node: Node2D, type: String = "", player_id: int = -1, worker: Node2D = null) -> bool:
 	if not is_resource_target_valid(node, type, player_id):
 		return false
+	# Wildlife: autonomous discovery never walks a worker into a live boar.
+	if node is WildlifeNode and not (node as WildlifeNode).is_auto_gather_target():
+		return false
 	return not node is BuildingBase or (node as BuildingBase).is_available_to_worker(worker)
+
+
+## --- Wildlife (workstream A) ---------------------------------------------------
+## Sheep, deer and boar are WildlifeNode harvestables owned by the
+## WildlifeDirector child (scripts/main/wildlife_director.gd). These queries
+## are the stable surface for the AI and HUD; all return live nodes only.
+
+func get_wildlife_director() -> Node:
+	return get_node_or_null("WildlifeDirector")
+
+
+## Every animal or carcass with food left; `kind` is "sheep", "deer", "boar" or "".
+func get_wildlife_nodes(kind: String = "") -> Array[Node2D]:
+	var director: Node = get_wildlife_director()
+	var result: Array[Node2D] = []
+	if director != null:
+		result.assign(director.call("get_nodes", kind))
+	return result
+
+
+## Sheep (alive or opened) that `player_id` owns and may butcher.
+func get_wildlife_for_player(player_id: int) -> Array[Node2D]:
+	var director: Node = get_wildlife_director()
+	var result: Array[Node2D] = []
+	if director != null:
+		result.assign(director.call("get_owned_nodes", player_id))
+	return result
+
+
+## Nearest-food ordering: owned sheep and open carcasses count as much closer.
+func _resource_discovery_distance(node: Node2D, from: Vector2, player_id: int) -> float:
+	var distance: float = from.distance_to(node.global_position)
+	return (node as WildlifeNode).discovery_distance(distance, player_id) if node is WildlifeNode else distance
 
 
 ## Resource discovery is fog-aware whenever a concrete player is supplied.
@@ -1486,7 +1803,7 @@ func get_nearest_resource_node(type: String, from: Vector2, player_id: int = -1,
 			continue
 		if not is_resource_target_available_to_worker(node, type, player_id, worker):
 			continue
-		var dist: float = from.distance_to(node.global_position)
+		var dist: float = _resource_discovery_distance(node, from, player_id)
 		if dist < best_dist:
 			best_dist = dist
 			best_node = node
@@ -1525,7 +1842,7 @@ func get_nearest_reachable_resource_node(
 		):
 			candidates.append(additional_node)
 	candidates.sort_custom(func(a: Node2D, b: Node2D) -> bool:
-		return from.distance_squared_to(a.global_position) < from.distance_squared_to(b.global_position)
+		return _resource_discovery_distance(a, from, player_id) < _resource_discovery_distance(b, from, player_id)
 	)
 	var checked: int = 0
 	for candidate: Node2D in candidates:

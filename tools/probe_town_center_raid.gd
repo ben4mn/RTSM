@@ -1,6 +1,9 @@
 extends Node
 ## Seeded real-map raid fixture. The army is synthetic, not paid production.
 ## Run: Godot --headless --fixed-fps 60 --path . tools/probe_town_center_raid.tscn -- --count=8 --type=1 --duration=150
+## Add --bell to ring the town bell as the raid lands: the starting villagers
+## stay live, shelter inside and add their arrows (compare shots/army_hp with
+## and without it).
 
 var _count: int = 1
 var _type: int = UnitData.UnitType.INFANTRY
@@ -9,6 +12,8 @@ var _seed: int = 101
 var _approach: String = "north"
 var _capture_directory: String = ""
 var _audit_refuges: bool = false
+var _bell: bool = false
+var _arrows: int = 0
 var _refuge_audit: Dictionary = {}
 var _shots: int = 0
 var _main: Node2D
@@ -33,6 +38,8 @@ func _ready() -> void:
 			_capture_directory = argument.trim_prefix("--capture-dir=")
 		elif argument == "--audit-refuges":
 			_audit_refuges = true
+		elif argument == "--bell":
+			_bell = true
 	call_deferred("_run")
 
 
@@ -53,7 +60,13 @@ func _run() -> void:
 		return
 	_main.get_node("AIController").process_mode = Node.PROCESS_MODE_DISABLED
 	for unit: Node in get_tree().get_nodes_in_group("units"):
+		if _bell and unit is Villager and (unit as Villager).player_owner == 0:
+			continue
 		unit.process_mode = Node.PROCESS_MODE_DISABLED
+	get_tree().node_added.connect(func(node: Node) -> void:
+		if node is BuildingBase.DefensiveArrow:
+			_arrows += 1
+	)
 	var town_center: BuildingBase = null
 	for building: Node in get_tree().get_nodes_in_group("player_0_buildings"):
 		if building is BuildingBase and building.building_type == BuildingData.BuildingType.TOWN_CENTER:
@@ -97,6 +110,8 @@ func _run() -> void:
 		game_map.get_node("UnitsContainer").add_child(unit)
 		_attackers.append(unit)
 		unit.command_attack_building(town_center)
+	if _bell:
+		Garrison.ring(town_center)
 	var start_time: float = GameManager.game_time
 	var last_sample: float = -10.0
 	var captured_arrow: bool = false
@@ -120,7 +135,7 @@ func _run() -> void:
 		"seed": _seed, "type": UnitData.get_unit_name(_type), "count": _count, "approach": _approach,
 		"attack_damage": town_center.tower_attack_damage if is_instance_valid(town_center) else -1,
 		"attack_range_world": town_center.tower_attack_range if is_instance_valid(town_center) else -1,
-		"samples": _samples, "refuge_audit": _refuge_audit,
+		"samples": _samples, "refuge_audit": _refuge_audit, "bell": _bell,
 	}
 	var output_path: String = OS.get_environment("AOEM_TC_RAID_OUTPUT")
 	if not output_path.is_empty():
@@ -185,4 +200,6 @@ func _sample(town_center: BuildingBase, elapsed: float) -> Dictionary:
 		if is_instance_valid(unit):
 			total_attacker_hp += unit.hp
 	return {"elapsed": snappedf(elapsed, 0.01), "tc_hp": town_center.hp if is_instance_valid(town_center) else 0,
-		"army_alive": _living_attackers(), "army_hp": snappedf(total_attacker_hp, 0.01), "shots": _shots}
+		"army_alive": _living_attackers(), "army_hp": snappedf(total_attacker_hp, 0.01), "shots": _shots, "arrows": _arrows,
+		"garrisoned": Garrison.count(town_center) if is_instance_valid(town_center) else 0,
+		"bell_active": is_instance_valid(town_center) and town_center.bell_active}
