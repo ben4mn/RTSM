@@ -109,8 +109,11 @@ func _scenario(phone: Vector2i, interface_scale: float, mouse_emulation: bool) -
 		_worker.command_stop()
 	# Two genuine world contacts must suppress selection/orders regardless of
 	# which identity releases first. One surviving finger never becomes a tap.
+	# A finger that travels keeps the selection; only a still two-finger tap
+	# clears it (touch-controls pass). Neither ever orders anything.
 	for primary_first: bool in [true,false]:
 		var before_pinch: int=_orders
+		_selection.select_single(_worker)
 		await _contact(31,ground,true)
 		await _contact(44,ground+Vector2(40,0),true)
 		_expect(int(_selection.get("_primary_touch_index"))==31 and bool(_selection.get("_touch_pan_gesture")),"secondary press did not latch the actual primary gesture")
@@ -118,6 +121,7 @@ func _scenario(phone: Vector2i, interface_scale: float, mouse_emulation: bool) -
 		_expect(bool(_selection.get("_touch_pan_gesture")),"first pinch release lost suppression while another contact remained")
 		await _contact(44 if primary_first else 31,ground,false)
 		_expect(_orders==before_pinch,"pinch releases issued a late world order")
+		_expect(_selection.selected == [_worker],"a moving two-finger contact cleared the selection")
 		_expect_clean("pinch")
 	# Real GUI-origin press/drag/release must remain GUI-owned, even off GUI.
 	var before_gui: int=_orders

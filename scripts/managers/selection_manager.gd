@@ -11,6 +11,13 @@ signal move_command(target_tile: Vector2i)
 signal attack_move_command(target_tile: Vector2i)
 signal queue_order_command(world_position: Vector2, target: Node2D)
 signal cancel_queue_command()
+## Hold on a resource with villagers: gather after their current waypoints.
+signal queue_gather_command(resource_node: Node2D)
+## Selected troops tapped onto an own producer that trains their type (or
+## workers onto their Town Center): recruit one more of `unit_type` there.
+signal train_from_selection_command(building: Node2D, unit_type: int)
+## A quick two-finger tap in the world: put the current selection away.
+signal two_finger_tap_clear_requested()
 ## Emitted when an attack command is issued against a target.
 signal attack_command(target: Node2D)
 ## Emitted when a gather command is issued on a resource node.
@@ -115,6 +122,17 @@ var _hold_gesture_node: WeakRef = null
 @export var touch_input_diagnostics: Dictionary = {}
 @export var touch_target_diagnostics: Dictionary = {}
 var _touch_pan_gesture := false
+## Two-finger tap (both contacts down and up quickly, barely moving, no real
+## pinch) clears the selection: the one gesture that never means "move here".
+const TWO_FINGER_TAP_LAND_MSEC: int = 180
+const TWO_FINGER_TAP_MAX_MSEC: int = 400
+const TWO_FINGER_TAP_SLOP_PX: float = 24.0
+const TWO_FINGER_TAP_MAX_ZOOM_CHANGE: float = 0.04
+var _two_finger_tap_starts: Dictionary = {}  # contact index -> press position
+var _two_finger_tap_max_px: float = 0.0
+var _two_finger_tap_started_msec: int = 0
+var _two_finger_tap_zoom: float = 1.0
+var _two_finger_tap_valid: bool = false
 var _touch_context_open := false
 var _touch_context_menu: PopupMenu = null
 var _context_world_pos := Vector2.ZERO
@@ -241,6 +259,7 @@ func cancel_touch_gesture(preserve_completed_tap: bool = false) -> void:
 	_touch_hold_canceled = false
 	_touch_max_displacement_px = 0.0
 	_touch_pan_gesture = false
+	_reset_two_finger_tap()
 	_active_touch_indices.clear()
 	_released_world_touch_indices.clear()
 	_primary_touch_index = -1
@@ -305,6 +324,13 @@ func _process(_delta: float) -> void:
 
 func _input(event: InputEvent) -> void:
 	_playtest_observe_input(event)
+	# Two-finger tap travel is tracked here: GUI can consume a drag or release.
+	if event is InputEventScreenDrag and _two_finger_tap_starts.has((event as InputEventScreenDrag).index):
+		_note_two_finger_tap_position((event as InputEventScreenDrag).index, (event as InputEventScreenDrag).position)
+	elif event is InputEventScreenTouch and not (event as InputEventScreenTouch).pressed and _two_finger_tap_starts.has((event as InputEventScreenTouch).index):
+		_note_two_finger_tap_position((event as InputEventScreenTouch).index, (event as InputEventScreenTouch).position)
+		if (event as InputEventScreenTouch).canceled:
+			_two_finger_tap_valid = false
 	if event is InputEventMouseButton:
 		var mouse := event as InputEventMouseButton
 		if not mouse.pressed and mouse.device != InputEvent.DEVICE_ID_EMULATION:
@@ -396,7 +422,22 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 			_primary_touch_index = event.index
 			_touch_press_unit = null
 			_touch_pan_gesture = false
+			_reset_two_finger_tap()
+			_two_finger_tap_starts[event.index] = event.position
+			_two_finger_tap_started_msec = Time.get_ticks_msec()
+			_two_finger_tap_zoom = _get_camera_zoom_scalar()
 		_active_touch_indices[event.index] = true
+		if _active_touch_indices.size() == 2 and event.index != _primary_touch_index and _two_finger_tap_starts.size() == 1:
+			_two_finger_tap_starts[event.index] = event.position
+			_two_finger_tap_valid = (
+				Time.get_ticks_msec() - _two_finger_tap_started_msec <= TWO_FINGER_TAP_LAND_MSEC
+				and _two_finger_tap_max_px < TWO_FINGER_TAP_SLOP_PX
+				and not _hold_gesture_armed
+				and not touch_area_selection_armed
+				and not _touch_context_open
+			)
+		elif _active_touch_indices.size() > 2:
+			_two_finger_tap_valid = false
 		if _active_touch_indices.size() > 1:
 			_playtest_classify_contacts("pinch", "additional_world_contact")
 			_touch_pan_gesture = true
@@ -438,6 +479,16 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 		var owned_world_press: bool = _active_touch_indices.has(event.index) or bool(_released_world_touch_indices.get(event.index, false))
 		_released_world_touch_indices.erase(event.index)
 		_active_touch_indices.erase(event.index)
+		if event.canceled or not owned_world_press:
+			_two_finger_tap_valid = false
+		elif _two_finger_tap_starts.has(event.index):
+			_note_two_finger_tap_position(event.index, event.position)
+			if _active_touch_indices.is_empty() and _finish_two_finger_tap():
+				_playtest_classify_contact(event.index, "two_finger_tap", "clear_selection")
+				get_viewport().set_input_as_handled()
+				_finish_released_touch(event.index)
+				queue_redraw()
+				return
 		if event.canceled or not owned_world_press:
 			_playtest_classify_contact(event.index, "cancel" if event.canceled else "suppressed", "os_canceled" if event.canceled else "no_world_press")
 			if _touch_area_gesture and touch_area_selection_armed:
@@ -529,6 +580,39 @@ func _handle_touch(event: InputEventScreenTouch) -> void:
 		if _active_touch_indices.is_empty():
 			_finish_released_touch(event.index)
 		queue_redraw()
+
+
+func _reset_two_finger_tap() -> void:
+	_two_finger_tap_starts.clear()
+	_two_finger_tap_max_px = 0.0
+	_two_finger_tap_started_msec = 0
+	_two_finger_tap_valid = false
+
+
+func _note_two_finger_tap_position(index: int, position: Vector2) -> void:
+	var start: Vector2 = _two_finger_tap_starts.get(index, position)
+	_two_finger_tap_max_px = maxf(_two_finger_tap_max_px, start.distance_to(position))
+	if _two_finger_tap_max_px >= TWO_FINGER_TAP_SLOP_PX:
+		_two_finger_tap_valid = false
+
+
+## Called when the last world contact lifts. True when both fingers formed a
+## quick, still tap with no meaningful zoom; requests a selection clear.
+func _finish_two_finger_tap() -> bool:
+	var valid: bool = (
+		_two_finger_tap_valid
+		and _two_finger_tap_starts.size() == 2
+		and Time.get_ticks_msec() - _two_finger_tap_started_msec <= TWO_FINGER_TAP_MAX_MSEC
+		and _two_finger_tap_max_px < TWO_FINGER_TAP_SLOP_PX
+		and absf(_get_camera_zoom_scalar() / maxf(0.001, _two_finger_tap_zoom) - 1.0) <= TWO_FINGER_TAP_MAX_ZOOM_CHANGE
+	)
+	_reset_two_finger_tap()
+	if not valid or (selected.is_empty() and not unit_command_armed and _rally_producer == null):
+		return false
+	_last_tap_time = 0.0
+	_playtest_record("two_finger_tap_clear", {"selected_count": selected.size()})
+	two_finger_tap_clear_requested.emit()
+	return true
 
 
 func _handle_drag(event: InputEventScreenDrag) -> void:
@@ -772,11 +856,33 @@ func _handle_tap(screen_pos: Vector2, is_touch_input: bool, pressed_unit: Node2D
 		return
 
 	if is_touch_input and has_selected_units and ((retained_unit and not _is_enemy(tapped_node)) or _is_direct_friendly_unit_reselection(tapped_node, screen_pos)):
+		if selected.size() == 1 and selected[0] == tapped_node:
+			# Tapping the one selected unit again puts it away, like a building.
+			# A quick second tap is still the double-tap type select above.
+			_record_touch_input(screen_pos, world_pos, "deselect", tapped_node, resource_node)
+			_clear_selection()
+			_last_tap_time = 0.0
+			get_viewport().set_input_as_handled()
+			return
 		_clear_selection()
 		_add_to_selection(tapped_node)
 		_record_touch_input(screen_pos, world_pos, "select_unit", tapped_node, resource_node)
 		get_viewport().set_input_as_handled()
 		return
+
+	# Selected troops tapped onto their own producer recruit one more of their
+	# kind; workers tapped onto a Town Center with no home order recruit a
+	# worker. The unit selection stays, so repeated taps queue more.
+	if is_touch_input and has_selected_units and tapped_node != resource_node \
+			and _is_direct_friendly_building_reselection(tapped_node, screen_pos) \
+			and not (has_selected_villagers and (_is_under_construction(tapped_node) or _home_building_order(tapped_node) != "")):
+		var train_type: int = _selection_train_type(tapped_node)
+		if train_type >= 0:
+			_record_touch_input(screen_pos, world_pos, "train", tapped_node, resource_node)
+			_last_tap_time = 0.0
+			train_from_selection_command.emit(tapped_node, train_type)
+			get_viewport().set_input_as_handled()
+			return
 
 	if is_touch_input and has_selected_units \
 			and _is_direct_friendly_building_reselection(tapped_node, screen_pos) \
@@ -1494,6 +1600,46 @@ func _has_selected_villagers() -> bool:
 	return false
 
 
+## The unit type a tap on `building` would recruit for the current unit
+## selection, or -1. Troops: their most common kind, if the building trains it.
+## Workers only (or troops it cannot train): a villager at a producer of them.
+func _selection_train_type(building: Variant) -> int:
+	if not _is_current_selection_entry(building) or not building is BuildingBase:
+		return -1
+	var producer := building as BuildingBase
+	if producer.player_owner != 0 or producer.state != BuildingBase.State.ACTIVE or producer.trainable_units.is_empty():
+		return -1
+	var counts: Dictionary = {}
+	var has_villager: bool = false
+	for entry: Variant in selected:
+		if not _is_current_selection_entry(entry) or not entry is UnitBase or (entry as UnitBase).player_owner != 0:
+			continue
+		var kind: int = (entry as UnitBase).unit_type
+		if kind == UnitData.UnitType.VILLAGER:
+			has_villager = true
+			continue
+		counts[kind] = int(counts.get(kind, 0)) + 1
+	var best: int = -1
+	for kind: int in counts:
+		if best < 0 or int(counts[kind]) > int(counts[best]) or (int(counts[kind]) == int(counts[best]) and kind < best):
+			best = kind
+	if best >= 0 and best in producer.trainable_units:
+		return best
+	if has_villager and UnitData.UnitType.VILLAGER in producer.trainable_units:
+		return UnitData.UnitType.VILLAGER
+	return -1
+
+
+## True when a selected worker is walking somewhere or has queued waypoints,
+## so a held resource becomes the next leg instead of replacing the route.
+func _selected_villagers_have_waypoints() -> bool:
+	for entry: Variant in selected:
+		if _is_current_selection_entry(entry) and entry is Villager and (entry as Villager).player_owner == 0 \
+				and ((entry as Villager).current_state == UnitBase.State.MOVING or not (entry as Villager).queued_orders.is_empty()):
+			return true
+	return false
+
+
 func _has_selected_villager_producer() -> bool:
 	if selected.size() != 1 or not selected[0] is BuildingBase:
 		return false
@@ -1848,8 +1994,13 @@ func _execute_touch_context_action(action_id: int) -> void:
 				and (_has_selected_villagers() or _has_selected_villager_producer())
 				and _is_resource_target_valid_for_local_player(_context_resource)
 			):
-				gather_command.emit(_context_resource)
-				executed_action = "Gather"
+				if not _has_selected_villager_producer() and _selected_villagers_have_waypoints():
+					# A hold appends: workers walking a route gather after it.
+					queue_gather_command.emit(_context_resource)
+					executed_action = "Queue gather"
+				else:
+					gather_command.emit(_context_resource)
+					executed_action = "Gather"
 		TouchContextAction.BUILD:
 			if _is_current_selection_entry(_context_target) and _has_selected_villagers() and _is_under_construction(_context_target):
 				build_command.emit(_context_target)

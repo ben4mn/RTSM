@@ -591,6 +591,10 @@ func execute_command(owner: int, packet: Dictionary) -> String:
 				var order: Dictionary = {"kind": "dropoff", "target_id": target.get_instance_id(), "position": target.global_position} if operation == "queue_dropoff" else {"kind": "move", "position": position}
 				queued = unit.enqueue_order(order) or queued
 			return "" if queued else "Order queue full or unavailable"
+		"queue_gather":
+			if not game_map.is_resource_target_valid(target, "", owner) or not game_map.is_resource_target_visible_to_player(target, owner):
+				return "Resource no longer available"
+			return "" if main.queue_gather_for_units(units, target, owner) > 0 else "Order queue full or unavailable"
 		"undo_workers":
 			var undo_result: Dictionary = main._worker_order_undo.restore(owner, int(packet.get("undo_id", 0)), game_map)
 			return str(undo_result.get("error", ""))

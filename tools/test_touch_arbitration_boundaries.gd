@@ -245,8 +245,14 @@ func _stable_target_radii(ground: Vector2) -> void:
 		await _tap(_new_contact(), ground + Vector2(31, 0))
 		_expect(_selection.selected.size() == 1 and _selection.selected[0] == building, "building discovery missed 31px target at zoom %.2f" % zoom)
 		_selection.select_single(_worker)
+		# A worker tapped onto its Town Center recruits a worker there and keeps
+		# the selection (touch-controls pass); the reach is what is under test.
+		var trained: Array[Node2D] = []
+		var on_train := func(target: Node2D, _unit_type: int) -> void: trained.append(target)
+		_selection.train_from_selection_command.connect(on_train)
 		await _tap(_new_contact(), ground + Vector2(31, 0))
-		_expect(_selection.selected.size() == 1 and _selection.selected[0] == building and _orders == before, "building reselection radius changed at zoom %.2f" % zoom)
+		_selection.train_from_selection_command.disconnect(on_train)
+		_expect(trained == [building] and _selection.selected == [_worker] and _orders == before, "building reselection radius changed at zoom %.2f" % zoom)
 		building.free()
 	_camera.zoom = original_zoom
 	_camera.force_update_scroll()

@@ -6,6 +6,20 @@ var _move_count: int = 0
 var _build_count: int = 0
 var _gather_count: int = 0
 var _attack_target: Node2D = null
+var _train_building: Node2D = null
+
+
+## A touch on a producer that trains the selected units' kind recruits one
+## more and keeps the units (touch-controls pass); otherwise it selects it.
+func _reached_facade(selection: SelectionManager, building: BuildingBase, before: Array[Node2D], trains: bool) -> bool:
+	if trains:
+		return _train_building == building and selection.selected == before
+	return selection.selected.size() == 1 and selection.selected[0] == building
+
+
+func _expects_train(selection: SelectionManager, building: BuildingBase, touch: bool) -> bool:
+	_train_building = null
+	return touch and int(selection.call("_selection_train_type", building)) >= 0
 
 
 class FakeGameMap extends Node2D:
@@ -32,6 +46,7 @@ func _run() -> void:
 	selection.build_command.connect(func(_building: Node2D) -> void: _build_count += 1)
 	selection.attack_command.connect(func(target: Node2D) -> void: _attack_target = target)
 	selection.gather_command.connect(func(_resource: Node2D) -> void: _gather_count += 1)
+	selection.train_from_selection_command.connect(func(target: Node2D, _unit_type: int) -> void: _train_building = target)
 	var worker: UnitBase = _spawn_unit(world, "villager", 0)
 	var soldier: UnitBase = _spawn_unit(world, "infantry", 0)
 	var enemy: UnitBase = _spawn_unit(world, "infantry", 1)
@@ -64,8 +79,10 @@ func _run() -> void:
 				selection.select_single(previous)
 				selection.set("_last_tap_time", 0.0)
 				var roof_moves: int = _move_count
+				var roof_before: Array[Node2D] = selection.selected.duplicate()
+				var roof_trains: bool = _expects_train(selection, building, touch)
 				_push_tap(selection, selection.call("_world_to_screen", roof_world), touch)
-				_expect(selection.selected.size() == 1 and selection.selected[0] == building, "%s visible roof tap failed at zoom %.3f touch=%s" % [building_type, zoom, touch])
+				_expect(_reached_facade(selection, building, roof_before, roof_trains), "%s visible roof tap failed at zoom %.3f touch=%s" % [building_type, zoom, touch])
 				_expect(_move_count == roof_moves, "%s roof tap moved the selected army" % building_type)
 			var padding: Vector2 = sprite.to_global(sprite.get_rect().position + Vector2.ONE)
 			_expect(not bool(selection.call("_is_touch_on_building_facade", building, padding)), "%s transparent padding remains ground" % building_type)
@@ -83,9 +100,11 @@ func _run() -> void:
 					selection.set("_last_tap_time", 0.0)
 					_attack_target = null
 					var before_moves: int = _move_count
+					var facade_before: Array[Node2D] = selection.selected.duplicate()
+					var facade_trains: bool = _expects_train(selection, building, touch)
 					_push_tap(selection, selection.call("_world_to_screen", facade_world), touch)
 					var label: String = "%s zoom %.3f beside %s owner%d via %s" % [building_type, zoom, neighbor.name, neighbor.player_owner, "touch" if touch else "mouse"]
-					_expect(selection.selected.size() == 1 and selection.selected[0] == building, "%s facade did not select building" % label)
+					_expect(_reached_facade(selection, building, facade_before, facade_trains), "%s facade did not select building" % label)
 					_expect(_move_count == before_moves and _attack_target == null, "%s facade issued a unit order" % label)
 
 				# Put the person in front of that wall: a body tap now really
@@ -114,8 +133,10 @@ func _run() -> void:
 			selection.set_unit_command_armed(false)
 			# A one-shot destination followed by a quick production-building tap
 			# is a fresh action, not a unit-type double tap on the same target.
+			var quick_before: Array[Node2D] = selection.selected.duplicate()
+			var quick_trains: bool = _expects_train(selection, building, true)
 			_push_tap(selection, selection.call("_world_to_screen", facade_world), true)
-			_expect(selection.selected.size() == 1 and selection.selected[0] == building, "%s quick facade tap after an armed destination was discarded" % building_type)
+			_expect(_reached_facade(selection, building, quick_before, quick_trains), "%s quick facade tap after an armed destination was discarded" % building_type)
 			selection.select_single(worker)
 			building.state = BuildingBase.State.CONSTRUCTING
 			worker.position = facade_world + _beside_offset(selection, true)
@@ -140,8 +161,10 @@ func _run() -> void:
 		var before_gathers: int = _gather_count
 		_expect(selection.call("_get_resource_at", facade_world, true) == adjacent_tree, "%s resource fixture lies in overview discovery radius" % building_type)
 		_expect(not adjacent_tree.is_sprite_body_hit(facade_world), "%s competing resource is a discovery ring, not an opaque tree hit" % building_type)
+		var ring_before: Array[Node2D] = selection.selected.duplicate()
+		var ring_trains: bool = _expects_train(selection, building, true)
 		_push_tap(selection, selection.call("_world_to_screen", facade_world), true)
-		_expect(selection.selected.size() == 1 and selection.selected[0] == building and _gather_count == before_gathers, "%s opaque facade was stolen by an adjacent resource ring" % building_type)
+		_expect(_reached_facade(selection, building, ring_before, ring_trains) and _gather_count == before_gathers, "%s opaque facade was stolen by an adjacent resource ring" % building_type)
 		adjacent_tree.free()
 		building.free()
 

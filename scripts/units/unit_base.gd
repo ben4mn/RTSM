@@ -1112,6 +1112,9 @@ func enqueue_order(order: Dictionary) -> bool:
 	if kind == "move":
 		if not order.get("position", Vector2.INF) is Vector2 or not (order["position"] as Vector2).is_finite():
 			return false
+	elif kind == "gather":
+		if not has_method("command_gather") or int(order.get("target_id", 0)) <= 0:
+			return false
 	elif kind != "dropoff" or not has_method("command_dropoff") or int(order.get("target_id", 0)) <= 0:
 		return false
 	queued_orders.append(order.duplicate())
@@ -1128,8 +1131,14 @@ func _advance_queued_order() -> bool:
 	while not queued_orders.is_empty() and current_state != State.DEAD:
 		var order: Dictionary = queued_orders.pop_front()
 		_executing_queued_order = true
-		if str(order.get("kind", "")) == "move":
+		var order_kind: String = str(order.get("kind", ""))
+		if order_kind == "move":
 			command_move(order["position"])
+		elif order_kind == "gather":
+			# A depleted or lost resource is skipped like a stale depot.
+			var resource: Object = instance_from_id(int(order.get("target_id", 0)))
+			if is_instance_valid(resource) and resource is Node2D and not (resource as Node2D).is_queued_for_deletion():
+				call("command_gather", resource)
 		elif has_method("command_dropoff"):
 			var target: Object = instance_from_id(int(order.get("target_id", 0)))
 			if is_instance_valid(target) and target is Node2D:
