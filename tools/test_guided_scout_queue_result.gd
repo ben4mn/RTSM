@@ -67,11 +67,18 @@ func _run() -> void:
 	# the player already paid for the requested Scout.
 	var notification_feed: Node = match_scene.get_node("HUD").get("_notification_container")
 	var notifications_before: int = notification_feed.get_child_count()
-	match_scene.set("_hint_timer", 104.0)
-	match_scene.set("_hints_shown", 3)
+	# Locate the Scout reminder by context (the schedule's indices shift when a
+	# tip is retired, e.g. the HUD declutter pass dropped the Pause nag).
+	var hints: Array = match_scene.get("HINTS")
+	var scout_index: int = 0
+	for index: int in hints.size():
+		if str((hints[index] as Dictionary).get("context", "")) == "scout":
+			scout_index = index
+	match_scene.set("_hint_timer", float((hints[scout_index] as Dictionary).time) - 1.0)
+	match_scene.set("_hints_shown", scout_index)
 	match_scene.call("_update_timed_hints", 1.0)
 	_expect_eq(notification_feed.get_child_count(), notifications_before, "queued Scout suppresses redundant timed reminder")
-	_expect_eq(match_scene.get("_hints_shown"), 4, "skipped reminder still advances the schedule")
+	_expect_eq(match_scene.get("_hints_shown"), scout_index + 1, "skipped reminder still advances the schedule")
 
 	# The same onboarding shortcut still completes immediately when Scout is the head.
 	_expect(bool(queue.call("cancel_unit", 1)), "queued Scout cleanup succeeds")

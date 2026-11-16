@@ -172,7 +172,21 @@ func _running_out() -> void:
 	hints._running_out_msec.clear()
 	hints.refresh()
 	var lane: ToastLane = main.hud.get("_notification_container") as ToastLane
-	expect(lane.is_showing("Gold is running out · tap: next gold"), "the running-out toast shows")
+	# HUD declutter: an offer is a contextual hint. It shows at once on a free
+	# channel, or waits behind the guided step / a live message and shows the
+	# moment that channel frees.
+	var offer_text: String = "Gold is running out · tap: next gold"
+	expect(lane.is_showing(offer_text) or lane.is_hint_waiting(offer_text), "the running-out toast shows or waits its turn")
+	lane.set_hints_held(false)
+	for attempt: int in 4:
+		# Feedback ahead of it (live or queued) retires; then the offer shows.
+		if lane.is_showing(offer_text):
+			break
+		var current: String = lane.current_text()
+		if current.is_empty():
+			break
+		lane.dismiss(current)
+	expect(lane.is_showing(offer_text), "the running-out toast shows once the channel is free")
 	var target: Node2D = facts.next as Node2D
 	expect(hints.show_next_patch("gold"), "a tap shows the next patch")
 	await step(0.2)

@@ -70,9 +70,9 @@ var _producer_rows: Dictionary = {}
 var _group_rows: Dictionary = {}
 var _economy_button: Button
 var _army_button: Button
-## Research is the Economy sheet's third tab (Workers, Train, Tech): one
-## launcher fewer on the field. The next age has its own chip in the top bar.
-## The tab's badge counts what could be started right now.
+## Research is a page of the Economy sheet, opened from the Workers page's
+## Tech tile: one launcher fewer on the field. The next age has its own chip
+## in the top bar. The tile's badge counts what could be started right now.
 var _research_button: Button
 var _research_ready: int = 0
 ## Beta 32: one tap on Army selects every field fighter; tapping again (or
@@ -208,12 +208,6 @@ func _ready() -> void:
 	_production_tab.toggle_mode = true
 	_production_tab.pressed.connect(func() -> void: _set_production_page(true))
 	header.add_child(_production_tab)
-	_research_button = _button("Tech", "ResearchButton", 48)
-	_research_button.toggle_mode = true
-	_research_button.accessibility_name = "Research: every technology"
-	_research_button.tooltip_text = _research_button.accessibility_name
-	_research_button.pressed.connect(_on_research_rail_pressed)
-	header.add_child(_research_button)
 	_recruit_tab = _button("Recruit", "RecruitTab", 68)
 	_recruit_tab.toggle_mode = true
 	_recruit_tab.pressed.connect(func() -> void: _set_army_recruit_page(true))
@@ -411,6 +405,13 @@ func _build_economy() -> void:
 	_farm_button.pressed.connect(func() -> void: farm_requested.emit())
 	_workers_tab.get_parent().add_child(_farm_button)
 	_workers_tab.get_parent().move_child(_farm_button, 2)
+	# Research lives on the Workers page (one launcher fewer on the field; the
+	# next age has its own chip in the top bar). Its badge counts what could
+	# start now; the Research page's Workers/Train tabs lead back.
+	_research_button = _icon_button("research", "Research: every technology", "ResearchButton", 96, "Tech")
+	_research_button.toggle_mode = true
+	_research_button.pressed.connect(_on_research_rail_pressed)
+	farm_row.add_child(_research_button)
 	_farm_blocker = _label("", 12)
 	_farm_blocker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	farm_row.add_child(_farm_blocker)
@@ -1259,7 +1260,6 @@ func _refresh_pages() -> void:
 	_title.visible = research
 	_workers_tab.visible = economy_open
 	_production_tab.visible = economy_open
-	_research_button.visible = economy_open
 	_economy_button.set_pressed_no_signal(economy_open)
 	_research_button.set_pressed_no_signal(research)
 	_recruit_tab.visible = army_open
@@ -1288,7 +1288,7 @@ func _refresh_pages() -> void:
 	_farm_blocker.hide()
 	_feedback.visible = Time.get_ticks_msec() < _feedback_until_msec and not research
 	# Beta 33: each page tab names itself under its icon.
-	for entry: Array in [[_workers_tab, "economy", "Assign workers", "Workers"], [_production_tab, "base", "Train workers", "Train"], [_research_button, "research", _research_button.accessibility_name, "Tech"], [_recruit_tab, "army", "Recruit fighters", "Recruit"], [_groups_tab, "group_recall", "Army groups", "Groups"]]:
+	for entry: Array in [[_workers_tab, "economy", "Assign workers", "Workers"], [_production_tab, "base", "Train workers", "Train"], [_recruit_tab, "army", "Recruit fighters", "Recruit"], [_groups_tab, "group_recall", "Army groups", "Groups"]]:
 		CommandIcons.apply_labeled(entry[0], entry[1], entry[2], entry[3])
 		(entry[0] as Button).custom_minimum_size.x = 48
 	var selected_id: int = _selected_producer_id()
@@ -1445,7 +1445,7 @@ func apply_layout(safe: Rect2, field_visible: bool, card_area: Rect2, dock_heigh
 	group_chips.visible = _group_chips_wanted and _chips_field_visible and _chips_fit
 	# H: the idle chip stands above the Economy button, where workers live.
 	idle_chip.size = GROUP_CHIP_SIZE
-	idle_chip.position = Vector2(rail.position.x + (RAIL_BUTTON_SIZE + RAIL_GAP) * 2.0 + (RAIL_BUTTON_SIZE - GROUP_CHIP_SIZE.x) * 0.5, rail.position.y - 8.0 - GROUP_CHIP_SIZE.y)
+	idle_chip.position = Vector2(rail.position.x + (RAIL_BUTTON_SIZE + RAIL_GAP) * 1.0 + (RAIL_BUTTON_SIZE - GROUP_CHIP_SIZE.x) * 0.5, rail.position.y - 8.0 - GROUP_CHIP_SIZE.y)
 	idle_chip.visible = _idle_count > 0 and _chips_field_visible
 	# I2: "back to work" lives beside the idle chip (above Base) while anyone
 	# could resume a remembered job, so a raid's aftermath has a fixed home.
