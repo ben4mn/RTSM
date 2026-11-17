@@ -78,7 +78,15 @@ On iPhone, open the URL in Safari and use Share → Add to Home Screen. Enable *
 
 This is a rough public preview. Desktop browser automation does not certify physical-phone touch behavior, safe areas, audio, or prolonged performance.
 
-## Latest release — 2026-11-17 fewer taps
+## Latest release — 2026-11-17 swift riders
+
+`0.5.0-beta.5` (protocol 22) from `a3fc2840cc3a`, release id `v050beta5-a3fc2840cc3a`. Cut over with the scripted procedure below (same steps as beta.2), after `0.5.0-beta.3` (`v050beta3-c605949773ba`, protocol 21: long-press queued attack, tap-to-drop, View tray removed, Villager first lesson, Mongol buildings full HP) and `0.5.0-beta.4` (`v050beta4-2eace69b65e3`, protocol 21: Scout+TC fix, one-tap Build, More+Close command bar, single cues). beta.5: Mongol Outriders cost 20% less (36 Medium AI matches: Mongols 42%, French 58%, English 50%) and a single idle count.
+
+Each release: clean clone of a git bundle in `~/aoem-dev/release/RTSM-<sha>` (`git status` empty) built with `GODOT_BIN=~/aoem-dev/bin/godot tools/build_mobile_web_beta.sh` (dirty=false) and `tools/prepare_match_server.py`; in `/home/ben/aoem`: `deployment-backups/<id>/previous-state.txt`, rollback tag `aoem-online:rollback-<id>`, staged release and context both `sha256sum -c` clean, `match-server` repointed, `online` built and tagged `aoem-online:<id>`, waited for zero non-LISTEN sockets on 9080, `up -d --no-build --no-deps online` (READY with the new protocol), `site/current` switched, `new-state.txt` written. Verified each time: public `version.json`, 39/39 payload hashes, `run_online_tests.py --rooms-only` and `--combat` pass.
+
+Rollback: read `deployment-backups/<id>/previous-state.txt`, swap `site/current` and `match-server` back to the values there, `docker tag aoem-online:rollback-<id> aoem-online:local`, `docker compose -f docker-compose.yml -f docker-compose.online.yml up -d --no-build --no-deps online`, and confirm the previous protocol's READY line.
+
+## Previous release — 2026-11-17 fewer taps
 
 `0.5.0-beta.2` (protocol 20) from `17298af5311e` (main after PR #9), release id `v050beta2-17298af5311e`, replacing `0.5.0-beta.1` (`v050beta1-b059ec1867e9`). Touch pass: tap the sole selected unit to deselect, two-finger tap clears; soldiers + own producer = train one more, villagers + Town Center = train a villager; long-press ground queues waypoints, long-press a resource while walking queues a gather (new `queue_gather` server command, hence protocol 20). HUD: clock inside Pause, speed on the pause card, Sacred pill only when relevant, no map caption, rally flag, chevron or idle badges. Built from a clean clone of a git bundle (`~/aoem-dev/release/RTSM-17298af5311e`, `git status` empty) with `GODOT_BIN=~/aoem-dev/bin/godot tools/build_mobile_web_beta.sh` (dirty=false, source tree `32d0959a2f1e…`) and `tools/prepare_match_server.py` (2167 context files).
 
