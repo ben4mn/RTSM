@@ -79,6 +79,9 @@ const FIND_OWNED_SPACE_MAX_CHECKS: int = 1500
 const GENERIC_INVALID_REASON := "Invalid placement"
 const FOG_INVALID_REASON := "Move all tiles into sight"
 const SHORE_INVALID_REASON := "Too close to the shore"
+const CLEARANCE_INVALID_REASON := "Leave a 1-tile path"
+## A tap on a red spot builds on the nearest fitting footprint this close.
+const TAP_NUDGE_RADIUS_TILES: int = 2
 const PLACEMENT_GRID_COLOR := Color(0.90, 0.92, 0.83, 0.18)
 const PLACEMENT_GRID_WIDTH_PX := 0.9
 const PLACEMENT_GRID_MARGIN_TILES: int = 1
@@ -613,6 +616,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
 			# A mouse builds where it clicks; the ghost already follows it there.
 			update_preview_centered_at_screen(mb.position)
+			nudge_to_valid_footprint()
 			# AoE2 idiom: Shift+click builds and keeps the same building in hand.
 			keep_placing_requested = mb.shift_pressed
 			confirm_preview()
@@ -651,11 +655,14 @@ func _unhandled_input(event: InputEvent) -> void:
 			var is_tap: bool = start.distance_to(touch.position) < TAP_TO_PLACE_SLOP_PX
 			if not touch.canceled and not was_camera_gesture and owned_press and not dragged_ghost and is_tap and _touch_points.is_empty():
 				if grabbed:
-					# Tap on the ghost: build it exactly where it is drawn.
+					# Tap on the ghost: build it where it is drawn (or, if that
+					# spot is red, on the nearest fitting one).
+					nudge_to_valid_footprint()
 					confirm_preview()
 				else:
 					# Tap elsewhere: the ghost moves there. It never builds.
 					update_preview_centered_at_screen(touch.position)
+					nudge_to_valid_footprint()
 			# The camera must still see this release, or it keeps a stuck finger.
 		# Camera needs touch presses/releases to recognize the second finger.
 		# Selection is suspended, so these events cannot issue unit commands.
@@ -860,6 +867,41 @@ func update_preview_at_world(world_pos: Vector2) -> void:
 		ghost_position = _tile_to_world(tile.clamp(lowest, highest))
 	global_position = ghost_position
 	_refresh_preview_state(true)
+
+
+## Loop 5: a tap or click that lands on a red spot (beside a House, say)
+## slides the ghost to the nearest footprint that fits within
+## TAP_NUDGE_RADIUS_TILES, instead of refusing. Only taps nudge: hover and
+## drag previews stay strict so the player sees exactly where the finger is.
+## Returns whether the ghost now fits. A failed search leaves the ghost (and
+## its red explanation) where it was.
+func nudge_to_valid_footprint() -> bool:
+	if not active:
+		return false
+	if is_valid_placement:
+		return true
+	var origin: Vector2i = _get_ghost_tile()
+	var candidates: Array[Vector2i] = []
+	for dx: int in range(-TAP_NUDGE_RADIUS_TILES, TAP_NUDGE_RADIUS_TILES + 1):
+		for dy: int in range(-TAP_NUDGE_RADIUS_TILES, TAP_NUDGE_RADIUS_TILES + 1):
+			if dx != 0 or dy != 0:
+				candidates.append(origin + Vector2i(dx, dy))
+	candidates.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+		var a_distance: int = (a - origin).length_squared()
+		var b_distance: int = (b - origin).length_squared()
+		if a_distance != b_distance:
+			return a_distance < b_distance
+		return a.x < b.x if a.x != b.x else a.y < b.y
+	)
+	for tile: Vector2i in candidates:
+		if _check_footprint_validity(tile, current_footprint, _player_owner):
+			ghost_position = _tile_to_world(tile)
+			global_position = ghost_position
+			_refresh_preview_state(true)
+			return is_valid_placement
+	# Restore the tapped spot's own explanation after the search.
+	_refresh_preview_state(true)
+	return false
 
 
 func _update_ghost_position(screen_pos: Vector2) -> void:
@@ -1121,7 +1163,7 @@ func _mark_owned_clearance_conflicts(origin: Vector2i, footprint: Vector2i, owne
 			continue
 		_clearance_areas.append(protected_ground)
 		if _invalid_reason == "":
-			_invalid_reason = "Leave 1 tile between buildings for a path"
+			_invalid_reason = CLEARANCE_INVALID_REASON
 		for dx: int in footprint.x:
 			for dy: int in footprint.y:
 				var tile: Vector2i = origin + Vector2i(dx, dy)

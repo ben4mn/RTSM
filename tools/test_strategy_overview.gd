@@ -178,9 +178,13 @@ func _strategy_journey(phone: Vector2i, interface_scale: float, notched: bool, l
 		_expect(destination.size.is_equal_approx(Vector2(chip_width, 48)) and destination.accessibility_name.contains(resource), "destination job chip loses its equal grid or job name: " + resource)
 		_check_caption_fit(destination)
 	_expect((overview.get("_idle_button") as Button).size.is_equal_approx(Vector2(chip_width, 48)), "Find idle must complete the same job grid")
+	var workers_tab_rect: Rect2 = (overview.get("_workers_tab") as Control).get_global_rect()
+	var train_tab_rect: Rect2 = (overview.get("_production_tab") as Control).get_global_rect()
 	await _button(overview.get("_production_tab"))
 	await _frames(3)
 	_expect(not (overview.get("_farm_button") as Control).is_visible_in_tree(), "Train page failed to hide worker actions")
+	_expect((overview.get("_workers_tab") as Control).get_global_rect().is_equal_approx(workers_tab_rect) and (overview.get("_production_tab") as Control).get_global_rect().is_equal_approx(train_tab_rect), "Workers and Train tabs must not move between pages")
+	_expect(not (overview.get("_info_button") as Control).get_global_rect().has_point(train_tab_rect.get_center()), "a second tap on Train must not land on Info")
 	_expect(is_equal_approx(overview.panel.get_global_rect().position.y, management_header_top), "Workers and Train must keep their tab header in place")
 	var paid_hint: Label = row.paid
 	_expect(not paid_hint.is_visible_in_tree() and (row.queue_toggle as Button).icon != null, "producer must visibly explain retained paid units without hover or Info")

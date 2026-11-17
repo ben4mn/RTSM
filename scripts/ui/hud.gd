@@ -1761,13 +1761,11 @@ func update_placement_preview(valid: bool, reason: String = "") -> void:
 		_placement_confirm_button.tooltip_text = "Place %s" % _placement_building_name if _placement_building_name != "" else "Place building"
 		_placement_confirm_button.accessibility_name = _placement_confirm_button.tooltip_text
 	if _placement_status_label:
-		# L2: touch builds from the ghost (its Build button or the ghost itself);
-		# a mouse clicks where the ghost follows it.
-		var status: String = ("tap Build or drag it" if _placement_uses_touch else "click to build · Shift+click for more") if valid else (reason if reason != "" else "Choose clear ground")
-		# Trade planning replaces the generic instruction, keeping one compact
-		# line. The ghost and Place button already identify the building.
+		# Loop 5: the line only explains a red footprint (or a trade estimate).
+		# A fitting ghost says "Fits" and carries its own Build button, and the
+		# ghost card already names the building, so no instruction is repeated.
 		var previous_status: String = _placement_status_label.text
-		_placement_status_label.text = reason if valid and not reason.is_empty() else ("%s · %s" % [_placement_building_name, status] if _placement_building_name != "" else status)
+		_placement_status_label.text = reason if not reason.is_empty() else ("" if valid else "Choose clear ground")
 		_placement_status_label.tooltip_text = _placement_status_label.text
 		_placement_status_label.add_theme_color_override("font_color", KingdomTheme.PARCHMENT if valid else Color(1.0, 0.75, 0.55))
 		if _placement_mode_active and previous_status != _placement_status_label.text:
@@ -1776,16 +1774,14 @@ func update_placement_preview(valid: bool, reason: String = "") -> void:
 	_refresh_touch_target_diagnostics()
 
 
-## On touch the Build button on the ghost says it all while the ground fits,
-## and a lesson banner already giving the placement instruction says it for a
-## mouse too; the line returns to explain a red footprint (or trade yield).
+## The ghost says "Fits" and builds on a tap or click while the ground fits;
+## the line shows only to explain a red footprint (or a trade yield).
 func _refresh_placement_status_visibility() -> void:
 	if _placement_status_panel == null:
 		return
 	var valid: bool = _placement_preview_valid
 	var reason: String = _placement_preview_reason
-	var instructed: bool = _placement_uses_touch or is_guidance_on_screen()
-	var wanted: bool = _placement_mode_active and (not instructed or not valid or not reason.is_empty())
+	var wanted: bool = _placement_mode_active and (not valid or not reason.is_empty())
 	if _placement_status_panel.visible != wanted:
 		_placement_status_panel.visible = wanted
 		if _placement_mode_active:

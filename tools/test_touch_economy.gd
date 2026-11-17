@@ -67,8 +67,33 @@ func _back_to_work(economy: TouchEconomy) -> void:
 	map.selection_mgr.deselect_all()
 	var offered: bool = await step_until(func() -> bool: return economy._offer_text.begins_with("Back to work"), 8.0)
 	expect(offered, "a 'Back to work' toast is offered for idle villagers with jobs")
+	await _back_to_work_waits_for_safety(economy)
 	expect(economy.request_back_to_work() >= 2, "one tap sends them all")
 	await step(0.5)
+
+
+## Loop 5: neither the offer nor the "Work N" chip shows while the base is
+## still under attack (a ringing bell, or armed raiders by the Town Center);
+## both return once it is quiet. N is exactly who the tap sends.
+func _back_to_work_waits_for_safety(economy: TouchEconomy) -> void:
+	var overview: StrategyOverview = main.hud.get("_strategy_overview") as StrategyOverview
+	expect(overview != null and overview.get_back_to_work_count() >= 2, "the Work chip counts the waiting villagers")
+	expect(overview == null or overview.get_back_to_work_count() == economy._waiting_workers().size(), "Work N is the number one tap would send")
+	tc.bell_active = true
+	economy._refresh_back_to_work_offer(TouchEconomy.POLL_SECONDS)
+	expect(Garrison.is_base_threatened(main, 0), "a ringing bell means the base is not yet safe")
+	expect(economy._offer_text.is_empty() and overview.get_back_to_work_count() == 0, "no Back to work offer or Work chip while the bell rings")
+	tc.bell_active = false
+	var raider: UnitBase = spawn(UnitData.UnitType.INFANTRY, 1, Vector2i(3, 3))
+	await get_tree().process_frame
+	economy._refresh_back_to_work_offer(TouchEconomy.POLL_SECONDS)
+	expect(Garrison.is_base_threatened(main, 0), "an armed raider beside the Town Center is a live threat")
+	expect(economy._offer_text.is_empty() and overview.get_back_to_work_count() == 0, "no Back to work offer or Work chip while raiders are in the base")
+	kill(raider)
+	await get_tree().process_frame
+	expect(not Garrison.is_base_threatened(main, 0), "with the raider gone the base is safe again")
+	var returned: bool = await step_until(func() -> bool: return economy._offer_text.begins_with("Back to work") and overview.get_back_to_work_count() >= 2, 8.0)
+	expect(returned, "the offer and the Work chip return once the threat is gone")
 
 
 func _housing(economy: TouchEconomy) -> void:

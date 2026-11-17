@@ -146,7 +146,14 @@ func _tap_moves_never_builds(label: String) -> void:
 	_expect(placement.active, "%s: tapping other ground keeps placing" % name)
 	_expect(_all_buildings() == count_before, "%s: tapping other ground never builds" % name)
 	var center: Vector2 = placement.get_ghost_footprint_screen_rect().get_center()
-	_expect(center.distance_to(target) < 40.0, "%s: the footprint centres under the finger (%s vs %s)" % [name, center, target])
+	if center.distance_to(target) >= 40.0:
+		# Loop 5: a tap on a red spot slides to the nearest fitting footprint
+		# (within two tiles). Hover shows the strict spot for comparison.
+		var landed: Vector2i = map.world_to_tile(placement.ghost_position)
+		_expect(placement.is_valid_placement, "%s: a nudged ghost fits" % name)
+		placement.update_preview_centered_at_screen(target)
+		var strict: Vector2i = map.world_to_tile(placement.ghost_position)
+		_expect(not placement.is_valid_placement and absi(landed.x - strict.x) <= BuildingPlacement.TAP_NUDGE_RADIUS_TILES and absi(landed.y - strict.y) <= BuildingPlacement.TAP_NUDGE_RADIUS_TILES, "%s: the footprint centres under the finger, or nudges at most two tiles off a red spot (%s vs %s)" % [name, center, target])
 	main.call("_cancel_placement")
 	await _frames(2)
 

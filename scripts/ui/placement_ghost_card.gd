@@ -186,7 +186,7 @@ func _cost_text(cost: Dictionary) -> String:
 func _short_reason(reason: String) -> String:
 	# The button is a thumb target, not a paragraph.
 	match reason:
-		"Leave 1 tile between buildings for a path":
+		BuildingPlacement.CLEARANCE_INVALID_REASON:
 			return "Keep a gap"
 		"Move all tiles into sight":
 			return "Not in sight"

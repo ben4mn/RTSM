@@ -116,6 +116,34 @@ static func get_director() -> Garrison:
 #  Queries
 # =============================================================================
 
+## Loop 5: whether `owner`'s base is still under attack: a bell still rings,
+## an armed enemy stands within ALL_CLEAR_RADIUS_TILES of a Town Center (the
+## bell's own all-clear check), or a live RAID front (the alert lane's) lies
+## within bell range of one. "Back to work" waits for this to be false.
+static func is_base_threatened(match_main: Node, owner: int) -> bool:
+	if not is_instance_valid(match_main):
+		return false
+	var rosters: Variant = match_main.get("_player_buildings")
+	if not rosters is Array or owner < 0 or owner >= (rosters as Array).size():
+		return false
+	var feedback: Node = match_main.get("_battlefield_feedback") as Node if owner == 0 else null
+	var raids: Array[Vector2] = []
+	if is_instance_valid(feedback) and feedback.has_method("get_live_raid_positions"):
+		raids.assign(feedback.call("get_live_raid_positions", RAID_SHORTCUT_SECONDS))
+	for entry: Variant in (rosters as Array)[owner]:
+		if not is_instance_valid(entry) or not entry is BuildingBase:
+			continue
+		var town_center := entry as BuildingBase
+		if town_center.building_type != BuildingData.BuildingType.TOWN_CENTER or town_center.state == BuildingBase.State.DESTROYED:
+			continue
+		if town_center.bell_active or _armed_enemy_near(town_center, ALL_CLEAR_RADIUS_TILES):
+			return true
+		for raid_position: Vector2 in raids:
+			if tile_distance(town_center, raid_position) <= BELL_RADIUS_TILES:
+				return true
+	return false
+
+
 static func capacity_of(building: BuildingBase) -> int:
 	return int(CAPACITY.get(building.building_type, 0)) if is_instance_valid(building) else 0
 

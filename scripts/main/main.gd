@@ -1673,7 +1673,6 @@ func _on_unit_trained(unit_type: int, player_id: int, source_queue: ProductionQu
 		_update_idle_villager_count()
 		_on_selection_changed(game_map.selection_mgr.selected)
 		AudioManager.play_sfx("unit_trained")
-		hud.show_notification("Unit trained: %s" % UnitData.get_unit_name(unit_type, 0), KingdomTheme.TEAL)
 		if (
 			unit != null
 			and unit_type == UnitData.UnitType.SCOUT
@@ -2010,19 +2009,19 @@ func _on_building_constructed(building: BuildingBase, player_id: int) -> void:
 	_stats[player_id]["buildings_built"] += 1
 	if player_id == 0:
 		AudioManager.play_sfx("building_complete")
-		# The starting Town Center is placed complete; only real builds announce.
-		if GameManager.game_time > 0.5:
-			hud.show_notification("Building complete: %s" % building.building_name, KingdomTheme.TEAL)
+		# Routine completions are told by the sound and the building itself; no
+		# toast. The first House milestone yields to the guided banner, which
+		# already narrates that step.
 		if building.building_type == BuildingData.BuildingType.HOUSE and not _milestone_first_house:
 			_milestone_first_house = true
-			hud.show_notification("Milestone: First House complete.", KingdomTheme.PARCHMENT)
+			if not hud.is_guidance_on_screen():
+				hud.show_notification("Milestone: First House complete.", KingdomTheme.PARCHMENT)
 		if building.building_type in [
 			BuildingData.BuildingType.BARRACKS,
 			BuildingData.BuildingType.ARCHERY_RANGE,
 			BuildingData.BuildingType.STABLE,
 		] and not _milestone_first_military_building:
 			_milestone_first_military_building = true
-			hud.show_notification("Milestone: Military production unlocked.", KingdomTheme.PARCHMENT)
 		_refresh_guided_opening_stage()
 		_update_progression_hint()
 
@@ -3557,7 +3556,7 @@ func _on_age_up_requested() -> void:
 		var copy: String = GameManager.describe_age_up_failure(0)
 		if reason == "unaffordable":
 			var missing: Dictionary = ResourceManager.get_missing_resources(0, cost)
-			copy = "Need +%d food and +%d gold to age up." % [int(missing.get("food", 0)), int(missing.get("gold", 0))]
+			copy = _age_up_shortfall_copy(missing)
 		elif reason == "building_busy":
 			copy = "Town Center is researching. Wait or cancel it first."
 		elif reason == "needs_building":
@@ -3565,6 +3564,18 @@ func _on_age_up_requested() -> void:
 		hud.show_notification(copy, Color(1.0, 0.5, 0.35))
 	hud.refresh_age_display()
 	_update_progression_hint()
+
+
+## "Need +150 food to age up.": only the resources actually short are named.
+static func _age_up_shortfall_copy(missing: Dictionary) -> String:
+	var parts: Array[String] = []
+	for resource: String in ["food", "wood", "gold", "stone"]:
+		var amount: int = int(missing.get(resource, 0))
+		if amount > 0:
+			parts.append("+%d %s" % [amount, resource])
+	if parts.is_empty():
+		return "Not enough resources to age up."
+	return "Need %s to age up." % " and ".join(parts)
 
 
 func _focus_age_up_town_center(town_center: Node2D) -> void:
@@ -3590,7 +3601,7 @@ func _announce_age_reached(player_id: int, new_age: int) -> void:
 		_milestone_first_age_up = true
 		# The age ceremony banner already marks this moment; a milestone toast
 		# would only repeat it.
-		if hud.get_node_or_null(ResearchEffects.AGE_CEREMONY_SCRIPT.NODE_NAME) == null:
+		if hud.get_node_or_null(ResearchEffects.AGE_CEREMONY_SCRIPT.NODE_NAME) == null and not hud.is_guidance_on_screen():
 			hud.show_notification("Milestone: First Age Up reached.", Color(1.0, 0.9, 0.45))
 	_update_progression_hint()
 

@@ -4,7 +4,7 @@ extends Node
 
 const ANCHOR := Vector2i(28, 28)
 const HOUSE := BuildingData.BuildingType.HOUSE
-const CLEARANCE_REASON := "Leave 1 tile between buildings for a path"
+const CLEARANCE_REASON := BuildingPlacement.CLEARANCE_INVALID_REASON
 var _main: Node2D
 var _map: Node2D
 var _placement: BuildingPlacement
@@ -89,6 +89,7 @@ func _run() -> void:
 	_main.call("_on_building_selected_for_placement", HOUSE)
 	_check_touching_edges_and_corners()
 	_check_legal_lanes()
+	_check_tap_nudge()
 	var touching: Vector2i = ANCHOR + Vector2i(2, 0)
 	existing.start_construction()
 	_expect(not _preview(touching), "an unfinished foundation reserves the same path space")
@@ -276,6 +277,21 @@ func _check_hidden_footprint(origin: Vector2i) -> void:
 	_map.map_generator.grid[hidden.y][hidden.x] = MapData.TileType.GRASS
 	_map.pathfinding.update_tile(hidden, MapData.TileType.GRASS)
 	_map.fog_of_war.fog_grid[hidden.y][hidden.x] = MapData.FogState.VISIBLE
+
+
+## Loop 5: a tap on a red spot beside a House slides to the nearest fitting
+## footprint within two tiles; hover/drag previews (update_preview_*) stay red.
+func _check_tap_nudge() -> void:
+	var tapped: Vector2i = ANCHOR + Vector2i(2, 0)
+	_expect(not _preview(tapped), "the tapped spot beside the House is red on hover")
+	_expect(_placement.get_invalid_reason() == CLEARANCE_REASON, "hover keeps the strict path reason")
+	_expect(_placement.nudge_to_valid_footprint(), "a tap beside a House finds a fitting footprint")
+	var nudged: Vector2i = _map.world_to_tile(_placement.ghost_position)
+	_expect(_placement.is_valid_placement and nudged != tapped and absi(nudged.x - tapped.x) <= 2 and absi(nudged.y - tapped.y) <= 2, "the nudge lands within two tiles: " + str(nudged - tapped))
+	_expect((nudged - tapped).length_squared() == 1, "the nudge takes the nearest fitting footprint: " + str(nudged - tapped))
+	# Boxed in on every side: no fit within two tiles leaves the red spot as is.
+	var boxed: Vector2i = ANCHOR
+	_expect(not _preview(boxed) and not _placement.nudge_to_valid_footprint() and _map.world_to_tile(_placement.ghost_position) == boxed and not _placement.is_valid_placement, "with nothing near, the tap stays put and red")
 
 
 func _preview(tile: Vector2i) -> bool:
