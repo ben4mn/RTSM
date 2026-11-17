@@ -543,7 +543,10 @@ func update_snapshot(snapshot: Dictionary, light: bool = false) -> void:
 	# This is a count of observed idle workers, never an automatic assignment.
 	# Declutter: an unstaffed job ("No wood workers") is normal in the opening,
 	# so it stays in the tooltip and sheet; the "!" is for real attention only.
-	var economy_badge: String = (str(idle) if idle < 100 else "99+") if idle > 0 else ("!" if not attention.is_empty() else "")
+	# Loop 4: the idle chip above Economy already shows the count; repeat it on
+	# the button only while that chip is hidden (a sheet or placement owns the field).
+	var idle_on_chip: bool = idle > 0 and _chips_field_visible
+	var economy_badge: String = (str(idle) if idle < 100 else "99+") if idle > 0 and not idle_on_chip else ("!" if not attention.is_empty() else "")
 	CommandIcons.set_badge(_economy_button, economy_badge, true)
 	CommandIcons.apply(_army_button, "army", "Army: %d fighters. Recruit fighters and manage two groups. Scouts keep their own orders." % fighters)
 	# No "0" badge on an empty army.

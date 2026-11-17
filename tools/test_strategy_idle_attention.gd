@@ -80,7 +80,10 @@ func _idle_journey(phone: Vector2i, interface_scale: float, notched: bool) -> vo
 	_expect(str((snapshot.get("economy", {}) as Dictionary).get("attention", "")).is_empty(), "idle badge must not rely on a food/job warning")
 	var button: Button = overview.rail.get_node("EconomyButton")
 	var badge: Label = button.get_node("CommandIconBadge")
-	_expect(button.text == "Economy" and badge.visible and badge.text == "1" and bool(badge.get_meta("attention", false)), "staffed economy hides idle count")
+	# Loop 4: the count lives on the idle chip while it shows; the button repeats it only when the chip is hidden.
+	var chip: Button = overview.get("idle_chip")
+	var chip_shows: bool = chip != null and chip.visible
+	_expect(button.text == "Economy" and ((chip_shows and not badge.visible) or (not chip_shows and badge.visible and badge.text == "1" and bool(badge.get_meta("attention", false)))), "staffed economy hides idle count")
 	_expect(button.accessibility_name.contains("1 idle worker.") and button.tooltip_text == button.accessibility_name, "idle count needs an explicit accessible meaning")
 	_expect(badge.mouse_filter == Control.MOUSE_FILTER_IGNORE, "count cannot intercept the launcher tap")
 	var selection_before: Array = _selection.selected.duplicate()
