@@ -78,7 +78,17 @@ On iPhone, open the URL in Safari and use Share → Add to Home Screen. Enable *
 
 This is a rough public preview. Desktop browser automation does not certify physical-phone touch behavior, safe areas, audio, or prolonged performance.
 
-## Latest release — 2026-11-16 quicker ages, calmer screen
+## Latest release — 2026-11-17 fewer taps
+
+`0.5.0-beta.2` (protocol 20) from `17298af5311e` (main after PR #9), release id `v050beta2-17298af5311e`, replacing `0.5.0-beta.1` (`v050beta1-b059ec1867e9`). Touch pass: tap the sole selected unit to deselect, two-finger tap clears; soldiers + own producer = train one more, villagers + Town Center = train a villager; long-press ground queues waypoints, long-press a resource while walking queues a gather (new `queue_gather` server command, hence protocol 20). HUD: clock inside Pause, speed on the pause card, Sacred pill only when relevant, no map caption, rally flag, chevron or idle badges. Built from a clean clone of a git bundle (`~/aoem-dev/release/RTSM-17298af5311e`, `git status` empty) with `GODOT_BIN=~/aoem-dev/bin/godot tools/build_mobile_web_beta.sh` (dirty=false, source tree `32d0959a2f1e…`) and `tools/prepare_match_server.py` (2167 context files).
+
+Steps on Debian (`/home/ben/aoem`): `deployment-backups/v050beta2-17298af5311e/previous-state.txt`; rollback tags `aoem-online:rollback-v050beta2` and `rollback-v050beta2-17298af5311e` (image `sha256:392bc9d97012…`); staged release (39 sums) and context (2167 sums), both `sha256sum -c` clean; repointed `match-server`; built `online` (`sha256:e29cc51e6cd3…`, tagged `aoem-online:v050beta2-17298af5311e`); zero non-LISTEN sockets on 9080; `up -d --no-build --no-deps online` (`AOEM_MATCH_SERVER_READY port=9080 protocol=20`); switched `site/current`. `new-state.txt` records the result.
+
+Verified: public `version.json` reads 0.5.0-beta.2 / `17298af5311e`; all 39 public payloads match `SHA256SUMS.txt`; `run_online_tests.py --url wss://game.4mn.org/match --rooms-only` and `--combat` pass.
+
+Rollback: swap `site/current` back to `releases/v050beta1-b059ec1867e9` and `match-server` back to `deployment-candidates/v050beta1-b059ec1867e9/context`, `docker tag aoem-online:rollback-v050beta2 aoem-online:local`, then `docker compose -f docker-compose.yml -f docker-compose.online.yml up -d --no-build --no-deps online` and confirm the protocol 19 READY line.
+
+## Previous release — 2026-11-16 quicker ages, calmer screen
 
 `0.5.0-beta.1` (protocol 19) from `b059ec1867e9`, release id `v050beta1-b059ec1867e9`, replacing `0.4.0-beta.3` (`v040beta3-cb02371e5432`). Feel pass: one-tap age ring in the top bar; Feudal 500 food with no building gate, Castle 600F/150G plus one Range/Stable/Blacksmith, 25 s / 40 s, and the Town Center keeps training during an age-up; workers gather 1.4/tick and carry 20, Farms 350, AI villager targets ~24 at 80 pop; TC houses 10 at start, Houses 15 for 40 wood; Easy attacks from 8:00; one advisory channel, trimmed TC bar anchored left, centred pause; one shared menu family. Built from a clean clone of a git bundle on the build box (`~/aoem-dev/release/RTSM-b059ec1867e9`, `git status` empty): `tools/build_mobile_web_beta.sh build/v050beta1-b059ec1867e9` (dirty=false, source tree `3fe198bd755c…`, identical to the local playtest build) and `tools/prepare_match_server.py` (2167 context files).
 
