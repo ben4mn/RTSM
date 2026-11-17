@@ -154,7 +154,9 @@ func _check_prices_and_train_times() -> void:
 	check(int(BuildingData.get_building_cost(camp, 0).wood) == 40 and int(BuildingData.get_building_cost(camp, 1).wood) == base_camp, "English Resource Camps cost 40 wood; everyone else pays %d" % base_camp)
 	check(int(BuildingData.get_building_stats(farm, 1).cost.wood) == french_farm and int(BuildingData.get_building_stats(camp, 0).cost.wood) == 40, "build cards read the same kingdom price")
 	check(float(UnitData.get_unit_stats(villager, 1).build_time) == float(UnitData.UNITS[villager].build_time) * 0.8 and float(UnitData.get_unit_stats(villager, 0).build_time) == float(UnitData.UNITS[villager].build_time), "French Villagers train 20% faster")
-	check(UnitData.get_unit_cost(villager, 1) == UnitData.get_unit_cost(villager) and UnitData.get_unit_cost(CAVALRY, 1) == UnitData.UNITS[CAVALRY].cost, "no kingdom changes a unit price today")
+	check(UnitData.get_unit_cost(villager, 1) == UnitData.get_unit_cost(villager) and UnitData.get_unit_cost(CAVALRY, 1) == UnitData.UNITS[CAVALRY].cost and UnitData.get_unit_cost(CAVALRY, 0) == UnitData.UNITS[CAVALRY].cost, "French and English pay the published unit prices")
+	var outrider_cost: Dictionary = CivilizationData.scale_cost((UnitData.UNITS[CAVALRY].cost as Dictionary).duplicate(), CivilizationData.get_unit_cost_multiplier(MONGOLS, CAVALRY))
+	check(outrider_cost == {"food": 50, "wood": 10, "gold": 15} and CivilizationData.get_unit_cost_multiplier(MONGOLS, villager) == 1.0, "Mongol Outriders cost 20%% less (%s)" % outrider_cost)
 	# The AI (player 1, French) pays the French prices through its own transaction.
 	var ai_town: BuildingBase = main._player_buildings[1][0]
 	var ai_queue: ProductionQueue = ai_town.get_production_queue()
