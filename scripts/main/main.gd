@@ -747,7 +747,10 @@ func _refresh_guided_opening_stage() -> void:
 		return
 	match _guided_stage:
 		GuidedOpeningStage.GATHER_FOOD:
-			if _opening_gather_complete:
+			# Starting workers already herd the flock, so the first lesson is
+			# growing the economy: a queued Villager (or a food order) completes it.
+			if _opening_gather_complete or _has_queued_unit(BuildingData.BuildingType.TOWN_CENTER, UnitData.UnitType.VILLAGER):
+				_opening_gather_complete = true
 				_set_guided_stage(GuidedOpeningStage.BUILD_HOUSE)
 		GuidedOpeningStage.BUILD_HOUSE:
 			if _opening_house_complete or _has_player_building_started(0, BuildingData.BuildingType.HOUSE):
@@ -4356,17 +4359,23 @@ func _update_progression_hint() -> void:
 			GuidedOpeningStage.GATHER_FOOD:
 				if _build_menu and _build_menu.has_method("set_recommended_building"):
 					_build_menu.call("set_recommended_building", -1)
-				if has_villager_selected:
+				if has_tc_selected:
 					_apply_primary_guidance(
-						"1 / 4 · Tap a sheep or berry bush to gather food.",
+						"1 / 4 · Recruit a Villager. Your workers already tend the sheep.",
+						"train_unit",
+						UnitData.UnitType.VILLAGER
+					)
+				elif has_villager_selected:
+					_apply_primary_guidance(
+						"1 / 4 · Workers gather on their own. Recruit more at the Town Center.",
 						"",
-						-1
+						UnitData.UnitType.VILLAGER
 					)
 				else:
 					_apply_primary_guidance(
-						"1 / 4 · Tap a villager, then a sheep or berry bush.",
-						"idle_button",
-						-1
+						"1 / 4 · Tap the Town Center, then Villager.",
+						"",
+						UnitData.UnitType.VILLAGER
 					)
 				return
 			GuidedOpeningStage.BUILD_HOUSE:
