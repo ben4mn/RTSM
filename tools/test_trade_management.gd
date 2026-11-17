@@ -103,7 +103,7 @@ func _trade_journey(phone: Vector2i) -> void:
 	NetworkSession.server_mode = old_server
 	_selection.select_single(post)
 	await _frames(4)
-	_expect(not (_hud.get("_building_rally_button") as Button).is_visible_in_tree(), "selected Trade Post cannot offer an ignored rally flag")
+	_expect(not is_instance_valid(_hud.get("_building_rally_button")), "selected Trade Post offers no rally flag")
 	_expect((_hud.get("selection_details") as Label).text.contains("trade"), "selected Trade Post names its automatic route")
 	await _capture("trade-post")
 	controller._refresh()
@@ -131,7 +131,7 @@ func _trade_journey(phone: Vector2i) -> void:
 	_hud.close_secondary_surface()
 	_selection.select_single(tc)
 	await _frames(3)
-	_expect((_hud.get("_building_rally_button") as Button).is_visible_in_tree(), "Town Center flag remains available")
+	# HUD declutter: the Town Center rally is a ground/resource tap, not a flag tile.
 	_main.free()
 	_main = null
 	_hud = null

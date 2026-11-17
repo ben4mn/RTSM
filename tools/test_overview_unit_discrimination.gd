@@ -49,7 +49,8 @@ func _run() -> void:
 				var tap_world: Vector2 = unit.global_position + offset
 				var picked: Node2D = selection.call("_get_node_at", tap_world, true) as Node2D
 				_expect(picked == unit, "zoom %.3f picked a neighboring soldier at %s on %s" % [zoom, offset, unit.name])
-				selection.select_single(units[0])
+				# Start from another soldier: tapping the sole selected unit puts it away.
+				selection.select_single(units[1] if unit == units[0] else units[0])
 				selection.set("_last_tap_time", 0.0)
 				_push_tap(selection.call("_world_to_screen", tap_world))
 				_expect(selection.selected.size() == 1 and selection.selected[0] == unit, "zoom %.3f head/body tap failed to switch selection" % zoom)

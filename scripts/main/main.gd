@@ -8,6 +8,7 @@ const ATTACK_MARCH := preload("res://scripts/main/attack_march_cohesion.gd")
 const MATCH_BACKGROUND_GUARD := preload("res://scripts/main/match_background_guard.gd")
 var _match_background_guard: Node = null
 const WORKER_ORDER_UNDO := preload("res://scripts/main/worker_order_undo.gd")
+const HAPTICS := preload("res://scripts/ui/haptics.gd")
 const DEV_HOOKS := preload("res://scripts/managers/dev_hooks.gd")
 var _worker_order_undo: RefCounted = WORKER_ORDER_UNDO.new()
 ## Round 2 extension registries (network commands, snapshot and save sections).
@@ -580,6 +581,9 @@ func _on_map_ready(map_gen: MapGenerator) -> void:
 	selection_mgr.attack_move_command.connect(_on_touch_attack_move_command)
 	selection_mgr.queue_order_command.connect(_on_queue_order_command)
 	selection_mgr.cancel_queue_command.connect(_on_cancel_queue_command)
+	selection_mgr.queue_gather_command.connect(_on_queue_gather_command)
+	selection_mgr.train_from_selection_command.connect(_on_train_from_selection)
+	selection_mgr.two_finger_tap_clear_requested.connect(_on_two_finger_tap_clear)
 	selection_mgr.attack_command.connect(_on_attack_command)
 	selection_mgr.gather_command.connect(_on_gather_command)
 	selection_mgr.build_command.connect(_on_build_command)
@@ -664,8 +668,6 @@ func _bootstrap_opening_guidance() -> void:
 	hud.set_early_game_ui_state(_guided_opening_active)
 	hud.set_guided_military_shortcuts_visible(false)
 	hud.set_pending_military_shortcut(false)
-	# The camera outline needs a visible explanation outside the map drawing.
-	hud.set_minimap_hint("Map · tap to view")
 	if _guided_opening_active:
 		call_deferred("_update_progression_hint")
 	else:
@@ -2294,6 +2296,7 @@ func _on_queue_order_command(world_position: Vector2, target: Node2D) -> void:
 				payload["target"] = NetworkSession.entity_id(target)
 			_send_network_selection("queue_dropoff" if payload.has("target") else "queue_move", payload)
 		VFX.move_indicator(get_tree(), world_position)
+		HAPTICS.tap()
 		return
 	var tile: Vector2i = game_map.world_to_tile(world_position)
 	if tile.x < 0 or tile.y < 0 or tile.x >= MapData.MAP_WIDTH or tile.y >= MapData.MAP_HEIGHT:
@@ -2322,7 +2325,65 @@ func _on_queue_order_command(world_position: Vector2, target: Node2D) -> void:
 			if selected.enqueue_rally_order(order): accepted += 1
 	if accepted > 0:
 		VFX.move_indicator(get_tree(), world_position)
+		HAPTICS.tap()
 		hud.show_notification("Waypoint added")
+	else:
+		HAPTICS.refuse()
+
+
+## A held resource while workers walk a route: gather it after their waypoints.
+func _on_queue_gather_command(resource_node: Node2D) -> void:
+	if GameManager.current_state != GameManager.GameState.PLAYING or not is_instance_valid(resource_node):
+		return
+	if NetworkSession.is_client():
+		_send_network_selection("queue_gather", NetworkSession.target_payload(resource_node))
+		VFX.gather_indicator(get_tree(), resource_node.global_position)
+		HAPTICS.tap()
+		return
+	if not game_map.is_resource_target_visible_to_player(resource_node, 0) or not game_map.is_resource_target_valid(resource_node, "", 0):
+		return
+	if queue_gather_for_units(game_map.selection_mgr.selected, resource_node, 0) > 0:
+		VFX.gather_indicator(get_tree(), resource_node.global_position)
+		HAPTICS.tap()
+		hud.show_notification("Gather queued")
+	else:
+		HAPTICS.refuse()
+
+
+## Shared by local play and the match authority. Workers already walking a
+## route (or holding waypoints) append the gather; the others start it now.
+func queue_gather_for_units(units: Array, resource_node: Node2D, owner: int) -> int:
+	var accepted: int = 0
+	var order: Dictionary = {"kind": "gather", "target_id": resource_node.get_instance_id(), "position": resource_node.global_position}
+	for entry: Variant in units:
+		if not is_instance_valid(entry) or not entry is Villager or (entry as Villager).player_owner != owner:
+			continue
+		var worker := entry as Villager
+		if worker.current_state == UnitBase.State.MOVING or not worker.queued_orders.is_empty():
+			if worker.enqueue_order(order): accepted += 1
+		elif worker.command_gather(resource_node):
+			accepted += 1
+	return accepted
+
+
+## Selected troops tapped onto their producer (or workers onto a Town Center):
+## the same paid, pop-capped path as the recruit tile, online included.
+func _on_train_from_selection(building: Node2D, unit_type: int) -> void:
+	if GameManager.current_state != GameManager.GameState.PLAYING:
+		return
+	_on_train_unit_requested(building, unit_type)
+	if _last_train_request_result in ["queued", "requested", "fast_track_completed"]:
+		HAPTICS.tap()
+		hud.show_notification("+1 %s" % UnitData.get_unit_name(unit_type, 0), KingdomTheme.TEAL, 1.2)
+	else:
+		HAPTICS.refuse()
+
+
+## Two-finger tap in the world: the gesture that always clears the selection.
+func _on_two_finger_tap_clear() -> void:
+	if _placement_active or GameManager.current_state != GameManager.GameState.PLAYING:
+		return
+	_deselect_from_hud()
 
 
 func _queue_movement_orders(units: Array[UnitBase], target_tile: Vector2i, owner: int) -> int:
@@ -4268,7 +4329,6 @@ func _update_progression_hint() -> void:
 		_clear_guidance_state()
 		return
 	_refresh_guided_opening_stage()
-	hud.set_minimap_hint("Map · tap to view")
 
 	var military: int = 0
 	var has_tc_selected: bool = false
