@@ -82,14 +82,14 @@ const DEFINITIONS: Dictionary = {
 		"description": "Round felt gers cluster beside timber workshops and a small millet field. Saddle blankets air on a rail; a rider tightens a deel’s sash. Sage cloth and a horsehair standard give this Mongol frontier camp its identity.",
 		"strengths": "+30% food from herds and game · 2 extra home sheep",
 		"weakness": "Lighter Outriders · no wood, gold or Farm bonus",
-		"signature": "Outrider — swift raider that pillages gold",
+		"signature": "Outrider — swift, 20% cheaper raider that pillages gold",
 		"play_style": "Herds & raiding riders",
 		"preview_unit_icon": "res://assets/units/outrider.svg",
 		"icon_path": "res://assets/ui/civilizations/sunstride_clans.svg",
 		"gather_multipliers": {},
 		"modifiers": {"gather_wildlife": 0.30},
 		"building_hp_multiplier": 1.0,  # Loop 2 (was 0.9): Mongols won 3/13 Medium AI mirrors; TCs decide 85% of games
-		"unit_cost_multipliers": {},
+		"unit_cost_multipliers": {3: 0.8},  # Loop 2: 50 food 10 wood 15 gold; Mongols won ~20% of Medium AI matches
 		"building_cost_multipliers": {},
 		"extra_home_sheep": 2,
 		"unique_tech": "yam",
