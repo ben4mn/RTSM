@@ -1,6 +1,21 @@
 {
   "releases": [
     {
+      "id": "2026-11-16-fewer-taps",
+      "date": "2026-11-16",
+      "version": "0.5.0-beta.2",
+      "title": "Fewer taps",
+      "summary": "Train from the field, chain moves with long presses and a cleaner screen.",
+      "changes": [
+        "With soldiers selected, tap your Barracks, Range or Stable to train one more of them. Villagers tapped onto the Town Center train a Villager. Keep tapping to queue more.",
+        "Tap your one selected unit again to put it away, or tap with two fingers to clear any selection.",
+        "Long-press the ground to add a waypoint; each long press adds the next stop. Long-press a resource while villagers walk to gather there after the route.",
+        "The clock lives in the pause button and game speed moved to the pause card. The Sacred Site timer shows only in its last two minutes or once it is in play.",
+        "Removed the rally flag and collapse buttons (tap the ground to set a rally, tap the building to close), the map caption and the always-on worker and empty-army badges.",
+        "Online play needs the updated server (protocol 20)."
+      ]
+    },
+    {
       "id": "2026-11-16-quicker-ages-calmer-screen",
       "date": "2026-11-16",
       "version": "0.5.0-beta.1",
