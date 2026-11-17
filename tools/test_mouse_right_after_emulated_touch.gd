@@ -94,11 +94,15 @@ func _profile(phone: Vector2i,scale_factor: float) -> void:
 	# Natural ScreenTouch creates a left-mouse duplicate. A GUI-owned touch
 	# must not become an order or a selection change at its generated release.
 	before = _world_orders
-	var back: Button = hud.get("_selection_back_button")
-	await _touch((hud.get("_camera_view_button") as Button).get_global_rect().get_center())
-	await _touch(back.get_global_rect().get_center())
-	_expect(selection.selected.is_empty(),profile+" HUD Back touch did not clear")
+	# Loop 2: the View-tray Back is gone; the selection portrait is the GUI
+	# touch here. It opens Info and must not order or reselect the world.
+	var held: Array[Node2D] = selection.selected.duplicate()
+	var portrait: Button = hud.get("_selection_info_button")
+	await _touch(portrait.get_global_rect().get_center())
+	_expect(selection.selected == held and not held.is_empty(),profile+" HUD portrait touch changed the selection")
 	_expect(_world_orders==before,profile+" GUI touch/generated mouse ordered world")
+	hud.call("close_secondary_surface")
+	selection.deselect_all()
 	# A native ScreenTouch also produces real engine left-mouse emulation.
 	# It must move a selected worker once and retain that selection.
 	var worker: Villager = main.get("_player_units")[0][0]

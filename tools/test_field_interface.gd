@@ -72,14 +72,12 @@ func _expect(condition: bool, message: String) -> void:
 
 func _check_command_decoration(hud: CanvasLayer) -> void:
 	var move: Button = hud.get("_unit_move_button")
-	var area: Button = hud.get("_select_area_button")
 	var stance: Button = hud.get("_unit_stance_button")
 	for iteration: int in 3:
 		for armed: bool in [true, false]:
 			hud.call("set_area_selection_armed", armed)
 			hud.call("configure_unit_commands", armed, true, "Stand Ground" if armed else "Aggressive", "move" if armed else "smart")
 			_expect(move.disabled == not armed and move.button_pressed == armed, "decoration preserves enabled and armed states")
-			_expect(area.button_pressed == armed and area.accessibility_name.contains("cancel") == armed, "area state updates accessible action without restyling")
 			_expect(stance.text == ("Guard" if armed else "Aggro"), "stance caption follows state transitions")
 			_expect(move.accessibility_name.contains("armed:") == armed, "armed command description stays current")
 			var styles: Array[StyleBox] = []

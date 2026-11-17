@@ -82,7 +82,7 @@ func _solo_touch_journey() -> void:
 		_expect(button.size.x >= 48 and button.size.y >= 48, "comfortable Undo target")
 		_expect(get_viewport().get_visible_rect().encloses(button.get_global_rect()), "Undo inside viewport")
 		_expect(not button.get_global_rect().intersects(_main.hud.get("top_bar").get_global_rect()), "Undo below top rail")
-		_expect(not button.get_global_rect().intersects(_main.hud.get("_navigation_controls").get_global_rect()), "Undo separate from navigation")
+		_expect(not button.get_global_rect().intersects(_main.hud.get("minimap_bg").get_global_rect()), "Undo separate from the minimap")
 		if DisplayServer.get_name() != "headless" and not _output.is_empty():
 			await RenderingServer.frame_post_draw
 			get_viewport().get_texture().get_image().save_png(_output.path_join("undo_%s_%dx%d.png" % [_profile, physical.x, physical.y]))

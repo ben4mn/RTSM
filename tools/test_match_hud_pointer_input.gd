@@ -26,37 +26,16 @@ func _run() -> void:
 		await get_tree().process_frame
 	var map: Node = match_scene.get_node("GameMap")
 	var zoom_before: float = float(map.call("get_zoom_state")["zoom"])
-	_expect(not (hud.get("_camera_zoom_in_button") as Button).is_visible_in_tree(), "phone zoom buttons start expanded")
-	await _click((hud.get("_camera_view_button") as Button).get_global_rect().get_center())
-	_expect((hud.get("_camera_zoom_in_button") as Button).is_visible_in_tree(), "View did not reveal zoom controls")
-	await _click((hud.get("_camera_zoom_in_button") as Button).get_global_rect().get_center())
+	# Loop 2: the View tray (+ / − / Reset) is gone. Pointer zoom is the wheel
+	# over the battlefield (pinch on touch); no HUD control sits in between.
+	_expect(hud.get("_camera_view_button") == null and hud.get("_camera_zoom_in_button") == null, "removed View zoom tray is back")
+	var field_point: Vector2 = get_viewport().get_visible_rect().size * Vector2(0.5, 0.42)
+	await _wheel(field_point, MOUSE_BUTTON_WHEEL_UP)
 	await get_tree().create_timer(0.2).timeout
-	_expect(float(map.call("get_zoom_state")["zoom"]) > zoom_before, "Zoom + pointer click did not zoom in")
-	await _click((hud.get("_camera_zoom_out_button") as Button).get_global_rect().get_center())
+	_expect(float(map.call("get_zoom_state")["zoom"]) > zoom_before, "wheel over the battlefield did not zoom in")
+	await _wheel(field_point, MOUSE_BUTTON_WHEEL_DOWN)
 	await get_tree().create_timer(0.2).timeout
-	_expect(absf(float(map.call("get_zoom_state")["zoom"]) - zoom_before) < 0.001, "Zoom - does not reverse the + step")
-	# Repeated actual GUI presses must accumulate even before easing finishes;
-	# GUI ownership must not cancel the previous requested button step.
-	for press: int in 2:
-		await _click((hud.get("_camera_zoom_in_button") as Button).get_global_rect().get_center())
-	await get_tree().create_timer(0.2).timeout
-	_expect(absf(float(map.call("get_zoom_state")["zoom"]) - zoom_before * pow(1.12, 2.0)) < 0.001, "rapid GUI zoom presses lost accumulated steps")
-	for press: int in 2:
-		await _click((hud.get("_camera_zoom_out_button") as Button).get_global_rect().get_center())
-	await get_tree().create_timer(0.2).timeout
-	_expect(absf(float(map.call("get_zoom_state")["zoom"]) - zoom_before) < 0.001, "rapid GUI zoom presses failed to restore scale")
-	await _click((hud.get("_camera_zoom_in_button") as Button).get_global_rect().get_center())
-	await _click((hud.get("_camera_zoom_out_button") as Button).get_global_rect().get_center())
-	await get_tree().create_timer(0.2).timeout
-	_expect(absf(float(map.call("get_zoom_state")["zoom"]) - zoom_before) < 0.001, "early GUI zoom reversal lost the requested scale")
-	await _click((hud.get("_camera_zoom_in_button") as Button).get_global_rect().get_center())
-	await _click((hud.get("_camera_zoom_reset_button") as Button).get_global_rect().get_center())
-	_expect(absf(float(map.call("get_zoom_state")["zoom"]) - float(map.call("get_zoom_state")["default"])) < 0.001, "Reset pointer click does not restore default zoom")
-	_expect(not (hud.get("_camera_zoom_in_button") as Button).is_visible_in_tree() and hud.call("get_secondary_surface_name") == "none", "Reset did not collapse View")
-	await _click((hud.get("_camera_view_button") as Button).get_global_rect().get_center())
-	_expect((hud.get("_camera_zoom_in_button") as Button).is_visible_in_tree() and hud.call("get_secondary_surface_name") == "view", "View did not reopen after Reset")
-	await _click((hud.get("_camera_view_button") as Button).get_global_rect().get_center())
-	_expect(not (hud.get("_camera_zoom_in_button") as Button).is_visible_in_tree(), "View did not collapse zoom controls")
+	_expect(absf(float(map.call("get_zoom_state")["zoom"]) - zoom_before) < 0.01, "wheel down did not reverse the wheel-up step")
 	var home_button: Button = hud.call("get_base_navigation_button") as Button
 	await _click(home_button.get_global_rect().get_center())
 	var selected_building: Node2D = hud.get("_selected_building_ref") as Node2D
@@ -123,7 +102,7 @@ func _run() -> void:
 	Engine.time_scale = 1.0
 	match_scene.free()
 	if _failures.is_empty():
-		print("[PASS] match_hud_pointer_input: Zoom +/−/Reset, Home, readable guidance, training and visible repeat toggle work through full-match GUI hit testing")
+		print("[PASS] match_hud_pointer_input: wheel zoom, Home, readable guidance, training and visible repeat toggle work through full-match GUI hit testing")
 		get_tree().quit(0)
 		return
 	for failure: String in _failures:
@@ -152,6 +131,19 @@ func _capture(name: String) -> void:
 	await RenderingServer.frame_post_draw
 	var result: Error = get_viewport().get_texture().get_image().save_png(directory.path_join(name + ".png"))
 	_expect(result == OK, "could not save rendered HUD screenshot %s" % name)
+
+
+func _wheel(position: Vector2, button: MouseButton) -> void:
+	await _hover(position)
+	for pressed: bool in [true, false]:
+		var wheel := InputEventMouseButton.new()
+		wheel.button_index = button
+		wheel.position = position
+		wheel.global_position = position
+		wheel.pressed = pressed
+		wheel.factor = 1.0
+		get_viewport().push_input(wheel, true)
+		await get_tree().process_frame
 
 
 func _click(position: Vector2) -> void:

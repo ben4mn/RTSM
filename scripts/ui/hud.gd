@@ -17,8 +17,6 @@ signal cancel_queue_requested(building: Node2D, index: int)
 signal select_all_military_pressed()
 signal find_army_pressed()
 signal town_center_pressed()
-signal camera_zoom_requested(direction: int)
-signal camera_zoom_reset_requested()
 signal unit_move_requested()
 signal unit_attack_move_requested()
 signal unit_patrol_requested()
@@ -28,7 +26,6 @@ signal unit_stance_requested()
 signal deselect_requested()
 ## A type chip of a mixed own selection was tapped: keep only that unit type.
 signal selection_type_requested(unit_type: int)
-signal select_area_requested()
 signal center_selection_requested()
 ## Any building context-action card was tapped (BuildingBase.get_context_actions).
 signal building_action_requested(building: Node2D, action_id: String)
@@ -90,7 +87,7 @@ enum UIModalState {
 	AGE_UP,
 }
 
-enum SecondarySurface { NONE, VIEW, MORE, QUEUE, INFO, HELP, WORLD_CONTEXT, ECONOMY, ARMY }
+enum SecondarySurface { NONE, MORE, QUEUE, INFO, HELP, WORLD_CONTEXT, ECONOMY, ARMY }
 var _strategy_overview: StrategyOverview = null
 const HUD_HOLD_SCRIPT := preload("res://scripts/ui/hud_hold_control.gd")
 const DISMISS_SHIELD_SCRIPT := preload("res://scripts/ui/modal_dismiss_shield.gd")
@@ -116,6 +113,8 @@ var _save_status: Dictionary = {}
 var _save_status_label: Label
 var _save_exit_button: Button
 var _selection_info_button: Button = null
+const PORTRAIT_DOUBLE_TAP_MSEC: int = 400
+var _portrait_last_tap_msec: int = 0
 var _selection_name_header: HBoxContainer = null
 var _selection_meter_label: Label = null
 var _selection_meter_information: String = ""
@@ -160,20 +159,11 @@ const MINIMAP_UPDATE_INTERVAL: float = 1.0
 # Pause / speed controls
 var _pause_button: Button = null
 var _speed_button: Button = null
-var _camera_controls: HBoxContainer = null
-var _camera_view_button: Button = null
-var _camera_controls_expanded: bool = false
-var _selection_back_button: Button = null
-var _select_area_button: Button = null
 var _area_selection_armed: bool = false
 var _movement_controls_hint_shown: bool = false
 var _selection_kind: String = "none"
 var _selection_is_worker: bool = false
 var _selection_is_scout: bool = false
-var _camera_zoom_in_button: Button = null
-var _camera_zoom_out_button: Button = null
-var _camera_zoom_reset_button: Button = null
-var _camera_center_button: Button = null
 var _camera_zoom_current: float = 1.0
 var _camera_zoom_min: float = 0.5
 var _camera_zoom_max: float = 2.5
@@ -315,8 +305,6 @@ var _placement_mode_active: bool = false
 var _selection_context_active: bool = false
 var _minimap_frame: Panel = null
 var _command_dock: Panel = null
-var _navigation_controls: VBoxContainer = null
-var _navigation_actions: HBoxContainer = null
 var _worker_idle_button: Button = null
 var _world_safe_rect := Rect2()
 
@@ -345,7 +333,6 @@ func _ready() -> void:
 
 	# Create new UI elements
 	_create_game_control_buttons()
-	_create_camera_controls()
 	_create_match_population_label()
 	_ensure_mobile_action_strip()
 	_create_command_dock()
@@ -557,6 +544,32 @@ func _process_hud(_delta: float) -> void:
 		_refresh_touch_target_diagnostics()
 
 
+func _input(event: InputEvent) -> void:
+	# Portrait double-tap: Info may already cover the portrait (small
+	# landscape) and its shield owns outside taps, so claim the second press
+	# here, before GUI routing.
+	if _portrait_last_tap_msec <= 0 or not is_instance_valid(_selection_info_button):
+		return
+	var press: bool = (event is InputEventScreenTouch and (event as InputEventScreenTouch).pressed) \
+		or (event is InputEventMouseButton and (event as InputEventMouseButton).pressed and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT)
+	if not press:
+		return
+	# Only the Info card that the first tap opened arms the second tap.
+	if Time.get_ticks_msec() - _portrait_last_tap_msec > PORTRAIT_DOUBLE_TAP_MSEC or _secondary_surface != SecondarySurface.INFO \
+			or not _selection_context_active or not _selection_info_button.is_visible_in_tree():
+		_portrait_last_tap_msec = 0
+		return
+	var local: InputEvent = _selection_info_button.make_input_local(event)
+	var point: Vector2 = (local as InputEventScreenTouch).position if local is InputEventScreenTouch else (local as InputEventMouseButton).position
+	if not Rect2(Vector2.ZERO, _selection_info_button.size).has_point(point):
+		_portrait_last_tap_msec = 0
+		return
+	_portrait_last_tap_msec = 0
+	get_viewport().set_input_as_handled()
+	close_secondary_surface()
+	center_selection_requested.emit()
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if not event.is_pressed() or event.is_echo():
 		return
@@ -617,124 +630,11 @@ func _create_game_control_buttons() -> void:
 	root_ctrl.add_child(hbox)
 
 
-func _create_camera_controls() -> void:
-	_camera_controls = HBoxContainer.new()
-	_camera_controls.name = "CameraZoomControls"
-	_camera_controls.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	_camera_controls.add_theme_constant_override("separation", 4)
-	_camera_controls.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_camera_view_button = Button.new()
-	_camera_view_button.name = "CameraViewButton"
-	_camera_view_button.text = "View"
-	_camera_view_button.custom_minimum_size = Vector2(48, 48)
-	_camera_view_button.add_theme_font_size_override("font_size", 12)
-	KingdomTheme.apply_secondary(_camera_view_button)
-	_camera_view_button.toggle_mode = true
-	_camera_view_button.tooltip_text = "Show map navigation and camera controls"
-	for style_name: String in ["normal", "hover", "pressed", "disabled"]:
-		var view_style: StyleBox = _camera_view_button.get_theme_stylebox(style_name).duplicate()
-		view_style.set_content_margin(SIDE_LEFT, 4.0)
-		view_style.set_content_margin(SIDE_RIGHT, 4.0)
-		_camera_view_button.add_theme_stylebox_override(style_name, view_style)
-	_camera_view_button.pressed.connect(func() -> void:
-		_set_secondary_surface(SecondarySurface.NONE if _secondary_surface == SecondarySurface.VIEW else SecondarySurface.VIEW)
-	)
-	_camera_controls.add_child(_camera_view_button)
-	_camera_zoom_out_button = Button.new()
-	_camera_zoom_out_button.name = "ZoomOutButton"
-	_camera_zoom_out_button.text = "−"
-	_camera_zoom_out_button.custom_minimum_size = Vector2(48, 48)
-	_camera_zoom_out_button.add_theme_font_size_override("font_size", 25)
-	_camera_zoom_out_button.tooltip_text = "Zoom out to see more of the map"
-	_camera_zoom_out_button.pressed.connect(func(): camera_zoom_requested.emit(-1))
-	_camera_controls.add_child(_camera_zoom_out_button)
-	_camera_zoom_in_button = Button.new()
-	_camera_zoom_in_button.name = "ZoomInButton"
-	_camera_zoom_in_button.text = "+"
-	_camera_zoom_in_button.custom_minimum_size = Vector2(48, 48)
-	_camera_zoom_in_button.add_theme_font_size_override("font_size", 25)
-	_camera_zoom_in_button.tooltip_text = "Zoom in for a closer view"
-	_camera_zoom_in_button.pressed.connect(func(): camera_zoom_requested.emit(1))
-	_camera_controls.add_child(_camera_zoom_in_button)
-	_camera_zoom_reset_button = Button.new()
-	_camera_zoom_reset_button.name = "ZoomResetButton"
-	_camera_zoom_reset_button.text = "Reset"
-	_camera_zoom_reset_button.custom_minimum_size = Vector2(64, 48)
-	_camera_zoom_reset_button.add_theme_font_size_override("font_size", 14)
-	_camera_zoom_reset_button.tooltip_text = "Return to the starting view scale"
-	_camera_zoom_reset_button.pressed.connect(func() -> void:
-		close_secondary_surface()
-		camera_zoom_reset_requested.emit()
-	)
-	_camera_controls.add_child(_camera_zoom_reset_button)
-	_camera_center_button = Button.new()
-	_camera_center_button.name = "CenterSelectionButton"
-	_camera_center_button.text = "Center"
-	_camera_center_button.custom_minimum_size = Vector2(64, 48)
-	_camera_center_button.add_theme_font_size_override("font_size", 12)
-	_camera_center_button.tooltip_text = "Center the selected units in the visible battlefield [Space]"
-	_camera_center_button.pressed.connect(func() -> void:
-		close_secondary_surface()
-		center_selection_requested.emit()
-	)
-	_camera_controls.add_child(_camera_center_button)
-	$Root.add_child(_camera_controls)
-	_selection_back_button = Button.new()
-	_selection_back_button.name = "SelectionBackButton"
-	_selection_back_button.text = "Back"
-	_selection_back_button.custom_minimum_size = Vector2(48, 48)
-	_selection_back_button.add_theme_font_size_override("font_size", 14)
-	_selection_back_button.tooltip_text = "Clear selection and return to kingdom controls"
-	_selection_back_button.pressed.connect(func() -> void:
-		close_secondary_surface()
-		deselect_requested.emit()
-	)
-	$Root/BottomRight.add_child(_selection_back_button)
-	_selection_back_button.visible = false
-	_select_area_button = Button.new()
-	_select_area_button.name = "SelectAreaButton"
-	_select_area_button.text = "Select area"
-	_select_area_button.custom_minimum_size = Vector2(48, 48)
-	_select_area_button.add_theme_font_size_override("font_size", 12)
-	_select_area_button.toggle_mode = true
-	_select_area_button.focus_mode = Control.FOCUS_NONE
-	_select_area_button.tooltip_text = "Select area, then drag around your units. Tap again to cancel."
-	_select_area_button.pressed.connect(func() -> void:
-		close_secondary_surface()
-		select_area_requested.emit()
-	)
-	_navigation_controls = VBoxContainer.new()
-	_navigation_controls.name = "MapNavigation"
-	_navigation_controls.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_navigation_controls.add_theme_constant_override("separation", 6)
-	_navigation_controls.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	$Root.add_child(_navigation_controls)
-	_navigation_actions = HBoxContainer.new()
-	_navigation_actions.name = "MapNavigationActions"
-	_navigation_actions.add_theme_constant_override("separation", 6)
-	_navigation_actions.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_navigation_controls.add_child(_navigation_actions)
-	_camera_view_button.reparent(_navigation_actions)
-	_navigation_actions.add_child(_select_area_button)
-	_selection_back_button.reparent(_navigation_actions)
-	_selection_back_button.text = "Clear"
-	_selection_back_button.add_theme_font_size_override("font_size", 12)
-	_camera_controls.reparent(_navigation_controls)
-	_navigation_controls.move_child(_camera_controls, 0)
-	_camera_controls.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	_camera_controls.hide()
-	_select_area_button.hide()
-	_select_area_button.text = "Select area"
-	KingdomTheme.apply_secondary(_select_area_button)
-
-
+## No camera tray: on touch, pinch zooms, hold-drag box-selects, the minimap
+## pans, a two-finger tap or the dock's Clear deselects and a double-tap on the
+## selection portrait centers the camera on the selection (Space on desktop).
 func set_area_selection_armed(armed: bool) -> void:
 	_area_selection_armed = armed
-	if _select_area_button:
-		_select_area_button.set_pressed_no_signal(armed)
-		var label: String = "Drag to select; tap again to cancel" if armed else "Select area"
-		_select_area_button.tooltip_text = label
-		_select_area_button.accessibility_name = label
 	set_progression_hint("Drag to select" if armed else "")
 	_queue_mobile_layout_refresh()
 
@@ -743,15 +643,6 @@ func update_camera_zoom(current: float, minimum: float, maximum: float) -> void:
 	_camera_zoom_current = current
 	_camera_zoom_min = minimum
 	_camera_zoom_max = maximum
-	var interactable: bool = _ui_modal_state == UIModalState.NONE
-	if _camera_zoom_in_button:
-		_camera_zoom_in_button.disabled = not interactable or current >= maximum - 0.001
-	if _camera_zoom_out_button:
-		_camera_zoom_out_button.disabled = not interactable or current <= minimum + 0.001
-	if _camera_zoom_reset_button:
-		_camera_zoom_reset_button.disabled = not interactable
-	if _camera_view_button:
-		_camera_view_button.disabled = not interactable
 	_refresh_touch_target_diagnostics()
 
 
@@ -862,9 +753,6 @@ func _refresh_command_icons() -> void:
 	# Closed launchers are compact; their expanded choices retain short captions.
 	var definitions: Array = [
 		[_pause_button, "resume" if _ui_modal_state == UIModalState.PAUSE_MENU else "pause", "Resume" if _ui_modal_state == UIModalState.PAUSE_MENU else "Pause"],
-		[_camera_view_button, "view", "Map navigation and camera controls"],
-		[_select_area_button, "select_area", "Drag to select; tap again to cancel" if _area_selection_armed else "Select area"],
-		[_selection_back_button, "back", "Clear selection"],
 		[_unit_move_button, "move", "Move"],
 		[_unit_attack_move_button, "attack", "Attack-move"],
 		[_unit_more_button, "back" if _advanced_commands_open else "more", "Close orders" if _advanced_commands_open else "More orders"],
@@ -892,10 +780,6 @@ func _refresh_command_icons() -> void:
 		_pause_button.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	CommandIcons.set_badge(_unit_more_button, "•" if _unit_command_mode == "patrol" else "")
 	var expanded: Array = [
-		[_camera_zoom_out_button, "zoom_out", "Zoom out", ""],
-		[_camera_zoom_in_button, "zoom_in", "Zoom in", ""],
-		[_camera_zoom_reset_button, "reset", "Reset zoom", "Reset"],
-		[_camera_center_button, "center", "Center selection", ""],
 		[_unit_stop_button, "stop", "Stop selected units", ""],
 		[_unit_patrol_button, "patrol", "Patrol between two points", "Patrol"],
 		[_unit_stance_button, "stance", _unit_stance_button.tooltip_text.trim_suffix(" [G]"), "Guard" if _unit_stance_button.button_pressed else "Aggro"],
@@ -915,7 +799,7 @@ func _refresh_command_icons() -> void:
 			button.vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER
 			button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER if String(entry[3]).is_empty() else HORIZONTAL_ALIGNMENT_LEFT
 			button.alignment = HORIZONTAL_ALIGNMENT_CENTER if String(entry[3]).is_empty() else HORIZONTAL_ALIGNMENT_LEFT
-			button.custom_minimum_size = Vector2(48.0 if entry[1] in ["zoom_in", "zoom_out"] else 80.0, 48.0)
+			button.custom_minimum_size = Vector2(80.0, 48.0)
 			button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	CommandIcons.set_badge(_worker_idle_button, str(_last_idle_villager_count) if _last_idle_villager_count > 0 else "")
 	if _unit_move_button:
@@ -928,10 +812,8 @@ func _refresh_command_icons() -> void:
 	# refreshes cannot erase them; retain concise accessibility action names.
 	var shortcuts: Dictionary = {
 		_pause_button: "[P / Esc]" if _ui_modal_state == UIModalState.PAUSE_MENU else "[P]",
-		_selection_back_button: "[Esc]",
 		_unit_clear_button: "[Esc]",
 		build_menu_button: "[B]",
-		_camera_center_button: "[Space]",
 		_unit_stop_button: "[T]",
 		_unit_patrol_button: "[R]",
 		_unit_stance_button: "[G]",
@@ -1290,10 +1172,6 @@ func _set_gameplay_ui_interactable(interactable: bool) -> void:
 		_find_army_button.disabled = not interactable or _last_military_count <= 0
 	if _town_center_button:
 		_town_center_button.disabled = not interactable
-	if _selection_back_button:
-		_selection_back_button.disabled = not interactable
-	if _select_area_button:
-		_select_area_button.disabled = not interactable
 	if _placement_cancel_button:
 		_placement_cancel_button.disabled = not interactable
 	if _placement_find_space_button:
@@ -1414,7 +1292,7 @@ func get_world_occlusion_rects() -> Array[Rect2]:
 	var obstacles: Array[Rect2] = []
 	_prune_hold_components()
 	var build_menu_panel: Control = get_node_or_null("BuildMenu") as Control
-	for control: Control in [top_bar, minimap_bg, _command_dock, _navigation_controls,
+	for control: Control in [top_bar, minimap_bg, _command_dock,
 		_progression_hint_panel, _sacred_site_panel, _advanced_command_panel, _placement_status_panel,
 		_hotkey_panel, _info_panel, _worker_undo_button, build_menu_panel]:
 		if control != null and control.is_visible_in_tree() and control.size.x > 0.0 and control.size.y > 0.0:
@@ -2051,26 +1929,6 @@ func apply_mobile_layout(viewport_size: Vector2, safe_area: Rect2) -> void:
 		minimap_bg.offset_top = metrics["minimap_top"]
 		minimap_bg.offset_right = metrics["minimap_right"]
 
-	if _camera_controls:
-		_navigation_controls.visible = standard_field_chrome_visible and _ui_modal_state == UIModalState.NONE
-		_camera_controls.visible = _navigation_controls.visible and _camera_controls_expanded
-		_camera_view_button.visible = true
-		_camera_view_button.set_pressed_no_signal(_camera_controls_expanded)
-		for zoom_button: Button in [_camera_zoom_out_button, _camera_zoom_in_button, _camera_zoom_reset_button, _camera_center_button]:
-			zoom_button.visible = _camera_controls_expanded
-		_navigation_controls.offset_left = metrics["minimap_left"]
-		var camera_width: float = _production_row_width(_camera_controls) if _camera_controls_expanded else 0.0
-		_camera_center_button.disabled = not _selection_context_active or _ui_modal_state != UIModalState.NONE
-		var nav_width: float = maxf(camera_width, _production_row_width(_navigation_actions))
-		var nav_height: float = 102.0 if _camera_controls_expanded else 48.0
-		_navigation_controls.offset_right = metrics["minimap_left"] + nav_width
-		_navigation_controls.offset_bottom = metrics["minimap_top"] - 8.0
-		_navigation_controls.offset_top = _navigation_controls.offset_bottom - nav_height
-		_navigation_controls.size = Vector2(nav_width, nav_height)
-		metrics["camera_zoom_left"] = metrics["minimap_left"]
-		metrics["camera_zoom_right"] = metrics["minimap_left"] + nav_width
-		metrics["camera_zoom_top"] = viewport_size.y + _navigation_controls.offset_top
-		metrics["camera_zoom_bottom"] = viewport_size.y + _navigation_controls.offset_bottom
 	var bottom_right: Control = get_node_or_null("Root/BottomRight")
 	if bottom_right:
 		bottom_right.visible = standard_field_chrome_visible and build_menu_button.visible
@@ -2268,10 +2126,6 @@ func _apply_context_actions(viewport_size: Vector2) -> void:
 	# The age chip lives in the top bar for every selection: one tap advances
 	# (or says what is missing); a running age-up shows its ring there.
 	age_up_button.visible = gm != null
-	_selection_back_button.visible = field_mode and _camera_controls_expanded and _selection_context_active and _selection_kind != "unit"
-	_selection_back_button.text = "Back"
-	_select_area_button.visible = field_mode and _camera_controls_expanded
-	_select_area_button.disabled = _ui_modal_state != UIModalState.NONE
 	_town_center_button.visible = _strategy_overview == null and field_mode and unselected
 	_idle_villager_button.visible = _strategy_overview == null and field_mode and _last_idle_villager_count > 0 and unselected
 	var military_allowed: bool = not _early_game_ui_active or _guided_military_shortcuts_visible
@@ -2545,11 +2399,6 @@ func _refresh_touch_target_diagnostics() -> void:
 	if _strategy_overview:
 		diag["strategy_rail"] = _collect_button_diags(_strategy_overview.rail, "strategy_rail")
 		diag["strategy_surface"] = get_secondary_surface_name()
-	diag["camera_zoom_buttons"] = _collect_button_diags(_camera_controls, "camera_zoom")
-	diag["camera_zoom_controls"] = _control_touch_diag(_camera_controls, "camera_zoom_controls")
-	diag["camera_view_button"] = _control_touch_diag(_camera_view_button, "camera_view")
-	diag["camera_controls_expanded"] = _camera_controls_expanded
-	diag["selection_back_button"] = _control_touch_diag(_selection_back_button, "selection_back")
 	diag["selection_context"] = _selection_kind
 	diag["camera_zoom"] = _camera_zoom_current
 	diag["match_population_limit"] = _match_population_limit
@@ -5479,7 +5328,7 @@ func notify_world_gesture_started() -> bool:
 	_cancel_queue_navigation_press()
 	# Called only after actual world admission; GUI contacts cannot collapse a
 	# reading surface. Blocking outside contacts belong to the dismissal shield.
-	if _secondary_surface in [SecondarySurface.VIEW, SecondarySurface.MORE, SecondarySurface.QUEUE]:
+	if _secondary_surface in [SecondarySurface.MORE, SecondarySurface.QUEUE]:
 		close_secondary_surface()
 	return false
 
@@ -5511,7 +5360,7 @@ func _set_secondary_surface(surface: SecondarySurface, preserve_queue_scroll: bo
 	if surface == SecondarySurface.QUEUE and (not queue_container.visible or not is_instance_valid(_selected_building_ref)):
 		return
 	var previous: SecondarySurface = _secondary_surface
-	if surface in [SecondarySurface.VIEW, SecondarySurface.MORE, SecondarySurface.INFO, SecondarySurface.HELP, SecondarySurface.WORLD_CONTEXT]:
+	if surface in [SecondarySurface.MORE, SecondarySurface.INFO, SecondarySurface.HELP, SecondarySurface.WORLD_CONTEXT]:
 		_cancel_queue_navigation_press()
 	_secondary_surface = surface
 	_refresh_progression_hint_visibility()
@@ -5537,7 +5386,6 @@ func _set_secondary_surface(surface: SecondarySurface, preserve_queue_scroll: bo
 		_queue_view_offset = maxi(0, command_scroll.scroll_horizontal - int(queue_container.position.x)) if preserve_queue_scroll else 0
 		if not preserve_queue_scroll:
 			command_scroll.scroll_horizontal = int(queue_container.position.x)
-	_camera_controls_expanded = surface == SecondarySurface.VIEW
 	_advanced_commands_open = surface == SecondarySurface.MORE
 	if _unit_more_button:
 		_unit_more_button.set_pressed_no_signal(_advanced_commands_open)
@@ -5738,9 +5586,13 @@ func _refresh_dismissal_shield() -> void:
 		_secondary_dismissal_shield.call("set_active", _secondary_surface in [SecondarySurface.HELP, SecondarySurface.WORLD_CONTEXT, SecondarySurface.ECONOMY, SecondarySurface.ARMY] or (_secondary_surface == SecondarySurface.INFO and _active_hold_component == null))
 
 
+## Tap the selection portrait for Info. A quick second tap on the portrait
+## closes it and centers the camera on the selection instead (the touch form
+## of Space); see _input, which sees that tap before the Info card or shield.
 func _show_selection_information() -> void:
 	if not _selection_context_active:
 		return
+	_portrait_last_tap_msec = Time.get_ticks_msec()
 	show_card_information(_selection_information())
 	_refresh_info_card_actions()
 
