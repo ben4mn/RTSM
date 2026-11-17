@@ -1,6 +1,21 @@
 {
   "releases": [
     {
+      "id": "2026-11-17-quiet-field",
+      "date": "2026-11-17",
+      "version": "0.5.0-beta.6",
+      "title": "Quiet field",
+      "summary": "Fewer pop-ups, smarter building taps, and Continue that just continues.",
+      "changes": [
+        "Routine toasts (unit trained, building complete) are gone, and each tip shows once per match.",
+        "Tapping a spot that doesn't quite fit nudges the building to the nearest spot that does.",
+        "Back to work only appears once raiders have left, and sends exactly the villagers it counts.",
+        "The idle Town Center reminder shows once per idle spell, and never while its badge is showing.",
+        "Continue resumes your saved match running instead of paused.",
+        "The Train tab in Economy stays put, so repeated taps never open the info card."
+      ]
+    },
+    {
       "id": "2026-11-17-swift-riders",
       "date": "2026-11-17",
       "version": "0.5.0-beta.5",
