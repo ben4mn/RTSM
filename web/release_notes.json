@@ -1,6 +1,18 @@
 {
   "releases": [
     {
+      "id": "2026-11-17-swift-riders",
+      "date": "2026-11-17",
+      "version": "0.5.0-beta.5",
+      "title": "Swift riders",
+      "summary": "Fairer Mongols and a quieter Economy button.",
+      "changes": [
+        "Mongol Outriders cost 20% less (50 food, 10 wood, 15 gold), so the herds feed a real army. In AI test matches each kingdom now wins 42–58% of games.",
+        "The idle-worker count shows once, on the chip above Economy, instead of twice.",
+        "Online play needs the updated server (protocol 22)."
+      ]
+    },
+    {
       "id": "2026-11-17-one-cue-one-tap",
       "date": "2026-11-17",
       "version": "0.5.0-beta.4",
