@@ -381,7 +381,8 @@ func _waiting_workers() -> Array[Villager]:
 
 func _refresh_back_to_work_offer(step: float) -> void:
 	var hud: Node = main.get("hud") as Node
-	var count: int = _waiting_workers().size()
+	# Loop 5: nobody is asked back while raiders are still in the base.
+	var count: int = 0 if Garrison.is_base_threatened(main, 0) else _waiting_workers().size()
 	_waiting_count = count
 	# I2: the offer has a persistent home on the "Work" chip beside the idle chip.
 	var overview: Variant = hud.get("_strategy_overview") if is_instance_valid(hud) else null
@@ -431,7 +432,11 @@ func request_back_to_work() -> int:
 		NetworkSession.send_command("back_to_work", {"ids": ids.slice(0, 64)})
 		sent = ids.size()
 	else:
-		sent = back_to_work(0)
+		# The same villagers the "Work N" count names, so N is who goes.
+		var waiting: Array[Villager] = _waiting_workers()
+		if waiting.is_empty():
+			return 0
+		sent = back_to_work(0, waiting)
 	if sent > 0 and is_instance_valid(hud):
 		hud.call("show_notification", "%d back to work" % sent, Color(0.62, 0.86, 0.6), 2.0)
 		AudioManager.play_ui("command_move")

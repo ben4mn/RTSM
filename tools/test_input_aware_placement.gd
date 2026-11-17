@@ -185,8 +185,8 @@ func _assert_mouse_ui() -> void:
 	_expect(not (_hud.get("_placement_confirm_button") as Button).is_visible_in_tree(), "mouse placement exposes a misleading second Place action")
 	_expect(not (_hud.call("get_placement_ghost_card") as PlacementGhostCard).is_build_visible(), "mouse placement shows a Build button chasing the cursor")
 	if _placement.is_valid_placement:
-		# L2 copy: "House · click to build · Shift+click for more".
-		_expect((_hud.get("_placement_status_label") as Label).text.contains("click to build"), "valid mouse preview lacks click-to-place instructions")
+		# Loop 5: the ghost's own "Fits" is the instruction; no status pill.
+		_expect(not (_hud.get("_placement_status_panel") as Control).is_visible_in_tree(), "valid mouse preview shows a redundant status pill")
 
 
 func _assert_cost(before: Dictionary, cost: Dictionary, phase: String) -> void:

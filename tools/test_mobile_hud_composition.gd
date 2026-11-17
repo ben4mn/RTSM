@@ -235,7 +235,7 @@ func _exercise_profile(phone: Vector2i, ui_scale: float, notched: bool) -> void:
 		hud.call("update_placement_preview", false, BuildingPlacement.FOG_INVALID_REASON)
 		await _settle(hud, logical, safe)
 		var status: Label = hud.get("_placement_status_label")
-		_expect(status.text == building_name + " · Move all tiles into sight", profile + " fog explanation missing")
+		_expect(status.text == "Move all tiles into sight", profile + " fog explanation missing")
 		_label_fits(status, profile + " full-footprint sight")
 		_expect(safe.encloses(status_panel.get_global_rect()), profile + " sight status leaves safe area")
 	# A mouse: the ghost follows the cursor and a click builds; Cancel stays.
@@ -244,8 +244,13 @@ func _exercise_profile(phone: Vector2i, ui_scale: float, notched: bool) -> void:
 	await _settle(hud, logical, safe)
 	_expect(not place.visible and not find_space.visible and cancel.visible, profile + " normal mouse placement contract changed")
 	_target(cancel, safe, profile)
-	_expect((hud.get("_placement_status_label") as Label).text.contains("click to build"), profile + " mouse placement instruction missing")
+	# Loop 5: a fitting ghost says "Fits" itself; no desktop instruction pill.
+	_expect(not status_panel.visible, profile + " a fitting mouse ghost keeps a redundant status pill")
+	hud.call("update_placement_preview", false, BuildingPlacement.CLEARANCE_INVALID_REASON)
+	await _settle(hud, logical, safe)
+	_expect(status_panel.visible and (hud.get("_placement_status_label") as Label).text == BuildingPlacement.CLEARANCE_INVALID_REASON, profile + " a red mouse ghost does not explain itself")
 	_label_fits(hud.get("_placement_status_label"), profile + " mouse status")
+	hud.call("update_placement_preview", true, "")
 	var search_safe: Rect2 = hud.call("get_placement_search_safe_rect")
 	_expect(safe.encloses(search_safe) and search_safe.end.y <= (hud.get("_mobile_action_panel") as Control).get_global_rect().position.y, profile + " search permits bottom action band")
 	hud.call("set_ui_modal_state", 2)

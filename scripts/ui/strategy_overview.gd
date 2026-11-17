@@ -418,8 +418,10 @@ func _build_economy() -> void:
 	_economy.add_child(farm_row)
 	_farm_button = _icon_button("farm", "Plan a paid permanent Farm", "PlanFarm", TRAIN_CARD_WIDTH, "75")
 	_farm_button.pressed.connect(func() -> void: farm_requested.emit())
+	# Loop 5: Farm sits after both page tabs. Hidden on the Train page, it must
+	# not shift Train (or let Info slide under a second Train tap).
 	_workers_tab.get_parent().add_child(_farm_button)
-	_workers_tab.get_parent().move_child(_farm_button, 2)
+	_workers_tab.get_parent().move_child(_farm_button, _production_tab.get_index() + 1)
 	_farm_blocker = _label("", 12)
 	_farm_blocker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	farm_row.add_child(_farm_blocker)

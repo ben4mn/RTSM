@@ -14,7 +14,8 @@ extends VBoxContainer
 ## Contextual hints (offers with a `keep_while`, or pushed with `hint = true`)
 ## rank below the guided step and below any feedback or alert: they show only
 ## while the lane is empty and not held (the HUD holds it while the guidance
-## card shows), and otherwise wait for as long as they still apply.
+## card shows), and otherwise wait for as long as they still apply. A plain tip
+## that has appeared once is not brought back after being pushed aside.
 ##
 ## Children are PanelContainers whose first child is the message Label.
 
@@ -336,10 +337,15 @@ func _expire(pill: PanelContainer) -> void:
 	_promote()
 
 
-## A hint pushed aside by feedback (or the guided step) waits to come back if
-## it still applies; a tapped or expired one does not.
+## An offer (a hint with a `keep_while`) pushed aside by feedback (or the
+## guided step) waits to come back if it still applies; a tapped or expired one
+## does not. A plain tip has had its turn once it appeared: it never returns,
+## so each tip shows at most once.
 func _park_hint(pill: PanelContainer) -> void:
 	if not bool(pill.get_meta("toast_hint", false)) or bool(pill.get_meta("toast_answered", false)):
+		return
+	var keep: Variant = pill.get_meta("toast_keep_while", Callable())
+	if not (keep is Callable and (keep as Callable).is_valid()):
 		return
 	var entry: Dictionary = (pill.get_meta("toast_entry", {}) as Dictionary).duplicate()
 	if entry.is_empty():

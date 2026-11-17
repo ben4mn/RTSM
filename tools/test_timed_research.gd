@@ -106,6 +106,11 @@ func _check_data() -> void:
 		check(TechData.AI_PRIORITY.has(definition.id), "%s is in the AI priority list" % definition.id)
 	check(TechData.get_research_definition("knight").cost == {"food": 400, "gold": 200} and TechData.get_research_definition("champion").cost == {"food": 300, "gold": 150}, "revision 2 line-upgrade prices")
 	check(is_equal_approx(TechData.get_research_time("age_2"), float(TechData.AGE_UP_TIMES[2])) and is_equal_approx(TechData.get_research_time("age_3"), float(TechData.AGE_UP_TIMES[3])), "age-up takes the data-defined time per age")
+	# Loop 5: the age-up hint names only the resources actually short.
+	var main_script: GDScript = load("res://scripts/main/main.gd") as GDScript
+	check(str(main_script.call("_age_up_shortfall_copy", {"food": 150, "gold": 0})) == "Need +150 food to age up.", "a zero gold shortfall is omitted")
+	check(str(main_script.call("_age_up_shortfall_copy", {"food": 290, "gold": 80})) == "Need +290 food and +80 gold to age up.", "both shortfalls are named")
+	check(str(main_script.call("_age_up_shortfall_copy", {"food": 0, "gold": 40})) == "Need +40 gold to age up.", "a zero food shortfall is omitted")
 
 
 func _check_research_slot() -> void:
