@@ -34,8 +34,10 @@ func _run() -> void:
     var age_cost: Dictionary = GameManager.get_age_up_cost(0, age_before + 1)
     _expect(age_button.tooltip_text.contains("%d food · %d gold" % [int(age_cost.get("food", 0)), int(age_cost.get("gold", 0))]),"Age Up does not show the initial costs before purchase")
     _expect(age_button.tooltip_text.contains("Need"),"Age Up does not expose its affordability shortfall")
-    await _tap((hud.get("_camera_view_button") as Button).get_global_rect().get_center())
-    await _tap((hud.get("_selection_back_button") as Button).get_global_rect().get_center())
+    # Loop 2: no View-tray Back; tapping the selected Town Center puts it away.
+    var home_tc: Node2D=hud.get("_selected_building_ref")
+    if home_tc!=null:
+        await _tap(get_viewport().get_canvas_transform()*home_tc.global_position)
     await _tap((hud.get("build_menu_button") as Button).get_global_rect().get_center())
     _expect(bool(palette.get("visible")),"real touch did not open Build")
     var house_card: Button=palette.get("_button_map")[BuildingData.BuildingType.HOUSE]

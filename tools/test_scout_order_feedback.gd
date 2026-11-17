@@ -135,7 +135,7 @@ func _check_phone_rejection(context: String) -> void:
 		_expect(safe.encloses(toast.get_global_rect()), context + " rejection toast remains inside 844x390")
 		_expect(label.get_line_count() == label.get_visible_line_count(), context + " rejection toast shows every wrapped line")
 		_expect(label.get_minimum_size().y <= label.size.y + 0.5, context + " rejection text does not clip vertically")
-		for key: String in ["_camera_controls", "selection_panel", "_pause_button"]:
+		for key: String in ["selection_panel", "_pause_button"]:
 			var control := _hud.get(key) as Control
 			if is_instance_valid(control) and control.is_visible_in_tree():
 				_expect(not toast.get_global_rect().intersects(control.get_global_rect()), context + " rejection toast avoids " + key)

@@ -91,7 +91,7 @@ func _scenario(phone: Vector2i, scale_factor: float, notched: bool) -> void:
 				_expect(not card.intersects((toast as Control).get_global_rect()), profile + " toast covers a raid card")
 	_expect(not bool(map.call("is_tile_visible_to_player", site.get("tile_position"), 0)), profile + " site fixture is not fogged")
 	var siblings: Array[Dictionary] = []
-	for property: String in ["_progression_hint_panel", "_sacred_site_panel", "_camera_controls", "_command_dock", "_navigation_controls"]:
+	for property: String in ["_progression_hint_panel", "_sacred_site_panel", "_command_dock"]:
 		var control: Control = hud.get(property) as Control
 		if is_instance_valid(control) and control.is_visible_in_tree():
 			siblings.append({"name": property, "rect": control.get_global_rect()})

@@ -1,6 +1,6 @@
 extends Node
 ## Frozen real-scene visual fixtures. These screenshots are layout evidence, not paid match evidence.
-const STATES: Array[String] = ["unselected","worker","tc","tc_repeat","military_production","warrior","archer","horseman","mixed_army","commands","view_expanded","build_economy","build_army","placement_invalid","placement_valid","pause","results"]
+const STATES: Array[String] = ["unselected","worker","tc","tc_repeat","military_production","warrior","archer","horseman","mixed_army","commands","build_economy","build_army","placement_invalid","placement_valid","pause","results"]
 const WORKER_STATUS_FIXTURES: Dictionary = {"worker_idle":"Idle", "worker_move":"Moving", "worker_retreat":"Retreating", "worker_shelter":"Sheltering", "worker_seek":"Seeking Food", "worker_gather":"Gathering Food", "worker_return":"Returning Wood", "worker_wait":"Waiting for drop-off", "worker_build":"Building", "worker_mixed":"Mixed tasks", "worker_armed":"Returning Wood"}
 var _states: Array[String] = STATES.duplicate()
 var _records: Array[Dictionary] = []
@@ -87,7 +87,6 @@ func _profile(phone: Vector2i,interface_scale: float) -> void:
         camera.force_update_scroll()
         hud.call("update_camera_zoom",zoom,float(map.call("get_zoom_state")["min"]),float(map.call("get_zoom_state")["max"]))
         for state: String in _states:
-            hud.set("_camera_controls_expanded",state=="view_expanded")
             for toast: Node in (hud.get("_notification_container") as Control).get_children():
                 hud.call("_retire_dynamic_control",toast)
             hud.call("set_ui_modal_state",0)

@@ -1115,6 +1115,9 @@ func enqueue_order(order: Dictionary) -> bool:
 	elif kind == "gather":
 		if not has_method("command_gather") or int(order.get("target_id", 0)) <= 0:
 			return false
+	elif kind == "attack":
+		if damage <= 0.0 or int(order.get("target_id", 0)) <= 0:
+			return false
 	elif kind != "dropoff" or not has_method("command_dropoff") or int(order.get("target_id", 0)) <= 0:
 		return false
 	queued_orders.append(order.duplicate())
@@ -1139,6 +1142,14 @@ func _advance_queued_order() -> bool:
 			var resource: Object = instance_from_id(int(order.get("target_id", 0)))
 			if is_instance_valid(resource) and resource is Node2D and not (resource as Node2D).is_queued_for_deletion():
 				call("command_gather", resource)
+		elif order_kind == "attack":
+			# A dead or vanished target is skipped; the route continues.
+			var foe: Object = instance_from_id(int(order.get("target_id", 0)))
+			if is_instance_valid(foe) and foe is Node2D and not (foe as Node2D).is_queued_for_deletion():
+				if foe is UnitBase:
+					command_attack(foe as UnitBase)
+				elif foe is BuildingBase:
+					command_attack_building(foe as BuildingBase)
 		elif has_method("command_dropoff"):
 			var target: Object = instance_from_id(int(order.get("target_id", 0)))
 			if is_instance_valid(target) and target is Node2D:

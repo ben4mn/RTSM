@@ -185,7 +185,7 @@ func _find_accessible_worker(hud: CanvasLayer, workers: Array, tc: BuildingBase,
 		if not field.encloses(art):
 			continue
 		var clear: bool = true
-		for panel_name: String in ["_sacred_site_panel", "_progression_hint_panel", "_camera_controls", "_minimap_frame", "_minimap_hint_label", "_town_center_button", "build_menu_button"]:
+		for panel_name: String in ["_sacred_site_panel", "_progression_hint_panel", "_minimap_frame", "_minimap_hint_label", "_town_center_button", "build_menu_button"]:
 			var overlay: Control = hud.get(panel_name) as Control
 			if overlay != null and overlay.is_visible_in_tree() and art.intersects(overlay.get_global_rect().grow(3.0)):
 				clear = false
@@ -203,7 +203,7 @@ func _check_accessible(hud: CanvasLayer, tc: Node2D, worker: Node2D, food: Node2
 			continue
 		var projected: Rect2 = _projected_entrance_bounds(subject as BuildingBase) if body_only else _projected_visual_bounds(subject)
 		_expect(field.grow(0.5).encloses(projected), "%s %s art/marker bounds %s leave field %s" % [prefix, subject.name, projected, field])
-		for panel_name: String in ["_sacred_site_panel", "_progression_hint_panel", "_camera_controls", "_minimap_frame", "_minimap_hint_label", "_town_center_button", "build_menu_button"]:
+		for panel_name: String in ["_sacred_site_panel", "_progression_hint_panel", "_minimap_frame", "_minimap_hint_label", "_town_center_button", "build_menu_button"]:
 			var overlay: Control = hud.get(panel_name) as Control
 			if overlay != null and overlay.is_visible_in_tree():
 				var obstacle: Rect2 = overlay.get_global_rect().grow(3.0)

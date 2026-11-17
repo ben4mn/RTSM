@@ -140,22 +140,16 @@ func _test_phone(phone: Vector2i) -> void:
 			await _center_and_check(main, [workers[0]], "%dx%d-scale%.3f-%s-single-2x" % [phone.x, phone.y, scale_value, "notch" if notched else "full"], true)
 			_expect(absf(camera.zoom.x - 2.0) < 0.001, "fitting single worker preserves deliberate 2x zoom")
 			if notched and is_equal_approx(scale_value, 1.15):
-				var view_button: Control = hud.get("_camera_view_button")
-				await _tap_control(view_button)
-				for frame: int in range(3):
-					await get_tree().process_frame
-				hud.call("apply_mobile_layout", logical, safe)
-				await get_tree().process_frame
-				var center_button: Control = hud.get("_camera_center_button")
-				_expect(center_button.is_visible_in_tree() and not (center_button as Button).disabled, "Center is reachable through View on Large/notched phone")
+				# Loop 2: the View tray is gone; a double-tap on the selection
+				# portrait is the touch Center.
+				var portrait: Control = hud.get("_selection_info_button")
+				_expect(portrait.is_visible_in_tree() and not (portrait as Button).disabled, "Center is reachable through the selection portrait on Large/notched phone")
 				var old_target: Vector2 = (workers[0] as UnitBase).move_target
 				var old_selection: Array[Node2D] = selection.selected.duplicate()
-				await _center_and_check(main, [workers[0]], "%dx%d-large-notch-touch-center" % [phone.x, phone.y], true, center_button)
-				_expect(selection.selected == old_selection and (workers[0] as UnitBase).move_target == old_target, "Center/View touch emits no world order and preserves selection")
+				await _center_and_check(main, [workers[0]], "%dx%d-large-notch-touch-center" % [phone.x, phone.y], true, portrait, false, true)
+				_expect(selection.selected == old_selection and (workers[0] as UnitBase).move_target == old_target, "portrait Center touch emits no world order and preserves selection")
 				_expect(absf(camera.zoom.x - 2.0) < 0.001, "touch Center preserves fitting manual 2x zoom")
-				await _tap_control(view_button)
-				for frame: int in range(3):
-					await get_tree().process_frame
+				_expect(hud.call("get_secondary_surface_name") == "none", "portrait double-tap leaves no Info card open")
 				for overlay_case: String in ["build-overlay", "help-overlay"]:
 					var shortcut: int = KEY_B if overlay_case == "build-overlay" else KEY_F2
 					get_viewport().gui_release_focus()
@@ -228,7 +222,7 @@ func _test_phone(phone: Vector2i) -> void:
 	await get_tree().process_frame
 
 
-func _center_and_check(main: Node, subjects: Array[Node2D], prefix: String, capture: bool, button: Control = null, keyboard: bool = false) -> void:
+func _center_and_check(main: Node, subjects: Array[Node2D], prefix: String, capture: bool, button: Control = null, keyboard: bool = false, double_tap: bool = false) -> void:
 	var game_map: Node2D = main.get("game_map")
 	var hud: CanvasLayer = main.get("hud")
 	var camera: Camera2D = game_map.get("camera")
@@ -240,6 +234,8 @@ func _center_and_check(main: Node, subjects: Array[Node2D], prefix: String, capt
 		_dispatch_center()
 	else:
 		await _tap_control(button)
+		if double_tap:
+			await _tap_control(button)
 	_expect(int(game_map.call("get_camera_interaction_revision")) == revision + 1, prefix + " actual Center is dispatched once")
 	await get_tree().process_frame
 	var safe: Rect2 = hud.call("get_world_safe_rect")

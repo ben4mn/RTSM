@@ -15,9 +15,13 @@ func _run() -> void:
 	for size: Vector2i in [Vector2i(390, 844), Vector2i(844, 390), Vector2i(632, 356), Vector2i(1280, 720)]:
 		await _profile(size)
 	for failure: String in failures: push_error("[FAIL] navigation_collapse: " + failure)
-	if failures.is_empty(): print("[PASS] navigation_collapse: %d checks; four desktop/phone viewports, one collapsed icon, actual GUI open/zoom/area/reset/clear taps, resize and modal collapse" % checks)
+	if failures.is_empty(): print("[PASS] navigation_collapse: %d checks; four desktop/phone viewports, no View tray, actual GUI portrait tap Info / double-tap Center, resize and modal" % checks)
 	get_tree().quit(0 if failures.is_empty() else 1)
 
+## Loop 2: the View tray (zoom +/-, Reset, Center, Select area, Clear) is
+## gone. Pinch / wheel zoom, hold-drag box-selects, the dock's Clear or a
+## two-finger tap deselects, and a double-tap on the selection portrait is the
+## touch Center (Space on desktop). This checks the replacement surface.
 func _profile(size: Vector2i) -> void:
 	var view := SubViewport.new()
 	view.size = size
@@ -25,27 +29,12 @@ func _profile(size: Vector2i) -> void:
 	var hud: CanvasLayer = HUD_SCENE.instantiate()
 	view.add_child(hud)
 	await _settle(hud, size)
-	var nav: Control = hud.get("_navigation_controls")
-	var toggle: Button = hud.get("_camera_view_button")
-	var area: Button = hud.get("_select_area_button")
 	var label := str(size)
-	_expect(_visible_buttons(nav).size() == 1 and toggle.is_visible_in_tree(), label + " default is not one navigation icon")
-	_expect(nav.size.x <= 64.0 and nav.size.y <= 48.5, label + " collapsed cluster retains empty space")
-	var signals: Array[int] = [0, 0, 0, 0]
-	hud.camera_zoom_requested.connect(func(_direction: int) -> void: signals[0] += 1)
-	hud.select_area_requested.connect(func() -> void: signals[1] += 1)
-	hud.camera_zoom_reset_requested.connect(func() -> void: signals[2] += 1)
-	hud.deselect_requested.connect(func() -> void: signals[3] += 1)
-	await _tap(view, hud, toggle, size)
-	_expect(bool(hud.get("_camera_controls_expanded")) and area.is_visible_in_tree(), label + " navigation tap did not expose controls")
-	_check_geometry(hud, size, label)
-	await _tap(view, hud, hud.get("_camera_zoom_out_button"), size)
-	_expect(signals[0] == 1 and bool(hud.get("_camera_controls_expanded")), label + " zoom failed or collapsed the tray")
-	await _tap(view, hud, area, size)
-	_expect(signals[1] == 1 and not bool(hud.get("_camera_controls_expanded")), label + " area tap must arm once and close tray")
-	await _tap(view, hud, toggle, size)
-	await _tap(view, hud, hud.get("_camera_zoom_reset_button"), size)
-	_expect(signals[2] == 1 and _visible_buttons(nav).size() == 1, label + " reset did not collapse")
+	for removed: String in ["_navigation_controls", "_camera_view_button", "_select_area_button", "_camera_controls", "_selection_back_button", "_camera_center_button"]:
+		_expect(hud.get(removed) == null, label + " removed navigation control is back: " + removed)
+	_expect(hud.find_child("MapNavigation", true, false) == null and hud.find_child("CameraViewButton", true, false) == null, label + " View tray nodes still exist")
+	var centers: Array[int] = [0]
+	hud.center_selection_requested.connect(func() -> void: centers[0] += 1)
 	var building := BuildingBase.new()
 	building.player_owner = 0
 	building.building_type = BuildingData.BuildingType.TOWN_CENTER
@@ -53,39 +42,37 @@ func _profile(size: Vector2i) -> void:
 	view.add_child(building)
 	hud.call("show_building_selection", "Town Center", 100, 100, [], [], building)
 	await _settle(hud, size)
-	_expect(not (hud.get("_selection_back_button") as Button).is_visible_in_tree(), label + " selection exposes a second collapsed button")
-	await _tap(view, hud, toggle, size)
-	var clear: Button = hud.get("_selection_back_button")
-	_expect(clear.is_visible_in_tree(), label + " expanded tray lost Clear")
-	_check_geometry(hud, size, label + " selected")
-	await _tap(view, hud, clear, size)
-	_expect(signals[3] == 1 and _visible_buttons(nav).size() == 1, label + " Clear did not emit once and collapse")
-	await _tap(view, hud, toggle, size)
+	var portrait: Button = hud.get("_selection_info_button")
+	_expect(portrait.is_visible_in_tree(), label + " selection portrait is hidden")
+	_check_geometry(hud, portrait, size, label)
+	# One tap: Info; the portrait stays reachable through the Info shield.
+	await _tap(view, hud, portrait, size)
+	_expect(hud.call("get_secondary_surface_name") == "info" and centers[0] == 0, label + " portrait tap did not open Info")
+	# A quick second tap: Info closes and the camera centers once.
+	await _tap(view, hud, portrait, size)
+	_expect(centers[0] == 1 and hud.call("get_secondary_surface_name") == "none", label + " portrait double-tap did not center once and close Info")
+	# A slow second tap is never a Center: Info just opens again.
+	await _tap(view, hud, portrait, size)
+	hud.set("_portrait_last_tap_msec", Time.get_ticks_msec() - 2000)
+	await _tap(view, hud, portrait, size)
+	_expect(centers[0] == 1, label + " a slow portrait tap centered the camera")
+	hud.call("close_secondary_surface")
 	var resized := Vector2i(932, 430) if size.x < size.y else Vector2i(390, 844)
 	view.size = resized
 	await _settle(hud, resized)
-	_check_geometry(hud, resized, label + " resized")
-	hud.call("notify_world_gesture_started")
-	await _settle(hud, resized)
-	_expect(_visible_buttons(nav).size() == 1, label + " world gesture did not collapse")
+	_check_geometry(hud, portrait, resized, label + " resized")
 	hud.call("set_ui_modal_state", 2)
 	await _settle(hud, resized)
-	_expect(not nav.is_visible_in_tree(), label + " modal retained navigation")
+	_expect(not portrait.is_visible_in_tree() or portrait.disabled or hud.call("get_secondary_surface_name") == "none", label + " modal left a portrait surface open")
 	hud.call("set_ui_modal_state", 0)
 	await _settle(hud, resized)
-	_expect(_visible_buttons(nav).size() == 1, label + " modal close reopened navigation")
 	view.free()
 	await get_tree().process_frame
 
-func _check_geometry(hud: CanvasLayer, size: Vector2i, label: String) -> void:
+func _check_geometry(hud: CanvasLayer, button: Button, size: Vector2i, label: String) -> void:
 	var safe := Rect2(Vector2.ZERO, Vector2(size))
-	var buttons: Array[Button] = _visible_buttons(hud.get("_navigation_controls"))
-	for button: Button in buttons:
-		_expect(button.size.x >= 47.5 and button.size.y >= 47.5, label + " target below48: " + button.name)
-		_expect(safe.encloses(button.get_global_rect()), label + " target leaves viewport: " + button.name)
-		_expect(not button.get_global_rect().intersects((hud.get("minimap_bg") as Control).get_global_rect()), label + " target overlaps minimap")
-		for other: Button in buttons:
-			if other != button: _expect(not button.get_global_rect().intersects(other.get_global_rect()), label + " navigation targets overlap")
+	_expect(button.size.x >= 47.5 and button.size.y >= 47.5, label + " portrait target below48")
+	_expect(safe.encloses(button.get_global_rect()), label + " portrait leaves viewport")
 
 func _visible_buttons(node: Node) -> Array[Button]:
 	var result: Array[Button] = []
