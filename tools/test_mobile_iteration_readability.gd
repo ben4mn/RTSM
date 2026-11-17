@@ -85,7 +85,6 @@ func _profile(phone: Vector2i, scale_factor: float, notched: bool) -> void:
             _expect(text.size.y >= text.get_theme_font("font").get_height(text.get_theme_font_size("font_size")),"%s natural notification collapsed: %s" % [label,text.text])
             _expect(text.get_line_count() == text.get_visible_line_count(),"%s notification hides lines: %s" % [label,text.text])
             _expect(safe.encloses(toast.get_global_rect()),"%s notification outside safe area" % label)
-            _expect(not toast.get_global_rect().intersects((hud.get("_camera_controls") as Control).get_global_rect()),"%s notification %s (text %s, lines %d, min %s) overlaps zoom rail %s" % [label,toast.get_global_rect(),text.text,text.get_line_count(),text.custom_minimum_size,(hud.get("_camera_controls") as Control).get_global_rect()])
     for amount: int in [9999,99999,9999999]:
         hud.call("_update_resource_display",{"food":amount,"wood":amount,"gold":amount})
         hud.call("update_population",40,40)
@@ -100,7 +99,7 @@ func _profile(phone: Vector2i, scale_factor: float, notched: bool) -> void:
             if not utility.is_ancestor_of(item):
                 _expect(not item.get_global_rect().intersects(utility.get_global_rect()),"%s bank%d %s overlaps Pause" % [label,amount,key])
             _text_fits(item,label+" "+key)
-    _expect((hud.get("_camera_view_button") as Button).visible and not (hud.get("_camera_zoom_in_button") as Button).visible,"%s view controls do not start collapsed" % label)
+    _expect(hud.get("_camera_view_button") == null and hud.get("_camera_controls") == null,"%s removed View tray is back" % label)
     var tc := BuildingBase.new()
     tc.building_type = BuildingData.BuildingType.TOWN_CENTER
     tc.player_owner = 0
@@ -120,7 +119,7 @@ func _profile(phone: Vector2i, scale_factor: float, notched: bool) -> void:
     await _selection_name_readable(hud,logical,safe,label)
     _text_fits(hud.get("selection_details"),label)
     _expect(not (hud.get("build_menu_button") as Button).visible and not (hud.get("_town_center_button") as Button).visible and not (hud.get("_select_military_button") as Button).visible,"%s TC retains irrelevant kingdom controls" % label)
-    _expect((hud.get("age_up_button") as Button).visible and not (hud.get("_selection_back_button") as Button).visible and (hud.get("_camera_view_button") as Button).visible,"%s TC loses Age or collapsed navigation" % label)
+    _expect((hud.get("age_up_button") as Button).visible,"%s TC loses Age" % label)
     var queue_navigation: Button = hud.get("_queue_navigation_button")
     _button_text_fits(queue_navigation,label+" queue navigation")
     _expect(queue_navigation.visible and not queue_navigation.disabled,"%s queue navigation missing or disabled" % label)
@@ -184,14 +183,6 @@ func _profile(phone: Vector2i, scale_factor: float, notched: bool) -> void:
     hud.call("clear_selection")
     await _settle(hud,logical,safe)
     _expect((hud.get("_town_center_button") as Button).visible and (hud.get("_select_military_button") as Button).visible and (hud.get("build_menu_button") as Button).visible,"%s unselected kingdom controls do not restore" % label)
-    (hud.get("_camera_view_button") as Button).pressed.emit()
-    await _settle(hud,logical,safe)
-    _expect((hud.get("_camera_zoom_in_button") as Button).visible,"%s View does not reveal zoom controls" % label)
-    for camera_action: Button in (hud.get("_camera_controls") as HBoxContainer).get_children():
-        if camera_action.visible:
-            _expect(camera_action.size.x>=48 and camera_action.size.y>=48,"%s expanded camera target under48" % label)
-    (hud.get("_camera_view_button") as Button).pressed.emit()
-    await _settle(hud,logical,safe)
     var grid: Array = []
     for y: int in MapData.MAP_HEIGHT:
         var row: Array = []
@@ -213,7 +204,6 @@ func _profile(phone: Vector2i, scale_factor: float, notched: bool) -> void:
     var caption: Label = hud.get("_minimap_hint_label")
     _text_fits(caption,label+" minimap caption")
     _expect((hud.get("minimap_bg") as Control).get_global_rect().encloses(caption.get_global_rect()),"%s caption extends beyond minimap" % label)
-    _expect(not caption.get_global_rect().intersects((hud.get("_camera_controls") as Control).get_global_rect()),"%s map caption overlaps zoom" % label)
     _profiles.append({"profile":label,"logical_viewport":str(logical),"safe":str(safe),"details":(hud.get("selection_details") as Label).text,"shelf":str((hud.get("selection_panel") as Control).get_global_rect()),"production_units":production_units,"context_shelves":context_shelves,"hit_targets":hud.get("touch_target_diagnostics"),"render_to_css_ratio":Vector2(phone)/Vector2(logical)})
     tc.free()
     viewport.free()
@@ -386,7 +376,6 @@ func _non_production_shelf_density(hud: Node,logical: Vector2i,safe: Rect2,profi
         if context == "foundation":
             _expect(not scroll.visible,context_profile+" retains an empty command viewport")
             _expect(panel.size.x <= 168.0,context_profile+" retains empty width")
-            _expect(not (hud.get("_selection_back_button") as Button).visible and (hud.get("_camera_view_button") as Button).visible,context_profile+" loses collapsed navigation")
         else:
             var commands: HBoxContainer = hud.get("_unit_command_container")
             _expect(commands.get_child_count() == 4,context_profile+" loses an action")

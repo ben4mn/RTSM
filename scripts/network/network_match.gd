@@ -495,7 +495,7 @@ func _serialize_orders(orders: Array[Dictionary]) -> Array:
 	var serialized: Array = []
 	for order: Dictionary in orders:
 		var position: Vector2 = order.get("position", Vector2.ZERO)
-		if order.get("kind", "") == "dropoff":
+		if order.get("kind", "") in ["dropoff", "attack"]:
 			var target: Object = instance_from_id(int(order.get("target_id", 0)))
 			if not is_instance_valid(target) or not target is Node2D:
 				continue
@@ -595,6 +595,10 @@ func execute_command(owner: int, packet: Dictionary) -> String:
 			if not game_map.is_resource_target_valid(target, "", owner) or not game_map.is_resource_target_visible_to_player(target, owner):
 				return "Resource no longer available"
 			return "" if main.queue_gather_for_units(units, target, owner) > 0 else "Order queue full or unavailable"
+		"queue_attack":
+			if target == null or target.player_owner == owner or not game_map.is_entity_visible_to_player(target, owner):
+				return "Target no longer visible"
+			return "" if main.queue_attack_for_units(units, target, owner) > 0 else "Order queue full or unavailable"
 		"undo_workers":
 			var undo_result: Dictionary = main._worker_order_undo.restore(owner, int(packet.get("undo_id", 0)), game_map)
 			return str(undo_result.get("error", ""))

@@ -44,10 +44,8 @@ func _profile(phone: Vector2i,scale_factor: float) -> void:
     # HUD declutter: the age chip lives in the top bar for every selection.
     _expect(not (hud.get("build_menu_button") as Button).is_visible_in_tree() and (hud.get("age_up_button") as Button).is_visible_in_tree() and (hud.get("top_bar") as Control).is_ancestor_of(hud.get("age_up_button")) and (hud.call("get_base_navigation_button") as Button).is_visible_in_tree(),profile+" army loses persistent Base/age chip or exposes construction controls")
     var before: int=_orders
-    await _tap((hud.get("_camera_view_button") as Button).get_global_rect().get_center())
-    _expect((hud.get("_camera_zoom_in_button") as Button).is_visible_in_tree(),profile+" View touch does not open zoom")
-    await _tap((hud.get("_camera_view_button") as Button).get_global_rect().get_center())
-    _expect(not (hud.get("_camera_zoom_in_button") as Button).is_visible_in_tree(),profile+" View touch does not collapse zoom")
+    # Loop 2: the View tray is gone; pinch, hold-drag and the portrait cover it.
+    _expect(hud.get("_camera_view_button")==null,profile+" the removed View button is back")
     await _tap((hud.get("_unit_more_button") as Button).get_global_rect().get_center())
     _expect((hud.get("_advanced_command_panel") as Control).is_visible_in_tree(),profile+" More touch does not open orders")
     _expect(_orders==before,profile+" visible HUD touch issued world order")
@@ -77,10 +75,10 @@ func _profile(phone: Vector2i,scale_factor: float) -> void:
     await _settle()
     _expect((hud.get("age_up_button") as Button).is_visible_in_tree() and not (hud.get("build_menu_button") as Button).is_visible_in_tree(),profile+" Town Center context is wrong")
     before=_orders
-    await _tap((hud.get("_camera_view_button") as Button).get_global_rect().get_center())
-    await _tap((hud.get("_selection_back_button") as Button).get_global_rect().get_center())
-    _expect(not bool(hud.get("_selection_context_active")) and (hud.call("get_base_navigation_button") as Button).is_visible_in_tree(),profile+" Back does not restore kingdom controls")
-    _expect(_orders==before,profile+" Back leaks world order")
+    # Loop 2: no View-tray Back; tapping the selected building puts it away.
+    await _tap(get_viewport().get_canvas_transform()*tc.global_position)
+    _expect(not bool(hud.get("_selection_context_active")) and (hud.call("get_base_navigation_button") as Button).is_visible_in_tree(),profile+" tapping the selected Town Center does not restore kingdom controls")
+    _expect(_orders==before,profile+" Town Center deselect tap leaks world order")
     print("Context dispatch: ",profile," logical viewport=",get_viewport().get_visible_rect().size," former hidden Home world orders=",hidden_area_orders)
     main.free()
     await get_tree().process_frame

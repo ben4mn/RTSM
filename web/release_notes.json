@@ -1,6 +1,21 @@
 {
   "releases": [
     {
+      "id": "2026-11-17-one-tap-cleaner",
+      "date": "2026-11-17",
+      "version": "0.5.0-beta.3",
+      "title": "Tap to drop, hold to chain",
+      "summary": "Chain attacks with long presses, drop one unit with a tap and an even cleaner screen.",
+      "changes": [
+        "Long-press an enemy while your troops are on the move to attack it after their route.",
+        "Tap any unit you already hold to drop just that one from the group. Soldier crowds still treat a tap on a member as a move order.",
+        "The left View button and its tray are gone: pinch to zoom, hold and drag to select, and double-tap the selection portrait to center on it.",
+        "The first lesson now teaches recruiting a Villager, since your starting workers already tend the sheep.",
+        "Mongol buildings no longer have less health.",
+        "Online play needs the updated server (protocol 21)."
+      ]
+    },
+    {
       "id": "2026-11-16-fewer-taps",
       "date": "2026-11-16",
       "version": "0.5.0-beta.2",

@@ -121,9 +121,9 @@ func _fighter_journey(phone: Vector2i, scale: float, notched: bool) -> void:
 	await _overview_button(overview, overview.get("_group_rows")[1].recall)
 	_expect(_selection.selected == [scout] and _intent(scout) == recon, "explicit group recall restores the Scout without changing its route")
 	# Explicit Scout control remains available after battle navigation.
-	await _button(_hud.get("_camera_view_button"))
-	await _button(_hud.get("_camera_center_button"))
-	await _button(_hud.get("_camera_view_button"))
+	var portrait: Button = _hud.get("_selection_info_button")
+	await _button(portrait)
+	await _tap(portrait.get_global_rect().get_center())
 	# Modeled final Guide stage: the same explicit Scout touch must still finish it.
 	_main.set("_guided_opening_active", true)
 	_main.set("_guided_stage", 3) # GuidedOpeningStage.MOVE_MILITARY

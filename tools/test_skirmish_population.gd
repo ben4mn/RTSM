@@ -71,24 +71,18 @@ func _run() -> void:
 		var zoom_state: Dictionary = game_map.call("get_zoom_state")
 		var initial_zoom: float = float(zoom_state["zoom"])
 		var configured_default: float = float(zoom_state["default"])
-		var view: Button = hud.get("_camera_view_button") as Button
-		if view.is_visible_in_tree() and not (hud.get("_camera_zoom_in_button") as Button).is_visible_in_tree():
-			await _click(view.get_global_rect().get_center())
-			for frame: int in range(4):
-				await get_tree().process_frame
-		var zoom_in: Button = hud.get("_camera_zoom_in_button") as Button
-		await _click(zoom_in.get_global_rect().get_center())
-		_expect(float(game_map.call("get_zoom_state")["zoom"]) > initial_zoom, "%d: real HUD + click did not zoom" % limit)
-		var reset: Button = hud.get("_camera_zoom_reset_button") as Button
-		await _click(reset.get_global_rect().get_center())
-		# Opening framing may fit below the default to reveal the local economy.
-		# The HUD Reset action still explicitly restores the configured 1x zoom.
-		_expect(is_equal_approx(float(game_map.call("get_zoom_state")["zoom"]), configured_default), "%d: real HUD reset did not restore configured default" % limit)
+		# Loop 2: the HUD zoom tray is gone (pinch / wheel zoom). The map's own
+		# zoom and reset stay intact for every population option.
+		game_map.call("zoom_in")
+		await get_tree().create_timer(0.3).timeout
+		_expect(float(game_map.call("get_zoom_state")["zoom"]) > initial_zoom, "%d: map zoom-in did not zoom" % limit)
+		game_map.call("reset_zoom")
+		_expect(is_equal_approx(float(game_map.call("get_zoom_state")["zoom"]), configured_default), "%d: map reset did not restore configured default" % limit)
 		match_scene.free()
 		GameManager.set_state(GameManager.GameState.MENU)
 		await get_tree().process_frame
 	if _failures.is_empty():
-		print("[PASS] skirmish_population: every population option: fair budgets, housing/queue limits, real age spending, GUI zoom/reset")
+		print("[PASS] skirmish_population: every population option: fair budgets, housing/queue limits, real age spending, map zoom/reset")
 		get_tree().quit(0)
 	else:
 		for failure: String in _failures:

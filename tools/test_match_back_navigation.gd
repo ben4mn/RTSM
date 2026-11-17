@@ -98,7 +98,7 @@ func _run() -> void:
 	hud.call("configure_unit_commands", true, true, "Stand Ground")
 	for refresh: int in 3:
 		hud.call("_refresh_command_icons")
-	for pair: Array in [["_pause_button", "[P]"], ["build_menu_button", "[B]"], ["_camera_center_button", "[Space]"], ["_unit_stop_button", "[T]"], ["_unit_patrol_button", "[R]"], ["_unit_stance_button", "[G]"], ["_worker_idle_button", "[.]"], ["_selection_back_button", "[Esc]"]]:
+	for pair: Array in [["_pause_button", "[P]"], ["build_menu_button", "[B]"], ["_unit_stop_button", "[T]"], ["_unit_patrol_button", "[R]"], ["_unit_stance_button", "[G]"], ["_worker_idle_button", "[.]"]]:
 		var button: Button = hud.get(pair[0])
 		_expect(button.tooltip_text.count(pair[1]) == 1, "%s lost or duplicated %s after refresh" % pair)
 	_expect((hud.get("_unit_stance_button") as Button).tooltip_text.contains("Stand Ground"), "stance hint lost current stance")

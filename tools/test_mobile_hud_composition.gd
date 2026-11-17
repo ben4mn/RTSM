@@ -62,15 +62,14 @@ func _exercise_profile(phone: Vector2i, ui_scale: float, notched: bool) -> void:
 	var dock: Control = hud.get("_command_dock")
 	var selection: Control = hud.get("selection_panel")
 	var minimap: Control = hud.get("minimap_bg")
-	var navigation: Control = hud.get("_navigation_controls")
 	var top_rail: Control = hud.get("top_bar")
 	_expect(not selection.visible, profile + " unselected context leaves an empty shelf")
 	_expect(dock.visible, profile + " kingdom dock is missing")
 	_expect((hud.get("_town_center_button") as Button).is_visible_in_tree(), profile + " Home is missing")
-	_expect(not (hud.get("_select_area_button") as Button).is_visible_in_tree(), profile + " collapsed navigation exposes area selection")
+	_expect(hud.get("_navigation_controls") == null and hud.get("_camera_view_button") == null, profile + " the removed View tray is back")
 	_expect(top_rail.size.y <= 56.5, profile + " top rail exceeds56")
 	_expect(minimap.size.x <= 120.5, profile + " minimap exceeds120")
-	for key: String in ["_town_center_button", "_idle_villager_button", "_select_military_button", "build_menu_button", "_camera_view_button", "_pause_button"]:  # Speed moved to the pause card.
+	for key: String in ["_town_center_button", "_idle_villager_button", "_select_military_button", "build_menu_button", "_pause_button"]:  # Speed moved to the pause card.
 		_target(hud.get(key), safe, profile)
 	_assert_field(hud, safe, profile + " kingdom")
 
@@ -208,12 +207,12 @@ func _exercise_profile(phone: Vector2i, ui_scale: float, notched: bool) -> void:
 
 	hud.call("set_ui_modal_state", 1)
 	await _settle(hud, logical, safe)
-	_expect(not dock.visible and not selection.visible and not minimap.visible and not navigation.visible, profile + " build sheet retains competing field chrome")
+	_expect(not dock.visible and not selection.visible and not minimap.visible, profile + " build sheet retains competing field chrome")
 	hud.call("set_ui_modal_state", 0)
 	hud.call("set_placement_input_mode", true)
 	hud.call("set_placement_mode", true, "House")
 	await _settle(hud, logical, safe)
-	_expect(not dock.visible and not selection.visible and not minimap.visible and not navigation.visible, profile + " placement retains field chrome")
+	_expect(not dock.visible and not selection.visible and not minimap.visible, profile + " placement retains field chrome")
 	# L2: Build and x ride on the ghost (tools/test_placement_ghost_build); the
 	# bottom bar keeps no check or Find. Touch keeps only the status line, which
 	# explains a red footprint; a mouse (ghost follows the cursor) gets Cancel.
@@ -283,7 +282,7 @@ func _settle(hud: Node, logical: Vector2, safe: Rect2) -> void:
 
 func _assert_field(hud: Node, safe: Rect2, label: String) -> void:
 	var controls: Array[Control] = []
-	for key: String in ["minimap_bg", "selection_panel", "_navigation_controls", "_advanced_command_panel", "_progression_hint_panel"]:
+	for key: String in ["minimap_bg", "selection_panel", "_advanced_command_panel", "_progression_hint_panel"]:
 		var control: Control = hud.get(key)
 		if control.is_visible_in_tree():
 			_expect(safe.encloses(control.get_global_rect()), label + " " + key + " leaves safe area")

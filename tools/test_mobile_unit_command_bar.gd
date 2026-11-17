@@ -89,7 +89,6 @@ func _exercise_profile(phone_size: Vector2i, ui_scale: float, notched: bool) -> 
 	_expect(popup.visible, "%s More did not reveal advanced commands" % suffix)
 	_expect_eq(advanced.get_child_count(), 4, "%s advanced command count" % suffix)
 	_expect(not popup.get_global_rect().intersects(selection.get_global_rect(), true), "%s advanced commands overlap selection" % suffix)
-	_expect(not popup.get_global_rect().intersects((hud.get("_camera_controls") as Control).get_global_rect(), true), "%s advanced commands overlap zoom controls" % suffix)
 	_expect(popup.get_global_rect().position.x >= safe_area.position.x and popup.get_global_rect().end.x <= safe_area.end.x, "%s advanced commands leave safe area" % suffix)
 	for child: Button in advanced.get_children():
 		if not child.visible:
@@ -97,11 +96,6 @@ func _exercise_profile(phone_size: Vector2i, ui_scale: float, notched: bool) -> 
 		_expect(child.size.x * ui_scale >= 47.5 and child.size.y * ui_scale >= 47.5, "%s advanced %s is under48px" % [suffix, child.name])
 	var attack_button := container.get_node("UnitAttackMoveButton") as Button
 	_expect(attack_button.button_pressed, "%s armed A-Move state is not visible" % suffix)
-	var area_button := hud.get("_select_area_button") as Button
-	_expect(not area_button.is_visible_in_tree(), "%s More exposes collapsed map navigation" % suffix)
-	hud.call("set_area_selection_armed", true)
-	_expect(area_button.button_pressed and area_button.icon != null and area_button.accessibility_name.to_lower().contains("cancel"), "%s area selection lacks its persistent cancellation cue" % suffix)
-	hud.call("set_area_selection_armed", false)
 	var patrol_button := advanced.get_node("UnitPatrolButton") as Button
 	hud.call("configure_unit_commands", true, false, "Stand Ground", "smart")
 	_expect(patrol_button.disabled, "%s Patrol remains active for villager-only selection" % suffix)

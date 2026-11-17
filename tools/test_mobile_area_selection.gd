@@ -73,10 +73,11 @@ func _run() -> void:
 	await _touch(17, box.end, false)
 	_expect(_selection.selected.size() == points.size(), "area did not select the enclosed workers")
 	_expect(not _selection.touch_area_selection_armed, "area mode remained armed after selection")
-	_expect(not bool((_hud.get("_select_area_button") as Button).button_pressed), "area button remained armed after selection")
 	_expect_clean("completed area")
+	# Loop 2: a tap on a selected worker drops just that worker (it no longer
+	# narrows the group to it); the quick second tap is still the type select.
 	await _tap(21, points[0])
-	_expect(_selection.selected == [worker] and _orders == 0, "first unit tap did not switch area selection to one worker")
+	_expect(_selection.selected.size() == points.size() - 1 and not _selection.selected.has(worker) and _orders == 0, "first tap on a selected worker did not drop just that worker")
 	await _tap(23, points[0])
 	_expect(_selection.selected.size() == worker_count and _orders == 0, "same-type double-tap selection was broken by ground-clear gesture")
 	_expect_clean("same-type double tap after area")
@@ -119,10 +120,6 @@ func _run() -> void:
 	_expect(not _selection.touch_area_selection_armed and _selection.selected == selected_before, "GUI-consumed release selected units or retained area mode")
 	_expect_clean("GUI-consumed release")
 
-	await _arm_area()
-	await _tap(80, (_hud.get("_camera_view_button") as Button).get_global_rect().get_center())
-	await _tap(81, (_hud.get("_select_area_button") as Button).get_global_rect().get_center())
-	_expect(not _selection.touch_area_selection_armed, "Cancel area button did not cancel the mode")
 	await _arm_area()
 	_main.call("_on_building_selected_for_placement", BuildingData.BuildingType.HOUSE)
 	await _frames(3)
@@ -180,10 +177,12 @@ func _run() -> void:
 	get_tree().quit(0 if _failures.is_empty() else 1)
 
 
+## Loop 2: the View tray's Select area button is gone (hold-drag box-selects
+## on touch); the armed one-shot mode is driven through its manager API.
 func _arm_area() -> void:
-	await _tap(6, (_hud.get("_camera_view_button") as Button).get_global_rect().get_center())
-	await _tap(7, (_hud.get("_select_area_button") as Button).get_global_rect().get_center())
-	_expect(_selection.touch_area_selection_armed, "real GUI Select area did not arm")
+	_selection.set_touch_area_selection_armed(true)
+	await _frames(3)
+	_expect(_selection.touch_area_selection_armed, "Select area did not arm")
 	_expect((_hud.get("_progression_hint_label") as Label).text.contains("Drag to select") and (_hud.get("_progression_hint_panel") as Control).visible, "armed area lacks a persistent instruction")
 
 

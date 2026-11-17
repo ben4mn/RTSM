@@ -76,17 +76,17 @@ func _hold_journey(phone: Vector2i,interface_scale: float,notched: bool) -> void
 	await _capture("queue-open")
 	await _hold_inspect(_hud.get("queue_container").get_node("QueueClearAllButton"),"refund-info")
 	_expect(queue.get_queue_size()==1,"holding refund canceled paid unit")
-	await _button(_hud.get("_camera_view_button"))
-	_expect(not bool(_hud.get("_queue_view_requested")),"View failed to collapse Queue")
-	await _button(_hud.get("_camera_zoom_out_button"))
-	_expect(bool(_hud.get("_camera_controls_expanded")),"consecutive zoom collapsed View")
-	await _button(_hud.get("_camera_center_button"))
-	_expect(not bool(_hud.get("_camera_controls_expanded")),"Center failed to collapse View")
+	# Loop 2: no View tray; the portrait double-tap Center collapses Queue.
+	var portrait: Button = _hud.get("_selection_info_button")
+	await _button(portrait)
+	await _tap(portrait.get_global_rect().get_center())
+	_expect(not bool(_hud.get("_queue_view_requested")) and str(_hud.call("get_secondary_surface_name"))=="none","portrait Center failed to collapse Queue")
 	await _button(_hud.get("_queue_navigation_button"))
 	await _button(_hud.get("queue_container").get_node("QueueClearAllButton"))
 	_expect(queue.get_queue_size()==0 and ResourceManager.get_all_resources(0)==bank,"paid queue refund changed")
-	await _button(_hud.get("_camera_view_button"))
-	await _button(_hud.get("_selection_back_button"))
+	# Loop 2: no View-tray Back; tapping the selected Town Center puts it away.
+	await _tap(get_viewport().get_canvas_transform()*tc.global_position)
+	_expect(_selection.selected.is_empty(),"tapping the selected Town Center did not put it away")
 	await _button(_hud.get("build_menu_button"))
 	var palette: Node = _main.get("_build_menu")
 	await _hold_inspect(palette.get("_button_map")[BuildingData.BuildingType.HOUSE],"build-info")
@@ -134,10 +134,9 @@ func _hold_journey(phone: Vector2i,interface_scale: float,notched: bool) -> void
 	_main.call("_on_selection_changed",_selection.selected)
 	await _frames(4)
 	_expect(bool(_hud.get("_advanced_commands_open")),"routine selection refresh closed More")
-	await _button(_hud.get("_camera_view_button"))
-	_expect(not bool(_hud.get("_advanced_commands_open")),"View failed to close More")
 	await _button(_hud.get("_unit_more_button"))
-	_expect(not bool(_hud.get("_camera_controls_expanded")),"More failed to close View")
+	_expect(not bool(_hud.get("_advanced_commands_open")),"a second More tap failed to close More")
+	await _button(_hud.get("_unit_more_button"))
 	await _action("cancel")
 	_expect(not bool(_hud.get("_advanced_commands_open")) and _selection.selected.size()==1,"Escape closed selection before More")
 	# An explicit military fixture exercises Patrol without changing the paid economy.
@@ -199,7 +198,7 @@ func _hold_journey(phone: Vector2i,interface_scale: float,notched: bool) -> void
 	_expect(_orders==0 and _selection.selected.size()==1 and _selection.selected[0]==soldier,"Info-to-Pause tap leaked selection or world order")
 	await _capture("persistent-info-pause")
 	await _button(_hud.get("_pause_overlay").get_node("PauseMenu/ResumeButton"))
-	_expect(GameManager.current_state==GameManager.GameState.PLAYING and str(_hud.call("get_secondary_surface_name"))=="none" and not bool(_hud.get("_advanced_commands_open")) and not bool(_hud.get("_camera_controls_expanded")) and not bool(_hud.get("_queue_view_requested")),"Resume did not return to Playing with secondary surfaces collapsed")
+	_expect(GameManager.current_state==GameManager.GameState.PLAYING and str(_hud.call("get_secondary_surface_name"))=="none" and not bool(_hud.get("_advanced_commands_open")) and not bool(_hud.get("_queue_view_requested")),"Resume did not return to Playing with secondary surfaces collapsed")
 	# Pass-through disclosures close on admitted world contact, which retains
 	# its ordinary meaning through release. Reading surfaces remain blocking.
 	_selection.select_single(worker)
@@ -218,7 +217,6 @@ func _hold_journey(phone: Vector2i,interface_scale: float,notched: bool) -> void
 	_expect(_orders==orders_before+1 and _selection.selected==selected_before and str(_hud.call("get_secondary_surface_name"))=="none","More world tap did not collapse and issue exactly one ordinary Move")
 	var intended_move_orders: int = _orders-orders_before
 	worker.command_stop()
-	await _button(_hud.get("_camera_view_button"))
 	var pan_start: Vector2 = _uncovered_ground(worker,Vector2(64,0))
 	_expect(pan_start!=Vector2.ZERO,"View pan needs an uncovered start and endpoint")
 	orders_before = _orders

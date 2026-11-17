@@ -95,7 +95,7 @@ func _test_actors_and_paid_queue() -> void:
 	house.state = BuildingBase.State.ACTIVE
 	add_child(house)
 	var mongol_house_hp: int = roundi(float(BuildingData.BUILDINGS[BuildingData.BuildingType.HOUSE]["hp"]) * CivilizationData.get_building_hp_multiplier(CivilizationData.Civilization.SUNSTRIDE_CLANS))
-	_expect(house.hp == mongol_house_hp and house.max_hp == mongol_house_hp and mongol_house_hp < int(BuildingData.BUILDINGS[BuildingData.BuildingType.HOUSE]["hp"]), "Sunstride actual buildings have less health (data multiplier)")
+	_expect(house.hp == mongol_house_hp and house.max_hp == mongol_house_hp and mongol_house_hp == int(BuildingData.BUILDINGS[BuildingData.BuildingType.HOUSE]["hp"]), "Sunstride actual buildings use the shared health (data multiplier)")
 	var production: BuildingBase = RANGE.instantiate()
 	production.player_owner = 0
 	production.state = BuildingBase.State.ACTIVE
@@ -155,16 +155,17 @@ func _harvest(civilization: int, resource: String, ticks: int, research_bonus: f
 func _test_gathering() -> void:
 	# The 1.0/tick baseline (Round 2 E) needs a longer sample for both civilization
 	# bonuses to land on whole resources. Cargo must not truncate the comparison.
-	_expect(_harvest(0, "wood", 100) == 100, "baseline earns 1.0 resources per tick")
-	_expect(_harvest(1, "wood", 100) == 120, "Verdant earns exactly +20% wood across fractional ticks")
-	_expect(_harvest(1, "food", 100) == 100, "Verdant bonus does not leak to food")
+	var base: float = 100.0 * UnitData.VILLAGER_GATHER_AMOUNT
+	_expect(_harvest(0, "wood", 100) == roundi(base), "baseline earns the published rate per tick")
+	_expect(_harvest(1, "wood", 100) == roundi(base * 1.2), "Verdant earns exactly +20% wood across fractional ticks")
+	_expect(_harvest(1, "food", 100) == roundi(base), "Verdant bonus does not leak to food")
 	# Round 2 C: the flat Mongol +15% food became +30% on herds and game only
 	# (a plain supply here stands in for a Farm-like source; see test_civ_abilities).
-	_expect(_harvest(2, "food", 100) == 100, "Mongol flat food bonus is gone for ordinary sources")
-	_expect(_harvest(2, "food", 100, 0.0, true) == 130, "Mongols earn exactly +30% food from wildlife across fractional ticks")
-	_expect(_harvest(1, "food", 100, 0.0, true) == 100, "the wildlife bonus does not leak to other kingdoms")
-	_expect(_harvest(2, "gold", 100) == 100, "Sunstride bonus does not leak to gold")
-	_expect(_harvest(1, "wood", 100, UnitData.WHEELBARROW_GATHER_BONUS) == 150, "Wood bonus and Wheelbarrow compose without rounding loss")
+	_expect(_harvest(2, "food", 100) == roundi(base), "Mongol flat food bonus is gone for ordinary sources")
+	_expect(_harvest(2, "food", 100, 0.0, true) == roundi(base * 1.3), "Mongols earn exactly +30% food from wildlife across fractional ticks")
+	_expect(_harvest(1, "food", 100, 0.0, true) == roundi(base), "the wildlife bonus does not leak to other kingdoms")
+	_expect(_harvest(2, "gold", 100) == roundi(base), "Sunstride bonus does not leak to gold")
+	_expect(_harvest(1, "wood", 100, UnitData.WHEELBARROW_GATHER_BONUS) == roundi(100.0 * (UnitData.VILLAGER_GATHER_AMOUNT + UnitData.WHEELBARROW_GATHER_BONUS) * 1.2), "Wood bonus and Wheelbarrow compose without rounding loss")
 
 func _test_network_slot_latching() -> void:
 	GameManager.selected_civilization = 0

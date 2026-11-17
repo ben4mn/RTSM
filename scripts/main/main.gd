@@ -582,6 +582,7 @@ func _on_map_ready(map_gen: MapGenerator) -> void:
 	selection_mgr.queue_order_command.connect(_on_queue_order_command)
 	selection_mgr.cancel_queue_command.connect(_on_cancel_queue_command)
 	selection_mgr.queue_gather_command.connect(_on_queue_gather_command)
+	selection_mgr.queue_attack_command.connect(_on_queue_attack_command)
 	selection_mgr.train_from_selection_command.connect(_on_train_from_selection)
 	selection_mgr.two_finger_tap_clear_requested.connect(_on_two_finger_tap_clear)
 	selection_mgr.attack_command.connect(_on_attack_command)
@@ -747,7 +748,10 @@ func _refresh_guided_opening_stage() -> void:
 		return
 	match _guided_stage:
 		GuidedOpeningStage.GATHER_FOOD:
-			if _opening_gather_complete:
+			# Starting workers already herd the flock, so the first lesson is
+			# growing the economy: a queued Villager (or a food order) completes it.
+			if _opening_gather_complete or _has_queued_unit(BuildingData.BuildingType.TOWN_CENTER, UnitData.UnitType.VILLAGER):
+				_opening_gather_complete = true
 				_set_guided_stage(GuidedOpeningStage.BUILD_HOUSE)
 		GuidedOpeningStage.BUILD_HOUSE:
 			if _opening_house_complete or _has_player_building_started(0, BuildingData.BuildingType.HOUSE):
@@ -992,8 +996,6 @@ func _center_camera_on_selection() -> void:
 			subjects.append(_get_camera_subject_bounds(node))
 	if subjects.is_empty():
 		return
-	if hud.get_secondary_surface_name() == "view":
-		hud.close_secondary_surface()
 	game_map.frame_world_bounds(subjects, hud.get_world_safe_rect(), hud.get_world_occlusion_rects())
 
 
@@ -1362,17 +1364,6 @@ func _deselect_from_hud() -> void:
 	_clear_armed_unit_commands(false)
 	game_map.selection_mgr.cancel_touch_gesture()
 	game_map.selection_mgr.deselect_all()
-
-
-func _toggle_touch_area_selection() -> void:
-	if _placement_active or GameManager.current_state != GameManager.GameState.PLAYING or hud.is_build_menu_open():
-		return
-	var selection: SelectionManager = game_map.selection_mgr
-	var arm: bool = not selection.touch_area_selection_armed
-	_clear_armed_unit_commands(false)
-	game_map.cancel_camera_touch_gesture()
-	selection.set_touch_area_selection_armed(arm)
-	_refresh_unit_command_hud()
 
 
 func _arm_patrol_command() -> void:
@@ -2366,6 +2357,49 @@ func queue_gather_for_units(units: Array, resource_node: Node2D, owner: int) -> 
 	return accepted
 
 
+## A held enemy while units walk a route: attack it after their waypoints.
+func _on_queue_attack_command(target: Node2D) -> void:
+	if GameManager.current_state != GameManager.GameState.PLAYING or not is_instance_valid(target):
+		return
+	_clear_armed_unit_commands(false)
+	if NetworkSession.is_client():
+		_send_network_selection("queue_attack", NetworkSession.target_payload(target))
+		VFX.attack_move_indicator(get_tree(), target.global_position)
+		HAPTICS.tap()
+		return
+	if target.player_owner == 0 or not game_map.is_entity_visible_to_player(target, 0):
+		return
+	if queue_attack_for_units(game_map.selection_mgr.selected, target, 0) > 0:
+		VFX.attack_move_indicator(get_tree(), target.global_position)
+		HAPTICS.tap()
+		hud.show_notification("Attack queued")
+	else:
+		HAPTICS.refuse()
+	_refresh_unit_command_hud()
+
+
+## Shared by local play and the match authority. Units already walking a route
+## (or holding waypoints) append the attack; the others attack it now.
+func queue_attack_for_units(units: Array, target: Node2D, owner: int) -> int:
+	if not (target is UnitBase or target is BuildingBase) or target.player_owner == owner:
+		return 0
+	var accepted: int = 0
+	var order: Dictionary = {"kind": "attack", "target_id": target.get_instance_id(), "position": target.global_position}
+	for entry: Variant in units:
+		if not is_instance_valid(entry) or not entry is UnitBase or (entry as UnitBase).player_owner != owner or (entry as UnitBase).damage <= 0.0:
+			continue
+		var unit := entry as UnitBase
+		if unit.current_state == UnitBase.State.MOVING or not unit.queued_orders.is_empty():
+			if unit.enqueue_order(order): accepted += 1
+		elif target is UnitBase:
+			unit.command_attack(target as UnitBase)
+			if unit.current_state == UnitBase.State.ATTACKING: accepted += 1
+		else:
+			unit.command_attack_building(target as BuildingBase)
+			if unit.current_state == UnitBase.State.ATTACKING: accepted += 1
+	return accepted
+
+
 ## Selected troops tapped onto their producer (or workers onto a Town Center):
 ## the same paid, pop-capped path as the recruit tile, online included.
 func _on_train_from_selection(building: Node2D, unit_type: int) -> void:
@@ -3091,7 +3125,6 @@ func _setup_hud() -> void:
 	hud.unit_stance_requested.connect(_toggle_stance)
 	hud.deselect_requested.connect(_deselect_from_hud)
 	hud.selection_type_requested.connect(_on_selection_type_requested)
-	hud.select_area_requested.connect(_toggle_touch_area_selection)
 	game_map.selection_mgr.touch_area_selection_changed.connect(hud.set_area_selection_armed)
 	# Research buttons are context actions too; the HUD's legacy
 	# research_requested signal is a mirror for older listeners, not connected.
@@ -3100,8 +3133,6 @@ func _setup_hud() -> void:
 	hud.placement_confirm_requested.connect(_on_confirm_placement)
 	hud.placement_find_space_requested.connect(_on_find_placement_space)
 	hud.town_center_pressed.connect(_select_town_center)
-	hud.camera_zoom_requested.connect(_on_camera_zoom_requested)
-	hud.camera_zoom_reset_requested.connect(game_map.reset_zoom)
 	hud.center_selection_requested.connect(_center_camera_on_selection)
 	game_map.zoom_changed.connect(hud.update_camera_zoom)
 	var zoom_state: Dictionary = game_map.get_zoom_state()
@@ -3275,13 +3306,6 @@ func _on_quick_build_requested(building_type: int) -> void:
 
 func _on_cancel_placement() -> void:
 	_cancel_placement()
-
-
-func _on_camera_zoom_requested(direction: int) -> void:
-	if direction > 0:
-		game_map.zoom_in()
-	elif direction < 0:
-		game_map.zoom_out()
 
 
 func _on_find_placement_space() -> void:
@@ -4356,17 +4380,23 @@ func _update_progression_hint() -> void:
 			GuidedOpeningStage.GATHER_FOOD:
 				if _build_menu and _build_menu.has_method("set_recommended_building"):
 					_build_menu.call("set_recommended_building", -1)
-				if has_villager_selected:
+				if has_tc_selected:
 					_apply_primary_guidance(
-						"1 / 4 · Tap a sheep or berry bush to gather food.",
+						"1 / 4 · Recruit a Villager. Your workers already tend the sheep.",
+						"train_unit",
+						UnitData.UnitType.VILLAGER
+					)
+				elif has_villager_selected:
+					_apply_primary_guidance(
+						"1 / 4 · Workers gather on their own. Recruit more at the Town Center.",
 						"",
-						-1
+						UnitData.UnitType.VILLAGER
 					)
 				else:
 					_apply_primary_guidance(
-						"1 / 4 · Tap a villager, then a sheep or berry bush.",
-						"idle_button",
-						-1
+						"1 / 4 · Tap the Town Center, then Villager.",
+						"",
+						UnitData.UnitType.VILLAGER
 					)
 				return
 			GuidedOpeningStage.BUILD_HOUSE:

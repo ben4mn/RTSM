@@ -140,7 +140,7 @@ func _test_phone_alert_layout(game_map: Node) -> void:
 			_expect(alert.size.y >= 48.0, prefix + " settled touch target remains at least48px")
 			_expect(safe.encloses(alert.get_global_rect()), prefix + " attack alert is inside safe area")
 			_expect(safe.encloses((alert_feed.get_child(1) as Control).get_global_rect()), prefix + " second raid stays inside safe bounds")
-			for sibling: String in ["_progression_hint_panel", "_sacred_site_panel", "_camera_controls"]:
+			for sibling: String in ["_progression_hint_panel", "_sacred_site_panel"]:
 				var control: Control = mobile_hud.get(sibling) as Control
 				_expect(not control.visible or not control.get_global_rect().intersects(alert.get_global_rect()), prefix + " attack alert does not overlap " + sibling)
 			viewport.free()

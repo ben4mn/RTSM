@@ -60,7 +60,7 @@ func _guidance_journey(phone: Vector2i, interface_scale: float) -> void:
 	_selection.select_single(selected_worker)
 	_main.call("_update_progression_hint")
 	var worker_text: String = label.text
-	_expect(worker_text != initial_text and worker_text.contains("berry bush"), "selection did not update lesson")
+	_expect(worker_text != initial_text and worker_text.contains("Town Center"), "selection did not update lesson")
 	await _button(overview.rail.get_node("EconomyButton"))
 	_expect(overview.panel.is_visible_in_tree() and not banner.is_visible_in_tree() and not skip.is_visible_in_tree(), "Economy leaves lesson/Skip over its card")
 	# Automatic removal keeps management open; unlike deliberate selection it

@@ -1,6 +1,6 @@
 extends Node
 ## Frozen real-scene visual fixtures. These screenshots are layout evidence, not paid match evidence.
-const STATES: Array[String] = ["unselected","worker","tc","tc_repeat","military_production","warrior","archer","horseman","mixed_army","commands","view_expanded","build_economy","build_army","placement_invalid","placement_valid","pause","results","learning"]
+const STATES: Array[String] = ["unselected","worker","tc","tc_repeat","military_production","warrior","archer","horseman","mixed_army","commands","build_economy","build_army","placement_invalid","placement_valid","pause","results","learning"]
 const WORKER_STATUS_FIXTURES: Dictionary = {"worker_idle":"Idle", "worker_move":"Moving", "worker_retreat":"Retreating", "worker_shelter":"Sheltering", "worker_seek":"Seeking Food", "worker_gather":"Gathering Food", "worker_return":"Returning Wood", "worker_wait":"Waiting for drop-off", "worker_build":"Building", "worker_mixed":"Mixed tasks", "worker_armed":"Returning Wood"}
 var _states: Array[String] = STATES.duplicate()
 
@@ -25,7 +25,7 @@ func _run() -> void:
             _states.assign(["unselected", "worker", "tc_repeat", "military_production", "commands", "build_economy", "build_army", "placement_valid", "research", "pause", "results"])
         elif argument == "--quick":
             _quick = true
-            _states.assign(["unselected","worker","tc_repeat","mixed_army","commands","view_expanded","build_economy","placement_valid","pause","results","learning"])
+            _states.assign(["unselected","worker","tc_repeat","mixed_army","commands","build_economy","placement_valid","pause","results","learning"])
         elif argument == "--worker-mechanics":
             _states.assign(WORKER_STATUS_FIXTURES.keys())
             _states.append("tc")
@@ -100,7 +100,6 @@ func _profile(phone: Vector2i,interface_scale: float,notched: bool) -> void:
         camera.force_update_scroll()
         hud.call("update_camera_zoom",zoom,float(map.call("get_zoom_state")["min"]),float(map.call("get_zoom_state")["max"]))
         for state: String in _states:
-            hud.set("_camera_controls_expanded",state=="view_expanded")
             for toast: Node in (hud.get("_notification_container") as Control).get_children():
                 hud.call("_retire_dynamic_control",toast)
             hud.call("set_ui_modal_state",0)
@@ -207,9 +206,6 @@ func _profile(phone: Vector2i,interface_scale: float,notched: bool) -> void:
                 results.call("show_defeat",{"victory_reason":"Town Center destroyed","game_time":"12:18","player_age":2,"ai_age":3,"score":1024,"ai_score":2408,"army_trained":19,"ai_army_trained":31,"units_lost":15,"ai_units_lost":11,"resources_gathered":199999,"ai_resources_gathered":299999,"sacred_control_seconds":492,"ai_sacred_control_seconds":591})
                 results.call("_fit_panel_to_size",Vector2(logical),safe)
                 await get_tree().create_timer(0.45,true,false,true).timeout
-            if state=="view_expanded" and hud.has_method("get_secondary_surface_name"):
-                (hud.get("_camera_view_button") as Button).pressed.emit()
-                assert(bool(hud.get("_camera_controls_expanded")),"View fixture must show coordinated expanded controls")
             await get_tree().process_frame
             await get_tree().process_frame
             hud.call("apply_mobile_layout",Vector2(logical),safe)

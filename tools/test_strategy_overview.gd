@@ -102,12 +102,6 @@ func _strategy_journey(phone: Vector2i, interface_scale: float, notched: bool, l
 	var more: Control = _hud.get("_advanced_command_panel")
 	_expect(not more.get_global_rect().intersects(overview.rail.get_global_rect()), "More overlaps persistent strategy navigation")
 	await _button(_hud.get("_unit_more_button"))
-	await _button(_hud.get("_camera_view_button"))
-	var camera_controls: Control = _hud.get("_camera_controls")
-	for action: Button in camera_controls.get_children():
-		if action.is_visible_in_tree():
-			_expect(not action.get_global_rect().intersects(overview.rail.get_global_rect()), "expanded View overlaps persistent strategy navigation")
-	await _button(_hud.get("_camera_view_button"))
 	await _button(overview.rail.get_node("EconomyButton"))
 	_expect(_hud.call("get_secondary_surface_name") == "economy", "Economy did not open")
 	var economy_button: Button = overview.rail.get_node("EconomyButton")

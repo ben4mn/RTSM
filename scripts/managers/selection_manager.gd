@@ -13,6 +13,8 @@ signal queue_order_command(world_position: Vector2, target: Node2D)
 signal cancel_queue_command()
 ## Hold on a resource with villagers: gather after their current waypoints.
 signal queue_gather_command(resource_node: Node2D)
+## Hold on a visible enemy while units walk a route: attack after the waypoints.
+signal queue_attack_command(target: Node2D)
 ## Selected troops tapped onto an own producer that trains their type (or
 ## workers onto their Town Center): recruit one more of `unit_type` there.
 signal train_from_selection_command(building: Node2D, unit_type: int)
@@ -856,12 +858,18 @@ func _handle_tap(screen_pos: Vector2, is_touch_input: bool, pressed_unit: Node2D
 		return
 
 	if is_touch_input and has_selected_units and ((retained_unit and not _is_enemy(tapped_node)) or _is_direct_friendly_unit_reselection(tapped_node, screen_pos)):
-		if selected.size() == 1 and selected[0] == tapped_node:
-			# Tapping the one selected unit again puts it away, like a building.
-			# A quick second tap is still the double-tap type select above.
+		if selected.has(tapped_node):
+			# One rule for every selection outside the G1 soldier-crowd order
+			# above: tapping a unit that is already selected drops just that
+			# unit (the sole unit -> empty selection, like a building). It never
+			# silently shrinks a group to one member. The tap stays armed, so a
+			# quick second tap is the usual double-tap "every one of this type";
+			# a later tap on the dropped unit selects it alone.
 			_record_touch_input(screen_pos, world_pos, "deselect", tapped_node, resource_node)
-			_clear_selection()
-			_last_tap_time = 0.0
+			if selected.size() == 1:
+				_clear_selection()
+			else:
+				_remove_from_selection(tapped_node)
 			get_viewport().set_input_as_handled()
 			return
 		_clear_selection()
@@ -1640,6 +1648,16 @@ func _selected_villagers_have_waypoints() -> bool:
 	return false
 
 
+## True when a selected own unit is walking somewhere or has queued orders,
+## so a held enemy becomes the next leg instead of replacing the route.
+func _selected_units_have_waypoints() -> bool:
+	for entry: Variant in selected:
+		if _is_current_selection_entry(entry) and entry is UnitBase and (entry as UnitBase).player_owner == 0 \
+				and ((entry as UnitBase).current_state == UnitBase.State.MOVING or not (entry as UnitBase).queued_orders.is_empty()):
+			return true
+	return false
+
+
 func _has_selected_villager_producer() -> bool:
 	if selected.size() != 1 or not selected[0] is BuildingBase:
 		return false
@@ -1986,8 +2004,13 @@ func _execute_touch_context_action(action_id: int) -> void:
 			executed_action = "Queue destination"
 		TouchContextAction.ATTACK:
 			if _is_current_selection_entry(_context_target) and _is_enemy(_context_target):
-				attack_command.emit(_context_target)
-				executed_action = "Attack"
+				if _selected_units_have_waypoints():
+					# A hold appends: units walking a route attack after it.
+					queue_attack_command.emit(_context_target)
+					executed_action = "Queue attack"
+				else:
+					attack_command.emit(_context_target)
+					executed_action = "Attack"
 		TouchContextAction.GATHER:
 			if (
 				_context_resource != null

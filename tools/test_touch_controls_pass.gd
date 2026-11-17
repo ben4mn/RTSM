@@ -3,7 +3,10 @@ extends Node
 ## it away, a quick two-finger tap clears any selection (a pinch does not),
 ## selected troops tapped onto their producer recruit one more of their kind
 ## (workers onto the Town Center recruit a worker), and three held lifts on
-## empty ground queue three waypoints without opening a menu.
+## empty ground queue three waypoints without opening a menu. Loop 2: tapping
+## an already-selected unit in a worker or mixed group drops just that unit
+## (soldier crowds keep the G1 move), and holding a visible enemy while troops
+## walk a route queues an attack after the waypoints (idle troops attack now).
 
 var failures: Array[String] = []
 var checks: int = 0
@@ -42,6 +45,8 @@ func _run() -> void:
 	await _test_two_finger_clear(worker)
 	_test_unit_to_producer_trains(worker)
 	await _test_long_press_queues(worker)
+	_test_group_tap_drops_one(worker)
+	await _test_long_press_queues_attack(worker)
 	_finish()
 
 
@@ -72,10 +77,17 @@ func _body_screen(unit: UnitBase) -> Vector2:
 
 func _test_tap_to_deselect(worker: Villager) -> void:
 	sm.select_single(worker)
+	sm._last_tap_time = 0.0
 	sm._handle_tap(_body_screen(worker), true, worker)
 	_check(sm.selected.is_empty(), "tapping the sole selected unit clears the selection")
+	# A later tap selects it again; a quick second tap is the type double-tap.
+	sm._last_tap_time = 0.0
 	sm._handle_tap(_body_screen(worker), true, worker)
-	_check(sm.selected == [worker], "tapping it again selects it again")
+	_check(sm.selected == [worker], "tapping it again later selects it again")
+	sm._last_tap_time = 0.0
+	sm._handle_tap(_body_screen(worker), true, worker)
+	sm._handle_tap(_body_screen(worker), true, worker)
+	_check(sm.selected.size() > 1 and sm.selected.has(worker), "a quick double-tap on the selected unit still selects its whole type")
 
 
 func _touch(index: int, position: Vector2, pressed: bool) -> void:
@@ -240,6 +252,148 @@ func _test_long_press_queues(worker: Villager) -> void:
 	worker.enqueue_order({"kind": "gather", "target_id": source.get_instance_id(), "position": source.global_position})
 	_check(worker.current_state == UnitBase.State.GATHERING and worker.gather_target == source, "an idle worker starts a queued gather at once")
 	worker.command_stop()
+
+
+func _select(units: Array) -> void:
+	sm._begin_selection_batch()
+	sm._clear_selection()
+	for unit: Variant in units:
+		sm._add_to_selection(unit)
+	sm._end_selection_batch()
+
+
+func _place_apart(units: Array, origin: Vector2) -> bool:
+	var used: Array[Vector2] = []
+	for unit: UnitBase in units:
+		var spot: Vector2 = _empty_ground(origin, used)
+		if not spot.is_finite():
+			return false
+		used.append(spot)
+		unit.global_position = spot
+		unit.command_stop()
+		unit.queued_orders.clear()
+	return true
+
+
+func _test_group_tap_drops_one(worker: Villager) -> void:
+	var workers: Array = []
+	for unit: Variant in main._player_units[0]:
+		if is_instance_valid(unit) and unit is Villager and workers.size() < 3:
+			workers.append(unit)
+	_check(workers.size() == 3, "fixture has three workers")
+	if workers.size() != 3 or not _place_apart(workers, worker.global_position):
+		_check(false, "fixture spreads the workers onto empty ground")
+		return
+	# Worker group: a tap on a selected worker drops just that worker.
+	_select(workers)
+	sm._last_tap_time = 0.0
+	sm._handle_tap(_body_screen(workers[1]), true, workers[1])
+	_check(sm.selected.size() == 2 and workers[0] in sm.selected and workers[2] in sm.selected and not workers[1] in sm.selected, "tapping a selected worker in a group drops only that worker")
+	# A later tap on the dropped worker selects it alone; a quick one is the
+	# usual double-tap type select.
+	sm._last_tap_time = 0.0
+	sm._handle_tap(_body_screen(workers[1]), true, workers[1])
+	_check(sm.selected == [workers[1]], "a later tap on the dropped worker selects it alone")
+	_select(workers)
+	sm._last_tap_time = 0.0
+	sm._handle_tap(_body_screen(workers[1]), true, workers[1])
+	sm._handle_tap(_body_screen(workers[1]), true, workers[1])
+	_check(sm.selected.size() >= 3 and sm.selected.has(workers[1]), "a quick double-tap on a selected worker selects every worker in view")
+	# Mixed group (one soldier): tapping the soldier drops just the soldier.
+	var soldier: UnitBase = main._spawn_unit(UnitData.UnitType.INFANTRY, 0, worker.global_position)
+	soldier.set_process(false)
+	var guard: UnitBase = main._spawn_unit(UnitData.UnitType.INFANTRY, 0, worker.global_position)
+	guard.set_process(false)
+	if not _place_apart([workers[0], workers[1], soldier, guard], worker.global_position):
+		_check(false, "fixture spreads the mixed group")
+		return
+	_select([workers[0], workers[1], soldier])
+	sm._last_tap_time = 0.0
+	var moves: Array[Vector2i] = []
+	var record := func(tile: Vector2i) -> void: moves.append(tile)
+	sm.move_command.connect(record)
+	sm._handle_tap(_body_screen(soldier), true, soldier)
+	_check(sm.selected.size() == 2 and not soldier in sm.selected and moves.is_empty(), "tapping the selected soldier in a mixed group drops only it")
+	sm._last_tap_time = 0.0
+	sm._handle_tap(_body_screen(workers[0]), true, workers[0])
+	_check(sm.selected == [workers[1]] and moves.is_empty(), "tapping a selected worker in a mixed group drops only it")
+	# Soldier crowd (G1): a tap on a member is still a move order to that spot.
+	_select([soldier, guard, workers[0]])
+	sm._last_tap_time = 0.0
+	sm._handle_tap(_body_screen(guard), true, guard)
+	sm.move_command.disconnect(record)
+	_check(moves.size() == 1 and sm.selected.size() == 3, "a tap on a soldier-crowd member stays a move order (G1)")
+	for unit: UnitBase in [soldier, guard, workers[0], workers[1], workers[2]]:
+		unit.command_stop()
+		unit.queued_orders.clear()
+	guard.queue_free()
+	soldier.queue_free()
+	sm._clear_selection()
+
+
+func _hold(index: int, screen: Vector2) -> void:
+	_touch(index, screen, true)
+	sm._touch_hold_started_at_msec = Time.get_ticks_msec() - int(sm.long_press_threshold * 1000.0) - 10
+	sm._process(0.0)
+	_check(sm.is_hold_gesture_active(), "a held still finger on the enemy arms the hold")
+	_touch(index, screen, false)
+
+
+func _test_long_press_queues_attack(worker: Villager) -> void:
+	var soldier: UnitBase = main._spawn_unit(UnitData.UnitType.INFANTRY, 0, worker.global_position)
+	soldier.set_process(false)
+	var enemy: UnitBase = main._spawn_unit(UnitData.UnitType.INFANTRY, 1, worker.global_position)
+	enemy.set_process(false)
+	if not _place_apart([soldier, enemy], worker.global_position):
+		_check(false, "fixture places the soldier and the enemy")
+		return
+	var route: Vector2 = _empty_ground(soldier.global_position, [enemy.global_position, soldier.global_position])
+	_check(route.is_finite(), "fixture has a waypoint for the soldier")
+	if not route.is_finite():
+		return
+	_check(map.is_entity_visible_to_player(enemy, 0), "the enemy is visible")
+	var enemy_screen: Vector2 = _body_screen(enemy)
+	_check(sm._get_node_at(sm._screen_to_world(enemy_screen), true) == enemy, "the hold lands on the enemy")
+	var attacks: Array[Node2D] = []
+	var record := func(target: Node2D) -> void: attacks.append(target)
+	sm.attack_command.connect(record)
+	# Walking a route: the held enemy becomes the next leg, the walk continues.
+	sm.select_single(soldier)
+	soldier.command_move(route)
+	await get_tree().create_timer(0.5).timeout
+	_hold(60, enemy_screen)
+	await get_tree().process_frame
+	_check(attacks.is_empty(), "a hold on an enemy while walking does not replace the route")
+	_check(soldier.current_state == UnitBase.State.MOVING and soldier.move_target.distance_to(route) < 24.0, "the soldier keeps walking its current leg")
+	_check(soldier.queued_orders.size() == 1 and str(soldier.queued_orders[0].get("kind", "")) == "attack" and int(soldier.queued_orders[0].get("target_id", 0)) == enemy.get_instance_id(), "the held enemy is queued as an attack after the waypoint")
+	# When the leg ends, the queued attack starts on that enemy.
+	soldier.set_state(UnitBase.State.IDLE)
+	soldier._advance_queued_order()
+	_check(soldier.current_state == UnitBase.State.ATTACKING and soldier.attack_target == enemy and soldier.queued_orders.is_empty(), "the queued attack engages the enemy after the leg")
+	# Idle troops with no queue attack at once, as before.
+	soldier.command_stop()
+	soldier.queued_orders.clear()
+	sm.select_single(soldier)
+	await get_tree().create_timer(0.5).timeout
+	_hold(61, enemy_screen)
+	await get_tree().process_frame
+	sm.attack_command.disconnect(record)
+	_check(attacks == [enemy] and soldier.queued_orders.is_empty() and soldier.current_state == UnitBase.State.ATTACKING, "a hold on an enemy with idle troops attacks now")
+	# Authority helper (online "queue_attack"): append for walkers, attack now otherwise.
+	soldier.command_move(route)
+	_check(main.queue_attack_for_units([soldier], enemy, 0) == 1 and soldier.queued_orders.size() == 1, "queue_attack_for_units appends for a walking unit")
+	_check(main.queue_attack_for_units([soldier], soldier, 0) == 0, "queue_attack_for_units refuses an own target")
+	# A dead target is skipped and the route goes on.
+	soldier.enqueue_order({"kind": "move", "position": route})
+	enemy.hp = 0.0
+	enemy.set_state(UnitBase.State.DEAD)
+	soldier.set_state(UnitBase.State.IDLE)
+	soldier._advance_queued_order()
+	_check(soldier.current_state == UnitBase.State.MOVING and soldier.queued_orders.is_empty(), "a dead queued target is skipped and the next waypoint runs")
+	soldier.command_stop()
+	sm._clear_selection()
+	soldier.queue_free()
+	enemy.queue_free()
 
 
 func _check(condition: bool, message: String) -> void:
