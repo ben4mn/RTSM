@@ -115,13 +115,13 @@ func _strategy_journey(phone: Vector2i, interface_scale: float, notched: bool, l
 	_expect(economy_button.button_pressed and not army_button.button_pressed, "expanded Economy lacks exclusive selected state")
 	var army_badge: Label = army_button.get_node("CommandIconBadge")
 	var economy_badge: Label = economy_button.get_node("CommandIconBadge")
-	_expect(army_badge.visible and army_badge.text == "0" and army_badge.mouse_filter == Control.MOUSE_FILTER_IGNORE and army_button.accessibility_name.contains("0 fighters"), "Army badge must count fighters without treating the paid unarmed Scout as a fighter or intercepting contacts")
+	# HUD declutter: an empty army shows no "0" badge; the count lives in the label.
+	_expect(not army_badge.visible and army_badge.mouse_filter == Control.MOUSE_FILTER_IGNORE and army_button.accessibility_name.contains("0 fighters"), "Army badge must count fighters without treating the paid unarmed Scout as a fighter or intercepting contacts")
 	var snapshot: Dictionary = overview.get("_snapshot")
 	var workers: Dictionary = snapshot.get("workers", {})
 	var attention: bool = not str((snapshot.get("economy", {}) as Dictionary).get("attention", "")).is_empty()
 	for resource: String in ["food", "wood", "gold"]:
 		if int(workers.get(resource, 0)) == 0:
-			attention = true
 			_expect(economy_button.tooltip_text.contains("No " + resource) and (overview.get("_economy_health") as Label).text.contains("No " + resource), "unstaffed job warning must remain in the tooltip and expanded sheet")
 	var idle_count: int = int(workers.get("idle", 0))
 	var expected_economy_badge: String = (str(idle_count) if idle_count < 100 else "99+") if idle_count > 0 else ("!" if attention else "")

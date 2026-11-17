@@ -537,10 +537,13 @@ func update_snapshot(snapshot: Dictionary, light: bool = false) -> void:
 	CommandIcons.apply(_economy_button, "economy", economy_description)
 	# Keep unused workers visible even when another worker still staffs each job.
 	# This is a count of observed idle workers, never an automatic assignment.
-	var economy_badge: String = (str(idle) if idle < 100 else "99+") if idle > 0 else ("!" if not warnings.is_empty() or not attention.is_empty() else "")
+	# Declutter: an unstaffed job ("No wood workers") is normal in the opening,
+	# so it stays in the tooltip and sheet; the "!" is for real attention only.
+	var economy_badge: String = (str(idle) if idle < 100 else "99+") if idle > 0 else ("!" if not attention.is_empty() else "")
 	CommandIcons.set_badge(_economy_button, economy_badge, true)
 	CommandIcons.apply(_army_button, "army", "Army: %d fighters. Recruit fighters and manage two groups. Scouts keep their own orders." % fighters)
-	CommandIcons.set_badge(_army_button, str(fighters))
+	# No "0" badge on an empty army.
+	CommandIcons.set_badge(_army_button, str(fighters) if fighters > 0 else "")
 	_refresh_group_chips()
 	var worker_count: int = 0
 	for amount: Variant in workers.values():
