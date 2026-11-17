@@ -153,7 +153,7 @@ func _reader() -> void:
 	check(save.has_save(), "fresh process finds saved match")
 	check(save.resume_match(), "validated resume accepted")
 	await _wait_main()
-	check(gm.current_state == gm.GameState.PAUSED and get_tree().paused, "resume waits safely paused")
+	check(gm.current_state == gm.GameState.PLAYING and not get_tree().paused, "resume continues running without a pause card")
 	check(gm.selected_map_seed == 666 and gm.selected_map_archetype == 1 and gm.selected_difficulty == 0 and gm.selected_civilization == 2, "next-match preferences preserved")
 	check(main.game_map.map_seed == 424242 and main.game_map.map_archetype == 4, "saved battlefield restored")
 	check(is_equal_approx(gm.game_time, 123.0), "clock restored")
