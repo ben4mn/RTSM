@@ -4,9 +4,9 @@ extends Node
 const HUD_SCENE := preload("res://scenes/ui/hud.tscn")
 const PHONE_SIZES: Array[Vector2i] = [Vector2i(844, 390), Vector2i(932, 430)]
 const UI_SCALES: Array[float] = [1.0, 1.15]
+# Loop 3: a ground tap moves (soldiers attack-move) and a held pull-down
+# attack-moves, so armed Move / Attack-move live in the More sheet.
 const EXPECTED_ORDER: Array[String] = [
-	"UnitMoveButton",
-	"UnitAttackMoveButton",
 	"UnitMoreButton",
 	"UnitClearButton",
 ]
@@ -26,7 +26,7 @@ func _run() -> void:
 			await _exercise_profile(phone_size, ui_scale, false)
 			await _exercise_profile(phone_size, ui_scale, true)
 	if _failures.is_empty():
-		print("[PASS] mobile_unit_command_bar: 8 phone profiles expose 48px Move/Attack/More/Clear and expandable advanced commands")
+		print("[PASS] mobile_unit_command_bar: 8 phone profiles expose 48px More/Clear and expandable advanced commands (Move/Attack-move inside More)")
 		get_tree().quit(0)
 		return
 	for failure: String in _failures:
@@ -87,14 +87,14 @@ func _exercise_profile(phone_size: Vector2i, ui_scale: float, notched: bool) -> 
 	hud.call("apply_mobile_layout", logical_size, safe_area)
 	await get_tree().process_frame
 	_expect(popup.visible, "%s More did not reveal advanced commands" % suffix)
-	_expect_eq(advanced.get_child_count(), 4, "%s advanced command count" % suffix)
+	_expect_eq(advanced.get_child_count(), 6, "%s advanced command count" % suffix)
 	_expect(not popup.get_global_rect().intersects(selection.get_global_rect(), true), "%s advanced commands overlap selection" % suffix)
 	_expect(popup.get_global_rect().position.x >= safe_area.position.x and popup.get_global_rect().end.x <= safe_area.end.x, "%s advanced commands leave safe area" % suffix)
 	for child: Button in advanced.get_children():
 		if not child.visible:
 			continue
 		_expect(child.size.x * ui_scale >= 47.5 and child.size.y * ui_scale >= 47.5, "%s advanced %s is under48px" % [suffix, child.name])
-	var attack_button := container.get_node("UnitAttackMoveButton") as Button
+	var attack_button := advanced.get_node("UnitAttackMoveButton") as Button
 	_expect(attack_button.button_pressed, "%s armed A-Move state is not visible" % suffix)
 	var patrol_button := advanced.get_node("UnitPatrolButton") as Button
 	hud.call("configure_unit_commands", true, false, "Stand Ground", "smart")

@@ -812,7 +812,8 @@ func _hook_selection() -> void:
 # A tap on an own Town Center / Watch Tower selects it, as every tap on an own
 # building does. When soldiers were selected a moment before and stand nearby,
 # that tap also raises one tappable pill, "Garrison 6 · tap", so sheltering an
-# army no longer needs the hold menu. Nothing about the tap itself changes.
+# army no longer needs the hold menu -- but only under a real threat (an armed
+# enemy within bell range, or the bell rung). Nothing about the tap changes.
 
 func _on_selection_changed(selected: Array) -> void:
 	# A tap that replaces the selection may report an empty selection first;
@@ -841,6 +842,9 @@ func _on_selection_changed(selected: Array) -> void:
 	if selected.size() != 1 or not accepts(selected[0]) or (selected[0] as BuildingBase).player_owner != 0 or previous.is_empty():
 		return
 	var building := selected[0] as BuildingBase
+	# Shelter is advice for a real threat only: a raid nearby or a rung bell.
+	if not building.bell_active and not _armed_enemy_near(building, BELL_RADIUS_TILES):
+		return
 	var candidates: Array = _offer_candidates(previous, building)
 	if candidates.is_empty():
 		return

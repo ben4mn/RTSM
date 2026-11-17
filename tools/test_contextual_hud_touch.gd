@@ -73,7 +73,8 @@ func _profile(phone: Vector2i,scale_factor: float) -> void:
     _expect(not (hud.get("_villager_task_hbox") as Control).is_visible_in_tree(),profile+" duplicate worker distribution expands field dock")
     selection.select_single(tc)
     await _settle()
-    _expect((hud.get("age_up_button") as Button).is_visible_in_tree() and not (hud.get("build_menu_button") as Button).is_visible_in_tree(),profile+" Town Center context is wrong")
+    # Loop 3: Build stays in reach over a selected building (one tap opens it).
+    _expect((hud.get("age_up_button") as Button).is_visible_in_tree() and (hud.get("build_menu_button") as Button).is_visible_in_tree(),profile+" Town Center context is wrong")
     before=_orders
     # Loop 2: no View-tray Back; tapping the selected building puts it away.
     await _tap(get_viewport().get_canvas_transform()*tc.global_position)

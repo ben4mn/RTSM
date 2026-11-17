@@ -120,7 +120,7 @@ var _last_panel_minimum := Vector2(-1.0, -1.0)
 var _tucking: bool = false
 ## H: army group chips above the rail (control groups 1-3, shared with the
 ## keyboard and the Army sheet). Tap selects (twice: camera), hold saves the
-## current selection. Shown once the kingdom has fighters or a saved group.
+## current selection. Only saved groups show; empty slots stay hidden.
 const GROUP_CHIP_COUNT: int = 3
 const GROUP_CHIP_SIZE := Vector2(52, 40)
 const GROUP_CHIP_HOLD_MSEC: int = 450
@@ -130,6 +130,10 @@ var _group_chip_timer: Timer
 var _group_chip_held: int = -1
 var _group_chip_consumed: bool = false
 var _group_chips_wanted: bool = false
+## Bottom-left corner of the chip column (above the rail) and the highest
+## the column may reach; the column holds only the saved groups.
+var _chips_anchor := Vector2.ZERO
+var _chips_top_limit: float = 0.0
 var _chips_field_visible: bool = false
 var _chips_fit: bool = false
 ## H: a glanceable idle-worker chip above the Economy button (tap: next idle
@@ -1445,11 +1449,9 @@ func apply_layout(safe: Rect2, field_visible: bool, card_area: Rect2, dock_heigh
 	# H: group chips stand in a column above the rail's right end, clear of the
 	# top bar; they step aside while a building is placed.
 	_chips_field_visible = field_visible and not placing
-	var chips_height: float = GROUP_CHIP_SIZE.y * GROUP_CHIP_COUNT + 4.0 * (GROUP_CHIP_COUNT - 1)
-	group_chips.size = Vector2(GROUP_CHIP_SIZE.x, chips_height)
-	group_chips.position = Vector2(safe.end.x - GROUP_CHIP_SIZE.x - 8.0, rail.position.y - 8.0 - chips_height)
-	_chips_fit = group_chips.position.y >= safe.position.y + 52.0
-	group_chips.visible = _group_chips_wanted and _chips_field_visible and _chips_fit
+	_chips_anchor = Vector2(safe.end.x - GROUP_CHIP_SIZE.x - 8.0, rail.position.y - 8.0)
+	_chips_top_limit = safe.position.y + 52.0
+	_place_group_chips()
 	# H: the idle chip stands above the Economy button, where workers live.
 	idle_chip.size = GROUP_CHIP_SIZE
 	idle_chip.position = Vector2(rail.position.x + (RAIL_BUTTON_SIZE + RAIL_GAP) * 1.0 + (RAIL_BUTTON_SIZE - GROUP_CHIP_SIZE.x) * 0.5, rail.position.y - 8.0 - GROUP_CHIP_SIZE.y)
@@ -1586,6 +1588,19 @@ func _build_group_chips() -> void:
 	add_child(_group_chip_timer)
 
 
+func _place_group_chips() -> void:
+	if group_chips == null:
+		return
+	var shown: int = 0
+	for chip: Button in _group_chip_buttons:
+		shown += int(chip.visible)
+	var chips_height: float = GROUP_CHIP_SIZE.y * shown + 4.0 * maxi(0, shown - 1)
+	group_chips.size = Vector2(GROUP_CHIP_SIZE.x, chips_height)
+	group_chips.position = Vector2(_chips_anchor.x, _chips_anchor.y - chips_height)
+	_chips_fit = group_chips.position.y >= _chips_top_limit
+	group_chips.visible = _group_chips_wanted and shown > 0 and _chips_field_visible and _chips_fit
+
+
 func _on_group_chip_down(index: int) -> void:
 	_group_chip_held = index
 	_group_chip_consumed = false
@@ -1632,11 +1647,13 @@ func _refresh_group_chips() -> void:
 		chip.text = str(count) if count > 0 else "+"
 		var icon_path: String = str(icons.get(index, ""))
 		chip.icon = load(icon_path) as Texture2D if count > 0 and not icon_path.is_empty() and ResourceLoader.exists(icon_path) else null
-		chip.modulate.a = 1.0 if count > 0 else 0.62
+		# Empty slots are clutter: only saved groups stand above the rail.
+		# Saving stays in the Army sheet's Groups tab (and Ctrl+1-3).
+		chip.visible = count > 0
 		chip.tooltip_text = "Group %d · %s. Tap: select (twice: camera). Hold: save the selection." % [index, "%d units" % count if count > 0 else "empty"]
 		chip.accessibility_name = chip.tooltip_text
-	_group_chips_wanted = any_group or int(_snapshot.get("fighters", 0)) > 0
-	group_chips.visible = _group_chips_wanted and _chips_field_visible and _chips_fit
+	_group_chips_wanted = any_group
+	_place_group_chips()
 	_idle_count = int((_snapshot.get("workers", {}) as Dictionary).get("idle", 0))
 	idle_chip.text = str(_idle_count) if _idle_count < 100 else "99+"
 	idle_chip.tooltip_text = "%d idle worker%s · tap: the next one · tap again: all of them" % [_idle_count, "" if _idle_count == 1 else "s"]

@@ -1,6 +1,20 @@
 {
   "releases": [
     {
+      "id": "2026-11-17-one-cue-one-tap",
+      "date": "2026-11-17",
+      "version": "0.5.0-beta.4",
+      "title": "One cue, one tap",
+      "summary": "Each thing is said once and each action takes one tap.",
+      "changes": [
+        "Tapping your Town Center with a Scout or soldier selected now selects it instead of training another Scout. Soldiers still train more by tapping their Barracks, Range or Stable.",
+        "Build opens in one tap even with a building selected.",
+        "The selected-troops bar is just More and Close; Move and Attack moved into More, since tapping the ground already moves and attacks.",
+        "Lessons are no longer repeated by a second message, and placing a building shows one instruction.",
+        "An idle Town Center is shown once, on the Base button. Garrison advice only appears when enemies are near, the age-up milestone toast no longer doubles the ceremony, and empty control-group slots are hidden."
+      ]
+    },
+    {
       "id": "2026-11-17-one-tap-cleaner",
       "date": "2026-11-17",
       "version": "0.5.0-beta.3",

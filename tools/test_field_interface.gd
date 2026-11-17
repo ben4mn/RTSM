@@ -91,7 +91,8 @@ func _check_command_decoration(hud: CanvasLayer) -> void:
 				# Beta 25 rounds every control: soften(12) now draws an 18px corner.
 				_expect((styles[index] as StyleBoxFlat).corner_radius_top_left == KingdomTheme.soft_radius(12), "final tactile radius is preserved for " + state)
 				index += 1
-			_expect(move.custom_minimum_size == Vector2(48, 48), "cached command preserves comfortable target")
+			# Loop 3: Move is a captioned order in the More sheet (80x48).
+			_expect(move.custom_minimum_size == Vector2(80, 48), "cached command preserves comfortable target")
 	hud.call("set_pause_display", true)
 	_expect((hud.get("_pause_button") as Button).icon == CommandIcons.get_icon("resume"), "pause transition updates glyph")
 	hud.call("set_pause_display", false)

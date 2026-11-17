@@ -753,10 +753,8 @@ func _refresh_command_icons() -> void:
 	# Closed launchers are compact; their expanded choices retain short captions.
 	var definitions: Array = [
 		[_pause_button, "resume" if _ui_modal_state == UIModalState.PAUSE_MENU else "pause", "Resume" if _ui_modal_state == UIModalState.PAUSE_MENU else "Pause"],
-		[_unit_move_button, "move", "Move"],
-		[_unit_attack_move_button, "attack", "Attack-move"],
 		[_unit_more_button, "back" if _advanced_commands_open else "more", "Close orders" if _advanced_commands_open else "More orders"],
-		[_unit_clear_button, "clear", "Clear selection"],
+		[_unit_clear_button, "close", "Clear selection"],
 		[build_menu_button, "close" if _build_menu_open else "build", "Close building menu" if _build_menu_open else "Build"],
 	]
 	for entry: Array in definitions:
@@ -778,8 +776,10 @@ func _refresh_command_icons() -> void:
 			button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	if is_instance_valid(_pause_button):
 		_pause_button.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	CommandIcons.set_badge(_unit_more_button, "•" if _unit_command_mode == "patrol" else "")
+	CommandIcons.set_badge(_unit_more_button, "•" if _unit_command_mode in ["patrol", "move", "attack_move"] else "")
 	var expanded: Array = [
+		[_unit_move_button, "move", "Move: tap here, then a destination", "Move"],
+		[_unit_attack_move_button, "attack", "Attack-move: armed units fight on the way", "Attack"],
 		[_unit_stop_button, "stop", "Stop selected units", ""],
 		[_unit_patrol_button, "patrol", "Patrol between two points", "Patrol"],
 		[_unit_stance_button, "stance", _unit_stance_button.tooltip_text.trim_suffix(" [G]"), "Guard" if _unit_stance_button.button_pressed else "Aggro"],
@@ -1510,11 +1510,9 @@ func _create_unit_command_buttons() -> void:
 	_unit_move_button = _make_unit_command_button("UnitMoveButton", "Move", "Move; then tap a destination")
 	_unit_move_button.toggle_mode = true
 	_unit_move_button.pressed.connect(_on_unit_move_pressed)
-	_unit_command_container.add_child(_unit_move_button)
 	_unit_attack_move_button = _make_unit_command_button("UnitAttackMoveButton", "Attack", "Attack-move: tap a destination; armed units fight on the way")
 	_unit_attack_move_button.toggle_mode = true
 	_unit_attack_move_button.pressed.connect(_on_unit_attack_move_pressed)
-	_unit_command_container.add_child(_unit_attack_move_button)
 	_unit_more_button = _make_unit_command_button("UnitMoreButton", "More", "Stop, Patrol and Stance")
 	_unit_more_button.toggle_mode = true
 	_unit_more_button.pressed.connect(_on_unit_more_pressed)
@@ -1532,6 +1530,11 @@ func _create_unit_command_buttons() -> void:
 	_advanced_command_container = HBoxContainer.new()
 	_advanced_command_container.add_theme_constant_override("separation", 6)
 	_advanced_command_panel.add_child(_advanced_command_container)
+	# On touch a ground tap already moves (soldiers attack-move) and a held
+	# pull-down attack-moves, so the bar keeps only More and Clear; the armed
+	# Move / Attack-move orders stay one sheet away for mouse and tests.
+	_advanced_command_container.add_child(_unit_move_button)
+	_advanced_command_container.add_child(_unit_attack_move_button)
 	_unit_stop_button = _make_unit_command_button("UnitStopButton", "Stop", "Stop the selected units")
 	_unit_stop_button.pressed.connect(_on_unit_stop_pressed)
 	_advanced_command_container.add_child(_unit_stop_button)
@@ -1766,11 +1769,24 @@ func update_placement_preview(valid: bool, reason: String = "") -> void:
 		_placement_status_label.add_theme_color_override("font_color", KingdomTheme.PARCHMENT if valid else Color(1.0, 0.75, 0.55))
 		if _placement_mode_active and previous_status != _placement_status_label.text:
 			_queue_mobile_layout_refresh()
-	if _placement_status_panel:
-		# On touch the Build button on the ghost says it all while the ground
-		# fits; the line returns to explain a red footprint (or trade yield).
-		_placement_status_panel.visible = _placement_mode_active and (not _placement_uses_touch or not valid or not reason.is_empty())
+	_refresh_placement_status_visibility()
 	_refresh_touch_target_diagnostics()
+
+
+## On touch the Build button on the ghost says it all while the ground fits,
+## and a lesson banner already giving the placement instruction says it for a
+## mouse too; the line returns to explain a red footprint (or trade yield).
+func _refresh_placement_status_visibility() -> void:
+	if _placement_status_panel == null:
+		return
+	var valid: bool = _placement_preview_valid
+	var reason: String = _placement_preview_reason
+	var instructed: bool = _placement_uses_touch or is_guidance_on_screen()
+	var wanted: bool = _placement_mode_active and (not instructed or not valid or not reason.is_empty())
+	if _placement_status_panel.visible != wanted:
+		_placement_status_panel.visible = wanted
+		if _placement_mode_active:
+			_queue_mobile_layout_refresh()
 
 
 ## L2: the bottom bar no longer carries Place (green check) or Find: the ghost
@@ -2121,7 +2137,11 @@ func _apply_context_actions(viewport_size: Vector2) -> void:
 	# I2: a mixed selection that holds villagers can build too (they are the builders).
 	var mixed_workers: bool = _selection_kind == "unit" and _unit_commands_authorized and _selection_unit_owner == 0 \
 		and int(_selection_role_counts.get(UnitData.UnitType.VILLAGER, 0)) > 0
-	build_menu_button.visible = field_mode and (unselected or worker or mixed_workers)
+	# An own building selected (e.g. the Town Center) keeps Build in reach, so
+	# one tap opens the menu instead of first falling through to the world.
+	var own_building: bool = _selection_kind == "building" and is_instance_valid(_selected_building_ref) \
+		and _selected_building_ref is BuildingBase and (_selected_building_ref as BuildingBase).player_owner == 0
+	build_menu_button.visible = field_mode and (unselected or worker or mixed_workers or own_building)
 	var gm: Node = _get_game_manager()
 	# The age chip lives in the top bar for every selection: one tap advances
 	# (or says what is missing); a running age-up shows its ring there.
@@ -2531,6 +2551,7 @@ func _refresh_progression_hint_visibility() -> void:
 	if _progression_hint_panel.visible != show_hint:
 		_progression_hint_panel.visible = show_hint
 		_queue_mobile_layout_refresh()
+		_refresh_placement_status_visibility()
 	_refresh_advisory_hold()
 
 
@@ -4813,6 +4834,11 @@ func _refresh_notification_visibility() -> void:
 	# the status line, and the lane returns (lifetimes kept) once it is placed.
 	_notification_container.visible = not sheet_open and _ui_modal_state == UIModalState.NONE and not _placement_mode_active
 	_refresh_advisory_hold()
+
+
+## True while the guided lesson banner is showing its instruction.
+func is_guidance_on_screen() -> bool:
+	return _progression_hint_panel != null and _progression_hint_panel.is_visible_in_tree()
 
 
 ## One advisory at a time: the guided step outranks contextual hints, and a

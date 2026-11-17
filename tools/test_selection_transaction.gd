@@ -108,6 +108,7 @@ func _death_during_destination(survivor: UnitBase, mode: String) -> void:
 		destination = _selection._world_to_screen(_opaque_point(enemy.get("_sprite"), Vector2(0.3, 0.6)))
 	else:
 		var button: Button = _main.hud.get("_unit_move_button" if mode == "move" else "_unit_attack_move_button")
+		await _tap((_main.hud.get("_unit_more_button") as Button).get_global_rect().get_center()) # Loop 3: in More
 		await _tap(button.get_global_rect().get_center())
 		_expect(_selection.unit_command_armed, mode + " armed")
 	_contact_id += 1
