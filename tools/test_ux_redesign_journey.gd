@@ -139,7 +139,10 @@ func _journey(phone: Vector2i,interface_scale: float,notched: bool) -> void:
 	var ground: Vector2 = _empty_ground(worker)
 	_expect(ground != Vector2.ZERO,"no visible legal ground for movement")
 	var unit_commands: HBoxContainer = _hud.get("_unit_command_container")
-	await _button(unit_commands.get_node("UnitMoveButton"))
+	# Loop 3: armed Move / Attack-move live in the More sheet.
+	var more_orders: HBoxContainer = _hud.get("_advanced_command_container")
+	await _button(unit_commands.get_node("UnitMoreButton"))
+	await _button(more_orders.get_node("UnitMoveButton"))
 	_expect(bool(_main.get("_move_command_armed")),"Move touch did not arm")
 	await _capture("move-armed")
 	await _tap(ground)
@@ -157,14 +160,16 @@ func _journey(phone: Vector2i,interface_scale: float,notched: bool) -> void:
 	await _action("center_selection")
 	await _capture("moving-center")
 	worker.set_process(false)
-	await _button(unit_commands.get_node("UnitAttackMoveButton"))
+	await _button(unit_commands.get_node("UnitMoreButton"))
+	await _button(more_orders.get_node("UnitAttackMoveButton"))
 	_expect(bool(_main.get("_attack_move_command_armed")),"Attack touch did not arm")
 	var attack_ground: Vector2 = _empty_ground(worker)
 	await _tap(attack_ground)
 	_expect(_orders == 2 and not bool(_main.get("_attack_move_command_armed")) and worker.attack_move,"Attack destination did not accept one attack-move order")
 	_main.call("_on_selection_changed",_selection.selected)
 	await _capture("attack-accepted")
-	await _button(unit_commands.get_node("UnitAttackMoveButton"))
+	await _button(unit_commands.get_node("UnitMoreButton"))
+	await _button(more_orders.get_node("UnitAttackMoveButton"))
 	await _action("cancel")
 	_expect(not bool(_main.get("_attack_move_command_armed")),"cancel failed armed Attack")
 	# Loop 2: touch Center is a double-tap on the selection portrait.
@@ -243,7 +248,7 @@ func _capture(state: String) -> void:
 	await _frames(3)
 	if state == "move-armed":
 		var shelf: ScrollContainer = _hud.get("command_scroll")
-		for action_name: String in ["UnitMoveButton","UnitAttackMoveButton","UnitMoreButton","UnitClearButton"]:
+		for action_name: String in ["UnitMoreButton","UnitClearButton"]:
 			var action: Button = _hud.get("_unit_command_container").get_node(action_name)
 			_expect(shelf.get_global_rect().encloses(action.get_global_rect()),"armed worker must expose complete " + action_name)
 	var folder: String = OS.get_environment("AOEM_CAPTURE_UX_DIR")

@@ -11,8 +11,9 @@ extends Node2D
 ## - Housing warning (local player): two population slots before being housed,
 ##   a tappable "House" toast that places a House beside the existing ones
 ##   (nearest free worker builds it) with an Undo toast in solo.
-## - Town Center idle mark (local player): a small hourglass ring above an own
-##   Town Center that is neither training nor researching.
+## - Town Center idle mark (local player): "zz" on the Base button for an own
+##   Town Center that is neither training nor researching (a small hourglass
+##   ring above it only while that button is off screen).
 ## - Farm ring: `place_farm_for(worker)` puts a Farm on a tidy ring around the
 ##   nearest Town Center / Mill for the "+ Food" button when no food is left.
 ## - Auto-reseed is on by default for the human seat (Farms are finite).
@@ -877,7 +878,19 @@ func get_idle_town_centers() -> Array[BuildingBase]:
 	return _idle_centers
 
 
+## The Base button's "zz" badge already says a Town Center is idle; the world
+## mark appears only when that button is off screen (one cue, never two).
+func _idle_badge_on_screen() -> bool:
+	var hud: Node = main.get("hud") as Node if main != null else null
+	if hud == null or not hud.has_method("get_base_navigation_button"):
+		return false
+	var base: Button = hud.call("get_base_navigation_button") as Button
+	return base != null and base.is_visible_in_tree()
+
+
 func _draw() -> void:
+	if _idle_badge_on_screen():
+		return
 	var pulse: float = 0.75 + 0.25 * sin(float(Time.get_ticks_msec()) / 420.0)
 	for building: BuildingBase in _idle_centers:
 		if not is_instance_valid(building) or not building.is_visible_in_tree():

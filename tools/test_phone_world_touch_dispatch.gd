@@ -98,10 +98,12 @@ func _scenario(phone: Vector2i, interface_scale: float, mouse_emulation: bool) -
 	_expect(natural_distance>10.0,"routed ground Move did not naturally walk the worker")
 	_worker.command_stop()
 	_worker.set_process(false)
-	var move_button: Button=(_hud.get("_unit_command_container") as HBoxContainer).get_node("UnitMoveButton") as Button
+	# Loop 3: armed Move lives in the More sheet; open it first.
+	var move_button: Button=(_hud.get("_advanced_command_container") as HBoxContainer).get_node("UnitMoveButton") as Button
 	var more_button: Button=(_hud.get("_unit_command_container") as HBoxContainer).get_node("UnitMoreButton") as Button
 	if mouse_emulation:
 		var before_hud: int=_orders
+		await _tap(22,more_button.get_global_rect().get_center())
 		await _tap(23,move_button.get_global_rect().get_center())
 		_expect(bool(_main.get("_move_command_armed")) and _orders==before_hud,"nonzero GUI Move contact must arm without a world order")
 		await _tap(27,ground)

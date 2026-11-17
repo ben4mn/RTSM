@@ -2,7 +2,9 @@ extends Node
 ## Touch-controls pass on real Main wiring: tapping the sole selected unit puts
 ## it away, a quick two-finger tap clears any selection (a pinch does not),
 ## selected troops tapped onto their producer recruit one more of their kind
-## (workers onto the Town Center recruit a worker), and three held lifts on
+## (workers onto the Town Center recruit a worker; a soldier or Scout tapping
+## the Town Center selects it, never recruits there; one Build tap over a
+## selected building opens the menu), and three held lifts on
 ## empty ground queue three waypoints without opening a menu. Loop 2: tapping
 ## an already-selected unit in a worker or mixed group drops just that unit
 ## (soldier crowds keep the G1 move), and holding a visible enemy while troops
@@ -47,7 +49,28 @@ func _run() -> void:
 	await _test_long_press_queues(worker)
 	_test_group_tap_drops_one(worker)
 	await _test_long_press_queues_attack(worker)
+	await _test_build_one_tap_over_building()
 	_finish()
+
+
+## A building selected keeps Build in reach: one tap opens the menu (the
+## building selection is dropped so the nearest free worker builds).
+func _test_build_one_tap_over_building() -> void:
+	var hud: Node = main.hud
+	var tc: BuildingBase = main._player_town_center
+	sm.select_single(tc)
+	for frame: int in 6:
+		await get_tree().process_frame
+	var build: Button = hud.build_menu_button
+	_check(build.is_visible_in_tree(), "Build stays on screen while the Town Center is selected")
+	build.pressed.emit()
+	for frame: int in 6:
+		await get_tree().process_frame
+	_check(hud.is_build_menu_open() and main._build_menu.visible, "one Build tap over a selected building opens the menu")
+	_check(sm.selected.is_empty(), "the building selection is dropped so a free worker builds")
+	hud.close_build_menu()
+	for frame: int in 2:
+		await get_tree().process_frame
 
 
 ## Reachable, walkable ground with no unit, building or resource under a touch.
@@ -182,9 +205,22 @@ func _test_unit_to_producer_trains(worker: Villager) -> void:
 	sm.select_single(spearman)
 	sm._handle_tap(sm._world_to_screen(house.global_position), true)
 	_check(sm.selected == [house], "a non-producer is still selected by a troop tap")
+	# The Town Center never recruits from a soldier or Scout tap: it selects.
+	var tc_queue: ProductionQueue = tc.get_production_queue()
+	var tc_screen: Vector2 = sm._world_to_screen(tc.global_position)
+	var scout: UnitBase = main._spawn_unit(UnitData.UnitType.SCOUT, 0, tc.global_position + Vector2(240, 160))
+	scout.set_process(false)
+	var tc_idle: int = tc_queue.get_queue_size()
+	sm.select_single(scout)
+	sm._handle_tap(tc_screen, true)
+	_check(tc_queue.get_queue_size() == tc_idle, "scout tap on the Town Center queues nothing (%d -> %d)" % [tc_idle, tc_queue.get_queue_size()])
+	_check(sm.selected == [tc], "scout tap on the Town Center selects the Town Center")
+	sm.select_single(spearman)
+	sm._handle_tap(tc_screen, true)
+	_check(tc_queue.get_queue_size() == tc_idle and sm.selected == [tc], "soldier tap on the Town Center selects it without recruiting")
+	scout.queue_free()
 	# Workers with no home order onto the Town Center recruit a worker.
 	worker.carried_amount = 0
-	var tc_queue: ProductionQueue = tc.get_production_queue()
 	var tc_before: int = tc_queue.get_queue_size()
 	sm.select_single(worker)
 	sm._handle_tap(sm._world_to_screen(tc.global_position), true)

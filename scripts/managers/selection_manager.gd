@@ -1609,7 +1609,9 @@ func _has_selected_villagers() -> bool:
 
 
 ## The unit type a tap on `building` would recruit for the current unit
-## selection, or -1. Troops: their most common kind, if the building trains it.
+## selection, or -1. Troops: their most common kind, if the building is a
+## military producer that trains it (never the Town Center, and never Scouts:
+## a scout or soldier tapping the Town Center selects it instead).
 ## Workers only (or troops it cannot train): a villager at a producer of them.
 func _selection_train_type(building: Variant) -> int:
 	if not _is_current_selection_entry(building) or not building is BuildingBase:
@@ -1626,12 +1628,15 @@ func _selection_train_type(building: Variant) -> int:
 		if kind == UnitData.UnitType.VILLAGER:
 			has_villager = true
 			continue
+		if kind == UnitData.UnitType.SCOUT:
+			continue
 		counts[kind] = int(counts.get(kind, 0)) + 1
 	var best: int = -1
 	for kind: int in counts:
 		if best < 0 or int(counts[kind]) > int(counts[best]) or (int(counts[kind]) == int(counts[best]) and kind < best):
 			best = kind
-	if best >= 0 and best in producer.trainable_units:
+	if best >= 0 and best in producer.trainable_units \
+			and producer.building_type != BuildingData.BuildingType.TOWN_CENTER:
 		return best
 	if has_villager and UnitData.UnitType.VILLAGER in producer.trainable_units:
 		return UnitData.UnitType.VILLAGER

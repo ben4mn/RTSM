@@ -684,12 +684,12 @@ func _set_guided_stage(new_stage: GuidedOpeningStage) -> void:
 	hud.set_pending_military_shortcut(false)
 	match new_stage:
 		GuidedOpeningStage.BUILD_HOUSE:
-			hud.show_notification("Gathering · next, a House", Color(0.95, 0.86, 0.42))
+			_show_guided_toast("Gathering · next, a House")
 		GuidedOpeningStage.TRAIN_SCOUT:
-			hud.show_notification("House placed · next, a Scout", Color(0.95, 0.86, 0.42))
+			_show_guided_toast("House placed · next, a Scout")
 			call_deferred("_select_town_center")
 		GuidedOpeningStage.MOVE_MILITARY:
-			hud.show_notification("Scout ready · send it out" if _has_living_scout(0) else "Objective complete: Scout queued. Next: move it onto the map.", Color(0.95, 0.86, 0.42))
+			_show_guided_toast("Scout ready · send it out" if _has_living_scout(0) else "Objective complete: Scout queued. Next: move it onto the map.")
 		GuidedOpeningStage.FREE_PLAY:
 			_guided_opening_active = false
 			hud.set_early_game_ui_state(false)
@@ -704,6 +704,14 @@ func _set_guided_stage(new_stage: GuidedOpeningStage) -> void:
 			)
 	_refresh_first_session_diagnostics()
 	_update_progression_hint()
+
+
+## A guided-step toast says what the lesson banner already says; show it only
+## when that banner is not on screen, so one instruction appears at a time.
+func _show_guided_toast(text: String) -> void:
+	if hud.is_guidance_on_screen():
+		return
+	hud.show_notification(text, Color(0.95, 0.86, 0.42))
 
 
 func _on_age_advanced_for_summary(player_id: int, new_age: int) -> void:
@@ -1676,7 +1684,7 @@ func _on_unit_trained(unit_type: int, player_id: int, source_queue: ProductionQu
 			game_map.note_camera_interaction()
 			game_map.camera.position = unit.global_position
 			game_map.camera.reset_smoothing()
-			hud.show_notification("Scout ready · tap ground to explore", Color(0.95, 0.86, 0.42))
+			_show_guided_toast("Scout ready · tap ground to explore")
 			_update_progression_hint()
 		# Auto-assign new villagers to gather the most needed resource
 		if unit and unit_type == UnitData.UnitType.VILLAGER and use_default_villager_assignment:
@@ -3255,12 +3263,25 @@ func _on_build_menu_toggled(is_open: bool) -> void:
 		# cancel the ghost first so the freshly opened menu is fully interactive.
 		if _placement_active:
 			_cancel_placement()
+		_release_non_builder_selection()
 		_build_menu.open_menu()
 	else:
 		_build_menu.close_menu()
 		_cancel_placement()
 	_sync_hud_modal_state()
 	_update_progression_hint()
+
+
+## Build opened over a building (or other non-worker) selection: drop it, so
+## the nearest free worker builds, as the Economy sheet's Build tile does.
+func _release_non_builder_selection() -> void:
+	var sm: Node = game_map.selection_mgr if is_instance_valid(game_map) else null
+	if not is_instance_valid(sm) or (sm.selected as Array).is_empty():
+		return
+	for entry: Variant in sm.selected:
+		if is_instance_valid(entry) and entry is Villager and (entry as Villager).player_owner == 0:
+			return
+	sm.deselect_all()
 
 
 func _on_build_menu_close_requested() -> void:
@@ -3291,7 +3312,7 @@ func _on_building_selected_for_placement(building_type: int, anchor: Node2D = nu
 	_snap_placement_to_best_spot(building_type, anchor)
 	_on_placement_preview_changed(_building_placement.is_valid_placement, _building_placement.get_preview_hint())
 	if _guided_opening_active and _guided_stage == GuidedOpeningStage.BUILD_HOUSE and building_type == BuildingData.BuildingType.HOUSE:
-		hud.show_notification("Tap Build to place it · drag to move", Color(0.95, 0.86, 0.42))
+		_show_guided_toast("Tap Build to place it · drag to move")
 	_refresh_first_session_diagnostics()
 	_update_progression_hint()
 
@@ -3567,7 +3588,10 @@ func _announce_age_reached(player_id: int, new_age: int) -> void:
 		hud.show_notification(final_age_copy % age_name, Color(1.0, 0.85, 0.2), 8.0)
 	if new_age >= 2 and not _milestone_first_age_up:
 		_milestone_first_age_up = true
-		hud.show_notification("Milestone: First Age Up reached.", Color(1.0, 0.9, 0.45))
+		# The age ceremony banner already marks this moment; a milestone toast
+		# would only repeat it.
+		if hud.get_node_or_null(ResearchEffects.AGE_CEREMONY_SCRIPT.NODE_NAME) == null:
+			hud.show_notification("Milestone: First Age Up reached.", Color(1.0, 0.9, 0.45))
 	_update_progression_hint()
 
 

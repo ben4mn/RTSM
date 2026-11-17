@@ -47,14 +47,16 @@ func _run() -> void:
 
 	selection_manager.select_single(scout)
 	var building_screen_position: Vector2 = selection_manager.call("_world_to_screen", building.global_position)
-	# The Town Center trains Scouts: a selected Scout tapped onto it recruits
-	# one more and keeps the Scout selected (touch-controls pass).
+	# Loop 3: the Town Center trains Scouts, but a Scout (or soldier) tapped
+	# onto it selects it; recruit-by-tap is for military producers only.
 	var trained: Array[int] = []
 	selection_manager.train_from_selection_command.connect(func(_target: Node2D, unit_type: int) -> void: trained.append(unit_type))
 	selection_manager.call("_handle_tap", building_screen_position, true)
-	_expect(trained == [UnitData.UnitType.SCOUT] and selection_manager.selected == [scout], "center tap on a producer of the selected kind recruits one more")
-	_expect_eq(String(selection_manager.touch_input_diagnostics.get("action", "")), "train", "diagnostics identify the recruit tap")
+	_expect(trained.is_empty() and selection_manager.selected == [building], "a Scout tap on the Town Center selects it and recruits nothing")
+	_expect_eq(String(selection_manager.touch_input_diagnostics.get("action", "")), "select_building", "diagnostics identify the Town Center selection")
 	# A building that cannot train the selected kind is still reselected directly.
+	selection_manager.select_single(scout)
+	await get_tree().create_timer(0.36).timeout
 	var trainable: Array = building.trainable_units.duplicate()
 	building.trainable_units = [UnitData.UnitType.VILLAGER]
 	selection_manager.call("_handle_tap", building_screen_position, true)

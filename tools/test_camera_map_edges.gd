@@ -102,9 +102,12 @@ func _run() -> void:
 				var top: float = (hud.get_node("Root/TopBar") as Control).get_global_rect().end.y + 8.0
 				var selection_panel: Control = hud.get("selection_panel")
 				# Joy pass: five 1.3x workers. The playable field is the safe area
-				# below the top rail and above the selection card; every actual
-				# HUD card (dock, minimap, toasts) must also leave each worker clear.
-				var field_bottom: float = minf(safe.end.y - 8.0, selection_panel.get_global_rect().position.y - 4.0)
+				# below the top rail; every actual HUD card (dock, minimap, rail,
+				# toasts) must also leave each worker clear. Loop 3: the unit dock
+				# lost Move/Attack-move and is narrower, so framing may use the
+				# ground beside it; the occluder check below still guards the dock.
+				var field_bottom: float = safe.end.y - 8.0
+				_expect(selection_panel.is_visible_in_tree(), "selection card is on screen while workers are framed")
 				var field := Rect2(Vector2(safe.position.x + 8.0, top), Vector2(safe.size.x - 16.0, field_bottom - top))
 				var occluders: Array[Rect2] = hud.call("get_world_occlusion_rects")
 				var visible: int = 0

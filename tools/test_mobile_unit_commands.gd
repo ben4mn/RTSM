@@ -40,7 +40,7 @@ func _run() -> void:
 
 	var resources: Array[Node] = get_tree().get_nodes_in_group("resources")
 	_expect(not resources.is_empty(), "live match did not expose a resource target fixture")
-	(command_container.get_node("UnitMoveButton") as Button).pressed.emit()
+	(advanced_container.get_node("UnitMoveButton") as Button).pressed.emit()
 	_expect(bool(match_scene.get("_move_command_armed")), "Move button does not arm forced movement")
 	_expect(not bool(match_scene.get("_attack_move_command_armed")), "Move button leaves A-Move armed")
 	if not resources.is_empty():
@@ -53,7 +53,7 @@ func _run() -> void:
 
 	(command_container.get_node("UnitMoreButton") as Button).pressed.emit()
 	_expect((hud.get("_advanced_command_panel") as PanelContainer).visible, "More does not reveal advanced orders")
-	(command_container.get_node("UnitAttackMoveButton") as Button).pressed.emit()
+	(advanced_container.get_node("UnitAttackMoveButton") as Button).pressed.emit()
 	_expect(bool(match_scene.get("_attack_move_command_armed")), "A-Move button does not arm attack-move")
 	match_scene.call("_on_move_command", game_map.call("world_to_tile", villager.global_position) + Vector2i(0, 2))
 	_expect(not bool(match_scene.get("_attack_move_command_armed")), "A-Move mode is not one-shot")
@@ -76,7 +76,7 @@ func _run() -> void:
 		var mixed_selection: Array[Node2D] = [villager, scout]
 		selection_manager.select_many(mixed_selection)
 		await get_tree().process_frame
-		(command_container.get_node("UnitAttackMoveButton") as Button).pressed.emit()
+		(advanced_container.get_node("UnitAttackMoveButton") as Button).pressed.emit()
 		_expect(bool(match_scene.get("_attack_move_command_armed")), "mixed selection did not arm A-Move")
 		match_scene.call("_on_build_command", foundation)
 		_expect(not bool(match_scene.get("_attack_move_command_armed")), "A-Move-on-foundation is not one-shot")

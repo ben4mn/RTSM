@@ -114,6 +114,7 @@ func _profile(phone: Vector2i, scale_factor: float) -> void:
 	await _refresh()
 	_expect(_details().begins_with("Delivering") and _details().contains("Cargo Wood"), "actual delivery leg shows Delivering")
 	_expect(_task("Wood") == "Wood 0", "one-shot Return must not invent an ongoing Wood gathering job")
+	await _tap((_hud.get("_unit_more_button") as Button).get_global_rect().get_center()) # Loop 3: Move lives in More
 	await _tap((_hud.get("_unit_move_button") as Button).get_global_rect().get_center())
 	await _refresh()
 	_expect(_details().begins_with("Tap to move\nCargo Wood"), "armed Move retains cargo line")

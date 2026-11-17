@@ -87,6 +87,7 @@ func _fighter_journey(phone: Vector2i, scale: float, notched: bool) -> void:
 	# Use actual world touch to deliberately select the unarmed Scout.
 	await _tap(get_viewport().get_canvas_transform() * scout.global_position)
 	_expect(_selection.selected == [scout], "native world touch still selects the Scout deliberately")
+	await _button(_hud.get("_unit_more_button")) # Loop 3: Move lives in More
 	await _button(_hud.get("_unit_move_button"))
 	var destination: Vector2 = _empty_ground(scout)
 	_expect(destination != Vector2.ZERO, "visible legal Scout route is available")
@@ -128,6 +129,7 @@ func _fighter_journey(phone: Vector2i, scale: float, notched: bool) -> void:
 	_main.set("_guided_opening_active", true)
 	_main.set("_guided_stage", 3) # GuidedOpeningStage.MOVE_MILITARY
 	_main.set("_opening_military_move_complete", false)
+	await _button(_hud.get("_unit_more_button")) # Loop 3: Move lives in More
 	await _button(_hud.get("_unit_move_button"))
 	destination = _empty_ground(scout)
 	await _tap(destination)
