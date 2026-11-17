@@ -32,6 +32,10 @@ const HOUSE_REPEAT_MSEC: int = 15000
 const TC_IDLE_GRACE_SECONDS: float = 2.0
 const TC_IDLE_OFFER_SECONDS: float = 6.0
 const TC_IDLE_OFFER_MAX: int = 3
+## Loop 5: the offer fires at most once per idle episode (an episode ends only
+## once that Town Center works again) and never twice within this many game
+## seconds across all Town Centers.
+const TC_IDLE_OFFER_COOLDOWN_SECONDS: float = 60.0
 const TC_IDLE_TEXT: String = "Town Center idle · tap: +%d Villager%s"
 var _tc_offer_text: String = ""
 const SITE_SEARCH_RADIUS: int = 7
@@ -65,6 +69,8 @@ var _house_toast_until_msec: int = 0
 var _undo_toast: String = ""
 var _idle_centers: Array[BuildingBase] = []
 var _tc_busy_at: Dictionary = {}  # instance id -> game_time last seen busy
+var _tc_offered: Dictionary = {}  # instance id -> true once offered this idle episode
+var _tc_offer_at: float = -TC_IDLE_OFFER_COOLDOWN_SECONDS
 var _auto_reseed_applied: bool = false
 var _selection_hooked: bool = false
 var _farm_note_msec: int = -100000
@@ -806,6 +812,7 @@ func _refresh_idle_centers() -> void:
 		var busy: bool = not building.research_id.is_empty() or (queue != null and int(queue.call("get_queue_size")) > 0)
 		if busy or not _tc_busy_at.has(id):
 			_tc_busy_at[id] = now
+			_tc_offered.erase(id)
 			continue
 		if now - float(_tc_busy_at[id]) >= TC_IDLE_GRACE_SECONDS:
 			_idle_centers.append(building)
@@ -821,8 +828,10 @@ func _refresh_idle_centers() -> void:
 
 ## I2: an idle Town Center is the costliest silent mistake on a phone (playtest:
 ## minutes of no villagers while the player fought or built). After a short
-## grace, a tappable toast queues up to three Villagers; it stays while the
-## Town Center stays idle and the offer is affordable.
+## grace, a tappable toast queues up to three Villagers.
+## Loop 5 (fewer nags): the "zz" badge on the Base button already says this, so
+## the toast only speaks when that badge is not on screen, at most once per idle
+## episode, and with a cooldown; a changed count never re-posts it.
 func _refresh_idle_center_offer(hud: Node) -> void:
 	if hud == null:
 		return
@@ -832,20 +841,28 @@ func _refresh_idle_center_offer(hud: Node) -> void:
 			center = building
 			break
 	var count: int = _idle_offer_count(center)
-	if center == null or count <= 0:
-		if not _tc_offer_text.is_empty():
-			hud.call("dismiss_notification", _tc_offer_text)
-			_tc_offer_text = ""
-		return
-	var text: String = TC_IDLE_TEXT % [count, "" if count == 1 else "s"]
-	if text == _tc_offer_text:
+	if center == null or count <= 0 or _idle_badge_on_screen():
+		_dismiss_idle_center_offer(hud)
 		return
 	if not _tc_offer_text.is_empty():
-		hud.call("dismiss_notification", _tc_offer_text)
+		return
+	var id: int = center.get_instance_id()
+	if _tc_offered.has(id) or GameManager.game_time - _tc_offer_at < TC_IDLE_OFFER_COOLDOWN_SECONDS:
+		return
+	var text: String = TC_IDLE_TEXT % [count, "" if count == 1 else "s"]
+	_tc_offered[id] = true
+	_tc_offer_at = GameManager.game_time
 	_tc_offer_text = text
 	var center_ref: WeakRef = weakref(center)
 	hud.call("show_notification", text, KingdomTheme.GOLD, 8.0, train_at_idle_center.bind(center_ref), 2,
 		func() -> bool: return _tc_offer_text == text)
+
+
+func _dismiss_idle_center_offer(hud: Node) -> void:
+	if _tc_offer_text.is_empty():
+		return
+	hud.call("dismiss_notification", _tc_offer_text)
+	_tc_offer_text = ""
 
 
 func _idle_offer_count(center: BuildingBase) -> int:

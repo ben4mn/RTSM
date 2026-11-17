@@ -25,17 +25,49 @@ func run_cases() -> void:
 func _idle_town_center_offer() -> void:
 	var economy: TouchEconomy = TouchEconomy.of(main)
 	var queue: ProductionQueue = tc.get_production_queue()
+	var base: Button = main.hud.call("get_base_navigation_button") as Button
+	expect(base != null, "the Base button exists")
+	if base == null:
+		return
 	while queue.get_queue_size() > 0:
 		queue.cancel_unit(queue.get_queue_size() - 1)
 	var player: Dictionary = GameManager.players[0]
 	player["population_cap"] = maxi(int(player.population_cap), GameManager.get_committed_population(0) + 5)
-	var offered: bool = await step_until(func() -> bool: return economy._tc_offer_text.begins_with("Town Center idle"), 12.0)
-	expect(offered, "an idle Town Center offers Villagers (%s)" % economy._tc_offer_text)
+	# Loop 5: the "zz" badge on a visible Base button already says it; no toast.
+	base.visible = true
+	var nagged: bool = await step_until(func() -> bool: return not economy._tc_offer_text.is_empty(), 10.0)
+	expect(not nagged and economy.get_idle_town_centers().has(tc), "a visible idle badge suppresses the toast (%s)" % economy._tc_offer_text)
+	# With the badge off screen the offer speaks once.
+	base.visible = false
+	var offered: bool = await step_until(func() -> bool: return economy._tc_offer_text.begins_with("Town Center idle"), 4.0)
+	expect(offered, "an idle Town Center offers Villagers once its badge is hidden (%s)" % economy._tc_offer_text)
+	# Badge back on screen: the toast leaves and the same episode never re-posts.
+	base.visible = true
+	await step(1.0)
+	expect(economy._tc_offer_text.is_empty(), "the toast leaves when the badge returns")
+	base.visible = false
+	economy._tc_offer_at = GameManager.game_time - TouchEconomy.TC_IDLE_OFFER_COOLDOWN_SECONDS - 1.0
+	var reposted: bool = await step_until(func() -> bool: return not economy._tc_offer_text.is_empty(), 3.0)
+	expect(not reposted, "one offer per idle episode, even after the cooldown")
+	# A busy spell ends the episode; once idle again (and past the cooldown) it may offer again.
+	main.hud.emit_signal("train_unit_requested", tc, UnitData.UnitType.VILLAGER)
+	await step(0.6)
+	while queue.get_queue_size() > 0:
+		queue.cancel_unit(queue.get_queue_size() - 1)
+	economy._tc_offer_at = GameManager.game_time
+	var cooled: bool = await step_until(func() -> bool: return not economy._tc_offer_text.is_empty(), 10.0)
+	expect(not cooled, "the cooldown holds a second episode back")
+	economy._tc_offer_at = GameManager.game_time - TouchEconomy.TC_IDLE_OFFER_COOLDOWN_SECONDS - 1.0
+	offered = await step_until(func() -> bool: return economy._tc_offer_text.begins_with("Town Center idle"), 10.0)
+	expect(offered, "a new idle episode offers again after the cooldown")
 	var queued: int = economy.train_at_idle_center(weakref(tc))
 	await step(0.2)
 	expect(queued >= 1 and queue.get_queue_size() >= 1, "one tap queues them (%d, queue %d)" % [queued, queue.get_queue_size()])
 	var cleared: bool = await step_until(func() -> bool: return economy._tc_offer_text.is_empty(), 2.0)
 	expect(cleared, "the offer leaves once the Town Center works")
+	base.visible = true
+	# Loop 5: the first-selection movement hint is one short line.
+	expect(main.hud.MOVEMENT_CONTROLS_HINT.length() <= 28 and not main.hud.MOVEMENT_CONTROLS_HINT.contains("box"), "movement hint is one short line")
 
 
 func _economy_build(overview: StrategyOverview) -> void:

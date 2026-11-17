@@ -51,6 +51,9 @@ const RESOURCE_COLORS: Dictionary = {
 	"gold": Color("c4af77"),
 }
 
+## One short, one-time line on the first unit selection; the other gestures
+## (attack pull, box drag) are discoverable and live in the Field Guide.
+const MOVEMENT_CONTROLS_HINT: String = "Tap: move · Hold: waypoint"
 const GAME_SPEEDS: Array[float] = [0.5, 1.0, 2.0, 3.0]
 const SPEED_LABELS: Array[String] = ["0.5x", "1x", "2x", "3x"]
 const MOBILE_ACTION_BUTTON_HEIGHT := 48.0
@@ -1628,7 +1631,7 @@ func configure_unit_commands(
 		return
 	if authorized and not _movement_controls_hint_shown:
 		_movement_controls_hint_shown = true
-		show_hint("Tap: move · Hold: waypoint · Hold, pull down: attack · Hold, drag: box", KingdomTheme.MUTED, 4.0)
+		show_hint(MOVEMENT_CONTROLS_HINT, KingdomTheme.MUTED, 4.0)
 	_unit_commands_authorized = authorized
 	_unit_commands_have_military = has_military
 	_unit_command_mode = armed_mode

@@ -131,8 +131,10 @@ func attach_match(main: Node) -> void:
 		_codec.restore_context(main, _pending_restore)
 		_pending_restore.clear()
 		_restore_preferences()
-		# Resume starts safely paused; the player chooses when play continues.
-		GameManager.set_paused(true)
+		# Continue means continue: the restored match runs at once (the pause
+		# card was a needless extra tap). A load that finishes while the app
+		# is backgrounded is still paused by the background guard.
+		GameManager.set_paused(false)
 		main._sync_hud_modal_state()
 		_set_status("saved")
 	else:
